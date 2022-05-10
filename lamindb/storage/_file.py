@@ -18,7 +18,7 @@ class File:
 
     def __init__(self, path: Union[Path, str]) -> None:
         # global variables
-        from lamin._configuration import cloud_storage, storage_root, cache_root
+        from lamindb._configuration import cloud_storage, storage_root, cache_root
 
         self._cloud_storage = cloud_storage
         self._storage_root = (

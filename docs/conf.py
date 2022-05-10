@@ -6,15 +6,15 @@ from sphinx.application import Sphinx
 
 HERE = Path(__file__).parent
 sys.path[:0] = [str(HERE.parent), str(HERE / "extensions")]
-import lamin  # noqa
+import lamindb  # noqa
 
-for generated in HERE.glob("lamin.*.rst"):
+for generated in HERE.glob("lamindb.*.rst"):
     generated.unlink()
 
 project = "Lamin"
 author = "Lamin Dev"
 copyright = f"{datetime.now():%Y}, {author}"
-release = lamin.__version__.replace(".dirty", "")
+release = lamindb.__version__.replace(".dirty", "")
 
 html_theme = "sphinx_book_theme"
 html_theme_options = {

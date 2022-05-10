@@ -3,7 +3,7 @@ class Configure:
 
     def __init__(self):
         try:
-            from lamin._configuration import storage_root
+            from lamindb._configuration import storage_root
         except ImportError:
             raise RuntimeError("Please run: lamin configure")
         self._storage_root = storage_root
