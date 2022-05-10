@@ -1,15 +1,41 @@
-[tool.poetry]
-name = "lamindb"
-version = "0.0.1"
-description = ""
-authors = ["Lamin Labs <laminlabs@gmail.com>"]
-
-[tool.poetry.dependencies]
-python = "^3.9"
-
-[tool.poetry.dev-dependencies]
-pytest = "^5.2"
-
 [build-system]
-requires = ["poetry-core>=1.0.0"]
-build-backend = "poetry.core.masonry.api"
+requires = ["flit_core >=3.2,<4"]
+build-backend = "flit_core.buildapi"
+
+[project]
+name = "lamindb"
+authors = [{name = "Lamin Labs", email = "laminlabs@gmail.com"}]
+readme = "README.md"
+dynamic = ["version", "description"]
+dependencies = [
+    "anndata",
+    "boto3",
+    "hjson",
+    "cloudpathlib",
+    "loguru",
+    "requests",
+    "sqlmodel",
+    "sqlalchemy==1.4.22",  # this is evidently horrible, but 1.4.36 breaks tests
+    "typeguard",
+    "nbproject",
+]
+
+[project.urls]
+Home = "https://github.com/laminlabs/lamindb"
+
+[project.optional-dependencies]
+dev = [
+    "pre-commit",
+]
+test = [
+    "pytest>=6.0",
+    "nbmake",
+    "scanpy",
+    "mygene",
+]
+
+[project.scripts]
+lamindb = "lamindb.__main__:main"
+
+[tool.black]
+experimental-string-processing = true
