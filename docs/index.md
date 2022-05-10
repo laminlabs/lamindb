@@ -1,5 +1,4 @@
-Lamin
-=====
+# Lamin
 
 Data management for computational biology.
 
@@ -8,9 +7,8 @@ Data management for computational biology.
 - Also, Alex needs to assign your GitHub-email a user role. Please let him know.
 ```
 
-* Get started with these [guides](guides/index).
-* Browse the full :doc:[API reference](api).
-
+- Get started with these [guides](guides/index).
+- Browse the full :doc:[API reference](api).
 
 ```{toctree}
 :maxdepth: 1

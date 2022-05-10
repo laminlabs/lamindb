@@ -1,5 +1,4 @@
-API
-===
+# API
 
 ```{eval-rst}
 .. module:: lamin
