@@ -1,7 +1,7 @@
 # API
 
 ```{eval-rst}
-.. module:: lamin
+.. module:: lamindb
 
 .. autosummary::
    :toctree: generated/
