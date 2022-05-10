@@ -1,11 +1,6 @@
-# Lamin
+# lamindb
 
-Data management for computational biology.
-
-```{important}
-- Please login via GitHub to see more than the landing page.
-- Also, Alex needs to assign your GitHub-email a user role. Please let him know.
-```
+Data management for computational biology. From managing files to managing data.
 
 - Get started with these [guides](guides/index).
 - Browse the full [API reference](api).
