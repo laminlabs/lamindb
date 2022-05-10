@@ -8,5 +8,4 @@
 
    storage
    database
-   tools
 ```
