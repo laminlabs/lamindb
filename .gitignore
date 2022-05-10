@@ -138,3 +138,4 @@ dmypy.json
 # data files
 data/
 **/data/
+_build
