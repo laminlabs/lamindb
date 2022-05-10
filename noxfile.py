@@ -1,4 +1,5 @@
 import nox
+import os
 
 nox.options.reuse_existing_virtualenvs = True
 
@@ -12,7 +13,16 @@ def lint(session: nox.Session) -> None:
 
 @nox.session
 def build(session):
-    session.install(".[dev, test]")
+    session.install(".[dev,test]")
+    session.run("mkdir", "-p", "$HOME/data", external=True)
+    session.run(
+        "lamindb",
+        "configure",
+        "--notion",
+        os.environ["NOTION_API_KEY"],
+        "--storage",
+        "$HOME/data",
+    )
     session.run(
         "pytest",
         "--nbmake",
