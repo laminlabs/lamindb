@@ -17,6 +17,7 @@ dependencies = [
     "sqlmodel",
     "sqlalchemy==1.4.22",  # this is evidently horrible, but 1.4.36 breaks tests
     "typeguard",
+    "nbproject",
 ]
 
 [project.urls]
@@ -25,13 +26,6 @@ Home = "https://github.com/laminlabs/lamindb"
 [project.optional-dependencies]
 dev = [
     "pre-commit",
-    "black==22.3.0",
-]
-doc = [
-    "sphinx-book-theme",
-    "sphinx_autodoc_typehints",
-    "myst_nb",
-    "nbproject",
 ]
 test = [
     "pytest>=6.0",
