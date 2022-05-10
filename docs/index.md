@@ -1,4 +1,4 @@
-# lamindb
+# lamindb: Manage files
 
 Data management for computational biology. From managing files to managing data.
 
