@@ -55,7 +55,7 @@ jobs:
         run: |
           mv _build/html _build/html_tmp
           mkdir _build/html
-          mv _build/html_tmp _build/html/bionty
+          mv _build/html_tmp _build/html/lamindb
       - name: Deploy docs
         id: netlify
         uses: nwtgck/actions-netlify@v1.2
