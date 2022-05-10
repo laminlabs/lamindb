@@ -11,7 +11,5 @@ html_title = f"{project} | Lamin Labs"
 release = lamindb.__version__
 html_context["github_repo"] = "lamindb"  # noqa
 html_sidebars = {
-    "*": [],
-    "guides": ["sidebar-nav-bs"],
-    "guides/*": ["sidebar-nav-bs"],
+    "**/*": ["sidebar-nav-bs"],
 }
