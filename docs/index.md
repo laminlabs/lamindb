@@ -8,7 +8,7 @@ Data management for computational biology.
 ```
 
 - Get started with these [guides](guides/index).
-- Browse the full :doc:[API reference](api).
+- Browse the full [API reference](api).
 
 ```{toctree}
 :maxdepth: 1
