@@ -37,16 +37,16 @@ jobs:
       - name: Lint
         run: |
           nox -s lint
-      - name: Configure AWS credentials
+      - name: Configure AWS
         uses: aws-actions/configure-aws-credentials@v1
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: eu-central-1
-      - name: Configure lamin
+      - name: Configure lamindb
         run: |
           mkdir -p "$HOME/data"
-          lamin configure --notion=${{ secrets.NOTION_API_KEY }} --storage "$HOME/data"
+          lamindb configure --notion=${{ secrets.NOTION_API_KEY }} --storage "$HOME/data"
       - name: Build
         run: |
           nox -s build
