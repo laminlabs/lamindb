@@ -10,7 +10,5 @@ project = "lamindb"
 html_title = f"{project} | Lamin Labs"
 release = lamindb.__version__
 html_context["github_repo"] = "lamindb"  # noqa
-html_sidebars = {
-    "*": ["sidebar-nav-bs"],
-    "**/*": ["sidebar-nav-bs"],
-}
+
+ogp_site_url = "https://lamin.ai/lamindb"
