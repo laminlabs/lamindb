@@ -4,9 +4,11 @@ Data management for computational biology. From managing files to managing data.
 
 Biology can't get rid of files entirely: biological systems will continue to be characterized by measurement devices.
 
-- `lamindb` allows you to interactively curate, store, track & query biological data from obscure files to a biological data warehouse.
+Hence, `lamindb` allows you to interactively curate, store, track & query biological data from obscure files to a clean & robust biological data warehouse.
+
 - It's designed balancing pragmatic, fast-paced R&D operations and robustness, with the needs of the data scientist in mind.
-- It's a great basis for building analytics workflows & and any sort of applications on top!
+- It allows standardizing against [Bionty](https://lamin.ai/bionty) and integrating data science workflows using [nbproject](https://lamin.ai/nbproject).
+- It's a good basis for building analytics workflows & and any application on top!
 
 ```{note}
 
