@@ -16,7 +16,7 @@ Currently, the guides & API are in early private beta, heavily re-worked on a we
 
 ```
 
-- Get started with these [guides](guides/index).
+- Get started with these [guides](guides).
 - Browse the full [API reference](api).
 
 ```{toctree}
@@ -24,5 +24,5 @@ Currently, the guides & API are in early private beta, heavily re-worked on a we
 :hidden:
 
 api
-guides/index
+guides
 ```
