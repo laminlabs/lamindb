@@ -3,8 +3,8 @@
 ```{toctree}
 :maxdepth: 1
 
-configure
 notion
+configure
 sqlite_basic
 storage
 ```
