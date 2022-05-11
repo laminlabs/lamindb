@@ -1,8 +1,9 @@
 # lamindb: From managing files to managing data
 
-Biology can't get rid of files entirely: biological systems will continue to be characterized by measurement devices.
+Interactively & iteratively curate, store, track and query biological data.
 
-Hence, `lamindb` allows you to interactively & iteratively curate, store, track & query biological data starting out with obscure files, and ending with a clean & robust biological data warehouse.
+Biology can't get rid of files entirely: biological systems will continue to be characterized by measurement devices.
+Start out with an unstructured collection of files and end up with a robust data warehouse.
 
 - Designed balancing pragmatic, fast-paced R&D operations and robustness, with data scientist needs in mind.
 - Standardize against [Bionty](https://lamin.ai/bionty) to avoid data silos through ad hoc conventions.
@@ -24,6 +25,6 @@ Currently, the guides & API are in early private beta, heavily re-worked on a we
 :maxdepth: 1
 :hidden:
 
-api
 guides
+api
 ```
