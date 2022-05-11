@@ -24,6 +24,6 @@ Currently, the guides & API are in early private beta, heavily re-worked on a we
 :maxdepth: 1
 :hidden:
 
-api
 guides
+api
 ```
