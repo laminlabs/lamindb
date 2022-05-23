@@ -1,4 +1,7 @@
-# lamindb: From managing files to managing data
+```{include} ../README.md
+:start-line: 0
+:end-line: 1
+```
 
 Interactively & iteratively curate, store, track and query biological data.
 
@@ -20,6 +23,14 @@ Currently, the guides & API are in early private beta, heavily re-worked on a we
 
 - Get started with these [guides](guides).
 - Browse the full [API reference](api).
+
+## Installation and configuration
+
+Install the development version:
+
+```
+pip install -e ".[dev,test]"
+```
 
 ```{toctree}
 :maxdepth: 1

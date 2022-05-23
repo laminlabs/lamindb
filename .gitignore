@@ -139,3 +139,9 @@ dmypy.json
 data/
 **/data/
 _build
+
+# Lamin
+_build
+docs/lamindb.*
+lamin_sphinx
+docs/conf.py
