@@ -46,6 +46,12 @@ jobs:
       - name: Lint
         run: |
           nox -s lint
+      - name: Configure AWS
+        uses: aws-actions/configure-aws-credentials@v1
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: eu-central-1
       - name: Build
         run: |
           nox -s build --python ${{ matrix.python-version }}
