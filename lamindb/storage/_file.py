@@ -1,9 +1,11 @@
 from pathlib import Path
-from cloudpathlib import S3Client, CloudPath
-from anndata._core.anndata import AnnData
-import anndata
 from typing import Union
+
+import anndata
+from anndata._core.anndata import AnnData
+from cloudpathlib import CloudPath, S3Client
 from typeguard import typechecked
+
 from .._logging import logger
 
 
@@ -18,7 +20,8 @@ class File:
 
     def __init__(self, path: Union[Path, str]) -> None:
         # global variables
-        from lamindb._configuration import cloud_storage, storage_root, cache_root
+        from lamindb._configuration import cache_root  # isort: skip
+        from lamindb._configuration import cloud_storage, storage_root
 
         self._cloud_storage = cloud_storage
         self._storage_root = (
@@ -53,7 +56,7 @@ class h5ad(File):
         """Load file to object."""
         path = self.path
         if self._cloud_storage:
-            path = self.path.fspath
+            path = self.path.fspath  # type: ignore  # mypy misses CloudPath
         return anndata.read(path)
 
     @typechecked
@@ -74,7 +77,7 @@ class h5ad(File):
             logger.debug(f"writing cache file: {cache_file}")
             adata.write(cache_file)
             logger.debug("uploading cache file")
-            self.path.upload_from(cache_file)
+            self.path.upload_from(cache_file)  # type: ignore  # mypy misses CloudPath
             # in principle, we could write the cache file to disk again so that
             # the time stamp is newer than the one in the cloud, avoiding
             # download to access the just written cache however, cloudpath lib

@@ -1,5 +1,6 @@
-import requests
 import json
+
+import requests  # type: ignore
 
 
 def create(database_id, name):
@@ -32,7 +33,7 @@ class Table:
         }
         self._database_id = database_id
 
-    def __getitem__(self, id):
+    def __getitem__(self, id):  # noqa
         response = requests.get(f"{self._base_url}/{id}", headers=self._headers)
         return response.json()
 

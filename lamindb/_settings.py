@@ -4,7 +4,7 @@ from typing import Union
 
 class Settings:
     def __init__(self, datasetdir: Union[str, Path] = Path("./data/")):
-        self._datasetdir = datasetdir
+        self._datasetdir = Path(datasetdir)
 
     @property
     def datasetdir(self) -> Path:

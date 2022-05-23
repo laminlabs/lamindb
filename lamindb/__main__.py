@@ -1,7 +1,6 @@
 import argparse
 from pathlib import Path
 
-
 # consider changing to click
 # * https://click.palletsprojects.com/en/5.x/
 # * https://collectiveacuity.medium.com/argparse-vs-click-227f53f023dc

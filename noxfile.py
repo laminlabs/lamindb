@@ -1,5 +1,7 @@
-import nox
 import os
+from pathlib import Path
+
+import nox
 
 nox.options.reuse_existing_virtualenvs = True
 
@@ -11,7 +13,7 @@ def lint(session: nox.Session) -> None:
     session.run("pre-commit", "run", "--all-files")
 
 
-@nox.session
+@nox.session(python=["3.9"])
 def build(session):
     session.install(".[dev,test]")
     session.run("mkdir", "-p", "$HOME/data", external=True)
@@ -28,5 +30,11 @@ def build(session):
         "--nbmake",
         "--overwrite",
     )  # write output instead of capturing it (more verbose)
-    session.install("-r", "docs/lamin_sphinx/requirements.txt")
-    session.run(*"sphinx-build -b html docs _build/html".split())
+    if Path("./lndocs").exists():  # GitHub Actions prefers nesting
+        session.install("./lndocs")
+    else:
+        session.install("../lndocs")  # Locally we have a flat structure
+    session.install(
+        "git+https://github.com/pydata/pydata-sphinx-theme.git"
+    )  # just temporarily until the new release comes out
+    session.run("lndocs")
