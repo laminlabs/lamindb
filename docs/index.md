@@ -36,6 +36,6 @@ pip install -e ".[dev,test]"
 :maxdepth: 1
 :hidden:
 
-guides
+guides/index
 api
 ```
