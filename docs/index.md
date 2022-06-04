@@ -38,4 +38,5 @@ pip install -e ".[dev,test]"
 
 guides/index
 api
+changelog
 ```
