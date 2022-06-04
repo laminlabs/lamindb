@@ -14,8 +14,7 @@ dependencies = [
     "cloudpathlib",
     "loguru",
     "requests",
-    "sqlmodel",
-    "sqlalchemy==1.4.22",  # this is evidently horrible, but 1.4.36 breaks tests
+    "sqlalchemy",
     "typeguard",
     "nbproject",
 ]
