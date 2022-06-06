@@ -3,5 +3,5 @@
 ```{toctree}
 :maxdepth: 1
 
-basic-ingest
+create-local-db
 ```

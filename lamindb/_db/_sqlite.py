@@ -1,13 +1,18 @@
 import random
 import string
+from pathlib import Path
 
-from sqlalchemy import Column, MetaData, String, Table, create_engine
+from sqlalchemy import Column, MetaData, String, Table, create_engine, insert
 
 
 def uid(n_char=6):
     base62 = string.digits + string.ascii_letters.swapcase()
     id = "".join(random.choice(base62) for i in range(n_char))
     return id
+
+
+def _uid_file():
+    return uid(n_char=20)
 
 
 class DB:
@@ -32,20 +37,47 @@ class DB:
     ====== =========
     """
 
-    def __init__(self, seed: int = 0):
+    def __init__(self):
         from lamindb._configuration import storage_root
 
-        random.seed(seed)
         # fixed location of database
-        self._database_file = storage_root + "lamin.db"
+        self._database_file = Path(storage_root) / "lamin.db"
+
+    def insert_file(self, name, source):
+        """"""
+        engine = create_engine(f"sqlite:///{self._database_file}", future=True)
+        metadata = MetaData()
+
+        file = Table(  # need to pass because of primary key gen
+            "file",
+            metadata,
+            Column("id", String, primary_key=True, default=_uid_file),
+            autoload_with=engine,
+        )
+
+        notebook = Table(  # need to pass because of primary key gen
+            "notebook",
+            metadata,
+            autoload_with=engine,
+        )
+
+        with engine.begin() as conn:
+            stmt = insert(file).values(
+                name=name,
+                source=source,
+            )
+            result = conn.execute(stmt)
+            insert(notebook).values(
+                id=source,
+            )
+            conn.execute(stmt)
+
+        return result.inserted_primary_key[0]
 
     def create(self, seed: int = 0):
         """Create database with initial schema."""
         # use the schema we just migrated to SQL and add a primary key
         metadata = MetaData()
-
-        def _uid_file():
-            return uid(n_char=20)
 
         Table(
             "file",
@@ -64,3 +96,5 @@ class DB:
 
         engine = create_engine(f"sqlite:///{self._database_file}", future=True)
         metadata.create_all(bind=engine)
+
+        print(f"created database at {self._database_file}")
