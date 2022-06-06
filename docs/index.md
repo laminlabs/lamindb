@@ -37,6 +37,7 @@ pip install -e ".[dev,test]"
 :hidden:
 
 guides/index
+examples/index
 api
 changelog
 ```
