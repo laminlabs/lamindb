@@ -1,4 +1,17 @@
-"""lamindb: Manage files & data."""
+"""lamindb: Manage files & data.
+
+Import the package::
+
+   import lamindb as lndb
+
+Main functionality:
+
+.. autosummary::
+   :toctree: .
+
+   ingest
+   DB
+"""
 
 from . import _version
 
