@@ -19,7 +19,8 @@ def uid_file():
 
 
 def get_database_file() -> Path:
-    return settings.storage_root / "lamin.lndb"  # type: ignore
+    database_filename = str(settings.storage_root.stem).lower()  # type: ignore
+    return settings.storage_root / f"{database_filename}.lndb"  # type: ignore
 
 
 def get_engine():
