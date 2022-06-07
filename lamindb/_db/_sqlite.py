@@ -49,7 +49,7 @@ class insert:
         )
 
         notebook = sql.Table(
-            "notebook",
+            "source",
             metadata,
             autoload_with=engine,
         )
@@ -60,8 +60,12 @@ class insert:
                 source=source,
             )
             result = conn.execute(stmt)
+
+            from lamindb._configuration import user_id
+
             sql.insert(notebook).values(
                 id=source,
+                user=user_id,
             )
             conn.execute(stmt)
 
@@ -80,7 +84,7 @@ class insert:
             autoload_with=engine,
         )
 
-        from lamindb._configuration import user as user_name
+        from lamindb._configuration import user_name
 
         with engine.begin() as conn:
             stmt = sql.insert(user).values(name=user_name)
@@ -102,22 +106,27 @@ class meta:
         # use the schema we just migrated to SQL and add a primary key
         metadata = sql.MetaData()
 
+        # the data file
         sql.Table(
             "file",
             metadata,
             Column("id", String, primary_key=True, default=uid_file),
             Column("name", String),
-            Column("source", String),  # can be anything, e.g. a notebook
+            Column("source", sql.ForeignKey("source.id")),
+        )
+
+        # the entity that ingests the data file, the source of the data file
+        # where the data file comes from
+        # can be a notebook or a script/pipeline
+        sql.Table(
+            "source",
+            metadata,
+            Column("id", String, primary_key=True),  # this is an nbproject uid
+            Column("name", String),
             Column("user", String, sql.ForeignKey("user.id")),
         )
 
-        sql.Table(
-            "notebook",
-            metadata,
-            Column("id", String, primary_key=True),  # this is an nbproject uid
-            Column("source", String),  # can be anything, e.g. a URL
-        )
-
+        # a user operating on the database, e.g., ingesting data
         sql.Table(
             "user",
             metadata,
@@ -133,7 +142,7 @@ class meta:
         print(
             f"created database at {get_database_file()} by user {user_id} ({user_name})"
         )
-        return None
+        return user_id
 
 
 class db:

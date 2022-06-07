@@ -68,7 +68,7 @@ def configure_user(user: str = None):
 
     # write a _secrets.py file that's in .gitignore
     with open(root_dir / "_configuration.py", "a") as f:
-        f.write(f"user = {user!r}\n")
+        f.write(f"user_name = {user!r}\n")
 
 
 def configure_notion(notion: str = None):
@@ -93,5 +93,9 @@ def main():
         # set up database
         from lamindb import db
 
-        db.meta.create()
+        user_id = db.meta.create()
+
+        # write a _secrets.py file that's in .gitignore
+        with open(root_dir / "_configuration.py", "a") as f:
+            f.write(f"user_id = {user_id!r}\n")
         print("successfully set up lamindb!")
