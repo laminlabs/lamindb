@@ -1,3 +1,5 @@
-```{include} ../CHANGELOG.md
+# Changelog
 
-```
+## Latest changes
+
+- Migrated from Lamin repository.
