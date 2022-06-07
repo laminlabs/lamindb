@@ -1,5 +1,6 @@
 import argparse
 from pathlib import Path
+from typing import Union
 
 # consider changing to click
 # * https://click.palletsprojects.com/en/5.x/
@@ -21,18 +22,22 @@ args = parser.parse_args()
 root_dir = Path(__file__).parent.resolve()
 
 
-def configure_storage(storage_root: str = None, cache_root: str = None):
+def configure_storage(
+    storage_root: Union[str, Path] = None, cache_root: Union[str, Path] = None
+):
 
     if storage_root is None:
         storage_root = input(f"Please paste {STORAGE_HELP}: ")
 
     # check whether a local directory actually exists
-    if storage_root.startswith(("s3://", "gs://")):
+    if isinstance(storage_root, str) and storage_root.startswith(("s3://", "gs://")):
         cloud_storage = True
     else:
         cloud_storage = False
-        if not Path(storage_root).exists():
-            raise RuntimeError("Please create this directory, it does not exist.")
+        storage_root = Path(storage_root)
+        if not storage_root.exists():
+            print(f"creating directory {storage_root}")
+            storage_root.mkdir(parents=True)
 
     if cloud_storage:
         # define cache directory
@@ -55,8 +60,8 @@ def configure_storage(storage_root: str = None, cache_root: str = None):
 
     with open(root_dir / "_configuration.py", "w") as f:
         f.write(f"cloud_storage = {cloud_storage}\n")
-        f.write(f"storage_root = {storage_root!r}\n")
-        f.write(f"cache_root = {cache_root!r}\n")
+        f.write(f"storage_root = {str(storage_root)!r}\n")
+        f.write(f"cache_root = {str(cache_root)!r}\n")
 
 
 def configure_notion(notion: str = None):
