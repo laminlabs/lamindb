@@ -23,6 +23,8 @@ def build(session):
         os.environ["NOTION_API_KEY"],
         "--storage",
         "$HOME/data",
+        "--user",
+        "falexwolf",
     )
     session.run(
         "pytest",
