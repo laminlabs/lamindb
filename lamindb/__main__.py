@@ -43,15 +43,8 @@ def configure_storage(
 
     if cloud_storage:
         # define cache directory
-        examples = ", or ".join(
-            [
-                str(p / ".lamin" / "cache")
-                for p in [
-                    Path("/users/shared/"),
-                    Path.home(),
-                ]
-            ]
-        )
+        parents = [Path("/users/shared/"), Path.home()]
+        examples = ", or ".join([str(p / ".lamin" / "cache") for p in parents])
         if cache_root is None:
             cache_root = input(f"Please paste {CACHE_HELP}, e.g., {examples}: ")
         cache_root = Path(cache_root)
