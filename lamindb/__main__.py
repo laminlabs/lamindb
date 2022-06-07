@@ -36,7 +36,7 @@ def configure_storage(
         cloud_storage = False
         storage_root = Path(storage_root)
         if not storage_root.exists():
-            print(f"creating directory {storage_root}")
+            print(f"creating storage directory {storage_root}")
             storage_root.mkdir(parents=True)
 
     if cloud_storage:
@@ -52,8 +52,10 @@ def configure_storage(
         )
         if cache_root is None:
             cache_root = input(f"Please paste {CACHE_HELP}, e.g., {examples}: ")
-        if not Path(cache_root).exists():
-            raise RuntimeError("Please create this directory, it does not exist.")
+        cache_root = Path(cache_root)
+        if not cache_root.exists():
+            print(f"creating cache directory {cache_root}")
+            cache_root.mkdir(parents=True)
     else:
         # we do not need a cache as we're not working in the cloud
         cache_root = ""

@@ -10,7 +10,7 @@ Main functionality:
    :toctree: .
 
    ingest
-   DB
+   db
 
 Settings:
 
