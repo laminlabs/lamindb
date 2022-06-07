@@ -22,4 +22,6 @@ def ingest(filepath):
 
     shutil.copyfile(filepath, storage_path)
 
-    print(f"ingested file {file_id} from notebook {nbproject.meta.uid}")
+    from lamindb._configuration import user_id
+
+    print(f"ingested file {file_id} from source {nbproject.meta.uid} by user {user_id}")

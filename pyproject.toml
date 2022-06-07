@@ -43,4 +43,5 @@ preview = true
 testpaths = [
     "tests",
     "docs/guides",
+    "docs/tutorial",
 ]

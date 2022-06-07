@@ -15,13 +15,8 @@ Start out with an unstructured collection of files and end up with a robust data
 
 Build your learning & analytics workflows and any application on top!
 
-```{note}
-
-Currently, the guides & API are in early private beta, heavily re-worked on a weekly basis, and hence yet lack any pedagogics.
-
-```
-
-- Get started with these [guides](guides).
+- Get started with the [tutorial](tutorial/index)
+- Lookup specific guides [guides](guides/index).
 - Browse the full [API reference](api).
 
 ## Installation and configuration
@@ -36,6 +31,7 @@ pip install -e ".[dev,test]"
 :maxdepth: 1
 :hidden:
 
+tutorial/index
 guides/index
 examples/index
 api

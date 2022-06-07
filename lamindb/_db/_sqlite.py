@@ -18,6 +18,10 @@ def uid_file():
     return uid(n_char=20)
 
 
+def uid_user():
+    return uid(n_char=3)
+
+
 def get_database_file() -> Path:
     database_filename = str(settings.storage_root.stem).lower()  # type: ignore
     return settings.storage_root / f"{database_filename}.lndb"  # type: ignore
@@ -45,7 +49,7 @@ class insert:
         )
 
         notebook = sql.Table(
-            "notebook",
+            "source",
             metadata,
             autoload_with=engine,
         )
@@ -56,19 +60,44 @@ class insert:
                 source=source,
             )
             result = conn.execute(stmt)
+
+            from lamindb._configuration import user_id
+
             sql.insert(notebook).values(
                 id=source,
+                user=user_id,
             )
             conn.execute(stmt)
 
         return result.inserted_primary_key[0]
+
+    @classmethod
+    def user(cls):
+        """User."""
+        engine = get_engine()
+        metadata = sql.MetaData()
+
+        user = sql.Table(
+            "user",
+            metadata,
+            Column("id", String, primary_key=True, default=uid_user),
+            autoload_with=engine,
+        )
+
+        from lamindb._configuration import user_name
+
+        with engine.begin() as conn:
+            stmt = sql.insert(user).values(name=user_name)
+            result = conn.execute(stmt)
+
+        return result.inserted_primary_key[0], user_name
 
 
 class meta:
     """Manipulate the DB schema."""
 
     @classmethod
-    def create(cls, seed: int = 0) -> None:
+    def create(cls) -> None:
         """Create database with initial schema."""
         if get_database_file().exists():
             print("database already exists, create has no effect")
@@ -77,26 +106,43 @@ class meta:
         # use the schema we just migrated to SQL and add a primary key
         metadata = sql.MetaData()
 
+        # the data file
         sql.Table(
             "file",
             metadata,
             Column("id", String, primary_key=True, default=uid_file),
             Column("name", String),
-            Column("source", String),  # can be anything, e.g. a notebook
+            Column("source", sql.ForeignKey("source.id")),
         )
 
+        # the entity that ingests the data file, the source of the data file
+        # where the data file comes from
+        # can be a notebook or a script/pipeline
         sql.Table(
-            "notebook",
+            "source",
             metadata,
             Column("id", String, primary_key=True),  # this is an nbproject uid
-            Column("source", String),  # can be anything, e.g. a URL
+            Column("name", String),
+            Column("user", String, sql.ForeignKey("user.id")),
+        )
+
+        # a user operating on the database, e.g., ingesting data
+        sql.Table(
+            "user",
+            metadata,
+            Column("id", String, primary_key=True, default=uid_user),
+            Column("name", String),  # can be anything, e.g. a URL
         )
 
         engine = get_engine()
         metadata.create_all(bind=engine)
 
-        print(f"created database at {get_database_file()}")
-        return None
+        user_id, user_name = db.insert.user()  # type: ignore
+
+        print(
+            f"created database at {get_database_file()} by user {user_id} ({user_name})"
+        )
+        return user_id
 
 
 class db:
