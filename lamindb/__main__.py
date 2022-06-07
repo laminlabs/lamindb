@@ -5,7 +5,7 @@ from typing import Union
 # consider changing to click
 # * https://click.palletsprojects.com/en/5.x/
 # * https://collectiveacuity.medium.com/argparse-vs-click-227f53f023dc
-parser = argparse.ArgumentParser(description="Setup laminlake.")
+parser = argparse.ArgumentParser(description="Configure lamindb.")
 aa = parser.add_argument
 aa("command", type=str, choices=["configure"], help="basic setup")
 STORAGE_HELP = (
