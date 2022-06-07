@@ -18,7 +18,7 @@ def build(session):
     session.install(".[dev,test]")
     session.run(
         "lamindb",
-        "configure",
+        "setup",
         "--notion",
         os.environ["NOTION_API_KEY"],
         "--storage",
