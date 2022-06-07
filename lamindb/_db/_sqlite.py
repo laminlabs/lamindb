@@ -2,6 +2,7 @@ import random
 import string
 from pathlib import Path
 
+import pandas as pd
 import sqlalchemy as sql
 from sqlalchemy import Column, String
 
@@ -100,7 +101,10 @@ class meta:
     def create(cls) -> None:
         """Create database with initial schema."""
         if get_database_file().exists():
-            print("database already exists, create has no effect")
+            print("database already exists")
+            # add a check for whether the user already exists!
+            user_id, user_name = db.insert.user()  # type: ignore
+            print(f"adding user {user_id} ({user_name})")
             return None
 
         # use the schema we just migrated to SQL and add a primary key
@@ -178,3 +182,23 @@ class db:
     def meta(cls):
         """Change the schema, create database."""
         return meta
+
+    @classmethod
+    @property
+    def entities(cls):
+        """Return all entities in the db."""
+        metadata = sql.MetaData()
+        engine = get_engine()
+        metadata.reflect(bind=engine)
+        table_names = [table.name for table in metadata.sorted_tables]
+        return table_names
+
+    @classmethod
+    def load(entity_name, drop_index=True) -> pd.DataFrame:
+        """Load observations of entity as dataframe."""
+        engine = get_engine()
+        with engine.connect() as conn:
+            df = pd.read_sql_table(entity_name, conn)
+        if drop_index:
+            df = df.drop(columns=["index"])
+        return df.set_index("id")
