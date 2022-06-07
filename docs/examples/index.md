@@ -1,7 +1,3 @@
 # Examples
 
-```{toctree}
-:maxdepth: 1
-
-create-local-db
-```
+For examples, see [laminbox](https://lamin.ai/laminbox).

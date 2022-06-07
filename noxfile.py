@@ -17,6 +17,7 @@ def lint(session: nox.Session) -> None:
 def build(session):
     session.install(".[dev,test]")
     session.run("mkdir", "-p", "$HOME/data", external=True)
+    session.run("mkdir", "-p", "$HOME/mydata", external=True)
     session.run(
         "lamindb",
         "configure",
