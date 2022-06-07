@@ -101,7 +101,10 @@ class meta:
     def create(cls) -> None:
         """Create database with initial schema."""
         if get_database_file().exists():
-            print("database already exists, create has no effect")
+            print("database already exists")
+            # add a check for whether the user already exists!
+            user_id, user_name = db.insert.user()  # type: ignore
+            print(f"adding user {user_id} ({user_name})")
             return None
 
         # use the schema we just migrated to SQL and add a primary key
