@@ -16,6 +16,7 @@ dependencies = [
     "requests",
     "sqlalchemy",
     "typeguard",
+    "biogram",
     "nbproject>=0.0.7",
 ]
 
