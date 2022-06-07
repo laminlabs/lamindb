@@ -2,6 +2,7 @@
 
 ## Latest changes
 
+- ✨ Add entity user. [PR21](https://github.com/laminlabs/lamindb/pull/21) by [@falexwolf](https://github.com/falexwolf).
 - :sparkles: Auto-create local storage dir & cache dir. [PR20](https://github.com/laminlabs/lamindb/pull/20) by [@falexwolf](https://github.com/falexwolf).
 - :white_check_mark: Add a test for db creation & file ingestion. [PR18](https://github.com/laminlabs/lamindb/pull/18) by [@falexwolf](https://github.com/falexwolf).
 - :building_construction: Database file named like directory. [PR17](https://github.com/laminlabs/lamindb/pull/17) by [@falexwolf](https://github.com/falexwolf).
