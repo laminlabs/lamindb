@@ -3,7 +3,7 @@ from pathlib import Path
 
 import nbproject
 
-from . import DB
+from . import db
 
 
 def ingest(filepath):
@@ -14,9 +14,7 @@ def ingest(filepath):
     filepath = Path(filepath)
     filename = filepath.name
 
-    db = DB()
-
-    file_id = db.insert_file(filename, nbproject.meta.uid)
+    file_id = db.insert.file(filename, nbproject.meta.uid)
 
     storage_name = str(filepath.stem) + f"--lndb-{file_id}" + str(filepath.suffix)
 
