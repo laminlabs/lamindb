@@ -18,6 +18,10 @@ def uid_file():
     return uid(n_char=20)
 
 
+def uid_user():
+    return uid(n_char=3)
+
+
 def get_database_file() -> Path:
     database_filename = str(settings.storage_root.stem).lower()  # type: ignore
     return settings.storage_root / f"{database_filename}.lndb"  # type: ignore
@@ -63,12 +67,33 @@ class insert:
 
         return result.inserted_primary_key[0]
 
+    @classmethod
+    def user(cls):
+        """User."""
+        engine = get_engine()
+        metadata = sql.MetaData()
+
+        user = sql.Table(
+            "user",
+            metadata,
+            Column("id", String, primary_key=True, default=uid_user),
+            autoload_with=engine,
+        )
+
+        from lamindb._configuration import user as user_name
+
+        with engine.begin() as conn:
+            stmt = sql.insert(user).values(name=user_name)
+            result = conn.execute(stmt)
+
+        return result.inserted_primary_key[0], user_name
+
 
 class meta:
     """Manipulate the DB schema."""
 
     @classmethod
-    def create(cls, seed: int = 0) -> None:
+    def create(cls) -> None:
         """Create database with initial schema."""
         if get_database_file().exists():
             print("database already exists, create has no effect")
@@ -83,6 +108,7 @@ class meta:
             Column("id", String, primary_key=True, default=uid_file),
             Column("name", String),
             Column("source", String),  # can be anything, e.g. a notebook
+            Column("user", String, sql.ForeignKey("user.id")),
         )
 
         sql.Table(
@@ -92,10 +118,21 @@ class meta:
             Column("source", String),  # can be anything, e.g. a URL
         )
 
+        sql.Table(
+            "user",
+            metadata,
+            Column("id", String, primary_key=True, default=uid_user),
+            Column("name", String),  # can be anything, e.g. a URL
+        )
+
         engine = get_engine()
         metadata.create_all(bind=engine)
 
-        print(f"created database at {get_database_file()}")
+        user_id, user_name = db.insert.user()  # type: ignore
+
+        print(
+            f"created database at {get_database_file()} by user {user_id} ({user_name})"
+        )
         return None
 
 

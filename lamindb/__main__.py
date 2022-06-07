@@ -5,9 +5,9 @@ from typing import Union
 # consider changing to click
 # * https://click.palletsprojects.com/en/5.x/
 # * https://collectiveacuity.medium.com/argparse-vs-click-227f53f023dc
-parser = argparse.ArgumentParser(description="Configure lamindb.")
+parser = argparse.ArgumentParser(description="Set up lamindb.")
 aa = parser.add_argument
-aa("command", type=str, choices=["configure"], help="basic setup")
+aa("command", type=str, choices=["setup"], help="basic setup")
 STORAGE_HELP = (
     "storage root, if not a local directory, it needs to be of form 's3://bucket_name'"
     " or 'gs://bucket_name'"
@@ -85,9 +85,13 @@ def configure_notion(notion: str = None):
 
 
 def main():
-    if args.command == "configure":
+    if args.command == "setup":
         configure_storage(storage_root=args.storage, cache_root=args.cache)
         configure_user(user=args.user)
         if args.notion is not None:
             configure_notion(notion=args.notion)
-        print("successfully configured lamindb!")
+        # set up database
+        from lamindb import db
+
+        db.meta.create()
+        print("successfully set up lamindb!")
