@@ -16,7 +16,7 @@ dependencies = [
     "requests",
     "sqlalchemy",
     "typeguard",
-    "nbproject",
+    "nbproject>=0.0.7",
 ]
 
 [project.urls]
