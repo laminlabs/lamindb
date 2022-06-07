@@ -13,7 +13,7 @@ Main functionality:
    DB
 """
 
-__version__ = "0.1.0"
+__version__ = "0.1.1"
 from . import storage  # noqa
 from ._configure import Configure  # noqa
 from ._db._notion import Dataset  # noqa
