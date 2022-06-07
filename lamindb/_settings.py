@@ -5,8 +5,8 @@ from pathlib import Path
 # I just don't understand how we would then raise an informative error
 # guiding the user to run the configuration dialogue
 class settings:
+    @classmethod
     @property
-    @staticmethod
     def storage_root(cls) -> Path:
         """Root directory of storage (local or cloud)."""
         try:

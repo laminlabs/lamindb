@@ -23,7 +23,7 @@ Settings:
 __version__ = "0.1.1"
 from . import storage  # noqa
 from ._db._notion import Dataset  # noqa
-from ._db._sqlite import DB  # noqa
+from ._db._sqlite import db  # noqa
 from ._ingest import ingest  # noqa
 from ._logging import logger  # noqa
 from ._settings import settings  # noqa
