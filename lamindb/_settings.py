@@ -1,28 +1,18 @@
 from pathlib import Path
-from typing import Union
 
 
-class Settings:
-    def __init__(self, datasetdir: Union[str, Path] = Path("./data/")):
-        self._datasetdir = Path(datasetdir)
+# We could use pydantic BaseSettings
+# I just don't understand how we would then raise an informative error
+# guiding the user to run the configuration dialogue
+class settings:
+    @property
+    @staticmethod
+    def storage_root(cls) -> Path:
+        """Root directory of storage (local or cloud)."""
         try:
             from lamindb._configuration import storage_root
         except ImportError:
-            raise RuntimeError("Please run: lamin configure")
-        self._storage_root = storage_root
-
-    @property
-    def storage_root(self):
-        return self._storage_root
-
-    @property
-    def datasetdir(self) -> Path:
-        """Directory for datasets."""
-        return self._datasetdir
-
-    @datasetdir.setter
-    def datasetdir(self, datasetdir: Union[str, Path]):
-        self._datasetdir = Path(datasetdir).resolve()
-
-
-settings = Settings()
+            raise RuntimeError(
+                "Please configure lamindb in the CLI. Run: lamindb configure"
+            )
+        return Path(storage_root)
