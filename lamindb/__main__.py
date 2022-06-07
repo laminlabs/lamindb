@@ -90,3 +90,4 @@ def main():
         configure_user(user=args.user)
         if args.notion is not None:
             configure_notion(notion=args.notion)
+        print("successfully configured lamindb!")
