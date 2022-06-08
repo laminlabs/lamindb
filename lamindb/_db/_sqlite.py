@@ -36,7 +36,7 @@ class insert:
     """Insert data."""
 
     @classmethod
-    def user(cls):
+    def user(cls, user_name):
         """User."""
         engine = get_engine()
         metadata = sql.MetaData()
@@ -48,13 +48,11 @@ class insert:
             autoload_with=engine,
         )
 
-        from lamindb._configuration import user_name
-
         with engine.begin() as conn:
             stmt = sql.insert(user).values(name=user_name)
             result = conn.execute(stmt)
 
-        return result.inserted_primary_key[0], user_name
+        return result.inserted_primary_key[0]
 
     @classmethod
     def file(cls, name, source):
@@ -137,7 +135,7 @@ class meta:
         engine = get_engine()
         metadata.create_all(bind=engine)
 
-        print(f"created database at {get_database_file()})")
+        print(f"created database at {get_database_file()}")
 
 
 class db:
