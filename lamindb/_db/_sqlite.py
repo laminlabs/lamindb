@@ -4,7 +4,6 @@ from pathlib import Path
 
 import pandas as pd
 import sqlalchemy as sql
-from sqlalchemy import Column, String
 
 from .._settings import settings
 
@@ -45,7 +44,7 @@ class insert:
         file = sql.Table(  # primary key gen does not work with reflecting
             "file",
             metadata,
-            Column("id", String, primary_key=True, default=uid_file),
+            sql.Column("id", sql.String, primary_key=True, default=uid_file),
             autoload_with=engine,
         )
 
@@ -81,7 +80,7 @@ class insert:
         user = sql.Table(
             "user",
             metadata,
-            Column("id", String, primary_key=True, default=uid_user),
+            sql.Column("id", sql.String, primary_key=True, default=uid_user),
             autoload_with=engine,
         )
 
@@ -110,13 +109,12 @@ class meta:
         # use the schema we just migrated to SQL and add a primary key
         metadata = sql.MetaData()
 
-        # the data file
+        # a user operating the database, e.g., ingesting data
         sql.Table(
-            "file",
+            "user",
             metadata,
-            Column("id", String, primary_key=True, default=uid_file),
-            Column("name", String),
-            Column("source", sql.ForeignKey("source.id")),
+            sql.Column("id", sql.String, primary_key=True, default=uid_user),
+            sql.Column("name", sql.String),  # can be anything, e.g. a URL
         )
 
         # the entity that ingests the data file, the source of the data file
@@ -125,17 +123,18 @@ class meta:
         sql.Table(
             "source",
             metadata,
-            Column("id", String, primary_key=True),  # this is an nbproject uid
-            Column("name", String),
-            Column("user", String, sql.ForeignKey("user.id")),
+            sql.Column("id", sql.String, primary_key=True),  # this is an nbproject uid
+            sql.Column("name", sql.String),
+            sql.Column("user", sql.String, sql.ForeignKey("user.id")),
         )
 
-        # a user operating on the database, e.g., ingesting data
+        # the data file
         sql.Table(
-            "user",
+            "file",
             metadata,
-            Column("id", String, primary_key=True, default=uid_user),
-            Column("name", String),  # can be anything, e.g. a URL
+            sql.Column("id", sql.String, primary_key=True, default=uid_file),
+            sql.Column("name", sql.String),
+            sql.Column("source", sql.ForeignKey("source.id")),
         )
 
         engine = get_engine()
@@ -194,11 +193,9 @@ class db:
         return table_names
 
     @classmethod
-    def load(entity_name, drop_index=True) -> pd.DataFrame:
+    def load(entity_name) -> pd.DataFrame:
         """Load observations of entity as dataframe."""
         engine = get_engine()
         with engine.connect() as conn:
             df = pd.read_sql_table(entity_name, conn, index_col="id")
-        if drop_index:
-            df = df.drop(columns=["index"])
         return df
