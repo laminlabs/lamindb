@@ -97,15 +97,7 @@ def setup():
 
     from lamindb._configuration import user_name
 
-    # add a check for whether the user already exists!
-    df_user = db.load("user")
-
-    if user_name in df_user.name.values:
-        user_id = df_user.index[df_user.name == user_name][0]
-        print(f"user {user_name} ({user_id}) already exists")
-    else:
-        user_id = db.insert.user(user_name)  # type: ignore
-        print(f"added user {user_name} ({user_id})")
+    user_id = db.insert_if_not_exists.user(user_name)
 
     # write a _secrets.py file that's in .gitignore
     with open(root_dir / "_configuration.py", "a") as f:

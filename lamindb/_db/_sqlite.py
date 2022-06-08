@@ -32,6 +32,23 @@ def get_engine():
     return sql.create_engine(f"sqlite:///{database_file}", future=True)
 
 
+class insert_if_not_exists:
+    """Insert data if it does not yet exist."""
+
+    @classmethod
+    def user(cls, user_name):
+        df_user = db.load("user")
+
+        if user_name in df_user.name.values:
+            user_id = df_user.index[df_user.name == user_name][0]
+            print(f"user {user_name} ({user_id}) already exists")
+        else:
+            user_id = db.insert.user(user_name)  # type: ignore
+            print(f"added user {user_name} ({user_id})")
+
+        return user_id
+
+
 class insert:
     """Insert data."""
 
@@ -55,7 +72,7 @@ class insert:
         return result.inserted_primary_key[0]
 
     @classmethod
-    def file(cls, name):
+    def file(cls, name, *, source_id=None):
         """Data file with its origin."""
         engine = get_engine()
         metadata = sql.MetaData()
@@ -73,11 +90,11 @@ class insert:
             autoload_with=engine,
         )
 
-        from nbproject import meta
+        if source_id is None:
+            from nbproject import meta
 
+            source_id = meta.uid
         from lamindb._configuration import user_id
-
-        source_id = meta.uid
 
         df_source = db.load("source")
         if source_id not in df_source.index:
@@ -175,6 +192,12 @@ class db:
     def insert(cls):
         """Insert data."""
         return insert
+
+    @classmethod
+    @property
+    def insert_if_not_exists(cls):
+        """Insert data if it does not exist."""
+        return insert_if_not_exists
 
     @classmethod
     @property
