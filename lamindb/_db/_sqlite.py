@@ -36,6 +36,27 @@ class insert:
     """Insert data."""
 
     @classmethod
+    def user(cls):
+        """User."""
+        engine = get_engine()
+        metadata = sql.MetaData()
+
+        user = sql.Table(
+            "user",
+            metadata,
+            sql.Column("id", sql.String, primary_key=True, default=uid_user),
+            autoload_with=engine,
+        )
+
+        from lamindb._configuration import user_name
+
+        with engine.begin() as conn:
+            stmt = sql.insert(user).values(name=user_name)
+            result = conn.execute(stmt)
+
+        return result.inserted_primary_key[0], user_name
+
+    @classmethod
     def file(cls, name, source):
         """Data file."""
         engine = get_engine()
@@ -71,27 +92,6 @@ class insert:
 
         return result.inserted_primary_key[0]
 
-    @classmethod
-    def user(cls):
-        """User."""
-        engine = get_engine()
-        metadata = sql.MetaData()
-
-        user = sql.Table(
-            "user",
-            metadata,
-            sql.Column("id", sql.String, primary_key=True, default=uid_user),
-            autoload_with=engine,
-        )
-
-        from lamindb._configuration import user_name
-
-        with engine.begin() as conn:
-            stmt = sql.insert(user).values(name=user_name)
-            result = conn.execute(stmt)
-
-        return result.inserted_primary_key[0], user_name
-
 
 class meta:
     """Manipulate the DB schema."""
@@ -114,7 +114,7 @@ class meta:
             "user",
             metadata,
             sql.Column("id", sql.String, primary_key=True, default=uid_user),
-            sql.Column("name", sql.String),  # can be anything, e.g. a URL
+            sql.Column("name", sql.String),
         )
 
         # the entity that ingests the data file, the source of the data file
