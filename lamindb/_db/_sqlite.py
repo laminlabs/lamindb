@@ -55,10 +55,16 @@ class insert:
         return result.inserted_primary_key[0]
 
     @classmethod
-    def file(cls, name, source):
+    def file(cls, name):
         """Data file with its origin."""
         engine = get_engine()
         metadata = sql.MetaData()
+
+        source = sql.Table(
+            "source",
+            metadata,
+            autoload_with=engine,
+        )
 
         file = sql.Table(  # primary key gen does not work with reflecting
             "file",
@@ -67,28 +73,32 @@ class insert:
             autoload_with=engine,
         )
 
-        notebook = sql.Table(
-            "source",
-            metadata,
-            autoload_with=engine,
-        )
+        from nbproject import meta
+
+        from lamindb._configuration import user_id
+
+        source_id = meta.uid
+
+        df_source = db.load("source")
+        if source_id not in df_source.index:
+            with engine.begin() as conn:
+                stmt = sql.insert(source).values(
+                    id=source_id,
+                    user=user_id,
+                )
+                conn.execute(stmt)
+                print(f"added source {source_id} by user {user_id}")
 
         with engine.begin() as conn:
             stmt = sql.insert(file).values(
                 name=name,
-                source=source,
+                source=source_id,
             )
             result = conn.execute(stmt)
+            file_id = result.inserted_primary_key[0]
+            print(f"added file {source_id}")
 
-            from lamindb._configuration import user_id
-
-            sql.insert(notebook).values(
-                id=source,
-                user=user_id,
-            )
-            conn.execute(stmt)
-
-        return result.inserted_primary_key[0]
+        return file_id
 
 
 class meta:

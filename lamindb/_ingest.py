@@ -14,7 +14,7 @@ def ingest(filepath):
     filepath = Path(filepath)
     filename = filepath.name
 
-    file_id = db.insert.file(filename, nbproject.meta.uid)
+    file_id = db.insert.file(filename)
 
     storage_name = str(filepath.stem) + f"--lndb-{file_id}" + str(filepath.suffix)
 
