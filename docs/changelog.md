@@ -2,6 +2,7 @@
 
 ## Latest changes
 
+- 0.2.1 :bug: Fix user & notebook ingestion, add another test dataset. [PR24](https://github.com/laminlabs/lamindb/pull/24) by [@falexwolf](https://github.com/falexwolf).
 - :white_check_mark: Fix pandas load, add tests for converting between sqlcore & pandas, add tests for setup. [PR23](https://github.com/laminlabs/lamindb/pull/23) by [@falexwolf](https://github.com/falexwolf).
 
 ## 0.2.0
