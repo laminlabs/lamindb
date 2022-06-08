@@ -95,9 +95,9 @@ def setup():
 
     db.meta.create()
 
-    # add a check for whether the user already exists!
-    user_id, user_name = db.insert.user()  # type: ignore
-    print(f"added user {user_id} ({user_name})")
+    from lamindb._configuration import user_name
+
+    user_id = db.insert_if_not_exists.user(user_name)
 
     # write a _secrets.py file that's in .gitignore
     with open(root_dir / "_configuration.py", "a") as f:

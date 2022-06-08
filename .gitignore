@@ -148,3 +148,4 @@ docs/conf.py
 *.h5ad
 *.db
 *.lndb
+*.csv

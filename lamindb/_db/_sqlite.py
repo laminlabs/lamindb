@@ -8,7 +8,7 @@ import sqlalchemy as sql
 from .._settings import settings
 
 
-def uid(n_char=6):
+def uid(n_char: int = 6):
     base62 = string.digits + string.ascii_letters.swapcase()
     id = "".join(random.choice(base62) for i in range(n_char))
     return id
@@ -32,11 +32,28 @@ def get_engine():
     return sql.create_engine(f"sqlite:///{database_file}", future=True)
 
 
+class insert_if_not_exists:
+    """Insert data if it does not yet exist."""
+
+    @classmethod
+    def user(cls, user_name):
+        df_user = db.load("user")
+
+        if user_name in df_user.name.values:
+            user_id = df_user.index[df_user.name == user_name][0]
+            print(f"user {user_name} ({user_id}) already exists")
+        else:
+            user_id = db.insert.user(user_name)  # type: ignore
+            print(f"added user {user_name} ({user_id})")
+
+        return user_id
+
+
 class insert:
     """Insert data."""
 
     @classmethod
-    def user(cls):
+    def user(cls, user_name):
         """User."""
         engine = get_engine()
         metadata = sql.MetaData()
@@ -48,49 +65,58 @@ class insert:
             autoload_with=engine,
         )
 
-        from lamindb._configuration import user_name
-
         with engine.begin() as conn:
             stmt = sql.insert(user).values(name=user_name)
             result = conn.execute(stmt)
 
-        return result.inserted_primary_key[0], user_name
+        return result.inserted_primary_key[0]
 
     @classmethod
-    def file(cls, name, source):
+    def file(cls, name: str, *, source: str = None):
         """Data file with its origin."""
+        source_id = source
         engine = get_engine()
         metadata = sql.MetaData()
 
-        file = sql.Table(  # primary key gen does not work with reflecting
+        source_table = sql.Table(
+            "source",
+            metadata,
+            autoload_with=engine,
+        )
+
+        file_table = sql.Table(  # primary key gen does not work with reflecting
             "file",
             metadata,
             sql.Column("id", sql.String, primary_key=True, default=uid_file),
             autoload_with=engine,
         )
 
-        notebook = sql.Table(
-            "source",
-            metadata,
-            autoload_with=engine,
-        )
+        if source_id is None:
+            from nbproject import meta
+
+            source_id = meta.uid
+        from lamindb._configuration import user_id
+
+        df_source = db.load("source")
+        if source_id not in df_source.index:
+            with engine.begin() as conn:
+                stmt = sql.insert(source_table).values(
+                    id=source_id,
+                    user=user_id,
+                )
+                conn.execute(stmt)
+                print(f"added source {source_id} by user {user_id}")
 
         with engine.begin() as conn:
-            stmt = sql.insert(file).values(
+            stmt = sql.insert(file_table).values(
                 name=name,
-                source=source,
+                source=source_id,
             )
             result = conn.execute(stmt)
+            file_id = result.inserted_primary_key[0]
+            print(f"added file {source_id}")
 
-            from lamindb._configuration import user_id
-
-            sql.insert(notebook).values(
-                id=source,
-                user=user_id,
-            )
-            conn.execute(stmt)
-
-        return result.inserted_primary_key[0]
+        return file_id
 
 
 class meta:
@@ -137,7 +163,7 @@ class meta:
         engine = get_engine()
         metadata.create_all(bind=engine)
 
-        print(f"created database at {get_database_file()})")
+        print(f"created database at {get_database_file()}")
 
 
 class db:
@@ -167,6 +193,12 @@ class db:
     def insert(cls):
         """Insert data."""
         return insert
+
+    @classmethod
+    @property
+    def insert_if_not_exists(cls):
+        """Insert data if it does not exist."""
+        return insert_if_not_exists
 
     @classmethod
     @property
