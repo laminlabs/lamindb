@@ -198,7 +198,7 @@ class db:
         """Load observations of entity as dataframe."""
         engine = get_engine()
         with engine.connect() as conn:
-            df = pd.read_sql_table(entity_name, conn)
+            df = pd.read_sql_table(entity_name, conn, index_col="id")
         if drop_index:
             df = df.drop(columns=["index"])
-        return df.set_index("id")
+        return df
