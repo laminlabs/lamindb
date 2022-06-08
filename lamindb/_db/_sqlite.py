@@ -4,7 +4,6 @@ from pathlib import Path
 
 import pandas as pd
 import sqlalchemy as sql
-from sqlalchemy import Column, String
 
 from .._settings import settings
 
@@ -37,15 +36,36 @@ class insert:
     """Insert data."""
 
     @classmethod
+    def user(cls):
+        """User."""
+        engine = get_engine()
+        metadata = sql.MetaData()
+
+        user = sql.Table(
+            "user",
+            metadata,
+            sql.Column("id", sql.String, primary_key=True, default=uid_user),
+            autoload_with=engine,
+        )
+
+        from lamindb._configuration import user_name
+
+        with engine.begin() as conn:
+            stmt = sql.insert(user).values(name=user_name)
+            result = conn.execute(stmt)
+
+        return result.inserted_primary_key[0], user_name
+
+    @classmethod
     def file(cls, name, source):
-        """Data file."""
+        """Data file with its origin."""
         engine = get_engine()
         metadata = sql.MetaData()
 
         file = sql.Table(  # primary key gen does not work with reflecting
             "file",
             metadata,
-            Column("id", String, primary_key=True, default=uid_file),
+            sql.Column("id", sql.String, primary_key=True, default=uid_file),
             autoload_with=engine,
         )
 
@@ -72,27 +92,6 @@ class insert:
 
         return result.inserted_primary_key[0]
 
-    @classmethod
-    def user(cls):
-        """User."""
-        engine = get_engine()
-        metadata = sql.MetaData()
-
-        user = sql.Table(
-            "user",
-            metadata,
-            Column("id", String, primary_key=True, default=uid_user),
-            autoload_with=engine,
-        )
-
-        from lamindb._configuration import user_name
-
-        with engine.begin() as conn:
-            stmt = sql.insert(user).values(name=user_name)
-            result = conn.execute(stmt)
-
-        return result.inserted_primary_key[0], user_name
-
 
 class meta:
     """Manipulate the DB schema."""
@@ -102,21 +101,17 @@ class meta:
         """Create database with initial schema."""
         if get_database_file().exists():
             print("database already exists")
-            # add a check for whether the user already exists!
-            user_id, user_name = db.insert.user()  # type: ignore
-            print(f"adding user {user_id} ({user_name})")
             return None
 
         # use the schema we just migrated to SQL and add a primary key
         metadata = sql.MetaData()
 
-        # the data file
+        # a user operating the database, e.g., ingesting data
         sql.Table(
-            "file",
+            "user",
             metadata,
-            Column("id", String, primary_key=True, default=uid_file),
-            Column("name", String),
-            Column("source", sql.ForeignKey("source.id")),
+            sql.Column("id", sql.String, primary_key=True, default=uid_user),
+            sql.Column("name", sql.String),
         )
 
         # the entity that ingests the data file, the source of the data file
@@ -125,28 +120,24 @@ class meta:
         sql.Table(
             "source",
             metadata,
-            Column("id", String, primary_key=True),  # this is an nbproject uid
-            Column("name", String),
-            Column("user", String, sql.ForeignKey("user.id")),
+            sql.Column("id", sql.String, primary_key=True),  # this is an nbproject uid
+            sql.Column("name", sql.String),
+            sql.Column("user", sql.String, sql.ForeignKey("user.id")),
         )
 
-        # a user operating on the database, e.g., ingesting data
+        # the data file
         sql.Table(
-            "user",
+            "file",
             metadata,
-            Column("id", String, primary_key=True, default=uid_user),
-            Column("name", String),  # can be anything, e.g. a URL
+            sql.Column("id", sql.String, primary_key=True, default=uid_file),
+            sql.Column("name", sql.String),
+            sql.Column("source", sql.ForeignKey("source.id")),
         )
 
         engine = get_engine()
         metadata.create_all(bind=engine)
 
-        user_id, user_name = db.insert.user()  # type: ignore
-
-        print(
-            f"created database at {get_database_file()} by user {user_id} ({user_name})"
-        )
-        return user_id
+        print(f"created database at {get_database_file()})")
 
 
 class db:
@@ -194,11 +185,9 @@ class db:
         return table_names
 
     @classmethod
-    def load(entity_name, drop_index=True) -> pd.DataFrame:
+    def load(cls, entity_name) -> pd.DataFrame:
         """Load observations of entity as dataframe."""
         engine = get_engine()
         with engine.connect() as conn:
-            df = pd.read_sql_table(entity_name, conn)
-        if drop_index:
-            df = df.drop(columns=["index"])
-        return df.set_index("id")
+            df = pd.read_sql_table(entity_name, conn, index_col="id")
+        return df

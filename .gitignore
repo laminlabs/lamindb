@@ -146,3 +146,5 @@ docs/lamindb.*
 lamin_sphinx
 docs/conf.py
 *.h5ad
+*.db
+*.lndb
