@@ -19,11 +19,19 @@ def create_with_sqlcore():
 
     metadata = sql.MetaData()
 
+    user = sql.Table(
+        "user",
+        metadata,
+        sql.Column("id", sql.String, primary_key=True, default=uid),
+        sql.Column("name", sql.String),
+    )
+
     source = sql.Table(
         "source",
         metadata,
         sql.Column("id", sql.String, primary_key=True, default=uid),
         sql.Column("name", sql.String),
+        sql.Column("user", sql.String, sql.ForeignKey("user.id")),
     )
 
     file = sql.Table(
@@ -39,8 +47,13 @@ def create_with_sqlcore():
 
     # insert data
     with engine.begin() as conn:
+        stmt = sql.insert(user).values(
+            name="falexwolf",
+        )
+        result = conn.execute(stmt)
         stmt = sql.insert(source).values(
             name="Ingest Alpert19",
+            user=result.inserted_primary_key[0],
         )
         result = conn.execute(stmt)
         stmt = sql.insert(file).values(
@@ -60,8 +73,9 @@ def load_table_pandas(table_name):
 def test_sqlcore_to_pandas():
 
     create_with_sqlcore()
-    print(load_table_pandas("file"))
+    print(load_table_pandas("user"))
     print(load_table_pandas("source"))
+    print(load_table_pandas("file"))
 
 
 if __name__ == "__main__":
