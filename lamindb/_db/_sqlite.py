@@ -8,7 +8,7 @@ import sqlalchemy as sql
 from .._settings import settings
 
 
-def uid(n_char=6):
+def uid(n_char: int = 6):
     base62 = string.digits + string.ascii_letters.swapcase()
     id = "".join(random.choice(base62) for i in range(n_char))
     return id
@@ -72,18 +72,19 @@ class insert:
         return result.inserted_primary_key[0]
 
     @classmethod
-    def file(cls, name, *, source_id=None):
+    def file(cls, name: str, *, source: str = None):
         """Data file with its origin."""
+        source_id = source
         engine = get_engine()
         metadata = sql.MetaData()
 
-        source = sql.Table(
+        source_table = sql.Table(
             "source",
             metadata,
             autoload_with=engine,
         )
 
-        file = sql.Table(  # primary key gen does not work with reflecting
+        file_table = sql.Table(  # primary key gen does not work with reflecting
             "file",
             metadata,
             sql.Column("id", sql.String, primary_key=True, default=uid_file),
@@ -99,7 +100,7 @@ class insert:
         df_source = db.load("source")
         if source_id not in df_source.index:
             with engine.begin() as conn:
-                stmt = sql.insert(source).values(
+                stmt = sql.insert(source_table).values(
                     id=source_id,
                     user=user_id,
                 )
@@ -107,7 +108,7 @@ class insert:
                 print(f"added source {source_id} by user {user_id}")
 
         with engine.begin() as conn:
-            stmt = sql.insert(file).values(
+            stmt = sql.insert(file_table).values(
                 name=name,
                 source=source_id,
             )
