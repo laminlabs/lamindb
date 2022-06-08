@@ -58,7 +58,7 @@ class insert:
 
     @classmethod
     def file(cls, name, source):
-        """Data file."""
+        """Data file with its origin."""
         engine = get_engine()
         metadata = sql.MetaData()
 
@@ -101,9 +101,6 @@ class meta:
         """Create database with initial schema."""
         if get_database_file().exists():
             print("database already exists")
-            # add a check for whether the user already exists!
-            user_id, user_name = db.insert.user()  # type: ignore
-            print(f"adding user {user_id} ({user_name})")
             return None
 
         # use the schema we just migrated to SQL and add a primary key
@@ -140,12 +137,7 @@ class meta:
         engine = get_engine()
         metadata.create_all(bind=engine)
 
-        user_id, user_name = db.insert.user()  # type: ignore
-
-        print(
-            f"created database at {get_database_file()} by user {user_id} ({user_name})"
-        )
-        return user_id
+        print(f"created database at {get_database_file()})")
 
 
 class db:
@@ -193,7 +185,7 @@ class db:
         return table_names
 
     @classmethod
-    def load(entity_name) -> pd.DataFrame:
+    def load(cls, entity_name) -> pd.DataFrame:
         """Load observations of entity as dataframe."""
         engine = get_engine()
         with engine.connect() as conn:

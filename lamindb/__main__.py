@@ -84,18 +84,28 @@ def configure_notion(notion: str = None):
         f.write(f"NOTION_API_KEY = {notion!r}\n")
 
 
+def setup():
+    configure_storage(storage_root=args.storage, cache_root=args.cache)
+    configure_user(user=args.user)
+    if args.notion is not None:
+        configure_notion(notion=args.notion)
+
+    # set up database
+    from lamindb import db
+
+    db.meta.create()
+
+    # add a check for whether the user already exists!
+    user_id, user_name = db.insert.user()  # type: ignore
+    print(f"added user {user_id} ({user_name})")
+
+    # write a _secrets.py file that's in .gitignore
+    with open(root_dir / "_configuration.py", "a") as f:
+        f.write(f"user_id = {user_id!r}\n")
+
+    print("successfully set up lamindb!")
+
+
 def main():
     if args.command == "setup":
-        configure_storage(storage_root=args.storage, cache_root=args.cache)
-        configure_user(user=args.user)
-        if args.notion is not None:
-            configure_notion(notion=args.notion)
-        # set up database
-        from lamindb import db
-
-        user_id = db.meta.create()
-
-        # write a _secrets.py file that's in .gitignore
-        with open(root_dir / "_configuration.py", "a") as f:
-            f.write(f"user_id = {user_id!r}\n")
-        print("successfully set up lamindb!")
+        setup()
