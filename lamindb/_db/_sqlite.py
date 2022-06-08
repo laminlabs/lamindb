@@ -72,7 +72,7 @@ class insert:
         return result.inserted_primary_key[0]
 
     @classmethod
-    def file(cls, name: str, *, source: str = None):
+    def file(cls, name: str, *, source: str = None, source_name: str = None):
         """Data file with its origin."""
         source_id = source
         engine = get_engine()
@@ -94,18 +94,29 @@ class insert:
         if source_id is None:
             from nbproject import meta
 
-            source_id = meta.uid
-        from lamindb._configuration import user_id
+            source_id = meta.id
+            source_name = meta.title
+
+            if source_name is None:
+                raise RuntimeError(
+                    "Can only ingest from notebook with title. Please set a title!"
+                )
+
+        from lamindb._configuration import user_id, user_name
 
         df_source = db.load("source")
         if source_id not in df_source.index:
             with engine.begin() as conn:
                 stmt = sql.insert(source_table).values(
                     id=source_id,
+                    name=source_name,
                     user=user_id,
                 )
                 conn.execute(stmt)
-                print(f"added source {source_id} by user {user_id}")
+                print(
+                    f"added source {source_name} ({source_id}) by user"
+                    f" {user_name} ({user_id})"
+                )
 
         with engine.begin() as conn:
             stmt = sql.insert(file_table).values(
