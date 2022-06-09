@@ -127,7 +127,6 @@ class insert:
             )
             result = conn.execute(stmt)
             file_id = result.inserted_primary_key[0]
-            print(f"added file {file_id}")
 
         return file_id
 
