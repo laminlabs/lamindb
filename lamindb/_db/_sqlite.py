@@ -95,12 +95,15 @@ class insert:
             from nbproject import meta
 
             source_id = meta.id
-            source_name = meta.title.lstrip("#").strip(" .")  # only in nbproject 0.0.8
+            source_name = meta.title
+            source_dependency = meta.dependency
 
             if source_name is None:
                 raise RuntimeError(
                     "Can only ingest from notebook with title. Please set a title!"
                 )
+        else:
+            source_dependency = None
 
         from lamindb._configuration import user_id, user_name
 
@@ -110,11 +113,12 @@ class insert:
                 stmt = sql.insert(source_table).values(
                     id=source_id,
                     name=source_name,
+                    dependency=source_dependency,
                     user=user_id,
                 )
                 conn.execute(stmt)
                 print(
-                    f"added source {source_name} ({source_id}) by user"
+                    f"added source {source_name!r} ({source_id}) by user"
                     f" {user_name} ({user_id})"
                 )
 
@@ -125,7 +129,6 @@ class insert:
             )
             result = conn.execute(stmt)
             file_id = result.inserted_primary_key[0]
-            print(f"added file {source_id}")
 
         return file_id
 
@@ -159,6 +162,7 @@ class meta:
             metadata,
             sql.Column("id", sql.String, primary_key=True),  # this is an nbproject id
             sql.Column("name", sql.String),
+            sql.Column("dependency", sql.String),
             sql.Column("user", sql.String, sql.ForeignKey("user.id")),
         )
 
