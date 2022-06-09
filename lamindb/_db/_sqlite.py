@@ -116,7 +116,7 @@ class insert:
                 )
                 conn.execute(stmt)
                 print(
-                    f"added source {source_name} ({source_id}) by user"
+                    f"added source {source_name!r} ({source_id}) by user"
                     f" {user_name} ({user_id})"
                 )
 
