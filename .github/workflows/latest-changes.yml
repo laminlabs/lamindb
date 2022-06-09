@@ -17,9 +17,13 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
+      - name: Sleep for 15 seconds to allow PR name rendering
+        uses: jakejarvis/wait-action@master
+        with:
+          time: "15s"
       - uses: docker://tiangolo/latest-changes:0.0.3
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           latest_changes_file: docs/changelog.md
-          latest_changes_header: '## Latest changes\n\n'
+          latest_changes_header: '--- | --- | --- | --- | ---\n'
           template_file: ./.github/workflows/latest-changes.jinja2
