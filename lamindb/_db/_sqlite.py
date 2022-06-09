@@ -95,7 +95,7 @@ class insert:
             from nbproject import meta
 
             source_id = meta.id
-            source_name = meta.title
+            source_name = meta.title.lstrip("#").strip(" .")  # only in nbproject 0.0.8
 
             if source_name is None:
                 raise RuntimeError(
