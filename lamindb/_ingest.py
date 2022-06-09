@@ -24,4 +24,4 @@ def ingest(filepath):
 
     from lamindb._configuration import user_id
 
-    print(f"ingested file {file_id} from source {nbproject.meta.uid} by user {user_id}")
+    print(f"ingested file {file_id} from source {nbproject.meta.id} by user {user_id}")
