@@ -8,18 +8,18 @@ import sqlalchemy as sql
 from .._settings import settings
 
 
-def uid(n_char: int = 6):
+def id(n_char: int = 6):
     base62 = string.digits + string.ascii_letters.swapcase()
     id = "".join(random.choice(base62) for i in range(n_char))
     return id
 
 
-def uid_file():
-    return uid(n_char=20)
+def id_file():
+    return id(n_char=20)
 
 
-def uid_user():
-    return uid(n_char=3)
+def id_user():
+    return id(n_char=3)
 
 
 def get_database_file() -> Path:
@@ -61,7 +61,7 @@ class insert:
         user = sql.Table(
             "user",
             metadata,
-            sql.Column("id", sql.String, primary_key=True, default=uid_user),
+            sql.Column("id", sql.String, primary_key=True, default=id_user),
             autoload_with=engine,
         )
 
@@ -87,7 +87,7 @@ class insert:
         file_table = sql.Table(  # primary key gen does not work with reflecting
             "file",
             metadata,
-            sql.Column("id", sql.String, primary_key=True, default=uid_file),
+            sql.Column("id", sql.String, primary_key=True, default=id_file),
             autoload_with=engine,
         )
 
@@ -147,7 +147,7 @@ class meta:
         sql.Table(
             "user",
             metadata,
-            sql.Column("id", sql.String, primary_key=True, default=uid_user),
+            sql.Column("id", sql.String, primary_key=True, default=id_user),
             sql.Column("name", sql.String),
         )
 
@@ -157,7 +157,7 @@ class meta:
         sql.Table(
             "source",
             metadata,
-            sql.Column("id", sql.String, primary_key=True),  # this is an nbproject uid
+            sql.Column("id", sql.String, primary_key=True),  # this is an nbproject id
             sql.Column("name", sql.String),
             sql.Column("user", sql.String, sql.ForeignKey("user.id")),
         )
@@ -166,7 +166,7 @@ class meta:
         sql.Table(
             "file",
             metadata,
-            sql.Column("id", sql.String, primary_key=True, default=uid_file),
+            sql.Column("id", sql.String, primary_key=True, default=id_file),
             sql.Column("name", sql.String),
             sql.Column("source", sql.ForeignKey("source.id")),
         )
@@ -194,7 +194,7 @@ class db:
     7      >4e+12
     8      >2e+14
     9      >1e+16
-    12     >3e+21 (nbproject uid)
+    12     >3e+21 (nbproject id)
     20     >7e+35 (~UUID)
     ====== =========
     """
