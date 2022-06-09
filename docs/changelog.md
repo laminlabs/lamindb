@@ -1,7 +1,5 @@
 # Changelog
 
-## Latest changes
-
 - :sparkles: Track python package dependencies in source.dependency. [PR27](https://github.com/laminlabs/lamindb/pull/27) by [@falexwolf](https://github.com/falexwolf).
 - :sparkles: Track notebook title via `nbproject.meta.title` as `source.name`. [PR26](https://github.com/laminlabs/lamindb/pull/26) by [@falexwolf](https://github.com/falexwolf).
 - 0.2.1 :bug: Fix user & notebook ingestion, add another test dataset. [PR24](https://github.com/laminlabs/lamindb/pull/24) by [@falexwolf](https://github.com/falexwolf).

@@ -21,5 +21,5 @@ jobs:
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           latest_changes_file: docs/changelog.md
-          latest_changes_header: '## Latest changes\n\n'
+          latest_changes_header: '# Changelog\n\n'
           template_file: ./.github/workflows/latest-changes.jinja2
