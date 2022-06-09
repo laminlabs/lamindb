@@ -95,7 +95,8 @@ class insert:
             from nbproject import meta
 
             source_id = meta.id
-            source_name = meta.title.lstrip("#").strip(" .")  # only in nbproject 0.0.8
+            source_name = meta.title
+            source_dependency = meta.dependency
 
             if source_name is None:
                 raise RuntimeError(
@@ -110,6 +111,7 @@ class insert:
                 stmt = sql.insert(source_table).values(
                     id=source_id,
                     name=source_name,
+                    dependency=source_dependency,
                     user=user_id,
                 )
                 conn.execute(stmt)
@@ -159,6 +161,7 @@ class meta:
             metadata,
             sql.Column("id", sql.String, primary_key=True),  # this is an nbproject id
             sql.Column("name", sql.String),
+            sql.Column("dependency", sql.String),
             sql.Column("user", sql.String, sql.ForeignKey("user.id")),
         )
 
