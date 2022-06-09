@@ -2,8 +2,8 @@
 
 <!-- prettier-ignore -->
 Name | PR | User | Date | Patch
---- :art: Try to fix template | [29](https://github.com/laminlabs/lamindb/pull/29) | [falexwolf](https://github.com/falexwolf) | 2022-06-09 |
-| --- | --- | --- | ---
+--- | --- | --- | --- | ---
+🎨 Try to fix template | [29](https://github.com/laminlabs/lamindb/pull/29) | [falexwolf](https://github.com/falexwolf) | 2022-06-09 |
 ✨ Track python package dependencies in source.dependency | [27](https://github.com/laminlabs/lamindb/pull/27) | [@falexwolf](https://github.com/falexwolf) | 2022-06-09 |
 ✨ Track notebook title via `nbproject.meta.title` as `source.name` | [PR26](https://github.com/laminlabs/lamindb/pull/26) | [@falexwolf](https://github.com/falexwolf) | 2022-06-09 |
 
