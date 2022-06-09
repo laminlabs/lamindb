@@ -3,6 +3,7 @@
 <!-- prettier-ignore -->
 Name | PR | User | Date | Patch
 --- | --- | --- | --- | ---
+🏗️ Introduce field `file_source.type` | [31](https://github.com/laminlabs/lamindb/pull/31) | [falexwolf](https://github.com/falexwolf) | 2022-06-09 |
 🚚  Rename the global `source` table `file_source` | [30](https://github.com/laminlabs/lamindb/pull/30) | [falexwolf](https://github.com/falexwolf) | 2022-06-09 |
 🎨 Try to fix template | [29](https://github.com/laminlabs/lamindb/pull/29) | [falexwolf](https://github.com/falexwolf) | 2022-06-09 |
 ✨ Track python package dependencies in source.dependency | [27](https://github.com/laminlabs/lamindb/pull/27) | [@falexwolf](https://github.com/falexwolf) | 2022-06-09 |
