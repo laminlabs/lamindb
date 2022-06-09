@@ -1,9 +1,10 @@
 # Changelog
 
-| name                                                                        | pull_request                                         | user                                       | date       |
-| --------------------------------------------------------------------------- | ---------------------------------------------------- | ------------------------------------------ | ---------- |
-| :sparkles: Track python package dependencies in source.dependency           | [27](https://github.com/laminlabs/lamindb/pull/27)   | [@falexwolf](https://github.com/falexwolf) | 2022-06-09 |
-| :sparkles: Track notebook title via `nbproject.meta.title` as `source.name` | [PR26](https://github.com/laminlabs/lamindb/pull/26) | [@falexwolf](https://github.com/falexwolf) | 2022-06-09 |
+<!-- prettier-ignore -->
+Name | PR | User | Date
+--- | --- | --- | ---
+:sparkles: Track python package dependencies in source.dependency | [27](https://github.com/laminlabs/lamindb/pull/27) | [@falexwolf](https://github.com/falexwolf) | 2022-06-09
+:sparkles: Track notebook title via `nbproject.meta.title` as `source.name` | [PR26](https://github.com/laminlabs/lamindb/pull/26) | [@falexwolf](https://github.com/falexwolf) | 2022-06-09
 
 - 0.2.1 :bug: Fix user & notebook ingestion, add another test dataset. [PR24](https://github.com/laminlabs/lamindb/pull/24) by [@falexwolf](https://github.com/falexwolf).
 - :white_check_mark: Fix pandas load, add tests for converting between sqlcore & pandas, add tests for setup. [PR23](https://github.com/laminlabs/lamindb/pull/23) by [@falexwolf](https://github.com/falexwolf).
