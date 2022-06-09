@@ -79,7 +79,7 @@ class insert:
         metadata = sql.MetaData()
 
         source_table = sql.Table(
-            "source",
+            "file_source",
             metadata,
             autoload_with=engine,
         )
@@ -107,7 +107,7 @@ class insert:
 
         from lamindb._configuration import user_id, user_name
 
-        df_source = db.load("source")
+        df_source = db.load("file_source")
         if source_id not in df_source.index:
             with engine.begin() as conn:
                 stmt = sql.insert(source_table).values(
@@ -158,7 +158,7 @@ class meta:
         # where the data file comes from
         # can be a notebook or a script/pipeline
         sql.Table(
-            "source",
+            "file_source",
             metadata,
             sql.Column("id", sql.String, primary_key=True),  # this is an nbproject id
             sql.Column("name", sql.String),
@@ -172,7 +172,7 @@ class meta:
             metadata,
             sql.Column("id", sql.String, primary_key=True, default=id_file),
             sql.Column("name", sql.String),
-            sql.Column("source", sql.ForeignKey("source.id")),
+            sql.Column("source", sql.ForeignKey("file_source.id")),
         )
 
         engine = get_engine()
