@@ -97,6 +97,7 @@ class insert:
             source_id = meta.id
             source_name = meta.title
             source_dependency = meta.dependency
+            source_type = "nbproject"
 
             if source_name is None:
                 raise RuntimeError(
@@ -104,6 +105,7 @@ class insert:
                 )
         else:
             source_dependency = None
+            source_type = "other"
 
         from lamindb._configuration import user_id, user_name
 
@@ -114,6 +116,7 @@ class insert:
                     id=source_id,
                     name=source_name,
                     dependency=source_dependency,
+                    type=source_type,
                     user=user_id,
                 )
                 conn.execute(stmt)
@@ -163,6 +166,7 @@ class meta:
             sql.Column("id", sql.String, primary_key=True),  # this is an nbproject id
             sql.Column("name", sql.String),
             sql.Column("dependency", sql.String),
+            sql.Column("type", sql.String),
             sql.Column("user", sql.String, sql.ForeignKey("user.id")),
         )
 
