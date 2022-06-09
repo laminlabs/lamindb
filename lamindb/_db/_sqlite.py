@@ -102,6 +102,8 @@ class insert:
                 raise RuntimeError(
                     "Can only ingest from notebook with title. Please set a title!"
                 )
+        else:
+            source_dependency = None
 
         from lamindb._configuration import user_id, user_name
 
