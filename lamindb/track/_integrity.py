@@ -1,0 +1,2 @@
+def integrity():
+    raise NotImplementedError

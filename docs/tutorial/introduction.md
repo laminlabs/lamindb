@@ -7,3 +7,10 @@
 **Examples:** In this tutorial, we'll choose examples on the whole spectrum!
 
 Let us start to solve this problem with a local database and storage.
+
+A few defintions & rationales:
+
+- Data curation is the process that makes data ingestion succeed.
+- If you don't curate sufficiently (and you can configure what the means), you'll not be able to ingest.
+
+We primarily work with base62 primary keys.
