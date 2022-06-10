@@ -17,7 +17,10 @@ CACHE_HELP = "cache root, a local directory to cache cloud files"
 aa("--cache", type=str, metavar="s", default=None, help=CACHE_HELP)
 USER_HELP = "(GitHub) user name"
 aa("--user", type=str, metavar="s", default=None, help=USER_HELP)
-NOTION_HELP = "Notion integration token"
+NOTION_HELP = (
+    "Notion integration token (currently dysfunctional, see"
+    " https://lamin.ai/notes/2022/explore-notion)"
+)
 aa("--notion", type=str, metavar="token", default=None, help=NOTION_HELP)
 args = parser.parse_args()
 
