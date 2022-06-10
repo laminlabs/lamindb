@@ -21,7 +21,7 @@ Settings:
    settings
 """
 
-__version__ = "0.2.2"
+__version__ = "0.3.dev1"
 from . import storage  # noqa
 from ._db._notion import Dataset  # noqa
 from ._db._sqlite import db  # noqa

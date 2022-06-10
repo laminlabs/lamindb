@@ -1,5 +1,13 @@
 # Changelog
 
+## Latest changes
+
+Towards version 0.3.
+
+<!-- prettier-ignore -->
+Name | PR | User | Date | Patch
+--- | --- | --- | --- | ---
+
 ## 0.2
 
 A basic file tracking system that stores ingestion metadata.
