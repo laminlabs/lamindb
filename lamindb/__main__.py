@@ -54,6 +54,8 @@ def configure_storage(
         if not cache_root.exists():
             print(f"creating cache directory {cache_root}")
             cache_root.mkdir(parents=True)
+        else:
+            print(f"using cache directory {cache_root}")
     else:
         # we do not need a cache as we're not working in the cloud
         cache_root = ""
@@ -93,20 +95,24 @@ def setup():
     if args.notion is not None:
         configure_notion(notion=args.notion)
 
-    # set up database
-    from lamindb import db
+    from lamindb._configuration import cloud_storage
 
-    db.meta.create()
+    if not cloud_storage:
+        # set up database
+        from lamindb._admin.db import setup
 
-    from lamindb._configuration import user_name
+        setup()
 
-    user_id = db.insert_if_not_exists.user(user_name)
+        from lamindb._admin.db import insert_if_not_exists
+        from lamindb._configuration import user_name
 
-    # write a _secrets.py file that's in .gitignore
-    with open(root_dir / "_configuration.py", "a") as f:
-        f.write(f"user_id = {user_id!r}\n")
+        user_id = insert_if_not_exists.user(user_name)
 
-    print("successfully set up lamindb!")
+        # write a _secrets.py file that's in .gitignore
+        with open(root_dir / "_configuration.py", "a") as f:
+            f.write(f"user_id = {user_id!r}\n")
+
+        print("successfully set up lamindb!")
 
 
 def main():

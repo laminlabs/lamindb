@@ -6,7 +6,7 @@ from anndata._core.anndata import AnnData
 from cloudpathlib import CloudPath, S3Client
 from typeguard import typechecked
 
-from .._logging import logger
+from ..._dev import logger
 
 
 class File:
