@@ -7,6 +7,7 @@ Towards version 0.3.
 <!-- prettier-ignore -->
 Name | PR | User | Date | Patch
 --- | --- | --- | --- | ---
+🏗️ Re-designed entire API | [36](https://github.com/laminlabs/lamindb/pull/36) | [falexwolf](https://github.com/falexwolf) | 2022-06-10 |
 :fire: Remove notion integration up to CLI | [35](https://github.com/laminlabs/lamindb/pull/35) | [falexwolf](https://github.com/falexwolf) | 2022-06-10 |
 
 ## 0.2
