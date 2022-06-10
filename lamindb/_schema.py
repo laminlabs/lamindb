@@ -38,5 +38,5 @@ class schema:
     @classmethod
     @property
     def changes(cls):
-        """Return all schema changes."""
-        raise NotImplementedError
+        """Return schema changes."""
+        return None
