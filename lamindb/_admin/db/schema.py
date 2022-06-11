@@ -11,7 +11,14 @@ from typing import Optional
 
 from sqlmodel import Field, SQLModel
 
+# import pydantic  # noqa  # needed for docs
+# from typing import AbstractSet, Union
 from .id import id_file, id_user
+
+# typing
+# unicode = str  # noqa
+# IntStr = Union[int, str]  # noqa
+# AbstractSetIntStr = AbstractSet[IntStr]  # noqa
 
 
 # a user operating the database, e.g., ingesting data
