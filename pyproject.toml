@@ -14,7 +14,7 @@ dependencies = [
     "cloudpathlib",
     "loguru",
     "requests",
-    "sqlalchemy",
+    "sqlmodel",
     "typeguard",
     "biogram",
     "nbproject>=0.0.9",

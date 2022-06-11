@@ -1,7 +1,7 @@
 import sqlalchemy as sql
 
 from . import get_engine
-from .id import id_file, id_user
+from .id import id_file, id_user  # noqa
 
 
 class insert_if_not_exists:
@@ -35,7 +35,6 @@ class insert:
         user = sql.Table(
             "user",
             metadata,
-            sql.Column("id", sql.String, primary_key=True, default=id_user),
             autoload_with=engine,
         )
 
@@ -61,7 +60,6 @@ class insert:
         file_table = sql.Table(  # primary key gen does not work with reflecting
             "file",
             metadata,
-            sql.Column("id", sql.String, primary_key=True, default=id_file),
             autoload_with=engine,
         )
 
