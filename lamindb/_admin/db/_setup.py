@@ -1,4 +1,3 @@
-# type: ignore
 from typing import Optional
 
 from sqlmodel import Field, SQLModel
@@ -14,14 +13,14 @@ def setup() -> None:
         return None
 
     # a user operating the database, e.g., ingesting data
-    class user(SQLModel, table=True):
+    class user(SQLModel, table=True):  # type: ignore
         id: Optional[int] = Field(default=None, primary_key=True)
         name: str
 
     # the process that ingests the data file, the source of the data file
     # where the data file comes from
     # can be a notebook or a script/pipeline
-    class file_source(SQLModel, table=True):
+    class file_source(SQLModel, table=True):  # type: ignore
         id: str = Field(default=None, primary_key=True)
         name: str
         dependency: str
@@ -29,7 +28,7 @@ def setup() -> None:
         user: int = Field(foreign_key="user.id")
 
     # the data file
-    class file(SQLModel, table=True):
+    class file(SQLModel, table=True):  # type: ignore
         id: Optional[int] = Field(default=None, primary_key=True)
         name: str
         source: str = Field(foreign_key="file_source.id")
