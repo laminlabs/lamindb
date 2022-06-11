@@ -35,6 +35,7 @@ class insert:
         user = sql.Table(
             "user",
             metadata,
+            sql.Column("id", sql.String, primary_key=True, default=id_user),
             autoload_with=engine,
         )
 
@@ -54,7 +55,6 @@ class insert:
         source_table = sql.Table(
             "file_source",
             metadata,
-            sql.Column("id", sql.String, primary_key=True, default=id_user),
             autoload_with=engine,
         )
 

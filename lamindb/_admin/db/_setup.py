@@ -25,7 +25,7 @@ def setup() -> None:
         name: Optional[str]
         dependency: Optional[str]
         type: str
-        user: int = Field(foreign_key="user.id")
+        user: str = Field(foreign_key="user.id")
 
     # the data file
     class file(SQLModel, table=True):  # type: ignore
