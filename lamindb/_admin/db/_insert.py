@@ -1,7 +1,7 @@
 import sqlalchemy as sql
 
 from . import get_engine
-from .id import id_file, id_user
+from .id import id_file, id_user  # noqa
 
 
 class insert_if_not_exists:
