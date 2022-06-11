@@ -41,11 +41,12 @@ jobs:
             .nox
             ~/.cache/pre-commit
           key: ${{ runner.os }}-build-${{ env.cache-name }}-${{ hashFiles('.pre-commit-config.yaml') }}-${{ hashFiles('pyproject.yaml') }}
-      - name: Install pip, nox & graphviz
+      - name: Install pip, nox, mypy & graphviz
         run: |
           python -m pip install --upgrade pip
           pip install nox
           sudo apt-get -y install graphviz
+          pip install mypy
       - name: Lint
         run: |
           nox -s lint
