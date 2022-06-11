@@ -1,3 +1,12 @@
+"""The data models for each entity.
+
+.. autosummary::
+   :toctree: .
+
+   user
+   file_source
+   file
+"""
 from typing import Optional
 
 from sqlmodel import Field, SQLModel
