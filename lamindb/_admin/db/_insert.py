@@ -54,12 +54,14 @@ class insert:
         source_table = sql.Table(
             "file_source",
             metadata,
+            sql.Column("id", sql.String, primary_key=True, default=id_user),
             autoload_with=engine,
         )
 
         file_table = sql.Table(  # primary key gen does not work with reflecting
             "file",
             metadata,
+            sql.Column("id", sql.String, primary_key=True, default=id_file),
             autoload_with=engine,
         )
 

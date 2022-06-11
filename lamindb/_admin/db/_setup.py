@@ -3,7 +3,7 @@ from typing import Optional
 from sqlmodel import Field, SQLModel
 
 from . import get_database_file, get_engine
-from .id import id_file, id_user  # noqa
+from .id import id_file, id_user
 
 
 def setup() -> None:
@@ -14,7 +14,7 @@ def setup() -> None:
 
     # a user operating the database, e.g., ingesting data
     class user(SQLModel, table=True):  # type: ignore
-        id: Optional[int] = Field(default=None, primary_key=True)
+        id: Optional[str] = Field(default=id_user, primary_key=True)
         name: str
 
     # the process that ingests the data file, the source of the data file
@@ -29,7 +29,7 @@ def setup() -> None:
 
     # the data file
     class file(SQLModel, table=True):  # type: ignore
-        id: Optional[int] = Field(default=None, primary_key=True)
+        id: Optional[str] = Field(default=id_file, primary_key=True)
         name: str
         source: str = Field(foreign_key="file_source.id")
 
