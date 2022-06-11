@@ -22,8 +22,8 @@ def setup() -> None:
     # can be a notebook or a script/pipeline
     class file_source(SQLModel, table=True):  # type: ignore
         id: str = Field(default=None, primary_key=True)
-        name: str
-        dependency: str
+        name: Optional[str]
+        dependency: Optional[str]
         type: str
         user: int = Field(foreign_key="user.id")
 
