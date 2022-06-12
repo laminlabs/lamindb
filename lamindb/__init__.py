@@ -2,64 +2,26 @@
 
 Import the package::
 
-   import lamindb as lndb
+   import lamindb as db  # data scientists working only with lamindb
+   import lamindb as lndb  # software engineers working with several databases
 
-Query & load data as `DataFrame`, `AnnData` or `MuData`:
-
-.. autosummary::
-   :toctree: .
-
-   query
-   load
-
-Modify data:
+Browse the API:
 
 .. autosummary::
    :toctree: .
 
-   ingest
-   update
-   delete
-
-Inspect the schema:
-
-.. autosummary::
-   :toctree: .
-
-   schema
-
-Track the state of the DB:
-
-.. autosummary::
-   :toctree: .
-
-   track.dataflow
-   track.access
-   track.integrity
-   track.unused
-
-Settings:
-
-.. autosummary::
-   :toctree: .
-
+   do
+   model
+   track
+   admin
+   dev
    settings
-
-Admin tasks: Setup the database & update the schema.
-
-.. autosummary::
-   :toctree: .
-
-   _admin
 """
 
 __version__ = "0.3.dev1"
-from . import _admin  # noqa
+from . import admin  # noqa
+from . import dev  # noqa
+from . import do  # noqa
+from . import model  # noqa
 from . import track  # noqa
-from ._delete import delete  # noqa
-from ._ingest import ingest  # noqa
-from ._load import load  # noqa
-from ._query import query  # noqa
-from ._schema import schema  # noqa
 from ._settings import settings  # noqa
-from ._update import update  # noqa

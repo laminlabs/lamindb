@@ -99,12 +99,12 @@ def setup():
 
     if not cloud_storage:
         # set up database
-        from lamindb._admin.db import setup
+        from lamindb.admin.db import setup
 
         setup()
 
-        from lamindb._admin.db import insert_if_not_exists
         from lamindb._configuration import user_name
+        from lamindb.admin.db import insert_if_not_exists
 
         user_id = insert_if_not_exists.user(user_name)
 

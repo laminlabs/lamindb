@@ -1,17 +1,8 @@
-"""The data models for each entity.
-
-.. autosummary::
-   :toctree: .
-
-   user
-   file_source
-   file
-"""
 from typing import Optional
 
 from sqlmodel import Field, SQLModel
 
-from .id import id_file, id_user
+from ..dev.id import id_file, id_user
 
 
 # a user operating the database, e.g., ingesting data

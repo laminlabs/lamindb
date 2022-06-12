@@ -1,7 +1,7 @@
 import sqlalchemy as sql
 
+from ...dev.id import id_file, id_user  # noqa
 from . import get_engine
-from .id import id_file, id_user  # noqa
 
 
 class insert_if_not_exists:
@@ -9,7 +9,7 @@ class insert_if_not_exists:
 
     @classmethod
     def user(cls, user_name):
-        from lamindb import load
+        from lamindb.do import load
 
         df_user = load("user")
 
@@ -81,8 +81,8 @@ class insert:
             source_dependency = None
             source_type = "other"
 
-        from lamindb import load
         from lamindb._configuration import user_id, user_name
+        from lamindb.do import load
 
         df_source = load("file_source")
         if source_id not in df_source.index:
