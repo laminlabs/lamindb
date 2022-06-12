@@ -1,4 +1,4 @@
-"""The data models for each entity. -- *Model the data*.
+"""The data models for each entity.
 
 .. autosummary::
    :toctree: .
