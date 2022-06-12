@@ -18,7 +18,7 @@ Browse the API:
    settings
 """
 
-__version__ = "0.3.dev1"
+__version__ = "0.3a1"
 from . import admin  # noqa
 from . import dev  # noqa
 from . import do  # noqa
