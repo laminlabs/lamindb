@@ -46,6 +46,8 @@ class file(SQLModel, table=True):  # type: ignore
 
 
 class track_do_type(str, Enum):
+    """Data access types."""
+
     ingest = "ingest"
     query = "query"
     update = "update"
