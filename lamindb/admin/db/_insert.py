@@ -53,7 +53,7 @@ class insert:
         metadata = sql.MetaData()
 
         source_table = sql.Table(
-            "file_source",
+            "interface",
             metadata,
             autoload_with=engine,
         )
@@ -84,7 +84,7 @@ class insert:
         from lamindb._configuration import user_id, user_name
         from lamindb.do import load
 
-        df_source = load("file_source")
+        df_source = load("interface")
         if source_id not in df_source.index:
             with engine.begin() as conn:
                 stmt = sql.insert(source_table).values(

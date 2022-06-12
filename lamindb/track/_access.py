@@ -1,2 +1,0 @@
-def access():
-    raise NotImplementedError
