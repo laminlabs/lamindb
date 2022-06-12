@@ -36,6 +36,7 @@ class insert:
             "user",
             metadata,
             sql.Column("id", sql.String, primary_key=True, default=id_user),
+            sql.Column("time_init", sql.DateTime, default=sql.sql.func.now()),
             autoload_with=engine,
         )
 
@@ -55,6 +56,7 @@ class insert:
         interface_table = sql.Table(
             "interface",
             metadata,
+            sql.Column("time_init", sql.DateTime, default=sql.sql.func.now()),
             autoload_with=engine,
         )
 
@@ -62,6 +64,7 @@ class insert:
             "file",
             metadata,
             sql.Column("id", sql.String, primary_key=True, default=id_file),
+            sql.Column("time_init", sql.DateTime, default=sql.sql.func.now()),
             autoload_with=engine,
         )
 
