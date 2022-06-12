@@ -1,4 +1,4 @@
-"""Admin control.
+"""Admin control: Setup the database & update the schema.
 
 .. autosummary::
    :toctree: .
