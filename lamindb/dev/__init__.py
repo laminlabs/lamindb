@@ -1,9 +1,3 @@
-"""Developer API.
-
-.. autosummary::
-   :toctree: .
-
-   logger
-"""
+"""Developer API."""
 
 from ._logger import logger  # noqa
