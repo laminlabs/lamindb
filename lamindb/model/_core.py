@@ -57,8 +57,8 @@ class track_do(SQLModel, table=True):  # type: ignore
     """Data access log: do operations on the database."""
 
     id: Optional[str] = Field(default=id_track, primary_key=True)
-    type: track_do_type
-    user: str = Field(foreign_key="user.id")
+    type: track_do_type = Field(nullable=False)
+    user: str = Field(foreign_key="user.id", nullable=False)
     interface: str = Field(foreign_key="interface.id")
     time: datetime = Field(default_factory=datetime.utcnow, nullable=False)
     file: str = Field(foreign_key="file.id")
