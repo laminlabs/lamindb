@@ -20,8 +20,8 @@ A basic file tracking system that stores ingestion metadata.
 Name | PR | User | Date | Patch
 --- | --- | --- | --- | ---
 📝 Rename from lamindb to LaminDB & rewrite the landing page | [34](https://github.com/laminlabs/lamindb/pull/34) | [falexwolf](https://github.com/falexwolf) | 2022-06-10 | 0.2.2
-🏗️ Introduce field `file_source.type` | [31](https://github.com/laminlabs/lamindb/pull/31) | [falexwolf](https://github.com/falexwolf) | 2022-06-09 |
-🚚  Rename global `source` table to `file_source` | [30](https://github.com/laminlabs/lamindb/pull/30) | [falexwolf](https://github.com/falexwolf) | 2022-06-09 |
+🏗️ Introduce field `interface.type` | [31](https://github.com/laminlabs/lamindb/pull/31) | [falexwolf](https://github.com/falexwolf) | 2022-06-09 |
+🚚  Rename global `source` table to `interface` | [30](https://github.com/laminlabs/lamindb/pull/30) | [falexwolf](https://github.com/falexwolf) | 2022-06-09 |
 ✨ Track python package dependencies in `source.dependency` | [27](https://github.com/laminlabs/lamindb/pull/27) | [falexwolf](https://github.com/falexwolf) | 2022-06-09 |
 ✨ Track title of ingesting notebook in `source.name` | [26](https://github.com/laminlabs/lamindb/pull/26) | [falexwolf](https://github.com/falexwolf) | 2022-06-09 |
 🐛 Fix user & notebook ingestion, add another test dataset | [24](https://github.com/laminlabs/lamindb/pull/24) | [falexwolf](https://github.com/falexwolf) | 2022-06-08 | 0.2.1

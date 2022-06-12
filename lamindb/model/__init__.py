@@ -10,7 +10,16 @@ For a schematic of relations among models, see :class:`track.schema`.
    :toctree: .
 
    user
-   file_source
+   interface
    file
+   track_do
+
+Types:
+
+.. autosummary::
+   :toctree: .
+
+   track_do_type
 """
-from ._core import file, file_source, user  # noqa
+from ._core import track_do_type  # noqa
+from ._core import file, interface, track_do, user  # noqa
