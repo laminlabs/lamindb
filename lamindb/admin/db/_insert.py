@@ -46,13 +46,13 @@ class insert:
         return result.inserted_primary_key[0]
 
     @classmethod
-    def file(cls, name: str, *, source: str = None, source_name: str = None):
+    def file(cls, name: str, *, interface: str = None, interface_name: str = None):
         """Data file with its origin."""
-        source_id = source
+        interface_id = interface
         engine = get_engine()
         metadata = sql.MetaData()
 
-        source_table = sql.Table(
+        interface_table = sql.Table(
             "interface",
             metadata,
             autoload_with=engine,
@@ -65,45 +65,45 @@ class insert:
             autoload_with=engine,
         )
 
-        if source_id is None:
+        if interface_id is None:
             from nbproject import meta
 
-            source_id = meta.id
-            source_name = meta.title
-            source_dependency = meta.dependency
-            source_type = "nbproject"
+            interface_id = meta.id
+            interface_name = meta.title
+            interface_dependency = meta.dependency
+            interface_type = "nbproject"
 
-            if source_name is None:
+            if interface_name is None:
                 raise RuntimeError(
                     "Can only ingest from notebook with title. Please set a title!"
                 )
         else:
-            source_dependency = None
-            source_type = "other"
+            interface_dependency = None
+            interface_type = "other"
 
         from lamindb._configuration import user_id, user_name
         from lamindb.do import load
 
-        df_source = load("interface")
-        if source_id not in df_source.index:
+        df_interface = load("interface")
+        if interface_id not in df_interface.index:
             with engine.begin() as conn:
-                stmt = sql.insert(source_table).values(
-                    id=source_id,
-                    name=source_name,
-                    dependency=source_dependency,
-                    type=source_type,
+                stmt = sql.insert(interface_table).values(
+                    id=interface_id,
+                    name=interface_name,
+                    dependency=interface_dependency,
+                    type=interface_type,
                     user=user_id,
                 )
                 conn.execute(stmt)
                 print(
-                    f"added source {source_name!r} ({source_id}) by user"
+                    f"added interface {interface_name!r} ({interface_id}) by user"
                     f" {user_name} ({user_id})"
                 )
 
         with engine.begin() as conn:
             stmt = sql.insert(file_table).values(
                 name=name,
-                source=source_id,
+                interface=interface_id,
             )
             result = conn.execute(stmt)
             file_id = result.inserted_primary_key[0]
