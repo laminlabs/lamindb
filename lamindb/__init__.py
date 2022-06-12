@@ -2,7 +2,8 @@
 
 Import the package::
 
-   import lamindb as db
+   import lamindb as db  # data scientists working only with lamindb
+   import lamindb as lndb  # software engineers working with several databases
 
 Browse the API:
 
@@ -21,5 +22,6 @@ __version__ = "0.3.dev1"
 from . import admin  # noqa
 from . import dev  # noqa
 from . import do  # noqa
+from . import model  # noqa
 from . import track  # noqa
 from ._settings import settings  # noqa

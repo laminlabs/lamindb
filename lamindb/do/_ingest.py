@@ -30,7 +30,7 @@ def ingest(filepath):
     filepath = Path(filepath)
     filename = filepath.name
 
-    from ._admin.db import insert
+    from lamindb.admin.db import insert
 
     file_id = insert.file(filename)
 
