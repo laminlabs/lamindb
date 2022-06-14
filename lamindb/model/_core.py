@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime as datetime
 from enum import Enum
 from typing import Optional
 
@@ -11,32 +11,31 @@ def utcnow():
     return datetime.utcnow().replace(microsecond=0)
 
 
-# a user operating the database, e.g., ingesting data
 class user(SQLModel, table=True):  # type: ignore
-    """Users operating lamindb."""
+    """Users operating `lamindb`."""
 
     id: Optional[str] = Field(default_factory=id_user, primary_key=True)
     name: str
     time_init: datetime = Field(default_factory=utcnow, nullable=False)
 
 
-# the process that ingests the data file, the source of the data file
-# where the data file comes from
-# can be a notebook or a script/pipeline
 class interface(SQLModel, table=True):  # type: ignore
-    """Interfaces from which `lamindb` is operated."""
+    """User interfaces from which users operate `lamindb`."""
 
     id: str = Field(default=None, primary_key=True)
     name: Optional[str]
-    dependency: Optional[str]
-    type: str
+    dependency: Optional[str]  #: Environment dependencies of operation.
+    type: str  #: Jupyter notebook, pipelines, etc.
     user_id: str = Field(foreign_key="user.id")
     time_init: datetime = Field(default_factory=utcnow, nullable=False)
 
 
 # the data file
 class file(SQLModel, table=True):  # type: ignore
-    """Ingested files storing dense data."""
+    """Ingested files.
+
+    These can be anything but often store dense numeral data.
+    """
 
     id: Optional[str] = Field(default_factory=id_file, primary_key=True)
     name: str
@@ -63,7 +62,7 @@ class track_do(SQLModel, table=True):  # type: ignore
     """Data access log: do operations on the database."""
 
     id: Optional[str] = Field(default_factory=id_track, primary_key=True)
-    type: track_do_type = Field(nullable=False)
+    type: track_do_type = Field(nullable=False)  #: Data access type.
     user_id: str = Field(foreign_key="user.id", nullable=False)
     interface_id: str = Field(foreign_key="interface.id")
     time: datetime = Field(default_factory=utcnow, nullable=False)
