@@ -32,7 +32,10 @@ class interface(SQLModel, table=True):  # type: ignore
 
 # the data file
 class file(SQLModel, table=True):  # type: ignore
-    """Ingested files storing dense data."""
+    """Ingested files.
+
+    These can be anything but often store dense numeral data.
+    """
 
     id: Optional[str] = Field(default_factory=id_file, primary_key=True)
     name: str
@@ -59,7 +62,7 @@ class track_do(SQLModel, table=True):  # type: ignore
     """Data access log: do operations on the database."""
 
     id: Optional[str] = Field(default_factory=id_track, primary_key=True)
-    type: track_do_type = Field(nullable=False)
+    type: track_do_type = Field(nullable=False)  #: Data access type.
     user_id: str = Field(foreign_key="user.id", nullable=False)
     interface_id: str = Field(foreign_key="interface.id")
     time: datetime = Field(default_factory=utcnow, nullable=False)
