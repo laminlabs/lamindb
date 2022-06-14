@@ -11,7 +11,7 @@ from ..dev.id import id_file, id_track, id_user
 class user(SQLModel, table=True):  # type: ignore
     """Users operating lamindb."""
 
-    id: Optional[str] = Field(default=id_user, primary_key=True)
+    id: Optional[str] = Field(default_factory=id_user, primary_key=True)
     name: str
     time_init: datetime = Field(default_factory=datetime.utcnow, nullable=False)
 

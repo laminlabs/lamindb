@@ -1,4 +1,7 @@
 import sqlalchemy as sql
+import sqlmodel as sqm
+
+import lamindb as db
 
 from ...dev.id import id_file, id_user  # noqa
 from . import get_engine
@@ -9,9 +12,7 @@ class insert_if_not_exists:
 
     @classmethod
     def user(cls, user_name):
-        from lamindb.do import load
-
-        df_user = load("user")
+        df_user = db.do.load("user")
 
         if user_name in df_user.name.values:
             user_id = df_user.index[df_user.name == user_name][0]
@@ -30,21 +31,14 @@ class insert:
     def user(cls, user_name):
         """User."""
         engine = get_engine()
-        metadata = sql.MetaData()
 
-        user = sql.Table(
-            "user",
-            metadata,
-            sql.Column("id", sql.String, primary_key=True, default=id_user),
-            sql.Column("time_init", sql.DateTime, default=sql.sql.func.now()),
-            autoload_with=engine,
-        )
+        with sqm.Session(engine) as session:
+            user = db.model.user(name=user_name)
+            session.add(user)
+            session.commit()
+            session.refresh()
 
-        with engine.begin() as conn:
-            stmt = sql.insert(user).values(name=user_name)
-            result = conn.execute(stmt)
-
-        return result.inserted_primary_key[0]
+        return user.id
 
     @classmethod
     def file(cls, name: str, *, interface: str = None, interface_name: str = None):

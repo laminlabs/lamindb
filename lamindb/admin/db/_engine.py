@@ -1,6 +1,6 @@
 from pathlib import Path
 
-import sqlalchemy as sql
+import sqlmodel as sqm
 
 
 def get_database_file() -> Path:
@@ -12,4 +12,4 @@ def get_database_file() -> Path:
 
 def get_engine():
     database_file = get_database_file()
-    return sql.create_engine(f"sqlite:///{database_file}", future=True)
+    return sqm.create_engine(f"sqlite:///{database_file}", future=True)
