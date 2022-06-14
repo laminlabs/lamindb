@@ -1,16 +1,16 @@
 import shutil
 from pathlib import Path
 
-import sqlalchemy as sql
+import sqlmodel as sqm
+
+import lamindb as db
 
 from ..admin.db import get_engine
-from ..dev import id
 
 
 def track_ingest(file_id):
 
     engine = get_engine()
-    metadata = sql.MetaData()
 
     from nbproject import meta
 
@@ -18,21 +18,18 @@ def track_ingest(file_id):
 
     interface_id = meta.id
 
-    track_do = sql.Table(
-        "track_do",
-        metadata,
-        sql.Column("id", sql.String, primary_key=True, default=id.id_track),
-        sql.Column("time", sql.DateTime, default=sql.sql.func.now()),
-        sql.Column("user", sql.String, default=user_id),
-        sql.Column("interface", sql.String, default=interface_id),
-        autoload_with=engine,
-    )
+    with sqm.Session(engine) as session:
+        track_do = db.model.track_do(
+            user=user_id,
+            interface=interface_id,
+            type="ingest",
+            file=file_id,
+        )
+        session.add(track_do)
+        session.commit()
+        session.refresh(track_do)
 
-    with engine.begin() as conn:
-        stmt = sql.insert(track_do).values(type="ingest", file=file_id)
-        result = conn.execute(stmt)
-
-    return result.inserted_primary_key[0]
+    return track_do.id
 
 
 def ingest(filepath):
