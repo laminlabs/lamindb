@@ -1,3 +1,3 @@
 def query():
-    """Delete entries."""
+    """Query literal (semantic) data."""
     raise NotImplementedError
