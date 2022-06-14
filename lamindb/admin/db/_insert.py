@@ -36,7 +36,7 @@ class insert:
             user = db.model.user(name=user_name)
             session.add(user)
             session.commit()
-            session.refresh()
+            session.refresh(user)
 
         return user.id
 
