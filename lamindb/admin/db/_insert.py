@@ -1,4 +1,3 @@
-import sqlalchemy as sql
 import sqlmodel as sqm
 
 import lamindb as db
@@ -45,22 +44,6 @@ class insert:
         """Data file with its origin."""
         interface_id = interface
         engine = get_engine()
-        metadata = sql.MetaData()
-
-        interface_table = sql.Table(
-            "interface",
-            metadata,
-            sql.Column("time_init", sql.DateTime, default=sql.sql.func.now()),
-            autoload_with=engine,
-        )
-
-        file_table = sql.Table(  # primary key gen does not work with reflecting
-            "file",
-            metadata,
-            sql.Column("id", sql.String, primary_key=True, default=id_file),
-            sql.Column("time_init", sql.DateTime, default=sql.sql.func.now()),
-            autoload_with=engine,
-        )
 
         if interface_id is None:
             from nbproject import meta
@@ -79,30 +62,30 @@ class insert:
             interface_type = "other"
 
         from lamindb._configuration import user_id, user_name
-        from lamindb.do import load
 
-        df_interface = load("interface")
+        df_interface = db.do.load("interface")
         if interface_id not in df_interface.index:
-            with engine.begin() as conn:
-                stmt = sql.insert(interface_table).values(
+            with sqm.Session(engine) as session:
+                # can remove underscore once we explicitly
+                # migrate to _id suffixes for id columns
+                interface_ = db.model.interface(
                     id=interface_id,
                     name=interface_name,
                     dependency=interface_dependency,
                     type=interface_type,
                     user=user_id,
                 )
-                conn.execute(stmt)
-                print(
-                    f"added interface {interface_name!r} ({interface_id}) by user"
-                    f" {user_name} ({user_id})"
-                )
-
-        with engine.begin() as conn:
-            stmt = sql.insert(file_table).values(
-                name=name,
-                interface=interface_id,
+                session.add(interface_)
+                session.commit()
+            print(
+                f"added interface {interface_name!r} ({interface_id}) by user"
+                f" {user_name} ({user_id})"
             )
-            result = conn.execute(stmt)
-            file_id = result.inserted_primary_key[0]
 
-        return file_id
+        with sqm.Session(engine) as session:
+            file = db.model.file(name=name, interface=interface_id)
+            session.add(file)
+            session.commit()
+            session.refresh(file)
+
+        return file.id
