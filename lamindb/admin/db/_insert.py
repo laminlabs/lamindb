@@ -40,9 +40,8 @@ class insert:
         return user.id
 
     @classmethod
-    def file(cls, name: str, *, interface: str = None, interface_name: str = None):
+    def file(cls, name: str, *, interface_id: str = None, interface_name: str = None):
         """Data file with its origin."""
-        interface_id = interface
         engine = get_engine()
 
         if interface_id is None:
@@ -68,14 +67,14 @@ class insert:
             with sqm.Session(engine) as session:
                 # can remove underscore once we explicitly
                 # migrate to _id suffixes for id columns
-                interface_ = db.model.interface(
+                interface = db.model.interface(
                     id=interface_id,
                     name=interface_name,
                     dependency=interface_dependency,
                     type=interface_type,
-                    user=user_id,
+                    user_id=user_id,
                 )
-                session.add(interface_)
+                session.add(interface)
                 session.commit()
             print(
                 f"added interface {interface_name!r} ({interface_id}) by user"
@@ -83,7 +82,7 @@ class insert:
             )
 
         with sqm.Session(engine) as session:
-            file = db.model.file(name=name, interface=interface_id)
+            file = db.model.file(name=name, interface_id=interface_id)
             session.add(file)
             session.commit()
             session.refresh(file)
