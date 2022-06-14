@@ -6,17 +6,21 @@ For a schematic of relations among models, see :class:`track.schema`.
 
 .. currentmodule:: lamindb.model
 
-.. autoclass: user
+.. autoclass:: user
    :members:
+   :undoc-members:
 
-.. autoclass: interface
+.. autoclass:: interface
    :members:
+   :undoc-members:
 
-.. autoclass: file
+.. autoclass:: file
    :members:
+   :undoc-members:
 
-.. autoclass: track_do
+.. autoclass:: track_do
    :members:
+   :undoc-members:
 
 Types:
 
