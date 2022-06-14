@@ -6,6 +6,8 @@ For a schematic of relations among models, see :class:`track.schema`.
 
 .. currentmodule:: lamindb.model
 
+Data models:
+
 .. autoclass:: user
    :members:
    :undoc-members:
@@ -24,10 +26,10 @@ For a schematic of relations among models, see :class:`track.schema`.
 
 Types:
 
-.. autosummary::
-   :toctree: .
+.. autoclass:: track_do_type
+   :members:
+   :undoc-members:
 
-   track_do_type
 """
 from ._core import track_do_type  # noqa
 from ._core import file, interface, track_do, user  # noqa
