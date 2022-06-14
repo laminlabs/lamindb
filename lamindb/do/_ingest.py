@@ -20,10 +20,10 @@ def track_ingest(file_id):
 
     with sqm.Session(engine) as session:
         track_do = db.model.track_do(
-            user=user_id,
-            interface=interface_id,
             type="ingest",
-            file=file_id,
+            user_id=user_id,
+            interface_id=interface_id,
+            file_id=file_id,
         )
         session.add(track_do)
         session.commit()

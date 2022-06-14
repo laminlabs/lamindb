@@ -30,7 +30,7 @@ class interface(SQLModel, table=True):  # type: ignore
     name: Optional[str]
     dependency: Optional[str]
     type: str
-    user: str = Field(foreign_key="user.id")
+    user_id: str = Field(foreign_key="user.id")
     time_init: datetime = Field(default_factory=utcnow, nullable=False)
 
 
@@ -40,7 +40,7 @@ class file(SQLModel, table=True):  # type: ignore
 
     id: Optional[str] = Field(default_factory=id_file, primary_key=True)
     name: str
-    interface: str = Field(foreign_key="interface.id")
+    interface_id: str = Field(foreign_key="interface.id")
     time_init: datetime = Field(default_factory=utcnow, nullable=False)
 
 
@@ -64,7 +64,7 @@ class track_do(SQLModel, table=True):  # type: ignore
 
     id: Optional[str] = Field(default_factory=id_track, primary_key=True)
     type: track_do_type = Field(nullable=False)
-    user: str = Field(foreign_key="user.id", nullable=False)
-    interface: str = Field(foreign_key="interface.id")
+    user_id: str = Field(foreign_key="user.id", nullable=False)
+    interface_id: str = Field(foreign_key="interface.id")
     time: datetime = Field(default_factory=utcnow, nullable=False)
-    file: str = Field(foreign_key="file.id")
+    file_id: str = Field(foreign_key="file.id")
