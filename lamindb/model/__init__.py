@@ -6,13 +6,17 @@ For a schematic of relations among models, see :class:`track.schema`.
 
 .. currentmodule:: lamindb.model
 
-.. autosummary::
-   :toctree: .
+.. autoclass: user
+   :members:
 
-   user
-   interface
-   file
-   track_do
+.. autoclass: interface
+   :members:
+
+.. autoclass: file
+   :members:
+
+.. autoclass: track_do
+   :members:
 
 Types:
 
