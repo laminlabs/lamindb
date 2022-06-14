@@ -7,6 +7,7 @@ Towards version 0.3.
 <!-- prettier-ignore -->
 Name | PR | User | Date | Patch
 --- | --- | --- | --- | ---
+♻️ More explicit `_id` name for such fields | [41](https://github.com/laminlabs/lamindb/pull/41) | [falexwolf](https://github.com/falexwolf) | 2022-06-14 |
 :recycle: Migrate from sql to sqm everywhere | [40](https://github.com/laminlabs/lamindb/pull/40) | [falexwolf](https://github.com/falexwolf) | 2022-06-14 |
 ✨ Implement data access log `track.do` | [39](https://github.com/laminlabs/lamindb/pull/39) | [falexwolf](https://github.com/falexwolf) | 2022-06-12 | 0.3a1
 🏗️ Re-organize API | [38](https://github.com/laminlabs/lamindb/pull/38) | [falexwolf](https://github.com/falexwolf) | 2022-06-12 |
