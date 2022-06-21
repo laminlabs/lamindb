@@ -5,7 +5,7 @@
 
 Interactively curate, store, track and query biological data.
 
-Start out with an unstructured collection of files and end up with a robust data warehouse.[^files]
+Start out with unstructured collections of files and derive a robust data warehouse, built for queries and learning.[^files]
 
 Leverage both a scientific (biological entities) and a technical (data provenance) framework to organize data.
 
