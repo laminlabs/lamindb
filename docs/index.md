@@ -5,9 +5,8 @@
 
 _Interactively curate, store, track, query, and stream biological data._
 
-From collections of files to a data warehouse, built for queries and learning, around biological entities and data science, across teams and organizations.[^1]
-
-[^1]: Biology can't get rid of files entirely: biological systems are characterized by measurement devices that generate files with data.
+From collections of files to a data warehouse, built for queries and learning, around biological entities and data science, across teams and organizations.
+Biology can't get rid of files entirely: Biological systems are characterized by measurement devices that generate files with data.
 
 - Query & standardize against biological entities ([Bionty](https://lamin.ai/bionty)) to avoid semantic mess & data silos through ad hoc conventions.
 - Full data provenance on the pipeline **and** data science level using [nbproject](https://lamin.ai/nbproject).
