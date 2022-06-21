@@ -3,15 +3,11 @@
 :end-line: 1
 ```
 
-Interactively curate, store, track and query biological data.
+_Interactively curate, store, track, query, and stream biological data._
 
-Start out with unstructured collections of files and derive a robust data warehouse, built for queries and learning.[^files]
+From collections of files to a data warehouse, built for queries and learning, around biological entities and data science, across teams and organizations.[^1]
 
-Leverage both a scientific (biological entities) and a technical (data provenance) framework to organize data.
-
-[^files]: Biology can't get rid of files entirely: biological systems are characterized by measurement devices that generate files with data.
-
-## Features
+[^1]: Biology can't get rid of files entirely: biological systems are characterized by measurement devices that generate files with data.
 
 - Query & standardize against biological entities ([Bionty](https://lamin.ai/bionty)) to avoid semantic mess & data silos through ad hoc conventions.
 - Full data provenance on the pipeline **and** data science level using [nbproject](https://lamin.ai/nbproject).
@@ -20,22 +16,18 @@ Leverage both a scientific (biological entities) and a technical (data provenanc
 - Represent the learning process in the schema and how you think about querying data: `measured_features` -> `relevant_features` -> `derived_features`.
 - Monitor a full access log to the database: all updates are tracked, nothing ever gets lost again!
 
-## Get started
+Install:
 
-Build your learning & analytics workflows and any application on top!
+```
+pip install lamindb
+```
 
-- Get started with the [tutorial](tutorial/index).
+Get started:
+
+- [Quickstart](tutorial/quickstart) walks you through setting up a basic platform.
 - Explore and play with real-world [examples](examples/index).
 - Browse the full [API reference](api).
 - Look up guides [guides](guides/index) that solve specific problems or illustrate common errors.
-
-## Installation and configuration
-
-Install the development version:
-
-```
-pip install -e ".[dev,test]"
-```
 
 ```{toctree}
 :maxdepth: 1
