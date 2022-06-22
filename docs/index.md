@@ -12,7 +12,8 @@ Features:
 - Query by & standardize against [Bionty](https://lamin.ai/bionty) to avoid semantic mess & data silos through ad hoc conventions.
 - Query by & track data provenance on the pipeline- & data-science-level using [nbproject](https://lamin.ai/nbproject).
 - Balance pragmatic, fast-paced R&D iterations and robustness. Allow partial annotations, flag data with an ontology of quality & integrity flags.
-- Easily migrate the default schema to whatever you need! Migrate storage & database backends with ease.
+- Easily migrate the default schema to whatever you need. Migrate storage & database backends with ease.
+- Ingest any data file from any measurement device and receive guidance for integrating and querying it.
 - Built for the alternating cycle of learning from data and querying data: `measured_features` -> `relevant_features` -> `derived_features`.
 - Monitor a full access log to the database: everything is tracked, never lose anything again, resolve corrupted data, easily get rid of unused data!
 - Integrate data across organizations & users by virtue of universal backends and IDs.
