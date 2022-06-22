@@ -1,3 +1,3 @@
-# LaminDB: Manage files & data
+# LaminDB: Manage data & analyses
 
 Read the [docs](https://lamin.ai/lamindb).

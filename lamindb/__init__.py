@@ -1,4 +1,4 @@
-"""lamindb: Manage files & data.
+"""lamindb: Manage data & analyses.
 
 Import the package::
 
