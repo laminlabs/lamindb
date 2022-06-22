@@ -3,16 +3,19 @@
 :end-line: 1
 ```
 
-_Interactively curate, store, track, query, and stream biological data._
+Interactively curate, store, track, query, and learn from biological data across users and organizations.
 
-From collections of files to a data warehouse, built for queries and learning, around biological entities and data science, across teams and organizations.
+Speak SQL & pydata, embrace biological entities & data provenance, and migrate data models & backends with ease.
 
-- Query & standardize against biological entities ([Bionty](https://lamin.ai/bionty)) to avoid semantic mess & data silos through ad hoc conventions.
-- Full data provenance on the pipeline **and** data science level using [nbproject](https://lamin.ai/nbproject).
-- Balance pragmatic, fast-paced R&D operations and robustness. Allow partial annotations, and flag data with an ontology of quality & integrity flags.
-- Leverage a delightful default schema that you can customize to your needs!
-- Represent the learning process in the schema and how you think about querying data: `measured_features` -> `relevant_features` -> `derived_features`.
-- Monitor a full access log to the database: all updates are tracked, nothing ever gets lost again!
+Features:
+
+- Query by & standardize against [Bionty](https://lamin.ai/bionty) to avoid semantic mess & data silos through ad hoc conventions.
+- Query by & track data provenance on the pipeline- & data-science-level using [nbproject](https://lamin.ai/nbproject).
+- Balance pragmatic, fast-paced R&D iterations and robustness. Allow partial annotations, flag data with an ontology of quality & integrity flags.
+- Easily migrate the default schema to whatever you need! Migrate storage & database backends with ease.
+- Built for the alternating cycle of learning from data and querying data: `measured_features` -> `relevant_features` -> `derived_features`.
+- Monitor a full access log to the database: everything is tracked, never lose anything again, resolve corrupted data, easily get rid of unused data!
+- Integrate data across organizations & users by virtue of universal backends and IDs.
 
 Install:
 
