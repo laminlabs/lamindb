@@ -14,7 +14,7 @@ Features:
 - Balance pragmatic, fast-paced R&D iterations and robustness. Allow partial annotations, flag data with an ontology of quality & integrity flags.
 - Easily migrate the default schema to whatever you need. Migrate storage & database backends with ease.
 - Ingest any data file from any measurement device and receive guidance for integrating and querying it.
-- Built for the alternating cycle of learning from data and querying data: `measured_features` -> `relevant_features` -> `derived_features`.
+- Built for the alternating cycle of learning from data and querying data across measured → relevant → derived features.
 - Monitor a full access log to the database: everything is tracked, never lose anything again, resolve corrupted data, easily get rid of unused data!
 - Integrate data across organizations & users by virtue of universal backends and IDs.
 
