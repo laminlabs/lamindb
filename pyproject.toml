@@ -18,6 +18,7 @@ dependencies = [
     "typeguard",
     "biogram",
     "nbproject>=0.1a3",
+    "bionty>=0.1.0",
 ]
 
 [project.urls]
