@@ -16,7 +16,7 @@ def track_ingest(file_id):
 
     from lamindb._configuration import user_id
 
-    interface_id = meta.id
+    interface_id = meta.store.id
 
     with sqm.Session(engine) as session:
         track_do = db.model.track_do(
@@ -75,4 +75,7 @@ def ingest(filepath):
     from lamindb._configuration import user_id
 
     track_ingest(file_id)
-    print(f"added file {file_id} from source {nbproject.meta.id} by user {user_id}")
+    print(
+        f"added file {file_id} from interface {nbproject.meta.store.id} by user"
+        f" {user_id}"
+    )
