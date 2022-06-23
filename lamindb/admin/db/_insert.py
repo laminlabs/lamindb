@@ -47,9 +47,12 @@ class insert:
         if interface_id is None:
             from nbproject import meta
 
-            interface_id = meta.id
-            interface_name = meta.title
-            interface_dependency = meta.dependency
+            interface_id = meta.store.id
+            interface_name = meta.live.title
+            dependency_string = " ".join(
+                [pkg + f"=={ver}" for pkg, ver in meta.live.dependency.items()]
+            )
+            interface_dependency = dependency_string
             interface_type = "nbproject"
 
             if interface_name is None:
