@@ -9,14 +9,17 @@ Speak SQL & pydata, embrace biological entities & data provenance, and migrate d
 
 Features:
 
-- Query by & standardize against [Bionty](https://lamin.ai/bionty) to avoid semantic mess & data silos through ad hoc conventions.
 - Query by & track data provenance on the pipeline- & data-science-level using [nbproject](https://lamin.ai/nbproject).
-- Balance pragmatic, fast-paced R&D iterations and robustness. Allow partial annotations, flag data with an ontology of quality & integrity flags.
+- Integrate data across organizations & users by virtue of universal backends and IDs.
 - Easily migrate the default schema to whatever you need. Migrate storage & database backends with ease.
 - Ingest any data file from any measurement device and receive guidance for integrating and querying it.
 - Built for the alternating cycle of learning from data and querying data across measured → relevant → derived features.
-- Monitor a full access log to the database: everything is tracked, never lose anything again, resolve corrupted data, easily get rid of unused data!
-- Integrate data across organizations & users by virtue of universal backends and IDs.
+- Track everything with a full access log: Never lose anything again, fix corrupted data without breaking results, and get rid of unused data.
+
+Upcoming features:
+
+- Query by & standardize against [Bionty](https://lamin.ai/bionty) to avoid semantic mess & data silos through ad hoc conventions.
+- Balance pragmatic, fast-paced R&D iterations and robustness by allowing partial annotations combined with quality & integrity flags.
 
 Install:
 
