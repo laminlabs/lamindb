@@ -2,7 +2,7 @@
 
 ## Latest changes
 
-Towards version 0.3.
+Towards version 0.1.
 
 <!-- prettier-ignore -->
 Name | PR | User | Date | Patch
@@ -11,27 +11,19 @@ Name | PR | User | Date | Patch
 📝 One-page layout for data models | [42](https://github.com/laminlabs/lamindb/pull/42) | [falexwolf](https://github.com/falexwolf) | 2022-06-14 |
 ♻️ More explicit `_id` name for such fields | [41](https://github.com/laminlabs/lamindb/pull/41) | [falexwolf](https://github.com/falexwolf) | 2022-06-14 |
 :recycle: Migrate from sql to sqm everywhere | [40](https://github.com/laminlabs/lamindb/pull/40) | [falexwolf](https://github.com/falexwolf) | 2022-06-14 |
-✨ Implement data access log `track.do` | [39](https://github.com/laminlabs/lamindb/pull/39) | [falexwolf](https://github.com/falexwolf) | 2022-06-12 | 0.3a1
+✨ Implement data access log `track.do` | [39](https://github.com/laminlabs/lamindb/pull/39) | [falexwolf](https://github.com/falexwolf) | 2022-06-12 | 0.0.4
 🏗️ Re-organize API | [38](https://github.com/laminlabs/lamindb/pull/38) | [falexwolf](https://github.com/falexwolf) | 2022-06-12 |
 🏗️ Set up db with sqlmodel, test int ids | [37](https://github.com/laminlabs/lamindb/pull/37) | [falexwolf](https://github.com/falexwolf) | 2022-06-11 |
 🏗️ Re-designed entire API | [36](https://github.com/laminlabs/lamindb/pull/36) | [falexwolf](https://github.com/falexwolf) | 2022-06-10 |
-:fire: Remove notion integration up to CLI | [35](https://github.com/laminlabs/lamindb/pull/35) | [falexwolf](https://github.com/falexwolf) | 2022-06-10 |
-
-## 0.2
-
-A basic file tracking system that stores ingestion metadata.
-
-<!-- prettier-ignore -->
-Name | PR | User | Date | Patch
---- | --- | --- | --- | ---
-📝 Rename from lamindb to LaminDB & rewrite the landing page | [34](https://github.com/laminlabs/lamindb/pull/34) | [falexwolf](https://github.com/falexwolf) | 2022-06-10 | 0.2.2
+🔥 Remove notion integration up to CLI | [35](https://github.com/laminlabs/lamindb/pull/35) | [falexwolf](https://github.com/falexwolf) | 2022-06-10 |
+📝 Rename from lamindb to LaminDB & rewrite the landing page | [34](https://github.com/laminlabs/lamindb/pull/34) | [falexwolf](https://github.com/falexwolf) | 2022-06-10 | 0.0.3
 🏗️ Introduce field `interface.type` | [31](https://github.com/laminlabs/lamindb/pull/31) | [falexwolf](https://github.com/falexwolf) | 2022-06-09 |
 🚚  Rename global `source` table to `interface` | [30](https://github.com/laminlabs/lamindb/pull/30) | [falexwolf](https://github.com/falexwolf) | 2022-06-09 |
 ✨ Track python package dependencies in `source.dependency` | [27](https://github.com/laminlabs/lamindb/pull/27) | [falexwolf](https://github.com/falexwolf) | 2022-06-09 |
 ✨ Track title of ingesting notebook in `source.name` | [26](https://github.com/laminlabs/lamindb/pull/26) | [falexwolf](https://github.com/falexwolf) | 2022-06-09 |
-🐛 Fix user & notebook ingestion, add another test dataset | [24](https://github.com/laminlabs/lamindb/pull/24) | [falexwolf](https://github.com/falexwolf) | 2022-06-08 | 0.2.1
+🐛 Fix user & notebook ingestion, add another test dataset | [24](https://github.com/laminlabs/lamindb/pull/24) | [falexwolf](https://github.com/falexwolf) | 2022-06-08 |
 ✅ Fix pandas load, add tests for converting between sqlcore & pandas, add tests for setup | [23](https://github.com/laminlabs/lamindb/pull/23) | [falexwolf](https://github.com/falexwolf)
-✨ Add introspection tools: `db.diagram()`, `db.entities()`, `db.load()` | [22](https://github.com/laminlabs/lamindb/pull/22) | [falexwolf](https://github.com/falexwolf) | | 0.2.0
+✨ Add introspection tools: `db.diagram()`, `db.entities()`, `db.load()` | [22](https://github.com/laminlabs/lamindb/pull/22) | [falexwolf](https://github.com/falexwolf) | |
 ✨ Add entity `user` | [21](https://github.com/laminlabs/lamindb/pull/21) | [falexwolf](https://github.com/falexwolf) | |
 🚸 Auto-create local storage dir & cache dir | [20](https://github.com/laminlabs/lamindb/pull/20) | [falexwolf](https://github.com/falexwolf) | |
 ✅ Add a test for db creation & file ingestion | [18](https://github.com/laminlabs/lamindb/pull/18) | [falexwolf](https://github.com/falexwolf) | |
