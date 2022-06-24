@@ -13,9 +13,9 @@ Browse the API:
    do
    model
    track
-   admin
+   setup
    dev
-   settings
+   admin
 """
 
 __version__ = "0.3a1"
@@ -24,4 +24,3 @@ from . import dev  # noqa
 from . import do  # noqa
 from . import model  # noqa
 from . import track  # noqa
-from ._settings import settings  # noqa
