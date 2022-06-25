@@ -95,6 +95,10 @@ def setup(
 
     setup_db(settings)  # update settings with user_id
 
-    Settings(**settings)._write()  # type: ignore
+    settings = Settings(**settings)  # type: ignore
+
+    settings._write()  # type: ignore
 
     print("Successfully set up lamindb!")
+
+    return settings

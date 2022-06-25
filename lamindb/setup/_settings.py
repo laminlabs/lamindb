@@ -65,7 +65,7 @@ class Settings(BaseModel):
             f.write(self.json())
 
 
-def load():
+def _load():
     with open(settings_file) as f:
         settings_json = f.read()
     return Settings.parse_raw(settings_json)
