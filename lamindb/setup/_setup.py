@@ -78,7 +78,7 @@ def setup(
     storage: str = None,
     cache: str = None,
     user: str = None,
-):
+) -> None:
     """Setup LaminDB. Alternative to using the CLI via `lamindb setup`.
 
     Args:

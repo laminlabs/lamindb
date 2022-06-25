@@ -1,15 +1,20 @@
 """Setup API.
 
-The settings set during setup are linked below.
+A call of `setup` configures settings and logs in the user.
+If there isn't one yet, it creates a database.
 
-In to retrieve them after setup, use the instance `setup.settings`.
+.. autofunction:: setup
 
-.. autosummary::
-    :toctree:
+To retrieve all set and inferred settings after setup, use:
 
-    Settings
-    setup
-    settings
+.. autofunction:: settings
+
+..
+   autosummary does not work with two objects that merely differ by capitalization
+
+.. autoclass:: Settings
+   :members:
+
 """
 
 from ._settings import Settings, settings  # noqa
