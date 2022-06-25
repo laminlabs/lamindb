@@ -3,6 +3,7 @@ from typing import Union
 
 from cloudpathlib import CloudPath
 
+from ..dev._docs import doc_args
 from ._settings import Settings, description
 from ._setup_db import setup_db
 
@@ -74,6 +75,7 @@ def setup_notion(notion: str = None):
     return dict(NOTION_API_KEY=notion)
 
 
+@doc_args(description.storage_root, description.cache_root, description.user_name)
 def setup(
     *,
     storage: str = None,
@@ -83,9 +85,9 @@ def setup(
     """Setup LaminDB. Alternative to using the CLI via `lamindb setup`.
 
     Args:
-        storage: {description.storage_root}
-        cache: {description.cache_root}
-        user: {description.user_name}
+        storage: {}.
+        cache: {}.
+        user: {}.
     """
     settings = {}
     settings.update(setup_storage(storage, cache))

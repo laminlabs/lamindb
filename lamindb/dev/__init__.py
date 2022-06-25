@@ -5,7 +5,15 @@
 
    file
    object
+
+Utilities:
+
+.. autosummary::
+   :toctree: .
+
+   doc_args
 """
 
-from . import file, object
+from . import file, object  # noqa
+from ._docs import doc_args  # noqa
 from ._logger import logger  # noqa

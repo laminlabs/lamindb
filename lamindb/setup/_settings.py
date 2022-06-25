@@ -11,11 +11,11 @@ settings_file = root_dir / "settings.json"
 class description:
     storage_root = (
         "Storage root, if not a local directory, it needs to be of form"
-        " 's3://bucket_name' or 'gs://bucket_name'"
+        " `s3://bucket_name` or `gs://bucket_name`"
     )
-    cache_root = "Cache root, a local directory to cache cloud files."
-    user_name = "User name. Consider using the GitHub username."
-    user_id = "A LaminDB user ID (8 characters, base62)."
+    cache_root = "Cache root, a local directory to cache cloud files"
+    user_name = "User name. Consider using the GitHub username"
+    user_id = "A LaminDB user ID (8 characters, base62)"
 
 
 class Settings(BaseModel):
