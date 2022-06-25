@@ -1,8 +1,19 @@
+# LaminDB
+_build
+docs/lamindb.*
+lamin_sphinx
+docs/conf.py
+*.h5ad
+*.db
+*.lndb
+*.csv
+lamindb/setup/settings.json
 _secrets.py
 _configuration.py
 lamin.db
 docs/generated/*
 
+# General
 .DS_Store
 
 # Byte-compiled / optimized / DLL files
@@ -139,13 +150,3 @@ dmypy.json
 data/
 **/data/
 _build
-
-# Lamin
-_build
-docs/lamindb.*
-lamin_sphinx
-docs/conf.py
-*.h5ad
-*.db
-*.lndb
-*.csv
