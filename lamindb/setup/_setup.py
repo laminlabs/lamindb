@@ -82,9 +82,9 @@ def setup(
     """Setup LaminDB. Alternative to using the CLI via `lamindb setup`.
 
     Args:
-        storage: {}.
-        cache: {}.
-        user: {}.
+        storage: {}
+        cache: {}
+        user: {}
     """
     settings = Settings()
 

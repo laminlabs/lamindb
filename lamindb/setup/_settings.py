@@ -9,24 +9,18 @@ root_dir = Path(__file__).parent.resolve()
 settings_file = root_dir / "settings.pkl"
 
 
-class description:
-    storage_root = (
-        "Storage root, if not a local directory, it needs to be of form"
-        " `s3://bucket_name` or `gs://bucket_name`"
-    )
-    cache_root = "Cache root, a local directory to cache cloud files"
-    user_name = "User name. Consider using the GitHub username"
-    user_id = "A LaminDB user ID (8 characters, base62)"
-
-
 @dataclass
 class Settings:
     """Settings written during setup."""
 
     storage_root: Union[CloudPath, Path] = None
+    """Storage root. Either local dir, `s3://bucket_name` or `gs://bucket_name`."""
     cache_root: Union[Path, None] = None
+    """Cache root, a local directory to cache cloud files."""
     user_name: str = None  # type: ignore
+    """User name. Consider using the GitHub username."""
     user_id: Union[str, None] = None
+    """A LaminDB user ID (8 characters, base62)."""
 
     @property
     def cloud_storage(self) -> bool:
@@ -48,6 +42,14 @@ class Settings:
     def db(self) -> str:
         """Database URL."""
         return f"sqlite:///{self._db_file}"
+
+
+# a mere tool for quick access to these docstrings
+class description:
+    storage_root = Settings.storage_root.__doc__
+    cache_root = Settings.cache_root.__doc__
+    user_name = Settings.user_name.__doc__
+    user_id = Settings.user_id.__doc__
 
 
 def _write(settings: Settings):
