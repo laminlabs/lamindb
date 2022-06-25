@@ -5,7 +5,7 @@ If there isn't one yet, it creates a database.
 
 .. autofunction:: setup
 
-To retrieve all set and inferred settings after setup, use:
+To retrieve settings after setup, use:
 
 .. autofunction:: settings
 
