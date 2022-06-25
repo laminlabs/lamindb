@@ -10,7 +10,7 @@ from ..file import filepath
 @typechecked
 def anndata_to_h5ad(adata: AnnData, filekey: str) -> None:
     """AnnData → h5ad."""
-    settings = setup.settings
+    settings = setup.settings()
     path = filepath(filekey)
     if settings.cloud_storage:
         # conversion to Path would trigger download of cache file below

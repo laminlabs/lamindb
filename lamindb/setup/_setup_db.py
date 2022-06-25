@@ -1,19 +1,19 @@
 from sqlmodel import SQLModel
 
+from lamindb.admin.db._engine import get_engine
+
+from . import settings
+
 
 def create_db() -> None:
     """Create database with initial schema."""
-    from lamindb.admin.db._engine import get_engine
-
-    from . import settings
-
-    if settings._db_file.exists():
+    if settings()._db_file.exists():
         print("database already exists")
         return None
 
     SQLModel.metadata.create_all(get_engine())
 
-    print(f"created database at {settings.db}")
+    print(f"created database at {settings().db}")
 
 
 def setup_db(user_name):

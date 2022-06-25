@@ -55,7 +55,8 @@ def _write(settings: Settings):
         pickle.dump(settings, f, protocol=4)
 
 
-def _load():
+def settings() -> Settings:
+    """Return current settings."""
     if not settings_file.exists():
         print("WARNING: Please setup lamindb via the CLI: lamindb setup")
         global Settings
