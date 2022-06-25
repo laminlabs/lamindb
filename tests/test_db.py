@@ -1,11 +1,13 @@
 import lamindb as lndb
+from lamindb import setup
+from lamindb.setup._setup_db import create_db
 
 
 def test_create_to_load():
 
-    lndb.admin.db.setup()
+    create_db()
 
-    from lamindb._configuration import user_name
+    user_name = setup.settings.user_name
 
     user_id = lndb.admin.db.insert_if_not_exists.user(user_name)  # type: ignore
     print(f"added user {user_id} ({user_name})")

@@ -4,6 +4,7 @@ from pathlib import Path
 import sqlmodel as sqm
 
 import lamindb as db
+from lamindb import setup
 
 from ..admin.db import get_engine
 
@@ -14,7 +15,7 @@ def track_ingest(file_id):
 
     from nbproject import meta
 
-    from lamindb._configuration import user_id
+    user_id = setup.settings.user_id
 
     interface_id = meta.store.id
 
@@ -53,7 +54,7 @@ def ingest(filepath):
     20     >7e+35 (~UUID)
     ====== =========
     """
-    from lamindb._configuration import storage_root
+    storage_root = setup.settings.storage_root
 
     storage_root = Path(storage_root)
 
@@ -72,10 +73,8 @@ def ingest(filepath):
 
     import nbproject
 
-    from lamindb._configuration import user_id
-
     track_ingest(file_id)
     print(
         f"added file {file_id} from interface {nbproject.meta.store.id} by user"
-        f" {user_id}"
+        f" {setup.settings.user_id}"
     )

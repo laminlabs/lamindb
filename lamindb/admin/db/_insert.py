@@ -1,6 +1,7 @@
 import sqlmodel as sqm
 
 import lamindb as db
+from lamindb import setup
 
 from ...dev.id import id_file, id_user  # noqa
 from . import get_engine
@@ -63,8 +64,6 @@ class insert:
             interface_dependency = None
             interface_type = "other"
 
-        from lamindb._configuration import user_id, user_name
-
         df_interface = db.do.load("interface")
         if interface_id not in df_interface.index:
             with sqm.Session(engine) as session:
@@ -75,13 +74,13 @@ class insert:
                     name=interface_name,
                     dependency=interface_dependency,
                     type=interface_type,
-                    user_id=user_id,
+                    user_id=setup.settings.user_id,
                 )
                 session.add(interface)
                 session.commit()
             print(
                 f"added interface {interface_name!r} ({interface_id}) by user"
-                f" {user_name} ({user_id})"
+                f" {setup.settings.user_name} ({setup.settings.user_id})"
             )
 
         with sqm.Session(engine) as session:

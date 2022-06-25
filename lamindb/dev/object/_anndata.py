@@ -2,8 +2,8 @@ from anndata import AnnData
 from typeguard import typechecked
 
 from lamindb import setup
-from lamindb.dev import logger
 
+from .._logger import logger
 from ..file import filepath
 
 
