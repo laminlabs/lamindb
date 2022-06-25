@@ -3,12 +3,14 @@
 File → memory:
 
 .. autosummary::
+   :toctree: .
 
    h5ad_to_anndata
 
 Utilities:
 
 .. autosummary::
+   :toctree: .
 
    filepath
    local

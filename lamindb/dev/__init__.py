@@ -1,6 +1,7 @@
 """Developer API.
 
 .. autosummary::
+   :toctree: .
 
    file
    object

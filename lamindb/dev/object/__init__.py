@@ -3,6 +3,7 @@
 Memory → file:
 
 .. autosummary::
+   :toctree: .
 
    anndata_to_h5ad
 """
