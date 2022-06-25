@@ -15,7 +15,7 @@ def track_ingest(file_id):
 
     from nbproject import meta
 
-    user_id = setup.settings.user_id
+    user_id = setup.settings().user_id
 
     interface_id = meta.store.id
 
@@ -54,7 +54,8 @@ def ingest(filepath):
     20     >7e+35 (~UUID)
     ====== =========
     """
-    storage_root = setup.settings.storage_root
+    settings = setup.settings()
+    storage_root = settings.storage_root
 
     storage_root = Path(storage_root)
 
@@ -76,5 +77,5 @@ def ingest(filepath):
     track_ingest(file_id)
     print(
         f"added file {file_id} from interface {nbproject.meta.store.id} by user"
-        f" {setup.settings.user_id}"
+        f" {settings.user_id}"
     )
