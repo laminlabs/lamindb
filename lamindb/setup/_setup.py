@@ -4,7 +4,7 @@ from typing import Union
 from cloudpathlib import CloudPath
 
 from ..dev._docs import doc_args
-from ._settings import Settings, description
+from ._settings import Settings, _write, description
 from ._setup_db import setup_db
 
 
@@ -19,7 +19,7 @@ def setup_storage(
     # check whether a local directory actually exists
     if isinstance(storage_root, str) and storage_root.startswith(("s3://", "gs://")):
         cloud_storage = True
-        storage_root = storage_root
+        storage_root = CloudPath(storage_root)
     else:
         cloud_storage = False
         storage_root = Path(storage_root)
@@ -45,10 +45,7 @@ def setup_storage(
         # we do not need a cache as we're not working in the cloud
         cache_root = None
 
-    return dict(
-        storage_root_str=str(storage_root),
-        cache_root=cache_root,
-    )
+    return storage_root, cache_root
 
 
 def setup_user(user: str = None):
@@ -56,7 +53,7 @@ def setup_user(user: str = None):
     if user is None:
         user = input(f"Please provide your {description.user_name}: ")
 
-    return dict(user_name=user)
+    return user
 
 
 def setup_notion(notion: str = None):
@@ -89,18 +86,15 @@ def setup(
         cache: {}.
         user: {}.
     """
-    settings = {}
-    settings.update(setup_storage(storage, cache))
-    settings.update(setup_user(user))
+    settings = Settings()
 
-    Settings(**settings)._write()  # type: ignore
+    settings.storage_root, settings.cache_root = setup_storage(storage, cache)
+    settings.user_name = setup_user(user)
 
-    setup_db(settings)  # update settings with user_id
+    _write(settings)
 
-    settings = Settings(**settings)  # type: ignore
+    settings.user_id = setup_db(settings.user_name)  # update settings with user_id
 
-    settings._write()  # type: ignore
+    _write(settings)  # type: ignore
 
     print("Successfully set up lamindb!")
-
-    return settings

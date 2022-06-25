@@ -1,6 +1,6 @@
 import argparse
 
-from .setup import setup
+from .setup import _setup
 from .setup._settings import description
 
 parser = argparse.ArgumentParser(description="Set up lamindb.")
@@ -17,7 +17,7 @@ args = parser.parse_args()
 
 def main():
     if args.command == "setup":
-        setup(
+        _setup.setup(
             storage=args.storage,
             cache=args.cache,
             user=args.user,

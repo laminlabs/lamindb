@@ -10,10 +10,8 @@ In to retrieve them after setup, use the instance `setup.settings`.
    Settings
    setup
 """
-from ._settings import Settings, _load
+from ._settings import Settings, _load  # noqa
 from ._setup import setup  # noqa
-
-settings: Settings
 
 
 # see this for context: https://github.com/laminlabs/nbproject/blob/47ec6646679347ff58d53d969294333749c2a245/nbproject/__init__.py#L64  # noqa

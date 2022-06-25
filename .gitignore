@@ -8,6 +8,7 @@ docs/conf.py
 *.lndb
 *.csv
 lamindb/setup/settings.json
+lamindb/setup/settings.pkl
 _secrets.py
 _configuration.py
 lamin.db

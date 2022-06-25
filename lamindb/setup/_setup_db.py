@@ -16,12 +16,12 @@ def create_db() -> None:
     print(f"created database at {settings.db}")
 
 
-def setup_db(settings):
+def setup_db(user_name):
     """Register user in database."""
     from lamindb.admin.db import insert_if_not_exists
 
     create_db()
 
-    user_id = insert_if_not_exists.user(settings["user_name"])
+    user_id = insert_if_not_exists.user(user_name)
 
-    settings["user_id"] = user_id
+    return user_id
