@@ -7,7 +7,7 @@ def test_create_to_load():
 
     create_db()
 
-    user_name = setup.settings.user_name
+    user_name = setup.settings().user_name
 
     user_id = lndb.admin.db.insert_if_not_exists.user(user_name)  # type: ignore
     print(f"added user {user_id} ({user_name})")

@@ -44,6 +44,7 @@ class insert:
     def file(cls, name: str, *, interface_id: str = None, interface_name: str = None):
         """Data file with its origin."""
         engine = get_engine()
+        settings = setup.settings()
 
         if interface_id is None:
             from nbproject import meta
@@ -74,13 +75,13 @@ class insert:
                     name=interface_name,
                     dependency=interface_dependency,
                     type=interface_type,
-                    user_id=setup.settings.user_id,
+                    user_id=settings.user_id,
                 )
                 session.add(interface)
                 session.commit()
             print(
                 f"added interface {interface_name!r} ({interface_id}) by user"
-                f" {setup.settings.user_name} ({setup.settings.user_id})"
+                f" {settings.user_name} ({settings.user_id})"
             )
 
         with sqm.Session(engine) as session:

@@ -23,4 +23,5 @@ from . import admin  # noqa
 from . import dev  # noqa
 from . import do  # noqa
 from . import model  # noqa
+from . import setup  # noqa
 from . import track  # noqa

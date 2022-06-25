@@ -1,24 +1,21 @@
 """Setup API.
 
-The settings set during setup are linked below.
+A call of `setup` configures settings and logs in the user.
+If there isn't one yet, it creates a database.
 
-In to retrieve them after setup, use the instance `setup.settings`.
+.. autofunction:: setup
 
-.. autosummary::
-   :toctree:
+To retrieve settings after setup, use:
 
-   Settings
-   setup
+.. autofunction:: settings
+
+..
+   autosummary does not work with two objects that merely differ by capitalization
+
+.. autoclass:: Settings
+   :members:
+
 """
-from ._settings import Settings, _load
-from ._setup import setup  # noqa
 
-settings: Settings
-
-
-# see this for context: https://github.com/laminlabs/nbproject/blob/47ec6646679347ff58d53d969294333749c2a245/nbproject/__init__.py#L64  # noqa
-def __getattr__(name):
-    if name == "settings":
-        return _load()
-
-    raise AttributeError(f"module '{__name__}' has no attribute '{name}'")
+from ._settings import Settings, settings  # noqa
+from ._setup import setup
