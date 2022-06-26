@@ -1,3 +1,4 @@
+import os
 from pathlib import Path
 
 import nox
@@ -21,7 +22,7 @@ def build(session):
         # "--notion",
         # os.environ["NOTION_API_KEY"],
         "--storage",
-        "$HOME/data",
+        f"{os.environ['HOME']}/data",
         "--user",
         "falexwolf",
     )
