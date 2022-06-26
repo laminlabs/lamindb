@@ -32,6 +32,7 @@ def build(session):
         "--cov-append",
         "--cov-report=term-missing",
         "--nbmake",
+        "--overwrite",
     )
     session.run("coverage", "report", "--show-missing")
     session.run("coverage", "xml")
