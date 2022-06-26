@@ -49,3 +49,8 @@ testpaths = [
     "docs/guides",
     "docs/tutorial",
 ]
+
+[tool.coverage.run]
+omit = [
+    "lamindb/*",
+]
