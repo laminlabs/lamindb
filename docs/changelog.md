@@ -7,6 +7,7 @@ Towards version 0.1.
 <!-- prettier-ignore -->
 Name | PR | User | Date | Patch
 --- | --- | --- | --- | ---
+👷 Measure coverage | [48](https://github.com/laminlabs/lamindb/pull/48) | [sunnyosun](https://github.com/sunnyosun) | 2022-06-26 |
 🏗️ Settings: From pydantic BaseModel to custom class | [46](https://github.com/laminlabs/lamindb/pull/46) | [falexwolf](https://github.com/falexwolf) | 2022-06-25 |
 🏗️ Complete refactor of setup, settings & storage management  | [45](https://github.com/laminlabs/lamindb/pull/45) | [falexwolf](https://github.com/falexwolf) | 2022-06-25 |
 ⬆️ Upgrade to nbproject 0.1a3 | [43](https://github.com/laminlabs/lamindb/pull/43) | [falexwolf](https://github.com/falexwolf) | 2022-06-23 |
