@@ -1,16 +1,16 @@
+from pathlib import Path
+
 import lamindb as lndb
 from lamindb import setup
-from lamindb.setup._setup_db import create_db
 
 
 def test_create_to_load():
 
-    create_db()
+    setup.setup(
+        storage=Path.home() / "data",
+        user="falexwolf",
+    )
 
-    user_name = setup.settings().user_name
-
-    user_id = lndb.admin.db.insert_if_not_exists.user(user_name)  # type: ignore
-    print(f"added user {user_id} ({user_name})")
     lndb.admin.db.insert.file("test_file.csv", interface_id="83jf")
     for entity in lndb.track.schema.entities:
         print(lndb.do.load(entity))
