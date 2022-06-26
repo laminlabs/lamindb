@@ -1,3 +1,4 @@
+import os
 from pathlib import Path
 
 import nox
@@ -21,15 +22,19 @@ def build(session):
         # "--notion",
         # os.environ["NOTION_API_KEY"],
         "--storage",
-        "$HOME/data",
+        f"{os.environ['HOME']}/data",
         "--user",
         "falexwolf",
     )
     session.run(
         "pytest",
+        "--cov=lamindb",
+        "--cov-append",
+        "--cov-report=term-missing",
         "--nbmake",
         "--overwrite",
-    )  # write output instead of capturing it (more verbose)
+    )
+    session.run("coverage", "xml")
     prefix = "." if Path("./lndocs").exists() else ".."
     session.install(f"{prefix}/lndocs")
     session.run("lndocs")

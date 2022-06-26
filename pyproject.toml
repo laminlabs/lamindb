@@ -30,6 +30,8 @@ dev = [
 ]
 test = [
     "pytest>=6.0",
+    "coverage",
+    "pytest-cov",
     "nbmake",
     "scanpy",
     "scikit-learn>=1.1.1",
@@ -46,4 +48,9 @@ testpaths = [
     "tests",
     "docs/guides",
     "docs/tutorial",
+]
+
+[tool.coverage.run]
+omit = [
+    "lamindb/*",
 ]
