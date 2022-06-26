@@ -26,7 +26,13 @@ def build(session):
         "--user",
         "falexwolf",
     )
-    session.run("coverage", "run", "-m", "pytest", "--cov=lamindb", "--nbmake")
+    session.run(
+        "pytest",
+        "--cov=lamindb",
+        "--cov-append",
+        "--cov-report=term-missing",
+        "--nbmake",
+    )
     session.run("coverage", "report", "--show-missing")
     session.run("coverage", "xml")
     prefix = "." if Path("./lndocs").exists() else ".."
