@@ -1,6 +1,6 @@
 ```{include} ../README.md
 :start-line: 0
-:end-line: 1
+:end-line: 4
 ```
 
 Interactively curate, store, track, query, and learn from biological data across users and organizations.
