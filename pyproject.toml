@@ -47,7 +47,7 @@ preview = true
 testpaths = [
     "tests",
     "docs/guides",
-    "docs/tutorial",
+    "docs/tutorials",
 ]
 
 [tool.coverage.run]
