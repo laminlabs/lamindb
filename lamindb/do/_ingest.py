@@ -54,6 +54,10 @@ def ingest(filepath):
     20     >7e+35 (~UUID)
     ====== =========
     """
+    from nbproject import meta, publish
+
+    integrity_check = publish()  # noqa
+
     settings = setup.settings()
     storage_root = settings.storage_root
 
@@ -72,10 +76,8 @@ def ingest(filepath):
 
     shutil.copyfile(filepath, storage_path)
 
-    import nbproject
-
     track_ingest(file_id)
     print(
-        f"added file {file_id} from interface {nbproject.meta.store.id} by user"
+        f"added file {file_id} from interface {meta.store.id} by user"
         f" {settings.user_id}"
     )
