@@ -13,7 +13,7 @@ def test_create_to_load():
 
     lndb.admin.db.insert.file("test_file.csv", interface_id="83jf")
     for entity in lndb.track.schema.entities:
-        print(lndb.do.load(entity))
+        lndb.do.load(entity)
 
 
 if __name__ == "__main__":
