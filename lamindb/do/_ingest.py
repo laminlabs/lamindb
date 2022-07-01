@@ -76,8 +76,8 @@ def ingest(filepath):
 
     track_ingest(file_id)
     print(
-        f"added file {file_id[:6]} from interface {meta.store.id[:4]} by user"
-        f" {settings.user_name}"
+        f"added file {file_id} from notebook {meta.live.title!r} ({meta.store.id}) by"
+        f" user {settings.user_name}"
     )
-
+    print("published notebook:")
     publish(integrity=False)  # noqa
