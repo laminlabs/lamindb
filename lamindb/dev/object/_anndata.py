@@ -18,9 +18,9 @@ def anndata_to_h5ad(adata: AnnData, filekey: str) -> None:
         cache_file = settings.cache_root.joinpath(*path.parts[1:])  # type: ignore
         if not cache_file.parent.exists():
             cache_file.parent.mkdir()
-        logger.debug(f"writing cache file: {cache_file}")
+        logger.debug(f"Writing cache file: {cache_file}.")
         adata.write(cache_file)
-        logger.debug("uploading cache file")
+        logger.debug("Uploading cache file.")
         path.upload_from(cache_file)  # type: ignore  # mypy misses CloudPath
         # In principle, we could write the cache file to disk again so that
         # the time stamp is newer than the one in the cloud, avoiding
