@@ -17,7 +17,7 @@ dependencies = [
     "sqlmodel",
     "typeguard",
     "biogram",
-    "nbproject>=0.1.4",
+    "nbproject>=0.1.5",
 ]
 
 [project.urls]
