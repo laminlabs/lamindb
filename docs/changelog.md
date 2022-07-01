@@ -7,6 +7,7 @@ Towards version 0.1.
 <!-- prettier-ignore -->
 Name | PR | User | Date | Patch
 --- | --- | --- | --- | ---
+:sparkles: Use nbproject publish functionality | [50](https://github.com/laminlabs/lamindb/pull/50) | [falexwolf](https://github.com/falexwolf) | 2022-07-01 |
 🚚 Rename tutorial to tutorials | [49](https://github.com/laminlabs/lamindb/pull/49) | [falexwolf](https://github.com/falexwolf) | 2022-06-29 |
 👷 Measure coverage | [48](https://github.com/laminlabs/lamindb/pull/48) | [sunnyosun](https://github.com/sunnyosun) | 2022-06-26 |
 🏗️ Settings: From pydantic BaseModel to custom class | [46](https://github.com/laminlabs/lamindb/pull/46) | [falexwolf](https://github.com/falexwolf) | 2022-06-25 |
