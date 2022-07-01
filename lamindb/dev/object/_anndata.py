@@ -3,7 +3,7 @@ from typeguard import typechecked
 
 from lamindb import setup
 
-from .._logger import logger
+from ..._logger import logger
 from ..file import filepath
 
 

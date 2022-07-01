@@ -16,4 +16,3 @@ Utilities:
 
 from . import file, object  # noqa
 from ._docs import doc_args  # noqa
-from ._logger import logger  # noqa
