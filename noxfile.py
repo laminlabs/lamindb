@@ -28,11 +28,10 @@ def build(session):
     )
     session.run(
         "pytest",
+        "-s",
         "--cov=lamindb",
         "--cov-append",
         "--cov-report=term-missing",
-        "--nbmake",
-        "--overwrite",
     )
     session.run("coverage", "xml")
     prefix = "." if Path("./lndocs").exists() else ".."

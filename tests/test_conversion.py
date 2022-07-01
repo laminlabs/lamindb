@@ -73,9 +73,9 @@ def load_table_pandas(table_name):
 def test_sqlcore_to_pandas():
 
     create_with_sqlcore()
-    print(load_table_pandas("user"))
-    print(load_table_pandas("source"))
-    print(load_table_pandas("file"))
+    load_table_pandas("user")
+    load_table_pandas("source")
+    load_table_pandas("file")
 
 
 if __name__ == "__main__":

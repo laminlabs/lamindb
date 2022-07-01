@@ -2,6 +2,7 @@ import shutil
 from pathlib import Path
 
 import sqlmodel as sqm
+from loguru import logger
 
 import lamindb as db
 from lamindb import setup
@@ -75,9 +76,9 @@ def ingest(filepath):
     shutil.copyfile(filepath, storage_path)
 
     track_ingest(file_id)
-    print(
-        f"added file {file_id} from notebook {meta.live.title!r} ({meta.store.id}) by"
-        f" user {settings.user_name}"
+    logger.info(
+        f"Added file {file_id} from notebook {meta.live.title!r} ({meta.store.id}) by"
+        f" user {settings.user_name} (settings.user_id).",
+        flush=True,
     )
-    print("published notebook:")
     publish(integrity=False)  # noqa

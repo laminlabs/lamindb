@@ -3,6 +3,7 @@ from typing import Union
 
 from cloudpathlib import CloudPath
 
+from .._logger import logger
 from ..dev._docs import doc_args
 from ._settings import Settings, _write, description
 from ._setup_db import setup_db
@@ -24,7 +25,7 @@ def setup_storage(
         cloud_storage = False
         storage_root = Path(storage_root)
         if not storage_root.exists():
-            print(f"creating storage directory {storage_root}")
+            logger.info(f"Creating storage directory {storage_root}.")
             storage_root.mkdir(parents=True)
 
     if cloud_storage:
@@ -37,10 +38,10 @@ def setup_storage(
             )
         cache_root = Path(cache_root)
         if not cache_root.exists():
-            print(f"creating cache directory {cache_root}")
+            logger.info(f"Creating cache directory {cache_root}.")
             cache_root.mkdir(parents=True)
         else:
-            print(f"using cache directory {cache_root}")
+            logger.info(f"Using cache directory {cache_root}.")
     else:
         # we do not need a cache as we're not working in the cloud
         cache_root = None
@@ -96,5 +97,3 @@ def setup(
     settings.user_id = setup_db(settings.user_name)  # update settings with user_id
 
     _write(settings)  # type: ignore
-
-    print("Successfully set up lamindb!")

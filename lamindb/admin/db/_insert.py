@@ -3,6 +3,7 @@ import sqlmodel as sqm
 import lamindb as db
 from lamindb import setup
 
+from ..._logger import logger
 from ...dev.id import id_file, id_user  # noqa
 from . import get_engine
 
@@ -16,10 +17,10 @@ class insert_if_not_exists:
 
         if user_name in df_user.name.values:
             user_id = df_user.index[df_user.name == user_name][0]
-            print(f"user {user_name} ({user_id}) already exists")
+            logger.info(f"Logged in {user_name} ({user_id}).")
         else:
             user_id = insert.user(user_name)  # type: ignore
-            print(f"added user {user_name} ({user_id})")
+            logger.info(f"Signed up user {user_name} ({user_id}).")
 
         return user_id
 
@@ -79,9 +80,9 @@ class insert:
                 )
                 session.add(interface)
                 session.commit()
-            print(
-                f"added interface {interface_name!r} ({interface_id}) by user"
-                f" {settings.user_name} ({settings.user_id})"
+            logger.info(
+                f"Added interface {interface_name!r} ({interface_id}) by user"
+                f" {settings.user_name} ({settings.user_id})."
             )
 
         with sqm.Session(engine) as session:

@@ -5,6 +5,8 @@ from typing import Union
 
 from cloudpathlib import CloudPath
 
+from .._logger import logger
+
 root_dir = Path(__file__).parent.resolve()
 settings_file = root_dir / "settings.pkl"
 
@@ -61,7 +63,7 @@ def _write(settings: Settings):
 def settings() -> Settings:
     """Return current settings."""
     if not settings_file.exists():
-        print("WARNING: Please setup lamindb via the CLI: lamindb setup")
+        logger.warning("Please setup lamindb via the CLI: lamindb setup")
         global Settings
         return Settings()
     else:
