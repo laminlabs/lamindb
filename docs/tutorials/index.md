@@ -5,5 +5,6 @@
 
 quickstart
 add-user
+introspect-data
 introduction
 ```
