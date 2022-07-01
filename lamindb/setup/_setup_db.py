@@ -13,7 +13,7 @@ def create_db() -> None:
 
     SQLModel.metadata.create_all(get_engine())
 
-    logger.info(f"Created database at {settings().db}.")
+    logger.info(f"Created database {settings().db}.")
 
 
 def setup_db(user_name):
