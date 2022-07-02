@@ -1,3 +1,5 @@
+from pathlib import Path
+
 from anndata import AnnData
 from typeguard import typechecked
 
@@ -8,7 +10,7 @@ from ..file import filepath
 
 
 @typechecked
-def anndata_to_h5ad(adata: AnnData, filekey: str) -> None:
+def anndata_to_h5ad(adata: AnnData, filekey: str) -> Path:
     """AnnData → h5ad."""
     settings = setup.settings()
     path = filepath(filekey)
@@ -29,3 +31,5 @@ def anndata_to_h5ad(adata: AnnData, filekey: str) -> None:
         # currently there doesn't seem to be a solution for this
     else:
         adata.write(path)
+        cache_file = path
+    return cache_file

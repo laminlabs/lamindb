@@ -66,5 +66,9 @@ class SettingsStore(BaseSettings):
 def _write(settings: Settings):
     with open(settings_file, "w") as f:
         for key, type in get_type_hints(SettingsStore).items():
-            value = type(getattr(settings, key))
-            f.write(f"{key}={value}")
+            value = getattr(settings, key)
+            if value is None:
+                value = "null"
+            else:
+                value = type(value)
+            f.write(f"{key}={value}\n")

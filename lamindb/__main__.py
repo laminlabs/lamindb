@@ -22,7 +22,7 @@ def main():
         if args.user is None:
             user = input(f"Please provide your {description.user_name}: ")
         else:
-            user = args.storage
+            user = args.user
 
         _setup.setup_from_cli(
             storage=storage,

@@ -14,10 +14,8 @@ from ._settings import Settings, SettingsStore, _write, description, settings_fi
 DIRS = AppDirs("lamindb", "laminlabs")
 
 
-def setup_storage_root(
-    storage: str,
-) -> Union[Path, CloudPath]:
-    if storage.startswith(("s3://", "gs://")):
+def setup_storage_root(storage: Union[str, Path, CloudPath]) -> Union[Path, CloudPath]:
+    if str(storage).startswith(("s3://", "gs://")):
         storage_root = CloudPath(storage)
     else:
         storage_root = Path(storage)
@@ -110,7 +108,7 @@ def setup_from_store(store: SettingsStore) -> Settings:
 
     settings.user_name = store.user_name
     settings.storage_root = setup_storage_root(store.storage_root)
-    settings.cache_root = Path(store.cache_root)
+    settings.cache_root = Path(store.cache_root) if store.cache_root != "null" else None
     settings.user_id = store.user_id
 
     return settings
