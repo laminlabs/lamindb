@@ -1,23 +1,21 @@
-import pickle
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Union
+from typing import Union, get_type_hints
 
 from cloudpathlib import CloudPath
-
-from .._logger import logger
+from pydantic import BaseSettings
 
 root_dir = Path(__file__).parent.resolve()
-settings_file = root_dir / "settings.pkl"
+settings_file = root_dir / ".env"
 
 
 @dataclass
 class Settings:
     """Settings written during setup."""
 
-    storage_root: Union[CloudPath, Path] = None
+    storage_dir: Union[CloudPath, Path] = None
     """Storage root. Either local dir, ``s3://bucket_name`` or ``gs://bucket_name``."""
-    cache_root: Union[Path, None] = None
+    cache_dir: Union[Path, None] = None
     """Cache root, a local directory to cache cloud files."""
     user_name: str = None  # type: ignore
     """User name. Consider using the GitHub username."""
@@ -26,16 +24,16 @@ class Settings:
 
     @property
     def cloud_storage(self) -> bool:
-        """`True` if `storage_root` is in cloud, `False` otherwise."""
-        return isinstance(self.storage_root, CloudPath)
+        """`True` if `storage_dir` is in cloud, `False` otherwise."""
+        return isinstance(self.storage_dir, CloudPath)
 
     @property
     def _db_file(self) -> Path:
         """Database SQLite filepath."""
         if not self.cloud_storage:
-            location = self.storage_root
+            location = self.storage_dir
         else:
-            location = self.cache_root
+            location = self.cache_dir
         filename = str(location.stem).lower()  # type: ignore
         filepath = location / f"{filename}.lndb"  # type: ignore
         return filepath
@@ -49,24 +47,28 @@ class Settings:
 # A mere tool for quick access to the docstrings above
 # I thought I had it work to read from the docstrings above, but doesn't seem so
 class description:
-    storage_root = """Storage root. Either local dir, ``s3://bucket_name`` or ``gs://bucket_name``."""  # noqa
-    cache_root = """Cache root, a local directory to cache cloud files."""
+    storage_dir = """Storage root. Either local dir, ``s3://bucket_name`` or ``gs://bucket_name``."""  # noqa
+    cache_dir = """Cache root, a local directory to cache cloud files."""
     user_name = """User name. Consider using the GitHub username."""
     user_id = """User name. Consider using the GitHub username."""
 
 
+class SettingsStore(BaseSettings):
+    storage_dir: str
+    cache_dir: str
+    user_name: str
+    user_id: str
+
+    class Config:
+        env_file = ".env"
+
+
 def _write(settings: Settings):
-    with open(settings_file, "wb") as f:
-        pickle.dump(settings, f, protocol=4)
-
-
-def settings() -> Settings:
-    """Return current settings."""
-    if not settings_file.exists():
-        logger.warning("Please setup lamindb via the CLI: lamindb setup")
-        global Settings
-        return Settings()
-    else:
-        with open(settings_file, "rb") as f:
-            settings = pickle.load(f)
-        return settings
+    with open(settings_file, "w") as f:
+        for key, type in get_type_hints(SettingsStore).items():
+            value = getattr(settings, key)
+            if value is None:
+                value = "null"
+            else:
+                value = type(value)
+            f.write(f"{key}={value}\n")

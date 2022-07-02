@@ -3,7 +3,7 @@
 A call of `setup` configures settings and logs in the user.
 If there isn't one yet, it creates a database.
 
-.. autofunction:: setup
+.. autofunction:: setup_from_cli
 
 To retrieve settings after setup, use:
 
@@ -17,5 +17,5 @@ To retrieve settings after setup, use:
 
 """
 
-from ._settings import Settings, settings  # noqa
-from ._setup import setup
+from ._settings import Settings  # noqa
+from ._setup import settings, setup_from_cli

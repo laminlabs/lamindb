@@ -17,6 +17,8 @@ dependencies = [
     "sqlmodel",
     "typeguard",
     "biogram",
+    "appdirs",
+    "python-dotenv",
     "nbproject>=0.1.5",
 ]
 

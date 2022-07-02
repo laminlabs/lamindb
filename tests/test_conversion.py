@@ -16,7 +16,6 @@ def uid(n_char=4):
 
 
 def create_with_sqlcore():
-
     metadata = sql.MetaData()
 
     user = sql.Table(
@@ -71,7 +70,6 @@ def load_table_pandas(table_name):
 
 
 def test_sqlcore_to_pandas():
-
     create_with_sqlcore()
     load_table_pandas("user")
     load_table_pandas("source")

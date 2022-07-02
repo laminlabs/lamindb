@@ -1,64 +1,44 @@
 from pathlib import Path
 from typing import Union
 
+from appdirs import AppDirs
 from cloudpathlib import CloudPath
+from sqlmodel import SQLModel
+
+from lamindb.admin.db._engine import get_engine
 
 from .._logger import logger
 from ..dev._docs import doc_args
-from ._settings import Settings, _write, description
-from ._setup_db import setup_db
+from ._settings import Settings, SettingsStore, _write, description, settings_file
+
+DIRS = AppDirs("lamindb", "laminlabs")
 
 
-def setup_storage(
-    storage_root: Union[str, Path, CloudPath] = None,
-    cache_root: Union[str, Path] = None,
-):
-
-    if storage_root is None:
-        storage_root = input(f"Please paste {description.storage_root}: ")
-
-    # check whether a local directory actually exists
-    if isinstance(storage_root, str) and storage_root.startswith(("s3://", "gs://")):
-        cloud_storage = True
-        storage_root = CloudPath(storage_root)
+def setup_storage_dir(storage: Union[str, Path, CloudPath]) -> Union[Path, CloudPath]:
+    if str(storage).startswith(("s3://", "gs://")):
+        storage_dir = CloudPath(storage)
     else:
-        cloud_storage = False
-        storage_root = Path(storage_root)
-        if not storage_root.exists():
-            logger.info(f"Creating storage directory {storage_root}.")
-            storage_root.mkdir(parents=True)
+        storage_dir = Path(storage)
+        if not storage_dir.exists():
+            storage_dir.mkdir(parents=True)
 
-    if cloud_storage:
-        # define cache directory
-        parents = [Path("/users/shared/"), Path.home()]
-        examples = ", or ".join([str(p / ".lamindb" / "cache") for p in parents])
-        if cache_root is None:
-            cache_root = input(
-                f"Please paste {description.cache_root}, e.g., {examples}: "
-            )
-        cache_root = Path(cache_root)
-        if not cache_root.exists():
-            logger.info(f"Creating cache directory {cache_root}.")
-            cache_root.mkdir(parents=True)
-        else:
-            logger.info(f"Using cache directory {cache_root}.")
+    return storage_dir
+
+
+def setup_cache_dir(
+    settings: Settings,
+) -> Union[Path, None]:
+    if settings.cloud_storage:
+        cache_dir = Path(DIRS.user_cache_dir)
+        if not cache_dir.exists():
+            cache_dir.mkdir(parents=True)
     else:
-        # we do not need a cache as we're not working in the cloud
-        cache_root = None
+        cache_dir = None
 
-    return storage_root, cache_root
-
-
-def setup_user(user: str = None):
-
-    if user is None:
-        user = input(f"Please provide your {description.user_name}: ")
-
-    return user
+    return cache_dir
 
 
 def setup_notion(notion: str = None):
-
     NOTION_HELP = (
         "Notion integration token (currently dysfunctional, see"
         " https://lamin.ai/notes/2022/explore-notion)"
@@ -73,27 +53,74 @@ def setup_notion(notion: str = None):
     return dict(NOTION_API_KEY=notion)
 
 
-@doc_args(description.storage_root, description.cache_root, description.user_name)
-def setup(
+def setup_db(user_name):
+    """Setup database.
+
+    Contains:
+    - Database creation.
+    - Sign-up and/or log-in.
+    """
+    from lamindb.admin.db import insert_if_not_exists
+
+    def create_db() -> None:
+        """Create database with initial schema."""
+        if settings()._db_file.exists():
+            return None
+
+        SQLModel.metadata.create_all(get_engine())
+
+        logger.info(f"Created database {settings().db}.")
+
+    create_db()
+
+    user_id = insert_if_not_exists.user(user_name)
+
+    return user_id
+
+
+@doc_args(description.storage_dir, description.user_name)
+def setup_from_cli(
     *,
-    storage: str = None,
-    cache: str = None,
-    user: str = None,
+    storage: str,
+    user: str,
 ) -> None:
     """Setup LaminDB. Alternative to using the CLI via `lamindb setup`.
 
     Args:
         storage: {}
-        cache: {}
         user: {}
     """
     settings = Settings()
 
-    settings.storage_root, settings.cache_root = setup_storage(storage, cache)
-    settings.user_name = setup_user(user)
+    settings.user_name = user
+    settings.storage_dir = setup_storage_dir(storage)
+    settings.cache_dir = setup_cache_dir(settings)
 
     _write(settings)
 
-    settings.user_id = setup_db(settings.user_name)  # update settings with user_id
+    settings.user_id = setup_db(settings.user_name)
 
     _write(settings)  # type: ignore
+
+
+def setup_from_store(store: SettingsStore) -> Settings:
+    settings = Settings()
+
+    settings.user_name = store.user_name
+    settings.storage_dir = setup_storage_dir(store.storage_dir)
+    settings.cache_dir = Path(store.cache_dir) if store.cache_dir != "null" else None
+    settings.user_id = store.user_id
+
+    return settings
+
+
+def settings() -> Settings:
+    """Return current settings."""
+    if not settings_file.exists():
+        logger.warning("Please setup lamindb via the CLI: lamindb setup")
+        global Settings
+        return Settings()
+    else:
+        settings_store = SettingsStore(_env_file=settings_file)
+        settings = setup_from_store(settings_store)
+        return settings

@@ -1,3 +1,5 @@
+from pathlib import Path
+
 from anndata import AnnData
 from typeguard import typechecked
 
@@ -8,14 +10,14 @@ from ..file import filepath
 
 
 @typechecked
-def anndata_to_h5ad(adata: AnnData, filekey: str) -> None:
+def anndata_to_h5ad(adata: AnnData, filekey: str) -> Path:
     """AnnData → h5ad."""
     settings = setup.settings()
     path = filepath(filekey)
     if settings.cloud_storage:
         # conversion to Path would trigger download of cache file below
         # hence, we use the `.parts` attribute in the following line
-        cache_file = settings.cache_root.joinpath(*path.parts[1:])  # type: ignore
+        cache_file = settings.cache_dir.joinpath(*path.parts[1:])  # type: ignore
         if not cache_file.parent.exists():
             cache_file.parent.mkdir()
         logger.debug(f"Writing cache file: {cache_file}.")
@@ -29,3 +31,5 @@ def anndata_to_h5ad(adata: AnnData, filekey: str) -> None:
         # currently there doesn't seem to be a solution for this
     else:
         adata.write(path)
+        cache_file = path
+    return cache_file

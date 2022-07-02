@@ -1,3 +1,3 @@
 # Examples
 
-For examples, see [laminbox](https://lamin.ai/laminbox).
+For real-world examples, see the [sandbox](https://lamin.ai/sandbox).

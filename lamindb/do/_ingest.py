@@ -11,7 +11,6 @@ from ..admin.db import get_engine
 
 
 def track_ingest(file_id):
-
     engine = get_engine()
 
     from nbproject import meta
@@ -58,9 +57,9 @@ def ingest(filepath):
     from nbproject import meta, publish
 
     settings = setup.settings()
-    storage_root = settings.storage_root
+    storage_dir = settings.storage_dir
 
-    storage_root = Path(storage_root)
+    storage_dir = Path(storage_dir)
 
     filepath = Path(filepath)
     filename = filepath.name
@@ -71,14 +70,14 @@ def ingest(filepath):
 
     storage_name = str(filepath.stem) + f"--lndb-{file_id}" + str(filepath.suffix)
 
-    storage_path = storage_root / storage_name
+    storage_path = storage_dir / storage_name
 
     shutil.copyfile(filepath, storage_path)
 
     track_ingest(file_id)
     logger.info(
         f"Added file {file_id} from notebook {meta.live.title!r} ({meta.store.id}) by"
-        f" user {settings.user_name} (settings.user_id).",
+        f" user {settings.user_name} ({settings.user_id}).",
         flush=True,
     )
     publish(integrity=False)  # noqa
