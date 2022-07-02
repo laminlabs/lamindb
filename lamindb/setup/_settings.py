@@ -13,7 +13,7 @@ settings_file = root_dir / ".env"
 class Settings:
     """Settings written during setup."""
 
-    storage_root: Union[CloudPath, Path] = None
+    storage_dir: Union[CloudPath, Path] = None
     """Storage root. Either local dir, ``s3://bucket_name`` or ``gs://bucket_name``."""
     cache_dir: Union[Path, None] = None
     """Cache root, a local directory to cache cloud files."""
@@ -24,14 +24,14 @@ class Settings:
 
     @property
     def cloud_storage(self) -> bool:
-        """`True` if `storage_root` is in cloud, `False` otherwise."""
-        return isinstance(self.storage_root, CloudPath)
+        """`True` if `storage_dir` is in cloud, `False` otherwise."""
+        return isinstance(self.storage_dir, CloudPath)
 
     @property
     def _db_file(self) -> Path:
         """Database SQLite filepath."""
         if not self.cloud_storage:
-            location = self.storage_root
+            location = self.storage_dir
         else:
             location = self.cache_dir
         filename = str(location.stem).lower()  # type: ignore
@@ -47,14 +47,14 @@ class Settings:
 # A mere tool for quick access to the docstrings above
 # I thought I had it work to read from the docstrings above, but doesn't seem so
 class description:
-    storage_root = """Storage root. Either local dir, ``s3://bucket_name`` or ``gs://bucket_name``."""  # noqa
+    storage_dir = """Storage root. Either local dir, ``s3://bucket_name`` or ``gs://bucket_name``."""  # noqa
     cache_dir = """Cache root, a local directory to cache cloud files."""
     user_name = """User name. Consider using the GitHub username."""
     user_id = """User name. Consider using the GitHub username."""
 
 
 class SettingsStore(BaseSettings):
-    storage_root: str
+    storage_dir: str
     cache_dir: str
     user_name: str
     user_id: str

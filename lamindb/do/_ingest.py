@@ -57,9 +57,9 @@ def ingest(filepath):
     from nbproject import meta, publish
 
     settings = setup.settings()
-    storage_root = settings.storage_root
+    storage_dir = settings.storage_dir
 
-    storage_root = Path(storage_root)
+    storage_dir = Path(storage_dir)
 
     filepath = Path(filepath)
     filename = filepath.name
@@ -70,7 +70,7 @@ def ingest(filepath):
 
     storage_name = str(filepath.stem) + f"--lndb-{file_id}" + str(filepath.suffix)
 
-    storage_path = storage_root / storage_name
+    storage_path = storage_dir / storage_name
 
     shutil.copyfile(filepath, storage_path)
 

@@ -11,9 +11,9 @@ def filepath(filekey: Union[Path, CloudPath, str]) -> Union[Path, CloudPath]:
     settings = setup.settings()
     if settings.cloud_storage:
         client = S3Client(local_cache_dir=settings.cache_dir)
-        return client.CloudPath(settings.storage_root / filekey)
+        return client.CloudPath(settings.storage_dir / filekey)
     else:
-        return settings.storage_root / filekey
+        return settings.storage_dir / filekey
 
 
 def local(filepath: Union[Path, CloudPath]) -> Path:

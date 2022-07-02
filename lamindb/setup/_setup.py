@@ -14,15 +14,15 @@ from ._settings import Settings, SettingsStore, _write, description, settings_fi
 DIRS = AppDirs("lamindb", "laminlabs")
 
 
-def setup_storage_root(storage: Union[str, Path, CloudPath]) -> Union[Path, CloudPath]:
+def setup_storage_dir(storage: Union[str, Path, CloudPath]) -> Union[Path, CloudPath]:
     if str(storage).startswith(("s3://", "gs://")):
-        storage_root = CloudPath(storage)
+        storage_dir = CloudPath(storage)
     else:
-        storage_root = Path(storage)
-        if not storage_root.exists():
-            storage_root.mkdir(parents=True)
+        storage_dir = Path(storage)
+        if not storage_dir.exists():
+            storage_dir.mkdir(parents=True)
 
-    return storage_root
+    return storage_dir
 
 
 def setup_cache_dir(
@@ -78,7 +78,7 @@ def setup_db(user_name):
     return user_id
 
 
-@doc_args(description.storage_root, description.user_name)
+@doc_args(description.storage_dir, description.user_name)
 def setup_from_cli(
     *,
     storage: str,
@@ -93,7 +93,7 @@ def setup_from_cli(
     settings = Settings()
 
     settings.user_name = user
-    settings.storage_root = setup_storage_root(storage)
+    settings.storage_dir = setup_storage_dir(storage)
     settings.cache_dir = setup_cache_dir(settings)
 
     _write(settings)
@@ -107,7 +107,7 @@ def setup_from_store(store: SettingsStore) -> Settings:
     settings = Settings()
 
     settings.user_name = store.user_name
-    settings.storage_root = setup_storage_root(store.storage_root)
+    settings.storage_dir = setup_storage_dir(store.storage_dir)
     settings.cache_dir = Path(store.cache_dir) if store.cache_dir != "null" else None
     settings.user_id = store.user_id
 
