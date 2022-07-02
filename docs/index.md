@@ -39,8 +39,8 @@ Get started:
 :hidden:
 
 tutorials/index
-guides/index
 examples/index
 api
+guides/index
 changelog
 ```
