@@ -1,60 +1,42 @@
 from pathlib import Path
 from typing import Union
 
+from appdirs import AppDirs
 from cloudpathlib import CloudPath
 
 from .._logger import logger
 from ..dev._docs import doc_args
-from ._settings import Settings, _write, description
+from ._settings import Settings, SettingsStore, _write, description, settings_file
 from ._setup_db import setup_db
 
+DIRS = AppDirs("lamindb", "laminlabs")
 
-def setup_storage(
-    storage_root: Union[str, Path, CloudPath] = None,
-    cache_root: Union[str, Path] = None,
-):
 
-    if storage_root is None:
-        storage_root = input(f"Please paste {description.storage_root}: ")
-
-    # check whether a local directory actually exists
-    if isinstance(storage_root, str) and storage_root.startswith(("s3://", "gs://")):
-        cloud_storage = True
-        storage_root = CloudPath(storage_root)
+def setup_storage_root(
+    storage: str,
+) -> Union[Path, CloudPath]:
+    if storage.startswith(("s3://", "gs://")):
+        storage_root = CloudPath(storage)
     else:
-        cloud_storage = False
-        storage_root = Path(storage_root)
+        storage_root = Path(storage)
         if not storage_root.exists():
-            logger.info(f"Creating storage directory {storage_root}.")
             storage_root.mkdir(parents=True)
 
-    if cloud_storage:
-        # define cache directory
-        parents = [Path("/users/shared/"), Path.home()]
-        examples = ", or ".join([str(p / ".lamindb" / "cache") for p in parents])
-        if cache_root is None:
-            cache_root = input(
-                f"Please paste {description.cache_root}, e.g., {examples}: "
-            )
-        cache_root = Path(cache_root)
+    return storage_root
+
+
+def setup_cache_root(
+    settings: Settings,
+) -> Union[Path, None]:
+
+    if settings.cloud_storage:
+        cache_root = Path(DIRS.user_cache_dir)
         if not cache_root.exists():
-            logger.info(f"Creating cache directory {cache_root}.")
             cache_root.mkdir(parents=True)
-        else:
-            logger.info(f"Using cache directory {cache_root}.")
     else:
-        # we do not need a cache as we're not working in the cloud
         cache_root = None
 
-    return storage_root, cache_root
-
-
-def setup_user(user: str = None):
-
-    if user is None:
-        user = input(f"Please provide your {description.user_name}: ")
-
-    return user
+    return cache_root
 
 
 def setup_notion(notion: str = None):
@@ -73,27 +55,49 @@ def setup_notion(notion: str = None):
     return dict(NOTION_API_KEY=notion)
 
 
-@doc_args(description.storage_root, description.cache_root, description.user_name)
-def setup(
+@doc_args(description.storage_root, description.user_name)
+def setup_from_cli(
     *,
-    storage: str = None,
-    cache: str = None,
-    user: str = None,
+    storage: str,
+    user: str,
 ) -> None:
     """Setup LaminDB. Alternative to using the CLI via `lamindb setup`.
 
     Args:
         storage: {}
-        cache: {}
         user: {}
     """
     settings = Settings()
 
-    settings.storage_root, settings.cache_root = setup_storage(storage, cache)
-    settings.user_name = setup_user(user)
+    settings.user_name = user
+    settings.storage_root = setup_storage_root(storage)
+    settings.cache_root = setup_cache_root(settings)
 
     _write(settings)
 
     settings.user_id = setup_db(settings.user_name)  # update settings with user_id
 
     _write(settings)  # type: ignore
+
+
+def setup_from_store(store: SettingsStore) -> Settings:
+    settings = Settings()
+
+    settings.user_name = store.user_name
+    settings.storage_root = setup_storage_root(store.storage_root)
+    settings.cache_root = Path(store.cache_root)
+    settings.user_id = store.user_id
+
+    return settings
+
+
+def settings() -> Settings:
+    """Return current settings."""
+    if not settings_file.exists():
+        logger.warning("Please setup lamindb via the CLI: lamindb setup")
+        global Settings
+        return Settings()
+    else:
+        settings_store = SettingsStore(_env_file=settings_file)
+        settings = setup_from_store(settings_store)
+        return settings

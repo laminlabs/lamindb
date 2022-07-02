@@ -8,8 +8,6 @@ aa = parser.add_argument
 aa("command", type=str, choices=["setup"], help="basic setup")
 STORAGE_HELP = description.storage_root
 aa("-s", "--storage", type=str, metavar="s", default=None, help=STORAGE_HELP)
-CACHE_HELP = description.cache_root
-aa("--cache", type=str, metavar="s", default=None, help=CACHE_HELP)
 USER_HELP = description.user_name
 aa("--user", type=str, metavar="s", default=None, help=USER_HELP)
 args = parser.parse_args()
@@ -17,8 +15,16 @@ args = parser.parse_args()
 
 def main():
     if args.command == "setup":
-        _setup.setup(
-            storage=args.storage,
-            cache=args.cache,
-            user=args.user,
+        if args.storage is None:
+            storage = input(f"Please paste {description.storage_root}: ")
+        else:
+            storage = args.storage
+        if args.user is None:
+            user = input(f"Please provide your {description.user_name}: ")
+        else:
+            user = args.storage
+
+        _setup.setup_from_cli(
+            storage=storage,
+            user=user,
         )

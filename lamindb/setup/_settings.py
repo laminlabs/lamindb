@@ -1,14 +1,12 @@
-import pickle
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Union
+from typing import Union, get_type_hints
 
 from cloudpathlib import CloudPath
-
-from .._logger import logger
+from pydantic import BaseSettings
 
 root_dir = Path(__file__).parent.resolve()
-settings_file = root_dir / "settings.pkl"
+settings_file = root_dir / ".env"
 
 
 @dataclass
@@ -55,18 +53,18 @@ class description:
     user_id = """User name. Consider using the GitHub username."""
 
 
+class SettingsStore(BaseSettings):
+    storage_root: str
+    cache_root: str
+    user_name: str
+    user_id: str
+
+    class Config:
+        env_file = ".env"
+
+
 def _write(settings: Settings):
-    with open(settings_file, "wb") as f:
-        pickle.dump(settings, f, protocol=4)
-
-
-def settings() -> Settings:
-    """Return current settings."""
-    if not settings_file.exists():
-        logger.warning("Please setup lamindb via the CLI: lamindb setup")
-        global Settings
-        return Settings()
-    else:
-        with open(settings_file, "rb") as f:
-            settings = pickle.load(f)
-        return settings
+    with open(settings_file, "w") as f:
+        for key, type in get_type_hints(SettingsStore).items():
+            value = type(getattr(settings, key))
+            f.write(f"{key}={value}")
