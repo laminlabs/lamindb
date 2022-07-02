@@ -16,6 +16,77 @@ class EventTacker:
         self.user_db_engine = None
         self.internal_db_engine = None
 
+    def track_create_user(self, user_name):
+
+        parameters = {
+            "name": user_name
+        }
+
+        user_db_instance = self.__insert_event_into_sql_lite(
+            self.__get_user_db_engine(),
+            db.model.user,
+            parameters
+        )
+
+        self.__insert_event_into_supabase(
+            self.__get_internal_db_engine(),
+            "user",
+            parameters
+        )
+
+        self.__insert_event_into_segment('Create user', parameters)
+
+        return user_db_instance
+
+    def track_create_file(self, name, interface_id):
+
+        parameters = {
+            "name": name,
+            "interface_id": interface_id
+        }
+
+        user_db_instance = self.__insert_event_into_sql_lite(
+            self.__get_user_db_engine(),
+            db.model.file,
+            parameters
+        )
+
+        self.__insert_event_into_supabase(
+            self.__get_internal_db_engine(),
+            "file",
+            parameters
+        )
+
+        self.__insert_event_into_segment('Create file', parameters)
+
+        return user_db_instance
+
+    def track_create_interface(self, interface_id, interface_name, interface_dependency, interface_type, user_id):
+        
+        parameters = {
+            "id": interface_id,
+            "name": interface_name,
+            "dependency": interface_dependency,
+            "type": interface_type,
+            "user_id": user_id
+        }
+
+        user_db_instance = self.__insert_event_into_sql_lite(
+            self.__get_user_db_engine(),
+            db.model.interface,
+            parameters
+        )
+
+        self.__insert_event_into_supabase(
+            self.__get_internal_db_engine(),
+            "interface",
+            parameters
+        )
+
+        self.__insert_event_into_segment('Create interface', parameters)
+
+        return user_db_instance
+
     def track_ingest(self, file_id):
 
         from nbproject import meta
@@ -35,7 +106,7 @@ class EventTacker:
 
         self.__insert_event_into_supabase(
             self.__get_internal_db_engine(),
-            "events_ingest",
+            "event_ingest",
             parameters
         )
 
