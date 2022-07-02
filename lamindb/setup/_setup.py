@@ -3,11 +3,13 @@ from typing import Union
 
 from appdirs import AppDirs
 from cloudpathlib import CloudPath
+from sqlmodel import SQLModel
+
+from lamindb.admin.db._engine import get_engine
 
 from .._logger import logger
 from ..dev._docs import doc_args
 from ._settings import Settings, SettingsStore, _write, description, settings_file
-from ._setup_db import setup_db
 
 DIRS = AppDirs("lamindb", "laminlabs")
 
@@ -53,6 +55,31 @@ def setup_notion(notion: str = None):
     return dict(NOTION_API_KEY=notion)
 
 
+def setup_db(user_name):
+    """Setup database.
+
+    Contains:
+    - Database creation.
+    - Sign-up and/or log-in.
+    """
+    from lamindb.admin.db import insert_if_not_exists
+
+    def create_db() -> None:
+        """Create database with initial schema."""
+        if settings()._db_file.exists():
+            return None
+
+        SQLModel.metadata.create_all(get_engine())
+
+        logger.info(f"Created database {settings().db}.")
+
+    create_db()
+
+    user_id = insert_if_not_exists.user(user_name)
+
+    return user_id
+
+
 @doc_args(description.storage_root, description.user_name)
 def setup_from_cli(
     *,
@@ -73,7 +100,7 @@ def setup_from_cli(
 
     _write(settings)
 
-    settings.user_id = setup_db(settings.user_name)  # update settings with user_id
+    settings.user_id = setup_db(settings.user_name)
 
     _write(settings)  # type: ignore
 
