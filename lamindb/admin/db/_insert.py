@@ -81,7 +81,7 @@ class insert:
                 session.add(interface)
                 session.commit()
             logger.info(
-                f"Added interface {interface_name!r} ({interface_id}) by user"
+                f"Added notebook {interface_name!r} ({interface_id}) by user"
                 f" {settings.user_name} ({settings.user_id})."
             )
 
