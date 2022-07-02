@@ -9,28 +9,30 @@ from lamindb import setup
 
 from ..admin.db import get_engine
 
+from ..utils import event_tracker
 
-def track_ingest(file_id):
-    engine = get_engine()
 
-    from nbproject import meta
-
-    user_id = setup.settings().user_id
-
-    interface_id = meta.store.id
-
-    with sqm.Session(engine) as session:
-        track_do = db.model.track_do(
-            type="ingest",
-            user_id=user_id,
-            interface_id=interface_id,
-            file_id=file_id,
-        )
-        session.add(track_do)
-        session.commit()
-        session.refresh(track_do)
-
-    return track_do.id
+#def track_ingest(file_id):
+#    engine = get_engine()
+#
+#    from nbproject import meta
+#
+#    user_id = setup.settings().user_id
+#
+#    interface_id = meta.store.id
+#
+#    with sqm.Session(engine) as session:
+#        track_do = db.model.track_do(
+#            type="ingest",
+#            user_id=user_id,
+#            interface_id=interface_id,
+#            file_id=file_id,
+#        )
+#        session.add(track_do)
+#        session.commit()
+#        session.refresh(track_do)
+#
+#    return track_do.id
 
 
 def ingest(filepath):
@@ -74,7 +76,8 @@ def ingest(filepath):
 
     shutil.copyfile(filepath, storage_path)
 
-    track_ingest(file_id)
+    #track_ingest(file_id)
+    event_tracker.track_ingest(file_id)
     logger.info(
         f"Added file {file_id} from notebook {meta.live.title!r} ({meta.store.id}) by"
         f" user {settings.user_name} ({settings.user_id}).",

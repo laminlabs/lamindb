@@ -20,6 +20,8 @@ dependencies = [
     "appdirs",
     "python-dotenv",
     "nbproject>=0.1.5",
+    "psycopg2-binary",
+    "segment-analytics-python"
 ]
 
 [project.urls]
