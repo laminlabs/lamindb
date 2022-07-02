@@ -29,7 +29,7 @@ pip install lamindb
 
 Get started:
 
-- [Quickstart](tutorials/quickstart) walks you through setting up a basic platform.
+- [Tutorials](tutorials/index) walks you through setup and usage of the platform.
 - Explore and play with real-world [examples](examples/index).
 - Browse the full [API reference](api).
 - Look up guides [guides](guides/index) that solve specific problems or illustrate common errors.

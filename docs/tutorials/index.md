@@ -3,8 +3,8 @@
 ```{toctree}
 :maxdepth: 1
 
-quickstart
+setup
 add-user
 introspect-data
-introduction
+concepts
 ```

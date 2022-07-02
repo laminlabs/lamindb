@@ -1,4 +1,4 @@
-# Introduction
+# Concepts
 
 **Problem:** We have some data from somewhere and we want to store it. We call this process _ingestion_.
 
