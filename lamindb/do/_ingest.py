@@ -11,7 +11,6 @@ from ..admin.db import get_engine
 
 
 def track_ingest(file_id):
-
     engine = get_engine()
 
     from nbproject import meta

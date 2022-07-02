@@ -5,7 +5,6 @@ from lamindb import setup
 
 
 def test_create_to_load():
-
     setup.setup(
         storage=Path.home() / "data",
         user="falexwolf",

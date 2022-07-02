@@ -28,7 +28,6 @@ def setup_storage_root(
 def setup_cache_root(
     settings: Settings,
 ) -> Union[Path, None]:
-
     if settings.cloud_storage:
         cache_root = Path(DIRS.user_cache_dir)
         if not cache_root.exists():
@@ -40,7 +39,6 @@ def setup_cache_root(
 
 
 def setup_notion(notion: str = None):
-
     NOTION_HELP = (
         "Notion integration token (currently dysfunctional, see"
         " https://lamin.ai/notes/2022/explore-notion)"
