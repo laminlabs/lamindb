@@ -78,7 +78,7 @@ def ingest(filepath):
     track_ingest(file_id)
     logger.info(
         f"Added file {file_id} from notebook {meta.live.title!r} ({meta.store.id}) by"
-        f" user {settings.user_name} (settings.user_id).",
+        f" user {settings.user_name} ({settings.user_id}).",
         flush=True,
     )
     publish(integrity=False)  # noqa
