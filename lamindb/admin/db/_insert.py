@@ -7,6 +7,7 @@ from ..._logger import logger
 from ...dev.id import id_file, id_user  # noqa
 from . import get_engine
 
+from ...utils import event_tracker
 
 class insert_if_not_exists:
     """Insert data if it does not yet exist."""
@@ -31,14 +32,7 @@ class insert:
     @classmethod
     def user(cls, user_name):
         """User."""
-        engine = get_engine()
-
-        with sqm.Session(engine) as session:
-            user = db.model.user(name=user_name)
-            session.add(user)
-            session.commit()
-            session.refresh(user)
-
+        user = event_tracker.track_create_user(user_name)
         return user.id
 
     @classmethod
@@ -68,27 +62,12 @@ class insert:
 
         df_interface = db.do.load("interface")
         if interface_id not in df_interface.index:
-            with sqm.Session(engine) as session:
-                # can remove underscore once we explicitly
-                # migrate to _id suffixes for id columns
-                interface = db.model.interface(
-                    id=interface_id,
-                    name=interface_name,
-                    dependency=interface_dependency,
-                    type=interface_type,
-                    user_id=settings.user_id,
-                )
-                session.add(interface)
-                session.commit()
+            event_tracker.track_create_interface(interface_id, interface_name, interface_dependency, interface_type, settings.user_id)
             logger.info(
                 f"Added notebook {interface_name!r} ({interface_id}) by user"
                 f" {settings.user_name} ({settings.user_id})."
             )
 
-        with sqm.Session(engine) as session:
-            file = db.model.file(name=name, interface_id=interface_id)
-            session.add(file)
-            session.commit()
-            session.refresh(file)
+        file = event_tracker.track_create_file(name, interface_id)
 
         return file.id
