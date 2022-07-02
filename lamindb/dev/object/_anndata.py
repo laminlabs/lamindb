@@ -17,7 +17,7 @@ def anndata_to_h5ad(adata: AnnData, filekey: str) -> Path:
     if settings.cloud_storage:
         # conversion to Path would trigger download of cache file below
         # hence, we use the `.parts` attribute in the following line
-        cache_file = settings.cache_root.joinpath(*path.parts[1:])  # type: ignore
+        cache_file = settings.cache_dir.joinpath(*path.parts[1:])  # type: ignore
         if not cache_file.parent.exists():
             cache_file.parent.mkdir()
         logger.debug(f"Writing cache file: {cache_file}.")

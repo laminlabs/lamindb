@@ -25,17 +25,17 @@ def setup_storage_root(storage: Union[str, Path, CloudPath]) -> Union[Path, Clou
     return storage_root
 
 
-def setup_cache_root(
+def setup_cache_dir(
     settings: Settings,
 ) -> Union[Path, None]:
     if settings.cloud_storage:
-        cache_root = Path(DIRS.user_cache_dir)
-        if not cache_root.exists():
-            cache_root.mkdir(parents=True)
+        cache_dir = Path(DIRS.user_cache_dir)
+        if not cache_dir.exists():
+            cache_dir.mkdir(parents=True)
     else:
-        cache_root = None
+        cache_dir = None
 
-    return cache_root
+    return cache_dir
 
 
 def setup_notion(notion: str = None):
@@ -94,7 +94,7 @@ def setup_from_cli(
 
     settings.user_name = user
     settings.storage_root = setup_storage_root(storage)
-    settings.cache_root = setup_cache_root(settings)
+    settings.cache_dir = setup_cache_dir(settings)
 
     _write(settings)
 
@@ -108,7 +108,7 @@ def setup_from_store(store: SettingsStore) -> Settings:
 
     settings.user_name = store.user_name
     settings.storage_root = setup_storage_root(store.storage_root)
-    settings.cache_root = Path(store.cache_root) if store.cache_root != "null" else None
+    settings.cache_dir = Path(store.cache_dir) if store.cache_dir != "null" else None
     settings.user_id = store.user_id
 
     return settings

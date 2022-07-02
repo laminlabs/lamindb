@@ -15,7 +15,7 @@ class Settings:
 
     storage_root: Union[CloudPath, Path] = None
     """Storage root. Either local dir, ``s3://bucket_name`` or ``gs://bucket_name``."""
-    cache_root: Union[Path, None] = None
+    cache_dir: Union[Path, None] = None
     """Cache root, a local directory to cache cloud files."""
     user_name: str = None  # type: ignore
     """User name. Consider using the GitHub username."""
@@ -33,7 +33,7 @@ class Settings:
         if not self.cloud_storage:
             location = self.storage_root
         else:
-            location = self.cache_root
+            location = self.cache_dir
         filename = str(location.stem).lower()  # type: ignore
         filepath = location / f"{filename}.lndb"  # type: ignore
         return filepath
@@ -48,14 +48,14 @@ class Settings:
 # I thought I had it work to read from the docstrings above, but doesn't seem so
 class description:
     storage_root = """Storage root. Either local dir, ``s3://bucket_name`` or ``gs://bucket_name``."""  # noqa
-    cache_root = """Cache root, a local directory to cache cloud files."""
+    cache_dir = """Cache root, a local directory to cache cloud files."""
     user_name = """User name. Consider using the GitHub username."""
     user_id = """User name. Consider using the GitHub username."""
 
 
 class SettingsStore(BaseSettings):
     storage_root: str
-    cache_root: str
+    cache_dir: str
     user_name: str
     user_id: str
 
