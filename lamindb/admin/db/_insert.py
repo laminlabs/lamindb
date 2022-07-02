@@ -1,13 +1,10 @@
-import sqlmodel as sqm
-
 import lamindb as db
 from lamindb import setup
 
 from ..._logger import logger
 from ...dev.id import id_file, id_user  # noqa
-from . import get_engine
-
 from ...utils import event_tracker
+
 
 class insert_if_not_exists:
     """Insert data if it does not yet exist."""
@@ -38,7 +35,6 @@ class insert:
     @classmethod
     def file(cls, name: str, *, interface_id: str = None, interface_name: str = None):
         """Data file with its origin."""
-        engine = get_engine()
         settings = setup.settings()
 
         if interface_id is None:
@@ -62,7 +58,13 @@ class insert:
 
         df_interface = db.do.load("interface")
         if interface_id not in df_interface.index:
-            event_tracker.track_create_interface(interface_id, interface_name, interface_dependency, interface_type, settings.user_id)
+            event_tracker.track_create_interface(
+                interface_id,
+                interface_name,
+                interface_dependency,
+                interface_type,
+                settings.user_id,
+            )
             logger.info(
                 f"Added notebook {interface_name!r} ({interface_id}) by user"
                 f" {settings.user_name} ({settings.user_id})."

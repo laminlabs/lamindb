@@ -1,123 +1,111 @@
-import lamindb as db
+import datetime
+
+import analytics
 import pandas as pd
 import sqlmodel as sqm
-from lamindb import setup
 from sqlalchemy import create_engine
+
+import lamindb as db
+from lamindb import setup
 
 from ..admin.db import get_engine
 
-import analytics
+analytics.write_key = "aBGwRpa5B1EGbYsQdHOqktau4pFnJdpE"
 
-analytics.write_key = 'aBGwRpa5B1EGbYsQdHOqktau4pFnJdpE'
 
 class EventTacker:
-
     def __init__(self):
         self.user_db_engine = None
         self.internal_db_engine = None
 
     def track_create_user(self, user_name):
+        parameters = {"name": user_name}
 
-        parameters = {
-            "name": user_name
-        }
-
-        user_db_instance = self.__insert_event_into_sql_lite(
-            self.__get_user_db_engine(),
-            db.model.user,
-            parameters
+        user_db_instance = self.__insert_event_into_sqlite(
+            self.__get_user_db_engine(), db.model.user, parameters
         )
 
         self.__insert_event_into_supabase(
-            self.__get_internal_db_engine(),
-            "user",
-            parameters
+            self.__get_internal_db_engine(), "user", parameters
         )
 
-        self.__insert_event_into_segment('Create user', parameters)
+        analytics.identify(
+            user_db_instance.id,
+            {"name": user_name, "created_at": datetime.datetime.now()},
+        )
+
+        self.__insert_event_into_segment("Create user", parameters)
 
         return user_db_instance
 
     def track_create_file(self, name, interface_id):
+        parameters = {"name": name, "interface_id": interface_id}
 
-        parameters = {
-            "name": name,
-            "interface_id": interface_id
-        }
-
-        user_db_instance = self.__insert_event_into_sql_lite(
-            self.__get_user_db_engine(),
-            db.model.file,
-            parameters
+        user_db_instance = self.__insert_event_into_sqlite(
+            self.__get_user_db_engine(), db.model.file, parameters
         )
 
         self.__insert_event_into_supabase(
-            self.__get_internal_db_engine(),
-            "file",
-            parameters
+            self.__get_internal_db_engine(), "file", parameters
         )
 
-        self.__insert_event_into_segment('Create file', parameters)
+        self.__insert_event_into_segment("Create file", parameters)
 
         return user_db_instance
 
-    def track_create_interface(self, interface_id, interface_name, interface_dependency, interface_type, user_id):
-        
+    def track_create_interface(
+        self,
+        interface_id,
+        interface_name,
+        interface_dependency,
+        interface_type,
+        user_id,
+    ):
         parameters = {
             "id": interface_id,
             "name": interface_name,
             "dependency": interface_dependency,
             "type": interface_type,
-            "user_id": user_id
+            "user_id": user_id,
         }
 
-        user_db_instance = self.__insert_event_into_sql_lite(
-            self.__get_user_db_engine(),
-            db.model.interface,
-            parameters
+        user_db_instance = self.__insert_event_into_sqlite(
+            self.__get_user_db_engine(), db.model.interface, parameters
         )
 
         self.__insert_event_into_supabase(
-            self.__get_internal_db_engine(),
-            "interface",
-            parameters
+            self.__get_internal_db_engine(), "interface", parameters
         )
 
-        self.__insert_event_into_segment('Create interface', parameters)
+        self.__insert_event_into_segment("Create interface", parameters)
 
         return user_db_instance
 
     def track_ingest(self, file_id):
-
         from nbproject import meta
 
         parameters = {
             "type": "ingest",
             "user_id": setup.settings().user_id,
             "interface_id": meta.store.id,
-            "file_id": file_id
+            "file_id": file_id,
         }
 
-        user_db_instance = self.__insert_event_into_sql_lite(
-            self.__get_user_db_engine(),
-            db.model.track_do,
-            parameters
+        user_db_instance = self.__insert_event_into_sqlite(
+            self.__get_user_db_engine(), db.model.track_do, parameters
         )
 
         self.__insert_event_into_supabase(
-            self.__get_internal_db_engine(),
-            "event_ingest",
-            parameters
+            self.__get_internal_db_engine(), "event_ingest", parameters
         )
 
-        self.__insert_event_into_segment('Ingest', parameters)
+        self.__insert_event_into_segment("Ingest", parameters)
 
         return user_db_instance
 
-    ### Helpers function to insert data into different kind of databases
+    # Helpers function to insert data into different kind of databases
 
-    def __insert_event_into_sql_lite(self, engine, sql_lite_model, params):
-
+    def __insert_event_into_sqlite(self, engine, sql_lite_model, params):
         with sqm.Session(engine) as session:
             instance = sql_lite_model(**params)
             session.add(instance)
@@ -128,13 +116,12 @@ class EventTacker:
 
     def __insert_event_into_supabase(self, engine, table_name, params):
         df = pd.DataFrame([params])
-        df.to_sql(table_name, engine,
-                  if_exists="append", index=False)
+        df.to_sql(table_name, engine, if_exists="append", index=False)
 
     def __insert_event_into_segment(self, event_name, parameters):
         analytics.track(setup.settings().user_id, event_name, parameters)
 
-    ### Helpers function to get db engine
+    # Helpers function to get db engine
 
     def __get_user_db_engine(self):
         if self.user_db_engine is None:
@@ -142,7 +129,9 @@ class EventTacker:
         return self.user_db_engine
 
     def __get_internal_db_engine(self):
+        host = "db.dzmuroeojlpdhyqfwyjt.supabase.co"
         if self.internal_db_engine is None:
             self.internal_db_engine = create_engine(
-                "postgresql://postgres:B9N!dajGJ2M2@db.dzmuroeojlpdhyqfwyjt.supabase.co:5432/postgres")
+                f"postgresql://postgres:B9N!dajGJ2M2@{host}:5432/postgres"
+            )
         return self.internal_db_engine
