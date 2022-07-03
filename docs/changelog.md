@@ -7,6 +7,7 @@ Towards version 0.1.
 <!-- prettier-ignore -->
 Name | PR | User | Date | Patch
 --- | --- | --- | --- | ---
+:recycle: Refactor file storage | [54](https://github.com/laminlabs/lamindb/pull/54) | [falexwolf](https://github.com/falexwolf) | 2022-07-03 |
 ♻️ Refactor settings | [52](https://github.com/laminlabs/lamindb/pull/52) | [falexwolf](https://github.com/falexwolf) | 2022-07-02 | 0.0.5
 👷 Switch to nbproject tests & clean up logging | [51](https://github.com/laminlabs/lamindb/pull/51) | [falexwolf](https://github.com/falexwolf) | 2022-07-01 |
 :sparkles: Use nbproject publish functionality | [50](https://github.com/laminlabs/lamindb/pull/50) | [falexwolf](https://github.com/falexwolf) | 2022-07-01 |
