@@ -3,22 +3,21 @@
 :end-line: 4
 ```
 
+_For background, see [Lamin Blog #3 (2022)](https://lamin.ai/notes/2022/lamindb)._
+
 Interactively curate, store, track, query, and learn from biological data across users and organizations.
 
-Speak SQL & pydata, embrace biological entities & data provenance, and migrate data models & backends with ease.
+Speaks SQL & pydata in queries for biological entities & data provenance. Built for migrations and zero-lock-in.
 
 Features:
 
-- Query by & track data provenance on the pipeline- & data-science-level using [nbproject](https://lamin.ai/nbproject).
-- Integrate data across organizations & users by virtue of universal backends and IDs.
-- Easily migrate the default schema to whatever you need. Migrate storage & database backends with ease.
-- Ingest any data file from any measurement device and receive guidance for integrating and querying it.
+- Query & track data provenance for pipeline (TODO) & data-science ([nbproject](https://lamin.ai/nbproject)) workflows.
+- Query by canonical biological entities ([Bionty](https://lamin.ai/bionty)) to avoid semantic silos.
+- Track all user modifications of data.
+- Integrate data across users & organizations through universal IDs, backends and overlapping schema.
+- Easily migrate the default schema and storage & database backends.
+- Ingest data from any instrument and receive guidance for integrating and querying it (TODO).
 - Built for the alternating cycle of learning from data and querying data across measured → relevant → derived features.
-- Track everything with a full access log: Never lose anything again, fix corrupted data without breaking results, and get rid of unused data.
-
-Upcoming features:
-
-- Query by & standardize against [Bionty](https://lamin.ai/bionty) to avoid semantic mess & data silos through ad hoc conventions.
 - Balance pragmatic, fast-paced R&D iterations and robustness by allowing partial annotations combined with quality & integrity flags.
 
 Install:
