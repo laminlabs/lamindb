@@ -77,4 +77,4 @@ def ingest(filepath):
         f" user {settings.user_name} ({settings.user_id}).",
         flush=True,
     )
-    publish(integrity=False)  # noqa
+    publish()

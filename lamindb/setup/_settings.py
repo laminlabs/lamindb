@@ -21,6 +21,8 @@ class Settings:
     """User name. Consider using the GitHub username."""
     user_id: Union[str, None] = None
     """User name. Consider using the GitHub username."""
+    instance_name: str = None  # type: ignore
+    """Name of LaminDB instance, which corresponds to exactly one backend database."""
 
     @property
     def cloud_storage(self) -> bool:
@@ -51,6 +53,7 @@ class description:
     cache_dir = """Cache root, a local directory to cache cloud files."""
     user_name = """User name. Consider using the GitHub username."""
     user_id = """User name. Consider using the GitHub username."""
+    instance_name = """Name of LaminDB instance, which corresponds to exactly one backend database."""  # noqa
 
 
 class SettingsStore(BaseSettings):
@@ -58,6 +61,7 @@ class SettingsStore(BaseSettings):
     cache_dir: str
     user_name: str
     user_id: str
+    instance_name: str
 
     class Config:
         env_file = ".env"

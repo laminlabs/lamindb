@@ -29,7 +29,7 @@ def setup_cache_dir(
     settings: Settings,
 ) -> Union[Path, None]:
     if settings.cloud_storage:
-        cache_dir = Path(DIRS.user_cache_dir)
+        cache_dir = Path(DIRS.user_cache_dir) / settings.instance_name
         if not cache_dir.exists():
             cache_dir.mkdir(parents=True)
     else:
@@ -78,22 +78,25 @@ def setup_db(user_name):
     return user_id
 
 
-@doc_args(description.storage_dir, description.user_name)
+@doc_args(description.storage_dir, description.instance_name, description.user_name)
 def setup_from_cli(
     *,
     storage: str,
+    instance: str,
     user: str,
 ) -> None:
     """Setup LaminDB. Alternative to using the CLI via `lamindb setup`.
 
     Args:
         storage: {}
+        instance: {}
         user: {}
     """
     settings = Settings()
 
     settings.user_name = user
     settings.storage_dir = setup_storage_dir(storage)
+    settings.instance_name = instance
     settings.cache_dir = setup_cache_dir(settings)
 
     _write(settings)
