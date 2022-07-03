@@ -1,4 +1,3 @@
-import shutil
 from pathlib import Path
 
 import sqlmodel as sqm
@@ -8,6 +7,7 @@ import lamindb as db
 from lamindb import setup
 
 from ..admin.db import get_engine
+from ..dev.file import store_file
 
 
 def track_ingest(file_id):
@@ -68,11 +68,8 @@ def ingest(filepath):
 
     file_id = insert.file(filename)
 
-    storage_name = str(filepath.stem) + f"--lndb-{file_id}" + str(filepath.suffix)
-
-    storage_path = storage_dir / storage_name
-
-    shutil.copyfile(filepath, storage_path)
+    filekey = f"{file_id}.{filepath.suffix}"
+    store_file(filepath, filekey)
 
     track_ingest(file_id)
     logger.info(
