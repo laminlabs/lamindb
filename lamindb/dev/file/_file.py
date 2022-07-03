@@ -1,3 +1,4 @@
+import shutil
 from pathlib import Path
 from typing import Union
 
@@ -6,7 +7,7 @@ from cloudpathlib import CloudPath, S3Client
 from lamindb import setup
 
 
-def filepath(filekey: Union[Path, CloudPath, str]) -> Union[Path, CloudPath]:
+def storage_filepath(filekey: Union[Path, CloudPath, str]) -> Union[Path, CloudPath]:
     """Cloud or local filepath from filekey."""
     settings = setup.settings()
     if settings.cloud_storage:
@@ -25,4 +26,13 @@ def local(filepath: Union[Path, CloudPath]) -> Path:
 
 def local_filepath(filekey: Union[Path, CloudPath, str]) -> Path:
     """Local (cache) filepath from filekey: `local(filepath(...))`."""
-    return local(filepath(filekey))
+    return local(storage_filepath(filekey))
+
+
+def store_file(filepath: Union[str, Path], filekey: str):
+    """Store png file."""
+    storage_path = storage_filepath(filekey)
+    if isinstance(storage_path, CloudPath):
+        storage_path.upload_from(filepath)
+    else:
+        shutil.copyfile(filepath, storage_path)
