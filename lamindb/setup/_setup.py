@@ -81,7 +81,7 @@ def setup_db(user_name):
 @doc_args(description.storage_dir, description.user_name, description.instance_name)
 def setup_from_cli(
     *,
-    storage: str,
+    storage: Union[str, Path, CloudPath],
     user: str,
     instance: Union[str, None] = None,
 ) -> None:
@@ -100,10 +100,11 @@ def setup_from_cli(
 
     # setup instance
     if instance is None:
+        storage = str(storage)
         if storage.startswith(("s3://", "gs://")):
             instance = storage.replace("s3://", "")
         else:
-            instance = Path(storage).stem
+            instance = str(Path(storage).stem)
     settings.instance_name = instance
 
     # setup cache_dir
@@ -123,6 +124,7 @@ def setup_from_store(store: SettingsStore) -> Settings:
     settings.storage_dir = setup_storage_dir(store.storage_dir)
     settings.cache_dir = Path(store.cache_dir) if store.cache_dir != "null" else None
     settings.user_id = store.user_id
+    settings.instance_name = store.instance_name
 
     return settings
 
