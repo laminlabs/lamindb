@@ -11,6 +11,9 @@ aa("-s", "--storage", type=str, metavar="s", default=None, help=STORAGE_HELP)
 USER_HELP = description.user_name
 aa("--user", type=str, metavar="s", default=None, help=USER_HELP)
 args = parser.parse_args()
+INSTANCE_HELP = description.instance_name
+aa("--instance", type=str, metavar="s", default=None, help=INSTANCE_HELP)
+args = parser.parse_args()
 
 
 def main():
@@ -27,4 +30,5 @@ def main():
         _setup.setup_from_cli(
             storage=storage,
             user=user,
+            instance=args.instance,
         )

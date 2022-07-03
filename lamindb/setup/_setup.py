@@ -29,7 +29,7 @@ def setup_cache_dir(
     settings: Settings,
 ) -> Union[Path, None]:
     if settings.cloud_storage:
-        cache_dir = Path(DIRS.user_cache_dir)
+        cache_dir = Path(DIRS.user_cache_dir) / settings.instance_name
         if not cache_dir.exists():
             cache_dir.mkdir(parents=True)
     else:
@@ -78,22 +78,36 @@ def setup_db(user_name):
     return user_id
 
 
-@doc_args(description.storage_dir, description.user_name)
+@doc_args(description.storage_dir, description.user_name, description.instance_name)
 def setup_from_cli(
     *,
-    storage: str,
+    storage: Union[str, Path, CloudPath],
     user: str,
+    instance: Union[str, None] = None,
 ) -> None:
     """Setup LaminDB. Alternative to using the CLI via `lamindb setup`.
 
     Args:
         storage: {}
         user: {}
+        instance: {}
     """
     settings = Settings()
 
+    # setup user & storage
     settings.user_name = user
     settings.storage_dir = setup_storage_dir(storage)
+
+    # setup instance
+    if instance is None:
+        storage = str(storage)
+        if storage.startswith(("s3://", "gs://")):
+            instance = storage.replace("s3://", "")
+        else:
+            instance = str(Path(storage).stem)
+    settings.instance_name = instance
+
+    # setup cache_dir
     settings.cache_dir = setup_cache_dir(settings)
 
     _write(settings)
@@ -110,6 +124,7 @@ def setup_from_store(store: SettingsStore) -> Settings:
     settings.storage_dir = setup_storage_dir(store.storage_dir)
     settings.cache_dir = Path(store.cache_dir) if store.cache_dir != "null" else None
     settings.user_id = store.user_id
+    settings.instance_name = store.instance_name
 
     return settings
 
