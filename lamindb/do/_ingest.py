@@ -1,18 +1,13 @@
 import shutil
 from pathlib import Path
 
-import sqlmodel as sqm
 from loguru import logger
 
-import lamindb as db
 from lamindb import setup
-
-from ..admin.db import get_engine
 
 from ..utils import event_tracker
 
-
-#def track_ingest(file_id):
+# def track_ingest(file_id):
 #    engine = get_engine()
 #
 #    from nbproject import meta
@@ -76,7 +71,7 @@ def ingest(filepath):
 
     shutil.copyfile(filepath, storage_path)
 
-    #track_ingest(file_id)
+    # track_ingest(file_id)
     event_tracker.track_ingest(file_id)
     logger.info(
         f"Added file {file_id} from notebook {meta.live.title!r} ({meta.store.id}) by"
