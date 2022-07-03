@@ -7,10 +7,10 @@ Towards version 0.1.
 <!-- prettier-ignore -->
 Name | PR | User | Date | Patch
 --- | --- | --- | --- | ---
-:recycle: Refactor file storage | [54](https://github.com/laminlabs/lamindb/pull/54) | [falexwolf](https://github.com/falexwolf) | 2022-07-03 |
+♻️ Refactor file storage | [54](https://github.com/laminlabs/lamindb/pull/54) | [falexwolf](https://github.com/falexwolf) | 2022-07-03 | 0.0.6
 ♻️ Refactor settings | [52](https://github.com/laminlabs/lamindb/pull/52) | [falexwolf](https://github.com/falexwolf) | 2022-07-02 | 0.0.5
 👷 Switch to nbproject tests & clean up logging | [51](https://github.com/laminlabs/lamindb/pull/51) | [falexwolf](https://github.com/falexwolf) | 2022-07-01 |
-:sparkles: Use nbproject publish functionality | [50](https://github.com/laminlabs/lamindb/pull/50) | [falexwolf](https://github.com/falexwolf) | 2022-07-01 |
+✨ Use nbproject publish functionality | [50](https://github.com/laminlabs/lamindb/pull/50) | [falexwolf](https://github.com/falexwolf) | 2022-07-01 |
 🚚 Rename tutorial to tutorials | [49](https://github.com/laminlabs/lamindb/pull/49) | [falexwolf](https://github.com/falexwolf) | 2022-06-29 |
 👷 Measure coverage | [48](https://github.com/laminlabs/lamindb/pull/48) | [sunnyosun](https://github.com/sunnyosun) | 2022-06-26 |
 🏗️ Settings: From pydantic BaseModel to custom class | [46](https://github.com/laminlabs/lamindb/pull/46) | [falexwolf](https://github.com/falexwolf) | 2022-06-25 |
@@ -18,7 +18,7 @@ Name | PR | User | Date | Patch
 ⬆️ Upgrade to nbproject 0.1a3 | [43](https://github.com/laminlabs/lamindb/pull/43) | [falexwolf](https://github.com/falexwolf) | 2022-06-23 |
 📝 One-page layout for data models | [42](https://github.com/laminlabs/lamindb/pull/42) | [falexwolf](https://github.com/falexwolf) | 2022-06-14 |
 ♻️ More explicit `_id` name for such fields | [41](https://github.com/laminlabs/lamindb/pull/41) | [falexwolf](https://github.com/falexwolf) | 2022-06-14 |
-:recycle: Migrate from sql to sqm everywhere | [40](https://github.com/laminlabs/lamindb/pull/40) | [falexwolf](https://github.com/falexwolf) | 2022-06-14 |
+♻️ Migrate from sql to sqm everywhere | [40](https://github.com/laminlabs/lamindb/pull/40) | [falexwolf](https://github.com/falexwolf) | 2022-06-14 |
 ✨ Implement data access log `track.do` | [39](https://github.com/laminlabs/lamindb/pull/39) | [falexwolf](https://github.com/falexwolf) | 2022-06-12 | 0.0.4
 🏗️ Re-organize API | [38](https://github.com/laminlabs/lamindb/pull/38) | [falexwolf](https://github.com/falexwolf) | 2022-06-12 |
 🏗️ Set up db with sqlmodel, test int ids | [37](https://github.com/laminlabs/lamindb/pull/37) | [falexwolf](https://github.com/falexwolf) | 2022-06-11 |

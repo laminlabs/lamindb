@@ -18,7 +18,7 @@ Browse the API:
    admin
 """
 
-__version__ = "0.0.5"
+__version__ = "0.0.6"
 from . import admin  # noqa
 from . import dev  # noqa
 from . import do  # noqa
