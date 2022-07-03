@@ -68,7 +68,7 @@ def ingest(filepath):
 
     file_id = insert.file(filename)
 
-    filekey = f"{file_id}.{filepath.suffix}"
+    filekey = f"{file_id}{filepath.suffix}"
     store_file(filepath, filekey)
 
     track_ingest(file_id)
