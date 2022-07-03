@@ -78,25 +78,35 @@ def setup_db(user_name):
     return user_id
 
 
-@doc_args(description.storage_dir, description.instance_name, description.user_name)
+@doc_args(description.storage_dir, description.user_name, description.instance_name)
 def setup_from_cli(
     *,
     storage: str,
-    instance: str,
     user: str,
+    instance: Union[str, None] = None,
 ) -> None:
     """Setup LaminDB. Alternative to using the CLI via `lamindb setup`.
 
     Args:
         storage: {}
-        instance: {}
         user: {}
+        instance: {}
     """
     settings = Settings()
 
+    # setup user & storage
     settings.user_name = user
     settings.storage_dir = setup_storage_dir(storage)
+
+    # setup instance
+    if instance is None:
+        if storage.startswith(("s3://", "gs://")):
+            instance = storage.replace("s3://", "")
+        else:
+            instance = Path(storage).stem
     settings.instance_name = instance
+
+    # setup cache_dir
     settings.cache_dir = setup_cache_dir(settings)
 
     _write(settings)

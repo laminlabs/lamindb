@@ -1,5 +1,4 @@
 import argparse
-from pathlib import Path
 
 from .setup import _setup
 from .setup._settings import description
@@ -23,13 +22,6 @@ def main():
             storage = input(f"Please paste {description.storage_dir}: ")
         else:
             storage = args.storage
-        if args.instance is None:
-            if args.storage.startswith(("s3://", "gs://")):
-                instance = args.storage.replace("s3://", "")
-            else:
-                instance = Path(args.storage).stem
-        else:
-            instance = args.instance
         if args.user is None:
             user = input(f"Please provide your {description.user_name}: ")
         else:
@@ -37,6 +29,6 @@ def main():
 
         _setup.setup_from_cli(
             storage=storage,
-            instance=instance,
             user=user,
+            instance=args.instance,
         )
