@@ -4,18 +4,20 @@ import sqlmodel as sqm
 from loguru import logger
 
 import lamindb as db
-from lamindb import setup
+from lamindb.setup import load_settings
 
 from ..admin.db import get_engine
 from ..dev.file import store_file
 
 
-def track_ingest(dobject_id, settings):
+def track_ingest(dobject_id):
     engine = get_engine()
 
     from nbproject import meta
 
-    user_id = setup.settings().user_id
+    settings = load_settings()
+
+    user_id = settings.user_id
 
     interface_id = meta.store.id
 
@@ -58,7 +60,7 @@ def ingest(filepath):
     """
     from nbproject import meta, publish
 
-    settings = setup.load_settings()
+    settings = load_settings()
     storage_dir = settings.storage_dir
 
     storage_dir = Path(storage_dir)
@@ -73,7 +75,7 @@ def ingest(filepath):
     dobjectkey = f"{dobject_id}{filepath.suffix}"
     store_file(filepath, dobjectkey)
 
-    track_ingest(dobject_id, settings)
+    track_ingest(dobject_id)
 
     logger.info(
         f"Added dobject {dobject_id} from notebook"
