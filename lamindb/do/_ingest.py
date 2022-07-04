@@ -10,7 +10,7 @@ from ..admin.db import get_engine
 from ..dev.file import store_file
 
 
-def track_ingest(dobject_id):
+def track_ingest(dobject_id, settings):
     engine = get_engine()
 
     from nbproject import meta
@@ -29,6 +29,8 @@ def track_ingest(dobject_id):
         session.add(track_do)
         session.commit()
         session.refresh(track_do)
+
+    settings._update_cloud_sqlite_file()
 
     return track_do.id
 
@@ -56,7 +58,7 @@ def ingest(filepath):
     """
     from nbproject import meta, publish
 
-    settings = setup.settings()
+    settings = setup.load_settings()
     storage_dir = settings.storage_dir
 
     storage_dir = Path(storage_dir)
@@ -71,7 +73,8 @@ def ingest(filepath):
     dobjectkey = f"{dobject_id}{filepath.suffix}"
     store_file(filepath, dobjectkey)
 
-    track_ingest(dobject_id)
+    track_ingest(dobject_id, settings)
+
     logger.info(
         f"Added dobject {dobject_id} from notebook"
         f" {meta.live.title!r} ({meta.store.id}) by user"
