@@ -13,8 +13,12 @@ def anndata_to_h5ad(adata: AnnData, filekey: str) -> Path:
     settings = load_settings()
     path = storage_filepath(filekey)
     if settings.cloud_storage:
-        # conversion to Path would trigger download of cache file below
-        # hence, we use the `.parts` attribute in the following line
+        # conversion to Path via local_filepath()
+        # would trigger download of remote file to cache if there already
+        # is one
+        # as we don't want this, as this is a pure write operation
+        # we manually construct the local file path
+        # using the `.parts` attribute in the following line
         cache_file = settings.cache_dir.joinpath(*path.parts[1:])  # type: ignore
         if not cache_file.parent.exists():
             cache_file.parent.mkdir()

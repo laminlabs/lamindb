@@ -24,7 +24,7 @@ def setup_cache_dir(
     settings: Settings,
 ) -> Union[Path, None]:
     if settings.cloud_storage:
-        cache_dir = Path(DIRS.user_cache_dir) / settings.instance_name
+        cache_dir = Path(DIRS.user_cache_dir)
         if not cache_dir.exists():
             cache_dir.mkdir(parents=True)
     else:
@@ -59,12 +59,16 @@ def setup_db(user_name):
 
     def create_db() -> None:
         """Create database with initial schema."""
-        if load_settings()._db_file.exists():
+        settings = load_settings()
+        sqlite_file = settings._sqlite_file
+        if sqlite_file.exists():
+            logger.info(f"Using DB instance {settings.instance_name} at {sqlite_file}")
             return None
 
         SQLModel.metadata.create_all(get_engine())
 
-        logger.info(f"Created database {load_settings().db}.")
+        logger.info(f"Created DB instance {settings.instance_name} at {sqlite_file}.")
+        settings._update_cloud_sqlite_file()
 
     create_db()
 

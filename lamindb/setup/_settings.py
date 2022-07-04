@@ -11,16 +11,6 @@ root_dir = Path(__file__).parent.resolve()
 settings_file = root_dir / ".env"
 
 
-# A mere tool for quick access to the docstrings above
-# I thought I had it work to read from the docstrings above, but doesn't seem so
-class description:
-    storage_dir = """Storage root. Either local dir, ``s3://bucket_name`` or ``gs://bucket_name``."""  # noqa
-    cache_dir = """Cache root, a local directory to cache cloud files."""
-    user_name = """User name. Consider using the GitHub username."""
-    user_id = """User name. Consider using the GitHub username."""
-    instance_name = """Name of LaminDB instance, which corresponds to exactly one backend database."""  # noqa
-
-
 def storage_filepath(filekey: Union[Path, CloudPath, str]) -> Union[Path, CloudPath]:
     """Cloud or local filepath from filekey."""
     settings = load_settings()
@@ -31,7 +21,7 @@ def storage_filepath(filekey: Union[Path, CloudPath, str]) -> Union[Path, CloudP
         return settings.storage_dir / filekey
 
 
-def local(filepath: Union[Path, CloudPath]) -> Path:
+def cloud_to_local(filepath: Union[Path, CloudPath]) -> Path:
     """Local (cache) filepath from filepath."""
     if load_settings().cloud_storage:
         filepath = filepath.fspath  # type: ignore  # mypy misses CloudPath
@@ -40,7 +30,17 @@ def local(filepath: Union[Path, CloudPath]) -> Path:
 
 def local_filepath(filekey: Union[Path, CloudPath, str]) -> Path:
     """Local (cache) filepath from filekey: `local(filepath(...))`."""
-    return local(storage_filepath(filekey))
+    return cloud_to_local(storage_filepath(filekey))
+
+
+# A mere tool for quick access to the docstrings above
+# I thought I had it work to read from the docstrings above, but doesn't seem so
+class description:
+    storage_dir = """Storage root. Either local dir, ``s3://bucket_name`` or ``gs://bucket_name``."""  # noqa
+    cache_dir = """Cache root, a local directory to cache cloud files."""
+    user_name = """User name. Consider using the GitHub username."""
+    user_id = """User name. Consider using the GitHub username."""
+    instance_name = """Name of LaminDB instance, which corresponds to exactly one backend database."""  # noqa
 
 
 @dataclass
@@ -64,17 +64,26 @@ class Settings:
         return isinstance(self.storage_dir, CloudPath)
 
     @property
-    def _db_file(self) -> Union[Path, CloudPath]:
-        """Database SQLite filepath."""
-        location = self.storage_dir
-        filename = str(location.stem).lower()  # type: ignore
-        filepath = location / f"{filename}.lndb"  # type: ignore
-        return filepath
+    def _sqlite_file(self) -> Union[Path, CloudPath]:
+        """Database SQLite filepath.
+
+        Is a CloudPath if on S3, otherwise a Path.
+        """
+        filename = str(self.storage_dir.stem).lower()  # type: ignore
+        return storage_filepath(f"{filename}.lndb")
+
+    def _update_cloud_sqlite_file(self):
+        """If on cloud storage, update remote file."""
+        if self.cloud_storage:
+            sqlite_file = self._sqlite_file
+            sqlite_file.upload_from(cloud_to_local(sqlite_file))
 
     @property
     def db(self) -> str:
         """Database URL."""
-        return f"sqlite:///{local_filepath(self._db_file)}"
+        # the great thing about cloudpathlib is that it downloads the
+        # remote file to cache as soon as the time stamp is out of date
+        return f"sqlite:///{cloud_to_local(self._sqlite_file)}"
 
 
 def write_settings(settings: Settings):

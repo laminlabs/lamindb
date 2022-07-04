@@ -5,6 +5,7 @@ from lamindb import setup
 
 from ..._logger import logger
 from ...dev.id import id_dobject, id_user  # noqa
+from ...setup import load_settings
 from . import get_engine
 
 
@@ -38,6 +39,8 @@ class insert:
             session.add(user)
             session.commit()
             session.refresh(user)
+
+        load_settings()._update_cloud_sqlite_file()
 
         return user.id
 
@@ -92,5 +95,7 @@ class insert:
             session.add(dobject)
             session.commit()
             session.refresh(dobject)
+
+        load_settings()._update_cloud_sqlite_file()
 
         return dobject.id
