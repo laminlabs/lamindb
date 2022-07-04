@@ -10,7 +10,7 @@ def test_create_to_load():
         user="falexwolf",
     )
 
-    lndb.admin.db.insert.file("test_file.csv", interface_id="83jf")
+    lndb.admin.db.insert.dobject("test_file.csv", interface_id="83jf")
     for entity in lndb.track.schema.entities:
         lndb.do.load(entity)
 
