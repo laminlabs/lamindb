@@ -17,7 +17,7 @@ def lint(session: nox.Session) -> None:
 def build(session):
     session.install(".[dev,test]")
     session.run(
-        "lamindb",
+        "lndb",
         "setup",
         # "--notion",
         # os.environ["NOTION_API_KEY"],
