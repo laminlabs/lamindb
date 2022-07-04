@@ -28,6 +28,19 @@ def cloud_to_local(filepath: Union[Path, CloudPath]) -> Path:
     return filepath
 
 
+# conversion to Path via cloud_to_local()
+# would trigger download of remote file to cache if there already
+# is one
+# as we don't want this, as this is a pure write operation
+# we manually construct the local file path
+# using the `.parts` attribute in the following line
+def cloud_to_local_no_update(filepath: Union[Path, CloudPath]) -> Path:
+    settings = load_settings()
+    if settings.cloud_storage:
+        return settings.cache_dir.joinpath(*filepath.parts[1:])  # type: ignore
+    return filepath
+
+
 def local_filepath(filekey: Union[Path, CloudPath, str]) -> Path:
     """Local (cache) filepath from filekey: `local(filepath(...))`."""
     return cloud_to_local(storage_filepath(filekey))
@@ -76,7 +89,8 @@ class Settings:
         """If on cloud storage, update remote file."""
         if self.cloud_storage:
             sqlite_file = self._sqlite_file
-            sqlite_file.upload_from(cloud_to_local(sqlite_file))
+            cache_file = cloud_to_local_no_update(sqlite_file)
+            sqlite_file.upload_from(cache_file)
 
     @property
     def db(self) -> str:

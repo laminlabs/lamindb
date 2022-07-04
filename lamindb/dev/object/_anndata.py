@@ -4,7 +4,7 @@ from anndata import AnnData
 from typeguard import typechecked
 
 from ..._logger import logger
-from ...setup._settings import load_settings, storage_filepath
+from ...setup._settings import cloud_to_local_no_update, load_settings, storage_filepath
 
 
 @typechecked
@@ -13,13 +13,7 @@ def anndata_to_h5ad(adata: AnnData, filekey: str) -> Path:
     settings = load_settings()
     path = storage_filepath(filekey)
     if settings.cloud_storage:
-        # conversion to Path via local_filepath()
-        # would trigger download of remote file to cache if there already
-        # is one
-        # as we don't want this, as this is a pure write operation
-        # we manually construct the local file path
-        # using the `.parts` attribute in the following line
-        cache_file = settings.cache_dir.joinpath(*path.parts[1:])  # type: ignore
+        cache_file = cloud_to_local_no_update(path)  # type: ignore
         if not cache_file.parent.exists():
             cache_file.parent.mkdir()
         logger.debug(f"Writing cache file: {cache_file}.")
