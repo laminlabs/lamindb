@@ -47,7 +47,7 @@ class insert:
     ):
         """Data object with its origin."""
         engine = get_engine()
-        settings = setup.settings()
+        settings = setup.load_settings()
 
         if interface_id is None:
             from nbproject import meta

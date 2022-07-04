@@ -3,16 +3,14 @@ from pathlib import Path
 from anndata import AnnData
 from typeguard import typechecked
 
-from lamindb import setup
-
 from ..._logger import logger
-from ..file import storage_filepath
+from ...setup._settings import load_settings, storage_filepath
 
 
 @typechecked
 def anndata_to_h5ad(adata: AnnData, filekey: str) -> Path:
     """AnnData → h5ad."""
-    settings = setup.settings()
+    settings = load_settings()
     path = storage_filepath(filekey)
     if settings.cloud_storage:
         # conversion to Path would trigger download of cache file below

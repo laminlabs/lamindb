@@ -9,20 +9,15 @@ from lamindb.admin.db._engine import get_engine
 
 from .._logger import logger
 from ..dev._docs import doc_args
-from ._settings import Settings, SettingsStore, _write, description, settings_file
+from ._settings import (
+    Settings,
+    description,
+    load_settings,
+    setup_storage_dir,
+    write_settings,
+)
 
 DIRS = AppDirs("lamindb", "laminlabs")
-
-
-def setup_storage_dir(storage: Union[str, Path, CloudPath]) -> Union[Path, CloudPath]:
-    if str(storage).startswith(("s3://", "gs://")):
-        storage_dir = CloudPath(storage)
-    else:
-        storage_dir = Path(storage)
-        if not storage_dir.exists():
-            storage_dir.mkdir(parents=True)
-
-    return storage_dir
 
 
 def setup_cache_dir(
@@ -64,12 +59,12 @@ def setup_db(user_name):
 
     def create_db() -> None:
         """Create database with initial schema."""
-        if settings()._db_file.exists():
+        if load_settings()._db_file.exists():
             return None
 
         SQLModel.metadata.create_all(get_engine())
 
-        logger.info(f"Created database {settings().db}.")
+        logger.info(f"Created database {load_settings().db}.")
 
     create_db()
 
@@ -110,32 +105,8 @@ def setup_from_cli(
     # setup cache_dir
     settings.cache_dir = setup_cache_dir(settings)
 
-    _write(settings)
+    write_settings(settings)
 
     settings.user_id = setup_db(settings.user_name)
 
-    _write(settings)  # type: ignore
-
-
-def setup_from_store(store: SettingsStore) -> Settings:
-    settings = Settings()
-
-    settings.user_name = store.user_name
-    settings.storage_dir = setup_storage_dir(store.storage_dir)
-    settings.cache_dir = Path(store.cache_dir) if store.cache_dir != "null" else None
-    settings.user_id = store.user_id
-    settings.instance_name = store.instance_name
-
-    return settings
-
-
-def settings() -> Settings:
-    """Return current settings."""
-    if not settings_file.exists():
-        logger.warning("Please setup lamindb via the CLI: lamindb setup")
-        global Settings
-        return Settings()
-    else:
-        settings_store = SettingsStore(_env_file=settings_file)
-        settings = setup_from_store(settings_store)
-        return settings
+    write_settings(settings)  # type: ignore

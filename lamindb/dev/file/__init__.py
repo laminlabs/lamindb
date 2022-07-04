@@ -25,6 +25,6 @@ Utilities:
    local_filepath
 """
 
-from ._file import local, local_filepath, storage_filepath, store_file
+from ._file import store_file
 from ._h5ad import h5ad_to_anndata
 from ._images import store_png

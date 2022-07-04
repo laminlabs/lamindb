@@ -7,7 +7,7 @@ If there isn't one yet, it creates a database.
 
 To retrieve settings after setup, use:
 
-.. autofunction:: settings
+.. autofunction:: load_settings
 
 ..
    autosummary does not work with two objects that merely differ by capitalization
@@ -18,4 +18,5 @@ To retrieve settings after setup, use:
 """
 
 from ._settings import Settings  # noqa
-from ._setup import settings, setup_from_cli
+from ._settings import load_settings  # noqa
+from ._setup import setup_from_cli  # noqa
