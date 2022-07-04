@@ -66,11 +66,10 @@ def ingest(filepath):
     storage_dir = Path(storage_dir)
 
     filepath = Path(filepath)
-    filename = filepath.name
 
     from lamindb.admin.db import insert
 
-    dobject_id = insert.dobject(filename, filepath.suffix)
+    dobject_id = insert.dobject(filepath.stem, filepath.suffix)
 
     dobject_storage_key = f"{dobject_id}{filepath.suffix}"
     store_file(filepath, dobject_storage_key)
