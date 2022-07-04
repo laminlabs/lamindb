@@ -8,7 +8,7 @@ def id(n_char: int) -> str:
     return id
 
 
-def id_file() -> str:
+def id_dobject() -> str:
     return id(n_char=20)
 
 

@@ -4,7 +4,7 @@ from typing import Optional
 
 from sqlmodel import Field, SQLModel
 
-from ..dev.id import id_file, id_track, id_user
+from ..dev.id import id_dobject, id_track, id_user
 
 
 def utcnow():
@@ -30,14 +30,18 @@ class interface(SQLModel, table=True):  # type: ignore
     time_init: datetime = Field(default_factory=utcnow, nullable=False)
 
 
-# the data file
-class file(SQLModel, table=True):  # type: ignore
-    """Ingested files.
+class dobject(SQLModel, table=True):  # type: ignore
+    """Data objects in storage & memory, often correspond to files.
 
-    These can be anything but often store dense numeral data.
+    Storage ⟷ memory examples:
+    - `.csv`, `.tsv`, `.feather`, `.parquet` ⟷ `pd.DataFrame`
+    - `.h5ad`, `.h5mu` ⟷ `anndata.AnnData`, `mudata.MuData`
+    - `.jpg`, `.png` ⟷ `np.ndarray`
+    - Zarr directory ⟷ Zarr loader
+    - TileDB store ⟷ TileDB loader
     """
 
-    id: Optional[str] = Field(default_factory=id_file, primary_key=True)
+    id: Optional[str] = Field(default_factory=id_dobject, primary_key=True)
     name: str
     interface_id: str = Field(foreign_key="interface.id")
     time_init: datetime = Field(default_factory=utcnow, nullable=False)
@@ -66,4 +70,4 @@ class track_do(SQLModel, table=True):  # type: ignore
     user_id: str = Field(foreign_key="user.id", nullable=False)
     interface_id: str = Field(foreign_key="interface.id")
     time: datetime = Field(default_factory=utcnow, nullable=False)
-    file_id: str = Field(foreign_key="file.id")
+    dobject_id: str = Field(foreign_key="dobject.id")

@@ -4,7 +4,7 @@ import lamindb as db
 from lamindb import setup
 
 from ..._logger import logger
-from ...dev.id import id_file, id_user  # noqa
+from ...dev.id import id_dobject, id_user  # noqa
 from . import get_engine
 
 
@@ -42,8 +42,10 @@ class insert:
         return user.id
 
     @classmethod
-    def file(cls, name: str, *, interface_id: str = None, interface_name: str = None):
-        """Data file with its origin."""
+    def dobject(
+        cls, name: str, *, interface_id: str = None, interface_name: str = None
+    ):
+        """Data object with its origin."""
         engine = get_engine()
         settings = setup.settings()
 
@@ -86,9 +88,9 @@ class insert:
             )
 
         with sqm.Session(engine) as session:
-            file = db.model.file(name=name, interface_id=interface_id)
-            session.add(file)
+            dobject = db.model.dobject(name=name, interface_id=interface_id)
+            session.add(dobject)
             session.commit()
-            session.refresh(file)
+            session.refresh(dobject)
 
-        return file.id
+        return dobject.id

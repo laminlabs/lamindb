@@ -16,7 +16,7 @@ Data models:
    :members:
    :undoc-members:
 
-.. autoclass:: file
+.. autoclass:: dobject
    :members:
    :undoc-members:
 
@@ -32,4 +32,4 @@ Types:
 
 """
 from ._core import track_do_type  # noqa
-from ._core import file, interface, track_do, user  # noqa
+from ._core import dobject, interface, track_do, user  # noqa

@@ -10,7 +10,7 @@ from ..admin.db import get_engine
 from ..dev.file import store_file
 
 
-def track_ingest(file_id):
+def track_ingest(dobject_id):
     engine = get_engine()
 
     from nbproject import meta
@@ -24,7 +24,7 @@ def track_ingest(file_id):
             type="ingest",
             user_id=user_id,
             interface_id=interface_id,
-            file_id=file_id,
+            dobject_id=dobject_id,
         )
         session.add(track_do)
         session.commit()
@@ -66,15 +66,16 @@ def ingest(filepath):
 
     from lamindb.admin.db import insert
 
-    file_id = insert.file(filename)
+    dobject_id = insert.dobject(filename)
 
-    filekey = f"{file_id}{filepath.suffix}"
-    store_file(filepath, filekey)
+    dobjectkey = f"{dobject_id}{filepath.suffix}"
+    store_file(filepath, dobjectkey)
 
-    track_ingest(file_id)
+    track_ingest(dobject_id)
     logger.info(
-        f"Added file {file_id} from notebook {meta.live.title!r} ({meta.store.id}) by"
-        f" user {settings.user_name} ({settings.user_id}).",
+        f"Added dobject {dobject_id} from notebook"
+        f" {meta.live.title!r} ({meta.store.id}) by user"
+        f" {settings.user_name} ({settings.user_id}).",
         flush=True,
     )
     publish()
