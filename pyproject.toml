@@ -40,7 +40,7 @@ test = [
 ]
 
 [project.scripts]
-lamindb = "lamindb.__main__:main"
+lndb = "lamindb.__main__:main"
 
 [tool.black]
 preview = true
