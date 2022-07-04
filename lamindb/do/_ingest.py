@@ -77,9 +77,8 @@ def ingest(filepath):
     track_ingest(dobject_id)
 
     logger.info(
-        f"Added dobject {dobject_id} from notebook"
+        f"Added file {filepath.name} ({dobject_id}) from notebook"
         f" {meta.live.title!r} ({meta.store.id}) by user"
-        f" {settings.user_name} ({settings.user_id}).",
-        flush=True,
+        f" {settings.user_name} ({settings.user_id})."
     )
     publish()
