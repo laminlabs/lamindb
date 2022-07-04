@@ -70,10 +70,10 @@ def ingest(filepath):
 
     from lamindb.admin.db import insert
 
-    dobject_id = insert.dobject(filename)
+    dobject_id = insert.dobject(filename, filepath.suffix)
 
-    dobjectkey = f"{dobject_id}{filepath.suffix}"
-    store_file(filepath, dobjectkey)
+    dobject_storage_key = f"{dobject_id}{filepath.suffix}"
+    store_file(filepath, dobject_storage_key)
 
     track_ingest(dobject_id)
 

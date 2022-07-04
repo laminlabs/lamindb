@@ -14,15 +14,6 @@ Store files:
 
    store_file
    store_png
-
-Utilities:
-
-.. autosummary::
-   :toctree: .
-
-   storage_filepath
-   local
-   local_filepath
 """
 
 from ._file import store_file

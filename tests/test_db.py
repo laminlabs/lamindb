@@ -5,14 +5,17 @@ from lamindb import setup
 
 
 def test_create_to_load():
+    storage = Path.home() / "mydata"
     setup.setup_from_cli(
-        storage=Path.home() / "data",
+        storage=storage,
         user="falexwolf",
     )
 
-    lndb.admin.db.insert.dobject("test_file.csv", interface_id="83jf")
+    lndb.admin.db.insert.dobject("test_file", ".csv", interface_id="83jf")
     for entity in lndb.track.schema.entities:
         lndb.do.load(entity)
+
+    (storage / "mydata.lndb").unlink()
 
 
 if __name__ == "__main__":

@@ -43,6 +43,7 @@ class dobject(SQLModel, table=True):  # type: ignore
 
     id: Optional[str] = Field(default_factory=id_dobject, primary_key=True)
     name: str
+    suffix: str
     interface_id: str = Field(foreign_key="interface.id")
     time_init: datetime = Field(default_factory=utcnow, nullable=False)
 

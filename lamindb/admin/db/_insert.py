@@ -46,7 +46,12 @@ class insert:
 
     @classmethod
     def dobject(
-        cls, name: str, *, interface_id: str = None, interface_name: str = None
+        cls,
+        name: str,
+        suffix: str = None,
+        *,
+        interface_id: str = None,
+        interface_name: str = None,
     ):
         """Data object with its origin."""
         engine = get_engine()
@@ -91,7 +96,9 @@ class insert:
             )
 
         with sqm.Session(engine) as session:
-            dobject = db.model.dobject(name=name, interface_id=interface_id)
+            dobject = db.model.dobject(
+                name=name, interface_id=interface_id, suffix=suffix
+            )
             session.add(dobject)
             session.commit()
             session.refresh(dobject)
