@@ -5,6 +5,7 @@ from lamindb import setup
 
 from ..._logger import logger
 from ...dev.id import id_dobject, id_user  # noqa
+from ...setup import load_settings
 from . import get_engine
 
 
@@ -39,25 +40,28 @@ class insert:
             session.commit()
             session.refresh(user)
 
+        load_settings()._update_cloud_sqlite_file()
+
         return user.id
 
     @classmethod
     def dobject(
-        cls, name: str, *, interface_id: str = None, interface_name: str = None
+        cls,
+        name: str,
+        suffix: str = None,
+        *,
+        interface_id: str = None,
+        interface_name: str = None,
     ):
         """Data object with its origin."""
         engine = get_engine()
-        settings = setup.settings()
+        settings = setup.load_settings()
 
         if interface_id is None:
             from nbproject import meta
 
             interface_id = meta.store.id
             interface_name = meta.live.title
-            dependency_string = " ".join(
-                [pkg + f"=={ver}" for pkg, ver in meta.live.dependency.items()]
-            )
-            interface_dependency = dependency_string
             interface_type = "nbproject"
 
             if interface_name is None:
@@ -65,7 +69,6 @@ class insert:
                     "Can only ingest from notebook with title. Please set a title!"
                 )
         else:
-            interface_dependency = None
             interface_type = "other"
 
         df_interface = db.do.load("interface")
@@ -76,7 +79,6 @@ class insert:
                 interface = db.model.interface(
                     id=interface_id,
                     name=interface_name,
-                    dependency=interface_dependency,
                     type=interface_type,
                     user_id=settings.user_id,
                 )
@@ -88,9 +90,13 @@ class insert:
             )
 
         with sqm.Session(engine) as session:
-            dobject = db.model.dobject(name=name, interface_id=interface_id)
+            dobject = db.model.dobject(
+                name=name, interface_id=interface_id, suffix=suffix
+            )
             session.add(dobject)
             session.commit()
             session.refresh(dobject)
+
+        load_settings()._update_cloud_sqlite_file()
 
         return dobject.id

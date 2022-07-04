@@ -4,7 +4,7 @@ import sqlmodel as sqm
 from loguru import logger
 
 import lamindb as db
-from lamindb import setup
+from lamindb.setup import load_settings
 
 from ..admin.db import get_engine
 from ..dev.file import store_file
@@ -15,7 +15,9 @@ def track_ingest(dobject_id):
 
     from nbproject import meta
 
-    user_id = setup.settings().user_id
+    settings = load_settings()
+
+    user_id = settings.user_id
 
     interface_id = meta.store.id
 
@@ -29,6 +31,8 @@ def track_ingest(dobject_id):
         session.add(track_do)
         session.commit()
         session.refresh(track_do)
+
+    settings._update_cloud_sqlite_file()
 
     return track_do.id
 
@@ -56,26 +60,25 @@ def ingest(filepath):
     """
     from nbproject import meta, publish
 
-    settings = setup.settings()
+    settings = load_settings()
     storage_dir = settings.storage_dir
 
     storage_dir = Path(storage_dir)
 
     filepath = Path(filepath)
-    filename = filepath.name
 
     from lamindb.admin.db import insert
 
-    dobject_id = insert.dobject(filename)
+    dobject_id = insert.dobject(filepath.stem, filepath.suffix)
 
-    dobjectkey = f"{dobject_id}{filepath.suffix}"
-    store_file(filepath, dobjectkey)
+    dobject_storage_key = f"{dobject_id}{filepath.suffix}"
+    store_file(filepath, dobject_storage_key)
 
     track_ingest(dobject_id)
+
     logger.info(
-        f"Added dobject {dobject_id} from notebook"
+        f"Added file {filepath.name} ({dobject_id}) from notebook"
         f" {meta.live.title!r} ({meta.store.id}) by user"
-        f" {settings.user_name} ({settings.user_id}).",
-        flush=True,
+        f" {settings.user_name} ({settings.user_id})."
     )
     publish()

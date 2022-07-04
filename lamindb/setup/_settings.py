@@ -2,11 +2,58 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Union, get_type_hints
 
-from cloudpathlib import CloudPath
-from pydantic import BaseSettings
+from cloudpathlib import CloudPath, S3Client
+
+from .._logger import logger
+from ._settings_store import SettingsStore
 
 root_dir = Path(__file__).parent.resolve()
 settings_file = root_dir / ".env"
+
+
+def storage_filepath(filekey: Union[Path, CloudPath, str]) -> Union[Path, CloudPath]:
+    """Cloud or local filepath from filekey."""
+    settings = load_settings()
+    if settings.cloud_storage:
+        client = S3Client(local_cache_dir=settings.cache_dir)
+        return client.CloudPath(settings.storage_dir / filekey)
+    else:
+        return settings.storage_dir / filekey
+
+
+def cloud_to_local(filepath: Union[Path, CloudPath]) -> Path:
+    """Local (cache) filepath from filepath."""
+    if load_settings().cloud_storage:
+        filepath = filepath.fspath  # type: ignore  # mypy misses CloudPath
+    return filepath
+
+
+# conversion to Path via cloud_to_local()
+# would trigger download of remote file to cache if there already
+# is one
+# as we don't want this, as this is a pure write operation
+# we manually construct the local file path
+# using the `.parts` attribute in the following line
+def cloud_to_local_no_update(filepath: Union[Path, CloudPath]) -> Path:
+    settings = load_settings()
+    if settings.cloud_storage:
+        return settings.cache_dir.joinpath(*filepath.parts[1:])  # type: ignore
+    return filepath
+
+
+def local_filepath(filekey: Union[Path, CloudPath, str]) -> Path:
+    """Local (cache) filepath from filekey: `local(filepath(...))`."""
+    return cloud_to_local(storage_filepath(filekey))
+
+
+# A mere tool for quick access to the docstrings above
+# I thought I had it work to read from the docstrings above, but doesn't seem so
+class description:
+    storage_dir = """Storage root. Either local dir, ``s3://bucket_name`` or ``gs://bucket_name``."""  # noqa
+    cache_dir = """Cache root, a local directory to cache cloud files."""
+    user_name = """User name. Consider using the GitHub username."""
+    user_id = """User name. Consider using the GitHub username."""
+    instance_name = """Name of LaminDB instance, which corresponds to exactly one backend database."""  # noqa
 
 
 @dataclass
@@ -30,44 +77,30 @@ class Settings:
         return isinstance(self.storage_dir, CloudPath)
 
     @property
-    def _db_file(self) -> Path:
-        """Database SQLite filepath."""
-        if not self.cloud_storage:
-            location = self.storage_dir
-        else:
-            location = self.cache_dir
-        filename = str(location.stem).lower()  # type: ignore
-        filepath = location / f"{filename}.lndb"  # type: ignore
-        return filepath
+    def _sqlite_file(self) -> Union[Path, CloudPath]:
+        """Database SQLite filepath.
+
+        Is a CloudPath if on S3, otherwise a Path.
+        """
+        filename = str(self.storage_dir.stem).lower()  # type: ignore
+        return storage_filepath(f"{filename}.lndb")
+
+    def _update_cloud_sqlite_file(self):
+        """If on cloud storage, update remote file."""
+        if self.cloud_storage:
+            sqlite_file = self._sqlite_file
+            cache_file = cloud_to_local_no_update(sqlite_file)
+            sqlite_file.upload_from(cache_file)
 
     @property
     def db(self) -> str:
         """Database URL."""
-        return f"sqlite:///{self._db_file}"
+        # the great thing about cloudpathlib is that it downloads the
+        # remote file to cache as soon as the time stamp is out of date
+        return f"sqlite:///{cloud_to_local(self._sqlite_file)}"
 
 
-# A mere tool for quick access to the docstrings above
-# I thought I had it work to read from the docstrings above, but doesn't seem so
-class description:
-    storage_dir = """Storage root. Either local dir, ``s3://bucket_name`` or ``gs://bucket_name``."""  # noqa
-    cache_dir = """Cache root, a local directory to cache cloud files."""
-    user_name = """User name. Consider using the GitHub username."""
-    user_id = """User name. Consider using the GitHub username."""
-    instance_name = """Name of LaminDB instance, which corresponds to exactly one backend database."""  # noqa
-
-
-class SettingsStore(BaseSettings):
-    storage_dir: str
-    cache_dir: str
-    user_name: str
-    user_id: str
-    instance_name: str
-
-    class Config:
-        env_file = ".env"
-
-
-def _write(settings: Settings):
+def write_settings(settings: Settings):
     with open(settings_file, "w") as f:
         for key, type in get_type_hints(SettingsStore).items():
             value = getattr(settings, key)
@@ -76,3 +109,38 @@ def _write(settings: Settings):
             else:
                 value = type(value)
             f.write(f"{key}={value}\n")
+
+
+def setup_storage_dir(storage: Union[str, Path, CloudPath]) -> Union[Path, CloudPath]:
+    if str(storage).startswith(("s3://", "gs://")):
+        storage_dir = CloudPath(storage)
+    else:
+        storage_dir = Path(storage)
+        if not storage_dir.exists():
+            storage_dir.mkdir(parents=True)
+
+    return storage_dir
+
+
+def setup_from_store(store: SettingsStore) -> Settings:
+    settings = Settings()
+
+    settings.user_name = store.user_name
+    settings.storage_dir = setup_storage_dir(store.storage_dir)
+    settings.cache_dir = Path(store.cache_dir) if store.cache_dir != "null" else None
+    settings.user_id = store.user_id
+    settings.instance_name = store.instance_name
+
+    return settings
+
+
+def load_settings() -> Settings:
+    """Return current settings."""
+    if not settings_file.exists():
+        logger.warning("Please setup lamindb via the CLI: lamindb setup")
+        global Settings
+        return Settings()
+    else:
+        settings_store = SettingsStore(_env_file=settings_file)
+        settings = setup_from_store(settings_store)
+        return settings

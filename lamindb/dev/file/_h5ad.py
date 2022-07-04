@@ -1,7 +1,7 @@
 import anndata
 from anndata import AnnData
 
-from ._file import local_filepath
+from ...setup._settings import local_filepath
 
 
 def h5ad_to_anndata(filekey) -> AnnData:

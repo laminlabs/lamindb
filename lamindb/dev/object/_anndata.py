@@ -3,21 +3,17 @@ from pathlib import Path
 from anndata import AnnData
 from typeguard import typechecked
 
-from lamindb import setup
-
 from ..._logger import logger
-from ..file import storage_filepath
+from ...setup._settings import cloud_to_local_no_update, load_settings, storage_filepath
 
 
 @typechecked
 def anndata_to_h5ad(adata: AnnData, filekey: str) -> Path:
     """AnnData → h5ad."""
-    settings = setup.settings()
+    settings = load_settings()
     path = storage_filepath(filekey)
     if settings.cloud_storage:
-        # conversion to Path would trigger download of cache file below
-        # hence, we use the `.parts` attribute in the following line
-        cache_file = settings.cache_dir.joinpath(*path.parts[1:])  # type: ignore
+        cache_file = cloud_to_local_no_update(path)  # type: ignore
         if not cache_file.parent.exists():
             cache_file.parent.mkdir()
         logger.debug(f"Writing cache file: {cache_file}.")

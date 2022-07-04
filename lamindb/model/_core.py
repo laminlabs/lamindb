@@ -24,7 +24,6 @@ class interface(SQLModel, table=True):  # type: ignore
 
     id: str = Field(default=None, primary_key=True)
     name: Optional[str]
-    dependency: Optional[str]  #: Environment dependencies of operation.
     type: str  #: Jupyter notebook, pipelines, etc.
     user_id: str = Field(foreign_key="user.id")
     time_init: datetime = Field(default_factory=utcnow, nullable=False)
@@ -43,6 +42,7 @@ class dobject(SQLModel, table=True):  # type: ignore
 
     id: Optional[str] = Field(default_factory=id_dobject, primary_key=True)
     name: str
+    suffix: str
     interface_id: str = Field(foreign_key="interface.id")
     time_init: datetime = Field(default_factory=utcnow, nullable=False)
 
