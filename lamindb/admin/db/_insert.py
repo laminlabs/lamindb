@@ -62,10 +62,6 @@ class insert:
 
             interface_id = meta.store.id
             interface_name = meta.live.title
-            dependency_string = " ".join(
-                [pkg + f"=={ver}" for pkg, ver in meta.live.dependency.items()]
-            )
-            interface_dependency = dependency_string
             interface_type = "nbproject"
 
             if interface_name is None:
@@ -73,7 +69,6 @@ class insert:
                     "Can only ingest from notebook with title. Please set a title!"
                 )
         else:
-            interface_dependency = None
             interface_type = "other"
 
         df_interface = db.do.load("interface")
@@ -84,7 +79,6 @@ class insert:
                 interface = db.model.interface(
                     id=interface_id,
                     name=interface_name,
-                    dependency=interface_dependency,
                     type=interface_type,
                     user_id=settings.user_id,
                 )
