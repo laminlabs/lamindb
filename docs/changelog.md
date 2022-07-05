@@ -7,7 +7,7 @@ Towards version 0.1.
 <!-- prettier-ignore -->
 Name | PR | User | Date | Patch
 --- | --- | --- | --- | ---
-🚧 Prototype sqlite on S3 | [58](https://github.com/laminlabs/lamindb/pull/58) | [falexwolf](https://github.com/falexwolf) | 2022-07-04 |
+🚧 Prototype sqlite on S3 | [58](https://github.com/laminlabs/lamindb/pull/58) | [falexwolf](https://github.com/falexwolf) | 2022-07-04 | 0.0.8
 🚚 Rename table `file` to `dobject` | [57](https://github.com/laminlabs/lamindb/pull/57) | [falexwolf](https://github.com/falexwolf) | 2022-07-04 |
 🚚 Rename CLI from lamindb to lndb | [56](https://github.com/laminlabs/lamindb/pull/56) | [falexwolf](https://github.com/falexwolf) | 2022-07-04 |
 ✨ Add `instance_name` to settings and `instance` to setup | [55](https://github.com/laminlabs/lamindb/pull/55) | [falexwolf](https://github.com/falexwolf) | 2022-07-03 | 0.0.7
