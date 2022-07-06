@@ -24,7 +24,9 @@ def build(session):
         "--storage",
         f"{os.environ['HOME']}/data",
         "--user",
-        "falexwolf",
+        "raspbear@gmx.de",
+        "--secret",
+        "A7X5clpvrjcQJWZBFABYLOdIDskIFujXJ9Trhz0P",
     )
     session.run(
         "pytest",
