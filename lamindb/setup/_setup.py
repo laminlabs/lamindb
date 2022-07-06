@@ -1,5 +1,7 @@
+import base64
 from pathlib import Path
 from typing import Union
+from urllib.request import urlretrieve
 
 from appdirs import AppDirs
 from cloudpathlib import CloudPath
@@ -8,6 +10,7 @@ from sqlmodel import SQLModel
 from lamindb.admin.db._engine import get_engine
 
 from .._logger import logger
+from ..dev import id
 from ..dev._docs import doc_args
 from ._settings import (
     Settings,
@@ -16,6 +19,7 @@ from ._settings import (
     setup_storage_dir,
     write_settings,
 )
+from ._settings_store import Connector
 
 DIRS = AppDirs("lamindb", "laminlabs")
 
@@ -48,7 +52,7 @@ def setup_notion(notion: str = None):
     return dict(NOTION_API_KEY=notion)
 
 
-def setup_db(user_name):
+def setup_db(user_email, secret=None):
     """Setup database.
 
     Contains:
@@ -72,16 +76,48 @@ def setup_db(user_name):
 
     create_db()
 
-    user_id = insert_if_not_exists.user(user_name)
+    from supabase import create_client
+
+    connector_file, _ = urlretrieve(
+        "https://lamin-site-assets.s3.amazonaws.com/connector.env"
+    )
+    connector = Connector(_env_file=connector_file)
+
+    supabase = create_client(connector.url, connector.key)
+
+    if secret is None:
+        secret = id.id_secret()
+        supabase.auth.sign_up(email=user_email, password=secret)
+        logger.info(
+            f"Generated login secret: {secret}.\n"
+            "Please confirm the sign-up email and then repeat the login call.\n"
+            "Your secret has been stored and will persist until a new installation."
+        )
+        return secret
+    else:
+        session = supabase.auth.sign_in(email=user_email, password=secret)
+
+    uuid_b64 = base64.urlsafe_b64encode(session.user.id.bytes).decode("ascii")
+    user_id = uuid_b64[:8].replace("_", "0").replace("-", "1")
+
+    # data = supabase.table("usermeta").insert(
+    #     {"id": session.user.id.hex, "lnid": user_id}
+    # ).execute()
+    # assert len(data.data) > 0
+
+    supabase.auth.sign_out()
+
+    user_id = insert_if_not_exists.user(user_email, user_id)
 
     return user_id
 
 
-@doc_args(description.storage_dir, description.user_name, description.instance_name)
+@doc_args(description.storage_dir, description.user_email, description.instance_name)
 def setup_from_cli(
     *,
     storage: Union[str, Path, CloudPath],
     user: str,
+    secret: Union[str, None] = None,
     instance: Union[str, None] = None,
 ) -> None:
     """Setup LaminDB. Alternative to using the CLI via `lamindb setup`.
@@ -89,12 +125,18 @@ def setup_from_cli(
     Args:
         storage: {}
         user: {}
+        secret: Generated secret for login.
         instance: {}
     """
-    settings = Settings()
+    if secret is None:
+        settings = load_settings()
+        if settings.secret is not None:
+            secret = settings.secret
+
+    settings = Settings(secret=secret)
 
     # setup user & storage
-    settings.user_name = user
+    settings.user_email = user
     settings.storage_dir = setup_storage_dir(storage)
 
     # setup instance
@@ -111,6 +153,11 @@ def setup_from_cli(
 
     write_settings(settings)
 
-    settings.user_id = setup_db(settings.user_name)
+    if secret is None:  # sign up
+        settings.secret = setup_db(settings.user_email, secret)
+        write_settings(settings)  # type: ignore
+    else:  # log in
+        settings.user_id = setup_db(settings.user_email, secret)
+        write_settings(settings)  # type: ignore
 
-    write_settings(settings)  # type: ignore
+    return None

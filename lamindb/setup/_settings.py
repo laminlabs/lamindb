@@ -51,8 +51,9 @@ def local_filepath(filekey: Union[Path, CloudPath, str]) -> Path:
 class description:
     storage_dir = """Storage root. Either local dir, ``s3://bucket_name`` or ``gs://bucket_name``."""  # noqa
     cache_dir = """Cache root, a local directory to cache cloud files."""
-    user_name = """User name. Consider using the GitHub username."""
-    user_id = """User name. Consider using the GitHub username."""
+    user_email = """User email."""
+    user_id = """User ID. Auto-generated."""
+    secret = """Auto-generated login secret."""
     instance_name = """Name of LaminDB instance, which corresponds to exactly one backend database."""  # noqa
 
 
@@ -64,10 +65,12 @@ class Settings:
     """Storage root. Either local dir, ``s3://bucket_name`` or ``gs://bucket_name``."""
     cache_dir: Union[Path, None] = None
     """Cache root, a local directory to cache cloud files."""
-    user_name: str = None  # type: ignore
-    """User name. Consider using the GitHub username."""
+    user_email: str = None  # type: ignore
+    """User email."""
     user_id: Union[str, None] = None
-    """User name. Consider using the GitHub username."""
+    """User ID. Auto-generated."""
+    secret: Union[str, None] = None
+    """Login secret. Auto-generated."""
     instance_name: str = None  # type: ignore
     """Name of LaminDB instance, which corresponds to exactly one backend database."""
 
@@ -125,10 +128,11 @@ def setup_storage_dir(storage: Union[str, Path, CloudPath]) -> Union[Path, Cloud
 def setup_from_store(store: SettingsStore) -> Settings:
     settings = Settings()
 
-    settings.user_name = store.user_name
+    settings.user_email = store.user_email
     settings.storage_dir = setup_storage_dir(store.storage_dir)
     settings.cache_dir = Path(store.cache_dir) if store.cache_dir != "null" else None
     settings.user_id = store.user_id
+    settings.secret = store.secret if store.secret != "null" else None
     settings.instance_name = store.instance_name
 
     return settings
