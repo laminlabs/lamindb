@@ -8,7 +8,8 @@ def test_create_to_load():
     storage = Path.home() / "mydata"
     setup.setup_from_cli(
         storage=storage,
-        user="falexwolf",
+        user="raspbear@gmx.de",
+        secret="A7X5clpvrjcQJWZBFABYLOdIDskIFujXJ9Trhz0P",
     )
 
     lndb.admin.db.insert.dobject("test_file", ".csv", interface_id="83jf")

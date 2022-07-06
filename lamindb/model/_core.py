@@ -15,7 +15,7 @@ class user(SQLModel, table=True):  # type: ignore
     """Users operating `lamindb`."""
 
     id: Optional[str] = Field(default_factory=id_user, primary_key=True)
-    name: str
+    email: str
     time_init: datetime = Field(default_factory=utcnow, nullable=False)
 
 

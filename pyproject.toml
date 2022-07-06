@@ -18,6 +18,7 @@ dependencies = [
     "typeguard",
     "biogram",
     "appdirs",
+    "supabase",
     "python-dotenv",
     "nbproject>=0.1.5",
 ]

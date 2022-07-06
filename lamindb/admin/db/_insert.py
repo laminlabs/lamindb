@@ -13,15 +13,15 @@ class insert_if_not_exists:
     """Insert data if it does not yet exist."""
 
     @classmethod
-    def user(cls, user_name):
+    def user(cls, user_email, user_id):
         df_user = db.do.load("user")
 
-        if user_name in df_user.name.values:
-            user_id = df_user.index[df_user.name == user_name][0]
-            logger.info(f"Logged in {user_name} ({user_id}).")
+        if user_email in df_user.email.values:
+            user_id = df_user.index[df_user.email == user_email][0]
+            logger.info(f"Logged in {user_email} ({user_id}).")
         else:
-            user_id = insert.user(user_name)  # type: ignore
-            logger.info(f"Signed up user {user_name} ({user_id}).")
+            user_id = insert.user(user_email, user_id)  # type: ignore
+            logger.info(f"Signed up user {user_email} ({user_id}).")
 
         return user_id
 
@@ -30,12 +30,12 @@ class insert:
     """Insert data."""
 
     @classmethod
-    def user(cls, user_name):
+    def user(cls, user_email, user_id):
         """User."""
         engine = get_engine()
 
         with sqm.Session(engine) as session:
-            user = db.model.user(name=user_name)
+            user = db.model.user(id=user_id, email=user_email)
             session.add(user)
             session.commit()
             session.refresh(user)
@@ -86,7 +86,7 @@ class insert:
                 session.commit()
             logger.info(
                 f"Added notebook {interface_name!r} ({interface_id}) by user"
-                f" {settings.user_name} ({settings.user_id})."
+                f" {settings.user_email} ({settings.user_id})."
             )
 
         with sqm.Session(engine) as session:
