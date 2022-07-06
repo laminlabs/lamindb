@@ -7,6 +7,7 @@ Towards version 0.1.
 <!-- prettier-ignore -->
 Name | PR | User | Date | Patch
 --- | --- | --- | --- | ---
+✨ Unique user identity across instances | [59](https://github.com/laminlabs/lamindb/pull/59) | [falexwolf](https://github.com/falexwolf) | 2022-07-06 |
 🚧 Enable storing sqlite on S3 | [58](https://github.com/laminlabs/lamindb/pull/58) | [falexwolf](https://github.com/falexwolf) | 2022-07-04 | 0.0.8
 🚚 Rename table `file` to `dobject` | [57](https://github.com/laminlabs/lamindb/pull/57) | [falexwolf](https://github.com/falexwolf) | 2022-07-04 |
 🚚 Rename CLI from `lamindb` to `lndb` | [56](https://github.com/laminlabs/lamindb/pull/56) | [falexwolf](https://github.com/falexwolf) | 2022-07-04 |
