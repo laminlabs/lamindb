@@ -85,32 +85,33 @@ def setup_db(user_email, secret=None):
 
     supabase = create_client(connector.url, connector.key)
 
-    if secret is None:
+    if secret is None:  # sign up
         secret = id.id_secret()
-        user = supabase.auth.sign_up(email=user_email, password=secret)
+        supabase.auth.sign_up(email=user_email, password=secret)
         logger.info(
             f"Generated login secret: {secret}.\n"
             "Please confirm the sign-up email and then repeat the login call.\n"
             "Your secret has been stored and will persist until a new installation."
         )
-    else:
-        user = supabase.auth.sign_in(email=user_email, password=secret)
+        return secret
+    else:  # sign in
+        session = supabase.auth.sign_in(email=user_email, password=secret)
 
-    uuid_b64 = base64.urlsafe_b64encode(user.id.bytes).decode("ascii")
-    user_id = uuid_b64[:8].replace("_", "0").replace("-", "1")
+        uuid_b64 = base64.urlsafe_b64encode(session.user.id.bytes).decode("ascii")
+        user_id = uuid_b64[:8].replace("_", "0").replace("-", "1")
 
-    data = (
-        supabase.table("usermeta")
-        .insert({"id": user.id.hex, "lnid": user_id})
-        .execute()
-    )
-    assert len(data.data) > 0
+        data = (
+            supabase.table("usermeta")
+            .insert({"id": session.user.id.hex, "lnid": user_id})
+            .execute()
+        )
+        assert len(data.data) > 0
 
-    supabase.auth.sign_out()
+        supabase.auth.sign_out()
 
-    user_id = insert_if_not_exists.user(user_email, user_id)
+        user_id = insert_if_not_exists.user(user_email, user_id)
 
-    return user_id
+        return user_id
 
 
 @doc_args(description.storage_dir, description.user_email, description.instance_name)
