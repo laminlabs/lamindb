@@ -1,4 +1,3 @@
-import base64
 from pathlib import Path
 from typing import Union
 from urllib.request import urlretrieve
@@ -8,6 +7,7 @@ from cloudpathlib import CloudPath
 from sqlmodel import SQLModel
 
 from lamindb.admin.db._engine import get_engine
+from lamindb.dev.id import id_user
 
 from .._logger import logger
 from ..dev import id
@@ -97,17 +97,20 @@ def setup_db(user_email, secret=None):
     else:  # sign in
         session = supabase.auth.sign_in(email=user_email, password=secret)
 
-        uuid_b64 = base64.urlsafe_b64encode(session.user.id.bytes).decode("ascii")
-        user_id = uuid_b64[:8].replace("_", "0").replace("-", "1")
+        try:
+            user_id = id_user()
+            supabase.postgrest.auth(session.access_token)
+            from postgrest.exceptions import APIError
 
-        supabase.postgrest.auth(session.access_token)
-
-        data = (
-            supabase.table("usermeta")
-            .insert({"id": session.user.id.hex, "lnid": user_id})
-            .execute()
-        )
-        assert len(data.data) > 0
+            data = (
+                supabase.table("usermeta")
+                .insert({"id": session.user.id.hex, "lnid": user_id, "handle": user_id})
+                .execute()
+            )
+            assert len(data.data) > 0
+        except APIError as e:
+            if "duplicate" not in e.message:
+                raise e
 
         supabase.auth.sign_out()
 
