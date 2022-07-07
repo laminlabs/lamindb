@@ -1,4 +1,3 @@
-import base64
 from pathlib import Path
 from typing import Union
 from urllib.request import urlretrieve
@@ -8,6 +7,7 @@ from cloudpathlib import CloudPath
 from sqlmodel import SQLModel
 
 from lamindb.admin.db._engine import get_engine
+from lamindb.dev.id import id_user
 
 from .._logger import logger
 from ..dev import id
@@ -85,7 +85,7 @@ def setup_db(user_email, secret=None):
 
     supabase = create_client(connector.url, connector.key)
 
-    if secret is None:
+    if secret is None:  # sign up
         secret = id.id_secret()
         supabase.auth.sign_up(email=user_email, password=secret)
         logger.info(
@@ -94,22 +94,31 @@ def setup_db(user_email, secret=None):
             "Your secret has been stored and will persist until a new installation."
         )
         return secret
-    else:
+    else:  # sign in
         session = supabase.auth.sign_in(email=user_email, password=secret)
+        data = (
+            supabase.table("usermeta")
+            .select("*")
+            .eq("id", session.user.id.hex)
+            .execute()
+        )
+        if len(data.data) > 0:
+            user_id = data.data[0]["lnid"]
+        else:
+            user_id = id_user()
+            supabase.postgrest.auth(session.access_token)
+            data = (
+                supabase.table("usermeta")
+                .insert({"id": session.user.id.hex, "lnid": user_id, "handle": user_id})
+                .execute()
+            )
+            assert len(data.data) > 0
 
-    uuid_b64 = base64.urlsafe_b64encode(session.user.id.bytes).decode("ascii")
-    user_id = uuid_b64[:8].replace("_", "0").replace("-", "1")
+        supabase.auth.sign_out()
 
-    # data = supabase.table("usermeta").insert(
-    #     {"id": session.user.id.hex, "lnid": user_id}
-    # ).execute()
-    # assert len(data.data) > 0
+        user_id = insert_if_not_exists.user(user_email, user_id)
 
-    supabase.auth.sign_out()
-
-    user_id = insert_if_not_exists.user(user_email, user_id)
-
-    return user_id
+        return user_id
 
 
 @doc_args(description.storage_dir, description.user_email, description.instance_name)

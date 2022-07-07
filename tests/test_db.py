@@ -9,7 +9,7 @@ def test_create_to_load():
     setup.setup_from_cli(
         storage=storage,
         user="raspbear@gmx.de",
-        secret="A7X5clpvrjcQJWZBFABYLOdIDskIFujXJ9Trhz0P",
+        secret="sd9lsxH6r5gjwKRSftTc9LNnIP5ua6Hhw8TVxl6l",
     )
 
     lndb.admin.db.insert.dobject("test_file", ".csv", interface_id="83jf")
