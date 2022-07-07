@@ -96,21 +96,23 @@ def setup_db(user_email, secret=None):
         return secret
     else:  # sign in
         session = supabase.auth.sign_in(email=user_email, password=secret)
-
-        try:
+        data = (
+            supabase.table("usermeta")
+            .select("*")
+            .eq("id", session.user.id.hex)
+            .execute()
+        )
+        if len(data.data) > 0:
+            user_id = data.data[0]["lnid"]
+        else:
             user_id = id_user()
             supabase.postgrest.auth(session.access_token)
-            from postgrest.exceptions import APIError
-
             data = (
                 supabase.table("usermeta")
                 .insert({"id": session.user.id.hex, "lnid": user_id, "handle": user_id})
                 .execute()
             )
             assert len(data.data) > 0
-        except APIError as e:
-            if "duplicate" not in e.message:
-                raise e
 
         supabase.auth.sign_out()
 

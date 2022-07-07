@@ -41,6 +41,5 @@ tutorials/index
 examples/index
 api
 guides/index
-notes/index
 changelog
 ```

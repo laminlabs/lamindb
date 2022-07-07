@@ -16,8 +16,7 @@ class insert_if_not_exists:
     def user(cls, user_email, user_id):
         df_user = db.do.load("user")
 
-        if user_email in df_user.email.values:
-            user_id = df_user.index[df_user.email == user_email][0]
+        if user_id in df_user.index:
             logger.info(f"Logged in {user_email} ({user_id}).")
         else:
             user_id = insert.user(user_email, user_id)  # type: ignore
