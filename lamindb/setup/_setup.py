@@ -100,11 +100,23 @@ def setup_db(user_email, secret=None):
         uuid_b64 = base64.urlsafe_b64encode(session.user.id.bytes).decode("ascii")
         user_id = uuid_b64[:8].replace("_", "0").replace("-", "1")
 
-        data = (
-            supabase.table("usermeta")
-            .insert({"id": session.user.id.hex, "lnid": user_id})
-            .execute()
+        requestbuilder = supabase.table("usermeta").insert(
+            {"id": session.user.id.hex, "lnid": "83jda8"}
         )
+
+        from httpx import Auth
+
+        class BearerAuth(Auth):
+            def __init__(self, access_token):
+                self._auth_header = f"Bearer {access_token}"
+
+            def auth_flow(self, request):
+                request.headers["Authorization"] = self._auth_header
+                yield request
+
+        requestbuilder.session._auth = BearerAuth(session.access_token)
+
+        data = requestbuilder.execute()
         assert len(data.data) > 0
 
         supabase.auth.sign_out()
