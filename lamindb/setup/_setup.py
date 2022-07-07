@@ -104,7 +104,7 @@ def setup_db(user_email, secret=None):
 
         data = (
             supabase.table("usermeta")
-            .insert({"id": session.user.id.hex, "lnid": "83jda8"})
+            .insert({"id": session.user.id.hex, "lnid": user_id})
             .execute()
         )
         assert len(data.data) > 0
