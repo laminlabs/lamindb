@@ -1,7 +1,7 @@
 import argparse
 
-from .setup import _setup
-from .setup._settings import description
+from ._setup import _setup
+from ._setup._settings import description
 
 parser = argparse.ArgumentParser(description="Set up lamindb.")
 aa = parser.add_argument

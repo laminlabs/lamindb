@@ -1,11 +1,11 @@
 import sqlmodel as sqm
 
 import lamindb as db
-from lamindb import setup
+from lamindb import _setup
 
 from ..._logger import logger
+from ..._setup import load_settings
 from ...dev.id import id_dobject, id_user  # noqa
-from ...setup import load_settings
 from . import get_engine
 
 
@@ -54,7 +54,7 @@ class insert:
     ):
         """Data object with its origin."""
         engine = get_engine()
-        settings = setup.load_settings()
+        settings = _setup.load_settings()
 
         if interface_id is None:
             from nbproject import meta

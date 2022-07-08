@@ -1,12 +1,12 @@
 from pathlib import Path
 
 import lamindb as lndb
-from lamindb import setup
+from lamindb import _setup
 
 
 def test_create_to_load():
     storage = Path.home() / "mydata"
-    setup.setup_from_cli(
+    _setup.setup_from_cli(
         storage=storage,
         user="raspbear@gmx.de",
         secret="sd9lsxH6r5gjwKRSftTc9LNnIP5ua6Hhw8TVxl6l",
