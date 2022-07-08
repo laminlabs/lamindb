@@ -116,11 +116,7 @@ class Settings:
     @property
     def instance_name(self) -> str:
         """Name of LaminDB instance, which corresponds to exactly one database."""
-        print(self.storage_dir)
-        print(self._dbconfig)
         if self._dbconfig == "sqlite":
-            print("hello")
-            print(self.storage_dir.stem)
             return instance_from_storage(self.storage_dir)
         else:
             return self._dbconfig.split(",")[0]
