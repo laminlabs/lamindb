@@ -1,4 +1,13 @@
+from pathlib import Path
+
 from pydantic import BaseSettings
+
+# user_config_dir in appdirs is weird on MacOS!
+# hence, let's take home/.lndb
+settings_dir = Path.home() / ".lndb"
+if not settings_dir.exists():
+    settings_dir.mkdir(parents=True)
+settings_file = settings_dir / "lndb.env"
 
 
 class Connector(BaseSettings):
@@ -7,12 +16,11 @@ class Connector(BaseSettings):
 
 
 class SettingsStore(BaseSettings):
-    storage_dir: str
-    cache_dir: str
     user_email: str
+    user_secret: str
     user_id: str
-    secret: str
-    instance_name: str
+    storage_dir: str
+    dbconfig: str
 
     class Config:
         env_file = ".env"

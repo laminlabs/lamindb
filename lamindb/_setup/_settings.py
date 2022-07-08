@@ -2,12 +2,12 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Union, get_type_hints
 
+from appdirs import AppDirs
 from cloudpathlib import CloudPath, S3Client
 
-from ._settings_store import SettingsStore
+from ._settings_store import SettingsStore, settings_file
 
-root_dir = Path(__file__).parent.resolve()
-settings_file = root_dir / ".env"
+DIRS = AppDirs("lamindb", "laminlabs")
 
 
 def storage_filepath(filekey: Union[Path, CloudPath, str]) -> Union[Path, CloudPath]:
@@ -49,12 +49,10 @@ def local_filepath(filekey: Union[Path, CloudPath, str]) -> Path:
 # I thought I had it work to read from the docstrings above, but doesn't seem so
 class description:
     user_email = """User email."""
-    user_id = """User ID. Auto-generated."""
     user_secret = """User login secret. Auto-generated."""
+    user_id = """User ID. Auto-generated."""
     storage_dir = """Storage root. Either local dir, ``s3://bucket_name`` or ``gs://bucket_name``."""  # noqa
-    cache_dir = """Cache root, a local directory to cache cloud files."""
-    instance_name = """Name of LaminDB instance, which corresponds to exactly one backend database."""  # noqa
-    db = """Either "sqlite" or a Postgres URL."""
+    _dbconfig = """Either "sqlite" or "instance_name, postgres_url"."""
 
 
 def instance_from_storage(storage):
@@ -72,21 +70,32 @@ class Settings:
 
     user_email: str = None  # type: ignore
     """User email."""
-    user_id: Union[str, None] = None
-    """User ID. Auto-generated."""
     user_secret: Union[str, None] = None
     """User login secret. Auto-generated."""
-    instance_name: str = None  # type: ignore
-    """Name of LaminDB instance, which corresponds to exactly one backend database."""
+    user_id: Union[str, None] = None
+    """User ID. Auto-generated."""
     storage_dir: Union[CloudPath, Path] = None
     """Storage root. Either local dir, ``s3://bucket_name`` or ``gs://bucket_name``."""
-    cache_dir: Union[Path, None] = None
-    """Cache root, a local directory to cache cloud files."""
+    _dbconfig: str = "sqlite"
+    """Either "sqlite" or "instance_name, postgres_url"."""
 
     @property
     def cloud_storage(self) -> bool:
         """`True` if `storage_dir` is in cloud, `False` otherwise."""
         return isinstance(self.storage_dir, CloudPath)
+
+    @property
+    def cache_dir(
+        self,
+    ) -> Union[Path, None]:
+        """Cache root, a local directory to cache cloud files."""
+        if self.cloud_storage:
+            cache_dir = Path(DIRS.user_cache_dir)
+            if not cache_dir.exists():
+                cache_dir.mkdir(parents=True)
+        else:
+            cache_dir = None
+        return cache_dir
 
     @property
     def _sqlite_file(self) -> Union[Path, CloudPath]:
@@ -97,12 +106,25 @@ class Settings:
         filename = str(self.storage_dir.stem).lower()  # type: ignore
         return storage_filepath(f"{filename}.lndb")
 
+    @property
+    def _sqlite_file_local(self):
+        """If on cloud storage, update remote file."""
+        return cloud_to_local_no_update(self._sqlite_file)
+
     def _update_cloud_sqlite_file(self):
         """If on cloud storage, update remote file."""
         if self.cloud_storage:
             sqlite_file = self._sqlite_file
             cache_file = cloud_to_local_no_update(sqlite_file)
             sqlite_file.upload_from(cache_file)
+
+    @property
+    def instance_name(self) -> str:
+        """Name of LaminDB instance, which corresponds to exactly one database."""
+        if self._dbconfig == "sqlite":
+            return instance_from_storage(self.storage_dir)
+        else:
+            return self._dbconfig.split(",")[0]
 
     @property
     def db(self) -> str:
@@ -115,7 +137,8 @@ class Settings:
 def write_settings(settings: Settings):
     with open(settings_file, "w") as f:
         for key, type in get_type_hints(SettingsStore).items():
-            value = getattr(settings, key)
+            settings_key = f"_{key}" if key == "dbconfig" else key
+            value = getattr(settings, settings_key)
             if value is None:
                 value = "null"
             else:
@@ -135,14 +158,11 @@ def setup_storage_dir(storage: Union[str, Path, CloudPath]) -> Union[Path, Cloud
 
 def setup_from_store(store: SettingsStore) -> Settings:
     settings = Settings()
-
     settings.user_email = store.user_email
+    settings.user_secret = store.user_secret if store.user_secret != "null" else None
+    settings.user_id = store.user_id if store.user_id != "null" else None
     settings.storage_dir = setup_storage_dir(store.storage_dir)
-    settings.cache_dir = Path(store.cache_dir) if store.cache_dir != "null" else None
-    settings.user_id = store.user_id
-    settings.user_secret = store.secret if store.secret != "null" else None
-    settings.instance_name = store.instance_name
-
+    settings._dbconfig = store.dbconfig
     return settings
 
 

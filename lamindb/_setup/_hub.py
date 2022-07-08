@@ -5,7 +5,7 @@ from supabase import create_client
 
 from .._logger import logger
 from ..dev import id
-from ._settings_store import Connector
+from ._settings_store import Connector, settings_file
 
 
 def connect_hub():
@@ -23,11 +23,12 @@ def sign_up_hub(user_email) -> Union[str, None]:
     # if user already exists a fake user object without identity is returned
     if user.identities:
         logger.info(
-            "Please confirm the sign-up email and call again: lndb setup\n\n"
+            "Please *confirm* the sign-up email. After that, proceed to `lndb"
+            " config`!\n\n"
             f"Generated login secret: {secret}.\n"
-            "It persists until change of environment or re-install: {settings_file}."
-            "Going forward, it is auto-loaded at setup!"
-            "You can always recover your secret via your email."
+            f"Email & secret persist in: {settings_file}.\n"  # noqa
+            "Going forward, credentials are auto-loaded. "  # noqa
+            "In case of loss, you can always recover your secret via email."
         )
         return secret
     else:
@@ -49,5 +50,6 @@ def sign_in_hub(user_email, secret):
             .execute()
         )
         assert len(data.data) > 0
+        logger.info(f"Completed user sign up, generated user_id: {user_id}.")
     hub.auth.sign_out()
     return user_id

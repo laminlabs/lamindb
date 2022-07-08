@@ -3,28 +3,40 @@ import argparse
 from ._setup import _setup
 from ._setup._settings import description
 
-parser = argparse.ArgumentParser(description="Configure LaminDB.")
+description_cli = """
+Configure LaminDB and perform simple actions with these commands:
+- lndb signup --email <email> | First time sign up & log in after email is confirmed.
+- lndb login [--email <email>] [--secret <secret>] | Log in an already-signed-up user.
+- lndb config [--storage <storage>] [--db <db>] | Configure/switch storage or instance.
+"""
+parser = argparse.ArgumentParser(
+    description=description_cli, formatter_class=argparse.RawTextHelpFormatter
+)
 aa = parser.add_argument
-aa("command", type=str, choices=["set"], help="Set settings.")
-aa("--user", type=str, metavar="s", default=None, help=description.user_email)
+aa("command", type=str, choices=["signup", "login", "config"])
+# user
+aa("--email", type=str, metavar="s", default=None, help=description.user_email)
 aa("--secret", type=str, metavar="s", default=None, help=description.user_secret)
+# db instance
 aa("--storage", type=str, metavar="s", default=None, help=description.storage_dir)
-aa("--instance", type=str, metavar="s", default=None, help=description.instance_name)
-aa("--db", type=str, choices=["set"], default="sqlite", help=description.db)
+aa("--db", type=str, metavar="s", default="sqlite", help=description._dbconfig)
 args = parser.parse_args()
 
 
 def main():
-    if args.command == "setup":
-        if args.storage is None:
-            storage = input(f"Please paste {description.storage_dir}: ")
-        else:
-            storage = args.storage
-
-        return _setup.setup_from_cli(
-            storage=storage,
-            user=args.user,
-            secret=args.secret,
-            instance=args.instance,
-            db=args.instance,
+    if args.command == "signup":
+        return _setup.sign_up_first_time(
+            email=args.email,
         )
+    if args.command == "login":
+        return _setup.log_in_user(
+            email=args.email,
+            secret=args.secret,
+        )
+    elif args.command == "config":
+        return _setup.setup_instance(
+            storage=args.storage,
+            dbconfig=args.db,
+        )
+    else:
+        raise RuntimeError("Invalid command. Allowed are: `lndb user` & `lndb db`")
