@@ -1,16 +1,13 @@
 from pathlib import Path
 from typing import Union
-from urllib.request import urlretrieve
 
 from appdirs import AppDirs
 from cloudpathlib import CloudPath
 from sqlmodel import SQLModel
 
 from lamindb.admin.db._engine import get_engine
-from lamindb.dev.id import id_user
 
 from .._logger import logger
-from ..dev import id
 from ..dev._docs import doc_args
 from ._settings import (
     Settings,
@@ -19,7 +16,6 @@ from ._settings import (
     setup_storage_dir,
     write_settings,
 )
-from ._settings_store import Connector
 
 DIRS = AppDirs("lamindb", "laminlabs")
 
@@ -37,22 +33,7 @@ def setup_cache_dir(
     return cache_dir
 
 
-def setup_notion(notion: str = None):
-    NOTION_HELP = (
-        "Notion integration token (currently dysfunctional, see"
-        " https://lamin.ai/notes/2022/explore-notion)"
-    )
-
-    if notion is None:
-        notion = input(
-            f"Please paste your internal {NOTION_HELP}"
-            " (https://notion.so/my-integrations): "
-        )
-
-    return dict(NOTION_API_KEY=notion)
-
-
-def setup_db(user_email, secret=None):
+def setup_db(user_email, user_id):
     """Setup database.
 
     Contains:
@@ -76,76 +57,47 @@ def setup_db(user_email, secret=None):
 
     create_db()
 
-    from supabase import create_client
+    user_id = insert_if_not_exists.user(user_email, user_id)
 
-    connector_file, _ = urlretrieve(
-        "https://lamin-site-assets.s3.amazonaws.com/connector.env"
-    )
-    connector = Connector(_env_file=connector_file)
-
-    supabase = create_client(connector.url, connector.key)
-
-    if secret is None:  # sign up
-        secret = id.id_secret()
-        supabase.auth.sign_up(email=user_email, password=secret)
-        logger.info(
-            f"Generated login secret: {secret}.\n"
-            "Please confirm the sign-up email and then repeat the login call.\n"
-            "Your secret has been stored and will persist until a new installation."
-        )
-        return secret
-    else:  # sign in
-        session = supabase.auth.sign_in(email=user_email, password=secret)
-        data = (
-            supabase.table("usermeta")
-            .select("*")
-            .eq("id", session.user.id.hex)
-            .execute()
-        )
-        if len(data.data) > 0:
-            user_id = data.data[0]["lnid"]
-        else:
-            user_id = id_user()
-            supabase.postgrest.auth(session.access_token)
-            data = (
-                supabase.table("usermeta")
-                .insert({"id": session.user.id.hex, "lnid": user_id, "handle": user_id})
-                .execute()
-            )
-            assert len(data.data) > 0
-
-        supabase.auth.sign_out()
-
-        user_id = insert_if_not_exists.user(user_email, user_id)
-
-        return user_id
+    return user_id
 
 
-@doc_args(description.storage_dir, description.user_email, description.instance_name)
+@doc_args(
+    description.user_email,
+    description.user_secret,
+    description.storage_dir,
+    description.instance_name,
+)
 def setup_from_cli(
     *,
-    storage: Union[str, Path, CloudPath],
     user: str,
     secret: Union[str, None] = None,
+    storage: Union[str, Path, CloudPath],
     instance: Union[str, None] = None,
 ) -> None:
     """Setup LaminDB. Alternative to using the CLI via `lamindb setup`.
 
     Args:
-        storage: {}
         user: {}
-        secret: Generated secret for login.
+        secret: {}
+        storage: {}
         instance: {}
     """
+    settings = load_settings()
+    if user is None:
+        if settings.user_email is None:
+            user = input(f"Please paste your {description.user_email}: ")
+            settings.user_email = user
+        else:
+            user = settings.user_email
+
     if secret is None:
-        settings = load_settings()
-        if settings.secret is not None:
-            secret = settings.secret
+        if settings.user_secret is None:
+            user = input(f"Please paste your {description.user_secret}: ")
+            settings.user_secret = secret
+        else:
+            secret = settings.user_secret
 
-    settings = Settings(secret=secret)
-
-    # setup user & storage
-    settings.user_email = user
     settings.storage_dir = setup_storage_dir(storage)
 
     # setup instance
@@ -163,7 +115,7 @@ def setup_from_cli(
     write_settings(settings)
 
     if secret is None:  # sign up
-        settings.secret = setup_db(settings.user_email, secret)
+        settings.user_secret = setup_db(settings.user_email, secret)
         write_settings(settings)  # type: ignore
     else:  # log in
         settings.user_id = setup_db(settings.user_email, secret)

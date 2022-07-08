@@ -48,11 +48,11 @@ def local_filepath(filekey: Union[Path, CloudPath, str]) -> Path:
 # A mere tool for quick access to the docstrings above
 # I thought I had it work to read from the docstrings above, but doesn't seem so
 class description:
-    storage_dir = """Storage root. Either local dir, ``s3://bucket_name`` or ``gs://bucket_name``."""  # noqa
-    cache_dir = """Cache root, a local directory to cache cloud files."""
     user_email = """User email."""
     user_id = """User ID. Auto-generated."""
-    secret = """Auto-generated login secret."""
+    user_secret = """User login secret. Auto-generated."""
+    storage_dir = """Storage root. Either local dir, ``s3://bucket_name`` or ``gs://bucket_name``."""  # noqa
+    cache_dir = """Cache root, a local directory to cache cloud files."""
     instance_name = """Name of LaminDB instance, which corresponds to exactly one backend database."""  # noqa
 
 
@@ -60,18 +60,18 @@ class description:
 class Settings:
     """Settings written during setup."""
 
-    storage_dir: Union[CloudPath, Path] = None
-    """Storage root. Either local dir, ``s3://bucket_name`` or ``gs://bucket_name``."""
-    cache_dir: Union[Path, None] = None
-    """Cache root, a local directory to cache cloud files."""
     user_email: str = None  # type: ignore
     """User email."""
     user_id: Union[str, None] = None
     """User ID. Auto-generated."""
-    secret: Union[str, None] = None
-    """Login secret. Auto-generated."""
+    user_secret: Union[str, None] = None
+    """User login secret. Auto-generated."""
     instance_name: str = None  # type: ignore
     """Name of LaminDB instance, which corresponds to exactly one backend database."""
+    storage_dir: Union[CloudPath, Path] = None
+    """Storage root. Either local dir, ``s3://bucket_name`` or ``gs://bucket_name``."""
+    cache_dir: Union[Path, None] = None
+    """Cache root, a local directory to cache cloud files."""
 
     @property
     def cloud_storage(self) -> bool:
@@ -131,7 +131,7 @@ def setup_from_store(store: SettingsStore) -> Settings:
     settings.storage_dir = setup_storage_dir(store.storage_dir)
     settings.cache_dir = Path(store.cache_dir) if store.cache_dir != "null" else None
     settings.user_id = store.user_id
-    settings.secret = store.secret if store.secret != "null" else None
+    settings.user_secret = store.secret if store.secret != "null" else None
     settings.instance_name = store.instance_name
 
     return settings
