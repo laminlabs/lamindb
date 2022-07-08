@@ -4,7 +4,7 @@ import sqlmodel as sqm
 from loguru import logger
 
 import lamindb as db
-from lamindb.setup import load_settings
+from lamindb._setup import load_settings
 
 from ..admin.db import get_engine
 from ..dev.file import store_file

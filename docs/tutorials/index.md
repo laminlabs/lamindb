@@ -3,7 +3,7 @@
 ```{toctree}
 :maxdepth: 1
 
-setup
+ingest
 add-user
 introspect-data
 concepts

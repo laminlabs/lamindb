@@ -13,15 +13,26 @@ Browse the API:
    do
    model
    track
-   setup
    dev
    admin
+
+To retrieve settings after setup via the CLI, use:
+
+.. autofunction:: load_settings
+
+..
+   autosummary does not work with two objects that merely differ by capitalization
+
+.. autoclass:: Settings
+   :members:
+
 """
 
 __version__ = "0.0.8"
+from . import _setup  # noqa
 from . import admin  # noqa
 from . import dev  # noqa
 from . import do  # noqa
 from . import model  # noqa
-from . import setup  # noqa
 from . import track  # noqa
+from ._setup import Settings, load_settings  # noqa

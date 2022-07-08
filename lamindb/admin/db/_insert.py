@@ -1,11 +1,11 @@
 import sqlmodel as sqm
 
 import lamindb as db
-from lamindb import setup
+from lamindb import _setup
 
 from ..._logger import logger
+from ..._setup import load_settings
 from ...dev.id import id_dobject, id_user  # noqa
-from ...setup import load_settings
 from . import get_engine
 
 
@@ -15,13 +15,8 @@ class insert_if_not_exists:
     @classmethod
     def user(cls, user_email, user_id):
         df_user = db.do.load("user")
-
-        if user_id in df_user.index:
-            logger.info(f"Logged in {user_email} ({user_id}).")
-        else:
+        if user_id not in df_user.index:
             user_id = insert.user(user_email, user_id)  # type: ignore
-            logger.info(f"Signed up user {user_email} ({user_id}).")
-
         return user_id
 
 
@@ -54,7 +49,7 @@ class insert:
     ):
         """Data object with its origin."""
         engine = get_engine()
-        settings = setup.load_settings()
+        settings = _setup.load_settings()
 
         if interface_id is None:
             from nbproject import meta

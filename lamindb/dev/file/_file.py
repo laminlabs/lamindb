@@ -4,12 +4,12 @@ from typing import Union
 
 from cloudpathlib import CloudPath
 
-from lamindb import setup
+from lamindb import _setup
 
 
 def store_file(filepath: Union[str, Path], filekey: str):
     """Store arbitrary file."""
-    storage_path = setup._settings.storage_filepath(filekey)
+    storage_path = _setup._settings.storage_filepath(filekey)
     if isinstance(storage_path, CloudPath):
         storage_path.upload_from(filepath)
     else:

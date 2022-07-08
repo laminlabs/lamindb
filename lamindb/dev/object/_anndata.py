@@ -4,7 +4,11 @@ from anndata import AnnData
 from typeguard import typechecked
 
 from ..._logger import logger
-from ...setup._settings import cloud_to_local_no_update, load_settings, storage_filepath
+from ..._setup._settings import (
+    cloud_to_local_no_update,
+    load_settings,
+    storage_filepath,
+)
 
 
 @typechecked
