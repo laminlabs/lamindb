@@ -149,6 +149,8 @@ def write_settings(settings: Settings):
 def setup_storage_dir(storage: Union[str, Path, CloudPath]) -> Union[Path, CloudPath]:
     if str(storage).startswith(("s3://", "gs://")):
         storage_dir = CloudPath(storage)
+    elif str(storage) == "null":
+        return None
     else:
         storage_dir = Path(storage)
         if not storage_dir.exists():
