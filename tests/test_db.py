@@ -7,7 +7,7 @@ from lamindb._setup import _setup
 def test_create_to_load():
     storage = Path.home() / "mydata"
     _setup.log_in_user(
-        user="raspbear@gmx.de",
+        email="raspbear@gmx.de",
         secret="O6A5bqHzhERTMpGHXxEdbsTrEIt4a3Dy3AWdrWQR",
     )
     _setup.setup_instance(storage=storage)
