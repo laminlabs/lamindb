@@ -56,12 +56,7 @@ class description:
 
 
 def instance_from_storage(storage):
-    storage = str(storage)
-    if storage.startswith(("s3://", "gs://")):
-        instance = storage.replace("s3://", "")
-    else:
-        instance = str(Path(storage).stem)
-    return instance
+    return str(storage.stem).lower()
 
 
 @dataclass
@@ -103,7 +98,7 @@ class Settings:
 
         Is a CloudPath if on S3, otherwise a Path.
         """
-        filename = str(self.storage_dir.stem).lower()  # type: ignore
+        filename = instance_from_storage(self.storage_dir)  # type: ignore
         return storage_filepath(f"{filename}.lndb")
 
     @property

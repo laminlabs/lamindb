@@ -5,6 +5,7 @@ from supabase import create_client
 
 from .._logger import logger
 from ..dev import id
+from ._settings import load_settings
 from ._settings_store import Connector, settings_file
 
 
@@ -53,3 +54,32 @@ def sign_in_hub(user_email, secret):
         logger.info(f"Completed user sign up, generated user_id: {user_id}.")
     hub.auth.sign_out()
     return user_id
+
+
+def create_instance(instance_name):
+    hub = connect_hub()
+    settings = load_settings()
+    session = hub.auth.sign_in(email=settings.user_email, password=settings.user_secret)
+    hub.postgrest.auth(session.access_token)
+    # data = hub.table("user_instance").select("instance_id").eq("user_id", session.user.id.hex).execute()  # noqa
+    instance_id = id.id_instance()
+    data = (
+        hub.table("instance")
+        .insert({"lnid": instance_id, "handle": instance_id, "name": instance_name})
+        .execute()
+    )
+    assert len(data.data) > 0
+    data = (
+        hub.table("user_instance")
+        .insert(
+            {
+                "user_id": session.user.id.hex,
+                "instance_id": data.data[0]["id"],
+                "is_owner": True,
+            }
+        )  # noqa
+        .execute()
+    )
+    assert len(data.data) > 0
+    hub.auth.sign_out()
+    return instance_id

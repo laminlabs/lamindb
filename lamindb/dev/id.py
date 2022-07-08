@@ -49,3 +49,7 @@ def id_track() -> str:
 
 def id_secret() -> str:
     return id(n_char=40)
+
+
+def id_instance() -> str:
+    return id(n_char=12)
