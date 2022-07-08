@@ -15,6 +15,7 @@ Browse the API:
    track
    dev
    admin
+   load_settings
 """
 
 __version__ = "0.0.8"
@@ -24,3 +25,4 @@ from . import dev  # noqa
 from . import do  # noqa
 from . import model  # noqa
 from . import track  # noqa
+from ._setup import load_settings  # noqa
