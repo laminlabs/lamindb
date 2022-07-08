@@ -7,6 +7,7 @@ Towards version 0.1.
 <!-- prettier-ignore -->
 Name | PR | User | Date | Patch
 --- | --- | --- | --- | ---
+🏗️ Improve configuration logic, flow, logging & testing | [61](https://github.com/laminlabs/lamindb/pull/61) | [falexwolf](https://github.com/falexwolf) | 2022-07-08 |
 ✨ Populate user metadata at sign up | [60](https://github.com/laminlabs/lamindb/pull/60) | [fredericenard](https://github.com/fredericenard) | 2022-07-07 |
 ✨ Unique user identity across instances | [59](https://github.com/laminlabs/lamindb/pull/59) | [falexwolf](https://github.com/falexwolf) | 2022-07-06 |
 🚧 Enable storing sqlite on S3 | [58](https://github.com/laminlabs/lamindb/pull/58) | [falexwolf](https://github.com/falexwolf) | 2022-07-04 | 0.0.8
