@@ -9,7 +9,7 @@ from lamindb.admin.db._engine import get_engine
 
 from .._logger import logger
 from ..dev._docs import doc_args
-from ._hub import sign_in_hub, sign_up_hub
+from ._hub import create_instance, sign_in_hub, sign_up_hub
 from ._settings import description, load_settings, setup_storage_dir, write_settings
 
 
@@ -21,13 +21,15 @@ def setup_instance_db():
     - Sign-up and/or log-in.
     """
     settings = load_settings()
+    instance_name = settings.instance_name
     sqlite_file = settings._sqlite_file
     if sqlite_file.exists():
-        logger.info(f"Using lndb instance: {sqlite_file}")
+        logger.info(f"Using instance: {sqlite_file}")
     else:
+        instance_id = create_instance(instance_name)
         SQLModel.metadata.create_all(get_engine())
         settings._update_cloud_sqlite_file()
-        logger.info(f"Created lndb instance: {sqlite_file}")
+        logger.info(f"Created instance {instance_name} ({instance_id}): {sqlite_file}")
 
     insert_if_not_exists.user(settings.user_email, settings.user_id)
 
@@ -123,8 +125,8 @@ def setup_instance(
     write_settings(settings)
 
     # setup _config
+    settings._dbconfig = dbconfig
     if dbconfig != "sqlite":
-        settings._dbconfig = dbconfig
         write_settings(settings)
         raise NotImplementedError()
 
