@@ -3,17 +3,14 @@ import argparse
 from ._setup import _setup
 from ._setup._settings import description
 
-parser = argparse.ArgumentParser(description="Set up lamindb.")
+parser = argparse.ArgumentParser(description="Configure LaminDB.")
 aa = parser.add_argument
-aa("command", type=str, choices=["setup"], help="basic setup")
-STORAGE_HELP = description.storage_dir
-aa("-s", "--storage", type=str, metavar="s", default=None, help=STORAGE_HELP)
-USER_HELP = description.user_email
-aa("--user", type=str, metavar="s", default=None, help=USER_HELP)
-SECRET_HELP = description.user_secret
-aa("--secret", type=str, metavar="s", default=None, help=SECRET_HELP)
-INSTANCE_HELP = description.instance_name
-aa("--instance", type=str, metavar="s", default=None, help=INSTANCE_HELP)
+aa("command", type=str, choices=["set"], help="Set settings.")
+aa("--user", type=str, metavar="s", default=None, help=description.user_email)
+aa("--secret", type=str, metavar="s", default=None, help=description.user_secret)
+aa("--storage", type=str, metavar="s", default=None, help=description.storage_dir)
+aa("--instance", type=str, metavar="s", default=None, help=description.instance_name)
+aa("--db", type=str, choices=["set"], default="sqlite", help=description.db)
 args = parser.parse_args()
 
 
@@ -29,4 +26,5 @@ def main():
             user=args.user,
             secret=args.secret,
             instance=args.instance,
+            db=args.instance,
         )

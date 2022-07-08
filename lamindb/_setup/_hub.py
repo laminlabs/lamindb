@@ -1,3 +1,4 @@
+from typing import Union
 from urllib.request import urlretrieve
 
 from supabase import create_client
@@ -15,25 +16,31 @@ def connect_hub():
     return create_client(connector.url, connector.key)
 
 
-def signup_hub(user_email):
+def sign_up_hub(user_email) -> Union[str, None]:
     hub = connect_hub()
-    secret = id.id_secret()
-    hub.auth.sign_up(email=user_email, password=secret)
-    logger.info(
-        "Please confirm the sign-up email and then repeat the login call.\n"
-        f"Generated login secret: {secret}.\n"
-        "Your secret has been stored and will persist until a new installation."
-    )
-    return secret
+    secret = id.id_secret()  # generate new secret
+    user = hub.auth.sign_up(email=user_email, password=secret)
+    # if user already exists a fake user object without identity is returned
+    if user.identities:
+        logger.info(
+            "Please confirm the sign-up email and call again: lndb setup\n\n"
+            f"Generated login secret: {secret}.\n"
+            "It persists until change of environment or re-install: {settings_file}."
+            "Going forward, it is auto-loaded at setup!"
+            "You can always recover your secret via your email."
+        )
+        return secret
+    else:
+        return None
 
 
-def signin_hub(user_email, secret=None):
+def sign_in_hub(user_email, secret):
     hub = connect_hub()
     session = hub.auth.sign_in(email=user_email, password=secret)
     data = hub.table("usermeta").select("*").eq("id", session.user.id.hex).execute()
-    if len(data.data) > 0:
+    if len(data.data) > 0:  # user is completely registered
         user_id = data.data[0]["lnid"]
-    else:
+    else:  # user registration on hub gets completed below
         user_id = id.id_user()
         hub.postgrest.auth(session.access_token)
         data = (
@@ -42,5 +49,5 @@ def signin_hub(user_email, secret=None):
             .execute()
         )
         assert len(data.data) > 0
-
     hub.auth.sign_out()
+    return user_id

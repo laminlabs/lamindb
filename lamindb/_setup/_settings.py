@@ -54,6 +54,16 @@ class description:
     storage_dir = """Storage root. Either local dir, ``s3://bucket_name`` or ``gs://bucket_name``."""  # noqa
     cache_dir = """Cache root, a local directory to cache cloud files."""
     instance_name = """Name of LaminDB instance, which corresponds to exactly one backend database."""  # noqa
+    db = """Either "sqlite" or a Postgres URL."""
+
+
+def instance_from_storage(storage):
+    storage = str(storage)
+    if storage.startswith(("s3://", "gs://")):
+        instance = storage.replace("s3://", "")
+    else:
+        instance = str(Path(storage).stem)
+    return instance
 
 
 @dataclass
@@ -120,7 +130,6 @@ def setup_storage_dir(storage: Union[str, Path, CloudPath]) -> Union[Path, Cloud
         storage_dir = Path(storage)
         if not storage_dir.exists():
             storage_dir.mkdir(parents=True)
-
     return storage_dir
 
 

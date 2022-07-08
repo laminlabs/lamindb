@@ -5,13 +5,16 @@ from appdirs import AppDirs
 from cloudpathlib import CloudPath
 from sqlmodel import SQLModel
 
+from lamindb.admin.db import insert_if_not_exists
 from lamindb.admin.db._engine import get_engine
 
 from .._logger import logger
 from ..dev._docs import doc_args
+from ._hub import sign_in_hub, sign_up_hub
 from ._settings import (
     Settings,
     description,
+    instance_from_storage,
     load_settings,
     setup_storage_dir,
     write_settings,
@@ -33,33 +36,56 @@ def setup_cache_dir(
     return cache_dir
 
 
-def setup_db(user_email, user_id):
+def setup_instance_db():
     """Setup database.
 
     Contains:
     - Database creation.
     - Sign-up and/or log-in.
     """
-    from lamindb.admin.db import insert_if_not_exists
-
-    def create_db() -> None:
-        """Create database with initial schema."""
-        settings = load_settings()
-        sqlite_file = settings._sqlite_file
-        if sqlite_file.exists():
-            logger.info(f"Using DB instance {settings.instance_name} at {sqlite_file}")
-            return None
-
+    settings = load_settings()
+    sqlite_file = settings._sqlite_file
+    if sqlite_file.exists():
+        logger.info(f"Using instance DB: {sqlite_file}")
+    else:
         SQLModel.metadata.create_all(get_engine())
-
-        logger.info(f"Created DB instance {settings.instance_name} at {sqlite_file}.")
         settings._update_cloud_sqlite_file()
+        logger.info(f"Created instance DB: {sqlite_file}")
 
-    create_db()
+    insert_if_not_exists.user(settings.user_email, settings.user_id)
 
-    user_id = insert_if_not_exists.user(user_email, user_id)
 
-    return user_id
+def setup_user_and_secret(user, secret):
+    # retrieves user email & secret from stored settings
+    # also signs up new user to hub
+    settings = load_settings()
+    # user
+    if user is None:
+        if settings.user_email is None:
+            raise RuntimeError(
+                "No stored user email, please call: lndb setup --user <your-email>"
+            )
+        else:
+            user = settings.user_email
+
+    # secret
+    if secret is None:
+        if settings.user_secret is None:  # typically, secret is stored
+            secret = sign_up_hub(user)
+            if secret is None:  # user already exists
+                raise RuntimeError(
+                    "Please pass secret: lndb setup --secret <your-secret>"
+                    "If you don't have it anymore, recover it via email: "
+                    "https://hub.lamin.ai"
+                )
+            else:  # successful sign up of new user
+                settings.user_secret = secret
+                write_settings(settings)  # store user_email & secret
+        else:
+            secret = settings.user_secret
+    else:
+        settings.user_secret = secret
+        write_settings(settings)  # update stored secret
 
 
 @doc_args(
@@ -67,6 +93,7 @@ def setup_db(user_email, user_id):
     description.user_secret,
     description.storage_dir,
     description.instance_name,
+    description.db,
 )
 def setup_from_cli(
     *,
@@ -74,51 +101,67 @@ def setup_from_cli(
     secret: Union[str, None] = None,
     storage: Union[str, Path, CloudPath],
     instance: Union[str, None] = None,
+    db: str = "sqlite",
 ) -> None:
-    """Setup LaminDB. Alternative to using the CLI via `lamindb setup`.
+    """Setup LaminDB.
 
     Args:
         user: {}
         secret: {}
-        storage: {}
         instance: {}
+        storage: {}
+        db: {}
     """
+    # the following ensures that user & secret are stored in the settings .env
+    setup_user_and_secret(user, secret)
+
+    # settings.user_email & settings.user_secret are set
     settings = load_settings()
-    if user is None:
-        if settings.user_email is None:
-            user = input(f"Please paste your {description.user_email}: ")
-            settings.user_email = user
+
+    # continue with signing into hub
+    user_id = sign_in_hub(settings.user_email, settings.user_secret)
+    settings.user_id = user_id
+    write_settings(settings)
+
+    # setup storage
+    if storage is None:
+        if settings.storage_dir is None:
+            raise RuntimeError(
+                "No storage in .env, please call: lndb setup --storage <location>"
+            )
         else:
-            user = settings.user_email
+            storage = settings.storage_dir
+    else:
+        settings.storage_dir = setup_storage_dir(storage)
+    write_settings(settings)
 
-    if secret is None:
-        if settings.user_secret is None:
-            user = input(f"Please paste your {description.user_secret}: ")
-            settings.user_secret = secret
-        else:
-            secret = settings.user_secret
-
-    settings.storage_dir = setup_storage_dir(storage)
-
-    # setup instance
+    # setup instance_name
     if instance is None:
-        storage = str(storage)
-        if storage.startswith(("s3://", "gs://")):
-            instance = storage.replace("s3://", "")
+        if settings.instance_name is None:
+            if db == "sqlite":
+                instance = instance_from_storage(storage)
+                logger.info(f"Inferred instance from storage: {instance}")
+            else:
+                raise RuntimeError("Provide an instance name!")
         else:
-            instance = str(Path(storage).stem)
+            instance = settings.instance_name
+    else:
+        if db == "sqlite":
+            is_consistent = instance == instance_from_storage(storage)
+            if not is_consistent:
+                raise RuntimeError(
+                    "Your instance name is determined by your storage location!\n"
+                    f"It is auto-determined as: {instance_from_storage(storage)}\n"
+                    "Do *not* pass `--instance` in `lndb set`."
+                )
+
     settings.instance_name = instance
+    write_settings(settings)
 
     # setup cache_dir
     settings.cache_dir = setup_cache_dir(settings)
-
     write_settings(settings)
 
-    if secret is None:  # sign up
-        settings.user_secret = setup_db(settings.user_email, secret)
-        write_settings(settings)  # type: ignore
-    else:  # log in
-        settings.user_id = setup_db(settings.user_email, secret)
-        write_settings(settings)  # type: ignore
-
+    # setup instance db
+    setup_instance_db()
     return None
