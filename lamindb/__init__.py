@@ -15,7 +15,17 @@ Browse the API:
    track
    dev
    admin
-   load_settings
+
+To retrieve settings after setup via the CLI, use:
+
+.. autofunction:: load_settings
+
+..
+   autosummary does not work with two objects that merely differ by capitalization
+
+.. autoclass:: Settings
+   :members:
+
 """
 
 __version__ = "0.0.8"
@@ -25,4 +35,4 @@ from . import dev  # noqa
 from . import do  # noqa
 from . import model  # noqa
 from . import track  # noqa
-from ._setup import load_settings  # noqa
+from ._setup import Settings, load_settings  # noqa
