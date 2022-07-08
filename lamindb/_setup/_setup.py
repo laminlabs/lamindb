@@ -9,7 +9,7 @@ from lamindb.admin.db._engine import get_engine
 
 from .._logger import logger
 from ..dev._docs import doc_args
-from ._hub import create_instance, sign_in_hub, sign_up_hub
+from ._hub import sign_in_hub, sign_up_hub
 from ._settings import description, load_settings, setup_storage_dir, write_settings
 
 
@@ -26,10 +26,9 @@ def setup_instance_db():
     if sqlite_file.exists():
         logger.info(f"Using instance: {sqlite_file}")
     else:
-        instance_id = create_instance(instance_name)
         SQLModel.metadata.create_all(get_engine())
         settings._update_cloud_sqlite_file()
-        logger.info(f"Created instance {instance_name} ({instance_id}): {sqlite_file}")
+        logger.info(f"Created instance {instance_name}: {sqlite_file}")
 
     insert_if_not_exists.user(settings.user_email, settings.user_id)
 

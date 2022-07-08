@@ -6,5 +6,6 @@
 ingest
 add-user
 introspect-data
+share
 concepts
 ```
