@@ -13,7 +13,6 @@ Browse the API:
    do
    model
    track
-   setup
    dev
    admin
 """

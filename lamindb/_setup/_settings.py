@@ -4,7 +4,6 @@ from typing import Union, get_type_hints
 
 from cloudpathlib import CloudPath, S3Client
 
-from .._logger import logger
 from ._settings_store import SettingsStore
 
 root_dir = Path(__file__).parent.resolve()
@@ -141,7 +140,6 @@ def setup_from_store(store: SettingsStore) -> Settings:
 def load_settings() -> Settings:
     """Return current settings."""
     if not settings_file.exists():
-        logger.warning("Please setup lamindb via the CLI: lamindb setup")
         global Settings
         return Settings()
     else:
