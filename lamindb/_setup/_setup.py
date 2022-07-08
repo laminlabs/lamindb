@@ -126,6 +126,7 @@ def setup_instance(
     if dbconfig != "sqlite":
         settings._dbconfig = dbconfig
         write_settings(settings)
+        raise NotImplementedError()
 
     # setup instance db
     setup_instance_db()
