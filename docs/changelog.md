@@ -7,6 +7,7 @@ Towards version 0.1.
 <!-- prettier-ignore -->
 Name | PR | User | Date | Patch
 --- | --- | --- | --- | ---
+🚸 Raise error upon multiple sign ups with same unconfirmed email | [63](https://github.com/laminlabs/lamindb/pull/63) | [falexwolf](https://github.com/falexwolf) | 2022-07-09 |
 ✨ Allow sharing instances with other users | [62](https://github.com/laminlabs/lamindb/pull/62) | [falexwolf](https://github.com/falexwolf) | 2022-07-08 |
 🏗️ Improve configuration logic, flow, logging & testing | [61](https://github.com/laminlabs/lamindb/pull/61) | [falexwolf](https://github.com/falexwolf) | 2022-07-08 |
 ✨ Populate user metadata at sign up | [60](https://github.com/laminlabs/lamindb/pull/60) | [fredericenard](https://github.com/fredericenard) | 2022-07-07 |
