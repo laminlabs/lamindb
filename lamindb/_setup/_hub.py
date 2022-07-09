@@ -26,6 +26,7 @@ def sign_up_hub(user_email) -> Union[str, None]:
         # if user had called sign-up before, but not confirmed their email
         # the user has an identity with a wrong ID
         # we can check for it by comparing time stamps
+        # see design note uL8Sjht0y4qg
         diff = user.confirmation_sent_at - user.identities[0].last_sign_in_at
         if (
             diff.total_seconds() > 0.1
