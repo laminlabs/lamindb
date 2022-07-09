@@ -38,7 +38,7 @@ def sign_up_hub(user_email) -> Union[str, None]:
             )
         logger.info(
             "Please *confirm* the sign-up email. After that, proceed to `lndb"
-            " config`!\n\n"
+            " init`!\n\n"
             f"Generated login secret: {secret}.\n"
             f"Email & secret persist in: {settings_file}.\n"  # noqa
             "Going forward, credentials are auto-loaded. "  # noqa

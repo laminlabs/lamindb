@@ -109,13 +109,13 @@ def setup_instance(
             log_in_user(email=settings.user_email, secret=settings.user_secret)
             settings = load_settings()  # need to reload, here, to get user_id
         else:
-            raise RuntimeError("Configure user: lndb user --email")
+            raise RuntimeError("Login user: lndb login --email")
 
     # setup storage
     if storage is None:
         if settings.storage_dir is None:
             raise RuntimeError(
-                "No storage in .env, please call: lndb setup --storage <location>"
+                "No storage in .env, please call: lndb init --storage <location>"
             )
         else:
             storage = settings.storage_dir

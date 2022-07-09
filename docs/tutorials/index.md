@@ -3,7 +3,7 @@
 ```{toctree}
 :maxdepth: 1
 
-ingest
+get-started
 add-user
 introspect-data
 share
