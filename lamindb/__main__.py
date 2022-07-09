@@ -7,13 +7,13 @@ description_cli = """
 Configure LaminDB and perform simple actions with these commands:
 - lndb signup --email <email> | First time sign up & log in after email is confirmed.
 - lndb login [--email <email>] [--secret <secret>] | Log in an already-signed-up user.
-- lndb config [--storage <storage>] [--db <db>] | Configure/switch storage or instance.
+- lndb init [--storage <storage>] [--db <db>] | Init & config instance or storage.
 """
 parser = argparse.ArgumentParser(
     description=description_cli, formatter_class=argparse.RawTextHelpFormatter
 )
 aa = parser.add_argument
-aa("command", type=str, choices=["signup", "login", "config"])
+aa("command", type=str, choices=["signup", "login", "init"])
 # user
 aa("--email", type=str, metavar="s", default=None, help=description.user_email)
 aa("--secret", type=str, metavar="s", default=None, help=description.user_secret)
@@ -33,7 +33,7 @@ def main():
             email=args.email,
             secret=args.secret,
         )
-    elif args.command == "config":
+    elif args.command == "init":
         return _setup.setup_instance(
             storage=args.storage,
             dbconfig=args.db,
