@@ -12,6 +12,7 @@ _secrets.py
 _configuration.py
 lamin.db
 docs/generated/*
+_docs_tmp*
 
 # General
 .DS_Store
