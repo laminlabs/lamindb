@@ -7,6 +7,7 @@ Towards version 0.1.
 <!-- prettier-ignore -->
 Name | PR | User | Date | Patch
 --- | --- | --- | --- | ---
+⬆️ Migrate to nbproject 0.2.0 | [68](https://github.com/laminlabs/lamindb/pull/68) | [falexwolf](https://github.com/falexwolf) | 2022-07-11 |
 🚸 Auto-check integrity upon data ingestion only on Jupyter Lab | [65](https://github.com/laminlabs/lamindb/pull/65) | [falexwolf](https://github.com/falexwolf) | 2022-07-09 | 0.0.9
 🚚  Rename`lndb config` to `lndb init` and rewrite get-started tutorial | [64](https://github.com/laminlabs/lamindb/pull/64) | [falexwolf](https://github.com/falexwolf) | 2022-07-09 |
 🚸 Raise error upon multiple sign ups with same unconfirmed email | [63](https://github.com/laminlabs/lamindb/pull/63) | [falexwolf](https://github.com/falexwolf) | 2022-07-09 |
