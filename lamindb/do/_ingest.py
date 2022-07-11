@@ -1,5 +1,4 @@
 from pathlib import Path
-from typing import Union
 
 import sqlmodel as sqm
 from loguru import logger
@@ -38,12 +37,14 @@ def track_ingest(dobject_id):
     return track_do.id
 
 
-def ingest(filepath, integrity: Union[bool, None] = None):
+def ingest(filepath, integrity: bool = False, i_confirm_i_saved: bool = False):
     """Ingest file.
 
     Args:
         filepath: The filepath.
         integrity: Check the integrity of the notebook.
+        i_confirm_i_saved: Only relevant outside Jupyter Lab as a safeguard against
+            losing the editor buffer content because of accidentally publishing.
 
     We primarily work with base62 IDs.
 
@@ -89,14 +90,10 @@ def ingest(filepath, integrity: Union[bool, None] = None):
 
     from nbproject import meta
 
-    if integrity is None:
-        if meta._env == "lab":
-            integrity = True
-        else:
-            integrity = False
-            logger.warning(
-                "Consider using Jupyter Lab for ingesting data!\n"
-                "Interactive notebook integrity checks are currently only supported on Jupyter Lab.\n"  # noqa
-                "Alternatively, manually save your notebook directly before calling `do.ingest(..., integrity=True)`."  # noqa
-            )
-    publish(integrity=integrity)
+    if not integrity:
+        logger.warning(
+            "Consider using Jupyter Lab for ingesting data!\n"
+            "Interactive notebook integrity checks are currently only supported on Jupyter Lab.\n"  # noqa
+            "Alternatively, manually save your notebook directly before calling `do.ingest(..., integrity=True)`."  # noqa
+        )
+    publish(integrity=integrity, i_confirm_i_saved=i_confirm_i_saved)
