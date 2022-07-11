@@ -1,10 +1,10 @@
 import pandas as pd
 from loguru import logger
-from supabase import create_client
 
 from lamindb._setup import load_settings
 from lamindb._setup._settings import storage_filepath
 
+from .._setup._hub import connect_hub
 from ..admin.db import get_engine
 
 
@@ -14,17 +14,8 @@ def push(dobject_id):
 
     dobject_metadata = get_dobject_metadata(dobject_id)
 
-    hub = create_client(
-        "https://qntuvxhregqtypdorhaw.supabase.co",
-        "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9"
-        ".eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFudHV2eGhy"
-        "ZWdxdHlwZG9yaGF3Iiwicm9sZSI6ImFub24iLCJpYXQiOj"
-        "E2NTcyMjMxODksImV4cCI6MTk3Mjc5OTE4OX0"
-        ".hzrRK-xbhFSqFb1-cVu6NFM-UcPON4HBdaH2qe3vKbA",
-    )
-    session = hub.auth.sign_in(
-        email="frederic.enard@gmail.com", password=settings.user_secret
-    )
+    hub = connect_hub()
+    session = hub.auth.sign_in(email=settings.user_email, password=settings.user_secret)
     hub.postgrest.auth(session.access_token)
 
     data = (
