@@ -96,4 +96,8 @@ def ingest(filepath, integrity: bool = False, i_confirm_i_saved: bool = False):
             "Interactive notebook integrity checks are currently only supported on Jupyter Lab.\n"  # noqa
             "Alternatively, manually save your notebook directly before calling `do.ingest(..., integrity=True)`."  # noqa
         )
-    publish(integrity=integrity, i_confirm_i_saved=i_confirm_i_saved)
+    publish(
+        integrity=integrity,
+        i_confirm_i_saved=i_confirm_i_saved,
+        calling_statement="ingest(",
+    )
