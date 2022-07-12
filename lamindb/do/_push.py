@@ -45,6 +45,7 @@ def get_dobject_metadata(dobject_id):
     url = storage_filepath(dobject_id)
 
     return {
+        "lnid": dobject_metadata["id"],
         "name": dobject_metadata["name"],
         "suffix": dobject_metadata["suffix"],
         "url": str(url),
