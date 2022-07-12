@@ -7,6 +7,7 @@ Towards version 0.1.
 <!-- prettier-ignore -->
 Name | PR | User | Date | Patch
 --- | --- | --- | --- | ---
+:bug: Fix bug | [70](https://github.com/laminlabs/lamindb/pull/70) | [falexwolf](https://github.com/falexwolf) | 2022-07-12 |
 📝 Added example notebook for ingesting fcs files | [66](https://github.com/laminlabs/lamindb/pull/66) | [sunnyosun](https://github.com/sunnyosun) | 2022-07-11 |
 ⬆️ Migrate to nbproject 0.2.0 | [68](https://github.com/laminlabs/lamindb/pull/68) | [falexwolf](https://github.com/falexwolf) | 2022-07-11 |
 🚸 Auto-check integrity upon data ingestion only on Jupyter Lab | [65](https://github.com/laminlabs/lamindb/pull/65) | [falexwolf](https://github.com/falexwolf) | 2022-07-09 | 0.0.9
