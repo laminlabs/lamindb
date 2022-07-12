@@ -6,4 +6,5 @@ For real-world examples, see the [sandbox](https://lamin.ai/sandbox).
 :maxdepth: 1
 
 ingest-fcs
+ingest-image
 ```
