@@ -10,7 +10,6 @@ from ..admin.db import get_engine
 
 def push(dobject_id):
     settings = load_settings()
-    # assert settings.cloud_storage
 
     dobject_metadata = get_dobject_metadata(dobject_id)
 
@@ -26,7 +25,23 @@ def push(dobject_id):
     assert len(data.data) > 0
 
     logger.info(
-        f"Shared dobject ({dobject_id}) from notebook"
+        f"Push dobject ({dobject_id}) from notebook"
+        f"by user {settings.user_email} ({settings.user_id})."
+    )
+
+
+def unpush(dobject_id):
+    settings = load_settings()
+
+    hub = connect_hub()
+    session = hub.auth.sign_in(email=settings.user_email, password=settings.user_secret)
+    hub.postgrest.auth(session.access_token)
+
+    data = hub.from_("dobject").delete().eq("lnid", dobject_id).execute()
+    assert len(data.data) > 0
+
+    logger.info(
+        f"Reverse push of dobject ({dobject_id}) from notebook"
         f"by user {settings.user_email} ({settings.user_id})."
     )
 
