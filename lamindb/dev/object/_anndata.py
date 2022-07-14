@@ -18,8 +18,7 @@ def anndata_to_h5ad(adata: AnnData, filekey: str) -> Path:
     path = storage_filepath(filekey)
     if settings.cloud_storage:
         cache_file = cloud_to_local_no_update(path)  # type: ignore
-        if not cache_file.parent.exists():
-            cache_file.parent.mkdir()
+        cache_file.parent.mkdir(exist_ok=True)
         logger.debug(f"Writing cache file: {cache_file}.")
         adata.write(cache_file)
         logger.debug("Uploading cache file.")

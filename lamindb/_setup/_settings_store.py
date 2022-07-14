@@ -5,8 +5,7 @@ from pydantic import BaseSettings
 # user_config_dir in appdirs is weird on MacOS!
 # hence, let's take home/.lndb
 settings_dir = Path.home() / ".lndb"
-if not settings_dir.exists():
-    settings_dir.mkdir(parents=True)
+settings_dir.mkdir(parents=True, exist_ok=True)
 settings_file = settings_dir / "lndb.env"
 
 

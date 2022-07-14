@@ -86,8 +86,7 @@ class Settings:
         """Cache root, a local directory to cache cloud files."""
         if self.cloud_storage:
             cache_dir = Path(DIRS.user_cache_dir)
-            if not cache_dir.exists():
-                cache_dir.mkdir(parents=True)
+            cache_dir.mkdir(parents=True, exist_ok=True)
         else:
             cache_dir = None
         return cache_dir
@@ -148,8 +147,7 @@ def setup_storage_dir(storage: Union[str, Path, CloudPath]) -> Union[Path, Cloud
         return None
     else:
         storage_dir = Path(storage)
-        if not storage_dir.exists():
-            storage_dir.mkdir(parents=True)
+        storage_dir.mkdir(parents=True, exist_ok=True)
     return storage_dir
 
 
