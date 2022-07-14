@@ -9,6 +9,7 @@ from ..admin.db import get_engine
 
 
 def push(dobject_id):
+    """Push a dobject into the hub."""
     settings = load_settings()
 
     dobject_metadata = get_dobject_metadata(dobject_id)
@@ -31,6 +32,7 @@ def push(dobject_id):
 
 
 def unpush(dobject_id):
+    """Reverse push of a dobject into the hub."""
     settings = load_settings()
 
     hub = connect_hub()
@@ -41,12 +43,13 @@ def unpush(dobject_id):
     assert len(data.data) > 0
 
     logger.info(
-        f"Reverse push of dobject ({dobject_id}) from notebook"
+        f"Reverse push of a dobject ({dobject_id}) from notebook"
         f"by user {settings.user_email} ({settings.user_id})."
     )
 
 
 def get_dobject_metadata(dobject_id):
+    """Get metadata (lnid, name, suffix and url) of a dobject."""
     engine = get_engine()
 
     with engine.connect() as conn:
