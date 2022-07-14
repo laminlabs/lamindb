@@ -1,4 +1,5 @@
 from pathlib import Path
+from typing import Dict
 
 import sqlmodel as sqm
 from loguru import logger
@@ -37,67 +38,96 @@ def track_ingest(dobject_id):
     return track_do.id
 
 
-def ingest(filepath, integrity: bool = False, i_confirm_i_saved: bool = False):
-    """Ingest file.
+class Ingest:
+    """Ingest file."""
 
-    Args:
-        filepath: The filepath.
-        integrity: Check the integrity of the notebook.
-        i_confirm_i_saved: Only relevant outside Jupyter Lab as a safeguard against
-            losing the editor buffer content because of accidentally publishing.
+    def __init__(self) -> None:
+        self._added: Dict = {}
 
-    We primarily work with base62 IDs.
+    @property
+    def status(self) -> dict:
+        """Added files for ingestion."""
+        return self._added
 
-    ====== =========
-    len_id n_entries
-    ====== =========
-    1      >6e+01
-    2      >4e+03
-    3      >2e+05
-    4      >1e+07
-    5      >9e+08
-    6      >6e+10
-    7      >4e+12
-    8      >2e+14
-    9      >1e+16
-    12     >3e+21 (nbproject id)
-    20     >7e+35 (~UUID)
-    ====== =========
-    """
-    from nbproject import meta, publish
+    def add(self, filepath):
+        """Add a file for ingestion.
 
-    settings = load_settings()
-    storage_dir = settings.storage_dir
+        Args:
+            filepath: The filepath.
 
-    storage_dir = Path(storage_dir)
+        """
+        settings = load_settings()
+        storage_dir = settings.storage_dir
 
-    filepath = Path(filepath)
+        storage_dir = Path(storage_dir)
 
-    from lamindb.admin.db import insert
+        filepath = Path(filepath)
 
-    dobject_id = insert.dobject(filepath.stem, filepath.suffix)
+        from ..dev.id import id_dobject
 
-    dobject_storage_key = f"{dobject_id}{filepath.suffix}"
-    store_file(filepath, dobject_storage_key)
+        self._added[filepath] = id_dobject()
 
-    track_ingest(dobject_id)
+    def commit(self, integrity: bool = False, i_confirm_i_saved: bool = False):
+        """Commit files for ingestion.
 
-    logger.info(
-        f"Added file {filepath.name} ({dobject_id}) from notebook"
-        f" {meta.live.title!r} ({meta.store.id}) by user"
-        f" {settings.user_email} ({settings.user_id})."
-    )
+        Args:
+            integrity: Check the integrity of the notebook.
+            i_confirm_i_saved: Only relevant outside Jupyter Lab as a safeguard against
+                losing the editor buffer content because of accidentally publishing.
 
-    from nbproject import meta
+        We primarily work with base62 IDs.
 
-    if not integrity:
-        logger.warning(
-            "Consider using Jupyter Lab for ingesting data!\n"
-            "Interactive notebook integrity checks are currently only supported on Jupyter Lab.\n"  # noqa
-            "Alternatively, manually save your notebook directly before calling `do.ingest(..., integrity=True)`."  # noqa
+        ====== =========
+        len_id n_entries
+        ====== =========
+        1      >6e+01
+        2      >4e+03
+        3      >2e+05
+        4      >1e+07
+        5      >9e+08
+        6      >6e+10
+        7      >4e+12
+        8      >2e+14
+        9      >1e+16
+        12     >3e+21 (nbproject id)
+        20     >7e+35 (~UUID)
+        ====== =========
+        """
+        from nbproject import meta, publish
+
+        from lamindb.admin.db import insert
+
+        settings = load_settings()
+
+        for filepath, dobject_id in self.status.items():
+            dobject_id = insert.dobject(
+                filepath.stem, filepath.suffix, dobject_id=dobject_id
+            )
+
+            dobject_storage_key = f"{dobject_id}{filepath.suffix}"
+            store_file(filepath, dobject_storage_key)
+
+            track_ingest(dobject_id)
+
+            logger.info(
+                f"Added file {filepath.name} ({dobject_id}) from notebook"
+                f" {meta.live.title!r} ({meta.store.id}) by user"
+                f" {settings.user_email} ({settings.user_id})."
+            )
+
+        from nbproject import meta
+
+        if not integrity:
+            logger.warning(
+                "Consider using Jupyter Lab for ingesting data!\n"
+                "Interactive notebook integrity checks are currently only supported on Jupyter Lab.\n"  # noqa
+                "Alternatively, manually save your notebook directly before calling `do.ingest.commit(..., integrity=True)`."  # noqa
+            )
+        publish(
+            integrity=integrity,
+            i_confirm_i_saved=i_confirm_i_saved,
+            calling_statement="commit(",
         )
-    publish(
-        integrity=integrity,
-        i_confirm_i_saved=i_confirm_i_saved,
-        calling_statement="ingest(",
-    )
+
+
+ingest = Ingest()
