@@ -121,12 +121,12 @@ class Ingest:
             logger.warning(
                 "Consider using Jupyter Lab for ingesting data!\n"
                 "Interactive notebook integrity checks are currently only supported on Jupyter Lab.\n"  # noqa
-                "Alternatively, manually save your notebook directly before calling `do.ingest(..., integrity=True)`."  # noqa
+                "Alternatively, manually save your notebook directly before calling `do.ingest.commit(..., integrity=True)`."  # noqa
             )
         publish(
             integrity=integrity,
             i_confirm_i_saved=i_confirm_i_saved,
-            calling_statement="ingest(",
+            calling_statement="commit(",
         )
 
 
