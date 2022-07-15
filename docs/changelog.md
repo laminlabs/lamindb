@@ -7,6 +7,7 @@ Towards version 0.1.
 <!-- prettier-ignore -->
 Name | PR | User | Date | Patch
 --- | --- | --- | --- | ---
+💄 Pretty logging | [74](https://github.com/laminlabs/lamindb/pull/74) | [sunnyosun](https://github.com/sunnyosun) | 2022-07-15 |
 ✨ Implemented `ingest.add` and `ingest.commit` for ingesting multiple datasets within a notebook | [73](https://github.com/laminlabs/lamindb/pull/73) | [sunnyosun](https://github.com/sunnyosun) | 2022-07-14 |
 📝 Added an example of ingesting images | [72](https://github.com/laminlabs/lamindb/pull/72) | [sunnyosun](https://github.com/sunnyosun) | 2022-07-12 |
 :arrow_up: Upgrade to nbproject 0.2.1 | [71](https://github.com/laminlabs/lamindb/pull/71) | [falexwolf](https://github.com/falexwolf) | 2022-07-12 |
