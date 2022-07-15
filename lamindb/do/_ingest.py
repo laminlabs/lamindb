@@ -2,11 +2,11 @@ from pathlib import Path
 from typing import Dict
 
 import sqlmodel as sqm
-from loguru import logger
 
 import lamindb as db
 from lamindb._setup import load_settings
 
+from .._logger import ANSI_COLORS, logger
 from ..admin.db import get_engine
 from ..dev.file import store_file
 
@@ -94,10 +94,12 @@ class Ingest:
         ====== =========
         """
         from nbproject import meta, publish
+        from tabulate import tabulate  # type: ignore
 
         from lamindb.admin.db import insert
 
         settings = load_settings()
+        logs = []
 
         for filepath, dobject_id in self.status.items():
             dobject_id = insert.dobject(
@@ -109,19 +111,30 @@ class Ingest:
 
             track_ingest(dobject_id)
 
-            logger.info(
-                f"Added file {filepath.name} ({dobject_id}) from notebook"
-                f" {meta.live.title!r} ({meta.store.id}) by user"
-                f" {settings.user_email} ({settings.user_id})."
+            logs.append(
+                [
+                    f"{filepath.name} ({dobject_id})",
+                    f"{meta.live.title!r} ({meta.store.id})",
+                    f"{settings.user_email} ({settings.user_id})",
+                ]
             )
 
-        from nbproject import meta
+        log_table = tabulate(
+            logs,
+            headers=[
+                f"{ANSI_COLORS['green']}Ingested File{ANSI_COLORS['reset']}",
+                f"{ANSI_COLORS['blue']}Notebook{ANSI_COLORS['reset']}",
+                f"{ANSI_COLORS['purple']}User{ANSI_COLORS['reset']}",
+            ],
+            tablefmt="orgtbl",
+        )
+        logger.info(f"Ingested the following files:\n{log_table}")
 
         if not integrity:
             logger.warning(
-                "Consider using Jupyter Lab for ingesting data!\n"
-                "Interactive notebook integrity checks are currently only supported on Jupyter Lab.\n"  # noqa
-                "Alternatively, manually save your notebook directly before calling `do.ingest.commit(..., integrity=True)`."  # noqa
+                f"{ANSI_COLORS['yellow']}Consider using Jupyter Lab for ingesting data!{ANSI_COLORS['reset']}\n"  # noqa
+                "    Interactive notebook integrity checks are currently only supported on Jupyter Lab.\n"  # noqa
+                "    Alternatively, manually save your notebook directly before calling `do.ingest.commit(..., integrity=True)`."  # noqa
             )
         publish(
             integrity=integrity,
