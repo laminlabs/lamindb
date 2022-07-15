@@ -6,7 +6,7 @@ import sqlmodel as sqm
 import lamindb as db
 from lamindb._setup import load_settings
 
-from .._logger import ANSI_COLORS, logger
+from .._logger import colors, logger
 from ..admin.db import get_engine
 from ..dev.file import store_file
 
@@ -122,17 +122,19 @@ class Ingest:
         log_table = tabulate(
             logs,
             headers=[
-                f"{ANSI_COLORS['green']}Ingested File{ANSI_COLORS['reset']}",
-                f"{ANSI_COLORS['blue']}Notebook{ANSI_COLORS['reset']}",
-                f"{ANSI_COLORS['purple']}User{ANSI_COLORS['reset']}",
+                colors.green("Ingested File"),
+                colors.blue("Notebook"),
+                colors.purple("User"),
             ],
-            tablefmt="orgtbl",
+            tablefmt="pretty",
         )
-        logger.info(f"Ingested the following files:\n{log_table}")
+        logger.log(
+            "INGEST", f"{colors.bold('Ingested the following files')}:\n{log_table}"
+        )
 
         if not integrity:
             logger.warning(
-                f"{ANSI_COLORS['yellow']}Consider using Jupyter Lab for ingesting data!{ANSI_COLORS['reset']}\n"  # noqa
+                f"{colors.yellow('Consider using Jupyter Lab for ingesting data!')}\n"  # noqa
                 "    Interactive notebook integrity checks are currently only supported on Jupyter Lab.\n"  # noqa
                 "    Alternatively, manually save your notebook directly before calling `do.ingest.commit(..., integrity=True)`."  # noqa
             )
