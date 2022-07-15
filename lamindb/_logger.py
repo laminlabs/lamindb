@@ -2,7 +2,7 @@ import sys
 
 from loguru import logger
 
-# ANSI color code: https://gist.github.com/JBlond/2fea43a3049b38287e5e9cefc87b2124
+# ANSI color code: https://gist.github.com/iansan5653/c4a0b9f5c30d74258c5f132084b78db9
 ANSI_COLORS = dict(
     bold="\x1b[1m",
     green="\x1b[1;92m",
