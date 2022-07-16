@@ -42,11 +42,13 @@ class insert:
     def dobject(
         cls,
         name: str,
-        suffix: str = None,
+        file_suffix: str = None,
         *,
         interface_id: str = None,
+        interface_v: str = "1",
         interface_name: str = None,
         dobject_id: str = None,
+        dobject_v: str = "1",
     ):
         """Data object with its origin."""
         engine = get_engine()
@@ -56,6 +58,7 @@ class insert:
             from nbproject import meta
 
             interface_id = meta.store.id
+            interface_v = meta.store.version
             interface_name = meta.live.title
             interface_type = "nbproject"
 
@@ -69,10 +72,9 @@ class insert:
         df_interface = db.do.load("interface")
         if interface_id not in df_interface.index:
             with sqm.Session(engine) as session:
-                # can remove underscore once we explicitly
-                # migrate to _id suffixes for id columns
                 interface = db.model.interface(
                     id=interface_id,
+                    v=interface_v,
                     name=interface_name,
                     type=interface_type,
                     user_id=settings.user_id,
@@ -80,13 +82,17 @@ class insert:
                 session.add(interface)
                 session.commit()
             logger.info(
-                f"Added notebook {interface_name!r} ({interface_id}) by user"
-                f" {settings.user_email} ({settings.user_id})."
+                f"Added notebook {interface_name!r} ({interface_id}, {interface_v}) by"
+                f" user {settings.user_email} ({settings.user_id})."
             )
 
         with sqm.Session(engine) as session:
             dobject = db.model.dobject(
-                id=dobject_id, name=name, interface_id=interface_id, suffix=suffix
+                id=dobject_id,
+                v=dobject_v,
+                name=name,
+                interface_id=interface_id,
+                file_suffix=file_suffix,
             )
             session.add(dobject)
             session.commit()
