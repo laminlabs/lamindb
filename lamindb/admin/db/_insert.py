@@ -92,6 +92,7 @@ class insert:
                 v=dobject_v,
                 name=name,
                 interface_id=interface_id,
+                interface_v=interface_v,
                 file_suffix=file_suffix,
             )
             session.add(dobject)

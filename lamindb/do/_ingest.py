@@ -112,7 +112,7 @@ class Ingest:
             logs.append(
                 [
                     f"{filepath.name} ({dobject_id}, {dobject_v})",
-                    f"{meta.live.title!r} ({meta.store.id})",
+                    f"{meta.live.title!r} ({meta.store.id}, {meta.store.version})",
                     f"{settings.user_email} ({settings.user_id})",
                 ]
             )
