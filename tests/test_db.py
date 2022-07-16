@@ -11,7 +11,9 @@ def test_create_to_load():
         secret="O6A5bqHzhERTMpGHXxEdbsTrEIt4a3Dy3AWdrWQR",
     )
     _setup.setup_instance(storage=storage)
-    lndb.admin.db.insert.dobject("test_file", ".csv", interface_id="83jf")
+    lndb.admin.db.insert.dobject(
+        "test_file", ".csv", interface_id="83jf", interface_v="1"
+    )
     for entity in lndb.track.schema.entities:
         lndb.do.load(entity)
 

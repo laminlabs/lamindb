@@ -9,6 +9,7 @@ from lamindb._setup import load_settings
 from .._logger import colors, logger
 from ..admin.db import get_engine
 from ..dev.file import store_file
+from ..dev.id import id_dobject
 
 
 def track_ingest(dobject_id):
@@ -49,23 +50,17 @@ class Ingest:
         """Added files for ingestion."""
         return self._added
 
-    def add(self, filepath):
+    def add(self, filepath, *, dobject_id=None, dobject_v="1"):
         """Add a file for ingestion.
 
         Args:
             filepath: The filepath.
-
+            dobject_id: The dobject id.
+            dobject_v: The dobject version.
         """
-        settings = load_settings()
-        storage_dir = settings.storage_dir
-
-        storage_dir = Path(storage_dir)
-
         filepath = Path(filepath)
-
-        from ..dev.id import id_dobject
-
-        self._added[filepath] = id_dobject()
+        primary_key = (id_dobject() if dobject_id is None else dobject_id, dobject_v)
+        self._added[filepath] = primary_key
 
     def commit(self, integrity: bool = False, i_confirm_i_saved: bool = False):
         """Commit files for ingestion.
@@ -101,20 +96,23 @@ class Ingest:
         settings = load_settings()
         logs = []
 
-        for filepath, dobject_id in self.status.items():
+        for filepath, (dobject_id, dobject_v) in self.status.items():
             dobject_id = insert.dobject(
-                filepath.stem, filepath.suffix, dobject_id=dobject_id
+                filepath.stem,
+                filepath.suffix,
+                dobject_id=dobject_id,
+                dobject_v=dobject_v,
             )
 
-            dobject_storage_key = f"{dobject_id}{filepath.suffix}"
+            dobject_storage_key = f"{dobject_id}-{dobject_v}{filepath.suffix}"
             store_file(filepath, dobject_storage_key)
 
             track_ingest(dobject_id)
 
             logs.append(
                 [
-                    f"{filepath.name} ({dobject_id})",
-                    f"{meta.live.title!r} ({meta.store.id})",
+                    f"{filepath.name} ({dobject_id}, {dobject_v})",
+                    f"{meta.live.title!r} ({meta.store.id}, {meta.store.version})",
                     f"{settings.user_email} ({settings.user_id})",
                 ]
             )
