@@ -2,6 +2,7 @@ from pathlib import Path
 from typing import Dict
 
 import sqlmodel as sqm
+from lamindb_schema import id_dobject
 
 import lamindb as db
 from lamindb._setup import load_settings
@@ -9,7 +10,6 @@ from lamindb._setup import load_settings
 from .._logger import colors, logger
 from ..admin.db import get_engine
 from ..dev.file import store_file
-from ..dev.id import id_dobject
 
 
 def track_ingest(dobject_id):
