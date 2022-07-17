@@ -11,7 +11,7 @@ Browse the API:
    :toctree: .
 
    do
-   model
+   schema
    track
    dev
    admin
@@ -33,6 +33,6 @@ from . import _setup  # noqa
 from . import admin  # noqa
 from . import dev  # noqa
 from . import do  # noqa
-from . import model  # noqa
+from . import schema  # noqa
 from . import track  # noqa
 from ._setup import Settings, load_settings  # noqa

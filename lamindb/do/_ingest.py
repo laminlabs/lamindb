@@ -24,7 +24,7 @@ def track_ingest(dobject_id):
     interface_id = meta.store.id
 
     with sqm.Session(engine) as session:
-        track_do = db.model.track_do(
+        track_do = db.schema.track_do(
             type="ingest",
             user_id=user_id,
             interface_id=interface_id,
