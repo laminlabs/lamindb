@@ -29,7 +29,7 @@ class insert:
         engine = get_engine()
 
         with sqm.Session(engine) as session:
-            user = db.model.user(id=user_id, email=user_email)
+            user = db.schema.user(id=user_id, email=user_email)
             session.add(user)
             session.commit()
             session.refresh(user)
@@ -72,7 +72,7 @@ class insert:
         df_interface = db.do.load("interface")
         if interface_id not in df_interface.index:
             with sqm.Session(engine) as session:
-                interface = db.model.interface(
+                interface = db.schema.interface(
                     id=interface_id,
                     v=interface_v,
                     name=interface_name,
@@ -87,7 +87,7 @@ class insert:
             )
 
         with sqm.Session(engine) as session:
-            dobject = db.model.dobject(
+            dobject = db.schema.dobject(
                 id=dobject_id,
                 v=dobject_v,
                 name=name,
