@@ -1,5 +1,5 @@
 import sqlmodel as sqm
-from lamindb_schema import id_dobject, id_user  # noqa
+from lamindb_schema.id import id_dobject, id_user  # noqa
 
 import lamindb as db
 from lamindb import _setup
