@@ -31,5 +31,5 @@ Types:
    :undoc-members:
 
 """
-from ._core import track_do_type  # noqa
-from ._core import dobject, interface, track_do, user  # noqa
+from lamindb_schema import track_do_type  # noqa
+from lamindb_schema import dobject, interface, track_do, user  # noqa

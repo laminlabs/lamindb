@@ -1,11 +1,11 @@
 import sqlmodel as sqm
+from lamindb_schema.id import id_dobject, id_user  # noqa
 
 import lamindb as db
 from lamindb import _setup
 
 from ..._logger import logger
 from ..._setup import load_settings
-from ...dev.id import id_dobject, id_user  # noqa
 from . import get_engine
 
 
