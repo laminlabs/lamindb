@@ -24,6 +24,18 @@ class insert:
     """Insert data."""
 
     @classmethod
+    def schema_version(cls, version, user_id):
+        """User."""
+        engine = get_engine()
+
+        with sqm.Session(engine) as session:
+            user = db.schema.schema_version(id=version, user_id=user_id)
+            session.add(user)
+            session.commit()
+
+        load_settings()._update_cloud_sqlite_file()
+
+    @classmethod
     def user(cls, user_email, user_id):
         """User."""
         engine = get_engine()
