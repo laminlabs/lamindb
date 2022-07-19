@@ -99,15 +99,16 @@ class Ingest:
                 "Can only ingest from notebook with title. Please set a title!"
             )
 
+        interface_id = meta.store.id
+        interface_v = dev.set_version(interface_v)  # version to be set in publish()
+        interface_name = meta.live.title
         for filepath, (dobject_id, dobject_v) in self.status.items():
             dobject_id = insert.dobject(
                 name=filepath.stem,
                 file_suffix=filepath.suffix,
-                interface_id=meta.store.id,
-                interface_v=dev.set_version(
-                    interface_v
-                ),  # version to be set in publish()
-                interface_name=meta.live.title,
+                interface_id=interface_id,
+                interface_v=interface_v,
+                interface_name=interface_name,
                 interface_type="nbproject",
                 dobject_id=dobject_id,
                 dobject_v=dobject_v,
@@ -121,7 +122,7 @@ class Ingest:
             logs.append(
                 [
                     f"{filepath.name} ({dobject_id}, {dobject_v})",
-                    f"{meta.live.title!r} ({meta.store.id}, {meta.store.version})",
+                    f"{interface_name!r} ({interface_id}, {interface_v})",
                     f"{settings.user_email} ({settings.user_id})",
                 ]
             )
