@@ -4,8 +4,9 @@ from typing import Union
 from cloudpathlib import CloudPath
 from sqlmodel import SQLModel
 
-from lamindb.admin.db import insert_if_not_exists
+from lamindb.admin.db import insert, insert_if_not_exists
 from lamindb.admin.db._engine import get_engine
+from lamindb.do import load
 
 from .._logger import logger
 from ..dev._docs import doc_args
@@ -23,11 +24,21 @@ def setup_instance_db():
     settings = load_settings()
     instance_name = settings.instance_name
     sqlite_file = settings._sqlite_file
+    from lamindb_schema import __version__
+
     if sqlite_file.exists():
         logger.info(f"Using instance: {sqlite_file}")
+        schema_version = load("schema_version")
+        if schema_version.index[-1] != __version__:
+            raise RuntimeError(
+                "\nEither migrate your instance db schema to version"
+                f" {__version__}.\nOr install pip package lamindb_schema version"
+                f" {schema_version.index[-1]}."
+            )
     else:
         SQLModel.metadata.create_all(get_engine())
         settings._update_cloud_sqlite_file()
+        insert.schema_version(__version__, settings.user_id)
         logger.info(f"Created instance {instance_name}: {sqlite_file}")
 
     insert_if_not_exists.user(settings.user_email, settings.user_id)

@@ -8,6 +8,10 @@ For a schematic of relations among models, see :class:`track.schema`.
 
 Data models:
 
+.. autoclass:: schema_version
+   :members:
+   :undoc-members:
+
 .. autoclass:: user
    :members:
    :undoc-members:
@@ -32,4 +36,4 @@ Types:
 
 """
 from lamindb_schema import track_do_type  # noqa
-from lamindb_schema import dobject, interface, track_do, user  # noqa
+from lamindb_schema import dobject, interface, schema_version, track_do, user  # noqa

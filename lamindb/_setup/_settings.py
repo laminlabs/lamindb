@@ -24,6 +24,9 @@ def cloud_to_local(filepath: Union[Path, CloudPath]) -> Path:
     """Local (cache) filepath from filepath."""
     if load_settings().cloud_storage:
         filepath = filepath.fspath  # type: ignore  # mypy misses CloudPath
+    Path(filepath).parent.mkdir(
+        parents=True, exist_ok=True
+    )  # this should not happen here
     return filepath
 
 
