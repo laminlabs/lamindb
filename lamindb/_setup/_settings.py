@@ -51,6 +51,7 @@ class description:
     user_email = """User email."""
     user_secret = """User login secret. Auto-generated."""
     user_id = """User ID. Auto-generated."""
+    instance_name = """Instance name."""
     storage_dir = """Storage root. Either local dir, ``s3://bucket_name`` or ``gs://bucket_name``."""  # noqa
     _dbconfig = """Either "sqlite" or "instance_name, postgres_url"."""
 

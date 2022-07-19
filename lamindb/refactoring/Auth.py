@@ -1,10 +1,16 @@
 from supabase import create_client
 
-from .Context import context
+from lamindb.refactoring.utils.get_default_supabase_credentials import (
+    get_default_supabase_credentials,
+)
+
+from .Context import Context
 
 
 class Auth:
-    def __init__(self, url: str, key: str) -> None:
+    def __init__(self, url: str = None, key: str = None) -> None:
+        if not (url and key):
+            url, key = get_default_supabase_credentials()
         self.supabase_client = create_client(url, key)
         self.session = None
 
@@ -20,14 +26,14 @@ class Auth:
 
     def log_in(self, email: str, secret: str) -> None:
         self.log_in_supabase(email, secret)
-        context.set_current_user(email, secret)
+        Context.set_current_user(email, secret)
         self.log_out_supabase()
 
     def log_out(self):
-        context.set_current_user(None, None)
+        Context.set_current_user(None, None)
 
     def log_in_supabase_current_user(self) -> None:
-        current_user = context.get_current_user()
+        current_user = Context.get_current_user()
         self.log_in_supabase(
             current_user["current_user_email"], current_user["current_user_password"]
         )

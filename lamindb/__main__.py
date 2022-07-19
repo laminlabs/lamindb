@@ -21,30 +21,14 @@ aa("command", type=str, choices=["signup", "login", "logout", "init"])
 aa("--email", type=str, metavar="s", default=None, help=description.user_email)
 aa("--secret", type=str, metavar="s", default=None, help=description.user_secret)
 # db instance
+aa("--name", type=str, metavar="name", default=None, help=description.instance_name)
 aa("--storage", type=str, metavar="s", default=None, help=description.storage_dir)
 aa("--db", type=str, metavar="s", default="sqlite", help=description._dbconfig)
 args = parser.parse_args()
 
 
 def main():
-    supabase_client_url = "https://qntuvxhregqtypdorhaw.supabase.co"
-    supabase_client_anon_key = (
-        "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9"
-        ".eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFudHV2eGhyZWdxdHlwZG9yaGF3Iiw"
-        "icm9sZSI6ImFub24iLCJpYXQiOjE2NTcyMjMxODksImV4cCI6MTk3Mjc5OTE4OX0"
-        ".hzrRK-xbhFSqFb1-cVu6NFM-UcPON4HBdaH2qe3vKbA"
-    )
-
-    auth = Auth(supabase_client_url, supabase_client_anon_key)
-
-    instance_name = "abc"
-    settings_base_path = Path(
-        "/Users/fredericenard/Sources/lamin/lamindb/lamindb_data/settings"
-    )
-    db_base_path = Path("/Users/fredericenard/Sources/lamin/lamindb/lamindb_data/db")
-    storage_base_path = Path(
-        "/Users/fredericenard/Sources/lamin/lamindb/lamindb_data/storage"
-    )
+    auth = Auth()
 
     if args.command == "signup":
         return auth.sign_up(
@@ -60,10 +44,9 @@ def main():
         return auth.log_out()
     elif args.command == "init":
         return SetupInstance.setup_if_not_exists(
-            instance_name=instance_name,
-            settings_base_path=settings_base_path,
-            db_base_path=db_base_path,
-            storage_base_path=storage_base_path,
+            instance_name=args.name,
+            db_base_path=Path(f"./{args.name}/db"),
+            storage_base_path=Path(f"./{args.name}/storage"),
         )
     else:
         raise RuntimeError("Invalid command. Allowed are: `lndb user` & `lndb db`")

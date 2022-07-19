@@ -1,18 +1,16 @@
 from pathlib import Path
 from typing import Optional, Type, Union, get_type_hints  # noqa
 
-from cloudpathlib import CloudPath
 from pydantic import BaseSettings
 
+from ..utils.file import create_dir_if_not_exists
 from .ISettings import ISettings
 
 
-def create_settings_model(SettingsSchema: BaseSettings) -> Type[ISettings]:
+def create_settings_model(SettingsSchema: BaseSettings):
     class Settings(ISettings):
-        def __init__(
-            self, settings_name: str, settings_base_path: Union[Path, CloudPath]
-        ) -> None:
-            self.settings_base_path = settings_base_path.absolute()
+        def __init__(self, settings_name: str) -> None:
+            self.settings_base_path = Path.home() / ".lndb"
             self.settings_name = settings_name
             self.settings_file_path = (
                 self.settings_base_path / f"{self.settings_name}.env"
@@ -21,6 +19,7 @@ def create_settings_model(SettingsSchema: BaseSettings) -> Type[ISettings]:
             self.exists = self.settings_file_path.exists()
 
         def setup(self, settings) -> None:
+            create_dir_if_not_exists(self.settings_base_path)
             with open(self.settings_file_path, "w") as file:
                 for key, value in settings.dict().items():
                     file.write(f"{key}={value}\n")
