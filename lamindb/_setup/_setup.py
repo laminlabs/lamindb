@@ -38,7 +38,6 @@ def setup_instance_db():
     else:
         SQLModel.metadata.create_all(get_engine())
         insert.schema_version(__version__, settings.user_id)
-        settings._update_cloud_sqlite_file()
         logger.info(f"Created instance {instance_name}: {sqlite_file}")
 
     insert_if_not_exists.user(settings.user_email, settings.user_id)
