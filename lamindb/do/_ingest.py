@@ -101,8 +101,8 @@ class Ingest:
 
         for filepath, (dobject_id, dobject_v) in self.status.items():
             dobject_id = insert.dobject(
-                filepath.stem,
-                filepath.suffix,
+                name=filepath.stem,
+                file_suffix=filepath.suffix,
                 interface_id=meta.store.id,
                 interface_v=dev.set_version(
                     interface_v
