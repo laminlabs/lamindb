@@ -62,13 +62,11 @@ class Ingest:
         primary_key = (id_dobject() if dobject_id is None else dobject_id, dobject_v)
         self._added[filepath] = primary_key
 
-    def commit(self, integrity: bool = False, i_confirm_i_saved: bool = False):
+    def commit(self, interface_v=None):
         """Commit files for ingestion.
 
         Args:
-            integrity: Check the integrity of the notebook.
-            i_confirm_i_saved: Only relevant outside Jupyter Lab as a safeguard against
-                losing the editor buffer content because of accidentally publishing.
+            interface_v: Notebook version to publish. Is automatically bumped if None.
 
         We primarily work with base62 IDs.
 
@@ -88,7 +86,7 @@ class Ingest:
         20     >7e+35 (~UUID)
         ====== =========
         """
-        from nbproject import meta, publish
+        from nbproject import dev, meta, publish
         from tabulate import tabulate  # type: ignore
 
         from lamindb.admin.db import insert
@@ -96,10 +94,22 @@ class Ingest:
         settings = load_settings()
         logs = []
 
+        if meta.live.title is None:
+            raise RuntimeError(
+                "Can only ingest from notebook with title. Please set a title!"
+            )
+
+        interface_id = meta.store.id
+        interface_v = dev.set_version(interface_v)  # version to be set in publish()
+        interface_name = meta.live.title
         for filepath, (dobject_id, dobject_v) in self.status.items():
             dobject_id = insert.dobject(
-                filepath.stem,
-                filepath.suffix,
+                name=filepath.stem,
+                file_suffix=filepath.suffix,
+                interface_id=interface_id,
+                interface_v=interface_v,
+                interface_name=interface_name,
+                interface_type="nbproject",
                 dobject_id=dobject_id,
                 dobject_v=dobject_v,
             )
@@ -112,7 +122,7 @@ class Ingest:
             logs.append(
                 [
                     f"{filepath.name} ({dobject_id}, {dobject_v})",
-                    f"{meta.live.title!r} ({meta.store.id}, {meta.store.version})",
+                    f"{interface_name!r} ({interface_id}, {interface_v})",
                     f"{settings.user_email} ({settings.user_id})",
                 ]
             )
@@ -129,18 +139,7 @@ class Ingest:
         logger.log(
             "INGEST", f"{colors.bold('Ingested the following files')}:\n{log_table}"
         )
-
-        if not integrity:
-            logger.warning(
-                f"{colors.yellow('Consider using Jupyter Lab for ingesting data!')}\n"  # noqa
-                "    Interactive notebook integrity checks are currently only supported on Jupyter Lab.\n"  # noqa
-                "    Alternatively, manually save your notebook directly before calling `do.ingest.commit(..., integrity=True)`."  # noqa
-            )
-        publish(
-            integrity=integrity,
-            i_confirm_i_saved=i_confirm_i_saved,
-            calling_statement="commit(",
-        )
+        publish(calling_statement="commit(")
 
 
 ingest = Ingest()
