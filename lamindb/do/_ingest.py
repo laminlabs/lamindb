@@ -62,7 +62,7 @@ class Ingest:
         primary_key = (id_dobject() if dobject_id is None else dobject_id, dobject_v)
         self._added[filepath] = primary_key
 
-    def commit(self, integrity: bool = False, i_confirm_i_saved: bool = False):
+    def commit(self):
         """Commit files for ingestion.
 
         Args:
@@ -129,18 +129,7 @@ class Ingest:
         logger.log(
             "INGEST", f"{colors.bold('Ingested the following files')}:\n{log_table}"
         )
-
-        if not integrity:
-            logger.warning(
-                f"{colors.yellow('Consider using Jupyter Lab for ingesting data!')}\n"  # noqa
-                "    Interactive notebook integrity checks are currently only supported on Jupyter Lab.\n"  # noqa
-                "    Alternatively, manually save your notebook directly before calling `do.ingest.commit(..., integrity=True)`."  # noqa
-            )
-        publish(
-            integrity=integrity,
-            i_confirm_i_saved=i_confirm_i_saved,
-            calling_statement="commit(",
-        )
+        publish(calling_statement="commit(")
 
 
 ingest = Ingest()
