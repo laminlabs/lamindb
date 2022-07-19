@@ -12,7 +12,12 @@ def test_create_to_load():
     )
     _setup.setup_instance(storage=storage)
     lndb.admin.db.insert.dobject(
-        "test_file", ".csv", interface_id="83jf", interface_v="1"
+        name="test_file",
+        file_suffix=".csv",
+        interface_id="83jf",
+        interface_v="1",
+        interface_name="test",
+        interface_type="other",
     )
     for entity in lndb.track.schema.entities:
         lndb.do.load(entity)
