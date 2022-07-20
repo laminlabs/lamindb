@@ -9,6 +9,7 @@ from ._settings_store import (
     InstanceSettingsStore,
     UserSettingsStore,
     instance_context,
+    settings_dir,
     user_context,
 )
 
@@ -145,11 +146,13 @@ class UserSettings:
 def write_instance_settings(settings: InstanceSettings):
     type_hints = get_type_hints(InstanceSettingsStore)
     write_settings(settings, instance_context.settings_file, type_hints)
+    write_settings(settings, settings_dir / f"{settings.instance_name}.env", type_hints)
 
 
 def write_user_settings(settings: UserSettings):
     type_hints = get_type_hints(UserSettingsStore)
     write_settings(settings, user_context.settings_file, type_hints)
+    write_settings(settings, settings_dir / f"{settings.user_id}.env", type_hints)
 
 
 def write_settings(
