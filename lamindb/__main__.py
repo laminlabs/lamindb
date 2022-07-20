@@ -10,13 +10,14 @@ Configure LaminDB and perform simple actions with these commands:
 - lndb signup --email <email> | First time sign up & log in after email is confirmed.
 - lndb login [--email <email>] [--secret <secret>] | Log in an already-signed-up user.
 - lndb logout | Log in an already-signed-up user.
-- lndb init [--storage <storage>] [--db <db>] | Init & config instance or storage.
+- lndb init [--name <name>] | Init instance.
+- lndb remove [--name <name>] | Remove instance.
 """  # noqa
 parser = argparse.ArgumentParser(
     description=description_cli, formatter_class=argparse.RawTextHelpFormatter
 )
 aa = parser.add_argument
-aa("command", type=str, choices=["signup", "login", "logout", "init"])
+aa("command", type=str, choices=["signup", "login", "logout", "init", "remove"])
 # user
 aa("--email", type=str, metavar="s", default=None, help=description.user_email)
 aa("--secret", type=str, metavar="s", default=None, help=description.user_secret)
@@ -48,5 +49,7 @@ def main():
             db_base_path=Path(f"./{args.name}/db"),
             storage_base_path=Path(f"./{args.name}/storage"),
         )
+    elif args.command == "remove":
+        return SetupInstance.remove_instance(instance_name=args.name)
     else:
         raise RuntimeError("Invalid command. Allowed are: `lndb user` & `lndb db`")

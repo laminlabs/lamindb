@@ -25,6 +25,9 @@ def create_settings_model(SettingsSchema: BaseSettings):
                     file.write(f"{key}={value}\n")
             self.exists = True
 
+        def remove(self):
+            self.settings_file_path.unlink()
+
         def __getitem__(self, key: str) -> Optional[str]:
             assert key in self.settings_schema, (
                 f"{key} does not belong to settings {SettingsSchema} keys."

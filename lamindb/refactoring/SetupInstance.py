@@ -36,8 +36,13 @@ class SetupInstance:
     def remove_instance(instance_name: str):
         InstanceSettings = create_settings_model(InstanceSettingsStore)
         settings = InstanceSettings(instance_name)
-        settings["db_base_path"].unlink()
-        (settings["storage_base_path"] / instance_name).rmdir()
+        db_file_path = settings["db_base_path"] / f"{instance_name}.db"
+        storage_dir_path = settings["storage_base_path"] / instance_name
+        if db_file_path.exists():
+            db_file_path.unlink()
+        if storage_dir_path.exists():
+            storage_dir_path.rmdir()
+        settings.remove()
 
     @staticmethod
     def __setup_instance_settings_if_not_exists(
