@@ -8,9 +8,9 @@ from cloudpathlib import CloudPath, S3Client
 from ._settings_store import (
     InstanceSettingsStore,
     UserSettingsStore,
-    instance_context,
+    instance_settings_file,
     settings_dir,
-    user_context,
+    user_settings_file,
 )
 
 DIRS = AppDirs("lamindb", "laminlabs")
@@ -145,13 +145,13 @@ class UserSettings:
 
 def write_instance_settings(settings: InstanceSettings):
     type_hints = get_type_hints(InstanceSettingsStore)
-    write_settings(settings, instance_context.settings_file, type_hints)
+    write_settings(settings, instance_settings_file, type_hints)
     write_settings(settings, settings_dir / f"{settings.instance_name}.env", type_hints)
 
 
 def write_user_settings(settings: UserSettings):
     type_hints = get_type_hints(UserSettingsStore)
-    write_settings(settings, user_context.settings_file, type_hints)
+    write_settings(settings, user_settings_file, type_hints)
     write_settings(settings, settings_dir / f"{settings.user_id}.env", type_hints)
 
 
@@ -199,21 +199,21 @@ def setup_user_from_store(store: UserSettingsStore) -> UserSettings:
 
 def load_instance_settings():
     """Return current user settings."""
-    if not instance_context.settings_file.exists():
+    if not instance_settings_file.exists():
         global InstanceSettings
         return InstanceSettings()
     else:
-        settings_store = InstanceSettingsStore(_env_file=instance_context.settings_file)
+        settings_store = InstanceSettingsStore(_env_file=instance_settings_file)
         settings = setup_instance_from_store(settings_store)
         return settings
 
 
 def load_user_settings():
     """Return current user settings."""
-    if not user_context.settings_file.exists():
+    if not user_settings_file.exists():
         global UserSettings
         return UserSettings()
     else:
-        settings_store = UserSettingsStore(_env_file=user_context.settings_file)
+        settings_store = UserSettingsStore(_env_file=user_settings_file)
         settings = setup_user_from_store(settings_store)
         return settings
