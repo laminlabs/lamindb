@@ -41,4 +41,9 @@ from . import dev  # noqa
 from . import do  # noqa
 from . import schema  # noqa
 from . import track  # noqa
-from ._setup import Settings, load_settings  # noqa
+from ._setup import (  # noqa
+    InstanceSettings,
+    UserSettings,
+    load_instance_settings,
+    load_user_settings,
+)

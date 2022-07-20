@@ -5,7 +5,7 @@ import lamindb as db
 from lamindb import _setup
 
 from ..._logger import logger
-from ..._setup import load_settings
+from ..._setup import load_instance_settings
 from . import get_engine
 
 
@@ -33,7 +33,7 @@ class insert:
             session.add(user)
             session.commit()
 
-        load_settings()._update_cloud_sqlite_file()
+        load_instance_settings()._update_cloud_sqlite_file()
 
     @classmethod
     def user(cls, user_email, user_id):
@@ -46,7 +46,7 @@ class insert:
             session.commit()
             session.refresh(user)
 
-        load_settings()._update_cloud_sqlite_file()
+        load_instance_settings()._update_cloud_sqlite_file()
 
         return user.id
 
@@ -65,7 +65,7 @@ class insert:
     ):
         """Data object with its origin."""
         engine = get_engine()
-        settings = _setup.load_settings()
+        user_settings = _setup.load_user_settings()
 
         df_interface = db.do.load("interface")
         if interface_id not in df_interface.index:
@@ -75,13 +75,13 @@ class insert:
                     v=interface_v,
                     name=interface_name,
                     type=interface_type,
-                    user_id=settings.user_id,
+                    user_id=user_settings.user_id,
                 )
                 session.add(interface)
                 session.commit()
             logger.info(
                 f"Added notebook {interface_name!r} ({interface_id}, {interface_v}) by"
-                f" user {settings.user_email} ({settings.user_id})."
+                f" user {user_settings.user_email} ({user_settings.user_id})."
             )
 
         with sqm.Session(engine) as session:
@@ -97,6 +97,6 @@ class insert:
             session.commit()
             session.refresh(dobject)
 
-        load_settings()._update_cloud_sqlite_file()
+        load_instance_settings()._update_cloud_sqlite_file()
 
         return dobject.id

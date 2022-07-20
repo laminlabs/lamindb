@@ -5,7 +5,7 @@ import sqlmodel as sqm
 from lamindb_schema.id import id_dobject
 
 import lamindb as db
-from lamindb._setup import load_settings
+from lamindb._setup import load_instance_settings, load_user_settings
 
 from .._logger import colors, logger
 from ..admin.db import get_engine
@@ -17,9 +17,10 @@ def track_ingest(dobject_id):
 
     from nbproject import meta
 
-    settings = load_settings()
+    user_settings = load_user_settings()
+    instance_settings = load_instance_settings()
 
-    user_id = settings.user_id
+    user_id = user_settings.user_id
 
     interface_id = meta.store.id
 
@@ -34,7 +35,7 @@ def track_ingest(dobject_id):
         session.commit()
         session.refresh(track_do)
 
-    settings._update_cloud_sqlite_file()
+    instance_settings._update_cloud_sqlite_file()
 
     return track_do.id
 
@@ -91,7 +92,7 @@ class Ingest:
 
         from lamindb.admin.db import insert
 
-        settings = load_settings()
+        user_settings = load_user_settings()
         logs = []
 
         if meta.live.title is None:
@@ -123,7 +124,7 @@ class Ingest:
                 [
                     f"{filepath.name} ({dobject_id}, {dobject_v})",
                     f"{interface_name!r} ({interface_id}, {interface_v})",
-                    f"{settings.user_email} ({settings.user_id})",
+                    f"{user_settings.user_email} ({user_settings.user_id})",
                 ]
             )
 

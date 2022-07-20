@@ -5,8 +5,8 @@ from supabase import create_client
 
 from .._logger import logger
 from ..dev import id
-from ._settings import load_settings
-from ._settings_store import Connector, context
+from ._settings import load_user_settings
+from ._settings_store import Connector, user_context
 
 
 def connect_hub():
@@ -40,7 +40,7 @@ def sign_up_hub(user_email) -> Union[str, None]:
             "Please *confirm* the sign-up email. After that, proceed to `lndb"
             " init`!\n\n"
             f"Generated login secret: {secret}.\n"
-            f"Email & secret persist in: {context.settings_file}.\n"  # noqa
+            f"Email & secret persist in: {user_context.settings_file}.\n"  # noqa
             "Going forward, credentials are auto-loaded. "  # noqa
             "In case of loss, you can always recover your secret via email."
         )
@@ -71,8 +71,10 @@ def sign_in_hub(user_email, secret):
 
 def create_instance(instance_name):
     hub = connect_hub()
-    settings = load_settings()
-    session = hub.auth.sign_in(email=settings.user_email, password=settings.user_secret)
+    user_settings = load_user_settings()
+    session = hub.auth.sign_in(
+        email=user_settings.user_email, password=user_settings.user_secret
+    )
     hub.postgrest.auth(session.access_token)
     # data = hub.table("user_instance").select("instance_id").eq("user_id", session.user.id.hex).execute()  # noqa
     instance_id = id.id_instance()

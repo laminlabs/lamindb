@@ -6,7 +6,7 @@ from typeguard import typechecked
 from ..._logger import logger
 from ..._setup._settings import (
     cloud_to_local_no_update,
-    load_settings,
+    load_instance_settings,
     storage_filepath,
 )
 
@@ -14,9 +14,9 @@ from ..._setup._settings import (
 @typechecked
 def anndata_to_h5ad(adata: AnnData, filekey: str) -> Path:
     """AnnData → h5ad."""
-    settings = load_settings()
+    instance_settings = load_instance_settings()
     path = storage_filepath(filekey)
-    if settings.cloud_storage:
+    if instance_settings.cloud_storage:
         cache_file = cloud_to_local_no_update(path)  # type: ignore
         cache_file.parent.mkdir(exist_ok=True)
         logger.debug(f"Writing cache file: {cache_file}.")
