@@ -1,5 +1,5 @@
 import sqlmodel as sqm
-from lamindb_schema.id import id_dobject, id_user  # noqa
+from lamindb_schema.id import id_dobject, id_gene, id_user  # noqa
 
 import lamindb as db
 from lamindb import _setup
@@ -102,3 +102,32 @@ class insert:
         load_settings()._update_cloud_sqlite_file()
 
         return dobject.id
+
+    @classmethod
+    def gene(
+        cls,
+        name: str,
+        feature_type: str = None,
+        database: str = None,
+        species: str = None,
+        curated: bool = None,
+    ):
+        """Genes in a dobject."""
+        engine = get_engine()
+
+        with sqm.Session(engine) as session:
+            gene = db.schema.gene(
+                id=id_gene(),
+                name=name,
+                feature_type=feature_type,
+                database=database,
+                species=species,
+                curated=curated,
+            )
+            session.add(gene)
+            session.commit()
+            session.refresh(gene)
+
+        load_settings()._update_cloud_sqlite_file()
+
+        return gene.id

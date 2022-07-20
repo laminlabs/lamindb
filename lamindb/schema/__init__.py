@@ -32,4 +32,13 @@ Types:
 
 """
 from lamindb_schema import track_do_type  # noqa
-from lamindb_schema import dobject, interface, track_do, user  # noqa
+from lamindb_schema import (  # noqa
+    biosample,
+    dobject,
+    experiment,
+    gene,
+    interface,
+    readout,
+    track_do,
+    user,
+)
