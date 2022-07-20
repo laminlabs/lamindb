@@ -24,7 +24,9 @@ To retrieve settings after setup via the CLI, use:
 ..
    autosummary does not work with two objects that merely differ by capitalization
 
-.. autoclass:: Settings
+.. autoclass:: InstanceSettings
+   :members:
+.. autoclass:: UserSettings
    :members:
 
 """
