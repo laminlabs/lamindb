@@ -17,12 +17,6 @@ Modify data:
    update
    delete
 """
-from nbproject import __version__ as nbproject_version
-from packaging import version
-
-if version.parse(nbproject_version) < version.parse("0.4.3"):
-    raise RuntimeError("lamindb needs nbproject >= 0.4.3")
-del version, nbproject_version
 
 from ._delete import delete  # noqa
 from ._ingest import ingest  # noqa
