@@ -8,6 +8,10 @@ For a schematic of relations among models, see :class:`track.schema`.
 
 Data models:
 
+.. autoclass:: schema_version
+   :members:
+   :undoc-members:
+
 .. autoclass:: user
    :members:
    :undoc-members:

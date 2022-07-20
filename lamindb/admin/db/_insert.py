@@ -24,6 +24,18 @@ class insert:
     """Insert data."""
 
     @classmethod
+    def schema_version(cls, version, user_id):
+        """User."""
+        engine = get_engine()
+
+        with sqm.Session(engine) as session:
+            user = db.schema.schema_version(id=version, user_id=user_id)
+            session.add(user)
+            session.commit()
+
+        load_settings()._update_cloud_sqlite_file()
+
+    @classmethod
     def user(cls, user_email, user_id):
         """User."""
         engine = get_engine()
@@ -41,33 +53,19 @@ class insert:
     @classmethod
     def dobject(
         cls,
+        *,
         name: str,
         file_suffix: str = None,
-        *,
-        interface_id: str = None,
-        interface_v: str = "1",
-        interface_name: str = None,
+        interface_id: str,
+        interface_v: str,
+        interface_name: str,
+        interface_type: str,
         dobject_id: str = None,
         dobject_v: str = "1",
     ):
         """Data object with its origin."""
         engine = get_engine()
         settings = _setup.load_settings()
-
-        if interface_id is None:
-            from nbproject import meta
-
-            interface_id = meta.store.id
-            interface_v = meta.store.version
-            interface_name = meta.live.title
-            interface_type = "nbproject"
-
-            if interface_name is None:
-                raise RuntimeError(
-                    "Can only ingest from notebook with title. Please set a title!"
-                )
-        else:
-            interface_type = "other"
 
         df_interface = db.do.load("interface")
         if interface_id not in df_interface.index:

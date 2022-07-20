@@ -28,7 +28,7 @@ To retrieve settings after setup via the CLI, use:
 
 """
 
-__version__ = "0.0.9"
+__version__ = "0.1.1"
 from . import _setup  # noqa
 from . import admin  # noqa
 from . import dev  # noqa
