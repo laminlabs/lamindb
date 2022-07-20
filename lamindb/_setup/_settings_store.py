@@ -6,7 +6,10 @@ from pydantic import BaseSettings
 # hence, let's take home/.lndb
 settings_dir = Path.home() / ".lndb"
 settings_dir.mkdir(parents=True, exist_ok=True)
-settings_file = settings_dir / "lndb.env"
+
+
+class context:
+    settings_file: Path = settings_dir / "lndb.env"
 
 
 class Connector(BaseSettings):

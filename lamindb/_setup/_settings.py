@@ -5,7 +5,7 @@ from typing import Union, get_type_hints
 from appdirs import AppDirs
 from cloudpathlib import CloudPath, S3Client
 
-from ._settings_store import SettingsStore, settings_file
+from ._settings_store import SettingsStore, context
 
 DIRS = AppDirs("lamindb", "laminlabs")
 
@@ -132,7 +132,7 @@ class Settings:
 
 
 def write_settings(settings: Settings):
-    with open(settings_file, "w") as f:
+    with open(context.settings_file, "w") as f:
         for key, type in get_type_hints(SettingsStore).items():
             settings_key = f"_{key}" if key == "dbconfig" else key
             value = getattr(settings, settings_key)
@@ -166,10 +166,10 @@ def setup_from_store(store: SettingsStore) -> Settings:
 
 def load_settings() -> Settings:
     """Return current settings."""
-    if not settings_file.exists():
+    if not context.settings_file.exists():
         global Settings
         return Settings()
     else:
-        settings_store = SettingsStore(_env_file=settings_file)
+        settings_store = SettingsStore(_env_file=context.settings_file)
         settings = setup_from_store(settings_store)
         return settings
