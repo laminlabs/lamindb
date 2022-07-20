@@ -8,4 +8,5 @@ For real-world examples, see the [sandbox](https://lamin.ai/sandbox).
 ingest-fcs
 ingest-image
 ingest-multiple-datasets
+feature-annotation
 ```
