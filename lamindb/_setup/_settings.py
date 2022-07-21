@@ -227,3 +227,13 @@ def load_user_settings(user_settings_file: Path):
     settings_store = UserSettingsStore(_env_file=user_settings_file)
     settings = setup_user_from_store(settings_store)
     return settings
+
+
+def switch_instance(instance_name: str):
+    settings = load_instance_settings(settings_dir / f"{instance_name}.env")
+    write_instance_settings(settings)
+
+
+def switch_user(user_email: str):
+    settings = load_user_settings(settings_dir / f"{user_email}.env")
+    write_user_settings(settings)
