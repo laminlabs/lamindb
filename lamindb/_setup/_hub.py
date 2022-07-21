@@ -6,7 +6,7 @@ from supabase import create_client
 from .._logger import logger
 from ..dev import id
 from ._settings import load_or_create_user_settings
-from ._settings_store import Connector, user_settings_file
+from ._settings_store import Connector, current_user_settings_file
 
 
 def connect_hub():
@@ -40,7 +40,7 @@ def sign_up_hub(user_email) -> Union[str, None]:
             "Please *confirm* the sign-up email. After that, proceed to `lndb"
             " init`!\n\n"
             f"Generated login secret: {secret}.\n"
-            f"Email & secret persist in: {user_settings_file}.\n"  # noqa
+            f"Email & secret persist in: {current_user_settings_file}.\n"  # noqa
             "Going forward, credentials are auto-loaded. "  # noqa
             "In case of loss, you can always recover your secret via email."
         )

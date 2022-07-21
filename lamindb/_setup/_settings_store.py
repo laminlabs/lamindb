@@ -6,8 +6,8 @@ from pydantic import BaseSettings
 # hence, let's take home/.lndb
 settings_dir = Path.home() / ".lndb"
 settings_dir.mkdir(parents=True, exist_ok=True)
-instance_settings_file = settings_dir / "current_instance.env"
-user_settings_file = settings_dir / "current_user.env"
+current_instance_settings_file = settings_dir / "current_instance.env"
+current_user_settings_file = settings_dir / "current_user.env"
 
 
 class InstanceSettingsStore(BaseSettings):
