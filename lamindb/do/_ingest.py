@@ -12,7 +12,7 @@ from ..admin.db import get_engine
 from ..dev.file import store_file
 
 
-def track_ingest(dobject_id):
+def track_ingest(dobject_id, dobject_v):
     engine = get_engine()
 
     from nbproject import meta
@@ -22,13 +22,16 @@ def track_ingest(dobject_id):
     user_id = settings.user_id
 
     jupynb_id = meta.store.id
+    jupynb_v = meta.store.version
 
     with sqm.Session(engine) as session:
         track_do = db.schema.track_do(
             type="ingest",
             user_id=user_id,
             jupynb_id=jupynb_id,
+            jupynb_v=jupynb_v,
             dobject_id=dobject_id,
+            dobject_v=dobject_v,
         )
         session.add(track_do)
         session.commit()
@@ -117,7 +120,7 @@ class Ingest:
             dobject_storage_key = f"{dobject_id}-{dobject_v}{filepath.suffix}"
             store_file(filepath, dobject_storage_key)
 
-            track_ingest(dobject_id)
+            track_ingest(dobject_id, dobject_v)
 
             logs.append(
                 [
