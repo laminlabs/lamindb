@@ -16,7 +16,7 @@ Data models:
    :members:
    :undoc-members:
 
-.. autoclass:: interface
+.. autoclass:: jupynb
    :members:
    :undoc-members:
 
@@ -36,4 +36,4 @@ Types:
 
 """
 from lamindb_schema import track_do_type  # noqa
-from lamindb_schema import dobject, interface, schema_version, track_do, user  # noqa
+from lamindb_schema import dobject, jupynb, schema_version, track_do, user  # noqa
