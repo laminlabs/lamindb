@@ -9,8 +9,8 @@ from ._settings_store import (
     InstanceSettingsStore,
     UserSettingsStore,
     current_instance_settings_file,
-    settings_dir,
     current_user_settings_file,
+    settings_dir,
 )
 
 DIRS = AppDirs("lamindb", "laminlabs")
