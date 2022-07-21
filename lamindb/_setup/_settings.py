@@ -62,6 +62,7 @@ class description:
     user_id = """User ID. Auto-generated."""
     storage_dir = """Storage root. Either local dir, ``s3://bucket_name`` or ``gs://bucket_name``."""  # noqa
     _dbconfig = """Either "sqlite" or "instance_name, postgres_url"."""
+    instance_name = """Instance name."""
 
 
 def instance_from_storage(storage):
@@ -232,6 +233,7 @@ def load_user_settings(user_settings_file: Path):
 
 
 def switch_instance(instance_name: str):
+    InstanceSettings.instance_name
     settings = load_instance_settings(settings_dir / f"{instance_name}.env")
     assert settings.instance_name is not None
     write_instance_settings(settings)
