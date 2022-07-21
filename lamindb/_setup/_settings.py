@@ -152,7 +152,7 @@ def write_instance_settings(settings: InstanceSettings):
 def write_user_settings(settings: UserSettings):
     type_hints = get_type_hints(UserSettingsStore)
     write_settings(settings, current_user_settings_file, type_hints)
-    write_settings(settings, settings_dir / f"{settings.user_id}.env", type_hints)
+    write_settings(settings, settings_dir / f"{settings.user_email}.env", type_hints)
 
 
 def write_settings(
