@@ -8,4 +8,5 @@ add-user
 introspect-data
 share
 concepts
+switch-instance
 ```
