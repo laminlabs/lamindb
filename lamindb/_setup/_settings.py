@@ -144,12 +144,14 @@ class UserSettings:
 
 
 def write_instance_settings(settings: InstanceSettings):
+    assert settings.instance_name is not None
     type_hints = get_type_hints(InstanceSettingsStore)
     write_settings(settings, current_instance_settings_file, type_hints)
     write_settings(settings, settings_dir / f"{settings.instance_name}.env", type_hints)
 
 
 def write_user_settings(settings: UserSettings):
+    assert settings.user_email is not None
     type_hints = get_type_hints(UserSettingsStore)
     write_settings(settings, current_user_settings_file, type_hints)
     write_settings(settings, settings_dir / f"{settings.user_email}.env", type_hints)
@@ -231,9 +233,11 @@ def load_user_settings(user_settings_file: Path):
 
 def switch_instance(instance_name: str):
     settings = load_instance_settings(settings_dir / f"{instance_name}.env")
+    assert settings.instance_name is not None
     write_instance_settings(settings)
 
 
 def switch_user(user_email: str):
     settings = load_user_settings(settings_dir / f"{user_email}.env")
+    assert settings.user_email is not None
     write_user_settings(settings)
