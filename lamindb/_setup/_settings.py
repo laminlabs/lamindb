@@ -238,6 +238,11 @@ def switch_instance(instance_name: str):
 
 
 def switch_user(user_email: str):
-    settings = load_user_settings(settings_dir / f"{user_email}.env")
-    assert settings.user_email is not None
+    settings_file = settings_dir / f"{user_email}.env"
+    if settings_file.exists():
+        settings = load_user_settings(settings_file)
+        assert settings.user_email is not None
+    else:
+        settings = load_or_create_user_settings()
+        settings.user_email = user_email
     write_user_settings(settings)
