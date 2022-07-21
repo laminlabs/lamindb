@@ -203,9 +203,14 @@ def load_or_create_instance_settings():
         global InstanceSettings
         return InstanceSettings()
     else:
-        settings_store = InstanceSettingsStore(_env_file=current_instance_settings_file)
-        settings = setup_instance_from_store(settings_store)
+        settings = load_instance_settings(current_instance_settings_file)
         return settings
+
+
+def load_instance_settings(instance_settings_file: Path):
+    settings_store = InstanceSettingsStore(_env_file=instance_settings_file)
+    settings = setup_instance_from_store(settings_store)
+    return settings
 
 
 def load_or_create_user_settings():
@@ -214,6 +219,11 @@ def load_or_create_user_settings():
         global UserSettings
         return UserSettings()
     else:
-        settings_store = UserSettingsStore(_env_file=current_user_settings_file)
-        settings = setup_user_from_store(settings_store)
+        settings = load_user_settings(current_user_settings_file)
         return settings
+
+
+def load_user_settings(user_settings_file: Path):
+    settings_store = UserSettingsStore(_env_file=user_settings_file)
+    settings = setup_user_from_store(settings_store)
+    return settings
