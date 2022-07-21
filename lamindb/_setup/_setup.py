@@ -13,8 +13,8 @@ from ..dev._docs import doc_args
 from ._hub import sign_in_hub, sign_up_hub
 from ._settings import (
     description,
-    load_instance_settings,
-    load_user_settings,
+    load_or_create_instance_settings,
+    load_or_create_user_settings,
     setup_storage_dir,
     write_instance_settings,
     write_user_settings,
@@ -28,8 +28,8 @@ def setup_instance_db():
     - Database creation.
     - Sign-up and/or log-in.
     """
-    instance_settings = load_instance_settings()
-    user_settings = load_user_settings()
+    instance_settings = load_or_create_instance_settings()
+    user_settings = load_or_create_user_settings()
     instance_name = instance_settings.instance_name
     sqlite_file = instance_settings._sqlite_file
     from lamindb_schema import __version__
@@ -53,7 +53,7 @@ def setup_instance_db():
 
 
 def sign_up_first_time(email):
-    user_settings = load_user_settings()
+    user_settings = load_or_create_user_settings()
     user_settings.user_email = email
     write_user_settings(user_settings)
     secret = sign_up_hub(email)
@@ -71,7 +71,7 @@ def log_in_user(
     email: Union[str, None] = None,
     secret: Union[str, None] = None,
 ):
-    user_settings = load_user_settings()
+    user_settings = load_or_create_user_settings()
 
     # user_email
     if email is None:
@@ -120,8 +120,8 @@ def setup_instance(
         dbconfig: {}
     """
     # settings.user_email & settings.user_secret are set
-    instance_settings = load_instance_settings()
-    user_settings = load_user_settings()
+    instance_settings = load_or_create_instance_settings()
+    user_settings = load_or_create_user_settings()
     if user_settings.user_id is None:
         if (
             user_settings.user_email is not None
@@ -132,7 +132,9 @@ def setup_instance(
             log_in_user(
                 email=user_settings.user_email, secret=user_settings.user_secret
             )
-            user_settings = load_user_settings()  # need to reload, here, to get user_id
+            user_settings = (
+                load_or_create_user_settings()
+            )  # need to reload, here, to get user_id
         else:
             raise RuntimeError("Login user: lndb login --email")
     write_user_settings(user_settings)

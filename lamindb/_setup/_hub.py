@@ -5,7 +5,7 @@ from supabase import create_client
 
 from .._logger import logger
 from ..dev import id
-from ._settings import load_user_settings
+from ._settings import load_or_create_user_settings
 from ._settings_store import Connector, user_settings_file
 
 
@@ -71,7 +71,7 @@ def sign_in_hub(user_email, secret):
 
 def create_instance(instance_name):
     hub = connect_hub()
-    user_settings = load_user_settings()
+    user_settings = load_or_create_user_settings()
     session = hub.auth.sign_in(
         email=user_settings.user_email, password=user_settings.user_secret
     )

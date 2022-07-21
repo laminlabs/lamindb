@@ -18,8 +18,8 @@ Browse the API:
 
 To retrieve settings after setup via the CLI, use:
 
-.. autofunction:: load_instance_settings
-.. autofunction:: load_user_settings
+.. autofunction:: load_or_create_instance_settings
+.. autofunction:: load_or_create_user_settings
 
 ..
    autosummary does not work with two objects that merely differ by capitalization
@@ -47,6 +47,6 @@ from . import track  # noqa
 from ._setup import (  # noqa
     InstanceSettings,
     UserSettings,
-    load_instance_settings,
-    load_user_settings,
+    load_or_create_instance_settings,
+    load_or_create_user_settings,
 )

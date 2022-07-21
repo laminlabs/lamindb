@@ -18,7 +18,7 @@ DIRS = AppDirs("lamindb", "laminlabs")
 
 def storage_filepath(filekey: Union[Path, CloudPath, str]) -> Union[Path, CloudPath]:
     """Cloud or local filepath from filekey."""
-    settings = load_instance_settings()
+    settings = load_or_create_instance_settings()
     if settings.cloud_storage:
         client = S3Client(local_cache_dir=settings.cache_dir)
         return client.CloudPath(settings.storage_dir / filekey)
@@ -28,7 +28,7 @@ def storage_filepath(filekey: Union[Path, CloudPath, str]) -> Union[Path, CloudP
 
 def cloud_to_local(filepath: Union[Path, CloudPath]) -> Path:
     """Local (cache) filepath from filepath."""
-    if load_instance_settings().cloud_storage:
+    if load_or_create_instance_settings().cloud_storage:
         filepath = filepath.fspath  # type: ignore  # mypy misses CloudPath
     Path(filepath).parent.mkdir(
         parents=True, exist_ok=True
@@ -43,7 +43,7 @@ def cloud_to_local(filepath: Union[Path, CloudPath]) -> Path:
 # we manually construct the local file path
 # using the `.parts` attribute in the following line
 def cloud_to_local_no_update(filepath: Union[Path, CloudPath]) -> Path:
-    settings = load_instance_settings()
+    settings = load_or_create_instance_settings()
     if settings.cloud_storage:
         return settings.cache_dir.joinpath(*filepath.parts[1:])  # type: ignore
     return filepath
@@ -197,7 +197,7 @@ def setup_user_from_store(store: UserSettingsStore) -> UserSettings:
     return settings
 
 
-def load_instance_settings():
+def load_or_create_instance_settings():
     """Return current user settings."""
     if not instance_settings_file.exists():
         global InstanceSettings
@@ -208,7 +208,7 @@ def load_instance_settings():
         return settings
 
 
-def load_user_settings():
+def load_or_create_user_settings():
     """Return current user settings."""
     if not user_settings_file.exists():
         global UserSettings
