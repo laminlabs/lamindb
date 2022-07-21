@@ -16,6 +16,7 @@ from ._settings import (
     load_or_create_instance_settings,
     load_or_create_user_settings,
     setup_storage_dir,
+    switch_user,
     write_instance_settings,
     write_user_settings,
 )
@@ -71,34 +72,25 @@ def log_in_user(
     email: Union[str, None] = None,
     secret: Union[str, None] = None,
 ):
+    if email:
+        switch_user(email)
+
     user_settings = load_or_create_user_settings()
 
-    # user_email
-    if email is None:
-        if user_settings.user_email is None:
-            raise RuntimeError(
-                "No stored user email, please call: lndb login --email <your-email>"
-            )
-        else:
-            email = user_settings.user_email
-    else:
-        user_settings.user_email = email
-    write_user_settings(user_settings)
-
-    # user_secret
-    if secret is None:
-        if user_settings.user_secret is None:
-            raise RuntimeError(
-                "No stored user secret, please call: lndb login --email <your-email>"
-                " --email <your-secret>"
-            )
-        else:
-            secret = user_settings.user_secret
-    else:
+    if secret:
         user_settings.user_secret = secret
-    write_user_settings(user_settings)
 
-    # user_id
+    if user_settings.user_email is None:
+        raise RuntimeError(
+            "No stored user email, please call: lndb login --email <your-email>"
+        )
+
+    if user_settings.user_secret is None:
+        raise RuntimeError(
+            "No stored user secret, please call: lndb login --email <your-email>"
+            " --email <your-secret>"
+        )
+
     user_id = sign_in_hub(user_settings.user_email, user_settings.user_secret)
     user_settings.user_id = user_id
     write_user_settings(user_settings)
