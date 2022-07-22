@@ -11,7 +11,7 @@ def test_create_to_load():
         secret="MmR4YuQEyb0yxu7dAwJZTjLzR1Az2lN4Q4IduDlO",
     )
     _setup.setup_instance(storage=storage)
-    lndb.admin.db.insert.dobject(
+    lndb.dev.db.insert.dobject(
         name="test_file",
         file_suffix=".csv",
         jupynb_id="83jf",

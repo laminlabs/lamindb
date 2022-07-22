@@ -11,7 +11,7 @@ from lamindb._setup import (
 )
 
 from .._logger import colors, logger
-from ..admin.db import get_engine
+from ..dev.db import get_engine
 from ..dev.file import store_file
 
 
@@ -96,7 +96,7 @@ class Ingest:
         from nbproject import dev, meta, publish
         from tabulate import tabulate  # type: ignore
 
-        from lamindb.admin.db import insert
+        from lamindb.dev.db import insert
 
         user_settings = load_or_create_user_settings()
         logs = []

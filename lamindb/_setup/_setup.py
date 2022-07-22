@@ -4,8 +4,8 @@ from typing import Union
 from cloudpathlib import CloudPath
 from sqlmodel import SQLModel
 
-from lamindb.admin.db import insert, insert_if_not_exists
-from lamindb.admin.db._engine import get_engine
+from lamindb.dev.db import insert, insert_if_not_exists
+from lamindb.dev.db._engine import get_engine
 from lamindb.do import load
 
 from .._logger import logger

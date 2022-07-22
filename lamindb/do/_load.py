@@ -1,6 +1,6 @@
 import pandas as pd
 
-from ..admin.db import get_engine
+from ..dev.db import get_engine
 
 
 def load(entity_name) -> pd.DataFrame:
