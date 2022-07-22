@@ -1,102 +1,152 @@
 from pathlib import Path
-from typing import Union
+from typing import Dict
 
 import sqlmodel as sqm
-from loguru import logger
+from lamindb_schema.id import id_dobject
 
 import lamindb as db
-from lamindb._setup import load_settings
+from lamindb._setup import (
+    load_or_create_instance_settings,
+    load_or_create_user_settings,
+)
 
-from ..admin.db import get_engine
+from .._logger import colors, logger
+from ..dev.db import get_engine
 from ..dev.file import store_file
 
 
-def track_ingest(dobject_id):
+def track_ingest(dobject_id, dobject_v):
     engine = get_engine()
 
     from nbproject import meta
 
-    settings = load_settings()
+    user_settings = load_or_create_user_settings()
+    instance_settings = load_or_create_instance_settings()
 
-    user_id = settings.user_id
+    user_id = user_settings.user_id
 
-    interface_id = meta.store.id
+    jupynb_id = meta.store.id
+    jupynb_v = meta.store.version
 
     with sqm.Session(engine) as session:
-        track_do = db.model.track_do(
+        track_do = db.schema.provenance.track_do(
             type="ingest",
             user_id=user_id,
-            interface_id=interface_id,
+            jupynb_id=jupynb_id,
+            jupynb_v=jupynb_v,
             dobject_id=dobject_id,
+            dobject_v=dobject_v,
         )
         session.add(track_do)
         session.commit()
         session.refresh(track_do)
 
-    settings._update_cloud_sqlite_file()
+    instance_settings._update_cloud_sqlite_file()
 
     return track_do.id
 
 
-def ingest(filepath, integrity: Union[bool, None] = None):
-    """Ingest file.
+class Ingest:
+    """Ingest file."""
 
-    Args:
-        filepath: The filepath.
-        integrity: Check the integrity of the notebook.
+    def __init__(self) -> None:
+        self._added: Dict = {}
 
-    We primarily work with base62 IDs.
+    @property
+    def status(self) -> dict:
+        """Added files for ingestion."""
+        return self._added
 
-    ====== =========
-    len_id n_entries
-    ====== =========
-    1      >6e+01
-    2      >4e+03
-    3      >2e+05
-    4      >1e+07
-    5      >9e+08
-    6      >6e+10
-    7      >4e+12
-    8      >2e+14
-    9      >1e+16
-    12     >3e+21 (nbproject id)
-    20     >7e+35 (~UUID)
-    ====== =========
-    """
-    from nbproject import meta, publish
+    def add(self, filepath, *, dobject_id=None, dobject_v="1"):
+        """Add a file for ingestion.
 
-    settings = load_settings()
-    storage_dir = settings.storage_dir
+        Args:
+            filepath: The filepath.
+            dobject_id: The dobject id.
+            dobject_v: The dobject version.
+        """
+        filepath = Path(filepath)
+        primary_key = (id_dobject() if dobject_id is None else dobject_id, dobject_v)
+        self._added[filepath] = primary_key
 
-    storage_dir = Path(storage_dir)
+    def commit(self, jupynb_v=None):
+        """Commit files for ingestion.
 
-    filepath = Path(filepath)
+        Args:
+            jupynb_v: Notebook version to publish. Is automatically bumped if None.
 
-    from lamindb.admin.db import insert
+        We primarily work with base62 IDs.
 
-    dobject_id = insert.dobject(filepath.stem, filepath.suffix)
+        ====== =========
+        len_id n_entries
+        ====== =========
+        1      >6e+01
+        2      >4e+03
+        3      >2e+05
+        4      >1e+07
+        5      >9e+08
+        6      >6e+10
+        7      >4e+12
+        8      >2e+14
+        9      >1e+16
+        12     >3e+21 (nbproject id)
+        20     >7e+35 (~UUID)
+        ====== =========
+        """
+        from nbproject import dev, meta, publish
+        from tabulate import tabulate  # type: ignore
 
-    dobject_storage_key = f"{dobject_id}{filepath.suffix}"
-    store_file(filepath, dobject_storage_key)
+        from lamindb.dev.db import insert
 
-    track_ingest(dobject_id)
+        user_settings = load_or_create_user_settings()
+        logs = []
 
-    logger.info(
-        f"Added file {filepath.name} ({dobject_id}) from notebook"
-        f" {meta.live.title!r} ({meta.store.id}) by user"
-        f" {settings.user_email} ({settings.user_id})."
-    )
-
-    from nbproject import meta
-
-    if integrity is None:
-        if meta._env == "lab":
-            integrity = True
-        else:
-            integrity = False
-            logger.warning(
-                "Consider using Jupyter Lab for ingesting data!\n"
-                "Interactive notebook integrity checks are currently only supported on Jupyter Lab.\n"  # noqa
-                "Alternatively, manually save your notebook directly before calling `do.ingest(..., integrity=True)`."  # noqa
+        if meta.live.title is None:
+            raise RuntimeError(
+                "Can only ingest from notebook with title. Please set a title!"
             )
-    publish(integrity=integrity)
+
+        jupynb_id = meta.store.id
+        jupynb_v = dev.set_version(jupynb_v)  # version to be set in publish()
+        jupynb_name = meta.live.title
+        for filepath, (dobject_id, dobject_v) in self.status.items():
+            dobject_id = insert.dobject(
+                name=filepath.stem,
+                file_suffix=filepath.suffix,
+                jupynb_id=jupynb_id,
+                jupynb_v=jupynb_v,
+                jupynb_name=jupynb_name,
+                jupynb_type="nbproject",
+                dobject_id=dobject_id,
+                dobject_v=dobject_v,
+            )
+
+            dobject_storage_key = f"{dobject_id}-{dobject_v}{filepath.suffix}"
+            store_file(filepath, dobject_storage_key)
+
+            track_ingest(dobject_id, dobject_v)
+
+            logs.append(
+                [
+                    f"{filepath.name} ({dobject_id}, {dobject_v})",
+                    f"{jupynb_name!r} ({jupynb_id}, {jupynb_v})",
+                    f"{user_settings.user_email} ({user_settings.user_id})",
+                ]
+            )
+
+        log_table = tabulate(
+            logs,
+            headers=[
+                colors.green("Ingested File"),
+                colors.blue("Notebook"),
+                colors.purple("User"),
+            ],
+            tablefmt="pretty",
+        )
+        logger.log(
+            "INGEST", f"{colors.bold('Ingested the following files')}:\n{log_table}"
+        )
+        publish(calling_statement="commit(")
+
+
+ingest = Ingest()

@@ -5,7 +5,9 @@
 
 get-started
 add-user
+feature-annotation
 introspect-data
 share
 concepts
+switch-instance
 ```

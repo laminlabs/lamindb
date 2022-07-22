@@ -1,18 +1,24 @@
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Union, get_type_hints
+from typing import Any, Dict, Union, get_type_hints
 
 from appdirs import AppDirs
 from cloudpathlib import CloudPath, S3Client
 
-from ._settings_store import SettingsStore, settings_file
+from ._settings_store import (
+    InstanceSettingsStore,
+    UserSettingsStore,
+    current_instance_settings_file,
+    current_user_settings_file,
+    settings_dir,
+)
 
 DIRS = AppDirs("lamindb", "laminlabs")
 
 
 def storage_filepath(filekey: Union[Path, CloudPath, str]) -> Union[Path, CloudPath]:
     """Cloud or local filepath from filekey."""
-    settings = load_settings()
+    settings = load_or_create_instance_settings()
     if settings.cloud_storage:
         client = S3Client(local_cache_dir=settings.cache_dir)
         return client.CloudPath(settings.storage_dir / filekey)
@@ -22,8 +28,11 @@ def storage_filepath(filekey: Union[Path, CloudPath, str]) -> Union[Path, CloudP
 
 def cloud_to_local(filepath: Union[Path, CloudPath]) -> Path:
     """Local (cache) filepath from filepath."""
-    if load_settings().cloud_storage:
+    if load_or_create_instance_settings().cloud_storage:
         filepath = filepath.fspath  # type: ignore  # mypy misses CloudPath
+    Path(filepath).parent.mkdir(
+        parents=True, exist_ok=True
+    )  # this should not happen here
     return filepath
 
 
@@ -34,7 +43,7 @@ def cloud_to_local(filepath: Union[Path, CloudPath]) -> Path:
 # we manually construct the local file path
 # using the `.parts` attribute in the following line
 def cloud_to_local_no_update(filepath: Union[Path, CloudPath]) -> Path:
-    settings = load_settings()
+    settings = load_or_create_instance_settings()
     if settings.cloud_storage:
         return settings.cache_dir.joinpath(*filepath.parts[1:])  # type: ignore
     return filepath
@@ -53,6 +62,7 @@ class description:
     user_id = """User ID. Auto-generated."""
     storage_dir = """Storage root. Either local dir, ``s3://bucket_name`` or ``gs://bucket_name``."""  # noqa
     _dbconfig = """Either "sqlite" or "instance_name, postgres_url"."""
+    instance_name = """Instance name."""
 
 
 def instance_from_storage(storage):
@@ -60,15 +70,9 @@ def instance_from_storage(storage):
 
 
 @dataclass
-class Settings:
-    """Settings written during setup."""
+class InstanceSettings:
+    """Instance settings written during setup."""
 
-    user_email: str = None  # type: ignore
-    """User email."""
-    user_secret: Union[str, None] = None
-    """User login secret. Auto-generated."""
-    user_id: Union[str, None] = None
-    """User ID. Auto-generated."""
     storage_dir: Union[CloudPath, Path] = None
     """Storage root. Either local dir, ``s3://bucket_name`` or ``gs://bucket_name``."""
     _dbconfig: str = "sqlite"
@@ -86,8 +90,7 @@ class Settings:
         """Cache root, a local directory to cache cloud files."""
         if self.cloud_storage:
             cache_dir = Path(DIRS.user_cache_dir)
-            if not cache_dir.exists():
-                cache_dir.mkdir(parents=True)
+            cache_dir.mkdir(parents=True, exist_ok=True)
         else:
             cache_dir = None
         return cache_dir
@@ -129,9 +132,39 @@ class Settings:
         return f"sqlite:///{cloud_to_local(self._sqlite_file)}"
 
 
-def write_settings(settings: Settings):
+@dataclass
+class UserSettings:
+    """User Settings written during setup."""
+
+    user_email: str = None  # type: ignore
+    """User email."""
+    user_secret: Union[str, None] = None
+    """User login secret. Auto-generated."""
+    user_id: Union[str, None] = None
+    """User ID. Auto-generated."""
+
+
+def write_instance_settings(settings: InstanceSettings):
+    assert settings.instance_name is not None
+    type_hints = get_type_hints(InstanceSettingsStore)
+    write_settings(settings, current_instance_settings_file, type_hints)
+    write_settings(settings, settings_dir / f"{settings.instance_name}.env", type_hints)
+
+
+def write_user_settings(settings: UserSettings):
+    assert settings.user_email is not None
+    type_hints = get_type_hints(UserSettingsStore)
+    write_settings(settings, current_user_settings_file, type_hints)
+    write_settings(settings, settings_dir / f"{settings.user_email}.env", type_hints)
+
+
+def write_settings(
+    settings: Union[InstanceSettings, UserSettings],
+    settings_file: Path,
+    type_hints: Dict[str, Any],
+):
     with open(settings_file, "w") as f:
-        for key, type in get_type_hints(SettingsStore).items():
+        for key, type in type_hints.items():
             settings_key = f"_{key}" if key == "dbconfig" else key
             value = getattr(settings, settings_key)
             if value is None:
@@ -148,27 +181,70 @@ def setup_storage_dir(storage: Union[str, Path, CloudPath]) -> Union[Path, Cloud
         return None
     else:
         storage_dir = Path(storage)
-        if not storage_dir.exists():
-            storage_dir.mkdir(parents=True)
+        storage_dir.mkdir(parents=True, exist_ok=True)
     return storage_dir
 
 
-def setup_from_store(store: SettingsStore) -> Settings:
-    settings = Settings()
-    settings.user_email = store.user_email
-    settings.user_secret = store.user_secret if store.user_secret != "null" else None
-    settings.user_id = store.user_id if store.user_id != "null" else None
+def setup_instance_from_store(store: InstanceSettingsStore) -> InstanceSettings:
+    settings = InstanceSettings()
     settings.storage_dir = setup_storage_dir(store.storage_dir)
     settings._dbconfig = store.dbconfig
     return settings
 
 
-def load_settings() -> Settings:
-    """Return current settings."""
-    if not settings_file.exists():
-        global Settings
-        return Settings()
+def setup_user_from_store(store: UserSettingsStore) -> UserSettings:
+    settings = UserSettings()
+    settings.user_email = store.user_email
+    settings.user_secret = store.user_secret if store.user_secret != "null" else None
+    settings.user_id = store.user_id if store.user_id != "null" else None
+    return settings
+
+
+def load_or_create_instance_settings():
+    """Return current user settings."""
+    if not current_instance_settings_file.exists():
+        global InstanceSettings
+        return InstanceSettings()
     else:
-        settings_store = SettingsStore(_env_file=settings_file)
-        settings = setup_from_store(settings_store)
+        settings = load_instance_settings(current_instance_settings_file)
         return settings
+
+
+def load_instance_settings(instance_settings_file: Path):
+    settings_store = InstanceSettingsStore(_env_file=instance_settings_file)
+    settings = setup_instance_from_store(settings_store)
+    return settings
+
+
+def load_or_create_user_settings():
+    """Return current user settings."""
+    if not current_user_settings_file.exists():
+        global UserSettings
+        return UserSettings()
+    else:
+        settings = load_user_settings(current_user_settings_file)
+        return settings
+
+
+def load_user_settings(user_settings_file: Path):
+    settings_store = UserSettingsStore(_env_file=user_settings_file)
+    settings = setup_user_from_store(settings_store)
+    return settings
+
+
+def switch_instance(instance_name: str):
+    InstanceSettings.instance_name
+    settings = load_instance_settings(settings_dir / f"{instance_name}.env")
+    assert settings.instance_name is not None
+    write_instance_settings(settings)
+
+
+def switch_user(user_email: str):
+    settings_file = settings_dir / f"{user_email}.env"
+    if settings_file.exists():
+        settings = load_user_settings(settings_file)
+        assert settings.user_email is not None
+    else:
+        settings = load_or_create_user_settings()
+        settings.user_email = user_email
+    write_user_settings(settings)

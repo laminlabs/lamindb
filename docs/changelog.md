@@ -7,6 +7,26 @@ Towards version 0.1.
 <!-- prettier-ignore -->
 Name | PR | User | Date | Patch
 --- | --- | --- | --- | ---
+🎨 Use modular schema structure | [88](https://github.com/laminlabs/lamindb/pull/88) | [falexwolf](https://github.com/falexwolf) | 2022-07-22 |
+🚚 Move db API from admin to dev | [87](https://github.com/laminlabs/lamindb/pull/87) | [falexwolf](https://github.com/falexwolf) | 2022-07-22 |
+✨ Enable annotating features of dobjects | [81](https://github.com/laminlabs/lamindb/pull/81) | [sunnyosun](https://github.com/sunnyosun) | 2022-07-22 |
+🚸 Offer manual way of completing a migration | [86](https://github.com/laminlabs/lamindb/pull/86) | [falexwolf](https://github.com/falexwolf) | 2022-07-22 |
+🏗️ Separate settings into user vs. instance and one file per instance | [83](https://github.com/laminlabs/lamindb/pull/83) | [fredericenard](https://github.com/fredericenard) | 2022-07-22 |
+🐛 Fix loading of multi-index and non-id tables | [85](https://github.com/laminlabs/lamindb/pull/85) | [falexwolf](https://github.com/falexwolf) | 2022-07-21 | 0.1.2
+🚚 Rename table `interface` to `jupynb`: migrate to schema v0.1.1 | [84](https://github.com/laminlabs/lamindb/pull/84) | [falexwolf](https://github.com/falexwolf) | 2022-07-21 |
+🚚 Move version check into correct __init__ | [82](https://github.com/laminlabs/lamindb/pull/82) | [falexwolf](https://github.com/falexwolf) | 2022-07-20 |
+⬆️ Fix the publishing call by upgrading to nbproject 0.4.3 | [80](https://github.com/laminlabs/lamindb/pull/80) | [falexwolf](https://github.com/falexwolf) | 2022-07-19 | 0.1.1
+✨ Add `schema_version` check | [79](https://github.com/laminlabs/lamindb/pull/79) | [falexwolf](https://github.com/falexwolf) | 2022-07-19 | 0.1.0
+🚚 Rename `lamindb.model` to `lamindb.schema` | [77](https://github.com/laminlabs/lamindb/pull/77) | [falexwolf](https://github.com/falexwolf) | 2022-07-17 |
+🚚 Migrate schema out to `lamindb-schema` | [76](https://github.com/laminlabs/lamindb/pull/76) | [falexwolf](https://github.com/falexwolf) | 2022-07-17 |
+✨ Version dobjects and interfaces | [75](https://github.com/laminlabs/lamindb/pull/75) | [falexwolf](https://github.com/falexwolf) | 2022-07-16 |
+💄 Pretty logging | [74](https://github.com/laminlabs/lamindb/pull/74) | [sunnyosun](https://github.com/sunnyosun) | 2022-07-15 |
+✨ Implemented `ingest.add` and `ingest.commit` for ingesting multiple datasets within a notebook | [73](https://github.com/laminlabs/lamindb/pull/73) | [sunnyosun](https://github.com/sunnyosun) | 2022-07-14 |
+📝 Added an example of ingesting images | [72](https://github.com/laminlabs/lamindb/pull/72) | [sunnyosun](https://github.com/sunnyosun) | 2022-07-12 |
+:arrow_up: Upgrade to nbproject 0.2.1 | [71](https://github.com/laminlabs/lamindb/pull/71) | [falexwolf](https://github.com/falexwolf) | 2022-07-12 |
+:bug: Fix bug | [70](https://github.com/laminlabs/lamindb/pull/70) | [falexwolf](https://github.com/falexwolf) | 2022-07-12 |
+📝 Added example notebook for ingesting fcs files | [66](https://github.com/laminlabs/lamindb/pull/66) | [sunnyosun](https://github.com/sunnyosun) | 2022-07-11 |
+⬆️ Migrate to nbproject 0.2.0 | [68](https://github.com/laminlabs/lamindb/pull/68) | [falexwolf](https://github.com/falexwolf) | 2022-07-11 |
 🚸 Auto-check integrity upon data ingestion only on Jupyter Lab | [65](https://github.com/laminlabs/lamindb/pull/65) | [falexwolf](https://github.com/falexwolf) | 2022-07-09 | 0.0.9
 🚚  Rename`lndb config` to `lndb init` and rewrite get-started tutorial | [64](https://github.com/laminlabs/lamindb/pull/64) | [falexwolf](https://github.com/falexwolf) | 2022-07-09 |
 🚸 Raise error upon multiple sign ups with same unconfirmed email | [63](https://github.com/laminlabs/lamindb/pull/63) | [falexwolf](https://github.com/falexwolf) | 2022-07-09 |

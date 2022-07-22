@@ -1,4 +1,4 @@
-"""Administrate the database.
+"""devistrate the database.
 
 .. autosummary::
    :toctree: .

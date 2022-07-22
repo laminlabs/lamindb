@@ -1,7 +1,7 @@
 import biogram
 import sqlalchemy as sql
 
-from lamindb.admin.db import get_engine
+from lamindb.dev.db import get_engine
 
 
 class schema:
