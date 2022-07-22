@@ -8,7 +8,7 @@ def test_create_to_load():
     storage = Path.home() / "mydata"
     _setup.log_in_user(
         email="raspbear@gmx.de",
-        secret="O6A5bqHzhERTMpGHXxEdbsTrEIt4a3Dy3AWdrWQR",
+        secret="MmR4YuQEyb0yxu7dAwJZTjLzR1Az2lN4Q4IduDlO",
     )
     _setup.setup_instance(storage=storage)
     lndb.admin.db.insert.dobject(
