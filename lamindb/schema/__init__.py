@@ -36,14 +36,21 @@ Types:
 
 """
 from lamindb_schema import track_do_type  # noqa
-from ._core import dobject, jupynb, schema_version, track_do, user  # noqa
-from ._core import biometa, biosample, dobject_biometa, readout_type  # noqa
-from ._metadata import (
-    species,
+from lamindb_schema import (  # noqa
+    biometa,
+    biosample,
+    dobject,
+    dobject_biometa,
     gene,
     geneset,
     geneset_gene,
+    jupynb,
     protein,
     proteinset,
     proteinset_protein,
-)  # noqa
+    readout_type,
+    schema_version,
+    species,
+    track_do,
+    user,
+)
