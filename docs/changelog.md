@@ -7,6 +7,7 @@ Towards version 0.1.
 <!-- prettier-ignore -->
 Name | PR | User | Date | Patch
 --- | --- | --- | --- | ---
+🎨 Use modular schema structure | [88](https://github.com/laminlabs/lamindb/pull/88) | [falexwolf](https://github.com/falexwolf) | 2022-07-22 |
 🚚 Move db API from admin to dev | [87](https://github.com/laminlabs/lamindb/pull/87) | [falexwolf](https://github.com/falexwolf) | 2022-07-22 |
 ✨ Enable annotating features of dobjects | [81](https://github.com/laminlabs/lamindb/pull/81) | [sunnyosun](https://github.com/sunnyosun) | 2022-07-22 |
 🚸 Offer manual way of completing a migration | [86](https://github.com/laminlabs/lamindb/pull/86) | [falexwolf](https://github.com/falexwolf) | 2022-07-22 |
