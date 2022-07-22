@@ -32,10 +32,13 @@ class annotate:
         if dobject.file_suffix == ".h5ad":
             adata = h5ad_to_anndata(filekey)
             df = anndata_to_df(adata, obs_or_var=obs_or_var)
+
+            # create a geneset row
             genes = df.index.unique().values if column is None else df[column].unique()
             geneset_id = insert.genes(
                 genes=genes, geneset_name=geneset_name, species=species
             )
+
         else:
             raise NotImplementedError
 
