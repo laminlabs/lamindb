@@ -7,6 +7,9 @@ Towards version 0.1.
 <!-- prettier-ignore -->
 Name | PR | User | Date | Patch
 --- | --- | --- | --- | ---
+🐛 Fix loading of multi-index and non-id tables | [85](https://github.com/laminlabs/lamindb/pull/85) | [falexwolf](https://github.com/falexwolf) | 2022-07-21 | 0.1.2
+🚚 Rename table `interface` to `jupynb`: migrate to schema v0.1.1 | [84](https://github.com/laminlabs/lamindb/pull/84) | [falexwolf](https://github.com/falexwolf) | 2022-07-21 |
+🚚 Move version check into correct __init__ | [82](https://github.com/laminlabs/lamindb/pull/82) | [falexwolf](https://github.com/falexwolf) | 2022-07-20 |
 ⬆️ Fix the publishing call by upgrading to nbproject 0.4.3 | [80](https://github.com/laminlabs/lamindb/pull/80) | [falexwolf](https://github.com/falexwolf) | 2022-07-19 | 0.1.1
 ✨ Add `schema_version` check | [79](https://github.com/laminlabs/lamindb/pull/79) | [falexwolf](https://github.com/falexwolf) | 2022-07-19 | 0.1.0
 🚚 Rename `lamindb.model` to `lamindb.schema` | [77](https://github.com/laminlabs/lamindb/pull/77) | [falexwolf](https://github.com/falexwolf) | 2022-07-17 |

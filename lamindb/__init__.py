@@ -27,8 +27,14 @@ To retrieve settings after setup via the CLI, use:
    :members:
 
 """
+from nbproject import __version__ as nbproject_version
+from packaging import version
 
-__version__ = "0.1.1"
+if version.parse(nbproject_version) < version.parse("0.4.3"):
+    raise RuntimeError("lamindb needs nbproject >= 0.4.3")
+del version, nbproject_version
+
+__version__ = "0.1.2"
 from . import _setup  # noqa
 from . import admin  # noqa
 from . import dev  # noqa

@@ -16,7 +16,7 @@ Data models:
    :members:
    :undoc-members:
 
-.. autoclass:: interface
+.. autoclass:: jupynb
    :members:
    :undoc-members:
 
@@ -36,13 +36,14 @@ Types:
 
 """
 from lamindb_schema import track_do_type  # noqa
-from lamindb_schema import (  # noqa
-    biosample,
-    dobject,
-    experiment,
+from ._core import dobject, jupynb, schema_version, track_do, user  # noqa
+from ._core import biometa, biosample, dobject_biometa, readout_type  # noqa
+from ._metadata import (
+    species,
     gene,
-    interface,
-    readout,
-    track_do,
-    user,
-)
+    geneset,
+    geneset_gene,
+    protein,
+    proteinset,
+    proteinset_protein,
+)  # noqa

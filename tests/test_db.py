@@ -14,10 +14,10 @@ def test_create_to_load():
     lndb.admin.db.insert.dobject(
         name="test_file",
         file_suffix=".csv",
-        interface_id="83jf",
-        interface_v="1",
-        interface_name="test",
-        interface_type="other",
+        jupynb_id="83jf",
+        jupynb_v="1",
+        jupynb_name="test",
+        jupynb_type="other",
     )
     for entity in lndb.track.schema.entities:
         lndb.do.load(entity)
