@@ -18,12 +18,15 @@ Browse the API:
 
 To retrieve settings after setup via the CLI, use:
 
-.. autofunction:: load_settings
+.. autofunction:: load_or_create_instance_settings
+.. autofunction:: load_or_create_user_settings
 
 ..
    autosummary does not work with two objects that merely differ by capitalization
 
-.. autoclass:: Settings
+.. autoclass:: InstanceSettings
+   :members:
+.. autoclass:: UserSettings
    :members:
 
 """
@@ -41,4 +44,9 @@ from . import dev  # noqa
 from . import do  # noqa
 from . import schema  # noqa
 from . import track  # noqa
-from ._setup import Settings, load_settings  # noqa
+from ._setup import (  # noqa
+    InstanceSettings,
+    UserSettings,
+    load_or_create_instance_settings,
+    load_or_create_user_settings,
+)
