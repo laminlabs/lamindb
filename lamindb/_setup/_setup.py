@@ -39,11 +39,18 @@ def setup_instance_db():
         logger.info(f"Using instance: {sqlite_file}")
         schema_version = load("schema_version")
         if schema_version.index[-1] != __version__:
-            raise RuntimeError(
-                "\nEither migrate your instance db schema to version"
-                f" {__version__}.\nOr install pip package lamindb_schema version"
-                f" {schema_version.index[-1]}."
+            result = input(
+                "[Run this dialogue on the commmand line *outside* Jupyter]\nDid you"
+                f" already migrate your db to schema version {__version__}? (y/n)"
             )
+            if result == "y":
+                insert.schema_version(__version__, user_settings.user_id)
+            else:
+                raise RuntimeError(
+                    "\nEither migrate your instance db schema to version"
+                    f" {__version__}.\nOr install pip package lamindb_schema version"
+                    f" {schema_version.index[-1]}."
+                )
     else:
         SQLModel.metadata.create_all(get_engine())
         instance_settings._update_cloud_sqlite_file()
