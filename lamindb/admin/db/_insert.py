@@ -150,6 +150,6 @@ class insert:
                 session.add(link)
             session.commit()
 
-        load_settings()._update_cloud_sqlite_file()
+        load_or_create_instance_settings()._update_cloud_sqlite_file()
 
         return geneset.id
