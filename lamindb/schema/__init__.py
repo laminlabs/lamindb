@@ -35,22 +35,26 @@ Types:
    :undoc-members:
 
 """
-from lamindb_schema import track_do_type  # noqa
-from lamindb_schema import (  # noqa
+from lamindb_schema.biolab import (  # noqa
     biometa,
     biosample,
-    dobject,
     dobject_biometa,
+    readout_type,
+)
+from lamindb_schema.bionty import (  # noqa
     gene,
     geneset,
     geneset_gene,
-    jupynb,
     protein,
     proteinset,
     proteinset_protein,
-    readout_type,
-    schema_version,
     species,
+)
+from lamindb_schema.provenance import (  # noqa
+    dobject,
+    jupynb,
+    schema_version,
     track_do,
+    track_do_type,
     user,
 )
