@@ -1,5 +1,6 @@
+from typing import Iterable
+
 import sqlmodel as sqm
-from lamindb_schema.id import id_dobject, id_gene, id_user  # noqa
 
 import lamindb as db
 from lamindb import _setup
@@ -102,30 +103,53 @@ class insert:
         return dobject.id
 
     @classmethod
-    def gene(
+    def genes(
         cls,
-        name: str,
-        feature_type: str = None,
-        database: str = None,
+        genes: Iterable[str],
+        geneset_name: str = None,
         species: str = None,
-        curated: bool = None,
+        **kwargs,
     ):
-        """Genes in a dobject."""
+        """Insert a geneset.
+
+        Mmeanwhile inserting genes and linking them to the geneset.
+        """
         engine = get_engine()
 
+        # add a geneset to the geneset table
         with sqm.Session(engine) as session:
-            gene = db.schema.gene(
-                id=id_gene(),
-                name=name,
-                feature_type=feature_type,
-                database=database,
-                species=species,
-                curated=curated,
+            geneset = db.schema.geneset(
+                name=geneset_name,
             )
-            session.add(gene)
+            session.add(geneset)
             session.commit()
-            session.refresh(gene)
+            session.refresh(geneset)
+
+        # add genes to the gene table
+        with sqm.Session(engine) as session:
+            genes_ins = []
+            for i in genes:
+                gene = db.schema.gene(
+                    symbol=i,
+                    species=species,
+                    **kwargs,
+                )
+                session.add(gene)
+                genes_ins.append(gene)
+            session.commit()
+            for i in genes_ins:
+                session.refresh(i)
+
+        # insert ids into the link table
+        with sqm.Session(engine) as session:
+            for gene in genes_ins:
+                link = db.schema.geneset_gene(
+                    geneset_id=geneset.id,
+                    gene_id=gene.id,
+                )
+                session.add(link)
+            session.commit()
 
         load_settings()._update_cloud_sqlite_file()
 
-        return gene.id
+        return geneset.id

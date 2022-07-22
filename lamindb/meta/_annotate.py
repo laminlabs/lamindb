@@ -17,8 +17,15 @@ def anndata_to_df(adata, obs_or_var):
 class annotate:
     """Feature annotation."""
 
-    @staticmethod
-    def gene(dobject: dobject, column=None, obs_or_var=None):
+    @classmethod
+    def genes(
+        cls,
+        dobject: dobject,
+        species: str,
+        column=None,
+        obs_or_var=None,
+        geneset_name: str = None,
+    ):
         """Annotate genes."""
         filekey = f"{dobject.id}-{dobject.v}{dobject.file_suffix}"
 
@@ -26,10 +33,22 @@ class annotate:
             adata = h5ad_to_anndata(filekey)
             df = anndata_to_df(adata, obs_or_var=obs_or_var)
             genes = df.index.unique().values if column is None else df[column].unique()
-            gene_ids: dict = {}
-            for i in genes:
-                gene_ids[i] = insert.gene(i)
+            geneset_id = insert.genes(
+                genes=genes, geneset_name=geneset_name, species=species
+            )
         else:
             raise NotImplementedError
 
-        return gene_ids
+        return geneset_id
+
+    @classmethod
+    def proteinset(cls):
+        NotImplementedError
+
+    @classmethod
+    def biosample(cls):
+        raise NotImplementedError
+
+    @classmethod
+    def readout_type(cls):
+        raise NotImplementedError
