@@ -29,7 +29,7 @@ def track_ingest(dobject_id, dobject_v):
     jupynb_v = meta.store.version
 
     with sqm.Session(engine) as session:
-        track_do = db.schema.track_do(
+        track_do = db.schema.provenance.track_do(
             type="ingest",
             user_id=user_id,
             jupynb_id=jupynb_id,

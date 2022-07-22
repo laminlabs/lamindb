@@ -30,7 +30,7 @@ class insert:
         engine = get_engine()
 
         with sqm.Session(engine) as session:
-            user = db.schema.schema_version(id=version, user_id=user_id)
+            user = db.schema.provenance.schema_version(id=version, user_id=user_id)
             session.add(user)
             session.commit()
 
@@ -42,7 +42,7 @@ class insert:
         engine = get_engine()
 
         with sqm.Session(engine) as session:
-            user = db.schema.user(id=user_id, email=user_email)
+            user = db.schema.provenance.user(id=user_id, email=user_email)
             session.add(user)
             session.commit()
             session.refresh(user)
@@ -71,7 +71,7 @@ class insert:
         df_jupynb = db.do.load("jupynb")
         if jupynb_id not in df_jupynb.index:
             with sqm.Session(engine) as session:
-                jupynb = db.schema.jupynb(
+                jupynb = db.schema.provenance.jupynb(
                     id=jupynb_id,
                     v=jupynb_v,
                     name=jupynb_name,
@@ -86,7 +86,7 @@ class insert:
             )
 
         with sqm.Session(engine) as session:
-            dobject = db.schema.dobject(
+            dobject = db.schema.provenance.dobject(
                 id=dobject_id,
                 v=dobject_v,
                 name=name,
@@ -118,7 +118,7 @@ class insert:
 
         # add a geneset to the geneset table
         with sqm.Session(engine) as session:
-            geneset = db.schema.geneset(
+            geneset = db.schema.bionty.geneset(
                 name=geneset_name,
             )
             session.add(geneset)
@@ -129,7 +129,7 @@ class insert:
         with sqm.Session(engine) as session:
             genes_ins = []
             for i in genes:
-                gene = db.schema.gene(
+                gene = db.schema.bionty.gene(
                     symbol=i,
                     species=species,
                     **kwargs,
@@ -143,7 +143,7 @@ class insert:
         # insert ids into the link table
         with sqm.Session(engine) as session:
             for gene in genes_ins:
-                link = db.schema.geneset_gene(
+                link = db.schema.bionty.geneset_gene(
                     geneset_id=geneset.id,
                     gene_id=gene.id,
                 )
