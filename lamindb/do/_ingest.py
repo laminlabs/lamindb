@@ -15,7 +15,7 @@ from ..admin.db import get_engine
 from ..dev.file import store_file
 
 
-def track_ingest(dobject_id):
+def track_ingest(dobject_id, dobject_v):
     engine = get_engine()
 
     from nbproject import meta
@@ -25,14 +25,17 @@ def track_ingest(dobject_id):
 
     user_id = user_settings.user_id
 
-    interface_id = meta.store.id
+    jupynb_id = meta.store.id
+    jupynb_v = meta.store.version
 
     with sqm.Session(engine) as session:
         track_do = db.schema.track_do(
             type="ingest",
             user_id=user_id,
-            interface_id=interface_id,
+            jupynb_id=jupynb_id,
+            jupynb_v=jupynb_v,
             dobject_id=dobject_id,
+            dobject_v=dobject_v,
         )
         session.add(track_do)
         session.commit()
@@ -66,11 +69,11 @@ class Ingest:
         primary_key = (id_dobject() if dobject_id is None else dobject_id, dobject_v)
         self._added[filepath] = primary_key
 
-    def commit(self, interface_v=None):
+    def commit(self, jupynb_v=None):
         """Commit files for ingestion.
 
         Args:
-            interface_v: Notebook version to publish. Is automatically bumped if None.
+            jupynb_v: Notebook version to publish. Is automatically bumped if None.
 
         We primarily work with base62 IDs.
 
@@ -103,17 +106,17 @@ class Ingest:
                 "Can only ingest from notebook with title. Please set a title!"
             )
 
-        interface_id = meta.store.id
-        interface_v = dev.set_version(interface_v)  # version to be set in publish()
-        interface_name = meta.live.title
+        jupynb_id = meta.store.id
+        jupynb_v = dev.set_version(jupynb_v)  # version to be set in publish()
+        jupynb_name = meta.live.title
         for filepath, (dobject_id, dobject_v) in self.status.items():
             dobject_id = insert.dobject(
                 name=filepath.stem,
                 file_suffix=filepath.suffix,
-                interface_id=interface_id,
-                interface_v=interface_v,
-                interface_name=interface_name,
-                interface_type="nbproject",
+                jupynb_id=jupynb_id,
+                jupynb_v=jupynb_v,
+                jupynb_name=jupynb_name,
+                jupynb_type="nbproject",
                 dobject_id=dobject_id,
                 dobject_v=dobject_v,
             )
@@ -121,12 +124,12 @@ class Ingest:
             dobject_storage_key = f"{dobject_id}-{dobject_v}{filepath.suffix}"
             store_file(filepath, dobject_storage_key)
 
-            track_ingest(dobject_id)
+            track_ingest(dobject_id, dobject_v)
 
             logs.append(
                 [
                     f"{filepath.name} ({dobject_id}, {dobject_v})",
-                    f"{interface_name!r} ({interface_id}, {interface_v})",
+                    f"{jupynb_name!r} ({jupynb_id}, {jupynb_v})",
                     f"{user_settings.user_email} ({user_settings.user_id})",
                 ]
             )

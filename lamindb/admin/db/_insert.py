@@ -56,10 +56,10 @@ class insert:
         *,
         name: str,
         file_suffix: str = None,
-        interface_id: str,
-        interface_v: str,
-        interface_name: str,
-        interface_type: str,
+        jupynb_id: str,
+        jupynb_v: str,
+        jupynb_name: str,
+        jupynb_type: str,
         dobject_id: str = None,
         dobject_v: str = "1",
     ):
@@ -67,20 +67,20 @@ class insert:
         engine = get_engine()
         user_settings = _setup.load_or_create_user_settings()
 
-        df_interface = db.do.load("interface")
-        if interface_id not in df_interface.index:
+        df_jupynb = db.do.load("jupynb")
+        if jupynb_id not in df_jupynb.index:
             with sqm.Session(engine) as session:
-                interface = db.schema.interface(
-                    id=interface_id,
-                    v=interface_v,
-                    name=interface_name,
-                    type=interface_type,
+                jupynb = db.schema.jupynb(
+                    id=jupynb_id,
+                    v=jupynb_v,
+                    name=jupynb_name,
+                    type=jupynb_type,
                     user_id=user_settings.user_id,
                 )
-                session.add(interface)
+                session.add(jupynb)
                 session.commit()
             logger.info(
-                f"Added notebook {interface_name!r} ({interface_id}, {interface_v}) by"
+                f"Added notebook {jupynb_name!r} ({jupynb_id}, {jupynb_v}) by"
                 f" user {user_settings.user_email} ({user_settings.user_id})."
             )
 
@@ -89,8 +89,8 @@ class insert:
                 id=dobject_id,
                 v=dobject_v,
                 name=name,
-                interface_id=interface_id,
-                interface_v=interface_v,
+                jupynb_id=jupynb_id,
+                jupynb_v=jupynb_v,
                 file_suffix=file_suffix,
             )
             session.add(dobject)

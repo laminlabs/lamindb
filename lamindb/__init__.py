@@ -37,7 +37,7 @@ if version.parse(nbproject_version) < version.parse("0.4.3"):
     raise RuntimeError("lamindb needs nbproject >= 0.4.3")
 del version, nbproject_version
 
-__version__ = "0.1.1"
+__version__ = "0.1.2"
 from . import _setup  # noqa
 from . import admin  # noqa
 from . import dev  # noqa
