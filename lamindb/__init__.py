@@ -11,6 +11,7 @@ Browse the API:
 
    do
    schema
+   meta
    track
    dev
 

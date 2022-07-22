@@ -1,6 +1,7 @@
+from lamindb_schema.provenance import dobject
+
 from ..dev.db._insert import insert
 from ..dev.file import h5ad_to_anndata
-from ..schema import dobject
 
 
 def anndata_to_df(adata, obs_or_var):

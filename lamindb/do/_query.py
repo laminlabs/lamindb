@@ -14,4 +14,4 @@ class query:
         """Query a single row by its id column with the primary key."""
         engine = get_engine()
         with Session(engine) as session:
-            return session.get(getattr(schema, entity_name), id)
+            return session.get(getattr(schema.provenance, entity_name), id)
