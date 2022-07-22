@@ -2,8 +2,7 @@
 
 Import the package::
 
-   import lamindb as db  # data scientists working only with lamindb
-   import lamindb as lndb  # software engineers working with several databases
+   import lamindb as db  # or lndb
 
 Browse the API:
 
@@ -14,7 +13,6 @@ Browse the API:
    schema
    track
    dev
-   admin
 
 To retrieve settings after setup via the CLI, use:
 
@@ -39,7 +37,6 @@ del version, nbproject_version
 
 __version__ = "0.1.2"
 from . import _setup  # noqa
-from . import admin  # noqa
 from . import dev  # noqa
 from . import do  # noqa
 from . import schema  # noqa

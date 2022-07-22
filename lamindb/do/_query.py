@@ -3,7 +3,7 @@ from typing import Union
 from sqlmodel import Session
 
 from .. import schema
-from ..admin.db import get_engine
+from ..dev.db import get_engine
 
 
 class query:

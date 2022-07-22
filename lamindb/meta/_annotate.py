@@ -1,4 +1,4 @@
-from ..admin.db._insert import insert
+from ..dev.db._insert import insert
 from ..dev.file import h5ad_to_anndata
 from ..schema import dobject
 
