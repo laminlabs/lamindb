@@ -1,6 +1,8 @@
 from typing import Union
 
-from sqlmodel import Session
+import pandas as pd
+from sqlmodel import Session, select
+from sqlmodel.sql.expression import Select, SelectOfScalar
 
 from .. import schema
 from ..dev.db import get_engine
@@ -15,3 +17,20 @@ class query:
         engine = get_engine()
         with Session(engine) as session:
             return session.get(getattr(schema.core, entity_name), id)
+
+    @classmethod
+    def readout_type(cls, name: str = None, resolution: str = None):
+        """Query from the readout_type table."""
+        engine = get_engine(future=False)
+        statement = select(schema.biolab.readout_type).where(
+            schema.biolab.readout_type.name == name, resolution == resolution
+        )
+
+        # Will remove after this is fixed:
+        # https://github.com/tiangolo/sqlmodel/pull/234
+        SelectOfScalar.inherit_cache = True  # type: ignore
+        Select.inherit_cache = True  # type: ignore
+
+        results = pd.read_sql_query(statement, engine)
+
+        return results

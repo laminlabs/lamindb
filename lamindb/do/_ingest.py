@@ -2,7 +2,7 @@ from pathlib import Path
 from typing import Dict
 
 import sqlmodel as sqm
-from lamindb_schema import id
+from lndb_schema_core import id
 
 import lamindb as db
 from lamindb._setup import (
