@@ -1,4 +1,4 @@
-from lamindb_schema.provenance import dobject
+from lamindb_schema.core import dobject
 
 from ..dev.db._insert import insert
 from ..dev.file import h5ad_to_anndata
