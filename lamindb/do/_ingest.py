@@ -2,7 +2,7 @@ from pathlib import Path
 from typing import Dict
 
 import sqlmodel as sqm
-from lamindb_schema.id import id_dobject
+from lamindb_schema import id
 
 import lamindb as db
 from lamindb._setup import (
@@ -66,7 +66,7 @@ class Ingest:
             dobject_v: The dobject version.
         """
         filepath = Path(filepath)
-        primary_key = (id_dobject() if dobject_id is None else dobject_id, dobject_v)
+        primary_key = (id.id_dobject() if dobject_id is None else dobject_id, dobject_v)
         self._added[filepath] = primary_key
 
     def commit(self, jupynb_v=None):
