@@ -9,6 +9,7 @@ readme = "README.md"
 dynamic = ["version", "description"]
 dependencies = [
     "lamindb_schema",
+    "lamin_logger",
     "anndata",
     "boto3",
     "hjson",

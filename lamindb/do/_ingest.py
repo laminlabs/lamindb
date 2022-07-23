@@ -143,9 +143,7 @@ class Ingest:
             ],
             tablefmt="pretty",
         )
-        logger.log(
-            "INGEST", f"{colors.bold('Ingested the following files')}:\n{log_table}"
-        )
+        logger.success(f"{colors.bold('Ingested the following files')}:\n{log_table}")
         publish(calling_statement="commit(")
 
 
