@@ -30,7 +30,7 @@ class insert:
         engine = get_engine()
 
         with sqm.Session(engine) as session:
-            user = db.schema.provenance.schema_version(id=version, user_id=user_id)
+            user = db.schema.core.schema_version(id=version, user_id=user_id)
             session.add(user)
             session.commit()
 
@@ -42,7 +42,7 @@ class insert:
         engine = get_engine()
 
         with sqm.Session(engine) as session:
-            user = db.schema.provenance.user(id=user_id, email=user_email)
+            user = db.schema.core.user(id=user_id, email=user_email)
             session.add(user)
             session.commit()
             session.refresh(user)
@@ -71,7 +71,7 @@ class insert:
         df_jupynb = db.do.load("jupynb")
         if jupynb_id not in df_jupynb.index:
             with sqm.Session(engine) as session:
-                jupynb = db.schema.provenance.jupynb(
+                jupynb = db.schema.core.jupynb(
                     id=jupynb_id,
                     v=jupynb_v,
                     name=jupynb_name,
@@ -86,7 +86,7 @@ class insert:
             )
 
         with sqm.Session(engine) as session:
-            dobject = db.schema.provenance.dobject(
+            dobject = db.schema.core.dobject(
                 id=dobject_id,
                 v=dobject_v,
                 name=name,

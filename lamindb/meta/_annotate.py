@@ -28,7 +28,7 @@ class annotate:
     @classmethod
     def genes(
         cls,
-        dobject: dobject,
+        dobject: core.dobject,
         species: str,
         readout_type: READOUT_TYPES,
         column=None,
