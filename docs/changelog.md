@@ -7,6 +7,7 @@ Towards version 0.1.
 <!-- prettier-ignore -->
 Name | PR | User | Date | Patch
 --- | --- | --- | --- | ---
+:green_heart: Add time out of 6 min to github actions | [93](https://github.com/laminlabs/lamindb/pull/93) | [Koncopd](https://github.com/Koncopd) | 2022-07-23 |
 🔥 Switched logger to use lamin-logger | [92](https://github.com/laminlabs/lamindb/pull/92) | [sunnyosun](https://github.com/sunnyosun) | 2022-07-23 |
 ✨  Annotate biometa when annotating genes | [90](https://github.com/laminlabs/lamindb/pull/90) | [sunnyosun](https://github.com/sunnyosun) | 2022-07-23 |
 🔼 Upgrade to schema 0.2.1 | [89](https://github.com/laminlabs/lamindb/pull/89) | [falexwolf](https://github.com/falexwolf) | 2022-07-23 |
