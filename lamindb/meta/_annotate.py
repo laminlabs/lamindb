@@ -1,12 +1,12 @@
 from typing import Literal  # noqa
 
-from lamindb_schema.provenance import dobject
 from tabulate import tabulate  # type: ignore
 
 from .._logger import colors, logger
 from ..dev.db import insert
 from ..dev.file import h5ad_to_anndata
 from ..do import query
+from ..schema import core
 
 READOUT_TYPES = Literal["scRNA-seq", "RNA-seq", "flow-cytometry", "image"]
 
