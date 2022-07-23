@@ -16,6 +16,8 @@ jobs:
       matrix:
         python-version: ["3.9"]
 
+    timeout-minutes: 6
+
     steps:
       - name: Checkout main
         uses: actions/checkout@v3
