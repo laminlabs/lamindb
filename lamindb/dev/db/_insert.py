@@ -30,7 +30,7 @@ class insert:
         engine = get_engine()
 
         with sqm.Session(engine) as session:
-            user = db.schema.provenance.schema_version(id=version, user_id=user_id)
+            user = db.schema.core.schema_version(id=version, user_id=user_id)
             session.add(user)
             session.commit()
 
@@ -42,7 +42,7 @@ class insert:
         engine = get_engine()
 
         with sqm.Session(engine) as session:
-            user = db.schema.provenance.user(id=user_id, email=user_email)
+            user = db.schema.core.user(id=user_id, email=user_email)
             session.add(user)
             session.commit()
             session.refresh(user)
@@ -71,7 +71,7 @@ class insert:
         df_jupynb = db.do.load("jupynb")
         if jupynb_id not in df_jupynb.index:
             with sqm.Session(engine) as session:
-                jupynb = db.schema.provenance.jupynb(
+                jupynb = db.schema.core.jupynb(
                     id=jupynb_id,
                     v=jupynb_v,
                     name=jupynb_name,
@@ -86,7 +86,7 @@ class insert:
             )
 
         with sqm.Session(engine) as session:
-            dobject = db.schema.provenance.dobject(
+            dobject = db.schema.core.dobject(
                 id=dobject_id,
                 v=dobject_v,
                 name=name,
@@ -153,3 +153,52 @@ class insert:
         load_or_create_instance_settings()._update_cloud_sqlite_file()
 
         return geneset.id
+
+    @classmethod
+    def readout_type(cls, name: str, resolution: str = None):
+        """Insert a row in the readout table."""
+        engine = get_engine()
+
+        with sqm.Session(engine) as session:
+            readout_type = db.schema.biolab.readout_type(
+                name=name, resolution=resolution
+            )
+            session.add(readout_type)
+            session.commit()
+            session.refresh(readout_type)
+
+        return readout_type.id
+
+    @classmethod
+    def biometa(
+        cls,
+        dobject_id: str,
+        biosample_id: int = None,
+        readout_type_id: int = None,
+        geneset_id: int = None,
+        proteinset_id: int = None,
+    ):
+        """Insert a row in the biometa table and link with a dobject."""
+        engine = get_engine()
+
+        with sqm.Session(engine) as session:
+            biometa = db.schema.biolab.biometa(
+                biosample_id=biosample_id,
+                readout_type_id=readout_type_id,
+                geneset_id=geneset_id,
+                proteinset_id=proteinset_id,
+            )
+            session.add(biometa)
+            session.commit()
+            session.refresh(biometa)
+
+        # also create an entry in the dobject_biometa table
+        with sqm.Session(engine) as session:
+            link = db.schema.biolab.dobject_biometa(
+                dobject_id=dobject_id, biometa_id=biometa.id
+            )
+            session.add(link)
+            session.commit()
+            session.refresh(link)
+
+        return biometa.id

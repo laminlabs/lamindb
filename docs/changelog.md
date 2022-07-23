@@ -7,6 +7,9 @@ Towards version 0.1.
 <!-- prettier-ignore -->
 Name | PR | User | Date | Patch
 --- | --- | --- | --- | ---
+🔥 Switched logger to use lamin-logger | [92](https://github.com/laminlabs/lamindb/pull/92) | [sunnyosun](https://github.com/sunnyosun) | 2022-07-23 |
+✨  Annotate biometa when annotating genes | [90](https://github.com/laminlabs/lamindb/pull/90) | [sunnyosun](https://github.com/sunnyosun) | 2022-07-23 |
+🔼 Upgrade to schema 0.2.1 | [89](https://github.com/laminlabs/lamindb/pull/89) | [falexwolf](https://github.com/falexwolf) | 2022-07-23 |
 🎨 Use modular schema structure | [88](https://github.com/laminlabs/lamindb/pull/88) | [falexwolf](https://github.com/falexwolf) | 2022-07-22 |
 🚚 Move db API from admin to dev | [87](https://github.com/laminlabs/lamindb/pull/87) | [falexwolf](https://github.com/falexwolf) | 2022-07-22 |
 ✨ Enable annotating features of dobjects | [81](https://github.com/laminlabs/lamindb/pull/81) | [sunnyosun](https://github.com/sunnyosun) | 2022-07-22 |
