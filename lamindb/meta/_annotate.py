@@ -72,8 +72,7 @@ class annotate:
                 ],
                 tablefmt="pretty",
             )
-            logger.log(
-                "INGEST",
+            logger.success(
                 f"{colors.bold('Annotated the following features')}:\n{log_table}",
             )
         else:
