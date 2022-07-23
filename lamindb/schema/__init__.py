@@ -9,9 +9,9 @@ For a schematic of relations among models, see :class:`track.schema`.
 .. autosummary::
    :toctree: .
 
-   provenance
+   core
    bionty
    biolab
 
 """
-from lamindb_schema import biolab, bionty, provenance
+from lamindb_schema import biolab, bionty, core
