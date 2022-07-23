@@ -1,7 +1,14 @@
-from lamindb_schema.provenance import dobject
+from typing import Literal  # noqa
 
-from ..dev.db._insert import insert
+from lamindb_schema.provenance import dobject
+from tabulate import tabulate  # type: ignore
+
+from .._logger import colors, logger
+from ..dev.db import insert
 from ..dev.file import h5ad_to_anndata
+from ..do import query
+
+READOUT_TYPES = Literal["scRNA-seq", "RNA-seq", "flow-cytometry", "image"]
 
 
 def anndata_to_df(adata, obs_or_var):
@@ -23,6 +30,7 @@ class annotate:
         cls,
         dobject: dobject,
         species: str,
+        readout_type: READOUT_TYPES,
         column=None,
         obs_or_var=None,
         geneset_name: str = None,
@@ -34,16 +42,42 @@ class annotate:
             adata = h5ad_to_anndata(filekey)
             df = anndata_to_df(adata, obs_or_var=obs_or_var)
 
-            # create a geneset row
+            # create a geneset entry
             genes = df.index.unique().values if column is None else df[column].unique()
             geneset_id = insert.genes(
                 genes=genes, geneset_name=geneset_name, species=species
             )
 
+            # register the readout if not yet in the database
+            readout_results = query.readout_type(name=readout_type)
+            if readout_results.shape[0] == 0:
+                readout_type_id = insert.readout_type(name=readout_type)
+            else:
+                readout_type_id = readout_results.index[0]
+
+            # use the geneset_id and readout_type_id to create an entry in biometa
+            biometa_id = insert.biometa(
+                dobject_id=dobject.id,
+                readout_type_id=readout_type_id,
+                geneset_id=geneset_id,
+            )
+
+            logs = [geneset_id, readout_type_id, biometa_id]
+            log_table = tabulate(
+                logs,
+                headers=[
+                    colors.green("geneset_id"),
+                    colors.blue("readout_type_id"),
+                    colors.purple("biometa_id"),
+                ],
+                tablefmt="pretty",
+            )
+            logger.log(
+                "INGEST",
+                f"{colors.bold('Annotated the following features')}:\n{log_table}",
+            )
         else:
             raise NotImplementedError
-
-        return geneset_id
 
     @classmethod
     def proteinset(cls):
