@@ -165,7 +165,7 @@ class insert:
             )
             session.add(readout_type)
             session.commit()
-            session.refresh()
+            session.refresh(readout_type)
 
         return readout_type.id
 
@@ -190,15 +190,15 @@ class insert:
             )
             session.add(biometa)
             session.commit()
-            session.refresh()
+            session.refresh(biometa)
 
         # also create an entry in the dobject_biometa table
         with sqm.Session(engine) as session:
-            link = db.schema.biolab.biometa(
+            link = db.schema.biolab.dobject_biometa(
                 dobject_id=dobject_id, biometa_id=biometa.id
             )
             session.add(link)
             session.commit()
-            session.refresh()
+            session.refresh(link)
 
         return biometa.id

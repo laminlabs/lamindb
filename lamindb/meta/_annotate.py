@@ -53,7 +53,7 @@ class annotate:
             if readout_results.shape[0] == 0:
                 readout_type_id = insert.readout_type(name=readout_type)
             else:
-                readout_type_id = readout_results.index[0]
+                readout_type_id = readout_results.id[0]
 
             # use the geneset_id and readout_type_id to create an entry in biometa
             biometa_id = insert.biometa(
@@ -62,7 +62,7 @@ class annotate:
                 geneset_id=geneset_id,
             )
 
-            logs = [geneset_id, readout_type_id, biometa_id]
+            logs = [[str(geneset_id), str(readout_type_id), str(biometa_id)]]
             log_table = tabulate(
                 logs,
                 headers=[
