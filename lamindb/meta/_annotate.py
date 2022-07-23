@@ -1,4 +1,4 @@
-from lamindb_schema.core import dobject
+from lamindb_schema import core
 
 from ..dev.db._insert import insert
 from ..dev.file import h5ad_to_anndata
@@ -21,7 +21,7 @@ class annotate:
     @classmethod
     def genes(
         cls,
-        dobject: dobject,
+        dobject: core.dobject,
         species: str,
         column=None,
         obs_or_var=None,
