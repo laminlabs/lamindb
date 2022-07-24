@@ -7,6 +7,7 @@ Towards version 0.1.
 <!-- prettier-ignore -->
 Name | PR | User | Date | Patch
 --- | --- | --- | --- | ---
+🚚 Move CLI code to `lndb-cli` | [98](https://github.com/laminlabs/lamindb/pull/98) | [falexwolf](https://github.com/falexwolf) | 2022-07-24 |
 🍱  Adapted to `lndb-schema-biology` `0.1.1` | [97](https://github.com/laminlabs/lamindb/pull/97) | [sunnyosun](https://github.com/sunnyosun) | 2022-07-24 |
 🚸 Let the CLI have actual subcommands | [96](https://github.com/laminlabs/lamindb/pull/96) | [falexwolf](https://github.com/falexwolf) | 2022-07-24 |
 :green_heart: Add time out of 6 min to github actions | [93](https://github.com/laminlabs/lamindb/pull/93) | [Koncopd](https://github.com/Koncopd) | 2022-07-23 |
