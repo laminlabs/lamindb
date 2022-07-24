@@ -1,5 +1,5 @@
 """Setup API."""
-from ._settings import (  # noqa
+from lndb_cli._settings import (  # noqa
     InstanceSettings,
     UserSettings,
     load_or_create_instance_settings,
