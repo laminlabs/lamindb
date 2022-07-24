@@ -19,6 +19,9 @@ def setup_instance_db():
     """
     instance_settings = load_or_create_instance_settings()
     user_settings = load_or_create_user_settings()
+    if instance_settings.storage_dir is None:
+        logger.warning("Instance is not configured. Call `lndb init` or `lndb load`.")
+        return None
     instance_name = instance_settings.instance_name
     sqlite_file = instance_settings._sqlite_file
     from lamindb_schema import __version__
