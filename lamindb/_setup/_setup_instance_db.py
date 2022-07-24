@@ -29,7 +29,7 @@ def setup_instance_db():
     if sqlite_file.exists():
         logger.info(f"Using instance: {sqlite_file}")
         schema_version = load("schema_version")
-        if schema_version.index[-1] != __version__:
+        if len(schema_version.index) > 0 and schema_version.index[-1] != __version__:
             result = input(
                 "[Run this dialogue on the commmand line *outside* Jupyter]\nDid you"
                 f" already migrate your db to schema version {__version__}? (y/n)"
