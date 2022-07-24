@@ -37,14 +37,17 @@ if version.parse(nbproject_version) < version.parse("0.4.3"):
 del version, nbproject_version
 
 __version__ = "0.1.2"
-from . import _setup  # noqa
-from . import dev  # noqa
-from . import do  # noqa
-from . import schema  # noqa
-from . import track  # noqa
-from ._setup import (  # noqa
+from lndb_cli import (  # noqa
     InstanceSettings,
     UserSettings,
     load_or_create_instance_settings,
     load_or_create_user_settings,
 )
+
+from . import dev  # noqa
+from . import do  # noqa
+from . import schema  # noqa
+from . import track  # noqa
+from ._setup._setup_instance_db import setup_instance_db
+
+setup_instance_db()

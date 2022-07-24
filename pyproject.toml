@@ -10,6 +10,7 @@ dynamic = ["version", "description"]
 dependencies = [
     "lamindb_schema",
     "lamin_logger",
+    "lndb_cli",
     "anndata",
     "boto3",
     "hjson",
@@ -18,6 +19,7 @@ dependencies = [
     "requests",
     "sqlmodel",
     "typeguard",
+    "tabulate",
     "biogram",
     "appdirs",
     "supabase",
@@ -41,9 +43,6 @@ test = [
     "scanpy",
     "scikit-learn>=1.1.1",
 ]
-
-[project.scripts]
-lndb = "lamindb.__main__:main"
 
 [tool.black]
 preview = true

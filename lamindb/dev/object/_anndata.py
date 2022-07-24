@@ -1,14 +1,13 @@
 from pathlib import Path
 
 from anndata import AnnData
-from typeguard import typechecked
-
-from ..._logger import logger
-from ..._setup._settings import (
+from lamin_logger import logger
+from lndb_cli._settings import (
     cloud_to_local_no_update,
     load_or_create_instance_settings,
     storage_filepath,
 )
+from typeguard import typechecked
 
 
 @typechecked
