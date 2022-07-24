@@ -1,12 +1,12 @@
 from typing import Iterable
 
 import sqlmodel as sqm
+from lamin_logger import logger
+from lndb_cli import load_or_create_instance_settings
 
 import lamindb as db
 from lamindb import _setup
 
-from ..._logger import logger
-from ..._setup import load_or_create_instance_settings
 from . import get_engine
 
 
