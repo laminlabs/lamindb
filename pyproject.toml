@@ -19,6 +19,7 @@ dependencies = [
     "requests",
     "sqlmodel",
     "typeguard",
+    "tabulate",
     "biogram",
     "appdirs",
     "supabase",
