@@ -19,11 +19,11 @@ class query:
             return session.get(getattr(schema.core, entity_name), id)
 
     @classmethod
-    def readout_type(cls, name: str = None, resolution: str = None):
+    def readout_type(cls, name: str = None, platform: str = None):
         """Query from the readout_type table."""
         engine = get_engine(future=False)
         statement = select(schema.biolab.readout_type).where(
-            schema.biolab.readout_type.name == name, resolution == resolution
+            schema.biolab.readout_type.name == name, platform == platform
         )
 
         # Will remove after this is fixed:

@@ -155,14 +155,12 @@ class insert:
         return geneset.id
 
     @classmethod
-    def readout_type(cls, name: str, resolution: str = None):
+    def readout_type(cls, name: str, platform: str = None):
         """Insert a row in the readout table."""
         engine = get_engine()
 
         with sqm.Session(engine) as session:
-            readout_type = db.schema.biolab.readout_type(
-                name=name, resolution=resolution
-            )
+            readout_type = db.schema.biolab.readout_type(name=name, platform=platform)
             session.add(readout_type)
             session.commit()
             session.refresh(readout_type)
