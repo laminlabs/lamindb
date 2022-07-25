@@ -24,7 +24,7 @@ dependencies = [
     "appdirs",
     "supabase",
     "python-dotenv",
-    "nbproject>=0.2.1",
+    "nbproject>=0.4.1",
 ]
 
 [project.urls]
