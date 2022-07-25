@@ -17,6 +17,7 @@ def build(session):
     # the following is necessary to make the CLI available in the virtual env
     # for the user, a typical pip install lamindb will also make the lndb
     # CLI available without the dedicated pip install of it!
+    # Actually, probably it wasn't necessary and just clearing the cache was
     session.install("lndb_cli")
     session.install(".[dev,test]")
     session.run(
