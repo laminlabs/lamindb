@@ -14,6 +14,7 @@ def lint(session: nox.Session) -> None:
 
 @nox.session(python=["3.9"])
 def build(session):
+    session.install("lndb_cli")  # this shouldn't be necessary to make the CLI available
     session.install(".[dev,test]")
     session.run(
         "pytest",
