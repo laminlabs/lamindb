@@ -4,7 +4,6 @@
    :toctree: .
 
    insert
-   insert_if_not_exists
 """
 
-from ._insert import insert, insert_if_not_exists  # noqa
+from ._insert import insert  # noqa
