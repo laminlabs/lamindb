@@ -14,7 +14,10 @@ def lint(session: nox.Session) -> None:
 
 @nox.session(python=["3.9"])
 def build(session):
-    session.install("lndb_cli")  # this shouldn't be necessary to make the CLI available
+    # the following is necessary to make the CLI available in the virtual env
+    # for the user, a typical pip install lamindb will also make the lndb
+    # CLI available without the dedicated pip install of it!
+    session.install("lndb_cli")
     session.install(".[dev,test]")
     session.run(
         "pytest",
