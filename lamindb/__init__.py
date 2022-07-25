@@ -48,6 +48,3 @@ from . import dev  # noqa
 from . import do  # noqa
 from . import schema  # noqa
 from . import track  # noqa
-from ._setup._setup_instance_db import setup_instance_db
-
-setup_instance_db()
