@@ -1,7 +1,6 @@
 import biogram
 import sqlalchemy as sql
-
-from lamindb.dev.db import get_engine
+from lndb_cli import load_or_create_instance_settings
 
 
 class schema:
@@ -10,7 +9,8 @@ class schema:
     @classmethod
     def diagram(cls, view=True):
         """Make a diagram of entity relationships."""
-        engine = get_engine()
+        settings = load_or_create_instance_settings()
+        engine = settings.db_engine()
         metadata = sql.MetaData(bind=engine)
         metadata.reflect()
         graph = biogram.create_schema_graph(
@@ -30,7 +30,8 @@ class schema:
     def entities(cls):
         """Return all entities in the db."""
         metadata = sql.MetaData()
-        engine = get_engine()
+        settings = load_or_create_instance_settings()
+        engine = settings.db_engine()
         metadata.reflect(bind=engine)
         table_names = [table.name for table in metadata.sorted_tables]
         return table_names
