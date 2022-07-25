@@ -54,12 +54,12 @@ class annotate:
             readout_results = query.readout_type(
                 name=readout_type, platform=readout_platform
             )
-            if readout_results.shape[0] == 0:
+            if len(readout_results) == 0:
                 readout_type_id = insert.readout_type(
                     name=readout_type, platform=readout_platform
                 )
             else:
-                readout_type_id = readout_results.id[0]
+                readout_type_id = readout_results[0].id
 
             # use the geneset_id and readout_type_id to create an entry in biometa
             biometa_id = insert.biometa(
