@@ -23,7 +23,7 @@ class query:
         """Query from the readout_type table."""
         settings = load_or_create_instance_settings()
 
-        with Session(settings.db_engine) as session:
+        with Session(settings.db_engine()) as session:
             stmt = select(schema.biolab.readout_type).where(
                 schema.biolab.readout_type.name == name, platform == platform
             )
