@@ -3,7 +3,6 @@ from pathlib import Path
 from lndb_cli import _setup
 
 import lamindb as lndb
-from lamindb._setup._setup_instance_db import setup_instance_db
 
 
 def test_create_to_load():
@@ -13,7 +12,6 @@ def test_create_to_load():
         secret="MmR4YuQEyb0yxu7dAwJZTjLzR1Az2lN4Q4IduDlO",
     )
     _setup.setup_instance(storage=storage)
-    setup_instance_db()
     lndb.dev.db.insert.dobject(
         name="test_file",
         file_suffix=".csv",
