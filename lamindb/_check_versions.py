@@ -5,5 +5,5 @@ from packaging import version
 if version.parse(nbproject_version) < version.parse("0.4.3"):
     raise RuntimeError("lamindb needs nbproject >= 0.4.3")
 
-if version.parse(lndb_cli_version) < version.parse("0.1.1"):
-    raise RuntimeError("lamindb needs lndb_cli >= 0.1.1")
+if version.parse(lndb_cli_version) < version.parse("0.2.0"):
+    raise RuntimeError("lamindb needs lndb_cli >= 0.2.0")
