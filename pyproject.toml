@@ -8,9 +8,9 @@ authors = [{name = "Lamin Labs", email = "laminlabs@gmail.com"}]
 readme = "README.md"
 dynamic = ["version", "description"]
 dependencies = [
-    "lamindb_schema",
+    "lamindb_schema>=0.3.0",
     "lamin_logger",
-    "lndb_cli",
+    "lndb_cli>=0.2.0",
     "anndata",
     "boto3",
     "hjson",
@@ -24,7 +24,7 @@ dependencies = [
     "appdirs",
     "supabase",
     "python-dotenv",
-    "nbproject>=0.2.1",
+    "nbproject>=0.4.1",
 ]
 
 [project.urls]

@@ -1,3 +1,3 @@
 # Configure LaminDB on the command line with `lndb`
 
-See `lndb-cli` guide.
+See CLI guides: [lndb/guides](https://lamin.ai/docs/lndb/guides).
