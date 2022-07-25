@@ -1,11 +1,11 @@
 import pandas as pd
-
-from ..dev.db import get_engine
+from lndb_cli import load_or_create_instance_settings
 
 
 def load(entity_name) -> pd.DataFrame:
     """Load observations of entity as dataframe."""
-    engine = get_engine()
+    settings = load_or_create_instance_settings()
+    engine = settings.db_engine()
     with engine.connect() as conn:
         df = pd.read_sql_table(entity_name, conn)
         if "id" in df.columns:

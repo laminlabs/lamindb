@@ -2,26 +2,21 @@ from pathlib import Path
 from typing import Dict
 
 import sqlmodel as sqm
+from lndb_cli import load_or_create_instance_settings, load_or_create_user_settings
 from lndb_schema_core import id
 
 import lamindb as db
-from lamindb._setup import (
-    load_or_create_instance_settings,
-    load_or_create_user_settings,
-)
 
 from .._logger import colors, logger
-from ..dev.db import get_engine
 from ..dev.file import store_file
 
 
 def track_ingest(dobject_id, dobject_v):
-    engine = get_engine()
-
     from nbproject import meta
 
     user_settings = load_or_create_user_settings()
     instance_settings = load_or_create_instance_settings()
+    engine = instance_settings.db_engine()
 
     user_id = user_settings.user_id
 
