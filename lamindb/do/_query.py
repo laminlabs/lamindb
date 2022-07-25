@@ -23,16 +23,14 @@ class query:
         """Query from the readout_type table."""
         settings = load_or_create_instance_settings()
 
-        # Will remove after this is fixed:
-        # https://github.com/tiangolo/sqlmodel/pull/234
-        SelectOfScalar.inherit_cache = True  # type: ignore
-        Select.inherit_cache = True  # type: ignore
-
         with Session(settings.db_engine) as session:
-            results = session.exec(
-                select(schema.biolab.readout_type).where(
-                    schema.biolab.readout_type.name == name, platform == platform
-                )
-            ).all()
+            stmt = select(schema.biolab.readout_type).where(
+                schema.biolab.readout_type.name == name, platform == platform
+            )
+            # Will remove after this is fixed:
+            # https://github.com/tiangolo/sqlmodel/pull/234
+            SelectOfScalar.inherit_cache = True  # type: ignore
+            Select.inherit_cache = True  # type: ignore
+            results = session.exec(stmt).all()
 
         return results
