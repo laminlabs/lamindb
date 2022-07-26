@@ -1,6 +1,6 @@
 from typing import Union
 
-from lndb_cli import load_or_create_instance_settings
+from lndb_setup import settings
 from sqlmodel import Session, select
 from sqlmodel.sql.expression import Select, SelectOfScalar
 
@@ -13,17 +13,14 @@ class query:
     @classmethod
     def id(cls, entity_name: str, id: Union[str, tuple]):
         """Query a single row by its id column with the primary key."""
-        settings = load_or_create_instance_settings()
-        engine = settings.db_engine()
+        engine = settings.instance.db_engine()
         with Session(engine) as session:
             return session.get(getattr(schema.core, entity_name), id)
 
     @classmethod
     def readout_type(cls, name: str = None, platform: str = None):
         """Query from the readout_type table."""
-        settings = load_or_create_instance_settings()
-
-        with Session(settings.db_engine()) as session:
+        with Session(settings.instance.db_engine()) as session:
             stmt = select(schema.biolab.readout_type).where(
                 schema.biolab.readout_type.name == name, platform == platform
             )

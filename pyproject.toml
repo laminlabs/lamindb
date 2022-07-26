@@ -10,7 +10,7 @@ dynamic = ["version", "description"]
 dependencies = [
     "lamindb_schema>=0.3.0",
     "lamin_logger",
-    "lndb_cli>=0.2.0",
+    "lndb_setup",
     "anndata",
     "boto3",
     "hjson",
