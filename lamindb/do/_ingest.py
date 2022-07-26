@@ -19,7 +19,7 @@ def track_ingest(dobject_id, dobject_v):
     jupynb_id = meta.store.id
     jupynb_v = meta.store.version
 
-    with sqm.Session(settings.instance.db_engine) as session:
+    with sqm.Session(settings.instance.db_engine()) as session:
         track_do = db.schema.core.track_do(
             type="ingest",
             user_id=user_id,
