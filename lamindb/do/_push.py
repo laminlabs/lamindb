@@ -1,3 +1,5 @@
+import uuid
+
 from lamindb._setup import (
     load_or_create_instance_settings,
     load_or_create_user_settings,
@@ -7,169 +9,288 @@ from .._setup._hub import connect_hub
 from ._load import load
 
 
-def push(
-    dobject_id=None,
-):
-    """Push an instance or a single dobject if specified."""
+def get_hub_with_authentication():
     user_settings = load_or_create_user_settings()
-    instance_settings = load_or_create_instance_settings()
-
     hub = connect_hub()
     session = hub.auth.sign_in(
         email=user_settings.user_email, password=user_settings.user_secret
     )
     hub.postgrest.auth(session.access_token)
+    return hub
 
-    #
 
-    instance = {
-        "id": instance_settings.instance_name,
-        "name": instance_settings.instance_name,
-    }
+def push_instance():
+    dobject_df = load("dobject")
+    for id, v in dobject_df.index:
+        push_dobject(id, v)
 
-    instance_exists = (
+
+def push_dobject(id: str, v: str):
+    instance = get_or_create_instance()
+    dobject = load("dobject").loc[[(id, v)]].reset_index().to_dict("records")[0]
+    if not jupynb_exists(dobject["jupynb_id"], dobject["jupynb_v"]):
+        insert_jupynb(dobject["jupynb_id"], dobject["jupynb_v"], instance["id"])
+    if not dobject_exists(id, v):
+        insert_dobject(id, v)
+    if not user_dobject_exists(id, v):
+        insert_user_dobject(id, v)
+
+
+def unpush_instance():
+    instance = get_or_create_instance()
+    dobject_df = load("dobject")
+    jupynb_df = load("jupynb")
+    for id, v in dobject_df.index:
+        delete_user_dobject(id, v)
+        delete_dobject(id, v)
+    for id, v in jupynb_df.index:
+        delete_jupynb(id, v)
+    delete_user_instance(instance["id"])
+    delete_instance()
+
+
+# def get_user(user_id):
+#     hub = get_hub_with_authentication()
+#     data = (
+#         hub.table("usermeta")
+#         .select("*")
+#         .eq("lnid", user_id)
+#         .execute()
+#     )
+#     if len(data.data) > 0:
+#         return data.data[0]
+#     return None
+
+# Instance
+
+
+def get_or_create_instance():
+    instance = get_instance()
+    if instance is None:
+        instance = insert_instance()
+    if not user_instance_exists(instance["id"]):
+        insert_user_instance(instance["id"])
+    return instance
+
+
+def get_instance():
+    hub = get_hub_with_authentication()
+    instance_settings = load_or_create_instance_settings()
+    data = (
         hub.table("instance")
-        .select("*", count="exact")
-        .eq("id", instance["id"])
+        .select("*")
+        .eq("name", instance_settings.instance_name)
         .execute()
-        .count
-        > 0  # noqa
     )
-
-    if not instance_exists:
-        data = hub.table("instance").insert(instance).execute()
-        assert len(data.data) > 0
-
-    user_instance = {
-        "instance_id": instance_settings.instance_name,
-        "user_id": session.user.id.hex,
-    }
-
-    user_instance_exists = (
-        hub.table("user_instance")
-        .select("*", count="exact")
-        .eq("instance_id", user_instance["instance_id"])
-        .eq("user_id", user_instance["user_id"])
-        .execute()
-        .count
-        > 0  # noqa
-    )
-
-    if not user_instance_exists:
-        data = hub.table("user_instance").insert(user_instance).execute()
-        assert len(data.data) > 0
-
-    #
-
-    jupynb_df = load("jupynb").reset_index()
-    dobject_df = load("dobject").reset_index()
-
-    jupynb_df["time_created"] = jupynb_df["time_created"].dt.strftime(
-        "%Y-%m-%d %H:%M:%S"
-    )
-    jupynb_df["time_updated"] = jupynb_df["time_updated"].dt.strftime(
-        "%Y-%m-%d %H:%M:%S"
-    )
-    jupynb_df = jupynb_df.drop("user_id", axis=1)
-
-    dobject_df["time_created"] = dobject_df["time_created"].dt.strftime(
-        "%Y-%m-%d %H:%M:%S"
-    )
-    dobject_df["time_updated"] = dobject_df["time_updated"].dt.strftime(
-        "%Y-%m-%d %H:%M:%S"
-    )
-
-    if dobject_id:
-        push_object(instance["id"], dobject_id, dobject_df, jupynb_df, hub)
-    else:
-        for dobject_id in dobject_df["id"].values:
-            push_object(instance["id"], dobject_id, dobject_df, jupynb_df, hub)
+    if len(data.data) > 0:
+        return data.data[0]
+    return None
 
 
-def push_object(instance_id, dobject_id, dobject_df, jupynb_df, hub):
-    """Push a dobject into the hub."""
-    dobject_exists = (
-        hub.table("dobject")
-        .select("*", count="exact")
-        .eq("id", dobject_id)
-        .execute()
-        .count
-        > 0  # noqa
-    )
-
-    if not dobject_exists:
-        dobject = dobject_df[dobject_df["id"] == dobject_id].to_dict("records")[0]
-        push_jupynb(instance_id, dobject["jupynb_id"], jupynb_df, hub)
-        data = hub.table("dobject").insert(dobject).execute()
-        assert len(data.data) > 0
-
-
-def push_jupynb(instance_id, jupynb_id, jupynb_df, hub):
-    """Push a jupynb into the hub."""
-    jupynb_exists = (
-        hub.table("jupynb")
-        .select("*", count="exact")
-        .eq("id", jupynb_id)
-        .execute()
-        .count
-        > 0  # noqa
-    )
-
-    if not jupynb_exists:
-        jupynb = jupynb_df[jupynb_df["id"] == jupynb_id].to_dict("records")[0]
-        data = (
-            hub.table("jupynb").insert({**jupynb, "instance_id": instance_id}).execute()
-        )
-        assert len(data.data) > 0
-
-
-def unpush(
-    dobject_id=None,
-):
-    """Unpush an instance or a single dobject if specified."""
-    user_settings = load_or_create_user_settings()
+def delete_instance():
+    hub = get_hub_with_authentication()
     instance_settings = load_or_create_instance_settings()
-
-    hub = connect_hub()
-    session = hub.auth.sign_in(
-        email=user_settings.user_email, password=user_settings.user_secret
+    (
+        hub.table("instance")
+        .delete()
+        .eq("name", instance_settings.instance_name)
+        .execute()
     )
-    hub.postgrest.auth(session.access_token)
 
-    jupynb_df = load("jupynb").reset_index()
-    dobject_df = load("dobject").reset_index()
 
-    if dobject_id:
-        unpush_object(dobject_id, hub)
-    else:
-        for dobject_id in dobject_df["id"].values:
-            unpush_object(dobject_id, hub)
-        for jupynb_id in jupynb_df["id"].values:
-            unpush_jupynb(jupynb_id, hub)
-        data = (
-            hub.table("user_instance")
-            .delete()
-            .eq("instance_id", instance_settings.instance_name)
-            .eq("user_id", session.user.id.hex)
-            .execute()
+def insert_instance():
+    hub = get_hub_with_authentication()
+    instance_settings = load_or_create_instance_settings()
+    data = (
+        hub.table("instance")
+        .insert(
+            {
+                "id": str(uuid.uuid4()),
+                "name": instance_settings.instance_name,
+                "owner_id": hub.auth.session().user.id.hex,
+                "storage_dir": str(instance_settings.storage_dir),
+                "dbconfig": instance_settings._dbconfig,
+                "cache_dir": str(instance_settings.cache_dir),
+                "sqlite_file": str(instance_settings._sqlite_file),
+                "sqlite_file_local": str(instance_settings._sqlite_file_local),
+                "db": instance_settings.db,
+            }
         )
-        assert len(data.data) > 0
-        data = (
-            hub.table("instance")
-            .delete()
-            .eq("id", instance_settings.instance_name)
-            .execute()
+        .execute()
+    )
+    assert len(data.data) == 1
+    return data.data[0]
+
+
+# User instance
+
+
+def user_instance_exists(instance_id):
+    hub = get_hub_with_authentication()
+    data = (
+        hub.table("user_instance")
+        .select("*")
+        .eq("user_id", hub.auth.session().user.id.hex)
+        .eq("instance_id", instance_id)
+        .execute()
+    )
+    if len(data.data) > 0:
+        return True
+    return False
+
+
+def delete_user_instance(instance_id):
+    hub = get_hub_with_authentication()
+    (
+        hub.table("user_instance")
+        .delete()
+        .eq("user_id", hub.auth.session().user.id.hex)
+        .eq("instance_id", instance_id)
+        .execute()
+    )
+
+
+def insert_user_instance(instance_id):
+    hub = get_hub_with_authentication()
+    data = (
+        hub.table("user_instance")
+        .insert(
+            {
+                "user_id": hub.auth.session().user.id.hex,
+                "instance_id": instance_id,
+            }
         )
-        assert len(data.data) > 0
+        .execute()
+    )
+    assert len(data.data) == 1
+    return data.data[0]
 
 
-def unpush_object(dobject_id, hub):
-    """Reverse push of a dobject into the hub."""
-    data = hub.table("dobject").delete().eq("id", dobject_id).execute()
-    assert len(data.data) > 0
+# Jupynb
 
 
-def unpush_jupynb(jupynb_id, hub):
-    """Reverse push of a dobject into the hub."""
-    data = hub.table("jupynb").delete().eq("id", jupynb_id).execute()
-    assert len(data.data) > 0
+def jupynb_exists(id, v):
+    hub = get_hub_with_authentication()
+    data = hub.table("jupynb").select("*").eq("id", id).eq("v", v).execute()
+    if len(data.data) > 0:
+        return True
+    return False
+
+
+def delete_jupynb(id, v):
+    hub = get_hub_with_authentication()
+    hub.table("jupynb").delete().eq("id", id).eq("v", v).execute()
+
+
+def insert_jupynb(id, v, instance_id):
+    hub = get_hub_with_authentication()
+    jupynb = load("jupynb").loc[[(id, v)]].reset_index().to_dict("records")[0]
+    data = (
+        hub.table("jupynb")
+        .insert(
+            {
+                "id": jupynb["id"],
+                "v": jupynb["v"],
+                "name": jupynb["name"],
+                "type": jupynb["type"],
+                "instance_id": instance_id,
+                "owner_id": hub.auth.session().user.id.hex,
+                # We could use the get_user function the hub user id from the
+                # lnid of the original creator of a notebook, but this won't
+                # works because RLS policy. So for the moment the owner_id is
+                # the id of the first user that push a dobject from this
+                # notebook.
+                "time_created": jupynb["time_created"].strftime("%Y-%m-%d %H:%M:%S"),
+                "time_updated": jupynb["time_updated"].strftime("%Y-%m-%d %H:%M:%S"),
+            }
+        )
+        .execute()
+    )
+    assert len(data.data) == 1
+    return data.data[0]
+
+
+# Dobject
+
+
+def dobject_exists(id, v):
+    hub = get_hub_with_authentication()
+    data = hub.table("dobject").select("*").eq("id", id).eq("v", v).execute()
+    if len(data.data) > 0:
+        return True
+    return False
+
+
+def delete_dobject(id, v):
+    hub = get_hub_with_authentication()
+    hub.table("dobject").delete().eq("id", id).eq("v", v).execute()
+
+
+def insert_dobject(id, v):
+    hub = get_hub_with_authentication()
+    dobject = load("dobject").loc[[(id, v)]].reset_index().to_dict("records")[0]
+    data = (
+        hub.table("dobject")
+        .insert(
+            {
+                "id": dobject["id"],
+                "v": dobject["v"],
+                "name": dobject["name"],
+                "file_suffix": dobject["file_suffix"],
+                "jupynb_id": dobject["jupynb_id"],
+                "jupynb_v": dobject["jupynb_v"],
+                "time_created": dobject["time_created"].strftime("%Y-%m-%d %H:%M:%S"),
+                "time_updated": dobject["time_updated"].strftime("%Y-%m-%d %H:%M:%S"),
+            }
+        )
+        .execute()
+    )
+    assert len(data.data) == 1
+    return data.data[0]
+
+
+# User dobject
+
+
+def user_dobject_exists(id, v):
+    hub = get_hub_with_authentication()
+    data = (
+        hub.table("user_dobject")
+        .select("*")
+        .eq("dobject_id", id)
+        .eq("dobject_v", v)
+        .eq("user_id", hub.auth.session().user.id.hex)
+        .execute()
+    )
+    if len(data.data) > 0:
+        return True
+    return False
+
+
+def delete_user_dobject(id, v):
+    hub = get_hub_with_authentication()
+    (
+        hub.table("user_dobject")
+        .delete()
+        .eq("dobject_id", id)
+        .eq("dobject_v", v)
+        .eq("user_id", hub.auth.session().user.id.hex)
+        .execute()
+    )
+
+
+def insert_user_dobject(id, v):
+    hub = get_hub_with_authentication()
+    data = (
+        hub.table("user_dobject")
+        .insert(
+            {
+                "dobject_id": id,
+                "dobject_v": v,
+                "user_id": hub.auth.session().user.id.hex,
+            }
+        )
+        .execute()
+    )
+    assert len(data.data) == 1
+    return data.data[0]
