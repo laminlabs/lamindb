@@ -1,11 +1,11 @@
 import uuid
 
-from lamindb._setup import (
+from lndb_setup._hub import connect_hub
+from lndb_setup._setup_instance import (
     load_or_create_instance_settings,
     load_or_create_user_settings,
 )
 
-from .._setup._hub import connect_hub
 from ._load import load
 
 
