@@ -17,27 +17,15 @@ Browse the API:
 
 To retrieve settings after setup via the CLI, use:
 
-.. autofunction:: load_or_create_instance_settings
-.. autofunction:: load_or_create_user_settings
+.. autosummary::
+   :toctree: .
 
-..
-   autosummary does not work with two objects that merely differ by capitalization
-
-.. autoclass:: InstanceSettings
-   :members:
-.. autoclass:: UserSettings
-   :members:
-
+   settings
 """
 from . import _check_versions
 
 __version__ = "0.1.2"
-from lndb_setup import (  # noqa
-    InstanceSettings,
-    UserSettings,
-    load_or_create_instance_settings,
-    load_or_create_user_settings,
-)
+from lndb_setup import settings  # noqa
 
 from . import dev  # noqa
 from . import do  # noqa

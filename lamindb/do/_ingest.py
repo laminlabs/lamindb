@@ -3,7 +3,7 @@ from typing import Dict
 
 import sqlmodel as sqm
 from lndb_schema_core import id
-from lndb_setup import load_or_create_instance_settings, load_or_create_user_settings
+from lndb_setup import load_or_create_user_settings, settings
 
 import lamindb as db
 
@@ -15,7 +15,7 @@ def track_ingest(dobject_id, dobject_v):
     from nbproject import meta
 
     user_settings = load_or_create_user_settings()
-    instance_settings = load_or_create_instance_settings()
+    instance_settings = settings.instance()
     engine = instance_settings.db_engine()
 
     user_id = user_settings.user_id

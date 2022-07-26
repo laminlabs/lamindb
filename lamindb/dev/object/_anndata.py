@@ -2,21 +2,16 @@ from pathlib import Path
 
 from anndata import AnnData
 from lamin_logger import logger
-from lndb_setup._settings import (
-    cloud_to_local_no_update,
-    load_or_create_instance_settings,
-    storage_filepath,
-)
+from lndb_setup import settings
 from typeguard import typechecked
 
 
 @typechecked
 def anndata_to_h5ad(adata: AnnData, filekey: str) -> Path:
     """AnnData → h5ad."""
-    instance_settings = load_or_create_instance_settings()
-    path = storage_filepath(filekey)
-    if instance_settings.cloud_storage:
-        cache_file = cloud_to_local_no_update(path)  # type: ignore
+    path = settings.instance.storage.key_to_filepath(filekey)
+    if settings.instance.cloud_storage:
+        cache_file = settings.instance.storage.cloud_to_local_no_update(path)  # type: ignore  # noqa
         cache_file.parent.mkdir(exist_ok=True)
         logger.debug(f"Writing cache file: {cache_file}.")
         adata.write(cache_file)
