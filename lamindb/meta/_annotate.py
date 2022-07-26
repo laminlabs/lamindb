@@ -1,4 +1,4 @@
-from typing import Literal  # noqa
+from typing import Literal, Optional  # noqa
 
 from tabulate import tabulate  # type: ignore
 
@@ -9,6 +9,7 @@ from ..do import query
 from ..schema import core
 
 READOUT_TYPES = Literal["scRNA-seq", "RNA-seq", "flow-cytometry", "image"]
+READOUT_PLATFORMS = Literal["10x"]
 
 
 def anndata_to_df(adata, obs_or_var):
@@ -31,6 +32,7 @@ class annotate:
         dobject: core.dobject,
         species: str,
         readout_type: READOUT_TYPES,
+        readout_platform: Optional[READOUT_PLATFORMS],
         column=None,
         obs_or_var=None,
         geneset_name: str = None,
@@ -49,11 +51,15 @@ class annotate:
             )
 
             # register the readout if not yet in the database
-            readout_results = query.readout_type(name=readout_type)
-            if readout_results.shape[0] == 0:
-                readout_type_id = insert.readout_type(name=readout_type)
+            readout_results = query.readout_type(
+                name=readout_type, platform=readout_platform
+            )
+            if len(readout_results) == 0:
+                readout_type_id = insert.readout_type(
+                    name=readout_type, platform=readout_platform
+                )
             else:
-                readout_type_id = readout_results.id[0]
+                readout_type_id = readout_results[0].id
 
             # use the geneset_id and readout_type_id to create an entry in biometa
             biometa_id = insert.biometa(
@@ -66,9 +72,9 @@ class annotate:
             log_table = tabulate(
                 logs,
                 headers=[
-                    colors.green("geneset_id"),
-                    colors.blue("readout_type_id"),
-                    colors.purple("biometa_id"),
+                    colors.green("geneset.id"),
+                    colors.blue("readout_type.id"),
+                    colors.purple("biometa.id"),
                 ],
                 tablefmt="pretty",
             )

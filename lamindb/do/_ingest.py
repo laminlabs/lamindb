@@ -3,32 +3,23 @@ from typing import Dict
 
 import sqlmodel as sqm
 from lndb_schema_core import id
+from lndb_setup import settings
 
 import lamindb as db
-from lamindb._setup import (
-    load_or_create_instance_settings,
-    load_or_create_user_settings,
-)
 
 from .._logger import colors, logger
-from ..dev.db import get_engine
 from ..dev.file import store_file
 
 
 def track_ingest(dobject_id, dobject_v):
-    engine = get_engine()
-
     from nbproject import meta
 
-    user_settings = load_or_create_user_settings()
-    instance_settings = load_or_create_instance_settings()
-
-    user_id = user_settings.user_id
+    user_id = settings.user.user_id
 
     jupynb_id = meta.store.id
     jupynb_v = meta.store.version
 
-    with sqm.Session(engine) as session:
+    with sqm.Session(settings.instance.db_engine()) as session:
         track_do = db.schema.core.track_do(
             type="ingest",
             user_id=user_id,
@@ -41,7 +32,7 @@ def track_ingest(dobject_id, dobject_v):
         session.commit()
         session.refresh(track_do)
 
-    instance_settings._update_cloud_sqlite_file()
+    settings.instance._update_cloud_sqlite_file()
 
     return track_do.id
 
@@ -98,7 +89,6 @@ class Ingest:
 
         from lamindb.dev.db import insert
 
-        user_settings = load_or_create_user_settings()
         logs = []
 
         if meta.live.title is None:
@@ -130,7 +120,7 @@ class Ingest:
                 [
                     f"{filepath.name} ({dobject_id}, {dobject_v})",
                     f"{jupynb_name!r} ({jupynb_id}, {jupynb_v})",
-                    f"{user_settings.user_email} ({user_settings.user_id})",
+                    f"{settings.user.user_email} ({settings.user.user_id})",
                 ]
             )
 

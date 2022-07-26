@@ -8,8 +8,9 @@ authors = [{name = "Lamin Labs", email = "laminlabs@gmail.com"}]
 readme = "README.md"
 dynamic = ["version", "description"]
 dependencies = [
-    "lamindb_schema",
+    "lamindb_schema>=0.3.0",
     "lamin_logger",
+    "lndb_setup",
     "anndata",
     "boto3",
     "hjson",
@@ -18,11 +19,12 @@ dependencies = [
     "requests",
     "sqlmodel",
     "typeguard",
+    "tabulate",
     "biogram",
     "appdirs",
     "supabase",
     "python-dotenv",
-    "nbproject>=0.2.1",
+    "nbproject>=0.4.1",
 ]
 
 [project.urls]
@@ -41,9 +43,6 @@ test = [
     "scanpy",
     "scikit-learn>=1.1.1",
 ]
-
-[project.scripts]
-lndb = "lamindb.__main__:main"
 
 [tool.black]
 preview = true

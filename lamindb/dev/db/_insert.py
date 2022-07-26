@@ -1,55 +1,14 @@
 from typing import Iterable
 
 import sqlmodel as sqm
+from lamin_logger import logger
+from lndb_setup import settings
 
 import lamindb as db
-from lamindb import _setup
-
-from ..._logger import logger
-from ..._setup import load_or_create_instance_settings
-from . import get_engine
-
-
-class insert_if_not_exists:
-    """Insert data if it does not yet exist."""
-
-    @classmethod
-    def user(cls, user_email, user_id):
-        df_user = db.do.load("user")
-        if user_id not in df_user.index:
-            user_id = insert.user(user_email, user_id)  # type: ignore
-        return user_id
 
 
 class insert:
     """Insert data."""
-
-    @classmethod
-    def schema_version(cls, version, user_id):
-        """User."""
-        engine = get_engine()
-
-        with sqm.Session(engine) as session:
-            user = db.schema.core.schema_version(id=version, user_id=user_id)
-            session.add(user)
-            session.commit()
-
-        load_or_create_instance_settings()._update_cloud_sqlite_file()
-
-    @classmethod
-    def user(cls, user_email, user_id):
-        """User."""
-        engine = get_engine()
-
-        with sqm.Session(engine) as session:
-            user = db.schema.core.user(id=user_id, email=user_email)
-            session.add(user)
-            session.commit()
-            session.refresh(user)
-
-        load_or_create_instance_settings()._update_cloud_sqlite_file()
-
-        return user.id
 
     @classmethod
     def dobject(
@@ -65,8 +24,7 @@ class insert:
         dobject_v: str = "1",
     ):
         """Data object with its origin."""
-        engine = get_engine()
-        user_settings = _setup.load_or_create_user_settings()
+        engine = settings.instance.db_engine()
 
         df_jupynb = db.do.load("jupynb")
         if jupynb_id not in df_jupynb.index:
@@ -76,13 +34,13 @@ class insert:
                     v=jupynb_v,
                     name=jupynb_name,
                     type=jupynb_type,
-                    user_id=user_settings.user_id,
+                    user_id=settings.user.user_id,
                 )
                 session.add(jupynb)
                 session.commit()
             logger.info(
                 f"Added notebook {jupynb_name!r} ({jupynb_id}, {jupynb_v}) by"
-                f" user {user_settings.user_email} ({user_settings.user_id})."
+                f" user {settings.user.user_email} ({settings.user.user_id})."
             )
 
         with sqm.Session(engine) as session:
@@ -98,7 +56,7 @@ class insert:
             session.commit()
             session.refresh(dobject)
 
-        load_or_create_instance_settings()._update_cloud_sqlite_file()
+        settings.instance._update_cloud_sqlite_file()
 
         return dobject.id
 
@@ -114,7 +72,7 @@ class insert:
 
         Mmeanwhile inserting genes and linking them to the geneset.
         """
-        engine = get_engine()
+        engine = settings.instance.db_engine()
 
         # add a geneset to the geneset table
         with sqm.Session(engine) as session:
@@ -150,19 +108,17 @@ class insert:
                 session.add(link)
             session.commit()
 
-        load_or_create_instance_settings()._update_cloud_sqlite_file()
+        settings.instance._update_cloud_sqlite_file()
 
         return geneset.id
 
     @classmethod
-    def readout_type(cls, name: str, resolution: str = None):
+    def readout_type(cls, name: str, platform: str = None):
         """Insert a row in the readout table."""
-        engine = get_engine()
+        engine = settings.instance.db_engine()
 
         with sqm.Session(engine) as session:
-            readout_type = db.schema.biolab.readout_type(
-                name=name, resolution=resolution
-            )
+            readout_type = db.schema.biolab.readout_type(name=name, platform=platform)
             session.add(readout_type)
             session.commit()
             session.refresh(readout_type)
@@ -179,7 +135,7 @@ class insert:
         proteinset_id: int = None,
     ):
         """Insert a row in the biometa table and link with a dobject."""
-        engine = get_engine()
+        engine = settings.instance.db_engine()
 
         with sqm.Session(engine) as session:
             biometa = db.schema.biolab.biometa(
@@ -200,5 +156,7 @@ class insert:
             session.add(link)
             session.commit()
             session.refresh(link)
+
+        settings.instance._update_cloud_sqlite_file()
 
         return biometa.id

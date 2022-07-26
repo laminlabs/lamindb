@@ -7,6 +7,13 @@ Towards version 0.1.
 <!-- prettier-ignore -->
 Name | PR | User | Date | Patch
 --- | --- | --- | --- | ---
+🆙 Upgrade `lndb_setup` to 0.3.0 | [102](https://github.com/laminlabs/lamindb/pull/102) | [falexwolf](https://github.com/falexwolf) | 2022-07-26 |
+⬆️ Upgrade to lndb-cli 0.2.0 | [101](https://github.com/laminlabs/lamindb/pull/101) | [falexwolf](https://github.com/falexwolf) | 2022-07-25 |
+🚚 Account for table construction in lndb-cli | [99](https://github.com/laminlabs/lamindb/pull/99) | [falexwolf](https://github.com/falexwolf) | 2022-07-25 |
+🚚 Move CLI code to `lndb-cli` | [98](https://github.com/laminlabs/lamindb/pull/98) | [falexwolf](https://github.com/falexwolf) | 2022-07-24 |
+🍱  Adapted to `lndb-schema-biology` `0.1.1` | [97](https://github.com/laminlabs/lamindb/pull/97) | [sunnyosun](https://github.com/sunnyosun) | 2022-07-24 |
+🚸 Let the CLI have actual subcommands | [96](https://github.com/laminlabs/lamindb/pull/96) | [falexwolf](https://github.com/falexwolf) | 2022-07-24 |
+:green_heart: Add time out of 6 min to github actions | [93](https://github.com/laminlabs/lamindb/pull/93) | [Koncopd](https://github.com/Koncopd) | 2022-07-23 |
 🔥 Switched logger to use lamin-logger | [92](https://github.com/laminlabs/lamindb/pull/92) | [sunnyosun](https://github.com/sunnyosun) | 2022-07-23 |
 ✨  Annotate biometa when annotating genes | [90](https://github.com/laminlabs/lamindb/pull/90) | [sunnyosun](https://github.com/sunnyosun) | 2022-07-23 |
 🔼 Upgrade to schema 0.2.1 | [89](https://github.com/laminlabs/lamindb/pull/89) | [falexwolf](https://github.com/falexwolf) | 2022-07-23 |
