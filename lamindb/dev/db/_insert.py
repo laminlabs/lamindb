@@ -56,7 +56,7 @@ class insert:
             session.commit()
             session.refresh(dobject)
 
-        settings._update_cloud_sqlite_file()
+        settings.instance._update_cloud_sqlite_file()
 
         return dobject.id
 
@@ -108,7 +108,7 @@ class insert:
                 session.add(link)
             session.commit()
 
-        settings._update_cloud_sqlite_file()
+        settings.instance._update_cloud_sqlite_file()
 
         return geneset.id
 
@@ -156,5 +156,7 @@ class insert:
             session.add(link)
             session.commit()
             session.refresh(link)
+
+        settings.instance._update_cloud_sqlite_file()
 
         return biometa.id
