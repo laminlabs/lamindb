@@ -1,5 +1,5 @@
 import pandas as pd
-from lndb_cli import load_or_create_instance_settings
+from lndb_setup import load_or_create_instance_settings
 
 
 def load(entity_name) -> pd.DataFrame:

@@ -2,7 +2,7 @@ from typing import Iterable
 
 import sqlmodel as sqm
 from lamin_logger import logger
-from lndb_cli import load_or_create_instance_settings, load_or_create_user_settings
+from lndb_setup import load_or_create_instance_settings, load_or_create_user_settings
 
 import lamindb as db
 

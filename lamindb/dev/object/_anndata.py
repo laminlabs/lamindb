@@ -2,7 +2,7 @@ from pathlib import Path
 
 from anndata import AnnData
 from lamin_logger import logger
-from lndb_cli._settings import (
+from lndb_setup._settings import (
     cloud_to_local_no_update,
     load_or_create_instance_settings,
     storage_filepath,

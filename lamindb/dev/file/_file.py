@@ -3,7 +3,7 @@ from pathlib import Path
 from typing import Union
 
 from cloudpathlib import CloudPath
-from lndb_cli import _settings
+from lndb_setup import _settings
 
 
 def store_file(filepath: Union[str, Path], filekey: str):

@@ -1,6 +1,6 @@
 from typing import Union
 
-from lndb_cli import load_or_create_instance_settings
+from lndb_setup import load_or_create_instance_settings
 from sqlmodel import Session, select
 from sqlmodel.sql.expression import Select, SelectOfScalar
 

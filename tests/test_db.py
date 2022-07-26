@@ -1,17 +1,17 @@
 from pathlib import Path
 
-from lndb_cli import _setup
+from lndb_cli import _setup_instance
 
 import lamindb as lndb
 
 
 def test_create_to_load():
     storage = Path.home() / "mydata"
-    _setup.log_in_user(
+    _setup_instance.log_in_user(
         email="raspbear@gmx.de",
         secret="MmR4YuQEyb0yxu7dAwJZTjLzR1Az2lN4Q4IduDlO",
     )
-    _setup.setup_instance(storage=storage)
+    _setup_instance.setup_instance(storage=storage)
     lndb.dev.db.insert.dobject(
         name="test_file",
         file_suffix=".csv",

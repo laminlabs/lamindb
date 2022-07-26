@@ -2,8 +2,8 @@ from pathlib import Path
 from typing import Dict
 
 import sqlmodel as sqm
-from lndb_cli import load_or_create_instance_settings, load_or_create_user_settings
 from lndb_schema_core import id
+from lndb_setup import load_or_create_instance_settings, load_or_create_user_settings
 
 import lamindb as db
 

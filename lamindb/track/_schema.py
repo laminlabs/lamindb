@@ -1,6 +1,6 @@
 import biogram
 import sqlalchemy as sql
-from lndb_cli import load_or_create_instance_settings
+from lndb_setup import load_or_create_instance_settings
 
 
 class schema:

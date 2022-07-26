@@ -1,6 +1,6 @@
 import anndata
 from anndata import AnnData
-from lndb_cli._settings import local_filepath
+from lndb_setup._settings import local_filepath
 
 
 def h5ad_to_anndata(filekey) -> AnnData:

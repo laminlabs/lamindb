@@ -32,7 +32,7 @@ To retrieve settings after setup via the CLI, use:
 from . import _check_versions
 
 __version__ = "0.1.2"
-from lndb_cli import (  # noqa
+from lndb_setup import (  # noqa
     InstanceSettings,
     UserSettings,
     load_or_create_instance_settings,
