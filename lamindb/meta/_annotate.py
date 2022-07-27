@@ -1,6 +1,6 @@
 from typing import Literal, Optional  # noqa
 
-from bioreader import literal
+from bioreader import vocabulary as vc
 from tabulate import tabulate  # type: ignore
 
 from .._logger import colors, logger
@@ -29,8 +29,8 @@ class annotate:
         cls,
         dobject: core.dobject,
         species: str,
-        readout_type: literal.READOUT_TYPES,
-        readout_platform: Optional[literal.READOUT_PLATFORMS],
+        readout_type: vc.READOUT_TYPES,
+        readout_platform: Optional[vc.READOUT_PLATFORMS],
         column=None,
         obs_or_var=None,
         geneset_name: str = None,
