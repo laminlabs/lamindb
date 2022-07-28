@@ -5,6 +5,7 @@ from lndb_setup._setup_instance import (
     load_or_create_instance_settings,
     load_or_create_user_settings,
 )
+from supabase import Client
 
 from ._load import load
 
@@ -20,20 +21,23 @@ def get_hub_with_authentication():
 
 
 def push_instance():
+    hub = get_hub_with_authentication()
     dobject_df = load("dobject")
     for id, v in dobject_df.index:
-        push_dobject(id, v)
+        push_dobject(id, v, hub)
 
 
-def push_dobject(id: str, v: str):
-    instance = get_or_create_instance()
+def push_dobject(id: str, v: str, hub: Client = None):
+    if hub is None:
+        hub = get_hub_with_authentication()
+    instance = get_or_create_instance(hub)
     dobject = load("dobject").loc[[(id, v)]].reset_index().to_dict("records")[0]
-    if not jupynb_exists(dobject["jupynb_id"], dobject["jupynb_v"]):
-        insert_jupynb(dobject["jupynb_id"], dobject["jupynb_v"], instance["id"])
-    if not dobject_exists(id, v):
-        insert_dobject(id, v)
-    if not user_dobject_exists(id, v):
-        insert_user_dobject(id, v)
+    if not jupynb_exists(dobject["jupynb_id"], dobject["jupynb_v"], hub):
+        insert_jupynb(dobject["jupynb_id"], dobject["jupynb_v"], instance["id"], hub)
+    if not dobject_exists(id, v, hub):
+        insert_dobject(id, v, hub)
+    if not user_dobject_exists(id, v, hub):
+        insert_user_dobject(id, v, hub)
 
 
 def unpush_instance():
@@ -64,17 +68,16 @@ def unpush_instance():
 # Instance
 
 
-def get_or_create_instance():
-    instance = get_instance()
+def get_or_create_instance(hub: Client):
+    instance = get_instance(hub)
     if instance is None:
-        instance = insert_instance()
-    if not user_instance_exists(instance["id"]):
-        insert_user_instance(instance["id"])
+        instance = insert_instance(hub)
+    if not user_instance_exists(instance["id"], hub):
+        insert_user_instance(instance["id"], hub)
     return instance
 
 
-def get_instance():
-    hub = get_hub_with_authentication()
+def get_instance(hub: Client):
     instance_settings = load_or_create_instance_settings()
     data = (
         hub.table("instance")
@@ -87,8 +90,7 @@ def get_instance():
     return None
 
 
-def delete_instance():
-    hub = get_hub_with_authentication()
+def delete_instance(hub: Client):
     instance_settings = load_or_create_instance_settings()
     (
         hub.table("instance")
@@ -98,8 +100,7 @@ def delete_instance():
     )
 
 
-def insert_instance():
-    hub = get_hub_with_authentication()
+def insert_instance(hub: Client):
     instance_settings = load_or_create_instance_settings()
     data = (
         hub.table("instance")
@@ -125,8 +126,7 @@ def insert_instance():
 # User instance
 
 
-def user_instance_exists(instance_id):
-    hub = get_hub_with_authentication()
+def user_instance_exists(instance_id, hub: Client):
     data = (
         hub.table("user_instance")
         .select("*")
@@ -139,8 +139,7 @@ def user_instance_exists(instance_id):
     return False
 
 
-def delete_user_instance(instance_id):
-    hub = get_hub_with_authentication()
+def delete_user_instance(instance_id, hub: Client):
     (
         hub.table("user_instance")
         .delete()
@@ -150,8 +149,7 @@ def delete_user_instance(instance_id):
     )
 
 
-def insert_user_instance(instance_id):
-    hub = get_hub_with_authentication()
+def insert_user_instance(instance_id, hub: Client):
     data = (
         hub.table("user_instance")
         .insert(
@@ -169,21 +167,18 @@ def insert_user_instance(instance_id):
 # Jupynb
 
 
-def jupynb_exists(id, v):
-    hub = get_hub_with_authentication()
+def jupynb_exists(id, v, hub: Client):
     data = hub.table("jupynb").select("*").eq("id", id).eq("v", v).execute()
     if len(data.data) > 0:
         return True
     return False
 
 
-def delete_jupynb(id, v):
-    hub = get_hub_with_authentication()
+def delete_jupynb(id, v, hub: Client):
     hub.table("jupynb").delete().eq("id", id).eq("v", v).execute()
 
 
-def insert_jupynb(id, v, instance_id):
-    hub = get_hub_with_authentication()
+def insert_jupynb(id, v, instance_id, hub: Client):
     jupynb = load("jupynb").loc[[(id, v)]].reset_index().to_dict("records")[0]
     data = (
         hub.table("jupynb")
@@ -213,21 +208,18 @@ def insert_jupynb(id, v, instance_id):
 # Dobject
 
 
-def dobject_exists(id, v):
-    hub = get_hub_with_authentication()
+def dobject_exists(id, v, hub: Client):
     data = hub.table("dobject").select("*").eq("id", id).eq("v", v).execute()
     if len(data.data) > 0:
         return True
     return False
 
 
-def delete_dobject(id, v):
-    hub = get_hub_with_authentication()
+def delete_dobject(id, v, hub: Client):
     hub.table("dobject").delete().eq("id", id).eq("v", v).execute()
 
 
-def insert_dobject(id, v):
-    hub = get_hub_with_authentication()
+def insert_dobject(id, v, hub: Client):
     dobject = load("dobject").loc[[(id, v)]].reset_index().to_dict("records")[0]
     data = (
         hub.table("dobject")
@@ -252,8 +244,7 @@ def insert_dobject(id, v):
 # User dobject
 
 
-def user_dobject_exists(id, v):
-    hub = get_hub_with_authentication()
+def user_dobject_exists(id, v, hub: Client):
     data = (
         hub.table("user_dobject")
         .select("*")
@@ -267,8 +258,7 @@ def user_dobject_exists(id, v):
     return False
 
 
-def delete_user_dobject(id, v):
-    hub = get_hub_with_authentication()
+def delete_user_dobject(id, v, hub: Client):
     (
         hub.table("user_dobject")
         .delete()
@@ -279,8 +269,7 @@ def delete_user_dobject(id, v):
     )
 
 
-def insert_user_dobject(id, v):
-    hub = get_hub_with_authentication()
+def insert_user_dobject(id, v, hub: Client):
     data = (
         hub.table("user_dobject")
         .insert(
