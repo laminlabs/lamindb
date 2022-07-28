@@ -1,5 +1,6 @@
 from typing import Literal, Optional  # noqa
 
+from bioreader import vocabulary as vc
 from tabulate import tabulate  # type: ignore
 
 from .._logger import colors, logger
@@ -7,9 +8,6 @@ from ..dev.db import insert
 from ..dev.file import h5ad_to_anndata
 from ..do import query
 from ..schema import core
-
-READOUT_TYPES = Literal["scRNA-seq", "RNA-seq", "flow-cytometry", "image"]
-READOUT_PLATFORMS = Literal["10x"]
 
 
 def anndata_to_df(adata, obs_or_var):
@@ -31,8 +29,8 @@ class annotate:
         cls,
         dobject: core.dobject,
         species: str,
-        readout_type: READOUT_TYPES,
-        readout_platform: Optional[READOUT_PLATFORMS],
+        readout_type: vc.READOUT_TYPES,
+        readout_platform: Optional[vc.READOUT_PLATFORMS],
         column=None,
         obs_or_var=None,
         geneset_name: str = None,
