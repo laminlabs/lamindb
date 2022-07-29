@@ -43,7 +43,7 @@ class insert:
             )
 
         with sqm.Session(engine) as session:
-            dtransform_id = id.dtransform_id()
+            dtransform_id = id.id_dtransform()
             dtransform = db.schema.core.dtransform(
                 id=dtransform_id,
                 jupynb_id=jupynb_id,
