@@ -2,6 +2,7 @@ from typing import Iterable
 
 import sqlmodel as sqm
 from lamin_logger import logger
+from lndb_schema_core import id
 from lndb_setup import settings
 
 import lamindb as db
@@ -11,7 +12,7 @@ class insert:
     """Insert data."""
 
     @classmethod
-    def dobject(
+    def dobject_from_jupynb(
         cls,
         *,
         name: str,
@@ -19,7 +20,6 @@ class insert:
         jupynb_id: str,
         jupynb_v: str,
         jupynb_name: str,
-        jupynb_type: str,
         dobject_id: str = None,
         dobject_v: str = "1",
     ):
@@ -33,7 +33,6 @@ class insert:
                     id=jupynb_id,
                     v=jupynb_v,
                     name=jupynb_name,
-                    type=jupynb_type,
                     user_id=settings.user.user_id,
                 )
                 session.add(jupynb)
@@ -44,12 +43,26 @@ class insert:
             )
 
         with sqm.Session(engine) as session:
+            dtransform_id = id.dtransform_id()
+            dtransform = db.schema.core.dtransform(
+                id=dtransform_id,
+                jupynb_id=jupynb_id,
+                jupynb_v=jupynb_v,
+            )
+            session.add(dtransform)
+
+            dtransform_out = db.schema.core.dtransform_out(
+                dtransform_id=dtransform_id,
+                dobject_id=dobject_id,
+                dobject_v=dobject_v,
+            )
+            session.add(dtransform_out)
+
             dobject = db.schema.core.dobject(
                 id=dobject_id,
                 v=dobject_v,
                 name=name,
-                jupynb_id=jupynb_id,
-                jupynb_v=jupynb_v,
+                dsource_id=dtransform_id,
                 file_suffix=file_suffix,
             )
             session.add(dobject)
