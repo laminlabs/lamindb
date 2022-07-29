@@ -73,7 +73,7 @@ def get_or_create_instance(hub: Client):
     instance = get_instance(hub)
     if instance is None:
         instance = insert_instance(hub)
-        logger.info("Published instance.")
+        logger.info("Publishing instance.")
     if not user_instance_exists(instance["id"], hub):
         insert_user_instance(instance["id"], hub)
     return instance
