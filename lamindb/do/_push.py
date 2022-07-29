@@ -46,7 +46,6 @@ class hub:
             logger.info(f"Published dobject ({id}, {v}).")
             insert_dobject(id, v, hub)
         if not user_dobject_exists(id, v, hub):
-            logger.info("Linked user.")
             insert_user_dobject(id, v, hub)
 
     @classmethod
