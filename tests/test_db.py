@@ -12,13 +12,12 @@ def test_create_to_load():
         secret="MmR4YuQEyb0yxu7dAwJZTjLzR1Az2lN4Q4IduDlO",
     )
     init_instance(storage=storage)
-    lndb.dev.db.insert.dobject(
+    lndb.dev.db.insert.dobject_from_jupynb(
         name="test_file",
         file_suffix=".csv",
         jupynb_id="83jf",
         jupynb_v="1",
         jupynb_name="test",
-        jupynb_type="other",
     )
     for entity in lndb.track.schema.entities:
         lndb.do.load(entity)
