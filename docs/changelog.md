@@ -7,6 +7,7 @@ Towards version 0.1.
 <!-- prettier-ignore -->
 Name | PR | User | Date | Patch
 --- | --- | --- | --- | ---
+♻️ Refactor sharing on the hub | [104](https://github.com/laminlabs/lamindb/pull/104) | [falexwolf](https://github.com/falexwolf) | 2022-07-29 |
 ✨ Enable sharing dobjects & instances in the hub | [69](https://github.com/laminlabs/lamindb/pull/69) | [fredericenard](https://github.com/fredericenard) | 2022-07-29 |
 🔥 Moved readout vocab to bioreader | [103](https://github.com/laminlabs/lamindb/pull/103) | [sunnyosun](https://github.com/sunnyosun) | 2022-07-28 |
 🆙 Upgrade `lndb_setup` to 0.3.0 | [102](https://github.com/laminlabs/lamindb/pull/102) | [falexwolf](https://github.com/falexwolf) | 2022-07-26 |
