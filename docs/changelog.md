@@ -7,6 +7,7 @@ Towards version 0.1.
 <!-- prettier-ignore -->
 Name | PR | User | Date | Patch
 --- | --- | --- | --- | ---
+⬆️ Upgrade to `lndb_schema_core` 0.2.0 | [106](https://github.com/laminlabs/lamindb/pull/106) | [falexwolf](https://github.com/falexwolf) | 2022-07-29 |
 🚚 Move out `lndb_hub` | [105](https://github.com/laminlabs/lamindb/pull/105) | [falexwolf](https://github.com/falexwolf) | 2022-07-29 |
 ♻️ Refactor sharing on the hub | [104](https://github.com/laminlabs/lamindb/pull/104) | [falexwolf](https://github.com/falexwolf) | 2022-07-29 |
 ✨ Enable sharing dobjects & instances in the hub | [69](https://github.com/laminlabs/lamindb/pull/69) | [fredericenard](https://github.com/fredericenard) | 2022-07-29 |
