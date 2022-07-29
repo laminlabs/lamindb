@@ -51,6 +51,9 @@ class insert:
             )
             session.add(dtransform)
 
+            if dobject_id is None:
+                dobject_id = id.id_dobject()
+
             dtransform_out = db.schema.core.dtransform_out(
                 dtransform_id=dtransform_id,
                 dobject_id=dobject_id,
