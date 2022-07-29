@@ -1,70 +1,70 @@
 import uuid
 
+from lamin_logger import logger
+from lndb_setup import settings
 from lndb_setup._hub import connect_hub
-from lndb_setup._setup_instance import (
-    load_or_create_instance_settings,
-    load_or_create_user_settings,
-)
 from supabase import Client
 
 from ._load import load
 
 
 def get_hub_with_authentication():
-    user_settings = load_or_create_user_settings()
     hub = connect_hub()
     session = hub.auth.sign_in(
-        email=user_settings.user_email, password=user_settings.user_secret
+        email=settings.user.user_email, password=settings.user.user_secret
     )
     hub.postgrest.auth(session.access_token)
     return hub
 
 
-def push_instance():
-    hub = get_hub_with_authentication()
-    dobject_df = load("dobject")
-    for id, v in dobject_df.index:
-        push_dobject(id, v, hub)
+class hub:
+    """Access the hub."""
 
-
-def push_dobject(id: str, v: str, hub: Client = None):
-    if hub is None:
+    @classmethod
+    def share_instance(cls):
+        """Publish instance with all dobjects."""
         hub = get_hub_with_authentication()
-    instance = get_or_create_instance(hub)
-    dobject = load("dobject").loc[[(id, v)]].reset_index().to_dict("records")[0]
-    if not jupynb_exists(dobject["jupynb_id"], dobject["jupynb_v"], hub):
-        insert_jupynb(dobject["jupynb_id"], dobject["jupynb_v"], instance["id"], hub)
-    if not dobject_exists(id, v, hub):
-        insert_dobject(id, v, hub)
-    if not user_dobject_exists(id, v, hub):
-        insert_user_dobject(id, v, hub)
+        dobject_df = load("dobject")
+        for id, v in dobject_df.index:
+            cls.share_dobject(id, v, hub)
 
+    @classmethod
+    def share_dobject(cls, id: str, v: str, hub: Client = None):
+        """Publish a single dobject."""
+        if hub is None:
+            hub = get_hub_with_authentication()
+        instance = get_or_create_instance(hub)
+        dobject = load("dobject").loc[[(id, v)]].reset_index().to_dict("records")[0]
+        if not jupynb_exists(dobject["jupynb_id"], dobject["jupynb_v"], hub):
+            logger.info(
+                f'Published jupynb ({dobject["jupynb_id"]}, {dobject["jupynb_v"]}).'
+            )
+            insert_jupynb(
+                dobject["jupynb_id"], dobject["jupynb_v"], instance["id"], hub
+            )
+        if not dobject_exists(id, v, hub):
+            logger.info(f"Published dobject ({id}, {v}).")
+            insert_dobject(id, v, hub)
+        if not user_dobject_exists(id, v, hub):
+            insert_user_dobject(id, v, hub)
 
-def unpush_instance():
-    hub = get_hub_with_authentication()
-    instance = get_or_create_instance(hub)
-    dobject_df = load("dobject")
-    jupynb_df = load("jupynb")
-    for id, v in dobject_df.index:
-        delete_user_dobject(id, v, hub)
-        delete_dobject(id, v, hub)
-    for id, v in jupynb_df.index:
-        delete_jupynb(id, v, hub)
-    delete_user_instance(instance["id"], hub)
-    delete_instance(hub)
+    @classmethod
+    def delete_instance(cls):
+        """Delete the instance on the hub."""
+        hub = get_hub_with_authentication()
+        instance = get_or_create_instance(hub)
+        dobject_df = load("dobject")
+        jupynb_df = load("jupynb")
+        for id, v in dobject_df.index:
+            logger.info(f"Deleted dobject ({id}, {v}).")
+            delete_user_dobject(id, v, hub)
+            delete_dobject(id, v, hub)
+        for id, v in jupynb_df.index:
+            logger.info(f"Deleted jupynb ({id}, {v}).")
+            delete_jupynb(id, v, hub)
+        delete_user_instance(instance["id"], hub)
+        delete_instance(hub)
 
-
-# def get_user(user_id):
-#     hub = get_hub_with_authentication()
-#     data = (
-#         hub.table("usermeta")
-#         .select("*")
-#         .eq("lnid", user_id)
-#         .execute()
-#     )
-#     if len(data.data) > 0:
-#         return data.data[0]
-#     return None
 
 # Instance
 
@@ -73,17 +73,17 @@ def get_or_create_instance(hub: Client):
     instance = get_instance(hub)
     if instance is None:
         instance = insert_instance(hub)
+        logger.info("Publishing instance.")
     if not user_instance_exists(instance["id"], hub):
         insert_user_instance(instance["id"], hub)
     return instance
 
 
 def get_instance(hub: Client):
-    instance_settings = load_or_create_instance_settings()
     data = (
         hub.table("instance")
         .select("*")
-        .eq("name", instance_settings.instance_name)
+        .eq("name", settings.instance.instance_name)
         .execute()
     )
     if len(data.data) > 0:
@@ -92,30 +92,28 @@ def get_instance(hub: Client):
 
 
 def delete_instance(hub: Client):
-    instance_settings = load_or_create_instance_settings()
     (
         hub.table("instance")
         .delete()
-        .eq("name", instance_settings.instance_name)
+        .eq("name", settings.instance.instance_name)
         .execute()
     )
 
 
 def insert_instance(hub: Client):
-    instance_settings = load_or_create_instance_settings()
     data = (
         hub.table("instance")
         .insert(
             {
                 "id": str(uuid.uuid4()),
-                "name": instance_settings.instance_name,
+                "name": settings.instance.instance_name,
                 "owner_id": hub.auth.session().user.id.hex,
-                "storage_dir": str(instance_settings.storage_dir),
-                "dbconfig": instance_settings._dbconfig,
-                "cache_dir": str(instance_settings.cache_dir),
-                "sqlite_file": str(instance_settings._sqlite_file),
-                "sqlite_file_local": str(instance_settings._sqlite_file_local),
-                "db": instance_settings.db,
+                "storage_dir": str(settings.instance.storage_dir),
+                "dbconfig": settings.instance._dbconfig,
+                "cache_dir": str(settings.instance.cache_dir),
+                "sqlite_file": str(settings.instance._sqlite_file),
+                "sqlite_file_local": str(settings.instance._sqlite_file_local),
+                "db": settings.instance.db,
             }
         )
         .execute()
@@ -165,7 +163,7 @@ def insert_user_instance(instance_id, hub: Client):
     return data.data[0]
 
 
-# Jupynb
+# jupynb
 
 
 def jupynb_exists(id, v, hub: Client):
@@ -206,7 +204,7 @@ def insert_jupynb(id, v, instance_id, hub: Client):
     return data.data[0]
 
 
-# Dobject
+# dobject
 
 
 def dobject_exists(id, v, hub: Client):
