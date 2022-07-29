@@ -20,6 +20,7 @@ def get_hub_with_authentication():
 class hub:
     """Access the hub."""
 
+    @classmethod
     def share_instance(cls):
         """Publish instance with all dobjects."""
         hub = get_hub_with_authentication()
@@ -27,6 +28,7 @@ class hub:
         for id, v in dobject_df.index:
             cls.share_dobject(id, v, hub)
 
+    @classmethod
     def share_dobject(cls, id: str, v: str, hub: Client = None):
         """Publish a single dobject."""
         if hub is None:
@@ -47,6 +49,7 @@ class hub:
             logger.info("Linked user.")
             insert_user_dobject(id, v, hub)
 
+    @classmethod
     def delete_instance(cls):
         """Delete the instance on the hub."""
         hub = get_hub_with_authentication()
