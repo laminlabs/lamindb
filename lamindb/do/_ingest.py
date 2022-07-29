@@ -100,13 +100,12 @@ class Ingest:
         jupynb_v = dev.set_version(jupynb_v)  # version to be set in publish()
         jupynb_name = meta.live.title
         for filepath, (dobject_id, dobject_v) in self.status.items():
-            dobject_id = insert.dobject(
+            dobject_id = insert.dobject_from_jupynb(
                 name=filepath.stem,
                 file_suffix=filepath.suffix,
                 jupynb_id=jupynb_id,
                 jupynb_v=jupynb_v,
                 jupynb_name=jupynb_name,
-                jupynb_type="nbproject",
                 dobject_id=dobject_id,
                 dobject_v=dobject_v,
             )
@@ -127,7 +126,7 @@ class Ingest:
         log_table = tabulate(
             logs,
             headers=[
-                colors.green("Ingested File"),
+                colors.green("Ingested file"),
                 colors.blue("Notebook"),
                 colors.purple("User"),
             ],
