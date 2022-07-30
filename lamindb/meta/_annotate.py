@@ -5,7 +5,7 @@ from tabulate import tabulate  # type: ignore
 
 from .._logger import colors, logger
 from ..dev.db import insert
-from ..do import query
+from ..do._query import query
 
 
 def anndata_to_df(adata, obs_or_var):
