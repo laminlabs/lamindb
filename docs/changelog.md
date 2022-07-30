@@ -7,6 +7,7 @@ Towards version 0.1.
 <!-- prettier-ignore -->
 Name | PR | User | Date | Patch
 --- | --- | --- | --- | ---
+:memo: Fix guides link | [6](https://github.com/laminlabs/lamindb/pull/6) | [falexwolf](https://github.com/falexwolf) | 2022-05-26 |
 :page_facing_up: Change format of license file | [7](https://github.com/laminlabs/lamindb/pull/7) | [falexwolf](https://github.com/falexwolf) | 2022-05-23 |
 :recycle: Update to cookiecutter 0.2.0 | [5](https://github.com/laminlabs/lamindb/pull/5) | [falexwolf](https://github.com/falexwolf) | 2022-05-23 |
 :lipstick: Switch guides and api | [3](https://github.com/laminlabs/lamindb/pull/3) | [falexwolf](https://github.com/falexwolf) | 2022-05-11 |
