@@ -3,29 +3,29 @@
 :end-line: 4
 ```
 
-Interactively curate, store, track, query, and learn from biological data.
+Curate, store, track, query, integrate, and learn from biological data.
 
-A modular configurable data & analysis platform for hybrid R&D organizations to
+Modular configurable data & analysis platform for hybrid R&D organizations to
 
 <!-- Key features/functionality/capabilities -->
 
-1. query low- and high-dimensional data by biological entities = "organize data in the hypotheses space"
-2. query data by provenance (users, notebooks, pipelines, instruments, etc.) = “track it all”
-3. share data within and across organizations in an interoperable, reusable way = “no cleaning & curating anymore”
+1. query low- and high-dimensional data by biological entities ⸻ _organize data in the hypothesis space_
+2. query data by provenance (users, notebooks, pipelines, instruments, etc.) ⸻ _track it all_
+3. share data within and across organizations in an interoperable, reusable way ⸻ _no cleaning anymore_
 
 <!-- User experience -->
 
-It comes with:
+with
 
-1. an intuitive ingestion & query API, which can connect with other data and analytics infrastructure
+1. an intuitive API to connect data and analytics infrastructure
 2. zero lock-in danger due to an open-source & multi-cloud stack
-3. a tool to easily manage migrations in a rapidly changing R&D environment
+3. a tool to easily manage schema module migrations in a changing R&D environment
 4. support for learning from data across measured → relevant → derived features
-5. support for fast-paced R&D iterations and "draft data" through data versioning, quality & integrity flags
+5. support for fast-paced iterations and "draft data" through data versioning, quality & integrity flags
 
 <!-- High-level technical specification -->
 
-On the highest technical level, LaminDB is a distributed data management system similar to how git is a distributed version control system.
+LaminDB is a distributed data management system similar to how git is a distributed version control system.
 Each LaminDB instance is a data warehouse with storage (local directory, S3, GCP, Azure) and a SQL database (SQLite, Postgres, BigQuery) for querying it.
 
 Install:
@@ -40,6 +40,12 @@ Get started:
 - Explore and play with real-world [examples](examples/index).
 - Browse the full [API reference](api).
 - Look up guides [guides](guides/index) that solve specific problems or illustrate common errors.
+
+References:
+
+- See [lamin.ai/docs](https://lamin.ai/docs) for an overview of open-source modules.
+- [Reach out](https://lamin.ai/contact) to learn about modules that connect your assays, pipelines, instruments, and workflows.
+- Read the following reports to learn about technology underlying LaminDB: ...
 
 ```{toctree}
 :maxdepth: 1
