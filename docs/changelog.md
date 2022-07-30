@@ -7,6 +7,7 @@ Towards version 0.1.
 <!-- prettier-ignore -->
 Name | PR | User | Date | Patch
 --- | --- | --- | --- | ---
+👷 Track changes as in cookiecutter-py 0.3 | [13](https://github.com/laminlabs/lamindb/pull/13) | [falexwolf](https://github.com/falexwolf) | 2022-06-07 |
 🏗️ Basic file ingestion from a notebook | [9](https://github.com/laminlabs/lamindb/pull/9) | [falexwolf](https://github.com/falexwolf) | 2022-06-06 |
 🔥 Remove tiangolo's SQLmodel | [8](https://github.com/laminlabs/lamindb/pull/8) | [falexwolf](https://github.com/falexwolf) | 2022-06-04 |
 :memo: Fix guides link | [6](https://github.com/laminlabs/lamindb/pull/6) | [falexwolf](https://github.com/falexwolf) | 2022-05-26 |
