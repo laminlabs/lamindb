@@ -25,15 +25,16 @@ class annotate:
     """Feature annotation."""
 
     @classmethod
-    def genes(
+    def readouts(
         cls,
         dobject: core.dobject,
         species: str,
+        readout_entity: str,
         readout_type: vc.READOUT_TYPES,
         readout_platform: Optional[vc.READOUT_PLATFORMS],
         column=None,
         obs_or_var=None,
-        geneset_name: str = None,
+        readout_set_name: str = None,
     ):
         """Annotate genes."""
         filekey = f"{dobject.id}-{dobject.v}{dobject.file_suffix}"
@@ -43,9 +44,14 @@ class annotate:
             df = anndata_to_df(adata, obs_or_var=obs_or_var)
 
             # create a geneset entry
-            genes = df.index.unique().values if column is None else df[column].unique()
-            geneset_id = insert.genes(
-                genes=genes, geneset_name=geneset_name, species=species
+            readouts = (
+                df.index.unique().values if column is None else df[column].unique()
+            )
+            readout_set_id = insert.readouts(
+                readouts=readouts,
+                readout_entity=readout_entity,
+                readout_set_name=readout_set_name,
+                species=species,
             )
 
             # register the readout if not yet in the database
@@ -63,10 +69,10 @@ class annotate:
             biometa_id = insert.biometa(
                 dobject_id=dobject.id,
                 readout_type_id=readout_type_id,
-                geneset_id=geneset_id,
+                geneset_id=readout_set_id,
             )
 
-            logs = [[str(geneset_id), str(readout_type_id), str(biometa_id)]]
+            logs = [[str(readout_set_id), str(readout_type_id), str(biometa_id)]]
             log_table = tabulate(
                 logs,
                 headers=[
@@ -81,15 +87,3 @@ class annotate:
             )
         else:
             raise NotImplementedError
-
-    @classmethod
-    def proteinset(cls):
-        NotImplementedError
-
-    @classmethod
-    def biosample(cls):
-        raise NotImplementedError
-
-    @classmethod
-    def readout_type(cls):
-        raise NotImplementedError

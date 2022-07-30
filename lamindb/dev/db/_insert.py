@@ -1,4 +1,4 @@
-from typing import Iterable
+from typing import Iterable, Union
 
 import sqlmodel as sqm
 from lamin_logger import logger
@@ -61,10 +61,11 @@ class insert:
         return dobject.id
 
     @classmethod
-    def genes(
+    def readouts(
         cls,
-        genes: Iterable[str],
-        geneset_name: str = None,
+        readouts: Iterable[str],
+        readout_entity: str,
+        readout_set_name: str = None,
         species: str = None,
         **kwargs,
     ):
@@ -73,44 +74,51 @@ class insert:
         Mmeanwhile inserting genes and linking them to the geneset.
         """
         engine = settings.instance.db_engine()
+        if readout_entity == "gene":
+            readoutset_schema = db.schema.bionty.geneset
+            readout_schema = db.schema.bionty.gene
+            link_schema = db.schema.bionty.geneset_gene
+        elif readout_entity == "protein":
+            readoutset_schema = db.schema.bionty.proteinset
+            readout_schema = db.schema.bionty.protein
+            link_schema = db.schema.bionty.proteinset_protein
+        else:
+            raise NotImplementedError
 
-        # add a geneset to the geneset table
+        # add a readout_set to the readout_set table
         with sqm.Session(engine) as session:
-            geneset = db.schema.bionty.geneset(
-                name=geneset_name,
+            readoutset = readoutset_schema(
+                name=readout_set_name,
             )
-            session.add(geneset)
+            session.add(readoutset)
             session.commit()
-            session.refresh(geneset)
+            session.refresh(readoutset)
 
-        # add genes to the gene table
+        # add readouts to the readout table
         with sqm.Session(engine) as session:
-            genes_ins = []
-            for i in genes:
-                gene = db.schema.bionty.gene(
+            readouts_ins = []
+            for i in readouts:
+                readout = readout_schema(
                     symbol=i,
                     species=species,
                     **kwargs,
                 )
-                session.add(gene)
-                genes_ins.append(gene)
+                session.add(readout)
+                readouts_ins.append(readout)
             session.commit()
-            for i in genes_ins:
+            for i in readouts_ins:
                 session.refresh(i)
 
         # insert ids into the link table
         with sqm.Session(engine) as session:
-            for gene in genes_ins:
-                link = db.schema.bionty.geneset_gene(
-                    geneset_id=geneset.id,
-                    gene_id=gene.id,
-                )
+            for readout in readouts_ins:
+                link = link_schema(geneset_id=readoutset.id, gene_id=readout.id)
                 session.add(link)
             session.commit()
 
         settings.instance._update_cloud_sqlite_file()
 
-        return geneset.id
+        return readoutset.id
 
     @classmethod
     def readout_type(cls, name: str, platform: str = None):
@@ -160,3 +168,40 @@ class insert:
         settings.instance._update_cloud_sqlite_file()
 
         return biometa.id
+
+    @classmethod
+    def biosample(cls, name: Union[str, Iterable[str]], species: str):
+        """Insert entries in the biosample table."""
+        engine = settings.instance.db_engine()
+
+        names = [name] if isinstance(name, str) else name
+        species_id = db.do.query.species(common_name=species).id
+        with sqm.Session(engine) as session:
+            biosamples: list = []
+            for i in names:
+                biosample = db.schema.biolab.biosample(name=i, species_id=species_id)
+                session.add(biosample)
+            session.commit()
+            for i in biosamples:
+                session.refresh(i)
+        return [i.id for i in biosamples]
+
+    @classmethod
+    def species(
+        cls, common_name: str, taxon_id: str, scientific_name: str, short_name: str
+    ):
+        """Insert a row in the species table."""
+        engine = settings.instance.db_engine()
+
+        with sqm.Session(engine) as session:
+            species = db.schema.bionty.species(
+                common_name=common_name,
+                taxon_id=taxon_id,
+                scientific_name=scientific_name,
+                short_name=short_name,
+            )
+            session.add(species)
+            session.commit()
+            session.refresh(species)
+
+        return species.id
