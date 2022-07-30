@@ -36,15 +36,15 @@ pip install lamindb
 
 Get started:
 
-- [Tutorials](tutorials/index) walks you through setup and usage of the platform.
-- Explore and play with real-world [examples](examples/index).
-- Browse the full [API reference](api).
-- Look up guides [guides](guides/index) that solve specific problems or illustrate common errors.
+- [Tutorials](tutorials/index) walk you through setup and usage of the platform.
+- Explore real-world [examples](examples/index).
+- Browse the [API reference](api).
+- If you get stuck, see [guides](guides/index) for edge cases & errors.
 
 References:
 
-- See [lamin.ai/docs](https://lamin.ai/docs) for an overview of open-source modules.
-- [Reach out](https://lamin.ai/contact) to learn about modules that connect your assays, pipelines, instruments, and workflows.
+- See [lamin.ai/docs](https://lamin.ai/docs) for an overview of associated open-source modules.
+- [Reach out](https://lamin.ai/contact) to learn about modules that connect your assays, pipelines, instruments & workflows within our data platform enterprise offer.
 - Read the following reports to learn about technology underlying LaminDB: ...
 
 ```{toctree}
