@@ -8,7 +8,9 @@ from lndb_setup import settings
 import lamindb as db
 
 from .._logger import colors, logger
-from ..dev.file import store_file
+from ..dev.file import load_to_memory, store_file
+from ..dev.object import infer_file_suffix
+from ..meta import FeatureModel
 
 
 def track_ingest(dobject_id, dobject_v):
@@ -48,16 +50,67 @@ class Ingest:
         """Added files for ingestion."""
         return self._added
 
-    def add(self, filepath, *, dobject_id=None, dobject_v="1"):
-        """Add a file for ingestion.
+    def add(
+        self,
+        dobject,
+        *,
+        feature_model=None,
+        dobject_id=None,
+        dobject_v="1",
+    ):
+        """Add a dobject or a file for ingestion.
 
         Args:
-            filepath: The filepath.
+            dobject: An data object or filepath.
+            feature_model: The data model that defines feature to annotate.
             dobject_id: The dobject id.
             dobject_v: The dobject version.
         """
-        filepath = Path(filepath)
-        primary_key = (id.id_dobject() if dobject_id is None else dobject_id, dobject_v)
+        primary_key = (
+            id.id_dobject() if dobject_id is None else dobject_id,
+            dobject_v,
+        )
+
+        if isinstance(dobject, (Path, str)):
+            # if a file is given, create a dobject
+            # TODO: handle compressed files
+            filepath = Path(dobject)
+        else:
+            # if in-memory object is given, return the cache path
+            filekey = f"{primary_key[0]}-{primary_key[1]}{infer_file_suffix(dobject)}"
+            filepath = settings.instance.storage.key_to_filepath(filekey)
+
+        # skip feature annotation for store-only files
+        if (filepath.suffix in [".fastq", ".fastqc", ".bam", ".sam", ".png"]) or (
+            feature_model is None
+        ):
+            self._added[filepath] = primary_key
+            return None
+
+        # load file into memory
+        if isinstance(dobject, (Path, str)):
+            dmem = load_to_memory(dobject)
+        else:
+            dmem = dobject
+
+        # curate features
+        # looks for the id column, if none is found, will assume in the index
+        try:
+            df = getattr(dmem, "var")
+        except AttributeError:
+            df = dmem
+        fm = FeatureModel(feature_model)
+        df_curated = fm.curate(df)
+        n = df_curated["__curated__"].count()
+        n_mapped = df_curated["__curated__"].sum()
+        self.integrity_flag = {
+            "feature": fm.id_type,
+            "n_mapped": n_mapped,
+            "percent_mapped": round(n_mapped / n * 100, 1),
+        }
+
+        self._features[filepath] = (fm, df_curated)
+
         self._added[filepath] = primary_key
 
     def commit(self, jupynb_v=None):
@@ -112,7 +165,6 @@ class Ingest:
 
             dobject_storage_key = f"{dobject_id}-{dobject_v}{filepath.suffix}"
             store_file(filepath, dobject_storage_key)
-
             track_ingest(dobject_id, dobject_v)
 
             logs.append(
@@ -123,6 +175,11 @@ class Ingest:
                 ]
             )
 
+            if self._features.get(filepath) is not None:
+                fm, df_curated = self._features.get(filepath)
+                fm.ingest(df_curated)
+
+        # pretty logging info
         log_table = tabulate(
             logs,
             headers=[
@@ -133,6 +190,7 @@ class Ingest:
             tablefmt="pretty",
         )
         logger.success(f"{colors.bold('Ingested the following files')}:\n{log_table}")
+
         publish(calling_statement="commit(")
 
 

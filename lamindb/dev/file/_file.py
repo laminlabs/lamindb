@@ -2,8 +2,12 @@ import shutil
 from pathlib import Path
 from typing import Union
 
+import anndata as ad
+import pandas as pd
 from cloudpathlib import CloudPath
 from lndb_setup import settings
+
+READER_FUNCS = {".csv": pd.read_csv, ".h5ad": ad.read}
 
 
 def store_file(filepath: Union[str, Path], filekey: str):
@@ -13,3 +17,12 @@ def store_file(filepath: Union[str, Path], filekey: str):
         storage_path.upload_from(filepath)
     else:
         shutil.copyfile(filepath, storage_path)
+
+
+def load_to_memory(filepath: Union[str, Path]):
+    filepath = Path(filepath)
+    reader = READER_FUNCS.get(filepath.suffix)
+    if reader is None:
+        raise NotImplementedError
+    else:
+        return reader(filepath)
