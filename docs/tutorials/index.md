@@ -4,7 +4,7 @@
 :maxdepth: 1
 
 get-started
-add-user
+collaborate
 feature-annotation
 introspect-data
 share
