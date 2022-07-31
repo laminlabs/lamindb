@@ -9,8 +9,9 @@ from lndb_setup import settings
 import lamindb as db
 
 from .._logger import colors, logger
+from ..dev import storage_key_from_triple
 from ..dev.file import load_to_memory, store_file
-from ..dev.object import infer_file_suffix, write_to_file
+from ..dev.object import infer_file_suffix
 from ..meta import FeatureModel
 
 
@@ -41,7 +42,7 @@ def track_ingest(dobject_id, dobject_v):
 
 
 class Ingest:
-    """Ingest file."""
+    """Ingest dobject."""
 
     def __init__(self) -> None:
         self._added: Dict = {}
@@ -62,15 +63,17 @@ class Ingest:
         self,
         dobject,
         *,
+        name=None,
         feature_model=None,
         dobject_id=None,
         dobject_v="1",
     ):
-        """Add a dobject or a file for ingestion.
+        """Stage a data object (in memory or file) for ingestion.
 
         Args:
-            dobject: An data object or filepath.
-            feature_model: The data model that defines feature to annotate.
+            dobject: A data object in memory or filepath.
+            name: A name. Required if passing in memory object.
+            feature_model: Features to link during ingestion.
             dobject_id: The dobject id.
             dobject_v: The dobject version.
         """
@@ -85,8 +88,10 @@ class Ingest:
             filepath = Path(dobject)
         else:
             # if in-memory object is given, return the cache path
-            filekey = f"{primary_key[0]}-{primary_key[1]}{infer_file_suffix(dobject)}"
-            filepath = settings.instance.storage.key_to_filepath(filekey)
+            suffix = infer_file_suffix(dobject)
+            if name is None:
+                raise RuntimeError("Provide name if ingesting in memory data.")
+            filepath = Path(f"{name}{suffix}")
 
         # skip feature annotation for store-only files
         if (filepath.suffix in [".fastq", ".fastqc", ".bam", ".sam", ".png"]) or (
@@ -123,32 +128,14 @@ class Ingest:
         self._added[filepath] = primary_key
 
         if not filepath.exists():
-            cache_path = write_to_file(dmem, filekey)
+            cache_path = filepath
             logger.info(f"Wrote data object to {cache_path}.")
 
     def commit(self, jupynb_v=None):
-        """Commit files for ingestion.
+        """Complete ingestion.
 
         Args:
-            jupynb_v: Notebook version to publish. Is automatically bumped if None.
-
-        We primarily work with base62 IDs.
-
-        ====== =========
-        len_id n_entries
-        ====== =========
-        1      >6e+01
-        2      >4e+03
-        3      >2e+05
-        4      >1e+07
-        5      >9e+08
-        6      >6e+10
-        7      >4e+12
-        8      >2e+14
-        9      >1e+16
-        12     >3e+21 (nbproject id)
-        20     >7e+35 (~UUID)
-        ====== =========
+            jupynb_v: Notebook version to publish. Is automatically set if `None`.
         """
         from nbproject import dev, meta, publish
         from tabulate import tabulate  # type: ignore
@@ -176,7 +163,9 @@ class Ingest:
                 dobject_v=dobject_v,
             )
 
-            dobject_storage_key = f"{dobject_id}-{dobject_v}{filepath.suffix}"
+            dobject_storage_key = storage_key_from_triple(
+                dobject_id, dobject_v, filepath.suffix
+            )
             try:
                 store_file(filepath, dobject_storage_key)
             except SameFileError:
@@ -200,13 +189,13 @@ class Ingest:
         log_table = tabulate(
             logs,
             headers=[
-                colors.green("Ingested file"),
-                colors.blue("Notebook"),
-                colors.purple("User"),
+                colors.green("dobject"),
+                colors.blue("jupynb"),
+                colors.purple("user"),
             ],
             tablefmt="pretty",
         )
-        logger.success(f"Ingested the following files:\n{log_table}")
+        logger.success(f"Ingested the following dobjects:\n{log_table}")
 
         publish(calling_statement="commit(")
 
