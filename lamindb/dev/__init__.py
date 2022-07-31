@@ -7,13 +7,6 @@
    file
    object
 
-.. autosummary::
-   :toctree: .
-
-   UserSettings
-   InstanceSettings
-   Storage
-
 Utilities:
 
 .. autosummary::
@@ -23,7 +16,6 @@ Utilities:
 """
 
 from lamindb_schema import id  # noqa
-from lndb_setup import InstanceSettings, Storage, UserSettings
 
 from . import db  # noqa
 from . import file, object  # noqa
