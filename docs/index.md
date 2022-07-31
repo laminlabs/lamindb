@@ -21,7 +21,7 @@ with
 2. zero lock-in danger due to an open-source & multi-cloud stack
 3. a tool to easily manage schema module migrations in a changing R&D environment
 4. support for learning from data across measured → relevant → derived features
-5. support for fast-paced iterations and "draft data" through data versioning, quality & integrity flags
+5. support for fast-paced iterations and "development data" through data versioning, quality & integrity flags
 
 <!-- High-level technical specification -->
 
