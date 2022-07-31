@@ -1,4 +1,5 @@
 from pathlib import Path
+from shutil import SameFileError
 from typing import Dict
 
 import sqlmodel as sqm
@@ -9,7 +10,7 @@ import lamindb as db
 
 from .._logger import colors, logger
 from ..dev.file import load_to_memory, store_file
-from ..dev.object import infer_file_suffix
+from ..dev.object import infer_file_suffix, write_to_file
 from ..meta import FeatureModel
 
 
@@ -44,11 +45,18 @@ class Ingest:
 
     def __init__(self) -> None:
         self._added: Dict = {}
+        self._features: Dict = {}
+        self._logs: Dict = {}
 
     @property
     def status(self) -> dict:
         """Added files for ingestion."""
         return self._added
+
+    @property
+    def logs(self) -> dict:
+        """Logs of feature annotation."""
+        return self._logs
 
     def add(
         self,
@@ -103,15 +111,20 @@ class Ingest:
         df_curated = fm.curate(df)
         n = df_curated["__curated__"].count()
         n_mapped = df_curated["__curated__"].sum()
-        self.integrity_flag = {
+        self.logs[filepath] = {
             "feature": fm.id_type,
             "n_mapped": n_mapped,
             "percent_mapped": round(n_mapped / n * 100, 1),
+            "unmapped": df_curated.index[~df_curated["__curated__"]],
         }
 
         self._features[filepath] = (fm, df_curated)
 
         self._added[filepath] = primary_key
+
+        if not filepath.exists():
+            cache_path = write_to_file(dmem, filekey)
+            logger.info(f"Wrote data object to {cache_path}.")
 
     def commit(self, jupynb_v=None):
         """Commit files for ingestion.
@@ -164,7 +177,11 @@ class Ingest:
             )
 
             dobject_storage_key = f"{dobject_id}-{dobject_v}{filepath.suffix}"
-            store_file(filepath, dobject_storage_key)
+            try:
+                store_file(filepath, dobject_storage_key)
+            except SameFileError:
+                pass
+
             track_ingest(dobject_id, dobject_v)
 
             logs.append(
@@ -177,7 +194,7 @@ class Ingest:
 
             if self._features.get(filepath) is not None:
                 fm, df_curated = self._features.get(filepath)
-                fm.ingest(df_curated)
+                fm.ingest(dobject_id, df_curated)
 
         # pretty logging info
         log_table = tabulate(
@@ -189,7 +206,7 @@ class Ingest:
             ],
             tablefmt="pretty",
         )
-        logger.success(f"{colors.bold('Ingested the following files')}:\n{log_table}")
+        logger.success(f"Ingested the following files:\n{log_table}")
 
         publish(calling_statement="commit(")
 

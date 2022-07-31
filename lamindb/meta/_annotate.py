@@ -1,4 +1,4 @@
-from typing import Iterable, Optional  # noqa
+from typing import Optional  # noqa
 
 from bioreader import vocabulary as vc
 from tabulate import tabulate  # type: ignore
@@ -26,13 +26,13 @@ class annotate:
     def gene(
         cls,
         dobject_id,
-        values: Iterable[str],
+        values: dict,
         species: str,
         geneset_name: str = None,
     ):
         """Annotate genes."""
         geneset_id = insert.genes(
-            genes=values, geneset_name=geneset_name, species=species
+            genes_dict=values, geneset_name=geneset_name, species=species
         )
 
         # use the geneset_id and readout_type_id to create an entry in biometa
@@ -51,7 +51,7 @@ class annotate:
             tablefmt="pretty",
         )
         logger.success(
-            f"{colors.bold('Annotated the following features')}:\n{log_table}",
+            f"Annotated data {dobject_id} with the following features:\n{log_table}",
         )
 
     @classmethod

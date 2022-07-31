@@ -5,7 +5,7 @@
 
 get-started
 add-user
-feature-annotation
+ingest-with-feature
 introspect-data
 share
 concepts

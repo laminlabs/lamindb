@@ -23,6 +23,11 @@ class FeatureModel:
         """Species."""
         return self._entity_model.species
 
+    @property
+    def df(self):
+        """Reference table."""
+        return self._entity_model.df
+
     def curate(self, df: pd.DataFrame):
         if self.id_type in df.columns:
             return self._entity_model.curate(df=df, column=self.id_type)
@@ -32,10 +37,14 @@ class FeatureModel:
 
     def ingest(self, dobject_id, df_curated):
         """Ingest features."""
-        annotate_feature = annotate.__getattribute__(self.id_type)
+        annotate_feature = getattr(annotate, self.entity)
+        mapped_df = self.df.loc[df_curated.index[df_curated["__curated__"]]].copy()
+        mapped_dict = {}
+        for i, row in mapped_df.iterrows():
+            mapped_dict[i] = pd.concat([row, pd.Series([i], index=[self.id_type])])
 
         annotate_feature(
             dobject_id=dobject_id,
-            values=df_curated[df_curated["__curated__"]].values,
+            values=mapped_dict,
             species=self.species,
         )
