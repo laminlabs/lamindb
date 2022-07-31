@@ -126,18 +126,18 @@ class insert:
 
         return featureset.id
 
-    @classmethod
-    def readout_type(cls, name: str, platform: str = None):
-        """Insert a row in the readout table."""
-        engine = settings.instance.db_engine()
+    # @classmethod
+    # def readout_type(cls, name: str, platform: str = None):
+    #     """Insert a row in the readout table."""
+    #     engine = settings.instance.db_engine()
 
-        with sqm.Session(engine) as session:
-            readout_type = db.schema.biolab.readout_type(name=name, platform=platform)
-            session.add(readout_type)
-            session.commit()
-            session.refresh(readout_type)
+    #     with sqm.Session(engine) as session:
+    #         readout_type = db.schema.biolab.readout_type(name=name, platform=platform)
+    #         session.add(readout_type)
+    #         session.commit()
+    #         session.refresh(readout_type)
 
-        return readout_type.id
+    #     return readout_type.id
 
     @classmethod
     def biometa(

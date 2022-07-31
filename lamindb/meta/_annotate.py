@@ -1,11 +1,12 @@
 from typing import Optional  # noqa
 
-from bioreader import lookup
+# from bioreader import lookup
 from tabulate import tabulate  # type: ignore
 
 from .._logger import colors, logger
 from ..dev.db import insert
-from ..do._query import query
+
+# from ..do._query import query
 
 
 def anndata_to_df(adata, obs_or_var):
@@ -54,25 +55,25 @@ class annotate:
             f"Annotated data {dobject_id} with the following features:\n{log_table}",
         )
 
-    @classmethod
-    def readout_type(
-        cls,
-        readout_type: lookup.READOUT_TYPES,
-        readout_platform: Optional[lookup.READOUT_PLATFORMS],
-    ):
-        # register the readout if not yet in the database
-        readout_results = query.readout_type(
-            name=readout_type, platform=readout_platform
-        )
-        if len(readout_results) == 0:
-            readout_type_id = insert.readout_type(
-                name=readout_type, platform=readout_platform
-            )
-        else:
-            readout_type_id = readout_results[0].id
+    # @classmethod
+    # def readout_type(
+    #     cls,
+    #     readout_type: lookup.READOUT_TYPES,
+    #     readout_platform: Optional[lookup.READOUT_PLATFORMS],
+    # ):
+    #     # register the readout if not yet in the database
+    #     readout_results = query.readout_type(
+    #         name=readout_type, platform=readout_platform
+    #     )
+    #     if len(readout_results) == 0:
+    #         readout_type_id = insert.readout_type(
+    #             name=readout_type, platform=readout_platform
+    #         )
+    #     else:
+    #         readout_type_id = readout_results[0].id
 
-        # query biometa
+    #     # query biometa
 
-        # fill in biometa entries with readout_type_id
+    #     # fill in biometa entries with readout_type_id
 
-        return readout_type_id
+    #     return readout_type_id
