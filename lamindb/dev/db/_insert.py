@@ -132,7 +132,7 @@ class insert:
         engine = settings.instance.db_engine()
 
         with sqm.Session(engine) as session:
-            readout_type = db.schema.biolab.readout_type(name=name, platform=platform)
+            readout_type = db.schema.wetlab.readout_type(name=name, platform=platform)
             session.add(readout_type)
             session.commit()
             session.refresh(readout_type)
