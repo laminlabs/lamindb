@@ -51,7 +51,7 @@ class Ingest:
 
     @property
     def status(self) -> dict:
-        """Added files for ingestion."""
+        """Added dobjects for ingestion."""
         return self._added
 
     @property
@@ -82,53 +82,49 @@ class Ingest:
             dobject_v,
         )
 
+        dmem = None
         if isinstance(dobject, (Path, str)):
             # if a file is given, create a dobject
             # TODO: handle compressed files
             filepath = Path(dobject)
         else:
             # if in-memory object is given, return the cache path
+            dmem = dobject
             suffix = infer_file_suffix(dobject)
             if name is None:
                 raise RuntimeError("Provide name if ingesting in memory data.")
             filepath = Path(f"{name}{suffix}")
 
-        # skip feature annotation for store-only files
-        if (filepath.suffix in [".fastq", ".fastqc", ".bam", ".sam", ".png"]) or (
-            feature_model is None
-        ):
-            self._added[filepath] = primary_key
-            return None
+        if feature_model is not None:
+            # load file into memory
+            if isinstance(dobject, (Path, str)):
+                dmem = load_to_memory(dobject)
+            else:
+                dmem = dobject
 
-        # load file into memory
-        if isinstance(dobject, (Path, str)):
-            dmem = load_to_memory(dobject)
-        else:
-            dmem = dobject
+            # curate features
+            # looks for the id column, if none is found, will assume in the index
+            try:
+                df = getattr(dmem, "var")
+            except AttributeError:
+                df = dmem
+            fm = FeatureModel(feature_model)
+            df_curated = fm.curate(df)
+            n = df_curated["__curated__"].count()
+            n_mapped = df_curated["__curated__"].sum()
+            self.logs[filepath] = {
+                "feature": fm.id_type,
+                "n_mapped": n_mapped,
+                "percent_mapped": round(n_mapped / n * 100, 1),
+                "unmapped": df_curated.index[~df_curated["__curated__"]],
+            }
 
-        # curate features
-        # looks for the id column, if none is found, will assume in the index
-        try:
-            df = getattr(dmem, "var")
-        except AttributeError:
-            df = dmem
-        fm = FeatureModel(feature_model)
-        df_curated = fm.curate(df)
-        n = df_curated["__curated__"].count()
-        n_mapped = df_curated["__curated__"].sum()
-        self.logs[filepath] = {
-            "feature": fm.id_type,
-            "n_mapped": n_mapped,
-            "percent_mapped": round(n_mapped / n * 100, 1),
-            "unmapped": df_curated.index[~df_curated["__curated__"]],
-        }
-
-        self._features[filepath] = (fm, df_curated)
+            self._features[filepath] = (fm, df_curated)
 
         self._added[filepath] = primary_key
 
-        if not filepath.exists():
-            write_to_file(filepath)
+        if not filepath.exists() and dmem is not None:
+            write_to_file(dmem, filepath)
 
     def commit(self, jupynb_v=None):
         """Complete ingestion.
