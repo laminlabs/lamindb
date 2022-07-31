@@ -11,7 +11,7 @@ import lamindb as db
 from .._logger import colors, logger
 from ..dev import storage_key_from_triple
 from ..dev.file import load_to_memory, store_file
-from ..dev.object import infer_file_suffix
+from ..dev.object import infer_file_suffix, write_to_file
 from ..meta import FeatureModel
 
 
@@ -128,8 +128,7 @@ class Ingest:
         self._added[filepath] = primary_key
 
         if not filepath.exists():
-            cache_path = filepath
-            logger.info(f"Wrote data object to {cache_path}.")
+            write_to_file(filepath)
 
     def commit(self, jupynb_v=None):
         """Complete ingestion.
