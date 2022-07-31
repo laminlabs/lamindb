@@ -132,7 +132,7 @@ class insert:
     #     engine = settings.instance.db_engine()
 
     #     with sqm.Session(engine) as session:
-    #         readout_type = db.schema.biolab.readout_type(name=name, platform=platform)
+    #         readout_type = db.schema.wetlab.readout_type(name=name, platform=platform)
     #         session.add(readout_type)
     #         session.commit()
     #         session.refresh(readout_type)
@@ -152,7 +152,7 @@ class insert:
         engine = settings.instance.db_engine()
 
         with sqm.Session(engine) as session:
-            biometa = db.schema.biolab.biometa(
+            biometa = db.schema.wetlab.biometa(
                 biosample_id=biosample_id,
                 readout_type_id=readout_type_id,
                 geneset_id=geneset_id,
@@ -164,7 +164,7 @@ class insert:
 
         # also create an entry in the dobject_biometa table
         with sqm.Session(engine) as session:
-            link = db.schema.biolab.dobject_biometa(
+            link = db.schema.wetlab.dobject_biometa(
                 dobject_id=dobject_id, biometa_id=biometa.id
             )
             session.add(link)

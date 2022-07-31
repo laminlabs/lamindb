@@ -6,13 +6,13 @@ For a schematic of relations among models, see :class:`track.schema`.
 
 .. currentmodule:: lamindb.schema
 
-.. autosummary::
-   :toctree: .
+See the API reference of the schema modules:
 
-   core
-   bionty
-   biolab
+- `schema-core <https://lamin.ai/docs/lndb-schema-core/api>`__
+- `schema-bionty <https://lamin.ai/docs/lndb-schema-bionty/api>`__
+- `schema-wetlab <https://lamin.ai/docs/lndb-schema-wetlab/api>`__
 
 """
-from lamindb_schema import core
-from lndb_schema_biology import biolab, bionty
+import lndb_schema_bionty as bionty
+import lndb_schema_core as core
+import lndb_schema_wetlab as wetlab

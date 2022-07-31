@@ -16,12 +16,7 @@ Browse the API:
    dev
    header
 
-To retrieve settings after setup via the CLI, use:
-
-.. autosummary::
-   :toctree: .
-
-   settings
+To retrieve settings, use `db.settings <https://lamin.ai/docs/lndb-setup/lndb_setup.settings>`__.
 """
 from . import _check_versions
 
