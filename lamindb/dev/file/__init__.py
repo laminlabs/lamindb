@@ -16,6 +16,6 @@ Store files:
    store_png
 """
 
-from ._file import store_file
+from ._file import load_to_memory, store_file
 from ._h5ad import h5ad_to_anndata
 from ._images import store_png

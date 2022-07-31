@@ -1,5 +1,3 @@
-from typing import Iterable
-
 import sqlmodel as sqm
 from lamin_logger import logger
 from lndb_schema_core import id
@@ -79,7 +77,7 @@ class insert:
     @classmethod
     def genes(
         cls,
-        genes: Iterable[str],
+        genes_dict: dict,
         geneset_name: str = None,
         species: str = None,
         **kwargs,
@@ -92,33 +90,33 @@ class insert:
 
         # add a geneset to the geneset table
         with sqm.Session(engine) as session:
-            geneset = db.schema.bionty.geneset(
+            featureset = db.schema.bionty.featureset(
+                feature_entity="gene",
                 name=geneset_name,
             )
-            session.add(geneset)
+            session.add(featureset)
             session.commit()
-            session.refresh(geneset)
+            session.refresh(featureset)
 
         # add genes to the gene table
         with sqm.Session(engine) as session:
             genes_ins = []
-            for i in genes:
+            for _, v in genes_dict.items():
                 gene = db.schema.bionty.gene(
-                    symbol=i,
+                    **v,
                     species=species,
-                    **kwargs,
                 )
                 session.add(gene)
                 genes_ins.append(gene)
             session.commit()
-            for i in genes_ins:
-                session.refresh(i)
+            for gene in genes_ins:
+                session.refresh(gene)
 
         # insert ids into the link table
         with sqm.Session(engine) as session:
             for gene in genes_ins:
-                link = db.schema.bionty.geneset_gene(
-                    geneset_id=geneset.id,
+                link = db.schema.bionty.featureset_gene(
+                    geneset_id=featureset.id,
                     gene_id=gene.id,
                 )
                 session.add(link)
@@ -126,20 +124,20 @@ class insert:
 
         settings.instance._update_cloud_sqlite_file()
 
-        return geneset.id
+        return featureset.id
 
-    @classmethod
-    def readout_type(cls, name: str, platform: str = None):
-        """Insert a row in the readout table."""
-        engine = settings.instance.db_engine()
+    # @classmethod
+    # def readout_type(cls, name: str, platform: str = None):
+    #     """Insert a row in the readout table."""
+    #     engine = settings.instance.db_engine()
 
-        with sqm.Session(engine) as session:
-            readout_type = db.schema.biolab.readout_type(name=name, platform=platform)
-            session.add(readout_type)
-            session.commit()
-            session.refresh(readout_type)
+    #     with sqm.Session(engine) as session:
+    #         readout_type = db.schema.biolab.readout_type(name=name, platform=platform)
+    #         session.add(readout_type)
+    #         session.commit()
+    #         session.refresh(readout_type)
 
-        return readout_type.id
+    #     return readout_type.id
 
     @classmethod
     def biometa(

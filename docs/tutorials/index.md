@@ -5,8 +5,8 @@
 
 get-started
 collaborate
+ingest-feature
 ingest-biology
-feature-annotation
 introspect-data
 share
 concepts

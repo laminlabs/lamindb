@@ -13,7 +13,7 @@ dependencies = [
     "lamin_logger",
     "lndb_setup",
     "lndb_hub>=0.2.0",
-    "bioreader",
+    "bioreader>=0.0.4",
     "anndata",
     "boto3",
     "hjson",
@@ -39,7 +39,7 @@ dev = [
     "nox",
 ]
 test = [
-    "bionty",
+    "bionty>=0.1.6",
     "pytest>=6.0",
     "coverage",
     "pytest-cov",

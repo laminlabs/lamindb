@@ -1,13 +1,12 @@
-from typing import Literal, Optional  # noqa
+from typing import Optional  # noqa
 
-from bioreader import vocabulary as vc
+# from bioreader import lookup
 from tabulate import tabulate  # type: ignore
 
 from .._logger import colors, logger
 from ..dev.db import insert
-from ..dev.file import h5ad_to_anndata
-from ..do import query
-from ..schema import core
+
+# from ..do._query import query
 
 
 def anndata_to_df(adata, obs_or_var):
@@ -25,71 +24,56 @@ class annotate:
     """Feature annotation."""
 
     @classmethod
-    def genes(
+    def gene(
         cls,
-        dobject: core.dobject,
+        dobject_id,
+        values: dict,
         species: str,
-        readout_type: vc.READOUT_TYPES,
-        readout_platform: Optional[vc.READOUT_PLATFORMS],
-        column=None,
-        obs_or_var=None,
         geneset_name: str = None,
     ):
         """Annotate genes."""
-        filekey = f"{dobject.id}-{dobject.v}{dobject.file_suffix}"
+        geneset_id = insert.genes(
+            genes_dict=values, geneset_name=geneset_name, species=species
+        )
 
-        if dobject.file_suffix == ".h5ad":
-            adata = h5ad_to_anndata(filekey)
-            df = anndata_to_df(adata, obs_or_var=obs_or_var)
+        # use the geneset_id and readout_type_id to create an entry in biometa
+        biometa_id = insert.biometa(
+            dobject_id=dobject_id,
+            geneset_id=geneset_id,
+        )
 
-            # create a geneset entry
-            genes = df.index.unique().values if column is None else df[column].unique()
-            geneset_id = insert.genes(
-                genes=genes, geneset_name=geneset_name, species=species
-            )
+        logs = [[str(geneset_id), str(biometa_id)]]
+        log_table = tabulate(
+            logs,
+            headers=[
+                colors.green("geneset.id"),
+                colors.purple("biometa.id"),
+            ],
+            tablefmt="pretty",
+        )
+        logger.success(
+            f"Annotated data {dobject_id} with the following features:\n{log_table}",
+        )
 
-            # register the readout if not yet in the database
-            readout_results = query.readout_type(
-                name=readout_type, platform=readout_platform
-            )
-            if len(readout_results) == 0:
-                readout_type_id = insert.readout_type(
-                    name=readout_type, platform=readout_platform
-                )
-            else:
-                readout_type_id = readout_results[0].id
+    # @classmethod
+    # def readout_type(
+    #     cls,
+    #     readout_type: lookup.READOUT_TYPES,
+    #     readout_platform: Optional[lookup.READOUT_PLATFORMS],
+    # ):
+    #     # register the readout if not yet in the database
+    #     readout_results = query.readout_type(
+    #         name=readout_type, platform=readout_platform
+    #     )
+    #     if len(readout_results) == 0:
+    #         readout_type_id = insert.readout_type(
+    #             name=readout_type, platform=readout_platform
+    #         )
+    #     else:
+    #         readout_type_id = readout_results[0].id
 
-            # use the geneset_id and readout_type_id to create an entry in biometa
-            biometa_id = insert.biometa(
-                dobject_id=dobject.id,
-                readout_type_id=readout_type_id,
-                geneset_id=geneset_id,
-            )
+    #     # query biometa
 
-            logs = [[str(geneset_id), str(readout_type_id), str(biometa_id)]]
-            log_table = tabulate(
-                logs,
-                headers=[
-                    colors.green("geneset.id"),
-                    colors.blue("readout_type.id"),
-                    colors.purple("biometa.id"),
-                ],
-                tablefmt="pretty",
-            )
-            logger.success(
-                f"{colors.bold('Annotated the following features')}:\n{log_table}",
-            )
-        else:
-            raise NotImplementedError
+    #     # fill in biometa entries with readout_type_id
 
-    @classmethod
-    def proteinset(cls):
-        NotImplementedError
-
-    @classmethod
-    def biosample(cls):
-        raise NotImplementedError
-
-    @classmethod
-    def readout_type(cls):
-        raise NotImplementedError
+    #     return readout_type_id
