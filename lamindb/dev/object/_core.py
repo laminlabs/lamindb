@@ -1,9 +1,5 @@
-from pathlib import Path
-
 from anndata import AnnData
 from pandas import DataFrame
-
-from ..object import anndata_to_h5ad
 
 
 def infer_file_suffix(dmem):
@@ -16,8 +12,10 @@ def infer_file_suffix(dmem):
         raise NotImplementedError
 
 
-def write_to_file(dmem, filekey: str) -> Path:
+def write_to_file(dmem, filepath: str):
     if isinstance(dmem, AnnData):
-        return anndata_to_h5ad(adata=dmem, filekey=filekey)
+        dmem.write(filepath)
+    elif isinstance(dmem, DataFrame):
+        dmem.to_feather(filepath)
     else:
         raise NotImplementedError
