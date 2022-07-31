@@ -14,5 +14,6 @@ For a schematic of relations among models, see :class:`track.schema`.
    biolab
 
 """
+import lndb_schema_bionty as bionty
+import lndb_schema_wetlab as biolab
 from lamindb_schema import core
-from lndb_schema_biology import biolab, bionty
