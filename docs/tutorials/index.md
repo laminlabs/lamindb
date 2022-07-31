@@ -4,8 +4,7 @@
 :maxdepth: 1
 
 get-started
-ingest-with-feature
-ingest_feature
+ingest-feature
 collaborate
 ingest-biology
 feature-annotation
