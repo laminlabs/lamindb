@@ -15,7 +15,7 @@ class update:
     ):
         """Query biometa by its id to update the entry fields."""
         with Session(settings.instance.db_engine()) as session:
-            biometa = session.get(schema.biolab.biometa, id)
+            biometa = session.get(schema.wetlab.biometa, id)
             for k, v in kwargs.items():
                 biometa.__setattr__(k, int(v))
             session.add(biometa)

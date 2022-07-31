@@ -7,7 +7,7 @@ get-started
 collaborate
 ingest-feature
 ingest-biology
-annotate-metadata
+query-annotate-metadata
 introspect-data
 share
 concepts

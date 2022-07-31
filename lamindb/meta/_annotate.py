@@ -68,7 +68,11 @@ class annotate:
         if len(dobject_biometa) > 0:
             biometa_ids = [i.biometa_id for i in dobject_biometa]
         else:
-            raise AssertionError(f"No biometa found for dobject {dobject_id}")
+            biometa_ids = [insert.biometa(dobject_id=dobject_id)]
+            logger.warning(
+                f"No biometa found for dobject {dobject_id}, created biometa"
+                f" {biometa_ids[0]}"
+            )
 
         # fill in biometa entries with readout_type_id
         for biometa_id in biometa_ids:
