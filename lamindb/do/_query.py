@@ -21,8 +21,8 @@ class query:
     def readout_type(cls, name: str = None, platform: str = None):
         """Query from the readout_type table."""
         with Session(settings.instance.db_engine()) as session:
-            stmt = select(schema.biolab.readout_type).where(
-                schema.biolab.readout_type.name == name, platform == platform
+            stmt = select(schema.wetlab.readout_type).where(
+                schema.wetlab.readout_type.name == name, platform == platform
             )
             # Will remove after this is fixed:
             # https://github.com/tiangolo/sqlmodel/pull/234
