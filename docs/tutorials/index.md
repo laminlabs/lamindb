@@ -5,6 +5,7 @@
 
 get-started
 collaborate
+analyze
 ingest-feature
 ingest-biology
 introspect-data
