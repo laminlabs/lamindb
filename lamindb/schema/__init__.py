@@ -6,11 +6,11 @@ For a schematic of relations among models, see :class:`track.schema`.
 
 .. currentmodule:: lamindb.schema
 
-See the docs of the schema modules:
+See the API reference of the schema modules:
 
-- `schema-core <https://lamin.ai/docs/lndb-schema-core>`__
-- `schema-bionty <https://lamin.ai/docs/lndb-schema-bionty>`__
-- `schema-wetlab <https://lamin.ai/docs/lndb-schema-wetlab>`__
+- `schema-core <https://lamin.ai/docs/lndb-schema-core/api>`__
+- `schema-bionty <https://lamin.ai/docs/lndb-schema-bionty/api>`__
+- `schema-wetlab <https://lamin.ai/docs/lndb-schema-wetlab/api>`__
 
 """
 import lndb_schema_bionty as bionty
