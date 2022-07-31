@@ -4,10 +4,9 @@
 :maxdepth: 1
 
 get-started
-ingest-feature
 collaborate
+ingest-feature
 ingest-biology
-feature-annotation
 introspect-data
 share
 concepts
