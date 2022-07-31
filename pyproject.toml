@@ -11,7 +11,7 @@ dependencies = [
     "lamindb_schema>=0.3.1",
     "lndb_schema_core>=0.2.0",
     "lamin_logger",
-    "lndb_setup>=0.3.1",
+    "lndb_setup>=0.3.2",
     "lndb_hub>=0.2.0",
     "bioreader>=0.0.4",
     "anndata",
