@@ -39,7 +39,7 @@ dev = [
     "nox",
 ]
 test = [
-    "bionty",
+    "bionty>=0.1.6",
     "pytest>=6.0",
     "coverage",
     "pytest-cov",

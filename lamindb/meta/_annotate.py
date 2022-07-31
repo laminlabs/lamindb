@@ -1,6 +1,6 @@
 from typing import Optional  # noqa
 
-from bioreader import vocabulary as vc
+from bioreader import lookup
 from tabulate import tabulate  # type: ignore
 
 from .._logger import colors, logger
@@ -57,8 +57,8 @@ class annotate:
     @classmethod
     def readout_type(
         cls,
-        readout_type: vc.READOUT_TYPES,
-        readout_platform: Optional[vc.READOUT_PLATFORMS],
+        readout_type: lookup.READOUT_TYPES,
+        readout_platform: Optional[lookup.READOUT_PLATFORMS],
     ):
         # register the readout if not yet in the database
         readout_results = query.readout_type(
