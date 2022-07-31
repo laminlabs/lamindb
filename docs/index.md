@@ -3,22 +3,30 @@
 :end-line: 4
 ```
 
-_For background, see [Lamin Blog #3 (2022)](https://lamin.ai/notes/2022/lamindb)._
+Curate, store, track, query, integrate, and learn from biological data.
 
-Interactively curate, store, track, query, and learn from biological data across users and organizations.
+Modular configurable data & analysis platform for hybrid R&D organizations to
 
-Speaks SQL & pydata in queries for biological entities & data provenance. Built for migrations and zero-lock-in.
+<!-- Key features/functionality/capabilities -->
 
-Features:
+1. query low- and high-dimensional data by biological entities ⸻ _organize data in the hypothesis space_
+2. query data by provenance (users, notebooks, pipelines, instruments, etc.) ⸻ _track it all_
+3. share data within and across organizations in an interoperable, reusable way ⸻ _no cleaning anymore_
 
-- Query & track data provenance for pipeline (TODO) & data-science ([nbproject](https://lamin.ai/nbproject)) workflows.
-- Query by canonical biological entities ([Bionty](https://lamin.ai/bionty)) to avoid semantic silos.
-- Track all user modifications of data.
-- Integrate data across users & organizations through universal IDs, backends and overlapping schema.
-- Easily migrate the default schema and storage & database backends.
-- Ingest data from any instrument and receive guidance for integrating and querying it (TODO).
-- Built for the alternating cycle of learning from data and querying data across measured → relevant → derived features.
-- Balance pragmatic, fast-paced R&D iterations and robustness by allowing partial annotations combined with quality & integrity flags.
+<!-- User experience -->
+
+with
+
+1. an intuitive API to connect data and analytics infrastructure
+2. zero lock-in danger due to an open-source & multi-cloud stack
+3. a tool to easily manage schema module migrations in a changing R&D environment
+4. support for learning from data across measured → relevant → derived features
+5. support for fast-paced iterations and "draft data" through data versioning, quality & integrity flags
+
+<!-- High-level technical specification -->
+
+LaminDB is a distributed data management system similar to how git is a distributed version control system.
+Each LaminDB instance is a data warehouse with storage (local directory, S3, GCP, Azure) and a SQL database (SQLite, Postgres, BigQuery) for querying it.
 
 Install:
 
@@ -28,10 +36,16 @@ pip install lamindb
 
 Get started:
 
-- [Tutorials](tutorials/index) walks you through setup and usage of the platform.
-- Explore and play with real-world [examples](examples/index).
-- Browse the full [API reference](api).
-- Look up guides [guides](guides/index) that solve specific problems or illustrate common errors.
+- [Tutorials](tutorials/index) walk you through setup and usage of the platform.
+- Explore real-world [examples](examples/index).
+- Browse the [API reference](api).
+- If you get stuck, see [guides](guides/index) for edge cases & errors.
+
+References:
+
+- See [lamin.ai/docs](https://lamin.ai/docs) for an overview of associated open-source modules.
+- [Reach out](https://lamin.ai/contact) to learn about modules that connect your assays, pipelines, instruments & workflows within our data platform enterprise offer.
+- Read the following reports to learn about technology underlying LaminDB: ...
 
 ```{toctree}
 :maxdepth: 1

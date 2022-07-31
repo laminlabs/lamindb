@@ -14,6 +14,7 @@ Browse the API:
    meta
    track
    dev
+   header
 
 To retrieve settings after setup via the CLI, use:
 
@@ -26,6 +27,7 @@ from . import _check_versions
 
 __version__ = "0.1.2"
 from lndb_setup import settings  # noqa
+from nbproject import header  # noqa
 
 from . import dev  # noqa
 from . import do  # noqa

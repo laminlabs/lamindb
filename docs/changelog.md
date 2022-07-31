@@ -5,8 +5,10 @@
 Towards version 0.1.
 
 <!-- prettier-ignore -->
-Name | PR | User | Date | Patch
+Name | PR | Developer | Date | Version
 --- | --- | --- | --- | ---
+📝 Re-write landing page | [109](https://github.com/laminlabs/lamindb/pull/109) | [falexwolf](https://github.com/falexwolf) | 2022-07-30 |
+📝 Improve `get-started` and `collaborate` tutorials | [108](https://github.com/laminlabs/lamindb/pull/108) | [falexwolf](https://github.com/falexwolf) | 2022-07-30 |
 ⬆️ Upgrade to `lndb_schema_core` 0.2.0 | [106](https://github.com/laminlabs/lamindb/pull/106) | [falexwolf](https://github.com/falexwolf) | 2022-07-29 |
 🚚 Move out `lndb_hub` | [105](https://github.com/laminlabs/lamindb/pull/105) | [falexwolf](https://github.com/falexwolf) | 2022-07-29 |
 ♻️ Refactor sharing on the hub | [104](https://github.com/laminlabs/lamindb/pull/104) | [falexwolf](https://github.com/falexwolf) | 2022-07-29 |
@@ -85,4 +87,13 @@ Name | PR | User | Date | Patch
 ♻️ Refactor `lndb.db` | [16](https://github.com/laminlabs/lamindb/pull/16) | [falexwolf](https://github.com/falexwolf) | |
 🔧 Refactor `lndb.settings` | [15](https://github.com/laminlabs/lamindb/pull/15) | [falexwolf](https://github.com/falexwolf) | |
 🔥 Remove versioneer | [14](https://github.com/laminlabs/lamindb/pull/14) | [falexwolf](https://github.com/falexwolf) | |
+👷 Track changes as in `cookiecutter-py` 0.3.0 | [13](https://github.com/laminlabs/lamindb/pull/13) | [falexwolf](https://github.com/falexwolf) | 2022-06-07 |
+🏗️ Basic file ingestion from a notebook | [9](https://github.com/laminlabs/lamindb/pull/9) | [falexwolf](https://github.com/falexwolf) | 2022-06-06 |
+🔥 Remove `sqlmodel` dependency | [8](https://github.com/laminlabs/lamindb/pull/8) | [falexwolf](https://github.com/falexwolf) | 2022-06-04 |
+📄 Change format of license file | [7](https://github.com/laminlabs/lamindb/pull/7) | [falexwolf](https://github.com/falexwolf) | 2022-05-23 |
+📝 Fix guides link | [6](https://github.com/laminlabs/lamindb/pull/6) | [falexwolf](https://github.com/falexwolf) | 2022-05-26 |
+♻️ Update to cookiecutter 0.2.0 | [5](https://github.com/laminlabs/lamindb/pull/5) | [falexwolf](https://github.com/falexwolf) | 2022-05-23 |
+💄 More narrow sidebar | [4](https://github.com/laminlabs/lamindb/pull/4) | [falexwolf](https://github.com/falexwolf) | 2022-05-11 |
+💄 Switch `guides` and `api` | [3](https://github.com/laminlabs/lamindb/pull/3) | [falexwolf](https://github.com/falexwolf) | 2022-05-11 |
+📝 Polish the documentation | [2](https://github.com/laminlabs/lamindb/pull/2) | [falexwolf](https://github.com/falexwolf) | 2022-05-11 |
 🚚 Migrated from `lamin` repository | [1](https://github.com/laminlabs/lamindb/pull/1) | [falexwolf](https://github.com/falexwolf) | |

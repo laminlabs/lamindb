@@ -4,8 +4,11 @@
 :maxdepth: 1
 
 get-started
-add-user
 ingest-with-feature
+ingest_feature
+collaborate
+ingest-biology
+feature-annotation
 introspect-data
 share
 concepts
