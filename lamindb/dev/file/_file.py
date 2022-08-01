@@ -4,10 +4,16 @@ from typing import Union
 
 import anndata as ad
 import pandas as pd
+import readfcs
 from cloudpathlib import CloudPath
 from lndb_setup import settings
 
-READER_FUNCS = {".csv": pd.read_csv, ".h5ad": ad.read, ".feather": pd.read_feather}
+READER_FUNCS = {
+    ".csv": pd.read_csv,
+    ".h5ad": ad.read,
+    ".feather": pd.read_feather,
+    ".fcs": readfcs.read,
+}
 
 
 def store_file(filepath: Union[str, Path], filekey: str):
