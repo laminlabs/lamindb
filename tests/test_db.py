@@ -20,7 +20,7 @@ def test_create_to_load():
         jupynb_name="test",
     )
     for entity in lndb.track.schema.entities:
-        lndb.do.load(entity)
+        lndb.do.load.entity(entity)
 
     (storage / "mydata.lndb").unlink()
 
