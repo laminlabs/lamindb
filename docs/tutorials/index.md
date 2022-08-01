@@ -4,7 +4,7 @@
 :maxdepth: 1
 
 get-started
-query
+query-data
 ingest-feature
 query-annotate-metadata
 introspect-data
