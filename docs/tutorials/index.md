@@ -4,12 +4,11 @@
 :maxdepth: 1
 
 get-started
-collaborate
-analyze
+query
 ingest-feature
-ingest-biology
 query-annotate-metadata
 introspect-data
+collaborate
 share
 concepts
 ```

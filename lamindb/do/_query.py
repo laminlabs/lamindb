@@ -57,6 +57,24 @@ class query:
         return _query_stmt(statement=stmt, results_type="all")
 
     @classmethod
+    def user(cls, id: str = None, email: str = None, handle: str = None):
+        """Query from the user table."""
+        kwargs = locals()
+        schema_module = schema.core.user
+        stmt = _chain_select_stmt(kwargs=kwargs, schema_module=schema_module)
+        return _query_stmt(statement=stmt, results_type="all")
+
+    @classmethod
+    def jupynb(
+        cls, id: str = None, v: str = None, name: str = None, user_id: str = None
+    ):
+        """Query from the jupynb table."""
+        kwargs = locals()
+        schema_module = schema.core.user
+        stmt = _chain_select_stmt(kwargs=kwargs, schema_module=schema_module)
+        return _query_stmt(statement=stmt, results_type="all")
+
+    @classmethod
     def readout_type(cls, name: str = None, platform: str = None):
         """Query from the readout_type table."""
         kwargs = locals()
@@ -74,11 +92,28 @@ class query:
     @classmethod
     def biometa(
         cls,
+        id: int = None,
         biosample_id: int = None,
         readout_type_id: int = None,
         featureset_id: int = None,
+        dobject_id: str = None,
     ):
+        """Query from biometa.
+
+        If dobject_id is provided, will search in the dobject_biometa first.
+        """
         kwargs = locals()
+        del kwargs["dobject_id"]
         schema_module = schema.wetlab.biometa
         stmt = _chain_select_stmt(kwargs=kwargs, schema_module=schema_module)
-        return _query_stmt(statement=stmt, results_type="all")
+        results = _query_stmt(statement=stmt, results_type="all")
+        # dobject_id is given, will only return results associated with dobject_id
+        if dobject_id is not None:
+            biometas = cls.dobject_biometa(dobject_id=dobject_id)
+            if len(biometas) == 0:
+                return biometas
+            else:
+                biometa_ids = [i.biometa_id for i in biometas]
+                return [i for i in results if i.id in biometa_ids]
+        else:
+            return results

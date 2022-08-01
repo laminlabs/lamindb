@@ -57,7 +57,7 @@ class Ingest:
     @property
     def logs(self) -> dict:
         """Logs of feature annotation."""
-        return self._logs
+        return {k.as_posix(): v for k, v in self._logs.items()}
 
     def add(
         self,
@@ -112,7 +112,7 @@ class Ingest:
             df_curated = fm.curate(df)
             n = df_curated["__curated__"].count()
             n_mapped = df_curated["__curated__"].sum()
-            self.logs[filepath] = {
+            self._logs[filepath] = {
                 "feature": fm.id_type,
                 "n_mapped": n_mapped,
                 "percent_mapped": round(n_mapped / n * 100, 1),
