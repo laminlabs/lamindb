@@ -15,6 +15,7 @@ Browse the API:
    track
    dev
    header
+   session
 
 To retrieve settings, use `db.settings <https://lamin.ai/docs/lndb-setup/lndb_setup.settings>`__.
 """
@@ -28,3 +29,4 @@ from . import dev  # noqa
 from . import do  # noqa
 from . import schema  # noqa
 from . import track  # noqa
+from .dev.db import session  # noqa
