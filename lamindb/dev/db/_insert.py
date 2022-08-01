@@ -116,7 +116,7 @@ class insert:
         with sqm.Session(engine) as session:
             for gene in genes_ins:
                 link = db.schema.bionty.featureset_gene(
-                    geneset_id=featureset.id,
+                    featureset_id=featureset.id,
                     gene_id=gene.id,
                 )
                 session.add(link)
