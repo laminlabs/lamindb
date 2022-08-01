@@ -18,6 +18,9 @@ def build(session):
     session.install("pip==22.1.2")
     session.install(".[dev,test]")
     session.run(
+        "lndb kurt.hein@gmx.de --password uIoEGyiCj0qcXbGhTpOAuY6CH86xauzAsOSlp95A"
+    )
+    session.run(
         "pytest",
         "-s",
         "--cov=lamindb",
