@@ -1,26 +1,26 @@
 from pathlib import Path
 
-from lndb_setup import init_instance, log_in_user
+import lndb_setup
 
-import lamindb as lndb
+import lamindb as db
 
 
 def test_create_to_load():
     storage = Path.home() / "mydata"
-    log_in_user(
+    lndb_setup.login(
         email="raspbear@gmx.de",
         secret="MmR4YuQEyb0yxu7dAwJZTjLzR1Az2lN4Q4IduDlO",
     )
-    init_instance(storage=storage)
-    lndb.dev.db.insert.dobject_from_jupynb(
+    lndb_setup.init(storage=storage)
+    db.dev.db.insert.dobject_from_jupynb(
         name="test_file",
         file_suffix=".csv",
         jupynb_id="83jf",
         jupynb_v="1",
         jupynb_name="test",
     )
-    for entity in lndb.track.schema.entities:
-        lndb.do.load.entity(entity)
+    for entity in db.track.schema.entities:
+        db.do.load.entity(entity)
 
     (storage / "mydata.lndb").unlink()
 
