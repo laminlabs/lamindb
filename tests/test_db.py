@@ -8,8 +8,8 @@ import lamindb as db
 def test_create_to_load():
     storage = Path.home() / "mydata"
     lndb_setup.login(
-        email="raspbear@gmx.de",
-        secret="MmR4YuQEyb0yxu7dAwJZTjLzR1Az2lN4Q4IduDlO",
+        "raspbear@gmx.de",
+        password="MmR4YuQEyb0yxu7dAwJZTjLzR1Az2lN4Q4IduDlO",
     )
     lndb_setup.init(storage=storage)
     db.dev.db.insert.dobject_from_jupynb(
