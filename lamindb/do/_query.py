@@ -67,7 +67,9 @@ class query:
             for i in biometas:
                 dobjects += cls.dobject_biometa(biometa_id=i.id)
 
-        return [i for i in results if i.id in [j.dobject_id for j in dobjects]]
+            return [i for i in results if i.id in [j.dobject_id for j in dobjects]]
+        else:
+            return results
 
     @classmethod
     def user(cls, id: str = None, email: str = None, handle: str = None):
@@ -165,4 +167,6 @@ class query:
             featuresets = cls.featureset_gene(gene_id=gene_id)
             featureset_ids = [i.featureset_id for i in featuresets]
 
-        return [i for i in results if i.id in featureset_ids]
+            return [i for i in results if i.id in featureset_ids]
+        else:
+            return results
