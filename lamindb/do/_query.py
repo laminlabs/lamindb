@@ -75,7 +75,7 @@ class query:
         return _query_stmt(statement=stmt, results_type="all")
 
     @classmethod
-    def readout_type(cls, name: str = None, platform: str = None):
+    def readout_type(cls, id: int = None, name: str = None, platform: str = None):
         """Query from the readout_type table."""
         kwargs = locals()
         schema_module = schema.wetlab.readout_type
@@ -83,10 +83,11 @@ class query:
         return _query_stmt(statement=stmt, results_type="all")
 
     @classmethod
-    def dobject_biometa(cls, dobject_id: str):
-        """Query biometa from the dobject_biometa table."""
+    def dobject_biometa(cls, dobject_id: str = None, biometa_id: str = None):
+        """Query from the dobject_biometa table."""
+        kwargs = locals()
         schema_module = schema.wetlab.dobject_biometa
-        stmt = select(schema_module).where(schema_module.dobject_id == dobject_id)
+        stmt = _chain_select_stmt(kwargs=kwargs, schema_module=schema_module)
         return _query_stmt(statement=stmt, results_type="all")
 
     @classmethod
