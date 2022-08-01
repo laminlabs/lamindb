@@ -24,7 +24,7 @@ class insert:
         """Data object with its origin."""
         engine = settings.instance.db_engine()
 
-        df_jupynb = db.do.load("jupynb")
+        df_jupynb = db.do.load.dobject("jupynb")
         if jupynb_id not in df_jupynb.index:
             with sqm.Session(engine) as session:
                 jupynb = db.schema.core.jupynb(
