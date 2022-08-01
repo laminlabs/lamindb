@@ -17,6 +17,10 @@ def lint(session: nox.Session) -> None:
 def build(session):
     session.install("pip==22.1.2")
     session.install(".[dev,test]")
+    login_user_1 = "lndb login raspbear@gmx.de --password MmR4YuQEyb0yxu7dAwJZTjLzR1Az2lN4Q4IduDlO"  # noqa
+    login_user_2 = "lndb login kurt.hein@gmx.de --password uIoEGyiCj0qcXbGhTpOAuY6CH86xauzAsOSlp95A"  # noqa
+    session.run(*(login_user_1.split(" ")))
+    session.run(*(login_user_2.split(" ")))
     session.run(
         "pytest",
         "-s",
