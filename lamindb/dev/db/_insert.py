@@ -31,13 +31,13 @@ class insert:
                     id=jupynb_id,
                     v=jupynb_v,
                     name=jupynb_name,
-                    user_id=settings.user.user_id,
+                    user_id=settings.user.id,
                 )
                 session.add(jupynb)
                 session.commit()
             logger.info(
                 f"Added notebook {jupynb_name!r} ({jupynb_id}, {jupynb_v}) by"
-                f" user {settings.user.user_email} ({settings.user.user_id})."
+                f" user {settings.user.handle} ({settings.user.id})."
             )
 
         with sqm.Session(engine) as session:

@@ -18,7 +18,7 @@ from ..meta import FeatureModel
 def track_ingest(dobject_id, dobject_v):
     from nbproject import meta
 
-    user_id = settings.user.user_id
+    user_id = settings.user.id
 
     jupynb_id = meta.store.id
     jupynb_v = meta.store.version
@@ -172,7 +172,7 @@ class Ingest:
                 [
                     f"{filepath.name} ({dobject_id}, {dobject_v})",
                     f"{jupynb_name!r} ({jupynb_id}, {jupynb_v})",
-                    f"{settings.user.user_email} ({settings.user.user_id})",
+                    f"{settings.user.handle} ({settings.user.id})",
                 ]
             )
 
