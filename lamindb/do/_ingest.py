@@ -52,7 +52,7 @@ class Ingest:
     @property
     def status(self) -> dict:
         """Added dobjects for ingestion."""
-        return self._added
+        return {k.as_posix(): v for k, v in self._added.items()}
 
     @property
     def logs(self) -> dict:
@@ -147,7 +147,7 @@ class Ingest:
         jupynb_id = meta.store.id
         jupynb_v = dev.set_version(jupynb_v)  # version to be set in publish()
         jupynb_name = meta.live.title
-        for filepath, (dobject_id, dobject_v) in self.status.items():
+        for filepath, (dobject_id, dobject_v) in self._added.items():
             dobject_id = insert.dobject_from_jupynb(
                 name=filepath.stem,
                 file_suffix=filepath.suffix,
