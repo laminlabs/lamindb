@@ -28,6 +28,7 @@ dependencies = [
     "supabase",
     "python-dotenv",
     "nbproject>=0.4.1",
+    "readfcs>=0.1.2",
 ]
 
 [project.urls]
