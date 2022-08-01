@@ -152,4 +152,5 @@ dmypy.json
 # data files
 data/
 **/data/
+**/mydata/
 _build

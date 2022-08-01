@@ -52,12 +52,12 @@ class Ingest:
     @property
     def status(self) -> dict:
         """Added dobjects for ingestion."""
-        return self._added
+        return {k.as_posix(): v for k, v in self._added.items()}
 
     @property
     def logs(self) -> dict:
         """Logs of feature annotation."""
-        return self._logs
+        return {k.as_posix(): v for k, v in self._logs.items()}
 
     def add(
         self,
@@ -112,7 +112,7 @@ class Ingest:
             df_curated = fm.curate(df)
             n = df_curated["__curated__"].count()
             n_mapped = df_curated["__curated__"].sum()
-            self.logs[filepath] = {
+            self._logs[filepath] = {
                 "feature": fm.id_type,
                 "n_mapped": n_mapped,
                 "percent_mapped": round(n_mapped / n * 100, 1),
@@ -147,7 +147,7 @@ class Ingest:
         jupynb_id = meta.store.id
         jupynb_v = dev.set_version(jupynb_v)  # version to be set in publish()
         jupynb_name = meta.live.title
-        for filepath, (dobject_id, dobject_v) in self.status.items():
+        for filepath, (dobject_id, dobject_v) in self._added.items():
             dobject_id = insert.dobject_from_jupynb(
                 name=filepath.stem,
                 file_suffix=filepath.suffix,
