@@ -6,7 +6,7 @@
 get-started
 query-and-load
 link-features
-query-annotate-metadata
-introspect-data
+link-samples
+introspect
 share-cross-org
 ```
