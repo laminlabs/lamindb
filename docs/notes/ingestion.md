@@ -1,4 +1,4 @@
-# Concepts
+# Ingestion
 
 **Problem:** We have some data from somewhere and we want to store it. We call this process _ingestion_.
 
@@ -12,5 +12,3 @@ A few defintions & rationales:
 
 - Data curation is the process that makes data ingestion succeed.
 - If you don't curate sufficiently (and you can configure what the means), you'll not be able to ingest.
-
-We primarily work with base62 primary keys.

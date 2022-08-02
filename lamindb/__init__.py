@@ -13,6 +13,7 @@ Browse the API:
    schema
    meta
    track
+   datasets
    dev
    header
    session
@@ -25,6 +26,7 @@ __version__ = "0.1.2"
 from lndb_setup import settings  # noqa
 from nbproject import header  # noqa
 
+from . import datasets  # noqa
 from . import dev  # noqa
 from . import do  # noqa
 from . import schema  # noqa
