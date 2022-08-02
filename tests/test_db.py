@@ -6,7 +6,7 @@ import lamindb as db
 
 
 def test_create_to_load():
-    storage = Path.home() / "mydata"
+    storage = "mydata-test-db"
     lndb_setup.login(
         "raspbear@gmx.de",
         password="MmR4YuQEyb0yxu7dAwJZTjLzR1Az2lN4Q4IduDlO",
@@ -22,7 +22,12 @@ def test_create_to_load():
     for entity in db.track.schema.entities:
         db.do.load.entity(entity)
 
-    (storage / "mydata.lndb").unlink()
+    (Path(storage) / "mydata-test-db.lndb").unlink()
+    # Note that this merely removes database file but doesn't clean out the instance_settings file!  # noqa
+    # Hence, we need to also clean that out:
+    from lndb_setup._settings_store import current_instance_settings_file
+
+    current_instance_settings_file.unlink()
 
 
 if __name__ == "__main__":
