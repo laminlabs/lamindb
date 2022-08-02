@@ -20,7 +20,7 @@ def test_create_to_load():
     for entity in db.track.schema.entities:
         db.do.load.entity(entity)
 
-    (storage / "mydata.lndb").unlink()
+    (storage / "mydata-test-db.lndb").unlink()
 
 
 if __name__ == "__main__":
