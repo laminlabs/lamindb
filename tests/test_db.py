@@ -1,12 +1,10 @@
-from pathlib import Path
-
 import lndb_setup
 
 import lamindb as db
 
 
 def test_create_to_load():
-    storage = Path.home() / "mydata"
+    storage = "mydata-test-db"
     lndb_setup.login(
         "raspbear@gmx.de",
         password="MmR4YuQEyb0yxu7dAwJZTjLzR1Az2lN4Q4IduDlO",
