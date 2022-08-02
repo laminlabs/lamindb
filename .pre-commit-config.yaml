@@ -42,7 +42,7 @@ repos:
               docs/examples/|
               docs/notes/|
               docs/tutorials/get-started.ipynb|
-              docs/tutorials/collaborate.ipynb
+              docs/tutorials/link-features.ipynb
           )
   - repo: https://github.com/Lucas-C/pre-commit-hooks
     rev: v1.1.9

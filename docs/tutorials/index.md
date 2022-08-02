@@ -4,11 +4,9 @@
 :maxdepth: 1
 
 get-started
-query-data
-ingest-feature
-query-annotate-metadata
-introspect-data
-collaborate
-share
-concepts
+query-and-load
+link-features
+link-samples
+introspect
+share-cross-org
 ```
