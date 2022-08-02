@@ -8,6 +8,5 @@ query-and-load
 link-features
 query-annotate-metadata
 introspect-data
-collaborate
 share-cross-org
 ```

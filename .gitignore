@@ -15,6 +15,7 @@ docs/generated/*
 _docs_tmp*
 docs/tutorials/Laminopathic_nuclei.jpg
 docs/tutorials/iris.feather
+docs/tutorials/paradisi05_laminopathic_nuclei.jpg
 
 # General
 .DS_Store
