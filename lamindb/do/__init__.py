@@ -17,6 +17,13 @@ Modify data:
    update
    delete
 
+Link features and metadata:
+
+.. autosummary::
+   :toctree: .
+
+   link
+
 Share data on the hub:
 
 .. autosummary::
