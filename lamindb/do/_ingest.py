@@ -12,7 +12,7 @@ from .._logger import colors, logger
 from ..dev import storage_key_from_triple
 from ..dev.file import load_to_memory, store_file
 from ..dev.object import infer_file_suffix, write_to_file
-from ..meta import FeatureModel
+from ._link import FeatureModel
 
 
 def track_ingest(dobject_id, dobject_v):
