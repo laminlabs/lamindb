@@ -1,16 +1,63 @@
 from typing import Optional  # noqa
 
+import pandas as pd
 from bioreader import lookup
 from tabulate import tabulate  # type: ignore
 
 from .._logger import colors, logger
 from ..dev.db import insert
-from ..do._query import query
-from ..do._update import update
+from ._query import query
+from ._update import update
 
 
-class annotate:
-    """Feature annotation."""
+class FeatureModel:
+    def __init__(self, entity_model) -> None:
+        self._entity_model = entity_model
+
+    @property
+    def entity(self):
+        """Correspond to the feature entity table."""
+        return self._entity_model.entity
+
+    @property
+    def id_type(self):
+        """Type of id used for curation."""
+        return self._entity_model._id_field
+
+    @property
+    def species(self):
+        """Species."""
+        return self._entity_model.species
+
+    @property
+    def df(self):
+        """Reference table."""
+        return self._entity_model.df
+
+    def curate(self, df: pd.DataFrame):
+        if self.id_type in df.columns:
+            return self._entity_model.curate(df=df, column=self.id_type)
+        else:
+            logger.warning(f"{self.id_type} column not found, using index as features.")
+            return self._entity_model.curate(df=df, column=None)
+
+    def ingest(self, dobject_id, df_curated):
+        """Ingest features."""
+        link_feature = getattr(link, self.entity)
+        mapped_df = self.df.loc[df_curated.index[df_curated["__curated__"]]].copy()
+        mapped_dict = {}
+        for i, row in mapped_df.iterrows():
+            mapped_dict[i] = pd.concat([row, pd.Series([i], index=[self.id_type])])
+
+        link_feature(
+            dobject_id=dobject_id,
+            values=mapped_dict,
+            species=self.species,
+        )
+
+
+class link:
+    """Link features and metadata to data."""
 
     @classmethod
     def gene(
