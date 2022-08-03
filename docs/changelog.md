@@ -3,6 +3,7 @@
 <!-- prettier-ignore -->
 Name | PR | Developer | Date | Version
 --- | --- | --- | --- | ---
+:arrow_up: Upgrade to lndb_setup 0.5.0 | [128](https://github.com/laminlabs/lamindb/pull/128) | [falexwolf](https://github.com/falexwolf) | 2022-08-03 |
 ⬆️ Upgrade to `lndb_schema_core` 0.3.0 | [127](https://github.com/laminlabs/lamindb/pull/127) | [falexwolf](https://github.com/falexwolf) | 2022-08-03 |
 🚚 Renamed `meta.annotate` to `do.link` | [126](https://github.com/laminlabs/lamindb/pull/126) | [sunnyosun](https://github.com/sunnyosun) | 2022-08-03 |
 👷 Cleaner CI environment switching | [125](https://github.com/laminlabs/lamindb/pull/125) | [falexwolf](https://github.com/falexwolf) | 2022-08-02 | 0.2.1
