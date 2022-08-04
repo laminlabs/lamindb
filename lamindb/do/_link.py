@@ -1,7 +1,7 @@
 from typing import Optional  # noqa
 
 import pandas as pd
-from bioreader import lookup
+from bioreadout import lookup
 from tabulate import tabulate  # type: ignore
 
 from .._logger import colors, logger
