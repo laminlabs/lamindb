@@ -75,6 +75,30 @@ class insert:
         return dobject.id
 
     @classmethod
+    def species(cls, common_name: str):
+        """Insert a species."""
+        species_results = db.do.query.species(common_name=common_name)
+        if len(species_results) > 1:
+            raise AssertionError(f"Multiple entries are associated with {common_name}!")
+        elif len(species_results) == 1:
+            return species_results[0].id
+        else:
+            engine = settings.instance.db_engine()
+
+            from bionty import Species
+
+            entry = {"common_name": common_name}
+            entry.update(Species().df.loc[common_name])
+            with sqm.Session(engine) as session:
+                species = db.schema.bionty.species(**entry)
+                session.add(species)
+                session.commit()
+                session.refresh(species)
+            logger.success(f"Registered readout_type: {species.id}")
+
+            return species.id
+
+    @classmethod
     def genes(
         cls,
         genes_dict: dict,
@@ -127,17 +151,34 @@ class insert:
         return featureset.id
 
     @classmethod
-    def readout_type(cls, name: str, platform: str = None):
+    def readout_type(cls, efo_id: str):
         """Insert a row in the readout table."""
-        engine = settings.instance.db_engine()
+        assert sum(i.isdigit() for i in efo_id) == 7
+        efo_id = efo_id.replace("_", ":")
 
-        with sqm.Session(engine) as session:
-            readout_type = db.schema.wetlab.readout_type(name=name, platform=platform)
-            session.add(readout_type)
-            session.commit()
-            session.refresh(readout_type)
+        # check if entry already exists
+        readout_results = db.do.query.readout_type(efo_id=efo_id)
+        if len(readout_results) > 1:
+            raise AssertionError(f"Multiple entries are associated with {efo_id}!")
+        elif len(readout_results) == 1:
+            return readout_results[0].id
+        else:
+            engine = settings.instance.db_engine()
 
-        return readout_type.id
+            from bioreadout import readout_type
+
+            entry = readout_type(efo_id=efo_id)
+            for k, v in entry.items():
+                if isinstance(v, list):
+                    entry[k] = ";".join(v)
+            with sqm.Session(engine) as session:
+                readout_type = db.schema.wetlab.readout_type(**entry)
+                session.add(readout_type)
+                session.commit()
+                session.refresh(readout_type)
+            logger.success(f"Registered readout_type: {readout_type.id}")
+
+            return readout_type.id
 
     @classmethod
     def biometa(
