@@ -1,7 +1,6 @@
 from typing import Optional  # noqa
 
 import pandas as pd
-from bioreadout import lookup
 from tabulate import tabulate  # type: ignore
 
 from .._logger import colors, logger
@@ -68,6 +67,7 @@ class link:
         geneset_name: str = None,
     ):
         """Annotate genes."""
+        species_id = insert.species(common_name=species)
         geneset_id = insert.genes(
             genes_dict=values, geneset_name=geneset_name, species=species
         )
@@ -78,12 +78,13 @@ class link:
             featureset_id=geneset_id,
         )
 
-        logs = [[str(geneset_id), str(biometa_id)]]
+        logs = [[str(geneset_id), str(biometa_id), str(species_id)]]
         log_table = tabulate(
             logs,
             headers=[
                 colors.green("geneset.id"),
                 colors.purple("biometa.id"),
+                colors.blue("species.id"),
             ],
             tablefmt="pretty",
         )
@@ -92,23 +93,9 @@ class link:
         )
 
     @classmethod
-    def readout_type(
-        cls,
-        dobject_id,
-        readout_type: lookup.READOUT_TYPES,
-        readout_platform: Optional[lookup.READOUT_PLATFORMS],
-    ):
-        # register the readout if not yet in the database
-        readout_results = query.readout_type(
-            name=readout_type, platform=readout_platform
-        )
-        if len(readout_results) == 0:
-            readout_type_id = insert.readout_type(
-                name=readout_type, platform=readout_platform
-            )
-            logger.success(f"Registered readout_type: {readout_type_id}")
-        else:
-            readout_type_id = readout_results[0].id
+    def readout_type(cls, dobject_id, efo_id: str):
+        """Link readout_type."""
+        readout_type_id = insert.readout_type(efo_id=efo_id)
 
         # query biometa associated with a dobject
         dobject_biometa = query.dobject_biometa(dobject_id=dobject_id)

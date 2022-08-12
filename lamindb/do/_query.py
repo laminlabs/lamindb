@@ -90,7 +90,15 @@ class query:
         return _query_stmt(statement=stmt, results_type="all")
 
     @classmethod
-    def readout_type(cls, id: int = None, name: str = None, platform: str = None):
+    def readout_type(
+        cls,
+        id: int = None,
+        efo_id: str = None,
+        name: str = None,
+        molecule: str = None,
+        instrument: str = None,
+        measurement: str = None,
+    ):
         """Query from the readout_type table."""
         kwargs = locals()
         schema_module = schema.wetlab.readout_type
@@ -170,3 +178,17 @@ class query:
             return [i for i in results if i.id in featureset_ids]
         else:
             return results
+
+    @classmethod
+    def species(
+        cls,
+        id: int = None,
+        common_name: str = None,
+        taxon_id: str = None,
+        scientific_name: str = None,
+        short_name: str = None,
+    ):
+        kwargs = locals()
+        schema_module = schema.bionty.species
+        stmt = _chain_select_stmt(kwargs=kwargs, schema_module=schema_module)
+        return _query_stmt(statement=stmt, results_type="all")
