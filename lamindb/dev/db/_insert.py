@@ -102,14 +102,40 @@ class insert:
     def genes(
         cls,
         genes_dict: dict,
+        species: str,
         geneset_name: str = None,
-        species: str = None,
         **kwargs,
     ):
         """Insert a geneset.
 
-        Mmeanwhile inserting genes and linking them to the geneset.
+        Meanwhile inserting genes and linking them to the geneset.
         """
+        species_id = cls.species(common_name=species)
+
+        # check if geneset exists
+        if geneset_name is not None:
+            geneset_results = db.do.query.featureset(
+                feature_entity="gene",
+                name=geneset_name,
+            )
+            if len(geneset_results) > 1:
+                raise AssertionError(
+                    f"Multiple entries are associated with {geneset_name}!"
+                )
+            elif len(geneset_results) == 1:
+                logger.warning(f"Geneset {geneset_name} already exists!")
+                return geneset_results[0].id
+
+        # get the id field
+        gene_id = genes_dict[next(iter(genes_dict))].keys()[-1]
+        allgenes = db.do.query.gene(species=species_id)
+        # only ingest the new genes but link all genes to the geneset
+        exist_gene_keys = set()
+        exist_gene_ids = set()
+        for gene in allgenes:
+            exist_gene_keys.add(gene.__getattribute__(gene_id))
+            exist_gene_ids.add(gene.id)
+
         engine = settings.instance.db_engine()
 
         # add a geneset to the geneset table
@@ -125,10 +151,12 @@ class insert:
         # add genes to the gene table
         with sqm.Session(engine) as session:
             genes_ins = []
-            for _, v in genes_dict.items():
+            for k, v in genes_dict.items():
+                if k in exist_gene_keys:
+                    continue
                 gene = db.schema.bionty.gene(
                     **v,
-                    species=species,
+                    species=species_id,
                 )
                 session.add(gene)
                 genes_ins.append(gene)
@@ -137,11 +165,13 @@ class insert:
                 session.refresh(gene)
 
         # insert ids into the link table
+        gene_ids = [i.id for i in genes_ins]
+        gene_ids += exist_gene_ids
         with sqm.Session(engine) as session:
-            for gene in genes_ins:
+            for gene_id in gene_ids:
                 link = db.schema.bionty.featureset_gene(
                     featureset_id=featureset.id,
-                    gene_id=gene.id,
+                    gene_id=gene_id,
                 )
                 session.add(link)
             session.commit()
