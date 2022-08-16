@@ -159,6 +159,10 @@ class query:
         gene: str = None,
         protein: str = None,
     ):
+        """Query the featureset table.
+
+        Can also query a gene or a protein linked to featuresets.
+        """
         kwargs = locals()
         del kwargs["gene"]
         del kwargs["protein"]
@@ -190,5 +194,30 @@ class query:
     ):
         kwargs = locals()
         schema_module = schema.bionty.species
+        stmt = _chain_select_stmt(kwargs=kwargs, schema_module=schema_module)
+        return _query_stmt(statement=stmt, results_type="all")
+
+    @classmethod
+    def gene(
+        cls,
+        id: int = None,
+        hgnc_symbol: str = None,
+        mgi_symbol: str = None,
+        species: int = None,
+        name: str = None,
+        hgnc_id: str = None,
+        entrez_gene_id: int = None,
+        ensembl_gene_id: str = None,
+        alias_symbol: str = None,
+        locus_group: str = None,
+        locus_type: str = None,
+        location: str = None,
+        vega_id: str = None,
+        ucsc_id: str = None,
+        rgd_id: str = None,
+        omim_id: str = None,
+    ):
+        kwargs = locals()
+        schema_module = schema.bionty.gene
         stmt = _chain_select_stmt(kwargs=kwargs, schema_module=schema_module)
         return _query_stmt(statement=stmt, results_type="all")
