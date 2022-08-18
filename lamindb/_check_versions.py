@@ -13,5 +13,5 @@ if version.parse(lndb_setup_v) < version.parse("0.5.2"):
 if version.parse(lndb_hub_v) < version.parse("0.3.2"):
     raise RuntimeError("lamindb needs lndb_hub >= 0.3.2")
 
-if version.parse(lndb_schema_core_v) < version.parse("0.3.0"):
-    raise RuntimeError("lamindb needs lndb_schema_core >= 0.3.0")
+if version.parse(lndb_schema_core_v) < version.parse("0.3.1"):
+    raise RuntimeError("lamindb needs lndb_schema_core >= 0.3.1")
