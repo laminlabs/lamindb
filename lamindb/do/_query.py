@@ -184,13 +184,6 @@ class query:
             return results
 
     @classmethod
-    def pipeline_run_bfx_pipeline_run(cls, pipeline_run_id: str = None, bfx_pipeline_run_id: str = None):
-        """Query from the pipeline_run_bfx_pipeline_run table."""
-        kwargs = locals()
-        schema_module = schema.bfx.pipeline_run_bfx_pipeline_run
-        stmt = _chain_select_stmt(kwargs=kwargs, schema_module=schema_module)
-        return _query_stmt(statement=stmt, results_type="all")
-
     def species(
         cls,
         id: int = None,
@@ -221,9 +214,11 @@ class query:
         schema_module = schema.bionty.gene
         stmt = _chain_select_stmt(kwargs=kwargs, schema_module=schema_module)
         return _query_stmt(statement=stmt, results_type="all")
- 
+
     @classmethod
-    def pipeline_run_bfx_pipeline_run(cls, pipeline_run_id: str = None, bfx_pipeline_run_id: str = None):
+    def pipeline_run_bfx_pipeline_run(
+        cls, pipeline_run_id: str = None, bfx_pipeline_run_id: str = None
+    ):
         """Query from the pipeline_run_bfx_pipeline_run table."""
         kwargs = locals()
         schema_module = schema.bfx.pipeline_run_bfx_pipeline_run

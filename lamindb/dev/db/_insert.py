@@ -1,8 +1,8 @@
 import sqlmodel as sqm
 from lamin_logger import logger
+from lndb_bfx_pipeline import BfxRun
 from lndb_schema_core import id
 from lndb_setup import settings
-from lndb_bfx_pipeline import BfxRun
 
 import lamindb as db
 
@@ -21,7 +21,7 @@ class insert:
         jupynb_name: str,
         dobject_id: str = None,
         dobject_v: str = "1",
-        bfx_run: BfxRun = None
+        bfx_run: BfxRun = None,
     ):
         """Data object with its origin."""
         engine = settings.instance.db_engine()
@@ -41,17 +41,17 @@ class insert:
                 f"Added notebook {jupynb_name!r} ({jupynb_id}, {jupynb_v}) by"
                 f" user {settings.user.handle} ({settings.user.id})."
             )
-        
+
         if bfx_run is not None:
             bfx_run.check_and_ingest()
             bfx_pipeline_run_id = bfx_run.get_run_pk()
-            core_bfx_link_query = db.do.query.pipeline_run_bfx_pipeline_run(bfx_pipeline_run_id=bfx_pipeline_run_id)
+            core_bfx_link_query = db.do.query.pipeline_run_bfx_pipeline_run(
+                bfx_pipeline_run_id=bfx_pipeline_run_id
+            )
             if len(core_bfx_link_query) == 0:
                 with sqm.Session(engine) as session:
                     pipeline_run_id = id.id_base62(n_char=22)
-                    pipeline_run = db.schema.core.pipeline_run(
-                        id=pipeline_run_id
-                    )
+                    pipeline_run = db.schema.core.pipeline_run(id=pipeline_run_id)
                     session.add(pipeline_run)
                     session.commit()
                 bfx_run.link_core_pipeline_run(pipeline_run_id)
@@ -67,7 +67,7 @@ class insert:
                 id=dtransform_id,
                 jupynb_id=jupynb_id,
                 jupynb_v=jupynb_v,
-                pipeline_run_id=pipeline_run_id
+                pipeline_run_id=pipeline_run_id,
             )
             session.add(dtransform)
 

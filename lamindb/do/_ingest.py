@@ -3,9 +3,9 @@ from shutil import SameFileError
 from typing import Dict
 
 import sqlmodel as sqm
+from lndb_bfx_pipeline import get_bfx_files_from_folder
 from lndb_schema_core import id
 from lndb_setup import settings
-from lndb_bfx_pipeline import get_bfx_files_from_folder
 
 import lamindb as db
 
@@ -67,9 +67,9 @@ class Ingest:
         *,
         name=None,
         feature_model=None,
+        bfx_run=None,
         dobject_id=None,
         dobject_v="1",
-        bfx_run=None
     ):
         """Stage a data object (in memory or file) for ingestion.
 
@@ -77,6 +77,7 @@ class Ingest:
             dobject: A data object in memory or filepath.
             name: A name. Required if passing in memory object.
             feature_model: Features to link during ingestion.
+            bfx_run: The instance of BFX run
             dobject_id: The dobject id.
             dobject_v: The dobject version.
         """
@@ -85,7 +86,7 @@ class Ingest:
             dobjects_to_add = get_bfx_files_from_folder(dobject)
             for dobject in dobjects_to_add:
                 self.add(dobject, bfx_run=bfx_run)
-        
+
         primary_key = (
             id.id_dobject() if dobject_id is None else dobject_id,
             dobject_v,
@@ -129,7 +130,7 @@ class Ingest:
             }
 
             self._features[filepath] = (fm, df_curated)
-        
+
         if bfx_run is not None:
             bfx_run.set_engine(settings.instance.db_engine())
             self._bfx_runs[filepath] = bfx_run
@@ -170,11 +171,11 @@ class Ingest:
                 jupynb_name=jupynb_name,
                 dobject_id=dobject_id,
                 dobject_v=dobject_v,
-                bfx_run=bfx_run
+                bfx_run=bfx_run,
             )
 
             if bfx_run is not None:
-                bfx_run.link_dobject_to_bfxmeta(dobject_id, filepath) 
+                bfx_run.link_dobject_to_bfxmeta(dobject_id, filepath)
 
             dobject_storage_key = storage_key_from_triple(
                 dobject_id, dobject_v, filepath.suffix
