@@ -17,3 +17,16 @@ def file_jpg_paradisi05() -> Path:
         "paradisi05_laminopathic_nuclei.jpg",
     )
     return Path(filepath)
+
+
+def folder_bfx_output() -> Path:
+    filepath, _ = urlretrieve(
+        "https://lamindb-test.s3.amazonaws.com/bfx-output.zip",
+    )
+    from zipfile import ZipFile
+
+    with ZipFile(filepath, "r") as zipObj:
+        # Extract all the contents of zip file in current directory
+        zipObj.extractall(path=".")
+
+    return Path("bfx-output")

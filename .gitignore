@@ -156,3 +156,6 @@ data/
 **/mydata/
 _build
 *.fcs
+*.zip
+bfx-output/
+__MACOSX/

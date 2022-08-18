@@ -81,11 +81,12 @@ class Ingest:
             dobject_id: The dobject id.
             dobject_v: The dobject version.
         """
-        if Path(dobject).is_dir() and bfx_run is not None:
-            bfx_run.set_folder(Path(dobject))
-            dobjects_to_add = get_bfx_files_from_folder(dobject)
-            for dobject in dobjects_to_add:
-                self.add(dobject, bfx_run=bfx_run)
+        if bfx_run is not None:
+            if Path(dobject).is_dir():
+                bfx_run.bfx_pipeline_run_folder = Path(dobject)
+                dobjects_to_add = get_bfx_files_from_folder(dobject)
+                for dobject in dobjects_to_add:
+                    self.add(dobject, bfx_run=bfx_run)
 
         primary_key = (
             id.id_dobject() if dobject_id is None else dobject_id,
@@ -132,7 +133,7 @@ class Ingest:
             self._features[filepath] = (fm, df_curated)
 
         if bfx_run is not None:
-            bfx_run.set_engine(settings.instance.db_engine())
+            bfx_run.db_engine = settings.instance.db_engine()
             self._bfx_runs[filepath] = bfx_run
 
         self._added[filepath] = primary_key
