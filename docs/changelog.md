@@ -3,6 +3,7 @@
 <!-- prettier-ignore -->
 Name | PR | Developer | Date | Version
 --- | --- | --- | --- | ---
+📝 Updated docs | [135](https://github.com/laminlabs/lamindb/pull/135) | [sunnyosun](https://github.com/sunnyosun) | 2022-08-18 |
 👽 Adapt to `lndb-schema-bionty 0.1.4` | [134](https://github.com/laminlabs/lamindb/pull/134) | [sunnyosun](https://github.com/sunnyosun) | 2022-08-18 |
 ⚡ Ingest genes properly | [131](https://github.com/laminlabs/lamindb/pull/131) | [sunnyosun](https://github.com/sunnyosun) | 2022-08-16 |
 ✨ New readout_type table, registered species | [130](https://github.com/laminlabs/lamindb/pull/130) | [sunnyosun](https://github.com/sunnyosun) | 2022-08-12 |
