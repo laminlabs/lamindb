@@ -6,5 +6,4 @@ These are any notes on design decisions, prototypes, background that don't make 
 :maxdepth: 1
 
 problems
-ingestion
 ```

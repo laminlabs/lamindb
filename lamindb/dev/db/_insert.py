@@ -97,17 +97,67 @@ class insert:
         return dobject.id
 
     @classmethod
+    def species(cls, common_name: str):
+        """Insert a species."""
+        species_results = db.do.query.species(common_name=common_name)
+        if len(species_results) > 1:
+            raise AssertionError(f"Multiple entries are associated with {common_name}!")
+        elif len(species_results) == 1:
+            return species_results[0].id
+        else:
+            engine = settings.instance.db_engine()
+
+            from bionty import Species
+
+            entry = {"common_name": common_name}
+            entry.update(Species().df.loc[common_name])
+            with sqm.Session(engine) as session:
+                species = db.schema.bionty.species(**entry)
+                session.add(species)
+                session.commit()
+                session.refresh(species)
+            logger.success(f"Registered readout_type: {species.id}")
+
+            return species.id
+
+    @classmethod
     def genes(
         cls,
         genes_dict: dict,
+        species: str,
         geneset_name: str = None,
-        species: str = None,
         **kwargs,
     ):
         """Insert a geneset.
 
-        Mmeanwhile inserting genes and linking them to the geneset.
+        Meanwhile inserting genes and linking them to the geneset.
         """
+        species_id = cls.species(common_name=species)
+
+        # check if geneset exists
+        if geneset_name is not None:
+            geneset_results = db.do.query.featureset(
+                feature_entity="gene",
+                name=geneset_name,
+            )
+            if len(geneset_results) > 1:
+                raise AssertionError(
+                    f"Multiple entries are associated with {geneset_name}!"
+                )
+            elif len(geneset_results) == 1:
+                logger.warning(f"Geneset {geneset_name} already exists!")
+                return geneset_results[0].id
+
+        # get the id field
+        gene_id = genes_dict[next(iter(genes_dict))].keys()[-1]
+        allgenes = db.do.query.gene(species=species_id)
+        # only ingest the new genes but link all genes to the geneset
+        exist_gene_keys = set()
+        exist_gene_ids = set()
+        for gene in allgenes:
+            exist_gene_keys.add(gene.__getattribute__(gene_id))
+            exist_gene_ids.add(gene.id)
+
         engine = settings.instance.db_engine()
 
         # add a geneset to the geneset table
@@ -123,10 +173,12 @@ class insert:
         # add genes to the gene table
         with sqm.Session(engine) as session:
             genes_ins = []
-            for _, v in genes_dict.items():
+            for k, v in genes_dict.items():
+                if k in exist_gene_keys:
+                    continue
                 gene = db.schema.bionty.gene(
                     **v,
-                    species=species,
+                    species=species_id,
                 )
                 session.add(gene)
                 genes_ins.append(gene)
@@ -135,11 +187,13 @@ class insert:
                 session.refresh(gene)
 
         # insert ids into the link table
+        gene_ids = [i.id for i in genes_ins]
+        gene_ids += exist_gene_ids
         with sqm.Session(engine) as session:
-            for gene in genes_ins:
+            for gene_id in gene_ids:
                 link = db.schema.bionty.featureset_gene(
                     featureset_id=featureset.id,
-                    gene_id=gene.id,
+                    gene_id=gene_id,
                 )
                 session.add(link)
             session.commit()
@@ -149,17 +203,34 @@ class insert:
         return featureset.id
 
     @classmethod
-    def readout_type(cls, name: str, platform: str = None):
+    def readout_type(cls, efo_id: str):
         """Insert a row in the readout table."""
-        engine = settings.instance.db_engine()
+        assert sum(i.isdigit() for i in efo_id) == 7
+        efo_id = efo_id.replace("_", ":")
 
-        with sqm.Session(engine) as session:
-            readout_type = db.schema.wetlab.readout_type(name=name, platform=platform)
-            session.add(readout_type)
-            session.commit()
-            session.refresh(readout_type)
+        # check if entry already exists
+        readout_results = db.do.query.readout_type(efo_id=efo_id)
+        if len(readout_results) > 1:
+            raise AssertionError(f"Multiple entries are associated with {efo_id}!")
+        elif len(readout_results) == 1:
+            return readout_results[0].id
+        else:
+            engine = settings.instance.db_engine()
 
-        return readout_type.id
+            from bioreadout import readout_type
+
+            entry = readout_type(efo_id=efo_id)
+            for k, v in entry.items():
+                if isinstance(v, list):
+                    entry[k] = ";".join(v)
+            with sqm.Session(engine) as session:
+                readout_type = db.schema.wetlab.readout_type(**entry)
+                session.add(readout_type)
+                session.commit()
+                session.refresh(readout_type)
+            logger.success(f"Registered readout_type: {readout_type.id}")
+
+            return readout_type.id
 
     @classmethod
     def biometa(

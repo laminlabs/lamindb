@@ -3,6 +3,8 @@
 <!-- prettier-ignore -->
 Name | PR | Developer | Date | Version
 --- | --- | --- | --- | ---
+⚡ Ingest genes properly | [131](https://github.com/laminlabs/lamindb/pull/131) | [sunnyosun](https://github.com/sunnyosun) | 2022-08-16 |
+✨ New readout_type table, registered species | [130](https://github.com/laminlabs/lamindb/pull/130) | [sunnyosun](https://github.com/sunnyosun) | 2022-08-12 |
 🚚 Migrate `bioreader` to `bioreadout` | [129](https://github.com/laminlabs/lamindb/pull/129) | [sunnyosun](https://github.com/sunnyosun) | 2022-08-04 |
 :arrow_up: Upgrade to lndb_setup 0.5.0 | [128](https://github.com/laminlabs/lamindb/pull/128) | [falexwolf](https://github.com/falexwolf) | 2022-08-03 |
 ⬆️ Upgrade to `lndb_schema_core` 0.3.0 | [127](https://github.com/laminlabs/lamindb/pull/127) | [falexwolf](https://github.com/falexwolf) | 2022-08-03 |
