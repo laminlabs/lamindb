@@ -170,3 +170,11 @@ class query:
             return [i for i in results if i.id in featureset_ids]
         else:
             return results
+
+    @classmethod
+    def pipeline_run_bfx_pipeline_run(cls, pipeline_run_id: str = None, bfx_pipeline_run_id: str = None):
+        """Query from the pipeline_run_bfx_pipeline_run table."""
+        kwargs = locals()
+        schema_module = schema.bfx.pipeline_run_bfx_pipeline_run
+        stmt = _chain_select_stmt(kwargs=kwargs, schema_module=schema_module)
+        return _query_stmt(statement=stmt, results_type="all")

@@ -16,3 +16,4 @@ See the API reference of the schema modules:
 import lndb_schema_bionty as bionty
 import lndb_schema_core as core
 import lndb_schema_wetlab as wetlab
+import lndb_bfx_pipeline.schema as bfx
