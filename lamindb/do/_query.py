@@ -172,7 +172,7 @@ class query:
         if gene is not None:
             schema_module = schema.bionty.gene
             stmt = _chain_select_stmt(
-                kwargs={"hgnc_symbol": gene}, schema_module=schema_module
+                kwargs={"name": gene}, schema_module=schema_module
             )
             gene_id = _query_stmt(statement=stmt, results_type="all")[0].id
 
@@ -208,21 +208,14 @@ class query:
     def gene(
         cls,
         id: int = None,
-        hgnc_symbol: str = None,
-        mgi_symbol: str = None,
-        species: int = None,
-        name: str = None,
-        hgnc_id: str = None,
-        entrez_gene_id: int = None,
         ensembl_gene_id: str = None,
-        alias_symbol: str = None,
-        locus_group: str = None,
-        locus_type: str = None,
-        location: str = None,
-        vega_id: str = None,
-        ucsc_id: str = None,
-        rgd_id: str = None,
-        omim_id: str = None,
+        name: str = None,
+        synonym: str = None,
+        species: int = None,
+        gene_type: str = None,
+        hgnc_id: str = None,
+        omim_id: int = None,
+        mgi_id: str = None,
     ):
         kwargs = locals()
         schema_module = schema.bionty.gene
