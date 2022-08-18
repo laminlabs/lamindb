@@ -15,6 +15,7 @@ dependencies = [
     "lamin_logger",
     "bioreadout>=0.0.5",
     "lndb_bfx_pipeline>=0.1.0",
+    "bionty>=0.1.11",
     "anndata",
     "boto3",
     "hjson",
