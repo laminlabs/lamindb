@@ -1,6 +1,6 @@
 import sqlmodel as sqm
 from lamin_logger import logger
-from lndb_bfx_pipeline import BfxRun
+from lnbfx import BfxRun
 from lndb_setup import settings
 from lnschema_core import id
 
