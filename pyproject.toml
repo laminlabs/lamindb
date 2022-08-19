@@ -8,12 +8,12 @@ authors = [{name = "Lamin Labs", email = "laminlabs@gmail.com"}]
 readme = "README.md"
 dynamic = ["version", "description"]
 dependencies = [
-    "lamindb_schema>=0.3.1",
-    "lndb_schema_core>=0.3.0",
-    "lndb_setup>=0.5.1",
-    "lndb_hub>=0.3.2",
+    "lnschema_core>=0.3.2",
+    "lndb_setup>=0.5.3",
+    "lndb_hub>=0.4.0",
     "lamin_logger",
     "bioreadout>=0.0.5",
+    "lnbfx>=0.1.0",
     "bionty>=0.1.11",
     "anndata",
     "boto3",

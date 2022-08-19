@@ -1,17 +1,20 @@
 from pathlib import Path
 
-import lndb_setup
-
-import lamindb as db
-
 
 def test_create_to_load():
+    import lndb_setup
+
     storage = "mydata-test-db"
     lndb_setup.login(
         "raspbear@gmx.de",
         password="MmR4YuQEyb0yxu7dAwJZTjLzR1Az2lN4Q4IduDlO",
     )
     lndb_setup.init(storage=storage)
+
+    # if importing this at the top of the file lndb_setup will try to
+    # create unnecessary tables
+    import lamindb as db
+
     db.dev.db.insert.dobject_from_jupynb(
         name="test_file",
         file_suffix=".csv",
