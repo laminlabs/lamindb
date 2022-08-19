@@ -87,6 +87,7 @@ class insert:
                 name=name,
                 dsource_id=dtransform_id,
                 file_suffix=file_suffix,
+                storage_root=str(settings.instance.storage_dir)
             )
             session.add(dobject)
             session.commit()
