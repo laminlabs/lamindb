@@ -1,5 +1,5 @@
-from lndb_schema_core import dobject
 from lndb_setup import settings
+from lnschema_core import dobject
 
 
 def storage_key_from_dobject(dobj: dobject):

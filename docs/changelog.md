@@ -5,12 +5,12 @@ Name | PR | Developer | Date | Version
 --- | --- | --- | --- | ---
 ✨ Integrate bioinformatics pipline runs | [133](https://github.com/laminlabs/lamindb/pull/133) | [bpenteado](https://github.com/bpenteado) | 2022-08-18 |
 📝 Updated docs | [135](https://github.com/laminlabs/lamindb/pull/135) | [sunnyosun](https://github.com/sunnyosun) | 2022-08-18 |
-👽 Adapt to `lndb-schema-bionty 0.1.4` | [134](https://github.com/laminlabs/lamindb/pull/134) | [sunnyosun](https://github.com/sunnyosun) | 2022-08-18 |
+👽 Adapt to `lnschema-bionty 0.1.4` | [134](https://github.com/laminlabs/lamindb/pull/134) | [sunnyosun](https://github.com/sunnyosun) | 2022-08-18 |
 ⚡ Ingest genes properly | [131](https://github.com/laminlabs/lamindb/pull/131) | [sunnyosun](https://github.com/sunnyosun) | 2022-08-16 |
 ✨ New readout_type table, registered species | [130](https://github.com/laminlabs/lamindb/pull/130) | [sunnyosun](https://github.com/sunnyosun) | 2022-08-12 |
 🚚 Migrate `bioreader` to `bioreadout` | [129](https://github.com/laminlabs/lamindb/pull/129) | [sunnyosun](https://github.com/sunnyosun) | 2022-08-04 |
 :arrow_up: Upgrade to lndb_setup 0.5.0 | [128](https://github.com/laminlabs/lamindb/pull/128) | [falexwolf](https://github.com/falexwolf) | 2022-08-03 |
-⬆️ Upgrade to `lndb_schema_core` 0.3.0 | [127](https://github.com/laminlabs/lamindb/pull/127) | [falexwolf](https://github.com/falexwolf) | 2022-08-03 |
+⬆️ Upgrade to `lnschema_core` 0.3.0 | [127](https://github.com/laminlabs/lamindb/pull/127) | [falexwolf](https://github.com/falexwolf) | 2022-08-03 |
 🚚 Renamed `meta.annotate` to `do.link` | [126](https://github.com/laminlabs/lamindb/pull/126) | [sunnyosun](https://github.com/sunnyosun) | 2022-08-03 |
 👷 Cleaner CI environment switching | [125](https://github.com/laminlabs/lamindb/pull/125) | [falexwolf](https://github.com/falexwolf) | 2022-08-02 | 0.2.1
 ⬆️ Upgrade to `lndb_setup` 0.4.2 | [123](https://github.com/laminlabs/lamindb/pull/123) | [falexwolf](https://github.com/falexwolf) | 2022-08-02 | 0.2.0
@@ -28,7 +28,7 @@ Name | PR | Developer | Date | Version
 🚧 Annotate features during ingestion | [110](https://github.com/laminlabs/lamindb/pull/110) | [sunnyosun](https://github.com/sunnyosun) | 2022-07-31 |
 📝 Re-write landing page | [109](https://github.com/laminlabs/lamindb/pull/109) | [falexwolf](https://github.com/falexwolf) | 2022-07-30 |
 📝 Improve `get-started` and `collaborate` tutorials | [108](https://github.com/laminlabs/lamindb/pull/108) | [falexwolf](https://github.com/falexwolf) | 2022-07-30 |
-⬆️ Upgrade to `lndb_schema_core` 0.2.0 | [106](https://github.com/laminlabs/lamindb/pull/106) | [falexwolf](https://github.com/falexwolf) | 2022-07-29 |
+⬆️ Upgrade to `lnschema_core` 0.2.0 | [106](https://github.com/laminlabs/lamindb/pull/106) | [falexwolf](https://github.com/falexwolf) | 2022-07-29 |
 🚚 Move out `lndb_hub` | [105](https://github.com/laminlabs/lamindb/pull/105) | [falexwolf](https://github.com/falexwolf) | 2022-07-29 |
 ♻️ Refactor sharing on the hub | [104](https://github.com/laminlabs/lamindb/pull/104) | [falexwolf](https://github.com/falexwolf) | 2022-07-29 |
 ✨ Enable sharing dobjects & instances in the hub | [69](https://github.com/laminlabs/lamindb/pull/69) | [fredericenard](https://github.com/fredericenard) | 2022-07-29 |
@@ -37,7 +37,7 @@ Name | PR | Developer | Date | Version
 ⬆️ Upgrade to lndb-cli 0.2.0 | [101](https://github.com/laminlabs/lamindb/pull/101) | [falexwolf](https://github.com/falexwolf) | 2022-07-25 |
 🚚 Account for table construction in lndb-cli | [99](https://github.com/laminlabs/lamindb/pull/99) | [falexwolf](https://github.com/falexwolf) | 2022-07-25 |
 🚚 Move CLI code to `lndb-cli` | [98](https://github.com/laminlabs/lamindb/pull/98) | [falexwolf](https://github.com/falexwolf) | 2022-07-24 |
-🍱  Adapted to `lndb-schema-biology` `0.1.1` | [97](https://github.com/laminlabs/lamindb/pull/97) | [sunnyosun](https://github.com/sunnyosun) | 2022-07-24 |
+🍱  Adapted to `lnschema-biology` `0.1.1` | [97](https://github.com/laminlabs/lamindb/pull/97) | [sunnyosun](https://github.com/sunnyosun) | 2022-07-24 |
 🚸 Let the CLI have actual subcommands | [96](https://github.com/laminlabs/lamindb/pull/96) | [falexwolf](https://github.com/falexwolf) | 2022-07-24 |
 👷 Add time out to GitHub Actions | [93](https://github.com/laminlabs/lamindb/pull/93) | [Koncopd](https://github.com/Koncopd) | 2022-07-23 |
 🔥 Switched logger to use lamin-logger | [92](https://github.com/laminlabs/lamindb/pull/92) | [sunnyosun](https://github.com/sunnyosun) | 2022-07-23 |
