@@ -4,8 +4,8 @@ from typing import Dict
 
 import sqlmodel as sqm
 from lndb_bfx_pipeline import get_bfx_files_from_folder
-from lndb_schema_core import id
 from lndb_setup import settings
+from lnschema_core import id
 
 import lamindb as db
 
