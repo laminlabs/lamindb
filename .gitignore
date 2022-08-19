@@ -159,4 +159,6 @@ _build
 *.zip
 bfx-output/
 __MACOSX/
+
+# fred files
 docs/tutorials/insert-some-data-into-frederic-hub.ipynb
