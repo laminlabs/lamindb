@@ -3,6 +3,7 @@
 <!-- prettier-ignore -->
 Name | PR | Developer | Date | Version
 --- | --- | --- | --- | ---
+🚚 Rename schema modules and bioinformatics module | [136](https://github.com/laminlabs/lamindb/pull/136) | [falexwolf](https://github.com/falexwolf) | 2022-08-19 |
 ✨ Integrate bioinformatics pipline runs | [133](https://github.com/laminlabs/lamindb/pull/133) | [bpenteado](https://github.com/bpenteado) | 2022-08-18 |
 📝 Updated docs | [135](https://github.com/laminlabs/lamindb/pull/135) | [sunnyosun](https://github.com/sunnyosun) | 2022-08-18 |
 👽 Adapt to `lnschema-bionty 0.1.4` | [134](https://github.com/laminlabs/lamindb/pull/134) | [sunnyosun](https://github.com/sunnyosun) | 2022-08-18 |
