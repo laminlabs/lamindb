@@ -15,7 +15,7 @@ Utilities:
    doc_args
 """
 
-from lamindb_schema import id  # noqa
+from lnschema_core import id  # noqa
 
 from . import db  # noqa
 from . import file, object  # noqa
