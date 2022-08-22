@@ -111,7 +111,8 @@ class link:
 
         # fill in biometa entries with readout_type_id
         for biometa_id in biometa_ids:
-            update.biometa(biometa_id, readout_type_id=readout_type_id)
+            update_biometa = getattr(update, "biometa")
+            update_biometa(biometa_id, readout_type_id=readout_type_id)
 
         logger.success(
             f"{colors.blue(f'readout_type_id {readout_type_id}')} has been added to"
