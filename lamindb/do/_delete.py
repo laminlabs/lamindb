@@ -20,7 +20,11 @@ def _create_delete_func(name: str, schema_module):
 
 
 class delete:
-    """Delete entries."""
+    """Delete an entry based on its primary identifier.
+
+    Example:
+    >>> delete.{entity}(id=1)
+    """
 
     pass
 

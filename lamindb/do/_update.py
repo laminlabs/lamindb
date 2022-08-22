@@ -21,7 +21,11 @@ def _create_update_func(name: str, schema_module):
 
 
 class update:
-    """Update data."""
+    """Update an entry based on its primary identifier.
+
+    Example:
+    >>> update.{entity}(id=1, name='new_experiment')
+    """
 
     pass
 
