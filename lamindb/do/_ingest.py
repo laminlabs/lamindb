@@ -17,19 +17,10 @@ from ._link import FeatureModel
 
 
 def track_ingest(dobject_id, dobject_v):
-    from nbproject import meta
-
-    user_id = settings.user.id
-
-    jupynb_id = meta.store.id
-    jupynb_v = meta.store.version
-
     with sqm.Session(settings.instance.db_engine()) as session:
         usage = db.schema.core.usage(
             type="ingest",
-            user_id=user_id,
-            jupynb_id=jupynb_id,
-            jupynb_v=jupynb_v,
+            user_id=settings.user.id,
             dobject_id=dobject_id,
             dobject_v=dobject_v,
         )
