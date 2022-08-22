@@ -98,7 +98,8 @@ class link:
         readout_type_id = insert.readout_type(efo_id=efo_id)
 
         # query biometa associated with a dobject
-        dobject_biometa = query.dobject_biometa(dobject_id=dobject_id)
+        query_dobject_biometa = getattr(query, "dobject_biometa")
+        dobject_biometa = query_dobject_biometa(dobject_id=dobject_id)
         if len(dobject_biometa) > 0:
             biometa_ids = [i.biometa_id for i in dobject_biometa]
         else:
@@ -110,7 +111,8 @@ class link:
 
         # fill in biometa entries with readout_type_id
         for biometa_id in biometa_ids:
-            update.biometa(biometa_id, readout_type_id=readout_type_id)
+            update_biometa = getattr(update, "biometa")
+            update_biometa(biometa_id, readout_type_id=readout_type_id)
 
         logger.success(
             f"{colors.blue(f'readout_type_id {readout_type_id}')} has been added to"

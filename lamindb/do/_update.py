@@ -1,23 +1,35 @@
 from lndb_setup import settings
 from sqlmodel import Session
 
-from .. import schema
+from ..schema._schema import alltables
+
+
+def _create_update_func(name: str, schema_module):
+    def query_func(cls, id, **kwargs):
+        with Session(settings.instance.db_engine()) as session:
+            entry = session.get(schema_module, id)
+            for k, v in kwargs.items():
+                if isinstance(k, tuple):
+                    k[1] = int(k[1])
+                entry.__setattr__(k, v)
+            session.add(entry)
+            session.commit()
+            session.refresh(entry)
+
+    query_func.__name__ = name
+    return query_func
 
 
 class update:
-    """Update data."""
+    """Update an entry based on its primary identifier.
 
-    @classmethod
-    def biometa(
-        cls,
-        id,
-        **kwargs,
-    ):
-        """Query biometa by its id to update the entry fields."""
-        with Session(settings.instance.db_engine()) as session:
-            biometa = session.get(schema.wetlab.biometa, id)
-            for k, v in kwargs.items():
-                biometa.__setattr__(k, int(v))
-            session.add(biometa)
-            session.commit()
-            session.refresh(biometa)
+    Example:
+    >>> update.{entity}(id=1, name='new_experiment')
+    """
+
+    pass
+
+
+for name, schema_module in alltables.items():
+    func = _create_update_func(name=name, schema_module=schema_module)
+    setattr(update, name, classmethod(func))
