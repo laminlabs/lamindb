@@ -45,7 +45,10 @@ class insert:
         if bfx_run is not None:
             bfx_run.check_and_ingest()
             bfx_pipeline_run_id = bfx_run.get_run_pk()
-            core_bfx_link_query = db.do.query.pipeline_run_bfx_pipeline_run(
+            pipeline_run_bfx_pipeline_run = getattr(
+                db.do.query, "pipeline_run_bfx_pipeline_run"
+            )
+            core_bfx_link_query = pipeline_run_bfx_pipeline_run(
                 bfx_pipeline_run_id=bfx_pipeline_run_id
             )
             if len(core_bfx_link_query) == 0:
@@ -99,7 +102,8 @@ class insert:
     @classmethod
     def species(cls, common_name: str):
         """Insert a species."""
-        species_results = db.do.query.species(common_name=common_name)
+        query_species = getattr(db.do.query, "species")
+        species_results = query_species(common_name=common_name)
         if len(species_results) > 1:
             raise AssertionError(f"Multiple entries are associated with {common_name}!")
         elif len(species_results) == 1:
@@ -136,7 +140,8 @@ class insert:
 
         # check if geneset exists
         if geneset_name is not None:
-            geneset_results = db.do.query.featureset(
+            query_featureset = getattr(db.do.query, "featureset")
+            geneset_results = query_featureset(
                 feature_entity="gene",
                 name=geneset_name,
             )
@@ -150,7 +155,8 @@ class insert:
 
         # get the id field
         gene_id = genes_dict[next(iter(genes_dict))].keys()[-1]
-        allgenes = db.do.query.gene(species=species_id)
+        query_gene = getattr(db.do.query, "gene")
+        allgenes = query_gene(species=species_id)
         # only ingest the new genes but link all genes to the geneset
         exist_gene_keys = set()
         exist_gene_ids = set()
@@ -209,7 +215,8 @@ class insert:
         efo_id = efo_id.replace("_", ":")
 
         # check if entry already exists
-        readout_results = db.do.query.readout_type(efo_id=efo_id)
+        query_readout = getattr("db.do.query", "readout_type")
+        readout_results = query_readout(efo_id=efo_id)
         if len(readout_results) > 1:
             raise AssertionError(f"Multiple entries are associated with {efo_id}!")
         elif len(readout_results) == 1:
