@@ -52,106 +52,106 @@ for schema_pkg in _list_methods(schema):
         alltables[table.__name__] = table
 
 
-class query:
+class QueryBase:
     pass
 
 
 for name, schema_module in alltables.items():
     func = _create_query_func(name=name, schema_module=schema_module)
-    setattr(query, name, classmethod(func))
+    setattr(QueryBase, name, classmethod(func))
 
 
-# class Query(query):
-#     """Query literal (semantic) data."""
+class query(QueryBase):
+    """Query literal (semantic) data."""
 
-#     @classmethod
-#     def dobject(
-#         cls,
-#         id: str = None,
-#         v: str = None,
-#         name: str = None,
-#         file_suffix: str = None,
-#         dsource_id: str = None,
-#         gene: str = None,
-#     ):
-#         """Query from dobject."""
-#         kwargs = locals()
-#         del kwargs["gene"]
-#         schema_module = schema.core.dobject
-#         stmt = _chain_select_stmt(kwargs=kwargs, schema_module=schema_module)
-#         results = _query_stmt(statement=stmt, results_type="all")
+    @classmethod
+    def dobject(
+        cls,
+        id: str = None,
+        v: str = None,
+        name: str = None,
+        file_suffix: str = None,
+        dsource_id: str = None,
+        gene: str = None,
+    ):
+        """Query from dobject."""
+        kwargs = locals()
+        del kwargs["gene"]
+        schema_module = schema.core.dobject
+        stmt = _chain_select_stmt(kwargs=kwargs, schema_module=schema_module)
+        results = _query_stmt(statement=stmt, results_type="all")
 
-#         if gene is not None:
-#             featuresets = cls.featureset(gene=gene)
-#             biometas = []
-#             for i in featuresets:
-#                 biometas += cls.biometa(featureset_id=i.id)
-#             dobjects = []
-#             for i in biometas:
-#                 dobjects += cls.dobject_biometa(biometa_id=i.id)
+        if gene is not None:
+            featuresets = getattr(query, "featureset")(gene=gene)
+            biometas = []
+            for i in featuresets:
+                biometas += getattr(query, "biometa")(featureset_id=i.id)
+            dobjects = []
+            for i in biometas:
+                dobjects += getattr(query, "dobject_biometa")(biometa_id=i.id)
 
-#             return [i for i in results if i.id in [j.dobject_id for j in dobjects]]
-#         else:
-#             return results
+            return [i for i in results if i.id in [j.dobject_id for j in dobjects]]
+        else:
+            return results
 
-#     @classmethod
-#     def biometa(
-#         cls,
-#         id: int = None,
-#         biosample_id: int = None,
-#         readout_type_id: int = None,
-#         featureset_id: int = None,
-#         dobject_id: str = None,
-#     ):
-#         """Query from biometa.
+    @classmethod
+    def biometa(
+        cls,
+        id: int = None,
+        biosample_id: int = None,
+        readout_type_id: int = None,
+        featureset_id: int = None,
+        dobject_id: str = None,
+    ):
+        """Query from biometa.
 
-#         If dobject_id is provided, will search in the dobject_biometa first.
-#         """
-#         kwargs = locals()
-#         del kwargs["dobject_id"]
-#         schema_module = schema.wetlab.biometa
-#         stmt = _chain_select_stmt(kwargs=kwargs, schema_module=schema_module)
-#         results = _query_stmt(statement=stmt, results_type="all")
-#         # dobject_id is given, will only return results associated with dobject_id
-#         if dobject_id is not None:
-#             biometas = cls.dobject_biometa(dobject_id=dobject_id)
-#             if len(biometas) == 0:
-#                 return biometas
-#             else:
-#                 biometa_ids = [i.biometa_id for i in biometas]
-#                 return [i for i in results if i.id in biometa_ids]
-#         else:
-#             return results
+        If dobject_id is provided, will search in the dobject_biometa first.
+        """
+        kwargs = locals()
+        del kwargs["dobject_id"]
+        schema_module = schema.wetlab.biometa
+        stmt = _chain_select_stmt(kwargs=kwargs, schema_module=schema_module)
+        results = _query_stmt(statement=stmt, results_type="all")
+        # dobject_id is given, will only return results associated with dobject_id
+        if dobject_id is not None:
+            biometas = getattr(query, "dobject_biometa")(dobject_id=dobject_id)
+            if len(biometas) == 0:
+                return biometas
+            else:
+                biometa_ids = [i.biometa_id for i in biometas]
+                return [i for i in results if i.id in biometa_ids]
+        else:
+            return results
 
-#     @classmethod
-#     def featureset(
-#         cls,
-#         id: int = None,
-#         feature_entity: str = None,
-#         name: str = None,
-#         gene: str = None,
-#         protein: str = None,
-#     ):
-#         """Query the featureset table.
+    @classmethod
+    def featureset(
+        cls,
+        id: int = None,
+        feature_entity: str = None,
+        name: str = None,
+        gene: str = None,
+        protein: str = None,
+    ):
+        """Query the featureset table.
 
-#         Can also query a gene or a protein linked to featuresets.
-#         """
-#         kwargs = locals()
-#         del kwargs["gene"]
-#         del kwargs["protein"]
-#         schema_module = schema.bionty.featureset
-#         stmt = _chain_select_stmt(kwargs=kwargs, schema_module=schema_module)
-#         results = _query_stmt(statement=stmt, results_type="all")
-#         if gene is not None:
-#             schema_module = schema.bionty.gene
-#             stmt = _chain_select_stmt(
-#                 kwargs={"name": gene}, schema_module=schema_module
-#             )
-#             gene_id = _query_stmt(statement=stmt, results_type="all")[0].id
+        Can also query a gene or a protein linked to featuresets.
+        """
+        kwargs = locals()
+        del kwargs["gene"]
+        del kwargs["protein"]
+        schema_module = schema.bionty.featureset
+        stmt = _chain_select_stmt(kwargs=kwargs, schema_module=schema_module)
+        results = _query_stmt(statement=stmt, results_type="all")
+        if gene is not None:
+            schema_module = schema.bionty.gene
+            stmt = _chain_select_stmt(
+                kwargs={"name": gene}, schema_module=schema_module
+            )
+            gene_id = _query_stmt(statement=stmt, results_type="all")[0].id
 
-#             featuresets = cls.featureset_gene(gene_id=gene_id)
-#             featureset_ids = [i.featureset_id for i in featuresets]
+            featuresets = getattr(query, "featureset_gene")(gene_id=gene_id)
+            featureset_ids = [i.featureset_id for i in featuresets]
 
-#             return [i for i in results if i.id in featureset_ids]
-#         else:
-#             return results
+            return [i for i in results if i.id in featureset_ids]
+        else:
+            return results
