@@ -3,6 +3,7 @@
 <!-- prettier-ignore -->
 Name | PR | Developer | Date | Version
 --- | --- | --- | --- | ---
+✨ Autogenerate `query`, `update` and `delete` functions | [139](https://github.com/laminlabs/lamindb/pull/139) | [sunnyosun](https://github.com/sunnyosun) | 2022-08-22 |
 ⬆️ Upgrade core schema to v0.4.0 | [138](https://github.com/laminlabs/lamindb/pull/138) | [falexwolf](https://github.com/falexwolf) | 2022-08-22 |
 ✨ Track storage root location | [137](https://github.com/laminlabs/lamindb/pull/137) | [fredericenard](https://github.com/fredericenard) | 2022-08-22 |
 🚚 Rename schema modules and bioinformatics module | [136](https://github.com/laminlabs/lamindb/pull/136) | [falexwolf](https://github.com/falexwolf) | 2022-08-19 |
