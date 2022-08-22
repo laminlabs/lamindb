@@ -1,6 +1,7 @@
 from lndb_setup import settings
 from sqlmodel import Session
 
+from .._logger import colors, logger
 from ..schema._schema import alltables
 
 
@@ -15,6 +16,10 @@ def _create_update_func(name: str, schema_module):
             session.add(entry)
             session.commit()
             session.refresh(entry)
+            logger.success(
+                f"Updated {colors.green(f'entry {entry.id}')} in"
+                f" {colors.blue(f'table {name}')}!"
+            )
 
     query_func.__name__ = name
     return query_func

@@ -1,6 +1,7 @@
 from lndb_setup import settings
 from sqlmodel import Session
 
+from .._logger import colors, logger
 from ..schema._schema import alltables
 
 
@@ -14,6 +15,10 @@ def _create_delete_func(name: str, schema_module):
                 entry.__setattr__(k, v)
             session.delete(entry)
             session.commit()
+            logger.success(
+                f"Deleted {colors.yellow(f'entry {entry.id}')} in"
+                f" {colors.blue(f'table {name}')}!"
+            )
 
     query_func.__name__ = name
     return query_func
