@@ -1,11 +1,13 @@
 from lndb_setup import settings
 from sqlmodel import Session
 
+from .._logger import colors, logger
+from ..dev import track_usage
 from ..schema._schema import alltables
 
 
 def _create_update_func(name: str, schema_module):
-    def query_func(cls, id, **kwargs):
+    def update_func(cls, id, **kwargs):
         with Session(settings.instance.db_engine()) as session:
             entry = session.get(schema_module, id)
             for k, v in kwargs.items():
@@ -15,9 +17,15 @@ def _create_update_func(name: str, schema_module):
             session.add(entry)
             session.commit()
             session.refresh(entry)
+            logger.success(
+                f"Updated {colors.green(f'entry {entry.id}')} in"
+                f" {colors.blue(f'table {name}')}!"
+            )
+            if name == "dobject":
+                track_usage(entry.id, entry.v, "update")
 
-    query_func.__name__ = name
-    return query_func
+    update_func.__name__ = name
+    return update_func
 
 
 class update:

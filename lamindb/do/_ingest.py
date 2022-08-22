@@ -2,35 +2,15 @@ from pathlib import Path
 from shutil import SameFileError
 from typing import Dict
 
-import sqlmodel as sqm
 from lnbfx import get_bfx_files_from_folder
 from lndb_setup import settings
 from lnschema_core import id
 
-import lamindb as db
-
 from .._logger import colors, logger
-from ..dev import storage_key_from_triple
+from ..dev import storage_key_from_triple, track_usage
 from ..dev.file import load_to_memory, store_file
 from ..dev.object import infer_file_suffix, write_to_file
 from ._link import FeatureModel
-
-
-def track_ingest(dobject_id, dobject_v):
-    with sqm.Session(settings.instance.db_engine()) as session:
-        usage = db.schema.core.usage(
-            type="ingest",
-            user_id=settings.user.id,
-            dobject_id=dobject_id,
-            dobject_v=dobject_v,
-        )
-        session.add(usage)
-        session.commit()
-        session.refresh(usage)
-
-    settings.instance._update_cloud_sqlite_file()
-
-    return usage.id
 
 
 class Ingest:
@@ -177,7 +157,7 @@ class Ingest:
             except SameFileError:
                 pass
 
-            track_ingest(dobject_id, dobject_v)
+            track_usage(dobject_id, dobject_v, "ingest")
 
             logs.append(
                 [
