@@ -8,7 +8,7 @@ query-and-load
 link-features
 link-samples
 track-bfx-run
-update
+update-delete
 introspect
 share-cross-org
 ```
