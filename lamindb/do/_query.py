@@ -48,7 +48,7 @@ class query:
         v: str = None,
         name: str = None,
         file_suffix: str = None,
-        dsource_id: str = None,
+        dtransform_id: str = None,
         gene: str = None,
     ):
         """Query from dobject."""
