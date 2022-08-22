@@ -30,10 +30,7 @@ class insert:
         if jupynb_id not in df_jupynb.index:
             with sqm.Session(engine) as session:
                 jupynb = db.schema.core.jupynb(
-                    id=jupynb_id,
-                    v=jupynb_v,
-                    name=jupynb_name,
-                    user_id=settings.user.id,
+                    id=jupynb_id, v=jupynb_v, name=jupynb_name, user_id=settings.user.id
                 )
                 session.add(jupynb)
                 session.commit()
@@ -77,19 +74,13 @@ class insert:
             if dobject_id is None:
                 dobject_id = id.id_dobject()
 
-            dtransform_out = db.schema.core.dtransform_out(
-                dtransform_id=dtransform_id,
-                dobject_id=dobject_id,
-                dobject_v=dobject_v,
-            )
-            session.add(dtransform_out)
-
             dobject = db.schema.core.dobject(
                 id=dobject_id,
                 v=dobject_v,
                 name=name,
-                dsource_id=dtransform_id,
+                dtransform_id=dtransform_id,
                 file_suffix=file_suffix,
+                storage_root=str(settings.instance.storage_dir),
             )
             session.add(dobject)
             session.commit()
