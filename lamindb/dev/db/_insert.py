@@ -206,7 +206,7 @@ class insert:
         efo_id = efo_id.replace("_", ":")
 
         # check if entry already exists
-        query_readout = getattr("db.do.query", "readout_type")
+        query_readout = getattr(db.do.query, "readout_type")
         readout_results = query_readout(efo_id=efo_id)
         if len(readout_results) > 1:
             raise AssertionError(f"Multiple entries are associated with {efo_id}!")
