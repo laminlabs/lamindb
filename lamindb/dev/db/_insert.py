@@ -30,10 +30,7 @@ class insert:
         if jupynb_id not in df_jupynb.index:
             with sqm.Session(engine) as session:
                 jupynb = db.schema.core.jupynb(
-                    id=jupynb_id,
-                    v=jupynb_v,
-                    name=jupynb_name,
-                    user_id=settings.user.id,
+                    id=jupynb_id, v=jupynb_v, name=jupynb_name, user_id=settings.user.id
                 )
                 session.add(jupynb)
                 session.commit()
@@ -87,6 +84,7 @@ class insert:
                 name=name,
                 dsource_id=dtransform_id,
                 file_suffix=file_suffix,
+                storage_root=str(settings.instance.storage_dir),
             )
             session.add(dobject)
             session.commit()
