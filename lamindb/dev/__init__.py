@@ -23,5 +23,6 @@ from ._core import (
     filepath_from_dobject,
     storage_key_from_dobject,
     storage_key_from_triple,
+    track_usage,
 )
 from ._docs import doc_args  # noqa

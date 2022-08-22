@@ -3,6 +3,7 @@ from sqlmodel import Session, select
 from sqlmodel.sql.expression import Select, SelectOfScalar
 
 from .. import schema
+from ..dev import track_usage
 from ..schema._schema import alltables
 
 
@@ -29,7 +30,11 @@ def _chain_select_stmt(kwargs: dict, schema_module):
 def _create_query_func(name: str, schema_module):
     def query_func(cls, **kwargs):
         stmt = _chain_select_stmt(kwargs=kwargs, schema_module=schema_module)
-        return _query_stmt(statement=stmt, results_type="all")
+        results = _query_stmt(statement=stmt, results_type="all")
+        if name == "dobject":
+            for result in results:
+                track_usage(result.id, result.v, "query")
+        return results
 
     query_func.__name__ = name
     return query_func
@@ -123,9 +128,13 @@ def dobject(
         for i in biometas:
             dobjects += getattr(query, "dobject_biometa")(biometa_id=i.id)
 
-        return [i for i in results if i.id in [j.dobject_id for j in dobjects]]
-    else:
-        return results
+        results = [i for i in results if i.id in [j.dobject_id for j in dobjects]]
+
+    if len(results) > 0:
+        for result in results:
+            track_usage(result.id, result.v, "query")
+
+    return results
 
 
 for name, schema_module in alltables.items():
