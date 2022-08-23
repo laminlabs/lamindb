@@ -7,9 +7,9 @@ from ..schema._schema import alltables
 
 
 def _create_delete_func(name: str, schema_module):
-    def delete_func(cls, id, **kwargs):
+    def delete_func(cls, key, **kwargs):
         with Session(settings.instance.db_engine()) as session:
-            entry = session.get(schema_module, id)
+            entry = session.get(schema_module, key)
             for k, v in kwargs.items():
                 if isinstance(k, tuple):
                     k[1] = int(k[1])
@@ -17,7 +17,7 @@ def _create_delete_func(name: str, schema_module):
             session.delete(entry)
             session.commit()
             logger.success(
-                f"Deleted {colors.yellow(f'entry {entry.id}')} in"
+                f"Deleted {colors.yellow(f'entry {key}')} in"
                 f" {colors.blue(f'table {name}')}!"
             )
             if name == "dobject":
