@@ -66,13 +66,20 @@ class insert:
             if dobject_id is None:
                 dobject_id = id.id_dobject()
 
+            storage = session.exec(
+                sqm.select(db.schema.core.storage).where(
+                    db.schema.core.storage.root == str(settings.instance.storage_dir)
+                )
+            ).first()
+            assert storage
+
             dobject = db.schema.core.dobject(
                 id=dobject_id,
                 v=dobject_v,
                 name=name,
                 dtransform_id=dtransform_id,
                 file_suffix=file_suffix,
-                storage_root=str(settings.instance.storage_dir),
+                storage_id=storage.id,
             )
             session.add(dobject)
             session.commit()
