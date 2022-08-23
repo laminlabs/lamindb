@@ -3,6 +3,7 @@
 <!-- prettier-ignore -->
 Name | PR | Developer | Date | Version
 --- | --- | --- | --- | ---
+⬆️ Upgrade to lnbfx 0.2.0 | [144](https://github.com/laminlabs/lamindb/pull/144) | [falexwolf](https://github.com/falexwolf) | 2022-08-23 |
 🚚 Renamed `id` to `key` in `update` and `delete` APIs | [143](https://github.com/laminlabs/lamindb/pull/143) | [sunnyosun](https://github.com/sunnyosun) | 2022-08-23 |
 ♻️ Cleaned up and added a mouse dataset | [142](https://github.com/laminlabs/lamindb/pull/142) | [sunnyosun](https://github.com/sunnyosun) | 2022-08-23 |
 ⬆️ Upgrade lndb-hub to v0.5.0 | [140](https://github.com/laminlabs/lamindb/pull/140) | [fredericenard](https://github.com/fredericenard) | 2022-08-23 |
