@@ -9,36 +9,36 @@ from ._query import query
 from ._update import update
 
 
-class FeatureModel:
-    def __init__(self, entity_model) -> None:
-        self._entity_model = entity_model
+class LinkFeatureModel:
+    def __init__(self, feature_model) -> None:
+        self._feature_model = feature_model
 
     @property
     def entity(self):
         """Correspond to the feature entity table."""
-        return self._entity_model.entity
+        return self._feature_model.entity
 
     @property
     def id_type(self):
         """Type of id used for curation."""
-        return self._entity_model._id_field
+        return self._feature_model._id_field
 
     @property
     def species(self):
         """Species."""
-        return self._entity_model.species
+        return self._feature_model.species
 
     @property
     def df(self):
         """Reference table."""
-        return self._entity_model.df
+        return self._feature_model.df
 
     def curate(self, df: pd.DataFrame):
         if self.id_type in df.columns:
-            return self._entity_model.curate(df=df, column=self.id_type)
+            return self._feature_model.curate(df=df, column=self.id_type)
         else:
             logger.warning(f"{self.id_type} column not found, using index as features.")
-            return self._entity_model.curate(df=df, column=None)
+            return self._feature_model.curate(df=df, column=None)
 
     def ingest(self, dobject_id, df_curated):
         """Ingest features."""
@@ -57,6 +57,20 @@ class FeatureModel:
 
 class link:
     """Link features and metadata to data."""
+
+    @classmethod
+    def feature_model(cls, df: pd.DataFrame, feature_model):
+        fm = LinkFeatureModel(feature_model)
+        df_curated = fm.curate(df)
+        n = df_curated["__curated__"].count()
+        n_mapped = df_curated["__curated__"].sum()
+        log = {
+            "feature": fm.id_type,
+            "n_mapped": n_mapped,
+            "percent_mapped": round(n_mapped / n * 100, 1),
+            "unmapped": df_curated.index[~df_curated["__curated__"]],
+        }
+        return (fm, df_curated), log
 
     @classmethod
     def gene(
