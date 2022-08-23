@@ -1,6 +1,5 @@
 import sqlmodel as sqm
 from lamin_logger import logger
-from lnbfx import BfxRun
 from lndb_setup import settings
 from lnschema_core import id
 
@@ -21,7 +20,7 @@ class insert:
         jupynb_name: str,
         dobject_id: str = None,
         dobject_v: str = "1",
-        bfx_run: BfxRun = None,
+        pipeline_run: None,
     ):
         """Data object with its origin."""
         engine = settings.instance.db_engine()
@@ -39,9 +38,9 @@ class insert:
                 f" user {settings.user.handle} ({settings.user.id})."
             )
 
-        if bfx_run is not None:
-            bfx_run.check_and_ingest()
-            bfx_pipeline_run_id = bfx_run.get_run_pk()
+        if pipeline_run is not None:
+            pipeline_run.check_and_ingest()
+            bfx_pipeline_run_id = pipeline_run.get_run_pk()
             pipeline_run_bfx_pipeline_run = getattr(
                 db.do.query, "pipeline_run_bfx_pipeline_run"
             )
@@ -51,10 +50,10 @@ class insert:
             if len(core_bfx_link_query) == 0:
                 with sqm.Session(engine) as session:
                     pipeline_run_id = id.id_base62(n_char=22)
-                    pipeline_run = db.schema.core.pipeline_run(id=pipeline_run_id)
-                    session.add(pipeline_run)
+                    pipeline_run_entry = db.schema.core.pipeline_run(id=pipeline_run_id)
+                    session.add(pipeline_run_entry)
                     session.commit()
-                bfx_run.link_core_pipeline_run(pipeline_run_id)
+                pipeline_run.link_core_pipeline_run(pipeline_run_id)
             else:
                 (core_bfx_link,) = core_bfx_link_query
                 pipeline_run_id = core_bfx_link.pipeline_run_id

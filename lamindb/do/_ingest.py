@@ -33,7 +33,7 @@ class Ingest:
     def __init__(self) -> None:
         self._added: Dict = {}
         self._features: Dict = {}
-        self._bfx_runs: Dict = {}
+        self._pipeline_runs: Dict = {}
         self._logs: Dict = {}
 
     @property
@@ -52,7 +52,7 @@ class Ingest:
         *,
         name=None,
         feature_model=None,
-        bfx_run=None,
+        pipeline_run=None,
         dobject_id=None,
         dobject_v="1",
     ):
@@ -62,7 +62,7 @@ class Ingest:
             dobject: A data object in memory or filepath.
             name: A name. Required if passing in memory object.
             feature_model: Features to link during ingestion.
-            bfx_run: The instance of BFX run
+            pipeline_run: The instance of pipeline run, e.g. BfxRun
             dobject_id: The dobject id.
             dobject_v: The dobject version.
         """
@@ -103,15 +103,16 @@ class Ingest:
 
         self._added[filepath] = primary_key
 
-        if bfx_run is not None:
+        # pipeline run
+        if pipeline_run is not None:
             if Path(dobject).is_dir():
                 del self._added[filepath]
-                bfx_run.bfx_pipeline_run_folder = Path(dobject)
+                pipeline_run.bfx_pipeline_run_folder = Path(dobject)
                 dobjects_to_add = get_bfx_files_from_folder(dobject)
                 for dobject in dobjects_to_add:
-                    self.add(dobject, bfx_run=bfx_run)
-            bfx_run.db_engine = settings.instance.db_engine()
-            self._bfx_runs[filepath] = bfx_run
+                    self.add(dobject, pipeline_run=pipeline_run)
+            pipeline_run.db_engine = settings.instance.db_engine()
+            self._pipeline_runs[filepath] = pipeline_run
 
         if not filepath.exists() and dmem is not None:
             write_to_file(dmem, filepath)
@@ -138,7 +139,7 @@ class Ingest:
         jupynb_v = dev.set_version(jupynb_v)  # version to be set in publish()
         jupynb_name = meta.live.title
         for filepath, (dobject_id, dobject_v) in self._added.items():
-            bfx_run = self._bfx_runs.get(filepath)
+            pipeline_run = self._pipeline_runs.get(filepath)
             dobject_id = insert.dobject_from_jupynb(
                 name=filepath.stem,
                 file_suffix=filepath.suffix,
@@ -147,11 +148,11 @@ class Ingest:
                 jupynb_name=jupynb_name,
                 dobject_id=dobject_id,
                 dobject_v=dobject_v,
-                bfx_run=bfx_run,
+                pipeline_run=pipeline_run,
             )
 
-            if bfx_run is not None:
-                bfx_run.link_dobject_to_bfxmeta(dobject_id, filepath)
+            if pipeline_run is not None:
+                pipeline_run.link_dobject_to_bfxmeta(dobject_id, filepath)
 
             dobject_storage_key = storage_key_from_triple(
                 dobject_id, dobject_v, filepath.suffix
