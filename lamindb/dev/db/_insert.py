@@ -20,7 +20,7 @@ class insert:
         jupynb_name: str,
         dobject_id: str = None,
         dobject_v: str = "1",
-        pipeline_run: None,
+        pipeline_run=None,
     ):
         """Data object with its origin."""
         engine = settings.instance.db_engine()
