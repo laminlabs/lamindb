@@ -19,7 +19,7 @@ def file_jpg_paradisi05() -> Path:
     return Path(filepath)
 
 
-def folder_bfx_output() -> Path:
+def dir_bfx_output() -> Path:
     filepath, _ = urlretrieve(
         "https://lamindb-test.s3.amazonaws.com/bfx-output.zip",
     )

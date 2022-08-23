@@ -2,7 +2,7 @@ from pathlib import Path
 from shutil import SameFileError
 from typing import Dict
 
-from lnbfx import get_bfx_files_from_folder
+from lnbfx import BfxRun, get_bfx_files_from_dir
 from lndb_setup import settings
 from lnschema_core import id
 
@@ -50,9 +50,9 @@ class Ingest:
         self,
         dobject,
         *,
-        name=None,
+        name: str = None,
         feature_model=None,
-        pipeline_run=None,
+        pipeline_run: BfxRun = None,
         dobject_id=None,
         dobject_v="1",
     ):
@@ -62,7 +62,7 @@ class Ingest:
             dobject: A data object in memory or filepath.
             name: A name. Required if passing in memory object.
             feature_model: Features to link during ingestion.
-            pipeline_run: The instance of pipeline run, e.g. BfxRun
+            pipeline_run: The instance of pipeline run, e.g. BfxRun.
             dobject_id: The dobject id.
             dobject_v: The dobject version.
         """
@@ -106,16 +106,16 @@ class Ingest:
         # pipeline run
         if pipeline_run is not None:
             if Path(dobject).is_dir():
-                del self._added[filepath]
-                pipeline_run.bfx_pipeline_run_folder = Path(dobject)
-                dobjects_to_add = get_bfx_files_from_folder(dobject)
+                del self._added[filepath]  # do not ingest the directory
+                pipeline_run.run_dir = Path(dobject)
+                dobjects_to_add = get_bfx_files_from_dir(dobject)
                 for dobject in dobjects_to_add:
                     self.add(dobject, pipeline_run=pipeline_run)
             pipeline_run.db_engine = settings.instance.db_engine()
             self._pipeline_runs[filepath] = pipeline_run
 
         if not filepath.exists() and dmem is not None:
-            write_to_file(dmem, filepath)
+            write_to_file(dmem, filepath)  # type: ignore
 
     def commit(self, jupynb_v=None):
         """Complete ingestion.
@@ -139,6 +139,8 @@ class Ingest:
         jupynb_v = dev.set_version(jupynb_v)  # version to be set in publish()
         jupynb_name = meta.live.title
         for filepath, (dobject_id, dobject_v) in self._added.items():
+            # pipeline run should not be ingested from jupynb
+            # need to change this
             pipeline_run = self._pipeline_runs.get(filepath)
             dobject_id = insert.dobject_from_jupynb(
                 name=filepath.stem,
@@ -152,7 +154,7 @@ class Ingest:
             )
 
             if pipeline_run is not None:
-                pipeline_run.link_dobject_to_bfxmeta(dobject_id, filepath)
+                pipeline_run.link_dobject(dobject_id, filepath)
 
             dobject_storage_key = storage_key_from_triple(
                 dobject_id, dobject_v, filepath.suffix
