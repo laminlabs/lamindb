@@ -32,15 +32,15 @@ def folder_bfx_output() -> Path:
     return Path("bfx-output")
 
 
-def file_10x_mouse_sc_E18_brain() -> Path:
-    """10x dataset - 1k Brain Cells from an E18 Mouse (v3 chemistry).
+def file_mouse_sc_lymph_node() -> Path:
+    """Mouse lymph node scRNA-seq dataset from EBI.
 
-    Subsampled to 5k genes.
+    Subsampled to 10k genes.
 
-    From: https://www.10xgenomics.com/resources/datasets/1-k-brain-cells-from-an-e-18-mouse-v-3-chemistry-3-standard-3-0-0  # noqa
+    From: https://www.ebi.ac.uk/arrayexpress/experiments/E-MTAB-8414/
     """
     filepath, _ = urlretrieve(
-        "https://lamindb-test.s3.amazonaws.com/neuron_1k_v3_filtered_feature_bc_matrix.h5ad",  # noqa
-        "mouse_sc_E18_brain.h5ad",
+        "https://lamindb-test.s3.amazonaws.com/E-MTAB-8414.h5ad",  # noqa
+        "mouse_sc_lymph_node.h5ad",
     )
     return Path(filepath)
