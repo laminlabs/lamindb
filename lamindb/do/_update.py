@@ -7,9 +7,9 @@ from ..schema._schema import alltables
 
 
 def _create_update_func(name: str, schema_module):
-    def update_func(cls, id, **kwargs):
+    def update_func(cls, key, **kwargs):
         with Session(settings.instance.db_engine()) as session:
-            entry = session.get(schema_module, id)
+            entry = session.get(schema_module, key)
             for k, v in kwargs.items():
                 if isinstance(k, tuple):
                     k[1] = int(k[1])
@@ -18,7 +18,7 @@ def _create_update_func(name: str, schema_module):
             session.commit()
             session.refresh(entry)
             logger.success(
-                f"Updated {colors.green(f'entry {entry.id}')} in"
+                f"Updated {colors.green(f'entry {key}')} in"
                 f" {colors.blue(f'table {name}')}!"
             )
             if name == "dobject":
