@@ -30,3 +30,17 @@ def folder_bfx_output() -> Path:
         zipObj.extractall(path=".")
 
     return Path("bfx-output")
+
+
+def file_10x_mouse_sc_E18_brain() -> Path:
+    """10x dataset - 1k Brain Cells from an E18 Mouse (v3 chemistry).
+
+    Subsampled to 5k genes.
+
+    From: https://www.10xgenomics.com/resources/datasets/1-k-brain-cells-from-an-e-18-mouse-v-3-chemistry-3-standard-3-0-0  # noqa
+    """
+    filepath, _ = urlretrieve(
+        "https://lamindb-test.s3.amazonaws.com/neuron_1k_v3_filtered_feature_bc_matrix.h5ad",  # noqa
+        "mouse_sc_E18_brain.h5ad",
+    )
+    return Path(filepath)
