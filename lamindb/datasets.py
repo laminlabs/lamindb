@@ -30,3 +30,17 @@ def folder_bfx_output() -> Path:
         zipObj.extractall(path=".")
 
     return Path("bfx-output")
+
+
+def file_mouse_sc_lymph_node() -> Path:
+    """Mouse lymph node scRNA-seq dataset from EBI.
+
+    Subsampled to 10k genes.
+
+    From: https://www.ebi.ac.uk/arrayexpress/experiments/E-MTAB-8414/
+    """
+    filepath, _ = urlretrieve(
+        "https://lamindb-test.s3.amazonaws.com/E-MTAB-8414.h5ad",  # noqa
+        "mouse_sc_lymph_node.h5ad",
+    )
+    return Path(filepath)

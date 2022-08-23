@@ -24,6 +24,8 @@ def _create_update_func(name: str, schema_module):
             if name == "dobject":
                 track_usage(entry.id, entry.v, "update")
 
+        settings.instance._update_cloud_sqlite_file()
+
     update_func.__name__ = name
     return update_func
 
