@@ -13,6 +13,20 @@ from ..dev.object import infer_file_suffix, write_to_file
 from ._link import FeatureModel
 
 
+def ingest_with_feature_model(df, feature_model):
+    fm = FeatureModel(feature_model)
+    df_curated = fm.curate(df)
+    n = df_curated["__curated__"].count()
+    n_mapped = df_curated["__curated__"].sum()
+    log = {
+        "feature": fm.id_type,
+        "n_mapped": n_mapped,
+        "percent_mapped": round(n_mapped / n * 100, 1),
+        "unmapped": df_curated.index[~df_curated["__curated__"]],
+    }
+    return (fm, df_curated), log
+
+
 class Ingest:
     """Ingest dobject."""
 
@@ -52,13 +66,6 @@ class Ingest:
             dobject_id: The dobject id.
             dobject_v: The dobject version.
         """
-        if bfx_run is not None:
-            if Path(dobject).is_dir():
-                bfx_run.bfx_pipeline_run_folder = Path(dobject)
-                dobjects_to_add = get_bfx_files_from_folder(dobject)
-                for dobject in dobjects_to_add:
-                    self.add(dobject, bfx_run=bfx_run)
-
         primary_key = (
             id.id_dobject() if dobject_id is None else dobject_id,
             dobject_v,
@@ -77,37 +84,33 @@ class Ingest:
                 raise RuntimeError("Provide name if ingesting in memory data.")
             filepath = Path(f"{name}{suffix}")
 
+        # ingest features via feature models
         if feature_model is not None:
             # load file into memory
             if isinstance(dobject, (Path, str)):
                 dmem = load_to_memory(dobject)
             else:
                 dmem = dobject
-
             # curate features
             # looks for the id column, if none is found, will assume in the index
             try:
-                df = getattr(dmem, "var")
+                df = getattr(dmem, "var")  # for AnnData objects
             except AttributeError:
                 df = dmem
-            fm = FeatureModel(feature_model)
-            df_curated = fm.curate(df)
-            n = df_curated["__curated__"].count()
-            n_mapped = df_curated["__curated__"].sum()
-            self._logs[filepath] = {
-                "feature": fm.id_type,
-                "n_mapped": n_mapped,
-                "percent_mapped": round(n_mapped / n * 100, 1),
-                "unmapped": df_curated.index[~df_curated["__curated__"]],
-            }
-
-            self._features[filepath] = (fm, df_curated)
-
-        if bfx_run is not None:
-            bfx_run.db_engine = settings.instance.db_engine()
-            self._bfx_runs[filepath] = bfx_run
+            self._features[filepath], self._logs[filepath] = ingest_with_feature_model(
+                df=df, feature_model=feature_model
+            )
 
         self._added[filepath] = primary_key
+
+        if bfx_run is not None:
+            if Path(dobject).is_dir():
+                bfx_run.bfx_pipeline_run_folder = Path(dobject)
+                dobjects_to_add = get_bfx_files_from_folder(dobject)
+                for dobject in dobjects_to_add:
+                    self.add(dobject, bfx_run=bfx_run)
+            bfx_run.db_engine = settings.instance.db_engine()
+            self._bfx_runs[filepath] = bfx_run
 
         if not filepath.exists() and dmem is not None:
             write_to_file(dmem, filepath)
