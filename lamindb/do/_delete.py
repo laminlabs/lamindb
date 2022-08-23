@@ -23,6 +23,8 @@ def _create_delete_func(name: str, schema_module):
             if name == "dobject":
                 track_usage(entry.id, entry.v, "delete")
 
+        settings.instance._update_cloud_sqlite_file()
+
     delete_func.__name__ = name
     return delete_func
 
