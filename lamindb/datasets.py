@@ -1,3 +1,5 @@
+"""Small example datasets."""
+
 from pathlib import Path
 from urllib.request import urlretrieve
 
@@ -19,7 +21,8 @@ def file_jpg_paradisi05() -> Path:
     return Path(filepath)
 
 
-def dir_bfx_output() -> Path:
+def bfx_output() -> Path:
+    """Directory with exemplary BFX output."""
     filepath, _ = urlretrieve(
         "https://lamindb-test.s3.amazonaws.com/bfx-output.zip",
     )
