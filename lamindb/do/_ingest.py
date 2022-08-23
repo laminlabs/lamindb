@@ -10,21 +10,7 @@ from .._logger import colors, logger
 from ..dev import storage_key_from_triple, track_usage
 from ..dev.file import load_to_memory, store_file
 from ..dev.object import infer_file_suffix, write_to_file
-from ._link import FeatureModel
-
-
-def ingest_with_feature_model(df, feature_model):
-    fm = FeatureModel(feature_model)
-    df_curated = fm.curate(df)
-    n = df_curated["__curated__"].count()
-    n_mapped = df_curated["__curated__"].sum()
-    log = {
-        "feature": fm.id_type,
-        "n_mapped": n_mapped,
-        "percent_mapped": round(n_mapped / n * 100, 1),
-        "unmapped": df_curated.index[~df_curated["__curated__"]],
-    }
-    return (fm, df_curated), log
+from ._link import link
 
 
 class Ingest:
@@ -97,7 +83,7 @@ class Ingest:
                 df = getattr(dmem, "var")  # for AnnData objects
             except AttributeError:
                 df = dmem
-            self._features[filepath], self._logs[filepath] = ingest_with_feature_model(
+            self._features[filepath], self._logs[filepath] = link.feature_model(
                 df=df, feature_model=feature_model
             )
 
