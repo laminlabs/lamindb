@@ -105,6 +105,7 @@ class Ingest:
 
         if bfx_run is not None:
             if Path(dobject).is_dir():
+                del self._added[filepath]
                 bfx_run.bfx_pipeline_run_folder = Path(dobject)
                 dobjects_to_add = get_bfx_files_from_folder(dobject)
                 for dobject in dobjects_to_add:
