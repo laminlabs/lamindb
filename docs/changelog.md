@@ -3,6 +3,8 @@
 <!-- prettier-ignore -->
 Name | PR | Developer | Date | Version
 --- | --- | --- | --- | ---
+🏗️ Make tables within schema modules configurable | [148](https://github.com/laminlabs/lamindb/pull/148) | [falexwolf](https://github.com/falexwolf) | 2022-08-25 |
+✏️ Fixed typo in check versions | [147](https://github.com/laminlabs/lamindb/pull/147) | [sunnyosun](https://github.com/sunnyosun) | 2022-08-24 |
 Use id to reference storage | [146](https://github.com/laminlabs/lamindb/pull/146) | [fredericenard](https://github.com/fredericenard) | 2022-08-23 |
 🚚 Renamed `FeatureModel` to `LinkFeatureModel` | [145](https://github.com/laminlabs/lamindb/pull/145) | [sunnyosun](https://github.com/sunnyosun) | 2022-08-23 |
 ⬆️ Upgrade to lnbfx 0.2.0 | [144](https://github.com/laminlabs/lamindb/pull/144) | [falexwolf](https://github.com/falexwolf) | 2022-08-23 |
