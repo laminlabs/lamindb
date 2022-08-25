@@ -10,8 +10,8 @@ from .._logger import colors, logger
 from ..dev import storage_key_from_triple, track_usage
 from ..dev.file import load_to_memory, store_file
 from ..dev.object import infer_file_suffix, write_to_file
-from ..do import load
 from ._link import link
+from ._load import load
 
 
 class Ingest:
