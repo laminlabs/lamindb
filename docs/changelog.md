@@ -3,9 +3,9 @@
 <!-- prettier-ignore -->
 Name | PR | Developer | Date | Version
 --- | --- | --- | --- | ---
-🏗️ Make tables within schema modules configurable | [148](https://github.com/laminlabs/lamindb/pull/148) | [falexwolf](https://github.com/falexwolf) | 2022-08-25 |
+🏗️ Make tables within schema modules configurable | [148](https://github.com/laminlabs/lamindb/pull/148) | [falexwolf](https://github.com/falexwolf) | 2022-08-25 | 0.3.0
 ✏️ Fixed typo in check versions | [147](https://github.com/laminlabs/lamindb/pull/147) | [sunnyosun](https://github.com/sunnyosun) | 2022-08-24 |
-Use id to reference storage | [146](https://github.com/laminlabs/lamindb/pull/146) | [fredericenard](https://github.com/fredericenard) | 2022-08-23 |
+🏗️ Use id to reference storage | [146](https://github.com/laminlabs/lamindb/pull/146) | [fredericenard](https://github.com/fredericenard) | 2022-08-23 |
 🚚 Renamed `FeatureModel` to `LinkFeatureModel` | [145](https://github.com/laminlabs/lamindb/pull/145) | [sunnyosun](https://github.com/sunnyosun) | 2022-08-23 |
 ⬆️ Upgrade to lnbfx 0.2.0 | [144](https://github.com/laminlabs/lamindb/pull/144) | [falexwolf](https://github.com/falexwolf) | 2022-08-23 |
 🚚 Renamed `id` to `key` in `update` and `delete` APIs | [143](https://github.com/laminlabs/lamindb/pull/143) | [sunnyosun](https://github.com/sunnyosun) | 2022-08-23 |
@@ -22,7 +22,7 @@ Use id to reference storage | [146](https://github.com/laminlabs/lamindb/pull/14
 ⚡ Ingest genes properly | [131](https://github.com/laminlabs/lamindb/pull/131) | [sunnyosun](https://github.com/sunnyosun) | 2022-08-16 |
 ✨ New readout_type table, registered species | [130](https://github.com/laminlabs/lamindb/pull/130) | [sunnyosun](https://github.com/sunnyosun) | 2022-08-12 |
 🚚 Migrate `bioreader` to `bioreadout` | [129](https://github.com/laminlabs/lamindb/pull/129) | [sunnyosun](https://github.com/sunnyosun) | 2022-08-04 |
-:arrow_up: Upgrade to lndb_setup 0.5.0 | [128](https://github.com/laminlabs/lamindb/pull/128) | [falexwolf](https://github.com/falexwolf) | 2022-08-03 |
+⬆️ Upgrade to lndb_setup 0.5.0 | [128](https://github.com/laminlabs/lamindb/pull/128) | [falexwolf](https://github.com/falexwolf) | 2022-08-03 |
 ⬆️ Upgrade to `lnschema_core` 0.3.0 | [127](https://github.com/laminlabs/lamindb/pull/127) | [falexwolf](https://github.com/falexwolf) | 2022-08-03 |
 🚚 Renamed `meta.annotate` to `do.link` | [126](https://github.com/laminlabs/lamindb/pull/126) | [sunnyosun](https://github.com/sunnyosun) | 2022-08-03 |
 👷 Cleaner CI environment switching | [125](https://github.com/laminlabs/lamindb/pull/125) | [falexwolf](https://github.com/falexwolf) | 2022-08-02 | 0.2.1
