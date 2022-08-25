@@ -21,7 +21,7 @@ To retrieve settings, use `db.settings <https://lamin.ai/docs/lndb-setup/lndb_se
 """
 from . import _check_versions
 
-__version__ = "0.3.0"
+__version__ = "0.3.1"
 from lndb_setup import settings  # noqa
 from nbproject import header  # noqa
 
