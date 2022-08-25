@@ -4,7 +4,7 @@ from .. import schema
 
 
 def _list_methods(module):
-    return [getattr(module, i) for i in dir(module) if not i.startswith("__")]
+    return [getattr(module, i) for i in dir(module) if not i.startswith("_")]
 
 
 alltables = {}
