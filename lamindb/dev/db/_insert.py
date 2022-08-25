@@ -40,16 +40,7 @@ class insert:
             )
 
         if pipeline_run is not None:
-            with sqm.Session(engine) as session:
-                # create an ID for the pipeline run
-                pipeline_run_id = id.id_base62(n_char=22)
-                # insert that ID into the core pipeline_run table
-                pipeline_run_entry = db.schema.core.pipeline_run(id=pipeline_run_id)
-                session.add(pipeline_run_entry)
-                session.commit()
-            # take the existing ID and populate additional domain specific tables
-            # here, a BFX run
-            pipeline_run.check_and_ingest(pipeline_run_id)
+            pipeline_run_id = pipeline_run.run_id
         else:
             pipeline_run_id = None
 
