@@ -278,7 +278,7 @@ class insert:
         engine = settings.instance.db_engine()
 
         with sqm.Session(engine) as session:
-            pipeline = db.schema.core._core.pipeline(
+            pipeline = db.schema.core.pipeline(
                 id=id, v=v, name=name, reference=reference
             )
             session.add(pipeline)
