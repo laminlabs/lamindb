@@ -3,6 +3,7 @@
 <!-- prettier-ignore -->
 Name | PR | Developer | Date | Version
 --- | --- | --- | --- | ---
+⬆️ Updated dependencies | [152](https://github.com/laminlabs/lamindb/pull/152) | [sunnyosun](https://github.com/sunnyosun) | 2022-08-26 | 0.3.2
 ♻️ Refactor `lnbfx` integration | [149](https://github.com/laminlabs/lamindb/pull/149) | [bpenteado](https://github.com/bpenteado) | 2022-08-26 |
 🚧 Temporary solution to extend modules | [150](https://github.com/laminlabs/lamindb/pull/150) | [sunnyosun](https://github.com/sunnyosun) | 2022-08-25 | 0.3.1
 🏗️ Make tables within schema modules configurable | [148](https://github.com/laminlabs/lamindb/pull/148) | [falexwolf](https://github.com/falexwolf) | 2022-08-25 | 0.3.0
@@ -22,7 +23,7 @@ Name | PR | Developer | Date | Version
 📝 Updated docs | [135](https://github.com/laminlabs/lamindb/pull/135) | [sunnyosun](https://github.com/sunnyosun) | 2022-08-18 |
 👽 Adapt to `lnschema-bionty 0.1.4` | [134](https://github.com/laminlabs/lamindb/pull/134) | [sunnyosun](https://github.com/sunnyosun) | 2022-08-18 |
 ⚡ Ingest genes properly | [131](https://github.com/laminlabs/lamindb/pull/131) | [sunnyosun](https://github.com/sunnyosun) | 2022-08-16 |
-✨ New readout_type table, registered species | [130](https://github.com/laminlabs/lamindb/pull/130) | [sunnyosun](https://github.com/sunnyosun) | 2022-08-12 |
+✨ New readout table, registered species | [130](https://github.com/laminlabs/lamindb/pull/130) | [sunnyosun](https://github.com/sunnyosun) | 2022-08-12 |
 🚚 Migrate `bioreader` to `bioreadout` | [129](https://github.com/laminlabs/lamindb/pull/129) | [sunnyosun](https://github.com/sunnyosun) | 2022-08-04 |
 ⬆️ Upgrade to lndb_setup 0.5.0 | [128](https://github.com/laminlabs/lamindb/pull/128) | [falexwolf](https://github.com/falexwolf) | 2022-08-03 |
 ⬆️ Upgrade to `lnschema_core` 0.3.0 | [127](https://github.com/laminlabs/lamindb/pull/127) | [falexwolf](https://github.com/falexwolf) | 2022-08-03 |

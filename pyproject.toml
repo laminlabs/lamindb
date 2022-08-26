@@ -9,11 +9,11 @@ readme = "README.md"
 dynamic = ["version", "description"]
 dependencies = [
     "lnschema_core==0.4.1",
-    "lnschema_wetlab==0.3.0",
-    "lndb_setup==0.6.0",
+    "lnschema_wetlab==0.3.1",
+    "lndb_setup==0.6.1",
     "lndb_hub==0.5.1",
     "lamin_logger",
-    "bioreadout>=0.0.5",
+    "bioreadout==0.1.0",
     "lnbfx==0.2.2",
     "bionty>=0.1.11",
     "anndata",
@@ -29,7 +29,7 @@ dependencies = [
     "appdirs",
     "supabase",
     "python-dotenv",
-    "nbproject>=0.4.1",
+    "nbproject>=0.5.0",
     "readfcs",
 ]
 

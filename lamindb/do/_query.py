@@ -79,7 +79,7 @@ def featureset(
 def biometa(
     id: int = None,
     biosample_id: int = None,
-    readout_type_id: int = None,
+    readout_id: int = None,
     featureset_id: int = None,
     dobject_id: str = None,
 ):
