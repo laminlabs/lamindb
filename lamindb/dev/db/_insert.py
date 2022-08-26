@@ -101,7 +101,7 @@ class insert:
                 session.add(species)
                 session.commit()
                 session.refresh(species)
-            logger.success(f"Registered readout_type: {species.id}")
+            logger.success(f"Registered readout: {species.id}")
 
             return species.id
 
@@ -190,13 +190,13 @@ class insert:
         return featureset.id
 
     @classmethod
-    def readout_type(cls, efo_id: str):
+    def readout(cls, efo_id: str):
         """Insert a row in the readout table."""
         assert sum(i.isdigit() for i in efo_id) == 7
         efo_id = efo_id.replace("_", ":")
 
         # check if entry already exists
-        query_readout = getattr(db.do.query, "readout_type")
+        query_readout = getattr(db.do.query, "readout")
         readout_results = query_readout(efo_id=efo_id)
         if len(readout_results) > 1:
             raise AssertionError(f"Multiple entries are associated with {efo_id}!")
@@ -205,27 +205,27 @@ class insert:
         else:
             engine = settings.instance.db_engine()
 
-            from bioreadout import readout_type
+            from bioreadout import readout
 
-            entry = readout_type(efo_id=efo_id)
+            entry = readout(efo_id=efo_id)
             for k, v in entry.items():
                 if isinstance(v, list):
                     entry[k] = ";".join(v)
             with sqm.Session(engine) as session:
-                readout_type = db.schema.wetlab.readout_type(**entry)
-                session.add(readout_type)
+                readout = db.schema.wetlab.readout(**entry)
+                session.add(readout)
                 session.commit()
-                session.refresh(readout_type)
-            logger.success(f"Registered readout_type: {readout_type.id}")
+                session.refresh(readout)
+            logger.success(f"Registered readout: {readout.id}")
 
-            return readout_type.id
+            return readout.id
 
     @classmethod
     def biometa(
         cls,
         dobject_id: str,
         biosample_id: int = None,
-        readout_type_id: int = None,
+        readout_id: int = None,
         featureset_id: int = None,
     ):
         """Insert a row in the biometa table and link with a dobject."""
@@ -234,7 +234,7 @@ class insert:
         with sqm.Session(engine) as session:
             biometa = db.schema.wetlab.biometa(
                 biosample_id=biosample_id,
-                readout_type_id=readout_type_id,
+                readout_id=readout_id,
                 featureset_id=featureset_id,
             )
             session.add(biometa)
