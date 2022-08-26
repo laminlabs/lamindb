@@ -51,6 +51,7 @@ def populate_dtransform_in(dobject):
                 dobject_v=dobject.v,
             )
         )
+        session.commit()
 
 
 class load:
