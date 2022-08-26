@@ -21,10 +21,10 @@ def file_jpg_paradisi05() -> Path:
     return Path(filepath)
 
 
-def bfx_output() -> Path:
-    """Directory with exemplary BFX output."""
+def scrnaseq_cellranger() -> Path:
+    """Directory with exemplary scrnaseq cellranger output."""
     filepath, _ = urlretrieve(
-        "https://lamindb-test.s3.amazonaws.com/bfx-output.zip",
+        "https://lamindb-test.s3.amazonaws.com/scrnaseq-cellranger.zip",
     )
     from zipfile import ZipFile
 
@@ -32,7 +32,7 @@ def bfx_output() -> Path:
         # Extract all the contents of zip file in current directory
         zipObj.extractall(path=".")
 
-    return Path("bfx-output")
+    return Path("scrnaseq-cellranger")
 
 
 def file_mouse_sc_lymph_node() -> Path:
