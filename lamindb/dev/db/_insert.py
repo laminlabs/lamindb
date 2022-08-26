@@ -26,34 +26,46 @@ class insert:
         """Data object with its origin."""
         engine = settings.instance.db_engine()
 
-        df_jupynb = db.do.load.entity("jupynb")
-        if jupynb_id not in df_jupynb.index:
-            with sqm.Session(engine) as session:
-                jupynb = db.schema.core.jupynb(
-                    id=jupynb_id, v=jupynb_v, name=jupynb_name, user_id=settings.user.id
-                )
-                session.add(jupynb)
-                session.commit()
-            logger.info(
-                f"Added notebook {jupynb_name!r} ({jupynb_id}, {jupynb_v}) by"
-                f" user {settings.user.handle} ({settings.user.id})."
-            )
-
         if pipeline_run is not None:
             pipeline_run_id = pipeline_run.run_id
         else:
             pipeline_run_id = None
 
         with sqm.Session(engine) as session:
-            dtransform_id = id.id_dtransform()
-            dtransform = db.schema.core.dtransform(
-                id=dtransform_id,
-                jupynb_id=jupynb_id,
-                jupynb_v=jupynb_v,
-                pipeline_run_id=pipeline_run_id,
-            )
-            session.add(dtransform)
+            result = session.get(db.schema.core.jupynb, (jupynb_id, jupynb_v))
+            if result is None:
+                session.add(
+                    db.schema.core.jupynb(
+                        id=jupynb_id,
+                        v=jupynb_v,
+                        name=jupynb_name,
+                        user_id=settings.user.id,
+                    )
+                )
+                dtransform_id = id.id_dtransform()
+                session.add(
+                    db.schema.core.dtransform(
+                        id=dtransform_id,
+                        jupynb_id=jupynb_id,
+                        jupynb_v=jupynb_v,
+                        pipeline_run_id=pipeline_run_id,
+                    )
+                )
+                session.commit()
+                logger.info(
+                    f"Added notebook {jupynb_name!r} ({jupynb_id}, {jupynb_v}) by"
+                    f" user {settings.user.handle}."
+                )
+            else:
+                dtransform = session.exec(
+                    sqm.select(db.schema.core.dtransform).where(
+                        db.schema.core.dtransform.jupynb_id == jupynb_id,
+                        db.schema.core.dtransform.jupynb_v == jupynb_v,
+                    )
+                ).first()  # change to .one() as soon as dtransform ingestion bug fixed
+                dtransform_id = dtransform.id
 
+        with sqm.Session(engine) as session:
             if dobject_id is None:
                 dobject_id = id.id_dobject()
 
