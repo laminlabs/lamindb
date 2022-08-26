@@ -3,6 +3,7 @@
 <!-- prettier-ignore -->
 Name | PR | Developer | Date | Version
 --- | --- | --- | --- | ---
+⬆️ Updated dependencies | [152](https://github.com/laminlabs/lamindb/pull/152) | [sunnyosun](https://github.com/sunnyosun) | 2022-08-26 |
 ♻️ Refactor `lnbfx` integration | [149](https://github.com/laminlabs/lamindb/pull/149) | [bpenteado](https://github.com/bpenteado) | 2022-08-26 |
 🚧 Temporary solution to extend modules | [150](https://github.com/laminlabs/lamindb/pull/150) | [sunnyosun](https://github.com/sunnyosun) | 2022-08-25 | 0.3.1
 🏗️ Make tables within schema modules configurable | [148](https://github.com/laminlabs/lamindb/pull/148) | [falexwolf](https://github.com/falexwolf) | 2022-08-25 | 0.3.0
