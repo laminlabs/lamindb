@@ -267,12 +267,43 @@ class insert:
         return biometa.id
 
     @classmethod
-    def pipeline_run(cls, id: str = None):
+    def pipeline(
+        cls,
+        id: str = None,
+        v: str = None,
+        name: str = None,
+        reference: str = None,
+    ):
+        """Insert a new row in the pipeline table."""
+        engine = settings.instance.db_engine()
+
+        with sqm.Session(engine) as session:
+            pipeline = db.schema.core._core.pipeline(
+                id=id, v=v, name=name, reference=reference
+            )
+            session.add(pipeline)
+            session.commit()
+            session.refresh(pipeline)
+
+        settings.instance._update_cloud_sqlite_file()
+
+        return pipeline.id
+
+    @classmethod
+    def pipeline_run(
+        cls,
+        id: str = None,
+        name: str = None,
+        pipeline_id: str = None,
+        pipeline_v: str = None,
+    ):
         """Insert a new row in the pipeline_run table."""
         engine = settings.instance.db_engine()
 
         with sqm.Session(engine) as session:
-            pipeline_run = db.schema.core.pipeline_run(id=id)
+            pipeline_run = db.schema.core.pipeline_run(
+                id=id, name=name, pipeline_id=pipeline_id, pipeline_v=pipeline_v
+            )
             session.add(pipeline_run)
             session.commit()
             session.refresh(pipeline_run)
