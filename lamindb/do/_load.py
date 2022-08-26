@@ -52,6 +52,7 @@ def populate_dtransform_in(dobject):
             )
         )
         session.commit()
+        settings.instance._update_cloud_sqlite_file()
 
 
 class load:
