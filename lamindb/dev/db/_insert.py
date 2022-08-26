@@ -43,25 +43,27 @@ class insert:
                     )
                 )
                 dtransform_id = id.id_dtransform()
-                dtransform = db.schema.core.dtransform(
-                    id=dtransform_id,
-                    jupynb_id=jupynb_id,
-                    jupynb_v=jupynb_v,
-                    pipeline_run_id=pipeline_run_id,
+                session.add(
+                    db.schema.core.dtransform(
+                        id=dtransform_id,
+                        jupynb_id=jupynb_id,
+                        jupynb_v=jupynb_v,
+                        pipeline_run_id=pipeline_run_id,
+                    )
                 )
-                session.add(dtransform)
                 session.commit()
                 logger.info(
                     f"Added notebook {jupynb_name!r} ({jupynb_id}, {jupynb_v}) by"
                     f" user {settings.user.handle}."
                 )
             else:
-                dtransform_id = session.exec(
+                dtransform = session.exec(
                     sqm.select(db.schema.core.dtransform).where(
                         db.schema.core.dtransform.jupynb_id == jupynb_id,
                         db.schema.core.dtransform.jupynb_v == jupynb_v,
                     )
                 ).first()  # change to .one() as soon as dtransform ingestion bug fixed
+                dtransform_id = dtransform.id
 
         with sqm.Session(engine) as session:
             if dobject_id is None:
