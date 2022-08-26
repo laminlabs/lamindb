@@ -11,6 +11,7 @@ from ..dev import storage_key_from_triple, track_usage
 from ..dev.file import load_to_memory, store_file
 from ..dev.object import infer_file_suffix, write_to_file
 from ._link import link
+from ._load import load
 
 
 class Ingest:
@@ -124,9 +125,17 @@ class Ingest:
         jupynb_id = meta.store.id
         jupynb_v = dev.set_version(jupynb_v)  # version to be set in publish()
         jupynb_name = meta.live.title
+
+        # ingest pipeline entities
+        for run in set(self._pipeline_runs.values()):
+            # check if core pipeline run exists, insert if not
+            df_pipeline_run = load.entity("pipeline_run")
+            if run.run_id not in df_pipeline_run.index:
+                insert.pipeline_run(id=run.run_id)
+            # check if bfx pipeline and run exist, insert if not
+            run.check_and_ingest()
+
         for filepath, (dobject_id, dobject_v) in self._added.items():
-            # pipeline run should not be ingested from jupynb
-            # need to change this
             pipeline_run = self._pipeline_runs.get(filepath)
             dobject_id = insert.dobject_from_jupynb(
                 name=filepath.stem,
