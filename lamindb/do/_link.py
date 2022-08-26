@@ -86,7 +86,7 @@ class link:
             genes_dict=values, geneset_name=geneset_name, species=species
         )
 
-        # use the geneset_id and readout_type_id to create an entry in biometa
+        # use the geneset_id and readout_id to create an entry in biometa
         biometa_id = insert.biometa(
             dobject_id=dobject_id,
             featureset_id=geneset_id,
@@ -107,9 +107,9 @@ class link:
         )
 
     @classmethod
-    def readout_type(cls, dobject_id, efo_id: str):
-        """Link readout_type."""
-        readout_type_id = insert.readout_type(efo_id=efo_id)
+    def readout(cls, dobject_id, efo_id: str):
+        """Link readout."""
+        readout_id = insert.readout(efo_id=efo_id)
 
         # query biometa associated with a dobject
         query_dobject_biometa = getattr(query, "dobject_biometa")
@@ -123,13 +123,13 @@ class link:
                 f" {biometa_ids[0]}"
             )
 
-        # fill in biometa entries with readout_type_id
+        # fill in biometa entries with readout_id
         for biometa_id in biometa_ids:
             update_biometa = getattr(update, "biometa")
-            update_biometa(biometa_id, readout_type_id=readout_type_id)
+            update_biometa(biometa_id, readout_id=readout_id)
 
         logger.success(
-            f"{colors.blue(f'readout_type_id {readout_type_id}')} has been added to"
+            f"{colors.blue(f'readout_id {readout_id}')} has been added to"
             f" {colors.purple(f'biometa entries {biometa_ids}')} associated with"
             f" {colors.green(f'dobject {dobject_id}')}."
         )
