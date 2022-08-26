@@ -128,10 +128,24 @@ class Ingest:
 
         # ingest pipeline entities
         for run in set(self._pipeline_runs.values()):
+            # check if core pipeline exists, insert if not
+            df_pipeline = load.entity("pipeline")
+            if (run.pipeline_id, run.pipeline_v) not in df_pipeline.index:
+                insert.pipeline(
+                    id=run.pipeline_id,
+                    v=run.pipeline_v,
+                    name=run.pipeline_name,
+                    reference=run.pipeline_reference,
+                )
             # check if core pipeline run exists, insert if not
             df_pipeline_run = load.entity("pipeline_run")
             if run.run_id not in df_pipeline_run.index:
-                insert.pipeline_run(id=run.run_id)
+                insert.pipeline_run(
+                    id=run.run_id,
+                    name=run.run_name,
+                    pipeline_id=run.pipeline_id,
+                    pipeline_v=run.pipeline_v,
+                )
             # check if bfx pipeline and run exist, insert if not
             run.check_and_ingest()
 
