@@ -3,6 +3,7 @@
 <!-- prettier-ignore -->
 Name | PR | Developer | Date | Version
 --- | --- | --- | --- | ---
+:bento: Add scrnaseq cellranger dataset | [151](https://github.com/laminlabs/lamindb/pull/151) | [bpenteado](https://github.com/bpenteado) | 2022-08-26 |
 🐛 Fix population of `dtransform` | [155](https://github.com/laminlabs/lamindb/pull/155) | [falexwolf](https://github.com/falexwolf) | 2022-08-26 |
 ✨ Populate `dtransform_in` | [153](https://github.com/laminlabs/lamindb/pull/153) | [falexwolf](https://github.com/falexwolf) | 2022-08-26 |
 ⬆️ Updated dependencies | [152](https://github.com/laminlabs/lamindb/pull/152) | [sunnyosun](https://github.com/sunnyosun) | 2022-08-26 | 0.3.2
