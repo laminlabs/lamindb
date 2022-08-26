@@ -1,3 +1,4 @@
+from bioreadout import __version__ as bioreadout_v
 from lnbfx import __version__ as lnbfx_v
 from lndb_hub import __version__ as lndb_hub_v
 from lndb_setup import __version__ as lndb_setup_v
@@ -22,4 +23,7 @@ if version.parse(nbproject_v) < version.parse("0.4.3"):
     raise RuntimeError("lamindb needs nbproject>=0.4.3")
 
 if version.parse(lnbfx_v) != version.parse("0.2.2"):
-    raise RuntimeError("lamindb needs lnbfx == 0.2.2")
+    raise RuntimeError("lamindb needs lnbfx==0.2.2")
+
+if version.parse(bioreadout_v) != version.parse("0.1.0"):
+    raise RuntimeError("lamindb needs bioreadout==0.1.0")
