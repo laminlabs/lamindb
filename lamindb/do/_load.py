@@ -71,7 +71,10 @@ class load:
 
     @classmethod
     def dobject(cls, dobject: core.dobject):
-        """Load dobject into memory."""
+        """Load dobject into memory.
+
+        Populates `dtransform_in`.
+        """
         filepath = filepath_from_dobject(dobject)
         populate_dtransform_in(dobject)
         return load_to_memory(filepath)
