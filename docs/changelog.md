@@ -3,6 +3,7 @@
 <!-- prettier-ignore -->
 Name | PR | Developer | Date | Version
 --- | --- | --- | --- | ---
+♻️ Update pipeline ingestion to `lnschema_core` 0.5.0 | [154](https://github.com/laminlabs/lamindb/pull/154) | [bpenteado](https://github.com/bpenteado) | 2022-08-26 |
 :bento: Add scrnaseq cellranger dataset | [151](https://github.com/laminlabs/lamindb/pull/151) | [bpenteado](https://github.com/bpenteado) | 2022-08-26 |
 🐛 Fix population of `dtransform` | [155](https://github.com/laminlabs/lamindb/pull/155) | [falexwolf](https://github.com/falexwolf) | 2022-08-26 |
 ✨ Populate `dtransform_in` | [153](https://github.com/laminlabs/lamindb/pull/153) | [falexwolf](https://github.com/falexwolf) | 2022-08-26 |
