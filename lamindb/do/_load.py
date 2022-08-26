@@ -2,6 +2,7 @@ import pandas as pd
 import sqlmodel as sqm
 from lamin_logger import logger
 from lndb_setup import settings
+from lnschema_core import id
 from nbproject import meta
 
 from ..dev import filepath_from_dobject
