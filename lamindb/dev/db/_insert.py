@@ -42,7 +42,7 @@ class insert:
                         user_id=settings.user.id,
                     )
                 )
-                dtransform_id = id.id_dtransform()
+                dtransform_id = id.dtransform()
                 session.add(
                     db.schema.core.dtransform(
                         id=dtransform_id,
@@ -67,7 +67,7 @@ class insert:
 
         with sqm.Session(engine) as session:
             if dobject_id is None:
-                dobject_id = id.id_dobject()
+                dobject_id = id.dobject()
 
             storage = session.exec(
                 sqm.select(db.schema.core.storage).where(
@@ -278,7 +278,7 @@ class insert:
         engine = settings.instance.db_engine()
 
         with sqm.Session(engine) as session:
-            pipeline = db.schema.core._core.pipeline(
+            pipeline = db.schema.core.pipeline(
                 id=id, v=v, name=name, reference=reference
             )
             session.add(pipeline)
