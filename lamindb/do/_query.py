@@ -1,6 +1,5 @@
 from lndb_setup import settings
 from sqlmodel import Session, select
-from sqlmodel.sql.expression import Select, SelectOfScalar
 
 from .. import schema
 from ..dev import track_usage
@@ -9,10 +8,6 @@ from ..schema._schema import alltables
 
 def _query_stmt(statement, results_type="all"):
     with Session(settings.instance.db_engine()) as session:
-        # Will remove after this is fixed:
-        # https://github.com/tiangolo/sqlmodel/pull/234
-        SelectOfScalar.inherit_cache = True  # type: ignore
-        Select.inherit_cache = True  # type: ignore
         results = session.exec(statement).__getattribute__(results_type)()
     return results
 
