@@ -1,3 +1,5 @@
+from pathlib import Path
+
 import sqlmodel as sqm
 from lndb_setup import settings
 from lnschema_core import dobject
@@ -34,3 +36,24 @@ def track_usage(dobject_id, dobject_v, usage_type):
     settings.instance._update_cloud_sqlite_file()
 
     return usage.id
+
+
+def format_pipeline_logs(logs):
+    pipeline_dir_logs = {}
+    for log in logs:
+        rel_filepath = Path(log[0].split(" ")[0])
+        n_parents = len(rel_filepath.parents) - 1
+        if n_parents != 0:
+            logs.remove(log)
+            top_dir = str(rel_filepath.parents[-2])
+            if top_dir in pipeline_dir_logs.keys():
+                pipeline_dir_logs[top_dir][0] += 1
+            else:
+                jupynb_log = log[1]
+                settings_log = log[2]
+                pipeline_dir_logs[top_dir] = (1, jupynb_log, settings_log)
+
+    for dir, logs in pipeline_dir_logs.items():
+        logs.append([f"{logs[0]} files in {dir}", logs[1], logs[2]])
+
+    return logs
