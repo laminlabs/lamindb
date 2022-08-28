@@ -47,6 +47,7 @@ def featureset(
     name: str = None,
     gene: str = None,
     protein: str = None,
+    cell_marker: str = None,
 ):
     """Query the featureset table.
 
@@ -55,18 +56,21 @@ def featureset(
     kwargs = locals()
     del kwargs["gene"]
     del kwargs["protein"]
+    del kwargs["cell_marker"]
     schema_module = schema.bionty.featureset
     stmt = _chain_select_stmt(kwargs=kwargs, schema_module=schema_module)
     results = _query_stmt(statement=stmt, results_type="all")
-    if gene is not None:
-        schema_module = schema.bionty.gene
+    if cell_marker is not None:
+        schema_module = schema.bionty.cell_marker
         stmt = _chain_select_stmt(
-            kwargs={"symbol": gene},
-            schema_module=schema_module,  # TODO: remove hard code here
+            kwargs={"name": cell_marker},  # TODO: remove hard code here
+            schema_module=schema_module,
         )
-        gene_id = _query_stmt(statement=stmt, results_type="all")[0].id
+        feature_id = _query_stmt(statement=stmt, results_type="all")[0].id
 
-        featuresets = getattr(query, "featureset_gene")(gene_id=gene_id)
+        featuresets = getattr(query, "featureset_cell_marker")(
+            cell_marker_id=feature_id
+        )
         featureset_ids = [i.featureset_id for i in featuresets]
 
         return [i for i in results if i.id in featureset_ids]
@@ -108,17 +112,17 @@ def dobject(
     name: str = None,
     file_suffix: str = None,
     dsource_id: str = None,
-    gene: str = None,
+    cell_marker: str = None,
 ):
     """Query from dobject."""
     kwargs = locals()
-    del kwargs["gene"]
+    del kwargs["cell_marker"]
     schema_module = schema.core.dobject
     stmt = _chain_select_stmt(kwargs=kwargs, schema_module=schema_module)
     results = _query_stmt(statement=stmt, results_type="all")
 
-    if gene is not None:
-        featuresets = getattr(query, "featureset")(gene=gene)
+    if cell_marker is not None:
+        featuresets = getattr(query, "featureset")(cell_marker=cell_marker)
         biometas = []
         for i in featuresets:
             biometas += getattr(query, "biometa")(featureset_id=i.id)
