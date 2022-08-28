@@ -118,82 +118,88 @@ class insert:
             return species.id
 
     @classmethod
-    def genes(
+    def features(
         cls,
-        genes_dict: dict,
+        features_dict: dict,
+        feature_entity: str,
         species: str,
-        geneset_name: str = None,
+        featureset_name: str = None,
         **kwargs,
     ):
-        """Insert a geneset.
+        """Insert a featureset.
 
-        Meanwhile inserting genes and linking them to the geneset.
+        Meanwhile inserting features and linking them to the featureset.
         """
         species_id = cls.species(common_name=species)
 
         # check if geneset exists
-        if geneset_name is not None:
+        if featureset_name is not None:
             query_featureset = getattr(db.do.query, "featureset")
-            geneset_results = query_featureset(
-                feature_entity="gene",
-                name=geneset_name,
+            featureset_results = query_featureset(
+                feature_entity=feature_entity,
+                name=featureset_name,
             )
-            if len(geneset_results) > 1:
+            if len(featureset_results) > 1:
                 raise AssertionError(
-                    f"Multiple entries are associated with {geneset_name}!"
+                    f"Multiple entries are associated with {featureset_name}!"
                 )
-            elif len(geneset_results) == 1:
-                logger.warning(f"Geneset {geneset_name} already exists!")
-                return geneset_results[0].id
+            elif len(featureset_results) == 1:
+                logger.warning(f"Featureset {featureset_name} already exists!")
+                return featureset_results[0].id
 
-        # get the id field
-        gene_id = genes_dict[next(iter(genes_dict))].keys()[-1]
-        query_gene = getattr(db.do.query, "gene")
-        allgenes = query_gene(species=species_id)
-        # only ingest the new genes but link all genes to the geneset
-        exist_gene_keys = set()
-        exist_gene_ids = set()
-        for gene in allgenes:
-            exist_gene_keys.add(gene.__getattribute__(gene_id))
-            exist_gene_ids.add(gene.id)
+        # get the id field of feature entity
+        feature_id = features_dict[next(iter(features_dict))].keys()[-1]
+        query_feature = getattr(db.do.query, feature_entity)
+        allfeatures = query_feature(species_id=species_id)
+        # only ingest the new features but link all features to the featureset
+        exist_feature_keys = set()
+        exist_feature_ids = set()
+        for feature in allfeatures:
+            exist_feature_keys.add(feature.__getattribute__(feature_id))
+            exist_feature_ids.add(feature.id)
 
         engine = settings.instance.db_engine()
 
-        # add a geneset to the geneset table
+        # add a featureset to the featureset table
         with sqm.Session(engine) as session:
             featureset = db.schema.bionty.featureset(
-                feature_entity="gene",
-                name=geneset_name,
+                feature_entity=feature_entity,
+                name=featureset_name,
             )
             session.add(featureset)
             session.commit()
             session.refresh(featureset)
 
-        # add genes to the gene table
+        # add features to the feature table
         with sqm.Session(engine) as session:
-            genes_ins = []
-            for k, v in genes_dict.items():
-                if k in exist_gene_keys:
+            features_ins = []
+            for k, v in features_dict.items():
+                if k in exist_feature_keys:
                     continue
-                gene = db.schema.bionty.gene(
+                feature_schema = getattr(db.schema.bionty, feature_entity)
+                feature = feature_schema(
                     **v,
-                    species=species_id,
+                    species_id=species_id,
                 )
-                session.add(gene)
-                genes_ins.append(gene)
+                session.add(feature)
+                features_ins.append(feature)
             session.commit()
-            for gene in genes_ins:
-                session.refresh(gene)
+            for feature in features_ins:
+                session.refresh(feature)
 
         # insert ids into the link table
-        gene_ids = [i.id for i in genes_ins]
-        gene_ids += exist_gene_ids
+        feature_ids = [i.id for i in features_ins]
+        feature_ids += exist_feature_ids
         with sqm.Session(engine) as session:
-            for gene_id in gene_ids:
-                link = db.schema.bionty.featureset_gene(
-                    featureset_id=featureset.id,
-                    gene_id=gene_id,
+            for feature_id in feature_ids:
+                featureset_link_module = getattr(
+                    db.schema.bionty, f"featureset_{feature_entity}"
                 )
+                query_dict = {
+                    "featureset_id": featureset.id,
+                    f"{feature_entity}_id": feature_id,
+                }
+                link = featureset_link_module(**query_dict)
                 session.add(link)
             session.commit()
 
