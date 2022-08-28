@@ -65,7 +65,10 @@ def featureset(
     results = _query_stmt(statement=stmt, results_type="all")
     if gene is not None:
         schema_module = schema.bionty.gene
-        stmt = _chain_select_stmt(kwargs={"name": gene}, schema_module=schema_module)
+        stmt = _chain_select_stmt(
+            kwargs={"gene_symbol": gene},
+            schema_module=schema_module,  # TODO: remove hard code here
+        )
         gene_id = _query_stmt(statement=stmt, results_type="all")[0].id
 
         featuresets = getattr(query, "featureset_gene")(gene_id=gene_id)
