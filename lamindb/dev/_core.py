@@ -42,10 +42,11 @@ def format_pipeline_logs(logs):
     pipeline_dir_logs = {}
     for log in logs:
         rel_filepath = Path(log[0].split(" ")[0])
+        print(rel_filepath)
         n_parents = len(rel_filepath.parents) - 1
         if n_parents != 0:
             logs.remove(log)
-            top_dir = str(rel_filepath.parents[-2])
+            top_dir = str(list(rel_filepath.parents)[-2])
             if top_dir in pipeline_dir_logs.keys():
                 pipeline_dir_logs[top_dir][0] += 1
             else:
