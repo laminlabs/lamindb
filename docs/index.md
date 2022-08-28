@@ -3,15 +3,21 @@
 :end-line: 4
 ```
 
+```{warning}
+
+Public beta. Support is currently only offered to enterprise customers.
+
+```
+
 Curate, store, track, query, integrate, and learn from biological data.
 
 Modular configurable data & analysis platform for hybrid R&D organizations to
 
 <!-- Key features/functionality/capabilities -->
 
-1. query low- and high-dimensional data by biological entities ⸻ _organize data in the hypothesis space_
-2. query data by provenance (users, notebooks, pipelines, instruments, etc.) ⸻ _track it all_
-3. share data within and across organizations in an interoperable, reusable way ⸻ _no cleaning anymore_
+1. query low- and high-dimensional data by biological entities
+2. query data by provenance (users, notebooks, pipelines, instruments, etc.)
+3. collaborate on data within and across organizations
 
 <!-- User experience -->
 
