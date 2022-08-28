@@ -52,7 +52,7 @@ def format_pipeline_logs(logs):
             else:
                 jupynb_log = log[1]
                 settings_log = log[2]
-                pipeline_dir_logs[top_dir] = (1, jupynb_log, settings_log)
+                pipeline_dir_logs[top_dir] = [1, jupynb_log, settings_log]
 
     for dir, logs in pipeline_dir_logs.items():
         logs.append([f"{logs[0]} files in {dir}", logs[1], logs[2]])
