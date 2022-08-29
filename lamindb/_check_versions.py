@@ -16,8 +16,8 @@ if version.parse(lnschema_wetlab_v) != version.parse("0.3.2"):
 if version.parse(lndb_setup_v) != version.parse("0.6.1"):
     raise RuntimeError("lamindb needs lndb_setup==0.6.1")
 
-if version.parse(lndb_hub_v) != version.parse("0.5.3"):
-    raise RuntimeError("lamindb needs lndb_hub==0.5.3")
+if version.parse(lndb_hub_v) != version.parse("0.5.4"):
+    raise RuntimeError("lamindb needs lndb_hub==0.5.4")
 
 if version.parse(nbproject_v) < version.parse("0.5.0"):
     raise RuntimeError("lamindb needs nbproject>=0.5.0")
