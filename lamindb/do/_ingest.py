@@ -178,7 +178,7 @@ class Ingest:
             if pipeline_run is None:
                 log_file_name = filepath.name
             else:
-                log_file_name = str(filepath.relative_to(pipeline_run.run_dir))
+                log_file_name = str(filepath.relative_to(pipeline_run.run_dir.parent))
 
             logs.append(
                 [
