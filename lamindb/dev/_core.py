@@ -19,7 +19,7 @@ def filepath_from_dobject(dobj: dobject):
     return filepath
 
 
-def track_usage(dobject_id, dobject_v, usage_type: type.usage_type):
+def track_usage(dobject_id, dobject_v, usage_type: type.usage):
     with sqm.Session(settings.instance.db_engine()) as session:
         usage = schema.core.usage(
             type=usage_type,
