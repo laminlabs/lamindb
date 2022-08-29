@@ -11,13 +11,12 @@ Browse the API:
 
    db
    schema
-   track
    datasets
    dev
    nb
    session
 
-To retrieve settings, use `db.settings <https://lamin.ai/docs/lndb-setup/lndb_setup.settings>`__.
+To retrieve settings, use `lamindb.settings <https://lamin.ai/docs/lndb-setup/lndb_setup.settings>`__.
 """
 from . import _check_versions
 
@@ -28,6 +27,5 @@ from . import datasets  # noqa
 from . import db  # noqa
 from . import dev  # noqa
 from . import schema  # noqa
-from . import track  # noqa
 from ._nb import nb  # noqa
 from .dev.db import session  # noqa

@@ -1,2 +1,0 @@
-def dataflow():
-    raise NotImplementedError

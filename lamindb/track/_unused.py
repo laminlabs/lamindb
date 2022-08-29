@@ -1,2 +1,0 @@
-def unused():
-    raise NotImplementedError
