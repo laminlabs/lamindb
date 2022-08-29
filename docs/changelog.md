@@ -40,7 +40,7 @@ Name | PR | Developer | Date | Version
 🚚 Migrate `bioreader` to `bioreadout` | [129](https://github.com/laminlabs/lamindb/pull/129) | [sunnyosun](https://github.com/sunnyosun) | 2022-08-04 |
 ⬆️ Upgrade to lndb_setup 0.5.0 | [128](https://github.com/laminlabs/lamindb/pull/128) | [falexwolf](https://github.com/falexwolf) | 2022-08-03 |
 ⬆️ Upgrade to `lnschema_core` 0.3.0 | [127](https://github.com/laminlabs/lamindb/pull/127) | [falexwolf](https://github.com/falexwolf) | 2022-08-03 |
-🚚 Renamed `meta.annotate` to `do.link` | [126](https://github.com/laminlabs/lamindb/pull/126) | [sunnyosun](https://github.com/sunnyosun) | 2022-08-03 |
+🚚 Renamed `meta.annotate` to `db.link` | [126](https://github.com/laminlabs/lamindb/pull/126) | [sunnyosun](https://github.com/sunnyosun) | 2022-08-03 |
 👷 Cleaner CI environment switching | [125](https://github.com/laminlabs/lamindb/pull/125) | [falexwolf](https://github.com/falexwolf) | 2022-08-02 | 0.2.1
 ⬆️ Upgrade to `lndb_setup` 0.4.2 | [123](https://github.com/laminlabs/lamindb/pull/123) | [falexwolf](https://github.com/falexwolf) | 2022-08-02 | 0.2.0
 📝 Polish the `introspect` tutorial | [122](https://github.com/laminlabs/lamindb/pull/122) | [falexwolf](https://github.com/falexwolf) | 2022-08-02 |
@@ -82,7 +82,7 @@ Name | PR | Developer | Date | Version
 🚚 Move version check into correct __init__ | [82](https://github.com/laminlabs/lamindb/pull/82) | [falexwolf](https://github.com/falexwolf) | 2022-07-20 |
 ⬆️ Fix the publishing call by upgrading to nbproject 0.4.3 | [80](https://github.com/laminlabs/lamindb/pull/80) | [falexwolf](https://github.com/falexwolf) | 2022-07-19 | 0.1.1
 ✨ Add `schema_version` check | [79](https://github.com/laminlabs/lamindb/pull/79) | [falexwolf](https://github.com/falexwolf) | 2022-07-19 | 0.1.0
-🚚 Rename `lamindb.model` to `lamindb.schema` | [77](https://github.com/laminlabs/lamindb/pull/77) | [falexwolf](https://github.com/falexwolf) | 2022-07-17 |
+🚚 Rename `lamindb.model` to `laminln.schema` | [77](https://github.com/laminlabs/lamindb/pull/77) | [falexwolf](https://github.com/falexwolf) | 2022-07-17 |
 🚚 Migrate schema out to `lamindb-schema` | [76](https://github.com/laminlabs/lamindb/pull/76) | [falexwolf](https://github.com/falexwolf) | 2022-07-17 |
 ✨ Version dobjects and interfaces | [75](https://github.com/laminlabs/lamindb/pull/75) | [falexwolf](https://github.com/falexwolf) | 2022-07-16 |
 💄 Pretty logging | [74](https://github.com/laminlabs/lamindb/pull/74) | [sunnyosun](https://github.com/sunnyosun) | 2022-07-15 |

@@ -4,7 +4,7 @@
 
 For a schematic of relations among models, see :class:`track.schema`.
 
-.. currentmodule:: lamindb.schema
+.. currentmodule:: laminln.schema
 
 See the API reference of the schema modules:
 

@@ -1,6 +1,6 @@
-"""Query, load and modify data.
+"""Query, load, ingest, update, delete, link, and share data.
 
-Query & load data as `DataFrame`, `AnnData` or `MuData`:
+Query & load:
 
 .. autosummary::
    :toctree: .
