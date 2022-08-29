@@ -22,7 +22,7 @@ def test_create_to_load():
         jupynb_v="1",
         jupynb_name="test",
     )
-    for entity in ln.schema.list_entities:
+    for entity in ln.schema.list_entities():
         ln.db.query.table_as_df(entity)
 
     (Path(storage) / "mydata-test-db.lndb").unlink()
