@@ -3,6 +3,11 @@
 <!-- prettier-ignore -->
 Name | PR | Developer | Date | Version
 --- | --- | --- | --- | ---
+🚚 Rename `.do` to `.db` | [166](https://github.com/laminlabs/lamindb/pull/166) | [falexwolf](https://github.com/falexwolf) | 2022-08-29 |
+🎨 Move header call to `nb`, re-export all of nbproject | [165](https://github.com/laminlabs/lamindb/pull/165) | [falexwolf](https://github.com/falexwolf) | 2022-08-29 |
+👷 Get rid of sqm warnings | [164](https://github.com/laminlabs/lamindb/pull/164) | [falexwolf](https://github.com/falexwolf) | 2022-08-29 |
+🎨 Simplify loading data | [163](https://github.com/laminlabs/lamindb/pull/163) | [falexwolf](https://github.com/falexwolf) | 2022-08-29 |
+👷 Allow stripping notebooks again, upgrade `nbproject_test`  | [162](https://github.com/laminlabs/lamindb/pull/162) | [falexwolf](https://github.com/falexwolf) | 2022-08-29 | 0.3.3
 ✨ Use cell_marker feature model for flow data | [161](https://github.com/laminlabs/lamindb/pull/161) | [sunnyosun](https://github.com/sunnyosun) | 2022-08-28 |
 ⬆️ Updated to bionty 0.2.2 | [160](https://github.com/laminlabs/lamindb/pull/160) | [sunnyosun](https://github.com/sunnyosun) | 2022-08-28 |
 ⬆️ Updated to sqm 0.0.7 | [159](https://github.com/laminlabs/lamindb/pull/159) | [sunnyosun](https://github.com/sunnyosun) | 2022-08-28 |
@@ -36,7 +41,7 @@ Name | PR | Developer | Date | Version
 🚚 Migrate `bioreader` to `bioreadout` | [129](https://github.com/laminlabs/lamindb/pull/129) | [sunnyosun](https://github.com/sunnyosun) | 2022-08-04 |
 ⬆️ Upgrade to lndb_setup 0.5.0 | [128](https://github.com/laminlabs/lamindb/pull/128) | [falexwolf](https://github.com/falexwolf) | 2022-08-03 |
 ⬆️ Upgrade to `lnschema_core` 0.3.0 | [127](https://github.com/laminlabs/lamindb/pull/127) | [falexwolf](https://github.com/falexwolf) | 2022-08-03 |
-🚚 Renamed `meta.annotate` to `do.link` | [126](https://github.com/laminlabs/lamindb/pull/126) | [sunnyosun](https://github.com/sunnyosun) | 2022-08-03 |
+🚚 Renamed `meta.annotate` to `db.link` | [126](https://github.com/laminlabs/lamindb/pull/126) | [sunnyosun](https://github.com/sunnyosun) | 2022-08-03 |
 👷 Cleaner CI environment switching | [125](https://github.com/laminlabs/lamindb/pull/125) | [falexwolf](https://github.com/falexwolf) | 2022-08-02 | 0.2.1
 ⬆️ Upgrade to `lndb_setup` 0.4.2 | [123](https://github.com/laminlabs/lamindb/pull/123) | [falexwolf](https://github.com/falexwolf) | 2022-08-02 | 0.2.0
 📝 Polish the `introspect` tutorial | [122](https://github.com/laminlabs/lamindb/pull/122) | [falexwolf](https://github.com/falexwolf) | 2022-08-02 |
@@ -45,7 +50,7 @@ Name | PR | Developer | Date | Version
 ✨ Allow ingesting fcs files and querying genes | [118](https://github.com/laminlabs/lamindb/pull/118) | [sunnyosun](https://github.com/sunnyosun) | 2022-08-01 |
 📝 Prettify user mentions in tutorials & guides | [117](https://github.com/laminlabs/lamindb/pull/117) | [falexwolf](https://github.com/falexwolf) | 2022-08-01 |
 ⬆️ Upgrade to `lndb_setup` 0.4.0 | [116](https://github.com/laminlabs/lamindb/pull/116) | [falexwolf](https://github.com/falexwolf) | 2022-08-01 |
-🎨 Overhauled tutorials, renamed `load` to `load.entity` | [115](https://github.com/laminlabs/lamindb/pull/115) | [sunnyosun](https://github.com/sunnyosun) | 2022-08-01 |
+🎨 Overhauled tutorials, renamed `load` to `query.table_as_df` | [115](https://github.com/laminlabs/lamindb/pull/115) | [sunnyosun](https://github.com/sunnyosun) | 2022-08-01 |
 🩹 Some fixes of ingesting in-memory dobjects and an analysis draft | [114](https://github.com/laminlabs/lamindb/pull/114) | [falexwolf](https://github.com/falexwolf) | 2022-07-31 |
 ✨ Query and update metadata | [113](https://github.com/laminlabs/lamindb/pull/113) | [sunnyosun](https://github.com/sunnyosun) | 2022-07-31 |
 📝 Add a problem statement | [112](https://github.com/laminlabs/lamindb/pull/112) | [falexwolf](https://github.com/falexwolf) | 2022-07-31 |
@@ -78,7 +83,7 @@ Name | PR | Developer | Date | Version
 🚚 Move version check into correct __init__ | [82](https://github.com/laminlabs/lamindb/pull/82) | [falexwolf](https://github.com/falexwolf) | 2022-07-20 |
 ⬆️ Fix the publishing call by upgrading to nbproject 0.4.3 | [80](https://github.com/laminlabs/lamindb/pull/80) | [falexwolf](https://github.com/falexwolf) | 2022-07-19 | 0.1.1
 ✨ Add `schema_version` check | [79](https://github.com/laminlabs/lamindb/pull/79) | [falexwolf](https://github.com/falexwolf) | 2022-07-19 | 0.1.0
-🚚 Rename `lamindb.model` to `lamindb.schema` | [77](https://github.com/laminlabs/lamindb/pull/77) | [falexwolf](https://github.com/falexwolf) | 2022-07-17 |
+🚚 Rename `lamindb.model` to `laminln.schema` | [77](https://github.com/laminlabs/lamindb/pull/77) | [falexwolf](https://github.com/falexwolf) | 2022-07-17 |
 🚚 Migrate schema out to `lamindb-schema` | [76](https://github.com/laminlabs/lamindb/pull/76) | [falexwolf](https://github.com/falexwolf) | 2022-07-17 |
 ✨ Version dobjects and interfaces | [75](https://github.com/laminlabs/lamindb/pull/75) | [falexwolf](https://github.com/falexwolf) | 2022-07-16 |
 💄 Pretty logging | [74](https://github.com/laminlabs/lamindb/pull/74) | [sunnyosun](https://github.com/sunnyosun) | 2022-07-15 |

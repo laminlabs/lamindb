@@ -40,9 +40,7 @@ repos:
         exclude: |
           (?x)(
               docs/examples/|
-              docs/notes/|
-              docs/tutorials/get-started.ipynb|
-              docs/tutorials/link-features.ipynb
+              docs/notes/
           )
   - repo: https://github.com/Lucas-C/pre-commit-hooks
     rev: v1.1.9

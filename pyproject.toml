@@ -12,7 +12,7 @@ dependencies = [
     "lnschema_wetlab==0.3.2",
     "lnschema_bionty>=0.2.3",
     "lndb_setup==0.6.1",
-    "lndb_hub==0.5.1",
+    "lndb_hub==0.5.3",
     "lamin_logger",
     "bioreadout==0.1.0",
     "lnbfx==0.3.1",
@@ -30,7 +30,8 @@ dependencies = [
     "appdirs",
     "supabase",
     "python-dotenv",
-    "nbproject>=0.5.0",
+    "nbproject>=0.5.1",
+    "nbproject_test>=0.2.0",
     "readfcs",
 ]
 

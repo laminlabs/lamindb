@@ -16,6 +16,7 @@ _docs_tmp*
 docs/tutorials/Laminopathic_nuclei.jpg
 docs/tutorials/iris.feather
 docs/tutorials/paradisi05_laminopathic_nuclei.jpg
+docs/tutorials/scrnaseq-cellranger/
 
 # General
 .DS_Store

@@ -11,7 +11,7 @@ from ..dev import format_pipeline_logs, storage_key_from_triple, track_usage
 from ..dev.file import load_to_memory, store_file
 from ..dev.object import infer_file_suffix, write_to_file
 from ._link import link
-from ._load import load
+from ._query import query
 
 
 class Ingest:
@@ -131,7 +131,7 @@ class Ingest:
         # ingest pipeline entities
         for run in set(self._pipeline_runs.values()):
             # check if core pipeline exists, insert if not
-            df_pipeline = load.entity("pipeline")
+            df_pipeline = query.table_as_df("pipeline")
             if (run.pipeline_id, run.pipeline_v) not in df_pipeline.index:
                 insert.pipeline(
                     id=run.pipeline_id,
@@ -140,7 +140,7 @@ class Ingest:
                     reference=run.pipeline_reference,
                 )
             # check if core pipeline run exists, insert if not
-            df_pipeline_run = load.entity("pipeline_run")
+            df_pipeline_run = query.table_as_df("pipeline_run")
             if run.run_id not in df_pipeline_run.index:
                 insert.pipeline_run(
                     id=run.run_id,

@@ -2,7 +2,7 @@ from pathlib import Path
 
 import sqlmodel as sqm
 from lndb_setup import settings
-from lnschema_core import dobject
+from lnschema_core import dobject, type
 
 from lamindb import schema
 
@@ -21,7 +21,7 @@ def filepath_from_dobject(dobj: dobject):
     return filepath
 
 
-def track_usage(dobject_id, dobject_v, usage_type):
+def track_usage(dobject_id, dobject_v, usage_type: type.usage):
     with sqm.Session(settings.instance.db_engine()) as session:
         usage = schema.core.usage(
             type=usage_type,
