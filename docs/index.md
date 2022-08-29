@@ -5,7 +5,7 @@
 
 ```{warning}
 
-Public beta. Support is currently only offered to enterprise customers.
+Public beta: Support is currently only offered to partners & enterprise customers.
 
 ```
 

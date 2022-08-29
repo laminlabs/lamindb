@@ -1,11 +1,10 @@
-import pandas as pd
 import sqlmodel as sqm
 from lamin_logger import logger
 from lndb_setup import settings
 from lnschema_core import id
 from nbproject import meta
 
-from ..dev import filepath_from_dobject
+from ..dev import filepath_from_dobject, track_usage
 from ..dev.file import load_to_memory
 from ..schema import core
 
@@ -43,7 +42,7 @@ def populate_dtransform_in(dobject):
                     core.dtransform.jupynb_id == jupynb_id,
                     core.dtransform.jupynb_v == jupynb_v,
                 )
-            ).first()  # change to .one() as soon as dtransform ingestion bug fixed
+            ).one()
         session.add(
             core.dtransform_in(
                 dtransform_id=dtransform_id,
@@ -55,28 +54,14 @@ def populate_dtransform_in(dobject):
         settings.instance._update_cloud_sqlite_file()
 
 
-class load:
-    """Load data."""
+def load(dobject: core.dobject):
+    """Load `dobject` into memory.
 
-    @classmethod
-    def entity(cls, entity_name) -> pd.DataFrame:
-        """Load observations of entity as dataframe."""
-        engine = settings.instance.db_engine()
-        with engine.connect() as conn:
-            df = pd.read_sql_table(entity_name, conn)
-            if "id" in df.columns:
-                if "v" in df.columns:
-                    df = df.set_index(["id", "v"])
-                else:
-                    df = df.set_index("id")
-        return df
+    Returns object associated with the stored `dobject`.
 
-    @classmethod
-    def dobject(cls, dobject: core.dobject):
-        """Load dobject into memory.
-
-        Populates `dtransform_in`.
-        """
-        filepath = filepath_from_dobject(dobject)
-        populate_dtransform_in(dobject)
-        return load_to_memory(filepath)
+    Populates `dtransform_in`.
+    """
+    filepath = filepath_from_dobject(dobject)
+    populate_dtransform_in(dobject)
+    track_usage(dobject.id, dobject.v, "load")
+    return load_to_memory(filepath)
