@@ -12,9 +12,8 @@ Browse the API:
    db
    schema
    datasets
-   dev
    nb
-   session
+   dev
 
 To retrieve settings, use `lamindb.settings <https://lamin.ai/docs/lndb-setup/lndb_setup.settings>`__.
 """
@@ -28,4 +27,3 @@ from . import db  # noqa
 from . import dev  # noqa
 from . import schema  # noqa
 from ._nb import nb  # noqa
-from .dev.db import session  # noqa
