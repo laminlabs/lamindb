@@ -23,7 +23,7 @@ def test_create_to_load():
         jupynb_name="test",
     )
     for entity in db.track.schema.entities:
-        db.do.query.table_as_df(entity)
+        db.db.query.table_as_df(entity)
 
     (Path(storage) / "mydata-test-db.lndb").unlink()
     # Note that this merely removes database file but doesn't clean out the instance_settings file!  # noqa
