@@ -40,13 +40,12 @@ def track_usage(dobject_id, dobject_v, usage_type):
 
 def format_pipeline_logs(logs):
     pipeline_dir_logs = {}
-    for log in logs:
+    for log in list(logs):
         rel_filepath = Path(log[0].split(" ")[0])
-        print(rel_filepath)
         n_parents = len(rel_filepath.parents) - 1
-        if n_parents != 0:
+        if n_parents > 2:
             logs.remove(log)
-            top_dir = str(list(rel_filepath.parents)[-2])
+            top_dir = str(list(rel_filepath.parents)[-4])
             if top_dir in pipeline_dir_logs.keys():
                 pipeline_dir_logs[top_dir][0] += 1
             else:
@@ -54,7 +53,7 @@ def format_pipeline_logs(logs):
                 settings_log = log[2]
                 pipeline_dir_logs[top_dir] = [1, jupynb_log, settings_log]
 
-    for dir, logs in pipeline_dir_logs.items():
-        logs.append([f"{logs[0]} files in {dir}", logs[1], logs[2]])
+    for dir, new_logs in pipeline_dir_logs.items():
+        logs.append([f"{new_logs[0]} files in {dir}/", new_logs[1], new_logs[2]])
 
     return logs
