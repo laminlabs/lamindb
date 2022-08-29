@@ -1,4 +1,4 @@
-import biogram
+import erdiagram
 import sqlalchemy as sql
 from lndb_setup import settings
 
@@ -8,7 +8,7 @@ def draw(view=True):
     engine = settings.instance.db_engine()
     metadata = sql.MetaData(bind=engine)
     metadata.reflect()
-    graph = biogram.create_schema_graph(
+    graph = erdiagram.create_schema_graph(
         metadata=metadata,
         show_datatypes=False,
         show_indexes=False,  # ditto for indexes
@@ -16,7 +16,7 @@ def draw(view=True):
         concentrate=False,  # Don't try to join the relation lines together
     )
     if view:
-        biogram.view(graph)
+        erdiagram.view(graph)
     else:
         return graph
 
