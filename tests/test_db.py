@@ -13,17 +13,17 @@ def test_create_to_load():
 
     # if importing this at the top of the file lndb_setup will try to
     # create unnecessary tables
-    import lamindb as db
+    import lamindb as ln
 
-    db.dev.db.insert.dobject_from_jupynb(
+    ln.dev.db.insert.dobject_from_jupynb(
         name="test_file",
         file_suffix=".csv",
         jupynb_id="83jf",
         jupynb_v="1",
         jupynb_name="test",
     )
-    for entity in db.track.schema.entities:
-        db.db.query.table_as_df(entity)
+    for entity in ln.track.schema.entities:
+        ln.db.query.table_as_df(entity)
 
     (Path(storage) / "mydata-test-db.lndb").unlink()
     # Note that this merely removes database file but doesn't clean out the instance_settings file!  # noqa
