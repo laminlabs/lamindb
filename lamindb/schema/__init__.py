@@ -1,10 +1,10 @@
 """Inspect the data models for each entity.
 
-.. currentmodule:: lamindb
+.. autosummary::
+   :toctree: .
 
-For a schematic of relations among models, see :class:`track.schema`.
-
-.. currentmodule:: laminln.schema
+   draw
+   list_entities
 
 See the API reference of the schema modules:
 
@@ -18,6 +18,8 @@ import lnbfx.schema as bfx
 import lnschema_bionty as bionty
 import lnschema_core as core
 import lnschema_wetlab as wetlab
+
+from ._core import draw, list_entities
 
 # try:
 #     import lnschema_retro as retro

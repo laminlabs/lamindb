@@ -10,5 +10,4 @@
 """
 from ._dataflow import dataflow  # noqa
 from ._integrity import integrity  # noqa
-from ._schema import schema  # noqa
 from ._unused import unused  # noqa
