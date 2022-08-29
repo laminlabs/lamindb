@@ -10,8 +10,9 @@ from ._update import update
 
 
 class LinkFeatureModel:
-    def __init__(self, feature_model) -> None:
+    def __init__(self, feature_model, featureset_name: str = None) -> None:
         self._feature_model = feature_model
+        self._featureset_name = featureset_name
 
     @property
     def entity(self):
@@ -42,16 +43,17 @@ class LinkFeatureModel:
 
     def ingest(self, dobject_id, df_curated):
         """Ingest features."""
-        link_feature = getattr(link, self.entity)
         mapped_df = self.df.loc[df_curated.index[df_curated["__curated__"]]].copy()
         mapped_dict = {}
         for i, row in mapped_df.iterrows():
             mapped_dict[i] = pd.concat([row, pd.Series([i], index=[self.id_type])])
 
-        link_feature(
+        link.feature(
             dobject_id=dobject_id,
             values=mapped_dict,
+            feature_entity=self.entity,
             species=self.species,
+            featureset_name=self._featureset_name,
         )
 
 
@@ -59,8 +61,10 @@ class link:
     """Link features and metadata to data."""
 
     @classmethod
-    def feature_model(cls, df: pd.DataFrame, feature_model):
-        fm = LinkFeatureModel(feature_model)
+    def feature_model(
+        cls, df: pd.DataFrame, feature_model, featureset_name: str = None
+    ):
+        fm = LinkFeatureModel(feature_model, featureset_name=featureset_name)
         df_curated = fm.curate(df)
         n = df_curated["__curated__"].count()
         n_mapped = df_curated["__curated__"].sum()
@@ -73,26 +77,30 @@ class link:
         return (fm, df_curated), log
 
     @classmethod
-    def gene(
+    def feature(
         cls,
         dobject_id,
         values: dict,
+        feature_entity: str,
         species: str,
-        geneset_name: str = None,
+        featureset_name: str = None,
     ):
         """Annotate genes."""
         species_id = insert.species(common_name=species)
-        geneset_id = insert.genes(
-            genes_dict=values, geneset_name=geneset_name, species=species
+        featureset_id = insert.features(
+            features_dict=values,
+            feature_entity=feature_entity,
+            species=species,
+            featureset_name=featureset_name,
         )
 
         # use the geneset_id and readout_id to create an entry in biometa
         biometa_id = insert.biometa(
             dobject_id=dobject_id,
-            featureset_id=geneset_id,
+            featureset_id=featureset_id,
         )
 
-        logs = [[str(geneset_id), str(biometa_id), str(species_id)]]
+        logs = [[str(featureset_id), str(biometa_id), str(species_id)]]
         log_table = tabulate(
             logs,
             headers=[

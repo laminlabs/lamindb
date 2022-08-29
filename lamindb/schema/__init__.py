@@ -19,7 +19,7 @@ import lnschema_bionty as bionty
 import lnschema_core as core
 import lnschema_wetlab as wetlab
 
-try:
-    import lnschema_retro as retro
-except ModuleNotFoundError:
-    pass
+# try:
+#     import lnschema_retro as retro
+# except ModuleNotFoundError:
+#     pass

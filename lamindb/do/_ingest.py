@@ -39,6 +39,7 @@ class Ingest:
         *,
         name: str = None,
         feature_model=None,
+        featureset_name: str = None,
         pipeline_run: BfxRun = None,
         dobject_id=None,
         dobject_v="1",
@@ -49,6 +50,7 @@ class Ingest:
             dobject: A data object in memory or filepath.
             name: A name. Required if passing in memory object.
             feature_model: Features to link during ingestion.
+            featureset_name: Name of the featureset to be linked.
             pipeline_run: The instance of pipeline run, e.g. BfxRun.
             dobject_id: The dobject id.
             dobject_v: The dobject version.
@@ -85,7 +87,7 @@ class Ingest:
             except AttributeError:
                 df = dmem
             self._features[filepath], self._logs[filepath] = link.feature_model(
-                df=df, feature_model=feature_model
+                df=df, feature_model=feature_model, featureset_name=featureset_name
             )
 
         self._added[filepath] = primary_key

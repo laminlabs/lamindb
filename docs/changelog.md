@@ -3,6 +3,10 @@
 <!-- prettier-ignore -->
 Name | PR | Developer | Date | Version
 --- | --- | --- | --- | ---
+✨ Use cell_marker feature model for flow data | [161](https://github.com/laminlabs/lamindb/pull/161) | [sunnyosun](https://github.com/sunnyosun) | 2022-08-28 |
+⬆️ Updated to bionty 0.2.2 | [160](https://github.com/laminlabs/lamindb/pull/160) | [sunnyosun](https://github.com/sunnyosun) | 2022-08-28 |
+⬆️ Updated to sqm 0.0.7 | [159](https://github.com/laminlabs/lamindb/pull/159) | [sunnyosun](https://github.com/sunnyosun) | 2022-08-28 |
+⬆️ Updated dependencies | [157](https://github.com/laminlabs/lamindb/pull/157) | [sunnyosun](https://github.com/sunnyosun) | 2022-08-28 |
 ⬆️ Upgrade to `lnschema_core` 0.5.1 | [156](https://github.com/laminlabs/lamindb/pull/156) | [falexwolf](https://github.com/falexwolf) | 2022-08-26 |
 ♻️ Update pipeline ingestion to `lnschema_core` 0.5.0 | [154](https://github.com/laminlabs/lamindb/pull/154) | [bpenteado](https://github.com/bpenteado) | 2022-08-26 |
 :bento: Add scrnaseq cellranger dataset | [151](https://github.com/laminlabs/lamindb/pull/151) | [bpenteado](https://github.com/bpenteado) | 2022-08-26 |
