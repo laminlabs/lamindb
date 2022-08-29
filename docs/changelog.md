@@ -3,6 +3,7 @@
 <!-- prettier-ignore -->
 Name | PR | Developer | Date | Version
 --- | --- | --- | --- | ---
+🚚 Rename `.do` to `.db` | [166](https://github.com/laminlabs/lamindb/pull/166) | [falexwolf](https://github.com/falexwolf) | 2022-08-29 |
 🎨 Move header call to `nb`, re-export all of nbproject | [165](https://github.com/laminlabs/lamindb/pull/165) | [falexwolf](https://github.com/falexwolf) | 2022-08-29 |
 👷 Get rid of sqm warnings | [164](https://github.com/laminlabs/lamindb/pull/164) | [falexwolf](https://github.com/falexwolf) | 2022-08-29 |
 🎨 Simplify loading data | [163](https://github.com/laminlabs/lamindb/pull/163) | [falexwolf](https://github.com/falexwolf) | 2022-08-29 |
