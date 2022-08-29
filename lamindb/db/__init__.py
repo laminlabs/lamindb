@@ -30,10 +30,19 @@ Share data on the hub:
    :toctree: .
 
    hub
+
+`SQLModel` session for arbitrary SQL queries:
+
+.. autosummary::
+   :toctree: .
+
+   session
+
 """
 
 from lndb_hub import hub  # noqa
 
+from ..dev.db import session  # noqa
 from ._delete import delete  # noqa
 from ._ingest import ingest  # noqa
 from ._link import link  # noqa
