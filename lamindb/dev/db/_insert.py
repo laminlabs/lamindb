@@ -4,7 +4,7 @@ from lnbfx import BfxRun
 from lndb_setup import settings
 from lnschema_core import id
 
-import lamindb as db
+import lamindb as ln
 
 
 class insert:
@@ -32,10 +32,10 @@ class insert:
             pipeline_run_id = None
 
         with sqm.Session(engine) as session:
-            result = session.get(db.schema.core.jupynb, (jupynb_id, jupynb_v))
+            result = session.get(ln.schema.core.jupynb, (jupynb_id, jupynb_v))
             if result is None:
                 session.add(
-                    db.schema.core.jupynb(
+                    ln.schema.core.jupynb(
                         id=jupynb_id,
                         v=jupynb_v,
                         name=jupynb_name,
@@ -44,7 +44,7 @@ class insert:
                 )
                 dtransform_id = id.dtransform()
                 session.add(
-                    db.schema.core.dtransform(
+                    ln.schema.core.dtransform(
                         id=dtransform_id,
                         jupynb_id=jupynb_id,
                         jupynb_v=jupynb_v,
@@ -58,9 +58,9 @@ class insert:
                 )
             else:
                 dtransform = session.exec(
-                    sqm.select(db.schema.core.dtransform).where(
-                        db.schema.core.dtransform.jupynb_id == jupynb_id,
-                        db.schema.core.dtransform.jupynb_v == jupynb_v,
+                    sqm.select(ln.schema.core.dtransform).where(
+                        ln.schema.core.dtransform.jupynb_id == jupynb_id,
+                        ln.schema.core.dtransform.jupynb_v == jupynb_v,
                     )
                 ).first()  # change to .one() as soon as dtransform ingestion bug fixed
                 dtransform_id = dtransform.id
@@ -70,13 +70,13 @@ class insert:
                 dobject_id = id.dobject()
 
             storage = session.exec(
-                sqm.select(db.schema.core.storage).where(
-                    db.schema.core.storage.root == str(settings.instance.storage_dir)
+                sqm.select(ln.schema.core.storage).where(
+                    ln.schema.core.storage.root == str(settings.instance.storage_dir)
                 )
             ).first()
             assert storage
 
-            dobject = db.schema.core.dobject(
+            dobject = ln.schema.core.dobject(
                 id=dobject_id,
                 v=dobject_v,
                 name=name,
@@ -95,7 +95,7 @@ class insert:
     @classmethod
     def species(cls, common_name: str):
         """Insert a species."""
-        query_species = getattr(db.do.query, "species")
+        query_species = getattr(ln.db.query, "species")
         species_results = query_species(common_name=common_name)
         if len(species_results) > 1:
             raise AssertionError(f"Multiple entries are associated with {common_name}!")
@@ -109,7 +109,7 @@ class insert:
             entry = {"common_name": common_name}
             entry.update(Species().df.loc[common_name])
             with sqm.Session(engine) as session:
-                species = db.schema.bionty.species(**entry)
+                species = ln.schema.bionty.species(**entry)
                 session.add(species)
                 session.commit()
                 session.refresh(species)
@@ -134,7 +134,7 @@ class insert:
 
         # check if geneset exists
         if featureset_name is not None:
-            query_featureset = getattr(db.do.query, "featureset")
+            query_featureset = getattr(ln.db.query, "featureset")
             featureset_results = query_featureset(
                 feature_entity=feature_entity,
                 name=featureset_name,
@@ -149,7 +149,7 @@ class insert:
 
         # get the id field of feature entity
         feature_id = features_dict[next(iter(features_dict))].keys()[-1]
-        query_feature = getattr(db.do.query, feature_entity)
+        query_feature = getattr(ln.db.query, feature_entity)
         allfeatures = query_feature(species_id=species_id)
         # only ingest the new features but link all features to the featureset
         exist_feature_keys = set()
@@ -162,7 +162,7 @@ class insert:
 
         # add a featureset to the featureset table
         with sqm.Session(engine) as session:
-            featureset = db.schema.bionty.featureset(
+            featureset = ln.schema.bionty.featureset(
                 feature_entity=feature_entity,
                 name=featureset_name,
             )
@@ -176,7 +176,7 @@ class insert:
             for k, v in features_dict.items():
                 if k in exist_feature_keys:
                     continue
-                feature_schema = getattr(db.schema.bionty, feature_entity)
+                feature_schema = getattr(ln.schema.bionty, feature_entity)
                 feature = feature_schema(
                     **v,
                     species_id=species_id,
@@ -193,7 +193,7 @@ class insert:
         with sqm.Session(engine) as session:
             for feature_id in feature_ids:
                 featureset_link_module = getattr(
-                    db.schema.bionty, f"featureset_{feature_entity}"
+                    ln.schema.bionty, f"featureset_{feature_entity}"
                 )
                 query_dict = {
                     "featureset_id": featureset.id,
@@ -214,7 +214,7 @@ class insert:
         efo_id = efo_id.replace("_", ":")
 
         # check if entry already exists
-        query_readout = getattr(db.do.query, "readout")
+        query_readout = getattr(ln.db.query, "readout")
         readout_results = query_readout(efo_id=efo_id)
         if len(readout_results) > 1:
             raise AssertionError(f"Multiple entries are associated with {efo_id}!")
@@ -230,7 +230,7 @@ class insert:
                 if isinstance(v, list):
                     entry[k] = ";".join(v)
             with sqm.Session(engine) as session:
-                readout = db.schema.wetlab.readout(**entry)
+                readout = ln.schema.wetlab.readout(**entry)
                 session.add(readout)
                 session.commit()
                 session.refresh(readout)
@@ -250,7 +250,7 @@ class insert:
         engine = settings.instance.db_engine()
 
         with sqm.Session(engine) as session:
-            biometa = db.schema.wetlab.biometa(
+            biometa = ln.schema.wetlab.biometa(
                 biosample_id=biosample_id,
                 readout_id=readout_id,
                 featureset_id=featureset_id,
@@ -261,7 +261,7 @@ class insert:
 
         # also create an entry in the dobject_biometa table
         with sqm.Session(engine) as session:
-            link = db.schema.wetlab.dobject_biometa(
+            link = ln.schema.wetlab.dobject_biometa(
                 dobject_id=dobject_id, biometa_id=biometa.id
             )
             session.add(link)
@@ -284,7 +284,7 @@ class insert:
         engine = settings.instance.db_engine()
 
         with sqm.Session(engine) as session:
-            pipeline = db.schema.core.pipeline(
+            pipeline = ln.schema.core.pipeline(
                 id=id, v=v, name=name, reference=reference
             )
             session.add(pipeline)
@@ -307,7 +307,7 @@ class insert:
         engine = settings.instance.db_engine()
 
         with sqm.Session(engine) as session:
-            pipeline_run = db.schema.core.pipeline_run(
+            pipeline_run = ln.schema.core.pipeline_run(
                 id=id, name=name, pipeline_id=pipeline_id, pipeline_v=pipeline_v
             )
             session.add(pipeline_run)
