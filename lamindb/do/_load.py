@@ -42,7 +42,7 @@ def populate_dtransform_in(dobject):
                     core.dtransform.jupynb_id == jupynb_id,
                     core.dtransform.jupynb_v == jupynb_v,
                 )
-            ).first()  # change to .one() as soon as dtransform ingestion bug fixed
+            ).one()
         session.add(
             core.dtransform_in(
                 dtransform_id=dtransform_id,
