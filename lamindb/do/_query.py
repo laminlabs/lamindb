@@ -1,6 +1,5 @@
 from lndb_setup import settings
 from sqlmodel import Session, select
-from sqlmodel.sql.expression import Select, SelectOfScalar
 
 from .. import schema
 from ..dev import track_usage
@@ -9,10 +8,6 @@ from ..schema._schema import alltables
 
 def _query_stmt(statement, results_type="all"):
     with Session(settings.instance.db_engine()) as session:
-        # Will remove after this is fixed:
-        # https://github.com/tiangolo/sqlmodel/pull/234
-        SelectOfScalar.inherit_cache = True  # type: ignore
-        Select.inherit_cache = True  # type: ignore
         results = session.exec(statement).__getattribute__(results_type)()
     return results
 
@@ -52,6 +47,7 @@ def featureset(
     name: str = None,
     gene: str = None,
     protein: str = None,
+    cell_marker: str = None,
 ):
     """Query the featureset table.
 
@@ -60,15 +56,21 @@ def featureset(
     kwargs = locals()
     del kwargs["gene"]
     del kwargs["protein"]
+    del kwargs["cell_marker"]
     schema_module = schema.bionty.featureset
     stmt = _chain_select_stmt(kwargs=kwargs, schema_module=schema_module)
     results = _query_stmt(statement=stmt, results_type="all")
-    if gene is not None:
-        schema_module = schema.bionty.gene
-        stmt = _chain_select_stmt(kwargs={"name": gene}, schema_module=schema_module)
-        gene_id = _query_stmt(statement=stmt, results_type="all")[0].id
+    if cell_marker is not None:
+        schema_module = schema.bionty.cell_marker
+        stmt = _chain_select_stmt(
+            kwargs={"name": cell_marker},  # TODO: remove hard code here
+            schema_module=schema_module,
+        )
+        feature_id = _query_stmt(statement=stmt, results_type="all")[0].id
 
-        featuresets = getattr(query, "featureset_gene")(gene_id=gene_id)
+        featuresets = getattr(query, "featureset_cell_marker")(
+            cell_marker_id=feature_id
+        )
         featureset_ids = [i.featureset_id for i in featuresets]
 
         return [i for i in results if i.id in featureset_ids]
@@ -110,17 +112,17 @@ def dobject(
     name: str = None,
     file_suffix: str = None,
     dsource_id: str = None,
-    gene: str = None,
+    cell_marker: str = None,
 ):
     """Query from dobject."""
     kwargs = locals()
-    del kwargs["gene"]
+    del kwargs["cell_marker"]
     schema_module = schema.core.dobject
     stmt = _chain_select_stmt(kwargs=kwargs, schema_module=schema_module)
     results = _query_stmt(statement=stmt, results_type="all")
 
-    if gene is not None:
-        featuresets = getattr(query, "featureset")(gene=gene)
+    if cell_marker is not None:
+        featuresets = getattr(query, "featureset")(cell_marker=cell_marker)
         biometas = []
         for i in featuresets:
             biometas += getattr(query, "biometa")(featureset_id=i.id)
