@@ -40,7 +40,7 @@ class query:
     """Query literal (semantic) data."""
 
     @classmethod
-    def table_to_df(cls, entity_name) -> pd.DataFrame:
+    def table_as_df(cls, entity_name) -> pd.DataFrame:
         """Load metadata table as DataFrame."""
         engine = settings.instance.db_engine()
         with engine.connect() as conn:
