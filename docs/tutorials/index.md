@@ -1,6 +1,6 @@
 # Tutorials
 
-## Step-wise walk through of LaminDB functionalities
+## Step-wise user guides
 
 - {doc}`get-started`
 - {doc}`query-and-load`
@@ -11,7 +11,7 @@
 - {doc}`introspect`
 - {doc}`share-cross-org`
 
-## R&D simulation with LaminDB
+## R&D team simulation
 
 - {doc}`rds-setup`
 - {doc}`rds-conceive-project`
@@ -24,6 +24,7 @@
 ```{toctree}
 :maxdepth: 1
 :hidden:
+:caption: Step-wise user guides
 
 get-started
 query-and-load
@@ -33,6 +34,13 @@ track-bfx-run
 update-delete
 introspect
 share-cross-org
+```
+
+```{toctree}
+:maxdepth: 1
+:hidden:
+:caption: R&D team simulation
+
 rds-setup
 rds-conceive-project
 rds-ingest-assay-results
