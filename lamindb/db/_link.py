@@ -1,10 +1,8 @@
-from typing import Optional  # noqa
-
 import pandas as pd
 from tabulate import tabulate  # type: ignore
 
 from .._logger import colors, logger
-from ..dev.db import insert
+from ._insert import insert
 from ._query import query
 from ._update import update
 
@@ -86,8 +84,8 @@ class link:
         featureset_name: str = None,
     ):
         """Annotate genes."""
-        species_id = insert.species(common_name=species)
-        featureset_id = insert.features(
+        species_id = getattr(insert, "species")(common_name=species)
+        featureset_id = getattr(insert, "features")(
             features_dict=values,
             feature_entity=feature_entity,
             species=species,
@@ -95,7 +93,7 @@ class link:
         )
 
         # use the geneset_id and readout_id to create an entry in biometa
-        biometa_id = insert.biometa(
+        biometa_id = getattr(insert, "biometa")(
             dobject_id=dobject_id,
             featureset_id=featureset_id,
         )
@@ -117,7 +115,7 @@ class link:
     @classmethod
     def readout(cls, dobject_id, efo_id: str):
         """Link readout."""
-        readout_id = insert.readout(efo_id=efo_id)
+        readout_id = getattr(insert, "readout")(efo_id=efo_id)
 
         # query biometa associated with a dobject
         query_dobject_biometa = getattr(query, "dobject_biometa")
@@ -125,7 +123,7 @@ class link:
         if len(dobject_biometa) > 0:
             biometa_ids = [i.biometa_id for i in dobject_biometa]
         else:
-            biometa_ids = [insert.biometa(dobject_id=dobject_id)]
+            biometa_ids = [getattr(insert, "biometa")(dobject_id=dobject_id)]
             logger.warning(
                 f"No biometa found for dobject {dobject_id}, created biometa"
                 f" {biometa_ids[0]}"

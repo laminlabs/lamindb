@@ -115,7 +115,7 @@ class Ingest:
         from nbproject import dev, meta, publish
         from tabulate import tabulate  # type: ignore
 
-        from lamindb.dev.db import insert
+        from ._insert import insert
 
         logs = []
 

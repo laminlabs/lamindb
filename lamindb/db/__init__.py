@@ -14,6 +14,7 @@ Modify data:
    :toctree: .
 
    ingest
+   insert
    update
    delete
 
@@ -45,6 +46,7 @@ from lndb_hub import hub  # noqa
 from ..dev.db import session  # noqa
 from ._delete import delete  # noqa
 from ._ingest import ingest  # noqa
+from ._insert import insert  # noqa
 from ._link import link  # noqa
 from ._load import load  # noqa
 from ._query import query  # noqa
