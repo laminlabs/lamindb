@@ -83,3 +83,17 @@ def schmidt22_perturbseq() -> Path:
         "schmidt22_perturbseq.h5ad",
     )
     return Path(filepath)
+
+
+def scrnaseq_cellranger_schmidt22() -> Path:
+    """BFXoutput directory containing Schmidt22_perturbseq."""
+    filepath, _ = urlretrieve(
+        "https://lamindb-test.s3.amazonaws.com/scrnaseq-cellranger-schmidt22.zip",
+    )
+    from zipfile import ZipFile
+
+    with ZipFile(filepath, "r") as zipObj:
+        # Extract all the contents of zip file in current directory
+        zipObj.extractall(path=".")
+
+    return Path("scrnaseq-cellranger-schmidt22")

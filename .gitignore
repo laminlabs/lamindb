@@ -153,12 +153,14 @@ dmypy.json
 
 # data files
 data/
-**/data/
-**/mydata/
+mydata/
+rds/
 _build
 *.fcs
 *.zip
+*.feather
 bfx-output/
+scrnaseq-cellranger-schmidt22/
 __MACOSX/
 
 # fred files

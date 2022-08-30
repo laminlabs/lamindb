@@ -9,6 +9,7 @@
    file_mouse_sc_lymph_node
    schmidt22_crispra_gws_IFNG
    schmidt22_perturbseq
+   scrnaseq_cellranger_schmidt22
 
 """
 from ._core import (
@@ -18,4 +19,5 @@ from ._core import (
     schmidt22_crispra_gws_IFNG,
     schmidt22_perturbseq,
     scrnaseq_cellranger,
+    scrnaseq_cellranger_schmidt22,
 )
