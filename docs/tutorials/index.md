@@ -20,6 +20,7 @@
 
 ```{toctree}
 :maxdepth: 1
+:hidden:
 
 get-started
 query-and-load
