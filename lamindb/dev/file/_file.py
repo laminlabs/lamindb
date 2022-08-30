@@ -16,13 +16,19 @@ READER_FUNCS = {
 }
 
 
-def store_file(filepath: Union[str, Path], filekey: str):
+def store_file(localfile: Union[str, Path], storagekey: str):
     """Store arbitrary file."""
-    storage_path = settings.instance.storage.key_to_filepath(filekey)
-    if isinstance(storage_path, CloudPath):
-        storage_path.upload_from(filepath)
+    storagepath = settings.instance.storage.key_to_filepath(storagekey)
+    if isinstance(storagepath, CloudPath):
+        storagepath.upload_from(localfile)
     else:
-        shutil.copyfile(filepath, storage_path)
+        shutil.copyfile(localfile, storagepath)
+
+
+def delete_file(storagekey: str):
+    """Delete arbitrary file."""
+    storagepath = settings.instance.storage.key_to_filepath(storagekey)
+    storagepath.unlink()
 
 
 def load_to_memory(filepath: Union[str, Path]):
