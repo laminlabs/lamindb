@@ -37,21 +37,28 @@ def populate_dtransform_in(dobject):
                 f" user {settings.user.handle}."
             )
         else:
-            dtransform_id = session.exec(
+            dtransform = session.exec(
                 sqm.select(core.dtransform).where(
                     core.dtransform.jupynb_id == jupynb_id,
                     core.dtransform.jupynb_v == jupynb_v,
                 )
             ).one()
-        session.add(
-            core.dtransform_in(
-                dtransform_id=dtransform_id,
-                dobject_id=dobject.id,
-                dobject_v=dobject.v,
+            dtransform_id = dtransform.id
+        result = session.get(core.dtransform_in, (dtransform_id, dobject.id, dobject.v))
+        if result is None:
+            session.add(
+                core.dtransform_in(
+                    dtransform_id=dtransform_id,
+                    dobject_id=dobject.id,
+                    dobject_v=dobject.v,
+                )
             )
-        )
-        session.commit()
-        settings.instance._update_cloud_sqlite_file()
+            session.commit()
+            logger.info(
+                f"Added dobject ({dobject.id}, {dobject.v}) as input for dtransform"
+                f" ({dtransform_id})."
+            )
+    settings.instance._update_cloud_sqlite_file()
 
 
 def load(dobject: core.dobject):
