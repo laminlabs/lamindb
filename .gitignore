@@ -1,12 +1,16 @@
 # LaminDB
 _build
+mydata/
+rds/
+bfx-output/
+scrnaseq-cellranger/
+scrnaseq-cellranger-schmidt22/
+__MACOSX/
 docs/lamindb.*
 lamin_sphinx
 docs/conf.py
-*.h5ad
 *.db
 *.lndb
-*.csv
 lamindb/setup/.env
 _secrets.py
 _configuration.py
@@ -14,9 +18,7 @@ lamin.db
 docs/generated/*
 _docs_tmp*
 docs/tutorials/Laminopathic_nuclei.jpg
-docs/tutorials/iris.feather
 docs/tutorials/paradisi05_laminopathic_nuclei.jpg
-docs/tutorials/scrnaseq-cellranger/
 
 # General
 .DS_Store
@@ -153,13 +155,13 @@ dmypy.json
 
 # data files
 data/
-**/data/
-**/mydata/
 _build
+*.csv
 *.fcs
 *.zip
-bfx-output/
-__MACOSX/
+*.feather
+*.h5ad
+
 
 # fred files
 docs/tutorials/insert-some-data-into-frederic-hub.ipynb
