@@ -59,6 +59,5 @@ References:
 tutorials/index
 api
 guides/index
-notes/index
 changelog
 ```
