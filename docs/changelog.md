@@ -3,6 +3,7 @@
 <!-- prettier-ignore -->
 Name | PR | Developer | Date | Version
 --- | --- | --- | --- | ---
+⬆️ Update to sqm 0.0.8 to silence the warnings | [174](https://github.com/laminlabs/lamindb/pull/174) | [sunnyosun](https://github.com/sunnyosun) | 2022-08-30 |
 🤡 R&D team simulation | [172](https://github.com/laminlabs/lamindb/pull/172) | [sunnyosun](https://github.com/sunnyosun) | 2022-08-30 |
 🚸 Fix pipeline ingestion logging | [158](https://github.com/laminlabs/lamindb/pull/158) | [bpenteado](https://github.com/bpenteado) | 2022-08-30 |
 🚚 Move problems page to lamin-profile | [171](https://github.com/laminlabs/lamindb/pull/171) | [falexwolf](https://github.com/falexwolf) | 2022-08-30 |
