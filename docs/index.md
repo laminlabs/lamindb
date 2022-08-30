@@ -43,7 +43,6 @@ pip install lamindb
 Get started:
 
 - [Tutorials](tutorials/index) walk you through setup and usage of the platform.
-- Explore real-world [examples](examples/index).
 - Browse the [API reference](api).
 - If you get stuck, see [guides](guides/index) for edge cases & errors.
 
@@ -58,7 +57,6 @@ References:
 :hidden:
 
 tutorials/index
-examples/index
 api
 guides/index
 notes/index
