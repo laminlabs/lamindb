@@ -15,7 +15,7 @@ def test_create_to_load():
     # create unnecessary tables
     import lamindb as ln
 
-    ln.dev.db.insert.dobject_from_jupynb(
+    ln.db.insert.dobject_from_jupynb(
         name="test_file",
         file_suffix=".csv",
         jupynb_id="83jf",
