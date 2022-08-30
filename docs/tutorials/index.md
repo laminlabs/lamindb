@@ -15,9 +15,11 @@
 
 - {doc}`rds-setup`
 - {doc}`rds-conceive-project`
-- {doc}`rds-experiment-data`
+- {doc}`rds-ingest-assay-results`
+- {doc}`rds-analyze-experiment-data`
 - {doc}`rds-bfx-run`
 - {doc}`rds-compbio-analysis`
+- {doc}`rds-introspect`
 
 ```{toctree}
 :maxdepth: 1
@@ -33,7 +35,9 @@ introspect
 share-cross-org
 rds-setup
 rds-conceive-project
-rds-experiment-data
+rds-ingest-assay-results
+rds-analyze-experiment-data
 rds-bfx-run
 rds-compbio-analysis
+rds-introspect
 ```

@@ -23,17 +23,22 @@ def _chain_select_stmt(kwargs: dict, schema_module):
     return stmt
 
 
+def _return_query_results_as_df(statement):
+    df = pd.read_sql_query(statement, settings.instance.db_engine(future=False))
+    if "id" in df.columns:
+        if "v" in df.columns:
+            df = df.set_index(["id", "v"])
+        else:
+            df = df.set_index("id")
+    return df
+
+
 def _create_query_func(name: str, schema_module):
     def query_func(cls, return_df=False, **kwargs):
         """Query metadata from tables."""
         stmt = _chain_select_stmt(kwargs=kwargs, schema_module=schema_module)
         if return_df:
-            results = pd.read_sql_query(stmt, settings.instance.db_engine(future=False))
-            if "id" in results.columns:
-                if "v" in results.columns:
-                    results = results.set_index(["id", "v"])
-                else:
-                    results = results.set_index("id")
+            results = _return_query_results_as_df(statement=stmt)
         else:
             results = _query_stmt(statement=stmt, results_type="all")
 

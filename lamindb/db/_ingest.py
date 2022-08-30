@@ -72,7 +72,6 @@ class Ingest:
             if name is None:
                 raise RuntimeError("Provide name if ingesting in memory data.")
             filepath = Path(f"{name}{suffix}")
-
         # ingest features via feature models
         if feature_model is not None:
             # load file into memory
@@ -84,6 +83,8 @@ class Ingest:
             # looks for the id column, if none is found, will assume in the index
             try:
                 df = getattr(dmem, "var")  # for AnnData objects
+                if callable(df):
+                    df = dmem
             except AttributeError:
                 df = dmem
             self._features[filepath], self._logs[filepath] = link.feature_model(

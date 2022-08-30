@@ -16,6 +16,9 @@ def write_to_file(dmem, filepath: str):
     if isinstance(dmem, AnnData):
         dmem.write(filepath)
     elif isinstance(dmem, DataFrame):
-        dmem.to_feather(filepath)
+        try:
+            dmem.to_feather(filepath)
+        except ValueError:
+            dmem.reset_index().to_feather(filepath)
     else:
         raise NotImplementedError
