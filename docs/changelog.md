@@ -3,6 +3,7 @@
 <!-- prettier-ignore -->
 Name | PR | Developer | Date | Version
 --- | --- | --- | --- | ---
+🔥 Removed examples dir | [170](https://github.com/laminlabs/lamindb/pull/170) | [sunnyosun](https://github.com/sunnyosun) | 2022-08-30 |
 🚸 Improve delete function | [169](https://github.com/laminlabs/lamindb/pull/169) | [falexwolf](https://github.com/falexwolf) | 2022-08-30 |
 🎨 Remove `track` submodule, move session, rename biogram to erdiagram | [167](https://github.com/laminlabs/lamindb/pull/167) | [falexwolf](https://github.com/falexwolf) | 2022-08-29 |
 🚚 Rename `.do` to `.db` | [166](https://github.com/laminlabs/lamindb/pull/166) | [falexwolf](https://github.com/falexwolf) | 2022-08-29 |
