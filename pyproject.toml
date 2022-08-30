@@ -9,7 +9,7 @@ readme = "README.md"
 dynamic = ["version", "description"]
 dependencies = [
     "lnschema_core==0.5.1",
-    "lnschema_wetlab==0.3.2",
+    "lnschema_wetlab==0.3.3",
     "lnschema_bionty>=0.2.3",
     "lndb_setup==0.6.1",
     "lndb_hub==0.5.5",

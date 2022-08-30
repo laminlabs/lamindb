@@ -112,7 +112,7 @@ def insert_species(common_name: str):
             session.commit()
             session.refresh(species)
         logger.success(
-            f"Inserted {colors.blue(f'{species}')}: {colors.green(f'{species.id}')}"
+            f"Inserted table {colors.blue('species')}: {colors.green(f'{species.id}')}"
         )
 
         return species.id
@@ -233,7 +233,7 @@ def readout(efo_id: str):
             session.commit()
             session.refresh(readout)
         logger.success(
-            f"Inserted {colors.blue(f'{readout}')}: {colors.green(f'{readout.id}')}"
+            f"Inserted table {colors.blue('readout')}: {colors.green(f'{readout.id}')}"
         )
 
         return readout.id
@@ -280,8 +280,8 @@ def _create_insert_func(name: str, schema_module):
             session.commit()
             session.refresh(entry)
             logger.success(
-                f"Inserted {colors.blue(f'table {name}')}:"
-                f" {colors.green(f'entry {entry.id}')}"
+                f"Inserted table {colors.blue(f'{name}')}:"
+                f" {colors.green(f'{entry.id}')}"
             )
             if name == "dobject":
                 track_usage(entry.id, entry.v, "insert")
