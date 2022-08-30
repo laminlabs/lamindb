@@ -13,11 +13,11 @@
 
 ## R&D team simulation
 
-- {doc}`rds-setup`
-- {doc}`rds-conceive-project`
-- {doc}`rds-ingest-assay-results`
-- {doc}`rds-analyze-experiment-data`
-- {doc}`rds-bfx-run`
+- {doc}`rds-setup-db`
+- {doc}`rds-experimental-design`
+- {doc}`rds-perform-experiment`
+- {doc}`rds-analyze-assay-results`
+- {doc}`rds-bfx-pipeline`
 - {doc}`rds-compbio-analysis`
 - {doc}`rds-introspect`
 
@@ -41,11 +41,11 @@ share-cross-org
 :hidden:
 :caption: R&D team simulation
 
-rds-setup
-rds-conceive-project
-rds-ingest-assay-results
-rds-analyze-experiment-data
-rds-bfx-run
+rds-setup-db
+rds-experimental-design
+rds-perform-experiment
+rds-analyze-assay-results
+rds-bfx-pipeline
 rds-compbio-analysis
 rds-introspect
 ```
