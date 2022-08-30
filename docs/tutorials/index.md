@@ -13,10 +13,11 @@
 
 ## R&D simulation with LaminDB
 
-- {doc}`RDS-conceive-project`
-- {doc}`RDS-experiment-data`
-- {doc}`RDS-bfx-run`
-- {doc}`RDS-compbio-analysis`
+- {doc}`rds-setup`
+- {doc}`rds-conceive-project`
+- {doc}`rds-experiment-data`
+- {doc}`rds-bfx-run`
+- {doc}`rds-compbio-analysis`
 
 ```{toctree}
 :maxdepth: 1
@@ -30,8 +31,9 @@ track-bfx-run
 update-delete
 introspect
 share-cross-org
-RDS-conceive-project
-RDS-experiment-data
-RDS-bfx-run
-RDS-compbio-analysis
+rds-setup
+rds-conceive-project
+rds-experiment-data
+rds-bfx-run
+rds-compbio-analysis
 ```
