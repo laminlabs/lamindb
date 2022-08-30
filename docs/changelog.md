@@ -3,6 +3,7 @@
 <!-- prettier-ignore -->
 Name | PR | Developer | Date | Version
 --- | --- | --- | --- | ---
+🚸 Fix pipeline ingestion logging | [158](https://github.com/laminlabs/lamindb/pull/158) | [bpenteado](https://github.com/bpenteado) | 2022-08-30 |
 🚚 Move problems page to lamin-profile | [171](https://github.com/laminlabs/lamindb/pull/171) | [falexwolf](https://github.com/falexwolf) | 2022-08-30 |
 🩹 Uncomment out sharing tests | [168](https://github.com/laminlabs/lamindb/pull/168) | [fredericenard](https://github.com/fredericenard) | 2022-08-30 |
 🔥 Removed examples dir | [170](https://github.com/laminlabs/lamindb/pull/170) | [sunnyosun](https://github.com/sunnyosun) | 2022-08-30 |

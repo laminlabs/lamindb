@@ -7,7 +7,7 @@ from lndb_setup import settings
 from lnschema_core import id
 
 from .._logger import colors, logger
-from ..dev import storage_key_from_triple, track_usage
+from ..dev import format_pipeline_logs, storage_key_from_triple, track_usage
 from ..dev.file import load_to_memory, store_file
 from ..dev.object import infer_file_suffix, write_to_file
 from ._link import link
@@ -178,9 +178,14 @@ class Ingest:
 
             track_usage(dobject_id, dobject_v, "ingest")
 
+            if pipeline_run is None:
+                log_file_name = filepath.name
+            else:
+                log_file_name = str(filepath.relative_to(pipeline_run.run_dir.parent))
+
             logs.append(
                 [
-                    f"{filepath.name} ({dobject_id}, {dobject_v})",
+                    f"{log_file_name} ({dobject_id}, {dobject_v})",
                     f"{jupynb_name!r} ({jupynb_id}, {jupynb_v})",
                     f"{settings.user.handle} ({settings.user.id})",
                 ]
@@ -189,6 +194,8 @@ class Ingest:
             if self._features.get(filepath) is not None:
                 fm, df_curated = self._features.get(filepath)
                 fm.ingest(dobject_id, df_curated)
+
+        logs = format_pipeline_logs(logs)
 
         # pretty logging info
         log_table = tabulate(
