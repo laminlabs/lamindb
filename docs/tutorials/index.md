@@ -13,18 +13,17 @@
 
 ## R&D team simulation
 
-- {doc}`rds-setup`
-- {doc}`rds-design-experiment`
-- {doc}`rds-run-experiment`
-- {doc}`rds-analyze-assay`
-- {doc}`rds-bfx`
-- {doc}`rds-compbio`
-- {doc}`rds-dataflow`
+- {doc}`1-rds-setup`
+- {doc}`2-rds-design-experiment`
+- {doc}`3-rds-run-experiment`
+- {doc}`4-rds-analyze-assay`
+- {doc}`5-rds-bfx`
+- {doc}`6-rds-compbio`
+- {doc}`7-rds-dataflow`
 
 ```{toctree}
 :maxdepth: 1
 :hidden:
-:caption: Step-wise user guides
 
 get-started
 query-and-load
@@ -34,18 +33,11 @@ track-bfx-run
 update-delete
 introspect
 share-cross-org
-```
-
-```{toctree}
-:maxdepth: 1
-:hidden:
-:caption: R&D team simulation
-
-rds-setup
-rds-design-experiment
-rds-run-experiment
-rds-analyze-assay
-rds-bfx
-rds-compbio
-rds-dataflow
+1-rds-setup
+2-rds-design-experiment
+3-rds-run-experiment
+4-rds-analyze-assay
+5-rds-bfx
+6-rds-compbio
+7-rds-dataflow
 ```
