@@ -3,7 +3,7 @@
 <!-- prettier-ignore -->
 Name | PR | Developer | Date | Version
 --- | --- | --- | --- | ---
-Uncomment out sharing tests | [168](https://github.com/laminlabs/lamindb/pull/168) | [fredericenard](https://github.com/fredericenard) | 2022-08-30 |
+🩹 Uncomment out sharing tests | [168](https://github.com/laminlabs/lamindb/pull/168) | [fredericenard](https://github.com/fredericenard) | 2022-08-30 |
 🔥 Removed examples dir | [170](https://github.com/laminlabs/lamindb/pull/170) | [sunnyosun](https://github.com/sunnyosun) | 2022-08-30 |
 🚸 Improve delete function | [169](https://github.com/laminlabs/lamindb/pull/169) | [falexwolf](https://github.com/falexwolf) | 2022-08-30 |
 🎨 Remove `track` submodule, move session, rename biogram to erdiagram | [167](https://github.com/laminlabs/lamindb/pull/167) | [falexwolf](https://github.com/falexwolf) | 2022-08-29 |
@@ -18,7 +18,7 @@ Uncomment out sharing tests | [168](https://github.com/laminlabs/lamindb/pull/16
 ⬆️ Updated dependencies | [157](https://github.com/laminlabs/lamindb/pull/157) | [sunnyosun](https://github.com/sunnyosun) | 2022-08-28 |
 ⬆️ Upgrade to `lnschema_core` 0.5.1 | [156](https://github.com/laminlabs/lamindb/pull/156) | [falexwolf](https://github.com/falexwolf) | 2022-08-26 |
 ♻️ Update pipeline ingestion to `lnschema_core` 0.5.0 | [154](https://github.com/laminlabs/lamindb/pull/154) | [bpenteado](https://github.com/bpenteado) | 2022-08-26 |
-:bento: Add scrnaseq cellranger dataset | [151](https://github.com/laminlabs/lamindb/pull/151) | [bpenteado](https://github.com/bpenteado) | 2022-08-26 |
+🍱 Add scrnaseq cellranger dataset | [151](https://github.com/laminlabs/lamindb/pull/151) | [bpenteado](https://github.com/bpenteado) | 2022-08-26 |
 🐛 Fix population of `dtransform` | [155](https://github.com/laminlabs/lamindb/pull/155) | [falexwolf](https://github.com/falexwolf) | 2022-08-26 |
 ✨ Populate `dtransform_in` | [153](https://github.com/laminlabs/lamindb/pull/153) | [falexwolf](https://github.com/falexwolf) | 2022-08-26 |
 ⬆️ Updated dependencies | [152](https://github.com/laminlabs/lamindb/pull/152) | [sunnyosun](https://github.com/sunnyosun) | 2022-08-26 | 0.3.2
@@ -58,7 +58,7 @@ Uncomment out sharing tests | [168](https://github.com/laminlabs/lamindb/pull/16
 🩹 Some fixes of ingesting in-memory dobjects and an analysis draft | [114](https://github.com/laminlabs/lamindb/pull/114) | [falexwolf](https://github.com/falexwolf) | 2022-07-31 |
 ✨ Query and update metadata | [113](https://github.com/laminlabs/lamindb/pull/113) | [sunnyosun](https://github.com/sunnyosun) | 2022-07-31 |
 📝 Add a problem statement | [112](https://github.com/laminlabs/lamindb/pull/112) | [falexwolf](https://github.com/falexwolf) | 2022-07-31 |
- ⬆️ Upgrade to `lamindb-schema` 0.3.1 | [111](https://github.com/laminlabs/lamindb/pull/111) | [falexwolf](https://github.com/falexwolf) | 2022-07-31 |
+⬆️ Upgrade to `lamindb-schema` 0.3.1 | [111](https://github.com/laminlabs/lamindb/pull/111) | [falexwolf](https://github.com/falexwolf) | 2022-07-31 |
 🚧 Annotate features during ingestion | [110](https://github.com/laminlabs/lamindb/pull/110) | [sunnyosun](https://github.com/sunnyosun) | 2022-07-31 |
 📝 Re-write landing page | [109](https://github.com/laminlabs/lamindb/pull/109) | [falexwolf](https://github.com/falexwolf) | 2022-07-30 |
 📝 Improve `get-started` and `collaborate` tutorials | [108](https://github.com/laminlabs/lamindb/pull/108) | [falexwolf](https://github.com/falexwolf) | 2022-07-30 |
@@ -71,7 +71,7 @@ Uncomment out sharing tests | [168](https://github.com/laminlabs/lamindb/pull/16
 ⬆️ Upgrade to lndb-cli 0.2.0 | [101](https://github.com/laminlabs/lamindb/pull/101) | [falexwolf](https://github.com/falexwolf) | 2022-07-25 |
 🚚 Account for table construction in lndb-cli | [99](https://github.com/laminlabs/lamindb/pull/99) | [falexwolf](https://github.com/falexwolf) | 2022-07-25 |
 🚚 Move CLI code to `lndb-cli` | [98](https://github.com/laminlabs/lamindb/pull/98) | [falexwolf](https://github.com/falexwolf) | 2022-07-24 |
-🍱  Adapted to `lnschema-biology` `0.1.1` | [97](https://github.com/laminlabs/lamindb/pull/97) | [sunnyosun](https://github.com/sunnyosun) | 2022-07-24 |
+🍱 Adapted to `lnschema-biology` `0.1.1` | [97](https://github.com/laminlabs/lamindb/pull/97) | [sunnyosun](https://github.com/sunnyosun) | 2022-07-24 |
 🚸 Let the CLI have actual subcommands | [96](https://github.com/laminlabs/lamindb/pull/96) | [falexwolf](https://github.com/falexwolf) | 2022-07-24 |
 👷 Add time out to GitHub Actions | [93](https://github.com/laminlabs/lamindb/pull/93) | [Koncopd](https://github.com/Koncopd) | 2022-07-23 |
 🔥 Switched logger to use lamin-logger | [92](https://github.com/laminlabs/lamindb/pull/92) | [sunnyosun](https://github.com/sunnyosun) | 2022-07-23 |
