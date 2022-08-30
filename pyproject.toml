@@ -23,7 +23,7 @@ dependencies = [
     "cloudpathlib",
     "loguru",
     "requests",
-    "sqlmodel>=0.0.7",
+    "sqlmodel>=0.0.8",
     "typeguard",
     "tabulate",
     "erdiagram",
