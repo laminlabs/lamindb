@@ -11,7 +11,7 @@ Public beta: Support is currently only offered to partners & enterprise customer
 
 Curate, store, track, query, integrate, and learn from biological data.
 
-Modular configurable data & analysis platform for hybrid R&D organizations to
+Data & analysis platform for R&D to
 
 <!-- Key features/functionality/capabilities -->
 
@@ -23,16 +23,15 @@ Modular configurable data & analysis platform for hybrid R&D organizations to
 
 with
 
-1. an intuitive API to connect data and analytics infrastructure
-2. zero lock-in danger due to an open-source & multi-cloud stack
-3. a tool to easily manage schema module migrations in a changing R&D environment
-4. support for learning from data across measured → relevant → derived features
-5. support for fast-paced iterations and "development data" through data versioning, quality & integrity flags
+1. a unified API across storage and databases
+2. zero lock-in due to open-source & multi-cloud
+3. schema module migrations
+4. configuration of underlying data modules
 
 <!-- High-level technical specification -->
 
 LaminDB is a distributed data management system similar to how git is a distributed version control system.
-Each LaminDB instance is a data warehouse with storage (local directory, S3, GCP, Azure) and a SQL database (SQLite, Postgres, BigQuery) for querying it.
+Each LaminDB instance is a data warehouse with storage (local directory, S3, GCP, Azure) and a SQL database (SQLite, Postgres) for querying it.
 
 Install:
 
@@ -48,9 +47,8 @@ Get started:
 
 References:
 
-- See [lamin.ai/docs](https://lamin.ai/docs) for an overview of associated open-source modules.
+- See [lamin.ai/docs](https://lamin.ai/docs) for an overview of all open-sourced data modules LaminDB builds on.
 - [Reach out](https://lamin.ai/contact) to learn about modules that connect your assays, pipelines, instruments & workflows within our data platform enterprise offer.
-- Read the following reports to learn about technology underlying LaminDB: ...
 
 ```{toctree}
 :maxdepth: 1
