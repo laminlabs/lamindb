@@ -1,3 +1,4 @@
+import bionty as bt
 import pandas as pd
 from lndb_setup import settings
 from sqlmodel import Session, select
@@ -69,41 +70,54 @@ class query:
         return df
 
 
-def featureset(
-    id: int = None,
-    feature_entity: str = None,
-    name: str = None,
-    gene: str = None,
-    protein: str = None,
-    cell_marker: str = None,
-):
-    """Query the featureset table.
+# def featureset(id: int = None, feature_entity: str = None, name: str = None):
+#     """Query the featureset table.
 
-    Can also query a gene or a protein linked to featuresets.
-    """
-    kwargs = locals()
-    del kwargs["gene"]
-    del kwargs["protein"]
-    del kwargs["cell_marker"]
-    schema_module = schema.bionty.featureset
-    stmt = _chain_select_stmt(kwargs=kwargs, schema_module=schema_module)
+#     Can also query a gene or a protein linked to featuresets.
+#     """
+#     kwargs = locals()
+#     del kwargs["gene"]
+#     del kwargs["protein"]
+#     del kwargs["cell_marker"]
+#     schema_module = schema.bionty.featureset
+#     stmt = _chain_select_stmt(kwargs=kwargs, schema_module=schema_module)
+#     results = _query_stmt(statement=stmt, results_type="all")
+#     if cell_marker is not None:
+#         schema_module = schema.bionty.cell_marker
+#         stmt = _chain_select_stmt(
+#             kwargs={"name": cell_marker},  # TODO: remove hard code here
+#             schema_module=schema_module,
+#         )
+#         feature_id = _query_stmt(statement=stmt, results_type="all")[0].id
+
+#         featuresets = getattr(query, "featureset_cell_marker")(
+#             cell_marker_id=feature_id
+#         )
+#         featureset_ids = [i.featureset_id for i in featuresets]
+
+#         return [i for i in results if i.id in featureset_ids]
+#     else:
+#         return results
+
+
+def _featureset_from_features(entity_name, **entity_kwargs):
+    """Return featuresets by quering features."""
+    schema_module = getattr(schema.bionty, entity_name)
+    stmt = _chain_select_stmt(kwargs=entity_kwargs, schema_module=schema_module)
     results = _query_stmt(statement=stmt, results_type="all")
-    if cell_marker is not None:
-        schema_module = schema.bionty.cell_marker
-        stmt = _chain_select_stmt(
-            kwargs={"name": cell_marker},  # TODO: remove hard code here
-            schema_module=schema_module,
-        )
-        feature_id = _query_stmt(statement=stmt, results_type="all")[0].id
-
-        featuresets = getattr(query, "featureset_cell_marker")(
-            cell_marker_id=feature_id
-        )
-        featureset_ids = [i.featureset_id for i in featuresets]
-
-        return [i for i in results if i.id in featureset_ids]
+    if len(results) > 0:
+        featureset_ids = []
+        for feature in results:
+            featuresets = getattr(query, f"featureset_{entity_name}")(
+                **{f"{entity_name}_id": feature.id}
+            )
+            if len(featuresets) > 0:
+                featureset_ids += [
+                    featureset.featureset_id for featureset in featuresets
+                ]
+        return list(set(featureset_ids))
     else:
-        return results
+        return []
 
 
 def biometa(
@@ -143,23 +157,32 @@ def dobject(
     storage_id: str = None,
     time_created=None,
     time_updated=None,
-    cell_marker: str = None,
+    entity_name: str = None,
+    **entity_kwargs,
 ):
     """Query from dobject."""
-    kwargs = locals()
-    del kwargs["cell_marker"]
     schema_module = schema.core.dobject
+    kwargs = {
+        k: v for k, v in locals().items() if k in schema.core.dobject.__fields__.keys()
+    }
     stmt = _chain_select_stmt(kwargs=kwargs, schema_module=schema_module)
     results = _query_stmt(statement=stmt, results_type="all")
 
-    if cell_marker is not None:
-        featuresets = getattr(query, "featureset")(cell_marker=cell_marker)
-        biometas = []
-        for i in featuresets:
-            biometas += getattr(query, "biometa")(featureset_id=i.id)
-        dobjects = []
-        for i in biometas:
-            dobjects += getattr(query, "dobject_biometa")(biometa_id=i.id)
+    if entity_name is not None:
+        if getattr(bt.lookup.feature_model, entity_name) is not None:
+            # query features
+            featureset_ids = _featureset_from_features(
+                entity_name=entity_name, **entity_kwargs
+            )
+            biometas = []
+            for featureset_id in featureset_ids:
+                biometas += getattr(query, "biometa")(featureset_id=featureset_id)
+            dobjects = []
+            for biometa in biometas:
+                dobjects += getattr(query, "dobject_biometa")(biometa_id=biometa.id)
+        else:
+            # query obs metadata
+            raise NotImplementedError
 
         results = [i for i in results if i.id in [j.dobject_id for j in dobjects]]
 
@@ -174,6 +197,5 @@ for name, schema_module in alltables.items():
     func = _create_query_func(name=name, schema_module=schema_module)
     setattr(query, name, classmethod(func))
 
-setattr(query, "featureset", featureset)
 setattr(query, "biometa", biometa)
 setattr(query, "dobject", dobject)
