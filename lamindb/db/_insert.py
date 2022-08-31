@@ -4,10 +4,10 @@ from lnbfx import BfxRun
 from lndb_setup import settings
 from lnschema_core import id
 
-import lamindb as ln
-
+from .. import schema
 from ..dev import track_usage
 from ..schema._schema import alltables
+from ._query import query
 
 
 def dobject_from_jupynb(
@@ -30,10 +30,10 @@ def dobject_from_jupynb(
         pipeline_run_id = None
 
     with sqm.Session(engine) as session:
-        result = session.get(ln.schema.core.jupynb, (jupynb_id, jupynb_v))
+        result = session.get(schema.core.jupynb, (jupynb_id, jupynb_v))
         if result is None:
             session.add(
-                ln.schema.core.jupynb(
+                schema.core.jupynb(
                     id=jupynb_id,
                     v=jupynb_v,
                     name=jupynb_name,
@@ -42,7 +42,7 @@ def dobject_from_jupynb(
             )
             dtransform_id = id.dtransform()
             session.add(
-                ln.schema.core.dtransform(
+                schema.core.dtransform(
                     id=dtransform_id,
                     jupynb_id=jupynb_id,
                     jupynb_v=jupynb_v,
@@ -56,9 +56,9 @@ def dobject_from_jupynb(
             )
         else:
             dtransform = session.exec(
-                sqm.select(ln.schema.core.dtransform).where(
-                    ln.schema.core.dtransform.jupynb_id == jupynb_id,
-                    ln.schema.core.dtransform.jupynb_v == jupynb_v,
+                sqm.select(schema.core.dtransform).where(
+                    schema.core.dtransform.jupynb_id == jupynb_id,
+                    schema.core.dtransform.jupynb_v == jupynb_v,
                 )
             ).first()  # change to .one() as soon as dtransform ingestion bug fixed
             dtransform_id = dtransform.id
@@ -68,13 +68,13 @@ def dobject_from_jupynb(
             dobject_id = id.dobject()
 
         storage = session.exec(
-            sqm.select(ln.schema.core.storage).where(
-                ln.schema.core.storage.root == str(settings.instance.storage_dir)
+            sqm.select(schema.core.storage).where(
+                schema.core.storage.root == str(settings.instance.storage_dir)
             )
         ).first()
         assert storage
 
-        dobject = ln.schema.core.dobject(
+        dobject = schema.core.dobject(
             id=dobject_id,
             v=dobject_v,
             name=name,
@@ -93,8 +93,7 @@ def dobject_from_jupynb(
 
 def insert_species(common_name: str):
     """Insert a species."""
-    query_species = getattr(ln.db.query, "species")
-    species_results = query_species(common_name=common_name)
+    species_results = getattr(query, "species")(common_name=common_name)
     if len(species_results) > 1:
         raise AssertionError(f"Multiple entries are associated with {common_name}!")
     elif len(species_results) == 1:
@@ -107,12 +106,13 @@ def insert_species(common_name: str):
         entry = {"common_name": common_name}
         entry.update(Species().df.loc[common_name])
         with sqm.Session(engine) as session:
-            species = ln.schema.bionty.species(**entry)
+            species = schema.bionty.species(**entry)
             session.add(species)
             session.commit()
             session.refresh(species)
         logger.success(
-            f"Inserted table {colors.blue('species')}: {colors.green(f'{species.id}')}"
+            f"Inserted entry {colors.green(f'{species.id}')} into"
+            f" {colors.blue('species')}."
         )
 
         return species.id
@@ -132,8 +132,7 @@ def features(
 
     # check if geneset exists
     if featureset_name is not None:
-        query_featureset = getattr(ln.db.query, "featureset")
-        featureset_results = query_featureset(
+        featureset_results = getattr(query, "featureset")(
             feature_entity=feature_entity,
             name=featureset_name,
         )
@@ -147,8 +146,7 @@ def features(
 
     # get the id field of feature entity
     feature_id = features_dict[next(iter(features_dict))].keys()[-1]
-    query_feature = getattr(ln.db.query, feature_entity)
-    allfeatures = query_feature(species_id=species_id)
+    allfeatures = getattr(query, feature_entity)(species_id=species_id)
     # only ingest the new features but link all features to the featureset
     exist_feature_keys = set()
     exist_feature_ids = set()
@@ -160,7 +158,7 @@ def features(
 
     # add a featureset to the featureset table
     with sqm.Session(engine) as session:
-        featureset = ln.schema.bionty.featureset(
+        featureset = schema.bionty.featureset(
             feature_entity=feature_entity,
             name=featureset_name,
         )
@@ -174,7 +172,7 @@ def features(
         for k, v in features_dict.items():
             if k in exist_feature_keys:
                 continue
-            feature_schema = getattr(ln.schema.bionty, feature_entity)
+            feature_schema = getattr(schema.bionty, feature_entity)
             feature = feature_schema(
                 **v,
                 species_id=species_id,
@@ -191,7 +189,7 @@ def features(
     with sqm.Session(engine) as session:
         for feature_id in feature_ids:
             featureset_link_module = getattr(
-                ln.schema.bionty, f"featureset_{feature_entity}"
+                schema.bionty, f"featureset_{feature_entity}"
             )
             query_dict = {
                 "featureset_id": featureset.id,
@@ -212,64 +210,31 @@ def readout(efo_id: str):
     efo_id = efo_id.replace("_", ":")
 
     # check if entry already exists
-    query_readout = getattr(ln.db.query, "readout")
-    readout_results = query_readout(efo_id=efo_id)
+    readout_results = getattr(query, "readout")(efo_id=efo_id)
     if len(readout_results) > 1:
         raise AssertionError(f"Multiple entries are associated with {efo_id}!")
     elif len(readout_results) == 1:
         return readout_results[0].id
     else:
-        engine = settings.instance.db_engine()
-
         from bioreadout import readout
 
         entry = readout(efo_id=efo_id)
         for k, v in entry.items():
             if isinstance(v, list):
                 entry[k] = ";".join(v)
-        with sqm.Session(engine) as session:
-            readout = ln.schema.wetlab.readout(**entry)
+        with sqm.Session(settings.instance.db_engine()) as session:
+            readout = schema.wetlab.readout(**entry)
             session.add(readout)
             session.commit()
             session.refresh(readout)
         logger.success(
-            f"Inserted table {colors.blue('readout')}: {colors.green(f'{readout.id}')}"
+            f"Inserted entry {colors.green(f'{readout.id}')} into"
+            f" {colors.blue('readout')}."
         )
+
+        settings.instance._update_cloud_sqlite_file()
 
         return readout.id
-
-
-def biometa(
-    dobject_id: str,
-    biosample_id: int = None,
-    readout_id: int = None,
-    featureset_id: int = None,
-):
-    """Insert a row in the biometa table and link with a dobject."""
-    engine = settings.instance.db_engine()
-
-    with sqm.Session(engine) as session:
-        biometa = ln.schema.wetlab.biometa(
-            biosample_id=biosample_id,
-            readout_id=readout_id,
-            featureset_id=featureset_id,
-        )
-        session.add(biometa)
-        session.commit()
-        session.refresh(biometa)
-
-    # also create an entry in the dobject_biometa table
-    with sqm.Session(engine) as session:
-        link = ln.schema.wetlab.dobject_biometa(
-            dobject_id=dobject_id, biometa_id=biometa.id
-        )
-        session.add(link)
-        session.commit()
-        session.refresh(link)
-
-    settings.instance._update_cloud_sqlite_file()
-
-    return biometa.id
 
 
 def _create_insert_func(name: str, schema_module):
@@ -279,16 +244,20 @@ def _create_insert_func(name: str, schema_module):
             session.add(entry)
             session.commit()
             session.refresh(entry)
-            logger.success(
-                f"Inserted table {colors.blue(f'{name}')}:"
-                f" {colors.green(f'{entry.id}')}"
-            )
-            if name == "dobject":
-                track_usage(entry.id, entry.v, "insert")
+        try:
+            entry_id = entry.id
+        except AttributeError:
+            entry_id = entry
+        logger.success(
+            f"Inserted entry {colors.green(f'{entry_id}')} into"
+            f" {colors.blue(f'{name}')}."
+        )
+        if name == "dobject":
+            track_usage(entry.id, entry.v, "insert")
 
         settings.instance._update_cloud_sqlite_file()
 
-        return entry.id
+        return entry_id
 
     insert_func.__name__ = name
     return insert_func
@@ -312,4 +281,3 @@ setattr(insert, "dobject_from_jupynb", dobject_from_jupynb)
 setattr(insert, "species", insert_species)
 setattr(insert, "features", features)
 setattr(insert, "readout", readout)
-setattr(insert, "biometa", biometa)

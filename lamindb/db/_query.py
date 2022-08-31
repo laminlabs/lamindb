@@ -138,8 +138,11 @@ def dobject(
     id: str = None,
     v: str = None,
     name: str = None,
+    dtransform_id: str = None,
     file_suffix: str = None,
-    dsource_id: str = None,
+    storage_id: str = None,
+    time_created=None,
+    time_updated=None,
     cell_marker: str = None,
 ):
     """Query from dobject."""

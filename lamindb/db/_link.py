@@ -92,11 +92,14 @@ class link:
             featureset_name=featureset_name,
         )
 
-        # use the geneset_id and readout_id to create an entry in biometa
-        biometa_id = getattr(insert, "biometa")(
-            dobject_id=dobject_id,
-            featureset_id=featureset_id,
-        )
+        # use the featureset_id to create an entry in biometa
+        # TODO: need to make this easier
+        dobject_biometas = getattr(query, "dobject_biometa")(dobject_id=dobject_id)
+        if len(dobject_biometas) == 0:
+            biometa_id = getattr(insert, "biometa")(featureset_id=featureset_id)
+            getattr(link, "biometa")(dobject_id=dobject_id, biometa_id=biometa_id)
+        else:
+            raise NotImplementedError
 
         logs = [[str(featureset_id), str(biometa_id), str(species_id)]]
         log_table = tabulate(
@@ -139,3 +142,18 @@ class link:
             f" {colors.purple(f'biometa entries {biometa_ids}')} associated with"
             f" {colors.green(f'dobject {dobject_id}')}."
         )
+
+    @classmethod
+    def biometa(cls, dobject_id: str, biometa_id: int):
+        """Link a dobject to a biometa."""
+        dobject_biometas = getattr(query, "dobject_biometa")(
+            dobject_id=dobject_id, biometa_id=biometa_id
+        )
+        if len(dobject_biometas) > 0:
+            raise AssertionError(
+                "dobject {dobject_id} is already linked to biometa {biometa_id}!"
+            )
+        else:
+            _ = getattr(insert, "dobject_biometa")(
+                dobject_id=dobject_id, biometa_id=biometa_id
+            )
