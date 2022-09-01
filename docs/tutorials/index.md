@@ -1,17 +1,17 @@
 # Tutorials
 
-## Step-wise user guides
+Walk-through of basic features and workflow.
 
 - {doc}`get-started`
 - {doc}`query-and-load`
 - {doc}`link-features`
 - {doc}`link-samples`
-- {doc}`track-bfx-run`
+- {doc}`pipeline-runs`
 - {doc}`update-delete`
 - {doc}`introspect`
 - {doc}`share-cross-org`
 
-## R&D team simulation
+Walk-through of exemplary R&D operations.
 
 - {doc}`1-rds-setup`
 - {doc}`2-rds-design-experiment`
