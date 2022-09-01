@@ -142,7 +142,7 @@ class query:
         return df
 
 
-def _featureset_from_features(entity_name, **entity_kwargs):
+def _featureset_from_features(entity_name, entity_kwargs):
     """Return featuresets by quering features."""
     schema_module = getattr(schema.bionty, entity_name)
     stmt = _chain_select_stmt(kwargs=entity_kwargs, schema_module=schema_module)
@@ -171,7 +171,7 @@ def dobject(
     time_created=None,
     time_updated=None,
     entity_name: str = None,
-    **entity_kwargs,
+    entity_kwargs: dict = None,
 ):
     """Query from dobject."""
     schema_module = schema.core.dobject
@@ -181,12 +181,12 @@ def dobject(
     stmt = _chain_select_stmt(kwargs=kwargs, schema_module=schema_module)
     results = _query_stmt(statement=stmt, results_type="all")
 
-    if entity_name is not None:
+    if (entity_name is not None) and (entity_kwargs is not None):
         try:
             bt.lookup.feature_model.__getattribute__(entity_name)
             # query features
             featureset_ids = _featureset_from_features(
-                entity_name=entity_name, **entity_kwargs
+                entity_name=entity_name, entity_kwargs=entity_kwargs
             )
             biometas = []
             for featureset_id in featureset_ids:
