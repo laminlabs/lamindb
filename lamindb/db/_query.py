@@ -92,7 +92,7 @@ def _backpopulate_foreign_keys(foreign_keys):
 
 
 def _get_meta_table_results(
-    entity_name, link_tables, foreign_keys_backpop, **entity_kwargs
+    entity_name, link_tables, foreign_keys_backpop, entity_kwargs
 ):
     results = getattr(query, entity_name)(**entity_kwargs)
     results_ids = [i.id for i in results]
@@ -111,7 +111,7 @@ def _get_meta_table_results(
     return results
 
 
-def query_dobject_from_metadata(entity_name, **entity_kwargs):
+def query_dobject_from_metadata(entity_name, entity_kwargs):
     engine = settings.instance.db_engine()
     foreign_keys = _get_all_foreign_keys(engine)
     foreign_keys_backpop = _backpopulate_foreign_keys(foreign_keys)
@@ -120,7 +120,7 @@ def query_dobject_from_metadata(entity_name, **entity_kwargs):
         entity_name=entity_name,
         link_tables=link_tables,
         foreign_keys_backpop=foreign_keys_backpop,
-        **entity_kwargs,
+        entity_kwargs=entity_kwargs,
     )
     return meta_results
 
@@ -198,7 +198,7 @@ def dobject(
             # query obs metadata
             # find all the link tables to dobject
             dobjects = query_dobject_from_metadata(
-                entity_name=entity_name, **entity_kwargs
+                entity_name=entity_name, entity_kwargs=entity_kwargs
             )
 
         results = [i for i in results if i.id in [j.dobject_id for j in dobjects]]
