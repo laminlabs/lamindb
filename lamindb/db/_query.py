@@ -239,7 +239,7 @@ def biometa(
             biometa_ids = [i.biometa_id for i in biometas]
             return [i for i in results if i.id in biometa_ids]
     else:
-        return
+        return results
 
 
 for name, schema_module in alltables.items():
