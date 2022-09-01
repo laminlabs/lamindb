@@ -3,6 +3,7 @@
 <!-- prettier-ignore -->
 Name | PR | Developer | Date | Version
 --- | --- | --- | --- | ---
+Update lndb_hub version | [176](https://github.com/laminlabs/lamindb/pull/176) | [fredericenard](https://github.com/fredericenard) | 2022-09-01 |
 ✨ Allow querying dobjects by biological entities | [175](https://github.com/laminlabs/lamindb/pull/175) | [sunnyosun](https://github.com/sunnyosun) | 2022-09-01 | 0.3.4
 ⬆️ Update to sqm 0.0.8 to silence the warnings | [174](https://github.com/laminlabs/lamindb/pull/174) | [sunnyosun](https://github.com/sunnyosun) | 2022-08-30 |
 🤡 R&D team simulation | [172](https://github.com/laminlabs/lamindb/pull/172) | [sunnyosun](https://github.com/sunnyosun) | 2022-08-30 |
