@@ -123,27 +123,7 @@ class Ingest:
         jupynb_name = meta.live.title
 
         # ingest pipeline entities
-        for run in set(self._pipeline_runs.values()):
-            # check if core pipeline exists, insert if not
-            df_pipeline = query.table_as_df("pipeline")
-            if (run.pipeline_id, run.pipeline_v) not in df_pipeline.index:
-                insert.pipeline(
-                    id=run.pipeline_id,
-                    v=run.pipeline_v,
-                    name=run.pipeline_name,
-                    reference=run.pipeline_reference,
-                )
-            # check if core pipeline run exists, insert if not
-            df_pipeline_run = query.table_as_df("pipeline_run")
-            if run.run_id not in df_pipeline_run.index:
-                insert.pipeline_run(
-                    id=run.run_id,
-                    name=run.run_name,
-                    pipeline_id=run.pipeline_id,
-                    pipeline_v=run.pipeline_v,
-                )
-            # check if bfx pipeline and run exist, insert if not
-            run.check_and_ingest()
+        self._ingest_pipeline_runs(set(self._pipeline_runs.values()))
 
         for filepath, (dobject_id, dobject_v) in self._added.items():
             pipeline_run = self._pipeline_runs.get(filepath)
@@ -216,6 +196,32 @@ class Ingest:
         # stage pipeline run for ingestion
         pipeline_run.db_engine = settings.instance.db_engine()
         self._pipeline_runs[input_path] = pipeline_run
+
+    def _ingest_pipeline_runs(self, pipeline_runs):
+        """Ingest staged pipeline runs and their pipelines."""
+        from ._insert import insert
+
+        for run in pipeline_runs:
+            # check if core pipeline exists, insert if not
+            df_pipeline = query.table_as_df("pipeline")
+            if (run.pipeline_id, run.pipeline_v) not in df_pipeline.index:
+                insert.pipeline(
+                    id=run.pipeline_id,
+                    v=run.pipeline_v,
+                    name=run.pipeline_name,
+                    reference=run.pipeline_reference,
+                )
+            # check if core pipeline run exists, insert if not
+            df_pipeline_run = query.table_as_df("pipeline_run")
+            if run.run_id not in df_pipeline_run.index:
+                insert.pipeline_run(
+                    id=run.run_id,
+                    name=run.run_name,
+                    pipeline_id=run.pipeline_id,
+                    pipeline_v=run.pipeline_v,
+                )
+            # check if bfx pipeline and run exist, insert if not
+            run.check_and_ingest()
 
 
 ingest = Ingest()
