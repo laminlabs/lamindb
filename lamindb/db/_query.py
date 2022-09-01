@@ -1,6 +1,7 @@
 import bionty as bt
 import pandas as pd
 from lndb_setup import settings
+from sqlalchemy import inspect
 from sqlmodel import Session, select
 
 from .. import schema
@@ -53,6 +54,82 @@ def _create_query_func(name: str, schema_module):
     return query_func
 
 
+def _get_all_foreign_keys(engine):
+    """Result {'biosample': {'tissue_id': ('tissue', 'id')}}."""
+    inspector = inspect(engine)
+
+    def _get_foreign_keys(table_name, inspector):
+        return {
+            column["constrained_columns"][0]: (
+                column["referred_table"],
+                column["referred_columns"][0],
+            )
+            for column in inspector.get_foreign_keys(table_name)
+        }
+
+    foreign_keys = {}
+    for table_name in inspector.get_table_names():
+        foreign_keys_table = _get_foreign_keys(table_name, inspector)
+        if len(foreign_keys_table) > 0:
+            foreign_keys[table_name] = foreign_keys_table
+
+    return foreign_keys
+
+
+def _backpopulate_foreign_keys(foreign_keys):
+    """Result {'tissue': {'id': {'biosample': 'tissue_id'}}}."""
+    foreign_keys_backpop = {}
+
+    for module_name, keys in foreign_keys.items():
+        for key, (module, ref_key) in keys.items():
+            if foreign_keys_backpop.get(module) is None:
+                foreign_keys_backpop[module] = {}
+            if foreign_keys_backpop[module].get(ref_key) is None:
+                foreign_keys_backpop[module][ref_key] = {}
+            foreign_keys_backpop[module][ref_key][module_name] = key
+
+    return foreign_keys_backpop
+
+
+def _get_meta_table_results(
+    entity_name, link_tables, foreign_keys_backpop, **entity_kwargs
+):
+    results = getattr(query, entity_name)(**entity_kwargs)
+    results_ids = [i.id for i in results]
+    module_name = entity_name
+    while module_name not in link_tables:
+        if "id" not in foreign_keys_backpop[module_name]:
+            return results
+        parents = foreign_keys_backpop[module_name]["id"]
+        for table_name, table_ref_id in parents.items():
+            results = []
+            for result_id in results_ids:
+                results += getattr(query, table_name)(**{table_ref_id: result_id})
+            if table_name not in link_tables:
+                results_ids = [i.id for i in results]
+        module_name = table_name
+    return results
+
+
+def query_dobject_from_metadata(entity_name, **entity_kwargs):
+    engine = settings.instance.db_engine()
+    foreign_keys = _get_all_foreign_keys(engine)
+    foreign_keys_backpop = _backpopulate_foreign_keys(foreign_keys)
+    link_tables = [i for i in schema.list_entities() if i.startswith("dobject_")]
+    meta_results = _get_meta_table_results(
+        entity_name=entity_name,
+        link_tables=link_tables,
+        foreign_keys_backpop=foreign_keys_backpop**entity_kwargs,
+    )
+    dobject_ids = set([dobject.dobject_id for dobject in meta_results])
+    if len(dobject_ids) > 0:
+        dobjects = []
+        for dobject_id in dobject_ids:
+            dobjects += getattr(query, "dobject")(id=dobject_id)
+        return dobjects
+    return []
+
+
 class query:
     """Query literal (semantic) data."""
 
@@ -68,36 +145,6 @@ class query:
                 else:
                     df = df.set_index("id")
         return df
-
-
-# def featureset(id: int = None, feature_entity: str = None, name: str = None):
-#     """Query the featureset table.
-
-#     Can also query a gene or a protein linked to featuresets.
-#     """
-#     kwargs = locals()
-#     del kwargs["gene"]
-#     del kwargs["protein"]
-#     del kwargs["cell_marker"]
-#     schema_module = schema.bionty.featureset
-#     stmt = _chain_select_stmt(kwargs=kwargs, schema_module=schema_module)
-#     results = _query_stmt(statement=stmt, results_type="all")
-#     if cell_marker is not None:
-#         schema_module = schema.bionty.cell_marker
-#         stmt = _chain_select_stmt(
-#             kwargs={"name": cell_marker},  # TODO: remove hard code here
-#             schema_module=schema_module,
-#         )
-#         feature_id = _query_stmt(statement=stmt, results_type="all")[0].id
-
-#         featuresets = getattr(query, "featureset_cell_marker")(
-#             cell_marker_id=feature_id
-#         )
-#         featureset_ids = [i.featureset_id for i in featuresets]
-
-#         return [i for i in results if i.id in featureset_ids]
-#     else:
-#         return results
 
 
 def _featureset_from_features(entity_name, **entity_kwargs):
@@ -116,36 +163,7 @@ def _featureset_from_features(entity_name, **entity_kwargs):
                     featureset.featureset_id for featureset in featuresets
                 ]
         return list(set(featureset_ids))
-    else:
-        return []
-
-
-def biometa(
-    id: int = None,
-    biosample_id: int = None,
-    readout_id: int = None,
-    featureset_id: int = None,
-    dobject_id: str = None,
-):
-    """Query from biometa.
-
-    If dobject_id is provided, will search in the dobject_biometa first.
-    """
-    kwargs = locals()
-    del kwargs["dobject_id"]
-    schema_module = schema.wetlab.biometa
-    stmt = _chain_select_stmt(kwargs=kwargs, schema_module=schema_module)
-    results = _query_stmt(statement=stmt, results_type="all")
-    # dobject_id is given, will only return results associated with dobject_id
-    if dobject_id is not None:
-        biometas = getattr(query, "dobject_biometa")(dobject_id=dobject_id)
-        if len(biometas) == 0:
-            return biometas
-        else:
-            biometa_ids = [i.biometa_id for i in biometas]
-            return [i for i in results if i.id in biometa_ids]
-    else:
-        return results
+    return []
 
 
 def dobject(
@@ -182,7 +200,10 @@ def dobject(
                 dobjects += getattr(query, "dobject_biometa")(biometa_id=biometa.id)
         else:
             # query obs metadata
-            raise NotImplementedError
+            # find all the link tables to dobject
+            results = query_dobject_from_metadata(
+                entity_name=entity_name, **entity_kwargs
+            )
 
         results = [i for i in results if i.id in [j.dobject_id for j in dobjects]]
 
@@ -197,5 +218,4 @@ for name, schema_module in alltables.items():
     func = _create_query_func(name=name, schema_module=schema_module)
     setattr(query, name, classmethod(func))
 
-setattr(query, "biometa", biometa)
 setattr(query, "dobject", dobject)
