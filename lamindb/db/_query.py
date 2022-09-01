@@ -214,8 +214,37 @@ def dobject(
     return results
 
 
+def biometa(
+    id: int = None,
+    biosample_id: int = None,
+    readout_id: int = None,
+    featureset_id: int = None,
+    dobject_id: str = None,
+):
+    """Query from biometa.
+
+    If dobject_id is provided, will search in the dobject_biometa first.
+    """
+    kwargs = locals()
+    del kwargs["dobject_id"]
+    schema_module = schema.wetlab.biometa
+    stmt = _chain_select_stmt(kwargs=kwargs, schema_module=schema_module)
+    results = _query_stmt(statement=stmt, results_type="all")
+    # dobject_id is given, will only return results associated with dobject_id
+    if dobject_id is not None:
+        biometas = getattr(query, "dobject_biometa")(dobject_id=dobject_id)
+        if len(biometas) == 0:
+            return biometas
+        else:
+            biometa_ids = [i.biometa_id for i in biometas]
+            return [i for i in results if i.id in biometa_ids]
+    else:
+        return
+
+
 for name, schema_module in alltables.items():
     func = _create_query_func(name=name, schema_module=schema_module)
     setattr(query, name, classmethod(func))
 
 setattr(query, "dobject", dobject)
+setattr(query, "biometa", biometa)
