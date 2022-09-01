@@ -93,16 +93,9 @@ class Ingest:
 
         self._added[filepath] = primary_key
 
-        # pipeline run
+        # stage pipeline runs and run dobjects for ingestion
         if pipeline_run is not None:
-            if Path(dobject).is_dir():
-                del self._added[filepath]  # do not ingest the directory
-                pipeline_run.run_dir = Path(dobject)
-                dobjects_to_add = get_bfx_files_from_dir(dobject)
-                for dobject in dobjects_to_add:
-                    self.add(dobject, pipeline_run=pipeline_run)
-            pipeline_run.db_engine = settings.instance.db_engine()
-            self._pipeline_runs[filepath] = pipeline_run
+            self._setup_ingestion_from_pipeline(filepath, pipeline_run)
 
         if not filepath.exists() and dmem is not None:
             write_to_file(dmem, filepath)  # type: ignore
@@ -210,6 +203,19 @@ class Ingest:
         logger.success(f"Ingested the following dobjects:\n{log_table}")
 
         publish(calling_statement="commit(")
+
+    def _setup_ingestion_from_pipeline(self, input_path, pipeline_run):
+        """Setup and stage pipeline run and run dobjects for ingestion."""
+        # parse pipeline run directory
+        if input_path.is_dir():
+            del self._added[input_path]  # do not ingest the directory
+            pipeline_run.run_dir = input_path
+            dobjects_to_add = get_bfx_files_from_dir(input_path)
+            for dobject in dobjects_to_add:
+                self.add(dobject, pipeline_run=pipeline_run)
+        # stage pipeline run for ingestion
+        pipeline_run.db_engine = settings.instance.db_engine()
+        self._pipeline_runs[input_path] = pipeline_run
 
 
 ingest = Ingest()
