@@ -119,15 +119,10 @@ def query_dobject_from_metadata(entity_name, **entity_kwargs):
     meta_results = _get_meta_table_results(
         entity_name=entity_name,
         link_tables=link_tables,
-        foreign_keys_backpop=foreign_keys_backpop**entity_kwargs,
+        foreign_keys_backpop=foreign_keys_backpop,
+        **entity_kwargs,
     )
-    dobject_ids = set([dobject.dobject_id for dobject in meta_results])
-    if len(dobject_ids) > 0:
-        dobjects = []
-        for dobject_id in dobject_ids:
-            dobjects += getattr(query, "dobject")(id=dobject_id)
-        return dobjects
-    return []
+    return meta_results
 
 
 class query:
@@ -187,7 +182,8 @@ def dobject(
     results = _query_stmt(statement=stmt, results_type="all")
 
     if entity_name is not None:
-        if getattr(bt.lookup.feature_model, entity_name) is not None:
+        try:
+            bt.lookup.feature_model.__getattribute__(entity_name)
             # query features
             featureset_ids = _featureset_from_features(
                 entity_name=entity_name, **entity_kwargs
@@ -198,10 +194,10 @@ def dobject(
             dobjects = []
             for biometa in biometas:
                 dobjects += getattr(query, "dobject_biometa")(biometa_id=biometa.id)
-        else:
+        except AttributeError:
             # query obs metadata
             # find all the link tables to dobject
-            results = query_dobject_from_metadata(
+            dobjects = query_dobject_from_metadata(
                 entity_name=entity_name, **entity_kwargs
             )
 

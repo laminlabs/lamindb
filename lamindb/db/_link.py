@@ -91,11 +91,13 @@ class link:
             species=species,
             featureset_name=featureset_name,
         )
+        print(featureset_id)
 
         # use the featureset_id to create an entry in biometa
         # TODO: need to make this easier
         dobject_biometas = getattr(query, "dobject_biometa")(dobject_id=dobject_id)
         if len(dobject_biometas) == 0:
+            # insert a biometa entry and link to dobject
             biometa_id = getattr(insert, "biometa")(featureset_id=featureset_id)
             getattr(link, "biometa")(dobject_id=dobject_id, biometa_id=biometa_id)
         else:
@@ -105,7 +107,7 @@ class link:
         log_table = tabulate(
             logs,
             headers=[
-                colors.green("geneset.id"),
+                colors.green("featureset.id"),
                 colors.purple("biometa.id"),
                 colors.blue("species.id"),
             ],
