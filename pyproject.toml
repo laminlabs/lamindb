@@ -12,7 +12,7 @@ dependencies = [
     "lnschema_wetlab==0.3.5",
     "lnschema_bionty>=0.2.3",
     "lndb_setup==0.6.1",
-    "lndb_hub==0.5.5",
+    "lndb_hub==0.5.6",
     "lamin_logger",
     "bioreadout==0.1.0",
     "lnbfx==0.3.1",
