@@ -24,7 +24,6 @@ Walk-through of exemplary R&D operations
 ```{toctree}
 :maxdepth: 1
 :hidden:
-:caption:
 
 get-started
 schema
