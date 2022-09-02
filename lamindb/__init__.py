@@ -11,11 +11,11 @@ Browse the API:
 
    db
    schema
+   settings
    datasets
    nb
    dev
 
-To retrieve settings, use `lamindb.settings <https://lamin.ai/docs/lndb-setup/lndb_setup.settings>`__.
 """
 from . import _check_versions
 
@@ -27,3 +27,8 @@ from . import db  # noqa
 from . import dev  # noqa
 from . import schema  # noqa
 from ._nb import nb  # noqa
+
+settings.__doc__ = """Settings.
+
+This re-exports `lndb_setup.settings <https://lamin.ai/docs/lndb-setup/lndb_setup.settings>`__.
+"""
