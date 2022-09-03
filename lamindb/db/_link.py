@@ -91,7 +91,6 @@ class link:
             species=species,
             featureset_name=featureset_name,
         )
-        print(featureset_id)
 
         # use the featureset_id to create an entry in biometa
         # TODO: need to make this easier
