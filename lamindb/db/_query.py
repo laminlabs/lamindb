@@ -160,6 +160,7 @@ def query_dobject(
     results = _query_stmt(statement=stmt, results_type="all")
 
     if (entity is not None) and (entity_kwargs is not None):
+        # TODO: this part needs refactor
         try:
             bt.lookup.feature_model.__getattribute__(entity)
             # query features
@@ -285,7 +286,10 @@ class FilterQueryResultList:
         elif len(self._results) > 1:
             raise MultipleResultsFound
         else:
-            return self._filter()
+            results = self._filter()
+            if isinstance(results, pd.DataFrame):
+                return results.head(1)
+            return results[0]
 
     def first(self):
         if len(self._results) == 0:
