@@ -172,9 +172,7 @@ def dobject(
 ):
     """Query from dobject."""
     schema_module = schema.core.dobject
-    kwargs = {
-        k: v for k, v in locals().items() if k in schema.core.dobject.__fields__.keys()
-    }
+    kwargs = {k: v for k, v in locals().items() if k in schema_module.__fields__.keys()}
     stmt = _chain_select_stmt(kwargs=kwargs, schema_module=schema_module)
     results = _query_stmt(statement=stmt, results_type="all")
 
@@ -222,9 +220,8 @@ def biometa(
 
     If dobject_id is provided, will search in the dobject_biometa first.
     """
-    kwargs = locals()
-    del kwargs["dobject_id"]
     schema_module = schema.wetlab.biometa
+    kwargs = {k: v for k, v in locals().items() if k in schema_module.__fields__.keys()}
     stmt = _chain_select_stmt(kwargs=kwargs, schema_module=schema_module)
     results = _query_stmt(statement=stmt, results_type="all")
     # dobject_id is given, will only return results associated with dobject_id
