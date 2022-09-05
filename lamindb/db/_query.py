@@ -149,8 +149,7 @@ def query_dobject(
     storage_id: str = None,
     time_created=None,
     time_updated=None,
-    entity: str = None,
-    entity_kwargs: dict = None,
+    where: dict[str, dict] = None,
     as_df: bool = False,
 ):
     """Query from dobject."""
@@ -159,28 +158,31 @@ def query_dobject(
     stmt = _chain_select_stmt(kwargs=kwargs, schema_module=schema_module)
     results = _query_stmt(statement=stmt, results_type="all")
 
-    if (entity is not None) and (entity_kwargs is not None):
-        # TODO: this part needs refactor
-        try:
-            bt.lookup.feature_model.__getattribute__(entity)
-            # query features
-            featureset_ids = _featureset_from_features(
-                entity=entity, entity_kwargs=entity_kwargs
-            )
-            biometas = []
-            for featureset_id in featureset_ids:
-                biometas += getattr(query, "biometa")(featureset_id=featureset_id).all()
-            dobjects = []
-            for biometa in biometas:
-                dobjects += getattr(query, "dobject_biometa")(
-                    biometa_id=biometa.id
-                ).all()
-        except AttributeError:
-            # query obs metadata
-            # find all the link tables to dobject
-            dobjects = query_dobject_from_metadata(
-                entity=entity, entity_kwargs=entity_kwargs
-            )
+    if where is not None:
+        dobjects = []
+        for entity, entity_kwargs in where.items():
+            # TODO: this part needs refactor
+            try:
+                bt.lookup.feature_model.__getattribute__(entity)
+                # query features
+                featureset_ids = _featureset_from_features(
+                    entity=entity, entity_kwargs=entity_kwargs
+                )
+                biometas = []
+                for featureset_id in featureset_ids:
+                    biometas += getattr(query, "biometa")(
+                        featureset_id=featureset_id
+                    ).all()
+                for biometa in biometas:
+                    dobjects += getattr(query, "dobject_biometa")(
+                        biometa_id=biometa.id
+                    ).all()
+            except AttributeError:
+                # query obs metadata
+                # find all the link tables to dobject
+                dobjects += query_dobject_from_metadata(
+                    entity=entity, entity_kwargs=entity_kwargs
+                )
 
         results = [i for i in results if i.id in [j.dobject_id for j in dobjects]]
 
