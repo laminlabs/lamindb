@@ -132,19 +132,6 @@ def query_dobject_from_metadata(entity_name, entity_kwargs):
 class query:
     """Query literal (semantic) data."""
 
-    @classmethod
-    def table_as_df(cls, entity_name) -> pd.DataFrame:
-        """Load metadata table as DataFrame."""
-        engine = settings.instance.db_engine()
-        with engine.connect() as conn:
-            df = pd.read_sql_table(entity_name, conn)
-            if "id" in df.columns:
-                if "v" in df.columns:
-                    df = df.set_index(["id", "v"])
-                else:
-                    df = df.set_index("id")
-        return df
-
 
 def _featureset_from_features(entity_name, entity_kwargs):
     """Return featuresets by quering features."""
