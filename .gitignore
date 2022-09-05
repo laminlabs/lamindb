@@ -19,6 +19,7 @@ docs/generated/*
 _docs_tmp*
 docs/guide/Laminopathic_nuclei.jpg
 docs/guide/paradisi05_laminopathic_nuclei.jpg
+nocodb
 
 # General
 .DS_Store
