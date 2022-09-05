@@ -25,16 +25,19 @@ def _chain_select_stmt(kwargs: dict, schema_module):
     return stmt
 
 
-def _return_query_results_as_df(results):
+def _return_query_results_as_df(results, schema_module):
     """Return list query results as a DataFrame."""
     if len(results) > 0:
         df = pd.DataFrame([result.dict() for result in results])
-        if "id" in df.columns:
-            if "v" in df.columns:
-                df = df.set_index(["id", "v"])
-            else:
-                df = df.set_index("id")
-        return df
+    else:
+        df = pd.DataFrame(columns=schema_module.__fields__.keys())
+
+    if "id" in df.columns:
+        if "v" in df.columns:
+            df = df.set_index(["id", "v"])
+        else:
+            df = df.set_index("id")
+    return df
 
 
 def _create_query_func(name: str, schema_module):
@@ -50,10 +53,9 @@ def _create_query_func(name: str, schema_module):
 
         # return DataFrame
         if as_df:
-            df = _return_query_results_as_df(results)
-            if df is None:
-                df = pd.DataFrame(columns=schema_module.__fields__.keys())
-            return df
+            return _return_query_results_as_df(
+                results=results, schema_module=schema_module
+            )
 
         return results
 
@@ -203,10 +205,7 @@ def dobject(
             track_usage(result.id, result.v, "query")
 
     if as_df:
-        df = _return_query_results_as_df(results)
-        if df is None:
-            df = pd.DataFrame(columns=schema_module.__fields__.keys())
-        return df
+        return _return_query_results_as_df(results=results, schema_module=schema_module)
 
     return results
 
@@ -238,10 +237,7 @@ def biometa(
             results = [i for i in results if i.id in biometa_ids]
 
     if as_df:
-        df = _return_query_results_as_df(results)
-        if df is None:
-            df = pd.DataFrame(columns=schema_module.__fields__.keys())
-        return df
+        return _return_query_results_as_df(results=results, schema_module=schema_module)
 
     return results
 
