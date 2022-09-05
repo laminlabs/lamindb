@@ -1,5 +1,3 @@
-from types import ModuleType
-
 from .. import schema
 
 
@@ -11,6 +9,6 @@ alltables = {}
 for schema_pkg in _list_methods(schema):
     alltables_pkg = _list_methods(schema_pkg)
     for table in alltables_pkg:
-        if isinstance(table, (str, ModuleType)):
+        if table.__class__.__name__ != "SQLModelMetaclass":
             continue
         alltables[table.__name__] = table
