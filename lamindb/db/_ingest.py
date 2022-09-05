@@ -10,6 +10,7 @@ from .._logger import colors, logger
 from ..dev import format_pipeline_logs, storage_key_from_triple, track_usage
 from ..dev.file import load_to_memory, store_file
 from ..dev.object import infer_file_suffix, write_to_file
+from ._insert import insert
 from ._link import link
 from ._query import query
 
@@ -109,8 +110,6 @@ class Ingest:
         from nbproject import dev, meta, publish
         from tabulate import tabulate  # type: ignore
 
-        from ._insert import insert
-
         logs = []
 
         if meta.live.title is None:
@@ -185,6 +184,40 @@ class Ingest:
         logger.success(f"Ingested the following dobjects:\n{log_table}")
 
         publish(calling_statement="commit(")
+
+    def _ingest_dobject(
+        self,
+        filepath,
+        jupynb_id,
+        jupynb_v,
+        jupynb_name,
+        dobject_id,
+        dobject_v,
+        pipeline_run,
+    ):
+        """Insert and store dobject."""
+        dobject_id = insert.dobject_from_jupynb(
+            name=filepath.stem,
+            file_suffix=filepath.suffix,
+            jupynb_id=jupynb_id,
+            jupynb_v=jupynb_v,
+            jupynb_name=jupynb_name,
+            dobject_id=dobject_id,
+            dobject_v=dobject_v,
+            pipeline_run=pipeline_run,
+        )
+
+        dobject_storage_key = storage_key_from_triple(
+            dobject_id, dobject_v, filepath.suffix
+        )
+        try:
+            store_file(filepath, dobject_storage_key)
+        except SameFileError:
+            pass
+
+        track_usage(dobject_id, dobject_v, "ingest")
+
+        return dobject_id
 
     def _setup_ingestion_from_pipeline(self, input_path, pipeline_run):
         """Setup and stage pipeline run and run dobjects for ingestion."""
