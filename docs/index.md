@@ -18,7 +18,7 @@ Data & analysis platform for R&D to
 3. collaborate on data within and across organizations
 
 LaminDB is a distributed data management system similar to how git is a distributed version control system.
-Each LaminDB instance is a data warehouse with storage (local directory, S3, GCP, Azure) and a SQL database (SQLite, Postgres) for querying it.
+Each LaminDB instance is a lakehouse with storage (local directory, S3, GCP, Azure) and a SQL database (SQLite, Postgres) for querying it.
 
 Install:
 
