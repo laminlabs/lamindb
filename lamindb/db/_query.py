@@ -50,7 +50,10 @@ def _create_query_func(name: str, schema_module):
 
         # return DataFrame
         if as_df:
-            return _return_query_results_as_df(results)
+            df = _return_query_results_as_df(results)
+            if df is None:
+                df = pd.DataFrame(columns=schema_module.__fields__.keys())
+            return df
 
         return results
 
@@ -200,7 +203,10 @@ def dobject(
             track_usage(result.id, result.v, "query")
 
     if as_df:
-        return _return_query_results_as_df(results)
+        df = _return_query_results_as_df(results)
+        if df is None:
+            df = pd.DataFrame(columns=schema_module.__fields__.keys())
+        return df
 
     return results
 
@@ -232,7 +238,10 @@ def biometa(
             results = [i for i in results if i.id in biometa_ids]
 
     if as_df:
-        return _return_query_results_as_df(results)
+        df = _return_query_results_as_df(results)
+        if df is None:
+            df = pd.DataFrame(columns=schema_module.__fields__.keys())
+        return df
 
     return results
 
