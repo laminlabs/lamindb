@@ -147,39 +147,22 @@ class Ingest:
 
         # ingest dobjects from notebook
         for filepath, (dobject_id, dobject_v) in self._added.items():
-            pipeline_run = self._pipeline_runs.get(filepath)
-            dobject_id = insert.dobject_from_jupynb(
-                name=filepath.stem,
-                file_suffix=filepath.suffix,
+            # skip dobject if linked to a pipeline (already ingested)
+            if self._pipeline_runs.get(filepath) is not None:
+                continue
+            dobject_id = self._ingest_dobject(
+                filepath=filepath,
                 jupynb_id=jupynb_id,
                 jupynb_v=jupynb_v,
                 jupynb_name=jupynb_name,
                 dobject_id=dobject_id,
                 dobject_v=dobject_v,
-                pipeline_run=pipeline_run,
+                pipeline_run=None,
             )
-
-            if pipeline_run is not None:
-                pipeline_run.link_dobject(dobject_id, filepath)
-
-            dobject_storage_key = storage_key_from_triple(
-                dobject_id, dobject_v, filepath.suffix
-            )
-            try:
-                store_file(filepath, dobject_storage_key)
-            except SameFileError:
-                pass
-
-            track_usage(dobject_id, dobject_v, "ingest")
-
-            if pipeline_run is None:
-                log_file_name = filepath.name
-            else:
-                log_file_name = str(filepath.relative_to(pipeline_run.run_dir.parent))
 
             logs.append(
                 [
-                    f"{log_file_name} ({dobject_id}, {dobject_v})",
+                    f"{filepath.name} ({dobject_id}, {dobject_v})",
                     f"{jupynb_name!r} ({jupynb_id}, {jupynb_v})",
                     f"{settings.user.handle} ({settings.user.id})",
                 ]
