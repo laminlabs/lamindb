@@ -1,4 +1,4 @@
-# Tutorials
+# Guide
 
 Walk-through of basic functionalities
 

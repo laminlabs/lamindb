@@ -17,8 +17,8 @@ _configuration.py
 lamin.db
 docs/generated/*
 _docs_tmp*
-docs/tutorials/Laminopathic_nuclei.jpg
-docs/tutorials/paradisi05_laminopathic_nuclei.jpg
+docs/guide/Laminopathic_nuclei.jpg
+docs/guide/paradisi05_laminopathic_nuclei.jpg
 
 # General
 .DS_Store
@@ -164,5 +164,5 @@ _build
 
 
 # fred files
-docs/tutorials/insert-some-data-into-frederic-hub.ipynb
-docs/tutorials/insert-data-in-test-user-1-profile.ipynb
+docs/guide/insert-some-data-into-frederic-hub.ipynb
+docs/guide/insert-data-in-test-user-1-profile.ipynb
