@@ -25,29 +25,33 @@ def _chain_select_stmt(kwargs: dict, schema_module):
     return stmt
 
 
-def _return_query_results_as_df(statement):
-    df = pd.read_sql_query(statement, settings.instance.db_engine(future=False))
-    if "id" in df.columns:
-        if "v" in df.columns:
-            df = df.set_index(["id", "v"])
-        else:
-            df = df.set_index("id")
-    return df
+def _return_query_results_as_df(results):
+    """Return list query results as a DataFrame."""
+    if len(results) > 0:
+        df = pd.DataFrame([result.dict() for result in results])
+        if "id" in df.columns:
+            if "v" in df.columns:
+                df = df.set_index(["id", "v"])
+            else:
+                df = df.set_index("id")
+        return df
 
 
 def _create_query_func(name: str, schema_module):
     def query_func(cls, as_df=False, **kwargs):
         """Query metadata from tables."""
         stmt = _chain_select_stmt(kwargs=kwargs, schema_module=schema_module)
-        if as_df:
-            results = _return_query_results_as_df(statement=stmt)
-        else:
-            results = _query_stmt(statement=stmt, results_type="all")
+        results = _query_stmt(statement=stmt, results_type="all")
 
         # track usage for dobjects
         if name == "dobject":
             for result in results:
                 track_usage(result.id, result.v, "query")
+
+        # return DataFrame
+        if as_df:
+            return _return_query_results_as_df(results)
+
         return results
 
     query_func.__name__ = name
@@ -172,6 +176,7 @@ def dobject(
     time_updated=None,
     entity_name: str = None,
     entity_kwargs: dict = None,
+    as_df: bool = False,
 ):
     """Query from dobject."""
     schema_module = schema.core.dobject
@@ -207,6 +212,9 @@ def dobject(
         for result in results:
             track_usage(result.id, result.v, "query")
 
+    if as_df:
+        return _return_query_results_as_df(results)
+
     return results
 
 
@@ -216,6 +224,7 @@ def biometa(
     readout_id: int = None,
     featureset_id: int = None,
     dobject_id: str = None,
+    as_df: bool = False,
 ):
     """Query from biometa.
 
@@ -230,12 +239,15 @@ def biometa(
     if dobject_id is not None:
         biometas = getattr(query, "dobject_biometa")(dobject_id=dobject_id)
         if len(biometas) == 0:
-            return biometas
+            results = biometas
         else:
             biometa_ids = [i.biometa_id for i in biometas]
-            return [i for i in results if i.id in biometa_ids]
-    else:
-        return results
+            results = [i for i in results if i.id in biometa_ids]
+
+    if as_df:
+        return _return_query_results_as_df(results)
+
+    return results
 
 
 for name, schema_module in alltables.items():
