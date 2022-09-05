@@ -94,7 +94,9 @@ class link:
 
         # use the featureset_id to create an entry in biometa
         # TODO: need to make this easier
-        dobject_biometas = getattr(query, "dobject_biometa")(dobject_id=dobject_id)
+        dobject_biometas = getattr(query, "dobject_biometa")(
+            dobject_id=dobject_id
+        ).all()
         if len(dobject_biometas) == 0:
             # insert a biometa entry and link to dobject
             biometa_id = getattr(insert, "biometa")(featureset_id=featureset_id)
@@ -122,8 +124,7 @@ class link:
         readout_id = getattr(insert, "readout")(efo_id=efo_id)
 
         # query biometa associated with a dobject
-        query_dobject_biometa = getattr(query, "dobject_biometa")
-        dobject_biometa = query_dobject_biometa(dobject_id=dobject_id)
+        dobject_biometa = getattr(query, "dobject_biometa")(dobject_id=dobject_id).all()
         if len(dobject_biometa) > 0:
             biometa_ids = [i.biometa_id for i in dobject_biometa]
         else:
@@ -149,7 +150,7 @@ class link:
         """Link a dobject to a biometa."""
         dobject_biometas = getattr(query, "dobject_biometa")(
             dobject_id=dobject_id, biometa_id=biometa_id
-        )
+        ).all()
         if len(dobject_biometas) > 0:
             raise AssertionError(
                 "dobject {dobject_id} is already linked to biometa {biometa_id}!"

@@ -132,7 +132,7 @@ class Ingest:
         # ingest pipeline entities
         for run in set(self._pipeline_runs.values()):
             # check if core pipeline exists, insert if not
-            df_pipeline = getattr(query, "pipeline")(as_df=True)
+            df_pipeline = getattr(query, "pipeline")(as_df=True).all()
             if (run.pipeline_id, run.pipeline_v) not in df_pipeline.index:
                 insert.pipeline(
                     id=run.pipeline_id,
@@ -141,7 +141,7 @@ class Ingest:
                     reference=run.pipeline_reference,
                 )
             # check if core pipeline run exists, insert if not
-            df_pipeline_run = getattr(query, "pipeline_run")(as_df=True)
+            df_pipeline_run = getattr(query, "pipeline_run")(as_df=True).all()
             if run.run_id not in df_pipeline_run.index:
                 insert.pipeline_run(
                     id=run.run_id,

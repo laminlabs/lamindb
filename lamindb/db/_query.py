@@ -2,6 +2,7 @@ import bionty as bt
 import pandas as pd
 from lndb_setup import settings
 from sqlalchemy import inspect
+from sqlalchemy.orm.exc import MultipleResultsFound, NoResultFound
 from sqlmodel import Session, select
 
 from .. import schema
@@ -41,23 +42,11 @@ def _return_query_results_as_df(results, schema_module):
 
 
 def _create_query_func(name: str, schema_module):
+    """Autogenerate query functions for each entity table."""
+
     def query_func(cls, as_df=False, **kwargs):
         """Query metadata from tables."""
-        stmt = _chain_select_stmt(kwargs=kwargs, schema_module=schema_module)
-        results = _query_stmt(statement=stmt, results_type="all")
-
-        # track usage for dobjects
-        if name == "dobject":
-            for result in results:
-                track_usage(result.id, result.v, "query")
-
-        # return DataFrame
-        if as_df:
-            return _return_query_results_as_df(
-                results=results, schema_module=schema_module
-            )
-
-        return results
+        return Query(name=name, schema_module=schema_module, as_df=as_df, kwargs=kwargs)
 
     query_func.__name__ = name
     return query_func
@@ -100,12 +89,10 @@ def _backpopulate_foreign_keys(foreign_keys):
     return foreign_keys_backpop
 
 
-def _get_meta_table_results(
-    entity_name, link_tables, foreign_keys_backpop, entity_kwargs
-):
-    results = getattr(query, entity_name)(**entity_kwargs)
+def _get_meta_table_results(entity, link_tables, foreign_keys_backpop, entity_kwargs):
+    results = getattr(query, entity)(**entity_kwargs).all()
     results_ids = [i.id for i in results]
-    module_name = entity_name
+    module_name = entity
     while module_name not in link_tables:
         if "id" not in foreign_keys_backpop[module_name]:
             return results
@@ -113,20 +100,20 @@ def _get_meta_table_results(
         for table_name, table_ref_id in parents.items():
             results = []
             for result_id in results_ids:
-                results += getattr(query, table_name)(**{table_ref_id: result_id})
+                results += getattr(query, table_name)(**{table_ref_id: result_id}).all()
             if table_name not in link_tables:
                 results_ids = [i.id for i in results]
         module_name = table_name
     return results
 
 
-def query_dobject_from_metadata(entity_name, entity_kwargs):
+def query_dobject_from_metadata(entity, entity_kwargs):
     engine = settings.instance.db_engine()
     foreign_keys = _get_all_foreign_keys(engine)
     foreign_keys_backpop = _backpopulate_foreign_keys(foreign_keys)
     link_tables = [i for i in schema.list_entities() if i.startswith("dobject_")]
     meta_results = _get_meta_table_results(
-        entity_name=entity_name,
+        entity=entity,
         link_tables=link_tables,
         foreign_keys_backpop=foreign_keys_backpop,
         entity_kwargs=entity_kwargs,
@@ -134,21 +121,17 @@ def query_dobject_from_metadata(entity_name, entity_kwargs):
     return meta_results
 
 
-class query:
-    """Query literal (semantic) data."""
-
-
-def _featureset_from_features(entity_name, entity_kwargs):
+def _featureset_from_features(entity, entity_kwargs):
     """Return featuresets by quering features."""
-    schema_module = getattr(schema.bionty, entity_name)
+    schema_module = getattr(schema.bionty, entity)
     stmt = _chain_select_stmt(kwargs=entity_kwargs, schema_module=schema_module)
     results = _query_stmt(statement=stmt, results_type="all")
     if len(results) > 0:
         featureset_ids = []
         for feature in results:
-            featuresets = getattr(query, f"featureset_{entity_name}")(
-                **{f"{entity_name}_id": feature.id}
-            )
+            featuresets = getattr(query, f"featureset_{entity}")(
+                **{f"{entity}_id": feature.id}
+            ).all()
             if len(featuresets) > 0:
                 featureset_ids += [
                     featureset.featureset_id for featureset in featuresets
@@ -157,7 +140,7 @@ def _featureset_from_features(entity_name, entity_kwargs):
     return []
 
 
-def dobject(
+def query_dobject(
     id: str = None,
     v: str = None,
     name: str = None,
@@ -166,8 +149,7 @@ def dobject(
     storage_id: str = None,
     time_created=None,
     time_updated=None,
-    entity_name: str = None,
-    entity_kwargs: dict = None,
+    where: dict[str, dict] = None,
     as_df: bool = False,
 ):
     """Query from dobject."""
@@ -176,25 +158,31 @@ def dobject(
     stmt = _chain_select_stmt(kwargs=kwargs, schema_module=schema_module)
     results = _query_stmt(statement=stmt, results_type="all")
 
-    if (entity_name is not None) and (entity_kwargs is not None):
-        try:
-            bt.lookup.feature_model.__getattribute__(entity_name)
-            # query features
-            featureset_ids = _featureset_from_features(
-                entity_name=entity_name, entity_kwargs=entity_kwargs
-            )
-            biometas = []
-            for featureset_id in featureset_ids:
-                biometas += getattr(query, "biometa")(featureset_id=featureset_id)
-            dobjects = []
-            for biometa in biometas:
-                dobjects += getattr(query, "dobject_biometa")(biometa_id=biometa.id)
-        except AttributeError:
-            # query obs metadata
-            # find all the link tables to dobject
-            dobjects = query_dobject_from_metadata(
-                entity_name=entity_name, entity_kwargs=entity_kwargs
-            )
+    if where is not None:
+        dobjects = []
+        for entity, entity_kwargs in where.items():
+            # TODO: this part needs refactor
+            try:
+                bt.lookup.feature_model.__getattribute__(entity)
+                # query features
+                featureset_ids = _featureset_from_features(
+                    entity=entity, entity_kwargs=entity_kwargs
+                )
+                biometas = []
+                for featureset_id in featureset_ids:
+                    biometas += getattr(query, "biometa")(
+                        featureset_id=featureset_id
+                    ).all()
+                for biometa in biometas:
+                    dobjects += getattr(query, "dobject_biometa")(
+                        biometa_id=biometa.id
+                    ).all()
+            except AttributeError:
+                # query obs metadata
+                # find all the link tables to dobject
+                dobjects += query_dobject_from_metadata(
+                    entity=entity, entity_kwargs=entity_kwargs
+                )
 
         results = [i for i in results if i.id in [j.dobject_id for j in dobjects]]
 
@@ -202,13 +190,12 @@ def dobject(
         for result in results:
             track_usage(result.id, result.v, "query")
 
-    if as_df:
-        return _return_query_results_as_df(results=results, schema_module=schema_module)
+    return FilterQueryResultList(
+        name="dobject", schema_module=schema_module, results=results, as_df=as_df
+    )
 
-    return results
 
-
-def biometa(
+def query_biometa(
     id: int = None,
     biosample_id: int = None,
     readout_id: int = None,
@@ -226,22 +213,105 @@ def biometa(
     results = _query_stmt(statement=stmt, results_type="all")
     # dobject_id is given, will only return results associated with dobject_id
     if dobject_id is not None:
-        biometas = getattr(query, "dobject_biometa")(dobject_id=dobject_id)
+        biometas = getattr(query, "dobject_biometa")(dobject_id=dobject_id).all()
         if len(biometas) == 0:
             results = biometas
         else:
             biometa_ids = [i.biometa_id for i in biometas]
             results = [i for i in results if i.id in biometa_ids]
 
-    if as_df:
-        return _return_query_results_as_df(results=results, schema_module=schema_module)
+    return FilterQueryResultList(
+        name="biometa", schema_module=schema_module, results=results, as_df=as_df
+    )
 
-    return results
+
+class Query:
+    def __init__(self, name, schema_module, as_df=False, kwargs=None) -> None:
+        self._name = name
+        self._schema_module = schema_module
+        self._as_df = as_df
+        self._kwargs = kwargs
+
+    def _query(self, results_type):
+        stmt = _chain_select_stmt(
+            kwargs=self._kwargs, schema_module=self._schema_module
+        )
+        results = _query_stmt(statement=stmt, results_type=results_type)
+        # track usage for dobjects
+        if self._name == "dobject":
+            for result in results:
+                track_usage(result.id, result.v, "query")
+        # return DataFrame
+        if self._as_df:
+            return _return_query_results_as_df(
+                results=results, schema_module=self._schema_module
+            )
+        return results
+
+    def all(self):
+        return self._query(results_type="all")
+
+    def one(self):
+        return self._query(results_type="one")
+
+    def first(self):
+        return self._query(results_type="first")
+
+
+class FilterQueryResultList:
+    def __init__(
+        self, name: str, schema_module, results: list, as_df: bool = False
+    ) -> None:
+        self._name = name
+        self._schema_module = schema_module
+        self._results = results
+        self._as_df = as_df
+
+    def _filter(self):
+        # track usage for dobjects
+        if self._name == "dobject":
+            for result in self._results:
+                track_usage(result.id, result.v, "query")
+        # return DataFrame
+        if self._as_df:
+            return _return_query_results_as_df(
+                results=self._results, schema_module=self._schema_module
+            )
+        return self._results
+
+    def all(self):
+        return self._filter()
+
+    def one(self):
+        if len(self._results) == 0:
+            raise NoResultFound
+        elif len(self._results) > 1:
+            raise MultipleResultsFound
+        else:
+            results = self._filter()
+            if isinstance(results, pd.DataFrame):
+                return results.head(1)
+            return results[0]
+
+    def first(self):
+        if len(self._results) == 0:
+            raise NoResultFound
+        else:
+            results = self._filter()
+            if isinstance(results, pd.DataFrame):
+                return results.head(1)
+            return results[0]
+
+
+class query:
+    """Query literal (semantic) data."""
+
+    pass
 
 
 for name, schema_module in alltables.items():
     func = _create_query_func(name=name, schema_module=schema_module)
     setattr(query, name, classmethod(func))
 
-setattr(query, "dobject", dobject)
-setattr(query, "biometa", biometa)
+setattr(query, "dobject", query_dobject)
+setattr(query, "biometa", query_biometa)

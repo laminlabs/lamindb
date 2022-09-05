@@ -93,7 +93,7 @@ def dobject_from_jupynb(
 
 def insert_species(common_name: str):
     """Insert a species."""
-    species_results = getattr(query, "species")(common_name=common_name)
+    species_results = getattr(query, "species")(common_name=common_name).all()
     if len(species_results) > 1:
         raise AssertionError(f"Multiple entries are associated with {common_name}!")
     elif len(species_results) == 1:
@@ -135,7 +135,7 @@ def features(
         featureset_results = getattr(query, "featureset")(
             feature_entity=feature_entity,
             name=featureset_name,
-        )
+        ).all()
         if len(featureset_results) > 1:
             raise AssertionError(
                 f"Multiple entries are associated with {featureset_name}!"
@@ -146,7 +146,7 @@ def features(
 
     # get the id field of feature entity
     feature_id = features_dict[next(iter(features_dict))].keys()[-1]
-    allfeatures = getattr(query, feature_entity)(species_id=species_id)
+    allfeatures = getattr(query, feature_entity)(species_id=species_id).all()
     # only ingest the new features but link all features to the featureset
     exist_feature_keys = set()
     exist_feature_ids = set()
@@ -210,7 +210,7 @@ def readout(efo_id: str):
     efo_id = efo_id.replace("_", ":")
 
     # check if entry already exists
-    readout_results = getattr(query, "readout")(efo_id=efo_id)
+    readout_results = getattr(query, "readout")(efo_id=efo_id).all()
     if len(readout_results) > 1:
         raise AssertionError(f"Multiple entries are associated with {efo_id}!")
     elif len(readout_results) == 1:
