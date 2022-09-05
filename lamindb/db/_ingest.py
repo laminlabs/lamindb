@@ -121,9 +121,29 @@ class Ingest:
         jupynb_v = dev.set_version(jupynb_v)  # version to be set in publish()
         jupynb_name = meta.live.title
 
-        # ingest pipeline entities
+        # ingest pipeline entities (pipeline runs, pipelines, dobjects from pipelines)
         for run in set(self._pipeline_runs.values()):
+            # ingest pipeline run and its pipeline
             self._ingest_pipeline_run(run)
+            # ingest dobjects from the pipeline run
+            dobject_paths = [
+                path
+                for path, pipeline_run in self._pipeline_runs
+                if pipeline_run is run
+            ]
+            for filepath in dobject_paths:
+                dobject_id, dobject_v = self._added.get(filepath)
+                dobject_id = self._ingest_dobject(
+                    filepath=filepath,
+                    jupynb_id=jupynb_id,
+                    jupynb_v=jupynb_v,
+                    jupynb_name=jupynb_name,
+                    dobject_id=dobject_id,
+                    dobject_v=dobject_v,
+                    pipeline_run=run,
+                )
+                # link dobject to its bionformatics metadata (bfxmeta)
+                run.link_dobject(dobject_id, filepath)
 
         # ingest dobjects from notebook
         for filepath, (dobject_id, dobject_v) in self._added.items():
