@@ -36,10 +36,10 @@ def _return_query_results_as_df(statement):
 
 
 def _create_query_func(name: str, schema_module):
-    def query_func(cls, return_df=False, **kwargs):
+    def query_func(cls, as_df=False, **kwargs):
         """Query metadata from tables."""
         stmt = _chain_select_stmt(kwargs=kwargs, schema_module=schema_module)
-        if return_df:
+        if as_df:
             results = _return_query_results_as_df(statement=stmt)
         else:
             results = _query_stmt(statement=stmt, results_type="all")
