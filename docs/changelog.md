@@ -3,6 +3,7 @@
 <!-- prettier-ignore -->
 Name | PR | Developer | Date | Version
 --- | --- | --- | --- | ---
+💄 Added sidebar to guide | [185](https://github.com/laminlabs/lamindb/pull/185) | [sunnyosun](https://github.com/sunnyosun) | 2022-09-06 |
 ♻️ Segregate pipeline ingestion (runs, pipelines, and pipeline-linked dobjects) from non-pipeline ingestion (dobjects) | [183](https://github.com/laminlabs/lamindb/pull/183) | [bpenteado](https://github.com/bpenteado) | 2022-09-06 |
 ⬆️ Updated schema module versions | [184](https://github.com/laminlabs/lamindb/pull/184) | [sunnyosun](https://github.com/sunnyosun) | 2022-09-06 |
 ♻️ Refactored `query` | [182](https://github.com/laminlabs/lamindb/pull/182) | [sunnyosun](https://github.com/sunnyosun) | 2022-09-05 |
