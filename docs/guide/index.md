@@ -1,6 +1,6 @@
 # Guide
 
-Walk-through of basic functionalities
+Walk-through of basic functionality
 
 - {doc}`get-started`
 - {doc}`schema`
