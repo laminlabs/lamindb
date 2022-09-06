@@ -262,6 +262,7 @@ class Ingest:
         run.check_and_ingest()
 
     def _log_from_pipeline(self, pipeline_logs: dict):
+        """Pretty print logs from pipeline-related ingestion."""
         for (run_id, run_dir), logs in pipeline_logs.items():
             log_table = self._create_log_table(logs)
             logger.success(
@@ -272,10 +273,12 @@ class Ingest:
             )
 
     def _log_from_jupynb(self, logs):
+        """Pretty print logs from jupynb-related ingestion."""
         log_table = self._create_log_table(logs)
         logger.success(f"Ingested the following dobjects:\n{log_table}")
 
     def _create_log_table(self, logs):
+        """Create log table for pretty printing."""
         from tabulate import tabulate  # type: ignore
 
         log_table = tabulate(
