@@ -56,6 +56,176 @@ class Ingest:
             dobject_id: The dobject id.
             dobject_v: The dobject version.
         """
+        # stage dobject
+        filepath = IngestObject.add(
+            self,
+            dobject,
+            name,
+            feature_model,
+            featureset_name,
+            dobject_id,
+            dobject_v,
+        )
+
+        # stage pipeline entities (runs, pipelines) and link their dobjects
+        if pipeline_run is not None:
+            IngestPipeline.add(self, pipeline_run, filepath)
+
+    def commit(self, jupynb_v=None):
+        """Complete ingestion.
+
+        Args:
+            jupynb_v: Notebook version to publish. Is automatically set if `None`.
+        """
+        from nbproject import dev, meta, publish
+
+        if meta.live.title is None:
+            raise RuntimeError(
+                "Can only ingest from notebook with title. Please set a title!"
+            )
+
+        jupynb_id = meta.store.id
+        jupynb_v = dev.set_version(jupynb_v)  # version to be set in publish()
+        jupynb_name = meta.live.title
+
+        # ingest pipeline entities (pipeline runs, pipelines, dobjects from pipelines)
+        pipeline_logs = IngestPipeline.commit(
+            self,
+            jupynb_id,
+            jupynb_v,
+            jupynb_name,
+        )
+
+        # ingest jupynb entities (dobjects)
+        jupynb_logs = IngestObject.commit(
+            self,
+            jupynb_id,
+            jupynb_v,
+            jupynb_name,
+        )
+
+        # pretty logging info
+        IngestPipeline.log(pipeline_logs)
+        IngestObject.log(jupynb_logs)
+
+        publish(calling_statement="commit(")
+
+
+class IngestPipeline:
+    @classmethod
+    def add(cls, ingest, pipeline_run, path):
+        """Setup and stage pipeline entities and link their dobjects."""
+        # set pipeline run parameters
+        cls.setup(pipeline_run, path)
+        # stage pipeline entities
+        if path.is_dir():
+            # parse directory and stage individual dobjects
+            del ingest._added[path]  # do not ingest the directory
+            dobjects_to_add = get_bfx_files_from_dir(path)
+            for dobject in dobjects_to_add:
+                ingest.add(dobject, pipeline_run=pipeline_run)
+        else:
+            # stage link between dobject and its pipeline run
+            ingest._pipeline_runs[path] = pipeline_run
+
+    @classmethod
+    def setup(cls, pipeline_run, path):
+        """Set pipeline run parameters for ingestion."""
+        pipeline_run.db_engine = settings.instance.db_engine()
+        if path.is_dir():
+            pipeline_run.run_dir = path
+
+    @classmethod
+    def commit(cls, ingest, jupynb_id, jupynb_v, jupynb_name):
+        """Ingest pipeline entities and their dobjects."""
+        logs = {}
+        for run in set(ingest._pipeline_runs.values()):
+            run_logs = []
+            # ingest pipeline run and its pipeline
+            cls.ingest_run(run)
+            # ingest dobjects from the pipeline run
+            dobject_paths = [
+                path
+                for path, pipeline_run in ingest._pipeline_runs.items()
+                if pipeline_run is run
+            ]
+            for filepath in dobject_paths:
+                dobject_id, dobject_v = ingest._added.get(filepath)
+                dobject_id = IngestObject.ingest_dobject(
+                    filepath=filepath,
+                    jupynb_id=jupynb_id,
+                    jupynb_v=jupynb_v,
+                    jupynb_name=jupynb_name,
+                    dobject_id=dobject_id,
+                    dobject_v=dobject_v,
+                    pipeline_run=run,
+                )
+                # link dobject to its bionformatics metadata (bfxmeta)
+                run.link_dobject(dobject_id, filepath)
+
+                log_file_name = str(filepath.relative_to(run.run_dir))
+                run_logs.append(
+                    [
+                        f"{log_file_name} ({dobject_id}, {dobject_v})",
+                        f"{jupynb_name!r} ({jupynb_id}, {jupynb_v})",
+                        f"{settings.user.handle} ({settings.user.id})",
+                    ]
+                )
+
+            logs[(run.run_id, run.run_dir)] = run_logs
+
+        return logs
+
+    @classmethod
+    def log(cls, pipeline_logs: dict):
+        """Pretty print logs."""
+        for (run_id, run_dir), logs in pipeline_logs.items():
+            log_table = create_log_table(logs)
+            logger.success(
+                "Ingested the following dobjects from"
+                f" pipeline run {run_id},"
+                f" directory {run_dir}:"
+                f"\n{log_table}"
+            )
+
+    @classmethod
+    def ingest_run(run):
+        """Ingest pipeline run and its pipeline."""
+        # check if core pipeline exists, insert if not
+        df_pipeline = getattr(query, "pipeline")(as_df=True).all()
+        if (run.pipeline_id, run.pipeline_v) not in df_pipeline.index:
+            insert.pipeline(
+                id=run.pipeline_id,
+                v=run.pipeline_v,
+                name=run.pipeline_name,
+                reference=run.pipeline_reference,
+            )
+        # check if core pipeline run exists, insert if not
+        df_pipeline_run = getattr(query, "pipeline_run")(as_df=True).all()
+        if run.run_id not in df_pipeline_run.index:
+            insert.pipeline_run(
+                id=run.run_id,
+                name=run.run_name,
+                pipeline_id=run.pipeline_id,
+                pipeline_v=run.pipeline_v,
+            )
+        # check if bfx pipeline and run exist, insert if not
+        run.check_and_ingest()
+
+
+class IngestObject:
+    @classmethod
+    def add(
+        cls,
+        ingest,
+        dobject,
+        name,
+        feature_model,
+        featureset_name,
+        dobject_id,
+        dobject_v,
+    ):
+        """Stage dobject for ingestion."""
         primary_key = (
             id.id_dobject() if dobject_id is None else dobject_id,
             dobject_v,
@@ -88,80 +258,26 @@ class Ingest:
                     df = dmem
             except AttributeError:
                 df = dmem
-            self._features[filepath], self._logs[filepath] = link.feature_model(
+            ingest._features[filepath], ingest._logs[filepath] = link.feature_model(
                 df=df, feature_model=feature_model, featureset_name=featureset_name
             )
 
-        self._added[filepath] = primary_key
-
-        # stage pipeline runs and run dobjects for ingestion
-        if pipeline_run is not None:
-            self._setup_ingestion_from_pipeline(filepath, pipeline_run)
+        ingest._added[filepath] = primary_key
 
         if not filepath.exists() and dmem is not None:
             write_to_file(dmem, filepath)  # type: ignore
 
-    def commit(self, jupynb_v=None):
-        """Complete ingestion.
+        return filepath
 
-        Args:
-            jupynb_v: Notebook version to publish. Is automatically set if `None`.
-        """
-        from nbproject import dev, meta, publish
-
-        if meta.live.title is None:
-            raise RuntimeError(
-                "Can only ingest from notebook with title. Please set a title!"
-            )
-
-        jupynb_id = meta.store.id
-        jupynb_v = dev.set_version(jupynb_v)  # version to be set in publish()
-        jupynb_name = meta.live.title
-
-        # ingest pipeline entities (pipeline runs, pipelines, dobjects from pipelines)
-        pipeline_logs = {}
-        for run in set(self._pipeline_runs.values()):
-            run_logs = []
-            # ingest pipeline run and its pipeline
-            self._ingest_pipeline_run(run)
-            # ingest dobjects from the pipeline run
-            dobject_paths = [
-                path
-                for path, pipeline_run in self._pipeline_runs.items()
-                if pipeline_run is run
-            ]
-            for filepath in dobject_paths:
-                dobject_id, dobject_v = self._added.get(filepath)
-                dobject_id = self._ingest_dobject(
-                    filepath=filepath,
-                    jupynb_id=jupynb_id,
-                    jupynb_v=jupynb_v,
-                    jupynb_name=jupynb_name,
-                    dobject_id=dobject_id,
-                    dobject_v=dobject_v,
-                    pipeline_run=run,
-                )
-                # link dobject to its bionformatics metadata (bfxmeta)
-                run.link_dobject(dobject_id, filepath)
-
-                log_file_name = str(filepath.relative_to(run.run_dir))
-                run_logs.append(
-                    [
-                        f"{log_file_name} ({dobject_id}, {dobject_v})",
-                        f"{jupynb_name!r} ({jupynb_id}, {jupynb_v})",
-                        f"{settings.user.handle} ({settings.user.id})",
-                    ]
-                )
-
-            pipeline_logs[(run.run_id, run.run_dir)] = run_logs
-
-        # ingest jupynb entities (dobjects)
-        jupynb_logs = []
-        for filepath, (dobject_id, dobject_v) in self._added.items():
+    @classmethod
+    def commit(cls, ingest, jupynb_id, jupynb_v, jupynb_name):
+        """Ingest staged dobjects."""
+        logs = []
+        for filepath, (dobject_id, dobject_v) in ingest._added.items():
             # skip dobject if linked to a pipeline (already ingested)
-            if self._pipeline_runs.get(filepath) is not None:
+            if ingest._pipeline_runs.get(filepath) is not None:
                 continue
-            dobject_id = self._ingest_dobject(
+            dobject_id = cls.ingest_dobject(
                 filepath=filepath,
                 jupynb_id=jupynb_id,
                 jupynb_v=jupynb_v,
@@ -171,7 +287,7 @@ class Ingest:
                 pipeline_run=None,
             )
 
-            jupynb_logs.append(
+            logs.append(
                 [
                     f"{filepath.name} ({dobject_id}, {dobject_v})",
                     f"{jupynb_name!r} ({jupynb_id}, {jupynb_v})",
@@ -179,18 +295,21 @@ class Ingest:
                 ]
             )
 
-            if self._features.get(filepath) is not None:
-                fm, df_curated = self._features.get(filepath)
+            if ingest._features.get(filepath) is not None:
+                fm, df_curated = ingest._features.get(filepath)
                 fm.ingest(dobject_id, df_curated)
 
-        # pretty logging info
-        self._log_from_pipeline(pipeline_logs)
-        self._log_from_jupynb(jupynb_logs)
+        return logs
 
-        publish(calling_statement="commit(")
+    @classmethod
+    def log(cls, logs):
+        """Pretty print logs."""
+        log_table = create_log_table(logs)
+        logger.success(f"Ingested the following dobjects:\n{log_table}")
 
-    def _ingest_dobject(
-        self,
+    @classmethod
+    def ingest_dobject(
+        cls,
         filepath,
         jupynb_id,
         jupynb_v,
@@ -223,75 +342,21 @@ class Ingest:
 
         return dobject_id
 
-    def _setup_ingestion_from_pipeline(self, input_path, pipeline_run):
-        """Setup and stage pipeline run and run dobjects for ingestion."""
-        # stage pipeline run for ingestion
-        pipeline_run.db_engine = settings.instance.db_engine()
-        self._pipeline_runs[input_path] = pipeline_run
-        # parse pipeline run directory
-        if input_path.is_dir():
-            del self._added[input_path]  # do not ingest the directory
-            del self._pipeline_runs[input_path]
-            pipeline_run.run_dir = input_path
-            dobjects_to_add = get_bfx_files_from_dir(input_path)
-            for dobject in dobjects_to_add:
-                self.add(dobject, pipeline_run=pipeline_run)
 
-    def _ingest_pipeline_run(self, run):
-        """Ingest staged pipeline runs and their pipelines."""
-        from ._insert import insert
+def create_log_table(logs):
+    """Create log table for pretty printing."""
+    from tabulate import tabulate  # type: ignore
 
-        # check if core pipeline exists, insert if not
-        df_pipeline = getattr(query, "pipeline")(as_df=True).all()
-        if (run.pipeline_id, run.pipeline_v) not in df_pipeline.index:
-            insert.pipeline(
-                id=run.pipeline_id,
-                v=run.pipeline_v,
-                name=run.pipeline_name,
-                reference=run.pipeline_reference,
-            )
-        # check if core pipeline run exists, insert if not
-        df_pipeline_run = getattr(query, "pipeline_run")(as_df=True).all()
-        if run.run_id not in df_pipeline_run.index:
-            insert.pipeline_run(
-                id=run.run_id,
-                name=run.run_name,
-                pipeline_id=run.pipeline_id,
-                pipeline_v=run.pipeline_v,
-            )
-        # check if bfx pipeline and run exist, insert if not
-        run.check_and_ingest()
-
-    def _log_from_pipeline(self, pipeline_logs: dict):
-        """Pretty print logs from pipeline-related ingestion."""
-        for (run_id, run_dir), logs in pipeline_logs.items():
-            log_table = self._create_log_table(logs)
-            logger.success(
-                "Ingested the following dobjects from"
-                f" pipeline run {run_id},"
-                f" directory {run_dir}:"
-                f"\n{log_table}"
-            )
-
-    def _log_from_jupynb(self, logs):
-        """Pretty print logs from jupynb-related ingestion."""
-        log_table = self._create_log_table(logs)
-        logger.success(f"Ingested the following dobjects:\n{log_table}")
-
-    def _create_log_table(self, logs):
-        """Create log table for pretty printing."""
-        from tabulate import tabulate  # type: ignore
-
-        log_table = tabulate(
-            logs,
-            headers=[
-                colors.green("dobject"),
-                colors.blue("jupynb"),
-                colors.purple("user"),
-            ],
-            tablefmt="pretty",
-        )
-        return log_table
+    log_table = tabulate(
+        logs,
+        headers=[
+            colors.green("dobject"),
+            colors.blue("jupynb"),
+            colors.purple("user"),
+        ],
+        tablefmt="pretty",
+    )
+    return log_table
 
 
 ingest = Ingest()
