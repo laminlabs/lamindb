@@ -1,17 +1,17 @@
-# Tutorials
+# Guide
 
-## Step-wise user guides
+Walk-through of basic functionalities
 
 - {doc}`get-started`
-- {doc}`query-and-load`
-- {doc}`link-features`
-- {doc}`link-samples`
-- {doc}`track-bfx-run`
+- {doc}`schema`
+- {doc}`ingest`
+- {doc}`link`
+- {doc}`load-and-query`
 - {doc}`update-delete`
 - {doc}`introspect`
-- {doc}`share-cross-org`
+- {doc}`share`
 
-## R&D team simulation
+Walk-through of exemplary R&D operations
 
 - {doc}`1-rds-setup`
 - {doc}`2-rds-design-experiment`
@@ -26,13 +26,13 @@
 :hidden:
 
 get-started
-query-and-load
-link-features
-link-samples
-track-bfx-run
+schema
+ingest
+link
+load-and-query
 update-delete
 introspect
-share-cross-org
+share
 1-rds-setup
 2-rds-design-experiment
 3-rds-run-experiment
