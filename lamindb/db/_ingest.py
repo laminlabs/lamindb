@@ -58,7 +58,7 @@ class Ingest:
         """
         # stage dobject
         filepath = IngestObject.add(
-            self,
+            self,  # type: ignore
             dobject,
             name,
             feature_model,
@@ -69,7 +69,7 @@ class Ingest:
 
         # stage pipeline entities (runs, pipelines) and link their dobjects
         if pipeline_run is not None:
-            IngestPipeline.add(self, pipeline_run, filepath)
+            IngestPipeline.add(self, pipeline_run, filepath)  # type: ignore
 
     def commit(self, jupynb_v=None):
         """Complete ingestion.
@@ -112,11 +112,10 @@ class Ingest:
 
 
 class IngestPipeline:
-    @classmethod
-    def add(cls, ingest, pipeline_run, path):
+    def add(ingest, pipeline_run, path):
         """Setup and stage pipeline entities and link their dobjects."""
         # set pipeline run parameters
-        cls.setup(pipeline_run, path)
+        IngestPipeline.setup(pipeline_run, path)
         # stage pipeline entities
         if path.is_dir():
             # parse directory and stage individual dobjects
@@ -128,21 +127,19 @@ class IngestPipeline:
             # stage link between dobject and its pipeline run
             ingest._pipeline_runs[path] = pipeline_run
 
-    @classmethod
-    def setup(cls, pipeline_run, path):
+    def setup(pipeline_run, path):
         """Set pipeline run parameters for ingestion."""
         pipeline_run.db_engine = settings.instance.db_engine()
         if path.is_dir():
             pipeline_run.run_dir = path
 
-    @classmethod
-    def commit(cls, ingest, jupynb_id, jupynb_v, jupynb_name):
+    def commit(ingest, jupynb_id, jupynb_v, jupynb_name):
         """Ingest pipeline entities and their dobjects."""
         logs = {}
         for run in set(ingest._pipeline_runs.values()):
             run_logs = []
             # ingest pipeline run and its pipeline
-            cls.ingest_run(run)
+            IngestPipeline.ingest_run(run)
             # ingest dobjects from the pipeline run
             dobject_paths = [
                 path
@@ -176,8 +173,7 @@ class IngestPipeline:
 
         return logs
 
-    @classmethod
-    def log(cls, pipeline_logs: dict):
+    def log(pipeline_logs):
         """Pretty print logs."""
         for (run_id, run_dir), logs in pipeline_logs.items():
             log_table = create_log_table(logs)
@@ -188,8 +184,7 @@ class IngestPipeline:
                 f"\n{log_table}"
             )
 
-    @classmethod
-    def ingest_run(cls, run):
+    def ingest_run(run):
         """Ingest pipeline run and its pipeline."""
         # check if core pipeline exists, insert if not
         df_pipeline = getattr(query, "pipeline")(as_df=True).all()
@@ -214,9 +209,7 @@ class IngestPipeline:
 
 
 class IngestObject:
-    @classmethod
     def add(
-        cls,
         ingest,
         dobject,
         name,
@@ -269,15 +262,14 @@ class IngestObject:
 
         return filepath
 
-    @classmethod
-    def commit(cls, ingest, jupynb_id, jupynb_v, jupynb_name):
+    def commit(ingest, jupynb_id, jupynb_v, jupynb_name):
         """Ingest staged dobjects."""
         logs = []
         for filepath, (dobject_id, dobject_v) in ingest._added.items():
             # skip dobject if linked to a pipeline (already ingested)
             if ingest._pipeline_runs.get(filepath) is not None:
                 continue
-            dobject_id = cls.ingest_dobject(
+            dobject_id = IngestObject.ingest_dobject(
                 filepath=filepath,
                 jupynb_id=jupynb_id,
                 jupynb_v=jupynb_v,
@@ -301,15 +293,12 @@ class IngestObject:
 
         return logs
 
-    @classmethod
-    def log(cls, logs):
+    def log(logs):
         """Pretty print logs."""
         log_table = create_log_table(logs)
         logger.success(f"Ingested the following dobjects:\n{log_table}")
 
-    @classmethod
     def ingest_dobject(
-        cls,
         filepath,
         jupynb_id,
         jupynb_v,
