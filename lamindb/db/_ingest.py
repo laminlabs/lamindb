@@ -225,16 +225,17 @@ class Ingest:
 
     def _setup_ingestion_from_pipeline(self, input_path, pipeline_run):
         """Setup and stage pipeline run and run dobjects for ingestion."""
+        # stage pipeline run for ingestion
+        pipeline_run.db_engine = settings.instance.db_engine()
+        self._pipeline_runs[input_path] = pipeline_run
         # parse pipeline run directory
         if input_path.is_dir():
             del self._added[input_path]  # do not ingest the directory
+            del self._pipeline_runs[input_path]
             pipeline_run.run_dir = input_path
             dobjects_to_add = get_bfx_files_from_dir(input_path)
             for dobject in dobjects_to_add:
                 self.add(dobject, pipeline_run=pipeline_run)
-        # stage pipeline run for ingestion
-        pipeline_run.db_engine = settings.instance.db_engine()
-        self._pipeline_runs[input_path] = pipeline_run
 
     def _ingest_pipeline_run(self, run):
         """Ingest staged pipeline runs and their pipelines."""
