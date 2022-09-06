@@ -7,7 +7,7 @@ from lndb_setup import settings
 from lnschema_core import id
 
 from .._logger import colors, logger
-from ..dev import format_pipeline_logs, storage_key_from_triple, track_usage
+from ..dev import storage_key_from_triple, track_usage
 from ..dev.file import load_to_memory, store_file
 from ..dev.object import infer_file_suffix, write_to_file
 from ._insert import insert
@@ -108,9 +108,6 @@ class Ingest:
             jupynb_v: Notebook version to publish. Is automatically set if `None`.
         """
         from nbproject import dev, meta, publish
-        from tabulate import tabulate  # type: ignore
-
-        logs = []
 
         if meta.live.title is None:
             raise RuntimeError(
@@ -122,7 +119,9 @@ class Ingest:
         jupynb_name = meta.live.title
 
         # ingest pipeline entities (pipeline runs, pipelines, dobjects from pipelines)
+        pipeline_logs = {}
         for run in set(self._pipeline_runs.values()):
+            run_logs = []
             # ingest pipeline run and its pipeline
             self._ingest_pipeline_run(run)
             # ingest dobjects from the pipeline run
@@ -145,7 +144,19 @@ class Ingest:
                 # link dobject to its bionformatics metadata (bfxmeta)
                 run.link_dobject(dobject_id, filepath)
 
-        # ingest dobjects from notebook
+                log_file_name = str(filepath.relative_to(run.run_dir))
+                run_logs.append(
+                    [
+                        f"{log_file_name} ({dobject_id}, {dobject_v})",
+                        f"{jupynb_name!r} ({jupynb_id}, {jupynb_v})",
+                        f"{settings.user.handle} ({settings.user.id})",
+                    ]
+                )
+
+            pipeline_logs[(run.run_id, run.run_dir)] = run_logs
+
+        # ingest jupynb entities (dobjects)
+        jupynb_logs = []
         for filepath, (dobject_id, dobject_v) in self._added.items():
             # skip dobject if linked to a pipeline (already ingested)
             if self._pipeline_runs.get(filepath) is not None:
@@ -160,7 +171,7 @@ class Ingest:
                 pipeline_run=None,
             )
 
-            logs.append(
+            jupynb_logs.append(
                 [
                     f"{filepath.name} ({dobject_id}, {dobject_v})",
                     f"{jupynb_name!r} ({jupynb_id}, {jupynb_v})",
@@ -172,19 +183,9 @@ class Ingest:
                 fm, df_curated = self._features.get(filepath)
                 fm.ingest(dobject_id, df_curated)
 
-        logs = format_pipeline_logs(logs)
-
         # pretty logging info
-        log_table = tabulate(
-            logs,
-            headers=[
-                colors.green("dobject"),
-                colors.blue("jupynb"),
-                colors.purple("user"),
-            ],
-            tablefmt="pretty",
-        )
-        logger.success(f"Ingested the following dobjects:\n{log_table}")
+        self._log_from_pipeline(pipeline_logs)
+        self._log_from_jupynb(jupynb_logs)
 
         publish(calling_statement="commit(")
 
@@ -259,6 +260,34 @@ class Ingest:
             )
         # check if bfx pipeline and run exist, insert if not
         run.check_and_ingest()
+
+    def _log_from_pipeline(self, pipeline_logs: dict):
+        for (run_id, run_dir), logs in pipeline_logs.items():
+            log_table = self._create_log_table(logs)
+            logger.success(
+                "Ingested the following dobjects from"
+                f" pipeline run {run_id},"
+                f" directory {run_dir}:"
+                f"\n{log_table}"
+            )
+
+    def _log_from_jupynb(self, logs):
+        log_table = self._create_log_table(logs)
+        logger.success(f"Ingested the following dobjects:\n{log_table}")
+
+    def _create_log_table(self, logs):
+        from tabulate import tabulate  # type: ignore
+
+        log_table = tabulate(
+            logs,
+            headers=[
+                colors.green("dobject"),
+                colors.blue("jupynb"),
+                colors.purple("user"),
+            ],
+            tablefmt="pretty",
+        )
+        return log_table
 
 
 ingest = Ingest()
