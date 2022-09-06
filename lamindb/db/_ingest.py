@@ -127,7 +127,7 @@ class Ingest:
             # ingest dobjects from the pipeline run
             dobject_paths = [
                 path
-                for path, pipeline_run in self._pipeline_runs
+                for path, pipeline_run in self._pipeline_runs.items()
                 if pipeline_run is run
             ]
             for filepath in dobject_paths:
