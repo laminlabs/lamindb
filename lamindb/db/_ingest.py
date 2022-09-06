@@ -189,7 +189,7 @@ class IngestPipeline:
             )
 
     @classmethod
-    def ingest_run(run):
+    def ingest_run(cls, run):
         """Ingest pipeline run and its pipeline."""
         # check if core pipeline exists, insert if not
         df_pipeline = getattr(query, "pipeline")(as_df=True).all()
