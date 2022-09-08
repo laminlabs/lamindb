@@ -3,6 +3,7 @@
 <!-- prettier-ignore -->
 Name | PR | Developer | Date | Version
 --- | --- | --- | --- | ---
+⬆️ Updated setup version | [189](https://github.com/laminlabs/lamindb/pull/189) | [sunnyosun](https://github.com/sunnyosun) | 2022-09-08 |
 :recycle: Split ingestion logic into IngestObject and IngestPipeline | [188](https://github.com/laminlabs/lamindb/pull/188) | [bpenteado](https://github.com/bpenteado) | 2022-09-06 |
 📝 Add flow data ingestion example | [186](https://github.com/laminlabs/lamindb/pull/186) | [sunnyosun](https://github.com/sunnyosun) | 2022-09-06 |
 💄 Added sidebar to guide | [185](https://github.com/laminlabs/lamindb/pull/185) | [sunnyosun](https://github.com/sunnyosun) | 2022-09-06 |
