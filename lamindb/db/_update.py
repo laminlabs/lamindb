@@ -18,8 +18,7 @@ def _create_update_func(name: str, schema_module):
             session.commit()
             session.refresh(entry)
             logger.success(
-                f"Updated {colors.green(f'entry {key}')} in"
-                f" {colors.blue(f'table {name}')}!"
+                f"Updated entry {colors.green(f'{key}')} in {colors.blue(f'{name}')}."
             )
             if name == "dobject":
                 track_usage(entry.id, entry.v, "update")
