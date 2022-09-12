@@ -15,6 +15,8 @@ def populate_dtransform_in(dobject):
     jupynb_name = meta.live.title
     engine = settings.instance.db_engine()
 
+    committed = False
+
     with sqm.Session(engine) as session:
         result = session.get(core.jupynb, (jupynb_id, jupynb_v))
         if result is None:
@@ -32,6 +34,7 @@ def populate_dtransform_in(dobject):
                 )
             )
             session.commit()
+            committed = True
             logger.info(
                 f"Added notebook {jupynb_name!r} ({jupynb_id}, {jupynb_v}) by"
                 f" user {settings.user.handle}."
@@ -54,11 +57,14 @@ def populate_dtransform_in(dobject):
                 )
             )
             session.commit()
+            committed = True
             logger.info(
                 f"Added dobject ({dobject.id}, {dobject.v}) as input for dtransform"
                 f" ({dtransform_id})."
             )
-    settings.instance._update_cloud_sqlite_file()
+    if committed:
+        # nothing to update if the db file wasn't changed
+        settings.instance._update_cloud_sqlite_file()
 
 
 def load(dobject: core.dobject):
