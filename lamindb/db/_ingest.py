@@ -7,7 +7,7 @@ from lndb_setup import settings
 from lnschema_core import id
 
 from .._logger import colors, logger
-from ..dev import storage_key_from_triple, track_usage
+from ..dev import format_pipeline_logs, storage_key_from_triple, track_usage
 from ..dev.file import load_to_memory, store_file
 from ..dev.object import infer_file_suffix, write_to_file
 from ._insert import insert
@@ -135,9 +135,8 @@ class IngestPipeline:
 
     def commit(ingest, jupynb_id, jupynb_v, jupynb_name):
         """Ingest pipeline entities and their dobjects."""
-        logs = {}
+        logs = []
         for run in set(ingest._pipeline_runs.values()):
-            run_logs = []
             # ingest pipeline run and its pipeline
             IngestPipeline.ingest_run(run)
             # ingest dobjects from the pipeline run
@@ -161,28 +160,40 @@ class IngestPipeline:
                 run.link_dobject(dobject_id, filepath)
 
                 log_file_name = str(filepath.relative_to(run.run_dir))
-                run_logs.append(
+                logs.append(
                     [
                         f"{log_file_name} ({dobject_id}, {dobject_v})",
-                        f"{jupynb_name!r} ({jupynb_id}, {jupynb_v})",
+                        f"{run.run_name} ({run.run_id})",
+                        f"{run.run_dir}",
                         f"{settings.user.handle} ({settings.user.id})",
                     ]
                 )
 
-            logs[(run.run_id, run.run_dir)] = run_logs
-
         return logs
 
-    def log(pipeline_logs):
+    def log(logs):
         """Pretty print logs."""
-        for (run_id, run_dir), logs in pipeline_logs.items():
-            log_table = create_log_table(logs)
-            logger.success(
-                "Ingested the following dobjects from"
-                f" pipeline run {run_id},"
-                f" directory {run_dir}:"
-                f"\n{log_table}"
-            )
+        from tabulate import tabulate  # type: ignore
+
+        if len(logs) == 0:
+            return
+
+        logs = format_pipeline_logs(logs)
+        log_table = tabulate(
+            logs,
+            headers=[
+                colors.green("dobject"),
+                colors.blue("run"),
+                colors.red("run directory"),
+                colors.purple("user"),
+            ],
+            tablefmt="pretty",
+            stralign="left",
+        )
+
+        logger.success(
+            f"Ingested the following dobjects from pipeline runs:\n{log_table}"
+        )
 
     def ingest_run(run):
         """Ingest pipeline run and its pipeline."""
@@ -295,7 +306,22 @@ class IngestObject:
 
     def log(logs):
         """Pretty print logs."""
-        log_table = create_log_table(logs)
+        from tabulate import tabulate  # type: ignore
+
+        if len(logs) == 0:
+            return
+
+        log_table = tabulate(
+            logs,
+            headers=[
+                colors.green("dobject"),
+                colors.blue("jupynb"),
+                colors.purple("user"),
+            ],
+            tablefmt="pretty",
+            stralign="left",
+        )
+
         logger.success(f"Ingested the following dobjects:\n{log_table}")
 
     def ingest_dobject(
@@ -330,22 +356,6 @@ class IngestObject:
         track_usage(dobject_id, dobject_v, "ingest")
 
         return dobject_id
-
-
-def create_log_table(logs):
-    """Create log table for pretty printing."""
-    from tabulate import tabulate  # type: ignore
-
-    log_table = tabulate(
-        logs,
-        headers=[
-            colors.green("dobject"),
-            colors.blue("jupynb"),
-            colors.purple("user"),
-        ],
-        tablefmt="pretty",
-    )
-    return log_table
 
 
 ingest = Ingest()
