@@ -19,10 +19,10 @@ def file_jpg_paradisi05() -> Path:
     return Path(filepath)
 
 
-def scrnaseq_cellranger() -> Path:
+def dir_scrnaseq_cellranger() -> Path:
     """Directory with exemplary scrnaseq cellranger output."""
     filepath, _ = urlretrieve(
-        "https://lamindb-test.s3.amazonaws.com/scrnaseq-cellranger.zip",
+        "https://lamindb-test.s3.amazonaws.com/cellranger_run_001.zip",
     )
     from zipfile import ZipFile
 
@@ -85,7 +85,7 @@ def schmidt22_perturbseq() -> Path:
     return Path(filepath)
 
 
-def scrnaseq_cellranger_schmidt22() -> Path:
+def dir_scrnaseq_cellranger_schmidt22() -> Path:
     """BFXoutput directory containing Schmidt22_perturbseq."""
     filepath, _ = urlretrieve(
         "https://lamindb-test.s3.amazonaws.com/scrnaseq-cellranger-schmidt22.zip",
