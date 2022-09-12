@@ -30,7 +30,7 @@ def dir_scrnaseq_cellranger() -> Path:
         # Extract all the contents of zip file in current directory
         zipObj.extractall(path=".")
 
-    return Path("scrnaseq-cellranger")
+    return Path("cellranger_run_001")
 
 
 def file_mouse_sc_lymph_node() -> Path:
