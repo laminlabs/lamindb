@@ -26,3 +26,4 @@ from ._core import (
     track_usage,
 )
 from ._docs import doc_args  # noqa
+from ._pipeline import format_pipeline_logs
