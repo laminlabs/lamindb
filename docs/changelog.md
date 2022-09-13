@@ -3,7 +3,7 @@
 <!-- prettier-ignore -->
 Name | PR | Developer | Date | Version
 --- | --- | --- | --- | ---
-:recycle: Refactor pipeline logging | [193](https://github.com/laminlabs/lamindb/pull/193) | [bpenteado](https://github.com/bpenteado) | 2022-09-13 |
+:recycle: Refactor pipeline logging | [193](https://github.com/laminlabs/lamindb/pull/193) | [bpenteado](https://github.com/bpenteado) | 2022-09-13 | 0.3.7
 ⬆️ Updated lnbfx version | [194](https://github.com/laminlabs/lamindb/pull/194) | [sunnyosun](https://github.com/sunnyosun) | 2022-09-12 | 0.3.6
 🍱 Updated cell ranger test dir | [192](https://github.com/laminlabs/lamindb/pull/192) | [sunnyosun](https://github.com/sunnyosun) | 2022-09-12 |
 :bug: Fix synchronization error in load | [191](https://github.com/laminlabs/lamindb/pull/191) | [Koncopd](https://github.com/Koncopd) | 2022-09-12 |
