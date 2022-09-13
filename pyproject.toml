@@ -15,7 +15,7 @@ dependencies = [
     "lndb_hub==0.5.6",
     "lamin_logger",
     "bioreadout==0.1.0",
-    "lnbfx>=0.3.2",
+    "lnbfx>=0.3.3",
     "bionty>=0.2.4",
     "anndata",
     "boto3",
