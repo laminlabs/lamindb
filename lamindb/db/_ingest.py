@@ -2,7 +2,8 @@ from pathlib import Path
 from shutil import SameFileError
 from typing import Dict
 
-from lnbfx import BfxRun, get_bfx_files_from_dir
+from lnbfx import BfxRun
+from lnbfx.dev import get_bfx_files_from_dir
 from lndb_setup import settings
 from lnschema_core import id
 
