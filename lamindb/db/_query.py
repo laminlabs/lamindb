@@ -1,3 +1,4 @@
+from functools import cached_property
 from typing import Dict
 
 import bionty as bt
@@ -54,73 +55,110 @@ def _create_query_func(name: str, schema_module):
     return query_func
 
 
-def _get_all_foreign_keys(engine):
-    """Result {'biosample': {'tissue_id': ('tissue', 'id')}}."""
-    inspector = inspect(engine)
+class LinkedQuery:
+    """Linked queries."""
 
-    def _get_foreign_keys(table_name, inspector):
-        return {
-            column["constrained_columns"][0]: (
-                column["referred_table"],
-                column["referred_columns"][0],
-            )
-            for column in inspector.get_foreign_keys(table_name)
-        }
+    def __init__(self) -> None:
+        self._engine = settings.instance.db_engine()
+        self._inspector = inspect(self._engine)
 
-    foreign_keys = {}
-    for table_name in inspector.get_table_names():
-        foreign_keys_table = _get_foreign_keys(table_name, inspector)
-        if len(foreign_keys_table) > 0:
-            foreign_keys[table_name] = foreign_keys_table
+    @cached_property
+    def foreign_keys(self):
+        """Foreign keys.
 
-    return foreign_keys
+        e.g. {'biosample': {'tissue_id': ('tissue', 'id')}}
+        """
 
+        def _get_foreign_keys(table_name, inspector):
+            return {
+                column["constrained_columns"][0]: (
+                    column["referred_table"],
+                    column["referred_columns"][0],
+                )
+                for column in inspector.get_foreign_keys(table_name)
+            }
 
-def _backpopulate_foreign_keys(foreign_keys):
-    """Result {'tissue': {'id': {'biosample': 'tissue_id'}}}."""
-    foreign_keys_backpop = {}
+        foreign_keys = {}
+        for table_name in self._inspector.get_table_names():
+            foreign_keys_table = _get_foreign_keys(table_name, self._inspector)
+            if len(foreign_keys_table) > 0:
+                foreign_keys[table_name] = foreign_keys_table
 
-    for module_name, keys in foreign_keys.items():
-        for key, (module, ref_key) in keys.items():
-            if foreign_keys_backpop.get(module) is None:
-                foreign_keys_backpop[module] = {}
-            if foreign_keys_backpop[module].get(ref_key) is None:
-                foreign_keys_backpop[module][ref_key] = {}
-            foreign_keys_backpop[module][ref_key][module_name] = key
+        return foreign_keys
 
-    return foreign_keys_backpop
+    @cached_property
+    def foreign_keys_backpop(self):
+        """Backpopulated foreign keys.
 
+        e.g. {'tissue': {'id': {'biosample': 'tissue_id'}}}
+        """
+        foreign_keys_backpop = {}
 
-def _get_meta_table_results(entity, link_tables, foreign_keys_backpop, entity_kwargs):
-    results = getattr(query, entity)(**entity_kwargs).all()
-    results_ids = [i.id for i in results]
-    module_name = entity
-    while module_name not in link_tables:
-        if "id" not in foreign_keys_backpop[module_name]:
-            return results
-        parents = foreign_keys_backpop[module_name]["id"]
-        for table_name, table_ref_id in parents.items():
+        for module_name, keys in self.foreign_keys.items():
+            for key, (module, ref_key) in keys.items():
+                if foreign_keys_backpop.get(module) is None:
+                    foreign_keys_backpop[module] = {}
+                if foreign_keys_backpop[module].get(ref_key) is None:
+                    foreign_keys_backpop[module][ref_key] = {}
+                foreign_keys_backpop[module][ref_key][module_name] = key
+
+        return foreign_keys_backpop
+
+    @cached_property
+    def link_tables(self):
+        """Link tables."""
+        link_tables = []
+        for name in self._inspector.get_table_names():
+            pks = self._inspector.get_pk_constraint(name)["constrained_columns"]
+            columns = [i["name"] for i in self._inspector.get_columns(name)]
+            if pks == columns and len(self._inspector.get_foreign_keys(name)) > 0:
+                link_tables.append(name)
+
+        return link_tables
+
+    def query(self, entity_return, entity, entity_kwargs):
+        """Back populate query results until reaches a link table.
+
+        1. Query fields in entity_n table, whose primary_key is a foreign_key in entity_n-1 table.  # noqa
+        2. Query foreign_key in entity_n-1 table, whose primary_key is a foreign_key in entity_n-2 table  # noqa
+        3. Repeat until it reaches a linked_table (only contains primary keys).
+        """
+        entity_link_tables = [
+            i for i in self.link_tables if i.startswith(f"{entity_return}_")
+        ]
+        link_tables = (
+            entity_link_tables if len(entity_link_tables) > 0 else self.link_tables
+        )
+        results = getattr(query, entity)(**entity_kwargs).all()
+        if entity not in link_tables:
+            # all non link tables should have an id field
+            results_ids = [i.id for i in results]
+            module_name = entity
+            while module_name not in link_tables:
+                if "id" not in self.foreign_keys_backpop[module_name]:
+                    return results
+                parents = self.foreign_keys_backpop[module_name]["id"]
+                for table_name, table_ref_id in parents.items():
+                    results = []
+                    for result_id in results_ids:
+                        results += getattr(query, table_name)(
+                            **{table_ref_id: result_id}
+                        ).all()
+                    if table_name not in link_tables:
+                        results_ids = [i.id for i in results]
+                module_name = table_name
+        else:
+            module_name = entity
+
+        entity_id = f"{entity_return}_id"
+        if self.foreign_keys.get(module_name).get(entity_id) is not None:
+            result_ids = [i.__getattribute__(entity_id) for i in results]
             results = []
-            for result_id in results_ids:
-                results += getattr(query, table_name)(**{table_ref_id: result_id}).all()
-            if table_name not in link_tables:
-                results_ids = [i.id for i in results]
-        module_name = table_name
-    return results
-
-
-def query_dobject_from_metadata(entity, entity_kwargs):
-    engine = settings.instance.db_engine()
-    foreign_keys = _get_all_foreign_keys(engine)
-    foreign_keys_backpop = _backpopulate_foreign_keys(foreign_keys)
-    link_tables = [i for i in schema.list_entities() if i.startswith("dobject_")]
-    meta_results = _get_meta_table_results(
-        entity=entity,
-        link_tables=link_tables,
-        foreign_keys_backpop=foreign_keys_backpop,
-        entity_kwargs=entity_kwargs,
-    )
-    return meta_results
+            for result_id in result_ids:
+                results += getattr(query, entity_return)(id=result_id).all()
+            return results
+        else:
+            return []
 
 
 def _featureset_from_features(entity, entity_kwargs):
@@ -175,18 +213,25 @@ def query_dobject(
                     biometas += getattr(query, "biometa")(
                         featureset_id=featureset_id
                     ).all()
+                dobject_biometas = []
                 for biometa in biometas:
-                    dobjects += getattr(query, "dobject_biometa")(
+                    dobject_biometas += getattr(query, "dobject_biometa")(
                         biometa_id=biometa.id
+                    ).all()
+                for dobject_biometa in dobject_biometas:
+                    dobjects += getattr(query, "dobject")(
+                        id=dobject_biometa.dobject_id
                     ).all()
             except AttributeError:
                 # query obs metadata
                 # find all the link tables to dobject
-                dobjects += query_dobject_from_metadata(
-                    entity=entity, entity_kwargs=entity_kwargs
+                dobjects += LinkedQuery().query(
+                    entity_return="dobject",
+                    entity=entity,
+                    entity_kwargs=entity_kwargs,
                 )
 
-        results = [i for i in results if i.id in [j.dobject_id for j in dobjects]]
+        results = [i for i in results if i.id in [j.id for j in dobjects]]
 
     if len(results) > 0:
         for result in results:
