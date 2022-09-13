@@ -3,6 +3,7 @@
 <!-- prettier-ignore -->
 Name | PR | Developer | Date | Version
 --- | --- | --- | --- | ---
+⬆️ Updated wetlab schema | [195](https://github.com/laminlabs/lamindb/pull/195) | [sunnyosun](https://github.com/sunnyosun) | 2022-09-13 |
 :recycle: Refactor pipeline logging | [193](https://github.com/laminlabs/lamindb/pull/193) | [bpenteado](https://github.com/bpenteado) | 2022-09-13 | 0.3.7
 ⬆️ Updated lnbfx version | [194](https://github.com/laminlabs/lamindb/pull/194) | [sunnyosun](https://github.com/sunnyosun) | 2022-09-12 | 0.3.6
 🍱 Updated cell ranger test dir | [192](https://github.com/laminlabs/lamindb/pull/192) | [sunnyosun](https://github.com/sunnyosun) | 2022-09-12 |
