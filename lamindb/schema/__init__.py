@@ -21,12 +21,12 @@ import lnschema_wetlab as wetlab
 
 from ._core import draw, list_entities
 
-# try:
-#     import lnschema_retro as retro
-# except ModuleNotFoundError:
-#     pass
+try:
+    import lnschema_retro as retro
+except ModuleNotFoundError:
+    pass
 
-# try:
-#     import maren.schema as swarm
-# except ModuleNotFoundError:
-#     pass
+try:
+    import maren.schema as swarm
+except ModuleNotFoundError:
+    pass
