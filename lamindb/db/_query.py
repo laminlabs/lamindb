@@ -1,3 +1,5 @@
+from typing import Dict
+
 import bionty as bt
 import pandas as pd
 from lndb_setup import settings
@@ -149,7 +151,7 @@ def query_dobject(
     storage_id: str = None,
     time_created=None,
     time_updated=None,
-    where: dict[str, dict] = None,
+    where: Dict[str, dict] = None,
     as_df: bool = False,
 ):
     """Query from dobject."""
