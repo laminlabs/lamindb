@@ -41,14 +41,21 @@ class LinkFeatureModel:
 
     def ingest(self, dobject_id, df_curated):
         """Ingest features."""
-        mapped_df = self.df.loc[df_curated.index[df_curated["__curated__"]]].copy()
+        # mapped features will also contain fields in the reference table
+        mapped_index = df_curated.index[df_curated["__curated__"]]
+        mapped_df = self.df.loc[mapped_index].copy()
         mapped_dict = {}
         for i, row in mapped_df.iterrows():
             mapped_dict[i] = pd.concat([row, pd.Series([i], index=[self.id_type])])
 
+        # unmapped features will only contain it's own field
+        unmapped_dict = {}
+        for um in df_curated.index.difference(mapped_index):
+            unmapped_dict[um] = {self.id_type: um}
+
         link.feature(
             dobject_id=dobject_id,
-            values=mapped_dict,
+            values={**mapped_dict, **unmapped_dict},
             feature_entity=self.entity,
             species=self.species,
             featureset_name=self._featureset_name,
