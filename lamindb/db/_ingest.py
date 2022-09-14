@@ -165,7 +165,6 @@ class IngestPipeline:
                     [
                         f"{log_file_name} ({dobject_id}, {dobject_v})",
                         f"{run.run_name} ({run.run_id})",
-                        f"{run.run_dir}",
                         f"{settings.user.handle} ({settings.user.id})",
                     ]
                 )
@@ -185,7 +184,6 @@ class IngestPipeline:
             headers=[
                 colors.green("dobject"),
                 colors.blue("pipeline run"),
-                colors.red("run directory"),
                 colors.purple("user"),
             ],
             tablefmt="pretty",
