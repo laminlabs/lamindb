@@ -51,7 +51,7 @@ class LinkFeatureModel:
         # unmapped features will only contain it's own field
         unmapped_dict = {}
         for um in df_curated.index.difference(mapped_index):
-            unmapped_dict[self.id_type] = um
+            unmapped_dict[um] = {self.id_type: um}
 
         link.feature(
             dobject_id=dobject_id,
