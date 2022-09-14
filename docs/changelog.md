@@ -3,7 +3,7 @@
 <!-- prettier-ignore -->
 Name | PR | Developer | Date | Version
 --- | --- | --- | --- | ---
-:loud_sound: Refactor pipeline logging | [197](https://github.com/laminlabs/lamindb/pull/197) | [bpenteado](https://github.com/bpenteado) | 2022-09-14 |
+🔊 Refactor pipeline logging | [197](https://github.com/laminlabs/lamindb/pull/197) | [bpenteado](https://github.com/bpenteado) | 2022-09-14 | 0.3.8
 ✨ Insert unmapped features | [198](https://github.com/laminlabs/lamindb/pull/198) | [sunnyosun](https://github.com/sunnyosun) | 2022-09-14 |
 ♻️ Refactored linked queries | [196](https://github.com/laminlabs/lamindb/pull/196) | [sunnyosun](https://github.com/sunnyosun) | 2022-09-13 |
 ⬆️ Updated wetlab schema | [195](https://github.com/laminlabs/lamindb/pull/195) | [sunnyosun](https://github.com/sunnyosun) | 2022-09-13 |
