@@ -184,7 +184,7 @@ class IngestPipeline:
             logs,
             headers=[
                 colors.green("dobject"),
-                colors.blue("run"),
+                colors.blue("pipeline run"),
                 colors.red("run directory"),
                 colors.purple("user"),
             ],
