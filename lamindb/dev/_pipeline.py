@@ -14,7 +14,7 @@ def format_pipeline_logs(logs):
             logs.remove(log)
             run_log = log[1]
             run_id = run_log.split(" ")[1]
-            top_dir = str(list(rel_filepath.parents)[-3])
+            top_dir = str(list(rel_filepath.parents)[-2])
             if run_id not in run_logs.keys():
                 run_logs[run_id] = {}
             dir_logs = run_logs[run_id]
