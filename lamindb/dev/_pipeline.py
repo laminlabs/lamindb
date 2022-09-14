@@ -8,7 +8,7 @@ def format_pipeline_logs(logs):
     for log in list(logs):
         # parse number of parent directories within run directory
         rel_filepath = Path(log[0].split(" ")[0])
-        n_parents = len(rel_filepath.parents) - 1
+        n_parents = len(rel_filepath.parents)
         if n_parents > 1:
             # remove log and register in dictionnary under its top directory
             logs.remove(log)
