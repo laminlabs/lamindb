@@ -3,6 +3,7 @@
 <!-- prettier-ignore -->
 Name | PR | Developer | Date | Version
 --- | --- | --- | --- | ---
+♻️ Refactored linked queries | [204](https://github.com/laminlabs/lamindb/pull/204) | [sunnyosun](https://github.com/sunnyosun) | 2022-09-15 |
 ⬆️ Update lnbfx to 0.3.5 | [199](https://github.com/laminlabs/lamindb/pull/199) | [bpenteado](https://github.com/bpenteado) | 2022-09-14 | 0.3.9
 🔊 Refactor pipeline logging | [197](https://github.com/laminlabs/lamindb/pull/197) | [bpenteado](https://github.com/bpenteado) | 2022-09-14 | 0.3.8
 ✨ Insert unmapped features | [198](https://github.com/laminlabs/lamindb/pull/198) | [sunnyosun](https://github.com/sunnyosun) | 2022-09-14 |
