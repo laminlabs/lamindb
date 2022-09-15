@@ -159,9 +159,7 @@ class LinkedQuery:
                                 referred_column = "id"
                     else:
                         parents = self.foreign_keys_backpop.get(current_name)
-                        if parents.get("id") is None:
-                            pass
-                        else:
+                        if parents.get("id") is not None:
                             for name, referred_column in parents["id"].items():
                                 if referred_column in ["id", "v"]:
                                     continue
