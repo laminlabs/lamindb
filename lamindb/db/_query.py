@@ -58,6 +58,8 @@ def _create_query_func(name: str, schema_module):
 class LinkedQuery:
     """Linked queries."""
 
+    parent_dict = {"species": "biosample"}
+
     def __init__(self) -> None:
         self._engine = settings.instance.db_engine()
         self._inspector = inspect(self._engine)
@@ -117,48 +119,81 @@ class LinkedQuery:
         return link_tables
 
     def query(self, entity_return, entity, entity_kwargs):
-        """Back populate query results until reaches a link table.
+        """Query linked tables via foreign key constraint.
 
         1. Query fields in entity_n table, whose primary_key is a foreign_key in entity_n-1 table.  # noqa
         2. Query foreign_key in entity_n-1 table, whose primary_key is a foreign_key in entity_n-2 table  # noqa
         3. Repeat until it reaches a linked_table (only contains primary keys).
         """
-        entity_link_tables = [
-            i for i in self.link_tables if i.startswith(f"{entity_return}_")
-        ]
-        link_tables = (
-            entity_link_tables if len(entity_link_tables) > 0 else self.link_tables
-        )
         results = getattr(query, entity)(**entity_kwargs).all()
-        if entity not in link_tables:
-            # all non link tables should have an id field
-            results_ids = [i.id for i in results]
-            module_name = entity
-            while module_name not in link_tables:
-                if "id" not in self.foreign_keys_backpop[module_name]:
-                    return results
-                parents = self.foreign_keys_backpop[module_name]["id"]
-                for table_name, table_ref_id in parents.items():
-                    results = []
-                    for result_id in results_ids:
-                        results += getattr(query, table_name)(
-                            **{table_ref_id: result_id}
-                        ).all()
-                    if table_name not in link_tables:
-                        results_ids = [i.id for i in results]
-                module_name = table_name
-        else:
-            module_name = entity
+        start = entity
+        end = entity_return
 
-        entity_id = f"{entity_return}_id"
-        if self.foreign_keys.get(module_name).get(entity_id) is not None:
-            result_ids = [i.__getattribute__(entity_id) for i in results]
-            results = []
-            for result_id in result_ids:
-                results += getattr(query, entity_return)(id=result_id).all()
-            return results
-        else:
-            return []
+        current_name = start
+        while current_name != end:
+            if (
+                "id"
+                in self._inspector.get_pk_constraint(current_name)[
+                    "constrained_columns"
+                ]
+            ):
+                print(current_name)
+                # id is the primary key of current table, aka not a link table
+                referred_column = f"{current_name}_id"
+                constrained_column = "id"
+                parent_name = None
+                # if current module id is not present in any other modules as foreign keys  # noqa
+                # checks if the any parent module is linked via primary key
+                if self.parent_dict.get(current_name) is not None:
+                    # specify certain path
+                    parent_name = self.parent_dict.get(current_name)
+                else:
+                    if self.foreign_keys_backpop.get(current_name) is None:
+                        for foreign_key in self._inspector.get_foreign_keys(
+                            current_name
+                        ):
+                            if foreign_key["constrained_columns"] == foreign_key[
+                                "referred_columns"
+                            ] and ("id" in foreign_key["referred_columns"]):
+                                parent_name = foreign_key["referred_table"]
+                                constrained_column = "id"
+                                referred_column = "id"
+                    else:
+                        parents = self.foreign_keys_backpop.get(current_name)
+                        if parents.get("id") is None:
+                            pass
+                        else:
+                            for name, referred_column in parents["id"].items():
+                                if referred_column in ["id", "v"]:
+                                    continue
+                                if name == end:
+                                    parent_name = name
+                                    break
+                                parent_name = name
+                parent_results = []
+                for result in results:
+                    parent_result = getattr(query, parent_name)(
+                        **{referred_column: result.__getattribute__(constrained_column)}
+                    ).all()
+                    parent_results += parent_result
+                results = parent_results
+            else:
+                # if it is a link table to the end module
+                if current_name.startswith(f"{end}_"):
+                    parent_name = end
+                    end_id = f"{end}_id"
+                    parent_results = []
+                    for result in results:
+                        parent_result = getattr(query, end)(
+                            **{"id": result.__getattribute__(end_id)}
+                        ).all()
+                        parent_results += parent_result
+                    results = parent_results
+                else:
+                    pass
+            current_name = parent_name
+
+        return results
 
 
 def _featureset_from_features(entity, entity_kwargs):

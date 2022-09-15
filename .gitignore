@@ -5,6 +5,7 @@ rds/
 bfx-output/
 scrnaseq-cellranger/
 scrnaseq-cellranger-schmidt22/
+cellranger_run_001
 __MACOSX/
 docs/lamindb.*
 lamin_sphinx
