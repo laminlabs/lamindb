@@ -137,7 +137,6 @@ class LinkedQuery:
                     "constrained_columns"
                 ]
             ):
-                print(current_name)
                 # id is the primary key of current table, aka not a link table
                 referred_column = f"{current_name}_id"
                 constrained_column = "id"
