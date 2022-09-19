@@ -3,6 +3,7 @@
 <!-- prettier-ignore -->
 Name | PR | Developer | Date | Version
 --- | --- | --- | --- | ---
+🐛 Fixed column mapping | [206](https://github.com/laminlabs/lamindb/pull/206) | [sunnyosun](https://github.com/sunnyosun) | 2022-09-19 |
 ✨ Allow batch insertion | [205](https://github.com/laminlabs/lamindb/pull/205) | [sunnyosun](https://github.com/sunnyosun) | 2022-09-19 |
 ♻️ Refactored linked queries | [204](https://github.com/laminlabs/lamindb/pull/204) | [sunnyosun](https://github.com/sunnyosun) | 2022-09-15 |
 ⬆️ Update lnbfx to 0.3.5 | [199](https://github.com/laminlabs/lamindb/pull/199) | [bpenteado](https://github.com/bpenteado) | 2022-09-14 | 0.3.9
