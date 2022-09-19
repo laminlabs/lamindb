@@ -7,7 +7,7 @@ Walk-through of basic functionality
 - {doc}`ingest`
 - {doc}`link`
 - {doc}`load-and-query`
-- {doc}`update-delete`
+- {doc}`insert-update-delete`
 - {doc}`introspect`
 - {doc}`share`
 
