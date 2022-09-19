@@ -258,7 +258,12 @@ def insert_from_df(df: pd.DataFrame, schema_table: str, column_map: dict = {}):
         fields = table.__fields__.keys()
 
     df = df.rename(columns=mapper).copy()
-    df = df[df.columns.isin(fields)]
+    df = df[df.columns.intersection(fields)]
+    if df.shape[1] == 0:
+        raise AssertionError(
+            "No columns can be mapped between input DataFrame and table"
+            f" {schema_table}."
+        )
 
     # insert entries into the table
     entries = df.to_dict(orient="index")
