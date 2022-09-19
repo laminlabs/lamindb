@@ -268,9 +268,7 @@ def insert_from_df(df: pd.DataFrame, schema_table: str, column_map: dict = {}):
     # insert entries into the table
     entries = df.to_dict(orient="index")
     for _, entry in entries.items():
-        entry_id = getattr(insert, schema_table)(**entry)
-
-    return entry_id
+        _ = getattr(insert, schema_table)(**entry)
 
 
 def _create_insert_func(name: str, schema_module):
