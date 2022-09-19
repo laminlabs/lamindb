@@ -1,3 +1,6 @@
+import re
+
+import pandas as pd
 import sqlmodel as sqm
 from lamin_logger import colors, logger
 from lnbfx import BfxRun
@@ -8,6 +11,11 @@ from .. import schema
 from ..dev import track_usage
 from ..schema._schema import alltables
 from ._query import query
+
+
+def _camel_to_snake(string: str) -> str:
+    """Convert CamelCase to snake_case."""
+    return re.sub(r"(?<!^)(?=[A-Z])", "_", string).lower()
 
 
 def dobject_from_jupynb(
@@ -237,6 +245,24 @@ def readout(efo_id: str):
         return readout.id
 
 
+def insert_from_df(df: pd.DataFrame, schema_table: str, column_map: dict = {}):
+    """Insert entries provided by a DataFrame."""
+    mapper = {k: _camel_to_snake(k) for k in df.columns}
+    mapper.update(column_map)
+
+    # subset to columns that exist in the schema table
+    fields = getattr(schema, schema_table).__fields__.keys()
+    df = df.rename(columns=mapper).copy()
+    df = df[df.columns.isin(fields)]
+
+    # insert entries into the table
+    entries = df.to_dict(orient="index")
+    for _, entry in entries.items():
+        entry_id = getattr(insert, schema_table)(**entry)
+
+    return entry_id
+
+
 def _create_insert_func(name: str, schema_module):
     def insert_func(cls, **kwargs):
         with sqm.Session(settings.instance.db_engine()) as session:
@@ -281,3 +307,4 @@ setattr(insert, "dobject_from_jupynb", dobject_from_jupynb)
 setattr(insert, "species", insert_species)
 setattr(insert, "features", features)
 setattr(insert, "readout", readout)
+setattr(insert, "from_df", insert_from_df)
