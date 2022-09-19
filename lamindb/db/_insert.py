@@ -247,7 +247,7 @@ def readout(efo_id: str):
 
 def insert_from_df(df: pd.DataFrame, schema_table: str, column_map: dict = {}):
     """Insert entries provided by a DataFrame."""
-    mapper = {k: _camel_to_snake(k) for k in df.columns}
+    mapper = {k: _camel_to_snake(k.replace(" ", "")) for k in df.columns}
     mapper.update(column_map)
 
     # subset to columns that exist in the schema table
@@ -267,8 +267,11 @@ def insert_from_df(df: pd.DataFrame, schema_table: str, column_map: dict = {}):
 
     # insert entries into the table
     entries = df.to_dict(orient="index")
-    for _, entry in entries.items():
-        _ = getattr(insert, schema_table)(**entry)
+    entry_ids = {}
+    for idx, entry in entries.items():
+        entry_ids[idx] = getattr(insert, schema_table)(**entry)
+
+    return entry_ids
 
 
 def _create_insert_func(name: str, schema_module):
