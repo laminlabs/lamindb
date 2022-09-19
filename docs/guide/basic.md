@@ -10,7 +10,7 @@ schema
 ingest
 link
 load-and-query
-update-delete
+insert-update-delete
 introspect
 share
 ```

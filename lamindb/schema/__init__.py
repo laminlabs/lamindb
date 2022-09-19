@@ -26,7 +26,7 @@ try:
 except ModuleNotFoundError:
     pass
 
-try:
-    import maren.schema as swarm
-except ModuleNotFoundError:
-    pass
+# try:
+#     import maren.schema as swarm
+# except ModuleNotFoundError:
+#     pass
