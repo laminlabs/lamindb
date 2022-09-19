@@ -251,7 +251,12 @@ def insert_from_df(df: pd.DataFrame, schema_table: str, column_map: dict = {}):
     mapper.update(column_map)
 
     # subset to columns that exist in the schema table
-    fields = getattr(schema, schema_table).__fields__.keys()
+    table = alltables.get(schema_table)
+    if table is None:
+        raise AttributeError(f"Table {schema_table} is not found.")
+    else:
+        fields = table.__fields__.keys()
+
     df = df.rename(columns=mapper).copy()
     df = df[df.columns.isin(fields)]
 
