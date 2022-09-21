@@ -276,6 +276,7 @@ def query_dobject(
 
 def query_biometa(
     id: int = None,
+    experiment_id: int = None,
     biosample_id: int = None,
     readout_id: int = None,
     featureset_id: int = None,

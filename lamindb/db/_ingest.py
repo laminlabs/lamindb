@@ -352,7 +352,7 @@ class IngestObject:
         except SameFileError:
             pass
 
-        track_usage(dobject_id, dobject_v, "ingest")
+        track_usage(dobject_id, dobject_v, usage_type="ingest")
 
         return dobject_id
 

@@ -8,14 +8,20 @@ from lndb_setup import settings
 from lnschema_core import id
 
 from .. import schema
-from ..dev import track_usage
 from ..schema._schema import alltables
 from ._query import query
 
 
 def _camel_to_snake(string: str) -> str:
     """Convert CamelCase to snake_case."""
-    return re.sub(r"(?<!^)(?=[A-Z])", "_", string).lower()
+
+    def is_camel_case(s):
+        return s != s.lower() and s != s.upper() and "_" not in s
+
+    string = string.replace(" ", "_")
+    if is_camel_case(string):
+        return re.sub(r"(?<!^)(?=[A-Z])", "_", string).lower()
+    return string.lower()
 
 
 def dobject_from_jupynb(
@@ -29,74 +35,53 @@ def dobject_from_jupynb(
     dobject_v: str = "1",
     pipeline_run: BfxRun = None,
 ):
-    """Data object with its origin."""
-    engine = settings.instance.db_engine()
-
-    if pipeline_run is not None:
-        pipeline_run_id = pipeline_run.run_id
-    else:
-        pipeline_run_id = None
-
-    with sqm.Session(engine) as session:
-        result = session.get(schema.core.jupynb, (jupynb_id, jupynb_v))
-        if result is None:
-            session.add(
-                schema.core.jupynb(
-                    id=jupynb_id,
-                    v=jupynb_v,
-                    name=jupynb_name,
-                    user_id=settings.user.id,
-                )
+    """Data object from jupynb."""
+    if pipeline_run is None:
+        result = getattr(query, "jupynb")(id=jupynb_id, v=jupynb_v).all()
+        if len(result) == 0:
+            jupynb_id = getattr(insert, "jupynb")(
+                id=jupynb_id,
+                v=jupynb_v,
+                name=jupynb_name,
+                user_id=settings.user.id,
             )
-            dtransform_id = id.dtransform()
-            session.add(
-                schema.core.dtransform(
-                    id=dtransform_id,
-                    jupynb_id=jupynb_id,
-                    jupynb_v=jupynb_v,
-                    pipeline_run_id=pipeline_run_id,
-                )
+            # dtransform entry
+            dtransform_id = getattr(insert, "dtransform")(
+                jupynb_id=jupynb_id, jupynb_v=jupynb_v
             )
-            session.commit()
             logger.info(
                 f"Added notebook {jupynb_name!r} ({jupynb_id}, {jupynb_v}) by"
                 f" user {settings.user.handle}."
             )
         else:
-            dtransform = session.exec(
-                sqm.select(schema.core.dtransform).where(
-                    schema.core.dtransform.jupynb_id == jupynb_id,
-                    schema.core.dtransform.jupynb_v == jupynb_v,
-                )
-            ).first()  # change to .one() as soon as dtransform ingestion bug fixed
-            dtransform_id = dtransform.id
-
-    with sqm.Session(engine) as session:
-        if dobject_id is None:
-            dobject_id = id.dobject()
-
-        storage = session.exec(
-            sqm.select(schema.core.storage).where(
-                schema.core.storage.root == str(settings.instance.storage_dir)
+            dtransform_id = (
+                getattr(query, "dtransform")(jupynb_id=jupynb_id, jupynb_v=jupynb_v)
+                .one()
+                .id
             )
-        ).first()
-        assert storage
+    else:
+        result = getattr(query, "dtransform")(pipeline_run_id=pipeline_run.run_id).all()
+        if len(result) == 0:
+            dtransform_id = getattr(insert, "dtransform")(
+                pipeline_run_id=pipeline_run.run_id
+            )
+        else:
+            dtransform_id = result[0].id
 
-        dobject = schema.core.dobject(
-            id=dobject_id,
-            v=dobject_v,
-            name=name,
-            dtransform_id=dtransform_id,
-            file_suffix=file_suffix,
-            storage_id=storage.id,
-        )
-        session.add(dobject)
-        session.commit()
-        session.refresh(dobject)
+    storage = getattr(query, "storage")(root=str(settings.instance.storage_dir)).first()
+    if dobject_id is None:
+        dobject_id = id.dobject()
 
-    settings.instance._update_cloud_sqlite_file()
+    dobject_id = getattr(insert, "dobject")(
+        id=dobject_id,
+        v=dobject_v,
+        name=name,
+        dtransform_id=dtransform_id,
+        file_suffix=file_suffix,
+        storage_id=storage.id,
+    )
 
-    return dobject.id
+    return dobject_id
 
 
 def insert_species(common_name: str):
@@ -247,7 +232,7 @@ def readout(efo_id: str):
 
 def insert_from_df(df: pd.DataFrame, schema_table: str, column_map: dict = {}):
     """Insert entries provided by a DataFrame."""
-    mapper = {k: _camel_to_snake(k.replace(" ", "")) for k in df.columns}
+    mapper = {k: _camel_to_snake(k) for k in df.columns if k not in column_map.keys()}
     mapper.update(column_map)
 
     # subset to columns that exist in the schema table
@@ -285,12 +270,11 @@ def _create_insert_func(name: str, schema_module):
             entry_id = entry.id
         except AttributeError:
             entry_id = entry
-        logger.success(
-            f"Inserted entry {colors.green(f'{entry_id}')} into"
-            f" {colors.blue(f'{name}')}."
-        )
-        if name == "dobject":
-            track_usage(entry.id, entry.v, "insert")
+        if name not in ["usage", "dobject"]:
+            logger.success(
+                f"Inserted entry {colors.green(f'{entry_id}')} into"
+                f" {colors.blue(f'{name}')}."
+            )
 
         settings.instance._update_cloud_sqlite_file()
 
