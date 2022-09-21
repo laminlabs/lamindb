@@ -17,7 +17,7 @@ def test_create_to_load():
 
     ln.db.insert.dobject_from_jupynb(
         name="test_file",
-        suffix=".csv",
+        file_suffix=".csv",
         jupynb_id="83jf",
         jupynb_v="1",
         jupynb_name="test",

@@ -58,11 +58,7 @@ def _create_query_func(name: str, schema_module):
 class LinkedQuery:
     """Linked queries."""
 
-    parent_dict = {
-        "species": "biosample",
-        "biosample_techsample": "biosample",
-        "biosample": "biometa",
-    }
+    parent_dict = {"species": "biosample", "biosample_techsample": "biosample"}
 
     def __init__(self) -> None:
         self._engine = settings.instance.db_engine()
@@ -231,7 +227,7 @@ def query_dobject(
     v: str = None,
     name: str = None,
     dtransform_id: str = None,
-    suffix: str = None,
+    file_suffix: str = None,
     storage_id: str = None,
     time_created=None,
     time_updated=None,

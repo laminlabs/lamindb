@@ -10,7 +10,7 @@ from lnschema_core import id
 from .._logger import colors, logger
 from ..dev import format_pipeline_logs, storage_key_from_triple, track_usage
 from ..dev.file import load_to_memory, store_file
-from ..dev.object import infer_suffix, write_to_file
+from ..dev.object import infer_file_suffix, write_to_file
 from ._insert import insert
 from ._link import link
 from ._query import query
@@ -242,7 +242,7 @@ class IngestObject:
         else:
             # if in-memory object is given, return the cache path
             dmem = dobject
-            suffix = infer_suffix(dobject)
+            suffix = infer_file_suffix(dobject)
             if name is None:
                 raise RuntimeError("Provide name if ingesting in memory data.")
             filepath = Path(f"{name}{suffix}")
@@ -335,7 +335,7 @@ class IngestObject:
         """Insert and store dobject."""
         dobject_id = insert.dobject_from_jupynb(
             name=filepath.stem,
-            suffix=filepath.suffix,
+            file_suffix=filepath.suffix,
             jupynb_id=jupynb_id,
             jupynb_v=jupynb_v,
             jupynb_name=jupynb_name,
