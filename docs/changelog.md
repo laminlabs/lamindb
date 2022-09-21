@@ -3,6 +3,7 @@
 <!-- prettier-ignore -->
 Name | PR | Developer | Date | Version
 --- | --- | --- | --- | ---
+⬆️ Upgrade to core schema 0.7.2 | [208](https://github.com/laminlabs/lamindb/pull/208) | [falexwolf](https://github.com/falexwolf) | 2022-09-21 |
 🚑 Setup dtransform to be either pipeline_run or jupynb | [207](https://github.com/laminlabs/lamindb/pull/207) | [sunnyosun](https://github.com/sunnyosun) | 2022-09-21 | 0.3.11
 🐛 Fixed column mapping | [206](https://github.com/laminlabs/lamindb/pull/206) | [sunnyosun](https://github.com/sunnyosun) | 2022-09-19 | 0.3.10
 ✨ Allow batch insertion | [205](https://github.com/laminlabs/lamindb/pull/205) | [sunnyosun](https://github.com/sunnyosun) | 2022-09-19 |
