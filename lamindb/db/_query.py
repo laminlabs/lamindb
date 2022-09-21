@@ -58,7 +58,11 @@ def _create_query_func(name: str, schema_module):
 class LinkedQuery:
     """Linked queries."""
 
-    parent_dict = {"species": "biosample", "biosample_techsample": "biosample"}
+    parent_dict = {
+        "species": "biosample",
+        "biosample_techsample": "biosample",
+        "biosample": "biometa",
+    }
 
     def __init__(self) -> None:
         self._engine = settings.instance.db_engine()
