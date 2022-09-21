@@ -27,7 +27,7 @@ def _camel_to_snake(string: str) -> str:
 def dobject_from_jupynb(
     *,
     name: str,
-    file_suffix: str = None,
+    suffix: str = None,
     jupynb_id: str,
     jupynb_v: str,
     jupynb_name: str,
@@ -77,7 +77,7 @@ def dobject_from_jupynb(
         v=dobject_v,
         name=name,
         dtransform_id=dtransform_id,
-        file_suffix=file_suffix,
+        suffix=suffix,
         storage_id=storage.id,
     )
 
