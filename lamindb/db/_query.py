@@ -58,7 +58,11 @@ def _create_query_func(name: str, schema_module):
 class LinkedQuery:
     """Linked queries."""
 
-    parent_dict = {"species": "biosample"}
+    parent_dict = {
+        "species": "biosample",
+        "biosample_techsample": "biosample",
+        "biosample": "biometa",
+    }
 
     def __init__(self) -> None:
         self._engine = settings.instance.db_engine()
@@ -186,6 +190,16 @@ class LinkedQuery:
                         ).all()
                         parent_results += parent_result
                     results = parent_results
+                elif self.parent_dict.get(current_name) is not None:
+                    parent_name = self.parent_dict.get(current_name)
+                    constrained_column = f"{parent_name}_id"
+                    parent_results = []
+                    for result in results:
+                        parent_result = getattr(query, parent_name)(
+                            **{"id": result.__getattribute__(constrained_column)}
+                        ).all()
+                        parent_results += parent_result
+                    results = parent_results
                 else:
                     pass
             current_name = parent_name
@@ -276,6 +290,7 @@ def query_dobject(
 
 def query_biometa(
     id: int = None,
+    experiment_id: int = None,
     biosample_id: int = None,
     readout_id: int = None,
     featureset_id: int = None,
