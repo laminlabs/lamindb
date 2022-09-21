@@ -8,7 +8,7 @@ authors = [{name = "Lamin Labs", email = "laminlabs@gmail.com"}]
 readme = "README.md"
 dynamic = ["version", "description"]
 dependencies = [
-    "lnschema_core==0.7.2",
+    "lnschema_core==0.5.1",
     "lnschema_wetlab==0.3.7",
     "lnschema_bionty>=0.2.4",
     "lndb_setup==0.6.3",
