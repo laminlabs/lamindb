@@ -231,10 +231,10 @@ def query_dobject(
     v: str = None,
     name: str = None,
     dtransform_id: str = None,
-    file_suffix: str = None,
+    suffix: str = None,
     storage_id: str = None,
-    time_created=None,
-    time_updated=None,
+    created_at=None,
+    updated_at=None,
     where: Dict[str, dict] = None,
     as_df: bool = False,
 ):
