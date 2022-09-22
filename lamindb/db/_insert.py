@@ -197,7 +197,10 @@ class FieldPopulator:
 
 class InsertBase:
     @classmethod
-    def add(cls, model, kwargs):
+    def add(cls, model, kwargs: dict, force=False):
+        if not force:
+            if cls.exists(table_name=table_name, kwargs=kwargs):
+                return
         with sqm.Session(settings.instance.db_engine()) as session:
             entry = model(**kwargs)
             session.add(entry)
@@ -214,6 +217,11 @@ class InsertBase:
         if len(results) == 0:
             return False
         return True
+
+    @classmethod
+    def is_unique(cls, table_name, column):
+        model = Table.get_model(table_name)
+        return model.__table__.columns.get(column).unique
 
     @classmethod
     def insert_from_list(cls, entries: Iterable[dict], table_name: str):
@@ -269,21 +277,22 @@ class InsertBase:
 
 def _create_insert_func(table_name: str, model):
     def insert_func(cls, force=False, **kwargs):
-        if not force:
-            if InsertBase.exists(table_name=table_name, kwargs=kwargs):
-                return
         try:
             reference = getattr(FieldPopulator, table_name)
             if len(kwargs) > 1:
                 raise AssertionError(
                     "Please only provide a unique column id in the reference table."
                 )
+
             std_id = next(iter(kwargs))
+            if not InsertBase.is_unique(table_name, std_id):
+                raise AssertionError("Please provide a unique column.")
+
             std_value = kwargs[std_id]
             kwargs.update(reference(std_id_value=(std_id, std_value)))
-            entry = InsertBase.add(model=model, kwargs=kwargs)
+            entry = InsertBase.add(model=model, kwargs=kwargs, force=force)
         except AttributeError:
-            entry = InsertBase.add(model=model, kwargs=kwargs)
+            entry = InsertBase.add(model=model, kwargs=kwargs, force=force)
 
         pks = Table.get_pks(table_name)
         if "id" in pks:

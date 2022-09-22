@@ -10,7 +10,7 @@ dynamic = ["version", "description"]
 dependencies = [
     "lnschema_core==0.7.2",
     "lnschema_wetlab==0.3.7",
-    "lnschema_bionty>=0.2.4",
+    "lnschema_bionty>=0.3.1",
     "lndb_setup==0.7.0",
     "lndb_hub==0.5.6",
     "lamin_logger",
