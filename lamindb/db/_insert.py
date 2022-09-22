@@ -301,6 +301,9 @@ def _create_insert_func(model):
         except AttributeError:
             entry = InsertBase.add(model=model, kwargs=kwargs, force=force)
 
+        if entry is None:
+            return
+
         pks = Table.get_pks(model)
         if "id" in pks:
             entry_id = entry.id
