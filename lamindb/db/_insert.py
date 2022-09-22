@@ -229,11 +229,11 @@ class InsertBase:
         model = Table.get_model(table_name)
         added = {}
         with sqm.Session(settings.instance.db_engine()) as session:
-            for i, kwargs in iter(entries):
+            for i, kwargs in enumerate(entries):
                 added[i] = model(**kwargs)
                 session.add(added[i])
             session.commit()
-            for i, kwargs in iter(entries):
+            for i, kwargs in enumerate(entries):
                 session.refresh(added[i])
 
         # fetch the ids
