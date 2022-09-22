@@ -1,8 +1,8 @@
 import pandas as pd
-from sqlalchemy.orm.exc import NoResultFound
 from tabulate import tabulate  # type: ignore
 
 from .._logger import colors, logger
+from ..dev.db import exception
 from ._insert import insert
 from ._query import query
 from ._update import update
@@ -94,7 +94,7 @@ class link:
         """Annotate genes."""
         try:
             species_id = getattr(query, "species")(common_name=species).one().id
-        except NoResultFound:
+        except exception.NoResultFound:
             species_id = getattr(insert, "species")(common_name=species)
 
         featureset_id = getattr(insert, "features")(
