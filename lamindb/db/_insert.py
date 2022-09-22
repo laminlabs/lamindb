@@ -97,7 +97,7 @@ def features(
     Meanwhile inserting features and linking them to the featureset.
     """
     try:
-        species_id = getattr(query, "species")(common_name=species).one()
+        species_id = getattr(query, "species")(common_name=species).one().id
     except NoResultFound:
         species_id = getattr(insert, "species")(common_name=species)
 
