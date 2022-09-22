@@ -7,7 +7,6 @@ from lamin_logger import colors, logger
 from lnbfx import BfxRun
 from lndb_setup import settings
 from lnschema_core import id
-from sqlalchemy.orm.exc import NoResultFound
 
 from .. import schema
 from ..schema._table import Table
@@ -172,25 +171,25 @@ def features(
     return featureset.id
 
 
-def readout(efo_id: str):
-    """Insert a row in the readout table."""
-    assert sum(i.isdigit() for i in efo_id) == 7
-    efo_id = efo_id.replace("_", ":")
+# def readout(efo_id: str):
+#     """Insert a row in the readout table."""
+#     assert sum(i.isdigit() for i in efo_id) == 7
+#     efo_id = efo_id.replace("_", ":")
 
-    # check if entry already exists
-    try:
-        readout_id = getattr(query, "readout")(efo_id=efo_id).one()
-    except NoResultFound:
-        from bioreadout import readout
+#     # check if entry already exists
+#     try:
+#         readout_id = getattr(query, "readout")(efo_id=efo_id).one()
+#     except NoResultFound:
+#         from bioreadout import readout
 
-        entry = readout(efo_id=efo_id)
-        readout_id = getattr(insert, "readout")(**entry)
-        logger.success(
-            f"Inserted entry {colors.green(f'{readout_id}')} into"
-            f" {colors.blue('readout')}."
-        )
+#         entry = readout(efo_id=efo_id)
+#         readout_id = getattr(insert, "readout")(**entry)
+#         logger.success(
+#             f"Inserted entry {colors.green(f'{readout_id}')} into"
+#             f" {colors.blue('readout')}."
+#         )
 
-    return readout_id
+#     return readout_id
 
 
 class FieldPopulator:
@@ -209,6 +208,8 @@ class FieldPopulator:
 
         id_field, id_value = std_id_value
         assert id_field == "efo_id"
+        assert sum(i.isdigit() for i in id_field) == 7
+        id_field = id_field.replace("_", ":")
 
         return readout(efo_id=id_field)
 
@@ -341,6 +342,5 @@ for table_name, model in Table.all.items():
 
 setattr(insert, "dobject_from_jupynb", dobject_from_jupynb)
 setattr(insert, "features", features)
-setattr(insert, "readout", readout)
 setattr(insert, "from_df", InsertBase.insert_from_df)
 setattr(insert, "from_list", InsertBase.insert_from_list)
