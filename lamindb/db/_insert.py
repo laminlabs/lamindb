@@ -211,10 +211,6 @@ class InsertBase:
         return entry
 
     @classmethod
-    def is_unique(cls, model, column):
-        return model.__table__.columns.get(column).unique
-
-    @classmethod
     def exists(cls, table_name, kwargs):
         results = getattr(query, table_name)(**kwargs).all()
         if len(results) == 0:
