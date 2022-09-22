@@ -86,14 +86,6 @@ def dobject_from_jupynb(
     return dobject_id
 
 
-class FieldPopulator:
-    @classmethod
-    def species(cls, id_field=None) -> dict:
-        from bionty import Species
-
-        return Species(id=id_field).df.to_dict(orient="index")
-
-
 def features(
     features_dict: dict,
     feature_entity: str,
@@ -201,6 +193,26 @@ def readout(efo_id: str):
     return readout_id
 
 
+class FieldPopulator:
+    @classmethod
+    def species(cls, std_id_value: tuple) -> dict:
+        from bionty import Species
+
+        id_field, id_value = std_id_value
+        ref_dict = Species(id=id_field).df.to_dict(orient="index")
+
+        return ref_dict.get(ref_dict, {})
+
+    @classmethod
+    def readout(cls, std_id_value: tuple) -> dict:
+        from bioreadout import readout
+
+        id_field, id_value = std_id_value
+        assert id_field == "efo_id"
+
+        return readout(efo_id=id_field)
+
+
 class InsertBase:
     @classmethod
     def add(cls, model, kwargs):
@@ -240,16 +252,6 @@ class InsertBase:
                 table_name=table_name
             ).__table__.primary_key.columns.values()
         ]
-
-    @classmethod
-    def insert_with_reference(cls, reference: dict, std_id_value: tuple):
-        """Insert entries with a reference table."""
-        std_id, std_value = std_id_value
-        kwargs = {std_id: std_value}
-        kwargs.update(reference.get(std_id, {}))
-        entry = cls.add(model=model, kwargs=kwargs)
-
-        return entry
 
     @classmethod
     def insert_from_list(cls, entries: Iterable[dict], table_name: str):
@@ -315,9 +317,8 @@ def _create_insert_func(table_name: str, model):
                 )
             std_id = next(iter(kwargs))
             std_value = kwargs[std_id]
-            entry = InsertBase.insert_with_reference(
-                reference=reference, std_id_value=(std_id, std_value)
-            )
+            kwargs.update(reference(std_id_value=(std_id, std_value)))
+            entry = InsertBase.add(model=model, kwargs=kwargs)
         except AttributeError:
             entry = InsertBase.add(model=model, kwargs=kwargs)
 
