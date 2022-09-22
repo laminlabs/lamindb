@@ -171,27 +171,6 @@ def features(
     return featureset.id
 
 
-# def readout(efo_id: str):
-#     """Insert a row in the readout table."""
-#     assert sum(i.isdigit() for i in efo_id) == 7
-#     efo_id = efo_id.replace("_", ":")
-
-#     # check if entry already exists
-#     try:
-#         readout_id = getattr(query, "readout")(efo_id=efo_id).one()
-#     except NoResultFound:
-#         from bioreadout import readout
-
-#         entry = readout(efo_id=efo_id)
-#         readout_id = getattr(insert, "readout")(**entry)
-#         logger.success(
-#             f"Inserted entry {colors.green(f'{readout_id}')} into"
-#             f" {colors.blue('readout')}."
-#         )
-
-#     return readout_id
-
-
 class FieldPopulator:
     @classmethod
     def species(cls, std_id_value: tuple) -> dict:
