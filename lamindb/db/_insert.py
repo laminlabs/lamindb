@@ -314,6 +314,10 @@ class insert:
 
     Example:
     >>> insert.{entity}(id=1, name='new_experiment')
+
+    Returns:
+        id of the inserted entry
+        None if entry already exists
     """
 
     pass
