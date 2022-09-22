@@ -10,7 +10,7 @@ from lnschema_core import id
 from sqlalchemy.orm.exc import NoResultFound
 
 from .. import schema
-from ..schema._schema import alltables
+from ..schema._table import Table
 from ._query import query
 
 
@@ -238,25 +238,9 @@ class InsertBase:
         return True
 
     @classmethod
-    def get_model(cls, table_name):
-        model = alltables.get(table_name)
-        if model is None:
-            raise AssertionError(f"Table {table_name} does NOT exist!")
-        return model
-
-    @classmethod
-    def get_pks(cls, table_name):
-        return [
-            i.name
-            for i in cls.get_model(
-                table_name=table_name
-            ).__table__.primary_key.columns.values()
-        ]
-
-    @classmethod
     def insert_from_list(cls, entries: Iterable[dict], table_name: str):
         """Insert entries provided by a list of kwargs."""
-        model = cls.get_model(table_name)
+        model = Table.get_model(table_name)
         added = {}
         with sqm.Session(settings.instance.db_engine()) as session:
             for i, kwargs in iter(entries):
@@ -267,7 +251,7 @@ class InsertBase:
                 session.refresh(added[i])
 
         # fetch the ids
-        if "id" in cls.get_pks(table_name):
+        if "id" in Table.get_pks(table_name):
             for k, v in added.items():
                 added[k] = v.id
         else:
@@ -286,7 +270,7 @@ class InsertBase:
         mapper.update(column_map)
 
         # subset to columns that exist in the schema table
-        fields = cls.get_model(table_name).__fields__.keys()
+        fields = Table.get_model(table_name).__fields__.keys()
 
         df = df.rename(columns=mapper).copy()
         df = df[df.columns.intersection(fields)]
@@ -322,7 +306,7 @@ def _create_insert_func(table_name: str, model):
         except AttributeError:
             entry = InsertBase.add(model=model, kwargs=kwargs)
 
-        pks = InsertBase.get_pks(table_name)
+        pks = Table.get_pks(table_name)
         if "id" in pks:
             entry_id = entry.id
         else:
@@ -351,7 +335,7 @@ class insert:
     pass
 
 
-for table_name, model in alltables.items():
+for table_name, model in Table.all.items():
     func = _create_insert_func(table_name=table_name, model=model)
     setattr(insert, table_name, classmethod(func))
 

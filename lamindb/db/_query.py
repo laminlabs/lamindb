@@ -10,7 +10,7 @@ from sqlmodel import Session, select
 
 from .. import schema
 from ..dev import track_usage
-from ..schema._schema import alltables
+from ..schema._table import Table
 
 
 def _query_stmt(statement, results_type="all"):
@@ -403,7 +403,7 @@ class query:
     pass
 
 
-for name, schema_module in alltables.items():
+for name, schema_module in Table.all.items():
     func = _create_query_func(name=name, schema_module=schema_module)
     setattr(query, name, classmethod(func))
 
