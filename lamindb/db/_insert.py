@@ -208,10 +208,10 @@ class FieldPopulator:
 
         id_field, id_value = std_id_value
         assert id_field == "efo_id"
-        assert sum(i.isdigit() for i in id_field) == 7
-        id_field = id_field.replace("_", ":")
+        assert sum(i.isdigit() for i in id_value) == 7
+        id_value = id_value.replace("_", ":")
 
-        return readout(efo_id=id_field)
+        return readout(efo_id=id_value)
 
 
 class InsertBase:
