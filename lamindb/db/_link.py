@@ -1,4 +1,5 @@
 import pandas as pd
+from sqlalchemy.orm.exc import NoResultFound
 from tabulate import tabulate  # type: ignore
 
 from .._logger import colors, logger
@@ -91,7 +92,11 @@ class link:
         featureset_name: str = None,
     ):
         """Annotate genes."""
-        species_id = getattr(insert, "species")(common_name=species)
+        try:
+            species_id = getattr(query, "species")(common_name=species).one().id
+        except NoResultFound:
+            species_id = getattr(insert, "species")(common_name=species)
+
         featureset_id = getattr(insert, "features")(
             features_dict=values,
             feature_entity=feature_entity,
