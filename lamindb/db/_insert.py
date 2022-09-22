@@ -179,7 +179,11 @@ class FieldPopulator:
         from bionty import Species
 
         id_field, id_value = std_id_value
-        ref_dict = Species(id=id_field).df.to_dict(orient="index")
+        df = Species(id=id_field).df
+        fields = Table.get_model("species").__fields__.keys()
+        df = df.loc[:, df.columns.intersection(fields)].copy()
+
+        ref_dict = df.to_dict(orient="index")
 
         return ref_dict.get(id_value, {})
 
@@ -289,7 +293,10 @@ def _create_insert_func(model):
                 raise AssertionError("Please provide a unique column.")
 
             std_value = kwargs[std_id]
-            kwargs.update(reference(std_id_value=(std_id, std_value)))
+            toadd = reference(std_id_value=(std_id, std_value))
+            kwargs.update(
+                **{k: v for k, v in toadd.items() if k in model.__fields__.keys()}
+            )
             entry = InsertBase.add(model=model, kwargs=kwargs, force=force)
         except AttributeError:
             entry = InsertBase.add(model=model, kwargs=kwargs, force=force)
