@@ -9,7 +9,6 @@ from lndb_setup import settings
 from lnschema_core import id
 
 from .. import schema
-from ..dev.db import exception
 from ..schema._table import Table
 from ._query import query
 
@@ -96,10 +95,9 @@ def features(
 
     Meanwhile inserting features and linking them to the featureset.
     """
-    try:
+    species_id = getattr(insert, "species")(common_name=species)
+    if species_id is None:
         species_id = getattr(query, "species")(common_name=species).one().id
-    except exception.NoResultFound:
-        species_id = getattr(insert, "species")(common_name=species)
 
     # check if geneset exists
     if featureset_name is not None:
@@ -270,9 +268,10 @@ class InsertBase:
 
 
 def _create_insert_func(table_name: str, model):
-    def insert_func(cls, **kwargs):
-        if InsertBase.exists(table_name=table_name, kwargs=kwargs):
-            return
+    def insert_func(cls, force=False, **kwargs):
+        if not force:
+            if InsertBase.exists(table_name=table_name, kwargs=kwargs):
+                return
         try:
             reference = getattr(FieldPopulator, table_name)
             if len(kwargs) > 1:
