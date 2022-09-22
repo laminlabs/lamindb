@@ -1,4 +1,5 @@
 import re
+from typing import Iterable
 
 import pandas as pd
 import sqlmodel as sqm
@@ -8,7 +9,7 @@ from lndb_setup import settings
 from lnschema_core import id
 
 from .. import schema
-from ..schema._schema import alltables
+from ..schema._table import Table
 from ._query import query
 
 
@@ -84,33 +85,6 @@ def dobject_from_jupynb(
     return dobject_id
 
 
-def insert_species(common_name: str):
-    """Insert a species."""
-    species_results = getattr(query, "species")(common_name=common_name).all()
-    if len(species_results) > 1:
-        raise AssertionError(f"Multiple entries are associated with {common_name}!")
-    elif len(species_results) == 1:
-        return species_results[0].id
-    else:
-        engine = settings.instance.db_engine()
-
-        from bionty import Species
-
-        entry = {"common_name": common_name}
-        entry.update(Species().df.loc[common_name])
-        with sqm.Session(engine) as session:
-            species = schema.bionty.species(**entry)
-            session.add(species)
-            session.commit()
-            session.refresh(species)
-        logger.success(
-            f"Inserted entry {colors.green(f'{species.id}')} into"
-            f" {colors.blue('species')}."
-        )
-
-        return species.id
-
-
 def features(
     features_dict: dict,
     feature_entity: str,
@@ -121,7 +95,9 @@ def features(
 
     Meanwhile inserting features and linking them to the featureset.
     """
-    species_id = insert_species(common_name=species)
+    species_id = getattr(insert, "species")(common_name=species)
+    if species_id is None:
+        species_id = getattr(query, "species")(common_name=species).one().id
 
     # check if geneset exists
     if featureset_name is not None:
@@ -197,90 +173,153 @@ def features(
     return featureset.id
 
 
-def readout(efo_id: str):
-    """Insert a row in the readout table."""
-    assert sum(i.isdigit() for i in efo_id) == 7
-    efo_id = efo_id.replace("_", ":")
+class FieldPopulator:
+    @classmethod
+    def species(cls, std_id_value: tuple) -> dict:
+        from bionty import Species
 
-    # check if entry already exists
-    readout_results = getattr(query, "readout")(efo_id=efo_id).all()
-    if len(readout_results) > 1:
-        raise AssertionError(f"Multiple entries are associated with {efo_id}!")
-    elif len(readout_results) == 1:
-        return readout_results[0].id
-    else:
+        id_field, id_value = std_id_value
+        df = Species(id=id_field).df
+        fields = Table.get_model("species").__fields__.keys()
+        df = df.loc[:, df.columns.intersection(fields)].copy()
+
+        ref_dict = df.to_dict(orient="index")
+
+        return ref_dict.get(id_value, {})
+
+    @classmethod
+    def readout(cls, std_id_value: tuple) -> dict:
         from bioreadout import readout
 
-        entry = readout(efo_id=efo_id)
-        for k, v in entry.items():
-            if isinstance(v, list):
-                entry[k] = ";".join(v)
+        id_field, id_value = std_id_value
+        assert id_field == "efo_id"
+        assert sum(i.isdigit() for i in id_value) == 7
+        id_value = id_value.replace("_", ":")
+
+        return readout(efo_id=id_value)
+
+
+class InsertBase:
+    @classmethod
+    def add(cls, model, kwargs: dict, force=False):
+        if not force:
+            if cls.exists(table_name=model.__name__, kwargs=kwargs):
+                return
+
         with sqm.Session(settings.instance.db_engine()) as session:
-            readout = schema.wetlab.readout(**entry)
-            session.add(readout)
-            session.commit()
-            session.refresh(readout)
-        logger.success(
-            f"Inserted entry {colors.green(f'{readout.id}')} into"
-            f" {colors.blue('readout')}."
-        )
-
-        settings.instance._update_cloud_sqlite_file()
-
-        return readout.id
-
-
-def insert_from_df(df: pd.DataFrame, schema_table: str, column_map: dict = {}):
-    """Insert entries provided by a DataFrame."""
-    mapper = {k: _camel_to_snake(k) for k in df.columns if k not in column_map.keys()}
-    mapper.update(column_map)
-
-    # subset to columns that exist in the schema table
-    table = alltables.get(schema_table)
-    if table is None:
-        raise AttributeError(f"Table {schema_table} is not found.")
-    else:
-        fields = table.__fields__.keys()
-
-    df = df.rename(columns=mapper).copy()
-    df = df[df.columns.intersection(fields)]
-    if df.shape[1] == 0:
-        raise AssertionError(
-            "No columns can be mapped between input DataFrame and table"
-            f" {schema_table}."
-        )
-
-    # insert entries into the table
-    entries = df.to_dict(orient="index")
-    entry_ids = {}
-    for idx, entry in entries.items():
-        entry_ids[idx] = getattr(insert, schema_table)(**entry)
-
-    return entry_ids
-
-
-def _create_insert_func(name: str, schema_module):
-    def insert_func(cls, **kwargs):
-        with sqm.Session(settings.instance.db_engine()) as session:
-            entry = schema_module(**kwargs)
+            entry = model(**kwargs)
             session.add(entry)
             session.commit()
             session.refresh(entry)
+
+        settings.instance._update_cloud_sqlite_file()
+
+        return entry
+
+    @classmethod
+    def exists(cls, table_name, kwargs):
+        results = getattr(query, table_name)(**kwargs).all()
+        if len(results) == 0:
+            return False
+        return True
+
+    @classmethod
+    def is_unique(cls, model, column: str):
+        return model.__table__.columns.get(column).unique
+
+    @classmethod
+    def insert_from_list(cls, entries: Iterable[dict], table_name: str):
+        """Insert entries provided by a list of kwargs."""
+        model = Table.get_model(table_name)
+        added = {}
+        with sqm.Session(settings.instance.db_engine()) as session:
+            for i, kwargs in enumerate(entries):
+                added[i] = model(**kwargs)
+                session.add(added[i])
+            session.commit()
+            for i, kwargs in enumerate(entries):
+                session.refresh(added[i])
+
+        # fetch the ids
+        if "id" in Table.get_pks(table_name):
+            for k, v in added.items():
+                added[k] = v.id
+        else:
+            for k, v in added.items():
+                added[k] = v
+
+        # returns {index : pk}
+        return added
+
+    @classmethod
+    def insert_from_df(cls, df: pd.DataFrame, table_name: str, column_map: dict = {}):
+        """Insert entries provided by a DataFrame."""
+        mapper = {
+            k: _camel_to_snake(k) for k in df.columns if k not in column_map.keys()
+        }
+        mapper.update(column_map)
+
+        # subset to columns that exist in the schema table
+        fields = Table.get_model(table_name).__fields__.keys()
+
+        df = df.rename(columns=mapper).copy()
+        df = df[df.columns.intersection(fields)]
+        if df.shape[1] == 0:
+            raise AssertionError(
+                "No columns can be mapped between input DataFrame and table"
+                f" {table_name}."
+            )
+
+        # insert entries into the table
+        entries = df.to_dict(orient="index")
+        entry_ids = {}
+        for idx, entry in entries.items():
+            entry_ids[idx] = getattr(insert, table_name)(**entry)
+
+        return entry_ids
+
+
+def _create_insert_func(model):
+    def insert_func(cls, force=False, **kwargs):
         try:
-            entry_id = entry.id
+            reference = getattr(FieldPopulator, model.__name__)
+            if len(kwargs) > 1:
+                raise AssertionError(
+                    "Please only provide a unique column id in the reference table."
+                )
+
+            std_id = next(iter(kwargs))
+            if not InsertBase.is_unique(model, std_id):
+                raise AssertionError("Please provide a unique column.")
+
+            std_value = kwargs[std_id]
+            toadd = reference(std_id_value=(std_id, std_value))
+            kwargs.update(
+                **{k: v for k, v in toadd.items() if k in model.__fields__.keys()}
+            )
+            entry = InsertBase.add(model=model, kwargs=kwargs, force=force)
         except AttributeError:
+            entry = InsertBase.add(model=model, kwargs=kwargs, force=force)
+
+        if entry is None:
+            return
+
+        pks = Table.get_pks(model)
+        if "id" in pks:
+            entry_id = entry.id
+        else:
             entry_id = entry
-        if name not in ["usage", "dobject"]:
+        if model.__name__ not in ["usage", "dobject"]:  # no logging
             logger.success(
                 f"Inserted entry {colors.green(f'{entry_id}')} into"
-                f" {colors.blue(f'{name}')}."
+                f" {colors.blue(f'{model.__name__}')}."
             )
 
         settings.instance._update_cloud_sqlite_file()
 
         return entry_id
 
-    insert_func.__name__ = name
+    insert_func.__name__ = model.__name__
     return insert_func
 
 
@@ -289,17 +328,20 @@ class insert:
 
     Example:
     >>> insert.{entity}(id=1, name='new_experiment')
+
+    Returns:
+        id of the inserted entry
+        None if entry already exists
     """
 
     pass
 
 
-for name, schema_module in alltables.items():
-    func = _create_insert_func(name=name, schema_module=schema_module)
-    setattr(insert, name, classmethod(func))
+for model in Table.list_models():
+    func = _create_insert_func(model=model)
+    setattr(insert, model.__name__, classmethod(func))
 
 setattr(insert, "dobject_from_jupynb", dobject_from_jupynb)
-setattr(insert, "species", insert_species)
 setattr(insert, "features", features)
-setattr(insert, "readout", readout)
-setattr(insert, "from_df", insert_from_df)
+setattr(insert, "from_df", InsertBase.insert_from_df)
+setattr(insert, "from_list", InsertBase.insert_from_list)

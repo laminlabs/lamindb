@@ -5,12 +5,12 @@ import bionty as bt
 import pandas as pd
 from lndb_setup import settings
 from sqlalchemy import inspect
-from sqlalchemy.orm.exc import MultipleResultsFound, NoResultFound
 from sqlmodel import Session, select
 
 from .. import schema
 from ..dev import track_usage
-from ..schema._schema import alltables
+from ..dev.db import exception
+from ..schema._table import Table
 
 
 def _query_stmt(statement, results_type="all"):
@@ -378,9 +378,9 @@ class FilterQueryResultList:
 
     def one(self):
         if len(self._results) == 0:
-            raise NoResultFound
+            raise exception.NoResultFound
         elif len(self._results) > 1:
-            raise MultipleResultsFound
+            raise exception.MultipleResultsFound
         else:
             results = self._filter()
             if isinstance(results, pd.DataFrame):
@@ -389,7 +389,7 @@ class FilterQueryResultList:
 
     def first(self):
         if len(self._results) == 0:
-            raise NoResultFound
+            raise exception.NoResultFound
         else:
             results = self._filter()
             if isinstance(results, pd.DataFrame):
@@ -403,7 +403,7 @@ class query:
     pass
 
 
-for name, schema_module in alltables.items():
+for name, schema_module in Table.all.items():
     func = _create_query_func(name=name, schema_module=schema_module)
     setattr(query, name, classmethod(func))
 

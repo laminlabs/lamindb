@@ -4,7 +4,7 @@ from sqlmodel import Session
 from .._logger import colors, logger
 from ..dev import storage_key_from_dobject, track_usage
 from ..dev.file import delete_file
-from ..schema._schema import alltables
+from ..schema._table import Table
 
 
 def _create_delete_func(name: str, schema_module):
@@ -42,6 +42,6 @@ class delete:
     pass
 
 
-for name, schema_module in alltables.items():
+for name, schema_module in Table.all.items():
     func = _create_delete_func(name=name, schema_module=schema_module)
     setattr(delete, name, classmethod(func))
