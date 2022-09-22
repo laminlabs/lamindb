@@ -3,6 +3,7 @@
 <!-- prettier-ignore -->
 Name | PR | Developer | Date | Version
 --- | --- | --- | --- | ---
+⬆️ Upgrade `lndb_setup` and `lnschema_bionty` | [212](https://github.com/laminlabs/lamindb/pull/212) | [falexwolf](https://github.com/falexwolf) | 2022-09-22 |
 ⬆️ Upgrade to core schema 0.7.2 | [208](https://github.com/laminlabs/lamindb/pull/208) | [falexwolf](https://github.com/falexwolf) | 2022-09-21 |
 🚑 Setup dtransform to be either pipeline_run or jupynb | [207](https://github.com/laminlabs/lamindb/pull/207) | [sunnyosun](https://github.com/sunnyosun) | 2022-09-21 | 0.3.11
 🐛 Fixed column mapping | [206](https://github.com/laminlabs/lamindb/pull/206) | [sunnyosun](https://github.com/sunnyosun) | 2022-09-19 | 0.3.10
