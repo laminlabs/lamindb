@@ -7,6 +7,7 @@ from lamin_logger import colors, logger
 from lnbfx import BfxRun
 from lndb_setup import settings
 from lnschema_core import id
+from sqlalchemy.orm.exc import NoResultFound
 
 from .. import schema
 from ..schema._table import Table
@@ -95,7 +96,10 @@ def features(
 
     Meanwhile inserting features and linking them to the featureset.
     """
-    species_id = getattr(insert, "species")(common_name=species)
+    try:
+        species_id = getattr(query, "species")(common_name=species).one()
+    except NoResultFound:
+        species_id = getattr(insert, "species")(common_name=species)
 
     # check if geneset exists
     if featureset_name is not None:
