@@ -15,6 +15,10 @@ class Table:
             all[table.__name__] = table
 
     @classmethod
+    def list_models(cls):
+        return list(cls.all.values())
+
+    @classmethod
     def get_model(cls, table_name):
         model = cls.all.get(table_name)
         if model is None:
@@ -22,10 +26,10 @@ class Table:
         return model
 
     @classmethod
-    def get_pks(cls, table_name):
-        return [
-            i.name
-            for i in cls.get_model(
-                table_name=table_name
-            ).__table__.primary_key.columns.values()
-        ]
+    def get_pks(cls, table):
+        if isinstance(table, str):
+            model = cls.get_model(table_name=table)
+        else:
+            model = table
+
+        return [i.name for i in model.__table__.primary_key.columns.values()]
