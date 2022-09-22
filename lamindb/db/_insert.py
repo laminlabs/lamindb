@@ -201,7 +201,7 @@ class FieldPopulator:
         id_field, id_value = std_id_value
         ref_dict = Species(id=id_field).df.to_dict(orient="index")
 
-        return ref_dict.get(ref_dict, {})
+        return ref_dict.get(id_value, {})
 
     @classmethod
     def readout(cls, std_id_value: tuple) -> dict:
