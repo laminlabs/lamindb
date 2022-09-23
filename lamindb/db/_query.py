@@ -47,7 +47,7 @@ def _return_query_results_as_df(results, schema_module):
 def _create_query_func(model):
     """Autogenerate query functions for each entity table."""
 
-    def query_func(cls, as_df=False, **kwargs):
+    def query_func(as_df=False, **kwargs):
         """Query metadata from tables."""
         return Query(model=model, as_df=as_df, kwargs=kwargs)
 
