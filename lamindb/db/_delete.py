@@ -7,10 +7,12 @@ from ..dev.file import delete_file
 from ..schema._table import Table
 
 
-def _create_delete_func(name: str, schema_module):
-    def delete_func(cls, key):
+def _create_delete_func(model):
+    name = model.__name__
+
+    def delete_func(key):
         with Session(settings.instance.db_engine()) as session:
-            entry = session.get(schema_module, key)
+            entry = session.get(model, key)
             session.delete(entry)
             session.commit()
             settings.instance._update_cloud_sqlite_file()
@@ -42,6 +44,6 @@ class delete:
     pass
 
 
-for name, schema_module in Table.all.items():
-    func = _create_delete_func(name=name, schema_module=schema_module)
-    setattr(delete, name, classmethod(func))
+for model in Table.list_models():
+    func = _create_delete_func(model=model)
+    setattr(delete, model.__name__, staticmethod(func))

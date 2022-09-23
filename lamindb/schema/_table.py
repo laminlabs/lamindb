@@ -33,3 +33,12 @@ class Table:
             model = table
 
         return [i.name for i in model.__table__.primary_key.columns.values()]
+
+    @classmethod
+    def get_fields(cls, table):
+        if isinstance(table, str):
+            model = cls.get_model(table_name=table)
+        else:
+            model = table
+
+        return list(model.__fields__.keys())

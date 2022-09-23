@@ -3,6 +3,7 @@
 <!-- prettier-ignore -->
 Name | PR | Developer | Date | Version
 --- | --- | --- | --- | ---
+🧱 Improved code infra | [216](https://github.com/laminlabs/lamindb/pull/216) | [sunnyosun](https://github.com/sunnyosun) | 2022-09-23 | 0.4.0
 ✨ Account for multiple `filepath` suffixes | [214](https://github.com/laminlabs/lamindb/pull/214) | [falexwolf](https://github.com/falexwolf) | 2022-09-23 |
 ♻️ Refactored feature model ingestion | [213](https://github.com/laminlabs/lamindb/pull/213) | [sunnyosun](https://github.com/sunnyosun) | 2022-09-23 |
 ♻️ Refactored insert | [211](https://github.com/laminlabs/lamindb/pull/211) | [sunnyosun](https://github.com/sunnyosun) | 2022-09-22 |
