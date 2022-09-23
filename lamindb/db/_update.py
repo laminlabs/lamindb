@@ -6,10 +6,12 @@ from ..dev import track_usage
 from ..schema._table import Table
 
 
-def _create_update_func(name: str, schema_module):
-    def update_func(cls, key, **kwargs):
+def _create_update_func(model):
+    name = model.__name__
+
+    def update_func(key, **kwargs):
         with Session(settings.instance.db_engine()) as session:
-            entry = session.get(schema_module, key)
+            entry = session.get(model, key)
             for k, v in kwargs.items():
                 if isinstance(k, tuple):
                     k[1] = int(k[1])
@@ -39,6 +41,6 @@ class update:
     pass
 
 
-for name, schema_module in Table.all.items():
-    func = _create_update_func(name=name, schema_module=schema_module)
-    setattr(update, name, classmethod(func))
+for model in Table.list_models():
+    func = _create_update_func(model=model)
+    setattr(update, model.__name__, staticmethod(func))
