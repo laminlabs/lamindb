@@ -20,20 +20,21 @@ class Ingest:
     """Ingest dobject."""
 
     def __init__(self) -> None:
-        self._added: Dict = {}
-        self._features: Dict = {}
-        self._pipeline_runs: Dict = {}
-        self._logs: Dict = {}
+        self._added: Dict = {}  # staged dobjects and pipeline runs
+        self._feature_models: Dict = {}  # feature_models
+        self._pipeline_runs: Dict = {}  # pipeline runs
 
     @property
-    def status(self) -> dict:
-        """Added dobjects for ingestion."""
-        return {k.as_posix(): v for k, v in self._added.items()}
+    def status(self) -> list:
+        """Staged dobjects and pipeline runs for ingestion."""
+        added_list = []
+        for k, v in self._added.items():
+            entry = dict(filepath=k.as_posix(), dobject_id=v[0], dobject_v=v[1])
+            if k in self._feature_models.keys():
+                entry["feature_model"] = self._feature_models[k]
+            added_list.append(entry)
 
-    @property
-    def logs(self) -> dict:
-        """Logs of feature annotation."""
-        return {k.as_posix(): v for k, v in self._logs.items()}
+        return added_list
 
     def add(
         self,
@@ -60,12 +61,12 @@ class Ingest:
         # stage dobject
         filepath = IngestObject.add(
             self,  # type: ignore
-            dobject,
-            name,
-            feature_model,
-            featureset_name,
-            dobject_id,
-            dobject_v,
+            dobject=dobject,
+            name=name,
+            feature_model=feature_model,
+            featureset_name=featureset_name,
+            dobject_id=dobject_id,
+            dobject_v=dobject_v,
         )
 
         # stage pipeline entities (runs, pipelines) and link their dobjects
@@ -261,9 +262,10 @@ class IngestObject:
                     df = dmem
             except AttributeError:
                 df = dmem
-            ingest._features[filepath], ingest._logs[filepath] = link.feature_model(
+            curated = link.feature_model(
                 df=df, feature_model=feature_model, featureset_name=featureset_name
             )
+            ingest._feature_models[filepath] = curated
 
         ingest._added[filepath] = primary_key
 
@@ -297,9 +299,10 @@ class IngestObject:
                 ]
             )
 
-            if ingest._features.get(filepath) is not None:
-                fm, df_curated = ingest._features.get(filepath)
-                fm.ingest(dobject_id, df_curated)
+            # ingest with feature models
+            curated = ingest._feature_models.get(filepath)
+            if curated is not None:
+                curated["model"].ingest(dobject_id, curated["df_curated"])
 
         return logs
 
@@ -333,16 +336,24 @@ class IngestObject:
         pipeline_run,
     ):
         """Insert and store dobject."""
-        dobject_id = insert.dobject_from_jupynb(
-            name=filepath.stem,
-            suffix=filepath.suffix,
-            jupynb_id=jupynb_id,
-            jupynb_v=jupynb_v,
-            jupynb_name=jupynb_name,
-            dobject_id=dobject_id,
-            dobject_v=dobject_v,
-            pipeline_run=pipeline_run,
-        )
+        if pipeline_run is None:
+            dobject_id = insert.dobject_from_jupynb(
+                name=filepath.stem,
+                suffix=filepath.suffix,
+                jupynb_id=jupynb_id,
+                jupynb_v=jupynb_v,
+                jupynb_name=jupynb_name,
+                dobject_id=dobject_id,
+                dobject_v=dobject_v,
+            )
+        else:
+            dobject_id = insert.dobject_from_pipeline(
+                name=filepath.stem,
+                suffix=filepath.suffix,
+                dobject_id=dobject_id,
+                dobject_v=dobject_v,
+                pipeline_run=pipeline_run,
+            )
 
         dobject_storage_key = storage_key_from_triple(
             dobject_id, dobject_v, filepath.suffix

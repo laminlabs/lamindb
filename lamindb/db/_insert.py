@@ -8,7 +8,6 @@ from lnbfx import BfxRun
 from lndb_setup import settings
 from lnschema_core import id
 
-from .. import schema
 from ..schema._table import Table
 from ._query import query
 
@@ -25,6 +24,53 @@ def _camel_to_snake(string: str) -> str:
     return string.lower()
 
 
+def dobject_from_dtransform(
+    dobject_name: str,
+    dtransform_id: str,
+    dobject_suffix: str = None,
+    dobject_id: str = None,
+    dobject_v: str = "1",
+):
+    storage = getattr(query, "storage")(root=str(settings.instance.storage_dir)).first()
+    if dobject_id is None:
+        dobject_id = id.dobject()
+
+    dobject_id = getattr(insert, "dobject")(
+        id=dobject_id,
+        v=dobject_v,
+        name=dobject_name,
+        dtransform_id=dtransform_id,
+        suffix=dobject_suffix,
+        storage_id=storage.id,
+    )
+
+    return dobject_id
+
+
+def dobject_from_pipeline(
+    name: str,
+    pipeline_run: BfxRun,
+    suffix: str = None,
+    dobject_id: str = None,
+    dobject_v: str = "1",
+):
+    result = getattr(query, "dtransform")(pipeline_run_id=pipeline_run.run_id).all()
+    if len(result) == 0:
+        dtransform_id = getattr(insert, "dtransform")(
+            pipeline_run_id=pipeline_run.run_id
+        )
+    else:
+        dtransform_id = result[0].id
+
+    return dobject_from_dtransform(
+        dobject_name=name,
+        dobject_suffix=suffix,
+        dobject_id=dobject_id,
+        dobject_v=dobject_v,
+        dtransform_id=dtransform_id,
+    )
+
+
 def dobject_from_jupynb(
     *,
     name: str,
@@ -34,55 +80,38 @@ def dobject_from_jupynb(
     jupynb_name: str,
     dobject_id: str = None,
     dobject_v: str = "1",
-    pipeline_run: BfxRun = None,
 ):
     """Data object from jupynb."""
-    if pipeline_run is None:
-        result = getattr(query, "jupynb")(id=jupynb_id, v=jupynb_v).all()
-        if len(result) == 0:
-            jupynb_id = getattr(insert, "jupynb")(
-                id=jupynb_id,
-                v=jupynb_v,
-                name=jupynb_name,
-                user_id=settings.user.id,
-            )
-            # dtransform entry
-            dtransform_id = getattr(insert, "dtransform")(
-                jupynb_id=jupynb_id, jupynb_v=jupynb_v
-            )
-            logger.info(
-                f"Added notebook {jupynb_name!r} ({jupynb_id}, {jupynb_v}) by"
-                f" user {settings.user.handle}."
-            )
-        else:
-            dtransform_id = (
-                getattr(query, "dtransform")(jupynb_id=jupynb_id, jupynb_v=jupynb_v)
-                .one()
-                .id
-            )
+    result = getattr(query, "jupynb")(id=jupynb_id, v=jupynb_v).all()
+    if len(result) == 0:
+        jupynb_id = getattr(insert, "jupynb")(
+            id=jupynb_id,
+            v=jupynb_v,
+            name=jupynb_name,
+            user_id=settings.user.id,
+        )
+        # dtransform entry
+        dtransform_id = getattr(insert, "dtransform")(
+            jupynb_id=jupynb_id, jupynb_v=jupynb_v
+        )
+        logger.info(
+            f"Added notebook {jupynb_name!r} ({jupynb_id}, {jupynb_v}) by"
+            f" user {settings.user.handle}."
+        )
     else:
-        result = getattr(query, "dtransform")(pipeline_run_id=pipeline_run.run_id).all()
-        if len(result) == 0:
-            dtransform_id = getattr(insert, "dtransform")(
-                pipeline_run_id=pipeline_run.run_id
-            )
-        else:
-            dtransform_id = result[0].id
+        dtransform_id = (
+            getattr(query, "dtransform")(jupynb_id=jupynb_id, jupynb_v=jupynb_v)
+            .one()
+            .id
+        )
 
-    storage = getattr(query, "storage")(root=str(settings.instance.storage_dir)).first()
-    if dobject_id is None:
-        dobject_id = id.dobject()
-
-    dobject_id = getattr(insert, "dobject")(
-        id=dobject_id,
-        v=dobject_v,
-        name=name,
+    return dobject_from_dtransform(
+        dobject_name=name,
+        dobject_suffix=suffix,
+        dobject_id=dobject_id,
+        dobject_v=dobject_v,
         dtransform_id=dtransform_id,
-        suffix=suffix,
-        storage_id=storage.id,
     )
-
-    return dobject_id
 
 
 def features(
@@ -123,54 +152,27 @@ def features(
         exist_feature_keys.add(feature.__getattribute__(feature_id))
         exist_feature_ids.add(feature.id)
 
-    engine = settings.instance.db_engine()
-
     # add a featureset to the featureset table
-    with sqm.Session(engine) as session:
-        featureset = schema.bionty.featureset(
-            feature_entity=feature_entity,
-            name=featureset_name,
-        )
-        session.add(featureset)
-        session.commit()
-        session.refresh(featureset)
+    featureset_id = getattr(insert, "featureset")(
+        feature_entity=feature_entity, name=featureset_name
+    )
 
     # add features to the feature table
-    with sqm.Session(engine) as session:
-        features_ins = []
-        for k, v in features_dict.items():
-            if k in exist_feature_keys:
-                continue
-            feature_schema = getattr(schema.bionty, feature_entity)
-            feature = feature_schema(
-                **v,
-                species_id=species_id,
-            )
-            session.add(feature)
-            features_ins.append(feature)
-        session.commit()
-        for feature in features_ins:
-            session.refresh(feature)
+    kwargs_list = []
+    for k, v in features_dict.items():
+        if k in exist_feature_keys:
+            continue
+        kwargs_list.append(v)
+    added = InsertBase.insert_from_list(kwargs_list, feature_entity)
+    feature_ids = list(added.values()) + list(exist_feature_ids)
+    for feature_id in feature_ids:
+        kwargs = {
+            "featureset_id": featureset_id,
+            f"{feature_entity}_id": feature_id,
+        }
+        _ = getattr(insert, f"featureset_{feature_entity}")(**kwargs)
 
-    # insert ids into the link table
-    feature_ids = [i.id for i in features_ins]
-    feature_ids += exist_feature_ids
-    with sqm.Session(engine) as session:
-        for feature_id in feature_ids:
-            featureset_link_module = getattr(
-                schema.bionty, f"featureset_{feature_entity}"
-            )
-            query_dict = {
-                "featureset_id": featureset.id,
-                f"{feature_entity}_id": feature_id,
-            }
-            link = featureset_link_module(**query_dict)
-            session.add(link)
-        session.commit()
-
-    settings.instance._update_cloud_sqlite_file()
-
-    return featureset.id
+    return featureset_id
 
 
 class FieldPopulator:
@@ -242,11 +244,11 @@ class InsertBase:
 
         # fetch the ids
         if "id" in Table.get_pks(table_name):
-            for k, v in added.items():
-                added[k] = v.id
+            for i, v in added.items():
+                added[i] = v.id
         else:
-            for k, v in added.items():
-                added[k] = v
+            for i, v in added.items():
+                added[i] = v
 
         # returns {index : pk}
         return added
@@ -342,6 +344,7 @@ for model in Table.list_models():
     setattr(insert, model.__name__, classmethod(func))
 
 setattr(insert, "dobject_from_jupynb", dobject_from_jupynb)
+setattr(insert, "dobject_from_pipeline", dobject_from_pipeline)
 setattr(insert, "features", features)
 setattr(insert, "from_df", InsertBase.insert_from_df)
 setattr(insert, "from_list", InsertBase.insert_from_list)
