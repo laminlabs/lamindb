@@ -24,14 +24,22 @@ class Ingest:
         self._ingest_bfx: List = []
 
     @property
-    def status(self) -> dict:
+    def status(self) -> list:
         """Added dobjects for ingestion."""
-        dobjects = {}  # type: ignore
-        ingest_entities = [self._ingest_object] + self._ingest_bfx
+        added_dobjects = {}  # type: ignore
+        ingest_entities = self._ingest_bfx[:]
+        ingest_entities.insert(0, self._ingest_object)
         for ingest in ingest_entities:
-            ingest_dobjects = {k.as_posix(): v for k, v in ingest.dobjects.items()}
-            dobjects = {**dobjects, **ingest_dobjects}
-        return dobjects
+            added_dobjects = {**added_dobjects, **ingest.dobjects}
+
+        added_list = []
+        for k, v in added_dobjects.items():
+            entry = dict(filepath=k.as_posix(), dobject_id=v[0], dobject_v=v[1])
+            if k in self._ingest_object.feature_models.keys():
+                entry["feature_model"] = self._ingest_object.feature_models[k]
+            added_list.append(entry)
+
+        return added_list
 
     def add(
         self,
@@ -99,13 +107,18 @@ class IngestObject:
 
     def __init__(self) -> None:
         self._dobjects: Dict = {}
-        self._features: Dict = {}
+        self._feature_models: Dict = {}
         self._ingestion_logs: List = []
 
     @property
     def dobjects(self) -> Dict:
         """Added dobjects for ingestion."""
-        return {k: v for k, v in self._dobjects.items()}
+        return self._dobjects
+
+    @property
+    def feature_models(self) -> Dict:
+        """Added feature models."""
+        return self._feature_models
 
     def add(
         self,
@@ -149,7 +162,10 @@ class IngestObject:
                     df = dmem
             except AttributeError:
                 df = dmem
-            self._features[filepath], self._feature_logs[filepath] = link.feature_model(
+            (
+                self._feature_models[filepath],
+                self._feature_logs[filepath],
+            ) = link.feature_model(
                 df=df, feature_model=feature_model, featureset_name=featureset_name
             )
 
@@ -181,8 +197,8 @@ class IngestObject:
                 ]
             )
 
-            if self._features.get(filepath) is not None:
-                fm, df_curated = self._features.get(filepath)
+            if self._feature_models.get(filepath) is not None:
+                fm, df_curated = self._feature_models.get(filepath)
                 fm.ingest(dobject_id, df_curated)
 
     def log(self):
@@ -219,7 +235,7 @@ class IngestBfxRun:
     def dobjects(self) -> Dict:
         """Added dobjects for ingestion."""
         dobjects = {**self._inputs, **self._outputs}
-        return {k: v for k, v in dobjects.items()}
+        return dobjects
 
     def add(self, run: BfxRun, *args):
         """Stage pipeline run entities for ingestion."""
