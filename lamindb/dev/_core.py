@@ -1,7 +1,17 @@
+from pathlib import Path
+from typing import Union
+
+from cloudpathlib import CloudPath
 from lndb_setup import settings
 from lnschema_core import dobject, type
 
 from lamindb import db
+
+
+def get_name_suffix_from_filepath(filepath: Union[Path, CloudPath]):
+    suffix = "".join(filepath.suffixes)
+    name = filepath.name.replace(suffix, "")
+    return name, suffix
 
 
 def storage_key_from_dobject(dobj: dobject):

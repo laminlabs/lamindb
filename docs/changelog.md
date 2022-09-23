@@ -3,6 +3,8 @@
 <!-- prettier-ignore -->
 Name | PR | Developer | Date | Version
 --- | --- | --- | --- | ---
+✨ Account for multiple `filepath` suffixes | [214](https://github.com/laminlabs/lamindb/pull/214) | [falexwolf](https://github.com/falexwolf) | 2022-09-23 |
+♻️ Refactored feature model ingestion | [213](https://github.com/laminlabs/lamindb/pull/213) | [sunnyosun](https://github.com/sunnyosun) | 2022-09-23 |
 ♻️ Refactored insert | [211](https://github.com/laminlabs/lamindb/pull/211) | [sunnyosun](https://github.com/sunnyosun) | 2022-09-22 |
 ⬆️ Upgrade `lndb_setup` and `lnschema_bionty` | [212](https://github.com/laminlabs/lamindb/pull/212) | [falexwolf](https://github.com/falexwolf) | 2022-09-22 |
 ⬆️ Upgrade to core schema 0.7.2 | [208](https://github.com/laminlabs/lamindb/pull/208) | [falexwolf](https://github.com/falexwolf) | 2022-09-21 |

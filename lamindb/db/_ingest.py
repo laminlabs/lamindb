@@ -7,6 +7,8 @@ from lnbfx.dev import get_bfx_files_from_dir
 from lndb_setup import settings
 from lnschema_core import id
 
+from lamindb.dev._core import get_name_suffix_from_filepath
+
 from .._logger import colors, logger
 from ..dev import format_pipeline_logs, storage_key_from_triple, track_usage
 from ..dev.file import load_to_memory, store_file
@@ -336,10 +338,12 @@ class IngestObject:
         pipeline_run,
     ):
         """Insert and store dobject."""
+        name, suffix = get_name_suffix_from_filepath(filepath)
+
         if pipeline_run is None:
             dobject_id = insert.dobject_from_jupynb(
-                name=filepath.stem,
-                suffix=filepath.suffix,
+                name=name,
+                suffix=suffix,
                 jupynb_id=jupynb_id,
                 jupynb_v=jupynb_v,
                 jupynb_name=jupynb_name,
@@ -348,16 +352,14 @@ class IngestObject:
             )
         else:
             dobject_id = insert.dobject_from_pipeline(
-                name=filepath.stem,
-                suffix=filepath.suffix,
+                name=name,
+                suffix=suffix,
                 dobject_id=dobject_id,
                 dobject_v=dobject_v,
                 pipeline_run=pipeline_run,
             )
 
-        dobject_storage_key = storage_key_from_triple(
-            dobject_id, dobject_v, filepath.suffix
-        )
+        dobject_storage_key = storage_key_from_triple(dobject_id, dobject_v, suffix)
         try:
             store_file(filepath, dobject_storage_key)
         except SameFileError:
