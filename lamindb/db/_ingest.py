@@ -61,12 +61,12 @@ class Ingest:
         # stage dobject
         filepath = IngestObject.add(
             self,  # type: ignore
-            dobject,
-            name,
-            feature_model,
-            featureset_name,
-            dobject_id,
-            dobject_v,
+            dobject=dobject,
+            name=name,
+            feature_model=feature_model,
+            featureset_name=featureset_name,
+            dobject_id=dobject_id,
+            dobject_v=dobject_v,
         )
 
         # stage pipeline entities (runs, pipelines) and link their dobjects
@@ -336,16 +336,24 @@ class IngestObject:
         pipeline_run,
     ):
         """Insert and store dobject."""
-        dobject_id = insert.dobject_from_jupynb(
-            name=filepath.stem,
-            suffix=filepath.suffix,
-            jupynb_id=jupynb_id,
-            jupynb_v=jupynb_v,
-            jupynb_name=jupynb_name,
-            dobject_id=dobject_id,
-            dobject_v=dobject_v,
-            pipeline_run=pipeline_run,
-        )
+        if pipeline_run is None:
+            dobject_id = insert.dobject_from_jupynb(
+                name=filepath.stem,
+                suffix=filepath.suffix,
+                jupynb_id=jupynb_id,
+                jupynb_v=jupynb_v,
+                jupynb_name=jupynb_name,
+                dobject_id=dobject_id,
+                dobject_v=dobject_v,
+            )
+        else:
+            dobject_id = insert.dobject_from_pipeline(
+                name=filepath.stem,
+                suffix=filepath.suffix,
+                dobject_id=dobject_id,
+                dobject_v=dobject_v,
+                pipeline_run=pipeline_run,
+            )
 
         dobject_storage_key = storage_key_from_triple(
             dobject_id, dobject_v, filepath.suffix

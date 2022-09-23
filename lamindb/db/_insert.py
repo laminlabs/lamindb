@@ -25,6 +25,53 @@ def _camel_to_snake(string: str) -> str:
     return string.lower()
 
 
+def dobject_from_dtransform(
+    dobject_name: str,
+    dtransform_id: str,
+    dobject_suffix: str = None,
+    dobject_id: str = None,
+    dobject_v: str = "1",
+):
+    storage = getattr(query, "storage")(root=str(settings.instance.storage_dir)).first()
+    if dobject_id is None:
+        dobject_id = id.dobject()
+
+    dobject_id = getattr(insert, "dobject")(
+        id=dobject_id,
+        v=dobject_v,
+        name=dobject_name,
+        dtransform_id=dtransform_id,
+        suffix=dobject_suffix,
+        storage_id=storage.id,
+    )
+
+    return dobject_id
+
+
+def dobject_from_pipeline(
+    name: str,
+    pipeline_run: BfxRun,
+    suffix: str = None,
+    dobject_id: str = None,
+    dobject_v: str = "1",
+):
+    result = getattr(query, "dtransform")(pipeline_run_id=pipeline_run.run_id).all()
+    if len(result) == 0:
+        dtransform_id = getattr(insert, "dtransform")(
+            pipeline_run_id=pipeline_run.run_id
+        )
+    else:
+        dtransform_id = result[0].id
+
+    return dobject_from_dtransform(
+        dobject_name=name,
+        dobject_suffix=suffix,
+        dobject_id=dobject_id,
+        dobject_v=dobject_v,
+        dtransform_id=dtransform_id,
+    )
+
+
 def dobject_from_jupynb(
     *,
     name: str,
@@ -34,55 +81,38 @@ def dobject_from_jupynb(
     jupynb_name: str,
     dobject_id: str = None,
     dobject_v: str = "1",
-    pipeline_run: BfxRun = None,
 ):
     """Data object from jupynb."""
-    if pipeline_run is None:
-        result = getattr(query, "jupynb")(id=jupynb_id, v=jupynb_v).all()
-        if len(result) == 0:
-            jupynb_id = getattr(insert, "jupynb")(
-                id=jupynb_id,
-                v=jupynb_v,
-                name=jupynb_name,
-                user_id=settings.user.id,
-            )
-            # dtransform entry
-            dtransform_id = getattr(insert, "dtransform")(
-                jupynb_id=jupynb_id, jupynb_v=jupynb_v
-            )
-            logger.info(
-                f"Added notebook {jupynb_name!r} ({jupynb_id}, {jupynb_v}) by"
-                f" user {settings.user.handle}."
-            )
-        else:
-            dtransform_id = (
-                getattr(query, "dtransform")(jupynb_id=jupynb_id, jupynb_v=jupynb_v)
-                .one()
-                .id
-            )
+    result = getattr(query, "jupynb")(id=jupynb_id, v=jupynb_v).all()
+    if len(result) == 0:
+        jupynb_id = getattr(insert, "jupynb")(
+            id=jupynb_id,
+            v=jupynb_v,
+            name=jupynb_name,
+            user_id=settings.user.id,
+        )
+        # dtransform entry
+        dtransform_id = getattr(insert, "dtransform")(
+            jupynb_id=jupynb_id, jupynb_v=jupynb_v
+        )
+        logger.info(
+            f"Added notebook {jupynb_name!r} ({jupynb_id}, {jupynb_v}) by"
+            f" user {settings.user.handle}."
+        )
     else:
-        result = getattr(query, "dtransform")(pipeline_run_id=pipeline_run.run_id).all()
-        if len(result) == 0:
-            dtransform_id = getattr(insert, "dtransform")(
-                pipeline_run_id=pipeline_run.run_id
-            )
-        else:
-            dtransform_id = result[0].id
+        dtransform_id = (
+            getattr(query, "dtransform")(jupynb_id=jupynb_id, jupynb_v=jupynb_v)
+            .one()
+            .id
+        )
 
-    storage = getattr(query, "storage")(root=str(settings.instance.storage_dir)).first()
-    if dobject_id is None:
-        dobject_id = id.dobject()
-
-    dobject_id = getattr(insert, "dobject")(
-        id=dobject_id,
-        v=dobject_v,
-        name=name,
+    return dobject_from_dtransform(
+        dobject_name=name,
+        dobject_suffix=suffix,
+        dobject_id=dobject_id,
+        dobject_v=dobject_v,
         dtransform_id=dtransform_id,
-        suffix=suffix,
-        storage_id=storage.id,
     )
-
-    return dobject_id
 
 
 def features(

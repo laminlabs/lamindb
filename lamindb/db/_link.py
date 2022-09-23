@@ -82,6 +82,7 @@ class link:
     def feature_model(
         cls, df: pd.DataFrame, feature_model, featureset_name: str = None
     ):
+        """Curate a DataFrame with a feature model."""
         fm = LinkFeatureModel(feature_model, featureset_name=featureset_name)
         df_curated, log = fm.curate(df)
 
