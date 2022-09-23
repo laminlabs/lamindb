@@ -120,35 +120,6 @@ def query_dobject(
     return FilterQueryResultList(model=model, results=results, as_df=as_df)
 
 
-def query_biometa_from_dobject(
-    id: int = None,
-    experiment_id: int = None,
-    biosample_id: int = None,
-    readout_id: int = None,
-    featureset_id: int = None,
-    dobject_id: str = None,
-    as_df: bool = False,
-):
-    """Query from biometa.
-
-    If dobject_id is provided, will search in the dobject_biometa first.
-    """
-    model = Table.get_model("biometa")
-    kwargs = {k: v for k, v in locals().items() if k in Table.get_fields(model)}
-    stmt = _chain_select_stmt(kwargs=kwargs, schema_module=model)
-    results = _query_stmt(statement=stmt, results_type="all")
-    # dobject_id is given, will only return results associated with dobject_id
-    if dobject_id is not None:
-        biometas = getattr(query, "dobject_biometa")(dobject_id=dobject_id).all()
-        if len(biometas) == 0:
-            results = biometas
-        else:
-            biometa_ids = [i.biometa_id for i in biometas]
-            results = [i for i in results if i.id in biometa_ids]
-
-    return FilterQueryResultList(model=model, results=results, as_df=as_df)
-
-
 def _create_query_func(model):
     """Autogenerate query functions for each entity table."""
 
@@ -391,4 +362,3 @@ for model in Table.list_models():
     setattr(query, model.__name__, staticmethod(func))
 
 setattr(query, "dobject", staticmethod(query_dobject))
-setattr(query, "biometa_from_dobject", staticmethod(query_biometa_from_dobject))
