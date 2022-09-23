@@ -182,7 +182,7 @@ class FieldPopulator:
 
         id_field, id_value = std_id_value
         df = Species(id=id_field).df
-        fields = Table.get_model("species").__fields__.keys()
+        fields = Table.get_fields("species")
         df = df.loc[:, df.columns.intersection(fields)].copy()
 
         ref_dict = df.to_dict(orient="index")
@@ -262,7 +262,7 @@ class InsertBase:
         mapper.update(column_map)
 
         # subset to columns that exist in the schema table
-        fields = Table.get_model(table_name).__fields__.keys()
+        fields = Table.get_fields(table_name)
 
         df = df.rename(columns=mapper).copy()
         df = df[df.columns.intersection(fields)]
@@ -282,9 +282,13 @@ class InsertBase:
 
 
 def _create_insert_func(model):
-    def insert_func(cls, force=False, **kwargs):
+    fields = Table.get_fields(model)
+    pks = Table.get_pks(model)
+    name = model.__name__
+
+    def insert_func(force=False, **kwargs):
         try:
-            reference = getattr(FieldPopulator, model.__name__)
+            reference = getattr(FieldPopulator, name)
             if len(kwargs) > 1:
                 raise AssertionError(
                     "Please only provide a unique column id in the reference table."
@@ -296,9 +300,7 @@ def _create_insert_func(model):
 
             std_value = kwargs[std_id]
             toadd = reference(std_id_value=(std_id, std_value))
-            kwargs.update(
-                **{k: v for k, v in toadd.items() if k in model.__fields__.keys()}
-            )
+            kwargs.update(**{k: v for k, v in toadd.items() if k in fields})
             entry = InsertBase.add(model=model, kwargs=kwargs, force=force)
         except AttributeError:
             entry = InsertBase.add(model=model, kwargs=kwargs, force=force)
@@ -306,22 +308,21 @@ def _create_insert_func(model):
         if entry is None:
             return
 
-        pks = Table.get_pks(model)
         if "id" in pks:
             entry_id = entry.id
         else:
             entry_id = entry
-        if model.__name__ not in ["usage", "dobject"]:  # no logging
+        if name not in ["usage", "dobject"]:  # no logging
             logger.success(
                 f"Inserted entry {colors.green(f'{entry_id}')} into"
-                f" {colors.blue(f'{model.__name__}')}."
+                f" {colors.blue(f'{name}')}."
             )
 
         settings.instance._update_cloud_sqlite_file()
 
         return entry_id
 
-    insert_func.__name__ = model.__name__
+    insert_func.__name__ = name
     return insert_func
 
 
@@ -341,10 +342,10 @@ class insert:
 
 for model in Table.list_models():
     func = _create_insert_func(model=model)
-    setattr(insert, model.__name__, classmethod(func))
+    setattr(insert, model.__name__, staticmethod(func))
 
-setattr(insert, "dobject_from_jupynb", dobject_from_jupynb)
-setattr(insert, "dobject_from_pipeline", dobject_from_pipeline)
-setattr(insert, "features", features)
-setattr(insert, "from_df", InsertBase.insert_from_df)
-setattr(insert, "from_list", InsertBase.insert_from_list)
+setattr(insert, "dobject_from_jupynb", staticmethod(dobject_from_jupynb))
+setattr(insert, "dobject_from_pipeline", staticmethod(dobject_from_pipeline))
+setattr(insert, "features", staticmethod(features))
+setattr(insert, "from_df", staticmethod(InsertBase.insert_from_df))
+setattr(insert, "from_list", staticmethod(InsertBase.insert_from_list))
