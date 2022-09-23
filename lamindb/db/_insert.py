@@ -344,6 +344,7 @@ for model in Table.list_models():
     setattr(insert, model.__name__, classmethod(func))
 
 setattr(insert, "dobject_from_jupynb", dobject_from_jupynb)
+setattr(insert, "dobject_from_pipeline", dobject_from_pipeline)
 setattr(insert, "features", features)
 setattr(insert, "from_df", InsertBase.insert_from_df)
 setattr(insert, "from_list", InsertBase.insert_from_list)
