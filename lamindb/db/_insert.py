@@ -8,7 +8,6 @@ from lnbfx import BfxRun
 from lndb_setup import settings
 from lnschema_core import id
 
-from .. import schema
 from ..schema._table import Table
 from ._query import query
 
@@ -153,54 +152,27 @@ def features(
         exist_feature_keys.add(feature.__getattribute__(feature_id))
         exist_feature_ids.add(feature.id)
 
-    engine = settings.instance.db_engine()
-
     # add a featureset to the featureset table
-    with sqm.Session(engine) as session:
-        featureset = schema.bionty.featureset(
-            feature_entity=feature_entity,
-            name=featureset_name,
-        )
-        session.add(featureset)
-        session.commit()
-        session.refresh(featureset)
+    featureset_id = getattr(insert, "featureset")(
+        feature_entity=feature_entity, name=featureset_name
+    )
 
     # add features to the feature table
-    with sqm.Session(engine) as session:
-        features_ins = []
-        for k, v in features_dict.items():
-            if k in exist_feature_keys:
-                continue
-            feature_schema = getattr(schema.bionty, feature_entity)
-            feature = feature_schema(
-                **v,
-                species_id=species_id,
-            )
-            session.add(feature)
-            features_ins.append(feature)
-        session.commit()
-        for feature in features_ins:
-            session.refresh(feature)
+    kwargs_list = []
+    for k, v in features_dict.items():
+        if k in exist_feature_keys:
+            continue
+        kwargs_list.append(v)
+    added = InsertBase.insert_from_list(kwargs_list, feature_entity)
+    feature_ids = list(added.values()) + list(exist_feature_ids)
+    for feature_id in feature_ids:
+        kwargs = {
+            "featureset_id": featureset_id,
+            f"{feature_entity}_id": feature_id,
+        }
+        _ = getattr(insert, f"featureset_{feature_entity}")(**kwargs)
 
-    # insert ids into the link table
-    feature_ids = [i.id for i in features_ins]
-    feature_ids += exist_feature_ids
-    with sqm.Session(engine) as session:
-        for feature_id in feature_ids:
-            featureset_link_module = getattr(
-                schema.bionty, f"featureset_{feature_entity}"
-            )
-            query_dict = {
-                "featureset_id": featureset.id,
-                f"{feature_entity}_id": feature_id,
-            }
-            link = featureset_link_module(**query_dict)
-            session.add(link)
-        session.commit()
-
-    settings.instance._update_cloud_sqlite_file()
-
-    return featureset.id
+    return featureset_id
 
 
 class FieldPopulator:
@@ -272,11 +244,11 @@ class InsertBase:
 
         # fetch the ids
         if "id" in Table.get_pks(table_name):
-            for k, v in added.items():
-                added[k] = v.id
+            for i, v in added.items():
+                added[i] = v.id
         else:
-            for k, v in added.items():
-                added[k] = v
+            for i, v in added.items():
+                added[i] = v
 
         # returns {index : pk}
         return added
