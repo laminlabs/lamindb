@@ -9,7 +9,7 @@ from ..schema._table import Table
 def _create_update_func(model):
     name = model.__name__
 
-    def update_func(cls, key, **kwargs):
+    def update_func(key, **kwargs):
         with Session(settings.instance.db_engine()) as session:
             entry = session.get(model, key)
             for k, v in kwargs.items():

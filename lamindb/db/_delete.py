@@ -10,7 +10,7 @@ from ..schema._table import Table
 def _create_delete_func(model):
     name = model.__name__
 
-    def delete_func(cls, key):
+    def delete_func(key):
         with Session(settings.instance.db_engine()) as session:
             entry = session.get(model, key)
             session.delete(entry)
