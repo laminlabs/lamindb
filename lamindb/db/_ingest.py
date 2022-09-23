@@ -33,11 +33,6 @@ class Ingest:
             dobjects = {**dobjects, **ingest_dobjects}
         return dobjects
 
-    @property
-    def logs(self) -> dict:
-        """Logs of feature annotation."""
-        return {k.as_posix(): v for k, v in self._ingest_object.feature_logs.items()}
-
     def add(
         self,
         dobject,
@@ -105,18 +100,12 @@ class IngestObject:
     def __init__(self) -> None:
         self._dobjects: Dict = {}
         self._features: Dict = {}
-        self._feature_logs: Dict = {}
         self._ingestion_logs: List = []
 
     @property
     def dobjects(self) -> Dict:
         """Added dobjects for ingestion."""
         return {k: v for k, v in self._dobjects.items()}
-
-    @property
-    def feature_logs(self):
-        """Logs of feature annotation."""
-        return self._feature_logs
 
     def add(
         self,
