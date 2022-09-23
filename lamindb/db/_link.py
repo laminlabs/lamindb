@@ -33,11 +33,24 @@ class LinkFeatureModel:
         return self._feature_model.df
 
     def curate(self, df: pd.DataFrame):
+        column = None
         if self.id_type in df.columns:
-            return self._feature_model.curate(df=df, column=self.id_type)
+            column = self.id_type
         else:
             logger.warning(f"{self.id_type} column not found, using index as features.")
-            return self._feature_model.curate(df=df, column=None)
+        df_curated = self._feature_model.curate(df=df, column=column)
+
+        # logging of curation
+        n = df_curated["__curated__"].count()
+        n_mapped = df_curated["__curated__"].sum()
+        log = {
+            "feature": self.id_type,
+            "n_mapped": n_mapped,
+            "percent_mapped": round(n_mapped / n * 100, 1),
+            "unmapped": df_curated.index[~df_curated["__curated__"]],
+        }
+
+        return df_curated, log
 
     def ingest(self, dobject_id, df_curated):
         """Ingest features."""
@@ -70,16 +83,9 @@ class link:
         cls, df: pd.DataFrame, feature_model, featureset_name: str = None
     ):
         fm = LinkFeatureModel(feature_model, featureset_name=featureset_name)
-        df_curated = fm.curate(df)
-        n = df_curated["__curated__"].count()
-        n_mapped = df_curated["__curated__"].sum()
-        log = {
-            "feature": fm.id_type,
-            "n_mapped": n_mapped,
-            "percent_mapped": round(n_mapped / n * 100, 1),
-            "unmapped": df_curated.index[~df_curated["__curated__"]],
-        }
-        return (fm, df_curated), log
+        df_curated, log = fm.curate(df)
+
+        return {"model": fm, "df_curated": df_curated, "log": log}
 
     @classmethod
     def feature(

@@ -20,20 +20,14 @@ class Ingest:
     """Ingest dobject."""
 
     def __init__(self) -> None:
-        self._added: Dict = {}
-        self._features: Dict = {}
-        self._pipeline_runs: Dict = {}
-        self._logs: Dict = {}
+        self._added: Dict = {}  # staged dobjects and pipeline runs
+        self._feature_models: Dict = {}  # dobject:feature_model
+        self._pipeline_runs: Dict = {}  # pipeline runs
 
     @property
     def status(self) -> dict:
         """Added dobjects for ingestion."""
         return {k.as_posix(): v for k, v in self._added.items()}
-
-    @property
-    def logs(self) -> dict:
-        """Logs of feature annotation."""
-        return {k.as_posix(): v for k, v in self._logs.items()}
 
     def add(
         self,
@@ -261,9 +255,10 @@ class IngestObject:
                     df = dmem
             except AttributeError:
                 df = dmem
-            ingest._features[filepath], ingest._logs[filepath] = link.feature_model(
-                df=df, feature_model=feature_model, featureset_name=featureset_name
-            )
+                curated = link.feature_model(
+                    df=df, feature_model=feature_model, featureset_name=featureset_name
+                )
+                ingest._feature_models[filepath] = curated
 
         ingest._added[filepath] = primary_key
 
@@ -297,9 +292,9 @@ class IngestObject:
                 ]
             )
 
-            if ingest._features.get(filepath) is not None:
-                fm, df_curated = ingest._features.get(filepath)
-                fm.ingest(dobject_id, df_curated)
+            if ingest._feature_models.get(filepath) is not None:
+                curated = ingest._feature_models.get(filepath)
+                curated["model"].ingest(dobject_id, curated["df_curated"])
 
         return logs
 
