@@ -43,6 +43,11 @@ class Ingest:
 
         return added_list
 
+    @property
+    def feature_models(self) -> dict:
+        """Added feature models."""
+        return self._ingest_object.feature_models
+
     def add(
         self,
         dobject,
