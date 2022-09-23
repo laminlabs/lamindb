@@ -25,9 +25,13 @@ class Ingest:
         self._pipeline_runs: Dict = {}  # pipeline runs
 
     @property
-    def status(self) -> dict:
+    def status(self) -> list:
         """Added dobjects for ingestion."""
-        return {k.as_posix(): v for k, v in self._added.items()}
+        added_list = [
+            dict(filepath=k.as_posix(), dobject_id=v[0], dobject_v=v[1])
+            for k, v in self._added.items()
+        ]
+        return added_list
 
     def add(
         self,
