@@ -352,7 +352,10 @@ class IngestBfxRun:
                 pipeline_run=self._run,
             )
 
-            log_file_name = str(filepath.relative_to(self._run.outdir))
+            try:
+                log_file_name = str(filepath.relative_to(self._run.outdir))
+            except ValueError:
+                log_file_name = filepath.name
             self._ingestion_logs.append(
                 [
                     f"{log_file_name} ({dobject_id}, {dobject_v})",
