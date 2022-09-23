@@ -368,12 +368,12 @@ class IngestBfxRun:
             # insert techsample, biosample, and biometa entries
             if len(self._run.fastq_path) == 1:
                 techsample_id = insert.techsample(
-                    filepath_r1=self._run.fastq_path[0].to_posix()
+                    filepath_r1=self._run.fastq_path[0].as_posix()
                 )
             else:
                 techsample_id = insert.techsample(
-                    filepath_r1=self._run.fastq_path[0].to_posix(),
-                    filepath_r2=self._run.fastq_path[1].to_posix(),
+                    filepath_r1=self._run.fastq_path[0].as_posix(),
+                    filepath_r2=self._run.fastq_path[1].as_posix(),
                 )
             biosample_id = insert.biosample(techsample_id=techsample_id)
             biometa_id = insert.biometa(biosample_id=biosample_id)
