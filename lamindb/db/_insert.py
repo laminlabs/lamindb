@@ -312,7 +312,14 @@ def _create_insert_func(model):
             entry_id = entry.id
         else:
             entry_id = entry
-        if name not in ["usage", "dobject"]:  # no logging
+        if name not in [
+            "usage",
+            "dobject",
+            "gene",
+            "featureset_gene",
+            "featureset_cell_marker",
+            "cell_marker",
+        ]:  # no logging for these tables
             logger.success(
                 f"Inserted entry {colors.green(f'{entry_id}')} into"
                 f" {colors.blue(f'{name}')}."
