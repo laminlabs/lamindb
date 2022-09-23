@@ -167,7 +167,7 @@ class IngestObject:
             curated = link.feature_model(
                 df=df, feature_model=feature_model, featureset_name=featureset_name
             )
-            ingest._feature_models[filepath] = curated
+            self._feature_models[filepath] = curated
 
         self._dobjects[filepath] = primary_key
 
