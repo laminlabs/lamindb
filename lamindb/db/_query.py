@@ -5,12 +5,12 @@ import bionty as bt
 import pandas as pd
 from lndb_setup import settings
 from sqlalchemy import inspect
-from sqlalchemy.orm.exc import MultipleResultsFound, NoResultFound
 from sqlmodel import Session, select
 
 from .. import schema
 from ..dev import track_usage
-from ..schema._schema import alltables
+from ..dev.db import exception
+from ..schema._table import Table
 
 
 def _query_stmt(statement, results_type="all"):
@@ -58,7 +58,11 @@ def _create_query_func(name: str, schema_module):
 class LinkedQuery:
     """Linked queries."""
 
-    parent_dict = {"species": "biosample"}
+    parent_dict = {
+        "species": "biosample",
+        "biosample_techsample": "biosample",
+        "biosample": "biometa",
+    }
 
     def __init__(self) -> None:
         self._engine = settings.instance.db_engine()
@@ -186,6 +190,16 @@ class LinkedQuery:
                         ).all()
                         parent_results += parent_result
                     results = parent_results
+                elif self.parent_dict.get(current_name) is not None:
+                    parent_name = self.parent_dict.get(current_name)
+                    constrained_column = f"{parent_name}_id"
+                    parent_results = []
+                    for result in results:
+                        parent_result = getattr(query, parent_name)(
+                            **{"id": result.__getattribute__(constrained_column)}
+                        ).all()
+                        parent_results += parent_result
+                    results = parent_results
                 else:
                     pass
             current_name = parent_name
@@ -217,10 +231,10 @@ def query_dobject(
     v: str = None,
     name: str = None,
     dtransform_id: str = None,
-    file_suffix: str = None,
+    suffix: str = None,
     storage_id: str = None,
-    time_created=None,
-    time_updated=None,
+    created_at=None,
+    updated_at=None,
     where: Dict[str, dict] = None,
     as_df: bool = False,
 ):
@@ -276,6 +290,7 @@ def query_dobject(
 
 def query_biometa(
     id: int = None,
+    experiment_id: int = None,
     biosample_id: int = None,
     readout_id: int = None,
     featureset_id: int = None,
@@ -363,9 +378,9 @@ class FilterQueryResultList:
 
     def one(self):
         if len(self._results) == 0:
-            raise NoResultFound
+            raise exception.NoResultFound
         elif len(self._results) > 1:
-            raise MultipleResultsFound
+            raise exception.MultipleResultsFound
         else:
             results = self._filter()
             if isinstance(results, pd.DataFrame):
@@ -374,7 +389,7 @@ class FilterQueryResultList:
 
     def first(self):
         if len(self._results) == 0:
-            raise NoResultFound
+            raise exception.NoResultFound
         else:
             results = self._filter()
             if isinstance(results, pd.DataFrame):
@@ -388,7 +403,7 @@ class query:
     pass
 
 
-for name, schema_module in alltables.items():
+for name, schema_module in Table.all.items():
     func = _create_query_func(name=name, schema_module=schema_module)
     setattr(query, name, classmethod(func))
 

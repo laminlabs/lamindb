@@ -33,11 +33,24 @@ class LinkFeatureModel:
         return self._feature_model.df
 
     def curate(self, df: pd.DataFrame):
+        column = None
         if self.id_type in df.columns:
-            return self._feature_model.curate(df=df, column=self.id_type)
+            column = self.id_type
         else:
             logger.warning(f"{self.id_type} column not found, using index as features.")
-            return self._feature_model.curate(df=df, column=None)
+        df_curated = self._feature_model.curate(df=df, column=column)
+
+        # logging of curation
+        n = df_curated["__curated__"].count()
+        n_mapped = df_curated["__curated__"].sum()
+        log = {
+            "feature": self.id_type,
+            "n_mapped": n_mapped,
+            "percent_mapped": round(n_mapped / n * 100, 1),
+            "unmapped": df_curated.index[~df_curated["__curated__"]],
+        }
+
+        return df_curated, log
 
     def ingest(self, dobject_id, df_curated):
         """Ingest features."""
@@ -69,17 +82,11 @@ class link:
     def feature_model(
         cls, df: pd.DataFrame, feature_model, featureset_name: str = None
     ):
+        """Curate a DataFrame with a feature model."""
         fm = LinkFeatureModel(feature_model, featureset_name=featureset_name)
-        df_curated = fm.curate(df)
-        n = df_curated["__curated__"].count()
-        n_mapped = df_curated["__curated__"].sum()
-        log = {
-            "feature": fm.id_type,
-            "n_mapped": n_mapped,
-            "percent_mapped": round(n_mapped / n * 100, 1),
-            "unmapped": df_curated.index[~df_curated["__curated__"]],
-        }
-        return (fm, df_curated), log
+        df_curated, log = fm.curate(df)
+
+        return {"model": fm, "df_curated": df_curated, "log": log}
 
     @classmethod
     def feature(
@@ -92,6 +99,9 @@ class link:
     ):
         """Annotate genes."""
         species_id = getattr(insert, "species")(common_name=species)
+        if species_id is None:
+            species_id = getattr(query, "species")(common_name=species).one().id
+
         featureset_id = getattr(insert, "features")(
             features_dict=values,
             feature_entity=feature_entity,
@@ -106,7 +116,10 @@ class link:
         ).all()
         if len(dobject_biometas) == 0:
             # insert a biometa entry and link to dobject
-            biometa_id = getattr(insert, "biometa")(featureset_id=featureset_id)
+            # TODO: force insert here
+            biometa_id = getattr(insert, "biometa")(
+                featureset_id=featureset_id, force=True
+            )
             getattr(link, "biometa")(dobject_id=dobject_id, biometa_id=biometa_id)
         else:
             raise NotImplementedError
@@ -129,12 +142,15 @@ class link:
     def readout(cls, dobject_id, efo_id: str):
         """Link readout."""
         readout_id = getattr(insert, "readout")(efo_id=efo_id)
+        if readout_id is None:
+            readout_id = getattr(query, "readout")(efo_id=efo_id).one()
 
         # query biometa associated with a dobject
         dobject_biometa = getattr(query, "dobject_biometa")(dobject_id=dobject_id).all()
         if len(dobject_biometa) > 0:
             biometa_ids = [i.biometa_id for i in dobject_biometa]
         else:
+            # TODO: fix here
             biometa_ids = [getattr(insert, "biometa")(dobject_id=dobject_id)]
             logger.warning(
                 f"No biometa found for dobject {dobject_id}, created biometa"

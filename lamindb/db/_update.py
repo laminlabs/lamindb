@@ -3,7 +3,7 @@ from sqlmodel import Session
 
 from .._logger import colors, logger
 from ..dev import track_usage
-from ..schema._schema import alltables
+from ..schema._table import Table
 
 
 def _create_update_func(name: str, schema_module):
@@ -39,6 +39,6 @@ class update:
     pass
 
 
-for name, schema_module in alltables.items():
+for name, schema_module in Table.all.items():
     func = _create_update_func(name=name, schema_module=schema_module)
     setattr(update, name, classmethod(func))

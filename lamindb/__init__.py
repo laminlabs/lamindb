@@ -19,7 +19,7 @@ Browse the API:
 """
 from . import _check_versions
 
-__version__ = "0.3.9"
+__version__ = "0.3.11"
 from lndb_setup import settings  # noqa
 
 from . import datasets  # noqa

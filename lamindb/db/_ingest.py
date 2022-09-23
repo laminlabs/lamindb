@@ -7,10 +7,12 @@ from lnbfx.dev import get_bfx_files_from_dir, parse_bfx_file_type
 from lndb_setup import settings
 from lnschema_core import id
 
+from lamindb.dev._core import get_name_suffix_from_filepath
+
 from .._logger import colors, logger
 from ..dev import format_pipeline_logs, storage_key_from_triple, track_usage
 from ..dev.file import load_to_memory, store_file
-from ..dev.object import infer_file_suffix, write_to_file
+from ..dev.object import infer_suffix, write_to_file
 from ._insert import insert
 from ._link import link
 from ._query import query
@@ -20,8 +22,8 @@ class Ingest:
     """Ingest dobjects and pipeline runs."""
 
     def __init__(self) -> None:
-        self._ingest_object = IngestObject()
-        self._ingest_bfx: List = []
+        self._ingest_object = IngestObject()  # dobjects
+        self._ingest_bfx: List = []  # bfx pipeline runs
 
     @property
     def status(self) -> list:
@@ -143,7 +145,7 @@ class IngestObject:
         else:
             # if in-memory object is given, return the cache path
             dmem = dobject
-            suffix = infer_file_suffix(dobject)
+            suffix = infer_suffix(dobject)
             if name is None:
                 raise RuntimeError("Provide name if ingesting in memory data.")
             filepath = Path(f"{name}{suffix}")
@@ -162,12 +164,10 @@ class IngestObject:
                     df = dmem
             except AttributeError:
                 df = dmem
-            (
-                self._feature_models[filepath],
-                self._feature_logs[filepath],
-            ) = link.feature_model(
+            curated = link.feature_model(
                 df=df, feature_model=feature_model, featureset_name=featureset_name
             )
+            ingest._feature_models[filepath] = curated
 
         self._dobjects[filepath] = primary_key
 
@@ -197,9 +197,10 @@ class IngestObject:
                 ]
             )
 
-            if self._feature_models.get(filepath) is not None:
-                fm, df_curated = self._feature_models.get(filepath)
-                fm.ingest(dobject_id, df_curated)
+            # ingest with feature models
+            curated = self._feature_models.get(filepath)
+            if curated is not None:
+                curated["model"].ingest(dobject_id, curated["df_curated"])
 
     def log(self):
         """Pretty print logs."""
@@ -399,26 +400,34 @@ def ingest_dobject(
     pipeline_run,
 ):
     """Insert and store dobject."""
-    dobject_id = insert.dobject_from_jupynb(
-        name=filepath.stem,
-        file_suffix=filepath.suffix,
-        jupynb_id=jupynb_id,
-        jupynb_v=jupynb_v,
-        jupynb_name=jupynb_name,
-        dobject_id=dobject_id,
-        dobject_v=dobject_v,
-        pipeline_run=pipeline_run,
-    )
+    name, suffix = get_name_suffix_from_filepath(filepath)
 
-    dobject_storage_key = storage_key_from_triple(
-        dobject_id, dobject_v, filepath.suffix
-    )
+    if pipeline_run is None:
+        dobject_id = insert.dobject_from_jupynb(
+            name=name,
+            suffix=suffix,
+            jupynb_id=jupynb_id,
+            jupynb_v=jupynb_v,
+            jupynb_name=jupynb_name,
+            dobject_id=dobject_id,
+            dobject_v=dobject_v,
+        )
+    else:
+        dobject_id = insert.dobject_from_pipeline(
+            name=name,
+            suffix=suffix,
+            dobject_id=dobject_id,
+            dobject_v=dobject_v,
+            pipeline_run=pipeline_run,
+        )
+
+    dobject_storage_key = storage_key_from_triple(dobject_id, dobject_v, suffix)
     try:
         store_file(filepath, dobject_storage_key)
     except SameFileError:
         pass
 
-    track_usage(dobject_id, dobject_v, "ingest")
+    track_usage(dobject_id, dobject_v, usage_type="ingest")
 
     return dobject_id
 

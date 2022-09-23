@@ -3,6 +3,14 @@
 <!-- prettier-ignore -->
 Name | PR | Developer | Date | Version
 --- | --- | --- | --- | ---
+✨ Account for multiple `filepath` suffixes | [214](https://github.com/laminlabs/lamindb/pull/214) | [falexwolf](https://github.com/falexwolf) | 2022-09-23 |
+♻️ Refactored feature model ingestion | [213](https://github.com/laminlabs/lamindb/pull/213) | [sunnyosun](https://github.com/sunnyosun) | 2022-09-23 |
+♻️ Refactored insert | [211](https://github.com/laminlabs/lamindb/pull/211) | [sunnyosun](https://github.com/sunnyosun) | 2022-09-22 |
+⬆️ Upgrade `lndb_setup` and `lnschema_bionty` | [212](https://github.com/laminlabs/lamindb/pull/212) | [falexwolf](https://github.com/falexwolf) | 2022-09-22 |
+⬆️ Upgrade to core schema 0.7.2 | [208](https://github.com/laminlabs/lamindb/pull/208) | [falexwolf](https://github.com/falexwolf) | 2022-09-21 |
+🚑 Setup dtransform to be either pipeline_run or jupynb | [207](https://github.com/laminlabs/lamindb/pull/207) | [sunnyosun](https://github.com/sunnyosun) | 2022-09-21 | 0.3.11
+🐛 Fixed column mapping | [206](https://github.com/laminlabs/lamindb/pull/206) | [sunnyosun](https://github.com/sunnyosun) | 2022-09-19 | 0.3.10
+✨ Allow batch insertion | [205](https://github.com/laminlabs/lamindb/pull/205) | [sunnyosun](https://github.com/sunnyosun) | 2022-09-19 |
 ♻️ Refactored linked queries | [204](https://github.com/laminlabs/lamindb/pull/204) | [sunnyosun](https://github.com/sunnyosun) | 2022-09-15 |
 ⬆️ Update lnbfx to 0.3.5 | [199](https://github.com/laminlabs/lamindb/pull/199) | [bpenteado](https://github.com/bpenteado) | 2022-09-14 | 0.3.9
 🔊 Refactor pipeline logging | [197](https://github.com/laminlabs/lamindb/pull/197) | [bpenteado](https://github.com/bpenteado) | 2022-09-14 | 0.3.8
