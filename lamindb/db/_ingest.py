@@ -288,8 +288,9 @@ class IngestBfxRun:
         self._register(
             "bfx_run",
             pk={"id": self._run.run_id},
-            pipeline_id=self._run.pipeline_id,
-            pipeline_v=self._run.pipeline_v,
+            dir=self._run.outdir.as_posix(),
+            bfx_pipeline_id=self._run.pipeline_id,
+            bfx_pipeline_v=self._run.pipeline_v,
         )
 
     def log(self):
