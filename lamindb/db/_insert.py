@@ -287,6 +287,7 @@ def _create_insert_func(model):
     fields = Table.get_fields(model)
     pks = Table.get_pks(model)
     name = model.__name__
+    link_tables = LinkedQuery().link_tables
 
     def insert_func(force=False, **kwargs):
         try:
@@ -318,7 +319,7 @@ def _create_insert_func(model):
             entry_id = entry.id
         else:
             entry_id = entry
-        if name not in LinkedQuery().link_tables + [
+        if name not in link_tables + [
             "usage",
             "dobject",
             "gene",
