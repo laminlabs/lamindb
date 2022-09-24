@@ -3,6 +3,7 @@
 <!-- prettier-ignore -->
 Name | PR | Developer | Date | Version
 --- | --- | --- | --- | ---
+🩹 Removed logging for inserting link tables | [221](https://github.com/laminlabs/lamindb/pull/221) | [sunnyosun](https://github.com/sunnyosun) | 2022-09-24 |
 ✨ Ingest bfx outputs with sample metadata | [215](https://github.com/laminlabs/lamindb/pull/215) | [bpenteado](https://github.com/bpenteado) | 2022-09-24 |
 👷 Improve notebook test function | [218](https://github.com/laminlabs/lamindb/pull/218) | [falexwolf](https://github.com/falexwolf) | 2022-09-23 |
 🧱 Improved code infra | [216](https://github.com/laminlabs/lamindb/pull/216) | [sunnyosun](https://github.com/sunnyosun) | 2022-09-23 | 0.4.0
