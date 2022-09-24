@@ -250,6 +250,8 @@ class InsertBase:
             for i, v in added.items():
                 added[i] = v
 
+        settings.instance._update_cloud_sqlite_file()
+
         # returns {index : pk}
         return added
 
@@ -288,26 +290,30 @@ def _create_insert_func(model):
 
     def insert_func(force=False, **kwargs):
         try:
+            # insert with reference to populate the columns
             reference = getattr(FieldPopulator, name)
+            # only allows one single kwarg
             if len(kwargs) > 1:
                 raise AssertionError(
                     "Please only provide a unique column id in the reference table."
                 )
-
+            # check if the key is a unique column in the table
             std_id = next(iter(kwargs))
             if not InsertBase.is_unique(model, std_id):
                 raise AssertionError("Please provide a unique column.")
-
+            # populate other columns
             std_value = kwargs[std_id]
-            toadd = reference(std_id_value=(std_id, std_value))
-            kwargs.update(**{k: v for k, v in toadd.items() if k in fields})
+            kwargs_ = reference(std_id_value=(std_id, std_value))
+            kwargs.update(**{k: v for k, v in kwargs_.items() if k in fields})
             entry = InsertBase.add(model=model, kwargs=kwargs, force=force)
         except AttributeError:
             entry = InsertBase.add(model=model, kwargs=kwargs, force=force)
 
+        # returns None if an entry with the same kwargs already exists
         if entry is None:
             return
 
+        # returns id or entry itself for link tables
         if "id" in pks:
             entry_id = entry.id
         else:
@@ -316,16 +322,19 @@ def _create_insert_func(model):
             "usage",
             "dobject",
             "gene",
-            "featureset_gene",
-            "featureset_cell_marker",
+            "protein",
             "cell_marker",
-        ]:  # no logging for these tables
+            "dobject_biometa",
+            "dobject_bfxmeta",
+            "featureset_gene",
+            "featureset_protein",
+            "featureset_cell_marker",
+        ]:
+            # no logging for these tables
             logger.success(
                 f"Inserted entry {colors.green(f'{entry_id}')} into"
                 f" {colors.blue(f'{name}')}."
             )
-
-        settings.instance._update_cloud_sqlite_file()
 
         return entry_id
 
