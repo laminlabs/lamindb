@@ -325,6 +325,7 @@ def _create_insert_func(model):
             "protein",
             "cell_marker",
             "dobject_biometa",
+            "dobject_bfxmeta",
             "featureset_gene",
             "featureset_protein",
             "featureset_cell_marker",
