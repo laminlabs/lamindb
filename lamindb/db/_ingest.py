@@ -337,6 +337,10 @@ class IngestBfxRun:
         file_type = parse_bfx_file_type(dobject_filepath, from_dir=True)
         dirpath = dobject_filepath.parent.resolve().as_posix()
         bfxmeta_id = insert.bfxmeta(file_type=file_type, dir=dirpath)  # type: ignore
+        if bfxmeta_id is None:
+            bfxmeta_id = (
+                query.bfxmeta(file_type=file_type, dir=dirpath).one().id  # type: ignore
+            )
         return bfxmeta_id
 
     def _register_dobjects(self, jupynb_id, jupynb_v, jupynb_name):
