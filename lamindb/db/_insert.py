@@ -9,7 +9,7 @@ from lndb_setup import settings
 from lnschema_core import id
 
 from ..schema._table import Table
-from ._query import query
+from ._query import LinkedQuery, query
 
 
 def _camel_to_snake(string: str) -> str:
@@ -318,15 +318,14 @@ def _create_insert_func(model):
             entry_id = entry.id
         else:
             entry_id = entry
-        if name not in [
+        if name not in LinkedQuery().link_tables + [
             "usage",
             "dobject",
             "gene",
-            "featureset_gene",
-            "featureset_cell_marker",
+            "protein",
             "cell_marker",
-            "dobject_biometa",
-        ]:  # no logging for these tables
+        ]:
+            # no logging for these tables
             logger.success(
                 f"Inserted entry {colors.green(f'{entry_id}')} into"
                 f" {colors.blue(f'{name}')}."
