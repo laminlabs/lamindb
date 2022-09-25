@@ -31,7 +31,9 @@ def _chain_select_stmt(kwargs: dict, schema_module):
 def _return_query_results_as_df(results, model):
     """Return list query results as a DataFrame."""
     if len(results) > 0:
-        df = pd.DataFrame([result.dict() for result in results])
+        df = pd.DataFrame(
+            [result.dict() for result in results], columns=Table.get_fields(model)
+        )
     else:
         df = pd.DataFrame(columns=Table.get_fields(model))
 
