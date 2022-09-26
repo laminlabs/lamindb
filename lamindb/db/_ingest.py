@@ -85,12 +85,27 @@ class Ingest:
         Args:
             jupynb_v: Notebook version to publish. Is automatically set if `None`.
         """
-        from nbproject import dev, meta, publish
+        from nbproject import dev, meta
+        from nbproject.dev._check_last_cell import check_last_cell
 
         if meta.live.title is None:
             raise RuntimeError(
                 "Can only ingest from notebook with title. Please set a title!"
             )
+        nb = dev.read_notebook(meta._filepath)  # type: ignore
+        if not check_last_cell(nb, calling_statement="commit("):
+            raise RuntimeError(
+                "Can only ingest from the last code cell of the notebook."
+            )
+        if not dev.check_consecutiveness(nb):
+            if meta.env == "test":
+                decide = "y"
+            else:
+                decide = input("   Do you still want to proceed with ingesting? (y/n) ")
+
+            if decide not in ("y", "Y", "yes", "Yes", "YES"):
+                logger.warning("Aborted!")
+                return "aborted"
 
         jupynb_id = meta.store.id
         jupynb_v = dev.set_version(jupynb_v)  # version to be set in publish()
@@ -98,10 +113,18 @@ class Ingest:
 
         ingest_entities = [self._ingest_object] + self._ingest_bfx
         for ingest in ingest_entities:
+            # TODO: run the appropriate clean-up operations if any aspect
+            # of the ingestion fails
             ingest.commit(jupynb_id, jupynb_v, jupynb_name)
             ingest.log()
 
-        publish(calling_statement="commit(")
+        meta.store.version = dev.set_version(jupynb_v)
+        meta.store.pypackage = meta.live.pypackage
+        logger.info(
+            f"Set notebook version to {colors.bold(meta.store.version)} & wrote"
+            " pypackages."
+        )
+        meta.store.write(calling_statement="commit(")
 
 
 class IngestObject:
