@@ -9,7 +9,7 @@ Walk-through of basic functionality
 - {doc}`load-and-query`
 - {doc}`insert-update-delete`
 - {doc}`introspect`
-- {doc}`share`
+- {doc}`share-cross-org`
 
 Walk-through of exemplary R&D operations
 
