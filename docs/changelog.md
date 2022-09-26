@@ -3,6 +3,7 @@
 <!-- prettier-ignore -->
 Name | PR | Developer | Date | Version
 --- | --- | --- | --- | ---
+📝 Polish documentation | [229](https://github.com/laminlabs/lamindb/pull/229) | [falexwolf](https://github.com/falexwolf) | 2022-09-26 |
 ✨ Populate `dobject` size | [228](https://github.com/laminlabs/lamindb/pull/228) | [falexwolf](https://github.com/falexwolf) | 2022-09-26 |
 🚸 Sort query results in DataFrame by source | [226](https://github.com/laminlabs/lamindb/pull/226) | [falexwolf](https://github.com/falexwolf) | 2022-09-25 |
 ⬆️ Upgrade to core schema 0.7.3 | [223](https://github.com/laminlabs/lamindb/pull/223) | [falexwolf](https://github.com/falexwolf) | 2022-09-25 |
