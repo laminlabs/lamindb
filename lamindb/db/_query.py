@@ -1,5 +1,6 @@
+from datetime import datetime
 from functools import cached_property
-from typing import Dict
+from typing import Dict, Optional
 
 import bionty as bt
 import pandas as pd
@@ -63,14 +64,15 @@ def _featureset_from_features(entity, entity_kwargs):
 
 
 def query_dobject(
-    id: str = None,
-    v: str = None,
-    name: str = None,
-    dtransform_id: str = None,
-    suffix: str = None,
-    storage_id: str = None,
-    created_at=None,
-    updated_at=None,
+    id: Optional[str] = None,
+    v: Optional[str] = None,
+    name: Optional[str] = None,
+    size: Optional[float] = None,
+    dtransform_id: Optional[str] = None,
+    suffix: Optional[str] = None,
+    storage_id: Optional[str] = None,
+    created_at: datetime = None,
+    updated_at: datetime = None,
     where: Dict[str, dict] = None,
     as_df: bool = False,
 ):
