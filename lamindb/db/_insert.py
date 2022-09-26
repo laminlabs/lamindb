@@ -120,7 +120,7 @@ def dobject_from_jupynb(
     )
 
 
-def features(
+def featureset_from_features(
     features_dict: dict,
     feature_entity: str,
     species: str,
@@ -368,6 +368,6 @@ for model in Table.list_models():
 
 setattr(insert, "dobject_from_jupynb", staticmethod(dobject_from_jupynb))
 setattr(insert, "dobject_from_pipeline", staticmethod(dobject_from_pipeline))
-setattr(insert, "features", staticmethod(features))
+setattr(insert, "featureset_from_features", staticmethod(featureset_from_features))
 setattr(insert, "from_df", staticmethod(InsertBase.insert_from_df))
 setattr(insert, "from_list", staticmethod(InsertBase.insert_from_list))
