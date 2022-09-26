@@ -36,7 +36,7 @@ jobs:
       - name: Cache
         uses: actions/cache@v3
         env:
-          cache-name: cache-0
+          cache-name: cache-1
         with:
           path: |
             .nox
@@ -48,8 +48,9 @@ jobs:
           pip install nox
           sudo apt-get -y install graphviz
       - name: Lint
+        if: matrix.python-version == '3.9'
         run: |
-          nox -s lint
+          nox -s lint --python ${{ matrix.python-version }}
       - name: Configure AWS
         uses: aws-actions/configure-aws-credentials@v1
         with:
