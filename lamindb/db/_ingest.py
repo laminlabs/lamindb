@@ -274,6 +274,7 @@ class IngestBfxRun:
             pk={"id": self._run.run_id},
             pipeline_id=self._run.pipeline_id,
             pipeline_v=self._run.pipeline_v,
+            name=self._run.outdir.as_posix(),
         )
 
         # register bfx pipeline and bfx pipeline run
