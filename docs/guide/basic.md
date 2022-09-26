@@ -12,5 +12,5 @@ link
 load-and-query
 insert-update-delete
 introspect
-share
+share-cross-org
 ```
