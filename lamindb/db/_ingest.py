@@ -86,13 +86,14 @@ class Ingest:
             jupynb_v: Notebook version to publish. Is automatically set if `None`.
         """
         from nbproject import dev, meta
+        from nbproject.dev._check_last_cell import check_last_cell
 
         if meta.live.title is None:
             raise RuntimeError(
                 "Can only ingest from notebook with title. Please set a title!"
             )
         nb = dev.read_notebook(meta._filepath)  # type: ignore
-        if not dev.check_last_cell(nb, calling_statement="commit("):
+        if not check_last_cell(nb, calling_statement="commit("):
             raise RuntimeError(
                 "Can only ingest from the last code cell of the notebook."
             )
