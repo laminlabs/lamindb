@@ -91,13 +91,11 @@ class Ingest:
             raise RuntimeError(
                 "Can only ingest from notebook with title. Please set a title!"
             )
-
         nb = dev.read_notebook(meta._filepath)  # type: ignore
         if not dev.check_last_cell(nb, calling_statement="commit("):
             raise RuntimeError(
                 "Can only ingest from the last code cell of the notebook."
             )
-
         if not dev.check_consecutiveness(nb):
             if meta.env == "test":
                 decide = "y"
@@ -114,6 +112,8 @@ class Ingest:
 
         ingest_entities = [self._ingest_object] + self._ingest_bfx
         for ingest in ingest_entities:
+            # TODO: run the appropriate clean-up operations if any aspect
+            # of the ingestion fails
             ingest.commit(jupynb_id, jupynb_v, jupynb_name)
             ingest.log()
 
