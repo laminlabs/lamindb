@@ -3,6 +3,7 @@
 <!-- prettier-ignore -->
 Name | PR | Developer | Date | Version
 --- | --- | --- | --- | ---
+:memo: Update bfx ingestion demo | [227](https://github.com/laminlabs/lamindb/pull/227) | [bpenteado](https://github.com/bpenteado) | 2022-09-26 |
 🚚 Rename insert.features to insert.featureset_from_features | [230](https://github.com/laminlabs/lamindb/pull/230) | [sunnyosun](https://github.com/sunnyosun) | 2022-09-26 |
 📝 Polish documentation | [229](https://github.com/laminlabs/lamindb/pull/229) | [falexwolf](https://github.com/falexwolf) | 2022-09-26 |
 ✨ Populate `dobject` size | [228](https://github.com/laminlabs/lamindb/pull/228) | [falexwolf](https://github.com/falexwolf) | 2022-09-26 |
