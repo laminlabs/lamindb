@@ -102,7 +102,7 @@ class link:
         if species_id is None:
             species_id = getattr(query, "species")(common_name=species).one().id
 
-        featureset_id = getattr(insert, "features")(
+        featureset_id = getattr(insert, "featureset_from_features")(
             features_dict=values,
             feature_entity=feature_entity,
             species=species,

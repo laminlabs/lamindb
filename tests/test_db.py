@@ -21,6 +21,9 @@ def test_create_to_load():
         jupynb_id="83jf",
         jupynb_v="1",
         jupynb_name="test",
+        dobject_id="testid",
+        dobject_v="1",
+        size=1.2,
     )
     for entity in ln.schema.list_entities():
         getattr(ln.db.query, entity)(as_df=True).all()

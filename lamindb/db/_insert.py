@@ -1,5 +1,5 @@
 import re
-from typing import Iterable
+from typing import Iterable, Union
 
 import pandas as pd
 import sqlmodel as sqm
@@ -27,21 +27,23 @@ def _camel_to_snake(string: str) -> str:
 def dobject_from_dtransform(
     dobject_name: str,
     dtransform_id: str,
-    dobject_suffix: str = None,
-    dobject_id: str = None,
-    dobject_v: str = "1",
+    dobject_suffix: Union[str, None],
+    dobject_id: str,
+    dobject_v: str,
+    size: float,
 ):
     storage = getattr(query, "storage")(root=str(settings.instance.storage_dir)).first()
     if dobject_id is None:
         dobject_id = id.dobject()
 
-    dobject_id = getattr(insert, "dobject")(
+    dobject_id = insert.dobject(  # type: ignore
         id=dobject_id,
         v=dobject_v,
         name=dobject_name,
         dtransform_id=dtransform_id,
         suffix=dobject_suffix,
         storage_id=storage.id,
+        size=size,
     )
 
     return dobject_id
@@ -50,9 +52,10 @@ def dobject_from_dtransform(
 def dobject_from_pipeline(
     name: str,
     pipeline_run: BfxRun,
-    suffix: str = None,
-    dobject_id: str = None,
-    dobject_v: str = "1",
+    suffix: Union[str, None],
+    dobject_id: str,
+    dobject_v: str,
+    size: float,
 ):
     result = getattr(query, "dtransform")(pipeline_run_id=pipeline_run.run_id).all()
     if len(result) == 0:
@@ -68,18 +71,20 @@ def dobject_from_pipeline(
         dobject_id=dobject_id,
         dobject_v=dobject_v,
         dtransform_id=dtransform_id,
+        size=size,
     )
 
 
 def dobject_from_jupynb(
     *,
     name: str,
-    suffix: str = None,
+    suffix: Union[str, None],
     jupynb_id: str,
     jupynb_v: str,
     jupynb_name: str,
-    dobject_id: str = None,
-    dobject_v: str = "1",
+    dobject_id: str,
+    dobject_v: str,
+    size: float,
 ):
     """Data object from jupynb."""
     result = getattr(query, "jupynb")(id=jupynb_id, v=jupynb_v).all()
@@ -111,10 +116,11 @@ def dobject_from_jupynb(
         dobject_id=dobject_id,
         dobject_v=dobject_v,
         dtransform_id=dtransform_id,
+        size=size,
     )
 
 
-def features(
+def featureset_from_features(
     features_dict: dict,
     feature_entity: str,
     species: str,
@@ -362,6 +368,6 @@ for model in Table.list_models():
 
 setattr(insert, "dobject_from_jupynb", staticmethod(dobject_from_jupynb))
 setattr(insert, "dobject_from_pipeline", staticmethod(dobject_from_pipeline))
-setattr(insert, "features", staticmethod(features))
+setattr(insert, "featureset_from_features", staticmethod(featureset_from_features))
 setattr(insert, "from_df", staticmethod(InsertBase.insert_from_df))
 setattr(insert, "from_list", staticmethod(InsertBase.insert_from_list))

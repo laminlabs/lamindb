@@ -3,6 +3,9 @@
 <!-- prettier-ignore -->
 Name | PR | Developer | Date | Version
 --- | --- | --- | --- | ---
+🚚 Rename insert.features to insert.featureset_from_features | [230](https://github.com/laminlabs/lamindb/pull/230) | [sunnyosun](https://github.com/sunnyosun) | 2022-09-26 |
+📝 Polish documentation | [229](https://github.com/laminlabs/lamindb/pull/229) | [falexwolf](https://github.com/falexwolf) | 2022-09-26 |
+✨ Populate `dobject` size | [228](https://github.com/laminlabs/lamindb/pull/228) | [falexwolf](https://github.com/falexwolf) | 2022-09-26 |
 🚸 Sort query results in DataFrame by source | [226](https://github.com/laminlabs/lamindb/pull/226) | [falexwolf](https://github.com/falexwolf) | 2022-09-25 |
 ⬆️ Upgrade to core schema 0.7.3 | [223](https://github.com/laminlabs/lamindb/pull/223) | [falexwolf](https://github.com/falexwolf) | 2022-09-25 |
 🩹 Removed logging for inserting link tables | [221](https://github.com/laminlabs/lamindb/pull/221) | [sunnyosun](https://github.com/sunnyosun) | 2022-09-24 |

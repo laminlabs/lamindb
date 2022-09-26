@@ -3,38 +3,24 @@
 :end-line: 4
 ```
 
+_Curate, store, track, query, integrate, and learn from biological data._
+
 ```{warning}
 
-Public beta: Support is currently only offered to partners & enterprise customers.
+Public beta: Support is currently only offered to enterprise customers & collaborators.
 
 ```
-
-Curate, store, track, query, integrate, and learn from biological data.
-
-Data & analysis platform for R&D to
-
-1. manage low- and high-dimensional data by biological entities
-2. manage data by provenance (users, notebooks, pipelines, instruments, etc.)
-3. collaborate on data within and across organizations
 
 LaminDB is a distributed data management system similar to how git is a distributed version control system.
-Each LaminDB instance is a lakehouse with storage (local directory, S3, GCP, Azure) and a SQL database (SQLite, Postgres) for querying it.
+Each LaminDB instance is a [lakehouse](https://www.databricks.com/glossary/data-lakehouse) with storage locations (local directories, S3, GCP) and a SQL database (SQLite, Postgres) for querying them.
+LaminDB speaks biology via [Bionty](https://lamin.ai/docs/bionty) and configurable R&D [schema modules](https://lamin.ai/docs/db/lamindb.schema).
 
-Install:
+- Get started with the [guide](guide/index), [API](api) and [FAQ](faq/index).
+- See basic features on the [landing page](https://lamin.ai).
+- See the [source code](https://github.com/laminlabs/lamindb) on GitHub.
+- Browse the open-sourced [data modules](https://lamin.ai/docs) LaminDB builds on.
 
-```
-pip install lamindb
-```
-
-Get started:
-
-- The [guide](guide/index) walks you through setup and usage of the platform.
-- Browse the [API reference](api) and [FAQ](faq/index).
-
-References:
-
-- See [docs](https://lamin.ai/docs) for an overview of open-sourced data modules LaminDB builds on.
-- [Reach out](https://lamin.ai/contact) to learn about modules that connect your assays, pipelines & workflows within our data platform enterprise plan.
+[Reach out](https://lamin.ai/contact) to learn about data modules that connect your assays, pipelines & workflows within our data platform enterprise plan.
 
 ```{toctree}
 :maxdepth: 1
