@@ -411,6 +411,15 @@ def ingest_dobject(
 ):
     """Insert and store dobject."""
     name, suffix = get_name_suffix_from_filepath(filepath)
+    if dobject_id is None:
+        dobject_id = id.dobject()
+
+    dobject_storage_key = storage_key_from_triple(dobject_id, dobject_v, suffix)
+
+    try:
+        size = store_file(filepath, dobject_storage_key)
+    except SameFileError:
+        pass
 
     if pipeline_run is None:
         dobject_id = insert.dobject_from_jupynb(
@@ -421,6 +430,7 @@ def ingest_dobject(
             jupynb_name=jupynb_name,
             dobject_id=dobject_id,
             dobject_v=dobject_v,
+            size=size,
         )
     else:
         dobject_id = insert.dobject_from_pipeline(
@@ -429,13 +439,8 @@ def ingest_dobject(
             dobject_id=dobject_id,
             dobject_v=dobject_v,
             pipeline_run=pipeline_run,
+            size=size,
         )
-
-    dobject_storage_key = storage_key_from_triple(dobject_id, dobject_v, suffix)
-    try:
-        store_file(filepath, dobject_storage_key)
-    except SameFileError:
-        pass
 
     track_usage(dobject_id, dobject_v, usage_type="ingest")
 

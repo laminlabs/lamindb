@@ -16,13 +16,18 @@ READER_FUNCS = {
 }
 
 
-def store_file(localfile: Union[str, Path], storagekey: str):
-    """Store arbitrary file."""
+def store_file(localfile: Union[str, Path], storagekey: str) -> float:
+    """Store arbitrary file.
+
+    Returns size in bytes.
+    """
     storagepath = settings.instance.storage.key_to_filepath(storagekey)
     if isinstance(storagepath, CloudPath):
         storagepath.upload_from(localfile)
     else:
         shutil.copyfile(localfile, storagepath)
+    size = Path(localfile).stat().st_size
+    return float(size)  # because this is how we store in the db
 
 
 def delete_file(storagekey: str):
