@@ -337,8 +337,10 @@ class IngestBfxRun:
 
     def _link_dobjects_biometa(self, biometa_id):
         """Link dobjects to a biometa entry."""
-        for dobject_id, _ in self.dobjects.values():
-            insert.dobject_biometa(dobject_id=dobject_id, biometa_id=biometa_id)
+        for dobject_id, dobject_v in self.dobjects.values():
+            insert.dobject_biometa(
+                dobject_id=dobject_id, dobject_v=dobject_v, biometa_id=biometa_id
+            )
 
     def _link_dobjects_bfxmeta(self):
         """Register dobject's bfxmeta entry and link it to the dobject."""
