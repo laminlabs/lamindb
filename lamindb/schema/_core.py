@@ -39,13 +39,17 @@ def get_db_metadata():
 def get_db_metadata_as_dict():
     metadata = get_db_metadata()
     return {
-        table_name: get_table_metadata_as_dict(table)
-        for table_name, table in metadata.tables.items()
+        "key": get_db_name(),
+        "tables": {
+            table_name: get_table_metadata_as_dict(table)
+            for table_name, table in metadata.tables.items()
+        },
     }
 
 
 def get_table_metadata_as_dict(table: Table):
     return {
+        "key": table.key,
         "primary_keys": table.primary_key.columns.keys(),
         "foreign_keys": get_foreign_keys_as_tuples(table),
         "columns": {
@@ -68,3 +72,8 @@ def get_column_metadata_as_dict(column: Column):
 
 def get_foreign_keys_as_tuples(object: Union[Table, Column]):
     return [(fk.column.table.key, fk.column.key) for fk in object.foreign_keys]
+
+
+def get_db_name() -> str:
+    engine = settings.instance.db_engine()
+    return engine.url.database
