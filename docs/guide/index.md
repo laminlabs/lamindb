@@ -11,6 +11,8 @@ Walk-through of basic functionality
 - {doc}`introspect`
 - {doc}`share-cross-org`
 
+If you are short on time, use the [quickstart](../quickstart).
+
 Walk-through of exemplary R&D operations
 
 - {doc}`rds-setup`
@@ -26,5 +28,6 @@ Walk-through of exemplary R&D operations
 :hidden:
 
 basic
+../quickstart
 rds
 ```
