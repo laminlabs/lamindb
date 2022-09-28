@@ -223,7 +223,7 @@ class IngestObject:
             # ingest with feature models
             curated = self._feature_models.get(filepath)
             if curated is not None:
-                curated["model"].ingest(dobject_id, curated["df_curated"])
+                curated["model"].ingest(dobject_id, dobject_v, curated["df_curated"])
 
     def log(self):
         """Pretty print logs."""

@@ -52,7 +52,7 @@ class LinkFeatureModel:
 
         return df_curated, log
 
-    def ingest(self, dobject_id, df_curated):
+    def ingest(self, dobject_id: str, dobject_v: str, df_curated: pd.DataFrame):
         """Ingest features."""
         # mapped features will also contain fields in the reference table
         mapped_index = df_curated.index[df_curated["__curated__"]]
@@ -68,6 +68,7 @@ class LinkFeatureModel:
 
         link.feature(
             dobject_id=dobject_id,
+            dobject_v=dobject_v,
             values={**mapped_dict, **unmapped_dict},
             feature_entity=self.entity,
             species=self.species,
@@ -91,7 +92,8 @@ class link:
     @classmethod
     def feature(
         cls,
-        dobject_id,
+        dobject_id: str,
+        dobject_v: str,
         values: dict,
         feature_entity: str,
         species: str,
@@ -112,7 +114,7 @@ class link:
         # use the featureset_id to create an entry in biometa
         # TODO: need to make this easier
         dobject_biometas = getattr(query, "dobject_biometa")(
-            dobject_id=dobject_id
+            dobject_id=dobject_id, dobject_v=dobject_v
         ).all()
         if len(dobject_biometas) == 0:
             # insert a biometa entry and link to dobject
@@ -139,19 +141,21 @@ class link:
         )
 
     @classmethod
-    def readout(cls, dobject_id, efo_id: str):
+    def readout(cls, dobject_id, dobject_v, efo_id: str):
         """Link readout."""
         readout_id = getattr(insert, "readout")(efo_id=efo_id)
         if readout_id is None:
             readout_id = getattr(query, "readout")(efo_id=efo_id).one()
 
         # query biometa associated with a dobject
-        dobject_biometa = getattr(query, "dobject_biometa")(dobject_id=dobject_id).all()
+        dobject_biometa = getattr(query, "dobject_biometa")(
+            dobject_id=dobject_id, dobject_v=dobject_v
+        ).all()
         if len(dobject_biometa) > 0:
             biometa_ids = [i.biometa_id for i in dobject_biometa]
         else:
             # TODO: fix here
-            biometa_ids = [getattr(insert, "biometa")(dobject_id=dobject_id)]
+            biometa_ids = [getattr(insert, "biometa")(readout_id=readout_id)]
             logger.warning(
                 f"No biometa found for dobject {dobject_id}, created biometa"
                 f" {biometa_ids[0]}"
@@ -169,10 +173,10 @@ class link:
         )
 
     @classmethod
-    def biometa(cls, dobject_id: str, biometa_id: int):
+    def biometa(cls, dobject_id: str, dobject_v: str, biometa_id: int):
         """Link a dobject to a biometa."""
         dobject_biometas = getattr(query, "dobject_biometa")(
-            dobject_id=dobject_id, biometa_id=biometa_id
+            dobject_id=dobject_id, dobject_v=dobject_v, biometa_id=biometa_id
         ).all()
         if len(dobject_biometas) > 0:
             raise AssertionError(
@@ -180,5 +184,5 @@ class link:
             )
         else:
             _ = getattr(insert, "dobject_biometa")(
-                dobject_id=dobject_id, biometa_id=biometa_id
+                dobject_id=dobject_id, dobject_v=dobject_v, biometa_id=biometa_id
             )
