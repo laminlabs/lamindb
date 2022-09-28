@@ -77,3 +77,8 @@ def get_foreign_keys_as_tuples(object: Union[Table, Column]):
 def get_db_name() -> str:
     engine = settings.instance.db_engine()
     return engine.url.database
+
+
+def get_table_object(table_name: str):
+    metadata = get_db_metadata()
+    return metadata.tables[table_name]
