@@ -1,3 +1,5 @@
+from typing import Union
+
 import erdiagram
 import sqlalchemy as sql
 from lndb_setup import settings
@@ -45,9 +47,7 @@ def get_db_metadata_as_dict():
 def get_table_metadata_as_dict(table: Table):
     return {
         "primary_keys": table.primary_key.columns.keys(),
-        "foreign_keys": [
-            (fk.column.table.key, fk.column.key) for fk in table.foreign_keys
-        ],
+        "foreign_keys": get_foreign_keys_as_tuples(table),
         "columns": {
             column_name: get_column_metadata_as_dict(column)
             for column_name, column in table.columns.items()
@@ -58,9 +58,13 @@ def get_table_metadata_as_dict(table: Table):
 def get_column_metadata_as_dict(column: Column):
     return {
         "key": column.key,
-        "type": column.type,
+        "type": str(column.type),
         "primary_key": column.primary_key,
-        "foreign_keys": column.foreign_keys,
+        "foreign_keys": get_foreign_keys_as_tuples(column),
         "nullable": column.nullable,
         "default": column.default,
     }
+
+
+def get_foreign_keys_as_tuples(object: Union[Table, Column]):
+    return [(fk.column.table.key, fk.column.key) for fk in object.foreign_keys]
