@@ -122,7 +122,9 @@ class link:
             biometa_id = getattr(insert, "biometa")(
                 featureset_id=featureset_id, force=True
             )
-            getattr(link, "biometa")(dobject_id=dobject_id, biometa_id=biometa_id)
+            getattr(link, "biometa")(
+                dobject_id=dobject_id, dobject_v=dobject_v, biometa_id=biometa_id
+            )
         else:
             raise NotImplementedError
 
