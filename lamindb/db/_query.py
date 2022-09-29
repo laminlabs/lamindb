@@ -1,15 +1,13 @@
 from datetime import datetime
 from functools import cached_property
-from typing import Dict, Optional, Union
+from typing import Dict, Optional
 
 import bionty as bt
-import pandas as pd
 from lndb_setup import settings
 from sqlalchemy import inspect
 from sqlmodel import Session, select
 
-from ..dev import track_usage
-from ..dev.db import exception
+from ..dev import QueryResult, track_usage
 from ..schema._table import Table
 
 
@@ -45,52 +43,6 @@ def _featureset_from_features(entity, entity_kwargs):
                 ]
         return list(set(featureset_ids))
     return []
-
-
-class QueryResult:
-    """Query results."""
-
-    def __init__(self, results: Union[list, None], model) -> None:
-        if results is None:
-            results = []
-        self._results = results
-        self._model = model
-
-    def df(self):
-        """Return list query results as a DataFrame."""
-        if len(self._results) > 0:
-            df = pd.DataFrame(
-                [result.dict() for result in self._results],
-                columns=Table.get_fields(self._model),
-            )
-        else:
-            df = pd.DataFrame(columns=Table.get_fields(self._model))
-
-        if "id" in df.columns:
-            if "v" in df.columns:
-                df = df.set_index(["id", "v"])
-            else:
-                df = df.set_index("id")
-        return df
-
-    def all(self):
-        """Return all query results as a list."""
-        return self._results
-
-    def one(self):
-        """Return a unique query result entry."""
-        if len(self._results) == 0:
-            raise exception.NoResultFound
-        elif len(self._results) > 1:
-            raise exception.MultipleResultsFound
-        else:
-            return self._results[0]
-
-    def first(self):
-        """Return the first entry in query results."""
-        if len(self._results) == 0:
-            raise exception.NoResultFound
-        return self._results[0]
 
 
 def _create_query_func(model):
