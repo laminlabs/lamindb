@@ -126,9 +126,9 @@ def query_dobject(
 def _create_query_func(model):
     """Autogenerate query functions for each entity table."""
 
-    def query_func(as_df=False, **kwargs):
+    def query_func(**kwargs):
         """Query metadata from tables."""
-        return Query(model=model, as_df=as_df, kwargs=kwargs)
+        return Query(model=model, kwargs=kwargs)
 
     query_func.__name__ = model.__name__
     return query_func
