@@ -1,6 +1,6 @@
 from datetime import datetime
 from functools import cached_property
-from typing import Dict, Optional
+from typing import Dict, Optional, Union
 
 import bionty as bt
 import pandas as pd
@@ -21,11 +21,12 @@ def _query_stmt(statement, results_type="all"):
 
 def _chain_select_stmt(kwargs: dict, schema_module):
     stmt = select(schema_module)
-    for field, value in kwargs.items():
-        if (field in {"cls", "self"}) or (value is None):
-            continue
-        else:
-            stmt = stmt.where(getattr(schema_module, field) == value)
+    if len(kwargs) > 0:
+        for field, value in kwargs.items():
+            if (field in {"cls", "self"}) or (value is None):
+                continue
+            else:
+                stmt = stmt.where(getattr(schema_module, field) == value)
     return stmt
 
 
@@ -46,15 +47,76 @@ def _featureset_from_features(entity, entity_kwargs):
     return []
 
 
+class QueryResult:
+    """Query results."""
+
+    def __init__(self, results: Union[list, None], model) -> None:
+        if results is None:
+            results = []
+        self._results = results
+        self._model = model
+
+    def df(self):
+        """Return list query results as a DataFrame."""
+        if len(self._results) > 0:
+            df = pd.DataFrame(
+                [result.dict() for result in self._results],
+                columns=Table.get_fields(self._model),
+            )
+        else:
+            df = pd.DataFrame(columns=Table.get_fields(self._model))
+
+        if "id" in df.columns:
+            if "v" in df.columns:
+                df = df.set_index(["id", "v"])
+            else:
+                df = df.set_index("id")
+        return df
+
+    def all(self):
+        """Return all query results as a list."""
+        return self._results
+
+    def one(self):
+        """Return a unique query result entry."""
+        if len(self._results) == 0:
+            raise exception.NoResultFound
+        elif len(self._results) > 1:
+            raise exception.MultipleResultsFound
+        else:
+            return self._results[0]
+
+    def first(self):
+        """Return the first entry in query results."""
+        if len(self._results) == 0:
+            raise exception.NoResultFound
+        return self._results[0]
+
+
 def _create_query_func(model):
     """Autogenerate query functions for each entity table."""
 
-    def query_func(**kwargs):
+    def query_func(**kwargs) -> QueryResult:
         """Query metadata from tables."""
-        return Query(model=model, kwargs=kwargs)
+        return _query(model=model, kwargs=kwargs)
 
     query_func.__name__ = model.__name__
     return query_func
+
+
+def _query(model, result_list=None, kwargs={}) -> QueryResult:
+    """Simple queries."""
+    if result_list is None:
+        return QueryResult(results=result_list, model=model)
+
+    stmt = _chain_select_stmt(kwargs=kwargs, schema_module=model)
+    results = _query_stmt(statement=stmt, results_type="all")
+    # track usage for dobjects
+    if model.__name__ == "dobject":
+        for result in results:
+            track_usage(result.id, result.v, "query")
+
+    return QueryResult(results=results, model=model)
 
 
 def query_dobject(
@@ -110,65 +172,7 @@ def query_dobject(
 
         results = [i for i in results if i.id in [j.id for j in dobjects]]
 
-    if len(results) > 0:
-        for result in results:
-            track_usage(result.id, result.v, "query")
-
-    return Query(model=model, result_list=results)
-
-
-class Query:
-    """Simple queries."""
-
-    def __init__(self, model, result_list=None, kwargs=None) -> None:
-        self._model = model
-        self._kwargs = kwargs
-        self._results = self._query() if result_list is None else result_list
-
-    def _query(self, results_type="all"):
-        stmt = _chain_select_stmt(kwargs=self._kwargs, schema_module=self._model)
-        results = _query_stmt(statement=stmt, results_type=results_type)
-        # track usage for dobjects
-        if self._model.__name__ == "dobject":
-            for result in results:
-                track_usage(result.id, result.v, "query")
-        return results
-
-    def df(self):
-        """Return list query results as a DataFrame."""
-        if len(self._results) > 0:
-            df = pd.DataFrame(
-                [result.dict() for result in self._results],
-                columns=Table.get_fields(self._model),
-            )
-        else:
-            df = pd.DataFrame(columns=Table.get_fields(self._model))
-
-        if "id" in df.columns:
-            if "v" in df.columns:
-                df = df.set_index(["id", "v"])
-            else:
-                df = df.set_index("id")
-        return df
-
-    def all(self):
-        """Return all query results as a list."""
-        return self._results
-
-    def one(self):
-        """Return a unique query result entry."""
-        if len(self._results) == 0:
-            raise exception.NoResultFound
-        elif len(self._results) > 1:
-            raise exception.MultipleResultsFound
-        else:
-            return self._results[0]
-
-    def first(self):
-        """Return the first entry in query results."""
-        if len(self._results) == 0:
-            raise exception.NoResultFound
-        return self._results[0]
+    return _query(model=model, result_list=results)
 
 
 class LinkedQuery:
