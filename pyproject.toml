@@ -9,14 +9,14 @@ readme = "README.md"
 dynamic = ["version", "description"]
 dependencies = [
     "lnschema_core==0.8.1",
-    "lnschema_wetlab==0.3.7",
-    "lnschema_bionty==0.4.0",
-    "lndb_setup==0.8.1",
+    "lnschema_wetlab==0.4.3",
+    "lnschema_bionty==0.4.2",
+    "lndb_setup==0.8.2",
     "lndb_hub==0.5.6",
     "lamin_logger",
     "bioreadout==0.1.2",
     "lnbfx>=0.3.7",
-    "bionty>=0.2.4",
+    "bionty>=0.2.5",
     "anndata",
     "boto3",
     "hjson",
@@ -44,7 +44,6 @@ dev = [
     "nox",
 ]
 test = [
-    "bionty>=0.1.6",
     "pytest>=6.0",
     "coverage",
     "pytest-cov",
