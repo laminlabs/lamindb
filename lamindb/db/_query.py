@@ -139,20 +139,22 @@ class Query:
         self._model = model
         self._kwargs = kwargs
 
-    def _query(self, results_type, as_df=False):
+    def _query(self, results_type="all"):
         stmt = _chain_select_stmt(kwargs=self._kwargs, schema_module=self._model)
         results = _query_stmt(statement=stmt, results_type=results_type)
         # track usage for dobjects
         if self._model.__name__ == "dobject":
             for result in results:
                 track_usage(result.id, result.v, "query")
-        # return DataFrame
-        if as_df:
-            return _return_query_results_as_df(results=results, model=self._model)
+
         return results
 
-    def all(self, as_df=False):
-        return self._query(results_type="all", as_df=as_df)
+    def df(self):
+        results = self._query()
+        return _return_query_results_as_df(results=results, model=self._model)
+
+    def all(self):
+        return self._query()
 
     def one(self):
         return self._query(results_type="one")
@@ -318,18 +320,19 @@ class FilterQueryResultList:
         self._model = model
         self._results = results
 
-    def _filter(self, as_df=False):
+    def _track_usage(self):
         # track usage for dobjects
         if self._model.__name__ == "dobject":
             for result in self._results:
                 track_usage(result.id, result.v, "query")
-        # return DataFrame
-        if as_df:
-            return _return_query_results_as_df(results=self._results, model=self._model)
         return self._results
 
-    def all(self, as_df=False):
-        return self._filter(as_df=as_df)
+    def df(self):
+        results = self._track_usage()
+        return _return_query_results_as_df(results=results, model=self._model)
+
+    def all(self):
+        return self._track_usage()
 
     def one(self):
         if len(self._results) == 0:
@@ -337,13 +340,13 @@ class FilterQueryResultList:
         elif len(self._results) > 1:
             raise exception.MultipleResultsFound
         else:
-            return self._filter()[0]
+            return self._track_usage()[0]
 
     def first(self):
         if len(self._results) == 0:
             raise exception.NoResultFound
         else:
-            return self._filter()[0]
+            return self._track_usage()[0]
 
 
 class query:
