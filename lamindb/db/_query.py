@@ -52,12 +52,10 @@ def _create_query_func(model):
         return _query(model=model, kwargs=kwargs)
 
     query_func.__name__ = model.__name__
-    import_module = model.__module__.replace("._core", "")
-    # TODO: remove if after bfx schema is properly documented
-    if import_module != "lnbfx._schema":
-        query_func.__doc__ = (
-            f"""Query metadata from :class:`~{import_module}.{model.__name__}`."""
-        )
+    # import_module = model.__module__.replace("._core", "")
+    # query_func.__doc__ = (
+    #     f"""Query metadata from :class:`~{import_module}.{model.__name__}`."""
+    # )
     return query_func
 
 
