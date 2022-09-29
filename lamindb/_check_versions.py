@@ -26,8 +26,8 @@ if version.parse(lndb_hub_v) != version.parse("0.5.6"):
 if version.parse(nbproject_v) < version.parse("0.5.3"):
     raise RuntimeError("lamindb needs nbproject>=0.5.3")
 
-if version.parse(lnbfx_v) < version.parse("0.3.9"):
-    raise RuntimeError("lamindb needs lnbfx>=0.3.9")
+if version.parse(lnbfx_v) < version.parse("0.3.10"):
+    raise RuntimeError("lamindb needs lnbfx>=0.3.10")
 
 if version.parse(bioreadout_v) < version.parse("0.1.2"):
     raise RuntimeError("lamindb needs bioreadout>=0.1.2")
