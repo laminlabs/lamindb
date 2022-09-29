@@ -12,6 +12,7 @@ Utilities:
 .. autosummary::
    :toctree: .
 
+   QueryResult
    doc_args
 """
 
@@ -27,3 +28,4 @@ from ._core import (
 )
 from ._docs import doc_args  # noqa
 from ._pipeline import format_pipeline_logs
+from ._query_result import QueryResult
