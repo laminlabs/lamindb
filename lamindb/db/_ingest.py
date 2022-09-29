@@ -336,11 +336,15 @@ class IngestPipelineRun:
 
     def _ingest(self, table: str, pk: dict = {}, fk: dict = {}, **kwargs):
         """Generic ingestion helper function."""
-        result = getattr(query, table)(**pk, **fk, **kwargs)
-        if result is None:
+        results = getattr(query, table)(**pk, **fk, **kwargs).all()
+        if len(results) == 0:
             entry_id = getattr(insert, table)(**pk, **fk, **kwargs)
+        elif len(results) == 1:
+            entry_id = results[0].id
         else:
-            entry_id = result.one().id
+            raise ValueError(
+                f"Multiple entries associated with {table} entry: {kwargs}."
+            )
         return entry_id
 
     def _ingest_dobjects(self, jupynb_id, jupynb_v, jupynb_name):
