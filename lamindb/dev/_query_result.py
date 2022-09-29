@@ -33,11 +33,17 @@ class QueryResult:
         return df
 
     def all(self):
-        """Return all query results as a list."""
+        """Return all results of this query as a list."""
         return self._results
 
+    def first(self):
+        """Return the first result of query or None if no results are found."""
+        if len(self._results) == 0:
+            return None
+        return self._results[0]
+
     def one(self):
-        """Return a unique query result entry."""
+        """Return exactly one result or raise an exception."""
         if len(self._results) == 0:
             raise exception.NoResultFound
         elif len(self._results) > 1:
@@ -45,8 +51,11 @@ class QueryResult:
         else:
             return self._results[0]
 
-    def first(self):
-        """Return the first entry in query results."""
+    def one_or_none(self):
+        """Return at most one result or raise an exception."""
         if len(self._results) == 0:
-            raise exception.NoResultFound
-        return self._results[0]
+            return None
+        elif len(self._results) == 1:
+            return self._results[0]
+        else:
+            raise exception.MultipleResultsFound

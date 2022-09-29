@@ -52,8 +52,12 @@ def _create_query_func(model):
         return _query(model=model, kwargs=kwargs)
 
     query_func.__name__ = model.__name__
-    import_module = model.__module__.split(".")[0]
-    url = f"https://lamin.ai/docs/{import_module.replace('_', '-')}/{import_module}.{model.__name__}"  # noqa
+    import_module, prefix = (
+        model.__module__.split(".")[0],
+        model.__module__.split(".")[1],
+    )
+    prefix = f".{prefix.replace('_schema', 'schema')}" if "schema" in prefix else ""
+    url = f"https://lamin.ai/docs/{import_module.replace('_', '-')}/{import_module}{prefix}.{model.__name__}"  # noqa
     query_func.__doc__ = (
         f"""Query metadata from `{import_module}.{model.__name__} <{url}>`__."""
     )
@@ -89,8 +93,8 @@ def query_dobject(
 ):
     """Query from dobject.
 
-    `lnschema_core.dobject <https://lamin.ai/docs/lnschema-core/lnschema_core.dobject>`__. # noqa
-    """
+    `lnschema_core.dobject <https://lamin.ai/docs/lnschema-core/lnschema_core.dobject>`__.
+    """  # noqa
     model = Table.get_model("dobject")
     kwargs = {k: v for k, v in locals().items() if k in Table.get_fields(model)}
     stmt = _chain_select_stmt(kwargs=kwargs, schema_module=model)

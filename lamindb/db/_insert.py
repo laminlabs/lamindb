@@ -57,13 +57,15 @@ def dobject_from_pipeline(
     dobject_v: str,
     size: float,
 ):
-    result = getattr(query, "dtransform")(pipeline_run_id=pipeline_run.run_id).all()
-    if len(result) == 0:
+    result = getattr(query, "dtransform")(
+        pipeline_run_id=pipeline_run.run_id
+    ).one_or_none()
+    if result is None:
         dtransform_id = getattr(insert, "dtransform")(
             pipeline_run_id=pipeline_run.run_id
         )
     else:
-        dtransform_id = result[0].id
+        dtransform_id = result.id
 
     return dobject_from_dtransform(
         dobject_name=name,
@@ -87,8 +89,8 @@ def dobject_from_jupynb(
     size: float,
 ):
     """Data object from jupynb."""
-    result = getattr(query, "jupynb")(id=jupynb_id, v=jupynb_v).all()
-    if len(result) == 0:
+    result = getattr(query, "jupynb")(id=jupynb_id, v=jupynb_v).one_or_none()
+    if result is None:
         jupynb_id = getattr(insert, "jupynb")(
             id=jupynb_id,
             v=jupynb_v,
@@ -136,17 +138,13 @@ def featureset_from_features(
 
     # check if geneset exists
     if featureset_name is not None:
-        featureset_results = getattr(query, "featureset")(
+        featureset_result = getattr(query, "featureset")(
             feature_entity=feature_entity,
             name=featureset_name,
-        ).all()
-        if len(featureset_results) > 1:
-            raise AssertionError(
-                f"Multiple entries are associated with {featureset_name}!"
-            )
-        elif len(featureset_results) == 1:
+        ).one_or_none()
+        if featureset_result is not None:
             logger.warning(f"Featureset {featureset_name} already exists!")
-            return featureset_results[0].id
+            return featureset_result.id
 
     # get the id field of feature entity
     feature_id = features_dict[next(iter(features_dict))].keys()[-1]
