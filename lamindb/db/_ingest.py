@@ -350,8 +350,8 @@ class IngestBfxRun:
 
     def _register(self, schema_module, pk: dict, **kwargs):
         """Generic registration helper function."""
-        result = getattr(query, schema_module)(**pk).first()
-        if result is None:
+        result = getattr(query, schema_module)(**pk).all()
+        if len(result) == 0:
             getattr(insert, schema_module)(**pk, **kwargs)
 
     def _register_bfxmeta(self, dobject_filepath: Path):
