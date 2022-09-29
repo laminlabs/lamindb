@@ -111,7 +111,8 @@ class Ingest:
         jupynb_v = dev.set_version(jupynb_v)  # version to be set in publish()
         jupynb_name = meta.live.title
 
-        ingest_entities = [self._ingest_object] + self._ingest_pipeline
+        ingest_entities = self._ingest_pipeline[:]
+        ingest_entities.insert(0, self._ingest_object)
         for ingest in ingest_entities:
             # TODO: run the appropriate clean-up operations if any aspect
             # of the ingestion fails
