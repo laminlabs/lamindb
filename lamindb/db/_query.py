@@ -29,23 +29,6 @@ def _chain_select_stmt(kwargs: dict, schema_module):
     return stmt
 
 
-def _return_query_results_as_df(results, model):
-    """Return list query results as a DataFrame."""
-    if len(results) > 0:
-        df = pd.DataFrame(
-            [result.dict() for result in results], columns=Table.get_fields(model)
-        )
-    else:
-        df = pd.DataFrame(columns=Table.get_fields(model))
-
-    if "id" in df.columns:
-        if "v" in df.columns:
-            df = df.set_index(["id", "v"])
-        else:
-            df = df.set_index("id")
-    return df
-
-
 def _featureset_from_features(entity, entity_kwargs):
     """Return featuresets by quering features."""
     results = getattr(query, entity)(**entity_kwargs).all()
@@ -61,6 +44,17 @@ def _featureset_from_features(entity, entity_kwargs):
                 ]
         return list(set(featureset_ids))
     return []
+
+
+def _create_query_func(model):
+    """Autogenerate query functions for each entity table."""
+
+    def query_func(**kwargs):
+        """Query metadata from tables."""
+        return Query(model=model, kwargs=kwargs)
+
+    query_func.__name__ = model.__name__
+    return query_func
 
 
 def query_dobject(
@@ -120,24 +114,16 @@ def query_dobject(
         for result in results:
             track_usage(result.id, result.v, "query")
 
-    return FilterQueryResultList(model=model, results=results)
-
-
-def _create_query_func(model):
-    """Autogenerate query functions for each entity table."""
-
-    def query_func(**kwargs):
-        """Query metadata from tables."""
-        return Query(model=model, kwargs=kwargs)
-
-    query_func.__name__ = model.__name__
-    return query_func
+    return Query(model=model, result_list=results)
 
 
 class Query:
-    def __init__(self, model, kwargs=None) -> None:
+    """Simple queries."""
+
+    def __init__(self, model, result_list=None, kwargs=None) -> None:
         self._model = model
         self._kwargs = kwargs
+        self._results = self._query() if result_list is None else result_list
 
     def _query(self, results_type="all"):
         stmt = _chain_select_stmt(kwargs=self._kwargs, schema_module=self._model)
@@ -146,21 +132,43 @@ class Query:
         if self._model.__name__ == "dobject":
             for result in results:
                 track_usage(result.id, result.v, "query")
-
         return results
 
     def df(self):
-        results = self._query()
-        return _return_query_results_as_df(results=results, model=self._model)
+        """Return list query results as a DataFrame."""
+        if len(self._results) > 0:
+            df = pd.DataFrame(
+                [result.dict() for result in self._results],
+                columns=Table.get_fields(self._model),
+            )
+        else:
+            df = pd.DataFrame(columns=Table.get_fields(self._model))
+
+        if "id" in df.columns:
+            if "v" in df.columns:
+                df = df.set_index(["id", "v"])
+            else:
+                df = df.set_index("id")
+        return df
 
     def all(self):
-        return self._query()
+        """Return all query results as a list."""
+        return self._results
 
     def one(self):
-        return self._query(results_type="one")
+        """Return a unique query result entry."""
+        if len(self._results) == 0:
+            raise exception.NoResultFound
+        elif len(self._results) > 1:
+            raise exception.MultipleResultsFound
+        else:
+            return self._results[0]
 
     def first(self):
-        return self._query(results_type="first")
+        """Return the first entry in query results."""
+        if len(self._results) == 0:
+            raise exception.NoResultFound
+        return self._results[0]
 
 
 class LinkedQuery:
@@ -313,40 +321,6 @@ class LinkedQuery:
             current_name = parent_name
 
         return results
-
-
-class FilterQueryResultList:
-    def __init__(self, model, results: list) -> None:
-        self._model = model
-        self._results = results
-
-    def _track_usage(self):
-        # track usage for dobjects
-        if self._model.__name__ == "dobject":
-            for result in self._results:
-                track_usage(result.id, result.v, "query")
-        return self._results
-
-    def df(self):
-        results = self._track_usage()
-        return _return_query_results_as_df(results=results, model=self._model)
-
-    def all(self):
-        return self._track_usage()
-
-    def one(self):
-        if len(self._results) == 0:
-            raise exception.NoResultFound
-        elif len(self._results) > 1:
-            raise exception.MultipleResultsFound
-        else:
-            return self._track_usage()[0]
-
-    def first(self):
-        if len(self._results) == 0:
-            raise exception.NoResultFound
-        else:
-            return self._track_usage()[0]
 
 
 class query:
