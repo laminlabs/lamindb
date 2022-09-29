@@ -336,15 +336,12 @@ class IngestPipelineRun:
 
     def _ingest(self, table: str, pk: dict = {}, fk: dict = {}, **kwargs):
         """Generic ingestion helper function."""
-        if bool(pk):
-            result = getattr(query, table)(**pk).first()
-            if result is None:
-                result = getattr(insert, table)(**pk, **fk, **kwargs)
+        result = getattr(query, table)(**pk, **fk, **kwargs)
+        if result is None:
+            entry_id = getattr(insert, table)(**pk, **fk, **kwargs)
         else:
-            result = getattr(insert, table)(**pk, **fk, **kwargs)
-            if result is None:
-                result = getattr(query, table)(**pk, **fk, **kwargs).one().id
-        return result
+            entry_id = result.one().id
+        return entry_id
 
     def _ingest_dobjects(self, jupynb_id, jupynb_v, jupynb_name):
         """Register staged dobjects."""
@@ -372,48 +369,47 @@ class IngestPipelineRun:
             )
 
     def _ingest_samples(self):
-        """Register entries in the techsample, biosample, biometa tables."""
+        """Register entries in bio metadata tables."""
+        # ingest techsample
+        if "techsample" in list_entities():
+            if len(self._run.fastq_path) == 1:
+                techsample_id = self._ingest(
+                    table="techsample", filepath_r1=self._run.fastq_path[0].as_posix()
+                )
+            else:
+                techsample_id = self._ingest(
+                    table="techsample",
+                    filepath_r1=self._run.fastq_path[0].as_posix(),
+                    filepath_r2=self._run.fastq_path[1].as_posix(),
+                )
+
+        # ingest biosample
         biosample_id = self._run.biosample_id
         if biosample_id is None:
-            # insert techsample, biosample, and biometa entries
-            # TODO: implement this correctly
-            if "techsample" in list_entities():
-                if len(self._run.fastq_path) == 1:
-                    techsample_id = insert.techsample(
-                        filepath_r1=self._run.fastq_path[0].as_posix()
-                    )
-                else:
-                    techsample_id = insert.techsample(
-                        filepath_r1=self._run.fastq_path[0].as_posix(),
-                        filepath_r2=self._run.fastq_path[1].as_posix(),
-                    )
-            biosample_id = insert.biosample(techsample_id=techsample_id)
-            biometa_id = insert.biometa(biosample_id=biosample_id)
+            biosample_id = self._ingest(table="biosample")
         else:
-            # check that biosample entry exists
             assert query.biosample(biosample_id=biosample_id).one()
-            # query for existing biometa
-            result = query.biometa(
-                where={"biosample": {"biosample_id": biosample_id}}
-            ).all()
-            if len(result) == 0:
-                # insert entry in biometa if it does not yet exist
-                biometa_id = insert.biometa(biosample_id=biosample_id)
-            elif len(result) == 1:
-                biometa_id = result[0].id
-            else:
-                raise AssertionError(
-                    "Multiple biometa entries associated with biosample"
-                    f" {biosample_id}."
-                )
+
+        # ingest biosample_techsample
+        self._ingest(
+            table="biosample_techsample",
+            biosample_id=biosample_id,
+            techsample_id=techsample_id,
+        )
+
+        # ingest biometa
+        biometa_id = self._ingest(table="biometa", biosample_id=biosample_id)
 
         return biometa_id
 
     def _link_biometa(self, biometa_id):
         """Link dobjects to a biometa entry."""
         for dobject_id, dobject_v in self.dobjects.values():
-            insert.dobject_biometa(
-                dobject_id=dobject_id, dobject_v=dobject_v, biometa_id=biometa_id
+            self._ingest(
+                table="dobject_biometa",
+                dobject_id=dobject_id,
+                dobject_v=dobject_v,
+                biometa_id=biometa_id,
             )
 
     def _link_pipeline_meta(self):
