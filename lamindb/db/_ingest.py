@@ -223,7 +223,7 @@ class IngestObject:
             # ingest with feature models
             curated = self._feature_models.get(filepath)
             if curated is not None:
-                curated["model"].ingest(dobject_id, curated["df_curated"])
+                curated["model"].ingest(dobject_id, dobject_v, curated["df_curated"])
 
     def log(self):
         """Pretty print logs."""
@@ -337,8 +337,10 @@ class IngestBfxRun:
 
     def _link_dobjects_biometa(self, biometa_id):
         """Link dobjects to a biometa entry."""
-        for dobject_id, _ in self.dobjects.values():
-            insert.dobject_biometa(dobject_id=dobject_id, biometa_id=biometa_id)
+        for dobject_id, dobject_v in self.dobjects.values():
+            insert.dobject_biometa(
+                dobject_id=dobject_id, dobject_v=dobject_v, biometa_id=biometa_id
+            )
 
     def _link_dobjects_bfxmeta(self):
         """Register dobject's bfxmeta entry and link it to the dobject."""
@@ -402,7 +404,12 @@ class IngestBfxRun:
                     filepath_r1=self._run.fastq_path[0].as_posix(),
                     filepath_r2=self._run.fastq_path[1].as_posix(),
                 )
-            biosample_id = insert.biosample(techsample_id=techsample_id)
+            biosample_id = insert.biosample(
+                force=True
+            )  # TODO: this should triggers a warning?
+            _ = insert.biosample_techsample(
+                biosample_id=biosample_id, techsample_id=techsample_id
+            )
             biometa_id = insert.biometa(biosample_id=biosample_id)
         else:
             # check that biosample entry exists
