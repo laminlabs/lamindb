@@ -48,17 +48,20 @@ def _featureset_from_features(entity, entity_kwargs):
 def _create_query_func(model):
     """Autogenerate query functions for each entity table."""
 
-    def query_func(**kwargs) -> QueryResult:
-        """Query metadata from tables."""
+    def query_func(**kwargs):
         return _query(model=model, kwargs=kwargs)
 
     query_func.__name__ = model.__name__
+    import_module = model.__module__.replace("._core", "")
+    query_func.__doc__ = (
+        f"""Query metadata from :class:`~{import_module}.{model.__name__}`."""
+    )
     return query_func
 
 
-def _query(model, result_list=None, kwargs={}) -> QueryResult:
+def _query(model, result_list=None, kwargs=dict()) -> QueryResult:
     """Simple queries."""
-    if result_list is None:
+    if result_list is not None:
         return QueryResult(results=result_list, model=model)
 
     stmt = _chain_select_stmt(kwargs=kwargs, schema_module=model)
@@ -83,7 +86,7 @@ def query_dobject(
     updated_at: datetime = None,
     where: Dict[str, dict] = None,
 ):
-    """Query from dobject."""
+    """Query from :class:`~lnschema_core.dobject`."""
     model = Table.get_model("dobject")
     kwargs = {k: v for k, v in locals().items() if k in Table.get_fields(model)}
     stmt = _chain_select_stmt(kwargs=kwargs, schema_module=model)
@@ -280,7 +283,10 @@ class LinkedQuery:
 
 
 class query:
-    """Query literal (semantic) data."""
+    """Query literal (semantic) data.
+
+    Returns a :class:`~lamindb.dev.QueryResult` object.
+    """
 
     pass
 
