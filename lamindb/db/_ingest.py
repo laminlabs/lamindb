@@ -350,8 +350,8 @@ class IngestBfxRun:
 
     def _register(self, schema_module, pk: dict, **kwargs):
         """Generic registration helper function."""
-        result = getattr(query, schema_module)(**pk).all()
-        if len(result) == 0:
+        result = getattr(query, schema_module)(**pk).one_or_none()
+        if result is None:
             getattr(insert, schema_module)(**pk, **kwargs)
 
     def _register_bfxmeta(self, dobject_filepath: Path):
@@ -417,16 +417,12 @@ class IngestBfxRun:
             # query for existing biometa
             result = query.biometa(
                 where={"biosample": {"biosample_id": sample_id}}
-            ).all()
-            if len(result) == 0:
+            ).one_or_none()
+            if result is None:
                 # insert entry in biometa if it does not yet exist
                 biometa_id = insert.biometa(biosample_id=sample_id)
-            elif len(result) == 1:
-                biometa_id = result[0].id
             else:
-                raise AssertionError(
-                    f"Multiple biometa entries associated with biosample {sample_id}."
-                )
+                biometa_id = result.id
 
         return biometa_id
 
