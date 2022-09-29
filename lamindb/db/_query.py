@@ -74,7 +74,6 @@ def query_dobject(
     created_at: datetime = None,
     updated_at: datetime = None,
     where: Dict[str, dict] = None,
-    as_df: bool = False,
 ):
     """Query from dobject."""
     model = Table.get_model("dobject")
@@ -121,7 +120,7 @@ def query_dobject(
         for result in results:
             track_usage(result.id, result.v, "query")
 
-    return FilterQueryResultList(model=model, results=results, as_df=as_df)
+    return FilterQueryResultList(model=model, results=results)
 
 
 def _create_query_func(model):
@@ -136,12 +135,11 @@ def _create_query_func(model):
 
 
 class Query:
-    def __init__(self, model, as_df=False, kwargs=None) -> None:
+    def __init__(self, model, kwargs=None) -> None:
         self._model = model
-        self._as_df = as_df
         self._kwargs = kwargs
 
-    def _query(self, results_type):
+    def _query(self, results_type, as_df=False):
         stmt = _chain_select_stmt(kwargs=self._kwargs, schema_module=self._model)
         results = _query_stmt(statement=stmt, results_type=results_type)
         # track usage for dobjects
@@ -149,12 +147,12 @@ class Query:
             for result in results:
                 track_usage(result.id, result.v, "query")
         # return DataFrame
-        if self._as_df:
+        if as_df:
             return _return_query_results_as_df(results=results, model=self._model)
         return results
 
-    def all(self):
-        return self._query(results_type="all")
+    def all(self, as_df=False):
+        return self._query(results_type="all", as_df=as_df)
 
     def one(self):
         return self._query(results_type="one")
@@ -316,23 +314,22 @@ class LinkedQuery:
 
 
 class FilterQueryResultList:
-    def __init__(self, model, results: list, as_df: bool = False) -> None:
+    def __init__(self, model, results: list) -> None:
         self._model = model
         self._results = results
-        self._as_df = as_df
 
-    def _filter(self):
+    def _filter(self, as_df=False):
         # track usage for dobjects
         if self._model.__name__ == "dobject":
             for result in self._results:
                 track_usage(result.id, result.v, "query")
         # return DataFrame
-        if self._as_df:
+        if as_df:
             return _return_query_results_as_df(results=self._results, model=self._model)
         return self._results
 
-    def all(self):
-        return self._filter()
+    def all(self, as_df=False):
+        return self._filter(as_df=as_df)
 
     def one(self):
         if len(self._results) == 0:
@@ -340,19 +337,13 @@ class FilterQueryResultList:
         elif len(self._results) > 1:
             raise exception.MultipleResultsFound
         else:
-            results = self._filter()
-            if isinstance(results, pd.DataFrame):
-                return results.head(1)
-            return results[0]
+            return self._filter()[0]
 
     def first(self):
         if len(self._results) == 0:
             raise exception.NoResultFound
         else:
-            results = self._filter()
-            if isinstance(results, pd.DataFrame):
-                return results.head(1)
-            return results[0]
+            return self._filter()[0]
 
 
 class query:
