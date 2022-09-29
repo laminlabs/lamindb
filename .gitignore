@@ -2,6 +2,7 @@
 _build
 mydata/
 rds/
+mydb/
 bfx-output/
 scrnaseq-cellranger/
 scrnaseq-cellranger-schmidt22/

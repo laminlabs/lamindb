@@ -122,7 +122,7 @@ class link:
             biometa_id = getattr(insert, "biometa")(
                 featureset_id=featureset_id, force=True
             )
-            getattr(link, "biometa")(
+            cls.biometa(
                 dobject_id=dobject_id, dobject_v=dobject_v, biometa_id=biometa_id
             )
         else:
@@ -182,7 +182,7 @@ class link:
         ).all()
         if len(dobject_biometas) > 0:
             raise AssertionError(
-                "dobject {dobject_id} is already linked to biometa {biometa_id}!"
+                f"dobject {dobject_id} is already linked to biometa {biometa_id}!"
             )
         else:
             _ = getattr(insert, "dobject_biometa")(

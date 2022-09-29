@@ -404,7 +404,12 @@ class IngestBfxRun:
                     filepath_r1=self._run.fastq_path[0].as_posix(),
                     filepath_r2=self._run.fastq_path[1].as_posix(),
                 )
-            biosample_id = insert.biosample(techsample_id=techsample_id)
+            biosample_id = insert.biosample(
+                force=True
+            )  # TODO: this should triggers a warning?
+            _ = insert.biosample_techsample(
+                biosample_id=biosample_id, techsample_id=techsample_id
+            )
             biometa_id = insert.biometa(biosample_id=biosample_id)
         else:
             # check that biosample entry exists
