@@ -3,13 +3,11 @@ from functools import cached_property
 from typing import Dict, Optional
 
 import bionty as bt
-import pandas as pd
 from lndb_setup import settings
 from sqlalchemy import inspect
 from sqlmodel import Session, select
 
-from ..dev import track_usage
-from ..dev.db import exception
+from ..dev import QueryResult, track_usage
 from ..schema._table import Table
 
 
@@ -21,29 +19,13 @@ def _query_stmt(statement, results_type="all"):
 
 def _chain_select_stmt(kwargs: dict, schema_module):
     stmt = select(schema_module)
-    for field, value in kwargs.items():
-        if (field in {"cls", "self"}) or (value is None):
-            continue
-        else:
-            stmt = stmt.where(getattr(schema_module, field) == value)
+    if len(kwargs) > 0:
+        for field, value in kwargs.items():
+            if (field in {"cls", "self"}) or (value is None):
+                continue
+            else:
+                stmt = stmt.where(getattr(schema_module, field) == value)
     return stmt
-
-
-def _return_query_results_as_df(results, model):
-    """Return list query results as a DataFrame."""
-    if len(results) > 0:
-        df = pd.DataFrame(
-            [result.dict() for result in results], columns=Table.get_fields(model)
-        )
-    else:
-        df = pd.DataFrame(columns=Table.get_fields(model))
-
-    if "id" in df.columns:
-        if "v" in df.columns:
-            df = df.set_index(["id", "v"])
-        else:
-            df = df.set_index("id")
-    return df
 
 
 def _featureset_from_features(entity, entity_kwargs):
@@ -63,6 +45,36 @@ def _featureset_from_features(entity, entity_kwargs):
     return []
 
 
+def _create_query_func(model):
+    """Autogenerate query functions for each entity table."""
+
+    def query_func(**kwargs):
+        return _query(model=model, kwargs=kwargs)
+
+    query_func.__name__ = model.__name__
+    import_module = model.__module__.split(".")[0]
+    url = f"https://lamin.ai/docs/{import_module.replace('_', '-')}/{import_module}.{model.__name__}"  # noqa
+    query_func.__doc__ = (
+        f"""Query metadata from `{import_module}.{model.__name__} <{url}>`__."""
+    )
+    return query_func
+
+
+def _query(model, result_list=None, kwargs=dict()) -> QueryResult:
+    """Simple queries."""
+    if result_list is not None:
+        return QueryResult(results=result_list, model=model)
+
+    stmt = _chain_select_stmt(kwargs=kwargs, schema_module=model)
+    results = _query_stmt(statement=stmt, results_type="all")
+    # track usage for dobjects
+    if model.__name__ == "dobject":
+        for result in results:
+            track_usage(result.id, result.v, "query")
+
+    return QueryResult(results=results, model=model)
+
+
 def query_dobject(
     id: Optional[str] = None,
     v: Optional[str] = None,
@@ -74,9 +86,11 @@ def query_dobject(
     created_at: datetime = None,
     updated_at: datetime = None,
     where: Dict[str, dict] = None,
-    as_df: bool = False,
 ):
-    """Query from dobject."""
+    """Query from dobject.
+
+    `lnschema_core.dobject <https://lamin.ai/docs/lnschema-core/lnschema_core.dobject>`__. # noqa
+    """
     model = Table.get_model("dobject")
     kwargs = {k: v for k, v in locals().items() if k in Table.get_fields(model)}
     stmt = _chain_select_stmt(kwargs=kwargs, schema_module=model)
@@ -117,50 +131,7 @@ def query_dobject(
 
         results = [i for i in results if i.id in [j.id for j in dobjects]]
 
-    if len(results) > 0:
-        for result in results:
-            track_usage(result.id, result.v, "query")
-
-    return FilterQueryResultList(model=model, results=results, as_df=as_df)
-
-
-def _create_query_func(model):
-    """Autogenerate query functions for each entity table."""
-
-    def query_func(as_df=False, **kwargs):
-        """Query metadata from tables."""
-        return Query(model=model, as_df=as_df, kwargs=kwargs)
-
-    query_func.__name__ = model.__name__
-    return query_func
-
-
-class Query:
-    def __init__(self, model, as_df=False, kwargs=None) -> None:
-        self._model = model
-        self._as_df = as_df
-        self._kwargs = kwargs
-
-    def _query(self, results_type):
-        stmt = _chain_select_stmt(kwargs=self._kwargs, schema_module=self._model)
-        results = _query_stmt(statement=stmt, results_type=results_type)
-        # track usage for dobjects
-        if self._model.__name__ == "dobject":
-            for result in results:
-                track_usage(result.id, result.v, "query")
-        # return DataFrame
-        if self._as_df:
-            return _return_query_results_as_df(results=results, model=self._model)
-        return results
-
-    def all(self):
-        return self._query(results_type="all")
-
-    def one(self):
-        return self._query(results_type="one")
-
-    def first(self):
-        return self._query(results_type="first")
+    return _query(model=model, result_list=results)
 
 
 class LinkedQuery:
@@ -315,48 +286,11 @@ class LinkedQuery:
         return results
 
 
-class FilterQueryResultList:
-    def __init__(self, model, results: list, as_df: bool = False) -> None:
-        self._model = model
-        self._results = results
-        self._as_df = as_df
-
-    def _filter(self):
-        # track usage for dobjects
-        if self._model.__name__ == "dobject":
-            for result in self._results:
-                track_usage(result.id, result.v, "query")
-        # return DataFrame
-        if self._as_df:
-            return _return_query_results_as_df(results=self._results, model=self._model)
-        return self._results
-
-    def all(self):
-        return self._filter()
-
-    def one(self):
-        if len(self._results) == 0:
-            raise exception.NoResultFound
-        elif len(self._results) > 1:
-            raise exception.MultipleResultsFound
-        else:
-            results = self._filter()
-            if isinstance(results, pd.DataFrame):
-                return results.head(1)
-            return results[0]
-
-    def first(self):
-        if len(self._results) == 0:
-            raise exception.NoResultFound
-        else:
-            results = self._filter()
-            if isinstance(results, pd.DataFrame):
-                return results.head(1)
-            return results[0]
-
-
 class query:
-    """Query literal (semantic) data."""
+    """Query literal (semantic) data.
+
+    Returns a :class:`~lamindb.dev.QueryResult` object.
+    """
 
     pass
 
