@@ -28,12 +28,11 @@ def filepath_from_dobject(dobj: dobject):
     return filepath
 
 
-def track_usage(dobject_id, dobject_v, usage_type: type.usage):
+def track_usage(dobject_id, usage_type: type.usage):
     usage_id = getattr(db.insert, "usage")(
         type=usage_type,
         user_id=settings.user.id,
         dobject_id=dobject_id,
-        dobject_v=dobject_v,
     )
 
     return usage_id

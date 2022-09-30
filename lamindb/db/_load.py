@@ -47,19 +47,18 @@ def populate_dtransform_in(dobject):
                 )
             ).one()
             dtransform_id = dtransform.id
-        result = session.get(core.dtransform_in, (dtransform_id, dobject.id, dobject.v))
+        result = session.get(core.dtransform_in, (dtransform_id, dobject.id))
         if result is None:
             session.add(
                 core.dtransform_in(
                     dtransform_id=dtransform_id,
                     dobject_id=dobject.id,
-                    dobject_v=dobject.v,
                 )
             )
             session.commit()
             committed = True
             logger.info(
-                f"Added dobject ({dobject.id}, {dobject.v}) as input for dtransform"
+                f"Added dobject ({dobject.id}) as input for dtransform"
                 f" ({dtransform_id})."
             )
     if committed:
@@ -76,5 +75,5 @@ def load(dobject: core.dobject):
     """
     filepath = filepath_from_dobject(dobject)
     populate_dtransform_in(dobject)
-    track_usage(dobject.id, dobject.v, "load")
+    track_usage(dobject.id, "load")
     return load_to_memory(filepath)
