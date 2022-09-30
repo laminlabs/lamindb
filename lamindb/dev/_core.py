@@ -15,11 +15,11 @@ def get_name_suffix_from_filepath(filepath: Union[Path, CloudPath]):
 
 
 def storage_key_from_dobject(dobj: dobject):
-    return f"{dobj.id}-{dobj.v}{dobj.suffix}"
+    return f"{dobj.id}{dobj.suffix}"
 
 
-def storage_key_from_triple(dobj_id: str, dobj_v: str, dobj_suffix: str):
-    return f"{dobj_id}-{dobj_v}{dobj_suffix}"
+def storage_key_from_triple(dobj_id: str, dobj_suffix: str):
+    return f"{dobj_id}{dobj_suffix}"
 
 
 def filepath_from_dobject(dobj: dobject):
