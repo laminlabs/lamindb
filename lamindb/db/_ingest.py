@@ -1,6 +1,6 @@
 from pathlib import Path
 from shutil import SameFileError
-from typing import Dict, List
+from typing import Dict, Optional
 
 from lnbfx import BfxRun
 from lndb_setup import settings
@@ -16,50 +16,6 @@ from ..schema import list_entities
 from ._insert import insert
 from ._link import link
 from ._query import query
-
-
-def ingest_dobject(
-    filepath,
-    jupynb_id,
-    jupynb_v,
-    jupynb_name,
-    dobject_id,
-    pipeline_run,
-):
-    """Insert and store dobject."""
-    name, suffix = get_name_suffix_from_filepath(filepath)
-    if dobject_id is None:
-        dobject_id = id.dobject()
-
-    dobject_storage_key = storage_key_from_triple(dobject_id, suffix)
-
-    try:
-        size = store_file(filepath, dobject_storage_key)
-    except SameFileError:
-        pass
-
-    if pipeline_run is None:
-        dobject_id = insert.dobject_from_jupynb(
-            name=name,
-            suffix=suffix,
-            jupynb_id=jupynb_id,
-            jupynb_v=jupynb_v,
-            jupynb_name=jupynb_name,
-            dobject_id=dobject_id,
-            size=size,
-        )
-    else:
-        dobject_id = insert.dobject_from_pipeline(
-            name=name,
-            suffix=suffix,
-            dobject_id=dobject_id,
-            pipeline_run=pipeline_run,
-            size=size,
-        )
-
-    track_usage(dobject_id, usage_type="ingest")
-
-    return dobject_id
 
 
 class Ingest:
@@ -170,18 +126,120 @@ class Ingest:
         meta.store.write(calling_statement="commit(")
 
 
-class IngestObject:
-    """Ingest dobjects."""
+class IngestEntity:
+    """Ingest any entity."""
 
     def __init__(self) -> None:
         self._dobjects: Dict = {}
-        self._feature_models: Dict = {}
-        self._logs: List = []
+        self._logs: list = []
 
     @property
     def dobjects(self) -> dict:
         """Added dobjects for ingestion."""
         return self._dobjects
+
+    @property
+    def logs(self):
+        return self._logs
+
+    def log(self, cols: tuple, message: str):
+        """Pretty print logs."""
+        from tabulate import tabulate  # type: ignore
+
+        if len(self.logs) == 0:
+            return
+
+        log_table = tabulate(
+            self.logs,
+            headers=[
+                colors.green(cols[0]),
+                colors.blue(cols[1]),
+                colors.purple(cols[2]),
+            ],
+            tablefmt="pretty",
+            stralign="left",
+        )
+
+        logger.success(f"{message}\n{log_table}")
+
+    def ingest_dobject(
+        self,
+        filepath,
+        jupynb_id,
+        jupynb_v,
+        jupynb_name,
+        dobject_id,
+        pipeline_run,
+    ):
+        """Helper function for dobject ingestion."""
+        name, suffix = get_name_suffix_from_filepath(filepath)
+        if dobject_id is None:
+            dobject_id = id.dobject()
+
+        dobject_storage_key = storage_key_from_triple(dobject_id, suffix)
+
+        try:
+            size = store_file(filepath, dobject_storage_key)
+        except SameFileError:
+            pass
+
+        if pipeline_run is None:
+            dobject_id = insert.dobject_from_jupynb(
+                name=name,
+                suffix=suffix,
+                jupynb_id=jupynb_id,
+                jupynb_v=jupynb_v,
+                jupynb_name=jupynb_name,
+                dobject_id=dobject_id,
+                size=size,
+            )
+        else:
+            dobject_id = insert.dobject_from_pipeline(
+                name=name,
+                suffix=suffix,
+                dobject_id=dobject_id,
+                pipeline_run=pipeline_run,
+                size=size,
+            )
+
+        track_usage(dobject_id, usage_type="ingest")
+
+        return dobject_id
+
+    def ingest_non_dobject(
+        self,
+        table: str,
+        pk: Optional[dict] = None,
+        fk: Optional[dict] = None,
+        force: bool = False,
+        **kwargs,
+    ):
+        """Generic helper function for non-dobject ingestion."""
+        if pk is None:
+            pk = {}
+        if fk is None:
+            fk = {}
+        entry_id = getattr(insert, table)(**pk, **fk, **kwargs, force=force)
+        if force is False and entry_id is None:
+            entry_id = getattr(query, table)(**pk, **fk, **kwargs).one().id
+        return entry_id
+
+
+class IngestObject(IngestEntity):
+    """Ingest dobjects."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self._feature_models: Dict = {}
+
+    @property
+    def dobjects(self) -> dict:
+        """Added dobjects for ingestion."""
+        return self._dobjects
+
+    @property
+    def logs(self):
+        return self._logs
 
     @property
     def feature_models(self) -> dict:
@@ -241,8 +299,8 @@ class IngestObject:
 
     def commit(self, jupynb_id, jupynb_v, jupynb_name):
         """Ingest staged dobjects."""
-        for filepath, dobject_id in self._dobjects.items():
-            dobject_id = ingest_dobject(
+        for filepath, dobject_id in self.dobjects.items():
+            dobject_id = self._ingest_dobject(
                 filepath=filepath,
                 jupynb_id=jupynb_id,
                 jupynb_v=jupynb_v,
@@ -266,38 +324,32 @@ class IngestObject:
 
     def log(self):
         """Pretty print logs."""
-        from tabulate import tabulate  # type: ignore
-
-        if len(self._logs) == 0:
-            return
-
-        log_table = tabulate(
-            self._logs,
-            headers=[
-                colors.green("dobject"),
-                colors.blue("jupynb"),
-                colors.purple("user"),
-            ],
-            tablefmt="pretty",
-            stralign="left",
+        super().log(
+            cols=("dobject", "jupynb", "user"),
+            message="Ingested the following dobjects:",
         )
 
-        logger.success(f"Ingested the following dobjects:\n{log_table}")
+    def _ingest_dobject(self, **kwargs):
+        return super().ingest_dobject(**kwargs)
 
 
 class IngestPipelineRun:
     """Ingest runs from any pipeline."""
 
     def __init__(self):
+        super().__init__()
         self._run = None
         self._inputs: Dict = {}
         self._outputs: Dict = {}
-        self._logs: List = []
 
     @property
     def dobjects(self) -> dict:
         """Added dobjects for ingestion."""
         return {**self._inputs, **self._outputs}
+
+    @property
+    def logs(self):
+        return format_pipeline_logs(self._logs)
 
     def add(self, run, *args):
         # add run for ingestion
@@ -321,13 +373,13 @@ class IngestPipelineRun:
         self._link_pipeline_meta()
 
         # register core pipeline and pipeline run
-        self._ingest(
+        self._ingest_non_dobject(
             table="pipeline",
             pk=self._run.pipeline_pk,
             name=self._run.pipeline_name,
             reference=self._run.pipeline_reference,
         )
-        self._ingest(
+        self._ingest_non_dobject(
             table="pipeline_run",
             pk=self._run.run_pk,
             fk={
@@ -338,11 +390,11 @@ class IngestPipelineRun:
         )
 
         # register pipeline-specific pipeline and run
-        self._ingest(
+        self._ingest_non_dobject(
             table=self._run.pipeline_table,
             pk=self._run.pipeline_pk,
         )
-        self._ingest(
+        self._ingest_non_dobject(
             table=self._run.run_table,
             pk=self._run.run_pk,
             fk=self._run.run_fk,
@@ -350,41 +402,21 @@ class IngestPipelineRun:
         )
 
     def log(self):
-        """Pretty print logs."""
-        from tabulate import tabulate  # type: ignore
-
-        if len(self._logs) == 0:
-            return
-
-        self._logs = format_pipeline_logs(self._logs)
-        log_table = tabulate(
-            self._logs,
-            headers=[
-                colors.green("dobject"),
-                colors.blue("pipeline run"),
-                colors.purple("user"),
-            ],
-            tablefmt="pretty",
-            stralign="left",
+        super().log(
+            cols=("dobject", "pipeline run", "user"),
+            message="Ingested the following dobjects from pipeline runs:",
         )
 
-        logger.success(
-            f"Ingested the following dobjects from pipeline runs:\n{log_table}"
-        )
+    def _ingest_dobject(self, **kwargs):
+        return super().ingest_dobject(**kwargs)
 
-    def _ingest(
-        self, table: str, pk: dict = {}, fk: dict = {}, force: bool = False, **kwargs
-    ):
-        """Generic ingestion helper function."""
-        entry_id = getattr(insert, table)(**pk, **fk, **kwargs, force=force)
-        if force is False and entry_id is None:
-            entry_id = getattr(query, table)(**pk, **fk, **kwargs).one().id
-        return entry_id
+    def _ingest_non_dobject(self, **kwargs):
+        return super().ingest_non_dobject(**kwargs)
 
     def _ingest_dobjects(self, jupynb_id, jupynb_v, jupynb_name):
         """Register staged dobjects."""
         for filepath, dobject_id in self.dobjects.items():
-            dobject_id = ingest_dobject(
+            dobject_id = self._ingest_dobject(
                 filepath=filepath,
                 jupynb_id=jupynb_id,
                 jupynb_v=jupynb_v,
@@ -410,13 +442,13 @@ class IngestPipelineRun:
         # ingest techsample
         if "techsample" in list_entities():
             if len(self._run.fastq_path) == 1:
-                techsample_id = self._ingest(
+                techsample_id = self._ingest_non_dobject(
                     table="techsample",
                     filepath_r1=self._run.fastq_path[0].as_posix(),
                     force=True,
                 )
             else:
-                techsample_id = self._ingest(
+                techsample_id = self._ingest_non_dobject(
                     table="techsample",
                     filepath_r1=self._run.fastq_path[0].as_posix(),
                     filepath_r2=self._run.fastq_path[1].as_posix(),
@@ -426,19 +458,19 @@ class IngestPipelineRun:
         # ingest biosample
         biosample_id = self._run.biosample_id
         if biosample_id is None:
-            biosample_id = self._ingest(table="biosample", force=True)
+            biosample_id = self._ingest_non_dobject(table="biosample", force=True)
         else:
             assert query.biosample(biosample_id=biosample_id).one()
 
         # ingest biosample_techsample
-        self._ingest(
+        self._ingest_non_dobject(
             table="biosample_techsample",
             biosample_id=biosample_id,
             techsample_id=techsample_id,
         )
 
         # ingest biometa
-        biometa_id = self._ingest(
+        biometa_id = self._ingest_non_dobject(
             table="biometa", biosample_id=biosample_id, force=True
         )
 
@@ -447,7 +479,7 @@ class IngestPipelineRun:
     def _link_biometa(self, biometa_id):
         """Link dobjects to a biometa entry."""
         for dobject_id in self.dobjects.values():
-            self._ingest(
+            self._ingest_non_dobject(
                 table="dobject_biometa",
                 dobject_id=dobject_id,
                 biometa_id=biometa_id,
@@ -459,11 +491,11 @@ class IngestPipelineRun:
             # ingest pipeline-related metadata
             file_type = self._run.file_type.get(filepath)
             dir = filepath.parent.resolve().as_posix()
-            pipeline_meta_id = self._ingest(
+            pipeline_meta_id = self._ingest_non_dobject(
                 table=self._run.meta_table, file_type=file_type, dir=dir
             )
             # link dobject to pipeline-related metadata
-            self._ingest(
+            self._ingest_non_dobject(
                 table=f"dobject_{self._run.meta_table}",
                 pk={
                     "dobject_id": dobject_id,
