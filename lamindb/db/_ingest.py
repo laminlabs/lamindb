@@ -69,23 +69,23 @@ class Ingest:
     """Ingest dobjects and pipeline runs."""
 
     def __init__(self) -> None:
-        self._ingest_object = IngestObject()  # dobjects
-        self._ingest_pipeline: list = []  # pipeline runs
+        self._object = IngestObject()  # dobjects
+        self._pipeline: list = []  # pipeline runs
 
     @property
     def status(self) -> list:
         """Added dobjects for ingestion."""
         added_dobjects = {}  # type: ignore
-        ingest_entities = self._ingest_pipeline[:]
-        ingest_entities.insert(0, self._ingest_object)
+        ingest_entities = self._pipeline[:]
+        ingest_entities.insert(0, self._object)
         for ingest in ingest_entities:
             added_dobjects = {**added_dobjects, **ingest.dobjects}
 
         added_list = []
         for k, v in added_dobjects.items():
             entry = dict(filepath=k.as_posix(), dobject_id=v[0], dobject_v=v[1])
-            if k in self._ingest_object.feature_models.keys():
-                entry["feature_model"] = self._ingest_object.feature_models[k]
+            if k in self._object.feature_models.keys():
+                entry["feature_model"] = self._object.feature_models[k]
             added_list.append(entry)
 
         return added_list
@@ -113,9 +113,9 @@ class Ingest:
         """
         if dobject.__class__ == BfxRun:
             ingest = IngestPipelineRun()
-            self._ingest_pipeline.append(ingest)
+            self._pipeline.append(ingest)
         else:
-            ingest = self._ingest_object  # type: ignore
+            ingest = self._object  # type: ignore
 
         ingest.add(
             dobject,
@@ -158,8 +158,8 @@ class Ingest:
         jupynb_v = dev.set_version(jupynb_v)  # version to be set in publish()
         jupynb_name = meta.live.title
 
-        ingest_entities = self._ingest_pipeline[:]
-        ingest_entities.insert(0, self._ingest_object)
+        ingest_entities = self._pipeline[:]
+        ingest_entities.insert(0, self._object)
         for ingest in ingest_entities:
             # TODO: run the appropriate clean-up operations if any aspect
             # of the ingestion fails
