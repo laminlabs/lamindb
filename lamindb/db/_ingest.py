@@ -18,18 +18,65 @@ from ._link import link
 from ._query import query
 
 
+def ingest_dobject(
+    filepath,
+    jupynb_id,
+    jupynb_v,
+    jupynb_name,
+    dobject_id,
+    dobject_v,
+    pipeline_run,
+):
+    """Insert and store dobject."""
+    name, suffix = get_name_suffix_from_filepath(filepath)
+    if dobject_id is None:
+        dobject_id = id.dobject()
+
+    dobject_storage_key = storage_key_from_triple(dobject_id, dobject_v, suffix)
+
+    try:
+        size = store_file(filepath, dobject_storage_key)
+    except SameFileError:
+        pass
+
+    if pipeline_run is None:
+        dobject_id = insert.dobject_from_jupynb(
+            name=name,
+            suffix=suffix,
+            jupynb_id=jupynb_id,
+            jupynb_v=jupynb_v,
+            jupynb_name=jupynb_name,
+            dobject_id=dobject_id,
+            dobject_v=dobject_v,
+            size=size,
+        )
+    else:
+        dobject_id = insert.dobject_from_pipeline(
+            name=name,
+            suffix=suffix,
+            dobject_id=dobject_id,
+            dobject_v=dobject_v,
+            pipeline_run=pipeline_run,
+            size=size,
+        )
+
+    track_usage(dobject_id, dobject_v, usage_type="ingest")
+
+    return dobject_id
+
+
 class Ingest:
     """Ingest dobjects and pipeline runs."""
 
     def __init__(self) -> None:
-        self._ingest_object = IngestObject()  # dobjects
-        self._ingest_pipeline: list = []  # pipeline runs
+        self._ingest_object = IngestObject()  # an ingest instance
+        self._ingest_pipelines: list = []  # a list of ingest instances
 
     @property
     def status(self) -> list:
         """Added dobjects for ingestion."""
         added_dobjects = {}  # type: ignore
-        ingest_entities = self._ingest_pipeline[:]
+        ingest_entities = self._ingest_pipelines[:]
         ingest_entities.insert(0, self._ingest_object)
         for ingest in ingest_entities:
             added_dobjects = {**added_dobjects, **ingest.dobjects}
@@ -50,8 +97,8 @@ class Ingest:
         name: str = None,
         feature_model=None,
         featureset_name: str = None,
-        dobject_id=None,
-        dobject_v="1",
+        dobject_id: str = None,
+        dobject_v: str = "1",
     ):
         """Stage a data object (in memory or file) for ingestion.
 
@@ -64,9 +111,9 @@ class Ingest:
             dobject_id: The dobject id.
             dobject_v: The dobject version.
         """
-        if dobject.__class__ == BfxRun:
+        if isinstance(dobject, BfxRun):
             ingest = IngestPipelineRun()
-            self._ingest_pipeline.append(ingest)
+            self._ingest_pipelines.append(ingest)
         else:
             ingest = self._ingest_object  # type: ignore
 
@@ -111,7 +158,7 @@ class Ingest:
         jupynb_v = dev.set_version(jupynb_v)  # version to be set in publish()
         jupynb_name = meta.live.title
 
-        ingest_entities = self._ingest_pipeline[:]
+        ingest_entities = self._ingest_pipelines[:]
         ingest_entities.insert(0, self._ingest_object)
         for ingest in ingest_entities:
             # TODO: run the appropriate clean-up operations if any aspect
@@ -149,11 +196,11 @@ class IngestObject:
     def add(
         self,
         dobject,
-        name,
-        feature_model,
-        featureset_name,
-        dobject_id,
-        dobject_v,
+        name: str = None,
+        feature_model=None,
+        featureset_name: str = None,
+        dobject_id: str = None,
+        dobject_v: str = "1",
     ):
         """Stage dobject for ingestion."""
         primary_key = (
@@ -435,53 +482,6 @@ class IngestPipelineRun:
                     f"{self._run.meta_table}_id": pipeline_meta_id,
                 },
             )
-
-
-def ingest_dobject(
-    filepath,
-    jupynb_id,
-    jupynb_v,
-    jupynb_name,
-    dobject_id,
-    dobject_v,
-    pipeline_run,
-):
-    """Insert and store dobject."""
-    name, suffix = get_name_suffix_from_filepath(filepath)
-    if dobject_id is None:
-        dobject_id = id.dobject()
-
-    dobject_storage_key = storage_key_from_triple(dobject_id, dobject_v, suffix)
-
-    try:
-        size = store_file(filepath, dobject_storage_key)
-    except SameFileError:
-        pass
-
-    if pipeline_run is None:
-        dobject_id = insert.dobject_from_jupynb(
-            name=name,
-            suffix=suffix,
-            jupynb_id=jupynb_id,
-            jupynb_v=jupynb_v,
-            jupynb_name=jupynb_name,
-            dobject_id=dobject_id,
-            dobject_v=dobject_v,
-            size=size,
-        )
-    else:
-        dobject_id = insert.dobject_from_pipeline(
-            name=name,
-            suffix=suffix,
-            dobject_id=dobject_id,
-            dobject_v=dobject_v,
-            pipeline_run=pipeline_run,
-            size=size,
-        )
-
-    track_usage(dobject_id, dobject_v, usage_type="ingest")
-
-    return dobject_id
 
 
 ingest = Ingest()
