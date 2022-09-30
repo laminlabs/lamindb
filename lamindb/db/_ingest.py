@@ -67,26 +67,25 @@ class Ingest:
 
     def __init__(self) -> None:
         self._ingests: list = []  # a list of ingest instances
-        # self._ingest_object = IngestObject()  # an ingest instance
-        # self._ingest_pipelines: list = []
 
-    # @property
-    # def status(self) -> list:
-    #     """Added dobjects for ingestion."""
-    #     added_dobjects = {}  # type: ignore
-    #     # ingest_entities = self._ingest_pipelines[:]
-    #     # ingest_entities.insert(0, self._ingest_object)
-    #     for ingest in self._ingests:
-    #         added_dobjects = {**added_dobjects, **ingest.dobjects}
+    @property
+    def status(self) -> list:
+        """Added dobjects for ingestion."""
+        return []
+        # added_dobjects = {}  # type: ignore
+        # # ingest_entities = self._ingest_pipelines[:]
+        # # ingest_entities.insert(0, self._ingest_object)
+        # for ingest in self._ingests:
+        #     added_dobjects = {**added_dobjects, **ingest.dobjects}
 
-    #     added_list = []
-    #     for k, v in added_dobjects.items():
-    #         entry = dict(filepath=k.as_posix(), dobject_id=v)
-    #         if k in self._ingest_object.feature_models.keys():
-    #             entry["feature_model"] = self._ingest_object.feature_models[k]
-    #         added_list.append(entry)
+        # added_list = []
+        # for k, v in added_dobjects.items():
+        #     entry = dict(filepath=k.as_posix(), dobject_id=v)
+        #     if k in self._ingest_object.feature_models.keys():
+        #         entry["feature_model"] = self._ingest_object.feature_models[k]
+        #     added_list.append(entry)
 
-    #     return added_list
+        # return added_list
 
     def add(
         self,
@@ -110,7 +109,6 @@ class Ingest:
         """
         if isinstance(dobject, BfxRun):
             ingest_ = IngestPipelineRun()
-            # self._ingest_pipelines.append(ingest)
         else:
             ingest_ = IngestObject()  # type: ignore
 
@@ -156,8 +154,6 @@ class Ingest:
         jupynb_v = dev.set_version(jupynb_v)  # version to be set in publish()
         jupynb_name = meta.live.title
 
-        # ingest_entities = self._ingest_pipelines[:]
-        # ingest_entities.insert(0, self._ingest_object)
         for ingest in self._ingests:
             # TODO: run the appropriate clean-up operations if any aspect
             # of the ingestion fails
