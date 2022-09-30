@@ -3,6 +3,7 @@
 <!-- prettier-ignore -->
 Name | PR | Developer | Date | Version
 --- | --- | --- | --- | ---
+⬆️ Upgrade to lnschema_core 0.9.0 | [241](https://github.com/laminlabs/lamindb/pull/241) | [falexwolf](https://github.com/falexwolf) | 2022-09-30 |
 🎨 Add type annotation to ingest | [240](https://github.com/laminlabs/lamindb/pull/240) | [sunnyosun](https://github.com/sunnyosun) | 2022-09-30 |
 :recycle: Generalize pipeline ingestion | [237](https://github.com/laminlabs/lamindb/pull/237) | [bpenteado](https://github.com/bpenteado) | 2022-09-30 |
 ✨ Added `one_or_none`, fixed api links | [238](https://github.com/laminlabs/lamindb/pull/238) | [sunnyosun](https://github.com/sunnyosun) | 2022-09-29 |
