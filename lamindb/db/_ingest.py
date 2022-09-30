@@ -3,7 +3,6 @@ from shutil import SameFileError
 from typing import Dict, List
 
 from lnbfx import BfxRun
-from lnbfx.dev import get_bfx_files_from_dir, parse_bfx_file_type
 from lndb_setup import settings
 from lnschema_core import id
 
@@ -13,6 +12,7 @@ from .._logger import colors, logger
 from ..dev import format_pipeline_logs, storage_key_from_triple, track_usage
 from ..dev.file import load_to_memory, store_file
 from ..dev.object import infer_suffix, write_to_file
+from ..schema import list_entities
 from ._insert import insert
 from ._link import link
 from ._query import query
@@ -23,13 +23,13 @@ class Ingest:
 
     def __init__(self) -> None:
         self._ingest_object = IngestObject()  # dobjects
-        self._ingest_bfx: List = []  # bfx pipeline runs
+        self._ingest_pipeline: list = []  # pipeline runs
 
     @property
     def status(self) -> list:
         """Added dobjects for ingestion."""
         added_dobjects = {}  # type: ignore
-        ingest_entities = self._ingest_bfx[:]
+        ingest_entities = self._ingest_pipeline[:]
         ingest_entities.insert(0, self._ingest_object)
         for ingest in ingest_entities:
             added_dobjects = {**added_dobjects, **ingest.dobjects}
@@ -65,8 +65,8 @@ class Ingest:
             dobject_v: The dobject version.
         """
         if dobject.__class__ == BfxRun:
-            ingest = IngestBfxRun()
-            self._ingest_bfx.append(ingest)
+            ingest = IngestPipelineRun()
+            self._ingest_pipeline.append(ingest)
         else:
             ingest = self._ingest_object  # type: ignore
 
@@ -111,7 +111,8 @@ class Ingest:
         jupynb_v = dev.set_version(jupynb_v)  # version to be set in publish()
         jupynb_name = meta.live.title
 
-        ingest_entities = [self._ingest_object] + self._ingest_bfx
+        ingest_entities = self._ingest_pipeline[:]
+        ingest_entities.insert(0, self._ingest_object)
         for ingest in ingest_entities:
             # TODO: run the appropriate clean-up operations if any aspect
             # of the ingestion fails
@@ -133,15 +134,15 @@ class IngestObject:
     def __init__(self) -> None:
         self._dobjects: Dict = {}
         self._feature_models: Dict = {}
-        self._ingestion_logs: List = []
+        self._logs: List = []
 
     @property
-    def dobjects(self) -> Dict:
+    def dobjects(self) -> dict:
         """Added dobjects for ingestion."""
         return self._dobjects
 
     @property
-    def feature_models(self) -> Dict:
+    def feature_models(self) -> dict:
         """Added feature models."""
         return self._feature_models
 
@@ -212,7 +213,7 @@ class IngestObject:
                 pipeline_run=None,
             )
 
-            self._ingestion_logs.append(
+            self._logs.append(
                 [
                     f"{filepath.name} ({dobject_id}, {dobject_v})",
                     f"{jupynb_name!r} ({jupynb_id}, {jupynb_v})",
@@ -229,11 +230,11 @@ class IngestObject:
         """Pretty print logs."""
         from tabulate import tabulate  # type: ignore
 
-        if len(self._ingestion_logs) == 0:
+        if len(self._logs) == 0:
             return
 
         log_table = tabulate(
-            self._ingestion_logs,
+            self._logs,
             headers=[
                 colors.green("dobject"),
                 colors.blue("jupynb"),
@@ -246,82 +247,80 @@ class IngestObject:
         logger.success(f"Ingested the following dobjects:\n{log_table}")
 
 
-class IngestBfxRun:
-    """Ingest bfx runs."""
+class IngestPipelineRun:
+    """Ingest runs from any pipeline."""
 
-    def __init__(self) -> None:
+    def __init__(self):
         self._run = None
-        self._outputs: Dict = {}
         self._inputs: Dict = {}
-        self._ingestion_logs: List = []
+        self._outputs: Dict = {}
+        self._logs: List = []
 
     @property
-    def dobjects(self) -> Dict:
+    def dobjects(self) -> dict:
         """Added dobjects for ingestion."""
-        dobjects = {**self._inputs, **self._outputs}
-        return dobjects
+        return {**self._inputs, **self._outputs}
 
-    def add(self, run: BfxRun, *args):
-        """Stage pipeline run entities for ingestion."""
-        # stage bfx run
+    def add(self, run, *args):
+        # add run for ingestion
         self._run = run
 
         # stage inputs
-        for fastq_path in self._run.fastq_path:  # type: ignore
-            self._inputs[fastq_path] = (id.id_dobject(), "1")
+        for path in self._run.inputs:  # type: ignore
+            self._inputs[path] = (id.id_dobject(), "1")
 
         # stage outputs
-        outputs = get_bfx_files_from_dir(self._run.outdir)  # type: ignore
-        for output_path in outputs:
-            self._outputs[Path(output_path)] = (id.id_dobject(), "1")
+        for path in self._run.outputs:  # type: ignore
+            self._outputs[Path(path)] = (id.id_dobject(), "1")
 
     def commit(self, jupynb_id, jupynb_v, jupynb_name):
-        """Ingest staged pipeline run entities."""
         # register samples
-        biometa_id = self._register_samples()
+        biometa_id = self._ingest_samples()
 
         # register run inputs and outputs as dobjects and link them to metadata
-        self._register_dobjects(jupynb_id, jupynb_v, jupynb_name)
-        self._link_dobjects_biometa(biometa_id)
-        self._link_dobjects_bfxmeta()
+        self._ingest_dobjects(jupynb_id, jupynb_v, jupynb_name)
+        self._link_biometa(biometa_id)
+        self._link_pipeline_meta()
 
         # register core pipeline and pipeline run
-        self._register(
-            "pipeline",
-            pk={"id": self._run.pipeline_id, "v": self._run.pipeline_v},
+        self._ingest(
+            table="pipeline",
+            pk=self._run.pipeline_pk,
             name=self._run.pipeline_name,
             reference=self._run.pipeline_reference,
         )
-        self._register(
-            "pipeline_run",
-            pk={"id": self._run.run_id},
-            pipeline_id=self._run.pipeline_id,
-            pipeline_v=self._run.pipeline_v,
+        self._ingest(
+            table="pipeline_run",
+            pk=self._run.run_pk,
+            fk={
+                "pipeline_id": self._run.pipeline_pk["id"],
+                "pipeline_v": self._run.pipeline_pk["v"],
+            },
             name=self._run.outdir.as_posix(),
         )
 
-        # register bfx pipeline and bfx pipeline run
-        self._register(
-            "bfx_pipeline", pk={"id": self._run.pipeline_id, "v": self._run.pipeline_v}
+        # register pipeline-specific pipeline and run
+        self._ingest(
+            table=self._run.pipeline_table,
+            pk=self._run.pipeline_pk,
         )
-        self._register(
-            "bfx_run",
-            pk={"id": self._run.run_id},
+        self._ingest(
+            table=self._run.run_table,
+            pk=self._run.run_pk,
+            fk=self._run.run_fk,
             dir=self._run.outdir.as_posix(),
-            bfx_pipeline_id=self._run.pipeline_id,
-            bfx_pipeline_v=self._run.pipeline_v,
         )
 
     def log(self):
         """Pretty print logs."""
         from tabulate import tabulate  # type: ignore
 
-        if len(self._ingestion_logs) == 0:
+        if len(self._logs) == 0:
             return
 
-        self._ingestion_logs = format_pipeline_logs(self._ingestion_logs)
+        self._logs = format_pipeline_logs(self._logs)
         log_table = tabulate(
-            self._ingestion_logs,
+            self._logs,
             headers=[
                 colors.green("dobject"),
                 colors.blue("pipeline run"),
@@ -335,37 +334,16 @@ class IngestBfxRun:
             f"Ingested the following dobjects from pipeline runs:\n{log_table}"
         )
 
-    def _link_dobjects_biometa(self, biometa_id):
-        """Link dobjects to a biometa entry."""
-        for dobject_id, dobject_v in self.dobjects.values():
-            insert.dobject_biometa(
-                dobject_id=dobject_id, dobject_v=dobject_v, biometa_id=biometa_id
-            )
+    def _ingest(
+        self, table: str, pk: dict = {}, fk: dict = {}, force: bool = False, **kwargs
+    ):
+        """Generic ingestion helper function."""
+        entry_id = getattr(insert, table)(**pk, **fk, **kwargs, force=force)
+        if force is False and entry_id is None:
+            entry_id = getattr(query, table)(**pk, **fk, **kwargs).one().id
+        return entry_id
 
-    def _link_dobjects_bfxmeta(self):
-        """Register dobject's bfxmeta entry and link it to the dobject."""
-        for filepath, (dobject_id, _) in self.dobjects.items():
-            bfxmeta_id = self._register_bfxmeta(filepath)
-            insert.dobject_bfxmeta(dobject_id=dobject_id, bfxmeta_id=bfxmeta_id)
-
-    def _register(self, schema_module, pk: dict, **kwargs):
-        """Generic registration helper function."""
-        result = getattr(query, schema_module)(**pk).one_or_none()
-        if result is None:
-            getattr(insert, schema_module)(**pk, **kwargs)
-
-    def _register_bfxmeta(self, dobject_filepath: Path):
-        """Register bfxmeta entry."""
-        file_type = parse_bfx_file_type(dobject_filepath, from_dir=True)
-        dirpath = dobject_filepath.parent.resolve().as_posix()
-        bfxmeta_id = insert.bfxmeta(file_type=file_type, dir=dirpath)  # type: ignore
-        if bfxmeta_id is None:
-            bfxmeta_id = (
-                query.bfxmeta(file_type=file_type, dir=dirpath).one().id  # type: ignore
-            )
-        return bfxmeta_id
-
-    def _register_dobjects(self, jupynb_id, jupynb_v, jupynb_name):
+    def _ingest_dobjects(self, jupynb_id, jupynb_v, jupynb_name):
         """Register staged dobjects."""
         for filepath, (dobject_id, dobject_v) in self.dobjects.items():
             dobject_id = ingest_dobject(
@@ -382,7 +360,7 @@ class IngestBfxRun:
                 log_file_name = str(filepath.relative_to(self._run.outdir))
             except ValueError:
                 log_file_name = filepath.name
-            self._ingestion_logs.append(
+            self._logs.append(
                 [
                     f"{log_file_name} ({dobject_id}, {dobject_v})",
                     f"{self._run.run_name} ({self._run.run_id})",
@@ -390,41 +368,73 @@ class IngestBfxRun:
                 ]
             )
 
-    def _register_samples(self):
-        """Register entries in the techsample, biosample, biometa tables."""
-        sample_id = self._run.sample_id
-        if sample_id is None:
-            # insert techsample, biosample, and biometa entries
+    def _ingest_samples(self):
+        """Register entries in bio metadata tables."""
+        # ingest techsample
+        if "techsample" in list_entities():
             if len(self._run.fastq_path) == 1:
-                techsample_id = insert.techsample(
-                    filepath_r1=self._run.fastq_path[0].as_posix()
+                techsample_id = self._ingest(
+                    table="techsample",
+                    filepath_r1=self._run.fastq_path[0].as_posix(),
+                    force=True,
                 )
             else:
-                techsample_id = insert.techsample(
+                techsample_id = self._ingest(
+                    table="techsample",
                     filepath_r1=self._run.fastq_path[0].as_posix(),
                     filepath_r2=self._run.fastq_path[1].as_posix(),
+                    force=True,
                 )
-            biosample_id = insert.biosample(
-                force=True
-            )  # TODO: this should triggers a warning?
-            _ = insert.biosample_techsample(
-                biosample_id=biosample_id, techsample_id=techsample_id
-            )
-            biometa_id = insert.biometa(biosample_id=biosample_id)
+
+        # ingest biosample
+        biosample_id = self._run.biosample_id
+        if biosample_id is None:
+            biosample_id = self._ingest(table="biosample", force=True)
         else:
-            # check that biosample entry exists
-            assert query.biosample(biosample_id=sample_id).one()
-            # query for existing biometa
-            result = query.biometa(
-                where={"biosample": {"biosample_id": sample_id}}
-            ).one_or_none()
-            if result is None:
-                # insert entry in biometa if it does not yet exist
-                biometa_id = insert.biometa(biosample_id=sample_id)
-            else:
-                biometa_id = result.id
+            assert query.biosample(biosample_id=biosample_id).one()
+
+        # ingest biosample_techsample
+        self._ingest(
+            table="biosample_techsample",
+            biosample_id=biosample_id,
+            techsample_id=techsample_id,
+        )
+
+        # ingest biometa
+        biometa_id = self._ingest(
+            table="biometa", biosample_id=biosample_id, force=True
+        )
 
         return biometa_id
+
+    def _link_biometa(self, biometa_id):
+        """Link dobjects to a biometa entry."""
+        for dobject_id, dobject_v in self.dobjects.values():
+            self._ingest(
+                table="dobject_biometa",
+                dobject_id=dobject_id,
+                dobject_v=dobject_v,
+                biometa_id=biometa_id,
+            )
+
+    def _link_pipeline_meta(self):
+        """Link dobjects to their pipeline-related metadata."""
+        for filepath, (dobject_id, dobject_v) in self.dobjects.items():
+            # ingest pipeline-related metadata
+            file_type = self._run.file_type.get(filepath)
+            dir = filepath.parent.resolve().as_posix()
+            pipeline_meta_id = self._ingest(
+                table=self._run.meta_table, file_type=file_type, dir=dir
+            )
+            # link dobject to pipeline-related metadata
+            self._ingest(
+                table=f"dobject_{self._run.meta_table}",
+                pk={
+                    "dobject_id": dobject_id,
+                    "dobject_v": dobject_v,
+                    f"{self._run.meta_table}_id": pipeline_meta_id,
+                },
+            )
 
 
 def ingest_dobject(
