@@ -162,7 +162,7 @@ class IngestEntity:
 
         logger.success(f"{message}\n{log_table}")
 
-    def ingest_dobject(
+    def _ingest_dobject(
         self,
         filepath,
         jupynb_id,
@@ -206,7 +206,7 @@ class IngestEntity:
 
         return dobject_id
 
-    def ingest_non_dobject(
+    def _ingest_non_dobject(
         self,
         table: str,
         pk: Optional[dict] = None,
@@ -329,9 +329,6 @@ class IngestObject(IngestEntity):
             message="Ingested the following dobjects:",
         )
 
-    def _ingest_dobject(self, **kwargs):
-        return super().ingest_dobject(**kwargs)
-
 
 class IngestPipelineRun:
     """Ingest runs from any pipeline."""
@@ -406,12 +403,6 @@ class IngestPipelineRun:
             cols=("dobject", "pipeline run", "user"),
             message="Ingested the following dobjects from pipeline runs:",
         )
-
-    def _ingest_dobject(self, **kwargs):
-        return super().ingest_dobject(**kwargs)
-
-    def _ingest_non_dobject(self, **kwargs):
-        return super().ingest_non_dobject(**kwargs)
 
     def _ingest_dobjects(self, jupynb_id, jupynb_v, jupynb_name):
         """Register staged dobjects."""
