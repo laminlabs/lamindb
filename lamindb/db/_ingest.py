@@ -446,7 +446,7 @@ class IngestPipelineRun:
 
     def _link_biometa(self, biometa_id):
         """Link dobjects to a biometa entry."""
-        for dobject_id, dobject_v in self.dobjects.values():
+        for dobject_id in self.dobjects.values():
             self._ingest(
                 table="dobject_biometa",
                 dobject_id=dobject_id,
