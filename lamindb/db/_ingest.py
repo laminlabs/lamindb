@@ -162,7 +162,7 @@ class IngestEntity:
 
         logger.success(f"{message}\n{log_table}")
 
-    def _ingest_dobject(
+    def ingest_dobject(
         self,
         filepath,
         jupynb_id,
@@ -206,7 +206,7 @@ class IngestEntity:
 
         return dobject_id
 
-    def _ingest_non_dobject(
+    def ingest_non_dobject(
         self,
         table: str,
         pk: Optional[dict] = None,
