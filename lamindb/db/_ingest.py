@@ -334,17 +334,13 @@ class IngestPipelineRun:
             f"Ingested the following dobjects from pipeline runs:\n{log_table}"
         )
 
-    def _ingest(self, table: str, pk: dict = {}, fk: dict = {}, **kwargs):
+    def _ingest(
+        self, table: str, pk: dict = {}, fk: dict = {}, force: bool = True, **kwargs
+    ):
         """Generic ingestion helper function."""
-        results = getattr(query, table)(**pk, **fk, **kwargs).all()
-        if len(results) == 0:
-            entry_id = getattr(insert, table)(**pk, **fk, **kwargs)
-        elif len(results) == 1:
-            entry_id = results[0].id
-        else:
-            raise ValueError(
-                f"Multiple entries associated with {table} entry: {kwargs}."
-            )
+        entry_id = getattr(insert, table)(**pk, **fk, **kwargs, force=force)
+        if force is False and entry_id is None:
+            entry_id = getattr(query, table)(**pk, **fk, **kwargs).one().id
         return entry_id
 
     def _ingest_dobjects(self, jupynb_id, jupynb_v, jupynb_name):
@@ -378,19 +374,22 @@ class IngestPipelineRun:
         if "techsample" in list_entities():
             if len(self._run.fastq_path) == 1:
                 techsample_id = self._ingest(
-                    table="techsample", filepath_r1=self._run.fastq_path[0].as_posix()
+                    table="techsample",
+                    filepath_r1=self._run.fastq_path[0].as_posix(),
+                    force=True,
                 )
             else:
                 techsample_id = self._ingest(
                     table="techsample",
                     filepath_r1=self._run.fastq_path[0].as_posix(),
                     filepath_r2=self._run.fastq_path[1].as_posix(),
+                    force=True,
                 )
 
         # ingest biosample
         biosample_id = self._run.biosample_id
         if biosample_id is None:
-            biosample_id = self._ingest(table="biosample")
+            biosample_id = self._ingest(table="biosample", force=True)
         else:
             assert query.biosample(biosample_id=biosample_id).one()
 
@@ -402,7 +401,9 @@ class IngestPipelineRun:
         )
 
         # ingest biometa
-        biometa_id = self._ingest(table="biometa", biosample_id=biosample_id)
+        biometa_id = self._ingest(
+            table="biometa", biosample_id=biosample_id, force=True
+        )
 
         return biometa_id
 
