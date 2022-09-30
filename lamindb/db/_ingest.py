@@ -69,14 +69,11 @@ class Ingest:
         self._ingests: list = []  # a list of ingest instances
 
     @property
-    def status(self) -> list:
+    def status(self) -> dict:
         """Added dobjects for ingestion."""
-        return []
-        # added_dobjects = {}  # type: ignore
-        # # ingest_entities = self._ingest_pipelines[:]
-        # # ingest_entities.insert(0, self._ingest_object)
-        # for ingest in self._ingests:
-        #     added_dobjects = {**added_dobjects, **ingest.dobjects}
+        added_dobjects: Dict = {}
+        for ingest in self._ingests:
+            added_dobjects = {**added_dobjects, **ingest.dobjects}
 
         # added_list = []
         # for k, v in added_dobjects.items():
@@ -85,7 +82,7 @@ class Ingest:
         #         entry["feature_model"] = self._ingest_object.feature_models[k]
         #     added_list.append(entry)
 
-        # return added_list
+        return added_dobjects
 
     def add(
         self,
