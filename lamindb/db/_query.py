@@ -74,7 +74,7 @@ def _query(model, result_list=None, kwargs=dict()) -> QueryResult:
     # track usage for dobjects
     if model.__name__ == "dobject":
         for result in results:
-            track_usage(result.id, result.v, "query")
+            track_usage(result.id, "query")
 
     return QueryResult(results=results, model=model)
 

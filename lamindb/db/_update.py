@@ -23,7 +23,7 @@ def _create_update_func(model):
                 f"Updated entry {colors.green(f'{key}')} in {colors.blue(f'{name}')}."
             )
             if name == "dobject":
-                track_usage(entry.id, entry.v, "update")
+                track_usage(entry.id, "update")
 
         settings.instance._update_cloud_sqlite_file()
 

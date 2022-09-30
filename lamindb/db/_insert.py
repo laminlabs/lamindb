@@ -29,7 +29,6 @@ def dobject_from_dtransform(
     dtransform_id: str,
     dobject_suffix: Union[str, None],
     dobject_id: str,
-    dobject_v: str,
     size: float,
 ):
     storage = getattr(query, "storage")(root=str(settings.instance.storage_dir)).first()
@@ -38,7 +37,6 @@ def dobject_from_dtransform(
 
     dobject_id = insert.dobject(  # type: ignore
         id=dobject_id,
-        v=dobject_v,
         name=dobject_name,
         dtransform_id=dtransform_id,
         suffix=dobject_suffix,
@@ -54,7 +52,6 @@ def dobject_from_pipeline(
     pipeline_run: BfxRun,
     suffix: Union[str, None],
     dobject_id: str,
-    dobject_v: str,
     size: float,
 ):
     result = getattr(query, "dtransform")(
@@ -71,7 +68,6 @@ def dobject_from_pipeline(
         dobject_name=name,
         dobject_suffix=suffix,
         dobject_id=dobject_id,
-        dobject_v=dobject_v,
         dtransform_id=dtransform_id,
         size=size,
     )
@@ -85,7 +81,6 @@ def dobject_from_jupynb(
     jupynb_v: str,
     jupynb_name: str,
     dobject_id: str,
-    dobject_v: str,
     size: float,
 ):
     """Data object from jupynb."""
@@ -116,7 +111,6 @@ def dobject_from_jupynb(
         dobject_name=name,
         dobject_suffix=suffix,
         dobject_id=dobject_id,
-        dobject_v=dobject_v,
         dtransform_id=dtransform_id,
         size=size,
     )

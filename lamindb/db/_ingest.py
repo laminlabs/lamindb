@@ -24,7 +24,6 @@ def ingest_dobject(
     jupynb_v,
     jupynb_name,
     dobject_id,
-    dobject_v,
     pipeline_run,
 ):
     """Insert and store dobject."""
@@ -32,7 +31,7 @@ def ingest_dobject(
     if dobject_id is None:
         dobject_id = id.dobject()
 
-    dobject_storage_key = storage_key_from_triple(dobject_id, dobject_v, suffix)
+    dobject_storage_key = storage_key_from_triple(dobject_id, suffix)
 
     try:
         size = store_file(filepath, dobject_storage_key)
@@ -47,7 +46,6 @@ def ingest_dobject(
             jupynb_v=jupynb_v,
             jupynb_name=jupynb_name,
             dobject_id=dobject_id,
-            dobject_v=dobject_v,
             size=size,
         )
     else:
@@ -55,12 +53,11 @@ def ingest_dobject(
             name=name,
             suffix=suffix,
             dobject_id=dobject_id,
-            dobject_v=dobject_v,
             pipeline_run=pipeline_run,
             size=size,
         )
 
-    track_usage(dobject_id, dobject_v, usage_type="ingest")
+    track_usage(dobject_id, usage_type="ingest")
 
     return dobject_id
 
@@ -83,7 +80,7 @@ class Ingest:
 
         added_list = []
         for k, v in added_dobjects.items():
-            entry = dict(filepath=k.as_posix(), dobject_id=v[0], dobject_v=v[1])
+            entry = dict(filepath=k.as_posix(), dobject_id=v)
             if k in self._ingest_object.feature_models.keys():
                 entry["feature_model"] = self._ingest_object.feature_models[k]
             added_list.append(entry)
@@ -98,7 +95,6 @@ class Ingest:
         feature_model=None,
         featureset_name: str = None,
         dobject_id: str = None,
-        dobject_v: str = "1",
     ):
         """Stage a data object (in memory or file) for ingestion.
 
@@ -123,7 +119,6 @@ class Ingest:
             feature_model,
             featureset_name,
             dobject_id,
-            dobject_v,
         )
 
     def commit(self, jupynb_v=None):
@@ -200,13 +195,10 @@ class IngestObject:
         feature_model=None,
         featureset_name: str = None,
         dobject_id: str = None,
-        dobject_v: str = "1",
     ):
         """Stage dobject for ingestion."""
-        primary_key = (
-            id.id_dobject() if dobject_id is None else dobject_id,
-            dobject_v,
-        )
+        if dobject_id is None:
+            dobject_id = id.id_dobject()
 
         dmem = None
         if isinstance(dobject, (Path, str)):
@@ -240,7 +232,7 @@ class IngestObject:
             )
             self._feature_models[filepath] = curated
 
-        self._dobjects[filepath] = primary_key
+        self._dobjects[filepath] = dobject_id
 
         if not filepath.exists() and dmem is not None:
             write_to_file(dmem, filepath)  # type: ignore
@@ -249,20 +241,19 @@ class IngestObject:
 
     def commit(self, jupynb_id, jupynb_v, jupynb_name):
         """Ingest staged dobjects."""
-        for filepath, (dobject_id, dobject_v) in self._dobjects.items():
+        for filepath, dobject_id in self._dobjects.items():
             dobject_id = ingest_dobject(
                 filepath=filepath,
                 jupynb_id=jupynb_id,
                 jupynb_v=jupynb_v,
                 jupynb_name=jupynb_name,
                 dobject_id=dobject_id,
-                dobject_v=dobject_v,
                 pipeline_run=None,
             )
 
             self._logs.append(
                 [
-                    f"{filepath.name} ({dobject_id}, {dobject_v})",
+                    f"{filepath.name} ({dobject_id})",
                     f"{jupynb_name!r} ({jupynb_id}, {jupynb_v})",
                     f"{settings.user.handle} ({settings.user.id})",
                 ]
@@ -271,7 +262,7 @@ class IngestObject:
             # ingest with feature models
             curated = self._feature_models.get(filepath)
             if curated is not None:
-                curated["model"].ingest(dobject_id, dobject_v, curated["df_curated"])
+                curated["model"].ingest(dobject_id, curated["df_curated"])
 
     def log(self):
         """Pretty print logs."""
@@ -314,11 +305,11 @@ class IngestPipelineRun:
 
         # stage inputs
         for path in self._run.inputs:  # type: ignore
-            self._inputs[path] = (id.id_dobject(), "1")
+            self._inputs[path] = id.id_dobject()
 
         # stage outputs
         for path in self._run.outputs:  # type: ignore
-            self._outputs[Path(path)] = (id.id_dobject(), "1")
+            self._outputs[Path(path)] = id.id_dobject()
 
     def commit(self, jupynb_id, jupynb_v, jupynb_name):
         # register samples
@@ -392,14 +383,13 @@ class IngestPipelineRun:
 
     def _ingest_dobjects(self, jupynb_id, jupynb_v, jupynb_name):
         """Register staged dobjects."""
-        for filepath, (dobject_id, dobject_v) in self.dobjects.items():
+        for filepath, dobject_id in self.dobjects.items():
             dobject_id = ingest_dobject(
                 filepath=filepath,
                 jupynb_id=jupynb_id,
                 jupynb_v=jupynb_v,
                 jupynb_name=jupynb_name,
                 dobject_id=dobject_id,
-                dobject_v=dobject_v,
                 pipeline_run=self._run,
             )
 
@@ -409,7 +399,7 @@ class IngestPipelineRun:
                 log_file_name = filepath.name
             self._logs.append(
                 [
-                    f"{log_file_name} ({dobject_id}, {dobject_v})",
+                    f"{log_file_name} ({dobject_id})",
                     f"{self._run.run_name} ({self._run.run_id})",
                     f"{settings.user.handle} ({settings.user.id})",
                 ]
@@ -456,17 +446,16 @@ class IngestPipelineRun:
 
     def _link_biometa(self, biometa_id):
         """Link dobjects to a biometa entry."""
-        for dobject_id, dobject_v in self.dobjects.values():
+        for dobject_id in self.dobjects.values():
             self._ingest(
                 table="dobject_biometa",
                 dobject_id=dobject_id,
-                dobject_v=dobject_v,
                 biometa_id=biometa_id,
             )
 
     def _link_pipeline_meta(self):
         """Link dobjects to their pipeline-related metadata."""
-        for filepath, (dobject_id, dobject_v) in self.dobjects.items():
+        for filepath, dobject_id in self.dobjects.items():
             # ingest pipeline-related metadata
             file_type = self._run.file_type.get(filepath)
             dir = filepath.parent.resolve().as_posix()
@@ -478,7 +467,6 @@ class IngestPipelineRun:
                 table=f"dobject_{self._run.meta_table}",
                 pk={
                     "dobject_id": dobject_id,
-                    "dobject_v": dobject_v,
                     f"{self._run.meta_table}_id": pipeline_meta_id,
                 },
             )

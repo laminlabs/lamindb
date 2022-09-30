@@ -22,7 +22,6 @@ def test_create_to_load():
         jupynb_v="1",
         jupynb_name="test",
         dobject_id="testid",
-        dobject_v="1",
         size=1.2,
     )
     for entity in ln.schema.list_entities():
