@@ -329,8 +329,11 @@ class IngestObject(IngestEntity):
             message="Ingested the following dobjects:",
         )
 
+    def _ingest_dobject(self, **kwargs):
+        return super().ingest_dobject(**kwargs)
 
-class IngestPipelineRun:
+
+class IngestPipelineRun(IngestEntity):
     """Ingest runs from any pipeline."""
 
     def __init__(self):
@@ -403,6 +406,12 @@ class IngestPipelineRun:
             cols=("dobject", "pipeline run", "user"),
             message="Ingested the following dobjects from pipeline runs:",
         )
+
+    def _ingest_dobject(self, **kwargs):
+        return super().ingest_dobject(**kwargs)
+
+    def _ingest_non_dobject(self, **kwargs):
+        return super().ingest_non_dobject(**kwargs)
 
     def _ingest_dobjects(self, jupynb_id, jupynb_v, jupynb_name):
         """Register staged dobjects."""
