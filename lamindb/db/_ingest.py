@@ -335,7 +335,7 @@ class IngestPipelineRun:
         )
 
     def _ingest(
-        self, table: str, pk: dict = {}, fk: dict = {}, force: bool = True, **kwargs
+        self, table: str, pk: dict = {}, fk: dict = {}, force: bool = False, **kwargs
     ):
         """Generic ingestion helper function."""
         entry_id = getattr(insert, table)(**pk, **fk, **kwargs, force=force)
