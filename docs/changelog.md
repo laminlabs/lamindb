@@ -3,6 +3,7 @@
 <!-- prettier-ignore -->
 Name | PR | Developer | Date | Version
 --- | --- | --- | --- | ---
+:recycle: Generalize pipeline ingestion | [237](https://github.com/laminlabs/lamindb/pull/237) | [bpenteado](https://github.com/bpenteado) | 2022-09-30 |
 ✨ Added `one_or_none`, fixed api links | [238](https://github.com/laminlabs/lamindb/pull/238) | [sunnyosun](https://github.com/sunnyosun) | 2022-09-29 |
 🎨 Get db metadata as a dictionary | [233](https://github.com/laminlabs/lamindb/pull/233) | [fredericenard](https://github.com/fredericenard) | 2022-09-29 |
 🎨 Added `.df()` as an option to return query results | [236](https://github.com/laminlabs/lamindb/pull/236) | [sunnyosun](https://github.com/sunnyosun) | 2022-09-29 |
