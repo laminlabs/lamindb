@@ -69,8 +69,8 @@ class Ingest:
     """Ingest dobjects and pipeline runs."""
 
     def __init__(self) -> None:
-        self._object = IngestObject()  # dobjects
-        self._pipeline: list = []  # pipeline runs
+        self._object = IngestObject()
+        self._pipeline: list = []
 
     @property
     def status(self) -> list:
@@ -111,7 +111,7 @@ class Ingest:
             dobject_id: The dobject id.
             dobject_v: The dobject version.
         """
-        if dobject.__class__ == BfxRun:
+        if isinstance(dobject, BfxRun):
             ingest = IngestPipelineRun()
             self._pipeline.append(ingest)
         else:
