@@ -21,7 +21,7 @@ def _create_delete_func(model):
                 f" {colors.blue(f'table {name}')}."
             )
             if name == "dobject":
-                track_usage(entry.id, entry.v, "delete")
+                track_usage(entry.id, "delete")
                 storage_key = storage_key_from_dobject(entry)
                 delete_file(storage_key)
                 logger.success(f"Deleted {colors.yellow(storage_key)} from storage.")
@@ -38,7 +38,7 @@ class delete:
 
     Example:
 
-    >>> delete.dobject(key=("MHnsI0TWWNu3VBsedg6gS", "1"))
+    >>> delete.dobject("MHnsI0TWWNu3VBsedg6gS")
     """
 
     pass
