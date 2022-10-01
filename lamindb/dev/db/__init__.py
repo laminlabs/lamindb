@@ -7,5 +7,4 @@
    exception
 """
 
-from . import exception
-from ._core import session
+from ._core import DevDb

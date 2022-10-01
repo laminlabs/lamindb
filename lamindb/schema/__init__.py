@@ -44,7 +44,7 @@ wetlab.__doc__ = f"""Generic wetlab.
 See `lnschema-wetlab <https://lamin.ai/docs/lnschema-wetlab/api>`__.
 """
 
-from ._core import draw, list_entities
+from ._core import Schema
 
 try:
     import lnschema_retro as retro

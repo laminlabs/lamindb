@@ -8,5 +8,4 @@ Memory → file:
    anndata_to_h5ad
 """
 
-from ._anndata import anndata_to_h5ad
-from ._core import infer_suffix, write_to_file
+from ._core import DevObject  # noqa
