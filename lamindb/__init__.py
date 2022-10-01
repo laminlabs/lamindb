@@ -26,11 +26,14 @@ from lndb_setup import _settings_store
 from . import datasets  # noqa
 from .db import DB  # noqa
 
-# lndb_setup has been run locally and a user wants to use
-# lamindb.db as a client that runs on this static local setting
 if _settings_store.current_instance_file.exists():
+    # lndb_setup has been run locally and a user wants to use
+    # lamindb.db as a client that runs on this static local setting
     db = DB(settings)
-# if this is not the case `db` is a class that needs to be instantiated`
+else:
+    # `DB` is a class that needs to be instantiated with settings
+    # loaded from a user session and a selected instance
+    pass
 
 from . import dev  # noqa
 from . import schema  # noqa
