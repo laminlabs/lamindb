@@ -3,6 +3,7 @@
 <!-- prettier-ignore -->
 Name | PR | Developer | Date | Version
 --- | --- | --- | --- | ---
+:recycle: Inherit `IngestObject` and `IngestPipelineRun` from `IngestEntity` | [243](https://github.com/laminlabs/lamindb/pull/243) | [bpenteado](https://github.com/bpenteado) | 2022-10-01 |
 ⬆️ Upgrade to lnschema_core 0.9.0 | [241](https://github.com/laminlabs/lamindb/pull/241) | [falexwolf](https://github.com/falexwolf) | 2022-09-30 |
 🎨 Add type annotation to ingest | [240](https://github.com/laminlabs/lamindb/pull/240) | [sunnyosun](https://github.com/sunnyosun) | 2022-09-30 |
 :recycle: Generalize pipeline ingestion | [237](https://github.com/laminlabs/lamindb/pull/237) | [bpenteado](https://github.com/bpenteado) | 2022-09-30 |
