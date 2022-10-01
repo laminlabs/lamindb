@@ -1,45 +1,4 @@
-"""Query, load, ingest, update, delete, link, and share data.
-
-Query & load:
-
-.. autosummary::
-   :toctree: .
-
-   query
-   load
-
-Modify data:
-
-.. autosummary::
-   :toctree: .
-
-   ingest
-   insert
-   update
-   delete
-
-Link features and metadata:
-
-.. autosummary::
-   :toctree: .
-
-   link
-
-Share data on the hub:
-
-.. autosummary::
-   :toctree: .
-
-   hub
-
-`SQLModel` session for arbitrary SQL queries:
-
-.. autosummary::
-   :toctree: .
-
-   session
-
-"""
+"""See the central class DB in this module."""
 
 from lndb_hub import hub  # noqa
 
@@ -51,3 +10,56 @@ from ._link import link  # noqa
 from ._load import load  # noqa
 from ._query import query  # noqa
 from ._update import update  # noqa
+
+
+class DB:
+    """Query, load, ingest, update, delete, link, and share data.
+
+    Query & load:
+
+    .. autosummary::
+       :toctree: .
+
+       query
+       load
+
+    Modify data:
+
+    .. autosummary::
+       :toctree: .
+
+       ingest
+       insert
+       update
+       delete
+
+    Link features and metadata:
+
+    .. autosummary::
+       :toctree: .
+
+       link
+
+    Share data on the hub:
+
+    .. autosummary::
+       :toctree: .
+
+       hub
+
+    `SQLModel` session for arbitrary SQL queries:
+
+    .. autosummary::
+       :toctree: .
+
+       session
+
+    """
+
+    def __init__(self, settings):
+        self.settings = settings
+
+    @property
+    def ingest(self):
+        """Ingest data objects."""
+        return ingest
