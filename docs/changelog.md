@@ -3,6 +3,7 @@
 <!-- prettier-ignore -->
 Name | PR | Developer | Date | Version
 --- | --- | --- | --- | ---
+🚸 Check for migrations upon import | [247](https://github.com/laminlabs/lamindb/pull/247) | [falexwolf](https://github.com/falexwolf) | 2022-10-03 |
 🔊 Raise warnings for unpopulated columns from insert.from_df | [248](https://github.com/laminlabs/lamindb/pull/248) | [sunnyosun](https://github.com/sunnyosun) | 2022-10-03 |
 ⬆️ Upgrade `lndb_setup` to 0.8.3 | [246](https://github.com/laminlabs/lamindb/pull/246) | [fredericenard](https://github.com/fredericenard) | 2022-10-03 |
 ♻️ Inherit `IngestObject` and `IngestPipelineRun` from `IngestEntity` | [243](https://github.com/laminlabs/lamindb/pull/243) | [bpenteado](https://github.com/bpenteado) | 2022-10-01 | 0.4.1
