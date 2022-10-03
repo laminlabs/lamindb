@@ -17,10 +17,15 @@ Browse the API:
    dev
 
 """
-from . import _check_versions
-
 __version__ = "0.4.1"
 from lndb_setup import settings  # noqa
+from lndb_setup._migrate import check_migrate as _check_migrate
+
+from . import _check_versions  # executes checks during import
+
+if settings.instance.storage_dir is None:
+    raise RuntimeError("Please run `lndb init` to configure an instance.")
+_check_migrate(usettings=settings.user, isettings=settings.instance)
 
 from . import datasets  # noqa
 from . import db  # noqa
