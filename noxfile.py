@@ -24,6 +24,8 @@ def build(session):
     login_user_2 = "lndb login kurt.hein@gmx.de --password uIoEGyiCj0qcXbGhTpOAuY6CH86xauzAsOSlp95A"  # noqa
     session.run(*(login_user_1.split(" ")))
     session.run(*(login_user_2.split(" ")))
+    test_db = "lndb init mydata-test-db"
+    session.run(*test_db.split(" "))
     session.run(
         "pytest",
         "-s",
