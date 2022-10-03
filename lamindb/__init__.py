@@ -17,10 +17,13 @@ Browse the API:
    dev
 
 """
-from . import _check_versions
-
 __version__ = "0.4.1"
 from lndb_setup import settings  # noqa
+from lndb_setup._migrate import check_migrate as _check_migrate
+
+from . import _check_versions  # executes checks during import
+
+_check_migrate(settings.user, settings.instance)
 
 from . import datasets  # noqa
 from . import db  # noqa
