@@ -1,8 +1,7 @@
 from pathlib import Path
 
+from lamin_logger import logger
 from nbproject.dev import test
-
-from lamindb._logger import logger
 
 
 def test_notebooks():
