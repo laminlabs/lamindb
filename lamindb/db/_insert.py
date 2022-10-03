@@ -255,25 +255,37 @@ class InsertBase:
 
     @classmethod
     def insert_from_df(cls, df: pd.DataFrame, table_name: str, column_map: dict = {}):
-        """Insert entries provided by a DataFrame."""
+        """Insert entries provided by a DataFrame.
+
+        Raises a warning if not all columns in the schema table are passed.
+        """
         mapper = {
             k: _camel_to_snake(k) for k in df.columns if k not in column_map.keys()
         }
         mapper.update(column_map)
+        df = df.rename(columns=mapper).copy()
 
         # subset to columns that exist in the schema table
         fields = Table.get_fields(table_name)
 
-        df = df.rename(columns=mapper).copy()
-        df = df[df.columns.intersection(fields)]
-        if df.shape[1] == 0:
+        # if no mappable columns, raise an error
+        fields_inters = set(fields).intersection(df.columns)
+        if len(fields_inters) == 0:
             raise AssertionError(
                 "No columns can be mapped between input DataFrame and table"
                 f" {table_name}."
             )
 
+        # if not all columns are populated, raise a warning
+        fields_diff = set(fields).difference(df.columns)
+        fields_diff.discard("id")
+        fields_diff.discard("created_at")
+        fields_diff.discard("updated_at")
+        if len(fields_diff) > 0:
+            logger.warning(f"The following columns are not populated: {fields_diff}")
+
         # insert entries into the table
-        entries = df.to_dict(orient="index")
+        entries = df[list(fields_inters)].to_dict(orient="index")
         entry_ids = {}
         for idx, entry in entries.items():
             entry_ids[idx] = getattr(insert, table_name)(**entry)
