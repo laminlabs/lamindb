@@ -154,6 +154,10 @@ def featureset_from_features(
     featureset_id = getattr(insert, "featureset")(
         feature_entity=feature_entity, name=featureset_name
     )
+    if featureset_id is None:
+        featureset_id = query.featureset(  # type: ignore
+            feature_entity=feature_entity, name=featureset_name
+        ).one()
 
     # add features to the feature table
     kwargs_list = []
