@@ -3,17 +3,17 @@
 <!-- prettier-ignore -->
 Name | PR | Developer | Date | Version
 --- | --- | --- | --- | ---
-:recycle: Inherit `IngestObject` and `IngestPipelineRun` from `IngestEntity` | [243](https://github.com/laminlabs/lamindb/pull/243) | [bpenteado](https://github.com/bpenteado) | 2022-10-01 |
+♻️ Inherit `IngestObject` and `IngestPipelineRun` from `IngestEntity` | [243](https://github.com/laminlabs/lamindb/pull/243) | [bpenteado](https://github.com/bpenteado) | 2022-10-01 | 0.4.1
 ⬆️ Upgrade to lnschema_core 0.9.0 | [241](https://github.com/laminlabs/lamindb/pull/241) | [falexwolf](https://github.com/falexwolf) | 2022-09-30 |
 🎨 Add type annotation to ingest | [240](https://github.com/laminlabs/lamindb/pull/240) | [sunnyosun](https://github.com/sunnyosun) | 2022-09-30 |
-:recycle: Generalize pipeline ingestion | [237](https://github.com/laminlabs/lamindb/pull/237) | [bpenteado](https://github.com/bpenteado) | 2022-09-30 |
+♻️ Generalize pipeline ingestion | [237](https://github.com/laminlabs/lamindb/pull/237) | [bpenteado](https://github.com/bpenteado) | 2022-09-30 |
 ✨ Added `one_or_none`, fixed api links | [238](https://github.com/laminlabs/lamindb/pull/238) | [sunnyosun](https://github.com/sunnyosun) | 2022-09-29 |
 🎨 Get db metadata as a dictionary | [233](https://github.com/laminlabs/lamindb/pull/233) | [fredericenard](https://github.com/fredericenard) | 2022-09-29 |
 🎨 Added `.df()` as an option to return query results | [236](https://github.com/laminlabs/lamindb/pull/236) | [sunnyosun](https://github.com/sunnyosun) | 2022-09-29 |
 ⬆️ Upgrade pkg versions | [234](https://github.com/laminlabs/lamindb/pull/234) | [sunnyosun](https://github.com/sunnyosun) | 2022-09-29 |
 🚸 Test notebook integrity before doing anything else | [232](https://github.com/laminlabs/lamindb/pull/232) | [falexwolf](https://github.com/falexwolf) | 2022-09-26 |
 📝 Add a quickstart & update ingest | [231](https://github.com/laminlabs/lamindb/pull/231) | [falexwolf](https://github.com/falexwolf) | 2022-09-26 |
-:memo: Update bfx ingestion demo | [227](https://github.com/laminlabs/lamindb/pull/227) | [bpenteado](https://github.com/bpenteado) | 2022-09-26 |
+📝 Update bfx ingestion demo | [227](https://github.com/laminlabs/lamindb/pull/227) | [bpenteado](https://github.com/bpenteado) | 2022-09-26 |
 🚚 Rename insert.features to insert.featureset_from_features | [230](https://github.com/laminlabs/lamindb/pull/230) | [sunnyosun](https://github.com/sunnyosun) | 2022-09-26 |
 📝 Polish documentation | [229](https://github.com/laminlabs/lamindb/pull/229) | [falexwolf](https://github.com/falexwolf) | 2022-09-26 |
 ✨ Populate `dobject` size | [228](https://github.com/laminlabs/lamindb/pull/228) | [falexwolf](https://github.com/falexwolf) | 2022-09-26 |
@@ -37,19 +37,19 @@ Name | PR | Developer | Date | Version
 ✨ Insert unmapped features | [198](https://github.com/laminlabs/lamindb/pull/198) | [sunnyosun](https://github.com/sunnyosun) | 2022-09-14 |
 ♻️ Refactored linked queries | [196](https://github.com/laminlabs/lamindb/pull/196) | [sunnyosun](https://github.com/sunnyosun) | 2022-09-13 |
 ⬆️ Updated wetlab schema | [195](https://github.com/laminlabs/lamindb/pull/195) | [sunnyosun](https://github.com/sunnyosun) | 2022-09-13 |
-:recycle: Refactor pipeline logging | [193](https://github.com/laminlabs/lamindb/pull/193) | [bpenteado](https://github.com/bpenteado) | 2022-09-13 | 0.3.7
+♻️ Refactor pipeline logging | [193](https://github.com/laminlabs/lamindb/pull/193) | [bpenteado](https://github.com/bpenteado) | 2022-09-13 | 0.3.7
 ⬆️ Updated lnbfx version | [194](https://github.com/laminlabs/lamindb/pull/194) | [sunnyosun](https://github.com/sunnyosun) | 2022-09-12 | 0.3.6
 🍱 Updated cell ranger test dir | [192](https://github.com/laminlabs/lamindb/pull/192) | [sunnyosun](https://github.com/sunnyosun) | 2022-09-12 |
-:bug: Fix synchronization error in load | [191](https://github.com/laminlabs/lamindb/pull/191) | [Koncopd](https://github.com/Koncopd) | 2022-09-12 |
+🐛 Fix synchronization error in load | [191](https://github.com/laminlabs/lamindb/pull/191) | [Koncopd](https://github.com/Koncopd) | 2022-09-12 |
 ⬆️ Updated setup version | [189](https://github.com/laminlabs/lamindb/pull/189) | [sunnyosun](https://github.com/sunnyosun) | 2022-09-08 | 0.3.5
-:recycle: Split ingestion logic into IngestObject and IngestPipeline | [188](https://github.com/laminlabs/lamindb/pull/188) | [bpenteado](https://github.com/bpenteado) | 2022-09-06 |
+♻️ Split ingestion logic into IngestObject and IngestPipeline | [188](https://github.com/laminlabs/lamindb/pull/188) | [bpenteado](https://github.com/bpenteado) | 2022-09-06 |
 📝 Add flow data ingestion example | [186](https://github.com/laminlabs/lamindb/pull/186) | [sunnyosun](https://github.com/sunnyosun) | 2022-09-06 |
 💄 Added sidebar to guide | [185](https://github.com/laminlabs/lamindb/pull/185) | [sunnyosun](https://github.com/sunnyosun) | 2022-09-06 |
 ♻️ Segregate pipeline ingestion (runs, pipelines, and pipeline-linked dobjects) from non-pipeline ingestion (dobjects) | [183](https://github.com/laminlabs/lamindb/pull/183) | [bpenteado](https://github.com/bpenteado) | 2022-09-06 |
 ⬆️ Updated schema module versions | [184](https://github.com/laminlabs/lamindb/pull/184) | [sunnyosun](https://github.com/sunnyosun) | 2022-09-06 |
 ♻️ Refactored `query` | [182](https://github.com/laminlabs/lamindb/pull/182) | [sunnyosun](https://github.com/sunnyosun) | 2022-09-05 |
 🚚 Rename `return_df` to `as_df` in `query` | [181](https://github.com/laminlabs/lamindb/pull/181) | [sunnyosun](https://github.com/sunnyosun) | 2022-09-05 |
-:truck: Rename guides to faq and tutorials to guide | [180](https://github.com/laminlabs/lamindb/pull/180) | [falexwolf](https://github.com/falexwolf) | 2022-09-05 |
+🚚 Rename guides to faq and tutorials to guide | [180](https://github.com/laminlabs/lamindb/pull/180) | [falexwolf](https://github.com/falexwolf) | 2022-09-05 |
 ♻️ Refactored guide | [179](https://github.com/laminlabs/lamindb/pull/179) | [sunnyosun](https://github.com/sunnyosun) | 2022-09-03 |
 📝 Prettify documentation | [178](https://github.com/laminlabs/lamindb/pull/178) | [falexwolf](https://github.com/falexwolf) | 2022-09-02 |
 Update lndb_hub version | [176](https://github.com/laminlabs/lamindb/pull/176) | [fredericenard](https://github.com/fredericenard) | 2022-09-01 |
