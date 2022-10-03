@@ -23,7 +23,7 @@ from lndb_setup._migrate import check_migrate as _check_migrate
 
 from . import _check_versions  # executes checks during import
 
-_check_migrate(settings.user, settings.instance)
+_check_migrate(usettings=settings.user, isettings=settings.instance)
 
 from . import datasets  # noqa
 from . import db  # noqa
