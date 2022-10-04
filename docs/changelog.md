@@ -3,6 +3,7 @@
 <!-- prettier-ignore -->
 Name | PR | Developer | Date | Version
 --- | --- | --- | --- | ---
+Update lndb setup to 0.9.4 | [252](https://github.com/laminlabs/lamindb/pull/252) | [fredericenard](https://github.com/fredericenard) | 2022-10-04 |
 Update lndb-setup to 0.9.2 | [251](https://github.com/laminlabs/lamindb/pull/251) | [fredericenard](https://github.com/fredericenard) | 2022-10-04 |
 Enable setup outside cli | [250](https://github.com/laminlabs/lamindb/pull/250) | [fredericenard](https://github.com/fredericenard) | 2022-10-04 |
 ⬆️ Upgrade lndb_setup and bionty | [249](https://github.com/laminlabs/lamindb/pull/249) | [falexwolf](https://github.com/falexwolf) | 2022-10-03 | 0.5.0
