@@ -28,7 +28,7 @@ from lndb_setup._migrate import check_migrate as _check_migrate
 from . import _check_versions  # executes checks during import
 
 if settings.instance.storage_dir is None:
-    warnings.warn("Warning...........Message")
+    warnings.warn("Please run `lndb init` to configure an instance.")
 else:
     _check_migrate(usettings=settings.user, isettings=settings.instance)
 
