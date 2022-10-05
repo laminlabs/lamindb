@@ -27,6 +27,10 @@ def test_create_to_load():
     for entity in ln.schema.list_entities():
         getattr(ln.db.query, entity)().df()
 
+    ln.schema._core.get_db_metadata_as_dict()
+    table_object = ln.schema._core.get_table_object("dobject")
+    ln.schema._core.get_table_metadata_as_dict(table_object)
+
     (Path(storage) / "mydata-test-db.lndb").unlink()
     # Note that this merely removes database file but doesn't clean out the instance_settings file!  # noqa
     # Hence, we need to also clean that out:
