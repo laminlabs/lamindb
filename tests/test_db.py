@@ -15,15 +15,13 @@ def test_create_to_load():
     # create unnecessary tables
     import lamindb as ln
 
-    ln.db.insert.dobject_from_jupynb(
-        name="test_file",
-        suffix=".csv",
-        jupynb_id="83jf",
-        jupynb_v="1",
-        jupynb_name="test",
-        dobject_id="testid",
-        size=1.2,
+    dobject = ln.schema.core.dobject(
+        id="testid", name="test_file", suffix=".csv", size=1.2
     )
+    jupynb = ln.schema.core.jupynb(id="83jf", v="1", name="test")
+
+    ln.db.insert.dobject_from_jupynb(dobject=dobject, jupynb=jupynb)
+
     for entity in ln.schema.list_entities():
         getattr(ln.db.query, entity)().df()
 
