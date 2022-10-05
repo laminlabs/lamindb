@@ -269,9 +269,17 @@ class IngestDobject:
 
     def _commit(self, dtransform):
         """Store and insert dobject."""
-        return store_insert_dobject(
+        dtransform_log = store_insert_dobject(
             filepath=self.filepath, dobject=self.dobject, dtransform=dtransform
         )
+
+        # insert features and link to dobject
+        if self.feature_model is not None:
+            self.feature_model["model"].ingest(
+                self.dobject.id, self.feature_model["df_curated"]
+            )
+
+        return dtransform_log
 
 
 class IngestPipelineRun:
