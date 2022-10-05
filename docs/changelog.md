@@ -3,11 +3,10 @@
 <!-- prettier-ignore -->
 Name | PR | Developer | Date | Version
 --- | --- | --- | --- | ---
-✨ New ingest API | [254](https://github.com/laminlabs/lamindb/pull/254) | [sunnyosun](https://github.com/sunnyosun) | 2022-10-05 |
-:memo: Overhaul documentation | [253](https://github.com/laminlabs/lamindb/pull/253) | [falexwolf](https://github.com/falexwolf) | 2022-10-05 |
-Update lndb setup to 0.9.4 | [252](https://github.com/laminlabs/lamindb/pull/252) | [fredericenard](https://github.com/fredericenard) | 2022-10-04 |
-Update lndb-setup to 0.9.2 | [251](https://github.com/laminlabs/lamindb/pull/251) | [fredericenard](https://github.com/fredericenard) | 2022-10-04 |
-Enable setup outside cli | [250](https://github.com/laminlabs/lamindb/pull/250) | [fredericenard](https://github.com/fredericenard) | 2022-10-04 |
+✨ New ingest API | [254](https://github.com/laminlabs/lamindb/pull/254) | [sunnyosun](https://github.com/sunnyosun) | 2022-10-05 | 0.6.0
+📝 Overhaul documentation | [253](https://github.com/laminlabs/lamindb/pull/253) | [falexwolf](https://github.com/falexwolf) | 2022-10-05 |
+🔧 Update lndb setup to 0.9.4 | [252](https://github.com/laminlabs/lamindb/pull/252) | [fredericenard](https://github.com/fredericenard) | 2022-10-04 |
+🔧 Enable setup outside cli | [250](https://github.com/laminlabs/lamindb/pull/250) | [fredericenard](https://github.com/fredericenard) | 2022-10-04 |
 ⬆️ Upgrade lndb_setup and bionty | [249](https://github.com/laminlabs/lamindb/pull/249) | [falexwolf](https://github.com/falexwolf) | 2022-10-03 | 0.5.0 0.5.0
 🚸 Check for migrations upon import | [247](https://github.com/laminlabs/lamindb/pull/247) | [falexwolf](https://github.com/falexwolf) | 2022-10-03 |
 🔊 Raise warnings for unpopulated columns from insert.from_df | [248](https://github.com/laminlabs/lamindb/pull/248) | [sunnyosun](https://github.com/sunnyosun) | 2022-10-03 |
