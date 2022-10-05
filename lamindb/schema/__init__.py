@@ -55,3 +55,8 @@ try:
     import maren.schema as swarm
 except ModuleNotFoundError:
     pass
+
+try:
+    import lnschema_harmonic_docking as docking
+except ModuleNotFoundError:
+    pass
