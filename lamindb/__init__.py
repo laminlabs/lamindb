@@ -17,7 +17,7 @@ Browse the API:
    dev
 
 """
-__version__ = "0.4.1"
+__version__ = "0.5.0"
 from lndb_setup import settings  # noqa
 from lndb_setup._migrate import check_migrate as _check_migrate
 

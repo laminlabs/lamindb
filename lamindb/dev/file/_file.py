@@ -25,7 +25,10 @@ def store_file(localfile: Union[str, Path], storagekey: str) -> float:
     if isinstance(storagepath, CloudPath):
         storagepath.upload_from(localfile)
     else:
-        shutil.copyfile(localfile, storagepath)
+        try:
+            shutil.copyfile(localfile, storagepath)
+        except shutil.SameFileError:
+            pass
     size = Path(localfile).stat().st_size
     return float(size)  # because this is how we store in the db
 

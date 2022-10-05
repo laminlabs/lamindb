@@ -10,7 +10,7 @@ def format_pipeline_logs(logs):
         rel_filepath = Path(log[0].split(" ")[0])
         n_parents = len(rel_filepath.parents)
         if n_parents > 1:
-            # remove log and register in dictionnary under its top directory
+            # remove log and register in dictionary under its top directory
             logs.remove(log)
             run_log = log[1]
             run_id = run_log.split(" ")[1]

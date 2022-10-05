@@ -1,13 +1,13 @@
 import re
-from typing import Iterable, Union
+from typing import Iterable
 
 import pandas as pd
 import sqlmodel as sqm
 from lamin_logger import colors, logger
 from lnbfx import BfxRun
 from lndb_setup import settings
-from lnschema_core import id
 
+from ..schema import core
 from ..schema._table import Table
 from ._query import query
 
@@ -24,36 +24,24 @@ def _camel_to_snake(string: str) -> str:
     return string.lower()
 
 
-def dobject_from_dtransform(
-    dobject_name: str,
-    dtransform_id: str,
-    dobject_suffix: Union[str, None],
-    dobject_id: str,
-    size: float,
-):
-    storage = getattr(query, "storage")(root=str(settings.instance.storage_dir)).first()
-    if dobject_id is None:
-        dobject_id = id.dobject()
+def dobject_from_dtransform(dobject: core.dobject, dtransform_id: str):
+    storage = query.storage(  # type: ignore
+        root=str(settings.instance.storage_dir)
+    ).first()
 
     dobject_id = insert.dobject(  # type: ignore
-        id=dobject_id,
-        name=dobject_name,
+        id=dobject.id,
+        name=dobject.name,
         dtransform_id=dtransform_id,
-        suffix=dobject_suffix,
+        suffix=dobject.suffix,
         storage_id=storage.id,
-        size=size,
+        size=dobject.size,
     )
 
     return dobject_id
 
 
-def dobject_from_pipeline(
-    name: str,
-    pipeline_run: BfxRun,
-    suffix: Union[str, None],
-    dobject_id: str,
-    size: float,
-):
+def dobject_from_pipeline(dobject: core.dobject, pipeline_run: BfxRun):
     result = getattr(query, "dtransform")(
         pipeline_run_id=pipeline_run.run_id
     ).one_or_none()
@@ -64,56 +52,35 @@ def dobject_from_pipeline(
     else:
         dtransform_id = result.id
 
-    return dobject_from_dtransform(
-        dobject_name=name,
-        dobject_suffix=suffix,
-        dobject_id=dobject_id,
-        dtransform_id=dtransform_id,
-        size=size,
-    )
+    return dobject_from_dtransform(dobject=dobject, dtransform_id=dtransform_id)
 
 
-def dobject_from_jupynb(
-    *,
-    name: str,
-    suffix: Union[str, None],
-    jupynb_id: str,
-    jupynb_v: str,
-    jupynb_name: str,
-    dobject_id: str,
-    size: float,
-):
+def dobject_from_jupynb(dobject: core.dobject, jupynb: core.jupynb):
     """Data object from jupynb."""
-    result = getattr(query, "jupynb")(id=jupynb_id, v=jupynb_v).one_or_none()
+    result = query.jupynb(id=jupynb.id, v=jupynb.v).one_or_none()  # type: ignore
     if result is None:
-        jupynb_id = getattr(insert, "jupynb")(
-            id=jupynb_id,
-            v=jupynb_v,
-            name=jupynb_name,
+        insert.jupynb(  # type: ignore
+            id=jupynb.id,
+            v=jupynb.v,
+            name=jupynb.name,
             user_id=settings.user.id,
         )
         # dtransform entry
-        dtransform_id = getattr(insert, "dtransform")(
-            jupynb_id=jupynb_id, jupynb_v=jupynb_v
+        dtransform_id = insert.dtransform(  # type: ignore
+            jupynb_id=jupynb.id, jupynb_v=jupynb.v
         )
         logger.info(
-            f"Added notebook {jupynb_name!r} ({jupynb_id}, {jupynb_v}) by"
+            f"Added notebook {jupynb.name!r} ({jupynb.id}, {jupynb.v}) by"
             f" user {settings.user.handle}."
         )
     else:
         dtransform_id = (
-            getattr(query, "dtransform")(jupynb_id=jupynb_id, jupynb_v=jupynb_v)
+            query.dtransform(jupynb_id=jupynb.id, jupynb_v=jupynb.v)  # type: ignore
             .one()
             .id
         )
 
-    return dobject_from_dtransform(
-        dobject_name=name,
-        dobject_suffix=suffix,
-        dobject_id=dobject_id,
-        dtransform_id=dtransform_id,
-        size=size,
-    )
+    return dobject_from_dtransform(dobject=dobject, dtransform_id=dtransform_id)
 
 
 def featureset_from_features(
