@@ -359,8 +359,11 @@ def _create_insert_func(model):
 class insert:
     """Insert an entry into a database table.
 
+    Tutorial: :doc:`/db/guide/insert-update-delete`.
+
     Example:
-    >>> insert.{entity}(id=1, name='new_experiment')
+
+    >>> insert.pipeline(name="My pipeline A", v="1.3")
 
     Returns:
         id of the inserted entry
