@@ -1,16 +1,13 @@
-# Walk-through of basic functionality
+# Learn the basic workflow
 
 ```{toctree}
 :maxdepth: 1
-:hidden:
-:caption: Walk-through of basic functionality
 
 get-started
 schema
 ingest
 link
-load-and-query
+query-load
 insert-update-delete
 introspect
-share-cross-org
 ```

@@ -25,13 +25,6 @@ Link features and metadata:
 
    link
 
-Share data on the hub:
-
-.. autosummary::
-   :toctree: .
-
-   hub
-
 `SQLModel` session for arbitrary SQL queries:
 
 .. autosummary::
@@ -41,7 +34,7 @@ Share data on the hub:
 
 """
 
-from lndb_hub import hub  # noqa
+from lndb_hub import hub  # noqa, currently not documented as being overhauled
 
 from ..dev.db import session  # noqa
 from ._delete import delete  # noqa

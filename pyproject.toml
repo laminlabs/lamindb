@@ -31,7 +31,6 @@ dependencies = [
     "supabase",
     "python-dotenv",
     "nbproject>=0.5.3",
-    "nbproject_test>=0.2.1",
     "readfcs",
 ]
 
@@ -47,9 +46,9 @@ test = [
     "pytest>=6.0",
     "coverage",
     "pytest-cov",
-    "nbmake",
     "scanpy",
     "scikit-learn>=1.1.1",
+    "nbproject_test>=0.3.0",
 ]
 
 [tool.black]
