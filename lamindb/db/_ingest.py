@@ -5,10 +5,8 @@ from lnbfx import BfxRun
 from lndb_setup import settings
 from lnschema_core import id
 
-from lamindb.dev._core import get_name_suffix_from_filepath
-
 from .._logger import colors, logger
-from ..dev import track_usage
+from ..dev import get_name_suffix_from_filepath, track_usage
 from ..dev.file import load_to_memory, store_file
 from ..dev.object import infer_suffix, write_to_file
 from ..schema import core, list_entities
