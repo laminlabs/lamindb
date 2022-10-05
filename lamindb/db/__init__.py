@@ -1,4 +1,4 @@
-"""Query, load, ingest, update, delete, link, and share data.
+"""Manage data.
 
 Query & load:
 
@@ -8,24 +8,36 @@ Query & load:
    query
    load
 
-Modify data:
+Ingest data:
 
 .. autosummary::
    :toctree: .
 
    ingest
+
+Modify metadata:
+
+.. autosummary::
+   :toctree: .
+
    insert
    update
+
+Delete data:
+
+.. autosummary::
+   :toctree: .
+
    delete
 
-Link features and metadata:
+Link metadata:
 
 .. autosummary::
    :toctree: .
 
    link
 
-`SQLModel` session for arbitrary SQL queries:
+A `SQLModel <https://sqlmodel.tiangolo.com>`__ session:
 
 .. autosummary::
    :toctree: .

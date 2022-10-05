@@ -76,7 +76,10 @@ class LinkFeatureModel:
 
 
 class link:
-    """Link features and metadata to data."""
+    """Link metadata.
+
+    Guide: :doc:`/db/guide/link`.
+    """
 
     @classmethod
     def feature_model(

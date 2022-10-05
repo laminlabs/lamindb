@@ -31,7 +31,7 @@ def _create_delete_func(model):
 
 
 class delete:
-    """Delete data by primary key.
+    """Delete data.
 
     Deletes the row identified by the key in the table that represents the entity.
     For `dobject`, this also deletes the data object in storage.

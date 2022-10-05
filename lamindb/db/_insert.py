@@ -357,9 +357,9 @@ def _create_insert_func(model):
 
 
 class insert:
-    """Insert an entry into a database table.
+    """Insert metadata.
 
-    Tutorial: :doc:`/db/guide/insert-update-delete`.
+    Guide: :doc:`/db/guide/insert-update-delete`.
 
     Example:
 

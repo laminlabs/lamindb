@@ -19,7 +19,14 @@ from ._query import query
 
 
 class Ingest:
-    """Ingest dobjects and pipeline runs."""
+    """Ingest data objects.
+
+    Ingested data is pushed to the configured storage location.
+
+    If a `feature_model` is passed, it is linked against feature-level metadata.
+
+    Guide: :doc:`/db/guide/ingest`.
+    """
 
     def __init__(self) -> None:
         self._ingest_object = IngestObject()  # an ingest instance
