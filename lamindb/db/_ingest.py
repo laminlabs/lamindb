@@ -295,7 +295,7 @@ class IngestPipelineRun:
         self._run = run
         self._filepath = run.outdir
         self._ingests: Dict = {}  # IngestDobject instances
-        for filepath in self.run.inputs + self.run.inputs:  # type: ignore
+        for filepath in self.run.inputs + self.run.outputs:  # type: ignore
             self._ingests[filepath] = IngestDobject(filepath)
 
     @property
