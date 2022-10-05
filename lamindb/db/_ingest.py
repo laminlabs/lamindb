@@ -293,15 +293,9 @@ class IngestPipelineRun:
     def __init__(self, run: BfxRun) -> None:
         self._run = run
         self._filepath = run.outdir
-        # stage inputs
-        self._inputs: Dict = {}
-        for filepath in self.run.inputs:  # type: ignore
-            self._inputs[filepath] = IngestDobject(filepath)
-
-        # stage outputs
-        self._outputs: Dict = {}
-        for filepath in self.run.outputs:  # type: ignore
-            self._outputs[filepath] = IngestDobject(filepath)
+        self._ingests: Dict = {}  # IngestDobject instances
+        for filepath in self.run.inputs + self.run.inputs:  # type: ignore
+            self._ingests[filepath] = IngestDobject(filepath)
 
     @property
     def run(self):
@@ -314,26 +308,9 @@ class IngestPipelineRun:
         return self._filepath
 
     @property
-    def inputs(self) -> dict:
-        """Pipeline run inputs."""
-        return self._inputs
-
-    @property
-    def outputs(self) -> dict:
-        """Pipeline run outputs."""
-        return self._outputs
-
-    @property
-    def dobjects(self) -> dict:
+    def ingests(self) -> dict:
         """Added dobject instances for ingestion."""
-        return {**self._inputs, **self._outputs}
-
-    @property
-    def dobject_logs(self):
-        dobject_logs = []
-        for _, ingest_ in self.dobjects.items():
-            dobject_logs.append(ingest_.datalog)
-        return dobject_logs
+        return self._ingests
 
     @property
     def datalog(self):
@@ -352,10 +329,10 @@ class IngestPipelineRun:
         biometa_id = self._insert_biometa()
 
         # insert dobjects
-        for _, dobject_ in self.dobjects.items():
+        for _, ingest_ in self.ingests.items():
             dtransform_log = store_insert_dobject(
-                filepath=dobject_.filepath,
-                dobject=dobject_.dobject,
+                filepath=ingest_.filepath,
+                dobject=ingest_.dobject,
                 dtransform=dtransform,
             )
 
@@ -433,7 +410,7 @@ class IngestPipelineRun:
 
     def _link_biometa(self, biometa_id):
         """Link dobjects to a biometa entry."""
-        for ingest_ in self.dobjects.values():
+        for ingest_ in self.ingests.values():
             insert_table_entries(
                 table="dobject_biometa",
                 dobject_id=ingest_.dobject.id,
@@ -442,7 +419,7 @@ class IngestPipelineRun:
 
     def _link_pipeline_meta(self):
         """Link dobjects to their pipeline-related metadata."""
-        for filepath, ingest_ in self.dobjects.items():
+        for filepath, ingest_ in self.ingests.items():
             # ingest pipeline-related metadata
             file_type = self.run.file_type.get(filepath)
             dir = filepath.parent.resolve().as_posix()
