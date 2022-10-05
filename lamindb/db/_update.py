@@ -32,9 +32,12 @@ def _create_update_func(model):
 
 
 class update:
-    """Update an entry based on its primary identifier.
+    """Update metadata.
+
+    Guide: :doc:`/db/guide/insert-update-delete`.
 
     Example:
+
     >>> update.{entity}(id=1, name='new_experiment')
     """
 

@@ -291,7 +291,12 @@ class LinkedQuery:
 
 
 class query:
-    """Query literal (semantic) data.
+    """Query data.
+
+    Data is queried by entity.
+    Arguments to entity allow to express deep linked queries very concisely.
+
+    Guide: :doc:`/db/guide/query-load`.
 
     Returns a :class:`~lamindb.dev.QueryResult` object.
     """

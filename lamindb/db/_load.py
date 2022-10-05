@@ -67,11 +67,13 @@ def populate_dtransform_in(dobject):
 
 
 def load(dobject: core.dobject):
-    """Load `dobject` into memory.
+    """Load data object into memory.
 
     Returns object associated with the stored `dobject`.
 
     Populates `dtransform_in`.
+
+    Guide: :doc:`/db/guide/query-load`.
     """
     filepath = filepath_from_dobject(dobject)
     populate_dtransform_in(dobject)
