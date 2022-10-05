@@ -8,7 +8,7 @@ from lnschema_core import id
 from lamindb.dev._core import get_name_suffix_from_filepath
 
 from .._logger import colors, logger
-from ..dev import storage_key_from_triple, track_usage
+from ..dev import track_usage
 from ..dev.file import load_to_memory, store_file
 from ..dev.object import infer_suffix, write_to_file
 from ..schema import core, list_entities
@@ -21,7 +21,7 @@ def store_insert_dobject(
     filepath: Path, dobject: core.dobject, dtransform: Union[core.jupynb, BfxRun]
 ):
     """Store and insert dobject."""
-    dobject_storage_key = storage_key_from_triple(dobject.id, dobject.suffix)
+    dobject_storage_key = f"{dobject.id}{dobject.suffix}"
     size = store_file(filepath, dobject_storage_key)
     dobject.size = size
 
