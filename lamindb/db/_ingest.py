@@ -227,7 +227,7 @@ class IngestDobject:
         self._feature_model = None  # feature model
 
         # access to the link operations
-        self._link = Link(self)
+        self._link = IngestLink(self)
 
     @property
     def data(self):
@@ -241,7 +241,10 @@ class IngestDobject:
 
     @property
     def link(self):
-        """Link operations."""
+        """Link operations via ingest.
+
+        See: `IngestLink`
+        """
         return self._link
 
     @property
@@ -436,7 +439,7 @@ class IngestPipelineRun:
             )
 
 
-class Link:
+class IngestLink:
     def __init__(self, dobject_: IngestDobject) -> None:
         self._dobject_ = dobject_
 
