@@ -15,35 +15,6 @@ from ._link import link
 from ._query import query
 
 
-def store_insert_dobject(
-    filepath: Path, dobject: core.dobject, dtransform: Union[core.jupynb, BfxRun]
-):
-    """Store and insert dobject."""
-    dobject_storage_key = f"{dobject.id}{dobject.suffix}"
-    size = store_file(filepath, dobject_storage_key)
-    dobject.size = size
-
-    if isinstance(dtransform, core.jupynb):
-        insert.dobject_from_jupynb(dobject=dobject, jupynb=dtransform)  # type: ignore
-        dtransform_log = dict(
-            jupynb=f"{dtransform.name!r} ({dtransform.id}, {dtransform.v})"
-        )
-    elif isinstance(dtransform, BfxRun):
-        insert.dobject_from_pipeline(  # type: ignore
-            dobject=dobject, pipeline_run=dtransform
-        )
-        dtransform_log = dict(
-            pipeline_run=f"{dtransform.run_name} ({dtransform.run_id})"
-        )
-    else:
-        # TODO: implement non-jupynb insert
-        raise NotImplementedError
-
-    track_usage(dobject.id, usage_type="ingest")
-
-    return dtransform_log
-
-
 def insert_table_entries(
     table: str,
     pk: Optional[dict] = None,
@@ -198,7 +169,11 @@ class ingest:
             for filepath_str, ingest_ in cls.list_ingests().items():
                 # TODO: run the appropriate clean-up operations if any aspect
                 # of the ingestion fails
-                dtransformlog = ingest_._commit(dtransform=jupynb)
+                ingest_._link.jupynb(jupynb)
+                ingest_.commit()
+                dtransformlog = dict(
+                    jupynb=f"{jupynb.name!r} ({jupynb.id}, {jupynb.v})"
+                )
 
                 _logs.append({**ingest_.datalog, **dtransformlog, **userlog})
 
@@ -249,6 +224,9 @@ class Ingest:
         # access to the link operations
         self._link = IngestLink(self)
 
+        # dtransform
+        self._dtransform = None
+
     @property
     def data(self):
         """Data to be ingested."""
@@ -290,10 +268,32 @@ class Ingest:
         """
         return dict(dobject=f"{self.filepath.name} ({self.dobject.id})")
 
-    def _commit(self, dtransform):
+    @property
+    def dtransform(self) -> Optional[core.dtransform]:
+        """An dtransform entry to be inserted."""
+        return self._dtransform
+
+    def commit(self):
         """Store and insert dobject."""
-        dtransform_log = store_insert_dobject(
-            filepath=self.filepath, dobject=self.dobject, dtransform=dtransform
+        if self.dtransform is None:
+            raise RuntimeError("dtransform can't be None!")
+
+        # store dobject
+        dobject_storage_key = f"{self.dobject.id}{self.dobject.suffix}"
+        size = store_file(self.filepath, dobject_storage_key)
+        self._dobject.size = size  # size is only calculated when storing the file
+
+        # if isinstance(self.dtransform, core.pipeline_run):
+        #     self.link.pipeline_run(self.dtransform)
+        #     dtransform_log = dict(
+        #         jupynb=f"{self.dtransform.name!r} {self.dtransform.id}"
+        #     )
+        # else:
+        #     raise NotImplementedError
+
+        # insert dobject with storage_id and dtransform_id
+        insert.dobject_from_dtransform(
+            dobject=self.dobject, dtransform_id=self.dtransform.id
         )
 
         # insert features and link to dobject
@@ -302,7 +302,12 @@ class Ingest:
                 self.dobject.id, self.feature_model["df_curated"]
             )
 
-        return dtransform_log
+        # insert all linked entries
+        if len(self.link.linked_entries) > 0:
+            for table_name, entry in self.link.linked_entries.items():
+                getattr(insert, table_name)(entry.dict())
+
+        track_usage(self.dobject.id, usage_type="ingest")
 
 
 class IngestPipelineRun:
@@ -343,21 +348,15 @@ class IngestPipelineRun:
         """
         return dict(dobject=f"{self.filepath.name}")
 
-    def _commit(self, dtransform=None):
+    def commit(self):
         """Insert dobject and metadata entries."""
-        dtransform = self.run
-
         # TODO: needs non-atomic erroring
         # register samples
         biometa_id = self._insert_biometa()
 
         # insert dobjects
         for _, ingest_ in self.ingests.items():
-            dtransform_log = store_insert_dobject(
-                filepath=ingest_.filepath,
-                dobject=ingest_.dobject,
-                dtransform=dtransform,
-            )
+            dtransform_log = ingest_.commit()
 
         # insert metadata entries and link to dobjects
         self._link_biometa(biometa_id)
@@ -462,8 +461,14 @@ class IngestPipelineRun:
 class IngestLink:
     def __init__(self, dobject_: Ingest) -> None:
         self._dobject_ = dobject_
+        self._entries: Dict = {}  # staged entries to be inserted
+
+    @property
+    def linked_entries(self) -> dict:
+        return self._entries
 
     def features(self, feature_model, *, featureset_name: str = None):
+        """Link dobject to features."""
         # curate features
         # looks for the id column, if none is found, will assume in the index
         if self._dobject_.dmem is None:
@@ -478,3 +483,42 @@ class IngestLink:
         self._dobject_._feature_model = link.feature_model(
             df=df, feature_model=feature_model, featureset_name=featureset_name
         )
+
+    def pipeline_run(self, pipeline_run: core.pipeline_run) -> core.dtransform:
+        """Link dobject to a pipeline run.
+
+        - Create a dtransform entry from pipeline_run (no insert)
+        - Link dobject to dtransform
+        """
+        dtransform = query.dtransform(  # type: ignore
+            pipeline_run_id=pipeline_run.id
+        ).one_or_none()
+        if dtransform is None:
+            dtransform = core.dtransform(pipeline_run_id=pipeline_run.id)
+
+        self._entries["dtransform"] = dtransform
+        self._dobject_._dtransform = dtransform
+
+    def jupynb(self, jupynb: core.jupynb) -> core.dtransform:
+        """Link dobject to a jupynb.
+
+        - Create a dtransform entry from jupynb (no insert)
+        - Link dobject to dtransform
+        """
+        result = query.jupynb(id=jupynb.id, v=jupynb.v).one_or_none()  # type: ignore
+        if result is None:
+            jupynb = core.jupynb(id=jupynb.id, v=jupynb.v, name=jupynb.name)
+            self._entries["jupynb"] = jupynb
+            # logger.info(
+            #     f"Added notebook {jupynb.name!r} ({jupynb.id}, {jupynb.v}) by"
+            #     f" user {settings.user.handle}."
+            # )
+            # dtransform entry
+            dtransform = core.dtransform(jupynb_id=jupynb.id, jupynb_v=jupynb.v)
+        else:
+            dtransform = query.dtransform(  # type: ignore
+                jupynb_id=jupynb.id, jupynb_v=jupynb.v
+            ).one()
+
+        self._entries["dtransform"] = dtransform
+        self._dobject_._dtransform = dtransform
