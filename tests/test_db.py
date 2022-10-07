@@ -19,8 +19,10 @@ def test_create_to_load():
         id="testid", name="test_file", suffix=".csv", size=1.2
     )
     jupynb = ln.schema.core.jupynb(id="83jf", v="1", name="test")
+    ln.db.insert.jupynb(**jupynb.dict())
+    dtransform = ln.schema.core.dtransform(jupynb_id=jupynb.id, jupynb_v=jupynb)
 
-    ln.db.insert.dobject_from_jupynb(dobject=dobject, jupynb=jupynb)
+    ln.db.insert.dobject_from_dtransform(dobject=dobject, dtransform=dtransform)
 
     for entity in ln.schema.list_entities():
         getattr(ln.db.query, entity)().df()
