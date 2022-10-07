@@ -22,7 +22,7 @@ def test_create_to_load():
     ln.db.insert.jupynb(**jupynb.dict())
     dtransform = ln.schema.core.dtransform(jupynb_id=jupynb.id, jupynb_v=jupynb)
 
-    ln.db.insert.dobject_from_dtransform(dobject=dobject, dtransform=dtransform)
+    ln.db.insert.dobject_from_dtransform(dobject=dobject, dtransform_id=dtransform.id)
 
     for entity in ln.schema.list_entities():
         getattr(ln.db.query, entity)().df()

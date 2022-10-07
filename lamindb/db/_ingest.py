@@ -154,8 +154,12 @@ class ingest:
                 # TODO: run the appropriate clean-up operations if any aspect
                 # of the ingestion fails
                 ingest.commit()
-
                 _logs.append({**ingest.datalog, **ingest.dtransformlog, **userlog})
+
+            logger.info(
+                f"Added notebook {jupynb.name!r} ({jupynb.id}, {jupynb.v}) by"
+                f" user {settings.user.handle}."
+            )
 
             cls.print_logging_table()
 
@@ -500,11 +504,6 @@ class IngestLink:
         result = query.jupynb(id=jupynb.id, v=jupynb.v).one_or_none()  # type: ignore
         if result is None:
             self._entries["jupynb"] = jupynb
-            # logger.info(
-            #     f"Added notebook {jupynb.name!r} ({jupynb.id}, {jupynb.v}) by"
-            #     f" user {settings.user.handle}."
-            # )
-            # dtransform entry
             dtransform = core.dtransform(jupynb_id=jupynb.id, jupynb_v=jupynb.v)
         else:
             dtransform = query.dtransform(  # type: ignore
