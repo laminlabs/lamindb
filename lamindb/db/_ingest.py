@@ -116,9 +116,9 @@ class ingest:
     @classmethod
     def add(cls, data: Any, *, name: str = None, dobject_id: str = None):
         """Stage dobject for ingestion."""
-        ingest_ = Ingest(data, name=name, dobject_id=dobject_id)
-        _ingests[ingest_.filepath.as_posix()] = ingest_
-        return ingest_
+        ingest = Ingest(data, name=name, dobject_id=dobject_id)
+        _ingests[ingest.filepath.as_posix()] = ingest
+        return ingest
 
     @classmethod
     def remove(cls, filepath: Union[str, Path]):
@@ -163,12 +163,12 @@ class ingest:
             # version to be set in publish()
             jupynb.v = dev.set_version(jupynb_v)
 
-            for filepath_str, ingest_ in cls.list_ingests().items():
+            for filepath_str, ingest in cls.list_ingests().items():
                 # TODO: run the appropriate clean-up operations if any aspect
                 # of the ingestion fails
-                ingest_.commit()
+                ingest.commit()
 
-                _logs.append({**ingest_.datalog, **ingest_.dtransformlog, **userlog})
+                _logs.append({**ingest.datalog, **ingest.dtransformlog, **userlog})
 
             cls.print_logging_table()
 
@@ -363,8 +363,8 @@ class IngestPipelineRun:
         biometa_id = self._insert_biometa()
 
         # insert dobjects
-        for _, ingest_ in self.ingests.items():
-            dtransform_log = ingest_.commit()
+        for _, ingest in self.ingests.items():
+            dtransform_log = ingest.commit()
 
         # insert metadata entries and link to dobjects
         self._link_biometa(biometa_id)
@@ -440,16 +440,16 @@ class IngestPipelineRun:
 
     def _link_biometa(self, biometa_id):
         """Link dobjects to a biometa entry."""
-        for ingest_ in self.ingests.values():
+        for ingest in self.ingests.values():
             insert_table_entries(
                 table="dobject_biometa",
-                dobject_id=ingest_.dobject.id,
+                dobject_id=ingest.dobject.id,
                 biometa_id=biometa_id,
             )
 
     def _link_pipeline_meta(self):
         """Link dobjects to their pipeline-related metadata."""
-        for filepath, ingest_ in self.ingests.items():
+        for filepath, ingest in self.ingests.items():
             # ingest pipeline-related metadata
             file_type = self.run.file_type.get(filepath)
             dir = filepath.parent.resolve().as_posix()
@@ -460,7 +460,7 @@ class IngestPipelineRun:
             insert_table_entries(
                 table=f"dobject_{self.run.meta_table}",
                 pk={
-                    "dobject_id": ingest_.dobject.id,
+                    "dobject_id": ingest.dobject.id,
                     f"{self.run.meta_table}_id": pipeline_meta_id,
                 },
             )
