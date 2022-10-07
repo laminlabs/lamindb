@@ -116,10 +116,7 @@ class ingest:
     @classmethod
     def add(cls, data: Any, *, name: str = None, dobject_id: str = None):
         """Stage dobject for ingestion."""
-        if isinstance(data, BfxRun):
-            ingest_ = IngestPipelineRun(data)
-        else:
-            ingest_ = Ingest(data, name=name, dobject_id=dobject_id)  # type: ignore
+        ingest_ = Ingest(data, name=name, dobject_id=dobject_id)
         _ingests[ingest_.filepath.as_posix()] = ingest_
         return ingest_
 
@@ -169,13 +166,9 @@ class ingest:
             for filepath_str, ingest_ in cls.list_ingests().items():
                 # TODO: run the appropriate clean-up operations if any aspect
                 # of the ingestion fails
-                ingest_._link.jupynb(jupynb)
                 ingest_.commit()
-                dtransformlog = dict(
-                    jupynb=f"{jupynb.name!r} ({jupynb.id}, {jupynb.v})"
-                )
 
-                _logs.append({**ingest_.datalog, **dtransformlog, **userlog})
+                _logs.append({**ingest_.datalog, **ingest_.dtransformlog, **userlog})
 
             cls.print_logging_table()
 
@@ -269,6 +262,11 @@ class Ingest:
         return dict(dobject=f"{self.filepath.name} ({self.dobject.id})")
 
     @property
+    def dtransformlog(self) -> Optional[dict]:
+        """Logging of the dtransform."""
+        return self._dtransformlog
+
+    @property
     def dtransform(self) -> Optional[core.dtransform]:
         """An dtransform entry to be inserted."""
         return self._dtransform
@@ -281,7 +279,13 @@ class Ingest:
     def commit(self):
         """Store and insert dobject."""
         if self.dtransform is None:
-            raise RuntimeError("dtransform can't be None!")
+            if jupynb is not None:
+                self.link.jupynb(jupynb)
+                self._dtransformlog = dict(
+                    jupynb=f"{jupynb.name!r} ({jupynb.id}, {jupynb.v})"
+                )
+            else:
+                raise RuntimeError("dtransform can't be None!")
 
         # store dobject
         dobject_storage_key = f"{self.dobject.id}{self.dobject.suffix}"
