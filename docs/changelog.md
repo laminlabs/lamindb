@@ -3,6 +3,7 @@
 <!-- prettier-ignore -->
 Name | PR | Developer | Date | Version
 --- | --- | --- | --- | ---
+⬆️ Upgrade to core schema 0.10.0 | [255](https://github.com/laminlabs/lamindb/pull/255) | [falexwolf](https://github.com/falexwolf) | 2022-10-07 |
 ✨ New ingest API | [254](https://github.com/laminlabs/lamindb/pull/254) | [sunnyosun](https://github.com/sunnyosun) | 2022-10-05 | 0.6.0
 📝 Overhaul documentation | [253](https://github.com/laminlabs/lamindb/pull/253) | [falexwolf](https://github.com/falexwolf) | 2022-10-05 |
 🔧 Update lndb setup to 0.9.4 | [252](https://github.com/laminlabs/lamindb/pull/252) | [fredericenard](https://github.com/fredericenard) | 2022-10-04 |
