@@ -63,7 +63,6 @@ def dobject_from_jupynb(dobject: core.dobject, jupynb: core.jupynb):
             id=jupynb.id,
             v=jupynb.v,
             name=jupynb.name,
-            user_id=settings.user.id,
         )
         # dtransform entry
         dtransform_id = insert.dtransform(  # type: ignore

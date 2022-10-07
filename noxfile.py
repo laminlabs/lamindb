@@ -17,9 +17,6 @@ def lint(session: nox.Session) -> None:
 @nox.session(python=["3.7", "3.8", "3.9", "3.10", "3.11"])
 def build(session):
     session.install(".[dev,test]")
-    session.install(
-        "git+https://github.com/tiangolo/sqlmodel.git"
-    )  # just temporarily until the new release comes out to get rid of warnings # noqa
     login_user_1 = "lndb login raspbear@gmx.de --password MmR4YuQEyb0yxu7dAwJZTjLzR1Az2lN4Q4IduDlO"  # noqa
     login_user_2 = "lndb login kurt.hein@gmx.de --password uIoEGyiCj0qcXbGhTpOAuY6CH86xauzAsOSlp95A"  # noqa
     session.run(*(login_user_1.split(" ")))
