@@ -62,60 +62,70 @@ def insert_table_entries(
     return entry_id
 
 
-class Ingest:
-    """Ingest dobjects.
+class init_ingest:
+    @classmethod
+    def jupynb(cls) -> Optional[core.jupynb]:
+        """Check if currently inside a Jupyter Notebook."""
+        from nbproject import meta
+        from nbproject.dev import notebook_path
+
+        if notebook_path() is not None:
+            return core.jupynb(id=meta.store.id, name=meta.live.title)
+        return None
+
+    @classmethod
+    def ingests(cls) -> dict:
+        return {}
+
+    @classmethod
+    def logs(cls) -> list:
+        return []
+
+    @classmethod
+    def userlog(cls) -> dict:
+        return dict(user=f"{settings.user.handle} ({settings.user.id})")
+
+
+_ingests = init_ingest.ingests()  # Ingest instances
+_logs = init_ingest.logs()  # logging messages
+jupynb = init_ingest.jupynb()
+userlog = init_ingest.userlog()
+
+
+class ingest:
+    """Ingest operations.
 
     Ingest is an operation that stores, tracks and annotates dobjects.
     """
 
-    def __init__(self) -> None:
-        self._ingests: Dict = {}  # Ingest instances
-        self._logs: list = []
-
-        self._jupynb = None
-        from nbproject import meta
-        from nbproject.dev._jupyter_communicate import notebook_path
-
-        if notebook_path() is not None:
-            self._jupynb = core.jupynb(id=meta.store.id, name=meta.live.title)
-
-    @property
-    def userlog(self) -> dict:
-        """User logging."""
-        return dict(user=f"{settings.user.handle} ({settings.user.id})")
-
-    @property
-    def status(self) -> list:
+    @classmethod
+    def status(cls) -> list:
         """Staged dobjects for ingestion."""
         dobjects = []
-        for filepath_str, dobject_ in self._ingests.items():
+        for filepath_str, dobject_ in cls.list_ingests().items():
             entry = dict(filepath=filepath_str, dobject_id=dobject_.dobject.id)
             dobjects.append(entry)
         return dobjects
 
-    @property
-    def ingests(self) -> dict:
+    @classmethod
+    def list_ingests(cls) -> dict:
         """Instances of ingest."""
-        return self._ingests
+        return _ingests
 
-    @property
-    def jupynb(self):
-        """Jupyter notebook."""
-        return self._jupynb
-
-    def _print_logging_table(
-        self,
+    @classmethod
+    def print_logging_table(
+        cls,
         message: str = "Ingested the following dobjects:",
     ):
         """Pretty print logs."""
         import pandas as pd
         from tabulate import tabulate  # type: ignore
 
-        if len(self._logs) == 0:
+        if len(_logs) == 0:
             return
 
         log_table = tabulate(
-            pd.DataFrame(self._logs).fillna(""),
+            pd.DataFrame(_logs).fillna(""),
             headers="keys",
             tablefmt="pretty",
             stralign="left",
@@ -124,29 +134,38 @@ class Ingest:
         logger.success(f"{message}\n{log_table}")
         """"""
 
-    def add(self, data: Any, *, name: str = None, dobject_id: str = None):
+    @classmethod
+    def reset(cls):
+        global _ingests, _logs, jupynb, userlog
+        _ingests = init_ingest.ingests()  # Ingest instances
+        _logs = init_ingest.logs()  # logging messages
+        jupynb = init_ingest.jupynb()
+        userlog = init_ingest.userlog()
+
+    @classmethod
+    def add(cls, data: Any, *, name: str = None, dobject_id: str = None):
         """Stage dobject for ingestion."""
         if isinstance(data, BfxRun):
             ingest_ = IngestPipelineRun(data)
         else:
-            ingest_ = IngestDobject(  # type: ignore
-                data, name=name, dobject_id=dobject_id
-            )
-        self._ingests[ingest_.filepath.as_posix()] = ingest_
+            ingest_ = Ingest(data, name=name, dobject_id=dobject_id)  # type: ignore
+        _ingests[ingest_.filepath.as_posix()] = ingest_
         return ingest_
 
-    def remove(self, filepath: Union[str, Path]):
+    @classmethod
+    def remove(cls, filepath: Union[str, Path]):
         """Remove a dobject from the staged list."""
         filepath_str = filepath if isinstance(filepath, str) else filepath.as_posix()
-        self._ingests.pop(filepath_str)
+        _ingests.pop(filepath_str)
 
-    def commit(self, jupynb_v=None):
+    @classmethod
+    def commit(cls, jupynb_v=None):
         """Complete ingestion.
 
         Args:
             jupynb_v: Notebook version to publish. Is automatically set if `None`.
         """
-        if self.jupynb is None:
+        if jupynb is None:
             raise NotImplementedError
         else:
             from nbproject import dev, meta
@@ -174,18 +193,18 @@ class Ingest:
                     return "aborted"
 
             # version to be set in publish()
-            self._jupynb.v = dev.set_version(jupynb_v)
+            jupynb.v = dev.set_version(jupynb_v)
 
-            for filepath_str, ingest_ in self._ingests.items():
+            for filepath_str, ingest_ in cls.list_ingests().items():
                 # TODO: run the appropriate clean-up operations if any aspect
                 # of the ingestion fails
-                dtransformlog = ingest_._commit(dtransform=self.jupynb)
+                dtransformlog = ingest_._commit(dtransform=jupynb)
 
-                self._logs.append({**ingest_.datalog, **dtransformlog, **self.userlog})
+                _logs.append({**ingest_.datalog, **dtransformlog, **userlog})
 
-            self._print_logging_table()
+            cls.print_logging_table()
 
-            meta.store.version = self.jupynb.v
+            meta.store.version = jupynb.v
             meta.store.pypackage = meta.live.pypackage
             logger.info(
                 f"Set notebook version to {colors.bold(meta.store.version)} & wrote"
@@ -193,8 +212,11 @@ class Ingest:
             )
             meta.store.write(calling_statement="commit(")
 
+        # reset ingest
+        cls.reset()
 
-class IngestDobject:
+
+class Ingest:
     """Ingest a dobject."""
 
     def __init__(self, data: Any, *, name: str = None, dobject_id: str = None) -> None:
@@ -294,9 +316,9 @@ class IngestPipelineRun:
     def __init__(self, run: BfxRun) -> None:
         self._run = run
         self._filepath = run.outdir
-        self._ingests: Dict = {}  # IngestDobject instances
+        self._ingests: Dict = {}  # Ingest instances
         for filepath in self.run.inputs + self.run.outputs:  # type: ignore
-            self._ingests[filepath] = IngestDobject(filepath)
+            self._ingests[filepath] = Ingest(filepath)
 
     @property
     def run(self):
@@ -438,7 +460,7 @@ class IngestPipelineRun:
 
 
 class IngestLink:
-    def __init__(self, dobject_: IngestDobject) -> None:
+    def __init__(self, dobject_: Ingest) -> None:
         self._dobject_ = dobject_
 
     def features(self, feature_model, *, featureset_name: str = None):
@@ -456,6 +478,3 @@ class IngestLink:
         self._dobject_._feature_model = link.feature_model(
             df=df, feature_model=feature_model, featureset_name=featureset_name
         )
-
-
-ingest = Ingest()
