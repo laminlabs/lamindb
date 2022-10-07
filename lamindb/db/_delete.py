@@ -13,6 +13,9 @@ def _create_delete_func(model):
     def delete_func(key):
         with Session(settings.instance.db_engine()) as session:
             entry = session.get(model, key)
+            if entry is None:
+                logger.warning(f"Entry {key} does not exist.")
+                return None
             session.delete(entry)
             session.commit()
             settings.instance._update_cloud_sqlite_file()
