@@ -127,7 +127,7 @@ class ingest:
         _ingests.pop(filepath_str)
 
     @classmethod
-    def commit(cls, jupynb_v=None, i_confirm_i_saved: bool = False):
+    def commit(cls, jupynb_v: str = None, i_confirm_i_saved: bool = False):
         """Complete ingestion.
 
         Args:
@@ -147,7 +147,7 @@ class ingest:
             if result != "checks-passed":
                 return result
 
-            # version to be set in publish()
+            # version to be set in finalize_publish()
             jupynb.v = dev.set_version(jupynb_v)
 
             for filepath_str, ingest in cls.list_ingests().items():
