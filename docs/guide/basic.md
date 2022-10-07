@@ -9,5 +9,6 @@ ingest
 link
 query-load
 insert-update-delete
+pipeline
 introspect
 ```

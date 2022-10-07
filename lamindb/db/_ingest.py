@@ -479,11 +479,14 @@ class IngestLink:
         - Create a dtransform entry from pipeline_run (no insert)
         - Link dobject to dtransform
         """
-        dtransform = query.dtransform(  # type: ignore
-            pipeline_run_id=pipeline_run.id
-        ).one_or_none()
-        if dtransform is None:
+        result = query.pipeline_run(id=pipeline_run.id).one_or_none()  # type: ignore
+        if result is None:
+            self._entries["pipeline_run"] = pipeline_run
             dtransform = core.dtransform(pipeline_run_id=pipeline_run.id)
+        else:
+            dtransform = query.dtransform(  # type: ignore
+                pipeline_run_id=pipeline_run.id
+            ).one()
 
         self._entries["dtransform"] = dtransform
         self._dobject_.dtransform = dtransform
@@ -496,7 +499,6 @@ class IngestLink:
         """
         result = query.jupynb(id=jupynb.id, v=jupynb.v).one_or_none()  # type: ignore
         if result is None:
-            jupynb = core.jupynb(id=jupynb.id, v=jupynb.v, name=jupynb.name)
             self._entries["jupynb"] = jupynb
             # logger.info(
             #     f"Added notebook {jupynb.name!r} ({jupynb.id}, {jupynb.v}) by"
