@@ -5,7 +5,7 @@ from lnbfx import BfxRun
 from lndb_setup import settings
 from lnschema_core import id
 
-from .._logger import colors, logger
+from .._logger import logger
 from ..dev import get_name_suffix_from_filepath, track_usage
 from ..dev.file import load_to_memory, store_file
 from ..dev.object import infer_suffix, write_to_file
@@ -127,38 +127,25 @@ class ingest:
         _ingests.pop(filepath_str)
 
     @classmethod
-    def commit(cls, jupynb_v=None):
+    def commit(cls, jupynb_v=None, i_confirm_i_saved: bool = False):
         """Complete ingestion.
 
         Args:
             jupynb_v: Notebook version to publish. Is automatically set if `None`.
+            i_confirm_i_saved: Only relevant outside Jupyter Lab as a safeguard against
+                losing the editor buffer content because of accidentally publishing.
         """
         if jupynb is None:
             raise NotImplementedError
         else:
-            from nbproject import dev, meta
-            from nbproject.dev._check_last_cell import check_last_cell
+            from nbproject import dev
+            from nbproject._publish import finalize_publish, run_checks_for_publish
 
-            if meta.live.title is None:
-                raise RuntimeError(
-                    "Can only ingest from notebook with title. Please set a title!"
-                )
-            nb = dev.read_notebook(meta._filepath)  # type: ignore
-            if not check_last_cell(nb, calling_statement="commit("):
-                raise RuntimeError(
-                    "Can only ingest from the last code cell of the notebook."
-                )
-            if not dev.check_consecutiveness(nb):
-                if meta.env == "test":
-                    decide = "y"
-                else:
-                    decide = input(
-                        "   Do you still want to proceed with ingesting? (y/n) "
-                    )
-
-                if decide not in ("y", "Y", "yes", "Yes", "YES"):
-                    logger.warning("Aborted!")
-                    return "aborted"
+            result = run_checks_for_publish(
+                calling_statement="commit(", i_confirm_i_saved=i_confirm_i_saved
+            )
+            if result != "checks-passed":
+                return result
 
             # version to be set in publish()
             jupynb.v = dev.set_version(jupynb_v)
@@ -172,13 +159,7 @@ class ingest:
 
             cls.print_logging_table()
 
-            meta.store.version = jupynb.v
-            meta.store.pypackage = meta.live.pypackage
-            logger.info(
-                f"Set notebook version to {colors.bold(meta.store.version)} & wrote"
-                " pypackages."
-            )
-            meta.store.write(calling_statement="commit(")
+            finalize_publish(version=jupynb_v, calling_statement="commit(")
 
         # reset ingest
         cls.reset()
