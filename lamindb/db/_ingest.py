@@ -273,6 +273,11 @@ class Ingest:
         """An dtransform entry to be inserted."""
         return self._dtransform
 
+    @dtransform.setter
+    def dtransform(self, value: core.dtransform):
+        """Set value of dtransform."""
+        self._dtransform = value
+
     def commit(self):
         """Store and insert dobject."""
         if self.dtransform is None:
@@ -291,6 +296,10 @@ class Ingest:
         # else:
         #     raise NotImplementedError
 
+        # insert all linked entries including dtransform
+        for table_name, entry in self.link.linked_entries.items():
+            getattr(insert, table_name)(**entry.dict())
+
         # insert dobject with storage_id and dtransform_id
         insert.dobject_from_dtransform(
             dobject=self.dobject, dtransform_id=self.dtransform.id
@@ -301,11 +310,6 @@ class Ingest:
             self.feature_model["model"].ingest(
                 self.dobject.id, self.feature_model["df_curated"]
             )
-
-        # insert all linked entries
-        if len(self.link.linked_entries) > 0:
-            for table_name, entry in self.link.linked_entries.items():
-                getattr(insert, table_name)(entry.dict())
 
         track_usage(self.dobject.id, usage_type="ingest")
 
@@ -497,7 +501,7 @@ class IngestLink:
             dtransform = core.dtransform(pipeline_run_id=pipeline_run.id)
 
         self._entries["dtransform"] = dtransform
-        self._dobject_._dtransform = dtransform
+        self._dobject_.dtransform = dtransform
 
     def jupynb(self, jupynb: core.jupynb) -> core.dtransform:
         """Link dobject to a jupynb.
@@ -521,4 +525,4 @@ class IngestLink:
             ).one()
 
         self._entries["dtransform"] = dtransform
-        self._dobject_._dtransform = dtransform
+        self._dobject_.dtransform = dtransform
