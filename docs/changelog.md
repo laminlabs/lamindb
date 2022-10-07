@@ -3,6 +3,7 @@
 <!-- prettier-ignore -->
 Name | PR | Developer | Date | Version
 --- | --- | --- | --- | ---
+🚸 Check for existence before deletion | [258](https://github.com/laminlabs/lamindb/pull/258) | [falexwolf](https://github.com/falexwolf) | 2022-10-07 |
 🎨 Make ingest a static class | [256](https://github.com/laminlabs/lamindb/pull/256) | [sunnyosun](https://github.com/sunnyosun) | 2022-10-07 | 0.7.0
 ⬆️ Upgrade to core schema 0.10.0 | [255](https://github.com/laminlabs/lamindb/pull/255) | [falexwolf](https://github.com/falexwolf) | 2022-10-07 |
 ✨ New ingest API | [254](https://github.com/laminlabs/lamindb/pull/254) | [sunnyosun](https://github.com/sunnyosun) | 2022-10-05 | 0.6.0
