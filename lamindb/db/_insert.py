@@ -4,7 +4,6 @@ from typing import Iterable
 import pandas as pd
 import sqlmodel as sqm
 from lamin_logger import colors, logger
-from lnbfx import BfxRun
 from lndb_setup import settings
 
 from ..schema import core
@@ -27,7 +26,7 @@ def _camel_to_snake(string: str) -> str:
 def dobject_from_dtransform(dobject: core.dobject, dtransform_id: str):
     storage = query.storage(  # type: ignore
         root=str(settings.instance.storage_dir)
-    ).first()
+    ).one()
 
     dobject_id = insert.dobject(  # type: ignore
         id=dobject.id,
@@ -39,47 +38,6 @@ def dobject_from_dtransform(dobject: core.dobject, dtransform_id: str):
     )
 
     return dobject_id
-
-
-def dobject_from_pipeline(dobject: core.dobject, pipeline_run: BfxRun):
-    result = getattr(query, "dtransform")(
-        pipeline_run_id=pipeline_run.run_id
-    ).one_or_none()
-    if result is None:
-        dtransform_id = getattr(insert, "dtransform")(
-            pipeline_run_id=pipeline_run.run_id
-        )
-    else:
-        dtransform_id = result.id
-
-    return dobject_from_dtransform(dobject=dobject, dtransform_id=dtransform_id)
-
-
-def dobject_from_jupynb(dobject: core.dobject, jupynb: core.jupynb):
-    """Data object from jupynb."""
-    result = query.jupynb(id=jupynb.id, v=jupynb.v).one_or_none()  # type: ignore
-    if result is None:
-        insert.jupynb(  # type: ignore
-            id=jupynb.id,
-            v=jupynb.v,
-            name=jupynb.name,
-        )
-        # dtransform entry
-        dtransform_id = insert.dtransform(  # type: ignore
-            jupynb_id=jupynb.id, jupynb_v=jupynb.v
-        )
-        logger.info(
-            f"Added notebook {jupynb.name!r} ({jupynb.id}, {jupynb.v}) by"
-            f" user {settings.user.handle}."
-        )
-    else:
-        dtransform_id = (
-            query.dtransform(jupynb_id=jupynb.id, jupynb_v=jupynb.v)  # type: ignore
-            .one()
-            .id
-        )
-
-    return dobject_from_dtransform(dobject=dobject, dtransform_id=dtransform_id)
 
 
 def featureset_from_features(
@@ -343,8 +301,7 @@ for model in Table.list_models():
     func = _create_insert_func(model=model)
     setattr(insert, model.__name__, staticmethod(func))
 
-setattr(insert, "dobject_from_jupynb", staticmethod(dobject_from_jupynb))
-setattr(insert, "dobject_from_pipeline", staticmethod(dobject_from_pipeline))
+setattr(insert, "dobject_from_dtransform", staticmethod(dobject_from_dtransform))
 setattr(insert, "featureset_from_features", staticmethod(featureset_from_features))
 setattr(insert, "from_df", staticmethod(InsertBase.insert_from_df))
 setattr(insert, "from_list", staticmethod(InsertBase.insert_from_list))

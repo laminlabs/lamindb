@@ -5,7 +5,7 @@ from lnbfx import BfxRun
 from lndb_setup import settings
 from lnschema_core import id
 
-from .._logger import colors, logger
+from .._logger import logger
 from ..dev import get_name_suffix_from_filepath, track_usage
 from ..dev.file import load_to_memory, store_file
 from ..dev.object import infer_suffix, write_to_file
@@ -13,35 +13,6 @@ from ..schema import core, list_entities
 from ._insert import insert
 from ._link import link
 from ._query import query
-
-
-def store_insert_dobject(
-    filepath: Path, dobject: core.dobject, dtransform: Union[core.jupynb, BfxRun]
-):
-    """Store and insert dobject."""
-    dobject_storage_key = f"{dobject.id}{dobject.suffix}"
-    size = store_file(filepath, dobject_storage_key)
-    dobject.size = size
-
-    if isinstance(dtransform, core.jupynb):
-        insert.dobject_from_jupynb(dobject=dobject, jupynb=dtransform)  # type: ignore
-        dtransform_log = dict(
-            jupynb=f"{dtransform.name!r} ({dtransform.id}, {dtransform.v})"
-        )
-    elif isinstance(dtransform, BfxRun):
-        insert.dobject_from_pipeline(  # type: ignore
-            dobject=dobject, pipeline_run=dtransform
-        )
-        dtransform_log = dict(
-            pipeline_run=f"{dtransform.run_name} ({dtransform.run_id})"
-        )
-    else:
-        # TODO: implement non-jupynb insert
-        raise NotImplementedError
-
-    track_usage(dobject.id, usage_type="ingest")
-
-    return dtransform_log
 
 
 def insert_table_entries(
@@ -145,12 +116,9 @@ class ingest:
     @classmethod
     def add(cls, data: Any, *, name: str = None, dobject_id: str = None):
         """Stage dobject for ingestion."""
-        if isinstance(data, BfxRun):
-            ingest_ = IngestPipelineRun(data)
-        else:
-            ingest_ = Ingest(data, name=name, dobject_id=dobject_id)  # type: ignore
-        _ingests[ingest_.filepath.as_posix()] = ingest_
-        return ingest_
+        ingest = Ingest(data, name=name, dobject_id=dobject_id)
+        _ingests[ingest.filepath.as_posix()] = ingest
+        return ingest
 
     @classmethod
     def remove(cls, filepath: Union[str, Path]):
@@ -159,58 +127,43 @@ class ingest:
         _ingests.pop(filepath_str)
 
     @classmethod
-    def commit(cls, jupynb_v=None):
+    def commit(cls, jupynb_v: str = None, i_confirm_i_saved: bool = False):
         """Complete ingestion.
 
         Args:
             jupynb_v: Notebook version to publish. Is automatically set if `None`.
+            i_confirm_i_saved: Only relevant outside Jupyter Lab as a safeguard against
+                losing the editor buffer content because of accidentally publishing.
         """
         if jupynb is None:
             raise NotImplementedError
         else:
-            from nbproject import dev, meta
-            from nbproject.dev._check_last_cell import check_last_cell
+            from nbproject import dev
+            from nbproject._publish import finalize_publish, run_checks_for_publish
 
-            if meta.live.title is None:
-                raise RuntimeError(
-                    "Can only ingest from notebook with title. Please set a title!"
-                )
-            nb = dev.read_notebook(meta._filepath)  # type: ignore
-            if not check_last_cell(nb, calling_statement="commit("):
-                raise RuntimeError(
-                    "Can only ingest from the last code cell of the notebook."
-                )
-            if not dev.check_consecutiveness(nb):
-                if meta.env == "test":
-                    decide = "y"
-                else:
-                    decide = input(
-                        "   Do you still want to proceed with ingesting? (y/n) "
-                    )
+            result = run_checks_for_publish(
+                calling_statement="commit(", i_confirm_i_saved=i_confirm_i_saved
+            )
+            if result != "checks-passed":
+                return result
 
-                if decide not in ("y", "Y", "yes", "Yes", "YES"):
-                    logger.warning("Aborted!")
-                    return "aborted"
-
-            # version to be set in publish()
+            # version to be set in finalize_publish()
             jupynb.v = dev.set_version(jupynb_v)
 
-            for filepath_str, ingest_ in cls.list_ingests().items():
+            for filepath_str, ingest in cls.list_ingests().items():
                 # TODO: run the appropriate clean-up operations if any aspect
                 # of the ingestion fails
-                dtransformlog = ingest_._commit(dtransform=jupynb)
+                ingest.commit()
+                _logs.append({**ingest.datalog, **ingest.dtransformlog, **userlog})
 
-                _logs.append({**ingest_.datalog, **dtransformlog, **userlog})
+            logger.info(
+                f"Added notebook {jupynb.name!r} ({jupynb.id}, {jupynb.v}) by"
+                f" user {settings.user.handle}."
+            )
 
             cls.print_logging_table()
 
-            meta.store.version = jupynb.v
-            meta.store.pypackage = meta.live.pypackage
-            logger.info(
-                f"Set notebook version to {colors.bold(meta.store.version)} & wrote"
-                " pypackages."
-            )
-            meta.store.write(calling_statement="commit(")
+            finalize_publish(version=jupynb_v, calling_statement="commit(")
 
         # reset ingest
         cls.reset()
@@ -248,6 +201,9 @@ class Ingest:
 
         # access to the link operations
         self._link = IngestLink(self)
+
+        # dtransform
+        self._dtransform = None
 
     @property
     def data(self):
@@ -290,10 +246,52 @@ class Ingest:
         """
         return dict(dobject=f"{self.filepath.name} ({self.dobject.id})")
 
-    def _commit(self, dtransform):
+    @property
+    def dtransformlog(self) -> Optional[dict]:
+        """Logging of the dtransform."""
+        return self._dtransformlog
+
+    @property
+    def dtransform(self) -> Optional[core.dtransform]:
+        """An dtransform entry to be inserted."""
+        return self._dtransform
+
+    @dtransform.setter
+    def dtransform(self, value: core.dtransform):
+        """Set value of dtransform."""
+        self._dtransform = value
+
+    def commit(self):
         """Store and insert dobject."""
-        dtransform_log = store_insert_dobject(
-            filepath=self.filepath, dobject=self.dobject, dtransform=dtransform
+        if self.dtransform is None:
+            if jupynb is not None:
+                self.link.jupynb(jupynb)
+                self._dtransformlog = dict(
+                    jupynb=f"{jupynb.name!r} ({jupynb.id}, {jupynb.v})"
+                )
+            else:
+                raise RuntimeError("dtransform can't be None!")
+
+        # store dobject
+        dobject_storage_key = f"{self.dobject.id}{self.dobject.suffix}"
+        size = store_file(self.filepath, dobject_storage_key)
+        self._dobject.size = size  # size is only calculated when storing the file
+
+        # if isinstance(self.dtransform, core.pipeline_run):
+        #     self.link.pipeline_run(self.dtransform)
+        #     dtransform_log = dict(
+        #         jupynb=f"{self.dtransform.name!r} {self.dtransform.id}"
+        #     )
+        # else:
+        #     raise NotImplementedError
+
+        # insert all linked entries including dtransform
+        for table_name, entry in self.link.linked_entries.items():
+            getattr(insert, table_name)(**entry.dict())
+
+        # insert dobject with storage_id and dtransform_id
+        insert.dobject_from_dtransform(
+            dobject=self.dobject, dtransform_id=self.dtransform.id
         )
 
         # insert features and link to dobject
@@ -302,7 +300,7 @@ class Ingest:
                 self.dobject.id, self.feature_model["df_curated"]
             )
 
-        return dtransform_log
+        track_usage(self.dobject.id, usage_type="ingest")
 
 
 class IngestPipelineRun:
@@ -343,21 +341,15 @@ class IngestPipelineRun:
         """
         return dict(dobject=f"{self.filepath.name}")
 
-    def _commit(self, dtransform=None):
+    def commit(self):
         """Insert dobject and metadata entries."""
-        dtransform = self.run
-
         # TODO: needs non-atomic erroring
         # register samples
         biometa_id = self._insert_biometa()
 
         # insert dobjects
-        for _, ingest_ in self.ingests.items():
-            dtransform_log = store_insert_dobject(
-                filepath=ingest_.filepath,
-                dobject=ingest_.dobject,
-                dtransform=dtransform,
-            )
+        for _, ingest in self.ingests.items():
+            dtransform_log = ingest.commit()
 
         # insert metadata entries and link to dobjects
         self._link_biometa(biometa_id)
@@ -433,16 +425,16 @@ class IngestPipelineRun:
 
     def _link_biometa(self, biometa_id):
         """Link dobjects to a biometa entry."""
-        for ingest_ in self.ingests.values():
+        for ingest in self.ingests.values():
             insert_table_entries(
                 table="dobject_biometa",
-                dobject_id=ingest_.dobject.id,
+                dobject_id=ingest.dobject.id,
                 biometa_id=biometa_id,
             )
 
     def _link_pipeline_meta(self):
         """Link dobjects to their pipeline-related metadata."""
-        for filepath, ingest_ in self.ingests.items():
+        for filepath, ingest in self.ingests.items():
             # ingest pipeline-related metadata
             file_type = self.run.file_type.get(filepath)
             dir = filepath.parent.resolve().as_posix()
@@ -453,7 +445,7 @@ class IngestPipelineRun:
             insert_table_entries(
                 table=f"dobject_{self.run.meta_table}",
                 pk={
-                    "dobject_id": ingest_.dobject.id,
+                    "dobject_id": ingest.dobject.id,
                     f"{self.run.meta_table}_id": pipeline_meta_id,
                 },
             )
@@ -462,8 +454,14 @@ class IngestPipelineRun:
 class IngestLink:
     def __init__(self, dobject_: Ingest) -> None:
         self._dobject_ = dobject_
+        self._entries: Dict = {}  # staged entries to be inserted
+
+    @property
+    def linked_entries(self) -> dict:
+        return self._entries
 
     def features(self, feature_model, *, featureset_name: str = None):
+        """Link dobject to features."""
         # curate features
         # looks for the id column, if none is found, will assume in the index
         if self._dobject_.dmem is None:
@@ -478,3 +476,39 @@ class IngestLink:
         self._dobject_._feature_model = link.feature_model(
             df=df, feature_model=feature_model, featureset_name=featureset_name
         )
+
+    def pipeline_run(self, pipeline_run: core.pipeline_run) -> core.dtransform:
+        """Link dobject to a pipeline run.
+
+        - Create a dtransform entry from pipeline_run (no insert)
+        - Link dobject to dtransform
+        """
+        result = query.pipeline_run(id=pipeline_run.id).one_or_none()  # type: ignore
+        if result is None:
+            self._entries["pipeline_run"] = pipeline_run
+            dtransform = core.dtransform(pipeline_run_id=pipeline_run.id)
+        else:
+            dtransform = query.dtransform(  # type: ignore
+                pipeline_run_id=pipeline_run.id
+            ).one()
+
+        self._entries["dtransform"] = dtransform
+        self._dobject_.dtransform = dtransform
+
+    def jupynb(self, jupynb: core.jupynb) -> core.dtransform:
+        """Link dobject to a jupynb.
+
+        - Create a dtransform entry from jupynb (no insert)
+        - Link dobject to dtransform
+        """
+        result = query.jupynb(id=jupynb.id, v=jupynb.v).one_or_none()  # type: ignore
+        if result is None:
+            self._entries["jupynb"] = jupynb
+            dtransform = core.dtransform(jupynb_id=jupynb.id, jupynb_v=jupynb.v)
+        else:
+            dtransform = query.dtransform(  # type: ignore
+                jupynb_id=jupynb.id, jupynb_v=jupynb.v
+            ).one()
+
+        self._entries["dtransform"] = dtransform
+        self._dobject_.dtransform = dtransform

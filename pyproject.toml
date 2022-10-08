@@ -30,7 +30,7 @@ dependencies = [
     "appdirs",
     "supabase",
     "python-dotenv",
-    "nbproject>=0.5.3",
+    "nbproject>=0.5.4",
     "readfcs",
 ]
 
@@ -49,6 +49,7 @@ test = [
     "scanpy",
     "scikit-learn>=1.1.1",
     "nbproject_test>=0.3.0",
+    "psycopg2",
 ]
 
 [tool.black]
