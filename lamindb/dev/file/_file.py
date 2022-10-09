@@ -8,12 +8,18 @@ import readfcs
 from cloudpathlib import CloudPath
 from lndb_setup import settings
 
+from ._h5ad import read_adata_h5ad
+from ._zarr import read_adata_zarr
+
 READER_FUNCS = {
     ".csv": pd.read_csv,
     ".h5ad": ad.read,
     ".feather": pd.read_feather,
     ".fcs": readfcs.read,
+    ".zarr": read_adata_zarr,
 }
+
+NO_CACHING = (".zarr",)
 
 
 def store_file(localfile: Union[str, Path], storagekey: str) -> float:
@@ -39,9 +45,19 @@ def delete_file(storagekey: str):
     storagepath.unlink()
 
 
-def load_to_memory(filepath: Union[str, Path]):
-    filepath = Path(filepath)
-    reader = READER_FUNCS.get(filepath.suffix)
+def load_to_memory(filepath: Union[str, Path], stream_h5ad: bool = False):
+    if isinstance(filepath, str):
+        filepath = Path(filepath)
+    suffix = filepath.suffix
+
+    if suffix == ".h5ad" and stream_h5ad:
+        return read_adata_h5ad(filepath)
+
+    # assuming CloudPath here, if not, nothing changes
+    # Path on a CloudPath object triggers caching
+    if suffix not in NO_CACHING:
+        filepath = Path(filepath)
+    reader = READER_FUNCS.get(suffix)
     if reader is None:
         raise NotImplementedError
     else:

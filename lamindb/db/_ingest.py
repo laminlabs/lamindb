@@ -297,7 +297,7 @@ class Ingest:
             # adata size
             size = self.dmem.__sizeof__()
             storepath = settings.instance.storage.key_to_filepath(dobject_storage_key)
-            write_adata_zarr(self.dmem, str(storepath))
+            write_adata_zarr(self.dmem, storepath)
 
         self._dobject.size = size  # size is only calculated when storing the file
 

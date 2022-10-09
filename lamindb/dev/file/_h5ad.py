@@ -10,6 +10,8 @@ def h5ad_to_anndata(filekey) -> AnnData:
 
 
 def read_adata_h5ad(filepath, **kwargs) -> AnnData:
+    if not isinstance(filepath, str):
+        filepath = str(filepath)
     with fsspec.open(filepath, mode="rb") as file:
         adata = read_h5ad(file, backed=False, **kwargs)
         return adata
