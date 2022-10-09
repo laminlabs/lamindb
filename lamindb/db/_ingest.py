@@ -7,7 +7,7 @@ from lnschema_core import id
 
 from .._logger import logger
 from ..dev import get_name_suffix_from_filepath, track_usage
-from ..dev.file import load_to_memory, store_file
+from ..dev.file import load_to_memory, store_file, write_adata_zarr
 from ..dev.object import infer_suffix, write_to_file
 from ..schema import core, list_entities
 from ._insert import insert
@@ -114,9 +114,18 @@ class ingest:
         userlog = init_ingest.userlog()
 
     @classmethod
-    def add(cls, data: Any, *, name: str = None, dobject_id: str = None):
+    def add(
+        cls,
+        data: Any,
+        *,
+        name: str = None,
+        dobject_id: str = None,
+        adata_format: str = None,
+    ):
         """Stage dobject for ingestion."""
-        ingest = Ingest(data, name=name, dobject_id=dobject_id)
+        ingest = Ingest(
+            data, name=name, dobject_id=dobject_id, adata_format=adata_format
+        )
         _ingests[ingest.filepath.as_posix()] = ingest
         return ingest
 
@@ -172,7 +181,14 @@ class ingest:
 class Ingest:
     """Ingest a dobject."""
 
-    def __init__(self, data: Any, *, name: str = None, dobject_id: str = None) -> None:
+    def __init__(
+        self,
+        data: Any,
+        *,
+        name: str = None,
+        dobject_id: str = None,
+        adata_format: str = None,
+    ) -> None:
         self._data = data  # input data object provided by user
         self._dmem = None  # in-memory object
         if isinstance(data, (Path, str)):
@@ -183,13 +199,13 @@ class Ingest:
         else:
             # if in-memory object is given, return the cache path
             self._dmem = data
-            suffix = infer_suffix(data)
+            suffix = infer_suffix(data, adata_format)
             if name is None:
                 raise RuntimeError("Provide name if ingesting in-memory data.")
             self._filepath = Path(f"{name}{suffix}")
             # write to file
             # TODO: should this raise an error/warning if filepath exists?
-            if not self.filepath.exists():
+            if suffix != ".zarr" and not self.filepath.exists():
                 write_to_file(self.dmem, self.filepath)  # type: ignore
 
         # creates a dobject entry, but not inserted into the db yet
@@ -274,7 +290,15 @@ class Ingest:
 
         # store dobject
         dobject_storage_key = f"{self.dobject.id}{self.dobject.suffix}"
-        size = store_file(self.filepath, dobject_storage_key)
+
+        if self.dobject.suffix != ".zarr":
+            size = store_file(self.filepath, dobject_storage_key)
+        else:
+            # adata size
+            size = self.dmem.__sizeof__()
+            storepath = settings.instance.storage.key_to_filepath(dobject_storage_key)
+            write_adata_zarr(self.dmem, str(storepath))
+
         self._dobject.size = size  # size is only calculated when storing the file
 
         # if isinstance(self.dtransform, core.pipeline_run):
