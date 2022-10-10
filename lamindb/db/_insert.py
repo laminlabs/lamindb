@@ -162,7 +162,7 @@ class InsertBase:
             table_name: name of the table to insert
             entries: a list of table entries
         """
-        if isinstance(entries[0], dict):
+        if isinstance(entries[0], (dict, pd.Series)):
             model = Table.get_model(table_name)
             entries = [model(**d) for d in entries]
 
