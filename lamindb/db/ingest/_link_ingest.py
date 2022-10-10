@@ -65,15 +65,18 @@ class LinkIngest:
             added pipeline_run, dtransform entries to `self._entries()`
         """
         result = query.pipeline_run(id=pipeline_run.id).one_or_none()  # type: ignore
+        dtransform = None
         if result is None:
             self.add_entry("pipeline_run", pipeline_run)
-            dtransform = core.dtransform(pipeline_run_id=pipeline_run.id)
         else:
             dtransform = query.dtransform(  # type: ignore
                 pipeline_run_id=pipeline_run.id
-            ).one()
+            ).one_or_none()
 
-        self.add_entry("dtransform", dtransform)
+        if dtransform is None:
+            dtransform = core.dtransform(pipeline_run_id=pipeline_run.id)
+            self.add_entry("dtransform", dtransform)
+
         self._ingest.dtransform = dtransform
 
     def jupynb(self, jupynb: core.jupynb) -> None:
@@ -86,15 +89,18 @@ class LinkIngest:
             added jupynb, dtransform entries to `self._entries()`
         """
         result = query.jupynb(id=jupynb.id, v=jupynb.v).one_or_none()  # type: ignore
+        dtransform = None
         if result is None:
             self.add_entry("jupynb", jupynb)
-            dtransform = core.dtransform(jupynb_id=jupynb.id, jupynb_v=jupynb.v)
         else:
             dtransform = query.dtransform(  # type: ignore
                 jupynb_id=jupynb.id, jupynb_v=jupynb.v
-            ).one()
+            ).one_or_none()
 
-        self.add_entry("dtransform", dtransform)
+        if dtransform is None:
+            dtransform = core.dtransform(jupynb_id=jupynb.id, jupynb_v=jupynb.v)
+            self.add_entry("dtransform", dtransform)
+
         self._ingest.dtransform = dtransform
 
     def biometa(self, biometa: wetlab.biometa) -> None:
@@ -108,12 +114,12 @@ class LinkIngest:
             self.add_entry("biometa", biometa)
         dobject_id = self._ingest.dobject.id
 
-        # create entries in the link table
+        # create an entry in the link table
         link_entry = query.dobject_biometa(  # type: ignore
-            dobject_id=dobject_id, biometa_id=result.id
+            dobject_id=dobject_id, biometa_id=biometa.id
         ).one_or_none()
         if link_entry is None:
             link_entry = wetlab.dobject_biometa(
-                dobject_id=dobject_id, biometa_id=result.id
+                dobject_id=dobject_id, biometa_id=biometa.id
             )
-        self.add_entry("dobject_biometa", link_entry)
+            self.add_entry("dobject_biometa", link_entry)
