@@ -30,7 +30,7 @@ dependencies = [
     "appdirs",
     "supabase",
     "python-dotenv",
-    "nbproject>=0.5.4",
+    "nbproject>=0.5.5",
     "readfcs",
 ]
 
