@@ -27,7 +27,7 @@ class LinkIngest:
         """Add an entry to ._entries."""
         if table_name not in self._entries:
             self._entries[table_name] = []
-        self._entries[table_name] = entry
+        self._entries[table_name].append(entry)
 
     def features(self, feature_model, *, featureset_name: str = None) -> None:
         """Link dobject to features.
