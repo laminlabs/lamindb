@@ -13,16 +13,11 @@ Utilities:
    :toctree: .
 
    QueryResult
-   Ingest
-   LinkIngest
-   LinkFeatureModel
    doc_args
 """
 
 from lnschema_core import id  # noqa
 
-from ..db._ingest import Ingest, LinkIngest  # noqa
-from ..db._link import LinkFeatureModel  # noqa
 from . import db  # noqa
 from . import file, object  # noqa
 from ._core import (
