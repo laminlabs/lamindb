@@ -20,7 +20,9 @@ def _create_delete_func(model):
             # delete usage events related to the dobject that's to be deleted
             if name == "dobject":
                 events = session.exec(
-                    sqm.select(schema_core.usage).where(schema_core.dobject.id == key)
+                    sqm.select(schema_core.usage).where(
+                        schema_core.usage.dobject_id == key
+                    )
                 )
                 for event in events:
                     session.delete(event)

@@ -163,13 +163,21 @@ class Ingest:
         self._dobject.size = size  # size is only calculated when storing the file
 
         # insert all linked entries including dtransform
+        not_yet = []
         for table_name, entries in self.link.linked_entries.items():
+            # can't write link table as dobject is not yet written
+            if table_name == "dobject_biometa":
+                not_yet.append((table_name, entries))
+                continue
             insert.from_list(table_name=table_name, entries=entries)  # type:ignore
 
         # insert dobject with storage_id and dtransform_id
         insert.dobject_from_dtransform(  # type:ignore
             dobject=self.dobject, dtransform_id=self.dtransform.id  # type:ignore
         )
+
+        for table_name, entries in not_yet:
+            insert.from_list(table_name=table_name, entries=entries)  # type:ignore
 
         # insert features and link to dobject
         if self.feature_model is not None:
