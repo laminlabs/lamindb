@@ -112,4 +112,8 @@ class LinkIngest:
         link_entry = query.dobject_biometa(  # type: ignore
             dobject_id=dobject_id, biometa_id=result.id
         ).one_or_none()
+        if link_entry is None:
+            link_entry = wetlab.dobject_biometa(
+                dobject_id=dobject_id, biometa_id=result.id
+            )
         self.add_entry("dobject_biometa", link_entry)
