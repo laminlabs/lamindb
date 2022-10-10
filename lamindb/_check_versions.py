@@ -17,14 +17,14 @@ if version.parse(lnschema_wetlab_v) != version.parse("0.5.0"):
 if version.parse(lnschema_bionty_v) != version.parse("0.4.3"):
     raise RuntimeError("lamindb needs lnschema_bionty==0.4.3")
 
-if version.parse(lndb_setup_v) != version.parse("0.10.1"):
-    raise RuntimeError("lamindb needs lndb_setup==0.10.1")
+if version.parse(lndb_setup_v) != version.parse("0.11.0"):
+    raise RuntimeError("lamindb needs lndb_setup==0.11.0")
 
 if version.parse(lndb_hub_v) != version.parse("0.5.6"):
     raise RuntimeError("lamindb needs lndb_hub==0.5.6")
 
-if version.parse(nbproject_v) < version.parse("0.5.4"):
-    raise RuntimeError("lamindb needs nbproject>=0.5.4")
+if version.parse(nbproject_v) < version.parse("0.7.0"):
+    raise RuntimeError("lamindb needs nbproject>=0.7.0")
 
 if version.parse(lnbfx_v) < version.parse("0.4.2"):
     raise RuntimeError("lamindb needs lnbfx>=0.4.2")

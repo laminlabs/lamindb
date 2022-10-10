@@ -18,7 +18,7 @@ Browse the API:
 
 """
 
-__version__ = "0.7.2"
+__version__ = "0.8.0"
 
 import warnings
 
@@ -27,7 +27,7 @@ from lndb_setup._migrate import check_migrate as _check_migrate
 
 from . import _check_versions  # executes checks during import
 
-if settings.instance.storage_dir is None:
+if settings.instance.storage_root is None:
     raise RuntimeError("Please run `lndb init` to configure an instance.")
 _check_migrate(usettings=settings.user, isettings=settings.instance)
 

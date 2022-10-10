@@ -8,15 +8,19 @@ authors = [{name = "Lamin Labs", email = "laminlabs@gmail.com"}]
 readme = "README.md"
 dynamic = ["version", "description"]
 dependencies = [
+    # Lamin pinned packages
     "lnschema_core==0.11.0",
     "lnschema_wetlab==0.5.0",
     "lnschema_bionty==0.4.3",
-    "lndb_setup==0.10.1",
+    "lndb_setup==0.11.0",
     "lndb_hub==0.5.6",
     "bioreadout==0.1.2",
     "lnbfx==0.4.2",
     "bionty>=0.3.1",
     "lamin_logger",
+    "nbproject>=0.7.0",
+    "readfcs",
+    # External packages
     "anndata",
     "boto3",
     "hjson",
@@ -30,8 +34,6 @@ dependencies = [
     "appdirs",
     "supabase",
     "python-dotenv",
-    "nbproject>=0.5.5",
-    "readfcs",
 ]
 
 [project.urls]

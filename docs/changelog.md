@@ -3,12 +3,14 @@
 <!-- prettier-ignore -->
 Name | PR | Developer | Date | Version
 --- | --- | --- | --- | ---
-🎨 insert.from_list accepts entries | [266](https://github.com/laminlabs/lamindb/pull/266) | [sunnyosun](https://github.com/sunnyosun) | 2022-10-10 |
-:arrow_up: Update nbproject version to 0.5.5 | [265](https://github.com/laminlabs/lamindb/pull/265) | [Koncopd](https://github.com/Koncopd) | 2022-10-10 |
-⬆️ Update lndb-setup version to 0.10.1 | [264](https://github.com/laminlabs/lamindb/pull/264) | [fredericenard](https://github.com/fredericenard) | 2022-10-10 |
-📝 Improved API documentation of `ingest`, reorganized file structure | [262](https://github.com/laminlabs/lamindb/pull/262) | [sunnyosun](https://github.com/sunnyosun) | 2022-10-10 | 0.7.2
-💥 Refactored ingest, new pipeline ingest logic, added postgres connection test | [257](https://github.com/laminlabs/lamindb/pull/257) | [sunnyosun](https://github.com/sunnyosun) | 2022-10-08 | 0.7.1
-📝 Overhaul get-started | [259](https://github.com/laminlabs/lamindb/pull/259) | [falexwolf](https://github.com/falexwolf) | 2022-10-07 |
+📝 Update test users in docs | [268](https://github.com/laminlabs/lamindb/pull/268) | [falexwolf](https://github.com/falexwolf) | 2022-10-10 |
+⬆️ Upgrade `lndb_setup` to 0.11.0 and `nbproject` to 0.7.0 | [267](https://github.com/laminlabs/lamindb/pull/267) | [falexwolf](https://github.com/falexwolf) | 2022-10-10 | 0.8.0
+🎨 `insert.from_list` accepts entries | [266](https://github.com/laminlabs/lamindb/pull/266) | [sunnyosun](https://github.com/sunnyosun) | 2022-10-10 |
+⬆️ Upgrade `nbproject` version to 0.5.5 | [265](https://github.com/laminlabs/lamindb/pull/265) | [Koncopd](https://github.com/Koncopd) | 2022-10-10 |
+⬆️ Upgrade `lndb_setup` version to 0.10.1 | [264](https://github.com/laminlabs/lamindb/pull/264) | [fredericenard](https://github.com/fredericenard) | 2022-10-10 |
+📝 Improved docs of `ingest`, reorganized file structure | [262](https://github.com/laminlabs/lamindb/pull/262) | [sunnyosun](https://github.com/sunnyosun) | 2022-10-10 | 0.7.2
+💥 Refactored `ingest`, new pipeline ingestion logic, added postgres connection test | [257](https://github.com/laminlabs/lamindb/pull/257) | [sunnyosun](https://github.com/sunnyosun) | 2022-10-08 | 0.7.1
+📝 Overhauled get-started | [259](https://github.com/laminlabs/lamindb/pull/259) | [falexwolf](https://github.com/falexwolf) | 2022-10-07 |
 🚸 Check for existence before deletion | [258](https://github.com/laminlabs/lamindb/pull/258) | [falexwolf](https://github.com/falexwolf) | 2022-10-07 |
 🎨 Make ingest a static class | [256](https://github.com/laminlabs/lamindb/pull/256) | [sunnyosun](https://github.com/sunnyosun) | 2022-10-07 | 0.7.0
 ⬆️ Upgrade to core schema 0.10.0 | [255](https://github.com/laminlabs/lamindb/pull/255) | [falexwolf](https://github.com/falexwolf) | 2022-10-07 |
