@@ -10,6 +10,10 @@ from ._update import update
 class LinkFeatureModel:
     """Link a feature model to dobject during ingestion.
 
+    Args:
+        feature_model: a feature model instance
+        featureset_name: name of the featureset
+
     For an overview of feature models, see: `bionty.lookup.feature_model <https://lamin.ai/docs/bionty/bionty.lookup#bionty.lookup.feature_model)>`__.
     """  # noqa
 
