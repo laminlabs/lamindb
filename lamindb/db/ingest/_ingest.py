@@ -147,6 +147,12 @@ class Ingest:
         """Set value of dtransform."""
         self._dtransform = value
 
+    def cleanup(self) -> None:
+        """Clean up all linked entries."""
+        if "dtransform" in self._link._entries:
+            self._dtransform = None
+        self._link._entries = {}
+
     def commit(self) -> None:
         """Store and insert dobject and its linked entries."""
         if self.dtransform is None:
