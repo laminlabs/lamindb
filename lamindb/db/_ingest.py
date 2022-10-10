@@ -66,6 +66,11 @@ userlog = init_ingest.userlog()
 class Ingest:
     """Ingest data objects.
 
+    Args:
+        data: filepath or in-memory objects
+        name: name of the data object, required of an in-memory object is passed
+        dobject_id: id of the dobject
+
     Guide: :doc:`/db/guide/ingest`.
     """
 
