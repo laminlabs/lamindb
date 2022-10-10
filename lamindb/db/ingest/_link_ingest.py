@@ -7,7 +7,7 @@ from .._query import query
 
 
 class LinkIngest:
-    """Link db entries to the dobject, accessible `Ingest().link`.
+    """Link db entries to the dobject, accessible via `Ingest().link`.
 
     Args:
         ingest: an :class:`~lamindb.db.ingest.Ingest` instance.
