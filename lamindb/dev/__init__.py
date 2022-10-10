@@ -13,6 +13,9 @@ Utilities:
    :toctree: .
 
    QueryResult
+   Ingest
+   LinkIngest
+   LinkFeatureModel
    doc_args
 """
 
@@ -27,4 +30,6 @@ from ._core import (
     track_usage,
 )
 from ._docs import doc_args  # noqa
+from ._feature_model import LinkFeatureModel
+from ._ingest import Ingest, LinkIngest
 from ._query_result import QueryResult

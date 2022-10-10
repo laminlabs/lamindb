@@ -63,117 +63,11 @@ jupynb = init_ingest.jupynb()
 userlog = init_ingest.userlog()
 
 
-class ingest:
-    """Ingest operations.
-
-    Ingest is an operation that stores, tracks and annotates dobjects.
-    """
-
-    @classmethod
-    def status(cls) -> list:
-        """Staged dobjects for ingestion."""
-        dobjects = []
-        for filepath_str, ingest in cls.list_ingests().items():
-            entry = dict(filepath=filepath_str, dobject_id=ingest.dobject.id)
-            dobjects.append(entry)
-        return dobjects
-
-    @classmethod
-    def list_ingests(cls) -> dict:
-        """Instances of ingest."""
-        return _ingests
-
-    @classmethod
-    def print_logging_table(
-        cls,
-        message: str = "Ingested the following dobjects:",
-    ):
-        """Pretty print logs."""
-        import pandas as pd
-        from tabulate import tabulate  # type: ignore
-
-        if len(_logs) == 0:
-            return
-
-        log_table = tabulate(
-            pd.DataFrame(_logs).fillna(""),
-            headers="keys",
-            tablefmt="pretty",
-            stralign="left",
-        )
-
-        logger.success(f"{message}\n{log_table}")
-        """"""
-
-    @classmethod
-    def reset(cls):
-        global _ingests, _logs, jupynb, userlog
-        _ingests = init_ingest.ingests()  # Ingest instances
-        _logs = init_ingest.logs()  # logging messages
-        jupynb = init_ingest.jupynb()
-        userlog = init_ingest.userlog()
-
-    @classmethod
-    def add(cls, data: Any, *, name: str = None, dobject_id: str = None):
-        """Stage dobject for ingestion.
-
-        Returns a :class:`~lamindb.db._ingest.Ingest` object.
-        """
-        ingest = Ingest(data, name=name, dobject_id=dobject_id)
-        _ingests[ingest.filepath.as_posix()] = ingest
-        return ingest
-
-    @classmethod
-    def remove(cls, filepath: Union[str, Path]):
-        """Remove a dobject from the staged list."""
-        filepath_str = filepath if isinstance(filepath, str) else filepath.as_posix()
-        _ingests.pop(filepath_str)
-
-    @classmethod
-    def commit(cls, jupynb_v: str = None, i_confirm_i_saved: bool = False):
-        """Complete ingestion.
-
-        Args:
-            jupynb_v: Notebook version to publish. Is automatically set if `None`.
-            i_confirm_i_saved: Only relevant outside Jupyter Lab as a safeguard against
-                losing the editor buffer content because of accidentally publishing.
-        """
-        if jupynb is None:
-            raise NotImplementedError
-        else:
-            from nbproject import dev
-            from nbproject._publish import finalize_publish, run_checks_for_publish
-
-            result = run_checks_for_publish(
-                calling_statement="commit(", i_confirm_i_saved=i_confirm_i_saved
-            )
-            if result != "checks-passed":
-                return result
-
-            # version to be set in finalize_publish()
-            jupynb.v = dev.set_version(jupynb_v)
-
-            for filepath_str, ingest in cls.list_ingests().items():
-                # TODO: run the appropriate clean-up operations if any aspect
-                # of the ingestion fails
-                ingest.commit()
-                _logs.append({**ingest.datalog, **ingest.dtransformlog, **userlog})
-
-            logger.info(
-                f"Added notebook {jupynb.name!r} ({jupynb.id}, {jupynb.v}) by"
-                f" user {settings.user.handle}."
-            )
-
-            cls.print_logging_table()
-
-            finalize_publish(version=jupynb_v, calling_statement="commit(")
-
-        # reset ingest
-        cls.reset()
-
-
 class Ingest:
-    """Ingest data objects."""
+    """Ingest data objects.
+
+    Guide: :doc:`/db/guide/ingest`.
+    """
 
     def __init__(self, data: Any, *, name: str = None, dobject_id: str = None) -> None:
         self._data = data  # input data object provided by user
@@ -203,7 +97,7 @@ class Ingest:
         self._feature_model = None  # feature model
 
         # access to the link operations
-        self._link = IngestLink(self)
+        self._link = LinkIngest(self)
 
         # dtransform
         self._dtransform = None
@@ -222,7 +116,7 @@ class Ingest:
     def link(self):
         """Link operations via ingest.
 
-        See: `IngestLink`
+        Access point to :class:`~lamindb.dev.LinkIngest`
         """
         return self._link
 
@@ -238,7 +132,10 @@ class Ingest:
 
     @property
     def feature_model(self):
-        """Feature model."""
+        """Feature model used to ingest the features of dobject.
+
+        See :class:`~lamindb.dev.LinkFeatureModel`
+        """
         return self._feature_model
 
     @property
@@ -256,7 +153,7 @@ class Ingest:
 
     @property
     def dtransform(self) -> Optional[core.dtransform]:
-        """An dtransform entry to be inserted."""
+        """The dtransform entry linked to the dobject."""
         return self._dtransform
 
     @dtransform.setter
@@ -446,7 +343,9 @@ class IngestPipelineRun:
             )
 
 
-class IngestLink:
+class LinkIngest:
+    """Link db entries to the dobject."""
+
     def __init__(self, ingest: Ingest) -> None:
         self._ingest = ingest
         # TODO: need to allow multiple entries from the same table
@@ -510,3 +409,112 @@ class IngestLink:
 
         self._entries["dtransform"] = dtransform
         self._ingest.dtransform = dtransform
+
+
+class ingest:
+    """Ingest operations.
+
+    Ingest is an operation that stores, tracks and annotates dobjects.
+
+    Guide: :doc:`/db/guide/ingest`.
+    """
+
+    @classmethod
+    def status(cls) -> list:
+        """List staged dobjects for ingestion."""
+        dobjects = []
+        for filepath_str, ingest in cls.list_ingests().items():
+            entry = dict(filepath=filepath_str, dobject_id=ingest.dobject.id)
+            dobjects.append(entry)
+        return dobjects
+
+    @classmethod
+    def list_ingests(cls) -> dict:
+        """Ingest objects created via `.add`."""
+        return _ingests
+
+    @classmethod
+    def print_logging_table(
+        cls,
+        message: str = "Ingested the following dobjects:",
+    ):
+        """Pretty print logging messages."""
+        import pandas as pd
+        from tabulate import tabulate  # type: ignore
+
+        if len(_logs) == 0:
+            return
+
+        log_table = tabulate(
+            pd.DataFrame(_logs).fillna(""),
+            headers="keys",
+            tablefmt="pretty",
+            stralign="left",
+        )
+
+        logger.success(f"{message}\n{log_table}")
+        """"""
+
+    @classmethod
+    def reset(cls) -> None:
+        """Reset ingest, clear all staged data objects."""
+        global _ingests, _logs, jupynb, userlog
+        _ingests = init_ingest.ingests()  # Ingest instances
+        _logs = init_ingest.logs()  # logging messages
+        jupynb = init_ingest.jupynb()
+        userlog = init_ingest.userlog()
+
+    @classmethod
+    def add(cls, data: Any, *, name: str = None, dobject_id: str = None) -> Ingest:
+        """Stage dobject for ingestion."""
+        ingest = Ingest(data, name=name, dobject_id=dobject_id)
+        _ingests[ingest.filepath.as_posix()] = ingest
+        return ingest
+
+    @classmethod
+    def remove(cls, filepath: Union[str, Path]):
+        """Remove a dobject from the staged list."""
+        filepath_str = filepath if isinstance(filepath, str) else filepath.as_posix()
+        _ingests.pop(filepath_str)
+
+    @classmethod
+    def commit(cls, jupynb_v: str = None, i_confirm_i_saved: bool = False):
+        """Complete ingestion.
+
+        Args:
+            jupynb_v: Notebook version to publish. Is automatically set if `None`.
+            i_confirm_i_saved: Only relevant outside Jupyter Lab as a safeguard against
+                losing the editor buffer content because of accidentally publishing.
+        """
+        if jupynb is None:
+            raise NotImplementedError
+        else:
+            from nbproject import dev
+            from nbproject._publish import finalize_publish, run_checks_for_publish
+
+            result = run_checks_for_publish(
+                calling_statement="commit(", i_confirm_i_saved=i_confirm_i_saved
+            )
+            if result != "checks-passed":
+                return result
+
+            # version to be set in finalize_publish()
+            jupynb.v = dev.set_version(jupynb_v)
+
+            for filepath_str, ingest in cls.list_ingests().items():
+                # TODO: run the appropriate clean-up operations if any aspect
+                # of the ingestion fails
+                ingest.commit()
+                _logs.append({**ingest.datalog, **ingest.dtransformlog, **userlog})
+
+            logger.info(
+                f"Added notebook {jupynb.name!r} ({jupynb.id}, {jupynb.v}) by"
+                f" user {settings.user.handle}."
+            )
+
+            cls.print_logging_table()
+
+            finalize_publish(version=jupynb_v, calling_statement="commit(")
+
+        # reset ingest
+        cls.reset()
