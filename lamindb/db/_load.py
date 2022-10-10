@@ -1,7 +1,6 @@
 import sqlmodel as sqm
 from lamin_logger import logger
 from lndb_setup import settings
-from lnschema_core import id
 from nbproject import meta
 
 from ..dev import filepath_from_dobject, track_usage
@@ -25,10 +24,9 @@ def populate_dtransform_in(dobject):
                     id=jupynb_id, v=jupynb_v, name=jupynb_name, user_id=settings.user.id
                 )
             )
-            dtransform_id = id.id_dtransform()
+            session.commit()
             session.add(
                 core.dtransform(
-                    id=dtransform_id,
                     jupynb_id=jupynb_id,
                     jupynb_v=jupynb_v,
                 )
