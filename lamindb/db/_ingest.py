@@ -116,7 +116,7 @@ class Ingest:
     def link(self):
         """Link operations via ingest.
 
-        Access point to :class:`~lamindb.dev.LinkIngest`
+        Access point to :class:`~lamindb.db.LinkIngest`
         """
         return self._link
 
@@ -134,7 +134,7 @@ class Ingest:
     def feature_model(self):
         """Feature model used to ingest the features of dobject.
 
-        See :class:`~lamindb.dev.LinkFeatureModel`
+        See :class:`~lamindb.db.LinkFeatureModel`
         """
         return self._feature_model
 
