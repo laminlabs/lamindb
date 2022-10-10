@@ -73,8 +73,8 @@ class ingest:
     def status(cls) -> list:
         """Staged dobjects for ingestion."""
         dobjects = []
-        for filepath_str, dobject_ in cls.list_ingests().items():
-            entry = dict(filepath=filepath_str, dobject_id=dobject_.dobject.id)
+        for filepath_str, ingest in cls.list_ingests().items():
+            entry = dict(filepath=filepath_str, dobject_id=ingest.dobject.id)
             dobjects.append(entry)
         return dobjects
 
@@ -115,7 +115,10 @@ class ingest:
 
     @classmethod
     def add(cls, data: Any, *, name: str = None, dobject_id: str = None):
-        """Stage dobject for ingestion."""
+        """Stage dobject for ingestion.
+
+        Returns a :class:`~lamindb.db._ingest.Ingest` object.
+        """
         ingest = Ingest(data, name=name, dobject_id=dobject_id)
         _ingests[ingest.filepath.as_posix()] = ingest
         return ingest
@@ -170,7 +173,7 @@ class ingest:
 
 
 class Ingest:
-    """Ingest a dobject."""
+    """Ingest data objects."""
 
     def __init__(self, data: Any, *, name: str = None, dobject_id: str = None) -> None:
         self._data = data  # input data object provided by user
@@ -262,7 +265,7 @@ class Ingest:
         self._dtransform = value
 
     def commit(self):
-        """Store and insert dobject."""
+        """Store and insert dobject and its linked entries."""
         if self.dtransform is None:
             if jupynb is not None:
                 self.link.jupynb(jupynb)
@@ -276,14 +279,6 @@ class Ingest:
         dobject_storage_key = f"{self.dobject.id}{self.dobject.suffix}"
         size = store_file(self.filepath, dobject_storage_key)
         self._dobject.size = size  # size is only calculated when storing the file
-
-        # if isinstance(self.dtransform, core.pipeline_run):
-        #     self.link.pipeline_run(self.dtransform)
-        #     dtransform_log = dict(
-        #         jupynb=f"{self.dtransform.name!r} {self.dtransform.id}"
-        #     )
-        # else:
-        #     raise NotImplementedError
 
         # insert all linked entries including dtransform
         for table_name, entry in self.link.linked_entries.items():
@@ -452,28 +447,31 @@ class IngestPipelineRun:
 
 
 class IngestLink:
-    def __init__(self, dobject_: Ingest) -> None:
-        self._dobject_ = dobject_
+    def __init__(self, ingest: Ingest) -> None:
+        self._ingest = ingest
+        # TODO: need to allow multiple entries from the same table
         self._entries: Dict = {}  # staged entries to be inserted
 
     @property
     def linked_entries(self) -> dict:
+        """Linked db entries of the dobject."""
         return self._entries
 
     def features(self, feature_model, *, featureset_name: str = None):
         """Link dobject to features."""
         # curate features
         # looks for the id column, if none is found, will assume in the index
-        if self._dobject_.dmem is None:
-            self._dobject_._dmem = load_to_memory(self._dobject_.data)
+        if self._ingest.dmem is None:
+            self._ingest._dmem = load_to_memory(self._ingest.data)
         try:
-            df = getattr(self._dobject_.dmem, "var")  # for AnnData objects
+            df = getattr(self._ingest.dmem, "var")  # for AnnData objects
             if callable(df):
-                df = self._dobject_.dmem
+                df = self._ingest.dmem
         except AttributeError:
-            df = self._dobject_.dmem
-
-        self._dobject_._feature_model = link.feature_model(
+            df = self._ingest.dmem
+        # insert feature entries
+        # TODO: needs to be staged without inserting here
+        self._ingest._feature_model = link.feature_model(
             df=df, feature_model=feature_model, featureset_name=featureset_name
         )
 
@@ -493,7 +491,7 @@ class IngestLink:
             ).one()
 
         self._entries["dtransform"] = dtransform
-        self._dobject_.dtransform = dtransform
+        self._ingest.dtransform = dtransform
 
     def jupynb(self, jupynb: core.jupynb) -> core.dtransform:
         """Link dobject to a jupynb.
@@ -511,4 +509,4 @@ class IngestLink:
             ).one()
 
         self._entries["dtransform"] = dtransform
-        self._dobject_.dtransform = dtransform
+        self._ingest.dtransform = dtransform
