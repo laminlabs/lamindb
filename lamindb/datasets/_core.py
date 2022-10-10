@@ -11,9 +11,12 @@ def file_fcs() -> Path:
 
 
 def file_jpg_paradisi05() -> Path:
-    """Return jpg file example."""
+    """Return jpg file example.
+
+    Originally from: https://upload.wikimedia.org/wikipedia/commons/2/28/Laminopathic_nuclei.jpg
+    """  # noqa
     filepath, _ = urlretrieve(
-        "https://upload.wikimedia.org/wikipedia/commons/2/28/Laminopathic_nuclei.jpg",
+        "https://lamindb-test.s3.amazonaws.com/Laminopathic_nuclei.jpg",
         "paradisi05_laminopathic_nuclei.jpg",
     )
     return Path(filepath)
