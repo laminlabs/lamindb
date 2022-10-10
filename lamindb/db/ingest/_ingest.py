@@ -72,7 +72,7 @@ class Ingest:
                 write_to_file(self.dmem, self.filepath)  # type: ignore
 
         # creates a dobject entry, but not inserted into the db yet
-        self._dobject = core.dobject(id=dobject_id, name=name, suffix=suffix)
+        self._dobject = core.dobject(name=name, suffix=suffix)
         self._dobject.id = dobject_id if dobject_id is not None else self.dobject.id
 
         # access to the feature model
