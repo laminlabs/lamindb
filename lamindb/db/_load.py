@@ -25,12 +25,11 @@ def populate_dtransform_in(dobject):
                 )
             )
             session.commit()
-            session.add(
-                core.dtransform(
-                    jupynb_id=jupynb_id,
-                    jupynb_v=jupynb_v,
-                )
+            dtransform = core.dtransform(
+                jupynb_id=jupynb_id,
+                jupynb_v=jupynb_v,
             )
+            session.add(dtransform)
             session.commit()
             committed = True
             logger.info(
@@ -44,12 +43,11 @@ def populate_dtransform_in(dobject):
                     core.dtransform.jupynb_v == jupynb_v,
                 )
             ).one()
-            dtransform_id = dtransform.id
-        result = session.get(core.dtransform_in, (dtransform_id, dobject.id))
+        result = session.get(core.dtransform_in, (dtransform.id, dobject.id))
         if result is None:
             session.add(
                 core.dtransform_in(
-                    dtransform_id=dtransform_id,
+                    dtransform_id=dtransform.id,
                     dobject_id=dobject.id,
                 )
             )
@@ -57,7 +55,7 @@ def populate_dtransform_in(dobject):
             committed = True
             logger.info(
                 f"Added dobject ({dobject.id}) as input for dtransform"
-                f" ({dtransform_id})."
+                f" ({dtransform.id})."
             )
     if committed:
         # nothing to update if the db file wasn't changed
