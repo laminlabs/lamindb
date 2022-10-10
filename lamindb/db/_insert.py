@@ -24,7 +24,7 @@ def _camel_to_snake(string: str) -> str:
 
 def dobject_from_dtransform(dobject: core.dobject, dtransform_id: str):
     storage = query.storage(  # type: ignore
-        root=str(settings.instance.storage_dir)
+        root=str(settings.instance.storage_root)
     ).one()
 
     dobject_id = insert.dobject(  # type: ignore
