@@ -3,6 +3,7 @@
 <!-- prettier-ignore -->
 Name | PR | Developer | Date | Version
 --- | --- | --- | --- | ---
+⬆️ Update lndb-setup version to 0.10.1 | [264](https://github.com/laminlabs/lamindb/pull/264) | [fredericenard](https://github.com/fredericenard) | 2022-10-10 |
 📝 Improved API documentation of `ingest`, reorganized file structure | [262](https://github.com/laminlabs/lamindb/pull/262) | [sunnyosun](https://github.com/sunnyosun) | 2022-10-10 | 0.7.2
 💥 Refactored ingest, new pipeline ingest logic, added postgres connection test | [257](https://github.com/laminlabs/lamindb/pull/257) | [sunnyosun](https://github.com/sunnyosun) | 2022-10-08 | 0.7.1
 📝 Overhaul get-started | [259](https://github.com/laminlabs/lamindb/pull/259) | [falexwolf](https://github.com/falexwolf) | 2022-10-07 |
