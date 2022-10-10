@@ -8,6 +8,11 @@ from ._update import update
 
 
 class LinkFeatureModel:
+    """Link a feature model to dobject during ingestion.
+
+    For an overview of feature models, see: `bionty.lookup.feature_model <https://lamin.ai/docs/bionty/bionty.lookup#bionty.lookup.feature_model)>`__.
+    """  # noqa
+
     def __init__(self, feature_model, featureset_name: str = None) -> None:
         self._feature_model = feature_model
         self._featureset_name = featureset_name

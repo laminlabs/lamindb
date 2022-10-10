@@ -27,4 +27,4 @@ from ._core import (
     track_usage,
 )
 from ._docs import doc_args  # noqa
-from ._query_result import QueryResult
+from ._query_result import QueryResult  # noqa
