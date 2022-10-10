@@ -173,8 +173,8 @@ class link:
             update_biometa(biometa_id, readout_id=readout_id)
 
         logger.success(
-            f"{colors.blue(f'readout_id {readout_id}')} has been added to"
-            f" {colors.purple(f'biometa entries {biometa_ids}')} associated with"
+            f"Added {colors.blue(f'readout_id {readout_id}')} to"
+            f" {colors.purple(f'biometa {biometa_ids}')} linked to"
             f" {colors.green(f'dobject {dobject_id}')}."
         )
 
