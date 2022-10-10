@@ -3,6 +3,7 @@
 <!-- prettier-ignore -->
 Name | PR | Developer | Date | Version
 --- | --- | --- | --- | ---
+🐛 Fixed dobject_biometa entry insertion | [269](https://github.com/laminlabs/lamindb/pull/269) | [sunnyosun](https://github.com/sunnyosun) | 2022-10-10 |
 📝 Update test users in docs | [268](https://github.com/laminlabs/lamindb/pull/268) | [falexwolf](https://github.com/falexwolf) | 2022-10-10 |
 ⬆️ Upgrade `lndb_setup` to 0.11.0 and `nbproject` to 0.7.0 | [267](https://github.com/laminlabs/lamindb/pull/267) | [falexwolf](https://github.com/falexwolf) | 2022-10-10 | 0.8.0
 🎨 `insert.from_list` accepts entries | [266](https://github.com/laminlabs/lamindb/pull/266) | [sunnyosun](https://github.com/sunnyosun) | 2022-10-10 |
