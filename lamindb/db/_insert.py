@@ -221,9 +221,12 @@ class InsertBase:
 
         # insert entries into the table
         entries = df[list(fields_inters)].to_dict(orient="index")
+        added = cls.insert_from_list(
+            table_name=table_name, entries=list(entries.values())
+        )
         entry_ids = {}
-        for idx, entry in entries.items():
-            entry_ids[idx] = getattr(insert, table_name)(**entry)
+        for i, (idx, _) in enumerate(entries.items()):
+            entry_ids[idx] = added[i]
 
         return entry_ids
 
