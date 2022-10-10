@@ -1,5 +1,4 @@
 import re
-from typing import Iterable
 
 import pandas as pd
 import sqlmodel as sqm
@@ -89,7 +88,7 @@ def featureset_from_features(
         if k in exist_feature_keys:
             continue
         kwargs_list.append(v)
-    added = InsertBase.insert_from_list(kwargs_list, feature_entity)
+    added = InsertBase.insert_from_list(table_name=feature_entity, entries=kwargs_list)
     feature_ids = list(added.values()) + list(exist_feature_ids)
     for feature_id in feature_ids:
         kwargs = {
@@ -156,16 +155,24 @@ class InsertBase:
         return model.__table__.columns.get(column).unique
 
     @classmethod
-    def insert_from_list(cls, entries: Iterable[dict], table_name: str):
-        """Insert entries provided by a list of kwargs."""
-        model = Table.get_model(table_name)
+    def insert_from_list(cls, table_name: str, entries):
+        """Insert entries provided by a list of kwargs.
+
+        Args:
+            table_name: name of the table to insert
+            entries: a list of table entries
+        """
+        if isinstance(entries[0], dict):
+            model = Table.get_model(table_name)
+            entries = [model(**d) for d in entries]
+
         added = {}
         with sqm.Session(settings.instance.db_engine()) as session:
-            for i, kwargs in enumerate(entries):
-                added[i] = model(**kwargs)
+            for i, entry in enumerate(entries):
+                added[i] = entry
                 session.add(added[i])
             session.commit()
-            for i, kwargs in enumerate(entries):
+            for i, _ in enumerate(entries):
                 session.refresh(added[i])
 
         # fetch the ids

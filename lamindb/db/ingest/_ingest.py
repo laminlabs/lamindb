@@ -163,8 +163,8 @@ class Ingest:
         self._dobject.size = size  # size is only calculated when storing the file
 
         # insert all linked entries including dtransform
-        for table_name, entry in self.link.linked_entries.items():
-            getattr(insert, table_name)(**entry.dict())
+        for table_name, entries in self.link.linked_entries.items():
+            insert.from_list(table_name=table_name, entries=entries)  # type:ignore
 
         # insert dobject with storage_id and dtransform_id
         insert.dobject_from_dtransform(  # type:ignore
