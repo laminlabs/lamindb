@@ -21,6 +21,8 @@ def build(session):
     login_user_2 = "lndb login kurt.hein@gmx.de --password uIoEGyiCj0qcXbGhTpOAuY6CH86xauzAsOSlp95A"  # noqa
     session.run(*(login_user_1.split(" ")))
     session.run(*(login_user_2.split(" ")))
+    login_user_1_new = "lndb login testuser1@lamin.ai --password cEvcwMJFX4OwbsYVaMt2Os6GxxGgDUlBGILs2RyS"  # noqa
+    login_user_2_new = "lndb login testuser2@lamin.ai --password goeoNJKE61ygbz1vhaCVynGERaRrlviPBVQsjkhz"  # noqa
     test_db = "lndb init --storage mydata-test-db"
     session.run(*test_db.split(" "))
     session.run(
