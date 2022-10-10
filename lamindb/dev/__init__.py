@@ -21,6 +21,8 @@ Utilities:
 
 from lnschema_core import id  # noqa
 
+from ..db._ingest import Ingest, LinkIngest  # noqa
+from ..db._link import LinkFeatureModel  # noqa
 from . import db  # noqa
 from . import file, object  # noqa
 from ._core import (
@@ -30,6 +32,4 @@ from ._core import (
     track_usage,
 )
 from ._docs import doc_args  # noqa
-from ._feature_model import LinkFeatureModel
-from ._ingest import Ingest, LinkIngest
-from ._query_result import QueryResult
+from ._query_result import QueryResult  # noqa
