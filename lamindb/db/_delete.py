@@ -1,5 +1,6 @@
+import lnschema_core as schema_core
+import sqlmodel as sqm
 from lndb_setup import settings
-from sqlmodel import Session
 
 from .._logger import colors, logger
 from ..dev import storage_key_from_dobject
@@ -11,11 +12,19 @@ def _create_delete_func(model):
     name = model.__name__
 
     def delete_func(key):
-        with Session(settings.instance.db_engine()) as session:
+        with sqm.Session(settings.instance.db_engine()) as session:
             entry = session.get(model, key)
             if entry is None:
                 logger.warning(f"Entry {key} does not exist.")
                 return None
+            # delete usage events related to the dobject that's to be deleted
+            if name == "dobject":
+                events = session.exec(
+                    sqm.select(schema_core.usage).where(schema_core.dobject.id == key)
+                )
+                for event in events:
+                    session.delete(event)
+                session.commit()
             session.delete(entry)
             session.commit()
             settings.instance._update_cloud_sqlite_file()
