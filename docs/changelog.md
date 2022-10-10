@@ -3,7 +3,7 @@
 <!-- prettier-ignore -->
 Name | PR | Developer | Date | Version
 --- | --- | --- | --- | ---
-⬆️ Upgrade to `lndb_setup` 0.12.0 | [271](https://github.com/laminlabs/lamindb/pull/271) | [falexwolf](https://github.com/falexwolf) | 2022-10-10 |
+⬆️ Upgrade to `lndb_setup` 0.12.0 | [271](https://github.com/laminlabs/lamindb/pull/271) | [falexwolf](https://github.com/falexwolf) | 2022-10-10 | 0.8.2
 📝 Improved ingest guides, fixed linked entry bugs | [270](https://github.com/laminlabs/lamindb/pull/270) | [sunnyosun](https://github.com/sunnyosun) | 2022-10-10 |
 🐛 Fixed dobject_biometa entry insertion | [269](https://github.com/laminlabs/lamindb/pull/269) | [sunnyosun](https://github.com/sunnyosun) | 2022-10-10 | 0.8.1
 📝 Update test users in docs | [268](https://github.com/laminlabs/lamindb/pull/268) | [falexwolf](https://github.com/falexwolf) | 2022-10-10 |
