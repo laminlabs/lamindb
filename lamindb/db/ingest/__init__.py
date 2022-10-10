@@ -28,7 +28,6 @@ Ingest helper classes:
 from .._link import LinkFeatureModel
 from ._ingest import (
     Ingest,
-    LinkIngest,
     add,
     commit,
     list_ingests,
@@ -37,3 +36,4 @@ from ._ingest import (
     reset,
     status,
 )
+from ._link_ingest import LinkIngest

@@ -1,18 +1,16 @@
 from pathlib import Path
-from typing import Any, Dict, Optional, Union
+from typing import Any, Optional, Union
 
 from lndb_setup import settings
-from lnschema_core import id
 from nbproject import dev, meta
 
 from ..._logger import logger
 from ...dev import get_name_suffix_from_filepath, track_usage
-from ...dev.file import load_to_memory, store_file
+from ...dev.file import store_file
 from ...dev.object import infer_suffix, write_to_file
 from ...schema import core
 from .._insert import insert
-from .._link import link
-from .._query import query
+from ._link_ingest import LinkIngest
 
 
 class init_ingest:
@@ -74,8 +72,8 @@ class Ingest:
                 write_to_file(self.dmem, self.filepath)  # type: ignore
 
         # creates a dobject entry, but not inserted into the db yet
-        dobject_id = id.id_dobject() if dobject_id is None else dobject_id
         self._dobject = core.dobject(id=dobject_id, name=name, suffix=suffix)
+        self._dobject.id = dobject_id if dobject_id is not None else self.dobject.id
 
         # access to the feature model
         self._feature_model = None  # feature model
@@ -97,11 +95,8 @@ class Ingest:
         return self._dobject
 
     @property
-    def link(self):
-        """Link operations via ingest.
-
-        Access point to :class:`~lamindb.db.ingest.LinkIngest`
-        """
+    def link(self) -> LinkIngest:
+        """Link operations via ingest."""
         return self._link
 
     @property
@@ -183,74 +178,6 @@ class Ingest:
             )
 
         track_usage(self.dobject.id, usage_type="ingest")
-
-
-class LinkIngest:
-    """Link db entries to the dobject, accessible `Ingest().link`."""
-
-    def __init__(self, ingest: Ingest) -> None:
-        self._ingest = ingest
-        # TODO: need to allow multiple entries from the same table
-        self._entries: Dict = {}  # staged entries to be inserted
-
-    @property
-    def linked_entries(self) -> dict:
-        """Linked db entries of the dobject."""
-        return self._entries
-
-    def features(self, feature_model, *, featureset_name: str = None):
-        """Link dobject to features."""
-        # curate features
-        # looks for the id column, if none is found, will assume in the index
-        if self._ingest.dmem is None:
-            self._ingest._dmem = load_to_memory(self._ingest.data)
-        try:
-            df = getattr(self._ingest.dmem, "var")  # for AnnData objects
-            if callable(df):
-                df = self._ingest.dmem
-        except AttributeError:
-            df = self._ingest.dmem
-        # insert feature entries
-        # TODO: needs to be staged without inserting here
-        self._ingest._feature_model = link.feature_model(
-            df=df, feature_model=feature_model, featureset_name=featureset_name
-        )
-
-    def pipeline_run(self, pipeline_run: core.pipeline_run) -> core.dtransform:
-        """Link dobject to a pipeline run.
-
-        - Create a dtransform entry from pipeline_run (no insert)
-        - Link dobject to dtransform
-        """
-        result = query.pipeline_run(id=pipeline_run.id).one_or_none()  # type: ignore
-        if result is None:
-            self._entries["pipeline_run"] = pipeline_run
-            dtransform = core.dtransform(pipeline_run_id=pipeline_run.id)
-        else:
-            dtransform = query.dtransform(  # type: ignore
-                pipeline_run_id=pipeline_run.id
-            ).one()
-
-        self._entries["dtransform"] = dtransform
-        self._ingest.dtransform = dtransform
-
-    def jupynb(self, jupynb: core.jupynb) -> core.dtransform:
-        """Link dobject to a jupynb.
-
-        - Create a dtransform entry from jupynb (no insert)
-        - Link dobject to dtransform
-        """
-        result = query.jupynb(id=jupynb.id, v=jupynb.v).one_or_none()  # type: ignore
-        if result is None:
-            self._entries["jupynb"] = jupynb
-            dtransform = core.dtransform(jupynb_id=jupynb.id, jupynb_v=jupynb.v)
-        else:
-            dtransform = query.dtransform(  # type: ignore
-                jupynb_id=jupynb.id, jupynb_v=jupynb.v
-            ).one()
-
-        self._entries["dtransform"] = dtransform
-        self._ingest.dtransform = dtransform
 
 
 def add(data: Any, *, name: str = None, dobject_id: str = None) -> Ingest:
