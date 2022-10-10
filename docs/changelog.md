@@ -3,6 +3,7 @@
 <!-- prettier-ignore -->
 Name | PR | Developer | Date | Version
 --- | --- | --- | --- | ---
+⬆️ Upgrade `lndb_setup` to 0.11.0 and `nbproject` to 0.7.0 | [267](https://github.com/laminlabs/lamindb/pull/267) | [falexwolf](https://github.com/falexwolf) | 2022-10-10 |
 🎨 insert.from_list accepts entries | [266](https://github.com/laminlabs/lamindb/pull/266) | [sunnyosun](https://github.com/sunnyosun) | 2022-10-10 |
 :arrow_up: Update nbproject version to 0.5.5 | [265](https://github.com/laminlabs/lamindb/pull/265) | [Koncopd](https://github.com/Koncopd) | 2022-10-10 |
 ⬆️ Update lndb-setup version to 0.10.1 | [264](https://github.com/laminlabs/lamindb/pull/264) | [fredericenard](https://github.com/fredericenard) | 2022-10-10 |
