@@ -3,6 +3,7 @@ from typing import Any, Dict, Optional, Union
 
 from lndb_setup import settings
 from lnschema_core import id
+from nbproject import dev, meta
 
 from ..._logger import logger
 from ...dev import get_name_suffix_from_filepath, track_usage
@@ -18,10 +19,7 @@ class init_ingest:
     @classmethod
     def jupynb(cls) -> Optional[core.jupynb]:
         """Check if currently inside a Jupyter Notebook."""
-        from nbproject import meta
-        from nbproject.dev import notebook_path
-
-        if notebook_path() is not None:
+        if dev.notebook_path() is not None:
             return core.jupynb(id=meta.store.id, name=meta.live.title)
         return None
 
@@ -307,7 +305,6 @@ def commit(jupynb_v: str = None, i_confirm_i_saved: bool = False) -> None:
     if jupynb is None:
         raise NotImplementedError
     else:
-        from nbproject import dev
         from nbproject._publish import finalize_publish, run_checks_for_publish
 
         result = run_checks_for_publish(
