@@ -2,7 +2,7 @@ from lndb_setup import settings
 from sqlmodel import Session
 
 from .._logger import colors, logger
-from ..dev import storage_key_from_dobject, track_usage
+from ..dev import storage_key_from_dobject
 from ..dev.file import delete_file
 from ..schema._table import Table
 
@@ -23,11 +23,15 @@ def _create_delete_func(model):
                 f"Deleted {colors.yellow(f'row {key}')} in"
                 f" {colors.blue(f'table {name}')}."
             )
-            if name == "dobject":
-                track_usage(entry.id, "delete")
-                storage_key = storage_key_from_dobject(entry)
-                delete_file(storage_key)
-                logger.success(f"Deleted {colors.yellow(storage_key)} from storage.")
+        if name == "dobject":
+            # TODO: do not track deletes until we come up
+            # with a good design that respects integrity
+            # track_usage(entry.id, "delete")
+            storage_key = storage_key_from_dobject(entry)
+            delete_file(storage_key)
+            logger.success(
+                f"Deleted {colors.yellow(f'object {storage_key}')} from storage."
+            )
 
     delete_func.__name__ = name
     return delete_func
