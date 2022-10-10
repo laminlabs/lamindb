@@ -89,12 +89,12 @@ class Ingest:
         self._dtransform = None
 
     @property
-    def data(self):
-        """Data to be ingested."""
+    def data(self) -> Any:
+        """Data provided by the user upon init."""
         return self._data
 
     @property
-    def dobject(self):
+    def dobject(self) -> core.dobject:
         """An dobject entry to be inserted."""
         return self._dobject
 
@@ -147,7 +147,7 @@ class Ingest:
         """Set value of dtransform."""
         self._dtransform = value
 
-    def commit(self):
+    def commit(self) -> None:
         """Store and insert dobject and its linked entries."""
         if self.dtransform is None:
             if jupynb is not None:
@@ -168,8 +168,8 @@ class Ingest:
             getattr(insert, table_name)(**entry.dict())
 
         # insert dobject with storage_id and dtransform_id
-        insert.dobject_from_dtransform(
-            dobject=self.dobject, dtransform_id=self.dtransform.id
+        insert.dobject_from_dtransform(  # type:ignore
+            dobject=self.dobject, dtransform_id=self.dtransform.id  # type:ignore
         )
 
         # insert features and link to dobject
@@ -262,7 +262,7 @@ def add(data: Any, *, name: str = None, dobject_id: str = None) -> Ingest:
     return ingest
 
 
-def remove(filepath: Union[str, Path]):
+def remove(filepath: Union[str, Path]) -> None:
     """Remove a dobject from the staged list.
 
     Args:
@@ -290,7 +290,7 @@ def reset() -> None:
     userlog = init_ingest.userlog()
 
 
-def commit(jupynb_v: str = None, i_confirm_i_saved: bool = False):
+def commit(jupynb_v: str = None, i_confirm_i_saved: bool = False) -> None:
     """Complete ingestion.
 
     Args:
@@ -337,7 +337,7 @@ def list_ingests() -> dict:
     return _ingests
 
 
-def print_logging_table(message: str = "Ingested the following dobjects:"):
+def print_logging_table(message: str = "Ingested the following dobjects:") -> None:
     """Pretty print logging messages."""
     import pandas as pd
     from tabulate import tabulate  # type: ignore
