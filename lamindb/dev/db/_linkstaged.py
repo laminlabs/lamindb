@@ -1,9 +1,9 @@
 from typing import Dict
 
-from ...dev.file import load_to_memory
 from ...schema import wetlab
-from .._query import query
+from ..file import load_to_memory
 from ._link import link
+from ._query import query
 
 
 class LinkStaged:

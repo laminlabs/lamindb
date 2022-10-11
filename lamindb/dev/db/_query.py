@@ -7,8 +7,9 @@ from lndb_setup import settings
 from sqlalchemy import inspect
 from sqlmodel import Session, select
 
-from ..dev import QueryResult, track_usage
 from ..schema._table import Table
+from ._query_result import QueryResult
+from ._track_usage import track_usage
 
 
 def _query_stmt(statement, results_type="all"):

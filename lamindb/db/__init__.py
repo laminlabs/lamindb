@@ -53,6 +53,6 @@ from ..dev.db._link import link  # noqa
 from ..dev.db._query import query  # noqa
 from ._delete import delete  # noqa
 from ._ingest import Ingest  # noqa
-from ._insert import insert  # noqa
 from ._load import load  # noqa
 from ._update import update  # noqa
+from .dev.db._insert import insert  # noqa

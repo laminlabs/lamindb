@@ -2,7 +2,7 @@ from lndb_setup import settings
 from sqlmodel import Session
 
 from .._logger import colors, logger
-from ..dev import track_usage
+from ..dev.db._track_usage import track_usage
 from ..schema._table import Table
 
 

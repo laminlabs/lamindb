@@ -24,7 +24,6 @@ from ._core import (
     filepath_from_dobject,
     get_name_suffix_from_filepath,
     storage_key_from_dobject,
-    track_usage,
 )
 from ._docs import doc_args  # noqa
 from ._query_result import QueryResult  # noqa

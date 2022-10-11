@@ -3,7 +3,8 @@ from lamin_logger import logger
 from lndb_setup import settings
 from nbproject import meta
 
-from ..dev import filepath_from_dobject, track_usage
+from ..dev import filepath_from_dobject
+from ..dev.db._track_usage import track_usage
 from ..dev.file import load_to_memory
 from ..schema import core
 
