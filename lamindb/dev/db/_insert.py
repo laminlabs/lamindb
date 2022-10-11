@@ -91,7 +91,7 @@ def featureset_from_features(
         }
         _ = getattr(insert, f"featureset_{feature_entity}")(**kwargs)
 
-    return featureset.id
+    return featureset
 
 
 class FieldPopulator:
