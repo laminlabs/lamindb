@@ -29,7 +29,5 @@ def test_compute_checksum():
         filepath = Path(path)
         with open(path, "w") as file:
             file.write(content)
-        print(100 * "*")
-        print(compute_checksum(filepath))
         assert checksum == compute_checksum(filepath)
         filepath.unlink()
