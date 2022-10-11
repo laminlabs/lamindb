@@ -233,7 +233,6 @@ class InsertBase:
 
 def _create_insert_func(model):
     fields = Table.get_fields(model)
-    pks = Table.get_pks(model)
     name = model.__name__
 
     def insert_func(force=False, **kwargs):
@@ -257,15 +256,7 @@ def _create_insert_func(model):
         except AttributeError:
             entry = InsertBase.add(model=model, kwargs=kwargs, force=force)
 
-        # returns None if an entry with the same kwargs already exists
-        if entry is None:
-            return
-
-        # returns id or entry itself for link tables
-        if "id" in pks:
-            entry_id = entry.id
-        else:
-            entry_id = entry
+        # no logging for these tables
         if name not in [
             "usage",
             "dobject",
@@ -278,13 +269,13 @@ def _create_insert_func(model):
             "featureset_protein",
             "featureset_cell_marker",
         ]:
-            # no logging for these tables
+            entry_id = entry.id if hasattr(entry, id) else entry
             logger.success(
                 f"Inserted entry {colors.green(f'{entry_id}')} into"
                 f" {colors.blue(f'{name}')}."
             )
 
-        return entry_id
+        return entry
 
     insert_func.__name__ = name
     return insert_func
