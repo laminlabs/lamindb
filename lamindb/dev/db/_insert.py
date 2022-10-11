@@ -130,8 +130,11 @@ class InsertBase:
     @classmethod
     def add(cls, model, kwargs: dict, force=False):
         if not force:
-            if cls.exists(table_name=model.__name__, kwargs=kwargs):
-                return
+            results = cls.query(table_name=model.__name__, kwargs=kwargs)
+            if len(results) >= 1:
+                return "exists", results[0]
+            elif len(results) > 1:
+                return "exists", results
 
         with sqm.Session(settings.instance.db_engine()) as session:
             entry = model(**kwargs)
@@ -141,14 +144,11 @@ class InsertBase:
 
         settings.instance._update_cloud_sqlite_file()
 
-        return entry
+        return "inserted", entry
 
     @classmethod
-    def exists(cls, table_name, kwargs):
-        results = getattr(query, table_name)(**kwargs).all()
-        if len(results) == 0:
-            return False
-        return True
+    def query(cls, table_name, kwargs):
+        return getattr(query, table_name)(**kwargs).all()
 
     @classmethod
     def is_unique(cls, model, column: str):
@@ -252,12 +252,12 @@ def _create_insert_func(model):
             std_value = kwargs[std_id]
             kwargs_ = reference(std_id_value=(std_id, std_value))
             kwargs.update(**{k: v for k, v in kwargs_.items() if k in fields})
-            entry = InsertBase.add(model=model, kwargs=kwargs, force=force)
+            status, entry = InsertBase.add(model=model, kwargs=kwargs, force=force)
         except AttributeError:
-            entry = InsertBase.add(model=model, kwargs=kwargs, force=force)
+            status, entry = InsertBase.add(model=model, kwargs=kwargs, force=force)
 
         # no logging for these tables
-        if name not in [
+        if status == "inserted" and name not in [
             "usage",
             "dobject",
             "gene",
@@ -269,7 +269,7 @@ def _create_insert_func(model):
             "featureset_protein",
             "featureset_cell_marker",
         ]:
-            entry_id = entry.id if hasattr(entry, id) else entry
+            entry_id = entry.id if hasattr(entry, "id") else entry
             logger.success(
                 f"Inserted entry {colors.green(f'{entry_id}')} into"
                 f" {colors.blue(f'{name}')}."

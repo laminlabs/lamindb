@@ -122,14 +122,14 @@ class Staged:
         size = store_file(self.filepath, dobject_storage_key)
         self._dobject.size = size  # size is only calculated when storing the file
 
-        # insert all linked entries including dtransform
-        for table_name, entries in self.link.linked_entries.items():
-            insert.from_list(table_name=table_name, entries=entries)  # type:ignore
-
-        # insert dobject with storage_id and dtransform_id
+        # insert dobject first to satisfy foreign key constraints
         insert.dobject_from_dtransform(  # type:ignore
             dobject=self.dobject, dtransform_id=self._dtransform.id  # type:ignore
         )
+
+        # insert all linked entries
+        for table_name, entries in self.link.linked_entries.items():
+            insert.from_list(table_name=table_name, entries=entries)  # type:ignore
 
         # insert features and link to dobject
         if self.feature_model is not None:
