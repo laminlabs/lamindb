@@ -59,7 +59,7 @@ def featureset_from_features(
         ).one_or_none()
         if featureset_result is not None:
             logger.warning(f"Featureset {featureset_name} already exists!")
-            return featureset_result.id
+            return featureset_result
 
     # get the id field of feature entity
     feature_id = features_dict[next(iter(features_dict))].keys()[-1]
