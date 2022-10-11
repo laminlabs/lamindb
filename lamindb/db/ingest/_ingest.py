@@ -1,3 +1,4 @@
+import hashlib
 from pathlib import Path
 from typing import Any, Optional, Union
 
@@ -74,6 +75,7 @@ class Ingest:
         # creates a dobject entry, but not inserted into the db yet
         self._dobject = core.dobject(name=name, suffix=suffix)
         self._dobject.id = dobject_id if dobject_id is not None else self.dobject.id
+        self._dobject.checksum = compute_checksum(self._filepath)
 
         # access to the feature model
         self._feature_model = None  # feature model
@@ -292,3 +294,11 @@ def print_logging_table(message: str = "Ingested the following dobjects:") -> No
 
     logger.success(f"{message}\n{log_table}")
     """"""
+
+
+def compute_checksum(path: Path):
+    hash_md5 = hashlib.md5()
+    with open(path, "rb") as file:
+        for chunk in iter(lambda: file.read(4096), b""):
+            hash_md5.update(chunk)
+    return hash_md5.hexdigest()
