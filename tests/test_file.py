@@ -1,7 +1,7 @@
 from pathlib import Path
 
-from lamindb.db.ingest._ingest import compute_checksum
 from lamindb.dev._core import get_name_suffix_from_filepath
+from lamindb.dev.db._staged import compute_checksum
 
 
 def test_get_name_suffix_from_filepath():
