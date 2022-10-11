@@ -93,7 +93,7 @@ class Staged:
     def feature_model(self):
         """Feature model used to ingest the features of dobject.
 
-        See :class:`~lamindb.db.ingest.LinkFeatureModel`
+        See :class:`~lamindb.dev.db.LinkFeatureModel`
         """
         return self._feature_model
 
