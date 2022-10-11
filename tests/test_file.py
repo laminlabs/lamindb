@@ -1,5 +1,6 @@
 from pathlib import Path
 
+from lamindb.db.ingest._ingest import compute_checksum
 from lamindb.dev._core import get_name_suffix_from_filepath
 
 
@@ -16,3 +17,17 @@ def test_get_name_suffix_from_filepath():
     for path, name, suffix in dataset:
         filepath = Path(path)
         assert name, suffix == get_name_suffix_from_filepath(filepath)
+
+
+def test_compute_checksum():
+    # based on https://stackoverflow.com/questions/31890341/clean-way-to-get-the-true-stem-of-a-path-object  # noqa
+    dataset = [
+        ("file_1.txt", "a", "a"),
+        ("file_2.txt", "abc", "a"),
+    ]
+    for path, content, checksum in dataset:
+        filepath = Path(path)
+        with open(path, "w") as file:
+            file.write(content)
+        assert checksum == compute_checksum(filepath)
+        filepath.unlink()
