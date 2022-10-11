@@ -36,7 +36,7 @@ def dobject_from_dtransform(dobject: core.dobject, dtransform_id: str):
         size=dobject.size,
         checksum=dobject.checksum,
     )
- 
+
     return dobject_id
 
 
