@@ -2,13 +2,13 @@ from pathlib import Path
 from typing import Any, Dict, List, Union
 
 import sqlmodel as sqm
+from lamin_logger import logger
 from lndb_setup import settings
 from nbproject import dev, meta
 
-from ..._logger import logger
-from ...schema import core
-from .._query import query
 from ..dev.db import Staged
+from ..dev.db._query import query
+from ..schema import core
 
 
 class Ingest:

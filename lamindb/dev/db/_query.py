@@ -7,7 +7,7 @@ from lndb_setup import settings
 from sqlalchemy import inspect
 from sqlmodel import Session, select
 
-from ..schema._table import Table
+from ...schema._table import Table
 from ._query_result import QueryResult
 from ._track_usage import track_usage
 

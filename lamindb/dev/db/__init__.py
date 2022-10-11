@@ -8,6 +8,15 @@ Ingest helper classes:
    Staged
    LinkStaged
 
+Query:
+
+.. autosummary::
+   :toctree: .
+
+   QueryResult
+
+Other:
+
 .. autosummary::
    :toctree: .
 
@@ -18,4 +27,5 @@ Ingest helper classes:
 from . import exception
 from ._core import session
 from ._linkstaged import LinkStaged
+from ._query_result import QueryResult
 from ._staged import Staged

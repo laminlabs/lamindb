@@ -3,10 +3,10 @@ from typing import Any
 
 import lnschema_core as core
 
-from .. import get_name_suffix_from_filepath
-from .._insert import insert
+from .._core import get_name_suffix_from_filepath
 from ..file import store_file
 from ..object import infer_suffix, write_to_file
+from ._insert import insert
 from ._linkstaged import LinkStaged
 from ._track_usage import track_usage
 
