@@ -300,7 +300,7 @@ class query:
 
     Guide: :doc:`/db/guide/query-load`.
 
-    Returns a :class:`~lamindb.dev.QueryResult` object.
+    Returns a :class:`~lamindb.dev.db.QueryResult` object.
     """
 
     pass
