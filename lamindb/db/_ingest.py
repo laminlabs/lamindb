@@ -24,7 +24,7 @@ class Ingest:
             sources.
     """
 
-    def _init_dtransform(self, dsource):
+    def _init_dtransform(self, dsource: Union[core.jupynb, core.pipeline_run]):
         if isinstance(dsource, core.pipeline_run):
             dtransform = query.dtransform(  # type: ignore
                 pipeline_run_id=dsource.id
@@ -109,12 +109,25 @@ class Ingest:
             # version to be set in finalize_publish()
             self._dsource.v = dev.set_version(jupynb_v)
 
+            # in case the nb exists already, update that entry
+            result = query.jupynb(id=self._dsource.id, v=self._dsource.v).one_or_none()  # type: ignore  # noqa
+            if result is not None:
+                self._dsource = result
+                self._dsource.name = meta.live.title
+
+            # also update dtransform
+            self._dtransform.jupynb_v = self._dsource.v
+
         # insert dsource and dtransform
         with sqm.Session(settings.instance.db_engine()) as session:
             session.add(self._dsource)
-            session.commit()  # need to commit here for foreign key integrity
+            session.commit()
             session.add(self._dtransform)
             session.commit()
+            # need to refresh here so that the both objects
+            # are available for downstream use
+            session.refresh(self._dsource)
+            session.refresh(self._dtransform)
 
         for filepath_str, ingest in self._staged.items():
             # TODO: run the appropriate clean-up operations if any aspect

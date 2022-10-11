@@ -128,7 +128,7 @@ class Staged:
 
         # insert dobject with storage_id and dtransform_id
         insert.dobject_from_dtransform(  # type:ignore
-            dobject=self.dobject, dtransform_id=self.dtransform.id  # type:ignore
+            dobject=self.dobject, dtransform_id=self._dtransform.id  # type:ignore
         )
 
         # insert features and link to dobject
