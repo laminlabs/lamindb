@@ -10,7 +10,7 @@ class LinkStaged:
     """Link db entries to the dobject, accessible via `Staged().link`.
 
     Args:
-        ingest: an :class:`~lamindb.dev.db.ingest.Staged` instance.
+        ingest: an :class:`~lamindb.dev.db.Staged` instance.
     """
 
     def __init__(self, ingest) -> None:
