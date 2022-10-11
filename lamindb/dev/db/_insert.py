@@ -5,8 +5,8 @@ import sqlmodel as sqm
 from lamin_logger import colors, logger
 from lndb_setup import settings
 
-from ..schema import core
-from ..schema._table import Table
+from ...schema import core
+from ...schema._table import Table
 from ._query import query
 
 
