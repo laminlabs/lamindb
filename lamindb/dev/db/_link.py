@@ -1,7 +1,7 @@
 import pandas as pd
+from lamin_logger import colors, logger
 from tabulate import tabulate  # type: ignore
 
-from .._logger import colors, logger
 from ._insert import insert
 from ._query import query
 from ._update import update
