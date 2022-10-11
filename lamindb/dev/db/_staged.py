@@ -1,3 +1,4 @@
+import hashlib
 from pathlib import Path
 from typing import Any
 
@@ -50,9 +51,9 @@ class Staged:
             if not self.filepath.exists():
                 write_to_file(self.dmem, self.filepath)  # type: ignore
 
-        # creates a dobject entry, but not inserted into the db yet
         self._dobject = core.dobject(name=name, suffix=suffix)
         self._dobject.id = dobject_id if dobject_id is not None else self.dobject.id
+        self._dobject.checksum = compute_checksum(self._filepath)
 
         # access to the feature model
         self._feature_model = None  # feature model
@@ -138,3 +139,11 @@ class Staged:
             )
 
         track_usage(self.dobject.id, usage_type="ingest")
+
+
+def compute_checksum(path: Path):
+    hash_md5 = hashlib.md5()
+    with open(path, "rb") as file:
+        for chunk in iter(lambda: file.read(4096), b""):
+            hash_md5.update(chunk)
+    return hash_md5.hexdigest()

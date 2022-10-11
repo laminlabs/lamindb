@@ -34,6 +34,7 @@ def dobject_from_dtransform(dobject: core.dobject, dtransform_id: str):
         suffix=dobject.suffix,
         storage_id=storage.id,
         size=dobject.size,
+        checksum=dobject.checksum,
     )
 
     return dobject_id

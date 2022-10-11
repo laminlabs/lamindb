@@ -88,6 +88,7 @@ def query_dobject(
     dtransform_id: Optional[str] = None,
     suffix: Optional[str] = None,
     storage_id: Optional[str] = None,
+    checksum: Optional[str] = None,
     created_at: datetime = None,
     updated_at: datetime = None,
     where: Dict[str, dict] = None,
