@@ -49,9 +49,7 @@ def featureset_from_features(
 
     Meanwhile inserting features and linking them to the featureset.
     """
-    species_id = getattr(insert, "species")(common_name=species)
-    if species_id is None:
-        species_id = getattr(query, "species")(common_name=species).one().id
+    species = insert.species(common_name=species)  # type: ignore
 
     # check if geneset exists
     if featureset_name is not None:
@@ -65,7 +63,7 @@ def featureset_from_features(
 
     # get the id field of feature entity
     feature_id = features_dict[next(iter(features_dict))].keys()[-1]
-    allfeatures = getattr(query, feature_entity)(species_id=species_id).all()
+    allfeatures = getattr(query, feature_entity)(species_id=species.id).all()  # type: ignore  # noqa
     # only ingest the new features but link all features to the featureset
     exist_feature_keys = set()
     exist_feature_ids = set()
@@ -74,13 +72,9 @@ def featureset_from_features(
         exist_feature_ids.add(feature.id)
 
     # add a featureset to the featureset table
-    featureset_id = getattr(insert, "featureset")(
+    featureset = insert.featureset(  # type: ignore
         feature_entity=feature_entity, name=featureset_name
     )
-    if featureset_id is None:
-        featureset_id = query.featureset(  # type: ignore
-            feature_entity=feature_entity, name=featureset_name
-        ).one()
 
     # add features to the feature table
     kwargs_list = []
@@ -92,12 +86,12 @@ def featureset_from_features(
     feature_ids = list(added.values()) + list(exist_feature_ids)
     for feature_id in feature_ids:
         kwargs = {
-            "featureset_id": featureset_id,
+            "featureset_id": featureset.id,
             f"{feature_entity}_id": feature_id,
         }
         _ = getattr(insert, f"featureset_{feature_entity}")(**kwargs)
 
-    return featureset_id
+    return featureset.id
 
 
 class FieldPopulator:
