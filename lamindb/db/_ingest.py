@@ -62,11 +62,11 @@ class Ingest:
             name: name of the data object, required of an in-memory object is passed
             dobject_id: id of the dobject
         """
-        ingest = Staged(
+        staged = Staged(
             data, dtransform=self._dtransform, name=name, dobject_id=dobject_id
         )
-        self._staged[ingest.filepath.as_posix()] = ingest
-        return ingest
+        self._staged[staged.filepath.as_posix()] = staged
+        return staged
 
     def remove(self, filepath: Union[str, Path]) -> None:
         """Remove a dobject from the staged list.
