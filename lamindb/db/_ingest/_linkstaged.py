@@ -1,7 +1,7 @@
 from typing import Dict
 
 from ...dev.file import load_to_memory
-from ...schema import core, wetlab
+from ...schema import wetlab
 from .._link import link
 from .._query import query
 
@@ -54,54 +54,6 @@ class LinkStaged:
         self._ingest._feature_model = link.feature_model(
             df=df, feature_model=feature_model, featureset_name=featureset_name
         )
-
-    def pipeline_run(self, pipeline_run: core.pipeline_run) -> None:
-        """Link dobject to a pipeline run.
-
-        Args:
-            pipeline_run: a core.pipeline_run entry
-
-        Returns:
-            added pipeline_run, dtransform entries to `self._entries()`
-        """
-        result = query.pipeline_run(id=pipeline_run.id).one_or_none()  # type: ignore
-        dtransform = None
-        if result is None:
-            self.add_entry("pipeline_run", pipeline_run)
-        else:
-            dtransform = query.dtransform(  # type: ignore
-                pipeline_run_id=pipeline_run.id
-            ).one_or_none()
-
-        if dtransform is None:
-            dtransform = core.dtransform(pipeline_run_id=pipeline_run.id)
-            self.add_entry("dtransform", dtransform)
-
-        self._ingest.dtransform = dtransform
-
-    def jupynb(self, jupynb: core.jupynb) -> None:
-        """Link dobject to a jupynb.
-
-        Args:
-            jupynb: a core.jupynb entry
-
-        Returns:
-            added jupynb, dtransform entries to `self._entries()`
-        """
-        result = query.jupynb(id=jupynb.id, v=jupynb.v).one_or_none()  # type: ignore
-        dtransform = None
-        if result is None:
-            self.add_entry("jupynb", jupynb)
-        else:
-            dtransform = query.dtransform(  # type: ignore
-                jupynb_id=jupynb.id, jupynb_v=jupynb.v
-            ).one_or_none()
-
-        if dtransform is None:
-            dtransform = core.dtransform(jupynb_id=jupynb.id, jupynb_v=jupynb.v)
-            self.add_entry("dtransform", dtransform)
-
-        self._ingest.dtransform = dtransform
 
     def biometa(self, biometa: wetlab.biometa) -> None:
         """Link dobject to a biometa.
