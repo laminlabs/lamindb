@@ -12,7 +12,7 @@ from ...dev.object import infer_suffix, write_to_file
 from ...schema import core
 from .._insert import insert
 from .._query import query
-from ._lingstaged import LinkStaged
+from ._linkstaged import LinkStaged
 
 
 class Staged:
