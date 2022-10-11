@@ -5,8 +5,8 @@ import sqlmodel as sqm
 from lamin_logger import colors, logger
 from lndb_setup import settings
 
-from ..schema import core
-from ..schema._table import Table
+from ...schema import core
+from ...schema._table import Table
 from ._query import query
 
 
@@ -50,9 +50,7 @@ def featureset_from_features(
 
     Meanwhile inserting features and linking them to the featureset.
     """
-    species_id = getattr(insert, "species")(common_name=species)
-    if species_id is None:
-        species_id = getattr(query, "species")(common_name=species).one().id
+    species = insert.species(common_name=species)  # type: ignore
 
     # check if geneset exists
     if featureset_name is not None:
@@ -62,11 +60,11 @@ def featureset_from_features(
         ).one_or_none()
         if featureset_result is not None:
             logger.warning(f"Featureset {featureset_name} already exists!")
-            return featureset_result.id
+            return featureset_result
 
     # get the id field of feature entity
     feature_id = features_dict[next(iter(features_dict))].keys()[-1]
-    allfeatures = getattr(query, feature_entity)(species_id=species_id).all()
+    allfeatures = getattr(query, feature_entity)(species_id=species.id).all()  # type: ignore  # noqa
     # only ingest the new features but link all features to the featureset
     exist_feature_keys = set()
     exist_feature_ids = set()
@@ -75,13 +73,9 @@ def featureset_from_features(
         exist_feature_ids.add(feature.id)
 
     # add a featureset to the featureset table
-    featureset_id = getattr(insert, "featureset")(
+    featureset = insert.featureset(  # type: ignore
         feature_entity=feature_entity, name=featureset_name
     )
-    if featureset_id is None:
-        featureset_id = query.featureset(  # type: ignore
-            feature_entity=feature_entity, name=featureset_name
-        ).one()
 
     # add features to the feature table
     kwargs_list = []
@@ -93,12 +87,12 @@ def featureset_from_features(
     feature_ids = list(added.values()) + list(exist_feature_ids)
     for feature_id in feature_ids:
         kwargs = {
-            "featureset_id": featureset_id,
+            "featureset_id": featureset.id,
             f"{feature_entity}_id": feature_id,
         }
         _ = getattr(insert, f"featureset_{feature_entity}")(**kwargs)
 
-    return featureset_id
+    return featureset
 
 
 class FieldPopulator:
@@ -131,8 +125,11 @@ class InsertBase:
     @classmethod
     def add(cls, model, kwargs: dict, force=False):
         if not force:
-            if cls.exists(table_name=model.__name__, kwargs=kwargs):
-                return
+            results = cls.query(table_name=model.__name__, kwargs=kwargs)
+            if len(results) >= 1:
+                return "exists", results[0]
+            elif len(results) > 1:
+                return "exists", results
 
         with sqm.Session(settings.instance.db_engine()) as session:
             entry = model(**kwargs)
@@ -142,14 +139,11 @@ class InsertBase:
 
         settings.instance._update_cloud_sqlite_file()
 
-        return entry
+        return "inserted", entry
 
     @classmethod
-    def exists(cls, table_name, kwargs):
-        results = getattr(query, table_name)(**kwargs).all()
-        if len(results) == 0:
-            return False
-        return True
+    def query(cls, table_name, kwargs):
+        return getattr(query, table_name)(**kwargs).all()
 
     @classmethod
     def is_unique(cls, model, column: str):
@@ -234,7 +228,6 @@ class InsertBase:
 
 def _create_insert_func(model):
     fields = Table.get_fields(model)
-    pks = Table.get_pks(model)
     name = model.__name__
 
     def insert_func(force=False, **kwargs):
@@ -254,20 +247,12 @@ def _create_insert_func(model):
             std_value = kwargs[std_id]
             kwargs_ = reference(std_id_value=(std_id, std_value))
             kwargs.update(**{k: v for k, v in kwargs_.items() if k in fields})
-            entry = InsertBase.add(model=model, kwargs=kwargs, force=force)
+            status, entry = InsertBase.add(model=model, kwargs=kwargs, force=force)
         except AttributeError:
-            entry = InsertBase.add(model=model, kwargs=kwargs, force=force)
+            status, entry = InsertBase.add(model=model, kwargs=kwargs, force=force)
 
-        # returns None if an entry with the same kwargs already exists
-        if entry is None:
-            return
-
-        # returns id or entry itself for link tables
-        if "id" in pks:
-            entry_id = entry.id
-        else:
-            entry_id = entry
-        if name not in [
+        # no logging for these tables
+        if status == "inserted" and name not in [
             "usage",
             "dobject",
             "gene",
@@ -279,13 +264,13 @@ def _create_insert_func(model):
             "featureset_protein",
             "featureset_cell_marker",
         ]:
-            # no logging for these tables
+            entry_id = entry.id if hasattr(entry, "id") else entry
             logger.success(
                 f"Inserted entry {colors.green(f'{entry_id}')} into"
                 f" {colors.blue(f'{name}')}."
             )
 
-        return entry_id
+        return entry
 
     insert_func.__name__ = name
     return insert_func

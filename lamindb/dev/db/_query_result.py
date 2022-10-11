@@ -2,8 +2,8 @@ from typing import Union
 
 import pandas as pd
 
-from ..schema._table import Table
-from .db import exception
+from ...schema._table import Table
+from . import exception
 
 
 class QueryResult:

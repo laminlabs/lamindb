@@ -13,7 +13,7 @@ Ingest data:
 .. autosummary::
    :toctree: .
 
-   ingest
+   Ingest
 
 Modify metadata:
 
@@ -49,10 +49,10 @@ A `SQLModel <https://sqlmodel.tiangolo.com>`__ session:
 from lndb_hub import hub  # noqa, currently not documented as being overhauled
 
 from ..dev.db import session  # noqa
-from . import ingest  # noqa
+from ..dev.db._insert import insert  # noqa
+from ..dev.db._link import link  # noqa
+from ..dev.db._query import query  # noqa
+from ..dev.db._update import update  # noqa
 from ._delete import delete  # noqa
-from ._insert import insert  # noqa
-from ._link import LinkFeatureModel, link  # noqa
+from ._ingest import Ingest  # noqa
 from ._load import load  # noqa
-from ._query import query  # noqa
-from ._update import update  # noqa

@@ -1,7 +1,7 @@
 import pandas as pd
+from lamin_logger import colors, logger
 from tabulate import tabulate  # type: ignore
 
-from .._logger import colors, logger
 from ._insert import insert
 from ._query import query
 from ._update import update
@@ -110,14 +110,12 @@ class link:
         featureset_name: str = None,
     ):
         """Annotate genes."""
-        species_id = getattr(insert, "species")(common_name=species)
-        if species_id is None:
-            species_id = getattr(query, "species")(common_name=species).one().id
+        species = insert.species(common_name=species)  # type: ignore
 
-        featureset_id = getattr(insert, "featureset_from_features")(
+        featureset = insert.featureset_from_features(  # type: ignore
             features_dict=values,
             feature_entity=feature_entity,
-            species=species,
+            species=species.common_name,  # type: ignore
             featureset_name=featureset_name,
         )
 
@@ -127,14 +125,14 @@ class link:
         if len(dobject_biometas) == 0:
             # insert a biometa entry and link to dobject
             # TODO: force insert here
-            biometa_id = getattr(insert, "biometa")(
-                featureset_id=featureset_id, force=True
+            biometa = getattr(insert, "biometa")(
+                featureset_id=featureset.id, force=True
             )
-            cls.biometa(dobject_id=dobject_id, biometa_id=biometa_id)
+            cls.biometa(dobject_id=dobject_id, biometa_id=biometa.id)
         else:
             raise NotImplementedError
 
-        logs = [[str(featureset_id), str(biometa_id), str(species_id)]]
+        logs = [[str(featureset.id), str(biometa.id), str(species.id)]]  # type: ignore
         log_table = tabulate(
             logs,
             headers=[
@@ -151,17 +149,15 @@ class link:
     @classmethod
     def readout(cls, dobject_id, efo_id: str):
         """Link readout."""
-        readout_id = getattr(insert, "readout")(efo_id=efo_id)
-        if readout_id is None:
-            readout_id = getattr(query, "readout")(efo_id=efo_id).one()
+        readout = insert.readout(efo_id=efo_id)  # type: ignore
 
         # query biometa associated with a dobject
-        dobject_biometa = getattr(query, "dobject_biometa")(dobject_id=dobject_id).all()
+        dobject_biometa = query.dobject_biometa(dobject_id=dobject_id).all()  # type: ignore  # noqa
         if len(dobject_biometa) > 0:
             biometa_ids = [i.biometa_id for i in dobject_biometa]
         else:
             # TODO: fix here
-            biometa_ids = [getattr(insert, "biometa")(readout_id=readout_id)]
+            biometa_ids = [insert.biometa(readout_id=readout.id).id]  # type: ignore
             logger.warning(
                 f"No biometa found for dobject {dobject_id}, created biometa"
                 f" {biometa_ids[0]}"
@@ -170,10 +166,10 @@ class link:
         # fill in biometa entries with readout_id
         for biometa_id in biometa_ids:
             update_biometa = getattr(update, "biometa")
-            update_biometa(biometa_id, readout_id=readout_id)
+            update_biometa(biometa_id, readout_id=readout.id)
 
         logger.success(
-            f"Added {colors.blue(f'readout_id {readout_id}')} to"
+            f"Added {colors.blue(f'readout_id {readout.id}')} to"
             f" {colors.purple(f'biometa {biometa_ids}')} linked to"
             f" {colors.green(f'dobject {dobject_id}')}."
         )
