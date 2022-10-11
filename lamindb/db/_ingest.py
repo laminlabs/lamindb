@@ -121,7 +121,7 @@ class Ingest:
         # insert dsource and dtransform
         with sqm.Session(settings.instance.db_engine()) as session:
             session.add(self._dsource)
-            session.commit()
+            session.commit()  # to satisfy foreign key constraint
             session.add(self._dtransform)
             session.commit()
             # need to refresh here so that the both objects
