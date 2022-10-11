@@ -20,14 +20,14 @@ Ingest helper classes:
 .. autosummary::
     :toctree: .
 
-    Ingest
-    LinkIngest
+    Staged
+    LinkStaged
     LinkFeatureModel
 """
 
 from .._link import LinkFeatureModel
 from ._ingest import (
-    Ingest,
+    Staged,
     add,
     commit,
     list_ingests,
@@ -36,4 +36,4 @@ from ._ingest import (
     reset,
     status,
 )
-from ._link_ingest import LinkIngest
+from ._linkstaged import LinkStaged

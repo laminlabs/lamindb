@@ -10,7 +10,7 @@ from ...dev.file import store_file
 from ...dev.object import infer_suffix, write_to_file
 from ...schema import core
 from .._insert import insert
-from ._link_ingest import LinkIngest
+from ._link_ingest import LinkStaged
 
 
 class init_ingest:
@@ -34,14 +34,14 @@ class init_ingest:
         return dict(user=f"{settings.user.handle} ({settings.user.id})")
 
 
-_ingests = init_ingest.ingests()  # Ingest instances
+_ingests = init_ingest.ingests()  # Staged instances
 _logs = init_ingest.logs()  # logging messages
 jupynb = init_ingest.jupynb()
 userlog = init_ingest.userlog()
 
 
-class Ingest:
-    """Ingest data objects, initiated upon :class:`~lamindb.db.ingest.add`.
+class Staged:
+    """Staged data objects, initiated upon :class:`~lamindb.db.ingest.add`.
 
     Args:
         data: filepath or in-memory objects
@@ -79,7 +79,7 @@ class Ingest:
         self._feature_model = None  # feature model
 
         # access to the link operations
-        self._link = LinkIngest(self)
+        self._link = LinkStaged(self)
 
         # dtransform
         self._dtransform = None
@@ -95,7 +95,7 @@ class Ingest:
         return self._dobject
 
     @property
-    def link(self) -> LinkIngest:
+    def link(self) -> LinkStaged:
         """Link operations via ingest."""
         return self._link
 
@@ -163,21 +163,13 @@ class Ingest:
         self._dobject.size = size  # size is only calculated when storing the file
 
         # insert all linked entries including dtransform
-        not_yet = []
         for table_name, entries in self.link.linked_entries.items():
-            # can't write link table as dobject is not yet written
-            if table_name == "dobject_biometa":
-                not_yet.append((table_name, entries))
-                continue
             insert.from_list(table_name=table_name, entries=entries)  # type:ignore
 
         # insert dobject with storage_id and dtransform_id
         insert.dobject_from_dtransform(  # type:ignore
             dobject=self.dobject, dtransform_id=self.dtransform.id  # type:ignore
         )
-
-        for table_name, entries in not_yet:
-            insert.from_list(table_name=table_name, entries=entries)  # type:ignore
 
         # insert features and link to dobject
         if self.feature_model is not None:
@@ -188,7 +180,7 @@ class Ingest:
         track_usage(self.dobject.id, usage_type="ingest")
 
 
-def add(data: Any, *, name: str = None, dobject_id: str = None) -> Ingest:
+def add(data: Any, *, name: str = None, dobject_id: str = None) -> Staged:
     """Stage dobject for ingestion.
 
     Args:
@@ -196,7 +188,7 @@ def add(data: Any, *, name: str = None, dobject_id: str = None) -> Ingest:
         name: name of the data object, required of an in-memory object is passed
         dobject_id: id of the dobject
     """
-    ingest = Ingest(data, name=name, dobject_id=dobject_id)
+    ingest = Staged(data, name=name, dobject_id=dobject_id)
     _ingests[ingest.filepath.as_posix()] = ingest
     return ingest
 
@@ -223,7 +215,7 @@ def status() -> list:
 def reset() -> None:
     """Reset ingest, clear all staged data objects."""
     global _ingests, _logs, jupynb, userlog
-    _ingests = init_ingest.ingests()  # Ingest instances
+    _ingests = init_ingest.ingests()  # Staged instances
     _logs = init_ingest.logs()  # logging messages
     jupynb = init_ingest.jupynb()
     userlog = init_ingest.userlog()
@@ -271,11 +263,11 @@ def commit(jupynb_v: str = None, i_confirm_i_saved: bool = False) -> None:
 
 
 def list_ingests() -> dict:
-    """Ingest objects created via `.add`."""
+    """Staged objects created via `.add`."""
     return _ingests
 
 
-def print_logging_table(message: str = "Ingested the following dobjects:") -> None:
+def print_logging_table(message: str = "Stageded the following dobjects:") -> None:
     """Pretty print logging messages."""
     import pandas as pd
     from tabulate import tabulate  # type: ignore
