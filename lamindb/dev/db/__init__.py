@@ -7,7 +7,6 @@ Ingest helper classes:
 
    Staged
    LinkStaged
-   LinkFeatureModel
 
 .. autosummary::
    :toctree: .
@@ -16,7 +15,6 @@ Ingest helper classes:
    exception
 """
 
-from ...db.link import LinkFeatureModel
 from . import exception
 from ._core import session
 from ._linkstaged import LinkStaged
