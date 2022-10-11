@@ -6,5 +6,6 @@
 setup
 storage
 flow
+ingest-bfx
 pg-ingest
 ```
