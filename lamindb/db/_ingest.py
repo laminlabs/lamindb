@@ -77,7 +77,7 @@ class Ingest:
             dobject_id=dobject_id,
             adata_format=adata_format,
         )
-        self._staged[staged.filepath.as_posix()] = staged
+        self._staged[staged._filepath.as_posix()] = staged
         return staged
 
     def remove(self, filepath: Union[str, Path]) -> None:

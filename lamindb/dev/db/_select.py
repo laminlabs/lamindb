@@ -3,11 +3,12 @@ from functools import cached_property
 from typing import Dict, Optional
 
 import bionty as bt
+import sqlalchemy as sa
 import sqlmodel as sqm
 from lndb_setup import settings
-from sqlalchemy import inspect
 
 from ...schema._table import Table
+from ._core import get_foreign_keys, get_link_tables
 from ._select_result import SelectResult
 from ._track_usage import track_usage
 
@@ -151,7 +152,7 @@ class LinkedSelect:
 
     def __init__(self) -> None:
         self._engine = settings.instance.db_engine()
-        self._inspector = inspect(self._engine)
+        self._inspector = sa.inspect(self._engine)
 
     @cached_property
     def foreign_keys(self):
@@ -159,19 +160,9 @@ class LinkedSelect:
 
         e.g. {'biosample': {'tissue_id': ('tissue', 'id')}}
         """
-
-        def _get_foreign_keys(table_name, inspector):
-            return {
-                column["constrained_columns"][0]: (
-                    column["referred_table"],
-                    column["referred_columns"][0],
-                )
-                for column in inspector.get_foreign_keys(table_name)
-            }
-
         foreign_keys = {}
         for table_name in self._inspector.get_table_names():
-            foreign_keys_table = _get_foreign_keys(table_name, self._inspector)
+            foreign_keys_table = get_foreign_keys(table_name, self._inspector)
             if len(foreign_keys_table) > 0:
                 foreign_keys[table_name] = foreign_keys_table
 
@@ -198,14 +189,7 @@ class LinkedSelect:
     @cached_property
     def link_tables(self):
         """Link tables."""
-        link_tables = []
-        for name in self._inspector.get_table_names():
-            pks = self._inspector.get_pk_constraint(name)["constrained_columns"]
-            columns = [i["name"] for i in self._inspector.get_columns(name)]
-            if pks == columns and len(self._inspector.get_foreign_keys(name)) > 0:
-                link_tables.append(name)
-
-        return link_tables
+        return get_link_tables(self._inspector)
 
     def select(self, entity_return, entity, entity_kwargs):
         """Select linked tables via foreign key constraint.
