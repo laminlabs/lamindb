@@ -1,5 +1,8 @@
 from pathlib import Path
-from typing import Any, Dict, List, Union
+from typing import Any, Dict, List, Optional, Union
+
+if False:  # TYPE_CHECKING
+    from typing import Literal
 
 import sqlmodel as sqm
 from lamin_logger import logger
@@ -54,16 +57,28 @@ class Ingest:
         self._userlog = dict(user=f"{settings.user.handle} ({settings.user.id})")
         self._committed = False
 
-    def add(self, data: Any, *, name: str = None, dobject_id: str = None) -> Staged:
+    def add(
+        self,
+        data: Any,
+        *,
+        name: Optional[str] = None,
+        dobject_id: Optional[str] = None,
+        adata_format: Optional[Literal["h5ad", "zarr"]] = None,
+    ) -> Staged:
         """Stage dobject for ingestion.
 
         Args:
             data: filepath or in-memory objects
             name: name of the data object, required of an in-memory object is passed
             dobject_id: id of the dobject
+            adata_format: Use `h5ad` or `zarr` to store an `AnnData` object
         """
         staged = Staged(
-            data, dtransform=self._dtransform, name=name, dobject_id=dobject_id
+            data,
+            dtransform=self._dtransform,
+            name=name,
+            dobject_id=dobject_id,
+            adata_format=adata_format,
         )
         self._staged[staged.filepath.as_posix()] = staged
         return staged
