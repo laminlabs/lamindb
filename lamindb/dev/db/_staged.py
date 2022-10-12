@@ -1,3 +1,4 @@
+import base64
 import hashlib
 from pathlib import Path
 from sys import getsizeof
@@ -64,7 +65,14 @@ class Staged:
         self._dobject.id = dobject_id if dobject_id is not None else self.dobject.id
         # streamed
         if suffix != ".zarr":
-            self._dobject.checksum = compute_checksum(self._filepath)
+            checksum = compute_checksum(self._filepath)
+            result = select.dobject(checksum=checksum).one_or_none()  # type: ignore
+            if result is not None:
+                raise RuntimeError(
+                    "Based on the MD5 checksum, the exact same data object is already"
+                    f" in the database with metadata: {result}"
+                )
+            self._dobject.checksum = checksum
 
         # access to the feature model
         self._feature_model = None  # feature model
@@ -209,4 +217,9 @@ def compute_checksum(path: Path):
     with open(path, "rb") as file:
         for chunk in iter(lambda: file.read(4096), b""):
             hash_md5.update(chunk)
-    return hash_md5.hexdigest()
+    hash_b64 = base64.urlsafe_b64encode(hash_md5.digest()).decode("ascii").strip("=")
+    # the following can be commented out over time
+    assert (
+        base64.urlsafe_b64decode(f"{hash_b64}==".encode()).hex() == hash_md5.hexdigest()
+    )  # noqa
+    return hash_b64
