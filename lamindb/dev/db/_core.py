@@ -1,7 +1,8 @@
 import sqlalchemy as sa
 import sqlmodel as sqm
-from ln.schema._table import Table
 from lndb_setup import settings
+
+from ...schema._table import Table
 
 
 def session() -> sqm.Session:
