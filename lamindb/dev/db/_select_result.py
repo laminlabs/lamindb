@@ -6,8 +6,8 @@ from ...schema._table import Table
 from . import exception
 
 
-class QueryResult:
-    """Query results."""
+class SelectResult:
+    """Select results."""
 
     def __init__(self, results: Union[list, None], model) -> None:
         if results is None:
@@ -16,7 +16,7 @@ class QueryResult:
         self._model = model
 
     def df(self):
-        """Return list query results as a DataFrame."""
+        """Return list select results as a DataFrame."""
         if len(self._results) > 0:
             df = pd.DataFrame(
                 [result.dict() for result in self._results],
@@ -33,11 +33,11 @@ class QueryResult:
         return df
 
     def all(self):
-        """Return all results of this query as a list."""
+        """Return all results of this select as a list."""
         return self._results
 
     def first(self):
-        """Return the first result of query or None if no results are found."""
+        """Return the first result of select or None if no results are found."""
         if len(self._results) == 0:
             return None
         return self._results[0]
