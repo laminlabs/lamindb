@@ -3,7 +3,7 @@
 :end-line: 4
 ```
 
-_Curate, store, track, select, integrate, and learn from biological data._
+_Curate, store, track, query, integrate, and learn from biological data._
 
 ```{warning}
 
