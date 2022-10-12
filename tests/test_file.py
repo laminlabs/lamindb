@@ -20,7 +20,6 @@ def test_get_name_suffix_from_filepath():
 
 
 def test_compute_checksum():
-    # based on https://stackoverflow.com/questions/31890341/clean-way-to-get-the-true-stem-of-a-path-object  # noqa
     dataset = [
         ("file_1.txt", "a", "0cc175b9c0f1b6a831c399e269772661"),
         ("file_2.txt", "abc", "900150983cd24fb0d6963f7d28e17f72"),
