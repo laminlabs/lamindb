@@ -151,7 +151,7 @@ class Ingest:
             # of the ingestion fails
             staged._commit()
             self._logs.append(
-                {**staged.datalog, **self._dtransformlog, **self._userlog}
+                {**staged._datalog, **self._dtransformlog, **self._userlog}
             )
 
         if isinstance(self._dsource, core.jupynb):
