@@ -3,6 +3,7 @@
 <!-- prettier-ignore -->
 Name | PR | Developer | Date | Version
 --- | --- | --- | --- | ---
+⬆️ Added bioreadout lookup to guide | [281](https://github.com/laminlabs/lamindb/pull/281) | [sunnyosun](https://github.com/sunnyosun) | 2022-10-12 |
 🚚 Rename query to select | [280](https://github.com/laminlabs/lamindb/pull/280) | [falexwolf](https://github.com/falexwolf) | 2022-10-12 |
 :adhesive_bandage: Fix out of sync db warning | [279](https://github.com/laminlabs/lamindb/pull/279) | [Koncopd](https://github.com/Koncopd) | 2022-10-12 |
 :sparkles: Add streaming zarr writes and streaming h5ad and zarr reads | [277](https://github.com/laminlabs/lamindb/pull/277) | [Koncopd](https://github.com/Koncopd) | 2022-10-12 |
