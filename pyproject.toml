@@ -34,6 +34,7 @@ dependencies = [
     "appdirs",
     "supabase",
     "python-dotenv",
+    "fsspec"
 ]
 
 [project.urls]
