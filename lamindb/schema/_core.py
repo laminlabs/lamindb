@@ -3,6 +3,7 @@ from typing import Union
 import erdiagram
 import sqlalchemy as sql
 from lndb_setup import settings
+from lndb_setup._settings_store import InstanceSettingsStore
 from sqlalchemy import Column, Table
 
 
@@ -29,17 +30,20 @@ def list_entities():
     return table_names
 
 
-def get_db_metadata():
-    engine = settings.instance.db_engine()
+def get_db_metadata(settings_store: InstanceSettingsStore = None):
+    if settings_store:
+        engine = settings.instance_from_store(settings_store).db_engine()
+    else:
+        engine = settings.instance.db_engine()
     metadata = sql.MetaData(bind=engine)
     metadata.reflect()
     return metadata
 
 
-def get_db_metadata_as_dict():
-    metadata = get_db_metadata()
+def get_db_metadata_as_dict(settings_store: InstanceSettingsStore = None):
+    metadata = get_db_metadata(settings_store)
     return {
-        "key": get_db_name(),
+        "key": get_db_name(settings_store),
         "tables": {
             table_name: get_table_metadata_as_dict(table)
             for table_name, table in metadata.tables.items()
@@ -74,8 +78,11 @@ def get_foreign_keys_as_tuples(object: Union[Table, Column]):
     return [(fk.column.table.key, fk.column.key) for fk in object.foreign_keys]
 
 
-def get_db_name() -> str:
-    engine = settings.instance.db_engine()
+def get_db_name(settings_store: InstanceSettingsStore = None) -> str:
+    if settings_store:
+        engine = settings.instance_from_store(settings_store).db_engine()
+    else:
+        engine = settings.instance.db_engine()
     return engine.url.database
 
 
