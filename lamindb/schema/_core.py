@@ -6,7 +6,7 @@ from lndb_setup import settings
 from sqlalchemy import Column, Table
 
 
-def draw(view=True):
+def view(save=False):
     """Make a diagram of entity relationships."""
     metadata = get_db_metadata()
     graph = erdiagram.create_schema_graph(
@@ -16,7 +16,7 @@ def draw(view=True):
         rankdir="TB",
         concentrate=False,  # Don't try to join the relation lines together
     )
-    if view:
+    if not save:
         erdiagram.view(graph)
     else:
         return graph

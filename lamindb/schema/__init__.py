@@ -15,7 +15,7 @@ Helper tools:
 .. autosummary::
    :toctree: .
 
-   draw
+   view
    list_entities
 
 """
@@ -44,7 +44,7 @@ wetlab.__doc__ = f"""Generic wetlab.
 See `lnschema-wetlab <https://lamin.ai/docs/lnschema-wetlab/api>`__.
 """
 
-from ._core import draw, list_entities
+from ._core import list_entities, view
 
 try:
     import lnschema_retro as retro
