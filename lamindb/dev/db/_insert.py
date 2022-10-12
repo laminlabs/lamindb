@@ -7,7 +7,7 @@ from lndb_setup import settings
 
 from ...schema import core
 from ...schema._table import Table
-from ._query import query
+from ._select import select
 
 
 def _camel_to_snake(string: str) -> str:
@@ -23,7 +23,7 @@ def _camel_to_snake(string: str) -> str:
 
 
 def dobject_from_dtransform(dobject: core.dobject, dtransform_id: str):
-    storage = query.storage(  # type: ignore
+    storage = select.storage(  # type: ignore
         root=str(settings.instance.storage_root)
     ).one()
 
@@ -54,7 +54,7 @@ def featureset_from_features(
 
     # check if geneset exists
     if featureset_name is not None:
-        featureset_result = getattr(query, "featureset")(
+        featureset_result = getattr(select, "featureset")(
             feature_entity=feature_entity,
             name=featureset_name,
         ).one_or_none()
@@ -64,7 +64,7 @@ def featureset_from_features(
 
     # get the id field of feature entity
     feature_id = features_dict[next(iter(features_dict))].keys()[-1]
-    allfeatures = getattr(query, feature_entity)(species_id=species.id).all()  # type: ignore  # noqa
+    allfeatures = getattr(select, feature_entity)(species_id=species.id).all()  # type: ignore  # noqa
     # only ingest the new features but link all features to the featureset
     exist_feature_keys = set()
     exist_feature_ids = set()
@@ -125,7 +125,7 @@ class InsertBase:
     @classmethod
     def add(cls, model, kwargs: dict, force=False):
         if not force:
-            results = cls.query(table_name=model.__name__, kwargs=kwargs)
+            results = cls.select(table_name=model.__name__, kwargs=kwargs)
             if len(results) >= 1:
                 return "exists", results[0]
             elif len(results) > 1:
@@ -142,8 +142,8 @@ class InsertBase:
         return "inserted", entry
 
     @classmethod
-    def query(cls, table_name, kwargs):
-        return getattr(query, table_name)(**kwargs).all()
+    def select(cls, table_name, kwargs):
+        return getattr(select, table_name)(**kwargs).all()
 
     @classmethod
     def is_unique(cls, model, column: str):

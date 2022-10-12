@@ -9,12 +9,12 @@ Ingest:
    LinkStaged
    LinkFeatureModel
 
-Query:
+Select:
 
 .. autosummary::
    :toctree: .
 
-   QueryResult
+   SelectResult
 
 Other:
 
@@ -29,5 +29,5 @@ from . import exception
 from ._core import session
 from ._link import LinkFeatureModel
 from ._linkstaged import LinkStaged
-from ._query_result import QueryResult
+from ._select_result import SelectResult
 from ._staged import Staged

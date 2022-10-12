@@ -7,7 +7,7 @@ from lndb_setup import settings
 from nbproject import dev, meta
 
 from ..dev.db import Staged
-from ..dev.db._query import query
+from ..dev.db._select import select
 from ..schema import core
 
 
@@ -26,14 +26,14 @@ class Ingest:
 
     def _init_dtransform(self, dsource: Union[core.jupynb, core.pipeline_run]):
         if isinstance(dsource, core.pipeline_run):
-            dtransform = query.dtransform(  # type: ignore
+            dtransform = select.dtransform(  # type: ignore
                 pipeline_run_id=dsource.id
             ).one_or_none()
             if dtransform is None:
                 dtransform = core.dtransform(pipeline_run_id=dsource.id)
             log = dict(pipeline_run=f"{dsource.name!r} ({dsource.id})")
         elif isinstance(dsource, core.jupynb):
-            dtransform = query.dtransform(  # type: ignore
+            dtransform = select.dtransform(  # type: ignore
                 jupynb_id=dsource.id, jupynb_v=dsource.v
             ).one_or_none()
             if dtransform is None:
@@ -122,7 +122,7 @@ class Ingest:
             self._dsource.v = dev.set_version(jupynb_v)
 
             # in case the nb exists already, update that entry
-            result = query.jupynb(id=self._dsource.id, v=self._dsource.v).one_or_none()  # type: ignore  # noqa
+            result = select.jupynb(id=self._dsource.id, v=self._dsource.v).one_or_none()  # type: ignore  # noqa
             if result is not None:
                 self._dsource = result
                 self._dsource.name = meta.live.title

@@ -7,7 +7,7 @@ get-started
 schema
 ingest
 link
-query-load
+select-load
 insert-update-delete
 pipeline
 introspect

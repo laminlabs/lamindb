@@ -70,7 +70,7 @@ def load(dobject: core.dobject, stream: bool = False):
 
     Populates `dtransform_in`.
 
-    Guide: :doc:`/db/guide/query-load`.
+    Guide: :doc:`/db/guide/select-load`.
     """
     if stream and dobject.suffix not in (".h5ad", ".zarr"):
         logger.warning(f"Ignoring stream option for a {dobject.suffix} object.")

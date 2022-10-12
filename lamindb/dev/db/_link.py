@@ -3,7 +3,7 @@ from lamin_logger import colors, logger
 from tabulate import tabulate  # type: ignore
 
 from ._insert import insert
-from ._query import query
+from ._select import select
 from ._update import update
 
 
@@ -121,7 +121,7 @@ class link:
 
         # use the featureset_id to create an entry in biometa
         # TODO: need to make this easier
-        dobject_biometas = query.dobject_biometa(dobject_id=dobject_id).all()  # type: ignore  # noqa
+        dobject_biometas = select.dobject_biometa(dobject_id=dobject_id).all()  # type: ignore  # noqa
         if len(dobject_biometas) == 0:
             # insert a biometa entry and link to dobject
             # TODO: force insert here
@@ -151,8 +151,8 @@ class link:
         """Link readout."""
         readout = insert.readout(efo_id=efo_id)  # type: ignore
 
-        # query biometa associated with a dobject
-        dobject_biometa = query.dobject_biometa(dobject_id=dobject_id).all()  # type: ignore  # noqa
+        # select biometa associated with a dobject
+        dobject_biometa = select.dobject_biometa(dobject_id=dobject_id).all()  # type: ignore  # noqa
         if len(dobject_biometa) > 0:
             biometa_ids = [i.biometa_id for i in dobject_biometa]
         else:
@@ -177,7 +177,7 @@ class link:
     @classmethod
     def biometa(cls, dobject_id: str, biometa_id: int):
         """Link a dobject to a biometa."""
-        dobject_biometas = getattr(query, "dobject_biometa")(
+        dobject_biometas = getattr(select, "dobject_biometa")(
             dobject_id=dobject_id, biometa_id=biometa_id
         ).all()
         if len(dobject_biometas) > 0:

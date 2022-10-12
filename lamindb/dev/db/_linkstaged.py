@@ -3,7 +3,7 @@ from typing import Dict
 from ...schema import wetlab
 from ..file import load_to_memory
 from ._link import link
-from ._query import query
+from ._select import select
 
 
 class LinkStaged:
@@ -61,13 +61,13 @@ class LinkStaged:
         Args:
             biometa: a wetlab.biometa entry
         """
-        result = query.biometa(id=biometa.id).one_or_none()  # type: ignore
+        result = select.biometa(id=biometa.id).one_or_none()  # type: ignore
         if result is None:
             self.add_entry("biometa", biometa)
         dobject_id = self._ingest.dobject.id
 
         # create an entry in the link table
-        link_entry = query.dobject_biometa(  # type: ignore
+        link_entry = select.dobject_biometa(  # type: ignore
             dobject_id=dobject_id, biometa_id=biometa.id
         ).one_or_none()
         if link_entry is None:

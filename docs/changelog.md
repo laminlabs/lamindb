@@ -37,7 +37,7 @@ Name | PR | Developer | Date | Version
 ♻️ Generalize pipeline ingestion | [237](https://github.com/laminlabs/lamindb/pull/237) | [bpenteado](https://github.com/bpenteado) | 2022-09-30 |
 ✨ Added `one_or_none`, fixed api links | [238](https://github.com/laminlabs/lamindb/pull/238) | [sunnyosun](https://github.com/sunnyosun) | 2022-09-29 |
 🎨 Get db metadata as a dictionary | [233](https://github.com/laminlabs/lamindb/pull/233) | [fredericenard](https://github.com/fredericenard) | 2022-09-29 |
-🎨 Added `.df()` as an option to return query results | [236](https://github.com/laminlabs/lamindb/pull/236) | [sunnyosun](https://github.com/sunnyosun) | 2022-09-29 |
+🎨 Added `.df()` as an option to return select results | [236](https://github.com/laminlabs/lamindb/pull/236) | [sunnyosun](https://github.com/sunnyosun) | 2022-09-29 |
 ⬆️ Upgrade pkg versions | [234](https://github.com/laminlabs/lamindb/pull/234) | [sunnyosun](https://github.com/sunnyosun) | 2022-09-29 |
 🚸 Test notebook integrity before doing anything else | [232](https://github.com/laminlabs/lamindb/pull/232) | [falexwolf](https://github.com/falexwolf) | 2022-09-26 |
 📝 Add a quickstart & update ingest | [231](https://github.com/laminlabs/lamindb/pull/231) | [falexwolf](https://github.com/falexwolf) | 2022-09-26 |
@@ -45,7 +45,7 @@ Name | PR | Developer | Date | Version
 🚚 Rename insert.features to insert.featureset_from_features | [230](https://github.com/laminlabs/lamindb/pull/230) | [sunnyosun](https://github.com/sunnyosun) | 2022-09-26 |
 📝 Polish documentation | [229](https://github.com/laminlabs/lamindb/pull/229) | [falexwolf](https://github.com/falexwolf) | 2022-09-26 |
 ✨ Populate `dobject` size | [228](https://github.com/laminlabs/lamindb/pull/228) | [falexwolf](https://github.com/falexwolf) | 2022-09-26 |
-🚸 Sort query results in DataFrame by source | [226](https://github.com/laminlabs/lamindb/pull/226) | [falexwolf](https://github.com/falexwolf) | 2022-09-25 |
+🚸 Sort select results in DataFrame by source | [226](https://github.com/laminlabs/lamindb/pull/226) | [falexwolf](https://github.com/falexwolf) | 2022-09-25 |
 ⬆️ Upgrade to core schema 0.7.3 | [223](https://github.com/laminlabs/lamindb/pull/223) | [falexwolf](https://github.com/falexwolf) | 2022-09-25 |
 🩹 Removed logging for inserting link tables | [221](https://github.com/laminlabs/lamindb/pull/221) | [sunnyosun](https://github.com/sunnyosun) | 2022-09-24 |
 ✨ Ingest bfx outputs with sample metadata | [215](https://github.com/laminlabs/lamindb/pull/215) | [bpenteado](https://github.com/bpenteado) | 2022-09-24 |
@@ -75,13 +75,13 @@ Name | PR | Developer | Date | Version
 💄 Added sidebar to guide | [185](https://github.com/laminlabs/lamindb/pull/185) | [sunnyosun](https://github.com/sunnyosun) | 2022-09-06 |
 ♻️ Segregate pipeline ingestion (runs, pipelines, and pipeline-linked dobjects) from non-pipeline ingestion (dobjects) | [183](https://github.com/laminlabs/lamindb/pull/183) | [bpenteado](https://github.com/bpenteado) | 2022-09-06 |
 ⬆️ Updated schema module versions | [184](https://github.com/laminlabs/lamindb/pull/184) | [sunnyosun](https://github.com/sunnyosun) | 2022-09-06 |
-♻️ Refactored `query` | [182](https://github.com/laminlabs/lamindb/pull/182) | [sunnyosun](https://github.com/sunnyosun) | 2022-09-05 |
-🚚 Rename `return_df` to `as_df` in `query` | [181](https://github.com/laminlabs/lamindb/pull/181) | [sunnyosun](https://github.com/sunnyosun) | 2022-09-05 |
+♻️ Refactored `select` | [182](https://github.com/laminlabs/lamindb/pull/182) | [sunnyosun](https://github.com/sunnyosun) | 2022-09-05 |
+🚚 Rename `return_df` to `as_df` in `select` | [181](https://github.com/laminlabs/lamindb/pull/181) | [sunnyosun](https://github.com/sunnyosun) | 2022-09-05 |
 🚚 Rename guides to faq and tutorials to guide | [180](https://github.com/laminlabs/lamindb/pull/180) | [falexwolf](https://github.com/falexwolf) | 2022-09-05 |
 ♻️ Refactored guide | [179](https://github.com/laminlabs/lamindb/pull/179) | [sunnyosun](https://github.com/sunnyosun) | 2022-09-03 |
 📝 Prettify documentation | [178](https://github.com/laminlabs/lamindb/pull/178) | [falexwolf](https://github.com/falexwolf) | 2022-09-02 |
 Update lndb_hub version | [176](https://github.com/laminlabs/lamindb/pull/176) | [fredericenard](https://github.com/fredericenard) | 2022-09-01 |
-✨ Allow querying dobjects by biological entities | [175](https://github.com/laminlabs/lamindb/pull/175) | [sunnyosun](https://github.com/sunnyosun) | 2022-09-01 | 0.3.4
+✨ Allow selecting dobjects by biological entities | [175](https://github.com/laminlabs/lamindb/pull/175) | [sunnyosun](https://github.com/sunnyosun) | 2022-09-01 | 0.3.4
 ⬆️ Update to sqm 0.0.8 to silence the warnings | [174](https://github.com/laminlabs/lamindb/pull/174) | [sunnyosun](https://github.com/sunnyosun) | 2022-08-30 |
 🤡 R&D team simulation | [172](https://github.com/laminlabs/lamindb/pull/172) | [sunnyosun](https://github.com/sunnyosun) | 2022-08-30 |
 🚸 Fix pipeline ingestion logging | [158](https://github.com/laminlabs/lamindb/pull/158) | [bpenteado](https://github.com/bpenteado) | 2022-08-30 |
@@ -116,7 +116,7 @@ Update lndb_hub version | [176](https://github.com/laminlabs/lamindb/pull/176) |
 ♻️ Cleaned up and added a mouse dataset | [142](https://github.com/laminlabs/lamindb/pull/142) | [sunnyosun](https://github.com/sunnyosun) | 2022-08-23 |
 ⬆️ Upgrade lndb-hub to v0.5.0 | [140](https://github.com/laminlabs/lamindb/pull/140) | [fredericenard](https://github.com/fredericenard) | 2022-08-23 |
 💄 Added logging to update and delete | [141](https://github.com/laminlabs/lamindb/pull/141) | [sunnyosun](https://github.com/sunnyosun) | 2022-08-22 |
-✨ Autogenerate `query`, `update` and `delete` functions | [139](https://github.com/laminlabs/lamindb/pull/139) | [sunnyosun](https://github.com/sunnyosun) | 2022-08-22 |
+✨ Autogenerate `select`, `update` and `delete` functions | [139](https://github.com/laminlabs/lamindb/pull/139) | [sunnyosun](https://github.com/sunnyosun) | 2022-08-22 |
 ⬆️ Upgrade core schema to v0.4.0 | [138](https://github.com/laminlabs/lamindb/pull/138) | [falexwolf](https://github.com/falexwolf) | 2022-08-22 |
 ✨ Track storage root location | [137](https://github.com/laminlabs/lamindb/pull/137) | [fredericenard](https://github.com/fredericenard) | 2022-08-22 |
 🚚 Rename schema modules and bioinformatics module | [136](https://github.com/laminlabs/lamindb/pull/136) | [falexwolf](https://github.com/falexwolf) | 2022-08-19 |
@@ -133,13 +133,13 @@ Update lndb_hub version | [176](https://github.com/laminlabs/lamindb/pull/176) |
 ⬆️ Upgrade to `lndb_setup` 0.4.2 | [123](https://github.com/laminlabs/lamindb/pull/123) | [falexwolf](https://github.com/falexwolf) | 2022-08-02 | 0.2.0
 📝 Polish the `introspect` tutorial | [122](https://github.com/laminlabs/lamindb/pull/122) | [falexwolf](https://github.com/falexwolf) | 2022-08-02 |
 📝 Polish the 4 key tutorial pages | [121](https://github.com/laminlabs/lamindb/pull/121) | [falexwolf](https://github.com/falexwolf) | 2022-08-02 |
-📝 Polish `get-started` & `query-data` | [119](https://github.com/laminlabs/lamindb/pull/119) | [falexwolf](https://github.com/falexwolf) | 2022-08-01 |
-✨ Allow ingesting fcs files and querying genes | [118](https://github.com/laminlabs/lamindb/pull/118) | [sunnyosun](https://github.com/sunnyosun) | 2022-08-01 |
+📝 Polish `get-started` & `select-data` | [119](https://github.com/laminlabs/lamindb/pull/119) | [falexwolf](https://github.com/falexwolf) | 2022-08-01 |
+✨ Allow ingesting fcs files and selecting genes | [118](https://github.com/laminlabs/lamindb/pull/118) | [sunnyosun](https://github.com/sunnyosun) | 2022-08-01 |
 📝 Prettify user mentions in guide & faq | [117](https://github.com/laminlabs/lamindb/pull/117) | [falexwolf](https://github.com/falexwolf) | 2022-08-01 |
 ⬆️ Upgrade to `lndb_setup` 0.4.0 | [116](https://github.com/laminlabs/lamindb/pull/116) | [falexwolf](https://github.com/falexwolf) | 2022-08-01 |
-🎨 Overhauled guide, renamed `load` to `query.table_as_df` | [115](https://github.com/laminlabs/lamindb/pull/115) | [sunnyosun](https://github.com/sunnyosun) | 2022-08-01 |
+🎨 Overhauled guide, renamed `load` to `select.table_as_df` | [115](https://github.com/laminlabs/lamindb/pull/115) | [sunnyosun](https://github.com/sunnyosun) | 2022-08-01 |
 🩹 Some fixes of ingesting in-memory dobjects and an analysis draft | [114](https://github.com/laminlabs/lamindb/pull/114) | [falexwolf](https://github.com/falexwolf) | 2022-07-31 |
-✨ Query and update metadata | [113](https://github.com/laminlabs/lamindb/pull/113) | [sunnyosun](https://github.com/sunnyosun) | 2022-07-31 |
+✨ Select and update metadata | [113](https://github.com/laminlabs/lamindb/pull/113) | [sunnyosun](https://github.com/sunnyosun) | 2022-07-31 |
 📝 Add a problem statement | [112](https://github.com/laminlabs/lamindb/pull/112) | [falexwolf](https://github.com/falexwolf) | 2022-07-31 |
 ⬆️ Upgrade to `lamindb-schema` 0.3.1 | [111](https://github.com/laminlabs/lamindb/pull/111) | [falexwolf](https://github.com/falexwolf) | 2022-07-31 |
 🚧 Annotate features during ingestion | [110](https://github.com/laminlabs/lamindb/pull/110) | [sunnyosun](https://github.com/sunnyosun) | 2022-07-31 |

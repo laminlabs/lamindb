@@ -1,11 +1,11 @@
 """Manage data.
 
-Query & load:
+Select & load:
 
 .. autosummary::
    :toctree: .
 
-   query
+   select
    load
 
 Ingest data:
@@ -51,7 +51,7 @@ from lndb_hub import hub  # noqa, currently not documented as being overhauled
 from ..dev.db import session  # noqa
 from ..dev.db._insert import insert  # noqa
 from ..dev.db._link import link  # noqa
-from ..dev.db._query import query  # noqa
+from ..dev.db._select import select  # noqa
 from ..dev.db._update import update  # noqa
 from ._delete import delete  # noqa
 from ._ingest import Ingest  # noqa
