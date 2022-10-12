@@ -140,6 +140,8 @@ class Ingest:
             # are available for downstream use
             session.refresh(self._dsource)
             session.refresh(self._dtransform)
+        # sync db after changing locally
+        settings.instance._update_cloud_sqlite_file()
 
         for filepath_str, staged in self._staged.items():
             # TODO: run the appropriate clean-up operations if any aspect
