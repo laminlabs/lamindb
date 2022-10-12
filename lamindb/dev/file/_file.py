@@ -2,17 +2,20 @@ import shutil
 from pathlib import Path
 from typing import Union
 
-import anndata as ad
 import pandas as pd
 import readfcs
 from cloudpathlib import CloudPath
 from lndb_setup import settings
 
+from ._h5ad import read_adata_h5ad
+from ._zarr import read_adata_zarr
+
 READER_FUNCS = {
     ".csv": pd.read_csv,
-    ".h5ad": ad.read,
+    ".h5ad": read_adata_h5ad,
     ".feather": pd.read_feather,
     ".fcs": readfcs.read,
+    ".zarr": read_adata_zarr,
 }
 
 
@@ -39,8 +42,19 @@ def delete_file(storagekey: str):
     storagepath.unlink()
 
 
-def load_to_memory(filepath: Union[str, Path]):
-    filepath = Path(filepath)
+def load_to_memory(filepath: Union[str, Path], stream: bool = False):
+    if isinstance(filepath, str):
+        filepath = Path(filepath)
+
+    if filepath.suffix == ".zarr":
+        stream = True
+    elif filepath.suffix != ".h5ad":
+        stream = False
+
+    if not stream:
+        # caching happens here if filename is a CloudPath
+        filepath = Path(filepath)
+
     reader = READER_FUNCS.get(filepath.suffix)
     if reader is None:
         raise NotImplementedError

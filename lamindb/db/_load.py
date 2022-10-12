@@ -63,7 +63,7 @@ def populate_dtransform_in(dobject):
         settings.instance._update_cloud_sqlite_file()
 
 
-def load(dobject: core.dobject):
+def load(dobject: core.dobject, stream: bool = False):
     """Load data object into memory.
 
     Returns object associated with the stored `dobject`.
@@ -72,7 +72,10 @@ def load(dobject: core.dobject):
 
     Guide: :doc:`/db/guide/query-load`.
     """
+    if stream and dobject.suffix not in (".h5ad", ".zarr"):
+        logger.warning(f"Ignoring stream option for a {dobject.suffix} object.")
+
     filepath = filepath_from_dobject(dobject)
     populate_dtransform_in(dobject)
     track_usage(dobject.id, "load")
-    return load_to_memory(filepath)
+    return load_to_memory(filepath, stream=stream)
