@@ -3,6 +3,7 @@
 <!-- prettier-ignore -->
 Name | PR | Developer | Date | Version
 --- | --- | --- | --- | ---
+💄 Cosmetics | [276](https://github.com/laminlabs/lamindb/pull/276) | [falexwolf](https://github.com/falexwolf) | 2022-10-12 |
 ♻️ Refactor ingest & insert | [273](https://github.com/laminlabs/lamindb/pull/273) | [falexwolf](https://github.com/falexwolf) | 2022-10-11 |
 :sparkles: Compute checksum during ingest | [274](https://github.com/laminlabs/lamindb/pull/274) | [fredericenard](https://github.com/fredericenard) | 2022-10-11 |
 🚚 Moved bfx ingestion to faq | [272](https://github.com/laminlabs/lamindb/pull/272) | [sunnyosun](https://github.com/sunnyosun) | 2022-10-11 |
