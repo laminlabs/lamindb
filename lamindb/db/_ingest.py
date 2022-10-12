@@ -1,9 +1,6 @@
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Union
 
-if False:  # TYPE_CHECKING
-    from typing import Literal
-
 import sqlmodel as sqm
 from lamin_logger import logger
 from lndb_setup import settings
@@ -63,7 +60,7 @@ class Ingest:
         *,
         name: Optional[str] = None,
         dobject_id: Optional[str] = None,
-        adata_format: Optional[Literal["h5ad", "zarr"]] = None,
+        adata_format: Optional[str] = None,
     ) -> Staged:
         """Stage dobject for ingestion.
 

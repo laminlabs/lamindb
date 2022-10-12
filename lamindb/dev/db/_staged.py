@@ -3,9 +3,6 @@ from pathlib import Path
 from sys import getsizeof
 from typing import Any, Optional
 
-if False:  # TYPE_CHECKING
-    from typing import Literal
-
 import lnschema_core as core
 from lndb_setup import settings
 
@@ -37,7 +34,7 @@ class Staged:
         dtransform: core.dtransform,
         name: Optional[str] = None,
         dobject_id: Optional[str] = None,
-        adata_format: Optional[Literal["h5ad", "zarr"]] = None,
+        adata_format: Optional[str] = None,
     ) -> None:
         self._data = data  # input data object provided by user
         self._dmem = None  # in-memory object
