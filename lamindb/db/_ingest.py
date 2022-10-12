@@ -129,12 +129,12 @@ class Ingest:
             session.refresh(self._dsource)
             session.refresh(self._dtransform)
 
-        for filepath_str, ingest in self._staged.items():
+        for filepath_str, staged in self._staged.items():
             # TODO: run the appropriate clean-up operations if any aspect
             # of the ingestion fails
-            ingest._commit()
+            staged._commit()
             self._logs.append(
-                {**ingest.datalog, **self._dtransformlog, **self._userlog}
+                {**staged.datalog, **self._dtransformlog, **self._userlog}
             )
 
         if isinstance(self._dsource, core.jupynb):
