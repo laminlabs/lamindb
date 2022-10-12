@@ -142,6 +142,7 @@ class Staged:
 
 
 def compute_checksum(path: Path):
+    # based on https://stackoverflow.com/questions/3431825/generating-an-md5-checksum-of-a-file  # noqa
     hash_md5 = hashlib.md5()
     with open(path, "rb") as file:
         for chunk in iter(lambda: file.read(4096), b""):
