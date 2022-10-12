@@ -62,7 +62,10 @@ class Ingest:
         dobject_id: Optional[str] = None,
         adata_format: Optional[str] = None,
     ) -> Staged:
-        """Stage dobject for ingestion.
+        """Stage data object for ingestion.
+
+        Returns a staged object that can be linked against metadata, see
+        :class:`~lamindb.dev.db.Staged`.
 
         Args:
             data: filepath or in-memory objects
