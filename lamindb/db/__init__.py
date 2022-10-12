@@ -1,5 +1,12 @@
 """Manage data.
 
+View data:
+
+.. autosummary::
+   :toctree: .
+
+   view
+
 Select & load:
 
 .. autosummary::
@@ -56,3 +63,4 @@ from ..dev.db._update import update  # noqa
 from ._delete import delete  # noqa
 from ._ingest import Ingest  # noqa
 from ._load import load  # noqa
+from ._view import view  # noqa
