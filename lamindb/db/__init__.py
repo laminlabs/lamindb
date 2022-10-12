@@ -37,7 +37,7 @@ Link metadata:
 
    link
 
-A `SQLModel <https://sqlmodel.tiangolo.com>`__ session:
+Get a `SQLModel <https://sqlmodel.tiangolo.com>`__ session:
 
 .. autosummary::
    :toctree: .

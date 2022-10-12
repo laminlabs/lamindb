@@ -3,7 +3,7 @@ from lndb_setup import settings
 
 
 def session() -> sqm.Session:
-    """Connection session to DB engine.
+    """Get connection session to DB engine.
 
     Returns a `sqlmodel.Session` object.
     """
