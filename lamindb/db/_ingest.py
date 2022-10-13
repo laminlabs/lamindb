@@ -11,6 +11,17 @@ from ..dev.db._select import select
 from ..schema import core
 
 
+def set_nb_version(version):
+    if version is not None:
+        return version
+    else:
+        if meta.store.version == "draft":
+            version = "1"
+        else:
+            version = meta.store.version
+        return version
+
+
 class Ingest:
     """Ingest data.
 
@@ -100,13 +111,14 @@ class Ingest:
             dobjects.append(entry)
         return dobjects
 
-    def commit(self, jupynb_v: str = None, i_confirm_i_saved: bool = False) -> None:
+    def commit(self, *, nb_v: str = None, i_confirm_i_saved: bool = False) -> None:
         """Commit data to object storage and database.
 
         Args:
-            jupynb_v: Notebook version to publish. Is automatically set if `None`.
-            i_confirm_i_saved: Only relevant outside Jupyter Lab as a safeguard against
-                losing the editor buffer content because of accidentally publishing.
+            nb_v: Notebook version to publish. Is automatically bumped from
+                "draft" to "1" if `None`.
+            i_confirm_i_saved: Only relevant outside Jupyter Lab & Notebook as a
+                safeguard against losing the editor buffer content.
         """
         if self._committed:
             logger.error("Already committed")
@@ -122,7 +134,7 @@ class Ingest:
                 return result
 
             # version to be set in finalize_publish()
-            self._dsource.v = dev.set_version(jupynb_v)
+            self._dsource.v = set_nb_version(nb_v)
 
             # in case the nb exists already, update that entry
             result = select.jupynb(id=self._dsource.id, v=self._dsource.v).one_or_none()  # type: ignore  # noqa
@@ -146,13 +158,18 @@ class Ingest:
         # sync db after changing locally
         settings.instance._update_cloud_sqlite_file()
 
+        # one run that commits all dobjects
         for filepath_str, staged in self._staged.items():
             # TODO: run the appropriate clean-up operations if any aspect
             # of the ingestion fails
-            staged._commit()
+            staged._commit_dobject()
             self._logs.append(
                 {**staged._datalog, **self._dtransformlog, **self._userlog}
             )
+
+        # one run that commits all linked entries
+        for filepath_str, staged in self._staged.items():
+            staged._commit_entries()
 
         if isinstance(self._dsource, core.jupynb):
             jupynb = self._dsource
@@ -165,7 +182,7 @@ class Ingest:
 
         self._committed = True
         if isinstance(self._dsource, core.jupynb):
-            finalize_publish(version=jupynb_v, calling_statement="commit(")
+            finalize_publish(version=self._dsource.v, calling_statement="commit(")
 
     def _print_logging_table(
         self, message: str = "Ingested the following dobjects:"

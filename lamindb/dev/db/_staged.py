@@ -95,7 +95,7 @@ class Staged:
             self._entries[table_name] = []
         self._entries[table_name].append(entry)
 
-    def link(self, entry: sqm.SQLModel) -> "Staged":
+    def link(self, entry: sqm.SQLModel, field: str = None) -> "Staged":
         """Link entry of table to the staged data object.
 
         The table needs to be linked to dobject through a link table or by
@@ -123,17 +123,27 @@ class Staged:
         # if there is no link table, does the entity have a column linking
         # to dobject?
         else:
-            fks = get_foreign_keys(table_name)
+            fks = get_foreign_keys(table_name, referred=("dobject", "id"))
             if ("dobject", "id") not in fks.values():
                 raise RuntimeError(
                     "You can only link tables that have a foreign key or link table to"
                     " dobject."
                 )
             else:
-                for k, v in fks.items():
-                    if v == ("dobject", "id"):
-                        break
-            setattr(entry, k, self.dobject.id)
+                if field is None:
+                    if len(fks) > 1:
+                        raise RuntimeError(
+                            f"Cannot infer field name in {table_name} to populate with"
+                            " dobject_id."
+                        )
+                    else:
+                        field = list(fks.keys())[0]
+                else:
+                    if field not in fks:
+                        raise RuntimeError(
+                            f"Field name {field} does not exist in table {table_name}."
+                        )
+            setattr(entry, field, self.dobject.id)
             self._add_entry(entry)
         return self
 
@@ -180,7 +190,7 @@ class Staged:
         """Unstage all linked entries."""
         self._entries = {}
 
-    def _commit(self) -> None:
+    def _commit_dobject(self) -> None:
         """Store and insert dobject and its linked entries."""
         dobject_storage_key = f"{self.dobject.id}{self.dobject.suffix}"
 
@@ -198,10 +208,6 @@ class Staged:
             dobject=self.dobject, dtransform_id=self._dtransform.id  # type:ignore
         )
 
-        # insert all linked entries
-        for table_name, entries in self.linked.items():
-            insert.from_list(table_name=table_name, entries=entries)  # type:ignore
-
         # insert features and link to dobject
         if self._feature_model is not None:
             self._feature_model["model"].ingest(
@@ -209,6 +215,11 @@ class Staged:
             )
 
         track_usage(self.dobject.id, usage_type="ingest")
+
+    def _commit_entries(self) -> None:
+        # insert all linked entries
+        for table_name, entries in self.linked.items():
+            insert.from_list(table_name=table_name, entries=entries)  # type:ignore
 
 
 def compute_checksum(path: Path):

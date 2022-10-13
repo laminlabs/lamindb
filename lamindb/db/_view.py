@@ -1,6 +1,7 @@
 from typing import Optional
 
 from IPython.display import display
+from lamin_logger import colors
 
 from .. import schema
 from ..dev.db._select import select
@@ -37,10 +38,13 @@ def view(n: int = 10, schema_modules: Optional[list] = None):
         ]
         if len(set(tables).intersection(all_tables)) == 0:
             continue
-        divider = "*" * 5
-        print(f"{divider} {module} {divider}")
+        section = f"* module: {colors.green(colors.bold(module))} *"
+        section_no_color = f"* module: {module} *"
+        print("*" * len(section_no_color))
+        print(section)
+        print("*" * len(section_no_color))
         for entity in tables:
             df = getattr(select, entity)().df()
             if df.shape[0] > 0:
-                print(entity)
+                print(colors.blue(colors.bold(entity)))
                 display(df.iloc[-n:])

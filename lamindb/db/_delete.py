@@ -31,7 +31,7 @@ def _create_delete_func(model):
             session.commit()
             settings.instance._update_cloud_sqlite_file()
             logger.success(
-                f"Deleted {colors.yellow(f'row {key}')} in"
+                f"Deleted {colors.yellow(f'entry {key}')} in"
                 f" {colors.blue(f'table {name}')}."
             )
         if name == "dobject":

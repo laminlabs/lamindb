@@ -9,5 +9,5 @@ flow
 ingest-same-file-twice
 select
 ingest-bfx
-pg-ingest
+postgres
 ```
