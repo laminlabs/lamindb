@@ -111,13 +111,14 @@ class Ingest:
             dobjects.append(entry)
         return dobjects
 
-    def commit(self, jupynb_v: str = None, i_confirm_i_saved: bool = False) -> None:
+    def commit(self, *, nb_v: str = None, i_confirm_i_saved: bool = False) -> None:
         """Commit data to object storage and database.
 
         Args:
-            jupynb_v: Notebook version to publish. Is automatically set if `None`.
-            i_confirm_i_saved: Only relevant outside Jupyter Lab as a safeguard against
-                losing the editor buffer content because of accidentally publishing.
+            nb_v: Notebook version to publish. Is automatically bumped from
+                "draft" to "1" if `None`.
+            i_confirm_i_saved: Only relevant outside Jupyter Lab & Notebook as a
+                safeguard against losing the editor buffer content.
         """
         if self._committed:
             logger.error("Already committed")
@@ -133,7 +134,7 @@ class Ingest:
                 return result
 
             # version to be set in finalize_publish()
-            self._dsource.v = set_nb_version(jupynb_v)
+            self._dsource.v = set_nb_version(nb_v)
 
             # in case the nb exists already, update that entry
             result = select.jupynb(id=self._dsource.id, v=self._dsource.v).one_or_none()  # type: ignore  # noqa
@@ -181,7 +182,7 @@ class Ingest:
 
         self._committed = True
         if isinstance(self._dsource, core.jupynb):
-            finalize_publish(version=jupynb_v, calling_statement="commit(")
+            finalize_publish(version=nb_v, calling_statement="commit(")
 
     def _print_logging_table(
         self, message: str = "Ingested the following dobjects:"
