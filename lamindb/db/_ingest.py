@@ -182,7 +182,7 @@ class Ingest:
 
         self._committed = True
         if isinstance(self._dsource, core.jupynb):
-            finalize_publish(version=nb_v, calling_statement="commit(")
+            finalize_publish(version=self._dsource.v, calling_statement="commit(")
 
     def _print_logging_table(
         self, message: str = "Ingested the following dobjects:"
