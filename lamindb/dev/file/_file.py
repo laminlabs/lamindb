@@ -43,6 +43,10 @@ def delete_file(storagekey: str):
 
 
 def load_to_memory(filepath: Union[str, Path], stream: bool = False):
+    """Load a file into memory.
+
+    Returns the filepath if no in-memory form is found.
+    """
     if isinstance(filepath, str):
         filepath = Path(filepath)
 
@@ -57,6 +61,6 @@ def load_to_memory(filepath: Union[str, Path], stream: bool = False):
 
     reader = READER_FUNCS.get(filepath.suffix)
     if reader is None:
-        raise NotImplementedError
+        return filepath
     else:
         return reader(filepath)
