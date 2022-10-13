@@ -146,13 +146,18 @@ class Ingest:
         # sync db after changing locally
         settings.instance._update_cloud_sqlite_file()
 
+        # one run that commits all dobjects
         for filepath_str, staged in self._staged.items():
             # TODO: run the appropriate clean-up operations if any aspect
             # of the ingestion fails
-            staged._commit()
+            staged._commit_dobjects()
             self._logs.append(
                 {**staged._datalog, **self._dtransformlog, **self._userlog}
             )
+
+        # one run that commits all linked entries
+        for filepath_str, staged in self._staged.items():
+            staged._commit_entries()
 
         if isinstance(self._dsource, core.jupynb):
             jupynb = self._dsource

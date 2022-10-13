@@ -13,16 +13,19 @@ def session() -> sqm.Session:
     return sqm.Session(settings.instance.db_engine())
 
 
-def get_foreign_keys(table_name, inspector=None):
+def get_foreign_keys(table_name: str, inspector=None, referred: tuple[str, str] = None):
     if inspector is None:
         inspector = sa.inspect(settings.instance.db_engine())
-    return {
+    result = {
         column["constrained_columns"][0]: (
             column["referred_table"],
             column["referred_columns"][0],
         )
         for column in inspector.get_foreign_keys(table_name)
     }
+    if referred is not None:
+        result = {k: v for k, v in result.items() if v == referred}
+    return result
 
 
 def get_link_tables(inspector=None):
