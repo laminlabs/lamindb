@@ -3,17 +3,18 @@
 <!-- prettier-ignore -->
 Name | PR | Developer | Date | Version
 --- | --- | --- | --- | ---
-🎨 Continue overhaul | [285](https://github.com/laminlabs/lamindb/pull/285) | [falexwolf](https://github.com/falexwolf) | 2022-10-13 |
+🎨 Clean up dtransform_in | [commit](https://github.com/laminlabs/lamindb/commit/429abf1c12b2e518e6d65329e4c4067e96d28fec) | [falexwolf](https://github.com/falexwolf) | 2022-10-13 | 0.9.1
+🎨 Continue overhaul | [285](https://github.com/laminlabs/lamindb/pull/285) | [falexwolf](https://github.com/falexwolf) | 2022-10-13 | 0.9.0
 🎨 Refactor linking dobjects & base64 encode checksum | [283](https://github.com/laminlabs/lamindb/pull/283) | [falexwolf](https://github.com/falexwolf) | 2022-10-13 |
 🐛 View only prints existing tables | [284](https://github.com/laminlabs/lamindb/pull/284) | [sunnyosun](https://github.com/sunnyosun) | 2022-10-12 |
 ✨ Added `db.view`, rename `schema.draw` to `schema.view` | [282](https://github.com/laminlabs/lamindb/pull/282) | [sunnyosun](https://github.com/sunnyosun) | 2022-10-12 | 0.8.3
 ⬆️ Added bioreadout lookup to guide | [281](https://github.com/laminlabs/lamindb/pull/281) | [sunnyosun](https://github.com/sunnyosun) | 2022-10-12 |
 🚚 Rename query to select | [280](https://github.com/laminlabs/lamindb/pull/280) | [falexwolf](https://github.com/falexwolf) | 2022-10-12 |
-:adhesive_bandage: Fix out of sync db warning | [279](https://github.com/laminlabs/lamindb/pull/279) | [Koncopd](https://github.com/Koncopd) | 2022-10-12 |
-:sparkles: Add streaming zarr writes and streaming h5ad and zarr reads | [277](https://github.com/laminlabs/lamindb/pull/277) | [Koncopd](https://github.com/Koncopd) | 2022-10-12 |
+🩹 Fix out of sync db warning | [279](https://github.com/laminlabs/lamindb/pull/279) | [Koncopd](https://github.com/Koncopd) | 2022-10-12 |
+✨ Add streaming zarr writes and streaming h5ad and zarr reads | [277](https://github.com/laminlabs/lamindb/pull/277) | [Koncopd](https://github.com/Koncopd) | 2022-10-12 |
 💄 Cosmetics | [276](https://github.com/laminlabs/lamindb/pull/276) | [falexwolf](https://github.com/falexwolf) | 2022-10-12 |
 ♻️ Refactor ingest & insert | [273](https://github.com/laminlabs/lamindb/pull/273) | [falexwolf](https://github.com/falexwolf) | 2022-10-11 |
-:sparkles: Compute checksum during ingest | [274](https://github.com/laminlabs/lamindb/pull/274) | [fredericenard](https://github.com/fredericenard) | 2022-10-11 |
+✨ Compute checksum during ingest | [274](https://github.com/laminlabs/lamindb/pull/274) | [fredericenard](https://github.com/fredericenard) | 2022-10-11 |
 🚚 Moved bfx ingestion to faq | [272](https://github.com/laminlabs/lamindb/pull/272) | [sunnyosun](https://github.com/sunnyosun) | 2022-10-11 |
 ⬆️ Upgrade to `lndb_setup` 0.12.0 | [271](https://github.com/laminlabs/lamindb/pull/271) | [falexwolf](https://github.com/falexwolf) | 2022-10-10 | 0.8.2
 📝 Improved ingest guides, fixed linked entry bugs | [270](https://github.com/laminlabs/lamindb/pull/270) | [sunnyosun](https://github.com/sunnyosun) | 2022-10-10 |
