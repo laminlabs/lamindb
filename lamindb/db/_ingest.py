@@ -150,7 +150,7 @@ class Ingest:
         for filepath_str, staged in self._staged.items():
             # TODO: run the appropriate clean-up operations if any aspect
             # of the ingestion fails
-            staged._commit_dobjects()
+            staged._commit_dobject()
             self._logs.append(
                 {**staged._datalog, **self._dtransformlog, **self._userlog}
             )
