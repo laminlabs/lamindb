@@ -17,8 +17,8 @@ def _create_delete_func(model):
             if entry is None:
                 logger.warning(f"Entry {key} does not exist.")
                 return None
-            # delete usage events related to the dobject that's to be deleted
             if name == "dobject":
+                # delete usage events related to the dobject that's to be deleted
                 events = session.exec(
                     sqm.select(schema_core.usage).where(
                         schema_core.usage.dobject_id == key
@@ -26,6 +26,15 @@ def _create_delete_func(model):
                 )
                 for event in events:
                     session.delete(event)
+                session.commit()
+                # delete dtransform_ins related to the dobject that's to be deleted
+                dtransform_ins = session.exec(
+                    sqm.select(schema_core.dtransform_in).where(
+                        schema_core.dtransform_in.dobject_id == key
+                    )
+                )
+                for dtransform_in in dtransform_ins:
+                    session.delete(dtransform_in)
                 session.commit()
             session.delete(entry)
             session.commit()
