@@ -62,7 +62,10 @@ class Ingest:
         dobject_id: Optional[str] = None,
         adata_format: Optional[str] = None,
     ) -> Staged:
-        """Stage dobject for ingestion.
+        """Stage data object for ingestion.
+
+        Returns a staged object that can be linked against metadata, see
+        :class:`~lamindb.dev.db.Staged`.
 
         Args:
             data: filepath or in-memory objects
@@ -77,7 +80,7 @@ class Ingest:
             dobject_id=dobject_id,
             adata_format=adata_format,
         )
-        self._staged[staged.filepath.as_posix()] = staged
+        self._staged[staged._filepath.as_posix()] = staged
         return staged
 
     def remove(self, filepath: Union[str, Path]) -> None:
@@ -148,7 +151,7 @@ class Ingest:
             # of the ingestion fails
             staged._commit()
             self._logs.append(
-                {**staged.datalog, **self._dtransformlog, **self._userlog}
+                {**staged._datalog, **self._dtransformlog, **self._userlog}
             )
 
         if isinstance(self._dsource, core.jupynb):

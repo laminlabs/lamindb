@@ -21,8 +21,7 @@ def test_get_name_suffix_from_filepath():
 
 def test_compute_checksum():
     dataset = [
-        ("file_1.txt", "a", "0cc175b9c0f1b6a831c399e269772661"),
-        ("file_2.txt", "abc", "900150983cd24fb0d6963f7d28e17f72"),
+        ("file_1.txt", "a", "DMF1ucDxtqgxw5niaXcmYQ"),
     ]
     for path, content, checksum in dataset:
         filepath = Path(path)
