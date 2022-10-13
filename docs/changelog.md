@@ -3,6 +3,7 @@
 <!-- prettier-ignore -->
 Name | PR | Developer | Date | Version
 --- | --- | --- | --- | ---
+🎨 Continue overhaul | [285](https://github.com/laminlabs/lamindb/pull/285) | [falexwolf](https://github.com/falexwolf) | 2022-10-13 |
 🎨 Refactor linking dobjects & base64 encode checksum | [283](https://github.com/laminlabs/lamindb/pull/283) | [falexwolf](https://github.com/falexwolf) | 2022-10-13 |
 🐛 View only prints existing tables | [284](https://github.com/laminlabs/lamindb/pull/284) | [sunnyosun](https://github.com/sunnyosun) | 2022-10-12 |
 ✨ Added `db.view`, rename `schema.draw` to `schema.view` | [282](https://github.com/laminlabs/lamindb/pull/282) | [sunnyosun](https://github.com/sunnyosun) | 2022-10-12 | 0.8.3
