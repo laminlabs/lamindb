@@ -8,7 +8,7 @@ import sqlmodel as sqm
 from lndb_setup import settings
 
 from ...schema._table import Table
-from ._core import get_foreign_keys, get_link_tables
+from ._core import get_foreign_keys
 from ._select_result import SelectResult
 from ._track_usage import track_usage
 
@@ -145,9 +145,10 @@ class LinkedSelect:
     """Linked queries."""
 
     parent_dict = {
-        "species": "biosample",
-        "biosample_techsample": "biosample",
-        "biosample": "biometa",
+        "species": ["biosample"],
+        "biosample_techsample": ["biosample"],
+        "biosample": ["biometa"],
+        "user": ["jupynb", "pipeline_run"],
     }
 
     def __init__(self) -> None:
@@ -186,10 +187,34 @@ class LinkedSelect:
 
         return foreign_keys_backpop
 
-    @cached_property
-    def link_tables(self):
-        """Link tables."""
-        return get_link_tables(self._inspector)
+    def get_parent_tables(self, table_name: str):
+        """Return all tables containing a column with foreign key to the provided table.
+
+        Returns {parent_table_name : referred_column}
+        """
+        fks = self.foreign_keys_backpop.get(table_name)
+        if fks is not None:
+            prefix_parents = self.parent_dict.get(table_name)
+            if prefix_parents is not None:
+                return {i: fks["id"][i] for i in prefix_parents}
+            return fks["id"]
+
+    def select_from_parents(
+        self, results: list, constrained_column: str, parent_tables: dict
+    ) -> list:
+        """Returns select results from parent tables."""
+        parent_results = []
+        for result in results:
+            for parent_table_name, referred_column in parent_tables.items():
+                parent_result = getattr(select, parent_table_name)(
+                    **{referred_column: result.__getattribute__(constrained_column)}
+                ).all()
+                parent_results += parent_result
+        return parent_results
+
+    def get_pks(self, table_name: str) -> list:
+        """Return a list of primary keys."""
+        return self._inspector.get_pk_constraint(table_name)
 
     def select(self, entity_return, entity, entity_kwargs):
         """Select linked tables via foreign key constraint.
@@ -204,48 +229,56 @@ class LinkedSelect:
 
         current_name = start
         while current_name != end:
-            if (
-                "id"
-                in self._inspector.get_pk_constraint(current_name)[
-                    "constrained_columns"
-                ]
-            ):
+            print(current_name)
+            if "id" in self.get_pks(current_name):
                 # id is the primary key of current table, aka not a link table
                 referred_column = f"{current_name}_id"
                 constrained_column = "id"
                 parent_name = None
                 # if current module id is not present in any other modules as foreign keys  # noqa
                 # checks if the any parent module is linked via primary key
-                if self.parent_dict.get(current_name) is not None:
-                    # specify certain path
-                    parent_name = self.parent_dict.get(current_name)
+                parent_tables = self.get_parent_tables(current_name)
+                # prefix_parents = self.parent_dict.get(current_name)
+                # if prefix_parents is not None:
+                #     # specify certain path
+                #     if isinstance(prefix_parents, list):
+                #         parent_name = {
+                #             i: self.foreign_keys_backpop[current_name]["id"][i]
+                #             for i in prefix_parents
+                #         }
+                #     else:
+                #         parent_name = prefix_parents
+                #         referred_column = self.foreign_keys_backpop[current_name]["id"][ # noqa
+                #             parent_name
+                #         ]
+
+                if self.foreign_keys_backpop.get(current_name) is None:
+                    for foreign_key in self._inspector.get_foreign_keys(current_name):
+                        if foreign_key["constrained_columns"] == foreign_key[
+                            "referred_columns"
+                        ] and ("id" in foreign_key["referred_columns"]):
+                            parent_name = foreign_key["referred_table"]
+                            constrained_column = "id"
+                            referred_column = "id"
                 else:
-                    if self.foreign_keys_backpop.get(current_name) is None:
-                        for foreign_key in self._inspector.get_foreign_keys(
-                            current_name
-                        ):
-                            if foreign_key["constrained_columns"] == foreign_key[
-                                "referred_columns"
-                            ] and ("id" in foreign_key["referred_columns"]):
-                                parent_name = foreign_key["referred_table"]
-                                constrained_column = "id"
-                                referred_column = "id"
-                    else:
-                        parents = self.foreign_keys_backpop.get(current_name)
-                        if parents.get("id") is not None:
-                            for name, referred_column in parents["id"].items():
-                                if referred_column in ["id", "v"]:
-                                    continue
-                                if name == end:
-                                    parent_name = name
-                                    break
+                    parents = self.foreign_keys_backpop.get(current_name)
+                    if parents.get("id") is not None:
+                        for name, referred_column in parents["id"].items():
+                            if referred_column in ["id", "v"]:
+                                continue
+                            if name == end:
                                 parent_name = name
-                parent_results = []
-                for result in results:
-                    parent_result = getattr(select, parent_name)(
-                        **{referred_column: result.__getattribute__(constrained_column)}
-                    ).all()
-                    parent_results += parent_result
+                                break
+                            parent_name = name
+
+                # select results from parent tables
+                if isinstance(parent_name, str):
+                    parent_table = {parent_name: referred_column}
+                else:
+                    parent_table = parent_tables
+                parent_results = self.select_from_parents(
+                    results, constrained_column, parent_table
+                )
                 results = parent_results
             else:
                 # if it is a link table to the end module
@@ -271,6 +304,10 @@ class LinkedSelect:
                     results = parent_results
                 else:
                     pass
+
+            # move up 1 level
+            if current_name == parent_name:
+                raise RuntimeError(f"Linked query got stuck at table {current_name}")
             current_name = parent_name
 
         return results
