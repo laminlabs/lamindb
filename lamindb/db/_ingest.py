@@ -11,6 +11,17 @@ from ..dev.db._select import select
 from ..schema import core
 
 
+def set_nb_version(version):
+    if version is not None:
+        return version
+    else:
+        if meta.store.version == "draft":
+            version = "1"
+        else:
+            version = meta.store.version
+        return version
+
+
 class Ingest:
     """Ingest data.
 
@@ -122,7 +133,7 @@ class Ingest:
                 return result
 
             # version to be set in finalize_publish()
-            self._dsource.v = dev.set_version(jupynb_v)
+            self._dsource.v = set_nb_version(jupynb_v)
 
             # in case the nb exists already, update that entry
             result = select.jupynb(id=self._dsource.id, v=self._dsource.v).one_or_none()  # type: ignore  # noqa
