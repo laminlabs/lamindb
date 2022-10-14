@@ -198,6 +198,8 @@ class LinkedSelect:
             if prefix_parents is not None:
                 return {i: fks["id"][i] for i in prefix_parents}
             return fks["id"]
+        else:
+            pass
 
     def select_from_parents(
         self, results: list, constrained_column: str, parent_tables: dict
