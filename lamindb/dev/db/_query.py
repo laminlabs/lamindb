@@ -4,6 +4,7 @@ from typing import Dict, Optional
 
 import bionty as bt
 from lndb_setup import settings
+from lndb_setup._settings_store import InstanceSettingsStore
 from sqlalchemy import inspect
 from sqlmodel import Session, select
 
@@ -12,8 +13,14 @@ from ._query_result import QueryResult
 from ._track_usage import track_usage
 
 
-def _query_stmt(statement, results_type="all"):
-    with Session(settings.instance.db_engine()) as session:
+def _query_stmt(
+    statement, results_type="all", settings_store: InstanceSettingsStore = None
+):
+    if settings_store:
+        engine = settings.instance_from_store(settings_store).db_engine()
+    else:
+        engine = settings.instance.db_engine()
+    with Session(engine) as session:
         results = session.exec(statement).__getattribute__(results_type)()
     return results
 
@@ -49,8 +56,8 @@ def _featureset_from_features(entity, entity_kwargs):
 def _create_query_func(model):
     """Autogenerate query functions for each entity table."""
 
-    def query_func(**kwargs):
-        return _query(model=model, kwargs=kwargs)
+    def query_func(settings_store: InstanceSettingsStore = None, **kwargs):
+        return _query(model=model, kwargs=kwargs, settings_store=settings_store)
 
     query_func.__name__ = model.__name__
     import_module, prefix = (
@@ -65,13 +72,17 @@ def _create_query_func(model):
     return query_func
 
 
-def _query(model, result_list=None, kwargs=dict()) -> QueryResult:
+def _query(
+    model, result_list=None, kwargs=dict(), settings_store: InstanceSettingsStore = None
+) -> QueryResult:
     """Simple queries."""
     if result_list is not None:
         return QueryResult(results=result_list, model=model)
 
     stmt = _chain_select_stmt(kwargs=kwargs, schema_module=model)
-    results = _query_stmt(statement=stmt, results_type="all")
+    results = _query_stmt(
+        statement=stmt, results_type="all", settings_store=settings_store
+    )
     # track usage for dobjects
     if model.__name__ == "dobject":
         for result in results:
@@ -92,6 +103,7 @@ def query_dobject(
     created_at: datetime = None,
     updated_at: datetime = None,
     where: Dict[str, dict] = None,
+    settings_store: InstanceSettingsStore = None,
 ):
     """Query from dobject.
 
@@ -100,7 +112,9 @@ def query_dobject(
     model = Table.get_model("dobject")
     kwargs = {k: v for k, v in locals().items() if k in Table.get_fields(model)}
     stmt = _chain_select_stmt(kwargs=kwargs, schema_module=model)
-    results = _query_stmt(statement=stmt, results_type="all")
+    results = _query_stmt(
+        statement=stmt, results_type="all", settings_store=settings_store
+    )
 
     if where is not None:
         dobjects = []
@@ -129,15 +143,13 @@ def query_dobject(
             except AttributeError:
                 # query obs metadata
                 # find all the link tables to dobject
-                dobjects += LinkedQuery().query(
-                    entity_return="dobject",
-                    entity=entity,
-                    entity_kwargs=entity_kwargs,
+                dobjects += LinkedQuery(settings_store).query(
+                    entity_return="dobject", entity=entity, entity_kwargs=entity_kwargs
                 )
 
         results = [i for i in results if i.id in [j.id for j in dobjects]]
 
-    return _query(model=model, result_list=results)
+    return _query(model=model, result_list=results, settings_store=settings_store)
 
 
 class LinkedQuery:
@@ -149,8 +161,11 @@ class LinkedQuery:
         "biosample": "biometa",
     }
 
-    def __init__(self) -> None:
-        self._engine = settings.instance.db_engine()
+    def __init__(self, settings_store: InstanceSettingsStore = None) -> None:
+        if settings_store:
+            self._engine = settings.instance_from_store(settings_store).db_engine()
+        else:
+            self._engine = settings.instance.db_engine()
         self._inspector = inspect(self._engine)
 
     @cached_property
