@@ -86,6 +86,6 @@ def get_db_name(settings_store: InstanceSettingsStore = None) -> str:
     return engine.url.database
 
 
-def get_table_object(table_name: str):
-    metadata = get_db_metadata()
+def get_table_object(table_name: str, settings_store: InstanceSettingsStore = None):
+    metadata = get_db_metadata(settings_store)
     return metadata.tables[table_name]
