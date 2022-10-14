@@ -22,6 +22,20 @@ READER_FUNCS = {
 fsspec_filesystem = None
 
 
+def print_hook(size, value, **kwargs):
+    print(size, value)
+
+
+class ProgressBarCallback(fsspec.callbacks.Callback):
+    def branch(self, path_1, path_2, kwargs):
+        kwargs["callback"] = fsspec.callbacks.Callback(
+            hooks=dict(print_hook=print_hook)
+        )
+
+    def call(self, *args, **kwargs):
+        return None
+
+
 def store_file(localfile: Union[str, Path], storagekey: str, use_fsspec=False) -> float:
     """Store arbitrary file.
 
@@ -35,10 +49,11 @@ def store_file(localfile: Union[str, Path], storagekey: str, use_fsspec=False) -
                 fsspec_filesystem = fsspec.filesystem(
                     storagepath.cloud_prefix.replace("://", "")
                 )
-            fsspec_filesystem.put_file(
+            fsspec_filesystem.put(
                 str(localfile),
                 str(storagepath),
-                callback=fsspec.callbacks.TqdmCallback(),
+                recursive=True,
+                callback=ProgressBarCallback(),
             )
         else:
             storagepath.upload_from(localfile)
