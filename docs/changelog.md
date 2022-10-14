@@ -3,6 +3,7 @@
 <!-- prettier-ignore -->
 Name | PR | Developer | Date | Version
 --- | --- | --- | --- | ---
+✨ Load returns filepath if no in-memory format is found | [287](https://github.com/laminlabs/lamindb/pull/287) | [sunnyosun](https://github.com/sunnyosun) | 2022-10-13 | 0.9.2
 🎨 Clean up dtransform_in | [commit](https://github.com/laminlabs/lamindb/commit/429abf1c12b2e518e6d65329e4c4067e96d28fec) | [falexwolf](https://github.com/falexwolf) | 2022-10-13 | 0.9.1
 🎨 Continue overhaul | [285](https://github.com/laminlabs/lamindb/pull/285) | [falexwolf](https://github.com/falexwolf) | 2022-10-13 | 0.9.0
 🎨 Refactor linking dobjects & base64 encode checksum | [283](https://github.com/laminlabs/lamindb/pull/283) | [falexwolf](https://github.com/falexwolf) | 2022-10-13 |
