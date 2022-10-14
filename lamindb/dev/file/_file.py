@@ -2,6 +2,7 @@ import shutil
 from pathlib import Path
 from typing import Union
 
+import fsspec
 import pandas as pd
 import readfcs
 from cloudpathlib import CloudPath
@@ -18,15 +19,29 @@ READER_FUNCS = {
     ".zarr": read_adata_zarr,
 }
 
+fsspec_filesystem = None
 
-def store_file(localfile: Union[str, Path], storagekey: str) -> float:
+
+def store_file(localfile: Union[str, Path], storagekey: str, use_fsspec=False) -> float:
     """Store arbitrary file.
 
     Returns size in bytes.
     """
     storagepath = settings.instance.storage.key_to_filepath(storagekey)
+    global fsspec_filesystem
     if isinstance(storagepath, CloudPath):
-        storagepath.upload_from(localfile)
+        if use_fsspec:
+            if fsspec_filesystem is None:
+                fsspec_filesystem = fsspec.filesystem(
+                    storagepath.cloud_prefix.replace("://", "")
+                )
+            fsspec_filesystem.put(
+                str(localfile),
+                str(storagepath),
+                callback=fsspec.callbacks.TqdmCallback(),
+            )
+        else:
+            storagepath.upload_from(localfile)
     else:
         try:
             shutil.copyfile(localfile, storagepath)

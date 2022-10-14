@@ -111,7 +111,13 @@ class Ingest:
             dobjects.append(entry)
         return dobjects
 
-    def commit(self, *, nb_v: str = None, i_confirm_i_saved: bool = False) -> None:
+    def commit(
+        self,
+        *,
+        nb_v: str = None,
+        i_confirm_i_saved: bool = False,
+        use_fsspec: bool = False,
+    ) -> None:
         """Commit data to object storage and database.
 
         Args:
@@ -119,6 +125,7 @@ class Ingest:
                 "draft" to "1" if `None`.
             i_confirm_i_saved: Only relevant outside Jupyter Lab & Notebook as a
                 safeguard against losing the editor buffer content.
+            use_fsspec: use fsspec to upload files.
         """
         if self._committed:
             logger.error("Already committed")
@@ -162,7 +169,7 @@ class Ingest:
         for filepath_str, staged in self._staged.items():
             # TODO: run the appropriate clean-up operations if any aspect
             # of the ingestion fails
-            staged._commit_dobject()
+            staged._commit_dobject(use_fsspec=use_fsspec)
             self._logs.append(
                 {**staged._datalog, **self._dtransformlog, **self._userlog}
             )
