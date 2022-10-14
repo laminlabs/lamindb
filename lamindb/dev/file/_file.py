@@ -35,7 +35,7 @@ def store_file(localfile: Union[str, Path], storagekey: str, use_fsspec=False) -
                 fsspec_filesystem = fsspec.filesystem(
                     storagepath.cloud_prefix.replace("://", "")
                 )
-            fsspec_filesystem.put(
+            fsspec_filesystem.put_file(
                 str(localfile),
                 str(storagepath),
                 callback=fsspec.callbacks.TqdmCallback(),
