@@ -30,7 +30,7 @@ def print_hook(size, value, **kwargs):
     print(out, end="\r")
 
 
-class ProgressBarCallback(fsspec.callbacks.Callback):
+class ProgressCallback(fsspec.callbacks.Callback):
     def branch(self, path_1, path_2, kwargs):
         kwargs["callback"] = fsspec.callbacks.Callback(
             hooks=dict(print_hook=print_hook), filepath=path_1
@@ -57,7 +57,7 @@ def store_file(localfile: Union[str, Path], storagekey: str, use_fsspec=False) -
                 str(localfile),
                 str(storagepath),
                 recursive=True,
-                callback=ProgressBarCallback(),
+                callback=ProgressCallback(),
             )
         else:
             storagepath.upload_from(localfile)
