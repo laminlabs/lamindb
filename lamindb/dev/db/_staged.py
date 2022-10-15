@@ -190,12 +190,14 @@ class Staged:
         """Unstage all linked entries."""
         self._entries = {}
 
-    def _commit_dobject(self) -> None:
+    def _commit_dobject(self, use_fsspec: bool = False) -> None:
         """Store and insert dobject and its linked entries."""
         dobject_storage_key = f"{self.dobject.id}{self.dobject.suffix}"
 
         if self.dobject.suffix != ".zarr":
-            size = store_file(self._filepath, dobject_storage_key)
+            size = store_file(
+                self._filepath, dobject_storage_key, use_fsspec=use_fsspec
+            )
         else:
             # adata size
             size = getsizeof(self._dmem)

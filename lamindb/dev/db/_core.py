@@ -1,3 +1,5 @@
+from typing import Tuple
+
 import sqlalchemy as sa
 import sqlmodel as sqm
 from lndb_setup import settings
@@ -13,7 +15,7 @@ def session() -> sqm.Session:
     return sqm.Session(settings.instance.db_engine())
 
 
-def get_foreign_keys(table_name: str, inspector=None, referred: tuple[str, str] = None):
+def get_foreign_keys(table_name: str, inspector=None, referred: Tuple[str, str] = None):
     if inspector is None:
         inspector = sa.inspect(settings.instance.db_engine())
     result = {
