@@ -116,7 +116,7 @@ class Ingest:
         *,
         nb_v: str = None,
         i_confirm_i_saved: bool = False,
-        use_fsspec: bool = False,
+        use_fsspec: bool = True,
     ) -> None:
         """Commit data to object storage and database.
 
