@@ -116,7 +116,7 @@ class Staged:
             ).one_or_none()
             if link_entry is None:
                 # TODO: do not hard code column names
-                link_entry = getattr(Table.get_model(link_table))(  # type: ignore
+                link_entry = Table.get_model(link_table)(  # type: ignore
                     **{"dobject_id": dobject_id, f"{table_name}_id": entry.id}
                 )
                 self._add_entry(link_entry)
