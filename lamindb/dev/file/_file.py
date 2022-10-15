@@ -23,13 +23,17 @@ fsspec_filesystem = None
 
 
 def print_hook(size, value, **kwargs):
-    print(size, value)
+    progress = value / size
+    out = f"Upload {kwargs['filepath']}: {min(progress, 1.):4.2f}"
+    if progress >= 1:
+        out += "\n"
+    print(out, end="\r")
 
 
 class ProgressBarCallback(fsspec.callbacks.Callback):
     def branch(self, path_1, path_2, kwargs):
         kwargs["callback"] = fsspec.callbacks.Callback(
-            hooks=dict(print_hook=print_hook)
+            hooks=dict(print_hook=print_hook), filepath=path_1
         )
 
     def call(self, *args, **kwargs):
