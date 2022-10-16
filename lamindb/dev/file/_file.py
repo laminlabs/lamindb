@@ -2,6 +2,7 @@ import shutil
 from pathlib import Path
 from typing import Union
 
+import fsspec
 import pandas as pd
 import readfcs
 from cloudpathlib import CloudPath
@@ -18,15 +19,48 @@ READER_FUNCS = {
     ".zarr": read_adata_zarr,
 }
 
+fsspec_filesystem = None
 
-def store_file(localfile: Union[str, Path], storagekey: str) -> float:
+
+def print_hook(size, value, **kwargs):
+    progress = value / size
+    out = f"Upload {kwargs['filepath']}: {min(progress, 1.):4.2f}"
+    if progress >= 1:
+        out += "\n"
+    print(out, end="\r")
+
+
+class ProgressCallback(fsspec.callbacks.Callback):
+    def branch(self, path_1, path_2, kwargs):
+        kwargs["callback"] = fsspec.callbacks.Callback(
+            hooks=dict(print_hook=print_hook), filepath=path_1
+        )
+
+    def call(self, *args, **kwargs):
+        return None
+
+
+def store_file(localfile: Union[str, Path], storagekey: str, use_fsspec=False) -> float:
     """Store arbitrary file.
 
     Returns size in bytes.
     """
     storagepath = settings.instance.storage.key_to_filepath(storagekey)
+    global fsspec_filesystem
     if isinstance(storagepath, CloudPath):
-        storagepath.upload_from(localfile)
+        if use_fsspec:
+            if fsspec_filesystem is None:
+                fsspec_filesystem = fsspec.filesystem(
+                    storagepath.cloud_prefix.replace("://", "")
+                )
+            fsspec_filesystem.put(
+                str(localfile),
+                str(storagepath),
+                recursive=True,
+                callback=ProgressCallback(),
+            )
+        else:
+            storagepath.upload_from(localfile)
     else:
         try:
             shutil.copyfile(localfile, storagepath)
@@ -43,6 +77,10 @@ def delete_file(storagekey: str):
 
 
 def load_to_memory(filepath: Union[str, Path], stream: bool = False):
+    """Load a file into memory.
+
+    Returns the filepath if no in-memory form is found.
+    """
     if isinstance(filepath, str):
         filepath = Path(filepath)
 
@@ -57,6 +95,6 @@ def load_to_memory(filepath: Union[str, Path], stream: bool = False):
 
     reader = READER_FUNCS.get(filepath.suffix)
     if reader is None:
-        raise NotImplementedError
+        return filepath
     else:
         return reader(filepath)

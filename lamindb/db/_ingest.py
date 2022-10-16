@@ -7,8 +7,19 @@ from lndb_setup import settings
 from nbproject import dev, meta
 
 from ..dev.db import Staged
-from ..dev.db._query import query
+from ..dev.db._select import select
 from ..schema import core
+
+
+def set_nb_version(version):
+    if version is not None:
+        return version
+    else:
+        if meta.store.version == "draft":
+            version = "1"
+        else:
+            version = meta.store.version
+        return version
 
 
 class Ingest:
@@ -26,14 +37,14 @@ class Ingest:
 
     def _init_dtransform(self, dsource: Union[core.jupynb, core.pipeline_run]):
         if isinstance(dsource, core.pipeline_run):
-            dtransform = query.dtransform(  # type: ignore
+            dtransform = select.dtransform(  # type: ignore
                 pipeline_run_id=dsource.id
             ).one_or_none()
             if dtransform is None:
                 dtransform = core.dtransform(pipeline_run_id=dsource.id)
             log = dict(pipeline_run=f"{dsource.name!r} ({dsource.id})")
         elif isinstance(dsource, core.jupynb):
-            dtransform = query.dtransform(  # type: ignore
+            dtransform = select.dtransform(  # type: ignore
                 jupynb_id=dsource.id, jupynb_v=dsource.v
             ).one_or_none()
             if dtransform is None:
@@ -62,7 +73,10 @@ class Ingest:
         dobject_id: Optional[str] = None,
         adata_format: Optional[str] = None,
     ) -> Staged:
-        """Stage dobject for ingestion.
+        """Stage data object for ingestion.
+
+        Returns a staged object that can be linked against metadata, see
+        :class:`~lamindb.dev.db.Staged`.
 
         Args:
             data: filepath or in-memory objects
@@ -77,7 +91,7 @@ class Ingest:
             dobject_id=dobject_id,
             adata_format=adata_format,
         )
-        self._staged[staged.filepath.as_posix()] = staged
+        self._staged[staged._filepath.as_posix()] = staged
         return staged
 
     def remove(self, filepath: Union[str, Path]) -> None:
@@ -97,13 +111,21 @@ class Ingest:
             dobjects.append(entry)
         return dobjects
 
-    def commit(self, jupynb_v: str = None, i_confirm_i_saved: bool = False) -> None:
+    def commit(
+        self,
+        *,
+        nb_v: str = None,
+        i_confirm_i_saved: bool = False,
+        use_fsspec: bool = True,
+    ) -> None:
         """Commit data to object storage and database.
 
         Args:
-            jupynb_v: Notebook version to publish. Is automatically set if `None`.
-            i_confirm_i_saved: Only relevant outside Jupyter Lab as a safeguard against
-                losing the editor buffer content because of accidentally publishing.
+            nb_v: Notebook version to publish. Is automatically bumped from
+                "draft" to "1" if `None`.
+            i_confirm_i_saved: Only relevant outside Jupyter Lab & Notebook as a
+                safeguard against losing the editor buffer content.
+            use_fsspec: use fsspec to upload files.
         """
         if self._committed:
             logger.error("Already committed")
@@ -119,10 +141,10 @@ class Ingest:
                 return result
 
             # version to be set in finalize_publish()
-            self._dsource.v = dev.set_version(jupynb_v)
+            self._dsource.v = set_nb_version(nb_v)
 
             # in case the nb exists already, update that entry
-            result = query.jupynb(id=self._dsource.id, v=self._dsource.v).one_or_none()  # type: ignore  # noqa
+            result = select.jupynb(id=self._dsource.id, v=self._dsource.v).one_or_none()  # type: ignore  # noqa
             if result is not None:
                 self._dsource = result
                 self._dsource.name = meta.live.title
@@ -140,14 +162,21 @@ class Ingest:
             # are available for downstream use
             session.refresh(self._dsource)
             session.refresh(self._dtransform)
+        # sync db after changing locally
+        settings.instance._update_cloud_sqlite_file()
 
+        # one run that commits all dobjects
         for filepath_str, staged in self._staged.items():
             # TODO: run the appropriate clean-up operations if any aspect
             # of the ingestion fails
-            staged._commit()
+            staged._commit_dobject(use_fsspec=use_fsspec)
             self._logs.append(
-                {**staged.datalog, **self._dtransformlog, **self._userlog}
+                {**staged._datalog, **self._dtransformlog, **self._userlog}
             )
+
+        # one run that commits all linked entries
+        for filepath_str, staged in self._staged.items():
+            staged._commit_entries()
 
         if isinstance(self._dsource, core.jupynb):
             jupynb = self._dsource
@@ -160,7 +189,7 @@ class Ingest:
 
         self._committed = True
         if isinstance(self._dsource, core.jupynb):
-            finalize_publish(version=jupynb_v, calling_statement="commit(")
+            finalize_publish(version=self._dsource.v, calling_statement="commit(")
 
     def _print_logging_table(
         self, message: str = "Ingested the following dobjects:"

@@ -9,17 +9,17 @@ readme = "README.md"
 dynamic = ["version", "description"]
 dependencies = [
     # Lamin pinned packages
-    "lnschema_core==0.12.1",
+    "lnschema_core==0.13.0",
     "lnschema_wetlab==0.5.0",
     "lnschema_bionty==0.4.3",
-    "lndb_setup==0.12.0",
-    "lndb_hub==0.5.6",
-    "bioreadout==0.1.2",
+    "lndb_setup==0.12.1",
     "lnbfx==0.4.2",
+    "lndb_hub==0.5.6",
+    "bioreadout==0.2.1",
     "bionty>=0.3.1",
-    "lamin_logger",
     "nbproject>=0.7.0",
     "readfcs",
+    "lamin_logger",
     # External packages
     "anndata",
     "boto3",
@@ -34,7 +34,9 @@ dependencies = [
     "appdirs",
     "supabase",
     "python-dotenv",
-    "fsspec"
+    "fsspec",
+    "s3fs",
+    "gcsfs"
 ]
 
 [project.urls]
