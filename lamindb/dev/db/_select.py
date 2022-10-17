@@ -8,7 +8,7 @@ import sqlmodel as sqm
 from lndb_setup import settings
 
 from ...schema._table import Table
-from ._core import get_foreign_keys
+from ._core import check_if_link_table, get_foreign_keys
 from ._select_result import SelectResult
 from ._track_usage import track_usage
 
@@ -144,11 +144,23 @@ def select_dobject(
 class LinkedSelect:
     """Linked queries."""
 
-    parent_dict = {
-        "species": ["biosample"],
-        "biosample_techsample": ["biosample"],
-        "biosample": ["biometa"],
+    # prefixed parent table in cases of confusion
+    # the goal here is to reach dobject eventually
+    prefix_parents = {
+        "featureset": ["biometa"],
         "user": ["jupynb", "pipeline_run"],
+        "pipeline": ["pipeline_run"],
+        "featureset_cell_marker": ["featureset"],
+        "featureset_gene": ["featureset"],
+        "featureset_protein": ["featureset"],
+        "pipeline_run": ["dtransform"],
+        "dtransform": ["dobject"],
+        "dobject_bfxmeta": ["dobject"],
+        "dobject_biometa": ["dobject"],
+        "dtransform_in": ["dtransform"],
+        "biosample_techsample": ["biosample"],
+        "species": ["biosample"],
+        "biosample": ["biometa"],
     }
 
     def __init__(self) -> None:
@@ -177,33 +189,57 @@ class LinkedSelect:
         Returns: {'user':
                 {'id': [('jupynb', 'created_by'), ('pipeline_run', 'created_by')]}
         """
-        foreign_keys_backpop = {}
+        results = {}
 
-        for module_name, keys in self.foreign_keys.items():
-            for key, (module, ref_key) in keys.items():
-                if foreign_keys_backpop.get(module) is None:
-                    foreign_keys_backpop[module] = {}
-                if foreign_keys_backpop[module].get(ref_key) is None:
-                    foreign_keys_backpop[module][ref_key] = {}
-                foreign_keys_backpop[module][ref_key][module_name] = key
+        for table, keys in self.foreign_keys.items():
+            for cons_key, (ref_table, ref_key) in keys.items():
+                if results.get(ref_table) is None:
+                    results[ref_table] = {}
+                if results[ref_table].get(ref_key) is None:
+                    results[ref_table][ref_key] = []
+                results[ref_table][ref_key].append((table, cons_key))
 
-        return foreign_keys_backpop
+        return results
 
     def get_parent_tables(self, table_name: str):
         """Return all tables containing a column with foreign key to the provided table.
 
-        Returns {parent_table_name : referred_column}
+        Returns {parent_table_name : [(constraint_column, referred_column)]}
         """
-        fks = self.foreign_keys_backpop.get(table_name)
-        if fks is not None:
-            prefix_parents = self.parent_dict.get(table_name)
-            if prefix_parents is not None:
-                return {i: fks["id"][i] for i in prefix_parents}
-            # for any non-link tables, id column is often the referred column
-            return fks["id"]
+        # skip migration and version tables
+        # dobject should be the end table
+        if table_name.startswith(("migration_", "version_")) or table_name in [
+            "dobject"
+        ]:
+            return
+
+        pkfks = check_if_link_table(table_name)
+        if pkfks:
+            # link tables, meaning the parent table shares a primary key
+            fks = {
+                k: [v]
+                for k, v in self.foreign_keys.get(table_name).items()
+                if k in pkfks
+            }
         else:
-            # for link tables
-            pass
+            # tables that are linked to the parent table via foreign key constraints
+            # these are the cases which id is a column called `{table}_id` in the parent table  # noqa
+            fks = self.foreign_keys_backpop.get(table_name)
+
+        if fks:
+            results: Dict = {}
+            for cons_col, parents in fks.items():
+                for name, ref_col in parents:
+                    if name not in results:
+                        results[name] = []
+                    results[name].append((cons_col, ref_col))
+
+            # we prefix certain table's parents when there is > 1 parents
+            prefix_parents = self.prefix_parents.get(table_name)
+            if len(results) > 1 and prefix_parents:
+                return {k: v for k, v in results.items() if k in prefix_parents}
+
+            return results
 
     def select_from_parents(
         self, results: list, constrained_column: str, parent_tables: dict
