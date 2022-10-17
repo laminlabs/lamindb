@@ -112,7 +112,7 @@ class Staged:
             if result is None:
                 self._add_entry(entry)
             link_entry = getattr(select, link_table)(  # type: ignore
-                dobject_id=dobject_id, biometa_id=entry.id
+                **{"dobject_id": dobject_id, f"{table_name}_id": entry.id}
             ).one_or_none()
             if link_entry is None:
                 # TODO: do not hard code column names
