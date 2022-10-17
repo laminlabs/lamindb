@@ -17,10 +17,7 @@ from ._track_usage import track_usage
 def _select_stmt(
     statement, results_type="all", settings_store: InstanceSettingsStore = None
 ):
-    if settings_store:
-        engine = settings.instance_from_store(settings_store).db_engine()
-    else:
-        engine = settings.instance.db_engine()
+    engine = settings._instance(settings_store).db_engine()
     with sqm.Session(engine) as session:
         results = session.exec(statement).__getattribute__(results_type)()
     return results
@@ -163,10 +160,7 @@ class LinkedSelect:
     }
 
     def __init__(self, settings_store: InstanceSettingsStore = None) -> None:
-        if settings_store:
-            self._engine = settings.instance_from_store(settings_store).db_engine()
-        else:
-            self._engine = settings.instance.db_engine()
+        self._engine = settings._instance(settings_store).db_engine()
         self._inspector = sa.inspect(self._engine)
 
     @cached_property

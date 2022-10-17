@@ -31,10 +31,7 @@ def list_entities():
 
 
 def get_db_metadata(settings_store: InstanceSettingsStore = None):
-    if settings_store:
-        engine = settings.instance_from_store(settings_store).db_engine()
-    else:
-        engine = settings.instance.db_engine()
+    engine = settings._instance(settings_store).db_engine()
     metadata = sql.MetaData(bind=engine)
     metadata.reflect()
     return metadata
@@ -79,10 +76,7 @@ def get_foreign_keys_as_tuples(object: Union[Table, Column]):
 
 
 def get_db_name(settings_store: InstanceSettingsStore = None) -> str:
-    if settings_store:
-        engine = settings.instance_from_store(settings_store).db_engine()
-    else:
-        engine = settings.instance.db_engine()
+    engine = settings._instance(settings_store).db_engine()
     return engine.url.database
 
 
