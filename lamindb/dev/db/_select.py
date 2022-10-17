@@ -157,23 +157,25 @@ class LinkedSelect:
 
     @cached_property
     def foreign_keys(self):
-        """Foreign keys.
+        """Foreign keys of all tables.
 
-        e.g. {'biosample': {'tissue_id': ('tissue', 'id')}}
+        Returns: {'dobject_biometa':
+                {'dobject_id': ('dobject', 'id'), 'biometa_id': ('biometa', 'id')}}
         """
         foreign_keys = {}
         for table_name in self._inspector.get_table_names():
-            foreign_keys_table = get_foreign_keys(table_name, self._inspector)
-            if len(foreign_keys_table) > 0:
-                foreign_keys[table_name] = foreign_keys_table
+            foreign_keys_dict = get_foreign_keys(table_name, self._inspector)
+            if len(foreign_keys_dict) > 0:
+                foreign_keys[table_name] = foreign_keys_dict
 
         return foreign_keys
 
     @cached_property
     def foreign_keys_backpop(self):
-        """Backpopulated foreign keys.
+        """Backpopulated foreign keys of all tables.
 
-        e.g. {'tissue': {'id': {'biosample': 'tissue_id'}}}
+        Returns: {'user':
+                {'id': [('jupynb', 'created_by'), ('pipeline_run', 'created_by')]}
         """
         foreign_keys_backpop = {}
 
@@ -197,8 +199,10 @@ class LinkedSelect:
             prefix_parents = self.parent_dict.get(table_name)
             if prefix_parents is not None:
                 return {i: fks["id"][i] for i in prefix_parents}
+            # for any non-link tables, id column is often the referred column
             return fks["id"]
         else:
+            # for link tables
             pass
 
     def select_from_parents(

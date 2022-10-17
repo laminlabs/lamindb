@@ -1,3 +1,5 @@
+from typing import Tuple
+
 import sqlalchemy as sa
 import sqlmodel as sqm
 from lndb_setup import settings
@@ -13,19 +15,26 @@ def session() -> sqm.Session:
     return sqm.Session(settings.instance.db_engine())
 
 
-def get_foreign_keys(table_name: str, inspector=None, referred: tuple[str, str] = None):
+def get_foreign_keys(
+    table_name: str, inspector=None, referred: Tuple[str, str] = None
+) -> dict:
+    """Return foreign keys of a table.
+
+    Returns {constrained_column: (referred_table, referred_column)}
+    """
     if inspector is None:
         inspector = sa.inspect(settings.instance.db_engine())
-    result = {
-        column["constrained_columns"][0]: (
-            column["referred_table"],
-            column["referred_columns"][0],
-        )
-        for column in inspector.get_foreign_keys(table_name)
-    }
+
+    keys = {}
+    results = inspector.get_foreign_keys(table_name)
+    if len(results) > 0:
+        for result in results:
+            referred_table = result["referred_table"]
+            for i, j in zip(result["constrained_columns"], result["referred_columns"]):
+                keys[i] = (referred_table, j)
     if referred is not None:
-        result = {k: v for k, v in result.items() if v == referred}
-    return result
+        keys = {k: v for k, v in results.items() if v == referred}
+    return keys
 
 
 def get_link_tables(inspector=None):
