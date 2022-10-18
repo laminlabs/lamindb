@@ -15,30 +15,47 @@ def session() -> sqm.Session:
     return sqm.Session(settings.instance.db_engine())
 
 
-def get_foreign_keys(table_name: str, inspector=None, referred: Tuple[str, str] = None):
+def get_foreign_keys(
+    table_name: str, inspector=None, referred: Tuple[str, str] = None
+) -> dict:
+    """Return foreign keys of a table.
+
+    Returns {constrained_column: (referred_table, referred_column)}
+    """
     if inspector is None:
         inspector = sa.inspect(settings.instance.db_engine())
-    result = {
-        column["constrained_columns"][0]: (
-            column["referred_table"],
-            column["referred_columns"][0],
-        )
-        for column in inspector.get_foreign_keys(table_name)
-    }
+
+    keys = {}
+    results = inspector.get_foreign_keys(table_name)
+    if len(results) > 0:
+        for result in results:
+            referred_table = result["referred_table"]
+            for i, j in zip(result["constrained_columns"], result["referred_columns"]):
+                keys[i] = (referred_table, j)
     if referred is not None:
-        result = {k: v for k, v in result.items() if v == referred}
-    return result
+        keys = {k: v for k, v in results.items() if v == referred}
+    return keys
+
+
+def check_if_link_table(table_name: str):
+    """Check if a table is a link table.
+
+    We define link tables there is overlap between primary and foreign keys
+    """
+    pks = Table.get_pks(table_name)
+    fks = get_foreign_keys(table_name).keys()
+    intersect = set(pks).intersection(fks)
+    if intersect:
+        return intersect
 
 
 def get_link_tables(inspector=None):
-    """Link tables."""
+    """Get all link tables."""
     if inspector is None:
         inspector = sa.inspect(settings.instance.db_engine())
     link_tables = []
     for name in inspector.get_table_names():
-        pks = inspector.get_pk_constraint(name)["constrained_columns"]
-        columns = [i["name"] for i in inspector.get_columns(name)]
-        if pks == columns and len(inspector.get_foreign_keys(name)) > 0:
+        if check_if_link_table(name):
             link_tables.append(name)
 
     return link_tables
