@@ -3,6 +3,9 @@
 <!-- prettier-ignore -->
 Name | PR | Developer | Date | Version
 --- | --- | --- | --- | ---
+:pencil2: Fix typo in link table entry fetching | [292](https://github.com/laminlabs/lamindb/pull/292) | [bpenteado](https://github.com/bpenteado) | 2022-10-17 |
+🐛 Fixed link via link tables | [291](https://github.com/laminlabs/lamindb/pull/291) | [sunnyosun](https://github.com/sunnyosun) | 2022-10-15 | 0.9.3
+✨ Add an option to use `fsspec` for upload | [288](https://github.com/laminlabs/lamindb/pull/288) | [Koncopd](https://github.com/Koncopd) | 2022-10-15 |
 ✨ Load returns filepath if no in-memory format is found | [287](https://github.com/laminlabs/lamindb/pull/287) | [sunnyosun](https://github.com/sunnyosun) | 2022-10-13 | 0.9.2
 🎨 Clean up dtransform_in | [commit](https://github.com/laminlabs/lamindb/commit/429abf1c12b2e518e6d65329e4c4067e96d28fec) | [falexwolf](https://github.com/falexwolf) | 2022-10-13 | 0.9.1
 🎨 Continue overhaul | [285](https://github.com/laminlabs/lamindb/pull/285) | [falexwolf](https://github.com/falexwolf) | 2022-10-13 | 0.9.0

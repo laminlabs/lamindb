@@ -61,9 +61,12 @@ def get_link_tables(inspector=None):
     return link_tables
 
 
-def get_link_table(table1, table2):
+def get_link_table(table1: str, table2: str):
     link_tables = get_link_tables()
-    pks = Table.get_pks(table1) + Table.get_pks(table2)
+    pks = [f"{table1}_{i}" for i in Table.get_pks(table1)] + [
+        f"{table2}_{i}" for i in Table.get_pks(table2)
+    ]
+
     for table in link_tables:
         if set(pks) == set(Table.get_pks(table)):
             return table

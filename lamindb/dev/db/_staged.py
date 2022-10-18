@@ -112,11 +112,11 @@ class Staged:
             if result is None:
                 self._add_entry(entry)
             link_entry = getattr(select, link_table)(  # type: ignore
-                dobject_id=dobject_id, biometa_id=entry.id
+                **{"dobject_id": dobject_id, f"{table_name}_id": entry.id}
             ).one_or_none()
             if link_entry is None:
                 # TODO: do not hard code column names
-                link_entry = getattr(Table.get_model(link_table))(  # type: ignore
+                link_entry = Table.get_model(link_table)(  # type: ignore
                     **{"dobject_id": dobject_id, f"{table_name}_id": entry.id}
                 )
                 self._add_entry(link_entry)
@@ -190,12 +190,14 @@ class Staged:
         """Unstage all linked entries."""
         self._entries = {}
 
-    def _commit_dobject(self) -> None:
+    def _commit_dobject(self, use_fsspec: bool = False) -> None:
         """Store and insert dobject and its linked entries."""
         dobject_storage_key = f"{self.dobject.id}{self.dobject.suffix}"
 
         if self.dobject.suffix != ".zarr":
-            size = store_file(self._filepath, dobject_storage_key)
+            size = store_file(
+                self._filepath, dobject_storage_key, use_fsspec=use_fsspec
+            )
         else:
             # adata size
             size = getsizeof(self._dmem)
