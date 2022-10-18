@@ -150,13 +150,8 @@ class LinkedSelect:
         "featureset": ["biometa"],
         "user": ["jupynb", "pipeline_run"],
         "pipeline": ["pipeline_run"],
-        "featureset_cell_marker": ["featureset"],
-        "featureset_gene": ["featureset"],
-        "featureset_protein": ["featureset"],
         "pipeline_run": ["dtransform"],
         "dtransform": ["dobject"],
-        "dobject_bfxmeta": ["dobject"],
-        "dobject_biometa": ["dobject"],
         "dtransform_in": ["dtransform"],
         "biosample_techsample": ["biosample"],
         "species": ["biosample"],
@@ -236,6 +231,10 @@ class LinkedSelect:
 
             # we prefix certain table's parents when there is > 1 parents
             prefix_parents = self.prefix_parents.get(table_name)
+            if table_name.startswith("featureset_"):
+                prefix_parents = ["featureset"]
+            if table_name.startswith("dobject_"):
+                prefix_parents = ["dobject"]
             if len(results) > 1 and prefix_parents:
                 return {k: v for k, v in results.items() if k in prefix_parents}
 
