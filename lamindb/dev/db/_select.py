@@ -131,9 +131,9 @@ def select_dobject(
                 # select obs metadata
                 # find all the link tables to dobject
                 dobjects += LinkedSelect().select(
-                    entity_return="dobject",
-                    entity=entity,
-                    entity_kwargs=entity_kwargs,
+                    table_name=entity,
+                    table_kwargs=entity_kwargs,
+                    return_table="dobject",
                 )
 
         results = [i for i in results if i.id in [j.id for j in dobjects]]
@@ -241,118 +241,67 @@ class LinkedSelect:
 
             return results
 
-    def select_from_parents(
-        self, results: list, constrained_column: str, parent_tables: dict
-    ) -> list:
+    def select_from_parents(self, results: list, table_name: str) -> list:
         """Returns select results from parent tables."""
-        parent_results = []
-        for result in results:
-            for parent_table_name, referred_column in parent_tables.items():
-                parent_result = getattr(select, parent_table_name)(
-                    **{referred_column: result.__getattribute__(constrained_column)}
+        if not results:
+            raise AssertionError("No results found!")
+        parents = self.get_parent_tables(table_name)
+
+        parent_results: Dict = {}
+        for parent_name, keys in parents.items():
+            if parent_name not in parent_results:
+                parent_results[parent_name] = []
+            for result in results:
+                parent_results[parent_name] += getattr(select, parent_name)(
+                    **{
+                        ref_col: result.__getattribute__(const_col)
+                        for const_col, ref_col in keys
+                    }
                 ).all()
-                parent_results += parent_result
-        return parent_results
+
+        return [(k, results) for k, results in parent_results.items()]
+
+    def select_from_single_parent(self, results: list, table_name: str, end_table: str):
+        current_table = table_name
+        while current_table != end_table:
+            parent_results_all = self.select_from_parents(
+                results=results, table_name=current_table
+            )
+            # single parent
+            if len(parent_results_all) == 1:
+                parent_name, parent_results = parent_results_all[0]
+                current_table = parent_name
+                results = parent_results
+            if len(parent_results_all) > 1:
+                return {k: results for k, results in parent_results_all}
+        return results
 
     def get_pks(self, table_name: str) -> list:
         """Return a list of primary keys."""
         return self._inspector.get_pk_constraint(table_name)
 
-    def select(self, entity_return, entity, entity_kwargs):
-        """Select linked tables via foreign key constraint.
-
-        1. Select fields in entity_n table, whose primary_key is a foreign_key in entity_n-1 table.  # noqa
-        2. Select foreign_key in entity_n-1 table, whose primary_key is a foreign_key in entity_n-2 table  # noqa
-        3. Repeat until it reaches a linked_table (only contains primary keys).
-        """
-        results = getattr(select, entity)(**entity_kwargs).all()
-        start = entity
-        end = entity_return
-
-        current_name = start
-        while current_name != end:
-            print(current_name)
-            if "id" in self.get_pks(current_name):
-                # id is the primary key of current table, aka not a link table
-                referred_column = f"{current_name}_id"
-                constrained_column = "id"
-                parent_name = None
-                # if current module id is not present in any other modules as foreign keys  # noqa
-                # checks if the any parent module is linked via primary key
-                parent_tables = self.get_parent_tables(current_name)
-                # prefix_parents = self.parent_dict.get(current_name)
-                # if prefix_parents is not None:
-                #     # specify certain path
-                #     if isinstance(prefix_parents, list):
-                #         parent_name = {
-                #             i: self.foreign_keys_backpop[current_name]["id"][i]
-                #             for i in prefix_parents
-                #         }
-                #     else:
-                #         parent_name = prefix_parents
-                #         referred_column = self.foreign_keys_backpop[current_name]["id"][ # noqa
-                #             parent_name
-                #         ]
-
-                if self.foreign_keys_backpop.get(current_name) is None:
-                    for foreign_key in self._inspector.get_foreign_keys(current_name):
-                        if foreign_key["constrained_columns"] == foreign_key[
-                            "referred_columns"
-                        ] and ("id" in foreign_key["referred_columns"]):
-                            parent_name = foreign_key["referred_table"]
-                            constrained_column = "id"
-                            referred_column = "id"
-                else:
-                    parents = self.foreign_keys_backpop.get(current_name)
-                    if parents.get("id") is not None:
-                        for name, referred_column in parents["id"].items():
-                            if referred_column in ["id", "v"]:
-                                continue
-                            if name == end:
-                                parent_name = name
-                                break
-                            parent_name = name
-
-                # select results from parent tables
-                if isinstance(parent_name, str):
-                    parent_table = {parent_name: referred_column}
-                else:
-                    parent_table = parent_tables
-                parent_results = self.select_from_parents(
-                    results, constrained_column, parent_table
+    def select(self, table_name: str, table_kwargs: dict, return_table: str):
+        """Select from linked tables."""
+        results = getattr(select, table_name)(**table_kwargs).all()
+        linked_results = self.select_from_single_parent(
+            results=results, table_name=table_name, end_table=return_table
+        )
+        if isinstance(linked_results, dict):
+            combine_linked_results = []
+            for table_name, results in linked_results.items():
+                if not results:
+                    continue
+                results_tmp = self.select_from_single_parent(
+                    results=results,
+                    table_name=table_name,
+                    end_table=return_table,
                 )
-                results = parent_results
-            else:
-                # if it is a link table to the end module
-                if current_name.startswith(f"{end}_"):
-                    parent_name = end
-                    end_id = f"{end}_id"
-                    parent_results = []
-                    for result in results:
-                        parent_result = getattr(select, end)(
-                            **{"id": result.__getattribute__(end_id)}
-                        ).all()
-                        parent_results += parent_result
-                    results = parent_results
-                elif self.parent_dict.get(current_name) is not None:
-                    parent_name = self.parent_dict.get(current_name)
-                    constrained_column = f"{parent_name}_id"
-                    parent_results = []
-                    for result in results:
-                        parent_result = getattr(select, parent_name)(
-                            **{"id": result.__getattribute__(constrained_column)}
-                        ).all()
-                        parent_results += parent_result
-                    results = parent_results
-                else:
-                    pass
+                combine_linked_results += [
+                    i for i in results_tmp if i not in combine_linked_results
+                ]
 
-            # move up 1 level
-            if current_name == parent_name:
-                raise RuntimeError(f"Linked query got stuck at table {current_name}")
-            current_name = parent_name
-
-        return results
+            return combine_linked_results
+        return list(linked_results)
 
 
 class select:
