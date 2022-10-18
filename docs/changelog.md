@@ -3,6 +3,7 @@
 <!-- prettier-ignore -->
 Name | PR | Developer | Date | Version
 --- | --- | --- | --- | ---
+📝 Add prisma examples and implementation ideas | [294](https://github.com/laminlabs/lamindb/pull/294) | [fredericenard](https://github.com/fredericenard) | 2022-10-18 |
 ♻️ Refactor linked select | [286](https://github.com/laminlabs/lamindb/pull/286) | [sunnyosun](https://github.com/sunnyosun) | 2022-10-18 | 0.9.4
 ✏️ Fix typo in link table entry fetching | [292](https://github.com/laminlabs/lamindb/pull/292) | [bpenteado](https://github.com/bpenteado) | 2022-10-17 |
 🐛 Fixed link via link tables | [291](https://github.com/laminlabs/lamindb/pull/291) | [sunnyosun](https://github.com/sunnyosun) | 2022-10-15 | 0.9.3
