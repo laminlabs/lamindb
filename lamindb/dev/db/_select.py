@@ -2,7 +2,6 @@ from datetime import datetime
 from functools import cached_property
 from typing import Dict, Optional
 
-import bionty as bt
 import sqlalchemy as sa
 import sqlmodel as sqm
 from lndb_setup import settings
@@ -106,35 +105,11 @@ def select_dobject(
     if where is not None:
         dobjects = []
         for entity, entity_kwargs in where.items():
-            # TODO: this part needs refactor
-            try:
-                bt.lookup.feature_model.__getattribute__(entity)
-                # select features
-                featureset_ids = _featureset_from_features(
-                    entity=entity, entity_kwargs=entity_kwargs
-                )
-                biometas = []
-                for featureset_id in featureset_ids:
-                    biometas += getattr(select, "biometa")(
-                        featureset_id=featureset_id
-                    ).all()
-                dobject_biometas = []
-                for biometa in biometas:
-                    dobject_biometas += getattr(select, "dobject_biometa")(
-                        biometa_id=biometa.id
-                    ).all()
-                for dobject_biometa in dobject_biometas:
-                    dobjects += getattr(select, "dobject")(
-                        id=dobject_biometa.dobject_id
-                    ).all()
-            except AttributeError:
-                # select obs metadata
-                # find all the link tables to dobject
-                dobjects += LinkedSelect().select(
-                    table_name=entity,
-                    table_kwargs=entity_kwargs,
-                    return_table="dobject",
-                )
+            dobjects += LinkedSelect().select(
+                table_name=entity,
+                table_kwargs=entity_kwargs,
+                return_table="dobject",
+            )
 
         results = [i for i in results if i.id in [j.id for j in dobjects]]
 
