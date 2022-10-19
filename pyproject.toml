@@ -9,8 +9,8 @@ readme = "README.md"
 dynamic = ["version", "description"]
 dependencies = [
     # Lamin pinned packages
-    "lnschema_core==0.13.0",
-    "lnschema_wetlab==0.5.0",
+    "lnschema_core==0.14.0",
+    "lnschema_wetlab==0.7.1",
     "lnschema_bionty==0.4.3",
     "lndb_setup==0.12.1",
     "lnbfx==0.4.2",
