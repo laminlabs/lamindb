@@ -1,6 +1,6 @@
-import bionty as bt
-import bioreadout
-import lnbfx
+from bionty import lookup as bionty_lookup
+from bioreadout import lookup as bioreadout_lookup
+from lnbfx import lookup as lnbfx_lookup
 
 
 class lookup:
@@ -13,7 +13,7 @@ def _get_all_methods(lookup):
     return [i for i in dir(lookup) if not i.startswith("_")]
 
 
-for module in [bt.lookup, bioreadout.lookup, lnbfx.lookup]:
+for module in [bionty_lookup, bioreadout_lookup, lnbfx_lookup]:
     methods = _get_all_methods(module)
     for method in methods:
         model = getattr(module, method)
