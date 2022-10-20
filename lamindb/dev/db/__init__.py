@@ -13,7 +13,8 @@ Select:
 .. autosummary::
    :toctree: .
 
-   SelectResult
+   SelectStmt
+   ExecStmt
 
 Other:
 
@@ -27,5 +28,5 @@ Other:
 from . import exception
 from ._core import session
 from ._link import LinkFeatureModel
-from ._select_result import SelectResult
+from ._select import ExecStmt, SelectStmt
 from ._staged import Staged
