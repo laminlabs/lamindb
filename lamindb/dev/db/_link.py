@@ -181,8 +181,9 @@ class link:
     @classmethod
     def biometa(cls, dobject_id: str, biometa_id: int):
         """Link a dobject to a biometa."""
-        dobject_biometas = getattr(select, "dobject_biometa")(
-            dobject_id=dobject_id, biometa_id=biometa_id
+        dobject_biometas = select(wetlab.dobject_biometa)(
+            wetlab.dobject_biometa.dobject_id == dobject_id,
+            wetlab.dobject_biometa.biometa_id == biometa_id,
         ).all()
         if len(dobject_biometas) > 0:
             raise AssertionError(
