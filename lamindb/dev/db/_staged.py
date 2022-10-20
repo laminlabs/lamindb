@@ -66,7 +66,9 @@ class Staged:
         # streamed
         if suffix != ".zarr":
             checksum = compute_checksum(self._filepath)
-            result = select.dobject(checksum=checksum).one_or_none()  # type: ignore
+            result = select(core.dobject)(
+                core.dobject.checksum == checksum
+            ).one_or_none()
             if result is not None:
                 raise RuntimeError(
                     "Based on the MD5 checksum, the exact same data object is already"

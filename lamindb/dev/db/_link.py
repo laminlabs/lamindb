@@ -2,6 +2,8 @@ import pandas as pd
 from lamin_logger import colors, logger
 from tabulate import tabulate  # type: ignore
 
+from lamindb.schema import wetlab
+
 from ._insert import insert
 from ._select import select
 from ._update import update
@@ -121,7 +123,9 @@ class link:
 
         # use the featureset_id to create an entry in biometa
         # TODO: need to make this easier
-        dobject_biometas = select.dobject_biometa(dobject_id=dobject_id).all()  # type: ignore  # noqa
+        dobject_biometas = select(wetlab.dobject_biometa)(
+            wetlab.dobject_biometa.dobject_id == dobject_id
+        ).all()
         if len(dobject_biometas) == 0:
             # insert a biometa entry and link to dobject
             # TODO: force insert here
@@ -152,7 +156,7 @@ class link:
         readout = insert.readout(efo_id=efo_id)  # type: ignore
 
         # select biometa associated with a dobject
-        dobject_biometa = select.dobject_biometa(dobject_id=dobject_id).all()  # type: ignore  # noqa
+        dobject_biometa = select(wetlab.dobject_biometa)(wetlab.dobject_biometa.dobject_id == dobject_id).all()  # type: ignore  # noqa
         if len(dobject_biometa) > 0:
             biometa_ids = [i.biometa_id for i in dobject_biometa]
         else:
