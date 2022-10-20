@@ -23,9 +23,11 @@ def _camel_to_snake(string: str) -> str:
 
 
 def dobject_from_dtransform(dobject: core.dobject, dtransform_id: str):
-    storage = select(core.storage)(
-        core.storage.root == str(settings.instance.storage_root)
-    ).one()
+    storage = (
+        select(core.storage)
+        .where(core.storage.root == str(settings.instance.storage_root))
+        .one()
+    )
 
     dobject_id = insert.dobject(  # type: ignore
         id=dobject.id,
@@ -54,10 +56,14 @@ def featureset_from_features(
 
     # check if geneset exists
     if featureset_name is not None:
-        featureset_result = select(bionty.featureset)(
-            bionty.featureset.feature_entity == feature_entity,
-            bionty.featureset.name == featureset_name,
-        ).one_or_none()
+        featureset_result = (
+            select(bionty.featureset)
+            .where(
+                bionty.featureset.feature_entity == feature_entity,
+                bionty.featureset.name == featureset_name,
+            )
+            .one_or_none()
+        )
         if featureset_result is not None:
             logger.warning(f"Featureset {featureset_name} already exists!")
             return featureset_result
@@ -65,7 +71,7 @@ def featureset_from_features(
     # get the id field of feature entity
     feature_id = features_dict[next(iter(features_dict))].keys()[-1]
     model = Table.get_model(feature_entity)
-    allfeatures = select(model)(model.species_id == species.id).all()  # type: ignore  # noqa
+    allfeatures = select(model).where(model.species_id == species.id).all()  # type: ignore  # noqa
     # only ingest the new features but link all features to the featureset
     exist_feature_keys = set()
     exist_feature_ids = set()
@@ -126,7 +132,7 @@ class InsertBase:
     @classmethod
     def add(cls, model, kwargs: dict, force=False):
         if not force:
-            conditions = [model.__getattr__(k) == v for k, v in kwargs.items()]
+            conditions = [getattr(model, k) == v for k, v in kwargs.items()]
             results = cls.select(model.__name__, *conditions)
             if len(results) >= 1:
                 return "exists", results[0]
@@ -145,7 +151,7 @@ class InsertBase:
 
     @classmethod
     def select(cls, table_name, *conditions):
-        return select(Table.get_model(table_name))(*conditions).all()
+        return select(Table.get_model(table_name)).where(*conditions).all()
 
     @classmethod
     def is_unique(cls, model, column: str):

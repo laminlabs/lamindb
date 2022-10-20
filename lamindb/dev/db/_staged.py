@@ -66,9 +66,11 @@ class Staged:
         # streamed
         if suffix != ".zarr":
             checksum = compute_checksum(self._filepath)
-            result = select(core.dobject)(
-                core.dobject.checksum == checksum
-            ).one_or_none()
+            result = (
+                select(core.dobject)
+                .where(core.dobject.checksum == checksum)
+                .one_or_none()
+            )
             if result is not None:
                 raise RuntimeError(
                     "Based on the MD5 checksum, the exact same data object is already"
@@ -111,14 +113,18 @@ class Staged:
         # is there a link table that links the data object to the entry?
         if link_table is not None:
             model = Table.get_model(table_name)
-            result = select(model)(model.id == entry.id).one_or_none()
+            result = select(model).where(model.id == entry.id).one_or_none()
             if result is None:
                 self._add_entry(entry)
             model = Table.get_model(link_table)
-            link_entry = select(model)(  # type: ignore
-                model.dobject_id == dobject_id,
-                model.__getattr__("{table_name}_id") == entry.id,
-            ).one_or_none()
+            link_entry = (
+                select(model)
+                .where(
+                    model.dobject_id == dobject_id,
+                    model.__getattr__("{table_name}_id") == entry.id,
+                )
+                .one_or_none()
+            )
             if link_entry is None:
                 # TODO: do not hard code column names
                 link_entry = Table.get_model(link_table)(  # type: ignore
