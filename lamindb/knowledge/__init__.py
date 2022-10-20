@@ -1,4 +1,4 @@
-"""Knowledge tables.
+"""Knowledge.
 
 Feature tables from bionty:
 
