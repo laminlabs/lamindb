@@ -11,6 +11,7 @@ Browse the API:
 
    db
    schema
+   knowledge_table
    settings
    datasets
    nb
@@ -34,6 +35,7 @@ _check_migrate(usettings=settings.user, isettings=settings.instance)
 from . import datasets  # noqa
 from . import db  # noqa
 from . import dev  # noqa
+from . import knowledge_table  # noqa
 from . import schema  # noqa
 from ._nb import nb  # noqa
 
