@@ -10,10 +10,10 @@ dynamic = ["version", "description"]
 dependencies = [
     # Lamin pinned packages
     "lnschema_core==0.14.0",
-    "lnschema_wetlab==0.7.1",
+    "lnschema_wetlab==0.7.2",
     "lnschema_bionty==0.4.3",
-    "lndb_setup==0.12.1",
-    "lnbfx==0.4.2",
+    "lndb_setup==0.12.2",
+    "lnbfx==0.4.4",
     "lndb_hub==0.5.6",
     "bioreadout==0.2.1",
     "bionty>=0.3.1",
