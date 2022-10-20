@@ -75,7 +75,7 @@ class Staged:
             self._dobject.checksum = checksum
 
         # access to the feature model
-        self._feature_model = None  # feature model
+        self._knowledge_table = None  # feature model
 
         # dtransform
         self._dtransform = dtransform
@@ -147,17 +147,19 @@ class Staged:
             self._add_entry(entry)
         return self
 
-    def link_features(self, feature_model, *, featureset_name: str = None) -> "Staged":
+    def link_features(
+        self, knowledge_table, *, featureset_name: str = None
+    ) -> "Staged":
         """Link dobject to features.
 
         Can be chained.
 
         Args:
-            feature_model: a feature model instance
+            knowledge_table: a feature model instance
             featureset_name: name of the featureset
 
         Returns:
-            writes to `Staged.feature_model`
+            writes to `Staged.knowledge_table`
         """
         # curate features
         # looks for the id column, if none is found, will assume in the index
@@ -171,8 +173,8 @@ class Staged:
             df = self._dmem
         # insert feature entries
         # TODO: needs to be staged without inserting here
-        self._feature_model = link.feature_model(
-            df=df, feature_model=feature_model, featureset_name=featureset_name
+        self._knowledge_table = link.knowledge_table(
+            df=df, knowledge_table=knowledge_table, featureset_name=featureset_name
         )
         return self
 
@@ -211,9 +213,9 @@ class Staged:
         )
 
         # insert features and link to dobject
-        if self._feature_model is not None:
-            self._feature_model["model"].ingest(
-                self.dobject.id, self._feature_model["df_curated"]
+        if self._knowledge_table is not None:
+            self._knowledge_table["model"].ingest(
+                self.dobject.id, self._knowledge_table["df_curated"]
             )
 
         track_usage(self.dobject.id, usage_type="ingest")

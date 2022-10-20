@@ -3,6 +3,7 @@
 <!-- prettier-ignore -->
 Name | PR | Developer | Date | Version
 --- | --- | --- | --- | ---
+✨ Added `knowledge` module | [299](https://github.com/laminlabs/lamindb/pull/299) | [sunnyosun](https://github.com/sunnyosun) | 2022-10-20 |
 ⬆️ Upgrade wetlab schema | [297](https://github.com/laminlabs/lamindb/pull/297) | [sunnyosun](https://github.com/sunnyosun) | 2022-10-20 | 0.9.6
 ⬆️ Added `dset` and `project` tables to core | [296](https://github.com/laminlabs/lamindb/pull/296) | [sunnyosun](https://github.com/sunnyosun) | 2022-10-19 | 0.9.5
 🩹 Fixed rds nbs | [295](https://github.com/laminlabs/lamindb/pull/295) | [sunnyosun](https://github.com/sunnyosun) | 2022-10-18 |
