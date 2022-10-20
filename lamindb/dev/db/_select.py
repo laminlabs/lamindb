@@ -116,7 +116,7 @@ def select_dobject(
     if where is not None:
         dobjects = []
         for entity, entity_kwargs in where.items():
-            dobjects += LinkedSelect().select(
+            dobjects += LinkedSelect(settings_store).select(
                 table_name=entity,
                 table_kwargs=entity_kwargs,
                 return_table="dobject",
