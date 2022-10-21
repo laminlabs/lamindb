@@ -1,4 +1,4 @@
-from typing import Tuple
+from typing import Optional, Tuple
 
 import sqlalchemy as sa
 import sqlmodel as sqm
@@ -49,7 +49,7 @@ def check_if_link_table(table_name: str):
         return intersect
 
 
-def get_link_tables(inspector=None):
+def get_link_tables(inspector=None) -> list:
     """Get all link tables."""
     if inspector is None:
         inspector = sa.inspect(settings.instance.db_engine())
@@ -63,7 +63,7 @@ def get_link_tables(inspector=None):
     return link_tables
 
 
-def get_link_table(table1: str, table2: str):
+def get_link_table(table1: str, table2: str) -> Optional[str]:
     link_tables = get_link_tables()
     pks = [f"{table1}_{i}" for i in Table.get_pks(table1)] + [
         f"{table2}_{i}" for i in Table.get_pks(table2)
