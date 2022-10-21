@@ -40,8 +40,8 @@ def link(
     if len(entries_table1) != len(entries_table2):
         raise AssertionError("Can't broadcast the lengths of the two table entries!")
 
-    table1_name = entries_table1[0].__class__.__name__
-    table2_name = entries_table2[0].__class__.__name__
+    table1_name = entries_table1[0].__table__.name
+    table2_name = entries_table2[0].__table__.name
 
     link_table_name = get_link_table(table1_name, table2_name)
     if not link_table_name:
