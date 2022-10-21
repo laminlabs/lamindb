@@ -8,8 +8,8 @@ sql-api
 storage
 flow
 ingest-same-file-twice
+ingest-bfx
 sql-api
 link-entities
-ingest-bfx
 postgres
 ```
