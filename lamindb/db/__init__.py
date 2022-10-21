@@ -53,8 +53,6 @@ Get a `SQLModel <https://sqlmodel.tiangolo.com>`__ session:
 
 """
 
-from lndb_hub import hub  # noqa, currently not documented as being overhauled
-
 from ..dev.db import session  # noqa
 from ..dev.db._insert import insert  # noqa
 from ..dev.db._link import link  # noqa
