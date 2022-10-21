@@ -2,6 +2,8 @@ import pandas as pd
 from lamin_logger import colors, logger
 from tabulate import tabulate  # type: ignore
 
+from lamindb.schema import wetlab
+
 from ._insert import insert
 from ._select import select
 from ._update import update
@@ -11,35 +13,35 @@ class LinkFeatureModel:
     """Link a feature model to dobject during ingestion.
 
     Args:
-        feature_model: a feature model instance
+        knowledge_table: a feature model instance
         featureset_name: name of the featureset
 
-    For an overview of feature models, see: `bionty.lookup.feature_model <https://lamin.ai/docs/bionty/bionty.lookup#bionty.lookup.feature_model)>`__.
+    For an overview of feature models, see: `bionty.lookup.knowledge_table <https://lamin.ai/docs/bionty/bionty.lookup#bionty.lookup.knowledge_table)>`__.
     """  # noqa
 
-    def __init__(self, feature_model, featureset_name: str = None) -> None:
-        self._feature_model = feature_model
+    def __init__(self, knowledge_table, featureset_name: str = None) -> None:
+        self._knowledge_table = knowledge_table
         self._featureset_name = featureset_name
 
     @property
     def entity(self):
         """Correspond to the feature entity table."""
-        return self._feature_model.entity
+        return self._knowledge_table.entity
 
     @property
     def id_type(self):
         """Type of id used for curation."""
-        return self._feature_model._id_field
+        return self._knowledge_table._id_field
 
     @property
     def species(self):
         """Species."""
-        return self._feature_model.species
+        return self._knowledge_table.species
 
     @property
     def df(self):
         """Reference table."""
-        return self._feature_model.df
+        return self._knowledge_table.df
 
     def curate(self, df: pd.DataFrame):
         column = None
@@ -47,7 +49,7 @@ class LinkFeatureModel:
             column = self.id_type
         else:
             logger.warning(f"{self.id_type} column not found, using index as features.")
-        df_curated = self._feature_model.curate(df=df, column=column)
+        df_curated = self._knowledge_table.curate(df=df, column=column)
 
         # logging of curation
         n = df_curated["__curated__"].count()
@@ -91,11 +93,11 @@ class link:
     """
 
     @classmethod
-    def feature_model(
-        cls, df: pd.DataFrame, feature_model, featureset_name: str = None
+    def knowledge_table(
+        cls, df: pd.DataFrame, knowledge_table, featureset_name: str = None
     ):
         """Curate a DataFrame with a feature model."""
-        fm = LinkFeatureModel(feature_model, featureset_name=featureset_name)
+        fm = LinkFeatureModel(knowledge_table, featureset_name=featureset_name)
         df_curated, log = fm.curate(df)
 
         return {"model": fm, "df_curated": df_curated, "log": log}
@@ -121,7 +123,11 @@ class link:
 
         # use the featureset_id to create an entry in biometa
         # TODO: need to make this easier
-        dobject_biometas = select.dobject_biometa(dobject_id=dobject_id).all()  # type: ignore  # noqa
+        dobject_biometas = (
+            select(wetlab.dobject_biometa)
+            .where(wetlab.dobject_biometa.dobject_id == dobject_id)
+            .all()
+        )
         if len(dobject_biometas) == 0:
             # insert a biometa entry and link to dobject
             # TODO: force insert here
@@ -152,7 +158,7 @@ class link:
         readout = insert.readout(efo_id=efo_id)  # type: ignore
 
         # select biometa associated with a dobject
-        dobject_biometa = select.dobject_biometa(dobject_id=dobject_id).all()  # type: ignore  # noqa
+        dobject_biometa = select(wetlab.dobject_biometa).where(wetlab.dobject_biometa.dobject_id == dobject_id).all()  # type: ignore  # noqa
         if len(dobject_biometa) > 0:
             biometa_ids = [i.biometa_id for i in dobject_biometa]
         else:
@@ -177,9 +183,14 @@ class link:
     @classmethod
     def biometa(cls, dobject_id: str, biometa_id: int):
         """Link a dobject to a biometa."""
-        dobject_biometas = getattr(select, "dobject_biometa")(
-            dobject_id=dobject_id, biometa_id=biometa_id
-        ).all()
+        dobject_biometas = (
+            select(wetlab.dobject_biometa)
+            .where(
+                wetlab.dobject_biometa.dobject_id == dobject_id,
+                wetlab.dobject_biometa.biometa_id == biometa_id,
+            )
+            .all()
+        )
         if len(dobject_biometas) > 0:
             raise AssertionError(
                 f"dobject {dobject_id} is already linked to biometa {biometa_id}!"

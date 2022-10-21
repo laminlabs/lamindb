@@ -66,7 +66,11 @@ class Staged:
         # streamed
         if suffix != ".zarr":
             checksum = compute_checksum(self._filepath)
-            result = select.dobject(checksum=checksum).one_or_none()  # type: ignore
+            result = (
+                select(core.dobject)
+                .where(core.dobject.checksum == checksum)
+                .one_or_none()
+            )
             if result is not None:
                 raise RuntimeError(
                     "Based on the MD5 checksum, the exact same data object is already"
@@ -75,7 +79,7 @@ class Staged:
             self._dobject.checksum = checksum
 
         # access to the feature model
-        self._feature_model = None  # feature model
+        self._knowledge_table = None  # feature model
 
         # dtransform
         self._dtransform = dtransform
@@ -108,12 +112,19 @@ class Staged:
         link_table = get_link_table(table_name, "dobject")
         # is there a link table that links the data object to the entry?
         if link_table is not None:
-            result = getattr(select, table_name)(id=entry.id).one_or_none()
+            model = Table.get_model(table_name)
+            result = select(model).where(model.id == entry.id).one_or_none()
             if result is None:
                 self._add_entry(entry)
-            link_entry = getattr(select, link_table)(  # type: ignore
-                **{"dobject_id": dobject_id, f"{table_name}_id": entry.id}
-            ).one_or_none()
+            model = Table.get_model(link_table)
+            link_entry = (
+                select(model)
+                .where(
+                    model.dobject_id == dobject_id,
+                    getattr(model, f"{table_name}_id") == entry.id,
+                )
+                .one_or_none()
+            )
             if link_entry is None:
                 # TODO: do not hard code column names
                 link_entry = Table.get_model(link_table)(  # type: ignore
@@ -147,17 +158,19 @@ class Staged:
             self._add_entry(entry)
         return self
 
-    def link_features(self, feature_model, *, featureset_name: str = None) -> "Staged":
+    def link_features(
+        self, knowledge_table, *, featureset_name: str = None
+    ) -> "Staged":
         """Link dobject to features.
 
         Can be chained.
 
         Args:
-            feature_model: a feature model instance
+            knowledge_table: a feature model instance
             featureset_name: name of the featureset
 
         Returns:
-            writes to `Staged.feature_model`
+            writes to `Staged.knowledge_table`
         """
         # curate features
         # looks for the id column, if none is found, will assume in the index
@@ -171,8 +184,8 @@ class Staged:
             df = self._dmem
         # insert feature entries
         # TODO: needs to be staged without inserting here
-        self._feature_model = link.feature_model(
-            df=df, feature_model=feature_model, featureset_name=featureset_name
+        self._knowledge_table = link.knowledge_table(
+            df=df, knowledge_table=knowledge_table, featureset_name=featureset_name
         )
         return self
 
@@ -211,9 +224,9 @@ class Staged:
         )
 
         # insert features and link to dobject
-        if self._feature_model is not None:
-            self._feature_model["model"].ingest(
-                self.dobject.id, self._feature_model["df_curated"]
+        if self._knowledge_table is not None:
+            self._knowledge_table["model"].ingest(
+                self.dobject.id, self._knowledge_table["df_curated"]
             )
 
         track_usage(self.dobject.id, usage_type="ingest")
