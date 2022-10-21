@@ -8,7 +8,7 @@ sql-api
 storage
 flow
 ingest-same-file-twice
-select
+sql-api
 link-entities
 ingest-bfx
 postgres
