@@ -3,6 +3,7 @@
 <!-- prettier-ignore -->
 Name | PR | Developer | Date | Version
 --- | --- | --- | --- | ---
+✨ Added `ln.link` to populate link tables given two table entries | [307](https://github.com/laminlabs/lamindb/pull/307) | [sunnyosun](https://github.com/sunnyosun) | 2022-10-21 |
 Remove hub import | [301](https://github.com/laminlabs/lamindb/pull/301) | [fredericenard](https://github.com/fredericenard) | 2022-10-21 |
 🎨 Overhaul `select` and add `get` | [300](https://github.com/laminlabs/lamindb/pull/300) | [falexwolf](https://github.com/falexwolf) | 2022-10-21 |
 🩹 Skip nc_evolutions table created by nocodb | [302](https://github.com/laminlabs/lamindb/pull/302) | [sunnyosun](https://github.com/sunnyosun) | 2022-10-21 |
