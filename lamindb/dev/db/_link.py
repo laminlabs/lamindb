@@ -1,10 +1,11 @@
 import pandas as pd
 from lamin_logger import colors, logger
 from tabulate import tabulate  # type: ignore
+from typing_extensions import Literal
 
-from lamindb.schema import wetlab
+from lamindb.schema import bionty, wetlab
 
-from ._add import add
+from ._add import add, add_featureset_from_features
 from ._select import select
 
 
@@ -106,14 +107,12 @@ class link:
         cls,
         dobject_id: str,
         values: dict,
-        feature_entity: str,
-        species: str,
+        feature_entity: Literal["gene", "protein", "cell_marker"],
+        species: bionty.species,
         featureset_name: str = None,
     ):
         """Annotate genes."""
-        species = add.species(common_name=species)  # type: ignore
-
-        featureset = add.featureset_from_features(  # type: ignore
+        featureset = add_featureset_from_features(  # type: ignore
             features_dict=values,
             feature_entity=feature_entity,
             species=species.common_name,  # type: ignore
