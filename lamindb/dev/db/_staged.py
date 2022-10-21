@@ -121,7 +121,7 @@ class Staged:
                 select(model)
                 .where(
                     model.dobject_id == dobject_id,
-                    model.__getattr__("{table_name}_id") == entry.id,
+                    getattr(model, "{table_name}_id") == entry.id,
                 )
                 .one_or_none()
             )
