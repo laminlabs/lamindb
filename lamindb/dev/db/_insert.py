@@ -5,7 +5,7 @@ import sqlmodel as sqm
 from lamin_logger import colors, logger
 from lndb_setup import settings
 
-from ...schema import core
+from ...schema import bionty, core
 from ...schema._table import Table
 from ._select import select
 
@@ -23,9 +23,11 @@ def _camel_to_snake(string: str) -> str:
 
 
 def dobject_from_dtransform(dobject: core.dobject, dtransform_id: str):
-    storage = select.storage(  # type: ignore
-        root=str(settings.instance.storage_root)
-    ).one()
+    storage = (
+        select(core.storage)
+        .where(core.storage.root == str(settings.instance.storage_root))
+        .one()
+    )
 
     dobject_id = insert.dobject(  # type: ignore
         id=dobject.id,
@@ -54,17 +56,22 @@ def featureset_from_features(
 
     # check if geneset exists
     if featureset_name is not None:
-        featureset_result = getattr(select, "featureset")(
-            feature_entity=feature_entity,
-            name=featureset_name,
-        ).one_or_none()
+        featureset_result = (
+            select(bionty.featureset)
+            .where(
+                bionty.featureset.feature_entity == feature_entity,
+                bionty.featureset.name == featureset_name,
+            )
+            .one_or_none()
+        )
         if featureset_result is not None:
             logger.warning(f"Featureset {featureset_name} already exists!")
             return featureset_result
 
     # get the id field of feature entity
     feature_id = features_dict[next(iter(features_dict))].keys()[-1]
-    allfeatures = getattr(select, feature_entity)(species_id=species.id).all()  # type: ignore  # noqa
+    model = Table.get_model(feature_entity)
+    allfeatures = select(model).where(model.species_id == species.id).all()  # type: ignore  # noqa
     # only ingest the new features but link all features to the featureset
     exist_feature_keys = set()
     exist_feature_ids = set()
@@ -125,7 +132,8 @@ class InsertBase:
     @classmethod
     def add(cls, model, kwargs: dict, force=False):
         if not force:
-            results = cls.select(table_name=model.__name__, kwargs=kwargs)
+            conditions = [getattr(model, k) == v for k, v in kwargs.items()]
+            results = cls.select(model.__name__, *conditions)
             if len(results) >= 1:
                 return "exists", results[0]
             elif len(results) > 1:
@@ -142,8 +150,8 @@ class InsertBase:
         return "inserted", entry
 
     @classmethod
-    def select(cls, table_name, kwargs):
-        return getattr(select, table_name)(**kwargs).all()
+    def select(cls, table_name, *conditions):
+        return select(Table.get_model(table_name)).where(*conditions).all()
 
     @classmethod
     def is_unique(cls, model, column: str):
