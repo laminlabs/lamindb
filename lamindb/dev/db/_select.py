@@ -1,11 +1,14 @@
 import pandas as pd
 import sqlmodel as sqm
 from lndb_setup import settings
+from lndb_setup._settings_store import InstanceSettingsStore
 
 from . import exception
 
 
-def select(*tables_or_columns: sqm.SQLModel):
+def select(
+    *tables_or_columns: sqm.SQLModel, _settings_store: InstanceSettingsStore = None
+):
     """Select data & metadata.
 
     Guide: :doc:`/db/guide/select-load`.
@@ -15,21 +18,24 @@ def select(*tables_or_columns: sqm.SQLModel):
     Args:
        tables: Tables or columns.
     """
-    return SelectStmt(*tables_or_columns)
+    return SelectStmt(*tables_or_columns, settings_store=_settings_store)
 
 
 class ExecStmt:
     """Executable statement."""
 
-    def __init__(self, *, tables, stmt):
+    def __init__(self, *, tables, stmt, settings_store: InstanceSettingsStore = None):
         self._stmt = stmt
         self._tables = tables
+        self.settings_store = settings_store
         self._result = None
 
     def _execute(self):
         # cache the query result for the lifetime of the object
         if self._result is None:
-            with sqm.Session(settings.instance.db_engine()) as session:
+            with sqm.Session(
+                settings._instance(self.settings_store).db_engine()
+            ) as session:
                 self._result = session.exec(self._stmt).all()
 
     def all(self):
@@ -107,11 +113,13 @@ class SelectStmt(ExecStmt):
     `one`, `one_or_none` through the base class `ExecStmt`.
     """
 
-    def __init__(self, *tables, stmt=None) -> None:
+    def __init__(
+        self, *tables, stmt=None, settings_store: InstanceSettingsStore = None
+    ) -> None:
         self._tables = tables
         if stmt is None:
             stmt = sqm.select(*tables)
-        super().__init__(tables=tables, stmt=stmt)
+        super().__init__(tables=tables, stmt=stmt, settings_store=settings_store)
 
     def where(self, *conditions):
         """Pass one or multiple conditions.
