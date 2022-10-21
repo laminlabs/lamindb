@@ -1,8 +1,14 @@
-# Guide
+# guide
 
 ```{toctree}
 :maxdepth: 1
 
-basic
-rd
+get-started
+schema
+ingest
+link
+select-load
+insert-update-delete
+pipeline
+introspect
 ```
