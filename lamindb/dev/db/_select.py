@@ -10,7 +10,7 @@ def select(*tables_or_columns: sqm.SQLModel):
 
     Guide: :doc:`/db/guide/select-load`.
 
-    Returns a :class:`~lamindb.dev.db.SelectResult` object.
+    Returns a :class:`~lamindb.dev.db.SelectStmt` object.
 
     Args:
        tables: Tables or columns.
@@ -19,7 +19,7 @@ def select(*tables_or_columns: sqm.SQLModel):
 
 
 class ExecStmt:
-    """Execute a select statement."""
+    """Executable statement."""
 
     def __init__(self, *, tables, stmt):
         self._stmt = stmt
