@@ -13,6 +13,7 @@ Select & load:
    :toctree: .
 
    select
+   get
    load
 
 Ingest data:
@@ -54,6 +55,7 @@ Get a `SQLModel <https://sqlmodel.tiangolo.com>`__ session:
 """
 
 from ..dev.db import session  # noqa
+from ..dev.db._get import get  # noqa
 from ..dev.db._insert import insert  # noqa
 from ..dev.db._link import link  # noqa
 from ..dev.db._select import select  # noqa

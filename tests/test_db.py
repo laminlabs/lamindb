@@ -25,8 +25,7 @@ def test_create_to_load():
     ln.db.insert.dtransform(**dtransform.dict())
     ln.db.insert.dobject_from_dtransform(dobject=dobject, dtransform_id=dtransform.id)
 
-    for entity in ln.schema.list_entities():
-        getattr(ln.db.select, entity)().df()
+    ln.db.select(ln.schema.core.dobject).df()
 
     ln.schema._core.get_db_metadata_as_dict()
     table_object = ln.schema._core.get_table_object("dobject")
