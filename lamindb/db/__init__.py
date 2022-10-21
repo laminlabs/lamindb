@@ -7,35 +7,28 @@ View data:
 
    view
 
-Select & load:
+Get & select metadata:
 
 .. autosummary::
    :toctree: .
 
    select
    get
-   load
 
-Ingest data:
+Ingest & load data objects and datasets:
 
 .. autosummary::
    :toctree: .
 
    Ingest
-
-Modify metadata:
-
-.. autosummary::
-   :toctree: .
-
-   insert
-   update
+   load
 
 Delete data:
 
 .. autosummary::
    :toctree: .
 
+   add
    delete
 
 Link metadata:
@@ -55,11 +48,10 @@ Get a `SQLModel <https://sqlmodel.tiangolo.com>`__ session:
 """
 
 from ..dev.db import session  # noqa
+from ..dev.db._add import add  # noqa
 from ..dev.db._get import get  # noqa
-from ..dev.db._insert import insert  # noqa
 from ..dev.db._link import link  # noqa
 from ..dev.db._select import select  # noqa
-from ..dev.db._update import update  # noqa
 from ._delete import delete  # noqa
 from ._ingest import Ingest  # noqa
 from ._load import load  # noqa

@@ -1,12 +1,11 @@
 import pandas as pd
 import sqlmodel as sqm
 from lndb_setup import settings
-
-from . import exception
+from sqlalchemy.orm.exc import MultipleResultsFound, NoResultFound
 
 
 def select(*tables_or_columns: sqm.SQLModel):
-    """Select data & metadata.
+    """Select rows.
 
     Guide: :doc:`/db/guide/select-load`.
 
@@ -80,9 +79,9 @@ class ExecStmt:
         """Return exactly one result or raise an exception."""
         self._execute()
         if len(self._result) == 0:
-            raise exception.NoResultFound
+            raise NoResultFound
         elif len(self._result) > 1:
-            raise exception.MultipleresultFound
+            raise MultipleResultsFound
         else:
             return self._result[0]
 
@@ -94,7 +93,7 @@ class ExecStmt:
         elif len(self._result) == 1:
             return self._result[0]
         else:
-            raise exception.MultipleresultFound
+            raise MultipleResultsFound
 
 
 class SelectStmt(ExecStmt):

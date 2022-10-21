@@ -4,9 +4,8 @@ from tabulate import tabulate  # type: ignore
 
 from lamindb.schema import wetlab
 
-from ._insert import insert
+from ._add import add
 from ._select import select
-from ._update import update
 
 
 class LinkFeatureModel:
@@ -112,9 +111,9 @@ class link:
         featureset_name: str = None,
     ):
         """Annotate genes."""
-        species = insert.species(common_name=species)  # type: ignore
+        species = add.species(common_name=species)  # type: ignore
 
-        featureset = insert.featureset_from_features(  # type: ignore
+        featureset = add.featureset_from_features(  # type: ignore
             features_dict=values,
             feature_entity=feature_entity,
             species=species.common_name,  # type: ignore
@@ -129,11 +128,9 @@ class link:
             .all()
         )
         if len(dobject_biometas) == 0:
-            # insert a biometa entry and link to dobject
-            # TODO: force insert here
-            biometa = getattr(insert, "biometa")(
-                featureset_id=featureset.id, force=True
-            )
+            # add a biometa entry and link to dobject
+            # TODO: force add here
+            biometa = getattr(add, "biometa")(featureset_id=featureset.id, force=True)
             cls.biometa(dobject_id=dobject_id, biometa_id=biometa.id)
         else:
             raise NotImplementedError
@@ -155,7 +152,7 @@ class link:
     @classmethod
     def readout(cls, dobject_id, efo_id: str):
         """Link readout."""
-        readout = insert.readout(efo_id=efo_id)  # type: ignore
+        readout = add.readout(efo_id=efo_id)  # type: ignore
 
         # select biometa associated with a dobject
         dobject_biometa = select(wetlab.dobject_biometa).where(wetlab.dobject_biometa.dobject_id == dobject_id).all()  # type: ignore  # noqa
@@ -163,7 +160,7 @@ class link:
             biometa_ids = [i.biometa_id for i in dobject_biometa]
         else:
             # TODO: fix here
-            biometa_ids = [insert.biometa(readout_id=readout.id).id]  # type: ignore
+            biometa_ids = [add.biometa(readout_id=readout.id).id]  # type: ignore
             logger.warning(
                 f"No biometa found for dobject {dobject_id}, created biometa"
                 f" {biometa_ids[0]}"
@@ -171,8 +168,8 @@ class link:
 
         # fill in biometa entries with readout_id
         for biometa_id in biometa_ids:
-            update_biometa = getattr(update, "biometa")
-            update_biometa(biometa_id, readout_id=readout.id)
+            add_biometa = getattr(add, "biometa")
+            add_biometa(biometa_id, readout_id=readout.id)
 
         logger.success(
             f"Added {colors.blue(f'readout_id {readout.id}')} to"
@@ -196,6 +193,6 @@ class link:
                 f"dobject {dobject_id} is already linked to biometa {biometa_id}!"
             )
         else:
-            _ = getattr(insert, "dobject_biometa")(
+            _ = getattr(add, "dobject_biometa")(
                 dobject_id=dobject_id, biometa_id=biometa_id
             )

@@ -22,10 +22,8 @@ Other:
    :toctree: .
 
    session
-   exception
 """
 
-from . import exception
 from ._core import session
 from ._link import LinkFeatureModel
 from ._select import ExecStmt, SelectStmt
