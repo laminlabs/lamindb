@@ -55,6 +55,8 @@ def get_link_tables(inspector=None):
         inspector = sa.inspect(settings.instance.db_engine())
     link_tables = []
     for name in inspector.get_table_names():
+        if name == "nc_evolutions":  # table added by nocodb
+            continue
         if check_if_link_table(name):
             link_tables.append(name)
 
