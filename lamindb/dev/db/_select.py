@@ -43,19 +43,18 @@ class ExecStmt:
         dfs = []
         for itable, table in enumerate(self._tables):
             if len(self._result) > 0:
-                dfs.append(
-                    pd.DataFrame(
-                        [
-                            result.dict()
-                            if len(self._tables) == 1
-                            else result[itable].dict()
-                            for result in self._result
-                        ],
-                        columns=table.__fields__,
-                    )
+                df = pd.DataFrame(
+                    [
+                        result.dict()
+                        if len(self._tables) == 1
+                        else result[itable].dict()
+                        for result in self._result
+                    ],
+                    columns=table.__fields__,
                 )
             else:
-                df = pd.DataFrame(columns=self._table.__fields__)
+                df = pd.DataFrame(columns=table.__fields__)
+            dfs.append(df)
 
         # turn id and v columns into the index
         for i, df in enumerate(dfs):

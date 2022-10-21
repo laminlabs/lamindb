@@ -35,4 +35,4 @@ def get(
         conditions = [getattr(table, k) == v for k, v in fields.items()]
         return select(table).where(*conditions)
     else:
-        raise RuntimeError("Either pass primary_key or **fields.")
+        return select(table)
