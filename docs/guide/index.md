@@ -1,4 +1,4 @@
-# Learn the basic workflow
+# guide
 
 ```{toctree}
 :maxdepth: 1
