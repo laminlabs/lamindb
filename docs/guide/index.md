@@ -1,4 +1,4 @@
-# guide
+# Guide
 
 ```{toctree}
 :maxdepth: 1
@@ -8,7 +8,7 @@ schema
 ingest
 link
 select-load
-insert-update-delete
+add-delete
 pipeline
 introspect
 ```
