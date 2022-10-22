@@ -12,6 +12,7 @@ Browse the API:
    db
    schema
    knowledge
+   link
    settings
    datasets
    nb
@@ -37,6 +38,7 @@ from . import db  # noqa
 from . import dev  # noqa
 from . import knowledge  # noqa
 from . import schema  # noqa
+from ._link import link  # noqa
 from ._nb import nb  # noqa
 
 settings.__doc__ = """Settings.

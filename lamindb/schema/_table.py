@@ -26,7 +26,7 @@ class Table:
         return model
 
     @classmethod
-    def get_pks(cls, table):
+    def get_pks(cls, table) -> list:
         if isinstance(table, str):
             model = cls.get_model(table_name=table)
         else:
