@@ -233,7 +233,7 @@ class Staged:
 
     def _commit_entries(self) -> None:
         for rows in self.linked.items():
-            add(*rows)
+            add(rows)
 
 
 def compute_checksum(path: Path):

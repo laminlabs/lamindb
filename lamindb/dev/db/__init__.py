@@ -24,7 +24,8 @@ Other:
    session
 """
 
+from ._add import add
 from ._core import session
 from ._link import LinkFeatureModel
-from ._select import ExecStmt, SelectStmt
+from ._select import ExecStmt, SelectStmt, select
 from ._staged import Staged

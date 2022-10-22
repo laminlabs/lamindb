@@ -3,10 +3,10 @@ from lamin_logger import colors, logger
 from tabulate import tabulate  # type: ignore
 from typing_extensions import Literal
 
+from lamindb.dev._features import add_features_and_featureset
+from lamindb.dev.db._add import add
+from lamindb.dev.db._select import select
 from lamindb.schema import bionty, wetlab
-
-from ._add import add, add_featureset_from_features
-from ._select import select
 
 
 class LinkFeatureModel:
@@ -79,7 +79,7 @@ class LinkFeatureModel:
 
         link.feature(
             dobject_id=dobject_id,
-            values={**mapped_dict, **unmapped_dict},
+            features={**mapped_dict, **unmapped_dict},
             feature_entity=self.entity,
             species=self.species,
             featureset_name=self._featureset_name,
@@ -106,30 +106,31 @@ class link:
     def feature(
         cls,
         dobject_id: str,
-        values: dict,
+        features: dict,  # what is a features dict? can we have something more typed?
         feature_entity: Literal["gene", "protein", "cell_marker"],
         species: bionty.species,
         featureset_name: str = None,
     ):
-        """Annotate genes."""
-        featureset = add_featureset_from_features(  # type: ignore
-            features_dict=values,
+        """Annotate dobject with features.
+
+        Add all features and a featureset.
+
+        Link featureset to biometa.
+
+        Link biometa to dobject.
+        """
+        featureset = add_features_and_featureset(
+            features=features,
             feature_entity=feature_entity,
-            species=species.common_name,  # type: ignore
-            featureset_name=featureset_name,
+            species=species.common_name,
+            name=featureset_name,
         )
 
         # use the featureset_id to create an entry in biometa
         # TODO: need to make this easier
-        dobject_biometas = (
-            select(wetlab.dobject_biometa)
-            .where(wetlab.dobject_biometa.dobject_id == dobject_id)
-            .all()
-        )
+        dobject_biometas = select(wetlab.dobject_biometa, dobject_id=dobject_id).all()
         if len(dobject_biometas) == 0:
-            # add a biometa entry and link to dobject
-            # TODO: force add here
-            biometa = getattr(add, "biometa")(featureset_id=featureset.id, force=True)
+            biometa = add(bionty.biometa(featureset_id=featureset.id))
             cls.biometa(dobject_id=dobject_id, biometa_id=biometa.id)
         else:
             raise NotImplementedError
@@ -151,15 +152,15 @@ class link:
     @classmethod
     def readout(cls, dobject_id, efo_id: str):
         """Link readout."""
-        readout = add.readout(efo_id=efo_id)  # type: ignore
+        readout = add(wetlab.readout(efo_id=efo_id))
 
         # select biometa associated with a dobject
-        dobject_biometa = select(wetlab.dobject_biometa).where(wetlab.dobject_biometa.dobject_id == dobject_id).all()  # type: ignore  # noqa
+        dobject_biometa = select(wetlab.dobject_biometa, dobject_id=dobject_id).all()
         if len(dobject_biometa) > 0:
             biometa_ids = [i.biometa_id for i in dobject_biometa]
         else:
             # TODO: fix here
-            biometa_ids = [add.biometa(readout_id=readout.id).id]  # type: ignore
+            biometa_ids = [add(wetlab.biometa(readout_id=readout.id)).id]
             logger.warning(
                 f"No biometa found for dobject {dobject_id}, created biometa"
                 f" {biometa_ids[0]}"
@@ -167,8 +168,7 @@ class link:
 
         # fill in biometa entries with readout_id
         for biometa_id in biometa_ids:
-            add_biometa = getattr(add, "biometa")
-            add_biometa(biometa_id, readout_id=readout.id)
+            add(wetlab.biometa(biometa_id, readout_id=readout.id))
 
         logger.success(
             f"Added {colors.blue(f'readout_id {readout.id}')} to"
@@ -177,21 +177,14 @@ class link:
         )
 
     @classmethod
-    def biometa(cls, dobject_id: str, biometa_id: int):
+    def biometa(cls, dobject_id: str, biometa_id: str):
         """Link a dobject to a biometa."""
-        dobject_biometas = (
-            select(wetlab.dobject_biometa)
-            .where(
-                wetlab.dobject_biometa.dobject_id == dobject_id,
-                wetlab.dobject_biometa.biometa_id == biometa_id,
-            )
-            .all()
-        )
+        dobject_biometas = select(
+            wetlab.dobject_biometa, dobject_id=dobject_id, biometa_id=biometa_id
+        ).all()
         if len(dobject_biometas) > 0:
             raise AssertionError(
                 f"dobject {dobject_id} is already linked to biometa {biometa_id}!"
             )
         else:
-            _ = getattr(add, "dobject_biometa")(
-                dobject_id=dobject_id, biometa_id=biometa_id
-            )
+            add(wetlab.dobject_biometa(dobject_id=dobject_id, biometa_id=biometa_id))
