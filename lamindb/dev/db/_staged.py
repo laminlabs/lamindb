@@ -8,8 +8,6 @@ import lnschema_core as core
 import sqlmodel as sqm
 from lndb_setup import settings
 
-from lamindb.dev._ingest import add_dobject_from_dtransform
-
 from ...schema._table import Table
 from .._core import get_name_suffix_from_filepath
 from ..file import load_to_memory, store_file, write_adata_zarr
@@ -218,12 +216,17 @@ class Staged:
             size = getsizeof(self._dmem)
             storepath = settings.instance.storage.key_to_filepath(dobject_storage_key)
             write_adata_zarr(self._dmem, storepath)
-        self._dobject.size = size
+        self.dobject.size = size
+
+        # ensure storage is populated
+        storage = select(core.storage, root=str(settings.instance.storage_root)).one()
+        self.dobject.storage_id = storage.id
+
+        # populate dtransform_id
+        self.dobject.dtransform_id = self._dtransform.id
 
         # add dobject first to satisfy foreign key constraints
-        add_dobject_from_dtransform(  # type:ignore
-            dobject=self.dobject, dtransform_id=self._dtransform.id  # type:ignore
-        )
+        add(self.dobject)
 
         # add features and link to dobject
         if self._knowledge_table is not None:
