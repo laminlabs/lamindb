@@ -13,7 +13,7 @@ dependencies = [
     "lnschema_wetlab==0.7.2",
     "lnschema_bionty==0.4.3",
     "lndb_setup==0.12.2",
-    "lnbfx==0.4.4",
+    "lnbfx==0.4.5",
     "lndb_hub==0.5.6",
     "bioreadout==0.2.1",
     "bionty==0.4.1",
