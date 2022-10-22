@@ -38,6 +38,8 @@ def add(
     Args:
         rows: One or multiple rows as instances of `SQLModel`.
     """
+    if not isinstance(rows, list):
+        rows = [rows]
     with sqm.Session(settings.instance.db_engine()) as session:
         for row in rows:
             session.add(row)
