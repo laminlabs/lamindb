@@ -237,7 +237,7 @@ class Staged:
         track_usage(self.dobject.id, usage_type="ingest")
 
     def _commit_entries(self) -> None:
-        for rows in self.linked.items():
+        for rows in self.linked.values():
             add(rows)
 
 

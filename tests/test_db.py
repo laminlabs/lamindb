@@ -16,7 +16,7 @@ def test_create_to_load():
     import lamindb as ln
 
     jupynb = ln.schema.core.jupynb(id="83jf", v="1", name="test")
-    ln.db.insert.jupynb(**jupynb.dict())
+    ln.db.add(jupynb)
     dtransform = ln.schema.core.dtransform(jupynb_id=jupynb.id, jupynb_v=jupynb)
     ln.db.add(dtransform)
     dobject = ln.schema.core.dobject(
