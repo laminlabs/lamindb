@@ -19,12 +19,15 @@ def test_create_to_load():
     ln.db.add(jupynb)
     dtransform = ln.schema.core.dtransform(jupynb_id=jupynb.id, jupynb_v=jupynb)
     ln.db.add(dtransform)
+    storage = ln.db.select(
+        ln.schema.core.storage, root=str(ln.settings.instance.storage_root)
+    ).one()
     dobject = ln.schema.core.dobject(
         id="testid",
         name="test_file",
         suffix=".csv",
         size=1.2,
-        storage_id="239jfao93",
+        storage_id=storage.id,
         dtransform_id=dtransform.id,
     )
     ln.db.add(dobject)
