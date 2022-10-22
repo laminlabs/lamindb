@@ -24,6 +24,7 @@ def test_create_to_load():
         name="test_file",
         suffix=".csv",
         size=1.2,
+        storage_id="239jfao93",
         dtransform_id=dtransform.id,
     )
     ln.db.add(dobject)
