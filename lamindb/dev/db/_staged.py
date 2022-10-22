@@ -8,6 +8,8 @@ import lnschema_core as core
 import sqlmodel as sqm
 from lndb_setup import settings
 
+from lamindb.dev._ingest import add_dobject_from_dtransform
+
 from ...schema._table import Table
 from .._core import get_name_suffix_from_filepath
 from ..file import load_to_memory, store_file, write_adata_zarr
@@ -219,7 +221,7 @@ class Staged:
         self._dobject.size = size
 
         # add dobject first to satisfy foreign key constraints
-        add.dobject_from_dtransform(  # type:ignore
+        add_dobject_from_dtransform(  # type:ignore
             dobject=self.dobject, dtransform_id=self._dtransform.id  # type:ignore
         )
 
