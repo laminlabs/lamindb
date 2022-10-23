@@ -22,7 +22,7 @@ def add(  # type: ignore  # no support of different naming of args across overlo
 ) -> Union[sqm.SQLModel, List[sqm.SQLModel]]:
     """Insert or update records.
 
-    Inserts a new record if the corresponding row doesn't exist.
+    Inserts a new :term:`record` if the corresponding row doesn't exist.
     Updates the corresponding row with the record if it exists.
 
     To update a row, query it with `.get` or `.select` and modify it before
