@@ -15,16 +15,21 @@ def test_dynamic_settings():
     )
     init(storage="another-instance", dbconfig="sqlite", schema="bionty")
 
-    ingest = ln.db.Ingest()
+    pipeline = ln.db.add(core.pipeline(v="1", name="test-pipeline"))
+    pipeline_run = ln.schema.core.pipeline_run(
+        pipeline_id=pipeline.id, pipeline_v=pipeline.v, name="test-run"
+    )
+
+    ingest = ln.db.Ingest(dsource=pipeline_run)
     df = sklearn.datasets.load_iris(as_frame=True).frame
-    ingest.add(df, name="new_dobject")
+    ingest.add(df, name="test-dobject-1")
     ingest.commit()
 
-    select_dobject_result = ln.db.select(core.dobject, name="new_dobject").all()
+    select_dobject_result = ln.db.select(core.dobject, name="test-dobject-1").all()
     assert len(select_dobject_result) == 1
 
     select_dobject_result = ln.db.select(
-        core.dobject, _settings_store=settings_store, name="new_dobject"
+        core.dobject, _settings_store=settings_store, name="test-dobject-1"
     ).all()
     assert len(select_dobject_result) == 0
 
