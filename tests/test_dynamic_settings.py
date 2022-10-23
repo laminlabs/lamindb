@@ -26,6 +26,9 @@ def test_dynamic_settings():
     ingest.add(df, name="test-dobject-1")
     ingest.commit()
 
+    select_dobject_result = ln.db.select(core.dobject, name="test-dobject-1").all()
+    assert len(select_dobject_result) == 1
+
     init(storage="test-instance-2", dbconfig="sqlite")
 
     select_dobject_result = ln.db.select(core.dobject, name="test-dobject-1").all()
