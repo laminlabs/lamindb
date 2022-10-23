@@ -9,7 +9,7 @@ def test_dynamic_settings():
     settings_store = InstanceSettingsStore(
         storage_root=str(settings.instance.storage_root),
         storage_region=settings.instance.storage_region,
-        schema_modules=settings.instance.schema_modules,
+        schema_modules="bionty",
         dbconfig=settings.instance._dbconfig,
     )
     init(storage="another-instance", dbconfig="sqlite", schema="bionty")
