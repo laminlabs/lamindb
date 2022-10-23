@@ -12,8 +12,8 @@ from ...schema._table import Table
 from .._core import get_name_suffix_from_filepath
 from ..file import load_to_memory, store_file, write_adata_zarr
 from ..object import infer_suffix, write_to_file
+from ._add import add
 from ._core import get_foreign_keys, get_link_table
-from ._insert import insert
 from ._link import link
 from ._select import select
 from ._track_usage import track_usage
@@ -85,11 +85,11 @@ class Staged:
         self._dtransform = dtransform
 
         # annotation entries
-        self._entries: Dict = {}  # staged entries to be inserted
+        self._entries: Dict = {}  # staged entries to be added
 
     @property
     def dobject(self) -> core.dobject:
-        """An dobject entry to be inserted."""
+        """An dobject entry to be added."""
         return self._dobject
 
     def _add_entry(self, entry: sqm.SQLModel) -> None:
@@ -182,8 +182,8 @@ class Staged:
                 df = self._dmem
         except AttributeError:
             df = self._dmem
-        # insert feature entries
-        # TODO: needs to be staged without inserting here
+        # add feature entries
+        # TODO: needs to be staged without adding here
         self._knowledge_table = link.knowledge_table(
             df=df, knowledge_table=knowledge_table, featureset_name=featureset_name
         )
@@ -204,7 +204,7 @@ class Staged:
         self._entries = {}
 
     def _commit_dobject(self, use_fsspec: bool = False) -> None:
-        """Store and insert dobject and its linked entries."""
+        """Store and add dobject and its linked entries."""
         dobject_storage_key = f"{self.dobject.id}{self.dobject.suffix}"
 
         if self.dobject.suffix != ".zarr":
@@ -216,14 +216,19 @@ class Staged:
             size = getsizeof(self._dmem)
             storepath = settings.instance.storage.key_to_filepath(dobject_storage_key)
             write_adata_zarr(self._dmem, storepath)
-        self._dobject.size = size
+        self.dobject.size = size
 
-        # insert dobject first to satisfy foreign key constraints
-        insert.dobject_from_dtransform(  # type:ignore
-            dobject=self.dobject, dtransform_id=self._dtransform.id  # type:ignore
-        )
+        # ensure storage is populated
+        storage = select(core.storage, root=str(settings.instance.storage_root)).one()
+        self.dobject.storage_id = storage.id
 
-        # insert features and link to dobject
+        # populate dtransform_id
+        self.dobject.dtransform_id = self._dtransform.id
+
+        # add dobject first to satisfy foreign key constraints
+        add(self.dobject)
+
+        # add features and link to dobject
         if self._knowledge_table is not None:
             self._knowledge_table["model"].ingest(
                 self.dobject.id, self._knowledge_table["df_curated"]
@@ -232,9 +237,8 @@ class Staged:
         track_usage(self.dobject.id, usage_type="ingest")
 
     def _commit_entries(self) -> None:
-        # insert all linked entries
-        for table_name, entries in self.linked.items():
-            insert.from_list(table_name=table_name, entries=entries)  # type:ignore
+        for rows in self.linked.values():
+            add(rows)
 
 
 def compute_checksum(path: Path):

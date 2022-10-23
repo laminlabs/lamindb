@@ -3,6 +3,12 @@
 ```{toctree}
 :maxdepth: 1
 
-basic
-rd
+get-started
+schema
+ingest
+link
+select-load
+add-delete
+pipeline
+introspect
 ```

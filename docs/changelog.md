@@ -3,6 +3,10 @@
 <!-- prettier-ignore -->
 Name | PR | Developer | Date | Version
 --- | --- | --- | --- | ---
+:art: Replace `insert` and `update` with `add` | [308](https://github.com/laminlabs/lamindb/pull/308) | [falexwolf](https://github.com/falexwolf) | 2022-10-22 |
+:arrow_up: Upgrade `lnbfx` to 0.4.5 | [311](https://github.com/laminlabs/lamindb/pull/311) | [bpenteado](https://github.com/bpenteado) | 2022-10-22 |
+:memo: Update postgres faq notebook | [314](https://github.com/laminlabs/lamindb/pull/314) | [bpenteado](https://github.com/bpenteado) | 2022-10-22 |
+🚚 Moved the rds notebooks to `rnd-demo` repo | [309](https://github.com/laminlabs/lamindb/pull/309) | [sunnyosun](https://github.com/sunnyosun) | 2022-10-21 |
 ✨ Added `ln.link` to populate link tables given two table entries | [307](https://github.com/laminlabs/lamindb/pull/307) | [sunnyosun](https://github.com/sunnyosun) | 2022-10-21 |
 Remove hub import | [301](https://github.com/laminlabs/lamindb/pull/301) | [fredericenard](https://github.com/fredericenard) | 2022-10-21 |
 🎨 Overhaul `select` and add `get` | [300](https://github.com/laminlabs/lamindb/pull/300) | [falexwolf](https://github.com/falexwolf) | 2022-10-21 |

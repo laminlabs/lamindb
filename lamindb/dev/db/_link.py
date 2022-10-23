@@ -1,12 +1,13 @@
+import bioreadout
 import pandas as pd
 from lamin_logger import colors, logger
 from tabulate import tabulate  # type: ignore
+from typing_extensions import Literal
 
-from lamindb.schema import wetlab
-
-from ._insert import insert
-from ._select import select
-from ._update import update
+from lamindb.dev._features import add_features_and_featureset
+from lamindb.dev.db._add import add
+from lamindb.dev.db._select import select
+from lamindb.schema import bionty, wetlab
 
 
 class LinkFeatureModel:
@@ -77,11 +78,15 @@ class LinkFeatureModel:
         for um in df_curated.index.difference(mapped_index):
             unmapped_dict[um] = {self.id_type: um}
 
+        species = select(bionty.species, common_name=self.species).one_or_none()
+        if species is None:
+            species = add(bionty.species(common_name=self.species))
+
         link.feature(
             dobject_id=dobject_id,
-            values={**mapped_dict, **unmapped_dict},
+            features={**mapped_dict, **unmapped_dict},
             feature_entity=self.entity,
-            species=self.species,
+            species=species,
             featureset_name=self._featureset_name,
         )
 
@@ -106,34 +111,31 @@ class link:
     def feature(
         cls,
         dobject_id: str,
-        values: dict,
-        feature_entity: str,
-        species: str,
+        features: dict,  # what is a features dict? can we have something more typed?
+        feature_entity: Literal["gene", "protein", "cell_marker"],
+        species: bionty.species,
         featureset_name: str = None,
     ):
-        """Annotate genes."""
-        species = insert.species(common_name=species)  # type: ignore
+        """Annotate dobject with features.
 
-        featureset = insert.featureset_from_features(  # type: ignore
-            features_dict=values,
+        Add all features and a featureset.
+
+        Link featureset to biometa.
+
+        Link biometa to dobject.
+        """
+        featureset = add_features_and_featureset(
+            features=features,
             feature_entity=feature_entity,
-            species=species.common_name,  # type: ignore
-            featureset_name=featureset_name,
+            species=species,
+            name=featureset_name,
         )
 
         # use the featureset_id to create an entry in biometa
         # TODO: need to make this easier
-        dobject_biometas = (
-            select(wetlab.dobject_biometa)
-            .where(wetlab.dobject_biometa.dobject_id == dobject_id)
-            .all()
-        )
+        dobject_biometas = select(wetlab.dobject_biometa, dobject_id=dobject_id).all()
         if len(dobject_biometas) == 0:
-            # insert a biometa entry and link to dobject
-            # TODO: force insert here
-            biometa = getattr(insert, "biometa")(
-                featureset_id=featureset.id, force=True
-            )
+            biometa = add(wetlab.biometa(featureset_id=featureset.id))
             cls.biometa(dobject_id=dobject_id, biometa_id=biometa.id)
         else:
             raise NotImplementedError
@@ -155,24 +157,27 @@ class link:
     @classmethod
     def readout(cls, dobject_id, efo_id: str):
         """Link readout."""
-        readout = insert.readout(efo_id=efo_id)  # type: ignore
+        readout = select(wetlab.readout, efo_id=efo_id).one_or_none()
+        if readout is None:
+            assert sum(i.isdigit() for i in efo_id) == 7
+            readout = add(wetlab.readout(**bioreadout.readout(efo_id=efo_id)))
 
         # select biometa associated with a dobject
-        dobject_biometa = select(wetlab.dobject_biometa).where(wetlab.dobject_biometa.dobject_id == dobject_id).all()  # type: ignore  # noqa
-        if len(dobject_biometa) > 0:
-            biometa_ids = [i.biometa_id for i in dobject_biometa]
+        dobject_biometas = select(wetlab.dobject_biometa, dobject_id=dobject_id).all()
+        if len(dobject_biometas) > 0:
+            biometa_ids = [i.biometa_id for i in dobject_biometas]
+            biometas = (
+                select(wetlab.biometa).where(wetlab.biometa.id.in_(biometa_ids)).all()
+            )
+            for biometa in biometas:
+                biometa.readout_id = readout.id
+            add(biometas)
         else:
-            # TODO: fix here
-            biometa_ids = [insert.biometa(readout_id=readout.id).id]  # type: ignore
+            add(wetlab.biometa(readout_id=readout.id))
             logger.warning(
                 f"No biometa found for dobject {dobject_id}, created biometa"
                 f" {biometa_ids[0]}"
             )
-
-        # fill in biometa entries with readout_id
-        for biometa_id in biometa_ids:
-            update_biometa = getattr(update, "biometa")
-            update_biometa(biometa_id, readout_id=readout.id)
 
         logger.success(
             f"Added {colors.blue(f'readout_id {readout.id}')} to"
@@ -181,21 +186,14 @@ class link:
         )
 
     @classmethod
-    def biometa(cls, dobject_id: str, biometa_id: int):
+    def biometa(cls, dobject_id: str, biometa_id: str):
         """Link a dobject to a biometa."""
-        dobject_biometas = (
-            select(wetlab.dobject_biometa)
-            .where(
-                wetlab.dobject_biometa.dobject_id == dobject_id,
-                wetlab.dobject_biometa.biometa_id == biometa_id,
-            )
-            .all()
-        )
+        dobject_biometas = select(
+            wetlab.dobject_biometa, dobject_id=dobject_id, biometa_id=biometa_id
+        ).all()
         if len(dobject_biometas) > 0:
             raise AssertionError(
                 f"dobject {dobject_id} is already linked to biometa {biometa_id}!"
             )
         else:
-            _ = getattr(insert, "dobject_biometa")(
-                dobject_id=dobject_id, biometa_id=biometa_id
-            )
+            add(wetlab.dobject_biometa(dobject_id=dobject_id, biometa_id=biometa_id))

@@ -2,23 +2,27 @@ import pandas as pd
 import sqlmodel as sqm
 from lndb_setup import settings
 from lndb_setup._settings_store import InstanceSettingsStore
+from sqlalchemy.orm.exc import MultipleResultsFound, NoResultFound
 
-from . import exception
 
-
-def select(
-    *tables_or_columns: sqm.SQLModel, _settings_store: InstanceSettingsStore = None
-):
-    """Select data & metadata.
+def select(*entity: sqm.SQLModel, **fields, _settings_store: InstanceSettingsStore = None) -> "SelectStmt":
+    """Select rows and columns.
 
     Guide: :doc:`/db/guide/select-load`.
 
     Returns a :class:`~lamindb.dev.db.SelectStmt` object.
 
     Args:
-       tables: Tables or columns.
+        entity: Table, tables, or tables including column specification.
+        fields: Fields and values passed as keyword arguments.
     """
-    return SelectStmt(*tables_or_columns, settings_store=_settings_store)
+    if len(entity) > 1 and len(fields) > 0:
+        raise RuntimeError("Can only pass fields for a single entity.")
+    elif len(fields) > 0:
+        # was in `get` before, but there it leads to an inhomogeneous return type
+        conditions = [getattr(entity[0], k) == v for k, v in fields.items()]
+        return SelectStmt(*entity).where(*conditions)
+    return SelectStmt(*entity)
 
 
 class ExecStmt:
@@ -86,9 +90,9 @@ class ExecStmt:
         """Return exactly one result or raise an exception."""
         self._execute()
         if len(self._result) == 0:
-            raise exception.NoResultFound
+            raise NoResultFound
         elif len(self._result) > 1:
-            raise exception.MultipleresultFound
+            raise MultipleResultsFound
         else:
             return self._result[0]
 
@@ -100,7 +104,7 @@ class ExecStmt:
         elif len(self._result) == 1:
             return self._result[0]
         else:
-            raise exception.MultipleresultFound
+            raise MultipleResultsFound
 
 
 class SelectStmt(ExecStmt):
