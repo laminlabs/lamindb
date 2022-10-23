@@ -5,7 +5,9 @@ from lndb_setup._settings_store import InstanceSettingsStore
 from sqlalchemy.orm.exc import MultipleResultsFound, NoResultFound
 
 
-def select(*entity: sqm.SQLModel, **fields, _settings_store: InstanceSettingsStore = None) -> "SelectStmt":
+def select(
+    *entity: sqm.SQLModel, _settings_store: InstanceSettingsStore = None, **fields
+) -> "SelectStmt":
     """Select rows and columns.
 
     Guide: :doc:`/db/guide/select-load`.
@@ -15,14 +17,15 @@ def select(*entity: sqm.SQLModel, **fields, _settings_store: InstanceSettingsSto
     Args:
         entity: Table, tables, or tables including column specification.
         fields: Fields and values passed as keyword arguments.
+        _settings_store: Instance settings optionally provided.
     """
     if len(entity) > 1 and len(fields) > 0:
         raise RuntimeError("Can only pass fields for a single entity.")
     elif len(fields) > 0:
         # was in `get` before, but there it leads to an inhomogeneous return type
         conditions = [getattr(entity[0], k) == v for k, v in fields.items()]
-        return SelectStmt(*entity).where(*conditions)
-    return SelectStmt(*entity)
+        return SelectStmt(*entity, settings_store=_settings_store).where(*conditions)
+    return SelectStmt(*entity, settings_store=_settings_store)
 
 
 class ExecStmt:
