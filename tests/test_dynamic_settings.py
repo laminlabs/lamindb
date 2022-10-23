@@ -1,3 +1,4 @@
+import sklearn.datasets
 from lndb_setup import init, settings
 from lndb_setup._settings_store import InstanceSettingsStore
 
@@ -14,10 +15,18 @@ def test_dynamic_settings():
     )
     init(storage="another-instance", dbconfig="sqlite", schema="bionty")
 
-    select_dobject_result = ln.db.select(
-        core.dobject, _settings_store=settings_store, name="iris"
-    ).all()
+    ingest = ln.db.Ingest()
+    df = sklearn.datasets.load_iris(as_frame=True).frame
+    ingest.add(df, name="new_dobject")
+    ingest.commit()
+
+    select_dobject_result = ln.db.select(core.dobject, name="new_dobject").all()
     assert len(select_dobject_result) == 1
+
+    select_dobject_result = ln.db.select(
+        core.dobject, _settings_store=settings_store, name="new_dobject"
+    ).all()
+    assert len(select_dobject_result) == 0
 
     db_metadata = ln.schema._core.get_db_metadata_as_dict(settings_store)
     assert db_metadata["key"] == "mydata-test-db"
