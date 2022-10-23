@@ -20,8 +20,8 @@ if version.parse(lnschema_bionty_v) != version.parse("0.4.3"):
 if version.parse(lndb_setup_v) != version.parse("0.12.2"):
     raise RuntimeError("lamindb needs lndb_setup==0.12.2")
 
-if version.parse(lndb_hub_v) != version.parse("0.6.0"):
-    raise RuntimeError("lamindb needs lndb_hub==0.6.0")
+if version.parse(lndb_hub_v) != version.parse("0.6.1"):
+    raise RuntimeError("lamindb needs lndb_hub==0.6.1")
 
 if version.parse(nbproject_v) < version.parse("0.7.0"):
     raise RuntimeError("lamindb needs nbproject>=0.7.0")
