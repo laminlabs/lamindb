@@ -5,7 +5,7 @@ from lndb_setup import settings
 
 
 @overload
-def add(rows: sqm.SQLModel) -> sqm.SQLModel:
+def add(record: sqm.SQLModel) -> sqm.SQLModel:
     ...
 
 
@@ -13,41 +13,47 @@ def add(rows: sqm.SQLModel) -> sqm.SQLModel:
 # Overloaded function signature 2 will never be matched: signature 1's parameter
 # type(s) are the same or broader
 @overload
-def add(rows: List[sqm.SQLModel]) -> List[sqm.SQLModel]:  # type: ignore
+def add(records: List[sqm.SQLModel]) -> List[sqm.SQLModel]:  # type: ignore
     ...
 
 
-def add(
-    rows: Union[sqm.SQLModel, List[sqm.SQLModel]]
+def add(  # type: ignore  # no support of different naming of args across overloads
+    record: Union[sqm.SQLModel, List[sqm.SQLModel]]
 ) -> Union[sqm.SQLModel, List[sqm.SQLModel]]:
-    """Insert or update rows.
+    """Insert or update records.
 
-    Inserts a new row if it doesn't exist. Updates the row if it exists already.
+    Inserts a new :term:`record` if the corresponding row doesn't exist.
+    Updates the corresponding row with the record if it exists.
 
-    To achieve the latter, query the `row` with `.get` or `.select` before
-    passing it to add.
+    To update a row, query it with `.get` or `.select` and modify it before
+    passing it to `add`.
 
     Guide: :doc:`/db/guide/add-delete`.
 
     Example:
 
-    >>> experiment = ln.get(wetlab.experiment, "93jIJFla")
+    >>> # insert a new record
+    >>> db.add(wetlab.experiment(name="My test", biometa_id=test_id))
+    >>> # update an existing record
+    >>> experiment = ln.get(wetlab.experiment, experiment_id)
     >>> experiment.name = "New name"
-    >>> add(experiment)
+    >>> db.add(experiment)
 
     Args:
-        rows: One or multiple rows as instances of `SQLModel`.
+        record: One or multiple records as instances of `SQLModel`.
     """
-    if not isinstance(rows, list):
-        rows = [rows]
-    with sqm.Session(settings.instance.db_engine()) as session:
-        for row in rows:
-            session.add(row)
-        session.commit()
-        for row in rows:
-            session.refresh(row)
-    settings.instance._update_cloud_sqlite_file()
-    if len(rows) > 1:
-        return rows
+    if isinstance(record, list):
+        records = record
     else:
-        return rows[0]
+        records = [record]
+    with sqm.Session(settings.instance.db_engine()) as session:
+        for record in records:
+            session.add(record)
+        session.commit()
+        for record in records:
+            session.refresh(record)
+    settings.instance._update_cloud_sqlite_file()
+    if len(records) > 1:
+        return records
+    else:
+        return records[0]
