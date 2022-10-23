@@ -1,14 +1,16 @@
+import lnschema_core as core
 from lndb_setup import settings
-from lnschema_core import type
 
 
-def track_usage(dobject_id, usage_type: type.usage):
-    from ._insert import insert
+def track_usage(dobject_id, usage_type: core.type.usage):
+    from ._add import add
 
-    usage_id = insert.usage(  # type: ignore
-        type=usage_type,
-        user_id=settings.user.id,
-        dobject_id=dobject_id,
+    usage = add(
+        core.usage(
+            type=usage_type,
+            user_id=settings.user.id,
+            dobject_id=dobject_id,
+        )
     )
 
-    return usage_id
+    return usage.id

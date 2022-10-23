@@ -2,8 +2,8 @@ from typing import Dict, List, Optional, Union
 
 from sqlmodel import SQLModel
 
+from .dev.db._add import add
 from .dev.db._core import get_foreign_keys, get_link_table
-from .dev.db._insert import insert
 from .schema._table import Table
 
 
@@ -70,7 +70,7 @@ def link(
         # TODO: remove after the new add API
         kwargs = link_entry.dict()
         if add_link_entries:
-            getattr(insert, link_table_name)(**kwargs)
+            add(link_table_model(**kwargs))
 
     if add_link_entries:
         return None
