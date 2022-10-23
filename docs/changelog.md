@@ -3,6 +3,7 @@
 <!-- prettier-ignore -->
 Name | PR | Developer | Date | Version
 --- | --- | --- | --- | ---
+📝 Rename row to record when not yet added to the DB | [316](https://github.com/laminlabs/lamindb/pull/316) | [falexwolf](https://github.com/falexwolf) | 2022-10-23 |
 Update lndb hub version | [315](https://github.com/laminlabs/lamindb/pull/315) | [fredericenard](https://github.com/fredericenard) | 2022-10-23 |
 :art: Replace `insert` and `update` with `add` | [308](https://github.com/laminlabs/lamindb/pull/308) | [falexwolf](https://github.com/falexwolf) | 2022-10-22 |
 :arrow_up: Upgrade `lnbfx` to 0.4.5 | [311](https://github.com/laminlabs/lamindb/pull/311) | [bpenteado](https://github.com/bpenteado) | 2022-10-22 |
