@@ -7,13 +7,14 @@ from lamindb.schema import core
 
 
 def test_dynamic_settings():
+    init(storage="test-instance-1", dbconfig="sqlite", schema="bionty")
+
     settings_store = InstanceSettingsStore(
         storage_root=str(settings.instance.storage_root),
         storage_region=settings.instance.storage_region,
-        schema_modules="bionty",
+        schema_modules=settings.instance.schema_modules,
         dbconfig=settings.instance._dbconfig,
     )
-    init(storage="another-instance", dbconfig="sqlite", schema="bionty")
 
     pipeline = ln.db.add(core.pipeline(v="1", name="test-pipeline"))
     pipeline_run = ln.schema.core.pipeline_run(
@@ -25,13 +26,15 @@ def test_dynamic_settings():
     ingest.add(df, name="test-dobject-1")
     ingest.commit()
 
+    init(storage="test-instance-2", dbconfig="sqlite")
+
     select_dobject_result = ln.db.select(core.dobject, name="test-dobject-1").all()
-    assert len(select_dobject_result) == 1
+    assert len(select_dobject_result) == 0
 
     select_dobject_result = ln.db.select(
         core.dobject, _settings_store=settings_store, name="test-dobject-1"
     ).all()
-    assert len(select_dobject_result) == 0
+    assert len(select_dobject_result) == 1
 
     db_metadata = ln.schema._core.get_db_metadata_as_dict(settings_store)
-    assert db_metadata["key"] == "mydata-test-db"
+    assert db_metadata["key"] == "test-instance-1"
