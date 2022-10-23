@@ -17,7 +17,7 @@ def add(records: List[sqm.SQLModel]) -> List[sqm.SQLModel]:  # type: ignore
     ...
 
 
-def add(  # type: ignore
+def add(  # type: ignore  # no support of different naming of args across overloads
     record: Union[sqm.SQLModel, List[sqm.SQLModel]]
 ) -> Union[sqm.SQLModel, List[sqm.SQLModel]]:
     """Insert or update records.
