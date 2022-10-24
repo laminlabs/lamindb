@@ -14,7 +14,6 @@ dependencies = [
     "lnschema_bionty==0.4.3",
     "lndb_setup==0.12.2",
     "lnbfx==0.4.5",
-    "lndb_hub==0.6.1",
     "bioreadout==0.2.1",
     "bionty==0.4.1",
     "nbproject>=0.7.0",
