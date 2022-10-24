@@ -24,24 +24,24 @@ def select(
     elif len(fields) > 0:
         # was in `get` before, but there it leads to an inhomogeneous return type
         conditions = [getattr(entity[0], k) == v for k, v in fields.items()]
-        return SelectStmt(*entity, settings_store=_settings_store).where(*conditions)
-    return SelectStmt(*entity, settings_store=_settings_store)
+        return SelectStmt(*entity, _settings_store=_settings_store).where(*conditions)
+    return SelectStmt(*entity, _settings_store=_settings_store)
 
 
 class ExecStmt:
     """Executable statement."""
 
-    def __init__(self, *, tables, stmt, settings_store: InstanceSettingsStore = None):
+    def __init__(self, *, tables, stmt, _settings_store: InstanceSettingsStore = None):
         self._stmt = stmt
         self._tables = tables
-        self.settings_store = settings_store
+        self._settings_store = _settings_store
         self._result = None
 
     def _execute(self):
         # cache the query result for the lifetime of the object
         if self._result is None:
             with sqm.Session(
-                settings._instance(self.settings_store).db_engine()
+                settings._instance(self._settings_store).db_engine()
             ) as session:
                 self._result = session.exec(self._stmt).all()
 
@@ -121,12 +121,13 @@ class SelectStmt(ExecStmt):
     """
 
     def __init__(
-        self, *tables, stmt=None, settings_store: InstanceSettingsStore = None
+        self, *tables, stmt=None, _settings_store: InstanceSettingsStore = None
     ) -> None:
         self._tables = tables
+        self._settings_store = _settings_store
         if stmt is None:
             stmt = sqm.select(*tables)
-        super().__init__(tables=tables, stmt=stmt, settings_store=settings_store)
+        super().__init__(tables=tables, stmt=stmt, _settings_store=_settings_store)
 
     def where(self, *conditions):
         """Pass one or multiple conditions.
@@ -135,7 +136,11 @@ class SelectStmt(ExecStmt):
 
         If OR is desired, use `sqlmodel.or_`.
         """
-        return SelectStmt(*self._tables, stmt=self._stmt.where(*conditions))
+        return SelectStmt(
+            *self._tables,
+            stmt=self._stmt.where(*conditions),
+            _settings_store=self._settings_store
+        )
 
     def join(self, *expression, **kwargs):
         """Pass one or multiple conditions.
@@ -144,7 +149,11 @@ class SelectStmt(ExecStmt):
 
         If OR is desired, use `sqlmodel.or_`.
         """
-        return SelectStmt(*self._tables, stmt=self._stmt.join(*expression, **kwargs))
+        return SelectStmt(
+            *self._tables,
+            stmt=self._stmt.join(*expression, **kwargs),
+            _settings_store=self._settings_store
+        )
 
     def order_by(self, expression):
         """Pass one or multiple conditions.
@@ -153,12 +162,24 @@ class SelectStmt(ExecStmt):
 
         If OR is desired, use `sqlmodel.or_`.
         """
-        return SelectStmt(*self._tables, stmt=self._stmt.order_by(expression))
+        return SelectStmt(
+            *self._tables,
+            stmt=self._stmt.order_by(expression),
+            _settings_store=self._settings_store
+        )
 
     def offset(self, n):
         """Pass an integer."""
-        return SelectStmt(*self._tables, stmt=self._stmt.offset(n))
+        return SelectStmt(
+            *self._tables,
+            stmt=self._stmt.offset(n),
+            _settings_store=self._settings_store
+        )
 
     def limit(self, n):
         """Pass an integer."""
-        return SelectStmt(*self._tables, stmt=self._stmt.limit(n))
+        return SelectStmt(
+            *self._tables,
+            stmt=self._stmt.limit(n),
+            _settings_store=self._settings_store
+        )
