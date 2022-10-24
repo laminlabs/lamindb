@@ -3,6 +3,7 @@
 <!-- prettier-ignore -->
 Name | PR | Developer | Date | Version
 --- | --- | --- | --- | ---
+⬆️ Updated to lnschema_bionty 0.4.4 | [317](https://github.com/laminlabs/lamindb/pull/317) | [sunnyosun](https://github.com/sunnyosun) | 2022-10-24 |
 Remove lndb-hub import | [318](https://github.com/laminlabs/lamindb/pull/318) | [fredericenard](https://github.com/fredericenard) | 2022-10-24 |
 :sparkles: Enable to get db metadata from dynamically provided InstanceSettingsStore | [310](https://github.com/laminlabs/lamindb/pull/310) | [fredericenard](https://github.com/fredericenard) | 2022-10-24 |
 📝 Rename row to record when not yet added to the DB | [316](https://github.com/laminlabs/lamindb/pull/316) | [falexwolf](https://github.com/falexwolf) | 2022-10-23 |
