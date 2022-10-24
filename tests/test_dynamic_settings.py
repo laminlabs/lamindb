@@ -40,4 +40,5 @@ def test_dynamic_settings():
     assert len(select_dobject_result) == 1
 
     db_metadata = ln.schema._core.get_db_metadata_as_dict(settings_store)
-    assert db_metadata["key"] == "test-instance-1"
+    db_path = "/home/runner/work/lamindb/lamindb/test-instance-1/test-instance-1"
+    assert db_metadata["key"] == db_path
