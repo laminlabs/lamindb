@@ -33,7 +33,7 @@ def add_features_and_featureset(
     # get the id field of feature entity
     feature_id = features[next(iter(features))].keys()[-1]  # quite hard to read
     model = Table.get_model(feature_entity)
-    exist_features = select(model, species_id=species.id).all()  # type: ignore
+    exist_features = select(model, species_id=species).all()
     # only ingest the new features but link all features to the featureset
     exist_feature_keys, exist_feature_ids = set(), set()
     for (
