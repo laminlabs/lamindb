@@ -10,6 +10,7 @@ from lamindb.schema._table import Table
 def add_features_and_featureset(
     features: dict,  # what is a features dict? can we have something more typed?
     feature_entity: Literal["gene", "protein", "cell_marker"],
+    id_field: str,
     species: bionty.species,
     name: str = None,
 ):
@@ -31,7 +32,6 @@ def add_features_and_featureset(
             return featureset
 
     # get the id field of feature entity
-    feature_id = features[next(iter(features))].keys()[-1]  # quite hard to read
     model = Table.get_model(feature_entity)
     exist_features = select(model, species_id=species.id).all()
     # only ingest the new features but link all features to the featureset
@@ -39,7 +39,7 @@ def add_features_and_featureset(
     for (
         feature
     ) in exist_features:  # why do we have to write a for-loop here? rather pandas?
-        exist_feature_keys.add(feature.__getattribute__(feature_id))
+        exist_feature_keys.add(feature.__getattribute__(id_field))
         exist_feature_ids.add(feature.id)
     # add non-exist features to the feature table
     new_features = []

@@ -21,6 +21,7 @@ class link:
         dobject_id: str,
         features: dict,  # what is a features dict? can we have something more typed?
         feature_entity: Literal["gene", "protein", "cell_marker"],
+        id_field: str,
         species: bionty.species,
         featureset_name: str = None,
     ):
@@ -35,6 +36,7 @@ class link:
         featureset = add_features_and_featureset(
             features=features,
             feature_entity=feature_entity,
+            id_field=id_field,
             species=species,
             name=featureset_name,
         )
