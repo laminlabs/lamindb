@@ -3,8 +3,11 @@ from typing import Union
 import pandas as pd
 from lamin_logger import logger
 
+from lamindb.dev.db._add import add
 from lamindb.dev.db._link import link
+from lamindb.dev.db._select import select
 from lamindb.knowledge import CellMarker, Gene, Protein
+from lamindb.schema import bionty
 
 
 class LinkFeatureToKnowledgeTable:
@@ -57,6 +60,10 @@ class LinkFeatureToKnowledgeTable:
         unmapped_dict = {}
         for um in self._df_curated.index.difference(mapped_index):
             unmapped_dict[um] = {self._id: um}
+
+        species = select(bionty.species, common_name=self._model.species).one_or_none()
+        if species is None:
+            species = add(bionty.species(common_name=self._model.species))
 
         link.feature(
             dobject_id=dobject_id,
