@@ -1,18 +1,31 @@
 import bionty as bt
 
 
-# fmt: off
-def Gene(species="human", id="ensembl_gene_id"):
-    """Returns a `bionty.Gene instance <https://lamin.ai/docs/bionty/bionty.Gene>`__."""  # noqa
-    return bt.Gene(species=species, id=id)
+class Gene(bt.Gene):
+    """Bionty Gene.
+
+    See `bionty.Gene <https://lamin.ai/docs/bionty/bionty.Gene>`__.
+    """
+
+    def __init__(self, species="human", id="ensembl_gene_id") -> None:
+        super().__init__(species=species, id=id)
 
 
-def Protein(species="human", id="uniprotkb_id"):
-    """Returns a `bionty.Protein instance <https://lamin.ai/docs/bionty/bionty.Protein>`__."""  # noqa
-    return bt.Protein(species=species, id=id)
+class Protein(bt.Protein):
+    """Bionty Protein.
+
+    See `bionty.Protein <https://lamin.ai/docs/bionty/bionty.Protein>`__.
+    """
+
+    def __init__(self, species="human", id="uniprotkb_id") -> None:
+        super().__init__(species=species, id=id)
 
 
-def CellMarker(species="human", id="name"):
-    """Returns a `bionty.CellMarker instance <https://lamin.ai/docs/bionty/bionty.CellMarker>`__."""  # noqa
-    return bt.CellMarker(species=species, id=id)
-# fmt: on
+class CellMarker(bt.CellMarker):
+    """Bionty CellMarker.
+
+    See `bionty.CellMarker <https://lamin.ai/docs/bionty/bionty.CellMarker>`__.
+    """
+
+    def __init__(self, species="human", id="name") -> None:
+        super().__init__(species=species, id=id)

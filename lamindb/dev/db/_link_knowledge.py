@@ -1,27 +1,18 @@
 from typing import Union
 
 import pandas as pd
-from bionty import CellMarker, Gene, Protein
 from lamin_logger import logger
 
 from lamindb.dev.db._link import link
-
-
-def add_features_from_knowledge_table(
-    df: pd.DataFrame,
-    knowledge_table: Union[Gene, Protein, CellMarker],
-    featureset_name: str = None,
-):
-    """Curate a DataFrame with a feature model."""
-    fm = LinkFeatureToKnowledgeTable(knowledge_table, featureset_name=featureset_name)
-    df_curated, log = fm.curate(df)
-
-    return {"model": fm, "df_curated": df_curated, "log": log}
+from lamindb.knowledge import CellMarker, Gene, Protein
 
 
 class LinkFeatureToKnowledgeTable:
+    """Link features to a knowledge table."""
+
     def __init__(
         self,
+        df: pd.DataFrame,
         knowledge_table: Union[Gene, Protein, CellMarker],
         featureset_name: str = None,
     ) -> None:
@@ -29,7 +20,7 @@ class LinkFeatureToKnowledgeTable:
         self._id = knowledge_table._id_field
         self._featureset_name = featureset_name
 
-    def curate(self, df: pd.DataFrame):
+        # Add and curate features against a knowledge table
         column = None
         if self._id in df.columns:
             column = self._id
@@ -40,19 +31,23 @@ class LinkFeatureToKnowledgeTable:
         # logging of curation
         n = df_curated["__curated__"].count()
         n_mapped = df_curated["__curated__"].sum()
-        log = {
+        self._log = {
             "feature": self._id,
             "n_mapped": n_mapped,
             "percent_mapped": round(n_mapped / n * 100, 1),
             "unmapped": df_curated.index[~df_curated["__curated__"]],
         }
+        self._df_curated = df_curated
 
-        return df_curated, log
+    @property
+    def log(self):
+        """Logging."""
+        return self._log
 
-    def ingest(self, dobject_id: str, df_curated: pd.DataFrame):
-        """Ingest features."""
+    def commit(self, dobject_id: str) -> None:
+        """Commit features."""
         # mapped features will also contain fields in the reference table
-        mapped_index = df_curated.index[df_curated["__curated__"]]
+        mapped_index = self._df_curated.index[self._df_curated["__curated__"]]
         mapped_df = self._model.df.loc[mapped_index].copy()
         mapped_dict = {}
         for i, row in mapped_df.iterrows():
@@ -60,7 +55,7 @@ class LinkFeatureToKnowledgeTable:
 
         # unmapped features will only contain it's own field
         unmapped_dict = {}
-        for um in df_curated.index.difference(mapped_index):
+        for um in self._df_curated.index.difference(mapped_index):
             unmapped_dict[um] = {self._id: um}
 
         link.feature(
