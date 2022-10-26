@@ -14,7 +14,7 @@ from ..file import load_to_memory, store_file, write_adata_zarr
 from ..object import infer_suffix, write_to_file
 from ._add import add
 from ._core import get_foreign_keys, get_link_table
-from ._link import link
+from ._link_knowledge import add_features_from_knowledge_table
 from ._select import select
 from ._track_usage import track_usage
 
@@ -184,7 +184,7 @@ class Staged:
             df = self._dmem
         # add feature entries
         # TODO: needs to be staged without adding here
-        self._knowledge_table = link.knowledge_table(
+        self._knowledge_table = add_features_from_knowledge_table(
             df=df, knowledge_table=knowledge_table, featureset_name=featureset_name
         )
         return self

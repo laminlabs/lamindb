@@ -1,5 +1,4 @@
 import bioreadout
-import pandas as pd
 from lamin_logger import colors, logger
 from tabulate import tabulate  # type: ignore
 from typing_extensions import Literal
@@ -10,102 +9,11 @@ from lamindb.dev.db._select import select
 from lamindb.schema import bionty, wetlab
 
 
-class LinkFeatureModel:
-    """Link a feature model to dobject during ingestion.
-
-    Args:
-        knowledge_table: a feature model instance
-        featureset_name: name of the featureset
-
-    For an overview of feature models, see: `bionty.lookup.knowledge_table <https://lamin.ai/docs/bionty/bionty.lookup#bionty.lookup.knowledge_table)>`__.
-    """  # noqa
-
-    def __init__(self, knowledge_table, featureset_name: str = None) -> None:
-        self._knowledge_table = knowledge_table
-        self._featureset_name = featureset_name
-
-    @property
-    def entity(self):
-        """Correspond to the feature entity table."""
-        return self._knowledge_table.entity
-
-    @property
-    def id_type(self):
-        """Type of id used for curation."""
-        return self._knowledge_table._id_field
-
-    @property
-    def species(self):
-        """Species."""
-        return self._knowledge_table.species
-
-    @property
-    def df(self):
-        """Reference table."""
-        return self._knowledge_table.df
-
-    def curate(self, df: pd.DataFrame):
-        column = None
-        if self.id_type in df.columns:
-            column = self.id_type
-        else:
-            logger.warning(f"{self.id_type} column not found, using index as features.")
-        df_curated = self._knowledge_table.curate(df=df, column=column)
-
-        # logging of curation
-        n = df_curated["__curated__"].count()
-        n_mapped = df_curated["__curated__"].sum()
-        log = {
-            "feature": self.id_type,
-            "n_mapped": n_mapped,
-            "percent_mapped": round(n_mapped / n * 100, 1),
-            "unmapped": df_curated.index[~df_curated["__curated__"]],
-        }
-
-        return df_curated, log
-
-    def ingest(self, dobject_id: str, df_curated: pd.DataFrame):
-        """Ingest features."""
-        # mapped features will also contain fields in the reference table
-        mapped_index = df_curated.index[df_curated["__curated__"]]
-        mapped_df = self.df.loc[mapped_index].copy()
-        mapped_dict = {}
-        for i, row in mapped_df.iterrows():
-            mapped_dict[i] = pd.concat([row, pd.Series([i], index=[self.id_type])])
-
-        # unmapped features will only contain it's own field
-        unmapped_dict = {}
-        for um in df_curated.index.difference(mapped_index):
-            unmapped_dict[um] = {self.id_type: um}
-
-        species = select(bionty.species, common_name=self.species).one_or_none()
-        if species is None:
-            species = add(bionty.species(common_name=self.species))
-
-        link.feature(
-            dobject_id=dobject_id,
-            features={**mapped_dict, **unmapped_dict},
-            feature_entity=self.entity,
-            species=species,
-            featureset_name=self._featureset_name,
-        )
-
-
 class link:
     """Link metadata.
 
     Guide: :doc:`/db/guide/link`.
     """
-
-    @classmethod
-    def knowledge_table(
-        cls, df: pd.DataFrame, knowledge_table, featureset_name: str = None
-    ):
-        """Curate a DataFrame with a feature model."""
-        fm = LinkFeatureModel(knowledge_table, featureset_name=featureset_name)
-        df_curated, log = fm.curate(df)
-
-        return {"model": fm, "df_curated": df_curated, "log": log}
 
     @classmethod
     def feature(
