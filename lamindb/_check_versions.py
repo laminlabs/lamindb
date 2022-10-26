@@ -1,3 +1,4 @@
+from bionty import __version__ as bionty_v
 from bioreadout import __version__ as bioreadout_v
 from lnbfx import __version__ as lnbfx_v
 from lndb_hub import __version__ as lndb_hub_v
@@ -14,14 +15,17 @@ if version.parse(lnschema_core_v) != version.parse("0.14.0"):
 if version.parse(lnschema_wetlab_v) != version.parse("0.7.2"):
     raise RuntimeError("lamindb needs lnschema_wetlab==0.7.2")
 
-if version.parse(lnschema_bionty_v) != version.parse("0.4.4"):
-    raise RuntimeError("lamindb needs lnschema_bionty==0.4.4")
+if version.parse(lnschema_bionty_v) != version.parse("0.4.5"):
+    raise RuntimeError("lamindb needs lnschema_bionty==0.4.5")
 
 if version.parse(lndb_setup_v) != version.parse("0.12.2"):
     raise RuntimeError("lamindb needs lndb_setup==0.12.2")
 
 if version.parse(lndb_hub_v) != version.parse("0.6.1"):
     raise RuntimeError("lamindb needs lndb_hub==0.6.1")
+
+if version.parse(bionty_v) != version.parse("0.5.0"):
+    raise RuntimeError("lamindb needs bionty==0.5.0")
 
 if version.parse(nbproject_v) < version.parse("0.7.0"):
     raise RuntimeError("lamindb needs nbproject>=0.7.0")
