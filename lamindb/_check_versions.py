@@ -1,7 +1,6 @@
 from bionty import __version__ as bionty_v
 from bioreadout import __version__ as bioreadout_v
 from lnbfx import __version__ as lnbfx_v
-from lndb_hub import __version__ as lndb_hub_v
 from lndb_setup import __version__ as lndb_setup_v
 from lnschema_bionty import __version__ as lnschema_bionty_v
 from lnschema_core import __version__ as lnschema_core_v
