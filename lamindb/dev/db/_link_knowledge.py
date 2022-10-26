@@ -69,6 +69,6 @@ class LinkFeatureToKnowledgeTable:
             dobject_id=dobject_id,
             features={**mapped_dict, **unmapped_dict},
             feature_entity=self._model.entity,
-            species=self._model.species,
+            species=species,
             featureset_name=self._featureset_name,
         )
