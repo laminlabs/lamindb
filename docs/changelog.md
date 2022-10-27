@@ -3,6 +3,7 @@
 <!-- prettier-ignore -->
 Name | PR | Developer | Date | Version
 --- | --- | --- | --- | ---
+Update lndb setup | [321](https://github.com/laminlabs/lamindb/pull/321) | [fredericenard](https://github.com/fredericenard) | 2022-10-27 |
 ⬆️ Pinned bionty version | [319](https://github.com/laminlabs/lamindb/pull/319) | [sunnyosun](https://github.com/sunnyosun) | 2022-10-26 |
 ⬆️ Updated to lnschema_bionty 0.4.4 | [317](https://github.com/laminlabs/lamindb/pull/317) | [sunnyosun](https://github.com/sunnyosun) | 2022-10-24 |
 Remove lndb-hub import | [318](https://github.com/laminlabs/lamindb/pull/318) | [fredericenard](https://github.com/fredericenard) | 2022-10-24 |
