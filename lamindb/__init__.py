@@ -20,7 +20,7 @@ Browse the API:
 
 """
 
-__version__ = "0.9.6"
+__version__ = "0.10.0"
 
 import warnings
 
