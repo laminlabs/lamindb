@@ -12,8 +12,7 @@ from ...schema._table import Table
 from .._core import get_name_suffix_from_filepath
 from ..file import load_to_memory, store_file, write_adata_zarr
 from ..file._file import print_hook
-from ..object import infer_suffix, write_to_file
-from ..object._adata_sizes import _get_size_adata
+from ..object import infer_suffix, size_adata, write_to_file
 from ._add import add
 from ._core import get_foreign_keys, get_link_table
 from ._link import link
@@ -215,7 +214,7 @@ class Staged:
             )
         else:
             # adata size
-            size = _get_size_adata(self._dmem)
+            size = size_adata(self._dmem)
             storepath = settings.instance.storage.key_to_filepath(dobject_storage_key)
             print_progress = partial(print_hook, filepath=self._filepath)
             write_adata_zarr(self._dmem, storepath, callback=print_progress)

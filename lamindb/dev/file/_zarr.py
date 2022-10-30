@@ -8,7 +8,7 @@ from anndata import AnnData
 from anndata._io import read_zarr
 from anndata._io.specs import write_elem
 
-from ..object._adata_sizes import _get_size_adata, _get_size_elem, _get_size_raw
+from ..object._anndata_sizes import _size_elem, _size_raw, size_adata
 
 
 def read_adata_zarr(storepath) -> AnnData:
@@ -46,7 +46,7 @@ def write_adata_zarr(
         if callback is None:
             return None
         if adata_size is None:
-            adata_size = _get_size_adata(adata)
+            adata_size = size_adata(adata)
         if key_write is None:
             # begin or finish
             callback(adata_size, adata_size if cumulative_val > 0 else 0)
@@ -55,7 +55,7 @@ def write_adata_zarr(
         elem = getattr(adata, key_write, None)
         if elem is None:
             return None
-        elem_size = _get_size_raw(elem) if key_write == "raw" else _get_size_elem(elem)
+        elem_size = _size_raw(elem) if key_write == "raw" else _size_elem(elem)
         if elem_size == 0:
             return None
 
