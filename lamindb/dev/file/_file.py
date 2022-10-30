@@ -24,7 +24,7 @@ fsspec_filesystem = None
 
 def print_hook(size, value, **kwargs):
     progress = value / size
-    out = f"Upload {kwargs['filepath']}: {min(progress, 1.):4.2f}"
+    out = f"Writing {kwargs['filepath']}: {min(progress, 1.):4.2f}"
     if progress >= 1:
         out += "\n"
     print(out, end="\r")
