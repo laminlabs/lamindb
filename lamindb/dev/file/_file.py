@@ -40,7 +40,9 @@ class ProgressCallback(fsspec.callbacks.Callback):
         return None
 
 
-def store_file(localfile: Union[str, Path], storagekey: str, use_fsspec=False) -> float:
+def store_file(
+    localfile: Union[str, Path], storagekey: str, use_fsspec: bool = False
+) -> float:
     """Store arbitrary file.
 
     Returns size in bytes.
