@@ -1,6 +1,16 @@
 import bionty as bt
 
 
+class Species(bt.Species):
+    """Bionty Species.
+
+    See `bionty.Species <https://lamin.ai/docs/bionty/bionty.Species>`__.
+    """
+
+    def __init__(self, id="common_name") -> None:
+        super().__init__(id=id)
+
+
 class Gene(bt.Gene):
     """Bionty Gene.
 

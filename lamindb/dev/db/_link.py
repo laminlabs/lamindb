@@ -1,7 +1,8 @@
+from typing import List, Union
+
 import bioreadout
 from lamin_logger import colors, logger
 from tabulate import tabulate  # type: ignore
-from typing_extensions import Literal
 
 from lamindb.dev._features import add_features_and_featureset
 from lamindb.dev.db._add import add
@@ -19,12 +20,11 @@ class link:
     def feature(
         cls,
         dobject_id: str,
-        features: dict,  # what is a features dict? can we have something more typed?
-        feature_entity: Literal["gene", "protein", "cell_marker"],
-        id_field: str,
-        species: bionty.species,
+        feature_records: Union[
+            List[bionty.gene], List[bionty.protein], List[bionty.cell_marker]
+        ],
         featureset_name: str = None,
-    ):
+    ) -> None:
         """Annotate dobject with features.
 
         Add all features and a featureset.
@@ -34,10 +34,7 @@ class link:
         Link biometa to dobject.
         """
         featureset = add_features_and_featureset(
-            features=features,
-            feature_entity=feature_entity,
-            id_field=id_field,
-            species=species,
+            feature_records=feature_records,
             name=featureset_name,
         )
 
@@ -50,7 +47,9 @@ class link:
         else:
             raise NotImplementedError
 
-        logs = [[str(featureset.id), str(biometa.id), str(species.id)]]  # type: ignore
+        logs: List = [
+            [str(featureset.id), str(biometa.id), feature_records[0].species_id]
+        ]
         log_table = tabulate(
             logs,
             headers=[
