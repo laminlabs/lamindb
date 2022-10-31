@@ -70,7 +70,9 @@ class LinkFeatureToKnowledgeTable:
         # insert species entry if not exists
         species = select(bionty.species, common_name=self._model.species).one_or_none()
         if species is None:
-            species = add(bionty.species(**Species().df.loc[species]))
+            record = Species().df.loc[self._model.species]
+            record["common_name"] = self._model.species
+            species = add(bionty.species(**record))
 
         model = Table.get_model(self._model.entity)
 

@@ -1,13 +1,9 @@
-from typing import List, Union
-
 import bioreadout
 from lamin_logger import colors, logger
-from tabulate import tabulate  # type: ignore
 
-from lamindb.dev._features import add_features_and_featureset
 from lamindb.dev.db._add import add
 from lamindb.dev.db._select import select
-from lamindb.schema import bionty, wetlab
+from lamindb.schema import wetlab
 
 
 class link:
@@ -15,53 +11,6 @@ class link:
 
     Guide: :doc:`/db/guide/link`.
     """
-
-    @classmethod
-    def feature(
-        cls,
-        dobject_id: str,
-        feature_records: Union[
-            List[bionty.gene], List[bionty.protein], List[bionty.cell_marker]
-        ],
-        featureset_name: str = None,
-    ) -> None:
-        """Annotate dobject with features.
-
-        Add all features and a featureset.
-
-        Link featureset to biometa.
-
-        Link biometa to dobject.
-        """
-        featureset = add_features_and_featureset(
-            feature_records=feature_records,
-            name=featureset_name,
-        )
-
-        # use the featureset_id to create an entry in biometa
-        # TODO: need to make this easier
-        dobject_biometas = select(wetlab.dobject_biometa, dobject_id=dobject_id).all()
-        if len(dobject_biometas) == 0:
-            biometa = add(wetlab.biometa(featureset_id=featureset.id))
-            cls.biometa(dobject_id=dobject_id, biometa_id=biometa.id)
-        else:
-            raise NotImplementedError
-
-        logs: List = [
-            [str(featureset.id), str(biometa.id), feature_records[0].species_id]
-        ]
-        log_table = tabulate(
-            logs,
-            headers=[
-                colors.green("featureset.id"),
-                colors.purple("biometa.id"),
-                colors.blue("species.id"),
-            ],
-            tablefmt="pretty",
-        )
-        logger.success(
-            f"Annotated data {dobject_id} with the following features:\n{log_table}",
-        )
 
     @classmethod
     def readout(cls, dobject_id, efo_id: str):
