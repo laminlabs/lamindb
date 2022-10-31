@@ -49,7 +49,8 @@ def write_adata_zarr(
             adata_size = size_adata(adata)
         if key_write is None:
             # begin or finish
-            callback(adata_size, adata_size if cumulative_val > 0 else 0)
+            if cumulative_val < adata_size:
+                callback(adata_size, adata_size if cumulative_val > 0 else 0)
             return None
 
         elem = getattr(adata, key_write, None)
