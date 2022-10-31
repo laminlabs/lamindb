@@ -96,7 +96,7 @@ class LinkFeatureToKnowledgeTable:
             for id in new_ids:
                 # mapped features will also contain fields in the reference table
                 if self._df_curated.loc[id, "__curated__"]:
-                    kwargs = self._model.df.loc[id]
+                    kwargs = self._model.df.loc[id].to_dict()
                     kwargs["species_id"] = species.id
                 # unmapped features will only contain its id field
                 else:
