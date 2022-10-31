@@ -5,7 +5,7 @@ def _list_methods(module):
     return [getattr(module, i) for i in dir(module) if not i.startswith("_")]
 
 
-class Table:
+class table_meta:
     all = {}
     for schema_pkg in _list_methods(schema):
         alltables_pkg = _list_methods(schema_pkg)

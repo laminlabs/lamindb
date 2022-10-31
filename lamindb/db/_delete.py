@@ -5,7 +5,7 @@ from lndb_setup import settings
 from .._logger import colors, logger
 from ..dev._core import storage_key_from_dobject
 from ..dev.file import delete_file
-from ..schema._table import Table
+from ..schema._table import table_meta
 
 
 def _create_delete_func(model):
@@ -71,6 +71,6 @@ class delete:
     pass
 
 
-for model in Table.list_models():
+for model in table_meta.list_models():
     func = _create_delete_func(model=model)
     setattr(delete, model.__name__, staticmethod(func))

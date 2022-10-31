@@ -8,7 +8,7 @@ import lnschema_core as core
 import sqlmodel as sqm
 from lndb_setup import settings
 
-from ...schema._table import Table
+from ...schema._table import table_meta
 from .._core import get_name_suffix_from_filepath
 from ..file import load_to_memory, store_file, write_adata_zarr
 from ..object import infer_suffix, write_to_file
@@ -112,11 +112,11 @@ class Staged:
         link_table = get_link_table(table_name, "dobject")
         # is there a link table that links the data object to the entry?
         if link_table is not None:
-            model = Table.get_model(table_name)
+            model = table_meta.get_model(table_name)
             result = select(model).where(model.id == entry.id).one_or_none()
             if result is None:
                 self._add_entry(entry)
-            model = Table.get_model(link_table)
+            model = table_meta.get_model(link_table)
             link_entry = (
                 select(model)
                 .where(
@@ -127,7 +127,7 @@ class Staged:
             )
             if link_entry is None:
                 # TODO: do not hard code column names
-                link_entry = Table.get_model(link_table)(  # type: ignore
+                link_entry = table_meta.get_model(link_table)(  # type: ignore
                     **{"dobject_id": dobject_id, f"{table_name}_id": entry.id}
                 )
                 self._add_entry(link_entry)

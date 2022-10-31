@@ -4,7 +4,7 @@ import sqlalchemy as sa
 import sqlmodel as sqm
 from lndb_setup import settings
 
-from ...schema._table import Table
+from ...schema._table import table_meta
 
 
 def session() -> sqm.Session:
@@ -42,7 +42,7 @@ def check_if_link_table(table_name: str):
 
     We define link tables there is overlap between primary and foreign keys
     """
-    pks = Table.get_pks(table_name)
+    pks = table_meta.get_pks(table_name)
     fks = get_foreign_keys(table_name).keys()
     intersect = set(pks).intersection(fks)
     if intersect:
@@ -65,11 +65,11 @@ def get_link_tables(inspector=None) -> list:
 
 def get_link_table(table1: str, table2: str) -> Optional[str]:
     link_tables = get_link_tables()
-    pks = [f"{table1}_{i}" for i in Table.get_pks(table1)] + [
-        f"{table2}_{i}" for i in Table.get_pks(table2)
+    pks = [f"{table1}_{i}" for i in table_meta.get_pks(table1)] + [
+        f"{table2}_{i}" for i in table_meta.get_pks(table2)
     ]
 
     for table in link_tables:
-        if set(pks) == set(Table.get_pks(table)):
+        if set(pks) == set(table_meta.get_pks(table)):
             return table
     return None

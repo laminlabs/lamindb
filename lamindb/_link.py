@@ -4,7 +4,7 @@ from sqlmodel import SQLModel
 
 from .dev.db._add import add
 from .dev.db._core import get_foreign_keys, get_link_table
-from .schema._table import Table
+from .schema._table import table_meta
 
 
 def link(
@@ -48,7 +48,7 @@ def link(
         raise AssertionError(
             f"No link table is found between {table1_name} and {table2_name}!"
         )
-    link_table_model = Table.get_model(link_table_name)
+    link_table_model = table_meta.get_model(link_table_name)
 
     # populate the link table
     fks = get_foreign_keys(link_table_name)
