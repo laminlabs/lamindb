@@ -68,6 +68,7 @@ class LinkFeatureToKnowledgeTable:
     def commit(self, dobject_id: str) -> None:
         """Commit features."""
         # insert species entry if not exists
+        # TODO: insert species
         species = select(bionty.species, common_name=self._model.species).one_or_none()
         if species is None:
             record = Species().df.loc[self._model.species]
