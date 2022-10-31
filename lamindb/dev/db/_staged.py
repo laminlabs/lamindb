@@ -14,7 +14,7 @@ from ..file import load_to_memory, store_file, write_adata_zarr
 from ..object import infer_suffix, write_to_file
 from ._add import add
 from ._core import get_foreign_keys, get_link_table
-from ._link import link
+from ._link_knowledge import LinkFeatureToKnowledgeTable
 from ._select import select
 from ._track_usage import track_usage
 
@@ -78,8 +78,8 @@ class Staged:
                 )
             self._dobject.checksum = checksum
 
-        # access to the feature model
-        self._knowledge_table = None  # feature model
+        # access to the knowledge table
+        self._knowledge_table = None
 
         # dtransform
         self._dtransform = dtransform
@@ -184,7 +184,7 @@ class Staged:
             df = self._dmem
         # add feature entries
         # TODO: needs to be staged without adding here
-        self._knowledge_table = link.knowledge_table(
+        self._knowledge_table = LinkFeatureToKnowledgeTable(  # type: ignore
             df=df, knowledge_table=knowledge_table, featureset_name=featureset_name
         )
         return self
@@ -229,10 +229,8 @@ class Staged:
         add(self.dobject)
 
         # add features and link to dobject
-        if self._knowledge_table is not None:
-            self._knowledge_table["model"].ingest(
-                self.dobject.id, self._knowledge_table["df_curated"]
-            )
+        if self._knowledge_table:
+            self._knowledge_table.commit(self.dobject.id)
 
         track_usage(self.dobject.id, usage_type="ingest")
 
