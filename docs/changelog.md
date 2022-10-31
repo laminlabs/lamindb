@@ -3,6 +3,7 @@
 <!-- prettier-ignore -->
 Name | PR | Developer | Date | Version
 --- | --- | --- | --- | ---
+🎨 Added LinkFeatureToKnowledgeTable | [320](https://github.com/laminlabs/lamindb/pull/320) | [sunnyosun](https://github.com/sunnyosun) | 2022-10-31 |
 ⬆️ Update lndb setup | [321](https://github.com/laminlabs/lamindb/pull/321) | [fredericenard](https://github.com/fredericenard) | 2022-10-27 | 0.10.0
 ⬆️ Pinned bionty version | [319](https://github.com/laminlabs/lamindb/pull/319) | [sunnyosun](https://github.com/sunnyosun) | 2022-10-26 |
 ⬆️ Updated to lnschema_bionty 0.4.4 | [317](https://github.com/laminlabs/lamindb/pull/317) | [sunnyosun](https://github.com/sunnyosun) | 2022-10-24 |
