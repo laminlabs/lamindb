@@ -3,6 +3,7 @@
 <!-- prettier-ignore -->
 Name | PR | Developer | Date | Version
 --- | --- | --- | --- | ---
+🍱 Added `anndata_mouse_sc_lymph_node` | [324](https://github.com/laminlabs/lamindb/pull/324) | [sunnyosun](https://github.com/sunnyosun) | 2022-11-01 |
 🚚 Rename `schema._table.Table` to `table_meta` | [323](https://github.com/laminlabs/lamindb/pull/323) | [sunnyosun](https://github.com/sunnyosun) | 2022-11-01 |
 🎨 Added LinkFeatureToKnowledgeTable | [320](https://github.com/laminlabs/lamindb/pull/320) | [sunnyosun](https://github.com/sunnyosun) | 2022-10-31 |
 ⬆️ Update lndb setup | [321](https://github.com/laminlabs/lamindb/pull/321) | [fredericenard](https://github.com/fredericenard) | 2022-10-27 | 0.10.0
