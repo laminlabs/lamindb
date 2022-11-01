@@ -6,7 +6,7 @@ from lamin_logger import colors
 from .. import schema
 from ..dev.db._select import select
 from ..schema import list_entities
-from ..schema._table import Table
+from ..schema._table import table_meta
 
 
 def view(n: int = 10, schema_modules: Optional[list] = None):
@@ -45,7 +45,7 @@ def view(n: int = 10, schema_modules: Optional[list] = None):
         print(section)
         print("*" * len(section_no_color))
         for entity in tables:
-            df = select(Table.get_model(entity)).df()
+            df = select(table_meta.get_model(entity)).df()
             if df.shape[0] > 0:
                 print(colors.blue(colors.bold(entity)))
                 display(df.iloc[-n:])

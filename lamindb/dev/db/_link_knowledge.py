@@ -9,7 +9,7 @@ from lamindb.dev.db._link import link
 from lamindb.dev.db._select import select
 from lamindb.knowledge import CellMarker, Gene, Protein, Species
 from lamindb.schema import bionty, wetlab
-from lamindb.schema._table import Table
+from lamindb.schema._table import table_meta
 
 
 class LinkFeatureToKnowledgeTable:
@@ -75,7 +75,7 @@ class LinkFeatureToKnowledgeTable:
             record["common_name"] = self._model.species
             species = add(bionty.species(**record))
 
-        model = Table.get_model(self._model.entity)
+        model = table_meta.get_model(self._model.entity)
 
         # all existing feature rows of a species in the db
         db_rows = (
@@ -96,7 +96,7 @@ class LinkFeatureToKnowledgeTable:
             for id in new_ids:
                 # mapped features will also contain fields in the reference table
                 if self._df_curated.loc[id, "__curated__"]:
-                    kwargs = self._model.df.loc[id]
+                    kwargs = self._model.df.loc[id].to_dict()
                     kwargs["species_id"] = species.id
                 # unmapped features will only contain its id field
                 else:
