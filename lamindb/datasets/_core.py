@@ -38,7 +38,7 @@ def dir_scrnaseq_cellranger() -> Path:
     return Path("cellranger_run_001")
 
 
-def file_mouse_sc_lymph_node() -> Path:
+def anndata_mouse_sc_lymph_node() -> ad.AnnData:
     """Mouse lymph node scRNA-seq dataset from EBI.
 
     Subsampled to 10k genes.
@@ -49,21 +49,7 @@ def file_mouse_sc_lymph_node() -> Path:
         "https://lamindb-test.s3.amazonaws.com/E-MTAB-8414.h5ad",
         "mouse_sc_lymph_node.h5ad",
     )
-    return Path(filepath)
-
-
-def anndata_mouse_sc_lymph_node() -> ad.AnnData:
-    """Mouse lymph node scRNA-seq dataset from EBI.
-
-    Subsampled to 100 genes.
-
-    From: https://www.ebi.ac.uk/arrayexpress/experiments/E-MTAB-8414/
-    """
-    filepath, _ = urlretrieve(
-        "https://lamindb-test.s3.amazonaws.com/E-MTAB-8414.h5ad",
-        "mouse_sc_lymph_node.h5ad",
-    )
-    return ad.read(filepath)[:, :100].copy()
+    return ad.read(filepath)
 
 
 def schmidt22_crispra_gws_IFNG() -> Path:
