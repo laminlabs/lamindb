@@ -1,6 +1,8 @@
 from pathlib import Path
 from urllib.request import urlretrieve
 
+import anndata as ad
+
 
 def file_fcs() -> Path:
     """Return fcs file example."""
@@ -48,6 +50,20 @@ def file_mouse_sc_lymph_node() -> Path:
         "mouse_sc_lymph_node.h5ad",
     )
     return Path(filepath)
+
+
+def anndata_mouse_sc_lymph_node() -> ad.AnnData:
+    """Mouse lymph node scRNA-seq dataset from EBI.
+
+    Subsampled to 100 genes.
+
+    From: https://www.ebi.ac.uk/arrayexpress/experiments/E-MTAB-8414/
+    """
+    filepath, _ = urlretrieve(
+        "https://lamindb-test.s3.amazonaws.com/E-MTAB-8414.h5ad",
+        "mouse_sc_lymph_node.h5ad",
+    )
+    return ad.read(filepath)[:, :100].copy()
 
 
 def schmidt22_crispra_gws_IFNG() -> Path:
