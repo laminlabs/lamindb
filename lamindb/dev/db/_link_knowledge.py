@@ -99,8 +99,8 @@ class LinkFeatureToKnowledgeTable:
             ].copy()
             mapped.index.name = self._id
             if mapped.shape[0] > 0:
-                for _, v in mapped.reset_index().to_dict(orient="index").items():
-                    record = getattr(bionty, f"{self._model.entity}")(**v)
+                for kwargs in mapped.reset_index().to_dict(orient="records"):
+                    record = getattr(bionty, f"{self._model.entity}")(**kwargs)
                     records.append(record)
                     feature_ids.add(record.id)
             # unmapped new_ids
