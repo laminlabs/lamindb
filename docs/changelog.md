@@ -3,6 +3,7 @@
 <!-- prettier-ignore -->
 Name | PR | Developer | Date | Version
 --- | --- | --- | --- | ---
+🎨 Removed `get`, re-organized API docs | [329](https://github.com/laminlabs/lamindb/pull/329) | [sunnyosun](https://github.com/sunnyosun) | 2022-11-03 |
 🚚 Move `.db` API to root level | [328](https://github.com/laminlabs/lamindb/pull/328) | [sunnyosun](https://github.com/sunnyosun) | 2022-11-03 |
 🚚 Remove A prefix from notebooks | [327](https://github.com/laminlabs/lamindb/pull/327) | [falexwolf](https://github.com/falexwolf) | 2022-11-03 |
 :sparkles: Storage related features | [322](https://github.com/laminlabs/lamindb/pull/322) | [Koncopd](https://github.com/Koncopd) | 2022-11-03 |
