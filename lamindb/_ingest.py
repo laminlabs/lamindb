@@ -6,9 +6,9 @@ from lamin_logger import logger
 from lndb_setup import settings
 from nbproject import dev, meta
 
-from ..dev.db import Staged
-from ..dev.db._select import select
-from ..schema import core
+from .dev.db import Staged
+from .dev.db._select import select
+from .schema import core
 
 
 def set_nb_version(version):

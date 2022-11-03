@@ -9,12 +9,18 @@ Browse the API:
 .. autosummary::
    :toctree: .
 
-   db
+   view
+   select
+   get
+   Ingest
+   load
+   add
+   delete
+   session
    schema
    knowledge
    link
    settings
-   datasets
    nb
    dev
 
@@ -33,13 +39,19 @@ if settings.instance.storage_root is None:
     raise RuntimeError("Please run `lndb init` to configure an instance.")
 _check_migrate(usettings=settings.user, isettings=settings.instance)
 
-from . import datasets  # noqa
-from . import db  # noqa
 from . import dev  # noqa
 from . import knowledge  # noqa
 from . import schema  # noqa
+from ._delete import delete  # noqa
+from ._ingest import Ingest  # noqa
 from ._link import link  # noqa
+from ._load import load  # noqa
 from ._nb import nb  # noqa
+from ._view import view  # noqa
+from .dev.db import session  # noqa
+from .dev.db._add import add  # noqa
+from .dev.db._get import get  # noqa
+from .dev.db._select import select  # noqa
 
 settings.__doc__ = """Settings.
 
