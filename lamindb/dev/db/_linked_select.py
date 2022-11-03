@@ -4,7 +4,7 @@ from typing import Dict
 import sqlalchemy as sa
 from lndb_setup import settings
 
-from ._core import check_if_link_table, get_foreign_keys
+from ...schema._table import table_meta
 from ._select import select as lnselect
 
 
@@ -45,7 +45,7 @@ class LinkedSelect:
         """
         foreign_keys = {}
         for table_name in self._inspector.get_table_names():
-            foreign_keys_dict = get_foreign_keys(table_name, self._inspector)
+            foreign_keys_dict = table_meta.get_foreign_keys(table_name, self._inspector)
             if len(foreign_keys_dict) > 0:
                 foreign_keys[table_name] = foreign_keys_dict
         return foreign_keys
@@ -83,7 +83,7 @@ class LinkedSelect:
         ]:
             return None
 
-        pkfks = check_if_link_table(table_name)
+        pkfks = table_meta.check_if_link_table(table_name)
         if pkfks:
             # link tables, meaning the parent table shares a primary key
             fks = {
