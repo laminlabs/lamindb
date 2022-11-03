@@ -1,5 +1,6 @@
 from typing import List, Union
 
+import lnschema_core as core
 import pandas as pd
 from lamin_logger import colors, logger
 from tabulate import tabulate  # type: ignore
@@ -8,7 +9,7 @@ from lamindb._link import link
 from lamindb.dev.db._add import add
 from lamindb.dev.db._select import select
 from lamindb.knowledge import CellMarker, Gene, Protein, Species
-from lamindb.schema import bionty, core, wetlab
+from lamindb.schema import bionty, wetlab
 from lamindb.schema._table import table_meta
 
 
