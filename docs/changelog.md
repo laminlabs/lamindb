@@ -3,6 +3,7 @@
 <!-- prettier-ignore -->
 Name | PR | Developer | Date | Version
 --- | --- | --- | --- | ---
+:sparkles: Storage related features | [322](https://github.com/laminlabs/lamindb/pull/322) | [Koncopd](https://github.com/Koncopd) | 2022-11-03 |
 🎨 Simplify generating records | [326](https://github.com/laminlabs/lamindb/pull/326) | [sunnyosun](https://github.com/sunnyosun) | 2022-11-02 |
 🐛 Fixed bug in linking features | [325](https://github.com/laminlabs/lamindb/pull/325) | [sunnyosun](https://github.com/sunnyosun) | 2022-11-01 |
 🍱 Added `anndata_mouse_sc_lymph_node` | [324](https://github.com/laminlabs/lamindb/pull/324) | [sunnyosun](https://github.com/sunnyosun) | 2022-11-01 |
