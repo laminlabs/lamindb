@@ -8,7 +8,6 @@ from lamindb.dev.db._add import add
 from lamindb.dev.db._select import select
 from lamindb.schema import wetlab
 
-from .dev.db._core import get_foreign_keys, get_link_table
 from .schema._table import table_meta
 
 
@@ -48,7 +47,7 @@ def link(
     table1_name = entries_table1[0].__table__.name
     table2_name = entries_table2[0].__table__.name
 
-    link_table_name = get_link_table(table1_name, table2_name)
+    link_table_name = table_meta.get_link_table(table1_name, table2_name)
     if not link_table_name:
         raise AssertionError(
             f"No link table is found between {table1_name} and {table2_name}!"
@@ -56,7 +55,7 @@ def link(
     link_table_model = table_meta.get_model(link_table_name)
 
     # populate the link table
-    fks = get_foreign_keys(link_table_name)
+    fks = table_meta.get_foreign_keys(link_table_name)
     fkpks: Dict = {table1_name: [], table2_name: []}
     for k, (f_table, f_id) in fks.items():
         fkpks[f_table].append((k, f_id))

@@ -14,7 +14,6 @@ from ..file import load_to_memory, store_file, write_adata_zarr
 from ..file._file import print_hook
 from ..object import infer_suffix, size_adata, write_to_file
 from ._add import add
-from ._core import get_foreign_keys, get_link_table
 from ._link_knowledge import LinkFeatureToKnowledgeTable
 from ._select import select
 from ._track_usage import track_usage
@@ -106,7 +105,7 @@ class Staged:
         """
         dobject_id = self.dobject.id
         table_name = entry.__table__.name
-        link_table = get_link_table(table_name, "dobject")
+        link_table = table_meta.get_link_table(table_name, "dobject")
         # is there a link table that links the data object to the entry?
         if link_table is not None:
             model = table_meta.get_model(table_name)
@@ -131,7 +130,7 @@ class Staged:
         # if there is no link table, does the entity have a column linking
         # to dobject?
         else:
-            fks = get_foreign_keys(table_name, referred=("dobject", "id"))
+            fks = table_meta.get_foreign_keys(table_name, referred=("dobject", "id"))
             if ("dobject", "id") not in fks.values():
                 raise RuntimeError(
                     "You can only link tables that have a foreign key or link table to"

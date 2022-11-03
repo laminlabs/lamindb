@@ -166,6 +166,7 @@ _build
 *.zip
 *.feather
 *.h5ad
+*.parquet
 
 
 # fred files
