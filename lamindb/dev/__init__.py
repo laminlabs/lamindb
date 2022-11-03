@@ -4,6 +4,7 @@
    :toctree: .
 
    db
+   datasets
    file
    object
 
@@ -17,6 +18,7 @@ Utilities:
 
 from lnschema_core import id  # noqa
 
+from . import datasets  # noqa
 from . import db  # noqa
 from . import file, object  # noqa
 from ._docs import doc_args  # noqa

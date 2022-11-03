@@ -14,7 +14,6 @@ Browse the API:
    knowledge
    link
    settings
-   datasets
    nb
    dev
 
@@ -33,7 +32,6 @@ if settings.instance.storage_root is None:
     raise RuntimeError("Please run `lndb init` to configure an instance.")
 _check_migrate(usettings=settings.user, isettings=settings.instance)
 
-from . import datasets  # noqa
 from . import db  # noqa
 from . import dev  # noqa
 from . import knowledge  # noqa
