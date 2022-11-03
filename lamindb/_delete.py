@@ -2,10 +2,10 @@ import lnschema_core as schema_core
 import sqlmodel as sqm
 from lndb_setup import settings
 
-from .._logger import colors, logger
-from ..dev._core import storage_key_from_dobject
-from ..dev.file import delete_file
-from ..schema._table import table_meta
+from ._logger import colors, logger
+from .dev._core import storage_key_from_dobject
+from .dev.file import delete_file
+from .schema._table import table_meta
 
 
 def _create_delete_func(model):

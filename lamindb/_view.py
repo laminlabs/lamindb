@@ -3,10 +3,10 @@ from typing import Optional
 from IPython.display import display
 from lamin_logger import colors
 
-from .. import schema
-from ..dev.db._select import select
-from ..schema import list_entities
-from ..schema._table import table_meta
+from . import schema
+from .dev.db._select import select
+from .schema import list_entities
+from .schema._table import table_meta
 
 
 def view(n: int = 10, schema_modules: Optional[list] = None):

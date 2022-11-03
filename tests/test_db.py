@@ -16,10 +16,10 @@ def test_create_to_load():
     import lamindb as ln
 
     jupynb = ln.schema.core.jupynb(id="83jf", v="1", name="test")
-    ln.db.add(jupynb)
+    ln.add(jupynb)
     dtransform = ln.schema.core.dtransform(jupynb_id=jupynb.id, jupynb_v=jupynb)
-    ln.db.add(dtransform)
-    storage = ln.db.select(
+    ln.add(dtransform)
+    storage = ln.select(
         ln.schema.core.storage, root=str(ln.settings.instance.storage_root)
     ).one()
     dobject = ln.schema.core.dobject(
@@ -30,9 +30,9 @@ def test_create_to_load():
         storage_id=storage.id,
         dtransform_id=dtransform.id,
     )
-    ln.db.add(dobject)
+    ln.add(dobject)
 
-    ln.db.select(ln.schema.core.dobject).df()
+    ln.select(ln.schema.core.dobject).df()
 
     ln.schema._core.get_db_metadata_as_dict()
     table_object = ln.schema._core.get_table_object("dobject")
