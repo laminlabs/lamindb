@@ -4,7 +4,7 @@ import pandas as pd
 from lamin_logger import colors, logger
 from tabulate import tabulate  # type: ignore
 
-from lamindb import link
+from lamindb._link import link
 from lamindb.dev.db._add import add
 from lamindb.dev.db._select import select
 from lamindb.knowledge import CellMarker, Gene, Protein, Species
