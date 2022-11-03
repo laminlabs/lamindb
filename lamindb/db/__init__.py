@@ -31,13 +31,6 @@ Delete data:
    add
    delete
 
-Link metadata:
-
-.. autosummary::
-   :toctree: .
-
-   link
-
 Get a `SQLModel <https://sqlmodel.tiangolo.com>`__ session:
 
 .. autosummary::
