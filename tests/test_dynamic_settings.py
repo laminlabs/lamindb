@@ -16,7 +16,7 @@ def test_dynamic_settings():
     )
 
     pipeline = ln.add(ln.schema.Pipeline(v="1", name="test-pipeline"))
-    pipeline_run = ln.schema.Pipeline_run(
+    pipeline_run = ln.schema.PipelineRun(
         pipeline_id=pipeline.id, pipeline_v=pipeline.v, name="test-run"
     )
 
