@@ -117,14 +117,17 @@ class Staged:
                 select(model)
                 .where(
                     model.dobject_id == dobject_id,
-                    getattr(model, f"{table_name}_id") == entry.id,
+                    getattr(model, f"{table_name.split('.')[1]}_id") == entry.id,
                 )
                 .one_or_none()
             )
             if link_entry is None:
                 # TODO: do not hard code column names
                 link_entry = table_meta.get_model(link_table)(  # type: ignore
-                    **{"dobject_id": dobject_id, f"{table_name}_id": entry.id}
+                    **{
+                        "dobject_id": dobject_id,
+                        f"{table_name.split('.')[1]}_id": entry.id,
+                    }
                 )
                 self._add_entry(link_entry)
         # if there is no link table, does the entity have a column linking
