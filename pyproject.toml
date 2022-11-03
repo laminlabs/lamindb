@@ -35,7 +35,8 @@ dependencies = [
     "python-dotenv",
     "fsspec",
     "s3fs",
-    "gcsfs"
+    "gcsfs",
+    "zarr"
 ]
 
 [project.urls]
