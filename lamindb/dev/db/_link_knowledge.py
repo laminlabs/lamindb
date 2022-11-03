@@ -4,11 +4,11 @@ import pandas as pd
 from lamin_logger import colors, logger
 from tabulate import tabulate  # type: ignore
 
-from lamindb._link import link_biometa
+from lamindb import link
 from lamindb.dev.db._add import add
 from lamindb.dev.db._select import select
 from lamindb.knowledge import CellMarker, Gene, Protein, Species
-from lamindb.schema import bionty, wetlab
+from lamindb.schema import bionty, core, wetlab
 from lamindb.schema._table import table_meta
 
 
@@ -65,7 +65,7 @@ class LinkFeatureToKnowledgeTable:
         """Logging."""
         return self._log
 
-    def commit(self, dobject_id: str) -> None:
+    def commit(self, dobject: core.DObject) -> None:
         """Commit features."""
         # insert species entry if not exists
         # TODO: insert species
@@ -153,10 +153,10 @@ class LinkFeatureToKnowledgeTable:
             add(link_records)
 
         # 4) use the featureset_id to create an entry in biometa
-        dobject_biometas = select(wetlab.dobject_biometa, dobject_id=dobject_id).all()
+        dobject_biometas = select(wetlab.dobject_biometa, dobject_id=dobject.id).all()
         if len(dobject_biometas) == 0:
             biometa = add(wetlab.biometa(featureset_id=self._featureset.id))
-            link_biometa(dobject_id=dobject_id, biometa_id=biometa.id)
+            link(dobject, biometa)
         else:
             raise NotImplementedError
 
@@ -171,5 +171,5 @@ class LinkFeatureToKnowledgeTable:
             tablefmt="pretty",
         )
         logger.success(
-            f"Annotated data {dobject_id} with the following features:\n{log_table}",
+            f"Annotated data {dobject.id} with the following features:\n{log_table}",
         )
