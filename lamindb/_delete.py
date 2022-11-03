@@ -44,7 +44,7 @@ def delete(record: sqm.SQLModel):
         session.commit()
         settings.instance._update_cloud_sqlite_file()
         logger.success(
-            f"Deleted {colors.yellow(f'row {record.id}')} in"
+            f"Deleted {colors.yellow(f'row {record}')} in"
             f" {colors.blue(f'table {type(record).__name__}')}."
         )
     if isinstance(record, DObject):
