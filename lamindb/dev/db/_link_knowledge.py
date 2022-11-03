@@ -65,7 +65,7 @@ class LinkFeatureToKnowledgeTable:
         """Logging."""
         return self._log
 
-    def commit(self, dobject: core.DObject) -> None:
+    def commit(self, dobject: core.dobject) -> None:
         """Commit features."""
         # insert species entry if not exists
         # TODO: insert species
