@@ -60,5 +60,6 @@ repos:
     rev: 6.1.1
     hooks:
       - id: pydocstyle
+        exclude: lamindb/schema/dev/__init__.py
         args: # google style + __init__, see http://www.pydocstyle.org/en/stable/error_codes.html
           - --ignore=D100,D101,D102,D103,D106,D107,D203,D204,D213,D215,D400,D401,D403,D404,D406,D407,D408,D409,D412,D413
