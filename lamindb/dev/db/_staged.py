@@ -21,7 +21,7 @@ from ._track_usage import track_usage
 
 
 class Staged:
-    """Staged data objects, initiated upon :meth:`~lamindb.db.Ingest.add`.
+    """Staged data objects, initiated upon :meth:`~lamindb.Ingest.add`.
 
     Guide: :doc:`/db/guide/ingest`.
 
