@@ -232,7 +232,7 @@ class Staged:
 
         # add features and link to dobject
         if self._knowledge_table:
-            self._knowledge_table.commit(self.dobject.id)
+            self._knowledge_table.commit(self.dobject)
 
         track_usage(self.dobject.id, usage_type="ingest")
 

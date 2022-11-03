@@ -112,16 +112,3 @@ def link_readouts(dobject_id: str, efo_id: str):
         f" {colors.purple(f'biometa {biometa_ids}')} linked to"
         f" {colors.green(f'dobject {dobject_id}')}."
     )
-
-
-def link_biometa(dobject_id: str, biometa_id: str):
-    """Link a dobject to a biometa."""
-    dobject_biometas = select(
-        wetlab.dobject_biometa, dobject_id=dobject_id, biometa_id=biometa_id
-    ).all()
-    if len(dobject_biometas) > 0:
-        raise AssertionError(
-            f"dobject {dobject_id} is already linked to biometa {biometa_id}!"
-        )
-    else:
-        add(wetlab.dobject_biometa(dobject_id=dobject_id, biometa_id=biometa_id))
