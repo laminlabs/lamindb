@@ -54,6 +54,7 @@ Helper tools:
 
    view
    list_tables
+   dev
 
 """
 import lnbfx.schema as bfx
@@ -71,6 +72,7 @@ from lnschema_core import (
     Storage,
     Usage,
     User,
+    dev,
 )
 
 bfx.__doc__ = f"""Bioinformatics workflows.
