@@ -14,7 +14,7 @@ from ._zarr import read_adata_zarr
 READER_FUNCS = {
     ".csv": pd.read_csv,
     ".h5ad": read_adata_h5ad,
-    ".feather": pd.read_feather,
+    ".parquet": pd.read_parquet,
     ".fcs": readfcs.read,
     ".zarr": read_adata_zarr,
 }

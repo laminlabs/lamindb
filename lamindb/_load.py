@@ -44,10 +44,10 @@ def populate_dtransform_in(dobject):
                     core.DTransform.jupynb_v == jupynb_v,
                 )
             ).one()
-        result = session.get(core.DTransform_in, (dtransform.id, dobject.id))
+        result = session.get(core.DTransformIn, (dtransform.id, dobject.id))
         if result is None:
             session.add(
-                core.DTransform_in(
+                core.DTransformIn(
                     dtransform_id=dtransform.id,
                     dobject_id=dobject.id,
                 )
