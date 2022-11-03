@@ -101,7 +101,19 @@ class table_meta:
                 ):
                     keys[i] = (referred_table, j)
         if referred is not None:
-            keys = {k: v for k, v in results.items() if v == referred}
+            referred_cols = (
+                [referred[1]]
+                if not isinstance(referred[1], (list, tuple))
+                else list(referred[1])
+            )
+            keys = {
+                result["constrained_columns"][0]: referred
+                for result in results
+                if (
+                    result["referred_table"] == referred[0]
+                    and result["referred_columns"] == referred_cols  # noqa
+                )
+            }
         return keys
 
     @classmethod

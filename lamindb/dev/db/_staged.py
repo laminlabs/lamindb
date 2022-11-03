@@ -105,7 +105,7 @@ class Staged:
         """
         dobject_id = self.dobject.id
         table_name = entry.__table__.name
-        link_table = table_meta.get_link_table(table_name, "dobject")
+        link_table = table_meta.get_link_table(table_name, "core.dobject")
         # is there a link table that links the data object to the entry?
         if link_table is not None:
             model = table_meta.get_model(table_name)
@@ -130,11 +130,13 @@ class Staged:
         # if there is no link table, does the entity have a column linking
         # to dobject?
         else:
-            fks = table_meta.get_foreign_keys(table_name, referred=("dobject", "id"))
-            if ("dobject", "id") not in fks.values():
+            fks = table_meta.get_foreign_keys(
+                table_name, referred=("core.dobject", "id")
+            )
+            if ("core.dobject", "id") not in fks.values():
                 raise RuntimeError(
                     "You can only link tables that have a foreign key or link table to"
-                    " dobject."
+                    " core.dobject."
                 )
             else:
                 if field is None:
