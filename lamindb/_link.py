@@ -85,10 +85,10 @@ def link(
 
 def link_readouts(dobject_id: str, efo_id: str):
     """Link readout to dobjects."""
-    readout = select(wetlab.readout, efo_id=efo_id).one_or_none()
+    readout = select(wetlab.Readout, efo_id=efo_id).one_or_none()
     if readout is None:
         assert sum(i.isdigit() for i in efo_id) == 7
-        readout = add(wetlab.readout(**bioreadout.readout(efo_id=efo_id)))
+        readout = add(wetlab.Readout(**bioreadout.readout(efo_id=efo_id)))
 
     # select biometa associated with a dobject
     dobject_biometas = select(wetlab.dobject_biometa, dobject_id=dobject_id).all()

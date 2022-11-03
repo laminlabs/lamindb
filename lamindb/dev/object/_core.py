@@ -13,7 +13,7 @@ def infer_suffix(dmem, adata_format: Optional[str] = None):
             return "." + adata_format
         return ".h5ad"
     elif isinstance(dmem, DataFrame):
-        return ".feather"
+        return ".parquet"
     else:
         raise NotImplementedError
 
@@ -23,8 +23,8 @@ def write_to_file(dmem, filepath: str):
         dmem.write(filepath)
     elif isinstance(dmem, DataFrame):
         try:
-            dmem.to_feather(filepath)
+            dmem.to_parquet(filepath)
         except ValueError:
-            dmem.reset_index().to_feather(filepath)
+            dmem.reset_index().to_parquet(filepath)
     else:
         raise NotImplementedError

@@ -55,7 +55,7 @@ class LinkFeatureToKnowledgeTable:
         self._featureset = None
         if self._featureset_name is not None:
             self._featureset = select(
-                bionty.featureset,
+                bionty.Featureset,
                 name=self._featureset_name,
                 feature_entity=self._model.entity,
             ).one_or_none()
@@ -69,13 +69,13 @@ class LinkFeatureToKnowledgeTable:
         """Commit features."""
         # insert species entry if not exists
         # TODO: insert species
-        species = select(bionty.species, common_name=self._model.species).one_or_none()
+        species = select(bionty.Species, common_name=self._model.species).one_or_none()
         if species is None:
             kwargs = Species().df.loc[self._model.species].to_dict()
             kwargs["common_name"] = self._model.species
-            species = add(bionty.species(**kwargs))
+            species = add(bionty.Species(**kwargs))
 
-        model = table_meta.get_model(self._model.entity)
+        model = table_meta.get_model(self._model.__name__)
 
         # all existing feature rows of a species in the db
         db_rows = (
@@ -100,14 +100,14 @@ class LinkFeatureToKnowledgeTable:
             mapped.index.name = self._id
             if mapped.shape[0] > 0:
                 for kwargs in mapped.reset_index().to_dict(orient="records"):
-                    record = getattr(bionty, f"{self._model.entity}")(**kwargs)
+                    record = getattr(bionty, f"{self._model.__name__}")(**kwargs)
                     records.append(record)
                     feature_ids.add(record.id)
             # unmapped new_ids
             unmapped = set(new_ids).difference(mapped.index)
             if len(unmapped) > 0:
                 for i in unmapped:
-                    record = getattr(bionty, f"{self._model.entity}")(
+                    record = getattr(bionty, f"{self._model.__name__}")(
                         **{self._id: i, "species_id": species.id}
                     )
                     records.append(record)
@@ -115,7 +115,7 @@ class LinkFeatureToKnowledgeTable:
         else:
             # search if a featureset containing the same genes already exists
             featuresets = select(
-                getattr(bionty, f"featureset_{self._model.entity}")
+                getattr(bionty, f"Featureset{self._model.__name__}")
             ).df()
             for i, fset in (
                 featuresets.groupby("featureset_id", group_keys=True)[
@@ -125,14 +125,14 @@ class LinkFeatureToKnowledgeTable:
                 .items()
             ):
                 if fset == feature_ids:
-                    self._featureset = select(bionty.featureset, id=i).one()
+                    self._featureset = select(bionty.Featureset, id=i).one()
                     break
 
         # 1) insert the featureset
         # if a featureset already exist, no features or link entries will be created
         if self._featureset is None:
             self._featureset = add(
-                bionty.featureset(
+                bionty.Featureset(
                     name=self._featureset_name, feature_entity=self._model.entity
                 )
             )
@@ -142,7 +142,7 @@ class LinkFeatureToKnowledgeTable:
 
             # 3) insert rows into the link table
             link_records = [
-                getattr(bionty, f"featureset_{self._model.entity}")(
+                getattr(bionty, f"Featureset{self._model.__name__}")(
                     **{
                         "featureset_id": self._featureset.id,
                         f"{self._model.entity}_id": i,

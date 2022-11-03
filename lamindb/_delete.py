@@ -45,7 +45,7 @@ def delete(record: sqm.SQLModel):
         settings.instance._update_cloud_sqlite_file()
         logger.success(
             f"Deleted {colors.yellow(f'row {record.id}')} in"
-            f" {colors.blue(f'table {record.__name__}')}."
+            f" {colors.blue(f'table {type(record).__name__}')}."
         )
     if isinstance(record, DObject):
         # TODO: do not track deletes until we come up
