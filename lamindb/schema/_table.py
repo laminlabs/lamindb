@@ -1,5 +1,6 @@
 from typing import Optional, Tuple
 
+import lnschema_core
 import sqlalchemy as sa
 from lndb_setup import settings
 
@@ -14,7 +15,7 @@ class table_meta:
     orm_to_model = {}
     tablename_to_orm = {}
     orm_to_tablename = {}
-    for schema_pkg in _list_methods(schema):
+    for schema_pkg in _list_methods(schema) + [lnschema_core]:
         alltables_pkg = _list_methods(schema_pkg)
         try:
             dev_tables = _list_methods(getattr(schema_pkg, "dev"))
