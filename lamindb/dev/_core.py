@@ -3,7 +3,7 @@ from typing import Union
 
 from cloudpathlib import CloudPath
 from lndb_setup import settings
-from lnschema_core import dobject
+from lnschema_core import DObject
 
 
 def get_name_suffix_from_filepath(filepath: Union[Path, CloudPath]):
@@ -12,11 +12,11 @@ def get_name_suffix_from_filepath(filepath: Union[Path, CloudPath]):
     return name, suffix
 
 
-def storage_key_from_dobject(dobj: dobject):
+def storage_key_from_dobject(dobj: DObject):
     return f"{dobj.id}{dobj.suffix}"
 
 
-def filepath_from_dobject(dobj: dobject):
+def filepath_from_dobject(dobj: DObject):
     storage_key = storage_key_from_dobject(dobj)
     filepath = settings.instance.storage.key_to_filepath(storage_key)
     return filepath

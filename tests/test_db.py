@@ -22,7 +22,7 @@ def test_create_to_load():
     storage = ln.select(
         ln.schema.core.storage, root=str(ln.settings.instance.storage_root)
     ).one()
-    dobject = ln.schema.core.dobject(
+    dobject = ln.schema.core.DObject(
         id="testid",
         name="test_file",
         suffix=".csv",
@@ -32,7 +32,7 @@ def test_create_to_load():
     )
     ln.add(dobject)
 
-    ln.select(ln.schema.core.dobject).df()
+    ln.select(ln.schema.core.DObject).df()
 
     ln.schema._core.get_db_metadata_as_dict()
     table_object = ln.schema._core.get_table_object("dobject")

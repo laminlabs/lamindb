@@ -26,16 +26,16 @@ def test_dynamic_settings():
     ingest.add(df, name="test-dobject-1")
     ingest.commit()
 
-    select_dobject_result = ln.select(core.dobject, name="test-dobject-1").all()
+    select_dobject_result = ln.select(core.DObject, name="test-dobject-1").all()
     assert len(select_dobject_result) == 1
 
     init(storage="test-instance-2", dbconfig="sqlite")
 
-    select_dobject_result = ln.select(core.dobject, name="test-dobject-1").all()
+    select_dobject_result = ln.select(core.DObject, name="test-dobject-1").all()
     assert len(select_dobject_result) == 0
 
     select_dobject_result = ln.select(
-        core.dobject, _settings_store=settings_store, name="test-dobject-1"
+        core.DObject, _settings_store=settings_store, name="test-dobject-1"
     ).all()
     assert len(select_dobject_result) == 1
 

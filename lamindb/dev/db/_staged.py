@@ -62,14 +62,14 @@ class Staged:
             if suffix != ".zarr" and not self._filepath.exists():
                 write_to_file(self._dmem, self._filepath)  # type: ignore
 
-        self._dobject = core.dobject(name=name, suffix=suffix)
+        self._dobject = core.DObject(name=name, suffix=suffix)
         self._dobject.id = dobject_id if dobject_id is not None else self.dobject.id
         # streamed
         if suffix != ".zarr":
             checksum = compute_checksum(self._filepath)
             result = (
-                select(core.dobject)
-                .where(core.dobject.checksum == checksum)
+                select(core.DObject)
+                .where(core.DObject.checksum == checksum)
                 .one_or_none()
             )
             if result is not None:
@@ -89,7 +89,7 @@ class Staged:
         self._entries: Dict = {}  # staged entries to be added
 
     @property
-    def dobject(self) -> core.dobject:
+    def dobject(self) -> core.DObject:
         """An dobject entry to be added."""
         return self._dobject
 

@@ -63,7 +63,7 @@ def populate_dtransform_in(dobject):
         settings.instance._update_cloud_sqlite_file()
 
 
-def load(dobject: core.dobject, stream: bool = False):
+def load(dobject: core.DObject, stream: bool = False):
     """Load data object into memory.
 
     Returns object associated with the stored `dobject`.
