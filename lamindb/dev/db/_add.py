@@ -35,7 +35,7 @@ def add(  # type: ignore  # no support of different naming of args across overlo
     >>> # insert a new record
     >>> db.add(wetlab.experiment(name="My test", biometa_id=test_id))
     >>> # update an existing record
-    >>> experiment = ln.get(wetlab.experiment, experiment_id)
+    >>> experiment = ln.select(wetlab.experiment, id=experiment_id).one()
     >>> experiment.name = "New name"
     >>> db.add(experiment)
 
