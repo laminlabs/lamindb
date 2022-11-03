@@ -53,6 +53,5 @@ from ..dev.db._get import get  # noqa
 from ..dev.db._select import select  # noqa
 from ._delete import delete  # noqa
 from ._ingest import Ingest  # noqa
-from ._link import link  # noqa
 from ._load import load  # noqa
 from ._view import view  # noqa
