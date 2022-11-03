@@ -5,6 +5,7 @@ Feature tables from bionty:
 .. autosummary::
    :toctree: .
 
+   Species
    Gene
    Protein
    CellMarker
@@ -18,5 +19,5 @@ Lookup knowledge table identifiers:
 """
 
 
-from ._core import CellMarker, Gene, Protein
+from ._core import CellMarker, Gene, Protein, Species
 from ._lookup import lookup
