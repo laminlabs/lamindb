@@ -4,26 +4,48 @@ Import the package::
 
    import lamindb as ln
 
-Browse the API:
+Core database API:
 
 .. autosummary::
    :toctree: .
 
    view
    select
-   get
    Ingest
    load
    add
    delete
-   session
-   schema
-   knowledge
-   link
-   settings
-   nb
-   dev
 
+Schema API:
+
+.. autosummary::
+   :toctree: .
+
+   schema
+
+Knowledge API:
+
+.. autosummary::
+   :toctree: .
+
+   knowledge
+
+Dev API:
+
+.. autosummary::
+   :toctree: .
+
+   session
+   settings
+   dev
+   link
+
+External API:
+
+.. autosummary::
+   :toctree: .
+
+   nb
 """
 
 __version__ = "0.10.0"
@@ -50,7 +72,6 @@ from ._nb import nb  # noqa
 from ._view import view  # noqa
 from .dev.db import session  # noqa
 from .dev.db._add import add  # noqa
-from .dev.db._get import get  # noqa
 from .dev.db._select import select  # noqa
 
 settings.__doc__ = """Settings.
