@@ -15,14 +15,14 @@ def test_create_to_load():
     # create unnecessary tables
     import lamindb as ln
 
-    jupynb = ln.schema.core.jupynb(id="83jf", v="1", name="test")
+    jupynb = ln.schema.Jupynb(id="83jf", v="1", name="test")
     ln.add(jupynb)
-    dtransform = ln.schema.core.dtransform(jupynb_id=jupynb.id, jupynb_v=jupynb)
+    dtransform = ln.schema.DTransform(jupynb_id=jupynb.id, jupynb_v=jupynb)
     ln.add(dtransform)
     storage = ln.select(
-        ln.schema.core.storage, root=str(ln.settings.instance.storage_root)
+        ln.schema.Storage, root=str(ln.settings.instance.storage_root)
     ).one()
-    dobject = ln.schema.core.DObject(
+    dobject = ln.schema.DObject(
         id="testid",
         name="test_file",
         suffix=".csv",
@@ -32,7 +32,7 @@ def test_create_to_load():
     )
     ln.add(dobject)
 
-    ln.select(ln.schema.core.DObject).df()
+    ln.select(ln.schema.DObject).df()
 
     ln.schema._core.get_db_metadata_as_dict()
     table_object = ln.schema._core.get_table_object("dobject")
