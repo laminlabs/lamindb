@@ -4,8 +4,8 @@ import pandas as pd
 from lamin_logger import colors, logger
 from tabulate import tabulate  # type: ignore
 
+from lamindb._link import link_biometa
 from lamindb.dev.db._add import add
-from lamindb.dev.db._link import link
 from lamindb.dev.db._select import select
 from lamindb.knowledge import CellMarker, Gene, Protein, Species
 from lamindb.schema import bionty, wetlab
@@ -156,7 +156,7 @@ class LinkFeatureToKnowledgeTable:
         dobject_biometas = select(wetlab.dobject_biometa, dobject_id=dobject_id).all()
         if len(dobject_biometas) == 0:
             biometa = add(wetlab.biometa(featureset_id=self._featureset.id))
-            link.biometa(dobject_id=dobject_id, biometa_id=biometa.id)
+            link_biometa(dobject_id=dobject_id, biometa_id=biometa.id)
         else:
             raise NotImplementedError
 
