@@ -146,11 +146,11 @@ class table_meta:
     def get_link_table(cls, table1: str, table2: str) -> Optional[str]:
         """Get the link table of two entities."""
         link_tables = cls.get_link_tables()
-        pks = [f"{table1}_{i}" for i in table_meta.get_pks(table1)] + [
-            f"{table2}_{i}" for i in table_meta.get_pks(table2)
+        pks = [f"{table1.split('.')[1]}_{i}" for i in cls.get_pks(table1)] + [
+            f"{table2.split('.')[1]}_{i}" for i in cls.get_pks(table2)
         ]
 
         for table in link_tables:
-            if set(pks) == set(table_meta.get_pks(table)):
+            if set(pks) == set(cls.get_pks(table)):
                 return table
         return None
