@@ -4,11 +4,11 @@ from typing import Any, Dict, List, Optional, Union
 import sqlmodel as sqm
 from lamin_logger import logger
 from lndb_setup import settings
+from lnschema_core import DTransform, Jupynb, PipelineRun
 from nbproject import dev, meta
 
 from .dev.db import Staged
 from .dev.db._select import select
-from .schema import core
 
 
 def set_nb_version(version):
@@ -35,34 +35,34 @@ class Ingest:
             sources.
     """
 
-    def _init_dtransform(self, dsource: Union[core.jupynb, core.pipeline_run]):
-        if isinstance(dsource, core.pipeline_run):
+    def _init_dtransform(self, dsource: Union[Jupynb, PipelineRun]):
+        if isinstance(dsource, PipelineRun):
             dtransform = (
-                select(core.dtransform)
-                .where(core.dtransform.pipeline_run_id == dsource.id)
+                select(DTransform)
+                .where(DTransform.pipeline_run_id == dsource.id)
                 .one_or_none()
             )
             if dtransform is None:
-                dtransform = core.dtransform(pipeline_run_id=dsource.id)
+                dtransform = DTransform(pipeline_run_id=dsource.id)
             log = dict(pipeline_run=f"{dsource.name!r} ({dsource.id})")
-        elif isinstance(dsource, core.jupynb):
+        elif isinstance(dsource, Jupynb):
             dtransform = (
-                select(core.dtransform)
+                select(DTransform)
                 .where(
-                    core.dtransform.jupynb_id == dsource.id,
-                    core.dtransform.jupynb_v == dsource.v,
+                    DTransform.jupynb_id == dsource.id,
+                    DTransform.jupynb_v == dsource.v,
                 )
                 .one_or_none()
             )
             if dtransform is None:
-                dtransform = core.dtransform(jupynb_id=dsource.id, jupynb_v=dsource.v)
+                dtransform = DTransform(jupynb_id=dsource.id, jupynb_v=dsource.v)
             log = dict(jupynb=f"{dsource.name!r} ({dsource.id}, {dsource.v})")
         return dtransform, log
 
-    def __init__(self, dsource: Union[core.jupynb, core.pipeline_run, None] = None):
+    def __init__(self, dsource: Union[Jupynb, PipelineRun, None] = None):
         if dsource is None:
             if dev.notebook_path() is not None:
-                dsource = core.jupynb(id=meta.store.id, name=meta.live.title)
+                dsource = Jupynb(id=meta.store.id, name=meta.live.title)
             else:
                 raise RuntimeError("Please provide a data source.")
         self._dsource = dsource  # data source (pipeline_run or jupynb)
@@ -138,7 +138,7 @@ class Ingest:
             logger.error("Already committed")
             return None
 
-        if isinstance(self._dsource, core.jupynb):
+        if isinstance(self._dsource, Jupynb):
             from nbproject._publish import finalize_publish, run_checks_for_publish
 
             result = run_checks_for_publish(
@@ -152,10 +152,8 @@ class Ingest:
 
             # in case the nb exists already, update that entry
             result = (
-                select(core.jupynb)
-                .where(
-                    core.jupynb.id == self._dsource.id, core.jupynb.v == self._dsource.v
-                )
+                select(Jupynb)
+                .where(Jupynb.id == self._dsource.id, Jupynb.v == self._dsource.v)
                 .one_or_none()
             )
             if result is not None:
@@ -191,7 +189,7 @@ class Ingest:
         for filepath_str, staged in self._staged.items():
             staged._commit_entries()
 
-        if isinstance(self._dsource, core.jupynb):
+        if isinstance(self._dsource, Jupynb):
             jupynb = self._dsource
             logger.info(
                 f"Added notebook {jupynb.name!r} ({jupynb.id}, {jupynb.v}) by"
@@ -201,7 +199,7 @@ class Ingest:
         self._print_logging_table()
 
         self._committed = True
-        if isinstance(self._dsource, core.jupynb):
+        if isinstance(self._dsource, Jupynb):
             finalize_publish(version=self._dsource.v, calling_statement="commit(")
 
     def _print_logging_table(

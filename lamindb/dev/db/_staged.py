@@ -4,9 +4,9 @@ from functools import partial
 from pathlib import Path
 from typing import Any, Dict, Optional
 
-import lnschema_core as core
 import sqlmodel as sqm
 from lndb_setup import settings
+from lnschema_core import DObject, DTransform, Storage
 
 from ...schema._table import table_meta
 from .._core import get_name_suffix_from_filepath
@@ -37,7 +37,7 @@ class Staged:
         self,
         data: Any,
         *,
-        dtransform: core.dtransform,
+        dtransform: DTransform,
         name: Optional[str] = None,
         dobject_id: Optional[str] = None,
         adata_format: Optional[str] = None,
@@ -62,16 +62,12 @@ class Staged:
             if suffix != ".zarr" and not self._filepath.exists():
                 write_to_file(self._dmem, self._filepath)  # type: ignore
 
-        self._dobject = core.DObject(name=name, suffix=suffix)
+        self._dobject = DObject(name=name, suffix=suffix)
         self._dobject.id = dobject_id if dobject_id is not None else self.dobject.id
         # streamed
         if suffix != ".zarr":
             checksum = compute_checksum(self._filepath)
-            result = (
-                select(core.DObject)
-                .where(core.DObject.checksum == checksum)
-                .one_or_none()
-            )
+            result = select(DObject).where(DObject.checksum == checksum).one_or_none()
             if result is not None:
                 raise RuntimeError(
                     "Based on the MD5 checksum, the exact same data object is already"
@@ -89,7 +85,7 @@ class Staged:
         self._entries: Dict = {}  # staged entries to be added
 
     @property
-    def dobject(self) -> core.DObject:
+    def dobject(self) -> DObject:
         """An dobject entry to be added."""
         return self._dobject
 
@@ -221,7 +217,7 @@ class Staged:
         self.dobject.size = size
 
         # ensure storage is populated
-        storage = select(core.storage, root=str(settings.instance.storage_root)).one()
+        storage = select(Storage, root=str(settings.instance.storage_root)).one()
         self.dobject.storage_id = storage.id
 
         # populate dtransform_id

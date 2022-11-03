@@ -16,7 +16,7 @@ Helper tools:
    :toctree: .
 
    view
-   list_entities
+   list_tables
 
 """
 import lnbfx.schema as bfx
@@ -44,7 +44,7 @@ wetlab.__doc__ = f"""Generic wetlab.
 See `lnschema-wetlab <https://lamin.ai/docs/lnschema-wetlab/api>`__.
 """
 
-from ._core import list_entities, view
+from ._core import list_tables, view
 
 try:
     import lnschema_retro as retro
@@ -60,3 +60,6 @@ try:
     import lnschema_harmonic_docking as docking
 except ModuleNotFoundError:
     pass
+
+
+list_entities = list_tables  # backward compat

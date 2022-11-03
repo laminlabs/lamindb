@@ -18,15 +18,15 @@ def populate_dtransform_in(dobject):
     committed = False
 
     with sqm.Session(engine) as session:
-        result = session.get(core.jupynb, (jupynb_id, jupynb_v))
+        result = session.get(core.Jupynb, (jupynb_id, jupynb_v))
         if result is None:
             session.add(
-                core.jupynb(
+                core.Jupynb(
                     id=jupynb_id, v=jupynb_v, name=jupynb_name, user_id=settings.user.id
                 )
             )
             session.commit()
-            dtransform = core.dtransform(
+            dtransform = core.DTransform(
                 jupynb_id=jupynb_id,
                 jupynb_v=jupynb_v,
             )
@@ -39,15 +39,15 @@ def populate_dtransform_in(dobject):
             )
         else:
             dtransform = session.exec(
-                sqm.select(core.dtransform).where(
-                    core.dtransform.jupynb_id == jupynb_id,
-                    core.dtransform.jupynb_v == jupynb_v,
+                sqm.select(core.DTransform).where(
+                    core.DTransform.jupynb_id == jupynb_id,
+                    core.DTransform.jupynb_v == jupynb_v,
                 )
             ).one()
-        result = session.get(core.dtransform_in, (dtransform.id, dobject.id))
+        result = session.get(core.DTransform_in, (dtransform.id, dobject.id))
         if result is None:
             session.add(
-                core.dtransform_in(
+                core.DTransform_in(
                     dtransform_id=dtransform.id,
                     dobject_id=dobject.id,
                 )
