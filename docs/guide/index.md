@@ -10,5 +10,5 @@ link
 select-load
 add-delete
 pipeline
-introspect
+view
 ```
