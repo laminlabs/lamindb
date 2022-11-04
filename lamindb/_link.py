@@ -12,16 +12,16 @@ from .schema._table import table_meta
 
 
 def link(
-    records_table1: Union[SQLModel, List[SQLModel]],
-    records_table2: Union[SQLModel, List[SQLModel]],
+    records1: Union[SQLModel, List[SQLModel]],
+    records2: Union[SQLModel, List[SQLModel]],
     *,
     add_link_records=True,
 ) -> Optional[list]:
     """Populate link table records of two entities.
 
     Args:
-        records_table1: a single record or a list of records in table1
-        records_table2: a single record or a list of records in table2
+        records1: a single record or a list of records in table1
+        records2: a single record or a list of records in table2
         add_link_records:
             if True (default): add link records to the db
             if False: return created records without adding to the db
@@ -29,23 +29,23 @@ def link(
     Returns:
         None or a list of link records
     """
-    if isinstance(records_table1, SQLModel):
-        records_table1 = [records_table1]
-    if isinstance(records_table2, SQLModel):
-        records_table2 = [records_table2]
+    if isinstance(records1, SQLModel):
+        records1 = [records1]
+    if isinstance(records2, SQLModel):
+        records2 = [records2]
 
     # make the two lists the same length
-    len1 = len(records_table1)  # type: ignore
-    len2 = len(records_table2)  # type: ignore
+    len1 = len(records1)  # type: ignore
+    len2 = len(records2)  # type: ignore
     if len1 == 1:
-        records_table1 = records_table1 * len2
+        records1 = records1 * len2
     if len2 == 1:
-        records_table2 = records_table2 * len1
-    if len(records_table1) != len(records_table2):
+        records2 = records2 * len1
+    if len(records1) != len(records2):
         raise AssertionError("Can't broadcast the lengths of the two table records!")
 
-    table1_name = records_table1[0].__table__.name
-    table2_name = records_table2[0].__table__.name
+    table1_name = records1[0].__table__.name
+    table2_name = records2[0].__table__.name
 
     link_table_name = table_meta.get_link_table(table1_name, table2_name)
     if not link_table_name:
@@ -61,7 +61,7 @@ def link(
         fkpks[f_table].append((k, f_id))
 
     link_records = []
-    for record1, record2 in zip(records_table1, records_table2):
+    for record1, record2 in zip(records1, records2):
         link_record1 = {
             f_id: record1.__getattribute__(k) for f_id, k in fkpks[table1_name]
         }
