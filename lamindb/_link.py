@@ -17,7 +17,9 @@ def link(
     *,
     add_link_records=True,
 ) -> Optional[list]:
-    """Populate link table records of two entities.
+    """Populate link records of two tables.
+
+    Create all link records in order to connect entries from two tables.
 
     Args:
         records1: a single record or a list of records in table1
