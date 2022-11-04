@@ -3,7 +3,6 @@ from lndb_setup import init, settings
 from lndb_setup._settings_store import InstanceSettingsStore
 
 import lamindb as ln
-from lamindb.schema import core
 
 
 def test_dynamic_settings():
@@ -16,8 +15,8 @@ def test_dynamic_settings():
         dbconfig=settings.instance._dbconfig,
     )
 
-    pipeline = ln.add(core.pipeline(v="1", name="test-pipeline"))
-    pipeline_run = ln.schema.core.pipeline_run(
+    pipeline = ln.add(ln.schema.Pipeline(v="1", name="test-pipeline"))
+    pipeline_run = ln.schema.PipelineRun(
         pipeline_id=pipeline.id, pipeline_v=pipeline.v, name="test-run"
     )
 
@@ -26,16 +25,16 @@ def test_dynamic_settings():
     ingest.add(df, name="test-dobject-1")
     ingest.commit()
 
-    select_dobject_result = ln.select(core.dobject, name="test-dobject-1").all()
+    select_dobject_result = ln.select(ln.schema.DObject, name="test-dobject-1").all()
     assert len(select_dobject_result) == 1
 
     init(storage="test-instance-2", dbconfig="sqlite")
 
-    select_dobject_result = ln.select(core.dobject, name="test-dobject-1").all()
+    select_dobject_result = ln.select(ln.schema.DObject, name="test-dobject-1").all()
     assert len(select_dobject_result) == 0
 
     select_dobject_result = ln.select(
-        core.dobject, _settings_store=settings_store, name="test-dobject-1"
+        ln.schema.DObject, _settings_store=settings_store, name="test-dobject-1"
     ).all()
     assert len(select_dobject_result) == 1
 

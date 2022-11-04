@@ -1,51 +1,43 @@
+import importlib
 from typing import Optional
 
 from IPython.display import display
 from lamin_logger import colors
+from lndb_setup import settings
+from lndb_setup._setup_schema import get_schema_module_name
 
-from . import schema
 from .dev.db._select import select
-from .schema import list_entities
-from .schema._table import table_meta
 
 
-def view(n: int = 10, schema_modules: Optional[list] = None):
+def view(n: int = 10, schema_names: Optional[list] = None):
     """View the latest edits to the database.
 
     Args:
         n: display the latest n rows of the tables
-        schema_modules: a list of schema modules to view
+        schema_names: a list of schema modules to view
             if None: will view all schema modules
     """
-    if schema_modules is None:
-        modules = [
-            i
-            for i in schema.__dir__()
-            if getattr(schema, i).__class__.__name__ == "module"
-            and not i.startswith("_")  # noqa
-            and i != "core"  # noqa
-        ]
-        schema_modules = ["core"] + modules
+    if schema_names is None:
+        if settings.instance.schema_modules is not None:
+            schema_names = settings.instance.schema_modules.split(", ")
+        else:
+            schema_names = []
 
-    all_tables = list_entities()
+    for schema_name in ["core"] + schema_names:
+        schema_module = importlib.import_module(get_schema_module_name(schema_name))
 
-    # core tables always display first
-    for module in schema_modules:
-        schema_module = getattr(schema, module)
         tables = [
             i
-            for i in schema_module.__dir__()
-            if getattr(schema_module, i).__class__.__name__ == "SQLModelMetaclass"
+            for i in schema_module.__dict__.values()
+            if i.__class__.__name__ == "SQLModelMetaclass"
         ]
-        if len(set(tables).intersection(all_tables)) == 0:
-            continue
-        section = f"* module: {colors.green(colors.bold(module))} *"
-        section_no_color = f"* module: {module} *"
+        section = f"* module: {colors.green(colors.bold(schema_name))} *"
+        section_no_color = f"* module: {schema_name} *"
         print("*" * len(section_no_color))
         print(section)
         print("*" * len(section_no_color))
         for entity in tables:
-            df = select(table_meta.get_model(entity)).df()
+            df = select(entity).df()
             if df.shape[0] > 0:
-                print(colors.blue(colors.bold(entity)))
+                print(colors.blue(colors.bold(entity.__name__)))
                 display(df.iloc[-n:])

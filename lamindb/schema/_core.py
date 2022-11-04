@@ -13,9 +13,9 @@ def view(save=False):
     graph = erdiagram.create_schema_graph(
         metadata=metadata,
         show_datatypes=False,
-        show_indexes=False,  # ditto for indexes
+        show_indexes=False,
         rankdir="TB",
-        concentrate=False,  # Don't try to join the relation lines together
+        concentrate=True,
     )
     if not save:
         erdiagram.view(graph)
@@ -23,7 +23,7 @@ def view(save=False):
         return graph
 
 
-def list_entities():
+def list_tables():
     """Return all entities."""
     metadata = get_db_metadata()
     table_names = [table.name for table in metadata.sorted_tables]

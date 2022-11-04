@@ -4,9 +4,9 @@ from functools import partial
 from pathlib import Path
 from typing import Any, Dict, Optional
 
-import lnschema_core as core
 import sqlmodel as sqm
 from lndb_setup import settings
+from lnschema_core import DObject, DTransform, Storage
 
 from ...schema._table import table_meta
 from .._core import get_name_suffix_from_filepath
@@ -14,7 +14,6 @@ from ..file import load_to_memory, store_file, write_adata_zarr
 from ..file._file import print_hook
 from ..object import infer_suffix, size_adata, write_to_file
 from ._add import add
-from ._core import get_foreign_keys, get_link_table
 from ._link_knowledge import LinkFeatureToKnowledgeTable
 from ._select import select
 from ._track_usage import track_usage
@@ -37,7 +36,7 @@ class Staged:
         self,
         data: Any,
         *,
-        dtransform: core.dtransform,
+        dtransform: DTransform,
         name: Optional[str] = None,
         dobject_id: Optional[str] = None,
         adata_format: Optional[str] = None,
@@ -62,16 +61,12 @@ class Staged:
             if suffix != ".zarr" and not self._filepath.exists():
                 write_to_file(self._dmem, self._filepath)  # type: ignore
 
-        self._dobject = core.dobject(name=name, suffix=suffix)
+        self._dobject = DObject(name=name, suffix=suffix)
         self._dobject.id = dobject_id if dobject_id is not None else self.dobject.id
         # streamed
         if suffix != ".zarr":
             checksum = compute_checksum(self._filepath)
-            result = (
-                select(core.dobject)
-                .where(core.dobject.checksum == checksum)
-                .one_or_none()
-            )
+            result = select(DObject).where(DObject.checksum == checksum).one_or_none()
             if result is not None:
                 raise RuntimeError(
                     "Based on the MD5 checksum, the exact same data object is already"
@@ -89,7 +84,7 @@ class Staged:
         self._entries: Dict = {}  # staged entries to be added
 
     @property
-    def dobject(self) -> core.dobject:
+    def dobject(self) -> DObject:
         """An dobject entry to be added."""
         return self._dobject
 
@@ -110,7 +105,7 @@ class Staged:
         """
         dobject_id = self.dobject.id
         table_name = entry.__table__.name
-        link_table = get_link_table(table_name, "dobject")
+        link_table = table_meta.get_link_table(table_name, "core.dobject")
         # is there a link table that links the data object to the entry?
         if link_table is not None:
             model = table_meta.get_model(table_name)
@@ -122,24 +117,29 @@ class Staged:
                 select(model)
                 .where(
                     model.dobject_id == dobject_id,
-                    getattr(model, f"{table_name}_id") == entry.id,
+                    getattr(model, f"{table_name.split('.')[1]}_id") == entry.id,
                 )
                 .one_or_none()
             )
             if link_entry is None:
                 # TODO: do not hard code column names
                 link_entry = table_meta.get_model(link_table)(  # type: ignore
-                    **{"dobject_id": dobject_id, f"{table_name}_id": entry.id}
+                    **{
+                        "dobject_id": dobject_id,
+                        f"{table_name.split('.')[1]}_id": entry.id,
+                    }
                 )
                 self._add_entry(link_entry)
         # if there is no link table, does the entity have a column linking
         # to dobject?
         else:
-            fks = get_foreign_keys(table_name, referred=("dobject", "id"))
-            if ("dobject", "id") not in fks.values():
+            fks = table_meta.get_foreign_keys(
+                table_name, referred=("core.dobject", "id")
+            )
+            if ("core.dobject", "id") not in fks.values():
                 raise RuntimeError(
                     "You can only link tables that have a foreign key or link table to"
-                    " dobject."
+                    " core.dobject."
                 )
             else:
                 if field is None:
@@ -221,7 +221,7 @@ class Staged:
         self.dobject.size = size
 
         # ensure storage is populated
-        storage = select(core.storage, root=str(settings.instance.storage_root)).one()
+        storage = select(Storage, root=str(settings.instance.storage_root)).one()
         self.dobject.storage_id = storage.id
 
         # populate dtransform_id
