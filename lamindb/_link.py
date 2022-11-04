@@ -12,40 +12,42 @@ from .schema._table import table_meta
 
 
 def link(
-    entries_table1: Union[SQLModel, List[SQLModel]],
-    entries_table2: Union[SQLModel, List[SQLModel]],
+    records1: Union[SQLModel, List[SQLModel]],
+    records2: Union[SQLModel, List[SQLModel]],
     *,
-    add_link_entries=True,
+    add_link_records=True,
 ) -> Optional[list]:
-    """Populate link table entries of two entities.
+    """Populate link records of two tables.
+
+    Create all link records in order to connect entries from two tables.
 
     Args:
-        entries_table1: a single entry or a list of entries in table1
-        entries_table2: a single entry or a list of entries in table2
-        add_link_entries:
-            if True (default): add link entries to the db
-            if False: return created entries without adding to the db
+        records1: a single record or a list of records in table1
+        records2: a single record or a list of records in table2
+        add_link_records:
+            if True (default): add link records to the db
+            if False: return created records without adding to the db
 
     Returns:
-        None or a list of link entries
+        None or a list of link records
     """
-    if isinstance(entries_table1, SQLModel):
-        entries_table1 = [entries_table1]
-    if isinstance(entries_table2, SQLModel):
-        entries_table2 = [entries_table2]
+    if isinstance(records1, SQLModel):
+        records1 = [records1]
+    if isinstance(records2, SQLModel):
+        records2 = [records2]
 
     # make the two lists the same length
-    len1 = len(entries_table1)  # type: ignore
-    len2 = len(entries_table2)  # type: ignore
+    len1 = len(records1)  # type: ignore
+    len2 = len(records2)  # type: ignore
     if len1 == 1:
-        entries_table1 = entries_table1 * len2
+        records1 = records1 * len2
     if len2 == 1:
-        entries_table2 = entries_table2 * len1
-    if len(entries_table1) != len(entries_table2):
-        raise AssertionError("Can't broadcast the lengths of the two table entries!")
+        records2 = records2 * len1
+    if len(records1) != len(records2):
+        raise AssertionError("Can't broadcast the lengths of the two table records!")
 
-    table1_name = entries_table1[0].__table__.name
-    table2_name = entries_table2[0].__table__.name
+    table1_name = records1[0].__table__.name
+    table2_name = records2[0].__table__.name
 
     link_table_name = table_meta.get_link_table(table1_name, table2_name)
     if not link_table_name:
@@ -60,26 +62,22 @@ def link(
     for k, (f_table, f_id) in fks.items():
         fkpks[f_table].append((k, f_id))
 
-    link_entries = []
-    for entry1, entry2 in zip(entries_table1, entries_table2):
-        link_entry1 = {
-            f_id: entry1.__getattribute__(k) for f_id, k in fkpks[table1_name]
+    link_records = []
+    for record1, record2 in zip(records1, records2):
+        link_record1 = {
+            f_id: record1.__getattribute__(k) for f_id, k in fkpks[table1_name]
         }
-        link_entry2 = {
-            f_id: entry2.__getattribute__(k) for f_id, k in fkpks[table2_name]
+        link_record2 = {
+            f_id: record2.__getattribute__(k) for f_id, k in fkpks[table2_name]
         }
 
-        link_entry = link_table_model(**{**link_entry1, **link_entry2})
-        link_entries.append(link_entry)
-        # TODO: remove after the new add API
-        kwargs = link_entry.dict()
-        if add_link_entries:
-            add(link_table_model(**kwargs))
+        link_record = link_table_model(**{**link_record1, **link_record2})
+        link_records.append(link_record)
 
-    if add_link_entries:
-        return None
+    if add_link_records:
+        return add(link_records)
     else:
-        return link_entries
+        return link_records
 
 
 def link_readouts(dobject_id: str, efo_id: str):
