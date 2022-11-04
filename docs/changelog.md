@@ -3,6 +3,7 @@
 <!-- prettier-ignore -->
 Name | PR | Developer | Date | Version
 --- | --- | --- | --- | ---
+🚚 Rename entries to records in link | [333](https://github.com/laminlabs/lamindb/pull/333) | [sunnyosun](https://github.com/sunnyosun) | 2022-11-04 |
 📝 Improve guide | [332](https://github.com/laminlabs/lamindb/pull/332) | [falexwolf](https://github.com/falexwolf) | 2022-11-04 |
 🎨 Migrate to the new schema modules | [331](https://github.com/laminlabs/lamindb/pull/331) | [falexwolf](https://github.com/falexwolf) | 2022-11-04 | 0.11.0
 🔥 Removed `link_biometa` | [330](https://github.com/laminlabs/lamindb/pull/330) | [sunnyosun](https://github.com/sunnyosun) | 2022-11-03 |
