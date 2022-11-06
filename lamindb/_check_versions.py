@@ -23,8 +23,8 @@ if version.parse(lnschema_wetlab_v) != version.parse("0.8.2"):
 if version.parse(lnbfx_v) < version.parse("0.5.2"):
     raise RuntimeError("lamindb needs lnbfx>=0.5.2")
 
-if version.parse(bionty_v) != version.parse("0.5.0"):
-    raise RuntimeError("lamindb needs bionty==0.5.0")
+if version.parse(bionty_v) != version.parse("0.5.1"):
+    raise RuntimeError("lamindb needs bionty==0.5.1")
 
 if version.parse(nbproject_v) < version.parse("0.7.0"):
     raise RuntimeError("lamindb needs nbproject>=0.7.0")
