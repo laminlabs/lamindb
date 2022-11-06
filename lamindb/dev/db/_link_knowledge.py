@@ -8,7 +8,7 @@ from tabulate import tabulate  # type: ignore
 from lamindb._link import link
 from lamindb.dev.db._add import add
 from lamindb.dev.db._select import select
-from lamindb.knowledge import CellMarker, Gene, Protein, Species
+from lamindb.knowledge import CellMarker, Gene, Protein
 from lamindb.schema import bionty, wetlab
 from lamindb.schema._table import table_meta
 
@@ -70,14 +70,11 @@ class LinkFeatureToKnowledgeTable:
     def commit(self, dobject: core.DObject) -> None:
         """Commit features."""
         # insert species entry if not exists
-        # TODO: insert species
         species = select(
             bionty.Species, common_name=self._knowledge.species
         ).one_or_none()
         if species is None:
-            kwargs = Species().df.loc[self._knowledge.species].to_dict()
-            kwargs["common_name"] = self._knowledge.species
-            species = add(bionty.Species(**kwargs))
+            species = add(bionty.Species(common_name=self._knowledge.species))
 
         model = table_meta.get_model(self._name)
 
