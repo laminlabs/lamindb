@@ -9,14 +9,15 @@ from lndb_setup._setup_schema import get_schema_module_name
 from .dev.db._select import select
 
 
-def view(n: int = 10, schema_names: Optional[list] = None):
-    """View the latest edits to the database.
+def view(n: int = 10, schemas: Optional[list] = None):
+    """View data.
 
     Args:
-        n: display the latest n rows of the tables
-        schema_names: a list of schema modules to view
-            if None: will view all schema modules
+        n: Display the latest n rows of the tables.
+        schemas: List of schema modules to view. Default's to `None` and
+            displays all schema modules.
     """
+    schema_names = schemas  # rename
     if schema_names is None:
         if settings.instance.schema_modules is not None:
             schema_names = settings.instance.schema_modules.split(", ")

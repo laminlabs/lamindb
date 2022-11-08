@@ -5,10 +5,8 @@ from lndb_setup._settings_store import InstanceSettingsStore
 from sqlalchemy.orm.exc import MultipleResultsFound, NoResultFound
 
 
-def select(
-    *entity: sqm.SQLModel, _settings_store: InstanceSettingsStore = None, **fields
-) -> "SelectStmt":
-    """Select rows and columns.
+def select(*entity: sqm.SQLModel, **fields) -> "SelectStmt":
+    """Select data.
 
     Guide: :doc:`/db/guide/select-load`.
 
@@ -17,8 +15,14 @@ def select(
     Args:
         entity: Table, tables, or tables including column specification.
         fields: Fields and values passed as keyword arguments.
-        _settings_store: Instance settings optionally provided.
     """
+    # _settings_store is an internal, non-user facing variable
+    _settings_store = None
+    if len(fields) > 0:
+        for k, v in fields.items():
+            if isinstance(v, InstanceSettingsStore):
+                _settings_store = fields.pop(k)
+    # continue with user-facing variables
     if len(entity) > 1 and len(fields) > 0:
         raise RuntimeError("Can only pass fields for a single entity.")
     elif len(fields) > 0:

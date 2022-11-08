@@ -14,6 +14,7 @@ Core database API:
    Ingest
    load
    add
+   link
    delete
 
 Schema API:
@@ -38,7 +39,6 @@ Dev API:
    session
    settings
    dev
-   link
 
 External API:
 
