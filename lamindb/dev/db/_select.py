@@ -22,6 +22,7 @@ def select(*entity: sqm.SQLModel, **fields) -> "SelectStmt":
         for k, v in fields.items():
             if isinstance(v, InstanceSettingsStore):
                 _settings_store = fields.pop(k)
+                break
     # continue with user-facing variables
     if len(entity) > 1 and len(fields) > 0:
         raise RuntimeError("Can only pass fields for a single entity.")
