@@ -24,7 +24,7 @@ def view(n: int = 10, schemas: Optional[list] = None):
         else:
             schema_names = []
 
-    for schema_name in ["core"] + schema_names:
+    for schema_name in schema_names:
         schema_module = importlib.import_module(get_schema_module_name(schema_name))
 
         tables = [
