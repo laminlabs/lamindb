@@ -3,14 +3,21 @@
 Import the package::
 
    import lamindb as ln
+   import lamindb.schema as lns
 
-Core database API:
+Query & inspect data:
 
 .. autosummary::
    :toctree: .
 
-   view
    select
+   view
+
+Manipulate data:
+
+.. autosummary::
+   :toctree: .
+
    Ingest
    load
    add

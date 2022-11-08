@@ -64,7 +64,7 @@ def populate_dtransform_in(dobject):
 
 
 def load(dobject: core.DObject, stream: bool = False):
-    """Load data object into memory.
+    """Load data object.
 
     Returns object associated with the stored `dobject`.
 
