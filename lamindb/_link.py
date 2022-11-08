@@ -4,7 +4,7 @@ from typing import Dict, List, Optional, Union
 # from lamin_logger import colors, logger
 from sqlmodel import SQLModel
 
-from lamindb.dev.db._add import add
+from lamindb.dev.db._add import add as _add
 
 from .schema._table import table_meta
 
@@ -16,7 +16,7 @@ def link(
     records1: Union[SQLModel, List[SQLModel]],
     records2: Union[SQLModel, List[SQLModel]],
     *,
-    add_link_records=True,
+    add=True,
 ) -> Optional[list]:
     """Link data records.
 
@@ -25,13 +25,14 @@ def link(
     Args:
         records1: a single record or a list of records in table1
         records2: a single record or a list of records in table2
-        add_link_records:
+        add:
             if True (default): add link records to the db
             if False: return created records without adding to the db
 
     Returns:
         None or a list of link records
     """
+    add_link_records = add  # rename
     if isinstance(records1, SQLModel):
         records1 = [records1]
     if isinstance(records2, SQLModel):
@@ -76,7 +77,7 @@ def link(
         link_records.append(link_record)
 
     if add_link_records:
-        return add(link_records)
+        return _add(link_records)
     else:
         return link_records
 
