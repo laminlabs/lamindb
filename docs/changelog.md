@@ -3,6 +3,7 @@
 <!-- prettier-ignore -->
 Name | PR | Developer | Date | Version
 --- | --- | --- | --- | ---
+:recycle: Refactor select | [337](https://github.com/laminlabs/lamindb/pull/337) | [falexwolf](https://github.com/falexwolf) | 2022-11-08 |
 ⬆️ Update to `bionty==0.5.3` | [334](https://github.com/laminlabs/lamindb/pull/334) | [sunnyosun](https://github.com/sunnyosun) | 2022-11-06 |
 🚚 Rename entries to records in link | [333](https://github.com/laminlabs/lamindb/pull/333) | [sunnyosun](https://github.com/sunnyosun) | 2022-11-04 |
 📝 Improve guide | [332](https://github.com/laminlabs/lamindb/pull/332) | [falexwolf](https://github.com/falexwolf) | 2022-11-04 |
