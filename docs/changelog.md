@@ -3,7 +3,7 @@
 <!-- prettier-ignore -->
 Name | PR | Developer | Date | Version
 --- | --- | --- | --- | ---
-:recycle: Refactor select | [337](https://github.com/laminlabs/lamindb/pull/337) | [falexwolf](https://github.com/falexwolf) | 2022-11-08 |
+♻️ Refactor select | [337](https://github.com/laminlabs/lamindb/pull/337) | [falexwolf](https://github.com/falexwolf) | 2022-11-08 |
 ⬆️ Update to `bionty==0.5.3` | [334](https://github.com/laminlabs/lamindb/pull/334) | [sunnyosun](https://github.com/sunnyosun) | 2022-11-06 |
 🚚 Rename entries to records in link | [333](https://github.com/laminlabs/lamindb/pull/333) | [sunnyosun](https://github.com/sunnyosun) | 2022-11-04 |
 📝 Improve guide | [332](https://github.com/laminlabs/lamindb/pull/332) | [falexwolf](https://github.com/falexwolf) | 2022-11-04 |
@@ -12,7 +12,7 @@ Name | PR | Developer | Date | Version
 🎨 Removed `get`, re-organized API docs | [329](https://github.com/laminlabs/lamindb/pull/329) | [sunnyosun](https://github.com/sunnyosun) | 2022-11-03 |
 🚚 Move `.db` API to root level | [328](https://github.com/laminlabs/lamindb/pull/328) | [sunnyosun](https://github.com/sunnyosun) | 2022-11-03 |
 🚚 Remove A prefix from notebooks | [327](https://github.com/laminlabs/lamindb/pull/327) | [falexwolf](https://github.com/falexwolf) | 2022-11-03 |
-:sparkles: Storage related features | [322](https://github.com/laminlabs/lamindb/pull/322) | [Koncopd](https://github.com/Koncopd) | 2022-11-03 |
+✨ Storage related features | [322](https://github.com/laminlabs/lamindb/pull/322) | [Koncopd](https://github.com/Koncopd) | 2022-11-03 |
 🎨 Simplify generating records | [326](https://github.com/laminlabs/lamindb/pull/326) | [sunnyosun](https://github.com/sunnyosun) | 2022-11-02 |
 🐛 Fixed bug in linking features | [325](https://github.com/laminlabs/lamindb/pull/325) | [sunnyosun](https://github.com/sunnyosun) | 2022-11-01 |
 🍱 Added `anndata_mouse_sc_lymph_node` | [324](https://github.com/laminlabs/lamindb/pull/324) | [sunnyosun](https://github.com/sunnyosun) | 2022-11-01 |
