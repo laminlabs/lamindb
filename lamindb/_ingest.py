@@ -23,7 +23,7 @@ def set_nb_version(version):
 
 
 class Ingest:
-    """Ingest data objects (files, `AnnData`, `DataFrame`, etc.).
+    """Ingest data objects into storage (files, arrays, `AnnData`, `DataFrame`, etc.).
 
     Store and link data objects through :meth:`~lamindb.Ingest.add` and
     :meth:`~lamindb.Ingest.commit`.

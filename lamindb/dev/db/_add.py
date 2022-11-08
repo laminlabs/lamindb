@@ -20,7 +20,7 @@ def add(records: List[sqm.SQLModel]) -> List[sqm.SQLModel]:  # type: ignore
 def add(  # type: ignore  # no support of different naming of args across overloads
     record: Union[sqm.SQLModel, List[sqm.SQLModel]]
 ) -> Union[sqm.SQLModel, List[sqm.SQLModel]]:
-    """Insert or update data records.
+    """Insert or update data records in the DB ("metadata" entities).
 
     Inserts a new :term:`record` if the corresponding row doesn't exist.
     Updates the corresponding row with the record if it exists.
