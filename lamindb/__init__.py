@@ -3,34 +3,49 @@
 Import the package::
 
    import lamindb as ln
+   import lamindb.schema as lns
 
-Core database API:
+Query & inspect data:
 
 .. autosummary::
    :toctree: .
 
-   view
    select
+   view
+
+Manipulate data:
+
+.. autosummary::
+   :toctree: .
+
    Ingest
-   load
    add
+   load
+   link
    delete
 
-Schema API:
+Schema - entities and their relations:
 
 .. autosummary::
    :toctree: .
 
    schema
 
-Knowledge API:
+Knowledge management:
 
 .. autosummary::
    :toctree: .
 
    knowledge
 
-Dev API:
+Track Jupyter notebooks:
+
+.. autosummary::
+   :toctree: .
+
+   nb
+
+Developer API:
 
 .. autosummary::
    :toctree: .
@@ -38,14 +53,7 @@ Dev API:
    session
    settings
    dev
-   link
 
-External API:
-
-.. autosummary::
-   :toctree: .
-
-   nb
 """
 
 __version__ = "0.11.0"

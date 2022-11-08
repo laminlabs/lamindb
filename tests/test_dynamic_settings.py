@@ -20,7 +20,7 @@ def test_dynamic_settings():
         pipeline_id=pipeline.id, pipeline_v=pipeline.v, name="test-run"
     )
 
-    ingest = ln.Ingest(dsource=pipeline_run)
+    ingest = ln.Ingest(pipeline_run)
     df = sklearn.datasets.load_iris(as_frame=True).frame
     ingest.add(df, name="test-dobject-1")
     ingest.commit()

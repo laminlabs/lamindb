@@ -23,16 +23,35 @@ def set_nb_version(version):
 
 
 class Ingest:
-    """Ingest data.
+    """Ingest data objects into storage (files, arrays, `AnnData`, `DataFrame`, etc.).
 
-    Ingest is an operation that stores and annotates data objects.
+    Store and link data objects through :meth:`~lamindb.Ingest.add` and
+    :meth:`~lamindb.Ingest.commit`.
+
+    Args:
+        dtransform: A data source. If `None` assumes a Jupyter Notebook. In the
+            current core schema, `Jupynb` and `PipelineRun` are the two allowed
+            data sources.
+
+    For each staged data object, `Ingest` takes care of:
+
+    1. Adding a record of :class:`~lamindb.schema.DObject` and linking it against
+       a data source (:class:`~lamindb.schema.DTransform`).
+    2. Linking features (:class:`~lamindb.dev.db.Staged.link`) or other metadata
+       (:class:`~lamindb.dev.db.Staged.link_features`).
+    3. Storing the corresponding data object in the storage location
+       (:class:`~lamindb.schema.Storage`, `settings.instance.storage`).
 
     Guide: :doc:`/db/guide/ingest`.
 
-    Args:
-        dsource: A data source. If `None` assumes a Jupyter Notebook. In the
-            default schema `jupynb` and `pipeline_run` are the two allowed data
-            sources.
+    Examples:
+
+    >>> import lamindb as ln
+    >>> import lamindb as lns
+    >>> ingest = ln.Ingest()  # run in Jupyter notebook or provide dtransform!
+    >>> filepath = ln.dev.datasets.file_jpg_paradisi05()
+    >>> staged = ingest.add(filepath)
+    >>> ingest.commit()
     """
 
     def _init_dtransform(self, dsource: Union[Jupynb, PipelineRun]):
@@ -59,7 +78,8 @@ class Ingest:
             log = dict(jupynb=f"{dsource.name!r} ({dsource.id}, {dsource.v})")
         return dtransform, log
 
-    def __init__(self, dsource: Union[Jupynb, PipelineRun, None] = None):
+    def __init__(self, dtransform: Union[Jupynb, PipelineRun, None] = None):
+        dsource = dtransform  # rename
         if dsource is None:
             if dev.notebook_path() is not None:
                 dsource = Jupynb(id=meta.store.id, name=meta.live.title)

@@ -8,7 +8,7 @@ from .dev.file import delete_file
 
 
 def delete(record: sqm.SQLModel):
-    """Delete records & data objects.
+    """Delete data records & data objects.
 
     Guide: :doc:`/db/guide/add-delete`.
 
