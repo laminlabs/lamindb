@@ -3,6 +3,7 @@
 <!-- prettier-ignore -->
 Name | PR | Developer | Date | Version
 --- | --- | --- | --- | ---
+🚚 Rename view arg | [340](https://github.com/laminlabs/lamindb/pull/340) | [falexwolf](https://github.com/falexwolf) | 2022-11-09 |
 📝 Refactor select notebooks | [339](https://github.com/laminlabs/lamindb/pull/339) | [falexwolf](https://github.com/falexwolf) | 2022-11-08 |
 📝 Simplify arg in link | [338](https://github.com/laminlabs/lamindb/pull/338) | [falexwolf](https://github.com/falexwolf) | 2022-11-08 |
 ♻️ Refactor select | [337](https://github.com/laminlabs/lamindb/pull/337) | [falexwolf](https://github.com/falexwolf) | 2022-11-08 |
