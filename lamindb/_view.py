@@ -9,20 +9,20 @@ from lndb_setup._setup_schema import get_schema_module_name
 from .dev.db._select import select
 
 
-def view(n: int = 10, schemas: Optional[list] = None):
+def view(n: int = 10, schema: Optional[str] = None):
     """View data.
 
     Args:
         n: Display the latest n rows of the tables.
-        schemas: List of schema modules to view. Default's to `None` and
+        schema: Schema module to view. Default's to `None` and
             displays all schema modules.
     """
-    schema_names = schemas  # rename
+    schema_names = [schema] if schema is not None else None
     if schema_names is None:
         if settings.instance.schema_modules is not None:
             schema_names = settings.instance.schema_modules.split(", ")
         else:
-            schema_names = []
+            schema_names = ["core"]
 
     for schema_name in schema_names:
         schema_module = importlib.import_module(get_schema_module_name(schema_name))
