@@ -147,26 +147,20 @@ class SelectStmt(ExecStmt):
             _settings_store=self._settings_store
         )
 
-    def join(self, *expression, **kwargs):
-        """Pass one or multiple conditions.
-
-        If multiple conditions are passed, they are combined using AND.
-
-        If OR is desired, use `sqlmodel.or_`.
-        """
+    def join(self, *expression, **fields):
+        """Pass a target table as an expression."""
+        stmt = self._stmt.join(*expression)
+        if len(fields) > 0 and len(expression) == 1:
+            conditions = [getattr(expression[0], k) == v for k, v in fields.items()]
+            stmt = stmt.where(*conditions)
+        elif len(fields) > 0 and len(expression) > 1:
+            raise RuntimeError("Can only pass fields for a single entity.")
         return SelectStmt(
-            *self._tables,
-            stmt=self._stmt.join(*expression, **kwargs),
-            _settings_store=self._settings_store
+            *self._tables, stmt=stmt, _settings_store=self._settings_store
         )
 
     def order_by(self, expression):
-        """Pass one or multiple conditions.
-
-        If multiple conditions are passed, they are combined using AND.
-
-        If OR is desired, use `sqlmodel.or_`.
-        """
+        """Pass a field."""
         return SelectStmt(
             *self._tables,
             stmt=self._stmt.order_by(expression),
