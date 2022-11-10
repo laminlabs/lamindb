@@ -16,11 +16,9 @@ def test_dynamic_settings():
     )
 
     pipeline = ln.add(ln.schema.Pipeline(v="1", name="test-pipeline"))
-    pipeline_run = ln.schema.PipelineRun(
-        pipeline_id=pipeline.id, pipeline_v=pipeline.v, name="test-run"
-    )
+    run = ln.schema.Run(pipeline_id=pipeline.id, pipeline_v=pipeline.v, name="test-run")
 
-    ingest = ln.Ingest(pipeline_run)
+    ingest = ln.Ingest(run)
     df = sklearn.datasets.load_iris(as_frame=True).frame
     ingest.add(df, name="test-dobject-1")
     ingest.commit()
