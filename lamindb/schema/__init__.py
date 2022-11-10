@@ -35,7 +35,7 @@ Default data transformations:
 
    Jupynb
    Pipeline
-   PipelineRun
+   Run
 
 Users, projects, storage locations, and usage statistics:
 
@@ -81,9 +81,9 @@ from lnschema_core import (
     DTransformIn,
     Jupynb,
     Pipeline,
-    PipelineRun,
     Project,
     ProjectDSet,
+    Run,
     Storage,
     Usage,
     User,
