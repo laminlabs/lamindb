@@ -3,6 +3,7 @@
 <!-- prettier-ignore -->
 Name | PR | Developer | Date | Version
 --- | --- | --- | --- | ---
+✅ Add tests for zarr ingest and load | [342](https://github.com/laminlabs/lamindb/pull/342) | [Koncopd](https://github.com/Koncopd) | 2022-11-10 |
 🚚 Rename `PipelineRun` to `Run` | [343](https://github.com/laminlabs/lamindb/pull/343) | [falexwolf](https://github.com/falexwolf) | 2022-11-10 |
 🐛 Fix `view` | [341](https://github.com/laminlabs/lamindb/pull/341) | [falexwolf](https://github.com/falexwolf) | 2022-11-09 | 0.12.1
 🚚 Rename view arg | [340](https://github.com/laminlabs/lamindb/pull/340) | [falexwolf](https://github.com/falexwolf) | 2022-11-09 | 0.12.0
