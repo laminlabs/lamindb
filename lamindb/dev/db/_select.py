@@ -35,6 +35,13 @@ def select(*entity: sqm.SQLModel, **fields) -> "SelectStmt":
 
 
 def to_df(*entities, result):
+    if len(result) == 0:
+        if len(entities) == 1:
+            entity = entities[0]
+            return pd.DataFrame(columns=entity.__fields__)
+        else:
+            # not implemented
+            return pd.DataFrame()
     row = result[0]
     if len(entities) == 1:
         entity = entities[0]
