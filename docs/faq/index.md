@@ -12,4 +12,5 @@ linked-select
 ingest-bfx
 link-entities
 postgres
+zarr-ingest-load
 ```
