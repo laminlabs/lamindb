@@ -4,7 +4,7 @@ from typing import Any, Dict, List, Optional, Union
 import sqlmodel as sqm
 from lamin_logger import logger
 from lndb_setup import settings
-from lnschema_core import DTransform, Jupynb, PipelineRun
+from lnschema_core import DTransform, Jupynb, Run
 from nbproject import dev, meta
 
 from .dev.db import Staged
@@ -30,7 +30,7 @@ class Ingest:
 
     Args:
         dtransform: A data source. If `None` assumes a Jupyter Notebook. In the
-            current core schema, `Jupynb` and `PipelineRun` are the two allowed
+            current core schema, `Jupynb` and `Run` are the two allowed
             data sources.
 
     For each staged data object, `Ingest` takes care of:
@@ -54,16 +54,14 @@ class Ingest:
     >>> ingest.commit()
     """
 
-    def _init_dtransform(self, dsource: Union[Jupynb, PipelineRun]):
-        if isinstance(dsource, PipelineRun):
+    def _init_dtransform(self, dsource: Union[Jupynb, Run]):
+        if isinstance(dsource, Run):
             dtransform = (
-                select(DTransform)
-                .where(DTransform.pipeline_run_id == dsource.id)
-                .one_or_none()
+                select(DTransform).where(DTransform.run_id == dsource.id).one_or_none()
             )
             if dtransform is None:
-                dtransform = DTransform(pipeline_run_id=dsource.id)
-            log = dict(pipeline_run=f"{dsource.name!r} ({dsource.id})")
+                dtransform = DTransform(run_id=dsource.id)
+            log = dict(run=f"{dsource.name!r} ({dsource.id})")
         elif isinstance(dsource, Jupynb):
             dtransform = (
                 select(DTransform)
@@ -78,14 +76,14 @@ class Ingest:
             log = dict(jupynb=f"{dsource.name!r} ({dsource.id}, {dsource.v})")
         return dtransform, log
 
-    def __init__(self, dtransform: Union[Jupynb, PipelineRun, None] = None):
+    def __init__(self, dtransform: Union[Jupynb, Run, None] = None):
         dsource = dtransform  # rename
         if dsource is None:
             if dev.notebook_path() is not None:
                 dsource = Jupynb(id=meta.store.id, name=meta.live.title)
             else:
                 raise RuntimeError("Please provide a data source.")
-        self._dsource = dsource  # data source (pipeline_run or jupynb)
+        self._dsource = dsource  # data source (run or jupynb)
         self._dtransform, self._dtransformlog = self._init_dtransform(dsource)
         self._staged: Dict = {}  # staged dobjects
         self._logs: List = []  # logging messages
