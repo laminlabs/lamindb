@@ -1,23 +1,41 @@
-"""Schema.
+"""Access the schema.
 
-Import the submodule::
+- The core entities are the basis for tracking any data and are available from
+  `lns.<entity>`.
+- Additional mounted schema modules provide domain-specific entities and are
+  available via `lns.<module>.<entity>`.
+
+Import this submodule as::
 
    import lamindb.schema as lns
 
-- The entities in the `core schema <https://lamin.ai/docs/lnschema-core>`__ are
-  the basis for tracking any data and are available from `lns.<entity>`.
-- Additional mounted schema modules provide domain-specific entities and are
-  available via `lns.<module>.<entity>`.
+Core entities
+=============
 
 Data objects & transformations:
 
 .. autosummary::
    :toctree: .
 
-   DSet
    DObject
    DTransform
+
+Collections of data objects:
+
+.. autosummary::
+   :toctree: .
+
+   DSet
    DTransformIn
+
+Default data transformations:
+
+.. autosummary::
+   :toctree: .
+
+   Jupynb
+   Pipeline
+   PipelineRun
 
 Users, projects, storage locations, and usage statistics:
 
@@ -29,14 +47,10 @@ Users, projects, storage locations, and usage statistics:
    Storage
    Usage
 
-Default data transformations:
+See the source code `here <https://lamin.ai/docs/lnschema-core>`__.
 
-.. autosummary::
-   :toctree: .
-
-   Jupynb
-   Pipeline
-   PipelineRun
+Exemplary extensions
+====================
 
 Any LaminDB schema module that has been mounted to an instance can be accessed like the bionty, wetlab, bfx modules below:
 
@@ -47,7 +61,8 @@ Any LaminDB schema module that has been mounted to an instance can be accessed l
    wetlab
    bfx
 
-Helper tools:
+Helper tools
+============
 
 .. autosummary::
    :toctree: .
