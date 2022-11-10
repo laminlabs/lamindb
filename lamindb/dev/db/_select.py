@@ -3,6 +3,7 @@ import sqlmodel as sqm
 from lndb_setup import settings
 from lndb_setup._settings_store import InstanceSettingsStore
 from sqlalchemy.orm.exc import MultipleResultsFound, NoResultFound
+from sqlmodel.main import SQLModelMetaclass
 
 
 def select(*entity: sqm.SQLModel, **fields) -> "SelectStmt":
@@ -33,6 +34,66 @@ def select(*entity: sqm.SQLModel, **fields) -> "SelectStmt":
     return SelectStmt(*entity, _settings_store=_settings_store)
 
 
+def to_df(*entities, result):
+    if len(result) == 0:
+        if len(entities) == 1:
+            entity = entities[0]
+            return pd.DataFrame(columns=entity.__fields__)
+        else:
+            # not implemented
+            return pd.DataFrame()
+    row = result[0]
+    if len(entities) == 1:
+        entity = entities[0]
+        if isinstance(entity, SQLModelMetaclass):
+            records = [row.dict() for row in result]
+            df = pd.DataFrame.from_records(
+                records, columns=entity.__fields__, coerce_float=True
+            )
+            if "id" in df.columns:
+                if "v" in df.columns:
+                    df = df.set_index(["id", "v"])
+                else:
+                    df = df.set_index("id")
+            return df
+        elif hasattr(entity, "class_") and isinstance(entity.class_, SQLModelMetaclass):
+            return pd.DataFrame(result)
+        else:
+            raise RuntimeError(
+                "Unknown entities. Pass either a SQLModel or a field of a SQLModel."
+            )
+    if len(entities) > 1:
+        records = []
+        keys_types = []
+        for entity in entities:
+            if isinstance(entity, SQLModelMetaclass):
+                keys_types.append((entity.__table__.name, 0))
+            elif hasattr(entity, "class_") and isinstance(
+                entity.class_, SQLModelMetaclass
+            ):
+                keys_types.append((entity.class_.__table__.name, 1))
+            else:
+                raise RuntimeError(
+                    "Unknown entities. Pass either a SQLModel or a field of a SQLModel."
+                )
+        for row in result:
+            record = {}
+            for i, (key, type) in enumerate(keys_types):
+                if type == 0:
+                    sub_record = {
+                        (key, field): getattr(row[i], field)
+                        for field in row[i].__fields__
+                    }
+                    record.update(sub_record)
+                else:
+                    k = entities[i].expression.name
+                    record[(key, k)] = row[i]
+            records.append(record)
+        df = pd.DataFrame(records)
+        df.columns = pd.MultiIndex.from_tuples(df.columns)
+        return df
+
+
 class ExecStmt:
     """Executable statement."""
 
@@ -56,36 +117,12 @@ class ExecStmt:
         return self._result
 
     def df(self):
-        """Return result as a DataFrame or list of DataFrames."""
+        """Return result as a DataFrame.
+
+        The DataFrame will have MultiIndex columns if multiple entities are passed.
+        """
         self._execute()
-        dfs = []
-        for itable, table in enumerate(self._tables):
-            if len(self._result) > 0:
-                df = pd.DataFrame(
-                    [
-                        result.dict()
-                        if len(self._tables) == 1
-                        else result[itable].dict()
-                        for result in self._result
-                    ],
-                    columns=table.__fields__,
-                )
-            else:
-                df = pd.DataFrame(columns=table.__fields__)
-            dfs.append(df)
-
-        # turn id and v columns into the index
-        for i, df in enumerate(dfs):
-            if "id" in df.columns:
-                if "v" in df.columns:
-                    dfs[i] = df.set_index(["id", "v"])
-                else:
-                    dfs[i] = df.set_index("id")
-
-        if len(dfs) == 1:
-            return dfs[0]
-        else:
-            return dfs
+        return to_df(*self._tables, result=self._result)
 
     def first(self):
         """Return the first result of select or None if no result are found."""
