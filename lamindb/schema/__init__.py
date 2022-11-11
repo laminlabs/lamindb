@@ -12,7 +12,7 @@ Import this submodule as::
 Core entities
 =============
 
-Data objects & transformations:
+Data objects are transformed by runs:
 
 .. autosummary::
    :toctree: .
@@ -20,7 +20,15 @@ Data objects & transformations:
    DObject
    Run
 
-Collections of data objects:
+Runs transform data using code:
+
+.. autosummary::
+   :toctree: .
+
+   Pipeline
+   Jupynb
+
+Grouping data objects as sets or run inputs:
 
 .. autosummary::
    :toctree: .
@@ -28,16 +36,7 @@ Collections of data objects:
    DSet
    RunIn
 
-Default data transformations:
-
-.. autosummary::
-   :toctree: .
-
-   Jupynb
-   Pipeline
-   Run
-
-Users, projects, storage locations, and usage statistics:
+Users, projects, storage locations, and usage:
 
 .. autosummary::
    :toctree: .
