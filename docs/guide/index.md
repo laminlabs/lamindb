@@ -6,8 +6,8 @@
 get-started
 schema
 ingest
-link
 link-features
+link
 select-load
 add-delete
 pipeline
