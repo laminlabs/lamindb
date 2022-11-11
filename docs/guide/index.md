@@ -6,6 +6,7 @@
 get-started
 schema
 ingest
+link-features
 link
 select-load
 add-delete
