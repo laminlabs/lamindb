@@ -1,6 +1,6 @@
 import sqlmodel as sqm
 from lndb_setup import settings
-from lnschema_core import DObject, DTransformIn, Usage
+from lnschema_core import DObject, RunIn, Usage
 
 from ._logger import colors, logger
 from .dev._core import storage_key_from_dobject
@@ -33,12 +33,12 @@ def delete(record: sqm.SQLModel):
             for event in events:
                 session.delete(event)
             session.commit()
-            # delete dtransform_ins related to the dobject that's to be deleted
-            dtransform_ins = session.exec(
-                sqm.select(DTransformIn).where(DTransformIn.dobject_id == record.id)
+            # delete run_ins related to the dobject that's to be deleted
+            run_ins = session.exec(
+                sqm.select(RunIn).where(RunIn.dobject_id == record.id)
             )
-            for dtransform_in in dtransform_ins:
-                session.delete(dtransform_in)
+            for run_in in run_ins:
+                session.delete(run_in)
             session.commit()
         session.delete(record)
         session.commit()

@@ -18,7 +18,7 @@ Data objects & transformations:
    :toctree: .
 
    DObject
-   DTransform
+   Run
 
 Collections of data objects:
 
@@ -26,7 +26,7 @@ Collections of data objects:
    :toctree: .
 
    DSet
-   DTransformIn
+   RunIn
 
 Default data transformations:
 
@@ -77,13 +77,12 @@ from lnschema_core import (
     DObject,
     DSet,
     DSetDObject,
-    DTransform,
-    DTransformIn,
     Jupynb,
     Pipeline,
     Project,
     ProjectDSet,
     Run,
+    RunIn,
     Storage,
     Usage,
     User,

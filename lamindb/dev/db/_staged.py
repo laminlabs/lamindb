@@ -6,7 +6,7 @@ from typing import Any, Dict, Optional
 
 import sqlmodel as sqm
 from lndb_setup import settings
-from lnschema_core import DObject, DTransform, Storage
+from lnschema_core import DObject, Run, Storage
 
 from ...schema._table import table_meta
 from .._core import get_name_suffix_from_filepath
@@ -26,7 +26,7 @@ class Staged:
 
     Args:
         data: filepath or in-memory objects
-        dtransform: The data transform that links to the data source of the data object.
+        run: The data transform that links to the data source of the data object.
         name: name of the data object, required of an in-memory object is passed
         dobject_id: id of the dobject
         adata_format: Use `h5ad` or `zarr` to store an `AnnData` object
@@ -36,7 +36,7 @@ class Staged:
         self,
         data: Any,
         *,
-        dtransform: DTransform,
+        run: Run,
         name: Optional[str] = None,
         dobject_id: Optional[str] = None,
         adata_format: Optional[str] = None,
@@ -77,8 +77,8 @@ class Staged:
         # access to the knowledge table
         self._knowledge_table = None
 
-        # dtransform
-        self._dtransform = dtransform
+        # run
+        self._run = run
 
         # annotation entries
         self._entries: Dict = {}  # staged entries to be added
@@ -224,8 +224,8 @@ class Staged:
         storage = select(Storage, root=str(settings.instance.storage_root)).one()
         self.dobject.storage_id = storage.id
 
-        # populate dtransform_id
-        self.dobject.dtransform_id = self._dtransform.id
+        # populate run_id
+        self.dobject.run_id = self._run.id
 
         # add dobject first to satisfy foreign key constraints
         add(self.dobject)

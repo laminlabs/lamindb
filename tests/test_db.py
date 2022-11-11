@@ -17,8 +17,8 @@ def test_create_to_load():
 
     jupynb = ln.schema.Jupynb(id="83jf", v="1", name="test")
     ln.add(jupynb)
-    dtransform = ln.schema.DTransform(jupynb_id=jupynb.id, jupynb_v=jupynb)
-    ln.add(dtransform)
+    run = ln.schema.Run(jupynb_id=jupynb.id, jupynb_v=jupynb)
+    ln.add(run)
     storage = ln.select(
         ln.schema.Storage, root=str(ln.settings.instance.storage_root)
     ).one()
@@ -28,7 +28,7 @@ def test_create_to_load():
         suffix=".csv",
         size=1.2,
         storage_id=storage.id,
-        dtransform_id=dtransform.id,
+        run_id=run.id,
     )
     ln.add(dobject)
 
