@@ -3,8 +3,8 @@
 <!-- prettier-ignore -->
 Name | PR | Developer | Date | Version
 --- | --- | --- | --- | ---
-📝 Make notebook for `link_features` | [347](https://github.com/laminlabs/lamindb/pull/347) | [falexwolf](https://github.com/falexwolf) | 2022-11-11 |
-:sparkles: Join dataframes | [345](https://github.com/laminlabs/lamindb/pull/345) | [falexwolf](https://github.com/falexwolf) | 2022-11-10 |
+📝 Make notebook for `link_features` | [347](https://github.com/laminlabs/lamindb/pull/347) | [falexwolf](https://github.com/falexwolf) | 2022-11-11 | 0.13.0
+✨ Join dataframes | [345](https://github.com/laminlabs/lamindb/pull/345) | [falexwolf](https://github.com/falexwolf) | 2022-11-10 |
 ✨ Fields in join | [344](https://github.com/laminlabs/lamindb/pull/344) | [falexwolf](https://github.com/falexwolf) | 2022-11-10 |
 ✅ Add tests for zarr ingest and load | [342](https://github.com/laminlabs/lamindb/pull/342) | [Koncopd](https://github.com/Koncopd) | 2022-11-10 |
 🚚 Rename `PipelineRun` to `Run` | [343](https://github.com/laminlabs/lamindb/pull/343) | [falexwolf](https://github.com/falexwolf) | 2022-11-10 |
