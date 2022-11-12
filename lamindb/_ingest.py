@@ -71,6 +71,11 @@ class Ingest:
         self._userlog = dict(user=f"{settings.user.handle} ({settings.user.id})")
         self._committed = False
 
+    @property
+    def run(self):
+        """Run that is the data source for ingested objects."""
+        return self._run
+
     def add(
         self,
         data: Any,
@@ -92,7 +97,7 @@ class Ingest:
         """
         staged = Staged(
             data,
-            run=self._run,
+            run=self.run,
             name=name,
             dobject_id=dobject_id,
             adata_format=adata_format,
@@ -164,18 +169,18 @@ class Ingest:
                 self._dsource.name = meta.live.title
 
             # also update run
-            self._run.jupynb_v = self._dsource.v
+            self.run.jupynb_v = self._dsource.v
 
         # insert dsource and run
         with sqm.Session(settings.instance.db_engine()) as session:
             session.add(self._dsource)
             session.commit()  # to satisfy foreign key constraint
-            session.add(self._run)
+            session.add(self.run)
             session.commit()
             # need to refresh here so that the both objects
             # are available for downstream use
             session.refresh(self._dsource)
-            session.refresh(self._run)
+            session.refresh(self.run)
         # sync db after changing locally
         settings.instance._update_cloud_sqlite_file()
 
