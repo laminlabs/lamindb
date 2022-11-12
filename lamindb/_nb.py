@@ -57,7 +57,8 @@ def header(
             ln.add(run)
     elif run is None:
         run = ln.select(lns.Run, jupynb_id=jupynb.id, jupynb_v=jupynb.v).one_or_none()
-        logger.info(f"Loaded run: {run.id}")  # type: ignore
+        if run is not None:
+            logger.info(f"Loaded run: {run.id}")  # type: ignore
     elif run != "new":
         raise ValueError("Pass a lns.Run object to header() or 'new'!")
 
