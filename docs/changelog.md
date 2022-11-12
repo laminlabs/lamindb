@@ -3,6 +3,7 @@
 <!-- prettier-ignore -->
 Name | PR | Developer | Date | Version
 --- | --- | --- | --- | ---
+🏗️ Aggregate `Run` and `DTransform` | [349](https://github.com/laminlabs/lamindb/pull/349) | [falexwolf](https://github.com/falexwolf) | 2022-11-12 |
 ⬆️ Updated bionty | [348](https://github.com/laminlabs/lamindb/pull/348) | [sunnyosun](https://github.com/sunnyosun) | 2022-11-11 |
 📝 Make notebook for `link_features` | [347](https://github.com/laminlabs/lamindb/pull/347) | [falexwolf](https://github.com/falexwolf) | 2022-11-11 | 0.13.0
 ✨ Join dataframes | [345](https://github.com/laminlabs/lamindb/pull/345) | [falexwolf](https://github.com/falexwolf) | 2022-11-10 |
