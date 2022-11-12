@@ -11,7 +11,7 @@ _run: Run = None  # run of this Python session
 
 def header(
     *,
-    run: Union[str] = None,
+    run: Union[str, None] = None,
     pypackage: Union[str, List[str], None] = None,
     filepath: Union[str, None] = None,
     env: Union[str, None] = None,

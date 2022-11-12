@@ -50,7 +50,7 @@ class Ingest:
                 run = dsource
             log = dict(run=f"{dsource.name!r} ({dsource.id})")
         elif isinstance(dsource, Jupynb):
-            from lamindb.nb import run  # type: ignore
+            from lamindb._nb import _run as run  # type: ignore
 
             log = dict(jupynb=f"{dsource.name!r} ({dsource.id}, {dsource.v})")
         return run, log
@@ -58,7 +58,7 @@ class Ingest:
     def __init__(self, run: Union[Jupynb, Run, None] = None):
         dsource = run  # rename
         if dsource is None:
-            from lamindb.nb import jupynb
+            from lamindb._nb import _jupynb as jupynb
 
             if jupynb is not None:
                 dsource = jupynb

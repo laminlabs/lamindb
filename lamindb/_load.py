@@ -36,7 +36,7 @@ def load(dobject: core.DObject, stream: bool = False):
         logger.warning(f"Ignoring stream option for a {dobject.suffix} object.")
 
     filepath = filepath_from_dobject(dobject)
-    from lamindb.nb import run as nb_run
+    from lamindb._nb import _run as nb_run
 
     if nb_run is None:
         logger.warning(
