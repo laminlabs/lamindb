@@ -5,13 +5,12 @@ from lamin_logger import logger
 from lnschema_core import Run
 from nbproject import publish  # noqa
 
-_run = None  # run of this Python session
+_run: Run = None  # run of this Python session
 
 
 def header(
     *,
     run: Union[str, Run] = None,
-    parent: Union[str, List[str], None] = None,
     pypackage: Union[str, List[str], None] = None,
     filepath: Union[str, None] = None,
     env: Union[str, None] = None,
@@ -28,7 +27,6 @@ def header(
 
             If a `Run` record, loads that record.
 
-        parent: One or more nbproject ids of direct ancestors in a notebook pipeline.
         pypackage: One or more python packages to track.
         filepath: Filepath of notebook. Only needed if automatic inference fails.
         env: Editor environment. Only needed if automatic inference fails.
@@ -36,15 +34,17 @@ def header(
             this can help to identify the correct mechanism for interactivity
             when automatic inference fails.
     """
-    nb.header(**locals())
+    nb.header(pypackage=pypackage, filepath=filepath, env=env)
 
     import lamindb as ln
     import lamindb.schema as lns
 
-    jupynb = ln.select(lns.Jupynb, id=nb.meta.id, v=nb.meta.version).one_or_none()
+    jupynb = ln.select(
+        lns.Jupynb, id=nb.meta.store.id, v=nb.meta.store.version
+    ).one_or_none()
     if jupynb is None:
         jupynb = lns.Jupynb(
-            id=nb.meta.store.id, v=nb.meta.version, name=nb.meta.live.title
+            id=nb.meta.store.id, v=nb.meta.store.version, name=nb.meta.live.title
         )
         jupynb = ln.add(jupynb)
         logger.info(f"Added {jupynb}")
@@ -57,14 +57,15 @@ def header(
             ln.add(run)
     elif run is None:
         run = ln.select(lns.Run, jupynb_id=jupynb.id, jupynb_v=jupynb.v).one_or_none()
+        logger.info(f"Loaded run: {run.id}")  # type: ignore
     elif run != "new":
         raise ValueError("Pass a lns.Run object to header() or 'new'!")
 
     # create a new run if doesn't exist yet or is requested by the user ("new")
     if run is None or run == "new":
-        run = lns.Run(jupynb_id=jupynb.id, jupynb_v=jupynb.v).one_or_none()
+        run = lns.Run(jupynb_id=jupynb.id, jupynb_v=jupynb.v)
         run = ln.add(run)
-        logger.info(f"Added {run}")
+        logger.info(f"Added run: {run.id}")
 
     # at this point, we have a run object
     global _run
