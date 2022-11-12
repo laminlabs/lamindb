@@ -57,7 +57,12 @@ def header(
     #         logger.info("Passed run does not exist, adding it")
     #         ln.add(run)
     if run is None:
-        run = ln.select(lns.Run, jupynb_id=jupynb.id, jupynb_v=jupynb.v).one_or_none()
+        # retrieve the latest run
+        run = (
+            ln.select(lns.Run, jupynb_id=jupynb.id, jupynb_v=jupynb.v)
+            .order_by(lns.Run.created_at.desc())
+            .first()
+        )
         if run is not None:
             logger.info(f"Loaded run: {run.id}")  # type: ignore
     elif run != "new":
