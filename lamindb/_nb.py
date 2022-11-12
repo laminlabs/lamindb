@@ -10,7 +10,7 @@ _run: Run = None  # run of this Python session
 
 def header(
     *,
-    run: Union[str, Run] = None,
+    run: Union[str] = None,
     pypackage: Union[str, List[str], None] = None,
     filepath: Union[str, None] = None,
     env: Union[str, None] = None,
@@ -24,8 +24,6 @@ def header(
             there isn't any).
 
             If `"new"`, instantiates a new `Run` record.
-
-            If a `Run` record, loads that record.
 
         pypackage: One or more python packages to track.
         filepath: Filepath of notebook. Only needed if automatic inference fails.
@@ -47,26 +45,29 @@ def header(
             id=nb.meta.store.id, v=nb.meta.store.version, name=nb.meta.live.title
         )
         jupynb = ln.add(jupynb)
-        logger.info(f"Added {jupynb}")
+        logger.info(f"Added jupynb: {jupynb.id} v{jupynb.v}")
 
     # check user input
-    if isinstance(run, lns.Run):
-        run_test = ln.select(lns.Run, id=run.id).one_or_none()
-        if run_test is None:
-            logger.info("Passed run does not exist, adding it")
-            ln.add(run)
-    elif run is None:
+    # if isinstance(run, lns.Run):
+    # This here might be something we may want in the future
+    # but checking all the cases in which that run record has integrity
+    # is quite a bit of code - not now!
+    #     run_test = ln.select(lns.Run, id=run.id).one_or_none()
+    #     if run_test is None:
+    #         logger.info("Passed run does not exist, adding it")
+    #         ln.add(run)
+    if run is None:
         run = ln.select(lns.Run, jupynb_id=jupynb.id, jupynb_v=jupynb.v).one_or_none()
         if run is not None:
             logger.info(f"Loaded run: {run.id}")  # type: ignore
     elif run != "new":
-        raise ValueError("Pass a lns.Run object to header() or 'new'!")
+        raise ValueError("Pass run='new' to header()!")
 
     # create a new run if doesn't exist yet or is requested by the user ("new")
     if run is None or run == "new":
         run = lns.Run(jupynb_id=jupynb.id, jupynb_v=jupynb.v)
         run = ln.add(run)
-        logger.info(f"Added run: {run.id}")
+        logger.info(f"Created run: {run.id}")  # type: ignore
 
     # at this point, we have a run object
     global _run
