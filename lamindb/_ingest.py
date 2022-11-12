@@ -11,22 +11,11 @@ from .dev.db import Staged
 from .dev.db._select import select
 
 
-def set_nb_version(version):
-    if version is not None:
-        return version
-    else:
-        if meta.store.version == "draft":
-            version = "1"
-        else:
-            version = meta.store.version
-        return version
-
-
 class Ingest:
-    """Ingest data objects into storage (files, arrays, `AnnData`, `DataFrame`, etc.).
+    """Ingest data objects for storage (files, arrays, `AnnData`, `DataFrame`, etc.).
 
-    Store and link data objects through :meth:`~lamindb.Ingest.add` and
-    :meth:`~lamindb.Ingest.commit`.
+    Store and link data objects through :meth:`lamindb.Ingest.add` and
+    :meth:`lamindb.Ingest.commit`.
 
     Args:
         run: A data source. If `None` assumes a Jupyter Notebook. In the
@@ -36,9 +25,9 @@ class Ingest:
     For each staged data object, `Ingest` takes care of:
 
     1. Adding a record of :class:`~lamindb.schema.DObject` and linking it against
-       a data source (:class:`~lamindb.schema.Run`).
-    2. Linking features (:class:`~lamindb.dev.db.Staged.link`) or other metadata
-       (:class:`~lamindb.dev.db.Staged.link_features`).
+       its data source (:class:`~lamindb.schema.Run`).
+    2. Linking features (:class:`lamindb.dev.db.Staged.link`) or other metadata
+       (:class:`lamindb.dev.db.Staged.link_features`).
     3. Storing the corresponding data object in the storage location
        (:class:`~lamindb.schema.Storage`, `settings.instance.storage`).
 
@@ -155,7 +144,11 @@ class Ingest:
             return None
 
         if isinstance(self._dsource, Jupynb):
-            from nbproject._publish import finalize_publish, run_checks_for_publish
+            from nbproject._publish import (
+                finalize_publish,
+                run_checks_for_publish,
+                set_version,
+            )
 
             result = run_checks_for_publish(
                 calling_statement="commit(", i_confirm_i_saved=i_confirm_i_saved
@@ -164,7 +157,7 @@ class Ingest:
                 return result
 
             # version to be set in finalize_publish()
-            self._dsource.v = set_nb_version(nb_v)
+            self._dsource.v = set_version(nb_v)
 
             # in case the nb exists already, update that entry
             result = (
