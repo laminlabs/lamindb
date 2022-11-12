@@ -132,8 +132,7 @@ class Ingest:
         """Commit data to object storage and database.
 
         Args:
-            nb_v: Notebook version to publish. Is automatically bumped from
-                "draft" to "1" if `None`.
+            nb_v: Notebook version to publish.
             i_confirm_i_saved: Only relevant outside Jupyter Lab & Notebook as a
                 safeguard against losing the editor buffer content.
             use_fsspec: use fsspec to upload files.
