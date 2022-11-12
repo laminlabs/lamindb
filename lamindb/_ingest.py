@@ -5,28 +5,17 @@ import sqlmodel as sqm
 from lamin_logger import logger
 from lndb_setup import settings
 from lnschema_core import Jupynb, Run
-from nbproject import dev, meta
+from nbproject import meta
 
 from .dev.db import Staged
 from .dev.db._select import select
 
 
-def set_nb_version(version):
-    if version is not None:
-        return version
-    else:
-        if meta.store.version == "draft":
-            version = "1"
-        else:
-            version = meta.store.version
-        return version
-
-
 class Ingest:
-    """Ingest data objects into storage (files, arrays, `AnnData`, `DataFrame`, etc.).
+    """Ingest data objects for storage (files, arrays, `AnnData`, `DataFrame`, etc.).
 
-    Store and link data objects through :meth:`~lamindb.Ingest.add` and
-    :meth:`~lamindb.Ingest.commit`.
+    Store and link data objects through :meth:`lamindb.Ingest.add` and
+    :meth:`lamindb.Ingest.commit`.
 
     Args:
         run: A data source. If `None` assumes a Jupyter Notebook. In the
@@ -36,9 +25,9 @@ class Ingest:
     For each staged data object, `Ingest` takes care of:
 
     1. Adding a record of :class:`~lamindb.schema.DObject` and linking it against
-       a data source (:class:`~lamindb.schema.Run`).
-    2. Linking features (:class:`~lamindb.dev.db.Staged.link`) or other metadata
-       (:class:`~lamindb.dev.db.Staged.link_features`).
+       its data source (:class:`~lamindb.schema.Run`).
+    2. Linking features (:class:`lamindb.dev.db.Staged.link`) or other metadata
+       (:class:`lamindb.dev.db.Staged.link_features`).
     3. Storing the corresponding data object in the storage location
        (:class:`~lamindb.schema.Storage`, `settings.instance.storage`).
 
@@ -61,24 +50,18 @@ class Ingest:
                 run = dsource
             log = dict(run=f"{dsource.name!r} ({dsource.id})")
         elif isinstance(dsource, Jupynb):
-            run = (
-                select(Run)
-                .where(
-                    Run.jupynb_id == dsource.id,
-                    Run.jupynb_v == dsource.v,
-                )
-                .one_or_none()
-            )
-            if run is None:
-                run = Run(jupynb_id=dsource.id, jupynb_v=dsource.v)
+            from lamindb._nb import _run as run  # type: ignore
+
             log = dict(jupynb=f"{dsource.name!r} ({dsource.id}, {dsource.v})")
         return run, log
 
     def __init__(self, run: Union[Jupynb, Run, None] = None):
         dsource = run  # rename
         if dsource is None:
-            if dev.notebook_path() is not None:
-                dsource = Jupynb(id=meta.store.id, name=meta.live.title)
+            from lamindb._nb import _jupynb as jupynb
+
+            if jupynb is not None:
+                dsource = jupynb
             else:
                 raise RuntimeError("Please provide a data source.")
         self._dsource = dsource  # data source (run or jupynb)
@@ -87,6 +70,11 @@ class Ingest:
         self._logs: List = []  # logging messages
         self._userlog = dict(user=f"{settings.user.handle} ({settings.user.id})")
         self._committed = False
+
+    @property
+    def run(self):
+        """Run that is the data source for ingested objects."""
+        return self._run
 
     def add(
         self,
@@ -109,7 +97,7 @@ class Ingest:
         """
         staged = Staged(
             data,
-            run=self._run,
+            run=self.run,
             name=name,
             dobject_id=dobject_id,
             adata_format=adata_format,
@@ -144,8 +132,7 @@ class Ingest:
         """Commit data to object storage and database.
 
         Args:
-            nb_v: Notebook version to publish. Is automatically bumped from
-                "draft" to "1" if `None`.
+            nb_v: Notebook version to publish.
             i_confirm_i_saved: Only relevant outside Jupyter Lab & Notebook as a
                 safeguard against losing the editor buffer content.
             use_fsspec: use fsspec to upload files.
@@ -155,7 +142,11 @@ class Ingest:
             return None
 
         if isinstance(self._dsource, Jupynb):
-            from nbproject._publish import finalize_publish, run_checks_for_publish
+            from nbproject._publish import (
+                finalize_publish,
+                run_checks_for_publish,
+                set_version,
+            )
 
             result = run_checks_for_publish(
                 calling_statement="commit(", i_confirm_i_saved=i_confirm_i_saved
@@ -164,7 +155,7 @@ class Ingest:
                 return result
 
             # version to be set in finalize_publish()
-            self._dsource.v = set_nb_version(nb_v)
+            self._dsource.v = set_version(nb_v)
 
             # in case the nb exists already, update that entry
             result = (
@@ -177,18 +168,18 @@ class Ingest:
                 self._dsource.name = meta.live.title
 
             # also update run
-            self._run.jupynb_v = self._dsource.v
+            self.run.jupynb_v = self._dsource.v
 
         # insert dsource and run
         with sqm.Session(settings.instance.db_engine()) as session:
             session.add(self._dsource)
             session.commit()  # to satisfy foreign key constraint
-            session.add(self._run)
+            session.add(self.run)
             session.commit()
             # need to refresh here so that the both objects
             # are available for downstream use
             session.refresh(self._dsource)
-            session.refresh(self._run)
+            session.refresh(self.run)
         # sync db after changing locally
         settings.instance._update_cloud_sqlite_file()
 

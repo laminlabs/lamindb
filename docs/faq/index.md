@@ -4,6 +4,7 @@
 :maxdepth: 1
 
 setup
+header
 sql-api
 storage
 flow
