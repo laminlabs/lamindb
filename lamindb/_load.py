@@ -9,7 +9,7 @@ from .dev.db._track_usage import track_usage
 from .dev.file import load_to_memory
 
 
-def populate_dtransform_in(dobject):
+def populate_run_in(dobject):
     jupynb_id = meta.store.id
     jupynb_v = meta.store.version  # version to be set in publish()
     jupynb_name = meta.live.title
@@ -26,11 +26,11 @@ def populate_dtransform_in(dobject):
                 )
             )
             session.commit()
-            dtransform = core.DTransform(
+            run = core.Run(
                 jupynb_id=jupynb_id,
                 jupynb_v=jupynb_v,
             )
-            session.add(dtransform)
+            session.add(run)
             session.commit()
             committed = True
             logger.info(
@@ -38,26 +38,23 @@ def populate_dtransform_in(dobject):
                 f" user {settings.user.handle}."
             )
         else:
-            dtransform = session.exec(
-                sqm.select(core.DTransform).where(
-                    core.DTransform.jupynb_id == jupynb_id,
-                    core.DTransform.jupynb_v == jupynb_v,
+            run = session.exec(
+                sqm.select(core.Run).where(
+                    core.Run.jupynb_id == jupynb_id,
+                    core.Run.jupynb_v == jupynb_v,
                 )
             ).one()
-        result = session.get(core.DTransformIn, (dtransform.id, dobject.id))
+        result = session.get(core.RunIn, (run.id, dobject.id))
         if result is None:
             session.add(
-                core.DTransformIn(
-                    dtransform_id=dtransform.id,
+                core.RunIn(
+                    run_id=run.id,
                     dobject_id=dobject.id,
                 )
             )
             session.commit()
             committed = True
-            logger.info(
-                f"Added dobject ({dobject.id}) as input for dtransform"
-                f" ({dtransform.id})."
-            )
+            logger.info(f"Added dobject ({dobject.id}) as input for run ({run.id}).")
     if committed:
         # nothing to update if the db file wasn't changed
         settings.instance._update_cloud_sqlite_file()
@@ -68,7 +65,7 @@ def load(dobject: core.DObject, stream: bool = False):
 
     Returns object associated with the stored `dobject`.
 
-    Populates `dtransform_in`.
+    Populates `run_in`.
 
     Guide: :doc:`/db/guide/select-load`.
     """
@@ -76,6 +73,6 @@ def load(dobject: core.DObject, stream: bool = False):
         logger.warning(f"Ignoring stream option for a {dobject.suffix} object.")
 
     filepath = filepath_from_dobject(dobject)
-    populate_dtransform_in(dobject)
+    populate_run_in(dobject)
     track_usage(dobject.id, "load")
     return load_to_memory(filepath, stream=stream)

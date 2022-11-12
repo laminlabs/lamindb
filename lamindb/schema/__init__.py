@@ -12,32 +12,31 @@ Import this submodule as::
 Core entities
 =============
 
-Data objects & transformations:
+Data objects are transformed by runs:
 
 .. autosummary::
    :toctree: .
 
    DObject
-   DTransform
+   Run
 
-Collections of data objects:
+Runs transform data using code:
+
+.. autosummary::
+   :toctree: .
+
+   Pipeline
+   Jupynb
+
+Grouping data objects as sets or run inputs:
 
 .. autosummary::
    :toctree: .
 
    DSet
-   DTransformIn
+   RunIn
 
-Default data transformations:
-
-.. autosummary::
-   :toctree: .
-
-   Jupynb
-   Pipeline
-   Run
-
-Users, projects, storage locations, and usage statistics:
+Users, projects, storage locations, and usage:
 
 .. autosummary::
    :toctree: .
@@ -77,13 +76,12 @@ from lnschema_core import (
     DObject,
     DSet,
     DSetDObject,
-    DTransform,
-    DTransformIn,
     Jupynb,
     Pipeline,
     Project,
     ProjectDSet,
     Run,
+    RunIn,
     Storage,
     Usage,
     User,
