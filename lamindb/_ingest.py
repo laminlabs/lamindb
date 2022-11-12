@@ -5,7 +5,7 @@ import sqlmodel as sqm
 from lamin_logger import logger
 from lndb_setup import settings
 from lnschema_core import Jupynb, Run
-from nbproject import dev, meta
+from nbproject import meta
 
 from .dev.db import Staged
 from .dev.db._select import select
@@ -50,24 +50,18 @@ class Ingest:
                 run = dsource
             log = dict(run=f"{dsource.name!r} ({dsource.id})")
         elif isinstance(dsource, Jupynb):
-            run = (
-                select(Run)
-                .where(
-                    Run.jupynb_id == dsource.id,
-                    Run.jupynb_v == dsource.v,
-                )
-                .one_or_none()
-            )
-            if run is None:
-                run = Run(jupynb_id=dsource.id, jupynb_v=dsource.v)
+            from lamindb.nb import run  # type: ignore
+
             log = dict(jupynb=f"{dsource.name!r} ({dsource.id}, {dsource.v})")
         return run, log
 
     def __init__(self, run: Union[Jupynb, Run, None] = None):
         dsource = run  # rename
         if dsource is None:
-            if dev.notebook_path() is not None:
-                dsource = Jupynb(id=meta.store.id, name=meta.live.title)
+            from lamindb.nb import jupynb
+
+            if jupynb is not None:
+                dsource = jupynb
             else:
                 raise RuntimeError("Please provide a data source.")
         self._dsource = dsource  # data source (run or jupynb)

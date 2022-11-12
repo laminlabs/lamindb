@@ -2,9 +2,10 @@ from typing import List, Union
 
 import nbproject as nb
 from lamin_logger import logger
-from lnschema_core import Run
+from lnschema_core import Jupynb, Run
 from nbproject import publish  # noqa
 
+_jupynb: Jupynb = None  # Jupynb of this Python session
 _run: Run = None  # run of this Python session
 
 
@@ -46,6 +47,10 @@ def header(
         )
         jupynb = ln.add(jupynb)
         logger.info(f"Added jupynb: {jupynb.id} v{jupynb.v}")
+
+    # at this point, we have a jupynb object
+    global _jupynb
+    _jupynb = jupynb
 
     # check user input
     # if isinstance(run, lns.Run):
