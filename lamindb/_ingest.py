@@ -56,9 +56,9 @@ class Ingest:
 
     def _init_run(self, dsource: Union[Jupynb, Run]):
         if isinstance(dsource, Run):
-            run = select(Run).where(Run.run_id == dsource.id).one_or_none()
+            run = select(Run).where(Run.id == dsource.id).one_or_none()
             if run is None:
-                run = Run(run_id=dsource.id)
+                run = dsource
             log = dict(run=f"{dsource.name!r} ({dsource.id})")
         elif isinstance(dsource, Jupynb):
             run = (
