@@ -1,5 +1,5 @@
 project_name: LaminDB
-description: Manage data & analyses
+description: Manage R&D data & analyses
 project_slug: db
 repository_name: lamindb
 package_name: lamindb

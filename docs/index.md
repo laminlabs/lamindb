@@ -1,6 +1,6 @@
 ```{include} ../README.md
 :start-line: 0
-:end-line: 4
+:end-line: 5
 ```
 
 _Curate, store, track, query, integrate, and learn from biological data._
