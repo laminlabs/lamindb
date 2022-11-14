@@ -1,22 +1,5 @@
-from pathlib import Path
-from typing import Union
-
-from cloudpathlib import CloudPath
-from lndb_setup import settings
-from lnschema_core import DObject
-
-
-def get_name_suffix_from_filepath(filepath: Union[Path, CloudPath]):
-    suffix = "".join(filepath.suffixes)
-    name = filepath.name.replace(suffix, "")
-    return name, suffix
-
-
-def storage_key_from_dobject(dobj: DObject):
-    return f"{dobj.id}{dobj.suffix}"
-
-
-def filepath_from_dobject(dobj: DObject):
-    storage_key = storage_key_from_dobject(dobj)
-    filepath = settings.instance.storage.key_to_filepath(storage_key)
-    return filepath
+from lnschema_core.dev._storage import (  # noqa
+    filepath_from_dobject,
+    get_name_suffix_from_filepath,
+    storage_key_from_dobject,
+)
