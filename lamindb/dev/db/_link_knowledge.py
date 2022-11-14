@@ -101,6 +101,7 @@ class LinkFeatureToKnowledgeTable:
             mapped.index.name = self._id
             if mapped.shape[0] > 0:
                 for kwargs in mapped.reset_index().to_dict(orient="records"):
+                    kwargs["species_id"] = species.id
                     record = getattr(bionty, f"{self._name}")(**kwargs)
                     records.append(record)
                     feature_ids.add(record.id)
