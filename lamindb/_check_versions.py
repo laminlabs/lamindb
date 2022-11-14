@@ -8,11 +8,11 @@ from lnschema_wetlab import __version__ as lnschema_wetlab_v
 from nbproject import __version__ as nbproject_v
 from packaging import version
 
-if version.parse(lndb_setup_v) != version.parse("0.14.1"):
-    raise RuntimeError("lamindb needs lndb_setup==0.14.1")
+if version.parse(lndb_setup_v) != version.parse("0.15.0"):
+    raise RuntimeError("lamindb needs lndb_setup==0.15.0")
 
-if version.parse(lnschema_core_v) != version.parse("0.17.1"):
-    raise RuntimeError("lamindb needs lnschema_core==0.17.1")
+if version.parse(lnschema_core_v) != version.parse("0.18.0"):
+    raise RuntimeError("lamindb needs lnschema_core==0.18.0")
 
 if version.parse(lnschema_bionty_v) != version.parse("0.5.4"):
     raise RuntimeError("lamindb needs lnschema_bionty==0.5.4")
