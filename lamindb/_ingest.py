@@ -172,13 +172,10 @@ class Ingest:
 
         # insert dsource and run
         with sqm.Session(settings.instance.db_engine()) as session:
-            session.add(self._dsource)
-            session.commit()  # to satisfy foreign key constraint
             session.add(self.run)
             session.commit()
             # need to refresh here so that the both objects
             # are available for downstream use
-            session.refresh(self._dsource)
             session.refresh(self.run)
         # sync db after changing locally
         settings.instance._update_cloud_sqlite_file()
