@@ -83,11 +83,11 @@ def header(
     _run = run
 
 
-def publish(v: str = None, i_confirm_i_saved: bool = False):
+def publish(version: str = None, i_confirm_i_saved: bool = False):
     """Publish the notebook.
 
     Args:
-        v: Notebook version to publish.
+        version: Notebook version to publish.
         i_confirm_i_saved: Only relevant outside Jupyter Lab & Notebook as a
             safeguard against losing the editor buffer content.
     """
@@ -96,20 +96,22 @@ def publish(v: str = None, i_confirm_i_saved: bool = False):
     import lamindb as ln
     import lamindb.schema as lns
 
-    result = run_checks_for_publish(i_confirm_i_saved=i_confirm_i_saved)
+    result = run_checks_for_publish(
+        calling_statement="publish(", i_confirm_i_saved=i_confirm_i_saved
+    )
     if result != "checks-passed":
         return result
-    finalize_publish()
+    finalize_publish(calling_statement="publish(", version=version)
     # update DB
     jupynb = ln.select(Jupynb, id=_jupynb.id, v=_jupynb.v).one()
     # update version
     jupynb.name = nb.meta.live.title
-    if v != _jupynb.v:
-        jupynb_add = lns.Jupynb(id=jupynb.id, v=v, name=jupynb.name)
+    if version != _jupynb.v:
+        jupynb_add = lns.Jupynb(id=jupynb.id, v=version, name=jupynb.name)
     else:
         jupynb_add = jupynb
     ln.add(jupynb_add)
-    if v != _jupynb.v:
-        _run.jupynb_v = v
+    if version != _jupynb.v:
+        _run.jupynb_v = version
         ln.add(_run)
         ln.delete(jupynb)
