@@ -3,7 +3,6 @@ from typing import List, Union
 import nbproject as nb
 from lamin_logger import logger
 from lnschema_core import Jupynb, Run
-from nbproject import publish  # noqa
 
 _jupynb: Jupynb = None  # Jupynb of this Python session
 _run: Run = None  # run of this Python session
@@ -82,3 +81,35 @@ def header(
     # at this point, we have a run object
     global _run
     _run = run
+
+
+def publish(v: str = None, i_confirm_i_saved: bool = False):
+    """Publish the notebook.
+
+    Args:
+        v: Notebook version to publish.
+        i_confirm_i_saved: Only relevant outside Jupyter Lab & Notebook as a
+            safeguard against losing the editor buffer content.
+    """
+    from nbproject._publish import finalize_publish, run_checks_for_publish
+
+    import lamindb as ln
+    import lamindb.schema as lns
+
+    result = run_checks_for_publish(i_confirm_i_saved=i_confirm_i_saved)
+    if result != "checks-passed":
+        return result
+    finalize_publish()
+    # update DB
+    jupynb = ln.select(Jupynb, id=_jupynb.id, v=_jupynb.v).one()
+    # update version
+    jupynb.name = nb.meta.live.title
+    if v != _jupynb.v:
+        jupynb_add = lns.Jupynb(id=jupynb.id, v=v, name=jupynb.name)
+    else:
+        jupynb_add = jupynb
+    ln.add(jupynb_add)
+    if v != _jupynb.v:
+        _run.jupynb_v = v
+        ln.add(_run)
+        ln.delete(jupynb)
