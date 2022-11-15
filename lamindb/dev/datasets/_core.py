@@ -57,9 +57,7 @@ def anndata_human_immune_cells() -> ad.AnnData:
 
     To reproduce the subsample:
     >>> adata = sc.read('Global.h5ad')
-    >>> adata.obs = adata.obs[
-        ['donor_id', 'cell_type', 'Manually_curated_celltype', 'assay', 'tissue',
-        'cell_type_ontology_term_id', 'tissue_ontology_term_id']].copy()
+    >>> adata.obs = adata.obs[['donor_id', 'cell_type', 'Manually_curated_celltype','assay', 'tissue', 'cell_type_ontology_term_id', 'tissue_ontology_term_id']].copy() . # noqa
     >>> sc.pp.subsample(adata, fraction=0.005)
     >>> del adata.uns["development_stage_ontology_term_id_colors"]
     >>> del adata.uns["sex_ontology_term_id_colors"]
