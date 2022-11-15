@@ -9,6 +9,9 @@ Feature tables from bionty:
    Gene
    Protein
    CellMarker
+   Tissue
+   CellType
+   Disease
 
 Lookup knowledge table identifiers:
 
@@ -19,5 +22,5 @@ Lookup knowledge table identifiers:
 """
 
 
-from ._core import CellMarker, Gene, Protein, Species
+from ._core import CellMarker, CellType, Disease, Gene, Protein, Species, Tissue
 from ._lookup import lookup
