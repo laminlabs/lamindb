@@ -3,6 +3,7 @@
 <!-- prettier-ignore -->
 Name | PR | Developer | Date | Version
 --- | --- | --- | --- | ---
+🎨 Separate `nb.publish` from `ingest.commit` | [355](https://github.com/laminlabs/lamindb/pull/355) | [falexwolf](https://github.com/falexwolf) | 2022-11-16 |
 🐛 Fix data source | [354](https://github.com/laminlabs/lamindb/pull/354) | [falexwolf](https://github.com/falexwolf) | 2022-11-15 |
 🚚 Move storage key to core schema | [352](https://github.com/laminlabs/lamindb/pull/352) | [falexwolf](https://github.com/falexwolf) | 2022-11-14 | 0.15.0
 🐛 Fixed `species_id` in bio entity tables | [351](https://github.com/laminlabs/lamindb/pull/351) | [sunnyosun](https://github.com/sunnyosun) | 2022-11-14 |
