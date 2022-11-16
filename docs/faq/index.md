@@ -12,7 +12,6 @@ ingest-same-file-twice
 linked-select
 ingest-bfx
 link-entities
-link-samples
 postgres
 zarr-ingest-load
 ```

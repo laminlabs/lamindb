@@ -5,6 +5,7 @@
 
 get-started
 schema
+knowledge
 ingest
 link-features
 link
