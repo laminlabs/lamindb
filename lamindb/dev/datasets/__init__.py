@@ -7,8 +7,11 @@
    file_jpg_paradisi05
    dir_scrnaseq_cellranger
    anndata_mouse_sc_lymph_node
+   anndata_human_immune_cells
 """
-from ._core import (  # dir_scrnaseq_cellranger_schmidt22,; schmidt22_crispra_gws_IFNG,; schmidt22_perturbseq,
+
+from ._core import (
+    anndata_human_immune_cells,
     anndata_mouse_sc_lymph_node,
     dir_scrnaseq_cellranger,
     file_fcs,

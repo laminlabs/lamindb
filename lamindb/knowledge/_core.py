@@ -39,3 +39,33 @@ class CellMarker(bt.CellMarker):
 
     def __init__(self, species="human", id="name") -> None:
         super().__init__(species=species, id=id)
+
+
+class CellType(bt.CellType):
+    """Bionty CellType.
+
+    See `bionty.CellType <https://lamin.ai/docs/bionty/bionty.CellType>`__.
+    """
+
+    def __init__(self, id="ontology_id") -> None:
+        super().__init__(id=id)
+
+
+class Tissue(bt.Tissue):
+    """Bionty Tissue.
+
+    See `bionty.Tissue <https://lamin.ai/docs/bionty/bionty.Tissue>`__.
+    """
+
+    def __init__(self, id="ontology_id") -> None:
+        super().__init__(id=id)
+
+
+class Disease(bt.Disease):
+    """Bionty Disease.
+
+    See `bionty.Disease <https://lamin.ai/docs/bionty/bionty.Disease>`__.
+    """
+
+    def __init__(self, id="ontology_id") -> None:
+        super().__init__(id=id)
