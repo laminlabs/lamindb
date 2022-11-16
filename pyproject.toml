@@ -36,7 +36,8 @@ dependencies = [
     "fsspec",
     "s3fs",
     "gcsfs",
-    "zarr"
+    "zarr",
+    "bcoding",
 ]
 
 [project.urls]
