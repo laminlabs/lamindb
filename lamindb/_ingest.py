@@ -5,7 +5,6 @@ import sqlmodel as sqm
 from lamin_logger import logger
 from lndb_setup import settings
 from lnschema_core import Jupynb, Run
-from nbproject import meta
 
 from .dev.db import Staged
 from .dev.db._select import select
@@ -125,60 +124,19 @@ class Ingest:
     def commit(
         self,
         *,
-        nb_v: str = None,
-        i_confirm_i_saved: bool = False,
         use_fsspec: bool = True,
     ) -> None:
-        """Commit data to object storage and database.
-
-        Args:
-            nb_v: Notebook version to publish.
-            i_confirm_i_saved: Only relevant outside Jupyter Lab & Notebook as a
-                safeguard against losing the editor buffer content.
-            use_fsspec: use fsspec to upload files.
-        """
+        """Commit data to object storage and database."""
         if self._committed:
             logger.error("Already committed")
             return None
 
-        if isinstance(self._dsource, Jupynb):
-            from nbproject._publish import (
-                finalize_publish,
-                run_checks_for_publish,
-                set_version,
-            )
-
-            result = run_checks_for_publish(
-                calling_statement="commit(", i_confirm_i_saved=i_confirm_i_saved
-            )
-            if result != "checks-passed":
-                return result
-
-            # version to be set in finalize_publish()
-            self._dsource.v = set_version(nb_v)
-
-            # in case the nb exists already, update that entry
-            result = (
-                select(Jupynb)
-                .where(Jupynb.id == self._dsource.id, Jupynb.v == self._dsource.v)
-                .one_or_none()
-            )
-            if result is not None:
-                self._dsource = result
-                self._dsource.name = meta.live.title
-
-            # also update run
-            self.run.jupynb_v = self._dsource.v
-
         # insert dsource and run
         with sqm.Session(settings.instance.db_engine()) as session:
-            session.add(self._dsource)
-            session.commit()  # to satisfy foreign key constraint
             session.add(self.run)
             session.commit()
             # need to refresh here so that the both objects
             # are available for downstream use
-            session.refresh(self._dsource)
             session.refresh(self.run)
         # sync db after changing locally
         settings.instance._update_cloud_sqlite_file()
@@ -194,18 +152,8 @@ class Ingest:
         for filepath_str, staged in self._staged.items():
             staged._commit_entries()
 
-        if isinstance(self._dsource, Jupynb):
-            jupynb = self._dsource
-            logger.info(
-                f"Added notebook {jupynb.name!r} ({jupynb.id}, {jupynb.v}) by"
-                f" user {settings.user.handle}."
-            )
-
         self._print_logging_table()
-
         self._committed = True
-        if isinstance(self._dsource, Jupynb):
-            finalize_publish(version=self._dsource.v, calling_statement="commit(")
 
     def _print_logging_table(
         self, message: str = "Ingested the following dobjects:"
