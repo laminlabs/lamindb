@@ -19,20 +19,7 @@ def test_create_to_load():
     ln.add(jupynb)
     run = ln.schema.Run(jupynb_id=jupynb.id, jupynb_v=jupynb)
     ln.add(run)
-    storage = ln.select(
-        ln.schema.Storage, root=str(ln.settings.instance.storage_root)
-    ).one()
-    dobject = ln.schema.DObject(
-        id="testid",
-        name="test_file",
-        suffix=".csv",
-        size=1.2,
-        storage_id=storage.id,
-        run_id=run.id,
-    )
-    ln.add(dobject)
-
-    ln.select(ln.schema.DObject).df()
+    ln.select(ln.schema.Storage, root=str(ln.settings.instance.storage_root)).one()
 
     ln.schema._core.get_db_metadata_as_dict()
     table_object = ln.schema._core.get_table_object("core.dobject")

@@ -18,10 +18,9 @@ def test_dynamic_settings():
     pipeline = ln.add(ln.schema.Pipeline(v="1", name="test-pipeline"))
     run = ln.schema.Run(pipeline_id=pipeline.id, pipeline_v=pipeline.v, name="test-run")
 
-    ingest = ln.Ingest(run)
     df = sklearn.datasets.load_iris(as_frame=True).frame
-    ingest.add(df, name="test-dobject-1")
-    ingest.commit()
+    dobject = ln.record(df, name="test-dobject-1", run=run)
+    ln.add(dobject)
 
     select_dobject_result = ln.select(ln.schema.DObject, name="test-dobject-1").all()
     assert len(select_dobject_result) == 1
