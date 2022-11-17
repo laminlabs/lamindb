@@ -18,7 +18,7 @@ Manipulate data:
 .. autosummary::
    :toctree: .
 
-   Ingest
+   record
    add
    load
    link
@@ -74,9 +74,9 @@ from . import knowledge  # noqa
 from . import nb  # noqa
 from . import schema  # noqa
 from ._delete import delete  # noqa
-from ._ingest import Ingest  # noqa
 from ._link import link  # noqa
 from ._load import load  # noqa
+from ._record import record  # noqa
 from ._view import view  # noqa
 from .dev.db import session  # noqa
 from .dev.db._add import add  # noqa
