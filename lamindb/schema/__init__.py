@@ -28,13 +28,14 @@ Runs transform data using code:
    Pipeline
    Jupynb
 
-Grouping data objects as sets or run inputs:
+Grouping data objects as sets or run inputs or by features:
 
 .. autosummary::
    :toctree: .
 
    DSet
    RunIn
+   Features
 
 Users, projects, storage locations, and usage:
 
@@ -76,6 +77,7 @@ from lnschema_core import (
     DObject,
     DSet,
     DSetDObject,
+    Features,
     Jupynb,
     Pipeline,
     Project,

@@ -54,7 +54,7 @@ def add(  # type: ignore  # no support of different naming of args across overlo
     for record in records:
         if isinstance(record, DObject):
             upload_data_object(record)
-    with sqm.Session(settings.instance.db_engine()) as session:
+    with sqm.Session(settings.instance.db_engine(), expire_on_commit=False) as session:
         for record in records:
             session.add(record)
         session.commit()

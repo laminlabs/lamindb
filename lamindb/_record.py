@@ -1,7 +1,7 @@
 import base64
 import hashlib
 from pathlib import Path
-from typing import Optional, Union
+from typing import List, Optional, Union
 
 import anndata as ad
 import bcoding
@@ -21,12 +21,12 @@ from .dev.object import infer_suffix, size_adata, write_to_file
 from .schema._table import table_meta
 
 
-def serialize(data: Union[Path, str, pd.DataFrame, ad.AnnData], adata_format):
+def serialize(data: Union[Path, str, pd.DataFrame, ad.AnnData], name, adata_format):
     inmemory = None
     if isinstance(data, (Path, str)):
         local_filepath = Path(data)
         name, suffix = get_name_suffix_from_filepath(local_filepath)
-    elif isinstance(pd.DataFrame, ad.AnnData):
+    elif isinstance(data, (pd.DataFrame, ad.AnnData)):
         if name is None:
             raise RuntimeError("Provide name if recording in-memory data.")
         inmemory = data
@@ -53,7 +53,54 @@ def get_checksum(local_filepath, suffix):
     return checksum
 
 
-def link_features(
+def get_features_records(
+    parsing_id: str,
+    features_ref: Union[Gene, Protein, CellMarker],
+    df_curated: pd.DataFrame,
+) -> List[Union[Gene, Protein, CellMarker]]:
+    # insert species entry if not exists
+    species = select(bionty.Species, common_name=features_ref.species).one_or_none()
+    if species is None:
+        species = add(bionty.Species(common_name=features_ref.species))
+
+    model = table_meta.get_model(f"bionty.{features_ref.entity}")
+
+    # all existing feature rows of a species in the db
+    db_rows = (
+        select(model)
+        .where(getattr(model, parsing_id).in_(df_curated.index))
+        .where(getattr(model, "species_id") == species.id)
+        .df()
+    )
+
+    # ids of the existing features
+    exist_features = df_curated.index.intersection(db_rows[parsing_id])
+
+    # TODO: We also need to return the existing features as records!
+
+    # new features to be inserted
+    new_ids = df_curated.index.difference(exist_features)
+    records = []
+    if len(new_ids) > 0:
+        # mapped new_ids
+        mapped = features_ref.df.loc[features_ref.df.index.intersection(new_ids)].copy()
+        mapped.index.name = parsing_id
+        if mapped.shape[0] > 0:
+            for kwargs in mapped.reset_index().to_dict(orient="records"):
+                kwargs["species_id"] = species.id
+                record = model(**kwargs)
+                records.append(record)
+        # unmapped new_ids
+        unmapped = set(new_ids).difference(mapped.index)
+        if len(unmapped) > 0:
+            for i in unmapped:
+                record = model(**{parsing_id: i, "species_id": species.id})
+                records.append(record)
+
+    return records
+
+
+def parse_features(
     df: pd.DataFrame, features_ref: Union[CellMarker, Gene, Protein]
 ) -> None:
     """Link features to a knowledge table.
@@ -62,8 +109,7 @@ def link_features(
         df: a DataFrame
         features_ref: Features reference class.
     """
-    features_type = features_ref.__class__.__name__
-    parsing_id = features_ref._id_fields
+    parsing_id = features_ref._id_field
 
     # Add and curate features against a knowledge table
     column = None
@@ -83,108 +129,45 @@ def link_features(
         "unmapped": df_curated.index[~df_curated["__curated__"]],
     }
 
-    features_hash = hash_set(df_curated.index)
+    features_hash = hash_index(df_curated.index)
 
     features = select(
         Features,
         id=features_hash,
-        feature_entity=features_ref.entity,
+        type=features_ref.entity,
     ).one_or_none()
+    if features is not None:
+        return features  # features already exists!
 
-    # insert species entry if not exists
-    species = select(bionty.Species, common_name=features_ref.species).one_or_none()
-    if species is None:
-        species = add(bionty.Species(common_name=features_ref.species))
+    features = Features(id=features_hash, type=features_ref.entity)
+    records = get_features_records(parsing_id, features_ref, df_curated)
 
-    model = table_meta.get_model(features_type)
+    if isinstance(features_ref, Gene):
+        for gene in records:
+            features.genes.append(gene)
 
-    # all existing feature rows of a species in the db
-    db_rows = (
-        select(model)
-        .where(getattr(model, parsing_id).in_(df_curated.index))
-        .where(getattr(model, "species_id") == species.id)
-        .df()
-    )
-
-    # ids of the existing features
-    exist_features = df_curated.index.intersection(db_rows[parsing_id])
-    feature_ids = set(db_rows[db_rows[parsing_id].isin(exist_features)].index)
-
-    # new features to be inserted
-    new_ids = df_curated.index.difference(exist_features)
-    records = []
-    if len(new_ids) > 0:
-        # mapped new_ids
-        mapped = features_ref.df.loc[features_ref.df.index.intersection(new_ids)].copy()
-        mapped.index.name = parsing_id
-        if mapped.shape[0] > 0:
-            for kwargs in mapped.reset_index().to_dict(orient="records"):
-                kwargs["species_id"] = species.id
-                record = getattr(bionty, f"{features_type}")(**kwargs)
-                records.append(record)
-                feature_ids.add(record.id)
-        # unmapped new_ids
-        unmapped = set(new_ids).difference(mapped.index)
-        if len(unmapped) > 0:
-            for i in unmapped:
-                record = getattr(bionty, f"{features_type}")(
-                    **{parsing_id: i, "species_id": species.id}
-                )
-                records.append(record)
-                feature_ids.add(record.id)
-    else:
-        # search if a featureset containing the same genes already exists
-        featuresets = select(getattr(bionty, f"Featureset{features_type}")).df()
-        for i, fset in (
-            featuresets.groupby("featureset_id", group_keys=True)[
-                f"{features_ref.entity}_id"
-            ]
-            .apply(set)
-            .items()
-        ):
-            if fset == feature_ids:
-                features = select(Features, id=i).one()
-                break
-
-    # 1) insert the featureset
-    # if a featureset already exist, no features or link entries will be created
-    if features is None:
-        features = add(Features(id=features_hash, type=features_ref.entity))
-        # 2) insert the feature records
-        if len(records) > 0:
-            add(records)
-
-        # 3) insert rows into the link table
-        link_records = [
-            getattr(bionty, f"Features{features_type}")(
-                **{
-                    "featureset_id": features.id,
-                    f"{features_ref.entity}_id": i,
-                }
-            )
-            for i in feature_ids
-        ]
-        add(link_records)
-
-
-def get_features(inmemory, local_filepath, features_ref):
-    if inmemory is None:
-        inmemory = load_to_memory(local_filepath)
-    try:
-        df = getattr(inmemory, "var")  # for AnnData objects
-        if callable(df):
-            df = inmemory
-    except AttributeError:
-        df = inmemory
-    features = link_features(df, features_ref)
     return features
+
+
+def get_features(dobject, features_ref):
+    """Updates dobject in place."""
+    memory_rep = dobject._memory_rep
+    if memory_rep is None:
+        memory_rep = load_to_memory(dobject._local_filepath)
+    try:
+        df = getattr(memory_rep, "var")  # for AnnData objects
+        if callable(df):
+            df = memory_rep
+    except AttributeError:
+        df = memory_rep
+    return parse_features(df, features_ref)
 
 
 def record(
     data: Union[Path, str, pd.DataFrame, ad.AnnData],
     *,
     name: Optional[str] = None,
-    features: Optional[Union[CellMarker, Gene, Protein]] = None,
+    features_ref: Optional[Union[CellMarker, Gene, Protein]] = None,
     run: Optional[Run] = None,
     id: Optional[str] = None,
     format: Optional[str] = None,
@@ -196,31 +179,40 @@ def record(
     Args:
         data: Filepath or in-memory data.
         name: Name of the data object, required if an in-memory object is passed.
-        features: Entity to link against.
+        features_ref: Reference against which to link features.
         run: The data transform that links to the data source of the data object.
         id: The id of the dobject.
         format: Whether to use `h5ad` or `zarr` to store an `AnnData` object.
     """
-    memory_rep, local_filepath, name, suffix = serialize(data, format)
+    if run is None:
+        from ._nb import _run
+
+        run = _run
+        if run is None:
+            raise ValueError("Pass a Run record.")
+    memory_rep, local_filepath, name, suffix = serialize(data, name, format)
     if suffix != ".zarr":
         size = size = Path(local_filepath).stat().st_size
     else:
         size = size_adata(memory_rep)
-    checksum = compute_checksum(local_filepath)
+    checksum = get_checksum(local_filepath, suffix)
     storage = select(Storage, root=str(settings.instance.storage_root)).one()
-    if features is not None:
-        features = get_features(memory_rep, local_filepath, features)
     dobject = DObject(
-        id=id,
         name=name,
         suffix=suffix,
         checksum=checksum,
-        features=features,
+        run_id=run.id,
         size=size,
         storage_id=storage.id,
+        run=run,
     )
+    if id is not None:  # cannot pass it into constructor due to default factory
+        dobject.id = id
     dobject._local_filepath = local_filepath
     dobject._memory_rep = memory_rep
+    if features_ref is not None:
+        dobject.features.append(get_features(dobject, features_ref))
+    return dobject
 
 
 def compute_checksum(path: Path):
@@ -243,7 +235,8 @@ def compute_checksum(path: Path):
 # bcoding
 # bencode
 # etc.
-def hash_set(s):
+def hash_index(index):
+    s = set(index)
     return (
         base64.urlsafe_b64encode(hashlib.sha512(bcoding.bencode(s)).digest())
         .decode("ascii")
