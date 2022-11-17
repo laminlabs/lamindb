@@ -52,7 +52,7 @@ def add(  # type: ignore  # no support of different naming of args across overlo
     else:
         records = [record]
     for record in records:
-        if isinstance(record, DObject):
+        if isinstance(record, DObject) and hasattr(record, "_local_filepath"):
             upload_data_object(record)
     with sqm.Session(settings.instance.db_engine(), expire_on_commit=False) as session:
         for record in records:
