@@ -25,6 +25,7 @@ nocodb
 docs/guide/SRR4238351_subsamp.fastq.gz
 docs/faq/paradisi05_laminopathic_nuclei.jpg
 docs/faq/tostore/
+docs/faq/mydata_postgres/
 
 # General
 .DS_Store
