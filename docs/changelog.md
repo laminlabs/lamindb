@@ -3,6 +3,7 @@
 <!-- prettier-ignore -->
 Name | PR | Developer | Date | Version
 --- | --- | --- | --- | ---
+🐛 Also return existing features | [358](https://github.com/laminlabs/lamindb/pull/358) | [falexwolf](https://github.com/falexwolf) | 2022-11-18 |
 :memo: Fix select gene doc | [357](https://github.com/laminlabs/lamindb/pull/357) | [falexwolf](https://github.com/falexwolf) | 2022-11-18 |
 :building_construction: Refactor ingest | [356](https://github.com/laminlabs/lamindb/pull/356) | [falexwolf](https://github.com/falexwolf) | 2022-11-17 |
 ✨ Knowledge guide | [353](https://github.com/laminlabs/lamindb/pull/353) | [sunnyosun](https://github.com/sunnyosun) | 2022-11-16 |
