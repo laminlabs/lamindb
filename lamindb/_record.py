@@ -22,21 +22,21 @@ from .schema._table import table_meta
 
 
 def serialize(data: Union[Path, str, pd.DataFrame, ad.AnnData], name, adata_format):
-    inmemory = None
+    memory_rep = None
     if isinstance(data, (Path, str)):
         local_filepath = Path(data)
         name, suffix = get_name_suffix_from_filepath(local_filepath)
     elif isinstance(data, (pd.DataFrame, ad.AnnData)):
         if name is None:
             raise RuntimeError("Provide name if recording in-memory data.")
-        inmemory = data
+        memory_rep = data
         suffix = infer_suffix(data, adata_format)
         local_filepath = Path(f"{name}{suffix}")
         if suffix != ".zarr":
             write_to_file(data, local_filepath)
     else:
         raise NotImplementedError("Recording not yet implemented for this type.")
-    return inmemory, local_filepath, name, suffix
+    return memory_rep, local_filepath, name, suffix
 
 
 def get_checksum(local_filepath, suffix):
@@ -65,22 +65,17 @@ def get_features_records(
 
     model = table_meta.get_model(f"bionty.{features_ref.entity}")
 
-    # all existing feature rows of a species in the db
-    db_rows = (
+    # all existing feature records of the species in the db
+    stmt = (
         select(model)
         .where(getattr(model, parsing_id).in_(df_curated.index))
         .where(getattr(model, "species_id") == species.id)
-        .df()
     )
+    records = stmt.all()
+    records_df = df_curated.index.intersection(stmt.df()[parsing_id])
 
-    # ids of the existing features
-    exist_features = df_curated.index.intersection(db_rows[parsing_id])
-
-    # TODO: We also need to return the existing features as records!
-
-    # new features to be inserted
-    new_ids = df_curated.index.difference(exist_features)
-    records = []
+    # new records to be appended
+    new_ids = df_curated.index.difference(records_df)
     if len(new_ids) > 0:
         # mapped new_ids
         mapped = features_ref.df.loc[features_ref.df.index.intersection(new_ids)].copy()
