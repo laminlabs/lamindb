@@ -179,7 +179,7 @@ def record(
     run: Optional[Run] = None,
     id: Optional[str] = None,
     format: Optional[str] = None,
-) -> None:
+) -> DObject:
     """Record a data object.
 
     Guide: :doc:`/db/guide/ingest`.
