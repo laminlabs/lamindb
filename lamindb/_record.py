@@ -22,21 +22,21 @@ from .schema._table import table_meta
 
 
 def serialize(data: Union[Path, str, pd.DataFrame, ad.AnnData], name, adata_format):
-    inmemory = None
+    memory_rep = None
     if isinstance(data, (Path, str)):
         local_filepath = Path(data)
         name, suffix = get_name_suffix_from_filepath(local_filepath)
     elif isinstance(data, (pd.DataFrame, ad.AnnData)):
         if name is None:
             raise RuntimeError("Provide name if recording in-memory data.")
-        inmemory = data
+        memory_rep = data
         suffix = infer_suffix(data, adata_format)
         local_filepath = Path(f"{name}{suffix}")
         if suffix != ".zarr":
             write_to_file(data, local_filepath)
     else:
         raise NotImplementedError("Recording not yet implemented for this type.")
-    return inmemory, local_filepath, name, suffix
+    return memory_rep, local_filepath, name, suffix
 
 
 def get_checksum(local_filepath, suffix):
