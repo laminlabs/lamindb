@@ -22,7 +22,7 @@ from .schema._table import table_meta
 
 
 def serialize(
-    data: Union[Path, str, pd.DataFrame, ad.AnnData], name, adata_format
+    data: Union[Path, str, pd.DataFrame, ad.AnnData], name, format
 ) -> Tuple[Any, Path, str, str]:
     memory_rep = None
     if isinstance(data, (Path, str)):
@@ -32,7 +32,7 @@ def serialize(
         if name is None:
             raise RuntimeError("Provide name if recording in-memory data.")
         memory_rep = data
-        suffix = infer_suffix(data, adata_format)
+        suffix = infer_suffix(data, format)
         local_filepath = Path(f"{name}{suffix}")
         if suffix != ".zarr":
             write_to_file(data, local_filepath)
