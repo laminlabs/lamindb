@@ -24,6 +24,7 @@ from .schema._table import table_meta
 def serialize(
     data: Union[Path, str, pd.DataFrame, ad.AnnData], name, format
 ) -> Tuple[Any, Path, str, str]:
+    """Serialize a data object that's provided as file or in memory."""
     memory_rep = None
     if isinstance(data, (Path, str)):
         local_filepath = Path(data)
