@@ -180,7 +180,7 @@ def record(
     id: Optional[str] = None,
     format: Optional[str] = None,
 ) -> None:
-    """Record a data objects.
+    """Record a data object.
 
     Guide: :doc:`/db/guide/ingest`.
 
