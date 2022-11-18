@@ -21,7 +21,6 @@ Manipulate data:
    record
    add
    load
-   link
    delete
 
 Schema - entities and their relations:

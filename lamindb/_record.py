@@ -1,7 +1,7 @@
 import base64
 import hashlib
 from pathlib import Path
-from typing import List, Optional, Union
+from typing import Any, List, Optional, Set, Tuple, Union
 
 import anndata as ad
 import bcoding
@@ -21,7 +21,10 @@ from .dev.object import infer_suffix, size_adata, write_to_file
 from .schema._table import table_meta
 
 
-def serialize(data: Union[Path, str, pd.DataFrame, ad.AnnData], name, adata_format):
+def serialize(
+    data: Union[Path, str, pd.DataFrame, ad.AnnData], name, format
+) -> Tuple[Any, Path, str, str]:
+    """Serialize a data object that's provided as file or in memory."""
     memory_rep = None
     if isinstance(data, (Path, str)):
         local_filepath = Path(data)
@@ -30,7 +33,7 @@ def serialize(data: Union[Path, str, pd.DataFrame, ad.AnnData], name, adata_form
         if name is None:
             raise RuntimeError("Provide name if recording in-memory data.")
         memory_rep = data
-        suffix = infer_suffix(data, adata_format)
+        suffix = infer_suffix(data, format)
         local_filepath = Path(f"{name}{suffix}")
         if suffix != ".zarr":
             write_to_file(data, local_filepath)
@@ -39,18 +42,18 @@ def serialize(data: Union[Path, str, pd.DataFrame, ad.AnnData], name, adata_form
     return memory_rep, local_filepath, name, suffix
 
 
-def get_checksum(local_filepath, suffix):
+def get_hash(local_filepath, suffix):
     if suffix != ".zarr":  # if not streamed
-        checksum = compute_checksum(local_filepath)
-        result = select(DObject, checksum=checksum).one_or_none()
+        hash = hash_file(local_filepath)
+        result = select(DObject, hash=hash).one_or_none()
         if result is not None:
             raise RuntimeError(
-                "Based on the MD5 checksum, the exact same data object is already"
+                "Based on the MD5 hash, the exact same data object is already"
                 f" in the database: {result}"
             )
     else:
-        checksum = None
-    return checksum
+        hash = None
+    return hash
 
 
 def get_features_records(
@@ -124,7 +127,7 @@ def parse_features(
         "unmapped": df_curated.index[~df_curated["__curated__"]],
     }
 
-    features_hash = hash_index(df_curated.index)
+    features_hash = hash_set(set(df_curated.index))
 
     features = select(
         Features,
@@ -158,6 +161,16 @@ def get_features(dobject, features_ref):
     return parse_features(df, features_ref)
 
 
+def get_run(run: Optional[Run]) -> Run:
+    if run is None:
+        from ._nb import _run
+
+        run = _run
+        if run is None:
+            raise ValueError("Pass a Run record.")
+    return run
+
+
 def record(
     data: Union[Path, str, pd.DataFrame, ad.AnnData],
     *,
@@ -166,8 +179,8 @@ def record(
     run: Optional[Run] = None,
     id: Optional[str] = None,
     format: Optional[str] = None,
-) -> None:
-    """Record a data objects.
+) -> DObject:
+    """Record a data object.
 
     Guide: :doc:`/db/guide/ingest`.
 
@@ -179,23 +192,18 @@ def record(
         id: The id of the dobject.
         format: Whether to use `h5ad` or `zarr` to store an `AnnData` object.
     """
-    if run is None:
-        from ._nb import _run
-
-        run = _run
-        if run is None:
-            raise ValueError("Pass a Run record.")
+    run = get_run(run)
     memory_rep, local_filepath, name, suffix = serialize(data, name, format)
     if suffix != ".zarr":
-        size = size = Path(local_filepath).stat().st_size
+        size = Path(local_filepath).stat().st_size
     else:
         size = size_adata(memory_rep)
-    checksum = get_checksum(local_filepath, suffix)
+    hash = get_hash(local_filepath, suffix)
     storage = select(Storage, root=str(settings.instance.storage_root)).one()
     dobject = DObject(
         name=name,
         suffix=suffix,
-        checksum=checksum,
+        hash=hash,
         run_id=run.id,
         size=size,
         storage_id=storage.id,
@@ -210,18 +218,9 @@ def record(
     return dobject
 
 
-def compute_checksum(path: Path):
-    # based on https://stackoverflow.com/questions/3431825/generating-an-md5-checksum-of-a-file  # noqa
-    hash_md5 = hashlib.md5()
-    with open(path, "rb") as file:
-        for chunk in iter(lambda: file.read(4096), b""):
-            hash_md5.update(chunk)
-    hash_b64 = base64.urlsafe_b64encode(hash_md5.digest()).decode("ascii").strip("=")
-    # the following can be commented out over time
-    assert (
-        base64.urlsafe_b64decode(f"{hash_b64}==".encode()).hex() == hash_md5.hexdigest()
-    )  # noqa
-    return hash_b64
+def to_b64_str(bstr: bytes):
+    b64 = base64.urlsafe_b64encode(bstr).decode().strip("=")
+    return b64
 
 
 # a lot to read about this
@@ -230,10 +229,14 @@ def compute_checksum(path: Path):
 # bcoding
 # bencode
 # etc.
-def hash_index(index):
-    s = set(index)
-    return (
-        base64.urlsafe_b64encode(hashlib.sha512(bcoding.bencode(s)).digest())
-        .decode("ascii")
-        .strip("=")[:20]
-    )
+def hash_set(s: Set) -> str:
+    return to_b64_str(hashlib.sha512(bcoding.bencode(s)).digest())[:20]
+
+
+def hash_file(path: Path) -> str:
+    # based on https://stackoverflow.com/questions/3431825/generating-an-md5-hash-of-a-file  # noqa
+    hash_md5 = hashlib.md5()
+    with open(path, "rb") as file:
+        for chunk in iter(lambda: file.read(4096), b""):
+            hash_md5.update(chunk)
+    return to_b64_str(hash_md5.digest())
