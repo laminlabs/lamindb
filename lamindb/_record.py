@@ -1,7 +1,7 @@
 import base64
 import hashlib
 from pathlib import Path
-from typing import List, Optional, Union
+from typing import Any, List, Optional, Tuple, Union
 
 import anndata as ad
 import bcoding
@@ -21,7 +21,9 @@ from .dev.object import infer_suffix, size_adata, write_to_file
 from .schema._table import table_meta
 
 
-def serialize(data: Union[Path, str, pd.DataFrame, ad.AnnData], name, adata_format):
+def serialize(
+    data: Union[Path, str, pd.DataFrame, ad.AnnData], name, adata_format
+) -> Tuple[Any, Path, str, str]:
     memory_rep = None
     if isinstance(data, (Path, str)):
         local_filepath = Path(data)
@@ -158,6 +160,16 @@ def get_features(dobject, features_ref):
     return parse_features(df, features_ref)
 
 
+def get_run(run: Optional[Run]) -> Run:
+    if run is None:
+        from ._nb import _run
+
+        run = _run
+        if run is None:
+            raise ValueError("Pass a Run record.")
+    return run
+
+
 def record(
     data: Union[Path, str, pd.DataFrame, ad.AnnData],
     *,
@@ -179,15 +191,10 @@ def record(
         id: The id of the dobject.
         format: Whether to use `h5ad` or `zarr` to store an `AnnData` object.
     """
-    if run is None:
-        from ._nb import _run
-
-        run = _run
-        if run is None:
-            raise ValueError("Pass a Run record.")
+    run = get_run(run)
     memory_rep, local_filepath, name, suffix = serialize(data, name, format)
     if suffix != ".zarr":
-        size = size = Path(local_filepath).stat().st_size
+        size = Path(local_filepath).stat().st_size
     else:
         size = size_adata(memory_rep)
     checksum = get_checksum(local_filepath, suffix)
