@@ -65,22 +65,17 @@ def get_features_records(
 
     model = table_meta.get_model(f"bionty.{features_ref.entity}")
 
-    # all existing feature rows of a species in the db
-    db_rows = (
+    # all existing feature records of the species in the db
+    stmt = (
         select(model)
         .where(getattr(model, parsing_id).in_(df_curated.index))
         .where(getattr(model, "species_id") == species.id)
-        .df()
     )
+    records = stmt.all()
+    records_df = df_curated.index.intersection(stmt.df()[parsing_id])
 
-    # ids of the existing features
-    exist_features = df_curated.index.intersection(db_rows[parsing_id])
-
-    # TODO: We also need to return the existing features as records!
-
-    # new features to be inserted
-    new_ids = df_curated.index.difference(exist_features)
-    records = []
+    # new records to be appended
+    new_ids = df_curated.index.difference(records_df)
     if len(new_ids) > 0:
         # mapped new_ids
         mapped = features_ref.df.loc[features_ref.df.index.intersection(new_ids)].copy()
