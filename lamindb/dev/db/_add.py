@@ -67,13 +67,13 @@ def add(  # type: ignore  # no support of different naming of args across overlo
         return records[0]
 
 
-def upload_data_object(dobject, use_fsspec: bool = False) -> None:
+def upload_data_object(dobject, use_fsspec: bool = True) -> None:
     """Store and add dobject and its linked entries."""
     dobject_storage_key = f"{dobject.id}{dobject.suffix}"
 
     if dobject.suffix != ".zarr":
         store_file(dobject._local_filepath, dobject_storage_key, use_fsspec=use_fsspec)
     else:
-        storepath = settings.instance.storage.key_to_filepath(dobject_storage_key)
+        storagepath = settings.instance.storage.key_to_filepath(dobject_storage_key)
         print_progress = partial(print_hook, filepath=dobject._local_filepath)
-        write_adata_zarr(dobject._memory_rep, storepath, callback=print_progress)
+        write_adata_zarr(dobject._memory_rep, storagepath, callback=print_progress)
