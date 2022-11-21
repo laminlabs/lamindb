@@ -7,7 +7,6 @@ setup
 nb
 sql-api
 storage
-flow
 ingest-same-file-twice
 linked-select
 ingest-bfx

@@ -10,6 +10,7 @@ import pandas as pd
 from lamin_logger import logger
 from lndb_setup import settings
 from lnschema_core import DObject, Features, Run, Storage
+from typeguard import typechecked
 
 from lamindb.knowledge import CellMarker, Gene, Protein
 
@@ -141,8 +142,14 @@ def parse_features(
     records = get_features_records(parsing_id, features_ref, df_curated)
 
     if isinstance(features_ref, Gene):
-        for gene in records:
-            features.genes.append(gene)
+        for record in records:
+            features.genes.append(record)
+    elif isinstance(features_ref, Protein):
+        for record in records:
+            features.proteins.append(record)
+    elif isinstance(features_ref, CellMarker):
+        for record in records:
+            features.cell_markers.append(record)
 
     return features
 
@@ -171,6 +178,7 @@ def get_run(run: Optional[Run]) -> Run:
     return run
 
 
+@typechecked
 def record(
     data: Union[Path, str, pd.DataFrame, ad.AnnData],
     *,
