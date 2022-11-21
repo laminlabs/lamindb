@@ -3,6 +3,7 @@
 <!-- prettier-ignore -->
 Name | PR | Developer | Date | Version
 --- | --- | --- | --- | ---
+📝 Add flow example back to main guide | [363](https://github.com/laminlabs/lamindb/pull/363) | [falexwolf](https://github.com/falexwolf) | 2022-11-21 |
 :memo: Update schema | [362](https://github.com/laminlabs/lamindb/pull/362) | [falexwolf](https://github.com/falexwolf) | 2022-11-21 |
 🩹 Restore default `fsspec` for upload | [361](https://github.com/laminlabs/lamindb/pull/361) | [Koncopd](https://github.com/Koncopd) | 2022-11-20 |
 🎨 Prettify API | [359](https://github.com/laminlabs/lamindb/pull/359) | [falexwolf](https://github.com/falexwolf) | 2022-11-18 |
