@@ -7,13 +7,12 @@ _Curate, store, track, query, integrate, and learn from biological data._
 
 ```{warning}
 
-Public beta: Support is currently only offered to enterprise customers & collaborators.
+Public beta: Currently only recommended for collaborators as we still make breaking changes.
 
 ```
 
 LaminDB is a distributed data management system similar to how git is a distributed version control system.
-Each LaminDB instance is a [lakehouse](https://www.databricks.com/glossary/data-lakehouse) with storage locations (local directories, S3, GCP) and a SQL database (SQLite, Postgres) for selecting them.
-LaminDB speaks biology via [Bionty](https://lamin.ai/docs/bionty) and configurable R&D [schema modules](https://lamin.ai/docs/db/lamindb.schema).
+Each LaminDB instance is a [data lakehouse](https://www.databricks.com/glossary/data-lakehouse) that manages indexed object storage (local directories, S3, GCP) with a SQL query engine (SQLite, Postgres, and soon, BigQuery).
 
 - [Get started](guide/get-started) with the [guide](guide/index), [API](api) and [FAQ](faq/index).
 - See basic features on the [landing page](https://lamin.ai).
