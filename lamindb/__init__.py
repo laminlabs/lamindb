@@ -73,7 +73,6 @@ from . import knowledge  # noqa
 from . import nb  # noqa
 from . import schema  # noqa
 from ._delete import delete  # noqa
-from ._link import link  # noqa
 from ._load import load  # noqa
 from ._record import record  # noqa
 from ._view import view  # noqa

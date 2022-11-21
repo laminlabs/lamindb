@@ -8,8 +8,8 @@ schema
 knowledge
 ingest
 link-features
-link
 select-load
+link-samples
 add-delete
 pipeline
 view
