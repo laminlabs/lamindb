@@ -68,7 +68,7 @@ def _subset_adata_storage(
         return AnnData(**prepare_adata)
 
 
-def _subset_dobject(
+def _subset_anndata_dobject(
     dobject: DObject,
     query_obs: Optional[str] = None,
     query_var: Optional[str] = None,

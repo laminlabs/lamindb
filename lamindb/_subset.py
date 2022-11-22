@@ -1,22 +1,32 @@
 from typing import List, Optional, Union
 
 from anndata import AnnData, concat
+from lamin_logger import logger
 from lnschema_core import DObject
 
-from .dev.object import _subset_dobject
+from .dev.object import _subset_anndata_dobject
+
+SUFFIXES = (".h5ad", ".zarr")
 
 
 def subset(
-    dobjects: List[DObject],
+    dobjects: Union[List[DObject], DObject],
     query_obs: Optional[str] = None,
     query_var: Optional[str] = None,
     use_concat: bool = False,
     concat_args: Optional[dict] = None,
 ) -> Union[List[AnnData], AnnData, None]:
+    """Subset AnnData dobjects and stream results into memory."""
+    if isinstance(dobjects, DObject):
+        dobjects = [dobjects]
+
     adatas = []
     # todo: implement parallel processing
     for dobject in dobjects:
-        result = _subset_dobject(dobject, query_obs, query_var)
+        if dobject.suffix not in SUFFIXES:
+            logger.warning(f"DObject {dobject.id} is not an AnnData object, ignoring.")
+            continue
+        result = _subset_anndata_dobject(dobject, query_obs, query_var)
         if result is not None:
             adatas.append(result)
 
