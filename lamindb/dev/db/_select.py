@@ -107,7 +107,8 @@ class ExecStmt:
         # cache the query result for the lifetime of the object
         if self._result is None:
             with sqm.Session(
-                settings._instance(self._settings_store).db_engine()
+                settings._instance(self._settings_store).db_engine(),
+                expire_on_commit=False,
             ) as session:
                 self._result = session.exec(self._stmt).all()
 
