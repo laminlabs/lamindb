@@ -11,8 +11,8 @@ SUFFIXES = (".h5ad", ".zarr")
 
 def subset(
     dobjects: Union[List[DObject], DObject],
-    query_obs: Optional[str] = None,
-    query_var: Optional[str] = None,
+    query_obs: Optional[Union[List[str], str]] = None,
+    query_var: Optional[Union[List[str], str]] = None,
     use_concat: bool = False,
     concat_args: Optional[dict] = None,
 ) -> Union[List[AnnData], AnnData, None]:
@@ -20,13 +20,25 @@ def subset(
     if isinstance(dobjects, DObject):
         dobjects = [dobjects]
 
+    n_dobjects = len(dobjects)
+    if isinstance(query_obs, list):
+        if len(query_obs) != n_dobjects:
+            raise ValueError("query_obs list should be the same length as dobjects.")
+    else:
+        query_obs = [query_obs] * n_dobjects  # type: ignore
+    if isinstance(query_var, list):
+        if len(query_var) != n_dobjects:
+            raise ValueError("query_var list should be the same length as dobjects.")
+    else:
+        query_var = [query_var] * n_dobjects  # type: ignore
+
     adatas = []
     # todo: implement parallel processing
-    for dobject in dobjects:
+    for i, dobject in enumerate(dobjects):
         if dobject.suffix not in SUFFIXES:
             logger.warning(f"DObject {dobject.id} is not an AnnData object, ignoring.")
             continue
-        result = _subset_anndata_dobject(dobject, query_obs, query_var)
+        result = _subset_anndata_dobject(dobject, query_obs[i], query_var[i])
         if result is not None:
             adatas.append(result)
 
