@@ -3,6 +3,7 @@
 <!-- prettier-ignore -->
 Name | PR | Developer | Date | Version
 --- | --- | --- | --- | ---
+🎨 Simplify schema module handling | [367](https://github.com/laminlabs/lamindb/pull/367) | [falexwolf](https://github.com/falexwolf) | 2022-11-22 |
 📝 Bring back guide to linking sample-level metadata | [365](https://github.com/laminlabs/lamindb/pull/365) | [falexwolf](https://github.com/falexwolf) | 2022-11-21 | 0.17.0
 📝 Add flow example back to main guide | [363](https://github.com/laminlabs/lamindb/pull/363) | [falexwolf](https://github.com/falexwolf) | 2022-11-21 |
 :memo: Update schema | [362](https://github.com/laminlabs/lamindb/pull/362) | [falexwolf](https://github.com/falexwolf) | 2022-11-21 |
