@@ -89,14 +89,24 @@ from lnschema_core import (
     User,
     dev,
 )
+from packaging import version as _v
 
 if _settings.instance.schema_modules is not None:
     _modules = _settings.instance.schema_modules.split(", ")
 else:
     _modules = []
 
+_check_v = {
+    "bionty": "0.6.0",
+    "wetlab": "0.9.1",
+    "bfx": "0.7.0",
+}
+
 for name in _modules:
     _module = _importlib.import_module(_get_schema_module_name(name))
+    if name in _check_v:
+        if _v.parse(_module.__version__) != _v.parse(_check_v[name]):
+            raise RuntimeError(f"lamindb needs lnschema_{name}=={_check_v[name]}")
     globals()[name] = _module
 
 from ._core import list_tables, view
