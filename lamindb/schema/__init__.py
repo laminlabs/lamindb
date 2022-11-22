@@ -54,12 +54,9 @@ Exemplary extensions
 
 Any LaminDB schema module that has been mounted to an instance can be accessed like the bionty, wetlab, bfx modules below:
 
-.. autosummary::
-   :toctree: .
+- `bionty <https://lamin.ai/docs/lnschema-bionty/api>`__: Knowledge-managed biological entities.
+- `wetlab <https://lamin.ai/docs/lnschema-wetlab/api>`__: Wetlab operations.
 
-   bionty
-   wetlab
-   bfx
 
 Helper tools
 ============
@@ -72,7 +69,10 @@ Helper tools
    dev
 
 """
-import lnbfx.schema as bfx
+import importlib as _importlib
+
+from lndb_setup import settings as _settings
+from lndb_setup._setup_schema import get_schema_module_name as _get_schema_module_name
 from lnschema_core import (
     DObject,
     DSet,
@@ -89,41 +89,26 @@ from lnschema_core import (
     User,
     dev,
 )
+from packaging import version as _v
 
-bfx.__doc__ = f"""Bioinformatics workflows.
+if _settings.instance.schema_modules is not None:
+    _modules = _settings.instance.schema_modules.split(", ")
+else:
+    _modules = []
 
-See `lnbfx.schema <https://lamin.ai/docs/lnbfx/api>`__.
-"""
-import lnschema_bionty as bionty
+_check_v = {
+    "bionty": "0.6.0",
+    "wetlab": "0.9.2",
+    "bfx": "0.7.0",
+}
 
-bionty.__doc__ = f"""Biological entities.
-
-See `lnschema-bionty <https://lamin.ai/docs/lnschema-bionty/api>`__.
-"""
-
-import lnschema_wetlab as wetlab
-
-wetlab.__doc__ = f"""Generic wetlab.
-
-See `lnschema-wetlab <https://lamin.ai/docs/lnschema-wetlab/api>`__.
-"""
+for name in _modules:
+    _module = _importlib.import_module(_get_schema_module_name(name))
+    if name in _check_v:
+        if _v.parse(_module.__version__) != _v.parse(_check_v[name]):
+            raise RuntimeError(f"lamindb needs lnschema_{name}=={_check_v[name]}")
+    globals()[name] = _module
 
 from ._core import list_tables, view
-
-try:
-    import lnschema_retro as retro
-except ModuleNotFoundError:
-    pass
-
-try:
-    import maren.schema as swarm
-except ModuleNotFoundError:
-    pass
-
-try:
-    import lnschema_harmonic_docking as docking
-except ModuleNotFoundError:
-    pass
-
 
 list_entities = list_tables  # backward compat
