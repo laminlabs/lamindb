@@ -18,7 +18,9 @@ def _indices(base_indices, select_indices):
 
 
 def _subset_adata_storage(
-    storage, query_obs: Optional[str] = None, query_var: Optional[str] = None
+    storage: Union[zarr.Group, h5py.File],
+    query_obs: Optional[str] = None,
+    query_var: Optional[str] = None,
 ) -> Union[AnnData, None]:
     with storage as access:
         obs = read_elem(access["obs"])
