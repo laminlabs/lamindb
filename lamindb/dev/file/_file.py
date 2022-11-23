@@ -3,6 +3,7 @@ from pathlib import Path
 from typing import Union
 
 import fsspec
+import nbproject
 import pandas as pd
 import readfcs
 from cloudpathlib import CloudPath
@@ -24,10 +25,11 @@ fsspec_filesystem = None
 
 def print_hook(size, value, **kwargs):
     progress = value / size
-    out = f"Writing {kwargs['filepath']}: {min(progress, 1.):4.2f}"
+    out = f"Uploading {kwargs['filepath']}: {min(progress, 1.):4.2f}"
     if progress >= 1:
         out += "\n"
-    print(out, end="\r")
+    if nbproject.meta.env != "test":
+        print(out, end="\r")
 
 
 class ProgressCallback(fsspec.callbacks.Callback):
