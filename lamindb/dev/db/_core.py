@@ -7,4 +7,4 @@ def session() -> sqm.Session:
 
     Returns a `sqlmodel.Session` object.
     """
-    return sqm.Session(settings.instance.db_engine())
+    return settings.instance.session()

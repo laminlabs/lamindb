@@ -1,5 +1,4 @@
 import lnschema_core as core
-import sqlmodel as sqm
 from lamin_logger import logger
 from lndb_setup import settings
 
@@ -9,18 +8,20 @@ from .dev.file import load_to_memory
 
 
 def populate_runin(dobject: core.DObject, run: core.Run):
-    with sqm.Session(settings.instance.db_engine()) as session:
-        result = session.get(core.RunIn, (run.id, dobject.id))
-        if result is None:
-            session.add(
-                core.RunIn(
-                    run_id=run.id,
-                    dobject_id=dobject.id,
-                )
+    session = settings.instance.session()
+    result = session.get(core.RunIn, (run.id, dobject.id))
+    if result is None:
+        session.add(
+            core.RunIn(
+                run_id=run.id,
+                dobject_id=dobject.id,
             )
-            session.commit()
-            logger.info(f"Added dobject ({dobject.id}) as input for run ({run.id}).")
-            settings.instance._update_cloud_sqlite_file()
+        )
+        session.commit()
+        logger.info(f"Added dobject ({dobject.id}) as input for run ({run.id}).")
+        settings.instance._update_cloud_sqlite_file()
+    if settings.instance._session is None:
+        session.close()
 
 
 def load(dobject: core.DObject, stream: bool = False):
