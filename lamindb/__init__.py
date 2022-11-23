@@ -81,6 +81,7 @@ from ._view import view  # noqa
 from .dev.db import session  # noqa
 from .dev.db._add import add  # noqa
 from .dev.db._select import select  # noqa
+from .dev.object._lazy_field import lazy
 
 settings.__doc__ = """Settings.
 

@@ -9,6 +9,8 @@ from anndata._io.specs.registry import read_elem, read_elem_partial
 from lnschema_core import DObject
 from lnschema_core.dev._storage import filepath_from_dobject
 
+from ._lazy_field import LazySelector
+
 
 def _indices(base_indices, select_indices):
     if len(base_indices) == len(select_indices):
@@ -19,20 +21,26 @@ def _indices(base_indices, select_indices):
 
 def _subset_adata_storage(
     storage: Union[zarr.Group, h5py.File],
-    query_obs: Optional[str] = None,
-    query_var: Optional[str] = None,
+    query_obs: Optional[Union[str, LazySelector]] = None,
+    query_var: Optional[Union[str, LazySelector]] = None,
 ) -> Union[AnnData, None]:
     with storage as access:
         obs = read_elem(access["obs"])
         var = read_elem(access["var"])
 
         if query_obs is not None:
-            obs_result = obs.query(query_obs)
+            if hasattr(query_obs, "evaluate"):
+                obs_result = obs[query_obs.evaluate(obj=obs)]  # type: ignore
+            else:
+                obs_result = obs.query(query_obs)
         else:
             obs_result = obs
 
         if query_var is not None:
-            var_result = var.query(query_var)
+            if hasattr(query_var, "evaluate"):
+                var_result = var[query_var.evaluate(obj=var)]  # type: ignore
+            else:
+                var_result = var.query(query_var)
         else:
             var_result = var
 
@@ -70,8 +78,8 @@ def _subset_adata_storage(
 
 def _subset_anndata_dobject(
     dobject: DObject,
-    query_obs: Optional[str] = None,
-    query_var: Optional[str] = None,
+    query_obs: Optional[Union[str, LazySelector]] = None,
+    query_var: Optional[Union[str, LazySelector]] = None,
 ) -> Union[AnnData, None]:
     # todo: check that cloudpathlib doesn't cache anything here
     dobject_path = str(filepath_from_dobject(dobject))
