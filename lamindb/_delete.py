@@ -4,7 +4,7 @@ from lnschema_core import DObject, RunIn, Usage
 
 from ._logger import colors, logger
 from .dev._core import storage_key_from_dobject
-from .dev.file import delete_file
+from .dev.file import delete_storage
 
 
 def delete(record: sqm.SQLModel):
@@ -52,7 +52,7 @@ def delete(record: sqm.SQLModel):
         # with a good design that respects integrity
         # track_usage(entry.id, "delete")
         storage_key = storage_key_from_dobject(record)
-        delete_file(storage_key)
+        delete_storage(storage_key)
         logger.success(
             f"Deleted {colors.yellow(f'object {storage_key}')} from storage."
         )

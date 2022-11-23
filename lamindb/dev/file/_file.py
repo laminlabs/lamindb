@@ -72,10 +72,13 @@ def store_file(
     return float(size)  # because this is how we store in the db
 
 
-def delete_file(storagekey: str):
+def delete_storage(storagekey: str):
     """Delete arbitrary file."""
     storagepath = settings.instance.storage.key_to_filepath(storagekey)
-    storagepath.unlink()
+    if storagepath.is_file():
+        storagepath.unlink()
+    else:
+        storagepath.rmtree()
 
 
 def load_to_memory(filepath: Union[str, Path], stream: bool = False):

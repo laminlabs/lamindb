@@ -12,4 +12,5 @@ linked-select
 ingest-bfx
 postgres
 zarr-ingest-load
+adatas-subset
 ```
