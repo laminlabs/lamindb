@@ -3,17 +3,19 @@
 <!-- prettier-ignore -->
 Name | PR | Developer | Date | Version
 --- | --- | --- | --- | ---
-:sparkles: Add subset function for dobjects | [368](https://github.com/laminlabs/lamindb/pull/368) | [Koncopd](https://github.com/Koncopd) | 2022-11-23 |
+🏗️ Persist the session | [372](https://github.com/laminlabs/lamindb/pull/372) | [falexwolf](https://github.com/falexwolf) | 2022-11-23 |
+⬆️ Upgrade lndb-setup | [371](https://github.com/laminlabs/lamindb/pull/371) | [fredericenard](https://github.com/fredericenard) | 2022-11-23 |
+✨ Add subset function for dobjects | [368](https://github.com/laminlabs/lamindb/pull/368) | [Koncopd](https://github.com/Koncopd) | 2022-11-23 | 0.18.0
 🎨 Drop `Biometa` | [369](https://github.com/laminlabs/lamindb/pull/369) | [falexwolf](https://github.com/falexwolf) | 2022-11-22 |
 🎨 Simplify schema module handling | [367](https://github.com/laminlabs/lamindb/pull/367) | [falexwolf](https://github.com/falexwolf) | 2022-11-22 |
 📝 Bring back guide to linking sample-level metadata | [365](https://github.com/laminlabs/lamindb/pull/365) | [falexwolf](https://github.com/falexwolf) | 2022-11-21 | 0.17.0
 📝 Add flow example back to main guide | [363](https://github.com/laminlabs/lamindb/pull/363) | [falexwolf](https://github.com/falexwolf) | 2022-11-21 |
-:memo: Update schema | [362](https://github.com/laminlabs/lamindb/pull/362) | [falexwolf](https://github.com/falexwolf) | 2022-11-21 |
+📝 Update schema | [362](https://github.com/laminlabs/lamindb/pull/362) | [falexwolf](https://github.com/falexwolf) | 2022-11-21 |
 🩹 Restore default `fsspec` for upload | [361](https://github.com/laminlabs/lamindb/pull/361) | [Koncopd](https://github.com/Koncopd) | 2022-11-20 |
 🎨 Prettify API | [359](https://github.com/laminlabs/lamindb/pull/359) | [falexwolf](https://github.com/falexwolf) | 2022-11-18 |
 🐛 Also return existing features | [358](https://github.com/laminlabs/lamindb/pull/358) | [falexwolf](https://github.com/falexwolf) | 2022-11-18 |
-:memo: Fix select gene doc | [357](https://github.com/laminlabs/lamindb/pull/357) | [falexwolf](https://github.com/falexwolf) | 2022-11-18 |
-:building_construction: Refactor ingest | [356](https://github.com/laminlabs/lamindb/pull/356) | [falexwolf](https://github.com/falexwolf) | 2022-11-17 |
+📝 Fix select gene doc | [357](https://github.com/laminlabs/lamindb/pull/357) | [falexwolf](https://github.com/falexwolf) | 2022-11-18 |
+🏗️ Refactor ingest | [356](https://github.com/laminlabs/lamindb/pull/356) | [falexwolf](https://github.com/falexwolf) | 2022-11-17 |
 ✨ Knowledge guide | [353](https://github.com/laminlabs/lamindb/pull/353) | [sunnyosun](https://github.com/sunnyosun) | 2022-11-16 |
 🎨 Separate `nb.publish` from `ingest.commit` | [355](https://github.com/laminlabs/lamindb/pull/355) | [falexwolf](https://github.com/falexwolf) | 2022-11-16 | 0.16.0
 🐛 Fix data source | [354](https://github.com/laminlabs/lamindb/pull/354) | [falexwolf](https://github.com/falexwolf) | 2022-11-15 |
