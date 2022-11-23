@@ -5,14 +5,15 @@ from lamin_logger import logger
 from lnschema_core import DObject
 
 from .dev.object import _subset_anndata_dobject
+from .dev.object._lazy_field import LazySelector
 
 SUFFIXES = (".h5ad", ".zarr")
 
 
 def subset(
     dobjects: Union[List[DObject], DObject],
-    query_obs: Optional[Union[List[str], str]] = None,
-    query_var: Optional[Union[List[str], str]] = None,
+    query_obs: Optional[Union[List[str], str, LazySelector]] = None,
+    query_var: Optional[Union[List[str], str, LazySelector]] = None,
     use_concat: bool = False,
     concat_args: Optional[dict] = None,
 ) -> Union[List[AnnData], AnnData, None]:

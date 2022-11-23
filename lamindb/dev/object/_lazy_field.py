@@ -1,7 +1,14 @@
 import operator
+from typing import Union
 
 # todo: add all operators
-BINARY_OPS = ["__add__", "__or__", "__and__", "__eq__", "__mul__"]
+BINARY_OPS = [
+    "__add__",
+    "__mul__",
+    "__or__",
+    "__and__",
+    "__eq__",
+]
 UNARY_OPS = ["__abs__", "__neg__", "__invert__"]
 
 
@@ -104,3 +111,4 @@ class Lazy:
 
 
 lazy = Lazy()
+LazySelector = Union[LazyOperator, LazyProperty]
