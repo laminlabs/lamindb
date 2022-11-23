@@ -3,6 +3,7 @@
 <!-- prettier-ignore -->
 Name | PR | Developer | Date | Version
 --- | --- | --- | --- | ---
+Upgrade lndb-setup | [371](https://github.com/laminlabs/lamindb/pull/371) | [fredericenard](https://github.com/fredericenard) | 2022-11-23 |
 :sparkles: Add subset function for dobjects | [368](https://github.com/laminlabs/lamindb/pull/368) | [Koncopd](https://github.com/Koncopd) | 2022-11-23 |
 🎨 Drop `Biometa` | [369](https://github.com/laminlabs/lamindb/pull/369) | [falexwolf](https://github.com/falexwolf) | 2022-11-22 |
 🎨 Simplify schema module handling | [367](https://github.com/laminlabs/lamindb/pull/367) | [falexwolf](https://github.com/falexwolf) | 2022-11-22 |
