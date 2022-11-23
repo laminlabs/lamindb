@@ -8,6 +8,14 @@ BINARY_OPS = [
     "__or__",
     "__and__",
     "__eq__",
+    "__ge__",
+    "__gt__",
+    "__le__",
+    "__lt__",
+    "__matmul__",
+    "__pow__",
+    "__truediv__",
+    "__floordiv__",
 ]
 UNARY_OPS = ["__abs__", "__neg__", "__invert__"]
 
