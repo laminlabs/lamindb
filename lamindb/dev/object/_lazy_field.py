@@ -97,17 +97,25 @@ class LazyProperty(CatchProperties, metaclass=MetaCatchOperators):
 
 
 class LazyField(CatchProperties, metaclass=MetaCatchOperators):
-    def __init__(self, name):
+    def __init__(self, name, as_attr=True):
         self.name = name
+        self._as_attr = as_attr
 
     def evaluate(self, obj):
-        return obj[self.name]
+        if self._as_attr:
+            return getattr(obj, self.name)
+        else:
+            return obj[self.name]
 
 
 class Lazy:
     def __getattr__(self, attr):
-        """Get `LazyField`."""
-        return LazyField(attr)
+        """Get `LazyField` as an attribute."""
+        return LazyField(attr, as_attr=True)
+
+    def __getitem__(self, key):
+        """Get `LazyField` as an item."""
+        return LazyField(key, as_attr=False)
 
 
 lazy = Lazy()
