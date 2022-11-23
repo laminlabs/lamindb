@@ -16,7 +16,19 @@ def subset(
     use_concat: bool = False,
     concat_args: Optional[dict] = None,
 ) -> Union[List[AnnData], AnnData, None]:
-    """Subset AnnData dobjects and stream results into memory."""
+    """Subset AnnData dobjects and stream results into memory.
+
+    Args:
+        dobjects: A `DObject` or a list of `DObjects` containing `AnnData` objects
+        to subset and load into memory.
+        query_obs: The pandas query string to evaluate on `.obs` of each
+        underlying `AnnData` object.
+        query_var: The pandas query string to evaluate on `.var` of each
+        underlying `AnnData` object.
+        use_concat: If `True`, applies `anndata.concat` on
+        the returned `AnnData` objects.
+        concat_args: Arguments for concatenation.
+    """
     if isinstance(dobjects, DObject):
         dobjects = [dobjects]
 
