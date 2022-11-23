@@ -3,14 +3,12 @@ from lamin_logger import logger
 from lndb_setup import settings
 
 from .dev._core import filepath_from_dobject
-from .dev.db._core import _session
-from .dev.db._core import session as get_session
 from .dev.db._track_usage import track_usage
 from .dev.file import load_to_memory
 
 
 def populate_runin(dobject: core.DObject, run: core.Run):
-    session = get_session()
+    session = settings.instance.session()
     result = session.get(core.RunIn, (run.id, dobject.id))
     if result is None:
         session.add(
@@ -22,7 +20,7 @@ def populate_runin(dobject: core.DObject, run: core.Run):
         session.commit()
         logger.info(f"Added dobject ({dobject.id}) as input for run ({run.id}).")
         settings.instance._update_cloud_sqlite_file()
-    if _session is None:
+    if settings.instance._session is None:
         session.close()
 
 

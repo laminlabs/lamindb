@@ -4,8 +4,6 @@ from lnschema_core import DObject, RunIn, Usage
 
 from ._logger import colors, logger
 from .dev._core import storage_key_from_dobject
-from .dev.db._core import _session
-from .dev.db._core import session as get_session
 from .dev.file import delete_storage
 
 
@@ -26,7 +24,7 @@ def delete(record: sqm.SQLModel):
     Args:
         record: One or multiple records as instances of `SQLModel`.
     """
-    session = get_session()
+    session = settings.instance.session()
     if isinstance(record, DObject):
         # delete usage events related to the dobject that's to be deleted
         events = session.exec(sqm.select(Usage).where(Usage.dobject_id == record.id))
@@ -45,7 +43,7 @@ def delete(record: sqm.SQLModel):
         f"Deleted {colors.yellow(f'row {record}')} in"
         f" {colors.blue(f'table {type(record).__name__}')}."
     )
-    if _session is None:
+    if settings.instance._session is None:
         session.close()
     if isinstance(record, DObject):
         # TODO: do not track deletes until we come up

@@ -7,8 +7,6 @@ from lnschema_core import DObject
 
 from ..file import store_file, write_adata_zarr
 from ..file._file import print_hook
-from ._core import _session
-from ._core import session as get_session
 
 
 @overload
@@ -56,13 +54,13 @@ def add(  # type: ignore  # no support of different naming of args across overlo
     for record in records:
         if isinstance(record, DObject) and hasattr(record, "_local_filepath"):
             upload_data_object(record, **kwargs)
-    session = get_session()
+    session = settings.instance.session()
     for record in records:
         session.add(record)
     session.commit()
     for record in records:
         session.refresh(record)
-    if _session is None:
+    if settings.instance._session is None:
         session.close()
     settings.instance._update_cloud_sqlite_file()
     if len(records) > 1:

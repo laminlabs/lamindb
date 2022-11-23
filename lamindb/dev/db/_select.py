@@ -1,11 +1,9 @@
 import pandas as pd
 import sqlmodel as sqm
+from lndb_setup import settings
 from lndb_setup._settings_store import InstanceSettingsStore
 from sqlalchemy.orm.exc import MultipleResultsFound, NoResultFound
 from sqlmodel.main import SQLModelMetaclass
-
-from ._core import _session
-from ._core import session as get_session
 
 
 def select(*entity: sqm.SQLModel, **fields) -> "SelectStmt":
@@ -108,9 +106,9 @@ class ExecStmt:
     def _execute(self):
         # cache the query result for the lifetime of the object
         if self._result is None:
-            session = get_session()
+            session = settings.instance.session()
             self._result = session.exec(self._stmt).all()
-            if _session is None:
+            if settings.instance._session is None:
                 session.close()
 
     def all(self):
