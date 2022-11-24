@@ -3,7 +3,7 @@
 <!-- prettier-ignore -->
 Name | PR | Developer | Date | Version
 --- | --- | --- | --- | ---
-🔥 Removed bioreadout | [373](https://github.com/laminlabs/lamindb/pull/373) | [sunnyosun](https://github.com/sunnyosun) | 2022-11-24 |
+🔥 Removed bioreadout | [373](https://github.com/laminlabs/lamindb/pull/373) | [sunnyosun](https://github.com/sunnyosun) | 2022-11-24 | 0.18.1
 :sparkles: Add lazy selectors to `ln.subset` | [370](https://github.com/laminlabs/lamindb/pull/370) | [Koncopd](https://github.com/Koncopd) | 2022-11-23 |
 🏗️ Persist the session | [372](https://github.com/laminlabs/lamindb/pull/372) | [falexwolf](https://github.com/falexwolf) | 2022-11-23 |
 ⬆️ Upgrade lndb-setup | [371](https://github.com/laminlabs/lamindb/pull/371) | [fredericenard](https://github.com/fredericenard) | 2022-11-23 |
