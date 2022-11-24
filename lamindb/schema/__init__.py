@@ -97,7 +97,7 @@ else:
     _modules = []
 
 _check_v = {
-    "bionty": "0.6.0",
+    "bionty": "0.6.1",
     "wetlab": "0.10.0",
     "bfx": "0.7.0",
 }
