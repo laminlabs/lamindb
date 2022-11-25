@@ -54,6 +54,7 @@ test = [
     "scanpy",
     "scikit-learn>=1.1.1",
     "nbproject_test>=0.3.0",
+    "nbclient<=0.6.8",
     "psycopg2",
 ]
 
