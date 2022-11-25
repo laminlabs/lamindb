@@ -4,8 +4,8 @@ from lnschema_core import __version__ as lnschema_core_v
 from nbproject import __version__ as nbproject_v
 from packaging import version
 
-if version.parse(lndb_setup_v) != version.parse("0.18.0"):
-    raise RuntimeError("lamindb needs lndb_setup==0.18.0")
+if version.parse(lndb_setup_v) != version.parse("0.18.1"):
+    raise RuntimeError("lamindb needs lndb_setup==0.18.1")
 
 if version.parse(lnschema_core_v) != version.parse("0.21.0"):
     raise RuntimeError("lamindb needs lnschema_core==0.21.0")
