@@ -3,6 +3,7 @@
 <!-- prettier-ignore -->
 Name | PR | Developer | Date | Version
 --- | --- | --- | --- | ---
+⬆️ Upgrade wetlab schema | [380](https://github.com/laminlabs/lamindb/pull/380) | [sunnyosun](https://github.com/sunnyosun) | 2022-11-28 |
 ⬆️ Upgrade `lndb-setup` & `lnschema-core` | [379](https://github.com/laminlabs/lamindb/pull/379) | [fredericenard](https://github.com/fredericenard) | 2022-11-28 | 0.18.2
 ⬆️ Upgrade lndb-setup to 0.18.1 | [378](https://github.com/laminlabs/lamindb/pull/378) | [falexwolf](https://github.com/falexwolf) | 2022-11-25 |
 🔥 Removed bioreadout | [373](https://github.com/laminlabs/lamindb/pull/373) | [sunnyosun](https://github.com/sunnyosun) | 2022-11-24 | 0.18.1
