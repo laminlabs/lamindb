@@ -98,7 +98,7 @@ else:
 
 _check_v = {
     "bionty": "0.6.1",
-    "wetlab": "0.10.1",
+    "wetlab": "0.10.2",
     "bfx": "0.7.0",
 }
 
