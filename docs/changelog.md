@@ -3,12 +3,13 @@
 <!-- prettier-ignore -->
 Name | PR | Developer | Date | Version
 --- | --- | --- | --- | ---
-⬆️ Upgrade wetlab schema | [381](https://github.com/laminlabs/lamindb/pull/381) | [sunnyosun](https://github.com/sunnyosun) | 2022-11-28 | 0.18.4
+✨ Improve lazy selectors | [375](https://github.com/laminlabs/lamindb/pull/375) | [Koncopd](https://github.com/Koncopd) | 2022-11-28 |
+⬆️ Update wetlab schema | [381](https://github.com/laminlabs/lamindb/pull/381) | [sunnyosun](https://github.com/sunnyosun) | 2022-11-28 | 0.18.4
 ⬆️ Upgrade wetlab schema | [380](https://github.com/laminlabs/lamindb/pull/380) | [sunnyosun](https://github.com/sunnyosun) | 2022-11-28 | 0.18.3
 ⬆️ Upgrade `lndb-setup` & `lnschema-core` | [379](https://github.com/laminlabs/lamindb/pull/379) | [fredericenard](https://github.com/fredericenard) | 2022-11-28 | 0.18.2
 ⬆️ Upgrade lndb-setup to 0.18.1 | [378](https://github.com/laminlabs/lamindb/pull/378) | [falexwolf](https://github.com/falexwolf) | 2022-11-25 |
 🔥 Removed bioreadout | [373](https://github.com/laminlabs/lamindb/pull/373) | [sunnyosun](https://github.com/sunnyosun) | 2022-11-24 | 0.18.1
-:sparkles: Add lazy selectors to `ln.subset` | [370](https://github.com/laminlabs/lamindb/pull/370) | [Koncopd](https://github.com/Koncopd) | 2022-11-23 |
+✨ Add lazy selectors to `ln.subset` | [370](https://github.com/laminlabs/lamindb/pull/370) | [Koncopd](https://github.com/Koncopd) | 2022-11-23 |
 🏗️ Persist the session | [372](https://github.com/laminlabs/lamindb/pull/372) | [falexwolf](https://github.com/falexwolf) | 2022-11-23 |
 ⬆️ Upgrade lndb-setup | [371](https://github.com/laminlabs/lamindb/pull/371) | [fredericenard](https://github.com/fredericenard) | 2022-11-23 |
 ✨ Add subset function for dobjects | [368](https://github.com/laminlabs/lamindb/pull/368) | [Koncopd](https://github.com/Koncopd) | 2022-11-23 | 0.18.0
