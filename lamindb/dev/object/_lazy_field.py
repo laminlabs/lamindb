@@ -113,8 +113,8 @@ class LazyProperty(CatchAccess, metaclass=MetaCatchOperators):
 class LazyNumpyFunc(CatchAccess, metaclass=MetaCatchOperators):
     def __init__(self, func, args, kwargs):
         self._func = func
-        self._args
-        self._kwargs
+        self._args = args
+        self._kwargs = kwargs
 
     def evaluate(self, **kwargs):
         args_eval = []
