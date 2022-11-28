@@ -21,6 +21,8 @@ UNARY_OPS = ["__abs__", "__neg__", "__invert__"]
 
 
 class MetaCatchOperators(type):
+    """Catch operators and return `LazyOperator`."""
+
     def __new__(meta, name, bases, dct):
         cls_obj = super().__new__(meta, name, bases, dct)
 
@@ -48,13 +50,17 @@ class MetaCatchOperators(type):
         return cls_obj
 
 
-class CatchProperties:
+class CatchAccess:
     def __getattr__(self, prop):
-        """Catch property and return `LazyProperty`."""
+        """Catch a property and return `LazyProperty`."""
         return LazyProperty(self, prop)
 
+    def __array_function__(self, func, types, args, kwargs):
+        """Catch a numpy function and return `LazyNumpyFunc`."""
+        return LazyNumpyFunc(func, args, kwargs)
 
-class LazyOperator(CatchProperties, metaclass=MetaCatchOperators):
+
+class LazyOperator(CatchAccess, metaclass=MetaCatchOperators):
     def __init__(self, left, right, op):
         self._left = left
         self._right = right
@@ -75,7 +81,7 @@ class LazyOperator(CatchProperties, metaclass=MetaCatchOperators):
             return self._op(_left_eval, _right_eval)
 
 
-class LazyProperty(CatchProperties, metaclass=MetaCatchOperators):
+class LazyProperty(CatchAccess, metaclass=MetaCatchOperators):
     def __init__(self, obj, name):
         self._name = name
         self._obj = obj
@@ -104,7 +110,29 @@ class LazyProperty(CatchProperties, metaclass=MetaCatchOperators):
         return self
 
 
-class LazyField(CatchProperties, metaclass=MetaCatchOperators):
+class LazyNumpyFunc(CatchAccess, metaclass=MetaCatchOperators):
+    def __init__(self, func, args, kwargs):
+        self._func = func
+        self._args = args
+        self._kwargs = kwargs
+
+    def evaluate(self, **kwargs):
+        args_eval = []
+        for arg in self._args:
+            if hasattr(arg, "evaluate"):
+                arg = arg.evaluate(**kwargs)
+            args_eval.append(arg)
+
+        kwargs_eval = {}
+        for key, val in self._kwargs.items():
+            if hasattr(val, "evaluate"):
+                val = val.evaluate(**kwargs)
+            kwargs_eval[key] = val
+
+        return self._func(*args_eval, **kwargs_eval)
+
+
+class LazyField(CatchAccess, metaclass=MetaCatchOperators):
     def __init__(self, name, as_attr=True):
         self.name = name
         self._as_attr = as_attr
@@ -127,4 +155,4 @@ class Lazy:
 
 
 lazy = Lazy()
-LazySelector = Union[LazyOperator, LazyProperty]
+LazySelector = Union[LazyOperator, LazyProperty, LazyNumpyFunc]
