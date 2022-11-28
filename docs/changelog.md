@@ -3,6 +3,7 @@
 <!-- prettier-ignore -->
 Name | PR | Developer | Date | Version
 --- | --- | --- | --- | ---
+:sparkles: Improve lazy selectors | [375](https://github.com/laminlabs/lamindb/pull/375) | [Koncopd](https://github.com/Koncopd) | 2022-11-28 |
 ⬆️ Update wetlab schema | [381](https://github.com/laminlabs/lamindb/pull/381) | [sunnyosun](https://github.com/sunnyosun) | 2022-11-28 | 0.18.4
 ⬆️ Upgrade wetlab schema | [380](https://github.com/laminlabs/lamindb/pull/380) | [sunnyosun](https://github.com/sunnyosun) | 2022-11-28 | 0.18.3
 ⬆️ Upgrade `lndb-setup` & `lnschema-core` | [379](https://github.com/laminlabs/lamindb/pull/379) | [fredericenard](https://github.com/fredericenard) | 2022-11-28 | 0.18.2
