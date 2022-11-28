@@ -10,7 +10,7 @@ def test_dynamic_settings():
 
     settings_store = InstanceSettingsStore(
         storage_root=str(settings.instance.storage_root),
-        storage_region=settings.instance.storage_region,
+        storage_region=str(settings.instance.storage_region),
         schema_modules=settings.instance.schema_modules,
         dbconfig=settings.instance._dbconfig,
     )
