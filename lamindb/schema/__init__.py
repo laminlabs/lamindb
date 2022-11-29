@@ -107,7 +107,7 @@ for name in _modules:
     if name in _check_v:
         if _v.parse(_module.__version__) != _v.parse(_check_v[name]):
             raise RuntimeError(f"lamindb needs lnschema_{name}=={_check_v[name]}")
-    globals()[name] = _module
+    globals()[_module._name] = _module
 
 from ._core import list_tables, view
 
