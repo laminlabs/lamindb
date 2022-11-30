@@ -11,7 +11,7 @@ from ._select import select
 
 
 @overload
-def add(record: sqm.SQLModel, **kwargs) -> sqm.SQLModel:
+def add(record: sqm.SQLModel, use_fsspec: bool = True) -> sqm.SQLModel:
     ...
 
 
@@ -19,17 +19,21 @@ def add(record: sqm.SQLModel, **kwargs) -> sqm.SQLModel:
 # Overloaded function signature 2 will never be matched: signature 1's parameter
 # type(s) are the same or broader
 @overload
-def add(records: List[sqm.SQLModel], **kwargs) -> List[sqm.SQLModel]:  # type: ignore
+def add(  # type: ignore
+    records: List[sqm.SQLModel], use_fsspec: bool = True
+) -> List[sqm.SQLModel]:
     ...
 
 
 @overload
-def add(entity: sqm.SQLModel, **kwargs) -> List[sqm.SQLModel]:  # type: ignore
+def add(  # type: ignore
+    entity: sqm.SQLModel, use_fsspec: bool = True, **kwargs
+) -> List[sqm.SQLModel]:
     ...
 
 
 def add(  # type: ignore  # no support of different naming of args across overloads
-    record: Union[sqm.SQLModel, List[sqm.SQLModel]], **kwargs
+    record: Union[sqm.SQLModel, List[sqm.SQLModel]], use_fsspec: bool = True, **kwargs
 ) -> Union[sqm.SQLModel, List[sqm.SQLModel]]:
     """Insert or update data records in the DB ("metadata" entities).
 
@@ -54,6 +58,7 @@ def add(  # type: ignore  # no support of different naming of args across overlo
 
     Args:
         record: One or multiple records as instances of `SQLModel`.
+        use_fsspec: Whether to use fsspec.
     """
     if isinstance(record, list):
         records = record
@@ -70,7 +75,7 @@ def add(  # type: ignore  # no support of different naming of args across overlo
             records = [model(**kwargs)]
     for record in records:
         if isinstance(record, DObject) and hasattr(record, "_local_filepath"):
-            upload_data_object(record, **kwargs)
+            upload_data_object(record, use_fsspec=use_fsspec)
     session = settings.instance.session()
     for record in records:
         session.add(record)
