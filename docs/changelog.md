@@ -3,6 +3,7 @@
 <!-- prettier-ignore -->
 Name | PR | Developer | Date | Version
 --- | --- | --- | --- | ---
+✨ Check duplication before inserting records | [387](https://github.com/laminlabs/lamindb/pull/387) | [sunnyosun](https://github.com/sunnyosun) | 2022-11-30 |
 🚸 Do not autoflush upon select | [386](https://github.com/laminlabs/lamindb/pull/386) | [falexwolf](https://github.com/falexwolf) | 2022-11-30 | 0.18.7
 🐛 Fix bug in schema module name lookup | [384](https://github.com/laminlabs/lamindb/pull/384) | [falexwolf](https://github.com/falexwolf) | 2022-11-29 |
 ⬆️ Updated wetlab | [383](https://github.com/laminlabs/lamindb/pull/383) | [sunnyosun](https://github.com/sunnyosun) | 2022-11-29 | 0.18.6
