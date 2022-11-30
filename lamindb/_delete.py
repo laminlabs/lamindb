@@ -21,12 +21,12 @@ def delete(records: List[sqm.SQLModel]) -> None:  # type: ignore
 
 
 @overload
-def delete(entity: sqm.SQLModel, **kwargs) -> None:  # type: ignore
+def delete(entity: sqm.SQLModel, **fields) -> None:  # type: ignore
     ...
 
 
 def delete(  # type: ignore
-    record: Union[sqm.SQLModel, List[sqm.SQLModel]], **kwargs
+    record: Union[sqm.SQLModel, List[sqm.SQLModel]], **fields
 ) -> None:
     """Delete data records & data objects.
 
@@ -52,7 +52,7 @@ def delete(  # type: ignore
         records = [record]
     else:
         model = record
-        results = select(model, **kwargs).all()
+        results = select(model, **fields).all()
         if len(results) == 0:
             return None
         records = results

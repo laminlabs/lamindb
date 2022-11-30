@@ -27,13 +27,13 @@ def add(  # type: ignore
 
 @overload
 def add(  # type: ignore
-    entity: sqm.SQLModel, use_fsspec: bool = True, **kwargs
-) -> List[sqm.SQLModel]:
+    entity: sqm.SQLModel, use_fsspec: bool = True, **fields
+) -> Union[sqm.SQLModel, List[sqm.SQLModel]]:
     ...
 
 
 def add(  # type: ignore  # no support of different naming of args across overloads
-    record: Union[sqm.SQLModel, List[sqm.SQLModel]], use_fsspec: bool = True, **kwargs
+    record: Union[sqm.SQLModel, List[sqm.SQLModel]], use_fsspec: bool = True, **fields
 ) -> Union[sqm.SQLModel, List[sqm.SQLModel]]:
     """Insert or update data records in the DB ("metadata" entities).
 
@@ -66,13 +66,13 @@ def add(  # type: ignore  # no support of different naming of args across overlo
         records = [record]
     else:
         model = record
-        results = select(model, **kwargs).all()
+        results = select(model, **fields).all()
         if len(results) == 1:
             return results[0]
         elif len(results) > 1:
             return results
         else:
-            records = [model(**kwargs)]
+            records = [model(**fields)]
     for record in records:
         if isinstance(record, DObject) and hasattr(record, "_local_filepath"):
             upload_data_object(record, use_fsspec=use_fsspec)
