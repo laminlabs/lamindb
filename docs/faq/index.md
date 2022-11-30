@@ -5,7 +5,7 @@
 
 setup
 nb
-sql-api
+select
 storage
 ingest-same-file-twice
 linked-select
