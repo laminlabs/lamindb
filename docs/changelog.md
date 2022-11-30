@@ -3,6 +3,7 @@
 <!-- prettier-ignore -->
 Name | PR | Developer | Date | Version
 --- | --- | --- | --- | ---
+🚸 Do not autoflush upon select | [386](https://github.com/laminlabs/lamindb/pull/386) | [falexwolf](https://github.com/falexwolf) | 2022-11-30 |
 :bug: Fix bug in schema module name lookup | [384](https://github.com/laminlabs/lamindb/pull/384) | [falexwolf](https://github.com/falexwolf) | 2022-11-29 |
 ⬆️ Updated wetlab | [383](https://github.com/laminlabs/lamindb/pull/383) | [sunnyosun](https://github.com/sunnyosun) | 2022-11-29 | 0.18.6
 ⬆️ Upgrade `lnschema-core` and `lndb-setup` | [382](https://github.com/laminlabs/lamindb/pull/382) | [falexwolf](https://github.com/falexwolf) | 2022-11-28 | 0.18.5
