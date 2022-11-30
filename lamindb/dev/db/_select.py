@@ -113,7 +113,8 @@ class ExecStmt:
                 )
             else:
                 session = settings.instance.session()
-            self._result = session.exec(self._stmt).all()
+            with session.no_autoflush:
+                self._result = session.exec(self._stmt).all()
             if settings.instance._session is None:
                 session.close()
 
