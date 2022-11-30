@@ -34,13 +34,13 @@ def delete(  # type: ignore
 
     Example:
 
-    >>> # Delete metadata records
+    >>> # Delete by record
     >>> experiment = ln.select(Experiment, id=experiment_id)
     >>> ln.delete(experiment)
     >>> # Delete data objects
     >>> dobject = ln.select(DObject, id=dobject_id)
     >>> ln.delete(dobject)
-    >>> # Delete without selecting a record
+    >>> # Delete by fields
     >>> ln.delete(DObject, id=dobject_id)
 
     Args:
