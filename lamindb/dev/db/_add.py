@@ -47,13 +47,13 @@ def add(  # type: ignore  # no support of different naming of args across overlo
 
     Example:
 
-    >>> # insert a new record
+    >>> # add a record (by passing a record)
     >>> ln.add(wetlab.Experiment(name="My test", biometa_id=test_id))
     >>> # update an existing record
     >>> experiment = ln.select(wetlab.Experiment, id=experiment_id).one()
     >>> experiment.name = "New name"
     >>> ln.add(experiment)
-    >>> # check existence before inserting a new record
+    >>> # add a record by fields if not yet exists
     >>> ln.add(wetlab.Experiment, name="My test", biometa_id=test_id)
 
     Args:
