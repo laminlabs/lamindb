@@ -7,6 +7,7 @@ from lnschema_core import DObject
 
 from ..file import store_file, write_adata_zarr
 from ..file._file import print_hook
+from ._select import select
 
 
 @overload
@@ -19,6 +20,11 @@ def add(record: sqm.SQLModel, **kwargs) -> sqm.SQLModel:
 # type(s) are the same or broader
 @overload
 def add(records: List[sqm.SQLModel], **kwargs) -> List[sqm.SQLModel]:  # type: ignore
+    ...
+
+
+@overload
+def add(entity: sqm.SQLModel, **kwargs) -> List[sqm.SQLModel]:  # type: ignore
     ...
 
 
@@ -38,19 +44,30 @@ def add(  # type: ignore  # no support of different naming of args across overlo
     Example:
 
     >>> # insert a new record
-    >>> db.add(wetlab.experiment(name="My test", biometa_id=test_id))
+    >>> ln.add(wetlab.Experiment(name="My test", biometa_id=test_id))
     >>> # update an existing record
-    >>> experiment = ln.select(wetlab.experiment, id=experiment_id).one()
+    >>> experiment = ln.select(wetlab.Experiment, id=experiment_id).one()
     >>> experiment.name = "New name"
-    >>> db.add(experiment)
+    >>> ln.add(experiment)
+    >>> # check existence before inserting a new record
+    >>> ln.add(wetlab.Experiment, name="My test", biometa_id=test_id)
 
     Args:
         record: One or multiple records as instances of `SQLModel`.
     """
     if isinstance(record, list):
         records = record
-    else:
+    elif isinstance(record, sqm.SQLModel):
         records = [record]
+    else:
+        model = record
+        results = select(model, **kwargs).all()
+        if len(results) == 1:
+            return results[0]
+        elif len(results) > 1:
+            return results
+        else:
+            record = [model(**kwargs)]
     for record in records:
         if isinstance(record, DObject) and hasattr(record, "_local_filepath"):
             upload_data_object(record, **kwargs)
