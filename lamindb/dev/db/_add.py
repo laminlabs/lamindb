@@ -67,7 +67,7 @@ def add(  # type: ignore  # no support of different naming of args across overlo
         elif len(results) > 1:
             return results
         else:
-            record = [model(**kwargs)]
+            records = [model(**kwargs)]
     for record in records:
         if isinstance(record, DObject) and hasattr(record, "_local_filepath"):
             upload_data_object(record, **kwargs)
