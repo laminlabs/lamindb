@@ -4,7 +4,6 @@ from pathlib import Path
 from typing import Any, List, Optional, Set, Tuple, Union
 
 import anndata as ad
-import bcoding
 import lnschema_bionty as bionty
 import pandas as pd
 from lamin_logger import logger
@@ -48,9 +47,9 @@ def get_hash(local_filepath, suffix):
         hash = hash_file(local_filepath)
         result = select(DObject, hash=hash).one_or_none()
         if result is not None:
-            raise RuntimeError(
-                "Based on the MD5 hash, the exact same data object is already"
-                f" in the database: {result}"
+            logger.warning(
+                "Based on the MD5 hash, the same data object is already"
+                f" in the DB: {result}"
             )
     else:
         hash = None
@@ -231,14 +230,11 @@ def to_b64_str(bstr: bytes):
     return b64
 
 
-# a lot to read about this
-# lamin-notes/2022/hashing
-# redun
-# bcoding
-# bencode
-# etc.
-def hash_set(s: Set) -> str:
-    return to_b64_str(hashlib.sha512(bcoding.bencode(s)).digest())[:20]
+# a lot to read about this: lamin-notes/2022/hashing
+def hash_set(s: Set[str]) -> str:
+    bstr = ":".join(sorted(s)).encode("utf-8")
+    # as we're truncating at 20 b64, we choose md5 over sha512
+    return to_b64_str(hashlib.md5(bstr).digest())[:20]
 
 
 def hash_file(path: Path) -> str:
