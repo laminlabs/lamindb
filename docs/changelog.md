@@ -3,7 +3,7 @@
 <!-- prettier-ignore -->
 Name | PR | Developer | Date | Version
 --- | --- | --- | --- | ---
-🐛 Fix view | [392](https://github.com/laminlabs/lamindb/pull/392) | [falexwolf](https://github.com/falexwolf) | 2022-12-05 |
+🐛 Fix view | [392](https://github.com/laminlabs/lamindb/pull/392) | [falexwolf](https://github.com/falexwolf) | 2022-12-05 | 0.19.1
 🎨 Enable inheriting wetlab schemas | [391](https://github.com/laminlabs/lamindb/pull/391) | [falexwolf](https://github.com/falexwolf) | 2022-12-05 | 0.19.0
 ✅ Better tests for features hashing | [390](https://github.com/laminlabs/lamindb/pull/390) | [falexwolf](https://github.com/falexwolf) | 2022-12-04 |
 ⬆️ Upgrade lndb-setup | [389](https://github.com/laminlabs/lamindb/pull/389) | [fredericenard](https://github.com/fredericenard) | 2022-12-04 | 0.18.9
