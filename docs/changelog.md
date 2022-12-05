@@ -3,9 +3,9 @@
 <!-- prettier-ignore -->
 Name | PR | Developer | Date | Version
 --- | --- | --- | --- | ---
-🎨 Enable inheriting wetlab schemas | [391](https://github.com/laminlabs/lamindb/pull/391) | [falexwolf](https://github.com/falexwolf) | 2022-12-05 |
+🎨 Enable inheriting wetlab schemas | [391](https://github.com/laminlabs/lamindb/pull/391) | [falexwolf](https://github.com/falexwolf) | 2022-12-05 | 0.19.0
 ✅ Better tests for features hashing | [390](https://github.com/laminlabs/lamindb/pull/390) | [falexwolf](https://github.com/falexwolf) | 2022-12-04 |
-Upgrade lndb-setup | [389](https://github.com/laminlabs/lamindb/pull/389) | [fredericenard](https://github.com/fredericenard) | 2022-12-04 | 0.18.9
+⬆️ Upgrade lndb-setup | [389](https://github.com/laminlabs/lamindb/pull/389) | [fredericenard](https://github.com/fredericenard) | 2022-12-04 | 0.18.9
 ✨ Check duplication before inserting records | [387](https://github.com/laminlabs/lamindb/pull/387) | [sunnyosun](https://github.com/sunnyosun) | 2022-11-30 | 0.18.8
 🚸 Do not autoflush upon select | [386](https://github.com/laminlabs/lamindb/pull/386) | [falexwolf](https://github.com/falexwolf) | 2022-11-30 | 0.18.7
 🐛 Fix bug in schema module name lookup | [384](https://github.com/laminlabs/lamindb/pull/384) | [falexwolf](https://github.com/falexwolf) | 2022-11-29 |
