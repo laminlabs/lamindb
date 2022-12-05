@@ -91,18 +91,13 @@ from lnschema_core import (
 )
 from packaging import version as _v
 
-if _settings.instance.schema_modules is not None:
-    _modules = _settings.instance.schema_modules.split(", ")
-else:
-    _modules = []
-
 _check_v = {
     "bionty": "0.6.1",
     "wetlab": "0.10.4",
     "bfx": "0.7.0",
 }
 
-for name in _modules:
+for name in _settings.instance.schema:
     _module = _importlib.import_module(_get_schema_module_name(name))
     if name in _check_v:
         if _v.parse(_module.__version__) != _v.parse(_check_v[name]):
