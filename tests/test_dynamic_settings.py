@@ -11,8 +11,8 @@ def test_dynamic_settings():
     settings_store = InstanceSettingsStore(
         storage_root=str(settings.instance.storage_root),
         storage_region=str(settings.instance.storage_region),
-        schema_modules=settings.instance.schema_modules,
-        dbconfig=settings.instance._dbconfig,
+        schema_=settings.instance._schema,
+        dbconfig_=settings.instance._dbconfig,
     )
 
     pipeline = ln.add(ln.schema.Pipeline(v="1", name="test-pipeline"))
