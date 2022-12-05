@@ -17,11 +17,10 @@ def view(n: int = 10, schema: Optional[str] = None):
         schema: Schema module to view. Default's to `None` and
             displays all schema modules.
     """
-    schema_names = [schema] if schema is not None else None
-    if schema_names is None:
-        schema_names = ["core"]
-        if settings.instance.schema_modules is not None:
-            schema_names += settings.instance.schema_modules.split(", ")
+    if schema is not None:
+        schema_names = [schema]
+    else:
+        schema_names = ["core"] + list(settings.instance.schema)
 
     for schema_name in schema_names:
         schema_module = importlib.import_module(get_schema_module_name(schema_name))
