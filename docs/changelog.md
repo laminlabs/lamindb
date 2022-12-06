@@ -3,6 +3,7 @@
 <!-- prettier-ignore -->
 Name | PR | Developer | Date | Version
 --- | --- | --- | --- | ---
+:arrow_up: Upgrade wetlab | [395](https://github.com/laminlabs/lamindb/pull/395) | [bpenteado](https://github.com/bpenteado) | 2022-12-06 |
 :arrow_up: Upgrade wetlab to `0.11.4` | [394](https://github.com/laminlabs/lamindb/pull/394) | [bpenteado](https://github.com/bpenteado) | 2022-12-06 | 0.19.3
 ⬆️ Upgrade wetlab | [393](https://github.com/laminlabs/lamindb/pull/393) | [sunnyosun](https://github.com/sunnyosun) | 2022-12-06 | 0.19.2
 🐛 Fix view | [392](https://github.com/laminlabs/lamindb/pull/392) | [falexwolf](https://github.com/falexwolf) | 2022-12-05 | 0.19.1
