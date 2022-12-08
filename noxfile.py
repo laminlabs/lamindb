@@ -18,8 +18,8 @@ def lint(session: nox.Session) -> None:
 def build(session):
     login_testuser1(session)
     login_user_2 = "lndb login testuser2@lamin.ai --password goeoNJKE61ygbz1vhaCVynGERaRrlviPBVQsjkhz"  # noqa
-    session.run(*(login_user_2.split(" ")))
+    session.run(*(login_user_2.split(" ")), external=True)
     test_db = "lndb init --storage mydata-test-db"
-    session.run(*test_db.split(" "))
+    session.run(*test_db.split(" "), external=True)
     install_and_run_pytest(session)
     build_docs(session)
