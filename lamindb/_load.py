@@ -9,10 +9,10 @@ from .dev.file import load_to_memory
 
 def populate_runin(dobject: core.DObject, run: core.Run):
     session = settings.instance.session()
-    result = session.get(core.RunIn, (run.id, dobject.id))
+    result = session.get(core.link.RunIn, (run.id, dobject.id))
     if result is None:
         session.add(
-            core.RunIn(
+            core.link.RunIn(
                 run_id=run.id,
                 dobject_id=dobject.id,
             )

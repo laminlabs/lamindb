@@ -36,7 +36,7 @@ jobs:
       - name: Cache
         uses: actions/cache@v3
         env:
-          cache-name: cache-all
+          cache-name: cache-0
         with:
           path: |
             .nox
@@ -45,7 +45,7 @@ jobs:
       - name: Install pip, nox, graphviz, postgress
         run: |
           python -m pip install --upgrade pip
-          pip install nox
+          pip install nox lndb_setup
           sudo apt-get -y install graphviz
           sudo apt-get install libpq-dev
       - name: Lint

@@ -3,9 +3,9 @@
 <!-- prettier-ignore -->
 Name | PR | Developer | Date | Version
 --- | --- | --- | --- | ---
-:fire: Drop all logic related to dynamic settings | [397](https://github.com/laminlabs/lamindb/pull/397) | [fredericenard](https://github.com/fredericenard) | 2022-12-08 |
-:arrow_up: Upgrade wetlab | [395](https://github.com/laminlabs/lamindb/pull/395) | [bpenteado](https://github.com/bpenteado) | 2022-12-06 | 0.19.4
-:arrow_up: Upgrade wetlab to `0.11.4` | [394](https://github.com/laminlabs/lamindb/pull/394) | [bpenteado](https://github.com/bpenteado) | 2022-12-06 | 0.19.3
+🔥 Drop all logic related to dynamic settings | [397](https://github.com/laminlabs/lamindb/pull/397) | [fredericenard](https://github.com/fredericenard) | 2022-12-08 |
+⬆️ Upgrade wetlab | [395](https://github.com/laminlabs/lamindb/pull/395) | [bpenteado](https://github.com/bpenteado) | 2022-12-06 | 0.19.4
+⬆️ Upgrade wetlab | [394](https://github.com/laminlabs/lamindb/pull/394) | [bpenteado](https://github.com/bpenteado) | 2022-12-06 | 0.19.3
 ⬆️ Upgrade wetlab | [393](https://github.com/laminlabs/lamindb/pull/393) | [sunnyosun](https://github.com/sunnyosun) | 2022-12-06 | 0.19.2
 🐛 Fix view | [392](https://github.com/laminlabs/lamindb/pull/392) | [falexwolf](https://github.com/falexwolf) | 2022-12-05 | 0.19.1
 🎨 Enable inheriting wetlab schemas | [391](https://github.com/laminlabs/lamindb/pull/391) | [falexwolf](https://github.com/falexwolf) | 2022-12-05 | 0.19.0

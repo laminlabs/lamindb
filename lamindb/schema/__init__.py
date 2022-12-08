@@ -26,15 +26,14 @@ Runs transform data using code:
    :toctree: .
 
    Pipeline
-   Jupynb
+   Notebook
 
-Grouping data objects as sets or run inputs or by features:
+Grouping data objects as sets or by features:
 
 .. autosummary::
    :toctree: .
 
    DSet
-   RunIn
    Features
 
 Users, projects, storage locations, and usage:
@@ -76,14 +75,11 @@ from lndb_setup._setup_schema import get_schema_module_name as _get_schema_modul
 from lnschema_core import (
     DObject,
     DSet,
-    DSetDObject,
     Features,
-    Jupynb,
+    Notebook,
     Pipeline,
     Project,
-    ProjectDSet,
     Run,
-    RunIn,
     Storage,
     Usage,
     User,
@@ -92,8 +88,8 @@ from lnschema_core import (
 from packaging import version as _v
 
 _check_v = {
-    "bionty": "0.6.1",
-    "wetlab": "0.11.5",
+    "bionty": "0.6.2",
+    "wetlab": "0.12.1",
     "bfx": "0.7.0",
 }
 

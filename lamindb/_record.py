@@ -183,7 +183,7 @@ def record(
     *,
     name: Optional[str] = None,
     features_ref: Optional[Union[CellMarker, Gene, Protein]] = None,
-    run: Optional[Run] = None,
+    source: Optional[Run] = None,
     id: Optional[str] = None,
     format: Optional[str] = None,
 ) -> DObject:
@@ -195,11 +195,11 @@ def record(
         data: Filepath or in-memory data.
         name: Name of the data object, required if an in-memory object is passed.
         features_ref: Reference against which to link features.
-        run: The data transform that links to the data source of the data object.
+        source: The data transform that links to the data source of the data object.
         id: The id of the dobject.
         format: Whether to use `h5ad` or `zarr` to store an `AnnData` object.
     """
-    run = get_run(run)
+    run = get_run(source)
     memory_rep, local_filepath, name, suffix = serialize(data, name, format)
     if suffix != ".zarr":
         size = Path(local_filepath).stat().st_size
@@ -214,7 +214,7 @@ def record(
         run_id=run.id,
         size=size,
         storage_id=storage.id,
-        run=run,
+        source=run,
     )
     if id is not None:  # cannot pass it into constructor due to default factory
         dobject.id = id

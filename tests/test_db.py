@@ -15,9 +15,9 @@ def test_create_to_load():
     # create unnecessary tables
     import lamindb as ln
 
-    jupynb = ln.schema.Jupynb(id="83jf", v="1", name="test")
-    ln.add(jupynb)
-    run = ln.schema.Run(jupynb_id=jupynb.id, jupynb_v=jupynb)
+    notebook = ln.schema.Notebook(id="83jf", v="1", name="test")
+    ln.add(notebook)
+    run = ln.schema.Run(notebook_id=notebook.id, notebook_v=notebook)
     ln.add(run)
     ln.select(ln.schema.Storage, root=str(ln.settings.instance.storage_root)).one()
 
@@ -30,7 +30,7 @@ def test_create_to_load():
     # Hence, we need to also clean that out:
     from lndb_setup._settings_store import current_instance_settings_file
 
-    current_instance_settings_file.unlink()
+    current_instance_settings_file().unlink()
 
 
 if __name__ == "__main__":

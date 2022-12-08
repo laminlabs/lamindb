@@ -28,7 +28,7 @@ def view(n: int = 10, schema: Optional[str] = None):
         tables = [
             i
             for i in schema_module.__dict__.values()
-            if i.__class__.__name__ == "SQLModelMetaclass"
+            if i.__class__.__name__ == "SQLModelMetaclass" and hasattr(i, "__table__")
         ]
         section = f"* module: {colors.green(colors.bold(schema_name))} *"
         section_no_color = f"* module: {schema_name} *"
