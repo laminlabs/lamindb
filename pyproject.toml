@@ -53,7 +53,7 @@ test = [
     "scanpy",
     "scikit-learn>=1.1.1",
     "nbproject_test>=0.3.0",
-    "psycopg2",
+    "psycopg2-binary",
 ]
 
 [tool.black]

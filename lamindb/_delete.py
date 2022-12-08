@@ -2,7 +2,8 @@ from typing import List, Union, overload  # noqa
 
 import sqlmodel as sqm
 from lndb_setup import settings
-from lnschema_core import DObject, RunIn, Usage
+from lnschema_core import DObject, Usage
+from lnschema_core.link import RunIn
 
 from ._logger import colors, logger
 from .dev._core import storage_key_from_dobject
