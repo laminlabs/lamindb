@@ -3,6 +3,7 @@
 <!-- prettier-ignore -->
 Name | PR | Developer | Date | Version
 --- | --- | --- | --- | ---
+:fire: Drop all logic related to dynamic settings | [397](https://github.com/laminlabs/lamindb/pull/397) | [fredericenard](https://github.com/fredericenard) | 2022-12-08 |
 :arrow_up: Upgrade wetlab | [395](https://github.com/laminlabs/lamindb/pull/395) | [bpenteado](https://github.com/bpenteado) | 2022-12-06 | 0.19.4
 :arrow_up: Upgrade wetlab to `0.11.4` | [394](https://github.com/laminlabs/lamindb/pull/394) | [bpenteado](https://github.com/bpenteado) | 2022-12-06 | 0.19.3
 ⬆️ Upgrade wetlab | [393](https://github.com/laminlabs/lamindb/pull/393) | [sunnyosun](https://github.com/sunnyosun) | 2022-12-06 | 0.19.2
