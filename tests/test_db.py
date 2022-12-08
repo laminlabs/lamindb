@@ -30,7 +30,7 @@ def test_create_to_load():
     # Hence, we need to also clean that out:
     from lndb_setup._settings_store import current_instance_settings_file
 
-    current_instance_settings_file.unlink()
+    current_instance_settings_file().unlink()
 
 
 if __name__ == "__main__":
