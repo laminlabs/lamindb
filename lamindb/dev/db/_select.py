@@ -1,7 +1,6 @@
 import pandas as pd
 import sqlmodel as sqm
 from lndb_setup import settings
-from lndb_setup._settings_store import InstanceSettingsStore
 from sqlalchemy.orm.exc import MultipleResultsFound, NoResultFound
 from sqlmodel.main import SQLModelMetaclass
 
@@ -17,21 +16,14 @@ def select(*entity: sqm.SQLModel, **fields) -> "SelectStmt":
         entity: Table, tables, or tables including column specification.
         fields: Fields and values passed as keyword arguments.
     """
-    # _settings_store is an internal, non-user facing variable
-    _settings_store = None
-    if len(fields) > 0:
-        for k, v in fields.items():
-            if isinstance(v, InstanceSettingsStore):
-                _settings_store = fields.pop(k)
-                break
     # continue with user-facing variables
     if len(entity) > 1 and len(fields) > 0:
         raise RuntimeError("Can only pass fields for a single entity.")
     elif len(fields) > 0:
         # was in `get` before, but there it leads to an inhomogeneous return type
         conditions = [getattr(entity[0], k) == v for k, v in fields.items()]
-        return SelectStmt(*entity, _settings_store=_settings_store).where(*conditions)
-    return SelectStmt(*entity, _settings_store=_settings_store)
+        return SelectStmt(*entity).where(*conditions)
+    return SelectStmt(*entity)
 
 
 def to_df(*entities, result):
@@ -97,22 +89,15 @@ def to_df(*entities, result):
 class ExecStmt:
     """Executable statement."""
 
-    def __init__(self, *, tables, stmt, _settings_store: InstanceSettingsStore = None):
+    def __init__(self, *, tables, stmt):
         self._stmt = stmt
         self._tables = tables
-        self._settings_store = _settings_store
         self._result = None
 
     def _execute(self):
         # cache the query result for the lifetime of the object
         if self._result is None:
-            if self._settings_store is not None:
-                session = sqm.Session(
-                    settings._instance(self._settings_store).db_engine(),
-                    expire_on_commit=False,
-                )
-            else:
-                session = settings.instance.session()
+            session = settings.instance.session()
             with session.no_autoflush:
                 self._result = session.exec(self._stmt).all()
             if settings.instance._session is None:
@@ -169,14 +154,11 @@ class SelectStmt(ExecStmt):
     `one`, `one_or_none` through the base class `ExecStmt`.
     """
 
-    def __init__(
-        self, *tables, stmt=None, _settings_store: InstanceSettingsStore = None
-    ) -> None:
+    def __init__(self, *tables, stmt=None) -> None:
         self._tables = tables
-        self._settings_store = _settings_store
         if stmt is None:
             stmt = sqm.select(*tables)
-        super().__init__(tables=tables, stmt=stmt, _settings_store=_settings_store)
+        super().__init__(tables=tables, stmt=stmt)
 
     def where(self, *conditions):
         """Pass one or multiple conditions.
@@ -185,11 +167,7 @@ class SelectStmt(ExecStmt):
 
         If OR is desired, use `sqlmodel.or_`.
         """
-        return SelectStmt(
-            *self._tables,
-            stmt=self._stmt.where(*conditions),
-            _settings_store=self._settings_store
-        )
+        return SelectStmt(*self._tables, stmt=self._stmt.where(*conditions))
 
     def join(self, *expression, **fields):
         """Pass a target table as an expression."""
@@ -199,30 +177,16 @@ class SelectStmt(ExecStmt):
             stmt = stmt.where(*conditions)
         elif len(fields) > 0 and len(expression) > 1:
             raise RuntimeError("Can only pass fields for a single entity.")
-        return SelectStmt(
-            *self._tables, stmt=stmt, _settings_store=self._settings_store
-        )
+        return SelectStmt(*self._tables, stmt=stmt)
 
     def order_by(self, expression):
         """Pass a field."""
-        return SelectStmt(
-            *self._tables,
-            stmt=self._stmt.order_by(expression),
-            _settings_store=self._settings_store
-        )
+        return SelectStmt(*self._tables, stmt=self._stmt.order_by(expression))
 
     def offset(self, n):
         """Pass an integer."""
-        return SelectStmt(
-            *self._tables,
-            stmt=self._stmt.offset(n),
-            _settings_store=self._settings_store
-        )
+        return SelectStmt(*self._tables, stmt=self._stmt.offset(n))
 
     def limit(self, n):
         """Pass an integer."""
-        return SelectStmt(
-            *self._tables,
-            stmt=self._stmt.limit(n),
-            _settings_store=self._settings_store
-        )
+        return SelectStmt(*self._tables, stmt=self._stmt.limit(n))
