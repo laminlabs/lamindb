@@ -28,13 +28,12 @@ Runs transform data using code:
    Pipeline
    Notebook
 
-Grouping data objects as sets or run inputs or by features:
+Grouping data objects as sets or by features:
 
 .. autosummary::
    :toctree: .
 
    DSet
-   RunIn
    Features
 
 Users, projects, storage locations, and usage:
