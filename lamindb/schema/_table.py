@@ -20,6 +20,8 @@ class table_meta:
         for table in alltables_pkg + dev_tables:
             if table.__class__.__name__ != "SQLModelMetaclass":
                 continue
+            if not hasattr(table, "__table__"):
+                continue
             orm_to_model[table.__name__] = table
             tablename_to_orm[table.__table__.name] = table.__name__
             orm_to_tablename[table.__name__] = table.__table__.name
