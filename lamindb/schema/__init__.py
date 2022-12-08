@@ -67,6 +67,7 @@ Helper tools
    view
    list_tables
    dev
+   link
 
 """
 import importlib as _importlib
@@ -76,18 +77,16 @@ from lndb_setup._setup_schema import get_schema_module_name as _get_schema_modul
 from lnschema_core import (
     DObject,
     DSet,
-    DSetDObject,
     Features,
     Notebook,
     Pipeline,
     Project,
-    ProjectDSet,
     Run,
-    RunIn,
     Storage,
     Usage,
     User,
     dev,
+    link,
 )
 from packaging import version as _v
 
