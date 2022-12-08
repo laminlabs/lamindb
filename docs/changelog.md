@@ -3,9 +3,9 @@
 <!-- prettier-ignore -->
 Name | PR | Developer | Date | Version
 --- | --- | --- | --- | ---
-:fire: Drop all logic related to dynamic settings | [397](https://github.com/laminlabs/lamindb/pull/397) | [fredericenard](https://github.com/fredericenard) | 2022-12-08 |
-:arrow_up: Upgrade wetlab | [395](https://github.com/laminlabs/lamindb/pull/395) | [bpenteado](https://github.com/bpenteado) | 2022-12-06 | 0.19.4
-:arrow_up: Upgrade wetlab to `0.11.4` | [394](https://github.com/laminlabs/lamindb/pull/394) | [bpenteado](https://github.com/bpenteado) | 2022-12-06 | 0.19.3
+🔥 Drop all logic related to dynamic settings | [397](https://github.com/laminlabs/lamindb/pull/397) | [fredericenard](https://github.com/fredericenard) | 2022-12-08 |
+⬆️ Upgrade wetlab | [395](https://github.com/laminlabs/lamindb/pull/395) | [bpenteado](https://github.com/bpenteado) | 2022-12-06 | 0.19.4
+⬆️ Upgrade wetlab | [394](https://github.com/laminlabs/lamindb/pull/394) | [bpenteado](https://github.com/bpenteado) | 2022-12-06 | 0.19.3
 ⬆️ Upgrade wetlab | [393](https://github.com/laminlabs/lamindb/pull/393) | [sunnyosun](https://github.com/sunnyosun) | 2022-12-06 | 0.19.2
 🐛 Fix view | [392](https://github.com/laminlabs/lamindb/pull/392) | [falexwolf](https://github.com/falexwolf) | 2022-12-05 | 0.19.1
 🎨 Enable inheriting wetlab schemas | [391](https://github.com/laminlabs/lamindb/pull/391) | [falexwolf](https://github.com/falexwolf) | 2022-12-05 | 0.19.0
@@ -41,7 +41,7 @@ Name | PR | Developer | Date | Version
 🐛 Fix data source | [354](https://github.com/laminlabs/lamindb/pull/354) | [falexwolf](https://github.com/falexwolf) | 2022-11-15 |
 🚚 Move storage key to core schema | [352](https://github.com/laminlabs/lamindb/pull/352) | [falexwolf](https://github.com/falexwolf) | 2022-11-14 | 0.15.0
 🐛 Fixed `species_id` in bio entity tables | [351](https://github.com/laminlabs/lamindb/pull/351) | [sunnyosun](https://github.com/sunnyosun) | 2022-11-14 |
-✨ Initialize `Notebook` `run` upon `nb.header()` | [350](https://github.com/laminlabs/lamindb/pull/350) | [falexwolf](https://github.com/falexwolf) | 2022-11-12 | 0.14.0
+✨ Initialize `Jupynb` `run` upon `nb.header()` | [350](https://github.com/laminlabs/lamindb/pull/350) | [falexwolf](https://github.com/falexwolf) | 2022-11-12 | 0.14.0
 🏗️ Aggregate `Run` and `DTransform` | [349](https://github.com/laminlabs/lamindb/pull/349) | [falexwolf](https://github.com/falexwolf) | 2022-11-12 |
 ⬆️ Updated bionty | [348](https://github.com/laminlabs/lamindb/pull/348) | [sunnyosun](https://github.com/sunnyosun) | 2022-11-11 |
 📝 Make notebook for `link_features` | [347](https://github.com/laminlabs/lamindb/pull/347) | [falexwolf](https://github.com/falexwolf) | 2022-11-11 | 0.13.0
@@ -153,7 +153,7 @@ Name | PR | Developer | Date | Version
 ♻️ Refactored insert | [211](https://github.com/laminlabs/lamindb/pull/211) | [sunnyosun](https://github.com/sunnyosun) | 2022-09-22 |
 ⬆️ Upgrade `lndb_setup` and `lnschema_bionty` | [212](https://github.com/laminlabs/lamindb/pull/212) | [falexwolf](https://github.com/falexwolf) | 2022-09-22 |
 ⬆️ Upgrade to core schema 0.7.2 | [208](https://github.com/laminlabs/lamindb/pull/208) | [falexwolf](https://github.com/falexwolf) | 2022-09-21 |
-🚑 `dtransform` is either `pipeline_run` or `notebook` | [207](https://github.com/laminlabs/lamindb/pull/207) | [sunnyosun](https://github.com/sunnyosun) | 2022-09-21 | 0.3.11
+🚑 `dtransform` is either `pipeline_run` or `jupynb` | [207](https://github.com/laminlabs/lamindb/pull/207) | [sunnyosun](https://github.com/sunnyosun) | 2022-09-21 | 0.3.11
 🐛 Fixed column mapping | [206](https://github.com/laminlabs/lamindb/pull/206) | [sunnyosun](https://github.com/sunnyosun) | 2022-09-19 | 0.3.10
 ✨ Allow batch insertion | [205](https://github.com/laminlabs/lamindb/pull/205) | [sunnyosun](https://github.com/sunnyosun) | 2022-09-19 |
 ♻️ Refactored linked queries | [204](https://github.com/laminlabs/lamindb/pull/204) | [sunnyosun](https://github.com/sunnyosun) | 2022-09-15 |
@@ -263,7 +263,7 @@ Update lndb_hub version | [176](https://github.com/laminlabs/lamindb/pull/176) |
 🚸 Offer manual way of completing a migration | [86](https://github.com/laminlabs/lamindb/pull/86) | [falexwolf](https://github.com/falexwolf) | 2022-07-22 |
 🏗️ Separate settings into user vs. instance and one file per instance | [83](https://github.com/laminlabs/lamindb/pull/83) | [fredericenard](https://github.com/fredericenard) | 2022-07-22 |
 🐛 Fix loading of multi-index and non-id tables | [85](https://github.com/laminlabs/lamindb/pull/85) | [falexwolf](https://github.com/falexwolf) | 2022-07-21 | 0.1.2
-🚚 Rename table `interface` to `notebook`: migrate to schema v0.1.1 | [84](https://github.com/laminlabs/lamindb/pull/84) | [falexwolf](https://github.com/falexwolf) | 2022-07-21 |
+🚚 Rename table `interface` to `jupynb`: migrate to schema v0.1.1 | [84](https://github.com/laminlabs/lamindb/pull/84) | [falexwolf](https://github.com/falexwolf) | 2022-07-21 |
 🚚 Move version check into correct __init__ | [82](https://github.com/laminlabs/lamindb/pull/82) | [falexwolf](https://github.com/falexwolf) | 2022-07-20 |
 ⬆️ Fix the publishing call by upgrading to nbproject 0.4.3 | [80](https://github.com/laminlabs/lamindb/pull/80) | [falexwolf](https://github.com/falexwolf) | 2022-07-19 | 0.1.1
 ✨ Add `schema_version` check | [79](https://github.com/laminlabs/lamindb/pull/79) | [falexwolf](https://github.com/falexwolf) | 2022-07-19 | 0.1.0
