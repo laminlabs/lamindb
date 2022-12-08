@@ -26,7 +26,7 @@ Runs transform data using code:
    :toctree: .
 
    Pipeline
-   Jupynb
+   Notebook
 
 Grouping data objects as sets or run inputs or by features:
 
@@ -78,7 +78,7 @@ from lnschema_core import (
     DSet,
     DSetDObject,
     Features,
-    Jupynb,
+    Notebook,
     Pipeline,
     Project,
     ProjectDSet,

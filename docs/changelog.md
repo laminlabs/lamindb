@@ -40,7 +40,7 @@ Name | PR | Developer | Date | Version
 🐛 Fix data source | [354](https://github.com/laminlabs/lamindb/pull/354) | [falexwolf](https://github.com/falexwolf) | 2022-11-15 |
 🚚 Move storage key to core schema | [352](https://github.com/laminlabs/lamindb/pull/352) | [falexwolf](https://github.com/falexwolf) | 2022-11-14 | 0.15.0
 🐛 Fixed `species_id` in bio entity tables | [351](https://github.com/laminlabs/lamindb/pull/351) | [sunnyosun](https://github.com/sunnyosun) | 2022-11-14 |
-✨ Initialize `Jupynb` `run` upon `nb.header()` | [350](https://github.com/laminlabs/lamindb/pull/350) | [falexwolf](https://github.com/falexwolf) | 2022-11-12 | 0.14.0
+✨ Initialize `Notebook` `run` upon `nb.header()` | [350](https://github.com/laminlabs/lamindb/pull/350) | [falexwolf](https://github.com/falexwolf) | 2022-11-12 | 0.14.0
 🏗️ Aggregate `Run` and `DTransform` | [349](https://github.com/laminlabs/lamindb/pull/349) | [falexwolf](https://github.com/falexwolf) | 2022-11-12 |
 ⬆️ Updated bionty | [348](https://github.com/laminlabs/lamindb/pull/348) | [sunnyosun](https://github.com/sunnyosun) | 2022-11-11 |
 📝 Make notebook for `link_features` | [347](https://github.com/laminlabs/lamindb/pull/347) | [falexwolf](https://github.com/falexwolf) | 2022-11-11 | 0.13.0

@@ -2,9 +2,9 @@ from typing import List, Union
 
 import nbproject as nb
 from lamin_logger import logger
-from lnschema_core import Jupynb, Run
+from lnschema_core import Notebook, Run
 
-_jupynb: Jupynb = None  # Jupynb of this Python session
+_jupynb: Notebook = None  # Notebook of this Python session
 _run: Run = None  # run of this Python session
 
 
@@ -38,10 +38,10 @@ def header(
     import lamindb.schema as lns
 
     jupynb = ln.select(
-        lns.Jupynb, id=nb.meta.store.id, v=nb.meta.store.version
+        lns.Notebook, id=nb.meta.store.id, v=nb.meta.store.version
     ).one_or_none()
     if jupynb is None:
-        jupynb = lns.Jupynb(
+        jupynb = lns.Notebook(
             id=nb.meta.store.id, v=nb.meta.store.version, name=nb.meta.live.title
         )
         jupynb = ln.add(jupynb)
@@ -103,11 +103,11 @@ def publish(version: str = None, i_confirm_i_saved: bool = False):
         return result
     finalize_publish(calling_statement="publish(", version=version)
     # update DB
-    jupynb = ln.select(Jupynb, id=_jupynb.id, v=_jupynb.v).one()
+    jupynb = ln.select(Notebook, id=_jupynb.id, v=_jupynb.v).one()
     # update version
     jupynb.name = nb.meta.live.title
     if version != _jupynb.v:
-        jupynb_add = lns.Jupynb(id=jupynb.id, v=version, name=jupynb.name)
+        jupynb_add = lns.Notebook(id=jupynb.id, v=version, name=jupynb.name)
     else:
         jupynb_add = jupynb
     ln.add(jupynb_add)

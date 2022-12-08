@@ -15,7 +15,7 @@ def test_create_to_load():
     # create unnecessary tables
     import lamindb as ln
 
-    jupynb = ln.schema.Jupynb(id="83jf", v="1", name="test")
+    jupynb = ln.schema.Notebook(id="83jf", v="1", name="test")
     ln.add(jupynb)
     run = ln.schema.Run(jupynb_id=jupynb.id, jupynb_v=jupynb)
     ln.add(run)
