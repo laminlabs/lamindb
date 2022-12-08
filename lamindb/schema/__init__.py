@@ -66,7 +66,6 @@ Helper tools
    view
    list_tables
    dev
-   link
 
 """
 import importlib as _importlib
@@ -85,7 +84,6 @@ from lnschema_core import (
     Usage,
     User,
     dev,
-    link,
 )
 from packaging import version as _v
 
