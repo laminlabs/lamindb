@@ -11,10 +11,10 @@ dependencies = [
     # Lamin pinned packages
     "lndb_setup==0.23.1",
     "lnschema_core==0.22.1",
-    "lnschema_wetlab==0.11.5",
-    "lnschema_bionty==0.6.1",
+    "lnschema_wetlab==0.12.0",
+    "lnschema_bionty==0.6.2",
     "lnbfx==0.7.0",
-    "bionty==0.5.5",
+    "bionty==0.5.6",
     "nbproject>=0.8.0",
     "readfcs",
     "lamin_logger",
