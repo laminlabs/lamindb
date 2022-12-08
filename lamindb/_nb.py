@@ -4,7 +4,7 @@ import nbproject as nb
 from lamin_logger import logger
 from lnschema_core import Notebook, Run
 
-_jupynb: Notebook = None  # Notebook of this Python session
+_notebook: Notebook = None  # Notebook of this Python session
 _run: Run = None  # run of this Python session
 
 
@@ -37,19 +37,19 @@ def header(
     import lamindb as ln
     import lamindb.schema as lns
 
-    jupynb = ln.select(
+    notebook = ln.select(
         lns.Notebook, id=nb.meta.store.id, v=nb.meta.store.version
     ).one_or_none()
-    if jupynb is None:
-        jupynb = lns.Notebook(
+    if notebook is None:
+        notebook = lns.Notebook(
             id=nb.meta.store.id, v=nb.meta.store.version, name=nb.meta.live.title
         )
-        jupynb = ln.add(jupynb)
-        logger.info(f"Added jupynb: {jupynb.id} v{jupynb.v}")
+        notebook = ln.add(notebook)
+        logger.info(f"Added notebook: {notebook.id} v{notebook.v}")
 
-    # at this point, we have a jupynb object
-    global _jupynb
-    _jupynb = jupynb
+    # at this point, we have a notebook object
+    global _notebook
+    _notebook = notebook
 
     # check user input
     # if isinstance(run, lns.Run):
@@ -63,7 +63,7 @@ def header(
     if run is None:
         # retrieve the latest run
         run = (
-            ln.select(lns.Run, jupynb_id=jupynb.id, jupynb_v=jupynb.v)
+            ln.select(lns.Run, notebook_id=notebook.id, notebook_v=notebook.v)
             .order_by(lns.Run.created_at.desc())
             .first()
         )
@@ -74,7 +74,7 @@ def header(
 
     # create a new run if doesn't exist yet or is requested by the user ("new")
     if run is None or run == "new":
-        run = lns.Run(jupynb_id=jupynb.id, jupynb_v=jupynb.v)
+        run = lns.Run(notebook_id=notebook.id, notebook_v=notebook.v)
         run = ln.add(run)
         logger.info(f"Created run: {run.id}")  # type: ignore
 
@@ -103,15 +103,15 @@ def publish(version: str = None, i_confirm_i_saved: bool = False):
         return result
     finalize_publish(calling_statement="publish(", version=version)
     # update DB
-    jupynb = ln.select(Notebook, id=_jupynb.id, v=_jupynb.v).one()
+    notebook = ln.select(Notebook, id=_notebook.id, v=_notebook.v).one()
     # update version
-    jupynb.name = nb.meta.live.title
-    if version != _jupynb.v:
-        jupynb_add = lns.Notebook(id=jupynb.id, v=version, name=jupynb.name)
+    notebook.name = nb.meta.live.title
+    if version != _notebook.v:
+        notebook_add = lns.Notebook(id=notebook.id, v=version, name=notebook.name)
     else:
-        jupynb_add = jupynb
-    ln.add(jupynb_add)
-    if version != _jupynb.v:
-        _run.jupynb_v = version
+        notebook_add = notebook
+    ln.add(notebook_add)
+    if version != _notebook.v:
+        _run.notebook_v = version
         ln.add(_run)
-        ln.delete(jupynb)
+        ln.delete(notebook)
