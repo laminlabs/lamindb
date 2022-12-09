@@ -232,13 +232,22 @@ class DObject:
         cls,
         data: Union[Path, str, pd.DataFrame, ad.AnnData] = None,
         *,
+        name: Optional[str] = None,
         features_ref: Optional[Union[CellMarker, Gene, Protein]] = None,
         source: Optional[Run] = None,
-        format: Optional[str] = None,
         id: Optional[str] = None,
-        name: Optional[str] = None,
+        format: Optional[str] = None,
     ):
-        """Create a DObject record from data."""
+        """Create a DObject record from data.
+
+        Args:
+            data: Filepath or in-memory data.
+            name: Name of the data object, required if an in-memory object is passed.
+            features_ref: Reference against which to link features.
+            source: The data transform that links to the data source of the data object.
+            id: The id of the dobject.
+            format: Whether to use `h5ad` or `zarr` to store an `AnnData` object.
+        """
         ...
 
     @overload
