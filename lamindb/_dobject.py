@@ -1,7 +1,7 @@
 import base64
 import hashlib
 from pathlib import Path
-from typing import Any, List, Optional, Set, Tuple, Union
+from typing import Any, List, Optional, Set, Tuple, Union, overload  # noqa
 
 import anndata as ad
 import lnschema_bionty as bionty
@@ -227,7 +227,35 @@ def create_dobject_from_data(
 
 
 class DObject:
+    @overload
     def __new__(
+        cls,
+        data: Union[Path, str, pd.DataFrame, ad.AnnData] = None,
+        *,
+        features_ref: Optional[Union[CellMarker, Gene, Protein]] = None,
+        source: Optional[Run] = None,
+        format: Optional[str] = None,
+        id: Optional[str] = None,
+        name: Optional[str] = None,
+    ):
+        ...
+
+    @overload
+    def __new__(
+        cls,
+        id: Optional[str] = None,
+        name: Optional[str] = None,
+        source: Optional[Run] = None,
+        suffix: Optional[str] = None,
+        hash: Optional[str] = None,
+        run_id: Optional[str] = None,
+        storage_id: Optional[str] = None,
+        features: List[Features] = [],
+        targets: List[Run] = [],
+    ):
+        ...
+
+    def __new__(  # type: ignore
         cls,
         data: Union[Path, str, pd.DataFrame, ad.AnnData] = None,
         *,
