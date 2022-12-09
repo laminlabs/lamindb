@@ -7,6 +7,7 @@ from lnschema_core import DObject
 
 from ..file import store_file, write_adata_zarr
 from ..file._file import print_hook
+from ._core import dobject_to_sqm
 from ._select import select
 
 
@@ -65,7 +66,7 @@ def add(  # type: ignore  # no support of different naming of args across overlo
     elif isinstance(record, sqm.SQLModel):
         records = [record]
     else:
-        model = record
+        model = dobject_to_sqm(record)
         results = select(model, **fields).all()
         if len(results) == 1:
             return results[0]
