@@ -13,9 +13,9 @@ def session() -> sqm.Session:
     return settings.instance.session()
 
 
-def dobject_func_to_class(entity: Union[sqm.SQLModel, Tuple[sqm.SQLModel]]):
+def dobject_to_sqm(entity: Union[sqm.SQLModel, Tuple[sqm.SQLModel]]):
     def if_dobject(entity):
-        if entity.__class__.__name__ == "function" and entity.__name__ == "DObject":
+        if entity.__class__.__name__ == "type" and entity.__name__ == "DObject":
             return DObject
         else:
             return entity

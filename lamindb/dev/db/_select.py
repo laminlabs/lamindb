@@ -4,7 +4,7 @@ from lndb_setup import settings
 from sqlalchemy.orm.exc import MultipleResultsFound, NoResultFound
 from sqlmodel.main import SQLModelMetaclass
 
-from ._core import dobject_func_to_class
+from ._core import dobject_to_sqm
 
 
 def select(*entity: sqm.SQLModel, **fields) -> "SelectStmt":
@@ -19,7 +19,7 @@ def select(*entity: sqm.SQLModel, **fields) -> "SelectStmt":
         fields: Fields and values passed as keyword arguments.
     """
     # if ln.DObject is passed, replace it with DObject SQLModel class
-    entities = dobject_func_to_class(entity)
+    entities = dobject_to_sqm(entity)
 
     # continue with user-facing variables
     if len(entities) > 1 and len(fields) > 0:

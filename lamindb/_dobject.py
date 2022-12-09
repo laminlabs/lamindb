@@ -226,33 +226,36 @@ def create_dobject_from_data(
     return dobject
 
 
-def DObject(
-    data: Union[Path, str, pd.DataFrame, ad.AnnData] = None,
-    *,
-    features_ref: Optional[Union[CellMarker, Gene, Protein]] = None,
-    source: Optional[Run] = None,
-    format: Optional[str] = None,
-    id: Optional[str] = None,
-    name: Optional[str] = None,
-    suffix: Optional[str] = None,
-    hash: Optional[str] = None,
-    run_id: Optional[str] = None,
-    storage_id: Optional[str] = None,
-    features: List[Features] = [],
-    targets: List[Run] = [],
-):
-    local = locals()
-    if local.get("data"):
-        return create_dobject_from_data(
-            data=data,
-            name=name,
-            features_ref=features_ref,
-            source=source,
-            id=id,
-            format=format,
-        )
-    else:
-        return lns_DObject(**local)
+class DObject:
+    def __new__(
+        cls,
+        data: Union[Path, str, pd.DataFrame, ad.AnnData] = None,
+        *,
+        features_ref: Optional[Union[CellMarker, Gene, Protein]] = None,
+        source: Optional[Run] = None,
+        format: Optional[str] = None,
+        id: Optional[str] = None,
+        name: Optional[str] = None,
+        suffix: Optional[str] = None,
+        hash: Optional[str] = None,
+        run_id: Optional[str] = None,
+        storage_id: Optional[str] = None,
+        features: List[Features] = [],
+        targets: List[Run] = [],
+    ):
+        local = locals()
+        if local.get("data"):
+            return create_dobject_from_data(
+                data=data,
+                name=name,
+                features_ref=features_ref,
+                source=source,
+                id=id,
+                format=format,
+            )
+        else:
+            local.pop("cls")
+            return lns_DObject(**local)
 
 
 def to_b64_str(bstr: bytes):
