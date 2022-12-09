@@ -238,6 +238,7 @@ class DObject:
         id: Optional[str] = None,
         name: Optional[str] = None,
     ):
+        """Create a DObject record from data."""
         ...
 
     @overload
@@ -253,6 +254,7 @@ class DObject:
         features: List[Features] = [],
         targets: List[Run] = [],
     ):
+        """Create a DObject record from fields."""
         ...
 
     def __new__(  # type: ignore
