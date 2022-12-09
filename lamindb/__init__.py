@@ -20,7 +20,6 @@ Manipulate data:
 
    DObject
    add
-   load
    subset
    delete
 
@@ -76,7 +75,6 @@ from . import knowledge  # noqa
 from . import nb  # noqa
 from . import schema  # noqa
 from ._delete import delete  # noqa
-from ._load import load  # noqa
 from ._subset import subset
 from ._view import view  # noqa
 from .dev.db import session  # noqa
