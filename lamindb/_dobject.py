@@ -1,7 +1,7 @@
 import base64
 import hashlib
 from pathlib import Path
-from typing import Any, List, Optional, Set, Tuple, Union, overload  # noqa
+from typing import Any, List, Optional, Set, Tuple, Union
 
 import anndata as ad
 import lnschema_bionty as bionty
@@ -224,77 +224,6 @@ def create_dobject_from_data(
     if features_ref is not None:
         dobject.features.append(get_features(dobject, features_ref))
     return dobject
-
-
-class DObject:
-    @overload
-    def __new__(
-        cls,
-        data: Union[Path, str, pd.DataFrame, ad.AnnData] = None,
-        *,
-        name: Optional[str] = None,
-        features_ref: Optional[Union[CellMarker, Gene, Protein]] = None,
-        source: Optional[Run] = None,
-        id: Optional[str] = None,
-        format: Optional[str] = None,
-    ):
-        """Create a DObject record from data.
-
-        Args:
-            data: Filepath or in-memory data.
-            name: Name of the data object, required if an in-memory object is passed.
-            features_ref: Reference against which to link features.
-            source: The data transform that links to the data source of the data object.
-            id: The id of the dobject.
-            format: Whether to use `h5ad` or `zarr` to store an `AnnData` object.
-        """
-        ...
-
-    @overload
-    def __new__(
-        cls,
-        id: Optional[str] = None,
-        name: Optional[str] = None,
-        source: Optional[Run] = None,
-        suffix: Optional[str] = None,
-        hash: Optional[str] = None,
-        run_id: Optional[str] = None,
-        storage_id: Optional[str] = None,
-        features: List[Features] = [],
-        targets: List[Run] = [],
-    ):
-        """Create a DObject record from fields."""
-        ...
-
-    def __new__(  # type: ignore
-        cls,
-        data: Union[Path, str, pd.DataFrame, ad.AnnData] = None,
-        *,
-        features_ref: Optional[Union[CellMarker, Gene, Protein]] = None,
-        source: Optional[Run] = None,
-        format: Optional[str] = None,
-        id: Optional[str] = None,
-        name: Optional[str] = None,
-        suffix: Optional[str] = None,
-        hash: Optional[str] = None,
-        run_id: Optional[str] = None,
-        storage_id: Optional[str] = None,
-        features: List[Features] = [],
-        targets: List[Run] = [],
-    ):
-        local = locals()
-        if local.get("data") is not None:
-            return create_dobject_from_data(
-                data=data,
-                name=name,
-                features_ref=features_ref,
-                source=source,
-                id=id,
-                format=format,
-            )
-        else:
-            local.pop("cls")
-            return lns_DObject(**local)
 
 
 def to_b64_str(bstr: bytes):
