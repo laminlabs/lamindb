@@ -212,7 +212,7 @@ def get_dobject_kwargs_from_data(
         _memory_rep=memory_rep,
     )
     if features_ref is not None:
-        features = get_features(dobject_privates, features_ref)
+        features = [get_features(dobject_privates, features_ref)]  # has to be list!
     else:
         features = []
     dobject_kwargs = dict(
