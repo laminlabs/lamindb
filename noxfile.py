@@ -18,7 +18,7 @@ def build(session):
     session.run(*(login_user_2.split(" ")), external=True)
     session.install(".[dev,test]")
     instance_dirs = [
-        d for d in ["docs/guide/mydata", "mydata-test-db"] if Path(d).exists()
+        d for d in ["./docs/guide/mydata", "./mydata-test-db"] if Path(d).exists()
     ]
     for instance_dir in instance_dirs:
         clean_instance = f"rm -r {instance_dir}"
