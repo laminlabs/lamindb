@@ -186,7 +186,7 @@ def get_dobject_kwargs_from_data(
     features_ref: Optional[Union[CellMarker, Gene, Protein]] = None,
     source: Optional[Run] = None,
     format: Optional[str] = None,
-) -> lns_DObject:
+):
     """Record a data object.
 
     Guide: :doc:`/db/guide/ingest`.
