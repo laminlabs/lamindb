@@ -12,12 +12,11 @@ Import this submodule as::
 Core entities
 =============
 
-Data objects are transformed by runs:
+Data objects ({class}`lamindb.DObject`) are transformed by runs:
 
 .. autosummary::
    :toctree: .
 
-   DObject
    Run
 
 Runs transform data using code:
