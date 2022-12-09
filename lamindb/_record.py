@@ -213,6 +213,8 @@ def get_dobject_kwargs_from_data(
     )
     if features_ref is not None:
         features = get_features(dobject_privates, features_ref)
+    else:
+        features = []
     dobject_kwargs = dict(
         name=name,
         suffix=suffix,
