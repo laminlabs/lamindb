@@ -1,6 +1,7 @@
 import pandas as pd
 import sqlmodel as sqm
 from lndb_setup import settings
+from lnschema_core import DObject
 from sqlalchemy.orm.exc import MultipleResultsFound, NoResultFound
 from sqlmodel.main import SQLModelMetaclass
 
@@ -16,14 +17,20 @@ def select(*entity: sqm.SQLModel, **fields) -> "SelectStmt":
         entity: Table, tables, or tables including column specification.
         fields: Fields and values passed as keyword arguments.
     """
+    # if ln.DObject is passed, replace it with DObject SQLModel class
+    entities = list(entity)
+    for i, ent in enumerate(entities):
+        if ent.__class__.__name__ == "function" and ent.__name__ == "DObject":
+            entities[i] = DObject
+
     # continue with user-facing variables
-    if len(entity) > 1 and len(fields) > 0:
+    if len(entities) > 1 and len(fields) > 0:
         raise RuntimeError("Can only pass fields for a single entity.")
     elif len(fields) > 0:
         # was in `get` before, but there it leads to an inhomogeneous return type
-        conditions = [getattr(entity[0], k) == v for k, v in fields.items()]
-        return SelectStmt(*entity).where(*conditions)
-    return SelectStmt(*entity)
+        conditions = [getattr(entities[0], k) == v for k, v in fields.items()]
+        return SelectStmt(*entities).where(*conditions)
+    return SelectStmt(*entities)
 
 
 def to_df(*entities, result):
