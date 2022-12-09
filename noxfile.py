@@ -15,6 +15,8 @@ def build(session):
     login_user_2 = "lndb login testuser2@lamin.ai --password goeoNJKE61ygbz1vhaCVynGERaRrlviPBVQsjkhz"  # noqa
     session.run(*(login_user_2.split(" ")), external=True)
     session.install(".[dev,test]")
+    clean_instances = "rm -r docs/guide/mydata && rm -r mydata-test-db"
+    session.run(*clean_instances)
     test_db = "lndb init --storage mydata-test-db"
     session.run(*test_db.split(" "), external=True)
     run_pytest(session)

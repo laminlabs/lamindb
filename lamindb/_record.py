@@ -154,11 +154,11 @@ def parse_features(
     return features
 
 
-def get_features(dobject, features_ref):
+def get_features(dobject_privates, features_ref):
     """Updates dobject in place."""
-    memory_rep = dobject._memory_rep
+    memory_rep = dobject_privates["_memory_rep"]
     if memory_rep is None:
-        memory_rep = load_to_memory(dobject._local_filepath)
+        memory_rep = load_to_memory(dobject_privates["_local_filepath"])
     try:
         df = getattr(memory_rep, "var")  # for AnnData objects
         if callable(df):
@@ -179,13 +179,12 @@ def get_run(run: Optional[Run]) -> Run:
 
 
 @typechecked
-def create_dobject_from_data(
+def get_dobject_kwargs_from_data(
     data: Union[Path, str, pd.DataFrame, ad.AnnData],
     *,
     name: Optional[str] = None,
     features_ref: Optional[Union[CellMarker, Gene, Protein]] = None,
     source: Optional[Run] = None,
-    id: Optional[str] = None,
     format: Optional[str] = None,
 ) -> lns_DObject:
     """Record a data object.
@@ -208,7 +207,13 @@ def create_dobject_from_data(
         size = size_adata(memory_rep)
     hash = get_hash(local_filepath, suffix)
     storage = select(Storage, root=str(settings.instance.storage_root)).one()
-    dobject = lns_DObject(
+    dobject_privates = dict(
+        _local_filepath=local_filepath,
+        _memory_rep=memory_rep,
+    )
+    if features_ref is not None:
+        features = get_features(dobject_privates, features_ref)
+    dobject_kwargs = dict(
         name=name,
         suffix=suffix,
         hash=hash,
@@ -216,14 +221,9 @@ def create_dobject_from_data(
         size=size,
         storage_id=storage.id,
         source=run,
+        features=features,
     )
-    if id is not None:  # cannot pass it into constructor due to default factory
-        dobject.id = id
-    dobject._local_filepath = local_filepath
-    dobject._memory_rep = memory_rep
-    if features_ref is not None:
-        dobject.features.append(get_features(dobject, features_ref))
-    return dobject
+    return dobject_kwargs, dobject_privates
 
 
 def to_b64_str(bstr: bytes):
