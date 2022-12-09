@@ -8,7 +8,8 @@ import lnschema_bionty as bionty
 import pandas as pd
 from lamin_logger import logger
 from lndb_setup import settings
-from lnschema_core import DObject, Features, Run, Storage
+from lnschema_core import DObject as lns_DObject
+from lnschema_core import Features, Run, Storage
 from typeguard import typechecked
 
 from lamindb.knowledge import CellMarker, Gene, Protein
@@ -45,7 +46,7 @@ def serialize(
 def get_hash(local_filepath, suffix):
     if suffix != ".zarr":  # if not streamed
         hash = hash_file(local_filepath)
-        result = select(DObject, hash=hash).one_or_none()
+        result = select(lns_DObject, hash=hash).one_or_none()
         if result is not None:
             logger.warning(
                 "Based on the MD5 hash, the same data object is already"
@@ -178,7 +179,7 @@ def get_run(run: Optional[Run]) -> Run:
 
 
 @typechecked
-def record(
+def DObject(
     data: Union[Path, str, pd.DataFrame, ad.AnnData],
     *,
     name: Optional[str] = None,
@@ -186,7 +187,7 @@ def record(
     source: Optional[Run] = None,
     id: Optional[str] = None,
     format: Optional[str] = None,
-) -> DObject:
+) -> lns_DObject:
     """Record a data object.
 
     Guide: :doc:`/db/guide/ingest`.
@@ -207,7 +208,7 @@ def record(
         size = size_adata(memory_rep)
     hash = get_hash(local_filepath, suffix)
     storage = select(Storage, root=str(settings.instance.storage_root)).one()
-    dobject = DObject(
+    dobject = lns_DObject(
         name=name,
         suffix=suffix,
         hash=hash,
