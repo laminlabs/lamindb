@@ -1,9 +1,10 @@
 import pandas as pd
 import sqlmodel as sqm
 from lndb_setup import settings
-from lnschema_core import DObject
 from sqlalchemy.orm.exc import MultipleResultsFound, NoResultFound
 from sqlmodel.main import SQLModelMetaclass
+
+from ._core import dobject_func_to_class
 
 
 def select(*entity: sqm.SQLModel, **fields) -> "SelectStmt":
@@ -18,10 +19,7 @@ def select(*entity: sqm.SQLModel, **fields) -> "SelectStmt":
         fields: Fields and values passed as keyword arguments.
     """
     # if ln.DObject is passed, replace it with DObject SQLModel class
-    entities = list(entity)
-    for i, ent in enumerate(entities):
-        if ent.__class__.__name__ == "function" and ent.__name__ == "DObject":
-            entities[i] = DObject
+    entities = dobject_func_to_class(entity)
 
     # continue with user-facing variables
     if len(entities) > 1 and len(fields) > 0:
