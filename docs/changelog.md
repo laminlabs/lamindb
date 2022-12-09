@@ -3,7 +3,7 @@
 <!-- prettier-ignore -->
 Name | PR | Developer | Date | Version
 --- | --- | --- | --- | ---
-🎨 Integrate `ln.record` into `lns.DObject` → `ln.DObject` | [400](https://github.com/laminlabs/lamindb/pull/400) | [sunnyosun](https://github.com/sunnyosun) | 2022-12-09 |
+🎨 Integrate `ln.record` into `lns.DObject` → `ln.DObject` | [400](https://github.com/laminlabs/lamindb/pull/400) | [sunnyosun](https://github.com/sunnyosun) | 2022-12-09 | 0.21.0
 ⬆️ Upgrade setup, core & wetlab schema | [398](https://github.com/laminlabs/lamindb/pull/398) | [falexwolf](https://github.com/falexwolf) | 2022-12-08 | 0.20.0
 🔥 Drop all logic related to dynamic settings | [397](https://github.com/laminlabs/lamindb/pull/397) | [fredericenard](https://github.com/fredericenard) | 2022-12-08 |
 ⬆️ Upgrade wetlab | [395](https://github.com/laminlabs/lamindb/pull/395) | [bpenteado](https://github.com/bpenteado) | 2022-12-06 | 0.19.4
