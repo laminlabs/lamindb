@@ -227,7 +227,7 @@ def create_dobject_from_data(
 
 
 def DObject(
-    data: Union[Path, str, pd.DataFrame, ad.AnnData],
+    data: Union[Path, str, pd.DataFrame, ad.AnnData] = None,
     *,
     features_ref: Optional[Union[CellMarker, Gene, Protein]] = None,
     source: Optional[Run] = None,
@@ -242,7 +242,7 @@ def DObject(
     targets: List[Run] = [],
 ):
     local = locals()
-    if "data" in local:
+    if local.get("data"):
         return create_dobject_from_data(
             data=data,
             name=name,
