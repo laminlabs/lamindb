@@ -244,7 +244,7 @@ class DObject:
         targets: List[Run] = [],
     ):
         local = locals()
-        if local.get("data"):
+        if local.get("data") is not None:
             return create_dobject_from_data(
                 data=data,
                 name=name,
