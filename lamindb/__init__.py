@@ -18,7 +18,7 @@ Manipulate data:
 .. autosummary::
    :toctree: .
 
-   record
+   DObject
    add
    load
    subset
@@ -74,8 +74,8 @@ from . import knowledge  # noqa
 from . import nb  # noqa
 from . import schema  # noqa
 from ._delete import delete  # noqa
+from ._dobject import DObject  # noqa
 from ._load import load  # noqa
-from ._record import record  # noqa
 from ._subset import subset
 from ._view import view  # noqa
 from .dev.db import session  # noqa
