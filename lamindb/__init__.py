@@ -5,6 +5,14 @@ Import the package::
    import lamindb as ln
    import lamindb.schema as lns
 
+The central data object, a wrapper for files, on-disk (`zarr`, etc.) and
+in-memory objects (`DataFrame`, `AnnData`, etc.):
+
+.. autosummary::
+   :toctree: .
+
+   DObject
+
 Query & inspect data:
 
 .. autosummary::
@@ -18,9 +26,7 @@ Manipulate data:
 .. autosummary::
    :toctree: .
 
-   DObject
    add
-   subset
    delete
 
 Schema - entities and their relations:
