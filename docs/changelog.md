@@ -3,6 +3,7 @@
 <!-- prettier-ignore -->
 Name | PR | Developer | Date | Version
 --- | --- | --- | --- | ---
+⬆️ Upgrade lndb-setup | [404](https://github.com/laminlabs/lamindb/pull/404) | [sunnyosun](https://github.com/sunnyosun) | 2022-12-13 |
 ⬆️ Upgrade lndb-setup | [403](https://github.com/laminlabs/lamindb/pull/403) | [falexwolf](https://github.com/falexwolf) | 2022-12-12 | 0.21.1
 📝 Fix docs | [402](https://github.com/laminlabs/lamindb/pull/402) | [falexwolf](https://github.com/falexwolf) | 2022-12-09 |
 🎨 Integrate `ln.record` into `lns.DObject` → `ln.DObject` | [400](https://github.com/laminlabs/lamindb/pull/400) | [sunnyosun](https://github.com/sunnyosun) | 2022-12-09 | 0.21.0
