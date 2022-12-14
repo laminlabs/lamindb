@@ -98,17 +98,15 @@ class nb:
             i_confirm_i_saved: Only relevant outside Jupyter Lab & Notebook as a
                 safeguard against losing the editor buffer content.
         """
-        from _nb._publish import finalize_publish, run_checks_for_publish
-
         import lamindb as ln
         import lamindb.schema as lns
 
-        result = run_checks_for_publish(
+        result = _nb.run_checks_for_publish(
             calling_statement="publish(", i_confirm_i_saved=i_confirm_i_saved
         )
         if result != "checks-passed":
             return result
-        finalize_publish(calling_statement="publish(", version=version)
+        _nb.finalize_publish(calling_statement="publish(", version=version)
         # update DB
         notebook = ln.select(Notebook, id=cls.notebook.id, v=cls.notebook.v).one()
         # update version
