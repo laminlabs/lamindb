@@ -170,9 +170,9 @@ def get_features(dobject_privates, features_ref):
 
 def get_run(run: Optional[Run]) -> Run:
     if run is None:
-        from ._nb import _run
+        from . import nb
 
-        run = _run
+        run = nb.run
         if run is None:
             raise ValueError("Pass a Run record.")
     return run

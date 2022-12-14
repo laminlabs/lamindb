@@ -78,9 +78,9 @@ from lnschema_core import DObject  # noqa
 
 from . import dev  # noqa
 from . import knowledge  # noqa
-from . import nb  # noqa
 from . import schema  # noqa
 from ._delete import delete  # noqa
+from ._nb import nb  # noqa
 from ._subset import subset
 from ._view import view  # noqa
 from .dev.db import session  # noqa
