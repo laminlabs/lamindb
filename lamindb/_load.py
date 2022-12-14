@@ -24,27 +24,20 @@ def populate_runin(dobject: core.DObject, run: core.Run):
         session.close()
 
 
+# this is exposed to the user as DObject.load
 def load(dobject: core.DObject, stream: bool = False):
-    """Load data object.
-
-    Returns object associated with the stored `dobject`.
-
-    Populates `RunIn` when called from a notebook.
-
-    Guide: :doc:`/db/guide/select-load`.
-    """
     if stream and dobject.suffix not in (".h5ad", ".zarr"):
         logger.warning(f"Ignoring stream option for a {dobject.suffix} object.")
 
     filepath = filepath_from_dobject(dobject)
-    from lamindb._nb import _run as nb_run
+    from lamindb import nb
 
-    if nb_run is None:
+    if nb.run is None:
         logger.warning(
             "Input tracking for runs through `load` is currently only implemented for"
             " notebooks."
         )
     else:
-        populate_runin(dobject, nb_run)
+        populate_runin(dobject, nb.run)
     track_usage(dobject.id, "load")
     return load_to_memory(filepath, stream=stream)

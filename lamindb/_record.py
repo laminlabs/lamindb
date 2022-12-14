@@ -10,7 +10,6 @@ from lamin_logger import logger
 from lndb_setup import settings
 from lnschema_core import DObject as lns_DObject
 from lnschema_core import Features, Run, Storage
-from typeguard import typechecked
 
 from lamindb.knowledge import CellMarker, Gene, Protein
 
@@ -170,15 +169,14 @@ def get_features(dobject_privates, features_ref):
 
 def get_run(run: Optional[Run]) -> Run:
     if run is None:
-        from ._nb import _run
+        from . import nb
 
-        run = _run
+        run = nb.run
         if run is None:
-            raise ValueError("Pass a Run record.")
+            raise ValueError("Pass a `Run` instance to arg `source``.")
     return run
 
 
-@typechecked
 def get_dobject_kwargs_from_data(
     data: Union[Path, str, pd.DataFrame, ad.AnnData],
     *,
@@ -187,18 +185,6 @@ def get_dobject_kwargs_from_data(
     source: Optional[Run] = None,
     format: Optional[str] = None,
 ):
-    """Record a data object.
-
-    Guide: :doc:`/db/guide/ingest`.
-
-    Args:
-        data: Filepath or in-memory data.
-        name: Name of the data object, required if an in-memory object is passed.
-        features_ref: Reference against which to link features.
-        source: The data transform that links to the data source of the data object.
-        id: The id of the dobject.
-        format: Whether to use `h5ad` or `zarr` to store an `AnnData` object.
-    """
     run = get_run(source)
     memory_rep, local_filepath, name, suffix = serialize(data, name, format)
     if suffix != ".zarr":
