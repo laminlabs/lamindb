@@ -37,14 +37,14 @@ def load(dobject: core.DObject, stream: bool = False):
         logger.warning(f"Ignoring stream option for a {dobject.suffix} object.")
 
     filepath = filepath_from_dobject(dobject)
-    from lamindb._nb import _run as nb_run
+    from lamindb import nb
 
-    if nb_run is None:
+    if nb.run is None:
         logger.warning(
             "Input tracking for runs through `load` is currently only implemented for"
             " notebooks."
         )
     else:
-        populate_runin(dobject, nb_run)
+        populate_runin(dobject, nb.run)
     track_usage(dobject.id, "load")
     return load_to_memory(filepath, stream=stream)
