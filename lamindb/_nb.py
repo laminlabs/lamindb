@@ -55,6 +55,8 @@ class nb:
             )
             notebook = ln.add(notebook)
             logger.info(f"Added notebook: {notebook.id} v{notebook.v}")
+        else:
+            logger.info(f"Loaded notebook: {notebook.id} v{notebook.v}")
 
         # at this point, we have a notebook object
         cls.notebook = notebook
@@ -84,7 +86,7 @@ class nb:
         if run is None or run == "new":
             run = lns.Run(notebook_id=notebook.id, notebook_v=notebook.v)
             run = ln.add(run)  # type: ignore
-            logger.info(f"Created run: {run.id}")  # type: ignore
+            logger.info(f"Added run: {run.id}")  # type: ignore
 
         # at this point, we have a run object
         cls.run = run
