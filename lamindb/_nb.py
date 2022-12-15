@@ -2,6 +2,7 @@ from typing import List, Union
 
 import nbproject as _nb
 from lamin_logger import logger
+from lndb_setup import info
 from lnschema_core import Notebook, Run
 
 
@@ -42,6 +43,7 @@ class nb:
                 when automatic inference fails.
         """
         _nb.header(pypackage=pypackage, filepath=filepath, env=env)
+        info()
 
         import lamindb as ln
         import lamindb.schema as lns
