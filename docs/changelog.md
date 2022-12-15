@@ -3,6 +3,7 @@
 <!-- prettier-ignore -->
 Name | PR | Developer | Date | Version
 --- | --- | --- | --- | ---
+⬆️ Updated setup | [409](https://github.com/laminlabs/lamindb/pull/409) | [sunnyosun](https://github.com/sunnyosun) | 2022-12-15 |
 🚸 Make `nb.run` and `nb.notebook` public | [408](https://github.com/laminlabs/lamindb/pull/408) | [falexwolf](https://github.com/falexwolf) | 2022-12-14 |
 ⬆️ Upgrade wetlab | [407](https://github.com/laminlabs/lamindb/pull/407) | [bpenteado](https://github.com/bpenteado) | 2022-12-13 | 0.21.4
 ⬆️ Upgrade lndb-setup | [405](https://github.com/laminlabs/lamindb/pull/405) | [falexwolf](https://github.com/falexwolf) | 2022-12-13 | 0.21.3
