@@ -3,6 +3,7 @@
 <!-- prettier-ignore -->
 Name | PR | Developer | Date | Version
 --- | --- | --- | --- | ---
+🎨 Simplify | [413](https://github.com/laminlabs/lamindb/pull/413) | [sunnyosun](https://github.com/sunnyosun) | 2022-12-16 |
 ⬆️ Upgrade lndb-setup | [412](https://github.com/laminlabs/lamindb/pull/412) | [falexwolf](https://github.com/falexwolf) | 2022-12-16 | 0.22.1
 🚸 Better CLI & logging | [411](https://github.com/laminlabs/lamindb/pull/411) | [falexwolf](https://github.com/falexwolf) | 2022-12-15 | 0.22.0
 ⬆️ Updated setup | [409](https://github.com/laminlabs/lamindb/pull/409) | [sunnyosun](https://github.com/sunnyosun) | 2022-12-15 | 0.21.5
