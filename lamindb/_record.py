@@ -62,9 +62,7 @@ def get_features_records(
     df_curated: pd.DataFrame,
 ) -> List[Union[Gene, Protein, CellMarker]]:
     # insert species entry if not exists
-    species = select(bionty.Species, common_name=features_ref.species).one_or_none()
-    if species is None:
-        species = add(bionty.Species(common_name=features_ref.species))
+    species = add(bionty.Species, common_name=features_ref.species)
 
     model = table_meta.get_model(f"bionty.{features_ref.entity}")
 
@@ -72,7 +70,7 @@ def get_features_records(
     stmt = (
         select(model)
         .where(getattr(model, parsing_id).in_(df_curated.index))
-        .where(getattr(model, "species_id") == species.id)
+        .where(getattr(model, "species_id") == species.id)  # type:ignore
     )
     records = stmt.all()
     records_df = df_curated.index.intersection(stmt.df()[parsing_id])
@@ -85,16 +83,17 @@ def get_features_records(
         mapped.index.name = parsing_id
         if mapped.shape[0] > 0:
             for kwargs in mapped.reset_index().to_dict(orient="records"):
-                kwargs["species_id"] = species.id
+                kwargs["species_id"] = species.id  # type:ignore
                 record = model(**kwargs)
                 records.append(record)
         # unmapped new_ids
         unmapped = set(new_ids).difference(mapped.index)
         if len(unmapped) > 0:
             for i in unmapped:
-                record = model(**{parsing_id: i, "species_id": species.id})
+                record = model(
+                    **{parsing_id: i, "species_id": species.id}  # type:ignore
+                )
                 records.append(record)
-
     return records
 
 
