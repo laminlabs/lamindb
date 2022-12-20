@@ -4,6 +4,7 @@
 :maxdepth: 1
 
 setup
+ingest
 nb
 select
 storage

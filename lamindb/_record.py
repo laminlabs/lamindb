@@ -20,6 +20,15 @@ from .dev.file import load_to_memory
 from .dev.object import infer_suffix, size_adata, write_to_file
 from .schema._table import table_meta
 
+NO_NAME_ERROR = """
+Pass a name in `ln.DObject(..., name=name)` when ingesting in-memory data.
+"""
+
+NO_SOURCE_ERROR = """
+Pass a run in `ln.DObject(..., source=run)`.
+Or, if you're in a notebook, call `ln.nb.header()` at the top.
+"""
+
 
 def serialize(
     data: Union[Path, str, pd.DataFrame, ad.AnnData], name, format
@@ -31,7 +40,7 @@ def serialize(
         name, suffix = get_name_suffix_from_filepath(local_filepath)
     elif isinstance(data, (pd.DataFrame, ad.AnnData)):
         if name is None:
-            raise RuntimeError("Provide name if recording in-memory data.")
+            raise ValueError(NO_NAME_ERROR)
         memory_rep = data
         suffix = infer_suffix(data, format)
         local_filepath = Path(f"{name}{suffix}")
@@ -172,7 +181,7 @@ def get_run(run: Optional[Run]) -> Run:
 
         run = nb.run
         if run is None:
-            raise ValueError("Pass a `Run` instance to arg `source``.")
+            raise ValueError(NO_SOURCE_ERROR)
     return run
 
 
