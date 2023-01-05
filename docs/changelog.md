@@ -3,6 +3,7 @@
 <!-- prettier-ignore -->
 Name | PR | Developer | Date | Version
 --- | --- | --- | --- | ---
+⬆️ Upgrade to `lndb-setup` 0.28.1 | [420](https://github.com/laminlabs/lamindb/pull/420) | [falexwolf](https://github.com/falexwolf) | 2023-01-05 |
 Fix typos | [418](https://github.com/laminlabs/lamindb/pull/418) | [Zethson](https://github.com/Zethson) | 2023-01-02 |
 🐛 Fix bugs in `lndb set` & `lndb info` | [415](https://github.com/laminlabs/lamindb/pull/415) | [falexwolf](https://github.com/falexwolf) | 2022-12-22 | 0.22.2
 ✅ Error behavior for ingest | [414](https://github.com/laminlabs/lamindb/pull/414) | [falexwolf](https://github.com/falexwolf) | 2022-12-20 |
