@@ -16,7 +16,7 @@ Utilities:
    doc_args
 """
 
-from lnschema_core import id  # noqa
+from lnschema_core.dev import id  # noqa
 
 from . import datasets  # noqa
 from . import db  # noqa
