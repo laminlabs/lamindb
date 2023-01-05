@@ -12,7 +12,7 @@ dependencies = [
     "lndb_setup==0.28.1",
     "lnschema_core==0.23.2",
     "lnschema_wetlab==0.13.0",
-    "lnschema_bionty==0.6.2",
+    "lnschema_bionty==0.6.5",
     "lnbfx==0.7.0",
     "bionty==0.5.7",
     "nbproject>=0.8.0",
