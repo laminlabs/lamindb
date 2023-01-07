@@ -22,8 +22,8 @@ It typically has inputs and outputs:
 
 ## Ingest data from runs
 
-- [Ingest data from Jupyter notebook](ingest)
-- [Ingest data from pipeline](pipeline)
+- [Ingest data from Jupyter notebook](https://lamin.ai/docs/guide/ingest)
+- [Ingest data from pipeline](https://lamin.ai/docs/guide/pipeline)
 
 ```{toctree}
 :maxdepth: 1
