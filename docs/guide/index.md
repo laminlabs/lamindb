@@ -8,7 +8,7 @@ Public beta: Currently only recommended for collaborators as we still make break
 
 ```
 
-```{note}
+```{tip}
 
 Each page in this guide is a Jupyter Notebook, which you can download [here](https://github.com/laminlabs/lamindb/tree/main/docs/guide).
 
@@ -20,8 +20,8 @@ You can run these notebooks in hosted versions of JupyterLab:
 
 ```
 
-- [Get started](overview) with LaminDB in 5min.
-- Interested to start tracking your data? Check out [Track data](data).
+- [Get started](get-started) with LaminDB in 5min.
+- Interested to start tracking your data? Check out [Track data](basic).
 - Is your data processed by notebooks or pipelines? Check out [Track runs](run).
 - LaminDB can speak biology? Check out [Track biology](bio).
 
@@ -31,7 +31,7 @@ You can run these notebooks in hosted versions of JupyterLab:
 :maxdepth: 1
 :hidden:
 
-overview
+get-started
 basic
 run
 bio

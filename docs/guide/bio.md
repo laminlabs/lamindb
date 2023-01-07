@@ -6,4 +6,6 @@
 knowledge
 link-features
 link-samples
+select-features
+view-bio
 ```
