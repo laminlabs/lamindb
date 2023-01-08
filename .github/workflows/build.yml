@@ -71,7 +71,7 @@ jobs:
         if: github.event_name == 'push'
         run: |
           mv _build/html _build/${{ steps.lamin-project.outputs.project_slug }}
-          mkdir _build/html/docs
+          mkdir -p _build/html/docs
           mv _build/${{ steps.lamin-project.outputs.project_slug }} _build/html/docs
       - name: Deploy docs
         id: netlify
