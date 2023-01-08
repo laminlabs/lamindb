@@ -44,7 +44,7 @@ def add(  # type: ignore  # no support of different naming of args across overlo
     To update a row, query it with `.get` or `.select` and modify it before
     passing it to `add`.
 
-    Guide: :doc:`/db/guide/add-delete`.
+    Guide: :doc:`/guide/add-delete`.
 
     Example:
 

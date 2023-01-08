@@ -31,7 +31,7 @@ def delete(  # type: ignore
 ) -> None:
     """Delete data records & data objects.
 
-    Guide: :doc:`/db/guide/add-delete`.
+    Guide: :doc:`/guide/add-delete`.
 
     Example:
 
