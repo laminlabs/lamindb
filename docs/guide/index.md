@@ -22,7 +22,7 @@ You can run these notebooks in hosted versions of JupyterLab:
 
 - [Get started](get-started) with LaminDB in 5min. ⚡
 - Interested to start tracking your data? Check out [Track data](basic). 📊
-- Is your data processed by notebooks or pipelines? Check out [Track runs](run). 📗
+- Is your data processed by notebooks or pipelines? Check out [Track runs](run.md). 📗
 - LaminDB can speak biology? Check out [Track biology](bio). 🧬
 
 📬 [Reach out](https://lamin.ai/contact) to report issues, learn about data modules that connect your assays, pipelines & workflows within our data platform enterprise plan.

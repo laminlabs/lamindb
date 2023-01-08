@@ -10,7 +10,7 @@ from ._core import dobject_to_sqm
 def select(*entity: sqm.SQLModel, **fields) -> "SelectStmt":
     """Select data.
 
-    Guide: :doc:`/db/guide/select`.
+    Guide: :doc:`/guide/select`.
 
     Returns a :class:`~lamindb.dev.db.SelectStmt` object.
 
