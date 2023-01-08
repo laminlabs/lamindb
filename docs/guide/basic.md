@@ -6,7 +6,7 @@ It takes 5min to [set up your LaminDB instance](https://lamin.ai/docs/db/guide/i
 
 ## Data objects in storage & memory: `DObject`
 
-[DObject](lamindb.dobject) allows accessing atomic data in object storage and loading or streaming them into memory.
+{class}`~lamindb.DObject` allows accessing atomic data in object storage and loading or streaming them into memory.
 
 ## On-disk and in-memory representations of data
 
