@@ -4,13 +4,9 @@ If you are dumping data in local or cloud storage but not able to find them easi
 
 It takes 5min to [set up your LaminDB instance](https://lamin.ai/docs/db/guide/init), start [ingesting](https://lamin.ai/docs/db/guide/ingest) data and tracking them all!
 
-## What is DObject?
+## Data objects in storage & memory: `DObject`
 
-[DObject](https://lamin.ai/docs/lnschema-core/lnschema_core.dobject) represents _Data objects in storage & memory._
-
-Data objects (dobjects) represent atomic datasets in object storage: jointly measured observations of variables (features).
-
-A dobject may contain a single observation, for instance, a single image.
+{class}`~lamindb.DObject` allows accessing atomic data in object storage and loading or streaming them into memory.
 
 ## On-disk and in-memory representations of data
 
