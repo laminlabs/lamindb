@@ -16,10 +16,7 @@ This is analogous to how developers collaborate on code in repositories, but unl
 
 ## What is a LaminDB instance?
 
-Each LaminDB instance is
-
-- a [data lakehouse](https://www.databricks.com/glossary/data-lakehouse) that manages indexed object storage (local directories, S3, GCP)
-- a SQL query engine (SQLite, Postgres, and soon, BigQuery)
+Each LaminDB instance is a [data lakehouse](https://www.databricks.com/glossary/data-lakehouse) that manages indexed object storage (local directories, S3, GCP) with a SQL query engine (SQLite, Postgres, and soon, BigQuery).
 
 ## Features
 
