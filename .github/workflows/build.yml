@@ -70,10 +70,9 @@ jobs:
       - name: Change base URL to project-slug
         if: github.event_name == 'push'
         run: |
-          mv _build/html/index.html _build/html/${{ steps.lamin-project.outputs.project_slug }}.html
-          mv _build/html _build/html_tmp
-          mkdir _build/html
-          mv _build/html_tmp _build/html/docs
+          mv _build/html _build/${{ steps.lamin-project.outputs.project_slug }}
+          mkdir _build/html/docs
+          mv _build/${{ steps.lamin-project.outputs.project_slug }} _build/html/docs
       - name: Deploy docs
         id: netlify
         uses: nwtgck/actions-netlify@v1.2
