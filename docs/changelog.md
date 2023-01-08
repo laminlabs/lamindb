@@ -3,6 +3,7 @@
 <!-- prettier-ignore -->
 Name | PR | Developer | Date | Version
 --- | --- | --- | --- | ---
+📝 Improving wording of definitions | [424](https://github.com/laminlabs/lamindb/pull/424) | [falexwolf](https://github.com/falexwolf) | 2023-01-08 |
 :memo: Fixes for lndocs upgrade | [423](https://github.com/laminlabs/lamindb/pull/423) | [falexwolf](https://github.com/falexwolf) | 2023-01-08 |
 ♻️ Refactor guide | [422](https://github.com/laminlabs/lamindb/pull/422) | [sunnyosun](https://github.com/sunnyosun) | 2023-01-08 |
 ⬆️ Upgrade `lnschema-bionty` to 0.6.5 | [421](https://github.com/laminlabs/lamindb/pull/421) | [falexwolf](https://github.com/falexwolf) | 2023-01-05 | 0.22.3
