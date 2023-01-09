@@ -12,7 +12,7 @@ Public beta: Currently only recommended for collaborators as we still make break
 
 Each page in this guide is a Jupyter Notebook, which you can download [here](https://github.com/laminlabs/lamindb/tree/main/docs/guide).
 
-You can run these notebooks in hosted versions of JupyterLab, for instance [Saturn Cloud](https://github.com/laminlabs/run-lamin-on-saturn), Google Vertex AI, and others.
+You can run these notebooks in hosted versions of JupyterLab, e.g., [Saturn Cloud](https://github.com/laminlabs/run-lamin-on-saturn), Google Vertex AI, and others.
 
 ```
 
