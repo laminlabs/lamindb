@@ -3,6 +3,7 @@
 <!-- prettier-ignore -->
 Name | PR | Developer | Date | Version
 --- | --- | --- | --- | ---
+📝 Re-arrange notebooks | [427](https://github.com/laminlabs/lamindb/pull/427) | [falexwolf](https://github.com/falexwolf) | 2023-01-09 |
 🚸 Make `ln.nb.header()` more robust | [426](https://github.com/laminlabs/lamindb/pull/426) | [falexwolf](https://github.com/falexwolf) | 2023-01-09 | 0.22.4
 📝 Improving wording of definitions | [424](https://github.com/laminlabs/lamindb/pull/424) | [falexwolf](https://github.com/falexwolf) | 2023-01-08 |
 📝 Fixes for lndocs upgrade | [423](https://github.com/laminlabs/lamindb/pull/423) | [falexwolf](https://github.com/falexwolf) | 2023-01-08 |
