@@ -10,9 +10,9 @@ Public beta: Currently only recommended for collaborators as we still make break
 
 LaminDB is a distributed data management system in which users collaborate on DB _instances_.
 
-This is analogous to how developers collaborate on code in repositories, but unlike git and dvc, LaminDB is queryable by entities.[^integrate]
+This is analogous to how developers collaborate on code in repositories, but unlike git and dvc, LaminDB is queryable by entities.
 
-[^integrate]: Like git helps with integrating code across repositories, LaminDB helps with integrating data across instances.
+Like git helps with integrating code across repositories, LaminDB helps with integrating data across DB instances.
 
 ## What is a LaminDB instance?
 
@@ -23,18 +23,18 @@ Each LaminDB instance is a [data lakehouse](https://www.databricks.com/glossary/
 LaminDB comes with
 
 - data lineage and edit history
-- knowledge-managed biological entities for typing and lookups (via [Bionty](https://lamin.ai/docs/bionty))
-- configurable R&D [schema modules](https://lamin.ai/docs/db/lamindb.schema)
-- tracking of interactive notebooks (via [nbproject](https://lamin.ai/docs/nbproject))
+- knowledge-managed biological entities for typing and lookups
+- configurable schema modules
+- tracking of interactive notebooks
 
-LaminDB is built on open source [Python packages](https://lamin.ai/docs).
+LaminDB is built on open-source [Python packages](https://lamin.ai/docs).
 
 ```{toctree}
 :maxdepth: 1
 :hidden:
 
-install
-signup
-init
-schema
+ingest
+select
+add-delete
+view
 ```
