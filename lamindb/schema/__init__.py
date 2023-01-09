@@ -89,7 +89,7 @@ from packaging import version as _v
 _check_v = {
     "bionty": "0.6.5",
     "wetlab": "0.13.0",
-    "bfx": "0.7.0",
+    "bfx": "0.7.1",
 }
 
 for name in _settings.instance.schema:
