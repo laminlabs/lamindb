@@ -71,7 +71,7 @@ class nb:
         else:
             title = None
 
-        print(f"Instance: {settings.instance.owner}/{settings.instance.name}")
+        logger.info(f"Instance: {settings.instance.owner}/{settings.instance.name}")
 
         import lamindb as ln
         import lamindb.schema as lns
