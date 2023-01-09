@@ -3,9 +3,9 @@
 <!-- prettier-ignore -->
 Name | PR | Developer | Date | Version
 --- | --- | --- | --- | ---
-🚸 Make `ln.nb.header()` more robust | [426](https://github.com/laminlabs/lamindb/pull/426) | [falexwolf](https://github.com/falexwolf) | 2023-01-09 |
+🚸 Make `ln.nb.header()` more robust | [426](https://github.com/laminlabs/lamindb/pull/426) | [falexwolf](https://github.com/falexwolf) | 2023-01-09 | 0.22.4
 📝 Improving wording of definitions | [424](https://github.com/laminlabs/lamindb/pull/424) | [falexwolf](https://github.com/falexwolf) | 2023-01-08 |
-:memo: Fixes for lndocs upgrade | [423](https://github.com/laminlabs/lamindb/pull/423) | [falexwolf](https://github.com/falexwolf) | 2023-01-08 |
+📝 Fixes for lndocs upgrade | [423](https://github.com/laminlabs/lamindb/pull/423) | [falexwolf](https://github.com/falexwolf) | 2023-01-08 |
 ♻️ Refactor guide | [422](https://github.com/laminlabs/lamindb/pull/422) | [sunnyosun](https://github.com/sunnyosun) | 2023-01-08 |
 ⬆️ Upgrade `lnschema-bionty` to 0.6.5 | [421](https://github.com/laminlabs/lamindb/pull/421) | [falexwolf](https://github.com/falexwolf) | 2023-01-05 | 0.22.3
 ⬆️ Upgrade to `lndb-setup` 0.28.1 | [420](https://github.com/laminlabs/lamindb/pull/420) | [falexwolf](https://github.com/falexwolf) | 2023-01-05 |
