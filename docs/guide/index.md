@@ -16,10 +16,10 @@ You can run these notebooks in hosted versions of JupyterLab, for instance [Satu
 
 ```
 
-- [Get started](get-started) with LaminDB in 5min. ⚡
-- Interested to start tracking your data? Check out [Track data](basic). 📊
-- Is your data processed by notebooks or pipelines? Check out [Track runs](run.md). 📗
-- LaminDB can speak biology? Check out [Track biology](bio). 🧬
+- [Get started](get-started) with LaminDB. ⚡
+- Cover more in-depth topics: [Data objects, initialization, schema](basic). 📊
+- Pipelines vs notebooks? Check out [Track runs](run.md). 📗
+- LaminDB speaks biology: Check out [Track biology](bio). 🧬
 
 📬 [Reach out](https://lamin.ai/contact) to report issues, learn about data modules that connect your assays, pipelines & workflows within our data platform enterprise plan.
 
