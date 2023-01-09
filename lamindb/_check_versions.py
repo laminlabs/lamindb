@@ -7,8 +7,8 @@ from packaging import version
 if version.parse(lndb_setup_v) != version.parse("0.28.1"):
     raise RuntimeError("lamindb needs lndb_setup==0.28.1")
 
-if version.parse(lnschema_core_v) != version.parse("0.23.2"):
-    raise RuntimeError("lamindb needs lnschema_core==0.23.2")
+if version.parse(lnschema_core_v) != version.parse("0.24.0"):
+    raise RuntimeError("lamindb needs lnschema_core==0.24.0")
 
 if version.parse(bionty_v) != version.parse("0.5.7"):
     raise RuntimeError("lamindb needs bionty==0.5.7")

@@ -1,9 +1,10 @@
-from typing import List, Union
+from pathlib import Path
+from typing import List, Optional, Union
 
 import nbproject as _nb
 from lamin_logger import logger
-from lndb_setup import info
-from lnschema_core import Notebook, Run
+from lndb_setup import settings
+from lnschema_core import Notebook, Run, dev
 
 
 class nb:
@@ -19,12 +20,17 @@ class nb:
     def header(
         cls,
         *,
-        run: Union[str, None] = None,
+        run: Optional[str] = None,
         pypackage: Union[str, List[str], None] = None,
-        filepath: Union[str, None] = None,
-        env: Union[str, None] = None,
+        filepath: Optional[str] = None,
+        env: Optional[str] = None,
+        id: Optional[str] = None,
+        v: Optional[str] = "0",
+        name: Optional[str] = None,
     ):
-        """Display metadata and start tracking dependencies.
+        """Track the notebook & display metadata.
+
+        Call without arguments in most settings.
 
         If the notebook has no nbproject metadata, initializes & writes metadata
         to disk.
@@ -41,24 +47,56 @@ class nb:
                 Pass `'lab'` for jupyter lab and `'notebook'` for jupyter notebook,
                 this can help to identify the correct mechanism for interactivity
                 when automatic inference fails.
+            id: Pass a notebook id manually.
+            v: Pass a notebook version manually.
+            name: Pass a notebook name manually.
         """
-        _nb.header(pypackage=pypackage, filepath=filepath, env=env)
-        info()
+        if id is None and name is None:
+            try:
+                _nb.header(pypackage=pypackage, filepath=filepath, env=env)
+            except Exception:
+                raise RuntimeError(
+                    "Failed to run nbproject.header(). "
+                    f"Pass id={dev.id.notebook()} & name."
+                )
+            from nbproject.dev._jupyter_communicate import notebook_path
+
+            id = _nb.meta.store.id
+            v = _nb.meta.store.version
+            name = Path(notebook_path()).stem
+            title = _nb.meta.live.title
+        elif id is None or name is None:
+            # Both id and name need to be passed if passing it manually
+            raise RuntimeError("Pass both id & name.")
+        else:
+            title = None
+
+        print(f"Instance: {settings.instance.owner}/{settings.instance.name}")
 
         import lamindb as ln
         import lamindb.schema as lns
 
         notebook = ln.select(
-            lns.Notebook, id=_nb.meta.store.id, v=_nb.meta.store.version
+            lns.Notebook,
+            id=id,
+            v=v,
         ).one_or_none()
         if notebook is None:
             notebook = lns.Notebook(
-                id=_nb.meta.store.id, v=_nb.meta.store.version, name=_nb.meta.live.title
+                id=id,
+                v=v,
+                name=name,
+                title=title,
             )
             notebook = ln.add(notebook)
             logger.info(f"Added notebook: {notebook.id} v{notebook.v}")
         else:
             logger.info(f"Loaded notebook: {notebook.id} v{notebook.v}")
+            if notebook.name != name or notebook.title != title:
+                notebook.name = name
+                notebook.title = title
+                ln.add(notebook)
+                logger.info("Updated notebook name or title.")
 
         # at this point, we have a notebook object
         cls.notebook = notebook
@@ -116,9 +154,11 @@ class nb:
         # update DB
         notebook = ln.select(Notebook, id=cls.notebook.id, v=cls.notebook.v).one()
         # update version
-        notebook.name = _nb.meta.live.title
+        notebook.title = _nb.meta.live.title
         if version != cls.notebook.v:
-            notebook_add = lns.Notebook(id=notebook.id, v=version, name=notebook.name)
+            notebook_add = lns.Notebook(
+                id=notebook.id, v=version, name=notebook.name, title=notebook.title
+            )
         else:
             notebook_add = notebook
         ln.add(notebook_add)
