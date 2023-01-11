@@ -105,7 +105,8 @@ class ExecStmt:
             session = settings.instance.session()
             with session.no_autoflush:
                 self._result = session.exec(self._stmt).all()
-            session.close()
+            if settings.instance._session is None:
+                session.close()
 
     def all(self):
         """Return all result as a list."""
