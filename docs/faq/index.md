@@ -4,6 +4,7 @@
 :maxdepth: 1
 
 setup
+acid
 ingest
 nb
 select
