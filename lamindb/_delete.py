@@ -81,8 +81,6 @@ def delete(  # type: ignore
             f"Deleted {colors.yellow(f'row {record}')} in"
             f" {colors.blue(f'table {type(record).__name__}')}."
         )
-        if settings.instance._session is None:
-            session.close()
         if isinstance(record, DObject):
             # TODO: do not track deletes until we come up
             # with a good design that respects integrity
@@ -92,3 +90,4 @@ def delete(  # type: ignore
             logger.success(
                 f"Deleted {colors.yellow(f'object {storage_key}')} from storage."
             )
+    session.close()
