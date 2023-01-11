@@ -83,8 +83,7 @@ def add(  # type: ignore  # no support of different naming of args across overlo
     session.commit()
     for record in records:
         session.refresh(record)
-    if settings.instance._session is None:
-        session.close()
+    session.close()
     settings.instance._update_cloud_sqlite_file()
     if len(records) > 1:
         return records
