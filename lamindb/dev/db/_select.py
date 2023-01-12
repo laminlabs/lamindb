@@ -25,7 +25,7 @@ Args:
 @doc_args(select_docs)
 def select(*entity: sqm.SQLModel, **fields) -> "SelectStmt":
     """{}"""
-    session = get_session_from_kwargs(**fields)
+    session = get_session_from_kwargs(fields)
     # if ln.DObject is passed, replace it with DObject SQLModel class
     entities = dobject_to_sqm(entity)
 
