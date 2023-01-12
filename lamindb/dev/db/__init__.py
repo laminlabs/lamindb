@@ -7,15 +7,8 @@ Select:
 
    SelectStmt
    ExecStmt
-
-Other:
-
-.. autosummary::
-   :toctree: .
-
-   session
 """
 
 from ._add import add
-from ._core import session
 from ._select import ExecStmt, SelectStmt, select
+from ._session import Session

@@ -13,21 +13,28 @@ in-memory objects (`DataFrame`, `AnnData`, etc.):
 
    DObject
 
-Query & inspect data:
+Query & manipulate data:
 
 .. autosummary::
    :toctree: .
 
    select
-   view
+   add
+   delete
 
-Manipulate data:
+Manipulate data with open session:
 
 .. autosummary::
    :toctree: .
 
-   add
-   delete
+   Session
+
+View DB content:
+
+.. autosummary::
+   :toctree: .
+
+   view
 
 Schema - entities and their relations:
 
@@ -36,7 +43,7 @@ Schema - entities and their relations:
 
    schema
 
-Knowledge management:
+Manage knowledge:
 
 .. autosummary::
    :toctree: .
@@ -55,10 +62,8 @@ Developer API:
 .. autosummary::
    :toctree: .
 
-   session
    settings
    dev
-
 """
 
 __version__ = "0.22.5"
@@ -86,7 +91,7 @@ from ._delete import delete  # noqa
 from ._nb import nb  # noqa
 from ._subset import subset
 from ._view import view  # noqa
-from .dev.db import session  # noqa
+from .dev.db import Session  # noqa
 from .dev.db._add import add  # noqa
 from .dev.db._select import select  # noqa
 from .dev.object._lazy_field import lazy

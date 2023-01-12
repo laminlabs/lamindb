@@ -1,16 +1,8 @@
-from typing import Tuple, Union
+from typing import Dict, Optional, Tuple, Union
 
 import sqlmodel as sqm
-from lndb_setup import settings
 from lnschema_core import DObject
-
-
-def session() -> sqm.Session:
-    """Get connection session to DB engine.
-
-    Returns a `sqlmodel.Session` object.
-    """
-    return settings.instance.session()
+from sqlmodel import Session
 
 
 def dobject_to_sqm(entity: Union[sqm.SQLModel, Tuple[sqm.SQLModel]]):
@@ -27,3 +19,13 @@ def dobject_to_sqm(entity: Union[sqm.SQLModel, Tuple[sqm.SQLModel]]):
         return entities
     else:
         return if_dobject(entity)
+
+
+def get_session_from_kwargs(kwargs: Dict) -> Optional[Session]:
+    # modifies kwargs inplace if they contain a session object
+    if "session" in kwargs:
+        session = kwargs.pop("session")
+        assert isinstance(session, Session)
+        return session
+    else:
+        return None
