@@ -4,12 +4,40 @@ from typing import Dict, List, Tuple, Union, overload  # noqa
 import sqlmodel as sqm
 from lndb_setup import settings
 from lnschema_core import DObject
-from sqlalchemy import Session
+from sqlmodel import Session
 
+from .._docs import doc_args
 from ..file import store_file, write_adata_zarr
 from ..file._file import print_hook
 from ._core import dobject_to_sqm
 from ._select import select
+
+add_docs = """
+Insert or update data records.
+
+Inserts a new :term:`record` if the corresponding row doesn't exist.
+Updates the corresponding row with the record if it exists.
+
+To update a row, query it with `.get` or `.select` and modify it before
+passing it to `add`.
+
+Guide: :doc:`/guide/add-delete`.
+
+Example:
+
+>>> # add a record (by passing a record)
+>>> ln.add(wetlab.Experiment(name="My test", biometa_id=test_id))
+>>> # update an existing record
+>>> experiment = ln.select(wetlab.Experiment, id=experiment_id).one()
+>>> experiment.name = "New name"
+>>> ln.add(experiment)
+>>> # add a record by fields if not yet exists
+>>> ln.add(wetlab.Experiment, name="My test", biometa_id=test_id)
+
+Args:
+    record: One or multiple records as instances of `SQLModel`.
+    use_fsspec: Whether to use fsspec.
+"""
 
 
 def get_session_from_kwargs(kwargs: Dict) -> Tuple[Session, bool]:
@@ -46,34 +74,11 @@ def add(  # type: ignore
     ...
 
 
-def add(  # type: ignore  # no support of different naming of args across overloads
+@doc_args(add_docs)
+def add(  # type: ignore
     record: Union[sqm.SQLModel, List[sqm.SQLModel]], use_fsspec: bool = True, **fields
 ) -> Union[sqm.SQLModel, List[sqm.SQLModel]]:
-    """Insert or update data records in the DB ("metadata" entities).
-
-    Inserts a new :term:`record` if the corresponding row doesn't exist.
-    Updates the corresponding row with the record if it exists.
-
-    To update a row, query it with `.get` or `.select` and modify it before
-    passing it to `add`.
-
-    Guide: :doc:`/guide/add-delete`.
-
-    Example:
-
-    >>> # add a record (by passing a record)
-    >>> ln.add(wetlab.Experiment(name="My test", biometa_id=test_id))
-    >>> # update an existing record
-    >>> experiment = ln.select(wetlab.Experiment, id=experiment_id).one()
-    >>> experiment.name = "New name"
-    >>> ln.add(experiment)
-    >>> # add a record by fields if not yet exists
-    >>> ln.add(wetlab.Experiment, name="My test", biometa_id=test_id)
-
-    Args:
-        record: One or multiple records as instances of `SQLModel`.
-        use_fsspec: Whether to use fsspec.
-    """
+    """{add_docs}"""
     session, close = get_session_from_kwargs(fields)
     if isinstance(record, list):
         records = record

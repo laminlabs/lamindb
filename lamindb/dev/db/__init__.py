@@ -13,9 +13,9 @@ Other:
 .. autosummary::
    :toctree: .
 
-   session
+   Session
 """
 
 from ._add import add
-from ._core import session
 from ._select import ExecStmt, SelectStmt, select
+from ._session import Session
