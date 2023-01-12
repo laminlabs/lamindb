@@ -3,6 +3,7 @@
 <!-- prettier-ignore -->
 Name | PR | Developer | Date | Version
 --- | --- | --- | --- | ---
+🚸 Safer session behavior 2/2 | [432](https://github.com/laminlabs/lamindb/pull/432) | [falexwolf](https://github.com/falexwolf) | 2023-01-12 |
 👷 Extend CI to py3.8-3.10 | [431](https://github.com/laminlabs/lamindb/pull/431) | [sunnyosun](https://github.com/sunnyosun) | 2023-01-12 | 0.22.5
 🚸 More encapsulated connections and ACID test 1 | [430](https://github.com/laminlabs/lamindb/pull/430) | [falexwolf](https://github.com/falexwolf) | 2023-01-11 |
 ⬆️ Upgrade lndb-setup | [428](https://github.com/laminlabs/lamindb/pull/428) | [fredericenard](https://github.com/fredericenard) | 2023-01-10 |
