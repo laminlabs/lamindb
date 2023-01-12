@@ -25,6 +25,12 @@ class Session:
     def __init__(self):
         self._session = settings.instance.session()
 
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_value, exc_tb):
+        self._session.__exit__(exc_type, exc_value, exc_tb)
+
     @doc_args(add_docs)
     def add(
         self,

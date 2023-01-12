@@ -35,7 +35,7 @@ def select(*entity: sqm.SQLModel, **fields) -> "SelectStmt":
     elif len(fields) > 0:
         # was in `get` before, but there it leads to an inhomogeneous return type
         conditions = [getattr(entities[0], k) == v for k, v in fields.items()]
-        return SelectStmt(*entities).where(*conditions)
+        return SelectStmt(*entities, session=session).where(*conditions)
     return SelectStmt(*entities, session=session)
 
 
@@ -115,6 +115,7 @@ class ExecStmt:
                 session = settings.instance.session()
                 close = True
             else:
+                session = self._session
                 close = False
             with session.no_autoflush:
                 self._result = session.exec(self._stmt).all()
