@@ -7,13 +7,6 @@ Select:
 
    SelectStmt
    ExecStmt
-
-Other:
-
-.. autosummary::
-   :toctree: .
-
-   Session
 """
 
 from ._add import add
