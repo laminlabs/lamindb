@@ -1,14 +1,27 @@
 from functools import partial
-from typing import List, Union, overload  # noqa
+from typing import Dict, List, Tuple, Union, overload  # noqa
 
 import sqlmodel as sqm
 from lndb_setup import settings
 from lnschema_core import DObject
+from sqlalchemy import Session
 
 from ..file import store_file, write_adata_zarr
 from ..file._file import print_hook
 from ._core import dobject_to_sqm
 from ._select import select
+
+
+def get_session_from_kwargs(kwargs: Dict) -> Tuple[Session, bool]:
+    # modifies kwargs inplace if they contain a session object
+    if "session" in kwargs:
+        session = kwargs.pop("session")
+        assert isinstance(session, Session)
+        close = False  # local scope session can remain open
+    else:
+        session = settings.instance.session()
+        close = True  # global scope session needs to be closed
+    return session, close
 
 
 @overload
@@ -61,6 +74,7 @@ def add(  # type: ignore  # no support of different naming of args across overlo
         record: One or multiple records as instances of `SQLModel`.
         use_fsspec: Whether to use fsspec.
     """
+    session, close = get_session_from_kwargs(fields)
     if isinstance(record, list):
         records = record
     elif isinstance(record, sqm.SQLModel):
@@ -77,13 +91,13 @@ def add(  # type: ignore  # no support of different naming of args across overlo
     for record in records:
         if isinstance(record, DObject) and hasattr(record, "_local_filepath"):
             upload_data_object(record, use_fsspec=use_fsspec)
-    session = settings.instance.session()
     for record in records:
         session.add(record)
     session.commit()
     for record in records:
         session.refresh(record)
-    session.close()
+    if close:
+        session.close()
     settings.instance._update_cloud_sqlite_file()
     if len(records) > 1:
         return records
