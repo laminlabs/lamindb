@@ -14,7 +14,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python-version: ["3.9"]
+        python-version: ["3.7", "3.8", "3.9", "3.10"]
     timeout-minutes: 25
 
     steps:
@@ -62,18 +62,20 @@ jobs:
         run: |
           nox -s build --python ${{ matrix.python-version }}
       - name: Read lamin-project.yaml
+        if: matrix.python-version == '3.9'
         id: lamin-project
         uses: CumulusDS/get-yaml-paths-action@v0.1.0
         with:
           file: lamin-project.yaml
           project_slug: project_slug
       - name: Change base URL to project-slug
-        if: github.event_name == 'push'
+        if: github.event_name == 'push' && matrix.python-version == '3.9'
         run: |
           mv _build/html _build/${{ steps.lamin-project.outputs.project_slug }}
           mkdir -p _build/html/docs
           mv _build/${{ steps.lamin-project.outputs.project_slug }} _build/html/docs
       - name: Deploy docs
+        if: matrix.python-version == '3.9'
         id: netlify
         uses: nwtgck/actions-netlify@v1.2
         with:
@@ -85,6 +87,7 @@ jobs:
           NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
           NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID }}
       - name: Codecov
+        if: matrix.python-version == '3.9'
         uses: codecov/codecov-action@v2
         with:
           token: ${{ secrets.CODECOV_TOKEN }}

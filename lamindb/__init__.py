@@ -63,7 +63,10 @@ Developer API:
 
 __version__ = "0.22.4"
 
-import warnings
+# prints warning of python versions
+from lamin_logger import py_version_warning
+
+py_version_warning("3.7", "3.10")
 
 from lndb_setup import settings  # noqa
 from lndb_setup._migrate import check_migrate as _check_migrate
