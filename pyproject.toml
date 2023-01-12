@@ -7,6 +7,12 @@ name = "lamindb"
 authors = [{name = "Lamin Labs", email = "laminlabs@gmail.com"}]
 readme = "README.md"
 dynamic = ["version", "description"]
+classifiers = [
+    "Programming Language :: Python :: 3.7",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+]
 dependencies = [
     # Lamin pinned packages
     "lndb_setup==0.29.0",
@@ -14,10 +20,10 @@ dependencies = [
     "lnschema_wetlab==0.13.1",
     "lnschema_bionty==0.6.5",
     "lnbfx==0.7.1",
-    "bionty==0.5.7",
+    "bionty==0.6.0",
     "nbproject>=0.8.0",
     "readfcs",
-    "lamin_logger",
+    "lamin_logger>=0.2.2",
     # External packages
     "anndata",
     "boto3",
