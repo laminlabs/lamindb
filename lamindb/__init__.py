@@ -66,7 +66,7 @@ __version__ = "0.22.4"
 # prints warning of python versions
 from lamin_logger import py_version_warning
 
-py_version_warning("3.7", "3.10")
+py_version_warning("3.8", "3.10")
 
 from lndb_setup import settings  # noqa
 from lndb_setup._migrate import check_migrate as _check_migrate
