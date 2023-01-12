@@ -3,6 +3,7 @@
 <!-- prettier-ignore -->
 Name | PR | Developer | Date | Version
 --- | --- | --- | --- | ---
+🚸 Better hash exception | [434](https://github.com/laminlabs/lamindb/pull/434) | [falexwolf](https://github.com/falexwolf) | 2023-01-12 |
 🚸 Safer session behavior 2/2 <span class="badge badge-warning">Breaking</span> | [432](https://github.com/laminlabs/lamindb/pull/432) | [falexwolf](https://github.com/falexwolf) | 2023-01-12 | 0.23.0
 👷 Extend CI to py3.8-3.10 | [431](https://github.com/laminlabs/lamindb/pull/431) | [sunnyosun](https://github.com/sunnyosun) | 2023-01-12 | 0.22.5
 🚸 Safer session behavior 1/2 | [430](https://github.com/laminlabs/lamindb/pull/430) | [falexwolf](https://github.com/falexwolf) | 2023-01-11 |
