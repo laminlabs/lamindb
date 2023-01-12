@@ -54,8 +54,8 @@ def serialize(
 def get_hash(local_filepath, suffix):
     if suffix != ".zarr":  # if not streamed
         hash = hash_file(local_filepath)
-        result = select(lns_DObject, hash=hash).one_or_none()
-        if result is not None:
+        result = select(lns_DObject, hash=hash).all()
+        if len(result) > 0:
             logger.warning(
                 "Based on the MD5 hash, the same data object is already"
                 f" in the DB: {result}"
