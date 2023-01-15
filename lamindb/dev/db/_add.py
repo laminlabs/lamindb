@@ -87,6 +87,10 @@ def add(  # type: ignore
         session = settings.instance.session(lock=True)
         close = True
     else:
+        # manually lock here
+        locker = settings.instance.locker
+        if locker is not None:
+            locker.lock()
         close = False
     for record in records:
         session.add(record)
