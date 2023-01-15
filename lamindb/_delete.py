@@ -57,7 +57,7 @@ def delete(  # type: ignore
         if len(results) == 0:
             return None
         records = results
-    session = settings.instance.session()
+    session = settings.instance.session(lock=True)
     for record in records:
         if isinstance(record, DObject):
             # delete usage events related to the dobject that's to be deleted

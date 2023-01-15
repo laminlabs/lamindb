@@ -8,7 +8,7 @@ from .dev.file import load_to_memory
 
 
 def populate_runin(dobject: core.DObject, run: core.Run):
-    session = settings.instance.session()
+    session = settings.instance.session(lock=True)
     result = session.get(core.link.RunIn, (run.id, dobject.id))
     if result is None:
         session.add(

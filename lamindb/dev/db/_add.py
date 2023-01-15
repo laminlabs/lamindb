@@ -84,7 +84,7 @@ def add(  # type: ignore
         if isinstance(record, DObject) and hasattr(record, "_local_filepath"):
             upload_data_object(record, use_fsspec=use_fsspec)
     if session is None:  # assume global session
-        session = settings.instance.session()
+        session = settings.instance.session(lock=True)
         close = True
     else:
         close = False
