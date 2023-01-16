@@ -8,20 +8,18 @@ from .dev.file import load_to_memory
 
 
 def populate_runin(dobject: core.DObject, run: core.Run):
-    session = settings.instance.session()
-    result = session.get(core.link.RunIn, (run.id, dobject.id))
-    if result is None:
-        session.add(
-            core.link.RunIn(
-                run_id=run.id,
-                dobject_id=dobject.id,
+    with settings.instance.session() as ss:
+        result = ss.get(core.link.RunIn, (run.id, dobject.id))
+        if result is None:
+            ss.add(
+                core.link.RunIn(
+                    run_id=run.id,
+                    dobject_id=dobject.id,
+                )
             )
-        )
-        session.commit()
-        logger.info(f"Added dobject ({dobject.id}) as input for run ({run.id}).")
-        settings.instance._update_cloud_sqlite_file()
-    if settings.instance._session is None:
-        session.close()
+            ss.commit()
+            logger.info(f"Added dobject ({dobject.id}) as input for run ({run.id}).")
+            settings.instance._update_cloud_sqlite_file()
 
 
 # this is exposed to the user as DObject.load

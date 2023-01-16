@@ -112,15 +112,15 @@ class ExecStmt:
         # cache the query result for the lifetime of the object
         if self._result is None:
             if self._session is None:  # use global session
-                session = settings.instance.session()
+                ss = settings.instance.session()
                 close = True
             else:
-                session = self._session
+                ss = self._session
                 close = False
-            with session.no_autoflush:
-                self._result = session.exec(self._stmt).all()
-            if close or settings.instance._session is None:
-                session.close()
+            with ss.no_autoflush:
+                self._result = ss.exec(self._stmt).all()
+            if close:
+                ss.close()
 
     def all(self):
         """Return all result as a list."""

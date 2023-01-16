@@ -1,6 +1,7 @@
 # LaminDB
 _build
 mydata/
+mytest/
 rds/
 mydb/
 bfx-output/

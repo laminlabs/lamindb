@@ -19,7 +19,7 @@ def test_create_to_load():
     ln.add(notebook)
     run = ln.schema.Run(notebook_id=notebook.id, notebook_v=notebook)
     ln.add(run)
-    ln.select(ln.schema.Storage, root=str(ln.settings.instance.storage_root)).one()
+    ln.select(ln.schema.Storage, root=str(ln.settings.instance.storage.root)).one()
 
     ln.schema._core.get_db_metadata_as_dict()
     table_object = ln.schema._core.get_table_object("core.dobject")
