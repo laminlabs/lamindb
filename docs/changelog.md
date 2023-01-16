@@ -3,6 +3,7 @@
 <!-- prettier-ignore -->
 Name | PR | Developer | Date | Version
 --- | --- | --- | --- | ---
+⬆️ Upgrade to lndb_setup==0.30.5 | [438](https://github.com/laminlabs/lamindb/pull/438) | [sunnyosun](https://github.com/sunnyosun) | 2023-01-16 |
 ⬆️ Upgrade lndb-setup to 0.30.4 | [437](https://github.com/laminlabs/lamindb/pull/437) | [sunnyosun](https://github.com/sunnyosun) | 2023-01-16 | 0.24.1
 ⬆️ Upgrade to lndb-setup 0.30.2 | [436](https://github.com/laminlabs/lamindb/pull/436) | [falexwolf](https://github.com/falexwolf) | 2023-01-16 | 0.24.0
 🚸 Better hash exception | [434](https://github.com/laminlabs/lamindb/pull/434) | [falexwolf](https://github.com/falexwolf) | 2023-01-12 |
