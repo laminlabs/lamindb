@@ -30,7 +30,7 @@ def list_tables():
 
 
 def get_db_metadata():
-    engine = settings.instance.db_engine()
+    engine = settings.instance.engine
     metadata = sql.MetaData(bind=engine)
     metadata.reflect()
     return metadata
@@ -75,7 +75,7 @@ def get_foreign_keys_as_tuples(object: Union[Table, Column]):
 
 
 def get_db_name() -> str:
-    engine = settings.instance.db_engine()
+    engine = settings.instance.engine
     return engine.url.database
 
 

@@ -200,7 +200,7 @@ def get_dobject_kwargs_from_data(
     else:
         size = size_adata(memory_rep)
     hash = get_hash(local_filepath, suffix)
-    storage = select(Storage, root=str(settings.instance.storage_root)).one()
+    storage = select(Storage, root=str(settings.instance.storage.root)).one()
     dobject_privates = dict(
         _local_filepath=local_filepath,
         _memory_rep=memory_rep,
