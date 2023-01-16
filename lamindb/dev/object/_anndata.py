@@ -10,7 +10,7 @@ from typeguard import typechecked
 def anndata_to_h5ad(adata: AnnData, filekey: str) -> Path:
     """AnnData → h5ad."""
     path = settings.instance.storage.key_to_filepath(filekey)
-    if settings.instance.cloud_storage:
+    if settings.instance.storage.is_cloud:
         cache_file = settings.instance.storage.cloud_to_local_no_update(path)  # type: ignore  # noqa
         cache_file.parent.mkdir(exist_ok=True)
         logger.debug(f"Writing cache file: {cache_file}.")
