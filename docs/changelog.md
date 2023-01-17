@@ -3,6 +3,7 @@
 <!-- prettier-ignore -->
 Name | PR | Developer | Date | Version
 --- | --- | --- | --- | ---
+⬆️ Upgrade to lnschema-bionty 0.6.7 | [440](https://github.com/laminlabs/lamindb/pull/440) | [sunnyosun](https://github.com/sunnyosun) | 2023-01-17 |
 ⬆️ Upgrade to lndb-setup 0.30.6 | [439](https://github.com/laminlabs/lamindb/pull/439) | [sunnyosun](https://github.com/sunnyosun) | 2023-01-16 | 0.24.3
 ⬆️ Upgrade to lndb_setup==0.30.5 | [438](https://github.com/laminlabs/lamindb/pull/438) | [sunnyosun](https://github.com/sunnyosun) | 2023-01-16 | 0.24.2
 ⬆️ Upgrade lndb-setup to 0.30.4 | [437](https://github.com/laminlabs/lamindb/pull/437) | [sunnyosun](https://github.com/sunnyosun) | 2023-01-16 | 0.24.1
