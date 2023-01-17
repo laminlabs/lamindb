@@ -88,7 +88,7 @@ from packaging import version as _v
 
 _check_v = {
     "bionty": "0.6.8",
-    "wetlab": "0.13.1",
+    "wetlab": "0.13.3",
     "bfx": "0.7.1",
 }
 
