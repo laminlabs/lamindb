@@ -2,7 +2,7 @@ from lamindb.knowledge import CellMarker, Gene, Protein, Species
 
 
 def test_import():
-    Species(id="common_name")
+    Species(id="name")
     Gene()
     Protein()
     CellMarker()

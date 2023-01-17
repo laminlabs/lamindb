@@ -7,7 +7,7 @@ class Species(bt.Species):
     See `bionty.Species <https://lamin.ai/docs/bionty/bionty.Species>`__.
     """
 
-    def __init__(self, id="common_name") -> None:
+    def __init__(self, id="name") -> None:
         super().__init__(id=id)
 
 
