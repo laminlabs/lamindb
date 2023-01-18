@@ -3,6 +3,7 @@
 <!-- prettier-ignore -->
 Name | PR | Developer | Date | Version
 --- | --- | --- | --- | ---
+📝 Refactor init guide and show bionty versions in guide | [443](https://github.com/laminlabs/lamindb/pull/443) | [sunnyosun](https://github.com/sunnyosun) | 2023-01-18 |
 ⬆️ Upgrade wetlab schema to 0.13.3 | [442](https://github.com/laminlabs/lamindb/pull/442) | [sunnyosun](https://github.com/sunnyosun) | 2023-01-17 | 0.24.5
 🐛 Fix taxon_id type and upgrade bionty | [441](https://github.com/laminlabs/lamindb/pull/441) | [sunnyosun](https://github.com/sunnyosun) | 2023-01-17 | 0.24.4
 ⬆️ Upgrade to lnschema-bionty 0.6.7 | [440](https://github.com/laminlabs/lamindb/pull/440) | [sunnyosun](https://github.com/sunnyosun) | 2023-01-17 |
