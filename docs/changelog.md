@@ -3,7 +3,7 @@
 <!-- prettier-ignore -->
 Name | PR | Developer | Date | Version
 --- | --- | --- | --- | ---
-🩹 Better treat edge cases upon signup, login, failed instance loading | [446](https://github.com/laminlabs/lamindb/pull/446) | [falexwolf](https://github.com/falexwolf) | 2023-01-20 |
+🩹 Better treat edge cases upon signup, login, failed instance loading | [446](https://github.com/laminlabs/lamindb/pull/446) | [falexwolf](https://github.com/falexwolf) | 2023-01-20 | 0.25.0
 🚸 Introduce data validation on the ORM level | [445](https://github.com/laminlabs/lamindb/pull/445) | [bpenteado](https://github.com/bpenteado) | 2023-01-20 |
 ♻️ Reorganize quickstart and get-started | [444](https://github.com/laminlabs/lamindb/pull/444) | [sunnyosun](https://github.com/sunnyosun) | 2023-01-20 |
 📝 Refactor init guide and show bionty versions in guide | [443](https://github.com/laminlabs/lamindb/pull/443) | [sunnyosun](https://github.com/sunnyosun) | 2023-01-18 | 0.24.6
