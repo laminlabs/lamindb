@@ -1,4 +1,4 @@
-# Data objects, initialization, schema
+# What is DObject?
 
 ## Data objects in storage & memory: `DObject`
 
@@ -30,6 +30,6 @@ Examples for storage ⟷ memory correspondence:
 :maxdepth: 1
 :hidden:
 
-init
+setup
 schema
 ```
