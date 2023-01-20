@@ -3,6 +3,7 @@
 <!-- prettier-ignore -->
 Name | PR | Developer | Date | Version
 --- | --- | --- | --- | ---
+🚸 Introduce data validation on the ORM level | [445](https://github.com/laminlabs/lamindb/pull/445) | [bpenteado](https://github.com/bpenteado) | 2023-01-20 |
 ♻️ Reorganize quickstart and get-started | [444](https://github.com/laminlabs/lamindb/pull/444) | [sunnyosun](https://github.com/sunnyosun) | 2023-01-20 |
 📝 Refactor init guide and show bionty versions in guide | [443](https://github.com/laminlabs/lamindb/pull/443) | [sunnyosun](https://github.com/sunnyosun) | 2023-01-18 | 0.24.6
 ⬆️ Upgrade wetlab schema to 0.13.3 | [442](https://github.com/laminlabs/lamindb/pull/442) | [sunnyosun](https://github.com/sunnyosun) | 2023-01-17 | 0.24.5
