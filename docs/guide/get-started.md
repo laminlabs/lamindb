@@ -1,4 +1,4 @@
-# Get started
+# Getting started
 
 ```{warning}
 
@@ -23,9 +23,9 @@ Each LaminDB instance is a [data lakehouse](https://www.databricks.com/glossary/
 LaminDB comes with
 
 - data lineage and edit history
+- tracking of interactive notebooks
 - knowledge-managed biological entities for typing and lookups
 - configurable schema modules
-- tracking of interactive notebooks
 
 LaminDB is built on open-source [Python packages](https://lamin.ai/docs).
 
@@ -33,7 +33,7 @@ LaminDB is built on open-source [Python packages](https://lamin.ai/docs).
 :maxdepth: 1
 :hidden:
 
-ingest
+quickstart
 select
 add-delete
 view
