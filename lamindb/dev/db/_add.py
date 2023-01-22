@@ -85,6 +85,7 @@ def add(  # type: ignore
             upload_data_object(record, use_fsspec=use_fsspec)
     if session is None:  # assume global session
         session = settings.instance.session()
+        settings.instance._cloud_sqlite_locker.lock()
         close = True
     else:
         close = False
@@ -95,7 +96,8 @@ def add(  # type: ignore
         session.refresh(record)
     if close:
         session.close()
-    settings.instance._update_cloud_sqlite_file()
+        settings.instance._update_cloud_sqlite_file()
+        settings.instance._cloud_sqlite_locker.unlock()
     if len(records) > 1:
         return records
     else:

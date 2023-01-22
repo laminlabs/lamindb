@@ -23,13 +23,22 @@ class Session:
     """
 
     def __init__(self):
+        settings.instance._cloud_sqlite_locker.lock()
         self._session = settings.instance.session()
+
+        self._update = False
 
     def __enter__(self):
         return self
 
     def __exit__(self, exc_type, exc_value, exc_tb):
         self._session.__exit__(exc_type, exc_value, exc_tb)
+        self._finish()
+
+    def _finish(self):
+        if self._update:
+            settings.instance._update_cloud_sqlite_file()
+        settings.instance._cloud_sqlite_locker.unlock()
 
     @doc_args(add_docs)
     def add(
@@ -40,6 +49,7 @@ class Session:
     ) -> Union[sqm.SQLModel, List[sqm.SQLModel]]:
         """{}"""  # noqa
         fields["session"] = self._session
+        self._update = True
         return add(record=record, use_fsspec=use_fsspec, **fields)
 
     @doc_args(select_docs)
@@ -51,3 +61,4 @@ class Session:
     def close(self):
         """Close the session."""
         self._session.close()
+        self._finish()
