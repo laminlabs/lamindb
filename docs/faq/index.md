@@ -8,7 +8,6 @@ acid
 nb
 ingest-same-file-twice
 linked-select
-zarr
 stream
 postgres
 storage
