@@ -10,6 +10,6 @@ ingest-same-file-twice
 linked-select
 stream
 postgres
-storage
 select
+storage
 ```
