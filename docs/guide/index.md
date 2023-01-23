@@ -18,7 +18,7 @@ Public beta: Currently only recommended for collaborators as we still make break
 
 - 🚀 Wanna jump right in? Follow [LaminDB quickstart](quickstart).
 - 🧱 For basic concepts and functionalities, see [Getting started](get-started).
-- 📚 Cover more in-depth topics: [Data objects, instance setup, schema](advanced).
+- 📚 Cover more in-depth topics: [Data objects, instance setup, schema, session](advanced).
 - 📊 Pipelines vs notebooks? Check out [Track runs](run.md).
 - 🧬 LaminDB speaks biology? Check out [Track biology](bio).
 

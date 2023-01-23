@@ -49,6 +49,27 @@ def anndata_mouse_sc_lymph_node() -> ad.AnnData:
     return ad.read(filepath)
 
 
+def anndata_pbmc68k_reduced() -> ad.AnnData:
+    """Modified from scanpy.datasets.pbmc68k_reduced()."""
+    import scanpy as sc
+
+    pbmc68k = sc.datasets.pbmc68k_reduced()
+    pbmc68k.obs.rename(columns={"bulk_labels": "cell_type"}, inplace=True)
+    pbmc68k.obs["cell_type"] = pbmc68k.obs["cell_type"].cat.rename_categories(
+        {"Dendritic": "Dendritic cells", "CD14+ Monocyte": "CD14+ Monocytes"}
+    )
+    return pbmc68k
+
+
+def anndata_pbmc3k_processed() -> ad.AnnData:
+    """Modified from scanpy.pbmc3k_processed()."""
+    import scanpy as sc
+
+    pbmc3k = sc.datasets.pbmc3k_processed()
+    pbmc3k.obs.rename(columns={"louvain": "cell_type"}, inplace=True)
+    return pbmc3k
+
+
 def anndata_human_immune_cells() -> ad.AnnData:
     """Cross-tissue immune cell analysis reveals tissue-specific features in humans.
 

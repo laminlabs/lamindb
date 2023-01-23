@@ -3,18 +3,13 @@
 ```{toctree}
 :maxdepth: 1
 
-setup
-session
-acid
 ingest
+acid
 nb
-select
-storage
 ingest-same-file-twice
 linked-select
-ingest-bfx
-postgres
-zarr-ingest-load
-streaming-objects
+stream
+storage
+select
 data-validation
 ```
