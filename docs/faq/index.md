@@ -9,7 +9,6 @@ nb
 ingest-same-file-twice
 linked-select
 stream
-postgres
 select
 storage
 ```
