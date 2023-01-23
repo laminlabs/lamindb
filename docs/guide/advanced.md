@@ -26,6 +26,19 @@ Examples for storage ⟷ memory correspondence:
 
 ```
 
+## `ln.DObject` vs `lns.DObject`
+
+They are identical! You will notice we use them interchangeably.
+
+A typical data module in `lns.` only allows you to manage database table records.
+
+We provide `ln.DObject` as DObject is a special data module which provides object management in addition to database records.
+
+For best practice, we import
+
+- `lamindb` as `ln` for generic
+- `lamindb.schema` as `lns` for tables and schema functionality
+
 ```{toctree}
 :maxdepth: 1
 :hidden:
