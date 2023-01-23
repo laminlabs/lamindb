@@ -39,6 +39,12 @@ For best practice, we import
 - `lamindb` as `ln` for generic
 - `lamindb.schema` as `lns` for tables and schema functionality
 
+```{note}
+
+Check out [common errors](https://lamin.ai/docs/db/faq/ingest) in constructing DObject.
+
+```
+
 ```{toctree}
 :maxdepth: 1
 :hidden:
