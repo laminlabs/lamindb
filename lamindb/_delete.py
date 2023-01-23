@@ -77,7 +77,6 @@ def delete(  # type: ignore
             session.commit()
         session.delete(record)
         session.commit()
-        settings.instance._update_cloud_sqlite_file()
         logger.success(
             f"Deleted {colors.yellow(f'row {record}')} in"
             f" {colors.blue(f'table {type(record).__name__}')}."
@@ -92,4 +91,5 @@ def delete(  # type: ignore
                 f"Deleted {colors.yellow(f'object {storage_key}')} from storage."
             )
     session.close()
+    settings.instance._update_cloud_sqlite_file()
     settings.instance._cloud_sqlite_locker.unlock()
