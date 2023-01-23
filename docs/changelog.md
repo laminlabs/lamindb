@@ -3,6 +3,7 @@
 <!-- prettier-ignore -->
 Name | PR | Developer | Date | Version
 --- | --- | --- | --- | ---
+✨ Add explicit remote sqlite instance locking to write operations | [447](https://github.com/laminlabs/lamindb/pull/447) | [Koncopd](https://github.com/Koncopd) | 2023-01-23 |
 ♻️ Refactored FAQ | [448](https://github.com/laminlabs/lamindb/pull/448) | [sunnyosun](https://github.com/sunnyosun) | 2023-01-23 |
 :memo: Create data validation FAQ | [451](https://github.com/laminlabs/lamindb/pull/451) | [bpenteado](https://github.com/bpenteado) | 2023-01-23 |
 ➖ Remove s3fs dependency | [450](https://github.com/laminlabs/lamindb/pull/450) | [fredericenard](https://github.com/fredericenard) | 2023-01-23 |
