@@ -3,7 +3,6 @@
 ```{toctree}
 :maxdepth: 1
 
-session
 acid
 ingest
 nb

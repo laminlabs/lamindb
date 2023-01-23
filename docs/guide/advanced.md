@@ -32,4 +32,5 @@ Examples for storage ⟷ memory correspondence:
 
 setup
 schema
+session
 ```
