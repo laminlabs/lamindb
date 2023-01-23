@@ -3,6 +3,7 @@
 <!-- prettier-ignore -->
 Name | PR | Developer | Date | Version
 --- | --- | --- | --- | ---
+♻️ Refactored FAQ | [448](https://github.com/laminlabs/lamindb/pull/448) | [sunnyosun](https://github.com/sunnyosun) | 2023-01-23 |
 :memo: Create data validation FAQ | [451](https://github.com/laminlabs/lamindb/pull/451) | [bpenteado](https://github.com/bpenteado) | 2023-01-23 |
 ➖ Remove s3fs dependency | [450](https://github.com/laminlabs/lamindb/pull/450) | [fredericenard](https://github.com/fredericenard) | 2023-01-23 |
 ⬆️ Upgrade lndb-setup to 0.30.8 | [449](https://github.com/laminlabs/lamindb/pull/449) | [fredericenard](https://github.com/fredericenard) | 2023-01-23 |
