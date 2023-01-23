@@ -3,14 +3,14 @@
 ```{toctree}
 :maxdepth: 1
 
-acid
 ingest
+acid
 nb
-select
-storage
 ingest-same-file-twice
 linked-select
-postgres
 zarr-ingest-load
 streaming-objects
+postgres
+storage
+select
 ```
