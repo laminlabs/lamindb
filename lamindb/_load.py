@@ -8,6 +8,7 @@ from .dev.file import load_to_memory
 
 
 def populate_runin(dobject: core.DObject, run: core.Run):
+    settings.instance._cloud_sqlite_locker.lock()
     with settings.instance.session() as ss:
         result = ss.get(core.link.RunIn, (run.id, dobject.id))
         if result is None:
@@ -20,6 +21,7 @@ def populate_runin(dobject: core.DObject, run: core.Run):
             ss.commit()
             logger.info(f"Added dobject ({dobject.id}) as input for run ({run.id}).")
             settings.instance._update_cloud_sqlite_file()
+    settings.instance._cloud_sqlite_locker.unlock()
 
 
 # this is exposed to the user as DObject.load
