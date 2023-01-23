@@ -9,6 +9,6 @@ nb
 ingest-same-file-twice
 linked-select
 stream
-select
 storage
+select
 ```
