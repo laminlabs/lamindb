@@ -3,6 +3,7 @@
 <!-- prettier-ignore -->
 Name | PR | Developer | Date | Version
 --- | --- | --- | --- | ---
+➖ Remove s3fs dependency | [450](https://github.com/laminlabs/lamindb/pull/450) | [fredericenard](https://github.com/fredericenard) | 2023-01-23 |
 ⬆️ Upgrade lndb-setup to 0.30.8 | [449](https://github.com/laminlabs/lamindb/pull/449) | [fredericenard](https://github.com/fredericenard) | 2023-01-23 |
 🩹 Better treat edge cases upon signup, login, failed instance loading | [446](https://github.com/laminlabs/lamindb/pull/446) | [falexwolf](https://github.com/falexwolf) | 2023-01-20 | 0.25.0
 🚸 Introduce data validation on the ORM level | [445](https://github.com/laminlabs/lamindb/pull/445) | [bpenteado](https://github.com/bpenteado) | 2023-01-20 |
