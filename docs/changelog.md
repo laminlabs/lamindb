@@ -3,6 +3,8 @@
 <!-- prettier-ignore -->
 Name | PR | Developer | Date | Version
 --- | --- | --- | --- | ---
+🩺 Increase migrations testing robustness postgres | [454](https://github.com/laminlabs/lamindb/pull/454) | [falexwolf](https://github.com/falexwolf) | 2023-01-24 |
+📝 Remove linked-select notebook | [453](https://github.com/laminlabs/lamindb/pull/453) | [falexwolf](https://github.com/falexwolf) | 2023-01-24 |
 :arrow_up: Upgrade lnschema-core to 0.25.1 | [452](https://github.com/laminlabs/lamindb/pull/452) | [bpenteado](https://github.com/bpenteado) | 2023-01-23 | 0.25.1
 ✨ Add explicit remote sqlite instance locking to write operations | [447](https://github.com/laminlabs/lamindb/pull/447) | [Koncopd](https://github.com/Koncopd) | 2023-01-23 |
 ♻️ Refactored FAQ | [448](https://github.com/laminlabs/lamindb/pull/448) | [sunnyosun](https://github.com/sunnyosun) | 2023-01-23 |
