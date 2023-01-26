@@ -3,6 +3,7 @@
 <!-- prettier-ignore -->
 Name | PR | Developer | Date | Version
 --- | --- | --- | --- | ---
+📌 Pin `s3fs` and `gcsfs` to the latest versions | [458](https://github.com/laminlabs/lamindb/pull/458) | [falexwolf](https://github.com/falexwolf) | 2023-01-26 |
 🚸 Auto-populate relationship-associated foreign key fields | [457](https://github.com/laminlabs/lamindb/pull/457) | [bpenteado](https://github.com/bpenteado) | 2023-01-26 | 0.25.3
 🐛  Fix strict type checking for relationships | [455](https://github.com/laminlabs/lamindb/pull/455) | [bpenteado](https://github.com/bpenteado) | 2023-01-24 | 0.25.2
 🩺 Increase migrations testing robustness postgres | [454](https://github.com/laminlabs/lamindb/pull/454) | [falexwolf](https://github.com/falexwolf) | 2023-01-24 |
