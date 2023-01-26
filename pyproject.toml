@@ -14,14 +14,14 @@ classifiers = [
 ]
 dependencies = [
     # Lamin pinned packages
-    "lndb_setup==0.30.9",
-    "lnschema_core==0.25.2",
+    "lndb_setup==0.30.10",
+    "lnschema_core==0.25.3",
     "lnschema_wetlab==0.13.3",
     "lnschema_bionty==0.6.8",
     "bionty==0.6.4",
     "nbproject>=0.8.0",
     "readfcs>=1.1.0",
-    "lamin_logger>=0.2.2",
+    "lamin_logger>=0.2.3",
     # External packages
     "anndata",
     "boto3",
