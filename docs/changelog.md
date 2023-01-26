@@ -3,7 +3,7 @@
 <!-- prettier-ignore -->
 Name | PR | Developer | Date | Version
 --- | --- | --- | --- | ---
-➕ Bring back lnfbx | [459](https://github.com/laminlabs/lamindb/pull/459) | [falexwolf](https://github.com/falexwolf) | 2023-01-26 |
+➕ Bring back lnfbx | [459](https://github.com/laminlabs/lamindb/pull/459) | [falexwolf](https://github.com/falexwolf) | 2023-01-26 | 0.25.5
 📝 Prettier section headings in the docs | [456](https://github.com/laminlabs/lamindb/pull/456) | [sunnyosun](https://github.com/sunnyosun) | 2023-01-26 |
 📌 Pin `s3fs` and `gcsfs` to the latest versions | [458](https://github.com/laminlabs/lamindb/pull/458) | [falexwolf](https://github.com/falexwolf) | 2023-01-26 | 0.25.4
 🚸 Auto-populate relationship-associated foreign key fields | [457](https://github.com/laminlabs/lamindb/pull/457) | [bpenteado](https://github.com/bpenteado) | 2023-01-26 | 0.25.3
