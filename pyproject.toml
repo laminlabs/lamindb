@@ -22,22 +22,13 @@ dependencies = [
     "nbproject>=0.8.0",
     "readfcs>=1.1.0",
     "lnbfx==0.7.1",
-    "lamin_logger>=0.2.3",
     # External packages
-    "anndata",
-    "boto3",
+    "anndata>=0.8.0",
     "hjson",
-    "cloudpathlib",
-    "loguru",
-    "requests",
     "sqlmodel>=0.0.8",
     "typeguard",
     "tabulate",
     "erdiagram",
-    "appdirs",
-    "supabase",
-    "python-dotenv",
-    "fsspec",
     "zarr",
 ]
 
