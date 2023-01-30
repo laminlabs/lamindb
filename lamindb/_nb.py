@@ -52,18 +52,25 @@ class nb:
             name: Pass a notebook name manually.
         """
         if id is None and name is None:
+            nbproject_failed_msg = (
+                "Failed to run `nbproject.header()`: "
+                f"Pass id={dev.id.notebook()} & name."
+            )
             try:
                 _nb.header(pypackage=pypackage, filepath=filepath, env=env)
             except Exception:
-                raise RuntimeError(
-                    "Failed to run nbproject.header(). "
-                    f"Pass id={dev.id.notebook()} & name."
-                )
+                raise RuntimeError(nbproject_failed_msg)
             from nbproject.dev._jupyter_communicate import notebook_path
+
+            inferred_filepath = notebook_path()
+            if inferred_filepath is None:  # treat the case in which filepath is passed
+                if filepath is None:  # should never evaluate to False, a safeguard
+                    raise RuntimeError(nbproject_failed_msg)
+                inferred_filepath = filepath
 
             id = _nb.meta.store.id
             v = _nb.meta.store.version
-            name = Path(notebook_path()).stem
+            name = Path(inferred_filepath).stem
             title = _nb.meta.live.title
         elif id is None or name is None:
             # Both id and name need to be passed if passing it manually
