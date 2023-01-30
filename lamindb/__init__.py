@@ -66,7 +66,7 @@ Developer API:
    dev
 """
 
-__version__ = "0.25.6"
+__version__ = "0.25.7"
 
 # prints warning of python versions
 from lamin_logger import py_version_warning
