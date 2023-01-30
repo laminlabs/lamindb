@@ -64,7 +64,7 @@ class nb:
 
             inferred_filepath = notebook_path()
             if inferred_filepath is None:  # treat the case in which filepath is passed
-                if filepath is None:
+                if filepath is None:  # should never evaluate to False, a safeguard
                     raise RuntimeError(nbproject_failed_msg)
                 inferred_filepath = filepath
 
