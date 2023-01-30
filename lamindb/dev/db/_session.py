@@ -18,7 +18,7 @@ class Session:
     typically used within a `with` statement::
 
         with Session() as ss:
-            dobject = ss.select(lns.DObject, name="My test").one()
+            dobject = ss.select(ln.DObject, name="My test").one()
             ...
     """
 
