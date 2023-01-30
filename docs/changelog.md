@@ -3,7 +3,7 @@
 <!-- prettier-ignore -->
 Name | PR | Developer | Date | Version
 --- | --- | --- | --- | ---
-⬆️ Upgrade lndb-setup 0.30.11 | [461](https://github.com/laminlabs/lamindb/pull/461) | [sunnyosun](https://github.com/sunnyosun) | 2023-01-30 |
+⬆️ Upgrade lndb-setup 0.30.11 | [461](https://github.com/laminlabs/lamindb/pull/461) | [sunnyosun](https://github.com/sunnyosun) | 2023-01-30 | 0.25.6
 ⬆️ Cleaned up dependencies so that it's not as redundant to lndb-setup | [460](https://github.com/laminlabs/lamindb/pull/460) | [sunnyosun](https://github.com/sunnyosun) | 2023-01-27 |
 ➕ Bring back lnfbx | [459](https://github.com/laminlabs/lamindb/pull/459) | [falexwolf](https://github.com/falexwolf) | 2023-01-26 | 0.25.5
 📝 Prettier section headings in the docs | [456](https://github.com/laminlabs/lamindb/pull/456) | [sunnyosun](https://github.com/sunnyosun) | 2023-01-26 |
