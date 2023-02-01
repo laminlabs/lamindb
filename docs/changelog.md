@@ -3,9 +3,9 @@
 <!-- prettier-ignore -->
 Name | PR | Developer | Date | Version
 --- | --- | --- | --- | ---
-🚸 Add post-setup settings manager, error on duplicate insert | [466](https://github.com/laminlabs/lamindb/pull/466) | [falexwolf](https://github.com/falexwolf) | 2023-02-01 | 0.26.0
+🚸 Add post-setup settings manager, error on duplicate insert <span class="badge badge-warning">Breaking</span> | [466](https://github.com/laminlabs/lamindb/pull/466) | [falexwolf](https://github.com/falexwolf) | 2023-02-01 | 0.26.0
 🐛 Fix fallback for notebook name | [463](https://github.com/laminlabs/lamindb/pull/463) | [falexwolf](https://github.com/falexwolf) | 2023-01-30 | 0.25.7
-🔥 Remove `lns.DObject` | [462](https://github.com/laminlabs/lamindb/pull/462) | [sunnyosun](https://github.com/sunnyosun) | 2023-01-30 |
+🔥 Remove `lns.DObject` <span class="badge badge-warning">Breaking</span> | [462](https://github.com/laminlabs/lamindb/pull/462) | [sunnyosun](https://github.com/sunnyosun) | 2023-01-30 |
 ⬆️ Upgrade lndb-setup 0.30.11 | [461](https://github.com/laminlabs/lamindb/pull/461) | [sunnyosun](https://github.com/sunnyosun) | 2023-01-30 | 0.25.6
 ⬆️ Cleaned up dependencies so that it's not as redundant to lndb-setup | [460](https://github.com/laminlabs/lamindb/pull/460) | [sunnyosun](https://github.com/sunnyosun) | 2023-01-27 |
 ➕ Bring back lnfbx | [459](https://github.com/laminlabs/lamindb/pull/459) | [falexwolf](https://github.com/falexwolf) | 2023-01-26 | 0.25.5
