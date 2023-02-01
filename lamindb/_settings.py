@@ -14,4 +14,7 @@ class settings:
     """
 
     error_on_dobject_hash_exists: bool = True
-    """Upon ingestion, error if a dobject hash equals an existing hash in the DB."""
+    """Upon ingestion, error if a dobject hash equals an existing hash in the DB.
+
+    FAQ: :doc:`/faq/ingest-same-file-twice`.
+    """
