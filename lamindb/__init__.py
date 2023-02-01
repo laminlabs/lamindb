@@ -73,14 +73,16 @@ from lamin_logger import py_version_warning
 
 py_version_warning("3.8", "3.10")
 
-from lndb_setup import settings  # noqa
+from lndb_setup import settings as _setup_settings
 from lndb_setup._migrate import check_migrate as _check_migrate
 
 from . import _check_versions  # executes checks during import
 
-if settings.instance.storage.root is None:
-    raise RuntimeError("Please run `lndb init` to configure an instance.")
-_check_migrate(usettings=settings.user, isettings=settings.instance)
+if _setup_settings.instance.storage.root is None:
+    raise RuntimeError(
+        "Please run `lndb load` or `lndb init` to configure an instance."
+    )
+_check_migrate(usettings=_setup_settings.user, isettings=_setup_settings.instance)
 
 from lnschema_core import DObject  # noqa
 
@@ -95,8 +97,3 @@ from .dev.db import Session  # noqa
 from .dev.db._add import add  # noqa
 from .dev.db._select import select  # noqa
 from .dev.object._lazy_field import lazy
-
-settings.__doc__ = """Settings.
-
-This re-exports `lndb_setup.settings <https://lamin.ai/docs/lndb-setup/lndb_setup.settings>`__.
-"""
