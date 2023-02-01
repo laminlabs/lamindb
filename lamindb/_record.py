@@ -7,12 +7,13 @@ import anndata as ad
 import lnschema_bionty as bionty
 import pandas as pd
 from lamin_logger import logger
-from lndb_setup import settings
+from lndb_setup import settings as setup_settings
 from lnschema_core import DObject as lns_DObject
 from lnschema_core import Features, Run, Storage
 
 from lamindb.knowledge import CellMarker, Gene, Protein
 
+from ._settings import settings
 from .dev._core import get_name_suffix_from_filepath
 from .dev.db._add import add
 from .dev.db._select import select
@@ -56,10 +57,15 @@ def get_hash(local_filepath, suffix):
         hash = hash_file(local_filepath)
         result = select(lns_DObject, hash=hash).all()
         if len(result) > 0:
-            logger.warning(
-                "Based on the MD5 hash, the same data object is already"
-                f" in the DB: {result}"
-            )
+            msg = f"A dobject with same hash is already in the DB: {result}"
+            if settings.error_on_dobject_hash_equality:
+                hint = (
+                    "💡 You can make this error a warning:\n"
+                    "    ln.settings.error_on_dobject_hash_equality = False"
+                )
+                raise RuntimeError(f"{msg}\n{hint}")
+            else:
+                logger.warning(msg)
     else:
         hash = None
     return hash
@@ -200,7 +206,7 @@ def get_dobject_kwargs_from_data(
     else:
         size = size_adata(memory_rep)
     hash = get_hash(local_filepath, suffix)
-    storage = select(Storage, root=str(settings.instance.storage.root)).one()
+    storage = select(Storage, root=str(setup_settings.instance.storage.root)).one()
     dobject_privates = dict(
         _local_filepath=local_filepath,
         _memory_rep=memory_rep,

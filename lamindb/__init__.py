@@ -91,6 +91,7 @@ from . import knowledge  # noqa
 from . import schema  # noqa
 from ._delete import delete  # noqa
 from ._nb import nb  # noqa
+from ._settings import settings
 from ._subset import subset
 from ._view import view  # noqa
 from .dev.db import Session  # noqa
