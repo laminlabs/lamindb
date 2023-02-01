@@ -3,6 +3,7 @@
 <!-- prettier-ignore -->
 Name | PR | Developer | Date | Version
 --- | --- | --- | --- | ---
+Revert ":children_crossing: Add rich string representations to ORMs" | [468](https://github.com/laminlabs/lamindb/pull/468) | [falexwolf](https://github.com/falexwolf) | 2023-02-01 |
 :children_crossing: Add rich string representations to ORMs | [467](https://github.com/laminlabs/lamindb/pull/467) | [falexwolf](https://github.com/falexwolf) | 2023-02-01 |
 🚸 Add post-setup settings manager, error on duplicate insert | [466](https://github.com/laminlabs/lamindb/pull/466) | [falexwolf](https://github.com/falexwolf) | 2023-02-01 |
 🐛 Fix fallback for notebook name | [463](https://github.com/laminlabs/lamindb/pull/463) | [falexwolf](https://github.com/falexwolf) | 2023-01-30 | 0.25.7
