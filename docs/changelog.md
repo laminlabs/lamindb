@@ -3,9 +3,7 @@
 <!-- prettier-ignore -->
 Name | PR | Developer | Date | Version
 --- | --- | --- | --- | ---
-Revert ":children_crossing: Add rich string representations to ORMs" | [468](https://github.com/laminlabs/lamindb/pull/468) | [falexwolf](https://github.com/falexwolf) | 2023-02-01 |
-:children_crossing: Add rich string representations to ORMs | [467](https://github.com/laminlabs/lamindb/pull/467) | [falexwolf](https://github.com/falexwolf) | 2023-02-01 |
-🚸 Add post-setup settings manager, error on duplicate insert | [466](https://github.com/laminlabs/lamindb/pull/466) | [falexwolf](https://github.com/falexwolf) | 2023-02-01 |
+🚸 Add post-setup settings manager, error on duplicate insert | [466](https://github.com/laminlabs/lamindb/pull/466) | [falexwolf](https://github.com/falexwolf) | 2023-02-01 | 0.26.0
 🐛 Fix fallback for notebook name | [463](https://github.com/laminlabs/lamindb/pull/463) | [falexwolf](https://github.com/falexwolf) | 2023-01-30 | 0.25.7
 🔥 Remove `lns.DObject` | [462](https://github.com/laminlabs/lamindb/pull/462) | [sunnyosun](https://github.com/sunnyosun) | 2023-01-30 |
 ⬆️ Upgrade lndb-setup 0.30.11 | [461](https://github.com/laminlabs/lamindb/pull/461) | [sunnyosun](https://github.com/sunnyosun) | 2023-01-30 | 0.25.6
