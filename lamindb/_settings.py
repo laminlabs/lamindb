@@ -13,5 +13,5 @@ class settings:
     `lndb_setup.settings <https://lamin.ai/docs/lndb-setup/lndb_setup.settings>`__.
     """
 
-    error_on_dobject_hash_equality: bool = True
+    error_on_dobject_hash_exists: bool = True
     """Upon ingestion, error if a dobject hash equals an existing hash in the DB."""

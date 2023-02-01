@@ -58,10 +58,10 @@ def get_hash(local_filepath, suffix):
         result = select(lns_DObject, hash=hash).all()
         if len(result) > 0:
             msg = f"A dobject with same hash is already in the DB: {result}"
-            if settings.error_on_dobject_hash_equality:
+            if settings.error_on_dobject_hash_exists:
                 hint = (
                     "💡 You can make this error a warning:\n"
-                    "    ln.settings.error_on_dobject_hash_equality = False"
+                    "    ln.settings.error_on_dobject_hash_exists = False"
                 )
                 raise RuntimeError(f"{msg}\n{hint}")
             else:
