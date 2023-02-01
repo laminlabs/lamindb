@@ -7,6 +7,8 @@ class settings:
 
     This is a static class to manage post-setup settings.
 
+    FAQ: :doc:`/faq/settings`.
+
     For setup-related settings, see
     `lndb_setup.settings <https://lamin.ai/docs/lndb-setup/lndb_setup.settings>`__.
     """
