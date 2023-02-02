@@ -6,6 +6,8 @@ from typing import Any, List, Optional, Set, Tuple, Union
 import anndata as ad
 import lnschema_bionty as bionty
 import pandas as pd
+from cloudpathlib import CloudPath
+from cloudpathlib.exceptions import InvalidPrefixError
 from lamin_logger import logger
 from lndb_setup import settings as setup_settings
 from lnschema_core import DObject as lns_DObject
@@ -32,24 +34,33 @@ Or, if you're in a notebook, call `ln.nb.header()` at the top.
 
 
 def serialize(
-    data: Union[Path, str, pd.DataFrame, ad.AnnData], name, format
-) -> Tuple[Any, Path, str, str]:
+    data: Union[Path, CloudPath, str, pd.DataFrame, ad.AnnData], name, format
+) -> Tuple[Any, Union[Path, CloudPath], str, str]:
     """Serialize a data object that's provided as file or in memory."""
     memory_rep = None
-    if isinstance(data, (Path, str)):
-        local_filepath = Path(data)
-        name, suffix = get_name_suffix_from_filepath(local_filepath)
+    if isinstance(data, str):
+        try:
+            data = CloudPath(data)
+        except InvalidPrefixError:
+            data = Path(data)
+
+    if isinstance(data, (Path, CloudPath)):
+        filepath = data
+        name, suffix = get_name_suffix_from_filepath(filepath)
+    # For now, in-memory objects are always saved to local_filepath first
+    # This behavior will change in the future
     elif isinstance(data, (pd.DataFrame, ad.AnnData)):
         if name is None:
             raise ValueError(NO_NAME_ERROR)
         memory_rep = data
         suffix = infer_suffix(data, format)
-        local_filepath = Path(f"{name}{suffix}")
+        # this is always local
+        filepath = Path(f"{name}{suffix}")
         if suffix != ".zarr":
-            write_to_file(data, local_filepath)
+            write_to_file(data, filepath)
     else:
         raise NotImplementedError("Recording not yet implemented for this type.")
-    return memory_rep, local_filepath, name, suffix
+    return memory_rep, filepath, name, suffix
 
 
 def get_hash(local_filepath, suffix):
@@ -192,7 +203,7 @@ def get_run(run: Optional[Run]) -> Run:
 
 
 def get_dobject_kwargs_from_data(
-    data: Union[Path, str, pd.DataFrame, ad.AnnData],
+    data: Union[Path, CloudPath, str, pd.DataFrame, ad.AnnData],
     *,
     name: Optional[str] = None,
     features_ref: Optional[Union[CellMarker, Gene, Protein]] = None,
@@ -200,15 +211,28 @@ def get_dobject_kwargs_from_data(
     format: Optional[str] = None,
 ):
     run = get_run(source)
-    memory_rep, local_filepath, name, suffix = serialize(data, name, format)
+    memory_rep, filepath, name, suffix = serialize(data, name, format)
+    cloudpath = None
+    localpath = None
+    hash = None
     if suffix != ".zarr":
-        size = Path(local_filepath).stat().st_size
+        try:
+            size = CloudPath(filepath).stat().st_size
+            cloudpath = filepath
+        except InvalidPrefixError:
+            size = Path(filepath).stat().st_size
+            localpath = filepath
+            # hash is only calculated for localpath
+            hash = get_hash(filepath, suffix)
     else:
         size = size_adata(memory_rep)
-    hash = get_hash(local_filepath, suffix)
+
+    # if local_filepath is already in the configured storage location
+    # skip the upload
     storage = select(Storage, root=str(setup_settings.instance.storage.root)).one()
     dobject_privates = dict(
-        _local_filepath=local_filepath,
+        _local_filepath=localpath,
+        _cloud_filepath=cloudpath,
         _memory_rep=memory_rep,
     )
     if features_ref is not None:

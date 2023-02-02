@@ -109,7 +109,11 @@ def upload_data_object(dobject, use_fsspec: bool = True) -> None:
     dobject_storage_key = f"{dobject.id}{dobject.suffix}"
 
     if dobject.suffix != ".zarr":
-        store_file(dobject._local_filepath, dobject_storage_key, use_fsspec=use_fsspec)
+        # no file upload for cloud storage
+        if dobject._cloud_filepath is None:
+            store_file(
+                dobject._local_filepath, dobject_storage_key, use_fsspec=use_fsspec
+            )
     else:
         storagepath = settings.instance.storage.key_to_filepath(dobject_storage_key)
         print_progress = partial(print_hook, filepath=dobject._local_filepath)
