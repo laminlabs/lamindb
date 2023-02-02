@@ -83,7 +83,7 @@ def delete_storage(storagekey: str):
         storagepath.rmtree()
 
 
-def load_to_memory(filepath: Union[str, Path], stream: bool = False):
+def load_to_memory(filepath: Union[str, Path, CloudPath], stream: bool = False):
     """Load a file into memory.
 
     Returns the filepath if no in-memory form is found.
