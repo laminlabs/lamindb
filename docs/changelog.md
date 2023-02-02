@@ -3,6 +3,7 @@
 <!-- prettier-ignore -->
 Name | PR | Developer | Date | Version
 --- | --- | --- | --- | ---
+🔥 Disable ORM relationship preview | [473](https://github.com/laminlabs/lamindb/pull/473) | [bpenteado](https://github.com/bpenteado) | 2023-02-02 |
 ✨ Allow ingesting existing data in the cloud | [471](https://github.com/laminlabs/lamindb/pull/471) | [sunnyosun](https://github.com/sunnyosun) | 2023-02-02 |
 🐛 Correct filepath in header | [469](https://github.com/laminlabs/lamindb/pull/469) | [Koncopd](https://github.com/Koncopd) | 2023-02-01 |
 🚸 Add post-setup settings manager, error on duplicate insert <span class="badge badge-warning">Breaking</span> | [466](https://github.com/laminlabs/lamindb/pull/466) | [falexwolf](https://github.com/falexwolf) | 2023-02-01 | 0.26.0
