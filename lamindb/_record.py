@@ -223,7 +223,7 @@ def get_path_size_hash(
             hash = get_hash(filepath, suffix)
     else:
         size = size_adata(memory_rep)
-        hash = get_hash(filepath, suffix)
+        hash = None
 
     return localpath, cloudpath, size, hash
 

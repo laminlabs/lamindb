@@ -1,8 +1,4 @@
-from pathlib import Path
-
 import lnschema_core as core
-from cloudpathlib import CloudPath
-from cloudpathlib.exceptions import InvalidPrefixError
 from lamin_logger import logger
 from lndb_setup import settings
 
@@ -34,12 +30,6 @@ def load(dobject: core.DObject, stream: bool = False):
         logger.warning(f"Ignoring stream option for a {dobject.suffix} object.")
 
     filepath = filepath_from_dobject(dobject)
-    try:
-        # return cached localpath for cloud storage
-        localpath = CloudPath(filepath).fspath
-    except InvalidPrefixError:
-        localpath = Path(filepath)
-
     from lamindb import nb
 
     if nb.run is None:
@@ -50,4 +40,4 @@ def load(dobject: core.DObject, stream: bool = False):
     else:
         populate_runin(dobject, nb.run)
     track_usage(dobject.id, "load")
-    return load_to_memory(localpath, stream=stream)
+    return load_to_memory(filepath, stream=stream)
