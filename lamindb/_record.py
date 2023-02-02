@@ -38,14 +38,16 @@ def serialize(
 ) -> Tuple[Any, Union[Path, CloudPath], str, str]:
     """Serialize a data object that's provided as file or in memory."""
     # Convert str to either Path or CloudPath
-    if isinstance(data, str):
+    if isinstance(data, (str, Path, CloudPath)):
         try:
-            data = CloudPath(data)
+            filepath = CloudPath(data)
+            if setup_settings.instance.storage.root not in filepath.parents:
+                raise ValueError(
+                    "Can only track objects in configured cloud storage locations."
+                    " Please call `lndb_setup.set_storage('< bucket_name >')`."
+                )
         except InvalidPrefixError:
-            data = Path(data)
-
-    if isinstance(data, (Path, CloudPath)):
-        filepath = data
+            filepath = Path(data)
         memory_rep = None
         name, suffix = get_name_suffix_from_filepath(filepath)
     # For now, in-memory objects are always saved to local_filepath first
