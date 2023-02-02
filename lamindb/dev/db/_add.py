@@ -4,6 +4,7 @@ from typing import Dict, List, Tuple, Union, overload  # noqa
 import sqlmodel as sqm
 from lndb_setup import settings
 from lnschema_core import DObject
+from sqlalchemy.orm.attributes import set_attribute
 
 from .._docs import doc_args
 from ..file import store_file, write_adata_zarr
@@ -113,6 +114,15 @@ def upload_data_object(dobject, use_fsspec: bool = True) -> None:
         if dobject._cloud_filepath is None:
             store_file(
                 dobject._local_filepath, dobject_storage_key, use_fsspec=use_fsspec
+            )
+        # for cloudpath, write custom filekey to _filekey
+        else:
+            set_attribute(
+                dobject,
+                "_filekey",
+                str(dobject._cloud_filepath)
+                .replace(f"{settings.instance.storage.root}/", "")
+                .split(".")[0],
             )
     else:
         storagepath = settings.instance.storage.key_to_filepath(dobject_storage_key)
