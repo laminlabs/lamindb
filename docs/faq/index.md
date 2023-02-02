@@ -10,4 +10,5 @@ stream
 storage
 select
 data-validation
+settings
 ```
