@@ -37,7 +37,7 @@ def serialize(
     data: Union[Path, CloudPath, str, pd.DataFrame, ad.AnnData], name, format
 ) -> Tuple[Any, Union[Path, CloudPath], str, str]:
     """Serialize a data object that's provided as file or in memory."""
-    memory_rep = None
+    # Convert str to either Path or CloudPath
     if isinstance(data, str):
         try:
             data = CloudPath(data)
@@ -46,6 +46,7 @@ def serialize(
 
     if isinstance(data, (Path, CloudPath)):
         filepath = data
+        memory_rep = None
         name, suffix = get_name_suffix_from_filepath(filepath)
     # For now, in-memory objects are always saved to local_filepath first
     # This behavior will change in the future
@@ -202,6 +203,29 @@ def get_run(run: Optional[Run]) -> Run:
     return run
 
 
+def get_path_size_hash(
+    filepath: Union[Path, CloudPath],
+    memory_rep: Optional[Union[pd.DataFrame, ad.AnnData]],
+    suffix: str,
+):
+    cloudpath = None
+    localpath = None
+    if suffix != ".zarr":
+        try:
+            size = CloudPath(filepath).stat().st_size
+            cloudpath = filepath
+            hash = None
+        except InvalidPrefixError:
+            size = Path(filepath).stat().st_size
+            localpath = filepath
+            hash = get_hash(filepath, suffix)
+    else:
+        size = size_adata(memory_rep)
+        hash = get_hash(filepath, suffix)
+
+    return localpath, cloudpath, size, hash
+
+
 def get_dobject_kwargs_from_data(
     data: Union[Path, CloudPath, str, pd.DataFrame, ad.AnnData],
     *,
@@ -212,20 +236,7 @@ def get_dobject_kwargs_from_data(
 ):
     run = get_run(source)
     memory_rep, filepath, name, suffix = serialize(data, name, format)
-    cloudpath = None
-    localpath = None
-    hash = None
-    if suffix != ".zarr":
-        try:
-            size = CloudPath(filepath).stat().st_size
-            cloudpath = filepath
-        except InvalidPrefixError:
-            size = Path(filepath).stat().st_size
-            localpath = filepath
-            # hash is only calculated for localpath
-            hash = get_hash(filepath, suffix)
-    else:
-        size = size_adata(memory_rep)
+    localpath, cloudpath, size, hash = get_path_size_hash(filepath, memory_rep, suffix)
 
     # if local_filepath is already in the configured storage location
     # skip the upload
