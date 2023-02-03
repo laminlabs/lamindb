@@ -12,4 +12,5 @@ storage
 select
 data-validation
 settings
+ingest-acid
 ```
