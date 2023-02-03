@@ -96,6 +96,7 @@ def add(  # type: ignore
         try:
             session.add(record)
             session.commit()
+            session.refresh(record)
         except Exception:
             raise_error = True
             break
@@ -106,7 +107,6 @@ def add(  # type: ignore
             added_records += [record]
         except Exception:
             # clean up metadata committed to the database
-            session.refresh(record)
             session.delete(record)
             session.commit()
             raise_error = True
