@@ -24,6 +24,13 @@ def file_jpg_paradisi05() -> Path:
     return Path(filepath)
 
 
+def file_bam() -> Path:
+    """Mini mock bam file."""
+    with open("./output.bam", "w") as f:
+        f.write("Mock bam file.")
+    return Path("./output.bam")
+
+
 def dir_scrnaseq_cellranger() -> Path:
     """Directory with exemplary scrnaseq cellranger output."""
     filepath, _ = urlretrieve(
