@@ -112,8 +112,8 @@ def add(  # type: ignore
             raise_error = True
             break
 
-    if raise_error:
-        error_message = prepare_error_message(records, added_records, session)
+    for record in added_records:
+        session.refresh(record)
 
     if close:
         session.close()
@@ -121,6 +121,7 @@ def add(  # type: ignore
         settings.instance._cloud_sqlite_locker.unlock()
 
     if raise_error:
+        error_message = prepare_error_message(records, added_records)
         raise RuntimeError(error_message)
     elif len(added_records) > 1:
         return added_records
@@ -128,7 +129,7 @@ def add(  # type: ignore
         return added_records[0]
 
 
-def prepare_error_message(records, added_records, session) -> str:
+def prepare_error_message(records, added_records) -> str:
     if len(records) == 1:
         error_message = (
             "An unexpected error occured during upload and no entries were commited to"
@@ -140,7 +141,6 @@ def prepare_error_message(records, added_records, session) -> str:
             "The following data objects have been successfully uploaded:\n"
         )
         for record in added_records:
-            session.refresh(record)
             error_message += (
                 f"- {', '.join(record.__repr__().split(', ')[:3]) + ', ...)'}\n"
             )
