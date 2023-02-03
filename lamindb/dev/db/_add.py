@@ -81,28 +81,70 @@ def add(  # type: ignore
             return results
         else:
             records = [model(**fields)]
-    for record in records:
-        if isinstance(record, DObject) and hasattr(record, "_local_filepath"):
-            upload_data_object(record, use_fsspec=use_fsspec)
+
     if session is None:  # assume global session
         session = settings.instance.session()
         settings.instance._cloud_sqlite_locker.lock()
         close = True
     else:
         close = False
+
+    added_records = []
+    raise_error = False
     for record in records:
-        session.add(record)
-    session.commit()
-    for record in records:
-        session.refresh(record)
+        # commit metadata to database
+        try:
+            session.add(record)
+            session.commit()
+        except Exception:
+            raise_error = True
+            break
+        # upload data object to storage
+        try:
+            if isinstance(record, DObject) and hasattr(record, "_local_filepath"):
+                upload_data_object(record, use_fsspec=use_fsspec)
+            added_records += [record]
+        except Exception:
+            # clean up metadata committed to the database
+            session.refresh(record)
+            session.delete(record)
+            session.commit()
+            raise_error = True
+            break
+
+    if raise_error:
+        error_message = prepare_error_message(records, added_records, session)
+
     if close:
         session.close()
         settings.instance._update_cloud_sqlite_file()
         settings.instance._cloud_sqlite_locker.unlock()
-    if len(records) > 1:
-        return records
+
+    if raise_error:
+        raise RuntimeError(error_message)
+    elif len(added_records) > 1:
+        return added_records
     else:
-        return records[0]
+        return added_records[0]
+
+
+def prepare_error_message(records, added_records, session) -> str:
+    if len(records) == 1:
+        error_message = (
+            "An unexpected error occured during upload and no entries were commited to"
+            " the database. Please run command again."
+        )
+    else:
+        error_message = (
+            "An unexpected error occured during upload.\n\n"
+            "The following data objects have been successfully uploaded:\n"
+        )
+        for record in added_records:
+            session.refresh(record)
+            error_message += (
+                f"- {', '.join(record.__repr__().split(', ')[:3]) + ', ...)'}\n"
+            )
+    return error_message
 
 
 def upload_data_object(dobject, use_fsspec: bool = True) -> None:
