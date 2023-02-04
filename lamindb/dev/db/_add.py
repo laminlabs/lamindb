@@ -93,6 +93,7 @@ def add(  # type: ignore
     raise_error = False
     for record in records:
         # commit metadata to database
+        prepare_filekey_metadata(record)
         try:
             session.add(record)
             session.commit()
@@ -147,6 +148,19 @@ def prepare_error_message(records, added_records) -> str:
     return error_message
 
 
+def prepare_filekey_metadata(record) -> None:
+    """For cloudpath, write custom filekey to _filekey."""
+    if isinstance(record, DObject) and hasattr(record, "_local_filepath"):
+        if record.suffix != ".zarr" and record._cloud_filepath is not None:
+            set_attribute(
+                record,
+                "_filekey",
+                str(record._cloud_filepath)
+                .replace(f"{settings.instance.storage.root}/", "")
+                .split(".")[0],
+            )
+
+
 def upload_data_object(dobject, use_fsspec: bool = True) -> None:
     """Store and add dobject and its linked entries."""
     dobject_storage_key = f"{dobject.id}{dobject.suffix}"
@@ -156,15 +170,6 @@ def upload_data_object(dobject, use_fsspec: bool = True) -> None:
         if dobject._cloud_filepath is None:
             store_file(
                 dobject._local_filepath, dobject_storage_key, use_fsspec=use_fsspec
-            )
-        # for cloudpath, write custom filekey to _filekey
-        else:
-            set_attribute(
-                dobject,
-                "_filekey",
-                str(dobject._cloud_filepath)
-                .replace(f"{settings.instance.storage.root}/", "")
-                .split(".")[0],
             )
     else:
         storagepath = settings.instance.storage.key_to_filepath(dobject_storage_key)
