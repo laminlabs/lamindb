@@ -116,13 +116,14 @@ def upload_data_object(dobject, use_fsspec: bool = True) -> None:
                 dobject._local_filepath, dobject_storage_key, use_fsspec=use_fsspec
             )
         # for cloudpath, write custom filekey to _filekey
+        # a filekey excludes the storage root and the file suffix
         else:
             set_attribute(
                 dobject,
                 "_filekey",
                 str(dobject._cloud_filepath)
                 .replace(f"{settings.instance.storage.root}/", "")
-                .split(".")[0],
+                .replace(dobject.suffix, ""),
             )
     else:
         storagepath = settings.instance.storage.key_to_filepath(dobject_storage_key)
