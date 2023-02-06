@@ -89,39 +89,40 @@ def add(  # type: ignore
     else:
         close = False
 
-    added_records = []
-    raise_error = False
+    # commit metadata to database
+    raised_errors = []
     for record in records:
-        # commit metadata to database
         prepare_filekey_metadata(record)
-        try:
-            session.add(record)
-            session.commit()
-            session.refresh(record)
-        except Exception:
-            raise_error = True
-            break
-        # upload data object to storage
-        try:
-            if isinstance(record, DObject) and hasattr(record, "_local_filepath"):
-                upload_data_object(record, use_fsspec=use_fsspec)
-            added_records += [record]
-        except Exception:
-            # clean up metadata committed to the database
-            session.delete(record)
-            session.commit()
-            raise_error = True
-            break
+        session.add(record)
+    try:
+        session.commit()
+    except Exception as e:
+        raised_errors.append(e)
 
-    for record in added_records:
-        session.refresh(record)
+    # refresh records and upload data objects to storage
+    added_records = []
+    if not raised_errors:
+        for record in records:
+            session.refresh(record)
+            if isinstance(record, DObject) and hasattr(record, "_local_filepath"):
+                print("Inside LOOP!")
+                try:
+                    upload_data_object(record, use_fsspec=use_fsspec)
+                except Exception as e:
+                    # clean up metadata committed to the database
+                    print("CAUGHT ERRROR!")
+                    raised_errors.append(e)
+                    session.delete(record)
+                    session.commit()
+                    continue
+            added_records += [record]
 
     if close:
         session.close()
         settings.instance._update_cloud_sqlite_file()
         settings.instance._cloud_sqlite_locker.unlock()
 
-    if raise_error:
+    if raised_errors:
         error_message = prepare_error_message(records, added_records)
         raise RuntimeError(error_message)
     elif len(added_records) > 1:
