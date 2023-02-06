@@ -123,7 +123,7 @@ def add(  # type: ignore
         settings.instance._cloud_sqlite_locker.unlock()
 
     if raised_errors:
-        error_message = prepare_error_message(records, added_records)
+        error_message = prepare_error_message(records, added_records, raised_errors)
         raise RuntimeError(error_message)
     elif len(added_records) > 1:
         return added_records
@@ -131,12 +131,14 @@ def add(  # type: ignore
         return added_records[0]
 
 
-def prepare_error_message(records, added_records) -> str:
+def prepare_error_message(records, added_records, raised_errors) -> str:
     if len(records) == 1:
         error_message = (
             "An unexpected error occured during upload and no entries were commited to"
             " the database. Please run command again."
         )
+        error_message += "\n\nThe following error was raised:"
+        error_message += f"\n{str(raised_errors[0])}"
     else:
         error_message = (
             "An unexpected error occured during upload.\n\n"
@@ -146,6 +148,9 @@ def prepare_error_message(records, added_records) -> str:
             error_message += (
                 f"- {', '.join(record.__repr__().split(', ')[:3]) + ', ...)'}\n"
             )
+        error_message += "\n\nThe following errors were raised:"
+        for error in raised_errors:
+            error_message += f"\n{str(error)}"
     return error_message
 
 
