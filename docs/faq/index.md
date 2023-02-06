@@ -12,4 +12,5 @@ storage
 select
 data-validation
 settings
+lazy-loading
 ```
