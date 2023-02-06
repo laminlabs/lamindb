@@ -3,6 +3,15 @@
 <!-- prettier-ignore -->
 Name | PR | Developer | Date | Version
 --- | --- | --- | --- | ---
+🎨 Robust generation of `DObject._filekey` | [481](https://github.com/laminlabs/lamindb/pull/481) | [sunnyosun](https://github.com/sunnyosun) | 2023-02-06 | 0.26.1
+🎨 Added erroring behavior when file doesn't exist for `ln.delete` | [480](https://github.com/laminlabs/lamindb/pull/480) | [sunnyosun](https://github.com/sunnyosun) | 2023-02-06 |
+📝 Removed extra fields in dev.datasets.pbmc68k | [479](https://github.com/laminlabs/lamindb/pull/479) | [sunnyosun](https://github.com/sunnyosun) | 2023-02-06 |
+➖ Removed lnbfx and fix CI | [478](https://github.com/laminlabs/lamindb/pull/478) | [sunnyosun](https://github.com/sunnyosun) | 2023-02-06 |
+📝 Query book | [470](https://github.com/laminlabs/lamindb/pull/470) | [sunnyosun](https://github.com/sunnyosun) | 2023-02-06 |
+🩹 Print dobject name for zarr upload | [475](https://github.com/laminlabs/lamindb/pull/475) | [Koncopd](https://github.com/Koncopd) | 2023-02-02 |
+:bug: Fix load | [474](https://github.com/laminlabs/lamindb/pull/474) | [Koncopd](https://github.com/Koncopd) | 2023-02-02 |
+🔥 Disable ORM relationship preview | [473](https://github.com/laminlabs/lamindb/pull/473) | [bpenteado](https://github.com/bpenteado) | 2023-02-02 |
+✨ Allow ingesting existing data in the cloud | [471](https://github.com/laminlabs/lamindb/pull/471) | [sunnyosun](https://github.com/sunnyosun) | 2023-02-02 |
 🐛 Correct filepath in header | [469](https://github.com/laminlabs/lamindb/pull/469) | [Koncopd](https://github.com/Koncopd) | 2023-02-01 |
 🚸 Add post-setup settings manager, error on duplicate insert <span class="badge badge-warning">Breaking</span> | [466](https://github.com/laminlabs/lamindb/pull/466) | [falexwolf](https://github.com/falexwolf) | 2023-02-01 | 0.26.0
 🐛 Fix fallback for notebook name | [463](https://github.com/laminlabs/lamindb/pull/463) | [falexwolf](https://github.com/falexwolf) | 2023-01-30 | 0.25.7

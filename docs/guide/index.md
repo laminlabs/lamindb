@@ -65,6 +65,7 @@ dobject.md
 setup
 schema
 session
+query-book
 ```
 
 ```{toctree}

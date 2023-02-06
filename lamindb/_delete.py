@@ -1,3 +1,4 @@
+import traceback
 from typing import List, Union, overload  # noqa
 
 import sqlmodel as sqm
@@ -67,29 +68,43 @@ def delete(  # type: ignore
             )
             for event in events:
                 session.delete(event)
-            session.commit()
+            try:
+                session.commit()
+            except Exception:
+                logger.warning("Deleting usage failed!")
+                traceback.print_exc()
             # delete run_ins related to the dobject that's to be deleted
             run_ins = session.exec(
                 sqm.select(RunIn).where(RunIn.dobject_id == record.id)
             )
             for run_in in run_ins:
                 session.delete(run_in)
-            session.commit()
+            try:
+                session.commit()
+            except Exception:
+                logger.warning("Deleting run inputs failed!")
+                traceback.print_exc()
         session.delete(record)
-        session.commit()
-        logger.success(
-            f"Deleted {colors.yellow(f'row {record}')} in"
-            f" {colors.blue(f'table {type(record).__name__}')}."
-        )
+        try:
+            session.commit()
+            logger.success(
+                f"Deleted {colors.yellow(f'row {record}')} in"
+                f" {colors.blue(f'table {type(record).__name__}')}."
+            )
+        except Exception:
+            traceback.print_exc()
         if isinstance(record, DObject):
             # TODO: do not track deletes until we come up
             # with a good design that respects integrity
             # track_usage(entry.id, "delete")
             storage_key = storage_key_from_dobject(record)
-            delete_storage(storage_key)
-            logger.success(
-                f"Deleted {colors.yellow(f'object {storage_key}')} from storage."
-            )
+            try:
+                delete_storage(storage_key)
+                logger.success(
+                    f"Deleted {colors.yellow(f'object {storage_key}')} from storage."
+                )
+            except Exception:
+                traceback.print_exc()
     session.close()
     settings.instance._update_cloud_sqlite_file()
     settings.instance._cloud_sqlite_locker.unlock()

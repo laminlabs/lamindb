@@ -24,6 +24,13 @@ def file_jpg_paradisi05() -> Path:
     return Path(filepath)
 
 
+def file_bam() -> Path:
+    """Mini mock bam file."""
+    with open("./output.bam", "w") as f:
+        f.write("Mock bam file.")
+    return Path("./output.bam")
+
+
 def dir_scrnaseq_cellranger() -> Path:
     """Directory with exemplary scrnaseq cellranger output."""
     filepath, _ = urlretrieve(
@@ -58,6 +65,14 @@ def anndata_pbmc68k_reduced() -> ad.AnnData:
     pbmc68k.obs["cell_type"] = pbmc68k.obs["cell_type"].cat.rename_categories(
         {"Dendritic": "Dendritic cells", "CD14+ Monocyte": "CD14+ Monocytes"}
     )
+    del pbmc68k.obs["G2M_score"]
+    del pbmc68k.obs["S_score"]
+    del pbmc68k.obs["phase"]
+    del pbmc68k.obs["n_counts"]
+    del pbmc68k.var["dispersions"]
+    del pbmc68k.var["dispersions_norm"]
+    del pbmc68k.var["means"]
+    del pbmc68k.raw
     return pbmc68k
 
 

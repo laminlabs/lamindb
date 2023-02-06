@@ -6,6 +6,7 @@
 ingest
 nb
 ingest-same-file-twice
+existing-data
 stream
 storage
 select

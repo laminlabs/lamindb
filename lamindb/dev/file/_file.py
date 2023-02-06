@@ -45,7 +45,7 @@ class ProgressCallback(fsspec.callbacks.Callback):
 def store_file(
     localfile: Union[str, Path], storagekey: str, use_fsspec: bool = False
 ) -> float:
-    """Store arbitrary file.
+    """Store arbitrary file to configured storage location.
 
     Returns size in bytes.
     """
@@ -79,11 +79,13 @@ def delete_storage(storagekey: str):
     storagepath = settings.instance.storage.key_to_filepath(storagekey)
     if storagepath.is_file():
         storagepath.unlink()
-    else:
+    elif storagepath.is_dir():
         storagepath.rmtree()
+    else:
+        raise FileNotFoundError(f"{storagepath} is not an existing path!")
 
 
-def load_to_memory(filepath: Union[str, Path], stream: bool = False):
+def load_to_memory(filepath: Union[str, Path, CloudPath], stream: bool = False):
     """Load a file into memory.
 
     Returns the filepath if no in-memory form is found.
