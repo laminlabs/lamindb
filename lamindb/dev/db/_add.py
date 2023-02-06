@@ -155,7 +155,10 @@ def prepare_error_message(records, added_records, raised_errors) -> str:
 
 
 def prepare_filekey_metadata(record) -> None:
-    """For cloudpath, write custom filekey to _filekey."""
+    """For cloudpath, write custom filekey to _filekey.
+
+    A filekey excludes the storage root and the file suffix.
+    """
     if isinstance(record, DObject) and hasattr(record, "_local_filepath"):
         if record.suffix != ".zarr" and record._cloud_filepath is not None:
             set_attribute(
@@ -163,7 +166,7 @@ def prepare_filekey_metadata(record) -> None:
                 "_filekey",
                 str(record._cloud_filepath)
                 .replace(f"{settings.instance.storage.root}/", "")
-                .split(".")[0],
+                .replace(record.suffix, ""),
             )
 
 
