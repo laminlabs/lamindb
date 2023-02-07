@@ -144,31 +144,31 @@ def upload_committed_records(records, session, use_fsspec):
 
     # clean up metadata for objects not uploaded to storage
     if error is not None:
-        records_to_clean = list(set(records) - set(added_records))
-        for record in records_to_clean:
-            session.delete(record)
+        for record in records:
+            if record not in added_records:
+                session.delete(record)
         session.commit()
 
     return added_records, error
 
 
 def prepare_error_message(records, added_records, error) -> str:
-    if len(records) == 1:
+    if len(records) == 1 or len(added_records) == 0:
         error_message = (
-            "An unexpected error occured during upload and no entries were commited to"
-            " the database. Please run command again."
+            "An unexpected error occured. No entries were uploaded or committed"
+            " to the database. Please run command again."
         )
     else:
         error_message = (
-            "An unexpected error occured during upload.\n\n"
-            "The following data objects have been successfully uploaded:\n"
+            "An unexpected error occured. The following entries have been"
+            " successfully uploaded and committed to the database:\n"
         )
         for record in added_records:
             error_message += (
                 f"- {', '.join(record.__repr__().split(', ')[:3]) + ', ...)'}\n"
             )
-    error_message += "\n\nThe following error was raised:"
-    error_message += f"\n{str(error)}"
+    error_message += "\n\nThe following error was raised: "
+    error_message += f"{str(error)}"
     return error_message
 
 
