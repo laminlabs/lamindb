@@ -3,6 +3,7 @@
 <!-- prettier-ignore -->
 Name | PR | Developer | Date | Version
 --- | --- | --- | --- | ---
+📝 Add notebook on ORM lazy loading behavior to FAQ | [472](https://github.com/laminlabs/lamindb/pull/472) | [bpenteado](https://github.com/bpenteado) | 2023-02-06 |
 🎨 Robust generation of `DObject._filekey` | [481](https://github.com/laminlabs/lamindb/pull/481) | [sunnyosun](https://github.com/sunnyosun) | 2023-02-06 | 0.26.1
 🎨 Added erroring behavior when file doesn't exist for `ln.delete` | [480](https://github.com/laminlabs/lamindb/pull/480) | [sunnyosun](https://github.com/sunnyosun) | 2023-02-06 |
 📝 Removed extra fields in dev.datasets.pbmc68k | [479](https://github.com/laminlabs/lamindb/pull/479) | [sunnyosun](https://github.com/sunnyosun) | 2023-02-06 |

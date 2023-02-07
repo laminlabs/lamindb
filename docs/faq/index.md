@@ -13,4 +13,5 @@ select
 data-validation
 settings
 ingest-acid
+lazy-loading
 ```
