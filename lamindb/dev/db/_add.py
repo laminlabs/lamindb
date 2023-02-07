@@ -90,40 +90,29 @@ def add(  # type: ignore
         close = False
 
     # commit metadata to database
-    raised_errors = []
+    db_error = None
     for record in records:
         prepare_filekey_metadata(record)
         session.add(record)
     try:
         session.commit()
     except Exception as e:
-        raised_errors.append(e)
+        db_error = e
 
-    # refresh records and upload data objects to storage
-    added_records = []
-    if not raised_errors:
-        for record in records:
-            session.refresh(record)
-            if isinstance(record, DObject) and hasattr(record, "_local_filepath"):
-                print("Inside LOOP!")
-                try:
-                    upload_data_object(record, use_fsspec=use_fsspec)
-                except Exception as e:
-                    # clean up metadata committed to the database
-                    print("CAUGHT ERRROR!")
-                    raised_errors.append(e)
-                    session.delete(record)
-                    session.commit()
-                    continue
-            added_records += [record]
+    # upload data objects to storage
+    if db_error is None:
+        added_records, upload_error = upload_committed_records(
+            records, session, use_fsspec=use_fsspec
+        )
 
     if close:
         session.close()
         settings.instance._update_cloud_sqlite_file()
         settings.instance._cloud_sqlite_locker.unlock()
 
-    if raised_errors:
-        error_message = prepare_error_message(records, added_records, raised_errors)
+    error = db_error or upload_error
+    if error is not None:
+        error_message = prepare_error_message(records, added_records, error)
         raise RuntimeError(error_message)
     elif len(added_records) > 1:
         return added_records
@@ -131,14 +120,44 @@ def add(  # type: ignore
         return added_records[0]
 
 
-def prepare_error_message(records, added_records, raised_errors) -> str:
+def upload_committed_records(records, session, use_fsspec):
+    """Upload records in a list of database-commited records to storage.
+
+    If any upload fails, subsequent records are cleaned up from the DB.
+    """
+    # make sure ALL records are up-to-date to enable accurate comparison
+    # during metadata cleanup
+    error = None
+    added_records = []
+    for record in records:
+        session.refresh(record)
+
+    # upload data objects
+    for record in records:
+        if isinstance(record, DObject) and hasattr(record, "_local_filepath"):
+            try:
+                upload_data_object(record, use_fsspec=use_fsspec)
+            except Exception as e:
+                error = e
+                break
+        added_records += [record]
+
+    # clean up metadata for objects not uploaded to storage
+    if error is not None:
+        records_to_clean = list(set(records) - set(added_records))
+        for record in records_to_clean:
+            session.delete(record)
+        session.commit()
+
+    return added_records, error
+
+
+def prepare_error_message(records, added_records, error) -> str:
     if len(records) == 1:
         error_message = (
             "An unexpected error occured during upload and no entries were commited to"
             " the database. Please run command again."
         )
-        error_message += "\n\nThe following error was raised:"
-        error_message += f"\n{str(raised_errors[0])}"
     else:
         error_message = (
             "An unexpected error occured during upload.\n\n"
@@ -148,9 +167,8 @@ def prepare_error_message(records, added_records, raised_errors) -> str:
             error_message += (
                 f"- {', '.join(record.__repr__().split(', ')[:3]) + ', ...)'}\n"
             )
-        error_message += "\n\nThe following errors were raised:"
-        for error in raised_errors:
-            error_message += f"\n{str(error)}"
+    error_message += "\n\nThe following error was raised:"
+    error_message += f"\n{str(error)}"
     return error_message
 
 
