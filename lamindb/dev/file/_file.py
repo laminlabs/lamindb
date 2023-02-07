@@ -79,8 +79,10 @@ def delete_storage(storagekey: str):
     storagepath = settings.instance.storage.key_to_filepath(storagekey)
     if storagepath.is_file():
         storagepath.unlink()
-    else:
+    elif storagepath.is_dir():
         storagepath.rmtree()
+    else:
+        raise FileNotFoundError(f"{storagepath} is not an existing path!")
 
 
 def load_to_memory(filepath: Union[str, Path, CloudPath], stream: bool = False):
