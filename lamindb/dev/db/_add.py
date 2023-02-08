@@ -81,28 +81,111 @@ def add(  # type: ignore
             return results
         else:
             records = [model(**fields)]
-    for record in records:
-        if isinstance(record, DObject) and hasattr(record, "_local_filepath"):
-            upload_data_object(record, use_fsspec=use_fsspec)
+
     if session is None:  # assume global session
         session = settings.instance.session()
         settings.instance._cloud_sqlite_locker.lock()
         close = True
     else:
         close = False
+
+    # commit metadata to database
+    db_error = None
     for record in records:
+        prepare_filekey_metadata(record)
         session.add(record)
-    session.commit()
-    for record in records:
-        session.refresh(record)
+    try:
+        session.commit()
+    except Exception as e:
+        db_error = e
+
+    # upload data objects to storage
+    if db_error is None:
+        added_records, upload_error = upload_committed_records(
+            records, session, use_fsspec=use_fsspec
+        )
+
     if close:
         session.close()
         settings.instance._update_cloud_sqlite_file()
         settings.instance._cloud_sqlite_locker.unlock()
-    if len(records) > 1:
-        return records
+
+    error = db_error or upload_error
+    if error is not None:
+        error_message = prepare_error_message(records, added_records, error)
+        raise RuntimeError(error_message)
+    elif len(added_records) > 1:
+        return added_records
     else:
-        return records[0]
+        return added_records[0]
+
+
+def upload_committed_records(records, session, use_fsspec):
+    """Upload records in a list of database-commited records to storage.
+
+    If any upload fails, subsequent records are cleaned up from the DB.
+    """
+    # make sure ALL records are up-to-date to enable accurate comparison
+    # during metadata cleanup
+    error = None
+    added_records = []
+    for record in records:
+        session.refresh(record)
+
+    # upload data objects
+    for record in records:
+        if isinstance(record, DObject) and hasattr(record, "_local_filepath"):
+            try:
+                upload_data_object(record, use_fsspec=use_fsspec)
+            except Exception as e:
+                error = e
+                break
+        added_records += [record]
+
+    # clean up metadata for objects not uploaded to storage
+    if error is not None:
+        for record in records:
+            if record not in added_records:
+                session.delete(record)
+        session.commit()
+
+    return added_records, error
+
+
+def prepare_error_message(records, added_records, error) -> str:
+    if len(records) == 1 or len(added_records) == 0:
+        error_message = (
+            "An unexpected error occured. No entries were uploaded or committed"
+            " to the database. Please run command again."
+        )
+    else:
+        error_message = (
+            "An unexpected error occured. The following entries have been"
+            " successfully uploaded and committed to the database:\n"
+        )
+        for record in added_records:
+            error_message += (
+                f"- {', '.join(record.__repr__().split(', ')[:3]) + ', ...)'}\n"
+            )
+    error_message += "\n\nThe following error was raised: "
+    error_message += f"{str(error)}"
+    return error_message
+
+
+def prepare_filekey_metadata(record) -> None:
+    """For cloudpath, write custom filekey to _filekey.
+
+    A filekey excludes the storage root and the file suffix.
+    """
+    if isinstance(record, DObject) and hasattr(record, "_local_filepath"):
+        if record.suffix != ".zarr" and record._cloud_filepath is not None:
+            set_attribute(
+                record,
+                "_filekey",
+                str(record._cloud_filepath)
+                .replace(f"{settings.instance.storage.root}/", "")
+                .replace(record.suffix, ""),
+            )
 
 
 def upload_data_object(dobject, use_fsspec: bool = True) -> None:
@@ -114,16 +197,6 @@ def upload_data_object(dobject, use_fsspec: bool = True) -> None:
         if dobject._cloud_filepath is None:
             store_file(
                 dobject._local_filepath, dobject_storage_key, use_fsspec=use_fsspec
-            )
-        # for cloudpath, write custom filekey to _filekey
-        # a filekey excludes the storage root and the file suffix
-        else:
-            set_attribute(
-                dobject,
-                "_filekey",
-                str(dobject._cloud_filepath)
-                .replace(f"{settings.instance.storage.root}/", "")
-                .replace(dobject.suffix, ""),
             )
     else:
         storagepath = settings.instance.storage.key_to_filepath(dobject_storage_key)
