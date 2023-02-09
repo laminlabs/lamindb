@@ -3,6 +3,7 @@
 <!-- prettier-ignore -->
 Name | PR | Developer | Date | Version
 --- | --- | --- | --- | ---
+🚸 Better `ln.nb.header()` auto-retrieval error message | [483](https://github.com/laminlabs/lamindb/pull/483) | [falexwolf](https://github.com/falexwolf) | 2023-02-09 |
 🚸  Make DObject upload ACID | [476](https://github.com/laminlabs/lamindb/pull/476) | [bpenteado](https://github.com/bpenteado) | 2023-02-08 |
 📝 Add notebook on ORM lazy loading behavior to FAQ | [472](https://github.com/laminlabs/lamindb/pull/472) | [bpenteado](https://github.com/bpenteado) | 2023-02-06 |
 🎨 Robust generation of `DObject._filekey` | [481](https://github.com/laminlabs/lamindb/pull/481) | [sunnyosun](https://github.com/sunnyosun) | 2023-02-06 | 0.26.1
