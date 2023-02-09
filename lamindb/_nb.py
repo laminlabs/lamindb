@@ -53,8 +53,9 @@ class nb:
         """
         if id is None and name is None:
             nbproject_failed_msg = (
-                "Failed to run `nbproject.header()`: "
-                f"Pass id={dev.id.notebook()} & name."
+                "Auto-retrieval of notebook name & title failed.\nPlease paste error"
+                " at: https://github.com/laminlabs/nbproject/issues/new \n\nFix: Run"
+                f" ln.nb.header(id={dev.id.notebook()}, name='my-notebook-name')"
             )
             try:
                 _nb.header(pypackage=pypackage, filepath=filepath, env=env)
@@ -69,7 +70,7 @@ class nb:
             title = _nb.meta.live.title
         elif id is None or name is None:
             # Both id and name need to be passed if passing it manually
-            raise RuntimeError("Pass both id & name.")
+            raise RuntimeError("Fix: Pass both id & name to ln.nb.header().")
         else:
             title = None
 
@@ -122,7 +123,7 @@ class nb:
             if run is not None:
                 logger.info(f"Loaded run: {run.id}")  # type: ignore
         elif run != "new":
-            raise ValueError("Pass run='new' to header()!")
+            raise ValueError("Pass run='new' to ln.nb.header()!")
 
         # create a new run if doesn't exist yet or is requested by the user ("new")
         if run is None or run == "new":
