@@ -123,7 +123,7 @@ class nb:
             if run is not None:
                 logger.info(f"Loaded run: {run.id}")  # type: ignore
         elif run != "new":
-            raise ValueError("Pass run='new' to ln.nb.header()!")
+            raise ValueError("Fix: ln.nb.header(run='new')!")
 
         # create a new run if doesn't exist yet or is requested by the user ("new")
         if run is None or run == "new":
