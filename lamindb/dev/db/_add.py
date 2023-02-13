@@ -100,6 +100,7 @@ def add(  # type: ignore
         db_error = e
 
     # upload data objects to storage
+    added_records = []
     if db_error is None:
         added_records, upload_error = upload_committed_records(
             records, session, use_fsspec=use_fsspec
@@ -155,19 +156,19 @@ def upload_committed_records(records, session, use_fsspec):
 def prepare_error_message(records, added_records, error) -> str:
     if len(records) == 1 or len(added_records) == 0:
         error_message = (
-            "An unexpected error occured. No entries were uploaded or committed"
-            " to the database. Please run command again."
+            "An error occured. No entries were uploaded or committed"
+            " to the database. See error message below.\n\n"
         )
     else:
         error_message = (
-            "An unexpected error occured. The following entries have been"
+            "An error occured. The following entries have been"
             " successfully uploaded and committed to the database:\n"
         )
         for record in added_records:
             error_message += (
                 f"- {', '.join(record.__repr__().split(', ')[:3]) + ', ...)'}\n"
             )
-    error_message += "\n\nThe following error was raised: "
+        error_message += "\nSee error message below.\n\n"
     error_message += f"{str(error)}"
     return error_message
 
