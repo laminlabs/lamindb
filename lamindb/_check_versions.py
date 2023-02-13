@@ -1,11 +1,11 @@
 from bionty import __version__ as bionty_v
-from lndb_setup import __version__ as lndb_setup_v
+from lndb import __version__ as lndb_v
 from lnschema_core import __version__ as lnschema_core_v
 from nbproject import __version__ as nbproject_v
 from packaging import version
 
-if version.parse(lndb_setup_v) != version.parse("0.32.0"):
-    raise RuntimeError("Upgrade lndb_setup! pip install lndb_setup==0.32.0")
+if version.parse(lndb_v) != version.parse("0.32.0"):
+    raise RuntimeError("Upgrade lndb! pip install lndb==0.32.0")
 
 if version.parse(lnschema_core_v) != version.parse("0.25.8"):
     raise RuntimeError("lamindb needs lnschema_core==0.25.8")
