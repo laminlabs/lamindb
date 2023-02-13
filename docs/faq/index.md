@@ -5,13 +5,13 @@
 
 ingest
 nb
+settings
 ingest-same-file-twice
 existing-data
 stream
 storage
 select
 data-validation
-settings
 ingest-acid
 lazy-loading
 ```
