@@ -3,6 +3,7 @@
 <!-- prettier-ignore -->
 Name | PR | Developer | Date | Version
 --- | --- | --- | --- | ---
+🚑 Fix tracking of added records during `ln.add()` | [489](https://github.com/laminlabs/lamindb/pull/489) | [bpenteado](https://github.com/bpenteado) | 2023-02-13 |
 ✨ Added `is_run_input` param to `DObject.load()` | [488](https://github.com/laminlabs/lamindb/pull/488) | [sunnyosun](https://github.com/sunnyosun) | 2023-02-13 |
 🎨 Added `ln.settings.track_run_inputs_upon_load` | [486](https://github.com/laminlabs/lamindb/pull/486) | [sunnyosun](https://github.com/sunnyosun) | 2023-02-13 |
 🎨 Added zarr tests back and cleaned up faq | [485](https://github.com/laminlabs/lamindb/pull/485) | [sunnyosun](https://github.com/sunnyosun) | 2023-02-13 |
