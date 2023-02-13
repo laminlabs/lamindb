@@ -7,7 +7,7 @@ class settings:
 
     This is a static class to manage post-setup settings.
 
-    FAQ: :doc:`/faq/settings`.
+    See `lamindb.settings <https://lamin.ai/docs/db/lamindb.settings>`__.
 
     For setup-related settings, see
     `lndb_setup.settings <https://lamin.ai/docs/lndb-setup/lndb_setup.settings>`__.
@@ -17,4 +17,9 @@ class settings:
     """Upon ingestion, error if a dobject hash equals an existing hash in the DB.
 
     FAQ: :doc:`/faq/ingest-same-file-twice`.
+    """
+    track_run_inputs_upon_load: bool = False
+    """Upon load, add loaded dobjects as the input of the current notebook run.
+
+    FAQ: :doc:`/faq/track-runin`.
     """
