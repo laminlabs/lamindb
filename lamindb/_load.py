@@ -3,7 +3,7 @@ from lamin_logger import logger
 from lndb_setup import settings
 
 from .dev._core import filepath_from_dobject
-from .dev.db._track_usage import track_usage
+from .dev.db._track_usage import track_usage  # noqa
 from .dev.file import load_to_memory
 
 
@@ -30,14 +30,15 @@ def load(dobject: core.DObject, stream: bool = False):
         logger.warning(f"Ignoring stream option for a {dobject.suffix} object.")
 
     filepath = filepath_from_dobject(dobject)
-    from lamindb import nb
+    # TODO: better design to track run inputs and usage
+    # from lamindb import nb
 
-    if nb.run is None:
-        logger.warning(
-            "Input tracking for runs through `load` is currently only implemented for"
-            " notebooks."
-        )
-    else:
-        populate_runin(dobject, nb.run)
-    track_usage(dobject.id, "load")
+    # if nb.run is None:
+    #     logger.warning(
+    #         "Input tracking for runs through `load` is currently only implemented for"
+    #         " notebooks."
+    #     )
+    # else:
+    #     populate_runin(dobject, nb.run)
+    # track_usage(dobject.id, "load")
     return load_to_memory(filepath, stream=stream)
