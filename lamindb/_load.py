@@ -3,7 +3,6 @@ from lamin_logger import logger
 from lndb_setup import settings
 
 from .dev._core import filepath_from_dobject
-from .dev.db._track_usage import track_usage  # noqa
 from .dev.file import load_to_memory
 
 
