@@ -9,7 +9,7 @@ import pandas as pd
 from cloudpathlib import CloudPath
 from cloudpathlib.exceptions import InvalidPrefixError
 from lamin_logger import logger
-from lndb_setup import settings as setup_settings
+from lndb import settings as setup_settings
 from lnschema_core import DObject as lns_DObject
 from lnschema_core import Features, Run, Storage
 
@@ -44,7 +44,7 @@ def serialize(
             if setup_settings.instance.storage.root not in filepath.parents:
                 raise ValueError(
                     "Can only track objects in configured cloud storage locations."
-                    " Please call `lndb_setup.set_storage('< bucket_name >')`."
+                    " Please call `lndb.set_storage('< bucket_name >')`."
                 )
         except InvalidPrefixError:
             filepath = Path(data)

@@ -69,8 +69,8 @@ Helper tools
 """
 import importlib as _importlib
 
-from lndb_setup import settings as _settings
-from lndb_setup._setup_schema import get_schema_module_name as _get_schema_module_name
+from lndb import settings as _settings
+from lndb._setup_schema import get_schema_module_name as _get_schema_module_name
 from lnschema_core import (
     DSet,
     Features,

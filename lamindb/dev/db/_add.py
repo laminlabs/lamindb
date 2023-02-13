@@ -2,7 +2,7 @@ from functools import partial
 from typing import Dict, List, Tuple, Union, overload  # noqa
 
 import sqlmodel as sqm
-from lndb_setup import settings
+from lndb import settings
 from lnschema_core import DObject
 from sqlalchemy.orm.attributes import set_attribute
 

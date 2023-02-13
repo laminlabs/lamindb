@@ -1,7 +1,7 @@
 from pathlib import Path
 
 import nox
-from lndb_setup.test.nox import build_docs, login_testuser1, run_pre_commit, run_pytest
+from lndb.test.nox import build_docs, login_testuser1, run_pre_commit, run_pytest
 
 nox.options.reuse_existing_virtualenvs = True
 

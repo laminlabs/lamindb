@@ -3,7 +3,7 @@ from typing import List, Optional, Union
 
 import nbproject as _nb
 from lamin_logger import logger
-from lndb_setup import settings
+from lndb import settings
 from lnschema_core import Notebook, Run, dev
 
 

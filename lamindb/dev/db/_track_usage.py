@@ -1,4 +1,4 @@
-from lndb_setup import settings
+from lndb import settings
 from lnschema_core import Usage
 from lnschema_core.dev.type import usage as UsageType
 

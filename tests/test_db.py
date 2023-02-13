@@ -2,7 +2,7 @@ from pathlib import Path
 
 
 def test_create_to_load():
-    import lndb_setup as lnsetup
+    import lndb as lnsetup
 
     storage_root = "mydata-test-db"
     lnsetup.login(
@@ -11,7 +11,7 @@ def test_create_to_load():
     )
     lnsetup.init(storage=storage_root)
 
-    # if importing this at the top of the file lndb_setup will try to
+    # if importing this at the top of the file lndb will try to
     # create unnecessary tables
     import lamindb as ln
 
@@ -28,7 +28,7 @@ def test_create_to_load():
     (Path(storage_root) / "mydata-test-db.lndb").unlink()
     # Note that this merely removes database file but doesn't clean out the instance_settings file!  # noqa
     # Hence, we need to also clean that out:
-    from lndb_setup._settings_store import current_instance_settings_file
+    from lndb._settings_store import current_instance_settings_file
 
     current_instance_settings_file().unlink()
 

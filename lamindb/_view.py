@@ -3,8 +3,8 @@ from typing import Optional
 
 from IPython.display import display
 from lamin_logger import colors
-from lndb_setup import settings
-from lndb_setup._setup_schema import get_schema_module_name
+from lndb import settings
+from lndb._setup_schema import get_schema_module_name
 
 from .dev.db._select import select
 

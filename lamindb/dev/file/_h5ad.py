@@ -1,7 +1,7 @@
 import anndata
 import fsspec
 from anndata import AnnData
-from lndb_setup import settings
+from lndb import settings
 
 
 def h5ad_to_anndata(filekey) -> AnnData:

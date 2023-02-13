@@ -1,7 +1,7 @@
 from typing import Dict, List, Tuple, Union, overload  # noqa
 
 import sqlmodel as sqm
-from lndb_setup import settings
+from lndb import settings
 
 from .._docs import doc_args
 from ._add import add, add_docs
