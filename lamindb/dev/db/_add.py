@@ -100,6 +100,7 @@ def add(  # type: ignore
         db_error = e
 
     # upload data objects to storage
+    added_records = []
     if db_error is None:
         added_records, upload_error = upload_committed_records(
             records, session, use_fsspec=use_fsspec
