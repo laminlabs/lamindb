@@ -72,7 +72,10 @@ def anndata_pbmc68k_reduced() -> ad.AnnData:
     del pbmc68k.var["dispersions"]
     del pbmc68k.var["dispersions_norm"]
     del pbmc68k.var["means"]
+    del pbmc68k.uns["rank_genes_groups"]
+    del pbmc68k.uns["bulk_labels_colors"]
     del pbmc68k.raw
+    sc.pp.subsample(pbmc68k, fraction=0.1, random_state=123)
     return pbmc68k
 
 
