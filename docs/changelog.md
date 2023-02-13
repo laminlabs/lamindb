@@ -3,6 +3,7 @@
 <!-- prettier-ignore -->
 Name | PR | Developer | Date | Version
 --- | --- | --- | --- | ---
+🎨 Added zarr tests back and cleaned up faq | [485](https://github.com/laminlabs/lamindb/pull/485) | [sunnyosun](https://github.com/sunnyosun) | 2023-02-13 |
 🔥 Drop populating runin and tracking usage upon load | [484](https://github.com/laminlabs/lamindb/pull/484) | [sunnyosun](https://github.com/sunnyosun) | 2023-02-13 |
 🚸 Better `ln.nb.header()` auto-retrieval error message | [483](https://github.com/laminlabs/lamindb/pull/483) | [falexwolf](https://github.com/falexwolf) | 2023-02-09 |
 🚸  Make DObject upload ACID | [476](https://github.com/laminlabs/lamindb/pull/476) | [bpenteado](https://github.com/bpenteado) | 2023-02-08 |
