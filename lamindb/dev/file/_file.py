@@ -7,7 +7,7 @@ import nbproject
 import pandas as pd
 import readfcs
 from cloudpathlib import CloudPath
-from lndb_setup import settings
+from lndb import settings
 
 from ._h5ad import read_adata_h5ad
 from ._zarr import read_adata_zarr

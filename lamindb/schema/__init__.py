@@ -69,8 +69,8 @@ Helper tools
 """
 import importlib as _importlib
 
-from lndb_setup import settings as _settings
-from lndb_setup._setup_schema import get_schema_module_name as _get_schema_module_name
+from lndb import settings as _settings
+from lndb._setup_schema import get_schema_module_name as _get_schema_module_name
 from lnschema_core import (
     DFolder,
     Features,
@@ -86,8 +86,8 @@ from lnschema_core import (
 from packaging import version as _v
 
 _check_v = {
-    "bionty": "0.6.8",
-    "wetlab": "0.13.3",
+    "bionty": "0.6.9",
+    "wetlab": "0.13.4",
 }
 
 for name in _settings.instance.schema:

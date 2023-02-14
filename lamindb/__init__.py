@@ -73,8 +73,8 @@ from lamin_logger import py_version_warning
 
 py_version_warning("3.8", "3.10")
 
-from lndb_setup import settings as _setup_settings
-from lndb_setup._migrate import check_migrate as _check_migrate
+from lndb import settings as _setup_settings
+from lndb._migrate import check_migrate as _check_migrate
 
 from . import _check_versions  # executes checks during import
 

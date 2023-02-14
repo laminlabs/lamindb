@@ -1,6 +1,6 @@
 import lnschema_core as core
 from lamin_logger import logger
-from lndb_setup import settings as setup_settings
+from lndb import settings as setup_settings
 
 from ._settings import settings
 from .dev._core import filepath_from_dobject

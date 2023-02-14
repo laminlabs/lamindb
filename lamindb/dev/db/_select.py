@@ -2,7 +2,7 @@ from typing import Optional
 
 import pandas as pd
 import sqlmodel as sqm
-from lndb_setup import settings
+from lndb import settings
 from sqlalchemy.orm.exc import MultipleResultsFound, NoResultFound
 from sqlmodel.main import SQLModelMetaclass
 

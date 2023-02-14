@@ -2,7 +2,7 @@ from typing import Union
 
 import erdiagram
 import sqlalchemy as sql
-from lndb_setup import settings
+from lndb import settings
 from sqlalchemy import Column, Table
 
 
