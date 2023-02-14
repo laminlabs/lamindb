@@ -16,7 +16,7 @@ dependencies = [
     # Lamin pinned packages
     "lndb==0.32.4",
     "lnschema_core==0.26.1",
-    "lnschema_wetlab==0.13.3",
+    "lnschema_wetlab==0.13.4",
     "lnschema_bionty==0.6.9",
     "bionty==0.7.0",
     "nbproject>=0.8.0",
