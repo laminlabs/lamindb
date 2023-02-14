@@ -25,13 +25,13 @@ def populate_runin(dobject: core.DObject, run: core.Run):
 
 
 # this is exposed to the user as DObject.load
-def load(dobject: core.DObject, stream: bool = False):
+def load(dobject: core.DObject, stream: bool = False, is_run_input: bool = False):
     if stream and dobject.suffix not in (".h5ad", ".zarr"):
         logger.warning(f"Ignoring stream option for a {dobject.suffix} object.")
 
     filepath = filepath_from_dobject(dobject)
     # TODO: better design to track run inputs
-    if settings.track_run_inputs_upon_load:
+    if settings.track_run_inputs_upon_load or is_run_input:
         from lamindb import nb
 
         if nb.run is None:
