@@ -3,7 +3,7 @@
 <!-- prettier-ignore -->
 Name | PR | Developer | Date | Version
 --- | --- | --- | --- | ---
-⬆️  Upgrade and rename `lndb_setup` to `lndb` (v0.32.4) | [487](https://github.com/laminlabs/lamindb/pull/487) | [bpenteado](https://github.com/bpenteado) | 2023-02-14 |
+⬆️  Upgrade and rename `lndb_setup` to `lndb` (v0.32.4) <span class="badge badge-warning">Breaking</span> | [487](https://github.com/laminlabs/lamindb/pull/487) | [bpenteado](https://github.com/bpenteado) | 2023-02-14 | 0.27.0
 🚑 Fix tracking of added records during `ln.add()` | [489](https://github.com/laminlabs/lamindb/pull/489) | [bpenteado](https://github.com/bpenteado) | 2023-02-13 |
 ✨ Added `is_run_input` param to `DObject.load()` | [488](https://github.com/laminlabs/lamindb/pull/488) | [sunnyosun](https://github.com/sunnyosun) | 2023-02-13 |
 🎨 Added `ln.settings.track_run_inputs_upon_load` | [486](https://github.com/laminlabs/lamindb/pull/486) | [sunnyosun](https://github.com/sunnyosun) | 2023-02-13 |
