@@ -47,6 +47,7 @@ test = [
     "scikit-learn>=1.1.1",
     "nbproject_test>=0.3.0",
     "psycopg2-binary",
+    "matplotlib<3.7"
 ]
 
 [tool.black]
