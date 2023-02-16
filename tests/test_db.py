@@ -2,14 +2,14 @@ from pathlib import Path
 
 
 def test_create_to_load():
-    import lndb as lnsetup
+    import lndb
 
     storage_root = "mydata-test-db"
-    lnsetup.login(
+    lndb.login(
         "raspbear@gmx.de",
         password="MmR4YuQEyb0yxu7dAwJZTjLzR1Az2lN4Q4IduDlO",
     )
-    lnsetup.init(storage=storage_root)
+    lndb.init(storage=storage_root)
 
     # if importing this at the top of the file lndb will try to
     # create unnecessary tables
@@ -19,7 +19,7 @@ def test_create_to_load():
     ln.add(notebook)
     run = ln.schema.Run(notebook_id=notebook.id, notebook_v=notebook.v)
     ln.add(run)
-    ln.select(ln.schema.Storage, root=str(lnsetup.settings.instance.storage.root)).one()
+    ln.select(ln.schema.Storage, root=str(lndb.settings.instance.storage.root)).one()
 
     ln.schema._core.get_db_metadata_as_dict()
     table_object = ln.schema._core.get_table_object("core.dobject")
@@ -28,7 +28,7 @@ def test_create_to_load():
     (Path(storage_root) / "mydata-test-db.lndb").unlink()
     # Note that this merely removes database file but doesn't clean out the instance_settings file!  # noqa
     # Hence, we need to also clean that out:
-    from lndb._settings_store import current_instance_settings_file
+    from lndb.dev._settings_store import current_instance_settings_file
 
     current_instance_settings_file().unlink()
 
