@@ -86,7 +86,7 @@ from lnschema_core import (
 from packaging import version as _v
 
 _check_v = {
-    "bionty": "0.6.9",
+    "bionty": "0.7.0",
     "wetlab": "0.13.4",
 }
 
