@@ -113,15 +113,13 @@ def delete(  # type: ignore
             # TODO: do not track deletes until we come up
             # with a good design that respects integrity
             # track_usage(entry.id, "delete")
-            else:
-                try:
-                    delete_storage(storage_key)
-                    logger.success(
-                        f"Deleted {colors.yellow(f'object {storage_key}')} from"
-                        " storage."
-                    )
-                except Exception:
-                    traceback.print_exc()
+            try:
+                delete_storage(storage_key)
+                logger.success(
+                    f"Deleted {colors.yellow(f'object {storage_key}')} from storage."
+                )
+            except Exception:
+                traceback.print_exc()
     session.close()
     settings.instance._update_cloud_sqlite_file()
     settings.instance._cloud_sqlite_locker.unlock()
