@@ -3,6 +3,7 @@
 <!-- prettier-ignore -->
 Name | PR | Developer | Date | Version
 --- | --- | --- | --- | ---
+✨ Ingest existing data from configured local storage | [491](https://github.com/laminlabs/lamindb/pull/491) | [sunnyosun](https://github.com/sunnyosun) | 2023-02-16 |
 🚸 Proper client server check for `lndb` | [492](https://github.com/laminlabs/lamindb/pull/492) | [falexwolf](https://github.com/falexwolf) | 2023-02-16 |
 ⬆️  Upgrade `nbproject` to 0.8.2 | [490](https://github.com/laminlabs/lamindb/pull/490) | [bpenteado](https://github.com/bpenteado) | 2023-02-16 |
 ⬆️  Upgrade and rename `lndb_setup` to `lndb` (v0.32.4) <span class="badge badge-warning">Breaking</span> | [487](https://github.com/laminlabs/lamindb/pull/487) | [bpenteado](https://github.com/bpenteado) | 2023-02-14 | 0.27.0
