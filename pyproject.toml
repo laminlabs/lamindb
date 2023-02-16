@@ -14,12 +14,13 @@ classifiers = [
 ]
 dependencies = [
     # Lamin pinned packages
-    "lndb==0.32.4",
+    "lnhub_rest==0.4.3",  # NOT pinned in lndb, just a lower bound there
+    "lndb==0.33.0",
     "lnschema_core==0.27.0",
     "lnschema_wetlab==0.13.4",
-    "lnschema_bionty==0.6.9",
+    "lnschema_bionty==0.7.0",
     "bionty==0.7.0",
-    "nbproject>=0.8.0",
+    "nbproject>=0.8.2",
     "readfcs>=1.1.0",
     # External packages
     "anndata>=0.8.0",
