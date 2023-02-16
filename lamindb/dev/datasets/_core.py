@@ -2,6 +2,7 @@ from pathlib import Path
 from urllib.request import urlretrieve
 
 import anndata as ad
+import pandas as pd
 
 
 def file_fcs() -> Path:
@@ -29,6 +30,14 @@ def file_bam() -> Path:
     with open("./output.bam", "w") as f:
         f.write("Mock bam file.")
     return Path("./output.bam")
+
+
+def file_mini_csv() -> Path:
+    """Mini csv file."""
+    filename = Path("./mini.csv")
+    df = pd.DataFrame([1, 2, 3], columns=["test"])
+    df.to_csv(filename, index=False)
+    return filename
 
 
 def dir_scrnaseq_cellranger() -> Path:
