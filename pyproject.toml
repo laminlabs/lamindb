@@ -16,7 +16,7 @@ dependencies = [
     # Lamin pinned packages
     "lnhub_rest==0.4.3",  # NOT pinned in lndb, just a lower bound there
     "lndb==0.33.0",
-    "lnschema_core==0.26.1",
+    "lnschema_core==0.27.1",
     "lnschema_wetlab==0.13.4",
     "lnschema_bionty==0.7.0",
     "bionty==0.7.0",
