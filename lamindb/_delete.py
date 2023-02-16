@@ -13,22 +13,22 @@ from .dev.file import delete_storage
 
 
 @overload
-def delete(record: sqm.SQLModel) -> None:
+def delete(record: sqm.SQLModel, force=False) -> None:
     ...
 
 
 @overload
-def delete(records: List[sqm.SQLModel]) -> None:  # type: ignore
+def delete(records: List[sqm.SQLModel], force=False) -> None:  # type: ignore
     ...
 
 
 @overload
-def delete(entity: sqm.SQLModel, **fields) -> None:  # type: ignore
+def delete(entity: sqm.SQLModel, force=False, **fields) -> None:  # type: ignore
     ...
 
 
 def delete(  # type: ignore
-    record: Union[sqm.SQLModel, List[sqm.SQLModel]], **fields
+    record: Union[sqm.SQLModel, List[sqm.SQLModel]], force=False, **fields
 ) -> None:
     """Delete data records & data objects.
 
@@ -47,6 +47,7 @@ def delete(  # type: ignore
 
     Args:
         record: One or multiple records as instances of `SQLModel`.
+        force: Whether to force delete data from storage.
     """
     if isinstance(record, list):
         records = record
@@ -58,6 +59,19 @@ def delete(  # type: ignore
         if len(results) == 0:
             return None
         records = results
+
+    # ask to confirm deleting data from storage
+    if len(records) == 1:
+        delete_dialog = """Confirm Delete: \n
+        Are you sure you want to delete the file from storage? (y/n)"""
+    else:
+        delete_dialog = f"""Confirm Delete: \n
+        Are you sure you want to delete {len(records)} files from storage? (y/n)"""
+    if force:
+        decide = "y"
+    else:
+        decide = input(f"   {delete_dialog}")
+
     settings.instance._cloud_sqlite_locker.lock()
     session = settings.instance.session()
     for record in records:
@@ -94,17 +108,21 @@ def delete(  # type: ignore
         except Exception:
             traceback.print_exc()
         if isinstance(record, DObject):
+            if decide not in ("y", "Y", "yes", "Yes", "YES"):
+                continue
             # TODO: do not track deletes until we come up
             # with a good design that respects integrity
             # track_usage(entry.id, "delete")
-            storage_key = storage_key_from_dobject(record)
-            try:
-                delete_storage(storage_key)
-                logger.success(
-                    f"Deleted {colors.yellow(f'object {storage_key}')} from storage."
-                )
-            except Exception:
-                traceback.print_exc()
+            else:
+                storage_key = storage_key_from_dobject(record)
+                try:
+                    delete_storage(storage_key)
+                    logger.success(
+                        f"Deleted {colors.yellow(f'object {storage_key}')} from"
+                        " storage."
+                    )
+                except Exception:
+                    traceback.print_exc()
     session.close()
     settings.instance._update_cloud_sqlite_file()
     settings.instance._cloud_sqlite_locker.unlock()
