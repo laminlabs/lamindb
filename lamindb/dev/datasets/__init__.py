@@ -6,6 +6,7 @@
    file_fcs
    file_jpg_paradisi05
    file_bam
+   file_mini_csv
    dir_scrnaseq_cellranger
    anndata_mouse_sc_lymph_node
    anndata_human_immune_cells
@@ -22,4 +23,5 @@ from ._core import (
     file_bam,
     file_fcs,
     file_jpg_paradisi05,
+    file_mini_csv,
 )
