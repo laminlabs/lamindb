@@ -19,7 +19,7 @@ dependencies = [
     "lnschema_wetlab==0.13.4",
     "lnschema_bionty==0.6.9",
     "bionty==0.7.0",
-    "nbproject>=0.8.0",
+    "nbproject>=0.8.2",
     "readfcs>=1.1.0",
     # External packages
     "anndata>=0.8.0",
