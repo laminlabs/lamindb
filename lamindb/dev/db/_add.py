@@ -1,8 +1,10 @@
 from functools import partial
-from typing import Dict, List, Tuple, Union, overload  # noqa
+from pathlib import Path
+from typing import List, Union, overload  # noqa
 
 import sqlmodel as sqm
-from lndb import settings
+from cloudpathlib import CloudPath
+from lndb import settings as setup_settings
 from lnschema_core import DObject
 from sqlalchemy.orm.attributes import set_attribute
 
@@ -83,8 +85,8 @@ def add(  # type: ignore
             records = [model(**fields)]
 
     if session is None:  # assume global session
-        session = settings.instance.session()
-        settings.instance._cloud_sqlite_locker.lock()
+        session = setup_settings.instance.session()
+        setup_settings.instance._cloud_sqlite_locker.lock()
         close = True
     else:
         close = False
@@ -108,8 +110,8 @@ def add(  # type: ignore
 
     if close:
         session.close()
-        settings.instance._update_cloud_sqlite_file()
-        settings.instance._cloud_sqlite_locker.unlock()
+        setup_settings.instance._update_cloud_sqlite_file()
+        setup_settings.instance._cloud_sqlite_locker.unlock()
 
     error = db_error or upload_error
     if error is not None:
@@ -178,15 +180,32 @@ def prepare_filekey_metadata(record) -> None:
 
     A filekey excludes the storage root and the file suffix.
     """
+
+    def set_filekey(record: sqm.SQLModel, filepath: Union[Path, CloudPath]):
+        set_attribute(
+            record,
+            "_filekey",
+            str(filepath)
+            .replace(f"{setup_settings.instance.storage.root}/", "")
+            .replace(record.suffix, ""),
+        )
+
+    # _local_filepath private attribute is only added
+    # when creating DObject from data
     if isinstance(record, DObject) and hasattr(record, "_local_filepath"):
-        if record.suffix != ".zarr" and record._cloud_filepath is not None:
-            set_attribute(
-                record,
-                "_filekey",
-                str(record._cloud_filepath)
-                .replace(f"{settings.instance.storage.root}/", "")
-                .replace(record.suffix, ""),
-            )
+        if record.suffix == ".zarr":
+            pass
+        else:
+            # cloud storage
+            if record._cloud_filepath is not None:
+                set_filekey(record, record._cloud_filepath)
+            # local storage that is configured
+            else:
+                if (
+                    setup_settings.instance.storage.root
+                    in record._local_filepath.parents
+                ):
+                    set_filekey(record, record._local_filepath)
 
 
 def upload_data_object(dobject, use_fsspec: bool = True) -> None:
@@ -194,12 +213,17 @@ def upload_data_object(dobject, use_fsspec: bool = True) -> None:
     dobject_storage_key = f"{dobject.id}{dobject.suffix}"
 
     if dobject.suffix != ".zarr":
-        # no file upload for cloud storage
-        if dobject._cloud_filepath is None:
+        # no file upload for cloud storage or configured local storage
+        # only copy data when file is not in the configured local storage
+        if (dobject._cloud_filepath is None) and (
+            setup_settings.instance.storage.root not in dobject._local_filepath.parents
+        ):
             store_file(
                 dobject._local_filepath, dobject_storage_key, use_fsspec=use_fsspec
             )
     else:
-        storagepath = settings.instance.storage.key_to_filepath(dobject_storage_key)
+        storagepath = setup_settings.instance.storage.key_to_filepath(
+            dobject_storage_key
+        )
         print_progress = partial(print_hook, filepath=dobject.name)
         write_adata_zarr(dobject._memory_rep, storagepath, callback=print_progress)
