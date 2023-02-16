@@ -60,18 +60,6 @@ def delete(  # type: ignore
             return None
         records = results
 
-    # ask to confirm deleting data from storage
-    if len(records) == 1:
-        delete_dialog = """Confirm Delete: \n
-        Are you sure you want to delete the file from storage? (y/n)"""
-    else:
-        delete_dialog = f"""Confirm Delete: \n
-        Are you sure you want to delete {len(records)} files from storage? (y/n)"""
-    if force:
-        decide = "y"
-    else:
-        decide = input(f"   {delete_dialog}")
-
     settings.instance._cloud_sqlite_locker.lock()
     session = settings.instance.session()
     for record in records:
@@ -108,13 +96,22 @@ def delete(  # type: ignore
         except Exception:
             traceback.print_exc()
         if isinstance(record, DObject):
+            storage_key = storage_key_from_dobject(record)
+            # ask to confirm deleting data from storage
+            delete_dialog = (
+                "Confirm Delete:\n Are you sure you want to delete"
+                f" {colors.yellow(f'object {storage_key}')} from storage? (y/n)"
+            )
+            if force:
+                decide = "y"
+            else:
+                decide = input(f"   {delete_dialog}")
             if decide not in ("y", "Y", "yes", "Yes", "YES"):
                 continue
             # TODO: do not track deletes until we come up
             # with a good design that respects integrity
             # track_usage(entry.id, "delete")
             else:
-                storage_key = storage_key_from_dobject(record)
                 try:
                     delete_storage(storage_key)
                     logger.success(
