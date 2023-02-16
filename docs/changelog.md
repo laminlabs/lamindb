@@ -3,6 +3,7 @@
 <!-- prettier-ignore -->
 Name | PR | Developer | Date | Version
 --- | --- | --- | --- | ---
+🚸 Add relationship between `DFolder` and `DObject` | [494](https://github.com/laminlabs/lamindb/pull/494) | [bpenteado](https://github.com/bpenteado) | 2023-02-16 |
 ✨ Confirm dialog for deleting data from storage | [493](https://github.com/laminlabs/lamindb/pull/493) | [sunnyosun](https://github.com/sunnyosun) | 2023-02-16 |
 ✨ Ingest existing data from configured local storage | [491](https://github.com/laminlabs/lamindb/pull/491) | [sunnyosun](https://github.com/sunnyosun) | 2023-02-16 |
 🚸 Proper client server check for `lndb` | [492](https://github.com/laminlabs/lamindb/pull/492) | [falexwolf](https://github.com/falexwolf) | 2023-02-16 |
