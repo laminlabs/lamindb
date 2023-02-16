@@ -45,7 +45,8 @@ jobs:
       - name: Install pip, nox, graphviz, postgress
         run: |
           python -m pip install --upgrade pip
-          pip install nox lndb
+          pip install nox
+          pip install lndb>=0.34.1
           sudo apt-get -y install graphviz
           sudo apt-get install libpq-dev
       - name: Lint
