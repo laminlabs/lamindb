@@ -13,22 +13,22 @@ from .dev.file import delete_storage
 
 
 @overload
-def delete(record: sqm.SQLModel) -> None:
+def delete(record: sqm.SQLModel, force=False) -> None:
     ...
 
 
 @overload
-def delete(records: List[sqm.SQLModel]) -> None:  # type: ignore
+def delete(records: List[sqm.SQLModel], force=False) -> None:  # type: ignore
     ...
 
 
 @overload
-def delete(entity: sqm.SQLModel, **fields) -> None:  # type: ignore
+def delete(entity: sqm.SQLModel, force=False, **fields) -> None:  # type: ignore
     ...
 
 
 def delete(  # type: ignore
-    record: Union[sqm.SQLModel, List[sqm.SQLModel]], **fields
+    record: Union[sqm.SQLModel, List[sqm.SQLModel]], force=False, **fields
 ) -> None:
     """Delete data records & data objects.
 
@@ -47,6 +47,7 @@ def delete(  # type: ignore
 
     Args:
         record: One or multiple records as instances of `SQLModel`.
+        force: Whether to force delete data from storage.
     """
     if isinstance(record, list):
         records = record
@@ -58,6 +59,7 @@ def delete(  # type: ignore
         if len(results) == 0:
             return None
         records = results
+
     settings.instance._cloud_sqlite_locker.lock()
     session = settings.instance.session()
     for record in records:
@@ -94,10 +96,23 @@ def delete(  # type: ignore
         except Exception:
             traceback.print_exc()
         if isinstance(record, DObject):
+            storage_key = storage_key_from_dobject(record)
+
+            if force:
+                decide = "y"
+            else:
+                # ask to confirm deleting data from storage
+                delete_dialog = (
+                    "Confirm Delete:\n Are you sure you want to delete"
+                    f" {colors.yellow(f'object {storage_key}')} from storage? (y/n)"
+                )
+                decide = input(f"   {delete_dialog}")
+
+            if decide not in ("y", "Y", "yes", "Yes", "YES"):
+                continue
             # TODO: do not track deletes until we come up
             # with a good design that respects integrity
             # track_usage(entry.id, "delete")
-            storage_key = storage_key_from_dobject(record)
             try:
                 delete_storage(storage_key)
                 logger.success(
