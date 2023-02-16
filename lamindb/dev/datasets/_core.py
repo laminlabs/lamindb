@@ -34,7 +34,7 @@ def file_bam() -> Path:
 
 def file_mini_csv() -> Path:
     """Mini csv file."""
-    filename = Path(__file__).parent.parent.parent.parent / "docs/guide/mydata/mini.csv"
+    filename = Path("./mydata/mini.csv")
     df = pd.DataFrame([1, 2, 3], columns=["test"])
     df.to_csv(filename, index=False)
     return filename
