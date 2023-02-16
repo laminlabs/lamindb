@@ -97,15 +97,17 @@ def delete(  # type: ignore
             traceback.print_exc()
         if isinstance(record, DObject):
             storage_key = storage_key_from_dobject(record)
-            # ask to confirm deleting data from storage
-            delete_dialog = (
-                "Confirm Delete:\n Are you sure you want to delete"
-                f" {colors.yellow(f'object {storage_key}')} from storage? (y/n)"
-            )
+
             if force:
                 decide = "y"
             else:
+                # ask to confirm deleting data from storage
+                delete_dialog = (
+                    "Confirm Delete:\n Are you sure you want to delete"
+                    f" {colors.yellow(f'object {storage_key}')} from storage? (y/n)"
+                )
                 decide = input(f"   {delete_dialog}")
+
             if decide not in ("y", "Y", "yes", "Yes", "YES"):
                 continue
             # TODO: do not track deletes until we come up
