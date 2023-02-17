@@ -3,6 +3,7 @@
 <!-- prettier-ignore -->
 Name | PR | Developer | Date | Version
 --- | --- | --- | --- | ---
+📝 Simplify output for dfolder faq | [499](https://github.com/laminlabs/lamindb/pull/499) | [sunnyosun](https://github.com/sunnyosun) | 2023-02-17 |
 📝 Guide to ingest a folder | [496](https://github.com/laminlabs/lamindb/pull/496) | [sunnyosun](https://github.com/sunnyosun) | 2023-02-17 |
 🚑 Fix determination of sqlite vs postgres | [497](https://github.com/laminlabs/lamindb/pull/497) | [falexwolf](https://github.com/falexwolf) | 2023-02-17 | 0.27.2
 🎨 Improve `lndb` (lamindb manager) architecture | [495](https://github.com/laminlabs/lamindb/pull/495) | [falexwolf](https://github.com/falexwolf) | 2023-02-16 | 0.27.1
