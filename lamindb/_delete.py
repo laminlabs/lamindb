@@ -103,8 +103,8 @@ def delete(  # type: ignore
             else:
                 # ask to confirm deleting data from storage
                 delete_dialog = (
-                    "Confirm Delete:\n Are you sure you want to delete"
-                    f" {colors.yellow(f'object {storage_key}')} from storage? (y/n)"
+                    "Confirm Delete: Are you sure you want to delete"
+                    f" object {storage_key} from storage? (y/n)"
                 )
                 decide = input(f"   {delete_dialog}")
 
