@@ -41,7 +41,7 @@ def file_mini_csv() -> Path:
 
 
 def dir_scrnaseq_cellranger() -> Path:
-    """Directory with exemplary scrnaseq cellranger output."""
+    """Directory with exemplary scrnaseq cellranger input and output."""
     filepath, _ = urlretrieve(
         "https://lamindb-test.s3.amazonaws.com/cellranger_run_001.zip"
     )
@@ -52,6 +52,20 @@ def dir_scrnaseq_cellranger() -> Path:
         zipObj.extractall(path=".")
 
     return Path("cellranger_run_001")
+
+
+def dir_scrnaseq_cellranger_out() -> Path:
+    """Directory with exemplary scrnaseq cellranger output."""
+    filepath, _ = urlretrieve(
+        "https://lamindb-test.s3.amazonaws.com/scrnaseq-cellranger.zip"
+    )
+    from zipfile import ZipFile
+
+    with ZipFile(filepath, "r") as zipObj:
+        # Extract all the contents of zip file in current directory
+        zipObj.extractall(path=".")
+
+    return Path("scrnaseq-cellranger")
 
 
 def anndata_mouse_sc_lymph_node() -> ad.AnnData:
