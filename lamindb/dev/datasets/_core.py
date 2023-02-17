@@ -1,8 +1,10 @@
 from pathlib import Path
+from typing import Union
 from urllib.request import urlretrieve
 
 import anndata as ad
 import pandas as pd
+from lnschema_core.dev import id
 
 
 def file_fcs() -> Path:
@@ -25,6 +27,13 @@ def file_jpg_paradisi05() -> Path:
     return Path(filepath)
 
 
+def file_fastq() -> Path:
+    """Mini mock fastq file."""
+    with open("./input.fastq.gz", "w") as f:
+        f.write("Mock fastq file.")
+    return Path("./input.fastq.gz")
+
+
 def file_bam() -> Path:
     """Mini mock bam file."""
     with open("./output.bam", "w") as f:
@@ -41,7 +50,7 @@ def file_mini_csv() -> Path:
 
 
 def dir_scrnaseq_cellranger() -> Path:
-    """Directory with exemplary scrnaseq cellranger output."""
+    """Directory with exemplary scrnaseq cellranger input and output."""
     filepath, _ = urlretrieve(
         "https://lamindb-test.s3.amazonaws.com/cellranger_run_001.zip"
     )
@@ -113,6 +122,59 @@ def anndata_human_immune_cells() -> ad.AnnData:
     """
     filepath, _ = urlretrieve("https://lamindb-test.s3.amazonaws.com/human_immune.h5ad")
     return ad.read(filepath)
+
+
+def generate_cell_ranger_files(
+    sample_name: str, basedir: Union[str, Path] = "./", output_only: bool = True
+):
+    """Generate mock cell ranger outputs.
+
+    Args:
+        sample_name: name of the sample
+        basedir: run directory
+        output_only: only generate output files
+
+    """
+    basedir = Path(basedir)
+
+    if not output_only:
+        fastqdir = basedir / "fastq"
+        fastqdir.mkdir(parents=True, exist_ok=True)
+        fastqfile1 = fastqdir / f"{sample_name}_R1_001.fastq.gz"
+        with open(fastqfile1, "w") as f:
+            f.write(f"{id.base62(n_char=6)}")
+        fastqfile2 = fastqdir / f"{sample_name}_R2_001.fastq.gz"
+        fastqfile2.touch(exist_ok=True)
+        with open(fastqfile2, "w") as f:
+            f.write(f"{id.base62(n_char=6)}")
+
+    sampledir = basedir / f"{sample_name}"
+    for folder in ["raw_feature_bc_matrix", "filtered_feature_bc_matrix", "analysis"]:
+        filedir = sampledir / folder
+        filedir.mkdir(parents=True, exist_ok=True)
+
+    for filename in [
+        "web_summary.html",
+        "metrics_summary.csv",
+        "possorted_genome_bam.bam",
+        "possorted_genome_bam.bam.bai",
+        "molecule_info.h5",
+        "cloupe.cloupe",
+        "raw_feature_bc_matrix.h5",
+        "raw_feature_bc_matrix/barcodes.tsv.gz",
+        "raw_feature_bc_matrix/features.tsv.gz",
+        "raw_feature_bc_matrix/matrix.mtx.gz",
+        "filtered_feature_bc_matrix.h5",
+        "filtered_feature_bc_matrix/barcodes.tsv.gz",
+        "filtered_feature_bc_matrix/features.tsv.gz",
+        "filtered_feature_bc_matrix/matrix.mtx.gz",
+        "analysis/analysis.csv",
+    ]:
+        file = sampledir / filename
+        with open(file, "w") as f:
+            f.write(f"{id.base62(n_char=6)}")
+
+    return sampledir
 
 
 # def schmidt22_crispra_gws_IFNG() -> Path:
