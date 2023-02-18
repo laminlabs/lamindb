@@ -181,7 +181,7 @@ def prepare_filekey_metadata(record) -> None:
         set_attribute(
             record,
             "_filekey",
-            str(filepath).replace(f"{storage.root}/", "").replace(record.suffix, ""),
+            str(filepath).replace(f"{storage.root}", "").replace(record.suffix, ""),
         )
 
     # _local_filepath private attribute is only added

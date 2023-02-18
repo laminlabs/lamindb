@@ -85,8 +85,9 @@ def load_to_memory(filepath: Union[str, Path, UPath], stream: bool = False):
         stream = False
 
     if not stream:
-        # caching happens here if filename is a CloudPath
-        filepath = Path(filepath)
+        # caching happens here if filename is a UPath
+        # todo: make it safe when filepath is just Path
+        filepath = settings.instance.storage.cloud_to_local(filepath)
 
     reader = READER_FUNCS.get(filepath.suffix)
     if reader is None:
