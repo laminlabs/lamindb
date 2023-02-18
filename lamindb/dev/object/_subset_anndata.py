@@ -81,7 +81,6 @@ def _subset_anndata_dobject(
     query_obs: Optional[Union[str, LazySelector]] = None,
     query_var: Optional[Union[str, LazySelector]] = None,
 ) -> Union[AnnData, None]:
-    # todo: check that cloudpathlib doesn't cache anything here
     dobject_path = str(filepath_from_dobject(dobject))
 
     adata: Union[AnnData, None] = None
