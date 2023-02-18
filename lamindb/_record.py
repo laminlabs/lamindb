@@ -39,7 +39,10 @@ def serialize(
     # Convert str to either Path or CloudPath
     if isinstance(data, (str, Path, UPath)):
         filepath = UPath(data)  # returns Path for local
-        if setup_settings.instance.storage.root not in filepath.parents:
+        if (
+            isinstance(filepath, UPath)
+            and setup_settings.instance.storage.root not in filepath.parents  # noqa
+        ):
             raise ValueError(
                 "Can only track objects in configured cloud storage locations."
                 " Please call `lndb.set_storage('< bucket_name >')`."
