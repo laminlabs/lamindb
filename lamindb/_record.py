@@ -39,6 +39,11 @@ def serialize(
     # Convert str to either Path or CloudPath
     if isinstance(data, (str, Path, UPath)):
         filepath = UPath(data)  # returns Path for local
+        if setup_settings.instance.storage.root not in filepath.parents:
+            raise ValueError(
+                "Can only track objects in configured cloud storage locations."
+                " Please call `lndb.set_storage('< bucket_name >')`."
+            )
         memory_rep = None
         name, suffix = get_name_suffix_from_filepath(filepath)
     # For now, in-memory objects are always saved to local_filepath first
