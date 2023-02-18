@@ -178,10 +178,14 @@ def prepare_filekey_metadata(record) -> None:
     storage = setup_settings.instance.storage
 
     def set_filekey(record: sqm.SQLModel, filepath: Union[Path, UPath]):
+        filepath_str = filepath.as_posix()
+        root_str = storage.root.as_posix()
+        if root_str[-1] != "/":
+            root_str += "/"
         set_attribute(
             record,
             "_filekey",
-            str(filepath).replace(f"{storage.root}", "").replace(record.suffix, ""),
+            filepath_str.replace(root_str, "").replace(record.suffix, ""),
         )
 
     # _local_filepath private attribute is only added
