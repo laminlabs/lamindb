@@ -213,11 +213,7 @@ def get_path_size_hash(
     localpath = None
     if suffix != ".zarr":
         path = UPath(filepath)  # returns Path for local
-        if isinstance(path, Path):
-            size = path.stat().st_size
-            localpath = filepath
-            hash = get_hash(filepath, suffix)
-        else:
+        if isinstance(path, UPath):
             try:
                 size = path.stat()["size"]
             # here trying to fix access issue with new s3 buckets
@@ -229,6 +225,10 @@ def get_path_size_hash(
                     raise e
             cloudpath = filepath
             hash = None
+        else:
+            size = path.stat().st_size
+            localpath = filepath
+            hash = get_hash(filepath, suffix)
     else:
         size = size_adata(memory_rep)
         hash = None
