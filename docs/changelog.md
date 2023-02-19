@@ -3,6 +3,7 @@
 <!-- prettier-ignore -->
 Name | PR | Developer | Date | Version
 --- | --- | --- | --- | ---
+⚡️ Replace CloudPath with UPath | [501](https://github.com/laminlabs/lamindb/pull/501) | [Koncopd](https://github.com/Koncopd) | 2023-02-19 |
 👷 Move fixtures from nox to conftest | [500](https://github.com/laminlabs/lamindb/pull/500) | [falexwolf](https://github.com/falexwolf) | 2023-02-17 |
 📝 Simplify output for dfolder faq | [499](https://github.com/laminlabs/lamindb/pull/499) | [sunnyosun](https://github.com/sunnyosun) | 2023-02-17 |
 📝 Guide to ingest a folder | [496](https://github.com/laminlabs/lamindb/pull/496) | [sunnyosun](https://github.com/sunnyosun) | 2023-02-17 |
