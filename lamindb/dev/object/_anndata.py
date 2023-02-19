@@ -1,3 +1,4 @@
+import os
 from pathlib import Path
 
 from anndata import AnnData
@@ -16,12 +17,10 @@ def anndata_to_h5ad(adata: AnnData, filekey: str) -> Path:
         logger.debug(f"Writing cache file: {cache_file}.")
         adata.write(cache_file)
         logger.debug("Uploading cache file.")
-        path.upload_from(cache_file)  # type: ignore  # mypy misses CloudPath
-        # In principle, we could write the cache file to disk again so that
-        # the time stamp is newer than the one in the cloud, avoiding
-        # download to access the just written cache. However, cloudpathlib
-        # complains about the newer cache file and will attempt download,
-        # currently there doesn't seem to be a solution for this
+        path.upload_from(cache_file)  # type: ignore
+        # to avoid download from the cloud within synchronization
+        mtime = path.modified.timestamp()
+        os.utime(cache_file, times=(mtime, mtime))
     else:
         adata.write(path)
         cache_file = path

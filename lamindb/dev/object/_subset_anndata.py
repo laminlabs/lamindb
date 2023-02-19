@@ -6,6 +6,7 @@ import zarr
 from anndata import AnnData
 from anndata._io.specs.methods import _read_partial
 from anndata._io.specs.registry import read_elem, read_elem_partial
+from lndb.dev import UPath
 from lnschema_core import DObject
 from lnschema_core.dev._storage import filepath_from_dobject
 
@@ -81,17 +82,27 @@ def _subset_anndata_dobject(
     query_obs: Optional[Union[str, LazySelector]] = None,
     query_var: Optional[Union[str, LazySelector]] = None,
 ) -> Union[AnnData, None]:
-    # todo: check that cloudpathlib doesn't cache anything here
-    dobject_path = str(filepath_from_dobject(dobject))
+    dobject_path = filepath_from_dobject(dobject)
+    dobject_path_str = str(dobject_path)
+
+    if isinstance(dobject_path, UPath):
+        fs = dobject_path.fs
+    else:
+        protocol = fsspec.utils.get_protocol(dobject_path_str)
+        if protocol == "s3":
+            fs_kwargs = {"cache_regions": True}
+        else:
+            fs_kwargs = {}
+        fs = fsspec.filesystem(protocol, **fs_kwargs)
 
     adata: Union[AnnData, None] = None
 
     if dobject.suffix == ".h5ad":
-        with fsspec.open(dobject_path, mode="rb") as file:
+        with fs.open(dobject_path_str, mode="rb") as file:
             storage = h5py.File(file, mode="r")
             adata = _subset_adata_storage(storage, query_obs, query_var)
     elif dobject.suffix == ".zarr":
-        mapper = fsspec.get_mapper(dobject_path, check=True)
+        mapper = fs.get_mapper(dobject_path, check=True)
         storage = zarr.open(mapper, mode="r")
         adata = _subset_adata_storage(storage, query_obs, query_var)
 

@@ -3,8 +3,8 @@ from pathlib import Path
 from typing import List, Union, overload  # noqa
 
 import sqlmodel as sqm
-from cloudpathlib import CloudPath
 from lndb import settings as setup_settings
+from lndb.dev import UPath
 from lnschema_core import DObject
 from sqlalchemy.orm.attributes import set_attribute
 
@@ -38,12 +38,11 @@ Example:
 
 Args:
     record: One or multiple records as instances of `SQLModel`.
-    use_fsspec: Whether to use fsspec.
 """
 
 
 @overload
-def add(record: sqm.SQLModel, use_fsspec: bool = True) -> sqm.SQLModel:
+def add(record: sqm.SQLModel) -> sqm.SQLModel:
     ...
 
 
@@ -51,22 +50,20 @@ def add(record: sqm.SQLModel, use_fsspec: bool = True) -> sqm.SQLModel:
 # Overloaded function signature 2 will never be matched: signature 1's parameter
 # type(s) are the same or broader
 @overload
-def add(  # type: ignore
-    records: List[sqm.SQLModel], use_fsspec: bool = True
-) -> List[sqm.SQLModel]:
+def add(records: List[sqm.SQLModel]) -> List[sqm.SQLModel]:  # type: ignore
     ...
 
 
 @overload
 def add(  # type: ignore
-    entity: sqm.SQLModel, use_fsspec: bool = True, **fields
+    entity: sqm.SQLModel, **fields
 ) -> Union[sqm.SQLModel, List[sqm.SQLModel]]:
     ...
 
 
 @doc_args(add_docs)
 def add(  # type: ignore
-    record: Union[sqm.SQLModel, List[sqm.SQLModel]], use_fsspec: bool = True, **fields
+    record: Union[sqm.SQLModel, List[sqm.SQLModel]], **fields
 ) -> Union[sqm.SQLModel, List[sqm.SQLModel]]:
     """{}"""  # noqa
     session = get_session_from_kwargs(fields)
@@ -104,9 +101,7 @@ def add(  # type: ignore
     # upload data objects to storage
     added_records = []
     if db_error is None:
-        added_records, upload_error = upload_committed_records(
-            records, session, use_fsspec=use_fsspec
-        )
+        added_records, upload_error = upload_committed_records(records, session)
 
     if close:
         session.close()
@@ -123,7 +118,7 @@ def add(  # type: ignore
         return added_records[0]
 
 
-def upload_committed_records(records, session, use_fsspec):
+def upload_committed_records(records, session):
     """Upload records in a list of database-commited records to storage.
 
     If any upload fails, subsequent records are cleaned up from the DB.
@@ -139,7 +134,7 @@ def upload_committed_records(records, session, use_fsspec):
     for record in records:
         if isinstance(record, DObject) and hasattr(record, "_local_filepath"):
             try:
-                upload_data_object(record, use_fsspec=use_fsspec)
+                upload_data_object(record)
             except Exception as e:
                 error = e
                 break
@@ -180,14 +175,17 @@ def prepare_filekey_metadata(record) -> None:
 
     A filekey excludes the storage root and the file suffix.
     """
+    storage = setup_settings.instance.storage
 
-    def set_filekey(record: sqm.SQLModel, filepath: Union[Path, CloudPath]):
+    def set_filekey(record: sqm.SQLModel, filepath: Union[Path, UPath]):
+        filepath_str = filepath.as_posix()
+        root_str = storage.root.as_posix()
+        if root_str[-1] != "/":
+            root_str += "/"
         set_attribute(
             record,
             "_filekey",
-            str(filepath)
-            .replace(f"{setup_settings.instance.storage.root}/", "")
-            .replace(record.suffix, ""),
+            filepath_str.replace(root_str, "").replace(record.suffix, ""),
         )
 
     # _local_filepath private attribute is only added
@@ -201,29 +199,24 @@ def prepare_filekey_metadata(record) -> None:
                 set_filekey(record, record._cloud_filepath)
             # local storage that is configured
             else:
-                if (
-                    setup_settings.instance.storage.root
-                    in record._local_filepath.parents
-                ):
+                if storage.root in record._local_filepath.parents:
                     set_filekey(record, record._local_filepath)
 
 
-def upload_data_object(dobject, use_fsspec: bool = True) -> None:
+def upload_data_object(dobject) -> None:
     """Store and add dobject and its linked entries."""
     dobject_storage_key = f"{dobject.id}{dobject.suffix}"
+
+    storage = setup_settings.instance.storage
 
     if dobject.suffix != ".zarr":
         # no file upload for cloud storage or configured local storage
         # only copy data when file is not in the configured local storage
         if (dobject._cloud_filepath is None) and (
-            setup_settings.instance.storage.root not in dobject._local_filepath.parents
+            storage.root not in dobject._local_filepath.parents
         ):
-            store_file(
-                dobject._local_filepath, dobject_storage_key, use_fsspec=use_fsspec
-            )
+            store_file(dobject._local_filepath, dobject_storage_key)
     else:
-        storagepath = setup_settings.instance.storage.key_to_filepath(
-            dobject_storage_key
-        )
+        storagepath = storage.key_to_filepath(dobject_storage_key)
         print_progress = partial(print_hook, filepath=dobject.name)
         write_adata_zarr(dobject._memory_rep, storagepath, callback=print_progress)

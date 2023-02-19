@@ -6,12 +6,12 @@ from typing import Any, List, Optional, Set, Tuple, Union
 import anndata as ad
 import lnschema_bionty as bionty
 import pandas as pd
-from cloudpathlib import CloudPath
-from cloudpathlib.exceptions import InvalidPrefixError
 from lamin_logger import logger
 from lndb import settings as setup_settings
+from lndb.dev import UPath
 from lnschema_core import DObject as lns_DObject
 from lnschema_core import Features, Run, Storage
+from sqlalchemy.exc import NoResultFound
 
 from lamindb.knowledge import CellMarker, Gene, Protein
 
@@ -34,20 +34,20 @@ Or, if you're in a notebook, call `ln.nb.header()` at the top.
 
 
 def serialize(
-    data: Union[Path, CloudPath, str, pd.DataFrame, ad.AnnData], name, format
-) -> Tuple[Any, Union[Path, CloudPath], str, str]:
+    data: Union[Path, UPath, str, pd.DataFrame, ad.AnnData], name, format
+) -> Tuple[Any, Union[Path, UPath], str, str]:
     """Serialize a data object that's provided as file or in memory."""
     # Convert str to either Path or CloudPath
-    if isinstance(data, (str, Path, CloudPath)):
-        try:
-            filepath = CloudPath(data)
-            if setup_settings.instance.storage.root not in filepath.parents:
-                raise ValueError(
-                    "Can only track objects in configured cloud storage locations."
-                    " Please call `lndb.set_storage('< bucket_name >')`."
-                )
-        except InvalidPrefixError:
-            filepath = Path(data)
+    if isinstance(data, (str, Path, UPath)):
+        filepath = UPath(data)  # returns Path for local
+        if (
+            isinstance(filepath, UPath)
+            and setup_settings.instance.storage.root not in filepath.parents  # noqa
+        ):
+            raise ValueError(
+                "Can only track objects in configured cloud storage locations."
+                " Please call `lndb.set_storage('< bucket_name >')`."
+            )
         memory_rep = None
         name, suffix = get_name_suffix_from_filepath(filepath)
     # For now, in-memory objects are always saved to local_filepath first
@@ -206,19 +206,28 @@ def get_run(run: Optional[Run]) -> Run:
 
 
 def get_path_size_hash(
-    filepath: Union[Path, CloudPath],
+    filepath: Union[Path, UPath],
     memory_rep: Optional[Union[pd.DataFrame, ad.AnnData]],
     suffix: str,
 ):
     cloudpath = None
     localpath = None
     if suffix != ".zarr":
-        try:
-            size = CloudPath(filepath).stat().st_size
+        path = UPath(filepath)  # returns Path for local
+        if isinstance(path, UPath):
+            try:
+                size = path.stat()["size"]
+            # here trying to fix access issue with new s3 buckets
+            except Exception as e:
+                if path._url.scheme == "s3":
+                    path = UPath(filepath, cache_regions=True)
+                    size = path.stat()["size"]
+                else:
+                    raise e
             cloudpath = filepath
             hash = None
-        except InvalidPrefixError:
-            size = Path(filepath).stat().st_size
+        else:
+            size = path.stat().st_size
             localpath = filepath
             hash = get_hash(filepath, suffix)
     else:
@@ -229,7 +238,7 @@ def get_path_size_hash(
 
 
 def get_dobject_kwargs_from_data(
-    data: Union[Path, CloudPath, str, pd.DataFrame, ad.AnnData],
+    data: Union[Path, UPath, str, pd.DataFrame, ad.AnnData],
     *,
     name: Optional[str] = None,
     features_ref: Optional[Union[CellMarker, Gene, Protein]] = None,
@@ -242,7 +251,13 @@ def get_dobject_kwargs_from_data(
 
     # if local_filepath is already in the configured storage location
     # skip the upload
-    storage = select(Storage, root=str(setup_settings.instance.storage.root)).one()
+    storage_root = str(setup_settings.instance.storage.root)
+    # backwards compatibility for instances created with cloudpathlib
+    try:
+        storage = select(Storage, root=storage_root).one()
+    except NoResultFound:
+        storage = select(Storage, root=storage_root[:-1]).one()
+
     dobject_privates = dict(
         _local_filepath=localpath,
         _cloud_filepath=cloudpath,
