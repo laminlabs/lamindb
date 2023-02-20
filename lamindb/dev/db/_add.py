@@ -3,6 +3,7 @@ from pathlib import Path
 from typing import List, Union, overload  # noqa
 
 import sqlmodel as sqm
+from lamin_logger import logger
 from lndb import settings as setup_settings
 from lndb.dev import UPath
 from lnschema_core import DObject
@@ -77,6 +78,7 @@ def add(  # type: ignore
         if results is None:
             records = [model(**fields)]
         else:
+            logger.info("An existing record is found in the DB:")
             return results
 
     if session is None:  # assume global session
