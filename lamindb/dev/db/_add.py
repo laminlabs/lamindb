@@ -73,13 +73,11 @@ def add(  # type: ignore
         records = [record]
     else:
         model = dobject_to_sqm(record)
-        results = select(model, **fields).all()
-        if len(results) == 1:
-            return results[0]
-        elif len(results) > 1:
-            return results
-        else:
+        results = select(model, **fields).one_or_none()
+        if results is None:
             records = [model(**fields)]
+        else:
+            return results
 
     if session is None:  # assume global session
         session = setup_settings.instance.session()

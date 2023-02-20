@@ -55,10 +55,11 @@ def delete(  # type: ignore
         records = [record]
     else:
         model = record
-        results = select(model, **fields).all()
-        if len(results) == 0:
-            return None
-        records = results
+        results = select(model, **fields).one_or_none()
+        if results is None:
+            return results
+        else:
+            records = [results]
 
     settings.instance._cloud_sqlite_locker.lock()
     session = settings.instance.session()
