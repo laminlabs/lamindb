@@ -218,10 +218,16 @@ def upload_data_object(dobject) -> None:
 
         os.write(1, str(storage.root).encode())
         os.write(1, "\n".encode())
-        os.write(1, str(dobject._local_filepath).encode())
-        os.write(1, "\n".encode())
-        os.write(1, str(list(dobject._local_filepath.resolve().parents)).encode())
-        os.write(1, str(dobject._cloud_filepath).encode())
+        if hasattr(dobject, "_local_filepath"):
+            os.write(1, str(dobject._local_filepath).encode())
+            os.write(1, "\n".encode())
+            if dobject._local_filepath is not None:
+                os.write(
+                    1, str(list(dobject._local_filepath.resolve().parents)).encode()
+                )
+                os.write(1, "\n".encode())
+        if hasattr(dobject, "_cloud_filepath"):
+            os.write(1, str(dobject._cloud_filepath).encode())
 
         if (dobject._cloud_filepath is None) and (
             storage.root not in dobject._local_filepath.parents
