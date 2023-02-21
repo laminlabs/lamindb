@@ -210,10 +210,12 @@ def upload_data_object(dobject) -> None:
     storage = setup_settings.instance.storage
 
     if dobject.suffix != ".zarr":
-        # no file upload for cloud storage or configured local storage
-        # only copy data when file is not in the configured local storage
+        # - Look for _cloud_filepath, which is only not None if the passed filepath
+        # was in the existing storage in the first place (errors within _record.py)
+        # - Look for _local_filepath and check whether it's in existing storage before
+        # trying to copy the file
         if (dobject._cloud_filepath is None) and (
-            storage.root not in dobject._local_filepath.parents
+            storage.root not in dobject._local_filepath.resolve().parents
         ):
             store_file(dobject._local_filepath, dobject_storage_key)
     else:
