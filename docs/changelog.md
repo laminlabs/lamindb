@@ -3,6 +3,7 @@
 <!-- prettier-ignore -->
 Name | PR | Developer | Date | Version
 --- | --- | --- | --- | ---
+🐛 Fix tracking local existing data | [506](https://github.com/laminlabs/lamindb/pull/506) | [falexwolf](https://github.com/falexwolf) | 2023-02-21 |
 🚑 Fix parents for existing data ingestion | [504](https://github.com/laminlabs/lamindb/pull/504) | [sunnyosun](https://github.com/sunnyosun) | 2023-02-21 |
 🎨 Disable multiple select results for .add and .delete by fields | [502](https://github.com/laminlabs/lamindb/pull/502) | [sunnyosun](https://github.com/sunnyosun) | 2023-02-20 | 0.28rc1
 ⚡️ Replace CloudPath with UPath | [501](https://github.com/laminlabs/lamindb/pull/501) | [Koncopd](https://github.com/Koncopd) | 2023-02-19 |
