@@ -1,15 +1,14 @@
 from typing import Optional, Union
 
-import fsspec
 import h5py
 import zarr
 from anndata import AnnData
 from anndata._io.specs.methods import _read_partial
 from anndata._io.specs.registry import read_elem, read_elem_partial
-from lndb.dev import UPath
 from lnschema_core import DObject
 from lnschema_core.dev._storage import filepath_from_dobject
 
+from ..file._filesystem import _infer_filesystem
 from ._lazy_field import LazySelector
 
 
@@ -83,17 +82,7 @@ def _subset_anndata_dobject(
     query_var: Optional[Union[str, LazySelector]] = None,
 ) -> Union[AnnData, None]:
     dobject_path = filepath_from_dobject(dobject)
-    dobject_path_str = str(dobject_path)
-
-    if isinstance(dobject_path, UPath):
-        fs = dobject_path.fs
-    else:
-        protocol = fsspec.utils.get_protocol(dobject_path_str)
-        if protocol == "s3":
-            fs_kwargs = {"cache_regions": True}
-        else:
-            fs_kwargs = {}
-        fs = fsspec.filesystem(protocol, **fs_kwargs)
+    fs, dobject_path_str = _infer_filesystem(dobject_path)
 
     adata: Union[AnnData, None] = None
 
@@ -102,7 +91,7 @@ def _subset_anndata_dobject(
             storage = h5py.File(file, mode="r")
             adata = _subset_adata_storage(storage, query_obs, query_var)
     elif dobject.suffix == ".zarr":
-        mapper = fs.get_mapper(dobject_path, check=True)
+        mapper = fs.get_mapper(dobject_path_str, check=True)
         storage = zarr.open(mapper, mode="r")
         adata = _subset_adata_storage(storage, query_obs, query_var)
 

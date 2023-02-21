@@ -1,7 +1,6 @@
 import warnings
 from typing import Optional
 
-import fsspec
 import scipy.sparse as sparse
 import zarr
 from anndata import AnnData
@@ -9,12 +8,13 @@ from anndata._io import read_zarr
 from anndata._io.specs import write_elem
 
 from ..object._anndata_sizes import _size_elem, _size_raw, size_adata
+from ._filesystem import _infer_filesystem
 
 
 def read_adata_zarr(storepath) -> AnnData:
-    if not isinstance(storepath, str):
-        storepath = str(storepath)
-    store = fsspec.get_mapper(storepath, check=True)
+    fs, storepath = _infer_filesystem(storepath)
+
+    store = fs.get_mapper(storepath, check=True)
     adata = read_zarr(store)
 
     return adata
@@ -23,10 +23,9 @@ def read_adata_zarr(storepath) -> AnnData:
 def write_adata_zarr(
     adata: AnnData, storepath, callback=None, chunks=None, **dataset_kwargs
 ):
-    if not isinstance(storepath, str):
-        storepath = str(storepath)
+    fs, storepath = _infer_filesystem(storepath)
 
-    store = fsspec.get_mapper(storepath, create=True)
+    store = fs.get_mapper(storepath, create=True)
     f = zarr.open(store, mode="w")
 
     adata.strings_to_categoricals()
