@@ -15,5 +15,5 @@ For instance:
 
 It typically has inputs and outputs:
 
-- References to outputs are stored in the dobject table in the run_id column, which stores a foreign key into the run table. This is possible as every given dobject has a unique data source: the run that produced the dobject. Note that a given run may output several dobjects.
+- References to outputs are stored in the dobject table in the source_id column, which stores a foreign key into the run table. This is possible as every given dobject has a unique data source: the run that produced the dobject. Note that a given run may output several dobjects.
 - References to input dobjects are stored in the run_in table, a many-to-many link table between the dobject and run tables. Any dobject might serve as an input for many run. Similarly, any run might have many dobjects as inputs.
