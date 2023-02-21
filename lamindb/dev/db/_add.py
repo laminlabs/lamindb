@@ -192,11 +192,7 @@ def prepare_filekey_metadata(record) -> None:
         if root_str[-1] != "/":
             root_str += "/"
         _filekey = filepath_str.replace(root_str, "").replace(record.suffix, "")
-        set_attribute(
-            record,
-            "_filekey",
-            _filekey,
-        )
+        set_attribute(record, "_filekey", _filekey)
 
     # _local_filepath private attribute is only added
     # when creating DObject from data
