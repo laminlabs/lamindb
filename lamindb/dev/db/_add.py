@@ -172,7 +172,7 @@ def prepare_error_message(records, added_records, error) -> str:
 
 def local_instance_storage_matches_local_parent(dobject: DObject):
     storage = setup_settings.instance.storage
-    return storage.root not in dobject._local_filepath.resolve().parents
+    return storage.root in dobject._local_filepath.resolve().parents
 
 
 def prepare_filekey_metadata(record) -> None:
@@ -221,7 +221,7 @@ def upload_data_object(dobject) -> None:
         # - Look for _local_filepath and check whether it's in existing storage before
         # trying to copy the file
         if (dobject._cloud_filepath is None) and (
-            local_instance_storage_matches_local_parent(dobject)
+            not local_instance_storage_matches_local_parent(dobject)
         ):
             store_file(dobject._local_filepath, dobject_storage_key)
     else:
