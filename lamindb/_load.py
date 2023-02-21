@@ -14,7 +14,7 @@ def populate_runin(dobject: core.DObject, run: core.Run):
         if result is None:
             ss.add(
                 core.link.RunIn(
-                    run_id=run.id,
+                    source_id=run.id,
                     dobject_id=dobject.id,
                 )
             )
