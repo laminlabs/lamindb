@@ -3,6 +3,7 @@
 <!-- prettier-ignore -->
 Name | PR | Developer | Date | Version
 --- | --- | --- | --- | ---
+:bug: Another occurance of local filepath | [508](https://github.com/laminlabs/lamindb/pull/508) | [falexwolf](https://github.com/falexwolf) | 2023-02-21 |
 👷 Better CI and better arg validation | [505](https://github.com/laminlabs/lamindb/pull/505) | [falexwolf](https://github.com/falexwolf) | 2023-02-21 |
 🐛 Fix tracking local existing data | [506](https://github.com/laminlabs/lamindb/pull/506) | [falexwolf](https://github.com/falexwolf) | 2023-02-21 |
 🚑 Fix parents for existing data ingestion | [504](https://github.com/laminlabs/lamindb/pull/504) | [sunnyosun](https://github.com/sunnyosun) | 2023-02-21 |
