@@ -172,7 +172,8 @@ def prepare_error_message(records, added_records, error) -> str:
 
 def local_instance_storage_matches_local_parent(dobject: DObject):
     storage = setup_settings.instance.storage
-    return storage.root in dobject._local_filepath.resolve().parents
+    parents = {str(p) for p in dobject._local_filepath.resolve().parents}
+    return str(storage.root) in parents
 
 
 def prepare_filekey_metadata(record) -> None:
