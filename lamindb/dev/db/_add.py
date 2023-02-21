@@ -184,9 +184,9 @@ def prepare_filekey_metadata(record) -> None:
     storage = setup_settings.instance.storage
 
     def set_filekey(record: sqm.SQLModel, filepath: Union[Path, UPath]):
-        if isinstance(filepath, Path):  # local filepath
+        if not isinstance(filepath, UPath):  # is local filepath
             filepath_str = filepath.resolve().as_posix()
-        else:
+        else:  # is remote path
             filepath_str = filepath.as_posix()
         root_str = storage.root.as_posix()
         if root_str[-1] != "/":
