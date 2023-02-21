@@ -215,7 +215,7 @@ def upload_data_object(dobject) -> None:
         # - Look for _local_filepath and check whether it's in existing storage before
         # trying to copy the file
         if (dobject._cloud_filepath is None) and (
-            storage.root not in dobject._local_filepath.resolve().parents
+            storage.root not in dobject._local_filepath.parents
         ):
             store_file(dobject._local_filepath, dobject_storage_key)
     else:
