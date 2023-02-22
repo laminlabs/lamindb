@@ -6,7 +6,7 @@ import sqlmodel as sqm
 from lamin_logger import logger
 from lndb import settings as setup_settings
 from lndb.dev import UPath
-from lnschema_core import DObject
+from lnschema_core import DObject, DFolder
 from sqlalchemy.orm.attributes import set_attribute
 
 from .._docs import doc_args
@@ -91,7 +91,7 @@ def add(  # type: ignore
     # commit metadata to database
     db_error = None
     for record in records:
-        prepare_filekey_metadata(record)
+        write_filekey(record)
         session.add(record)
     try:
         session.commit()
@@ -176,7 +176,7 @@ def local_instance_storage_matches_local_parent(dobject: DObject):
     return str(storage.root) in parents
 
 
-def prepare_filekey_metadata(record) -> None:
+def write_filekey(record) -> None:
     """For cloudpath, write custom filekey to _filekey.
 
     A filekey excludes the storage root and the file suffix.
@@ -191,23 +191,25 @@ def prepare_filekey_metadata(record) -> None:
         root_str = storage.root.as_posix()
         if root_str[-1] != "/":
             root_str += "/"
-        _filekey = filepath_str.replace(root_str, "").replace(record.suffix, "")
-        set_attribute(record, "_filekey", _filekey)
+        if isinstance(record, DObject):
+            if record.suffix != ".zarr":
+                _filekey = filepath_str.replace(root_str, "").replace(record.suffix, "")
+                set_attribute(record, "_filekey", _filekey)
+        elif isinstance(record, DFolder):
+            _folderkey = filepath_str.replace(root_str, "")
+            set_attribute(record, "_folderkey", _folderkey)
 
     # _local_filepath private attribute is only added
-    # when creating DObject from data
-    if isinstance(record, DObject) and hasattr(record, "_local_filepath"):
-        if record.suffix == ".zarr":
-            pass
+    # when creating DObject from data or DFolder from folder
+    if hasattr(record, "_local_filepath"):
+        # cloud storage
+        if record._cloud_filepath is not None:
+            set_filekey(record, record._cloud_filepath)
+        # local storage
         else:
-            # cloud storage
-            if record._cloud_filepath is not None:
-                set_filekey(record, record._cloud_filepath)
-            # local storage
-            else:
-                # only set filekey if it is configured
-                if local_instance_storage_matches_local_parent(record):
-                    set_filekey(record, record._local_filepath)
+            # only set filekey if it is configured
+            if local_instance_storage_matches_local_parent(record):
+                set_filekey(record, record._local_filepath)
 
 
 def upload_data_object(dobject) -> None:
