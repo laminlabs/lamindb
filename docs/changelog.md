@@ -3,6 +3,7 @@
 <!-- prettier-ignore -->
 Name | PR | Developer | Date | Version
 --- | --- | --- | --- | ---
+🐛 Fix trailing slash within lamindb | [516](https://github.com/laminlabs/lamindb/pull/516) | [falexwolf](https://github.com/falexwolf) | 2023-02-22 |
 👷 Fix CI config | [515](https://github.com/laminlabs/lamindb/pull/515) | [falexwolf](https://github.com/falexwolf) | 2023-02-22 | 0.28.4
 🐛 Fix version check | [514](https://github.com/laminlabs/lamindb/pull/514) | [falexwolf](https://github.com/falexwolf) | 2023-02-22 | 0.28.3
 👷 Collect docs artifacts | [513](https://github.com/laminlabs/lamindb/pull/513) | [falexwolf](https://github.com/falexwolf) | 2023-02-22 | 0.28.2
