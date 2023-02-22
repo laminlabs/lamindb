@@ -3,6 +3,7 @@
 <!-- prettier-ignore -->
 Name | PR | Developer | Date | Version
 --- | --- | --- | --- | ---
+👷 Fix CI config | [515](https://github.com/laminlabs/lamindb/pull/515) | [falexwolf](https://github.com/falexwolf) | 2023-02-22 |
 🐛 Fix version check | [514](https://github.com/laminlabs/lamindb/pull/514) | [falexwolf](https://github.com/falexwolf) | 2023-02-22 | 0.28.3
 👷 Collect docs artifacts | [513](https://github.com/laminlabs/lamindb/pull/513) | [falexwolf](https://github.com/falexwolf) | 2023-02-22 | 0.28.2
 🐛 Fix trailing slash in storage root | [512](https://github.com/laminlabs/lamindb/pull/512) | [falexwolf](https://github.com/falexwolf) | 2023-02-22 | 0.28.1
