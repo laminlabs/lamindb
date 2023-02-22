@@ -3,6 +3,7 @@
 <!-- prettier-ignore -->
 Name | PR | Developer | Date | Version
 --- | --- | --- | --- | ---
+🐛 Fix trailing slash in storage root | [512](https://github.com/laminlabs/lamindb/pull/512) | [falexwolf](https://github.com/falexwolf) | 2023-02-22 |
 🚚 Rename `DObject.run_id` to `DObject.source_id` | [509](https://github.com/laminlabs/lamindb/pull/509) | [falexwolf](https://github.com/falexwolf) | 2023-02-21 | 0.28.0
 🐛 Another occurance of local filepath | [508](https://github.com/laminlabs/lamindb/pull/508) | [falexwolf](https://github.com/falexwolf) | 2023-02-21 |
 👷 Better CI and better arg validation | [505](https://github.com/laminlabs/lamindb/pull/505) | [falexwolf](https://github.com/falexwolf) | 2023-02-21 |
