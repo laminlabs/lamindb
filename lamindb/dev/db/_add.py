@@ -6,7 +6,7 @@ import sqlmodel as sqm
 from lamin_logger import logger
 from lndb import settings as setup_settings
 from lndb.dev import UPath
-from lnschema_core import DObject, DFolder
+from lnschema_core import DFolder, DObject
 from sqlalchemy.orm.attributes import set_attribute
 
 from .._docs import doc_args

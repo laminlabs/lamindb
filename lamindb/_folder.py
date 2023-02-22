@@ -1,6 +1,6 @@
+from itertools import islice
 from pathlib import Path
 from typing import Optional, Union
-from itertools import islice
 
 from lndb.dev import UPath
 from lnschema_core import DObject as lns_DObject
@@ -43,16 +43,16 @@ def tree(
 
     Adapted from: https://stackoverflow.com/questions/9727673/list-directory-tree-structure-in-python  # noqa
     """
-    space = '    '
-    branch = '│   '
-    tee = '├── '
-    last = '└── '
+    space = "    "
+    branch = "│   "
+    tee = "├── "
+    last = "└── "
 
     dir_path = UPath(dir_path)
     files = 0
     directories = 0
 
-    def inner(dir_path: Path, prefix: str = '', level=-1):
+    def inner(dir_path: Path, prefix: str = "", level=-1):
         nonlocal files, directories
         if not level:
             return  # 0, stop iterating
@@ -76,5 +76,5 @@ def tree(
     for line in islice(iterator, length_limit):
         print(line)
     if next(iterator, None):
-        print(f'... length_limit, {length_limit}, reached, counted:')
-    print(f'\n{directories} directories' + (f', {files} files' if files else ''))
+        print(f"... length_limit, {length_limit}, reached, counted:")
+    print(f"\n{directories} directories" + (f", {files} files" if files else ""))
