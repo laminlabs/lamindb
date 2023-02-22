@@ -272,7 +272,7 @@ def get_dobject_kwargs_from_data(
         name=name,
         suffix=suffix,
         hash=hash,
-        run_id=run.id,
+        source_id=run.id,
         size=size,
         storage_id=storage.id,
         source=run,
