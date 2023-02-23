@@ -212,6 +212,7 @@ def get_path_size_hash(
 ):
     cloudpath = None
     localpath = None
+    # both cloudpath and localpath are None for zarr
     if suffix != ".zarr":
         path = UPath(filepath)  # returns Path for local
         if isinstance(path, UPath):

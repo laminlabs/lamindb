@@ -91,7 +91,7 @@ def add(  # type: ignore
     # commit metadata to database
     db_error = None
     for record in records:
-        write_filekey(record)
+        write_objectkey(record)
         session.add(record)
     try:
         session.commit()
@@ -176,14 +176,14 @@ def local_instance_storage_matches_local_parent(dobject: DObject):
     return str(storage.root) in parents
 
 
-def write_filekey(record) -> None:
-    """For cloudpath, write custom filekey to _filekey.
+def write_objectkey(record) -> None:
+    """Write to _objectkey.
 
-    A filekey excludes the storage root and the file suffix.
+    An objectkey excludes the storage root and the file suffix.
     """
     storage = setup_settings.instance.storage
 
-    def set_filekey(record: sqm.SQLModel, filepath: Union[Path, UPath]):
+    def set_objectkey(record: sqm.SQLModel, filepath: Union[Path, UPath]):
         if not isinstance(filepath, UPath):  # is local filepath
             filepath_str = filepath.resolve().as_posix()
         else:  # is remote path
@@ -191,25 +191,33 @@ def write_filekey(record) -> None:
         root_str = storage.root.as_posix()
         if root_str[-1] != "/":
             root_str += "/"
-        if isinstance(record, DObject):
-            if record.suffix != ".zarr":
-                _filekey = filepath_str.replace(root_str, "").replace(record.suffix, "")
-                set_attribute(record, "_filekey", _filekey)
-        elif isinstance(record, DFolder):
-            _folderkey = filepath_str.replace(root_str, "")
-            set_attribute(record, "_folderkey", _folderkey)
+
+        if not isinstance(record, (DObject, DFolder)):
+            raise NotImplementedError
+        # for DObject, _objectkey is relative path without suffix
+        _objectkey = (
+            filepath_str.replace(root_str, "").replace(record.suffix, "")
+            if isinstance(record, DObject)
+            else filepath_str.replace(root_str, "")
+        )
+
+        set_attribute(record, "_objectkey", _objectkey)
 
     # _local_filepath private attribute is only added
     # when creating DObject from data or DFolder from folder
     if hasattr(record, "_local_filepath"):
-        # cloud storage
-        if record._cloud_filepath is not None:
-            set_filekey(record, record._cloud_filepath)
+        if record._local_filepath is None:
+            # cloud storage
+            if record._cloud_filepath is not None:
+                set_objectkey(record, record._cloud_filepath)
+            # both _cloud_filepath and _local_filepath are None for zarr
+            else:
+                pass
         # local storage
         else:
-            # only set filekey if it is configured
+            # only set objectkey if it is configured
             if local_instance_storage_matches_local_parent(record):
-                set_filekey(record, record._local_filepath)
+                set_objectkey(record, record._local_filepath)
 
 
 def upload_data_object(dobject) -> None:
