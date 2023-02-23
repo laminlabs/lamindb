@@ -11,7 +11,6 @@ from lndb import settings as setup_settings
 from lndb.dev import UPath
 from lnschema_core import DObject as lns_DObject
 from lnschema_core import Features, Run, Storage
-from sqlalchemy.exc import NoResultFound
 
 from lamindb.knowledge import CellMarker, Gene, Protein
 
@@ -252,12 +251,11 @@ def get_dobject_kwargs_from_data(
 
     # if local_filepath is already in the configured storage location
     # skip the upload
-    storage_root = str(setup_settings.instance.storage.root)
-    # backwards compatibility for instances created with cloudpathlib
-    try:
-        storage = select(Storage, root=storage_root).one()
-    except NoResultFound:
-        storage = select(Storage, root=storage_root[:-1]).one()
+    root = setup_settings.instance.storage.root
+    root_str = str(root)
+    if isinstance(root, UPath):
+        root_str = root_str.rstrip("/")
+    storage = select(Storage, root=root_str).one()
 
     dobject_privates = dict(
         _local_filepath=localpath,

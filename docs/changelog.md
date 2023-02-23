@@ -3,6 +3,11 @@
 <!-- prettier-ignore -->
 Name | PR | Developer | Date | Version
 --- | --- | --- | --- | ---
+🐛 Fix trailing slash within lamindb | [516](https://github.com/laminlabs/lamindb/pull/516) | [falexwolf](https://github.com/falexwolf) | 2023-02-22 | 0.28.5
+👷 Fix CI config | [515](https://github.com/laminlabs/lamindb/pull/515) | [falexwolf](https://github.com/falexwolf) | 2023-02-22 | 0.28.4
+🐛 Fix version check | [514](https://github.com/laminlabs/lamindb/pull/514) | [falexwolf](https://github.com/falexwolf) | 2023-02-22 | 0.28.3
+👷 Collect docs artifacts | [513](https://github.com/laminlabs/lamindb/pull/513) | [falexwolf](https://github.com/falexwolf) | 2023-02-22 | 0.28.2
+🐛 Fix trailing slash in storage root | [512](https://github.com/laminlabs/lamindb/pull/512) | [falexwolf](https://github.com/falexwolf) | 2023-02-22 | 0.28.1
 🚚 Rename `DObject.run_id` to `DObject.source_id` | [509](https://github.com/laminlabs/lamindb/pull/509) | [falexwolf](https://github.com/falexwolf) | 2023-02-21 | 0.28.0
 🐛 Another occurance of local filepath | [508](https://github.com/laminlabs/lamindb/pull/508) | [falexwolf](https://github.com/falexwolf) | 2023-02-21 |
 👷 Better CI and better arg validation | [505](https://github.com/laminlabs/lamindb/pull/505) | [falexwolf](https://github.com/falexwolf) | 2023-02-21 |
