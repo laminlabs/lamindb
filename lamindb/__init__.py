@@ -13,7 +13,7 @@ in-memory objects (`DataFrame`, `AnnData`, etc.):
 
    DObject
 
-Data folder, a directory, a group of data objects:
+Data folder, a group of data objects:
 
 .. autosummary::
    :toctree: .
