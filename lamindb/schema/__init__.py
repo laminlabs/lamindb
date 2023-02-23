@@ -27,12 +27,11 @@ Runs transform data using code:
    Pipeline
    Notebook
 
-Grouping data objects as sets or by features:
+Grouping data objects by features:
 
 .. autosummary::
    :toctree: .
 
-   DFolder
    Features
 
 Users, projects, storage locations, and usage:
@@ -72,7 +71,6 @@ import importlib as _importlib
 from lndb import settings as _settings
 from lndb.dev._setup_schema import get_schema_module_name as _get_schema_module_name
 from lnschema_core import (
-    DFolder,
     Features,
     Notebook,
     Pipeline,
