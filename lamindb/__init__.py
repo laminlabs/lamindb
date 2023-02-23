@@ -13,6 +13,13 @@ in-memory objects (`DataFrame`, `AnnData`, etc.):
 
    DObject
 
+Data folder, a group of data objects:
+
+.. autosummary::
+   :toctree: .
+
+   DFolder
+
 Query & manipulate data:
 
 .. autosummary::
@@ -84,6 +91,7 @@ if _setup_settings.instance.storage.root is None:
     )
 _check_migrate(usettings=_setup_settings.user, isettings=_setup_settings.instance)
 
+from lnschema_core import DFolder  # noqa
 from lnschema_core import DObject  # noqa
 
 from . import dev  # noqa

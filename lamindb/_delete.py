@@ -1,5 +1,5 @@
 import traceback
-from typing import List, Union, overload  # noqa
+from typing import List, Optional, Union, overload  # noqa
 
 import sqlmodel as sqm
 from lndb import settings
@@ -13,22 +13,34 @@ from .dev.file import delete_storage
 
 
 @overload
-def delete(record: sqm.SQLModel, force=False) -> None:
+def delete(
+    record: sqm.SQLModel,
+    delete_data_from_storage: Optional[bool] = None,
+) -> None:
     ...
 
 
 @overload
-def delete(records: List[sqm.SQLModel], force=False) -> None:  # type: ignore
+def delete(
+    records: List[sqm.SQLModel],
+    delete_data_from_storage: Optional[bool] = None,
+) -> None:  # type: ignore
     ...
 
 
 @overload
-def delete(entity: sqm.SQLModel, force=False, **fields) -> None:  # type: ignore
+def delete(
+    entity: sqm.SQLModel,
+    delete_data_from_storage: Optional[bool] = None,
+    **fields,
+) -> None:  # type: ignore
     ...
 
 
 def delete(  # type: ignore
-    record: Union[sqm.SQLModel, List[sqm.SQLModel]], force=False, **fields
+    record: Union[sqm.SQLModel, List[sqm.SQLModel]],
+    delete_data_from_storage: Optional[bool] = None,
+    **fields,
 ) -> None:
     """Delete data records & data objects.
 
@@ -47,7 +59,7 @@ def delete(  # type: ignore
 
     Args:
         record: One or multiple records as instances of `SQLModel`.
-        force: Whether to force delete data from storage.
+        delete_data_from_storage: Whether to delete data from storage.
     """
     if isinstance(record, list):
         records = record
@@ -99,15 +111,15 @@ def delete(  # type: ignore
         if isinstance(record, DObject):
             storage_key = storage_key_from_dobject(record)
 
-            if force:
-                decide = "y"
-            else:
+            if delete_data_from_storage is None:
                 # ask to confirm deleting data from storage
                 delete_dialog = (
                     "Confirm Delete: Are you sure you want to delete"
                     f" object {storage_key} from storage? (y/n)"
                 )
                 decide = input(f"   {delete_dialog}")
+            else:
+                decide = "y" if delete_data_from_storage else "n"
 
             if decide not in ("y", "Y", "yes", "Yes", "YES"):
                 continue
