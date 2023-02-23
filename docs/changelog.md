@@ -3,7 +3,7 @@
 <!-- prettier-ignore -->
 Name | PR | Developer | Date | Version
 --- | --- | --- | --- | ---
-⬆️  Upgrade lnschema-core to 0.28.6 | [517](https://github.com/laminlabs/lamindb/pull/517) | [bpenteado](https://github.com/bpenteado) | 2023-02-23 |
+⬆️  Upgrade lnschema-core to 0.28.6 | [517](https://github.com/laminlabs/lamindb/pull/517) | [bpenteado](https://github.com/bpenteado) | 2023-02-23 | 0.29.0
 💥 Move `lns.DFolder` to `ln.DFolder` | [510](https://github.com/laminlabs/lamindb/pull/510) | [sunnyosun](https://github.com/sunnyosun) | 2023-02-23 |
 🐛 Fix trailing slash within lamindb | [516](https://github.com/laminlabs/lamindb/pull/516) | [falexwolf](https://github.com/falexwolf) | 2023-02-22 | 0.28.5
 👷 Fix CI config | [515](https://github.com/laminlabs/lamindb/pull/515) | [falexwolf](https://github.com/falexwolf) | 2023-02-22 | 0.28.4
