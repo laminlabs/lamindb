@@ -25,7 +25,7 @@ def test_create_to_load():
     table_object = ln.schema._core.get_table_object("core.dobject")
     ln.schema._core.get_table_metadata_as_dict(table_object)
 
-    (Path(storage_root) / "mydata-test-db.lamin").unlink()
+    (Path(storage_root) / "mydata-test-db.lndb").unlink()
     # Note that this merely removes database file but doesn't clean out the instance_settings file!  # noqa
     # Hence, we need to also clean that out:
     from lamin.dev._settings_store import current_instance_settings_file
