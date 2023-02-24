@@ -32,8 +32,8 @@ LaminDB is built on open-source [Python packages](https://lamin.ai/docs).
 Quick setup on the command line (see [Initialize a LaminDB instance](https://lamin.ai/docs/db/guide/setup) for advanced setup guide):
 
 - Install via `pip install lamindb`
-- Sign up via `lndb signup <email>` and confirm the sign-up email
-- Log in via `lndb login <handle>`
+- Sign up via `lamin signup <email>` and confirm the sign-up email
+- Log in via `lamin login <handle>`
 
 ```{tip}
 

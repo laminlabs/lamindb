@@ -13,6 +13,7 @@ classifiers = [
     "Programming Language :: Python :: 3.10",
 ]
 dependencies = [
+    "lamin",
     # Lamin pinned packages
     "lnhub_rest==0.5.1",  # NOT pinned in lndb, just a lower bound there
     "lndb==0.35.3",
