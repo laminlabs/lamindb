@@ -1,6 +1,6 @@
 from functools import partial
-from pathlib import Path
-from typing import List, Union, overload  # noqa
+from pathlib import Path, PurePath
+from typing import List, Tuple, Union, overload  # noqa
 
 import sqlmodel as sqm
 from lamin_logger import logger
@@ -176,32 +176,34 @@ def local_instance_storage_matches_local_parent(dobject: DObject):
     return str(storage.root) in parents
 
 
-def write_objectkey(record) -> None:
+def get_storage_root_and_root_str() -> Tuple[Union[Path, UPath], str]:
+    root = setup_settings.instance.storage.root
+    root_str = root.as_posix()
+    if isinstance(root, UPath):
+        root_str = root_str.rstrip("/")
+    return root, root_str
+
+
+def write_objectkey(record: sqm.SQLModel) -> None:
     """Write to _objectkey.
 
     An objectkey excludes the storage root and the file suffix.
     """
-    storage = setup_settings.instance.storage
 
-    def set_objectkey(record: sqm.SQLModel, filepath: Union[Path, UPath]):
-        if not isinstance(filepath, UPath):  # is local filepath
-            filepath_str = filepath.resolve().as_posix()
-        else:  # is remote path
-            filepath_str = filepath.as_posix()
-        root_str = storage.root.as_posix()
-        if root_str[-1] != "/":
-            root_str += "/"
+    def set_objectkey(record: Union[DObject, DFolder], filepath: Union[Path, UPath]):
+        root, root_str = get_storage_root_and_root_str()
 
-        if not isinstance(record, (DObject, DFolder)):
-            raise NotImplementedError
-        # for DObject, _objectkey is relative path without suffix
+        if isinstance(root, UPath):
+            relpath = PurePath(filepath.as_posix().replace(root_str, ""))
+        else:
+            relpath = filepath.relative_to(root_str)
+
+        # for DObject, _objectkey is relative path to the storage root without suffix
         _objectkey = (
-            filepath_str.replace(root_str, "").replace(record.suffix, "")
-            if isinstance(record, DObject)
-            else filepath_str.replace(root_str, "")
+            relpath.parent / record.name if isinstance(record, DObject) else relpath
         )
 
-        set_attribute(record, "_objectkey", _objectkey)
+        set_attribute(record, "_objectkey", _objectkey.as_posix())
 
     # _local_filepath private attribute is only added
     # when creating DObject from data or DFolder from folder
@@ -211,8 +213,6 @@ def write_objectkey(record) -> None:
             if record._cloud_filepath is not None:
                 set_objectkey(record, record._cloud_filepath)
             # both _cloud_filepath and _local_filepath are None for zarr
-            else:
-                pass
         # local storage
         else:
             # only set objectkey if it is configured
