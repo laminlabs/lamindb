@@ -203,7 +203,7 @@ def write_objectkey(record: sqm.SQLModel) -> None:
             relpath.parent / record.name if isinstance(record, DObject) else relpath
         )
 
-        set_attribute(record, "_objectkey", _objectkey.to_posix())
+        set_attribute(record, "_objectkey", _objectkey.as_posix())
 
     # _local_filepath private attribute is only added
     # when creating DObject from data or DFolder from folder
