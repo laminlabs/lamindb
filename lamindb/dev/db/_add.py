@@ -1,5 +1,5 @@
 from functools import partial
-from pathlib import Path
+from pathlib import Path, PurePath
 from typing import List, Tuple, Union, overload  # noqa
 
 import sqlmodel as sqm
@@ -194,7 +194,7 @@ def write_objectkey(record: sqm.SQLModel) -> None:
         root, root_str = get_storage_root_and_root_str()
 
         if isinstance(root, UPath):
-            relpath = Path(filepath.as_posix().replace(root_str, ""))
+            relpath = PurePath(filepath.as_posix().replace(root_str, ""))
         else:
             relpath = filepath.relative_to(root_str)
 
