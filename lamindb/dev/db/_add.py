@@ -176,14 +176,13 @@ def local_instance_storage_matches_local_parent(dobject: DObject):
     return str(storage.root) in parents
 
 
-def write_objectkey(record) -> None:
+def write_objectkey(record: sqm.SQLModel) -> None:
     """Write to _objectkey.
 
     An objectkey excludes the storage root and the file suffix.
     """
-    storage = setup_settings.instance.storage
 
-    def set_objectkey(record: sqm.SQLModel, filepath: Union[Path, UPath]):
+    def set_objectkey(record: Union[DObject, DFolder], filepath: Union[Path, UPath]):
         if not isinstance(filepath, UPath):  # is local filepath
             filepath_str = filepath.resolve().as_posix()
         else:  # is remote path
@@ -192,8 +191,6 @@ def write_objectkey(record) -> None:
         if root_str[-1] != "/":
             root_str += "/"
 
-        if not isinstance(record, (DObject, DFolder)):
-            raise NotImplementedError
         # for DObject, _objectkey is relative path without suffix
         _objectkey = (
             filepath_str.replace(root_str, "").replace(record.suffix, "")
@@ -206,13 +203,12 @@ def write_objectkey(record) -> None:
     # _local_filepath private attribute is only added
     # when creating DObject from data or DFolder from folder
     if hasattr(record, "_local_filepath"):
+        storage = setup_settings.instance.storage
         if record._local_filepath is None:
             # cloud storage
             if record._cloud_filepath is not None:
                 set_objectkey(record, record._cloud_filepath)
             # both _cloud_filepath and _local_filepath are None for zarr
-            else:
-                pass
         # local storage
         else:
             # only set objectkey if it is configured

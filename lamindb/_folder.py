@@ -6,6 +6,8 @@ from lndb.dev import UPath
 from lnschema_core import DObject as lns_DObject
 from lnschema_core import Run
 
+from .dev.db._add import write_objectkey
+
 
 def get_dfolder_kwargs_from_data(
     folder: Union[Path, UPath, str],
@@ -24,7 +26,9 @@ def get_dfolder_kwargs_from_data(
     dobjects = []
     for f in folderpath.glob("**/*"):
         if f.is_file():
-            dobjects.append(lns_DObject(f, source=source))
+            dobj = lns_DObject(f, source=source)
+            write_objectkey(dobj)
+            dobjects.append(dobj)
 
     dfolder_kwargs = dict(
         name=folderpath.name if name is None else name,
