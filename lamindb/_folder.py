@@ -3,10 +3,14 @@ from pathlib import Path
 from typing import Optional, Union
 
 from lndb.dev import UPath
+from lnschema_core import DFolder as lns_DFolder
 from lnschema_core import DObject as lns_DObject
-from lnschema_core import Run
+from lnschema_core import Run, Storage
 
+from ._record import get_storage_root_str
+from .dev._core import filepath_from_dfolder, get_name_suffix_from_filepath
 from .dev.db._add import write_objectkey
+from .dev.db._select import select
 
 
 def get_dfolder_kwargs_from_data(
@@ -37,6 +41,7 @@ def get_dfolder_kwargs_from_data(
     return dfolder_kwargs, dfolder_privates
 
 
+# Exposed to users as DFolder.tree()
 def tree(
     dir_path: Union[Path, UPath, str],
     level: int = -1,
@@ -82,3 +87,24 @@ def tree(
     if next(iterator, None):
         print(f"... length_limit, {length_limit}, reached, counted:")
     print(f"\n{directories} directories" + (f", {files} files" if files else ""))
+
+
+# Exposed to users as DFolder.get_dobject()
+def get_dobject(dfolder: lns_DFolder, relpath: Union[str, Path]):
+    """Get dobject via relative path to dfolder."""
+    # check relative path exists
+    relpath = Path(relpath)
+    name, suffix = get_name_suffix_from_filepath(relpath)
+
+    dobject_path = filepath_from_dfolder(dfolder) / relpath
+    if not dobject_path.exists():
+        raise AssertionError(f"Unable to locate dobject at {dobject_path}")
+
+    dobject_objectkey = Path(dfolder._objectkey) / relpath.parent / name
+    # query for unique comb of (_dobjectkey, storage, suffix)
+    dobject = (
+        select(lns_DObject, _objectkey=str(dobject_objectkey), suffix=suffix)
+        .join(Storage, root=get_storage_root_str())
+        .one()
+    )
+    return dobject

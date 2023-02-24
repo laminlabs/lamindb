@@ -237,6 +237,14 @@ def get_path_size_hash(
     return localpath, cloudpath, size, hash
 
 
+def get_storage_root_str():
+    root = setup_settings.instance.storage.root
+    root_str = str(root)
+    if isinstance(root, UPath):
+        root_str = root_str.rstrip("/")
+    return root_str
+
+
 def get_dobject_kwargs_from_data(
     data: Union[Path, UPath, str, pd.DataFrame, ad.AnnData],
     *,
@@ -251,10 +259,7 @@ def get_dobject_kwargs_from_data(
 
     # if local_filepath is already in the configured storage location
     # skip the upload
-    root = setup_settings.instance.storage.root
-    root_str = str(root)
-    if isinstance(root, UPath):
-        root_str = root_str.rstrip("/")
+    root_str = get_storage_root_str()
     storage = select(Storage, root=root_str).one()
 
     dobject_privates = dict(
