@@ -16,7 +16,7 @@ from lamindb.knowledge import CellMarker, Gene, Protein
 
 from ._settings import settings
 from .dev._core import get_name_suffix_from_filepath
-from .dev.db._add import add, get_storage_root_str
+from .dev.db._add import add, get_storage_root_and_root_str
 from .dev.db._select import select
 from .dev.file import load_to_memory
 from .dev.object import infer_suffix, size_adata, write_to_file
@@ -251,7 +251,7 @@ def get_dobject_kwargs_from_data(
 
     # if local_filepath is already in the configured storage location
     # skip the upload
-    root_str = get_storage_root_str()
+    _, root_str = get_storage_root_and_root_str()
     storage = select(Storage, root=root_str).one()
 
     dobject_privates = dict(

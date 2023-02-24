@@ -7,7 +7,7 @@ from lnschema_core import DFolder as lns_DFolder
 from lnschema_core import DObject as lns_DObject
 from lnschema_core import Run, Storage
 
-from ._record import get_storage_root_str
+from ._record import get_storage_root_and_root_str
 from .dev._core import filepath_from_dfolder, get_name_suffix_from_filepath
 from .dev.db._add import write_objectkey
 from .dev.db._select import select
@@ -104,7 +104,7 @@ def get_dobject(dfolder: lns_DFolder, relpath: Union[str, Path]):
     # query for unique comb of (_dobjectkey, storage, suffix)
     dobject = (
         select(lns_DObject, _objectkey=str(dobject_objectkey), suffix=suffix)
-        .join(Storage, root=get_storage_root_str())
+        .join(Storage, root=get_storage_root_and_root_str()[1])
         .one()
     )
     return dobject

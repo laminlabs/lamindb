@@ -1,6 +1,6 @@
 from functools import partial
 from pathlib import Path
-from typing import List, Union, overload  # noqa
+from typing import List, Tuple, Union, overload  # noqa
 
 import sqlmodel as sqm
 from lamin_logger import logger
@@ -176,9 +176,9 @@ def local_instance_storage_matches_local_parent(dobject: DObject):
     return str(storage.root) in parents
 
 
-def get_storage_root_str():
+def get_storage_root_and_root_str() -> Tuple[Union[Path, UPath], str]:
     root = setup_settings.instance.storage.root
-    root_str = str(root)
+    root_str = root.as_posix()
     if isinstance(root, UPath):
         root_str = root_str.rstrip("/")
     return root_str
@@ -191,13 +191,12 @@ def write_objectkey(record: sqm.SQLModel) -> None:
     """
 
     def set_objectkey(record: Union[DObject, DFolder], filepath: Union[Path, UPath]):
-        root_str = get_storage_root_str()
+        root, root_str = get_storage_root_and_root_str()
 
-        try:  # is local filepath
-            relpath = filepath.relative_to(root_str)
-        except ValueError:  # is cloud filepath
-            # remove the server prefix
+        if isinstance(root, UPath):
             relpath = Path(filepath.as_posix().replace(root_str, ""))
+        else:
+            relpath = filepath.relative_to(root_str)
 
         # for DObject, _objectkey is relative path to the storage root without suffix
         _objectkey = (
