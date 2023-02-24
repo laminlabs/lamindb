@@ -183,27 +183,26 @@ def write_objectkey(record: sqm.SQLModel) -> None:
     """
 
     def set_objectkey(record: Union[DObject, DFolder], filepath: Union[Path, UPath]):
-        if not isinstance(filepath, UPath):  # is local filepath
-            filepath_str = filepath.resolve().as_posix()
-        else:  # is remote path
-            filepath_str = filepath.as_posix()
-        root_str = storage.root.as_posix()
+        storage_root = setup_settings.instance.storage.root
+        root_str = storage_root.as_posix()
         if root_str[-1] != "/":
             root_str += "/"
+        try:
+            relpath = filepath.relative_to(storage_root)  # is local filepath
+        except ValueError:  # is cloud filepath
+            # remove the server prefix
+            relpath = Path(filepath.as_posix().replace(root_str, ""))
 
-        # for DObject, _objectkey is relative path without suffix
+        # for DObject, _objectkey is relative path to the storage root without suffix
         _objectkey = (
-            filepath_str.replace(root_str, "").replace(record.suffix, "")
-            if isinstance(record, DObject)
-            else filepath_str.replace(root_str, "")
+            relpath.parent / record.name if isinstance(record, DObject) else relpath
         )
 
-        set_attribute(record, "_objectkey", _objectkey)
+        set_attribute(record, "_objectkey", str(_objectkey))
 
     # _local_filepath private attribute is only added
     # when creating DObject from data or DFolder from folder
     if hasattr(record, "_local_filepath"):
-        storage = setup_settings.instance.storage
         if record._local_filepath is None:
             # cloud storage
             if record._cloud_filepath is not None:
