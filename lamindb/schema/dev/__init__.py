@@ -1,2 +1,3 @@
-from lnschema_core.dev import *
-from lnschema_core.dev import id
+from lnschema_core.dev import *  # noqa
+
+from . import id  # noqa
