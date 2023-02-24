@@ -181,7 +181,7 @@ def get_storage_root_and_root_str() -> Tuple[Union[Path, UPath], str]:
     root_str = root.as_posix()
     if isinstance(root, UPath):
         root_str = root_str.rstrip("/")
-    return root_str
+    return root, root_str
 
 
 def write_objectkey(record: sqm.SQLModel) -> None:
