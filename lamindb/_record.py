@@ -16,7 +16,7 @@ from lamindb.knowledge import CellMarker, Gene, Protein
 
 from ._settings import settings
 from .dev._core import get_name_suffix_from_filepath
-from .dev.db._add import add
+from .dev.db._add import add, get_storage_root_str
 from .dev.db._select import select
 from .dev.file import load_to_memory
 from .dev.object import infer_suffix, size_adata, write_to_file
@@ -235,14 +235,6 @@ def get_path_size_hash(
         hash = None
 
     return localpath, cloudpath, size, hash
-
-
-def get_storage_root_str():
-    root = setup_settings.instance.storage.root
-    root_str = str(root)
-    if isinstance(root, UPath):
-        root_str = root_str.rstrip("/")
-    return root_str
 
 
 def get_dobject_kwargs_from_data(

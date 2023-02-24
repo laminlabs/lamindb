@@ -176,6 +176,14 @@ def local_instance_storage_matches_local_parent(dobject: DObject):
     return str(storage.root) in parents
 
 
+def get_storage_root_str():
+    root = setup_settings.instance.storage.root
+    root_str = str(root)
+    if isinstance(root, UPath):
+        root_str = root_str.rstrip("/")
+    return root_str
+
+
 def write_objectkey(record: sqm.SQLModel) -> None:
     """Write to _objectkey.
 
@@ -183,12 +191,10 @@ def write_objectkey(record: sqm.SQLModel) -> None:
     """
 
     def set_objectkey(record: Union[DObject, DFolder], filepath: Union[Path, UPath]):
-        storage_root = setup_settings.instance.storage.root
-        root_str = storage_root.as_posix()
-        if root_str[-1] != "/":
-            root_str += "/"
-        try:
-            relpath = filepath.relative_to(storage_root)  # is local filepath
+        root_str = get_storage_root_str()
+
+        try:  # is local filepath
+            relpath = filepath.relative_to(root_str)
         except ValueError:  # is cloud filepath
             # remove the server prefix
             relpath = Path(filepath.as_posix().replace(root_str, ""))
