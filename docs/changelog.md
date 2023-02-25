@@ -3,6 +3,7 @@
 <!-- prettier-ignore -->
 Name | PR | Developer | Date | Version
 --- | --- | --- | --- | ---
+📝 Replace `lndb` with `lamin` in docs | [521](https://github.com/laminlabs/lamindb/pull/521) | [falexwolf](https://github.com/falexwolf) | 2023-02-25 |
 📝 Add nbproject note box to ingest guide | [520](https://github.com/laminlabs/lamindb/pull/520) | [bpenteado](https://github.com/bpenteado) | 2023-02-24 |
 🍱 `DFolder.get_dobject` | [519](https://github.com/laminlabs/lamindb/pull/519) | [sunnyosun](https://github.com/sunnyosun) | 2023-02-24 |
 ⬆️  Upgrade lnschema-core to 0.28.6 | [517](https://github.com/laminlabs/lamindb/pull/517) | [bpenteado](https://github.com/bpenteado) | 2023-02-23 | 0.29.0
