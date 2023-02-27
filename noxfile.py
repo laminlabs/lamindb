@@ -1,11 +1,11 @@
 import nox
+from laminci import upload_docs_dir
 from lndb.test.nox import (
     build_docs,
     login_testuser1,
     login_testuser2,
     run_pre_commit,
     run_pytest,
-    upload_docs_dir,
 )
 
 nox.options.reuse_existing_virtualenvs = True
