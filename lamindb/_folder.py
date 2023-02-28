@@ -1,6 +1,6 @@
 from itertools import islice
 from pathlib import Path
-from typing import Optional, Union
+from typing import List, Optional, Union
 
 from lndb.dev import UPath
 from lnschema_core import DFolder as lns_DFolder
@@ -8,7 +8,7 @@ from lnschema_core import DObject as lns_DObject
 from lnschema_core import Run, Storage
 
 from ._record import get_storage_root_and_root_str
-from .dev._core import filepath_from_dfolder, get_name_suffix_from_filepath
+from .dev._core import filepath_from_dfolder, get_name_suffix_from_filepath  # noqa
 from .dev.db._add import write_objectkey
 from .dev.db._select import select
 
@@ -89,22 +89,43 @@ def tree(
     print(f"\n{directories} directories" + (f", {files} files" if files else ""))
 
 
-# Exposed to users as DFolder.get_dobject()
-def get_dobject(dfolder: lns_DFolder, relpath: Union[str, Path]):
+# Exposed to users as DFolder.get()
+def get_dobject(
+    dfolder: lns_DFolder, relpath: Union[str, Path, List[Union[str, Path]]], **fields
+):
+    """Get dobjects via relative path to dfolder."""
+    if isinstance(relpath, List):
+        relpaths = [Path(i) for i in relpath]
+    else:
+        relpaths = [Path(relpath)]
+
+    dobject_objectkeys = get_dobject_objectkey(dfolder=dfolder, relpaths=relpaths)
+    return select_by_objectkey(dobject_objectkeys=dobject_objectkeys, **fields)
+
+
+def get_dobject_objectkey(dfolder: lns_DFolder, relpaths: List[Path]):
     """Get dobject via relative path to dfolder."""
-    # check relative path exists
-    relpath = Path(relpath)
-    name, suffix = get_name_suffix_from_filepath(relpath)
+    keys = []
+    for rpath in relpaths:
+        rpath = Path(rpath)
+        name, _ = get_name_suffix_from_filepath(rpath)
+        keys.append(str(Path(dfolder._objectkey) / rpath.parent / name))
 
-    dobject_path = filepath_from_dfolder(dfolder) / relpath
-    if not dobject_path.exists():
-        raise AssertionError(f"Unable to locate dobject at {dobject_path}")
+    # check relative path exists (slow for cloud path)
+    # if not dobject_path.exists():
+    #     raise AssertionError(f"Unable to locate dobject at {dobject_path}")
+    # dobject_path = filepath_from_dfolder(dfolder) / relpath
 
-    dobject_objectkey = Path(dfolder._objectkey) / relpath.parent / name
+    return keys
+
+
+def select_by_objectkey(dobject_objectkeys: List[str], **fields):
     # query for unique comb of (_dobjectkey, storage, suffix)
-    dobject = (
-        select(lns_DObject, _objectkey=str(dobject_objectkey), suffix=suffix)
+    dobjects = (
+        select(lns_DObject, **fields)
+        .where(lns_DObject._objectkey.in_(dobject_objectkeys))
         .join(Storage, root=get_storage_root_and_root_str()[1])
-        .one()
+        .all()
     )
-    return dobject
+    # TODO: return dobjects in the same order as the dobject_objectkeys
+    return dobjects
