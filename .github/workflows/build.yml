@@ -45,7 +45,7 @@ jobs:
       - name: Install pip, nox, graphviz, postgress
         run: |
           python -m pip install --upgrade pip
-          pip install laminci
+          pip install laminci>=0.2.4
           sudo apt-get -y install graphviz
           sudo apt-get install libpq-dev
       - name: Lint
