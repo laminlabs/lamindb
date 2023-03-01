@@ -4,4 +4,4 @@
 
 # LaminDB: Manage R&D data & analyses
 
-Read the [docs](https://lamin.ai/docs/lamindb).
+Read the [docs](https://lamin.ai/docs).
