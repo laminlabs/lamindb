@@ -4,4 +4,8 @@
 
 # LaminDB: Manage R&D data & analyses
 
-Read the [docs](https://lamin.ai/docs).
+_Curate, store, track, query, integrate, and learn from biological data._
+
+**Public beta:** Currently only recommended for collaborators as we still make breaking changes.
+
+Read the **[docs](https://lamin.ai/docs)**.
