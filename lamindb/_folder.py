@@ -1,5 +1,5 @@
 from itertools import islice
-from pathlib import Path
+from pathlib import Path, PurePath
 from typing import List, Optional, Union
 
 from lndb.dev import UPath
@@ -95,21 +95,20 @@ def get_dobject(
 ):
     """Get dobjects via relative path to dfolder."""
     if isinstance(relpath, List):
-        relpaths = [Path(i) for i in relpath]
+        relpaths = [PurePath(i) for i in relpath]
     else:
-        relpaths = [Path(relpath)]
+        relpaths = [PurePath(relpath)]
 
     dobject_objectkeys = get_dobject_objectkey(dfolder=dfolder, relpaths=relpaths)
     return select_by_objectkey(dobject_objectkeys=dobject_objectkeys, **fields)
 
 
-def get_dobject_objectkey(dfolder: lns_DFolder, relpaths: List[Path]):
+def get_dobject_objectkey(dfolder: lns_DFolder, relpaths: List[PurePath]):
     """Get dobject via relative path to dfolder."""
     keys = []
     for rpath in relpaths:
-        rpath = Path(rpath)
         name, _ = get_name_suffix_from_filepath(rpath)
-        keys.append(str(Path(dfolder._objectkey) / rpath.parent / name))
+        keys.append(str(PurePath(dfolder._objectkey) / rpath.parent / name))
 
     # check relative path exists (slow for cloud path)
     # if not dobject_path.exists():
