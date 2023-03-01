@@ -2,14 +2,14 @@ from pathlib import Path
 
 
 def test_create_to_load():
-    import lamin
+    import lamindb.setup as lnsetup
 
     storage_root = "mydata-test-db"
-    lamin.login(
+    lnsetup.login(
         "raspbear@gmx.de",
         password="MmR4YuQEyb0yxu7dAwJZTjLzR1Az2lN4Q4IduDlO",
     )
-    lamin.init(storage=storage_root)
+    lnsetup.init(storage=storage_root)
 
     # if importing this at the top of the file lamin will try to
     # create unnecessary tables
@@ -19,7 +19,7 @@ def test_create_to_load():
     ln.add(notebook)
     run = ln.schema.Run(notebook_id=notebook.id, notebook_v=notebook.v)
     ln.add(run)
-    ln.select(ln.schema.Storage, root=str(lamin.settings.instance.storage.root)).one()
+    ln.select(ln.schema.Storage, root=str(lnsetup.settings.instance.storage.root)).one()
 
     ln.schema._core.get_db_metadata_as_dict()
     table_object = ln.schema._core.get_table_object("core.dobject")

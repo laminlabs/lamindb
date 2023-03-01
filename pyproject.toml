@@ -13,7 +13,6 @@ classifiers = [
     "Programming Language :: Python :: 3.10",
 ]
 dependencies = [
-    "lamin",
     # Lamin pinned packages
     "lnhub_rest==0.5.1",  # NOT pinned in lndb, just a lower bound there
     "lndb==0.36.0",
@@ -52,6 +51,9 @@ test = [
     "psycopg2-binary",
     "matplotlib<3.7"
 ]
+
+[project.scripts]
+lamin = "lndb.__main__:main"
 
 [tool.black]
 preview = true

@@ -15,3 +15,14 @@ if version.parse(bionty_v) != version.parse("0.7.0"):
 
 if version.parse(nbproject_v) < version.parse("0.8.2"):
     raise RuntimeError("lamindb needs nbproject>=0.8.2")
+
+# ensure that the lamin package is not installed
+try:
+    import lamin  # noqa
+
+    raise RuntimeError(
+        "Please run: pip uninstall lamin\nIn case you used the lamin Python API, please"
+        " now use: import lamindb.setup as lnsetup"
+    )
+except ImportError:
+    pass
