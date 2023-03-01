@@ -107,8 +107,8 @@ else:
         _instance_setup = True
     except Exception:
         _logger.warning(
-            "Your current instance cannot be reached, init or load one a connectable"
-            " one."
+            "Your current instance cannot be reached, init or load a connectable"
+            " instance."
         )
 
 from lnschema_core import DFolder  # noqa
