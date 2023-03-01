@@ -5,19 +5,13 @@ Import the package::
    import lamindb as ln
    import lamindb.schema as lns
 
-The central data object, a wrapper for files, on-disk (`zarr`, etc.) and
-in-memory objects (`DataFrame`, `AnnData`, etc.):
+The central class of the API is `DObject`, a wrapper for files, on-disk (`zarr`, etc.)
+and in-memory data objects (`DataFrame`, `AnnData`, etc.).
 
 .. autosummary::
    :toctree: .
 
    DObject
-
-Data folder, a group of data objects:
-
-.. autosummary::
-   :toctree: .
-
    DFolder
 
 Query & manipulate data:
