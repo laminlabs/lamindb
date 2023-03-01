@@ -100,8 +100,16 @@ if (
     )
     _instance_setup = False
 else:
-    _instance_setup = True
-    _check_migrate(usettings=_setup_settings.user, isettings=_setup_settings.instance)
+    try:
+        _check_migrate(
+            usettings=_setup_settings.user, isettings=_setup_settings.instance
+        )
+        _instance_setup = True
+    except Exception:
+        _logger.warning(
+            "Your current instance cannot be reached, init or load one a connectable"
+            " one."
+        )
 
 from lnschema_core import DFolder  # noqa
 from lnschema_core import DObject  # noqa
