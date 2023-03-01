@@ -85,20 +85,20 @@ _py_version_warning("3.8", "3.10")
 from lndb import settings as _setup_settings
 from lndb._migrate import check_deploy_migration as _check_migrate
 from lndb.dev._settings_store import (
-    current_instance_settings_file as _current_instance_settings_file,
+    current_instance_settings_file as _current_settings_file,
 )
 
 from . import _check_versions  # executes checks during import
 
+_instance_setup = False
 if (
-    not _current_instance_settings_file().exists()
+    not _current_settings_file().exists()
     or _setup_settings.instance.storage.root is None
 ):
     _logger.warning(
         "You haven't yet setup an instance using the CLI. Please call"
         " `lamindb.setup.init()` or `lamindb.setup.load()`."
     )
-    _instance_setup = False
 else:
     try:
         _check_migrate(
