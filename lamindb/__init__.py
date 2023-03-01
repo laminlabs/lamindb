@@ -88,7 +88,6 @@ from lamin_logger import py_version_warning as _py_version_warning
 
 _py_version_warning("3.8", "3.10")
 
-import lndb as setup
 from lndb import settings as _setup_settings
 from lndb._migrate import check_deploy_migration as _check_migrate
 from lndb.dev._settings_store import (
@@ -116,6 +115,7 @@ from lnschema_core import DObject  # noqa
 from . import dev  # noqa
 from . import knowledge  # noqa
 from . import schema  # noqa
+from . import setup  # noqa
 from ._delete import delete  # noqa
 from ._nb import nb  # noqa
 from ._settings import settings
