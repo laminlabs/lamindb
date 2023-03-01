@@ -3,7 +3,6 @@
 ```{toctree}
 :maxdepth: 1
 
-setup
 ingest
 nb
 ingest-same-file-twice
@@ -16,4 +15,5 @@ select
 data-validation
 ingest-acid
 lazy-loading
+setup
 ```
