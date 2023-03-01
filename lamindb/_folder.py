@@ -27,8 +27,14 @@ def get_dfolder_kwargs_from_data(
         _cloud_filepath=cloudpath,
     )
 
+    content = list(folderpath.rglob("*"))
+    # UPath doesn't list the first level files and dirs
+    if isinstance(folderpath, UPath):
+        for f in folderpath.iterdir():
+            content.append(f)
+
     dobjects = []
-    for f in folderpath.glob("**/*"):
+    for f in content:
         if f.is_file():
             dobj = lns_DObject(f, source=source)
             write_objectkey(dobj)
