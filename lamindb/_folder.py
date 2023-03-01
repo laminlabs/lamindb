@@ -27,8 +27,11 @@ def get_dfolder_kwargs_from_data(
         _cloud_filepath=cloudpath,
     )
 
+    # TODO: UPath doesn't list the first level files and dirs with "*"
+    pattern = "" if isinstance(folderpath, UPath) else "*"
+
     dobjects = []
-    for f in folderpath.glob("**/*"):
+    for f in folderpath.rglob(pattern):
         if f.is_file():
             dobj = lns_DObject(f, source=source)
             write_objectkey(dobj)
