@@ -3,11 +3,11 @@
 <!-- prettier-ignore -->
 Name | PR | Developer | Date | Version
 --- | --- | --- | --- | ---
-🚑 Fix for listing cloud dir | [528](https://github.com/laminlabs/lamindb/pull/528) | [sunnyosun](https://github.com/sunnyosun) | 2023-03-01 |
-✅ Towards a single API | [530](https://github.com/laminlabs/lamindb/pull/530) | [falexwolf](https://github.com/falexwolf) | 2023-03-01 |
-🚚 Rename get_dobject to get, allow passing a subdirectory | [527](https://github.com/laminlabs/lamindb/pull/527) | [sunnyosun](https://github.com/sunnyosun) | 2023-03-01 |
+🚑 Fix for listing cloud dir | [528](https://github.com/laminlabs/lamindb/pull/528) | [sunnyosun](https://github.com/sunnyosun) | 2023-03-01 | 0.30.0
+🎨 Add `lamindb.setup` API as an alternative for the CLI | [530](https://github.com/laminlabs/lamindb/pull/530) | [falexwolf](https://github.com/falexwolf) | 2023-03-01 |
+🚚 Rename `dfolder.get_dobject` to `get`, allow passing a subdirectory | [527](https://github.com/laminlabs/lamindb/pull/527) | [sunnyosun](https://github.com/sunnyosun) | 2023-03-01 |
 🚑 Ensure filepath is absolute | [526](https://github.com/laminlabs/lamindb/pull/526) | [sunnyosun](https://github.com/sunnyosun) | 2023-03-01 |
-🎨 Allow passing a list of relpaths to dfolder.get_dobject | [524](https://github.com/laminlabs/lamindb/pull/524) | [sunnyosun](https://github.com/sunnyosun) | 2023-02-28 |
+🎨 Allow passing a list of relpaths to `dfolder.get_dobject` | [524](https://github.com/laminlabs/lamindb/pull/524) | [sunnyosun](https://github.com/sunnyosun) | 2023-02-28 |
 ✨ Infer filesystem for anndata read and write | [522](https://github.com/laminlabs/lamindb/pull/522) | [Koncopd](https://github.com/Koncopd) | 2023-02-25 |
 📝 Replace `lndb` with `lamin` in docs | [521](https://github.com/laminlabs/lamindb/pull/521) | [falexwolf](https://github.com/falexwolf) | 2023-02-25 | 0.29.1
 📝 Add nbproject note box to ingest guide | [520](https://github.com/laminlabs/lamindb/pull/520) | [bpenteado](https://github.com/bpenteado) | 2023-02-24 |
