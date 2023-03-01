@@ -196,7 +196,7 @@ def write_objectkey(record: sqm.SQLModel) -> None:
         if isinstance(root, UPath):
             relpath = PurePath(filepath.as_posix().replace(root_str, ""))
         else:
-            relpath = filepath.relative_to(root_str)
+            relpath = filepath.resolve().relative_to(root_str)
 
         # for DObject, _objectkey is relative path to the storage root without suffix
         _objectkey = (
