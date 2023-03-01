@@ -1,6 +1,6 @@
 from functools import partial
 from pathlib import Path, PurePath
-from typing import List, Tuple, Union, overload  # noqa
+from typing import List, Optional, Tuple, Union, overload  # noqa
 
 import sqlmodel as sqm
 from lamin_logger import logger
@@ -176,12 +176,41 @@ def local_instance_storage_matches_local_parent(dobject: DObject):
     return str(storage.root) in parents
 
 
-def get_storage_root_and_root_str() -> Tuple[Union[Path, UPath], str]:
-    root = setup_settings.instance.storage.root
+def get_storage_root_and_root_str(
+    root: Optional[Union[Path, UPath]] = None
+) -> Tuple[Union[Path, UPath], str]:
+    if root is None:
+        root = setup_settings.instance.storage.root
     root_str = root.as_posix()
     if isinstance(root, UPath):
         root_str = root_str.rstrip("/")
     return root, root_str
+
+
+def filepath_to_relpath(
+    root: Union[PurePath, Path], root_str: str, filepath: Union[Path, UPath]
+) -> Union[PurePath, Path]:
+    """Filepath to relative path of the root."""
+    if isinstance(root, UPath):
+        relpath = PurePath(filepath.as_posix().replace(root_str, ""))
+    else:
+        relpath = filepath.resolve().relative_to(root_str)
+
+    return relpath
+
+
+def filepath_to_objectkey(
+    record: Union[DObject, DFolder], filepath: Union[Path, UPath]
+) -> str:
+    root, root_str = get_storage_root_and_root_str()
+
+    relpath = filepath_to_relpath(root=root, root_str=root_str, filepath=filepath)
+    # for DObject, _objectkey is relative path to the storage root without suffix
+    _objectkey = (
+        relpath.parent / record.name if isinstance(record, DObject) else relpath
+    )
+
+    return _objectkey.as_posix()
 
 
 def write_objectkey(record: sqm.SQLModel) -> None:
@@ -191,19 +220,8 @@ def write_objectkey(record: sqm.SQLModel) -> None:
     """
 
     def set_objectkey(record: Union[DObject, DFolder], filepath: Union[Path, UPath]):
-        root, root_str = get_storage_root_and_root_str()
-
-        if isinstance(root, UPath):
-            relpath = PurePath(filepath.as_posix().replace(root_str, ""))
-        else:
-            relpath = filepath.resolve().relative_to(root_str)
-
-        # for DObject, _objectkey is relative path to the storage root without suffix
-        _objectkey = (
-            relpath.parent / record.name if isinstance(record, DObject) else relpath
-        )
-
-        set_attribute(record, "_objectkey", _objectkey.as_posix())
+        _objectkey = filepath_to_objectkey(record=record, filepath=filepath)
+        set_attribute(record, "_objectkey", _objectkey)
 
     # _local_filepath private attribute is only added
     # when creating DObject from data or DFolder from folder

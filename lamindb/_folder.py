@@ -8,8 +8,8 @@ from lnschema_core import DObject as lns_DObject
 from lnschema_core import Run, Storage
 
 from ._record import get_storage_root_and_root_str
-from .dev._core import filepath_from_dfolder, get_name_suffix_from_filepath  # noqa
-from .dev.db._add import write_objectkey
+from .dev._core import filepath_from_dfolder, get_name_suffix_from_filepath
+from .dev.db._add import filepath_to_relpath, write_objectkey
 from .dev.db._select import select
 
 
@@ -97,25 +97,40 @@ def get_dobject(
     if isinstance(relpath, List):
         relpaths = [PurePath(i) for i in relpath]
     else:
-        relpaths = [PurePath(relpath)]
+        abspath = relpath_to_abspath(dfolder=dfolder, relpath=PurePath(relpath))
+        if abspath.is_dir():
+            abspaths_files = list_files_from_dir(abspath)
+            root, root_str = get_storage_root_and_root_str(
+                filepath_from_dfolder(dfolder)
+            )
+            relpaths = [
+                filepath_to_relpath(root=root, root_str=root_str, filepath=i)
+                for i in abspaths_files
+            ]
+        else:
+            relpaths = [PurePath(relpath)]
 
-    dobject_objectkeys = get_dobject_objectkey(dfolder=dfolder, relpaths=relpaths)
+    dobject_objectkeys = [
+        relpath_to_objectkey(dfolder=dfolder, relpath=i) for i in relpaths
+    ]
+
     return select_by_objectkey(dobject_objectkeys=dobject_objectkeys, **fields)
 
 
-def get_dobject_objectkey(dfolder: lns_DFolder, relpaths: List[PurePath]):
-    """Get dobject via relative path to dfolder."""
-    keys = []
-    for rpath in relpaths:
-        name, _ = get_name_suffix_from_filepath(rpath)
-        keys.append(str(PurePath(dfolder._objectkey) / rpath.parent / name))
+def list_files_from_dir(dirpath: Union[Path, UPath]):
+    """List all files recursively from a directory."""
+    return [i for i in dirpath.rglob("*") if i.is_file()]
 
-    # check relative path exists (slow for cloud path)
-    # if not dobject_path.exists():
-    #     raise AssertionError(f"Unable to locate dobject at {dobject_path}")
-    # dobject_path = filepath_from_dfolder(dfolder) / relpath
 
-    return keys
+def relpath_to_objectkey(dfolder: lns_DFolder, relpath: PurePath):
+    """Convert a relative path of dfolder to an absolute path."""
+    name, _ = get_name_suffix_from_filepath(relpath)
+    objectkey = str(PurePath(dfolder._objectkey) / relpath.parent / name)
+    return objectkey
+
+
+def relpath_to_abspath(dfolder: lns_DFolder, relpath: PurePath):
+    return filepath_from_dfolder(dfolder) / relpath
 
 
 def select_by_objectkey(dobject_objectkeys: List[str], **fields):
