@@ -3,6 +3,7 @@
 <!-- prettier-ignore -->
 Name | PR | Developer | Date | Version
 --- | --- | --- | --- | ---
+🚑 Fix for listing cloud dir | [528](https://github.com/laminlabs/lamindb/pull/528) | [sunnyosun](https://github.com/sunnyosun) | 2023-03-01 |
 ✅ Towards a single API | [530](https://github.com/laminlabs/lamindb/pull/530) | [falexwolf](https://github.com/falexwolf) | 2023-03-01 |
 🚚 Rename get_dobject to get, allow passing a subdirectory | [527](https://github.com/laminlabs/lamindb/pull/527) | [sunnyosun](https://github.com/sunnyosun) | 2023-03-01 |
 🚑 Ensure filepath is absolute | [526](https://github.com/laminlabs/lamindb/pull/526) | [sunnyosun](https://github.com/sunnyosun) | 2023-03-01 |
