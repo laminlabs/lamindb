@@ -3,6 +3,7 @@
 <!-- prettier-ignore -->
 Name | PR | Developer | Date | Version
 --- | --- | --- | --- | ---
+🚑 Ensure filepath is absolute | [526](https://github.com/laminlabs/lamindb/pull/526) | [sunnyosun](https://github.com/sunnyosun) | 2023-03-01 |
 🎨 Allow passing a list of relpaths to dfolder.get_dobject | [524](https://github.com/laminlabs/lamindb/pull/524) | [sunnyosun](https://github.com/sunnyosun) | 2023-02-28 |
 ✨ Infer filesystem for anndata read and write | [522](https://github.com/laminlabs/lamindb/pull/522) | [Koncopd](https://github.com/Koncopd) | 2023-02-25 |
 📝 Replace `lndb` with `lamin` in docs | [521](https://github.com/laminlabs/lamindb/pull/521) | [falexwolf](https://github.com/falexwolf) | 2023-02-25 | 0.29.1
