@@ -1,4 +1,4 @@
-"""LaminDB: Manage data & analyses.
+"""LaminDB: Manage R&D data & analyses.
 
 Import the package::
 
