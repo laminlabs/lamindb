@@ -15,4 +15,5 @@ select
 data-validation
 ingest-acid
 lazy-loading
+setup
 ```

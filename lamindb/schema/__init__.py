@@ -88,12 +88,20 @@ _check_v = {
     "wetlab": "0.13.4",
 }
 
-for name in _settings.instance.schema:
-    _module = _importlib.import_module(_get_schema_module_name(name))
-    if name in _check_v:
-        if _v.parse(_module.__version__) != _v.parse(_check_v[name]):
-            raise RuntimeError(f"lamindb needs lnschema_{name}=={_check_v[name]}")
-    globals()[_module._name] = _module
+from .. import _instance_setup
+
+
+def _import_schema():
+    for name in _settings.instance.schema:
+        _module = _importlib.import_module(_get_schema_module_name(name))
+        if name in _check_v:
+            if _v.parse(_module.__version__) != _v.parse(_check_v[name]):
+                raise RuntimeError(f"lamindb needs lnschema_{name}=={_check_v[name]}")
+        globals()[_module._name] = _module
+
+
+if _instance_setup:
+    _import_schema()
 
 from ._core import list_tables, view
 
