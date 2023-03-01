@@ -64,6 +64,13 @@ Track Jupyter notebooks:
 
    nb
 
+Setup:
+
+.. autosummary::
+   :toctree: .
+
+   setup
+
 Developer API:
 
 .. autosummary::
@@ -76,20 +83,32 @@ Developer API:
 __version__ = "0.29.1"  # denote a release candidate for 0.1.0 with 0.1rc1
 
 # prints warning of python versions
-from lamin_logger import py_version_warning
+from lamin_logger import logger as _logger
+from lamin_logger import py_version_warning as _py_version_warning
 
-py_version_warning("3.8", "3.10")
+_py_version_warning("3.8", "3.10")
 
+import lndb as setup
 from lndb import settings as _setup_settings
 from lndb._migrate import check_deploy_migration as _check_migrate
+from lndb.dev._settings_store import (
+    current_instance_settings_file as _current_instance_settings_file,
+)
 
 from . import _check_versions  # executes checks during import
 
-if _setup_settings.instance.storage.root is None:
-    raise RuntimeError(
-        "Please run `lndb load` or `lndb init` to configure an instance."
+if (
+    not _current_instance_settings_file().exists()
+    or _setup_settings.instance.storage.root is None
+):
+    _logger.warning(
+        "You haven't yet setup an instance using the CLI. Please call"
+        " `lamindb.setup.init()` or `lamindb.setup.load()`."
     )
-_check_migrate(usettings=_setup_settings.user, isettings=_setup_settings.instance)
+    _instance_setup = False
+else:
+    _instance_setup = True
+    _check_migrate(usettings=_setup_settings.user, isettings=_setup_settings.instance)
 
 from lnschema_core import DFolder  # noqa
 from lnschema_core import DObject  # noqa
