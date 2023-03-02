@@ -42,7 +42,6 @@ Quick setup on the command line (see [Initialize a LaminDB instance](https://lam
 ingest
 select
 add-delete
-view
 ```
 
 ```{toctree}
