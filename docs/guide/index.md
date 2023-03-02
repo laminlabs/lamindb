@@ -47,14 +47,14 @@ add-delete
 ```{toctree}
 :maxdepth: 1
 :hidden:
-:caption: Advanced concepts
+:caption: More details
 
 dobject.md
 setup
 schema
-session
 query-book
 run
+session
 ```
 
 ```{toctree}
