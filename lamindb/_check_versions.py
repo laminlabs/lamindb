@@ -1,4 +1,5 @@
 from bionty import __version__ as bionty_v
+from lamin_logger import logger
 from lndb import __version__ as lndb_v
 from lnschema_core import __version__ as lnschema_core_v
 from nbproject import __version__ as nbproject_v
@@ -20,9 +21,13 @@ if version.parse(nbproject_v) < version.parse("0.8.2"):
 try:
     import lamin  # noqa
 
-    raise RuntimeError(
-        "Please run: pip uninstall lamin\nIn case you used the lamin Python API, please"
-        " now use: import lamindb.setup as lnsetup"
+    logger.warning(
+        "Please,\n"
+        " - replace `import lamin` with `import lamindb.setup as lnsetup`\n"
+        " - run `pip uninstall lamin`\n"
+        "lamindb.setup now has all of the lamin functionality\n"
+        "The lamindb API and lamin API will be integrated soon!\n"
+        "The CLI remains as is!"
     )
 except ImportError:
     pass
