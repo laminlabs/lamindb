@@ -1,12 +1,12 @@
 # Guide
 
-Welcome to LaminDB! 👋
+Welcome to the LaminDB guide! 👋
 
 _Curate, store, track, query, integrate, and learn from biological data._
 
-_LaminDB_ is a distributed data management system in which users collaborate on DB _instances_.
+LaminDB provides distributed data management in which users collaborate on _LaminDB instances_.
 
-Each _LaminDB instance_ is a [data lakehouse](https://www.databricks.com/glossary/data-lakehouse) that manages indexed **object storage** (local directories, S3, GCP) with a **SQL query engine** (SQLite, Postgres, and soon, BigQuery).
+Each _LaminDB instance_ is a [data lakehouse](https://www.databricks.com/glossary/data-lakehouse) that manages indexed **object storage** (local directories, S3, GCP) with a mapped **SQL query database** (SQLite, Postgres, and soon, BigQuery).
 
 This is analogous to how developers collaborate on code in repositories, but unlike git and dvc, LaminDB is **queryable by entities**.
 
@@ -15,17 +15,6 @@ This is analogous to how developers collaborate on code in repositories, but unl
 Public beta: Currently only recommended for collaborators as we still make breaking changes.
 
 ```
-
-## Features
-
-LaminDB comes with
-
-- data lineage and edit history
-- tracking of interactive notebooks
-- knowledge-managed biological entities for typing and lookups
-- configurable schema modules
-
-LaminDB is built on open-source [Python packages](https://lamin.ai/docs).
 
 ## Getting started
 
