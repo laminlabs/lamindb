@@ -60,7 +60,7 @@ session
 ```{toctree}
 :maxdepth: 1
 :hidden:
-:caption: Track biology
+:caption: Track biology, features, samples
 
 knowledge
 link-features
