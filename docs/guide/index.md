@@ -54,16 +54,7 @@ setup
 schema
 session
 query-book
-```
-
-```{toctree}
-:maxdepth: 1
-:hidden:
-:caption: Track runs
-
-run.md
-nb
-pipeline
+run
 ```
 
 ```{toctree}
@@ -74,5 +65,4 @@ pipeline
 knowledge
 link-features
 link-samples
-select-features
 ```
