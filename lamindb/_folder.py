@@ -68,10 +68,14 @@ def tree(
         nonlocal files, directories
         if not level:
             return  # 0, stop iterating
+        # this is needed so that the passed folder is not listed
+        contents = [
+            i
+            for i in dir_path.iterdir()
+            if i.as_posix().rstrip("/") != dir_path.as_posix().rstrip("/")
+        ]
         if limit_to_directories:
-            contents = [d for d in dir_path.iterdir() if d.is_dir()]
-        else:
-            contents = list(dir_path.iterdir())
+            contents = [d for d in contents if d.is_dir()]
         pointers = [tee] * (len(contents) - 1) + [last]
         for pointer, path in zip(pointers, contents):
             if path.is_dir():
