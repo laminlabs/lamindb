@@ -3,9 +3,9 @@
 <!-- prettier-ignore -->
 Name | PR | Developer | Date | Version
 --- | --- | --- | --- | ---
-:memo: Do not error, just warn upon installation of lamin | [533](https://github.com/laminlabs/lamindb/pull/533) | [falexwolf](https://github.com/falexwolf) | 2023-03-02 |
+🚸 Do not error, just warn upon installation of lamin | [533](https://github.com/laminlabs/lamindb/pull/533) | [falexwolf](https://github.com/falexwolf) | 2023-03-02 | 0.30.2
 🚑 Fix iterdir to not list itself | [532](https://github.com/laminlabs/lamindb/pull/532) | [sunnyosun](https://github.com/sunnyosun) | 2023-03-02 |
-🔥 Remove `lamin` dependency <span class="badge badge-warning">Breaking</span> | [531](https://github.com/laminlabs/lamindb/pull/531) | [falexwolf](https://github.com/falexwolf) | 2023-03-01 | 0.30.1
+🔥 Remove `lamin` dependency | [531](https://github.com/laminlabs/lamindb/pull/531) | [falexwolf](https://github.com/falexwolf) | 2023-03-01 | 0.30.1
 🚑 Fix for listing cloud dir | [528](https://github.com/laminlabs/lamindb/pull/528) | [sunnyosun](https://github.com/sunnyosun) | 2023-03-01 | 0.30.0
 🎨 Add `lamindb.setup` API as an alternative for the CLI | [530](https://github.com/laminlabs/lamindb/pull/530) | [falexwolf](https://github.com/falexwolf) | 2023-03-01 |
 🚚 Rename `dfolder.get_dobject` to `get`, allow passing a subdirectory | [527](https://github.com/laminlabs/lamindb/pull/527) | [sunnyosun](https://github.com/sunnyosun) | 2023-03-01 |
