@@ -16,22 +16,6 @@ Public beta: Currently only recommended for collaborators as we still make break
 
 ```
 
-## Getting started
-
-Quick setup on the command line (see [Initialize a LaminDB instance](https://lamin.ai/docs/db/guide/setup) for advanced setup guide):
-
-- Install via `pip install lamindb`
-- Sign up via `lamin signup <email>` and confirm the sign-up email
-- Log in via `lamin login <handle>`
-
-```{tip}
-
-- Each page in this guide is a Jupyter Notebook, which you can download [here](https://github.com/laminlabs/lamindb/tree/main/docs/guide).
-- You can run these notebooks in hosted versions of JupyterLab, e.g., [Saturn Cloud](https://github.com/laminlabs/run-lamin-on-saturn), Google Vertex AI, and others.
-- We recommend using [JupyterLab](https://jupyterlab.readthedocs.io/) for best notebook tracking experience.
-
-```
-
 📬 [Reach out](https://lamin.ai/contact) to report issues, learn about data modules that connect your assays, pipelines & workflows within our data platform enterprise plan.
 
 ```{toctree}
@@ -39,6 +23,7 @@ Quick setup on the command line (see [Initialize a LaminDB instance](https://lam
 :hidden:
 :caption: Get started
 
+get-started.md
 ingest
 select
 add-delete
