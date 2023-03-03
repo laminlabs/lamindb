@@ -21,7 +21,6 @@ Public beta: Currently only recommended for collaborators as we still make break
 LaminDB is a python package available for Python versions 3.8+.
 
 ```bash
-
 pip install lamindb
 ```
 
@@ -30,7 +29,6 @@ pip install lamindb
 In your python script, import LaminDB as:
 
 ```python
-
 import lamindb as ln
 ```
 
@@ -48,7 +46,6 @@ To start, create a `lamin.schema.Run` object:
 Inside a notebook:
 
 ```python
-
 ln.nb.header()
 
 # run will be automatically attached to the data
@@ -58,7 +55,6 @@ ln.nb.header()
 Or from a pipeline:
 
 ```python
-
 # create a run from a pipeline as the data source
 pipeline = lns.Pipeline(name="my pipeline", version="1")
 run = lns.Run(pipeline=pipeline, name="my run")
@@ -69,7 +65,6 @@ Track data on storage:
 ```python
 # test-lamin.ipynb
 
-# an image file
 filepath = "./myproject/mypic.png"
 
 # create a data object with sql record and storage
