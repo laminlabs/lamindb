@@ -171,6 +171,7 @@ _build
 *.h5ad
 *.parquet
 *.bam
+*.fastq.gz
 
 
 # fred files
