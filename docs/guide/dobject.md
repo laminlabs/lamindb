@@ -2,7 +2,9 @@
 
 ## Data objects in storage & memory: `DObject`
 
-{class}`~lamindb.DObject` allows accessing atomic data in object storage and loading or streaming them into memory.
+{class}`~lamindb.DObject` maps atomic datasets in object storage: jointly measured observations of variables (features).
+
+It allows accessing loading or streaming them into memory.
 
 Data objects often have **canonical on-disk and in-memory representations**. If choices among these representations are made, a one-to-one mapping can be achieved, which means that any given dobject has a default in-memory and on-disk representation.
 
