@@ -25,47 +25,15 @@ LaminDB is a python package available for Python versions 3.8+.
 pip install lamindb
 ```
 
-## Quick sign-up and setup
+## Quick setup
 
-Quick setup on the command line (see [Initialize a LaminDB instance](https://lamin.ai/docs/guide/setup) for advanced setup guide):
+Quick setup on the command line:
 
-- Sign up via `lamin signup <email>` and confirm the sign-up email
+- Sign up via `lamin signup <email>`
 - Log in via `lamin login <handle>`
+- Set up an instance via `lamin init --storage ./mydata --schema bionty,wetlab`
 
-## Tracking data with LaminDB
-
-Inside a notebook:
-
-```python
-# test-lamin.ipynb
-import lamindb as ln
-
-# tracks the notebook run as a data source.
-ln.nb.header()
-
-filepath = "./myproject/mypic.png"
-# start tracking your file
-dobject = ln.DObject(filepath)
-ln.add(dobject)
-```
-
-With a python script:
-
-```python
-# test-lamin.py
-
-import lamindb as ln
-import lamindb.schema as lns
-
-# create a run from a pipeline as the data source
-pipeline = lns.Pipeline(name="my pipeline", version="1")
-run = lns.Run(pipeline=pipeline, name="my run")
-
-filepath = "./myproject/mypic.png"
-# start tracking your file
-dobject = ln.DObject(filepath)
-ln.add(dobject)
-```
+See {doc}`/guide/setup` for more.
 
 ```{tip}
 
