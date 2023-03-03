@@ -7,6 +7,7 @@ from lamin_logger import logger
 from lndb import settings as setup_settings
 from lndb.dev import UPath
 from lnschema_core import DFolder, DObject
+from pydantic.fields import ModelPrivateAttr
 from sqlalchemy.orm.attributes import set_attribute
 
 from .._docs import doc_args
@@ -172,7 +173,11 @@ def prepare_error_message(records, added_records, error) -> str:
 
 def local_instance_storage_matches_local_parent(dobject: DObject):
     storage = setup_settings.instance.storage
-    parents = {str(p) for p in dobject._local_filepath.resolve().parents}
+    try:
+        parents = {str(p) for p in dobject._local_filepath.resolve().parents}
+    except AttributeError:
+        parents = {str(p) for p in dobject.path().parents}
+
     return str(storage.root) in parents
 
 
@@ -226,11 +231,14 @@ def write_objectkey(record: sqm.SQLModel) -> None:
     # _local_filepath private attribute is only added
     # when creating DObject from data or DFolder from folder
     if hasattr(record, "_local_filepath"):
-        if record._local_filepath is None:
+        # for upsert
+        if isinstance(record._local_filepath, ModelPrivateAttr):
+            pass
+        elif record._local_filepath is None:
             # cloud storage
             if record._cloud_filepath is not None:
                 set_objectkey(record, record._cloud_filepath)
-            # both _cloud_filepath and _local_filepath are None for zarr
+            # both _cloud_filepath and _local_filepath are None fir zarr
         # local storage
         else:
             # only set objectkey if it is configured
