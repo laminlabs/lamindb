@@ -38,6 +38,7 @@ Quick setup on the command line (see [Initialize a LaminDB instance](https://lam
 
 - Sign up via `lamin signup <email>` and confirm the sign-up email
 - Log in via `lamin login <handle>`
+- Initiate an instance via `lamin init <storage>`
 
 ## Tracking data via LaminDB
 
@@ -91,6 +92,7 @@ ln.add(dobject)
 :hidden:
 :caption: Get started
 
+setup
 ingest
 select
 add-delete
@@ -102,7 +104,6 @@ add-delete
 :caption: More details
 
 dobject.md
-setup
 schema
 query-book
 run
