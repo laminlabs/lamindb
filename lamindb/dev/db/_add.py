@@ -270,5 +270,3 @@ def upload_data_object(dobject) -> None:
         storagepath = storage.key_to_filepath(dobject_storage_key)
         print_progress = partial(print_hook, filepath=dobject.name)
         write_adata_zarr(dobject._memory_rep, storagepath, callback=print_progress)
-    else:
-        raise ValueError(f"Can't write the dobject {dobject.id}.")
