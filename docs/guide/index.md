@@ -32,13 +32,15 @@ In your python script, import LaminDB as:
 import lamindb as ln
 ```
 
-## Quick sign-up and setup
+## Quick setup
 
-Quick setup on the command line (see [Initialize a LaminDB instance](https://lamin.ai/docs/guide/setup) for advanced setup guide):
+Quick setup on the command line:
 
-- Sign up via `lamin signup <email>` and confirm the sign-up email
+- Sign up via `lamin signup <email>`
 - Log in via `lamin login <handle>`
-- Initiate an instance via `lamin init <storage>`
+- Set up an instance via `lamin init --storage ./mydata --schema bionty,wetlab`
+
+See {doc}`/guide/setup` for more.
 
 ## Tracking data via LaminDB
 
