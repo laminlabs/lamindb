@@ -21,8 +21,15 @@ Public beta: Currently only recommended for collaborators as we still make break
 LaminDB is a python package available for Python versions 3.8+.
 
 ```bash
-
 pip install lamindb
+```
+
+## Import
+
+In your python script, import LaminDB as:
+
+```python
+import lamindb as ln
 ```
 
 ## Quick setup
@@ -34,6 +41,43 @@ Quick setup on the command line:
 - Set up an instance via `lamin init --storage ./mydata --schema bionty,wetlab`
 
 See {doc}`/guide/setup` for more.
+
+## Tracking data via LaminDB
+
+To start, create a `lamin.schema.Run` object:
+
+Inside a notebook:
+
+```python
+ln.nb.header()
+
+# run will be automatically attached to the data
+# run = ln.nb.run
+```
+
+Or from a pipeline:
+
+```python
+# create a run from a pipeline as the data source
+pipeline = lns.Pipeline(name="my pipeline", version="1")
+run = lns.Run(pipeline=pipeline, name="my run")
+```
+
+Track data on storage:
+
+```python
+# test-lamin.ipynb
+
+filepath = "./myproject/mypic.png"
+
+# create a data object with sql record and storage
+# Pass `source = run` if not inside a notebook
+dobject = ln.DObject(filepath)
+
+# upload the data file to the configured storage
+# and commit a DObject record to the sql database
+ln.add(dobject)
+```
 
 ```{tip}
 
@@ -50,6 +94,7 @@ See {doc}`/guide/setup` for more.
 :hidden:
 :caption: Get started
 
+setup
 ingest
 select
 add-delete
@@ -61,7 +106,6 @@ add-delete
 :caption: More details
 
 dobject.md
-setup
 schema
 query-book
 run
