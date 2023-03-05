@@ -67,6 +67,8 @@ def store_object(localpath: Union[str, Path], storagekey: str) -> float:
             except shutil.SameFileError:
                 pass
         else:
+            if storagepath.exists():
+                shutil.rmtree(storagepath)
             shutil.copytree(localpath, storagepath)
     return float(size)  # because this is how we store in the db
 
