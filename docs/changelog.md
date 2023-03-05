@@ -3,6 +3,7 @@
 <!-- prettier-ignore -->
 Name | PR | Developer | Date | Version
 --- | --- | --- | --- | ---
+✨ Allow uploading zarr from local paths | [539](https://github.com/laminlabs/lamindb/pull/539) | [Koncopd](https://github.com/Koncopd) | 2023-03-05 |
 📝 Prettify guide landing page | [537](https://github.com/laminlabs/lamindb/pull/537) | [sunnyosun](https://github.com/sunnyosun) | 2023-03-05 |
 🚑 Fix upsert for dobject and CI | [535](https://github.com/laminlabs/lamindb/pull/535) | [sunnyosun](https://github.com/sunnyosun) | 2023-03-03 | 0.30.3
 💄 Simplify docs | [534](https://github.com/laminlabs/lamindb/pull/534) | [falexwolf](https://github.com/falexwolf) | 2023-03-03 |
