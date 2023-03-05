@@ -11,7 +11,7 @@ from pydantic.fields import ModelPrivateAttr
 from sqlalchemy.orm.attributes import set_attribute
 
 from .._docs import doc_args
-from ..file import store_file, write_adata_zarr
+from ..file import store_object, write_adata_zarr
 from ..file._file import print_hook
 from ._core import dobject_to_sqm, get_session_from_kwargs
 from ._select import select
@@ -173,11 +173,16 @@ def prepare_error_message(records, added_records, error) -> str:
 
 def local_instance_storage_matches_local_parent(dobject: DObject):
     storage = setup_settings.instance.storage
-    try:
-        parents = {str(p) for p in dobject._local_filepath.resolve().parents}
-    except AttributeError:
-        parents = {str(p) for p in dobject.path().parents}
 
+    if dobject._local_filepath is not None:
+        path = dobject._local_filepath
+    else:
+        path = dobject.path()
+
+    if not isinstance(path, UPath):
+        path = path.resolve()
+
+    parents = [str(p) for p in path.parents]
     return str(storage.root) in parents
 
 
@@ -252,7 +257,7 @@ def upload_data_object(dobject) -> None:
 
     storage = setup_settings.instance.storage
 
-    if dobject.suffix != ".zarr":
+    if dobject._local_filepath is not None:
         # - Look for _cloud_filepath, which is only not None if the passed filepath
         # was in the existing storage in the first place (errors within _record.py)
         # - Look for _local_filepath and check whether it's in existing storage before
@@ -260,8 +265,8 @@ def upload_data_object(dobject) -> None:
         if (dobject._cloud_filepath is None) and (
             not local_instance_storage_matches_local_parent(dobject)
         ):
-            store_file(dobject._local_filepath, dobject_storage_key)
-    else:
+            store_object(dobject._local_filepath, dobject_storage_key)
+    elif dobject.suffix == ".zarr" and dobject._memory_rep is not None:
         storagepath = storage.key_to_filepath(dobject_storage_key)
         print_progress = partial(print_hook, filepath=dobject.name)
         write_adata_zarr(dobject._memory_rep, storagepath, callback=print_progress)

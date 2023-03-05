@@ -211,9 +211,22 @@ def get_path_size_hash(
 ):
     cloudpath = None
     localpath = None
-    # both cloudpath and localpath are None for zarr
-    if suffix != ".zarr":
-        path = UPath(filepath)  # returns Path for local
+
+    path = UPath(filepath)  # returns Path for local
+
+    if suffix == ".zarr":
+        if memory_rep is not None:
+            size = size_adata(memory_rep)
+        else:
+            if isinstance(path, UPath):
+                cloudpath = filepath
+                # todo: properly calculate size
+                size = 0
+            else:
+                localpath = filepath
+                size = sum(f.stat().st_size for f in path.rglob("*") if f.is_file())
+        hash = None
+    else:
         if isinstance(path, UPath):
             try:
                 size = path.stat()["size"]
@@ -230,9 +243,6 @@ def get_path_size_hash(
             size = path.stat().st_size
             localpath = filepath
             hash = get_hash(filepath, suffix)
-    else:
-        size = size_adata(memory_rep)
-        hash = None
 
     return localpath, cloudpath, size, hash
 
