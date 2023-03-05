@@ -40,20 +40,34 @@ class ProgressCallback(fsspec.callbacks.Callback):
         return None
 
 
-def store_file(localfile: Union[str, Path], storagekey: str) -> float:
+def store_object(localpath: Union[str, Path], storagekey: str) -> float:
     """Store arbitrary file to configured storage location.
 
     Returns size in bytes.
     """
     storagepath = settings.instance.storage.key_to_filepath(storagekey)
-    if isinstance(storagepath, UPath):
-        storagepath.upload_from(localfile, recursive=True, callback=ProgressCallback())
+    localpath = Path(localpath)
+
+    if localpath.is_file():
+        size = localpath.stat().st_size
     else:
-        try:
-            shutil.copyfile(localfile, storagepath)
-        except shutil.SameFileError:
-            pass
-    size = Path(localfile).stat().st_size
+        size = sum(f.stat().st_size for f in localpath.rglob("*") if f.is_file())
+
+    if isinstance(storagepath, UPath):
+        if localpath.suffix != ".zarr":
+            cb = ProgressCallback()
+        else:
+            # todo: make proper progress bar for zarr
+            cb = fsspec.callbacks.NoOpCallback()
+        storagepath.upload_from(localpath, recursive=True, callback=cb)
+    else:
+        if localpath.is_file():
+            try:
+                shutil.copyfile(localpath, storagepath)
+            except shutil.SameFileError:
+                pass
+        else:
+            shutil.copytree(localpath, storagepath)
     return float(size)  # because this is how we store in the db
 
 
