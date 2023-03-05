@@ -3,6 +3,7 @@
 <!-- prettier-ignore -->
 Name | PR | Developer | Date | Version
 --- | --- | --- | --- | ---
+📝 Prettify guide landing page | [537](https://github.com/laminlabs/lamindb/pull/537) | [sunnyosun](https://github.com/sunnyosun) | 2023-03-05 |
 🚑 Fix upsert for dobject and CI | [535](https://github.com/laminlabs/lamindb/pull/535) | [sunnyosun](https://github.com/sunnyosun) | 2023-03-03 | 0.30.3
 💄 Simplify docs | [534](https://github.com/laminlabs/lamindb/pull/534) | [falexwolf](https://github.com/falexwolf) | 2023-03-03 |
 🚸 Do not error, just warn upon installation of lamin | [533](https://github.com/laminlabs/lamindb/pull/533) | [falexwolf](https://github.com/falexwolf) | 2023-03-02 | 0.30.2
