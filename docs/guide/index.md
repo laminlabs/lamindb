@@ -14,6 +14,7 @@ Welcome to the LaminDB guide! 👋
 
 setup
 ingest
+ingest-folder
 select
 add-delete
 ```
