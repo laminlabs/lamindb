@@ -3,6 +3,7 @@
 <!-- prettier-ignore -->
 Name | PR | Developer | Date | Version
 --- | --- | --- | --- | ---
+🚸 Improve clarity of `no_source` error message | [543](https://github.com/laminlabs/lamindb/pull/543) | [falexwolf](https://github.com/falexwolf) | 2023-03-06 |
 💚 Fix CI | [542](https://github.com/laminlabs/lamindb/pull/542) | [sunnyosun](https://github.com/sunnyosun) | 2023-03-06 |
 🚚 Rename data objects to data or datasets in titles | [541](https://github.com/laminlabs/lamindb/pull/541) | [sunnyosun](https://github.com/sunnyosun) | 2023-03-06 |
 📝 Duplicate README to the guide landing page | [540](https://github.com/laminlabs/lamindb/pull/540) | [sunnyosun](https://github.com/sunnyosun) | 2023-03-06 |
