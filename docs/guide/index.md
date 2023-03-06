@@ -24,7 +24,6 @@ add-delete
 :caption: More details
 
 schema
-query-book
 run
 ```
 
