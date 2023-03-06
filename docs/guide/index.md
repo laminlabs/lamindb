@@ -10,31 +10,20 @@ Welcome to the LaminDB guide! 👋
 ```{toctree}
 :maxdepth: 2
 :hidden:
-:caption: Get started
+:caption: Basics
 
 setup
 ingest
-ingest-folder
 select
 add-delete
-```
-
-```{toctree}
-:maxdepth: 2
-:hidden:
-:caption: More details
-
-dobject.md
 schema
-query-book
 run
-session
 ```
 
 ```{toctree}
 :maxdepth: 2
 :hidden:
-:caption: Track biology, features, samples
+:caption: Biology
 
 knowledge
 link-features
