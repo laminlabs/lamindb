@@ -54,21 +54,28 @@ lamin init --storage ./mydata --schema bionty,wetlab
 
 See {doc}`/guide/setup` for more.
 
-## Tracking data via LaminDB
+## Track & query data
 
-**To start, create a `Run` object**:
+### Track data source & data\*\*
+
 ::::{tab-set}
-:::{tab-item} Inside a notebook
+:::{tab-item} Within a notebook
 
 ```{code-block} python
-ln.nb.header()
+ln.nb.header()  # data source is created and linked
 
-# run will be automatically attached to the data
-# run = ln.nb.run
+df = pd.DataFrame({"a": [1, 2], "b": [3, 4]})
+
+# create a data object with SQL metadata record
+dobject = ln.DObject(df, name="My dataframe")
+
+# upload the data file to the configured storage
+# and commit a DObject record to the SQL database
+ln.add(dobject)
 ```
 
 :::
-:::{tab-item} From a pipeline
+:::{tab-item} Within a pipeline
 
 ```{code-block} python
 # create a pipeline record
@@ -76,51 +83,29 @@ pipeline = lns.Pipeline(name="my pipeline", version="1")
 
 # create a run from the above pipeline as the data source
 run = lns.Run(pipeline=pipeline, name="my run")
-```
 
-:::
-::::
-See {doc}`/guide/run` for more.
+df = pd.DataFrame({"a": [1, 2], "b": [3, 4]})
 
-**Track data on storage**:
-::::{tab-set}
-:::{tab-item} Inside a notebook
-
-```{code-block} python
----
-emphasize-lines: 5
----
-# a file in your local storage
-filepath = "./myproject/mypic.png"
-
-# create a data object with sql record and storage
-dobject = ln.DObject(filepath)
+# create a data object with SQL metadata record
+dobject = ln.DObject(df, name="My dataframe", source=run)
 
 # upload the data file to the configured storage
-# and commit a DObject record to the sql database
-ln.add(dobject)
-```
-
-:::
-:::{tab-item} From a pipeline
-
-```{code-block} python
----
-emphasize-lines: 5
----
-# a file in your local storage
-filepath = "./myproject/mypic.png"
-
-# create a data object with sql record and storage
-dobject = ln.DObject(filepath, source=run)
-
-# upload the data file to the configured storage
-# and commit a DObject record to the sql database
+# and commit a DObject record to the SQL database
 ln.add(dobject)
 ```
 
 :::
 ::::
+
+### Query & load data
+
+```python
+dobject = ln.select(ln.DObject, name="My dataframe").one()
+df = dobject.load()
+```
+
+<br>
+
 See {doc}`/guide/ingest` for more.
 
 ## Track features
@@ -144,6 +129,8 @@ dobject = ln.DObject(adata, name="Mouse Lymph Node scRNA-seq", features_ref=refe
 # and commit a DObject record to the sql database
 ln.add(dobject)
 ```
+
+<br>
 
 See {doc}`/guide/link-features` for more.
 
