@@ -126,6 +126,7 @@ See {doc}`/guide/ingest` for more.
 ## Track datasets-linked features
 
 ```python
+# Bionty extends lamindb to track biological entities
 import bionty as bt
 
 # An example single cell RNA-seq dataset
@@ -147,11 +148,9 @@ ln.add(dobject)
 See {doc}`/guide/link-features` for more.
 
 ```{tip}
-
 - Each page in this guide is a Jupyter Notebook, which you can download [here](https://github.com/laminlabs/lamindb/tree/main/docs/guide).
 - You can run these notebooks in hosted versions of JupyterLab, e.g., [Saturn Cloud](https://github.com/laminlabs/run-lamin-on-saturn), Google Vertex AI, and others.
 - We recommend using [JupyterLab](https://jupyterlab.readthedocs.io/) for best notebook tracking experience.
-
 ```
 
 📬 [Reach out](https://lamin.ai/contact) to report issues, learn about data modules that connect your assays, pipelines & workflows within our data platform enterprise plan.
