@@ -44,13 +44,6 @@ Schema - entities and their relations:
 
    schema
 
-Manage knowledge:
-
-.. autosummary::
-   :toctree: .
-
-   knowledge
-
 Track Jupyter notebooks:
 
 .. autosummary::
