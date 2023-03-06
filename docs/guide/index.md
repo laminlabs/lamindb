@@ -10,7 +10,7 @@ Welcome to the LaminDB guide! 👋
 ```{toctree}
 :maxdepth: 2
 :hidden:
-:caption: Basics
+:caption: Basic data
 
 setup
 ingest
@@ -23,7 +23,7 @@ run
 ```{toctree}
 :maxdepth: 2
 :hidden:
-:caption: Biology
+:caption: Basic biology
 
 knowledge
 link-features
