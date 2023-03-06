@@ -27,8 +27,17 @@ Pass a name in `ln.DObject(..., name=name)` when ingesting in-memory data.
 """
 
 NO_SOURCE_ERROR = """
-Pass a run in `ln.DObject(..., source=run)`.
-Or, if you're in a notebook, call `ln.nb.header()` at the top.
+Error: Please link a data source using the `source` argument.
+Fix: Link a data source by passing a run, e.g., via
+
+pipeline = ln.select("My ingestion pipeline").one()
+run = lns.Run(pipeline=pipeline)
+dobject = ln.DObject(..., source=run)
+
+Or, if you're in a notebook, call `ln.nb.header()` at the top, which creates
+a global run context for the notebook.
+
+More details: https://lamin.ai/docs/faq/ingest
 """
 
 
