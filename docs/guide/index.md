@@ -10,12 +10,9 @@ Welcome to the LaminDB guide! 👋
 ```{toctree}
 :maxdepth: 2
 :hidden:
-:caption: Get started
 
 setup
 ingest
-select
-add-delete
 ```
 
 ```{toctree}
@@ -23,6 +20,8 @@ add-delete
 :hidden:
 :caption: More details
 
+select
+add-delete
 schema
 run
 ```
