@@ -22,7 +22,7 @@ Public beta: Currently only recommended for collaborators as we still make break
 
 LaminDB is a python package available for Python versions 3.8+.
 
-```bash
+```shell
 pip install lamindb
 ```
 
@@ -40,44 +40,59 @@ Quick setup on the command line:
 
 - Sign up via `lamin signup <email>`
 - Log in via `lamin login <handle>`
-- Set up an instance via `lamin init --storage ./mydata --schema bionty,wetlab`
+- Set up an instance via `lamin init --storage <storage> --schema <schema_modules>`
+
+:::{dropdown} Example code
+
+```shell
+lamin signup testuser1@ln.setup.ai
+lamin login testuser1
+lamin init --storage ./mydata --schema bionty,wetlab
+```
+
+:::
 
 See {doc}`/guide/setup` for more.
 
 ## Tracking data via LaminDB
 
-To start, create a `lamin.schema.Run` object:
+See {doc}`/guide/ingest` for more.
 
-Inside a notebook:
+**To start, create a Run object**:
+::::{tab-set}
+:::{tab-item} Inside a notebook
 
-```python
-# test-lamin.ipynb
+```{code-block} python
 ln.nb.header()
 
 # run will be automatically attached to the data
 # run = ln.nb.run
 ```
 
-Or from a pipeline:
+:::
+:::{tab-item} From a pipeline
 
-```python
-# test-lamin.py
-
+```{code-block} python
 # create a run from a pipeline as the data source
 pipeline = lns.Pipeline(name="my pipeline", version="1")
 run = lns.Run(pipeline=pipeline, name="my run")
 ```
 
-Track data on storage:
+:::
+::::
 
-```python
-# test-lamin.ipynb
+**Track data on storage**:
+::::{tab-set}
+:::{tab-item} Inside a notebook
 
+```{code-block} python
+---
+emphasize-lines: 5
+---
 # a file in your local storage
 filepath = "./myproject/mypic.png"
 
 # create a data object with sql record and storage
-# Pass `source = run` if not inside a notebook
 dobject = ln.DObject(filepath)
 
 # upload the data file to the configured storage
@@ -85,7 +100,27 @@ dobject = ln.DObject(filepath)
 ln.add(dobject)
 ```
 
-See {doc}`/guide/ingest` for more.
+:::
+:::{tab-item} From a pipeline
+
+```{code-block} python
+---
+emphasize-lines: 5
+---
+# a file in your local storage
+filepath = "./myproject/mypic.png"
+
+# create a data object with sql record and storage
+dobject = ln.DObject(filepath, source=run)
+
+# upload the data file to the configured storage
+# and commit a DObject record to the sql database
+ln.add(dobject)
+```
+
+:::
+
+::::
 
 ```{tip}
 
