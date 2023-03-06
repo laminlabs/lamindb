@@ -56,9 +56,7 @@ See {doc}`/guide/setup` for more.
 
 ## Tracking data via LaminDB
 
-See {doc}`/guide/ingest` for more.
-
-**To start, create a Run object**:
+**To start, create a `Run` object**:
 ::::{tab-set}
 :::{tab-item} Inside a notebook
 
@@ -73,13 +71,16 @@ ln.nb.header()
 :::{tab-item} From a pipeline
 
 ```{code-block} python
-# create a run from a pipeline as the data source
+# create a pipeline record
 pipeline = lns.Pipeline(name="my pipeline", version="1")
+
+# create a run from the above pipeline as the data source
 run = lns.Run(pipeline=pipeline, name="my run")
 ```
 
 :::
 ::::
+See {doc}`/guide/run` for more.
 
 **Track data on storage**:
 ::::{tab-set}
@@ -119,8 +120,8 @@ ln.add(dobject)
 ```
 
 :::
-
 ::::
+See {doc}`/guide/ingest` for more.
 
 ```{tip}
 
