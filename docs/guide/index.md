@@ -26,7 +26,6 @@ add-delete
 schema
 query-book
 run
-session
 ```
 
 ```{toctree}

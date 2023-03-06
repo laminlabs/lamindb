@@ -145,9 +145,9 @@ on-disk representation.
 LaminDB offers meaningful default choices. For instance,
 
 - It defaults to pandas DataFrames for in-memory representation of tables
-and allows you to configure loading tables into polars DataFrames.
+  and allows you to configure loading tables into polars DataFrames.
 - It defaults to the `.parquet` format for tables, but allows you to
-configure `.csv` or `.ipc`.
+  configure `.csv` or `.ipc`.
 
 Some datasets do not have a canonical in-memory representation, for
 instance, `.fastq`, `.vcf`, or files describing QC of datasets.
