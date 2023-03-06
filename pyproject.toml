@@ -39,7 +39,7 @@ Home = "https://github.com/laminlabs/lamindb"
 dev = [
     "pre-commit",
     "nox",
-    "laminci>=0.2.4",
+    "laminci>=0.2.5",
 ]
 test = [
     "pytest>=6.0",
