@@ -123,6 +123,29 @@ ln.add(dobject)
 ::::
 See {doc}`/guide/ingest` for more.
 
+## Track datasets-linked features
+
+```python
+import bionty as bt
+
+# An example single cell RNA-seq dataset
+adata = ln.dev.datasets.anndata_mouse_sc_lymph_node()
+
+# Instantiate a gene table
+# with ensembl id as the standardized id
+# with mouse as the species
+reference = bt.Gene(id=bt.gene_id.ensembl_gene_id, species=bt.Species().lookup.mouse)
+
+# Create a data object with features
+dobject = ln.DObject(adata, name="Mouse Lymph Node scRNA-seq", features_ref=reference)
+
+# upload the data file to the configured storage
+# and commit a DObject record to the sql database
+ln.add(dobject)
+```
+
+See {doc}`/guide/link-features` for more.
+
 ```{tip}
 
 - Each page in this guide is a Jupyter Notebook, which you can download [here](https://github.com/laminlabs/lamindb/tree/main/docs/guide).
