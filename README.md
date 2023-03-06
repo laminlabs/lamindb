@@ -56,7 +56,7 @@ See {doc}`/guide/setup` for more.
 
 ## Track & query data
 
-### Track data source & data\*\*
+### Track data source & data
 
 ::::{tab-set}
 :::{tab-item} Within a notebook
