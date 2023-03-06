@@ -6,39 +6,93 @@
 
 _Curate, store, track, query, integrate, and learn from biological data._
 
-**Public beta:** Currently only recommended for collaborators as we still make breaking changes.
+LaminDB provides distributed data management in which users collaborate on _LaminDB instances_.
 
-Read the **[docs](https://lamin.ai/docs)**.
+Each _LaminDB instance_ is a [data lakehouse](https://www.databricks.com/glossary/data-lakehouse) that manages indexed **object storage** (local directories, S3, GCP) with a mapped **SQL query database** (SQLite, Postgres, and soon, BigQuery).
 
-## Tracking data with LaminDB
+This is analogous to how developers collaborate on code in repositories, but unlike git and dvc, LaminDB is **queryable by entities**.
+
+```{warning}
+
+Public beta: Currently only recommended for collaborators as we still make breaking changes.
+
+```
+
+## Installation
+
+LaminDB is a python package available for Python versions 3.8+.
+
+```bash
+pip install lamindb
+```
+
+## Import
+
+In your python script, import LaminDB as:
+
+```python
+import lamindb as ln
+```
+
+## Quick setup
+
+Quick setup on the command line:
+
+- Sign up via `lamin signup <email>`
+- Log in via `lamin login <handle>`
+- Set up an instance via `lamin init --storage ./mydata --schema bionty,wetlab`
+
+See {doc}`/guide/setup` for more.
+
+## Tracking data via LaminDB
+
+To start, create a `lamin.schema.Run` object:
 
 Inside a notebook:
 
 ```python
 # test-lamin.ipynb
-import lamindb as ln
-
-# tracks the notebook run as a data source.
 ln.nb.header()
 
-# track a local file
-filepath = "./myproject/myimage.png"
-dobject = ln.DObject(filepath)
-ln.add(dobject)
+# run will be automatically attached to the data
+# run = ln.nb.run
 ```
 
-With a python script:
+Or from a pipeline:
 
 ```python
 # test-lamin.py
-import lamindb as ln
 
 # create a run from a pipeline as the data source
-pipeline = ln.schema.Pipeline(name="My test pipeline")
-run = ln.schema.Run(pipeline=pipeline, name="My test run")
+pipeline = lns.Pipeline(name="my pipeline", version="1")
+run = lns.Run(pipeline=pipeline, name="my run")
+```
 
-# track a local file
-filepath = "./myproject/myimage.png"
-dobject = ln.DObject(filepath, source=run)
+Track data on storage:
+
+```python
+# test-lamin.ipynb
+
+# a file in your local storage
+filepath = "./myproject/mypic.png"
+
+# create a data object with sql record and storage
+# Pass `source = run` if not inside a notebook
+dobject = ln.DObject(filepath)
+
+# upload the data file to the configured storage
+# and commit a DObject record to the sql database
 ln.add(dobject)
 ```
+
+See {doc}`/guide/ingest` for more.
+
+```{tip}
+
+- Each page in this guide is a Jupyter Notebook, which you can download [here](https://github.com/laminlabs/lamindb/tree/main/docs/guide).
+- You can run these notebooks in hosted versions of JupyterLab, e.g., [Saturn Cloud](https://github.com/laminlabs/run-lamin-on-saturn), Google Vertex AI, and others.
+- We recommend using [JupyterLab](https://jupyterlab.readthedocs.io/) for best notebook tracking experience.
+
+```
+
+📬 [Reach out](https://lamin.ai/contact) to report issues, learn about data modules that connect your assays, pipelines & workflows within our data platform enterprise plan.
