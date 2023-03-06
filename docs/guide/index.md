@@ -12,6 +12,7 @@ Welcome to the LaminDB guide! 👋
 :hidden:
 :caption: Get started
 
+setup
 ingest
 select
 add-delete
