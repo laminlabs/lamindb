@@ -8,18 +8,17 @@ Welcome to the LaminDB guide! 👋
 ```
 
 ```{toctree}
-:maxdepth: 1
+:maxdepth: 2
 :hidden:
 :caption: Get started
 
-setup
 ingest
 select
 add-delete
 ```
 
 ```{toctree}
-:maxdepth: 1
+:maxdepth: 2
 :hidden:
 :caption: More details
 
@@ -31,7 +30,7 @@ session
 ```
 
 ```{toctree}
-:maxdepth: 1
+:maxdepth: 2
 :hidden:
 :caption: Track biology, features, samples
 
