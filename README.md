@@ -123,7 +123,7 @@ ln.add(dobject)
 ::::
 See {doc}`/guide/ingest` for more.
 
-## Track datasets-linked features
+## Track features
 
 ```python
 # Bionty extends lamindb to track biological entities
