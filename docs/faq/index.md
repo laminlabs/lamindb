@@ -3,13 +3,13 @@
 ```{toctree}
 :maxdepth: 1
 
+ingest-folder
 session
 ingest
 nb
 ingest-same-file-twice
 track-runin
 existing-data
-ingest-folder
 stream
 storage
 select
