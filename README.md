@@ -45,7 +45,7 @@ Quick setup on the command line:
 :::{dropdown} Example code
 
 ```shell
-lamin signup testuser1@ln.setup.ai
+lamin signup testuser1@lamin.ai
 lamin login testuser1
 lamin init --storage ./mydata --schema bionty,wetlab
 ```
