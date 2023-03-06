@@ -14,7 +14,6 @@ Welcome to the LaminDB guide! 👋
 
 setup
 ingest
-ingest-folder
 select
 add-delete
 ```
@@ -24,7 +23,6 @@ add-delete
 :hidden:
 :caption: More details
 
-dobject.md
 schema
 query-book
 run
