@@ -3,7 +3,7 @@
 <!-- prettier-ignore -->
 Name | PR | Developer | Date | Version
 --- | --- | --- | --- | ---
-⬆️ Upgrade lndb | [549](https://github.com/laminlabs/lamindb/pull/549) | [fredericenard](https://github.com/fredericenard) | 2023-03-07 |
+⬆️ Upgrade lndb | [549](https://github.com/laminlabs/lamindb/pull/549) | [fredericenard](https://github.com/fredericenard) | 2023-03-07 | 0.31.0
 ⬆️ Upgrade lndb | [548](https://github.com/laminlabs/lamindb/pull/548) | [fredericenard](https://github.com/fredericenard) | 2023-03-07 |
 📝 Move ingest-folder back to faq | [545](https://github.com/laminlabs/lamindb/pull/545) | [falexwolf](https://github.com/falexwolf) | 2023-03-06 |
 🚸 Improve clarity of `no_source` error message | [543](https://github.com/laminlabs/lamindb/pull/543) | [falexwolf](https://github.com/falexwolf) | 2023-03-06 |
