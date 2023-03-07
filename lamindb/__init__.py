@@ -44,13 +44,6 @@ Schema - entities and their relations:
 
    schema
 
-Manage knowledge:
-
-.. autosummary::
-   :toctree: .
-
-   knowledge
-
 Track Jupyter notebooks:
 
 .. autosummary::
@@ -167,7 +160,6 @@ DObject.__doc__ = dobject_doc
 
 
 from . import dev  # noqa
-from . import knowledge  # noqa
 from . import schema  # noqa
 from . import setup  # noqa
 from ._delete import delete  # noqa

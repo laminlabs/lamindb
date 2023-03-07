@@ -106,18 +106,17 @@ df = dobject.load()
 
 See {doc}`/guide/ingest` for more.
 
-## Track features
+## Track biological features
 
 ```python
-# Bionty extends lamindb to track biological entities
 import bionty as bt
 
-# An example single cell RNA-seq dataset
+# An sample single cell RNA-seq dataset
 adata = ln.dev.datasets.anndata_mouse_sc_lymph_node()
 
-# Instantiate a gene table
-# with ensembl id as the standardized id
-# with mouse as the species
+# Start to track genes mapped to a Bionty Entity
+# - ensembl id as the standardized id
+# - mouse as the species
 reference = bt.Gene(id=bt.gene_id.ensembl_gene_id, species=bt.Species().lookup.mouse)
 
 # Create a data object with features
