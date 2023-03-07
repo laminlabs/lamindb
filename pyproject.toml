@@ -14,8 +14,7 @@ classifiers = [
 ]
 dependencies = [
     # Lamin pinned packages
-    "lnhub_rest==0.5.1",  # NOT pinned in lndb, just a lower bound there
-    "lndb==0.36.0",
+    "lndb==0.37.0",
     "lnschema_core==0.29.1",
     "lnschema_wetlab==0.13.4",
     "lnschema_bionty==0.7.0",
