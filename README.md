@@ -123,10 +123,9 @@ ln.add(dobject)
 ::::
 See {doc}`/guide/ingest` for more.
 
-## Track features
+## Track biological features
 
 ```python
-# Bionty extends lamindb to track biological entities
 import bionty as bt
 
 # An example single cell RNA-seq dataset
