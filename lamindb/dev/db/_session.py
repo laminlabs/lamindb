@@ -11,6 +11,8 @@ from ._select import SelectStmt, select, select_docs
 class Session:
     """Database session.
 
+    - FAQ: :doc:`faq/session`
+
     It offers `.select`, `.add` and `.delete` attached to an open session, which
     is needed for lazy loading of relationships.
 
