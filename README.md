@@ -8,9 +8,7 @@ _Curate, store, track, query, integrate, and learn from biological data._
 
 LaminDB provides distributed data management in which users collaborate on _LaminDB instances_.
 
-Each _LaminDB instance_ is a [data lakehouse](https://www.databricks.com/glossary/data-lakehouse) that manages indexed **object storage** (local directories, S3, GCP) with a mapped **SQL query database** (SQLite, Postgres, and soon, BigQuery).
-
-This is analogous to how developers collaborate on code in repositories, but unlike git and dvc, LaminDB is **queryable by entities**.
+Each _LaminDB instance_ is a data lake that manages indexed **object storage** (local directories, S3, GCP) with a mapped **SQL database** (SQLite, Postgres, and soon, BigQuery).
 
 ```{warning}
 
