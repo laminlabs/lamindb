@@ -9,7 +9,7 @@ Welcome to the LaminDB guide! 👋
 
 ```{toctree}
 :hidden:
-:caption: Fundamentals and Usage
+:caption: Basics
 
 setup
 track
@@ -21,7 +21,7 @@ run
 
 ```{toctree}
 :hidden:
-:caption: Knowledge integration
+:caption: Biology
 
 knowledge
 link-features
