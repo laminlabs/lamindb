@@ -3,6 +3,7 @@
 <!-- prettier-ignore -->
 Name | PR | Developer | Date | Version
 --- | --- | --- | --- | ---
+➖ Remove bionty as a dependency | [551](https://github.com/laminlabs/lamindb/pull/551) | [sunnyosun](https://github.com/sunnyosun) | 2023-03-09 |
 📝 Replace `ln.knowledge` with `bionty` in docs | [547](https://github.com/laminlabs/lamindb/pull/547) | [falexwolf](https://github.com/falexwolf) | 2023-03-07 | 0.31.1
 📝 Link FAQ and guide to session and notebook API | [550](https://github.com/laminlabs/lamindb/pull/550) | [falexwolf](https://github.com/falexwolf) | 2023-03-07 |
 ⬆️ Upgrade lndb | [549](https://github.com/laminlabs/lamindb/pull/549) | [fredericenard](https://github.com/fredericenard) | 2023-03-07 | 0.31.0
