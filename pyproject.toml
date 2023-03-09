@@ -17,8 +17,7 @@ dependencies = [
     "lndb==0.37.1",
     "lnschema_core==0.29.1",
     "lnschema_wetlab==0.13.4",
-    "lnschema_bionty==0.7.0",
-    "bionty==0.7.0",
+    "lnschema_bionty==0.8.0rc1",
     "nbproject>=0.8.2",
     "readfcs>=1.1.0",
     # External packages
