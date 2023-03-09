@@ -4,7 +4,14 @@ Use the LaminDB instance to track your local files, cloud files or even in-memor
 
 **Jump to:**
 
+- {doc}`/guide/files`
+- {doc}`/guide/memory`
+- {doc}`/guide/existing`
+- {doc}`/guide/folder`
+- {doc}`/guide/dobject`
+
 ```{toctree}
+:hidden:
 :maxdepth: 1
 
 files
