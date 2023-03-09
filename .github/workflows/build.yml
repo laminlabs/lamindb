@@ -44,8 +44,9 @@ jobs:
           key: ${{ runner.os }}-build-${{ env.cache-name }}-${{ hashFiles('.pre-commit-config.yaml') }}-${{ hashFiles('pyproject.yaml') }}
       - name: Install pip, nox, graphviz, postgress
         run: |
-          python -m pip install --upgrade pip
-          pip install "laminci>=0.2.5"
+          python -m pip install -U pip
+          pip install -U laminci
+          pip install lamindb
           sudo apt-get -y install graphviz
           sudo apt-get install libpq-dev
       - name: Lint
