@@ -46,7 +46,7 @@ jobs:
         run: |
           python -m pip install -U pip
           pip install -U laminci
-          pip install lndb
+          pip install lamindb
           sudo apt-get -y install graphviz
           sudo apt-get install libpq-dev
       - name: Lint
