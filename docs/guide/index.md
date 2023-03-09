@@ -8,12 +8,11 @@ Welcome to the LaminDB guide! 👋
 ```
 
 ```{toctree}
-:maxdepth: 2
 :hidden:
 :caption: Basic data
 
 setup
-ingest
+track
 select
 add-delete
 schema
@@ -21,7 +20,6 @@ run
 ```
 
 ```{toctree}
-:maxdepth: 2
 :hidden:
 :caption: Basic biology
 
