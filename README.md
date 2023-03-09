@@ -104,7 +104,7 @@ df = dobject.load()
 
 <br>
 
-See {doc}`/guide/ingest` for more.
+See {doc}`/guide/track` for more.
 
 ## Track biological features
 

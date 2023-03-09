@@ -3,6 +3,7 @@
 <!-- prettier-ignore -->
 Name | PR | Developer | Date | Version
 --- | --- | --- | --- | ---
+📝 Refactor docs sidebar | [553](https://github.com/laminlabs/lamindb/pull/553) | [sunnyosun](https://github.com/sunnyosun) | 2023-03-09 |
 ⬆️ Upgrade setup | [554](https://github.com/laminlabs/lamindb/pull/554) | [falexwolf](https://github.com/falexwolf) | 2023-03-09 |
 ⬆️  Stable release of lnschema-bionty, remove knowledge | [552](https://github.com/laminlabs/lamindb/pull/552) | [sunnyosun](https://github.com/sunnyosun) | 2023-03-09 |
 ➖ Remove bionty as a dependency | [551](https://github.com/laminlabs/lamindb/pull/551) | [sunnyosun](https://github.com/sunnyosun) | 2023-03-09 | 0.32.0rc1
