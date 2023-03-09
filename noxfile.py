@@ -23,4 +23,5 @@ def build(session):
     session.install(".[dev,test]")
     run_pytest(session)
     build_docs(session)
+    login_testuser1(session)
     upload_docs_dir()
