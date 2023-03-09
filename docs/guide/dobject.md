@@ -1,4 +1,4 @@
-# Create a DObject
+# The story of DObject
 
 We have come to love the pydata family of `DataFrame`, `AnnData`, `pytorch.DataLoader`, `zarr.Array`, `pyarrow.Table`, `xarray.Dataset`, and others for accessing lower-level data objects.
 
