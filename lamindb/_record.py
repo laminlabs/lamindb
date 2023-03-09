@@ -6,13 +6,12 @@ from typing import Any, List, Optional, Set, Tuple, Union
 import anndata as ad
 import lnschema_bionty as bionty
 import pandas as pd
+from bionty import CellMarker, Gene, Protein
 from lamin_logger import logger
 from lndb import settings as setup_settings
 from lndb.dev import UPath
 from lnschema_core import DObject as lns_DObject
 from lnschema_core import Features, Run, Storage
-
-from lamindb.knowledge import CellMarker, Gene, Protein
 
 from ._settings import settings
 from .dev._core import get_name_suffix_from_filepath
