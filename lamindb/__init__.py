@@ -109,7 +109,7 @@ from lnschema_core import DObject  # noqa
 
 dobject_doc = """Data objects in storage & memory.
 
-- Guide: :doc:`/guide/ingest`
+- Guide: :doc:`/guide/track`
 - FAQ: :doc:`/faq/ingest`
 
 A `DObject` is typically instantiated from data using the arguments below.

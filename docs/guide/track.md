@@ -1,6 +1,6 @@
 # Track data
 
-Use the LaminDB instance to track your local files, cloud files or even in-memory objects via {doc}`/guide/dobject`.
+Use the LaminDB instance to track your local files, cloud files or even in-memory objects via {class}`~lamindb.DObject`.
 
 **Jump to:**
 
