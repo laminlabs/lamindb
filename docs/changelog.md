@@ -3,7 +3,7 @@
 <!-- prettier-ignore -->
 Name | PR | Developer | Date | Version
 --- | --- | --- | --- | ---
-:memo: Fix species query | [555](https://github.com/laminlabs/lamindb/pull/555) | [falexwolf](https://github.com/falexwolf) | 2023-03-09 |
+📝 Prettier species query | [555](https://github.com/laminlabs/lamindb/pull/555) | [falexwolf](https://github.com/falexwolf) | 2023-03-09 | 0.32.0
 📝 Refactor docs sidebar | [553](https://github.com/laminlabs/lamindb/pull/553) | [sunnyosun](https://github.com/sunnyosun) | 2023-03-09 |
 ⬆️ Upgrade setup | [554](https://github.com/laminlabs/lamindb/pull/554) | [falexwolf](https://github.com/falexwolf) | 2023-03-09 |
 ⬆️  Stable release of lnschema-bionty, remove knowledge | [552](https://github.com/laminlabs/lamindb/pull/552) | [sunnyosun](https://github.com/sunnyosun) | 2023-03-09 |
