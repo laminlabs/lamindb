@@ -143,7 +143,7 @@ def parse_features(
         df: a DataFrame
         features_ref: Features reference class.
     """
-    parsing_id = features_ref._id_field
+    parsing_id = features_ref._id
 
     # Add and curate features against a knowledge table
     column = None
