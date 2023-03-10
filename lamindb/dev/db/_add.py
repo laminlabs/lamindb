@@ -29,14 +29,25 @@ Guide: :doc:`/guide/add-delete`.
 
 Example:
 
->>> # add a record (by passing a record)
->>> ln.add(wetlab.Experiment(name="My test", biometa_id=test_id))
->>> # update an existing record
->>> experiment = ln.select(wetlab.Experiment, id=experiment_id).one()
->>> experiment.name = "New name"
+1) Add a record (by passing a record)
+>>> ln.add(lns.Pipeline(name="My pipeline", v="1"))
+Pipeline(id="0Cb86EZj", name="My pipeline", v="1", ...)
+
+2) Update an existing record
+>>> pipeline = ln.select(lns.Pipeline, id="0Cb86EZj").one()
+>>> pipeline.name = "New name"
 >>> ln.add(experiment)
->>> # add a record by fields if not yet exists
->>> ln.add(wetlab.Experiment, name="My test", biometa_id=test_id)
+Pipeline(id="0Cb86EZj", name="New name", v="1", ...)
+
+3) Add a record if not exist in the DB
+>>> # add a record if the metadata combination is not already exist in the DB
+>>> # if exists, returns the existing record from the DB
+>>> ln.add(lns.Pipeline, name="My pipeline", v="1")
+>>> # under the hood, this runs a query first based on passed fields
+>>> # equivalent to the following:
+>>> pipeline = ln.select(lns.Pipeline, name="My pipeline", v="1").one_or_none()
+>>> if pipeline is None:
+>>>     ln.add(pipeline)
 
 Args:
     record: One or multiple records as instances of `SQLModel`.
