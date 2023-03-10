@@ -3,6 +3,7 @@
 <!-- prettier-ignore -->
 Name | PR | Developer | Date | Version
 --- | --- | --- | --- | ---
+📝 Hide CI related cells in notebooks | [558](https://github.com/laminlabs/lamindb/pull/558) | [sunnyosun](https://github.com/sunnyosun) | 2023-03-10 |
 :construction_worker: Update docs to clarify sign up and log in | [557](https://github.com/laminlabs/lamindb/pull/557) | [lawrlee](https://github.com/lawrlee) | 2023-03-10 |
 📝 Prettier species query | [555](https://github.com/laminlabs/lamindb/pull/555) | [falexwolf](https://github.com/falexwolf) | 2023-03-09 | 0.32.0
 📝 Refactor docs sidebar | [553](https://github.com/laminlabs/lamindb/pull/553) | [sunnyosun](https://github.com/sunnyosun) | 2023-03-09 |
