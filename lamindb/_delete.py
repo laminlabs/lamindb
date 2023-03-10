@@ -48,14 +48,20 @@ def delete(  # type: ignore
 
     Example:
 
-    >>> # Delete by record
-    >>> experiment = ln.select(Experiment, id=experiment_id)
+    1) Delete by record
+    >>> experiment = ln.select(Experiment, id=experiment_id).one()
     >>> ln.delete(experiment)
-    >>> # Delete data objects
-    >>> dobject = ln.select(DObject, id=dobject_id)
-    >>> ln.delete(dobject)
-    >>> # Delete by fields
-    >>> ln.delete(DObject, id=dobject_id)
+
+    2) Delete by fields
+    >>> ln.delete(Experiment, id=experiment_id)
+    >>> # the result of is equivalent to 1)
+
+    3) Delete data objects (deleting the metadata record and the storage file)
+    >>> dobject = ln.select(DObject, id=dobject_id).one()
+    >>> # deleting the metadata record occurs automatically
+    >>> # you will be asked whether to delete the file from storage
+    >>> # or pass boolean values to `delete_data_from_storage`
+    >>> ln.delete(dobject, delete_data_from_storage)
 
     Args:
         record: One or multiple records as instances of `SQLModel`.
