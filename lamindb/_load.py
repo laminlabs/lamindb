@@ -25,6 +25,6 @@ def load(dobject: DObject, stream: bool = False, is_run_input: Optional[bool] = 
                 " directly."
             )
         else:
-            context.run.inputs.append(dobject)
+            dobject.targets.append(context.run)
     # track_usage(dobject.id, "load")
     return load_to_memory(filepath_from_dobject(dobject), stream=stream)
