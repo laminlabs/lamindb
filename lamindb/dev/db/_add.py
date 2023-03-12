@@ -5,8 +5,7 @@ from typing import List, Optional, Tuple, Union, overload  # noqa
 import sqlmodel as sqm
 from lamin_logger import logger
 from lndb import settings as setup_settings
-from lndb.dev import UPath
-from lndb_storage import store_object, write_adata_zarr
+from lndb_storage import UPath, store_object, write_adata_zarr
 from lndb_storage._file import print_hook
 from lnschema_core import DFolder, DObject
 from pydantic.fields import ModelPrivateAttr

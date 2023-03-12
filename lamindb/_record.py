@@ -9,8 +9,7 @@ import pandas as pd
 from bionty import CellMarker, Gene, Protein
 from lamin_logger import logger
 from lndb import settings as setup_settings
-from lndb.dev import UPath
-from lndb_storage import load_to_memory
+from lndb_storage import UPath, load_to_memory
 from lndb_storage.object import size_adata
 from lnschema_core import DObject as lns_DObject
 from lnschema_core import Features, Run, Storage
