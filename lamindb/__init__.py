@@ -23,6 +23,13 @@ Query & manipulate data:
    add
    delete
 
+Manage run context:
+
+.. autosummary::
+   :toctree: .
+
+   context
+
 Manipulate data with open session:
 
 .. autosummary::
@@ -43,13 +50,6 @@ Schema - entities and their relations:
    :toctree: .
 
    schema
-
-Track Jupyter notebooks:
-
-.. autosummary::
-   :toctree: .
-
-   nb
 
 Setup:
 
