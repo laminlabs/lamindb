@@ -4,8 +4,10 @@ from typing import List, Optional, Union
 import lnschema_core
 import nbproject
 from lamin_logger import logger
+from lndb import settings
 from lndb.dev import InstanceSettings
 from lnschema_core import Notebook, Pipeline, Run, dev
+from nbproject._is_run_from_ipython import is_run_from_ipython
 
 
 class context:
@@ -14,7 +16,7 @@ class context:
     This is helpful if you don't want to ingest data from concurrent pipeline runs.
     """
 
-    instance: InstanceSettings = None  # current instance
+    instance: InstanceSettings = settings.instance  # current instance
     notebook: Notebook = None  # current notebook
     pipeline: Pipeline = None  # current pipeline
     run: Run = None  # run of this Python session
@@ -30,7 +32,7 @@ class context:
         pypackage: Union[str, List[str], None] = None,
         editor: Optional[str] = None,
     ):
-        """Track a Notebook global record.
+        """Track notebook.
 
         Args:
             id: Pass a notebook id manually.
@@ -127,17 +129,50 @@ class context:
         cls.notebook = notebook
 
     @classmethod
+    def track_pipeline(
+        cls,
+        name: str,
+        *,
+        version: Optional[str] = None,
+    ):
+        """Track pipeline.
+
+        Args:
+            name: Pipeline name.
+            version: Pipeline version. If `None`, load latest (sort by created_at).
+        """
+        import lamindb as ln
+        import lamindb.schema as lns
+
+        if version is not None:
+            pipeline = ln.select(lns.Pipeline, name=name, v=version).one()
+        else:
+            pipeline = (
+                ln.select(lns.Pipeline, name=name)
+                .order_by(lns.Run.created_at.desc())
+                .first()
+            )
+            if pipeline is None:
+                response = input(
+                    f"Did not find any pipeline record with name '{name}'. Create a new"
+                    " one? (y/n)"
+                )
+                if response == "y":
+                    pipeline = lns.Pipeline(name=name)
+        cls.pipeline = pipeline
+
+    @classmethod
     def track_run(
         cls,
         *,
         load_latest: bool = False,
         run: Optional[Run] = None,
     ):
-        """Track a Notebook global record.
+        """Track run.
 
         Args:
-            run: If `None`, either create new run or load latest.
-            load_latest: Loads the latest run of the notebook or pipeline.
+            run: If `None`, create new run or load latest.
+            load_latest: Load the latest run of the notebook or pipeline.
         """
         import lamindb as ln
         import lamindb.schema as lns
@@ -185,3 +220,25 @@ class context:
 
         # at this point, we have a run object
         cls.run = run
+
+    def track_all(cls, pipeline_name: Optional[str], load_latest=True):
+        """Track notebook/pipeline and run.
+
+        Args:
+            pipeline_name: Pipeline name.
+            load_latest: Load the latest run of the notebook or pipeline.
+        """
+        logger.info(f"Instance: {cls.instance.identifier}")
+        logger.info(f"User: {settings.user.handle}")
+        if is_run_from_ipython:
+            cls.track_notebook()
+            logger.info(f"Notebook: {cls.notebook}")
+        else:
+            if pipeline_name is None:
+                raise ValueError(
+                    "Pass a pipeline name: ln.context.track_all(pipeline_name='...')"
+                )
+            cls.track_pipeline(name=pipeline_name)
+            logger.info(f"Pipeline: {cls.pipeline}")
+
+        cls.track_run(load_latest=load_latest)
