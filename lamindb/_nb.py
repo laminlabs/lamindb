@@ -61,8 +61,10 @@ class nb:
         cls.notebook = notebook
         if run == "new":
             context.track_run()
-        else:
+        elif run is None:
             context.track_run(load_latest=True)
+        else:
+            raise ValueError("Pass 'new' to ln.nb.header().")
         cls.run = context.run
 
     @classmethod
