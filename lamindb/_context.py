@@ -11,15 +11,16 @@ from nbproject._is_run_from_ipython import is_run_from_ipython
 
 
 class context:
-    """Global run context.
+    """Global run context tracking data source."""
 
-    This is helpful if you don't want to ingest data from concurrent pipeline runs.
-    """
-
-    instance: InstanceSettings = settings.instance  # current instance
-    notebook: Notebook = None  # current notebook
-    pipeline: Pipeline = None  # current pipeline
-    run: Run = None  # run of this Python session
+    instance: InstanceSettings = settings.instance
+    """Current instance."""
+    notebook: Notebook = None
+    """Current notebook."""
+    pipeline: Pipeline = None
+    """Current pipeline."""
+    run: Run = None
+    """Current run."""
 
     @classmethod
     def track_notebook(
@@ -221,7 +222,8 @@ class context:
         # at this point, we have a run object
         cls.run = run
 
-    def track_all(cls, pipeline_name: Optional[str], load_latest=True):
+    @classmethod
+    def track(cls, pipeline_name: Optional[str], load_latest=True):
         """Track notebook/pipeline and run.
 
         Args:
