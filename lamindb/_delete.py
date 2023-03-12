@@ -3,13 +3,13 @@ from typing import List, Optional, Union, overload  # noqa
 
 import sqlmodel as sqm
 from lndb import settings
+from lndb_storage import delete_storage
 from lnschema_core import DObject, Usage
 from lnschema_core.link import RunIn
 
 from ._logger import colors, logger
 from .dev._core import storage_key_from_dobject
 from .dev.db._select import select
-from .dev.file import delete_storage
 
 
 @overload

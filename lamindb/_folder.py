@@ -2,7 +2,7 @@ from itertools import islice
 from pathlib import Path, PurePath
 from typing import List, Optional, Union
 
-from lndb.dev import UPath
+from lndb_storage import UPath
 from lnschema_core import DFolder as lns_DFolder
 from lnschema_core import DObject as lns_DObject
 from lnschema_core import Run, Storage

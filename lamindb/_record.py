@@ -10,6 +10,8 @@ from bionty import CellMarker, Gene, Protein
 from lamin_logger import logger
 from lndb import settings as setup_settings
 from lndb.dev import UPath
+from lndb_storage import load_to_memory
+from lndb_storage.object import size_adata
 from lnschema_core import DObject as lns_DObject
 from lnschema_core import Features, Run, Storage
 
@@ -17,8 +19,7 @@ from ._settings import settings
 from .dev._core import get_name_suffix_from_filepath
 from .dev.db._add import add, get_storage_root_and_root_str
 from .dev.db._select import select
-from .dev.file import load_to_memory
-from .dev.object import infer_suffix, size_adata, write_to_file
+from .dev.object import infer_suffix, write_to_file
 from .schema._table import table_meta
 
 NO_NAME_ERROR = """

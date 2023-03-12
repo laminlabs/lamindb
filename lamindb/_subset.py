@@ -2,10 +2,9 @@ from typing import List, Optional, Union
 
 from anndata import AnnData, concat
 from lamin_logger import logger
+from lndb_storage.object import _subset_anndata_dobject
+from lndb_storage.object._lazy_field import LazySelector
 from lnschema_core import DObject
-
-from .dev.object import _subset_anndata_dobject
-from .dev.object._lazy_field import LazySelector
 
 SUFFIXES = (".h5ad", ".zarr")
 

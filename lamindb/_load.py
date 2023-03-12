@@ -1,6 +1,7 @@
 from typing import Optional
 
 from lamin_logger import logger
+from lndb_storage import load_to_memory
 from lnschema_core import DObject
 from sqlalchemy.orm.session import object_session
 
@@ -8,7 +9,6 @@ from lamindb._context import context
 
 from ._settings import settings
 from .dev._core import filepath_from_dobject
-from .dev.file import load_to_memory
 
 
 # this is exposed to the user as DObject.load
