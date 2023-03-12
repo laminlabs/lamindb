@@ -229,6 +229,8 @@ class context:
     def track(cls, pipeline_name: Optional[str], load_latest=True):
         """Track notebook/pipeline and run.
 
+        When called from within a Python script, pass `pipeline_name`.
+
         Args:
             pipeline_name: Pipeline name.
             load_latest: Load the latest run of the notebook or pipeline.
