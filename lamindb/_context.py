@@ -219,8 +219,11 @@ class context:
                 raise RuntimeError(
                     "Please call context.track_notebook or context.track_pipeline."
                 )
-            run = ln.add(run)  # type: ignore
-            logger.info(f"Added run: {run.id}")  # type: ignore
+            # it seems wiser to not yet commit the run to the database here
+            # rather commit it with the first piece of data
+            # however, it might be that one errors because of duplicate insertion
+            # run = ln.add(run)  # type: ignore
+            # logger.info(f"Added run: {run.id}")  # type: ignore
 
         # at this point, we have a run object
         cls.run = run
