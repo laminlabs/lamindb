@@ -13,13 +13,13 @@ from nbproject._is_run_from_ipython import is_run_from_ipython
 class context:
     """Global run context tracking data source."""
 
-    instance: InstanceSettings = settings.instance
+    instance: Optional[InstanceSettings] = None
     """Current instance."""
-    notebook: Notebook = None
+    notebook: Optional[Notebook] = None
     """Current notebook."""
-    pipeline: Pipeline = None
+    pipeline: Optional[Pipeline] = None
     """Current pipeline."""
-    run: Run = None
+    run: Optional[Run] = None
     """Current run."""
 
     @classmethod
@@ -46,6 +46,7 @@ class context:
                 this can help to identify the correct mechanism for interactivity
                 when automatic inference fails.
         """
+        cls.instance = settings.instance
         # original location of this code was _nb
         # legacy code here, see duplicated version in _run
         if id is None and name is None:
@@ -142,6 +143,7 @@ class context:
             name: Pipeline name.
             version: Pipeline version. If `None`, load latest (sort by created_at).
         """
+        cls.instance = settings.instance
         import lamindb as ln
         import lamindb.schema as lns
 
@@ -175,6 +177,7 @@ class context:
             run: If `None`, create new run or load latest.
             load_latest: Load the latest run of the notebook or pipeline.
         """
+        cls.instance = settings.instance
         import lamindb as ln
         import lamindb.schema as lns
 
@@ -230,6 +233,7 @@ class context:
             pipeline_name: Pipeline name.
             load_latest: Load the latest run of the notebook or pipeline.
         """
+        cls.instance = settings.instance
         logger.info(f"Instance: {cls.instance.identifier}")
         logger.info(f"User: {settings.user.handle}")
         if is_run_from_ipython:
@@ -238,7 +242,7 @@ class context:
         else:
             if pipeline_name is None:
                 raise ValueError(
-                    "Pass a pipeline name: ln.context.track_all(pipeline_name='...')"
+                    "Pass a pipeline name: ln.context.track(pipeline_name='...')"
                 )
             cls.track_pipeline(name=pipeline_name)
             logger.info(f"Pipeline: {cls.pipeline}")
