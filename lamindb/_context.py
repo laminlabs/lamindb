@@ -226,7 +226,7 @@ class context:
         cls.run = run
 
     @classmethod
-    def track(cls, pipeline_name: Optional[str], load_latest=True):
+    def track(cls, *, pipeline_name: Optional[str] = None, load_latest=True):
         """Track notebook/pipeline and run.
 
         When called from within a Python script, pass `pipeline_name`.
