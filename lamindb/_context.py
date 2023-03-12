@@ -224,6 +224,7 @@ class context:
             # however, it might be that one errors because of duplicate insertion
             # run = ln.add(run)  # type: ignore
             # logger.info(f"Added run: {run.id}")  # type: ignore
+            logger.info(f"Created run: {run.id}")
 
         # at this point, we have a run object
         cls.run = run
