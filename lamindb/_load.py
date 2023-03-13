@@ -8,7 +8,6 @@ from lamindb._context import context
 
 from ._settings import settings
 from .dev._core import filepath_from_dobject
-from .dev.db import add
 from .dev.file import load_to_memory
 
 
@@ -30,6 +29,8 @@ def load(dobject: DObject, stream: bool = False, is_run_input: Optional[bool] = 
             )
         else:
             dobject.targets.append(context.run)
-            add(dobject)  # need to commit here
+            session = object_session(dobject)
+            session.add(dobject)
+            session.commit()
     # track_usage(dobject.id, "load")
     return load_to_memory(filepath_from_dobject(dobject), stream=stream)
