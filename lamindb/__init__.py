@@ -23,13 +23,6 @@ Query & manipulate data:
    add
    delete
 
-Manage run context:
-
-.. autosummary::
-   :toctree: .
-
-   context
-
 Manipulate data with open session:
 
 .. autosummary::
@@ -63,6 +56,7 @@ Developer API:
 .. autosummary::
    :toctree: .
 
+   context
    settings
    dev
 """
