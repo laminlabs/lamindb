@@ -17,7 +17,7 @@ def test_create_to_load():
 
     notebook = ln.schema.Notebook(id="83jf", v="1", name="test")
     ln.add(notebook)
-    run = ln.schema.Run(notebook_id=notebook.id, notebook_v=notebook.v)
+    run = ln.schema.Run(notebook=notebook)
     ln.add(run)
     ln.select(ln.schema.Storage, root=str(lnsetup.settings.instance.storage.root)).one()
 

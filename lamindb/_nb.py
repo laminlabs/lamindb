@@ -1,12 +1,12 @@
-from pathlib import Path
 from typing import List, Optional, Union
 
 import nbproject as _nb
-from lamin_logger import logger
-from lndb import settings
-from lnschema_core import Notebook, Run, dev
+from lnschema_core import Notebook, Run
+
+from ._context import context
 
 
+# this whole class is deprecated, see lamindb.context instead!
 class nb:
     """Manage Jupyter notebooks.
 
@@ -30,7 +30,7 @@ class nb:
         id: Optional[str] = None,
         v: Optional[str] = "0",
         name: Optional[str] = None,
-    ):
+    ) -> Run:
         """Track the notebook & display metadata.
 
         Call without arguments in most settings.
@@ -54,88 +54,19 @@ class nb:
             v: Pass a notebook version manually.
             name: Pass a notebook name manually.
         """
-        if id is None and name is None:
-            nbproject_failed_msg = (
-                "Auto-retrieval of notebook name & title failed.\nPlease paste error"
-                " at: https://github.com/laminlabs/nbproject/issues/new \n\nFix: Run"
-                f" ln.nb.header(id={dev.id.notebook()}, name='my-notebook-name')"
-            )
-            try:
-                _nb.header(pypackage=pypackage, filepath=filepath, env=env)
-            except Exception:
-                raise RuntimeError(nbproject_failed_msg)
-            # this contains filepath if the header was run successfully
-            from nbproject._header import _filepath
-
-            id = _nb.meta.store.id
-            v = _nb.meta.store.version
-            name = Path(_filepath).stem
-            title = _nb.meta.live.title
-        elif id is None or name is None:
-            # Both id and name need to be passed if passing it manually
-            raise RuntimeError("Fix: Pass both id & name to ln.nb.header().")
-        else:
-            title = None
-
-        logger.info(f"Instance: {settings.instance.owner}/{settings.instance.name}")
-
-        import lamindb as ln
-        import lamindb.schema as lns
-
-        notebook = ln.select(
-            lns.Notebook,
-            id=id,
-            v=v,
-        ).one_or_none()
-        if notebook is None:
-            notebook = lns.Notebook(
-                id=id,
-                v=v,
-                name=name,
-                title=title,
-            )
-            notebook = ln.add(notebook)
-            logger.info(f"Added notebook: {notebook.id} v{notebook.v}")
-        else:
-            logger.info(f"Loaded notebook: {notebook.id} v{notebook.v}")
-            if notebook.name != name or notebook.title != title:
-                notebook.name = name
-                notebook.title = title
-                ln.add(notebook)
-                logger.info("Updated notebook name or title.")
-
-        # at this point, we have a notebook object
+        context._track_notebook(
+            pypackage=pypackage, filepath=filepath, id=id, v=v, name=name, editor=env
+        )
+        notebook = context.notebook
         cls.notebook = notebook
-
-        # check user input
-        # if isinstance(run, lns.Run):
-        # This here might be something we may want in the future
-        # but checking all the cases in which that run record has integrity
-        # is quite a bit of code - not now!
-        #     run_test = ln.select(lns.Run, id=run.id).one_or_none()
-        #     if run_test is None:
-        #         logger.info("Passed run does not exist, adding it")
-        #         ln.add(run)
-        if run is None:
-            # retrieve the latest run
-            run = (
-                ln.select(lns.Run, notebook_id=notebook.id, notebook_v=notebook.v)
-                .order_by(lns.Run.created_at.desc())
-                .first()
-            )
-            if run is not None:
-                logger.info(f"Loaded run: {run.id}")  # type: ignore
-        elif run != "new":
-            raise ValueError("Fix: ln.nb.header(run='new')!")
-
-        # create a new run if doesn't exist yet or is requested by the user ("new")
-        if run is None or run == "new":
-            run = lns.Run(notebook_id=notebook.id, notebook_v=notebook.v)
-            run = ln.add(run)  # type: ignore
-            logger.info(f"Added run: {run.id}")  # type: ignore
-
-        # at this point, we have a run object
+        if run == "new":
+            run = Run(global_context=True)
+        elif run is None:
+            run = Run(global_context=True, load_latest=True)
+        else:
+            raise ValueError("Pass 'new' to ln.nb.header().")
         cls.run = run
+        return run
 
     @classmethod
     def publish(cls, version: str = None, i_confirm_i_saved: bool = False):
