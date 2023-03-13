@@ -207,6 +207,10 @@ def get_run(run: Optional[Run]) -> Run:
         run = context.run
         if run is None:
             raise ValueError(NO_SOURCE_ERROR)
+    # the following ensures that queried objects (within __init__)
+    # behave like queried objects, only example right now: Run
+    if run._ln_identity_key is not None:
+        run._sa_instance_state.key = run._ln_identity_key
     return run
 
 
