@@ -30,7 +30,7 @@ class nb:
         id: Optional[str] = None,
         v: Optional[str] = "0",
         name: Optional[str] = None,
-    ):
+    ) -> Run:
         """Track the notebook & display metadata.
 
         Call without arguments in most settings.
@@ -60,11 +60,13 @@ class nb:
         notebook = context.notebook
         cls.notebook = notebook
         if run == "new":
-            Run(global_context=True)
+            run = Run(global_context=True)
         elif run is None:
-            Run(global_context=True, load_latest=True)
+            run = Run(global_context=True, load_latest=True)
         else:
             raise ValueError("Pass 'new' to ln.nb.header().")
+        cls.run = run
+        return run
 
     @classmethod
     def publish(cls, version: str = None, i_confirm_i_saved: bool = False):
