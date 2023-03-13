@@ -1,0 +1,3 @@
+[submodule "lnschema-core"]
+	path = lnschema-core
+	url = https://github.com/laminlabs/lnschema-core.git

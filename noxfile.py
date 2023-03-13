@@ -20,6 +20,7 @@ def lint(session: nox.Session) -> None:
 def build(session):
     login_testuser1(session)
     login_testuser2(session)
+    session.install("./lnschema-core[dev,test]")
     session.install(".[dev,test]")
     run_pytest(session)
     build_docs(session)
