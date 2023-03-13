@@ -54,18 +54,17 @@ class nb:
             v: Pass a notebook version manually.
             name: Pass a notebook name manually.
         """
-        context.track_notebook(
+        context._track_notebook(
             pypackage=pypackage, filepath=filepath, id=id, v=v, name=name, editor=env
         )
         notebook = context.notebook
         cls.notebook = notebook
         if run == "new":
-            context.track_run()
+            Run(global_context=True)
         elif run is None:
-            context.track_run(load_latest=True)
+            Run(global_context=True, load_latest=True)
         else:
             raise ValueError("Pass 'new' to ln.nb.header().")
-        cls.run = context.run
 
     @classmethod
     def publish(cls, version: str = None, i_confirm_i_saved: bool = False):

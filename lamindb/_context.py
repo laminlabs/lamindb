@@ -11,7 +11,12 @@ from nbproject._is_run_from_ipython import is_run_from_ipython
 
 
 class context:
-    """Global run context tracking data source."""
+    """Global run context.
+
+    Set through `ln.Run(global_context=True)`.
+
+    Often, you'll want to call: `ln.Run(global_context=True, load_latest)`.
+    """
 
     instance: Optional[InstanceSettings] = None
     """Current instance."""
@@ -23,7 +28,7 @@ class context:
     """Current run."""
 
     @classmethod
-    def track_notebook(
+    def _track_notebook(
         cls,
         *,
         id: Optional[str] = None,
@@ -131,7 +136,7 @@ class context:
         cls.notebook = notebook
 
     @classmethod
-    def track_pipeline(
+    def _track_pipeline(
         cls,
         name: str,
         *,
@@ -165,29 +170,9 @@ class context:
         cls.pipeline = pipeline
 
     @classmethod
-    def track_run(
-        cls,
-        *,
-        load_latest: bool = False,
-        run: Optional[Run] = None,
+    def _track_notebook_pipeline(
+        cls, *, pipeline_name: Optional[str] = None, load_latest=True
     ):
-        """Track run.
-
-        Args:
-            run: If `None`, create new run or load latest.
-            load_latest: Load the latest run of the notebook or pipeline.
-        """
-        cls.instance = settings.instance
-        import lamindb as ln
-        import lamindb.schema as lns
-
-        run = lns.Run(load_latest=load_latest, global_context=True)
-        if ln.select(lns.Run, id=run.id).one_or_none() is None:
-            run = ln.add(run)  # type: ignore
-            logger.info(f"Added run: {run.id}")  # type: ignore
-
-    @classmethod
-    def track(cls, *, pipeline_name: Optional[str] = None, load_latest=True):
         """Track notebook/pipeline and run.
 
         When called from within a Python script, pass `pipeline_name`.
@@ -200,13 +185,12 @@ class context:
         logger.info(f"Instance: {cls.instance.identifier}")
         logger.info(f"User: {settings.user.handle}")
         if is_run_from_ipython and pipeline_name is None:
-            cls.track_notebook()
+            if context.notebook is None:
+                cls._track_notebook()
         else:
             if pipeline_name is None:
                 raise ValueError(
                     "Pass a pipeline name: ln.context.track(pipeline_name='...')"
                 )
-            cls.track_pipeline(name=pipeline_name)
+            cls._track_pipeline(name=pipeline_name)
             logger.info(f"Pipeline: {cls.pipeline}")
-
-        cls.track_run(load_latest=load_latest)
