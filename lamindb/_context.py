@@ -90,9 +90,9 @@ class context:
                 title=title,
             )
             notebook = ln.add(notebook)
-            logger.info(f"Added notebook: {notebook.id} v{notebook.v}")
+            logger.info(f"Added notebook: {notebook}")
         else:
-            logger.info(f"Loaded notebook: {notebook.id} v{notebook.v}")
+            logger.info(f"Loaded notebook: {notebook}")
             if notebook.name != name or notebook.title != title:
                 response = input(
                     "Updated notebook name and/or title: Do you want to assign a new id"
@@ -242,9 +242,8 @@ class context:
         cls.instance = settings.instance
         logger.info(f"Instance: {cls.instance.identifier}")
         logger.info(f"User: {settings.user.handle}")
-        if is_run_from_ipython:
+        if is_run_from_ipython and pipeline_name is None:
             cls.track_notebook()
-            logger.info(f"Notebook: {cls.notebook}")
         else:
             if pipeline_name is None:
                 raise ValueError(
