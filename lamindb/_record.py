@@ -73,9 +73,11 @@ def serialize(
     return memory_rep, filepath, name, suffix
 
 
-def get_hash(local_filepath, suffix):
+def get_hash(local_filepath, suffix, check_hash: bool = True):
     if suffix != ".zarr":  # if not streamed
         hash = hash_file(local_filepath)
+        if not check_hash:
+            return hash
         result = select(lns_DObject, hash=hash).all()
         if len(result) > 0:
             msg = f"A dobject with same hash is already in the DB: {result}"
@@ -171,19 +173,19 @@ def parse_features(
     ).one_or_none()
     if features is not None:
         return features  # features already exists!
+    else:
+        features = Features(id=features_hash, type=features_ref.entity)
+        records = get_features_records(parsing_id, features_ref, df_curated)
 
-    features = Features(id=features_hash, type=features_ref.entity)
-    records = get_features_records(parsing_id, features_ref, df_curated)
-
-    if isinstance(features_ref, Gene):
-        for record in records:
-            features.genes.append(record)
-    elif isinstance(features_ref, Protein):
-        for record in records:
-            features.proteins.append(record)
-    elif isinstance(features_ref, CellMarker):
-        for record in records:
-            features.cell_markers.append(record)
+        if isinstance(features_ref, Gene):
+            for record in records:
+                features.genes.append(record)
+        elif isinstance(features_ref, Protein):
+            for record in records:
+                features.proteins.append(record)
+        elif isinstance(features_ref, CellMarker):
+            for record in records:
+                features.cell_markers.append(record)
 
     return features
 
@@ -216,6 +218,7 @@ def get_path_size_hash(
     filepath: Union[Path, UPath],
     memory_rep: Optional[Union[pd.DataFrame, ad.AnnData]],
     suffix: str,
+    check_hash: bool = True,
 ):
     cloudpath = None
     localpath = None
@@ -250,16 +253,16 @@ def get_path_size_hash(
         else:
             size = path.stat().st_size
             localpath = filepath
-            hash = get_hash(filepath, suffix)
+            hash = get_hash(filepath, suffix, check_hash=check_hash)
 
     return localpath, cloudpath, size, hash
 
 
+# expose to user via ln.DObject
 def get_dobject_kwargs_from_data(
     data: Union[Path, UPath, str, pd.DataFrame, ad.AnnData],
     *,
     name: Optional[str] = None,
-    features_ref: Optional[Union[CellMarker, Gene, Protein]] = None,
     source: Optional[Run] = None,
     format: Optional[str] = None,
 ):
@@ -277,11 +280,6 @@ def get_dobject_kwargs_from_data(
         _cloud_filepath=cloudpath,
         _memory_rep=memory_rep,
     )
-
-    if features_ref is not None:
-        features = [get_features(dobject_privates, features_ref)]  # has to be list!
-    else:
-        features = []
     dobject_kwargs = dict(
         name=name,
         suffix=suffix,
@@ -290,9 +288,27 @@ def get_dobject_kwargs_from_data(
         size=size,
         storage_id=storage.id,
         source=run,
-        features=features,
     )
     return dobject_kwargs, dobject_privates
+
+
+# expose to user via ln.Features
+def get_features_from_data(
+    data: Union[Path, UPath, str, pd.DataFrame, ad.AnnData],
+    ref: Union[CellMarker, Gene, Protein],
+    format: Optional[str] = None,
+):
+    memory_rep, filepath, _, suffix = serialize(data, "features", format)
+    localpath, cloudpath, _, _ = get_path_size_hash(
+        filepath, memory_rep, suffix, check_hash=False
+    )
+
+    dobject_privates = dict(
+        _local_filepath=localpath,
+        _cloud_filepath=cloudpath,
+        _memory_rep=memory_rep,
+    )
+    return get_features(dobject_privates, ref)
 
 
 def to_b64_str(bstr: bytes):
