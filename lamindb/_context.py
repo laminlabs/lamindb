@@ -152,7 +152,7 @@ class context:
         else:
             pipeline = (
                 ln.select(lns.Pipeline, name=name)
-                .order_by(lns.Run.created_at.desc())
+                .order_by(lns.Pipeline.created_at.desc())
                 .first()
             )
             if pipeline is None:
