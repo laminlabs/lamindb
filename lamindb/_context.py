@@ -181,7 +181,7 @@ class context:
         import lamindb as ln
         import lamindb.schema as lns
 
-        run = lns.Run(load_latest=load_latest)
+        run = lns.Run(load_latest=load_latest, global_context=True)
         run = ln.add(run)  # type: ignore
         logger.info(f"Added run: {run.id}")  # type: ignore
 
