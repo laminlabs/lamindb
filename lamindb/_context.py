@@ -182,8 +182,9 @@ class context:
         import lamindb.schema as lns
 
         run = lns.Run(load_latest=load_latest, global_context=True)
-        run = ln.add(run)  # type: ignore
-        logger.info(f"Added run: {run.id}")  # type: ignore
+        if ln.select(lns.Run, id=run.id).one_or_none() is None:
+            run = ln.add(run)  # type: ignore
+            logger.info(f"Added run: {run.id}")  # type: ignore
 
     @classmethod
     def track(cls, *, pipeline_name: Optional[str] = None, load_latest=True):
