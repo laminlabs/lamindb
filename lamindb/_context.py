@@ -181,49 +181,9 @@ class context:
         import lamindb as ln
         import lamindb.schema as lns
 
-        # check user input
-        # if isinstance(run, lns.Run):
-        # This here might be something we may want in the future
-        # but checking all the cases in which that run record has integrity
-        # is quite a bit of code - not now!
-        #     run_test = ln.select(lns.Run, id=run.id).one_or_none()
-        #     if run_test is None:
-        #         logger.info("Passed run does not exist, adding it")
-        #         ln.add(run)
-        if run is None and load_latest:
-            if cls.notebook is not None:
-                select_stmt = ln.select(
-                    lns.Run, notebook_id=cls.notebook.id, notebook_v=cls.notebook.v
-                )
-            elif cls.pipeline is not None:
-                select_stmt = ln.select(
-                    lns.Run, pipeline_id=cls.pipeline.id, pipeline_v=cls.pipeline.v
-                )
-            else:
-                raise RuntimeError(
-                    "Please call context.track_notebook or context.track_pipeline."
-                )
-            run = select_stmt.order_by(lns.Run.created_at.desc()).first()
-            if run is not None:
-                logger.info(f"Loaded run: {run.id}")  # type: ignore
-            else:
-                logger.info("Did not find any latest run. Creating new run.")
-
-        # create a new run if doesn't exist yet or is requested by the user
-        if run is None:
-            if cls.notebook is not None:
-                run = lns.Run(notebook_id=cls.notebook.id, notebook_v=cls.notebook.v)
-            elif cls.pipeline is not None:
-                run = lns.Run(pipeline_id=cls.pipeline.id, pipeline_v=cls.pipeline.v)
-            else:
-                raise RuntimeError(
-                    "Please call context.track_notebook or context.track_pipeline."
-                )
-            run = ln.add(run)  # type: ignore
-            logger.info(f"Added run: {run.id}")  # type: ignore
-
-        # at this point, we have a run object
-        cls.run = run
+        run = lns.Run(load_latest=load_latest)
+        run = ln.add(run)  # type: ignore
+        logger.info(f"Added run: {run.id}")  # type: ignore
 
     @classmethod
     def track(cls, *, pipeline_name: Optional[str] = None, load_latest=True):
