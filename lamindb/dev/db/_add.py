@@ -104,6 +104,10 @@ def add(  # type: ignore
     db_error = None
     for record in records:
         write_objectkey(record)
+        # the following ensures that queried objects (within __init__)
+        # behave like queried objects, only example right now: Run
+        if hasattr(record, "_identity_key") and record._identity_key is not None:
+            record._sa_instance_state.key = record._identity_key
         session.add(record)
     try:
         session.commit()
