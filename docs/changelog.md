@@ -3,17 +3,17 @@
 <!-- prettier-ignore -->
 Name | PR | Developer | Date | Version
 --- | --- | --- | --- | ---
-🚚 Replace `ln.nb.header()` with `ln.Run()` except in `faq/nb` | [564](https://github.com/laminlabs/lamindb/pull/564) | [falexwolf](https://github.com/falexwolf) | 2023-03-14 |
+🚚 Replace `ln.nb.header()` with `ln.Run()` except in `faq/nb` | [564](https://github.com/laminlabs/lamindb/pull/564) | [falexwolf](https://github.com/falexwolf) | 2023-03-14 | 0.33.0
 🚸 Smart about `global_context` and `load_latest` when run from notebook | [563](https://github.com/laminlabs/lamindb/pull/563) | [falexwolf](https://github.com/falexwolf) | 2023-03-14 |
 ✨ `ln.Features` | [562](https://github.com/laminlabs/lamindb/pull/562) | [sunnyosun](https://github.com/sunnyosun) | 2023-03-14 |
 🏗️ Introduce `lamindb.context` and enable `ln.Run` to create contexts | [561](https://github.com/laminlabs/lamindb/pull/561) | [falexwolf](https://github.com/falexwolf) | 2023-03-13 |
-📝 Improve the docstring of add and delete | [559](https://github.com/laminlabs/lamindb/pull/559) | [sunnyosun](https://github.com/sunnyosun) | 2023-03-10 |
+📝 Improve the docstrings of `ln.add` and `ln.delete` | [559](https://github.com/laminlabs/lamindb/pull/559) | [sunnyosun](https://github.com/sunnyosun) | 2023-03-10 |
 📝 Hide CI related cells in notebooks | [558](https://github.com/laminlabs/lamindb/pull/558) | [sunnyosun](https://github.com/sunnyosun) | 2023-03-10 |
-:construction_worker: Update docs to clarify sign up and log in | [557](https://github.com/laminlabs/lamindb/pull/557) | [lawrlee](https://github.com/lawrlee) | 2023-03-10 |
+📝 Update docs to clarify sign up and log in | [557](https://github.com/laminlabs/lamindb/pull/557) | [lawrlee](https://github.com/lawrlee) | 2023-03-10 |
 📝 Prettier species query | [555](https://github.com/laminlabs/lamindb/pull/555) | [falexwolf](https://github.com/falexwolf) | 2023-03-09 | 0.32.0
 📝 Refactor docs sidebar | [553](https://github.com/laminlabs/lamindb/pull/553) | [sunnyosun](https://github.com/sunnyosun) | 2023-03-09 |
-⬆️ Upgrade setup | [554](https://github.com/laminlabs/lamindb/pull/554) | [falexwolf](https://github.com/falexwolf) | 2023-03-09 |
-⬆️  Stable release of lnschema-bionty, remove knowledge | [552](https://github.com/laminlabs/lamindb/pull/552) | [sunnyosun](https://github.com/sunnyosun) | 2023-03-09 |
+⬆️ Upgrade `ln.setup` | [554](https://github.com/laminlabs/lamindb/pull/554) | [falexwolf](https://github.com/falexwolf) | 2023-03-09 |
+🔥 Remove `ln.knowledge` <span class="badge badge-warning">Breaking</span> | [552](https://github.com/laminlabs/lamindb/pull/552) | [sunnyosun](https://github.com/sunnyosun) | 2023-03-09 |
 ➖ Remove bionty as a dependency | [551](https://github.com/laminlabs/lamindb/pull/551) | [sunnyosun](https://github.com/sunnyosun) | 2023-03-09 | 0.32.0rc1
 📝 Replace `ln.knowledge` with `bionty` in docs | [547](https://github.com/laminlabs/lamindb/pull/547) | [falexwolf](https://github.com/falexwolf) | 2023-03-07 | 0.31.1
 📝 Link FAQ and guide to session and notebook API | [550](https://github.com/laminlabs/lamindb/pull/550) | [falexwolf](https://github.com/falexwolf) | 2023-03-07 |
