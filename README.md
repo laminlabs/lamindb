@@ -179,9 +179,9 @@ print(dobject.features.genes[:3])
 #>  Gene(id='ENSMUSG00000034931', species_id='NCBI_10090'),
 #>  Gene(id='ENSMUSG00000071005', species_id='NCBI_10090')]
 
-# upload the data file to the configured storage
-# and commit a DObject record to the sql database
-# and commit all linked features to the sql database
+# upload serialized data to configured storage
+# commit a DObject record to the SQL database
+# commit all linked features to the SQL database
 ln.add(dobject)
 ```
 
