@@ -1,3 +1,5 @@
+import os
+
 import nox
 from laminci import upload_docs_dir
 from lndb.test.nox import (
@@ -20,7 +22,10 @@ def lint(session: nox.Session) -> None:
 def build(session):
     login_testuser1(session)
     login_testuser2(session)
-    session.install("./lnschema-core[dev,test]")
+    # run with pypi install on main
+    if os.environ["GITHUB_EVENT_NAME"] != "push":
+        # run with submodule install on a PR
+        session.install("./lnschema-core[dev,test]")
     session.install(".[dev,test]")
     run_pytest(session)
     build_docs(session)
