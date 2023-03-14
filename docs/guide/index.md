@@ -24,6 +24,6 @@ run
 :caption: Biology
 
 knowledge
-link-features
+features
 link-samples
 ```
