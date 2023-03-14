@@ -5,8 +5,6 @@
 
    db
    datasets
-   object
-   file
 
 Utilities:
 
