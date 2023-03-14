@@ -14,6 +14,20 @@ and in-memory data objects (`DataFrame`, `AnnData`, etc.).
    DObject
    DFolder
 
+Data objects ({class}`lamindb.DObject`) are transformed by runs:
+
+.. autosummary::
+   :toctree: .
+
+   Run
+
+Tracking data by features:
+
+.. autosummary::
+   :toctree: .
+
+   Features
+
 Query & manipulate data:
 
 .. autosummary::
@@ -98,7 +112,7 @@ else:
             " instance."
         )
 
-from lnschema_core import DFolder, DObject, Run  # noqa
+from lnschema_core import DFolder, DObject, Features, Run  # noqa
 
 dobject_doc = """Data objects in storage & memory.
 

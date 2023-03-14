@@ -12,13 +12,6 @@ Import this submodule as::
 Core entities
 =============
 
-Data objects ({class}`lamindb.DObject`) are transformed by runs:
-
-.. autosummary::
-   :toctree: .
-
-   Run
-
 Runs transform data using code:
 
 .. autosummary::
@@ -26,13 +19,6 @@ Runs transform data using code:
 
    Pipeline
    Notebook
-
-Grouping data objects by features:
-
-.. autosummary::
-   :toctree: .
-
-   Features
 
 Users, projects, storage locations, and usage:
 
