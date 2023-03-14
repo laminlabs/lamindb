@@ -54,7 +54,7 @@ See {doc}`/guide/setup` for more.
 
 ## Track & query data
 
-### Track data source & data
+### Track data sources, data, and metadata
 
 ::::{tab-set}
 :::{tab-item} Within an interactive notebook
@@ -118,14 +118,29 @@ ln.add(dobject)
 
 ```python
 dobject = ln.select(ln.DObject, name="My dataframe").one()
+#> [DObject(id='dZvGD7YUKCKG4X4aLd5K', name='My dataframe', suffix='.parquet', size=2240, hash='R2_kKlH1nBGesMdyulMYkA', source_id='L1oBMKW60ndt5YtjRqav', storage_id='wor0ul6c', created_at=datetime.datetime(2023, 3, 14, 21, 49, 46))]
 df = dobject.load()
+#>      a	b
+#>  0	1	3
+#>  1	2	4
+```
+
+Get the data ingested by the latest run:
+
+```python
+run = ln.select(ln.Run).order_by(ln.Run.created_at.desc()).first()
+#> Run(id='L1oBMKW60ndt5YtjRqav', notebook_id='sePTpDsGJRq3', notebook_v='0', created_by='bKeW4T6E', created_at=datetime.datetime(2023, 3, 14, 21, 49, 36))
+dobject = ln.select(ln.DObject).where(ln.DObject.source == run).all()
+#> [DObject(id='dZvGD7YUKCKG4X4aLd5K', name='My dataframe', suffix='.parquet', size=2240, hash='R2_kKlH1nBGesMdyulMYkA', source_id='L1oBMKW60ndt5YtjRqav', storage_id='wor0ul6c', created_at=datetime.datetime(2023, 3, 14, 21, 49, 46))]
 ```
 
 <br>
 
 See {doc}`/guide/track` for more.
 
-## Track biological features
+## Track biological metadata
+
+### Track biological features
 
 ```python
 import bionty as bt  # Lamin's manager for biological knowledge
