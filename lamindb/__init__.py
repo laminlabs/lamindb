@@ -165,7 +165,8 @@ instance, `.fastq`, `.vcf`, or files describing QC of datasets.
 DObject.__doc__ = dobject_doc
 
 
-from lndb_storage.object._lazy_field import lazy
+from lndb_storage import subset
+from lndb_storage.object import lazy
 
 from . import dev  # noqa
 from . import schema  # noqa
@@ -174,7 +175,6 @@ from ._context import context  # noqa
 from ._delete import delete  # noqa
 from ._nb import nb  # noqa
 from ._settings import settings
-from ._subset import subset
 from ._view import view  # noqa
 from .dev.db import Session  # noqa
 from .dev.db._add import add  # noqa
