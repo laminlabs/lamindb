@@ -54,42 +54,61 @@ See {doc}`/guide/setup` for more.
 
 ## Track & query data
 
-### Track data source & data
+### Track data sources, data, and metadata
 
 ::::{tab-set}
-:::{tab-item} Within a notebook
+:::{tab-item} Within an interactive notebook
 
 ```{code-block} python
-ln.nb.header()  # data source is created and linked
+import lamindb as ln
+
+ln.Run() # data source (a run record) is created
+#> ℹ️ Instance: testuser2/mydata
+#> ℹ️ User: testuser2
+#> ℹ️ Loaded run:
+#> Run(id='L1oBMKW60ndt5YtjRqav', notebook_id='sePTpDsGJRq3', notebook_v='0', created_by='bKeW4T6E', created_at=datetime.datetime(2023, 3, 14, 21, 49, 36))
 
 df = pd.DataFrame({"a": [1, 2], "b": [3, 4]})
 
-# create a data object with SQL metadata record
+# create a data object with SQL metadata record including hash
+# link run record
 dobject = ln.DObject(df, name="My dataframe")
+#> DObject(id='dZvGD7YUKCKG4X4aLd5K', name='My dataframe', suffix='.parquet', size=2240, hash='R2_kKlH1nBGesMdyulMYkA', source_id='L1oBMKW60ndt5YtjRqav', storage_id='wor0ul6c')
 
-# upload the data file to the configured storage
-# and commit a DObject record to the SQL database
+# upload serialized version to the configured storage
+# commit a DObject record to the SQL database
 ln.add(dobject)
+#> DObject(id='dZvGD7YUKCKG4X4aLd5K', name='My dataframe', suffix='.parquet', size=2240, hash='R2_kKlH1nBGesMdyulMYkA', source_id='L1oBMKW60ndt5YtjRqav', storage_id='wor0ul6c', created_at=datetime.datetime(2023, 3, 14, 21, 49, 46))
 ```
 
 :::
-:::{tab-item} Within a pipeline
+:::{tab-item} Within a regular pipeline
 
 ```{code-block} python
-# create a pipeline record
-pipeline = lns.Pipeline(name="my pipeline", version="1")
+# create (or query) a pipeline record
+pipeline = lns.Pipeline(name="My pipeline")
+#> Pipeline(id='fhn5Zydf', v='1', name='My pipeline', created_by='bKeW4T6E')
 
 # create a run from the above pipeline as the data source
-run = lns.Run(pipeline=pipeline, name="my run")
+run = ln.Run(pipeline=pipeline)
+#> Run(id='2aaKWH8dwBE6hnj3n9K9', pipeline_id='fhn5Zydf', pipeline_v='1', created_by='bKeW4T6E')
+
+# access pipeline from run via
+print(run.pipeline)
+#> Pipeline(id='fhn5Zydf', v='1', name='My pipeline', created_by='bKeW4T6E')
 
 df = pd.DataFrame({"a": [1, 2], "b": [3, 4]})
 
-# create a data object with SQL metadata record
+# create a data object with SQL metadata record including hash and link run record
 dobject = ln.DObject(df, name="My dataframe", source=run)
+#> DObject(id='dZvGD7YUKCKG4X4aLd5K', name='My dataframe', suffix='.parquet', size=2240, hash='R2_kKlH1nBGesMdyulMYkA', source_id='L1oBMKW60ndt5YtjRqav', storage_id='wor0ul6c')
 
-# upload the data file to the configured storage
-# and commit a DObject record to the SQL database
+# Tip: If you work with a single thread, you can pass `global_context=True` to ln.Run(), allowing you to omit source=run
+
+# upload serialized version to the configured storage
+# commit a DObject record to the SQL database
 ln.add(dobject)
+#> DObject(id='dZvGD7YUKCKG4X4aLd5K', name='My dataframe', suffix='.parquet', size=2240, hash='R2_kKlH1nBGesMdyulMYkA', source_id='L1oBMKW60ndt5YtjRqav', storage_id='wor0ul6c', created_at=datetime.datetime(2023, 3, 14, 21, 49, 46))
 ```
 
 :::
@@ -99,37 +118,70 @@ ln.add(dobject)
 
 ```python
 dobject = ln.select(ln.DObject, name="My dataframe").one()
+#> [DObject(id='dZvGD7YUKCKG4X4aLd5K', name='My dataframe', suffix='.parquet', size=2240, hash='R2_kKlH1nBGesMdyulMYkA', source_id='L1oBMKW60ndt5YtjRqav', storage_id='wor0ul6c', created_at=datetime.datetime(2023, 3, 14, 21, 49, 46))]
 df = dobject.load()
+#>      a	b
+#>  0	1	3
+#>  1	2	4
+```
+
+Get the data ingested by the latest run:
+
+```python
+run = ln.select(ln.Run).order_by(ln.Run.created_at.desc()).first()
+#> Run(id='L1oBMKW60ndt5YtjRqav', notebook_id='sePTpDsGJRq3', notebook_v='0', created_by='bKeW4T6E', created_at=datetime.datetime(2023, 3, 14, 21, 49, 36))
+dobject = ln.select(ln.DObject).where(ln.DObject.source == run).all()
+#> [DObject(id='dZvGD7YUKCKG4X4aLd5K', name='My dataframe', suffix='.parquet', size=2240, hash='R2_kKlH1nBGesMdyulMYkA', source_id='L1oBMKW60ndt5YtjRqav', storage_id='wor0ul6c', created_at=datetime.datetime(2023, 3, 14, 21, 49, 46))]
 ```
 
 <br>
 
 See {doc}`/guide/track` for more.
 
-## Track biological features
+## Track biological metadata
+
+### Track biological features
 
 ```python
-import bionty as bt
+import bionty as bt  # Lamin's manager for biological knowledge
+import lamindb as ln
 
-# An sample single cell RNA-seq dataset
+ln.Run()  # assume we're in a notebook and don't need to pass pipeline_name
+
+# a sample single cell RNA-seq dataset
 adata = ln.dev.datasets.anndata_mouse_sc_lymph_node()
 
-# Create a reference using Bionty.Gene
+# Create a reference
 # - ensembl id as the standardized id
 # - mouse as the species
 reference = bt.Gene(species="mouse")
 
-# Parse genes based in the configured reference
+# parse gene identifiers from data and map on reference
 features = ln.Features(adata, reference)
+#> 🔶 id column not found, using index as features.
+#> ✅ 0 terms (0.0%) are mapped.
+#> 🔶 10000 terms (100.0%) are not mapped.
+# The result is a hashed feature set record:
+print(features)
+#> Features(id='2Mv3JtH-ScBVYHilbLaQ', type='gene', created_by='bKeW4T6E')
 # genes records can be accessed via:
-features.genes
+print(features.genes[:3])
+#> [Gene(id='ENSMUSG00000020592', species_id='NCBI_10090'),
+#>  Gene(id='ENSMUSG00000034931', species_id='NCBI_10090'),
+#>  Gene(id='ENSMUSG00000071005', species_id='NCBI_10090')]
 
-# Track data with features
+# track data with features
 dobject = ln.DObject(adata, name="Mouse Lymph Node scRNA-seq", features=features)
 
-# upload the data file to the configured storage
-# and commit a DObject record to the sql database
-# and commit all linked features to the sql database
+# access linked gene references
+print(dobject.features.genes[:3])
+#> [Gene(id='ENSMUSG00000020592', species_id='NCBI_10090'),
+#>  Gene(id='ENSMUSG00000034931', species_id='NCBI_10090'),
+#>  Gene(id='ENSMUSG00000071005', species_id='NCBI_10090')]
+
+# upload serialized data to configured storage
+# commit a DObject record to the SQL database
+# commit all linked features to the SQL database
 ln.add(dobject)
 ```
 
