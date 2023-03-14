@@ -14,7 +14,7 @@ and in-memory data objects (`DataFrame`, `AnnData`, etc.).
    DObject
    DFolder
 
-Data objects ({class}`lamindb.DObject`) are transformed by runs:
+Data objects are transformed by runs:
 
 .. autosummary::
    :toctree: .

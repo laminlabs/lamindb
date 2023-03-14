@@ -29,6 +29,7 @@ Users, projects, storage locations, and usage:
    Project
    Storage
    Usage
+   Run
 
 See the source code `here <https://lamin.ai/docs/lnschema-core>`__.
 
