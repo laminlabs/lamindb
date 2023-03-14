@@ -3,6 +3,7 @@
 <!-- prettier-ignore -->
 Name | PR | Developer | Date | Version
 --- | --- | --- | --- | ---
+🚚 Replace `ln.nb.header()` with `ln.Run()` except in `faq/nb` | [564](https://github.com/laminlabs/lamindb/pull/564) | [falexwolf](https://github.com/falexwolf) | 2023-03-14 |
 🚸 Smart about `global_context` and `load_latest` when run from notebook | [563](https://github.com/laminlabs/lamindb/pull/563) | [falexwolf](https://github.com/falexwolf) | 2023-03-14 |
 ✨ `ln.Features` | [562](https://github.com/laminlabs/lamindb/pull/562) | [sunnyosun](https://github.com/sunnyosun) | 2023-03-14 |
 🏗️ Introduce `lamindb.context` and enable `ln.Run` to create contexts | [561](https://github.com/laminlabs/lamindb/pull/561) | [falexwolf](https://github.com/falexwolf) | 2023-03-13 |
