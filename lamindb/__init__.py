@@ -98,7 +98,7 @@ else:
             " instance."
         )
 
-from lnschema_core import DFolder, DObject, Run  # noqa
+from lnschema_core import DFolder, DObject, Features, Run  # noqa
 
 dobject_doc = """Data objects in storage & memory.
 
