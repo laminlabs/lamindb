@@ -117,7 +117,10 @@ adata = ln.dev.datasets.anndata_mouse_sc_lymph_node()
 # Create a reference using Bionty.Gene
 # - ensembl id as the standardized id
 # - mouse as the species
-reference = bt.Gene(id=bt.gene_id.ensembl_gene_id, species=bt.Species().lookup.mouse)
+reference = bt.Gene(
+    id=bt.lookup.gene_id.ensembl_gene_id,
+    species=bt.Species().lookup.mouse,
+)
 
 # Parse genes based in the configured reference
 features = ln.Features(adata, reference)

@@ -267,6 +267,8 @@ def get_dobject_kwargs_from_data(
     name: Optional[str] = None,
     source: Optional[Run] = None,
     format: Optional[str] = None,
+    # backward compat
+    features_ref: Optional[Union[CellMarker, Gene, Protein]] = None,
 ):
     run = get_run(source)
     memory_rep, filepath, name, suffix = serialize(data, name, format)
@@ -282,6 +284,18 @@ def get_dobject_kwargs_from_data(
         _cloud_filepath=cloudpath,
         _memory_rep=memory_rep,
     )
+
+    # TODO: remove later
+    # backward compat
+    if features_ref is not None:
+        logger.warning(
+            "DeprecationWarning: `features_ref` is deprecated, please use"
+            " `ln.Features`!"
+        )
+        features = [get_features(dobject_privates, features_ref)]  # has to be list!
+    else:
+        features = []
+
     dobject_kwargs = dict(
         name=name,
         suffix=suffix,
@@ -290,14 +304,16 @@ def get_dobject_kwargs_from_data(
         size=size,
         storage_id=storage.id,
         source=run,
+        features=features,
     )
+
     return dobject_kwargs, dobject_privates
 
 
 # expose to user via ln.Features
 def get_features_from_data(
     data: Union[Path, UPath, str, pd.DataFrame, ad.AnnData],
-    ref: Union[CellMarker, Gene, Protein],
+    reference: Union[CellMarker, Gene, Protein],
     format: Optional[str] = None,
 ):
     memory_rep, filepath, _, suffix = serialize(data, "features", format)
@@ -310,7 +326,7 @@ def get_features_from_data(
         _cloud_filepath=cloudpath,
         _memory_rep=memory_rep,
     )
-    return get_features(dobject_privates, ref)
+    return get_features(dobject_privates, reference)
 
 
 def to_b64_str(bstr: bytes):
