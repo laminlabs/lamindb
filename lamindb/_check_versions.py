@@ -10,8 +10,8 @@ if version.parse(lndb_v) < version.parse("0.37.4"):
 if version.parse(lnschema_core_v) != version.parse("0.29.3rc1"):
     raise RuntimeError("lamindb needs lnschema_core==0.29.3rc1")
 
-if version.parse(nbproject_v) < version.parse("0.8.2"):
-    raise RuntimeError("lamindb needs nbproject>=0.8.2")
+if version.parse(nbproject_v) < version.parse("0.8.3"):
+    raise RuntimeError("lamindb needs nbproject>=0.8.3")
 
 # ensure that the lamin package is not installed
 try:

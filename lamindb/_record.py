@@ -29,12 +29,10 @@ NO_SOURCE_ERROR = """
 Error: Please link a data source using the `source` argument.
 Fix: Link a data source by passing a run, e.g., via
 
-pipeline = ln.select("My ingestion pipeline").one()
 run = lns.Run(pipeline=pipeline)
 dobject = ln.DObject(..., source=run)
 
-Or, if you're in a notebook, call `ln.nb.header()` at the top, which creates
-a global run context for the notebook.
+Or, by calling ln.context.track(), which sets a global run context.
 
 More details: https://lamin.ai/docs/faq/ingest
 """
@@ -206,11 +204,15 @@ def get_features(dobject_privates, features_ref):
 
 def get_run(run: Optional[Run]) -> Run:
     if run is None:
-        from . import nb
+        from ._context import context
 
-        run = nb.run
+        run = context.run
         if run is None:
             raise ValueError(NO_SOURCE_ERROR)
+    # the following ensures that queried objects (within __init__)
+    # behave like queried objects, only example right now: Run
+    if run._ln_identity_key is not None:
+        run._sa_instance_state.key = run._ln_identity_key
     return run
 
 

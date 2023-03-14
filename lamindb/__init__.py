@@ -44,13 +44,6 @@ Schema - entities and their relations:
 
    schema
 
-Track Jupyter notebooks:
-
-.. autosummary::
-   :toctree: .
-
-   nb
-
 Setup:
 
 .. autosummary::
@@ -63,6 +56,7 @@ Developer API:
 .. autosummary::
    :toctree: .
 
+   context
    settings
    dev
 """
@@ -104,8 +98,7 @@ else:
             " instance."
         )
 
-from lnschema_core import DFolder  # noqa
-from lnschema_core import DObject  # noqa
+from lnschema_core import DFolder, DObject, Run  # noqa
 
 dobject_doc = """Data objects in storage & memory.
 
@@ -162,6 +155,7 @@ DObject.__doc__ = dobject_doc
 from . import dev  # noqa
 from . import schema  # noqa
 from . import setup  # noqa
+from ._context import context  # noqa
 from ._delete import delete  # noqa
 from ._nb import nb  # noqa
 from ._settings import settings
