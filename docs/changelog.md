@@ -3,7 +3,7 @@
 <!-- prettier-ignore -->
 Name | PR | Developer | Date | Version
 --- | --- | --- | --- | ---
-⬆️ Update core | [566](https://github.com/laminlabs/lamindb/pull/566) | [sunnyosun](https://github.com/sunnyosun) | 2023-03-15 | 0.33.1rc1
+⬆️ Update core | [566](https://github.com/laminlabs/lamindb/pull/566) | [sunnyosun](https://github.com/sunnyosun) | 2023-03-15 | 0.33.1
 🚚 Replace `ln.nb.header()` with `ln.Run()` except in `faq/nb` | [564](https://github.com/laminlabs/lamindb/pull/564) | [falexwolf](https://github.com/falexwolf) | 2023-03-14 | 0.33.0
 🚸 Smart about `global_context` and `load_latest` when run from notebook | [563](https://github.com/laminlabs/lamindb/pull/563) | [falexwolf](https://github.com/falexwolf) | 2023-03-14 |
 ✨ `ln.Features` | [562](https://github.com/laminlabs/lamindb/pull/562) | [sunnyosun](https://github.com/sunnyosun) | 2023-03-14 |
