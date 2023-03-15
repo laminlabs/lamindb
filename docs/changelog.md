@@ -3,6 +3,7 @@
 <!-- prettier-ignore -->
 Name | PR | Developer | Date | Version
 --- | --- | --- | --- | ---
+🐛 Actually fix instance load | [571](https://github.com/laminlabs/lamindb/pull/571) | [sunnyosun](https://github.com/sunnyosun) | 2023-03-15 |
 ✏️ Fix instance load of stream notebook | [570](https://github.com/laminlabs/lamindb/pull/570) | [sunnyosun](https://github.com/sunnyosun) | 2023-03-15 |
 👷 Restore streaming test from cloud | [569](https://github.com/laminlabs/lamindb/pull/569) | [sunnyosun](https://github.com/sunnyosun) | 2023-03-15 | 0.33.3
 ⬇️ typeguard<3.0.0 | [568](https://github.com/laminlabs/lamindb/pull/568) | [sunnyosun](https://github.com/sunnyosun) | 2023-03-15 |
