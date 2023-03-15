@@ -23,9 +23,10 @@ def build(session):
     login_testuser1(session)
     login_testuser2(session)
     # run with pypi install on main
-    if os.environ["GITHUB_EVENT_NAME"] != "push":
-        # run with submodule install on a PR
-        session.install("./lnschema-core[dev,test]")
+    if "GITHUB_EVENT_NAME" in os.environ:
+        if os.environ["GITHUB_EVENT_NAME"] != "push":
+            # run with submodule install on a PR
+            session.install("./lnschema-core[dev,test]")
     session.install(".[dev,test]")
     run_pytest(session)
     build_docs(session)
