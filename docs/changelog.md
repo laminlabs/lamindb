@@ -3,6 +3,7 @@
 <!-- prettier-ignore -->
 Name | PR | Developer | Date | Version
 --- | --- | --- | --- | ---
+⬇️ typeguard<3.0.0 | [568](https://github.com/laminlabs/lamindb/pull/568) | [sunnyosun](https://github.com/sunnyosun) | 2023-03-15 |
 ➖ Remove typeguard dependency | [567](https://github.com/laminlabs/lamindb/pull/567) | [sunnyosun](https://github.com/sunnyosun) | 2023-03-15 | 0.33.2
 ⬆️ Update core | [566](https://github.com/laminlabs/lamindb/pull/566) | [sunnyosun](https://github.com/sunnyosun) | 2023-03-15 | 0.33.1
 🚚 Replace `ln.nb.header()` with `ln.Run()` except in `faq/nb` | [564](https://github.com/laminlabs/lamindb/pull/564) | [falexwolf](https://github.com/falexwolf) | 2023-03-14 | 0.33.0
