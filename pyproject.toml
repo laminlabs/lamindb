@@ -24,7 +24,6 @@ dependencies = [
     "anndata>=0.8.0",
     "hjson",
     "sqlmodel>=0.0.8",
-    "typeguard",
     "tabulate",
     "erdiagram",
     "zarr",
