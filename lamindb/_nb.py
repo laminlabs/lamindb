@@ -1,7 +1,8 @@
 from typing import List, Optional, Union
 
 import nbproject as _nb
-from lamin_logger import logger
+
+# from lamin_logger import logger
 from lnschema_core import Notebook, Run
 
 from ._context import context
@@ -55,9 +56,9 @@ class nb:
             v: Pass a notebook version manually.
             name: Pass a notebook name manually.
         """
-        logger.warning(
-            "DeprecationWarning: Please replace ln.nb.header() with ln.Run()"
-        )
+        # logger.warning(
+        #     "DeprecationWarning: Please replace ln.nb.header() with ln.Run()"
+        # )
         context._track_notebook(
             pypackage=pypackage, filepath=filepath, id=id, v=v, name=name, editor=env
         )
