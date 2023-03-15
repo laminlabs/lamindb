@@ -3,6 +3,7 @@
 <!-- prettier-ignore -->
 Name | PR | Developer | Date | Version
 --- | --- | --- | --- | ---
+🐛 Check if env variable exists before trying to get his value | [572](https://github.com/laminlabs/lamindb/pull/572) | [fredericenard](https://github.com/fredericenard) | 2023-03-15 |
 🚸 Do not yet show deprecation warning for `ln.nb.header()` | [commit](https://github.com/laminlabs/lamindb/commit/2bb80c546434e37b2fa2b0c5b38c92a379aff793) | [falexwolf](https://github.com/falexwolf) | 2023-03-15 | 0.33.4
 👷 Restore streaming test from cloud | [569](https://github.com/laminlabs/lamindb/pull/569) | [sunnyosun](https://github.com/sunnyosun) | 2023-03-15 | 0.33.3
 ⬇️ typeguard<3.0.0 | [568](https://github.com/laminlabs/lamindb/pull/568) | [sunnyosun](https://github.com/sunnyosun) | 2023-03-15 |
