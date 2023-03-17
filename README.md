@@ -65,6 +65,7 @@ import lamindb as ln
 ln.Run() # data source (a run record) is created
 #> ℹ️ Instance: testuser1/mydata
 #> ℹ️ User: testuser1
+#> ℹ️ Loaded notebook: Notebook(id='OdlFhFWW7qg3', v='0', name='04-memory', title='Track in-memory data objects', created_by='DzTjkKse', created_at=datetime.datetime(2023, 3, 15, 16, 14, 42))
 #> ℹ️ Loaded run:
 #> Run(id='L1oBMKW60ndt5YtjRqav', notebook_id='sePTpDsGJRq3', notebook_v='0', created_by='bKeW4T6E', created_at=datetime.datetime(2023, 3, 14, 21, 49, 36))
 
