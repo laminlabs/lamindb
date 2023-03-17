@@ -63,8 +63,8 @@ See {doc}`/guide/setup` for more.
 import lamindb as ln
 
 ln.Run() # data source (a run record) is created
-#> ℹ️ Instance: testuser2/mydata
-#> ℹ️ User: testuser2
+#> ℹ️ Instance: testuser1/mydata
+#> ℹ️ User: testuser1
 #> ℹ️ Loaded run:
 #> Run(id='L1oBMKW60ndt5YtjRqav', notebook_id='sePTpDsGJRq3', notebook_v='0', created_by='bKeW4T6E', created_at=datetime.datetime(2023, 3, 14, 21, 49, 36))
 
@@ -159,8 +159,8 @@ reference = bt.Gene(species="mouse")
 # parse gene identifiers from data and map on reference
 features = ln.Features(adata, reference)
 #> 🔶 id column not found, using index as features.
-#> ✅ 0 terms (0.0%) are mapped.
-#> 🔶 10000 terms (100.0%) are not mapped.
+#> ✅ 10000 terms (100.0%) are mapped.
+#> 🔶 0 terms (0.0%) are not mapped.
 # The result is a hashed feature set record:
 print(features)
 #> Features(id='2Mv3JtH-ScBVYHilbLaQ', type='gene', created_by='bKeW4T6E')
@@ -183,6 +183,7 @@ print(dobject.features.genes[:3])
 # commit a DObject record to the SQL database
 # commit all linked features to the SQL database
 ln.add(dobject)
+#> DObject(id='VRu0Mg93d5l6NLb4znCD', name='Mouse Lymph Node scRNA-seq', suffix='.h5ad', size=17341245, hash='Qprqj0O23197Ko-VobaZiw', source_id='EB78Sl5KPG6wW6XcOlsm', storage_id='0Xt6BY40', created_at=datetime.datetime(2023, 3, 17, 6, 49, 39))
 ```
 
 <br>
