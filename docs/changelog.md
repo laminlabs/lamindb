@@ -3,6 +3,7 @@
 <!-- prettier-ignore -->
 Name | PR | Developer | Date | Version
 --- | --- | --- | --- | ---
+♻️ Move storage related code to `lndb_storage` | [560](https://github.com/laminlabs/lamindb/pull/560) | [Koncopd](https://github.com/Koncopd) | 2023-03-20 |
 🚚 Move storage related tests to lndb-storage | [574](https://github.com/laminlabs/lamindb/pull/574) | [falexwolf](https://github.com/falexwolf) | 2023-03-17 |
 🚑 Fix gene id | [573](https://github.com/laminlabs/lamindb/pull/573) | [sunnyosun](https://github.com/sunnyosun) | 2023-03-17 |
 🐛 Check if env variable exists before trying to get his value | [572](https://github.com/laminlabs/lamindb/pull/572) | [fredericenard](https://github.com/fredericenard) | 2023-03-15 |
