@@ -3,6 +3,7 @@
 <!-- prettier-ignore -->
 Name | PR | Developer | Date | Version
 --- | --- | --- | --- | ---
+⬆️ Upgrade to bionty 0.9 | [575](https://github.com/laminlabs/lamindb/pull/575) | [sunnyosun](https://github.com/sunnyosun) | 2023-03-20 |
 ♻️ Move storage related code to `lndb_storage` | [560](https://github.com/laminlabs/lamindb/pull/560) | [Koncopd](https://github.com/Koncopd) | 2023-03-20 |
 🚚 Move storage related tests to lndb-storage | [574](https://github.com/laminlabs/lamindb/pull/574) | [falexwolf](https://github.com/falexwolf) | 2023-03-17 |
 🚑 Fix gene id | [573](https://github.com/laminlabs/lamindb/pull/573) | [sunnyosun](https://github.com/sunnyosun) | 2023-03-17 |
