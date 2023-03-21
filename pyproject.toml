@@ -17,17 +17,11 @@ dependencies = [
     "lndb>=0.37.5rc1",
     "lndb_storage>=0.1.1",
     "lnschema_core==0.29.7",
-    "lnschema_wetlab==0.13.4",
-    "lnschema_bionty==0.8.1",
     "nbproject>=0.8.3",
-    "readfcs>=1.1.0",
     # External packages
-    "anndata>=0.8.0",
     "hjson",
-    "sqlmodel>=0.0.8",
     "tabulate",
     "erdiagram",
-    "zarr",
 ]
 
 [project.urls]
@@ -40,14 +34,18 @@ dev = [
     "laminci>=0.2.5",
 ]
 test = [
+    # Lamin pinned packages
+    "lnschema_wetlab==0.13.4",
+    "lnschema_bionty==0.9.0",
+    "nbproject_test>=0.3.0",
+    # External packages
     "pytest>=6.0",
     "coverage",
     "pytest-cov",
     "scanpy",
     "scikit-learn>=1.1.1",
-    "nbproject_test>=0.3.0",
     "psycopg2-binary",
-    "matplotlib<3.7"
+    "matplotlib<3.7",
 ]
 
 [project.scripts]
