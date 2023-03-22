@@ -3,6 +3,7 @@
 <!-- prettier-ignore -->
 Name | PR | Developer | Date | Version
 --- | --- | --- | --- | ---
+📝 Better warning for add | [579](https://github.com/laminlabs/lamindb/pull/579) | [sunnyosun](https://github.com/sunnyosun) | 2023-03-22 |
 ⬆️ Updated CellMarker asset | [578](https://github.com/laminlabs/lamindb/pull/578) | [sunnyosun](https://github.com/sunnyosun) | 2023-03-21 | 0.34.1
 ➖ Move lnschema_ into test dependency | [576](https://github.com/laminlabs/lamindb/pull/576) | [sunnyosun](https://github.com/sunnyosun) | 2023-03-21 |
 ⬆️ Upgrade to bionty 0.9 | [575](https://github.com/laminlabs/lamindb/pull/575) | [sunnyosun](https://github.com/sunnyosun) | 2023-03-20 | 0.34.0
