@@ -89,7 +89,9 @@ def add(  # type: ignore
         if results is None:
             records = [model(**fields)]
         else:
-            logger.info("An existing record is found in the DB:")
+            logger.info(
+                f"An existing {results.__class__.__name__} record is found in the DB:"
+            )
             return results
 
     if session is None:  # assume global session

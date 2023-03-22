@@ -97,7 +97,9 @@ def get_features_records(
     df_curated: pd.DataFrame,
 ) -> List[Union[Gene, Protein, CellMarker]]:
     # insert species entry if not exists
-    species = add(bionty.Species, name=features_ref.species)
+    species = select(bionty.Species, name=features_ref.species).one_or_none()
+    if species is None:
+        species = add(bionty.Species(name=features_ref.species))
 
     model = table_meta.get_model(f"bionty.{features_ref.entity}")
 
