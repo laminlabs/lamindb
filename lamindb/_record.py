@@ -4,9 +4,7 @@ from pathlib import Path
 from typing import Any, List, Optional, Set, Tuple, Union
 
 import anndata as ad
-import lnschema_bionty as bionty
 import pandas as pd
-from bionty import CellMarker, Gene, Protein
 from lamin_logger import logger
 from lndb import settings as setup_settings
 from lndb_storage import UPath, load_to_memory
@@ -93,9 +91,11 @@ def get_hash(local_filepath, suffix, check_hash: bool = True):
 
 def get_features_records(
     parsing_id: str,
-    features_ref: Union[Gene, Protein, CellMarker],
+    features_ref: Any,
     df_curated: pd.DataFrame,
-) -> List[Union[Gene, Protein, CellMarker]]:
+) -> List:
+    import lnschema_bionty as bionty
+
     # insert species entry if not exists
     species = select(bionty.Species, name=features_ref.species).one_or_none()
     if species is None:
@@ -134,15 +134,15 @@ def get_features_records(
     return records
 
 
-def parse_features(
-    df: pd.DataFrame, features_ref: Union[CellMarker, Gene, Protein]
-) -> None:
+def parse_features(df: pd.DataFrame, features_ref: Any) -> None:
     """Link features to a knowledge table.
 
     Args:
         df: a DataFrame
         features_ref: Features reference class.
     """
+    from bionty import CellMarker, Gene, Protein
+
     parsing_id = features_ref._id
 
     # Add and curate features against a knowledge table
@@ -269,7 +269,7 @@ def get_dobject_kwargs_from_data(
     source: Optional[Run] = None,
     format: Optional[str] = None,
     # backward compat
-    features_ref: Optional[Union[CellMarker, Gene, Protein]] = None,
+    features_ref: Optional[Any] = None,
 ):
     run = get_run(source)
     memory_rep, filepath, name, suffix = serialize(data, name, format)
@@ -314,7 +314,7 @@ def get_dobject_kwargs_from_data(
 # expose to user via ln.Features
 def get_features_from_data(
     data: Union[Path, UPath, str, pd.DataFrame, ad.AnnData],
-    reference: Union[CellMarker, Gene, Protein],
+    reference: Any,
     format: Optional[str] = None,
 ):
     memory_rep, filepath, _, suffix = serialize(data, "features", format)

@@ -24,6 +24,12 @@ LaminDB is a python package available for Python versions 3.8+.
 pip install lamindb
 ```
 
+If you need to work with bionty (feature parsing) and wetlab schemas:
+
+```shell
+pip install 'lamindb[bionty,wetlab]'
+```
+
 ## Import
 
 In your python script, import LaminDB as:
