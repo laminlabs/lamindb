@@ -32,5 +32,4 @@ def load(dobject: DObject, stream: bool = False, is_run_input: Optional[bool] = 
             session = object_session(dobject)
             session.add(dobject)
             session.commit()
-    # track_usage(dobject.id, "load")
     return load_to_memory(filepath_from_dobject(dobject), stream=stream)
