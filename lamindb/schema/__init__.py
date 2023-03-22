@@ -20,7 +20,7 @@ Runs transform data using code:
    Pipeline
    Notebook
 
-Users, projects, storage locations, and usage:
+Users, projects, storage locations:
 
 .. autosummary::
    :toctree: .
@@ -28,7 +28,6 @@ Users, projects, storage locations, and usage:
    User
    Project
    Storage
-   Usage
 
 See the source code `here <https://lamin.ai/docs/lnschema-core>`__.
 
@@ -56,17 +55,7 @@ import importlib as _importlib
 
 from lndb import settings as _settings
 from lndb.dev._setup_schema import get_schema_module_name as _get_schema_module_name
-from lnschema_core import (
-    Features,
-    Notebook,
-    Pipeline,
-    Project,
-    Run,
-    Storage,
-    Usage,
-    User,
-    dev,
-)
+from lnschema_core import Features, Notebook, Pipeline, Project, Run, Storage, User, dev
 from packaging import version as _v
 
 _check_v = {
