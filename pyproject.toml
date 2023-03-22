@@ -4,6 +4,7 @@ build-backend = "flit_core.buildapi"
 
 [project]
 name = "lamindb"
+requires-python = ">=3.8"
 authors = [{name = "Lamin Labs", email = "laminlabs@gmail.com"}]
 readme = "README.md"
 dynamic = ["version", "description"]
@@ -16,7 +17,7 @@ dependencies = [
     # Lamin pinned packages
     "lndb>=0.37.5rc1",
     "lndb_storage>=0.1.1",
-    "lnschema_core==0.29.7",
+    "lnschema_core==0.30rc1",
     "nbproject>=0.8.3",
     # External packages
     "hjson",
@@ -33,10 +34,16 @@ dev = [
     "nox",
     "laminci>=0.2.5",
 ]
+bionty = [
+    "lnschema_bionty==0.10.0",
+]
+wetlab = [
+    "lnschema_wetlab==0.13.4",
+]
 test = [
     # Lamin pinned packages
-    "lnschema_wetlab==0.13.4",
-    "lnschema_bionty==0.10.0",
+    "lamindb[bionty]",
+    "lamindb[wetlab]",
     "nbproject_test>=0.3.0",
     # External packages
     "pytest>=6.0",
