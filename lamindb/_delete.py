@@ -4,7 +4,7 @@ from typing import List, Optional, Union, overload  # noqa
 import sqlmodel as sqm
 from lndb import settings
 from lndb_storage import delete_storage
-from lnschema_core import DObject, Usage
+from lnschema_core import DObject
 from lnschema_core.link import RunIn
 
 from ._logger import colors, logger
@@ -83,17 +83,6 @@ def delete(  # type: ignore
     session = settings.instance.session()
     for record in records:
         if isinstance(record, DObject):
-            # delete usage events related to the dobject that's to be deleted
-            events = session.exec(
-                sqm.select(Usage).where(Usage.dobject_id == record.id)
-            )
-            for event in events:
-                session.delete(event)
-            try:
-                session.commit()
-            except Exception:
-                logger.warning("Deleting usage failed!")
-                traceback.print_exc()
             # delete run_ins related to the dobject that's to be deleted
             run_ins = session.exec(
                 sqm.select(RunIn).where(RunIn.dobject_id == record.id)
@@ -129,9 +118,6 @@ def delete(  # type: ignore
 
             if decide not in ("y", "Y", "yes", "Yes", "YES"):
                 continue
-            # TODO: do not track deletes until we come up
-            # with a good design that respects integrity
-            # track_usage(entry.id, "delete")
             try:
                 delete_storage(storage_key)
                 logger.success(

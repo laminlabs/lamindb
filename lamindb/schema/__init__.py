@@ -20,7 +20,7 @@ Runs transform data using code:
    Pipeline
    Notebook
 
-Users, projects, storage locations, and usage:
+Users, projects, storage locations:
 
 .. autosummary::
    :toctree: .
@@ -28,7 +28,6 @@ Users, projects, storage locations, and usage:
    User
    Project
    Storage
-   Usage
 
 See the source code `here <https://lamin.ai/docs/lnschema-core>`__.
 
