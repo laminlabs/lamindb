@@ -59,7 +59,7 @@ class nb:
         # logger.warning(
         #     "DeprecationWarning: Please replace ln.nb.header() with ln.Run()"
         # )
-        context._track_notebook(
+        context.track_notebook(
             pypackage=pypackage, filepath=filepath, id=id, v=v, name=name, editor=env
         )
         cls.transform = context.transform

@@ -7,15 +7,19 @@ from lamin_logger import logger
 from lndb import settings
 from lndb.dev import InstanceSettings
 from lnschema_core import Run, Transform, dev
-from nbproject._is_run_from_ipython import is_run_from_ipython
 
 
 class context:
     """Global run context.
 
-    Set through `ln.Run(global_context=True)`.
+    If you set `ln.context.transform = transform`, the `transform` record is
+    recognized whenever you create a run with `ln.Run(global_context=True)`.
 
-    Often, you'll want to call: `ln.Run(global_context=True, load_latest)`.
+    There are two convenience methods for creating `transform` records for
+    Jupyter notebooks and pipelines, each.
+
+    You can load the latest run if it doesn't exist via:
+    `ln.Run(global_context=True, load_latest=True)`.
     """
 
     instance: Optional[InstanceSettings] = None
@@ -26,7 +30,7 @@ class context:
     """Current run."""
 
     @classmethod
-    def _track_notebook(
+    def track_notebook(
         cls,
         *,
         id: Optional[str] = None,
@@ -36,7 +40,7 @@ class context:
         pypackage: Union[str, List[str], None] = None,
         editor: Optional[str] = None,
     ):
-        """Track notebook.
+        """Infer Jupyter notebook metadata and create `Transform` record.
 
         Args:
             id: Pass a notebook id manually.
@@ -50,6 +54,8 @@ class context:
                 when automatic inference fails.
         """
         cls.instance = settings.instance
+        logger.info(f"Instance: {cls.instance.identifier}")
+        logger.info(f"User: {settings.user.handle}")
         # original location of this code was _nb
         # legacy code here, see duplicated version in _run
         if id is None and name is None:
@@ -134,17 +140,17 @@ class context:
         cls.transform = transform
 
     @classmethod
-    def _track_pipeline(
+    def track_pipeline(
         cls,
         name: str,
         *,
         version: Optional[str] = None,
     ):
-        """Track pipeline.
+        """Load or create pipeline record within `Transform`.
 
         Args:
-            name: Pipeline name.
-            version: Pipeline version. If `None`, load latest (sort by created_at).
+            name: Name as used in `Transform.name`.
+            version: Pipeline version. If `None`, load latest (sort by `created_at`).
         """
         cls.instance = settings.instance
         import lamindb as ln
@@ -165,29 +171,3 @@ class context:
                 if response == "y":
                     transform = Transform(name=name, type="pipeline")
         cls.transform = transform
-
-    @classmethod
-    def _track_notebook_pipeline(
-        cls, *, pipeline_name: Optional[str] = None, load_latest=True
-    ):
-        """Track notebook/pipeline and run.
-
-        When called from within a Python script, pass `pipeline_name`.
-
-        Args:
-            pipeline_name: Pipeline name.
-            load_latest: Load the latest run of the notebook or pipeline.
-        """
-        cls.instance = settings.instance
-        logger.info(f"Instance: {cls.instance.identifier}")
-        logger.info(f"User: {settings.user.handle}")
-        if is_run_from_ipython and pipeline_name is None:
-            if context.transform is None:
-                cls._track_notebook()
-        else:
-            if pipeline_name is None:
-                raise ValueError(
-                    "Pass a pipeline name: ln.context.track(pipeline_name='...')"
-                )
-            cls._track_pipeline(name=pipeline_name)
-            logger.info(f"Transform: {cls.transform}")
