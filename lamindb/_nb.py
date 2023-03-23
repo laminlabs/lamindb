@@ -64,9 +64,9 @@ class nb:
         )
         cls.transform = context.transform
         if run == "new":
-            run = Run(global_context=True)
+            run = Run()
         elif run is None:
-            run = Run(global_context=True, load_latest=True)
+            run = Run(load_latest=True)
         else:
             raise ValueError("Pass 'new' to ln.nb.header().")
         cls.run = run
