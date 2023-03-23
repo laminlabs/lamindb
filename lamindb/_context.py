@@ -6,7 +6,7 @@ import nbproject
 from lamin_logger import logger
 from lndb import settings
 from lndb.dev import InstanceSettings
-from lnschema_core import Notebook, Pipeline, Run, dev
+from lnschema_core import Run, Transform, dev
 from nbproject._is_run_from_ipython import is_run_from_ipython
 
 
@@ -20,10 +20,8 @@ class context:
 
     instance: Optional[InstanceSettings] = None
     """Current instance."""
-    notebook: Optional[Notebook] = None
-    """Current notebook."""
-    pipeline: Optional[Pipeline] = None
-    """Current pipeline."""
+    transform: Optional[Transform] = None
+    """Current transform."""
     run: Optional[Run] = None
     """Current run."""
 
@@ -80,25 +78,25 @@ class context:
             title = None
 
         import lamindb as ln
-        import lamindb.schema as lns
 
-        notebook = ln.select(
-            lns.Notebook,
+        transform = ln.select(
+            Transform,
             id=id,
             v=v,
         ).one_or_none()
-        if notebook is None:
-            notebook = lns.Notebook(
+        if transform is None:
+            transform = Transform(
                 id=id,
                 v=v,
                 name=name,
                 title=title,
+                type="notebook",
             )
-            notebook = ln.add(notebook)
-            logger.info(f"Added notebook: {notebook}")
+            transform = ln.add(transform)
+            logger.info(f"Added notebook: {transform}")
         else:
-            logger.info(f"Loaded notebook: {notebook}")
-            if notebook.name != name or notebook.title != title:
+            logger.info(f"Loaded notebook: {transform}")
+            if transform.name != name or transform.title != title:
                 response = input(
                     "Updated notebook name and/or title: Do you want to assign a new id"
                     " or version? (y/n)"
@@ -126,14 +124,14 @@ class context:
                         # notebook will have new metadata and will be registered
                         # in the db in case the python process does not exit, we
                         # need a new Notebook record
-                        notebook = lns.Notebook(id=id, v=v)
+                        transform = Transform(id=id, v=v, type="notebook")
 
-                notebook.name = name
-                notebook.title = title
-                ln.add(notebook)
+                transform.name = name
+                transform.title = title
+                ln.add(transform)
 
-        # at this point, we have a notebook object
-        cls.notebook = notebook
+        # at this point, we have a transform object
+        cls.transform = transform
 
     @classmethod
     def _track_pipeline(
@@ -150,24 +148,23 @@ class context:
         """
         cls.instance = settings.instance
         import lamindb as ln
-        import lamindb.schema as lns
 
         if version is not None:
-            pipeline = ln.select(lns.Pipeline, name=name, v=version).one()
+            transform = ln.select(Transform, name=name, v=version).one()
         else:
-            pipeline = (
-                ln.select(lns.Pipeline, name=name)
-                .order_by(lns.Pipeline.created_at.desc())
+            transform = (
+                ln.select(Transform, name=name)
+                .order_by(Transform.created_at.desc())
                 .first()
             )
-            if pipeline is None:
+            if transform is None:
                 response = input(
                     f"Did not find any pipeline record with name '{name}'. Create a new"
                     " one? (y/n)"
                 )
                 if response == "y":
-                    pipeline = lns.Pipeline(name=name)
-        cls.pipeline = pipeline
+                    transform = Transform(name=name, type="pipeline")
+        cls.transform = transform
 
     @classmethod
     def _track_notebook_pipeline(
@@ -185,7 +182,7 @@ class context:
         logger.info(f"Instance: {cls.instance.identifier}")
         logger.info(f"User: {settings.user.handle}")
         if is_run_from_ipython and pipeline_name is None:
-            if context.notebook is None:
+            if context.transform is None:
                 cls._track_notebook()
         else:
             if pipeline_name is None:
@@ -193,4 +190,4 @@ class context:
                     "Pass a pipeline name: ln.context.track(pipeline_name='...')"
                 )
             cls._track_pipeline(name=pipeline_name)
-            logger.info(f"Pipeline: {cls.pipeline}")
+            logger.info(f"Transform: {cls.transform}")

@@ -14,12 +14,13 @@ and in-memory data objects (`DataFrame`, `AnnData`, etc.).
    DObject
    DFolder
 
-Data objects are transformed by runs:
+Run transforms:
 
 .. autosummary::
    :toctree: .
 
    Run
+   Transform
 
 Tracking data by features:
 

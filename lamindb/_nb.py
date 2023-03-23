@@ -3,7 +3,7 @@ from typing import List, Optional, Union
 import nbproject as _nb
 
 # from lamin_logger import logger
-from lnschema_core import Notebook, Run
+from lnschema_core import Run, Transform
 
 from ._context import context
 
@@ -18,7 +18,7 @@ class nb:
     For more background, see `nbproject <https://lamin.ai/docs/nbproject>`__.
     """
 
-    notebook: Notebook = None  # Notebook of this Python session
+    transform: Transform = None  # Notebook of this Python session
     run: Run = None  # run of this Python session
 
     @classmethod
@@ -62,8 +62,7 @@ class nb:
         context._track_notebook(
             pypackage=pypackage, filepath=filepath, id=id, v=v, name=name, editor=env
         )
-        notebook = context.notebook
-        cls.notebook = notebook
+        cls.transform = context.transform
         if run == "new":
             run = Run(global_context=True)
         elif run is None:
@@ -85,7 +84,6 @@ class nb:
         from nbproject._publish import finalize_publish, run_checks_for_publish
 
         import lamindb as ln
-        import lamindb.schema as lns
 
         result = run_checks_for_publish(
             calling_statement="publish(", i_confirm_i_saved=i_confirm_i_saved
@@ -94,17 +92,17 @@ class nb:
             return result
         finalize_publish(calling_statement="publish(", version=version)
         # update DB
-        notebook = ln.select(Notebook, id=cls.notebook.id, v=cls.notebook.v).one()
+        transform = ln.select(Transform, id=cls.transform.id, v=cls.transform.v).one()
         # update version
-        notebook.title = _nb.meta.live.title
-        if version != cls.notebook.v:
-            notebook_add = lns.Notebook(
-                id=notebook.id, v=version, name=notebook.name, title=notebook.title
+        transform.title = _nb.meta.live.title
+        if version != cls.transform.v:
+            transform_add = Transform(
+                id=transform.id, v=version, name=transform.name, title=transform.title
             )
         else:
-            notebook_add = notebook
-        ln.add(notebook_add)
-        if version != cls.notebook.v:
-            cls.run.notebook_v = version
+            transform_add = transform
+        ln.add(transform_add)
+        if version != cls.transform.v:
+            cls.run.transform_v = version
             ln.add(cls.run)
-            ln.delete(notebook)
+            ln.delete(transform)

@@ -12,14 +12,6 @@ Import this submodule as::
 Core entities
 =============
 
-Runs transform data using code:
-
-.. autosummary::
-   :toctree: .
-
-   Pipeline
-   Notebook
-
 Users, projects, storage locations:
 
 .. autosummary::
@@ -55,7 +47,9 @@ import importlib as _importlib
 
 from lndb import settings as _settings
 from lndb.dev._setup_schema import get_schema_module_name as _get_schema_module_name
-from lnschema_core import Features, Notebook, Pipeline, Project, Run, Storage, User, dev
+from lnschema_core import Features, Project, Run, Storage
+from lnschema_core import Transform as _Transform
+from lnschema_core import User, dev
 from packaging import version as _v
 
 _check_v = {
@@ -81,3 +75,6 @@ if _instance_setup:
 from ._core import list_tables, view
 
 list_entities = list_tables  # backward compat
+
+Pipeline = _Transform
+Notebook = _Transform

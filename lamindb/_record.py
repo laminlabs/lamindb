@@ -26,7 +26,7 @@ NO_SOURCE_ERROR = """
 Error: Please link a data source using the `source` argument.
 Fix: Link a data source by passing a run, e.g., via
 
-run = lns.Run(pipeline=pipeline)
+run = lns.Run(transform=transform)
 dobject = ln.DObject(..., source=run)
 
 Or, by calling ln.context.track(), which sets a global run context.
