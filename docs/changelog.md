@@ -3,6 +3,7 @@
 <!-- prettier-ignore -->
 Name | PR | Developer | Date | Version
 --- | --- | --- | --- | ---
+🏗️ Combine `Notebook` and `Pipeline` into `Transform` | [584](https://github.com/laminlabs/lamindb/pull/584) | [falexwolf](https://github.com/falexwolf) | 2023-03-23 |
 🚑 Fix optional dependencies | [583](https://github.com/laminlabs/lamindb/pull/583) | [sunnyosun](https://github.com/sunnyosun) | 2023-03-22 | 0.34.2
 🎉 Staging version 0.35 | [580](https://github.com/laminlabs/lamindb/pull/580) | [falexwolf](https://github.com/falexwolf) | 2023-03-22 |
 🔥 Remove Usage ORM | [581](https://github.com/laminlabs/lamindb/pull/581) | [falexwolf](https://github.com/falexwolf) | 2023-03-22 |
