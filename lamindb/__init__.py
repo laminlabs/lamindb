@@ -14,12 +14,13 @@ and in-memory data objects (`DataFrame`, `AnnData`, etc.).
    DObject
    DFolder
 
-Data objects are transformed by runs:
+Run transforms:
 
 .. autosummary::
    :toctree: .
 
    Run
+   Transform
 
 Tracking data by features:
 
@@ -112,7 +113,7 @@ else:
             " instance."
         )
 
-from lnschema_core import DFolder, DObject, Features, Run  # noqa
+from lnschema_core import DFolder, DObject, Features, Run, Transform  # noqa
 
 dobject_doc = """Data objects in storage & memory.
 
