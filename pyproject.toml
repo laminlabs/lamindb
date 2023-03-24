@@ -39,7 +39,7 @@ bionty = [
     "lnschema_bionty==0.10.0",
 ]
 wetlab = [
-    "lnschema_wetlab==0.13.4",
+    "lnschema_wetlab==0.15rc1",
 ]
 test = [
     # Lamin pinned packages
