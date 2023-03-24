@@ -42,13 +42,15 @@ class context:
         notebook_path: Optional[str] = None,
         pypackage: Union[str, List[str], None] = None,
         editor: Optional[str] = None,
-    ):
-        """Track a Transform and Run object for a notebook or pipeline.
+    ) -> None:
+        """Track `Transform` & `Run` records for a notebook or pipeline.
+
+        Stores them as `ln.context.transform` and `ln.context.run`.
 
         Call without arguments in most settings.
 
-        If the notebook has no nbproject metadata, initializes & writes metadata
-        to disk.
+        If a Jupyter notebook has no associated metadata, attempts to write
+        metadata to disk.
 
         Args:
             id: Transform id.
