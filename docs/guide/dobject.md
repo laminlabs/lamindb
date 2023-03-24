@@ -11,7 +11,7 @@ Context can also be hypotheses and any entity of the domain in which data is gen
 Depending on how `DObject`s are linked to context, they give rise to features of data lakes, warehouses and knowledge graphs.
 
 We focused on linking `DObject` to biological concepts: entities, their types, records, transformations, and relations.
-You'll learn about them further down the guide: {doc}`knowledge`.
+You'll learn about them further down the guide.
 
 ```{Note}
 

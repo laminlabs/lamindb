@@ -175,7 +175,7 @@ from . import schema  # noqa
 from . import setup  # noqa
 from ._context import context  # noqa
 
-track = context.track  # noqa
+track = context._track  # noqa
 from ._delete import delete  # noqa
 from ._nb import nb  # noqa
 from ._settings import settings

@@ -31,7 +31,7 @@ class context:
     """Current run."""
 
     @classmethod
-    def track(
+    def _track(
         cls,
         *,
         id: Optional[str] = None,
