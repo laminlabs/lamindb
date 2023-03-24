@@ -22,7 +22,7 @@ def test_create_to_load():
     ln.select(ln.schema.Storage, root=str(lnsetup.settings.instance.storage.root)).one()
 
     ln.schema._core.get_db_metadata_as_dict()
-    table_object = ln.schema._core.get_table_object("core.dobject")
+    table_object = ln.schema._core.get_table_object("core.file")
     ln.schema._core.get_table_metadata_as_dict(table_object)
 
     (Path(storage_root) / "mydata-test-db.lndb").unlink()

@@ -1,6 +1,6 @@
 from lnschema_core.dev._storage import (  # noqa
     filepath_from_dfolder,
-    filepath_from_dobject,
+    filepath_from_file,
     get_name_suffix_from_filepath,
-    storage_key_from_dobject,
+    storage_key_from_file,
 )

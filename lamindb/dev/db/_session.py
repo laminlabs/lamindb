@@ -20,7 +20,7 @@ class Session:
     typically used within a `with` statement::
 
         with Session() as ss:
-            dobject = ss.select(ln.DObject, name="My test").one()
+            file = ss.select(ln.File, name="My test").one()
             ...
     """
 

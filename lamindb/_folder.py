@@ -4,7 +4,7 @@ from typing import List, Optional, Union
 
 from lndb_storage import UPath
 from lnschema_core import DFolder as lns_DFolder
-from lnschema_core import DObject as lns_DObject
+from lnschema_core import File as lns_File
 from lnschema_core import Run, Storage
 
 from ._record import get_storage_root_and_root_str
@@ -30,16 +30,16 @@ def get_dfolder_kwargs_from_data(
     # TODO: UPath doesn't list the first level files and dirs with "*"
     pattern = "" if isinstance(folderpath, UPath) else "*"
 
-    dobjects = []
+    files = []
     for f in folderpath.rglob(pattern):
         if f.is_file():
-            dobj = lns_DObject(f, source=source)
+            dobj = lns_File(f, source=source)
             write_objectkey(dobj)
-            dobjects.append(dobj)
+            files.append(dobj)
 
     dfolder_kwargs = dict(
         name=folderpath.name if name is None else name,
-        dobjects=dobjects,
+        files=files,
     )
     return dfolder_kwargs, dfolder_privates
 
@@ -97,10 +97,10 @@ def tree(
 
 
 # Exposed to users as DFolder.get()
-def get_dobject(
+def get_file(
     dfolder: lns_DFolder, relpath: Union[str, Path, List[Union[str, Path]]], **fields
 ):
-    """Get dobjects via relative path to dfolder."""
+    """Get files via relative path to dfolder."""
     if isinstance(relpath, List):
         relpaths = [PurePath(i) for i in relpath]
     else:
@@ -117,11 +117,11 @@ def get_dobject(
         else:
             relpaths = [PurePath(relpath)]
 
-    dobject_objectkeys = [
+    file_objectkeys = [
         relpath_to_objectkey(dfolder=dfolder, relpath=i) for i in relpaths
     ]
 
-    return select_by_objectkey(dobject_objectkeys=dobject_objectkeys, **fields)
+    return select_by_objectkey(file_objectkeys=file_objectkeys, **fields)
 
 
 def list_files_from_dir(dirpath: Union[Path, UPath]):
@@ -140,13 +140,13 @@ def relpath_to_abspath(dfolder: lns_DFolder, relpath: PurePath):
     return filepath_from_dfolder(dfolder) / relpath
 
 
-def select_by_objectkey(dobject_objectkeys: List[str], **fields):
-    # query for unique comb of (_dobjectkey, storage, suffix)
-    dobjects = (
-        select(lns_DObject, **fields)
-        .where(lns_DObject._objectkey.in_(dobject_objectkeys))
+def select_by_objectkey(file_objectkeys: List[str], **fields):
+    # query for unique comb of (_filekey, storage, suffix)
+    files = (
+        select(lns_File, **fields)
+        .where(lns_File._objectkey.in_(file_objectkeys))
         .join(Storage, root=get_storage_root_and_root_str()[1])
         .all()
     )
-    # TODO: return dobjects in the same order as the dobject_objectkeys
-    return dobjects
+    # TODO: return files in the same order as the file_objectkeys
+    return files
