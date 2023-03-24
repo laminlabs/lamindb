@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import List, Literal, Optional, Union
+from typing import List, Optional, Union
 
 import lnschema_core
 import nbproject
@@ -37,8 +37,8 @@ class context:
         id: Optional[str] = None,
         version: Optional[str] = None,
         name: Optional[str] = None,
-        load_latest_run: bool = True,
-        transform_type: Optional[Literal["notebook", "pipeline"]] = None,
+        transform: Optional[Transform] = None,
+        load_latest_run: bool = False,
         notebook_path: Optional[str] = None,
         pypackage: Union[str, List[str], None] = None,
         editor: Optional[str] = None,
@@ -54,8 +54,8 @@ class context:
             id: Transform id.
             version: Transform version.
             name: Transform name.
-            load_latest_run: If False, creates a new run, if True, load latest run.
-            transform_type: Can be "pipeline" or "notebook".
+            transform: Can be "pipeline" or "notebook".
+            load_latest_run: If True, loads latest run of transform.
             pypackage: One or more python packages to track.
             notebook_path: Filepath of notebook. Only needed if inference fails.
             editor: Editor environment. Only needed if automatic inference fails.
@@ -66,9 +66,7 @@ class context:
         cls.instance = settings.instance
         logger.info(f"Instance: {cls.instance.identifier}")
         logger.info(f"User: {settings.user.handle}")
-        if is_run_from_ipython and (
-            transform_type is None or transform_type == "notebook"
-        ):
+        if is_run_from_ipython and (transform is None):
             cls._track_notebook(
                 pypackage=pypackage,
                 filepath=notebook_path,
@@ -77,11 +75,13 @@ class context:
                 name=name,
                 editor=editor,
             )
-        else:
+        elif transform is None:
             if name is not None:
                 cls._track_pipeline(name=name, version=version)
             else:
                 raise ValueError("Pass `name` to track pipeline!")
+        else:
+            cls.transform = transform
         Run(load_latest=load_latest_run)
 
     @classmethod
