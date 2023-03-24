@@ -23,7 +23,6 @@ run
 :hidden:
 :caption: Biology
 
-knowledge
 features
 link-samples
 ```

@@ -57,9 +57,9 @@ class nb:
             name: Pass a notebook name manually.
         """
         # logger.warning(
-        #     "DeprecationWarning: Please replace ln.nb.header() with ln.Run()"
+        #     "DeprecationWarning: Please replace ln.nb.header() with ln.track()."
         # )
-        context.track_notebook(
+        context._track_notebook(
             pypackage=pypackage, filepath=filepath, id=id, v=v, name=name, editor=env
         )
         cls.transform = context.transform

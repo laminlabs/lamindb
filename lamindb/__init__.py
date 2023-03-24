@@ -14,13 +14,14 @@ and in-memory data objects (`DataFrame`, `AnnData`, etc.).
    DObject
    DFolder
 
-Run transforms:
+Track runs of data transformations:
 
 .. autosummary::
    :toctree: .
 
    Run
    Transform
+   track
 
 Tracking data by features:
 
@@ -173,6 +174,8 @@ from . import dev  # noqa
 from . import schema  # noqa
 from . import setup  # noqa
 from ._context import context  # noqa
+
+track = context._track  # noqa
 from ._delete import delete  # noqa
 from ._nb import nb  # noqa
 from ._settings import settings
