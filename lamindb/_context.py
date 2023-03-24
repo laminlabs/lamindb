@@ -68,7 +68,9 @@ class context:
         cls.instance = settings.instance
         logger.info(f"Instance: {cls.instance.identifier}")
         logger.info(f"User: {settings.user.handle}")
-        if is_run_from_ipython and (transform is None):
+        import lamindb as ln
+
+        if is_run_from_ipython and transform is None:
             cls._track_notebook(
                 pypackage=pypackage,
                 filepath=notebook_path,
@@ -83,7 +85,13 @@ class context:
             else:
                 raise ValueError("Pass `name` to track pipeline!")
         else:
-            cls.transform = transform
+            transform_exists = ln.select(Transform, id=transform.id).one_or_none()
+            if transform_exists is None:
+                transform_exists = ln.add(transform)
+                logger.info(f"Added transform: {transform}")
+            else:
+                logger.info(f"Loaded transform: {transform_exists}")
+            cls.transform = transform_exists
         Run(load_latest=load_latest_run)
 
     @classmethod
