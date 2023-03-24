@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import List, Optional, Union
+from typing import List, Literal, Optional, Union
 
 import lnschema_core
 import nbproject
@@ -7,19 +7,20 @@ from lamin_logger import logger
 from lndb import settings
 from lndb.dev import InstanceSettings
 from lnschema_core import Run, Transform, dev
+from nbproject._is_run_from_ipython import is_run_from_ipython
 
 
 class context:
     """Global run context.
 
     If you set `ln.context.transform = transform`, the `transform` record is
-    recognized whenever you create a run with `ln.Run(global_context=True)`.
+    recognized whenever you create a run with `ln.Run()`.
 
     There are two convenience methods for creating `transform` records for
     Jupyter notebooks and pipelines, each.
 
     You can load the latest run if it doesn't exist via:
-    `ln.Run(global_context=True, load_latest=True)`.
+    `ln.Run(load_latest=True)`.
     """
 
     instance: Optional[InstanceSettings] = None
@@ -30,14 +31,68 @@ class context:
     """Current run."""
 
     @classmethod
-    def track_notebook(
+    def track(
+        cls,
+        *,
+        id: Optional[str] = None,
+        version: Optional[str] = None,
+        name: Optional[str] = None,
+        load_latest_run: bool = True,
+        transform_type: Optional[Literal["notebook", "pipeline"]] = None,
+        notebook_path: Optional[str] = None,
+        pypackage: Union[str, List[str], None] = None,
+        editor: Optional[str] = None,
+    ):
+        """Track a Transform and Run object for a notebook or pipeline.
+
+        Call without arguments in most settings.
+
+        If the notebook has no nbproject metadata, initializes & writes metadata
+        to disk.
+
+        Args:
+            id: Transform id.
+            version: Transform version.
+            name: Transform name.
+            load_latest_run: If False, creates a new run, if True, load latest run.
+            transform_type: Can be "pipeline" or "notebook".
+            pypackage: One or more python packages to track.
+            notebook_path: Filepath of notebook. Only needed if inference fails.
+            editor: Editor environment. Only needed if automatic inference fails.
+                Pass `'lab'` for jupyter lab and `'notebook'` for jupyter notebook,
+                this can help to identify the correct mechanism for interactivity
+                when automatic inference fails.
+        """
+        cls.instance = settings.instance
+        logger.info(f"Instance: {cls.instance.identifier}")
+        logger.info(f"User: {settings.user.handle}")
+        if is_run_from_ipython and (
+            transform_type is None or transform_type == "notebook"
+        ):
+            cls._track_notebook(
+                pypackage=pypackage,
+                filepath=notebook_path,
+                id=id,
+                v=version,
+                name=name,
+                editor=editor,
+            )
+        else:
+            if name is not None:
+                cls._track_pipeline(name=name, version=version)
+            else:
+                raise ValueError("Pass `name` to track pipeline!")
+        Run(load_latest=load_latest_run)
+
+    @classmethod
+    def _track_notebook(
         cls,
         *,
         id: Optional[str] = None,
         v: Optional[str] = "0",
         name: Optional[str] = None,
         filepath: Optional[str] = None,
-        pypackage: Union[str, List[str], None] = None,
+        pypackage: Optional[Union[str, List[str]]] = None,
         editor: Optional[str] = None,
     ):
         """Infer Jupyter notebook metadata and create `Transform` record.
@@ -54,15 +109,13 @@ class context:
                 when automatic inference fails.
         """
         cls.instance = settings.instance
-        logger.info(f"Instance: {cls.instance.identifier}")
-        logger.info(f"User: {settings.user.handle}")
         # original location of this code was _nb
         # legacy code here, see duplicated version in _run
         if id is None and name is None:
             nbproject_failed_msg = (
                 "Auto-retrieval of notebook name & title failed.\nPlease paste error"
                 " at: https://github.com/laminlabs/nbproject/issues/new \n\nFix: Run"
-                f" ln.nb.header(id={dev.id.notebook()}, name='my-notebook-name')"
+                f" ln.track(id={dev.id.notebook()}, name='my-notebook-name')"
             )
             try:
                 nbproject.header(
@@ -140,7 +193,7 @@ class context:
         cls.transform = transform
 
     @classmethod
-    def track_pipeline(
+    def _track_pipeline(
         cls,
         name: str,
         *,
