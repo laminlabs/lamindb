@@ -7,7 +7,7 @@ from lamin_logger import logger
 from lndb import settings as setup_settings
 from lndb_storage import UPath, store_object, write_adata_zarr
 from lndb_storage._file import print_hook
-from lnschema_core import DFolder, File
+from lnschema_core import File, Folder
 from pydantic.fields import ModelPrivateAttr
 from sqlalchemy.orm.attributes import set_attribute
 
@@ -226,7 +226,7 @@ def filepath_to_relpath(
 
 
 def filepath_to_objectkey(
-    record: Union[File, DFolder], filepath: Union[Path, UPath]
+    record: Union[File, Folder], filepath: Union[Path, UPath]
 ) -> str:
     root, root_str = get_storage_root_and_root_str()
 
@@ -243,12 +243,12 @@ def write_objectkey(record: sqm.SQLModel) -> None:
     An objectkey excludes the storage root and the file suffix.
     """
 
-    def set_objectkey(record: Union[File, DFolder], filepath: Union[Path, UPath]):
+    def set_objectkey(record: Union[File, Folder], filepath: Union[Path, UPath]):
         _objectkey = filepath_to_objectkey(record=record, filepath=filepath)
         set_attribute(record, "_objectkey", _objectkey)
 
     # _local_filepath private attribute is only added
-    # when creating File from data or DFolder from folder
+    # when creating File from data or Folder from folder
     if hasattr(record, "_local_filepath"):
         # for upsert
         if isinstance(record._local_filepath, ModelPrivateAttr):

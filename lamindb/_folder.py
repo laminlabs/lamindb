@@ -3,17 +3,17 @@ from pathlib import Path, PurePath
 from typing import List, Optional, Union
 
 from lndb_storage import UPath
-from lnschema_core import DFolder as lns_DFolder
 from lnschema_core import File as lns_File
+from lnschema_core import Folder as lns_Folder
 from lnschema_core import Run, Storage
 
 from ._record import get_storage_root_and_root_str
-from .dev._core import filepath_from_dfolder, get_name_suffix_from_filepath
+from .dev._core import filepath_from_folder, get_name_suffix_from_filepath
 from .dev.db._add import filepath_to_relpath, write_objectkey
 from .dev.db._select import select
 
 
-def get_dfolder_kwargs_from_data(
+def get_folder_kwargs_from_data(
     folder: Union[Path, UPath, str],
     *,
     name: Optional[str] = None,
@@ -22,7 +22,7 @@ def get_dfolder_kwargs_from_data(
     folderpath = UPath(folder)
     cloudpath = folderpath if isinstance(folderpath, UPath) else None
     localpath = None if isinstance(folderpath, UPath) else folderpath
-    dfolder_privates = dict(
+    folder_privates = dict(
         _local_filepath=localpath,
         _cloud_filepath=cloudpath,
     )
@@ -37,14 +37,14 @@ def get_dfolder_kwargs_from_data(
             write_objectkey(dobj)
             files.append(dobj)
 
-    dfolder_kwargs = dict(
+    folder_kwargs = dict(
         name=folderpath.name if name is None else name,
         files=files,
     )
-    return dfolder_kwargs, dfolder_privates
+    return folder_kwargs, folder_privates
 
 
-# Exposed to users as DFolder.tree()
+# Exposed to users as Folder.tree()
 def tree(
     dir_path: Union[Path, UPath, str],
     level: int = -1,
@@ -96,20 +96,18 @@ def tree(
     print(f"\n{directories} directories" + (f", {files} files" if files else ""))
 
 
-# Exposed to users as DFolder.get()
+# Exposed to users as Folder.get()
 def get_file(
-    dfolder: lns_DFolder, relpath: Union[str, Path, List[Union[str, Path]]], **fields
+    folder: lns_Folder, relpath: Union[str, Path, List[Union[str, Path]]], **fields
 ):
-    """Get files via relative path to dfolder."""
+    """Get files via relative path to folder."""
     if isinstance(relpath, List):
         relpaths = [PurePath(i) for i in relpath]
     else:
-        abspath = relpath_to_abspath(dfolder=dfolder, relpath=PurePath(relpath))
+        abspath = relpath_to_abspath(folder=folder, relpath=PurePath(relpath))
         if abspath.is_dir():
             abspaths_files = list_files_from_dir(abspath)
-            root, root_str = get_storage_root_and_root_str(
-                filepath_from_dfolder(dfolder)
-            )
+            root, root_str = get_storage_root_and_root_str(filepath_from_folder(folder))
             relpaths = [
                 filepath_to_relpath(root=root, root_str=root_str, filepath=i)
                 for i in abspaths_files
@@ -117,9 +115,7 @@ def get_file(
         else:
             relpaths = [PurePath(relpath)]
 
-    file_objectkeys = [
-        relpath_to_objectkey(dfolder=dfolder, relpath=i) for i in relpaths
-    ]
+    file_objectkeys = [relpath_to_objectkey(folder=folder, relpath=i) for i in relpaths]
 
     return select_by_objectkey(file_objectkeys=file_objectkeys, **fields)
 
@@ -129,15 +125,15 @@ def list_files_from_dir(dirpath: Union[Path, UPath]):
     return [i for i in dirpath.rglob("*") if i.is_file()]
 
 
-def relpath_to_objectkey(dfolder: lns_DFolder, relpath: PurePath):
-    """Convert a relative path of dfolder to an absolute path."""
+def relpath_to_objectkey(folder: lns_Folder, relpath: PurePath):
+    """Convert a relative path of folder to an absolute path."""
     name, _ = get_name_suffix_from_filepath(relpath)
-    objectkey = str(PurePath(dfolder._objectkey) / relpath.parent / name)
+    objectkey = str(PurePath(folder._objectkey) / relpath.parent / name)
     return objectkey
 
 
-def relpath_to_abspath(dfolder: lns_DFolder, relpath: PurePath):
-    return filepath_from_dfolder(dfolder) / relpath
+def relpath_to_abspath(folder: lns_Folder, relpath: PurePath):
+    return filepath_from_folder(folder) / relpath
 
 
 def select_by_objectkey(file_objectkeys: List[str], **fields):

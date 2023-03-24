@@ -12,7 +12,7 @@ and in-memory data objects (`DataFrame`, `AnnData`, etc.).
    :toctree: .
 
    File
-   DFolder
+   Folder
 
 Track runs of data transformations:
 
@@ -114,7 +114,7 @@ else:
             " instance."
         )
 
-from lnschema_core import DFolder, Features, File, Run, Transform  # noqa
+from lnschema_core import Features, File, Folder, Run, Transform  # noqa
 
 file_doc = """Data objects in storage & memory.
 
