@@ -1,3 +1,6 @@
 [submodule "lnschema-core"]
 	path = lnschema-core
 	url = https://github.com/laminlabs/lnschema-core.git
+[submodule "lndb-storage"]
+	path = lndb-storage
+	url = https://github.com/laminlabs/lndb-storage.git
