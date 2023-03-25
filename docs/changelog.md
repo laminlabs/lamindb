@@ -3,6 +3,7 @@
 <!-- prettier-ignore -->
 Name | PR | Developer | Date | Version
 --- | --- | --- | --- | ---
+💚 Add weak backward compat | [commit](https://github.com/laminlabs/lnschema-core/commit/aa5ce2c272f0d9f14d7fa36a1298705c8ae6dda2) | [falexwolf](https://github.com/falexwolf) | 2023-03-24 | 0.30rc2
 🚚 Rename `DObject` to `File` and `DFolder` to `Folder` | [586](https://github.com/laminlabs/lamindb/pull/586) | [falexwolf](https://github.com/falexwolf) | 2023-03-25 | 0.35rc1
 🚚 Introduce `ln.track()` to replace `ln.nb.header()` | [585](https://github.com/laminlabs/lamindb/pull/585) | [falexwolf](https://github.com/falexwolf) | 2023-03-24 |
 🏗️ Combine `Notebook` and `Pipeline` into `Transform` | [584](https://github.com/laminlabs/lamindb/pull/584) | [falexwolf](https://github.com/falexwolf) | 2023-03-23 |
