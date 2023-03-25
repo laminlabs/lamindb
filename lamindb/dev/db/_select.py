@@ -7,7 +7,7 @@ from sqlalchemy.orm.exc import MultipleResultsFound, NoResultFound
 from sqlmodel.main import SQLModelMetaclass
 
 from .._docs import doc_args
-from ._core import dobject_to_sqm, get_session_from_kwargs
+from ._core import file_to_sqm, get_session_from_kwargs
 
 select_docs = """
 Select data.
@@ -26,8 +26,8 @@ Args:
 def select(*entity: sqm.SQLModel, **fields) -> "SelectStmt":
     """{}"""
     session = get_session_from_kwargs(fields)
-    # if ln.DObject is passed, replace it with DObject SQLModel class
-    entities = dobject_to_sqm(entity)
+    # if ln.File is passed, replace it with File SQLModel class
+    entities = file_to_sqm(entity)
 
     # continue with user-facing variables
     if len(entities) > 1 and len(fields) > 0:

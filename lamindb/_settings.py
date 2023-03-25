@@ -13,13 +13,13 @@ class settings:
     `lndb.settings <https://lamin.ai/docs/lndb/lndb.settings>`__.
     """
 
-    error_on_dobject_hash_exists: bool = True
-    """Upon ingestion, error if a dobject hash equals an existing hash in the DB.
+    error_on_file_hash_exists: bool = True
+    """Upon ingestion, error if a file hash equals an existing hash in the DB.
 
     FAQ: :doc:`/faq/ingest-same-file-twice`.
     """
     track_run_inputs_upon_load: bool = False
-    """Upon load, add loaded dobjects as the input of the current notebook run.
+    """Upon load, add loaded files as the input of the current notebook run.
 
     FAQ: :doc:`/faq/track-runin`.
     """

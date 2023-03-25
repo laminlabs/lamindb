@@ -9,8 +9,9 @@ from lamin_logger import logger
 from lndb import settings as setup_settings
 from lndb_storage import UPath, load_to_memory
 from lndb_storage.object import infer_suffix, size_adata, write_to_file
-from lnschema_core import DObject as lns_DObject
-from lnschema_core import Features, Run, Storage
+from lnschema_core import Features
+from lnschema_core import File as lns_File
+from lnschema_core import Run, Storage
 
 from ._settings import settings
 from .dev._core import get_name_suffix_from_filepath
@@ -19,7 +20,7 @@ from .dev.db._select import select
 from .schema._table import table_meta
 
 NO_NAME_ERROR = """
-Pass a name in `ln.DObject(..., name=name)` when ingesting in-memory data.
+Pass a name in `ln.File(..., name=name)` when ingesting in-memory data.
 """
 
 NO_SOURCE_ERROR = """
@@ -27,7 +28,7 @@ Error: Please link a data source using the `source` argument.
 Fix: Link a data source by passing a run, e.g., via
 
 run = lns.Run(transform=transform)
-dobject = ln.DObject(..., source=run)
+file = ln.File(..., source=run)
 
 Or, by calling ln.context.track(), which sets a global run context.
 
@@ -73,13 +74,13 @@ def get_hash(local_filepath, suffix, check_hash: bool = True):
         hash = hash_file(local_filepath)
         if not check_hash:
             return hash
-        result = select(lns_DObject, hash=hash).all()
+        result = select(lns_File, hash=hash).all()
         if len(result) > 0:
-            msg = f"A dobject with same hash is already in the DB: {result}"
-            if settings.error_on_dobject_hash_exists:
+            msg = f"A file with same hash is already in the DB: {result}"
+            if settings.error_on_file_hash_exists:
                 hint = (
                     "💡 You can make this error a warning:\n"
-                    "    ln.settings.error_on_dobject_hash_exists = False"
+                    "    ln.settings.error_on_file_hash_exists = False"
                 )
                 raise RuntimeError(f"{msg}\n{hint}")
             else:
@@ -134,7 +135,7 @@ def get_features_records(
     return records
 
 
-def parse_features(df: pd.DataFrame, features_ref: Any) -> None:
+def parse_features(df: pd.DataFrame, features_ref: Any, **curate_kwargs) -> None:
     """Link features to a knowledge table.
 
     Args:
@@ -143,15 +144,20 @@ def parse_features(df: pd.DataFrame, features_ref: Any) -> None:
     """
     from bionty import CellMarker, Gene, Protein
 
-    parsing_id = features_ref._id
-
     # Add and curate features against a knowledge table
-    column = None
-    if parsing_id in df.columns:
-        column = parsing_id
-    else:
-        logger.warning(f"{parsing_id} column not found, using index as features.")
-    df_curated = features_ref.curate(df=df, column=column)
+    # column = None
+    # if parsing_id in df.columns:
+    #     column = parsing_id
+    # else:
+    #     logger.warning(f"{parsing_id} column not found, using index as features.")
+    df_curated = features_ref.curate(df=df, **curate_kwargs)
+    # TODO: fix in the next PR
+    parsing_id = df_curated.index.name
+    if parsing_id is None:
+        if features_ref.entity == "gene":
+            parsing_id = "ensembl_gene_id"
+        elif features_ref.entity == "cell_marker":
+            parsing_id = "name"
 
     # logging of curation
     n = df_curated["__curated__"].count()
@@ -189,18 +195,18 @@ def parse_features(df: pd.DataFrame, features_ref: Any) -> None:
     return features
 
 
-def get_features(dobject_privates, features_ref):
-    """Updates dobject in place."""
-    memory_rep = dobject_privates["_memory_rep"]
+def get_features(file_privates, features_ref, **curate_kwargs):
+    """Updates file in place."""
+    memory_rep = file_privates["_memory_rep"]
     if memory_rep is None:
-        memory_rep = load_to_memory(dobject_privates["_local_filepath"])
+        memory_rep = load_to_memory(file_privates["_local_filepath"])
     try:
         df = getattr(memory_rep, "var")  # for AnnData objects
         if callable(df):
             df = memory_rep
     except AttributeError:
         df = memory_rep
-    return parse_features(df, features_ref)
+    return parse_features(df, features_ref, **curate_kwargs)
 
 
 def get_run(run: Optional[Run]) -> Run:
@@ -261,8 +267,8 @@ def get_path_size_hash(
     return localpath, cloudpath, size, hash
 
 
-# expose to user via ln.DObject
-def get_dobject_kwargs_from_data(
+# expose to user via ln.File
+def get_file_kwargs_from_data(
     data: Union[Path, UPath, str, pd.DataFrame, ad.AnnData],
     *,
     name: Optional[str] = None,
@@ -270,6 +276,7 @@ def get_dobject_kwargs_from_data(
     format: Optional[str] = None,
     # backward compat
     features_ref: Optional[Any] = None,
+    **curate_kwargs,
 ):
     run = get_run(source)
     memory_rep, filepath, name, suffix = serialize(data, name, format)
@@ -280,7 +287,7 @@ def get_dobject_kwargs_from_data(
     _, root_str = get_storage_root_and_root_str()
     storage = select(Storage, root=root_str).one()
 
-    dobject_privates = dict(
+    file_privates = dict(
         _local_filepath=localpath,
         _cloud_filepath=cloudpath,
         _memory_rep=memory_rep,
@@ -293,11 +300,13 @@ def get_dobject_kwargs_from_data(
             "DeprecationWarning: `features_ref` is deprecated, please use"
             " `ln.Features`!"
         )
-        features = [get_features(dobject_privates, features_ref)]  # has to be list!
+        features = [
+            get_features(file_privates, features_ref, **curate_kwargs)
+        ]  # has to be list!
     else:
         features = []
 
-    dobject_kwargs = dict(
+    file_kwargs = dict(
         name=name,
         suffix=suffix,
         hash=hash,
@@ -308,7 +317,7 @@ def get_dobject_kwargs_from_data(
         features=features,
     )
 
-    return dobject_kwargs, dobject_privates
+    return file_kwargs, file_privates
 
 
 # expose to user via ln.Features
@@ -322,12 +331,12 @@ def get_features_from_data(
         filepath, memory_rep, suffix, check_hash=False
     )
 
-    dobject_privates = dict(
+    file_privates = dict(
         _local_filepath=localpath,
         _cloud_filepath=cloudpath,
         _memory_rep=memory_rep,
     )
-    return get_features(dobject_privates, reference)
+    return get_features(file_privates, reference)
 
 
 def to_b64_str(bstr: bytes):

@@ -17,7 +17,7 @@ dependencies = [
     # Lamin pinned packages
     "lndb>=0.37.5rc1",
     "lndb_storage>=0.1.1",
-    "lnschema_core==0.30rc2",
+    "lnschema_core==0.30rc3",
     "nbproject>=0.8.3",
     # External packages
     "hjson",
@@ -35,11 +35,10 @@ dev = [
     "laminci>=0.2.5",
 ]
 bionty = [
-    "bionty<0.11.0",
-    "lnschema_bionty==0.10.0",
+    "lnschema_bionty==0.12.1",
 ]
 wetlab = [
-    "lnschema_wetlab==0.13.4",
+    "lnschema_wetlab==0.15rc1",
 ]
 test = [
     # Lamin pinned packages
