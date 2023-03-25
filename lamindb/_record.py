@@ -135,7 +135,7 @@ def get_features_records(
     return records
 
 
-def parse_features(df: pd.DataFrame, features_ref: Any) -> None:
+def parse_features(df: pd.DataFrame, features_ref: Any, **curate_kwargs) -> None:
     """Link features to a knowledge table.
 
     Args:
@@ -144,15 +144,20 @@ def parse_features(df: pd.DataFrame, features_ref: Any) -> None:
     """
     from bionty import CellMarker, Gene, Protein
 
-    parsing_id = features_ref._id
-
     # Add and curate features against a knowledge table
-    column = None
-    if parsing_id in df.columns:
-        column = parsing_id
-    else:
-        logger.warning(f"{parsing_id} column not found, using index as features.")
-    df_curated = features_ref.curate(df=df, column=column)
+    # column = None
+    # if parsing_id in df.columns:
+    #     column = parsing_id
+    # else:
+    #     logger.warning(f"{parsing_id} column not found, using index as features.")
+    df_curated = features_ref.curate(df=df, **curate_kwargs)
+    # TODO: fix in the next PR
+    parsing_id = df_curated.index.name
+    if parsing_id is None:
+        if features_ref.entity == "gene":
+            parsing_id = "ensembl_gene_id"
+        elif features_ref.entity == "cell_marker":
+            parsing_id = "name"
 
     # logging of curation
     n = df_curated["__curated__"].count()
@@ -190,7 +195,7 @@ def parse_features(df: pd.DataFrame, features_ref: Any) -> None:
     return features
 
 
-def get_features(file_privates, features_ref):
+def get_features(file_privates, features_ref, **curate_kwargs):
     """Updates file in place."""
     memory_rep = file_privates["_memory_rep"]
     if memory_rep is None:
@@ -201,7 +206,7 @@ def get_features(file_privates, features_ref):
             df = memory_rep
     except AttributeError:
         df = memory_rep
-    return parse_features(df, features_ref)
+    return parse_features(df, features_ref, **curate_kwargs)
 
 
 def get_run(run: Optional[Run]) -> Run:
@@ -271,6 +276,7 @@ def get_file_kwargs_from_data(
     format: Optional[str] = None,
     # backward compat
     features_ref: Optional[Any] = None,
+    **curate_kwargs,
 ):
     run = get_run(source)
     memory_rep, filepath, name, suffix = serialize(data, name, format)
@@ -294,7 +300,9 @@ def get_file_kwargs_from_data(
             "DeprecationWarning: `features_ref` is deprecated, please use"
             " `ln.Features`!"
         )
-        features = [get_features(file_privates, features_ref)]  # has to be list!
+        features = [
+            get_features(file_privates, features_ref, **curate_kwargs)
+        ]  # has to be list!
     else:
         features = []
 
