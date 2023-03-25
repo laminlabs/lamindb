@@ -17,7 +17,7 @@ dependencies = [
     # Lamin pinned packages
     "lndb>=0.37.5rc1",
     "lndb_storage>=0.1.1",
-    "lnschema_core==0.30rc3",
+    "lnschema_core==0.30rc4",
     "nbproject>=0.8.3",
     # External packages
     "hjson",
