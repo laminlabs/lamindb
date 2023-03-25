@@ -1,4 +1,4 @@
-# The story of File
+# The story of data objects in story & memory
 
 We have come to love the pydata family of `DataFrame`, `AnnData`, `pytorch.DataLoader`, `zarr.Array`, `pyarrow.Table`, `xarray.Dataset`, and others for accessing lower-level data objects.
 
