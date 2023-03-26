@@ -1,14 +1,22 @@
 from lamin_logger import logger
 from lndb import __version__ as lndb_v
+from lndb_storage import __version__ as lndb_storage_v
 from lnschema_core import __version__ as lnschema_core_v
 from nbproject import __version__ as nbproject_v
 from packaging import version
 
-if version.parse(lndb_v) < version.parse("0.37.5rc1"):
-    raise RuntimeError("Upgrade lndb! pip install lndb>=0.37.5rc1")
+# Lamin PINNED packages
 
-if version.parse(lnschema_core_v) != version.parse("0.30rc1"):
-    raise RuntimeError("lamindb needs lnschema_core==0.30rc1")
+if version.parse(lnschema_core_v) != version.parse("0.30rc5"):
+    raise RuntimeError("lamindb needs lnschema_core==0.30rc5")
+
+if version.parse(lndb_storage_v) != version.parse("0.2rc1"):
+    raise RuntimeError("lamindb needs lnschema_core==0.2rc1")
+
+# Lamin GREATEREQ packages
+
+if version.parse(lndb_v) < version.parse("0.38.0"):
+    raise RuntimeError("Upgrade lndb! pip install lndb>=0.38.0")
 
 if version.parse(nbproject_v) < version.parse("0.8.3"):
     raise RuntimeError("lamindb needs nbproject>=0.8.3")

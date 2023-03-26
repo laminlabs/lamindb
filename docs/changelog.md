@@ -3,8 +3,12 @@
 <!-- prettier-ignore -->
 Name | PR | Developer | Date | Version
 --- | --- | --- | --- | ---
+⬆️ Upgrade lnschema-core & lndb-storage | [commit](https://github.com/laminlabs/lamindb/pull/582/commits/50e5aeb901e43d8b0bd280187a00ab196b7b88c1) | [falexwolf](https://github.com/falexwolf) | 2023-03-24 | 0.35rc3
+💚 Add weak backward compat | [commit](https://github.com/laminlabs/lnschema-core/commit/aa5ce2c272f0d9f14d7fa36a1298705c8ae6dda2) | [falexwolf](https://github.com/falexwolf) | 2023-03-24 | 0.35rc2
+🚚 Rename `DObject` to `File` and `DFolder` to `Folder` | [586](https://github.com/laminlabs/lamindb/pull/586) | [falexwolf](https://github.com/falexwolf) | 2023-03-25 | 0.35rc1
+🚚 Introduce `ln.track()` to replace `ln.nb.header()` | [585](https://github.com/laminlabs/lamindb/pull/585) | [falexwolf](https://github.com/falexwolf) | 2023-03-24 |
+🏗️ Combine `Notebook` and `Pipeline` into `Transform` | [584](https://github.com/laminlabs/lamindb/pull/584) | [falexwolf](https://github.com/falexwolf) | 2023-03-23 |
 🚑 Fix optional dependencies | [583](https://github.com/laminlabs/lamindb/pull/583) | [sunnyosun](https://github.com/sunnyosun) | 2023-03-22 | 0.34.2
-🎉 Staging version 0.35 | [580](https://github.com/laminlabs/lamindb/pull/580) | [falexwolf](https://github.com/falexwolf) | 2023-03-22 |
 🔥 Remove Usage ORM | [581](https://github.com/laminlabs/lamindb/pull/581) | [falexwolf](https://github.com/falexwolf) | 2023-03-22 |
 📝 Better warning for add | [579](https://github.com/laminlabs/lamindb/pull/579) | [sunnyosun](https://github.com/sunnyosun) | 2023-03-22 |
 ⬆️ Updated CellMarker asset | [578](https://github.com/laminlabs/lamindb/pull/578) | [sunnyosun](https://github.com/sunnyosun) | 2023-03-21 | 0.34.1

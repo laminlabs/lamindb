@@ -27,6 +27,8 @@ def build(session):
         if os.environ["GITHUB_EVENT_NAME"] != "push":
             # run with submodule install on a PR
             session.install("./lnschema-core[dev,test]")
+            session.install("./lnschema-wetlab[dev,test]")
+            session.install("./lndb-storage[dev,test]")
     session.install(".[dev,test]")
     run_pytest(session)
     build_docs(session)

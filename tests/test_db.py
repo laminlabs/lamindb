@@ -15,14 +15,14 @@ def test_create_to_load():
     # create unnecessary tables
     import lamindb as ln
 
-    notebook = ln.schema.Notebook(id="83jf", v="1", name="test")
-    ln.add(notebook)
-    run = ln.schema.Run(notebook=notebook)
+    transform = ln.Transform(id="83jf", v="1", name="test", type="pipeline")
+    ln.add(transform)
+    run = ln.schema.Run(transform=transform)
     ln.add(run)
     ln.select(ln.schema.Storage, root=str(lnsetup.settings.instance.storage.root)).one()
 
     ln.schema._core.get_db_metadata_as_dict()
-    table_object = ln.schema._core.get_table_object("core.dobject")
+    table_object = ln.schema._core.get_table_object("core.file")
     ln.schema._core.get_table_metadata_as_dict(table_object)
 
     (Path(storage_root) / "mydata-test-db.lndb").unlink()

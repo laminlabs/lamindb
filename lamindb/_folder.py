@@ -3,17 +3,17 @@ from pathlib import Path, PurePath
 from typing import List, Optional, Union
 
 from lndb_storage import UPath
-from lnschema_core import DFolder as lns_DFolder
-from lnschema_core import DObject as lns_DObject
+from lnschema_core import File as lns_File
+from lnschema_core import Folder as lns_Folder
 from lnschema_core import Run, Storage
 
 from ._record import get_storage_root_and_root_str
-from .dev._core import filepath_from_dfolder, get_name_suffix_from_filepath
+from .dev._core import filepath_from_folder, get_name_suffix_from_filepath
 from .dev.db._add import filepath_to_relpath, write_objectkey
 from .dev.db._select import select
 
 
-def get_dfolder_kwargs_from_data(
+def get_folder_kwargs_from_data(
     folder: Union[Path, UPath, str],
     *,
     name: Optional[str] = None,
@@ -22,7 +22,7 @@ def get_dfolder_kwargs_from_data(
     folderpath = UPath(folder)
     cloudpath = folderpath if isinstance(folderpath, UPath) else None
     localpath = None if isinstance(folderpath, UPath) else folderpath
-    dfolder_privates = dict(
+    folder_privates = dict(
         _local_filepath=localpath,
         _cloud_filepath=cloudpath,
     )
@@ -30,21 +30,21 @@ def get_dfolder_kwargs_from_data(
     # TODO: UPath doesn't list the first level files and dirs with "*"
     pattern = "" if isinstance(folderpath, UPath) else "*"
 
-    dobjects = []
+    files = []
     for f in folderpath.rglob(pattern):
         if f.is_file():
-            dobj = lns_DObject(f, source=source)
+            dobj = lns_File(f, source=source)
             write_objectkey(dobj)
-            dobjects.append(dobj)
+            files.append(dobj)
 
-    dfolder_kwargs = dict(
+    folder_kwargs = dict(
         name=folderpath.name if name is None else name,
-        dobjects=dobjects,
+        files=files,
     )
-    return dfolder_kwargs, dfolder_privates
+    return folder_kwargs, folder_privates
 
 
-# Exposed to users as DFolder.tree()
+# Exposed to users as Folder.tree()
 def tree(
     dir_path: Union[Path, UPath, str],
     level: int = -1,
@@ -96,20 +96,18 @@ def tree(
     print(f"\n{directories} directories" + (f", {files} files" if files else ""))
 
 
-# Exposed to users as DFolder.get()
-def get_dobject(
-    dfolder: lns_DFolder, relpath: Union[str, Path, List[Union[str, Path]]], **fields
+# Exposed to users as Folder.get()
+def get_file(
+    folder: lns_Folder, relpath: Union[str, Path, List[Union[str, Path]]], **fields
 ):
-    """Get dobjects via relative path to dfolder."""
+    """Get files via relative path to folder."""
     if isinstance(relpath, List):
         relpaths = [PurePath(i) for i in relpath]
     else:
-        abspath = relpath_to_abspath(dfolder=dfolder, relpath=PurePath(relpath))
+        abspath = relpath_to_abspath(folder=folder, relpath=PurePath(relpath))
         if abspath.is_dir():
             abspaths_files = list_files_from_dir(abspath)
-            root, root_str = get_storage_root_and_root_str(
-                filepath_from_dfolder(dfolder)
-            )
+            root, root_str = get_storage_root_and_root_str(filepath_from_folder(folder))
             relpaths = [
                 filepath_to_relpath(root=root, root_str=root_str, filepath=i)
                 for i in abspaths_files
@@ -117,11 +115,9 @@ def get_dobject(
         else:
             relpaths = [PurePath(relpath)]
 
-    dobject_objectkeys = [
-        relpath_to_objectkey(dfolder=dfolder, relpath=i) for i in relpaths
-    ]
+    file_objectkeys = [relpath_to_objectkey(folder=folder, relpath=i) for i in relpaths]
 
-    return select_by_objectkey(dobject_objectkeys=dobject_objectkeys, **fields)
+    return select_by_objectkey(file_objectkeys=file_objectkeys, **fields)
 
 
 def list_files_from_dir(dirpath: Union[Path, UPath]):
@@ -129,24 +125,24 @@ def list_files_from_dir(dirpath: Union[Path, UPath]):
     return [i for i in dirpath.rglob("*") if i.is_file()]
 
 
-def relpath_to_objectkey(dfolder: lns_DFolder, relpath: PurePath):
-    """Convert a relative path of dfolder to an absolute path."""
+def relpath_to_objectkey(folder: lns_Folder, relpath: PurePath):
+    """Convert a relative path of folder to an absolute path."""
     name, _ = get_name_suffix_from_filepath(relpath)
-    objectkey = str(PurePath(dfolder._objectkey) / relpath.parent / name)
+    objectkey = str(PurePath(folder._objectkey) / relpath.parent / name)
     return objectkey
 
 
-def relpath_to_abspath(dfolder: lns_DFolder, relpath: PurePath):
-    return filepath_from_dfolder(dfolder) / relpath
+def relpath_to_abspath(folder: lns_Folder, relpath: PurePath):
+    return filepath_from_folder(folder) / relpath
 
 
-def select_by_objectkey(dobject_objectkeys: List[str], **fields):
-    # query for unique comb of (_dobjectkey, storage, suffix)
-    dobjects = (
-        select(lns_DObject, **fields)
-        .where(lns_DObject._objectkey.in_(dobject_objectkeys))
+def select_by_objectkey(file_objectkeys: List[str], **fields):
+    # query for unique comb of (_filekey, storage, suffix)
+    files = (
+        select(lns_File, **fields)
+        .where(lns_File._objectkey.in_(file_objectkeys))
         .join(Storage, root=get_storage_root_and_root_str()[1])
         .all()
     )
-    # TODO: return dobjects in the same order as the dobject_objectkeys
-    return dobjects
+    # TODO: return files in the same order as the file_objectkeys
+    return files

@@ -7,12 +7,12 @@ from lamin_logger import logger
 from lndb import settings as setup_settings
 from lndb_storage import UPath, store_object, write_adata_zarr
 from lndb_storage._file import print_hook
-from lnschema_core import DFolder, DObject
+from lnschema_core import File, Folder
 from pydantic.fields import ModelPrivateAttr
 from sqlalchemy.orm.attributes import set_attribute
 
 from .._docs import doc_args
-from ._core import dobject_to_sqm, get_session_from_kwargs
+from ._core import file_to_sqm, get_session_from_kwargs
 from ._select import select
 
 add_docs = """
@@ -84,7 +84,7 @@ def add(  # type: ignore
     elif isinstance(record, sqm.SQLModel):
         records = [record]
     else:
-        model = dobject_to_sqm(record)
+        model = file_to_sqm(record)
         results = select(model, **fields).one_or_none()
         if results is None:
             records = [model(**fields)]
@@ -149,7 +149,7 @@ def upload_committed_records(records, session):
 
     # upload data objects
     for record in records:
-        if isinstance(record, DObject) and hasattr(record, "_local_filepath"):
+        if isinstance(record, File) and hasattr(record, "_local_filepath"):
             try:
                 upload_data_object(record)
             except Exception as e:
@@ -187,13 +187,13 @@ def prepare_error_message(records, added_records, error) -> str:
     return error_message
 
 
-def local_instance_storage_matches_local_parent(dobject: DObject):
+def local_instance_storage_matches_local_parent(file: File):
     storage = setup_settings.instance.storage
 
-    if dobject._local_filepath is not None:
-        path = dobject._local_filepath
+    if file._local_filepath is not None:
+        path = file._local_filepath
     else:
-        path = dobject.path()
+        path = file.path()
 
     if not isinstance(path, UPath):
         path = path.resolve()
@@ -226,15 +226,13 @@ def filepath_to_relpath(
 
 
 def filepath_to_objectkey(
-    record: Union[DObject, DFolder], filepath: Union[Path, UPath]
+    record: Union[File, Folder], filepath: Union[Path, UPath]
 ) -> str:
     root, root_str = get_storage_root_and_root_str()
 
     relpath = filepath_to_relpath(root=root, root_str=root_str, filepath=filepath)
-    # for DObject, _objectkey is relative path to the storage root without suffix
-    _objectkey = (
-        relpath.parent / record.name if isinstance(record, DObject) else relpath
-    )
+    # for File, _objectkey is relative path to the storage root without suffix
+    _objectkey = relpath.parent / record.name if isinstance(record, File) else relpath
 
     return _objectkey.as_posix()
 
@@ -245,12 +243,12 @@ def write_objectkey(record: sqm.SQLModel) -> None:
     An objectkey excludes the storage root and the file suffix.
     """
 
-    def set_objectkey(record: Union[DObject, DFolder], filepath: Union[Path, UPath]):
+    def set_objectkey(record: Union[File, Folder], filepath: Union[Path, UPath]):
         _objectkey = filepath_to_objectkey(record=record, filepath=filepath)
         set_attribute(record, "_objectkey", _objectkey)
 
     # _local_filepath private attribute is only added
-    # when creating DObject from data or DFolder from folder
+    # when creating File from data or Folder from folder
     if hasattr(record, "_local_filepath"):
         # for upsert
         if isinstance(record._local_filepath, ModelPrivateAttr):
@@ -267,22 +265,22 @@ def write_objectkey(record: sqm.SQLModel) -> None:
                 set_objectkey(record, record._local_filepath)
 
 
-def upload_data_object(dobject) -> None:
-    """Store and add dobject and its linked entries."""
-    dobject_storage_key = f"{dobject.id}{dobject.suffix}"
+def upload_data_object(file) -> None:
+    """Store and add file and its linked entries."""
+    file_storage_key = f"{file.id}{file.suffix}"
 
     storage = setup_settings.instance.storage
 
-    if dobject._local_filepath is not None:
+    if file._local_filepath is not None:
         # - Look for _cloud_filepath, which is only not None if the passed filepath
         # was in the existing storage in the first place (errors within _record.py)
         # - Look for _local_filepath and check whether it's in existing storage before
         # trying to copy the file
-        if (dobject._cloud_filepath is None) and (
-            not local_instance_storage_matches_local_parent(dobject)
+        if (file._cloud_filepath is None) and (
+            not local_instance_storage_matches_local_parent(file)
         ):
-            store_object(dobject._local_filepath, dobject_storage_key)
-    elif dobject.suffix == ".zarr" and dobject._memory_rep is not None:
-        storagepath = storage.key_to_filepath(dobject_storage_key)
-        print_progress = partial(print_hook, filepath=dobject.name)
-        write_adata_zarr(dobject._memory_rep, storagepath, callback=print_progress)
+            store_object(file._local_filepath, file_storage_key)
+    elif file.suffix == ".zarr" and file._memory_rep is not None:
+        storagepath = storage.key_to_filepath(file_storage_key)
+        print_progress = partial(print_hook, filepath=file.name)
+        write_adata_zarr(file._memory_rep, storagepath, callback=print_progress)

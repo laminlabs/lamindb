@@ -4,11 +4,11 @@ from typing import List, Optional, Union, overload  # noqa
 import sqlmodel as sqm
 from lndb import settings
 from lndb_storage import delete_storage
-from lnschema_core import DObject
+from lnschema_core import File
 from lnschema_core.link import RunIn
 
 from ._logger import colors, logger
-from .dev._core import storage_key_from_dobject
+from .dev._core import storage_key_from_file
 from .dev.db._select import select
 
 
@@ -57,11 +57,11 @@ def delete(  # type: ignore
     >>> # the result of is equivalent to 1)
 
     3) Delete data objects (deleting the metadata record and the storage file)
-    >>> dobject = ln.select(DObject, id=dobject_id).one()
+    >>> file = ln.select(File, id=file_id).one()
     >>> # deleting the metadata record occurs automatically
     >>> # you will be asked whether to delete the file from storage
     >>> # or pass boolean values to `delete_data_from_storage`
-    >>> ln.delete(dobject, delete_data_from_storage)
+    >>> ln.delete(file, delete_data_from_storage)
 
     Args:
         record: One or multiple records as instances of `SQLModel`.
@@ -82,11 +82,9 @@ def delete(  # type: ignore
     settings.instance._cloud_sqlite_locker.lock()
     session = settings.instance.session()
     for record in records:
-        if isinstance(record, DObject):
-            # delete run_ins related to the dobject that's to be deleted
-            run_ins = session.exec(
-                sqm.select(RunIn).where(RunIn.dobject_id == record.id)
-            )
+        if isinstance(record, File):
+            # delete run_ins related to the file that's to be deleted
+            run_ins = session.exec(sqm.select(RunIn).where(RunIn.file_id == record.id))
             for run_in in run_ins:
                 session.delete(run_in)
             try:
@@ -103,8 +101,8 @@ def delete(  # type: ignore
             )
         except Exception:
             traceback.print_exc()
-        if isinstance(record, DObject):
-            storage_key = storage_key_from_dobject(record)
+        if isinstance(record, File):
+            storage_key = storage_key_from_file(record)
 
             if delete_data_from_storage is None:
                 # ask to confirm deleting data from storage
