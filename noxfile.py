@@ -37,6 +37,7 @@ def build(session):
     run_pytest(session)
 
     # Schemas
+    ln.setup.load("testuser1/lamin-site-assets")
 
     file = ln.select(ln.File, name="lnschema_core_docs").one()
     shutil.unpack_archive(file.load(), "lnschema_core_docs")
