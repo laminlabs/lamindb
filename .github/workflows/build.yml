@@ -37,7 +37,7 @@ jobs:
       - name: Cache
         uses: actions/cache@v3
         env:
-          cache-name: cache-17
+          cache-name: cache-18
         with:
           path: |
             .nox
