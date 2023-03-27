@@ -8,7 +8,7 @@ def test_notebooks():
     # assuming this is in the tests folder
     docsdir = Path(__file__).parents[1] / "docs/"
 
-    for subdir in ["guide", "faq"]:
+    for subdir in ["guide", "guide/faq"]:
         checkdir = docsdir / subdir
         logger.info(f"\n---{checkdir.stem}---")
         test.execute_notebooks(checkdir, write=True)

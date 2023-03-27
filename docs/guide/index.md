@@ -191,3 +191,11 @@ knowledge
 features
 link-samples
 ```
+
+```{toctree}
+:hidden:
+:caption: FAQ
+:glob:
+
+faq/*
+```
