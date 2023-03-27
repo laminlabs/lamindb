@@ -28,7 +28,7 @@ pip install lamindb
 
 <br>
 
-If you need to work with bionty (feature parsing) and wetlab schemas:
+Biological entities are installed like so:
 
 ```shell
 pip install 'lamindb[bionty,wetlab]'
