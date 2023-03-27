@@ -26,7 +26,7 @@ See {doc}`/guide/setup` for more.
 
 ## Track & query data
 
-### Track data sources, data, and metadata
+### Track data & metadata with sources
 
 _Track the T in ETL and ELT._
 
