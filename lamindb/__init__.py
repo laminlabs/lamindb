@@ -3,7 +3,6 @@
 Import the package::
 
    import lamindb as ln
-   import lamindb.schema as lns
 
 The central class of the API is `File`, a wrapper for files, on-disk (`zarr`, etc.)
 and in-memory data objects (`DataFrame`, `AnnData`, etc.).
@@ -52,6 +51,15 @@ Utility functions:
 
    track
    view
+
+Basic entities:
+
+.. autosummary::
+   :toctree: .
+
+   User
+   Project
+   StorageRoot
 
 Schema - entities and their relations:
 
@@ -116,7 +124,16 @@ else:
 
 from lndb_storage import subset
 from lndb_storage.object import lazy
-from lnschema_core import Features, File, Folder, Run, Transform  # noqa
+from lnschema_core import (  # noqa
+    Features,
+    File,
+    Folder,
+    Project,
+    Run,
+    StorageRoot,
+    Transform,
+    User,
+)
 
 from . import _amend_doc_strings  # noqa
 from . import dev  # noqa
