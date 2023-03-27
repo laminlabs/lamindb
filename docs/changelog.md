@@ -3,6 +3,7 @@
 <!-- prettier-ignore -->
 Name | PR | Developer | Date | Version
 --- | --- | --- | --- | ---
+♻️ Fix parsing_id | [587](https://github.com/laminlabs/lamindb/pull/587) | [sunnyosun](https://github.com/sunnyosun) | 2023-03-27 |
 🚚 Rename `DObject` to `File` and `DFolder` to `Folder` <span class="badge badge-warning">Breaking</span> | [586](https://github.com/laminlabs/lamindb/pull/586) | [falexwolf](https://github.com/falexwolf) | 2023-03-25 | 0.35.0
 🚚 Introduce `ln.track()` to replace `ln.nb.header()` | [585](https://github.com/laminlabs/lamindb/pull/585) | [falexwolf](https://github.com/falexwolf) | 2023-03-24 |
 🏗️ Combine `Notebook` and `Pipeline` into `Transform` <span class="badge badge-warning">Breaking</span> | [584](https://github.com/laminlabs/lamindb/pull/584) | [falexwolf](https://github.com/falexwolf) | 2023-03-23 |
