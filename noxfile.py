@@ -1,4 +1,6 @@
 import os
+import shutil
+from pathlib import Path
 
 import nox
 from laminci import upload_docs_dir
@@ -9,6 +11,8 @@ from lndb.test.nox import (
     run_pre_commit,
     run_pytest,
 )
+
+import lamindb as ln
 
 nox.options.reuse_existing_virtualenvs = True
 
@@ -31,6 +35,28 @@ def build(session):
             session.install("./lndb-storage[dev,test]")
     session.install(".[dev,test]")
     run_pytest(session)
+
+    # Schemas
+    ln.setup.load("testuser1/lamin-site-assets")
+
+    file = ln.select(ln.File, name="lnschema_core_docs").one()
+    shutil.unpack_archive(file.load(), "lnschema_core_docs")
+    Path("lnschema_core_docs/guide/0-core-schema.ipynb").rename(
+        "docs/guide/lnschema-core.ipynb"
+    )
+    Path("lnschema_core_docs/guide/1-data-validation.ipynb").rename(
+        "docs/guide/data-validation.ipynb"
+    )
+
+    file = ln.select(ln.File, name="lnschema_bionty_docs").one()
+    shutil.unpack_archive(file.load(), "lnschema_bionty_docs")
+    Path("lnschema_bionty_docs/guide/orms.ipynb").rename(
+        "docs/guide/lnschema-bionty.ipynb"
+    )
+    Path("lnschema_bionty_docs/guide/knowledge.ipynb").rename(
+        "docs/guide/knowledge.ipynb"
+    )
+
     build_docs(session)
     login_testuser1(session)
     upload_docs_dir()

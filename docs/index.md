@@ -8,7 +8,6 @@
 :hidden:
 
 guide/index
-api
-faq/index
+reference
 changelog
 ```

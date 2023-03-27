@@ -1,45 +1,17 @@
-"""Access the schema.
+"""Schema tools & overview.
 
-- The core entities are the basis for tracking any data and are available from
-  `lns.<entity>`.
-- Additional mounted schema modules provide domain-specific entities and are
-  available via `lns.<module>.<entity>`.
+Guide: :doc:`/guide/schema`
 
-Import this submodule as::
+You can access mounted schema modules with domain-specific entities via
+available via `ln.schema.<module>.<entity>`.
 
-   import lamindb.schema as lns
-
-Core entities
-=============
-
-Users, projects, storage locations:
-
-.. autosummary::
-   :toctree: .
-
-   User
-   Project
-   Storage
-
-See the source code `here <https://lamin.ai/docs/lnschema-core>`__.
-
-Exemplary extensions
-====================
-
-Any LaminDB schema module that has been mounted to an instance can be accessed like the bionty, wetlab, bfx modules below:
-
-- `bionty <https://lamin.ai/docs/lnschema-bionty/api>`__: Knowledge-managed biological entities.
-- `wetlab <https://lamin.ai/docs/lnschema-wetlab/api>`__: Wetlab operations.
-
-
-Helper tools
-============
+However, we recommend to import schema modules, e.g., like `import
+lnschema_bionty as bt`.
 
 .. autosummary::
    :toctree: .
 
    view
-   list_tables
    dev
 
 """

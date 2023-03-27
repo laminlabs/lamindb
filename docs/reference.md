@@ -1,4 +1,4 @@
-# API
+# Reference
 
 ```{eval-rst}
 .. automodule:: lamindb
