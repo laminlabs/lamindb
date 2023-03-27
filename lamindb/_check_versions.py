@@ -11,7 +11,7 @@ if version.parse(lnschema_core_v) != version.parse("0.30rc5"):
     raise RuntimeError("lamindb needs lnschema_core==0.30rc5")
 
 if version.parse(lndb_storage_v) != version.parse("0.2rc1"):
-    raise RuntimeError("lamindb needs lnschema_core==0.2rc1")
+    raise RuntimeError("lamindb needs lndb_storage==0.2rc1")
 
 # Lamin GREATEREQ packages
 

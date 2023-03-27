@@ -117,7 +117,8 @@ def get_features_records(
     new_ids = df_curated.index.difference(records_df)
     if len(new_ids) > 0:
         # mapped new_ids
-        mapped = features_ref.df.loc[features_ref.df.index.intersection(new_ids)].copy()
+        reference_df = features_ref.df.set_index(features_ref.reference_id)
+        mapped = reference_df.loc[reference_df.index.intersection(new_ids)].copy()
         mapped.index.name = parsing_id
         if mapped.shape[0] > 0:
             for kwargs in mapped.reset_index().to_dict(orient="records"):
@@ -151,13 +152,7 @@ def parse_features(df: pd.DataFrame, features_ref: Any, **curate_kwargs) -> None
     # else:
     #     logger.warning(f"{parsing_id} column not found, using index as features.")
     df_curated = features_ref.curate(df=df, **curate_kwargs)
-    # TODO: fix in the next PR
-    parsing_id = df_curated.index.name
-    if parsing_id is None:
-        if features_ref.entity == "gene":
-            parsing_id = "ensembl_gene_id"
-        elif features_ref.entity == "cell_marker":
-            parsing_id = "name"
+    parsing_id = features_ref._parsing_id
 
     # logging of curation
     n = df_curated["__curated__"].count()
