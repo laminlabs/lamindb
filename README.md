@@ -6,9 +6,11 @@
 
 _Curate, store, track, query, integrate, and learn from biological data._
 
-LaminDB is an open-source data lake for R&D in biology. It manages indexed **object storage** (local directories, S3, GCP) with a mapped **SQL database** (SQLite, Postgres, and soon, BigQuery).
+LaminDB is an open-source data lake for R&D in biology.
 
-One cool thing is that you can readily create distributed _LaminDB instances_ at any scale. Get started on your laptop, deploy in the cloud, or work with a mesh of instances for different teams and purposes.
+It gives you components to build on data lineage & biological entities with an ORM for your existing infrastructure: **object storage** (local directories, S3, GCP) with a mapped **SQL query engine** (SQLite, Postgres, and soon, BigQuery).
+
+You can readily create distributed _LaminDB instances_ at any scale. Get started on your laptop, deploy in the cloud, or work with a mesh of instances for different teams and purposes.
 
 ```{warning}
 
