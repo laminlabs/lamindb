@@ -117,7 +117,8 @@ def get_features_records(
     new_ids = df_curated.index.difference(records_df)
     if len(new_ids) > 0:
         # mapped new_ids
-        mapped = features_ref.df.loc[features_ref.df.index.intersection(new_ids)].copy()
+        reference_df = features_ref.df.set_index(features_ref.reference_id)
+        mapped = reference_df.loc[reference_df.index.intersection(new_ids)].copy()
         mapped.index.name = parsing_id
         if mapped.shape[0] > 0:
             for kwargs in mapped.reset_index().to_dict(orient="records"):
