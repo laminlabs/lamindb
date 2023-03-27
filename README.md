@@ -64,55 +64,55 @@ See {doc}`/guide/setup` for more.
 
 ### Track data sources, data, and metadata
 
+_Track the T in ETL and ELT._
+
 ::::{tab-set}
-:::{tab-item} Within an interactive notebook
+:::{tab-item} Within a Jupyter notebook
 
 ```{code-block} python
 import lamindb as ln
 
-ln.Run() # data source (a run record) is created
+# track global data source (Run & Transform records)
+ln.track()
 #> ℹ️ Instance: testuser1/mydata
 #> ℹ️ User: testuser1
-#> ℹ️ Loaded notebook: Notebook(id='OdlFhFWW7qg3', v='0', name='04-memory', title='Track in-memory data objects', created_by='DzTjkKse', created_at=datetime.datetime(2023, 3, 15, 16, 14, 42))
+#> ℹ️ Loaded notebook: Transform(id='OdlFhFWW7qg3', v='0', name='04-memory', title='Track in-memory data objects', type=notebook, created_by='DzTjkKse', created_at=datetime.datetime(2023, 3, 15, 16, 14, 42))
 #> ℹ️ Loaded run:
-#> Run(id='L1oBMKW60ndt5YtjRqav', notebook_id='sePTpDsGJRq3', notebook_v='0', created_by='bKeW4T6E', created_at=datetime.datetime(2023, 3, 14, 21, 49, 36))
+#> Run(id='L1oBMKW60ndt5YtjRqav', transform_id='sePTpDsGJRq3', transform_v='0', created_by='bKeW4T6E', created_at=datetime.datetime(2023, 3, 14, 21, 49, 36))
 
 df = pd.DataFrame({"a": [1, 2], "b": [3, 4]})
 
-# create a data object with SQL metadata record including hash
-# link run record
+# serialize data object with SQL metadata record including hash and linked source (run record)
 file = ln.File(df, name="My dataframe")
 #> File(id='dZvGD7YUKCKG4X4aLd5K', name='My dataframe', suffix='.parquet', size=2240, hash='R2_kKlH1nBGesMdyulMYkA', source_id='L1oBMKW60ndt5YtjRqav', storage_id='wor0ul6c')
 
-# upload serialized version to the configured storage
+# upload serialized version to configured storage
 # commit a File record to the SQL database
 ln.add(file)
 #> File(id='dZvGD7YUKCKG4X4aLd5K', name='My dataframe', suffix='.parquet', size=2240, hash='R2_kKlH1nBGesMdyulMYkA', source_id='L1oBMKW60ndt5YtjRqav', storage_id='wor0ul6c', created_at=datetime.datetime(2023, 3, 14, 21, 49, 46))
 ```
 
 :::
-:::{tab-item} Within a regular pipeline
+:::{tab-item} Within a data pipeline
 
 ```{code-block} python
-# create (or query) a pipeline record
-pipeline = lns.Pipeline(name="My pipeline")
-#> Pipeline(id='fhn5Zydf', v='1', name='My pipeline', created_by='bKeW4T6E')
+# create (or query) a transform record
+transform = ln.Transform(name="My pipeline")
+#> Transform(id='fhn5Zydf', v='1', name='My pipeline', type=pipeline, created_by='bKeW4T6E')
 
 # create a run from the above pipeline as the data source
 run = ln.Run(pipeline=pipeline)
 #> Run(id='2aaKWH8dwBE6hnj3n9K9', pipeline_id='fhn5Zydf', pipeline_v='1', created_by='bKeW4T6E')
 
 # access pipeline from run via
-print(run.pipeline)
-#> Pipeline(id='fhn5Zydf', v='1', name='My pipeline', created_by='bKeW4T6E')
+print(run.transform)
+#> Transform(id='fhn5Zydf', v='1', name='My pipeline', created_by='bKeW4T6E')
 
 df = pd.DataFrame({"a": [1, 2], "b": [3, 4]})
 
 # create a data object with SQL metadata record including hash and link run record
 file = ln.File(df, name="My dataframe", source=run)
 #> File(id='dZvGD7YUKCKG4X4aLd5K', name='My dataframe', suffix='.parquet', size=2240, hash='R2_kKlH1nBGesMdyulMYkA', source_id='L1oBMKW60ndt5YtjRqav', storage_id='wor0ul6c')
-
-# Tip: If you work with a single thread, you can pass `global_context=True` to ln.Run(), allowing you to omit source=run
 
 # upload serialized version to the configured storage
 # commit a File record to the SQL database

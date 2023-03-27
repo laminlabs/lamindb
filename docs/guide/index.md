@@ -1,3 +1,5 @@
+{class}`~lamindb.Transform`
+
 # Guide
 
 Welcome to the LaminDB guide! 👋
