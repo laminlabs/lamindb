@@ -3,7 +3,7 @@
 <!-- prettier-ignore -->
 Name | PR | Developer | Date | Version
 --- | --- | --- | --- | ---
-🚚 No longer import bionty | [591](https://github.com/laminlabs/lamindb/pull/591) | [sunnyosun](https://github.com/sunnyosun) | 2023-03-28 |
+🚚 No longer import bionty | [591](https://github.com/laminlabs/lamindb/pull/591) | [sunnyosun](https://github.com/sunnyosun) | 2023-03-28 | 0.35.5
 🚚 Move remaining core entities to root level | [590](https://github.com/laminlabs/lamindb/pull/590) | [falexwolf](https://github.com/falexwolf) | 2023-03-27 | 0.35.4
 🚸 Polish docs & bump lndb | [589](https://github.com/laminlabs/lamindb/pull/589) | [falexwolf](https://github.com/falexwolf) | 2023-03-27 | 0.35.3
 🚚 Move `Readout` from `lnschema-wetlab` to `lnschema-bionty` | [588](https://github.com/laminlabs/lamindb/pull/588) | [sunnyosun](https://github.com/sunnyosun) | 2023-03-27 | 0.35.2
