@@ -185,11 +185,17 @@ run
 
 ```{toctree}
 :hidden:
-:caption: Biology
+:caption: Use cases
 
 knowledge
 features
 link-samples
+```
+
+```{toctree}
+:hidden:
+:caption: Modules
+
 ../bionty/index
 ```
 
