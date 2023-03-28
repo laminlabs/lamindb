@@ -196,5 +196,5 @@ link-samples
 :hidden:
 :caption: Other topics
 
-faq/index
+../faq/index
 ```

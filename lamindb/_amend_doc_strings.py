@@ -3,7 +3,7 @@ from lnschema_core import File
 File.__doc__ = """Files: serialized data objects.
 
 - Guide: :doc:`/guide/track`
-- FAQ: :doc:`/guide/faq/ingest`
+- FAQ: :doc:`/faq/ingest`
 
 Args:
    data: A file path or an in-memory data object to serialize.
