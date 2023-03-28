@@ -3,6 +3,7 @@
 <!-- prettier-ignore -->
 Name | PR | Developer | Date | Version
 --- | --- | --- | --- | ---
+📝 Re-organize docs (2) | [594](https://github.com/laminlabs/lamindb/pull/594) | [falexwolf](https://github.com/falexwolf) | 2023-03-28 |
 :memo: Make FAQ subsection | [593](https://github.com/laminlabs/lamindb/pull/593) | [falexwolf](https://github.com/falexwolf) | 2023-03-28 |
 ⬆️ Upgrade lndb-storage | [592](https://github.com/laminlabs/lamindb/pull/592) | [Koncopd](https://github.com/Koncopd) | 2023-03-28 |
 🚚 No longer import bionty | [591](https://github.com/laminlabs/lamindb/pull/591) | [sunnyosun](https://github.com/sunnyosun) | 2023-03-28 | 0.35.5
