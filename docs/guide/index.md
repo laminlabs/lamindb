@@ -194,16 +194,7 @@ link-samples
 
 ```{toctree}
 :hidden:
-:caption: FAQ
-:glob:
+:caption: Other topics
 
-faq/session
-faq/ingest
-faq/nb
-faq/ingest-same-file-twice
-faq/track-runin
-faq/select
-faq/ingest-acid
-faq/lazy-loading
-faq/setup
+faq/index
 ```
