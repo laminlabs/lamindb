@@ -190,6 +190,7 @@ run
 knowledge
 features
 link-samples
+../bionty/index
 ```
 
 ```{toctree}
