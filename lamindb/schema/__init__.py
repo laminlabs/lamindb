@@ -25,7 +25,7 @@ from lnschema_core import User, dev
 from packaging import version as _v
 
 _check_v = {
-    "bionty": "0.13.1",
+    "bionty": "0.14.0",
     "wetlab": "0.15rc2",
 }
 
