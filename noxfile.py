@@ -1,6 +1,7 @@
 import os
 import shutil
 from pathlib import Path
+from time import perf_counter
 
 import nox
 from laminci import move_built_docs_to_docs_slash_project_slug, upload_docs_artifact
@@ -25,8 +26,13 @@ def lint(session: nox.Session) -> None:
 @nox.session
 @nox.parametrize("package", ["lamindb", "lndb-storage"])
 def build(session, package):
+    t_start = perf_counter()
     login_testuser2(session)
     login_testuser1(session)
+    t_total = perf_counter() - t_start
+    print(f"Done logging in: {t_total:.3f}s")
+
+    t_start = perf_counter()
     # run with pypi install on main
     if "GITHUB_EVENT_NAME" in os.environ:
         if os.environ["GITHUB_EVENT_NAME"] != "push":
@@ -34,9 +40,11 @@ def build(session, package):
             session.install("./sub/lnschema-core[dev,test]")
             session.install("./sub/lnschema-wetlab[dev,test]")
             session.install("./sub/lndb-storage[dev,test]")
-    session.install(".[dev,test]")
 
     session.install(".[dev,test]")
+    t_total = perf_counter() - t_start
+    print(f"Done installing: {t_total:.3f}s")
+
     if package == "lamindb":
         run_pytest(session)
     else:
@@ -46,6 +54,8 @@ def build(session, package):
         session.run("pytest", "-s", "./tests", "--ignore", "./tests/test_migrations.py")
 
     if package == "lamindb":
+        t_start = perf_counter()
+
         # Schemas
         ln.setup.load("testuser1/lamin-site-assets")
 
@@ -67,7 +77,12 @@ def build(session, package):
             "docs/guide/knowledge.ipynb"
         )
 
+        t_total = perf_counter() - t_start
+        print(f"Done pulling artifacts: {t_total:.3f}s")
+
+        t_start = perf_counter()
         build_docs(session)
         login_testuser1(session)
         upload_docs_artifact()
         move_built_docs_to_docs_slash_project_slug()
+        print(f"Done building docs and uploading: {t_total:.3f}s")
