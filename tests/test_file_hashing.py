@@ -1,8 +1,8 @@
 import base64
 from pathlib import Path
 
-from lamindb._record import hash_file, to_b64_str
 from lamindb.dev._core import get_name_suffix_from_filepath
+from lamindb.dev.hashing import hash_file, to_b64_str
 
 
 def test_get_name_suffix_from_filepath():

@@ -26,7 +26,7 @@ passing it to `add`.
 
 Guide: :doc:`/guide/add-delete`.
 
-Example:
+Examples:
 
 1) Add a record (by passing a record)
 >>> ln.add(lns.Pipeline(name="My pipeline", v="1"))
@@ -273,7 +273,7 @@ def upload_data_object(file) -> None:
 
     if file._local_filepath is not None:
         # - Look for _cloud_filepath, which is only not None if the passed filepath
-        # was in the existing storage in the first place (errors within _record.py)
+        # was in the existing storage in the first place (errors within _file.py)
         # - Look for _local_filepath and check whether it's in existing storage before
         # trying to copy the file
         if (file._cloud_filepath is None) and (
