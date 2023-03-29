@@ -1,7 +1,6 @@
 import os
 import shutil
 from pathlib import Path
-from typing import List, Tuple
 
 import nox
 from laminci import upload_docs_dir
@@ -16,15 +15,6 @@ from lndb.test.nox import (
 import lamindb as ln
 
 nox.options.reuse_existing_virtualenvs = True
-
-
-def replace_content(filename: Path, mapped_content: List[Tuple[str, str]]) -> None:
-    with open(filename) as f:
-        content = f.read()
-    with open(filename, "w") as f:
-        for args in mapped_content:
-            content = content.replace(*args)
-        f.write(content)
 
 
 @nox.session(python=["3.7", "3.8", "3.9", "3.10", "3.11"])
@@ -65,19 +55,6 @@ def build(session):
     )
     Path("lnschema_bionty_docs/guide/knowledge.ipynb").rename(
         "docs/guide/knowledge.ipynb"
-    )
-
-    # Bionty
-
-    file = ln.select(ln.File, name="bionty_docs").one()
-    shutil.unpack_archive(file.load(), "bionty_docs")
-    Path("bionty_docs").rename("docs/bionty")
-
-    replace_content(
-        "docs/bionty/index.md",
-        mapped_content=[
-            ("../README.md", "./README.md"),
-        ],
     )
 
     build_docs(session)

@@ -194,13 +194,6 @@ link-samples
 
 ```{toctree}
 :hidden:
-:caption: Modules
-
-../bionty/index
-```
-
-```{toctree}
-:hidden:
 :caption: Other topics
 
 ../faq/index

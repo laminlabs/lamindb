@@ -3,10 +3,7 @@
 <!-- prettier-ignore -->
 Name | PR | Developer | Date | Version
 --- | --- | --- | --- | ---
-📝 Re-organize docs (2) | [594](https://github.com/laminlabs/lamindb/pull/594) | [falexwolf](https://github.com/falexwolf) | 2023-03-28 |
-:memo: Make FAQ subsection | [593](https://github.com/laminlabs/lamindb/pull/593) | [falexwolf](https://github.com/falexwolf) | 2023-03-28 |
-⬆️ Upgrade lndb-storage | [592](https://github.com/laminlabs/lamindb/pull/592) | [Koncopd](https://github.com/Koncopd) | 2023-03-28 |
-🚚 No longer import bionty | [591](https://github.com/laminlabs/lamindb/pull/591) | [sunnyosun](https://github.com/sunnyosun) | 2023-03-28 | 0.35.5
+🚚 Replace `bionty` import with `lnschema_bionty` | [591](https://github.com/laminlabs/lamindb/pull/591) | [sunnyosun](https://github.com/sunnyosun) | 2023-03-28 | 0.35.5
 🚚 Move remaining core entities to root level | [590](https://github.com/laminlabs/lamindb/pull/590) | [falexwolf](https://github.com/falexwolf) | 2023-03-27 | 0.35.4
 🚸 Polish docs & bump lndb | [589](https://github.com/laminlabs/lamindb/pull/589) | [falexwolf](https://github.com/falexwolf) | 2023-03-27 | 0.35.3
 🚚 Move `Readout` from `lnschema-wetlab` to `lnschema-bionty` | [588](https://github.com/laminlabs/lamindb/pull/588) | [sunnyosun](https://github.com/sunnyosun) | 2023-03-27 | 0.35.2
@@ -15,13 +12,10 @@ Name | PR | Developer | Date | Version
 🚚 Introduce `ln.track()` to replace `ln.nb.header()` | [585](https://github.com/laminlabs/lamindb/pull/585) | [falexwolf](https://github.com/falexwolf) | 2023-03-24 |
 🏗️ Combine `Notebook` and `Pipeline` into `Transform` <span class="badge badge-warning">Breaking</span> | [584](https://github.com/laminlabs/lamindb/pull/584) | [falexwolf](https://github.com/falexwolf) | 2023-03-23 |
 🚑 Fix optional dependencies | [583](https://github.com/laminlabs/lamindb/pull/583) | [sunnyosun](https://github.com/sunnyosun) | 2023-03-22 | 0.34.2
-🔥 Remove Usage ORM | [581](https://github.com/laminlabs/lamindb/pull/581) | [falexwolf](https://github.com/falexwolf) | 2023-03-22 |
-📝 Better warning for add | [579](https://github.com/laminlabs/lamindb/pull/579) | [sunnyosun](https://github.com/sunnyosun) | 2023-03-22 |
-⬆️ Updated CellMarker asset | [578](https://github.com/laminlabs/lamindb/pull/578) | [sunnyosun](https://github.com/sunnyosun) | 2023-03-21 | 0.34.1
-➖ Move lnschema_ into test dependency | [576](https://github.com/laminlabs/lamindb/pull/576) | [sunnyosun](https://github.com/sunnyosun) | 2023-03-21 |
-⬆️ Upgrade to bionty 0.9 | [575](https://github.com/laminlabs/lamindb/pull/575) | [sunnyosun](https://github.com/sunnyosun) | 2023-03-20 | 0.34.0
-♻️ Move storage related code to `lndb_storage` | [560](https://github.com/laminlabs/lamindb/pull/560) | [Koncopd](https://github.com/Koncopd) | 2023-03-20 |
-🚚 Move storage related tests to lndb-storage | [574](https://github.com/laminlabs/lamindb/pull/574) | [falexwolf](https://github.com/falexwolf) | 2023-03-17 |
+🔥 Remove `Usage` | [581](https://github.com/laminlabs/lamindb/pull/581) | [falexwolf](https://github.com/falexwolf) | 2023-03-22 |
+⬆️ Updated `CellMarker` asset | [578](https://github.com/laminlabs/lamindb/pull/578) | [sunnyosun](https://github.com/sunnyosun) | 2023-03-21 | 0.34.1
+⬆️ Upgrade to `bionty` 0.9 | [575](https://github.com/laminlabs/lamindb/pull/575) | [sunnyosun](https://github.com/sunnyosun) | 2023-03-20 | 0.34.0
+♻️ Move storage-related code to `lndb-storage` | [560](https://github.com/laminlabs/lamindb/pull/560) | [Koncopd](https://github.com/Koncopd) | 2023-03-20 |
 🚑 Fix gene id | [573](https://github.com/laminlabs/lamindb/pull/573) | [sunnyosun](https://github.com/sunnyosun) | 2023-03-17 |
 🐛 Check if env variable exists before trying to get his value | [572](https://github.com/laminlabs/lamindb/pull/572) | [fredericenard](https://github.com/fredericenard) | 2023-03-15 |
 🚸 Do not yet show deprecation warning for `ln.nb.header()` | [commit](https://github.com/laminlabs/lamindb/commit/2bb80c546434e37b2fa2b0c5b38c92a379aff793) | [falexwolf](https://github.com/falexwolf) | 2023-03-15 | 0.33.4
