@@ -26,7 +26,7 @@ passing it to `add`.
 
 Guide: :doc:`/guide/add-delete`.
 
-Example:
+Examples:
 
 1) Add a record (by passing a record)
 >>> ln.add(lns.Pipeline(name="My pipeline", v="1"))
