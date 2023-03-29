@@ -4,7 +4,7 @@ on:
   push:
     branches: [main]
   pull_request:
-    branches: [main]
+    branches: [main, staging]
 
 jobs:
   build:
@@ -61,9 +61,10 @@ jobs:
         run: |
           python -m pip install -U pip
           pip install -U laminci
-          pip install lamindb
+          pip install -U lamindb
           sudo apt-get -y install graphviz
           sudo apt-get install sqlite3-tools=3.37.2-2
+          sudo apt-get install libpq-dev
       - name: Configure AWS
         uses: aws-actions/configure-aws-credentials@v1
         with:
@@ -83,7 +84,7 @@ jobs:
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
       - name: Deploy docs
-        if: ${{ matrix.python-version == '3.9' && matrix.package == 'bionty' }}
+        if: ${{ matrix.python-version == '3.9' && matrix.package == 'lamindb' }}
         id: netlify
         uses: nwtgck/actions-netlify@v1.2
         with:
@@ -94,3 +95,8 @@ jobs:
         env:
           NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
           NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID }}
+      - name: Codecov
+        if: matrix.python-version == '3.9'
+        uses: codecov/codecov-action@v2
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
