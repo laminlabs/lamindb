@@ -7,7 +7,7 @@ from lnschema_core import File as lns_File
 from lnschema_core import Folder as lns_Folder
 from lnschema_core import Run, Storage
 
-from ._record import get_storage_root_and_root_str
+from ._file import get_storage_root_and_root_str
 from .dev._core import filepath_from_folder, get_name_suffix_from_filepath
 from .dev.db._add import filepath_to_relpath, write_objectkey
 from .dev.db._select import select
