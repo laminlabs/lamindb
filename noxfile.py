@@ -23,7 +23,7 @@ def lint(session: nox.Session) -> None:
 
 
 @nox.session
-@nox.parametrize("package", ["bionty", "lnschema-bionty"])
+@nox.parametrize("package", ["lamindb", "lndb-storage"])
 def build(session, package):
     login_testuser2(session)
     login_testuser1(session)
@@ -41,7 +41,7 @@ def build(session, package):
         run_pytest(session)
     else:
         # navigate into submodule so that lamin-project.yml is correctly read
-        os.chdir("./lnschema-bionty")
+        os.chdir(f"./sub/{package}")
         session.install(".[test]")
         session.run("pytest", "-s", "./tests", "--ignore", "./tests/test_migrations.py")
 
