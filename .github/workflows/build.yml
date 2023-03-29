@@ -72,9 +72,9 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: eu-central-1
       - name: Lint
-        if: matrix.python-version == '3.9'
+        if: ${{ matrix.python-version == '3.9' && matrix.package == 'lamindb' }}
         run: |
-          nox -s lint --python ${{ matrix.python-version }}
+          nox -s lint
       - name: Build
         run: |
           nox -s "build(package='${{ matrix.package }}')"
