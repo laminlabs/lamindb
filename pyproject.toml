@@ -16,7 +16,7 @@ classifiers = [
 dependencies = [
     # Lamin PINNED packages
     "lndb_storage==0.2rc2",
-    "lnschema_core==0.30rc5",
+    "lnschema_core==0.30.0",
     # Lamin GREATEREQ packages
     "lndb>=0.38.1",
     "nbproject>=0.8.3",
