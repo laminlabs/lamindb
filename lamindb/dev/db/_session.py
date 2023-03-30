@@ -44,15 +44,12 @@ class Session:
 
     @doc_args(add_docs)
     def add(
-        self,
-        record: Union[sqm.SQLModel, List[sqm.SQLModel]],
-        use_fsspec: bool = True,
-        **fields
+        self, record: Union[sqm.SQLModel, List[sqm.SQLModel]], **fields
     ) -> Union[sqm.SQLModel, List[sqm.SQLModel]]:
         """{}"""  # noqa
         fields["session"] = self._session
         self._update = True
-        return add(record=record, use_fsspec=use_fsspec, **fields)
+        return add(record=record, **fields)
 
     @doc_args(select_docs)
     def select(self, *entity: sqm.SQLModel, **fields) -> SelectStmt:
