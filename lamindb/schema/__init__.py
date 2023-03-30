@@ -27,16 +27,10 @@ from lnschema_core import User, dev
 
 from .. import _instance_setup
 
-_schema_versions = {
-    "bionty": "0.14.0",
-    "wetlab": "0.15rc2",
-}
-_check_v = _schema_versions  # backward compat
-
 
 def _import_schema():
     for name in _settings.instance.schema:
-        module = _check_schema_version_and_import(name, schema_versions=schema_versions)
+        module = _check_schema_version_and_import(name)
         globals()[module._name] = module
 
 
