@@ -3,6 +3,7 @@
 <!-- prettier-ignore -->
 Name | PR | Developer | Date | Version
 --- | --- | --- | --- | ---
+🚸 Check schema version upon instance init | [597](https://github.com/laminlabs/lamindb/pull/597) | [falexwolf](https://github.com/falexwolf) | 2023-03-30 |
 🐛 Remove use_fsspec from session add | [606](https://github.com/laminlabs/lamindb/pull/606) | [Koncopd](https://github.com/Koncopd) | 2023-03-30 |
 ♻️ Refactor features | [596](https://github.com/laminlabs/lamindb/pull/596) | [falexwolf](https://github.com/falexwolf) | 2023-03-29 |
 🎨 Move submodules into subdirectory | [595](https://github.com/laminlabs/lamindb/pull/595) | [falexwolf](https://github.com/falexwolf) | 2023-03-29 |
