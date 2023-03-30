@@ -1,4 +1,4 @@
-# Track biological features
+# Track feature-level metadata
 
 So far, we haven't enabled ourselves to query for the _features_ of tracked datasets, and used LaminDB like a data lake.
 
