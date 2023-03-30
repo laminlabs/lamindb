@@ -49,7 +49,6 @@ def build(session, package):
     else:
         # navigate into submodule so that lamin-project.yml is correctly read
         os.chdir(f"./sub/{package}")
-        session.install(".[test]")
         session.run("pytest", "-s", "./tests", "--ignore", "./tests/test_migrations.py")
 
     if package == "lamindb":
