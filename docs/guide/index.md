@@ -178,9 +178,7 @@ See {doc}`/guide/features` for more.
 setup
 track
 select
-add-delete
 schema
-run
 ```
 
 ```{toctree}

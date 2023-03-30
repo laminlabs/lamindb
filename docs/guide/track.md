@@ -1,14 +1,16 @@
 # Track data
 
-Use the LaminDB instance to track your local files, cloud files or even in-memory objects via {class}`~lamindb.File`.
+Use the LaminDB instance to track your local files, cloud files or in-memory objects via {class}`~lamindb.File`.
 
 **Jump to:**
 
 - {doc}`/guide/files`
 - {doc}`/guide/memory`
+- {doc}`/guide/file`
+- {doc}`/guide/add-delete`
+- {doc}`/guide/run`
 - {doc}`/guide/existing`
 - {doc}`/guide/folder`
-- {doc}`/guide/file`
 
 ```{toctree}
 :hidden:
@@ -16,7 +18,10 @@ Use the LaminDB instance to track your local files, cloud files or even in-memor
 
 files
 memory
+file
+add-delete
+run
 existing
 folder
-file
+add-delete
 ```
