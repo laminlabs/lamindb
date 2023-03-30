@@ -18,27 +18,20 @@ lnschema_bionty as bt`.
 import importlib as _importlib
 
 from lndb import settings as _settings
-from lndb.dev._setup_schema import get_schema_module_name as _get_schema_module_name
+from lndb.dev._setup_schema import (
+    check_schema_version_and_import as _check_schema_version_and_import,
+)
 from lnschema_core import Features, Project, Run, Storage
 from lnschema_core import Transform as _Transform
 from lnschema_core import User, dev
-from packaging import version as _v
-
-_check_v = {
-    "bionty": "0.14.0",
-    "wetlab": "0.15rc2",
-}
 
 from .. import _instance_setup
 
 
 def _import_schema():
     for name in _settings.instance.schema:
-        _module = _importlib.import_module(_get_schema_module_name(name))
-        if name in _check_v:
-            if _v.parse(_module.__version__) != _v.parse(_check_v[name]):
-                raise RuntimeError(f"lamindb needs lnschema_{name}=={_check_v[name]}")
-        globals()[_module._name] = _module
+        module = _check_schema_version_and_import(name)
+        globals()[module._name] = module
 
 
 if _instance_setup:
