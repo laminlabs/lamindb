@@ -23,5 +23,4 @@ add-delete
 run
 existing
 folder
-add-delete
 ```
