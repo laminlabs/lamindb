@@ -179,6 +179,8 @@ _build
 *.bam
 *.fastq.gz
 
+# Pycharm
+.idea
 
 # fred files
 docs/guide/insert-some-data-into-frederic-hub.ipynb
