@@ -1,3 +1,4 @@
+import bionty
 from lamin_logger import logger
 from lndb import __version__ as lndb_v
 from lndb_storage import __version__ as lndb_storage_v
@@ -20,6 +21,9 @@ if version.parse(lndb_v) < version.parse("0.38.1"):
 
 if version.parse(nbproject_v) < version.parse("0.8.3"):
     raise RuntimeError("lamindb needs nbproject>=0.8.3")
+
+if version.parse(bionty) < version.parse("0.11.3"):
+    raise RuntimeError("lamindb needs Bionty>=0.11.3")
 
 # ensure that the lamin package is not installed
 try:
