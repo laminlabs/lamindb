@@ -46,4 +46,5 @@ def load(file: File, stream: bool = False, is_run_input: Optional[bool] = None):
 def stage(file: File, is_run_input: Optional[bool] = None):
     _track_run_input(file, is_run_input)
 
+    # doesn't work for zarr
     return setup_settings.instance.storage.cloud_to_local(filepath_from_file(file))
