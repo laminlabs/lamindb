@@ -3,6 +3,7 @@
 <!-- prettier-ignore -->
 Name | PR | Developer | Date | Version
 --- | --- | --- | --- | ---
+🩹 Remove bionty import | [610](https://github.com/laminlabs/lamindb/pull/610) | [Koncopd](https://github.com/Koncopd) | 2023-04-02 |
 Increase pinned bionty version | [605](https://github.com/laminlabs/lamindb/pull/605) | [Zethson](https://github.com/Zethson) | 2023-04-01 |
 :memo: Re-organize | [607](https://github.com/laminlabs/lamindb/pull/607) | [falexwolf](https://github.com/falexwolf) | 2023-03-30 |
 🚸 Check schema version upon instance init | [597](https://github.com/laminlabs/lamindb/pull/597) | [falexwolf](https://github.com/falexwolf) | 2023-03-30 |
