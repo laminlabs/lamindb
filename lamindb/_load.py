@@ -35,7 +35,7 @@ def _track_run_input(file: File, is_run_input: Optional[bool] = None):
 # this is exposed to the user as File.load
 def load(file: File, stream: bool = False, is_run_input: Optional[bool] = None):
     if stream and file.suffix not in (".h5ad", ".zarr"):
-        logger.warning(f"Ignoring stream option for a {file.suffix} object.")
+        logger.warning(f"Ignoring stream option for a {file.suffix} File.")
 
     _track_run_input(file, is_run_input)
 
@@ -44,6 +44,10 @@ def load(file: File, stream: bool = False, is_run_input: Optional[bool] = None):
 
 # this is exposed to the user as File.stage
 def stage(file: File, is_run_input: Optional[bool] = None):
+    if file.suffix == ".zarr":
+        logger.warning("Zarr File can't be staged, please use load.")
+        return None
+
     _track_run_input(file, is_run_input)
 
     # doesn't work for zarr
