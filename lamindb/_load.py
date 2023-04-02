@@ -1,6 +1,7 @@
 from typing import Optional
 
 from lamin_logger import logger
+from lndb import settings as setup_settings
 from lndb_storage import load_to_memory
 from lnschema_core import File
 from sqlalchemy.orm.session import object_session
@@ -11,10 +12,7 @@ from ._settings import settings
 from .dev._core import filepath_from_file
 
 
-# this is exposed to the user as File.load
-def load(file: File, stream: bool = False, is_run_input: Optional[bool] = None):
-    if stream and file.suffix not in (".h5ad", ".zarr"):
-        logger.warning(f"Ignoring stream option for a {file.suffix} object.")
+def _track_run_input(file: File, is_run_input: Optional[bool] = None):
     if is_run_input is None:
         track_run_input = settings.track_run_inputs_upon_load
     else:
@@ -32,4 +30,20 @@ def load(file: File, stream: bool = False, is_run_input: Optional[bool] = None):
             session = object_session(file)
             session.add(file)
             session.commit()
+
+
+# this is exposed to the user as File.load
+def load(file: File, stream: bool = False, is_run_input: Optional[bool] = None):
+    if stream and file.suffix not in (".h5ad", ".zarr"):
+        logger.warning(f"Ignoring stream option for a {file.suffix} object.")
+
+    _track_run_input(file, is_run_input)
+
     return load_to_memory(filepath_from_file(file), stream=stream)
+
+
+# this is exposed to the user as File.stage
+def stage(file: File, is_run_input: Optional[bool] = None):
+    _track_run_input(file, is_run_input)
+
+    return setup_settings.instance.storage.cloud_to_local(filepath_from_file(file))
