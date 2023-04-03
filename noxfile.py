@@ -55,7 +55,7 @@ def build(session, package):
         t_start = perf_counter()
 
         # Schemas
-        ln.setup.load("testuser1/lamin-site-assets")
+        ln.setup.load("testuser1/lamin-site-assets", migrate=True)
 
         file = ln.select(ln.File, name="lnschema_core_docs").one()
         shutil.unpack_archive(file.load(), "lnschema_core_docs")
