@@ -5,7 +5,7 @@ from typing import List, Optional, Tuple, Union, overload  # noqa
 import sqlmodel as sqm
 from lamin_logger import logger
 from lndb import settings as setup_settings
-from lndb_storage import UPath, store_object, write_adata_zarr
+from lndb_storage import UPath, delete_storage, store_object, write_adata_zarr
 from lndb_storage._file import print_hook
 from lnschema_core import File, Folder
 from pydantic.fields import ModelPrivateAttr
@@ -156,6 +156,14 @@ def upload_committed_records(records, session):
                 error = e
                 break
         added_records += [record]
+
+    # clear old files on update
+    for record in added_records:
+        if isinstance(record, File) and hasattr(record, "_clear_storagekey"):
+            try:
+                delete_storage(record._clear_storagekey)
+            except Exception as e:
+                error = e
 
     # clean up metadata for objects not uploaded to storage
     if error is not None:
