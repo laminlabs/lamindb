@@ -161,7 +161,9 @@ def upload_committed_records(records, session):
     for record in added_records:
         if isinstance(record, File) and hasattr(record, "_clear_storagekey"):
             try:
-                delete_storage(record._clear_storagekey)
+                if record._clear_storagekey is not None:
+                    delete_storage(record._clear_storagekey)
+                    record._clear_storagekey = None
             except Exception as e:
                 error = e
 
