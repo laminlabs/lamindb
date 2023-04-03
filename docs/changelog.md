@@ -3,6 +3,7 @@
 <!-- prettier-ignore -->
 Name | PR | Developer | Date | Version
 --- | --- | --- | --- | ---
+✨ Clear old files on replace if needed | [612](https://github.com/laminlabs/lamindb/pull/612) | [Koncopd](https://github.com/Koncopd) | 2023-04-03 |
 ✨ Add stage function to synchronize a File | [609](https://github.com/laminlabs/lamindb/pull/609) | [Koncopd](https://github.com/Koncopd) | 2023-04-02 |
 🩹 Remove bionty import | [610](https://github.com/laminlabs/lamindb/pull/610) | [Koncopd](https://github.com/Koncopd) | 2023-04-02 |
 Increase pinned bionty version | [605](https://github.com/laminlabs/lamindb/pull/605) | [Zethson](https://github.com/Zethson) | 2023-04-01 |
