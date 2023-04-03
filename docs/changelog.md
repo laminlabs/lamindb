@@ -3,20 +3,11 @@
 <!-- prettier-ignore -->
 Name | PR | Developer | Date | Version
 --- | --- | --- | --- | ---
-📝 Update docs with `File.stage()` and `File.replace()` | [611](https://github.com/laminlabs/lamindb/pull/611) | [falexwolf](https://github.com/falexwolf) | 2023-04-03 |
-🩹 Clear _clear_storagekey after delete | [613](https://github.com/laminlabs/lamindb/pull/613) | [Koncopd](https://github.com/Koncopd) | 2023-04-03 |
-✨ Clear old files on replace if needed | [612](https://github.com/laminlabs/lamindb/pull/612) | [Koncopd](https://github.com/Koncopd) | 2023-04-03 |
-✨ Add stage function to synchronize a File | [609](https://github.com/laminlabs/lamindb/pull/609) | [Koncopd](https://github.com/Koncopd) | 2023-04-02 |
-🩹 Remove bionty import | [610](https://github.com/laminlabs/lamindb/pull/610) | [Koncopd](https://github.com/Koncopd) | 2023-04-02 |
-Increase pinned bionty version | [605](https://github.com/laminlabs/lamindb/pull/605) | [Zethson](https://github.com/Zethson) | 2023-04-01 |
-:memo: Re-organize | [607](https://github.com/laminlabs/lamindb/pull/607) | [falexwolf](https://github.com/falexwolf) | 2023-03-30 |
-🚸 Check schema version upon instance init | [597](https://github.com/laminlabs/lamindb/pull/597) | [falexwolf](https://github.com/falexwolf) | 2023-03-30 |
-🐛 Remove use_fsspec from session add | [606](https://github.com/laminlabs/lamindb/pull/606) | [Koncopd](https://github.com/Koncopd) | 2023-03-30 |
-♻️ Refactor features | [596](https://github.com/laminlabs/lamindb/pull/596) | [falexwolf](https://github.com/falexwolf) | 2023-03-29 |
-🎨 Move submodules into subdirectory | [595](https://github.com/laminlabs/lamindb/pull/595) | [falexwolf](https://github.com/falexwolf) | 2023-03-29 |
-🚚 Replace `bionty` import with `lnschema_bionty` | [591](https://github.com/laminlabs/lamindb/pull/591) | [sunnyosun](https://github.com/sunnyosun) | 2023-03-28 | 0.35.5
-🚚 Move remaining core entities to root level | [590](https://github.com/laminlabs/lamindb/pull/590) | [falexwolf](https://github.com/falexwolf) | 2023-03-27 | 0.35.4
-🚸 Polish docs & bump lndb | [589](https://github.com/laminlabs/lamindb/pull/589) | [falexwolf](https://github.com/falexwolf) | 2023-03-27 | 0.35.3
+✨ Introduce `File.stage()` and `File.replace()` | [611](https://github.com/laminlabs/lamindb/pull/611) | [Koncopd](https://github.com/Koncopd) | 2023-04-03 | 0.35.6
+🚸 More robust ontology version tracking | [605](https://github.com/laminlabs/lamindb/pull/605) | [Zethson](https://github.com/Zethson) | 2023-04-01 |
+🚚 Import `lnschema_bionty` instead of `bionty` | [591](https://github.com/laminlabs/lamindb/pull/591) | [sunnyosun](https://github.com/sunnyosun) | 2023-03-28 | 0.35.5
+🚚 Move all core entities to root level | [590](https://github.com/laminlabs/lamindb/pull/590) | [falexwolf](https://github.com/falexwolf) | 2023-03-27 | 0.35.4
+🚸 Polish guide | [589](https://github.com/laminlabs/lamindb/pull/589) | [falexwolf](https://github.com/falexwolf) | 2023-03-27 | 0.35.3
 🚚 Move `Readout` from `lnschema-wetlab` to `lnschema-bionty` | [588](https://github.com/laminlabs/lamindb/pull/588) | [sunnyosun](https://github.com/sunnyosun) | 2023-03-27 | 0.35.2
 ♻️ Fix `parsing_id` | [587](https://github.com/laminlabs/lamindb/pull/587) | [sunnyosun](https://github.com/sunnyosun) | 2023-03-27 | 0.35.1
 🚚 Rename `DObject` to `File` and `DFolder` to `Folder` <span class="badge badge-warning">Breaking</span> | [586](https://github.com/laminlabs/lamindb/pull/586) | [falexwolf](https://github.com/falexwolf) | 2023-03-25 | 0.35.0
