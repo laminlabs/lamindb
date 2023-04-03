@@ -469,7 +469,7 @@ Update lndb_hub version | [176](https://github.com/laminlabs/lamindb/pull/176) |
 ✨ Track python package dependencies in `source.dependency` | [27](https://github.com/laminlabs/lamindb/pull/27) | [falexwolf](https://github.com/falexwolf) | 2022-06-09 |
 ✨ Track title of ingesting notebook in `source.name` | [26](https://github.com/laminlabs/lamindb/pull/26) | [falexwolf](https://github.com/falexwolf) | 2022-06-09 |
 🐛 Fix user & notebook ingestion, add another test dataset | [24](https://github.com/laminlabs/lamindb/pull/24) | [falexwolf](https://github.com/falexwolf) | 2022-06-08 |
-✅ Fix pandas load, add tests for converting between sqlcore & pandas, add tests for setup | [23](https://github.com/laminlabs/lamindb/pull/23) | [falexwolf](https://github.com/falexwolf)
+✅ Fix pandas load, add tests | [23](https://github.com/laminlabs/lamindb/pull/23) | [falexwolf](https://github.com/falexwolf)
 ✨ Add introspection: `db.diagram()`, `db.entities()`, `db.load()` | [22](https://github.com/laminlabs/lamindb/pull/22) | [falexwolf](https://github.com/falexwolf) | |
 ✨ Add entity `user` | [21](https://github.com/laminlabs/lamindb/pull/21) | [falexwolf](https://github.com/falexwolf) | |
 🚸 Auto-create local storage dir & cache dir | [20](https://github.com/laminlabs/lamindb/pull/20) | [falexwolf](https://github.com/falexwolf) | |
