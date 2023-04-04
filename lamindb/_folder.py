@@ -8,7 +8,7 @@ from lnschema_core import Folder as lns_Folder
 from lnschema_core import Run, Storage
 
 from ._file import get_storage_root_and_root_str
-from .dev._core import filepath_from_folder, get_name_suffix_from_filepath
+from .dev._core import filepath_from_folder
 from .dev.db._add import filepath_to_relpath, write_objectkey
 from .dev.db._select import select
 
@@ -127,8 +127,7 @@ def list_files_from_dir(dirpath: Union[Path, UPath]):
 
 def relpath_to_objectkey(folder: lns_Folder, relpath: PurePath):
     """Convert a relative path of folder to an absolute path."""
-    name, _ = get_name_suffix_from_filepath(relpath)
-    objectkey = str(PurePath(folder._objectkey) / relpath.parent / name)
+    objectkey = str(PurePath(folder._objectkey) / relpath.parent / relpath.name)
     return objectkey
 
 

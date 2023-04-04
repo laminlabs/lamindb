@@ -11,7 +11,6 @@ from lnschema_core import File, Run, Storage
 
 from lamindb._features import get_features
 from lamindb._settings import settings
-from lamindb.dev._core import get_name_suffix_from_filepath
 from lamindb.dev.db._add import get_storage_root_and_root_str
 from lamindb.dev.db._select import select
 from lamindb.dev.hashing import hash_file
@@ -49,7 +48,8 @@ def serialize(
                 " Please call `lndb.set_storage('< bucket_name >')`."
             )
         memory_rep = None
-        name, suffix = get_name_suffix_from_filepath(filepath)
+        name = filepath.name
+        suffix = "".join(filepath.suffixes)
     # For now, in-memory objects are always saved to local_filepath first
     # This behavior will change in the future
     elif isinstance(data, (pd.DataFrame, AnnData)):
