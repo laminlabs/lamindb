@@ -12,7 +12,7 @@ def test_get_name_suffix_from_filepath():
         ("archive.tar.gz", "archive", ".tar.gz"),
         ("directory/file", "file", ""),
         ("d.x.y.z/f.a.b.c", "f", ".a.b.c"),
-        ("logs/date.log.txt", "date", ".txt"),
+        ("logs/date.log.txt", "date", ".log.txt"),
     ]
     for path, _, suffix in dataset:
         filepath = Path(path)
