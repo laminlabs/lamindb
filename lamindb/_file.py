@@ -49,6 +49,7 @@ def serialize(
             )
         memory_rep = None
         name = filepath.name
+        # also see tests/test_file_hashing.py
         suffix = "".join(filepath.suffixes)
     # For now, in-memory objects are always saved to local_filepath first
     # This behavior will change in the future

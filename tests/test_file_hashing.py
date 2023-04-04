@@ -1,7 +1,6 @@
 import base64
 from pathlib import Path
 
-from lamindb.dev._core import get_name_suffix_from_filepath
 from lamindb.dev.hashing import hash_file, to_b64_str
 
 
@@ -15,9 +14,9 @@ def test_get_name_suffix_from_filepath():
         ("d.x.y.z/f.a.b.c", "f", ".a.b.c"),
         ("logs/date.log.txt", "date", ".txt"),
     ]
-    for path, name, suffix in dataset:
+    for path, _, suffix in dataset:
         filepath = Path(path)
-        assert name, suffix == get_name_suffix_from_filepath(filepath)
+        assert suffix == "".join(filepath.suffixes)
 
 
 def test_compute_hash():
