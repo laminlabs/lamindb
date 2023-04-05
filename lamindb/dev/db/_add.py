@@ -107,7 +107,10 @@ def add(  # type: ignore
         write_objectkey(record)
         # the following ensures that queried objects (within __init__)
         # behave like queried objects, only example right now: Run
-        if hasattr(record, "_ln_identity_key") and record._ln_identity_key is not None:
+        if (
+            _private_not_empty(record, "_ln_identity_key")
+            and record._ln_identity_key is not None  # noqa
+        ):
             record._sa_instance_state.key = record._ln_identity_key
         session.add(record)
     try:
@@ -149,7 +152,7 @@ def upload_committed_records(records, session):
 
     # upload data objects
     for record in records:
-        if isinstance(record, File) and hasattr(record, "_local_filepath"):
+        if isinstance(record, File) and _private_not_empty(record, "_local_filepath"):
             try:
                 upload_data_object(record)
             except Exception as e:
@@ -159,7 +162,7 @@ def upload_committed_records(records, session):
 
     # clear old files on update
     for record in added_records:
-        if isinstance(record, File) and hasattr(record, "_clear_storagekey"):
+        if isinstance(record, File) and _private_not_empty(record, "_clear_storagekey"):
             try:
                 if record._clear_storagekey is not None:
                     delete_storage(record._clear_storagekey)
@@ -259,11 +262,8 @@ def write_objectkey(record: sqm.SQLModel) -> None:
 
     # _local_filepath private attribute is only added
     # when creating File from data or Folder from folder
-    if hasattr(record, "_local_filepath"):
-        # for upsert
-        if isinstance(record._local_filepath, ModelPrivateAttr):
-            pass
-        elif record._local_filepath is None:
+    if _private_not_empty(record, "_local_filepath"):
+        if record._local_filepath is None:
             # cloud storage
             if record._cloud_filepath is not None:
                 set_objectkey(record, record._cloud_filepath)
@@ -294,3 +294,11 @@ def upload_data_object(file) -> None:
         storagepath = storage.key_to_filepath(file_storage_key)
         print_progress = partial(print_hook, filepath=file.name)
         write_adata_zarr(file._memory_rep, storagepath, callback=print_progress)
+
+
+# sometimes obj.attr results in
+def _private_not_empty(obj, attr):
+    if hasattr(obj, attr):
+        return not isinstance(getattr(obj, attr), ModelPrivateAttr)
+    else:
+        return False
