@@ -7,10 +7,7 @@ from lamin_logger import logger
 from lndb import settings as setup_settings
 from lndb_storage import UPath
 from lndb_storage.object import infer_suffix, size_adata, write_to_file
-from lnschema_core import File, Folder, Run, Storage
-from pydantic.fields import ModelPrivateAttr
-from sqlalchemy.orm.attributes import set_attribute
-from sqlmodel import SQLModel
+from lnschema_core import File, Run, Storage
 
 from lamindb._features import get_features
 from lamindb._settings import settings
@@ -148,19 +145,12 @@ def get_path_size_hash(
     return localpath, cloudpath, size, hash
 
 
-def local_instance_storage_matches_local_parent(file: File):
+def check_path_is_in_storage(filepath: Union[Path, UPath]) -> bool:
     storage = setup_settings.instance.storage
-
-    if file._local_filepath is not None:
-        path = file._local_filepath
+    if isinstance(filepath, UPath):
+        return filepath.root.strip("/") == storage.root
     else:
-        path = file.path()
-
-    if not isinstance(path, UPath):
-        path = path.resolve()
-
-    parents = [str(p) for p in path.parents]
-    return str(storage.root) in parents
+        return storage.root in filepath.resolve().parents
 
 
 def get_storage_root_and_root_str(
@@ -186,46 +176,6 @@ def filepath_to_relpath(
     return relpath
 
 
-def filepath_to_objectkey(
-    record: Union[File, Folder], filepath: Union[Path, UPath]
-) -> str:
-    root, root_str = get_storage_root_and_root_str()
-
-    relpath = filepath_to_relpath(root=root, root_str=root_str, filepath=filepath)
-    # for File, _objectkey is relative path to the storage root without suffix
-    _objectkey = relpath.parent / record.name if isinstance(record, File) else relpath
-
-    return _objectkey.as_posix()
-
-
-def write_objectkey(record: SQLModel) -> None:
-    """Write to _objectkey.
-
-    An objectkey excludes the storage root and the file suffix.
-    """
-
-    def set_objectkey(record: Union[File, Folder], filepath: Union[Path, UPath]):
-        _objectkey = filepath_to_objectkey(record=record, filepath=filepath)
-        set_attribute(record, "_objectkey", _objectkey)
-
-    # _local_filepath private attribute is only added
-    # when creating File from data or Folder from folder
-    if hasattr(record, "_local_filepath"):
-        # for upsert
-        if isinstance(record._local_filepath, ModelPrivateAttr):
-            pass
-        elif record._local_filepath is None:
-            # cloud storage
-            if record._cloud_filepath is not None:
-                set_objectkey(record, record._cloud_filepath)
-            # both _cloud_filepath and _local_filepath are None fir zarr
-        # local storage
-        else:
-            # only set objectkey if it is configured
-            if local_instance_storage_matches_local_parent(record):
-                set_objectkey(record, record._local_filepath)
-
-
 # expose to user via ln.File
 def get_file_kwargs_from_data(
     data: Union[Path, UPath, str, pd.DataFrame, AnnData],
@@ -236,17 +186,29 @@ def get_file_kwargs_from_data(
 ):
     run = get_run(source)
     memory_rep, filepath, name, suffix = serialize(data, name, format)
+    # the following will return a localpath that is not None if filepath is local
+    # it will return a cloudpath that is not None if filepath is on the cloud
     localpath, cloudpath, size, hash = get_path_size_hash(filepath, memory_rep, suffix)
 
-    # if local_filepath is already in the configured storage location
-    # skip the upload
-    _, root_str = get_storage_root_and_root_str()
-    storage = select(Storage, root=root_str).one()
+    root, root_str = get_storage_root_and_root_str()
+    storage_record = select(Storage, root=root_str).one()
+
+    # set objectkey
+    if memory_rep is None:
+        relpath = filepath_to_relpath(root=root, root_str=root_str, filepath=filepath)
+        _objectkey = relpath.parent / name
+    else:
+        _objectkey = None
+
+    # determine whether storing file is necessary or file is already in storage
+    check_store_file = check_path_is_in_storage(filepath)
 
     file_privates = dict(
         _local_filepath=localpath,
         _cloud_filepath=cloudpath,
         _memory_rep=memory_rep,
+        _objectkey=_objectkey,
+        _check_store_file=check_store_file,
     )
 
     file_kwargs = dict(
@@ -255,7 +217,7 @@ def get_file_kwargs_from_data(
         hash=hash,
         source_id=run.id,
         size=size,
-        storage_id=storage.id,
+        storage_id=storage_record.id,
         source=run,
     )
 
