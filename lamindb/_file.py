@@ -1,4 +1,4 @@
-from pathlib import Path
+from pathlib import Path, PurePath
 from typing import Any, Optional, Tuple, Union
 
 import pandas as pd
@@ -7,11 +7,13 @@ from lamin_logger import logger
 from lndb import settings as setup_settings
 from lndb_storage import UPath
 from lndb_storage.object import infer_suffix, size_adata, write_to_file
-from lnschema_core import File, Run, Storage
+from lnschema_core import File, Folder, Run, Storage
+from pydantic.fields import ModelPrivateAttr
+from sqlalchemy.orm.attributes import set_attribute
+from sqlmodel import SQLModel
 
 from lamindb._features import get_features
 from lamindb._settings import settings
-from lamindb.dev.db._add import get_storage_root_and_root_str
 from lamindb.dev.db._select import select
 from lamindb.dev.hashing import hash_file
 
@@ -144,6 +146,84 @@ def get_path_size_hash(
             hash = get_hash(filepath, suffix, check_hash=check_hash)
 
     return localpath, cloudpath, size, hash
+
+
+def local_instance_storage_matches_local_parent(file: File):
+    storage = setup_settings.instance.storage
+
+    if file._local_filepath is not None:
+        path = file._local_filepath
+    else:
+        path = file.path()
+
+    if not isinstance(path, UPath):
+        path = path.resolve()
+
+    parents = [str(p) for p in path.parents]
+    return str(storage.root) in parents
+
+
+def get_storage_root_and_root_str(
+    root: Optional[Union[Path, UPath]] = None
+) -> Tuple[Union[Path, UPath], str]:
+    if root is None:
+        root = setup_settings.instance.storage.root
+    root_str = root.as_posix()
+    if isinstance(root, UPath):
+        root_str = root_str.rstrip("/")
+    return root, root_str
+
+
+def filepath_to_relpath(
+    root: Union[PurePath, Path], root_str: str, filepath: Union[Path, UPath]
+) -> Union[PurePath, Path]:
+    """Filepath to relative path of the root."""
+    if isinstance(root, UPath):
+        relpath = PurePath(filepath.as_posix().replace(root_str, ""))
+    else:
+        relpath = filepath.resolve().relative_to(root_str)
+
+    return relpath
+
+
+def filepath_to_objectkey(
+    record: Union[File, Folder], filepath: Union[Path, UPath]
+) -> str:
+    root, root_str = get_storage_root_and_root_str()
+
+    relpath = filepath_to_relpath(root=root, root_str=root_str, filepath=filepath)
+    # for File, _objectkey is relative path to the storage root without suffix
+    _objectkey = relpath.parent / record.name if isinstance(record, File) else relpath
+
+    return _objectkey.as_posix()
+
+
+def write_objectkey(record: SQLModel) -> None:
+    """Write to _objectkey.
+
+    An objectkey excludes the storage root and the file suffix.
+    """
+
+    def set_objectkey(record: Union[File, Folder], filepath: Union[Path, UPath]):
+        _objectkey = filepath_to_objectkey(record=record, filepath=filepath)
+        set_attribute(record, "_objectkey", _objectkey)
+
+    # _local_filepath private attribute is only added
+    # when creating File from data or Folder from folder
+    if hasattr(record, "_local_filepath"):
+        # for upsert
+        if isinstance(record._local_filepath, ModelPrivateAttr):
+            pass
+        elif record._local_filepath is None:
+            # cloud storage
+            if record._cloud_filepath is not None:
+                set_objectkey(record, record._cloud_filepath)
+            # both _cloud_filepath and _local_filepath are None fir zarr
+        # local storage
+        else:
+            # only set objectkey if it is configured
+            if local_instance_storage_matches_local_parent(record):
+                set_objectkey(record, record._local_filepath)
 
 
 # expose to user via ln.File
