@@ -2,6 +2,7 @@ from itertools import islice
 from pathlib import Path, PurePath
 from typing import List, Optional, Union
 
+from lamin_logger import logger
 from lndb_storage import UPath
 from lnschema_core import File
 from lnschema_core import Folder as lns_Folder
@@ -38,6 +39,7 @@ def get_folder_kwargs_from_data(
     )
     if key is None:
         key = folderpath.name.rstrip("/")
+        logger.hint(f"using key = {key}")
 
     # TODO: UPath doesn't list the first level files and dirs with "*"
     pattern = "" if isinstance(folderpath, UPath) else "*"

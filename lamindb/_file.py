@@ -198,7 +198,7 @@ def get_file_kwargs_from_data(
             root=root, root_str=root_str, filepath=filepath
         )
         key = (relpath.parent / safe_name).as_posix()
-        logger.hint("storage key is {key}")
+        logger.hint("using key = {key}")
 
     file_privates = dict(
         _local_filepath=localpath,
