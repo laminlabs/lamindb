@@ -145,14 +145,6 @@ def get_path_size_hash(
     return localpath, cloudpath, size, hash
 
 
-def check_path_is_in_storage(filepath: Union[Path, UPath]) -> bool:
-    storage = setup_settings.instance.storage
-    if isinstance(filepath, UPath):
-        return filepath.root.strip("/") == storage.root
-    else:
-        return storage.root in filepath.resolve().parents
-
-
 def get_storage_root_and_root_str(
     root: Optional[Union[Path, UPath]] = None
 ) -> Tuple[Union[Path, UPath], str]:
@@ -164,6 +156,14 @@ def get_storage_root_and_root_str(
     return root, root_str
 
 
+def check_path_is_in_storage(filepath: Union[Path, UPath]) -> bool:
+    storage = setup_settings.instance.storage
+    if isinstance(filepath, UPath):
+        return filepath.root.strip("/") == storage.root
+    else:
+        return storage.root in filepath.resolve().parents
+
+
 def filepath_to_relpath(
     root: Union[PurePath, Path], root_str: str, filepath: Union[Path, UPath]
 ) -> Union[PurePath, Path]:
@@ -172,7 +172,6 @@ def filepath_to_relpath(
         relpath = PurePath(filepath.as_posix().replace(root_str, ""))
     else:
         relpath = filepath.resolve().relative_to(root_str)
-
     return relpath
 
 
@@ -181,40 +180,36 @@ def get_file_kwargs_from_data(
     data: Union[Path, UPath, str, pd.DataFrame, AnnData],
     *,
     name: Optional[str] = None,
+    key: Optional[str] = None,
     source: Optional[Run] = None,
     format: Optional[str] = None,
 ):
     run = get_run(source)
-    memory_rep, filepath, name, suffix = serialize(data, name, format)
+    memory_rep, filepath, safe_name, suffix = serialize(data, name, format)
     # the following will return a localpath that is not None if filepath is local
     # it will return a cloudpath that is not None if filepath is on the cloud
     localpath, cloudpath, size, hash = get_path_size_hash(filepath, memory_rep, suffix)
-
     root, root_str = get_storage_root_and_root_str()
     storage_record = select(Storage, root=root_str).one()
+    check_path_in_storage = check_path_is_in_storage(filepath)
 
-    # set objectkey
-    if memory_rep is None:
+    if memory_rep is None and key is None and check_path_in_storage:
         relpath = filepath_to_relpath(root=root, root_str=root_str, filepath=filepath)
-        _objectkey = relpath.parent / name
-    else:
-        _objectkey = None
-
-    # determine whether storing file is necessary or file is already in storage
-    check_store_file = check_path_is_in_storage(filepath)
+        key = (relpath.parent / safe_name).as_posix()
+        logger.hint("storage key is {key}")
 
     file_privates = dict(
         _local_filepath=localpath,
         _cloud_filepath=cloudpath,
         _memory_rep=memory_rep,
-        _objectkey=_objectkey,
-        _check_store_file=check_store_file,
+        _check_path_in_storage=check_path_in_storage,
     )
 
     file_kwargs = dict(
-        name=name,
+        name=safe_name,
         suffix=suffix,
         hash=hash,
+        key=key,
         source_id=run.id,
         size=size,
         storage_id=storage_record.id,

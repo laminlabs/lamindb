@@ -59,7 +59,7 @@ Basic entities:
 
    User
    Project
-   StorageRoot
+   Storage
 
 Schema - entities and their relations:
 
@@ -124,9 +124,16 @@ else:
 
 from lndb_storage import subset
 from lndb_storage.object import lazy
-from lnschema_core import Features, File, Folder, Project, Run  # noqa
-from lnschema_core import Storage as StorageRoot
-from lnschema_core import Transform, User  # noqa
+from lnschema_core import (  # noqa
+    Features,
+    File,
+    Folder,
+    Project,
+    Run,
+    Storage,
+    Transform,
+    User,
+)
 
 from . import _amend_doc_strings  # noqa
 from . import dev  # noqa
