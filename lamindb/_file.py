@@ -164,7 +164,7 @@ def check_path_is_in_storage(filepath: Union[Path, UPath]) -> bool:
         return storage.root in filepath.resolve().parents
 
 
-def filepath_to_relpath(
+def filepath_to_relpath_root(
     root: Union[PurePath, Path], root_str: str, filepath: Union[Path, UPath]
 ) -> Union[PurePath, Path]:
     """Filepath to relative path of the root."""
@@ -194,7 +194,9 @@ def get_file_kwargs_from_data(
     check_path_in_storage = check_path_is_in_storage(filepath)
 
     if memory_rep is None and key is None and check_path_in_storage:
-        relpath = filepath_to_relpath(root=root, root_str=root_str, filepath=filepath)
+        relpath = filepath_to_relpath_root(
+            root=root, root_str=root_str, filepath=filepath
+        )
         key = (relpath.parent / safe_name).as_posix()
         logger.hint("storage key is {key}")
 

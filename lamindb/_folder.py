@@ -3,20 +3,30 @@ from pathlib import Path, PurePath
 from typing import List, Optional, Union
 
 from lndb_storage import UPath
-from lnschema_core import File as lns_File
+from lnschema_core import File
 from lnschema_core import Folder as lns_Folder
 from lnschema_core import Run, Storage
 
-from ._file import get_storage_root_and_root_str
+from ._file import filepath_to_relpath_root, get_storage_root_and_root_str
 from .dev._core import filepath_from_folder
-from .dev.db._add import filepath_to_relpath, write_objectkey
 from .dev.db._select import select
+
+
+def filepath_to_relpath_folder(
+    filepath: Union[Path, UPath], folder: Union[PurePath, Path]
+) -> str:
+    if isinstance(folder, UPath):
+        relpath = PurePath(filepath.as_posix().replace(folder.as_posix(), ""))
+    else:
+        relpath = filepath.resolve().relative_to(folder)
+    return relpath.as_posix()
 
 
 def get_folder_kwargs_from_data(
     folder: Union[Path, UPath, str],
     *,
     name: Optional[str] = None,
+    key: Optional[str] = None,
     source: Optional[Run] = None,
 ):
     folderpath = UPath(folder)
@@ -26,19 +36,23 @@ def get_folder_kwargs_from_data(
         _local_filepath=localpath,
         _cloud_filepath=cloudpath,
     )
+    if key is None:
+        key = folderpath.name.rstrip("/")
 
     # TODO: UPath doesn't list the first level files and dirs with "*"
     pattern = "" if isinstance(folderpath, UPath) else "*"
 
     files = []
-    for f in folderpath.rglob(pattern):
-        if f.is_file():
-            dobj = lns_File(f, source=source)
-            write_objectkey(dobj)
-            files.append(dobj)
+    for filepath in folderpath.rglob(pattern):
+        if filepath.is_file():
+            relpath = filepath_to_relpath_folder(filepath, folderpath)
+            filekey = folderpath.name.rstrip("/") + "/" + relpath
+            file = File(filepath, source=source, key=filekey)
+            files.append(file)
 
     folder_kwargs = dict(
         name=folderpath.name if name is None else name,
+        key=key,
         files=files,
     )
     return folder_kwargs, folder_privates
@@ -109,7 +123,7 @@ def get_file(
             abspaths_files = list_files_from_dir(abspath)
             root, root_str = get_storage_root_and_root_str(filepath_from_folder(folder))
             relpaths = [
-                filepath_to_relpath(root=root, root_str=root_str, filepath=i)
+                filepath_to_relpath_root(root=root, root_str=root_str, filepath=i)
                 for i in abspaths_files
             ]
         else:
@@ -138,8 +152,8 @@ def relpath_to_abspath(folder: lns_Folder, relpath: PurePath):
 def select_by_objectkey(file_objectkeys: List[str], **fields):
     # query for unique comb of (_filekey, storage, suffix)
     files = (
-        select(lns_File, **fields)
-        .where(lns_File._objectkey.in_(file_objectkeys))
+        select(File, **fields)
+        .where(File._objectkey.in_(file_objectkeys))
         .join(Storage, root=get_storage_root_and_root_str()[1])
         .all()
     )
