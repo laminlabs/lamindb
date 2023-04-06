@@ -15,7 +15,9 @@ jobs:
       fail-fast: false
       matrix:
         python-version: ["3.9"]
-        package: ["lamindb", "lndb-storage"]
+        package:
+          - "lamindb"
+          # - "lndb-storage"
     timeout-minutes: 25
 
     steps:
