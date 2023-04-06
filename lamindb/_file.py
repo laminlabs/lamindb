@@ -159,7 +159,7 @@ def get_storage_root_and_root_str(
 def check_path_is_in_storage(filepath: Union[Path, UPath]) -> bool:
     storage = setup_settings.instance.storage
     if isinstance(filepath, UPath):
-        return filepath.root.strip("/") == storage.root
+        return list(filepath.parents)[-1].as_posix().strip("/") == storage.root
     else:
         return storage.root in filepath.resolve().parents
 
@@ -198,7 +198,7 @@ def get_file_kwargs_from_data(
             root=root, root_str=root_str, filepath=filepath
         )
         key = (relpath.parent / safe_name).as_posix()
-        logger.hint("using key = {key}")
+        logger.hint(f"using key = {key}")
 
     file_privates = dict(
         _local_filepath=localpath,
