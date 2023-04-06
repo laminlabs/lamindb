@@ -45,6 +45,8 @@ def build(session, package):
     print(f"Done installing: {t_total:.3f}s")
 
     if package == "lamindb":
+        session.run("lamin", "load", "lamindb-ci")
+        session.run("lamin", "delete", "lamindb-ci")
         run_pytest(session)
     else:
         # navigate into submodule so that lamin-project.yml is correctly read
