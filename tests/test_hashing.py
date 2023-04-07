@@ -4,21 +4,6 @@ from pathlib import Path
 from lamindb.dev.hashing import hash_file, to_b64_str
 
 
-def test_get_name_suffix_from_filepath():
-    # based on https://stackoverflow.com/questions/31890341/clean-way-to-get-the-true-stem-of-a-path-object  # noqa
-    dataset = [
-        ("a", "a", ""),
-        ("a.txt", "a", ".txt"),
-        ("archive.tar.gz", "archive", ".tar.gz"),
-        ("directory/file", "file", ""),
-        ("d.x.y.z/f.a.b.c", "f", ".a.b.c"),
-        ("logs/date.log.txt", "date", ".log.txt"),
-    ]
-    for path, _, suffix in dataset:
-        filepath = Path(path)
-        assert suffix == "".join(filepath.suffixes)
-
-
 def test_compute_hash():
     dataset = [
         ("file_1.txt", "a", "DMF1ucDxtqgxw5niaXcmYQ"),

@@ -1,10 +1,10 @@
 from pathlib import Path, PurePath
 from typing import Any, Optional, Tuple, Union
 
+import lndb
 import pandas as pd
 from anndata import AnnData
 from lamin_logger import logger
-from lndb import settings as setup_settings
 from lndb_storage import UPath
 from lndb_storage.object import infer_suffix, size_adata, write_to_file
 from lnschema_core import File, Run, Storage
@@ -40,7 +40,7 @@ def serialize(
         filepath = UPath(data)  # returns Path for local
         if (
             isinstance(filepath, UPath)
-            and setup_settings.instance.storage.root not in filepath.parents  # noqa
+            and lndb.settings.instance.storage.root not in filepath.parents  # noqa
         ):
             raise ValueError(
                 "Can only track objects in configured cloud storage locations."
@@ -145,19 +145,8 @@ def get_path_size_hash(
     return localpath, cloudpath, size, hash
 
 
-def get_storage_root_and_root_str(
-    root: Optional[Union[Path, UPath]] = None
-) -> Tuple[Union[Path, UPath], str]:
-    if root is None:
-        root = setup_settings.instance.storage.root
-    root_str = root.as_posix()
-    if isinstance(root, UPath):
-        root_str = root_str.rstrip("/")
-    return root, root_str
-
-
-def check_path_is_in_storage(filepath: Union[Path, UPath]) -> bool:
-    storage = setup_settings.instance.storage
+def get_check_path_in_storage(filepath: Union[Path, UPath]) -> bool:
+    storage = lndb.settings.instance.storage
     if isinstance(filepath, UPath):
         # the following tests equivalency of two UPath objects
         # not their string representations!
@@ -166,14 +155,17 @@ def check_path_is_in_storage(filepath: Union[Path, UPath]) -> bool:
         return storage.root in filepath.resolve().parents
 
 
-def filepath_to_relpath_root(
-    root: Union[PurePath, Path], root_str: str, filepath: Union[Path, UPath]
+def get_relative_path_to_root(
+    filepath: Union[Path, UPath], *, root: Optional[Union[Path, UPath]] = None
 ) -> Union[PurePath, Path]:
-    """Filepath to relative path of the root."""
+    """Relative path to the storage root path."""
+    if root is None:
+        root = lndb.settings.storage.root
     if isinstance(root, UPath):
-        relpath = PurePath(filepath.as_posix().replace(root_str, ""))
+        # UPath.relative_to() is not behaving as it should (2023-04-07)
+        relpath = PurePath(filepath.as_posix().replace(root.as_posix(), ""))
     else:
-        relpath = filepath.resolve().relative_to(root_str)
+        relpath = filepath.resolve().relative_to(root)
     return relpath
 
 
@@ -190,26 +182,19 @@ def get_file_kwargs_from_data(
     memory_rep, filepath, safe_name, suffix = serialize(data, name, format)
     # the following will return a localpath that is not None if filepath is local
     # it will return a cloudpath that is not None if filepath is on the cloud
-    localpath, cloudpath, size, hash = get_path_size_hash(filepath, memory_rep, suffix)
-    root, root_str = get_storage_root_and_root_str()
-    storage_record = select(Storage, root=root_str).one()
-    check_path_in_storage = check_path_is_in_storage(filepath)
-
-    if memory_rep is None and key is None and check_path_in_storage:
-        relpath = filepath_to_relpath_root(
-            root=root, root_str=root_str, filepath=filepath
-        )
-        key = (relpath.parent / safe_name).as_posix()
-        logger.hint(f"using key = {key}")
-
-    file_privates = dict(
-        _local_filepath=localpath,
-        _cloud_filepath=cloudpath,
-        _memory_rep=memory_rep,
-        _check_path_in_storage=check_path_in_storage,
+    local_filepath, cloud_filepath, size, hash = get_path_size_hash(
+        filepath, memory_rep, suffix
     )
+    storage_record = select(Storage, root=lndb.settings.storage.root_as_str).one()
+    check_path_in_storage = get_check_path_in_storage(filepath)
 
-    file_kwargs = dict(
+    # if we pass a file, no storage key, and path is already in storage,
+    # then use the existing relative path within the storage location
+    # as storage key
+    if memory_rep is None and key is None and check_path_in_storage:
+        key = get_relative_path_to_root(filepath=filepath).as_posix()
+
+    kwargs = dict(
         name=safe_name,
         suffix=suffix,
         hash=hash,
@@ -219,8 +204,14 @@ def get_file_kwargs_from_data(
         storage_id=storage_record.id,
         source=run,
     )
+    privates = dict(
+        local_filepath=local_filepath,
+        cloud_filepath=cloud_filepath,
+        memory_rep=memory_rep,
+        check_path_in_storage=check_path_in_storage,
+    )
 
-    return file_kwargs, file_privates
+    return kwargs, privates
 
 
 # expose to user via ln.Features
