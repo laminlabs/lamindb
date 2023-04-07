@@ -7,7 +7,7 @@ from anndata import AnnData
 from lamin_logger import logger
 from lndb_storage import UPath
 from lndb_storage.object import infer_suffix, size_adata, write_to_file
-from lnschema_core import File, Run, Storage
+from lnschema_core import File, Run
 
 from lamindb._features import get_features
 from lamindb._settings import settings
@@ -155,18 +155,24 @@ def get_check_path_in_storage(filepath: Union[Path, UPath]) -> bool:
         return storage.root in filepath.resolve().parents
 
 
+def get_relative_path_to_directory(
+    filepath: Union[Path, UPath], directory: Union[PurePath, Path]
+) -> Union[PurePath, Path]:
+    if isinstance(directory, UPath):
+        # UPath.relative_to() is not behaving as it should (2023-04-07)
+        relpath = PurePath(filepath.as_posix().replace(directory.as_posix(), ""))
+    else:
+        relpath = filepath.resolve().relative_to(directory)
+    return relpath
+
+
 def get_relative_path_to_root(
     filepath: Union[Path, UPath], *, root: Optional[Union[Path, UPath]] = None
 ) -> Union[PurePath, Path]:
     """Relative path to the storage root path."""
     if root is None:
         root = lndb.settings.storage.root
-    if isinstance(root, UPath):
-        # UPath.relative_to() is not behaving as it should (2023-04-07)
-        relpath = PurePath(filepath.as_posix().replace(root.as_posix(), ""))
-    else:
-        relpath = filepath.resolve().relative_to(root)
-    return relpath
+    return get_relative_path_to_directory(filepath, root)
 
 
 # expose to user via ln.File
@@ -185,7 +191,6 @@ def get_file_kwargs_from_data(
     local_filepath, cloud_filepath, size, hash = get_path_size_hash(
         filepath, memory_rep, suffix
     )
-    storage_record = select(Storage, root=lndb.settings.storage.root_as_str).one()
     check_path_in_storage = get_check_path_in_storage(filepath)
 
     # if we pass a file, no storage key, and path is already in storage,
@@ -201,7 +206,7 @@ def get_file_kwargs_from_data(
         key=key,
         source_id=run.id,
         size=size,
-        storage_id=storage_record.id,
+        storage_id=lndb.settings.storage.id,
         source=run,
     )
     privates = dict(

@@ -4,23 +4,11 @@ from typing import List, Optional, Union
 
 from lamin_logger import logger
 from lndb_storage import UPath
-from lnschema_core import File
-from lnschema_core import Folder as lns_Folder
-from lnschema_core import Run, Storage
+from lnschema_core import File, Folder, Run
+from lnschema_core.dev._storage import filepath_from_file_or_folder
 
-from ._file import filepath_to_relpath_root, get_storage_root_and_root_str
-from .dev._core import filepath_from_folder
+from ._file import get_relative_path_to_directory
 from .dev.db._select import select
-
-
-def filepath_to_relpath_folder(
-    filepath: Union[Path, UPath], folder: Union[PurePath, Path]
-) -> str:
-    if isinstance(folder, UPath):
-        relpath = PurePath(filepath.as_posix().replace(folder.as_posix(), ""))
-    else:
-        relpath = filepath.resolve().relative_to(folder)
-    return relpath.as_posix()
 
 
 def get_folder_kwargs_from_data(
@@ -47,8 +35,8 @@ def get_folder_kwargs_from_data(
     files = []
     for filepath in folderpath.rglob(pattern):
         if filepath.is_file():
-            relpath = filepath_to_relpath_folder(filepath, folderpath)
-            filekey = folderpath.name.rstrip("/") + "/" + relpath
+            relpath = get_relative_path_to_directory(filepath, folderpath)
+            filekey = folderpath.name.rstrip("/") + "/" + relpath.as_posix()
             file = File(filepath, source=source, key=filekey)
             files.append(file)
 
@@ -114,50 +102,45 @@ def tree(
 
 # Exposed to users as Folder.get()
 def get_file(
-    folder: lns_Folder, relpath: Union[str, Path, List[Union[str, Path]]], **fields
+    folder: Folder, relpath: Union[str, Path, List[Union[str, Path]]], **fields
 ):
     """Get files via relative path to folder."""
+    # ensure is actual folder, not virtual one
+    if folder.key is None:
+        raise ValueError(
+            ".get() is only defined for real folders, not virtual ones"
+            "you can access files via .files or by refining with queries"
+        )
+
     if isinstance(relpath, List):
         relpaths = [PurePath(i) for i in relpath]
     else:
         abspath = relpath_to_abspath(folder=folder, relpath=PurePath(relpath))
         if abspath.is_dir():
-            abspaths_files = list_files_from_dir(abspath)
-            root, root_str = get_storage_root_and_root_str(filepath_from_folder(folder))
+            abspaths_files = list_files_in_directory(abspath)
             relpaths = [
-                filepath_to_relpath_root(root=root, root_str=root_str, filepath=i)
-                for i in abspaths_files
+                get_relative_path_to_directory(filepath=path, directory=folder.key)
+                for path in abspaths_files
             ]
         else:
             relpaths = [PurePath(relpath)]
 
-    file_objectkeys = [relpath_to_objectkey(folder=folder, relpath=i) for i in relpaths]
+    file_keys = [relative_path_to_key(folder=folder, relpath=i) for i in relpaths]
 
-    return select_by_objectkey(file_objectkeys=file_objectkeys, **fields)
-
-
-def list_files_from_dir(dirpath: Union[Path, UPath]):
-    """List all files recursively from a directory."""
-    return [i for i in dirpath.rglob("*") if i.is_file()]
-
-
-def relpath_to_objectkey(folder: lns_Folder, relpath: PurePath):
-    """Convert a relative path of folder to an absolute path."""
-    objectkey = str(PurePath(folder._objectkey) / relpath.parent / relpath.name)
-    return objectkey
-
-
-def relpath_to_abspath(folder: lns_Folder, relpath: PurePath):
-    return filepath_from_folder(folder) / relpath
-
-
-def select_by_objectkey(file_objectkeys: List[str], **fields):
-    # query for unique comb of (_filekey, storage, suffix)
-    files = (
-        select(File, **fields)
-        .where(File._objectkey.in_(file_objectkeys))
-        .join(Storage, root=get_storage_root_and_root_str()[1])
-        .all()
-    )
-    # TODO: return files in the same order as the file_objectkeys
+    files = select(File, **fields).where(File.key.in_(file_keys)).all()
     return files
+
+
+def list_files_in_directory(dirpath: Union[Path, UPath]):
+    """List all files recursively from a directory."""
+    return [path for path in dirpath.rglob("*") if path.is_file()]
+
+
+def relative_path_to_key(folder: Folder, relpath: PurePath):
+    """Convert a relative path of folder to an absolute path."""
+    key = (PurePath(folder.key) / relpath.parent / relpath.name).as_posix()
+    return key
+
+
+def relpath_to_abspath(folder: Folder, relpath: PurePath):
+    return filepath_from_file_or_folder(folder) / relpath
