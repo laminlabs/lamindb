@@ -1,12 +1,14 @@
 from functools import partial
 from typing import List, Optional, Tuple, Union, overload  # noqa
 
+import lndb
 import sqlmodel as sqm
 from lamin_logger import logger
 from lndb import settings as setup_settings
 from lndb_storage import delete_storage, store_object, write_adata_zarr
 from lndb_storage._file import print_hook
 from lnschema_core import File
+from lnschema_core.dev._storage import storage_key_from_file
 from pydantic.fields import ModelPrivateAttr
 
 from .._docs import doc_args
@@ -199,14 +201,16 @@ def prepare_error_message(records, added_records, error) -> str:
 
 def upload_data_object(file) -> None:
     """Store and add file and its linked entries."""
-    file_storage_key = f"{file.id}{file.suffix}"
-
-    storage = setup_settings.instance.storage
-
-    if file._local_filepath is not None:
+    # do NOT hand-craft the storage key!
+    file_storage_key = storage_key_from_file(file)
+    if hasattr(file, "_check_path_in_storage") and not file._check_path_in_storage:
         store_object(file._local_filepath, file_storage_key)
-    elif file.suffix == ".zarr" and file._memory_rep is not None:
-        storagepath = storage.key_to_filepath(file_storage_key)
+    elif (
+        file.suffix == ".zarr"
+        and hasattr(file, "_memory_rep")
+        and file._memory_rep is not None
+    ):
+        storagepath = lndb.settings.storage.key_to_filepath(file_storage_key)
         print_progress = partial(print_hook, filepath=file.name)
         write_adata_zarr(file._memory_rep, storagepath, callback=print_progress)
 
