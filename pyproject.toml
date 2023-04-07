@@ -16,7 +16,8 @@ classifiers = [
 dependencies = [
     # Lamin PINNED packages
     # These packages should ALWAYS be pinned
-    "lndb_storage==0.2rc2",
+    # !!! lndb_storage cannot be pinned here, as it's already
+    # pinned within lndb!!!
     "lnschema_core==0.31.0",
     "lndb==0.40.0",
     # Lamin GREATEREQ packages
