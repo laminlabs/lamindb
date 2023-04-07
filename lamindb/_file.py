@@ -159,7 +159,9 @@ def get_storage_root_and_root_str(
 def check_path_is_in_storage(filepath: Union[Path, UPath]) -> bool:
     storage = setup_settings.instance.storage
     if isinstance(filepath, UPath):
-        return list(filepath.parents)[-1].as_posix().strip("/") == storage.root
+        # the following tests equivalency of two UPath objects
+        # not their string representations!
+        return list(filepath.parents)[-1] == storage.root
     else:
         return storage.root in filepath.resolve().parents
 
