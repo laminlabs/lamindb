@@ -45,13 +45,8 @@ def build(session, package):
     print(f"Done installing: {t_total:.3f}s")
 
     if package == "lamindb":
-        try:
-            # try to clean up lamindb-ci
-            session.run(
-                "lamin",
-                "load",
-                "lamindb-ci",
-            )
+        try:  # attempt clean up lamindb-ci
+            session.run("lamin", "load", "lamindb-ci")
             session.run("lamin", "delete", "lamindb-ci")
         finally:
             run_pytest(session)
