@@ -19,7 +19,7 @@ dependencies = [
     # !!! lndb_storage cannot be pinned here, as it's already
     # pinned within lndb !!!
     "lnschema_core==0.31.0",
-    "lndb==0.40.1",
+    "lndb==0.40.2",
     # Lamin GREATEREQ packages
     "nbproject>=0.8.3",
     # External packages
