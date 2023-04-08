@@ -2,6 +2,7 @@ from itertools import islice
 from pathlib import Path, PurePath
 from typing import List, Optional, Union
 
+import lndb
 from lamin_logger import logger
 from lndb_storage import UPath
 from lnschema_core import File, Folder, Run
@@ -43,6 +44,7 @@ def get_folder_kwargs_from_data(
     folder_kwargs = dict(
         name=folderpath.name if name is None else name,
         key=key,
+        storage_id=lndb.settings.storage.id,
         files=files,
     )
     return folder_kwargs, folder_privates
