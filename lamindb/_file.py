@@ -156,28 +156,27 @@ def get_check_path_in_storage(filepath: Union[Path, UPath]) -> bool:
 
 
 def get_relative_path_to_directory(
-    filepath: Union[PurePath, Path, UPath], directory: Union[PurePath, Path, UPath]
+    path: Union[PurePath, Path, UPath], directory: Union[PurePath, Path, UPath]
 ) -> Union[PurePath, Path]:
-    print(directory)
     if isinstance(directory, UPath):
         # UPath.relative_to() is not behaving as it should (2023-04-07)
-        relpath = PurePath(filepath.as_posix().replace(directory.as_posix(), ""))
+        relpath = PurePath(path.as_posix().replace(directory.as_posix(), ""))
     elif isinstance(directory, Path):
-        relpath = filepath.resolve().relative_to(directory.resolve())  # type: ignore
+        relpath = path.resolve().relative_to(directory.resolve())  # type: ignore
     elif isinstance(directory, PurePath):
-        relpath = filepath.relative_to(directory)
+        relpath = path.relative_to(directory)
     else:
         raise TypeError("directory not of type Path or UPath")
     return relpath
 
 
 def get_relative_path_to_root(
-    filepath: Union[Path, UPath], *, root: Optional[Union[Path, UPath]] = None
+    path: Union[Path, UPath], *, root: Optional[Union[Path, UPath]] = None
 ) -> Union[PurePath, Path]:
     """Relative path to the storage root path."""
     if root is None:
         root = lndb.settings.storage.root
-    return get_relative_path_to_directory(filepath, root)
+    return get_relative_path_to_directory(path, root)
 
 
 # expose to user via ln.File
@@ -202,7 +201,7 @@ def get_file_kwargs_from_data(
     # then use the existing relative path within the storage location
     # as storage key
     if memory_rep is None and key is None and check_path_in_storage:
-        key = get_relative_path_to_root(filepath=filepath).as_posix()
+        key = get_relative_path_to_root(path=filepath).as_posix()
 
     kwargs = dict(
         name=safe_name,

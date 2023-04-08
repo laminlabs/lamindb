@@ -8,22 +8,35 @@ from lndb_storage import UPath
 from lnschema_core import File, Folder, Run
 from lnschema_core.dev import id as id_generator
 
-from ._file import get_relative_path_to_directory
+from ._file import (
+    get_check_path_in_storage,
+    get_relative_path_to_directory,
+    get_relative_path_to_root,
+)
 from .dev.db._select import select
 
 
 def get_folder_kwargs_from_data(
-    folder: Union[Path, UPath, str],
+    path: Union[Path, UPath, str],
     *,
     name: Optional[str] = None,
     key: Optional[str] = None,
     source: Optional[Run] = None,
 ):
-    folderpath = UPath(folder)
-    if key is None:
+    folderpath = UPath(path)
+    check_path_in_storage = get_check_path_in_storage(folderpath)
+
+    if key is None and check_path_in_storage:
+        folder_key = get_relative_path_to_root(path=folderpath).as_posix()
+    elif key is None:
         folder_key = id_generator.folder()
     else:
-        folder_key = key.rstrip("/")
+        folder_key = key
+
+    # always sanitize by stripping a trailing slash
+    folder_key = folder_key.rstrip("/")
+
+    logger.hint(f"using storage key = {folder_key}")
 
     # TODO: UPath doesn't list the first level files and dirs with "*"
     pattern = "" if isinstance(folderpath, UPath) else "*"
