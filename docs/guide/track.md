@@ -17,7 +17,6 @@ Use the LaminDB instance to track your local files, cloud files or in-memory obj
 
 files
 memory
-file
 add-delete
 run
 existing
