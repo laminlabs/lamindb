@@ -6,6 +6,7 @@ import lndb
 from lamin_logger import logger
 from lndb_storage import UPath
 from lnschema_core import File, Folder, Run
+from lnschema_core.dev import id as id_generator
 
 from ._file import get_relative_path_to_directory
 from .dev.db._select import select
@@ -20,10 +21,9 @@ def get_folder_kwargs_from_data(
 ):
     folderpath = UPath(folder)
     if key is None:
-        folder_key = folderpath.name.rstrip("/")
-        logger.hint(f"using key = {folder_key}")
+        folder_key = id_generator.folder()
     else:
-        folder_key = key
+        folder_key = key.rstrip("/")
 
     # TODO: UPath doesn't list the first level files and dirs with "*"
     pattern = "" if isinstance(folderpath, UPath) else "*"
