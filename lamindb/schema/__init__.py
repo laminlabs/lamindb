@@ -25,7 +25,7 @@ from lnschema_core import Features, Project, Run, Storage
 from lnschema_core import Transform as _Transform
 from lnschema_core import User, dev
 
-from .. import _instance_setup
+from .. import _INSTANCE_SETUP
 
 
 def _import_schema():
@@ -34,7 +34,7 @@ def _import_schema():
         globals()[module._name] = module
 
 
-if _instance_setup:
+if _INSTANCE_SETUP:
     _import_schema()
 
 from ._core import list_tables, view
