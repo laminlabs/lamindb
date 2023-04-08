@@ -156,13 +156,16 @@ def get_check_path_in_storage(filepath: Union[Path, UPath]) -> bool:
 
 
 def get_relative_path_to_directory(
-    filepath: Union[Path, UPath], directory: Union[PurePath, Path]
+    filepath: Union[PurePath, Path, UPath], directory: Union[PurePath, Path, UPath]
 ) -> Union[PurePath, Path]:
+    print(directory)
     if isinstance(directory, UPath):
         # UPath.relative_to() is not behaving as it should (2023-04-07)
         relpath = PurePath(filepath.as_posix().replace(directory.as_posix(), ""))
     elif isinstance(directory, Path):
-        relpath = filepath.resolve().relative_to(directory.resolve())
+        relpath = filepath.resolve().relative_to(directory.resolve())  # type: ignore
+    elif isinstance(directory, PurePath):
+        relpath = filepath.relative_to(directory)
     else:
         raise TypeError("directory not of type Path or UPath")
     return relpath
