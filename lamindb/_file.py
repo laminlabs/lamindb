@@ -161,8 +161,10 @@ def get_relative_path_to_directory(
     if isinstance(directory, UPath):
         # UPath.relative_to() is not behaving as it should (2023-04-07)
         relpath = PurePath(filepath.as_posix().replace(directory.as_posix(), ""))
+    elif isinstance(directory, Path):
+        relpath = filepath.resolve().relative_to(directory.resolve())
     else:
-        relpath = filepath.resolve().relative_to(directory)
+        raise TypeError("directory not of type Path or UPath")
     return relpath
 
 
