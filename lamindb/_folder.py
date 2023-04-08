@@ -1,50 +1,69 @@
 from itertools import islice
-from pathlib import Path, PurePath
+from pathlib import Path
 from typing import List, Optional, Union
 
+import lndb
+from lamin_logger import logger
 from lndb_storage import UPath
-from lnschema_core import File as lns_File
-from lnschema_core import Folder as lns_Folder
-from lnschema_core import Run, Storage
+from lnschema_core import File, Folder, Run
+from lnschema_core.dev import id as id_generator
 
-from ._file import get_storage_root_and_root_str
-from .dev._core import filepath_from_folder, get_name_suffix_from_filepath
-from .dev.db._add import filepath_to_relpath, write_objectkey
+from ._file import (
+    get_check_path_in_storage,
+    get_relative_path_to_directory,
+    get_relative_path_to_root,
+)
 from .dev.db._select import select
 
 
 def get_folder_kwargs_from_data(
-    folder: Union[Path, UPath, str],
+    path: Union[Path, UPath, str],
     *,
     name: Optional[str] = None,
+    key: Optional[str] = None,
     source: Optional[Run] = None,
 ):
-    folderpath = UPath(folder)
-    cloudpath = folderpath if isinstance(folderpath, UPath) else None
-    localpath = None if isinstance(folderpath, UPath) else folderpath
-    folder_privates = dict(
-        _local_filepath=localpath,
-        _cloud_filepath=cloudpath,
-    )
+    folderpath = UPath(path)
+    check_path_in_storage = get_check_path_in_storage(folderpath)
+
+    if key is None and check_path_in_storage:
+        folder_key = get_relative_path_to_root(path=folderpath).as_posix()
+    elif key is None:
+        folder_key = id_generator.folder()
+    else:
+        folder_key = key
+
+    # always sanitize by stripping a trailing slash
+    folder_key = folder_key.rstrip("/")
+
+    logger.hint(f"using storage key = {folder_key}")
 
     # TODO: UPath doesn't list the first level files and dirs with "*"
     pattern = "" if isinstance(folderpath, UPath) else "*"
 
     files = []
-    for f in folderpath.rglob(pattern):
-        if f.is_file():
-            dobj = lns_File(f, source=source)
-            write_objectkey(dobj)
-            files.append(dobj)
+    for filepath in folderpath.rglob(pattern):
+        if filepath.is_file():
+            relative_path = get_relative_path_to_directory(filepath, folderpath)
+            file_key = folder_key + "/" + relative_path.as_posix()
+            files.append(File(filepath, source=source, key=file_key))
 
-    folder_kwargs = dict(
+    logger.hint(f"-> n_files = {len(files)}")
+
+    kwargs = dict(
         name=folderpath.name if name is None else name,
+        key=folder_key,
+        storage_id=lndb.settings.storage.id,
         files=files,
     )
-    return folder_kwargs, folder_privates
+    privates = dict(
+        local_filepath=folderpath if isinstance(folderpath, UPath) else None,
+        cloud_filepath=None if isinstance(folderpath, UPath) else folderpath,
+    )
+    return kwargs, privates
 
 
-# Exposed to users as Folder.tree()
+# exposed to users as Folder.tree()
 def tree(
     dir_path: Union[Path, UPath, str],
     level: int = -1,
@@ -96,53 +115,18 @@ def tree(
     print(f"\n{directories} directories" + (f", {files} files" if files else ""))
 
 
-# Exposed to users as Folder.get()
-def get_file(
-    folder: lns_Folder, relpath: Union[str, Path, List[Union[str, Path]]], **fields
-):
+# exposed to users as Folder.subset()
+def subset(folder: Folder, *, prefix: str, **fields) -> List[File]:
     """Get files via relative path to folder."""
-    if isinstance(relpath, List):
-        relpaths = [PurePath(i) for i in relpath]
-    else:
-        abspath = relpath_to_abspath(folder=folder, relpath=PurePath(relpath))
-        if abspath.is_dir():
-            abspaths_files = list_files_from_dir(abspath)
-            root, root_str = get_storage_root_and_root_str(filepath_from_folder(folder))
-            relpaths = [
-                filepath_to_relpath(root=root, root_str=root_str, filepath=i)
-                for i in abspaths_files
-            ]
-        else:
-            relpaths = [PurePath(relpath)]
-
-    file_objectkeys = [relpath_to_objectkey(folder=folder, relpath=i) for i in relpaths]
-
-    return select_by_objectkey(file_objectkeys=file_objectkeys, **fields)
-
-
-def list_files_from_dir(dirpath: Union[Path, UPath]):
-    """List all files recursively from a directory."""
-    return [i for i in dirpath.rglob("*") if i.is_file()]
-
-
-def relpath_to_objectkey(folder: lns_Folder, relpath: PurePath):
-    """Convert a relative path of folder to an absolute path."""
-    name, _ = get_name_suffix_from_filepath(relpath)
-    objectkey = str(PurePath(folder._objectkey) / relpath.parent / name)
-    return objectkey
-
-
-def relpath_to_abspath(folder: lns_Folder, relpath: PurePath):
-    return filepath_from_folder(folder) / relpath
-
-
-def select_by_objectkey(file_objectkeys: List[str], **fields):
-    # query for unique comb of (_filekey, storage, suffix)
+    # ensure is actual folder, not virtual one
+    if folder.key is None:
+        raise ValueError(
+            ".get() is only defined for real folders, not virtual ones"
+            "you can access files via .files or by refining with queries"
+        )
     files = (
-        select(lns_File, **fields)
-        .where(lns_File._objectkey.in_(file_objectkeys))
-        .join(Storage, root=get_storage_root_and_root_str()[1])
+        select(File, **fields)
+        .where(File.key.startswith(folder.key + "/" + prefix))
         .all()
     )
-    # TODO: return files in the same order as the file_objectkeys
     return files

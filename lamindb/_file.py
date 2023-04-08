@@ -1,18 +1,16 @@
-from pathlib import Path
+from pathlib import Path, PurePath
 from typing import Any, Optional, Tuple, Union
 
+import lndb
 import pandas as pd
 from anndata import AnnData
 from lamin_logger import logger
-from lndb import settings as setup_settings
 from lndb_storage import UPath
 from lndb_storage.object import infer_suffix, size_adata, write_to_file
-from lnschema_core import File, Run, Storage
+from lnschema_core import File, Run
 
 from lamindb._features import get_features
 from lamindb._settings import settings
-from lamindb.dev._core import get_name_suffix_from_filepath
-from lamindb.dev.db._add import get_storage_root_and_root_str
 from lamindb.dev.db._select import select
 from lamindb.dev.hashing import hash_file
 
@@ -42,14 +40,16 @@ def serialize(
         filepath = UPath(data)  # returns Path for local
         if (
             isinstance(filepath, UPath)
-            and setup_settings.instance.storage.root not in filepath.parents  # noqa
+            and lndb.settings.instance.storage.root not in filepath.parents  # noqa
         ):
             raise ValueError(
                 "Can only track objects in configured cloud storage locations."
                 " Please call `lndb.set_storage('< bucket_name >')`."
             )
         memory_rep = None
-        name, suffix = get_name_suffix_from_filepath(filepath)
+        name = filepath.name
+        # also see tests/test_file_hashing.py
+        suffix = "".join(filepath.suffixes)
     # For now, in-memory objects are always saved to local_filepath first
     # This behavior will change in the future
     elif isinstance(data, (pd.DataFrame, AnnData)):
@@ -145,40 +145,82 @@ def get_path_size_hash(
     return localpath, cloudpath, size, hash
 
 
+def get_check_path_in_storage(filepath: Union[Path, UPath]) -> bool:
+    storage = lndb.settings.instance.storage
+    if isinstance(filepath, UPath):
+        # the following tests equivalency of two UPath objects
+        # not their string representations!
+        return list(filepath.parents)[-1] == storage.root
+    else:
+        return storage.root in filepath.resolve().parents
+
+
+def get_relative_path_to_directory(
+    path: Union[PurePath, Path, UPath], directory: Union[PurePath, Path, UPath]
+) -> Union[PurePath, Path]:
+    if isinstance(directory, UPath):
+        # UPath.relative_to() is not behaving as it should (2023-04-07)
+        relpath = PurePath(path.as_posix().replace(directory.as_posix(), ""))
+    elif isinstance(directory, Path):
+        relpath = path.resolve().relative_to(directory.resolve())  # type: ignore
+    elif isinstance(directory, PurePath):
+        relpath = path.relative_to(directory)
+    else:
+        raise TypeError("directory not of type Path or UPath")
+    return relpath
+
+
+def get_relative_path_to_root(
+    path: Union[Path, UPath], *, root: Optional[Union[Path, UPath]] = None
+) -> Union[PurePath, Path]:
+    """Relative path to the storage root path."""
+    if root is None:
+        root = lndb.settings.storage.root
+    return get_relative_path_to_directory(path, root)
+
+
 # expose to user via ln.File
 def get_file_kwargs_from_data(
     data: Union[Path, UPath, str, pd.DataFrame, AnnData],
     *,
     name: Optional[str] = None,
+    key: Optional[str] = None,
     source: Optional[Run] = None,
     format: Optional[str] = None,
 ):
     run = get_run(source)
-    memory_rep, filepath, name, suffix = serialize(data, name, format)
-    localpath, cloudpath, size, hash = get_path_size_hash(filepath, memory_rep, suffix)
-
-    # if local_filepath is already in the configured storage location
-    # skip the upload
-    _, root_str = get_storage_root_and_root_str()
-    storage = select(Storage, root=root_str).one()
-
-    file_privates = dict(
-        _local_filepath=localpath,
-        _cloud_filepath=cloudpath,
-        _memory_rep=memory_rep,
+    memory_rep, filepath, safe_name, suffix = serialize(data, name, format)
+    # the following will return a localpath that is not None if filepath is local
+    # it will return a cloudpath that is not None if filepath is on the cloud
+    local_filepath, cloud_filepath, size, hash = get_path_size_hash(
+        filepath, memory_rep, suffix
     )
+    check_path_in_storage = get_check_path_in_storage(filepath)
 
-    file_kwargs = dict(
-        name=name,
+    # if we pass a file, no storage key, and path is already in storage,
+    # then use the existing relative path within the storage location
+    # as storage key
+    if memory_rep is None and key is None and check_path_in_storage:
+        key = get_relative_path_to_root(path=filepath).as_posix()
+
+    kwargs = dict(
+        name=safe_name,
         suffix=suffix,
         hash=hash,
+        key=key,
         source_id=run.id,
         size=size,
-        storage_id=storage.id,
+        storage_id=lndb.settings.storage.id,
         source=run,
     )
+    privates = dict(
+        local_filepath=local_filepath,
+        cloud_filepath=cloud_filepath,
+        memory_rep=memory_rep,
+        check_path_in_storage=check_path_in_storage,
+    )
 
-    return file_kwargs, file_privates
+    return kwargs, privates
 
 
 # expose to user via ln.Features

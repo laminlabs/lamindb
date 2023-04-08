@@ -4,12 +4,12 @@ from lamin_logger import logger
 from lndb import settings as setup_settings
 from lndb_storage import load_to_memory
 from lnschema_core import File
+from lnschema_core.dev._storage import filepath_from_file
 from sqlalchemy.orm.session import object_session
 
 from lamindb._context import context
 
 from ._settings import settings
-from .dev._core import filepath_from_file
 
 
 def _track_run_input(file: File, is_run_input: Optional[bool] = None):

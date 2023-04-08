@@ -7,16 +7,16 @@ from packaging import version
 
 # Lamin PINNED packages
 
-if version.parse(lnschema_core_v) != version.parse("0.31.0"):
-    raise RuntimeError("lamindb needs lnschema_core==0.31.0")
+if version.parse(lnschema_core_v) != version.parse("0.32.0"):
+    raise RuntimeError("lamindb needs lnschema_core==0.32.0")
 
 if version.parse(lndb_storage_v) != version.parse("0.2rc2"):
     raise RuntimeError("lamindb needs lndb_storage==0.2rc2")
 
-# Lamin GREATEREQ packages
+if version.parse(lndb_v) < version.parse("0.41rc1"):
+    raise RuntimeError("Upgrade lndb! pip install lndb==0.41rc1")
 
-if version.parse(lndb_v) < version.parse("0.39.0"):
-    raise RuntimeError("Upgrade lndb! pip install lndb>=0.39.0")
+# Lamin GREATEREQ packages
 
 if version.parse(nbproject_v) < version.parse("0.8.3"):
     raise RuntimeError("lamindb needs nbproject>=0.8.3")
