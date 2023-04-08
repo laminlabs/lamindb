@@ -17,7 +17,7 @@ jobs:
         python-version: ["3.9"]
         package:
           - "lamindb"
-          # - "lndb-storage"
+          - "lndb-storage"
     timeout-minutes: 25
 
     steps:
