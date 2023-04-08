@@ -6,7 +6,6 @@ Use the LaminDB instance to track your local files, cloud files or in-memory obj
 
 - {doc}`/guide/files`
 - {doc}`/guide/memory`
-- {doc}`/guide/file`
 - {doc}`/guide/add-delete`
 - {doc}`/guide/run`
 - {doc}`/guide/existing`
