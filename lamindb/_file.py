@@ -165,7 +165,7 @@ def get_check_path_in_storage(
         # via string representations; otherwise
         # S3Path('s3://lndb-storage/') and S3Path('s3://lamindb-ci/')
         # test as equivalent
-        return list(filepath.parents)[-1] == root
+        return list(filepath.parents)[-1].as_posix() == root.as_posix()
     elif not isinstance(filepath, UPath) and not isinstance(root, UPath):
         return root in filepath.resolve().parents
     else:
