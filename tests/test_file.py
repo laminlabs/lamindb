@@ -2,7 +2,7 @@ from pathlib import Path
 
 from upath import UPath
 
-from lamindb._file import get_relative_path_to_root
+from lamindb._file import get_check_path_in_storage, get_relative_path_to_root
 
 
 def test_get_name_suffix_from_filepath():
@@ -39,3 +39,22 @@ def test_get_relative_path_to_root():
     assert (
         "test-data/test.csv" == get_relative_path_to_root(upath, root=root).as_posix()
     )
+
+
+def test_get_check_path_in_storage():
+    # UPath
+    root = UPath("s3://lamindb-ci")
+    upath = UPath("s3://lamindb-ci/test-data/test.csv")
+    assert get_check_path_in_storage(upath, root=root)
+    upath2 = UPath("s3://lamindb-setup/test-data/test.csv")
+    assert not get_check_path_in_storage(upath2, root=root)
+    # local path
+    root = Path("/lamindb-ci")
+    path = Path("/lamindb-ci/test-data/test.csv")
+    assert get_check_path_in_storage(path, root=root)
+    path = Path("/lamindb-other/test-data/test.csv")
+    assert not get_check_path_in_storage(path, root=root)
+    # Local & UPath
+    root = UPath("s3://lamindb-ci")
+    path = Path("/lamindb-ci/test-data/test.csv")
+    assert not get_check_path_in_storage(path, root=root)

@@ -153,16 +153,19 @@ def get_path_size_hash(
     return localpath, cloudpath, size, hash
 
 
-def get_check_path_in_storage(filepath: Union[Path, UPath]) -> bool:
+def get_check_path_in_storage(
+    filepath: Union[Path, UPath], *, root: Optional[Union[Path, UPath]] = None
+) -> bool:
     assert isinstance(filepath, Path)
-    storage_root = lndb.settings.storage.root
+    if root is None:
+        root = lndb.settings.storage.root
     # the following comparisons can fail if types aren't comparable
-    if isinstance(filepath, UPath) and isinstance(storage_root, UPath):
+    if isinstance(filepath, UPath) and isinstance(root, UPath):
         # the following tests equivalency of two UPath objects
         # not their string representations!
-        return list(filepath.parents)[-1] == storage_root
-    elif not isinstance(filepath, UPath) and not isinstance(storage_root, UPath):
-        return storage_root in filepath.resolve().parents
+        return list(filepath.parents)[-1] == root
+    elif not isinstance(filepath, UPath) and not isinstance(root, UPath):
+        return root in filepath.resolve().parents
     else:
         return False
 
