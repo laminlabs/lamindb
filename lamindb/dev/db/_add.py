@@ -1,3 +1,4 @@
+import traceback
 from functools import partial
 from typing import List, Optional, Tuple, Union, overload  # noqa
 
@@ -189,20 +190,20 @@ def upload_committed_records(records, session):
 def prepare_error_message(records, added_records, error) -> str:
     if len(records) == 1 or len(added_records) == 0:
         error_message = (
-            "An error occured. No entries were uploaded or committed"
-            " to the database. See error message below.\n\n"
+            "No entries were uploaded or committed"
+            " to the database. See error message:\n\n"
         )
     else:
         error_message = (
-            "An error occured. The following entries have been"
+            "The following entries have been"
             " successfully uploaded and committed to the database:\n"
         )
         for record in added_records:
             error_message += (
                 f"- {', '.join(record.__repr__().split(', ')[:3]) + ', ...)'}\n"
             )
-        error_message += "\nSee error message below.\n\n"
-    error_message += f"{str(error)}"
+        error_message += "\nSee error message:\n\n"
+    error_message += f"{str(error)}\n\n{traceback.format_exc()}"
     return error_message
 
 
@@ -210,7 +211,11 @@ def upload_data_object(file) -> None:
     """Store and add file and its linked entries."""
     # do NOT hand-craft the storage key!
     file_storage_key = storage_key_from_file(file)
-    if _private_not_empty(file, "_to_store") and file._to_store:
+    if (
+        _private_not_empty(file, "_to_store")
+        and file._to_store
+        and file.suffix != ".zarr"
+    ):
         logger.hint(f"storing object {file.name} with key {file_storage_key}")
         store_object(file._local_filepath, file_storage_key)
     elif (

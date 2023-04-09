@@ -4,6 +4,7 @@ from typing import Any, Optional, Tuple, Union
 import lndb
 import pandas as pd
 from anndata import AnnData
+from appdirs import AppDirs
 from lamin_logger import logger
 from lndb_storage import UPath
 from lndb_storage.object import infer_suffix, size_adata, write_to_file
@@ -14,8 +15,10 @@ from lamindb._settings import settings
 from lamindb.dev.db._select import select
 from lamindb.dev.hashing import hash_file
 
+DIRS = AppDirs("lamindb", "laminlabs")
+
 NO_NAME_ERROR = """
-Pass a name in `ln.File(..., name=name)` when ingesting in-memory data.
+Pass a name or key in `ln.File(...)` when ingesting in-memory data.
 """
 
 NO_SOURCE_ERROR = """
@@ -32,7 +35,10 @@ More details: https://lamin.ai/docs/faq/ingest
 
 
 def serialize(
-    data: Union[Path, UPath, str, pd.DataFrame, AnnData], name, format
+    data: Union[Path, UPath, str, pd.DataFrame, AnnData],
+    name,
+    format,
+    key: Optional[str],
 ) -> Tuple[Any, Union[Path, UPath], str, str]:
     """Serialize a data object that's provided as file or in memory."""
     # Convert str to either Path or CloudPath
@@ -47,18 +53,29 @@ def serialize(
                 " Please call `lndb.set_storage('< bucket_name >')`."
             )
         memory_rep = None
-        name = filepath.name
+        if key is None:
+            name = filepath.name
+        else:
+            name = PurePath(key).name
         # also see tests/test_file_hashing.py
         suffix = "".join(filepath.suffixes)
     # For now, in-memory objects are always saved to local_filepath first
     # This behavior will change in the future
     elif isinstance(data, (pd.DataFrame, AnnData)):
-        if name is None:
+        if name is None and key is None:
             raise ValueError(NO_NAME_ERROR)
+        if name is None:
+            name = PurePath(key).name
         memory_rep = data
         suffix = infer_suffix(data, format)
-        # this is always local
-        filepath = Path(f"{name}{suffix}")
+        # the following filepath is always local
+        if lndb.settings.storage.cache_dir is not None:
+            filepath = lndb.settings.storage.cache_dir / name
+        else:
+            # this should likely be added to lndb.settings.storage
+            cache_dir = Path(DIRS.user_cache_dir)
+            cache_dir.mkdir(parents=True, exist_ok=True)
+            filepath = cache_dir / name
         if suffix != ".zarr":
             write_to_file(data, filepath)
     else:
@@ -145,14 +162,23 @@ def get_path_size_hash(
     return localpath, cloudpath, size, hash
 
 
-def get_check_path_in_storage(filepath: Union[Path, UPath]) -> bool:
-    storage = lndb.settings.instance.storage
-    if isinstance(filepath, UPath):
+def get_check_path_in_storage(
+    filepath: Union[Path, UPath], *, root: Optional[Union[Path, UPath]] = None
+) -> bool:
+    assert isinstance(filepath, Path)
+    if root is None:
+        root = lndb.settings.storage.root
+    # the following comparisons can fail if types aren't comparable
+    if isinstance(filepath, UPath) and isinstance(root, UPath):
         # the following tests equivalency of two UPath objects
-        # not their string representations!
-        return list(filepath.parents)[-1] == storage.root
+        # via string representations; otherwise
+        # S3Path('s3://lndb-storage/') and S3Path('s3://lamindb-ci/')
+        # test as equivalent
+        return list(filepath.parents)[-1].as_posix() == root.as_posix()
+    elif not isinstance(filepath, UPath) and not isinstance(root, UPath):
+        return root in filepath.resolve().parents
     else:
-        return storage.root in filepath.resolve().parents
+        return False
 
 
 def get_relative_path_to_directory(
@@ -189,13 +215,19 @@ def get_file_kwargs_from_data(
     format: Optional[str] = None,
 ):
     run = get_run(source)
-    memory_rep, filepath, safe_name, suffix = serialize(data, name, format)
+    memory_rep, filepath, safe_name, suffix = serialize(data, name, format, key)
     # the following will return a localpath that is not None if filepath is local
     # it will return a cloudpath that is not None if filepath is on the cloud
     local_filepath, cloud_filepath, size, hash = get_path_size_hash(
         filepath, memory_rep, suffix
     )
     check_path_in_storage = get_check_path_in_storage(filepath)
+    if cloud_filepath is not None and not check_path_in_storage:
+        raise ValueError(
+            "Currently do not support moving cloud data across buckets.Configure"
+            " storage to point to your cloud bucket:"
+            f" {list(cloud_filepath.parents)[-1]}"
+        )
 
     # if we pass a file, no storage key, and path is already in storage,
     # then use the existing relative path within the storage location
@@ -229,7 +261,7 @@ def get_features_from_data(
     reference: Any,
     format: Optional[str] = None,
 ):
-    memory_rep, filepath, _, suffix = serialize(data, "features", format)
+    memory_rep, filepath, _, suffix = serialize(data, "features", format, key=None)
     localpath, cloudpath, _, _ = get_path_size_hash(
         filepath, memory_rep, suffix, check_hash=False
     )
