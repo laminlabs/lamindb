@@ -15,7 +15,7 @@ from lamindb.dev.db._select import select
 from lamindb.dev.hashing import hash_file
 
 NO_NAME_ERROR = """
-Pass a name in `ln.File(..., name=name)` when ingesting in-memory data.
+Pass a name or key in `ln.File(...)` when ingesting in-memory data.
 """
 
 NO_SOURCE_ERROR = """
@@ -32,7 +32,10 @@ More details: https://lamin.ai/docs/faq/ingest
 
 
 def serialize(
-    data: Union[Path, UPath, str, pd.DataFrame, AnnData], name, format
+    data: Union[Path, UPath, str, pd.DataFrame, AnnData],
+    name,
+    format,
+    key: Optional[str],
 ) -> Tuple[Any, Union[Path, UPath], str, str]:
     """Serialize a data object that's provided as file or in memory."""
     # Convert str to either Path or CloudPath
@@ -47,20 +50,25 @@ def serialize(
                 " Please call `lndb.set_storage('< bucket_name >')`."
             )
         memory_rep = None
-        name = filepath.name
+        if key is None:
+            name = filepath.name
+        else:
+            name = PurePath(key).name
         # also see tests/test_file_hashing.py
         suffix = "".join(filepath.suffixes)
     # For now, in-memory objects are always saved to local_filepath first
     # This behavior will change in the future
     elif isinstance(data, (pd.DataFrame, AnnData)):
-        if name is None:
+        if name is None and key is None:
             raise ValueError(NO_NAME_ERROR)
+        if name is None:
+            name = PurePath(key).name
         memory_rep = data
         suffix = infer_suffix(data, format)
         # this is always local
         filepath = Path(f"{name}{suffix}")
         if suffix != ".zarr":
-            write_to_file(data, filepath)
+            write_to_file(data, lndb.settings.storage.cache_dir / filepath)
     else:
         raise NotImplementedError("Recording not yet implemented for this type.")
     return memory_rep, filepath, name, suffix
@@ -189,7 +197,7 @@ def get_file_kwargs_from_data(
     format: Optional[str] = None,
 ):
     run = get_run(source)
-    memory_rep, filepath, safe_name, suffix = serialize(data, name, format)
+    memory_rep, filepath, safe_name, suffix = serialize(data, name, format, key)
     # the following will return a localpath that is not None if filepath is local
     # it will return a cloudpath that is not None if filepath is on the cloud
     local_filepath, cloud_filepath, size, hash = get_path_size_hash(
@@ -229,7 +237,7 @@ def get_features_from_data(
     reference: Any,
     format: Optional[str] = None,
 ):
-    memory_rep, filepath, _, suffix = serialize(data, "features", format)
+    memory_rep, filepath, _, suffix = serialize(data, "features", format, key=None)
     localpath, cloudpath, _, _ = get_path_size_hash(
         filepath, memory_rep, suffix, check_hash=False
     )
