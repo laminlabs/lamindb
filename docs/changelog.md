@@ -3,6 +3,7 @@
 <!-- prettier-ignore -->
 Name | PR | Developer | Date | Version
 --- | --- | --- | --- | ---
+📝 Polish docstrings | [618](https://github.com/laminlabs/lamindb/pull/618) | [falexwolf](https://github.com/falexwolf) | 2023-04-09 |
 🩹 Check private attributes properly in ln.add | [617](https://github.com/laminlabs/lamindb/pull/617) | [Koncopd](https://github.com/Koncopd) | 2023-04-09 |
 🚸 Filename in `File.name`, new `File.key` and `Folder.key`, robustness overhaul | [614](https://github.com/laminlabs/lamindb/pull/614) | [falexwolf](https://github.com/falexwolf) | 2023-04-08 |
 🐛 Fix checks on private attributes in ln.add | [616](https://github.com/laminlabs/lamindb/pull/616) | [Koncopd](https://github.com/Koncopd) | 2023-04-06 |
