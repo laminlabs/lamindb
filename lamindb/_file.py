@@ -4,6 +4,7 @@ from typing import Any, Optional, Tuple, Union
 import lndb
 import pandas as pd
 from anndata import AnnData
+from appdirs import AppDirs
 from lamin_logger import logger
 from lndb_storage import UPath
 from lndb_storage.object import infer_suffix, size_adata, write_to_file
@@ -13,6 +14,8 @@ from lamindb._features import get_features
 from lamindb._settings import settings
 from lamindb.dev.db._select import select
 from lamindb.dev.hashing import hash_file
+
+DIRS = AppDirs("lamindb", "laminlabs")
 
 NO_NAME_ERROR = """
 Pass a name or key in `ln.File(...)` when ingesting in-memory data.
@@ -65,8 +68,14 @@ def serialize(
             name = PurePath(key).name
         memory_rep = data
         suffix = infer_suffix(data, format)
-        # this is always local
-        filepath = lndb.settings.storage.cache_dir / name
+        # the following filepath is always local
+        if lndb.settings.storage.cache_dir is not None:
+            filepath = lndb.settings.storage.cache_dir / name
+        else:
+            # this should likely be added to lndb.settings.storage
+            cache_dir = Path(DIRS.user_cache_dir)
+            cache_dir.mkdir(parents=True, exist_ok=True)
+            filepath = cache_dir / name
         if suffix != ".zarr":
             write_to_file(data, filepath)
     else:
@@ -213,6 +222,12 @@ def get_file_kwargs_from_data(
         filepath, memory_rep, suffix
     )
     check_path_in_storage = get_check_path_in_storage(filepath)
+    if cloud_filepath is not None and not check_path_in_storage:
+        raise ValueError(
+            "Currently do not support moving cloud data across buckets.Configure"
+            " storage to point to your cloud bucket:"
+            f" {list(cloud_filepath.parents)[-1]}"
+        )
 
     # if we pass a file, no storage key, and path is already in storage,
     # then use the existing relative path within the storage location
