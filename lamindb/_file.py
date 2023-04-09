@@ -210,7 +210,6 @@ def get_file_kwargs_from_data(
     local_filepath, cloud_filepath, size, hash = get_path_size_hash(
         filepath, memory_rep, suffix
     )
-    print(filepath)
     check_path_in_storage = get_check_path_in_storage(filepath)
 
     # if we pass a file, no storage key, and path is already in storage,
