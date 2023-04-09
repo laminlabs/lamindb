@@ -21,35 +21,42 @@ Insert or update data records.
 Inserts a new :term:`record` if the corresponding row doesn't exist.
 Updates the corresponding row with the record if it exists.
 
-To update a row, query it with `.get` or `.select` and modify it before
+To update a row, query it with `.select` and modify it before
 passing it to `add`.
 
 Guide: :doc:`/guide/add-delete`.
 
-Examples:
-
-1) Add a record (by passing a record)
->>> ln.add(lns.Pipeline(name="My pipeline", v="1"))
-Pipeline(id="0Cb86EZj", name="My pipeline", v="1", ...)
-
-2) Update an existing record
->>> pipeline = ln.select(lns.Pipeline, id="0Cb86EZj").one()
->>> pipeline.name = "New name"
->>> ln.add(experiment)
-Pipeline(id="0Cb86EZj", name="New name", v="1", ...)
-
-3) Add a record if not exist in the DB
->>> # add a record if the metadata combination is not already exist in the DB
->>> # if exists, returns the existing record from the DB
->>> ln.add(lns.Pipeline, name="My pipeline", v="1")
->>> # under the hood, this runs a query first based on passed fields
->>> # equivalent to the following:
->>> pipeline = ln.select(lns.Pipeline, name="My pipeline", v="1").one_or_none()
->>> if pipeline is None:
->>>     ln.add(pipeline)
-
 Args:
     record: One or multiple records as instances of `SQLModel`.
+
+Returns:
+    The record as returned from the database with a `created_at` timestamp.
+
+Examples:
+
+    Add a record (errors if already exists):
+
+    >>> ln.add(ln.Transform(name="My pipeline"))
+    Transform(id="0Cb86EZj", name="My pipeline", ...)
+
+    Update an existing record:
+
+    >>> transform = ln.select(ln.Transform, id="0Cb86EZj").one()
+    >>> transform.name = "New name"
+    >>> ln.add(transform)
+    Transform(id="0Cb86EZj", name="New name", ...)
+
+    Add a record with passed fields if not yet exists:
+
+    >>> # add a record if the metadata combination is not already exist in the DB
+    >>> # if exists, returns the existing record from the DB
+    >>> ln.add(lns.Transform, name="My transform", v="1")
+    Transform(id="0Cb86EZj", name="My pipeline", ...)
+    >>> # is equivalent to the following:
+    >>> transform = ln.select(lns.Transform, name="My transform", v="1").one_or_none()
+    >>> if transform is None:
+    >>>     ln.add(transform)
+
 """
 
 

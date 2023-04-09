@@ -42,30 +42,37 @@ def delete(  # type: ignore
     delete_data_from_storage: Optional[bool] = None,
     **fields,
 ) -> None:
-    """Delete data records & data objects.
+    """Delete metadata records & files.
 
     Guide: :doc:`/guide/add-delete`.
-
-    Example:
-
-    1) Delete by record
-    >>> experiment = ln.select(Experiment, id=experiment_id).one()
-    >>> ln.delete(experiment)
-
-    2) Delete by fields
-    >>> ln.delete(Experiment, id=experiment_id)
-    >>> # the result of is equivalent to 1)
-
-    3) Delete data objects (deleting the metadata record and the storage file)
-    >>> file = ln.select(File, id=file_id).one()
-    >>> # deleting the metadata record occurs automatically
-    >>> # you will be asked whether to delete the file from storage
-    >>> # or pass boolean values to `delete_data_from_storage`
-    >>> ln.delete(file, delete_data_from_storage)
 
     Args:
         record: One or multiple records as instances of `SQLModel`.
         delete_data_from_storage: Whether to delete data from storage.
+
+    Returns:
+        `None`
+
+    Examples:
+
+        Delete by record:
+
+        >>> experiment = ln.select(Experiment, id=experiment_id).one()
+        >>> ln.delete(experiment)
+
+        Delete by fields:
+
+        >>> ln.delete(Experiment, id=experiment_id)
+        >>> # the result of is equivalent to 1)
+
+        Delete files (delete the metadata record and the file in storage)
+
+        >>> file = ln.select(File, id=file_id).one()
+        >>> # deleting the metadata record occurs automatically
+        >>> # you will be asked whether to delete the file from storage
+        >>> # or pass boolean values to `delete_data_from_storage`
+        >>> ln.delete(file, delete_data_from_storage)
+
     """
     if isinstance(record, list):
         records = record

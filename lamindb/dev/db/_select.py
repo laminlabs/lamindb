@@ -10,15 +10,16 @@ from .._docs import doc_args
 from ._core import file_to_sqm, get_session_from_kwargs
 
 select_docs = """
-Select data.
+Query data.
 
 Guide: :doc:`/guide/select`.
-
-Returns a :class:`~lamindb.dev.db.SelectStmt` object.
 
 Args:
     entity: Table, tables, or tables including column specification.
     fields: Fields and values passed as keyword arguments.
+
+Returns:
+    A :class:`~lamindb.dev.db.SelectStmt` object.
 """
 
 
