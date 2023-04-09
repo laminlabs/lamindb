@@ -203,12 +203,12 @@ def upload_data_object(file) -> None:
     """Store and add file and its linked entries."""
     # do NOT hand-craft the storage key!
     file_storage_key = storage_key_from_file(file)
-    if hasattr(file, "_to_store") and file._to_store:
+    if _private_not_empty(file, "_to_store") and file._to_store:
         logger.hint(f"storing object {file.name} with key {file_storage_key}")
         store_object(file._local_filepath, file_storage_key)
     elif (
         file.suffix == ".zarr"
-        and hasattr(file, "_memory_rep")
+        and _private_not_empty(file, "_memory_rep")
         and file._memory_rep is not None
     ):
         logger.hint(f"storing object {file.name} with key {file_storage_key}")
