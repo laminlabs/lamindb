@@ -18,7 +18,7 @@ dependencies = [
     # !!! These packages should ALWAYS be pinned, do not unpin !!!
     # !!! They cannot be pinned ANYWHERE else !!!
     "lnschema_core==0.32.0",
-    "lndb_storage==0.2rc2",
+    "lndb_storage==0.2rc3",
     "lndb==0.41rc1",
     # Lamin GREATEREQ packages
     "nbproject>=0.8.3",
