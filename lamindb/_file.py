@@ -66,9 +66,9 @@ def serialize(
         memory_rep = data
         suffix = infer_suffix(data, format)
         # this is always local
-        filepath = Path(f"{name}{suffix}")
+        filepath = lndb.settings.storage.cache_dir / name
         if suffix != ".zarr":
-            write_to_file(data, lndb.settings.storage.cache_dir / filepath)
+            write_to_file(data, filepath)
     else:
         raise NotImplementedError("Recording not yet implemented for this type.")
     return memory_rep, filepath, name, suffix
@@ -154,13 +154,18 @@ def get_path_size_hash(
 
 
 def get_check_path_in_storage(filepath: Union[Path, UPath]) -> bool:
-    storage = lndb.settings.instance.storage
-    if isinstance(filepath, UPath):
+    assert isinstance(filepath, Path)
+    # the following comparisons can fail if types aren't comparable
+    if isinstance(filepath, UPath) and isinstance(lndb.settings.storage.root, UPath):
         # the following tests equivalency of two UPath objects
         # not their string representations!
-        return list(filepath.parents)[-1] == storage.root
+        return list(filepath.parents)[-1] == lndb.settings.storage.root
+    elif not isinstance(filepath, UPath) and not isinstance(
+        lndb.settings.storage.root, UPath
+    ):
+        return lndb.settings.storage.root in filepath.resolve().parents
     else:
-        return storage.root in filepath.resolve().parents
+        return False
 
 
 def get_relative_path_to_directory(
@@ -203,6 +208,7 @@ def get_file_kwargs_from_data(
     local_filepath, cloud_filepath, size, hash = get_path_size_hash(
         filepath, memory_rep, suffix
     )
+    print(filepath)
     check_path_in_storage = get_check_path_in_storage(filepath)
 
     # if we pass a file, no storage key, and path is already in storage,
