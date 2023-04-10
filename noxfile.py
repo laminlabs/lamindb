@@ -1,19 +1,21 @@
 import os
-import shutil
-from pathlib import Path
+
+# import shutil
+# from pathlib import Path
 from time import perf_counter
 
 import nox
-from laminci import move_built_docs_to_docs_slash_project_slug, upload_docs_artifact
-from lndb.test.nox import (
+from laminci import (
     build_docs,
     login_testuser1,
     login_testuser2,
+    move_built_docs_to_docs_slash_project_slug,
     run_pre_commit,
     run_pytest,
+    upload_docs_artifact,
 )
 
-import lamindb as ln
+# import lamindb as ln
 
 nox.options.reuse_existing_virtualenvs = True
 
@@ -56,31 +58,31 @@ def build(session, package):
         session.run("pytest", "-s", "./tests", "--ignore", "./tests/test_migrations.py")
 
     if package == "lamindb":
-        t_start = perf_counter()
+        # t_start = perf_counter()
 
-        # Schemas
-        ln.setup.load("testuser1/lamin-site-assets", migrate=True)
+        # # Schemas
+        # ln.setup.load("testuser1/lamin-site-assets", migrate=True)
 
-        file = ln.select(ln.File, name="lnschema_core_docs").one()
-        shutil.unpack_archive(file.load(), "lnschema_core_docs")
-        Path("lnschema_core_docs/guide/0-core-schema.ipynb").rename(
-            "docs/guide/lnschema-core.ipynb"
-        )
-        Path("lnschema_core_docs/guide/1-data-validation.ipynb").rename(
-            "docs/guide/data-validation.ipynb"
-        )
+        # file = ln.select(ln.File, name="lnschema_core_docs").one()
+        # shutil.unpack_archive(file.load(), "lnschema_core_docs")
+        # Path("lnschema_core_docs/guide/0-core-schema.ipynb").rename(
+        #     "docs/guide/lnschema-core.ipynb"
+        # )
+        # Path("lnschema_core_docs/guide/1-data-validation.ipynb").rename(
+        #     "docs/guide/data-validation.ipynb"
+        # )
 
-        file = ln.select(ln.File, name="lnschema_bionty_docs").one()
-        shutil.unpack_archive(file.load(), "lnschema_bionty_docs")
-        Path("lnschema_bionty_docs/guide/orms.ipynb").rename(
-            "docs/guide/lnschema-bionty.ipynb"
-        )
-        Path("lnschema_bionty_docs/guide/knowledge.ipynb").rename(
-            "docs/guide/knowledge.ipynb"
-        )
+        # file = ln.select(ln.File, name="lnschema_bionty_docs").one()
+        # shutil.unpack_archive(file.load(), "lnschema_bionty_docs")
+        # Path("lnschema_bionty_docs/guide/orms.ipynb").rename(
+        #     "docs/guide/lnschema-bionty.ipynb"
+        # )
+        # Path("lnschema_bionty_docs/guide/knowledge.ipynb").rename(
+        #     "docs/guide/knowledge.ipynb"
+        # )
 
-        t_total = perf_counter() - t_start
-        print(f"Done pulling artifacts: {t_total:.3f}s")
+        # t_total = perf_counter() - t_start
+        # print(f"Done pulling artifacts: {t_total:.3f}s")
 
         t_start = perf_counter()
         build_docs(session)

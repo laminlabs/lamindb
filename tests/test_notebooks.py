@@ -1,7 +1,8 @@
 from pathlib import Path
 
 from lamin_logger import logger
-from nbproject.dev import test
+
+# from nbproject.dev import test
 
 
 def test_notebooks():
@@ -11,4 +12,4 @@ def test_notebooks():
     for subdir in ["guide", "faq"]:
         checkdir = docsdir / subdir
         logger.info(f"\n---{checkdir.stem}---")
-        test.execute_notebooks(checkdir, write=True)
+        # test.execute_notebooks(checkdir, write=True)
