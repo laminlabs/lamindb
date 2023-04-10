@@ -5,14 +5,13 @@ import os
 from time import perf_counter
 
 import nox
-from laminci import (
+from laminci import move_built_docs_to_docs_slash_project_slug, upload_docs_artifact
+from laminci.nox import (
     build_docs,
     login_testuser1,
     login_testuser2,
-    move_built_docs_to_docs_slash_project_slug,
     run_pre_commit,
     run_pytest,
-    upload_docs_artifact,
 )
 
 # import lamindb as ln
