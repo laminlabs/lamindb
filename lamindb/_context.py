@@ -1,3 +1,4 @@
+import re
 from pathlib import Path
 from typing import List, Optional, Union
 
@@ -8,6 +9,35 @@ from lndb import settings
 from lndb.dev import InstanceSettings
 from lnschema_core import Run, Transform, dev
 from nbproject._is_run_from_ipython import is_run_from_ipython
+
+msg_init_complete = (
+    "Init complete. Hit save & reload from disk, i.e, *discard* editor content. If you"
+    " do not want to lose editor changes, hit save *before* running `track()`."
+    " Consider using Jupyter Lab for a seamless interactive experience."
+)
+
+
+def _write_notebook_meta(metadata):
+    from nbproject._header import _env, _filepath
+
+    nbproject.dev._frontend_commands._save_notebook(_env)
+    nb = nbproject.dev.read_notebook(_filepath)
+    nb.metadata["nbproject"] = metadata
+
+    # write proper execution count
+    header_re = re.compile(r"^[^#]*track\(", flags=re.MULTILINE)
+    ccount = 0
+    for cell in nb.cells:
+        if cell["cell_type"] != "code":
+            continue
+        elif cell["execution_count"] is not None:
+            ccount = cell["execution_count"]
+        if header_re.match("".join(cell["source"])) is not None:
+            cell["execution_count"] = ccount + 1
+            break
+
+    nbproject.dev.write_notebook(nb, _filepath)
+    nbproject.dev._frontend_commands._reload_notebook(_env)
 
 
 class context:
@@ -94,6 +124,11 @@ class context:
             cls.transform = transform_exists
         Run(load_latest=load_latest_run)
 
+        # only for newly intialized notebooks
+        if hasattr(cls, "_notebook_meta"):
+            _write_notebook_meta(cls._notebook_meta)  # type: ignore
+            del cls._notebook_meta  # type: ignore
+
     @classmethod
     def _track_notebook(
         cls,
@@ -128,16 +163,28 @@ class context:
                 f" ln.track(id={dev.id.notebook()}, name='my-notebook-name')"
             )
             try:
-                nbproject.header(
-                    pypackage=pypackage, filepath=filepath, env=editor, display=False
+                metadata, needs_init = nbproject.header(
+                    pypackage=pypackage,
+                    filepath=filepath,
+                    env=editor,
+                    metadata_only=True,
                 )
             except Exception:
                 raise RuntimeError(nbproject_failed_msg)
             # this contains filepath if the header was run successfully
-            from nbproject._header import _filepath
+            from nbproject._header import _env, _filepath
 
-            id = nbproject.meta.store.id
-            v = nbproject.meta.store.version
+            if needs_init:
+                if _env in ("lab", "notebook"):
+                    cls._notebook_meta = metadata  # type: ignore
+                else:
+                    nb = nbproject.dev.read_notebook(_filepath)
+                    nb.metadata["nbproject"] = metadata
+                    nbproject.dev.write_notebook(nb, _filepath)
+                    raise SystemExit(msg_init_complete)
+
+            id = metadata["id"]
+            v = metadata["version"]
             name = Path(_filepath).stem
             title = nbproject.meta.live.title
         elif id is None or name is None:
