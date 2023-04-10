@@ -2,17 +2,21 @@ from pathlib import Path
 from subprocess import run
 
 import lndb
+import pytest
 from lamin_logger import logger
 
 
-def pytest_sessionstart(session):
+def pytest_sessionstart(session: pytest.Session):
     instance_dirs = [
         d for d in ["./docs/guide/mydata", "./mydata-test-db"] if Path(d).exists()
     ]
     for instance_dir in instance_dirs:
         cmd = f"rm -r {instance_dir}"
-        run(cmd)
-        logger.info(cmd)
+        try:
+            run(cmd)
+            logger.info(cmd)
+        except Exception:
+            logger.info(f"Could not delete {instance_dir}")
     cmd = "lamin init --storage mydata-test-db"
     logger.info(cmd)
     run(cmd, shell=True)
