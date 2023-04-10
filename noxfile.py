@@ -14,7 +14,7 @@ from laminci.nox import (  # build_docs,
     run_pytest,
 )
 
-# import lamindb as ln
+import lamindb as ln
 
 nox.options.reuse_existing_virtualenvs = True
 
@@ -47,8 +47,8 @@ def build(session, package):
 
     if package == "lamindb":
         try:  # attempt clean up lamindb-ci
-            session.run("lamin", "load", "lamindb-ci")
-            session.run("lamin", "delete", "lamindb-ci")
+            ln.setup.load("testuser1/lamindb-ci", migrate=True)
+            ln.setup.delete("testuser1/lamindb-ci")
         finally:
             run_pytest(session, coverage=False)
     else:
