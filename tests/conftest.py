@@ -1,6 +1,9 @@
 from pathlib import Path
 from subprocess import run
 
+import lndb
+from lamin_logger import logger
+
 
 def pytest_sessionstart(session):
     instance_dirs = [
@@ -8,5 +11,13 @@ def pytest_sessionstart(session):
     ]
     for instance_dir in instance_dirs:
         clean_instance = f"rm -r {instance_dir}"
+        logger.info(clean_instance)
         run(*clean_instance.split(" "))
-    run("lamin init --storage mydata-test-db", shell=True)
+    cmd = "lamin init --storage mydata-test-db"
+    run(cmd, shell=True)
+    logger.info(cmd)
+    try:
+        lndb.load("testuser1/lamindb-ci", migrate=True)
+        lndb.delete("lamindb-ci")
+    except Exception:
+        logger.info("Could not delete testuser1/lamindb-ci")
