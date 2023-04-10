@@ -10,12 +10,12 @@ def pytest_sessionstart(session):
         d for d in ["./docs/guide/mydata", "./mydata-test-db"] if Path(d).exists()
     ]
     for instance_dir in instance_dirs:
-        clean_instance = f"rm -r {instance_dir}"
-        logger.info(clean_instance)
-        run(*clean_instance.split(" "))
+        cmd = f"rm -r {instance_dir}"
+        run(cmd)
+        logger.info(cmd)
     cmd = "lamin init --storage mydata-test-db"
-    run(cmd, shell=True)
     logger.info(cmd)
+    run(cmd, shell=True)
     try:
         lndb.load("testuser1/lamindb-ci", migrate=True)
         lndb.delete("lamindb-ci")
