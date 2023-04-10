@@ -5,7 +5,7 @@ from time import perf_counter
 
 import nox
 from laminci import move_built_docs_to_docs_slash_project_slug, upload_docs_artifact
-from lndb.test.nox import (
+from laminci.nox import (
     build_docs,
     login_testuser1,
     login_testuser2,
@@ -45,11 +45,7 @@ def build(session, package):
     print(f"Done installing: {t_total:.3f}s")
 
     if package == "lamindb":
-        try:  # attempt clean up lamindb-ci
-            session.run("lamin", "load", "lamindb-ci")
-            session.run("lamin", "delete", "lamindb-ci")
-        finally:
-            run_pytest(session)
+        run_pytest(session)
     else:
         # navigate into submodule so that lamin-project.yml is correctly read
         os.chdir(f"./sub/{package}")
