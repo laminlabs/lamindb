@@ -57,8 +57,8 @@ def build(session, package):
         # Schemas
         ln.setup.load("testuser1/lamin-site-assets", migrate=True)
 
-        file = ln.select(ln.File, name="lnschema_core_docs").one()
-        shutil.unpack_archive(file.load(), "lnschema_core_docs")
+        file = ln.select(ln.File, key="docs/lnschema_core_docs.zip").one()
+        shutil.unpack_archive(file.stage(), "lnschema_core_docs")
         Path("lnschema_core_docs/guide/0-core-schema.ipynb").rename(
             "docs/guide/lnschema-core.ipynb"
         )
@@ -66,8 +66,8 @@ def build(session, package):
             "docs/guide/data-validation.ipynb"
         )
 
-        file = ln.select(ln.File, name="lnschema_bionty_docs").one()
-        shutil.unpack_archive(file.load(), "lnschema_bionty_docs")
+        file = ln.select(ln.File, key="docs/lnschema_bionty_docs.zip").one()
+        shutil.unpack_archive(file.stage(), "lnschema_bionty_docs")
         Path("lnschema_bionty_docs/guide/orms.ipynb").rename(
             "docs/guide/lnschema-bionty.ipynb"
         )
