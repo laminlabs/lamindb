@@ -5,9 +5,9 @@ import os
 from time import perf_counter
 
 import nox
-from laminci import move_built_docs_to_docs_slash_project_slug, upload_docs_artifact
-from laminci.nox import (
-    build_docs,
+
+# from laminci import move_built_docs_to_docs_slash_project_slug, upload_docs_artifact
+from laminci.nox import (  # build_docs,
     login_testuser1,
     login_testuser2,
     run_pre_commit,
@@ -84,8 +84,8 @@ def build(session, package):
         # print(f"Done pulling artifacts: {t_total:.3f}s")
 
         t_start = perf_counter()
-        build_docs(session)
-        login_testuser1(session)
-        upload_docs_artifact()
-        move_built_docs_to_docs_slash_project_slug()
+        # build_docs(session)
+        # login_testuser1(session)
+        # upload_docs_artifact()
+        # move_built_docs_to_docs_slash_project_slug()
         print(f"Done building docs and uploading: {t_total:.3f}s")
