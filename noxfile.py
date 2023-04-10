@@ -50,7 +50,7 @@ def build(session, package):
             session.run("lamin", "load", "lamindb-ci")
             session.run("lamin", "delete", "lamindb-ci")
         finally:
-            run_pytest(session)
+            run_pytest(session, coverage=False)
     else:
         # navigate into submodule so that lamin-project.yml is correctly read
         os.chdir(f"./sub/{package}")
