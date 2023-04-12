@@ -51,10 +51,10 @@ Examples:
 
     >>> # add a record if the metadata combination is not already exist in the DB
     >>> # if exists, returns the existing record from the DB
-    >>> ln.add(lns.Transform, name="My transform", v="1")
+    >>> ln.add(ln.Transform, name="My transform", v="1")
     Transform(id="0Cb86EZj", name="My pipeline", ...)
     >>> # is equivalent to the following:
-    >>> transform = ln.select(lns.Transform, name="My transform", v="1").one_or_none()
+    >>> transform = ln.select(ln.Transform, name="My transform", v="1").one_or_none()
     >>> if transform is None:
     >>>     ln.add(transform)
 
