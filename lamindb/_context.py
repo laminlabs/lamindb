@@ -119,7 +119,10 @@ class context:
                     ).one()
             if transform_exists is None:
                 transform_exists = ln.add(transform)
-                logger.info(f"Added transform: {transform}")
+                logger.warning(
+                    f"No transform with name {transform.name} found, adding:"
+                    f" {transform}"
+                )
             else:
                 logger.info(f"Loaded transform: {transform_exists}")
             cls.transform = transform_exists
