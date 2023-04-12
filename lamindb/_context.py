@@ -106,7 +106,7 @@ class context:
                 else:
                     transform_exists = ln.select(
                         Transform, name=transform.id, v=transform.v
-                    ).one()
+                    ).first()
             else:
                 if transform.v is None:
                     transform_exists = (
@@ -117,7 +117,7 @@ class context:
                 else:
                     transform_exists = ln.select(
                         Transform, name=transform.name, v=transform.v
-                    ).one()
+                    ).first()
             if transform_exists is None:
                 transform_exists = ln.add(transform)
                 logger.warning(
