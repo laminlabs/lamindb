@@ -96,7 +96,7 @@ class context:
         elif transform is None:
             raise ValueError("Pass `transform` to .track()!")
         else:
-            if transform.id is not None:
+            if transform.id is not None:  # id based look-up
                 if transform.v is None:
                     transform_exists = (
                         ln.select(Transform, name=transform.id)
@@ -107,7 +107,7 @@ class context:
                     transform_exists = ln.select(
                         Transform, name=transform.id, v=transform.v
                     ).first()
-            else:
+            else:  # name based lookup
                 if transform.v is None:
                     transform_exists = (
                         ln.select(Transform, name=transform.name)
@@ -233,7 +233,7 @@ class context:
                     new_id, new_v = None, None
                     response = input("Do you want to generate a new id? (y/n)")
                     if response == "y":
-                        new_id = lnschema_core.dev.id.notebook()
+                        new_id = lnschema_core.dev.id.transform()
                     response = input(
                         "Do you want to set a new version (e.g. '1.1')? Type 'n' for"
                         " 'no'. (version/n)"
