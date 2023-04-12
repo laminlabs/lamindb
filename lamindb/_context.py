@@ -50,6 +50,7 @@ class context:
     run: Optional[Run] = None
     """Current run."""
 
+    # exposed to user as ln.track()
     @classmethod
     def _track(
         cls,
@@ -257,37 +258,4 @@ class context:
                 ln.add(transform)
 
         # at this point, we have a transform object
-        cls.transform = transform
-
-    @classmethod
-    def _track_pipeline(
-        cls,
-        name: str,
-        *,
-        version: Optional[str] = None,
-    ):
-        """Load or create pipeline record within `Transform`.
-
-        Args:
-            name: Name as used in `Transform.name`.
-            version: Pipeline version. If `None`, load latest (sort by `created_at`).
-        """
-        cls.instance = settings.instance
-        import lamindb as ln
-
-        if version is not None:
-            transform = ln.select(Transform, name=name, v=version).one()
-        else:
-            transform = (
-                ln.select(Transform, name=name)
-                .order_by(Transform.created_at.desc())
-                .first()
-            )
-            if transform is None:
-                response = input(
-                    f"Did not find any transform record with name '{name}'. Create a"
-                    " new one? (y/n)"
-                )
-                if response == "y":
-                    transform = Transform(name=name, type="pipeline")
         cls.transform = transform
