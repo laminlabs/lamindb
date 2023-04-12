@@ -95,7 +95,28 @@ class context:
         elif transform is None:
             raise ValueError("Pass `transform` to .track()!")
         else:
-            transform_exists = ln.select(Transform, id=transform.id).one_or_none()
+            if transform.id is not None:
+                if transform.v is None:
+                    transform_exists = (
+                        ln.select(Transform, name=transform.id)
+                        .order_by(Transform.created_at.desc())
+                        .first()
+                    )
+                else:
+                    transform_exists = ln.select(
+                        Transform, name=transform.id, v=transform.v
+                    ).one()
+            else:
+                if transform.v is None:
+                    transform_exists = (
+                        ln.select(Transform, name=transform.name)
+                        .order_by(Transform.created_at.desc())
+                        .first()
+                    )
+                else:
+                    transform_exists = ln.select(
+                        Transform, name=transform.name, v=transform.v
+                    ).one()
             if transform_exists is None:
                 transform_exists = ln.add(transform)
                 logger.info(f"Added transform: {transform}")
