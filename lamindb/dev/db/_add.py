@@ -8,7 +8,8 @@ from lamin_logger import logger
 from lndb import settings as setup_settings
 from lndb_storage import delete_storage, store_object, write_adata_zarr
 from lndb_storage._file import print_hook
-from lnschema_core import File
+from lnschema_core import File, Transform
+from lnschema_core.dev import id as id_generator
 from lnschema_core.dev._storage import storage_key_from_file
 from pydantic.fields import ModelPrivateAttr
 
@@ -51,10 +52,10 @@ Examples:
 
     >>> # add a record if the metadata combination is not already exist in the DB
     >>> # if exists, returns the existing record from the DB
-    >>> ln.add(lns.Transform, name="My transform", v="1")
+    >>> ln.add(ln.Transform, name="My transform", v="1")
     Transform(id="0Cb86EZj", name="My pipeline", ...)
     >>> # is equivalent to the following:
-    >>> transform = ln.select(lns.Transform, name="My transform", v="1").one_or_none()
+    >>> transform = ln.select(ln.Transform, name="My transform", v="1").one_or_none()
     >>> if transform is None:
     >>>     ln.add(transform)
 
@@ -119,6 +120,12 @@ def add(  # type: ignore
             and record._ln_identity_key is not None  # noqa
         ):
             record._sa_instance_state.key = record._ln_identity_key
+        # set primary keys if they aren't None
+        if isinstance(record, Transform):
+            if record.id is None:
+                record.id = id_generator.transform()
+            if record.v is None:
+                record.v = "0"
         session.add(record)
     try:
         session.commit()
