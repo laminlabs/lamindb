@@ -162,6 +162,8 @@ class context:
                 when automatic inference fails.
         """
         cls.instance = settings.instance
+
+        metadata = None
         # original location of this code was _nb
         # legacy code here, see duplicated version in _run
         if id is None and name is None:
@@ -243,24 +245,38 @@ class context:
                             response = input("Please type the version: ")
                         new_v = response
                     if new_id is not None or new_v is not None:
+                        from nbproject._header import _env, _filepath
+
+                        nb = None
+                        if metadata is None:
+                            nb = nbproject.dev.read_notebook(_filepath)
+                            metadata = nb.metadata["nbproject"]
+
                         if new_id is not None:
-                            nbproject.meta.store.id = new_id
+                            metadata["id"] = new_id
                             if new_v is None:
                                 new_v = "0"  # init new version
                         # at this point, new_v is guaranteed to be not None
-                        nbproject.meta.store.version = new_v
-                        print("Restart the notebook to see changes!")
-                        nbproject.meta.store.write()
-                        # at this point, depending on the editor, the process
-                        # might crash that is OK as upon re-running, the
-                        # notebook will have new metadata and will be registered
-                        # in the db in case the python process does not exit, we
-                        # need a new Notebook record
-                        transform = Transform(id=new_id, v=new_v, type="notebook")
+                        metadata["version"] = new_v
+
+                        # here we push the metadata write to the end of track execution
+                        if _env in ("lab", "notebook"):
+                            cls._notebook_meta = metadata  # type: ignore
+                        else:
+                            if nb is None:
+                                nb = nbproject.dev.read_notebook(_filepath)
+                            nb.metadata["nbproject"] = metadata
+                            nbproject.dev.write_notebook(nb, _filepath)
+                            raise SystemExit(msg_init_complete)
+
+                        transform = Transform(
+                            id=new_id, v=new_v, name=name, type="notebook"
+                        )
 
                 transform.name = name
                 transform.title = title
                 ln.add(transform)
+                logger.info(f"Added notebook: {transform}")
 
         # at this point, we have a transform object
         cls.transform = transform
