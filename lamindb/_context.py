@@ -247,8 +247,8 @@ class context:
                             nbproject.meta.store.id = new_id
                             if new_v is None:
                                 new_v = "0"  # init new version
-                        if new_v is not None:
-                            nbproject.meta.store.version = new_v
+                        # at this point, new_v is guaranteed to be not None
+                        nbproject.meta.store.version = new_v
                         print("Restart the notebook to see changes!")
                         nbproject.meta.store.write()
                         # at this point, depending on the editor, the process
