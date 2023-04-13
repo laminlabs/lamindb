@@ -3,6 +3,7 @@
 <!-- prettier-ignore -->
 Name | PR | Developer | Date | Version
 --- | --- | --- | --- | ---
+🐛 Fix track for copied / renamed notebooks | [626](https://github.com/laminlabs/lamindb/pull/626) | [Koncopd](https://github.com/Koncopd) | 2023-04-13 |
 🐛 Fix bug in notebook copying behavior | [625](https://github.com/laminlabs/lamindb/pull/625) | [falexwolf](https://github.com/falexwolf) | 2023-04-13 |
 🎨 Simplify `ln.track()` and add `app` transform type | [624](https://github.com/laminlabs/lamindb/pull/624) | [falexwolf](https://github.com/falexwolf) | 2023-04-12 | 0.36.3
 🐛 Fix initialization of new notebooks | [623](https://github.com/laminlabs/lamindb/pull/623) | [Koncopd](https://github.com/Koncopd) | 2023-04-10 | 0.36.1
