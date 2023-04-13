@@ -238,20 +238,25 @@ class context:
                         "Do you want to set a new version (e.g. '1.1')? Type 'n' for"
                         " 'no'. (version/n)"
                     )
-                    if new_v != "n":
+                    if response != "n":
                         if new_v == "y":
                             response = input("Please type the version: ")
                         new_v = response
                     if new_id is not None or new_v is not None:
-                        nbproject.meta.store.id = new_id
+                        if new_id is not None:
+                            nbproject.meta.store.id = new_id
+                            if new_v is None:
+                                new_v = "0"  # init new version
+                        # at this point, new_v is guaranteed to be not None
                         nbproject.meta.store.version = new_v
+                        print("Restart the notebook to see changes!")
                         nbproject.meta.store.write()
                         # at this point, depending on the editor, the process
                         # might crash that is OK as upon re-running, the
                         # notebook will have new metadata and will be registered
                         # in the db in case the python process does not exit, we
                         # need a new Notebook record
-                        transform = Transform(id=id, v=v, type="notebook")
+                        transform = Transform(id=new_id, v=new_v, type="notebook")
 
                 transform.name = name
                 transform.title = title
