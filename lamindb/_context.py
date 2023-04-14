@@ -225,7 +225,9 @@ class context:
             " `ln.track(transform=ln.Transform(name='My notebook'))`"
         )
         try:
-            notebook_path = notebook_path().as_posix()
+            # pass return_env = True to silence logging
+            notebook_path, _env = notebook_path(return_env=True)
+            notebook_path = notebook_path.as_posix()
             if notebook_path.startswith("/filedId="):
                 # google colab fileID looks like this
                 # /fileId=1KskciVXleoTeS_OGoJasXZJreDU9La_l
@@ -236,12 +238,10 @@ class context:
                 name = get_notebook_name_colab()
                 _env = "colab"
             else:
-                if filepath is None:
-                    filepath = notebook_path
                 metadata, needs_init = nbproject.header(
                     pypackage=pypackage,
-                    filepath=filepath,
-                    env=editor,
+                    filepath=notebook_path if filepath is None else filepath,
+                    env=_env if editor is None else editor,
                     metadata_only=True,
                 )
                 # this contains filepath if the header was run successfully
