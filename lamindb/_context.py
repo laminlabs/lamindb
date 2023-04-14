@@ -120,12 +120,9 @@ class context:
                     ).first()
             if transform_exists is None:
                 transform_exists = ln.add(transform)
-                logger.warning(
-                    f"No transform with name {transform.name} found, adding:"
-                    f" {transform}"
-                )
+                logger.success(f"Added: {transform}")
             else:
-                logger.info(f"Loaded transform: {transform_exists}")
+                logger.info(f"Loaded: {transform_exists}")
             cls.transform = transform_exists
 
         # this here uses cls.transform and writes cls.run
@@ -222,17 +219,18 @@ class context:
                 type="notebook",
             )
             transform = ln.add(transform)
-            logger.info(f"Added notebook: {transform}")
+            logger.info(f"Added: {transform}")
         else:
-            logger.info(f"Loaded notebook: {transform}")
+            logger.info(f"Loaded: {transform}")
             if transform.name != name or transform.title != title:
                 response = input(
                     "Updated notebook name and/or title: Do you want to assign a new id"
                     " or version? (y/n)"
                 )
                 if response == "y":
-                    print("Notebook metadata will be re-initialized.")
-                    new_id, new_v = None, None
+                    from nbproject._header import _env, _filepath
+
+                    new_id, new_v = transform.id, None
                     response = input("Do you want to generate a new id? (y/n)")
                     if response == "y":
                         new_id = lnschema_core.dev.id.transform()
@@ -244,39 +242,35 @@ class context:
                         if new_v == "y":
                             response = input("Please type the version: ")
                         new_v = response
-                    if new_id is not None or new_v is not None:
-                        from nbproject._header import _env, _filepath
 
-                        nb = None
-                        if metadata is None:
+                    nb = None
+                    if metadata is None:
+                        nb = nbproject.dev.read_notebook(_filepath)
+                        metadata = nb.metadata["nbproject"]
+
+                    metadata["id"] = new_id
+                    if new_v is None:
+                        new_v = "0"
+                    metadata["version"] = new_v
+
+                    # here we push the metadata write to the end of track execution
+                    if _env in ("lab", "notebook"):
+                        cls._notebook_meta = metadata  # type: ignore
+                    else:
+                        if nb is None:
                             nb = nbproject.dev.read_notebook(_filepath)
-                            metadata = nb.metadata["nbproject"]
+                        nb.metadata["nbproject"] = metadata
+                        nbproject.dev.write_notebook(nb, _filepath)
+                        raise SystemExit(msg_init_complete)
 
-                        if new_id is not None:
-                            metadata["id"] = new_id
-                            if new_v is None:
-                                new_v = "0"  # init new version
-                        # at this point, new_v is guaranteed to be not None
-                        metadata["version"] = new_v
-
-                        # here we push the metadata write to the end of track execution
-                        if _env in ("lab", "notebook"):
-                            cls._notebook_meta = metadata  # type: ignore
-                        else:
-                            if nb is None:
-                                nb = nbproject.dev.read_notebook(_filepath)
-                            nb.metadata["nbproject"] = metadata
-                            nbproject.dev.write_notebook(nb, _filepath)
-                            raise SystemExit(msg_init_complete)
-
-                        transform = Transform(
-                            id=new_id, v=new_v, name=name, type="notebook"
-                        )
+                    transform = Transform(
+                        id=new_id, v=new_v, name=name, type="notebook"
+                    )
 
                 transform.name = name
                 transform.title = title
                 ln.add(transform)
-                logger.info(f"Added notebook: {transform}")
+                logger.success(f"Added: {transform}")
 
         # at this point, we have a transform object
         cls.transform = transform
