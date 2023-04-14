@@ -139,13 +139,13 @@ class context:
             if transform.id is not None:  # id based look-up
                 if transform.v is None:
                     transform_exists = (
-                        ln.select(Transform, name=transform.id)
+                        ln.select(Transform, id=transform.id)
                         .order_by(Transform.created_at.desc())
                         .first()
                     )
                 else:
                     transform_exists = ln.select(
-                        Transform, name=transform.id, v=transform.v
+                        Transform, id=transform.id, v=transform.v
                     ).first()
             else:  # name based lookup
                 if transform.v is None:
