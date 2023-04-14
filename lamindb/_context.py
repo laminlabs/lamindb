@@ -222,13 +222,15 @@ class context:
         nbproject_failed_msg = (
             "Auto-retrieval of notebook name & title failed.\nPlease paste error"
             " at: https://github.com/laminlabs/nbproject/issues/new \n\nFix: Run"
-            " `ln.track(transform=ln.Transform(name='My notebook'))`"
+            " `ln.track(ln.Transform(name='My notebook'))`"
         )
         try:
             # pass return_env = True to silence logging
             notebook_path, _env = notebook_path(return_env=True)
-            notebook_path = notebook_path.as_posix()
+            if isinstance(notebook_path, Path):
+                notebook_path = notebook_path.as_posix()
             if notebook_path.startswith("/filedId="):
+                # This is Google Colab!
                 # google colab fileID looks like this
                 # /fileId=1KskciVXleoTeS_OGoJasXZJreDU9La_l
                 # we'll take the first 12 characters
