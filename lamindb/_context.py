@@ -94,8 +94,8 @@ class context:
     @classmethod
     def _track(
         cls,
-        *,
         transform: Optional[Transform] = None,
+        *,
         new_run: Optional[bool] = None,
         notebook_path: Optional[str] = None,
         pypackage: Union[str, List[str], None] = None,
