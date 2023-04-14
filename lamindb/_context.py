@@ -80,6 +80,17 @@ def reinitialize_notebook(id: str, name: str, metadata: Dict) -> Tuple[Transform
     return transform, metadata
 
 
+# from https://stackoverflow.com/questions/61901628
+def get_notebook_name_colab() -> str:
+    from socket import gethostbyname, gethostname  # type: ignore
+
+    from requests import get  # type: ignore
+
+    ip = gethostbyname(gethostname())  # 172.28.0.12
+    name = get(f"http://{ip}:9000/api/sessions").json()[0]["name"]
+    return name.rstrip(".ipynb")
+
+
 class context:
     """Global run context."""
 
@@ -203,25 +214,41 @@ class context:
                 when automatic inference fails.
         """
         cls.instance = settings.instance
+        from nbproject.dev._jupyter_communicate import notebook_path
 
         metadata = None
+        needs_init = False
+        reference = None
         nbproject_failed_msg = (
             "Auto-retrieval of notebook name & title failed.\nPlease paste error"
             " at: https://github.com/laminlabs/nbproject/issues/new \n\nFix: Run"
             " `ln.track(transform=ln.Transform(name='My notebook'))`"
         )
         try:
-            metadata, needs_init = nbproject.header(
-                pypackage=pypackage,
-                filepath=filepath,
-                env=editor,
-                metadata_only=True,
-            )
+            notebook_path = notebook_path().as_posix()
+            if notebook_path.startswith("/filedId="):
+                # google colab fileID looks like this
+                # /fileId=1KskciVXleoTeS_OGoJasXZJreDU9La_l
+                # we'll take the first 12 characters
+                colab_id = notebook_path.replace("/filedId=", "")
+                id = colab_id[:12]
+                reference = f"colab_id: {colab_id}"
+                name = get_notebook_name_colab()
+                _env = "colab"
+            else:
+                if filepath is None:
+                    filepath = notebook_path
+                metadata, needs_init = nbproject.header(
+                    pypackage=pypackage,
+                    filepath=filepath,
+                    env=editor,
+                    metadata_only=True,
+                )
+                # this contains filepath if the header was run successfully
+                from nbproject._header import _env, _filepath  # type: ignore
+                from nbproject.dev._jupyter_lab_commands import _save_notebook
         except Exception:
             raise RuntimeError(nbproject_failed_msg)
-        # this contains filepath if the header was run successfully
-        from nbproject._header import _env, _filepath
-        from nbproject.dev._jupyter_lab_commands import _save_notebook
 
         import lamindb as ln
 
@@ -239,10 +266,14 @@ class context:
             # but notebook not saved
             _save_notebook()
 
-        id = metadata["id"]
-        v = metadata["version"]
-        name = Path(_filepath).stem
-        title = nbproject.meta.live.title
+        if metadata is not None:
+            id = metadata["id"]
+            v = metadata["version"]
+            name = Path(_filepath).stem
+            title = nbproject.meta.live.title
+        else:
+            v = "0"
+            title = None
 
         transform = ln.select(Transform, id=id, v=v).one_or_none()
         if transform is None:
@@ -251,6 +282,7 @@ class context:
                 v=v,
                 name=name,
                 title=title,
+                reference=reference,
                 type="notebook",
             )
             transform = ln.add(transform)
@@ -266,7 +298,8 @@ class context:
                     transform, metadata = reinitialize_notebook(
                         transform.id, name, metadata
                     )
-                cls._notebook_meta = metadata  # type: ignore
+                if metadata is not None:
+                    cls._notebook_meta = metadata  # type: ignore
                 transform.name = name
                 transform.title = title
                 ln.add(transform)
