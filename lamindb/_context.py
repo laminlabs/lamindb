@@ -167,7 +167,10 @@ class context:
 
         # for notebooks, default to loading latest runs
         if new_run is None:
-            new_run = False if transform_exists.type == "notebook" else True
+            if cls.transform.type.value == "notebook":  # type: ignore
+                new_run = False
+            else:
+                new_run = True
 
         # this here uses cls.transform and writes cls.run
         # should probably change that design
