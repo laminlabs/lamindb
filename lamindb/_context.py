@@ -266,7 +266,7 @@ class context:
         if _env in ("lab", "notebook"):
             # save the notebook in case that title was updated
             # but notebook not saved
-            _save_notebook()
+            nbproject.dev._frontend_commands._save_notebook(_env)
 
         if metadata is not None:
             id = metadata["id"]
