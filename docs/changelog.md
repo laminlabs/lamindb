@@ -3,6 +3,7 @@
 <!-- prettier-ignore -->
 Name | PR | Developer | Date | Version
 --- | --- | --- | --- | ---
+🐛 Use correct _save_notebook in track | [629](https://github.com/laminlabs/lamindb/pull/629) | [Koncopd](https://github.com/Koncopd) | 2023-04-15 |
 🚸 Improve notebook tracking UX | [627](https://github.com/laminlabs/lamindb/pull/627) | [falexwolf](https://github.com/falexwolf) | 2023-04-14 |
 🐛 Fix track for copied / renamed notebooks | [626](https://github.com/laminlabs/lamindb/pull/626) | [Koncopd](https://github.com/Koncopd) | 2023-04-13 | 0.36.4
 🎨 Simplify `ln.track()` and add `app` transform type | [624](https://github.com/laminlabs/lamindb/pull/624) | [falexwolf](https://github.com/falexwolf) | 2023-04-12 | 0.36.3
