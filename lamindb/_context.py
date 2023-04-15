@@ -221,7 +221,6 @@ class context:
             raise RuntimeError(nbproject_failed_msg)
         # this contains filepath if the header was run successfully
         from nbproject._header import _env, _filepath
-        from nbproject.dev._jupyter_lab_commands import _save_notebook
 
         import lamindb as ln
 
@@ -237,7 +236,7 @@ class context:
         if _env in ("lab", "notebook"):
             # save the notebook in case that title was updated
             # but notebook not saved
-            _save_notebook()
+            nbproject.dev._frontend_commands._save_notebook(_env)
 
         id = metadata["id"]
         v = metadata["version"]
