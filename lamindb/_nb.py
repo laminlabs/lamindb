@@ -11,9 +11,6 @@ from ._context import context
 class nb:
     """Manage Jupyter notebooks.
 
-    - Guide: :doc:`guide/run`
-    - FAQ: :doc:`/faq/nb`
-
     For more background, see `nbproject <https://lamin.ai/docs/nbproject>`__.
     """
 

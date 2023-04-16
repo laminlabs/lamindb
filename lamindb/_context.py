@@ -1,3 +1,4 @@
+import os
 import re
 from pathlib import Path, PurePath
 from typing import Dict, List, Optional, Tuple, Union
@@ -40,11 +41,16 @@ def _write_notebook_meta(metadata):
     nbproject.dev._frontend_commands._reload_notebook(_env)
 
 
-def reinitialize_notebook(id: str, name: str, metadata: Dict) -> Tuple[Transform, Dict]:
+def reinitialize_notebook(
+    id: str, name: str, metadata: Optional[Dict] = None
+) -> Tuple[Transform, Dict]:
     from nbproject._header import _env, _filepath
 
     new_id, new_v = id, None
-    response = input("Do you want to generate a new id? (y/n)")
+    if "NBPRJ_TEST_NBPATH" not in os.environ:
+        response = input("Do you want to generate a new id? (y/n)")
+    else:
+        response = "y"
     if response == "y":
         new_id = lnschema_core.dev.id.transform()
     else:
