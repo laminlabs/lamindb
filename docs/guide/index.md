@@ -41,7 +41,7 @@ ln.track()
 #> ℹ️ Instance: testuser1/mydata
 #> ℹ️ User: testuser1
 #> ℹ️ Loaded notebook: Transform(id='OdlFhFWW7qg3', v='0', name='04-memory', title='Track in-memory data objects', type=notebook, created_by='DzTjkKse', created_at=datetime.datetime(2023, 3, 15, 16, 14, 42))
-#> ℹ️ Loaded run: Run(id='L1oBMKW60ndt5YtjRqav', transform_id='sePTpDsGJRq3', transform_v='0', created_by='bKeW4T6E', created_at=datetime.datetime(2023, 3, 14, 21, 49, 36))
+#> ℹ️ Loaded run: Run(id='L1oBMKW60ndt5YtjRqav', transform_id='sePTpDsGJRq3', transform_version='0', created_by='bKeW4T6E', created_at=datetime.datetime(2023, 3, 14, 21, 49, 36))
 
 df = pd.DataFrame({"a": [1, 2], "b": [3, 4]})
 

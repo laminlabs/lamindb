@@ -154,7 +154,7 @@ class context:
             raise ValueError("Pass `transform` to .track()!")
         else:
             if transform.id is not None:  # id based look-up
-                if transform.v is None:
+                if transform.version is None:
                     transform_exists = (
                         ln.select(Transform, id=transform.id)
                         .order_by(Transform.created_at.desc())
@@ -162,10 +162,10 @@ class context:
                     )
                 else:
                     transform_exists = ln.select(
-                        Transform, id=transform.id, v=transform.v
+                        Transform, id=transform.id, v=transform.version
                     ).first()
             else:  # name based lookup
-                if transform.v is None:
+                if transform.version is None:
                     transform_exists = (
                         ln.select(Transform, name=transform.name)
                         .order_by(Transform.created_at.desc())
@@ -173,7 +173,7 @@ class context:
                     )
                 else:
                     transform_exists = ln.select(
-                        Transform, name=transform.name, v=transform.v
+                        Transform, name=transform.name, v=transform.version
                     ).first()
             if transform_exists is None:
                 transform_exists = ln.add(transform)
