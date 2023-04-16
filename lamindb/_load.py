@@ -26,7 +26,7 @@ def _track_run_input(file: File, is_run_input: Optional[bool] = None):
                 " directly."
             )
         else:
-            file.targets.append(context.run)
+            file.input_of.append(context.run)
             session = object_session(file)
             session.add(file)
             session.commit()
