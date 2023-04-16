@@ -79,13 +79,16 @@ class nb:
         finalize_publish(calling_statement="publish(", version=version)
         # update DB
         transform = ln.select(
-            Transform, id=cls.transform.id, v=cls.transform.version  # type: ignore
+            Transform, id=cls.transform.id, version=cls.transform.version  # type: ignore  # noqa
         ).one()
         # update version
         transform.title = _nb.meta.live.title
         if version != cls.transform.version:  # type: ignore
             transform_add = Transform(
-                id=transform.id, v=version, name=transform.name, title=transform.title
+                id=transform.id,
+                version=version,
+                name=transform.name,
+                title=transform.title,
             )
         else:
             transform_add = transform
