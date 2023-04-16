@@ -1,5 +1,5 @@
 import re
-from pathlib import Path
+from pathlib import Path, PurePath
 from typing import Dict, List, Optional, Tuple, Union
 
 import lnschema_core
@@ -203,9 +203,6 @@ class context:
         """Infer Jupyter notebook metadata and create `Transform` record.
 
         Args:
-            id: Pass a notebook id manually.
-            v: Pass a notebook version manually.
-            name: Pass a notebook name manually.
             pypackage: One or more python packages to track.
             filepath: Filepath of notebook. Only needed if automatic inference fails.
             editor: Editor environment. Only needed if automatic inference fails.
@@ -219,27 +216,33 @@ class context:
         metadata = None
         needs_init = False
         reference = None
-        nbproject_failed_msg = (
-            "Auto-retrieval of notebook name & title failed.\nPlease paste error"
-            " at: https://github.com/laminlabs/nbproject/issues/new \n\nFix: Run"
-            " `ln.track(ln.Transform(name='My notebook'))`"
-        )
-        try:
-            # pass return_env = True to silence logging
-            notebook_path, _env = notebook_path(return_env=True)
-            if isinstance(notebook_path, Path):
-                notebook_path = notebook_path.as_posix()
-            if notebook_path.startswith("/filedId="):
-                # This is Google Colab!
-                # google colab fileID looks like this
-                # /fileId=1KskciVXleoTeS_OGoJasXZJreDU9La_l
-                # we'll take the first 12 characters
-                colab_id = notebook_path.replace("/filedId=", "")
-                id = colab_id[:12]
-                reference = f"colab_id: {colab_id}"
-                name = get_notebook_name_colab()
-                _env = "colab"
-            else:
+        if filepath is None:
+            try:
+                notebook_path, _env = notebook_path(return_env=True)
+            except Exception:
+                raise RuntimeError(
+                    "Failed to infer notebook path.\nFix: Either track manually via"
+                    " `ln.track(ln.Transform(name='My notebook'))` or pass"
+                    " `notebook_path` to ln.track()."
+                )
+        else:
+            notebook_path = filepath
+        if isinstance(notebook_path, (Path, PurePath)):
+            notebook_path = notebook_path.as_posix()
+        if notebook_path.endswith("Untitled.ipynb"):
+            raise RuntimeError("Please rename your notebook before tracking it")
+        if notebook_path.startswith("/filedId="):
+            # This is Google Colab!
+            # google colab fileID looks like this
+            # /fileId=1KskciVXleoTeS_OGoJasXZJreDU9La_l
+            # we'll take the first 12 characters
+            colab_id = notebook_path.replace("/filedId=", "")
+            id = colab_id[:12]
+            reference = f"colab_id: {colab_id}"
+            name = get_notebook_name_colab()
+            _env = "colab"
+        else:
+            try:
                 metadata, needs_init = nbproject.header(
                     pypackage=pypackage,
                     filepath=notebook_path if filepath is None else filepath,
@@ -248,9 +251,13 @@ class context:
                 )
                 # this contains filepath if the header was run successfully
                 from nbproject._header import _env, _filepath  # type: ignore
-                from nbproject.dev._jupyter_lab_commands import _save_notebook
-        except Exception:
-            raise RuntimeError(nbproject_failed_msg)
+            except Exception:
+                nbproject_failed_msg = (
+                    "Auto-retrieval of notebook name & title failed.\nPlease paste"
+                    " error at: https://github.com/laminlabs/nbproject/issues/new"
+                    " \n\nFix: Run `ln.track(ln.Transform(name='My notebook'))`"
+                )
+                raise RuntimeError(nbproject_failed_msg)
 
         import lamindb as ln
 
