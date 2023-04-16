@@ -40,8 +40,8 @@ import lamindb as ln
 ln.track()
 #> ℹ️ Instance: testuser1/mydata
 #> ℹ️ User: testuser1
-#> ℹ️ Loaded notebook: Transform(id='OdlFhFWW7qg3', v='0', name='04-memory', title='Track in-memory data objects', type=notebook, created_by='DzTjkKse', created_at=datetime.datetime(2023, 3, 15, 16, 14, 42))
-#> ℹ️ Loaded run: Run(id='L1oBMKW60ndt5YtjRqav', transform_id='sePTpDsGJRq3', transform_version='0', created_by='bKeW4T6E', created_at=datetime.datetime(2023, 3, 14, 21, 49, 36))
+#> ℹ️ Loaded notebook: Transform(id='OdlFhFWW7qg3', v='0', name='04-memory', title='Track in-memory data objects', type=notebook, created_by_id='DzTjkKse', created_at=datetime.datetime(2023, 3, 15, 16, 14, 42))
+#> ℹ️ Loaded run: Run(id='L1oBMKW60ndt5YtjRqav', transform_id='sePTpDsGJRq3', transform_version='0', created_by_id='bKeW4T6E', created_at=datetime.datetime(2023, 3, 14, 21, 49, 36))
 
 df = pd.DataFrame({"a": [1, 2], "b": [3, 4]})
 
@@ -61,15 +61,15 @@ ln.add(file)
 ```{code-block} python
 # create (or query) a transform record
 transform = ln.Transform(name="My pipeline")
-#> Transform(id='fhn5Zydf', v='1', name='My pipeline', type=pipeline, created_by='bKeW4T6E')
+#> Transform(id='fhn5Zydf', v='1', name='My pipeline', type=pipeline, created_by_id='bKeW4T6E')
 
 # create a run from the above pipeline as the data source
 run = ln.Run(pipeline=pipeline)
-#> Run(id='2aaKWH8dwBE6hnj3n9K9', pipeline_id='fhn5Zydf', pipeline_v='1', created_by='bKeW4T6E')
+#> Run(id='2aaKWH8dwBE6hnj3n9K9', pipeline_id='fhn5Zydf', pipeline_v='1', created_by_id='bKeW4T6E')
 
 # access pipeline from run via
 print(run.transform)
-#> Transform(id='fhn5Zydf', v='1', name='My pipeline', created_by='bKeW4T6E')
+#> Transform(id='fhn5Zydf', v='1', name='My pipeline', created_by_id='bKeW4T6E')
 
 df = pd.DataFrame({"a": [1, 2], "b": [3, 4]})
 
@@ -101,7 +101,7 @@ Get the data ingested by the latest run:
 
 ```python
 run = ln.select(ln.Run).order_by(ln.Run.created_at.desc()).first()
-#> Run(id='L1oBMKW60ndt5YtjRqav', notebook_id='sePTpDsGJRq3', notebook_v='0', created_by='bKeW4T6E', created_at=datetime.datetime(2023, 3, 14, 21, 49, 36))
+#> Run(id='L1oBMKW60ndt5YtjRqav', notebook_id='sePTpDsGJRq3', notebook_v='0', created_by_id='bKeW4T6E', created_at=datetime.datetime(2023, 3, 14, 21, 49, 36))
 file = ln.select(ln.File).where(ln.File.source == run).all()
 #> [File(id='dZvGD7YUKCKG4X4aLd5K', name='My dataframe', suffix='.parquet', size=2240, hash='R2_kKlH1nBGesMdyulMYkA', source_id='L1oBMKW60ndt5YtjRqav', storage_id='wor0ul6c', created_at=datetime.datetime(2023, 3, 14, 21, 49, 46))]
 ```
@@ -135,7 +135,7 @@ features = ln.Features(adata, reference)
 #> 🔶 0 terms (0.0%) are not mapped.
 # The result is a hashed feature set record:
 print(features)
-#> Features(id='2Mv3JtH-ScBVYHilbLaQ', type='gene', created_by='bKeW4T6E')
+#> Features(id='2Mv3JtH-ScBVYHilbLaQ', type='gene', created_by_id='bKeW4T6E')
 # genes records can be accessed via:
 print(features.genes[:3])
 #> [Gene(id='ENSMUSG00000020592', species_id='NCBI_10090'),
