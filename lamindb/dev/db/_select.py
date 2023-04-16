@@ -57,8 +57,8 @@ def to_df(*entities, result):
                 records, columns=entity.__fields__, coerce_float=True
             )
             if "id" in df.columns:
-                if "v" in df.columns:
-                    df = df.set_index(["id", "v"])
+                if "version" in df.columns:
+                    df = df.set_index(["id", "version"])
                 else:
                     df = df.set_index("id")
             return df
