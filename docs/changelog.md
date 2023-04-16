@@ -3,6 +3,7 @@
 <!-- prettier-ignore -->
 Name | PR | Developer | Date | Version
 --- | --- | --- | --- | ---
+🚚 Better names, more relationships directly on `File` | [631](https://github.com/laminlabs/lamindb/pull/631) | [falexwolf](https://github.com/falexwolf) | 2023-04-16 |
 ✨ Add Google Colab integration | [628](https://github.com/laminlabs/lamindb/pull/628) | [falexwolf](https://github.com/falexwolf) | 2023-04-16 |
 🐛 Use correct _save_notebook in track | [629](https://github.com/laminlabs/lamindb/pull/629) | [Koncopd](https://github.com/Koncopd) | 2023-04-15 |
 🚸 Improve notebook tracking UX | [627](https://github.com/laminlabs/lamindb/pull/627) | [falexwolf](https://github.com/falexwolf) | 2023-04-14 |
