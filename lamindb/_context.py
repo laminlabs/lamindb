@@ -46,7 +46,7 @@ def reinitialize_notebook(
 ) -> Tuple[Transform, Dict]:
     from nbproject._header import _env, _filepath
 
-    new_id, new_v = id, None
+    new_id, new_version = id, None
     if "NBPRJ_TEST_NBPATH" not in os.environ:
         response = input("Do you want to generate a new id? (y/n)")
     else:
@@ -59,9 +59,9 @@ def reinitialize_notebook(
             " 'no'. (version/n)"
         )
         if response != "n":
-            if new_v == "y":
+            if new_version == "y":
                 response = input("Please type the version: ")
-            new_v = response
+            new_version = response
 
     nb = None
     if metadata is None:
@@ -69,9 +69,9 @@ def reinitialize_notebook(
         metadata = nb.metadata["nbproject"]
 
     metadata["id"] = new_id
-    if new_v is None:
-        new_v = "0"
-    metadata["version"] = new_v
+    if new_version is None:
+        new_version = "0"
+    metadata["version"] = new_version
 
     # in "lab" & "notebook", we push the metadata write to the end of track execution
     # by returning metadata below
@@ -82,7 +82,7 @@ def reinitialize_notebook(
         nbproject.dev.write_notebook(nb, _filepath)
         raise SystemExit(msg_init_complete)
 
-    transform = Transform(id=new_id, v=new_v, name=name, type="notebook")
+    transform = Transform(id=new_id, version=new_version, name=name, type="notebook")
     return transform, metadata
 
 
@@ -154,7 +154,7 @@ class context:
             raise ValueError("Pass `transform` to .track()!")
         else:
             if transform.id is not None:  # id based look-up
-                if transform.v is None:
+                if transform.version is None:
                     transform_exists = (
                         ln.select(Transform, id=transform.id)
                         .order_by(Transform.created_at.desc())
@@ -162,10 +162,10 @@ class context:
                     )
                 else:
                     transform_exists = ln.select(
-                        Transform, id=transform.id, v=transform.v
+                        Transform, id=transform.id, version=transform.version
                     ).first()
             else:  # name based lookup
-                if transform.v is None:
+                if transform.version is None:
                     transform_exists = (
                         ln.select(Transform, name=transform.name)
                         .order_by(Transform.created_at.desc())
@@ -173,7 +173,7 @@ class context:
                     )
                 else:
                     transform_exists = ln.select(
-                        Transform, name=transform.name, v=transform.v
+                        Transform, name=transform.name, version=transform.version
                     ).first()
             if transform_exists is None:
                 transform_exists = ln.add(transform)
@@ -283,18 +283,18 @@ class context:
 
         if metadata is not None:
             id = metadata["id"]
-            v = metadata["version"]
+            version = metadata["version"]
             name = Path(_filepath).stem
             title = nbproject.meta.live.title
         else:
-            v = "0"
+            version = "0"
             title = None
 
-        transform = ln.select(Transform, id=id, v=v).one_or_none()
+        transform = ln.select(Transform, id=id, version=version).one_or_none()
         if transform is None:
             transform = Transform(
                 id=id,
-                v=v,
+                version=version,
                 name=name,
                 title=title,
                 reference=reference,

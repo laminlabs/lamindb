@@ -21,7 +21,7 @@ def get_folder_kwargs_from_data(
     *,
     name: Optional[str] = None,
     key: Optional[str] = None,
-    source: Optional[Run] = None,
+    run: Optional[Run] = None,
 ):
     folderpath = UPath(path)
     check_path_in_storage = get_check_path_in_storage(folderpath)
@@ -46,7 +46,7 @@ def get_folder_kwargs_from_data(
         if filepath.is_file():
             relative_path = get_relative_path_to_directory(filepath, folderpath)
             file_key = folder_key + "/" + relative_path.as_posix()
-            files.append(File(filepath, source=source, key=file_key))
+            files.append(File(filepath, run=run, key=file_key))
 
     logger.hint(f"-> n_files = {len(files)}")
 
