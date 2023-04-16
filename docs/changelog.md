@@ -3,14 +3,12 @@
 <!-- prettier-ignore -->
 Name | PR | Developer | Date | Version
 --- | --- | --- | --- | ---
-🚚 Better names, more relationships directly on `File` | [631](https://github.com/laminlabs/lamindb/pull/631) | [falexwolf](https://github.com/falexwolf) | 2023-04-16 | 0.37.0
+🚚 Better names, more relationships directly on `File` <span class="badge badge-warning">Breaking</span> | [631](https://github.com/laminlabs/lamindb/pull/631) | [falexwolf](https://github.com/falexwolf) | 2023-04-16 | 0.37.0
 ✨ Add Google Colab integration | [628](https://github.com/laminlabs/lamindb/pull/628) | [falexwolf](https://github.com/falexwolf) | 2023-04-16 |
-🐛 Use correct _save_notebook in track | [629](https://github.com/laminlabs/lamindb/pull/629) | [Koncopd](https://github.com/Koncopd) | 2023-04-15 |
 🚸 Improve notebook tracking UX | [627](https://github.com/laminlabs/lamindb/pull/627) | [falexwolf](https://github.com/falexwolf) | 2023-04-14 |
-🐛 Fix track for copied / renamed notebooks | [626](https://github.com/laminlabs/lamindb/pull/626) | [Koncopd](https://github.com/Koncopd) | 2023-04-13 | 0.36.4
 🎨 Simplify `ln.track()` and add `app` transform type | [624](https://github.com/laminlabs/lamindb/pull/624) | [falexwolf](https://github.com/falexwolf) | 2023-04-12 | 0.36.3
 🐛 Fix initialization of new notebooks | [623](https://github.com/laminlabs/lamindb/pull/623) | [Koncopd](https://github.com/Koncopd) | 2023-04-10 | 0.36.1
-🚸 Filename in `File.name`, new `File.key` and `Folder.key`, robustness overhaul | [614](https://github.com/laminlabs/lamindb/pull/614) | [falexwolf](https://github.com/falexwolf) | 2023-04-08 | 0.36.0
+🚸 Filename in `File.name`, new `File.key` and `Folder.key`, robustness overhaul <span class="badge badge-warning">Breaking</span> | [614](https://github.com/laminlabs/lamindb/pull/614) | [falexwolf](https://github.com/falexwolf) | 2023-04-08 | 0.36.0
 ✨ Introduce `File.stage()` and `File.replace()` | [611](https://github.com/laminlabs/lamindb/pull/611) | [Koncopd](https://github.com/Koncopd) | 2023-04-03 | 0.35.6
 🚸 More robust ontology version tracking | [605](https://github.com/laminlabs/lamindb/pull/605) | [Zethson](https://github.com/Zethson) | 2023-04-01 |
 🚚 Import `lnschema_bionty` instead of `bionty` | [591](https://github.com/laminlabs/lamindb/pull/591) | [sunnyosun](https://github.com/sunnyosun) | 2023-03-28 | 0.35.5
