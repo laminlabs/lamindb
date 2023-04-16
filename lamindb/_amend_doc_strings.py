@@ -8,7 +8,7 @@ File.__doc__ = """Files: serialized data objects.
 Args:
    data: A file path or an in-memory data object to serialize.
    name: A name, required if an in-memory object is passed.
-   source: The source of `data` (a :class:`~lamindb.Run`).
+   run: The run of `data` (a :class:`~lamindb.Run`).
    id: The id of the file.
    format: Whether to use `h5ad` or `zarr` to store an `AnnData` object.
 

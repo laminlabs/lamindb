@@ -21,16 +21,8 @@ NO_NAME_ERROR = """
 Pass a name or key in `ln.File(...)` when ingesting in-memory data.
 """
 
-NO_SOURCE_ERROR = """
-Error: Please link a data source using the `source` argument.
-Fix: Link a data source by passing a run, e.g., via
-
-run = lns.Run(transform=transform)
-file = ln.File(..., source=run)
-
-Or, by calling ln.context.track(), which sets a global run context.
-
-More details: https://lamin.ai/docs/faq/ingest
+NO_SOURCE_HINT = """
+Consider linking a run using the `run` argument, e.g., by calling ln.track().
 """
 
 
@@ -104,17 +96,18 @@ def get_hash(local_filepath, suffix, check_hash: bool = True):
     return hash
 
 
-def get_run(run: Optional[Run]) -> Run:
+def get_run(run: Optional[Run]) -> Optional[Run]:
     if run is None:
         from ._context import context
 
         run = context.run
         if run is None:
-            raise ValueError(NO_SOURCE_ERROR)
+            logger.warning("No run & transform get linked to this file.")
+            logger.hint(NO_SOURCE_HINT)
     # the following ensures that queried objects (within __init__)
     # behave like queried objects, only example right now: Run
-    if hasattr(run, "_ln_identity_key") and run._ln_identity_key is not None:
-        run._sa_instance_state.key = run._ln_identity_key
+    if hasattr(run, "_ln_identity_key") and run._ln_identity_key is not None:  # type: ignore  # noqa
+        run._sa_instance_state.key = run._ln_identity_key  # type: ignore
     return run
 
 
@@ -211,10 +204,10 @@ def get_file_kwargs_from_data(
     *,
     name: Optional[str] = None,
     key: Optional[str] = None,
-    source: Optional[Run] = None,
+    run: Optional[Run] = None,
     format: Optional[str] = None,
 ):
-    run = get_run(source)
+    run = get_run(run)
     memory_rep, filepath, safe_name, suffix = serialize(data, name, format, key)
     # the following will return a localpath that is not None if filepath is local
     # it will return a cloudpath that is not None if filepath is on the cloud
@@ -240,10 +233,13 @@ def get_file_kwargs_from_data(
         suffix=suffix,
         hash=hash,
         key=key,
-        source_id=run.id,
         size=size,
         storage_id=lndb.settings.storage.id,
-        source=run,
+        # passing both the id and the object
+        # to make them both available immediately
+        # after object creation
+        run_id=run.id if run is not None else None,
+        run=run,
     )
     privates = dict(
         local_filepath=local_filepath,
