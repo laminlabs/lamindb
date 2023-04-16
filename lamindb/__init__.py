@@ -97,6 +97,7 @@ _INSTANCE_SETUP = _check_instance_setup(from_lamindb=True)
 
 # allow the user to call setup
 from . import setup  # noqa
+from ._settings import settings
 
 # only import all other functionality if setup was successful
 if _INSTANCE_SETUP:
@@ -122,7 +123,6 @@ if _INSTANCE_SETUP:
     track = context._track  # noqa
     from ._delete import delete  # noqa
     from ._nb import nb  # noqa
-    from ._settings import settings
     from ._view import view  # noqa
     from .dev.db import Session  # noqa
     from .dev.db._add import add  # noqa
