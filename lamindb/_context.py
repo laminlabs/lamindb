@@ -46,7 +46,7 @@ def reinitialize_notebook(
 ) -> Tuple[Transform, Dict]:
     from nbproject._header import _env, _filepath
 
-    new_id, new_v = id, None
+    new_id, new_version = id, None
     if "NBPRJ_TEST_NBPATH" not in os.environ:
         response = input("Do you want to generate a new id? (y/n)")
     else:
@@ -59,9 +59,9 @@ def reinitialize_notebook(
             " 'no'. (version/n)"
         )
         if response != "n":
-            if new_v == "y":
+            if new_version == "y":
                 response = input("Please type the version: ")
-            new_v = response
+            new_version = response
 
     nb = None
     if metadata is None:
@@ -69,9 +69,9 @@ def reinitialize_notebook(
         metadata = nb.metadata["nbproject"]
 
     metadata["id"] = new_id
-    if new_v is None:
-        new_v = "0"
-    metadata["version"] = new_v
+    if new_version is None:
+        new_version = "0"
+    metadata["version"] = new_version
 
     # in "lab" & "notebook", we push the metadata write to the end of track execution
     # by returning metadata below
@@ -82,7 +82,7 @@ def reinitialize_notebook(
         nbproject.dev.write_notebook(nb, _filepath)
         raise SystemExit(msg_init_complete)
 
-    transform = Transform(id=new_id, v=new_v, name=name, type="notebook")
+    transform = Transform(id=new_id, version=new_version, name=name, type="notebook")
     return transform, metadata
 
 
