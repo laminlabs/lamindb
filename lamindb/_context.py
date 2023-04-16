@@ -75,7 +75,7 @@ def reinitialize_notebook(
 
     # in "lab" & "notebook", we push the metadata write to the end of track execution
     # by returning metadata below
-    if _env not in ("lab", "notebook"):
+    if _env not in ("lab", "notebook", "test"):
         if nb is None:
             nb = nbproject.dev.read_notebook(_filepath)
         nb.metadata["nbproject"] = metadata
