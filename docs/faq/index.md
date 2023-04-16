@@ -5,7 +5,7 @@
 
 session
 ingest
-nb
+notebooks
 ingest-same-file-twice
 track-runin
 select

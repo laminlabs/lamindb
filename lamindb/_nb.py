@@ -11,9 +11,6 @@ from ._context import context
 class nb:
     """Manage Jupyter notebooks.
 
-    - Guide: :doc:`guide/run`
-    - FAQ: :doc:`/faq/nb`
-
     For more background, see `nbproject <https://lamin.ai/docs/nbproject>`__.
     """
 
@@ -24,7 +21,6 @@ class nb:
     def header(
         cls,
         *,
-        run: Optional[str] = None,
         pypackage: Union[str, List[str], None] = None,
         filepath: Optional[str] = None,
         env: Optional[str] = None,
@@ -40,11 +36,6 @@ class nb:
         to disk.
 
         Args:
-            run: If `None`, loads the latest run of the notebook (or creates on if
-                there isn't any).
-
-                If `"new"`, instantiates a new `Run` record.
-
             pypackage: One or more python packages to track.
             filepath: Filepath of notebook. Only needed if automatic inference fails.
             env: Editor environment. Only needed if automatic inference fails.
@@ -58,16 +49,10 @@ class nb:
         logger.warning(
             "DeprecationWarning: Please replace ln.nb.header() with ln.track()."
         )
-        context._track_notebook(pypackage=pypackage, filepath=filepath, editor=env)
+        context._track(pypackage=pypackage, notebook_path=filepath, editor=env)
         cls.transform = context.transform
-        if run == "new":
-            run = Run()
-        elif run is None:
-            run = Run(load_latest=True)
-        else:
-            raise ValueError("Pass 'new' to ln.nb.header().")
-        cls.run = run
-        return run
+        cls.run = context.run
+        return cls.run
 
     @classmethod
     def publish(cls, version: str = None, i_confirm_i_saved: bool = False):
@@ -78,9 +63,13 @@ class nb:
             i_confirm_i_saved: Only relevant outside Jupyter Lab & Notebook as a
                 safeguard against losing the editor buffer content.
         """
-        from nbproject._publish import finalize_publish, run_checks_for_publish
-
         import lamindb as ln
+
+        if cls.transform is None:
+            cls.transform = ln.context.transform
+        if cls.run is None:
+            cls.run = ln.context.run
+        from nbproject._publish import finalize_publish, run_checks_for_publish
 
         result = run_checks_for_publish(
             calling_statement="publish(", i_confirm_i_saved=i_confirm_i_saved
@@ -89,17 +78,19 @@ class nb:
             return result
         finalize_publish(calling_statement="publish(", version=version)
         # update DB
-        transform = ln.select(Transform, id=cls.transform.id, v=cls.transform.v).one()
+        transform = ln.select(
+            Transform, id=cls.transform.id, v=cls.transform.v  # type: ignore
+        ).one()
         # update version
         transform.title = _nb.meta.live.title
-        if version != cls.transform.v:
+        if version != cls.transform.v:  # type: ignore
             transform_add = Transform(
                 id=transform.id, v=version, name=transform.name, title=transform.title
             )
         else:
             transform_add = transform
         ln.add(transform_add)
-        if version != cls.transform.v:
-            cls.run.transform_v = version
+        if version != cls.transform.v:  # type: ignore
+            cls.run.transform_v = version  # type: ignore
             ln.add(cls.run)
             ln.delete(transform)

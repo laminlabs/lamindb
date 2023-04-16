@@ -1,5 +1,6 @@
+import os
 import re
-from pathlib import Path
+from pathlib import Path, PurePath
 from typing import Dict, List, Optional, Tuple, Union
 
 import lnschema_core
@@ -40,11 +41,16 @@ def _write_notebook_meta(metadata):
     nbproject.dev._frontend_commands._reload_notebook(_env)
 
 
-def reinitialize_notebook(id: str, name: str, metadata: Dict) -> Tuple[Transform, Dict]:
+def reinitialize_notebook(
+    id: str, name: str, metadata: Optional[Dict] = None
+) -> Tuple[Transform, Dict]:
     from nbproject._header import _env, _filepath
 
     new_id, new_v = id, None
-    response = input("Do you want to generate a new id? (y/n)")
+    if "NBPRJ_TEST_NBPATH" not in os.environ:
+        response = input("Do you want to generate a new id? (y/n)")
+    else:
+        response = "y"
     if response == "y":
         new_id = lnschema_core.dev.id.transform()
     else:
@@ -69,7 +75,7 @@ def reinitialize_notebook(id: str, name: str, metadata: Dict) -> Tuple[Transform
 
     # in "lab" & "notebook", we push the metadata write to the end of track execution
     # by returning metadata below
-    if _env not in ("lab", "notebook"):
+    if _env not in ("lab", "notebook", "test"):
         if nb is None:
             nb = nbproject.dev.read_notebook(_filepath)
         nb.metadata["nbproject"] = metadata
@@ -78,6 +84,17 @@ def reinitialize_notebook(id: str, name: str, metadata: Dict) -> Tuple[Transform
 
     transform = Transform(id=new_id, v=new_v, name=name, type="notebook")
     return transform, metadata
+
+
+# from https://stackoverflow.com/questions/61901628
+def get_notebook_name_colab() -> str:
+    from socket import gethostbyname, gethostname  # type: ignore
+
+    from requests import get  # type: ignore
+
+    ip = gethostbyname(gethostname())  # 172.28.0.12
+    name = get(f"http://{ip}:9000/api/sessions").json()[0]["name"]
+    return name.rstrip(".ipynb")
 
 
 class context:
@@ -192,9 +209,6 @@ class context:
         """Infer Jupyter notebook metadata and create `Transform` record.
 
         Args:
-            id: Pass a notebook id manually.
-            v: Pass a notebook version manually.
-            name: Pass a notebook name manually.
             pypackage: One or more python packages to track.
             filepath: Filepath of notebook. Only needed if automatic inference fails.
             editor: Editor environment. Only needed if automatic inference fails.
@@ -203,24 +217,53 @@ class context:
                 when automatic inference fails.
         """
         cls.instance = settings.instance
+        from nbproject.dev._jupyter_communicate import notebook_path
 
         metadata = None
-        nbproject_failed_msg = (
-            "Auto-retrieval of notebook name & title failed.\nPlease paste error"
-            " at: https://github.com/laminlabs/nbproject/issues/new \n\nFix: Run"
-            " `ln.track(transform=ln.Transform(name='My notebook'))`"
-        )
-        try:
-            metadata, needs_init = nbproject.header(
-                pypackage=pypackage,
-                filepath=filepath,
-                env=editor,
-                metadata_only=True,
-            )
-        except Exception:
-            raise RuntimeError(nbproject_failed_msg)
-        # this contains filepath if the header was run successfully
-        from nbproject._header import _env, _filepath
+        needs_init = False
+        reference = None
+        if filepath is None:
+            try:
+                notebook_path, _env = notebook_path(return_env=True)
+            except Exception:
+                raise RuntimeError(
+                    "Failed to infer notebook path.\nFix: Either track manually via"
+                    " `ln.track(ln.Transform(name='My notebook'))` or pass"
+                    " `notebook_path` to ln.track()."
+                )
+        else:
+            notebook_path = filepath
+        if isinstance(notebook_path, (Path, PurePath)):
+            notebook_path = notebook_path.as_posix()
+        if notebook_path.endswith("Untitled.ipynb"):
+            raise RuntimeError("Please rename your notebook before tracking it")
+        if notebook_path.startswith("/filedId="):
+            # This is Google Colab!
+            # google colab fileID looks like this
+            # /fileId=1KskciVXleoTeS_OGoJasXZJreDU9La_l
+            # we'll take the first 12 characters
+            colab_id = notebook_path.replace("/filedId=", "")
+            id = colab_id[:12]
+            reference = f"colab_id: {colab_id}"
+            name = get_notebook_name_colab()
+            _env = "colab"
+        else:
+            try:
+                metadata, needs_init = nbproject.header(
+                    pypackage=pypackage,
+                    filepath=notebook_path if filepath is None else filepath,
+                    env=_env if editor is None else editor,
+                    metadata_only=True,
+                )
+                # this contains filepath if the header was run successfully
+                from nbproject._header import _env, _filepath  # type: ignore
+            except Exception:
+                nbproject_failed_msg = (
+                    "Auto-retrieval of notebook name & title failed.\nPlease paste"
+                    " error at: https://github.com/laminlabs/nbproject/issues/new"
+                    " \n\nFix: Run `ln.track(ln.Transform(name='My notebook'))`"
+                )
+                raise RuntimeError(nbproject_failed_msg)
 
         import lamindb as ln
 
@@ -238,10 +281,14 @@ class context:
             # but notebook not saved
             nbproject.dev._frontend_commands._save_notebook(_env)
 
-        id = metadata["id"]
-        v = metadata["version"]
-        name = Path(_filepath).stem
-        title = nbproject.meta.live.title
+        if metadata is not None:
+            id = metadata["id"]
+            v = metadata["version"]
+            name = Path(_filepath).stem
+            title = nbproject.meta.live.title
+        else:
+            v = "0"
+            title = None
 
         transform = ln.select(Transform, id=id, v=v).one_or_none()
         if transform is None:
@@ -250,6 +297,7 @@ class context:
                 v=v,
                 name=name,
                 title=title,
+                reference=reference,
                 type="notebook",
             )
             transform = ln.add(transform)
@@ -265,7 +313,8 @@ class context:
                     transform, metadata = reinitialize_notebook(
                         transform.id, name, metadata
                     )
-                cls._notebook_meta = metadata  # type: ignore
+                if metadata is not None:
+                    cls._notebook_meta = metadata  # type: ignore
                 transform.name = name
                 transform.title = title
                 ln.add(transform)
