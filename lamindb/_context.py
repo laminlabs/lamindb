@@ -162,7 +162,7 @@ class context:
                     )
                 else:
                     transform_exists = ln.select(
-                        Transform, id=transform.id, v=transform.version
+                        Transform, id=transform.id, version=transform.version
                     ).first()
             else:  # name based lookup
                 if transform.version is None:
@@ -173,7 +173,7 @@ class context:
                     )
                 else:
                     transform_exists = ln.select(
-                        Transform, name=transform.name, v=transform.version
+                        Transform, name=transform.name, version=transform.version
                     ).first()
             if transform_exists is None:
                 transform_exists = ln.add(transform)
@@ -283,18 +283,18 @@ class context:
 
         if metadata is not None:
             id = metadata["id"]
-            v = metadata["version"]
+            version = metadata["version"]
             name = Path(_filepath).stem
             title = nbproject.meta.live.title
         else:
-            v = "0"
+            version = "0"
             title = None
 
-        transform = ln.select(Transform, id=id, v=v).one_or_none()
+        transform = ln.select(Transform, id=id, version=version).one_or_none()
         if transform is None:
             transform = Transform(
                 id=id,
-                v=v,
+                version=version,
                 name=name,
                 title=title,
                 reference=reference,
