@@ -17,6 +17,12 @@ msg_init_complete = (
     " Consider using Jupyter Lab for a seamless interactive experience."
 )
 
+msg_path_failed = (
+    "Failed to infer notebook path.\nFix: Either track manually via"
+    " `ln.track(ln.Transform(name='My notebook'))` or pass"
+    " `notebook_path` to ln.track()."
+)
+
 
 def _write_notebook_meta(metadata):
     from nbproject._header import _env, _filepath
@@ -223,14 +229,14 @@ class context:
         needs_init = False
         reference = None
         if filepath is None:
+            path_env = None
             try:
-                notebook_path, _env = notebook_path(return_env=True)
+                path_env = notebook_path(return_env=True)
             except Exception:
-                raise RuntimeError(
-                    "Failed to infer notebook path.\nFix: Either track manually via"
-                    " `ln.track(ln.Transform(name='My notebook'))` or pass"
-                    " `notebook_path` to ln.track()."
-                )
+                raise RuntimeError(msg_path_failed)
+            if path_env is None:
+                raise RuntimeError(msg_path_failed)
+            notebook_path, _env = path_env
         else:
             notebook_path = filepath
         if isinstance(notebook_path, (Path, PurePath)):
