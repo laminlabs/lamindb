@@ -18,8 +18,8 @@ if version.parse(lndb_v) < version.parse("0.41.0"):
 
 # Lamin GREATEREQ packages
 
-if version.parse(nbproject_v) < version.parse("0.8.3"):
-    raise RuntimeError("lamindb needs nbproject>=0.8.3")
+if version.parse(nbproject_v) < version.parse("0.8.5"):
+    raise RuntimeError("lamindb needs nbproject>=0.8.5")
 
 # ensure that the lamin package is not installed
 try:
