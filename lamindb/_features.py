@@ -72,7 +72,10 @@ def parse_features(df: pd.DataFrame, features_ref: Any, **curate_kwargs) -> None
     # else:
     #     logger.warning(f"{parsing_id} column not found, using index as features.")
     df_curated = features_ref.curate(df=df, **curate_kwargs)
-    parsing_id = features_ref._parsing_id
+    if hasattr(features_ref, "_entity"):
+        parsing_id = features_ref._entity._parsing_id
+    else:
+        parsing_id = features_ref._parsing_id
 
     # logging of curation
     n = df_curated["__curated__"].count()
