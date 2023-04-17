@@ -92,7 +92,9 @@ def parse_features(df: pd.DataFrame, features_ref: Any, **curate_kwargs) -> None
     features = select(
         Features,
         id=features_hash,
-        type=features_ref.entity,
+        type=features_ref.entity
+        if hasattr(features_ref, "entity")
+        else features_ref._entity.entity,
     ).one_or_none()
     if features is not None:
         return features  # features already exists!
