@@ -216,10 +216,12 @@ def get_file_kwargs_from_data(
     )
     check_path_in_storage = get_check_path_in_storage(filepath)
     if cloud_filepath is not None and not check_path_in_storage:
+        new_storage = list(cloud_filepath.parents)[-1]
         raise ValueError(
-            "Currently do not support moving cloud data across buckets.Configure"
-            " storage to point to your cloud bucket:"
-            f" {list(cloud_filepath.parents)[-1]}"
+            "Currently do not support moving cloud data across buckets. Configure"
+            " storage to point to your cloud bucket:\n"
+            f" `ln.setup.set.storage({new_storage})` or `lamin set --storage"
+            f" {new_storage}`"
         )
 
     # if we pass a file, no storage key, and path is already in storage,
