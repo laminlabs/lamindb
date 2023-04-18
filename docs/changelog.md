@@ -3,6 +3,7 @@
 <!-- prettier-ignore -->
 Name | PR | Developer | Date | Version
 --- | --- | --- | --- | ---
+✅ Use nbproject-test directly | [638](https://github.com/laminlabs/lamindb/pull/638) | [Koncopd](https://github.com/Koncopd) | 2023-04-18 |
 🚸 Use relative path in key | [636](https://github.com/laminlabs/lamindb/pull/636) | [falexwolf](https://github.com/falexwolf) | 2023-04-18 | 0.37.2
 🩹 Unpack `notebook_path` correctly | [632](https://github.com/laminlabs/lamindb/pull/632) | [Koncopd](https://github.com/Koncopd) | 2023-04-17 | 0.37.1
 🚚 Better names, more relationships directly on `File` <span class="badge badge-warning">Breaking</span> | [631](https://github.com/laminlabs/lamindb/pull/631) | [falexwolf](https://github.com/falexwolf) | 2023-04-16 | 0.37.0
