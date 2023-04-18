@@ -3,6 +3,7 @@
 <!-- prettier-ignore -->
 Name | PR | Developer | Date | Version
 --- | --- | --- | --- | ---
+:arrow_up: Upgrade lndb to 0.42.0 | [639](https://github.com/laminlabs/lamindb/pull/639) | [falexwolf](https://github.com/falexwolf) | 2023-04-18 |
 💥 New calling patterns for lnschema-bionty | [633](https://github.com/laminlabs/lamindb/pull/633) | [falexwolf](https://github.com/falexwolf) | 2023-04-18 |
 ✅ Use nbproject-test directly | [638](https://github.com/laminlabs/lamindb/pull/638) | [Koncopd](https://github.com/Koncopd) | 2023-04-18 |
 🚸 Use relative path in key | [636](https://github.com/laminlabs/lamindb/pull/636) | [falexwolf](https://github.com/falexwolf) | 2023-04-18 | 0.37.2
