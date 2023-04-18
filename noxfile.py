@@ -68,7 +68,7 @@ def build(session, package):
 
         file = ln.select(ln.File, key="docs/lnschema_bionty_docs.zip").one()
         shutil.unpack_archive(file.stage(), "lnschema_bionty_docs")
-        Path("lnschema_bionty_docs/guide/orms.ipynb").rename(
+        Path("lnschema_bionty_docs/guide/bionty-orms.ipynb").rename(
             "docs/guide/lnschema-bionty.ipynb"
         )
         Path("lnschema_bionty_docs/guide/knowledge.ipynb").rename(
