@@ -256,6 +256,7 @@ def get_features_from_data(
     data: Union[Path, UPath, str, pd.DataFrame, AnnData],
     reference: Any,
     format: Optional[str] = None,
+    **curate_kwargs,
 ):
     memory_rep, filepath, _, suffix = serialize(data, "features", format, key=None)
     localpath, cloudpath, _, _ = get_path_size_hash(
@@ -267,4 +268,4 @@ def get_features_from_data(
         _cloud_filepath=cloudpath,
         _memory_rep=memory_rep,
     )
-    return get_features(file_privates, reference)
+    return get_features(file_privates, reference, **curate_kwargs)
