@@ -21,7 +21,7 @@ dependencies = [
     "lndb_storage==0.2rc5",
     "lndb==0.42.0",
     # Lamin GREATEREQ packages
-    "nbproject>=0.8.5",
+    "nbproject>=0.8.6",
     # External packages
     "hjson",
     "tabulate",
