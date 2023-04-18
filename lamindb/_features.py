@@ -65,12 +65,7 @@ def parse_features(df: pd.DataFrame, features_ref: Any, **curate_kwargs) -> None
     """
     from bionty import CellMarker, Gene, Protein
 
-    # Add and curate features against a knowledge table
-    # column = None
-    # if parsing_id in df.columns:
-    #     column = parsing_id
-    # else:
-    #     logger.warning(f"{parsing_id} column not found, using index as features.")
+    features_ref = features_ref._entity
     df_curated = features_ref.curate(df=df, **curate_kwargs)
     if hasattr(features_ref, "_entity"):
         parsing_id = features_ref._entity._parsing_id
