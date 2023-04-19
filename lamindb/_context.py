@@ -13,7 +13,7 @@ from nbproject._is_run_from_ipython import is_run_from_ipython
 
 msg_init_complete = (
     "⚠️ Destructive operation! ⚠️\n\nAre you sure you saved the notebook before running"
-    " ln.track()?\n - If not, hit save, and *overwrite* the notebook file.\n- If yes,"
+    " `ln.track()`?\n - If not, hit save, and *overwrite* the notebook file.\n - If yes,"
     " hit save, and *discard* editor content.\n\nConsider using Jupyter Lab or Notebook"
     " for a seamless interactive notebook tracking experience."
 )
