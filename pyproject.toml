@@ -38,8 +38,7 @@ dev = [
     "laminci>=0.2.5",
 ]
 bionty = [
-    "lnschema_bionty==0.15.1",
-    "bionty>=0.11.3",
+    "lnschema_bionty==0.15.2",
 ]
 wetlab = [
     "lnschema_wetlab==0.15rc2",
