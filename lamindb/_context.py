@@ -12,9 +12,10 @@ from lnschema_core import Run, Transform
 from nbproject._is_run_from_ipython import is_run_from_ipython
 
 msg_init_complete = (
-    "Init complete. Hit save & reload from disk, i.e, *discard* editor content. If you"
-    " do not want to lose editor changes, hit save *before* running `track()`."
-    " Consider using Jupyter Lab for a seamless interactive experience."
+    "⚠️ Destructive operation! ⚠️\n\nAre you sure you save the notebook before running"
+    " ln.track()?\n - If not, hit save, and *overwrite* the notebook file.\n- If yes,"
+    " hit save, and *discard* editor content.\n\nConsider using Jupyter Lab or Notebook"
+    " for a seamless interactive notebook tracking experience."
 )
 
 msg_path_failed = (
