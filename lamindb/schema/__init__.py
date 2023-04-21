@@ -11,6 +11,7 @@ lnschema_bionty as bt`.
 .. autosummary::
    :toctree: .
 
+   graph
    view
    dev
 
@@ -37,7 +38,7 @@ def _import_schema():
 if _INSTANCE_SETUP:
     _import_schema()
 
-from ._core import list_tables, view
+from ._core import graph, list_tables, view
 
 list_entities = list_tables  # backward compat
 
