@@ -45,6 +45,7 @@ instance, `.fastq`, `.vcf`, or files describing QC of datasets.
 Folder.__doc__ = """Folders: collections of files.
 
 Real vs. virtual folders:
+
 - A real LaminDB `Folder` has a 1:1 correspondence to a folder on a file system
   or in object storage, and a `.key` that is not `None`.
 - A virtual LaminDB `Folder` is a mere way of grouping files. A file can be
