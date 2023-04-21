@@ -13,8 +13,8 @@ if version.parse(lnschema_core_v) != version.parse("0.33.0"):
 if version.parse(lndb_storage_v) != version.parse("0.2rc5"):
     raise RuntimeError("lamindb needs lndb_storage==0.2rc5")
 
-if version.parse(lndb_v) < version.parse("0.42.0"):
-    raise RuntimeError("Upgrade lndb! pip install lndb==0.42.0")
+if version.parse(lndb_v) < version.parse("0.43.0"):
+    raise RuntimeError("Upgrade lndb! pip install lndb==0.43.0")
 
 # Lamin GREATEREQ packages
 
