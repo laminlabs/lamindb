@@ -3,6 +3,7 @@
 <!-- prettier-ignore -->
 Name | PR | Developer | Date | Version
 --- | --- | --- | --- | ---
+📝 Add an export example for `ln.schema.view()` | [649](https://github.com/laminlabs/lamindb/pull/649) | [falexwolf](https://github.com/falexwolf) | 2023-04-21 |
 🐛 Fix population of `transform_id` in `File` in edge cases | [648](https://github.com/laminlabs/lamindb/pull/648) | [falexwolf](https://github.com/falexwolf) | 2023-04-21 | 0.38.3
 🚸 Allow registering local postgres instances on the hub | [647](https://github.com/laminlabs/lamindb/pull/647) | [falexwolf](https://github.com/falexwolf) | 2023-04-21 | 0.38.2
 🚸 Improve error message for notebook tracking | [643](https://github.com/laminlabs/lamindb/pull/643) | [falexwolf](https://github.com/falexwolf) | 2023-04-19 |
