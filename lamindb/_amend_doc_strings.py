@@ -1,4 +1,4 @@
-from lnschema_core import File
+from lnschema_core import File, Folder
 
 File.__doc__ = """Files: serialized data objects.
 
@@ -6,11 +6,16 @@ File.__doc__ = """Files: serialized data objects.
 - FAQ: :doc:`/faq/ingest`
 
 Args:
-   data: A file path or an in-memory data object to serialize.
-   name: A name, required if an in-memory object is passed.
-   run: The run of `data` (a :class:`~lamindb.Run`).
-   id: The id of the file.
-   format: Whether to use `h5ad` or `zarr` to store an `AnnData` object.
+   data: Union[PathLike, DataLike] = None - A file path or an in-memory data
+      object to serialize. Can be a cloud path.
+   key: Optional[str] = None - A storage key, a relative filepath within the
+      storage location, e.g., an S3 or GCP bucket.
+   name: Optional[str] = None - A name. Defaults to a file name for a file.
+   run: Optional[:class:`~lamindb.Run`] = None - The generating run.
+   features: List[:class:`~lamindb.Features`] = None - A feature set record.
+   id: Optional[str] = None - The id of the file. Auto-generated if not passed.
+   input_of: List[:class:`~lamindb.Run`] = None - Runs for which the file
+      is as an input.
 
 Often, files represent atomic datasets in object storage:
 jointly measured observations of features (:class:`~lamindb.Features`).
@@ -35,4 +40,13 @@ instance, `.fastq`, `.vcf`, or files describing QC of datasets.
    - VCF: `.vcf` ⟷ /
    - QC: `.html` ⟷ /
 
+"""
+
+Folder.__doc__ = """Folders: collections of files.
+
+Real vs. virtual folders:
+- A real LaminDB `Folder` has a 1:1 correspondence to a folder on a file system
+  or in object storage, and a `.key` that is not `None`.
+- A virtual LaminDB `Folder` is a mere way of grouping files. A file can be
+  linked to multiple virtual folders, but only to one real folder.
 """
