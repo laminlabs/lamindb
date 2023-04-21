@@ -1,25 +1,33 @@
 from typing import Union
 
 import erdiagram
+import pydot
 import sqlalchemy as sql
 from lndb import settings
 from sqlalchemy import Column, Table
 
 
-def view(save=False):
-    """Make a diagram of entity relationships."""
+def graph() -> pydot.Dot:
+    """Get diagram of entity relationships as `pydot.Dot` graph object.
+
+    It uses `erdiagram.create_schema_graph`
+    """
     metadata = get_db_metadata()
-    graph = erdiagram.create_schema_graph(
+    return erdiagram.create_schema_graph(
         metadata=metadata,
         show_datatypes=False,
         show_indexes=False,
         rankdir="TB",
         concentrate=True,
     )
-    if not save:
-        erdiagram.view(graph)
-    else:
-        return graph
+
+
+def view():
+    """View diagram of entity relationships.
+
+    It displays :func:`~lamindb.schema.graph`.
+    """
+    erdiagram.view(graph())
 
 
 def list_tables():
