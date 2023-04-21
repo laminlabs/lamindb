@@ -3,6 +3,7 @@
 <!-- prettier-ignore -->
 Name | PR | Developer | Date | Version
 --- | --- | --- | --- | ---
+🐛 Fix population of `transform_id` in `File` in edge cases | [648](https://github.com/laminlabs/lamindb/pull/648) | [falexwolf](https://github.com/falexwolf) | 2023-04-21 |
 🚸 Allow registering local postgres instances on the hub | [647](https://github.com/laminlabs/lamindb/pull/647) | [falexwolf](https://github.com/falexwolf) | 2023-04-21 | 0.38.2
 🚸 Improve error message for notebook tracking | [643](https://github.com/laminlabs/lamindb/pull/643) | [falexwolf](https://github.com/falexwolf) | 2023-04-19 |
 van -> can | [641](https://github.com/laminlabs/lamindb/pull/641) | [ThomVett](https://github.com/ThomVett) | 2023-04-19 |
