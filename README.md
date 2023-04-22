@@ -34,7 +34,7 @@ pip install lamindb
 Biological entities are installed like so:
 
 ```shell
-pip install 'lamindb[bionty,wetlab]'
+pip install 'lamindb[bionty,lamin1]'
 ```
 
 ## Import

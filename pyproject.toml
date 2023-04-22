@@ -19,13 +19,10 @@ dependencies = [
     # !!! They cannot be pinned ANYWHERE else !!!
     "lnschema_core==0.33.1",
     "lndb_storage==0.2rc5",
-    "lndb==0.43.0",
+    "lndb==0.44.1",
     # Lamin GREATEREQ packages
     "nbproject>=0.8.6",
-    # External packages
-    "hjson",
-    "tabulate",
-    "erdiagram",
+    "erdiagram>=0.1.1",
 ]
 
 [project.urls]
@@ -40,13 +37,14 @@ dev = [
 bionty = [
     "lnschema_bionty==0.15.2",
 ]
-wetlab = [
-    "lnschema_wetlab==0.15rc2",
+lamin1 = [
+    "lnbase_biolab==0.15.0",
+    "lnschema_lamin1==0.15.1",
 ]
 test = [
     # Lamin pinned packages
     "lamindb[bionty]",
-    "lamindb[wetlab]",
+    "lamindb[lamin1]",
     "nbproject_test>=0.3.0",
     # External packages
     "pytest>=6.0",
