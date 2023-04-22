@@ -1,6 +1,6 @@
 from itertools import islice
 from pathlib import Path
-from typing import List, Optional, Union
+from typing import Optional, Union
 
 import lndb
 from lamin_logger import logger
@@ -13,7 +13,6 @@ from ._file import (
     get_relative_path_to_directory,
     get_relative_path_to_root,
 )
-from .dev.db._select import select
 
 Folder.__doc__ = """Folders: collections of files.
 
@@ -123,21 +122,3 @@ def tree(
     if next(iterator, None):
         print(f"... length_limit, {length_limit}, reached, counted:")
     print(f"\n{directories} directories" + (f", {files} files" if files else ""))
-
-
-# exposed to users as Folder.subset()
-def subset(self: Folder, *, prefix: str, **fields) -> List[File]:
-    """Get files via relative path to folder."""
-    # ensure is actual folder, not virtual one
-    if self.key is None:
-        raise ValueError(
-            ".get() is only defined for real folders, not virtual ones"
-            "you can access files via .files or by refining with queries"
-        )
-    files = (
-        select(File, **fields).where(File.key.startswith(self.key + "/" + prefix)).all()
-    )
-    return files
-
-
-Folder.subset = subset
