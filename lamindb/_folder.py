@@ -126,17 +126,18 @@ def tree(
 
 
 # exposed to users as Folder.subset()
-def subset(folder: Folder, *, prefix: str, **fields) -> List[File]:
+def subset(self: Folder, *, prefix: str, **fields) -> List[File]:
     """Get files via relative path to folder."""
     # ensure is actual folder, not virtual one
-    if folder.key is None:
+    if self.key is None:
         raise ValueError(
             ".get() is only defined for real folders, not virtual ones"
             "you can access files via .files or by refining with queries"
         )
     files = (
-        select(File, **fields)
-        .where(File.key.startswith(folder.key + "/" + prefix))
-        .all()
+        select(File, **fields).where(File.key.startswith(self.key + "/" + prefix)).all()
     )
     return files
+
+
+Folder.subset = subset
