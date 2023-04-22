@@ -17,7 +17,7 @@ Welcome to the LaminDB guide! 👋
 ```shell
 lamin signup testuser1@lamin.ai
 lamin login testuser1
-lamin init --storage ./mydata --schema bionty,wetlab
+lamin init --storage ./mydata --schema bionty,lamin1
 ```
 
 :::
