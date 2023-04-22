@@ -42,7 +42,7 @@ bionty = [
 ]
 lamin1 = [
     "lnbase_biolab==0.15.0",
-    "lnschema_lamin1==0.15.0",
+    "lnschema_lamin1==0.15.1",
 ]
 test = [
     # Lamin pinned packages
