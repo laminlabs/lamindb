@@ -22,10 +22,7 @@ dependencies = [
     "lndb==0.43.0",
     # Lamin GREATEREQ packages
     "nbproject>=0.8.6",
-    # External packages
-    "hjson",
-    "tabulate",
-    "erdiagram",
+    "erdiagram>=0.1.1",
 ]
 
 [project.urls]
