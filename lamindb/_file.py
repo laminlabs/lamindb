@@ -8,6 +8,7 @@ from appdirs import AppDirs
 from lamin_logger import logger
 from lndb_storage import UPath
 from lndb_storage.object import infer_suffix, size_adata, write_to_file
+from lndb_storage.object._lazy_field import LazySelector
 from lnschema_core import File, Run
 
 from lamindb._features import get_features
@@ -314,3 +315,30 @@ def get_features_from_data(
         _memory_rep=memory_rep,
     )
     return get_features(file_privates, reference, **curate_kwargs)
+
+
+def subset(
+    self: File,
+    query_obs: Optional[Union[str, LazySelector]] = None,
+    query_var: Optional[Union[str, LazySelector]] = None,
+) -> AnnData:
+    """Subset the AnnData File and stream the result into memory.
+
+    Args:
+        query_obs: The pandas query to evaluate on `.obs` of the
+            underlying `AnnData` object.
+        query_var: The pandas query to evaluate on `.var` of the
+            underlying `AnnData` object.
+    """
+    from lndb_storage.object import _subset_anndata_file
+
+    if query_obs is None and query_var is None:
+        raise ValueError("Please specify at least one of query_obs or query_var")
+
+    if self.suffix not in (".h5ad", ".zarr"):
+        raise ValueError("File should have an AnnData object as the underlying data")
+
+    return _subset_anndata_file(self, query_obs, query_var)
+
+
+File.subset = subset
