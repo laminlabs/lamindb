@@ -119,6 +119,8 @@ if _INSTANCE_SETUP:
     from ._context import context  # noqa
 
     track = context._track  # noqa
+    from . import _amend_file  # noqa
+    from . import _amend_folder  # noqa
     from ._delete import delete  # noqa
     from ._nb import nb  # noqa
     from ._settings import settings
