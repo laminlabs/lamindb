@@ -113,7 +113,6 @@ if _INSTANCE_SETUP:
         User,
     )
 
-    from . import _amend_doc_strings  # noqa
     from . import _check_versions  # executes checks during import
     from . import dev  # noqa
     from . import schema  # noqa
