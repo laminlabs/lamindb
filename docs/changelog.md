@@ -3,6 +3,7 @@
 <!-- prettier-ignore -->
 Name | PR | Developer | Date | Version
 --- | --- | --- | --- | ---
+📌 Check anndata version in `File.subset` | [commit](https://github.com/laminlabs/lamindb/commit/06652591321665f0bed970f36e5e449d3d430945) | [Koncopd](https://github.com/Koncopd) | 2023-04-23 |
 🐛 Fix VS Code notebook reinitialization in track | [654](https://github.com/laminlabs/lamindb/pull/654) | [Koncopd](https://github.com/Koncopd) | 2023-04-23 |
 🚸 Add `File.subset` | [653](https://github.com/laminlabs/lamindb/pull/653) | [falexwolf](https://github.com/falexwolf) | 2023-04-22 | 0.39rc1
 🚚 Replace `lnschema-wetlab` with `lnbase-biolab` and `lnschema-lamin1` | [651](https://github.com/laminlabs/lamindb/pull/651) | [falexwolf](https://github.com/falexwolf) | 2023-04-22 |
