@@ -320,8 +320,8 @@ class context:
                     transform, metadata = reinitialize_notebook(
                         transform.id, name, metadata
                     )
-                if metadata is not None:
-                    cls._notebook_meta = metadata  # type: ignore
+                    if _env in ("lab", "notebook"):
+                        cls._notebook_meta = metadata  # type: ignore
                 transform.name = name
                 transform.title = title
                 ln.add(transform)
