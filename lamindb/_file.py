@@ -36,6 +36,11 @@ def serialize(
     # Convert str to either Path or CloudPath
     if isinstance(data, (str, Path, UPath)):
         filepath = UPath(data)  # returns Path for local
+        try:  # check if file exists
+            if not filepath.exists():
+                raise FileNotFoundError
+        except PermissionError:  # we will setup permissions later
+            pass
         if isinstance(filepath, UPath):
             new_storage = list(filepath.parents)[-1]
             if not get_check_path_in_storage(filepath):
