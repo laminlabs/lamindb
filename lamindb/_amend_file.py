@@ -79,8 +79,8 @@ def subset(
 
     if self.suffix == ".zarr" and version.parse(anndata_v) < version.parse("0.9.1"):
         raise ValueError(
-            f"anndata=={anndata_v} does not support `.subset` of zarr stored"
-            " AnnData.Please install anndata>=0.9.1"
+            f"anndata=={anndata_v} does not support `.subset` of zarr stored AnnData."
+            " Please install anndata>=0.9.1"
         )
 
     return _subset_anndata_file(self, query_obs, query_var)
