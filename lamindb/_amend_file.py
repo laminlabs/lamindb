@@ -5,6 +5,7 @@ from anndata import AnnData
 from anndata import __version__ as anndata_v
 from lndb import settings as setup_settings
 from lndb_storage import load_to_memory
+from lndb_storage.object import _subset_anndata_file
 from lnschema_core import File
 from lnschema_core.dev._storage import filepath_from_file
 from lnschema_core.types import DataLike
@@ -60,11 +61,11 @@ instance, `.fastq`, `.vcf`, or files describing QC of datasets.
 
 
 def subsetter(self: File) -> LazyDataFrame:
-    """A subsetter to pass to `.stream()`.
+    """A subsetter to pass to ``.stream()``.
 
     Currently, this returns an instance of an
     unconstrained :class:`~lamindb.dev.LazyDataFrame`
-    to be evaluated in `.stream()`.
+    to be evaluated in ``.stream()``.
 
     In the future, this will be constrained by metadata of the file, it's
     feature- and sample-level descriptors, like `.obs`, `.var`, `.columns`, `.rows`.
@@ -82,15 +83,23 @@ def stream(
 
     Args:
         subset_obs: ``Optional[LazyDataFrame] = None``: A DataFrame query to
-            evaluate on ``.obs`` of the underlying ``AnnData`` object.
+            evaluate on ``.obs`` of an underlying ``AnnData`` object.
         subset_var: ``Optional[LazyDataFrame] = None``: A DataFrame query to
-            evaluate on ``.var`` of the underlying ``AnnData`` object.
-    """
-    from lndb_storage.object import _subset_anndata_file
+            evaluate on ``.var`` of an underlying ``AnnData`` object.
 
-    _track_run_input(self, is_run_input)
+    Example:
+
+    >>> file = ln.select(ln.File).where(...).one()
+    >>> obs = file.subsetter()
+    >>> obs = (
+    >>>     obs.cell_type.isin(["dendritic cell", "T cell")
+    >>>     & obs.disease.isin(["Alzheimer's"])
+    >>> )
+    >>> file.stream(subset_obs=obs, is_run_input=True)
+    """
     if self.suffix not in (".h5ad", ".zarr"):
         raise ValueError("File should have an AnnData object as the underlying data")
+    _track_run_input(self, is_run_input)
 
     if subset_obs is None and subset_var is None:
         return load_to_memory(filepath_from_file(self), stream=True)
