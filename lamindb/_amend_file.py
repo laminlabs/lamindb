@@ -82,10 +82,13 @@ def stream(
     """Stream the file into memory. Allows subsetting an AnnData object.
 
     Args:
-        subset_obs: ``Optional[LazyDataFrame] = None``: A DataFrame query to
+        subset_obs: ``Optional[LazyDataFrame] = None`` - A DataFrame query to
             evaluate on ``.obs`` of an underlying ``AnnData`` object.
-        subset_var: ``Optional[LazyDataFrame] = None``: A DataFrame query to
+        subset_var: ``Optional[LazyDataFrame] = None`` - A DataFrame query to
             evaluate on ``.var`` of an underlying ``AnnData`` object.
+
+    Returns:
+        The streamed AnnData object.
 
     Example:
 
@@ -96,6 +99,7 @@ def stream(
     >>>     & obs.disease.isin(["Alzheimer's"])
     >>> )
     >>> file.stream(subset_obs=obs, is_run_input=True)
+
     """
     if self.suffix not in (".h5ad", ".zarr"):
         raise ValueError("File should have an AnnData object as the underlying data")
