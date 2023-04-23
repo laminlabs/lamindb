@@ -1,7 +1,7 @@
 from typing import Optional, Union
 
 from anndata import AnnData
-from anndata import __version__ as anndata_version
+from anndata import __version__ as anndata_v
 from lndb_storage.object._lazy_field import LazySelector
 from lnschema_core import File
 from packaging import version
@@ -77,11 +77,9 @@ def subset(
             " Please resave your AnnData as zarr to be able to do this"
         )
 
-    if self.suffix == ".zarr" and version.parse(anndata_version) < version.parse(
-        "0.9.1"
-    ):
+    if self.suffix == ".zarr" and version.parse(anndata_v) < version.parse("0.9.1"):
         raise ValueError(
-            f"anndata=={anndata_version} does not support `.subset` of zarr stored"
+            f"anndata=={anndata_v} does not support `.subset` of zarr stored"
             " AnnData.Please install anndata>=0.9.1"
         )
 
