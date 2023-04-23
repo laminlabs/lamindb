@@ -3,6 +3,7 @@
 <!-- prettier-ignore -->
 Name | PR | Developer | Date | Version
 --- | --- | --- | --- | ---
+🐛 Fix VS Code notebook reinitialization in track | [654](https://github.com/laminlabs/lamindb/pull/654) | [Koncopd](https://github.com/Koncopd) | 2023-04-23 |
 🚸 Add `File.subset` | [653](https://github.com/laminlabs/lamindb/pull/653) | [falexwolf](https://github.com/falexwolf) | 2023-04-22 | 0.39rc1
 🚚 Replace `lnschema-wetlab` with `lnbase-biolab` and `lnschema-lamin1` | [651](https://github.com/laminlabs/lamindb/pull/651) | [falexwolf](https://github.com/falexwolf) | 2023-04-22 |
 📝 Add an export example for `ln.schema.view()` | [649](https://github.com/laminlabs/lamindb/pull/649) | [falexwolf](https://github.com/falexwolf) | 2023-04-21 |
