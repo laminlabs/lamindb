@@ -30,20 +30,31 @@ def serialize(
     data: Union[Path, UPath, str, pd.DataFrame, AnnData],
     name,
     format,
-    key: Optional[str],
+    key: Optional[str] = None,
 ) -> Tuple[Any, Union[Path, UPath], str, str]:
     """Serialize a data object that's provided as file or in memory."""
-    # Convert str to either Path or CloudPath
+    # Convert str to either Path or UPath
     if isinstance(data, (str, Path, UPath)):
         filepath = UPath(data)  # returns Path for local
-        if (
-            isinstance(filepath, UPath)
-            and lndb.settings.instance.storage.root not in filepath.parents  # noqa
-        ):
-            raise ValueError(
-                "Can only track objects in configured cloud storage locations."
-                " Please call `lndb.set_storage('< bucket_name >')`."
-            )
+        try:  # check if file exists
+            if not filepath.exists():
+                raise FileNotFoundError
+        except PermissionError:  # we will setup permissions later
+            pass
+        if isinstance(filepath, UPath):
+            new_storage = list(filepath.parents)[-1]
+            if not get_check_path_in_storage(filepath):
+                raise ValueError(
+                    "Currently do not support moving cloud data across buckets."
+                    " Configure storage to point to your cloud bucket:\n"
+                    f" `ln.setup.set.storage({new_storage})` or `lamin set --storage"
+                    f" {new_storage}`"
+                )
+            root = lndb.settings.storage.root
+            if isinstance(root, UPath):
+                filepath = UPath(
+                    filepath, **root._kwargs
+                )  # inherit fsspec kwargs from root
         memory_rep = None
         if key is None:
             name = filepath.name
@@ -68,6 +79,8 @@ def serialize(
             cache_dir = Path(DIRS.user_cache_dir)
             cache_dir.mkdir(parents=True, exist_ok=True)
             filepath = cache_dir / name
+        if filepath.suffixes == []:
+            filepath = filepath.with_suffix(suffix)
         if suffix != ".zarr":
             write_to_file(data, filepath)
     else:
@@ -120,35 +133,35 @@ def get_path_size_hash(
     cloudpath = None
     localpath = None
 
-    path = UPath(filepath)  # returns Path for local
-
     if suffix == ".zarr":
         if memory_rep is not None:
             size = size_adata(memory_rep)
         else:
-            if isinstance(path, UPath):
+            if isinstance(filepath, UPath):
                 cloudpath = filepath
                 # todo: properly calculate size
                 size = 0
             else:
                 localpath = filepath
-                size = sum(f.stat().st_size for f in path.rglob("*") if f.is_file())
+                size = sum(
+                    f.stat().st_size for f in filepath.rglob("*") if f.is_file()  # type: ignore # noqa
+                )
         hash = None
     else:
-        if isinstance(path, UPath):
+        if isinstance(filepath, UPath):
             try:
-                size = path.stat()["size"]
+                size = filepath.stat()["size"]
             # here trying to fix access issue with new s3 buckets
             except Exception as e:
-                if path._url.scheme == "s3":
-                    path = UPath(filepath, cache_regions=True)
-                    size = path.stat()["size"]
+                if filepath._url.scheme == "s3":
+                    filepath = UPath(filepath, cache_regions=True)
+                    size = filepath.stat()["size"]
                 else:
                     raise e
             cloudpath = filepath
             hash = None
         else:
-            size = path.stat().st_size
+            size = filepath.stat().st_size  # type: ignore
             localpath = filepath
             hash = get_hash(filepath, suffix, check_hash=check_hash)
 
@@ -215,15 +228,6 @@ def get_file_kwargs_from_data(
         filepath, memory_rep, suffix
     )
     check_path_in_storage = get_check_path_in_storage(filepath)
-    if cloud_filepath is not None and not check_path_in_storage:
-        new_storage = list(cloud_filepath.parents)[-1]
-        raise ValueError(
-            "Currently do not support moving cloud data across buckets. Configure"
-            " storage to point to your cloud bucket:\n"
-            f" `ln.setup.set.storage({new_storage})` or `lamin set --storage"
-            f" {new_storage}`"
-        )
-
     # if we pass a file, no storage key, and path is already in storage,
     # then use the existing relative path within the storage location
     # as storage key
