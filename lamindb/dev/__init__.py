@@ -4,6 +4,7 @@
    :toctree: .
 
    db
+   LazyDataFrame
    datasets
 
 Utilities:
@@ -14,6 +15,7 @@ Utilities:
    doc_args
 """
 
+from lndb_storage.object._lazy_field import Lazy as LazyDataFrame
 from lnschema_core.dev import id  # noqa
 
 from . import datasets  # noqa
