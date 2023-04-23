@@ -1,8 +1,10 @@
 from typing import Optional, Union
 
 from anndata import AnnData
+from anndata import __version__ as anndata_version
 from lndb_storage.object._lazy_field import LazySelector
 from lnschema_core import File
+from packaging import version
 
 File.__doc__ = """Files: serialized data objects.
 
@@ -62,11 +64,26 @@ def subset(
     """
     from lndb_storage.object import _subset_anndata_file
 
+    if self.suffix not in (".h5ad", ".zarr"):
+        raise ValueError("File should have an AnnData object as the underlying data")
+
     if query_obs is None and query_var is None:
         raise ValueError("Please specify at least one of query_obs or query_var")
 
-    if self.suffix not in (".h5ad", ".zarr"):
-        raise ValueError("File should have an AnnData object as the underlying data")
+    if self.suffix == ".h5ad" and query_obs is not None and query_var is not None:
+        raise ValueError(
+            "Can not subset along both query_obs and query_var at the same time"
+            " for an AnnData object stored as a h5ad file."
+            " Please resave your AnnData as zarr to be able to do this"
+        )
+
+    if self.suffix == ".zarr" and version.parse(anndata_version) < version.parse(
+        "0.9.1"
+    ):
+        raise ValueError(
+            f"anndata=={anndata_version} does not support `.subset` of zarr stored"
+            " AnnData.Please install anndata>=0.9.1"
+        )
 
     return _subset_anndata_file(self, query_obs, query_var)
 
