@@ -33,7 +33,7 @@ def serialize(
     key: Optional[str] = None,
 ) -> Tuple[Any, Union[Path, UPath], str, str]:
     """Serialize a data object that's provided as file or in memory."""
-    # Convert str to either Path or CloudPath
+    # Convert str to either Path or UPath
     if isinstance(data, (str, Path, UPath)):
         filepath = UPath(data)  # returns Path for local
         try:  # check if file exists
