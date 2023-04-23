@@ -119,6 +119,11 @@ if _INSTANCE_SETUP:
     from ._context import context  # noqa
 
     track = context._track  # noqa
+    from lndb_storage import subset
+
+    # deprecated
+    from lndb_storage.object import lazy
+
     from . import _amend_file  # noqa
     from . import _amend_folder  # noqa
     from ._delete import delete  # noqa
