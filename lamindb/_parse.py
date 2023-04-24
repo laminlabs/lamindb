@@ -6,7 +6,6 @@ from lamin_logger import logger
 from sqlalchemy.orm.attributes import InstrumentedAttribute
 from sqlmodel import SQLModel
 
-from .dev.db._add import add
 from .dev.db._select import select
 
 ListLike = TypeVar("ListLike", pd.Series, list, np.array)
@@ -27,7 +26,6 @@ def parse(
 
     Returns:
         A list of SQLModel records.
-        Commit non-existing records to the database.
     """
     records = []
     entity = field.class_  # type:ignore
@@ -38,7 +36,6 @@ def parse(
         kwargs = {field.name: i}  # type:ignore
         record = _create_record(entity, **kwargs, from_bionty=from_bionty)
         records.append(record)
-    add(records)
     return records
 
 
