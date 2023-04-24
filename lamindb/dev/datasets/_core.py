@@ -3,6 +3,7 @@ from typing import Union
 from urllib.request import urlretrieve
 
 import anndata as ad
+import numpy as np
 import pandas as pd
 from lnschema_core.dev import id
 
@@ -122,6 +123,33 @@ def anndata_human_immune_cells() -> ad.AnnData:
     """
     filepath, _ = urlretrieve("https://lamindb-test.s3.amazonaws.com/human_immune.h5ad")
     return ad.read(filepath)
+
+
+def anndata_with_obs():
+    """Create a mini anndata with cell_type, disease and tissue."""
+    import anndata as ad
+    import bionty as bt
+
+    celltypes = ["T cell", "hematopoietic stem cell", "hepatocyte", "my new cell type"]
+    celltype_ids = ["CL:0000084", "CL:0000037", "CL:0000182", ""]
+    diseases = [
+        "chronic kidney disease",
+        "liver lymphoma",
+        "cardiac ventricle disorder",
+        "Alzheimer disease",
+    ]
+    tissues = ["kidney", "liver", "heart", "brain"]
+    df = pd.DataFrame()
+    df["cell_type"] = celltypes * 10
+    df["cell_type_id"] = celltype_ids * 10
+    df["tissue"] = tissues * 10
+    df["disease"] = diseases * 10
+    df.index = "obs" + df.index.astype(str)
+
+    adata = ad.AnnData(X=np.zeros(shape=(40, 100), dtype=np.float32), obs=df)
+    adata.var.index = bt.Gene().df.head(100)["ensembl_gene_id"].values
+
+    return adata
 
 
 def generate_cell_ranger_files(

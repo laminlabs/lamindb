@@ -185,6 +185,7 @@ schema
 :hidden:
 :caption: Biology
 
+parse
 knowledge
 features
 link-samples

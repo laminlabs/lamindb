@@ -1,0 +1,62 @@
+from typing import Callable, List, TypeVar
+
+import numpy as np
+import pandas as pd
+from lamin_logger import logger
+from sqlalchemy.orm.attributes import InstrumentedAttribute
+from sqlmodel import SQLModel
+
+from .dev.db._add import add
+from .dev.db._select import select
+
+ListLike = TypeVar("ListLike", pd.Series, list, np.array)
+SQLModelField = TypeVar("SQLModelField", Callable, InstrumentedAttribute)
+
+
+def parse(
+    iterable: ListLike, field: InstrumentedAttribute, from_bionty: bool = True
+) -> List[SQLModel]:
+    """Parse a dataset column based on a SQLModel entity field.
+
+    Guide: :doc:`/guide/parse`.
+
+    Args:
+        iterable: a `ListLike` of values.
+        field: a `SQLModel` field that correspond to the input list.
+        from_bionty: whether to use bionty for auto-completion of the fields.
+
+    Returns:
+        A list of SQLModel records.
+        Commit non-existing records to the database.
+    """
+    records = []
+    entity = field.class_
+    for i in set(iterable):
+        # No entries are made for NAs, '', None
+        if pd.isnull(i) or i == "":
+            continue
+        kwargs = {field.name: i}
+        record = _create_record(entity, **kwargs, from_bionty=from_bionty)
+        records.append(record)
+    add(records)
+    return records
+
+
+def _create_record(entity: SQLModel, from_bionty: bool = True, **kwargs):
+    """Create a record from bionty with configured ontologies."""
+    record = select(entity, **kwargs).one_or_none()
+    if record is None:
+        if from_bionty:
+            try:
+                record = entity.from_bionty(**kwargs)
+            except AttributeError:
+                record = entity(**kwargs)
+            except (ValueError, KeyError):
+                logger.warning(
+                    f"No entry is found in bionty reference table with {kwargs}!"
+                    " Returning a canonical record..."
+                )
+                record = entity(**kwargs)
+        else:
+            record = entity(**kwargs)
+    return record

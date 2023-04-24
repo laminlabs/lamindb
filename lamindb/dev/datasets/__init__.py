@@ -14,6 +14,7 @@
    anndata_human_immune_cells
    anndata_pbmc68k_reduced
    anndata_pbmc3k_processed
+   anndata_with_obs
 """
 
 from ._core import (
@@ -21,6 +22,7 @@ from ._core import (
     anndata_mouse_sc_lymph_node,
     anndata_pbmc3k_processed,
     anndata_pbmc68k_reduced,
+    anndata_with_obs,
     dir_scrnaseq_cellranger,
     file_bam,
     file_fastq,
