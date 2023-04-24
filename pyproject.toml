@@ -41,8 +41,8 @@ biolab = [
     "lnbase_biolab==0.15.0",
 ]
 lamin1 = [
-    "lnbase_biolab==0.15.0",
-    "lnschema_lamin1==0.15.1",
+    "lnbase_biolab==0.15.0",  # need to duplicate right now, absorb in lamin1
+    "lnschema_lamin1",  # let's rather not pin here
 ]
 test = [
     # Lamin pinned packages
