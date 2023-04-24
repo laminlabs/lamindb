@@ -17,7 +17,7 @@ dependencies = [
     # Lamin PINNED packages
     # !!! These packages should ALWAYS be pinned, do not unpin !!!
     # !!! They cannot be pinned ANYWHERE else !!!
-    "lnschema_core==0.33.3",
+    "lnschema_core==0.33.4",
     "lndb_storage==0.2rc6",
     "lndb==0.44.3",
     # Lamin GREATEREQ packages
@@ -35,7 +35,7 @@ dev = [
     "laminci>=0.2.5",
 ]
 bionty = [
-    "lnschema_bionty==0.15.2",
+    "lnschema_bionty==0.16.0",
 ]
 biolab = [
     "lnbase_biolab==0.15.0",

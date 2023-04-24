@@ -65,7 +65,7 @@ def parse_features(df: pd.DataFrame, features_ref: Any, **curate_kwargs) -> None
     """
     from bionty import CellMarker, Gene, Protein
 
-    features_ref = features_ref._entity
+    features_ref = features_ref.bionty
     df_curated = features_ref.curate(df=df, **curate_kwargs)
     if hasattr(features_ref, "_entity"):
         parsing_id = features_ref._entity._parsing_id
