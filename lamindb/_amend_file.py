@@ -1,10 +1,21 @@
-from typing import Optional, Union
+from pathlib import Path
+from typing import Optional
 
 from anndata import AnnData
 from anndata import __version__ as anndata_v
-from lndb_storage.object._lazy_field import LazySelector
+from lndb import settings as setup_settings
+from lndb_storage import load_to_memory
+from lndb_storage.object import _subset_anndata_file
 from lnschema_core import File
+from lnschema_core.dev._storage import filepath_from_file
+from lnschema_core.types import DataLike
 from packaging import version
+from sqlalchemy.orm.session import object_session
+
+from lamindb._context import context
+from lamindb.dev import LazyDataFrame
+
+from ._settings import settings
 
 File.__doc__ = """Files: serialized data objects.
 
@@ -12,15 +23,15 @@ File.__doc__ = """Files: serialized data objects.
 - FAQ: :doc:`/faq/ingest`
 
 Args:
-   data: Union[PathLike, DataLike] = None - A file path or an in-memory data
+   data: `Union[PathLike, DataLike] = None` - A file path or an in-memory data
       object to serialize. Can be a cloud path.
-   key: Optional[str] = None - A storage key, a relative filepath within the
+   key: `Optional[str] = None` - A storage key, a relative filepath within the
       storage location, e.g., an S3 or GCP bucket.
-   name: Optional[str] = None - A name. Defaults to a file name for a file.
-   run: Optional[:class:`~lamindb.Run`] = None - The generating run.
-   features: List[:class:`~lamindb.Features`] = None - A feature set record.
-   id: Optional[str] = None - The id of the file. Auto-generated if not passed.
-   input_of: List[:class:`~lamindb.Run`] = None - Runs for which the file
+   name: `Optional[str] = None` - A name. Defaults to a file name for a file.
+   run: `Optional[Run] = None` - The generating run.
+   features: `List[Features] = None` - A feature set record.
+   id: `Optional[str] = None` - The id of the file. Auto-generated if not passed.
+   input_of: `List[Run] = None` - Runs for which the file
       is as an input.
 
 Often, files represent atomic datasets in object storage:
@@ -49,30 +60,57 @@ instance, `.fastq`, `.vcf`, or files describing QC of datasets.
 """
 
 
-def subset(
+def subsetter(self: File) -> LazyDataFrame:
+    """A subsetter to pass to ``.stream()``.
+
+    Currently, this returns an instance of an
+    unconstrained :class:`~lamindb.dev.LazyDataFrame`
+    to be evaluated in ``.stream()``.
+
+    In the future, this will be constrained by metadata of the file, it's
+    feature- and sample-level descriptors, like `.obs`, `.var`, `.columns`, `.rows`.
+    """
+    return LazyDataFrame()
+
+
+def stream(
     self: File,
-    query_obs: Optional[Union[str, LazySelector]] = None,
-    query_var: Optional[Union[str, LazySelector]] = None,
+    subset_obs: Optional[LazyDataFrame] = None,
+    subset_var: Optional[LazyDataFrame] = None,
+    is_run_input: Optional[bool] = None,
 ) -> AnnData:
-    """Subset the AnnData File and stream the result into memory.
+    """Stream the file into memory. Allows subsetting an AnnData object.
 
     Args:
-        query_obs: The pandas query to evaluate on `.obs` of the
-            underlying `AnnData` object.
-        query_var: The pandas query to evaluate on `.var` of the
-            underlying `AnnData` object.
-    """
-    from lndb_storage.object import _subset_anndata_file
+        subset_obs: ``Optional[LazyDataFrame] = None`` - A DataFrame query to
+            evaluate on ``.obs`` of an underlying ``AnnData`` object.
+        subset_var: ``Optional[LazyDataFrame] = None`` - A DataFrame query to
+            evaluate on ``.var`` of an underlying ``AnnData`` object.
 
+    Returns:
+        The streamed AnnData object.
+
+    Example:
+
+    >>> file = ln.select(ln.File).where(...).one()
+    >>> obs = file.subsetter()
+    >>> obs = (
+    >>>     obs.cell_type.isin(["dendritic cell", "T cell")
+    >>>     & obs.disease.isin(["Alzheimer's"])
+    >>> )
+    >>> file.stream(subset_obs=obs, is_run_input=True)
+
+    """
     if self.suffix not in (".h5ad", ".zarr"):
         raise ValueError("File should have an AnnData object as the underlying data")
+    _track_run_input(self, is_run_input)
 
-    if query_obs is None and query_var is None:
-        raise ValueError("Please specify at least one of query_obs or query_var")
+    if subset_obs is None and subset_var is None:
+        return load_to_memory(filepath_from_file(self), stream=True)
 
-    if self.suffix == ".h5ad" and query_obs is not None and query_var is not None:
+    if self.suffix == ".h5ad" and subset_obs is not None and subset_var is not None:
         raise ValueError(
-            "Can not subset along both query_obs and query_var at the same time"
+            "Can not subset along both subset_obs and subset_var at the same time"
             " for an AnnData object stored as a h5ad file."
             " Please resave your AnnData as zarr to be able to do this"
         )
@@ -83,7 +121,53 @@ def subset(
             " Please install anndata>=0.9.1"
         )
 
-    return _subset_anndata_file(self, query_obs, query_var)
+    return _subset_anndata_file(self, subset_obs, subset_var)
 
 
-File.subset = subset
+def _track_run_input(file: File, is_run_input: Optional[bool] = None):
+    if is_run_input is None:
+        track_run_input = settings.track_run_inputs_upon_load
+    else:
+        track_run_input = is_run_input
+    if track_run_input:
+        if object_session(file) is None:
+            raise ValueError("Need to load with session open to track as input.")
+        if context.run is None:
+            raise ValueError(
+                "No global run context set. Call ln.context.track() or pass input run"
+                " directly."
+            )
+        else:
+            if context.run not in file.input_of:
+                file.input_of.append(context.run)
+                session = object_session(file)
+                session.add(file)
+                session.commit()
+
+
+def load(file: File, is_run_input: Optional[bool] = None) -> DataLike:
+    """Stage and load to memory.
+
+    Returns in-memory representation if possible, e.g., an `AnnData` object
+    for an `h5ad` file.
+    """
+    _track_run_input(file, is_run_input)
+    return load_to_memory(filepath_from_file(file))
+
+
+def stage(file: File, is_run_input: Optional[bool] = None) -> Path:
+    """Update cache from cloud storage if outdated.
+
+    Returns a path to a locally cached on-disk object (say, a
+    `.jpg` file).
+    """
+    if file.suffix == ".zarr":
+        raise RuntimeError("zarr object can't be staged, please use load() or stream()")
+    _track_run_input(file, is_run_input)
+    return setup_settings.instance.storage.cloud_to_local(filepath_from_file(file))
+
+
+File.stage = stage
+File.subsetter = subsetter
+File.stream = stream
+File.load = load

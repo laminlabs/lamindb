@@ -21,7 +21,7 @@ Track runs of data transformations:
    Run
    Transform
 
-Tracking data by features:
+Track data by feature sets:
 
 .. autosummary::
    :toctree: .
@@ -82,6 +82,7 @@ Developer API:
 
    context
    settings
+   types
    dev
 """
 
@@ -100,8 +101,6 @@ from . import setup  # noqa
 
 # only import all other functionality if setup was successful
 if _INSTANCE_SETUP:
-    from lndb_storage import subset
-    from lndb_storage.object import lazy
     from lnschema_core import (  # noqa
         Features,
         File,
@@ -111,6 +110,7 @@ if _INSTANCE_SETUP:
         Storage,
         Transform,
         User,
+        types,
     )
 
     from . import _check_versions  # executes checks during import
@@ -119,6 +119,11 @@ if _INSTANCE_SETUP:
     from ._context import context  # noqa
 
     track = context._track  # noqa
+    from lndb_storage import subset
+
+    # deprecated
+    from lndb_storage.object import lazy
+
     from . import _amend_file  # noqa
     from . import _amend_folder  # noqa
     from ._delete import delete  # noqa
