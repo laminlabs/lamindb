@@ -187,6 +187,7 @@ schema
 
 knowledge
 features
+parse
 link-samples
 ```
 

@@ -35,6 +35,7 @@ Query & manipulate data:
 
    select
    add
+   parse
    delete
 
 Manipulate data with open session:
@@ -128,6 +129,7 @@ if _INSTANCE_SETUP:
     from . import _amend_folder  # noqa
     from ._delete import delete  # noqa
     from ._nb import nb  # noqa
+    from ._parse import parse  # noqa
     from ._settings import settings
     from ._view import view  # noqa
     from .dev.db import Session  # noqa
