@@ -3,7 +3,7 @@
 <!-- prettier-ignore -->
 Name | PR | Developer | Date | Version
 --- | --- | --- | --- | ---
-🎨 Refactor `ln.File` | [657](https://github.com/laminlabs/lamindb/pull/657) | [falexwolf](https://github.com/falexwolf) | 2023-04-24 |
+🎨 Refactor `ln.File` | [657](https://github.com/laminlabs/lamindb/pull/657) | [falexwolf](https://github.com/falexwolf) | 2023-04-24 | 0.39.0
 ✨ Inherit fsspec kwargs from root and move in root check | [655](https://github.com/laminlabs/lamindb/pull/655) | [Koncopd](https://github.com/Koncopd) | 2023-04-23 |
 📌 Check anndata version in `File.subset` | [commit](https://github.com/laminlabs/lamindb/commit/06652591321665f0bed970f36e5e449d3d430945) | [Koncopd](https://github.com/Koncopd) | 2023-04-23 |
 🐛 Fix VS Code notebook reinitialization in track | [654](https://github.com/laminlabs/lamindb/pull/654) | [Koncopd](https://github.com/Koncopd) | 2023-04-23 |
