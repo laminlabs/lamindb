@@ -14,7 +14,7 @@ SQLModelField = TypeVar("SQLModelField", Callable, InstrumentedAttribute)
 
 
 def parse(
-    iterable: ListLike, field: InstrumentedAttribute, from_bionty: bool = True
+    iterable: ListLike, field: SQLModelField, from_bionty: bool = True
 ) -> List[SQLModel]:
     """Parse a dataset column based on a SQLModel entity field.
 
@@ -30,12 +30,12 @@ def parse(
         Commit non-existing records to the database.
     """
     records = []
-    entity = field.class_
+    entity = field.class_  # type:ignore
     for i in set(iterable):
         # No entries are made for NAs, '', None
         if pd.isnull(i) or i == "":
             continue
-        kwargs = {field.name: i}
+        kwargs = {field.name: i}  # type:ignore
         record = _create_record(entity, **kwargs, from_bionty=from_bionty)
         records.append(record)
     add(records)
