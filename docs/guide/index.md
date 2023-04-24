@@ -177,6 +177,7 @@ See {doc}`/guide/features` for more.
 setup
 track
 select
+stream
 schema
 ```
 

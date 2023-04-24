@@ -57,6 +57,10 @@ def build(session, package):
         # Schemas
         ln.setup.load("testuser1/lamin-site-assets", migrate=True)
 
+        file = ln.select(ln.File, key="docs/lndb_storage_docs.zip").one()
+        shutil.unpack_archive(file.stage(), "lndb_storage_docs")
+        Path("lndb_storage_docs/guide/stream.ipynb").rename("docs/guide/stream.ipynb")
+
         file = ln.select(ln.File, key="docs/lnschema_core_docs.zip").one()
         shutil.unpack_archive(file.stage(), "lnschema_core_docs")
         Path("lnschema_core_docs/guide/0-core-schema.ipynb").rename(
