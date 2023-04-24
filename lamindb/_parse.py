@@ -50,8 +50,8 @@ def _create_record(entity: SQLModel, from_bionty: bool = True, **kwargs):
                 record = entity(**kwargs)
             except (ValueError, KeyError):
                 logger.warning(
-                    f"No entry is found in bionty reference table with {kwargs}!"
-                    " Returning a canonical record..."
+                    f"No entry found in bionty with {kwargs}!"
+                    " Couldn't populate additional fields..."
                 )
                 record = entity(**kwargs)
         else:
