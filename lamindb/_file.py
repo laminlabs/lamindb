@@ -17,11 +17,11 @@ from lamindb.dev.hashing import hash_file
 
 DIRS = AppDirs("lamindb", "laminlabs")
 
-NO_NAME_ERROR = """
+NO_NAME_ERROR = """\
 Pass a name or key in `ln.File(...)` when ingesting in-memory data.
 """
 
-NO_SOURCE_HINT = """
+NO_SOURCE_HINT = """\
 Consider linking a run using the `run` argument, e.g., by calling ln.track().
 """
 
