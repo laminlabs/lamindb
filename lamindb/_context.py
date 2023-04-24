@@ -11,6 +11,8 @@ from lndb.dev import InstanceSettings
 from lnschema_core import Run, Transform
 from nbproject._is_run_from_ipython import is_run_from_ipython
 
+from .dev.db._add import _private_not_empty
+
 msg_init_complete = (
     "⚠️ Destructive operation! ⚠️\n\nAre you sure you saved the notebook before running"
     " `ln.track()`?\n - If not, hit save, and *overwrite* the notebook file.\n - If"
@@ -199,6 +201,12 @@ class context:
         # this here uses cls.transform and writes cls.run
         # should probably change that design
         Run(load_latest=not new_run)
+        # so, this is a hack:
+        if (
+            _private_not_empty(cls.run, "_ln_identity_key")  # type: ignore
+            and cls.run._ln_identity_key is not None  # type: ignore
+        ):
+            cls.run._sa_instance_state.key = cls.run._ln_identity_key  # type: ignore
 
         # only for newly intialized notebooks
         if hasattr(cls, "_notebook_meta"):
