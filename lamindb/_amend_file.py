@@ -6,6 +6,7 @@ from anndata import __version__ as anndata_v
 from lndb import settings as setup_settings
 from lndb_storage import load_to_memory
 from lndb_storage.object import _subset_anndata_file
+from lndb_storage.object._subset_anndata import CloudAnnData
 from lnschema_core import File
 from lnschema_core.dev._storage import filepath_from_file
 from lnschema_core.types import DataLike
@@ -58,6 +59,13 @@ instance, `.fastq`, `.vcf`, or files describing QC of datasets.
    - QC: `.html` ⟷ /
 
 """
+
+
+def backed(self: File) -> CloudAnnData:
+    """Return a cloud-backed AnnData object for streaming."""
+    if self.suffix not in (".h5ad", ".zarr"):
+        raise ValueError("File should have an AnnData object as the underlying data")
+    return CloudAnnData(self)
 
 
 def subsetter(self: File) -> LazyDataFrame:
@@ -167,6 +175,7 @@ def stage(file: File, is_run_input: Optional[bool] = None) -> Path:
     return setup_settings.instance.storage.cloud_to_local(filepath_from_file(file))
 
 
+File.backed = backed
 File.stage = stage
 File.subsetter = subsetter
 File.stream = stream

@@ -3,6 +3,7 @@
 <!-- prettier-ignore -->
 Name | PR | Developer | Date | Version
 --- | --- | --- | --- | ---
+✨ Introduce `File.backed()` | [659](https://github.com/laminlabs/lamindb/pull/659) | [falexwolf](https://github.com/falexwolf) | 2023-04-24 |
 ✨ Introduced `ln.parse` | [658](https://github.com/laminlabs/lamindb/pull/658) | [sunnyosun](https://github.com/sunnyosun) | 2023-04-24 | 0.39.1
 🎨 Refactor `ln.File` | [657](https://github.com/laminlabs/lamindb/pull/657) | [falexwolf](https://github.com/falexwolf) | 2023-04-24 | 0.39.0
 ✨ Inherit fsspec kwargs from root and move in root check | [655](https://github.com/laminlabs/lamindb/pull/655) | [Koncopd](https://github.com/Koncopd) | 2023-04-23 |
