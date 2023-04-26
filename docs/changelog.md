@@ -3,6 +3,7 @@
 <!-- prettier-ignore -->
 Name | PR | Developer | Date | Version
 --- | --- | --- | --- | ---
+⬆️ Upgrade lndb | [661](https://github.com/laminlabs/lamindb/pull/661) | [fredericenard](https://github.com/fredericenard) | 2023-04-26 |
 ✨ Enable database entries lookup | [660](https://github.com/laminlabs/lamindb/pull/660) | [sunnyosun](https://github.com/sunnyosun) | 2023-04-24 | 0.39.2
 ✨ Introduce `File.backed()` | [659](https://github.com/laminlabs/lamindb/pull/659) | [falexwolf](https://github.com/falexwolf) | 2023-04-24 |
 ✨ Introduced `ln.parse()` | [658](https://github.com/laminlabs/lamindb/pull/658) | [sunnyosun](https://github.com/sunnyosun) | 2023-04-24 | 0.39.1
