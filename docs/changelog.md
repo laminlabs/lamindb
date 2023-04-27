@@ -3,7 +3,7 @@
 <!-- prettier-ignore -->
 Name | PR | Developer | Date | Version
 --- | --- | --- | --- | ---
-💥 Switch to methods bionty.df(), bionty.lookup() | [662](https://github.com/laminlabs/lamindb/pull/662) | [sunnyosun](https://github.com/sunnyosun) | 2023-04-27 |
+💥 Switch to methods bionty.df(), bionty.lookup() | [662](https://github.com/laminlabs/lamindb/pull/662) | [sunnyosun](https://github.com/sunnyosun) | 2023-04-27 | 0.39.4
 ⬆️ Upgrade lndb | [661](https://github.com/laminlabs/lamindb/pull/661) | [fredericenard](https://github.com/fredericenard) | 2023-04-26 | 0.39.3
 ✨ Enable database entries lookup | [660](https://github.com/laminlabs/lamindb/pull/660) | [sunnyosun](https://github.com/sunnyosun) | 2023-04-24 | 0.39.2
 ✨ Introduce `File.backed()` | [659](https://github.com/laminlabs/lamindb/pull/659) | [falexwolf](https://github.com/falexwolf) | 2023-04-24 |
