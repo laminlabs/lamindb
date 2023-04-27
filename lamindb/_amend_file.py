@@ -142,8 +142,8 @@ def _track_run_input(file: File, is_run_input: Optional[bool] = None):
     if track_run_input:
         if context.run is None:
             raise ValueError(
-                "No global run context set. Call ln.context.track() or pass input run"
-                " directly."
+                "No global run context set. Call ln.context.track() or link input to a"
+                " run object via `run.inputs.append(file)`"
             )
         if object_session(file) is None:
             # slower, no session open, doesn't use relationship
