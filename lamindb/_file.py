@@ -264,6 +264,9 @@ def get_features_from_data(
     format: Optional[str] = None,
     **curate_kwargs,
 ):
+    # always convert to bionty.{entity}
+    reference = reference.bionty if hasattr(reference, "bionty") else reference
+
     memory_rep, filepath, _, suffix = serialize(data, "features", format, key=None)
     localpath, cloudpath, _, _ = get_path_size_hash(
         filepath, memory_rep, suffix, check_hash=False
