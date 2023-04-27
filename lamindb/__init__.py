@@ -81,6 +81,7 @@ Developer API:
 .. autosummary::
    :toctree: .
 
+   link
    context
    settings
    types
@@ -111,6 +112,7 @@ if _INSTANCE_SETUP:
         Storage,
         Transform,
         User,
+        link,
         types,
     )
 
