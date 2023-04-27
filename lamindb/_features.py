@@ -22,7 +22,7 @@ def get_features_records(
     if species is None:
         species = add(bionty.Species(name=features_ref.species))
 
-    model = table_meta.get_model(f"bionty.{features_ref.entity}")
+    model = table_meta.get_model(f"bionty.{features_ref._entity}")
 
     # all existing feature records of the species in the db
     stmt = (
@@ -37,7 +37,7 @@ def get_features_records(
     new_ids = df_curated.index.difference(records_df)
     if len(new_ids) > 0:
         # mapped new_ids
-        reference_df = features_ref.df.set_index(features_ref.reference_id)
+        reference_df = features_ref.df().set_index(features_ref.reference_id)
         mapped = reference_df.loc[reference_df.index.intersection(new_ids)].copy()
         mapped.index.name = parsing_id
         if mapped.shape[0] > 0:
@@ -65,7 +65,10 @@ def parse_features(df: pd.DataFrame, features_ref: Any, **curate_kwargs) -> None
     """
     from bionty import CellMarker, Gene, Protein
 
-    features_ref = features_ref.bionty
+    # convert into bionty.{entity}()
+    features_ref = (
+        features_ref.bionty if hasattr(features_ref, "bionty") else features_ref
+    )
     df_curated = features_ref.curate(df=df, **curate_kwargs)
     if hasattr(features_ref, "_entity"):
         parsing_id = features_ref._entity._parsing_id
@@ -84,11 +87,7 @@ def parse_features(df: pd.DataFrame, features_ref: Any, **curate_kwargs) -> None
 
     features_hash = hash_set(set(df_curated.index))
 
-    features_type = (
-        features_ref.entity
-        if hasattr(features_ref, "entity")
-        else features_ref._entity.entity
-    )
+    features_type = features_ref._entity
 
     features = select(
         Features,
