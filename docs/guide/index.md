@@ -24,18 +24,22 @@ lamin init --storage ./mydata --schema bionty,lamin1
 
 See {doc}`/guide/setup` for more.
 
-## Track data & metadata with sources
+## Quickstart
+
+### Track files & metadata with sources
 
 ```python
 transform = ln.Transform(name="My pipeline", type="pipeline")
 ln.track(transform=transform)
-# in a notebook, calling `ln.track()` is enough - metadata is parsed automatically
+# in a notebook, `ln.track()` parses metadata & creates a `Transform` record
 
 df = pd.DataFrame({"a": [1, 2], "b": [3, 4]})
 
 file = ln.File(df, name="My dataframe")
 ln.add(file)
 ```
+
+<br>
 
 Under-the-hood, this created 3 records:
 
@@ -45,7 +49,7 @@ Run(id='g1xwllJfFZuh24AWKySc', transform_id='OdlFhFWW7qg3', transform_version='0
 File(id='DY9JINrVH6sMtqEirMpM', name='iris', suffix='.parquet', size=5629, hash='jUTdERuqlGv_GyqFfIEb2Q', run_id='g1xwllJfFZuh24AWKySc', transform_id='OdlFhFWW7qg3', transform_version='0', storage_id='GLWpJhvg', created_at=datetime.datetime(2023, 4, 28, 6, 7, 32), created_by_id='DzTjkKse')
 ```
 
-## Query & load data
+### Query & load files
 
 ```python
 file = ln.select(ln.File, name="My dataframe").one()
@@ -55,20 +59,14 @@ df = file.load()
 #>  1	2	4
 ```
 
-Get the data ingested by the latest run:
+<br>
+
+Get the file ingested by the latest run:
 
 ```python
 run = ln.select(ln.Run).order_by(ln.Run.created_at.desc()).first()
 file = ln.select(ln.File, run_id=run.id).all()
 ```
-
-<br>
-
-See {doc}`/guide/track` for more.
-
-<br>
-
-See {doc}`/guide/features` for more.
 
 ```{tip}
 - Each page in this guide is a Jupyter Notebook, which you can download [here](https://github.com/laminlabs/lamindb/tree/main/docs/guide).
@@ -76,7 +74,7 @@ See {doc}`/guide/features` for more.
 - We recommend using [JupyterLab](https://jupyterlab.readthedocs.io/) for best notebook tracking experience.
 ```
 
-📬 [Reach out](https://lamin.ai/contact) to learn about data modules that connect your assays & workflows within our data platform enterprise plan.
+📬 [Reach out](https://lamin.ai/contact) to learn about schema modules that connect your assays & workflows within our data platform enterprise plan.
 
 ```{toctree}
 :hidden:
