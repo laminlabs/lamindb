@@ -3,6 +3,7 @@
 <!-- prettier-ignore -->
 Name | PR | Developer | Date | Version
 --- | --- | --- | --- | ---
+⬆️ Update to lndb 0.44.7 | [665](https://github.com/laminlabs/lamindb/pull/665) | [sunnyosun](https://github.com/sunnyosun) | 2023-04-28 |
 🚸 Do not require session for `is_run_input` | [664](https://github.com/laminlabs/lamindb/pull/664) | [falexwolf](https://github.com/falexwolf) | 2023-04-28 | 0.39.6
 ⬆️ Allow load with storage | [663](https://github.com/laminlabs/lamindb/pull/663) | [sunnyosun](https://github.com/sunnyosun) | 2023-04-27 | 0.39.5
 💥 Switch to methods bionty.df(), bionty.lookup() | [662](https://github.com/laminlabs/lamindb/pull/662) | [sunnyosun](https://github.com/sunnyosun) | 2023-04-27 | 0.39.4
