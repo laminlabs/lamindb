@@ -3,6 +3,7 @@
 <!-- prettier-ignore -->
 Name | PR | Developer | Date | Version
 --- | --- | --- | --- | ---
+📝 Polish | [667](https://github.com/laminlabs/lamindb/pull/667) | [falexwolf](https://github.com/falexwolf) | 2023-04-28 |
 📝 Polish docs | [666](https://github.com/laminlabs/lamindb/pull/666) | [falexwolf](https://github.com/falexwolf) | 2023-04-28 |
 ⬆️ Update to lndb 0.44.7 | [665](https://github.com/laminlabs/lamindb/pull/665) | [sunnyosun](https://github.com/sunnyosun) | 2023-04-28 | 0.39.7
 🚸 Do not require session for `is_run_input` | [664](https://github.com/laminlabs/lamindb/pull/664) | [falexwolf](https://github.com/falexwolf) | 2023-04-28 | 0.39.6
