@@ -9,6 +9,7 @@ from lndb_storage.object import _subset_anndata_file
 from lndb_storage.object._subset_anndata import CloudAnnData
 from lnschema_core import File
 from lnschema_core.dev._storage import filepath_from_file
+from lnschema_core.link import RunIn
 from lnschema_core.types import DataLike
 from packaging import version
 from sqlalchemy.orm.session import object_session
@@ -17,6 +18,7 @@ from lamindb._context import context
 from lamindb.dev import LazyDataFrame
 
 from ._settings import settings
+from .dev.db._add import add as ln_add
 
 File.__doc__ = """Files: serialized data objects.
 
@@ -138,14 +140,18 @@ def _track_run_input(file: File, is_run_input: Optional[bool] = None):
     else:
         track_run_input = is_run_input
     if track_run_input:
-        if object_session(file) is None:
-            raise ValueError("Need to load with session open to track as input.")
         if context.run is None:
             raise ValueError(
-                "No global run context set. Call ln.context.track() or pass input run"
-                " directly."
+                "No global run context set. Call ln.context.track() or link input to a"
+                " run object via `run.inputs.append(file)`"
             )
+        if object_session(file) is None:
+            # slower, no session open, doesn't use relationship
+            run_in = RunIn(file_id=file.id, run_id=context.run.id)
+            # create a separate session under-the-hood for this transaction
+            ln_add(run_in)
         else:
+            # relationship-based, needs session
             if context.run not in file.input_of:
                 file.input_of.append(context.run)
                 session = object_session(file)
