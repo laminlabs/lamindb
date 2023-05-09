@@ -3,14 +3,14 @@
 <!-- prettier-ignore -->
 Name | PR | Developer | Date | Version
 --- | --- | --- | --- | ---
-🎨 Replace reference with field for `ln.Features` | [671](https://github.com/laminlabs/lamindb/pull/671) | [sunnyosun](https://github.com/sunnyosun) | 2023-05-09 |
+🎨 Replace reference with field for `ln.Features` <span class="badge badge-warning">Breaking</span> | [671](https://github.com/laminlabs/lamindb/pull/671) | [sunnyosun](https://github.com/sunnyosun) | 2023-05-09 | 0.40.0
 ⬆️ Update bionty to 0.13 | [670](https://github.com/laminlabs/lamindb/pull/670) | [sunnyosun](https://github.com/sunnyosun) | 2023-05-09 | 0.39.8
 📝 Polish | [667](https://github.com/laminlabs/lamindb/pull/667) | [falexwolf](https://github.com/falexwolf) | 2023-04-28 |
 📝 Polish docs | [666](https://github.com/laminlabs/lamindb/pull/666) | [falexwolf](https://github.com/falexwolf) | 2023-04-28 |
 ⬆️ Update to lndb 0.44.7 | [665](https://github.com/laminlabs/lamindb/pull/665) | [sunnyosun](https://github.com/sunnyosun) | 2023-04-28 | 0.39.7
 🚸 Do not require session for `is_run_input` | [664](https://github.com/laminlabs/lamindb/pull/664) | [falexwolf](https://github.com/falexwolf) | 2023-04-28 | 0.39.6
 ⬆️ Allow load with storage | [663](https://github.com/laminlabs/lamindb/pull/663) | [sunnyosun](https://github.com/sunnyosun) | 2023-04-27 | 0.39.5
-💥 Switch to methods bionty.df(), bionty.lookup() | [662](https://github.com/laminlabs/lamindb/pull/662) | [sunnyosun](https://github.com/sunnyosun) | 2023-04-27 | 0.39.4
+💥 Switch to methods bionty.df(), bionty.lookup() <span class="badge badge-warning">Breaking</span> | [662](https://github.com/laminlabs/lamindb/pull/662) | [sunnyosun](https://github.com/sunnyosun) | 2023-04-27 | 0.39.4
 ⬆️ Upgrade lndb | [661](https://github.com/laminlabs/lamindb/pull/661) | [fredericenard](https://github.com/fredericenard) | 2023-04-26 | 0.39.3
 ✨ Enable database entries lookup | [660](https://github.com/laminlabs/lamindb/pull/660) | [sunnyosun](https://github.com/sunnyosun) | 2023-04-24 | 0.39.2
 ✨ Introduce `File.backed()` | [659](https://github.com/laminlabs/lamindb/pull/659) | [falexwolf](https://github.com/falexwolf) | 2023-04-24 |

@@ -88,7 +88,7 @@ Developer API:
    dev
 """
 
-__version__ = "0.39.8"  # denote a release candidate for 0.1.0 with 0.1rc1
+__version__ = "0.40.0"  # denote a release candidate for 0.1.0 with 0.1rc1
 
 # prints warning of python versions
 from lamin_logger import py_version_warning as _py_version_warning
