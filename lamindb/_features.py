@@ -56,7 +56,7 @@ def get_features_records(
     return records
 
 
-def parse_features(df: pd.DataFrame, features_ref: Any, **curate_kwargs) -> None:
+def parse_features(df: pd.DataFrame, features_ref: Any, **map_kwargs) -> None:
     """Link features to a knowledge table.
 
     Args:
@@ -65,7 +65,7 @@ def parse_features(df: pd.DataFrame, features_ref: Any, **curate_kwargs) -> None
     """
     from bionty import CellMarker, Gene, Protein
 
-    df_curated = features_ref.curate(df=df, **curate_kwargs)
+    df_curated = features_ref.curate(df=df, **map_kwargs)
     # ._parsing_id only exist after curate is called
     parsing_id = features_ref._parsing_id
 
@@ -107,7 +107,7 @@ def parse_features(df: pd.DataFrame, features_ref: Any, **curate_kwargs) -> None
     return features
 
 
-def get_features(file_privates, features_ref, **curate_kwargs):
+def get_features(file_privates, features_ref, **map_kwargs):
     """Updates file in place."""
     memory_rep = file_privates["_memory_rep"]
     if memory_rep is None:
@@ -118,4 +118,4 @@ def get_features(file_privates, features_ref, **curate_kwargs):
             df = memory_rep
     except AttributeError:
         df = memory_rep
-    return parse_features(df, features_ref, **curate_kwargs)
+    return parse_features(df, features_ref, **map_kwargs)

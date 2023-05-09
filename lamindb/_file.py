@@ -15,6 +15,8 @@ from lamindb._settings import settings
 from lamindb.dev.db._select import select
 from lamindb.dev.hashing import hash_file
 
+from ._parse import SQLModelField
+
 DIRS = AppDirs("lamindb", "laminlabs")
 
 NO_NAME_ERROR = """\
@@ -260,12 +262,16 @@ def get_file_kwargs_from_data(
 # expose to user via ln.Features
 def get_features_from_data(
     data: Union[Path, UPath, str, pd.DataFrame, AnnData],
-    reference: Any,
+    field: SQLModelField,
     format: Optional[str] = None,
-    **curate_kwargs,
+    **map_kwargs,
 ):
-    # always convert to bionty.{entity}
-    reference = reference.bionty if hasattr(reference, "bionty") else reference
+    import lnschema_bionty as bionty
+
+    entity = field.class_.__name__  # type:ignore
+    reference = getattr(bionty, entity).bionty
+    reference_id = field.name  # type:ignore
+    map_kwargs["reference_id"] = reference_id
 
     memory_rep, filepath, _, suffix = serialize(data, "features", format, key=None)
     localpath, cloudpath, _, _ = get_path_size_hash(
@@ -277,4 +283,5 @@ def get_features_from_data(
         _cloud_filepath=cloudpath,
         _memory_rep=memory_rep,
     )
-    return get_features(file_privates, reference, **curate_kwargs)
+
+    return get_features(file_privates, reference, **map_kwargs)
