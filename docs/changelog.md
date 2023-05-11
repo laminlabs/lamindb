@@ -3,6 +3,7 @@
 <!-- prettier-ignore -->
 Name | PR | Developer | Date | Version
 --- | --- | --- | --- | ---
+📝 Update ontology guide | [673](https://github.com/laminlabs/lamindb/pull/673) | [falexwolf](https://github.com/falexwolf) | 2023-05-11 |
 🎨 Deprecated `data` in `ln.Features`, replace with `iterable` | [672](https://github.com/laminlabs/lamindb/pull/672) | [sunnyosun](https://github.com/sunnyosun) | 2023-05-11 |
 🎨 Replace reference with field for `ln.Features` <span class="badge badge-warning">Breaking</span> | [671](https://github.com/laminlabs/lamindb/pull/671) | [sunnyosun](https://github.com/sunnyosun) | 2023-05-09 | 0.40.0
 ⬆️ Update bionty to 0.13 | [670](https://github.com/laminlabs/lamindb/pull/670) | [sunnyosun](https://github.com/sunnyosun) | 2023-05-09 | 0.39.8
