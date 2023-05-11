@@ -75,9 +75,6 @@ def build(session, package):
         Path("lnschema_bionty_docs/guide/bionty-orms.ipynb").rename(
             "docs/guide/lnschema-bionty.ipynb"
         )
-        Path("lnschema_bionty_docs/guide/knowledge.ipynb").rename(
-            "docs/guide/knowledge.ipynb"
-        )
 
         t_total = perf_counter() - t_start
         print(f"Done pulling artifacts: {t_total:.3f}s")
