@@ -7,7 +7,6 @@ from lnschema_core import Features
 from lamindb.dev.db._add import add
 from lamindb.dev.db._select import select
 from lamindb.dev.hashing import hash_set
-from lamindb.schema._table import table_meta
 
 
 def get_features_records(
@@ -22,7 +21,7 @@ def get_features_records(
     if species is None:
         species = add(bionty.Species(name=features_ref.species))
 
-    model = table_meta.get_model(f"bionty.{features_ref._entity}")
+    model = getattr(bionty, features_ref.__class__.__name__)
 
     # all existing feature records of the species in the db
     stmt = (
@@ -61,7 +60,7 @@ def parse_features(df: pd.DataFrame, features_ref: Any, **map_kwargs) -> None:
 
     Args:
         df: a DataFrame
-        features_ref: Features reference class.
+        features_ref: Features reference class, bionty.{entity}()
     """
     from bionty import CellMarker, Gene, Protein
 
