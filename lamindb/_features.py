@@ -107,15 +107,21 @@ def parse_features(df: pd.DataFrame, features_ref: Any, **map_kwargs) -> None:
     return features
 
 
-def get_features(file_privates, features_ref, **map_kwargs):
+def get_features(features_ref, iterable=None, file_privates=None, **map_kwargs):
     """Updates file in place."""
-    memory_rep = file_privates["_memory_rep"]
-    if memory_rep is None:
-        memory_rep = load_to_memory(file_privates["_local_filepath"])
-    try:
-        df = getattr(memory_rep, "var")  # for AnnData objects
-        if callable(df):
+    if file_privates is not None:
+        memory_rep = file_privates["_memory_rep"]
+        if memory_rep is None:
+            memory_rep = load_to_memory(file_privates["_local_filepath"])
+        try:
+            df = getattr(memory_rep, "var")  # for AnnData objects
+            if callable(df):
+                df = memory_rep
+        except AttributeError:
             df = memory_rep
-    except AttributeError:
-        df = memory_rep
+    elif iterable is not None:
+        df = pd.DataFrame(index=list(iterable))
+    else:
+        raise KeyError
+
     return parse_features(df, features_ref, **map_kwargs)
