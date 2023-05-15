@@ -3,6 +3,7 @@
 <!-- prettier-ignore -->
 Name | PR | Developer | Date | Version
 --- | --- | --- | --- | ---
+✨ Added Treatment table | [676](https://github.com/laminlabs/lamindb/pull/676) | [sunnyosun](https://github.com/sunnyosun) | 2023-05-15 |
 ✨ Added Treatment table | [675](https://github.com/laminlabs/lamindb/pull/675) | [sunnyosun](https://github.com/sunnyosun) | 2023-05-15 | 0.40.2
 🚑 Fix ln.Features table name for postgres | [674](https://github.com/laminlabs/lamindb/pull/674) | [sunnyosun](https://github.com/sunnyosun) | 2023-05-11 | 0.40.1
 📝 Update ontology guide | [673](https://github.com/laminlabs/lamindb/pull/673) | [falexwolf](https://github.com/falexwolf) | 2023-05-11 |
