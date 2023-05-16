@@ -91,9 +91,8 @@ schema
 :hidden:
 :caption: Biology
 
-knowledge
+ontologies
 features
-parse
 link-samples
 ```
 

@@ -15,6 +15,8 @@ from lamindb._settings import settings
 from lamindb.dev.db._select import select
 from lamindb.dev.hashing import hash_file
 
+from ._parse import ListLike, SQLModelField
+
 DIRS = AppDirs("lamindb", "laminlabs")
 
 NO_NAME_ERROR = """\
@@ -259,22 +261,50 @@ def get_file_kwargs_from_data(
 
 # expose to user via ln.Features
 def get_features_from_data(
-    data: Union[Path, UPath, str, pd.DataFrame, AnnData],
-    reference: Any,
+    data: ListLike,
+    field: SQLModelField,
+    *,
+    iterable: ListLike = None,
     format: Optional[str] = None,
-    **curate_kwargs,
+    **map_kwargs,
 ):
-    # always convert to bionty.{entity}
-    reference = reference.bionty if hasattr(reference, "bionty") else reference
+    # TODO: remove in future versions
+    if data is not None:
+        if isinstance(data, (Path, UPath, str, pd.DataFrame, AnnData)):
+            logger.warning(
+                "The `data` argument is depreciated, please pass `iterable` instead!"
+            )
+            memory_rep, filepath, _, suffix = serialize(
+                data, "features", format, key=None
+            )
+            localpath, cloudpath, _, _ = get_path_size_hash(
+                filepath, memory_rep, suffix, check_hash=False
+            )
 
-    memory_rep, filepath, _, suffix = serialize(data, "features", format, key=None)
-    localpath, cloudpath, _, _ = get_path_size_hash(
-        filepath, memory_rep, suffix, check_hash=False
-    )
+            file_privates = dict(
+                _local_filepath=localpath,
+                _cloud_filepath=cloudpath,
+                _memory_rep=memory_rep,
+            )
+            iterable = None
+        else:
+            iterable = data
+            file_privates = None
+    else:
+        file_privates = None
 
-    file_privates = dict(
-        _local_filepath=localpath,
-        _cloud_filepath=cloudpath,
-        _memory_rep=memory_rep,
+    if iterable is not None:
+        # No entries are made for NAs, '', None
+        iterable = [
+            i for i in set(iterable) if not (pd.isnull(i) or i == "" or i == " ")
+        ]
+
+    import lnschema_bionty as bionty
+
+    entity = field.class_.__name__  # type:ignore
+    reference = getattr(bionty, entity).bionty
+    map_kwargs["reference_id"] = field.name  # type:ignore
+
+    return get_features(
+        reference, iterable=iterable, file_privates=file_privates, **map_kwargs
     )
-    return get_features(file_privates, reference, **curate_kwargs)

@@ -7,7 +7,6 @@ from lnschema_core import Features
 from lamindb.dev.db._add import add
 from lamindb.dev.db._select import select
 from lamindb.dev.hashing import hash_set
-from lamindb.schema._table import table_meta
 
 
 def get_features_records(
@@ -22,7 +21,7 @@ def get_features_records(
     if species is None:
         species = add(bionty.Species(name=features_ref.species))
 
-    model = table_meta.get_model(f"bionty.{features_ref._entity}")
+    model = getattr(bionty, features_ref.__class__.__name__)
 
     # all existing feature records of the species in the db
     stmt = (
@@ -56,16 +55,16 @@ def get_features_records(
     return records
 
 
-def parse_features(df: pd.DataFrame, features_ref: Any, **curate_kwargs) -> None:
+def parse_features(df: pd.DataFrame, features_ref: Any, **map_kwargs) -> None:
     """Link features to a knowledge table.
 
     Args:
         df: a DataFrame
-        features_ref: Features reference class.
+        features_ref: Features reference class, bionty.{entity}()
     """
     from bionty import CellMarker, Gene, Protein
 
-    df_curated = features_ref.curate(df=df, **curate_kwargs)
+    df_curated = features_ref.curate(df=df, **map_kwargs)
     # ._parsing_id only exist after curate is called
     parsing_id = features_ref._parsing_id
 
@@ -107,15 +106,21 @@ def parse_features(df: pd.DataFrame, features_ref: Any, **curate_kwargs) -> None
     return features
 
 
-def get_features(file_privates, features_ref, **curate_kwargs):
+def get_features(features_ref, iterable=None, file_privates=None, **map_kwargs):
     """Updates file in place."""
-    memory_rep = file_privates["_memory_rep"]
-    if memory_rep is None:
-        memory_rep = load_to_memory(file_privates["_local_filepath"])
-    try:
-        df = getattr(memory_rep, "var")  # for AnnData objects
-        if callable(df):
+    if file_privates is not None:
+        memory_rep = file_privates["_memory_rep"]
+        if memory_rep is None:
+            memory_rep = load_to_memory(file_privates["_local_filepath"])
+        try:
+            df = getattr(memory_rep, "var")  # for AnnData objects
+            if callable(df):
+                df = memory_rep
+        except AttributeError:
             df = memory_rep
-    except AttributeError:
-        df = memory_rep
-    return parse_features(df, features_ref, **curate_kwargs)
+    elif iterable is not None:
+        df = pd.DataFrame(index=list(iterable))
+    else:
+        raise KeyError
+
+    return parse_features(df, features_ref, **map_kwargs)
