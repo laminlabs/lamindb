@@ -3,6 +3,7 @@
 <!-- prettier-ignore -->
 Name | PR | Developer | Date | Version
 --- | --- | --- | --- | ---
+🚸 Pre-join some cheap relationships | [678](https://github.com/laminlabs/lamindb/pull/678) | [falexwolf](https://github.com/falexwolf) | 2023-05-16 |
 Improve wording | [677](https://github.com/laminlabs/lamindb/pull/677) | [Zethson](https://github.com/Zethson) | 2023-05-16 |
 ✨ Added Treatment table | [675](https://github.com/laminlabs/lamindb/pull/675) | [sunnyosun](https://github.com/sunnyosun) | 2023-05-15 | 0.40.3
 🚑 Fix ln.Features table name for postgres | [674](https://github.com/laminlabs/lamindb/pull/674) | [sunnyosun](https://github.com/sunnyosun) | 2023-05-11 | 0.40.1
