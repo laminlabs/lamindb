@@ -25,3 +25,9 @@ def pytest_sessionstart(session: pytest.Session):
         lndb.delete("lamindb-ci")
     except Exception:
         logger.info("Could not delete testuser1/lamindb-ci")
+
+
+def pytest_sessionfinish(session: pytest.Session):
+    import session_info
+
+    print(session_info.show())
