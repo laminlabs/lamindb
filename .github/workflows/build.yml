@@ -64,6 +64,7 @@ jobs:
       - name: Install Python dependencies
         run: |
           python -m pip install -U pip
+          pip install typing_extensions!=0.4.6
           pip install -U laminci
           pip install -U lamindb
       - name: Install apt-get dependencies
