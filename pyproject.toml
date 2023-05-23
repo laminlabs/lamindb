@@ -23,6 +23,8 @@ dependencies = [
     # Lamin GREATEREQ packages
     "nbproject>=0.8.6",
     "erdiagram>=0.1.1",
+    # Others
+    "typing_extensions!=0.4.6",
 ]
 
 [project.urls]
