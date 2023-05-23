@@ -18,11 +18,13 @@ dependencies = [
     # !!! These packages should ALWAYS be pinned, do not unpin !!!
     # !!! They cannot be pinned ANYWHERE else !!!
     "lnschema_core==0.33.8",
-    "lndb_storage==0.2rc6",
+    "lndb_storage==0.3.0",
     "lndb==0.44.7",
     # Lamin GREATEREQ packages
     "nbproject>=0.8.6",
     "erdiagram>=0.1.1",
+    # Others
+    "typing_extensions!=4.6.0",
 ]
 
 [project.urls]
@@ -56,6 +58,7 @@ test = [
     "scikit-learn>=1.1.1",
     "psycopg2-binary",
     "matplotlib<3.7",
+    "session_info",
 ]
 
 [project.scripts]

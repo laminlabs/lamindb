@@ -8,7 +8,7 @@ from lndb_storage import load_to_memory
 from lndb_storage.object import _subset_anndata_file
 from lndb_storage.object._subset_anndata import CloudAnnData
 from lnschema_core import File
-from lnschema_core.dev._storage import filepath_from_file
+from lnschema_core._core import filepath_from_file_or_folder
 from lnschema_core.link import RunIn
 from lnschema_core.types import DataLike
 from packaging import version
@@ -116,7 +116,7 @@ def stream(
     _track_run_input(self, is_run_input)
 
     if subset_obs is None and subset_var is None:
-        return load_to_memory(filepath_from_file(self), stream=True)
+        return load_to_memory(filepath_from_file_or_folder(self), stream=True)
 
     if self.suffix == ".h5ad" and subset_obs is not None and subset_var is not None:
         raise ValueError(
@@ -166,7 +166,7 @@ def load(file: File, is_run_input: Optional[bool] = None) -> DataLike:
     for an `h5ad` file.
     """
     _track_run_input(file, is_run_input)
-    return load_to_memory(filepath_from_file(file))
+    return load_to_memory(filepath_from_file_or_folder(file))
 
 
 def stage(file: File, is_run_input: Optional[bool] = None) -> Path:
@@ -178,7 +178,9 @@ def stage(file: File, is_run_input: Optional[bool] = None) -> Path:
     if file.suffix == ".zarr":
         raise RuntimeError("zarr object can't be staged, please use load() or stream()")
     _track_run_input(file, is_run_input)
-    return setup_settings.instance.storage.cloud_to_local(filepath_from_file(file))
+    return setup_settings.instance.storage.cloud_to_local(
+        filepath_from_file_or_folder(file)
+    )
 
 
 File.backed = backed
