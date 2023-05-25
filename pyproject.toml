@@ -37,7 +37,7 @@ dev = [
     "laminci>=0.2.5",
 ]
 bionty = [
-    "lnschema_bionty==0.16.4",
+    "lnschema_bionty==0.17.0",
 ]
 biolab = [
     "lnbase_biolab==0.15.2",
