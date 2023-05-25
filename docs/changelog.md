@@ -3,7 +3,7 @@
 <!-- prettier-ignore -->
 Name | PR | Developer | Date | Version
 --- | --- | --- | --- | ---
-⬇️ Downgrade lnschema-bionty to 0.16.5 | [683](https://github.com/laminlabs/lamindb/pull/683) | [sunnyosun](https://github.com/sunnyosun) | 2023-05-25 |
+⬇️ Downgrade lnschema-bionty to 0.16.5 | [683](https://github.com/laminlabs/lamindb/pull/683) | [sunnyosun](https://github.com/sunnyosun) | 2023-05-25 | 0.40.6
 ♻️ Refactor types | [681](https://github.com/laminlabs/lamindb/pull/681) | [falexwolf](https://github.com/falexwolf) | 2023-05-23 | 0.40.5
 ♻️ Refactor `BaseORM` | [679](https://github.com/laminlabs/lamindb/pull/679) | [falexwolf](https://github.com/falexwolf) | 2023-05-17 |
 🚸 Pre-join some cheap relationships | [678](https://github.com/laminlabs/lamindb/pull/678) | [falexwolf](https://github.com/falexwolf) | 2023-05-16 |
