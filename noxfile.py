@@ -5,7 +5,10 @@ from time import perf_counter
 from urllib.request import urlretrieve
 
 import nox
-from laminci import move_built_docs_to_docs_slash_project_slug, upload_docs_artifact
+from laminci import (  # noqa
+    move_built_docs_to_docs_slash_project_slug,
+    upload_docs_artifact,
+)
 from laminci.nox import login_testuser2  # noqa
 from laminci.nox import build_docs, login_testuser1, run_pre_commit, run_pytest  # noqa
 
@@ -88,7 +91,7 @@ def build(session, package):
 
         build_docs(session)
         login_testuser1(session)
-        upload_docs_artifact()
+        # upload_docs_artifact()
         move_built_docs_to_docs_slash_project_slug()
 
         t_end = perf_counter()
