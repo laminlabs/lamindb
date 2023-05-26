@@ -29,10 +29,10 @@ def build(session, package):
     t_start = perf_counter()
     login_testuser2(session)
     login_testuser1(session)
-    t_total = perf_counter() - t_start
-    print(f"Done logging in: {t_total:.3f}s")
+    t_end = perf_counter()
+    print(f"Done logging in: {t_end - t_start:.3f}s")
+    t_start = t_end
 
-    t_start = perf_counter()
     # run with pypi install on main
     if "GITHUB_EVENT_NAME" in os.environ and os.environ["GITHUB_EVENT_NAME"] != "push":
         # run with submodule install on a PR
@@ -40,10 +40,10 @@ def build(session, package):
         session.install("./sub/lnschema-core")
         session.install("./sub/lnbase-biolab")
         session.install("./sub/lndb-storage[dev,test]")
-
     session.install(".[dev,test]")
-    t_total = perf_counter() - t_start
-    print(f"Done installing: {t_total:.3f}s")
+    t_end = perf_counter()
+    print(f"Done installing: {t_end - t_start:.3f}s")
+    t_start = t_end
 
     if package == "lamindb":
         run_pytest(session)
@@ -52,9 +52,11 @@ def build(session, package):
         os.chdir(f"./sub/{package}")
         session.run("pytest", "-s", "./tests", "--ignore", "./tests/test_migrations.py")
 
-    if package == "lamindb":
-        t_start = perf_counter()
+    t_end = perf_counter()
+    print(f"Done running tests: {t_end - t_start:.3f}s")
+    t_start = t_end
 
+    if package == "lamindb":
         # Schemas
         ln.setup.load("testuser1/lamin-site-assets", migrate=True)
 
@@ -77,12 +79,15 @@ def build(session, package):
             "docs/guide/lnschema-bionty.ipynb"
         )
 
-        t_total = perf_counter() - t_start
-        print(f"Done pulling artifacts: {t_total:.3f}s")
+        t_end = perf_counter()
+        print(f"Done pulling artifacts: {t_end - t_start:.3f}s")
+        t_start = t_end
 
-        t_start = perf_counter()
+        ln.setup.init(storage="./mydocs")  # instance for building docs
         build_docs(session)
         login_testuser1(session)
         upload_docs_artifact()
         move_built_docs_to_docs_slash_project_slug()
-        print(f"Done building docs and uploading: {t_total:.3f}s")
+
+        t_end = perf_counter()
+        print(f"Done building docs and uploading artifacts: {t_end - t_start:.3f}s")
