@@ -66,7 +66,6 @@ jobs:
           python -m pip install -U pip
           pip install typing_extensions!=4.6.0
           pip install -U laminci
-          pip install -U lamindb
       - name: Install apt-get dependencies
         run: |
           sudo apt-get -y install graphviz
