@@ -3,7 +3,7 @@
 <!-- prettier-ignore -->
 Name | PR | Developer | Date | Version
 --- | --- | --- | --- | ---
-🏗️ Remove SQL-level schema modules | [685](https://github.com/laminlabs/lamindb/pull/685) | [falexwolf](https://github.com/falexwolf) | 2023-05-26 |
+🏗️ Remove SQL-level schema modules | [685](https://github.com/laminlabs/lamindb/pull/685) | [falexwolf](https://github.com/falexwolf) | 2023-05-26 | 0.41a2
 ⬆️ Upgrade lnschema-bionty to 0.17.1 | [684](https://github.com/laminlabs/lamindb/pull/684) | [sunnyosun](https://github.com/sunnyosun) | 2023-05-25 | 0.40.7
 ⬇️ Downgrade lnschema-bionty to 0.16.5 | [683](https://github.com/laminlabs/lamindb/pull/683) | [sunnyosun](https://github.com/sunnyosun) | 2023-05-25 | 0.40.6
 ♻️ Refactor types | [681](https://github.com/laminlabs/lamindb/pull/681) | [falexwolf](https://github.com/falexwolf) | 2023-05-23 | 0.40.5
