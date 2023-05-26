@@ -90,7 +90,10 @@ Developer API:
 
 __version__ = "0.41a1"  # denote a release candidate for 0.1.0 with 0.1rc1
 
+import lndb as _lndb
+
 # prints warning of python versions
+from lamin_logger import logger as _logger
 from lamin_logger import py_version_warning as _py_version_warning
 from lndb._check_instance_setup import check_instance_setup as _check_instance_setup
 
@@ -103,6 +106,7 @@ from . import setup  # noqa
 
 # only import all other functionality if setup was successful
 if _INSTANCE_SETUP:
+    _logger.hint(f"Loaded instance: {_lndb.settings.instance.identifier}")
     from lnschema_core import (  # noqa
         Features,
         File,
