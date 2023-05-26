@@ -20,31 +20,35 @@ def lint(session: nox.Session) -> None:
 @nox.session
 @nox.parametrize("package", ["lamindb", "lndb-storage"])
 def build(session, package):
-    # t_start = perf_counter()
-    # # run with pypi install on main
-    # if "GITHUB_EVENT_NAME" in os.environ and os.environ["GITHUB_EVENT_NAME"] != "push":  # noqa
-    #     # run with submodule install on a PR
-    #     session.install("./sub/lndb-setup")
-    #     session.install("./sub/lnschema-core")
-    #     session.install("./sub/lnbase-biolab")
-    #     session.install("./sub/lndb-storage[dev,test]")
-    # session.install(".[dev,test]")
-    # t_end = perf_counter()
-    # print(f"Done installing: {t_end - t_start:.3f}s")
-    # t_start = t_end
+    t_start = perf_counter()
+    # run with pypi install on main
+    if (
+        "GITHUB_EVENT_NAME" in os.environ and os.environ["GITHUB_EVENT_NAME"] != "push"
+    ):  # noqa
+        # run with submodule install on a PR
+        session.install("./sub/lndb-setup")
+        session.install("./sub/lnschema-core")
+        session.install("./sub/lnbase-biolab")
+        session.install("./sub/lndb-storage[dev,test]")
+    session.install(".[dev,test]")
+    t_end = perf_counter()
+    print(f"Done installing: {t_end - t_start:.3f}s")
+    t_start = t_end
 
-    # login_testuser2(session)
-    # login_testuser1(session)
-    # t_end = perf_counter()
-    # print(f"Done logging in: {t_end - t_start:.3f}s")
-    # t_start = t_end
+    login_testuser2(session)
+    login_testuser1(session)
+    t_end = perf_counter()
+    print(f"Done logging in: {t_end - t_start:.3f}s")
+    t_start = t_end
 
-    # if package == "lamindb":
-    #     run_pytest(session)
-    # else:
-    #     # navigate into submodule so that lamin-project.yml is correctly read
-    #     os.chdir(f"./sub/{package}")
-    #     session.run("pytest", "-s", "./tests", "--ignore", "./tests/test_migrations.py")  # noqa
+    if package == "lamindb":
+        run_pytest(session)
+    else:
+        # navigate into submodule so that lamin-project.yml is correctly read
+        os.chdir(f"./sub/{package}")
+        session.run(
+            "pytest", "-s", "./tests", "--ignore", "./tests/test_migrations.py"
+        )  # noqa
 
     t_end = perf_counter()
     # print(f"Done running tests: {t_end - t_start:.3f}s")
