@@ -93,7 +93,6 @@ __version__ = "0.41a1"  # denote a release candidate for 0.1.0 with 0.1rc1
 import lndb as _lndb
 
 # prints warning of python versions
-from lamin_logger import logger as _logger
 from lamin_logger import py_version_warning as _py_version_warning
 from lndb._check_instance_setup import check_instance_setup as _check_instance_setup
 
@@ -124,6 +123,7 @@ if _INSTANCE_SETUP:
     from ._context import context  # noqa
 
     track = context._track  # noqa
+    from lamin_logger import logger as _logger
     from lndb_storage import subset
 
     # deprecated
