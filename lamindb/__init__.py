@@ -106,7 +106,6 @@ from . import setup  # noqa
 
 # only import all other functionality if setup was successful
 if _INSTANCE_SETUP:
-    _logger.hint(f"Loaded instance: {_lndb.settings.instance.identifier}")
     from lnschema_core import (  # noqa
         Features,
         File,
@@ -140,3 +139,5 @@ if _INSTANCE_SETUP:
     from .dev.db import Session  # noqa
     from .dev.db._add import add  # noqa
     from .dev.db._select import select  # noqa
+
+    _logger.success(f"Loaded instance: {_lndb.settings.instance.identifier}")
