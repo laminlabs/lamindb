@@ -36,7 +36,7 @@ def build(session, package):
     # run with pypi install on main
     if "GITHUB_EVENT_NAME" in os.environ and os.environ["GITHUB_EVENT_NAME"] != "push":
         # run with submodule install on a PR
-        session.install("./sub/lndb")
+        session.install("./sub/lndb-setup")
         session.install("./sub/lnschema-core")
         session.install("./sub/lnbase-biolab")
         session.install("./sub/lndb-storage[dev,test]")
