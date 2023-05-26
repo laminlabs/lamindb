@@ -91,7 +91,7 @@ def build(session, package):
 
         build_docs(session)
         login_testuser1(session)
-        # upload_docs_artifact()
+        upload_docs_artifact()
         move_built_docs_to_docs_slash_project_slug()
 
         t_end = perf_counter()
