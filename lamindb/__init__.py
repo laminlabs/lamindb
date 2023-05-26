@@ -124,6 +124,9 @@ if _INSTANCE_SETUP:
 
     track = context._track  # noqa
     from lamin_logger import logger as _logger
+
+    # this needs to follow on the import right now
+    _logger.success(f"Loaded instance: {_lndb.settings.instance.identifier}")
     from lndb_storage import subset
 
     # deprecated
@@ -139,5 +142,3 @@ if _INSTANCE_SETUP:
     from .dev.db import Session  # noqa
     from .dev.db._add import add  # noqa
     from .dev.db._select import select  # noqa
-
-    _logger.success(f"Loaded instance: {_lndb.settings.instance.identifier}")
