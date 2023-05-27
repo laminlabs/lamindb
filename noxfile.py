@@ -23,7 +23,7 @@ def lint(session: nox.Session) -> None:
 @nox.session
 @nox.parametrize(
     "group",
-    ["lamindb-unit", "lamindb-guide", "lamindb-bio", "lamindb-faq", "lndb-storage"],
+    ["unit", "guide", "biology", "faq", "lndb-storage"],
 )
 def build(session, group):
     t_start = perf_counter()
