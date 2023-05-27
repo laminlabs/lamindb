@@ -23,7 +23,7 @@ Public beta: Currently only recommended for collaborators as we still make break
 
 ## Installation
 
-LaminDB is a python package available for Python versions 3.8+.
+LaminDB is a Python package (Python 3.8+).
 
 ```shell
 pip install lamindb
@@ -31,10 +31,10 @@ pip install lamindb
 
 <br>
 
-Biological entities are installed like so:
+Install biological entities like so:
 
 ```shell
-pip install 'lamindb[bionty,lamin1]'
+pip install 'lamindb[bionty]'
 ```
 
 ## Import
@@ -45,7 +45,7 @@ In your python script, import LaminDB as:
 import lamindb as ln
 ```
 
-## Quick setup
+## Setup
 
 Quick setup on the command line:
 

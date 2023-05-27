@@ -42,13 +42,8 @@ bionty = [
 biolab = [
     "lnbase_biolab==0.15.2",
 ]
-lamin1 = [
-    "lnbase_biolab==0.15.2",  # need to duplicate right now, absorb in lamin1
-    "lnschema_lamin1==0.17a3",
-]
 test = [
-    # Lamin pinned packages
-    "lamindb[bionty,lamin1]",
+    "lnschema_lamin1==0.17a3",
     "nbproject_test>=0.3.0",
     # External packages
     "pytest>=6.0",
