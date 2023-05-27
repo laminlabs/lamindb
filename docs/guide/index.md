@@ -88,9 +88,9 @@ schema
 :hidden:
 :caption: Biology
 
-ontologies
-features
-link-samples
+../bio/ontologies
+../bio/features
+../bio/link-samples
 ```
 
 ```{toctree}

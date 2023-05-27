@@ -21,8 +21,11 @@ def lint(session: nox.Session) -> None:
 
 
 @nox.session
-@nox.parametrize("package", ["lamindb", "lndb-storage"])
-def build(session, package):
+@nox.parametrize(
+    "group",
+    ["lamindb-unit", "lamindb-guide", "lamindb-bio", "lamindb-faq", "lndb-storage"],
+)
+def build(session, group):
     t_start = perf_counter()
     # run with pypi install on main
     if (
@@ -44,55 +47,61 @@ def build(session, package):
     print(f"Done logging in: {t_end - t_start:.3f}s")
     t_start = t_end
 
-    if package == "lamindb":
-        run_pytest(session)
+    if group != "lndb-storage":
+        coverage_args = (
+            "--cov=lamindb --cov-append --cov-report=term-missing".split()
+        )  # noqa
+        if group == "unit":
+            session.run("pytest", "-s", *coverage_args)
+        elif group == "guide":
+            session.run("pytest", "-s", *coverage_args, "./docs/guide")
+        elif group == "biology":
+            session.run("pytest", "-s", *coverage_args, "./docs/biology")
+        elif group == "faq":
+            session.run("pytest", "-s", *coverage_args, "./docs/faq")
     else:
         # navigate into submodule so that lamin-project.yml is correctly read
-        os.chdir(f"./sub/{package}")
+        os.chdir(f"./sub/{group}")
         session.run(
             "pytest", "-s", "./tests", "--ignore", "./tests/test_migrations.py"
         )  # noqa
 
     t_end = perf_counter()
-    # print(f"Done running tests: {t_end - t_start:.3f}s")
+    print(f"Done running tests: {t_end - t_start:.3f}s")
+
+
+@nox.session
+def docs(session):
+    t_start = perf_counter()
+    filename = "lndb_storage_docs.zip"
+    urlretrieve(f"https://lamin-site-assets.s3.amazonaws.com/docs/{filename}", filename)
+    shutil.unpack_archive(filename, "lndb_storage_docs")
+    Path("lndb_storage_docs/guide/stream.ipynb").rename("docs/guide/stream.ipynb")
+
+    filename = "lnschema_core_docs.zip"
+    urlretrieve(f"https://lamin-site-assets.s3.amazonaws.com/docs/{filename}", filename)
+    shutil.unpack_archive(filename, "lnschema_core_docs")
+    Path("lnschema_core_docs/guide/0-core-schema.ipynb").rename(
+        "docs/guide/lnschema-core.ipynb"
+    )
+    Path("lnschema_core_docs/guide/1-data-validation.ipynb").rename(
+        "docs/guide/data-validation.ipynb"
+    )
+
+    filename = "lnschema_bionty_docs.zip"
+    urlretrieve(f"https://lamin-site-assets.s3.amazonaws.com/docs/{filename}", filename)
+    shutil.unpack_archive(filename, "lnschema_bionty_docs")
+    Path("lnschema_bionty_docs/guide/bionty-orms.ipynb").rename(
+        "docs/guide/lnschema-bionty.ipynb"
+    )
+    t_end = perf_counter()
+    print(f"Done pulling artifacts: {t_end - t_start:.3f}s")
     t_start = t_end
 
-    if package == "lamindb":
-        filename = "lndb_storage_docs.zip"
-        urlretrieve(
-            f"https://lamin-site-assets.s3.amazonaws.com/docs/{filename}", filename
-        )
-        shutil.unpack_archive(filename, "lndb_storage_docs")
-        Path("lndb_storage_docs/guide/stream.ipynb").rename("docs/guide/stream.ipynb")
+    build_docs(session)
+    login_testuser1(session)
+    upload_docs_artifact()
+    move_built_docs_to_docs_slash_project_slug()
 
-        filename = "lnschema_core_docs.zip"
-        urlretrieve(
-            f"https://lamin-site-assets.s3.amazonaws.com/docs/{filename}", filename
-        )
-        shutil.unpack_archive(filename, "lnschema_core_docs")
-        Path("lnschema_core_docs/guide/0-core-schema.ipynb").rename(
-            "docs/guide/lnschema-core.ipynb"
-        )
-        Path("lnschema_core_docs/guide/1-data-validation.ipynb").rename(
-            "docs/guide/data-validation.ipynb"
-        )
-
-        filename = "lnschema_bionty_docs.zip"
-        urlretrieve(
-            f"https://lamin-site-assets.s3.amazonaws.com/docs/{filename}", filename
-        )
-        shutil.unpack_archive(filename, "lnschema_bionty_docs")
-        Path("lnschema_bionty_docs/guide/bionty-orms.ipynb").rename(
-            "docs/guide/lnschema-bionty.ipynb"
-        )
-        t_end = perf_counter()
-        print(f"Done pulling artifacts: {t_end - t_start:.3f}s")
-        t_start = t_end
-
-        build_docs(session)
-        login_testuser1(session)
-        upload_docs_artifact()
-        move_built_docs_to_docs_slash_project_slug()
-
-        t_end = perf_counter()
-        print(f"Done building docs and uploading artifacts: {t_end - t_start:.3f}s")
+    t_end = perf_counter()
+    print(f"Done building docs and uploading artifacts: {t_end - t_start:.3f}s")

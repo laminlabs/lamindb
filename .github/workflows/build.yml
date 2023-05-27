@@ -15,8 +15,11 @@ jobs:
       fail-fast: false
       matrix:
         python-version: ["3.9"]
-        package:
-          - "lamindb"
+        group:
+          - "unit"
+          - "guide"
+          - "biology"
+          - "faq"
           - "lndb-storage"
     timeout-minutes: 25
 
@@ -78,12 +81,44 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: eu-central-1
       - name: Lint
-        if: ${{ matrix.python-version == '3.9' && matrix.package == 'lamindb' }}
+        if: ${{ matrix.python-version == '3.9' && matrix.group == 'lamindb-unit' }}
         run: |
           nox -s lint
       - name: Build
         run: |
-          nox -s "build(package='${{ matrix.package }}')"
+          nox -s "build(package='${{ matrix.group }}')"
+      - name: Upload coverage
+        uses: actions/upload-artifact@v2
+        with:
+          name: coverage${{ matrix.group }}
+          path: .coverage
+      - name: Upload docs
+        if: ${{ matrix.group == 'guide' || matrix.group == 'biology' || matrix.group == 'faq' }}
+        uses: actions/upload-artifact@v2
+        with:
+          name: docs-${{ matrix.group }}
+          path: ./docs/guide/${{ matrix.group }}
+
+  coverage-docs:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions/setup-python@v2
+        with:
+          python-version: 3.9
+      - name: Install deps
+        run: |
+          python -m pip install --upgrade pip
+          pip install coverage
+          pip install lndocs
+          pip install .
+      - uses: actions/download-artifact@v2
+      - name: Run coverage
+        run: |
+          coverage combine coverage*/.coverage*
+          coverage report --fail-under=100
+          coverage xml
       - name: Codecov
         if: matrix.python-version == '3.9'
         uses: codecov/codecov-action@v2

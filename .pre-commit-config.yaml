@@ -56,6 +56,10 @@ repos:
     rev: v0.940
     hooks:
       - id: mypy
+        exclude: |
+          (?x)(
+              test_notebooks.py
+          )
   - repo: https://github.com/pycqa/pydocstyle
     rev: 6.2.3
     hooks:
