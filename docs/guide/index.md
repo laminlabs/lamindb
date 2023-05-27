@@ -22,8 +22,6 @@ lamin init --storage ./mydata --schema bionty,lamin1
 
 :::
 
-See {doc}`/guide/setup` for more.
-
 ## Quickstart
 
 ### Track files & metadata with sources
