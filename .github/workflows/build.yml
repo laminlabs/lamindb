@@ -15,8 +15,11 @@ jobs:
       fail-fast: false
       matrix:
         python-version: ["3.9"]
-        package:
-          - "lamindb"
+        group:
+          - "unit"
+          - "guide"
+          - "biology"
+          - "faq"
           - "lndb-storage"
     timeout-minutes: 25
 
@@ -26,13 +29,6 @@ jobs:
         with:
           submodules: recursive
           fetch-depth: 0
-      - name: Checkout lndocs
-        uses: actions/checkout@v3
-        with:
-          repository: laminlabs/lndocs
-          ssh-key: ${{ secrets.READ_LNDOCS }}
-          path: lndocs
-          ref: main
       - name: Setup Python
         uses: actions/setup-python@v4
         with:
@@ -77,20 +73,58 @@ jobs:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: eu-central-1
-      - name: Lint
-        if: ${{ matrix.python-version == '3.9' && matrix.package == 'lamindb' }}
-        run: |
-          nox -s lint
-      - name: Build
-        run: |
-          nox -s "build(package='${{ matrix.package }}')"
-      - name: Codecov
-        if: matrix.python-version == '3.9'
-        uses: codecov/codecov-action@v2
+      - run: nox -s lint
+        if: ${{ matrix.python-version == '3.9' && matrix.group == 'unit' }}
+      - run: nox -s install
+      - run: nox -s "build(group='${{ matrix.group }}')"
+      - name: Upload coverage
+        uses: actions/upload-artifact@v2
         with:
-          token: ${{ secrets.CODECOV_TOKEN }}
+          name: coverage${{ matrix.group }}
+          path: .coverage
+      - name: Upload docs
+        if: ${{ matrix.group == 'guide' || matrix.group == 'biology' || matrix.group == 'faq' }}
+        uses: actions/upload-artifact@v2
+        with:
+          name: docs-${{ matrix.group }}
+          path: ./docs/${{ matrix.group }}
+
+  coverage-docs:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Checkout lndocs
+        uses: actions/checkout@v3
+        with:
+          repository: laminlabs/lndocs
+          ssh-key: ${{ secrets.READ_LNDOCS }}
+          path: lndocs
+          ref: main
+      - uses: actions/setup-python@v4
+        with:
+          python-version: 3.9
+          cache: "pip"
+          cache-dependency-path: ".github/workflows/build.yml" # See dependencies below
+      - name: Install deps
+        run: |
+          python -m pip install --upgrade pip
+          pip install coverage
+          pip install .
+      - uses: actions/download-artifact@v2
+      - name: Run coverage
+        run: |
+          coverage combine coverage*/.coverage*
+          coverage report --fail-under=0
+          coverage xml
+      # - name: Codecov
+      #   uses: codecov/codecov-action@v2
+      #   with:
+      #     token: ${{ secrets.CODECOV_TOKEN }}
+      - name: Docs
+        run: |
+          nox -s docs
       - name: Deploy docs
-        if: ${{ matrix.python-version == '3.9' && matrix.package == 'lamindb' }}
         id: netlify
         uses: nwtgck/actions-netlify@v1.2
         with:
@@ -102,7 +136,6 @@ jobs:
           NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
           NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID }}
       - name: Codecov
-        if: matrix.python-version == '3.9'
         uses: codecov/codecov-action@v2
         with:
           token: ${{ secrets.CODECOV_TOKEN }}

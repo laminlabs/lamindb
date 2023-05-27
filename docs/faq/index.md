@@ -10,6 +10,5 @@ ingest-same-file-twice
 track-runin
 select
 ingest-acid
-lazy-loading
 setup
 ```
