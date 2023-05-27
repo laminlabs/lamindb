@@ -29,13 +29,6 @@ jobs:
         with:
           submodules: recursive
           fetch-depth: 0
-      - name: Checkout lndocs
-        uses: actions/checkout@v3
-        with:
-          repository: laminlabs/lndocs
-          ssh-key: ${{ secrets.READ_LNDOCS }}
-          path: lndocs
-          ref: main
       - name: Setup Python
         uses: actions/setup-python@v4
         with:
@@ -104,6 +97,13 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
+      - name: Checkout lndocs
+        uses: actions/checkout@v3
+        with:
+          repository: laminlabs/lndocs
+          ssh-key: ${{ secrets.READ_LNDOCS }}
+          path: lndocs
+          ref: main
       - uses: actions/setup-python@v4
         with:
           python-version: 3.9

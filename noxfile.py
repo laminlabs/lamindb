@@ -102,9 +102,9 @@ def docs(session):
 
     prefix = "." if Path("./lndocs").exists() else ".."
     run(f"pip install {prefix}/lndocs", shell=True)
+    login_testuser1(session)
     run("lamin init --storage ./docsbuild", shell=True)
     run("lndocs", shell=True)
-    login_testuser1(session)
     upload_docs_artifact()
     move_built_docs_to_docs_slash_project_slug()
 
