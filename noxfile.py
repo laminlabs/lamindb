@@ -38,10 +38,10 @@ def build(session, group):
         "GITHUB_EVENT_NAME" in os.environ and os.environ["GITHUB_EVENT_NAME"] != "push"
     ):  # noqa
         # run with submodule install on a PR
-        run("pip install ./sub/lndb-setup", shell=True)
-        run("pip install ./sub/lnschema-core", shell=True)
-        run("pip install ./sub/lnbase-biolab", shell=True)
-        run("pip install ./sub/lndb-storage[dev,test]", shell=True)
+        run("pip install --no-deps ./sub/lndb-setup", shell=True)
+        run("pip install --no-deps ./sub/lnschema-core", shell=True)
+        run("pip install --no-deps ./sub/lnbase-biolab", shell=True)
+        run("pip install --no-deps ./sub/lndb-storage[dev,test]", shell=True)
     run("pip install .[dev,test]", shell=True)
     t_end = perf_counter()
     print(f"Done installing: {t_end - t_start:.3f}s")
@@ -58,11 +58,11 @@ def build(session, group):
         if group == "unit":
             run(f"pytest -s {coverage_args} ./tests", shell=True)
         elif group == "guide":
-            run(f"pytest -s {coverage_args} ./tests/guide", shell=True)
+            run(f"pytest -s {coverage_args} ./docs/guide", shell=True)
         elif group == "biology":
-            run(f"pytest -s {coverage_args} ./tests/biology", shell=True)
+            run(f"pytest -s {coverage_args} ./docs/biology", shell=True)
         elif group == "faq":
-            run(f"pytest -s {coverage_args} ./tests/faq", shell=True)
+            run(f"pytest -s {coverage_args} ./docs/faq", shell=True)
     else:
         # navigate into submodule so that lamin-project.yml is correctly read
         os.chdir(f"./sub/{group}")
