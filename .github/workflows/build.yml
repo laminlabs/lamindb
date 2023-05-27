@@ -19,8 +19,8 @@ jobs:
           - "unit"
           - "guide"
           - "biology"
-          # - "faq"
-          # - "lndb-storage"
+          - "faq"
+          - "lndb-storage"
     timeout-minutes: 25
 
     steps:
