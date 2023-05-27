@@ -26,50 +26,41 @@ def lint(session: nox.Session) -> None:
 # directory in every github action runner
 # hence, we're now running each session through a subprocess
 # until we find a better solution
+
+# this also allows to break out an installation section
+
+
 @nox.session
-@nox.parametrize(
-    "group",
-    ["unit", "guide", "biology", "faq", "lndb-storage"],
-)
-def build(session, group):
-    t_start = perf_counter()
+def install(session):
     # run with pypi install on main
-    if (
-        "GITHUB_EVENT_NAME" in os.environ and os.environ["GITHUB_EVENT_NAME"] != "push"
-    ):  # noqa
+    if "GITHUB_EVENT_NAME" in os.environ and os.environ["GITHUB_EVENT_NAME"] != "push":
         # run with submodule install on a PR
         run("pip install --no-deps ./sub/lndb-setup", shell=True)
         run("pip install --no-deps ./sub/lnschema-core", shell=True)
         run("pip install --no-deps ./sub/lnbase-biolab", shell=True)
         run("pip install --no-deps ./sub/lndb-storage[dev,test]", shell=True)
     run("pip install .[dev,test]", shell=True)
-    t_end = perf_counter()
-    print(f"Done installing: {t_end - t_start:.3f}s")
-    t_start = t_end
 
+
+@nox.session
+@nox.parametrize(
+    "group",
+    ["unit", "guide", "biology", "faq", "lndb-storage"],
+)
+def build(session, group):
     login_testuser2(session)
     login_testuser1(session)
-    t_end = perf_counter()
-    print(f"Done logging in: {t_end - t_start:.3f}s")
-    t_start = t_end
-
-    if group != "lndb-storage":
-        coverage_args = "--cov=lamindb --cov-append --cov-report=term-missing"  # noqa
-        if group == "unit":
-            run(f"pytest -s {coverage_args} ./tests", shell=True)
-        elif group == "guide":
-            run(f"pytest -s {coverage_args} ./docs/guide", shell=True)
-        elif group == "biology":
-            run(f"pytest -s {coverage_args} ./docs/biology", shell=True)
-        elif group == "faq":
-            run(f"pytest -s {coverage_args} ./docs/faq", shell=True)
-    else:
-        # navigate into submodule so that lamin-project.yml is correctly read
-        os.chdir(f"./sub/{group}")
-        run("pytest -s ./tests", shell=True)
-
-    t_end = perf_counter()
-    print(f"Done running tests: {t_end - t_start:.3f}s")
+    coverage_args = "--cov=lamindb --cov-append --cov-report=term-missing"  # noqa
+    if group == "unit":
+        run(f"pytest -s {coverage_args} ./tests", shell=True)
+    elif group == "guide":
+        run(f"pytest -s {coverage_args} ./docs/guide", shell=True)
+    elif group == "biology":
+        run(f"pytest -s {coverage_args} ./docs/biology", shell=True)
+    elif group == "faq":
+        run(f"pytest -s {coverage_args} ./docs/faq", shell=True)
+    elif group == "lndb-storage":
+        run(f"pytest -s {coverage_args} ./tests", shell=True, cwd=f"./sub/{group}")
 
 
 @nox.session

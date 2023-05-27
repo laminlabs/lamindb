@@ -73,13 +73,10 @@ jobs:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: eu-central-1
-      - name: Lint
+      - run: nox -s lint
         if: ${{ matrix.python-version == '3.9' && matrix.group == 'unit' }}
-        run: |
-          nox -s lint
-      - name: Build
-        run: |
-          nox -s "build(group='${{ matrix.group }}')"
+      - run: nox -s install
+      - run: nox -s "build(group='${{ matrix.group }}')"
       - name: Upload coverage
         uses: actions/upload-artifact@v2
         with:
@@ -120,10 +117,10 @@ jobs:
           coverage combine coverage*/.coverage*
           coverage report --fail-under=0
           coverage xml
-      - name: Codecov
-        uses: codecov/codecov-action@v2
-        with:
-          token: ${{ secrets.CODECOV_TOKEN }}
+      # - name: Codecov
+      #   uses: codecov/codecov-action@v2
+      #   with:
+      #     token: ${{ secrets.CODECOV_TOKEN }}
       - name: Docs
         run: |
           nox -s docs
