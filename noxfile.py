@@ -52,7 +52,7 @@ def build(session, group):
             "--cov=lamindb --cov-append --cov-report=term-missing".split()
         )  # noqa
         if group == "unit":
-            session.run("pytest", "-s", *coverage_args)
+            session.run("pytest", "-s", *coverage_args, "./tests")
         elif group == "guide":
             session.run("pytest", "-s", *coverage_args, "./docs/guide")
         elif group == "biology":
