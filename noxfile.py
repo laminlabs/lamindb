@@ -1,6 +1,7 @@
 import os  # noqa
 import shutil
 from pathlib import Path
+from subprocess import run
 from time import perf_counter
 from urllib.request import urlretrieve
 
@@ -20,6 +21,11 @@ def lint(session: nox.Session) -> None:
     run_pre_commit(session)
 
 
+# we'd like to aggregate coverage information across sessions
+# and for this the code needs to be located in the same
+# directory in every github action runner
+# hence, we're now running each session through a subprocess
+# until we find a better solution
 @nox.session
 @nox.parametrize(
     "group",
@@ -32,11 +38,11 @@ def build(session, group):
         "GITHUB_EVENT_NAME" in os.environ and os.environ["GITHUB_EVENT_NAME"] != "push"
     ):  # noqa
         # run with submodule install on a PR
-        session.install("./sub/lndb-setup")
-        session.install("./sub/lnschema-core")
-        session.install("./sub/lnbase-biolab")
-        session.install("./sub/lndb-storage[dev,test]")
-    session.install(".[dev,test]")
+        run("pip install ./sub/lndb-setup", shell=True)
+        run("pip install ./sub/lnschema-core", shell=True)
+        run("pip install ./sub/lnbase-biolab", shell=True)
+        run("pip install ./sub/lndb-storage[dev,test]", shell=True)
+    run("pip install .[dev,test]", shell=True)
     t_end = perf_counter()
     print(f"Done installing: {t_end - t_start:.3f}s")
     t_start = t_end
@@ -48,23 +54,19 @@ def build(session, group):
     t_start = t_end
 
     if group != "lndb-storage":
-        coverage_args = (
-            "--cov=lamindb --cov-append --cov-report=term-missing".split()
-        )  # noqa
+        coverage_args = "--cov=lamindb --cov-append --cov-report=term-missing"  # noqa
         if group == "unit":
-            session.run("pytest", "-s", *coverage_args, "./tests")
+            run(f"pytest -s {coverage_args} ./tests", shell=True)
         elif group == "guide":
-            session.run("pytest", "-s", *coverage_args, "./docs/guide")
+            run(f"pytest -s {coverage_args} ./tests/guide", shell=True)
         elif group == "biology":
-            session.run("pytest", "-s", *coverage_args, "./docs/biology")
+            run(f"pytest -s {coverage_args} ./tests/biology", shell=True)
         elif group == "faq":
-            session.run("pytest", "-s", *coverage_args, "./docs/faq")
+            run(f"pytest -s {coverage_args} ./tests/faq", shell=True)
     else:
         # navigate into submodule so that lamin-project.yml is correctly read
         os.chdir(f"./sub/{group}")
-        session.run(
-            "pytest", "-s", "./tests", "--ignore", "./tests/test_migrations.py"
-        )  # noqa
+        run("pytest -s ./tests", shell=True)
 
     t_end = perf_counter()
     print(f"Done running tests: {t_end - t_start:.3f}s")
@@ -98,7 +100,10 @@ def docs(session):
     print(f"Done pulling artifacts: {t_end - t_start:.3f}s")
     t_start = t_end
 
-    build_docs(session)
+    prefix = "." if Path("./lndocs").exists() else ".."
+    run(f"pip install {prefix}/lndocs", shell=True)
+    run("lamin init --storage docsbuild")
+    run("lndocs", shell=True)
     login_testuser1(session)
     upload_docs_artifact()
     move_built_docs_to_docs_slash_project_slug()
