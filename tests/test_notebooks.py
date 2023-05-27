@@ -10,7 +10,7 @@ def test_notebooks():
     # assuming this is in the tests folder
     docsdir = Path(__file__).parents[1] / "docs/"
 
-    ln.setup.init(storage="./mydata", schema="bionty,lamin1")
+    ln.setup.init(storage="../docs/guide/mydata", schema="bionty,lamin1")
 
     for subdir in ["guide", "faq"]:
         checkdir = docsdir / subdir
