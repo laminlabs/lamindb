@@ -86,7 +86,7 @@ jobs:
           nox -s lint
       - name: Build
         run: |
-          nox -s "build(package='${{ matrix.group }}')"
+          nox -s "build(group='${{ matrix.group }}')"
       - name: Upload coverage
         uses: actions/upload-artifact@v2
         with:
@@ -120,12 +120,13 @@ jobs:
           coverage report --fail-under=100
           coverage xml
       - name: Codecov
-        if: matrix.python-version == '3.9'
         uses: codecov/codecov-action@v2
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
+      - name: Docs
+        run: |
+          nox -s docs
       - name: Deploy docs
-        if: ${{ matrix.python-version == '3.9' && matrix.package == 'lamindb' }}
         id: netlify
         uses: nwtgck/actions-netlify@v1.2
         with:
@@ -137,7 +138,6 @@ jobs:
           NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
           NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID }}
       - name: Codecov
-        if: matrix.python-version == '3.9'
         uses: codecov/codecov-action@v2
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
