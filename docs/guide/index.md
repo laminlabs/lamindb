@@ -12,7 +12,7 @@ Welcome to the LaminDB guide! 👋
 :end-line: -4
 ```
 
-:::{dropdown} Example code
+:::{dropdown} Example
 
 ```shell
 lamin signup testuser1@lamin.ai
@@ -27,9 +27,8 @@ lamin init --storage ./mydata --schema bionty,lamin1
 ### Track files & metadata with sources
 
 ```python
-transform = ln.Transform(name="My pipeline", type="pipeline")
-ln.track(transform=transform)
-# in a notebook, `ln.track()` parses metadata & creates a `Transform` record
+transform = ln.Transform(name="My pipeline/notebook")
+ln.track(transform)
 
 df = pd.DataFrame({"a": [1, 2], "b": [3, 4]})
 
@@ -39,10 +38,10 @@ ln.add(file)
 
 <br>
 
-Under-the-hood, this created 3 records:
+Under-the-hood, this created 3 linked records:
 
 ```
-Transform(id='OdlFhFWW7qg3', version='0', name='03-memory', type=notebook, title='Track data objects', created_by_id='DzTjkKse', created_at=datetime.datetime(2023, 4, 28, 6, 7, 30))
+Transform(id='OdlFhFWW7qg3', version='0', name='My pipeline/notebook', type=notebook, created_by_id='DzTjkKse', created_at=datetime.datetime(2023, 4, 28, 6, 7, 30))
 Run(id='g1xwllJfFZuh24AWKySc', transform_id='OdlFhFWW7qg3', transform_version='0', created_by_id='DzTjkKse', created_at=datetime.datetime(2023, 4, 28, 6, 7, 30))
 File(id='DY9JINrVH6sMtqEirMpM', name='iris', suffix='.parquet', size=5629, hash='jUTdERuqlGv_GyqFfIEb2Q', run_id='g1xwllJfFZuh24AWKySc', transform_id='OdlFhFWW7qg3', transform_version='0', storage_id='GLWpJhvg', created_at=datetime.datetime(2023, 4, 28, 6, 7, 32), created_by_id='DzTjkKse')
 ```
