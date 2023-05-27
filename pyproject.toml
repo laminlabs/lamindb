@@ -37,14 +37,14 @@ dev = [
     "laminci>=0.2.5",
 ]
 bionty = [
-    "lnschema_bionty==0.18a2",
+    "lnschema_bionty==0.18a3",
 ]
 biolab = [
     "lnbase_biolab==0.15.2",
 ]
 lamin1 = [
     "lnbase_biolab==0.15.2",  # need to duplicate right now, absorb in lamin1
-    "lnschema_lamin1==0.17a1",  # let's rather not pin here
+    "lnschema_lamin1==0.17a2",
 ]
 test = [
     # Lamin pinned packages
