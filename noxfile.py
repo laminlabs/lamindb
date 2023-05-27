@@ -2,7 +2,6 @@ import os  # noqa
 import shutil
 from pathlib import Path
 from subprocess import run
-from time import perf_counter
 from urllib.request import urlretrieve
 
 import nox
@@ -38,7 +37,7 @@ def install(session):
         run("pip install --no-deps ./sub/lndb-setup", shell=True)
         run("pip install --no-deps ./sub/lnschema-core", shell=True)
         run("pip install --no-deps ./sub/lnbase-biolab", shell=True)
-        run("pip install --no-deps ./sub/lndb-storage[dev,test]", shell=True)
+        run("pip install --no-deps ./sub/lndb-storage", shell=True)
     run("pip install .[dev,test]", shell=True)
 
 
@@ -65,7 +64,12 @@ def build(session, group):
 
 @nox.session
 def docs(session):
-    t_start = perf_counter()
+    # move artifacts into right place
+    for group in ["guide", "biology", "faq"]:
+        if Path(f"./docs-{group}").exists():
+            shutil.rmtree(f"./docs/{group}")
+            Path(f"./docs-{group}").rename(f"./docs/{group}")
+
     filename = "lndb_storage_docs.zip"
     urlretrieve(f"https://lamin-site-assets.s3.amazonaws.com/docs/{filename}", filename)
     shutil.unpack_archive(filename, "lndb_storage_docs")
@@ -87,9 +91,6 @@ def docs(session):
     Path("lnschema_bionty_docs/guide/bionty-orms.ipynb").rename(
         "docs/guide/lnschema-bionty.ipynb"
     )
-    t_end = perf_counter()
-    print(f"Done pulling artifacts: {t_end - t_start:.3f}s")
-    t_start = t_end
 
     prefix = "." if Path("./lndocs").exists() else ".."
     run(f"pip install {prefix}/lndocs", shell=True)
@@ -98,6 +99,3 @@ def docs(session):
     run("lndocs", shell=True)
     upload_docs_artifact()
     move_built_docs_to_docs_slash_project_slug()
-
-    t_end = perf_counter()
-    print(f"Done building docs and uploading artifacts: {t_end - t_start:.3f}s")
