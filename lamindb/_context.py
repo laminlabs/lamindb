@@ -124,7 +124,7 @@ class context:
         *,
         new_run: Optional[bool] = None,
         notebook_path: Optional[str] = None,
-        pypackage: Union[str, List[str], None] = None,
+        pypackage: Optional[Union[str, List[str]]] = None,
         editor: Optional[str] = None,
     ) -> None:
         """Track `Transform` & `Run` records for a notebook or pipeline.
@@ -139,11 +139,15 @@ class context:
         metadata to disk.
 
         Args:
-            transform: Can be "pipeline" or "notebook".
-            new_run: If True, loads latest run of transform.
-            pypackage: One or more python packages to track.
-            notebook_path: Filepath of notebook. Only needed if inference fails.
-            editor: Editor environment. Only needed if automatic inference fails.
+            transform: `Optional[Transform] = None` - Can be of type
+                "pipeline" or "notebook".
+            new_run: `Optional[bool] = None` - If False, loads latest run of transform
+                (default notebook), if True, creates new run (default pipeline).
+            notebook_path: `Optional[str] = None` - Filepath of notebook.
+                Only needed if inference fails.
+            pypackage: `Optional[Union[str, List[str]]] = None` - One or more
+                python packages to track.
+            editor: `Optional[str] = None` - Editor environment.
                 Pass `'lab'` for jupyter lab and `'notebook'` for jupyter notebook,
                 this can help to identify the correct mechanism for interactivity
                 when automatic inference fails.
@@ -286,10 +290,15 @@ class context:
             if _env in ("lab", "notebook"):
                 cls._notebook_meta = metadata  # type: ignore
             else:
-                nb = nbproject.dev.read_notebook(_filepath)
-                nb.metadata["nbproject"] = metadata
-                nbproject.dev.write_notebook(nb, _filepath)
-                raise SystemExit(msg_init_complete)
+                # nb = nbproject.dev.read_notebook(_filepath)
+                # nb.metadata["nbproject"] = metadata
+                # nbproject.dev.write_notebook(nb, _filepath)
+                # raise SystemExit(msg_init_complete)
+                # the following is safer
+                raise RuntimeError(
+                    "Please attach an ID to the notebook by running the CLI: lamin"
+                    " track my-notebook.ipynb"
+                )
 
         if _env in ("lab", "notebook"):
             # save the notebook in case that title was updated

@@ -25,3 +25,20 @@ def pytest_sessionstart(session: pytest.Session):
         lndb.delete("lamindb-ci")
     except Exception:
         logger.info("Could not delete testuser1/lamindb-ci")
+
+
+def pytest_sessionfinish(session: pytest.Session):
+    import session_info
+
+    session_info.show(
+        dependencies=True,
+        html=False,
+        excludes=[
+            "builtins",
+            "stdlib_list",
+            "importlib_metadata",
+            # Special module present if test coverage being calculated
+            # https://gitlab.com/joelostblom/session_info/-/issues/10
+            "$coverage",
+        ],
+    )

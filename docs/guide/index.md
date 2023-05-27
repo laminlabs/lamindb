@@ -22,8 +22,6 @@ lamin init --storage ./mydata --schema bionty,lamin1
 
 :::
 
-See {doc}`/guide/setup` for more.
-
 ## Quickstart
 
 ### Track files & metadata with sources
@@ -80,7 +78,6 @@ file = ln.select(ln.File, run_id=run.id).all()
 :hidden:
 :caption: Basics
 
-setup
 track
 select
 stream

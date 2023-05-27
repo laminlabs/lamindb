@@ -3,6 +3,12 @@
 <!-- prettier-ignore -->
 Name | PR | Developer | Date | Version
 --- | --- | --- | --- | ---
+📝 Remove setup notebook | [686](https://github.com/laminlabs/lamindb/pull/686) | [falexwolf](https://github.com/falexwolf) | 2023-05-27 |
+🏗️ Remove SQL-level schema modules | [685](https://github.com/laminlabs/lamindb/pull/685) | [falexwolf](https://github.com/falexwolf) | 2023-05-26 | 0.41a3
+⬆️ Upgrade lnschema-bionty to 0.17.1 | [684](https://github.com/laminlabs/lamindb/pull/684) | [sunnyosun](https://github.com/sunnyosun) | 2023-05-25 | 0.40.7
+⬇️ Downgrade lnschema-bionty to 0.16.5 | [683](https://github.com/laminlabs/lamindb/pull/683) | [sunnyosun](https://github.com/sunnyosun) | 2023-05-25 | 0.40.6
+♻️ Refactor types | [681](https://github.com/laminlabs/lamindb/pull/681) | [falexwolf](https://github.com/falexwolf) | 2023-05-23 | 0.40.5
+♻️ Refactor `BaseORM` | [679](https://github.com/laminlabs/lamindb/pull/679) | [falexwolf](https://github.com/falexwolf) | 2023-05-17 |
 🚸 Pre-join some cheap relationships | [678](https://github.com/laminlabs/lamindb/pull/678) | [falexwolf](https://github.com/falexwolf) | 2023-05-16 |
 Improve wording | [677](https://github.com/laminlabs/lamindb/pull/677) | [Zethson](https://github.com/Zethson) | 2023-05-16 |
 ✨ Added Treatment table | [675](https://github.com/laminlabs/lamindb/pull/675) | [sunnyosun](https://github.com/sunnyosun) | 2023-05-15 | 0.40.3

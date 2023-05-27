@@ -9,7 +9,7 @@ from lndb import settings as setup_settings
 from lndb_storage import delete_storage, store_object, write_adata_zarr
 from lndb_storage._file import print_hook
 from lnschema_core import File
-from lnschema_core.dev._storage import storage_key_from_file
+from lnschema_core._core import storage_key_from_file
 from pydantic.fields import ModelPrivateAttr
 
 from .._docs import doc_args

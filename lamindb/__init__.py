@@ -88,7 +88,9 @@ Developer API:
    dev
 """
 
-__version__ = "0.40.3"  # denote a release candidate for 0.1.0 with 0.1rc1
+__version__ = "0.41a3"  # denote a release candidate for 0.1.0 with 0.1rc1
+
+import lndb as _lndb
 
 # prints warning of python versions
 from lamin_logger import py_version_warning as _py_version_warning
@@ -112,16 +114,19 @@ if _INSTANCE_SETUP:
         Storage,
         Transform,
         User,
-        link,
-        types,
     )
 
     from . import _check_versions  # executes checks during import
     from . import dev  # noqa
     from . import schema  # noqa
+    from . import link, types  # noqa
     from ._context import context  # noqa
 
     track = context._track  # noqa
+    from lamin_logger import logger as _logger
+
+    # this needs to follow on the import right now
+    _logger.success(f"Loaded instance: {_lndb.settings.instance.identifier}")
     from lndb_storage import subset
 
     # deprecated
