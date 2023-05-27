@@ -6,7 +6,7 @@ from anndata import __version__ as anndata_v
 from lndb import settings as setup_settings
 from lndb_storage import load_to_memory
 from lndb_storage.object import _subset_anndata_file
-from lndb_storage.object._subset_anndata import CloudAnnData
+from lndb_storage.object._anndata_accessor import AnnDataAccessor
 from lnschema_core import File
 from lnschema_core._core import filepath_from_file_or_folder
 from lnschema_core.link import RunIn
@@ -63,11 +63,11 @@ instance, `.fastq`, `.vcf`, or files describing QC of datasets.
 """
 
 
-def backed(self: File) -> CloudAnnData:
+def backed(self: File) -> AnnDataAccessor:
     """Return a cloud-backed AnnData object for streaming."""
-    if self.suffix not in (".h5ad", ".zarr"):
+    if self.suffix not in (".h5ad", ".zrad", ".zarr"):
         raise ValueError("File should have an AnnData object as the underlying data")
-    return CloudAnnData(self)
+    return AnnDataAccessor(self)
 
 
 def subsetter(self: File) -> LazyDataFrame:
@@ -175,7 +175,7 @@ def stage(file: File, is_run_input: Optional[bool] = None) -> Path:
     Returns a path to a locally cached on-disk object (say, a
     `.jpg` file).
     """
-    if file.suffix == ".zarr":
+    if file.suffix in (".zrad", ".zarr"):
         raise RuntimeError("zarr object can't be staged, please use load() or stream()")
     _track_run_input(file, is_run_input)
     return setup_settings.instance.storage.cloud_to_local(
