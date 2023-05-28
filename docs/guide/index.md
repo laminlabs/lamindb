@@ -77,8 +77,8 @@ file = ln.select(ln.File, run_id=run.id).all()
 :hidden:
 :caption: Basics
 
-track
-select
+files-folders
+provenance
 stream
 schema
 ```
