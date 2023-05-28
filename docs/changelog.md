@@ -3,6 +3,7 @@
 <!-- prettier-ignore -->
 Name | PR | Developer | Date | Version
 --- | --- | --- | --- | ---
+➖ Do not install storage extras by default | [691](https://github.com/laminlabs/lamindb/pull/691) | [Koncopd](https://github.com/Koncopd) | 2023-05-28 |
 👷 Bring back nox session | [690](https://github.com/laminlabs/lamindb/pull/690) | [falexwolf](https://github.com/falexwolf) | 2023-05-28 |
 :memo: Refactor guide notebooks | [689](https://github.com/laminlabs/lamindb/pull/689) | [falexwolf](https://github.com/falexwolf) | 2023-05-28 |
 ✨ Add `DataFrame` support for `ln.parse` | [688](https://github.com/laminlabs/lamindb/pull/688) | [sunnyosun](https://github.com/sunnyosun) | 2023-05-28 |
