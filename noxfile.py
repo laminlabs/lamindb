@@ -14,7 +14,7 @@ from laminci.nox import build_docs, login_testuser1, run_pre_commit, run_pytest 
 
 @nox.session
 def lint(session: nox.Session) -> None:
-    session.run("pip install pre-commit")
+    session.run("pip install pre-commit".split())
     session.run("pre-commit", "install")
     session.run("pre-commit", "run", "--all-files")
 
