@@ -23,10 +23,6 @@ NO_NAME_ERROR = """\
 Pass a name or key in `ln.File(...)` when ingesting in-memory data.
 """
 
-NO_SOURCE_HINT = """\
-Consider linking a run using the `run` argument, e.g., by calling ln.track().
-"""
-
 
 def serialize(
     data: Union[Path, UPath, str, pd.DataFrame, AnnData],
@@ -117,8 +113,8 @@ def get_run(run: Optional[Run]) -> Optional[Run]:
 
         run = context.run
         if run is None:
-            logger.warning("No run & transform get linked to this file.")
-            logger.hint(NO_SOURCE_HINT)
+            logger.info("No run & transform get linked to this file")
+            logger.hint("Consider using the `run` argument or ln.track()")
     # the following ensures that queried objects (within __init__)
     # behave like queried objects, only example right now: Run
     if hasattr(run, "_ln_identity_key") and run._ln_identity_key is not None:  # type: ignore  # noqa

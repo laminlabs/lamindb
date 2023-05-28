@@ -30,11 +30,12 @@ def view(n: int = 10, schema: Optional[str] = None):
             for i in schema_module.__dict__.values()
             if i.__class__.__name__ == "SQLModelMetaclass" and hasattr(i, "__table__")
         ]
-        section = f"* module: {colors.green(colors.bold(schema_name))} *"
-        section_no_color = f"* module: {schema_name} *"
-        print("*" * len(section_no_color))
-        print(section)
-        print("*" * len(section_no_color))
+        if len(schema_names) > 1:
+            section = f"* module: {colors.green(colors.bold(schema_name))} *"
+            section_no_color = f"* module: {schema_name} *"
+            print("*" * len(section_no_color))
+            print(section)
+            print("*" * len(section_no_color))
         for entity in tables:
             df = select(entity).df()
             if df.shape[0] > 0:
