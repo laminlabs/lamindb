@@ -4,20 +4,8 @@ from pathlib import Path
 from urllib.request import urlretrieve
 
 import nox
-from laminci import (  # noqa
-    move_built_docs_to_docs_slash_project_slug,
-    upload_docs_artifact,
-)
-from laminci.nox import login_testuser2  # noqa
-from laminci.nox import build_docs, login_testuser1, run_pre_commit, run_pytest  # noqa
-
-
-@nox.session
-def lint(session: nox.Session) -> None:
-    session.run(*"pip install pre-commit".split())
-    session.run("pre-commit", "install")
-    session.run("pre-commit", "run", "--all-files")
-
+from laminci import move_built_docs_to_docs_slash_project_slug, upload_docs_artifact
+from laminci.nox import login_testuser1, login_testuser2
 
 # we'd like to aggregate coverage information across sessions
 # and for this the code needs to be located in the same
@@ -27,15 +15,37 @@ nox.options.default_venv_backend = "none"
 
 
 @nox.session
-def install(session):
+def lint(session: nox.Session) -> None:
+    session.run(*"pip install pre-commit".split())
+    session.run("pre-commit", "install")
+    session.run("pre-commit", "run", "--all-files")
+
+
+@nox.session
+@nox.parametrize(
+    "group",
+    ["unit", "guide", "biology", "faq", "lndb-storage"],
+)
+def install(session, group):
     # run with pypi install on main
     if "GITHUB_EVENT_NAME" in os.environ and os.environ["GITHUB_EVENT_NAME"] != "push":
         # run with submodule install on a PR
-        session.run(*"pip install --no-deps ./sub/lndb-setup".split())
-        session.run(*"pip install --no-deps ./sub/lnschema-core".split())
-        session.run(*"pip install --no-deps ./sub/lnbase-biolab".split())
-        session.run(*"pip install --no-deps ./sub/lndb-storage".split())
-    session.run(*"pip install .[dev,test]".split())
+        submodules = " ".join(
+            [
+                "./sub/lndb-setup",
+                "./sub/lnschema-core",
+                "./sub/lndb-storage",
+            ]
+        )
+        session.run(*f"pip install --no-deps {submodules}".split())
+    extras = ""
+    if group == "unit":
+        extras += ",bionty"
+    elif group == "lndb-storage":
+        extras += ",aws"
+    elif group == "biology":
+        extras += ",lamin1"
+    session.run(*f"pip install .[test{extras}]".split())
 
 
 @nox.session

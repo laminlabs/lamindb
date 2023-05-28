@@ -23,7 +23,8 @@ dependencies = [
     # Lamin GREATEREQ packages
     "nbproject>=0.8.6",
     "erdiagram>=0.1.1",
-    # Others
+    # others
+    "pyarrow",
     "typing_extensions!=4.6.0",
 ]
 
@@ -32,10 +33,10 @@ Home = "https://github.com/laminlabs/lamindb"
 
 [project.optional-dependencies]
 aws = [
-    "lndb_storage[aws]==0.3.2"
+    "lndb_storage[aws]==0.3.2"  # please pin
 ]
 gcp = [
-    "lndb_storage[gcp]==0.3.2"
+    "lndb_storage[gcp]==0.3.2"  # please pin
 ]
 bionty = [
     "lnschema_bionty==0.18a7",
@@ -43,23 +44,20 @@ bionty = [
 biolab = [
     "lnbase_biolab==0.15.2",
 ]
-dev = [
-    "pre-commit",
-    "nox",
-    "laminci>=0.2.5",
+lamin1 = [
+    "lnschema_lamin1==0.17a3",
 ]
 test = [
-    "lnschema_lamin1==0.17a3",
-    "nbproject_test>=0.3.0",
-    # External packages
+    # basic test
+    "pre-commit",
+    "nox",
+    "laminci>=0.3",
     "pytest>=6.0",
     "coverage",
     "pytest-cov",
-    "scikit-learn>=1.1.1",
+    # others
     "psycopg2-binary",
-    "matplotlib<3.7",
-    "session_info",
-    "lndb_storage[aws,gcp]==0.3.2"
+    "nbproject_test>=0.3.0",
 ]
 
 [project.scripts]
