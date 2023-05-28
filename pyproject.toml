@@ -31,24 +31,22 @@ dependencies = [
 Home = "https://github.com/laminlabs/lamindb"
 
 [project.optional-dependencies]
-dev = [
-    "pre-commit",
-    "nox",
-    "laminci>=0.2.5",
-]
-# storage related extras begin
 aws = [
     "lndb_storage[aws]==0.3.2"
 ]
 gcp = [
     "lndb_storage[gcp]==0.3.2"
 ]
-# storage related extras end
 bionty = [
-    "lnschema_bionty==0.18a6",
+    "lnschema_bionty==0.18a7",
 ]
 biolab = [
     "lnbase_biolab==0.15.2",
+]
+dev = [
+    "pre-commit",
+    "nox",
+    "laminci>=0.2.5",
 ]
 test = [
     "lnschema_lamin1==0.17a3",
