@@ -62,7 +62,7 @@ def build(session, group):
             # Path(f"./sub/{group}/.coverage").rename(".")
             # but it errored with
             # OSError: Device or resource busy: 'sub/lndb-storage/.coverage' -> '.'
-            session.run("mv .coverage ../..")
+            session.run(*"mv .coverage ../..".split())
 
 
 @nox.session
