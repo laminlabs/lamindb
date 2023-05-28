@@ -15,7 +15,7 @@ from lamindb._settings import settings
 from lamindb.dev.db._select import select
 from lamindb.dev.hashing import hash_file
 
-from ._parse import ListLike, SQLModelField
+from ._parse import InstrumentedAttribute, ListLike
 
 DIRS = AppDirs("lamindb", "laminlabs")
 
@@ -262,7 +262,7 @@ def get_file_kwargs_from_data(
 # expose to user via ln.Features
 def get_features_from_data(
     data: ListLike,
-    field: SQLModelField,
+    field: InstrumentedAttribute,
     *,
     iterable: ListLike = None,
     format: Optional[str] = None,
