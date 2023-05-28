@@ -300,10 +300,9 @@ def get_features_from_data(
     entity = field.class_.__name__  # type:ignore
     # TODO: using a species kwargs
     if "species" in map_kwargs:
-        species = map_kwargs.pop("species")
+        reference = getattr(bionty, entity).bionty(species=map_kwargs.pop("species"))
     else:
-        species = None
-    reference = getattr(bionty, entity).bionty(species=species)
+        reference = getattr(bionty, entity).bionty()
     map_kwargs["reference_id"] = field.name  # type:ignore
 
     return get_features(
