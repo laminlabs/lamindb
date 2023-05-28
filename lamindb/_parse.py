@@ -18,7 +18,7 @@ def parse(
 ) -> List[SQLModel]:
     """Parse a dataset column based on a SQLModel entity field.
 
-    Guide: :doc:`/guide/ontologies`.
+    Guide: :doc:`/biology/ontologies`.
 
     Args:
         iterable: a `ListLike` of values or a `DataFrame`.
