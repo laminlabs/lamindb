@@ -4,12 +4,8 @@ from pathlib import Path
 from urllib.request import urlretrieve
 
 import nox
-from laminci import (
-    login_testuser1,
-    login_testuser2,
-    move_built_docs_to_docs_slash_project_slug,
-    upload_docs_artifact,
-)
+from laminci import move_built_docs_to_docs_slash_project_slug, upload_docs_artifact
+from laminci.nox import login_testuser1, login_testuser2
 
 # we'd like to aggregate coverage information across sessions
 # and for this the code needs to be located in the same
