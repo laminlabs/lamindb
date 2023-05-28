@@ -27,18 +27,19 @@ def pytest_sessionstart(session: pytest.Session):
         logger.info("Could not delete testuser1/lamindb-ci")
 
 
-def pytest_sessionfinish(session: pytest.Session):
-    import session_info
+# given we moved away from nox virtual envs, we don't need the below anymore
+# def pytest_sessionfinish(session: pytest.Session):
+#     import session_info
 
-    session_info.show(
-        dependencies=True,
-        html=False,
-        excludes=[
-            "builtins",
-            "stdlib_list",
-            "importlib_metadata",
-            # Special module present if test coverage being calculated
-            # https://gitlab.com/joelostblom/session_info/-/issues/10
-            "$coverage",
-        ],
-    )
+#     session_info.show(
+#         dependencies=True,
+#         html=False,
+#         excludes=[
+#             "builtins",
+#             "stdlib_list",
+#             "importlib_metadata",
+#             # Special module present if test coverage being calculated
+#             # https://gitlab.com/joelostblom/session_info/-/issues/10
+#             "$coverage",
+#         ],
+#     )

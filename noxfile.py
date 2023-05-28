@@ -1,7 +1,6 @@
 import os  # noqa
 import shutil
 from pathlib import Path
-from subprocess import run
 from urllib.request import urlretrieve
 
 import nox
@@ -12,21 +11,19 @@ from laminci import (  # noqa
 from laminci.nox import login_testuser2  # noqa
 from laminci.nox import build_docs, login_testuser1, run_pre_commit, run_pytest  # noqa
 
-nox.options.reuse_existing_virtualenvs = True
-
 
 @nox.session
 def lint(session: nox.Session) -> None:
-    run_pre_commit(session)
+    session.run(*"pip install pre-commit".split())
+    session.run("pre-commit", "install")
+    session.run("pre-commit", "run", "--all-files")
 
 
 # we'd like to aggregate coverage information across sessions
 # and for this the code needs to be located in the same
 # directory in every github action runner
-# hence, we're now running each session through a subprocess
-# until we find a better solution
-
 # this also allows to break out an installation section
+nox.options.default_venv_backend = "none"
 
 
 @nox.session
@@ -34,11 +31,11 @@ def install(session):
     # run with pypi install on main
     if "GITHUB_EVENT_NAME" in os.environ and os.environ["GITHUB_EVENT_NAME"] != "push":
         # run with submodule install on a PR
-        run("pip install --no-deps ./sub/lndb-setup", shell=True)
-        run("pip install --no-deps ./sub/lnschema-core", shell=True)
-        run("pip install --no-deps ./sub/lnbase-biolab", shell=True)
-        run("pip install --no-deps ./sub/lndb-storage", shell=True)
-    run("pip install .[dev,test]", shell=True)
+        session.run(*"pip install --no-deps ./sub/lndb-setup".split())
+        session.run(*"pip install --no-deps ./sub/lnschema-core".split())
+        session.run(*"pip install --no-deps ./sub/lnbase-biolab".split())
+        session.run(*"pip install --no-deps ./sub/lndb-storage".split())
+    session.run(*"pip install .[dev,test]".split())
 
 
 @nox.session
@@ -51,15 +48,16 @@ def build(session, group):
     login_testuser1(session)
     coverage_args = "--cov=lamindb --cov-append --cov-report=term-missing"  # noqa
     if group == "unit":
-        run(f"pytest -s {coverage_args} ./tests", shell=True)
+        session.run(*f"pytest -s {coverage_args} ./tests".split())
     elif group == "guide":
-        run(f"pytest -s {coverage_args} ./docs/guide", shell=True)
+        session.run(*f"pytest -s {coverage_args} ./docs/guide".split())
     elif group == "biology":
-        run(f"pytest -s {coverage_args} ./docs/biology", shell=True)
+        session.run(*f"pytest -s {coverage_args} ./docs/biology".split())
     elif group == "faq":
-        run(f"pytest -s {coverage_args} ./docs/faq", shell=True)
+        session.run(*f"pytest -s {coverage_args} ./docs/faq".split())
     elif group == "lndb-storage":
-        run(f"pytest -s {coverage_args} ./tests", shell=True, cwd=f"./sub/{group}")
+        with session.chdir(f"./sub/{group}"):
+            session.run(*f"pytest -s {coverage_args} ./tests".split())
 
 
 @nox.session
@@ -93,9 +91,9 @@ def docs(session):
     )
 
     prefix = "." if Path("./lndocs").exists() else ".."
-    run(f"pip install {prefix}/lndocs", shell=True)
+    session.run(*f"pip install {prefix}/lndocs".split())
     login_testuser1(session)
-    run("lamin init --storage ./docsbuild", shell=True)
-    run("lndocs", shell=True)
+    session.run(*"lamin init --storage ./docsbuild".split())
+    session.run("lndocs")
     upload_docs_artifact()
     move_built_docs_to_docs_slash_project_slug()
