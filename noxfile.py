@@ -39,9 +39,11 @@ def install(session, group):
         )
         session.run(*f"pip install --no-deps {submodules}".split())
     extras = ""
-    if group == "lndb-storage":
+    if group == "unit":
+        extras += ",bionty"
+    elif group == "lndb-storage":
         extras += ",aws"
-    if group == "biology":
+    elif group == "biology":
         extras += ",lamin1"
     session.run(*f"pip install .[test{extras}]".split())
 
