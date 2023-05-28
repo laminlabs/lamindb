@@ -76,33 +76,39 @@ def anndata_mouse_sc_lymph_node() -> ad.AnnData:
 
 
 def anndata_pbmc68k_reduced() -> ad.AnnData:
-    """Modified from scanpy.datasets.pbmc68k_reduced()."""
-    import scanpy as sc
+    """Modified from scanpy.datasets.pbmc68k_reduced().
 
-    pbmc68k = sc.datasets.pbmc68k_reduced()
-    pbmc68k.obs.rename(columns={"bulk_labels": "cell_type"}, inplace=True)
-    pbmc68k.obs["cell_type"] = pbmc68k.obs["cell_type"].cat.rename_categories(
-        {"Dendritic": "Dendritic cells", "CD14+ Monocyte": "CD14+ Monocytes"}
+    This code was run::
+
+        pbmc68k = sc.datasets.pbmc68k_reduced()
+        pbmc68k.obs.rename(columns={"bulk_labels": "cell_type"}, inplace=True)
+        pbmc68k.obs["cell_type"] = pbmc68k.obs["cell_type"].cat.rename_categories(
+            {"Dendritic": "Dendritic cells", "CD14+ Monocyte": "CD14+ Monocytes"}
+        )
+        del pbmc68k.obs["G2M_score"]
+        del pbmc68k.obs["S_score"]
+        del pbmc68k.obs["phase"]
+        del pbmc68k.obs["n_counts"]
+        del pbmc68k.var["dispersions"]
+        del pbmc68k.var["dispersions_norm"]
+        del pbmc68k.var["means"]
+        del pbmc68k.uns["rank_genes_groups"]
+        del pbmc68k.uns["bulk_labels_colors"]
+        del pbmc68k.raw
+        sc.pp.subsample(pbmc68k, fraction=0.1, random_state=123)
+    """
+    filepath, _ = urlretrieve(
+        "https://lamindb-test.s3.amazonaws.com/scrnaseq_pbmc68k_tiny.h5ad"
     )
-    del pbmc68k.obs["G2M_score"]
-    del pbmc68k.obs["S_score"]
-    del pbmc68k.obs["phase"]
-    del pbmc68k.obs["n_counts"]
-    del pbmc68k.var["dispersions"]
-    del pbmc68k.var["dispersions_norm"]
-    del pbmc68k.var["means"]
-    del pbmc68k.uns["rank_genes_groups"]
-    del pbmc68k.uns["bulk_labels_colors"]
-    del pbmc68k.raw
-    sc.pp.subsample(pbmc68k, fraction=0.1, random_state=123)
-    return pbmc68k
+    return ad.read(filepath)
 
 
 def anndata_pbmc3k_processed() -> ad.AnnData:
     """Modified from scanpy.pbmc3k_processed()."""
-    import scanpy as sc
-
-    pbmc3k = sc.datasets.pbmc3k_processed()
+    filepath, _ = urlretrieve(
+        "https://lamindb-test.s3.amazonaws.com/scrnaseq_scanpy_pbmc3k_processed.h5ad"
+    )
+    pbmc3k = ad.read(filepath)
     pbmc3k.obs.rename(columns={"louvain": "cell_type"}, inplace=True)
     return pbmc3k
 
