@@ -34,7 +34,6 @@ def install(session, group):
             [
                 "./sub/lndb-setup",
                 "./sub/lnschema-core",
-                "./sub/lnbase-biolab",
                 "./sub/lndb-storage",
             ]
         )
@@ -42,6 +41,8 @@ def install(session, group):
     extras = ""
     if group == "lndb-storage":
         extras += ",aws"
+    if group == "biology":
+        extras += ",lamin1"
     session.run(*f"pip install .[test{extras}]".split())
 
 

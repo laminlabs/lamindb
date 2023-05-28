@@ -43,6 +43,9 @@ bionty = [
 biolab = [
     "lnbase_biolab==0.15.2",
 ]
+lamin1 = [
+    "lnschema_lamin1==0.17a3",
+]
 test = [
     # basic test
     "pre-commit",
@@ -51,9 +54,7 @@ test = [
     "pytest>=6.0",
     "coverage",
     "pytest-cov",
-    # internal
-    "lnschema_lamin1==0.17a3",
-    # external
+    # others
     "psycopg2-binary",
     "nbproject_test>=0.3.0",
 ]
