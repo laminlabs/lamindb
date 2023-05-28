@@ -19,7 +19,7 @@ dependencies = [
     # !!! They cannot be pinned ANYWHERE else !!!
     "lnschema_core==0.34a2",
     "lndb_storage==0.3.1",
-    "lndb==0.45a3",
+    "lndb==0.45a4",
     # Lamin GREATEREQ packages
     "nbproject>=0.8.6",
     "erdiagram>=0.1.1",
