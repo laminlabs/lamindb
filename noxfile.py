@@ -9,7 +9,7 @@ from laminci import (  # noqa
     upload_docs_artifact,
 )
 from laminci.nox import login_testuser2  # noqa
-from laminci.nox import build_docs, login_testuser1, run_pre_commit, run_pytest  # noqa
+from laminci.nox import build_docs, login_testuser1  # noqa
 
 
 @nox.session
@@ -27,15 +27,23 @@ nox.options.default_venv_backend = "none"
 
 
 @nox.session
+@nox.parametrize(
+    "group",
+    ["unit", "guide", "biology", "faq", "lndb-storage"],
+)
 def install(session):
     # run with pypi install on main
     if "GITHUB_EVENT_NAME" in os.environ and os.environ["GITHUB_EVENT_NAME"] != "push":
         # run with submodule install on a PR
-        session.run(*"pip install --no-deps ./sub/lndb-setup".split())
-        session.run(*"pip install --no-deps ./sub/lnschema-core".split())
-        session.run(*"pip install --no-deps ./sub/lnbase-biolab".split())
-        session.run(*"pip install --no-deps ./sub/lndb-storage".split())
-    session.run(*"pip install .[dev,test]".split())
+        submodules = " ".join(
+            [
+                "./sub/lndb-setup",
+                "./sub/lnschema-core",
+                "./sub/lnbase-biolab, ./sub/lndb-storage",
+            ]
+        )
+        session.run(*f"pip install --no-deps {submodules}".split())
+    session.run(*"pip install .[test]".split())
 
 
 @nox.session

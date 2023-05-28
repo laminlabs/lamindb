@@ -43,23 +43,19 @@ bionty = [
 biolab = [
     "lnbase_biolab==0.15.2",
 ]
-dev = [
+test = [
+    # basic test
     "pre-commit",
     "nox",
-    "laminci>=0.2.5",
-]
-test = [
-    "lnschema_lamin1==0.17a3",
-    "nbproject_test>=0.3.0",
-    # External packages
+    "laminci>=0.3",
     "pytest>=6.0",
     "coverage",
     "pytest-cov",
-    "scikit-learn>=1.1.1",
+    # internal
+    "lnschema_lamin1==0.17a3",
+    "nbproject_test>=0.3.0",
+    # external packages
     "psycopg2-binary",
-    "matplotlib<3.7",
-    "session_info",
-    "lndb_storage[aws,gcp]==0.3.2"
 ]
 
 [project.scripts]

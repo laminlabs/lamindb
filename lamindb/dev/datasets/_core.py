@@ -131,7 +131,7 @@ def anndata_human_immune_cells() -> ad.AnnData:
     return ad.read(filepath)
 
 
-def anndata_with_obs():
+def anndata_with_obs() -> ad.AnnData:
     """Create a mini anndata with cell_type, disease and tissue."""
     import anndata as ad
     import bionty as bt
@@ -156,6 +156,17 @@ def anndata_with_obs():
     adata.var.index = bt.Gene().df().head(100)["ensembl_gene_id"].values
 
     return adata
+
+
+def df_iris() -> pd.DataFrame:
+    """The iris dataset as in sklearn.
+
+    Original code::
+
+        sklearn.datasets.load_iris(as_frame=True).frame
+    """
+    filepath, _ = urlretrieve("https://lamindb-test.s3.amazonaws.com/iris.parquet")
+    return pd.read_parquet(filepath)
 
 
 def generate_cell_ranger_files(
