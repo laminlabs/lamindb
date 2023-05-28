@@ -3,6 +3,7 @@
 <!-- prettier-ignore -->
 Name | PR | Developer | Date | Version
 --- | --- | --- | --- | ---
+:art: Clean up CI more | [694](https://github.com/laminlabs/lamindb/pull/694) | [falexwolf](https://github.com/falexwolf) | 2023-05-28 |
 ➖ Remove scanpy as test dependency | [693](https://github.com/laminlabs/lamindb/pull/693) | [falexwolf](https://github.com/falexwolf) | 2023-05-28 |
 👷 Fix coverage for lndb-storage | [692](https://github.com/laminlabs/lamindb/pull/692) | [falexwolf](https://github.com/falexwolf) | 2023-05-28 |
 ➖ Do not install storage extras by default | [691](https://github.com/laminlabs/lamindb/pull/691) | [Koncopd](https://github.com/Koncopd) | 2023-05-28 | 0.41a4
