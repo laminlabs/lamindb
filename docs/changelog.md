@@ -3,6 +3,7 @@
 <!-- prettier-ignore -->
 Name | PR | Developer | Date | Version
 --- | --- | --- | --- | ---
+✨ Add `DataFrame` support for `ln.parse` | [688](https://github.com/laminlabs/lamindb/pull/688) | [sunnyosun](https://github.com/sunnyosun) | 2023-05-28 |
 👷 Refactor tests | [687](https://github.com/laminlabs/lamindb/pull/687) | [falexwolf](https://github.com/falexwolf) | 2023-05-27 |
 ✨ Subsettable backed AnnData | [668](https://github.com/laminlabs/lamindb/pull/668) | [Koncopd](https://github.com/Koncopd) | 2023-05-27 |
 📝 Remove setup notebook | [686](https://github.com/laminlabs/lamindb/pull/686) | [falexwolf](https://github.com/falexwolf) | 2023-05-27 |
