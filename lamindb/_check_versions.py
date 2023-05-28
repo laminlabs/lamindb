@@ -7,8 +7,8 @@ from packaging import version
 
 # Lamin PINNED packages
 
-if version.parse(lnschema_core_v) != version.parse("0.34a3"):
-    raise RuntimeError("lamindb needs lnschema_core==0.34a3")
+if version.parse(lnschema_core_v) != version.parse("0.34a4"):
+    raise RuntimeError("lamindb needs lnschema_core==0.34a4")
 
 if version.parse(lndb_storage_v) != version.parse("0.3.2"):
     raise RuntimeError("lamindb needs lndb_storage==0.3.2")
