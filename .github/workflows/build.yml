@@ -39,21 +39,21 @@ jobs:
           path: ~/.cache/pre-commit
           key: pre-commit-${{ runner.os }}-${{ hashFiles('.pre-commit-config.yaml') }}
       - name: cache postgres
+        if: ${{ matrix.group == 'faq' }}
         id: cache-postgres
         uses: actions/cache@v3
         with:
           path: ~/postgres.tar
           key: cache-postgres-0
       - name: cache postgres miss
-        if: steps.cache-postgres.outputs.cache-hit != 'true'
+        if: ${{ steps.cache-postgres.outputs.cache-hit != 'true' && matrix.group == 'faq' }}
         run: docker pull postgres:latest && docker image save postgres:latest --output ~/postgres.tar
       - name: cache postgres use
-        if: steps.cache-postgres.outputs.cache-hit == 'true'
+        if: ${{ steps.cache-postgres.outputs.cache-hit == 'true' && matrix.group == 'faq' }}
         run: docker image load --input ~/postgres.tar
       - name: install Python deps
         run: |
           python -m pip install -U pip
-          pip install typing_extensions!=4.6.0
           pip install laminci
       - name: install apt-get deps
         if: ${{ matrix.group == 'faq' }}
