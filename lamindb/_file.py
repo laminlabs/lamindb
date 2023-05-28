@@ -298,7 +298,12 @@ def get_features_from_data(
     import lnschema_bionty as bionty
 
     entity = field.class_.__name__  # type:ignore
-    reference = getattr(bionty, entity).bionty
+    # TODO: using a species kwargs
+    if "species" in map_kwargs:
+        species = map_kwargs.pop("species")
+    else:
+        species = None
+    reference = getattr(bionty, entity).bionty(species=species)
     map_kwargs["reference_id"] = field.name  # type:ignore
 
     return get_features(
