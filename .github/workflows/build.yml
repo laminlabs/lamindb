@@ -78,7 +78,7 @@ jobs:
       - name: upload coverage
         uses: actions/upload-artifact@v2
         with:
-          name: coverage${{ matrix.group }}
+          name: coverage--${{ matrix.group }}
           path: .coverage
       - name: upload docs
         if: ${{ matrix.group == 'guide' || matrix.group == 'biology' || matrix.group == 'faq' }}
@@ -117,7 +117,7 @@ jobs:
       - uses: actions/download-artifact@v2
       - name: run coverage
         run: |
-          coverage combine coverage*/.coverage*
+          coverage combine coverage--*/.coverage*
           coverage report --fail-under=0
           coverage xml
       - uses: codecov/codecov-action@v2
