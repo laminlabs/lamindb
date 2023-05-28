@@ -11,14 +11,6 @@ from laminci import (  # noqa
 from laminci.nox import login_testuser2  # noqa
 from laminci.nox import build_docs, login_testuser1  # noqa
 
-
-@nox.session
-def lint(session: nox.Session) -> None:
-    session.run(*"pip install pre-commit".split())
-    session.run("pre-commit", "install")
-    session.run("pre-commit", "run", "--all-files")
-
-
 # we'd like to aggregate coverage information across sessions
 # and for this the code needs to be located in the same
 # directory in every github action runner
@@ -27,11 +19,18 @@ nox.options.default_venv_backend = "none"
 
 
 @nox.session
+def lint(session: nox.Session) -> None:
+    session.run(*"pip install pre-commit".split())
+    session.run("pre-commit", "install")
+    session.run("pre-commit", "run", "--all-files")
+
+
+@nox.session
 @nox.parametrize(
     "group",
     ["unit", "guide", "biology", "faq", "lndb-storage"],
 )
-def install(session):
+def install(session, group):
     # run with pypi install on main
     if "GITHUB_EVENT_NAME" in os.environ and os.environ["GITHUB_EVENT_NAME"] != "push":
         # run with submodule install on a PR
@@ -43,7 +42,10 @@ def install(session):
             ]
         )
         session.run(*f"pip install --no-deps {submodules}".split())
-    session.run(*"pip install .[test]".split())
+    extras = ""
+    if group == "lndb-storage":
+        extras += ",aws"
+    session.run(*f"pip install .[test{extras}]".split())
 
 
 @nox.session
