@@ -14,7 +14,7 @@ from laminci.nox import build_docs, login_testuser1, run_pre_commit, run_pytest 
 
 @nox.session
 def lint(session: nox.Session) -> None:
-    session.run("pip install pre-commit".split())
+    session.run(*"pip install pre-commit".split())
     session.run("pre-commit", "install")
     session.run("pre-commit", "run", "--all-files")
 
@@ -31,11 +31,11 @@ def install(session):
     # run with pypi install on main
     if "GITHUB_EVENT_NAME" in os.environ and os.environ["GITHUB_EVENT_NAME"] != "push":
         # run with submodule install on a PR
-        session.run("pip install --no-deps ./sub/lndb-setup".split())
-        session.run("pip install --no-deps ./sub/lnschema-core".split())
-        session.run("pip install --no-deps ./sub/lnbase-biolab".split())
-        session.run("pip install --no-deps ./sub/lndb-storage".split())
-    session.run("pip install .[dev,test]".split())
+        session.run(*"pip install --no-deps ./sub/lndb-setup".split())
+        session.run(*"pip install --no-deps ./sub/lnschema-core".split())
+        session.run(*"pip install --no-deps ./sub/lnbase-biolab".split())
+        session.run(*"pip install --no-deps ./sub/lndb-storage".split())
+    session.run(*"pip install .[dev,test]".split())
 
 
 @nox.session
@@ -48,17 +48,17 @@ def build(session, group):
     login_testuser1(session)
     coverage_args = "--cov=lamindb --cov-append --cov-report=term-missing"  # noqa
     if group == "unit":
-        session.run(f"pytest -s {coverage_args} ./tests".split())
+        session.run(*f"pytest -s {coverage_args} ./tests".split())
     elif group == "guide":
-        session.run(f"pytest -s {coverage_args} ./docs/guide".split())
+        session.run(*f"pytest -s {coverage_args} ./docs/guide".split())
     elif group == "biology":
-        session.run(f"pytest -s {coverage_args} ./docs/biology".split())
+        session.run(*f"pytest -s {coverage_args} ./docs/biology".split())
     elif group == "faq":
-        session.run(f"pytest -s {coverage_args} ./docs/faq".split())
+        session.run(*f"pytest -s {coverage_args} ./docs/faq".split())
     elif group == "lndb-storage":
         with session.chdir(f"./sub/{group}"):
             session.run(
-                f"pytest -s {coverage_args} ./tests".split(), cwd=f"./sub/{group}"
+                *f"pytest -s {coverage_args} ./tests".split(), cwd=f"./sub/{group}"
             )
 
 
@@ -93,9 +93,9 @@ def docs(session):
     )
 
     prefix = "." if Path("./lndocs").exists() else ".."
-    session.run(f"pip install {prefix}/lndocs".split())
+    session.run(*f"pip install {prefix}/lndocs".split())
     login_testuser1(session)
-    session.run("lamin init --storage ./docsbuild".split())
+    session.run(*"lamin init --storage ./docsbuild".split())
     session.run("lndocs")
     upload_docs_artifact()
     move_built_docs_to_docs_slash_project_slug()
