@@ -41,7 +41,8 @@ def parse(
             raise NotImplementedError("fields must from the same entity!")
         entity = list(class_mapper.values())[0]
         df = iterable.rename(columns=column_mapper)
-        df = df.dropna()
+        df = df.dropna().drop_duplicates()
+        df = df.mask(df == "", None)
         iterable = df.to_dict(orient="records")
     else:
         if not isinstance(field, InstrumentedAttribute):
@@ -59,30 +60,41 @@ def parse(
         else:
             kwargs = {field.name: i}  # type:ignore
         record = _create_record(entity, **kwargs, from_bionty=from_bionty)
-        records.append(record)
+        records += record
     return records
 
 
 def _create_record(entity: SQLModel, from_bionty: bool = True, **kwargs):
     """Create a record from bionty with configured ontologies."""
-    if len(kwargs) > 1:
-        from_bionty = False
     kwargs = {k: v for k, v in kwargs.items() if k in entity.__fields__}
-    record = select(entity, **kwargs).one_or_none()
-    if record is None:
+
+    if len(kwargs) == 0:
+        return None
+    elif len(kwargs) > 1:
+        # from_bionty is set to false if multiple kwargs are passed
+        from_bionty = False
+
+    # query for existing records in the DB
+    record = select(entity, **kwargs).all()
+    if len(record) > 1:
+        logger.warning(
+            f"{len(record)} records are found in the database with {kwargs}, returning"
+            " all!"
+        )
+    elif len(record) == 0:
         if from_bionty:
             try:
                 # bionty tables
-                record = entity.from_bionty(**kwargs)
+                record = [entity.from_bionty(**kwargs)]
             except (ValueError, KeyError):
                 logger.warning(
                     f"No entry found in bionty with {kwargs}!"
                     " Couldn't populate additional fields..."
                 )
-                record = entity(**kwargs)
+                record = [entity(**kwargs)]
             except AttributeError:
                 # no-bionty tables
-                record = entity(**kwargs)
+                record = [entity(**kwargs)]
         else:
-            record = entity(**kwargs)
+            record = [entity(**kwargs)]
     return record
