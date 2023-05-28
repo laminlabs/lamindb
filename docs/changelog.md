@@ -3,12 +3,12 @@
 <!-- prettier-ignore -->
 Name | PR | Developer | Date | Version
 --- | --- | --- | --- | ---
-➖ Do not install storage extras by default | [691](https://github.com/laminlabs/lamindb/pull/691) | [Koncopd](https://github.com/Koncopd) | 2023-05-28 |
+➖ Do not install storage extras by default | [691](https://github.com/laminlabs/lamindb/pull/691) | [Koncopd](https://github.com/Koncopd) | 2023-05-28 | 0.41a4
 👷 Bring back nox session | [690](https://github.com/laminlabs/lamindb/pull/690) | [falexwolf](https://github.com/falexwolf) | 2023-05-28 |
-:memo: Refactor guide notebooks | [689](https://github.com/laminlabs/lamindb/pull/689) | [falexwolf](https://github.com/falexwolf) | 2023-05-28 |
+📝 Refactor guide notebooks | [689](https://github.com/laminlabs/lamindb/pull/689) | [falexwolf](https://github.com/falexwolf) | 2023-05-28 |
 ✨ Add `DataFrame` support for `ln.parse` | [688](https://github.com/laminlabs/lamindb/pull/688) | [sunnyosun](https://github.com/sunnyosun) | 2023-05-28 |
 👷 Refactor tests | [687](https://github.com/laminlabs/lamindb/pull/687) | [falexwolf](https://github.com/falexwolf) | 2023-05-27 |
-✨ Subsettable backed AnnData | [668](https://github.com/laminlabs/lamindb/pull/668) | [Koncopd](https://github.com/Koncopd) | 2023-05-27 |
+✨ Subsettable backed `AnnData` | [668](https://github.com/laminlabs/lamindb/pull/668) | [Koncopd](https://github.com/Koncopd) | 2023-05-27 |
 📝 Remove setup notebook | [686](https://github.com/laminlabs/lamindb/pull/686) | [falexwolf](https://github.com/falexwolf) | 2023-05-27 |
 🏗️ Remove SQL-level schema modules | [685](https://github.com/laminlabs/lamindb/pull/685) | [falexwolf](https://github.com/falexwolf) | 2023-05-26 | 0.41a3
 ⬆️ Upgrade lnschema-bionty to 0.17.1 | [684](https://github.com/laminlabs/lamindb/pull/684) | [sunnyosun](https://github.com/sunnyosun) | 2023-05-25 | 0.40.7
@@ -16,7 +16,7 @@ Name | PR | Developer | Date | Version
 ♻️ Refactor types | [681](https://github.com/laminlabs/lamindb/pull/681) | [falexwolf](https://github.com/falexwolf) | 2023-05-23 | 0.40.5
 ♻️ Refactor `BaseORM` | [679](https://github.com/laminlabs/lamindb/pull/679) | [falexwolf](https://github.com/falexwolf) | 2023-05-17 |
 🚸 Pre-join some cheap relationships | [678](https://github.com/laminlabs/lamindb/pull/678) | [falexwolf](https://github.com/falexwolf) | 2023-05-16 |
-Improve wording | [677](https://github.com/laminlabs/lamindb/pull/677) | [Zethson](https://github.com/Zethson) | 2023-05-16 |
+📝 Improve wording | [677](https://github.com/laminlabs/lamindb/pull/677) | [Zethson](https://github.com/Zethson) | 2023-05-16 |
 ✨ Added Treatment table | [675](https://github.com/laminlabs/lamindb/pull/675) | [sunnyosun](https://github.com/sunnyosun) | 2023-05-15 | 0.40.3
 🚑 Fix ln.Features table name for postgres | [674](https://github.com/laminlabs/lamindb/pull/674) | [sunnyosun](https://github.com/sunnyosun) | 2023-05-11 | 0.40.1
 📝 Update ontology guide | [673](https://github.com/laminlabs/lamindb/pull/673) | [falexwolf](https://github.com/falexwolf) | 2023-05-11 |
