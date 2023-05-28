@@ -58,6 +58,7 @@ def build(session, group):
     elif group == "lndb-storage":
         with session.chdir(f"./sub/{group}"):
             session.run(*f"pytest -s {coverage_args} ./tests".split())
+        Path(f"./sub/{group}/.coverage").rename(".")
 
 
 @nox.session
