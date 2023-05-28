@@ -63,7 +63,7 @@ jobs:
         run: sudo apt-get -y install graphviz
       - run: nox -s lint
         if: ${{ matrix.python-version == '3.9' && matrix.group == 'unit' }}
-      - run: nox -s install
+      - run: nox -s "install(group='${{ matrix.group }}')"
       - uses: aws-actions/configure-aws-credentials@v1
         if: ${{ matrix.group == 'lndb-storage' }}
         with:
