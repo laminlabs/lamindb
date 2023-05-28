@@ -18,7 +18,7 @@ dependencies = [
     # !!! These packages should ALWAYS be pinned, do not unpin !!!
     # !!! They cannot be pinned ANYWHERE else !!!
     "lnschema_core==0.34a2",
-    "lndb_storage==0.3.1",
+    "lndb_storage==0.3.2",
     "lndb==0.45a4",
     # Lamin GREATEREQ packages
     "nbproject>=0.8.6",
@@ -54,6 +54,7 @@ test = [
     "psycopg2-binary",
     "matplotlib<3.7",
     "session_info",
+    "lndb_storage[aws,gcp]==0.3.2"
 ]
 
 [project.scripts]
