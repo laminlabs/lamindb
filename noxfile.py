@@ -38,7 +38,8 @@ def install(session, group):
             [
                 "./sub/lndb-setup",
                 "./sub/lnschema-core",
-                "./sub/lnbase-biolab, ./sub/lndb-storage",
+                "./sub/lnbase-biolab",
+                "./sub/lndb-storage",
             ]
         )
         session.run(*f"pip install --no-deps {submodules}".split())
