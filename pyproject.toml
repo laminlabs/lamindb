@@ -39,7 +39,7 @@ gcp = [
     "lndb_storage[gcp]==0.3.2"  # please pin
 ]
 bionty = [
-    "lnschema_bionty==0.18a7",
+    "lnschema_bionty==0.18a8",
 ]
 biolab = [
     "lnbase_biolab==0.15.2",
