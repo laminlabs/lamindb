@@ -79,6 +79,7 @@ file = ln.select(ln.File, run_id=run.id).all()
 
 files-folders
 provenance
+select
 stream
 schema
 ```
