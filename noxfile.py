@@ -5,7 +5,7 @@ from urllib.request import urlretrieve
 
 import nox
 from laminci import move_built_docs_to_docs_slash_project_slug, upload_docs_artifact
-from laminci.nox import login_testuser1, login_testuser2
+from laminci.nox import build_docs, login_testuser1, login_testuser2, run_pre_commit
 
 # we'd like to aggregate coverage information across sessions
 # and for this the code needs to be located in the same
@@ -16,9 +16,7 @@ nox.options.default_venv_backend = "none"
 
 @nox.session
 def lint(session: nox.Session) -> None:
-    session.run(*"pip install pre-commit".split())
-    session.run("pre-commit", "install")
-    session.run("pre-commit", "run", "--all-files")
+    run_pre_commit(session)
 
 
 @nox.session
@@ -105,10 +103,7 @@ def docs(session):
         "docs/guide/lnschema-bionty.ipynb"
     )
 
-    prefix = "." if Path("./lndocs").exists() else ".."
-    session.run(*f"pip install {prefix}/lndocs".split())
     login_testuser1(session)
-    session.run(*"lamin init --storage ./docsbuild".split())
-    session.run("lndocs")
+    build_docs(session)
     upload_docs_artifact()
     move_built_docs_to_docs_slash_project_slug()
