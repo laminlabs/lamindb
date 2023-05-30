@@ -3,7 +3,7 @@
 <!-- prettier-ignore -->
 Name | PR | Developer | Date | Version
 --- | --- | --- | --- | ---
-⬆️ Upgrade lnschema-bionty | [696](https://github.com/laminlabs/lamindb/pull/696) | [sunnyosun](https://github.com/sunnyosun) | 2023-05-30 |
+⬆️ Upgrade lnschema-bionty | [696](https://github.com/laminlabs/lamindb/pull/696) | [sunnyosun](https://github.com/sunnyosun) | 2023-05-30 | 0.41.1
 🚑 Fix species config | [695](https://github.com/laminlabs/lamindb/pull/695) | [sunnyosun](https://github.com/sunnyosun) | 2023-05-28 | 0.41.0
 🎨 Clean up CI more | [694](https://github.com/laminlabs/lamindb/pull/694) | [falexwolf](https://github.com/falexwolf) | 2023-05-28 |
 ➖ Remove scanpy as test dependency | [693](https://github.com/laminlabs/lamindb/pull/693) | [falexwolf](https://github.com/falexwolf) | 2023-05-28 |
