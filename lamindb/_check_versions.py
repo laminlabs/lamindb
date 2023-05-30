@@ -9,8 +9,8 @@ from packaging import version
 if os.getenv("GITHUB_ACTIONS") is None:
     # Lamin PINNED packages
 
-    if version.parse(lnschema_core_v) != version.parse("0.34a5"):
-        raise RuntimeError("lamindb needs lnschema_core==0.34a5")
+    if version.parse(lnschema_core_v) != version.parse("0.34.0"):
+        raise RuntimeError("lamindb needs lnschema_core==0.34.0")
 
     if version.parse(lndb_storage_v) != version.parse("0.3.2"):
         raise RuntimeError("lamindb needs lndb_storage==0.3.2")
