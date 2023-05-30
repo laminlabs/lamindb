@@ -25,8 +25,6 @@ Updates the corresponding row with the record if it exists.
 To update a row, query it with `.select` and modify it before
 passing it to `add`.
 
-Guide: :doc:`/guide/add-delete`.
-
 Args:
     record: One or multiple records as instances of `SQLModel`.
 

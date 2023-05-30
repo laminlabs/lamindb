@@ -44,8 +44,6 @@ def delete(  # type: ignore
 ) -> None:
     """Delete metadata records & files.
 
-    Guide: :doc:`/guide/add-delete`.
-
     Args:
         record: One or multiple records as instances of `SQLModel`.
         delete_data_from_storage: Whether to delete data from storage.

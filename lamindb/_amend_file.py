@@ -22,9 +22,6 @@ from .dev.db._add import add as ln_add
 
 File.__doc__ = """Files: serialized data objects.
 
-- Guide: :doc:`/guide/track`
-- FAQ: :doc:`/faq/ingest`
-
 Args:
    data: `Union[PathLike, DataLike] = None` - A file path or an in-memory data
       object to serialize. Can be a cloud path.

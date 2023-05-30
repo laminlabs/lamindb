@@ -8,8 +8,8 @@ Soon, we'll also see how this enables us to stream partial objects.
 
 **Jump to:**
 
-- {doc}`/guide/scrna`
-- {doc}`/guide/flow`
+- {doc}`/biology/scrna`
+- {doc}`/biology/flow`
 
 ```{toctree}
 :hidden:

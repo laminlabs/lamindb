@@ -6,8 +6,6 @@ from .dev.db._select import select
 
 Folder.__doc__ = """Folders: collections of files.
 
-- Guide: :doc:`/guide/folder`
-
 Real vs. virtual folders:
 
 - A real LaminDB `Folder` has a 1:1 correspondence to a folder on a file system
