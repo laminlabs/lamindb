@@ -15,8 +15,8 @@ if os.getenv("GITHUB_ACTIONS") is None:
     if version.parse(lndb_storage_v) != version.parse("0.3.2"):
         raise RuntimeError("lamindb needs lndb_storage==0.3.2")
 
-    if version.parse(lndb_v) < version.parse("0.45a4"):
-        raise RuntimeError("Upgrade lndb! pip install lndb==0.45a4")
+    if version.parse(lndb_v) < version.parse("0.45.0"):
+        raise RuntimeError("Upgrade lndb! pip install lndb==0.45.0")
 
     # Lamin GREATEREQ packages
 
