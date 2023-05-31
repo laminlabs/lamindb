@@ -17,9 +17,9 @@ dependencies = [
     # Lamin PINNED packages
     # !!! These packages should ALWAYS be pinned, do not unpin !!!
     # !!! They cannot be pinned ANYWHERE else !!!
-    "lnschema_core==0.34.0",
+    "lnschema_core==0.35a1",
     "lndb_storage==0.3.2",
-    "lndb==0.45.0",
+    "lndb==0.46a1",
     # Lamin GREATEREQ packages
     "nbproject>=0.8.6",
     "erdiagram>=0.1.1",
