@@ -1,19 +1,19 @@
 from pathlib import Path, PurePath
 from typing import Any, Optional, Tuple, Union
 
-import lndb
+import lamindb_setup
 import pandas as pd
 from anndata import AnnData
 from appdirs import AppDirs
 from lamin_logger import logger
-from lndb_storage import UPath
-from lndb_storage.object import infer_suffix, size_adata, write_to_file
 from lnschema_core import File, Run
 
 from lamindb._features import get_features
 from lamindb._settings import settings
 from lamindb.dev.db._select import select
 from lamindb.dev.hashing import hash_file
+from lamindb.dev.storage import UPath
+from lamindb.dev.storage.object import infer_suffix, size_adata, write_to_file
 
 from ._parse import InstrumentedAttribute, ListLike
 
@@ -48,7 +48,7 @@ def serialize(
                     f" `ln.setup.set.storage({new_storage})` or `lamin set --storage"
                     f" {new_storage}`"
                 )
-            root = lndb.settings.storage.root
+            root = lamindb_setup.settings.storage.root
             if isinstance(root, UPath):
                 filepath = UPath(
                     filepath, **root._kwargs
@@ -70,10 +70,10 @@ def serialize(
         memory_rep = data
         suffix = infer_suffix(data, format)
         # the following filepath is always local
-        if lndb.settings.storage.cache_dir is not None:
-            filepath = lndb.settings.storage.cache_dir / name
+        if lamindb_setup.settings.storage.cache_dir is not None:
+            filepath = lamindb_setup.settings.storage.cache_dir / name
         else:
-            # this should likely be added to lndb.settings.storage
+            # this should likely be added to lamindb_setup.settings.storage
             cache_dir = Path(DIRS.user_cache_dir)
             cache_dir.mkdir(parents=True, exist_ok=True)
             filepath = cache_dir / name
@@ -171,7 +171,7 @@ def get_check_path_in_storage(
 ) -> bool:
     assert isinstance(filepath, Path)
     if root is None:
-        root = lndb.settings.storage.root
+        root = lamindb_setup.settings.storage.root
     # the following comparisons can fail if types aren't comparable
     if isinstance(filepath, UPath) and isinstance(root, UPath):
         # the following tests equivalency of two UPath objects
@@ -205,7 +205,7 @@ def get_relative_path_to_root(
 ) -> Union[PurePath, Path]:
     """Relative path to the storage root path."""
     if root is None:
-        root = lndb.settings.storage.root
+        root = lamindb_setup.settings.storage.root
     return get_relative_path_to_directory(path, root)
 
 
@@ -238,7 +238,7 @@ def get_file_kwargs_from_data(
         hash=hash,
         key=key,
         size=size,
-        storage_id=lndb.settings.storage.id,
+        storage_id=lamindb_setup.settings.storage.id,
         # passing both the id and the object
         # to make them both available immediately
         # after object creation

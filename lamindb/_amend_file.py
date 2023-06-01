@@ -3,10 +3,7 @@ from typing import Optional
 
 from anndata import AnnData
 from anndata import __version__ as anndata_v
-from lndb import settings as setup_settings
-from lndb_storage import load_to_memory
-from lndb_storage.object import _subset_anndata_file
-from lndb_storage.object._anndata_accessor import AnnDataAccessor
+from lamindb_setup import settings as setup_settings
 from lnschema_core import File
 from lnschema_core._core import filepath_from_file_or_folder
 from lnschema_core.link import RunIn
@@ -16,6 +13,9 @@ from sqlalchemy.orm.session import object_session
 
 from lamindb._context import context
 from lamindb.dev import LazyDataFrame
+from lamindb.dev.storage import load_to_memory
+from lamindb.dev.storage.object import _subset_anndata_file
+from lamindb.dev.storage.object._anndata_accessor import AnnDataAccessor
 
 from ._settings import settings
 from .dev.db._add import add as ln_add
@@ -128,7 +128,7 @@ def stream(
             " Please install anndata>=0.9.1"
         )
 
-    return _subset_anndata_file(self, subset_obs, subset_var)
+    return _subset_anndata_file(self, subset_obs, subset_var)  # type: ignore
 
 
 def _track_run_input(file: File, is_run_input: Optional[bool] = None):

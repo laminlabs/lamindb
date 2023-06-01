@@ -15,8 +15,9 @@ Utilities:
    doc_args
 """
 
-from lndb_storage.object._lazy_field import Lazy as LazyDataFrame
 from lnschema_core.dev import id  # noqa
+
+from lamindb.dev.storage.object._lazy_field import Lazy as LazyDataFrame
 
 from . import datasets  # noqa
 from . import db  # noqa

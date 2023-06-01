@@ -1,11 +1,11 @@
 from typing import Any
 
 import pandas as pd
-from lndb_storage import load_to_memory
 from lnschema_core import Features
 
 from lamindb.dev.db._select import select
 from lamindb.dev.hashing import hash_set
+from lamindb.dev.storage import load_to_memory
 
 from ._parse import get_or_create_records
 
