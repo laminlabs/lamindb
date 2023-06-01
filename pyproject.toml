@@ -25,6 +25,14 @@ dependencies = [
     # others
     "pyarrow",
     "typing_extensions!=4.6.0",
+    "readfcs",
+    "python-dateutil",
+    "zarr",
+    "anndata>=0.9.1",  # includes scipy
+    "fsspec",
+    "universal_pathlib",
+    "pandas",
+    "typeguard"
 ]
 
 [project.urls]
