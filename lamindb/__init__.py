@@ -129,10 +129,10 @@ if _INSTANCE_SETUP:
 
     # this needs to follow on the import right now
     _logger.success(f"Loaded instance: {_lamindb_setup.settings.instance.identifier}")
-    from lndb_storage import subset
+    from lamindb.dev.storage import subset
 
     # deprecated
-    from lndb_storage.object import lazy
+    from lamindb.dev.storage.object import lazy
 
     from . import _amend_file  # noqa
     from . import _amend_folder  # noqa

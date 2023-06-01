@@ -98,4 +98,5 @@ schema
 :caption: Other topics
 
 ../faq/index
+../storage/index
 ```

@@ -6,11 +6,12 @@ import lamindb_setup
 import sqlmodel as sqm
 from lamin_logger import logger
 from lamindb_setup import settings as setup_settings
-from lndb_storage import delete_storage, store_object, write_adata_zarr
-from lndb_storage._file import print_hook
 from lnschema_core import File
 from lnschema_core._core import storage_key_from_file
 from pydantic.fields import ModelPrivateAttr
+
+from lamindb.dev.storage import delete_storage, store_object, write_adata_zarr
+from lamindb.dev.storage._file import print_hook
 
 from .._docs import doc_args
 from ._core import file_to_sqm, get_session_from_kwargs

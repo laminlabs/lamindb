@@ -18,7 +18,6 @@ dependencies = [
     # !!! These packages should ALWAYS be pinned, do not unpin !!!
     # !!! They cannot be pinned ANYWHERE else !!!
     "lnschema_core==0.35a2",
-    "lndb_storage==0.4a1",
     "lndb==0.46a1",
     # Lamin GREATEREQ packages
     "nbproject>=0.8.6",
@@ -33,10 +32,11 @@ Home = "https://github.com/laminlabs/lamindb"
 
 [project.optional-dependencies]
 aws = [
-    "lndb_storage[aws]==0.4a1"
+    "botocore==1.29.76",  # for aiobotocore inside s3fs, to fix deps resolution
+    "fsspec[s3]==2023.5.0"
 ]
 gcp = [
-    "lndb_storage[gcp]==0.4a1"
+    "fsspec[gs]==2023.5.0"
 ]
 bionty = [
     "lnschema_bionty==0.18.2",
