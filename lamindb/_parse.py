@@ -25,8 +25,7 @@ def parse(
         iterable: a `ListLike` of values or a `DataFrame`.
         field: if iterable is `ListLike`: a `SQLModel` field to parse into.
                if iterable is `DataFrame`: a dict of {column_name : SQLModel_field}.
-        from_bionty: whether to auto-complete the fields of bionty tables.
-                     only effective if iterable is `ListLike`.
+        species: if None, will use default species in bionty for each entity.
 
     Returns:
         A list of SQLModel records.
@@ -56,15 +55,6 @@ def parse(
         return get_or_create_records(iterable=iterable, field=field, species=species)
 
 
-def _bulk_create_dicts_from_df(keys: list, column_name: str, df: pd.DataFrame) -> dict:
-    """Get fields from a dataframe for many rows."""
-    if df.index.name != column_name:
-        df = df.set_index(column_name)
-    # keep the last record (assuming most recent) if duplicated
-    df = df[~df.index.duplicated(keep="last")]
-    return df.loc[keys].reset_index().to_dict(orient="records")
-
-
 def get_or_create_records(
     iterable: Iterable,
     field: InstrumentedAttribute,
@@ -79,6 +69,7 @@ def get_or_create_records(
     # if species is specified, only pull species-specific records
     stmt = select(model).where(getattr(model, parsing_id).in_(iterable))
 
+    # for bionty records, will add species if needed
     additional_kwargs = {}
     reference_df = pd.DataFrame()
     if model.__module__.startswith("lnschema_bionty."):
@@ -131,3 +122,12 @@ def get_or_create_records(
                 kwargs.update(additional_kwargs)
                 records.append(model(**kwargs))
     return records
+
+
+def _bulk_create_dicts_from_df(keys: list, column_name: str, df: pd.DataFrame) -> dict:
+    """Get fields from a dataframe for many rows."""
+    if df.index.name != column_name:
+        df = df.set_index(column_name)
+    # keep the last record (assuming most recent) if duplicated
+    df = df[~df.index.duplicated(keep="last")]
+    return df.loc[keys].reset_index().to_dict(orient="records")
