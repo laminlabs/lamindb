@@ -303,8 +303,13 @@ def get_features_from_data(
         reference = getattr(bionty, entity).bionty(species=map_kwargs.pop("species"))
     else:
         reference = getattr(bionty, entity).bionty()
-    map_kwargs["reference_id"] = field.name  # type:ignore
+
+    # TODO: introduce field parameter in ln.Features
+    map_kwargs["__field__"] = field  # type:ignore
 
     return get_features(
-        reference, iterable=iterable, file_privates=file_privates, **map_kwargs
+        bionty_object=reference,
+        iterable=iterable,
+        file_privates=file_privates,
+        **map_kwargs,
     )
