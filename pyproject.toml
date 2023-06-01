@@ -33,10 +33,10 @@ Home = "https://github.com/laminlabs/lamindb"
 
 [project.optional-dependencies]
 aws = [
-    "lndb_storage[aws]"
+    "lndb_storage[aws]==0.4a1"
 ]
 gcp = [
-    "lndb_storage[gcp]"
+    "lndb_storage[gcp]==0.4a1"
 ]
 bionty = [
     "lnschema_bionty==0.18.2",
