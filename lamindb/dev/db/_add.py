@@ -2,10 +2,10 @@ import traceback
 from functools import partial
 from typing import List, Optional, Tuple, Union, overload  # noqa
 
-import lndb
+import lamindb_setup
 import sqlmodel as sqm
 from lamin_logger import logger
-from lndb import settings as setup_settings
+from lamindb_setup import settings as setup_settings
 from lndb_storage import delete_storage, store_object, write_adata_zarr
 from lndb_storage._file import print_hook
 from lnschema_core import File
@@ -222,7 +222,7 @@ def upload_data_object(file) -> None:
         and file._memory_rep is not None
     ):
         logger.hint(f"storing object {file.name} with key {file_storage_key}")
-        storagepath = lndb.settings.storage.key_to_filepath(file_storage_key)
+        storagepath = lamindb_setup.settings.storage.key_to_filepath(file_storage_key)
         print_progress = partial(print_hook, filepath=file.name)
         write_adata_zarr(file._memory_rep, storagepath, callback=print_progress)
 

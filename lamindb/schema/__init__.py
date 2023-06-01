@@ -18,8 +18,8 @@ lnschema_bionty as bt`.
 """
 import importlib as _importlib
 
-from lndb import settings as _settings
-from lndb.dev._setup_schema import (
+from lamindb_setup import settings as _settings
+from lamindb_setup.dev._setup_schema import (
     check_schema_version_and_import as _check_schema_version_and_import,
 )
 from lnschema_core import Features, Project, Run, Storage

@@ -2,7 +2,7 @@ from itertools import islice
 from pathlib import Path
 from typing import Optional, Union
 
-import lndb
+import lamindb_setup
 from lamin_logger import logger
 from lndb_storage import UPath
 from lnschema_core import File, Run
@@ -52,7 +52,7 @@ def get_folder_kwargs_from_data(
     kwargs = dict(
         name=folderpath.name if name is None else name,
         key=folder_key,
-        storage_id=lndb.settings.storage.id,
+        storage_id=lamindb_setup.settings.storage.id,
         files=files,
     )
     privates = dict(

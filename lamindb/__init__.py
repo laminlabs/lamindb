@@ -90,11 +90,13 @@ Developer API:
 
 __version__ = "0.41.2"  # denote a release candidate for 0.1.0 with 0.1rc1
 
-import lndb as _lndb
+import lamindb_setup as _lamindb_setup
 
 # prints warning of python versions
 from lamin_logger import py_version_warning as _py_version_warning
-from lndb._check_instance_setup import check_instance_setup as _check_instance_setup
+from lamindb_setup._check_instance_setup import (
+    check_instance_setup as _check_instance_setup,
+)
 
 _py_version_warning("3.8", "3.10")
 
@@ -126,7 +128,7 @@ if _INSTANCE_SETUP:
     from lamin_logger import logger as _logger
 
     # this needs to follow on the import right now
-    _logger.success(f"Loaded instance: {_lndb.settings.instance.identifier}")
+    _logger.success(f"Loaded instance: {_lamindb_setup.settings.instance.identifier}")
     from lndb_storage import subset
 
     # deprecated

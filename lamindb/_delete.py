@@ -2,7 +2,7 @@ import traceback
 from typing import List, Optional, Union, overload  # noqa
 
 import sqlmodel as sqm
-from lndb import settings
+from lamindb_setup import settings
 from lndb_storage import delete_storage
 from lnschema_core import File
 from lnschema_core._core import storage_key_from_file

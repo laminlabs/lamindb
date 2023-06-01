@@ -6,8 +6,8 @@ from typing import Dict, List, Optional, Tuple, Union
 import lnschema_core
 import nbproject
 from lamin_logger import logger
-from lndb import settings
-from lndb.dev import InstanceSettings
+from lamindb_setup import settings
+from lamindb_setup.dev import InstanceSettings
 from lnschema_core import Run, Transform
 from nbproject._is_run_from_ipython import is_run_from_ipython
 

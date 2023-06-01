@@ -1,6 +1,6 @@
 import os
 
-from lndb import __version__ as lndb_v
+from lamindb_setup import __version__ as lndb_v
 from lndb_storage import __version__ as lndb_storage_v
 from lnschema_core import __version__ as lnschema_core_v
 from nbproject import __version__ as nbproject_v
