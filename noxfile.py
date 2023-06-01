@@ -38,10 +38,12 @@ def install(session, group):
     extras = ""
     if group == "unit":
         extras += ",bionty"
-    elif group == "storage":
+    elif group == "guide":
         extras += ",aws"
     elif group == "biology":
         extras += ",lamin1"
+    elif group == "storage":
+        extras += ",aws"
     session.run(*f"pip install .[test{extras}]".split())
 
 
