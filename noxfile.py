@@ -22,7 +22,7 @@ def lint(session: nox.Session) -> None:
 @nox.session
 @nox.parametrize(
     "group",
-    ["unit", "guide", "biology", "faq", "lndb-storage"],
+    ["unit", "guide", "biology", "faq", "storage"],
 )
 def install(session, group):
     # run with pypi install on main
@@ -32,24 +32,25 @@ def install(session, group):
             [
                 "./sub/lamindb-setup",
                 "./sub/lnschema-core",
-                "./sub/lndb-storage",
             ]
         )
         session.run(*f"pip install --no-deps {submodules}".split())
     extras = ""
     if group == "unit":
         extras += ",bionty"
-    elif group == "lndb-storage":
+    elif group == "guide":
         extras += ",aws"
     elif group == "biology":
         extras += ",lamin1"
+    elif group == "storage":
+        extras += ",aws"
     session.run(*f"pip install .[test{extras}]".split())
 
 
 @nox.session
 @nox.parametrize(
     "group",
-    ["unit", "guide", "biology", "faq", "lndb-storage"],
+    ["unit", "guide", "biology", "faq", "storage"],
 )
 def build(session, group):
     login_testuser2(session)
@@ -63,28 +64,17 @@ def build(session, group):
         session.run(*f"pytest -s {coverage_args} ./docs/biology".split())
     elif group == "faq":
         session.run(*f"pytest -s {coverage_args} ./docs/faq".split())
-    elif group == "lndb-storage":
-        with session.chdir(f"./sub/{group}"):
-            session.run(*f"pytest -s {coverage_args} ./tests".split())
-            # I'd like to replace below with
-            # Path(f"./sub/{group}/.coverage").rename(".")
-            # but it errored with
-            # OSError: Device or resource busy: 'sub/lndb-storage/.coverage' -> '.'
-            session.run(*"mv .coverage ../..".split())
+    elif group == "storage":
+        session.run(*f"pytest -s {coverage_args} ./docs/storage".split())
 
 
 @nox.session
 def docs(session):
     # move artifacts into right place
-    for group in ["guide", "biology", "faq"]:
+    for group in ["guide", "biology", "faq", "storage"]:
         if Path(f"./docs-{group}").exists():
             shutil.rmtree(f"./docs/{group}")
             Path(f"./docs-{group}").rename(f"./docs/{group}")
-
-    filename = "lndb_storage_docs.zip"
-    urlretrieve(f"https://lamin-site-assets.s3.amazonaws.com/docs/{filename}", filename)
-    shutil.unpack_archive(filename, "lndb_storage_docs")
-    Path("lndb_storage_docs/guide/stream.ipynb").rename("docs/guide/stream.ipynb")
 
     filename = "lnschema_core_docs.zip"
     urlretrieve(f"https://lamin-site-assets.s3.amazonaws.com/docs/{filename}", filename)

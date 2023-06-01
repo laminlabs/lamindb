@@ -6,14 +6,14 @@ import pandas as pd
 from anndata import AnnData
 from appdirs import AppDirs
 from lamin_logger import logger
-from lndb_storage import UPath
-from lndb_storage.object import infer_suffix, size_adata, write_to_file
 from lnschema_core import File, Run
 
 from lamindb._features import get_features
 from lamindb._settings import settings
 from lamindb.dev.db._select import select
 from lamindb.dev.hashing import hash_file
+from lamindb.dev.storage import UPath
+from lamindb.dev.storage.object import infer_suffix, size_adata, write_to_file
 
 from ._parse import InstrumentedAttribute, ListLike
 

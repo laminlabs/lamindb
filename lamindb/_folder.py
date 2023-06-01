@@ -4,9 +4,10 @@ from typing import Optional, Union
 
 import lamindb_setup
 from lamin_logger import logger
-from lndb_storage import UPath
 from lnschema_core import File, Run
 from lnschema_core.dev import id as id_generator
+
+from lamindb.dev.storage import UPath
 
 from ._file import (
     get_check_path_in_storage,
