@@ -1,7 +1,7 @@
 from pathlib import Path
 from subprocess import run
 
-import lndb
+import lamindb_setup
 import pytest
 from lamin_logger import logger
 
@@ -21,8 +21,8 @@ def pytest_sessionstart(session: pytest.Session):
     logger.info(cmd)
     run(cmd, shell=True)
     try:
-        lndb.load("testuser1/lamindb-ci", migrate=True)
-        lndb.delete("lamindb-ci")
+        lamindb_setup.load("testuser1/lamindb-ci", migrate=True)
+        lamindb_setup.delete("lamindb-ci")
     except Exception:
         logger.info("Could not delete testuser1/lamindb-ci")
 

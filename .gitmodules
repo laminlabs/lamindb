@@ -4,9 +4,6 @@
 [submodule "lndb-storage"]
 	path = sub/lndb-storage
 	url = https://github.com/laminlabs/lndb-storage.git
-[submodule "lnschema-wetlab"]
-	path = sub/lnbase-biolab
-	url = https://github.com/laminlabs/lnschema-wetlab.git
 [submodule "sub/lndb-setup"]
-	path = sub/lndb-setup
+	path = sub/lamindb-setup
 	url = https://github.com/laminlabs/lndb

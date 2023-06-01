@@ -3,7 +3,7 @@ from typing import Union
 import erdiagram
 import pydot
 import sqlalchemy as sql
-from lndb import settings
+from lamindb_setup import settings
 from sqlalchemy import Column, Table
 
 

@@ -1,5 +1,5 @@
-from lndb import dev as _dev
-from lndb.dev import *  # noqa
+from lamindb_setup import dev as _dev
+from lamindb_setup.dev import *  # noqa
 
 from . import upath
 

@@ -3,7 +3,7 @@ from typing import Optional
 
 from anndata import AnnData
 from anndata import __version__ as anndata_v
-from lndb import settings as setup_settings
+from lamindb_setup import settings as setup_settings
 from lndb_storage import load_to_memory
 from lndb_storage.object import _subset_anndata_file
 from lndb_storage.object._anndata_accessor import AnnDataAccessor

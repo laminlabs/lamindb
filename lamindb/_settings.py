@@ -10,7 +10,7 @@ class settings:
     See `lamindb.settings <https://lamin.ai/docs/db/lamindb.settings>`__.
 
     For setup-related settings, see
-    `lndb.settings <https://lamin.ai/docs/lndb/lndb.settings>`__.
+    `lamindb_setup.settings <https://lamin.ai/docs/lndb/lamindb_setup.settings>`__.
     """
 
     error_on_file_hash_exists: bool = True
