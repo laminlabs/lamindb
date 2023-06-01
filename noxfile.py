@@ -30,7 +30,7 @@ def install(session, group):
         # run with submodule install on a PR
         submodules = " ".join(
             [
-                "./sub/lndb-setup",
+                "./sub/lamindb-setup",
                 "./sub/lnschema-core",
                 "./sub/lndb-storage",
             ]
