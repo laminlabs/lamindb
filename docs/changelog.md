@@ -3,6 +3,7 @@
 <!-- prettier-ignore -->
 Name | PR | Developer | Date | Version
 --- | --- | --- | --- | ---
+🚚 Move lndb-storage back into lamindb | [700](https://github.com/laminlabs/lamindb/pull/700) | [falexwolf](https://github.com/falexwolf) | 2023-06-01 |
 🚚 Rename `lndb` to `lamindb_setup` | [699](https://github.com/laminlabs/lamindb/pull/699) | [falexwolf](https://github.com/falexwolf) | 2023-06-01 |
 🏗️ Add Django backend (setup) | [697](https://github.com/laminlabs/lamindb/pull/697) | [falexwolf](https://github.com/falexwolf) | 2023-05-31 |
 ⬆️ Update lndb to 0.45.0 | [698](https://github.com/laminlabs/lamindb/pull/698) | [Koncopd](https://github.com/Koncopd) | 2023-05-31 | 0.41.2
