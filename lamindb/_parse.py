@@ -48,7 +48,7 @@ def parse(
         df = df.dropna().drop_duplicates()
         df = df.mask(df == "", None)
         iterable = df.reset_index().to_dict(orient="records")
-        return [model(**kwargs) for kwargs in iterable.items()]
+        return [model(**kwargs) for kwargs in iterable]
     else:
         if not isinstance(field, InstrumentedAttribute):
             raise TypeError("field must be a SQLModel field!")
@@ -96,10 +96,16 @@ def get_or_create_records(
             species = select(Species, name=bionty_object.species).one_or_none()
             if species is None:
                 species = add(Species.from_bionty(name=bionty_object.species))
-            stmt = stmt.where(getattr(model, "species_id") == species.id)  # type:ignore
-            additional_kwargs = {"species_id": species.id}  # type:ignore
+            try:
+                stmt = stmt.where(
+                    getattr(model, "species_id") == species.id  # type:ignore
+                )
+                additional_kwargs = {"species_id": species.id}  # type:ignore
+                logger.info("Generated records with species='{species.name}'.")
+            except AttributeError:
+                pass
 
-        reference_df = bionty_object.df().set_index(parsing_id)
+        reference_df = bionty_object.df().reset_index().set_index(parsing_id)
 
     records = stmt.all()
 
