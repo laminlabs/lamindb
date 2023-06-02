@@ -1,20 +1,14 @@
 # %% [markdown]
 # # Loading relationships: `Session`
+import pytest
+from sqlalchemy.orm.exc import DetachedInstanceError
+
 import lamindb as ln
 
 
 def test_session():
     if ln._USE_DJANGO:
         return None
-
-    # %%
-    import pytest
-    from sqlalchemy.orm.exc import DetachedInstanceError
-
-    import lamindb as ln
-
-    # %%
-    ln.track()
 
     # %% [markdown]
     # Let's create related sample data records and add them to the database:
