@@ -82,10 +82,7 @@ def add(  # type: ignore
     record: Union[BaseORM, List[BaseORM]], **fields
 ) -> Union[BaseORM, List[BaseORM]]:
     """{}"""  # noqa
-    if not lamindb_setup._USE_DJANGO:
-        session = None
-    else:
-        session = get_session_from_kwargs(fields)
+    session = get_session_from_kwargs(fields)
     if isinstance(record, list):
         records = record
     elif isinstance(record, BaseORM):
@@ -103,13 +100,12 @@ def add(  # type: ignore
             )
             return results
 
-    if not lamindb_setup._USE_DJANGO:
-        if session is None:  # assume global session
-            session = setup_settings.instance.session()
-            setup_settings.instance._cloud_sqlite_locker.lock()
-            close = True
-        else:
-            close = False
+    if session is None:  # assume global session
+        session = setup_settings.instance.session()
+        setup_settings.instance._cloud_sqlite_locker.lock()
+        close = True
+    else:
+        close = False
 
     # commit all records to database in one transaction
     db_error = None
@@ -142,11 +138,10 @@ def add(  # type: ignore
     if db_error is None:
         added_records, upload_error = upload_committed_records(records, session)
 
-    if not lamindb_setup._USE_DJANGO:
-        if close:
-            session.close()  # type: ignore
-            setup_settings.instance._update_cloud_sqlite_file()
-            setup_settings.instance._cloud_sqlite_locker.unlock()
+    if close:
+        session.close()  # type: ignore
+        setup_settings.instance._update_cloud_sqlite_file()
+        setup_settings.instance._cloud_sqlite_locker.unlock()
 
     error = db_error or upload_error
     if error is not None:
@@ -168,9 +163,8 @@ def upload_committed_records(records, session):
     error = None
     added_records = []
 
-    if not lamindb_setup._USE_DJANGO:
-        for record in records:
-            session.refresh(record)
+    for record in records:
+        session.refresh(record)
 
     # upload data objects
     for record in records:
@@ -194,15 +188,10 @@ def upload_committed_records(records, session):
 
     # clean up metadata for objects not uploaded to storage
     if error is not None:
-        if lamindb_setup._USE_DJANGO:
-            for record in records:
-                if record not in added_records:
-                    record.delete()
-        else:
-            for record in records:
-                if record not in added_records:
-                    session.delete(record)
-            session.commit()
+        for record in records:
+            if record not in added_records:
+                session.delete(record)
+        session.commit()
 
     return added_records, error
 
