@@ -101,7 +101,7 @@ from lamindb_setup._check_instance_setup import (
 _py_version_warning("3.8", "3.10")
 
 _INSTANCE_SETUP = _check_instance_setup(from_lamindb=True)
-
+_USE_DJANGO = _lamindb_setup._USE_DJANGO
 # allow the user to call setup
 from . import setup  # noqa
 

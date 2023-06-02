@@ -4,7 +4,10 @@ from pathlib import Path
 from urllib.request import urlretrieve
 
 import nox
-from laminci import move_built_docs_to_docs_slash_project_slug, upload_docs_artifact
+from laminci import (  # noqa
+    move_built_docs_to_docs_slash_project_slug,
+    upload_docs_artifact,
+)
 from laminci.nox import build_docs, login_testuser1, login_testuser2, run_pre_commit
 
 # we'd like to aggregate coverage information across sessions
@@ -95,5 +98,6 @@ def docs(session):
 
     login_testuser1(session)
     build_docs(session)
-    upload_docs_artifact()
+    # do not upload docs artifact for now
+    # upload_docs_artifact()
     move_built_docs_to_docs_slash_project_slug()

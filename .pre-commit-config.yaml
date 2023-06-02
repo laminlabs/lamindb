@@ -27,7 +27,8 @@ repos:
           - --ignore=E203,TYP001,W503,BLK100
         exclude: |
           (?x)(
-              __init__.py
+              __init__.py|
+              test_session.py
           )
   - repo: https://github.com/pre-commit/mirrors-prettier
     rev: v2.6.2

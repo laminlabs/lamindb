@@ -1,36 +1,16 @@
-from pathlib import Path
+import lamindb as ln
 
 
 def test_create_to_load():
-    import lamindb.setup as lnsetup
-
-    storage_root = "mydata-test-db"
-    lnsetup.login(
-        "raspbear@gmx.de",
-        password="MmR4YuQEyb0yxu7dAwJZTjLzR1Az2lN4Q4IduDlO",
-    )
-    lnsetup.init(storage=storage_root)
-
-    # if importing this at the top of the file lamin will try to
-    # create unnecessary tables
-    import lamindb as ln
-
-    transform = ln.Transform(id="83jf", v="1", name="test", type="pipeline")
+    transform = ln.Transform(version="0", name="test", type="pipeline")
     ln.add(transform)
-    run = ln.schema.Run(transform=transform)
+    run = ln.Run(transform=transform)
     ln.add(run)
-    ln.select(ln.schema.Storage, root=str(lnsetup.settings.instance.storage.root)).one()
+    ln.select(ln.Storage, root=str(ln.setup.settings.storage.root)).one()
 
     ln.schema._core.get_db_metadata_as_dict()
     table_object = ln.schema._core.get_table_object("lnschema_core_file")
     ln.schema._core.get_table_metadata_as_dict(table_object)
-
-    (Path(storage_root) / "mydata-test-db.lndb").unlink()
-    # Note that this merely removes database file but doesn't clean out the instance_settings file!  # noqa
-    # Hence, we need to also clean that out:
-    from lamindb_setup.dev._settings_store import current_instance_settings_file
-
-    current_instance_settings_file().unlink()
 
 
 if __name__ == "__main__":

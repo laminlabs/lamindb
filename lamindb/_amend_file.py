@@ -3,6 +3,7 @@ from typing import Optional
 
 from anndata import AnnData
 from anndata import __version__ as anndata_v
+from lamindb_setup import _USE_DJANGO
 from lamindb_setup import settings as setup_settings
 from lnschema_core import File
 from lnschema_core._core import filepath_from_file_or_folder
@@ -142,18 +143,23 @@ def _track_run_input(file: File, is_run_input: Optional[bool] = None):
                 "No global run context set. Call ln.context.track() or link input to a"
                 " run object via `run.inputs.append(file)`"
             )
-        if object_session(file) is None:
-            # slower, no session open, doesn't use relationship
-            run_in = RunIn(file_id=file.id, run_id=context.run.id)
-            # create a separate session under-the-hood for this transaction
-            ln_add(run_in)
+        if not _USE_DJANGO:
+            if object_session(file) is None:
+                # slower, no session open, doesn't use relationship
+                run_in = RunIn(file_id=file.id, run_id=context.run.id)
+                # create a separate session under-the-hood for this transaction
+                ln_add(run_in)
+            else:
+                # relationship-based, needs session
+                if context.run not in file.input_of:
+                    file.input_of.append(context.run)
+                    session = object_session(file)
+                    session.add(file)
+                    session.commit()
         else:
-            # relationship-based, needs session
-            if context.run not in file.input_of:
-                file.input_of.append(context.run)
-                session = object_session(file)
-                session.add(file)
-                session.commit()
+            if not file.input_of.contains(context.run):
+                context.run.save()
+                file.input_of.add(context.run)
 
 
 def load(file: File, is_run_input: Optional[bool] = None) -> DataLike:
