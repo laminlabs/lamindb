@@ -1,17 +1,18 @@
+import builtins
 import os
 import re
 from pathlib import Path, PurePath
 from typing import Dict, List, Optional, Tuple, Union
 
 import lnschema_core
-import nbproject
 from lamin_logger import logger
 from lamindb_setup import settings
 from lamindb_setup.dev import InstanceSettings
 from lnschema_core import Run, Transform
-from nbproject._is_run_from_ipython import is_run_from_ipython
 
 from .dev.db._add import _private_not_empty
+
+is_run_from_ipython = getattr(builtins, "__IPYTHON__", False)
 
 msg_init_complete = (
     "⚠️ Destructive operation! ⚠️\n\nAre you sure you saved the notebook before running"
@@ -28,6 +29,7 @@ msg_path_failed = (
 
 
 def _write_notebook_meta(metadata):
+    import nbproject
     from nbproject._header import _env, _filepath
 
     nbproject.dev._frontend_commands._save_notebook(_env)
@@ -53,6 +55,7 @@ def _write_notebook_meta(metadata):
 def reinitialize_notebook(
     id: str, name: str, metadata: Optional[Dict] = None
 ) -> Tuple[Transform, Dict]:
+    import nbproject
     from nbproject._header import _env, _filepath
 
     new_id, new_version = id, None
@@ -157,14 +160,31 @@ class context:
         logger.info(f"User: {settings.user.handle}")
         import lamindb as ln
 
-        if is_run_from_ipython and transform is None:
-            cls._track_notebook(
-                pypackage=pypackage,
-                filepath=notebook_path,
-                editor=editor,
-            )
-        elif transform is None:
-            raise ValueError("Pass `transform` to .track()!")
+        if transform is None:
+            is_tracked_notebook = False
+
+            if is_run_from_ipython:
+                try:
+                    cls._track_notebook(
+                        pypackage=pypackage,
+                        filepath=notebook_path,
+                        editor=editor,
+                    )
+                    is_tracked_notebook = True
+                except Exception as e:
+                    if isinstance(e, ImportError):
+                        logger.info(
+                            "It looks like you are running ln.track() from a jupyter"
+                            " notebook. Consider installing nbproject for automatic"
+                            " tracking."
+                        )
+                    is_tracked_notebook = False
+
+            if not is_tracked_notebook:
+                new_transform = Transform(name="Default pipeline", type="pipeline")
+                ln.add(new_transform)
+                logger.success(f"Added: {new_transform}")
+                cls.transform = new_transform
         else:
             if transform.id is not None:  # id based look-up
                 if transform.version is None:
@@ -235,8 +255,10 @@ class context:
                 this can help to identify the correct mechanism for interactivity
                 when automatic inference fails.
         """
-        cls.instance = settings.instance
+        import nbproject
         from nbproject.dev._jupyter_communicate import notebook_path
+
+        cls.instance = settings.instance
 
         metadata = None
         needs_init = False
