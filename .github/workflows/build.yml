@@ -87,7 +87,7 @@ jobs:
       - name: upload coverage
         uses: actions/upload-artifact@v2
         with:
-          name: coverage--${{ matrix.group }}
+          name: coverage--${{ matrix.orm }}--${{ matrix.group }}
           path: .coverage
       - name: upload docs
         if: ${{ matrix.group == 'guide' || matrix.group == 'biology' || matrix.group == 'faq' || matrix.group == 'storage' }}
