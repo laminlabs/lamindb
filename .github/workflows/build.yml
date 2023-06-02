@@ -58,11 +58,13 @@ jobs:
         run: |
           python -m pip install -U pip
           pip install -U laminci
-      - name: install Django & set env
+      - name: install Django & set env to django
         if: ${{ matrix.orm == 'django' }}
         run: |
           pip install django dj_database_url
-          echo "{LAMINDB_USE_DJANGO}={1}" >> "$GITHUB_ENV"
+          echo "LAMINDB_USE_DJANGO=1" >> "$GITHUB_ENV"
+      - run: echo "LAMINDB_USE_DJANGO=0" >> "$GITHUB_ENV"
+        if: ${{ matrix.orm == 'sa' }}
       - name: install postgres
         if: ${{ matrix.group == 'faq' }}
         run: sudo apt-get install libpq-dev
