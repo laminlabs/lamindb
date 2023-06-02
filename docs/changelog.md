@@ -3,6 +3,7 @@
 <!-- prettier-ignore -->
 Name | PR | Developer | Date | Version
 --- | --- | --- | --- | ---
+🏗️ Enable Django backend (part 2) | [702](https://github.com/laminlabs/lamindb/pull/702) | [falexwolf](https://github.com/falexwolf) | 2023-06-02 |
 🎨 Simplified track sample-level metadata | [705](https://github.com/laminlabs/lamindb/pull/705) | [sunnyosun](https://github.com/sunnyosun) | 2023-06-02 |
 🔊 Add more loggings to `ln.parse` | [703](https://github.com/laminlabs/lamindb/pull/703) | [sunnyosun](https://github.com/sunnyosun) | 2023-06-02 | 0.42a1
 ♻️ Refactored feature parsing and `ln.parse` | [701](https://github.com/laminlabs/lamindb/pull/701) | [sunnyosun](https://github.com/sunnyosun) | 2023-06-01 |
