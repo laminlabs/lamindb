@@ -40,7 +40,7 @@ ln.add(file)
 
 Under-the-hood, this created 3 linked records:
 
-```
+```python
 Transform(id='OdlFhFWW7qg3', version='0', name='My pipeline/notebook', type=notebook, created_by_id='DzTjkKse', created_at=datetime.datetime(2023, 4, 28, 6, 7, 30))
 Run(id='g1xwllJfFZuh24AWKySc', transform_id='OdlFhFWW7qg3', transform_version='0', created_by_id='DzTjkKse', created_at=datetime.datetime(2023, 4, 28, 6, 7, 30))
 File(id='DY9JINrVH6sMtqEirMpM', name='iris', suffix='.parquet', size=5629, hash='jUTdERuqlGv_GyqFfIEb2Q', run_id='g1xwllJfFZuh24AWKySc', transform_id='OdlFhFWW7qg3', transform_version='0', storage_id='GLWpJhvg', created_at=datetime.datetime(2023, 4, 28, 6, 7, 32), created_by_id='DzTjkKse')
@@ -51,9 +51,9 @@ File(id='DY9JINrVH6sMtqEirMpM', name='iris', suffix='.parquet', size=5629, hash=
 ```python
 file = ln.select(ln.File, name="My dataframe").one()
 df = file.load()
-#>      a	b
-#>  0	1	3
-#>  1	2	4
+    a	b
+0	1	3
+1	2	4
 ```
 
 <br>
