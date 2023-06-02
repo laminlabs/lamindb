@@ -178,6 +178,8 @@ class context:
                             " notebook. Consider installing nbproject for automatic"
                             " tracking."
                         )
+                    elif isinstance(e, RuntimeError):
+                        raise e
                     is_tracked_notebook = False
 
             if not is_tracked_notebook:
