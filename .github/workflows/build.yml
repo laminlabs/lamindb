@@ -62,7 +62,7 @@ jobs:
         if: ${{ matrix.orm == 'django' }}
         run: |
           pip install django dj_database_url
-          export LAMINDB_USE_DJANGO="1"
+          echo "::set-env name=LAMINDB_USE_DJANGO::1"
       - name: install postgres
         if: ${{ matrix.group == 'faq' }}
         run: sudo apt-get install libpq-dev
