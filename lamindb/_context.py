@@ -353,22 +353,27 @@ class context:
         else:
             logger.info(f"Loaded: {transform}")
             if transform.name != name or transform.title != title:
-                response = input(
-                    "Updated notebook name and/or title: Do you want to assign a new id"
-                    " or version? (y/n)"
-                )
-                if response == "y":
-                    transform, metadata = reinitialize_notebook(
-                        transform.id, name, metadata
+                if _env in ("lab", "notebook"):
+                    response = input(
+                        "Updated notebook name and/or title: Do you want to assign a"
+                        " new id or version? (y/n)"
                     )
-                    if _env in ("lab", "notebook"):
-                        cls._notebook_meta = metadata  # type: ignore
-                transform.name = name
-                transform.title = title
-                ln.add(transform)
-                if response == "y":
-                    logger.success(f"Added: {transform}")
+                    if response == "y":
+                        transform, metadata = reinitialize_notebook(
+                            transform.id, name, metadata
+                        )
+                    cls._notebook_meta = metadata  # type: ignore
+                    transform.name = name
+                    transform.title = title
+                    ln.add(transform)
+                    if response == "y":
+                        logger.success(f"Added: {transform}")
+                    else:
+                        logger.success(f"Updated: {transform}")
                 else:
-                    logger.success(f"Updated: {transform}")
+                    logger.warning(
+                        "Updated notebook name and/or title. If you want to assign a"
+                        " new id or version, run: lamin track my-notebook.ipynb"
+                    )
 
         cls.transform = transform
