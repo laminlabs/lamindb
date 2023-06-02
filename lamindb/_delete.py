@@ -2,9 +2,8 @@ import traceback
 from typing import List, Optional, Union, overload  # noqa
 
 from lamindb_setup import settings
-from lnschema_core import BaseORM, File
+from lnschema_core import BaseORM, File, RunInput
 from lnschema_core._core import storage_key_from_file
-from lnschema_core.link import RunIn
 
 from lamindb.dev.storage import delete_storage
 
@@ -89,7 +88,7 @@ def delete(  # type: ignore
     for record in records:
         if isinstance(record, File):
             # delete run_ins related to the file that's to be deleted
-            run_ins = select(RunIn, file_id=record.id).all()
+            run_ins = select(RunInput, file_id=record.id).all()
             for run_in in run_ins:
                 session.delete(run_in)
             try:

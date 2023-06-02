@@ -5,7 +5,7 @@ from typing import List, Optional, Tuple, Union, overload  # noqa
 import lamindb_setup
 from lamin_logger import logger
 from lamindb_setup import settings as setup_settings
-from lnschema_core import BaseORM, File
+from lnschema_core import BaseORM, File, Folder
 from lnschema_core._core import storage_key_from_file
 from pydantic.fields import ModelPrivateAttr
 
@@ -129,7 +129,12 @@ def add(  # type: ignore
         try:
             with transaction.atomic():
                 for record in records:
+                    if isinstance(record, Folder):
+                        for r in record._files:
+                            r.save()
                     record.save()
+                    if isinstance(record, Folder):
+                        record.files.set(record._files)
         except Exception as e:
             db_error = e
 

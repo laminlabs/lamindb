@@ -46,7 +46,10 @@ def get_folder_kwargs_from_data(
         if filepath.is_file():
             relative_path = get_relative_path_to_directory(filepath, folderpath)
             file_key = folder_key + "/" + relative_path.as_posix()
-            files.append(File(filepath, run=run, key=file_key))
+            if lamindb_setup._USE_DJANGO:
+                files.append(File.create(filepath, run=run, key=file_key))
+            else:
+                files.append(File(filepath, run=run, key=file_key))
 
     logger.hint(f"-> n_files = {len(files)}")
 
