@@ -62,7 +62,7 @@ jobs:
         if: ${{ matrix.orm == 'django' }}
         run: |
           pip install django dj_database_url
-          echo "::set-env name=LAMINDB_USE_DJANGO::1"
+          echo "{LAMINDB_USE_DJANGO}={1}" >> "$GITHUB_ENV"
       - name: install postgres
         if: ${{ matrix.group == 'faq' }}
         run: sudo apt-get install libpq-dev
@@ -79,6 +79,8 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: us-east-1
       - run: nox -s "build(group='${{ matrix.group }}')"
+        env:
+          LAMINDB_USE_DJANGO: "${{ env.LAMINDB_USE_DJANGO }}"
       - name: upload coverage
         uses: actions/upload-artifact@v2
         with:

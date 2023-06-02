@@ -1,9 +1,8 @@
 import traceback
 from typing import List, Optional, Union, overload  # noqa
 
-import sqlmodel as sqm
 from lamindb_setup import settings
-from lnschema_core import File
+from lnschema_core import BaseORM, File
 from lnschema_core._core import storage_key_from_file
 from lnschema_core.link import RunIn
 
@@ -15,7 +14,7 @@ from .dev.db._select import select
 
 @overload
 def delete(
-    record: sqm.SQLModel,
+    record: BaseORM,
     delete_data_from_storage: Optional[bool] = None,
 ) -> None:
     ...
@@ -23,7 +22,7 @@ def delete(
 
 @overload
 def delete(
-    records: List[sqm.SQLModel],
+    records: List[BaseORM],
     delete_data_from_storage: Optional[bool] = None,
 ) -> None:  # type: ignore
     ...
@@ -31,7 +30,7 @@ def delete(
 
 @overload
 def delete(
-    entity: sqm.SQLModel,
+    entity: BaseORM,
     delete_data_from_storage: Optional[bool] = None,
     **fields,
 ) -> None:  # type: ignore
@@ -39,7 +38,7 @@ def delete(
 
 
 def delete(  # type: ignore
-    record: Union[sqm.SQLModel, List[sqm.SQLModel]],
+    record: Union[BaseORM, List[BaseORM]],
     delete_data_from_storage: Optional[bool] = None,
     **fields,
 ) -> None:
@@ -75,7 +74,7 @@ def delete(  # type: ignore
     """
     if isinstance(record, list):
         records = record
-    elif isinstance(record, sqm.SQLModel):
+    elif isinstance(record, BaseORM):
         records = [record]
     else:
         model = record
@@ -90,7 +89,7 @@ def delete(  # type: ignore
     for record in records:
         if isinstance(record, File):
             # delete run_ins related to the file that's to be deleted
-            run_ins = session.exec(sqm.select(RunIn).where(RunIn.file_id == record.id))
+            run_ins = select(RunIn, file_id=record.id).all()
             for run_in in run_ins:
                 session.delete(run_in)
             try:
