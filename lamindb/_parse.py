@@ -92,13 +92,17 @@ def get_or_create_records(
                     getattr(model, "species_id") == species.id  # type:ignore
                 )
                 additional_kwargs = {"species_id": species.id}  # type:ignore
-                logger.info("Generated records with species='{species.name}'.")
+                logger.info(
+                    f"Returned records with species='{species.name}'."  # type:ignore
+                )
             except AttributeError:
                 pass
 
         reference_df = bionty_object.df().reset_index().set_index(parsing_id)
 
     records = stmt.all()
+    if len(records) > 0:
+        logger.hint(f"Returned {len(records)} existing records.")
 
     existing_ids = iterable.intersection(stmt.df()[parsing_id])
 
@@ -108,6 +112,7 @@ def get_or_create_records(
         # mapped new_ids will fetch fields values from bionty
         mapped_id = reference_df.index.intersection(new_ids)
         if len(mapped_id) > 0:
+            logger.hint(f"Created {len(mapped_id)} records from bionty.")
             new_ids_kwargs = _bulk_create_dicts_from_df(
                 keys=mapped_id, column_name=parsing_id, df=reference_df
             )
@@ -117,6 +122,7 @@ def get_or_create_records(
         # unmapped new_ids will only create records with parsing_id and species
         unmapped = set(new_ids).difference(mapped_id)
         if len(unmapped) > 0:
+            logger.hint(f"Created {len(unmapped)} records from user inputs.")
             for i in unmapped:
                 kwargs = {parsing_id: i}
                 kwargs.update(additional_kwargs)

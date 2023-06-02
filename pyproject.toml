@@ -48,7 +48,7 @@ gcp = [
     "fsspec[gs]==2023.5.0"
 ]
 bionty = [
-    "lnschema_bionty==0.18.2",
+    "lnschema_bionty==0.18.3",
 ]
 lamin1 = [
     "lnschema_lamin1==0.18a1",
