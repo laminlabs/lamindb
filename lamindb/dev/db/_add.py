@@ -3,10 +3,9 @@ from functools import partial
 from typing import List, Optional, Tuple, Union, overload  # noqa
 
 import lamindb_setup
-import sqlmodel as sqm
 from lamin_logger import logger
 from lamindb_setup import settings as setup_settings
-from lnschema_core import File
+from lnschema_core import BaseORM, File
 from lnschema_core._core import storage_key_from_file
 from pydantic.fields import ModelPrivateAttr
 
@@ -61,7 +60,7 @@ Examples:
 
 
 @overload
-def add(record: sqm.SQLModel) -> sqm.SQLModel:
+def add(record: BaseORM) -> BaseORM:
     ...
 
 
@@ -69,28 +68,31 @@ def add(record: sqm.SQLModel) -> sqm.SQLModel:
 # Overloaded function signature 2 will never be matched: signature 1's parameter
 # type(s) are the same or broader
 @overload
-def add(records: List[sqm.SQLModel]) -> List[sqm.SQLModel]:  # type: ignore
+def add(records: List[BaseORM]) -> List[BaseORM]:  # type: ignore
     ...
 
 
 @overload
-def add(  # type: ignore
-    entity: sqm.SQLModel, **fields
-) -> Union[sqm.SQLModel, List[sqm.SQLModel]]:
+def add(entity: BaseORM, **fields) -> Union[BaseORM, List[BaseORM]]:  # type: ignore
     ...
 
 
 @doc_args(add_docs)
 def add(  # type: ignore
-    record: Union[sqm.SQLModel, List[sqm.SQLModel]], **fields
-) -> Union[sqm.SQLModel, List[sqm.SQLModel]]:
+    record: Union[BaseORM, List[BaseORM]], **fields
+) -> Union[BaseORM, List[BaseORM]]:
     """{}"""  # noqa
-    session = get_session_from_kwargs(fields)
+    if not lamindb_setup._USE_DJANGO:
+        session = None
+    else:
+        session = get_session_from_kwargs(fields)
     if isinstance(record, list):
         records = record
-    elif isinstance(record, sqm.SQLModel):
+    elif isinstance(record, BaseORM):
         records = [record]
     else:
+        if lamindb_setup._USE_DJANGO:
+            raise NotImplementedError
         model = file_to_sqm(record)
         results = select(model, **fields).one_or_none()
         if results is None:
@@ -101,38 +103,50 @@ def add(  # type: ignore
             )
             return results
 
-    if session is None:  # assume global session
-        session = setup_settings.instance.session()
-        setup_settings.instance._cloud_sqlite_locker.lock()
-        close = True
-    else:
-        close = False
+    if not lamindb_setup._USE_DJANGO:
+        if session is None:  # assume global session
+            session = setup_settings.instance.session()
+            setup_settings.instance._cloud_sqlite_locker.lock()
+            close = True
+        else:
+            close = False
 
-    # commit metadata to database
+    # commit all records to database in one transaction
     db_error = None
-    for record in records:
-        # the following ensures that queried objects (within __init__)
-        # behave like queried objects, only example right now: Run
-        if (
-            _private_not_empty(record, "_ln_identity_key")
-            and record._ln_identity_key is not None  # noqa
-        ):
-            record._sa_instance_state.key = record._ln_identity_key
-        session.add(record)
-    try:
-        session.commit()
-    except Exception as e:
-        db_error = e
+    if not lamindb_setup._USE_DJANGO:
+        for record in records:
+            # the following ensures that queried objects (within __init__)
+            # behave like queried objects, only example right now: Run
+            if (
+                _private_not_empty(record, "_ln_identity_key")
+                and record._ln_identity_key is not None  # noqa
+            ):
+                record._sa_instance_state.key = record._ln_identity_key
+            session.add(record)  # type: ignore
+        try:
+            session.commit()  # type: ignore
+        except Exception as e:
+            db_error = e
+    else:
+        from django.db import transaction
 
-    # upload data objects to storage
+        try:
+            with transaction.atomic():
+                for record in records:
+                    record.save()
+        except Exception as e:
+            db_error = e
+
+    # upload files to storage
     added_records = []
     if db_error is None:
         added_records, upload_error = upload_committed_records(records, session)
 
-    if close:
-        session.close()
-        setup_settings.instance._update_cloud_sqlite_file()
-        setup_settings.instance._cloud_sqlite_locker.unlock()
+    if not lamindb_setup._USE_DJANGO:
+        if close:
+            session.close()  # type: ignore
+            setup_settings.instance._update_cloud_sqlite_file()
+            setup_settings.instance._cloud_sqlite_locker.unlock()
 
     error = db_error or upload_error
     if error is not None:
@@ -153,8 +167,10 @@ def upload_committed_records(records, session):
     # during metadata cleanup
     error = None
     added_records = []
-    for record in records:
-        session.refresh(record)
+
+    if not lamindb_setup._USE_DJANGO:
+        for record in records:
+            session.refresh(record)
 
     # upload data objects
     for record in records:
@@ -178,10 +194,15 @@ def upload_committed_records(records, session):
 
     # clean up metadata for objects not uploaded to storage
     if error is not None:
-        for record in records:
-            if record not in added_records:
-                session.delete(record)
-        session.commit()
+        if lamindb_setup._USE_DJANGO:
+            for record in records:
+                if record not in added_records:
+                    record.delete()
+        else:
+            for record in records:
+                if record not in added_records:
+                    session.delete(record)
+            session.commit()
 
     return added_records, error
 
@@ -231,6 +252,9 @@ def upload_data_object(file) -> None:
 # sometimes obj.attr results in
 def _private_not_empty(obj, attr):
     if hasattr(obj, attr):
-        return not isinstance(getattr(obj, attr), ModelPrivateAttr)
+        if lamindb_setup._USE_DJANGO:
+            return hasattr(obj, attr)
+        else:
+            return not isinstance(getattr(obj, attr), ModelPrivateAttr)
     else:
         return False
