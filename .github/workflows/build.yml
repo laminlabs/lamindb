@@ -16,7 +16,7 @@ jobs:
       matrix:
         python-version: ["3.9"]
         orm:
-          - "sa"
+          - "sqlalchemy"
           - "django"
         group:
           - "unit"
@@ -64,7 +64,7 @@ jobs:
           pip install django dj_database_url
           echo "LAMINDB_USE_DJANGO=1" >> "$GITHUB_ENV"
       - run: echo "LAMINDB_USE_DJANGO=0" >> "$GITHUB_ENV"
-        if: ${{ matrix.orm == 'sa' }}
+        if: ${{ matrix.orm == 'sqlalchemy' }}
       - name: install postgres
         if: ${{ matrix.group == 'faq' }}
         run: sudo apt-get install libpq-dev
