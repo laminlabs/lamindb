@@ -108,7 +108,6 @@ def add(  # type: ignore
         close = False
 
     # commit all records to database in one transaction
-    db_error = None
     if not lamindb_setup._USE_DJANGO:
         for record in records:
             # the following ensures that queried objects (within __init__)
@@ -119,38 +118,29 @@ def add(  # type: ignore
             ):
                 record._sa_instance_state.key = record._ln_identity_key
             session.add(record)  # type: ignore
-        try:
-            session.commit()  # type: ignore
-        except Exception as e:
-            db_error = e
+        session.commit()  # type: ignore
     else:
         from django.db import transaction
 
-        try:
-            with transaction.atomic():
-                for record in records:
-                    if isinstance(record, Folder):
-                        for r in record._files:
-                            r.save()
-                    record.save()
-                    if isinstance(record, Folder):
-                        record.files.set(record._files)
-        except Exception as e:
-            db_error = e
+        with transaction.atomic():
+            for record in records:
+                if isinstance(record, Folder):
+                    for r in record._files:
+                        r.save()
+                record.save()
+                if isinstance(record, Folder):
+                    record.files.set(record._files)
 
     # upload files to storage
-    added_records = []
-    if db_error is None:
-        added_records, upload_error = upload_committed_records(records, session)
+    added_records, upload_error = upload_committed_records(records, session)
 
     if close:
         session.close()  # type: ignore
         setup_settings.instance._update_cloud_sqlite_file()
         setup_settings.instance._cloud_sqlite_locker.unlock()
 
-    error = db_error or upload_error
-    if error is not None:
-        error_message = prepare_error_message(records, added_records, error)
+    if upload_error is not None:
+        error_message = prepare_error_message(records, added_records, upload_error)
         raise RuntimeError(error_message)
     elif len(added_records) > 1:
         return added_records
@@ -177,6 +167,7 @@ def upload_committed_records(records, session):
             try:
                 upload_data_object(record)
             except Exception as e:
+                logger.warning(f"Could not upload file: {record}")
                 error = e
                 break
         added_records += [record]
