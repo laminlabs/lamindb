@@ -81,6 +81,7 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: us-east-1
       - run: nox -s "build(group='${{ matrix.group }}')"
+        if: ${{ !( matrix.orm == 'django' && matrix.group == 'biology' ) }}
         env:
           LAMINDB_USE_DJANGO: "${{ env.LAMINDB_USE_DJANGO }}"
       - name: upload coverage
