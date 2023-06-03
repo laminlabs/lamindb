@@ -34,11 +34,11 @@ msg_init_noninteractive = (
 
 
 def _write_notebook_meta(metadata):
-    import nbproject
+    from nbproject import dev as nb_dev
     from nbproject._header import _env, _filepath
 
-    nbproject.dev._frontend_commands._save_notebook(_env)
-    nb = nbproject.dev.read_notebook(_filepath)
+    nb_dev._frontend_commands._save_notebook(_env)
+    nb = nb_dev.read_notebook(_filepath)
     nb.metadata["nbproject"] = metadata
 
     # write proper execution count
@@ -53,14 +53,14 @@ def _write_notebook_meta(metadata):
             cell["execution_count"] = ccount + 1
             break
 
-    nbproject.dev.write_notebook(nb, _filepath)
-    nbproject.dev._frontend_commands._reload_notebook(_env)
+    nb_dev.write_notebook(nb, _filepath)
+    nb_dev._frontend_commands._reload_notebook(_env)
 
 
 def reinitialize_notebook(
     id: str, name: str, metadata: Optional[Dict] = None
 ) -> Tuple[Transform, Dict]:
-    import nbproject
+    from nbproject import dev as nb_dev
     from nbproject._header import _env, _filepath
 
     new_id, new_version = id, None
@@ -76,13 +76,11 @@ def reinitialize_notebook(
             " 'no'. (version/n)"
         )
         if response != "n":
-            if new_version == "y":
-                response = input("Please type the version: ")
-            new_version = response
+            new_version = input("Please type the version: ")
 
     nb = None
     if metadata is None:
-        nb = nbproject.dev.read_notebook(_filepath)
+        nb = nb_dev.read_notebook(_filepath)
         metadata = nb.metadata["nbproject"]
 
     metadata["id"] = new_id
@@ -94,9 +92,9 @@ def reinitialize_notebook(
     # by returning metadata below
     if _env not in ("lab", "notebook", "test"):
         if nb is None:
-            nb = nbproject.dev.read_notebook(_filepath)
+            nb = nb_dev.read_notebook(_filepath)
         nb.metadata["nbproject"] = metadata
-        nbproject.dev.write_notebook(nb, _filepath)
+        nb_dev.write_notebook(nb, _filepath)
         raise SystemExit(msg_init_complete)
 
     transform = Transform(id=new_id, version=new_version, name=name, type="notebook")
