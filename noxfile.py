@@ -99,7 +99,7 @@ def docs(session):
 
     login_testuser1(session)
     session.run(*"lamin init --storage ./docsbuild".split())
-    session.run(*"pip install django")
+    session.run(*"pip install django".split())
     build_docs(session)
     # do not upload docs artifact for now
     # upload_docs_artifact()
