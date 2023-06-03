@@ -2,7 +2,6 @@ import os
 
 from lamindb_setup import __version__ as lndb_v
 from lnschema_core import __version__ as lnschema_core_v
-from nbproject import __version__ as nbproject_v
 from packaging import version
 
 if os.getenv("GITHUB_ACTIONS") is None:
@@ -15,6 +14,10 @@ if os.getenv("GITHUB_ACTIONS") is None:
         raise RuntimeError("Upgrade lndb! pip install lndb==0.46a3")
 
     # Lamin GREATEREQ packages
+    try:
+        from nbproject import __version__ as nbproject_v
 
-    if version.parse(nbproject_v) < version.parse("0.8.5"):
-        raise RuntimeError("lamindb needs nbproject>=0.8.5")
+        if version.parse(nbproject_v) < version.parse("0.8.5"):
+            raise RuntimeError("lamindb needs nbproject>=0.8.5")
+    except ImportError:
+        pass

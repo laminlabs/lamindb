@@ -1,6 +1,5 @@
 from typing import List, Optional, Union
 
-import nbproject as _nb
 from lamin_logger import logger
 from lnschema_core import Run, Transform
 
@@ -63,6 +62,8 @@ class nb:
             i_confirm_i_saved: Only relevant outside Jupyter Lab & Notebook as a
                 safeguard against losing the editor buffer content.
         """
+        import nbproject
+
         import lamindb as ln
 
         if cls.transform is None:
@@ -82,7 +83,7 @@ class nb:
             Transform, id=cls.transform.id, version=cls.transform.version  # type: ignore  # noqa
         ).one()
         # update version
-        transform.title = _nb.meta.live.title
+        transform.title = nbproject.meta.live.title
         if version != cls.transform.version:  # type: ignore
             transform_add = Transform(
                 id=transform.id,
