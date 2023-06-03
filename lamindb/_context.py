@@ -208,12 +208,13 @@ class context:
             Run(load_latest=not new_run)
         else:
             Run(load_latest=not new_run)
-        # so, this is a hack:
-        if (
-            _private_not_empty(cls.run, "_ln_identity_key")  # type: ignore
-            and cls.run._ln_identity_key is not None  # type: ignore
-        ):
-            cls.run._sa_instance_state.key = cls.run._ln_identity_key  # type: ignore
+        if not ln._USE_DJANGO:
+            # so, this is a hack:
+            if (
+                _private_not_empty(cls.run, "_ln_identity_key")  # type: ignore
+                and cls.run._ln_identity_key is not None  # type: ignore
+            ):
+                cls.run._sa_instance_state.key = cls.run._ln_identity_key  # type: ignore  # noqa
 
         # only for newly intialized notebooks
         if hasattr(cls, "_notebook_meta"):
