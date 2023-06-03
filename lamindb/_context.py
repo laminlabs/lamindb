@@ -230,18 +230,44 @@ class context:
             else:
                 new_run = True
 
-        # this here uses cls.transform and writes cls.run
-        # should probably change that design
-        if _USE_DJANGO:
-            Run.create(load_latest=not new_run)
-        else:
-            Run(load_latest=not new_run)
-        # so, this is a hack:
-        if (
-            _private_not_empty(cls.run, "_ln_identity_key")  # type: ignore
-            and cls.run._ln_identity_key is not None  # type: ignore
-        ):
-            cls.run._sa_instance_state.key = cls.run._ln_identity_key  # type: ignore
+        # at this point, we have a transform
+        transform = cls.transform
+        run = None
+        if not new_run:
+            if ln._USE_DJANGO:
+                run = (
+                    ln.select(ln.Run, transform=transform)
+                    .order_by("-created_at")
+                    .first()
+                )
+            else:
+                run = (
+                    ln.select(
+                        ln.Run,
+                        transform_id=transform.id,  # type: ignore
+                        transform_version=transform.version,  # type: ignore
+                    )
+                    .order_by(ln.Run.created_at.desc())
+                    .first()
+                )
+            if run is not None:
+                logger.info(f"Loaded: {run}")
+
+        if run is None:
+            run = ln.Run(transform=transform)
+            run = ln.add(run)
+            if not ln._USE_DJANGO:
+                run._ln_identity_key = run.id  # type: ignore
+            logger.success(f"Saved: {run}")
+        cls.run = run
+
+        if not ln._USE_DJANGO:
+            # so, this is a hack:
+            if (
+                _private_not_empty(cls.run, "_ln_identity_key")  # type: ignore
+                and cls.run._ln_identity_key is not None  # type: ignore
+            ):
+                cls.run._sa_instance_state.key = cls.run._ln_identity_key  # type: ignore  # noqa
 
         # only for newly intialized notebooks
         if hasattr(cls, "_notebook_meta"):

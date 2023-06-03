@@ -28,8 +28,9 @@ def lint(session: nox.Session) -> None:
     ["unit", "guide", "biology", "faq", "storage"],
 )
 def install(session, group):
-    # run with pypi install on main
-    if "GITHUB_EVENT_NAME" in os.environ and os.environ["GITHUB_EVENT_NAME"] != "push":
+    # run with pypi install on main (currently disabled)
+    if True:
+        # os.getenv("GITHUB_EVENT_NAME") not in {None, "push"}
         # run with submodule install on a PR
         submodules = " ".join(
             [
@@ -97,7 +98,9 @@ def docs(session):
     )
 
     login_testuser1(session)
+    session.run(*"lamin init --storage ./docsbuild".split())
+    session.run(*"pip install django".split())
     build_docs(session)
-    # do not upload docs artifact for now
+    # do not upload docs artifact until converged with django
     # upload_docs_artifact()
-    move_built_docs_to_docs_slash_project_slug()
+    # move_built_docs_to_docs_slash_project_slug()
