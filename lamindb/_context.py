@@ -205,7 +205,7 @@ class context:
         # this here uses cls.transform and writes cls.run
         # should probably change that design
         if _USE_DJANGO:
-            Run.create(load_latest=not new_run)
+            Run(load_latest=not new_run)
         else:
             Run(load_latest=not new_run)
         # so, this is a hack:
