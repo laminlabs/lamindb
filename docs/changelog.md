@@ -3,6 +3,7 @@
 <!-- prettier-ignore -->
 Name | PR | Developer | Date | Version
 --- | --- | --- | --- | ---
+♻️ Absorb `DjangoORM.create()` in `DjangoORM.__init__()` | [707](https://github.com/laminlabs/lamindb/pull/707) | [falexwolf](https://github.com/falexwolf) | 2023-06-03 |
 🐛 Disentangle keys in storage related test notebooks | [708](https://github.com/laminlabs/lamindb/pull/708) | [Koncopd](https://github.com/Koncopd) | 2023-06-03 |
 🔒️ ln.track improvements | [704](https://github.com/laminlabs/lamindb/pull/704) | [Koncopd](https://github.com/Koncopd) | 2023-06-03 |
 🏗️ Enable Django backend (part 2) | [702](https://github.com/laminlabs/lamindb/pull/702) | [falexwolf](https://github.com/falexwolf) | 2023-06-02 |
