@@ -27,6 +27,11 @@ msg_path_failed = (
     " `notebook_path` to ln.track()."
 )
 
+msg_init_noninteractive = (
+    "Please attach an ID to the notebook by running the CLI: lamin track"
+    " my-notebook.ipynb"
+)
+
 
 def _write_notebook_meta(metadata):
     import nbproject
@@ -178,11 +183,14 @@ class context:
                             " notebook. Consider installing nbproject for automatic"
                             " tracking."
                         )
-                    elif isinstance(e, RuntimeError):
+                    elif str(e) == msg_init_noninteractive:
                         raise e
+                    else:
+                        logger.warning(f"nbproject failed:\n{e}")
                     is_tracked_notebook = False
 
             if not is_tracked_notebook:
+                logger.info("Creating a default Transform.")
                 new_transform = Transform(name="Default pipeline", type="pipeline")
                 ln.add(new_transform)
                 logger.success(f"Added: {new_transform}")
@@ -319,10 +327,7 @@ class context:
                 # nbproject.dev.write_notebook(nb, _filepath)
                 # raise SystemExit(msg_init_complete)
                 # the following is safer
-                raise RuntimeError(
-                    "Please attach an ID to the notebook by running the CLI: lamin"
-                    " track my-notebook.ipynb"
-                )
+                raise RuntimeError(msg_init_noninteractive)
 
         if _env in ("lab", "notebook"):
             # save the notebook in case that title was updated
