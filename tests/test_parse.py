@@ -1,15 +1,10 @@
 import pandas as pd
 import pytest
-from lnschema_bionty import CellType
 
 import lamindb as ln
 
-
-@pytest.fixture(scope="module")
-def instance():
-    ln.setup.init(storage="test_parse", schema="bionty")
-    yield
-    ln.setup.delete("test_parse")
+if not ln._USE_DJANGO:
+    from lnschema_bionty import CellType
 
 
 @pytest.fixture(scope="module")
@@ -24,21 +19,27 @@ def df():
     )
 
 
-def test_parse_name(instance, df):
+def test_parse_name(df):
+    if ln._USE_DJANGO:
+        return None
     result = ln.parse(df.cell_type, CellType.name)
     ids = [i.ontology_id for i in result]
     assert len(result) == 3
     assert set(ids) == set(["CL:0000182", None, "CL:0000084"])
 
 
-def test_parse_ontology_id(instance, df):
+def test_parse_ontology_id(df):
+    if ln._USE_DJANGO:
+        return None
     result = ln.parse(df.cell_type_id, CellType.ontology_id)
     names = [i.name for i in result]
     assert len(result) == 2
     assert set(names) == set(["T cell", "hepatocyte"])
 
 
-def test_parse_df(instance, df):
+def test_parse_df(df):
+    if ln._USE_DJANGO:
+        return None
     result = ln.parse(
         df, {"cell_type": CellType.name, "cell_type_id": CellType.ontology_id}
     )

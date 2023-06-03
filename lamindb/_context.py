@@ -6,7 +6,7 @@ from typing import Dict, List, Optional, Tuple, Union
 
 import lnschema_core
 from lamin_logger import logger
-from lamindb_setup import settings
+from lamindb_setup import _USE_DJANGO, settings
 from lamindb_setup.dev import InstanceSettings
 from lnschema_core import Run, Transform
 
@@ -227,14 +227,17 @@ class context:
 
         # for notebooks, default to loading latest runs
         if new_run is None:
-            if cls.transform.type.value == "notebook":  # type: ignore
+            if cls.transform.type == "notebook":  # type: ignore
                 new_run = False
             else:
                 new_run = True
 
         # this here uses cls.transform and writes cls.run
         # should probably change that design
-        Run(load_latest=not new_run)
+        if _USE_DJANGO:
+            Run.create(load_latest=not new_run)
+        else:
+            Run(load_latest=not new_run)
         # so, this is a hack:
         if (
             _private_not_empty(cls.run, "_ln_identity_key")  # type: ignore
@@ -343,18 +346,31 @@ class context:
             version = "0"
             title = None
 
-        transform = ln.select(Transform, id=id, version=version).one_or_none()
+        if _USE_DJANGO:
+            transform = ln.select(Transform, hash=id, version=version).one_or_none()
+        else:
+            transform = ln.select(Transform, id=id, version=version).one_or_none()
         if transform is None:
-            transform = Transform(
-                id=id,
-                version=version,
-                name=name,
-                title=title,
-                reference=reference,
-                type="notebook",
-            )
+            if _USE_DJANGO:
+                transform = Transform(
+                    hash=id,
+                    version=version,
+                    name=name,
+                    title=title,
+                    reference=reference,
+                    type="notebook",
+                )
+            else:
+                transform = Transform(
+                    id=id,
+                    version=version,
+                    name=name,
+                    title=title,
+                    reference=reference,
+                    type="notebook",
+                )
             transform = ln.add(transform)
-            logger.success(f"Added: {transform}")
+            logger.success(f"Saved: {transform}")
         else:
             logger.info(f"Loaded: {transform}")
             if transform.name != name or transform.title != title:

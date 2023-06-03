@@ -1,8 +1,10 @@
 from typing import Optional
 
+import lamindb_setup
 import pandas as pd
 import sqlmodel as sqm
 from lamindb_setup import settings
+from lnschema_core import BaseORM
 from sqlalchemy.orm.exc import MultipleResultsFound, NoResultFound
 from sqlmodel.main import SQLModelMetaclass
 
@@ -24,20 +26,32 @@ Returns:
 
 
 @doc_args(select_docs)
-def select(*entity: sqm.SQLModel, **fields) -> "SelectStmt":
+def select(*entity: BaseORM, **fields) -> "SelectStmt":
     """{}"""
-    session = get_session_from_kwargs(fields)
-    # if ln.File is passed, replace it with File SQLModel class
-    entities = file_to_sqm(entity)
+    if lamindb_setup._USE_DJANGO:
+        if len(entity) > 1:
+            raise NotImplementedError
+        from lnschema_core.models import LaminQuerySet
 
-    # continue with user-facing variables
-    if len(entities) > 1 and len(fields) > 0:
-        raise RuntimeError("Can only pass fields for a single entity.")
-    elif len(fields) > 0:
-        # was in `get` before, but there it leads to an inhomogeneous return type
-        conditions = [getattr(entities[0], k) == v for k, v in fields.items()]
-        return SelectStmt(*entities, session=session).where(*conditions)
-    return SelectStmt(*entities, session=session)
+        manager = LaminQuerySet.as_manager()
+        manager.model = entity[0]
+        if len(fields) > 0:
+            return manager.filter(**fields)
+        else:
+            return manager
+    else:
+        session = get_session_from_kwargs(fields)
+        # if ln.File is passed, replace it with File SQLModel class
+        entities = file_to_sqm(entity)
+
+        # continue with user-facing variables
+        if len(entities) > 1 and len(fields) > 0:
+            raise RuntimeError("Can only pass fields for a single entity.")
+        elif len(fields) > 0:
+            # was in `get` before, but there it leads to an inhomogeneous return type
+            conditions = [getattr(entities[0], k) == v for k, v in fields.items()]
+            return SelectStmt(*entities, session=session).where(*conditions)
+        return SelectStmt(*entities, session=session)
 
 
 def to_df(*entities, result):

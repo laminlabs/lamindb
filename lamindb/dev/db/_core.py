@@ -1,6 +1,7 @@
 from typing import Dict, Optional, Tuple, Union
 
 import sqlmodel as sqm
+from lamindb_setup import _USE_DJANGO
 from lnschema_core import File
 from sqlmodel import Session
 
@@ -25,7 +26,15 @@ def get_session_from_kwargs(kwargs: Dict) -> Optional[Session]:
     # modifies kwargs inplace if they contain a session object
     if "session" in kwargs:
         session = kwargs.pop("session")
-        assert isinstance(session, Session)
+
+        if _USE_DJANGO:
+            from lamindb_setup.dev._settings_instance import DjangoSession
+
+            assert isinstance(session, DjangoSession)
+        else:
+            from sqlmodel import Session
+
+            assert isinstance(session, Session)
         return session
     else:
         return None
