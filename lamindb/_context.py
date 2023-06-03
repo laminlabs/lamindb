@@ -1,17 +1,18 @@
+import builtins
 import os
 import re
 from pathlib import Path, PurePath
 from typing import Dict, List, Optional, Tuple, Union
 
 import lnschema_core
-import nbproject
 from lamin_logger import logger
 from lamindb_setup import _USE_DJANGO, settings
 from lamindb_setup.dev import InstanceSettings
 from lnschema_core import Run, Transform
-from nbproject._is_run_from_ipython import is_run_from_ipython
 
 from .dev.db._add import _private_not_empty
+
+is_run_from_ipython = getattr(builtins, "__IPYTHON__", False)
 
 msg_init_complete = (
     "⚠️ Destructive operation! ⚠️\n\nAre you sure you saved the notebook before running"
@@ -26,12 +27,18 @@ msg_path_failed = (
     " `notebook_path` to ln.track()."
 )
 
+msg_init_noninteractive = (
+    "Please attach an ID to the notebook by running the CLI: lamin track"
+    " my-notebook.ipynb"
+)
+
 
 def _write_notebook_meta(metadata):
+    from nbproject import dev as nb_dev
     from nbproject._header import _env, _filepath
 
-    nbproject.dev._frontend_commands._save_notebook(_env)
-    nb = nbproject.dev.read_notebook(_filepath)
+    nb_dev._frontend_commands._save_notebook(_env)
+    nb = nb_dev.read_notebook(_filepath)
     nb.metadata["nbproject"] = metadata
 
     # write proper execution count
@@ -46,13 +53,14 @@ def _write_notebook_meta(metadata):
             cell["execution_count"] = ccount + 1
             break
 
-    nbproject.dev.write_notebook(nb, _filepath)
-    nbproject.dev._frontend_commands._reload_notebook(_env)
+    nb_dev.write_notebook(nb, _filepath)
+    nb_dev._frontend_commands._reload_notebook(_env)
 
 
 def reinitialize_notebook(
     id: str, name: str, metadata: Optional[Dict] = None
 ) -> Tuple[Transform, Dict]:
+    from nbproject import dev as nb_dev
     from nbproject._header import _env, _filepath
 
     new_id, new_version = id, None
@@ -68,13 +76,11 @@ def reinitialize_notebook(
             " 'no'. (version/n)"
         )
         if response != "n":
-            if new_version == "y":
-                response = input("Please type the version: ")
-            new_version = response
+            new_version = input("Please type the version: ")
 
     nb = None
     if metadata is None:
-        nb = nbproject.dev.read_notebook(_filepath)
+        nb = nb_dev.read_notebook(_filepath)
         metadata = nb.metadata["nbproject"]
 
     metadata["id"] = new_id
@@ -86,9 +92,9 @@ def reinitialize_notebook(
     # by returning metadata below
     if _env not in ("lab", "notebook", "test"):
         if nb is None:
-            nb = nbproject.dev.read_notebook(_filepath)
+            nb = nb_dev.read_notebook(_filepath)
         nb.metadata["nbproject"] = metadata
-        nbproject.dev.write_notebook(nb, _filepath)
+        nb_dev.write_notebook(nb, _filepath)
         raise SystemExit(msg_init_complete)
 
     transform = Transform(id=new_id, version=new_version, name=name, type="notebook")
@@ -157,14 +163,36 @@ class context:
         logger.info(f"User: {settings.user.handle}")
         import lamindb as ln
 
-        if is_run_from_ipython and transform is None:
-            cls._track_notebook(
-                pypackage=pypackage,
-                filepath=notebook_path,
-                editor=editor,
-            )
-        elif transform is None:
-            raise ValueError("Pass `transform` to .track()!")
+        if transform is None:
+            is_tracked_notebook = False
+
+            if is_run_from_ipython:
+                try:
+                    cls._track_notebook(
+                        pypackage=pypackage,
+                        filepath=notebook_path,
+                        editor=editor,
+                    )
+                    is_tracked_notebook = True
+                except Exception as e:
+                    if isinstance(e, ImportError):
+                        logger.info(
+                            "It looks like you are running ln.track() from a jupyter"
+                            " notebook. Consider installing nbproject for automatic"
+                            " tracking."
+                        )
+                    elif str(e) == msg_init_noninteractive:
+                        raise e
+                    else:
+                        logger.warning(f"nbproject failed:\n{e}")
+                    is_tracked_notebook = False
+
+            if not is_tracked_notebook:
+                logger.info("Creating a default Transform.")
+                new_transform = Transform(name="Default pipeline", type="pipeline")
+                ln.add(new_transform)
+                logger.success(f"Added: {new_transform}")
+                cls.transform = new_transform
         else:
             if transform.id is not None:  # id based look-up
                 if transform.version is None:
@@ -239,8 +267,10 @@ class context:
                 this can help to identify the correct mechanism for interactivity
                 when automatic inference fails.
         """
-        cls.instance = settings.instance
+        import nbproject
         from nbproject.dev._jupyter_communicate import notebook_path
+
+        cls.instance = settings.instance
 
         metadata = None
         needs_init = False
@@ -299,10 +329,7 @@ class context:
                 # nbproject.dev.write_notebook(nb, _filepath)
                 # raise SystemExit(msg_init_complete)
                 # the following is safer
-                raise RuntimeError(
-                    "Please attach an ID to the notebook by running the CLI: lamin"
-                    " track my-notebook.ipynb"
-                )
+                raise RuntimeError(msg_init_noninteractive)
 
         if _env in ("lab", "notebook"):
             # save the notebook in case that title was updated
@@ -346,22 +373,27 @@ class context:
         else:
             logger.info(f"Loaded: {transform}")
             if transform.name != name or transform.title != title:
-                response = input(
-                    "Updated notebook name and/or title: Do you want to assign a new id"
-                    " or version? (y/n)"
-                )
-                if response == "y":
-                    transform, metadata = reinitialize_notebook(
-                        transform.id, name, metadata
+                if _env in ("lab", "notebook"):
+                    response = input(
+                        "Updated notebook name and/or title: Do you want to assign a"
+                        " new id or version? (y/n)"
                     )
-                    if _env in ("lab", "notebook"):
-                        cls._notebook_meta = metadata  # type: ignore
-                transform.name = name
-                transform.title = title
-                ln.add(transform)
-                if response == "y":
-                    logger.success(f"Added: {transform}")
+                    if response == "y":
+                        transform, metadata = reinitialize_notebook(
+                            transform.id, name, metadata
+                        )
+                    cls._notebook_meta = metadata  # type: ignore
+                    transform.name = name
+                    transform.title = title
+                    ln.add(transform)
+                    if response == "y":
+                        logger.success(f"Added: {transform}")
+                    else:
+                        logger.success(f"Updated: {transform}")
                 else:
-                    logger.success(f"Updated: {transform}")
+                    logger.warning(
+                        "Updated notebook name and/or title. If you want to assign a"
+                        " new id or version, run: lamin track my-notebook.ipynb"
+                    )
 
         cls.transform = transform
