@@ -110,6 +110,7 @@ jobs:
       - name: install Python deps
         run: |
           python -m pip install --upgrade pip
+          pip install laminci
           pip install coverage
       - run: nox -s "install(group='mini')"
       - uses: actions/download-artifact@v2
