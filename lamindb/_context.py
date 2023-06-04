@@ -190,6 +190,15 @@ class context:
             if not is_tracked_notebook:
                 logger.info("Creating a default Transform.")
                 new_transform = Transform(name="Default pipeline", type="pipeline")
+
+                # temporary due to the uniqueness contraint on name and version
+                import secrets
+                import string
+
+                letters = string.ascii_lowercase
+                random_part = "".join(secrets.choice(letters) for i in range(6))
+                new_transform.name += f" {random_part}"
+
                 ln.add(new_transform)
                 logger.success(f"Saved: {new_transform}")
                 cls.transform = new_transform
