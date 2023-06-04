@@ -113,7 +113,7 @@ if _INSTANCE_SETUP:
     from . import _check_versions  # executes checks during import
     from . import dev  # noqa
     from . import schema  # noqa
-    from . import link, types  # noqa
+    from . import types  # noqa
     from ._context import context  # noqa
 
     track = context._track  # noqa
