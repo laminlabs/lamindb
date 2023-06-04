@@ -25,7 +25,7 @@ def lint(session: nox.Session) -> None:
 @nox.session
 @nox.parametrize(
     "group",
-    ["unit", "guide", "biology", "faq", "storage"],
+    ["mini", "unit", "guide", "biology", "faq", "storage"],
 )
 def install(session, group):
     # run with pypi install on main (currently disabled)
@@ -99,7 +99,6 @@ def docs(session):
 
     login_testuser1(session)
     session.run(*"lamin init --storage ./docsbuild".split())
-    session.run(*"pip install django".split())
     build_docs(session)
     # do not upload docs artifact until converged with django
     # upload_docs_artifact()
