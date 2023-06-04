@@ -3,6 +3,7 @@
 <!-- prettier-ignore -->
 Name | PR | Developer | Date | Version
 --- | --- | --- | --- | ---
+🔥 Remove SQLAlchemy tests | [709](https://github.com/laminlabs/lamindb/pull/709) | [falexwolf](https://github.com/falexwolf) | 2023-06-04 |
 ♻️ Absorb `DjangoORM.create()` in `DjangoORM.__init__()` | [707](https://github.com/laminlabs/lamindb/pull/707) | [falexwolf](https://github.com/falexwolf) | 2023-06-03 |
 🐛 Disentangle keys in storage related test notebooks | [708](https://github.com/laminlabs/lamindb/pull/708) | [Koncopd](https://github.com/Koncopd) | 2023-06-03 |
 🔒️ ln.track improvements | [704](https://github.com/laminlabs/lamindb/pull/704) | [Koncopd](https://github.com/Koncopd) | 2023-06-03 |
