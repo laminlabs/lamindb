@@ -253,37 +253,13 @@ def get_file_kwargs_from_data(
 
 # expose to user via ln.Features
 def get_features_from_data(
-    data: ListLike,
+    iterable: ListLike,
     field: Field,
     *,
-    iterable: ListLike = None,
     format: Optional[str] = None,
     **map_kwargs,
 ):
-    # TODO: remove in future versions
-    if data is not None:
-        if isinstance(data, (Path, UPath, str, pd.DataFrame, AnnData)):
-            logger.warning(
-                "The `data` argument is depreciated, please pass `iterable` instead!"
-            )
-            memory_rep, filepath, _, suffix = serialize(
-                data, "features", format, key=None
-            )
-            localpath, cloudpath, _, _ = get_path_size_hash(
-                filepath, memory_rep, suffix, check_hash=False
-            )
-
-            file_privates = dict(
-                _local_filepath=localpath,
-                _cloud_filepath=cloudpath,
-                _memory_rep=memory_rep,
-            )
-            iterable = None
-        else:
-            iterable = data
-            file_privates = None
-    else:
-        file_privates = None
+    file_privates = None
 
     if iterable is not None:
         # No entries are made for NAs, '', None
