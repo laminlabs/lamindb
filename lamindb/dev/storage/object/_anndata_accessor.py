@@ -23,7 +23,7 @@ def _try_backed_full(elem):
         return elem
 
     if isinstance(elem, (h5py.Group, zarr.Group)):
-        encoding_type = get_spec(elem)
+        encoding_type = get_spec(elem).encoding_type
         if encoding_type in ("csr_matrix", "csc_matrix"):
             return SparseDataset(elem)
         if "h5sparse_format" in elem.attrs:
