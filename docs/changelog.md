@@ -3,6 +3,7 @@
 <!-- prettier-ignore -->
 Name | PR | Developer | Date | Version
 --- | --- | --- | --- | ---
+➖ Move nbproject to extra dependencies | [711](https://github.com/laminlabs/lamindb/pull/711) | [Koncopd](https://github.com/Koncopd) | 2023-06-04 |
 🔥 Delete SQLAlchemy related content | [710](https://github.com/laminlabs/lamindb/pull/710) | [falexwolf](https://github.com/falexwolf) | 2023-06-04 |
 ➕ Pin boto3 in aws | [712](https://github.com/laminlabs/lamindb/pull/712) | [Koncopd](https://github.com/Koncopd) | 2023-06-04 |
 🔥 Remove SQLAlchemy tests | [709](https://github.com/laminlabs/lamindb/pull/709) | [falexwolf](https://github.com/falexwolf) | 2023-06-04 |
