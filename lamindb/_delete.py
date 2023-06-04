@@ -83,7 +83,11 @@ def delete(  # type: ignore
             records = [results]
 
     for record in records:
+        storage_key = None
         if isinstance(record, File):
+            # save storage key before deleting the record
+            # after the deletion file.id is None
+            storage_key = storage_key_from_file(record)
             # delete run_ins related to the file that's to be deleted
             run_ins = select(RunInput, file_id=record.id).all()
             for run_in in run_ins:
@@ -97,8 +101,6 @@ def delete(  # type: ignore
         except Exception:
             traceback.print_exc()
         if isinstance(record, File):
-            storage_key = storage_key_from_file(record)
-
             if delete_data_from_storage is None:
                 # ask to confirm deleting data from storage
                 delete_dialog = (
@@ -112,7 +114,7 @@ def delete(  # type: ignore
             if decide not in ("y", "Y", "yes", "Yes", "YES"):
                 continue
             try:
-                delete_storage(storage_key)
+                delete_storage(storage_key)  # type: ignore
                 logger.success(
                     f"Deleted {colors.yellow(f'object {storage_key}')} from storage."
                 )
