@@ -1,7 +1,6 @@
 import traceback
 from typing import List, Optional, Union, overload  # noqa
 
-from lamindb_setup import settings
 from lnschema_core import BaseORM, File, RunInput
 from lnschema_core.models import storage_key_from_file
 
@@ -83,22 +82,14 @@ def delete(  # type: ignore
         else:
             records = [results]
 
-    settings.instance._cloud_sqlite_locker.lock()
-    session = settings.instance.session()
     for record in records:
         if isinstance(record, File):
             # delete run_ins related to the file that's to be deleted
             run_ins = select(RunInput, file_id=record.id).all()
             for run_in in run_ins:
-                session.delete(run_in)
-            try:
-                session.commit()
-            except Exception:
-                logger.warning("Deleting run inputs failed!")
-                traceback.print_exc()
-        session.delete(record)
+                run_in.delete()
         try:
-            session.commit()
+            record.delete()
             logger.success(
                 f"Deleted {colors.yellow(f'row {record}')} in"
                 f" {colors.blue(f'table {type(record).__name__}')}."
@@ -127,6 +118,3 @@ def delete(  # type: ignore
                 )
             except Exception:
                 traceback.print_exc()
-    session.close()
-    settings.instance._update_cloud_sqlite_file()
-    settings.instance._cloud_sqlite_locker.unlock()
