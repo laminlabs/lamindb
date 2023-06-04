@@ -22,6 +22,7 @@ dependencies = [
     # Lamin GREATEREQ packages
     "erdiagram>=0.1.2",
     # others
+    "pydantic[dotenv]",  # move this to lamindb_setup
     "pyarrow",
     "typing_extensions!=4.6.0",
     "readfcs>=1.1.2", # to avoid installing nbproject
