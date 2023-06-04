@@ -1,9 +1,8 @@
 from typing import List
 
-from lamindb_setup import _USE_DJANGO
 from lnschema_core import File, Folder
 
-from .dev.db._select import select
+from ._select import select
 
 Folder.__doc__ = """Folders: collections of files.
 
@@ -25,18 +24,9 @@ def subset(self: Folder, *, prefix: str, **fields) -> List[File]:
             ".get() is only defined for real folders, not virtual ones"
             "you can access files via .files or by refining with queries"
         )
-    if _USE_DJANGO:
-        files = (
-            select(File, **fields)
-            .filter(key__startswith=self.key + "/" + prefix)
-            .list()
-        )
-    else:
-        files = (
-            select(File, **fields)
-            .where(File.key.startswith(self.key + "/" + prefix))
-            .all()
-        )
+    files = (
+        select(File, **fields).filter(key__startswith=self.key + "/" + prefix).list()
+    )
     return files
 
 

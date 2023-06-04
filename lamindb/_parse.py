@@ -6,8 +6,8 @@ from lamin_logger import logger
 from sqlalchemy.orm.attributes import InstrumentedAttribute
 from sqlmodel import SQLModel
 
-from .dev.db._add import add
-from .dev.db._select import select
+from ._add import add
+from ._select import select
 
 ListLike = TypeVar("ListLike", pd.Series, list, np.array)
 
