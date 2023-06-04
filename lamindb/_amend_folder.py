@@ -2,7 +2,7 @@ from typing import List
 
 from lnschema_core import File, Folder
 
-from .dev.db._select import select
+from ._select import select
 
 Folder.__doc__ = """Folders: collections of files.
 

@@ -5,7 +5,7 @@ from anndata import AnnData
 from anndata import __version__ as anndata_v
 from lamindb_setup import settings as setup_settings
 from lnschema_core import File
-from lnschema_core._core import filepath_from_file_or_folder
+from lnschema_core.models import filepath_from_file_or_folder
 from lnschema_core.types import DataLike
 from packaging import version
 

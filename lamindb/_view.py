@@ -6,7 +6,7 @@ from lamin_logger import colors
 from lamindb_setup import settings
 from lamindb_setup.dev._setup_schema import get_schema_module_name
 
-from .dev.db._select import select
+from ._select import select
 
 
 def view(n: int = 10, schema: Optional[str] = None):

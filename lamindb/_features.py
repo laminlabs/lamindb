@@ -3,7 +3,7 @@ from typing import Any
 import pandas as pd
 from lnschema_core import Features
 
-from lamindb.dev.db._select import select
+from lamindb._select import select
 from lamindb.dev.hashing import hash_set
 from lamindb.dev.storage import load_to_memory
 

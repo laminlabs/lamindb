@@ -9,8 +9,8 @@ from lamin_logger import logger
 from lnschema_core import File, Run
 
 from lamindb._features import get_features
+from lamindb._select import select
 from lamindb._settings import settings
-from lamindb.dev.db._select import select
 from lamindb.dev.hashing import hash_file
 from lamindb.dev.storage import UPath
 from lamindb.dev.storage.object import infer_suffix, size_adata, write_to_file

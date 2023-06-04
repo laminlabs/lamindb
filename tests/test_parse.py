@@ -22,7 +22,7 @@ def df():
 
 
 def test_parse_name(df):
-    if ln._USE_DJANGO:
+    if _USE_DJANGO:
         return None
     result = ln.parse(df.cell_type, CellType.name)
     ids = [i.ontology_id for i in result]
@@ -31,7 +31,7 @@ def test_parse_name(df):
 
 
 def test_parse_ontology_id(df):
-    if ln._USE_DJANGO:
+    if _USE_DJANGO:
         return None
     result = ln.parse(df.cell_type_id, CellType.ontology_id)
     names = [i.name for i in result]
@@ -40,7 +40,7 @@ def test_parse_ontology_id(df):
 
 
 def test_parse_df(df):
-    if ln._USE_DJANGO:
+    if _USE_DJANGO:
         return None
     result = ln.parse(
         df, {"cell_type": CellType.name, "cell_type_id": CellType.ontology_id}
