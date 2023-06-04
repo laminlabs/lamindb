@@ -191,7 +191,7 @@ class context:
                 logger.info("Creating a default Transform.")
                 new_transform = Transform(name="Default pipeline", type="pipeline")
                 ln.add(new_transform)
-                logger.success(f"Added: {new_transform}")
+                logger.success(f"Saved: {new_transform}")
                 cls.transform = new_transform
         else:
             if transform.id is not None:  # id based look-up
@@ -218,7 +218,7 @@ class context:
                     ).first()
             if transform_exists is None:
                 transform_exists = ln.add(transform)
-                logger.success(f"Added: {transform}")
+                logger.success(f"Saved: {transform}")
             else:
                 logger.info(f"Loaded: {transform_exists}")
             cls.transform = transform_exists
@@ -412,7 +412,7 @@ class context:
                     transform.title = title
                     ln.add(transform)
                     if response == "y":
-                        logger.success(f"Added: {transform}")
+                        logger.success(f"Saved: {transform}")
                     else:
                         logger.success(f"Updated: {transform}")
                 else:
