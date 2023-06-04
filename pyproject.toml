@@ -17,16 +17,15 @@ dependencies = [
     # Lamin PINNED packages
     # !!! These packages should ALWAYS be pinned, do not unpin !!!
     # !!! They cannot be pinned ANYWHERE else !!!
-    "lnschema_core==0.35a3",
+    "lnschema_core==0.35a4",
     "lamindb_setup==0.46a3",
     "lndb==0.46a1",
     # Lamin GREATEREQ packages
-    "nbproject>=0.8.6",
     "erdiagram>=0.1.1",
     # others
     "pyarrow",
     "typing_extensions!=4.6.0",
-    "readfcs",
+    "readfcs>=1.1.2", # to avoid installing nbproject
     "python-dateutil",
     "zarr",
     "anndata>=0.9.1",  # includes scipy
@@ -48,6 +47,9 @@ aws = [
 gcp = [
     "fsspec[gs]==2023.5.0"
 ]
+nbproject = [
+    "nbproject>=0.8.7"
+]
 bionty = [
     "lnschema_bionty==0.18.3",
 ]
@@ -64,6 +66,7 @@ test = [
     "pytest-cov",
     # others
     "psycopg2-binary",
+    "nbproject>=0.8.7",
     "nbproject_test>=0.3.0",
 ]
 
