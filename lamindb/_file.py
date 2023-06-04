@@ -15,7 +15,7 @@ from lamindb.dev.hashing import hash_file
 from lamindb.dev.storage import UPath
 from lamindb.dev.storage.object import infer_suffix, size_adata, write_to_file
 
-from ._parse import InstrumentedAttribute, ListLike
+from ._parse import Field, ListLike
 
 DIRS = AppDirs("lamindb", "laminlabs")
 
@@ -254,7 +254,7 @@ def get_file_kwargs_from_data(
 # expose to user via ln.Features
 def get_features_from_data(
     data: ListLike,
-    field: InstrumentedAttribute,
+    field: Field,
     *,
     iterable: ListLike = None,
     format: Optional[str] = None,
