@@ -42,6 +42,7 @@ Home = "https://github.com/laminlabs/lamindb"
 [project.optional-dependencies]
 aws = [
     "botocore==1.29.76",  # for aiobotocore inside s3fs, to fix deps resolution
+    "boto3==1.26.76", # to avoid conflicts arising due to the pin on botocore
     "fsspec[s3]==2023.5.0"
 ]
 gcp = [
