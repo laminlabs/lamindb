@@ -5,9 +5,8 @@ from lnschema_core import Features
 
 from lamindb._select import select
 from lamindb.dev.hashing import hash_set
-from lamindb.dev.storage import load_to_memory
 
-from ._parse import get_or_create_records
+from ._parse import Field, ListLike, get_or_create_records
 
 
 def parse_features(df: pd.DataFrame, bionty_object: Any, **map_kwargs) -> None:
@@ -73,21 +72,15 @@ def parse_features(df: pd.DataFrame, bionty_object: Any, **map_kwargs) -> None:
     return features
 
 
-def get_features(bionty_object, iterable=None, file_privates=None, **map_kwargs):
-    """Updates file in place."""
-    if file_privates is not None:
-        memory_rep = file_privates["_memory_rep"]
-        if memory_rep is None:
-            memory_rep = load_to_memory(file_privates["_local_filepath"])
-        try:
-            df = getattr(memory_rep, "var")  # for AnnData objects
-            if callable(df):
-                df = memory_rep
-        except AttributeError:
-            df = memory_rep
-    elif iterable is not None:
-        df = pd.DataFrame(index=list(iterable))
-    else:
-        raise KeyError
-
-    return parse_features(df, bionty_object, **map_kwargs)
+# expose to user via ln.Features
+def parse_features_from_iterable(
+    iterable: ListLike,
+    field: Field,
+    species: str = None,
+):
+    # No entries are made for NAs, '', None
+    iterable = [i for i in set(iterable) if not (pd.isnull(i) or i == "" or i == " ")]
+    entity = field.field.model
+    reference = entity.bionty(species=species)
+    df = pd.DataFrame(index=list(iterable))
+    return parse_features(df, reference)
