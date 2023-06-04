@@ -1,12 +1,8 @@
 import pandas as pd
 import pytest
+from lnschema_bionty import CellType
 
 import lamindb as ln
-
-_USE_DJANGO = True
-
-if not _USE_DJANGO:
-    from lnschema_bionty import CellType
 
 
 @pytest.fixture(scope="module")
@@ -22,8 +18,6 @@ def df():
 
 
 def test_parse_name(df):
-    if _USE_DJANGO:
-        return None
     result = ln.parse(df.cell_type, CellType.name)
     ids = [i.ontology_id for i in result]
     assert len(result) == 3
@@ -31,8 +25,6 @@ def test_parse_name(df):
 
 
 def test_parse_ontology_id(df):
-    if _USE_DJANGO:
-        return None
     result = ln.parse(df.cell_type_id, CellType.ontology_id)
     names = [i.name for i in result]
     assert len(result) == 2
@@ -40,8 +32,6 @@ def test_parse_ontology_id(df):
 
 
 def test_parse_df(df):
-    if _USE_DJANGO:
-        return None
     result = ln.parse(
         df, {"cell_type": CellType.name, "cell_type_id": CellType.ontology_id}
     )

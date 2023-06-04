@@ -18,7 +18,7 @@ jobs:
         group:
           - "unit"
           - "guide"
-          # - "biology"
+          - "biology"
           - "faq"
           - "storage"
     timeout-minutes: 25
@@ -71,8 +71,6 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: us-east-1
       - run: nox -s "build(group='${{ matrix.group }}')"
-        env:
-          LAMINDB_USE_DJANGO: "${{ env.LAMINDB_USE_DJANGO }}"
       - name: upload coverage
         uses: actions/upload-artifact@v2
         with:
