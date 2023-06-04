@@ -1,6 +1,5 @@
 import pandas as pd
 import pytest
-from lnschema_bionty import CellType
 
 import lamindb as ln
 
@@ -18,6 +17,8 @@ def df():
 
 
 def test_parse_name(df):
+    from lnschema_bionty import CellType
+
     result = ln.parse(df.cell_type, CellType.name)
     ids = [i.ontology_id for i in result]
     assert len(result) == 3
@@ -25,6 +26,8 @@ def test_parse_name(df):
 
 
 def test_parse_ontology_id(df):
+    from lnschema_bionty import CellType
+
     result = ln.parse(df.cell_type_id, CellType.ontology_id)
     names = [i.name for i in result]
     assert len(result) == 2
@@ -32,6 +35,8 @@ def test_parse_ontology_id(df):
 
 
 def test_parse_df(df):
+    from lnschema_bionty import CellType
+
     result = ln.parse(
         df, {"cell_type": CellType.name, "cell_type_id": CellType.ontology_id}
     )
