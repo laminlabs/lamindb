@@ -42,6 +42,7 @@ def install(session, group):
     extras = ""
     if group == "unit":
         extras += ",bionty"
+        session.run(*"pip install --no-deps ./sub/lnschema-bionty".split())
     elif group == "guide":
         extras += ",aws"
     elif group == "biology":
