@@ -17,7 +17,7 @@ if os.getenv("GITHUB_ACTIONS") is None:
     try:
         from nbproject import __version__ as nbproject_v
 
-        if version.parse(nbproject_v) < version.parse("0.8.5"):
-            raise RuntimeError("lamindb needs nbproject>=0.8.5")
+        if version.parse(nbproject_v) < version.parse("0.8.7"):
+            raise RuntimeError("lamindb needs nbproject>=0.8.7")
     except ImportError:
         pass
