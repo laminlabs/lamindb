@@ -35,21 +35,14 @@ Query & manipulate data:
 
    select
    add
-   parse
    delete
-
-Manipulate data with open session:
-
-.. autosummary::
-   :toctree: .
-
-   Session
 
 Utility functions:
 
 .. autosummary::
    :toctree: .
 
+   parse
    track
    view
 
@@ -101,7 +94,6 @@ from lamindb_setup._check_instance_setup import (
 _py_version_warning("3.8", "3.10")
 
 _INSTANCE_SETUP = _check_instance_setup(from_lamindb=True)
-_USE_DJANGO = _lamindb_setup._USE_DJANGO
 # allow the user to call setup
 from . import setup  # noqa
 
@@ -129,18 +121,13 @@ if _INSTANCE_SETUP:
 
     # this needs to follow on the import right now
     _logger.success(f"Loaded instance: {_lamindb_setup.settings.instance.identifier}")
-    from lamindb.dev.storage import subset
-
-    # deprecated
-    from lamindb.dev.storage.object import lazy
 
     from . import _amend_file  # noqa
     from . import _amend_folder  # noqa
+    from ._add import add  # noqa
     from ._delete import delete  # noqa
     from ._nb import nb  # noqa
     from ._parse import parse  # noqa
+    from ._select import select  # noqa
     from ._settings import settings
     from ._view import view  # noqa
-    from .dev.db import Session  # noqa
-    from .dev.db._add import add  # noqa
-    from .dev.db._select import select  # noqa

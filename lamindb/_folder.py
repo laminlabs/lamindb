@@ -5,7 +5,7 @@ from typing import Optional, Union
 import lamindb_setup
 from lamin_logger import logger
 from lnschema_core import File, Run
-from lnschema_core.dev import id as id_generator
+from lnschema_core import ids as id_generator
 
 from lamindb.dev.storage import UPath
 
@@ -46,10 +46,7 @@ def get_folder_kwargs_from_data(
         if filepath.is_file():
             relative_path = get_relative_path_to_directory(filepath, folderpath)
             file_key = folder_key + "/" + relative_path.as_posix()
-            if lamindb_setup._USE_DJANGO:
-                files.append(File(filepath, run=run, key=file_key))
-            else:
-                files.append(File(filepath, run=run, key=file_key))
+            files.append(File(filepath, run=run, key=file_key))
 
     logger.hint(f"-> n_files = {len(files)}")
 

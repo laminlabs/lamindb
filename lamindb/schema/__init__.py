@@ -22,9 +22,6 @@ from lamindb_setup import settings as _settings
 from lamindb_setup.dev._setup_schema import (
     check_schema_version_and_import as _check_schema_version_and_import,
 )
-from lnschema_core import Features, Project, Run, Storage
-from lnschema_core import Transform as _Transform
-from lnschema_core import User, dev
 
 from .. import _INSTANCE_SETUP
 
@@ -39,8 +36,3 @@ if _INSTANCE_SETUP:
     _import_schema()
 
 from ._core import graph, list_tables, view
-
-list_entities = list_tables  # backward compat
-
-Pipeline = _Transform
-Notebook = _Transform

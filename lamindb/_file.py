@@ -115,11 +115,6 @@ def get_run(run: Optional[Run]) -> Optional[Run]:
         if run is None:
             logger.info("No run & transform get linked to this file")
             logger.hint("Consider using the `run` argument or ln.track()")
-    # the following ensures that queried objects (within __init__)
-    # behave like queried objects, only example right now: Run
-    if not lamindb_setup._USE_DJANGO:
-        if hasattr(run, "_ln_identity_key") and run._ln_identity_key is not None:  # type: ignore  # noqa
-            run._sa_instance_state.key = run._ln_identity_key  # type: ignore
     return run
 
 

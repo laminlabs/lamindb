@@ -3,7 +3,9 @@ import pytest
 
 import lamindb as ln
 
-if not ln._USE_DJANGO:
+_USE_DJANGO = True
+
+if not _USE_DJANGO:
     from lnschema_bionty import CellType
 
 

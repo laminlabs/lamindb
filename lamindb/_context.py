@@ -6,11 +6,9 @@ from typing import Dict, List, Optional, Tuple, Union
 
 import lnschema_core
 from lamin_logger import logger
-from lamindb_setup import _USE_DJANGO, settings
+from lamindb_setup import settings
 from lamindb_setup.dev import InstanceSettings
 from lnschema_core import Run, Transform
-
-from .dev.db._add import _private_not_empty
 
 is_run_from_ipython = getattr(builtins, "__IPYTHON__", False)
 
@@ -69,7 +67,7 @@ def reinitialize_notebook(
     else:
         response = "y"
     if response == "y":
-        new_id = lnschema_core.dev.id.transform()
+        new_id = lnschema_core.ids.transform()
     else:
         response = input(
             "Do you want to set a new version (e.g. '1.1')? Type 'n' for"
@@ -234,40 +232,15 @@ class context:
         transform = cls.transform
         run = None
         if not new_run:
-            if ln._USE_DJANGO:
-                run = (
-                    ln.select(ln.Run, transform=transform)
-                    .order_by("-created_at")
-                    .first()
-                )
-            else:
-                run = (
-                    ln.select(
-                        ln.Run,
-                        transform_id=transform.id,  # type: ignore
-                        transform_version=transform.version,  # type: ignore
-                    )
-                    .order_by(ln.Run.created_at.desc())
-                    .first()
-                )
+            run = ln.select(ln.Run, transform=transform).order_by("-created_at").first()
             if run is not None:
                 logger.info(f"Loaded: {run}")
 
         if run is None:
             run = ln.Run(transform=transform)
             run = ln.add(run)
-            if not ln._USE_DJANGO:
-                run._ln_identity_key = run.id  # type: ignore
             logger.success(f"Saved: {run}")
         cls.run = run
-
-        if not ln._USE_DJANGO:
-            # so, this is a hack:
-            if (
-                _private_not_empty(cls.run, "_ln_identity_key")  # type: ignore
-                and cls.run._ln_identity_key is not None  # type: ignore
-            ):
-                cls.run._sa_instance_state.key = cls.run._ln_identity_key  # type: ignore  # noqa
 
         # only for newly intialized notebooks
         if hasattr(cls, "_notebook_meta"):
@@ -370,29 +343,16 @@ class context:
             version = "0"
             title = None
 
-        if _USE_DJANGO:
-            transform = ln.select(Transform, hash=id, version=version).one_or_none()
-        else:
-            transform = ln.select(Transform, id=id, version=version).one_or_none()
+        transform = ln.select(Transform, hash=id, version=version).one_or_none()
         if transform is None:
-            if _USE_DJANGO:
-                transform = Transform(
-                    hash=id,
-                    version=version,
-                    name=name,
-                    title=title,
-                    reference=reference,
-                    type="notebook",
-                )
-            else:
-                transform = Transform(
-                    id=id,
-                    version=version,
-                    name=name,
-                    title=title,
-                    reference=reference,
-                    type="notebook",
-                )
+            transform = Transform(
+                hash=id,
+                version=version,
+                name=name,
+                title=title,
+                reference=reference,
+                type="notebook",
+            )
             transform = ln.add(transform)
             logger.success(f"Saved: {transform}")
         else:

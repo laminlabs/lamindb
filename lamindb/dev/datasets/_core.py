@@ -5,7 +5,7 @@ from urllib.request import urlretrieve
 import anndata as ad
 import numpy as np
 import pandas as pd
-from lnschema_core.dev import id
+from lnschema_core import ids
 
 
 def file_fcs() -> Path:
@@ -187,11 +187,11 @@ def generate_cell_ranger_files(
         fastqdir.mkdir(parents=True, exist_ok=True)
         fastqfile1 = fastqdir / f"{sample_name}_R1_001.fastq.gz"
         with open(fastqfile1, "w") as f:
-            f.write(f"{id.base62(n_char=6)}")
+            f.write(f"{ids.base62(n_char=6)}")
         fastqfile2 = fastqdir / f"{sample_name}_R2_001.fastq.gz"
         fastqfile2.touch(exist_ok=True)
         with open(fastqfile2, "w") as f:
-            f.write(f"{id.base62(n_char=6)}")
+            f.write(f"{ids.base62(n_char=6)}")
 
     sampledir = basedir / f"{sample_name}"
     for folder in ["raw_feature_bc_matrix", "filtered_feature_bc_matrix", "analysis"]:
@@ -217,7 +217,7 @@ def generate_cell_ranger_files(
     ]:
         file = sampledir / filename
         with open(file, "w") as f:
-            f.write(f"{id.base62(n_char=6)}")
+            f.write(f"{ids.base62(n_char=6)}")
 
     return sampledir
 
