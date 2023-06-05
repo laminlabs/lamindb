@@ -34,7 +34,7 @@ Query & manipulate data:
    :toctree: .
 
    select
-   add
+   save
    delete
 
 Utility functions:
