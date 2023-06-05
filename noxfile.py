@@ -102,6 +102,4 @@ def docs(session):
     login_testuser1(session)
     session.run(*"lamin init --storage ./docsbuild".split())
     build_docs(session)
-    # do not upload docs artifact until converged with django
-    # upload_docs_artifact()
-    # move_built_docs_to_docs_slash_project_slug()
+    upload_docs_artifact()
