@@ -6,7 +6,7 @@ from django.db.models import Model
 from django.db.models.query_utils import DeferredAttribute as Field
 from lamin_logger import logger
 
-from ._add import add
+from ._save import save
 from ._select import select
 
 ListLike = TypeVar("ListLike", pd.Series, list, np.array)
@@ -86,7 +86,7 @@ def get_or_create_records(
 
             species = select(Species, name=bionty_object.species).one_or_none()
             if species is None:
-                species = add(Species.from_bionty(name=bionty_object.species))
+                species = save(Species.from_bionty(name=bionty_object.species))
 
             condition["species__name"] = species.name  # type:ignore
             additional_kwargs.update({"species": species})

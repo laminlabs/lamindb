@@ -13,7 +13,7 @@ from lamindb.dev.storage._file import print_hook
 
 
 @overload
-def add(record: BaseORM) -> BaseORM:
+def save(record: BaseORM) -> BaseORM:
     ...
 
 
@@ -21,11 +21,11 @@ def add(record: BaseORM) -> BaseORM:
 # Overloaded function signature 2 will never be matched: signature 1's parameter
 # type(s) are the same or broader
 @overload
-def add(records: List[BaseORM]) -> List[BaseORM]:  # type: ignore
+def save(records: List[BaseORM]) -> List[BaseORM]:  # type: ignore
     ...
 
 
-def add(  # type: ignore
+def save(  # type: ignore
     record: Union[BaseORM, List[BaseORM]], **fields
 ) -> Union[BaseORM, List[BaseORM]]:
     """Insert or update data records.
@@ -34,7 +34,7 @@ def add(  # type: ignore
     Updates the corresponding row with the record if it exists.
 
     To update a row, query it with `.select` and modify it before
-    passing it to `add`.
+    passing it to `save`.
 
     Args:
         record: One or multiple records as instances of `SQLModel`.
@@ -44,16 +44,16 @@ def add(  # type: ignore
 
     Examples:
 
-        Add a record (errors if already exists):
+        Save a record (errors if already exists):
 
-        >>> ln.add(ln.Transform(name="My pipeline"))
+        >>> ln.save(ln.Transform(name="My pipeline"))
         Transform(id="0Cb86EZj", name="My pipeline", ...)
 
         Update an existing record:
 
         >>> transform = ln.select(ln.Transform, id="0Cb86EZj").one()
         >>> transform.name = "New name"
-        >>> ln.add(transform)
+        >>> ln.save(transform)
         Transform(id="0Cb86EZj", name="New name", ...)
 
     """

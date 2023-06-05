@@ -195,7 +195,7 @@ class context:
             if transform.id is not None:  # id based look-up
                 transform_exists = ln.select(Transform, id=transform.id).first()
             if transform_exists is None:
-                transform_exists = ln.add(transform)
+                transform_exists = ln.save(transform)
                 logger.success(f"Saved: {transform}")
             else:
                 logger.info(f"Loaded: {transform_exists}")
@@ -218,7 +218,7 @@ class context:
 
         if run is None:
             run = ln.Run(transform=transform)
-            run = ln.add(run)
+            run = ln.save(run)
             logger.success(f"Saved: {run}")
         cls.run = run
 
@@ -333,7 +333,7 @@ class context:
                 reference=reference,
                 type="notebook",
             )
-            transform = ln.add(transform)
+            transform = ln.save(transform)
             logger.success(f"Saved: {transform}")
         else:
             logger.info(f"Loaded: {transform}")
@@ -350,7 +350,7 @@ class context:
                     cls._notebook_meta = metadata  # type: ignore
                     transform.name = name
                     transform.title = title
-                    ln.add(transform)
+                    ln.save(transform)
                     if response == "y":
                         logger.success(f"Saved: {transform}")
                     else:
