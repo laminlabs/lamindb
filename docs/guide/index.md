@@ -27,8 +27,7 @@ lamin init --storage ./mydata --schema bionty,lamin1
 ### Track files & metadata with sources
 
 ```python
-transform = ln.Transform(name="My pipeline/notebook")
-ln.track(transform)
+ln.track()  # auto-detect a notebook
 
 df = pd.DataFrame({"a": [1, 2], "b": [3, 4]})
 
@@ -38,22 +37,16 @@ ln.save(file)
 
 <br>
 
-Under-the-hood, this created 3 linked records:
-
-```python
-Transform(id='OdlFhFWW7qg3', version='0', name='My pipeline/notebook', type=notebook, created_by_id='DzTjkKse', created_at=datetime.datetime(2023, 4, 28, 6, 7, 30))
-Run(id='g1xwllJfFZuh24AWKySc', transform_id='OdlFhFWW7qg3', transform_version='0', created_by_id='DzTjkKse', created_at=datetime.datetime(2023, 4, 28, 6, 7, 30))
-File(id='DY9JINrVH6sMtqEirMpM', name='iris', suffix='.parquet', size=5629, hash='jUTdERuqlGv_GyqFfIEb2Q', run_id='g1xwllJfFZuh24AWKySc', transform_id='OdlFhFWW7qg3', transform_version='0', storage_id='GLWpJhvg', created_at=datetime.datetime(2023, 4, 28, 6, 7, 32), created_by_id='DzTjkKse')
-```
+Under-the-hood, this saved the file to storage & created 3 linked SQL records: `file`, `run`, `transform`.
 
 ### Query & load files
 
 ```python
 file = ln.select(ln.File, name="My dataframe").one()
 df = file.load()
-    a	b
-0	1	3
-1	2	4
+    a   b
+0   1   3
+1   2   4
 ```
 
 <br>
@@ -61,8 +54,8 @@ df = file.load()
 Get the file ingested by the latest run:
 
 ```python
-run = ln.select(ln.Run).order_by(ln.Run.created_at.desc()).first()
-file = ln.select(ln.File, run_id=run.id).all()
+run = ln.select(ln.Run).order_by("-created_at").first()
+file = ln.select(ln.File, run=run).all()
 ```
 
 ```{tip}

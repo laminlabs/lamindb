@@ -4,13 +4,11 @@
 
 # LaminDB: Manage R&D data & analyses
 
-_Curate, store, track, query, integrate, and learn from biological data._
+LaminDB is an open-source data lake for biology.
 
-LaminDB is an open-source data lake for R&D in biology.
+It gives you components to build on data lineage & biological entities with an ORM for your existing infrastructure: **object storage** (local directories, S3, GCP) with a mapped **SQL query engine** (currently: SQLite, Postgres).
 
-It gives you components to build on data lineage & biological entities with an ORM for your existing infrastructure: **object storage** (local directories, S3, GCP) with a mapped **SQL query engine** (SQLite, Postgres, and soon, BigQuery).
-
-You can readily create distributed **LaminDB instances** at any scale:
+You can create distributed **LaminDB instances** at any scale:
 
 - Get started on your laptop, deploy in the cloud, or work with a mesh of instances for different teams and purposes.
 - Share them through a hub akin to HuggingFace & GitHub - see, e.g, [lamin.ai/sunnyosun](https://lamin.ai/sunnyosun).
@@ -18,6 +16,8 @@ You can readily create distributed **LaminDB instances** at any scale:
 ```{warning}
 
 Public beta: Currently only recommended for collaborators as we still make breaking changes.
+
+Update 2023-06-05: We completed a major migration from SQLAlchemy/SQLModel to Django, available in pre-release of v0.42.
 
 ```
 
@@ -31,19 +31,16 @@ pip install lamindb
 
 <br>
 
-Install biological entities like so:
+It is configurable & works with custom schema modules (each being managed as a Django app):
 
 ```shell
-pip install 'lamindb[bionty]'
+pip install 'lamindb[bionty]'  # install biological entities
+pip install 'lamindb[nbproject]'  # install Jupyter notebook tracking
+pip install 'lamindb[aws]'  # install AWS dependencies (s3fs, etc.)
+pip install 'lamindb[gcp]'  # install GCP dependencies (s3fs, etc.)
 ```
 
-## Import
-
-In your python script, import LaminDB as:
-
-```python
-import lamindb as ln
-```
+<br>
 
 ## Setup
 
