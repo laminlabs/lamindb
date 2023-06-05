@@ -3,6 +3,7 @@
 <!-- prettier-ignore -->
 Name | PR | Developer | Date | Version
 --- | --- | --- | --- | ---
+♻️ Polish core schema | [717](https://github.com/laminlabs/lamindb/pull/717) | [falexwolf](https://github.com/falexwolf) | 2023-06-05 |
 🐛 Fix delete for File | [715](https://github.com/laminlabs/lamindb/pull/715) | [Koncopd](https://github.com/Koncopd) | 2023-06-04 |
 📝 Rework the stream notebook | [714](https://github.com/laminlabs/lamindb/pull/714) | [Koncopd](https://github.com/Koncopd) | 2023-06-04 |
 💚 Point to lamindb-setup main & fix session | [713](https://github.com/laminlabs/lamindb/pull/713) | [falexwolf](https://github.com/falexwolf) | 2023-06-04 |
