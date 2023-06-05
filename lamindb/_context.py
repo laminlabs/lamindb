@@ -56,7 +56,7 @@ def _write_notebook_meta(metadata):
 
 
 def reinitialize_notebook(
-    id: str, name: str, metadata: Optional[Dict] = None
+    id: str, metadata: Optional[Dict] = None
 ) -> Tuple[Transform, Dict]:
     from nbproject import dev as nb_dev
     from nbproject._header import _env, _filepath
@@ -95,7 +95,7 @@ def reinitialize_notebook(
         nb_dev.write_notebook(nb, _filepath)
         raise SystemExit(msg_init_complete)
 
-    transform = Transform(id=new_id, version=new_version, name=name, type="notebook")
+    transform = Transform(id=new_id, version=new_version, type="notebook")
     return transform, metadata
 
 
@@ -276,7 +276,7 @@ class context:
             colab_id = notebook_path.replace("/filedId=", "")
             id = colab_id[:12]
             reference = f"colab_id: {colab_id}"
-            name = get_notebook_name_colab()
+            filestem = get_notebook_name_colab()
             _env = "colab"
         else:
             try:
@@ -317,7 +317,7 @@ class context:
         if metadata is not None:
             id = metadata["id"]
             version = metadata["version"]
-            name = Path(_filepath).stem
+            filestem = Path(_filepath).stem
             title = nbproject.meta.live.title
         else:
             version = "0"
@@ -326,10 +326,10 @@ class context:
         transform = ln.select(Transform, uid=id, version=version).one_or_none()
         if transform is None:
             transform = Transform(
-                uid=id,
+                stem_id=id,
                 version=version,
-                name=name,
-                title=title,
+                name=title,
+                short_name=filestem,
                 reference=reference,
                 type="notebook",
             )
@@ -337,7 +337,7 @@ class context:
             logger.success(f"Saved: {transform}")
         else:
             logger.info(f"Loaded: {transform}")
-            if transform.name != name or transform.title != title:
+            if transform.name != title or transform.short_name != filestem:
                 if _env in ("lab", "notebook"):
                     response = input(
                         "Updated notebook name and/or title: Do you want to assign a"
@@ -345,11 +345,11 @@ class context:
                     )
                     if response == "y":
                         transform, metadata = reinitialize_notebook(
-                            transform.id, name, metadata
+                            transform.id, metadata
                         )
                     cls._notebook_meta = metadata  # type: ignore
-                    transform.name = name
-                    transform.title = title
+                    transform.name = title
+                    transform.short_name = filestem
                     ln.save(transform)
                     if response == "y":
                         logger.success(f"Saved: {transform}")
@@ -357,8 +357,8 @@ class context:
                         logger.success(f"Updated: {transform}")
                 else:
                     logger.warning(
-                        "Updated notebook name and/or title. If you want to assign a"
-                        " new id or version, run: lamin track my-notebook.ipynb"
+                        "Updated notebook name and/or short_name. If you want to assign"
+                        " a new id or version, run: lamin track my-notebook.ipynb"
                     )
 
         cls.transform = transform
