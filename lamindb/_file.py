@@ -8,14 +8,11 @@ from appdirs import AppDirs
 from lamin_logger import logger
 from lnschema_core import File, Run
 
-from lamindb._features import get_features
 from lamindb._select import select
 from lamindb._settings import settings
 from lamindb.dev.hashing import hash_file
 from lamindb.dev.storage import UPath
 from lamindb.dev.storage.object import infer_suffix, size_adata, write_to_file
-
-from ._parse import InstrumentedAttribute, ListLike
 
 DIRS = AppDirs("lamindb", "laminlabs")
 
@@ -249,63 +246,3 @@ def get_file_kwargs_from_data(
     )
 
     return kwargs, privates
-
-
-# expose to user via ln.Features
-def get_features_from_data(
-    data: ListLike,
-    field: InstrumentedAttribute,
-    *,
-    iterable: ListLike = None,
-    format: Optional[str] = None,
-    **map_kwargs,
-):
-    # TODO: remove in future versions
-    if data is not None:
-        if isinstance(data, (Path, UPath, str, pd.DataFrame, AnnData)):
-            logger.warning(
-                "The `data` argument is depreciated, please pass `iterable` instead!"
-            )
-            memory_rep, filepath, _, suffix = serialize(
-                data, "features", format, key=None
-            )
-            localpath, cloudpath, _, _ = get_path_size_hash(
-                filepath, memory_rep, suffix, check_hash=False
-            )
-
-            file_privates = dict(
-                _local_filepath=localpath,
-                _cloud_filepath=cloudpath,
-                _memory_rep=memory_rep,
-            )
-            iterable = None
-        else:
-            iterable = data
-            file_privates = None
-    else:
-        file_privates = None
-
-    if iterable is not None:
-        # No entries are made for NAs, '', None
-        iterable = [
-            i for i in set(iterable) if not (pd.isnull(i) or i == "" or i == " ")
-        ]
-
-    import lnschema_bionty as bionty
-
-    entity = field.class_.__name__  # type:ignore
-    # TODO: using a species kwargs
-    if "species" in map_kwargs:
-        reference = getattr(bionty, entity).bionty(species=map_kwargs.pop("species"))
-    else:
-        reference = getattr(bionty, entity).bionty()
-
-    # TODO: introduce field parameter in ln.Features
-    map_kwargs["__field__"] = field  # type:ignore
-
-    return get_features(
-        bionty_object=reference,
-        iterable=iterable,
-        file_privates=file_privates,
-        **map_kwargs,
-    )

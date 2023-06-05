@@ -26,7 +26,7 @@ Track data by feature sets:
 .. autosummary::
    :toctree: .
 
-   Features
+   Featureset
 
 Query & manipulate data:
 
@@ -100,7 +100,7 @@ from . import setup  # noqa
 # only import all other functionality if setup was successful
 if _INSTANCE_SETUP:
     from lnschema_core import (  # noqa
-        Features,
+        Featureset,
         File,
         Folder,
         Project,
