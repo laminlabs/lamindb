@@ -93,8 +93,8 @@ class nb:
             )
         else:
             transform_add = transform
-        ln.add(transform_add)
+        ln.save(transform_add)
         if version != cls.transform.version:  # type: ignore
             cls.run.transform_version = version  # type: ignore
-            ln.add(cls.run)
+            ln.save(cls.run)
             ln.delete(transform)

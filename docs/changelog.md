@@ -108,7 +108,7 @@ van -> can | [641](https://github.com/laminlabs/lamindb/pull/641) | [ThomVett](h
 🚸 Smart about `global_context` and `load_latest` when run from notebook | [563](https://github.com/laminlabs/lamindb/pull/563) | [falexwolf](https://github.com/falexwolf) | 2023-03-14 |
 ✨ `ln.Features` | [562](https://github.com/laminlabs/lamindb/pull/562) | [sunnyosun](https://github.com/sunnyosun) | 2023-03-14 |
 🏗️ Introduce `lamindb.context` and enable `ln.Run` to create contexts | [561](https://github.com/laminlabs/lamindb/pull/561) | [falexwolf](https://github.com/falexwolf) | 2023-03-13 |
-📝 Improve the docstrings of `ln.add` and `ln.delete` | [559](https://github.com/laminlabs/lamindb/pull/559) | [sunnyosun](https://github.com/sunnyosun) | 2023-03-10 |
+📝 Improve the docstrings of `ln.save` and `ln.delete` | [559](https://github.com/laminlabs/lamindb/pull/559) | [sunnyosun](https://github.com/sunnyosun) | 2023-03-10 |
 📝 Hide CI related cells in notebooks | [558](https://github.com/laminlabs/lamindb/pull/558) | [sunnyosun](https://github.com/sunnyosun) | 2023-03-10 |
 📝 Update docs to clarify sign up and log in | [557](https://github.com/laminlabs/lamindb/pull/557) | [lawrlee](https://github.com/lawrlee) | 2023-03-10 |
 📝 Prettier species query | [555](https://github.com/laminlabs/lamindb/pull/555) | [falexwolf](https://github.com/falexwolf) | 2023-03-09 | 0.32.0
@@ -166,7 +166,7 @@ van -> can | [641](https://github.com/laminlabs/lamindb/pull/641) | [ThomVett](h
 🚸 Proper client server check for `lndb` | [492](https://github.com/laminlabs/lamindb/pull/492) | [falexwolf](https://github.com/falexwolf) | 2023-02-16 |
 ⬆️  Upgrade `nbproject` to 0.8.2 | [490](https://github.com/laminlabs/lamindb/pull/490) | [bpenteado](https://github.com/bpenteado) | 2023-02-16 |
 ⬆️  Upgrade and rename `lndb_setup` to `lndb` (v0.32.4) <span class="badge badge-warning">Breaking</span> | [487](https://github.com/laminlabs/lamindb/pull/487) | [bpenteado](https://github.com/bpenteado) | 2023-02-14 | 0.27.0
-🚑 Fix tracking of added records during `ln.add()` | [489](https://github.com/laminlabs/lamindb/pull/489) | [bpenteado](https://github.com/bpenteado) | 2023-02-13 |
+🚑 Fix tracking of added records during `ln.save()` | [489](https://github.com/laminlabs/lamindb/pull/489) | [bpenteado](https://github.com/bpenteado) | 2023-02-13 |
 ✨ Added `is_run_input` param to `DObject.load()` | [488](https://github.com/laminlabs/lamindb/pull/488) | [sunnyosun](https://github.com/sunnyosun) | 2023-02-13 |
 🎨 Added `ln.settings.track_run_inputs_upon_load` | [486](https://github.com/laminlabs/lamindb/pull/486) | [sunnyosun](https://github.com/sunnyosun) | 2023-02-13 |
 🎨 Added zarr tests back and cleaned up faq | [485](https://github.com/laminlabs/lamindb/pull/485) | [sunnyosun](https://github.com/sunnyosun) | 2023-02-13 |
