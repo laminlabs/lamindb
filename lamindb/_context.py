@@ -95,7 +95,7 @@ def reinitialize_notebook(
         nb_dev.write_notebook(nb, _filepath)
         raise SystemExit(msg_init_complete)
 
-    transform = Transform(id=new_id, version=new_version, type="notebook")
+    transform = Transform(stem_id=new_id, version=new_version, type="notebook")
     return transform, metadata
 
 
