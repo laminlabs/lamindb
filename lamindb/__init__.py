@@ -21,7 +21,7 @@ Track runs of data transformations:
    Run
    Transform
 
-Track data by feature sets:
+Manage feature sets:
 
 .. autosummary::
    :toctree: .
