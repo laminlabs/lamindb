@@ -85,11 +85,8 @@ def docs(session):
     filename = "lnschema_core_docs.zip"
     urlretrieve(f"https://lamin-site-assets.s3.amazonaws.com/docs/{filename}", filename)
     shutil.unpack_archive(filename, "lnschema_core_docs")
-    Path("lnschema_core_docs/guide/0-core-schema.ipynb").rename(
+    Path("lnschema_core_docs/guide/core-schema.ipynb").rename(
         "docs/guide/lnschema-core.ipynb"
-    )
-    Path("lnschema_core_docs/guide/1-data-validation.ipynb").rename(
-        "docs/guide/data-validation.ipynb"
     )
 
     filename = "lnschema_bionty_docs.zip"
