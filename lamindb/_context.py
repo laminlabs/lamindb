@@ -175,54 +175,25 @@ class context:
                 except Exception as e:
                     if isinstance(e, ImportError):
                         logger.info(
-                            "It looks like you are running ln.track() from a jupyter"
-                            " notebook. Consider installing nbproject for automatic"
+                            "It looks like you are running ln.track() from a Jupyter"
+                            " notebook!\nConsider installing nbproject for automatic"
                             " tracking."
                         )
                     elif str(e) == msg_init_noninteractive:
                         raise e
                     else:
-                        logger.warning(f"nbproject failed:\n{e}")
+                        logger.warning(f"Automatic tracking of notebook failed: {e}")
                     is_tracked_notebook = False
 
             if not is_tracked_notebook:
-                logger.info("Creating a default Transform.")
-                new_transform = Transform(name="Default pipeline", type="pipeline")
-
-                # temporary due to the uniqueness contraint on name and version
-                import secrets
-                import string
-
-                letters = string.ascii_lowercase
-                random_part = "".join(secrets.choice(letters) for i in range(6))
-                new_transform.name += f" {random_part}"
-
-                ln.add(new_transform)
-                logger.success(f"Saved: {new_transform}")
-                cls.transform = new_transform
+                logger.warning(
+                    "No automatic metadata detection, consider passing transform"
+                )
+                return None
         else:
+            transform_exists = None
             if transform.id is not None:  # id based look-up
-                if transform.version is None:
-                    transform_exists = (
-                        ln.select(Transform, id=transform.id)
-                        .order_by(Transform.created_at.desc())
-                        .first()
-                    )
-                else:
-                    transform_exists = ln.select(
-                        Transform, id=transform.id, version=transform.version
-                    ).first()
-            else:  # name based lookup
-                if transform.version is None:
-                    transform_exists = (
-                        ln.select(Transform, name=transform.name)
-                        .order_by(Transform.created_at.desc())
-                        .first()
-                    )
-                else:
-                    transform_exists = ln.select(
-                        Transform, name=transform.name, version=transform.version
-                    ).first()
+                transform_exists = ln.select(Transform, id=transform.id).first()
             if transform_exists is None:
                 transform_exists = ln.add(transform)
                 logger.success(f"Saved: {transform}")
@@ -352,10 +323,10 @@ class context:
             version = "0"
             title = None
 
-        transform = ln.select(Transform, hash=id, version=version).one_or_none()
+        transform = ln.select(Transform, uid=id, version=version).one_or_none()
         if transform is None:
             transform = Transform(
-                hash=id,
+                uid=id,
                 version=version,
                 name=name,
                 title=title,
