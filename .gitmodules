@@ -4,6 +4,3 @@
 [submodule "sub/lndb-setup"]
 	path = sub/lamindb-setup
 	url = https://github.com/laminlabs/lndb
-[submodule "lnschema-bionty"]
-	path = sub/lnschema-bionty
-	url = https://github.com/laminlabs/lnschema-bionty.git
