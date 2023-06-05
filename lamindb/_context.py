@@ -191,6 +191,7 @@ class context:
                 )
                 return None
         else:
+            transform_exists = None
             if transform.id is not None:  # id based look-up
                 transform_exists = ln.select(Transform, id=transform.id).first()
             if transform_exists is None:
