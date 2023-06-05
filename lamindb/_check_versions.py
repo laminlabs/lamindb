@@ -1,17 +1,17 @@
 import os
 
-from lamindb_setup import __version__ as lndb_v
+from lamindb_setup import __version__ as lamindb_setup_v
 from lnschema_core import __version__ as lnschema_core_v
 from packaging import version
 
 if os.getenv("GITHUB_ACTIONS") is None:
     # Lamin PINNED packages
 
-    if version.parse(lnschema_core_v) != version.parse("0.35a4"):
-        raise RuntimeError("lamindb needs lnschema_core==0.35a4")
+    if version.parse(lnschema_core_v) != version.parse("0.35a5"):
+        raise RuntimeError("lamindb needs lnschema_core==0.35a5")
 
-    if version.parse(lndb_v) < version.parse("0.46a3"):
-        raise RuntimeError("Upgrade lndb! pip install lndb==0.46a3")
+    if version.parse(lamindb_setup_v) < version.parse("0.46a3"):
+        raise RuntimeError("Upgrade lamindb_setup! pip install lamindb_setup==0.46a3")
 
     # Lamin GREATEREQ packages
     try:
