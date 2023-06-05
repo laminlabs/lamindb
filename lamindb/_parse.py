@@ -71,18 +71,14 @@ def get_or_create_records(
     # get all existing records in the db
     # if species is specified, only pull species-specific records
     condition = {f"{parsing_id}__in": iterable}
-    stmt = select(model, **condition)
 
     # for bionty records, will add species if needed
-    additional_kwargs = {}
+    additional_kwargs: Dict = {}
     reference_df = pd.DataFrame()
     if model.__module__.startswith("lnschema_bionty."):
         import bionty as bt
 
-        if species is None or species == "all":
-            bionty_object = getattr(bt, model.__name__)()
-        else:
-            bionty_object = getattr(bt, model.__name__)(species=species)
+        bionty_object = getattr(bt, model.__name__)(species=species)
 
         # insert species entry if not exists
         if bionty_object.species != "all":
@@ -91,20 +87,17 @@ def get_or_create_records(
             species = select(Species, name=bionty_object.species).one_or_none()
             if species is None:
                 species = add(Species.from_bionty(name=bionty_object.species))
-            try:
-                stmt = stmt.filter(
-                    getattr(model, "species_id") == species.id  # type:ignore
-                )
-                additional_kwargs = {"species_id": species.id}  # type:ignore
-                logger.info(
-                    f"Returned records with species='{species.name}'."  # type:ignore
-                )
-            except AttributeError:
-                pass
+
+            condition["species__name"] = species.name  # type:ignore
+            additional_kwargs.update({"species": species})
+            logger.info(
+                f"Returned records with species='{species.name}'."  # type:ignore
+            )
 
         reference_df = bionty_object.df().reset_index().set_index(parsing_id)
         reference_df = reference_df.loc[:, reference_df.columns.isin(model_field_names)]
 
+    stmt = select(model, **condition)
     records = stmt.list()
     if len(records) > 0:
         logger.hint(f"Returned {len(records)} existing records.")

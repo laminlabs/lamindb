@@ -1,7 +1,7 @@
 from typing import Any
 
 import pandas as pd
-from lnschema_core import Features
+from lnschema_core import Featureset
 
 from lamindb._select import select
 from lamindb.dev.hashing import hash_set
@@ -9,18 +9,16 @@ from lamindb.dev.hashing import hash_set
 from ._parse import Field, ListLike, get_or_create_records
 
 
-def parse_features(df: pd.DataFrame, bionty_object: Any, **map_kwargs) -> None:
+def parse_features(
+    df: pd.DataFrame, bionty_object: Any, field: Field, **map_kwargs
+) -> None:
     """Link features to a knowledge table.
 
     Args:
         df: a DataFrame
         bionty_object: Features reference class, bionty.{entity}()
     """
-    from bionty import CellMarker, Gene, Protein
-
-    if "__field__" in map_kwargs:
-        field = map_kwargs.pop("__field__")
-        map_kwargs["reference_id"] = field.name
+    map_kwargs["reference_id"] = field.field.name
     df_curated = bionty_object.curate(df=df, **map_kwargs)
     # ._parsing_id only exist and set to be the reference_id after `.curate`` is called
     parsing_id = bionty_object._parsing_id
@@ -40,36 +38,23 @@ def parse_features(df: pd.DataFrame, bionty_object: Any, **map_kwargs) -> None:
     features_type = bionty_object._entity
 
     features = select(
-        Features,
+        Featureset,
         id=features_hash,
         type=features_type,
     ).one_or_none()
     if features is not None:
         return features  # features already exists!
     else:
-        features = Features(id=features_hash, type=features_type)
         records = get_or_create_records(
             iterable=df_curated.index,
             field=field,
             species=bionty_object.species,
         )
 
-        if isinstance(bionty_object, Gene):
-            for record in records:
-                features.genes.append(record)
-        elif isinstance(bionty_object, Protein):
-            for record in records:
-                features.proteins.append(record)
-        elif isinstance(bionty_object, CellMarker):
-            for record in records:
-                features.cell_markers.append(record)
-        else:
-            raise NotImplementedError(
-                "Features parsing is only supported for 'Gene', 'Protein' and"
-                " 'CellMarker'!"
-            )
+        key = f"{bionty_object._entity}s"
+        featureset = Featureset(id=features_hash, type=features_type, **{key: records})
 
-    return features
+    return featureset
 
 
 # expose to user via ln.Features
@@ -83,4 +68,4 @@ def parse_features_from_iterable(
     entity = field.field.model
     reference = entity.bionty(species=species)
     df = pd.DataFrame(index=list(iterable))
-    return parse_features(df, reference)
+    return parse_features(df, reference, field=field)
