@@ -182,12 +182,12 @@ class context:
                     elif str(e) == msg_init_noninteractive:
                         raise e
                     else:
-                        logger.warning(f"nbproject failed:\n{e}")
+                        logger.warning(f"Automatic tracking of notebook failed: {e}")
                     is_tracked_notebook = False
 
             if not is_tracked_notebook:
-                logger.info(
-                    "No automatic metadata detection yet, consider passing transform."
+                logger.warning(
+                    "No automatic metadata detection, consider passing transform"
                 )
                 return None
         else:
