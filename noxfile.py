@@ -29,8 +29,7 @@ def lint(session: nox.Session) -> None:
 )
 def install(session, group):
     # run with pypi install on main (currently disabled)
-    if True:
-        # os.getenv("GITHUB_EVENT_NAME") not in {None, "push"}
+    if os.getenv("GITHUB_EVENT_NAME") != "push":
         # run with submodule install on a PR
         submodules = " ".join(
             [
@@ -42,14 +41,15 @@ def install(session, group):
     extras = ""
     if group == "unit":
         extras += ",bionty"
-        session.run(*"pip install --no-deps ./sub/lnschema-bionty".split())
     elif group == "guide":
         extras += ",aws"
     elif group == "biology":
         extras += ",bionty"
-        session.run(*"pip install --no-deps ./sub/lnschema-bionty".split())
     elif group == "storage":
         extras += ",aws"
+    if os.getenv("GITHUB_EVENT_NAME") != "push":
+        if "bionty" in extras:
+            session.run(*"pip install --no-deps ./sub/lnschema-bionty".split())
     session.run(*f"pip install .[test{extras}]".split())
 
 
