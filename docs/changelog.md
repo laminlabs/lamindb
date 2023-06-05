@@ -3,7 +3,7 @@
 <!-- prettier-ignore -->
 Name | PR | Developer | Date | Version
 --- | --- | --- | --- | ---
-🚚 Rename `ln.add` to `ln.save` | [719](https://github.com/laminlabs/lamindb/pull/719) | [falexwolf](https://github.com/falexwolf) | 2023-06-05 |
+🚚 Rename `ln.add` to `ln.save` | [719](https://github.com/laminlabs/lamindb/pull/719) | [falexwolf](https://github.com/falexwolf) | 2023-06-05 | 0.42a3
 ⬆️ Upgrade lnschema-core to 0.35a5 | [718](https://github.com/laminlabs/lamindb/pull/718) | [sunnyosun](https://github.com/sunnyosun) | 2023-06-05 |
 🚚 Migrate `lnschema-bionty` to Django | [716](https://github.com/laminlabs/lamindb/pull/716) | [falexwolf](https://github.com/falexwolf) | 2023-06-05 | 0.42a2
 ♻️ Polish core schema | [717](https://github.com/laminlabs/lamindb/pull/717) | [falexwolf](https://github.com/falexwolf) | 2023-06-05 |
