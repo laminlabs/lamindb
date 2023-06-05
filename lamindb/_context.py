@@ -1,6 +1,7 @@
 import builtins
 import os
 import re
+from datetime import datetime
 from pathlib import Path, PurePath
 from typing import Dict, List, Optional, Tuple, Union
 
@@ -214,6 +215,8 @@ class context:
         if not new_run:
             run = ln.select(ln.Run, transform=transform).order_by("-created_at").first()
             if run is not None:
+                run.run_at = datetime.utcnow()
+                run.save()
                 logger.info(f"Loaded: {run}")
 
         if run is None:
