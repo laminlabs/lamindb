@@ -8,8 +8,8 @@ from packaging import version
 if os.getenv("GITHUB_ACTIONS") is None:
     # Lamin PINNED packages
 
-    if version.parse(lnschema_core_v) != version.parse("0.35a6"):
-        logger.warning("lamindb needs lnschema_core==0.35a6")
+    if version.parse(lnschema_core_v) != version.parse("0.35a7"):
+        logger.warning("lamindb needs lnschema_core==0.35a7")
 
     if version.parse(lamindb_setup_v) < version.parse("0.46a4"):
         logger.warning("Upgrade lamindb_setup! pip install lamindb_setup==0.46a4")

@@ -1,6 +1,7 @@
 import builtins
 import os
 import re
+from datetime import datetime
 from pathlib import Path, PurePath
 from typing import Dict, List, Optional, Tuple, Union
 
@@ -11,13 +12,6 @@ from lamindb_setup.dev import InstanceSettings
 from lnschema_core import Run, Transform
 
 is_run_from_ipython = getattr(builtins, "__IPYTHON__", False)
-
-msg_init_complete = (
-    "⚠️ Destructive operation! ⚠️\n\nAre you sure you saved the notebook before running"
-    " `ln.track()`?\n - If not, hit save, and *overwrite* the notebook file.\n - If"
-    " yes, hit save, and *discard* editor content.\n\nConsider using Jupyter Lab or"
-    " Notebook for a seamless interactive notebook tracking experience."
-)
 
 msg_path_failed = (
     "Failed to infer notebook path.\nFix: Either track manually via"
@@ -56,10 +50,10 @@ def _write_notebook_meta(metadata):
 
 
 def reinitialize_notebook(
-    id: str, name: str, metadata: Optional[Dict] = None
+    id: str, metadata: Optional[Dict] = None
 ) -> Tuple[Transform, Dict]:
     from nbproject import dev as nb_dev
-    from nbproject._header import _env, _filepath
+    from nbproject._header import _filepath
 
     new_id, new_version = id, None
     if "NBPRJ_TEST_NBPATH" not in os.environ:
@@ -86,16 +80,7 @@ def reinitialize_notebook(
         new_version = "0"
     metadata["version"] = new_version
 
-    # in "lab" & "notebook", we push the metadata write to the end of track execution
-    # by returning metadata below
-    if _env not in ("lab", "notebook", "test"):
-        if nb is None:
-            nb = nb_dev.read_notebook(_filepath)
-        nb.metadata["nbproject"] = metadata
-        nb_dev.write_notebook(nb, _filepath)
-        raise SystemExit(msg_init_complete)
-
-    transform = Transform(id=new_id, version=new_version, name=name, type="notebook")
+    transform = Transform(stem_id=new_id, version=new_version, type="notebook")
     return transform, metadata
 
 
@@ -157,8 +142,6 @@ class context:
                 when automatic inference fails.
         """
         cls.instance = settings.instance
-        logger.info(f"Instance: {cls.instance.identifier}")
-        logger.info(f"User: {settings.user.handle}")
         import lamindb as ln
 
         if transform is None:
@@ -177,7 +160,7 @@ class context:
                         logger.info(
                             "It looks like you are running ln.track() from a Jupyter"
                             " notebook!\nConsider installing nbproject for automatic"
-                            " tracking."
+                            " name, title & id tracking."
                         )
                     elif str(e) == msg_init_noninteractive:
                         raise e
@@ -192,7 +175,8 @@ class context:
                 return None
         else:
             transform_exists = None
-            if transform.id is not None:  # id based look-up
+            if transform.id is not None:
+                # transform has an id but unclear whether already saved
                 transform_exists = ln.select(Transform, id=transform.id).first()
             if transform_exists is None:
                 transform_exists = ln.save(transform)
@@ -201,24 +185,24 @@ class context:
                 logger.info(f"Loaded: {transform_exists}")
             cls.transform = transform_exists
 
-        # for notebooks, default to loading latest runs
-        if new_run is None:
-            if cls.transform.type == "notebook":  # type: ignore
-                new_run = False
-            else:
-                new_run = True
+        if new_run is None:  # for notebooks, default to loading latest runs
+            new_run = False if cls.transform.type == "notebook" else True  # type: ignore  # noqa
 
-        # at this point, we have a transform
-        transform = cls.transform
         run = None
-        if not new_run:
-            run = ln.select(ln.Run, transform=transform).order_by("-created_at").first()
-            if run is not None:
+        if not new_run:  # try loading latest run
+            run = (
+                ln.select(ln.Run, transform=cls.transform)
+                .order_by("-created_at")
+                .first()
+            )
+            if run is not None:  # loaded latest run
+                run.run_at = datetime.utcnow()  # update run time
+                run.save()
                 logger.info(f"Loaded: {run}")
 
-        if run is None:
-            run = ln.Run(transform=transform)
-            run = ln.save(run)
+        if run is None:  # create new run
+            run = ln.Run(transform=cls.transform)
+            run.save()
             logger.success(f"Saved: {run}")
         cls.run = run
 
@@ -276,7 +260,7 @@ class context:
             colab_id = notebook_path.replace("/filedId=", "")
             id = colab_id[:12]
             reference = f"colab_id: {colab_id}"
-            name = get_notebook_name_colab()
+            filestem = get_notebook_name_colab()
             _env = "colab"
         else:
             try:
@@ -317,19 +301,19 @@ class context:
         if metadata is not None:
             id = metadata["id"]
             version = metadata["version"]
-            name = Path(_filepath).stem
+            filestem = Path(_filepath).stem
             title = nbproject.meta.live.title
         else:
             version = "0"
             title = None
 
-        transform = ln.select(Transform, uid=id, version=version).one_or_none()
+        transform = ln.select(Transform, stem_id=id, version=version).one_or_none()
         if transform is None:
             transform = Transform(
-                uid=id,
+                stem_id=id,
                 version=version,
-                name=name,
-                title=title,
+                name=title,
+                short_name=filestem,
                 reference=reference,
                 type="notebook",
             )
@@ -337,7 +321,7 @@ class context:
             logger.success(f"Saved: {transform}")
         else:
             logger.info(f"Loaded: {transform}")
-            if transform.name != name or transform.title != title:
+            if transform.name != title or transform.short_name != filestem:
                 if _env in ("lab", "notebook"):
                     response = input(
                         "Updated notebook name and/or title: Do you want to assign a"
@@ -345,11 +329,11 @@ class context:
                     )
                     if response == "y":
                         transform, metadata = reinitialize_notebook(
-                            transform.id, name, metadata
+                            transform.id, metadata
                         )
                     cls._notebook_meta = metadata  # type: ignore
-                    transform.name = name
-                    transform.title = title
+                    transform.name = title
+                    transform.short_name = filestem
                     ln.save(transform)
                     if response == "y":
                         logger.success(f"Saved: {transform}")
@@ -357,8 +341,8 @@ class context:
                         logger.success(f"Updated: {transform}")
                 else:
                     logger.warning(
-                        "Updated notebook name and/or title. If you want to assign a"
-                        " new id or version, run: lamin track my-notebook.ipynb"
+                        "Updated notebook name and/or short_name. If you want to assign"
+                        " a new id or version, run: lamin track my-notebook.ipynb"
                     )
 
         cls.transform = transform

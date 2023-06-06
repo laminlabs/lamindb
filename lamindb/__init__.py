@@ -74,7 +74,6 @@ Developer API:
 .. autosummary::
    :toctree: .
 
-   link
    context
    settings
    types
