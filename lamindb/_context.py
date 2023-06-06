@@ -13,13 +13,6 @@ from lnschema_core import Run, Transform
 
 is_run_from_ipython = getattr(builtins, "__IPYTHON__", False)
 
-msg_init_complete = (
-    "⚠️ Destructive operation! ⚠️\n\nAre you sure you saved the notebook before running"
-    " `ln.track()`?\n - If not, hit save, and *overwrite* the notebook file.\n - If"
-    " yes, hit save, and *discard* editor content.\n\nConsider using Jupyter Lab or"
-    " Notebook for a seamless interactive notebook tracking experience."
-)
-
 msg_path_failed = (
     "Failed to infer notebook path.\nFix: Either track manually via"
     " `ln.track(ln.Transform(name='My notebook'))` or pass"
@@ -60,7 +53,7 @@ def reinitialize_notebook(
     id: str, metadata: Optional[Dict] = None
 ) -> Tuple[Transform, Dict]:
     from nbproject import dev as nb_dev
-    from nbproject._header import _env, _filepath
+    from nbproject._header import _filepath
 
     new_id, new_version = id, None
     if "NBPRJ_TEST_NBPATH" not in os.environ:
@@ -86,15 +79,6 @@ def reinitialize_notebook(
     if new_version is None:
         new_version = "0"
     metadata["version"] = new_version
-
-    # in "lab" & "notebook", we push the metadata write to the end of track execution
-    # by returning metadata below
-    if _env not in ("lab", "notebook", "test"):
-        if nb is None:
-            nb = nb_dev.read_notebook(_filepath)
-        nb.metadata["nbproject"] = metadata
-        nb_dev.write_notebook(nb, _filepath)
-        raise SystemExit(msg_init_complete)
 
     transform = Transform(stem_id=new_id, version=new_version, type="notebook")
     return transform, metadata
