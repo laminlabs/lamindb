@@ -13,7 +13,6 @@ lnschema_bionty as bt`.
 
    graph
    view
-   dev
 
 """
 import importlib as _importlib
