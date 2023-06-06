@@ -160,7 +160,7 @@ class context:
                         logger.info(
                             "It looks like you are running ln.track() from a Jupyter"
                             " notebook!\nConsider installing nbproject for automatic"
-                            " tracking."
+                            " name, title & id tracking."
                         )
                     elif str(e) == msg_init_noninteractive:
                         raise e
@@ -184,26 +184,23 @@ class context:
                 logger.info(f"Loaded: {transform_exists}")
             cls.transform = transform_exists
 
-        # for notebooks, default to loading latest runs
-        if new_run is None:
-            if cls.transform.type == "notebook":  # type: ignore
-                new_run = False
-            else:
-                new_run = True
+        if new_run is None:  # for notebooks, default to loading latest runs
+            new_run = False if cls.transform.type == "notebook" else True  # type: ignore  # noqa
 
-        # at this point, we have a transform
-        transform = cls.transform
         run = None
-        if not new_run:
-            run = ln.select(ln.Run, transform=transform).order_by("-created_at").first()
-            if run is not None:
-                run.run_at = datetime.utcnow()
+        if not new_run:  # try loading latest run
+            run = (
+                ln.select(ln.Run, transform=cls.transform)
+                .order_by("-created_at")
+                .first()
+            )
+            if run is not None:  # loaded latest run
+                run.run_at = datetime.utcnow()  # update run time
                 run.save()
                 logger.info(f"Loaded: {run}")
 
-        if run is None:
-            run = ln.Run(transform=transform)
-            run = ln.save(run)
+        if run is None:  # create new run
+            ln.Run(transform=cls.transform).save()
             logger.success(f"Saved: {run}")
         cls.run = run
 
