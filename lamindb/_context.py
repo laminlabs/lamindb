@@ -308,7 +308,7 @@ class context:
             version = "0"
             title = None
 
-        transform = ln.select(Transform, uid=id, version=version).one_or_none()
+        transform = ln.select(Transform, stem_id=id, version=version).one_or_none()
         if transform is None:
             transform = Transform(
                 stem_id=id,
