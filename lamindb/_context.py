@@ -142,8 +142,6 @@ class context:
                 when automatic inference fails.
         """
         cls.instance = settings.instance
-        logger.info(f"Instance: {cls.instance.identifier}")
-        logger.info(f"User: {settings.user.handle}")
         import lamindb as ln
 
         if transform is None:
