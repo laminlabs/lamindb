@@ -3,6 +3,7 @@ from typing import Optional
 
 from anndata import AnnData
 from anndata import __version__ as anndata_v
+from lamin_logger import logger
 from lamindb_setup import settings as setup_settings
 from lnschema_core import File
 from lnschema_core.models import filepath_from_file_or_folder
@@ -54,11 +55,12 @@ makes some configurable default choices (e.g., serialize a `DataFrame` as a
 """
 
 
-def backed(self: File) -> AnnDataAccessor:
+def backed(file: File, is_run_input: Optional[bool] = None) -> AnnDataAccessor:
     """Return a cloud-backed AnnData object for streaming."""
-    if self.suffix not in (".h5ad", ".zrad", ".zarr"):
+    _track_run_input(file, is_run_input)
+    if file.suffix not in (".h5ad", ".zrad", ".zarr"):
         raise ValueError("File should have an AnnData object as the underlying data")
-    return AnnDataAccessor(self)
+    return AnnDataAccessor(file)
 
 
 def subsetter(self: File) -> LazyDataFrame:
@@ -127,6 +129,7 @@ def stream(
 
 def _track_run_input(file: File, is_run_input: Optional[bool] = None):
     if is_run_input is None:
+        logger.hint("Track this file as a run input by passing `is_run_input=True`")
         track_run_input = settings.track_run_inputs_upon_load
     else:
         track_run_input = is_run_input
