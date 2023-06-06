@@ -175,7 +175,9 @@ class context:
                 return None
         else:
             transform_exists = None
-            if transform.id is not None:  # id based look-up
+            if (
+                transform.id is not None
+            ):  # transform has an id but unclear whether already saved
                 transform_exists = ln.select(Transform, id=transform.id).first()
             if transform_exists is None:
                 transform_exists = ln.save(transform)
@@ -193,14 +195,15 @@ class context:
                 ln.select(ln.Run, transform=cls.transform)
                 .order_by("-created_at")
                 .first()
-            )
+            )  # noqa
             if run is not None:  # loaded latest run
                 run.run_at = datetime.utcnow()  # update run time
                 run.save()
                 logger.info(f"Loaded: {run}")
 
         if run is None:  # create new run
-            ln.Run(transform=cls.transform).save()
+            run = ln.Run(transform=cls.transform)
+            run.save()
             logger.success(f"Saved: {run}")
         cls.run = run
 
