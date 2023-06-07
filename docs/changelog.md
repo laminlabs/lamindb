@@ -3,6 +3,9 @@
 <!-- prettier-ignore -->
 Name | PR | Developer | Date | Version
 --- | --- | --- | --- | ---
+🚚 Renamed BiontyVersions to BiontySource | [725](https://github.com/laminlabs/lamindb/pull/725) | [sunnyosun](https://github.com/sunnyosun) | 2023-06-07 |
+🔊 `folder.tree` can only be used with existing folders in storage | [724](https://github.com/laminlabs/lamindb/pull/724) | [sunnyosun](https://github.com/sunnyosun) | 2023-06-07 |
+👷 Coverage in separate job | [722](https://github.com/laminlabs/lamindb/pull/722) | [falexwolf](https://github.com/falexwolf) | 2023-06-07 |
 🎨 Import ORMs from .models before reload | [723](https://github.com/laminlabs/lamindb/pull/723) | [sunnyosun](https://github.com/sunnyosun) | 2023-06-07 |
 🔥 Remove `ln.nb` | [721](https://github.com/laminlabs/lamindb/pull/721) | [falexwolf](https://github.com/falexwolf) | 2023-06-07 |
 🏗️ Re-architect transform id | [720](https://github.com/laminlabs/lamindb/pull/720) | [falexwolf](https://github.com/falexwolf) | 2023-06-06 | 0.42a6
