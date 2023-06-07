@@ -3,6 +3,7 @@
 <!-- prettier-ignore -->
 Name | PR | Developer | Date | Version
 --- | --- | --- | --- | ---
+🎨 Import ORMs from .models before reload | [723](https://github.com/laminlabs/lamindb/pull/723) | [sunnyosun](https://github.com/sunnyosun) | 2023-06-07 |
 🔥 Remove `ln.nb` | [721](https://github.com/laminlabs/lamindb/pull/721) | [falexwolf](https://github.com/falexwolf) | 2023-06-07 |
 🏗️ Re-architect transform id | [720](https://github.com/laminlabs/lamindb/pull/720) | [falexwolf](https://github.com/falexwolf) | 2023-06-06 | 0.42a6
 🚚 Rename `ln.add` to `ln.save` | [719](https://github.com/laminlabs/lamindb/pull/719) | [falexwolf](https://github.com/falexwolf) | 2023-06-05 | 0.42a5
