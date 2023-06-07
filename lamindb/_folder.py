@@ -106,10 +106,16 @@ def tree(
                 yield prefix + pointer + path.name
                 files += 1
 
-    print(dir_path.name)
-    iterator = inner(dir_path, level=level)
-    for line in islice(iterator, length_limit):
-        print(line)
-    if next(iterator, None):
-        print(f"... length_limit, {length_limit}, reached, counted:")
-    print(f"\n{directories} directories" + (f", {files} files" if files else ""))
+    try:
+        folder_tree = f"{dir_path.name}"
+        iterator = inner(dir_path, level=level)
+        for line in islice(iterator, length_limit):
+            folder_tree += f"\n{line}"
+        if next(iterator, None):
+            folder_tree += f"... length_limit, {length_limit}, reached, counted:"
+        print(folder_tree)
+        print(f"\n{directories} directories" + (f", {files} files" if files else ""))
+    except FileNotFoundError:
+        raise NotImplementedError(
+            "Tree display is only supported for existing folders in the storage!"
+        )
