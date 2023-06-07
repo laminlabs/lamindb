@@ -125,7 +125,6 @@ if _INSTANCE_SETUP:
     from . import _amend_file  # noqa
     from . import _amend_folder  # noqa
     from ._delete import delete  # noqa
-    from ._nb import nb  # noqa
     from ._parse import parse  # noqa
     from ._save import save  # noqa
     from ._select import select  # noqa
