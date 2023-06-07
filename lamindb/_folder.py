@@ -117,5 +117,5 @@ def tree(
         print(f"\n{directories} directories" + (f", {files} files" if files else ""))
     except FileNotFoundError:
         raise NotImplementedError(
-            "Tree display is only supported for existing folders in the storage!"
+            "Tree display only works for real folders: folders that exist in storage."
         )
