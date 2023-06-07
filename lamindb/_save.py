@@ -5,8 +5,7 @@ from typing import List, Optional, Tuple, Union, overload  # noqa
 import lamindb_setup
 from django.db import transaction
 from lamin_logger import logger
-from lnschema_core import BaseORM, File, Folder
-from lnschema_core.models import storage_key_from_file
+from lnschema_core.models import BaseORM, File, Folder, storage_key_from_file
 
 from lamindb.dev.storage import delete_storage, store_object, write_adata_zarr
 from lamindb.dev.storage._file import print_hook

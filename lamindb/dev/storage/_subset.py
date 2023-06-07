@@ -2,7 +2,7 @@ from typing import List, Optional, Union
 
 from anndata import AnnData, concat
 from lamin_logger import logger
-from lnschema_core import File
+from lnschema_core.models import File
 
 from .object import LazySelector, _subset_anndata_file
 
