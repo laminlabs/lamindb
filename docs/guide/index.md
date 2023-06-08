@@ -3,7 +3,7 @@
 :end-line: 3
 ```
 
-# Introduction to Lamin
+# Guide
 
 ```{include} ../../README.md
 :start-line: 6
