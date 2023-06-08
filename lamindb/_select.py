@@ -1,28 +1,29 @@
 from typing import Union
 
-from django.db.models import Manager, QuerySet
+from django.db.models import Manager
 from lnschema_core import BaseORM
+from lnschema_core._queryset import QuerySet
 
 
-def select(*entity: BaseORM, **fields) -> Union[QuerySet, Manager]:
+def select(*ORM: BaseORM, **expressions) -> Union[QuerySet, Manager]:
     """Query data.
 
     Guide: :doc:`/guide/select`.
 
     Args:
-        entity: Table, tables, or tables including column specification.
-        fields: Fields and values passed as keyword arguments.
+        ORM: An ORM class.
+        expressions: Fields and values passed as Django query expressions.
 
     Returns:
-        A QuerySet or Django Manager.
+        A `QuerySet` or Django `Manager`.
     """
-    if len(entity) > 1:
-        raise NotImplementedError  # currently no longer implemented with Django
-    from lnschema_core.models import LaminQuerySet
-
-    manager = LaminQuerySet.as_manager()
-    manager.model = entity[0]
-    if len(fields) > 0:
-        return manager.filter(**fields)
+    if len(ORM) > 1:
+        raise NotImplementedError(
+            "Currently no longer implemented with Django, but we hope to have it back."
+        )
+    manager = QuerySet.as_manager()
+    manager.model = ORM[0]
+    if len(expressions) > 0:
+        return manager.filter(**expressions)
     else:
         return manager
