@@ -3,6 +3,7 @@
 <!-- prettier-ignore -->
 Name | PR | Developer | Date | Version
 --- | --- | --- | --- | ---
+:memo: Integrate lnschema-bionty into reference | [732](https://github.com/laminlabs/lamindb/pull/732) | [falexwolf](https://github.com/falexwolf) | 2023-06-08 |
 🚸 Add `select` method to `BaseORM` | [730](https://github.com/laminlabs/lamindb/pull/730) | [falexwolf](https://github.com/falexwolf) | 2023-06-08 |
 📝 Overhaul README | [728](https://github.com/laminlabs/lamindb/pull/728) | [falexwolf](https://github.com/falexwolf) | 2023-06-08 |
 ♻️ Refactored features code | [731](https://github.com/laminlabs/lamindb/pull/731) | [sunnyosun](https://github.com/sunnyosun) | 2023-06-08 |
