@@ -3,7 +3,7 @@
 ```{toctree}
 :maxdepth: 1
 
-lamindb
-lnschema-bionty
-bionty
+ref/lamindb
+ref/lnschema-bionty
+ref/bionty
 ```
