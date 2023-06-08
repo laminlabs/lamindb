@@ -18,7 +18,7 @@ Update 2023-06-05: We completed a major migration from SQLAlchemy/SQLModel to Dj
 
 Free:
 
-- Track data lineage across notebooks, pipelines & apps (& integrate with workflow tools).
+- Track data lineage across notebooks, pipelines & apps.
 - Manage biological registries, ontologies & features.
 - Persist, load & stream data objects with a single line of code.
 - Query for anything & everything.
@@ -27,7 +27,7 @@ Free:
 - Use a mesh of distributed LaminDB instances for different teams and purposes.
 - Share instances through a Hub akin to GitHub.
 
-If you want more, [reach out](https://lamin.ai/contact) for an enterprise plan to:
+Enterprise plan:
 
 - Explore & share data, submit samples & track lineage with LaminApp (deployable in your infra).
 - Receive support & services for a BioTech data & analytics platform.
@@ -117,7 +117,7 @@ run = ln.select(ln.Run, transform__name="Cell Ranger").order_by("-created_at").d
 # query files by selected runs, etc.
 ```
 
-### Serialize & load data objects
+### Persist & load data objects
 
 ```python
 df = pd.DataFrame({"a": [1, 2], "b": [3, 4]})
