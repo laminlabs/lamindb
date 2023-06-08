@@ -58,8 +58,8 @@ pip install 'lamindb[gcp]'  # GCP dependencies (gcfs, etc.)
 
 Why do I have to sign up?
 
-- Data lineage requires an unambiguous user identity (who modified which data when?).
-- Collaborating on data requires a user identity (who shares this with me?).
+- Data lineage requires a user identity (who modified which data when?).
+- Collaboration requires a user identity (who shares this with me?).
 
 Signing up takes 1 min.
 
@@ -85,7 +85,13 @@ Now, you can query, e.g., for
 ```python
 ln.File.select(created_by__handle="user1").df()   # a DataFrame of all files ingested by user1
 ln.File.select().order_by("-updated_at").first()   # latest updated file
+```
 
+<br>
+
+Or for
+
+```python
 transforms = ln.Transform.select(  # all notebooks with 'T cell' in the title created in 2022
     name__contains="T cell", type="notebook", created_at__year=2022
 ).all()
@@ -94,13 +100,12 @@ ln.File.select(transform=transforms[1]).all()  # files ingested by the second no
 
 <br>
 
-Or, if you'd like to track a run of a register pipeline (here, "Cell Ranger"):
+Or, if you'd like to track a run of a registered pipeline (here, "Cell Ranger"):
 
 ```python
 transform = ln.Transform.select(name="Cell Ranger", version="0.7.1").one()  # select a pipeline from the registry
-run = ln.Run(transform)  # create a new run record
-ln.File("s3://my_samples01/my_artifact.fastq.gz", run=run).save()  # link file against run
-# alternatively, create a global run context ln.track(transform) and omit run=run
+ln.track(transform)  # create a new global run context
+ln.File("s3://my_samples01/my_artifact.fastq.gz").save()  # link file against run & transform
 ```
 
 <br>
@@ -152,7 +157,7 @@ lamin init --storage ./myobjects --schema bionty
 
 ### Manage custom schemas
 
-1. Create a GitHub repository with the Django models that match your data mimicking [github.com/laminlabs/lnschema-lamin1](https://github.com/laminlabs/lnschema-lamin1)
+1. Create a GitHub repository with Django ORMs similar to [github.com/laminlabs/lnschema-lamin1](https://github.com/laminlabs/lnschema-lamin1)
 2. Create & deploy migrations via `lamin migrate create` and `lamin migrate deploy`
 
 It's fastest if we do this for you based on our templates within an enterprise plan, but you can fully manage the process yourself.
