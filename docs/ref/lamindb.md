@@ -1,4 +1,4 @@
-# Reference
+# `lamindb`
 
 ```{eval-rst}
 .. automodule:: lamindb
