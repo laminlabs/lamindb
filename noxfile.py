@@ -25,7 +25,7 @@ def lint(session: nox.Session) -> None:
 @nox.session
 @nox.parametrize(
     "group",
-    ["mini", "unit", "guide", "biology", "faq", "storage"],
+    ["unit", "guide", "biology", "faq", "storage", "docs"],
 )
 def install(session, group):
     # run with pypi install on main (currently disabled)
@@ -47,6 +47,8 @@ def install(session, group):
         extras += ",bionty"
     elif group == "storage":
         extras += ",aws"
+    elif group == "docs":
+        extras += ",bionty"
     if os.getenv("GITHUB_EVENT_NAME") != "push":
         if "bionty" in extras:
             session.run(*"pip install --no-deps ./sub/lnschema-bionty".split())

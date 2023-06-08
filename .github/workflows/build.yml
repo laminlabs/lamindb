@@ -112,7 +112,7 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install laminci
-      - run: nox -s "install(group='mini')"
+      - run: nox -s "install(group='docs')"
       - uses: actions/download-artifact@v2
       - run: nox -s docs
       - uses: nwtgck/actions-netlify@v1.2
@@ -138,7 +138,6 @@ jobs:
       - run: |
           pip install coverage[toml]
           pip install --no-deps .
-          pip install --no-deps git+https://github.com/laminlabs/lnschema-bionty
       - uses: actions/download-artifact@v2
       - name: run coverage
         run: |
