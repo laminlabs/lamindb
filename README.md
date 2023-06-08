@@ -29,7 +29,7 @@ Update 2023-06-05: We completed a major migration from SQLAlchemy/SQLModel to Dj
 If you want more, [reach out](https://lamin.ai/contact) for an enterprise plan to:
 
 - explore & share data, submit samples & track lineage with `laminapp` (deployable in your infrastructure)
-- receive services for a BioTech data & analytics platform
+- receive support & services for a BioTech data & analytics platform
 
 ## How does it work?
 
@@ -66,7 +66,7 @@ We don't store any of your data!
 - Log in via `lamin login <handle>`
 - Init an instance via `lamin init --storage <storage>`
 
-## Quickstart
+## Quick overview
 
 ### Track & query data lineage
 
@@ -121,6 +121,35 @@ df = file.load()  # load it into memory
 0   1   3
 1   2   4
 ```
+
+### Mange biological registries
+
+```
+lamin init --storage ./myobjects --schema bionty
+```
+
+...
+
+### Track biological features
+
+...
+
+### Track biological samples
+
+...
+
+### Create a custom schema module & manage migrations
+
+1. Create a GitHub repository with the Django models that match your data mimicking [github.com/laminlabs/lnschema-lamin1](https://github.com/laminlabs/lnschema-lamin1)
+2. Create & deploy migrations via `lamin migrate create` and `lamin migrate deploy`
+
+It's fastest if we do this for you based on our templates within an enterprise plan, but you can fully manage the process yourself.
+
+## Notebooks
+
+- Find all guide notebooks [here](https://github.com/laminlabs/lamindb/tree/main/docs/guide).
+- You can run these notebooks in hosted versions of JupyterLab, e.g., [Saturn Cloud](https://github.com/laminlabs/run-lamin-on-saturn), Google Vertex AI, and others or on Google Colab.
+- Jupyter Lab & Notebook offer a fully interactive experience, VS Code & others require using the CLI (`lamin track my-notebook.ipynb`)
 
 ## Documentation
 
