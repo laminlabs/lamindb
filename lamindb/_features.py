@@ -9,7 +9,7 @@ from lamindb.dev.hashing import hash_set
 from ._parse import Field, ListLike, get_or_create_records, not_null_iterable
 
 
-# expose to user via ln.Features
+# expose to user via ln.Featureset
 def parse_features_from_iterable(
     iterable: ListLike,
     field: Field,

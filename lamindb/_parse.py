@@ -150,7 +150,7 @@ def _filter_bionty_df_columns(model: Model, bionty_object: Any) -> pd.DataFrame:
 
 
 def _bulk_create_dicts_from_df(keys: list, column_name: str, df: pd.DataFrame) -> dict:
-    """Get fields from a dataframe for many rows."""
+    """Get fields from a DataFrame for many rows."""
     if df.index.name != column_name:
         df = df.set_index(column_name)
     # keep the last record (assuming most recent) if duplicated
