@@ -69,7 +69,7 @@ We do _not_ store any of your data, but only basic metadata about you (email add
 - Log in via `lamin login <handle>`.
 - Init an instance via `lamin init --storage <storage>`.
 
-## Quick overview
+## Usage overview
 
 ### Track & query data lineage
 
@@ -78,16 +78,21 @@ ln.track()  # auto-detect a notebook & register as a Transform
 ln.File("my_artifact.parquet").save()  # link Transform & Run objects to File object
 ```
 
-These 2 lines enable to
+<br>
+
+Now, you can query, e.g., for
 
 ```python
-ln.File.select(created_by="user1").df()   # all files ingested by user1
-ln.File.select(created_by="user1").order_by("-updated_at").first()   # latest modified file by user1
+ln.File.select(created_by__handle="user1").df()   # a DataFrame of all files ingested by user1
+ln.File.select().order_by("-updated_at").first()   # latest updated file
 
-transforms = ln.Transform.select(name__contains="T cell", type="notebook").all()  # all notebooks with 'T cell' in the title
-ln.File.select(transform=transforms[1]).all()  # get the file ingested by the second notebook in transforms
-# etc.
+transforms = ln.Transform.select(  # all notebooks with 'T cell' in the title created in 2022
+    name__contains="T cell", type="notebook", created_at__year=2022
+).all()
+ln.File.select(transform=transforms[1]).all()  # files ingested by the second notebook in transforms
 ```
+
+<br>
 
 Or, if you'd like to track a run of a register pipeline (here, "Cell Ranger"):
 
@@ -98,7 +103,9 @@ ln.File("s3://my_samples01/my_artifact.fastq.gz", run=run).save()  # link file a
 # alternatively, create a global run context ln.track(transform) and omit run=run
 ```
 
-This enables to:
+<br>
+
+Now, you can query, e.g., for
 
 ```python
 run = ln.select(ln.Run, transform__name="Cell Ranger").order_by("-created_at").df()  # get the latest Cell Ranger pipeline runs
@@ -130,6 +137,8 @@ df = file.load()  # load it into memory
 ```
 lamin init --storage ./myobjects --schema bionty
 ```
+
+<br>
 
 ...
 
