@@ -11,8 +11,8 @@ if os.getenv("GITHUB_ACTIONS") is None:
     if version.parse(lnschema_core_v) != version.parse("0.35.0"):
         logger.warning("lamindb needs lnschema_core==0.35.0")
 
-    if version.parse(lamindb_setup_v) < version.parse("0.46a5"):
-        logger.warning("Upgrade lamindb_setup! pip install lamindb_setup==0.46a5")
+    if version.parse(lamindb_setup_v) < version.parse("0.47.0"):
+        logger.warning("Upgrade lamindb_setup! pip install lamindb_setup==0.47.0")
 
     # Lamin GREATEREQ packages
     try:
