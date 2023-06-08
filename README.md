@@ -4,7 +4,7 @@
 
 # LaminDB: Data lakes for biology
 
-LaminDB is an API layer for your existing infrastructure (object storage, SQL databases) to manage your existing data & analyses.
+LaminDB is an API layer for your existing infrastructure to manage your existing data & analyses.
 
 ```{warning}
 
@@ -16,19 +16,20 @@ Update 2023-06-05: We completed a major migration from SQLAlchemy/SQLModel to Dj
 
 ## Features
 
-- track data lineage across notebooks, pipelines & apps
+Free:
+
+- track data lineage across notebooks, pipelines & apps (& integrate with workflow tools)
 - manage biological registries, ontologies & features
-- persist, load & stream data objects (`.parquet`, `.h5ad`, etc.)
+- persist, load & stream data objects with a single line of code
 - query for anything & everything
-- integrate with workflow tools & your entire infrastructure
-- define your own schemas (assays, instruments, etc.) and manage migrations
-- get started on your laptop & deploy in the cloud
-- work with a single or a mesh of distributed LaminDB instances for different teams and purposes
-- share instances through a hub akin to GitHub - e.g, [lamin.ai/sunnyosun](https://lamin.ai/sunnyosun)
+- define & manage your own schemas (assays, instruments, etc.)
+- manage data on your laptop, on your server or in your cloud infra
+- use a mesh of distributed LaminDB instances for different teams and purposes
+- share instances through a hub akin to GitHub
 
 If you want more, [reach out](https://lamin.ai/contact) for an enterprise plan to:
 
-- explore & share data, submit samples & track lineage with `laminapp` (deployable in your infrastructure)
+- explore & share data, submit samples & track lineage with LaminApp (deployable in your infra)
 - receive support & services for a BioTech data & analytics platform
 
 ## How does it work?
@@ -40,6 +41,8 @@ LaminDB builds semantics of R&D and biology onto well-established tools:
 - Django for an ORM
 - configurable storage backends to persist data objects: pyarrow, anndata, zarr, etc.
 - biological knowledge resources & ontologies: see [Bionty](https://lamin.ai/docs/bionty)
+
+Most of LaminDB is open source.
 
 ## Installation
 
@@ -150,6 +153,19 @@ It's fastest if we do this for you based on our templates within an enterprise p
 - Find all guide notebooks [here](https://github.com/laminlabs/lamindb/tree/main/docs/guide).
 - You can run these notebooks in hosted versions of JupyterLab, e.g., [Saturn Cloud](https://github.com/laminlabs/run-lamin-on-saturn), Google Vertex AI, and others or on Google Colab.
 - Jupyter Lab & Notebook offer a fully interactive experience, VS Code & others require using the CLI (`lamin track my-notebook.ipynb`)
+
+## Architecture
+
+LaminDB consists of the `lamindb` Python package, which builds on a number of open-source packages developed by Lamin:
+
+- [bionty](https://github.com/laminlabs/bionty): Biological entities (usable standalone)
+- [lamindb-setup](https://github.com/laminlabs/lamindb-setup): Setup & configure LaminDB, client for Lamin Hub.
+- [lnschema-core](https://github.com/laminlabs/lnschema-core): Core schema, containing the core ORMs.
+- [lnschema-bionty](https://github.com/laminlabs/lnschema-bionty): Bionty schema, containing ORMs that are coupled to Bionty's biological entities.
+- [lnschema-lamin1](https://github.com/laminlabs/lnschema-lamin1): Exemplary configured schema to track samples, treatments, etc.
+- [nbproject](https://github.com/laminlabs/nbproject): Parse metadata from Jupyter notebooks.
+
+LaminHub & LaminApp are not open sourced, neither are templates to model lab operations.
 
 ## Documentation
 
