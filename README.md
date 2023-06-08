@@ -18,19 +18,19 @@ Update 2023-06-05: We completed a major migration from SQLAlchemy/SQLModel to Dj
 
 Free:
 
-- track data lineage across notebooks, pipelines & apps (& integrate with workflow tools)
-- manage biological registries, ontologies & features
-- persist, load & stream data objects with a single line of code
-- query for anything & everything
-- define & manage your own schemas (assays, instruments, etc.)
-- manage data on your laptop, on your server or in your cloud infra
-- use a mesh of distributed LaminDB instances for different teams and purposes
-- share instances through a hub akin to GitHub
+- Track data lineage across notebooks, pipelines & apps (& integrate with workflow tools).
+- Manage biological registries, ontologies & features.
+- Persist, load & stream data objects with a single line of code.
+- Query for anything & everything.
+- Define & manage your own schemas (assays, instruments, etc.).
+- Manage data on your laptop, on your server or in your cloud infra.
+- Use a mesh of distributed LaminDB instances for different teams and purposes.
+- Share instances through a Hub akin to GitHub.
 
 If you want more, [reach out](https://lamin.ai/contact) for an enterprise plan to:
 
-- explore & share data, submit samples & track lineage with LaminApp (deployable in your infra)
-- receive support & services for a BioTech data & analytics platform
+- Explore & share data, submit samples & track lineage with LaminApp (deployable in your infra).
+- Receive support & services for a BioTech data & analytics platform.
 
 ## How does it work?
 
@@ -38,9 +38,9 @@ LaminDB builds semantics of R&D and biology onto well-established tools:
 
 - SQLite & Postgres for SQL databases
 - S3, GCP & local storage for object storage
-- Django for an ORM
-- configurable storage backends to persist data objects: pyarrow, anndata, zarr, etc.
-- biological knowledge resources & ontologies: see [Bionty](https://lamin.ai/docs/bionty)
+- Django ORM (previously SQLAlchemy/SQLModel)
+- Configurable storage formats: pyarrow, anndata, zarr, etc.
+- Biological knowledge resources & ontologies: see [Bionty](https://lamin.ai/docs/bionty)
 
 Most of LaminDB is open source.
 
@@ -58,16 +58,16 @@ pip install 'lamindb[gcp]'  # GCP dependencies (gcfs, etc.)
 
 Why do I have to sign up?
 
-- Data lineage requires a unique user identity (who modified which data when?)
-- Sharing & collaborating on data requires a user identity
+- Data lineage requires an unambiguous user identity (who modified which data when?).
+- Collaborating on data requires a user identity (who shares this with me?).
 
-Signing up takes 1 min and we only store basic metadata about you (email address, etc.) & your instances (S3 bucket names, etc.).
+Signing up takes 1 min.
 
-We don't store any of your data!
+We do _not_ store any of your data, but only basic metadata about you (email address, etc.) & your instances (S3 bucket names, etc.).
 
-- Sign up via `lamin signup <email>`
-- Log in via `lamin login <handle>`
-- Init an instance via `lamin init --storage <storage>`
+- Sign up via `lamin signup <email>`.
+- Log in via `lamin login <handle>`.
+- Init an instance via `lamin init --storage <storage>`.
 
 ## Quick overview
 
