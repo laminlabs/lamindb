@@ -99,6 +99,6 @@ def docs(session):
     )
 
     login_testuser1(session)
-    session.run(*"lamin init --storage ./docsbuild".split())
+    session.run(*"lamin init --storage ./docsbuild --schema bionty".split())
     build_docs(session)
     upload_docs_artifact()
