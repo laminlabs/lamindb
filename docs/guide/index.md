@@ -15,7 +15,7 @@
 :caption: Data
 
 files-folders
-provenance
+data-lineage
 select
 stream
 schema

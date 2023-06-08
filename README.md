@@ -125,7 +125,7 @@ df = file.load()  # load it into memory
 1   2   4
 ```
 
-### Mange biological registries
+### Manage biological registries
 
 ```
 lamin init --storage ./myobjects --schema bionty
@@ -141,7 +141,7 @@ lamin init --storage ./myobjects --schema bionty
 
 ...
 
-### Create a custom schema module & manage migrations
+### Manage custom schemas
 
 1. Create a GitHub repository with the Django models that match your data mimicking [github.com/laminlabs/lnschema-lamin1](https://github.com/laminlabs/lnschema-lamin1)
 2. Create & deploy migrations via `lamin migrate create` and `lamin migrate deploy`
