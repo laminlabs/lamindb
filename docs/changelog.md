@@ -3,6 +3,7 @@
 <!-- prettier-ignore -->
 Name | PR | Developer | Date | Version
 --- | --- | --- | --- | ---
+♻️ Refactored features code | [731](https://github.com/laminlabs/lamindb/pull/731) | [sunnyosun](https://github.com/sunnyosun) | 2023-06-08 |
 📝 Add `configure` guide instead of setup | [727](https://github.com/laminlabs/lamindb/pull/727) | [falexwolf](https://github.com/falexwolf) | 2023-06-08 |
 🧪 Add tests for `folder.tree()` | [726](https://github.com/laminlabs/lamindb/pull/726) | [sunnyosun](https://github.com/sunnyosun) | 2023-06-08 |
 🚚 Renamed BiontyVersions to BiontySource | [725](https://github.com/laminlabs/lamindb/pull/725) | [sunnyosun](https://github.com/sunnyosun) | 2023-06-07 |
