@@ -68,7 +68,7 @@ file = ln.select(ln.File, run=run).all()
 
 ```{toctree}
 :hidden:
-:caption: Basics
+:caption: Data
 
 files-folders
 provenance
