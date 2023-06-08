@@ -75,6 +75,7 @@ provenance
 select
 stream
 schema
+configure
 ```
 
 ```{toctree}
