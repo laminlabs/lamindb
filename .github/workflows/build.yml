@@ -138,6 +138,7 @@ jobs:
       - run: |
           pip install coverage[toml]
           pip install --no-deps .
+          pip install --no-deps git+https://github.com/laminlabs/lnschema-bionty
       - uses: actions/download-artifact@v2
       - name: run coverage
         run: |
