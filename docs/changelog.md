@@ -3,6 +3,7 @@
 <!-- prettier-ignore -->
 Name | PR | Developer | Date | Version
 --- | --- | --- | --- | ---
+📝 Add `configure` guide instead of setup | [727](https://github.com/laminlabs/lamindb/pull/727) | [falexwolf](https://github.com/falexwolf) | 2023-06-08 |
 🧪 Add tests for `folder.tree()` | [726](https://github.com/laminlabs/lamindb/pull/726) | [sunnyosun](https://github.com/sunnyosun) | 2023-06-08 |
 🚚 Renamed BiontyVersions to BiontySource | [725](https://github.com/laminlabs/lamindb/pull/725) | [sunnyosun](https://github.com/sunnyosun) | 2023-06-07 |
 🔊 `folder.tree` can only be used with existing folders in storage | [724](https://github.com/laminlabs/lamindb/pull/724) | [sunnyosun](https://github.com/sunnyosun) | 2023-06-07 |
