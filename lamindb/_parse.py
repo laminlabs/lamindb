@@ -4,7 +4,7 @@ import numpy as np
 import pandas as pd
 from django.db.models import Model
 from django.db.models.query_utils import DeferredAttribute as Field
-from lamin_logger import logger
+from lamin_logger import colors, logger
 
 from ._select import select
 
@@ -90,7 +90,7 @@ def get_or_create_records(
     new_values = iterable.difference(existing_values)
     if len(new_values) > 0:
         # first try to populate additional fields from bionty
-        mapped_values = bionty_df[field_name].intersection(new_values)
+        mapped_values = set(bionty_df[field_name]).intersection(new_values)
         if len(mapped_values) > 0:
             new_values_kwargs = _bulk_create_dicts_from_df(
                 keys=mapped_values, column_name=field_name, df=bionty_df
@@ -98,10 +98,8 @@ def get_or_create_records(
             for kwargs in new_values_kwargs:
                 kwargs.update(kwargs_species)
                 records.append(model(**kwargs))
-            logger.hint(
-                f"Created {len(mapped_values)} {model.__name__} records from bionty"
-                f" with {bionty_df.shape[1]} fields"
-            )
+            text = colors.purple(f"{len(mapped_values)} {model.__name__} records")
+            logger.hint(f"Created {text} from bionty with {bionty_df.shape[1]} fields")
         # unmapped new_ids will only create records with field and species
         unmapped_values = new_values.difference(mapped_values)
         if len(unmapped_values) > 0:
@@ -109,10 +107,8 @@ def get_or_create_records(
                 kwargs = {field_name: i}
                 kwargs.update(kwargs_species)
                 records.append(model(**kwargs))
-            logger.hint(
-                f"Created {len(unmapped_values)} {model.__name__} records with a single"
-                f" field '{field_name}'"
-            )
+            text = colors.blue(f"{len(unmapped_values)} {model.__name__} records")
+            logger.hint(f"Created {text} records with a single field '{field_name}'")
     return records
 
 
@@ -127,14 +123,12 @@ def _preprocess_species(
 
     if bionty_object is not None:
         species_record = create_or_get_species_record(species=bionty_object.species)
-
-        # if species is specified, only pull species-specific records
-        condition_species["species__name"] = species_record.name
-        # add species to the record
-        kwargs_species["species"] = species_record
-        logger.info(
-            f"Returning records with species='{species_record.name}'."  # type:ignore
-        )
+        if species_record is not None:
+            # if species is specified, only pull species-specific records
+            condition_species["species__name"] = species_record.name
+            # add species to the record
+            kwargs_species["species"] = species_record
+            logger.info(f"Returning records with species='{species_record.name}'.")
     bionty_df = _filter_bionty_df_columns(model=model, bionty_object=bionty_object)
 
     return kwargs_species, condition_species, bionty_df
@@ -149,10 +143,12 @@ def _filter_bionty_df_columns(model: Model, bionty_object: Any) -> pd.DataFrame:
     return bionty_df
 
 
-def _bulk_create_dicts_from_df(keys: list, column_name: str, df: pd.DataFrame) -> dict:
+def _bulk_create_dicts_from_df(
+    keys: Union[set, List], column_name: str, df: pd.DataFrame
+) -> dict:
     """Get fields from a DataFrame for many rows."""
     if df.index.name != column_name:
         df = df.set_index(column_name)
     # keep the last record (assuming most recent) if duplicated
     df = df[~df.index.duplicated(keep="last")]
-    return df.loc[keys].reset_index().to_dict(orient="records")
+    return df.loc[list(keys)].reset_index().to_dict(orient="records")
