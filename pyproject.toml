@@ -51,7 +51,7 @@ nbproject = [
     "nbproject>=0.8.7"
 ]
 bionty = [
-    "lnschema_bionty==0.19a3",
+    "lnschema_bionty==0.19a5",
 ]
 lamin1 = [
     "lnschema_lamin1==0.18a1",
