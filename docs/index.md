@@ -8,6 +8,6 @@
 :hidden:
 
 guide/index
-ref/index
+reference
 changelog
 ```
