@@ -5,4 +5,5 @@
 
 lamindb
 lnschema-bionty
+bionty
 ```
