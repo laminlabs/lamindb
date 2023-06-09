@@ -26,7 +26,7 @@ configure
 :hidden:
 :caption: Biology
 
-../biology/ontologies
+../biology/registries
 ../biology/features
 ../biology/link-samples
 ```
