@@ -4,10 +4,7 @@ from pathlib import Path
 from subprocess import run
 
 import nox
-from laminci import (  # noqa
-    move_built_docs_to_docs_slash_project_slug,
-    upload_docs_artifact,
-)
+from laminci import upload_docs_artifact
 from laminci.nox import build_docs, login_testuser1, login_testuser2, run_pre_commit
 
 # we'd like to aggregate coverage information across sessions
