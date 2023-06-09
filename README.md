@@ -21,16 +21,15 @@ Free:
 - Track data lineage across notebooks, pipelines & apps.
 - Manage biological registries, ontologies & features.
 - Persist, load & stream data objects with a single line of code.
-- Query for anything & everything.
-- Define & manage your own schemas (assays, instruments, etc.).
+- Query for anything, define & manage your own schemas.
 - Manage data on your laptop, on your server or in your cloud infra.
 - Use a mesh of distributed LaminDB instances for different teams and purposes.
 - Share instances through a Hub akin to GitHub.
 
-Enterprise plan:
+Enterprise:
 
 - Explore & share data, submit samples & track lineage with LaminApp (deployable in your infra).
-- Receive support & services for a BioTech data & analytics platform.
+- Receive support, code templates & services for a BioTech data & analytics platform.
 
 ## How does it work?
 
