@@ -37,13 +37,15 @@ LaminDB builds semantics of R&D and biology onto well-established tools:
 
 - SQLite & Postgres for SQL databases
 - S3, GCP & local storage for object storage
-- Django ORM (previously SQLAlchemy/SQLModel)
+- Django ORM and fsspec
 - Configurable storage formats: pyarrow, anndata, zarr, etc.
 - Biological knowledge resources & ontologies: see [Bionty](https://lamin.ai/docs/bionty)
 
-Most of LaminDB is open source.
+LaminDB is open source. For details, see [Architecture](#architecture).
 
 ## Installation
+
+![pyversions](https://img.shields.io/pypi/pyversions/lamindb)
 
 ```shell
 pip install lamindb  # basic data lake
@@ -169,16 +171,20 @@ It's fastest if we do this for you based on our templates within an enterprise p
 
 ## Architecture
 
-LaminDB consists of the `lamindb` Python package, which builds on a number of open-source packages developed by Lamin:
+LaminDB consists of the `lamindb` Python package, which builds on a number of open-source packages:
 
-- [bionty](https://github.com/laminlabs/bionty): Biological entities (usable standalone)
+- [bionty](https://github.com/laminlabs/bionty): Basic biological entities (usable standalone).
 - [lamindb-setup](https://github.com/laminlabs/lamindb-setup): Setup & configure LaminDB, client for Lamin Hub.
-- [lnschema-core](https://github.com/laminlabs/lnschema-core): Core schema, containing the core ORMs.
-- [lnschema-bionty](https://github.com/laminlabs/lnschema-bionty): Bionty schema, containing ORMs that are coupled to Bionty's biological entities.
+- [lnschema-core](https://github.com/laminlabs/lnschema-core): Core schema, ORMs to model data objects & data lineage.
+- [lnschema-bionty](https://github.com/laminlabs/lnschema-bionty): Bionty schema, ORMs that are coupled to Bionty's entities.
 - [lnschema-lamin1](https://github.com/laminlabs/lnschema-lamin1): Exemplary configured schema to track samples, treatments, etc.
 - [nbproject](https://github.com/laminlabs/nbproject): Parse metadata from Jupyter notebooks.
 
-LaminHub & LaminApp are not open sourced, neither are templates to model lab operations.
+LaminHub & LaminApp are not open-sourced, neither are templates that model lab operations.
+
+Lamin's packages build on the infrastructure listed
+[above](#how-does-it-work). Previously, they were based on SQLAlchemy/SQLModel
+instead of Django, and cloudpathlib instead of fsspec.
 
 ## Documentation
 
