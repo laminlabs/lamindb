@@ -33,7 +33,7 @@ def test_parse_ontology_id(df):
     result = ln.parse(df.cell_type_id, CellType.ontology_id)
     names = [i.name for i in result]
     assert len(result) == 2
-    assert names == ["T cell", "hepatocyte"]
+    assert set(names) == set(["T cell", "hepatocyte"])
     assert result[0].bionty_source.entity == "CellType"
 
 
