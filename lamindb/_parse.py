@@ -90,7 +90,7 @@ def get_or_create_records(
     model = field.field.model  # is DeferredAttribute
     field_name = field.field.name
 
-    kwargs_species, condition_species, bionty_df = _preprocess_species(
+    kwargs_species_source, condition_species, bionty_df = _preprocess_species(
         species=species, model=model
     )
 
@@ -116,16 +116,21 @@ def get_or_create_records(
                 keys=mapped_values, column_name=field_name, df=bionty_df
             )
             for kwargs in new_values_kwargs:
-                kwargs.update(kwargs_species)
+                kwargs.update(kwargs_species_source)
                 records.append(model(**kwargs))
             text = colors.purple(f"{len(mapped_values)} {model.__name__} records")
             logger.hint(f"Created {text} from bionty with {bionty_df.shape[1]} fields")
+            bionty_version = kwargs_species_source.get("bionty_source")
+            if bionty_version is not None:
+                logger.hint(f"Using bionty source: {bionty_version}")
         # unmapped new_ids will only create records with field and species
         unmapped_values = new_values.difference(mapped_values)
         if len(unmapped_values) > 0:
             for i in unmapped_values:
                 kwargs = {field_name: i}
-                kwargs.update(kwargs_species)
+                species_record = kwargs_species_source.get("species")
+                if species_record is not None:
+                    kwargs.update({"species": species_record})
                 records.append(model(**kwargs))
             text = colors.blue(f"{len(unmapped_values)} {model.__name__} records")
             logger.hint(f"Created {text} records with a single field '{field_name}'")
@@ -156,9 +161,13 @@ def _get_from_queryset(queryset, df_records, model):
 def _preprocess_species(
     model: Model, species: Optional[str] = None
 ) -> Tuple[dict, dict, pd.DataFrame]:
-    kwargs_species: Dict = {}
+    kwargs_species_source: Dict = {}
     condition_species: Dict = {}
-    from lnschema_bionty._bionty import create_or_get_species_record, get_bionty_object
+    from lnschema_bionty._bionty import (
+        create_or_get_species_record,
+        get_bionty_object,
+        get_bionty_source_record,
+    )
 
     bionty_object = get_bionty_object(model=model, species=species)
 
@@ -168,11 +177,12 @@ def _preprocess_species(
             # if species is specified, only pull species-specific records
             condition_species["species__name"] = species_record.name
             # add species to the record
-            kwargs_species["species"] = species_record
+            kwargs_species_source["species"] = species_record
             logger.info(f"Returning records with species='{species_record.name}'...")
+        kwargs_species_source["bionty_source"] = get_bionty_source_record(bionty_object)
     bionty_df = _filter_bionty_df_columns(model=model, bionty_object=bionty_object)
 
-    return kwargs_species, condition_species, bionty_df
+    return kwargs_species_source, condition_species, bionty_df
 
 
 def _filter_bionty_df_columns(model: Model, bionty_object: Any) -> pd.DataFrame:
