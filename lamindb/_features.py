@@ -6,7 +6,7 @@ from lnschema_core import Featureset
 from lamindb._select import select
 from lamindb.dev.hashing import hash_set
 
-from ._parse import Field, ListLike, get_or_create_records, not_null_iterable
+from ._parse import Field, ListLike, get_or_create_records, index_iterable
 
 
 # expose to user via ln.Featureset
@@ -29,9 +29,9 @@ def parse_features_from_iterable(
     else:
         related_name = related_name[0]
 
-    iterable_set = not_null_iterable(iterable)
+    iterable_idx = index_iterable(iterable)
 
-    features_hash = hash_set(iterable_set)
+    features_hash = hash_set(set(iterable_idx))
 
     featureset = select(
         Featureset,
@@ -42,7 +42,7 @@ def parse_features_from_iterable(
         logger.info("Returning an existing featureset")
     else:
         records = get_or_create_records(
-            iterable=iterable_set, field=field, species=species
+            iterable=iterable_idx, field=field, species=species
         )
         featureset = Featureset(
             id=features_hash, type=related_name, **{related_name: records}

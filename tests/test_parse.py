@@ -22,7 +22,7 @@ def test_parse_name(df):
     result = ln.parse(df.cell_type, CellType.name)
     ids = [i.ontology_id for i in result]
     assert len(result) == 3
-    assert set(ids) == set(["CL:0000182", None, "CL:0000084"])
+    assert ids == ["CL:0000182", "CL:0000084", None]
 
 
 def test_parse_ontology_id(df):
@@ -31,7 +31,7 @@ def test_parse_ontology_id(df):
     result = ln.parse(df.cell_type_id, CellType.ontology_id)
     names = [i.name for i in result]
     assert len(result) == 2
-    assert set(names) == set(["T cell", "hepatocyte"])
+    assert names == ["T cell", "hepatocyte"]
 
 
 def test_parse_df(df):
@@ -44,8 +44,8 @@ def test_parse_df(df):
     ids = [i.ontology_id for i in result]
     extras = [i.definition for i in result]
     assert len(result) == 3
-    assert set(names) == set(["T cell", "hepatocyte", "my new cell type"])
+    assert names == ["T cell", "hepatocyte", "my new cell type"]
     # converts empty string to None
-    assert set(ids) == set(["CL:0000084", "CL:0000182", None])
+    assert ids == ["CL:0000084", "CL:0000182", None]
     # additional fields are not populated
-    assert set(extras) == set([None, None, None])
+    assert extras == [None, None, None]
