@@ -3,6 +3,7 @@
 <!-- prettier-ignore -->
 Name | PR | Developer | Date | Version
 --- | --- | --- | --- | ---
+⬆️ First stable release Django release of `lnschema-bionty` | [733](https://github.com/laminlabs/lamindb/pull/733) | [sunnyosun](https://github.com/sunnyosun) | 2023-06-09 |
 :children_crossing: Validate required fields | [735](https://github.com/laminlabs/lamindb/pull/735) | [falexwolf](https://github.com/falexwolf) | 2023-06-09 |
 :truck: Move lnschema-bionty | [734](https://github.com/laminlabs/lamindb/pull/734) | [falexwolf](https://github.com/falexwolf) | 2023-06-09 |
 :memo: Integrate lnschema-bionty into reference | [732](https://github.com/laminlabs/lamindb/pull/732) | [falexwolf](https://github.com/falexwolf) | 2023-06-08 | 0.42a7
