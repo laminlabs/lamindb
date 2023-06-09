@@ -2,7 +2,7 @@
 [![codecov](https://codecov.io/gh/laminlabs/lamindb/branch/main/graph/badge.svg?token=VKMRJ7OWR3)](https://codecov.io/gh/laminlabs/lamindb)
 [![pypi](https://img.shields.io/pypi/v/lamindb?color=blue&label=pypi%20package)](https://pypi.org/project/lamindb)
 
-# LaminDB: Data lakes for biology
+# LaminDB: Data lake for biology
 
 LaminDB is an API layer for your existing infrastructure to manage your existing data & analyses.
 
