@@ -2,7 +2,8 @@ from typing import Any, Dict, Iterable, List, Optional, Tuple, TypeVar, Union
 
 import numpy as np
 import pandas as pd
-from django.db.models import Model
+from django.core.exceptions import MultipleObjectsReturned, ObjectDoesNotExist
+from django.db.models import Model, Q
 from django.db.models.query_utils import DeferredAttribute as Field
 from lamin_logger import colors, logger
 
@@ -30,25 +31,45 @@ def parse(
         A list of Model records.
     """
     if isinstance(iterable, pd.DataFrame):
-        logger.warning(
-            "Providing a DataFrame will always lead to creating new records!"
-        )
+        # check the field must be a dictionary
         if not isinstance(field, dict):
             raise TypeError("field must be a dictionary of {column_name: Field}!")
-        column_mapper = {colname: f.field.name for colname, f in field.items()}
+
+        # check only one single model class is passed
         class_mapper = {f.field.name: f.field.model for f in field.values()}
         if len(set(class_mapper.values())) > 1:
             raise NotImplementedError("fields must from the same entity!")
         model = list(class_mapper.values())[0]
-        df = iterable.rename(columns=column_mapper)
-        df = df.dropna().drop_duplicates()
-        df = df.mask(df == "", None)
-        model_field_names = {i.name for i in model._meta.fields}
-        df = df.loc[:, df.columns.isin(model_field_names)]
-        if df.index.name is not None:
-            df = df.reset_index()
-        iterable = df.to_dict(orient="records")
-        return [model(**kwargs) for kwargs in iterable]
+
+        df = _map_columns_to_fields(df=iterable, field=field)
+
+        queryset = _bulk_query_fields(df=df, model=model)
+
+        records = []
+        n_exist = 0
+        n_new = 0
+        for kwargs in df.to_dict(orient="records"):
+            try:
+                records.append(queryset.get(**kwargs))
+                n_exist += 1
+            except MultipleObjectsReturned:
+                records.append(queryset.filter(**kwargs).first())
+                logger.warning(
+                    f"Found multiple existing {model.__name__} records with"
+                    f" {kwargs}, returning the first query result!"
+                )
+                n_exist += 1
+            except ObjectDoesNotExist:
+                records.append(model(**kwargs))
+                n_new += 1
+
+        if n_exist > 0:
+            text = colors.green(f"{n_exist} existing {model.__name__} records")
+            logger.hint(f"Returned {text}")
+        if n_new > 0:
+            text = colors.purple(f"{n_new} {model.__name__} records")
+            logger.hint(f"Created {text} with {df.shape[1]} fields")
+        return records
     else:
         if not isinstance(field, Field):
             raise TypeError("field must be an ORM field, e.g., `CellType.name`!")
@@ -56,9 +77,11 @@ def parse(
         return get_or_create_records(iterable=iterable, field=field, species=species)
 
 
-def not_null_iterable(iterable: Iterable) -> set:
+def index_iterable(iterable: Iterable) -> pd.Index:
+    idx = pd.Index(iterable).unique()
     # No entries are made for NAs, '', None
-    return set([i for i in iterable if (not pd.isnull(i)) and (i != "")])
+    # returns an ordered unique not null list
+    return idx[(idx != "") & (~idx.isnull())]
 
 
 def get_or_create_records(
@@ -67,7 +90,7 @@ def get_or_create_records(
     species: Optional[str] = None,
 ) -> List:
     """Get or create records from iterables."""
-    iterable = not_null_iterable(iterable)
+    iterable_idx = index_iterable(iterable)
     model = field.field.model  # is DeferredAttribute
     field_name = field.field.name
 
@@ -82,15 +105,16 @@ def get_or_create_records(
 
     records = stmt.list()
     if len(records) > 0:
-        logger.hint(f"Returned {len(records)} existing {model.__name__} records.")
+        text = colors.green(f"{len(records)} existing {model.__name__} records")
+        logger.hint(f"Returned {text}")
 
-    existing_values = iterable.intersection(stmt.values_list(field_name, flat=True))
+    existing_values = iterable_idx.intersection(stmt.values_list(field_name, flat=True))
 
     # new records to be created based on new values
-    new_values = iterable.difference(existing_values)
+    new_values = iterable_idx.difference(existing_values)
     if len(new_values) > 0:
         # first try to populate additional fields from bionty
-        mapped_values = set(bionty_df[field_name]).intersection(new_values)
+        mapped_values = new_values.intersection(bionty_df[field_name])
         if len(mapped_values) > 0:
             new_values_kwargs = _bulk_create_dicts_from_df(
                 keys=mapped_values, column_name=field_name, df=bionty_df
@@ -128,7 +152,7 @@ def _preprocess_species(
             condition_species["species__name"] = species_record.name
             # add species to the record
             kwargs_species["species"] = species_record
-            logger.info(f"Returning records with species='{species_record.name}'.")
+            logger.info(f"Returning records with species='{species_record.name}'...")
     bionty_df = _filter_bionty_df_columns(model=model, bionty_object=bionty_object)
 
     return kwargs_species, condition_species, bionty_df
@@ -152,3 +176,33 @@ def _bulk_create_dicts_from_df(
     # keep the last record (assuming most recent) if duplicated
     df = df[~df.index.duplicated(keep="last")]
     return df.loc[list(keys)].reset_index().to_dict(orient="records")
+
+
+def _bulk_query_fields(df: pd.DataFrame, model: Model):
+    # df_list is {field_name: column values}
+    df_list = df.to_dict(orient="list")
+    filter_fields = list(df.columns)
+
+    condition = Q(**{f"{filter_fields[0]}__in": df_list[filter_fields[0]]})
+    for field_name in list(df_list.keys())[1:]:
+        condition_add = Q(**{f"{field_name}__in": df_list[field_name]})
+        condition.__getattribute__("__or__")(condition_add)
+
+    queryset = model.objects.filter(condition)
+
+    return queryset
+
+
+def _map_columns_to_fields(df: pd.DataFrame, field: dict) -> pd.DataFrame:
+    """Subset dataframe to mappable fields columns and clean up."""
+    column_mapper = {colname: f.field.name for colname, f in field.items()}
+    # subset to columns containing fields
+    df = df.copy()
+    if df.index.name is not None:
+        df = df.reset_index()
+    df = df.loc[:, df.columns.isin(field.keys())]
+    df = df.rename(columns=column_mapper)
+    df = df.dropna().drop_duplicates()
+    # TODO: remove after having the auto conversion for django ORMs
+    df = df.mask(df == "", None)
+    return df
