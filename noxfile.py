@@ -1,7 +1,7 @@
 import os  # noqa
 import shutil
 from pathlib import Path
-from urllib.request import urlretrieve
+from subprocess import run
 
 import nox
 from laminci import (  # noqa
@@ -76,6 +76,14 @@ def build(session, group):
         session.run(*f"pytest -s {coverage_args} ./docs/storage".split())
 
 
+def pull_from_s3_and_unpack(zip_filename):
+    run(
+        f"aws s3 cp s3://lamin-site-assets/docs/{zip_filename} {zip_filename}",
+        shell=True,
+    )
+    shutil.unpack_archive(zip_filename, zip_filename.replace(".zip", ""))
+
+
 @nox.session
 def docs(session):
     # move artifacts into right place
@@ -84,20 +92,10 @@ def docs(session):
             shutil.rmtree(f"./docs/{group}")
             Path(f"./docs-{group}").rename(f"./docs/{group}")
 
-    filename = "lnschema_core_docs.zip"
-    urlretrieve(f"https://lamin-site-assets.s3.amazonaws.com/docs/{filename}", filename)
-    shutil.unpack_archive(filename, "lnschema_core_docs")
-    Path("lnschema_core_docs/guide/core-schema.ipynb").rename(
-        "docs/guide/lnschema-core.ipynb"
-    )
-
-    filename = "lnschema_bionty_docs.zip"
-    urlretrieve(f"https://lamin-site-assets.s3.amazonaws.com/docs/{filename}", filename)
-    shutil.unpack_archive(filename, "lnschema_bionty_docs")
+    pull_from_s3_and_unpack("lnschema_bionty_docs.zip")
     Path("lnschema_bionty_docs/guide/bionty-orms.ipynb").rename(
-        "docs/guide/lnschema-bionty.ipynb"
+        "docs/lnschema-bionty.ipynb"
     )
-
     login_testuser1(session)
     session.run(*"lamin init --storage ./docsbuild --schema bionty".split())
     build_docs(session)
