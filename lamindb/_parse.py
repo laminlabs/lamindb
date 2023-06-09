@@ -69,7 +69,6 @@ def parse(
     else:
         if not isinstance(field, Field):
             raise TypeError("field must be an ORM field, e.g., `CellType.name`!")
-        iterable = set(iterable)
         return get_or_create_records(iterable=iterable, field=field, species=species)
 
 
@@ -87,6 +86,7 @@ def get_or_create_records(
 ) -> List:
     """Get or create records from iterables."""
     iterable_idx = index_iterable(iterable)
+    print(iterable_idx)
     model = field.field.model  # is DeferredAttribute
     field_name = field.field.name
 
@@ -108,9 +108,11 @@ def get_or_create_records(
 
     # new records to be created based on new values
     new_values = iterable_idx.difference(existing_values)
+    print(new_values)
     if len(new_values) > 0:
         # first try to populate additional fields from bionty
         mapped_values = new_values.intersection(bionty_df[field_name])
+        print(mapped_values)
         if len(mapped_values) > 0:
             new_values_kwargs = _bulk_create_dicts_from_df(
                 keys=mapped_values, column_name=field_name, df=bionty_df

@@ -22,7 +22,7 @@ def test_parse_name(df):
     result = ln.parse(df.cell_type, CellType.name)
     ids = [i.ontology_id for i in result]
     assert len(result) == 3
-    assert ids == ["CL:0000182", "CL:0000084", None]
+    assert ids == ["CL:0000084", "CL:0000182", None]
     assert result[0].bionty_source.entity == "CellType"
     assert result[2].bionty_source is None
 
@@ -33,7 +33,7 @@ def test_parse_ontology_id(df):
     result = ln.parse(df.cell_type_id, CellType.ontology_id)
     names = [i.name for i in result]
     assert len(result) == 2
-    assert set(names) == set(["T cell", "hepatocyte"])
+    assert names == ["T cell", "hepatocyte"]
     assert result[0].bionty_source.entity == "CellType"
 
 
