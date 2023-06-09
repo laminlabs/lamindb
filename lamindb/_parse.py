@@ -16,6 +16,7 @@ def parse(
     iterable: Union[ListLike, pd.DataFrame],
     field: Union[Field, Dict[str, Field]],
     species: str = None,
+    query_existing: bool = True,
 ) -> List[Model]:
     """Parse a dataset column based on a Model entity field.
 
@@ -26,6 +27,7 @@ def parse(
         field: if iterable is `ListLike`: a `Model` field to parse into.
                if iterable is `DataFrame`: a dict of {column_name : Model_field}.
         species: if None, will use default species in bionty for each entity.
+        query_existing: if False, always create new records
 
     Returns:
         A list of Model records.
@@ -42,26 +44,20 @@ def parse(
         model = list(class_mapper.values())[0]
 
         df = _map_columns_to_fields(df=iterable, field=field)
+        df_records = df.to_dict(orient="records")
 
-        queryset = _bulk_query_fields(df=df, model=model)
+        if not query_existing:
+            # always create new records, skips query for existing
+            records = [model(**kwargs) for kwargs in df_records]
+            n_new = len(records)
+            logger.hint(f"Created {n_new} {model.__name__} records")
+            return records
 
-        records = []
-        n_exist = 0
-        n_new = 0
-        for kwargs in df.to_dict(orient="records"):
-            try:
-                records.append(queryset.get(**kwargs))
-                n_exist += 1
-            except MultipleObjectsReturned:
-                records.append(queryset.filter(**kwargs).first())
-                logger.warning(
-                    f"Found multiple existing {model.__name__} records with"
-                    f" {kwargs}, returning the first query result!"
-                )
-                n_exist += 1
-            except ObjectDoesNotExist:
-                records.append(model(**kwargs))
-                n_new += 1
+        # make sure to only return 1 existing entry for each row
+        queryset = _bulk_query_fields(df_records=df_records, model=model)
+        n_exist, n_new, records = _get_from_queryset(
+            queryset=queryset, df_records=df_records, model=model
+        )
 
         if n_exist > 0:
             text = colors.green(f"{n_exist} existing {model.__name__} records")
@@ -136,6 +132,27 @@ def get_or_create_records(
     return records
 
 
+def _get_from_queryset(queryset, df_records, model):
+    n_exist = 0
+    n_new = 0
+    records = []
+    for kwargs in df_records:
+        try:
+            records.append(queryset.get(**kwargs))
+            n_exist += 1
+        except MultipleObjectsReturned:
+            records.append(queryset.filter(**kwargs).first())
+            logger.warning(
+                f"Found multiple existing {model.__name__} records with"
+                f" {kwargs}, returning the first query result!"
+            )
+            n_exist += 1
+        except ObjectDoesNotExist:
+            records.append(model(**kwargs))
+            n_new += 1
+    return n_exist, n_new, records
+
+
 def _preprocess_species(
     model: Model, species: Optional[str] = None
 ) -> Tuple[dict, dict, pd.DataFrame]:
@@ -178,15 +195,10 @@ def _bulk_create_dicts_from_df(
     return df.loc[list(keys)].reset_index().to_dict(orient="records")
 
 
-def _bulk_query_fields(df: pd.DataFrame, model: Model):
-    # df_list is {field_name: column values}
-    df_list = df.to_dict(orient="list")
-    filter_fields = list(df.columns)
-
-    condition = Q(**{f"{filter_fields[0]}__in": df_list[filter_fields[0]]})
-    for field_name in list(df_list.keys())[1:]:
-        condition_add = Q(**{f"{field_name}__in": df_list[field_name]})
-        condition.__getattribute__("__or__")(condition_add)
+def _bulk_query_fields(df_records: list, model: Model):
+    condition = Q(**df_records[0])
+    for kwargs in df_records[1:]:
+        condition = condition.__getattribute__("__or__")(Q(**kwargs))
 
     queryset = model.objects.filter(condition)
 
