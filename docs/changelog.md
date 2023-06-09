@@ -3,6 +3,7 @@
 <!-- prettier-ignore -->
 Name | PR | Developer | Date | Version
 --- | --- | --- | --- | ---
+:children_crossing: Validate required fields | [735](https://github.com/laminlabs/lamindb/pull/735) | [falexwolf](https://github.com/falexwolf) | 2023-06-09 |
 :truck: Move lnschema-bionty | [734](https://github.com/laminlabs/lamindb/pull/734) | [falexwolf](https://github.com/falexwolf) | 2023-06-09 |
 :memo: Integrate lnschema-bionty into reference | [732](https://github.com/laminlabs/lamindb/pull/732) | [falexwolf](https://github.com/falexwolf) | 2023-06-08 | 0.42a7
 🚸 Add `select` method to `BaseORM` | [730](https://github.com/laminlabs/lamindb/pull/730) | [falexwolf](https://github.com/falexwolf) | 2023-06-08 |
