@@ -62,39 +62,41 @@ def save(record: Union[BaseORM, List[BaseORM]], **fields) -> None:  # type: igno
         for record in records:
             record.save()
 
-    added_records, upload_error = store_files(records)
-
-    if upload_error is not None:
-        error_message = prepare_error_message(records, added_records, upload_error)
-        raise RuntimeError(error_message)
+    files = [r for r in records if isinstance(r, File)]
+    store_files(files)
 
     # this function returns None as potentially 10k records might be saved
-    # refreshing all of them from the DB would mean a severe performance penatly
+    # refreshing all of them from the DB would mean a severe performance penalty
     # 2nd reason: consistency with Django Model.save(), which also returns None
 
 
-def store_files(records):
-    """Upload records in a list of database-committed records to storage.
+def store_files(files: List[File]):
+    """Upload files in a list of database-committed files to storage.
 
-    If any upload fails, subsequent records are cleaned up from the DB.
+    If any upload fails, subsequent files are cleaned up from the DB.
     """
     error = None
-    added_records = []
+    # because uploads might fail, we need to maintain a new list
+    # of the succeeded uploads
+    stored_files = []
 
-    # upload data objects
-    for record in records:
-        if isinstance(record, File) and hasattr(record, "_local_filepath"):
+    # upload new local files
+    for file in files:
+        # if File object is newly instantiated on a local env
+        # it will have a _local_filepath and needs to be uploaded
+        if hasattr(file, "_local_filepath"):
             try:
-                upload_data_object(record)
+                upload_data_object(file)
             except Exception as e:
-                logger.warning(f"Could not upload file: {record}")
+                logger.warning(f"Could not upload file: {file}")
                 error = e
                 break
-        added_records += [record]
+        # all other files are already stored anyway
+        stored_files += [file]
 
     # clear old files on update
-    for record in added_records:
-        if isinstance(record, File) and hasattr(record, "_clear_storagekey"):
+    for record in stored_files:
+        if hasattr(record, "_clear_storagekey"):
             try:
                 if record._clear_storagekey is not None:
                     delete_storage(record._clear_storagekey)
@@ -105,11 +107,12 @@ def store_files(records):
     # clean up metadata for objects not uploaded to storage
     if error is not None:
         with transaction.atomic():
-            for record in records:
-                if record not in added_records:
+            for record in files:
+                if record not in stored_files:
                     record.delete()
 
-    return added_records, error
+    error_message = prepare_error_message(files, stored_files, error)
+    raise RuntimeError(error_message)
 
 
 def prepare_error_message(records, added_records, error) -> str:
