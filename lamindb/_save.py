@@ -5,7 +5,7 @@ from typing import List, Optional, Tuple, Union, overload  # noqa
 import lamindb_setup
 from django.db import transaction
 from lamin_logger import logger
-from lnschema_core.models import BaseORM, File, Folder, storage_key_from_file
+from lnschema_core.models import BaseORM, File, storage_key_from_file
 
 from lamindb.dev.storage import delete_storage, store_object, write_adata_zarr
 from lamindb.dev.storage._file import print_hook
@@ -64,13 +64,7 @@ def save(  # type: ignore
     # commit all records to database in one transaction
     with transaction.atomic():
         for record in records:
-            # clean below up and move to schema module
-            if isinstance(record, Folder):
-                for r in record._files:
-                    r.save()
             record.save()
-            if isinstance(record, Folder):
-                record.files.set(record._files)
 
     # upload files to storage
     added_records, upload_error = upload_committed_records(records)
