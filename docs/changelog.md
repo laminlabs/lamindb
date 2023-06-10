@@ -3,6 +3,7 @@
 <!-- prettier-ignore -->
 Name | PR | Developer | Date | Version
 --- | --- | --- | --- | ---
+⚠️ Refactor save - it no longer returns records | [742](https://github.com/laminlabs/lamindb/pull/742) | [falexwolf](https://github.com/falexwolf) | 2023-06-10 |
 📝 Fix upload of `lnschema-bionty` notebook run | [741](https://github.com/laminlabs/lamindb/pull/741) | [falexwolf](https://github.com/falexwolf) | 2023-06-10 |
 🚚 Re-organize biology guides | [740](https://github.com/laminlabs/lamindb/pull/740) | [falexwolf](https://github.com/falexwolf) | 2023-06-10 |
 ✨ Populate `bionty_version` in `ln.parse` | [739](https://github.com/laminlabs/lamindb/pull/739) | [sunnyosun](https://github.com/sunnyosun) | 2023-06-09 | 0.42a8
