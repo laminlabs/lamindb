@@ -105,15 +105,15 @@ def store_files(files: List[File]):
             except Exception as e:
                 error = e
 
-    # clean up metadata for objects not uploaded to storage
     if error is not None:
+        # clean up metadata for objects not uploaded to storage
         with transaction.atomic():
             for record in files:
                 if record not in stored_files:
                     record.delete()
-
-    error_message = prepare_error_message(files, stored_files, error)
-    raise RuntimeError(error_message)
+        # raise Error
+        error_message = prepare_error_message(files, stored_files, error)
+        raise RuntimeError(error_message)
 
 
 def prepare_error_message(records, added_records, error) -> str:
