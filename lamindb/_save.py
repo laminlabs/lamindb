@@ -61,13 +61,11 @@ def save(  # type: ignore
     elif isinstance(record, BaseORM):
         records = [record]
 
-    # commit all records to database in one transaction
     with transaction.atomic():
         for record in records:
             record.save()
 
-    # upload files to storage
-    added_records, upload_error = upload_committed_records(records)
+    added_records, upload_error = store_files(records)
 
     if upload_error is not None:
         error_message = prepare_error_message(records, added_records, upload_error)
@@ -78,13 +76,11 @@ def save(  # type: ignore
         return added_records[0]
 
 
-def upload_committed_records(records):
-    """Upload records in a list of database-commited records to storage.
+def store_files(records):
+    """Upload records in a list of database-committed records to storage.
 
     If any upload fails, subsequent records are cleaned up from the DB.
     """
-    # make sure ALL records are up-to-date to enable accurate comparison
-    # during metadata cleanup
     error = None
     added_records = []
 
