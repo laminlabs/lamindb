@@ -61,6 +61,7 @@ def save(  # type: ignore
     elif isinstance(record, BaseORM):
         records = [record]
 
+    # no matter which record type, let's commit all of them to the database
     with transaction.atomic():
         for record in records:
             record.save()
@@ -70,10 +71,6 @@ def save(  # type: ignore
     if upload_error is not None:
         error_message = prepare_error_message(records, added_records, upload_error)
         raise RuntimeError(error_message)
-    elif len(added_records) > 1:
-        return added_records
-    else:
-        return added_records[0]
 
 
 def store_files(records):
