@@ -3,6 +3,7 @@
 <!-- prettier-ignore -->
 Name | PR | Developer | Date | Version
 --- | --- | --- | --- | ---
+⬆️ Rename source_key to source in BiontySource | [751](https://github.com/laminlabs/lamindb/pull/751) | [sunnyosun](https://github.com/sunnyosun) | 2023-06-10 |
 🚚 Rename Featureset to FeatureSet | [750](https://github.com/laminlabs/lamindb/pull/750) | [sunnyosun](https://github.com/sunnyosun) | 2023-06-10 |
 ⚠️ Refactor save - it no longer returns records | [742](https://github.com/laminlabs/lamindb/pull/742) | [falexwolf](https://github.com/falexwolf) | 2023-06-10 |
 📝 Fix upload of `lnschema-bionty` notebook run | [741](https://github.com/laminlabs/lamindb/pull/741) | [falexwolf](https://github.com/falexwolf) | 2023-06-10 |
