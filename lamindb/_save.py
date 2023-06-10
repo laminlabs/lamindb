@@ -24,10 +24,8 @@ def save(records: List[BaseORM]) -> List[BaseORM]:  # type: ignore
     ...
 
 
-def save(  # type: ignore
-    record: Union[BaseORM, List[BaseORM]], **fields
-) -> Union[BaseORM, List[BaseORM]]:
-    """Insert or update data records.
+def save(record: Union[BaseORM, List[BaseORM]], **fields) -> None:  # type: ignore
+    """Save to database & storage.
 
     Inserts a new :term:`record` if the corresponding row doesn't exist.
     Updates the corresponding row with the record if it exists.
@@ -36,7 +34,7 @@ def save(  # type: ignore
     passing it to `save`.
 
     Args:
-        record: One or multiple records as instances of `SQLModel`.
+        record: One or multiple `BaseORM` objects.
 
     Returns:
         The record as returned from the database with a `created_at` timestamp.
@@ -46,14 +44,12 @@ def save(  # type: ignore
         Save a record (errors if already exists):
 
         >>> ln.save(ln.Transform(name="My pipeline"))
-        Transform(id="0Cb86EZj", name="My pipeline", ...)
 
         Update an existing record:
 
         >>> transform = ln.select(ln.Transform, id="0Cb86EZj").one()
         >>> transform.name = "New name"
         >>> ln.save(transform)
-        Transform(id="0Cb86EZj", name="New name", ...)
 
     """
     if isinstance(record, list):
@@ -71,6 +67,10 @@ def save(  # type: ignore
     if upload_error is not None:
         error_message = prepare_error_message(records, added_records, upload_error)
         raise RuntimeError(error_message)
+
+    # this function returns None as potentially 10k records might be saved
+    # refreshing all of them from the DB would mean a severe performance penatly
+    # 2nd reason: consistency with Django Model.save(), which also returns None
 
 
 def store_files(records):
