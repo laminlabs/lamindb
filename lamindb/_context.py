@@ -318,7 +318,7 @@ class context:
                 reference=reference,
                 type="notebook",
             )
-            transform = ln.save(transform)
+            transform.save()
             logger.success(f"Saved: {transform}")
         else:
             logger.info(f"Loaded: {transform}")
