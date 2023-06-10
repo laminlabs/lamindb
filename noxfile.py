@@ -79,6 +79,10 @@ def docs(session):
         if Path(f"./docs-{group}").exists():
             shutil.rmtree(f"./docs/{group}")
             Path(f"./docs-{group}").rename(f"./docs/{group}")
+        if group == "biology":
+            Path("./docs/biology/lnschema-bionty.ipynb").rename(
+                "./docs/lnschema-bionty.ipynb"
+            )
     login_testuser1(session)
     session.run(*"lamin init --storage ./docsbuild --schema bionty".split())
     build_docs(session)
