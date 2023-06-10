@@ -1,6 +1,6 @@
 import traceback
 from functools import partial
-from typing import List, Optional, Tuple, Union, overload  # noqa
+from typing import Iterable, List, Optional, Tuple, Union, overload  # noqa
 
 import lamindb_setup
 from django.db import transaction
@@ -20,11 +20,11 @@ def save(record: BaseORM) -> BaseORM:
 # Overloaded function signature 2 will never be matched: signature 1's parameter
 # type(s) are the same or broader
 @overload
-def save(records: List[BaseORM]) -> List[BaseORM]:  # type: ignore
+def save(records: Iterable[BaseORM]) -> Iterable[BaseORM]:  # type: ignore
     ...
 
 
-def save(record: Union[BaseORM, List[BaseORM]], **fields) -> None:  # type: ignore
+def save(record: Union[BaseORM, Iterable[BaseORM]], **fields) -> None:  # type: ignore
     """Save to database & storage.
 
     Inserts a new :term:`record` if the corresponding row doesn't exist.
@@ -52,18 +52,21 @@ def save(record: Union[BaseORM, List[BaseORM]], **fields) -> None:  # type: igno
         >>> ln.save(transform)
 
     """
-    if isinstance(record, list):
-        records = record
+    if isinstance(record, Iterable):
+        records = set(record)
     elif isinstance(record, BaseORM):
-        records = [record]
+        records = {record}
 
-    # no matter which record type, let's commit all of them to the database
-    with transaction.atomic():
-        for record in records:
-            record.save()
-
-    files = [r for r in records if isinstance(r, File)]
+    files = {r for r in records if isinstance(r, File)}
+    non_files = records.difference(files)
+    if non_files:
+        with transaction.atomic():
+            for record in non_files:
+                record.save()
     if files:
+        with transaction.atomic():
+            for record in non_files:
+                record._save_kip_store()
         store_files(files)
 
     # this function returns None as potentially 10k records might be saved
@@ -71,7 +74,7 @@ def save(record: Union[BaseORM, List[BaseORM]], **fields) -> None:  # type: igno
     # 2nd reason: consistency with Django Model.save(), which also returns None
 
 
-def store_files(files: List[File]):
+def store_files(files: Iterable[File]):
     """Upload files in a list of database-committed files to storage.
 
     If any upload fails, subsequent files are cleaned up from the DB.
