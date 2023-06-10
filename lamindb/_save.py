@@ -65,7 +65,7 @@ def save(record: Union[BaseORM, Iterable[BaseORM]], **fields) -> None:  # type: 
                 record.save()
     if files:
         with transaction.atomic():
-            for record in non_files:
+            for record in files:
                 record._save_kip_store()
         store_files(files)
 
