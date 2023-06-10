@@ -179,8 +179,9 @@ class context:
                 # transform has an id but unclear whether already saved
                 transform_exists = ln.select(Transform, id=transform.id).first()
             if transform_exists is None:
-                transform_exists = ln.save(transform)
+                ln.save(transform)
                 logger.success(f"Saved: {transform}")
+                transform_exists = transform
             else:
                 logger.info(f"Loaded: {transform_exists}")
             cls.transform = transform_exists
