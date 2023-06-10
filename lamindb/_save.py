@@ -43,13 +43,19 @@ def save(record: Union[BaseORM, Iterable[BaseORM]], **fields) -> None:  # type: 
 
         Save a record (errors if already exists):
 
-        >>> ln.save(ln.Transform(name="My pipeline"))
+        >>> transform = ln.Transform(name="My pipeline")
+        >>> ln.save(transform)  # equivalent to transform.save()
+
+        Save a collection of records in one transaction:
+
+        >>> projects = [ln.Project(f"Project {i}") for i in range(10)]
+        >>> ln.save(projects)
 
         Update an existing record:
 
         >>> transform = ln.select(ln.Transform, id="0Cb86EZj").one()
         >>> transform.name = "New name"
-        >>> ln.save(transform)
+        >>> ln.save(transform)  # equivalent to transform.save()
 
     """
     if isinstance(record, Iterable):
@@ -59,7 +65,7 @@ def save(record: Union[BaseORM, Iterable[BaseORM]], **fields) -> None:  # type: 
 
     # we're distinguishing between files and non-files
     # because for files, we want to bulk-upload
-    # rather than up-loading one-by-one
+    # rather than upload one-by-one
     files = {r for r in records if isinstance(r, File)}
     non_files = records.difference(files)
     if non_files:
@@ -75,6 +81,7 @@ def save(record: Union[BaseORM, Iterable[BaseORM]], **fields) -> None:  # type: 
     # this function returns None as potentially 10k records might be saved
     # refreshing all of them from the DB would mean a severe performance penalty
     # 2nd reason: consistency with Django Model.save(), which also returns None
+    return None
 
 
 def check_and_attempt_upload(file: File) -> Optional[Exception]:
