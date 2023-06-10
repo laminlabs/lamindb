@@ -3,6 +3,7 @@
 <!-- prettier-ignore -->
 Name | PR | Developer | Date | Version
 --- | --- | --- | --- | ---
+🚚 Re-organize biology guides | [740](https://github.com/laminlabs/lamindb/pull/740) | [falexwolf](https://github.com/falexwolf) | 2023-06-10 |
 ✨ Populate `bionty_version` in `ln.parse` | [739](https://github.com/laminlabs/lamindb/pull/739) | [sunnyosun](https://github.com/sunnyosun) | 2023-06-09 | 0.42a8
 🚸 Back to protect as default | [737](https://github.com/laminlabs/lamindb/pull/737) | [falexwolf](https://github.com/falexwolf) | 2023-06-09 |
 ⚡ Improved multifield query in `ln.parse` | [736](https://github.com/laminlabs/lamindb/pull/736) | [sunnyosun](https://github.com/sunnyosun) | 2023-06-09 |
