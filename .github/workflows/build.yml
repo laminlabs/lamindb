@@ -76,6 +76,7 @@ jobs:
         with:
           name: coverage--${{ matrix.group }}
           path: .coverage
+      - run: mv ./docs/lnschema-bionty.ipynb ./docs/biology/
       - name: upload docs
         if: ${{ matrix.group == 'guide' || matrix.group == 'biology' || matrix.group == 'faq' || matrix.group == 'storage' }}
         uses: actions/upload-artifact@v2
