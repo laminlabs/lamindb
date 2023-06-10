@@ -59,7 +59,7 @@ jobs:
         if: ${{ matrix.group == 'faq' }}
         run: sudo apt-get install libpq-dev
       - name: install graphviz
-        if: ${{ matrix.group == 'guide' }}
+        if: ${{ matrix.group == 'guide' || matrix.group == 'biology' }}
         run: sudo apt-get -y install graphviz
       - run: nox -s lint
         if: ${{ matrix.python-version == '3.9' && matrix.group == 'unit' }}
