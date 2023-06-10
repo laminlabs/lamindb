@@ -75,7 +75,7 @@ def save(record: Union[BaseORM, Iterable[BaseORM]], **fields) -> None:  # type: 
     if files:
         with transaction.atomic():
             for record in files:
-                record._save_kip_store()
+                record._save_skip_storage()
         store_files(files)
 
     # this function returns None as potentially 10k records might be saved
@@ -84,6 +84,7 @@ def save(record: Union[BaseORM, Iterable[BaseORM]], **fields) -> None:  # type: 
     return None
 
 
+# This is also used within File.save()
 def check_and_attempt_upload(file: File) -> Optional[Exception]:
     # if File object is either newly instantiated or replace() was called on
     # a local env it will have a _local_filepath and needs to be uploaded
@@ -97,6 +98,7 @@ def check_and_attempt_upload(file: File) -> Optional[Exception]:
     return None
 
 
+# This is also used within File.save()
 def check_and_attempt_clearing(file: File) -> Optional[Exception]:
     # this is a clean-up operation after replace() was called
     # this will only evaluate to True if replace() was called
