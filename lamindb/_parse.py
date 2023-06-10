@@ -20,7 +20,7 @@ def parse(
 ) -> List[Model]:
     """Parse a dataset column based on a Model entity field.
 
-    Guide: :doc:`/biology/ontologies`.
+    Guide: :doc:`/biology/registries`.
 
     Args:
         iterable: a `ListLike` of values or a `DataFrame`.
