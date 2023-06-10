@@ -7,6 +7,6 @@ ingest
 notebooks
 ingest-same-file-twice
 track-runin
-ingest-acid
+acid
 setup
 ```
