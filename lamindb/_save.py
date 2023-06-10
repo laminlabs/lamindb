@@ -63,7 +63,8 @@ def save(record: Union[BaseORM, List[BaseORM]], **fields) -> None:  # type: igno
             record.save()
 
     files = [r for r in records if isinstance(r, File)]
-    store_files(files)
+    if files:
+        store_files(files)
 
     # this function returns None as potentially 10k records might be saved
     # refreshing all of them from the DB would mean a severe performance penalty
