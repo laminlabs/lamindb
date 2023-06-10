@@ -57,6 +57,9 @@ def save(record: Union[BaseORM, Iterable[BaseORM]], **fields) -> None:  # type: 
     elif isinstance(record, BaseORM):
         records = {record}
 
+    # we're distinguishing between files and non-files
+    # because for files, we want to bulk-upload
+    # rather than up-loading one-by-one
     files = {r for r in records if isinstance(r, File)}
     non_files = records.difference(files)
     if non_files:
@@ -74,53 +77,67 @@ def save(record: Union[BaseORM, Iterable[BaseORM]], **fields) -> None:  # type: 
     # 2nd reason: consistency with Django Model.save(), which also returns None
 
 
-def store_files(files: Iterable[File]):
+def check_and_attempt_upload(file: File) -> Optional[Exception]:
+    # if File object is either newly instantiated or replace() was called on
+    # a local env it will have a _local_filepath and needs to be uploaded
+    if hasattr(file, "_local_filepath"):
+        try:
+            upload_data_object(file)
+        except Exception as exception:
+            logger.warning(f"Could not upload file: {file}")
+            return exception
+    # returning None means proceed (either success or no action needed)
+    return None
+
+
+def check_and_attempt_clearing(file: File) -> Optional[Exception]:
+    # this is a clean-up operation after replace() was called
+    # this will only evaluate to True if replace() was called
+    if hasattr(file, "_clear_storagekey"):
+        try:
+            if file._clear_storagekey is not None:
+                delete_storage(file._clear_storagekey)
+                file._clear_storagekey = None
+        except Exception as exception:
+            return exception
+    # returning None means proceed (either success or no action needed)
+    return None
+
+
+def store_files(files: Iterable[File]) -> None:
     """Upload files in a list of database-committed files to storage.
 
     If any upload fails, subsequent files are cleaned up from the DB.
     """
-    error = None
+    exception: Optional[Exception] = None
     # because uploads might fail, we need to maintain a new list
     # of the succeeded uploads
     stored_files = []
 
     # upload new local files
     for file in files:
-        # if File object is newly instantiated on a local env
-        # it will have a _local_filepath and needs to be uploaded
-        if hasattr(file, "_local_filepath"):
-            try:
-                upload_data_object(file)
-            except Exception as e:
-                logger.warning(f"Could not upload file: {file}")
-                error = e
-                break
-        # all other files are already stored anyway
+        exception = check_and_attempt_upload(file)
+        if exception is not None:
+            break
         stored_files += [file]
+        exception = check_and_attempt_clearing(file)
+        if exception is not None:
+            logger.warning(f"clean up of {file._clear_storagekey} failed")
+            break
 
-    # clear old files on update
-    for record in stored_files:
-        if hasattr(record, "_clear_storagekey"):
-            try:
-                if record._clear_storagekey is not None:
-                    delete_storage(record._clear_storagekey)
-                    record._clear_storagekey = None
-            except Exception as e:
-                error = e
-
-    if error is not None:
-        # clean up metadata for objects not uploaded to storage
+    if exception is not None:
+        # clean up metadata for files not uploaded to storage
         with transaction.atomic():
-            for record in files:
-                if record not in stored_files:
-                    record.delete()
-        # raise Error
-        error_message = prepare_error_message(files, stored_files, error)
+            for file in files:
+                if file not in stored_files:
+                    file.delete()
+        error_message = prepare_error_message(files, stored_files, exception)
         raise RuntimeError(error_message)
+    return None
 
 
-def prepare_error_message(records, added_records, error) -> str:
-    if len(records) == 1 or len(added_records) == 0:
+def prepare_error_message(records, stored_files, exception) -> str:
+    if len(records) == 1 or len(stored_files) == 0:
         error_message = (
             "No entries were uploaded or committed"
             " to the database. See error message:\n\n"
@@ -130,12 +147,12 @@ def prepare_error_message(records, added_records, error) -> str:
             "The following entries have been"
             " successfully uploaded and committed to the database:\n"
         )
-        for record in added_records:
+        for record in stored_files:
             error_message += (
                 f"- {', '.join(record.__repr__().split(', ')[:3]) + ', ...)'}\n"
             )
         error_message += "\nSee error message:\n\n"
-    error_message += f"{str(error)}\n\n{traceback.format_exc()}"
+    error_message += f"{str(exception)}\n\n{traceback.format_exc()}"
     return error_message
 
 
