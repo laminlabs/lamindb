@@ -33,7 +33,7 @@ def serialize(
         filepath = UPath(data)  # returns Path for local
         try:  # check if file exists
             if not filepath.exists():
-                raise FileNotFoundError
+                raise FileNotFoundError(filepath)
         except PermissionError:  # we will setup permissions later
             pass
         if isinstance(filepath, UPath):

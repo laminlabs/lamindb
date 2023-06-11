@@ -5,13 +5,14 @@ from lamindb.dev.hashing import hash_file, to_b64_str
 
 
 def test_compute_hash():
-    dataset = [
+    files = [
+        # filepath, content, hash
         ("file_1.txt", "a", "DMF1ucDxtqgxw5niaXcmYQ"),
+        ("file_1.txt", "b", "kutf_uauL-w61xx3dTFXjw"),
     ]
-    for path, content, hash in dataset:
+    for path, content, hash in files:
         filepath = Path(path)
-        with open(path, "w") as file:
-            file.write(content)
+        filepath.write_text(content)
         assert hash == hash_file(filepath)
         filepath.unlink()
 
