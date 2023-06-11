@@ -76,13 +76,6 @@ lamin = "lamindb_setup.__main__:main"
 [tool.black]
 preview = true
 
-[tool.pytest.ini_options]
-testpaths = [
-    "tests",
-    "docs/faq",
-    "docs/guide",
-]
-
 [tool.coverage.run]
 omit = [
     "lamindb/*",
