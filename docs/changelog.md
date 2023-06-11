@@ -3,6 +3,7 @@
 <!-- prettier-ignore -->
 Name | PR | Developer | Date | Version
 --- | --- | --- | --- | ---
+💚 Remove test paths from pyproject.toml | [753](https://github.com/laminlabs/lamindb/pull/753) | [falexwolf](https://github.com/falexwolf) | 2023-06-11 |
 ✨ Add to_adata method to AnnDataAccessor | [752](https://github.com/laminlabs/lamindb/pull/752) | [Koncopd](https://github.com/Koncopd) | 2023-06-11 |
 ⬆️ Rename source_key to source in BiontySource | [751](https://github.com/laminlabs/lamindb/pull/751) | [sunnyosun](https://github.com/sunnyosun) | 2023-06-10 |
 🚚 Rename Featureset to FeatureSet | [750](https://github.com/laminlabs/lamindb/pull/750) | [sunnyosun](https://github.com/sunnyosun) | 2023-06-10 |
