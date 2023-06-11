@@ -3,6 +3,7 @@
 <!-- prettier-ignore -->
 Name | PR | Developer | Date | Version
 --- | --- | --- | --- | ---
+✨ Add to_adata method to AnnDataAccessor | [752](https://github.com/laminlabs/lamindb/pull/752) | [Koncopd](https://github.com/Koncopd) | 2023-06-11 |
 ⬆️ Rename source_key to source in BiontySource | [751](https://github.com/laminlabs/lamindb/pull/751) | [sunnyosun](https://github.com/sunnyosun) | 2023-06-10 |
 🚚 Rename Featureset to FeatureSet | [750](https://github.com/laminlabs/lamindb/pull/750) | [sunnyosun](https://github.com/sunnyosun) | 2023-06-10 |
 ⚠️ Refactor save - it no longer returns records | [742](https://github.com/laminlabs/lamindb/pull/742) | [falexwolf](https://github.com/falexwolf) | 2023-06-10 |
