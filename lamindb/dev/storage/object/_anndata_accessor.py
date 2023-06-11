@@ -4,6 +4,7 @@ from typing import Dict, Mapping, Union
 import h5py
 import pandas as pd
 import zarr
+from anndata import AnnData
 from anndata._core.index import Index, _normalize_indices
 from anndata._core.sparse_dataset import SparseDataset
 from anndata._core.views import _resolve_idx
@@ -15,6 +16,13 @@ from lnschema_core import File
 from lnschema_core.models import filepath_from_file_or_folder
 
 from ._subset_anndata import _read_dataframe
+
+
+def _to_memory(elem):
+    if isinstance(elem, (h5py.Dataset, zarr.Array, SparseDataset)):
+        return elem[()]
+    else:
+        return elem
 
 
 def _try_backed_full(elem):
@@ -148,6 +156,34 @@ class _AnnDataAttrsMixin:
     @cached_property
     def shape(self):
         return len(self._obs_names), len(self._var_names)
+
+    def to_dict(self):
+        prepare_adata = {}
+
+        prepare_adata["X"] = _to_memory(self.X)
+
+        if "uns" in self._attrs_keys:
+            prepare_adata["uns"] = self.uns
+
+        for attr in ("obs", "var"):
+            if attr in self._attrs_keys:
+                prepare_adata[attr] = getattr(self, attr)
+
+        for attr in ("obsm", "varm", "obsp", "varp", "layers"):
+            if attr in self._attrs_keys:
+                prepare_adata[attr] = {}
+                get_attr = getattr(self, attr)
+                for key in self._attrs_keys[attr]:
+                    prepare_adata[attr][key] = _to_memory(get_attr[key])
+
+        if "raw" in self._attrs_keys:
+            prepare_adata["raw"] = self.raw.to_dict()
+
+        return prepare_adata
+
+    def to_adata(self):
+        adata = AnnData(**self.to_dict())
+        return adata
 
 
 class AnnDataAccessorSubset(_AnnDataAttrsMixin):
