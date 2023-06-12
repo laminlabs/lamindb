@@ -7,7 +7,7 @@ from django.db import transaction
 from lamin_logger import logger
 from lnschema_core.models import BaseORM, File
 
-from lamindb._file_access import storage_key_from_file
+from lamindb._file_access import auto_storage_key_from_file
 from lamindb.dev.storage import delete_storage, store_object, write_adata_zarr
 from lamindb.dev.storage._file import print_hook
 
@@ -169,7 +169,7 @@ def prepare_error_message(records, stored_files, exception) -> str:
 def upload_data_object(file) -> None:
     """Store and add file and its linked entries."""
     # do NOT hand-craft the storage key!
-    file_storage_key = storage_key_from_file(file)
+    file_storage_key = auto_storage_key_from_file(file)
     if hasattr(file, "_to_store") and file._to_store and file.suffix != ".zarr":
         logger.hint(f"storing object {file.name} with key {file_storage_key}")
         store_object(file._local_filepath, file_storage_key)

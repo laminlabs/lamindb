@@ -7,7 +7,7 @@ from lnschema_core.models import File, Folder, Storage
 
 
 # add type annotations back asap when re-organizing the module
-def storage_key_from_file(file: File):
+def auto_storage_key_from_file(file: File):
     if file.key is None:
         return f"lndb/{file.id}{file.suffix}"
     else:
@@ -42,7 +42,7 @@ def attempt_accessing_path(file_or_folder: Union[File, Folder], storage_key: str
 # add type annotations back asap when re-organizing the module
 def filepath_from_file_or_folder(file_or_folder: Union[File, Folder]):
     if isinstance(file_or_folder, File):
-        storage_key = storage_key_from_file(file_or_folder)
+        storage_key = auto_storage_key_from_file(file_or_folder)
     else:
         storage_key = file_or_folder.key
         if storage_key is None:
