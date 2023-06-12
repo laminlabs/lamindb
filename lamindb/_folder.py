@@ -29,7 +29,7 @@ def get_folder_kwargs_from_data(
     if key is None and check_path_in_storage:
         folder_key = get_relative_path_to_root(path=folderpath).as_posix()
     elif key is None:
-        folder_key = id_generator.folder()
+        folder_key = id_generator.base62_20()
     else:
         folder_key = key
 
