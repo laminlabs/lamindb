@@ -13,7 +13,8 @@ from anndata._io.specs.registry import get_spec, read_elem, read_elem_partial
 from anndata.compat import _read_attr
 from lamindb_setup.dev.upath import infer_filesystem as _infer_filesystem
 from lnschema_core import File
-from lnschema_core.models import filepath_from_file_or_folder
+
+from lamindb._file_access import filepath_from_file_or_folder
 
 from ._subset_anndata import _read_dataframe
 

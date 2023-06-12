@@ -1,4 +1,10 @@
-from lnschema_core import types as _types  # noqa
-from lnschema_core.types import *  # noqa
+"""Types.
 
-__doc__ = _types.__doc__
+.. autosummary::
+   :toctree: .
+
+   PathLike
+   DataLike
+   TransformType
+"""
+from lnschema_core.types import DataLike, PathLike, TransformType  # noqa

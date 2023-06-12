@@ -1,4 +1,4 @@
-from pathlib import Path, PurePath
+from pathlib import Path, PurePath, PurePosixPath
 from typing import Any, Optional, Tuple, Union
 
 import lamindb_setup
@@ -6,7 +6,8 @@ import pandas as pd
 from anndata import AnnData
 from appdirs import AppDirs
 from lamin_logger import logger
-from lnschema_core import File, Run
+from lnschema_core import File, Run, ids
+from lnschema_core.types import DataLike, PathLike
 
 from lamindb._select import select
 from lamindb._settings import settings
@@ -247,3 +248,137 @@ def get_file_kwargs_from_data(
     )
 
     return kwargs, privates
+
+
+def log_storage_hint(
+    *, check_path_in_storage: bool, key: str, id: str, suffix: str
+) -> None:
+    hint = ""
+    if check_path_in_storage:
+        hint += "file in storage ✓"
+    else:
+        hint += "file will be copied to storage upon `save()`"
+    if key is None:
+        hint += f" using storage key = {id}{suffix}"
+    else:
+        hint += f" using storage key = {key}"
+    logger.hint(hint)
+
+
+def init_file(file: File, *args, **kwargs):
+    # Below checks for the Django-internal call in from_db()
+    # it'd be better if we could avoid this, but not being able to create a File
+    # from data with the default constructor renders the central class of the API
+    # essentially useless
+    # The danger below is not that a user might pass as many args (12 of it), but rather
+    # that at some point the Django API might change; on the other hand, this
+    # condition of for calling the constructor based on kwargs should always
+    # stay robust
+    if len(args) == len(file._meta.concrete_fields):
+        super(File, file).__init__(*args, **kwargs)
+        return None
+    # now we proceed with the user-facing constructor
+    if len(args) > 1:
+        raise ValueError("Only one non-keyword arg allowed: data")
+    data: Union[PathLike, DataLike] = kwargs["data"] if len(args) == 0 else args[0]
+    key: Optional[str] = kwargs["key"] if "key" in kwargs else None
+    name: Optional[str] = kwargs["name"] if "name" in kwargs else None
+    run: Optional[Run] = kwargs["run"] if "run" in kwargs else None
+    format = kwargs["format"] if "format" in kwargs else None
+
+    kwargs, privates = get_file_kwargs_from_data(
+        data=data,
+        name=name,
+        key=key,
+        run=run,
+        format=format,
+    )
+    kwargs["id"] = ids.file()
+    log_storage_hint(
+        check_path_in_storage=privates["check_path_in_storage"],
+        key=kwargs["key"],
+        id=kwargs["id"],
+        suffix=kwargs["suffix"],
+    )
+
+    # transform cannot be directly passed, just via run
+    # it's directly stored in the file table to avoid another join
+    # mediate by the run table
+    if kwargs["run"] is not None:
+        if kwargs["run"].transform_id is not None:
+            kwargs["transform_id"] = kwargs["run"].transform_id
+        else:
+            # accessing the relationship should always be possible if
+            # the above if clause was false as then, we should have a fresh
+            # Transform object that is not queried from the DB
+            assert kwargs["run"].transform is not None
+            kwargs["transform"] = kwargs["run"].transform
+
+    if data is not None:
+        file._local_filepath = privates["local_filepath"]
+        file._cloud_filepath = privates["cloud_filepath"]
+        file._memory_rep = privates["memory_rep"]
+        file._to_store = not privates["check_path_in_storage"]
+
+    super(File, file).__init__(**kwargs)
+
+
+def replace_file(
+    file: File,
+    data: Union[PathLike, DataLike] = None,
+    run: Optional[Run] = None,
+    format: Optional[str] = None,
+):
+    if isinstance(data, (Path, str)):
+        name_to_pass = None
+    else:
+        name_to_pass = file.name
+
+    kwargs, privates = get_file_kwargs_from_data(
+        data=data,
+        name=name_to_pass,
+        run=run,
+        format=format,
+    )
+
+    if kwargs["name"] != file.name:
+        logger.warning(
+            f"Your new filename '{kwargs['name']}' does not match the previous filename"
+            f" '{file.name}': to update the name, set file.name = '{kwargs['name']}'"
+        )
+
+    if file.key is not None:
+        key_path = PurePosixPath(file.key)
+        if isinstance(data, (Path, str)):
+            new_name = kwargs["name"]  # use the name from the data filepath
+        else:
+            # do not change the key stem to file.name
+            new_name = key_path.stem  # use the stem of the key for in-memory data
+        if PurePosixPath(new_name).suffixes == []:
+            new_name = f"{new_name}{kwargs['suffix']}"
+        if key_path.name != new_name:
+            file._clear_storagekey = file.key
+            file.key = str(key_path.with_name(new_name))
+            logger.warning(
+                f"Replacing the file will replace key '{key_path}' with '{file.key}'"
+                f" and delete '{key_path}' upon `save()`"
+            )
+    else:
+        file.key = kwargs["key"]
+        old_storage = f"{file.id}{file.suffix}"
+        new_storage = (
+            file.key if file.key is not None else f"{file.id}{kwargs['suffix']}"
+        )
+        if old_storage != new_storage:
+            file._clear_storagekey = old_storage
+
+    file.suffix = kwargs["suffix"]
+    file.size = kwargs["size"]
+    file.hash = kwargs["hash"]
+    file.run = kwargs["run"]
+    file._local_filepath = privates["local_filepath"]
+    file._cloud_filepath = privates["cloud_filepath"]
+    file._memory_rep = privates["memory_rep"]
+    file._to_store = not privates[
+        "check_path_in_storage"
+    ]  # no need to upload if new file is already in storage
