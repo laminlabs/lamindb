@@ -139,7 +139,7 @@ def store_files(files: Iterable[File]) -> None:
         with transaction.atomic():
             for file in files:
                 if file not in stored_files:
-                    file.delete()
+                    file._delete_skip_storage()
         error_message = prepare_error_message(files, stored_files, exception)
         raise RuntimeError(error_message)
     return None
