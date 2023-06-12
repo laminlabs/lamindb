@@ -9,6 +9,7 @@ from lamin_logger import logger
 from lnschema_core import File, Run, ids
 from lnschema_core.types import DataLike, PathLike
 
+from lamindb._file_access import auto_storage_key_from_file
 from lamindb._select import select
 from lamindb._settings import settings
 from lamindb.dev.hashing import hash_file
@@ -365,7 +366,7 @@ def replace_file(
             )
     else:
         file.key = kwargs["key"]
-        old_storage = f"{file.id}{file.suffix}"
+        old_storage = auto_storage_key_from_file(file)
         new_storage = (
             file.key if file.key is not None else f"{file.id}{kwargs['suffix']}"
         )
