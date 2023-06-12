@@ -3,6 +3,7 @@
 <!-- prettier-ignore -->
 Name | PR | Developer | Date | Version
 --- | --- | --- | --- | ---
+🚸 Prefix auto-storage-key with `lndb/` | [757](https://github.com/laminlabs/lamindb/pull/757) | [falexwolf](https://github.com/falexwolf) | 2023-06-12 |
 ♻️ Move all File creation logic from `lnschema-core` here | [756](https://github.com/laminlabs/lamindb/pull/756) | [falexwolf](https://github.com/falexwolf) | 2023-06-12 |
 ✨ Delete storage in File.delete | [754](https://github.com/laminlabs/lamindb/pull/754) | [Koncopd](https://github.com/Koncopd) | 2023-06-12 |
 ✅ Add more tests for File init | [755](https://github.com/laminlabs/lamindb/pull/755) | [falexwolf](https://github.com/falexwolf) | 2023-06-12 |
