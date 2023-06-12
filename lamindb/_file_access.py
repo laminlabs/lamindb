@@ -1,7 +1,9 @@
 from typing import Union
 
 from lamin_logger import logger
-from lnschema_core.models import File, Folder
+from lamindb_setup import settings
+from lamindb_setup.dev import StorageSettings
+from lnschema_core.models import File, Folder, Storage
 
 
 # add type annotations back asap when re-organizing the module
@@ -14,12 +16,7 @@ def storage_key_from_file(file: File):
 
 # add type annotations back asap when re-organizing the module
 def filepath_from_file_or_folder(file_or_folder: Union[File, Folder]):
-    from lamindb_setup import settings
-    from lamindb_setup.dev import StorageSettings
-
-    # using __name__ for type check to avoid need of
-    # dynamically importing the type
-    if file_or_folder.__name__ == "File":
+    if isinstance(file_or_folder, File):
         storage_key = storage_key_from_file(file_or_folder)
     else:
         storage_key = file_or_folder.key
@@ -34,9 +31,7 @@ def filepath_from_file_or_folder(file_or_folder: Union[File, Folder]):
             " ln.select(ln.File, ln.Storage)the path is storage.root / file.key if"
             " file.key is not None\notherwise storage.root / (file.id + file.suffix)"
         )
-        import lamindb as ln
-
-        storage = ln.select(ln.Storage, id=file_or_folder.storage_id).one()
+        storage = Storage.select(id=file_or_folder.storage_id).one()
         # find a better way than passing None to instance_settings in the future!
         storage_settings = StorageSettings(storage.root, instance_settings=None)
         path = storage_settings.key_to_filepath(storage_key)
