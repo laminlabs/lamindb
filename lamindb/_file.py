@@ -6,7 +6,8 @@ import pandas as pd
 from anndata import AnnData
 from appdirs import AppDirs
 from lamin_logger import logger
-from lnschema_core import File, Run
+from lnschema_core import File, Run, ids
+from lnschema_core.types import DataLike, PathLike
 
 from lamindb._select import select
 from lamindb._settings import settings
@@ -247,3 +248,64 @@ def get_file_kwargs_from_data(
     )
 
     return kwargs, privates
+
+
+def log_storage_hint(
+    *, check_path_in_storage: bool, key: str, id: str, suffix: str
+) -> None:
+    hint = ""
+    if check_path_in_storage:
+        hint += "file in storage ✓"
+    else:
+        hint += "file will be copied to storage upon `save()`"
+    if key is None:
+        hint += f" using storage key = {id}{suffix}"
+    else:
+        hint += f" using storage key = {key}"
+    logger.hint(hint)
+
+
+def init_file(file: File, *args, **kwargs):
+    if len(args) > 1:
+        raise ValueError("Only one non-keyword arg allowed: data")
+    data: Union[PathLike, DataLike] = kwargs["data"] if len(args) == 0 else args[0]
+    key: Optional[str] = kwargs["key"] if "key" in kwargs else None
+    name: Optional[str] = kwargs["name"] if "name" in kwargs else None
+    run: Optional[Run] = kwargs["run"] if "run" in kwargs else None
+    format = kwargs["format"] if "format" in kwargs else None
+
+    kwargs, privates = get_file_kwargs_from_data(
+        data=data,
+        name=name,
+        key=key,
+        run=run,
+        format=format,
+    )
+    kwargs["id"] = ids.file()
+    log_storage_hint(
+        check_path_in_storage=privates["check_path_in_storage"],
+        key=kwargs["key"],
+        id=kwargs["id"],
+        suffix=kwargs["suffix"],
+    )
+
+    # transform cannot be directly passed, just via run
+    # it's directly stored in the file table to avoid another join
+    # mediate by the run table
+    if kwargs["run"] is not None:
+        if kwargs["run"].transform_id is not None:
+            kwargs["transform_id"] = kwargs["run"].transform_id
+        else:
+            # accessing the relationship should always be possible if
+            # the above if clause was false as then, we should have a fresh
+            # Transform object that is not queried from the DB
+            assert kwargs["run"].transform is not None
+            kwargs["transform"] = kwargs["run"].transform
+
+    if data is not None:
+        file._local_filepath = privates["local_filepath"]
+        file._cloud_filepath = privates["cloud_filepath"]
+        file._memory_rep = privates["memory_rep"]
+        file._to_store = not privates["check_path_in_storage"]
+
+    return kwargs
