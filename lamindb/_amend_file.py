@@ -62,7 +62,7 @@ def stream(
     self: File,
     is_run_input: Optional[bool] = None,
 ) -> AnnData:
-    """Stream the file into memory. Allows subsetting an AnnData object.
+    """Stream the file into memory without caching.
 
     Returns:
         The streamed AnnData object.
