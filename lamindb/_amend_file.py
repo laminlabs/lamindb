@@ -128,7 +128,8 @@ def stream(
 
 def _track_run_input(file: File, is_run_input: Optional[bool] = None):
     if is_run_input is None:
-        logger.hint("Track this file as a run input by passing `is_run_input=True`")
+        if context.run is not None:
+            logger.hint("Track this file as a run input by passing `is_run_input=True`")
         track_run_input = settings.track_run_inputs_upon_load
     else:
         track_run_input = is_run_input
