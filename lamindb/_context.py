@@ -61,7 +61,7 @@ def reinitialize_notebook(
     else:
         response = "y"
     if response == "y":
-        new_id = lnschema_core.ids.transform()
+        new_id = lnschema_core.ids.base62_12()
     else:
         response = input(
             "Do you want to set a new version (e.g. '1.1')? Type 'n' for"

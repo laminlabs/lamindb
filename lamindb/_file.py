@@ -294,7 +294,7 @@ def init_file(file: File, *args, **kwargs):
         run=run,
         format=format,
     )
-    kwargs["id"] = ids.file()
+    kwargs["id"] = ids.base62_20()
     log_storage_hint(
         check_path_in_storage=privates["check_path_in_storage"],
         key=kwargs["key"],
