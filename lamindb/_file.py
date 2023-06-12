@@ -33,7 +33,7 @@ def serialize(
         filepath = UPath(data)  # returns Path for local
         try:  # check if file exists
             if not filepath.exists():
-                raise FileNotFoundError
+                raise FileNotFoundError(filepath)
         except PermissionError:  # we will setup permissions later
             pass
         if isinstance(filepath, UPath):
@@ -41,7 +41,7 @@ def serialize(
             if not get_check_path_in_storage(filepath):
                 raise ValueError(
                     "Currently do not support moving cloud data across buckets."
-                    " Configure storage to point to your cloud bucket:\n"
+                    " Set default storage to point to your cloud bucket:\n"
                     f" `ln.setup.set.storage({new_storage})` or `lamin set --storage"
                     f" {new_storage}`"
                 )
@@ -51,10 +51,11 @@ def serialize(
                     filepath, **root._kwargs
                 )  # inherit fsspec kwargs from root
         memory_rep = None
-        if key is None:
-            name = filepath.name
-        else:
-            name = PurePath(key).name
+        if name is None:
+            if key is None:
+                name = filepath.name
+            else:
+                name = PurePath(key).name
         # also see tests/test_file_hashing.py
         suffix = "".join(filepath.suffixes)
     # For now, in-memory objects are always saved to local_filepath first
