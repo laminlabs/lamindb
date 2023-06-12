@@ -2,8 +2,8 @@ import traceback
 from typing import List, Optional, Union, overload  # noqa
 
 from lnschema_core import BaseORM, File, RunInput
-from lnschema_core.models import storage_key_from_file
 
+from lamindb._file_access import storage_key_from_file
 from lamindb.dev.storage import delete_storage
 
 from ._logger import colors, logger

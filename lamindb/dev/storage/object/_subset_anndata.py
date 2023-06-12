@@ -8,7 +8,9 @@ from anndata._io.specs.methods import _read_partial
 from anndata._io.specs.registry import read_elem, read_elem_partial
 from anndata._io.zarr import read_dataframe_legacy as read_dataframe_legacy_zarr
 from lamindb_setup.dev.upath import infer_filesystem as _infer_filesystem
-from lnschema_core.models import File, filepath_from_file_or_folder
+from lnschema_core.models import File
+
+from lamindb._file_access import filepath_from_file_or_folder
 
 from ._lazy_field import LazySelector
 
