@@ -25,7 +25,7 @@ def lint(session: nox.Session) -> None:
 )
 def install(session, group):
     # run with pypi install on main (currently disabled)
-    if os.getenv("GITHUB_EVENT_NAME") != "push":
+    if True:  # os.getenv("GITHUB_EVENT_NAME") != "push":
         # run with submodule install on a PR
         submodules = " ".join(
             [
