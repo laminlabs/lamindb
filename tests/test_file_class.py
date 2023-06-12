@@ -15,7 +15,7 @@ from lnschema_core.models import File
 def get_test_filepaths(request):
     isin_default_storage: bool = request.param[0]
     root_dir: Path = Path(request.param[1])
-    test_folder = root_dir / "my_project/"
+    test_folder = root_dir / "my_folder/"
     test_folder.mkdir(parents=True)
     test_filepath = test_folder / "my_file.csv"
     test_filepath.write_text("a")
@@ -31,14 +31,12 @@ def test_init_from_filepath_basic_fields(get_test_filepaths, name):
     isin_default_storage = get_test_filepaths[0]
     test_filepath = get_test_filepaths[1]
     file = File(test_filepath, name=name)
-    if name is None:
-        assert file.name == test_filepath.name
-    else:
-        assert file.name == name
+    assert file.name == test_filepath.name if name is None else file.name == name
     assert file.suffix == ".csv"
-    if isin_default_storage:
-        assert file.key == "my_project/my_file.csv"
-    else:
-        assert file.key is None
+    assert (
+        file.key == "my_folder/my_file.csv"
+        if isin_default_storage
+        else file.key is None
+    )
     assert file.storage.root == Path("./default_storage").resolve().as_posix()
     assert file.hash == "DMF1ucDxtqgxw5niaXcmYQ"
