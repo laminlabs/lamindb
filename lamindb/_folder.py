@@ -154,6 +154,7 @@ def init_folder(folder: Folder, *args, **kwargs):
             name=name,
             key=key,
         )
+        files = kwargs.pop("files")  # need to pop again because updated!
     else:
         kwargs = dict(name=name)
     kwargs["id"] = ids.base62_20()
