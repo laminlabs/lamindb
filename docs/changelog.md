@@ -3,6 +3,7 @@
 <!-- prettier-ignore -->
 Name | PR | Developer | Date | Version
 --- | --- | --- | --- | ---
+⬆️ Update bionty schema | [759](https://github.com/laminlabs/lamindb/pull/759) | [sunnyosun](https://github.com/sunnyosun) | 2023-06-12 |
 ♻️ Clean up core schema module | [758](https://github.com/laminlabs/lamindb/pull/758) | [falexwolf](https://github.com/falexwolf) | 2023-06-12 | 0.42a9
 🚸 Prefix auto-storage-key with `lndb/` | [757](https://github.com/laminlabs/lamindb/pull/757) | [falexwolf](https://github.com/falexwolf) | 2023-06-12 |
 ♻️ Move all File creation logic from `lnschema-core` here | [756](https://github.com/laminlabs/lamindb/pull/756) | [falexwolf](https://github.com/falexwolf) | 2023-06-12 |
