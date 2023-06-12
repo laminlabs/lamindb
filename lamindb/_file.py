@@ -1,4 +1,4 @@
-from pathlib import Path, PurePath
+from pathlib import Path, PurePath, PurePosixPath
 from typing import Any, Optional, Tuple, Union
 
 import lamindb_setup
@@ -321,3 +321,64 @@ def init_file(file: File, *args, **kwargs):
         file._to_store = not privates["check_path_in_storage"]
 
     super(File, file).__init__(**kwargs)
+
+
+def replace_file(
+    file: File,
+    data: Union[PathLike, DataLike] = None,
+    run: Optional[Run] = None,
+    format: Optional[str] = None,
+):
+    if isinstance(data, (Path, str)):
+        name_to_pass = None
+    else:
+        name_to_pass = file.name
+
+    kwargs, privates = get_file_kwargs_from_data(
+        data=data,
+        name=name_to_pass,
+        run=run,
+        format=format,
+    )
+
+    if kwargs["name"] != file.name:
+        logger.warning(
+            f"Your new filename '{kwargs['name']}' does not match the previous filename"
+            f" '{file.name}': to update the name, set file.name = '{kwargs['name']}'"
+        )
+
+    if file.key is not None:
+        key_path = PurePosixPath(file.key)
+        if isinstance(data, (Path, str)):
+            new_name = kwargs["name"]  # use the name from the data filepath
+        else:
+            # do not change the key stem to file.name
+            new_name = key_path.stem  # use the stem of the key for in-memory data
+        if PurePosixPath(new_name).suffixes == []:
+            new_name = f"{new_name}{kwargs['suffix']}"
+        if key_path.name != new_name:
+            file._clear_storagekey = file.key
+            file.key = str(key_path.with_name(new_name))
+            logger.warning(
+                f"Replacing the file will replace key '{key_path}' with '{file.key}'"
+                f" and delete '{key_path}' upon `save()`"
+            )
+    else:
+        file.key = kwargs["key"]
+        old_storage = f"{file.id}{file.suffix}"
+        new_storage = (
+            file.key if file.key is not None else f"{file.id}{kwargs['suffix']}"
+        )
+        if old_storage != new_storage:
+            file._clear_storagekey = old_storage
+
+    file.suffix = kwargs["suffix"]
+    file.size = kwargs["size"]
+    file.hash = kwargs["hash"]
+    file.run = kwargs["run"]
+    file._local_filepath = privates["local_filepath"]
+    file._cloud_filepath = privates["cloud_filepath"]
+    file._memory_rep = privates["memory_rep"]
+    file._to_store = not privates[
+        "check_path_in_storage"
+    ]  # no need to upload if new file is already in storage
