@@ -3,6 +3,7 @@
 <!-- prettier-ignore -->
 Name | PR | Developer | Date | Version
 --- | --- | --- | --- | ---
+✨ Delete storage in File.delete | [754](https://github.com/laminlabs/lamindb/pull/754) | [Koncopd](https://github.com/Koncopd) | 2023-06-12 |
 ✅ Add more tests for File init | [755](https://github.com/laminlabs/lamindb/pull/755) | [falexwolf](https://github.com/falexwolf) | 2023-06-12 |
 💚 Remove test paths from pyproject.toml | [753](https://github.com/laminlabs/lamindb/pull/753) | [falexwolf](https://github.com/falexwolf) | 2023-06-11 |
 ✨ Add to_adata method to AnnDataAccessor | [752](https://github.com/laminlabs/lamindb/pull/752) | [Koncopd](https://github.com/Koncopd) | 2023-06-11 |
