@@ -7,8 +7,8 @@ from packaging import version
 if os.getenv("GITHUB_ACTIONS") is None:
     # Lamin PINNED packages
 
-    if version.parse(lamindb_setup_v) < version.parse("0.47.5"):
-        logger.warning("Upgrade lamindb_setup! pip install lamindb_setup==0.47.5")
+    if version.parse(lamindb_setup_v) < version.parse("0.47.6"):
+        logger.warning("Upgrade lamindb_setup! pip install lamindb_setup==0.47.6")
 
     # Lamin GREATEREQ packages
     try:

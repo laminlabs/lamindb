@@ -17,8 +17,8 @@ dependencies = [
     # Lamin PINNED packages
     # !!! These packages should ALWAYS be pinned, do not unpin !!!
     # !!! They cannot be pinned ANYWHERE else !!!
-    "lnschema_core==0.35.5",
-    "lamindb_setup==0.47.5",
+    "lnschema_core==0.35.6",
+    "lamindb_setup==0.47.6",
     # Lamin GREATEREQ packages
     "erdiagram>=0.1.2",
     # others
@@ -52,9 +52,6 @@ nbproject = [
 ]
 bionty = [
     "lnschema_bionty==0.21.4",
-]
-lamin1 = [
-    "lnschema_lamin1==0.18a1",
 ]
 test = [
     # basic test
