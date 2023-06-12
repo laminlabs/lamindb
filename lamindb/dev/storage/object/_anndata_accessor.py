@@ -8,15 +8,24 @@ from anndata import AnnData
 from anndata._core.index import Index, _normalize_indices
 from anndata._core.sparse_dataset import SparseDataset
 from anndata._core.views import _resolve_idx
+from anndata._io.h5ad import read_dataframe_legacy as read_dataframe_legacy_h5
 from anndata._io.specs.methods import read_indices
 from anndata._io.specs.registry import get_spec, read_elem, read_elem_partial
+from anndata._io.zarr import read_dataframe_legacy as read_dataframe_legacy_zarr
 from anndata.compat import _read_attr
 from lamindb_setup.dev.upath import infer_filesystem as _infer_filesystem
 from lnschema_core import File
 
 from lamindb._file_access import filepath_from_file_or_folder
 
-from ._subset_anndata import _read_dataframe
+
+def _read_dataframe(elem: Union[zarr.Array, h5py.Dataset, zarr.Group, h5py.Group]):
+    if isinstance(elem, zarr.Array):
+        return read_dataframe_legacy_zarr(elem)
+    elif isinstance(elem, h5py.Dataset):
+        return read_dataframe_legacy_h5(elem)
+    else:
+        return read_elem(elem)
 
 
 def _to_memory(elem):

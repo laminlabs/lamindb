@@ -2,18 +2,14 @@ from pathlib import Path
 from typing import Optional
 
 from anndata import AnnData
-from anndata import __version__ as anndata_v
 from lamin_logger import logger
 from lamindb_setup import settings as setup_settings
 from lnschema_core import File
 from lnschema_core.types import DataLike
-from packaging import version
 
 from lamindb._context import context
 from lamindb._file_access import filepath_from_file_or_folder
-from lamindb.dev import LazyDataFrame
 from lamindb.dev.storage import load_to_memory
-from lamindb.dev.storage.object import _subset_anndata_file
 from lamindb.dev.storage.object._anndata_accessor import AnnDataAccessor
 
 from ._settings import settings
@@ -62,68 +58,20 @@ def backed(file: File, is_run_input: Optional[bool] = None) -> AnnDataAccessor:
     return AnnDataAccessor(file)
 
 
-def subsetter(self: File) -> LazyDataFrame:
-    """A subsetter to pass to ``.stream()``.
-
-    Currently, this returns an instance of an
-    unconstrained :class:`~lamindb.dev.LazyDataFrame`
-    to be evaluated in ``.stream()``.
-
-    In the future, this will be constrained by metadata of the file, it's
-    feature- and sample-level descriptors, like `.obs`, `.var`, `.columns`, `.rows`.
-    """
-    return LazyDataFrame()
-
-
 def stream(
     self: File,
-    subset_obs: Optional[LazyDataFrame] = None,
-    subset_var: Optional[LazyDataFrame] = None,
     is_run_input: Optional[bool] = None,
 ) -> AnnData:
     """Stream the file into memory. Allows subsetting an AnnData object.
 
-    Args:
-        subset_obs: ``Optional[LazyDataFrame] = None`` - A DataFrame query to
-            evaluate on ``.obs`` of an underlying ``AnnData`` object.
-        subset_var: ``Optional[LazyDataFrame] = None`` - A DataFrame query to
-            evaluate on ``.var`` of an underlying ``AnnData`` object.
-
     Returns:
         The streamed AnnData object.
-
-    Example:
-
-    >>> file = ln.select(ln.File, ...).one()
-    >>> obs = file.subsetter()
-    >>> obs = (
-    >>>     obs.cell_type.isin(["dendritic cell", "T cell")
-    >>>     & obs.disease.isin(["Alzheimer's"])
-    >>> )
-    >>> file.stream(subset_obs=obs, is_run_input=True)
-
     """
-    if self.suffix not in (".h5ad", ".zarr"):
+    if self.suffix not in (".h5ad", ".zrad", ".zarr"):
         raise ValueError("File should have an AnnData object as the underlying data")
     _track_run_input(self, is_run_input)
 
-    if subset_obs is None and subset_var is None:
-        return load_to_memory(filepath_from_file_or_folder(self), stream=True)
-
-    if self.suffix == ".h5ad" and subset_obs is not None and subset_var is not None:
-        raise ValueError(
-            "Can not subset along both subset_obs and subset_var at the same time"
-            " for an AnnData object stored as a h5ad file."
-            " Please resave your AnnData as zarr to be able to do this"
-        )
-
-    if self.suffix == ".zarr" and version.parse(anndata_v) < version.parse("0.9.1"):
-        raise ValueError(
-            f"anndata=={anndata_v} does not support `.subset` of zarr stored AnnData."
-            " Please install anndata>=0.9.1"
-        )
-
-    return _subset_anndata_file(self, subset_obs, subset_var)  # type: ignore
+    return load_to_memory(filepath_from_file_or_folder(self), stream=True)
 
 
 def _track_run_input(file: File, is_run_input: Optional[bool] = None):
@@ -170,6 +118,5 @@ def stage(file: File, is_run_input: Optional[bool] = None) -> Path:
 
 File.backed = backed
 File.stage = stage
-File.subsetter = subsetter
 File.stream = stream
 File.load = load
