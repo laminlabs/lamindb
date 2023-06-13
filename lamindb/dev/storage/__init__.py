@@ -1,20 +1,11 @@
-"""Storage → object.
-
-File → memory:
+"""Storage.
 
 .. autosummary::
    :toctree: .
 
-   h5ad_to_anndata
+   AnnDataAccessor
+   UPath
 
-Store files:
-
-.. autosummary::
-   :toctree: .
-
-   store_object
-   store_png
-   delete_storage
 """
 
 __version__ = "0.4a1"  # denote a release candidate for 0.1.0 with 0.1rc1
