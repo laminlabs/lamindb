@@ -126,6 +126,19 @@ jobs:
           NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
           NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID }}
 
+  dispatch:
+    needs: test
+    strategy:
+      matrix:
+        repo: ["laminlabs/lamin-examples", "laminlabs/redun-lamin-fasta"]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: peter-evans/repository-dispatch@v2
+        with:
+          token: ${{ secrets.LAMIN_BUILD_DOCS }}
+          repository: ${{ matrix.repo }}
+          event-type: build
+
   coverage:
     needs: test
     runs-on: ubuntu-latest
