@@ -34,6 +34,10 @@ repos:
     rev: v2.6.2
     hooks:
       - id: prettier
+        exclude: |
+          (?x)(
+            /Users/falexwolf/repos/lamin-platform/.git/modules/src/lamindb/COMMIT_EDITMSG
+          )
   - repo: https://github.com/kynan/nbstripout
     rev: 0.3.9
     hooks:

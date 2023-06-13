@@ -4,10 +4,11 @@ Import the package::
 
    import lamindb as ln
 
-The central class of the API is `File`. It tracks data artifacts in form of
-files, on-disk (`zarr`, etc.) and in-memory data objects (`DataFrame`,
-`AnnData`, etc.) and allows to link them against entities of core schema &
-custom schemas.
+`File` tracks data artifacts in form of files, on-disk (`zarr`, etc.) and
+in-memory data objects (`DataFrame`, `AnnData`, etc.) and allows to link them
+against entities of core schema & custom schemas.
+
+The core schema entities are central to lamindb's API:
 
 .. autosummary::
    :toctree: .
