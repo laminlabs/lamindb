@@ -17,7 +17,6 @@
 files-folders
 data-lineage
 select
-stream
 schemas
 configure
 ```
