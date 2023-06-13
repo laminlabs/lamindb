@@ -190,7 +190,7 @@ class context:
             cls.transform = transform_exists
 
         if new_run is None:  # for notebooks, default to loading latest runs
-            new_run = False if cls.transform.type == TransformType.notebook else True  # type: ignore  # noqa
+            new_run = False if cls.transform.type == TransformType.notebook.value else True  # type: ignore  # noqa
 
         run = None
         if not new_run:  # try loading latest run
@@ -199,7 +199,6 @@ class context:
                 .order_by("-created_at")
                 .first()
             )
-            print(run)
             if run is not None:  # loaded latest run
                 run.run_at = datetime.utcnow()  # update run time
                 run.save()
