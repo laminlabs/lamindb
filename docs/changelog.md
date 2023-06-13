@@ -3,6 +3,7 @@
 <!-- prettier-ignore -->
 Name | PR | Developer | Date | Version
 --- | --- | --- | --- | ---
+🔥 Remove `File.stream()` | [761](https://github.com/laminlabs/lamindb/pull/761) | [falexwolf](https://github.com/falexwolf) | 2023-06-13 |
 🔥 Remove stream and lazy | [760](https://github.com/laminlabs/lamindb/pull/760) | [Koncopd](https://github.com/Koncopd) | 2023-06-12 |
 ⬆️ Update bionty schema | [759](https://github.com/laminlabs/lamindb/pull/759) | [sunnyosun](https://github.com/sunnyosun) | 2023-06-12 |
 ♻️ Clean up core schema module | [758](https://github.com/laminlabs/lamindb/pull/758) | [falexwolf](https://github.com/falexwolf) | 2023-06-12 | 0.42a9
