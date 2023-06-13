@@ -199,6 +199,7 @@ class context:
                 .order_by("-created_at")
                 .first()
             )
+            print(run)
             if run is not None:  # loaded latest run
                 run.run_at = datetime.utcnow()  # update run time
                 run.save()
