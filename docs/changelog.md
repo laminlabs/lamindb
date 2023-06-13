@@ -3,6 +3,7 @@
 <!-- prettier-ignore -->
 Name | PR | Developer | Date | Version
 --- | --- | --- | --- | ---
+♻️ Use `TransformType` | [763](https://github.com/laminlabs/lamindb/pull/763) | [falexwolf](https://github.com/falexwolf) | 2023-06-13 |
 👷 Dispatch to lamin-examples & redun-lamin-fasta | [762](https://github.com/laminlabs/lamindb/pull/762) | [falexwolf](https://github.com/falexwolf) | 2023-06-13 |
 🔥 Remove `File.stream()` | [761](https://github.com/laminlabs/lamindb/pull/761) | [falexwolf](https://github.com/falexwolf) | 2023-06-13 |
 🔥 Remove stream and lazy | [760](https://github.com/laminlabs/lamindb/pull/760) | [Koncopd](https://github.com/Koncopd) | 2023-06-12 |
