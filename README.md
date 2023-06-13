@@ -65,45 +65,92 @@ Signing up takes 1 min.
 
 We do _not_ store any of your data, but only basic metadata about you (email address, etc.) & your instances (S3 bucket names, etc.).
 
-- Sign up via `lamin signup <email>`.
-- Log in via `lamin login <handle>`.
-- Init an instance via `lamin init --storage <storage>`.
+- Sign up: `lamin signup <email>`
+- Log in: `lamin login <handle>`
+- Init a data lake: `lamin init --storage <default-storage-location>`
 
 ## Usage overview
 
-### Track & query data lineage
+```
+import lamindb as ln
+```
+
+### Store & load data artifacts
+
+Store a `DataFrame` or an `AnnData` in the default local or cloud storage location:
 
 ```python
-ln.track()  # auto-detect a notebook & register as a Transform
-ln.File("my_artifact.parquet").save()  # link Transform & Run objects to File object
+df = pd.DataFrame({"feat1": [1, 2], "feat2": [3, 4]})
+
+ln.File(df, name="My dataframe").save()  # create a File object and save it
 ```
 
 <br>
 
-Now, you can query, e.g., for
+Get it back:
+
+```python
+file = ln.File.select(name="My dataframe").one()  # query for it
+df = file.load()  # load it into memory
+  feat1 feat2
+0     1     3
+1     2     4
+```
+
+### Track & query data lineage
+
+#### Basics
 
 ```python
 ln.File.select(created_by__handle="user1").df()   # a DataFrame of all files ingested by user1
-ln.File.select().order_by("-updated_at").first()   # latest updated file
+ln.File.select().order_by("-updated_at").first()  # latest updated file
+```
+
+#### Notebooks
+
+Track a Jupyter Notebook:
+
+```python
+ln.track()  # auto-detect a notebook, save as a Transform, create a Run
+ln.File("my_artifact.parquet").save()  # this file is an output of the notebook run
 ```
 
 <br>
 
-Or for
+When you query this file later on, you'll always know where it came from:
+
+```{python}
+
+file = ln.File.select(name="my_artifact.parquet").one()
+file.transform  # gives you the notebook with title, filename, version, id, etc.
+file.run  # gives you the run of the notebook that created the file
+```
+
+<br>
+
+Of course, you can also query for notebooks & the artifacts they created:
 
 ```python
 transforms = ln.Transform.select(  # all notebooks with 'T cell' in the title created in 2022
     name__contains="T cell", type="notebook", created_at__year=2022
 ).all()
-ln.File.select(transform=transforms[1]).all()  # files ingested by the second notebook in transforms
+ln.File.select(transform__in=transforms).all()  # data artifacts created by these notebooks
+```
+
+#### Pipelines
+
+To save a pipeline (complementary to workflow tools) to the `Transform` registry, call
+
+```
+ln.Transform(name="Awesom-O", version="0.41.2").save()  # save a pipeline
 ```
 
 <br>
 
-Or, if you'd like to track a run of a registered pipeline (here, "Cell Ranger"):
+To track a run of a registered pipeline:
 
 ```python
-transform = ln.Transform.select(name="Cell Ranger", version="0.7.1").one()  # select a pipeline from the registry
+transform = ln.Transform.select(name="Awesom-O", version="0.41.2").one()  # select a pipeline from the registry
 ln.track(transform)  # create a new global run context
 ln.File("s3://my_samples01/my_artifact.fastq.gz").save()  # link file against run & transform
 ```
@@ -113,28 +160,7 @@ ln.File("s3://my_samples01/my_artifact.fastq.gz").save()  # link file against ru
 Now, you can query, e.g., for
 
 ```python
-run = ln.select(ln.Run, transform__name="Cell Ranger").order_by("-created_at").df()  # get the latest Cell Ranger pipeline runs
-# query files by selected runs, etc.
-```
-
-### Persist & load data objects
-
-```python
-df = pd.DataFrame({"a": [1, 2], "b": [3, 4]})
-
-ln.File(df, name="My dataframe").save()
-```
-
-<br>
-
-Get it back:
-
-```python
-file = ln.select(ln.File, name="My dataframe").one()  # query for it
-df = file.load()  # load it into memory
-    a   b
-0   1   3
-1   2   4
+ln.select(ln.Run, transform__name="Awesom-O").order_by("-created_at").df()  # get the latest Cell Ranger pipeline runs
 ```
 
 ### Manage biological registries
