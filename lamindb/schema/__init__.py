@@ -1,6 +1,6 @@
 """Schema tools & overview.
 
-Guide: :doc:`/guide/schema`
+Guide: :doc:`/guide/schemas`
 
 You can access mounted schema modules with domain-specific entities via
 available via `ln.schema.<module>.<entity>`.
@@ -34,4 +34,4 @@ def _import_schema():
 if _INSTANCE_SETUP:
     _import_schema()
 
-from ._core import graph, list_tables, view
+from ._core import graph, view
