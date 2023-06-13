@@ -21,8 +21,8 @@ Free:
 - Track data lineage across notebooks, pipelines & apps.
 - Manage biological registries, ontologies & features.
 - Persist, load & stream data objects with a single line of code.
-- Query for anything, define & manage your own schemas.
-- Manage data on your laptop, on your server or in your cloud infra.
+- Query for anything, define & manage custom schemas.
+- Manage data on your laptop, server or cloud infra.
 - Use a mesh of distributed LaminDB instances for different teams and purposes.
 - Share instances through a Hub akin to GitHub.
 
@@ -35,11 +35,10 @@ Enterprise:
 
 LaminDB builds semantics of R&D and biology onto well-established tools:
 
-- SQLite & Postgres for SQL databases
-- S3, GCP & local storage for object storage
-- Django ORM and fsspec
+- SQLite & Postgres for SQL databases using Django ORM (previously: SQLModel)
+- S3, GCP & local storage for object storage using fsspec
 - Configurable storage formats: pyarrow, anndata, zarr, etc.
-- Biological knowledge resources & ontologies: see [Bionty](https://lamin.ai/docs/bionty)
+- Biological knowledge sources & ontologies: see [Bionty](https://lamin.ai/docs/bionty)
 
 LaminDB is open source. For details, see [Architecture](#architecture).
 
@@ -66,45 +65,86 @@ Signing up takes 1 min.
 
 We do _not_ store any of your data, but only basic metadata about you (email address, etc.) & your instances (S3 bucket names, etc.).
 
-- Sign up via `lamin signup <email>`.
-- Log in via `lamin login <handle>`.
-- Init an instance via `lamin init --storage <storage>`.
+- Sign up: `lamin signup <email>`
+- Log in: `lamin login <handle>`
+- Init a data lake: `lamin init --storage <default-storage-location>`
 
 ## Usage overview
+
+```python
+import lamindb as ln
+```
+
+### Store & load data artifacts
+
+Store a `DataFrame` or an `AnnData` in default local or cloud storage:
+
+```python
+df = pd.DataFrame({"feat1": [1, 2], "feat2": [3, 4]})
+
+ln.File(df, name="My dataframe").save()  # create a File object and save it
+```
+
+<br>
+
+Get it back:
+
+```python
+file = ln.File.select(name="My dataframe").one()  # query for it
+df = file.load()  # load it into memory
+```
 
 ### Track & query data lineage
 
 ```python
-ln.track()  # auto-detect a notebook & register as a Transform
-ln.File("my_artifact.parquet").save()  # link Transform & Run objects to File object
+ln.File.select(created_by__handle="lizlemon").df()   # all files ingested by lizlemon
+ln.File.select().order_by("-updated_at").first()  # latest updated file
 ```
 
-<br>
+#### Notebooks
 
-Now, you can query, e.g., for
+Track a Jupyter Notebook:
 
 ```python
-ln.File.select(created_by__handle="user1").df()   # a DataFrame of all files ingested by user1
-ln.File.select().order_by("-updated_at").first()   # latest updated file
+ln.track()  # auto-detect notebook metadata, save as a Transform, create a Run
+ln.File("my_artifact.parquet").save()  # this file is an output of the notebook run
 ```
 
 <br>
 
-Or for
+When you query this file later on, you'll always know where it came from:
+
+```python
+file = ln.File.select(name="my_artifact.parquet").one()
+file.transform  # gives you the notebook with title, filename, version, id, etc.
+file.run  # gives you the run of the notebook that created the file
+```
+
+<br>
+
+Of course, you can also query for notebooks:
 
 ```python
 transforms = ln.Transform.select(  # all notebooks with 'T cell' in the title created in 2022
     name__contains="T cell", type="notebook", created_at__year=2022
 ).all()
-ln.File.select(transform=transforms[1]).all()  # files ingested by the second notebook in transforms
+ln.File.select(transform__in=transforms).all()  # data artifacts created by these notebooks
+```
+
+#### Pipelines
+
+To save a pipeline (complementary to workflow tools) to the `Transform` registry, call
+
+```python
+ln.Transform(name="Awesom-O", version="0.41.2").save()  # save a pipeline
 ```
 
 <br>
 
-Or, if you'd like to track a run of a registered pipeline (here, "Cell Ranger"):
+To track a run of a registered pipeline:
 
 ```python
-transform = ln.Transform.select(name="Cell Ranger", version="0.7.1").one()  # select a pipeline from the registry
+transform = ln.Transform.select(name="Awesom-O", version="0.41.2").one()  # select a pipeline from the registry
 ln.track(transform)  # create a new global run context
 ln.File("s3://my_samples01/my_artifact.fastq.gz").save()  # link file against run & transform
 ```
@@ -114,33 +154,21 @@ ln.File("s3://my_samples01/my_artifact.fastq.gz").save()  # link file against ru
 Now, you can query, e.g., for
 
 ```python
-run = ln.select(ln.Run, transform__name="Cell Ranger").order_by("-created_at").df()  # get the latest Cell Ranger pipeline runs
-# query files by selected runs, etc.
+ln.Run.select(transform__name="Awesom-O").order_by("-created_at").df()  # get the latest pipeline runs
 ```
 
-### Persist & load data objects
+### Lookup categoricals with auto-complete
+
+When you're unsure about spellings, use a lookup object:
 
 ```python
-df = pd.DataFrame({"a": [1, 2], "b": [3, 4]})
-
-ln.File(df, name="My dataframe").save()
-```
-
-<br>
-
-Get it back:
-
-```python
-file = ln.select(ln.File, name="My dataframe").one()  # query for it
-df = file.load()  # load it into memory
-    a   b
-0   1   3
-1   2   4
+lookup = ln.Transform.lookup()
+ln.Run.select(transform=lookup.awesome_o)
 ```
 
 ### Manage biological registries
 
-```
+```shell
 lamin init --storage ./myobjects --schema bionty
 ```
 

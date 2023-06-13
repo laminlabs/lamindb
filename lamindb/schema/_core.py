@@ -28,13 +28,6 @@ def view():
     erdiagram.view(graph())
 
 
-def list_tables():
-    """Return all entities."""
-    metadata = get_db_metadata()
-    table_names = [table.name for table in metadata.sorted_tables]
-    return table_names
-
-
 def get_db_metadata():
     import sqlalchemy as sa
 

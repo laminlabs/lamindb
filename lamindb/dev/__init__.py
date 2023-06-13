@@ -6,6 +6,8 @@
    BaseORM
    QuerySet
    datasets
+   hashing
+   storage
 """
 
 from lnschema_core._queryset import QuerySet

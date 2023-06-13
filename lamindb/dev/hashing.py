@@ -1,3 +1,13 @@
+"""Hashing.
+
+.. autosummary::
+   :toctree: .
+
+   hash_set
+   hash_file
+
+"""
+
 import base64
 import hashlib
 from pathlib import Path
