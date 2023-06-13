@@ -21,7 +21,7 @@ Free:
 - Track data lineage across notebooks, pipelines & apps.
 - Manage biological registries, ontologies & features.
 - Persist, load & stream data objects with a single line of code.
-- Query for anything, define & manage your own schemas.
+- Query for anything, define & manage custom schemas.
 - Manage data on your laptop, on your server or in your cloud infra.
 - Use a mesh of distributed LaminDB instances for different teams and purposes.
 - Share instances through a Hub akin to GitHub.
@@ -35,11 +35,10 @@ Enterprise:
 
 LaminDB builds semantics of R&D and biology onto well-established tools:
 
-- SQLite & Postgres for SQL databases
-- S3, GCP & local storage for object storage
-- Django ORM and fsspec
+- SQLite & Postgres for SQL databases using Django ORM (previously: SQLModel)
+- S3, GCP & local storage for object storage using fsspec
 - Configurable storage formats: pyarrow, anndata, zarr, etc.
-- Biological knowledge resources & ontologies: see [Bionty](https://lamin.ai/docs/bionty)
+- Biological knowledge sources & ontologies: see [Bionty](https://lamin.ai/docs/bionty)
 
 LaminDB is open source. For details, see [Architecture](#architecture).
 
