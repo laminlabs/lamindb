@@ -89,3 +89,4 @@ major_version_zero = true
 version_files = [
     "lamindb/__init__.py",
 ]
+changelog_incremental = true
