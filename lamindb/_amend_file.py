@@ -1,7 +1,6 @@
 from pathlib import Path
 from typing import Optional
 
-from anndata import AnnData
 from lamin_logger import logger
 from lamindb_setup import settings as setup_settings
 from lnschema_core import File
@@ -51,27 +50,11 @@ makes some configurable default choices (e.g., serialize a `DataFrame` as a
 
 
 def backed(file: File, is_run_input: Optional[bool] = None) -> AnnDataAccessor:
-    """Return a cloud-backed AnnData object for streaming."""
+    """Return a cloud-backed data object to stream."""
     _track_run_input(file, is_run_input)
     if file.suffix not in (".h5ad", ".zrad", ".zarr"):
         raise ValueError("File should have an AnnData object as the underlying data")
     return AnnDataAccessor(file)
-
-
-def stream(
-    self: File,
-    is_run_input: Optional[bool] = None,
-) -> AnnData:
-    """Stream the file into memory without caching.
-
-    Returns:
-        The streamed AnnData object.
-    """
-    if self.suffix not in (".h5ad", ".zrad", ".zarr"):
-        raise ValueError("File should have an AnnData object as the underlying data")
-    _track_run_input(self, is_run_input)
-
-    return load_to_memory(filepath_from_file_or_folder(self), stream=True)
 
 
 def _track_run_input(file: File, is_run_input: Optional[bool] = None):
@@ -92,14 +75,20 @@ def _track_run_input(file: File, is_run_input: Optional[bool] = None):
             file.input_of.add(context.run)
 
 
-def load(file: File, is_run_input: Optional[bool] = None) -> DataLike:
+def load(
+    file: File, is_run_input: Optional[bool] = None, stream: bool = False
+) -> DataLike:
     """Stage and load to memory.
 
     Returns in-memory representation if possible, e.g., an `AnnData` object
     for an `h5ad` file.
     """
+    if stream and file.suffix not in (".h5ad", ".zrad", ".zarr"):
+        raise ValueError(
+            "For streaming, file should have an AnnData object as the underlying data"
+        )
     _track_run_input(file, is_run_input)
-    return load_to_memory(filepath_from_file_or_folder(file))
+    return load_to_memory(filepath_from_file_or_folder(file), stream=stream)
 
 
 def stage(file: File, is_run_input: Optional[bool] = None) -> Path:
@@ -118,5 +107,4 @@ def stage(file: File, is_run_input: Optional[bool] = None) -> Path:
 
 File.backed = backed
 File.stage = stage
-File.stream = stream
 File.load = load
