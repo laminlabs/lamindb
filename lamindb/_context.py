@@ -10,6 +10,7 @@ from lamin_logger import logger
 from lamindb_setup import settings
 from lamindb_setup.dev import InstanceSettings
 from lnschema_core import Run, Transform
+from lnschema_core.types import TransformType
 
 is_run_from_ipython = getattr(builtins, "__IPYTHON__", False)
 
@@ -80,7 +81,9 @@ def reinitialize_notebook(
         new_version = "0"
     metadata["version"] = new_version
 
-    transform = Transform(stem_id=new_id, version=new_version, type="notebook")
+    transform = Transform(
+        stem_id=new_id, version=new_version, type=TransformType.notebook
+    )
     return transform, metadata
 
 
@@ -129,7 +132,7 @@ class context:
 
         Args:
             transform: `Optional[Transform] = None` - Can be of type
-                "pipeline" or "notebook".
+                "pipeline" or "notebook" (:class:`lamindb.types.TransformType`).
             new_run: `Optional[bool] = None` - If False, loads latest run of transform
                 (default notebook), if True, creates new run (default pipeline).
             notebook_path: `Optional[str] = None` - Filepath of notebook.
@@ -187,7 +190,7 @@ class context:
             cls.transform = transform_exists
 
         if new_run is None:  # for notebooks, default to loading latest runs
-            new_run = False if cls.transform.type == "notebook" else True  # type: ignore  # noqa
+            new_run = False if cls.transform.type == TransformType.notebook else True  # type: ignore  # noqa
 
         run = None
         if not new_run:  # try loading latest run
@@ -316,7 +319,7 @@ class context:
                 name=title,
                 short_name=filestem,
                 reference=reference,
-                type="notebook",
+                type=TransformType.notebook,
             )
             transform.save()
             logger.success(f"Saved: {transform}")
