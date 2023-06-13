@@ -88,7 +88,7 @@ def load(
             "For streaming, file should have an AnnData object as the underlying data"
         )
     _track_run_input(file, is_run_input)
-    return load_to_memory(filepath_from_file_or_folder(file))
+    return load_to_memory(filepath_from_file_or_folder(file), stream=stream)
 
 
 def stage(file: File, is_run_input: Optional[bool] = None) -> Path:
