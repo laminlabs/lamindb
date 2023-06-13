@@ -22,7 +22,7 @@ Free:
 - Manage biological registries, ontologies & features.
 - Persist, load & stream data objects with a single line of code.
 - Query for anything, define & manage custom schemas.
-- Manage data on your laptop, on your server or in your cloud infra.
+- Manage data on your laptop, server or cloud infra.
 - Use a mesh of distributed LaminDB instances for different teams and purposes.
 - Share instances through a Hub akin to GitHub.
 
@@ -71,13 +71,13 @@ We do _not_ store any of your data, but only basic metadata about you (email add
 
 ## Usage overview
 
-```
+```python
 import lamindb as ln
 ```
 
 ### Store & load data artifacts
 
-Store a `DataFrame` or an `AnnData` in the default local or cloud storage location:
+Store a `DataFrame` or an `AnnData` in default local or cloud storage:
 
 ```python
 df = pd.DataFrame({"feat1": [1, 2], "feat2": [3, 4]})
@@ -92,17 +92,12 @@ Get it back:
 ```python
 file = ln.File.select(name="My dataframe").one()  # query for it
 df = file.load()  # load it into memory
-  feat1 feat2
-0     1     3
-1     2     4
 ```
 
 ### Track & query data lineage
 
-#### Basics
-
 ```python
-ln.File.select(created_by__handle="user1").df()   # a DataFrame of all files ingested by user1
+ln.File.select(created_by__handle="lizlemon").df()   # all files ingested by lizlemon
 ln.File.select().order_by("-updated_at").first()  # latest updated file
 ```
 
@@ -111,7 +106,7 @@ ln.File.select().order_by("-updated_at").first()  # latest updated file
 Track a Jupyter Notebook:
 
 ```python
-ln.track()  # auto-detect a notebook, save as a Transform, create a Run
+ln.track()  # auto-detect notebook metadata, save as a Transform, create a Run
 ln.File("my_artifact.parquet").save()  # this file is an output of the notebook run
 ```
 
@@ -119,8 +114,7 @@ ln.File("my_artifact.parquet").save()  # this file is an output of the notebook 
 
 When you query this file later on, you'll always know where it came from:
 
-```{python}
-
+```python
 file = ln.File.select(name="my_artifact.parquet").one()
 file.transform  # gives you the notebook with title, filename, version, id, etc.
 file.run  # gives you the run of the notebook that created the file
@@ -128,7 +122,7 @@ file.run  # gives you the run of the notebook that created the file
 
 <br>
 
-Of course, you can also query for notebooks & the artifacts they created:
+Of course, you can also query for notebooks:
 
 ```python
 transforms = ln.Transform.select(  # all notebooks with 'T cell' in the title created in 2022
@@ -141,7 +135,7 @@ ln.File.select(transform__in=transforms).all()  # data artifacts created by thes
 
 To save a pipeline (complementary to workflow tools) to the `Transform` registry, call
 
-```
+```python
 ln.Transform(name="Awesom-O", version="0.41.2").save()  # save a pipeline
 ```
 
@@ -160,12 +154,21 @@ ln.File("s3://my_samples01/my_artifact.fastq.gz").save()  # link file against ru
 Now, you can query, e.g., for
 
 ```python
-ln.select(ln.Run, transform__name="Awesom-O").order_by("-created_at").df()  # get the latest Cell Ranger pipeline runs
+ln.Run.select(transform__name="Awesom-O").order_by("-created_at").df()  # get the latest pipeline runs
+```
+
+### Lookup categoricals with auto-complete
+
+When you're unsure about spellings, use a lookup object:
+
+```python
+lookup = ln.Transform.lookup()
+ln.Run.select(transform=lookup.awesome_o)
 ```
 
 ### Manage biological registries
 
-```
+```shell
 lamin init --storage ./myobjects --schema bionty
 ```
 
