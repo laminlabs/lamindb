@@ -286,6 +286,8 @@ class AnnDataRawAccessor(AnnDataAccessorSubset):
 
 
 class AnnDataAccessor(_AnnDataAttrsMixin):
+    """Cloud-backed AnnData."""
+
     def __init__(self, file: File):
         fs, file_path_str = infer_filesystem(filepath_from_file_or_folder(file))
 
