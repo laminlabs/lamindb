@@ -6,13 +6,11 @@
 
 ## 0.42.0 (2023-06-14)
 
-This is the first release after migrating from SQLModel/SQLAlchemy/alembic to Django.
+This is the first release after migrating from SQLModel/SQLAlchemy to Django.
 
 With this, we're hopeful that we get closer to a production-ready 1.0.0 API.
 
 ### Highlights
-
-The following improvements are all due to Django:
 
 - More robust & simpler automated migrations: `lamin migrate create` & `lamin migrate deploy`
 - Simpler query syntax (no joins anymore): `ln.File.select(transform__created_by=user)`
