@@ -71,9 +71,7 @@ import lamindb_setup as _lamindb_setup
 
 # prints warning of python versions
 from lamin_logger import py_version_warning as _py_version_warning
-from lamindb_setup._check_instance_setup import (
-    check_instance_setup as _check_instance_setup,
-)
+from lamindb_setup import _check_instance_setup
 
 _py_version_warning("3.8", "3.10")
 
@@ -94,7 +92,6 @@ if _INSTANCE_SETUP:
         User,
     )
 
-    from . import _check_versions  # executes checks during import
     from . import dev  # noqa
     from . import schema  # noqa
     from . import types  # noqa
