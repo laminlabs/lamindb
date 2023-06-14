@@ -1,41 +1,75 @@
 # Changelog
 
+## 0.42.0 (2023-06-14)
+
+This is the first release after migrating from SQLModel/SQLAlchemy/alembic to Django.
+
+With this, we're hopeful that we get closer to a production-ready 1.0.0 API.
+
+### Highlights
+
+The following improvements are all due to Django:
+
+- More robust & simpler automated migrations: `lamin migrate create` & `lamin migrate deploy`
+- Simpler query syntax (no joins anymore): `ln.File.select(transform__created_by=user)`
+- No need to create a session object to load relationships: access `file.transform` to load a `Transform` object
+- No need to write out link models in schemas & generally simplified schema syntax
+- Any schema package (`lnschema_myschema`) is now managed as minimal Django app
+
+### Breaking changes
+
+- Renamed `ln.Features` to `ln.FeatureSet` and is now typically instantiated with `FeatureSet.from_iterable()`
+- Removed `ln.Session`
+- Removed `.join()` (replaced `SelectStmt` with `QuerySet`)
+- `.all()` now returns a `QuerySet` and no longer a list (use `.list()` instead)
+- Access `Bionty` objects within `lnschema_bionty` via `ORM.bionty()` instead of `ORM.bionty`
+
+### Non-breaking changes
+
+- Renamed `ln.add()` to `ln.save()`
+- Introduced `ORM.select()`, `ORM.save()`, and `ORM.delete()`
+- Better tracking & linking of Bionty sources in `lnschema_bionty`
+
+### Docs
+
+- Docs got further consolidated and are auto-generate upon push events to lamindb main
+- We'll now adopt a curated changelog rather than a purely auto-generated table
+
+### Additional notes
+
+The main downsides of migrating to Django are:
+
+- Currently only one LaminDB instance loadable per Python session
+- Type hints & constructor signatures are less pythonic (SQLModel use less magic than Django) and leads to ideosyncracies in model definition (nullable defaults) and validation (validation at the ORM-level rather than the Django Form level is more manual)
+- SQLAlchemy provides the more powerful ORM, and there might be future use cases that will require them
+
+### Additional changes
+
 <!-- prettier-ignore -->
 Name | PR | Developer | Date | Version
 --- | --- | --- | --- | ---
-🔧  Remove commitizen | [766](https://github.com/laminlabs/lamindb/pull/766) | [falexwolf](https://github.com/falexwolf) | 2023-06-14 |
-🔧 Add commitizen | [765](https://github.com/laminlabs/lamindb/pull/765) | [falexwolf](https://github.com/falexwolf) | 2023-06-13 |
-📝 Prettify docs | [764](https://github.com/laminlabs/lamindb/pull/764) | [falexwolf](https://github.com/falexwolf) | 2023-06-13 |
 ♻️ Use `TransformType` | [763](https://github.com/laminlabs/lamindb/pull/763) | [falexwolf](https://github.com/falexwolf) | 2023-06-13 |
 👷 Dispatch to lamin-examples & redun-lamin-fasta | [762](https://github.com/laminlabs/lamindb/pull/762) | [falexwolf](https://github.com/falexwolf) | 2023-06-13 |
-🔥 Remove `File.stream()` | [761](https://github.com/laminlabs/lamindb/pull/761) | [falexwolf](https://github.com/falexwolf) | 2023-06-13 |
-🔥 Remove stream and lazy | [760](https://github.com/laminlabs/lamindb/pull/760) | [Koncopd](https://github.com/Koncopd) | 2023-06-12 |
-⬆️ Update bionty schema | [759](https://github.com/laminlabs/lamindb/pull/759) | [sunnyosun](https://github.com/sunnyosun) | 2023-06-12 |
-♻️ Clean up core schema module | [758](https://github.com/laminlabs/lamindb/pull/758) | [falexwolf](https://github.com/falexwolf) | 2023-06-12 | 0.42a9
+🔥 Remove `File.stream()` | [761](https://github.com/laminlabs/lamindb/pull/761) | [falexwolf](https://github.com/falexwolf) | 2023-06-13 | 0.42a9
 🚸 Prefix auto-storage-key with `lndb/` | [757](https://github.com/laminlabs/lamindb/pull/757) | [falexwolf](https://github.com/falexwolf) | 2023-06-12 |
-♻️ Move all File creation logic from `lnschema-core` here | [756](https://github.com/laminlabs/lamindb/pull/756) | [falexwolf](https://github.com/falexwolf) | 2023-06-12 |
-✨ Delete storage in File.delete | [754](https://github.com/laminlabs/lamindb/pull/754) | [Koncopd](https://github.com/Koncopd) | 2023-06-12 |
+✨ Delete storage in `File.delete()` | [754](https://github.com/laminlabs/lamindb/pull/754) | [Koncopd](https://github.com/Koncopd) | 2023-06-12 |
 ✅ Add more tests for File init | [755](https://github.com/laminlabs/lamindb/pull/755) | [falexwolf](https://github.com/falexwolf) | 2023-06-12 |
 💚 Remove test paths from pyproject.toml | [753](https://github.com/laminlabs/lamindb/pull/753) | [falexwolf](https://github.com/falexwolf) | 2023-06-11 |
-✨ Add to_adata method to AnnDataAccessor | [752](https://github.com/laminlabs/lamindb/pull/752) | [Koncopd](https://github.com/Koncopd) | 2023-06-11 |
-⬆️ Rename source_key to source in BiontySource | [751](https://github.com/laminlabs/lamindb/pull/751) | [sunnyosun](https://github.com/sunnyosun) | 2023-06-10 |
-🚚 Rename Featureset to FeatureSet | [750](https://github.com/laminlabs/lamindb/pull/750) | [sunnyosun](https://github.com/sunnyosun) | 2023-06-10 |
+✨ Add `to_adata()` method to `AnnDataAccessor` | [752](https://github.com/laminlabs/lamindb/pull/752) | [Koncopd](https://github.com/Koncopd) | 2023-06-11 |
+🚚 Rename `Featureset` to `FeatureSet` | [750](https://github.com/laminlabs/lamindb/pull/750) | [sunnyosun](https://github.com/sunnyosun) | 2023-06-10 |
 ⚠️ Refactor save - it no longer returns records | [742](https://github.com/laminlabs/lamindb/pull/742) | [falexwolf](https://github.com/falexwolf) | 2023-06-10 |
-📝 Fix upload of `lnschema-bionty` notebook run | [741](https://github.com/laminlabs/lamindb/pull/741) | [falexwolf](https://github.com/falexwolf) | 2023-06-10 |
-🚚 Re-organize biology guides | [740](https://github.com/laminlabs/lamindb/pull/740) | [falexwolf](https://github.com/falexwolf) | 2023-06-10 |
+📝 Re-organize biology guides | [740](https://github.com/laminlabs/lamindb/pull/740) | [falexwolf](https://github.com/falexwolf) | 2023-06-10 |
 ✨ Populate `bionty_version` in `ln.parse` | [739](https://github.com/laminlabs/lamindb/pull/739) | [sunnyosun](https://github.com/sunnyosun) | 2023-06-09 | 0.42a8
-🚸 Back to protect as default | [737](https://github.com/laminlabs/lamindb/pull/737) | [falexwolf](https://github.com/falexwolf) | 2023-06-09 |
 ⚡ Improved multifield query in `ln.parse` | [736](https://github.com/laminlabs/lamindb/pull/736) | [sunnyosun](https://github.com/sunnyosun) | 2023-06-09 |
-⬆️ First stable release Django release of `lnschema-bionty` | [733](https://github.com/laminlabs/lamindb/pull/733) | [sunnyosun](https://github.com/sunnyosun) | 2023-06-09 |
-:children_crossing: Validate required fields | [735](https://github.com/laminlabs/lamindb/pull/735) | [falexwolf](https://github.com/falexwolf) | 2023-06-09 |
-:truck: Move lnschema-bionty | [734](https://github.com/laminlabs/lamindb/pull/734) | [falexwolf](https://github.com/falexwolf) | 2023-06-09 |
-:memo: Integrate lnschema-bionty into reference | [732](https://github.com/laminlabs/lamindb/pull/732) | [falexwolf](https://github.com/falexwolf) | 2023-06-08 | 0.42a7
+⬆️ First stable Django release of `lnschema-bionty` | [733](https://github.com/laminlabs/lamindb/pull/733) | [sunnyosun](https://github.com/sunnyosun) | 2023-06-09 |
+🚸 Validate required fields | [735](https://github.com/laminlabs/lamindb/pull/735) | [falexwolf](https://github.com/falexwolf) | 2023-06-09 |
+📝 Integrate `lnschema_bionty` into reference | [732](https://github.com/laminlabs/lamindb/pull/732) | [falexwolf](https://github.com/falexwolf) | 2023-06-08 | 0.42a7
 🚸 Add `select` method to `BaseORM` | [730](https://github.com/laminlabs/lamindb/pull/730) | [falexwolf](https://github.com/falexwolf) | 2023-06-08 |
 📝 Overhaul README | [728](https://github.com/laminlabs/lamindb/pull/728) | [falexwolf](https://github.com/falexwolf) | 2023-06-08 |
 ♻️ Refactored features code | [731](https://github.com/laminlabs/lamindb/pull/731) | [sunnyosun](https://github.com/sunnyosun) | 2023-06-08 |
 📝 Add `configure` guide instead of setup | [727](https://github.com/laminlabs/lamindb/pull/727) | [falexwolf](https://github.com/falexwolf) | 2023-06-08 |
 🧪 Add tests for `folder.tree()` | [726](https://github.com/laminlabs/lamindb/pull/726) | [sunnyosun](https://github.com/sunnyosun) | 2023-06-08 |
-🚚 Renamed BiontyVersions to BiontySource | [725](https://github.com/laminlabs/lamindb/pull/725) | [sunnyosun](https://github.com/sunnyosun) | 2023-06-07 |
+🚚 Renamed `BiontyVersions` to `BiontySource` | [725](https://github.com/laminlabs/lamindb/pull/725) | [sunnyosun](https://github.com/sunnyosun) | 2023-06-07 |
 🔊 `folder.tree` can only be used with existing folders in storage | [724](https://github.com/laminlabs/lamindb/pull/724) | [sunnyosun](https://github.com/sunnyosun) | 2023-06-07 |
 👷 Coverage in separate job | [722](https://github.com/laminlabs/lamindb/pull/722) | [falexwolf](https://github.com/falexwolf) | 2023-06-07 |
 🎨 Import ORMs from .models before reload | [723](https://github.com/laminlabs/lamindb/pull/723) | [sunnyosun](https://github.com/sunnyosun) | 2023-06-07 |
@@ -54,7 +88,7 @@ Name | PR | Developer | Date | Version
 🔥 Remove SQLAlchemy tests | [709](https://github.com/laminlabs/lamindb/pull/709) | [falexwolf](https://github.com/falexwolf) | 2023-06-04 |
 ♻️ Absorb `DjangoORM.create()` in `DjangoORM.__init__()` | [707](https://github.com/laminlabs/lamindb/pull/707) | [falexwolf](https://github.com/falexwolf) | 2023-06-03 |
 🐛 Disentangle keys in storage related test notebooks | [708](https://github.com/laminlabs/lamindb/pull/708) | [Koncopd](https://github.com/Koncopd) | 2023-06-03 |
-🔒️ ln.track improvements | [704](https://github.com/laminlabs/lamindb/pull/704) | [Koncopd](https://github.com/Koncopd) | 2023-06-03 |
+🚸 ln.track improvements | [704](https://github.com/laminlabs/lamindb/pull/704) | [Koncopd](https://github.com/Koncopd) | 2023-06-03 |
 🏗️ Enable Django backend (part 2) | [702](https://github.com/laminlabs/lamindb/pull/702) | [falexwolf](https://github.com/falexwolf) | 2023-06-02 |
 🎨 Simplified track sample-level metadata | [705](https://github.com/laminlabs/lamindb/pull/705) | [sunnyosun](https://github.com/sunnyosun) | 2023-06-02 |
 🔊 Add more loggings to `ln.parse` | [703](https://github.com/laminlabs/lamindb/pull/703) | [sunnyosun](https://github.com/sunnyosun) | 2023-06-02 | 0.42a1
