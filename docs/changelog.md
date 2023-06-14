@@ -1,5 +1,7 @@
 # Changelog
 
+## Latest changes
+
 ## 0.42.0 (2023-06-14)
 
 This is the first release after migrating from SQLModel/SQLAlchemy/alembic to Django.
