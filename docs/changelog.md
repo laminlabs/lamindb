@@ -1,7 +1,9 @@
 # Changelog
 
 ## Latest changes
-- :memo: Switch to bullet-list in changelog. [[767](https://github.com/laminlabs/lamindb/pull/767)/[falexwolf](https://github.com/falexwolf)]
+
+- 📝 Switch to bullet-list in changelog. [[767](https://github.com/laminlabs/lamindb/pull/767)/[falexwolf](https://github.com/falexwolf)]
+
 ## 0.42.0 (2023-06-14)
 
 This is the first release after migrating from SQLModel/SQLAlchemy/alembic to Django.
@@ -43,7 +45,7 @@ The following improvements are all due to Django:
 The main downsides of migrating to Django are:
 
 - Currently only one LaminDB instance loadable per Python session
-- Type hints & constructor signatures are less pythonic (SQLModel use less magic than Django) and leads to ideosyncracies in model definition (nullable defaults) and validation (validation at the ORM-level rather than the Django Form level is more manual)
+- Type hints & constructor signatures are less pythonic (SQLModel uses less magic than Django) and lead to idiosyncrasies in model definition (nullable defaults) and validation (validation at the ORM-level is more manual as Django foresees validation at the Form level)
 - SQLAlchemy provides the more powerful ORM, and there might be future use cases that will require them
 
 ### Complete list of changes
