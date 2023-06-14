@@ -1,7 +1,7 @@
 # Changelog
 
 ## Latest changes
-
+- :memo: Switch to bullet-list in changelog. [[767](https://github.com/laminlabs/lamindb/pull/767)/[falexwolf](https://github.com/falexwolf)]
 ## 0.42.0 (2023-06-14)
 
 This is the first release after migrating from SQLModel/SQLAlchemy/alembic to Django.
