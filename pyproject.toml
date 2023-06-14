@@ -4,11 +4,10 @@ build-backend = "flit_core.buildapi"
 
 [project]
 name = "lamindb"
-version = "0.42.0a9"
 requires-python = ">=3.8"
 authors = [{name = "Lamin Labs", email = "laminlabs@gmail.com"}]
 readme = "README.md"
-dynamic = ["description"]
+dynamic = ["version", "description"]
 classifiers = [
     "Programming Language :: Python :: 3.8",
     "Programming Language :: Python :: 3.9",
@@ -78,15 +77,3 @@ preview = true
 omit = [
     "lamindb/*",
 ]
-
-[tool.commitizen]
-name = "cz_conventional_commits"
-tag_format = "$version"
-version_type = "pep440"
-version_provider = "pep621"
-update_changelog_on_bump = true
-major_version_zero = true
-version_files = [
-    "lamindb/__init__.py",
-]
-changelog_incremental = true

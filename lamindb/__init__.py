@@ -4,29 +4,23 @@ Import the package::
 
    import lamindb as ln
 
-The central class of the API is `File`, a wrapper for files, on-disk (`zarr`, etc.)
-and in-memory data objects (`DataFrame`, `AnnData`, etc.).
+`File` tracks data artifacts in form of files, on-disk (`zarr`, etc.) and
+in-memory data objects (`DataFrame`, `AnnData`, etc.) and allows to link them
+against entities of core schema & custom schemas.
+
+The core schema entities are central to lamindb's API:
 
 .. autosummary::
    :toctree: .
 
    File
    Folder
-
-Track runs of data transformations:
-
-.. autosummary::
-   :toctree: .
-
    Run
    Transform
-
-Manage feature sets:
-
-.. autosummary::
-   :toctree: .
-
    FeatureSet
+   Storage
+   User
+   Project
 
 Query & manipulate data:
 
@@ -45,15 +39,6 @@ Utility functions:
    parse
    track
    view
-
-Basic entities:
-
-.. autosummary::
-   :toctree: .
-
-   User
-   Project
-   Storage
 
 Schema - entities and their relations:
 
