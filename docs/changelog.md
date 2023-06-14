@@ -3,6 +3,7 @@
 <!-- prettier-ignore -->
 Name | PR | Developer | Date | Version
 --- | --- | --- | --- | ---
+🔧  Remove commitizen | [766](https://github.com/laminlabs/lamindb/pull/766) | [falexwolf](https://github.com/falexwolf) | 2023-06-14 |
 🔧 Add commitizen | [765](https://github.com/laminlabs/lamindb/pull/765) | [falexwolf](https://github.com/falexwolf) | 2023-06-13 |
 📝 Prettify docs | [764](https://github.com/laminlabs/lamindb/pull/764) | [falexwolf](https://github.com/falexwolf) | 2023-06-13 |
 ♻️ Use `TransformType` | [763](https://github.com/laminlabs/lamindb/pull/763) | [falexwolf](https://github.com/falexwolf) | 2023-06-13 |
