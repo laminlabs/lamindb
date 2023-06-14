@@ -10,7 +10,10 @@ LaminDB is an API layer for your existing infrastructure to manage your existing
 
 Public beta: Currently only recommended for collaborators as we still make breaking changes.
 
-Update 2023-06-05: We completed a major migration from SQLAlchemy/SQLModel to Django, available in pre-releases of v0.42.
+Update 2023-06-14:
+
+- We completed a major migration from SQLAlchemy/SQLModel to Django, available in 0.42.0.
+- The last version that is fully compatible with SQLAlchemy/SQLModel is 0.41.2.
 
 ```
 

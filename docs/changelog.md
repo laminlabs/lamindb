@@ -23,19 +23,20 @@ The following improvements are all due to Django:
 - Removed `.join()` (replaced `SelectStmt` with `QuerySet`)
 - `.all()` now returns a `QuerySet` and no longer a list (use `.list()` instead)
 - Access `Bionty` objects within `lnschema_bionty` via `ORM.bionty()` instead of `ORM.bionty`
+- Removed `File.stream()` as all functionality is now provided through `File.backed()`
 
 ### Non-breaking changes
 
+- Vastly simplified dependencies & introduced configurable installation
+- Auto-generated storage keys are now of the form `lndb/{id}.{suffix}` rather than just `{id}.{suffix}`
 - Renamed `ln.add()` to `ln.save()`
 - Introduced `ORM.select()`, `ORM.save()`, and `ORM.delete()`
 - Better tracking & linking of Bionty sources in `lnschema_bionty`
 
-### Docs
-
-- Docs got further consolidated and are auto-generate upon push events to lamindb main
-- We'll now adopt a curated changelog rather than a purely auto-generated table
-
 ### Additional notes
+
+- Consolidated docs and auto-generate upon push events to lamindb main
+- Consolidated submodules (renamed `lndb` to `lamindb-setup`, removed `lndb-storage`)
 
 The main downsides of migrating to Django are:
 
@@ -43,7 +44,7 @@ The main downsides of migrating to Django are:
 - Type hints & constructor signatures are less pythonic (SQLModel use less magic than Django) and leads to ideosyncracies in model definition (nullable defaults) and validation (validation at the ORM-level rather than the Django Form level is more manual)
 - SQLAlchemy provides the more powerful ORM, and there might be future use cases that will require them
 
-### Additional changes
+### Complete list of changes
 
 <!-- prettier-ignore -->
 Name | PR | Developer | Date | Version
