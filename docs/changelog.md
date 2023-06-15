@@ -2,7 +2,7 @@
 
 ## Latest changes
 
-- 📝 Switch to bullet-list in changelog. [[767](https://github.com/laminlabs/lamindb/pull/767)/[falexwolf](https://github.com/falexwolf)]
+- 📝 Switch to bullet-list in changelog [PR767](https://github.com/laminlabs/lamindb/pull/767) [@falexwolf](https://github.com/falexwolf)
 
 ## 0.42.0 (2023-06-14)
 
@@ -26,6 +26,7 @@ With this, we're hopeful that we get closer to a production-ready 1.0.0 API.
 - `.all()` now returns a `QuerySet` and no longer a list (use `.list()` instead)
 - Access `Bionty` objects within `lnschema_bionty` via `ORM.bionty()` instead of `ORM.bionty`
 - Removed `File.stream()` as all functionality is now provided through `File.backed()`
+- Many-to-many fields are now set with `Run.inputs.set()` and appended with `Run.inputs.add()`
 
 ### Non-breaking changes
 
