@@ -1,6 +1,9 @@
-from typing import Literal
+from pathlib import Path
+from typing import Literal, Mapping, Tuple, Union
 
+import lamindb_setup as ln_setup
 from lamin_logger import logger
+from upath import UPath
 
 
 class Settings:
@@ -27,6 +30,36 @@ class Settings:
 
     FAQ: :doc:`/faq/track-runin`.
     """
+
+    @property
+    def storage(self) -> Union[Path, UPath]:
+        """Default storage location (a path to its root).
+
+        Example:
+
+        You can set the root via by assigning `Union[str, Path, UPath]`:
+
+        >>> ln.settings.storage = "s3://some-bucket"
+
+        You can also pass additional fsspec kwargs via:
+
+        >>> kwargs = dict(
+        >>>     profile="some_profile", # fsspec arg
+        >>>     cache_regions=True # fsspec arg for s3
+        >>> )
+        >>> ln.settings.storage = "s3://some-bucket", kwargs
+        """
+        return ln_setup.settings.storage.root
+
+    @storage.setter
+    def storage(
+        self, path_kwargs: Union[str, Path, UPath, Tuple[Union[str, UPath], Mapping]]
+    ):
+        if isinstance(path_kwargs, tuple):
+            path, kwargs = path_kwargs
+        else:
+            path, kwargs = path_kwargs, {}
+        ln_setup.set.storage(path, **kwargs)
 
     @property
     def verbosity(self) -> int:
