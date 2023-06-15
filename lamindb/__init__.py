@@ -39,12 +39,6 @@ Utility functions:
    parse
    track
    view
-
-Schema - entities and their relations:
-
-.. autosummary::
-   :toctree: .
-
    schema
 
 Setup:
@@ -63,6 +57,11 @@ Developer API:
    settings
    types
    dev
+
+.. autosummary::
+
+   Settings
+
 """
 
 __version__ = "0.42.0"  # denote a release candidate for 0.1.0 with 0.1rc1
@@ -78,7 +77,6 @@ _py_version_warning("3.8", "3.10")
 _INSTANCE_SETUP = _check_instance_setup(from_lamindb=True)
 # allow the user to call setup
 from . import setup  # noqa
-from ._settings import settings
 
 # only import all other functionality if setup was successful
 if _INSTANCE_SETUP:
@@ -115,7 +113,7 @@ if _INSTANCE_SETUP:
     from ._parse import parse  # noqa
     from ._save import save  # noqa
     from ._select import select  # noqa
-    from ._settings import settings
     from ._view import view  # noqa
+    from .dev._settings import settings
 
     add = save  # backward compat
