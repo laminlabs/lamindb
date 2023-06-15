@@ -8,7 +8,6 @@ from ._logger import colors, logger
 @overload
 def delete(
     record: BaseORM,
-    delete_data_from_storage: Optional[bool] = None,
 ) -> None:
     ...
 
@@ -16,21 +15,17 @@ def delete(
 @overload
 def delete(
     records: List[BaseORM],
-    delete_data_from_storage: Optional[bool] = None,
 ) -> None:  # type: ignore
     ...
 
 
 def delete(  # type: ignore
-    record: Union[BaseORM, List[BaseORM]],
-    delete_data_from_storage: Optional[bool] = None,
-    **fields,
+    records: Union[BaseORM, List[BaseORM]],
 ) -> None:
     """Delete metadata records & files.
 
     Args:
-        record: One or multiple records as instances of `SQLModel`.
-        delete_data_from_storage: Whether to delete data from storage.
+        records: `Union[BaseORM, List[BaseORM]]` One or multiple records.
 
     Returns:
         `None`
@@ -45,20 +40,17 @@ def delete(  # type: ignore
         Delete files (delete the metadata record and the file in storage)
 
         >>> file = ln.select(File, id=file_id).one()
+        >>> ln.delete(file)
         >>> # deleting the record occurs automatically
         >>> # you will be asked whether to delete the file in storage
-        >>> # or pass boolean values to `storage`
-        >>> ln.delete(file, storage=True)
+        >>> # for more control, use:
+        >>> file.delete(storage=True)
 
     """
-    if isinstance(record, list):
-        records = record
-    elif isinstance(record, BaseORM):
-        records = [record]
-
+    if isinstance(records, list):
+        records = records
+    elif isinstance(records, BaseORM):
+        records = [records]
     for record in records:
         record.delete()
-        logger.success(
-            f"Deleted {colors.yellow(f'row {record}')} in"
-            f" {colors.blue(f'table {type(record).__name__}')}"
-        )
+        logger.success(f"Deleted {colors.yellow(f'{record}')}")

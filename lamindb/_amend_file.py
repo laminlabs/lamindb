@@ -105,21 +105,24 @@ def stage(file: File, is_run_input: Optional[bool] = None) -> Path:
     )
 
 
-def delete(file, *args, **kwargs) -> None:
-    delete_in_storage = False
-    if "storage" in kwargs:
-        delete_in_storage = kwargs.pop("storage")
-    else:
-        response = input(
-            f"Are you sure you want to delete file {file} from storage? (y/n)"
-        )
+def delete(file, storage: Optional[bool] = None) -> None:
+    """Delete file, optionall from storage.
+
+    Args:
+        storage: `Optional[bool] = None` Indicate whether you want to delete the
+        file in storage.
+    """
+    if storage is None:
+        response = input(f"Are you sure you want to delete {file} from storage? (y/n)")
         if response == "y":
             delete_in_storage = True
-    file._delete_skip_storage(*args, **kwargs)
+    else:
+        delete_in_storage = storage
     if delete_in_storage:
         filepath = file.path()
         delete_storage(filepath)
-        logger.success(f"Deleted stored file at {colors.yellow(f'{filepath}')}")
+        logger.success(f"Deleted stored object {colors.yellow(f'{filepath}')}")
+    file._delete_skip_storage()
 
 
 def _delete_skip_storage(file, *args, **kwargs) -> None:
