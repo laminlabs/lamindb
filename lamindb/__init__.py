@@ -102,8 +102,10 @@ if _INSTANCE_SETUP:
     from lamin_logger import logger as _logger
 
     # this needs to follow on the import right now
-    _logger.success(f"Loaded instance: {_lamindb_setup.settings.instance.identifier}")
-    _logger.hint(f"Running lamindb {__version__}")
+    _logger.success(
+        f"Loaded instance: {_lamindb_setup.settings.instance.identifier} (lamindb"
+        f" {__version__})"
+    )
 
     from . import _featureset_methods  # noqa
     from . import _file_methods  # noqa
