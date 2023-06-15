@@ -58,10 +58,6 @@ Developer API:
    types
    dev
 
-.. autosummary::
-
-   Settings
-
 """
 
 __version__ = "0.42.0"  # denote a release candidate for 0.1.0 with 0.1rc1
@@ -117,3 +113,5 @@ if _INSTANCE_SETUP:
     from .dev._settings import settings
 
     add = save  # backward compat
+
+    settings.__doc__ = """Global :class:`~lamindb.dev.Settings`."""
