@@ -2,7 +2,11 @@ from lamin_logger import logger
 
 
 class Settings:
-    """Settings."""
+    """Settings.
+
+    Directly use instance `lamindb.settings` rather instantiating this class
+    yourself.
+    """
 
     def __init__(self):
         self._verbosity: int = 2  # info-level logging
