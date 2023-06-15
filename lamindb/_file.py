@@ -104,7 +104,8 @@ def get_hash(
             raise RuntimeError(f"{msg}\n{hint}")
         elif settings.if_file_hash_exists == "warn_create_new":
             logger.warning(
-                f"Creating new File despite existing file with same hash: {result[0]}"
+                "Creating new File object despite existing file with same hash:"
+                f" {result[0]}"
             )
             return hash
         else:
