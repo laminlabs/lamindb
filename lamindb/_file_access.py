@@ -35,7 +35,7 @@ def attempt_accessing_path(file_or_folder: Union[File, Folder], storage_key: str
             " 'lndb/' subfolder"
         )
         legacy_storage_key = storage_key.lstrip("/lndb")
-        attempt_accessing_path(file_or_folder, legacy_storage_key)
+        return attempt_accessing_path(file_or_folder, legacy_storage_key)
     return path
 
 

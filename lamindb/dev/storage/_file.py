@@ -74,9 +74,8 @@ def store_object(localpath: Union[str, Path], storagekey: str) -> float:
     return float(size)  # because this is how we store in the db
 
 
-def delete_storage(storagekey: str):
+def delete_storage(storagepath: Union[Path, UPath]):
     """Delete arbitrary file."""
-    storagepath = settings.instance.storage.key_to_filepath(storagekey)
     if storagepath.is_file():
         storagepath.unlink()
     elif storagepath.is_dir():

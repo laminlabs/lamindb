@@ -1,16 +1,16 @@
 from pathlib import Path
 from typing import Optional
 
-from lamin_logger import logger
 from lamindb_setup import settings as setup_settings
 from lnschema_core import File
 from lnschema_core.types import DataLike
 
 from lamindb._context import context
 from lamindb._file_access import filepath_from_file_or_folder
-from lamindb.dev.storage import load_to_memory
+from lamindb.dev.storage import delete_storage, load_to_memory
 from lamindb.dev.storage.object._anndata_accessor import AnnDataAccessor
 
+from ._logger import colors, logger
 from ._settings import settings
 
 File.__doc__ = """Files: data artifacts.
@@ -105,6 +105,29 @@ def stage(file: File, is_run_input: Optional[bool] = None) -> Path:
     )
 
 
+def delete(file, *args, **kwargs) -> None:
+    delete_in_storage = False
+    if "storage" in kwargs:
+        delete_in_storage = kwargs.pop("storage")
+    else:
+        response = input(
+            f"Are you sure you want to delete file {file} from storage? (y/n)"
+        )
+        if response == "y":
+            delete_in_storage = True
+    file._delete_skip_storage(*args, **kwargs)
+    if delete_in_storage:
+        filepath = file.path()
+        delete_storage(filepath)
+        logger.success(f"Deleted stored file at {colors.yellow(f'{filepath}')}")
+
+
+def _delete_skip_storage(file, *args, **kwargs) -> None:
+    super(File, file).delete(*args, **kwargs)
+
+
 File.backed = backed
 File.stage = stage
 File.load = load
+File.delete = delete
+File._delete_skip_storage = _delete_skip_storage
