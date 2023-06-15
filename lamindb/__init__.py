@@ -104,9 +104,9 @@ if _INSTANCE_SETUP:
     _logger.success(f"Loaded instance: {_lamindb_setup.settings.instance.identifier}")
     _logger.hint(f"Running lamindb {__version__}")
 
-    from . import _amend_file  # noqa
-    from . import _amend_folder  # noqa
     from . import _featureset_methods  # noqa
+    from . import _file_methods  # noqa
+    from . import _folder_methods  # noqa
     from . import _transform_methods  # noqa
     from ._delete import delete  # noqa
     from ._parse import parse  # noqa
