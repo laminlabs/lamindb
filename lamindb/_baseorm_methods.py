@@ -8,19 +8,19 @@ from lnschema_core import BaseORM
 def search(
     cls,
     string: str,
+    *,
     field: Union[models.CharField, str, models.TextField, None] = None,
     synonyms_field: Union[models.TextField, models.CharField, str, None] = "synonyms",
     case_sensitive: bool = True,
     return_ranked_results: bool = False,
     synonyms_sep: str = "|",
 ) -> Any:
-    """Search a given string against a field.
+    """Search a field.
 
     Args:
         string: The input string to match against the field ontology values.
         field: The field against which the input string is matching.
-        synonyms_field: Also map against in the synonyms
-            If None, no mapping against synonyms.
+        synonyms_field: Also search synonyms. If `None`, is ignored.
         case_sensitive: Whether the match is case sensitive.
         return_ranked_results: If True, return all entries ranked by matching ratios.
 
