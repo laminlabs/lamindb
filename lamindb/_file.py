@@ -307,10 +307,10 @@ def init_file(file: File, *args, **kwargs):
     if isinstance(kwargs, File):
         # this is the way Django instantiates from the DB internally
         # https://github.com/django/django/blob/549d6ffeb6d626b023acc40c3bb2093b4b25b3d6/django/db/models/base.py#LL488C1-L491C51
-        args = tuple(
-            [getattr(kwargs, field.attname) for field in file._meta.concrete_fields]
-        )
-        super(File, file).__init__(*args)
+        new_args = [
+            getattr(kwargs, field.attname) for field in file._meta.concrete_fields
+        ]
+        super(File, file).__init__(*new_args)
         return None
 
     kwargs["id"] = ids.base62_20()
