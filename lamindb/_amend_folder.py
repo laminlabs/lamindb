@@ -77,3 +77,4 @@ Folder.subset = subset
 Folder.save = save
 Folder.tree = tree
 Folder.path = path
+Folder.__init__ = __init__
