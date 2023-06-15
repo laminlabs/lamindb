@@ -1,6 +1,8 @@
-from typing import List
+from pathlib import Path
+from typing import List, Union
 
 from lnschema_core import File, Folder
+from upath import UPath
 
 from ._select import select
 
@@ -16,18 +18,62 @@ Real vs. virtual folders:
 
 
 # exposed to users as Folder.subset()
-def subset(self: Folder, *, prefix: str, **fields) -> List[File]:
+def subset(folder: Folder, *, prefix: str, **fields) -> List[File]:
     """Get files via relative path to folder."""
     # ensure is actual folder, not virtual one
-    if self.key is None:
+    if folder.key is None:
         raise ValueError(
             ".get() is only defined for real folders, not virtual ones"
             "you can access files via .files or by refining with queries"
         )
     files = (
-        select(File, **fields).filter(key__startswith=self.key + "/" + prefix).list()
+        select(File, **fields).filter(key__startswith=folder.key + "/" + prefix).list()
     )
     return files
 
 
+def path(folder: Folder) -> Union[Path, UPath]:
+    """Path on storage."""
+    from lamindb._file_access import filepath_from_file_or_folder
+
+    return filepath_from_file_or_folder(folder)
+
+
+def tree(
+    folder: Folder,
+    level: int = -1,
+    limit_to_directories: bool = False,
+    length_limit: int = 1000,
+) -> None:
+    """Print a visual tree structure."""
+    from lamindb._folder import tree
+
+    return tree(
+        folder,
+        level=level,
+        limit_to_directories=limit_to_directories,
+        length_limit=length_limit,
+    )
+
+
+def __init__(folder: Folder, *args, **kwargs):
+    from lamindb._folder import init_folder
+
+    init_folder(folder, *args, **kwargs)
+
+
+def save(folder: Folder, *args, **kwargs) -> None:
+    """Save the folder."""
+    # only has attr _files if freshly initialized
+    if hasattr(folder, "_files"):
+        for file in folder._files:
+            file.save()
+    super(Folder, folder).save(*args, **kwargs)
+    if hasattr(folder, "_files"):
+        folder.files.set(folder._files)
+
+
 Folder.subset = subset
+Folder.save = save
+Folder.tree = tree
+Folder.path = path

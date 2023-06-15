@@ -210,3 +210,4 @@ File.save = save
 File._save_skip_storage = _save_skip_storage
 File.replace = replace
 File.__init__ = __init__
+File.path = path
