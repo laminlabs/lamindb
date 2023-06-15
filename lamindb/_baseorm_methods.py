@@ -1,7 +1,9 @@
-from typing import Any, NamedTuple, Union
+from typing import NamedTuple, Optional, Union
 
-from django.db import models
+from django.db.models import CharField, TextField
+from lamin_logger._lookup import Lookup
 from lnschema_core import BaseORM
+from pandas import DataFrame
 
 
 @classmethod  # type: ignore
@@ -9,20 +11,22 @@ def search(
     cls,
     string: str,
     *,
-    field: Union[models.CharField, str, models.TextField, None] = None,
-    synonyms_field: Union[models.TextField, models.CharField, str, None] = "synonyms",
+    field: Optional[Union[str, CharField, TextField]] = None,
+    top_hit: bool = False,
     case_sensitive: bool = True,
-    return_ranked_results: bool = False,
+    synonyms_field: Optional[Union[str, TextField, CharField]] = "synonyms",
     synonyms_sep: str = "|",
-) -> Any:
-    """Search a field.
+) -> Union[DataFrame, BaseORM]:
+    """Search the table.
 
     Args:
-        string: The input string to match against the field ontology values.
-        field: The field against which the input string is matching.
-        synonyms_field: Also search synonyms. If `None`, is ignored.
-        case_sensitive: Whether the match is case sensitive.
-        return_ranked_results: If True, return all entries ranked by matching ratios.
+        string: `str` The input string to match against the field ontology values.
+        field: `Optional[Union[str, CharField, TextField]] = None` The field
+            against which the input string is matching.
+        top_hit: `bool = False` If `True`, return only the top hit or hits (in
+            case of equal scores).
+        case_sensitive: `bool = False` Whether the match is case sensitive.
+        synonyms_field: `bool = True` Also search synonyms. If `None`, is ignored.
 
     Returns:
         Best match record of the input string.
@@ -38,32 +42,28 @@ def search(
     records = cls.objects.all()
     df = pd.DataFrame.from_records(records.values())
 
-    res = search(
+    result = search(
         df=df,
         string=string,
         field=field,
         synonyms_field=str(synonyms_field),
         case_sensitive=case_sensitive,
-        return_ranked_results=return_ranked_results,
+        return_ranked_results=not top_hit,
         synonyms_sep=synonyms_sep,
         tuple_name=cls.__name__,
     )
 
-    if return_ranked_results is True or res is None:
-        return res
+    if not top_hit or result is None:
+        return result
     else:
-        if isinstance(res, list):
-            return [records.get(id=r.id) for r in res]
+        if isinstance(result, list):
+            return [records.get(id=r.id) for r in result]
         else:
-            return records.get(id=res.id)
+            return records.get(id=result.id)
 
 
 @classmethod  # type: ignore
-def lookup(
-    cls, field: Union[models.CharField, models.TextField, str, None] = None
-) -> NamedTuple:
-    from lamin_logger._lookup import Lookup
-
+def lookup(cls, field: Union[CharField, TextField, str, None] = None) -> NamedTuple:
     if field is None:
         field = get_default_str_field(cls)
     if not isinstance(field, str):
@@ -77,6 +77,9 @@ def lookup(
         tuple_name=cls.__name__,
         prefix="ln",
     ).lookup()
+
+
+lookup.__doc__ = Lookup.__doc__
 
 
 def get_default_str_field(orm: BaseORM) -> str:
