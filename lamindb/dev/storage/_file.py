@@ -8,6 +8,9 @@ import pandas as pd
 import readfcs
 from lamindb_setup import settings
 from lamindb_setup.dev.upath import UPath
+from lnschema_core.models import File
+
+from lamindb._file_access import attempt_accessing_path
 
 from ._h5ad import read_adata_h5ad
 from ._zarr import read_adata_zarr
@@ -74,9 +77,13 @@ def store_object(localpath: Union[str, Path], storagekey: str) -> float:
     return float(size)  # because this is how we store in the db
 
 
-def delete_storage(storagekey: str):
+def delete_storage_using_key(file: File, storage_key: str):
+    filepath = attempt_accessing_path(file, storage_key)
+    delete_storage(filepath)
+
+
+def delete_storage(storagepath: Union[Path, UPath]):
     """Delete arbitrary file."""
-    storagepath = settings.instance.storage.key_to_filepath(storagekey)
     if storagepath.is_file():
         storagepath.unlink()
     elif storagepath.is_dir():

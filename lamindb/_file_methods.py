@@ -1,16 +1,17 @@
 from pathlib import Path
-from typing import Optional
+from typing import Optional, Union, overload  # noqa
 
-from lamin_logger import logger
 from lamindb_setup import settings as setup_settings
-from lnschema_core import File
-from lnschema_core.types import DataLike
+from lnschema_core.models import File, Run
+from lnschema_core.types import DataLike, PathLike
+from upath import UPath
 
 from lamindb._context import context
 from lamindb._file_access import filepath_from_file_or_folder
-from lamindb.dev.storage import load_to_memory
+from lamindb.dev.storage import delete_storage, load_to_memory
 from lamindb.dev.storage.object._anndata_accessor import AnnDataAccessor
 
+from ._logger import colors, logger
 from ._settings import settings
 
 File.__doc__ = """Files: data artifacts.
@@ -105,6 +106,108 @@ def stage(file: File, is_run_input: Optional[bool] = None) -> Path:
     )
 
 
+def delete(file, storage: Optional[bool] = None) -> None:
+    """Delete file, optionall from storage.
+
+    Args:
+        storage: `Optional[bool] = None` Indicate whether you want to delete the
+        file in storage.
+    """
+    if storage is None:
+        response = input(f"Are you sure you want to delete {file} from storage? (y/n)")
+        if response == "y":
+            delete_in_storage = True
+    else:
+        delete_in_storage = storage
+    if delete_in_storage:
+        filepath = file.path()
+        delete_storage(filepath)
+        logger.success(f"Deleted stored object {colors.yellow(f'{filepath}')}")
+    file._delete_skip_storage()
+
+
+def _delete_skip_storage(file, *args, **kwargs) -> None:
+    super(File, file).delete(*args, **kwargs)
+
+
+def save(file, *args, **kwargs) -> None:
+    """Save the file to database & storage."""
+    file._save_skip_storage(*args, **kwargs)
+    from lamindb._save import check_and_attempt_clearing, check_and_attempt_upload
+
+    exception = check_and_attempt_upload(file)
+    if exception is not None:
+        file._delete_skip_storage()
+        raise RuntimeError(exception)
+    exception = check_and_attempt_clearing(file)
+    if exception is not None:
+        raise RuntimeError(exception)
+
+
+def _save_skip_storage(file, *args, **kwargs) -> None:
+    if file.transform is not None:
+        file.transform.save()
+    if file.run is not None:
+        file.run.save()
+    super(File, file).save(*args, **kwargs)
+
+
+def path(self) -> Union[Path, UPath]:
+    """Path on storage."""
+    from lamindb._file_access import filepath_from_file_or_folder
+
+    return filepath_from_file_or_folder(self)
+
+
+# likely needs an arg `key`
+def replace(
+    file,
+    data: Union[PathLike, DataLike],
+    run: Optional[Run] = None,
+    format: Optional[str] = None,
+) -> None:
+    """Replace file content."""
+    from lamindb._file import replace_file
+
+    replace_file(file, data, run, format)
+
+
+@overload
+def __init__(
+    file,
+    data: Union[PathLike, DataLike],
+    key: Optional[str] = None,
+    name: Optional[str] = None,
+    run: Optional[Run] = None,
+):
+    ...
+
+
+@overload
+def __init__(
+    file,
+    **kwargs,
+):
+    ...
+
+
+def __init__(  # type: ignore
+    file,
+    *args,
+    **kwargs,
+):
+    from lamindb._file import init_file
+
+    init_file(file, *args, **kwargs)
+
+
 File.backed = backed
 File.stage = stage
 File.load = load
+File.delete = delete
+File._delete_skip_storage = _delete_skip_storage
+File.save = save
+File._save_skip_storage = _save_skip_storage
+File.replace = replace
+File.__init__ = __init__
+File.path = path
