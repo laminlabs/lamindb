@@ -35,7 +35,7 @@ def search(
     if not isinstance(field, str):
         field = field.field.name
 
-    records = cls.objects
+    records = cls.objects.all()
     df = pd.DataFrame.from_records(records.values())
 
     res = search(
@@ -69,10 +69,10 @@ def lookup(
     if not isinstance(field, str):
         field = field.field.name
 
-    records = cls.objects
+    records = cls.objects.all()
 
     return Lookup(
-        records=records.all(),
+        records=records,
         values=[i.get(field) for i in records.values()],
         tuple_name=cls.__name__,
         prefix="ln",
