@@ -8,8 +8,8 @@ from lamin_logger import logger
 from lnschema_core.models import BaseORM, File
 
 from lamindb._file_access import auto_storage_key_from_file
-from lamindb.dev.storage import delete_storage, store_object, write_adata_zarr
-from lamindb.dev.storage._file import print_hook
+from lamindb.dev.storage import store_object, write_adata_zarr
+from lamindb.dev.storage._file import delete_storage_using_key, print_hook
 
 
 @overload
@@ -106,7 +106,10 @@ def check_and_attempt_clearing(file: File) -> Optional[Exception]:
     if hasattr(file, "_clear_storagekey"):
         try:
             if file._clear_storagekey is not None:
-                delete_storage(file._clear_storagekey)
+                delete_storage_using_key(file, file._clear_storagekey)
+                logger.success(
+                    f"Deleted stale object at storage key {file._clear_storagekey}"
+                )
                 file._clear_storagekey = None
         except Exception as exception:
             return exception

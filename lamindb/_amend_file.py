@@ -129,8 +129,32 @@ def _delete_skip_storage(file, *args, **kwargs) -> None:
     super(File, file).delete(*args, **kwargs)
 
 
+def save(file, *args, **kwargs) -> None:
+    """Save the file to database & storage."""
+    file._save_skip_storage(*args, **kwargs)
+    from lamindb._save import check_and_attempt_clearing, check_and_attempt_upload
+
+    exception = check_and_attempt_upload(file)
+    if exception is not None:
+        file._delete_skip_storage()
+        raise RuntimeError(exception)
+    exception = check_and_attempt_clearing(file)
+    if exception is not None:
+        raise RuntimeError(exception)
+
+
+def _save_skip_storage(file, *args, **kwargs) -> None:
+    if file.transform is not None:
+        file.transform.save()
+    if file.run is not None:
+        file.run.save()
+    super(File, file).save(*args, **kwargs)
+
+
 File.backed = backed
 File.stage = stage
 File.load = load
 File.delete = delete
 File._delete_skip_storage = _delete_skip_storage
+File.save = save
+File._save_skip_storage = _save_skip_storage
