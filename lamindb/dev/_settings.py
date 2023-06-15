@@ -1,3 +1,5 @@
+from typing import Literal
+
 from lamin_logger import logger
 
 
@@ -11,8 +13,12 @@ class Settings:
     def __init__(self):
         self._verbosity: int = 2  # info-level logging
 
-    error_on_file_hash_exists: bool = True
-    """Upon ingestion, error if a file hash equals an existing hash in the DB.
+    if_file_hash_exists: Literal[
+        "warn_return_existing", "error", "warn_create_new"
+    ] = "warn_return_existing"
+    """Behavior if file hash exists (default: "warn_return_existing").
+
+    One of `["warn_return_existing", "error", "warn_create_new"]`.
 
     FAQ: :doc:`/faq/ingest-same-file-twice`.
     """
