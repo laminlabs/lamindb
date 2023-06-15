@@ -12,7 +12,7 @@ from lamindb.dev.storage import delete_storage, load_to_memory
 from lamindb.dev.storage.object._anndata_accessor import AnnDataAccessor
 
 from ._logger import colors, logger
-from ._settings import settings
+from .dev._settings import settings
 
 File.__doc__ = """Files: data artifacts.
 

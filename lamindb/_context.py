@@ -268,7 +268,7 @@ class context:
             _env = "colab"
         else:
             try:
-                metadata, needs_init = nbproject.header(
+                metadata, needs_init, nb = nbproject.header(
                     pypackage=pypackage,
                     filepath=notebook_path if filepath is None else filepath,
                     env=_env if editor is None else editor,
@@ -276,13 +276,25 @@ class context:
                 )
                 # this contains filepath if the header was run successfully
                 from nbproject._header import _env, _filepath  # type: ignore
-            except Exception:
+            except Exception as e:
                 nbproject_failed_msg = (
                     "Auto-retrieval of notebook name & title failed.\nPlease paste"
                     " error at: https://github.com/laminlabs/nbproject/issues/new"
-                    " \n\nFix: Run `ln.track(ln.Transform(name='My notebook'))`"
+                    f" \n\nFix: Run `ln.track(ln.Transform(name='My notebook'))`\n\n{e}"
                 )
                 raise RuntimeError(nbproject_failed_msg)
+            try:
+                from nbproject.dev._metadata_display import DisplayMeta
+                from nbproject.dev._pypackage import infer_pypackages
+
+                dm = DisplayMeta(metadata)
+                logger.info(
+                    "Notebook imports:"
+                    f" {' '.join(dm.pypackage(infer_pypackages(nb, pin_versions=True)))}"  # noqa
+                )
+            except Exception:
+                logger.debug("Inferring imported packages failed")
+                pass
 
         import lamindb as ln
 
