@@ -4,8 +4,6 @@ import nbproject_test as test
 
 import lamindb as ln
 
-ln.settings.verbosity = 3  # show hints
-
 
 def test_notebooks():
     nbdir = Path(__file__).parent
