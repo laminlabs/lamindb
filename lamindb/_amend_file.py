@@ -1,9 +1,10 @@
 from pathlib import Path
-from typing import Optional
+from typing import Optional, Union, overload  # noqa
 
 from lamindb_setup import settings as setup_settings
-from lnschema_core import File
-from lnschema_core.types import DataLike
+from lnschema_core.models import File, Run
+from lnschema_core.types import DataLike, PathLike
+from upath import UPath
 
 from lamindb._context import context
 from lamindb._file_access import filepath_from_file_or_folder
@@ -151,6 +152,55 @@ def _save_skip_storage(file, *args, **kwargs) -> None:
     super(File, file).save(*args, **kwargs)
 
 
+def path(self) -> Union[Path, UPath]:
+    """Path on storage."""
+    from lamindb._file_access import filepath_from_file_or_folder
+
+    return filepath_from_file_or_folder(self)
+
+
+# likely needs an arg `key`
+def replace(
+    file,
+    data: Union[PathLike, DataLike],
+    run: Optional[Run] = None,
+    format: Optional[str] = None,
+) -> None:
+    """Replace file content."""
+    from lamindb._file import replace_file
+
+    replace_file(file, data, run, format)
+
+
+@overload
+def __init__(
+    file,
+    data: Union[PathLike, DataLike],
+    key: Optional[str] = None,
+    name: Optional[str] = None,
+    run: Optional[Run] = None,
+):
+    ...
+
+
+@overload
+def __init__(
+    file,
+    **kwargs,
+):
+    ...
+
+
+def __init__(  # type: ignore
+    file,
+    *args,
+    **kwargs,
+):
+    from lamindb._file import init_file
+
+    init_file(file, *args, **kwargs)
+
+
 File.backed = backed
 File.stage = stage
 File.load = load
@@ -158,3 +208,5 @@ File.delete = delete
 File._delete_skip_storage = _delete_skip_storage
 File.save = save
 File._save_skip_storage = _save_skip_storage
+File.replace = replace
+File.__init__ = __init__
