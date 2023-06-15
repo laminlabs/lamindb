@@ -19,25 +19,25 @@ class Settings:
     if_file_hash_exists: Literal[
         "warn_return_existing", "error", "warn_create_new"
     ] = "warn_return_existing"
-    """Behavior if file hash exists (default: "warn_return_existing").
+    """Behavior if file hash exists (default `"warn_return_existing"`).
 
     One of `["warn_return_existing", "error", "warn_create_new"]`.
 
-    FAQ: :doc:`/faq/ingest-same-file-twice`.
+    FAQ: :doc:`/faq/ingest-same-file-twice`
     """
     track_run_inputs_upon_load: bool = False
     """Upon load, add loaded files as the input of the current notebook run.
 
-    FAQ: :doc:`/faq/track-runin`.
+    FAQ: :doc:`/faq/track-runin`
     """
 
     @property
     def storage(self) -> Union[Path, UPath]:
         """Default storage location (a path to its root).
 
-        Example:
+        Examples:
 
-        You can set the root via by assigning `Union[str, Path, UPath]`:
+        You can set the root via:
 
         >>> ln.settings.storage = "s3://some-bucket"
 
