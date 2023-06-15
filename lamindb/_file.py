@@ -10,8 +10,7 @@ from lnschema_core import File, Run, ids
 from lnschema_core.types import DataLike, PathLike
 
 from lamindb._file_access import auto_storage_key_from_file
-from lamindb._select import select
-from lamindb._settings import settings
+from lamindb.dev._settings import settings
 from lamindb.dev.hashing import hash_file
 from lamindb.dev.storage import UPath
 from lamindb.dev.storage.object import infer_suffix, size_adata, write_to_file
@@ -86,25 +85,34 @@ def serialize(
     return memory_rep, filepath, name, suffix
 
 
-def get_hash(local_filepath, suffix, check_hash: bool = True):
-    if suffix != ".zarr":  # if not streamed
-        hash = hash_file(local_filepath)
-        if not check_hash:
+def get_hash(
+    local_filepath, suffix, check_hash: bool = True
+) -> Optional[Union[str, File]]:
+    if suffix in {".zarr", ".zrad"}:
+        return None
+    hash = hash_file(local_filepath)
+    if not check_hash:
+        return hash
+    result = File.select(hash=hash).list()
+    if len(result) > 0:
+        if settings.if_file_hash_exists == "error":
+            msg = f"A file with same hash exists: {result[0]}"
+            hint = (
+                "💡 You can make this error a warning:\n"
+                "    ln.settings.if_file_hash_exists"
+            )
+            raise RuntimeError(f"{msg}\n{hint}")
+        elif settings.if_file_hash_exists == "warn_create_new":
+            logger.warning(
+                "Creating new File object despite existing file with same hash:"
+                f" {result[0]}"
+            )
             return hash
-        result = select(File, hash=hash).all()
-        if len(result) > 0:
-            msg = f"A file with same hash is already in the DB: {result}"
-            if settings.error_on_file_hash_exists:
-                hint = (
-                    "💡 You can make this error a warning:\n"
-                    "    ln.settings.error_on_file_hash_exists = False"
-                )
-                raise RuntimeError(f"{msg}\n{hint}")
-            else:
-                logger.warning(msg)
+        else:
+            logger.warning(f"Returning existing file with same hash: {result[0]}")
+            return result[0]
     else:
-        hash = None
-    return hash
+        return hash
 
 
 def get_run(run: Optional[Run]) -> Optional[Run]:
@@ -221,6 +229,8 @@ def get_file_kwargs_from_data(
     local_filepath, cloud_filepath, size, hash = get_path_size_hash(
         filepath, memory_rep, suffix
     )
+    if isinstance(hash, File):
+        return hash, None
     check_path_in_storage = get_check_path_in_storage(filepath)
     # if we pass a file, no storage key, and path is already in storage,
     # then use the existing relative path within the storage location
@@ -294,6 +304,16 @@ def init_file(file: File, *args, **kwargs):
         run=run,
         format=format,
     )
+    # an object with the same hash already exists
+    if isinstance(kwargs, File):
+        # this is the way Django instantiates from the DB internally
+        # https://github.com/django/django/blob/549d6ffeb6d626b023acc40c3bb2093b4b25b3d6/django/db/models/base.py#LL488C1-L491C51
+        new_args = [
+            getattr(kwargs, field.attname) for field in file._meta.concrete_fields
+        ]
+        super(File, file).__init__(*new_args)
+        return None
+
     kwargs["id"] = ids.base62_20()
     log_storage_hint(
         check_path_in_storage=privates["check_path_in_storage"],

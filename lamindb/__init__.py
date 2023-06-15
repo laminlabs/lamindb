@@ -39,12 +39,6 @@ Utility functions:
    parse
    track
    view
-
-Schema - entities and their relations:
-
-.. autosummary::
-   :toctree: .
-
    schema
 
 Setup:
@@ -63,6 +57,7 @@ Developer API:
    settings
    types
    dev
+
 """
 
 __version__ = "0.42.0"  # denote a release candidate for 0.1.0 with 0.1rc1
@@ -101,8 +96,10 @@ if _INSTANCE_SETUP:
     from lamin_logger import logger as _logger
 
     # this needs to follow on the import right now
-    _logger.success(f"Loaded instance: {_lamindb_setup.settings.instance.identifier}")
-    _logger.hint(f"Running lamindb {__version__}")
+    _logger.success(
+        f"Loaded instance: {_lamindb_setup.settings.instance.identifier} (lamindb"
+        f" {__version__})"
+    )
 
     from . import _baseorm_methods  # noqa
     from . import _featureset_methods  # noqa
@@ -113,7 +110,9 @@ if _INSTANCE_SETUP:
     from ._parse import parse  # noqa
     from ._save import save  # noqa
     from ._select import select  # noqa
-    from ._settings import settings
     from ._view import view  # noqa
+    from .dev._settings import settings
 
     add = save  # backward compat
+
+    settings.__doc__ = """Global :class:`~lamindb.dev.Settings`."""
