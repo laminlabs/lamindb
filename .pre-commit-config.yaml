@@ -24,15 +24,20 @@ repos:
         language_version: python3
         args:
           - --max-line-length=88
-          - --ignore=E203,TYP001,W503
+          - --ignore=E203,TYP001,W503,BLK100
         exclude: |
           (?x)(
-              __init__.py
+              __init__.py|
+              test_session.py
           )
   - repo: https://github.com/pre-commit/mirrors-prettier
     rev: v2.6.2
     hooks:
       - id: prettier
+        exclude: |
+          (?x)(
+            /Users/falexwolf/repos/lamin-platform/.git/modules/src/lamindb/COMMIT_EDITMSG
+          )
   - repo: https://github.com/kynan/nbstripout
     rev: 0.3.9
     hooks:
@@ -56,10 +61,14 @@ repos:
     rev: v0.940
     hooks:
       - id: mypy
+        exclude: |
+          (?x)(
+              test_notebooks.py
+          )
   - repo: https://github.com/pycqa/pydocstyle
     rev: 6.2.3
     hooks:
       - id: pydocstyle
         exclude: lamindb/schema/dev/__init__.py
         args: # google style + __init__, see http://www.pydocstyle.org/en/stable/error_codes.html
-          - --ignore=D100,D101,D102,D103,D105,D106,D107,D203,D204,D213,D215,D400,D401,D403,D404,D406,D407,D408,D409,D412,D413,D415,D418,D104
+          - --ignore=D100,D101,D102,D103,D105,D106,D107,D203,D204,D213,D215,D400,D401,D403,D404,D406,D407,D408,D409,D412,D413,D415,D418,D104,D417

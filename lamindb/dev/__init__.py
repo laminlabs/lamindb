@@ -3,19 +3,14 @@
 .. autosummary::
    :toctree: .
 
-   db
+   BaseORM
+   QuerySet
    datasets
-
-Utilities:
-
-.. autosummary::
-   :toctree: .
-
-   doc_args
+   hashing
+   storage
 """
 
-from lnschema_core.dev import id  # noqa
+from lnschema_core._queryset import QuerySet
+from lnschema_core.models import BaseORM
 
 from . import datasets  # noqa
-from . import db  # noqa
-from ._docs import doc_args  # noqa

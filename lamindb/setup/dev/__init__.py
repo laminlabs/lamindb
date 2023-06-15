@@ -1,6 +1,13 @@
-from lndb import dev as _dev
-from lndb.dev import *  # noqa
+"""Setup developer API.
 
-from . import upath
+Settings:
 
-__doc__ = _dev.__doc__
+.. autosummary::
+   :toctree:
+
+   UserSettings
+   InstanceSettings
+   StorageSettings
+
+"""
+from lamindb_setup.dev import InstanceSettings, StorageSettings, UserSettings  # noqa

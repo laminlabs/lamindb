@@ -1,9 +1,9 @@
 [submodule "lnschema-core"]
 	path = sub/lnschema-core
 	url = https://github.com/laminlabs/lnschema-core.git
-[submodule "lndb-storage"]
-	path = sub/lndb-storage
-	url = https://github.com/laminlabs/lndb-storage.git
-[submodule "lnschema-wetlab"]
-	path = sub/lnschema-wetlab
-	url = https://github.com/laminlabs/lnschema-wetlab.git
+[submodule "sub/lndb-setup"]
+	path = sub/lamindb-setup
+	url = https://github.com/laminlabs/lndb
+[submodule "sub/lnschema-bionty"]
+	path = sub/lnschema-bionty
+	url = https://github.com/laminlabs/lnschema-bionty

@@ -58,7 +58,6 @@ class Verbosity(IntEnum):
         yield self
         settings.verbosity = self
 
-
 def type_check(var: Any, varname: str, types: Union[type, Tuple[type, ...]]):
     if isinstance(var, types):
         return

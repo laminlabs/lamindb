@@ -1,19 +1,19 @@
 from itertools import islice
 from pathlib import Path
-from typing import List, Optional, Union
+from typing import Optional, Union
 
-import lndb
+import lamindb_setup
 from lamin_logger import logger
-from lndb_storage import UPath
-from lnschema_core import File, Folder, Run
-from lnschema_core.dev import id as id_generator
+from lnschema_core import ids
+from lnschema_core.models import File, Folder, Run
+
+from lamindb.dev.storage import UPath
 
 from ._file import (
     get_check_path_in_storage,
     get_relative_path_to_directory,
     get_relative_path_to_root,
 )
-from .dev.db._select import select
 
 
 def get_folder_kwargs_from_data(
@@ -21,7 +21,7 @@ def get_folder_kwargs_from_data(
     *,
     name: Optional[str] = None,
     key: Optional[str] = None,
-    source: Optional[Run] = None,
+    run: Optional[Run] = None,
 ):
     folderpath = UPath(path)
     check_path_in_storage = get_check_path_in_storage(folderpath)
@@ -29,7 +29,11 @@ def get_folder_kwargs_from_data(
     if key is None and check_path_in_storage:
         folder_key = get_relative_path_to_root(path=folderpath).as_posix()
     elif key is None:
-        folder_key = id_generator.folder()
+        raise RuntimeError(
+            "Only folders in the default storage can be registered!\n"
+            "You can either move your folder into the current default storage"
+            "or add a new default storage through ln.setup.set.storage()"
+        )
     else:
         folder_key = key
 
@@ -46,14 +50,14 @@ def get_folder_kwargs_from_data(
         if filepath.is_file():
             relative_path = get_relative_path_to_directory(filepath, folderpath)
             file_key = folder_key + "/" + relative_path.as_posix()
-            files.append(File(filepath, source=source, key=file_key))
+            files.append(File(filepath, run=run, key=file_key))
 
     logger.hint(f"-> n_files = {len(files)}")
 
     kwargs = dict(
         name=folderpath.name if name is None else name,
         key=folder_key,
-        storage_id=lndb.settings.storage.id,
+        storage_id=lamindb_setup.settings.storage.id,
         files=files,
     )
     privates = dict(
@@ -65,7 +69,7 @@ def get_folder_kwargs_from_data(
 
 # exposed to users as Folder.tree()
 def tree(
-    dir_path: Union[Path, UPath, str],
+    folder: Folder,
     level: int = -1,
     limit_to_directories: bool = False,
     length_limit: int = 1000,
@@ -74,12 +78,15 @@ def tree(
 
     Adapted from: https://stackoverflow.com/questions/9727673/list-directory-tree-structure-in-python  # noqa
     """
+    if folder.key is None:
+        raise RuntimeError("Virtual folders do not have a tree structure")
+
     space = "    "
     branch = "│   "
     tee = "├── "
     last = "└── "
 
-    dir_path = UPath(dir_path)
+    dir_path = UPath(folder.path())
     files = 0
     directories = 0
 
@@ -106,27 +113,53 @@ def tree(
                 yield prefix + pointer + path.name
                 files += 1
 
-    print(dir_path.name)
+    folder_tree = f"{dir_path.name}"
     iterator = inner(dir_path, level=level)
     for line in islice(iterator, length_limit):
-        print(line)
+        folder_tree += f"\n{line}"
     if next(iterator, None):
-        print(f"... length_limit, {length_limit}, reached, counted:")
+        folder_tree += f"... length_limit, {length_limit}, reached, counted:"
+    print(folder_tree)
     print(f"\n{directories} directories" + (f", {files} files" if files else ""))
 
 
-# exposed to users as Folder.subset()
-def subset(folder: Folder, *, prefix: str, **fields) -> List[File]:
-    """Get files via relative path to folder."""
-    # ensure is actual folder, not virtual one
-    if folder.key is None:
-        raise ValueError(
-            ".get() is only defined for real folders, not virtual ones"
-            "you can access files via .files or by refining with queries"
+def init_folder(folder: Folder, *args, **kwargs):
+    # Below checks for the Django-internal call in from_db()
+    # it'd be better if we could avoid this, but not being able to create a File
+    # from data with the default constructor renders the central class of the API
+    # essentially useless
+    # The danger below is not that a user might pass as many args (12 of it), but rather
+    # that at some point the Django API might change; on the other hand, this
+    # condition of for calling the constructor based on kwargs should always
+    # stay robust
+    if len(args) == len(folder._meta.concrete_fields):
+        super(Folder, folder).__init__(*args, **kwargs)
+        return None
+    # now we proceed with the user-facing constructor
+    if len(args) != 1 and "files" not in kwargs:
+        raise ValueError("Either provide path as arg or provide files as kwarg!")
+    if len(args) == 1:
+        path: Optional[Union[Path, UPath, str]] = args[0]
+    else:
+        path = None
+    name: Optional[str] = kwargs.pop("name") if "name" in kwargs else None
+    key: Optional[str] = kwargs.pop("key") if "key" in kwargs else None
+    files: Optional[str] = kwargs.pop("files") if "files" in kwargs else None
+    if len(kwargs) != 0:
+        raise ValueError(f"These kwargs are not permitted: {kwargs}")
+
+    if path is not None:
+        kwargs, privates = get_folder_kwargs_from_data(
+            path=path,
+            name=name,
+            key=key,
         )
-    files = (
-        select(File, **fields)
-        .where(File.key.startswith(folder.key + "/" + prefix))
-        .all()
-    )
-    return files
+        files = kwargs.pop("files")  # need to pop again because updated!
+    else:
+        kwargs = dict(name=name)
+    kwargs["id"] = ids.base62_20()
+    super(Folder, folder).__init__(**kwargs)
+    if path is not None:
+        folder._local_filepath = privates["local_filepath"]
+        folder._cloud_filepath = privates["cloud_filepath"]
+        folder._files = files

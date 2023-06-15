@@ -2,56 +2,220 @@
 [![codecov](https://codecov.io/gh/laminlabs/lamindb/branch/main/graph/badge.svg?token=VKMRJ7OWR3)](https://codecov.io/gh/laminlabs/lamindb)
 [![pypi](https://img.shields.io/pypi/v/lamindb?color=blue&label=pypi%20package)](https://pypi.org/project/lamindb)
 
-# LaminDB: Manage R&D data & analyses
+# LaminDB: Data lake for biology
 
-_Curate, store, track, query, integrate, and learn from biological data._
-
-LaminDB is an open-source data lake for R&D in biology.
-
-It gives you components to build on data lineage & biological entities with an ORM for your existing infrastructure: **object storage** (local directories, S3, GCP) with a mapped **SQL query engine** (SQLite, Postgres, and soon, BigQuery).
-
-You can readily create distributed **LaminDB instances** at any scale:
-
-- Get started on your laptop, deploy in the cloud, or work with a mesh of instances for different teams and purposes.
-- Share them through a hub akin to HuggingFace & GitHub - see, e.g, [lamin.ai/sunnyosun](https://lamin.ai/sunnyosun).
+LaminDB is an API layer for your existing infrastructure to manage your existing data & analyses.
 
 ```{warning}
 
 Public beta: Currently only recommended for collaborators as we still make breaking changes.
 
+Update 2023-06-14:
+
+- We completed a major migration from SQLAlchemy/SQLModel to Django, available in 0.42.0.
+- The last version that is fully compatible with SQLAlchemy/SQLModel is 0.41.2.
+
 ```
+
+## Features
+
+Free:
+
+- Track data lineage across notebooks, pipelines & apps.
+- Manage biological registries, ontologies & features.
+- Persist, load & stream data objects with a single line of code.
+- Query for anything, define & manage custom schemas.
+- Manage data on your laptop, server or cloud infra.
+- Use a mesh of distributed LaminDB instances for different teams and purposes.
+- Share instances through a Hub akin to GitHub.
+
+Enterprise:
+
+- Explore & share data, submit samples & track lineage with LaminApp (deployable in your infra).
+- Receive support, code templates & services for a BioTech data & analytics platform.
+
+## How does it work?
+
+LaminDB builds semantics of R&D and biology onto well-established tools:
+
+- SQLite & Postgres for SQL databases using Django ORM (previously: SQLModel)
+- S3, GCP & local storage for object storage using fsspec
+- Configurable storage formats: pyarrow, anndata, zarr, etc.
+- Biological knowledge sources & ontologies: see [Bionty](https://lamin.ai/docs/bionty)
+
+LaminDB is open source. For details, see [Architecture](#architecture).
 
 ## Installation
 
-LaminDB is a python package available for Python versions 3.8+.
+![pyversions](https://img.shields.io/pypi/pyversions/lamindb)
 
 ```shell
-pip install lamindb
+pip install lamindb  # basic data lake
+pip install 'lamindb[bionty]'  # biological entities
+pip install 'lamindb[nbproject]'  # Jupyter notebook tracking
+pip install 'lamindb[aws]'  # AWS dependencies (s3fs, etc.)
+pip install 'lamindb[gcp]'  # GCP dependencies (gcfs, etc.)
 ```
 
-<br>
+## Quick setup
 
-Biological entities are installed like so:
+Why do I have to sign up?
 
-```shell
-pip install 'lamindb[bionty,wetlab]'
-```
+- Data lineage requires a user identity (who modified which data when?).
+- Collaboration requires a user identity (who shares this with me?).
 
-## Import
+Signing up takes 1 min.
 
-In your python script, import LaminDB as:
+We do _not_ store any of your data, but only basic metadata about you (email address, etc.) & your instances (S3 bucket names, etc.).
+
+- Sign up: `lamin signup <email>`
+- Log in: `lamin login <handle>`
+- Init a data lake: `lamin init --storage <default-storage-location>`
+
+## Usage overview
 
 ```python
 import lamindb as ln
 ```
 
-## Quick setup
+### Store & load data artifacts
 
-Quick setup on the command line:
+Store a `DataFrame` or an `AnnData` in default local or cloud storage:
 
-- Sign up via `lamin signup <email>`
-- Log in via `lamin login <handle>`
-- Set up an instance via `lamin init --storage <storage> --schema <schema_modules>`
+```python
+df = pd.DataFrame({"feat1": [1, 2], "feat2": [3, 4]})
+
+ln.File(df, name="My dataframe").save()  # create a File object and save it
+```
+
+<br>
+
+Get it back:
+
+```python
+file = ln.File.select(name="My dataframe").one()  # query for it
+df = file.load()  # load it into memory
+```
+
+### Track & query data lineage
+
+```python
+ln.File.select(created_by__handle="lizlemon").df()   # all files ingested by lizlemon
+ln.File.select().order_by("-updated_at").first()  # latest updated file
+```
+
+#### Notebooks
+
+Track a Jupyter Notebook:
+
+```python
+ln.track()  # auto-detect notebook metadata, save as a Transform, create a Run
+ln.File("my_artifact.parquet").save()  # this file is an output of the notebook run
+```
+
+<br>
+
+When you query this file later on, you'll always know where it came from:
+
+```python
+file = ln.File.select(name="my_artifact.parquet").one()
+file.transform  # gives you the notebook with title, filename, version, id, etc.
+file.run  # gives you the run of the notebook that created the file
+```
+
+<br>
+
+Of course, you can also query for notebooks:
+
+```python
+transforms = ln.Transform.select(  # all notebooks with 'T cell' in the title created in 2022
+    name__contains="T cell", type="notebook", created_at__year=2022
+).all()
+ln.File.select(transform__in=transforms).all()  # data artifacts created by these notebooks
+```
+
+#### Pipelines
+
+To save a pipeline (complementary to workflow tools) to the `Transform` registry, call
+
+```python
+ln.Transform(name="Awesom-O", version="0.41.2").save()  # save a pipeline
+```
+
+<br>
+
+To track a run of a registered pipeline:
+
+```python
+transform = ln.Transform.select(name="Awesom-O", version="0.41.2").one()  # select a pipeline from the registry
+ln.track(transform)  # create a new global run context
+ln.File("s3://my_samples01/my_artifact.fastq.gz").save()  # link file against run & transform
+```
+
+<br>
+
+Now, you can query, e.g., for
+
+```python
+ln.Run.select(transform__name="Awesom-O").order_by("-created_at").df()  # get the latest pipeline runs
+```
+
+### Lookup categoricals with auto-complete
+
+When you're unsure about spellings, use a lookup object:
+
+```python
+lookup = ln.Transform.lookup()
+ln.Run.select(transform=lookup.awesome_o)
+```
+
+### Manage biological registries
+
+```shell
+lamin init --storage ./myobjects --schema bionty
+```
+
+<br>
+
+...
+
+### Track biological features
+
+...
+
+### Track biological samples
+
+...
+
+### Manage custom schemas
+
+1. Create a GitHub repository with Django ORMs similar to [github.com/laminlabs/lnschema-lamin1](https://github.com/laminlabs/lnschema-lamin1)
+2. Create & deploy migrations via `lamin migrate create` and `lamin migrate deploy`
+
+It's fastest if we do this for you based on our templates within an enterprise plan, but you can fully manage the process yourself.
+
+## Notebooks
+
+- Find all guide notebooks [here](https://github.com/laminlabs/lamindb/tree/main/docs/guide).
+- You can run these notebooks in hosted versions of JupyterLab, e.g., [Saturn Cloud](https://github.com/laminlabs/run-lamin-on-saturn), Google Vertex AI, and others or on Google Colab.
+- Jupyter Lab & Notebook offer a fully interactive experience, VS Code & others require using the CLI (`lamin track my-notebook.ipynb`)
+
+## Architecture
+
+LaminDB consists of the `lamindb` Python package, which builds on a number of open-source packages:
+
+- [bionty](https://github.com/laminlabs/bionty): Basic biological entities (usable standalone).
+- [lamindb-setup](https://github.com/laminlabs/lamindb-setup): Setup & configure LaminDB, client for Lamin Hub.
+- [lnschema-core](https://github.com/laminlabs/lnschema-core): Core schema, ORMs to model data objects & data lineage.
+- [lnschema-bionty](https://github.com/laminlabs/lnschema-bionty): Bionty schema, ORMs that are coupled to Bionty's entities.
+- [lnschema-lamin1](https://github.com/laminlabs/lnschema-lamin1): Exemplary configured schema to track samples, treatments, etc.
+- [nbproject](https://github.com/laminlabs/nbproject): Parse metadata from Jupyter notebooks.
+
+LaminHub & LaminApp are not open-sourced, neither are templates that model lab operations.
+
+Lamin's packages build on the infrastructure listed
+[above](#how-does-it-work). Previously, they were based on SQLAlchemy/SQLModel
+instead of Django, and cloudpathlib instead of fsspec.
 
 ## Documentation
 

@@ -3,8 +3,9 @@ from typing import Union
 from urllib.request import urlretrieve
 
 import anndata as ad
+import numpy as np
 import pandas as pd
-from lnschema_core.dev import id
+from lnschema_core import ids
 
 
 def file_fcs() -> Path:
@@ -75,33 +76,39 @@ def anndata_mouse_sc_lymph_node() -> ad.AnnData:
 
 
 def anndata_pbmc68k_reduced() -> ad.AnnData:
-    """Modified from scanpy.datasets.pbmc68k_reduced()."""
-    import scanpy as sc
+    """Modified from scanpy.datasets.pbmc68k_reduced().
 
-    pbmc68k = sc.datasets.pbmc68k_reduced()
-    pbmc68k.obs.rename(columns={"bulk_labels": "cell_type"}, inplace=True)
-    pbmc68k.obs["cell_type"] = pbmc68k.obs["cell_type"].cat.rename_categories(
-        {"Dendritic": "Dendritic cells", "CD14+ Monocyte": "CD14+ Monocytes"}
+    This code was run::
+
+        pbmc68k = sc.datasets.pbmc68k_reduced()
+        pbmc68k.obs.rename(columns={"bulk_labels": "cell_type"}, inplace=True)
+        pbmc68k.obs["cell_type"] = pbmc68k.obs["cell_type"].cat.rename_categories(
+            {"Dendritic": "Dendritic cells", "CD14+ Monocyte": "CD14+ Monocytes"}
+        )
+        del pbmc68k.obs["G2M_score"]
+        del pbmc68k.obs["S_score"]
+        del pbmc68k.obs["phase"]
+        del pbmc68k.obs["n_counts"]
+        del pbmc68k.var["dispersions"]
+        del pbmc68k.var["dispersions_norm"]
+        del pbmc68k.var["means"]
+        del pbmc68k.uns["rank_genes_groups"]
+        del pbmc68k.uns["bulk_labels_colors"]
+        del pbmc68k.raw
+        sc.pp.subsample(pbmc68k, fraction=0.1, random_state=123)
+    """
+    filepath, _ = urlretrieve(
+        "https://lamindb-test.s3.amazonaws.com/scrnaseq_pbmc68k_tiny.h5ad"
     )
-    del pbmc68k.obs["G2M_score"]
-    del pbmc68k.obs["S_score"]
-    del pbmc68k.obs["phase"]
-    del pbmc68k.obs["n_counts"]
-    del pbmc68k.var["dispersions"]
-    del pbmc68k.var["dispersions_norm"]
-    del pbmc68k.var["means"]
-    del pbmc68k.uns["rank_genes_groups"]
-    del pbmc68k.uns["bulk_labels_colors"]
-    del pbmc68k.raw
-    sc.pp.subsample(pbmc68k, fraction=0.1, random_state=123)
-    return pbmc68k
+    return ad.read(filepath)
 
 
 def anndata_pbmc3k_processed() -> ad.AnnData:
     """Modified from scanpy.pbmc3k_processed()."""
-    import scanpy as sc
-
-    pbmc3k = sc.datasets.pbmc3k_processed()
+    filepath, _ = urlretrieve(
+        "https://lamindb-test.s3.amazonaws.com/scrnaseq_scanpy_pbmc3k_processed.h5ad"
+    )
+    pbmc3k = ad.read(filepath)
     pbmc3k.obs.rename(columns={"louvain": "cell_type"}, inplace=True)
     return pbmc3k
 
@@ -124,6 +131,44 @@ def anndata_human_immune_cells() -> ad.AnnData:
     return ad.read(filepath)
 
 
+def anndata_with_obs() -> ad.AnnData:
+    """Create a mini anndata with cell_type, disease and tissue."""
+    import anndata as ad
+    import bionty as bt
+
+    celltypes = ["T cell", "hematopoietic stem cell", "hepatocyte", "my new cell type"]
+    celltype_ids = ["CL:0000084", "CL:0000037", "CL:0000182", ""]
+    diseases = [
+        "chronic kidney disease",
+        "liver lymphoma",
+        "cardiac ventricle disorder",
+        "Alzheimer disease",
+    ]
+    tissues = ["kidney", "liver", "heart", "brain"]
+    df = pd.DataFrame()
+    df["cell_type"] = celltypes * 10
+    df["cell_type_id"] = celltype_ids * 10
+    df["tissue"] = tissues * 10
+    df["disease"] = diseases * 10
+    df.index = "obs" + df.index.astype(str)
+
+    adata = ad.AnnData(X=np.zeros(shape=(40, 100), dtype=np.float32), obs=df)
+    adata.var.index = bt.Gene().df().head(100)["ensembl_gene_id"].values
+
+    return adata
+
+
+def df_iris() -> pd.DataFrame:
+    """The iris dataset as in sklearn.
+
+    Original code::
+
+        sklearn.datasets.load_iris(as_frame=True).frame
+    """
+    filepath, _ = urlretrieve("https://lamindb-test.s3.amazonaws.com/iris.parquet")
+    return pd.read_parquet(filepath)
+
+
 def generate_cell_ranger_files(
     sample_name: str, basedir: Union[str, Path] = "./", output_only: bool = True
 ):
@@ -142,11 +187,11 @@ def generate_cell_ranger_files(
         fastqdir.mkdir(parents=True, exist_ok=True)
         fastqfile1 = fastqdir / f"{sample_name}_R1_001.fastq.gz"
         with open(fastqfile1, "w") as f:
-            f.write(f"{id.base62(n_char=6)}")
+            f.write(f"{ids.base62(n_char=6)}")
         fastqfile2 = fastqdir / f"{sample_name}_R2_001.fastq.gz"
         fastqfile2.touch(exist_ok=True)
         with open(fastqfile2, "w") as f:
-            f.write(f"{id.base62(n_char=6)}")
+            f.write(f"{ids.base62(n_char=6)}")
 
     sampledir = basedir / f"{sample_name}"
     for folder in ["raw_feature_bc_matrix", "filtered_feature_bc_matrix", "analysis"]:
@@ -172,7 +217,7 @@ def generate_cell_ranger_files(
     ]:
         file = sampledir / filename
         with open(file, "w") as f:
-            f.write(f"{id.base62(n_char=6)}")
+            f.write(f"{ids.base62(n_char=6)}")
 
     return sampledir
 

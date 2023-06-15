@@ -1,12 +1,14 @@
 import importlib
+import inspect
 from typing import Optional
 
 from IPython.display import display
 from lamin_logger import colors
-from lndb import settings
-from lndb.dev._setup_schema import get_schema_module_name
+from lamindb_setup import settings
+from lamindb_setup.dev._setup_schema import get_schema_module_name
+from lnschema_core import BaseORM
 
-from .dev.db._select import select
+from ._select import select
 
 
 def view(n: int = 10, schema: Optional[str] = None):
@@ -25,18 +27,19 @@ def view(n: int = 10, schema: Optional[str] = None):
     for schema_name in schema_names:
         schema_module = importlib.import_module(get_schema_module_name(schema_name))
 
-        tables = [
+        orms = [
             i
             for i in schema_module.__dict__.values()
-            if i.__class__.__name__ == "SQLModelMetaclass" and hasattr(i, "__table__")
+            if inspect.isclass(i) and issubclass(i, BaseORM) and i.__name__ != "BaseORM"
         ]
-        section = f"* module: {colors.green(colors.bold(schema_name))} *"
-        section_no_color = f"* module: {schema_name} *"
-        print("*" * len(section_no_color))
-        print(section)
-        print("*" * len(section_no_color))
-        for entity in tables:
-            df = select(entity).df()
+        if len(schema_names) > 1:
+            section = f"* module: {colors.green(colors.bold(schema_name))} *"
+            section_no_color = f"* module: {schema_name} *"
+            print("*" * len(section_no_color))
+            print(section)
+            print("*" * len(section_no_color))
+        for orm in orms:
+            df = select(orm).df()
             if df.shape[0] > 0:
-                print(colors.blue(colors.bold(entity.__name__)))
+                print(colors.blue(colors.bold(orm.__name__)))
                 display(df.iloc[-n:])

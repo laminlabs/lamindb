@@ -1,5 +1,9 @@
 # Reference
 
-```{eval-rst}
-.. automodule:: lamindb
+```{toctree}
+:maxdepth: 1
+
+ref/lamindb
+ref/lnschema-bionty
+ref/bionty
 ```

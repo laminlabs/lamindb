@@ -1,21 +1,16 @@
-import os
+import os  # noqa
 import shutil
 from pathlib import Path
-from time import perf_counter
 
 import nox
-from laminci import move_built_docs_to_docs_slash_project_slug, upload_docs_artifact
-from laminci.nox import (
-    build_docs,
-    login_testuser1,
-    login_testuser2,
-    run_pre_commit,
-    run_pytest,
-)
+from laminci import upload_docs_artifact
+from laminci.nox import build_docs, login_testuser1, login_testuser2, run_pre_commit
 
-import lamindb as ln
-
-nox.options.reuse_existing_virtualenvs = True
+# we'd like to aggregate coverage information across sessions
+# and for this the code needs to be located in the same
+# directory in every github action runner
+# this also allows to break out an installation section
+nox.options.default_venv_backend = "none"
 
 
 @nox.session
@@ -24,63 +19,71 @@ def lint(session: nox.Session) -> None:
 
 
 @nox.session
-@nox.parametrize("package", ["lamindb", "lndb-storage"])
-def build(session, package):
-    t_start = perf_counter()
+@nox.parametrize(
+    "group",
+    ["unit", "guide", "biology", "faq", "storage", "docs"],
+)
+def install(session, group):
+    # run with pypi install on main
+    if os.getenv("GITHUB_EVENT_NAME") != "push":
+        # run with submodule install on a PR
+        submodules = " ".join(
+            [
+                "./sub/lamindb-setup",
+                "./sub/lnschema-core",
+            ]
+        )
+        session.run(*f"pip install --no-deps {submodules}".split())
+    extras = ""
+    if group == "unit":
+        extras += ",bionty"
+    elif group == "guide":
+        extras += ",aws,bionty"
+    elif group == "biology":
+        extras += ",bionty"
+    elif group == "storage":
+        extras += ",aws"
+    elif group == "docs":
+        extras += ",bionty"
+    if os.getenv("GITHUB_EVENT_NAME") != "push":
+        if "bionty" in extras:
+            session.run(*"pip install --no-deps ./sub/lnschema-bionty".split())
+    session.run(*f"pip install .[test{extras}]".split())
+
+
+@nox.session
+@nox.parametrize(
+    "group",
+    ["unit", "guide", "biology", "faq", "storage"],
+)
+def build(session, group):
     login_testuser2(session)
     login_testuser1(session)
-    t_total = perf_counter() - t_start
-    print(f"Done logging in: {t_total:.3f}s")
+    coverage_args = "--cov=lamindb --cov-append --cov-report=term-missing"  # noqa
+    if group == "unit":
+        session.run(*f"pytest -s {coverage_args} ./tests".split())
+    elif group == "guide":
+        session.run(*f"pytest -s {coverage_args} ./docs/guide".split())
+    elif group == "biology":
+        session.run(*f"pytest -s {coverage_args} ./docs/biology".split())
+    elif group == "faq":
+        session.run(*f"pytest -s {coverage_args} ./docs/faq".split())
+    elif group == "storage":
+        session.run(*f"pytest -s {coverage_args} ./docs/storage".split())
 
-    t_start = perf_counter()
-    # run with pypi install on main
-    if "GITHUB_EVENT_NAME" in os.environ and os.environ["GITHUB_EVENT_NAME"] != "push":
-        # run with submodule install on a PR
-        session.install("./sub/lnschema-core[dev,test]")
-        session.install("./sub/lnschema-wetlab[dev,test]")
-        session.install("./sub/lndb-storage[dev,test]")
 
-    session.install(".[dev,test]")
-    t_total = perf_counter() - t_start
-    print(f"Done installing: {t_total:.3f}s")
-
-    if package == "lamindb":
-        run_pytest(session)
-    else:
-        # navigate into submodule so that lamin-project.yml is correctly read
-        os.chdir(f"./sub/{package}")
-        session.run("pytest", "-s", "./tests", "--ignore", "./tests/test_migrations.py")
-
-    if package == "lamindb":
-        t_start = perf_counter()
-
-        # Schemas
-        ln.setup.load("testuser1/lamin-site-assets", migrate=True)
-
-        file = ln.select(ln.File, key="docs/lnschema_core_docs.zip").one()
-        shutil.unpack_archive(file.stage(), "lnschema_core_docs")
-        Path("lnschema_core_docs/guide/0-core-schema.ipynb").rename(
-            "docs/guide/lnschema-core.ipynb"
-        )
-        Path("lnschema_core_docs/guide/1-data-validation.ipynb").rename(
-            "docs/guide/data-validation.ipynb"
-        )
-
-        file = ln.select(ln.File, key="docs/lnschema_bionty_docs.zip").one()
-        shutil.unpack_archive(file.stage(), "lnschema_bionty_docs")
-        Path("lnschema_bionty_docs/guide/orms.ipynb").rename(
-            "docs/guide/lnschema-bionty.ipynb"
-        )
-        Path("lnschema_bionty_docs/guide/knowledge.ipynb").rename(
-            "docs/guide/knowledge.ipynb"
-        )
-
-        t_total = perf_counter() - t_start
-        print(f"Done pulling artifacts: {t_total:.3f}s")
-
-        t_start = perf_counter()
-        build_docs(session)
-        login_testuser1(session)
-        upload_docs_artifact()
-        move_built_docs_to_docs_slash_project_slug()
-        print(f"Done building docs and uploading: {t_total:.3f}s")
+@nox.session
+def docs(session):
+    # move artifacts into right place
+    for group in ["guide", "biology", "faq", "storage"]:
+        if Path(f"./docs-{group}").exists():
+            shutil.rmtree(f"./docs/{group}")
+            Path(f"./docs-{group}").rename(f"./docs/{group}")
+        if group == "biology":
+            Path("./docs/biology/lnschema-bionty.ipynb").rename(
+                "./docs/lnschema-bionty.ipynb"
+            )
+    login_testuser1(session)
+    session.run(*"lamin init --storage ./docsbuild --schema bionty".split())
+    build_docs(session)
+    upload_docs_artifact(aws=True)
