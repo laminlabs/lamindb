@@ -2,6 +2,7 @@
 
 ## Latest changes
 
+- 🚸 `ln.settings` can now change logging verbosity levels [PR630](https://github.com/laminlabs/lamindb/pull/630) [@falexwolf](https://github.com/falexwolf)
 - ♻️ Refactor core schema methods and storage access [PR770](https://github.com/laminlabs/lamindb/pull/770) [@falexwolf](https://github.com/falexwolf)
 - 🐛 Make `User.name` nullable again [PR769](https://github.com/laminlabs/lamindb/pull/769) [@falexwolf](https://github.com/falexwolf)
 - ✅ Add integrity tests for migrations back [PR768](https://github.com/laminlabs/lamindb/pull/768) [@falexwolf](https://github.com/falexwolf)
