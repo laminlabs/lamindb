@@ -2,15 +2,24 @@
 
 ## Latest changes
 
-- 🎨 Consolidate `lnschema_bionty` and upgrade to latest Bionty [PR775](https://github.com/laminlabs/lamindb/pull/775) [@falexwolf](https://github.com/falexwolf)
+## 0.43.0 (2023-06-15)
+
+### Highlights
+
 - ✨ Enable `BaseORM.search()` and improved `BaseORM.lookup()` [PR771](https://github.com/laminlabs/lamindb/pull/771) [@sunnyosun](https://github.com/sunnyosun)
+- 🎨 Consolidate `lnschema_bionty` and upgrade to latest Bionty [PR775](https://github.com/laminlabs/lamindb/pull/775) [@falexwolf](https://github.com/falexwolf)
+
+### Features
+
 - 🚸 Introduce `ln.settings.storage` to switch default storage [PR773](https://github.com/laminlabs/lamindb/pull/773) [@falexwolf](https://github.com/falexwolf)
 - 🚸 Return existing file if hash exists (idempotency) [PR772](https://github.com/laminlabs/lamindb/pull/772) [@falexwolf](https://github.com/falexwolf)
 - 🚸 `ln.settings` can now change logging verbosity levels [PR630](https://github.com/laminlabs/lamindb/pull/630) [@falexwolf](https://github.com/falexwolf)
+
+### Refactors
+
 - ♻️ Refactor core schema methods and storage access [PR770](https://github.com/laminlabs/lamindb/pull/770) [@falexwolf](https://github.com/falexwolf)
 - 🐛 Make `User.name` nullable again [PR769](https://github.com/laminlabs/lamindb/pull/769) [@falexwolf](https://github.com/falexwolf)
 - ✅ Add integrity tests for migrations back [PR768](https://github.com/laminlabs/lamindb/pull/768) [@falexwolf](https://github.com/falexwolf)
-- 📝 Switch to bullet-list in changelog [PR767](https://github.com/laminlabs/lamindb/pull/767) [@falexwolf](https://github.com/falexwolf)
 
 ## 0.42.0 (2023-06-14)
 
