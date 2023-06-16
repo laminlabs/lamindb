@@ -2,6 +2,7 @@
 
 ## Latest changes
 
+- 🚀 Fix coverage of unit tests [PR777](https://github.com/laminlabs/lamindb/pull/777) [@sunnyosun](https://github.com/sunnyosun)
 - 🩹 Increase char length `Transform.short_name` to 128 [PR778](https://github.com/laminlabs/lamindb/pull/778) [@falexwolf](https://github.com/falexwolf)
 - 🔊 Move logging from stderr to stdout [PR776](https://github.com/laminlabs/lamindb/pull/776) [@falexwolf](https://github.com/falexwolf)
 
