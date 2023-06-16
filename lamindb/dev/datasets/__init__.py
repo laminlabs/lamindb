@@ -16,6 +16,7 @@
    anndata_pbmc68k_reduced
    anndata_pbmc3k_processed
    anndata_with_obs
+   fake_bio_notebook_titles
 """
 
 from ._core import (
@@ -33,3 +34,4 @@ from ._core import (
     file_mini_csv,
     generate_cell_ranger_files,
 )
+from ._fake import fake_bio_notebook_titles

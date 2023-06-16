@@ -66,6 +66,8 @@ test = [
     "psycopg2-binary",
     "nbproject>=0.8.7",
     "nbproject_test>=0.3.0",
+    # biology
+    "faker-biology",
 ]
 
 [project.scripts]
