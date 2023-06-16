@@ -101,6 +101,7 @@ if _INSTANCE_SETUP:
         f" {__version__})"
     )
 
+    from . import _baseorm_methods  # noqa
     from . import _featureset_methods  # noqa
     from . import _file_methods  # noqa
     from . import _folder_methods  # noqa

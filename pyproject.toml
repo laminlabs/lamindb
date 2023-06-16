@@ -20,7 +20,7 @@ dependencies = [
     "lnschema_core==0.35.8",
     "lamindb_setup==0.47.7",
     # Lamin GREATEREQ packages
-    "lamin_logger>=0.5.0",
+    "lamin_logger>=0.5.1",
     "erdiagram>=0.1.2",
     # others
     "pydantic[dotenv]",  # move this to lamindb_setup
@@ -66,6 +66,8 @@ test = [
     "psycopg2-binary",
     "nbproject>=0.8.7",
     "nbproject_test>=0.3.0",
+    # biology
+    "faker-biology",
 ]
 
 [project.scripts]
