@@ -50,7 +50,7 @@ def install(session, group):
     if os.getenv("GITHUB_EVENT_NAME") != "push":
         if "bionty" in extras:
             session.run(*"pip install --no-deps ./sub/lnschema-bionty".split())
-    session.run(*f"pip install .[test{extras}]".split())
+    session.run(*f"pip install -e .[test{extras}]".split())
 
 
 @nox.session
@@ -63,7 +63,7 @@ def build(session, group):
     login_testuser1(session)
     coverage_args = "--cov=lamindb --cov-append --cov-report=term-missing"  # noqa
     if group == "unit":
-        session.run(*f"pytest -s {coverage_args} ./tests".split())
+        session.run(*f"pytest {coverage_args} ./tests".split())
     elif group == "guide":
         session.run(*f"pytest -s {coverage_args} ./docs/guide".split())
     elif group == "biology":
