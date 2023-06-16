@@ -63,7 +63,24 @@ def search(
 
 
 @classmethod  # type: ignore
-def lookup(cls, field: Union[CharField, TextField, str, None] = None) -> NamedTuple:
+def lookup(cls, field: Optional[Union[str, CharField, TextField]] = None) -> NamedTuple:
+    """Return an auto-complete object for a field.
+
+    Args:
+        field: The field to look up the values for.
+            Defaults to 'name'.
+
+    Returns:
+        A `NamedTuple` of lookup information of the field values with a
+        dictionary converter.
+
+    Examples:
+        >>> import lnschema_bionty as lb
+        >>> lookup = lb.Gene.lookup()
+        >>> lookup.adgb_dt
+        >>> lookup_dict = lookup.dict()
+        >>> lookup['ADGB-DT']
+    """
     if field is None:
         field = get_default_str_field(cls)
     if not isinstance(field, str):
