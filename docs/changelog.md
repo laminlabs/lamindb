@@ -2,6 +2,7 @@
 
 ## Latest changes
 
+- ✨ Enable `BaseORM.search()` and improved `BaseORM.lookup()` [PR771](https://github.com/laminlabs/lamindb/pull/771) [@sunnyosun](https://github.com/sunnyosun)
 - 🚸 Introduce `ln.settings.storage` to switch default storage [PR773](https://github.com/laminlabs/lamindb/pull/773) [@falexwolf](https://github.com/falexwolf)
 - 🚸 Return existing file if hash exists (idempotency) [PR772](https://github.com/laminlabs/lamindb/pull/772) [@falexwolf](https://github.com/falexwolf)
 - 🚸 `ln.settings` can now change logging verbosity levels [PR630](https://github.com/laminlabs/lamindb/pull/630) [@falexwolf](https://github.com/falexwolf)
