@@ -36,7 +36,8 @@ repos:
       - id: prettier
         exclude: |
           (?x)(
-            /Users/falexwolf/repos/lamin-platform/.git/modules/src/lamindb/COMMIT_EDITMSG
+            /Users/falexwolf/repos/lamin-platform/.git/modules/src/lamindb/COMMIT_EDITMSG|
+            docs/changelog.md
           )
   - repo: https://github.com/kynan/nbstripout
     rev: 0.3.9
