@@ -278,9 +278,11 @@ class context:
                 from nbproject._header import _env, _filepath  # type: ignore
             except Exception as e:
                 nbproject_failed_msg = (
-                    "Auto-retrieval of notebook name & title failed.\nPlease paste"
-                    " error at: https://github.com/laminlabs/nbproject/issues/new"
-                    f" \n\nFix: Run `ln.track(ln.Transform(name='My notebook'))`\n\n{e}"
+                    "Auto-retrieval of notebook name & title failed.\n\nFixes: Either"
+                    " init on the CLI `lamin track my-notebook.ipynb` or pass"
+                    " transform manually `ln.track(ln.Transform(name='My"
+                    " notebook'))`\n\nPlease consider pasting error at:"
+                    f" https://github.com/laminlabs/nbproject/issues/new\n\n{e}"
                 )
                 raise RuntimeError(nbproject_failed_msg)
             try:
