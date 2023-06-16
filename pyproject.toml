@@ -19,8 +19,8 @@ dependencies = [
     # !!! They cannot be pinned ANYWHERE else !!!
     "lnschema_core==0.35.9",
     "lamindb_setup==0.47.8",
+    "lamin_logger==0.5.2",
     # Lamin GREATEREQ packages
-    "lamin_logger>=0.5.1",
     "erdiagram>=0.1.2",
     # others
     "pydantic[dotenv]",  # move this to lamindb_setup
