@@ -2,6 +2,7 @@
 
 ## Latest changes
 
+- 🔊 Move logging from stderr to stdout [PR776](https://github.com/laminlabs/lamindb/pull/776) [@falexwolf](https://github.com/falexwolf)
 ## 0.43.0 (2023-06-15)
 
 ### Highlights
