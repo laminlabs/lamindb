@@ -67,8 +67,8 @@ def lookup(cls, field: Optional[Union[str, CharField, TextField]] = None) -> Nam
     """Return an auto-complete object for a field.
 
     Args:
-        field: The field to look up the values for.
-            Defaults to 'name'.
+        field: `Optional[Union[str, CharField, TextField]] = None` The field to
+            look up the values for. Defaults to 'name'.
 
     Returns:
         A `NamedTuple` of lookup information of the field values with a
