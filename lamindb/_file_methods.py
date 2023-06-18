@@ -9,7 +9,11 @@ from upath import UPath
 from lamindb._context import context
 from lamindb._file_access import filepath_from_file_or_folder
 from lamindb.dev.storage import delete_storage, load_to_memory
-from lamindb.dev.storage.object._anndata_accessor import AnnDataAccessor
+from lamindb.dev.storage.object._backed_access import (
+    AnnDataAccessor,
+    BackedAccessor,
+    backed_access,
+)
 
 from ._logger import colors, logger
 from .dev._settings import settings
@@ -50,12 +54,19 @@ makes some configurable default choices (e.g., serialize a `DataFrame` as a
 """
 
 
-def backed(file: File, is_run_input: Optional[bool] = None) -> AnnDataAccessor:
+def backed(
+    file: File, is_run_input: Optional[bool] = None
+) -> Union[AnnDataAccessor, BackedAccessor]:
     """Return a cloud-backed data object to stream."""
+    suffixes = (".h5", ".hdf5", ".h5ad", ".zrad", ".zarr")
+    if file.suffix not in suffixes:
+        raise ValueError(
+            "File should have a zarr or h5 object as the underlying data, please use"
+            " one of the following suffixes for the object name:"
+            f" {', '.join(suffixes)}."
+        )
     _track_run_input(file, is_run_input)
-    if file.suffix not in (".h5ad", ".zrad", ".zarr"):
-        raise ValueError("File should have an AnnData object as the underlying data")
-    return AnnDataAccessor(file)
+    return backed_access(file)
 
 
 def _track_run_input(file: File, is_run_input: Optional[bool] = None):
