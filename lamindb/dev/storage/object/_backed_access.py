@@ -1,3 +1,4 @@
+from collections import namedtuple
 from functools import cached_property
 from typing import Dict, Mapping, Union
 
@@ -13,6 +14,7 @@ from anndata._io.specs.methods import read_indices
 from anndata._io.specs.registry import get_spec, read_elem, read_elem_partial
 from anndata._io.zarr import read_dataframe_legacy as read_dataframe_legacy_zarr
 from anndata.compat import _read_attr
+from fsspec.core import OpenFile
 from lamindb_setup.dev.upath import infer_filesystem
 from lnschema_core import File
 
@@ -288,28 +290,23 @@ class AnnDataRawAccessor(AnnDataAccessorSubset):
 class AnnDataAccessor(_AnnDataAttrsMixin):
     """Cloud-backed AnnData."""
 
-    def __init__(self, file: File):
-        fs, file_path_str = infer_filesystem(filepath_from_file_or_folder(file))
+    def __init__(
+        self,
+        connection: Union[OpenFile, None],
+        storage: Union[h5py.File, zarr.Group],
+        filename: str,
+    ):
+        self._conn = connection
+        self.storage = storage
 
-        if file.suffix == ".h5ad":
-            self._conn = fs.open(file_path_str, mode="rb")
-            try:
-                self.storage = h5py.File(self._conn, mode="r")
-            except Exception as e:
-                self._conn.close()
-                raise e
+        if isinstance(self.storage, h5py.File):
             self._attrs_keys = _keys_h5(self.storage)
-        elif file.suffix in (".zarr", ".zrad"):
-            self._conn = None
-            mapper = fs.get_mapper(file_path_str, check=True)
-            self.storage = zarr.open(mapper, mode="r")
+        elif isinstance(self.storage, zarr.Group):
             self._attrs_keys = _keys_zarr(self.storage)
         else:
-            raise ValueError(
-                f"file should have .h5ad, .zarr or .zrad suffix, not {file.suffix}."
-            )
+            raise ValueError("Unknown type of storage.")
 
-        self._name = file.name
+        self._name = filename
 
         self._obs_names, self._var_names = read_indices(self.storage)
 
@@ -404,3 +401,34 @@ def _keys_h5(storage: h5py.File):
         if len(keys) > 0:
             attrs_keys[attr] = keys
     return attrs_keys
+
+
+BackedAccessor = namedtuple("BackedAccessor", ["connection", "storage"])
+
+
+def backed_access(file: File) -> Union[AnnDataAccessor, BackedAccessor]:
+    fs, file_path_str = infer_filesystem(filepath_from_file_or_folder(file))
+
+    if file.suffix in (".h5", ".hdf5", ".h5ad"):
+        conn = fs.open(file_path_str, mode="rb")
+        try:
+            storage = h5py.File(conn, mode="r")
+        except Exception as e:
+            conn.close()
+            raise e
+    elif file.suffix in (".zarr", ".zrad"):
+        conn = None
+        storage = zarr.open(fs.get_mapper(file_path_str, check=True), mode="r")
+    else:
+        raise ValueError(
+            "file should have .h5, .hdf5, .h5ad, .zarr or .zrad suffix, not"
+            f" {file.suffix}."
+        )
+
+    if file.suffix in (".h5ad", ".zrad"):
+        return AnnDataAccessor(conn, storage, file.name)
+    else:
+        if get_spec(storage).encoding_type == "anndata":
+            return AnnDataAccessor(conn, storage, file.name)
+        else:
+            return BackedAccessor(conn, storage)
