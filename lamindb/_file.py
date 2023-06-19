@@ -52,11 +52,6 @@ def serialize(
                     filepath, **root._kwargs
                 )  # inherit fsspec kwargs from root
         memory_rep = None
-        if name is None:
-            if key is None:
-                name = filepath.name
-            else:
-                name = PurePath(key).name
         # also see tests/test_file_hashing.py
         suffix = "".join(filepath.suffixes)
     # For now, in-memory objects are always saved to local_filepath first
