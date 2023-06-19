@@ -1,9 +1,17 @@
+import builtins
 from typing import NamedTuple, Optional, Union
 
 from django.db.models import CharField, TextField
+from lamin_logger import logger
 from lamin_logger._lookup import Lookup
 from lnschema_core import BaseORM
 from pandas import DataFrame
+
+_is_ipython = getattr(builtins, "__IPYTHON__", False)
+
+
+class ValidationError(Exception):
+    pass
 
 
 def validate_required_fields(orm: BaseORM, kwargs):
@@ -19,9 +27,43 @@ def validate_required_fields(orm: BaseORM, kwargs):
         raise TypeError(f"{missing_fields} are required.")
 
 
-def __init__(orm, *args, **kwargs):
-    if not args:  # object is loaded from DB
+def suggest_objects_with_same_name(orm: BaseORM, kwargs) -> Optional[str]:
+    if "name" not in kwargs:
+        return None
+    else:
+        try:
+            results = orm.search(kwargs["name"])
+        except KeyError:  # will be fixed soon
+            return None
+        # test for exact match
+        if results.index[0] == kwargs["name"]:
+            logger.warning("Object with exact same name exists, returning it")
+            return "object-with-same-name-exists"
+        else:
+            msg = "Entries with similar names exist:"
+            if _is_ipython:
+                from IPython.display import display
+
+                logger.warning(f"{msg}")
+                display(results)
+            else:
+                logger.warning(f"{msg}\n{results.name}")
+    return None
+
+
+def __init__(orm: BaseORM, *args, **kwargs):
+    if not args:  # if args, object is loaded from DB
         validate_required_fields(orm, kwargs)
+        result = suggest_objects_with_same_name(orm, kwargs)
+        if result == "object-with-same-name-exists":
+            existing_object = orm.select(name=kwargs["name"])[0]
+            new_args = [
+                getattr(existing_object, field.attname)
+                for field in orm._meta.concrete_fields
+            ]
+            super(BaseORM, orm).__init__(*new_args)
+            orm._state.adding = False  # mimic from_db
+            return None
     super(BaseORM, orm).__init__(*args, **kwargs)
 
 
