@@ -365,7 +365,7 @@ def replace_file(
 
     if file.key is not None:
         key_path = PurePosixPath(file.key)
-        if isinstance(data, (Path, str)):
+        if isinstance(data, (Path, str)) and kwargs["name"] is not None:
             new_name = kwargs["name"]  # use the name from the data filepath
         else:
             # do not change the key stem to file.name
