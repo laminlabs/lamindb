@@ -2,6 +2,7 @@
 
 ## Latest changes
 
+- ⬆️ Fix empty string bug in map_synonyms [PR780](https://github.com/laminlabs/lamindb/pull/780) [@sunnyosun](https://github.com/sunnyosun)
 - 📝 Re-group readme [PR782](https://github.com/laminlabs/lamindb/pull/782) [@falexwolf](https://github.com/falexwolf)
 - ✨ Add backed access to raw h5 and zarr objects [PR781](https://github.com/laminlabs/lamindb/pull/781) [@Koncopd](https://github.com/Koncopd)
 - ⬆️ Field is no longer required for map_synonyms and search in bionty [PR779](https://github.com/laminlabs/lamindb/pull/779) [@sunnyosun](https://github.com/sunnyosun)
