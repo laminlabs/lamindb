@@ -23,6 +23,7 @@ dependencies = [
     # Lamin GREATEREQ packages
     "erdiagram>=0.1.2",
     # others
+    "rapidfuzz",
     "pydantic[dotenv]",  # move this to lamindb_setup
     "pyarrow",
     "typing_extensions!=4.6.0",
