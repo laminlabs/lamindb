@@ -18,16 +18,16 @@ from lamindb.dev.storage.object import infer_suffix, size_adata, write_to_file
 DIRS = AppDirs("lamindb", "laminlabs")
 
 NO_NAME_ERROR = """\
-Pass a name or key in `ln.File(...)` when ingesting in-memory data.
+Pass a name or key in `ln.File(...)`.
 """
 
 
 def serialize(
     data: Union[Path, UPath, str, pd.DataFrame, AnnData],
-    name,
+    name: Optional[str],
     format,
-    key: Optional[str] = None,
-) -> Tuple[Any, Union[Path, UPath], str, str]:
+    key: Optional[str],
+) -> Tuple[Any, Union[Path, UPath], str]:
     """Serialize a data object that's provided as file or in memory."""
     # Convert str to either Path or UPath
     if isinstance(data, (str, Path, UPath)):
@@ -52,37 +52,34 @@ def serialize(
                     filepath, **root._kwargs
                 )  # inherit fsspec kwargs from root
         memory_rep = None
-        if name is None:
-            if key is None:
-                name = filepath.name
-            else:
-                name = PurePath(key).name
         # also see tests/test_file_hashing.py
         suffix = "".join(filepath.suffixes)
     # For now, in-memory objects are always saved to local_filepath first
     # This behavior will change in the future
     elif isinstance(data, (pd.DataFrame, AnnData)):
-        if name is None and key is None:
-            raise ValueError(NO_NAME_ERROR)
-        if name is None:
-            name = PurePath(key).name
         memory_rep = data
         suffix = infer_suffix(data, format)
         # the following filepath is always local
+        if name is None and key is None:
+            raise ValueError(NO_NAME_ERROR)
+        elif name is not None:
+            cache_name = name
+        else:
+            cache_name = Path(key).name
         if lamindb_setup.settings.storage.cache_dir is not None:
-            filepath = lamindb_setup.settings.storage.cache_dir / name
+            filepath = lamindb_setup.settings.storage.cache_dir / cache_name
         else:
             # this should likely be added to lamindb_setup.settings.storage
             cache_dir = Path(DIRS.user_cache_dir)
             cache_dir.mkdir(parents=True, exist_ok=True)
-            filepath = cache_dir / name
+            filepath = cache_dir / cache_name
         if filepath.suffixes == []:
             filepath = filepath.with_suffix(suffix)
         if suffix != ".zarr":
             write_to_file(data, filepath)
     else:
         raise NotImplementedError("Recording not yet implemented for this type.")
-    return memory_rep, filepath, name, suffix
+    return memory_rep, filepath, suffix
 
 
 def get_hash(
@@ -223,7 +220,7 @@ def get_file_kwargs_from_data(
     format: Optional[str] = None,
 ):
     run = get_run(run)
-    memory_rep, filepath, safe_name, suffix = serialize(data, name, format, key)
+    memory_rep, filepath, suffix = serialize(data, name, format, key)
     # the following will return a localpath that is not None if filepath is local
     # it will return a cloudpath that is not None if filepath is on the cloud
     local_filepath, cloud_filepath, size, hash = get_path_size_hash(
@@ -238,8 +235,11 @@ def get_file_kwargs_from_data(
     if memory_rep is None and key is None and check_path_in_storage:
         key = get_relative_path_to_root(path=filepath).as_posix()
 
+    if name is None and key is None:
+        raise ValueError(NO_NAME_ERROR)
+
     kwargs = dict(
-        name=safe_name,
+        name=name,
         suffix=suffix,
         hash=hash,
         key=key,
@@ -350,27 +350,16 @@ def replace_file(
     run: Optional[Run] = None,
     format: Optional[str] = None,
 ):
-    if isinstance(data, (Path, str)):
-        name_to_pass = None
-    else:
-        name_to_pass = file.name
-
     kwargs, privates = get_file_kwargs_from_data(
         data=data,
-        name=name_to_pass,
+        name=file.name,
+        key=file.key,
         run=run,
         format=format,
     )
-
-    if kwargs["name"] != file.name:
-        logger.warning(
-            f"Your new filename '{kwargs['name']}' does not match the previous filename"
-            f" '{file.name}': to update the name, set file.name = '{kwargs['name']}'"
-        )
-
     if file.key is not None:
         key_path = PurePosixPath(file.key)
-        if isinstance(data, (Path, str)):
+        if isinstance(data, (Path, str)) and kwargs["name"] is not None:
             new_name = kwargs["name"]  # use the name from the data filepath
         else:
             # do not change the key stem to file.name

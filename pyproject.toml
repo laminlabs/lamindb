@@ -17,12 +17,13 @@ dependencies = [
     # Lamin PINNED packages
     # !!! These packages should ALWAYS be pinned, do not unpin !!!
     # !!! They cannot be pinned ANYWHERE else !!!
-    "lnschema_core==0.35.9",
+    "lnschema_core==0.35.10",
     "lamindb_setup==0.47.8",
     "lamin_logger==0.5.3",
     # Lamin GREATEREQ packages
     "erdiagram>=0.1.2",
     # others
+    "rapidfuzz",
     "pydantic[dotenv]",  # move this to lamindb_setup
     "pyarrow",
     "typing_extensions!=4.6.0",

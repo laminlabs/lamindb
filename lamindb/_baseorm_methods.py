@@ -1,9 +1,75 @@
+import builtins
 from typing import NamedTuple, Optional, Union
 
 from django.db.models import CharField, TextField
+from lamin_logger import logger
 from lamin_logger._lookup import Lookup
 from lnschema_core import BaseORM
 from pandas import DataFrame
+
+_is_ipython = getattr(builtins, "__IPYTHON__", False)
+
+
+class ValidationError(Exception):
+    pass
+
+
+def validate_required_fields(orm: BaseORM, kwargs):
+    required_fields = {
+        k.name for k in orm._meta.fields if not k.null and k.default is None
+    }
+    required_fields_not_passed = {k: None for k in required_fields if k not in kwargs}
+    kwargs.update(required_fields_not_passed)
+    missing_fields = [
+        k for k, v in kwargs.items() if v is None and k in required_fields
+    ]
+    if missing_fields:
+        raise TypeError(f"{missing_fields} are required.")
+
+
+def suggest_objects_with_same_name(orm: BaseORM, kwargs) -> Optional[str]:
+    if "name" not in kwargs:
+        return None
+    elif kwargs["name"] is None:
+        return None
+    else:
+        try:
+            results = orm.search(kwargs["name"])
+            # let's subset results to those with at least 0.5 levensteihn distance
+            results = results.loc[results.__ratio__ >= 0.5]
+        except KeyError:  # will be fixed soon
+            return None
+        # test for exact match
+        if len(results) > 0:
+            if results.index[0] == kwargs["name"]:
+                logger.warning("Object with exact same name exists, returning it")
+                return "object-with-same-name-exists"
+            else:
+                msg = "Entries with similar names exist:"
+                if _is_ipython:
+                    from IPython.display import display
+
+                    logger.warning(f"{msg}")
+                    display(results)
+                else:
+                    logger.warning(f"{msg}\n{results.name}")
+    return None
+
+
+def __init__(orm: BaseORM, *args, **kwargs):
+    if not args:  # if args, object is loaded from DB
+        validate_required_fields(orm, kwargs)
+        result = suggest_objects_with_same_name(orm, kwargs)
+        if result == "object-with-same-name-exists":
+            existing_object = orm.select(name=kwargs["name"])[0]
+            new_args = [
+                getattr(existing_object, field.attname)
+                for field in orm._meta.concrete_fields
+            ]
+            super(BaseORM, orm).__init__(*new_args)
+            orm._state.adding = False  # mimic from_db
+            return None
+    super(BaseORM, orm).__init__(*args, **kwargs)
 
 
 @classmethod  # type: ignore
@@ -122,5 +188,6 @@ def get_default_str_field(orm: BaseORM) -> str:
     return field.name
 
 
+BaseORM.__init__ = __init__
 BaseORM.search = search
 BaseORM.lookup = lookup

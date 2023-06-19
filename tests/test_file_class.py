@@ -2,7 +2,8 @@ import shutil
 from pathlib import Path
 
 import pytest
-from lnschema_core.models import File
+
+from lamindb import File
 
 # how do we properly abstract out the default storage variable?
 # currently, we're only mocking it through `default_storage` as
@@ -31,16 +32,22 @@ def get_test_filepaths(request):
 def test_init_from_filepath_basic_fields(get_test_filepaths, key, name):
     isin_default_storage = get_test_filepaths[0]
     test_filepath = get_test_filepaths[1]
-    file = File(test_filepath, key=key, name=name)
-    assert file.name == test_filepath.name if name is None else file.name == name
-    assert file.suffix == ".csv"
-    if key is None:
-        assert (
-            file.key == "my_folder/my_file.csv"
-            if isin_default_storage
-            else file.key is None
-        )
+    if name is None and key is None and not isin_default_storage:
+        with pytest.raises(ValueError):
+            file = File(test_filepath, key=key, name=name)
     else:
-        assert file.key == key
-    assert file.storage.root == Path("./default_storage").resolve().as_posix()
-    assert file.hash == "DMF1ucDxtqgxw5niaXcmYQ"
+        file = File(test_filepath, key=key, name=name)
+        assert file.name is None if name is None else file.name == name
+        assert file.suffix == ".csv"
+        if key is None:
+            assert (
+                file.key == "my_folder/my_file.csv"
+                if isin_default_storage
+                else file.key is None
+            )
+        else:
+            assert file.key == key
+        assert file.storage.root == Path("./default_storage").resolve().as_posix()
+        assert file.hash == "DMF1ucDxtqgxw5niaXcmYQ"
+        if isin_default_storage and key is None:
+            assert str(test_filepath.resolve()) == str(file.path())
