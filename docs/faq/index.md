@@ -5,7 +5,7 @@
 
 ingest
 notebooks
-ingest-same-file-twice
+idempotency
 track-runin
 acid
 setup
