@@ -38,18 +38,19 @@ def suggest_objects_with_same_name(orm: BaseORM, kwargs) -> Optional[str]:
         except KeyError:  # will be fixed soon
             return None
         # test for exact match
-        if results.index[0] == kwargs["name"]:
-            logger.warning("Object with exact same name exists, returning it")
-            return "object-with-same-name-exists"
-        else:
-            msg = "Entries with similar names exist:"
-            if _is_ipython:
-                from IPython.display import display
-
-                logger.warning(f"{msg}")
-                display(results)
+        if len(results) > 0:
+            if results.index[0] == kwargs["name"]:
+                logger.warning("Object with exact same name exists, returning it")
+                return "object-with-same-name-exists"
             else:
-                logger.warning(f"{msg}\n{results.name}")
+                msg = "Entries with similar names exist:"
+                if _is_ipython:
+                    from IPython.display import display
+
+                    logger.warning(f"{msg}")
+                    display(results)
+                else:
+                    logger.warning(f"{msg}\n{results.name}")
     return None
 
 

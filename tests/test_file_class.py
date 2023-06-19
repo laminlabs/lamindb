@@ -49,3 +49,5 @@ def test_init_from_filepath_basic_fields(get_test_filepaths, key, name):
             assert file.key == key
         assert file.storage.root == Path("./default_storage").resolve().as_posix()
         assert file.hash == "DMF1ucDxtqgxw5niaXcmYQ"
+        if isin_default_storage:
+            assert str(test_filepath.resolve()) == str(file.path())

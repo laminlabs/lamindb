@@ -344,24 +344,13 @@ def replace_file(
     run: Optional[Run] = None,
     format: Optional[str] = None,
 ):
-    if isinstance(data, (Path, str)):
-        name_to_pass = None
-    else:
-        name_to_pass = file.name
-
     kwargs, privates = get_file_kwargs_from_data(
         data=data,
-        name=name_to_pass,
+        name=file.name,
+        key=file.key,
         run=run,
         format=format,
     )
-
-    if kwargs["name"] != file.name:
-        logger.warning(
-            f"Your new filename '{kwargs['name']}' does not match the previous filename"
-            f" '{file.name}': to update the name, set file.name = '{kwargs['name']}'"
-        )
-
     if file.key is not None:
         key_path = PurePosixPath(file.key)
         if isinstance(data, (Path, str)) and kwargs["name"] is not None:
