@@ -4,7 +4,7 @@
 
 # LaminDB: Data lake for biology
 
-LaminDB is an API layer for your existing infrastructure to manage your existing data & analyses.
+LaminDB is an API layer for your existing infrastructure to manage your existing data.
 
 ```{warning}
 
@@ -34,45 +34,15 @@ Enterprise:
 - Explore & share data, submit samples & track lineage with LaminApp (deployable in your infra).
 - Receive support, code templates & services for a BioTech data & analytics platform.
 
-## How does it work?
+## Usage overview
 
-LaminDB builds semantics of R&D and biology onto well-established tools:
-
-- SQLite & Postgres for SQL databases using Django ORM (previously: SQLModel)
-- S3, GCP & local storage for object storage using fsspec
-- Configurable storage formats: pyarrow, anndata, zarr, etc.
-- Biological knowledge sources & ontologies: see [Bionty](https://lamin.ai/docs/bionty)
-
-LaminDB is open source. For details, see [Architecture](#architecture).
-
-## Installation
-
-![pyversions](https://img.shields.io/pypi/pyversions/lamindb)
+Init a basic data lake on the command line:
 
 ```shell
-pip install lamindb  # basic data lake
-pip install 'lamindb[bionty]'  # biological entities
-pip install 'lamindb[nbproject]'  # Jupyter notebook tracking
-pip install 'lamindb[aws]'  # AWS dependencies (s3fs, etc.)
-pip install 'lamindb[gcp]'  # GCP dependencies (gcfs, etc.)
+lamin init --storage <default-local-or-cloud-storage-location>
 ```
 
-## Quick setup
-
-Why do I have to sign up?
-
-- Data lineage requires a user identity (who modified which data when?).
-- Collaboration requires a user identity (who shares this with me?).
-
-Signing up takes 1 min.
-
-We do _not_ store any of your data, but only basic metadata about you (email address, etc.) & your instances (S3 bucket names, etc.).
-
-- Sign up: `lamin signup <email>`
-- Log in: `lamin login <handle>`
-- Init a data lake: `lamin init --storage <default-storage-location>`
-
-## Usage overview
+Import lamindb:
 
 ```python
 import lamindb as ln
@@ -85,12 +55,12 @@ Store a `DataFrame` or an `AnnData` in default local or cloud storage:
 ```python
 df = pd.DataFrame({"feat1": [1, 2], "feat2": [3, 4]})
 
-ln.File(df, name="My dataframe").save()  # create a File object and save it
+ln.File(df, name="My dataframe").save()  # create a File artifact and save it
 ```
 
 <br>
 
-Get it back:
+Load it back:
 
 ```python
 file = ln.File.select(name="My dataframe").one()  # query for it
@@ -194,15 +164,46 @@ lamin init --storage ./myobjects --schema bionty
 
 It's fastest if we do this for you based on our templates within an enterprise plan, but you can fully manage the process yourself.
 
-## Notebooks
+## Installation
 
-- Find all guide notebooks [here](https://github.com/laminlabs/lamindb/tree/main/docs/guide).
-- You can run these notebooks in hosted versions of JupyterLab, e.g., [Saturn Cloud](https://github.com/laminlabs/run-lamin-on-saturn), Google Vertex AI, and others or on Google Colab.
-- Jupyter Lab & Notebook offer a fully interactive experience, VS Code & others require using the CLI (`lamin track my-notebook.ipynb`)
+![pyversions](https://img.shields.io/pypi/pyversions/lamindb)
+
+```shell
+pip install lamindb  # basic data lake
+pip install 'lamindb[bionty]'  # biological entities
+pip install 'lamindb[nbproject]'  # Jupyter notebook tracking
+pip install 'lamindb[aws]'  # AWS dependencies (s3fs, etc.)
+pip install 'lamindb[gcp]'  # GCP dependencies (gcfs, etc.)
+```
+
+## Quick setup
+
+Why do I have to sign up?
+
+- Data lineage requires a user identity (who modified which data when?).
+- Collaboration requires a user identity (who shares this with me?).
+
+Signing up takes 1 min.
+
+We do _not_ store any of your data, but only basic metadata about you (email address, etc.) & your LaminDB instances (S3 bucket names, etc.).
+
+- Sign up: `lamin signup <email>`
+- Log in: `lamin login <handle>`
+
+## How does it work?
+
+LaminDB builds semantics of R&D and biology onto well-established tools:
+
+- SQLite & Postgres for SQL databases using Django ORM (previously: SQLModel)
+- S3, GCP & local storage for object storage using fsspec
+- Configurable storage formats: pyarrow, anndata, zarr, etc.
+- Biological knowledge sources & ontologies: see [Bionty](https://lamin.ai/docs/bionty)
+
+LaminDB is open source.
 
 ## Architecture
 
-LaminDB consists of the `lamindb` Python package, which builds on a number of open-source packages:
+LaminDB consists of the `lamindb` Python package (repository [here](https://github.com/laminlabs/lamindb)) with its components:
 
 - [bionty](https://github.com/laminlabs/bionty): Basic biological entities (usable standalone).
 - [lamindb-setup](https://github.com/laminlabs/lamindb-setup): Setup & configure LaminDB, client for Lamin Hub.
@@ -211,11 +212,17 @@ LaminDB consists of the `lamindb` Python package, which builds on a number of op
 - [lnschema-lamin1](https://github.com/laminlabs/lnschema-lamin1): Exemplary configured schema to track samples, treatments, etc.
 - [nbproject](https://github.com/laminlabs/nbproject): Parse metadata from Jupyter notebooks.
 
-LaminHub & LaminApp are not open-sourced, neither are templates that model lab operations.
+LaminHub & LaminApp are not open-sourced, and neither are templates that model lab operations.
 
 Lamin's packages build on the infrastructure listed
 [above](#how-does-it-work). Previously, they were based on SQLAlchemy/SQLModel
 instead of Django, and cloudpathlib instead of fsspec.
+
+## Notebooks
+
+- Find all guide notebooks [here](https://github.com/laminlabs/lamindb/tree/main/docs/guide).
+- You can run these notebooks in hosted versions of JupyterLab, e.g., [Saturn Cloud](https://github.com/laminlabs/run-lamin-on-saturn), Google Vertex AI, and others or on Google Colab.
+- Jupyter Lab & Notebook offer a fully interactive experience, VS Code & others require using the CLI (`lamin track my-notebook.ipynb`)
 
 ## Documentation
 
