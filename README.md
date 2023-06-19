@@ -58,8 +58,6 @@ df = pd.DataFrame({"feat1": [1, 2], "feat2": [3, 4]})
 ln.File(df, name="My dataframe").save()  # create a File artifact and save it
 ```
 
-<br>
-
 Load it back:
 
 ```python
@@ -83,8 +81,6 @@ ln.track()  # auto-detect notebook metadata, save as a Transform, create a Run
 ln.File("my_artifact.parquet").save()  # this file is an output of the notebook run
 ```
 
-<br>
-
 When you query this file later on, you'll always know where it came from:
 
 ```python
@@ -92,8 +88,6 @@ file = ln.File.select(name="my_artifact.parquet").one()
 file.transform  # gives you the notebook with title, filename, version, id, etc.
 file.run  # gives you the run of the notebook that created the file
 ```
-
-<br>
 
 Of course, you can also query for notebooks:
 
@@ -112,8 +106,6 @@ To save a pipeline (complementary to workflow tools) to the `Transform` registry
 ln.Transform(name="Awesom-O", version="0.41.2").save()  # save a pipeline
 ```
 
-<br>
-
 To track a run of a registered pipeline:
 
 ```python
@@ -121,8 +113,6 @@ transform = ln.Transform.select(name="Awesom-O", version="0.41.2").one()  # sele
 ln.track(transform)  # create a new global run context
 ln.File("s3://my_samples01/my_artifact.fastq.gz").save()  # link file against run & transform
 ```
-
-<br>
 
 Now, you can query, e.g., for
 
@@ -144,8 +134,6 @@ ln.Run.select(transform=lookup.awesome_o)
 ```shell
 lamin init --storage ./myobjects --schema bionty
 ```
-
-<br>
 
 ...
 
