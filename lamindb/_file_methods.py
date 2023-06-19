@@ -18,7 +18,7 @@ from lamindb.dev.storage.object._backed_access import (
 from ._logger import colors, logger
 from .dev._settings import settings
 
-File.__doc__ = """Files aka data artifacts.
+File.__doc__ = """Files: data artifacts.
 
 Args:
    data: `Union[PathLike, DataLike]` A file path or an in-memory data
