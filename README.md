@@ -4,7 +4,7 @@
 
 # LaminDB: Data lake for biology
 
-LaminDB is an API layer for your existing infrastructure to manage your existing data & analyses.
+LaminDB is an API layer for your existing infrastructure to manage your existing data.
 
 ```{warning}
 
