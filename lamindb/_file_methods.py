@@ -18,7 +18,7 @@ from lamindb.dev.storage.object._backed_access import (
 from ._logger import colors, logger
 from .dev._settings import settings
 
-File.__doc__ = """Files: data artifacts.
+File.__doc__ = """Files aka data artifacts.
 
 Args:
    data: `Union[PathLike, DataLike]` A file path or an in-memory data
@@ -50,6 +50,12 @@ makes some configurable default choices (e.g., serialize a `DataFrame` as a
    - Fastq: `.fastq` ⟷ /
    - VCF: `.vcf` ⟷ /
    - QC: `.html` ⟷ /
+
+.. info::
+
+    In some cases (`.zarr`), a `File` is present as many small objects in what
+    appears to be a "folder" in storage. Hence, we often refer to files as data
+    artifacts.
 
 """
 
