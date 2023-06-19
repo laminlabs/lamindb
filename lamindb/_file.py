@@ -26,8 +26,8 @@ def serialize(
     data: Union[Path, UPath, str, pd.DataFrame, AnnData],
     name: Optional[str],
     format,
-    key: Optional[str] = None,
-) -> Tuple[Any, Union[Path, UPath], Optional[str], str]:
+    key: Optional[str],
+) -> Tuple[Any, Union[Path, UPath], str]:
     """Serialize a data object that's provided as file or in memory."""
     # Convert str to either Path or UPath
     if isinstance(data, (str, Path, UPath)):
@@ -60,20 +60,26 @@ def serialize(
         memory_rep = data
         suffix = infer_suffix(data, format)
         # the following filepath is always local
+        if name is None and key is None:
+            raise ValueError(NO_NAME_ERROR)
+        elif name is not None:
+            cache_name = name
+        else:
+            cache_name = Path(key).name
         if lamindb_setup.settings.storage.cache_dir is not None:
-            filepath = lamindb_setup.settings.storage.cache_dir / name
+            filepath = lamindb_setup.settings.storage.cache_dir / cache_name
         else:
             # this should likely be added to lamindb_setup.settings.storage
             cache_dir = Path(DIRS.user_cache_dir)
             cache_dir.mkdir(parents=True, exist_ok=True)
-            filepath = cache_dir / name
+            filepath = cache_dir / cache_name
         if filepath.suffixes == []:
             filepath = filepath.with_suffix(suffix)
         if suffix != ".zarr":
             write_to_file(data, filepath)
     else:
         raise NotImplementedError("Recording not yet implemented for this type.")
-    return memory_rep, filepath, name, suffix
+    return memory_rep, filepath, suffix
 
 
 def get_hash(
@@ -214,7 +220,7 @@ def get_file_kwargs_from_data(
     format: Optional[str] = None,
 ):
     run = get_run(run)
-    memory_rep, filepath, safe_name, suffix = serialize(data, name, format, key)
+    memory_rep, filepath, suffix = serialize(data, name, format, key)
     # the following will return a localpath that is not None if filepath is local
     # it will return a cloudpath that is not None if filepath is on the cloud
     local_filepath, cloud_filepath, size, hash = get_path_size_hash(
@@ -229,11 +235,11 @@ def get_file_kwargs_from_data(
     if memory_rep is None and key is None and check_path_in_storage:
         key = get_relative_path_to_root(path=filepath).as_posix()
 
-    if safe_name is None and key is None:
+    if name is None and key is None:
         raise ValueError(NO_NAME_ERROR)
 
     kwargs = dict(
-        name=safe_name,
+        name=name,
         suffix=suffix,
         hash=hash,
         key=key,
