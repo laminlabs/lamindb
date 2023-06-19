@@ -28,17 +28,16 @@ def validate_required_fields(orm: BaseORM, kwargs):
 
 
 def suggest_objects_with_same_name(orm: BaseORM, kwargs) -> Optional[str]:
-    if "name" not in kwargs:
-        return None
-    elif kwargs["name"] is None:
+    if kwargs.get("name") is None:
         return None
     else:
-        try:
-            results = orm.search(kwargs["name"])
-            # let's subset results to those with at least 0.5 levensteihn distance
-            results = results.loc[results.__ratio__ >= 0.5]
-        except KeyError:  # will be fixed soon
+        results = orm.search(kwargs["name"])
+        if results.shape[0] == 0:
             return None
+
+        # subset results to those with at least 0.5 levensteihn distance
+        results = results.loc[results.__ratio__ >= 0.5]
+
         # test for exact match
         if len(results) > 0:
             if results.index[0] == kwargs["name"]:
