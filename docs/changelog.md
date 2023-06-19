@@ -2,6 +2,7 @@
 
 ## Latest changes
 
+- 🏷️ Change name to a required field for ontology tables [PR785](https://github.com/laminlabs/lamindb/pull/785) [@sunnyosun](https://github.com/sunnyosun)
 - 🎨 Remove `lnhub-rest` from `lamindb-setup` [PR784](https://github.com/laminlabs/lamindb/pull/784) [@falexwolf](https://github.com/falexwolf)
 - 🚸 Idempotency across metadata records & data artifacts [PR783](https://github.com/laminlabs/lamindb/pull/783) [@falexwolf](https://github.com/falexwolf)
 - ⬆️ Fix empty string bug in map_synonyms [PR780](https://github.com/laminlabs/lamindb/pull/780) [@sunnyosun](https://github.com/sunnyosun)
