@@ -6,6 +6,25 @@ from lnschema_core import BaseORM
 from pandas import DataFrame
 
 
+def validate_required_fields(orm: BaseORM, kwargs):
+    required_fields = {
+        k.name for k in orm._meta.fields if not k.null and k.default is None
+    }
+    required_fields_not_passed = {k: None for k in required_fields if k not in kwargs}
+    kwargs.update(required_fields_not_passed)
+    missing_fields = [
+        k for k, v in kwargs.items() if v is None and k in required_fields
+    ]
+    if missing_fields:
+        raise TypeError(f"{missing_fields} are required.")
+
+
+def __init__(orm, *args, **kwargs):
+    if not args:  # object is loaded from DB
+        validate_required_fields(orm, kwargs)
+    super(BaseORM, orm).__init__(*args, **kwargs)
+
+
 @classmethod  # type: ignore
 def search(
     cls,
@@ -122,5 +141,6 @@ def get_default_str_field(orm: BaseORM) -> str:
     return field.name
 
 
+BaseORM.__init__ = __init__
 BaseORM.search = search
 BaseORM.lookup = lookup
