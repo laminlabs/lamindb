@@ -26,7 +26,7 @@ Args:
       `"s3://my-bucket/my_samples/my_file.fcs"`.
    key: `Optional[str] = None` A storage key: a relative filepath within the
       current default storage, e.g., `"my_samples/my_file.fcs"`.
-   name: `Optional[str] = None` A name. Defaults to the filename.
+   name: `Optional[str] = None` A name or title. Useful if key is auto-generated.
    run: `Optional[Run] = None` The run that created the file.
 
 Track where files come from by passing the generating :class:`~lamindb.Run`.
