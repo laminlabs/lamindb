@@ -30,6 +30,8 @@ def validate_required_fields(orm: BaseORM, kwargs):
 def suggest_objects_with_same_name(orm: BaseORM, kwargs) -> Optional[str]:
     if "name" not in kwargs:
         return None
+    elif kwargs["name"] is None:
+        return None
     else:
         try:
             results = orm.search(kwargs["name"])

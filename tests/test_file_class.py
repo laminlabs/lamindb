@@ -32,7 +32,7 @@ def test_init_from_filepath_basic_fields(get_test_filepaths, key, name):
     isin_default_storage = get_test_filepaths[0]
     test_filepath = get_test_filepaths[1]
     file = File(test_filepath, key=key, name=name)
-    assert file.name == test_filepath.name if name is None else file.name == name
+    assert file.name is None if name is None else file.name == name
     assert file.suffix == ".csv"
     if key is None:
         assert (
