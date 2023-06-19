@@ -36,33 +36,52 @@ Enterprise:
 
 ## Usage overview
 
-Init a basic data lake on the command line:
+Use the CLI to initialize a data lake with local or cloud default storage:
 
 ```shell
-lamin init --storage <default-local-or-cloud-storage-location>
+$ lamin init --storage ./myartifacts  # or s3://my-bucket, gs://my-bucket, etc.
 ```
 
-Import lamindb:
+Within Python, import `lamindb`:
 
 ```python
 import lamindb as ln
 ```
 
-### Store & load data artifacts
+### Store, query, search & load data artifacts
 
-Store a `DataFrame` or an `AnnData` in default local or cloud storage:
+Store a `DataFrame` in default storage:
 
 ```python
-df = pd.DataFrame({"feat1": [1, 2], "feat2": [3, 4]})
+df = pd.DataFrame({"feat1": [1, 2], "feat2": [3, 4]})  # AnnData works, too
 
-ln.File(df, name="My dataframe").save()  # create a File artifact and save it
+ln.File(df, name="My dataset1").save()  # create a File artifact and save it
 ```
 
-Load it back:
+You'll have the full power of unconstrained SQL to query for metadata, but the simplest query for an artifact is:
 
 ```python
-file = ln.File.select(name="My dataframe").one()  # query for it
-df = file.load()  # load it into memory
+file = ln.File.select(name="My dataset1").one()  # get exactly one result
+```
+
+If you don't have specific metadata in mind, search for the artifact:
+
+```python
+ln.File.search("dataset1")
+```
+
+Load the artifact back into memory:
+
+```python
+df = file.load()
+```
+
+Or get a backed accessor to stream its content from the cloud
+
+```python
+
+conn = file.backed()  # currently works only for AnnData, not yet for DataFrame
+
 ```
 
 ### Track & query data lineage
@@ -77,19 +96,19 @@ ln.File.select().order_by("-updated_at").first()  # latest updated file
 Track a Jupyter Notebook:
 
 ```python
-ln.track()  # auto-detect notebook metadata, save as a Transform, create a Run
+ln.track()  # auto-detect & save notebook metadata
 ln.File("my_artifact.parquet").save()  # this file is an output of the notebook run
 ```
 
-When you query this file later on, you'll always know where it came from:
+When you query this file later on you'll know from which notebook it came:
 
 ```python
-file = ln.File.select(name="my_artifact.parquet").one()
-file.transform  # gives you the notebook with title, filename, version, id, etc.
-file.run  # gives you the run of the notebook that created the file
+file = ln.File.select(name="my_artifact.parquet").one()  # query for a file
+file.transform  # notebook with id, title, filename, version, etc.
+file.run  # the notebook run that created the file
 ```
 
-Of course, you can also query for notebooks:
+Or you query for notebooks directly:
 
 ```python
 transforms = ln.Transform.select(  # all notebooks with 'T cell' in the title created in 2022
@@ -100,16 +119,16 @@ ln.File.select(transform__in=transforms).all()  # data artifacts created by thes
 
 #### Pipelines
 
-To save a pipeline (complementary to workflow tools) to the `Transform` registry, call
+To save a pipeline to the `Transform` registry, call
 
 ```python
-ln.Transform(name="Awesom-O", version="0.41.2").save()  # save a pipeline
+ln.Transform(name="Awesom-O", version="0.41.2").save()  # save a pipeline, optionally with metadata
 ```
 
-To track a run of a registered pipeline:
+Track a pipeline run:
 
 ```python
-transform = ln.Transform.select(name="Awesom-O", version="0.41.2").one()  # select a pipeline from the registry
+transform = ln.Transform.select(name="Awesom-O", version="0.41.2").one()  # select pipeline from the registry
 ln.track(transform)  # create a new global run context
 ln.File("s3://my_samples01/my_artifact.fastq.gz").save()  # link file against run & transform
 ```
@@ -120,13 +139,21 @@ Now, you can query, e.g., for
 ln.Run.select(transform__name="Awesom-O").order_by("-created_at").df()  # get the latest pipeline runs
 ```
 
-### Lookup categoricals with auto-complete
+### Auto-complete categoricals
 
 When you're unsure about spellings, use a lookup object:
 
 ```python
 lookup = ln.Transform.lookup()
 ln.Run.select(transform=lookup.awesome_o)
+```
+
+### Load your data lake instance from anywhere
+
+Let other users access your work including all lineage & metadata via a single line:
+
+```
+$ lamin load myaccount/myartifacts
 ```
 
 ### Manage biological registries
