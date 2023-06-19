@@ -2,7 +2,8 @@ import shutil
 from pathlib import Path
 
 import pytest
-from lnschema_core.models import File
+
+from lamindb import File
 
 # how do we properly abstract out the default storage variable?
 # currently, we're only mocking it through `default_storage` as
