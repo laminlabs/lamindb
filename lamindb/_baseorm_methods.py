@@ -35,6 +35,8 @@ def suggest_objects_with_same_name(orm: BaseORM, kwargs) -> Optional[str]:
     else:
         try:
             results = orm.search(kwargs["name"])
+            # let's subset results to those with at least 0.5 levensteihn distance
+            results = results.loc[results.__ratio__ >= 0.5]
         except KeyError:  # will be fixed soon
             return None
         # test for exact match
