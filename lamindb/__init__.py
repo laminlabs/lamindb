@@ -14,48 +14,42 @@ The core schema entities are central to lamindb's API:
    :toctree: .
 
    File
-   Folder
-   Run
    Transform
-   FeatureSet
-   Storage
+   Run
    User
+   Storage
+   FeatureSet
+   Folder
    Project
 
-Query & manipulate data:
+Functional tools:
 
 .. autosummary::
    :toctree: .
 
+   track
+   parse
+   view
    select
    save
    delete
 
-Utility functions:
+Static classes & modules:
 
 .. autosummary::
    :toctree: .
 
-   parse
-   track
-   view
-   schema
-
-Setup:
-
-.. autosummary::
-   :toctree: .
-
+   settings
+   context
+   types
    setup
+   schema
 
 Developer API:
 
 .. autosummary::
    :toctree: .
 
-   context
-   settings
-   types
    dev
 
 """
