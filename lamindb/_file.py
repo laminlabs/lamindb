@@ -18,16 +18,16 @@ from lamindb.dev.storage.object import infer_suffix, size_adata, write_to_file
 DIRS = AppDirs("lamindb", "laminlabs")
 
 NO_NAME_ERROR = """\
-Pass a name or key in `ln.File(...)` when ingesting in-memory data.
+Pass a name or key in `ln.File(...)`.
 """
 
 
 def serialize(
     data: Union[Path, UPath, str, pd.DataFrame, AnnData],
-    name,
+    name: Optional[str],
     format,
     key: Optional[str] = None,
-) -> Tuple[Any, Union[Path, UPath], str, str]:
+) -> Tuple[Any, Union[Path, UPath], Optional[str], str]:
     """Serialize a data object that's provided as file or in memory."""
     # Convert str to either Path or UPath
     if isinstance(data, (str, Path, UPath)):
@@ -57,10 +57,6 @@ def serialize(
     # For now, in-memory objects are always saved to local_filepath first
     # This behavior will change in the future
     elif isinstance(data, (pd.DataFrame, AnnData)):
-        if name is None and key is None:
-            raise ValueError(NO_NAME_ERROR)
-        if name is None:
-            name = PurePath(key).name
         memory_rep = data
         suffix = infer_suffix(data, format)
         # the following filepath is always local
@@ -232,6 +228,9 @@ def get_file_kwargs_from_data(
     # as storage key
     if memory_rep is None and key is None and check_path_in_storage:
         key = get_relative_path_to_root(path=filepath).as_posix()
+
+    if safe_name is None and key is None:
+        raise ValueError(NO_NAME_ERROR)
 
     kwargs = dict(
         name=safe_name,
