@@ -2,6 +2,7 @@
 
 ## Latest changes
 
+- 🎨 Remove `lnhub-rest` from `lamindb-setup` [PR784](https://github.com/laminlabs/lamindb/pull/784) [@falexwolf](https://github.com/falexwolf)
 - 🚸 Idempotency across metadata records & data artifacts [PR783](https://github.com/laminlabs/lamindb/pull/783) [@falexwolf](https://github.com/falexwolf)
 - ⬆️ Fix empty string bug in map_synonyms [PR780](https://github.com/laminlabs/lamindb/pull/780) [@sunnyosun](https://github.com/sunnyosun)
 - 📝 Re-group readme [PR782](https://github.com/laminlabs/lamindb/pull/782) [@falexwolf](https://github.com/falexwolf)
