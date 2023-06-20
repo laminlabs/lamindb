@@ -15,19 +15,40 @@ ListLike = TypeVar("ListLike", pd.Series, list, np.array)
 def parse(
     iterable: Union[ListLike, pd.DataFrame],
     field: Union[Field, Dict[str, Field]],
+    *,
     species: str = None,
     query_existing: bool = True,
 ) -> List[Model]:
-    """Parse a dataset column based on a Model entity field.
+    """Parse identifiers and create records through lookups for a given field.
 
     Guide: :doc:`/biology/registries`.
 
+    For every `value` in an iterable of identifiers and a given `ORM.field`,
+    this function performs:
+
+    1. It checks whether the value already exists in the database
+       (`ORM.select(field=value)`).
+
+       a. If so, it adds the corresponding record to the returned list, moves
+           to the next `value` and skips the remaining steps
+       b. Proceed with 2.
+
+    2. If the `ORM` is from `lnschema_bionty`, it checks whether there is an
+       exact match in the underlying ontology (`Bionty.inspect(value, field)`).
+
+       a. If so, it creates a record from Bionty, adds it to the returned list,
+           and moves to the next `value.
+       b. If not, create a record that merely populates a single field with the
+          `value` and add it to the returned list.
+
     Args:
-        iterable: a `ListLike` of values or a `DataFrame`.
-        field: if iterable is `ListLike`: a `Model` field to parse into.
-               if iterable is `DataFrame`: a dict of {column_name : Model_field}.
-        species: if None, will use default species in bionty for each entity.
-        query_existing: if False, always create new records
+        iterable: `Union[ListLike, pd.DataFrame]` A `ListLike` of values or a
+            `DataFrame`.
+        field: `Union[Field, Dict[str, Field]]` If iterable is `ListLike`: a
+            `BaseORM` field to parse into.
+            If iterable is `DataFrame`: a dict of `{column_name: field}`.
+        species: If `None`, will use default species in bionty for each entity.
+        query_existing: If `False`, always create new records.
 
     Returns:
         A list of Model records.
