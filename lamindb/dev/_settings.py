@@ -25,7 +25,7 @@ class Settings:
 
     FAQ: :doc:`/faq/ingest-same-file-twice`
     """
-    track_run_inputs_upon_load: bool = False
+    track_run_inputs: bool = False
     """Upon load, add loaded files as the input of the current notebook run.
 
     FAQ: :doc:`/faq/track-runin`
