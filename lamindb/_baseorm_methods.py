@@ -97,7 +97,8 @@ def search(
         synonyms_field: `bool = True` Also search synonyms. If `None`, is ignored.
 
     Returns:
-        Best match record of the input string.
+        A sorted `DataFrame` of search results with a score in column
+        `__ratio__`. If `top_hit` is `True`, the best match.
     """
     import pandas as pd
     from lamin_logger._search import search
@@ -179,33 +180,35 @@ def map_synonyms(
     synonyms_field: str = "synonyms",
     synonyms_sep: str = "|",
     field: Optional[str] = None,
-) -> Union[Dict[str, str], List[str]]:
+) -> Union[List[str], Dict[str, str]]:
     """Maps input synonyms to standardized names.
 
     Args:
-        synonyms: synonyms that will be standardized.
-        return_mapper: If True, returns {input synonyms : standardized names}.
-        case_sensitive: Whether the mapping is case sensitive.
-        species: Map only against this species related entries.
-        keep : {'first', 'last', False}, default 'first'
-            When a synonym maps to multiple standardized names, determines
-            which duplicates to mark as `pandas.DataFrame.duplicated`
-            - "first": returns the first mapped standardized name
-            - "last": returns the last mapped standardized name
-            - False: returns all mapped standardized name
-        synonyms_field: The field representing the concatenated synonyms.
-        synonyms_sep: Which separator is used to separate synonyms.
-        field: The field representing the standardized names.
+        synonyms: `Iterable` Synonyms that will be standardized.
+        return_mapper: `bool = False` If `True`, returns `{input_synonym1:
+            standardized_name1}`.
+        case_sensitive: `bool = False` Whether the mapping is case sensitive.
+        species: `Optional[str]` Map only against this species related entries.
+        keep: `Literal["first", "last", False] = "first"` When a synonym maps to
+            multiple names, determines which duplicates to mark as
+            `pd.DataFrame.duplicated`
+
+                - "first": returns the first mapped standardized name
+                - "last": returns the last mapped standardized name
+                - `False`: returns all mapped standardized name
+        synonyms_field: `str = "synonyms"` A field containing the concatenated synonyms.
+        synonyms_sep: `str = "|"` Which separator is used to separate synonyms.
+        field: `Optional[str]` The field representing the standardized names.
 
     Returns:
-        - If return_mapper is False: a list of standardized names.
-        - If return_mapper is True: a dictionary of mapped values with mappable synonyms
-            as keys and standardized names as values.
+        If `return_mapper` is `False`: a list of standardized names. Otherwise,
+        a dictionary of mapped values with mappable synonyms as keys and
+        standardized names as values.
 
     Examples:
         >>> import lnschema_bionty as lb
         >>> gene_synonyms = ["A1CF", "A1BG", "FANCD1", "FANCD20"]
-        >>> standardized_symbols = lb.Gene.map_synonyms(gene_synonyms, gn.symbol, species="human")  # noqa
+        >>> standardized_names = lb.Gene.map_synonyms(gene_synonyms, species="human")
     """
     import pandas as pd
     from lamin_logger._map_synonyms import map_synonyms
