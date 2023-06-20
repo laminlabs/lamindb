@@ -1,5 +1,6 @@
 # Changelog
 
+- ⬆️ Allow create multiple records with .from_bionty [PR789](https://github.com/laminlabs/lamindb/pull/789) [@sunnyosun](https://github.com/sunnyosun)
 ## 0.44.0 (2023-06-20)
 
 ### Features
