@@ -2,6 +2,7 @@
 
 ## Latest changes
 
+- 🚸 Allow configuring search for alternative names via `settings.upon_create_search_names` [PR788](https://github.com/laminlabs/lamindb/pull/788) [@falexwolf](https://github.com/falexwolf)
 - ⬆️ Save to DB if record already exists for add_synonyms [PR787](https://github.com/laminlabs/lamindb/pull/787) [@sunnyosun](https://github.com/sunnyosun)
 - ✨ Added map_synonyms to baseORM [PR786](https://github.com/laminlabs/lamindb/pull/786) [@sunnyosun](https://github.com/sunnyosun)
 - 🏷️ Change name to a required field for ontology tables [PR785](https://github.com/laminlabs/lamindb/pull/785) [@sunnyosun](https://github.com/sunnyosun)
