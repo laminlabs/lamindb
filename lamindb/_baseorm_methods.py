@@ -7,7 +7,7 @@ from lamin_logger._lookup import Lookup
 from lnschema_core import BaseORM
 from pandas import DataFrame
 
-from . import settings
+from .dev._settings import settings
 
 _is_ipython = getattr(builtins, "__IPYTHON__", False)
 

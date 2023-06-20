@@ -8,8 +8,8 @@ from django.db.models.query_utils import DeferredAttribute as Field
 from lamin_logger import colors, logger
 from lnschema_core.models import BaseORM
 
-from . import settings
 from ._select import select
+from .dev._settings import settings
 
 ListLike = TypeVar("ListLike", pd.Series, list, np.array)
 
