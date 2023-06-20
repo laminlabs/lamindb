@@ -9,24 +9,31 @@ from upath import UPath
 class Settings:
     """Settings.
 
-    Directly use instance `lamindb.settings` rather instantiating this class
-    yourself.
+    Directly use instance `lamindb.settings` rather than instantiating this
+    class yourself.
     """
 
     def __init__(self):
         self._verbosity: int = 2  # info-level logging
 
-    if_file_hash_exists: Literal[
+    upon_file_create_if_hash_exists: Literal[
         "warn_return_existing", "error", "warn_create_new"
     ] = "warn_return_existing"
     """Behavior if file hash exists (default `"warn_return_existing"`).
 
     One of `["warn_return_existing", "error", "warn_create_new"]`.
 
-    FAQ: :doc:`/faq/ingest-same-file-twice`
+    FAQ: :doc:`/faq/idempotency`
     """
-    track_run_inputs_upon_load: bool = False
-    """Upon load, add loaded files as the input of the current notebook run.
+    upon_create_search_names: bool = True
+    """Behavior upon creating ORM objects (default `True`).
+
+    If `True`, search for alternative names.
+
+    FAQ: :doc:`/faq/idempotency`
+    """
+    track_run_inputs: bool = False
+    """Track files as input upon `.load()`, `.stage()` and `.backed()`.
 
     FAQ: :doc:`/faq/track-runin`
     """

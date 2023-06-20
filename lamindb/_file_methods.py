@@ -51,7 +51,7 @@ makes some configurable default choices (e.g., serialize a `DataFrame` as a
    - VCF: `.vcf` ⟷ /
    - QC: `.html` ⟷ /
 
-.. info::
+.. note::
 
     In some cases (`.zarr`), a `File` is present as many small objects in what
     appears to be a "folder" in storage. Hence, we often refer to files as data
@@ -77,9 +77,9 @@ def backed(
 
 def _track_run_input(file: File, is_run_input: Optional[bool] = None):
     if is_run_input is None:
-        if context.run is not None:
+        if context.run is not None and not settings.track_run_inputs:
             logger.hint("Track this file as a run input by passing `is_run_input=True`")
-        track_run_input = settings.track_run_inputs_upon_load
+        track_run_input = settings.track_run_inputs
     else:
         track_run_input = is_run_input
     if track_run_input:

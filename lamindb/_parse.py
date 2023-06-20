@@ -6,8 +6,10 @@ from django.core.exceptions import MultipleObjectsReturned, ObjectDoesNotExist
 from django.db.models import Model, Q
 from django.db.models.query_utils import DeferredAttribute as Field
 from lamin_logger import colors, logger
+from lnschema_core.models import BaseORM
 
 from ._select import select
+from .dev._settings import settings
 
 ListLike = TypeVar("ListLike", pd.Series, list, np.array)
 
@@ -15,61 +17,78 @@ ListLike = TypeVar("ListLike", pd.Series, list, np.array)
 def parse(
     iterable: Union[ListLike, pd.DataFrame],
     field: Union[Field, Dict[str, Field]],
-    species: str = None,
-    query_existing: bool = True,
-) -> List[Model]:
-    """Parse a dataset column based on a Model entity field.
+    *,
+    species: Optional[str] = None,
+) -> List[BaseORM]:
+    """Parse identifiers and create records through lookups for a given field.
 
     Guide: :doc:`/biology/registries`.
 
     Args:
-        iterable: a `ListLike` of values or a `DataFrame`.
-        field: if iterable is `ListLike`: a `Model` field to parse into.
-               if iterable is `DataFrame`: a dict of {column_name : Model_field}.
-        species: if None, will use default species in bionty for each entity.
-        query_existing: if False, always create new records
+        iterable: `Union[ListLike, pd.DataFrame]` A `ListLike` of identifiers or
+            a `DataFrame`.
+        field: `Union[Field, Dict[str, Field]]` If `iterable` is `ListLike`, a
+            `BaseORM` field to look up.
+            If `iterable` is `DataFrame`, a dict of `{column_name1: field1,
+            column_name2: field2}`.
+        species: `Optional[str]` Either `"human"`, `"mouse"`, or any other
+            `name` of `Bionty.Species`. If `None`, will use default species in
+            bionty for each entity.
 
     Returns:
-        A list of Model records.
+        A list of records.
+
+    For every `value` in an iterable of identifiers and a given `ORM.field`,
+    this function performs:
+
+    1. It checks whether the value already exists in the database
+       (`ORM.select(field=value)`). If so, it adds the queried record to
+       the returned list and skips step 2. Otherwise, proceed with 2.
+    2. If the `ORM` is from `lnschema_bionty`, it checks whether there is an
+       exact match in the underlying ontology (`Bionty.inspect(value, field)`).
+       If so, it creates a record from Bionty and adds it to the returned list.
+       Otherwise, it create a record that populates a single field using `value`
+       and adds the record to the returned list.
+
     """
-    if isinstance(iterable, pd.DataFrame):
-        # check the field must be a dictionary
-        if not isinstance(field, dict):
-            raise TypeError("field must be a dictionary of {column_name: Field}!")
+    upon_create_search_names = settings.upon_create_search_names
+    settings.upon_create_search_names = False
+    try:
+        if isinstance(iterable, pd.DataFrame):
+            # check the field must be a dictionary
+            if not isinstance(field, dict):
+                raise TypeError("field must be a dictionary of {column_name: Field}!")
 
-        # check only one single model class is passed
-        class_mapper = {f.field.name: f.field.model for f in field.values()}
-        if len(set(class_mapper.values())) > 1:
-            raise NotImplementedError("fields must from the same entity!")
-        model = list(class_mapper.values())[0]
+            # check only one single model class is passed
+            class_mapper = {f.field.name: f.field.model for f in field.values()}
+            if len(set(class_mapper.values())) > 1:
+                raise NotImplementedError("fields must from the same entity!")
+            model = list(class_mapper.values())[0]
 
-        df = _map_columns_to_fields(df=iterable, field=field)
-        df_records = df.to_dict(orient="records")
+            df = _map_columns_to_fields(df=iterable, field=field)
+            df_records = df.to_dict(orient="records")
 
-        if not query_existing:
-            # always create new records, skips query for existing
-            records = [model(**kwargs) for kwargs in df_records]
-            n_new = len(records)
-            logger.hint(f"Created {n_new} {model.__name__} records")
+            # make sure to only return 1 existing entry for each row
+            queryset = _bulk_query_fields(df_records=df_records, model=model)
+            n_exist, n_new, records = _get_from_queryset(
+                queryset=queryset, df_records=df_records, model=model
+            )
+
+            if n_exist > 0:
+                text = colors.green(f"{n_exist} existing {model.__name__} records")
+                logger.hint(f"Returned {text}")
+            if n_new > 0:
+                text = colors.purple(f"{n_new} {model.__name__} records")
+                logger.hint(f"Created {text} with {df.shape[1]} fields")
             return records
-
-        # make sure to only return 1 existing entry for each row
-        queryset = _bulk_query_fields(df_records=df_records, model=model)
-        n_exist, n_new, records = _get_from_queryset(
-            queryset=queryset, df_records=df_records, model=model
-        )
-
-        if n_exist > 0:
-            text = colors.green(f"{n_exist} existing {model.__name__} records")
-            logger.hint(f"Returned {text}")
-        if n_new > 0:
-            text = colors.purple(f"{n_new} {model.__name__} records")
-            logger.hint(f"Created {text} with {df.shape[1]} fields")
-        return records
-    else:
-        if not isinstance(field, Field):
-            raise TypeError("field must be an ORM field, e.g., `CellType.name`!")
-        return get_or_create_records(iterable=iterable, field=field, species=species)
+        else:
+            if not isinstance(field, Field):
+                raise TypeError("field must be an ORM field, e.g., `CellType.name`!")
+            return get_or_create_records(
+                iterable=iterable, field=field, species=species
+            )
+    finally:
+        settings.upon_create_search_names = upon_create_search_names
 
 
 def index_iterable(iterable: Iterable) -> pd.Index:
