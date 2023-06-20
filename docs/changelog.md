@@ -5,7 +5,7 @@
 - ⬆️ Save to DB if record already exists for add_synonyms [PR787](https://github.com/laminlabs/lamindb/pull/787) [@sunnyosun](https://github.com/sunnyosun)
 - ✨ Added map_synonyms to baseORM [PR786](https://github.com/laminlabs/lamindb/pull/786) [@sunnyosun](https://github.com/sunnyosun)
 - 🏷️ Change name to a required field for ontology tables [PR785](https://github.com/laminlabs/lamindb/pull/785) [@sunnyosun](https://github.com/sunnyosun)
-- 🎨 Remove `lnhub-rest` from `lamindb-setup` [PR784](https://github.com/laminlabs/lamindb/pull/784) [@falexwolf](https://github.com/falexwolf)
+- 🎨 Remove `lnhub-rest` from `lamindb-setup` [PR784](https://github.com/laminlabs/lamindb/pull/784) [bpenteado](https://github.com/bpenteado)
 - 🚸 Idempotency across metadata records & data artifacts [PR783](https://github.com/laminlabs/lamindb/pull/783) [@falexwolf](https://github.com/falexwolf)
 - ⬆️ Fix empty string bug in map_synonyms [PR780](https://github.com/laminlabs/lamindb/pull/780) [@sunnyosun](https://github.com/sunnyosun)
 - 📝 Re-group readme [PR782](https://github.com/laminlabs/lamindb/pull/782) [@falexwolf](https://github.com/falexwolf)
@@ -20,7 +20,7 @@
 ### Highlights
 
 - ✨ Enable `BaseORM.search()` and improved `BaseORM.lookup()` [PR771](https://github.com/laminlabs/lamindb/pull/771) [@sunnyosun](https://github.com/sunnyosun)
-- 🎨 Consolidate `lnschema_bionty` and upgrade to latest Bionty [PR775](https://github.com/laminlabs/lamindb/pull/775) [@falexwolf](https://github.com/falexwolf)
+- 🎨 Consolidate `lnschema_bionty` and upgrade to latest Bionty [PR775](https://github.com/laminlabs/lamindb/pull/775) [@sunnyosun](https://github.com/sunnyosun)
 
 ### Features
 
