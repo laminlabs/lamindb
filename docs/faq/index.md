@@ -3,10 +3,10 @@
 ```{toctree}
 :maxdepth: 1
 
+idempotency
+acid
+track-run-inputs
 ingest
 notebooks
-idempotency
-track-run-inputs
-acid
 setup
 ```
