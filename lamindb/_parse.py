@@ -6,6 +6,7 @@ from django.core.exceptions import MultipleObjectsReturned, ObjectDoesNotExist
 from django.db.models import Model, Q
 from django.db.models.query_utils import DeferredAttribute as Field
 from lamin_logger import colors, logger
+from lnschema_core.models import BaseORM
 
 from ._select import select
 
@@ -16,8 +17,8 @@ def parse(
     iterable: Union[ListLike, pd.DataFrame],
     field: Union[Field, Dict[str, Field]],
     *,
-    species: str = None,
-) -> List[Model]:
+    species: Optional[str] = None,
+) -> List[BaseORM]:
     """Parse identifiers and create records through lookups for a given field.
 
     Guide: :doc:`/biology/registries`.
@@ -45,11 +46,14 @@ def parse(
             `DataFrame`.
         field: `Union[Field, Dict[str, Field]]` If iterable is `ListLike`: a
             `BaseORM` field to parse into.
-            If iterable is `DataFrame`: a dict of `{column_name: field}`.
-        species: If `None`, will use default species in bionty for each entity.
+            If iterable is `DataFrame`: a dict of `{column_name1: field1,
+            column_name2: field2}`.
+        species: `Optional[str]` Either `"human"`, `"mouse"`, or any other
+            `name` of `Bionty.Species`. If `None`, will use default species in
+            bionty for each entity.
 
     Returns:
-        A list of Model records.
+        A list of records.
     """
     if isinstance(iterable, pd.DataFrame):
         # check the field must be a dictionary
