@@ -1,5 +1,5 @@
 import builtins
-from typing import NamedTuple, Optional, Union
+from typing import Dict, Iterable, List, Literal, NamedTuple, Optional, Union
 
 from django.db.models import CharField, TextField
 from lamin_logger import logger
@@ -164,6 +164,81 @@ def lookup(cls, field: Optional[Union[str, CharField, TextField]] = None) -> Nam
 lookup.__doc__ = Lookup.__doc__
 
 
+@classmethod  # type: ignore
+def map_synonyms(
+    cls,
+    synonyms: Iterable,
+    *,
+    return_mapper: bool = False,
+    case_sensitive: bool = False,
+    species: Optional[str] = None,
+    keep: Literal["first", "last", False] = "first",
+    synonyms_field: str = "synonyms",
+    synonyms_sep: str = "|",
+    field: Optional[str] = None,
+) -> Union[Dict[str, str], List[str]]:
+    """Maps input synonyms to standardized names.
+
+    Args:
+        synonyms: synonyms that will be standardized.
+        return_mapper: If True, returns {input synonyms : standardized names}.
+        case_sensitive: Whether the mapping is case sensitive.
+        species: Map only against this species related entries.
+        keep : {'first', 'last', False}, default 'first'
+            When a synonym maps to multiple standardized names, determines
+            which duplicates to mark as `pandas.DataFrame.duplicated`
+            - "first": returns the first mapped standardized name
+            - "last": returns the last mapped standardized name
+            - False: returns all mapped standardized name
+        synonyms_field: The field representing the concatenated synonyms.
+        synonyms_sep: Which separator is used to separate synonyms.
+        field: The field representing the standardized names.
+
+    Returns:
+        - If return_mapper is False: a list of standardized names.
+        - If return_mapper is True: a dictionary of mapped values with mappable synonyms
+            as keys and standardized names as values.
+
+    Examples:
+        >>> import lnschema_bionty as lb
+        >>> gene_synonyms = ["A1CF", "A1BG", "FANCD1", "FANCD20"]
+        >>> standardized_symbols = lb.Gene.map_synonyms(gene_synonyms, gn.symbol, species="human")  # noqa
+    """
+    import pandas as pd
+    from lamin_logger._map_synonyms import map_synonyms
+
+    if field is None:
+        field = get_default_str_field(cls)
+    if not isinstance(field, str):
+        field = field.field.name
+
+    records = cls.objects.all()
+
+    try:
+        records.model._meta.get_field("species")
+        if species is None:
+            raise AssertionError(
+                f"{cls.__name__} table requires to specify a species name via"
+                " `species=`!"
+            )
+        records = records.filter(species__name=species)
+    except KeyError:
+        pass
+
+    df = pd.DataFrame.from_records(records.values())
+
+    return map_synonyms(
+        df=df,
+        identifiers=synonyms,
+        field=field,
+        return_mapper=return_mapper,
+        case_sensitive=case_sensitive,
+        keep=keep,
+        synonyms_field=synonyms_field,
+        sep=synonyms_sep,
+    )
+
+
 def get_default_str_field(orm: BaseORM) -> str:
     model_field_names = [i.name for i in orm._meta.fields]
 
@@ -190,3 +265,4 @@ def get_default_str_field(orm: BaseORM) -> str:
 BaseORM.__init__ = __init__
 BaseORM.search = search
 BaseORM.lookup = lookup
+BaseORM.map_synonyms = map_synonyms
