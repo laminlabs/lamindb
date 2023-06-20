@@ -92,14 +92,14 @@ def get_hash(
         return hash
     result = File.select(hash=hash).list()
     if len(result) > 0:
-        if settings.if_file_hash_exists == "error":
+        if settings.upon_file_create_if_hash_exists == "error":
             msg = f"A file with same hash exists: {result[0]}"
             hint = (
                 "💡 You can make this error a warning:\n"
-                "    ln.settings.if_file_hash_exists"
+                "    ln.settings.upon_file_create_if_hash_exists"
             )
             raise RuntimeError(f"{msg}\n{hint}")
-        elif settings.if_file_hash_exists == "warn_create_new":
+        elif settings.upon_file_create_if_hash_exists == "warn_create_new":
             logger.warning(
                 "Creating new File object despite existing file with same hash:"
                 f" {result[0]}"

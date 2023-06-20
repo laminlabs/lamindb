@@ -9,14 +9,14 @@ from upath import UPath
 class Settings:
     """Settings.
 
-    Directly use instance `lamindb.settings` rather instantiating this class
-    yourself.
+    Directly use instance `lamindb.settings` rather than instantiating this
+    class yourself.
     """
 
     def __init__(self):
         self._verbosity: int = 2  # info-level logging
 
-    if_file_hash_exists: Literal[
+    upon_file_create_if_hash_exists: Literal[
         "warn_return_existing", "error", "warn_create_new"
     ] = "warn_return_existing"
     """Behavior if file hash exists (default `"warn_return_existing"`).
