@@ -4,9 +4,9 @@
 
 ### Features
 
-- 🚸 Idempotency across metadata records & data artifacts ([FAQ]) (https://lamin.ai/docs/faq/idempotency) [PR783](https://github.com/laminlabs/lamindb/pull/783) [@falexwolf](https://github.com/falexwolf)
-- ✨ Add `BaseORM.add_synonym` & `BaseORM.map_synonyms` to enable `record.add_synonym("MyGeneName")` [PR786](https://github.com/laminlabs/lamindb/pull/786) [@sunnyosun](https://github.com/sunnyosun)
-- ✨ Add backed access for general HDF5 and zarr objects [PR781](https://github.com/laminlabs/lamindb/pull/781) [@Koncopd](https://github.com/Koncopd)
+- 🚸 Idempotency across metadata records & data artifacts [FAQ](https://lamin.ai/docs/faq/idempotency) [PR783](https://github.com/laminlabs/lamindb/pull/783) [@falexwolf](https://github.com/falexwolf)
+- ✨ {func}`~lamindb.dev.BaseORM.add_synonym` & {func}`~lamindb.dev.BaseORM.map_synonyms` to enable, e.g., `add_synonym("MyGeneName")` [PR786](https://github.com/laminlabs/lamindb/pull/786) [@sunnyosun](https://github.com/sunnyosun)
+- ✨ Backed access for general HDF5 and zarr objects [PR781](https://github.com/laminlabs/lamindb/pull/781) [@Koncopd](https://github.com/Koncopd)
 
 ### Refactors
 
