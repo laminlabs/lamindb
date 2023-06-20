@@ -2,6 +2,7 @@
 
 ## Latest changes
 
+- ⬆️ Save to DB if record already exists for add_synonyms [PR787](https://github.com/laminlabs/lamindb/pull/787) [@sunnyosun](https://github.com/sunnyosun)
 - ✨ Added map_synonyms to baseORM [PR786](https://github.com/laminlabs/lamindb/pull/786) [@sunnyosun](https://github.com/sunnyosun)
 - 🏷️ Change name to a required field for ontology tables [PR785](https://github.com/laminlabs/lamindb/pull/785) [@sunnyosun](https://github.com/sunnyosun)
 - 🎨 Remove `lnhub-rest` from `lamindb-setup` [PR784](https://github.com/laminlabs/lamindb/pull/784) [@falexwolf](https://github.com/falexwolf)
