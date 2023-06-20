@@ -1,5 +1,6 @@
 # Changelog
 
+- 🐛 Fix empty table bug in `add_synonym` [PR791](https://github.com/laminlabs/lamindb/pull/791) [@sunnyosun](https://github.com/sunnyosun)
 - 👷 Polish docs & switch unit tests to postgres [PR790](https://github.com/laminlabs/lamindb/pull/790) [@falexwolf](https://github.com/falexwolf)
 ## 0.44.0 (2023-06-20)
 
