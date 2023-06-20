@@ -35,7 +35,7 @@ class Settings:
     track_run_inputs: bool = False
     """Track files as input upon `.load()`, `.stage()` and `.backed()`.
 
-    FAQ: :doc:`/faq/track-runin`
+    FAQ: :doc:`/faq/track-run-inputs`
     """
 
     @property
