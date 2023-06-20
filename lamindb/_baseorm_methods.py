@@ -7,6 +7,8 @@ from lamin_logger._lookup import Lookup
 from lnschema_core import BaseORM
 from pandas import DataFrame
 
+from . import settings
+
 _is_ipython = getattr(builtins, "__IPYTHON__", False)
 
 
@@ -58,16 +60,17 @@ def suggest_objects_with_same_name(orm: BaseORM, kwargs) -> Optional[str]:
 def __init__(orm: BaseORM, *args, **kwargs):
     if not args:  # if args, object is loaded from DB
         validate_required_fields(orm, kwargs)
-        result = suggest_objects_with_same_name(orm, kwargs)
-        if result == "object-with-same-name-exists":
-            existing_object = orm.select(name=kwargs["name"])[0]
-            new_args = [
-                getattr(existing_object, field.attname)
-                for field in orm._meta.concrete_fields
-            ]
-            super(BaseORM, orm).__init__(*new_args)
-            orm._state.adding = False  # mimic from_db
-            return None
+        if settings.upon_create_search_names:
+            result = suggest_objects_with_same_name(orm, kwargs)
+            if result == "object-with-same-name-exists":
+                existing_object = orm.select(name=kwargs["name"])[0]
+                new_args = [
+                    getattr(existing_object, field.attname)
+                    for field in orm._meta.concrete_fields
+                ]
+                super(BaseORM, orm).__init__(*new_args)
+                orm._state.adding = False  # mimic from_db
+                return None
     super(BaseORM, orm).__init__(*args, **kwargs)
 
 

@@ -23,10 +23,17 @@ class Settings:
 
     One of `["warn_return_existing", "error", "warn_create_new"]`.
 
-    FAQ: :doc:`/faq/ingest-same-file-twice`
+    FAQ: :doc:`/faq/idempotency`
+    """
+    upon_create_search_names: bool = True
+    """Behavior upon creating ORM objects (default `True`).
+
+    If `True`, search for alternative names.
+
+    FAQ: :doc:`/faq/idempotency`
     """
     track_run_inputs: bool = False
-    """Upon load, add loaded files as the input of the current notebook run.
+    """Track files as input upon `.load()`, `.stage()` and `.backed()`.
 
     FAQ: :doc:`/faq/track-runin`
     """

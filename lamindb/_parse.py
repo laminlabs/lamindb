@@ -8,6 +8,7 @@ from django.db.models.query_utils import DeferredAttribute as Field
 from lamin_logger import colors, logger
 from lnschema_core.models import BaseORM
 
+from . import settings
 from ._select import select
 
 ListLike = TypeVar("ListLike", pd.Series, list, np.array)
@@ -55,37 +56,44 @@ def parse(
     Returns:
         A list of records.
     """
-    if isinstance(iterable, pd.DataFrame):
-        # check the field must be a dictionary
-        if not isinstance(field, dict):
-            raise TypeError("field must be a dictionary of {column_name: Field}!")
+    upon_create_search_names = settings.upon_create_search_names
+    settings.upon_create_search_names = False
+    try:
+        if isinstance(iterable, pd.DataFrame):
+            # check the field must be a dictionary
+            if not isinstance(field, dict):
+                raise TypeError("field must be a dictionary of {column_name: Field}!")
 
-        # check only one single model class is passed
-        class_mapper = {f.field.name: f.field.model for f in field.values()}
-        if len(set(class_mapper.values())) > 1:
-            raise NotImplementedError("fields must from the same entity!")
-        model = list(class_mapper.values())[0]
+            # check only one single model class is passed
+            class_mapper = {f.field.name: f.field.model for f in field.values()}
+            if len(set(class_mapper.values())) > 1:
+                raise NotImplementedError("fields must from the same entity!")
+            model = list(class_mapper.values())[0]
 
-        df = _map_columns_to_fields(df=iterable, field=field)
-        df_records = df.to_dict(orient="records")
+            df = _map_columns_to_fields(df=iterable, field=field)
+            df_records = df.to_dict(orient="records")
 
-        # make sure to only return 1 existing entry for each row
-        queryset = _bulk_query_fields(df_records=df_records, model=model)
-        n_exist, n_new, records = _get_from_queryset(
-            queryset=queryset, df_records=df_records, model=model
-        )
+            # make sure to only return 1 existing entry for each row
+            queryset = _bulk_query_fields(df_records=df_records, model=model)
+            n_exist, n_new, records = _get_from_queryset(
+                queryset=queryset, df_records=df_records, model=model
+            )
 
-        if n_exist > 0:
-            text = colors.green(f"{n_exist} existing {model.__name__} records")
-            logger.hint(f"Returned {text}")
-        if n_new > 0:
-            text = colors.purple(f"{n_new} {model.__name__} records")
-            logger.hint(f"Created {text} with {df.shape[1]} fields")
-        return records
-    else:
-        if not isinstance(field, Field):
-            raise TypeError("field must be an ORM field, e.g., `CellType.name`!")
-        return get_or_create_records(iterable=iterable, field=field, species=species)
+            if n_exist > 0:
+                text = colors.green(f"{n_exist} existing {model.__name__} records")
+                logger.hint(f"Returned {text}")
+            if n_new > 0:
+                text = colors.purple(f"{n_new} {model.__name__} records")
+                logger.hint(f"Created {text} with {df.shape[1]} fields")
+            return records
+        else:
+            if not isinstance(field, Field):
+                raise TypeError("field must be an ORM field, e.g., `CellType.name`!")
+            return get_or_create_records(
+                iterable=iterable, field=field, species=species
+            )
+    finally:
+        settings.upon_create_search_names = upon_create_search_names
 
 
 def index_iterable(iterable: Iterable) -> pd.Index:
