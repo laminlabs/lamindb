@@ -54,22 +54,22 @@ Store a `DataFrame` in default storage:
 ```python
 df = pd.DataFrame({"feat1": [1, 2], "feat2": [3, 4]})  # AnnData works, too
 
-ln.File(df, name="My dataset1").save()  # create a File artifact and save it
+ln.File(df, name="My dataset1").save()  # create a File object and save it
 ```
 
-You'll have the full power of unconstrained SQL to query for metadata, but the simplest query for an artifact is:
+You'll have the full power of SQL to query for metadata, but the simplest query for a file is:
 
 ```python
 file = ln.File.select(name="My dataset1").one()  # get exactly one result
 ```
 
-If you don't have specific metadata in mind, search for the artifact:
+If you don't have specific metadata in mind, search for the file:
 
 ```python
 ln.File.search("dataset1")
 ```
 
-Load the artifact back into memory:
+Load the file back into memory:
 
 ```python
 df = file.load()
@@ -79,14 +79,15 @@ Or get a backed accessor to stream its content from the cloud
 
 ```python
 
-conn = file.backed()  # currently works only for AnnData, not yet for DataFrame
+conn = file.backed()  # currently works for AnnData, zarr, HDF5, not yet for DataFrame
 
 ```
 
 ### Track & query data lineage
 
 ```python
-ln.File.select(created_by__handle="lizlemon").df()   # all files ingested by lizlemon
+user = ln.User.select(handle="lizlemon").one()
+ln.File.select(created_by=user).df()   # all files ingested by lizlemon
 ln.File.select().order_by("-updated_at").first()  # latest updated file
 ```
 
@@ -118,7 +119,9 @@ ln.File.select(transform__in=transforms).all()  # data artifacts created by thes
 
 #### Pipelines
 
-To save a pipeline to the `Transform` registry, call
+This works just like it does for notebooks just that you need to provide pipeline metadata yourself.
+
+Save a pipeline to the `Transform` registry, call
 
 ```python
 ln.Transform(name="Awesom-O", version="0.41.2").save()  # save a pipeline, optionally with metadata
@@ -137,6 +140,16 @@ Now, you can query, e.g., for
 ```python
 ln.Run.select(transform__name="Awesom-O").order_by("-created_at").df()  # get the latest pipeline runs
 ```
+
+#### Run inputs
+
+To track run inputs, pass `is_run_input` to any `File` accessor: `.stage()`, `.load()` or `.backed()`. For instance,
+
+```python
+file.load(is_run_input=True)
+```
+
+Alternatively, you can track all files accessed through any of the methods by settings `ln.settings.track_run_inputs = True`.
 
 ### Auto-complete categoricals
 
@@ -158,7 +171,7 @@ $ lamin load myaccount/myartifacts
 ### Manage biological registries
 
 ```shell
-lamin init --storage ./myobjects --schema bionty
+lamin init --storage ./bioartifacts --schema bionty
 ```
 
 ...
