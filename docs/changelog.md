@@ -1,5 +1,6 @@
 # Changelog
 
+- 👷 Polish docs & switch unit tests to postgres [PR790](https://github.com/laminlabs/lamindb/pull/790) [@falexwolf](https://github.com/falexwolf)
 ## 0.44.0 (2023-06-20)
 
 ### Features
