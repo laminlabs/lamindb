@@ -1,19 +1,16 @@
 # Changelog
 
-## Latest changes
+## 0.44.0 (2023-06-20)
 
-- 🚸 Allow configuring search for alternative names via `settings.upon_create_search_names` [PR788](https://github.com/laminlabs/lamindb/pull/788) [@falexwolf](https://github.com/falexwolf)
-- ⬆️ Save to DB if record already exists for add_synonyms [PR787](https://github.com/laminlabs/lamindb/pull/787) [@sunnyosun](https://github.com/sunnyosun)
-- ✨ Added map_synonyms to baseORM [PR786](https://github.com/laminlabs/lamindb/pull/786) [@sunnyosun](https://github.com/sunnyosun)
-- 🏷️ Change name to a required field for ontology tables [PR785](https://github.com/laminlabs/lamindb/pull/785) [@sunnyosun](https://github.com/sunnyosun)
+### Features
+
+- 🚸 Idempotency across metadata records & data artifacts ([FAQ]) (https://lamin.ai/docs/faq/idempotency) [PR783](https://github.com/laminlabs/lamindb/pull/783) [@falexwolf](https://github.com/falexwolf)
+- ✨ Add `BaseORM.add_synonym` & `BaseORM.map_synonyms` to enable `record.add_synonym("MyGeneName")` [PR786](https://github.com/laminlabs/lamindb/pull/786) [@sunnyosun](https://github.com/sunnyosun)
+- ✨ Add backed access for general HDF5 and zarr objects [PR781](https://github.com/laminlabs/lamindb/pull/781) [@Koncopd](https://github.com/Koncopd)
+
+### Refactors
+
 - 🎨 Remove `lnhub-rest` from `lamindb-setup` [PR784](https://github.com/laminlabs/lamindb/pull/784) [bpenteado](https://github.com/bpenteado)
-- 🚸 Idempotency across metadata records & data artifacts [PR783](https://github.com/laminlabs/lamindb/pull/783) [@falexwolf](https://github.com/falexwolf)
-- ⬆️ Fix empty string bug in map_synonyms [PR780](https://github.com/laminlabs/lamindb/pull/780) [@sunnyosun](https://github.com/sunnyosun)
-- 📝 Re-group readme [PR782](https://github.com/laminlabs/lamindb/pull/782) [@falexwolf](https://github.com/falexwolf)
-- ✨ Add backed access to raw h5 and zarr objects [PR781](https://github.com/laminlabs/lamindb/pull/781) [@Koncopd](https://github.com/Koncopd)
-- ⬆️ Field is no longer required for map_synonyms and search in bionty [PR779](https://github.com/laminlabs/lamindb/pull/779) [@sunnyosun](https://github.com/sunnyosun)
-- 🚀 Fix coverage of unit tests [PR777](https://github.com/laminlabs/lamindb/pull/777) [@sunnyosun](https://github.com/sunnyosun)
-- 🩹 Increase char length `Transform.short_name` to 128 [PR778](https://github.com/laminlabs/lamindb/pull/778) [@falexwolf](https://github.com/falexwolf)
 - 🔊 Move logging from stderr to stdout [PR776](https://github.com/laminlabs/lamindb/pull/776) [@falexwolf](https://github.com/falexwolf)
 
 ## 0.43.0 (2023-06-15)
