@@ -17,7 +17,6 @@ def parse(
     field: Union[Field, Dict[str, Field]],
     *,
     species: str = None,
-    query_existing: bool = True,
 ) -> List[Model]:
     """Parse identifiers and create records through lookups for a given field.
 
@@ -48,7 +47,6 @@ def parse(
             `BaseORM` field to parse into.
             If iterable is `DataFrame`: a dict of `{column_name: field}`.
         species: If `None`, will use default species in bionty for each entity.
-        query_existing: If `False`, always create new records.
 
     Returns:
         A list of Model records.
@@ -66,13 +64,6 @@ def parse(
 
         df = _map_columns_to_fields(df=iterable, field=field)
         df_records = df.to_dict(orient="records")
-
-        if not query_existing:
-            # always create new records, skips query for existing
-            records = [model(**kwargs) for kwargs in df_records]
-            n_new = len(records)
-            logger.hint(f"Created {n_new} {model.__name__} records")
-            return records
 
         # make sure to only return 1 existing entry for each row
         queryset = _bulk_query_fields(df_records=df_records, model=model)
