@@ -24,30 +24,12 @@ def parse(
 
     Guide: :doc:`/biology/registries`.
 
-    For every `value` in an iterable of identifiers and a given `ORM.field`,
-    this function performs:
-
-    1. It checks whether the value already exists in the database
-       (`ORM.select(field=value)`).
-
-       a. If so, it adds the corresponding record to the returned list, moves
-           to the next `value` and skips the remaining steps
-       b. Proceed with 2.
-
-    2. If the `ORM` is from `lnschema_bionty`, it checks whether there is an
-       exact match in the underlying ontology (`Bionty.inspect(value, field)`).
-
-       a. If so, it creates a record from Bionty, adds it to the returned list,
-           and moves to the next `value.
-       b. If not, create a record that merely populates a single field with the
-          `value` and add it to the returned list.
-
     Args:
-        iterable: `Union[ListLike, pd.DataFrame]` A `ListLike` of values or a
-            `DataFrame`.
-        field: `Union[Field, Dict[str, Field]]` If iterable is `ListLike`: a
-            `BaseORM` field to parse into.
-            If iterable is `DataFrame`: a dict of `{column_name1: field1,
+        iterable: `Union[ListLike, pd.DataFrame]` A `ListLike` of identifiers or
+            a `DataFrame`.
+        field: `Union[Field, Dict[str, Field]]` If `iterable` is `ListLike`, a
+            `BaseORM` field to look up.
+            If `iterable` is `DataFrame`, a dict of `{column_name1: field1,
             column_name2: field2}`.
         species: `Optional[str]` Either `"human"`, `"mouse"`, or any other
             `name` of `Bionty.Species`. If `None`, will use default species in
@@ -55,6 +37,19 @@ def parse(
 
     Returns:
         A list of records.
+
+    For every `value` in an iterable of identifiers and a given `ORM.field`,
+    this function performs:
+
+    1. It checks whether the value already exists in the database
+       (`ORM.select(field=value)`). If so, it adds the queried record to
+       the returned list and skips step 2. Otherwise, proceed with 2.
+    2. If the `ORM` is from `lnschema_bionty`, it checks whether there is an
+       exact match in the underlying ontology (`Bionty.inspect(value, field)`).
+       If so, it creates a record from Bionty and adds it to the returned list.
+       Otherwise, it create a record that populates a single field using `value`
+       and adds the record to the returned list.
+
     """
     upon_create_search_names = settings.upon_create_search_names
     settings.upon_create_search_names = False
