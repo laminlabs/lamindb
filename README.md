@@ -13,7 +13,7 @@ Public beta: Currently only recommended for collaborators as we still make break
 Update 2023-06-14:
 
 - We completed a major migration from SQLAlchemy/SQLModel to Django, available in 0.42.0.
-- The last version that is fully compatible with SQLAlchemy/SQLModel is 0.41.2.
+- The last version before the migration is 0.41.2.
 
 ```
 
@@ -21,17 +21,16 @@ Update 2023-06-14:
 
 Free:
 
-- Track data lineage across notebooks, pipelines & apps.
-- Manage biological registries, ontologies & features.
-- Persist, load & stream data objects with a single line of code.
-- Query for anything, define & manage custom schemas.
-- Manage data on your laptop, server or cloud infra.
-- Use a mesh of distributed LaminDB instances for different teams and purposes.
-- Share instances through a Hub akin to GitHub.
+- Track [data lineage](https://lamin.ai/docs/guide/data-lineage) across notebooks, pipelines & apps.
+- Manage [biological registries, ontologies & features](https://lamin.ai/docs/biology/registries).
+- [Query, search & look up anything](https://lamin.ai/docs/guide/select), [manage & migrate custom schemas](https://lamin.ai/docs/setup/migrate).
+- [Persist, load](https://lamin.ai/docs/guide/files-folders#in-memory-objects) & [stream data objects](https://lamin.ai/docs/guide/stream) with a single line of code.
+- [Idempotent](https://lamin.ai/docs/faq/idempotency) and [ACID](https://lamin.ai/docs/faq/acid) operations.
+- Use a mesh of LaminDB instances for different teams and purposes, and [share them in a hub](https://lamin.ai/laminlabs) akin to GitHub.
 
 Enterprise:
 
-- Explore & share data, submit samples & track lineage with LaminApp (deployable in your infra).
+- Explore & share data, submit samples (to come) & track lineage with LaminApp (deployable in your infra).
 - Receive support, code templates & services for a BioTech data & analytics platform.
 
 ## Usage overview
