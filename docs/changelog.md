@@ -10,6 +10,7 @@
 
 ### Refactors
 
+- 🚸 Return records list from `.from_bionty` for multiple matches [PR789](https://github.com/laminlabs/lamindb/pull/789) [@sunnyosun](https://github.com/sunnyosun)
 - 🎨 Remove `lnhub-rest` from `lamindb-setup` [PR784](https://github.com/laminlabs/lamindb/pull/784) [bpenteado](https://github.com/bpenteado)
 - 🔊 Move logging from stderr to stdout [PR776](https://github.com/laminlabs/lamindb/pull/776) [@falexwolf](https://github.com/falexwolf)
 
