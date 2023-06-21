@@ -1,5 +1,6 @@
 # Changelog
 
+- 🐛 Restore stream to fix zarr load [PR793](https://github.com/laminlabs/lamindb/pull/793) [@Koncopd](https://github.com/Koncopd)
 - ♻️ Refactor storage code [PR792](https://github.com/laminlabs/lamindb/pull/792) [@falexwolf](https://github.com/falexwolf)
 - 🐛 Fix empty table bug in `add_synonym` [PR791](https://github.com/laminlabs/lamindb/pull/791) [@sunnyosun](https://github.com/sunnyosun)
 - 👷 Polish docs & switch unit tests to postgres [PR790](https://github.com/laminlabs/lamindb/pull/790) [@falexwolf](https://github.com/falexwolf)
