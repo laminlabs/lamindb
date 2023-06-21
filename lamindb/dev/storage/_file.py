@@ -6,7 +6,6 @@ from typing import Union
 import anndata as ad
 import fsspec
 import pandas as pd
-import readfcs
 from lamindb_setup import settings
 from lamindb_setup.dev.upath import UPath, infer_filesystem
 from lnschema_core.models import File
@@ -22,15 +21,6 @@ def read_adata_h5ad(filepath, **kwargs) -> ad.AnnData:
     with fs.open(filepath, mode="rb") as file:
         adata = ad.read_h5ad(file, backed=False, **kwargs)
         return adata
-
-
-READER_FUNCS = {
-    ".csv": pd.read_csv,
-    ".h5ad": read_adata_h5ad,
-    ".parquet": pd.read_parquet,
-    ".fcs": readfcs.read,
-    ".zarr": read_adata_zarr,
-}
 
 
 def print_hook(size, value, **kwargs):
@@ -104,6 +94,14 @@ def delete_storage(storagepath: Union[Path, UPath]):
         raise FileNotFoundError(f"{storagepath} is not an existing path!")
 
 
+def read_fcs(*args, **kwargs):
+    try:
+        import readfcs
+    except ImportError:
+        raise ImportError("Please install readfcs: pip install readfcs")
+    return readfcs.read(*args, **kwargs)
+
+
 def load_to_memory(filepath: Union[str, Path, UPath]):
     """Load a file into memory.
 
@@ -115,6 +113,14 @@ def load_to_memory(filepath: Union[str, Path, UPath]):
     # caching happens here if filename is a UPath
     # todo: make it safe when filepath is just Path
     filepath = settings.storage.cloud_to_local(filepath)
+
+    READER_FUNCS = {
+        ".csv": pd.read_csv,
+        ".h5ad": read_adata_h5ad,
+        ".parquet": pd.read_parquet,
+        ".fcs": read_fcs,
+        ".zarr": read_adata_zarr,
+    }
 
     reader = READER_FUNCS.get(filepath.suffix)
     if reader is None:
