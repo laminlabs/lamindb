@@ -95,7 +95,7 @@ def delete_storage(storagepath: Union[Path, UPath]):
         raise FileNotFoundError(f"{storagepath} is not an existing path!")
 
 
-def load_to_memory(filepath: Union[str, Path, UPath], stream: bool = False):
+def load_to_memory(filepath: Union[str, Path, UPath]):
     """Load a file into memory.
 
     Returns the filepath if no in-memory form is found.
@@ -103,15 +103,9 @@ def load_to_memory(filepath: Union[str, Path, UPath], stream: bool = False):
     if isinstance(filepath, str):
         filepath = Path(filepath)
 
-    if filepath.suffix == ".zarr":
-        stream = True
-    elif filepath.suffix != ".h5ad":
-        stream = False
-
-    if not stream:
-        # caching happens here if filename is a UPath
-        # todo: make it safe when filepath is just Path
-        filepath = settings.instance.storage.cloud_to_local(filepath)
+    # caching happens here if filename is a UPath
+    # todo: make it safe when filepath is just Path
+    filepath = settings.storage.cloud_to_local(filepath)
 
     reader = READER_FUNCS.get(filepath.suffix)
     if reader is None:
