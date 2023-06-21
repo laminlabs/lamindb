@@ -34,7 +34,6 @@ dependencies = [
     "fsspec",
     "universal_pathlib",
     "pandas",
-    "typeguard"
 ]
 
 [project.urls]
