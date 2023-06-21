@@ -93,14 +93,16 @@ def _track_run_input(file: File, is_run_input: Optional[bool] = None):
             file.input_of.add(context.run)
 
 
-def load(file: File, is_run_input: Optional[bool] = None) -> DataLike:
+def load(
+    file: File, is_run_input: Optional[bool] = None, stream: bool = False
+) -> DataLike:
     """Stage and load to memory.
 
     Returns in-memory representation if possible, e.g., an `AnnData` object
     for an `h5ad` file.
     """
     _track_run_input(file, is_run_input)
-    return load_to_memory(filepath_from_file_or_folder(file))
+    return load_to_memory(filepath_from_file_or_folder(file), stream=stream)
 
 
 def stage(file: File, is_run_input: Optional[bool] = None) -> Path:

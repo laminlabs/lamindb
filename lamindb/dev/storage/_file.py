@@ -102,7 +102,7 @@ def read_fcs(*args, **kwargs):
     return readfcs.read(*args, **kwargs)
 
 
-def load_to_memory(filepath: Union[str, Path, UPath]):
+def load_to_memory(filepath: Union[str, Path, UPath], stream: bool = False):
     """Load a file into memory.
 
     Returns the filepath if no in-memory form is found.
@@ -110,9 +110,15 @@ def load_to_memory(filepath: Union[str, Path, UPath]):
     if isinstance(filepath, str):
         filepath = Path(filepath)
 
-    # caching happens here if filename is a UPath
-    # todo: make it safe when filepath is just Path
-    filepath = settings.storage.cloud_to_local(filepath)
+    if filepath.suffix in (".zarr", ".zrad"):
+        stream = True
+    elif filepath.suffix != ".h5ad":
+        stream = False
+
+    if not stream:
+        # caching happens here if filename is a UPath
+        # todo: make it safe when filepath is just Path
+        filepath = settings.instance.storage.cloud_to_local(filepath)
 
     READER_FUNCS = {
         ".csv": pd.read_csv,
@@ -120,6 +126,7 @@ def load_to_memory(filepath: Union[str, Path, UPath]):
         ".parquet": pd.read_parquet,
         ".fcs": read_fcs,
         ".zarr": read_adata_zarr,
+        ".zrad": read_adata_zarr,
     }
 
     reader = READER_FUNCS.get(filepath.suffix)
