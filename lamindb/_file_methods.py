@@ -9,7 +9,7 @@ from upath import UPath
 from lamindb._context import context
 from lamindb._file_access import filepath_from_file_or_folder
 from lamindb.dev.storage import delete_storage, load_to_memory
-from lamindb.dev.storage.object._backed_access import (
+from lamindb.dev.storage._backed_access import (
     AnnDataAccessor,
     BackedAccessor,
     backed_access,
@@ -93,20 +93,14 @@ def _track_run_input(file: File, is_run_input: Optional[bool] = None):
             file.input_of.add(context.run)
 
 
-def load(
-    file: File, is_run_input: Optional[bool] = None, stream: bool = False
-) -> DataLike:
+def load(file: File, is_run_input: Optional[bool] = None) -> DataLike:
     """Stage and load to memory.
 
     Returns in-memory representation if possible, e.g., an `AnnData` object
     for an `h5ad` file.
     """
-    if stream and file.suffix not in (".h5ad", ".zrad", ".zarr"):
-        raise ValueError(
-            "For streaming, file should have an AnnData object as the underlying data"
-        )
     _track_run_input(file, is_run_input)
-    return load_to_memory(filepath_from_file_or_folder(file), stream=stream)
+    return load_to_memory(filepath_from_file_or_folder(file))
 
 
 def stage(file: File, is_run_input: Optional[bool] = None) -> Path:

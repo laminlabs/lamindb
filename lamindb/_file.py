@@ -12,8 +12,7 @@ from lnschema_core.types import DataLike, PathLike
 from lamindb._file_access import auto_storage_key_from_file
 from lamindb.dev._settings import settings
 from lamindb.dev.hashing import hash_file
-from lamindb.dev.storage import UPath
-from lamindb.dev.storage.object import infer_suffix, size_adata, write_to_file
+from lamindb.dev.storage import UPath, infer_suffix, size_adata, write_to_file
 
 DIRS = AppDirs("lamindb", "laminlabs")
 
