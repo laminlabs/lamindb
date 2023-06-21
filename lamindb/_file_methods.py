@@ -9,7 +9,7 @@ from upath import UPath
 from lamindb._context import context
 from lamindb._file_access import filepath_from_file_or_folder
 from lamindb.dev.storage import delete_storage, load_to_memory
-from lamindb.dev.storage.object._backed_access import (
+from lamindb.dev.storage._backed_access import (
     AnnDataAccessor,
     BackedAccessor,
     backed_access,

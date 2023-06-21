@@ -3,17 +3,26 @@ import shutil
 from pathlib import Path
 from typing import Union
 
+import anndata as ad
 import fsspec
 import pandas as pd
 import readfcs
 from lamindb_setup import settings
-from lamindb_setup.dev.upath import UPath
+from lamindb_setup.dev.upath import UPath, infer_filesystem
 from lnschema_core.models import File
 
 from lamindb._file_access import attempt_accessing_path
 
-from ._h5ad import read_adata_h5ad
 from ._zarr import read_adata_zarr
+
+
+def read_adata_h5ad(filepath, **kwargs) -> ad.AnnData:
+    fs, filepath = infer_filesystem(filepath)
+
+    with fs.open(filepath, mode="rb") as file:
+        adata = ad.read_h5ad(file, backed=False, **kwargs)
+        return adata
+
 
 READER_FUNCS = {
     ".csv": pd.read_csv,
