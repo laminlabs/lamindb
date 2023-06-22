@@ -18,7 +18,7 @@ from fsspec.core import OpenFile
 from lamindb_setup.dev.upath import infer_filesystem
 from lnschema_core import File
 
-from lamindb._file_access import filepath_from_file_or_folder
+from lamindb._file_access import filepath_from_file
 
 
 def _read_dataframe(elem: Union[zarr.Array, h5py.Dataset, zarr.Group, h5py.Group]):
@@ -407,7 +407,7 @@ BackedAccessor = namedtuple("BackedAccessor", ["connection", "storage"])
 
 
 def backed_access(file: File) -> Union[AnnDataAccessor, BackedAccessor]:
-    fs, file_path_str = infer_filesystem(filepath_from_file_or_folder(file))
+    fs, file_path_str = infer_filesystem(filepath_from_file(file))
 
     if file.suffix in (".h5", ".hdf5", ".h5ad"):
         conn = fs.open(file_path_str, mode="rb")

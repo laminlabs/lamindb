@@ -9,7 +9,7 @@ from upath import UPath
 
 from lamindb._context import context
 from lamindb._file import from_dir, init_file, replace_file
-from lamindb._file_access import filepath_from_file_or_folder
+from lamindb._file_access import filepath_from_file
 from lamindb.dev.storage import delete_storage, load_to_memory
 from lamindb.dev.storage._backed_access import (
     AnnDataAccessor,
@@ -104,7 +104,7 @@ def load(
     for an `h5ad` file.
     """
     _track_run_input(file, is_run_input)
-    return load_to_memory(filepath_from_file_or_folder(file), stream=stream)
+    return load_to_memory(filepath_from_file(file), stream=stream)
 
 
 def stage(file: File, is_run_input: Optional[bool] = None) -> Path:
@@ -116,9 +116,7 @@ def stage(file: File, is_run_input: Optional[bool] = None) -> Path:
     if file.suffix in (".zrad", ".zarr"):
         raise RuntimeError("zarr object can't be staged, please use load() or stream()")
     _track_run_input(file, is_run_input)
-    return setup_settings.instance.storage.cloud_to_local(
-        filepath_from_file_or_folder(file)
-    )
+    return setup_settings.instance.storage.cloud_to_local(filepath_from_file(file))
 
 
 def delete(file, storage: Optional[bool] = None) -> None:
@@ -169,9 +167,9 @@ def _save_skip_storage(file, *args, **kwargs) -> None:
 
 def path(self) -> Union[Path, UPath]:
     """Path on storage."""
-    from lamindb._file_access import filepath_from_file_or_folder
+    from lamindb._file_access import filepath_from_file
 
-    return filepath_from_file_or_folder(self)
+    return filepath_from_file(self)
 
 
 # adapted from: https://stackoverflow.com/questions/9727673/list-directory-tree-structure-in-python  # noqa
