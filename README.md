@@ -26,7 +26,7 @@ Free:
 - [Query, search & look up anything](https://lamin.ai/docs/guide/select), [manage & migrate custom schemas](https://lamin.ai/docs/setup/migrate).
 - [Persist, load](https://lamin.ai/docs/guide/files-records#in-memory-objects) & [stream data objects](https://lamin.ai/docs/guide/stream) with a single line of code.
 - [Idempotent](https://lamin.ai/docs/faq/idempotency) and [ACID](https://lamin.ai/docs/faq/acid) operations.
-- Use a mesh of LaminDB instances for different teams and purposes, and [share them in a hub](https://lamin.ai/laminlabs) akin to GitHub.
+- Use a mesh of LaminDB instances and [share them in a hub](https://lamin.ai/laminlabs) akin to GitHub.
 
 Enterprise:
 
@@ -79,7 +79,7 @@ Or get a backed accessor to stream its content from the cloud
 
 ```python
 
-conn = file.backed()  # currently works for AnnData, zarr, HDF5, not yet for DataFrame
+backed = file.backed()  # currently works for AnnData, zarr, HDF5, not yet for DataFrame
 
 ```
 
