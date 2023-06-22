@@ -38,7 +38,7 @@ def suggest_objects_with_same_name(orm: BaseORM, kwargs) -> Optional[str]:
             return None
 
         # subset results to those with at least 0.5 levensteihn distance
-        results = results.loc[results.__ratio__ >= 50]
+        results = results.loc[results.__ratio__ >= 90]
 
         # test for exact match
         if len(results) > 0:
@@ -58,7 +58,7 @@ def suggest_objects_with_same_name(orm: BaseORM, kwargs) -> Optional[str]:
 
 
 def __init__(orm: BaseORM, *args, **kwargs):
-    if not args:  # if args, object is loaded from DB
+    if not args:
         validate_required_fields(orm, kwargs)
         if settings.upon_create_search_names:
             result = suggest_objects_with_same_name(orm, kwargs)
@@ -71,7 +71,12 @@ def __init__(orm: BaseORM, *args, **kwargs):
                 super(BaseORM, orm).__init__(*new_args)
                 orm._state.adding = False  # mimic from_db
                 return None
-    super(BaseORM, orm).__init__(*args, **kwargs)
+        super(BaseORM, orm).__init__(**kwargs)
+    elif len(args) != len(orm._meta.concrete_fields):
+        raise ValueError("Please provide keyword arguments, not plain arguments")
+    else:
+        # object is loaded from DB (**kwargs could be ommitted below, I believe)
+        super(BaseORM, orm).__init__(*args, **kwargs)
 
 
 @classmethod  # type: ignore
