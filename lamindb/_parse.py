@@ -3,7 +3,7 @@ from typing import Any, Dict, Iterable, List, Optional, Tuple, TypeVar, Union
 import numpy as np
 import pandas as pd
 from django.core.exceptions import MultipleObjectsReturned, ObjectDoesNotExist
-from django.db.models import Model, Q
+from django.db.models import Q
 from django.db.models.query_utils import DeferredAttribute as Field
 from lamin_logger import colors, logger
 from lnschema_core.models import BaseORM
@@ -177,7 +177,7 @@ def _get_from_queryset(queryset, df_records, model):
 
 
 def _preprocess_species(
-    model: Model, species: Optional[str] = None
+    model: BaseORM, species: Optional[str] = None
 ) -> Tuple[dict, dict, pd.DataFrame]:
     kwargs_species_source: Dict = {}
     condition_species: Dict = {}
@@ -203,7 +203,7 @@ def _preprocess_species(
     return kwargs_species_source, condition_species, bionty_df
 
 
-def _filter_bionty_df_columns(model: Model, bionty_object: Any) -> pd.DataFrame:
+def _filter_bionty_df_columns(model: BaseORM, bionty_object: Any) -> pd.DataFrame:
     bionty_df = pd.DataFrame()
     if bionty_object is not None:
         model_field_names = {i.name for i in model._meta.fields}
@@ -223,7 +223,7 @@ def _bulk_create_dicts_from_df(
     return df.loc[list(keys)].reset_index().to_dict(orient="records")
 
 
-def _bulk_query_fields(df_records: list, model: Model):
+def _bulk_query_fields(df_records: list, model: BaseORM):
     condition = Q(**df_records[0])
     for kwargs in df_records[1:]:
         condition = condition.__getattribute__("__or__")(Q(**kwargs))

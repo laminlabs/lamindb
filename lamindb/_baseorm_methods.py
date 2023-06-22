@@ -1,6 +1,7 @@
 import builtins
-from typing import Dict, Iterable, List, Literal, NamedTuple, Optional, Union
+from typing import Dict, Iterable, List, Literal, NamedTuple, Optional, Set, Union
 
+from django.core.exceptions import FieldDoesNotExist
 from django.db.models import CharField, TextField
 from lamin_logger import logger
 from lamin_logger._lookup import Lookup
@@ -174,6 +175,55 @@ lookup.__doc__ = Lookup.__doc__
 
 
 @classmethod  # type: ignore
+def inspect(
+    cls,
+    identifiers: Iterable,
+    field: Union[str, CharField, TextField],
+    *,
+    species: Optional[str] = None,
+    case_sensitive: bool = False,
+    inspect_synonyms: bool = True,
+    return_df: bool = False,
+    logging: bool = True,
+) -> Union[DataFrame, Dict[str, List[str]]]:
+    """Inspect if a list of identifiers are mappable to existing values of a field.
+
+    Args:
+        identifiers: Identifiers that will be checked against the field.
+        field: `Union[str, CharField, TextField]` The field of identifiers.
+                Examples are 'ontology_id' to map against the source ID
+                or 'name' to map against the ontologies field names.
+        case_sensitive: Whether the identifier inspection is case sensitive.
+        inspect_synonyms: Whether to inspect synonyms.
+        return_df: Whether to return a Pandas DataFrame.
+
+    Returns:
+        - A Dictionary of "mapped" and "unmapped" identifiers
+        - If `return_df`: A DataFrame indexed by identifiers with a boolean `__mapped__`
+            column that indicates compliance with the identifiers.
+
+    Examples:
+        >>> import lnschema_bionty as lb
+        >>> gene_symbols = ["A1CF", "A1BG", "FANCD1", "FANCD20"]
+        >>> lb.Gene.inspect(gene_symbols, field=lb.Gene.symbol)
+    """
+    from lamin_logger._inspect import inspect
+
+    if not isinstance(field, str):
+        field = field.field.name
+
+    return inspect(
+        df=_check_if_species_field_exist(orm=cls, species=species),
+        identifiers=identifiers,
+        field=str(field),
+        case_sensitive=case_sensitive,
+        inspect_synonyms=inspect_synonyms,
+        return_df=return_df,
+        logging=logging,
+    )
+
+
+@classmethod  # type: ignore
 def map_synonyms(
     cls,
     synonyms: Iterable,
@@ -215,7 +265,6 @@ def map_synonyms(
         >>> gene_synonyms = ["A1CF", "A1BG", "FANCD1", "FANCD20"]
         >>> standardized_names = lb.Gene.map_synonyms(gene_synonyms, species="human")
     """
-    import pandas as pd
     from lamin_logger._map_synonyms import map_synonyms
 
     if field is None:
@@ -223,23 +272,8 @@ def map_synonyms(
     if not isinstance(field, str):
         field = field.field.name
 
-    records = cls.objects.all()
-
-    try:
-        records.model._meta.get_field("species")
-        if species is None:
-            raise AssertionError(
-                f"{cls.__name__} table requires to specify a species name via"
-                " `species=`!"
-            )
-        records = records.filter(species__name=species)
-    except KeyError:
-        pass
-
-    df = pd.DataFrame.from_records(records.values())
-
     return map_synonyms(
-        df=df,
+        df=_check_if_species_field_exist(orm=cls, species=species),
         identifiers=synonyms,
         field=field,
         return_mapper=return_mapper,
@@ -248,6 +282,24 @@ def map_synonyms(
         synonyms_field=synonyms_field,
         sep=synonyms_sep,
     )
+
+
+def _check_if_species_field_exist(orm: BaseORM, species: Optional[str] = None):
+    import pandas as pd
+
+    records = orm.objects.all()
+    try:
+        records.model._meta.get_field("species")
+        if species is None:
+            raise AssertionError(
+                f"{orm.__name__} table requires to specify a species name via"
+                " `species=`!"
+            )
+        records = records.filter(species__name=species)
+    except FieldDoesNotExist:
+        pass
+
+    return pd.DataFrame.from_records(records.values())
 
 
 def get_default_str_field(orm: BaseORM) -> str:
@@ -273,7 +325,100 @@ def get_default_str_field(orm: BaseORM) -> str:
     return field.name
 
 
+def _add_or_remove_synonyms(
+    synonym: Union[str, Iterable],
+    record: BaseORM,
+    action: Literal["add", "remove"],
+    force: bool = False,
+):
+    """Add or remove synonyms."""
+
+    def check_synonyms_in_all_records(synonyms: Set[str], record: BaseORM):
+        """Errors if input synonyms are already associated with records in the DB."""
+        import pandas as pd
+        from IPython.display import display
+
+        syns_all = (
+            record.__class__.objects.exclude(synonyms="").exclude(synonyms=None).all()
+        )
+        if len(syns_all) == 0:
+            return
+        df = pd.DataFrame(syns_all.values())
+        df["synonyms"] = df["synonyms"].str.split("|")
+        df = df.explode("synonyms")
+        matches_df = df[(df["synonyms"].isin(synonyms)) & (df["id"] != record.id)]
+        if matches_df.shape[0] > 0:
+            records_df = pd.DataFrame(syns_all.filter(id__in=matches_df["id"]).values())
+            logger.error(
+                f"Input synonyms {matches_df['synonyms'].unique()} already associated"
+                " with the following records:\n(Pass `force=True` to ignore this error)"
+            )
+            display(records_df)
+            raise SystemExit(AssertionError)
+
+    # passed synonyms
+    if isinstance(synonym, str):
+        syn_new_set = set([synonym])
+    else:
+        syn_new_set = set(synonym)
+    # nothing happens when passing an empty string or list
+    if len(syn_new_set) == 0:
+        return
+    # because we use | as the separator
+    if any(["|" in i for i in syn_new_set]):
+        raise AssertionError("A synonym can't contain '|'!")
+
+    # existing synonyms
+    syns_exist = record.synonyms
+    if syns_exist is None or len(syns_exist) == 0:
+        syns_exist_set = set()
+    else:
+        syns_exist_set = set(syns_exist.split("|"))
+
+    if action == "add":
+        if not force:
+            check_synonyms_in_all_records(syn_new_set, record)
+        syns_exist_set.update(syn_new_set)
+    elif action == "remove":
+        syns_exist_set = syns_exist_set.difference(syn_new_set)
+
+    if len(syns_exist_set) == 0:
+        syns_str = None
+    else:
+        syns_str = "|".join(syns_exist_set)
+
+    record.synonyms = syns_str
+
+    # if the record already exists in the DB, save it
+    if not record._state.adding:
+        record.save()
+
+
+def _check_synonyms_field_exist(record: BaseORM):
+    try:
+        record.__getattribute__("synonyms")
+    except AttributeError:
+        raise NotImplementedError(
+            f"No synonyms field found in table {record.__class__.__name__}!"
+        )
+
+
+def add_synonym(self, synonym: Union[str, Iterable], force: bool = False):
+    """Add synonyms to a record."""
+    _check_synonyms_field_exist(self)
+    _add_or_remove_synonyms(synonym=synonym, record=self, force=force, action="add")
+
+
+def remove_synonym(self, synonym: Union[str, Iterable]):
+    """Remove synonyms from a record."""
+    _check_synonyms_field_exist(self)
+    _add_or_remove_synonyms(synonym=synonym, record=self, action="remove")
+
+
 BaseORM.__init__ = __init__
 BaseORM.search = search
 BaseORM.lookup = lookup
 BaseORM.map_synonyms = map_synonyms
+BaseORM.inspect = inspect
+BaseORM.add_synonym = add_synonym
+BaseORM.remove_synonym = remove_synonym
