@@ -3,11 +3,13 @@ from lamindb_setup import settings
 from lamindb_setup.dev import StorageSettings
 from lnschema_core.models import File, Storage
 
+AUTO_KEY_PREFIX = ".lamindb/"
+
 
 # add type annotations back asap when re-organizing the module
 def auto_storage_key_from_file(file: File):
     if file.key is None:
-        return f"lndb/{file.id}{file.suffix}"
+        return f"{AUTO_KEY_PREFIX}{file.id}{file.suffix}"
     else:
         return file.key
 
@@ -17,23 +19,25 @@ def attempt_accessing_path(file: File, storage_key: str):
         path = settings.storage.key_to_filepath(storage_key)
     else:
         logger.warning(
-            "file.path() is slow for files outside the currently configured storage"
-            " location\nconsider joining for the set of files you're interested in:"
-            " ln.select(ln.File, ln.Storage)the path is storage.root / file.key if"
-            " file.key is not None\notherwise storage.root / (file.id + file.suffix)"
+            "file.path() is slower for files outside the currently configured storage"
+            " location"
         )
         storage = Storage.select(id=file.storage_id).one()
         # find a better way than passing None to instance_settings in the future!
         storage_settings = StorageSettings(storage.root, instance_settings=None)
         path = storage_settings.key_to_filepath(storage_key)
     # the following is for backward compat
-    if storage_key.startswith("lndb/") and not path.exists():
+    if storage_key.startswith(AUTO_KEY_PREFIX) and not path.exists():
         logger.warning(
-            "You have auto-keyed files in your storage root, please move them into an"
-            " 'lndb/' subfolder"
+            "You have auto-keyed files in your storage root, please move them into"
+            f" {AUTO_KEY_PREFIX} within your storage location"
         )
-        legacy_storage_key = storage_key.lstrip("/lndb")
-        return attempt_accessing_path(file, legacy_storage_key)
+        # try legacy_storage_key in root
+        for previous_prefix in ["", "lndb/"]:
+            legacy_storage_key = storage_key.replace(AUTO_KEY_PREFIX, previous_prefix)
+            path = settings.storage.key_to_filepath(legacy_storage_key)
+            if path.exists():
+                return path
     return path
 
 

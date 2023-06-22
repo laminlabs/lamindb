@@ -14,6 +14,8 @@ from lamindb.dev._settings import settings
 from lamindb.dev.hashing import hash_file
 from lamindb.dev.storage import UPath, infer_suffix, size_adata, write_to_file
 
+from ._file_access import AUTO_KEY_PREFIX
+
 DIRS = AppDirs("lamindb", "laminlabs")
 
 NO_NAME_ERROR = """\
@@ -238,6 +240,9 @@ def get_file_kwargs_from_data(
 
     if name is None and key is None:
         raise ValueError(NO_NAME_ERROR)
+
+    if key is not None and key.startswith(AUTO_KEY_PREFIX):
+        raise ValueError(f"Key cannot start with {AUTO_KEY_PREFIX}")
 
     kwargs = dict(
         name=name,
