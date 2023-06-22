@@ -194,7 +194,7 @@ def tree(
     files = 0
     directories = 0
 
-    def inner(dir_path: Path, prefix: str = "", level=-1):
+    def inner(dir_path: Union[Path, UPath], prefix: str = "", level=-1):
         nonlocal files, directories
         if not level:
             return  # 0, stop iterating
