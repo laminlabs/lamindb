@@ -1,6 +1,6 @@
 # Changelog
 
-- ✨ Add `inspect` and `add_synonym` to BaseORM [PR797](https://github.com/laminlabs/lamindb/pull/797) [@sunnyosun](https://github.com/sunnyosun)
+- ✨ Add `inspect` and `add_synonym` to BaseORM [PR797](https://github.com/laminlabs/lamindb/pull/797) [@sunnyosun](https://github.com/sunnyosun) | 0.44.1
 - 📝 Rename extra `nbproject` to `jupyter` and add `fcs` extra to docs [PR798](https://github.com/laminlabs/lamindb/pull/798) [@falexwolf](https://github.com/falexwolf)
 - 🚚 Move default storage location from `lndb/` to `.lamindb/` [PR796](https://github.com/laminlabs/lamindb/pull/796) [@falexwolf](https://github.com/falexwolf)
 - 📝 Improve README [PR795](https://github.com/laminlabs/lamindb/pull/795) [@Zethson](https://github.com/Zethson)
