@@ -175,7 +175,7 @@ def path(self) -> Union[Path, UPath]:
 @classmethod  # type: ignore
 def tree(
     cls: File,
-    prefix: str,
+    prefix: Optional[str] = None,
     *,
     level: int = -1,
     limit_to_directories: bool = False,
@@ -187,7 +187,10 @@ def tree(
     tee = "├── "
     last = "└── "
 
-    dir_path = settings.storage / prefix
+    if prefix is None:
+        dir_path = settings.storage
+    else:
+        dir_path = settings.storage / prefix
     files = 0
     directories = 0
 
