@@ -19,10 +19,8 @@ def attempt_accessing_path(file: File, storage_key: str):
         path = settings.storage.key_to_filepath(storage_key)
     else:
         logger.warning(
-            "file.path() is slow for files outside the currently configured storage"
-            " location\nconsider joining for the set of files you're interested in:"
-            " ln.select(ln.File, ln.Storage) the path is storage.root / file.key if"
-            " file.key is not None\notherwise storage.root / (file.id + file.suffix)"
+            "file.path() is slower for files outside the currently configured storage"
+            " location"
         )
         storage = Storage.select(id=file.storage_id).one()
         # find a better way than passing None to instance_settings in the future!
