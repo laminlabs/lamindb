@@ -198,11 +198,15 @@ def tree(
         nonlocal files, directories
         if not level:
             return  # 0, stop iterating
+        stripped_dir_path = dir_path.as_posix().rstrip("/")
+        # do not iterate through zarr directories
+        if stripped_dir_path.endswith(".zarr"):
+            return
         # this is needed so that the passed folder is not listed
         contents = [
             i
             for i in dir_path.iterdir()
-            if i.as_posix().rstrip("/") != dir_path.as_posix().rstrip("/")
+            if i.as_posix().rstrip("/") != stripped_dir_path
         ]
         if limit_to_directories:
             contents = [d for d in contents if d.is_dir()]
