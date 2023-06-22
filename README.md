@@ -197,10 +197,11 @@ It's fastest if we do this for you based on our templates within an enterprise p
 
 ```shell
 pip install lamindb  # basic data lake
-pip install 'lamindb[bionty]'  # biological entities
-pip install 'lamindb[nbproject]'  # Jupyter notebook tracking
-pip install 'lamindb[aws]'  # AWS dependencies (s3fs, etc.)
-pip install 'lamindb[gcp]'  # GCP dependencies (gcfs, etc.)
+pip install 'lamindb[jupyter]'  # Jupyter notebook tracking
+pip install 'lamindb[bionty]'  # basic biological entities
+pip install 'lamindb[fcs]'  # .fcs files (flow cytometry)
+pip install 'lamindb[aws]'  # AWS (s3fs, etc.)
+pip install 'lamindb[gcp]'  # Google Cloud (gcfs, etc.)
 ```
 
 ## Quick setup
