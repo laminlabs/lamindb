@@ -215,7 +215,7 @@ pip install 'lamindb[aws]'  # AWS (s3fs, etc.)
 pip install 'lamindb[gcp]'  # Google Cloud (gcfs, etc.)
 ```
 
-## Quick setup
+## Sign up
 
 Why do I have to sign up?
 
