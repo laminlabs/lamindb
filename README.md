@@ -1,6 +1,7 @@
 [![Stars](https://img.shields.io/github/stars/laminlabs/lamindb?logo=GitHub&color=yellow)](https://github.com/laminlabs/lamindb)
 [![codecov](https://codecov.io/gh/laminlabs/lamindb/branch/main/graph/badge.svg?token=VKMRJ7OWR3)](https://codecov.io/gh/laminlabs/lamindb)
 [![pypi](https://img.shields.io/pypi/v/lamindb?color=blue&label=pypi%20package)](https://pypi.org/project/lamindb)
+[![Documentation](https://img.shields.io/badge/Documentation-green)](https://lamin.ai/docs/guide)
 
 # LaminDB: Data lake for biology
 
@@ -14,7 +15,6 @@ Update 2023-06-14:
 
 - We completed a major migration from SQLAlchemy/SQLModel to Django, available in 0.42.0.
 - The last version before the migration is 0.41.2.
-
 ```
 
 ## Features
@@ -30,7 +30,7 @@ Free:
 
 Enterprise:
 
-- Explore & share data, submit samples (to come) & track lineage with LaminApp (deployable in your infra).
+- Explore & share data, submit samples (to come) & track lineage with LaminApp (deployable in your infrastructure).
 - Receive support, code templates & services for a BioTech data & analytics platform.
 
 ## Usage overview
@@ -241,14 +241,12 @@ LaminDB consists of the `lamindb` Python package (repository [here](https://gith
 
 LaminHub & LaminApp are not open-sourced, and neither are templates that model lab operations.
 
-Lamin's packages build on the infrastructure listed
-[above](#how-does-it-work). Previously, they were based on SQLAlchemy/SQLModel
-instead of Django, and cloudpathlib instead of fsspec.
+Lamin's packages build on the infrastructure listed [above](#how-does-it-work).
 
 ## Notebooks
 
 - Find all guide notebooks [here](https://github.com/laminlabs/lamindb/tree/main/docs/guide).
-- You can run these notebooks in hosted versions of JupyterLab, e.g., [Saturn Cloud](https://github.com/laminlabs/run-lamin-on-saturn), Google Vertex AI, and others or on Google Colab.
+- You can run these notebooks in hosted versions of JupyterLab, e.g., [Saturn Cloud](https://github.com/laminlabs/run-lamin-on-saturn), Google Vertex AI, Google Colab, and others.
 - Jupyter Lab & Notebook offer a fully interactive experience, VS Code & others require using the CLI (`lamin track my-notebook.ipynb`)
 
 ## Documentation
