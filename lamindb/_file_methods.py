@@ -200,7 +200,7 @@ def tree(
             return  # 0, stop iterating
         stripped_dir_path = dir_path.as_posix().rstrip("/")
         # do not iterate through zarr directories
-        if stripped_dir_path.endswith(".zarr"):
+        if stripped_dir_path.endswith((".zarr", ".zrad")):
             return
         # this is needed so that the passed folder is not listed
         contents = [
