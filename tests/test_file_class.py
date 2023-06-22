@@ -64,3 +64,13 @@ def test_init_from_directory(get_test_filepaths):
         assert len(records) == 1
         # also execute tree
         File.tree(test_dirpath.name)
+
+
+def test_delete(get_test_filepaths):
+    test_filepath = get_test_filepaths[2]
+    file = File(test_filepath, name="My test file to delete")
+    file.save()
+    storage_path = file.path()
+    file.delete(storage=True)
+    assert File.select(name="My test file to delete").first() is None
+    assert not Path(storage_path).exists()

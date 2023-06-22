@@ -143,6 +143,19 @@ class context:
                 Pass `'lab'` for jupyter lab and `'notebook'` for jupyter notebook,
                 this can help to identify the correct mechanism for interactivity
                 when automatic inference fails.
+
+        Examples:
+
+        If you're in a Jupyter notebook and installed lamindb with `pip
+        install[jupyter]`, you can simply call:
+
+        >>> ln.track()
+
+        If you'd like to track a pipeline we need to pass a
+        :class:`~lamindb.Transform` object of `type` `"pipeline"`:
+
+        >>> transform = ln.Transform.select("My pipeline", version="0.1.2").one()
+        >>> ln.track(transform)
         """
         cls.instance = settings.instance
         import lamindb as ln

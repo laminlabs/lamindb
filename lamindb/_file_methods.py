@@ -28,7 +28,8 @@ Args:
    key: `Optional[str] = None` A storage key: a relative filepath within the
       current default storage, e.g., `"my_samples/my_file.fcs"`.
    name: `Optional[str] = None` A name or title. Useful if key is auto-generated.
-   run: `Optional[Run] = None` The run that created the file.
+   run: `Optional[Run] = None` The run that created the file, gets auto-linked
+       if `ln.track()` was called.
 
 Track where files come from by passing the generating :class:`~lamindb.Run`.
 
@@ -124,6 +125,12 @@ def delete(file, storage: Optional[bool] = None) -> None:
     Args:
         storage: `Optional[bool] = None` Indicate whether you want to delete the
         file in storage.
+
+    Example:
+
+    For any `File` object `file`, call:
+
+    >>> file.delete(storage=True)  # storage=True auto-confirms deletion in storage
     """
     if storage is None:
         response = input(f"Are you sure you want to delete {file} from storage? (y/n)")
@@ -238,7 +245,28 @@ def replace(
     run: Optional[Run] = None,
     format: Optional[str] = None,
 ) -> None:
-    """Replace file content."""
+    """Replace file content.
+
+    Args:
+        data: `Union[PathLike, DataLike]` A file path or an in-memory data
+            object (`DataFrame`, `AnnData`).
+        run: `Optional[Run] = None` The run that created the file, gets
+            auto-linked if `ln.track()` was called.
+
+    Examples:
+
+    Say we made a change to the content of a file (e.g., edited the image
+    `paradisi05_laminopathic_nuclei.jpg`).
+
+    This is how we replace the old file in storage with the new file:
+
+    >>> file.replace("paradisi05_laminopathic_nuclei.jpg")
+    >>> file.save()
+
+    Note that this neither changes the storage key nor the filename.
+
+    However, it will update the suffix if the file type changes.
+    """
     replace_file(file, data, run, format)
 
 
