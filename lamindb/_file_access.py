@@ -7,7 +7,7 @@ from lnschema_core.models import File, Storage
 # add type annotations back asap when re-organizing the module
 def auto_storage_key_from_file(file: File):
     if file.key is None:
-        return f"lndb/{file.id}{file.suffix}"
+        return f".lamindb/{file.id}{file.suffix}"
     else:
         return file.key
 
@@ -27,12 +27,13 @@ def attempt_accessing_path(file: File, storage_key: str):
         storage_settings = StorageSettings(storage.root, instance_settings=None)
         path = storage_settings.key_to_filepath(storage_key)
     # the following is for backward compat
-    if storage_key.startswith("lndb/") and not path.exists():
+    if storage_key.startswith(".lamindb/") and not path.exists():
         logger.warning(
-            "You have auto-keyed files in your storage root, please move them into an"
-            " 'lndb/' subfolder"
+            "You have auto-keyed files in your storage root, please move them into"
+            " '.lamindb/' within your storage location"
         )
-        legacy_storage_key = storage_key.lstrip("/lndb")
+        # try legacy_storage_key in root
+        legacy_storage_key = storage_key.lstrip(".lamindb/")
         return attempt_accessing_path(file, legacy_storage_key)
     return path
 
