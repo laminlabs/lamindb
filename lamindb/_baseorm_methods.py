@@ -1,6 +1,7 @@
 import builtins
 from typing import Dict, Iterable, List, Literal, NamedTuple, Optional, Set, Union
 
+from django.core.exceptions import FieldDoesNotExist
 from django.db.models import CharField, TextField
 from lamin_logger import logger
 from lamin_logger._lookup import Lookup
@@ -206,24 +207,8 @@ def inspect(
     if not isinstance(field, str):
         field = field.field.name
 
-    records = cls.objects.all()
-
-    try:
-        records.model._meta.get_field("species")
-        if species is None:
-            raise AssertionError(
-                f"{cls.__name__} table requires to specify a species name via"
-                " `species=`!"
-            )
-        records = records.filter(species__name=species)
-
-    except KeyError:
-        pass
-
-    df = DataFrame.from_records(records.values())
-
     return inspect(
-        df=df,
+        df=_check_if_species_field_exist(orm=cls, species=species),
         identifiers=identifiers,
         field=str(field),
         case_sensitive=case_sensitive,
@@ -275,7 +260,6 @@ def map_synonyms(
         >>> gene_synonyms = ["A1CF", "A1BG", "FANCD1", "FANCD20"]
         >>> standardized_names = lb.Gene.map_synonyms(gene_synonyms, species="human")
     """
-    import pandas as pd
     from lamin_logger._map_synonyms import map_synonyms
 
     if field is None:
@@ -283,23 +267,8 @@ def map_synonyms(
     if not isinstance(field, str):
         field = field.field.name
 
-    records = cls.objects.all()
-
-    try:
-        records.model._meta.get_field("species")
-        if species is None:
-            raise AssertionError(
-                f"{cls.__name__} table requires to specify a species name via"
-                " `species=`!"
-            )
-        records = records.filter(species__name=species)
-    except KeyError:
-        pass
-
-    df = pd.DataFrame.from_records(records.values())
-
     return map_synonyms(
-        df=df,
+        df=_check_if_species_field_exist(orm=cls, species=species),
         identifiers=synonyms,
         field=field,
         return_mapper=return_mapper,
@@ -308,6 +277,24 @@ def map_synonyms(
         synonyms_field=synonyms_field,
         sep=synonyms_sep,
     )
+
+
+def _check_if_species_field_exist(orm: BaseORM, species: Optional[str] = None):
+    import pandas as pd
+
+    records = orm.objects.all()
+    try:
+        records.model._meta.get_field("species")
+        if species is None:
+            raise AssertionError(
+                f"{orm.__name__} table requires to specify a species name via"
+                " `species=`!"
+            )
+        records = records.filter(species__name=species)
+    except FieldDoesNotExist:
+        pass
+
+    return pd.DataFrame.from_records(records.values())
 
 
 def get_default_str_field(orm: BaseORM) -> str:
