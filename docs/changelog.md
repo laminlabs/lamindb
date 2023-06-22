@@ -1,14 +1,21 @@
 # Changelog
 
+
+## 0.44.1 (2023-06-22)
+
+### Features
+
 - ✨ Add `inspect` and `add_synonym` to BaseORM [PR797](https://github.com/laminlabs/lamindb/pull/797) [@sunnyosun](https://github.com/sunnyosun) | 0.44.1
-- 📝 Rename extra `nbproject` to `jupyter` and add `fcs` extra to docs [PR798](https://github.com/laminlabs/lamindb/pull/798) [@falexwolf](https://github.com/falexwolf)
+
+### Config
+- 🔧 Rename extra `nbproject` to `jupyter` and add `fcs` extra to docs [PR798](https://github.com/laminlabs/lamindb/pull/798) [@falexwolf](https://github.com/falexwolf)
 - 🚚 Move default storage location from `lndb/` to `.lamindb/` [PR796](https://github.com/laminlabs/lamindb/pull/796) [@falexwolf](https://github.com/falexwolf)
-- 📝 Improve README [PR795](https://github.com/laminlabs/lamindb/pull/795) [@Zethson](https://github.com/Zethson)
+
+### Refactors
+
 - 🚸 `ln.Folder` becomes `ln.Tag` & directories now modeled as prefixes (as on S3) [PR794](https://github.com/laminlabs/lamindb/pull/794) [@falexwolf](https://github.com/falexwolf)
-- 🐛 Restore stream to fix zarr load [PR793](https://github.com/laminlabs/lamindb/pull/793) [@Koncopd](https://github.com/Koncopd)
-- ♻️ Refactor storage code [PR792](https://github.com/laminlabs/lamindb/pull/792) [@falexwolf](https://github.com/falexwolf)
-- 🐛 Fix empty table bug in `add_synonym` [PR791](https://github.com/laminlabs/lamindb/pull/791) [@sunnyosun](https://github.com/sunnyosun)
-- 👷 Polish docs & switch unit tests to postgres [PR790](https://github.com/laminlabs/lamindb/pull/790) [@falexwolf](https://github.com/falexwolf)
+- ♻️ Refactor storage code [PR792](https://github.com/laminlabs/lamindb/pull/792) [@falexwolf](https://github.com/falexwolf) [@Koncopd](https://github.com/Koncopd)
+
 ## 0.44.0 (2023-06-20)
 
 ### Features
@@ -295,7 +302,7 @@ van -> can | [641](https://github.com/laminlabs/lamindb/pull/641) | [ThomVett](h
 ➖ Removed lnbfx and fix CI | [478](https://github.com/laminlabs/lamindb/pull/478) | [sunnyosun](https://github.com/sunnyosun) | 2023-02-06 |
 📝 Query book | [470](https://github.com/laminlabs/lamindb/pull/470) | [sunnyosun](https://github.com/sunnyosun) | 2023-02-06 |
 🩹 Print dobject name for zarr upload | [475](https://github.com/laminlabs/lamindb/pull/475) | [Koncopd](https://github.com/Koncopd) | 2023-02-02 |
-:bug: Fix load | [474](https://github.com/laminlabs/lamindb/pull/474) | [Koncopd](https://github.com/Koncopd) | 2023-02-02 |
+🐛 Fix load | [474](https://github.com/laminlabs/lamindb/pull/474) | [Koncopd](https://github.com/Koncopd) | 2023-02-02 |
 🔥 Disable ORM relationship preview | [473](https://github.com/laminlabs/lamindb/pull/473) | [bpenteado](https://github.com/bpenteado) | 2023-02-02 |
 ✨ Allow ingesting existing data in the cloud | [471](https://github.com/laminlabs/lamindb/pull/471) | [sunnyosun](https://github.com/sunnyosun) | 2023-02-02 |
 🐛 Correct filepath in header | [469](https://github.com/laminlabs/lamindb/pull/469) | [Koncopd](https://github.com/Koncopd) | 2023-02-01 |
