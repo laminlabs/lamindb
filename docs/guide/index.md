@@ -14,7 +14,7 @@
 :hidden:
 :caption: Data
 
-files-folders
+files-records
 data-lineage
 select
 schemas
