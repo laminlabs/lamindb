@@ -2,6 +2,7 @@ from itertools import islice
 from pathlib import Path
 from typing import Optional, Union, overload  # noqa
 
+from lamin_logger import colors, logger
 from lamindb_setup import settings as setup_settings
 from lnschema_core.models import File, Run
 from lnschema_core.types import DataLike, PathLike
@@ -10,15 +11,13 @@ from upath import UPath
 from lamindb._context import context
 from lamindb._file import from_dir, init_file, replace_file
 from lamindb._file_access import filepath_from_file
+from lamindb.dev._settings import settings
 from lamindb.dev.storage import delete_storage, load_to_memory
 from lamindb.dev.storage._backed_access import (
     AnnDataAccessor,
     BackedAccessor,
     backed_access,
 )
-
-from ._logger import colors, logger
-from .dev._settings import settings
 
 File.__doc__ = """Files: data artifacts.
 
@@ -173,24 +172,22 @@ def path(self) -> Union[Path, UPath]:
 
 
 # adapted from: https://stackoverflow.com/questions/9727673/list-directory-tree-structure-in-python  # noqa
+@classmethod  # type: ignore
 def tree(
-    folder: File,
-    *,
+    cls: File,
     prefix: str,
+    *,
     level: int = -1,
     limit_to_directories: bool = False,
     length_limit: int = 1000,
 ):
-    """Given a prefix, print a visual tree structure."""
-    if folder.key is None:
-        raise RuntimeError("Virtual folders do not have a tree structure")
-
+    """Given a prefix, print a visual tree structure of files."""
     space = "    "
     branch = "│   "
     tee = "├── "
     last = "└── "
 
-    dir_path = UPath(folder.path())
+    dir_path = settings.storage / prefix
     files = 0
     directories = 0
 
@@ -276,3 +273,4 @@ File.replace = replace
 File.__init__ = __init__
 File.path = path
 File.from_dir = from_dir
+File.tree = tree
