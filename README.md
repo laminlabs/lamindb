@@ -38,7 +38,7 @@ Enterprise:
 Use the CLI to initialize a data lake with local or cloud default storage:
 
 ```shell
-$ lamin init --storage ./myartifacts  # or s3://my-bucket, gs://my-bucket, etc.
+$ lamin init --storage ./mydata  # or s3://my-bucket, gs://my-bucket, etc.
 ```
 
 Within Python, import `lamindb`:
@@ -47,49 +47,69 @@ Within Python, import `lamindb`:
 import lamindb as ln
 ```
 
-### Store, query, search & load data artifacts
+### Store, query, search & load data objects
 
 Store a `DataFrame` in default storage:
 
 ```python
 df = pd.DataFrame({"feat1": [1, 2], "feat2": [3, 4]})  # AnnData works, too
 
-ln.File(df, name="My dataset1").save()  # create a File object and save it
+ln.File(df, name="My dataset1").save()  # create a File object and save/upload it
 ```
 
-You'll have the full power of SQL to query for metadata, but the simplest query for a file is:
+You have the full power of SQL to query for metadata, but the simplest query for a file is:
 
 ```python
 file = ln.File.select(name="My dataset1").one()  # get exactly one result
 ```
 
-If you don't have specific metadata in mind, search for the file:
+If you don't have specific metadata in mind, run a search:
 
 ```python
 ln.File.search("dataset1")
 ```
 
-Load the file back into memory:
+Once you queried or searched it, load a file back into memory:
 
 ```python
 df = file.load()
 ```
 
-Or get a backed accessor to stream its content from the cloud
+Or get a backed accessor to stream its content from the cloud:
 
 ```python
-
 backed = file.backed()  # currently works for AnnData, zarr, HDF5, not yet for DataFrame
+```
 
+### Store, query & search files
+
+The same API works for any file:
+
+```python
+file = ln.File("s3://my-bucket/images/image001.jpg")  # or a local path
+file.save()  # register the file
+```
+
+Query by `key` (the relative path within your storage):
+
+```python
+file.select(key_startswith="images/").df()  # all files in folder "images/" in default storage
+```
+
+### Auto-complete categoricals
+
+When you're unsure about spellings, use a lookup object:
+
+```python
+users = ln.User.lookup()
+ln.File.select(created_by=users.lizlemon)
 ```
 
 ### Track & query data lineage
 
-```python
-user = ln.User.select(handle="lizlemon").one()
-ln.File.select(created_by=user).df()   # all files ingested by lizlemon
-ln.File.select().order_by("-updated_at").first()  # latest updated file
-```
+In addition to basic provenance information (`created_by`, `created_at`,
+`created_by`), you can track which notebooks, pipelines & apps
+transformed files.
 
 #### Notebooks
 
@@ -97,31 +117,31 @@ Track a Jupyter Notebook:
 
 ```python
 ln.track()  # auto-detect & save notebook metadata
-ln.File("my_artifact.parquet").save()  # this file is an output of the notebook run
+ln.File("my_artifact.parquet").save()  # this file is now aware that it was saved in this notebook
 ```
 
-When you query this file later on you'll know from which notebook it came:
+When you query the file, later on, you'll know from which notebook it came:
 
 ```python
 file = ln.File.select(name="my_artifact.parquet").one()  # query for a file
-file.transform  # notebook with id, title, filename, version, etc.
-file.run  # the notebook run that created the file
+file.transform  # the notebook with id, title, filename, version, etc.
+file.run  # the specific run of the notebook that created the file
 ```
 
-Or you query for notebooks directly:
+Alternatively, you can query for notebooks and find the files written by them:
 
 ```python
 transforms = ln.Transform.select(  # all notebooks with 'T cell' in the title created in 2022
     name__contains="T cell", type="notebook", created_at__year=2022
 ).all()
-ln.File.select(transform__in=transforms).all()  # data artifacts created by these notebooks
+ln.File.select(transform__in=transforms).df()  # the files created by these notebooks
 ```
 
 #### Pipelines
 
-This works just like it does for notebooks just that you need to provide pipeline metadata yourself.
+This works like for notebooks just that you need to provide pipeline metadata yourself.
 
-Save a pipeline to the `Transform` registry, call
+To save a pipeline to the `Transform` registry, call
 
 ```python
 ln.Transform(name="Awesom-O", version="0.41.2").save()  # save a pipeline, optionally with metadata
@@ -132,13 +152,13 @@ Track a pipeline run:
 ```python
 transform = ln.Transform.select(name="Awesom-O", version="0.41.2").one()  # select pipeline from the registry
 ln.track(transform)  # create a new global run context
-ln.File("s3://my_samples01/my_artifact.fastq.gz").save()  # link file against run & transform
+ln.File("s3://my_samples01/my_artifact.fastq.gz").save()  # file gets auto-linked against run & transform
 ```
 
-Now, you can query, e.g., for
+Now, you can query for the latest pipeline runs:
 
 ```python
-ln.Run.select(transform__name="Awesom-O").order_by("-created_at").df()  # get the latest pipeline runs
+ln.Run.select(transform=transform).order_by("-created_at").df()  # get the latest pipeline runs
 ```
 
 #### Run inputs
@@ -149,20 +169,11 @@ To track run inputs, pass `is_run_input` to any `File` accessor: `.stage()`, `.l
 file.load(is_run_input=True)
 ```
 
-Alternatively, you can track all files accessed through any of the methods by settings `ln.settings.track_run_inputs = True`.
+You can also track inputs by default by setting `ln.settings.track_run_inputs = True`.
 
-### Auto-complete categoricals
+### Load your data lake from anywhere
 
-When you're unsure about spellings, use a lookup object:
-
-```python
-lookup = ln.Transform.lookup()
-ln.Run.select(transform=lookup.awesome_o)
-```
-
-### Load your data lake instance from anywhere
-
-Let other users access your work including all lineage & metadata via a single line:
+If provided with access, others can load your data lake via a single line:
 
 ```
 $ lamin load myaccount/myartifacts
