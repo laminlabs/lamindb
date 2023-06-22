@@ -19,7 +19,7 @@ The core schema entities are central to lamindb's API:
    User
    Storage
    FeatureSet
-   Folder
+   Tag
    Project
 
 Functional tools:
@@ -73,10 +73,10 @@ if _INSTANCE_SETUP:
     from lnschema_core import (  # noqa
         FeatureSet,
         File,
-        Folder,
         Project,
         Run,
         Storage,
+        Tag,
         Transform,
         User,
     )
@@ -98,7 +98,6 @@ if _INSTANCE_SETUP:
     from . import _baseorm_methods  # noqa
     from . import _featureset_methods  # noqa
     from . import _file_methods  # noqa
-    from . import _folder_methods  # noqa
     from . import _transform_methods  # noqa
     from ._delete import delete  # noqa
     from ._parse import parse  # noqa

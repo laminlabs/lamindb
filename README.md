@@ -24,7 +24,7 @@ Free:
 - Track [data lineage](https://lamin.ai/docs/guide/data-lineage) across notebooks, pipelines & apps.
 - Manage [biological registries, ontologies & features](https://lamin.ai/docs/biology/registries).
 - [Query, search & look up anything](https://lamin.ai/docs/guide/select), [manage & migrate custom schemas](https://lamin.ai/docs/setup/migrate).
-- [Persist, load](https://lamin.ai/docs/guide/files-folders#in-memory-objects) & [stream data objects](https://lamin.ai/docs/guide/stream) with a single line of code.
+- [Persist, load](https://lamin.ai/docs/guide/files-records#in-memory-objects) & [stream data objects](https://lamin.ai/docs/guide/stream) with a single line of code.
 - [Idempotent](https://lamin.ai/docs/faq/idempotency) and [ACID](https://lamin.ai/docs/faq/acid) operations.
 - Use a mesh of LaminDB instances for different teams and purposes, and [share them in a hub](https://lamin.ai/laminlabs) akin to GitHub.
 

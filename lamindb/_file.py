@@ -117,8 +117,10 @@ def get_run(run: Optional[Run]) -> Optional[Run]:
 
         run = context.run
         if run is None:
-            logger.info("No run & transform get linked to this file")
-            logger.hint("Consider using the `run` argument or ln.track()")
+            logger.hint(
+                "no run & transform get linked, consider passing a `run` or calling"
+                " ln.track()"
+            )
     return run
 
 
@@ -341,6 +343,44 @@ def init_file(file: File, *args, **kwargs):
         file._to_store = not privates["check_path_in_storage"]
 
     super(File, file).__init__(**kwargs)
+
+
+def from_dir(
+    path: Union[Path, UPath, str],
+    *,
+    run: Optional[Run] = None,
+):
+    """Create file records from a directory."""
+    folderpath = UPath(path)
+    check_path_in_storage = get_check_path_in_storage(folderpath)
+
+    if check_path_in_storage:
+        folder_key = get_relative_path_to_root(path=folderpath).as_posix()
+    else:
+        raise RuntimeError(
+            "Currently, only directories in default storage can be registered!\n"
+            "You can either move your folder into the current default storage"
+            "or add a new default storage through `ln.settings.storage`"
+        )
+    # always sanitize by stripping a trailing slash
+    folder_key = folder_key.rstrip("/")
+    logger.hint(f"using storage prefix = {folder_key}/")
+
+    # TODO: UPath doesn't list the first level files and dirs with "*"
+    pattern = "" if isinstance(folderpath, UPath) else "*"
+
+    # silence fine-grained logging
+    verbosity = settings.verbosity
+    settings.verbosity = 1  # just warnings
+    files = []
+    for filepath in folderpath.rglob(pattern):
+        if filepath.is_file():
+            relative_path = get_relative_path_to_directory(filepath, folderpath)
+            file_key = folder_key + "/" + relative_path.as_posix()
+            files.append(File(filepath, run=run, key=file_key))
+    settings.verbosity = verbosity
+    logger.info(f"→ {len(files)} files")
+    return files
 
 
 def replace_file(

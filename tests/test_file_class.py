@@ -13,25 +13,25 @@ from lamindb import File
 @pytest.fixture(
     scope="module", params=[(True, "./default_storage/"), (False, "./outside_storage/")]
 )
-def get_test_filepaths(request):
+def get_test_filepaths(request):  # -> Tuple[bool, Path, Path]
     isin_default_storage: bool = request.param[0]
     root_dir: Path = Path(request.param[1])
-    test_folder = root_dir / "my_folder/"
-    test_folder.mkdir(parents=True)
-    test_filepath = test_folder / "my_file.csv"
+    test_dir = root_dir / "my_dir/"
+    test_dir.mkdir(parents=True)
+    test_filepath = test_dir / "my_file.csv"
     test_filepath.write_text("a")
     # return a boolean indicating whether test filepath is in default storage
     # and the test filepath
-    yield (isin_default_storage, test_filepath)
-    shutil.rmtree(test_folder)
+    yield (isin_default_storage, test_dir, test_filepath)
+    shutil.rmtree(test_dir)
 
 
 # this tests the basic (non-provenance-related) metadata
-@pytest.mark.parametrize("key", [None, "my_new_folder/my_file.csv"])
+@pytest.mark.parametrize("key", [None, "my_new_dir/my_file.csv"])
 @pytest.mark.parametrize("name", [None, "my name"])
 def test_init_from_filepath_basic_fields(get_test_filepaths, key, name):
     isin_default_storage = get_test_filepaths[0]
-    test_filepath = get_test_filepaths[1]
+    test_filepath = get_test_filepaths[2]
     if name is None and key is None and not isin_default_storage:
         with pytest.raises(ValueError):
             file = File(test_filepath, key=key, name=name)
@@ -41,7 +41,7 @@ def test_init_from_filepath_basic_fields(get_test_filepaths, key, name):
         assert file.suffix == ".csv"
         if key is None:
             assert (
-                file.key == "my_folder/my_file.csv"
+                file.key == "my_dir/my_file.csv"
                 if isin_default_storage
                 else file.key is None
             )
@@ -51,3 +51,16 @@ def test_init_from_filepath_basic_fields(get_test_filepaths, key, name):
         assert file.hash == "DMF1ucDxtqgxw5niaXcmYQ"
         if isin_default_storage and key is None:
             assert str(test_filepath.resolve()) == str(file.path())
+
+
+def test_init_from_directory(get_test_filepaths):
+    isin_default_storage = get_test_filepaths[0]
+    test_dirpath = get_test_filepaths[1]
+    if not isin_default_storage:
+        with pytest.raises(RuntimeError):
+            File.from_dir(test_dirpath)
+    else:
+        records = File.from_dir(test_dirpath)
+        assert len(records) == 1
+        # also execute tree
+        File.tree(test_dirpath.name)

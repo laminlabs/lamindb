@@ -1,22 +1,23 @@
+from itertools import islice
 from pathlib import Path
 from typing import Optional, Union, overload  # noqa
 
+from lamin_logger import colors, logger
 from lamindb_setup import settings as setup_settings
 from lnschema_core.models import File, Run
 from lnschema_core.types import DataLike, PathLike
 from upath import UPath
 
 from lamindb._context import context
-from lamindb._file_access import filepath_from_file_or_folder
+from lamindb._file import from_dir, init_file, replace_file
+from lamindb._file_access import filepath_from_file
+from lamindb.dev._settings import settings
 from lamindb.dev.storage import delete_storage, load_to_memory
 from lamindb.dev.storage._backed_access import (
     AnnDataAccessor,
     BackedAccessor,
     backed_access,
 )
-
-from ._logger import colors, logger
-from .dev._settings import settings
 
 File.__doc__ = """Files: data artifacts.
 
@@ -102,7 +103,7 @@ def load(
     for an `h5ad` file.
     """
     _track_run_input(file, is_run_input)
-    return load_to_memory(filepath_from_file_or_folder(file), stream=stream)
+    return load_to_memory(filepath_from_file(file), stream=stream)
 
 
 def stage(file: File, is_run_input: Optional[bool] = None) -> Path:
@@ -114,9 +115,7 @@ def stage(file: File, is_run_input: Optional[bool] = None) -> Path:
     if file.suffix in (".zrad", ".zarr"):
         raise RuntimeError("zarr object can't be staged, please use load() or stream()")
     _track_run_input(file, is_run_input)
-    return setup_settings.instance.storage.cloud_to_local(
-        filepath_from_file_or_folder(file)
-    )
+    return setup_settings.instance.storage.cloud_to_local(filepath_from_file(file))
 
 
 def delete(file, storage: Optional[bool] = None) -> None:
@@ -167,9 +166,65 @@ def _save_skip_storage(file, *args, **kwargs) -> None:
 
 def path(self) -> Union[Path, UPath]:
     """Path on storage."""
-    from lamindb._file_access import filepath_from_file_or_folder
+    from lamindb._file_access import filepath_from_file
 
-    return filepath_from_file_or_folder(self)
+    return filepath_from_file(self)
+
+
+# adapted from: https://stackoverflow.com/questions/9727673/list-directory-tree-structure-in-python  # noqa
+@classmethod  # type: ignore
+def tree(
+    cls: File,
+    prefix: Optional[str] = None,
+    *,
+    level: int = -1,
+    limit_to_directories: bool = False,
+    length_limit: int = 1000,
+):
+    """Given a prefix, print a visual tree structure of files."""
+    space = "    "
+    branch = "│   "
+    tee = "├── "
+    last = "└── "
+
+    if prefix is None:
+        dir_path = settings.storage
+    else:
+        dir_path = settings.storage / prefix
+    files = 0
+    directories = 0
+
+    def inner(dir_path: Union[Path, UPath], prefix: str = "", level=-1):
+        nonlocal files, directories
+        if not level:
+            return  # 0, stop iterating
+        # this is needed so that the passed folder is not listed
+        contents = [
+            i
+            for i in dir_path.iterdir()
+            if i.as_posix().rstrip("/") != dir_path.as_posix().rstrip("/")
+        ]
+        if limit_to_directories:
+            contents = [d for d in contents if d.is_dir()]
+        pointers = [tee] * (len(contents) - 1) + [last]
+        for pointer, path in zip(pointers, contents):
+            if path.is_dir():
+                yield prefix + pointer + path.name
+                directories += 1
+                extension = branch if pointer == tee else space
+                yield from inner(path, prefix=prefix + extension, level=level - 1)
+            elif not limit_to_directories:
+                yield prefix + pointer + path.name
+                files += 1
+
+    folder_tree = f"{dir_path.name}"
+    iterator = inner(dir_path, level=level)
+    for line in islice(iterator, length_limit):
+        folder_tree += f"\n{line}"
+    if next(iterator, None):
+        folder_tree += f"... length_limit, {length_limit}, reached, counted:"
+    print(folder_tree)
+    print(f"\n{directories} directories" + (f", {files} files" if files else ""))
 
 
 # likely needs an arg `key`
@@ -180,8 +235,6 @@ def replace(
     format: Optional[str] = None,
 ) -> None:
     """Replace file content."""
-    from lamindb._file import replace_file
-
     replace_file(file, data, run, format)
 
 
@@ -209,8 +262,6 @@ def __init__(  # type: ignore
     *args,
     **kwargs,
 ):
-    from lamindb._file import init_file
-
     init_file(file, *args, **kwargs)
 
 
@@ -224,3 +275,5 @@ File._save_skip_storage = _save_skip_storage
 File.replace = replace
 File.__init__ = __init__
 File.path = path
+File.from_dir = from_dir
+File.tree = tree
