@@ -1,5 +1,6 @@
 # Changelog
 
+- 📝 Improve README [PR795](https://github.com/laminlabs/lamindb/pull/795) [@Zethson](https://github.com/Zethson)
 - 🚸 `ln.Folder` becomes `ln.Tag` & directories now modeled as prefixes (as on S3) [PR794](https://github.com/laminlabs/lamindb/pull/794) [@falexwolf](https://github.com/falexwolf)
 - 🐛 Restore stream to fix zarr load [PR793](https://github.com/laminlabs/lamindb/pull/793) [@Koncopd](https://github.com/Koncopd)
 - ♻️ Refactor storage code [PR792](https://github.com/laminlabs/lamindb/pull/792) [@falexwolf](https://github.com/falexwolf)
