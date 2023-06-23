@@ -1,20 +1,14 @@
 # Changelog
 
+## 0.44.2 (2023-06-23)
+
 - ♻️ Make `zarr` optional [PR800](https://github.com/laminlabs/lamindb/pull/800) [@falexwolf](https://github.com/falexwolf)
-- 📝 Polish docs [PR799](https://github.com/laminlabs/lamindb/pull/799) [@falexwolf](https://github.com/falexwolf)
 
 ## 0.44.1 (2023-06-22)
 
-### Features
-
-- ✨ Add `inspect` and `add_synonym` to BaseORM [PR797](https://github.com/laminlabs/lamindb/pull/797) [@sunnyosun](https://github.com/sunnyosun) | 0.44.1
-
-### Config
+- ✨ Add `inspect` and `add_synonym` to `BaseORM` [PR797](https://github.com/laminlabs/lamindb/pull/797) [@sunnyosun](https://github.com/sunnyosun)
 - 🔧 Rename extra `nbproject` to `jupyter` and add `fcs` extra to docs [PR798](https://github.com/laminlabs/lamindb/pull/798) [@falexwolf](https://github.com/falexwolf)
 - 🚚 Move default storage location from `lndb/` to `.lamindb/` [PR796](https://github.com/laminlabs/lamindb/pull/796) [@falexwolf](https://github.com/falexwolf)
-
-### Refactors
-
 - 🚸 `ln.Folder` becomes `ln.Tag` & directories now modeled as prefixes (as on S3) [PR794](https://github.com/laminlabs/lamindb/pull/794) [@falexwolf](https://github.com/falexwolf)
 - ♻️ Refactor storage code [PR792](https://github.com/laminlabs/lamindb/pull/792) [@falexwolf](https://github.com/falexwolf) [@Koncopd](https://github.com/Koncopd)
 
@@ -34,13 +28,10 @@
 
 ## 0.43.0 (2023-06-15)
 
-### Highlights
+### Features
 
 - ✨ Enable `BaseORM.search()` and improved `BaseORM.lookup()` [PR771](https://github.com/laminlabs/lamindb/pull/771) [@sunnyosun](https://github.com/sunnyosun)
 - 🎨 Consolidate `lnschema_bionty` and upgrade to latest Bionty [PR775](https://github.com/laminlabs/lamindb/pull/775) [@sunnyosun](https://github.com/sunnyosun)
-
-### Features
-
 - 🚸 Introduce `ln.settings.storage` to switch default storage [PR773](https://github.com/laminlabs/lamindb/pull/773) [@falexwolf](https://github.com/falexwolf)
 - 🚸 Return existing file if hash exists (idempotency) [PR772](https://github.com/laminlabs/lamindb/pull/772) [@falexwolf](https://github.com/falexwolf)
 - 🚸 `ln.settings` can now change logging verbosity levels [PR630](https://github.com/laminlabs/lamindb/pull/630) [@falexwolf](https://github.com/falexwolf)
