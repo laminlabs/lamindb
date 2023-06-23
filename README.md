@@ -211,6 +211,7 @@ pip install lamindb  # basic data lake
 pip install 'lamindb[jupyter]'  # Jupyter notebook tracking
 pip install 'lamindb[bionty]'  # basic biological entities
 pip install 'lamindb[fcs]'  # .fcs files (flow cytometry)
+pip install 'lamindb[zarr]'  # zarr storage (streaming arrays)
 pip install 'lamindb[aws]'  # AWS (s3fs, etc.)
 pip install 'lamindb[gcp]'  # Google Cloud (gcfs, etc.)
 ```
