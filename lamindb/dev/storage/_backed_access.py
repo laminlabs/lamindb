@@ -11,7 +11,6 @@ from anndata._core.views import _resolve_idx
 from anndata._io.h5ad import read_dataframe_legacy as read_dataframe_legacy_h5
 from anndata._io.specs.methods import read_indices
 from anndata._io.specs.registry import get_spec, read_elem, read_elem_partial
-from anndata._io.zarr import read_dataframe_legacy as read_dataframe_legacy_zarr
 from anndata.compat import _read_attr
 from fsspec.core import OpenFile
 from lamindb_setup.dev.upath import infer_filesystem
@@ -31,6 +30,10 @@ if ZARR_INSTALLED:
 
     def _read_dataframe(elem: Union[zarr.Array, h5py.Dataset, zarr.Group, h5py.Group]):
         if isinstance(elem, zarr.Array):
+            from anndata._io.zarr import (
+                read_dataframe_legacy as read_dataframe_legacy_zarr,
+            )
+
             return read_dataframe_legacy_zarr(elem)
         elif isinstance(elem, h5py.Dataset):
             return read_dataframe_legacy_h5(elem)
