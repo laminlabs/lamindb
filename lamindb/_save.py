@@ -8,8 +8,15 @@ from lamin_logger import logger
 from lnschema_core.models import BaseORM, File
 
 from lamindb._file_access import auto_storage_key_from_file
-from lamindb.dev.storage import store_object, write_adata_zarr
+from lamindb.dev.storage import store_object
 from lamindb.dev.storage._file import delete_storage_using_key, print_hook
+
+try:
+    from lamindb.dev.storage._zarr import write_adata_zarr
+except ImportError:
+
+    def write_adata_zarr(filepath):  # type: ignore
+        raise ImportError("Please install zarr: pip install zarr")
 
 
 @overload
@@ -177,7 +184,7 @@ def upload_data_object(file) -> None:
         logger.hint(f"storing file {file.id} with key {file_storage_key}")
         store_object(file._local_filepath, file_storage_key)
     elif (
-        file.suffix == ".zarr"
+        file.suffix in {".zarr", ".zrad"}
         and hasattr(file, "_memory_rep")
         and file._memory_rep is not None
     ):

@@ -44,7 +44,7 @@ def install(session, group):
     elif group == "faq":
         extras += ",aws"
     elif group == "storage":
-        extras += ",aws"
+        extras += ",aws,zarr"
     elif group == "docs":
         extras += ",bionty"
     if os.getenv("GITHUB_EVENT_NAME") != "push":
