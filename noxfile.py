@@ -38,7 +38,7 @@ def install(session, group):
     if group == "unit":
         extras += ",bionty,aws"
     elif group == "guide":
-        extras += ",aws,bionty"
+        extras += ",aws,bionty,zarr"
     elif group == "biology":
         extras += ",bionty,fcs"
     elif group == "faq":
