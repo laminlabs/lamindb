@@ -1,5 +1,6 @@
 # Changelog
 
+- ♻️ Make `zarr` optional [PR800](https://github.com/laminlabs/lamindb/pull/800) [@falexwolf](https://github.com/falexwolf)
 - 📝 Polish docs [PR799](https://github.com/laminlabs/lamindb/pull/799) [@falexwolf](https://github.com/falexwolf)
 
 ## 0.44.1 (2023-06-22)
