@@ -12,7 +12,12 @@ from lnschema_core.models import File
 
 from lamindb._file_access import attempt_accessing_path
 
-from ._zarr import read_adata_zarr
+try:
+    from ._zarr import read_adata_zarr
+except ImportError:
+
+    def read_adata_zarr(filepath):  # type: ignore
+        raise ImportError("Please install zarr: pip install zarr")
 
 
 def read_adata_h5ad(filepath, **kwargs) -> ad.AnnData:

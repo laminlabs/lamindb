@@ -13,11 +13,17 @@ from lamindb._file import from_dir, init_file, replace_file
 from lamindb._file_access import filepath_from_file
 from lamindb.dev._settings import settings
 from lamindb.dev.storage import delete_storage, load_to_memory
-from lamindb.dev.storage._backed_access import (
-    AnnDataAccessor,
-    BackedAccessor,
-    backed_access,
-)
+
+try:
+    from lamindb.dev.storage._backed_access import AnnDataAccessor, BackedAccessor
+except ImportError:
+
+    class AnnDataAccessor:  # type: ignore
+        pass
+
+    class BackedAccessor:  # type: ignore
+        pass
+
 
 File.__doc__ = """Files: data artifacts.
 
@@ -74,6 +80,8 @@ def backed(
             f" {', '.join(suffixes)}."
         )
     _track_run_input(file, is_run_input)
+    from lamindb.dev.storage._backed_access import backed_access
+
     return backed_access(file)
 
 

@@ -28,7 +28,6 @@ dependencies = [
     "pyarrow",
     "typing_extensions!=4.6.0",
     "python-dateutil",
-    "zarr",
     "anndata>=0.9.1",  # includes scipy
     "fsspec",
     "universal_pathlib",
@@ -57,8 +56,11 @@ nbproject = [
 bionty = [
     "lnschema_bionty==0.23.5",
 ]
+zarr = [
+    "zarr",
+]
 fcs = [
-    "readfcs>=1.1.2",  # to avoid installing nbproject
+    "readfcs>=1.1.2",
 ]
 test = [
     # basic test

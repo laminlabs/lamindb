@@ -38,15 +38,15 @@ def install(session, group):
     if group == "unit":
         extras += ",bionty,aws"
     elif group == "guide":
-        extras += ",aws,bionty"
+        extras += ",aws,bionty,zarr"
     elif group == "biology":
         extras += ",bionty,fcs"
     elif group == "faq":
         extras += ",aws"
     elif group == "storage":
-        extras += ",aws"
+        extras += ",aws,zarr"
     elif group == "docs":
-        extras += ",bionty"
+        extras += ",bionty,zarr"
     if os.getenv("GITHUB_EVENT_NAME") != "push":
         if "bionty" in extras:
             session.run(*"pip install --no-deps ./sub/lnschema-bionty".split())
