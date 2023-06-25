@@ -6,7 +6,7 @@ from lamindb.dev.storage._zarr import read_adata_zarr, write_adata_zarr
 
 
 def test_anndata_io():
-    test_files = Path("./test-files")
+    test_files = Path("tests/test-files")
 
     adata = read_adata_h5ad(test_files / "pbmc68k.h5ad")
 
