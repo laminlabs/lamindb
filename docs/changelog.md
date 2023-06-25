@@ -1,5 +1,6 @@
 # Changelog
 
+- ✅ Add some unit tests for storage [PR801](https://github.com/laminlabs/lamindb/pull/801) [@Koncopd](https://github.com/Koncopd)
 ## 0.44.2 (2023-06-23)
 
 - ♻️ Make `zarr` optional [PR800](https://github.com/laminlabs/lamindb/pull/800) [@falexwolf](https://github.com/falexwolf)
