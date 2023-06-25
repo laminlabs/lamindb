@@ -34,3 +34,7 @@ def test_backed_access():
     access = AnnDataAccessor(conn, storage, "pbmc68k.h5ad")
 
     assert access.raw.shape == (30, 100)
+
+    sub = access[:10]
+    assert sub[:5].shape == (5, 200)
+    assert sub.raw.shape == (10, 100)
