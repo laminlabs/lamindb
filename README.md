@@ -3,9 +3,9 @@
 [![pypi](https://img.shields.io/pypi/v/lamindb?color=blue&label=pypi%20package)](https://pypi.org/project/lamindb)
 [![Documentation](https://img.shields.io/badge/Documentation-green)](https://lamin.ai/docs/guide/)
 
-# LaminDB: Data lake for biology
+# LaminDB
 
-LaminDB is an API layer for your existing infrastructure to manage your existing data.
+Open-source data lake to manage your existing data in your existing infrastructure.
 
 ```{warning}
 
@@ -30,21 +30,17 @@ Free:
 
 Enterprise:
 
-- Explore & share data, submit samples (to come) & track lineage with LaminApp (deployable in your infrastructure).
+- Explore, share data & submit samples with LaminApp (deployable in your infrastructure).
 - Receive support, code templates & services for a BioTech data & analytics platform.
 
 ## Usage overview
 
-Use the CLI to initialize a data lake with local or cloud default storage:
-
-```shell
-$ lamin init --storage ./mydata  # or s3://my-bucket, gs://my-bucket, etc.
-```
-
-Within Python, import `lamindb`:
+Import `lamindb` and initialize a data lake instance with local or cloud default storage:
 
 ```python
 import lamindb as ln
+
+ln.setup.init(storage="./mydata")  # or s3://my-bucket, gs://my-bucket, etc.
 ```
 
 ### Store, query, search & load data objects
