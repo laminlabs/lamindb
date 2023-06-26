@@ -1,13 +1,24 @@
 import builtins
-from typing import Dict, Iterable, List, Literal, NamedTuple, Optional, Set, Union
+from typing import (
+    Dict,
+    Iterable,
+    List,
+    Literal,
+    NamedTuple,
+    Optional,
+    Set,
+    Tuple,
+    Union,
+)
 
+import pandas as pd
 from django.core.exceptions import FieldDoesNotExist
 from django.db.models import CharField, TextField
 from lamin_logger import logger
 from lamin_logger._lookup import Lookup
 from lnschema_core import BaseORM
-from pandas import DataFrame
 
+from ._from_iter import Field, ListLike, get_or_create_records
 from .dev._settings import settings
 
 _is_ipython = getattr(builtins, "__IPYTHON__", False)
@@ -58,6 +69,41 @@ def suggest_objects_with_same_name(orm: BaseORM, kwargs) -> Optional[str]:
     return None
 
 
+def return_object_from_bionty(orm: BaseORM, *args, **kwargs) -> Dict:
+    """Pass bionty search/lookup results."""
+    from lnschema_bionty._bionty import (
+        create_or_get_species_record,
+        encode_id,
+        get_bionty_source_record,
+    )
+
+    arg = args[0]
+    if isinstance(arg, Tuple):  # type:ignore
+        bionty_kwargs = arg._asdict()
+    else:
+        bionty_kwargs = arg[0]._asdict()
+
+    if len(bionty_kwargs) > 0:
+        import bionty as bt
+
+        # add species and bionty_source
+        species_record = create_or_get_species_record(
+            orm=orm, species=kwargs.get("species")
+        )
+        if species_record is not None:
+            bionty_kwargs["species"] = species_record
+        bionty_object = getattr(bt, orm.__class__.__name__)(
+            species=species_record.name if species_record is not None else None
+        )
+        bionty_kwargs["bionty_source"] = get_bionty_source_record(bionty_object)
+
+        model_field_names = {i.name for i in orm._meta.fields}
+        bionty_kwargs = {
+            k: v for k, v in bionty_kwargs.items() if k in model_field_names
+        }
+    return encode_id(orm=orm, kwargs=bionty_kwargs)
+
+
 def __init__(orm: BaseORM, *args, **kwargs):
     if not args:
         validate_required_fields(orm, kwargs)
@@ -72,12 +118,54 @@ def __init__(orm: BaseORM, *args, **kwargs):
                 super(BaseORM, orm).__init__(*new_args)
                 orm._state.adding = False  # mimic from_db
                 return None
+        if orm.__module__.startswith("lnschema_bionty"):
+            from lnschema_bionty._bionty import encode_id
+
+            kwargs = encode_id(orm=orm, kwargs=kwargs)
         super(BaseORM, orm).__init__(**kwargs)
+    elif (
+        orm.__module__.startswith("lnschema_bionty")
+        and args
+        and len(args) == 1
+        and isinstance(args[0], (Tuple, List))  # type:ignore
+        and len(args[0]) > 0
+    ):
+        if isinstance(args[0], List) and len(args[0]) > 1:
+            logger.warning(
+                "Multiple lookup/search results are passed, only returning record from"
+                " the first entry"
+            )
+        result = return_object_from_bionty(orm, *args, **kwargs)  # type:ignore
+        try:
+            existing_object = orm.select(**result)[0]
+            new_args = [
+                getattr(existing_object, field.attname)
+                for field in orm._meta.concrete_fields
+            ]
+            super(BaseORM, orm).__init__(*new_args)
+            orm._state.adding = False  # mimic from_db
+        except IndexError:
+            super(BaseORM, orm).__init__(**result)
     elif len(args) != len(orm._meta.concrete_fields):
         raise ValueError("Please provide keyword arguments, not plain arguments")
     else:
         # object is loaded from DB (**kwargs could be ommitted below, I believe)
         super(BaseORM, orm).__init__(*args, **kwargs)
+
+
+@classmethod  # type:ignore
+def from_iter(cls, iterable: ListLike, field: Union[Field, str], **kwargs):
+    if isinstance(field, str):
+        field = getattr(cls, field)
+    if not isinstance(field, Field):  # field is DeferredAttribute
+        raise TypeError(
+            "field must be a string or an ORM field, e.g., `CellType.name`!"
+        )
+
+    from_bionty = True if cls.__module__.startswith("lnschema_bionty.") else False
+    return get_or_create_records(
+        iterable=iterable, field=field, from_bionty=from_bionty, **kwargs
+    )
 
 
 @classmethod  # type: ignore
@@ -90,7 +178,7 @@ def search(
     case_sensitive: bool = True,
     synonyms_field: Optional[Union[str, TextField, CharField]] = "synonyms",
     synonyms_sep: str = "|",
-) -> Union[DataFrame, BaseORM]:
+) -> Union[pd.DataFrame, BaseORM]:
     """Search the table.
 
     Args:
@@ -185,7 +273,7 @@ def inspect(
     inspect_synonyms: bool = True,
     return_df: bool = False,
     logging: bool = True,
-) -> Union[DataFrame, Dict[str, List[str]]]:
+) -> Union[pd.DataFrame, Dict[str, List[str]]]:
     """Inspect if a list of identifiers are mappable to existing values of a field.
 
     Args:
@@ -272,8 +360,13 @@ def map_synonyms(
     if not isinstance(field, str):
         field = field.field.name
 
+    try:
+        cls._meta.get_field(synonyms_field)
+        df = _check_if_species_field_exist(orm=cls, species=species)
+    except FieldDoesNotExist:
+        df = pd.DataFrame()
     return map_synonyms(
-        df=_check_if_species_field_exist(orm=cls, species=species),
+        df=df,
         identifiers=synonyms,
         field=field,
         return_mapper=return_mapper,
@@ -303,6 +396,7 @@ def _check_if_species_field_exist(orm: BaseORM, species: Optional[str] = None):
 
 
 def get_default_str_field(orm: BaseORM) -> str:
+    """Get the 1st char or text field from the orm."""
     model_field_names = [i.name for i in orm._meta.fields]
 
     # set default field
@@ -422,3 +516,4 @@ BaseORM.map_synonyms = map_synonyms
 BaseORM.inspect = inspect
 BaseORM.add_synonym = add_synonym
 BaseORM.remove_synonym = remove_synonym
+BaseORM.from_iter = from_iter

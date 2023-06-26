@@ -7,7 +7,7 @@ from lnschema_core import FeatureSet
 from lamindb._select import select
 from lamindb.dev.hashing import hash_set
 
-from ._parse import Field, ListLike, get_or_create_records, index_iterable
+from ._from_iter import Field, ListLike, get_or_create_records, index_iterable
 
 
 # expose to user via ln.FeatureSet
