@@ -1,6 +1,5 @@
-from typing import Dict, Iterable, Optional
+from typing import Dict, Optional
 
-from django.db import models
 from lamin_logger import logger
 from lnschema_core import FeatureSet
 
@@ -43,30 +42,12 @@ def parse_features_from_iterable(
         logger.info("Returning an existing featureset")
     else:
         records = get_or_create_records(
-            iterable=iterable_idx, field=field, species=species
+            iterable=iterable_idx, field=field, species=species, from_bionty=True
         )
         featureset = FeatureSet(
             id=features_hash, type=related_name, **{related_name: records}
         )
     return featureset
-
-
-@classmethod  # type: ignore
-def from_iterable(
-    cls,
-    iterable: Iterable,
-    field: models.CharField,
-    species: str = None,
-):
-    """Parse iterable & return featureset & records."""
-    from lamindb._featureset_methods import parse_features_from_iterable
-
-    features = parse_features_from_iterable(
-        iterable=iterable,
-        field=field,
-        species=species,
-    )
-    return features
 
 
 def __init__(featureset, *args, **kwargs):  # type: ignore
@@ -88,6 +69,5 @@ def save(featureset, *args, **kwargs):
         getattr(featureset, key).set(records)
 
 
-FeatureSet.from_iterable = from_iterable
 FeatureSet.__init__ = __init__
 FeatureSet.save = save

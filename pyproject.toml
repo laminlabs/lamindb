@@ -60,7 +60,7 @@ zarr = [
     "zarr",
 ]
 fcs = [
-    "readfcs>=1.1.2",
+    "readfcs>=1.1.3",
 ]
 test = [
     # basic test
