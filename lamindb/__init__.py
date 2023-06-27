@@ -13,12 +13,14 @@ The core schema entities are central to lamindb's API:
 .. autosummary::
    :toctree: .
 
+   Dataset
    File
    Transform
    Run
+   Feature
+   FeatureSet
    User
    Storage
-   FeatureSet
    Tag
    Project
 
@@ -71,6 +73,8 @@ from . import setup  # noqa
 # only import all other functionality if setup was successful
 if _INSTANCE_SETUP:
     from lnschema_core import (  # noqa
+        Dataset,
+        Feature,
         FeatureSet,
         File,
         Project,
@@ -96,6 +100,7 @@ if _INSTANCE_SETUP:
     )
 
     from . import _baseorm_methods  # noqa
+    from . import _dataset  # noqa
     from . import _featureset_methods  # noqa
     from . import _file_methods  # noqa
     from . import _transform_methods  # noqa

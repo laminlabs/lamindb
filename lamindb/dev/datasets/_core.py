@@ -169,6 +169,23 @@ def df_iris() -> pd.DataFrame:
     return pd.read_parquet(filepath)
 
 
+def df_iris_in_meter() -> pd.DataFrame:
+    """The iris dataset with lenghts in meter."""
+    df = df_iris()
+    # rename columns
+    df.rename(
+        columns={
+            "sepal length (cm)": "sepal_length",
+            "sepal width (cm)": "sepal_width",
+            "petal length (cm)": "petal_length",
+            "petal width (cm)": "petal_width",
+        },
+        inplace=True,
+    )
+    df[["sepal_length", "sepal_width", "petal_length", "petal_width"]] /= 100
+    return df
+
+
 def generate_cell_ranger_files(
     sample_name: str, basedir: Union[str, Path] = "./", output_only: bool = True
 ):
