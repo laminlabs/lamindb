@@ -160,8 +160,9 @@ def get_existing_records(iterable_idx: pd.Index, field: Field, kwargs: Dict = {}
         iterable_idx, species=kwargs.get("species"), return_mapper=True
     )
 
+    syn_msg = ""
     if len(syn_mapper) > 0:
-        logger.hint(
+        syn_msg = (
             "Returned"
             f" {colors.green(f'{len(syn_mapper)} existing {model.__name__} DB records')} that"  # noqa
             f" matched {colors.green('synonyms')}"
@@ -185,6 +186,9 @@ def get_existing_records(iterable_idx: pd.Index, field: Field, kwargs: Dict = {}
             f" {colors.green(f'{n_name} existing {model.__name__} DB records')} that"
             f" matched {colors.green(f'{field_name}')} field"
         )
+    # make sure that synonyms logging appears after the field logging
+    if len(syn_msg) > 0:
+        logger.hint(syn_msg)
 
     existing_values = iterable_idx.intersection(stmt.values_list(field_name, flat=True))
     nonexist_values = iterable_idx.difference(existing_values)
@@ -244,15 +248,13 @@ def create_records_from_bionty(
     except KeyError:
         # no synonyms column
         syn_mapper = {}
+    msg_syn: str = ""
     if len(syn_mapper) > 0:
-        msg = (
+        msg_syn = (
             "Created"
-            f" {colors.green(f'{len(syn_mapper)} {model.__name__} records from Bionty')} that"  # noqa
-            f" matched {colors.green('synonyms')}"
+            f" {colors.purple(f'{len(syn_mapper)} {model.__name__} records from Bionty')} that"  # noqa
+            f" matched {colors.purple('synonyms')}"
         )
-        if kwargs.get("bionty_source") is not None:
-            msg += f", linked to Bionty source: {kwargs.get('bionty_source')}"
-        logger.hint(msg)
         iterable_idx = iterable_idx.to_frame().rename(index=syn_mapper).index
 
     # create records for values that are found in the bionty reference
@@ -265,6 +267,13 @@ def create_records_from_bionty(
         for bk in bionty_kwargs:
             records.append(model(**bk, **kwargs))
 
+        # logging of BiontySource linking
+        source_msg = (
+            ""
+            if kwargs.get("bionty_source") is None
+            else f", linked to BiontySource id={kwargs.get('bionty_source').id}"  # type:ignore # noqa
+        )
+
         # number of records that matches field (not synonyms)
         n_name = len(records) - len(syn_mapper)
         if n_name > 0:
@@ -273,9 +282,10 @@ def create_records_from_bionty(
                 f" {colors.purple(f'{n_name} {model.__name__} records from Bionty')} that"  # noqa
                 f" matched {colors.purple(f'{field_name}')} field"
             )
-            if kwargs.get("bionty_source") is not None:
-                msg += f", linked to Bionty source: {kwargs.get('bionty_source')}"
-            logger.hint(msg)
+            logger.hint(msg + source_msg)
+        # make sure that synonyms logging appears after the field logging
+        if len(msg_syn) > 0:
+            logger.hint(msg_syn + source_msg)
 
     # return the values that are not found in the bionty reference
     unmapped_values = iterable_idx.difference(mapped_values)
