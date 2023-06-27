@@ -1,5 +1,6 @@
 # Changelog
 
+- ✨ Add `Dataset` & `Feature` ORMs [PR805](https://github.com/laminlabs/lamindb/pull/805) [@falexwolf](https://github.com/falexwolf)
 ## 0.45a1 (2023-06-27)
 
 - ♻️ Replaced `ln.parse` with `ORM.from_values` [PR803](https://github.com/laminlabs/lamindb/pull/803) [@sunnyosun](https://github.com/sunnyosun)
