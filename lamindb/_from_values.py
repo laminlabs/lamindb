@@ -1,11 +1,11 @@
 from typing import Any, Dict, Iterable, List, Optional, TypeVar, Union
 
-import deprecation
 import numpy as np
 import pandas as pd
 from django.db.models import Q
 from django.db.models.query_utils import DeferredAttribute as Field
 from lamin_logger import colors, logger
+from lamindb_setup.dev import deprecated
 from lnschema_core.models import BaseORM
 
 from ._select import select
@@ -57,7 +57,7 @@ def get_or_create_records(
         settings.upon_create_search_names = upon_create_search_names
 
 
-@deprecation.deprecated(deprecated_in="0.45.0", details="Use `ORM.from_iter()` instead")
+@deprecated("ORM.from_iter()")
 def parse(
     iterable: Union[ListLike, pd.DataFrame],
     field: Union[Field, Dict[str, Field]],
