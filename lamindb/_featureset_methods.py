@@ -38,11 +38,19 @@ def parse_features_from_iterable(
         id=features_hash,
         type=related_name,
     ).one_or_none()
+
+    from_bionty = (
+        True if field.field.model.__module__.startswith("lnschema_bionty.") else False
+    )
     if featureset is not None:
         logger.info("Returning an existing featureset")
     else:
+        if species is not None:
+            kwargs = dict(species=species)
+        else:
+            kwargs = dict()
         records = get_or_create_records(
-            iterable=iterable_idx, field=field, species=species, from_bionty=True
+            iterable=iterable_idx, field=field, from_bionty=from_bionty, **kwargs
         )
         featureset = FeatureSet(
             id=features_hash, type=related_name, **{related_name: records}

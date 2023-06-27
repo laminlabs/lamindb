@@ -4,7 +4,7 @@ from anndata import AnnData
 from lnschema_core.models import Dataset
 from pandas import DataFrame
 
-from . import File, Run
+from . import Feature, FeatureSet, File, Run
 
 
 def __init__(
@@ -30,7 +30,10 @@ def __init__(
     name: Optional[str] = kwargs.pop("name") if "name" in kwargs else None
     run: Optional[Run] = kwargs.pop("run") if "run" in kwargs else None
     assert len(kwargs) == 0
+    if isinstance(data, DataFrame):
+        feature_set = FeatureSet.from_values(data.columns, Feature.name)
     file = File(data=data, name=name, run=run)
+    dataset._feature_sets = [feature_set]
     super(Dataset, dataset).__init__(id=file.id, name=name, file=file)
 
 
@@ -50,6 +53,8 @@ def delete(dataset: Dataset):
 def save(dataset: Dataset):
     if dataset.file is not None:
         dataset.file.save()
+    for feature_set in dataset._feature_sets:
+        feature_set.save()
     super(Dataset, dataset).save()
 
 
