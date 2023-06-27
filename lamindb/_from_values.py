@@ -30,43 +30,27 @@ def get_or_create_records(
         model = field.field.model
         iterable_idx = index_iterable(iterable)
 
-        # if necessary, create records for the values in kwargs
-        # k:v -> k:v_record
-        # kwargs is used to deal with species
-        kwargs = _process_kwargs(kwargs)
-
-        stmt = get_existing_records(
+        records, nonexist_values = get_existing_records(
             iterable_idx=iterable_idx, field=field, kwargs=kwargs
-        )
-        records = stmt.list()  # existing records
-        if len(records) > 0:
-            text = colors.green(
-                f"{len(records)} existing {model.__name__} DB records that matched"
-                f" {field_name} field"
-            )
-            logger.hint(f"Returned {text}")
-
-        existing_values = iterable_idx.intersection(
-            stmt.values_list(field_name, flat=True)
         )
 
         # new records to be created based on new values
-        new_values = iterable_idx.difference(existing_values)
-        if len(new_values) > 0:
+        if len(nonexist_values) > 0:
             if from_bionty:
                 records_bionty, unmapped_values = create_records_from_bionty(
-                    iterable_idx=new_values, field=field
+                    iterable_idx=nonexist_values, field=field, **kwargs
                 )
                 records += records_bionty
             else:
-                unmapped_values = new_values
+                unmapped_values = nonexist_values
             # unmapped new_ids will only create records with field and kwargs
             if len(unmapped_values) > 0:
                 for i in unmapped_values:
                     records.append(model(**{field_name: i}, **kwargs))
-                text = colors.blue(f"{len(unmapped_values)} {model.__name__} records")
                 logger.hint(
-                    f"Created {text} records with a single field '{field_name}'"
+                    "Created"
+                    f" {colors.red(f'{len(unmapped_values)} {model.__name__} records')}"
+                    f" with a single field {colors.red(f'{field_name}')}"
                 )
         return records
     finally:
@@ -138,13 +122,16 @@ def parse(
             ]
 
             if len(records) > 0:
-                text = colors.green(
-                    f"{len(records)} existing {model.__name__} DB records"
+                logger.hint(
+                    "Returned"
+                    f" {colors.green(f'{len(records)} existing {model.__name__} DB records')}"  # noqa
                 )
-                logger.hint(f"Returned {text}")
             if len(df_records_new) > 0:
-                text = colors.purple(f"{len(df_records_new)} {model.__name__} records")
-                logger.hint(f"Created {text} with {df.shape[1]} fields")
+                logger.hint(
+                    "Created"
+                    f" {colors.purple(f'{len(df_records_new)} {model.__name__} records')} with"  # noqa
+                    f" {df.shape[1]} fields"
+                )
                 records += [model(**i) for i in df_records_new]
             return records
         else:
@@ -172,21 +159,37 @@ def get_existing_records(iterable_idx: pd.Index, field: Field, kwargs: Dict = {}
     syn_mapper = model.map_synonyms(
         iterable_idx, species=kwargs.get("species"), return_mapper=True
     )
+
     if len(syn_mapper) > 0:
-        text = colors.green(
-            f"{len(syn_mapper)} existing {model.__name__} DB records that matched"
-            " synonyms"
+        logger.hint(
+            "Returned"
+            f" {colors.green(f'{len(syn_mapper)} existing {model.__name__} DB records')} that"  # noqa
+            f" matched {colors.green('synonyms')}"
         )
-        logger.hint(f"Returned {text}")
-        iterable_idx.rename(syn_mapper, inplace=True)
+        iterable_idx = iterable_idx.to_frame().rename(index=syn_mapper).index
 
     # get all existing records in the db
-    kwargs.update({field_name: iterable_idx.values})
-    kwargs = _process_kwargs(kwargs)
-    condition = {f"{k}__in": v for k, v in kwargs.items()}
-    kwargs.pop(field_name)
+    # if necessary, create records for the values in kwargs
+    # k:v -> k:v_record
+    # kwargs is used to deal with species
+    condition = {f"{field_name}__in": iterable_idx.values}
+    kwargs, condition = _species_kwargs(orm=model, kwargs=kwargs, condition=condition)
+
     stmt = select(model, **condition)
-    return stmt
+
+    records = stmt.list()  # existing records
+    n_name = len(records) - len(syn_mapper)
+    if n_name > 0:
+        logger.hint(
+            "Returned"
+            f" {colors.green(f'{n_name} existing {model.__name__} DB records')} that"
+            f" matched {colors.green(f'{field_name}')} field"
+        )
+
+    existing_values = iterable_idx.intersection(stmt.values_list(field_name, flat=True))
+    nonexist_values = iterable_idx.difference(existing_values)
+
+    return records, nonexist_values
 
 
 def get_existing_records_multifields(
@@ -196,13 +199,12 @@ def get_existing_records_multifields(
     for df_record in df_records[1:]:
         q = q.__getattribute__("__or__")(Q(**df_record))
 
-    kwargs = _process_kwargs(orm=model, kwargs=kwargs)
-    condition = {f"{k}__in": v for k, v in kwargs.items()}
+    kwargs, condition = _species_kwargs(orm=model, kwargs=kwargs)
     stmt = model.select(**condition).filter(q)
     return stmt
 
 
-def _process_kwargs(orm: BaseORM, kwargs: Dict = {}) -> Dict:
+def _species_kwargs(orm: BaseORM, kwargs: Dict = {}, condition: Dict = {}):
     """Create records based on the kwargs."""
     if kwargs.get("species") is not None:
         from lnschema_bionty._bionty import create_or_get_species_record
@@ -211,9 +213,10 @@ def _process_kwargs(orm: BaseORM, kwargs: Dict = {}) -> Dict:
             species=kwargs.get("species"), orm=orm
         )
         if species_record is not None:
-            kwargs["species"] = species_record
+            kwargs.update({"species": species_record})
+            condition.update({"species__name": species_record.name})
 
-    return kwargs
+    return kwargs, condition
 
 
 def create_records_from_bionty(
@@ -242,27 +245,37 @@ def create_records_from_bionty(
         # no synonyms column
         syn_mapper = {}
     if len(syn_mapper) > 0:
-        text = colors.green(
-            f"{len(syn_mapper)} {model.__name__} records from Bionty that matched"
-            " synonyms"
+        msg = (
+            "Created"
+            f" {colors.green(f'{len(syn_mapper)} {model.__name__} records from Bionty')} that"  # noqa
+            f" matched {colors.green('synonyms')}"
         )
-        logger.hint(f"Created {text}")
-        iterable_idx.rename(syn_mapper, inplace=True)
+        if kwargs.get("bionty_source") is not None:
+            msg += f", linked to Bionty source: {kwargs.get('bionty_source')}"
+        logger.hint(msg)
+        iterable_idx = iterable_idx.to_frame().rename(index=syn_mapper).index
 
     # create records for values that are found in the bionty reference
     mapped_values = iterable_idx.intersection(bionty_df[field_name])
+
     if len(mapped_values) > 0:
         bionty_kwargs = _bulk_create_dicts_from_df(
             keys=mapped_values, column_name=field_name, df=bionty_df
         )
         for bk in bionty_kwargs:
             records.append(model(**bk, **kwargs))
-        text = colors.purple(f"{len(mapped_values)} {model.__name__} records")
-        msg = f"Created {text} from Bionty that matched {field_name} field"
-        bionty_version = kwargs.get("bionty_source")
-        if bionty_version is not None:
-            msg += ", linked to Bionty source: {bionty_version}"
-        logger.hint(msg)
+
+        # number of records that matches field (not synonyms)
+        n_name = len(records) - len(syn_mapper)
+        if n_name > 0:
+            msg = (
+                "Created"
+                f" {colors.purple(f'{n_name} {model.__name__} records from Bionty')} that"  # noqa
+                f" matched {colors.purple(f'{field_name}')} field"
+            )
+            if kwargs.get("bionty_source") is not None:
+                msg += f", linked to Bionty source: {kwargs.get('bionty_source')}"
+            logger.hint(msg)
 
     # return the values that are not found in the bionty reference
     unmapped_values = iterable_idx.difference(mapped_values)

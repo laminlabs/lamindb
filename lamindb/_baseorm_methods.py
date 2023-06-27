@@ -18,7 +18,7 @@ from lamin_logger import logger
 from lamin_logger._lookup import Lookup
 from lnschema_core import BaseORM
 
-from ._from_iter import Field, ListLike, get_or_create_records
+from ._from_values import Field, ListLike, get_or_create_records
 from .dev._settings import settings
 
 _is_ipython = getattr(builtins, "__IPYTHON__", False)
@@ -154,7 +154,7 @@ def __init__(orm: BaseORM, *args, **kwargs):
 
 
 @classmethod  # type:ignore
-def from_iter(cls, iterable: ListLike, field: Union[Field, str], **kwargs):
+def from_values(cls, values: ListLike, field: Union[Field, str], **kwargs):
     if isinstance(field, str):
         field = getattr(cls, field)
     if not isinstance(field, Field):  # field is DeferredAttribute
@@ -164,7 +164,7 @@ def from_iter(cls, iterable: ListLike, field: Union[Field, str], **kwargs):
 
     from_bionty = True if cls.__module__.startswith("lnschema_bionty.") else False
     return get_or_create_records(
-        iterable=iterable, field=field, from_bionty=from_bionty, **kwargs
+        iterable=values, field=field, from_bionty=from_bionty, **kwargs
     )
 
 
@@ -268,11 +268,11 @@ def inspect(
     identifiers: Iterable,
     field: Union[str, CharField, TextField],
     *,
-    species: Optional[str] = None,
     case_sensitive: bool = False,
     inspect_synonyms: bool = True,
     return_df: bool = False,
     logging: bool = True,
+    **kwargs,
 ) -> Union[pd.DataFrame, Dict[str, List[str]]]:
     """Inspect if a list of identifiers are mappable to existing values of a field.
 
@@ -301,7 +301,7 @@ def inspect(
         field = field.field.name
 
     return inspect(
-        df=_check_if_species_field_exist(orm=cls, species=species),
+        df=_filter_df_based_on_species(orm=cls, species=kwargs.get("species")),
         identifiers=identifiers,
         field=str(field),
         case_sensitive=case_sensitive,
@@ -318,11 +318,11 @@ def map_synonyms(
     *,
     return_mapper: bool = False,
     case_sensitive: bool = False,
-    species: Optional[str] = None,
     keep: Literal["first", "last", False] = "first",
     synonyms_field: str = "synonyms",
     synonyms_sep: str = "|",
     field: Optional[str] = None,
+    **kwargs,
 ) -> Union[List[str], Dict[str, str]]:
     """Maps input synonyms to standardized names.
 
@@ -362,7 +362,7 @@ def map_synonyms(
 
     try:
         cls._meta.get_field(synonyms_field)
-        df = _check_if_species_field_exist(orm=cls, species=species)
+        df = _filter_df_based_on_species(orm=cls, species=kwargs.get("species"))
     except FieldDoesNotExist:
         df = pd.DataFrame()
     return map_synonyms(
@@ -377,18 +377,25 @@ def map_synonyms(
     )
 
 
-def _check_if_species_field_exist(orm: BaseORM, species: Optional[str] = None):
+def _filter_df_based_on_species(
+    orm: BaseORM, species: Union[str, BaseORM, None] = None
+):
     import pandas as pd
 
     records = orm.objects.all()
     try:
+        # if the orm has a species field, it's required
         records.model._meta.get_field("species")
         if species is None:
             raise AssertionError(
                 f"{orm.__name__} table requires to specify a species name via"
                 " `species=`!"
             )
-        records = records.filter(species__name=species)
+        elif isinstance(species, BaseORM):
+            species_name = species.name
+        else:
+            species_name = species
+        records = records.filter(species__name=species_name)
     except FieldDoesNotExist:
         pass
 
@@ -516,4 +523,4 @@ BaseORM.map_synonyms = map_synonyms
 BaseORM.inspect = inspect
 BaseORM.add_synonym = add_synonym
 BaseORM.remove_synonym = remove_synonym
-BaseORM.from_iter = from_iter
+BaseORM.from_values = from_values
