@@ -1,5 +1,6 @@
 from typing import Iterable, List, Optional, Union
 
+import pandas as pd
 from anndata import AnnData
 from lnschema_core import ids
 from lnschema_core.models import Dataset
@@ -87,7 +88,13 @@ def backed(dataset: Dataset):
 
 
 def load(dataset: Dataset):
-    return dataset.file.load()
+    """Load the combined dataset."""
+    if dataset.file is not None:
+        return dataset.file.load()
+    else:
+        objects = [file.load() for file in dataset.files.all()]
+        if isinstance(objects[0], pd.DataFrame):
+            return pd.concat(objects)
 
 
 def delete(dataset: Dataset):
@@ -104,7 +111,7 @@ def save(dataset: Dataset):
     if len(dataset._files) > 0:
         dataset.files.set(dataset._files)
     if len(dataset._feature_sets) > 0:
-        dataset.files.set(dataset._feature_sets)
+        dataset.feature_sets.set(dataset._feature_sets)
 
 
 Dataset.__init__ = __init__
