@@ -1,5 +1,5 @@
 from pathlib import Path, PurePath, PurePosixPath
-from typing import Any, Optional, Tuple, Union
+from typing import Any, List, Optional, Tuple, Union
 
 import lamindb_setup
 import pandas as pd
@@ -359,8 +359,8 @@ def from_dir(
     path: Union[Path, UPath, str],
     *,
     run: Optional[Run] = None,
-):
-    """Create file records from a directory."""
+) -> List[File]:
+    """Create a list of file objects from a directory."""
     folderpath = UPath(path)
     check_path_in_storage = get_check_path_in_storage(folderpath)
 

@@ -12,6 +12,8 @@
    generate_cell_ranger_files
    df_iris
    df_iris_in_meter
+   df_iris_in_meter_batch1
+   df_iris_in_meter_batch2
    anndata_mouse_sc_lymph_node
    anndata_human_immune_cells
    anndata_pbmc68k_reduced
@@ -28,6 +30,8 @@ from ._core import (
     anndata_with_obs,
     df_iris,
     df_iris_in_meter,
+    df_iris_in_meter_batch1,
+    df_iris_in_meter_batch2,
     dir_scrnaseq_cellranger,
     file_bam,
     file_fastq,
