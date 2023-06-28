@@ -1,8 +1,13 @@
 # Changelog
 
-## 0.45a1 (2023-06-27)
+## 0.45.0 (2023-06-27)
+
+### Features
 
 - ♻️ Replaced `ln.parse` with `ORM.from_values` [PR803](https://github.com/laminlabs/lamindb/pull/803) [@sunnyosun](https://github.com/sunnyosun)
+
+### Refactors
+
 - 🎨 Auto-manage `RunInput` ORM [PR802](https://github.com/laminlabs/lamindb/pull/802) [@falexwolf](https://github.com/falexwolf)
 - ✅ Add some unit tests for storage [PR801](https://github.com/laminlabs/lamindb/pull/801) [@Koncopd](https://github.com/Koncopd)
 
