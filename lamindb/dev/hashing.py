@@ -20,7 +20,7 @@ def to_b64_str(bstr: bytes):
 
 
 def b16_to_b64(s: str):
-    return to_b64_str(base64.b16decode(s, casefold=True))
+    return to_b64_str(base64.b16decode(s.strip('"'), casefold=True))
 
 
 # a lot to read about this: lamin-notes/2022/hashing
