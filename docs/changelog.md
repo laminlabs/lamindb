@@ -1,5 +1,6 @@
 # Changelog
 
+- 🚸 Store hash for remote files on S3 [PR808](https://github.com/laminlabs/lamindb/pull/808) [@falexwolf](https://github.com/falexwolf)
 - ✨ Add `Dataset` & `Feature` ORMs [PR805](https://github.com/laminlabs/lamindb/pull/805) [@falexwolf](https://github.com/falexwolf)
 ## 0.45a1 (2023-06-27)
 
