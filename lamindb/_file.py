@@ -323,6 +323,8 @@ def init_file(file: File, *args, **kwargs):
             getattr(kwargs, field.attname) for field in file._meta.concrete_fields
         ]
         super(File, file).__init__(*new_args)
+        file._state.adding = False
+        file._state.db = "default"
         return None
 
     kwargs["id"] = ids.base62_20()
