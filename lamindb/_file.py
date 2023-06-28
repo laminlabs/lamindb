@@ -11,7 +11,7 @@ from lnschema_core.types import DataLike, PathLike
 
 from lamindb._file_access import auto_storage_key_from_file
 from lamindb.dev._settings import settings
-from lamindb.dev.hashing import hash_file
+from lamindb.dev.hashing import b16_to_b64, hash_file
 from lamindb.dev.storage import UPath, infer_suffix, size_adata, write_to_file
 
 from ._file_access import AUTO_KEY_PREFIX
@@ -89,7 +89,7 @@ def get_hash(filepath, suffix, check_hash: bool = True) -> Optional[Union[str, F
     if isinstance(filepath, UPath):
         stat = filepath.stat()
         if "ETag" in stat:
-            hash = stat["ETag"]
+            hash = b16_to_b64(stat["ETag"])
         else:
             logger.warning(f"Did not find hash for filepath {filepath}")
     else:
