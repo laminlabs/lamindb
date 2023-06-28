@@ -83,12 +83,17 @@ def serialize(
     return memory_rep, filepath, suffix
 
 
-def get_hash(
-    local_filepath, suffix, check_hash: bool = True
-) -> Optional[Union[str, File]]:
+def get_hash(filepath, suffix, check_hash: bool = True) -> Optional[Union[str, File]]:
     if suffix in {".zarr", ".zrad"}:
         return None
-    hash = hash_file(local_filepath)
+    if isinstance(filepath, UPath):
+        stat = filepath.stat()
+        if "ETag" in stat:
+            hash = stat["ETag"]
+        else:
+            logger.warning(f"Did not find hash for filepath {filepath}")
+    else:
+        hash = hash_file(filepath)
     if not check_hash:
         return hash
     result = File.select(hash=hash).list()
@@ -165,7 +170,7 @@ def get_path_size_hash(
         else:
             size = filepath.stat().st_size  # type: ignore
             localpath = filepath
-            hash = get_hash(filepath, suffix, check_hash=check_hash)
+        hash = get_hash(filepath, suffix, check_hash=check_hash)
 
     return localpath, cloudpath, size, hash
 
