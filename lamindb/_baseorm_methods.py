@@ -117,6 +117,7 @@ def __init__(orm: BaseORM, *args, **kwargs):
                 ]
                 super(BaseORM, orm).__init__(*new_args)
                 orm._state.adding = False  # mimic from_db
+                orm._state.db = "default"
                 return None
         if orm.__module__.startswith("lnschema_bionty"):
             from lnschema_bionty._bionty import encode_id
@@ -144,6 +145,7 @@ def __init__(orm: BaseORM, *args, **kwargs):
             ]
             super(BaseORM, orm).__init__(*new_args)
             orm._state.adding = False  # mimic from_db
+            orm._state.db = "default"
         except IndexError:
             super(BaseORM, orm).__init__(**result)
     elif len(args) != len(orm._meta.concrete_fields):
