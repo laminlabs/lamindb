@@ -39,9 +39,6 @@ except ImportError:
 
 DIRS = AppDirs("lamindb", "laminlabs")
 
-NO_NAME_ERROR = """\
-Pass a name or key in `ln.File(...)`.
-"""
 
 File.__doc__ = """Files: data artifacts.
 

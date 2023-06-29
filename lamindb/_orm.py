@@ -107,21 +107,6 @@ def search(
     synonyms_field: Optional[Union[str, TextField, CharField]] = "synonyms",
     synonyms_sep: str = "|",
 ) -> Union[pd.DataFrame, BaseORM]:
-    """Search the table.
-
-    Args:
-        string: `str` The input string to match against the field ontology values.
-        field: `Optional[Union[str, CharField, TextField]] = None` The field
-            against which the input string is matching.
-        top_hit: `bool = False` If `True`, return only the top hit or hits (in
-            case of equal scores).
-        case_sensitive: `bool = False` Whether the match is case sensitive.
-        synonyms_field: `bool = True` Also search synonyms. If `None`, is ignored.
-
-    Returns:
-        A sorted `DataFrame` of search results with a score in column
-        `__ratio__`. If `top_hit` is `True`, the best match.
-    """
     import pandas as pd
     from lamin_logger._search import search
 
@@ -452,3 +437,4 @@ BaseORM.inspect = inspect
 BaseORM.add_synonym = add_synonym
 BaseORM.remove_synonym = remove_synonym
 BaseORM.from_values = from_values
+# BaseORM.select = select

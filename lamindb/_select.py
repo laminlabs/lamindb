@@ -6,7 +6,7 @@ from lnschema_core._queryset import QuerySet
 
 
 def select(*ORM: BaseORM, **expressions) -> Union[QuerySet, Manager]:
-    """Query data.
+    """Query records.
 
     Guide: :doc:`/guide/select`.
 
