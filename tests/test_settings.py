@@ -3,7 +3,7 @@ from pathlib import Path
 import lamindb as ln
 
 
-def test_switch_storage():
+def test_settings_switch_storage():
     assert ln.settings.storage.resolve() == Path("./default_storage").resolve()
     ln.settings.storage = "s3://lamindb-ci"
     assert ln.setup.settings.storage.is_cloud
