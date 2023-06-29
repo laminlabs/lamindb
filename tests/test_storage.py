@@ -4,8 +4,8 @@ import h5py
 
 from lamindb.dev.storage import _infer_filesystem, delete_storage
 from lamindb.dev.storage._backed_access import AnnDataAccessor
-from lamindb.dev.storage._file import read_adata_h5ad
 from lamindb.dev.storage._zarr import read_adata_zarr, write_adata_zarr
+from lamindb.dev.storage.file import read_adata_h5ad
 
 
 def test_anndata_io():
