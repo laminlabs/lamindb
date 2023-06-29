@@ -74,10 +74,6 @@ def __init__(orm: BaseORM, *args, **kwargs):
                 orm._state.adding = False  # mimic from_db
                 orm._state.db = "default"
                 return None
-        if orm.__module__.startswith("lnschema_bionty"):
-            from lnschema_bionty._bionty import encode_id
-
-            kwargs = encode_id(orm=orm, kwargs=kwargs)
         super(BaseORM, orm).__init__(**kwargs)
     elif len(args) != len(orm._meta.concrete_fields):
         raise ValueError("Please provide keyword arguments, not plain arguments")
