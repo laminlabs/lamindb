@@ -1,5 +1,5 @@
 from pathlib import Path, PurePath, PurePosixPath
-from typing import Any, Optional, Tuple, Union
+from typing import Any, List, Optional, Tuple, Union
 
 import lamindb_setup
 import pandas as pd
@@ -11,7 +11,7 @@ from lnschema_core.types import DataLike, PathLike
 
 from lamindb._file_access import auto_storage_key_from_file
 from lamindb.dev._settings import settings
-from lamindb.dev.hashing import hash_file
+from lamindb.dev.hashing import b16_to_b64, hash_file
 from lamindb.dev.storage import UPath, infer_suffix, size_adata, write_to_file
 
 from ._file_access import AUTO_KEY_PREFIX
@@ -83,12 +83,17 @@ def serialize(
     return memory_rep, filepath, suffix
 
 
-def get_hash(
-    local_filepath, suffix, check_hash: bool = True
-) -> Optional[Union[str, File]]:
+def get_hash(filepath, suffix, check_hash: bool = True) -> Optional[Union[str, File]]:
     if suffix in {".zarr", ".zrad"}:
         return None
-    hash = hash_file(local_filepath)
+    if isinstance(filepath, UPath):
+        stat = filepath.stat()
+        if "ETag" in stat:
+            hash = b16_to_b64(stat["ETag"])
+        else:
+            logger.warning(f"Did not find hash for filepath {filepath}")
+    else:
+        hash = hash_file(filepath)
     if not check_hash:
         return hash
     result = File.select(hash=hash).list()
@@ -165,7 +170,7 @@ def get_path_size_hash(
         else:
             size = filepath.stat().st_size  # type: ignore
             localpath = filepath
-            hash = get_hash(filepath, suffix, check_hash=check_hash)
+        hash = get_hash(filepath, suffix, check_hash=check_hash)
 
     return localpath, cloudpath, size, hash
 
@@ -318,6 +323,8 @@ def init_file(file: File, *args, **kwargs):
             getattr(kwargs, field.attname) for field in file._meta.concrete_fields
         ]
         super(File, file).__init__(*new_args)
+        file._state.adding = False
+        file._state.db = "default"
         return None
 
     kwargs["id"] = ids.base62_20()
@@ -354,8 +361,8 @@ def from_dir(
     path: Union[Path, UPath, str],
     *,
     run: Optional[Run] = None,
-):
-    """Create file records from a directory."""
+) -> List[File]:
+    """Create a list of file objects from a directory."""
     folderpath = UPath(path)
     check_path_in_storage = get_check_path_in_storage(folderpath)
 
