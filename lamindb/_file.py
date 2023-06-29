@@ -296,14 +296,17 @@ def init_file(file: File, *args, **kwargs):
     # now we proceed with the user-facing constructor
     if len(args) > 1:
         raise ValueError("Only one non-keyword arg allowed: data")
-    data: Union[PathLike, DataLike] = kwargs["data"] if len(args) == 0 else args[0]
-    key: Optional[str] = kwargs["key"] if "key" in kwargs else None
-    run: Optional[Run] = kwargs["run"] if "run" in kwargs else None
-    name: Optional[str] = kwargs["name"] if "name" in kwargs else None
+    data: Union[PathLike, DataLike] = kwargs.pop("data") if len(args) == 0 else args[0]
+    key: Optional[str] = kwargs.pop("key") if "key" in kwargs else None
+    run: Optional[Run] = kwargs.pop("run") if "run" in kwargs else None
+    name: Optional[str] = kwargs.pop("name") if "name" in kwargs else None
     feature_sets: List[FeatureSet] = (
-        kwargs["feature_sets"] if "feature_sets" in kwargs else []
+        kwargs.pop("feature_sets") if "feature_sets" in kwargs else []
     )
-    format = kwargs["format"] if "format" in kwargs else None
+    format = kwargs.pop("format") if "format" in kwargs else None
+
+    if not len(kwargs) == 0:
+        raise ValueError("Only data, key, run, name & feature_sets can be passed.")
 
     provisional_id = ids.base62_20()
     kwargs, privates = get_file_kwargs_from_data(
@@ -352,7 +355,9 @@ def init_file(file: File, *args, **kwargs):
         file._cloud_filepath = privates["cloud_filepath"]
         file._memory_rep = privates["memory_rep"]
         file._to_store = not privates["check_path_in_storage"]
-        file._feature_sets = feature_sets
+        file._feature_sets = (
+            feature_sets if isinstance(feature_sets, list) else [feature_sets]
+        )
 
     super(File, file).__init__(**kwargs)
 

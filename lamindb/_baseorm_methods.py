@@ -163,16 +163,6 @@ def from_values(cls, values: ListLike, field: Union[Field, str], **kwargs):
         raise TypeError(
             "field must be a string or an ORM field, e.g., `CellType.name`!"
         )
-    if cls.__name__ == "FeatureSet":
-        from lamindb._featureset_methods import parse_features_from_iterable
-
-        features = parse_features_from_iterable(
-            iterable=values,
-            field=field,
-            species=kwargs.get("species"),
-        )
-        return features
-
     from_bionty = True if cls.__module__.startswith("lnschema_bionty.") else False
     return get_or_create_records(
         iterable=values, field=field, from_bionty=from_bionty, **kwargs
