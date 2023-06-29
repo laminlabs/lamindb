@@ -1,7 +1,7 @@
-from typing import Dict, Optional
+from typing import Dict, Optional, Union
 
 from lamin_logger import logger
-from lnschema_core import FeatureSet
+from lnschema_core import Feature, FeatureSet
 
 from lamindb._select import select
 from lamindb.dev.hashing import hash_set
@@ -33,41 +33,70 @@ def parse_features_from_iterable(
 
     features_hash = hash_set(set(iterable_idx))
 
-    featureset = select(
+    feature_set = select(
         FeatureSet,
         id=features_hash,
         type=related_name,
     ).one_or_none()
-    if featureset is not None:
-        logger.info("Returning an existing featureset")
+
+    from_bionty = (
+        True if field.field.model.__module__.startswith("lnschema_bionty.") else False
+    )
+    if feature_set is not None:
+        logger.info("Returning an existing feature_set")
     else:
+        if species is not None:
+            kwargs = dict(species=species)
+        else:
+            kwargs = dict()
         records = get_or_create_records(
-            iterable=iterable_idx, field=field, species=species, from_bionty=True
+            iterable=iterable_idx, field=field, from_bionty=from_bionty, **kwargs
         )
-        featureset = FeatureSet(
+        feature_set = FeatureSet(
             id=features_hash, type=related_name, **{related_name: records}
         )
-    return featureset
+    return feature_set
 
 
-def __init__(featureset, *args, **kwargs):  # type: ignore
-    related_names = [i.related_name for i in featureset.__class__._meta.related_objects]
+def __init__(feature_set, *args, **kwargs):  # type: ignore
+    related_names = [
+        i.related_name for i in feature_set.__class__._meta.related_objects
+    ]
 
     relationships: Dict = {}
     for related_name in related_names:
         if related_name in kwargs:
             relationships[related_name] = kwargs.pop(related_name)
-    featureset._relationships = relationships
+    feature_set._relationships = relationships
 
-    super(FeatureSet, featureset).__init__(*args, **kwargs)
+    super(FeatureSet, feature_set).__init__(*args, **kwargs)
 
 
-def save(featureset, *args, **kwargs):
-    super(FeatureSet, featureset).save(*args, **kwargs)
-    for key, records in featureset._relationships.items():
+def save(feature_set, *args, **kwargs):
+    super(FeatureSet, feature_set).save(*args, **kwargs)
+    for key, records in feature_set._relationships.items():
         [r.save() for r in records]
-        getattr(featureset, key).set(records)
+        getattr(feature_set, key).set(records)
+
+
+@classmethod  # type:ignore
+def from_values(
+    cls, values: ListLike, field: Union[Field, str] = Feature.name, **kwargs
+):
+    if isinstance(field, str):
+        field = getattr(cls, field)
+    if not isinstance(field, Field):  # field is DeferredAttribute
+        raise TypeError(
+            "field must be a string or an ORM field, e.g., `CellType.name`!"
+        )
+    feature_set = parse_features_from_iterable(
+        iterable=values,
+        field=field,
+        species=kwargs.get("species"),
+    )
+    return feature_set
 
 
 FeatureSet.__init__ = __init__
 FeatureSet.save = save
+FeatureSet.from_values = from_values

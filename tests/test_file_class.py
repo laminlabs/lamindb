@@ -1,13 +1,48 @@
 import shutil
 from pathlib import Path
 
+import anndata as ad
+import numpy as np
+import pandas as pd
 import pytest
 
-from lamindb import File
+import lamindb as ln
 
 # how do we properly abstract out the default storage variable?
 # currently, we're only mocking it through `default_storage` as
 # set in conftest.py
+
+df = pd.DataFrame({"feat1": [1, 2], "feat2": [3, 4]})
+
+adata = ad.AnnData(
+    X=np.array([[1, 2, 3], [4, 5, 6]]),
+    obs=dict(Obs=["A", "B"]),
+    var=dict(Feat=["a", "b", "c"]),
+    obsm=dict(X_pca=np.array([[1, 2], [3, 4]])),
+)
+
+# tests as from readme
+
+
+@pytest.mark.parametrize("name", [None, "my name"])
+@pytest.mark.parametrize("feature_list", [None, [], df.columns])
+def test_create_from_dataframe(name, feature_list):
+    if feature_list is not None:
+        feature_set = ln.FeatureSet.from_values(feature_list)
+    else:
+        feature_set = None
+    file = ln.File(df, name=name, feature_sets=feature_set)
+    assert file.name is None if name is None else file.name == name
+    assert file.key is None
+    file.save()
+    feature_set_queried = file.feature_sets.get()  # exactly one
+    feature_list_queried = ln.Feature.select(feature_sets=feature_set_queried).list()
+    feature_list_queried = [feature.name for feature in feature_list_queried]
+    if feature_list is None:
+        assert set(feature_list_queried) == set(df.columns)
+    else:
+        assert set(feature_list_queried) == set(feature_list)
+    file.delete(storage=True)
 
 
 @pytest.fixture(
@@ -29,28 +64,30 @@ def get_test_filepaths(request):  # -> Tuple[bool, Path, Path]
 # this tests the basic (non-provenance-related) metadata
 @pytest.mark.parametrize("key", [None, "my_new_dir/my_file.csv"])
 @pytest.mark.parametrize("name", [None, "my name"])
-def test_init_from_filepath_basic_fields(get_test_filepaths, key, name):
+def test_create_from_filepath(get_test_filepaths, key, name):
     isin_default_storage = get_test_filepaths[0]
     test_filepath = get_test_filepaths[2]
-    if name is None and key is None and not isin_default_storage:
-        with pytest.raises(ValueError):
-            file = File(test_filepath, key=key, name=name)
+    file = ln.File(test_filepath, key=key, name=name)
+    assert file.name is None if name is None else file.name == name
+    assert file.suffix == ".csv"
+    if key is None:
+        assert (
+            file.key == "my_dir/my_file.csv"
+            if isin_default_storage
+            else file.key is None
+        )
     else:
-        file = File(test_filepath, key=key, name=name)
-        assert file.name is None if name is None else file.name == name
-        assert file.suffix == ".csv"
-        if key is None:
-            assert (
-                file.key == "my_dir/my_file.csv"
-                if isin_default_storage
-                else file.key is None
-            )
-        else:
-            assert file.key == key
-        assert file.storage.root == Path("./default_storage").resolve().as_posix()
-        assert file.hash == "DMF1ucDxtqgxw5niaXcmYQ"
-        if isin_default_storage and key is None:
-            assert str(test_filepath.resolve()) == str(file.path())
+        assert file.key == key
+    assert file.storage.root == Path("./default_storage").resolve().as_posix()
+    assert file.hash == "DMF1ucDxtqgxw5niaXcmYQ"
+    if isin_default_storage and key is None:
+        assert str(test_filepath.resolve()) == str(file.path())
+
+    # need to figure out how to save!
+    # now save it
+    # file.save()
+    # assert file.path().exists()
+    # file.delete(storage=True)
 
 
 def test_init_from_directory(get_test_filepaths):
@@ -58,19 +95,19 @@ def test_init_from_directory(get_test_filepaths):
     test_dirpath = get_test_filepaths[1]
     if not isin_default_storage:
         with pytest.raises(RuntimeError):
-            File.from_dir(test_dirpath)
+            ln.File.from_dir(test_dirpath)
     else:
-        records = File.from_dir(test_dirpath)
+        records = ln.File.from_dir(test_dirpath)
         assert len(records) == 1
         # also execute tree
-        File.tree(test_dirpath.name)
+        ln.File.tree(test_dirpath.name)
 
 
 def test_delete(get_test_filepaths):
     test_filepath = get_test_filepaths[2]
-    file = File(test_filepath, name="My test file to delete")
+    file = ln.File(test_filepath, name="My test file to delete")
     file.save()
     storage_path = file.path()
     file.delete(storage=True)
-    assert File.select(name="My test file to delete").first() is None
+    assert ln.File.select(name="My test file to delete").first() is None
     assert not Path(storage_path).exists()
