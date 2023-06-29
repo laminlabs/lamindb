@@ -480,7 +480,7 @@ def replace(
 
 def backed(
     self, is_run_input: Optional[bool] = None
-) -> Union[AnnDataAccessor, BackedAccessor]:
+) -> Union["AnnDataAccessor", "BackedAccessor"]:
     """Return a cloud-backed data object to stream."""
     suffixes = (".h5", ".hdf5", ".h5ad", ".zrad", ".zarr")
     if self.suffix not in suffixes:
@@ -513,47 +513,45 @@ def _track_run_input(file: File, is_run_input: Optional[bool] = None):
             file.input_of.add(context.run)
 
 
-def load(
-    file: File, is_run_input: Optional[bool] = None, stream: bool = False
-) -> DataLike:
-    _track_run_input(file, is_run_input)
-    return load_to_memory(filepath_from_file(file), stream=stream)
+def load(self, is_run_input: Optional[bool] = None, stream: bool = False) -> DataLike:
+    _track_run_input(self, is_run_input)
+    return load_to_memory(filepath_from_file(self), stream=stream)
 
 
-def stage(file: File, is_run_input: Optional[bool] = None) -> Path:
-    if file.suffix in (".zrad", ".zarr"):
+def stage(self, is_run_input: Optional[bool] = None) -> Path:
+    if self.suffix in (".zrad", ".zarr"):
         raise RuntimeError("zarr object can't be staged, please use load() or stream()")
-    _track_run_input(file, is_run_input)
-    return setup_settings.instance.storage.cloud_to_local(filepath_from_file(file))
+    _track_run_input(self, is_run_input)
+    return setup_settings.instance.storage.cloud_to_local(filepath_from_file(self))
 
 
-def delete(file, storage: Optional[bool] = None) -> None:
+def delete(self, storage: Optional[bool] = None) -> None:
     if storage is None:
-        response = input(f"Are you sure you want to delete {file} from storage? (y/n)")
+        response = input(f"Are you sure you want to delete {self} from storage? (y/n)")
         delete_in_storage = response == "y"
     else:
         delete_in_storage = storage
 
     if delete_in_storage:
-        filepath = file.path()
+        filepath = self.path()
         delete_storage(filepath)
         logger.success(f"Deleted stored object {colors.yellow(f'{filepath}')}")
-    file._delete_skip_storage()
+    self._delete_skip_storage()
 
 
 def _delete_skip_storage(file, *args, **kwargs) -> None:
     super(File, file).delete(*args, **kwargs)
 
 
-def save(file, *args, **kwargs) -> None:
-    file._save_skip_storage(*args, **kwargs)
+def save(self, *args, **kwargs) -> None:
+    self._save_skip_storage(*args, **kwargs)
     from lamindb._save import check_and_attempt_clearing, check_and_attempt_upload
 
-    exception = check_and_attempt_upload(file)
+    exception = check_and_attempt_upload(self)
     if exception is not None:
-        file._delete_skip_storage()
+        self._delete_skip_storage()
         raise RuntimeError(exception)
-    exception = check_and_attempt_clearing(file)
+    exception = check_and_attempt_clearing(self)
     if exception is not None:
         raise RuntimeError(exception)
 
