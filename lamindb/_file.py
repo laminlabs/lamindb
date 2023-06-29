@@ -22,9 +22,9 @@ from lamindb.dev.storage import (
     size_adata,
     write_to_file,
 )
-from lamindb.dev.storage._file import auto_storage_key_from_file, filepath_from_file
+from lamindb.dev.storage.file import auto_storage_key_from_file, filepath_from_file
 
-from .dev.storage._file import AUTO_KEY_PREFIX
+from .dev.storage.file import AUTO_KEY_PREFIX
 
 try:
     from lamindb.dev.storage._backed_access import AnnDataAccessor, BackedAccessor
@@ -639,7 +639,7 @@ def _save_skip_storage(file, *args, **kwargs) -> None:
 
 def path(self) -> Union[Path, UPath]:
     """Path on storage."""
-    from lamindb.dev.storage._file import filepath_from_file
+    from lamindb.dev.storage.file import filepath_from_file
 
     return filepath_from_file(self)
 

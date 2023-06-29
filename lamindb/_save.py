@@ -8,7 +8,7 @@ from lamin_logger import logger
 from lnschema_core.models import BaseORM, File
 
 from lamindb.dev.storage import store_object
-from lamindb.dev.storage._file import (
+from lamindb.dev.storage.file import (
     auto_storage_key_from_file,
     delete_storage_using_key,
     print_hook,
