@@ -9,6 +9,7 @@ def infer_suffix(dmem, adata_format: Optional[str] = None):
     """Infer LaminDB storage file suffix from a data object."""
     if isinstance(dmem, AnnData):
         if adata_format is not None:
+            # below should be zrad, not zarr
             if adata_format not in ("h5ad", "zarr"):
                 raise ValueError
             return "." + adata_format

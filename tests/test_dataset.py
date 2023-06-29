@@ -7,6 +7,9 @@ def test_create_delete_from_single_df():
     dataset.save()
     assert dataset.load().iloc[0].tolist() == df.iloc[0].tolist()
     file = dataset.file
+    assert file.name is None
+    assert dataset.hash == file.hash
+    assert dataset.id == file.id
     assert ln.File.select(id=dataset.id).one_or_none() is not None
     assert ln.File.select(id=file.id).one_or_none() is not None
     dataset.delete(storage=True)

@@ -43,7 +43,7 @@ def __init__(
                     " `.obs.columns`"
                 )
             dataset._feature_sets = feature_sets
-        file = File(data=data, name=name, run=run, feature_sets=dataset._feature_sets)
+        file = File(data=data, run=run, feature_sets=dataset._feature_sets)
         hash = file.hash
         id = file.id
     else:
