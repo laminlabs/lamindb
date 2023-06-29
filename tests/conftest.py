@@ -1,8 +1,9 @@
 import shutil
-from subprocess import run
+from subprocess import DEVNULL, run
 
 import lamindb_setup
 import pytest
+from lamin_logger import logger
 from laminci.db import setup_local_test_postgres
 
 
@@ -17,6 +18,8 @@ def pytest_sessionstart(session: pytest.Session):
 
 
 def pytest_sessionfinish(session: pytest.Session):
+    logger.set_verbosity(1)
     lamindb_setup.delete("lamindb-unit-tests")
     shutil.rmtree("./default_storage")
-    run("docker stop pgtest && docker rm pgtest", shell=True)
+    shutil.rmtree("./outside_storage")
+    run("docker stop pgtest && docker rm pgtest", shell=True, stdout=DEVNULL)
