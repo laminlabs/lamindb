@@ -25,17 +25,23 @@ adata = ad.AnnData(
 
 
 @pytest.mark.parametrize("name", [None, "my name"])
-@pytest.mark.parametrize("feature_list", [[], df.columns])
+@pytest.mark.parametrize("feature_list", [None, [], df.columns])
 def test_create_from_dataframe(name, feature_list):
-    feature_set = ln.FeatureSet.from_values(feature_list)
+    if feature_list is not None:
+        feature_set = ln.FeatureSet.from_values(feature_list)
+    else:
+        feature_set = None
     file = ln.File(df, name=name, feature_sets=feature_set)
     assert file.name is None if name is None else file.name == name
     assert file.key is None
     file.save()
-    feature_set = file.feature_sets.get()  # exactly one
-    feature_list_queried = ln.Feature.select(feature_sets=feature_set).list()
+    feature_set_queried = file.feature_sets.get()  # exactly one
+    feature_list_queried = ln.Feature.select(feature_sets=feature_set_queried).list()
     feature_list_queried = [feature.name for feature in feature_list_queried]
-    assert set(feature_list_queried) == set(feature_list)
+    if feature_list is None:
+        assert set(feature_list_queried) == set(df.columns)
+    else:
+        assert set(feature_list_queried) == set(feature_list)
     file.delete(storage=True)
 
 

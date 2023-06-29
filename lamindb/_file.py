@@ -301,13 +301,20 @@ def init_file(file: File, *args, **kwargs):
     key: Optional[str] = kwargs.pop("key") if "key" in kwargs else None
     run: Optional[Run] = kwargs.pop("run") if "run" in kwargs else None
     name: Optional[str] = kwargs.pop("name") if "name" in kwargs else None
-    feature_sets: List[FeatureSet] = (
-        kwargs.pop("feature_sets") if "feature_sets" in kwargs else []
+    feature_sets: Optional[List[FeatureSet]] = (
+        kwargs.pop("feature_sets") if "feature_sets" in kwargs else None
     )
     format = kwargs.pop("format") if "format" in kwargs else None
 
     if not len(kwargs) == 0:
         raise ValueError("Only data, key, run, name & feature_sets can be passed.")
+
+    if feature_sets is None:
+        if isinstance(data, pd.DataFrame):
+            feature_set = FeatureSet.from_values(data.columns)
+            feature_sets = [feature_set]
+        else:
+            feature_sets = []
 
     provisional_id = ids.base62_20()
     kwargs, privates = get_file_kwargs_from_data(
