@@ -1,15 +1,5 @@
 import builtins
-from typing import (
-    Dict,
-    Iterable,
-    List,
-    Literal,
-    NamedTuple,
-    Optional,
-    Set,
-    Tuple,
-    Union,
-)
+from typing import Dict, Iterable, List, Literal, NamedTuple, Optional, Set, Union
 
 import pandas as pd
 from django.core.exceptions import FieldDoesNotExist
@@ -69,41 +59,6 @@ def suggest_objects_with_same_name(orm: BaseORM, kwargs) -> Optional[str]:
     return None
 
 
-def return_object_from_bionty(orm: BaseORM, *args, **kwargs) -> Dict:
-    """Pass bionty search/lookup results."""
-    from lnschema_bionty._bionty import (
-        create_or_get_species_record,
-        encode_id,
-        get_bionty_source_record,
-    )
-
-    arg = args[0]
-    if isinstance(arg, tuple):
-        bionty_kwargs = arg._asdict()  # type:ignore
-    else:
-        bionty_kwargs = arg[0]._asdict()
-
-    if len(bionty_kwargs) > 0:
-        import bionty as bt
-
-        # add species and bionty_source
-        species_record = create_or_get_species_record(
-            orm=orm.__class__, species=kwargs.get("species")
-        )
-        if species_record is not None:
-            bionty_kwargs["species"] = species_record
-        bionty_object = getattr(bt, orm.__class__.__name__)(
-            species=species_record.name if species_record is not None else None
-        )
-        bionty_kwargs["bionty_source"] = get_bionty_source_record(bionty_object)
-
-        model_field_names = {i.name for i in orm._meta.fields}
-        bionty_kwargs = {
-            k: v for k, v in bionty_kwargs.items() if k in model_field_names
-        }
-    return encode_id(orm=orm, kwargs=bionty_kwargs)
-
-
 def __init__(orm: BaseORM, *args, **kwargs):
     if not args:
         validate_required_fields(orm, kwargs)
@@ -124,30 +79,6 @@ def __init__(orm: BaseORM, *args, **kwargs):
 
             kwargs = encode_id(orm=orm, kwargs=kwargs)
         super(BaseORM, orm).__init__(**kwargs)
-    elif (
-        orm.__module__.startswith("lnschema_bionty")
-        and args
-        and len(args) == 1
-        and isinstance(args[0], (Tuple, List))  # type:ignore
-        and len(args[0]) > 0
-    ):
-        if isinstance(args[0], List) and len(args[0]) > 1:
-            logger.warning(
-                "Multiple lookup/search results are passed, only returning record from"
-                " the first entry"
-            )
-        result = return_object_from_bionty(orm, *args, **kwargs)  # type:ignore
-        try:
-            existing_object = orm.select(**result)[0]
-            new_args = [
-                getattr(existing_object, field.attname)
-                for field in orm._meta.concrete_fields
-            ]
-            super(BaseORM, orm).__init__(*new_args)
-            orm._state.adding = False  # mimic from_db
-            orm._state.db = "default"
-        except IndexError:
-            super(BaseORM, orm).__init__(**result)
     elif len(args) != len(orm._meta.concrete_fields):
         raise ValueError("Please provide keyword arguments, not plain arguments")
     else:
