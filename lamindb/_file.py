@@ -6,7 +6,7 @@ import pandas as pd
 from anndata import AnnData
 from appdirs import AppDirs
 from lamin_logger import logger
-from lnschema_core import File, Run, ids
+from lnschema_core import FeatureSet, File, Run, ids
 from lnschema_core.types import DataLike, PathLike
 
 from lamindb._file_access import auto_storage_key_from_file
@@ -24,10 +24,9 @@ Pass a name or key in `ln.File(...)`.
 
 
 def serialize(
+    provisional_id: str,
     data: Union[Path, UPath, str, pd.DataFrame, AnnData],
-    name: Optional[str],
     format,
-    key: Optional[str],
 ) -> Tuple[Any, Union[Path, UPath], str]:
     """Serialize a data object that's provided as file or in memory."""
     # Convert str to either Path or UPath
@@ -60,13 +59,7 @@ def serialize(
     elif isinstance(data, (pd.DataFrame, AnnData)):
         memory_rep = data
         suffix = infer_suffix(data, format)
-        # the following filepath is always local
-        if name is None and key is None:
-            raise ValueError(NO_NAME_ERROR)
-        elif name is not None:
-            cache_name = name
-        else:
-            cache_name = Path(key).name
+        cache_name = f"{provisional_id}{suffix}"
         if lamindb_setup.settings.storage.cache_dir is not None:
             filepath = lamindb_setup.settings.storage.cache_dir / cache_name
         else:
@@ -74,12 +67,16 @@ def serialize(
             cache_dir = Path(DIRS.user_cache_dir)
             cache_dir.mkdir(parents=True, exist_ok=True)
             filepath = cache_dir / cache_name
+        # Alex: I don't understand the line below
         if filepath.suffixes == []:
             filepath = filepath.with_suffix(suffix)
         if suffix != ".zarr":
             write_to_file(data, filepath)
     else:
-        raise NotImplementedError("Recording not yet implemented for this type.")
+        raise NotImplementedError(
+            f"Do not know how to create a file object from {data}, pass a filepath"
+            " instead!"
+        )
     return memory_rep, filepath, suffix
 
 
@@ -220,15 +217,15 @@ def get_relative_path_to_root(
 
 # expose to user via ln.File
 def get_file_kwargs_from_data(
+    provisional_id: str,
     data: Union[Path, UPath, str, pd.DataFrame, AnnData],
-    *,
     name: Optional[str] = None,
     key: Optional[str] = None,
     run: Optional[Run] = None,
     format: Optional[str] = None,
 ):
     run = get_run(run)
-    memory_rep, filepath, suffix = serialize(data, name, format, key)
+    memory_rep, filepath, suffix = serialize(provisional_id, data, format)
     # the following will return a localpath that is not None if filepath is local
     # it will return a cloudpath that is not None if filepath is on the cloud
     local_filepath, cloud_filepath, size, hash = get_path_size_hash(
@@ -242,9 +239,6 @@ def get_file_kwargs_from_data(
     # as storage key
     if memory_rep is None and key is None and check_path_in_storage:
         key = get_relative_path_to_root(path=filepath).as_posix()
-
-    if name is None and key is None:
-        raise ValueError(NO_NAME_ERROR)
 
     if key is not None and key.startswith(AUTO_KEY_PREFIX):
         raise ValueError(f"Key cannot start with {AUTO_KEY_PREFIX}")
@@ -302,13 +296,28 @@ def init_file(file: File, *args, **kwargs):
     # now we proceed with the user-facing constructor
     if len(args) > 1:
         raise ValueError("Only one non-keyword arg allowed: data")
-    data: Union[PathLike, DataLike] = kwargs["data"] if len(args) == 0 else args[0]
-    key: Optional[str] = kwargs["key"] if "key" in kwargs else None
-    name: Optional[str] = kwargs["name"] if "name" in kwargs else None
-    run: Optional[Run] = kwargs["run"] if "run" in kwargs else None
-    format = kwargs["format"] if "format" in kwargs else None
+    data: Union[PathLike, DataLike] = kwargs.pop("data") if len(args) == 0 else args[0]
+    key: Optional[str] = kwargs.pop("key") if "key" in kwargs else None
+    run: Optional[Run] = kwargs.pop("run") if "run" in kwargs else None
+    name: Optional[str] = kwargs.pop("name") if "name" in kwargs else None
+    feature_sets: Optional[List[FeatureSet]] = (
+        kwargs.pop("feature_sets") if "feature_sets" in kwargs else None
+    )
+    format = kwargs.pop("format") if "format" in kwargs else None
 
+    if not len(kwargs) == 0:
+        raise ValueError("Only data, key, run, name & feature_sets can be passed.")
+
+    if feature_sets is None:
+        if isinstance(data, pd.DataFrame):
+            feature_set = FeatureSet.from_values(data.columns)
+            feature_sets = [feature_set]
+        else:
+            feature_sets = []
+
+    provisional_id = ids.base62_20()
     kwargs, privates = get_file_kwargs_from_data(
+        provisional_id=provisional_id,
         data=data,
         name=name,
         key=key,
@@ -327,7 +336,7 @@ def init_file(file: File, *args, **kwargs):
         file._state.db = "default"
         return None
 
-    kwargs["id"] = ids.base62_20()
+    kwargs["id"] = provisional_id
     log_storage_hint(
         check_path_in_storage=privates["check_path_in_storage"],
         key=kwargs["key"],
@@ -353,6 +362,9 @@ def init_file(file: File, *args, **kwargs):
         file._cloud_filepath = privates["cloud_filepath"]
         file._memory_rep = privates["memory_rep"]
         file._to_store = not privates["check_path_in_storage"]
+        file._feature_sets = (
+            feature_sets if isinstance(feature_sets, list) else [feature_sets]
+        )
 
     super(File, file).__init__(**kwargs)
 
@@ -402,6 +414,7 @@ def replace_file(
     format: Optional[str] = None,
 ):
     kwargs, privates = get_file_kwargs_from_data(
+        provisional_id=file.id,
         data=data,
         name=file.name,
         key=file.key,

@@ -1,10 +1,9 @@
 from typing import Iterable, List, Optional, Union
 
+import anndata as ad
 import pandas as pd
-from anndata import AnnData
 from lnschema_core import ids
 from lnschema_core.models import Dataset
-from pandas import DataFrame
 
 from . import Feature, FeatureSet, File, Run
 from .dev.hashing import hash_set
@@ -21,7 +20,7 @@ def __init__(
     # now we proceed with the user-facing constructor
     if len(args) > 1:
         raise ValueError("Only one non-keyword arg allowed: data")
-    data: Optional[Union[DataFrame, AnnData]] = None
+    data: Optional[Union[pd.DataFrame, ad.AnnData]] = None
     if "data" in kwargs or len(args) == 1:
         data = kwargs.pop("data") if len(args) == 0 else args[0]
     name: Optional[str] = kwargs.pop("name") if "name" in kwargs else None
@@ -34,10 +33,17 @@ def __init__(
     )
     assert len(kwargs) == 0
     if data is not None:
-        if isinstance(data, DataFrame):
+        if isinstance(data, pd.DataFrame):
             feature_set = FeatureSet.from_values(data.columns, Feature.name)
-        file = File(data=data, name=name, run=run)
-        dataset._feature_sets = [feature_set]
+            dataset._feature_sets = [feature_set]
+        elif isinstance(data, ad.AnnData):
+            if len(feature_sets) != 2:
+                raise ValueError(
+                    "Please provide a feature set describing each `.var.index` &"
+                    " `.obs.columns`"
+                )
+            dataset._feature_sets = feature_sets
+        file = File(data=data, run=run, feature_sets=dataset._feature_sets)
         hash = file.hash
         id = file.id
     else:
@@ -55,9 +61,12 @@ def from_files(dataset: Dataset, *, name: str, files: Iterable[File]) -> Dataset
     #     raise ValueError("Not all files are yet saved, please save them")
     # query all feature sets of files
     file_ids = [file.id for file in files]
-    feature_sets = list(
-        File.feature_sets.through.objects.filter(file_id__in=file_ids).all()
+    # query all feature sets at the same time rather than making a single query per file
+    feature_set_file_links = File.feature_sets.through.objects.filter(
+        file_id__in=file_ids
     )
+    feature_set_ids = [link.featureset_id for link in feature_set_file_links]
+    feature_sets = FeatureSet.select(id__in=feature_set_ids)
     # validate consistency of feature_sets
     # we only allow one feature set per type
     feature_set_types = [feature_set.type for feature_set in feature_sets]
@@ -79,11 +88,14 @@ def from_files(dataset: Dataset, *, name: str, files: Iterable[File]) -> Dataset
     file_hashes_set = set(file_hashes)
     assert len(file_hashes) == len(file_hashes_set)
     hash = hash_set(file_hashes_set)
+    # create the dataset
     dataset = Dataset(name=name, hash=hash, feature_sets=feature_sets, files=files)
     return dataset
 
 
 def backed(dataset: Dataset):
+    if dataset.file is None:
+        raise RuntimeError("Can only call backed() for datasets with a single file")
     return dataset.file.backed()
 
 
@@ -92,14 +104,22 @@ def load(dataset: Dataset):
     if dataset.file is not None:
         return dataset.file.load()
     else:
+        suffixes = [file.suffix for file in dataset.files.all()]
+        if len(set(suffixes)) != 1:
+            raise RuntimeError(
+                "Can only load datasets where all files have the same suffix"
+            )
         objects = [file.load() for file in dataset.files.all()]
         if isinstance(objects[0], pd.DataFrame):
             return pd.concat(objects)
+        elif isinstance(objects[0], ad.AnnData):
+            return ad.concat(objects)
 
 
-def delete(dataset: Dataset):
-    dataset.file.delete()
+def delete(dataset: Dataset, storage: bool = False):
     super(Dataset, dataset).delete()
+    if dataset.file is not None:
+        dataset.file.delete(storage=storage)
 
 
 def save(dataset: Dataset):
