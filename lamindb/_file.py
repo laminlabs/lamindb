@@ -387,11 +387,13 @@ def __init__(file: File, *args, **kwargs):
     super(File, file).__init__(**kwargs)
 
 
+@classmethod  # type: ignore
 def from_dir(
-    path: Union[Path, UPath, str],
+    cls,
+    path: PathLike,
     *,
     run: Optional[Run] = None,
-) -> List[File]:
+) -> List["File"]:
     """Create a list of file objects from a directory."""
     folderpath = UPath(path)
     check_path_in_storage = get_check_path_in_storage(folderpath)
