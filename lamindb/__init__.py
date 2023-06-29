@@ -100,7 +100,7 @@ if _INSTANCE_SETUP:
     )
 
     from . import _dataset  # noqa
-    from . import _featureset  # noqa
+    from . import _feature_set  # noqa
     from . import _file_methods  # noqa
     from . import _orm  # noqa
     from . import _transform  # noqa
