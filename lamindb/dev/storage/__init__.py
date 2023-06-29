@@ -16,5 +16,5 @@ try:
     from ._backed_access import AnnDataAccessor
 except ImportError:
     pass
-from ._object import infer_suffix, write_to_file
 from .file import delete_storage, load_to_memory, store_object
+from .object import infer_suffix, write_to_file
