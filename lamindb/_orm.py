@@ -1,12 +1,15 @@
 import builtins
+from datetime import datetime
 from inspect import signature
-from typing import Dict, Iterable, List, Literal, NamedTuple, Optional, Set, Union
+from typing import Any, Dict, Iterable, List, Literal, NamedTuple, Optional, Set, Union
 
 import pandas as pd
 from django.core.exceptions import FieldDoesNotExist
+from django.db import models
 from django.db.models import CharField, Model, TextField
 from lamin_logger import logger
 from lamin_logger._lookup import Lookup
+from lamin_logger._search import search
 from lnschema_core import BaseORM
 
 from . import _TESTING
@@ -80,7 +83,7 @@ def __init__(orm: BaseORM, *args, **kwargs):
     elif len(args) != len(orm._meta.concrete_fields):
         raise ValueError("Please provide keyword arguments, not plain arguments")
     else:
-        # object is loaded from DB (**kwargs could be ommitted below, I believe)
+        # object is loaded from DB (**kwargs could be omitted below, I believe)
         super(BaseORM, orm).__init__(*args, **kwargs)
 
 
@@ -112,9 +115,6 @@ class MockORM(Model):
         synonyms_field: Optional[Union[str, TextField, CharField]] = "synonyms",
         synonyms_sep: str = "|",
     ) -> Union["pd.DataFrame", "BaseORM"]:
-        import pandas as pd
-        from lamin_logger._search import search
-
         if field is None:
             field = get_default_str_field(cls)
         if not isinstance(field, str):
@@ -434,10 +434,42 @@ def remove_synonym(self, synonym: Union[str, Iterable]):
     _add_or_remove_synonyms(synonym=synonym, record=self, action="remove")
 
 
+def format_datetime(dt: Union[datetime, Any]) -> str:
+    if not isinstance(dt, datetime):
+        return dt
+    else:
+        return dt.strftime("%Y-%m-%d %H:%M:%S")
+
+
+def __repr__(self: BaseORM) -> str:
+    field_names = [
+        field.name
+        for field in self._meta.fields
+        if not isinstance(field, (models.ForeignKey, models.DateTimeField))
+    ]
+    # skip created_at
+    field_names += [
+        field.name
+        for field in self._meta.fields
+        if isinstance(field, models.DateTimeField) and field.name != "created_at"
+    ]
+    field_names += [
+        f"{field.name}_id"
+        for field in self._meta.fields
+        if isinstance(field, models.ForeignKey)
+    ]
+    fields_str = {
+        k: format_datetime(getattr(self, k)) for k in field_names if hasattr(self, k)
+    }
+    fields_joined_str = ", ".join([f"{k}={fields_str[k]}" for k in fields_str])
+    return f"{self.__class__.__name__}({fields_joined_str})"
+
+
 if _TESTING:
     assert signature(MockORM.search) == signature(BaseORM.search)
 
 BaseORM.__init__ = __init__
+BaseORM.__str__ = __repr__
 BaseORM.search = MockORM.search
 BaseORM.lookup = lookup
 BaseORM.map_synonyms = map_synonyms
@@ -445,4 +477,3 @@ BaseORM.inspect = inspect
 BaseORM.add_synonym = add_synonym
 BaseORM.remove_synonym = remove_synonym
 BaseORM.from_values = from_values
-# BaseORM.select = select
