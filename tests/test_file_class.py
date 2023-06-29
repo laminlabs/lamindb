@@ -26,13 +26,16 @@ adata = ad.AnnData(
 
 @pytest.mark.parametrize("name", [None, "my name"])
 @pytest.mark.parametrize("feature_list", [[], df.columns])
-def test_creation_from_dataframe(name, feature_list):
+def test_create_from_dataframe(name, feature_list):
     feature_set = ln.FeatureSet.from_values(feature_list)
     file = ln.File(df, name=name, feature_sets=feature_set)
     assert file.name is None if name is None else file.name == name
     assert file.key is None
     file.save()
-    assert file.feature_sets.get()
+    feature_set = file.feature_sets.get()  # exactly one
+    feature_list_queried = ln.Feature.select(feature_sets=feature_set).list()
+    feature_list_queried = [feature.name for feature in feature_list_queried]
+    assert set(feature_list_queried) == set(feature_list)
     file.delete(storage=True)
 
 
@@ -55,7 +58,7 @@ def get_test_filepaths(request):  # -> Tuple[bool, Path, Path]
 # this tests the basic (non-provenance-related) metadata
 @pytest.mark.parametrize("key", [None, "my_new_dir/my_file.csv"])
 @pytest.mark.parametrize("name", [None, "my name"])
-def test_init_from_filepath_basic_fields(get_test_filepaths, key, name):
+def test_create_from_filepath(get_test_filepaths, key, name):
     isin_default_storage = get_test_filepaths[0]
     test_filepath = get_test_filepaths[2]
     file = ln.File(test_filepath, key=key, name=name)
@@ -71,9 +74,14 @@ def test_init_from_filepath_basic_fields(get_test_filepaths, key, name):
         assert file.key == key
     assert file.storage.root == Path("./default_storage").resolve().as_posix()
     assert file.hash == "DMF1ucDxtqgxw5niaXcmYQ"
-    # assert file.path().exists()
     if isin_default_storage and key is None:
         assert str(test_filepath.resolve()) == str(file.path())
+
+    # need to figure out how to save!
+    # now save it
+    # file.save()
+    # assert file.path().exists()
+    # file.delete(storage=True)
 
 
 def test_init_from_directory(get_test_filepaths):

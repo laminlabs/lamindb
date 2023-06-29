@@ -28,18 +28,18 @@ def test_create_delete_from_single_dataframe():
     assert ln.File.select(id=file.id).one_or_none() is not None
 
     # features
-    features_list = [
+    feature_list = [
         "sepal_length",
         "sepal_width",
         "petal_length",
         "petal_width",
         "iris_species_code",
     ]
-    assert len(ln.Feature.select(name__in=features_list).list()) == 5
+    assert len(ln.Feature.select(name__in=feature_list).list()) == 5
     feature_set = ln.FeatureSet.select(datasets=dataset).one()
-    features_list_queried = ln.Feature.select(feature_sets=feature_set).list()
-    features_list_queried = [feature.name for feature in features_list_queried]
-    assert set(features_list_queried) == set(features_list)
+    feature_list_queried = ln.Feature.select(feature_sets=feature_set).list()
+    feature_list_queried = [feature.name for feature in feature_list_queried]
+    assert set(feature_list_queried) == set(feature_list)
     # the feature_set is also linked to the file
     assert ln.FeatureSet.select(files=dataset.file).one() == feature_set
 
