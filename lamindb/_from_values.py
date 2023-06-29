@@ -296,7 +296,11 @@ def _filter_bionty_df_columns(model: BaseORM, bionty_object: Any) -> pd.DataFram
     bionty_df = pd.DataFrame()
     if bionty_object is not None:
         model_field_names = {i.name for i in model._meta.fields}
+        # parents needs to be added here as relationships aren't in fields
+        model_field_names.add("parents")
         bionty_df = bionty_object.df().reset_index()
+        # rename definition to description for the lnschema_bionty
+        bionty_df.rename(columns={"definition": "description"}, inplace=True)
         bionty_df = bionty_df.loc[:, bionty_df.columns.isin(model_field_names)]
     return bionty_df
 
