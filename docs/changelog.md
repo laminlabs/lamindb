@@ -1,5 +1,6 @@
 # Changelog
 
+- ✨ Also enable `Dataset` from `AnnData` [PR812](https://github.com/laminlabs/lamindb/pull/812) [@falexwolf](https://github.com/falexwolf)
 - ✨ Added self-referential parents, renamed abbr and description [PR810](https://github.com/laminlabs/lamindb/pull/810) [@sunnyosun](https://github.com/sunnyosun)
 - ✨ Enable `Dataset` to be sharded [PR809](https://github.com/laminlabs/lamindb/pull/809) [@falexwolf](https://github.com/falexwolf)
 - 🚸 Store hash for remote files on S3 [PR808](https://github.com/laminlabs/lamindb/pull/808) [@falexwolf](https://github.com/falexwolf)
