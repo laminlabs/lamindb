@@ -12,7 +12,6 @@ from lnschema_core import FeatureSet, File, Run, ids
 from lnschema_core.types import DataLike, PathLike
 
 from lamindb._context import context
-from lamindb._file_access import auto_storage_key_from_file, filepath_from_file
 from lamindb.dev._settings import settings
 from lamindb.dev.hashing import b16_to_b64, hash_file
 from lamindb.dev.storage import (
@@ -23,8 +22,9 @@ from lamindb.dev.storage import (
     size_adata,
     write_to_file,
 )
+from lamindb.dev.storage._file import auto_storage_key_from_file, filepath_from_file
 
-from ._file_access import AUTO_KEY_PREFIX
+from .dev.storage._file import AUTO_KEY_PREFIX
 
 try:
     from lamindb.dev.storage._backed_access import AnnDataAccessor, BackedAccessor
@@ -639,7 +639,7 @@ def _save_skip_storage(file, *args, **kwargs) -> None:
 
 def path(self) -> Union[Path, UPath]:
     """Path on storage."""
-    from lamindb._file_access import filepath_from_file
+    from lamindb.dev.storage._file import filepath_from_file
 
     return filepath_from_file(self)
 

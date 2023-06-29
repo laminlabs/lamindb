@@ -7,9 +7,12 @@ from django.db import transaction
 from lamin_logger import logger
 from lnschema_core.models import BaseORM, File
 
-from lamindb._file_access import auto_storage_key_from_file
 from lamindb.dev.storage import store_object
-from lamindb.dev.storage._file import delete_storage_using_key, print_hook
+from lamindb.dev.storage._file import (
+    auto_storage_key_from_file,
+    delete_storage_using_key,
+    print_hook,
+)
 
 try:
     from lamindb.dev.storage._zarr import write_adata_zarr
