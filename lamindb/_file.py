@@ -427,8 +427,8 @@ def from_dir(
     return files
 
 
-def replace_file(
-    file: File,
+def replace(
+    file,
     data: Union[PathLike, DataLike] = None,
     run: Optional[Run] = None,
     format: Optional[str] = None,
@@ -479,20 +479,20 @@ def replace_file(
 
 
 def backed(
-    file: File, is_run_input: Optional[bool] = None
+    self, is_run_input: Optional[bool] = None
 ) -> Union[AnnDataAccessor, BackedAccessor]:
     """Return a cloud-backed data object to stream."""
     suffixes = (".h5", ".hdf5", ".h5ad", ".zrad", ".zarr")
-    if file.suffix not in suffixes:
+    if self.suffix not in suffixes:
         raise ValueError(
             "File should have a zarr or h5 object as the underlying data, please use"
             " one of the following suffixes for the object name:"
             f" {', '.join(suffixes)}."
         )
-    _track_run_input(file, is_run_input)
+    _track_run_input(self, is_run_input)
     from lamindb.dev.storage._backed_access import backed_access
 
-    return backed_access(file)
+    return backed_access(self)
 
 
 def _track_run_input(file: File, is_run_input: Optional[bool] = None):
@@ -661,44 +661,14 @@ def tree(
     print(f"\n{directories} directories" + (f", {files} files" if files else ""))
 
 
-# likely needs an arg `key`
-def replace(
-    file,
-    data: Union[PathLike, DataLike],
-    run: Optional[Run] = None,
-    format: Optional[str] = None,
-) -> None:
-    """Replace file content.
-
-    Args:
-        data: `Union[PathLike, DataLike]` A file path or an in-memory data
-            object (`DataFrame`, `AnnData`).
-        run: `Optional[Run] = None` The run that created the file, gets
-            auto-linked if `ln.track()` was called.
-
-    Examples:
-
-    Say we made a change to the content of a file (e.g., edited the image
-    `paradisi05_laminopathic_nuclei.jpg`).
-
-    This is how we replace the old file in storage with the new file:
-
-    >>> file.replace("paradisi05_laminopathic_nuclei.jpg")
-    >>> file.save()
-
-    Note that this neither changes the storage key nor the filename.
-
-    However, it will update the suffix if the file type changes.
-    """
-    replace_file(file, data, run, format)
-
-
 # this captures the original signatures for testing purposes
 # it's used in the unit tests
 if _TESTING:
     from inspect import signature
 
     SIG_FROM_DIR = signature(File.from_dir)
+    SIG_REPLACE = signature(File.replace)
+    SIG_BACKED = signature(File.backed)
 
 File.backed = backed
 File.stage = stage
