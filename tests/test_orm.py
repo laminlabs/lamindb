@@ -16,6 +16,8 @@ def test_signatures():
 
     MockORM.search = orm.search
     assert signature(MockORM.search) == orm.SIG_ORM_SEARCH
+    MockORM.from_values = orm.from_values
+    assert signature(MockORM.from_values) == orm.SIG_ORM_FROM_VALUES
 
 
 def test_init_with_args():

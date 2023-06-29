@@ -6,13 +6,15 @@ import pandas as pd
 from django.core.exceptions import FieldDoesNotExist
 from django.db import models
 from django.db.models import CharField, TextField
+from django.db.models.query_utils import DeferredAttribute as Field
 from lamin_logger import logger
 from lamin_logger._lookup import Lookup
 from lamin_logger._search import search as base_search
 from lnschema_core import ORM
+from lnschema_core.types import ListLike
 
 from . import _TESTING
-from ._from_values import Field, ListLike, get_or_create_records
+from ._from_values import get_or_create_records
 from .dev._settings import settings
 
 _is_ipython = getattr(builtins, "__IPYTHON__", False)
@@ -465,6 +467,7 @@ if _TESTING:
     from inspect import signature
 
     SIG_ORM_SEARCH = signature(ORM.search)
+    SIG_ORM_FROM_VALUES = signature(ORM.from_values)
 
 
 ORM.__init__ = __init__

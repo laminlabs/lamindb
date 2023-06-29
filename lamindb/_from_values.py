@@ -1,17 +1,15 @@
-from typing import Any, Dict, Iterable, List, Optional, TypeVar, Union
+from typing import Any, Dict, Iterable, List, Optional, Union
 
-import numpy as np
 import pandas as pd
 from django.db.models import Q
 from django.db.models.query_utils import DeferredAttribute as Field
 from lamin_logger import colors, logger
 from lamindb_setup.dev import deprecated
 from lnschema_core.models import ORM
+from lnschema_core.types import ListLike
 
 from ._select import select
 from .dev._settings import settings
-
-ListLike = TypeVar("ListLike", pd.Series, list, np.array)
 
 
 # The base function for `from_iter` and `from_bionty`
@@ -64,37 +62,6 @@ def parse(
     *,
     species: Optional[str] = None,
 ) -> List[ORM]:
-    """Parse identifiers and create records through lookups for a given field.
-
-    Guide: :doc:`/biology/registries`.
-
-    Args:
-        iterable: `Union[ListLike, pd.DataFrame]` A `ListLike` of identifiers or
-            a `DataFrame`.
-        field: `Union[Field, Dict[str, Field]]` If `iterable` is `ListLike`, a
-            `ORM` field to look up.
-            If `iterable` is `DataFrame`, a dict of `{column_name1: field1,
-            column_name2: field2}`.
-        species: `Optional[str]` Either `"human"`, `"mouse"`, or any other
-            `name` of `Bionty.Species`. If `None`, will use default species in
-            bionty for each entity.
-
-    Returns:
-        A list of records.
-
-    For every `value` in an iterable of identifiers and a given `ORM.field`,
-    this function performs:
-
-    1. It checks whether the value already exists in the database
-       (`ORM.select(field=value)`). If so, it adds the queried record to
-       the returned list and skips step 2. Otherwise, proceed with 2.
-    2. If the `ORM` is from `lnschema_bionty`, it checks whether there is an
-       exact match in the underlying ontology (`Bionty.inspect(value, field)`).
-       If so, it creates a record from Bionty and adds it to the returned list.
-       Otherwise, it create a record that populates a single field using `value`
-       and adds the record to the returned list.
-
-    """
     upon_create_search_names = settings.upon_create_search_names
     settings.upon_create_search_names = False
     try:
