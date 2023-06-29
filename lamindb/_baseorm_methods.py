@@ -78,8 +78,8 @@ def return_object_from_bionty(orm: BaseORM, *args, **kwargs) -> Dict:
     )
 
     arg = args[0]
-    if isinstance(arg, Tuple):  # type:ignore
-        bionty_kwargs = arg._asdict()
+    if isinstance(arg, tuple):
+        bionty_kwargs = arg._asdict()  # type:ignore
     else:
         bionty_kwargs = arg[0]._asdict()
 
@@ -88,7 +88,7 @@ def return_object_from_bionty(orm: BaseORM, *args, **kwargs) -> Dict:
 
         # add species and bionty_source
         species_record = create_or_get_species_record(
-            orm=orm, species=kwargs.get("species")
+            orm=orm.__class__, species=kwargs.get("species")
         )
         if species_record is not None:
             bionty_kwargs["species"] = species_record
