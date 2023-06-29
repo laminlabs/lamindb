@@ -1,5 +1,6 @@
 # Changelog
 
+- 🐛 Fix the variable bug in File.delete [PR811](https://github.com/laminlabs/lamindb/pull/811) [@Koncopd](https://github.com/Koncopd)
 ## 0.45.0 (2023-06-27)
 
 ### Features
