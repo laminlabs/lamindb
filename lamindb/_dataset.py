@@ -113,9 +113,10 @@ def load(dataset: Dataset):
             return ad.concat(objects)
 
 
-def delete(dataset: Dataset):
-    dataset.file.delete()
+def delete(dataset: Dataset, storage: bool = False):
     super(Dataset, dataset).delete()
+    if dataset.file is not None:
+        dataset.file.delete(storage=storage)
 
 
 def save(dataset: Dataset):
