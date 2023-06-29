@@ -20,6 +20,10 @@ def test_signatures():
     assert signature(MockORM.lookup) == orm.SIG_ORM_LOOKUP
     MockORM.from_values = orm.from_values
     assert signature(MockORM.from_values) == orm.SIG_ORM_FROM_VALUES
+    MockORM.add_synonym = orm.from_values
+    assert signature(MockORM.add_synonym) == orm.SIG_ORM_ADD_SYNONYM
+    MockORM.remove_synonym = orm.remove_synonym
+    assert signature(MockORM.remove_synonym) == orm.SIG_ORM_REMOVE_SYNONYM
 
 
 def test_init_with_args():

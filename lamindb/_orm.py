@@ -348,14 +348,12 @@ def _check_synonyms_field_exist(record: ORM):
         )
 
 
-def add_synonym(self, synonym: Union[str, Iterable], force: bool = False):
-    """Add synonyms to a record."""
+def add_synonym(self, synonym: Union[str, ListLike], force: bool = False):
     _check_synonyms_field_exist(self)
     _add_or_remove_synonyms(synonym=synonym, record=self, force=force, action="add")
 
 
-def remove_synonym(self, synonym: Union[str, Iterable]):
-    """Remove synonyms from a record."""
+def remove_synonym(self, synonym: Union[str, ListLike]):
     _check_synonyms_field_exist(self)
     _add_or_remove_synonyms(synonym=synonym, record=self, action="remove")
 
@@ -399,8 +397,10 @@ if _TESTING:
     SIG_ORM_SEARCH = signature(ORM.search)
     SIG_ORM_LOOKUP = signature(ORM.lookup)
     SIG_ORM_INSPECT = signature(ORM.inspect)
-    SIG_ORM_MAP_SYNONYM = signature(ORM.map_synonyms)
     SIG_ORM_FROM_VALUES = signature(ORM.from_values)
+    SIG_ORM_MAP_SYNONYM = signature(ORM.map_synonyms)
+    SIG_ORM_ADD_SYNONYM = signature(ORM.add_synonym)
+    SIG_ORM_REMOVE_SYNONYM = signature(ORM.remove_synonym)
 
 
 ORM.__init__ = __init__
