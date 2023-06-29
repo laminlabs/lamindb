@@ -24,6 +24,7 @@ from lamindb.dev.storage import (
 )
 from lamindb.dev.storage.file import auto_storage_key_from_file, filepath_from_file
 
+from . import _TESTING
 from .dev.storage.file import AUTO_KEY_PREFIX
 
 try:
@@ -689,6 +690,13 @@ def replace(
     """
     replace_file(file, data, run, format)
 
+
+# this captures the original signatures for testing purposes
+# it's used in the unit tests
+if _TESTING:
+    from inspect import signature
+
+    SIG_FROM_DIR = signature(File.from_dir)
 
 File.backed = backed
 File.stage = stage
