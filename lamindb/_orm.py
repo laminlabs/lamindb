@@ -301,6 +301,10 @@ def _add_or_remove_synonyms(
             display(records_df)
             raise SystemExit(AssertionError)
 
+    # raise error if record is not saved
+    if record._state.adding:
+        raise RuntimeError("Please save your record before modifying synonyms!")
+
     # passed synonyms
     if isinstance(synonym, str):
         syn_new_set = set([synonym])
@@ -333,10 +337,7 @@ def _add_or_remove_synonyms(
         syns_str = "|".join(syns_exist_set)
 
     record.synonyms = syns_str
-
-    # if the record already exists in the DB, save it
-    if not record._state.adding:
-        record.save()
+    record.save()
 
 
 def _check_synonyms_field_exist(record: ORM):
