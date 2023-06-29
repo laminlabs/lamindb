@@ -37,6 +37,9 @@ def test_signatures():
     # class methods
     Mock.from_dir = _file.from_dir
     assert signature(Mock.from_dir) == _file.SIG_FROM_DIR
+    # methods
+    assert signature(Mock.backed) == _file.SIG_BACKED
+    assert signature(Mock.tree) == _file.SIG_TREE
 
 
 @pytest.mark.parametrize("name", [None, "my name"])

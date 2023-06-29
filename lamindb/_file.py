@@ -669,6 +669,7 @@ if _TESTING:
     SIG_FROM_DIR = signature(File.from_dir)
     SIG_REPLACE = signature(File.replace)
     SIG_BACKED = signature(File.backed)
+    SIG_TREE = signature(File.tree)
 
 File.backed = backed
 File.stage = stage
