@@ -32,7 +32,6 @@ def serialize(
     # Convert str to either Path or UPath
     if isinstance(data, (str, Path, UPath)):
         filepath = UPath(data)  # returns Path for local
-        print(filepath)
         try:  # check if file exists
             if not filepath.exists():
                 raise FileNotFoundError(filepath)

@@ -61,9 +61,12 @@ def from_files(dataset: Dataset, *, name: str, files: Iterable[File]) -> Dataset
     #     raise ValueError("Not all files are yet saved, please save them")
     # query all feature sets of files
     file_ids = [file.id for file in files]
-    feature_sets = list(
-        File.feature_sets.through.objects.filter(file_id__in=file_ids).all()
+    # query all feature sets at the same time rather than making a single query per file
+    feature_set_file_links = File.feature_sets.through.objects.filter(
+        file_id__in=file_ids
     )
+    feature_set_ids = [link.featureset_id for link in feature_set_file_links]
+    feature_sets = FeatureSet.select(id__in=feature_set_ids)
     # validate consistency of feature_sets
     # we only allow one feature set per type
     feature_set_types = [feature_set.type for feature_set in feature_sets]
