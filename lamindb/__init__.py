@@ -99,11 +99,11 @@ if _INSTANCE_SETUP:
         f" {__version__})"
     )
 
-    from . import _baseorm_methods  # noqa
     from . import _dataset  # noqa
-    from . import _featureset_methods  # noqa
+    from . import _featureset  # noqa
     from . import _file_methods  # noqa
-    from . import _transform_methods  # noqa
+    from . import _orm  # noqa
+    from . import _transform  # noqa
     from ._delete import delete  # noqa
     from ._from_values import parse  # noqa
     from ._save import save  # noqa
