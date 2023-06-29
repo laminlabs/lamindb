@@ -1,5 +1,6 @@
 # Changelog
 
+- ♻️ Put things where they should be and test `ORM` signatures [PR813](https://github.com/laminlabs/lamindb/pull/813) [@falexwolf](https://github.com/falexwolf)
 - 🎉 Stage release 0.46 (`Dataset`, `Feature`, hierarchical ORMs) [PR806](https://github.com/laminlabs/lamindb/pull/806) [@falexwolf](https://github.com/falexwolf)
 - ✨ Also enable `Dataset` from `AnnData` [PR812](https://github.com/laminlabs/lamindb/pull/812) [@falexwolf](https://github.com/falexwolf)
 - ✨ Added self-referential parents, renamed abbr and description [PR810](https://github.com/laminlabs/lamindb/pull/810) [@sunnyosun](https://github.com/sunnyosun)
