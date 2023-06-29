@@ -98,6 +98,8 @@ def from_values(cls, values: ListLike, field: Union[Field, str], **kwargs):
     )
 
 
+# the sole reason for introducing "MockORM" is to test
+# the equivalency of signatures across lnschema_core and lamindb!
 class MockORM(Model):
     @classmethod
     def search(
