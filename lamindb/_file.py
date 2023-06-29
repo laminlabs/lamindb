@@ -6,7 +6,7 @@ import pandas as pd
 from anndata import AnnData
 from appdirs import AppDirs
 from lamin_logger import logger
-from lnschema_core import File, Run, ids
+from lnschema_core import FeatureSet, File, Run, ids
 from lnschema_core.types import DataLike, PathLike
 
 from lamindb._file_access import auto_storage_key_from_file
@@ -298,8 +298,11 @@ def init_file(file: File, *args, **kwargs):
         raise ValueError("Only one non-keyword arg allowed: data")
     data: Union[PathLike, DataLike] = kwargs["data"] if len(args) == 0 else args[0]
     key: Optional[str] = kwargs["key"] if "key" in kwargs else None
-    name: Optional[str] = kwargs["name"] if "name" in kwargs else None
     run: Optional[Run] = kwargs["run"] if "run" in kwargs else None
+    name: Optional[str] = kwargs["name"] if "name" in kwargs else None
+    feature_sets: List[FeatureSet] = (
+        kwargs["feature_sets"] if "feature_sets" in kwargs else []
+    )
     format = kwargs["format"] if "format" in kwargs else None
 
     provisional_id = ids.base62_20()
@@ -349,6 +352,7 @@ def init_file(file: File, *args, **kwargs):
         file._cloud_filepath = privates["cloud_filepath"]
         file._memory_rep = privates["memory_rep"]
         file._to_store = not privates["check_path_in_storage"]
+        file._feature_sets = feature_sets
 
     super(File, file).__init__(**kwargs)
 

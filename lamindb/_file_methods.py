@@ -176,7 +176,12 @@ def _save_skip_storage(file, *args, **kwargs) -> None:
         file.transform.save()
     if file.run is not None:
         file.run.save()
+    if hasattr(file, "_feature_sets"):
+        for feature_set in file._feature_sets:
+            feature_set.save()
     super(File, file).save(*args, **kwargs)
+    if len(file._feature_sets) > 0:
+        file.feature_sets.set(file._feature_sets)
 
 
 def path(self) -> Union[Path, UPath]:
