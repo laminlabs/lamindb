@@ -516,21 +516,11 @@ def _track_run_input(file: File, is_run_input: Optional[bool] = None):
 def load(
     file: File, is_run_input: Optional[bool] = None, stream: bool = False
 ) -> DataLike:
-    """Stage and load to memory.
-
-    Returns in-memory representation if possible, e.g., an `AnnData` object
-    for an `h5ad` file.
-    """
     _track_run_input(file, is_run_input)
     return load_to_memory(filepath_from_file(file), stream=stream)
 
 
 def stage(file: File, is_run_input: Optional[bool] = None) -> Path:
-    """Update cache from cloud storage if outdated.
-
-    Returns a path to a locally cached on-disk object (say, a
-    `.jpg` file).
-    """
     if file.suffix in (".zrad", ".zarr"):
         raise RuntimeError("zarr object can't be staged, please use load() or stream()")
     _track_run_input(file, is_run_input)
@@ -538,18 +528,6 @@ def stage(file: File, is_run_input: Optional[bool] = None) -> Path:
 
 
 def delete(file, storage: Optional[bool] = None) -> None:
-    """Delete file, optionall from storage.
-
-    Args:
-        storage: `Optional[bool] = None` Indicate whether you want to delete the
-        file in storage.
-
-    Example:
-
-    For any `File` object `file`, call:
-
-    >>> file.delete(storage=True)  # storage=True auto-confirms deletion in storage
-    """
     if storage is None:
         response = input(f"Are you sure you want to delete {file} from storage? (y/n)")
         delete_in_storage = response == "y"
@@ -568,7 +546,6 @@ def _delete_skip_storage(file, *args, **kwargs) -> None:
 
 
 def save(file, *args, **kwargs) -> None:
-    """Save the file to database & storage."""
     file._save_skip_storage(*args, **kwargs)
     from lamindb._save import check_and_attempt_clearing, check_and_attempt_upload
 
@@ -595,9 +572,6 @@ def _save_skip_storage(file, *args, **kwargs) -> None:
 
 
 def path(self) -> Union[Path, UPath]:
-    """Path on storage."""
-    from lamindb.dev.storage.file import filepath_from_file
-
     return filepath_from_file(self)
 
 
@@ -670,6 +644,12 @@ if _TESTING:
     SIG_REPLACE = signature(File.replace)
     SIG_BACKED = signature(File.backed)
     SIG_TREE = signature(File.tree)
+    SIG_PATH = signature(File.path)
+    SIG_LOAD = signature(File.load)
+    SIG_SAVE = signature(File.save)
+    SIG_STAGE = signature(File.stage)
+    SIG_DELETE = signature(File.delete)
+
 
 File.backed = backed
 File.stage = stage

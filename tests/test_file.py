@@ -40,6 +40,10 @@ def test_signatures():
     # methods
     assert signature(Mock.backed) == _file.SIG_BACKED
     assert signature(Mock.tree) == _file.SIG_TREE
+    assert signature(Mock.load) == _file.SIG_LOAD
+    assert signature(Mock.save) == _file.SIG_SAVE
+    assert signature(Mock.stage) == _file.SIG_STAGE
+    assert signature(Mock.delete) == _file.SIG_DELETE
 
 
 @pytest.mark.parametrize("name", [None, "my name"])
