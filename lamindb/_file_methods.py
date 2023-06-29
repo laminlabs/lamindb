@@ -142,10 +142,10 @@ def delete(file, storage: Optional[bool] = None) -> None:
     """
     if storage is None:
         response = input(f"Are you sure you want to delete {file} from storage? (y/n)")
-        if response == "y":
-            delete_in_storage = True
+        delete_in_storage = response == "y"
     else:
         delete_in_storage = storage
+
     if delete_in_storage:
         filepath = file.path()
         delete_storage(filepath)
