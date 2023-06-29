@@ -1,6 +1,21 @@
+from inspect import signature
+
 import pytest
 
 import lamindb as ln
+from lamindb import _orm as orm
+
+
+def test_signatures():
+    # this seems currently the easiest and most transparent
+    # way to test violations of the signature equality
+    # the MockORM class is needed to get inspect.signature
+    # to work
+    class MockORM:
+        pass
+
+    MockORM.search = orm.search
+    assert signature(MockORM.search) == orm.SIG_ORM_SEARCH
 
 
 def test_init_with_args():

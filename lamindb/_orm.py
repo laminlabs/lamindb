@@ -1,15 +1,14 @@
 import builtins
 from datetime import datetime
-from inspect import signature
 from typing import Any, Dict, Iterable, List, Literal, NamedTuple, Optional, Set, Union
 
 import pandas as pd
 from django.core.exceptions import FieldDoesNotExist
 from django.db import models
-from django.db.models import CharField, Model, TextField
+from django.db.models import CharField, TextField
 from lamin_logger import logger
 from lamin_logger._lookup import Lookup
-from lamin_logger._search import search
+from lamin_logger._search import search as base_search
 from lnschema_core import ORM
 
 from . import _TESTING
@@ -101,46 +100,43 @@ def from_values(cls, values: ListLike, field: Union[Field, str], **kwargs):
     )
 
 
-# the sole reason for introducing "MockORM" is to test
-# the equivalency of signatures across lnschema_core and lamindb!
-class MockORM(Model):
-    @classmethod
-    def search(
-        cls,
-        string: str,
-        *,
-        field: Optional[Union[str, CharField, TextField]] = None,
-        top_hit: bool = False,
-        case_sensitive: bool = True,
-        synonyms_field: Optional[Union[str, TextField, CharField]] = "synonyms",
-        synonyms_sep: str = "|",
-    ) -> Union["pd.DataFrame", "ORM"]:
-        if field is None:
-            field = get_default_str_field(cls)
-        if not isinstance(field, str):
-            field = field.field.name
+@classmethod  # type: ignore
+def search(
+    cls,
+    string: str,
+    *,
+    field: Optional[Union[str, CharField, TextField]] = None,
+    top_hit: bool = False,
+    case_sensitive: bool = True,
+    synonyms_field: Optional[Union[str, TextField, CharField]] = "synonyms",
+    synonyms_sep: str = "|",
+) -> Union["pd.DataFrame", "ORM"]:
+    if field is None:
+        field = get_default_str_field(cls)
+    if not isinstance(field, str):
+        field = field.field.name
 
-        records = cls.objects.all()
-        df = pd.DataFrame.from_records(records.values())
+    records = cls.objects.all()
+    df = pd.DataFrame.from_records(records.values())
 
-        result = search(
-            df=df,
-            string=string,
-            field=field,
-            synonyms_field=str(synonyms_field),
-            case_sensitive=case_sensitive,
-            return_ranked_results=not top_hit,
-            synonyms_sep=synonyms_sep,
-            tuple_name=cls.__name__,
-        )
+    result = base_search(
+        df=df,
+        string=string,
+        field=field,
+        synonyms_field=str(synonyms_field),
+        case_sensitive=case_sensitive,
+        return_ranked_results=not top_hit,
+        synonyms_sep=synonyms_sep,
+        tuple_name=cls.__name__,
+    )
 
-        if not top_hit or result is None:
-            return result
+    if not top_hit or result is None:
+        return result
+    else:
+        if isinstance(result, list):
+            return [records.get(id=r.id) for r in result]
         else:
-            if isinstance(result, list):
-                return [records.get(id=r.id) for r in result]
-            else:
-                return records.get(id=result.id)
+            return records.get(id=result.id)
 
 
 @classmethod  # type: ignore
@@ -463,12 +459,17 @@ def __repr__(self: ORM) -> str:
     return f"{self.__class__.__name__}({fields_joined_str})"
 
 
+# this captures the original signatures for testing purposes
+# it's used in the unit tests
 if _TESTING:
-    assert signature(MockORM.search) == signature(ORM.search)
+    from inspect import signature
+
+    SIG_ORM_SEARCH = signature(ORM.search)
+
 
 ORM.__init__ = __init__
 ORM.__str__ = __repr__
-ORM.search = MockORM.search
+ORM.search = search
 ORM.lookup = lookup
 ORM.map_synonyms = map_synonyms
 ORM.inspect = inspect

@@ -17,11 +17,6 @@ def pytest_sessionstart(session: pytest.Session):
     )
     # we're setting this to true prior to importing lamindb!
     lamindb_setup._TESTING = True
-    # now we can import lamindb
-    import lamindb as ln
-
-    # test that we're in testing mode!
-    assert ln._TESTING
 
 
 def pytest_sessionfinish(session: pytest.Session):
