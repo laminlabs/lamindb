@@ -143,23 +143,6 @@ def search(
 
 @classmethod  # type: ignore
 def lookup(cls, field: Optional[Union[str, CharField, TextField]] = None) -> NamedTuple:
-    """Return an auto-complete object for a field.
-
-    Args:
-        field: `Optional[Union[str, CharField, TextField]] = None` The field to
-            look up the values for. Defaults to 'name'.
-
-    Returns:
-        A `NamedTuple` of lookup information of the field values with a
-        dictionary converter.
-
-    Examples:
-        >>> import lnschema_bionty as lb
-        >>> lookup = lb.Gene.lookup()
-        >>> lookup.adgb_dt
-        >>> lookup_dict = lookup.dict()
-        >>> lookup['ADGB-DT']
-    """
     if field is None:
         field = get_default_str_field(cls)
     if not isinstance(field, str):
@@ -173,9 +156,6 @@ def lookup(cls, field: Optional[Union[str, CharField, TextField]] = None) -> Nam
         tuple_name=cls.__name__,
         prefix="ln",
     ).lookup()
-
-
-lookup.__doc__ = Lookup.__doc__
 
 
 @classmethod  # type: ignore
@@ -467,6 +447,7 @@ if _TESTING:
     from inspect import signature
 
     SIG_ORM_SEARCH = signature(ORM.search)
+    SIG_ORM_LOOKUP = signature(ORM.lookup)
     SIG_ORM_FROM_VALUES = signature(ORM.from_values)
 
 
