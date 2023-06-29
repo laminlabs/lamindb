@@ -11,7 +11,7 @@ from lamin_logger import logger
 from lamin_logger._lookup import Lookup
 from lamin_logger._search import search as base_search
 from lnschema_core import ORM
-from lnschema_core.types import ListLike
+from lnschema_core.types import ListLike, StrField
 
 from . import _TESTING
 from ._from_values import get_or_create_records
@@ -89,7 +89,7 @@ def __init__(orm: ORM, *args, **kwargs):
 
 
 @classmethod  # type:ignore
-def from_values(cls, values: ListLike, field: Union[Field, str], **kwargs):
+def from_values(cls, identifiers: ListLike, field: StrField, **kwargs):
     if isinstance(field, str):
         field = getattr(cls, field)
     if not isinstance(field, Field):  # field is DeferredAttribute
@@ -98,7 +98,7 @@ def from_values(cls, values: ListLike, field: Union[Field, str], **kwargs):
         )
     from_bionty = True if cls.__module__.startswith("lnschema_bionty.") else False
     return get_or_create_records(
-        iterable=values, field=field, from_bionty=from_bionty, **kwargs
+        iterable=identifiers, field=field, from_bionty=from_bionty, **kwargs
     )
 
 
@@ -107,7 +107,7 @@ def search(
     cls,
     string: str,
     *,
-    field: Optional[Union[str, CharField, TextField]] = None,
+    field: Optional[StrField] = None,
     top_hit: bool = False,
     case_sensitive: bool = True,
     synonyms_field: Optional[Union[str, TextField, CharField]] = "synonyms",
@@ -142,7 +142,7 @@ def search(
 
 
 @classmethod  # type: ignore
-def lookup(cls, field: Optional[Union[str, CharField, TextField]] = None) -> NamedTuple:
+def lookup(cls, field: Optional[StrField] = None) -> NamedTuple:
     if field is None:
         field = get_default_str_field(cls)
     if not isinstance(field, str):
@@ -162,35 +162,14 @@ def lookup(cls, field: Optional[Union[str, CharField, TextField]] = None) -> Nam
 def inspect(
     cls,
     identifiers: Iterable,
-    field: Union[str, CharField, TextField],
+    field: StrField,
     *,
     case_sensitive: bool = False,
     inspect_synonyms: bool = True,
     return_df: bool = False,
     logging: bool = True,
     **kwargs,
-) -> Union[pd.DataFrame, Dict[str, List[str]]]:
-    """Inspect if a list of identifiers are mappable to existing values of a field.
-
-    Args:
-        identifiers: Identifiers that will be checked against the field.
-        field: `Union[str, CharField, TextField]` The field of identifiers.
-                Examples are 'ontology_id' to map against the source ID
-                or 'name' to map against the ontologies field names.
-        case_sensitive: Whether the identifier inspection is case sensitive.
-        inspect_synonyms: Whether to inspect synonyms.
-        return_df: Whether to return a Pandas DataFrame.
-
-    Returns:
-        - A Dictionary of "mapped" and "unmapped" identifiers
-        - If `return_df`: A DataFrame indexed by identifiers with a boolean `__mapped__`
-            column that indicates compliance with the identifiers.
-
-    Examples:
-        >>> import lnschema_bionty as lb
-        >>> gene_symbols = ["A1CF", "A1BG", "FANCD1", "FANCD20"]
-        >>> lb.Gene.inspect(gene_symbols, field=lb.Gene.symbol)
-    """
+) -> Union["pd.DataFrame", Dict[str, List[str]]]:
     from lamin_logger._inspect import inspect
 
     if not isinstance(field, str):
@@ -220,35 +199,6 @@ def map_synonyms(
     field: Optional[str] = None,
     **kwargs,
 ) -> Union[List[str], Dict[str, str]]:
-    """Maps input synonyms to standardized names.
-
-    Args:
-        synonyms: `Iterable` Synonyms that will be standardized.
-        return_mapper: `bool = False` If `True`, returns `{input_synonym1:
-            standardized_name1}`.
-        case_sensitive: `bool = False` Whether the mapping is case sensitive.
-        species: `Optional[str]` Map only against this species related entries.
-        keep: `Literal["first", "last", False] = "first"` When a synonym maps to
-            multiple names, determines which duplicates to mark as
-            `pd.DataFrame.duplicated`
-
-                - "first": returns the first mapped standardized name
-                - "last": returns the last mapped standardized name
-                - `False`: returns all mapped standardized name
-        synonyms_field: `str = "synonyms"` A field containing the concatenated synonyms.
-        synonyms_sep: `str = "|"` Which separator is used to separate synonyms.
-        field: `Optional[str]` The field representing the standardized names.
-
-    Returns:
-        If `return_mapper` is `False`: a list of standardized names. Otherwise,
-        a dictionary of mapped values with mappable synonyms as keys and
-        standardized names as values.
-
-    Examples:
-        >>> import lnschema_bionty as lb
-        >>> gene_synonyms = ["A1CF", "A1BG", "FANCD1", "FANCD20"]
-        >>> standardized_names = lb.Gene.map_synonyms(gene_synonyms, species="human")
-    """
     from lamin_logger._map_synonyms import map_synonyms
 
     if field is None:
@@ -448,6 +398,8 @@ if _TESTING:
 
     SIG_ORM_SEARCH = signature(ORM.search)
     SIG_ORM_LOOKUP = signature(ORM.lookup)
+    SIG_ORM_INSPECT = signature(ORM.inspect)
+    SIG_ORM_MAP_SYNONYM = signature(ORM.map_synonyms)
     SIG_ORM_FROM_VALUES = signature(ORM.from_values)
 
 
