@@ -1,31 +1,31 @@
 from typing import List, Optional, Union, overload  # noqa
 
-from lnschema_core import BaseORM
+from lnschema_core import ORM
 
 from ._logger import colors, logger
 
 
 @overload
 def delete(
-    record: BaseORM,
+    record: ORM,
 ) -> None:
     ...
 
 
 @overload
 def delete(
-    records: List[BaseORM],
+    records: List[ORM],
 ) -> None:  # type: ignore
     ...
 
 
 def delete(  # type: ignore
-    records: Union[BaseORM, List[BaseORM]],
+    records: Union[ORM, List[ORM]],
 ) -> None:
     """Delete metadata records & files.
 
     Args:
-        records: `Union[BaseORM, List[BaseORM]]` One or multiple records.
+        records: `Union[ORM, List[ORM]]` One or multiple records.
 
     Returns:
         `None`
@@ -49,7 +49,7 @@ def delete(  # type: ignore
     """
     if isinstance(records, list):
         records = records
-    elif isinstance(records, BaseORM):
+    elif isinstance(records, ORM):
         records = [records]
     for record in records:
         record.delete()

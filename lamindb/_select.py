@@ -1,11 +1,11 @@
 from typing import Union
 
 from django.db.models import Manager
-from lnschema_core import BaseORM
+from lnschema_core import ORM
 from lnschema_core._queryset import QuerySet
 
 
-def select(*ORM: BaseORM, **expressions) -> Union[QuerySet, Manager]:
+def select(*ORM: ORM, **expressions) -> Union[QuerySet, Manager]:
     """Query records.
 
     Guide: :doc:`/guide/select`.

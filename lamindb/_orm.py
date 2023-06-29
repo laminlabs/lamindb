@@ -10,7 +10,7 @@ from django.db.models import CharField, Model, TextField
 from lamin_logger import logger
 from lamin_logger._lookup import Lookup
 from lamin_logger._search import search
-from lnschema_core import BaseORM
+from lnschema_core import ORM
 
 from . import _TESTING
 from ._from_values import Field, ListLike, get_or_create_records
@@ -23,7 +23,7 @@ class ValidationError(Exception):
     pass
 
 
-def validate_required_fields(orm: BaseORM, kwargs):
+def validate_required_fields(orm: ORM, kwargs):
     required_fields = {
         k.name for k in orm._meta.fields if not k.null and k.default is None
     }
@@ -36,7 +36,7 @@ def validate_required_fields(orm: BaseORM, kwargs):
         raise TypeError(f"{missing_fields} are required.")
 
 
-def suggest_objects_with_same_name(orm: BaseORM, kwargs) -> Optional[str]:
+def suggest_objects_with_same_name(orm: ORM, kwargs) -> Optional[str]:
     if kwargs.get("name") is None:
         return None
     else:
@@ -64,7 +64,7 @@ def suggest_objects_with_same_name(orm: BaseORM, kwargs) -> Optional[str]:
     return None
 
 
-def __init__(orm: BaseORM, *args, **kwargs):
+def __init__(orm: ORM, *args, **kwargs):
     if not args:
         validate_required_fields(orm, kwargs)
         if settings.upon_create_search_names:
@@ -75,16 +75,16 @@ def __init__(orm: BaseORM, *args, **kwargs):
                     getattr(existing_object, field.attname)
                     for field in orm._meta.concrete_fields
                 ]
-                super(BaseORM, orm).__init__(*new_args)
+                super(ORM, orm).__init__(*new_args)
                 orm._state.adding = False  # mimic from_db
                 orm._state.db = "default"
                 return None
-        super(BaseORM, orm).__init__(**kwargs)
+        super(ORM, orm).__init__(**kwargs)
     elif len(args) != len(orm._meta.concrete_fields):
         raise ValueError("Please provide keyword arguments, not plain arguments")
     else:
         # object is loaded from DB (**kwargs could be omitted below, I believe)
-        super(BaseORM, orm).__init__(*args, **kwargs)
+        super(ORM, orm).__init__(*args, **kwargs)
 
 
 @classmethod  # type:ignore
@@ -114,7 +114,7 @@ class MockORM(Model):
         case_sensitive: bool = True,
         synonyms_field: Optional[Union[str, TextField, CharField]] = "synonyms",
         synonyms_sep: str = "|",
-    ) -> Union["pd.DataFrame", "BaseORM"]:
+    ) -> Union["pd.DataFrame", "ORM"]:
         if field is None:
             field = get_default_str_field(cls)
         if not isinstance(field, str):
@@ -295,9 +295,7 @@ def map_synonyms(
     )
 
 
-def _filter_df_based_on_species(
-    orm: BaseORM, species: Union[str, BaseORM, None] = None
-):
+def _filter_df_based_on_species(orm: ORM, species: Union[str, ORM, None] = None):
     import pandas as pd
 
     records = orm.objects.all()
@@ -309,7 +307,7 @@ def _filter_df_based_on_species(
                 f"{orm.__name__} table requires to specify a species name via"
                 " `species=`!"
             )
-        elif isinstance(species, BaseORM):
+        elif isinstance(species, ORM):
             species_name = species.name
         else:
             species_name = species
@@ -320,7 +318,7 @@ def _filter_df_based_on_species(
     return pd.DataFrame.from_records(records.values())
 
 
-def get_default_str_field(orm: BaseORM) -> str:
+def get_default_str_field(orm: ORM) -> str:
     """Get the 1st char or text field from the orm."""
     model_field_names = [i.name for i in orm._meta.fields]
 
@@ -346,13 +344,13 @@ def get_default_str_field(orm: BaseORM) -> str:
 
 def _add_or_remove_synonyms(
     synonym: Union[str, Iterable],
-    record: BaseORM,
+    record: ORM,
     action: Literal["add", "remove"],
     force: bool = False,
 ):
     """Add or remove synonyms."""
 
-    def check_synonyms_in_all_records(synonyms: Set[str], record: BaseORM):
+    def check_synonyms_in_all_records(synonyms: Set[str], record: ORM):
         """Errors if input synonyms are already associated with records in the DB."""
         import pandas as pd
         from IPython.display import display
@@ -413,7 +411,7 @@ def _add_or_remove_synonyms(
         record.save()
 
 
-def _check_synonyms_field_exist(record: BaseORM):
+def _check_synonyms_field_exist(record: ORM):
     try:
         record.__getattribute__("synonyms")
     except AttributeError:
@@ -441,7 +439,7 @@ def format_datetime(dt: Union[datetime, Any]) -> str:
         return dt.strftime("%Y-%m-%d %H:%M:%S")
 
 
-def __repr__(self: BaseORM) -> str:
+def __repr__(self: ORM) -> str:
     field_names = [
         field.name
         for field in self._meta.fields
@@ -466,14 +464,14 @@ def __repr__(self: BaseORM) -> str:
 
 
 if _TESTING:
-    assert signature(MockORM.search) == signature(BaseORM.search)
+    assert signature(MockORM.search) == signature(ORM.search)
 
-BaseORM.__init__ = __init__
-BaseORM.__str__ = __repr__
-BaseORM.search = MockORM.search
-BaseORM.lookup = lookup
-BaseORM.map_synonyms = map_synonyms
-BaseORM.inspect = inspect
-BaseORM.add_synonym = add_synonym
-BaseORM.remove_synonym = remove_synonym
-BaseORM.from_values = from_values
+ORM.__init__ = __init__
+ORM.__str__ = __repr__
+ORM.search = MockORM.search
+ORM.lookup = lookup
+ORM.map_synonyms = map_synonyms
+ORM.inspect = inspect
+ORM.add_synonym = add_synonym
+ORM.remove_synonym = remove_synonym
+ORM.from_values = from_values

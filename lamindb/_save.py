@@ -5,7 +5,7 @@ from typing import Iterable, List, Optional, Tuple, Union, overload  # noqa
 import lamindb_setup
 from django.db import transaction
 from lamin_logger import logger
-from lnschema_core.models import BaseORM, File
+from lnschema_core.models import ORM, File
 
 from lamindb.dev.storage import store_object
 from lamindb.dev.storage.file import (
@@ -23,7 +23,7 @@ except ImportError:
 
 
 @overload
-def save(record: BaseORM) -> BaseORM:
+def save(record: ORM) -> ORM:
     ...
 
 
@@ -31,11 +31,11 @@ def save(record: BaseORM) -> BaseORM:
 # Overloaded function signature 2 will never be matched: signature 1's parameter
 # type(s) are the same or broader
 @overload
-def save(records: Iterable[BaseORM]) -> Iterable[BaseORM]:  # type: ignore
+def save(records: Iterable[ORM]) -> Iterable[ORM]:  # type: ignore
     ...
 
 
-def save(record: Union[BaseORM, Iterable[BaseORM]], **fields) -> None:  # type: ignore
+def save(record: Union[ORM, Iterable[ORM]], **fields) -> None:  # type: ignore
     """Save to database & storage.
 
     Inserts a new :term:`record` if the corresponding row doesn't exist.
@@ -45,7 +45,7 @@ def save(record: Union[BaseORM, Iterable[BaseORM]], **fields) -> None:  # type: 
     passing it to `save`.
 
     Args:
-        record: One or multiple `BaseORM` objects.
+        record: One or multiple `ORM` objects.
 
     Returns:
         The record as returned from the database with a `created_at` timestamp.
@@ -71,7 +71,7 @@ def save(record: Union[BaseORM, Iterable[BaseORM]], **fields) -> None:  # type: 
     """
     if isinstance(record, Iterable):
         records = set(record)
-    elif isinstance(record, BaseORM):
+    elif isinstance(record, ORM):
         records = {record}
 
     # we're distinguishing between files and non-files

@@ -6,7 +6,7 @@ from IPython.display import display
 from lamin_logger import colors
 from lamindb_setup import settings
 from lamindb_setup.dev._setup_schema import get_schema_module_name
-from lnschema_core import BaseORM
+from lnschema_core import ORM
 
 from ._select import select
 
@@ -30,7 +30,7 @@ def view(n: int = 10, schema: Optional[str] = None):
         orms = [
             i
             for i in schema_module.__dict__.values()
-            if inspect.isclass(i) and issubclass(i, BaseORM) and i.__name__ != "BaseORM"
+            if inspect.isclass(i) and issubclass(i, ORM) and i.__name__ != "ORM"
         ]
         if len(schema_names) > 1:
             section = f"* module: {colors.green(colors.bold(schema_name))} *"

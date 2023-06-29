@@ -6,7 +6,7 @@ from django.db.models import Q
 from django.db.models.query_utils import DeferredAttribute as Field
 from lamin_logger import colors, logger
 from lamindb_setup.dev import deprecated
-from lnschema_core.models import BaseORM
+from lnschema_core.models import ORM
 
 from ._select import select
 from .dev._settings import settings
@@ -63,7 +63,7 @@ def parse(
     field: Union[Field, Dict[str, Field]],
     *,
     species: Optional[str] = None,
-) -> List[BaseORM]:
+) -> List[ORM]:
     """Parse identifiers and create records through lookups for a given field.
 
     Guide: :doc:`/biology/registries`.
@@ -72,7 +72,7 @@ def parse(
         iterable: `Union[ListLike, pd.DataFrame]` A `ListLike` of identifiers or
             a `DataFrame`.
         field: `Union[Field, Dict[str, Field]]` If `iterable` is `ListLike`, a
-            `BaseORM` field to look up.
+            `ORM` field to look up.
             If `iterable` is `DataFrame`, a dict of `{column_name1: field1,
             column_name2: field2}`.
         species: `Optional[str]` Either `"human"`, `"mouse"`, or any other
@@ -196,9 +196,7 @@ def get_existing_records(iterable_idx: pd.Index, field: Field, kwargs: Dict = {}
     return records, nonexist_values
 
 
-def get_existing_records_multifields(
-    df_records: List, model: BaseORM, kwargs: Dict = {}
-):
+def get_existing_records_multifields(df_records: List, model: ORM, kwargs: Dict = {}):
     q = Q(**df_records[0])
     for df_record in df_records[1:]:
         q = q.__getattribute__("__or__")(Q(**df_record))
@@ -208,7 +206,7 @@ def get_existing_records_multifields(
     return stmt
 
 
-def _species_kwargs(orm: BaseORM, kwargs: Dict = {}, condition: Dict = {}):
+def _species_kwargs(orm: ORM, kwargs: Dict = {}, condition: Dict = {}):
     """Create records based on the kwargs."""
     if kwargs.get("species") is not None:
         from lnschema_bionty._bionty import create_or_get_species_record
@@ -292,7 +290,7 @@ def create_records_from_bionty(
     return records, unmapped_values
 
 
-def _filter_bionty_df_columns(model: BaseORM, bionty_object: Any) -> pd.DataFrame:
+def _filter_bionty_df_columns(model: ORM, bionty_object: Any) -> pd.DataFrame:
     bionty_df = pd.DataFrame()
     if bionty_object is not None:
         model_field_names = {i.name for i in model._meta.fields}
