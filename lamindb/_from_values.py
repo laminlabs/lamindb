@@ -1,17 +1,14 @@
-from typing import Any, Dict, Iterable, List, Optional, TypeVar, Union
+from typing import Any, Dict, Iterable, List, Union
 
-import numpy as np
 import pandas as pd
 from django.db.models import Q
 from django.db.models.query_utils import DeferredAttribute as Field
 from lamin_logger import colors, logger
-from lamindb_setup.dev import deprecated
-from lnschema_core.models import BaseORM
+from lnschema_core.models import ORM
+from lnschema_core.types import ListLike
 
 from ._select import select
 from .dev._settings import settings
-
-ListLike = TypeVar("ListLike", pd.Series, list, np.array)
 
 
 # The base function for `from_iter` and `from_bionty`
@@ -53,93 +50,6 @@ def get_or_create_records(
                     f" with a single field {colors.red(f'{field_name}')}"
                 )
         return records
-    finally:
-        settings.upon_create_search_names = upon_create_search_names
-
-
-@deprecated("ORM.from_iter()")
-def parse(
-    iterable: Union[ListLike, pd.DataFrame],
-    field: Union[Field, Dict[str, Field]],
-    *,
-    species: Optional[str] = None,
-) -> List[BaseORM]:
-    """Parse identifiers and create records through lookups for a given field.
-
-    Guide: :doc:`/biology/registries`.
-
-    Args:
-        iterable: `Union[ListLike, pd.DataFrame]` A `ListLike` of identifiers or
-            a `DataFrame`.
-        field: `Union[Field, Dict[str, Field]]` If `iterable` is `ListLike`, a
-            `BaseORM` field to look up.
-            If `iterable` is `DataFrame`, a dict of `{column_name1: field1,
-            column_name2: field2}`.
-        species: `Optional[str]` Either `"human"`, `"mouse"`, or any other
-            `name` of `Bionty.Species`. If `None`, will use default species in
-            bionty for each entity.
-
-    Returns:
-        A list of records.
-
-    For every `value` in an iterable of identifiers and a given `ORM.field`,
-    this function performs:
-
-    1. It checks whether the value already exists in the database
-       (`ORM.select(field=value)`). If so, it adds the queried record to
-       the returned list and skips step 2. Otherwise, proceed with 2.
-    2. If the `ORM` is from `lnschema_bionty`, it checks whether there is an
-       exact match in the underlying ontology (`Bionty.inspect(value, field)`).
-       If so, it creates a record from Bionty and adds it to the returned list.
-       Otherwise, it create a record that populates a single field using `value`
-       and adds the record to the returned list.
-
-    """
-    upon_create_search_names = settings.upon_create_search_names
-    settings.upon_create_search_names = False
-    try:
-        if isinstance(iterable, pd.DataFrame):
-            # check the field must be a dictionary
-            if not isinstance(field, dict):
-                raise TypeError("field must be a dictionary of {column_name: Field}!")
-
-            # check only one single model class is passed
-            class_mapper = {f.field.name: f.field.model for f in field.values()}
-            if len(set(class_mapper.values())) > 1:
-                raise NotImplementedError("fields must from the same entity!")
-            model = list(class_mapper.values())[0]
-
-            df = _map_columns_to_fields(df=iterable, field=field)
-            df_records = df.to_dict(orient="records")
-
-            # make sure to only return 1 existing entry for each row
-            queryset = get_existing_records_multifields(
-                df_records=df_records, model=model
-            )
-            records = queryset.list()
-            df_records_new = [
-                i for i in df_records if not queryset.filter(**i).exists()
-            ]
-
-            if len(records) > 0:
-                logger.hint(
-                    "Returned"
-                    f" {colors.green(f'{len(records)} existing {model.__name__} DB records')}"  # noqa
-                )
-            if len(df_records_new) > 0:
-                logger.hint(
-                    "Created"
-                    f" {colors.purple(f'{len(df_records_new)} {model.__name__} records')} with"  # noqa
-                    f" {df.shape[1]} fields"
-                )
-                records += [model(**i) for i in df_records_new]
-            return records
-        else:
-            if not isinstance(field, Field):
-                raise TypeError("field must be an ORM field, e.g., `CellType.name`!")
-            return get_or_create_records(
-                iterable=iterable, field=field, species=species
-            )
     finally:
         settings.upon_create_search_names = upon_create_search_names
 
@@ -196,9 +106,7 @@ def get_existing_records(iterable_idx: pd.Index, field: Field, kwargs: Dict = {}
     return records, nonexist_values
 
 
-def get_existing_records_multifields(
-    df_records: List, model: BaseORM, kwargs: Dict = {}
-):
+def get_existing_records_multifields(df_records: List, model: ORM, kwargs: Dict = {}):
     q = Q(**df_records[0])
     for df_record in df_records[1:]:
         q = q.__getattribute__("__or__")(Q(**df_record))
@@ -208,7 +116,7 @@ def get_existing_records_multifields(
     return stmt
 
 
-def _species_kwargs(orm: BaseORM, kwargs: Dict = {}, condition: Dict = {}):
+def _species_kwargs(orm: ORM, kwargs: Dict = {}, condition: Dict = {}):
     """Create records based on the kwargs."""
     if kwargs.get("species") is not None:
         from lnschema_bionty._bionty import create_or_get_species_record
@@ -292,7 +200,7 @@ def create_records_from_bionty(
     return records, unmapped_values
 
 
-def _filter_bionty_df_columns(model: BaseORM, bionty_object: Any) -> pd.DataFrame:
+def _filter_bionty_df_columns(model: ORM, bionty_object: Any) -> pd.DataFrame:
     bionty_df = pd.DataFrame()
     if bionty_object is not None:
         model_field_names = {i.name for i in model._meta.fields}

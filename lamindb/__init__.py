@@ -30,7 +30,6 @@ Functional tools:
    :toctree: .
 
    track
-   parse
    view
    select
    save
@@ -58,6 +57,8 @@ Developer API:
 
 __version__ = "0.46.dev2"  # denote a release candidate for 0.1.0 with 0.1rc1
 
+import os as _os
+
 import lamindb_setup as _lamindb_setup
 
 # prints warning of python versions
@@ -66,6 +67,7 @@ from lamindb_setup import _check_instance_setup
 
 _py_version_warning("3.8", "3.10")
 
+_TESTING = _lamindb_setup._TESTING
 _INSTANCE_SETUP = _check_instance_setup(from_lamindb=True)
 # allow the user to call setup
 from . import setup  # noqa
@@ -99,13 +101,12 @@ if _INSTANCE_SETUP:
         f" {__version__})"
     )
 
-    from . import _baseorm_methods  # noqa
     from . import _dataset  # noqa
-    from . import _featureset_methods  # noqa
-    from . import _file_methods  # noqa
-    from . import _transform_methods  # noqa
+    from . import _feature_set  # noqa
+    from . import _file  # noqa
+    from . import _orm  # noqa
+    from . import _transform  # noqa
     from ._delete import delete  # noqa
-    from ._from_values import parse  # noqa
     from ._save import save  # noqa
     from ._select import select  # noqa
     from ._view import view  # noqa
