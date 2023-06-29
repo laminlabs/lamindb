@@ -102,7 +102,7 @@ def load(dataset: Dataset):
         return dataset.file.load()
     else:
         suffixes = [file.suffix for file in dataset.files.all()]
-        if len(suffixes) != len(set(suffixes)):
+        if len(set(suffixes)) != 1:
             raise RuntimeError(
                 "Can only load datasets where all files have the same suffix"
             )
