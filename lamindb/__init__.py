@@ -58,6 +58,8 @@ Developer API:
 
 __version__ = "0.46.dev1"  # denote a release candidate for 0.1.0 with 0.1rc1
 
+import os as _os
+
 import lamindb_setup as _lamindb_setup
 
 # prints warning of python versions
@@ -66,6 +68,7 @@ from lamindb_setup import _check_instance_setup
 
 _py_version_warning("3.8", "3.10")
 
+_TESTING = _lamindb_setup._TESTING
 _INSTANCE_SETUP = _check_instance_setup(from_lamindb=True)
 # allow the user to call setup
 from . import setup  # noqa

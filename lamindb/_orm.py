@@ -1,13 +1,15 @@
 import builtins
+from inspect import signature
 from typing import Dict, Iterable, List, Literal, NamedTuple, Optional, Set, Union
 
 import pandas as pd
 from django.core.exceptions import FieldDoesNotExist
-from django.db.models import CharField, TextField
+from django.db.models import CharField, Model, TextField
 from lamin_logger import logger
 from lamin_logger._lookup import Lookup
 from lnschema_core import BaseORM
 
+from . import _TESTING
 from ._from_values import Field, ListLike, get_or_create_records
 from .dev._settings import settings
 
@@ -96,46 +98,47 @@ def from_values(cls, values: ListLike, field: Union[Field, str], **kwargs):
     )
 
 
-@classmethod  # type: ignore
-def search(
-    cls,
-    string: str,
-    *,
-    field: Optional[Union[str, CharField, TextField]] = None,
-    top_hit: bool = False,
-    case_sensitive: bool = True,
-    synonyms_field: Optional[Union[str, TextField, CharField]] = "synonyms",
-    synonyms_sep: str = "|",
-) -> Union[pd.DataFrame, BaseORM]:
-    import pandas as pd
-    from lamin_logger._search import search
+class MockORM(Model):
+    @classmethod
+    def search(
+        cls,
+        string: str,
+        *,
+        field: Optional[Union[str, CharField, TextField]] = None,
+        top_hit: bool = False,
+        case_sensitive: bool = True,
+        synonyms_field: Optional[Union[str, TextField, CharField]] = "synonyms",
+        synonyms_sep: str = "|",
+    ) -> Union["pd.DataFrame", "BaseORM"]:
+        import pandas as pd
+        from lamin_logger._search import search
 
-    if field is None:
-        field = get_default_str_field(cls)
-    if not isinstance(field, str):
-        field = field.field.name
+        if field is None:
+            field = get_default_str_field(cls)
+        if not isinstance(field, str):
+            field = field.field.name
 
-    records = cls.objects.all()
-    df = pd.DataFrame.from_records(records.values())
+        records = cls.objects.all()
+        df = pd.DataFrame.from_records(records.values())
 
-    result = search(
-        df=df,
-        string=string,
-        field=field,
-        synonyms_field=str(synonyms_field),
-        case_sensitive=case_sensitive,
-        return_ranked_results=not top_hit,
-        synonyms_sep=synonyms_sep,
-        tuple_name=cls.__name__,
-    )
+        result = search(
+            df=df,
+            string=string,
+            field=field,
+            synonyms_field=str(synonyms_field),
+            case_sensitive=case_sensitive,
+            return_ranked_results=not top_hit,
+            synonyms_sep=synonyms_sep,
+            tuple_name=cls.__name__,
+        )
 
-    if not top_hit or result is None:
-        return result
-    else:
-        if isinstance(result, list):
-            return [records.get(id=r.id) for r in result]
+        if not top_hit or result is None:
+            return result
         else:
-            return records.get(id=result.id)
+            if isinstance(result, list):
+                return [records.get(id=r.id) for r in result]
+            else:
+                return records.get(id=result.id)
 
 
 @classmethod  # type: ignore
@@ -429,8 +432,11 @@ def remove_synonym(self, synonym: Union[str, Iterable]):
     _add_or_remove_synonyms(synonym=synonym, record=self, action="remove")
 
 
+if _TESTING:
+    assert signature(MockORM.search) == signature(BaseORM.search)
+
 BaseORM.__init__ = __init__
-BaseORM.search = search
+BaseORM.search = MockORM.search
 BaseORM.lookup = lookup
 BaseORM.map_synonyms = map_synonyms
 BaseORM.inspect = inspect

@@ -15,11 +15,18 @@ def pytest_sessionstart(session: pytest.Session):
         name="lamindb-unit-tests",
         db=pgurl,
     )
+    # we're setting this to true prior to importing lamindb!
+    lamindb_setup._TESTING = True
+    # now we can import lamindb
+    import lamindb as ln
+
+    # test that we're in testing mode!
+    assert ln._TESTING
 
 
 def pytest_sessionfinish(session: pytest.Session):
     logger.set_verbosity(1)
     lamindb_setup.delete("lamindb-unit-tests")
     shutil.rmtree("./default_storage")
-    shutil.rmtree("./outside_storage")
+    # shutil.rmtree("./outside_storage")
     run("docker stop pgtest && docker rm pgtest", shell=True, stdout=DEVNULL)
