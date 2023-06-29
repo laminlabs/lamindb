@@ -40,49 +40,6 @@ except ImportError:
 DIRS = AppDirs("lamindb", "laminlabs")
 
 
-File.__doc__ = """Files: data artifacts.
-
-Args:
-   data: `Union[PathLike, DataLike]` A file path or an in-memory data
-      object (`DataFrame`, `AnnData`) to serialize. Can be a cloud path, e.g.,
-      `"s3://my-bucket/my_samples/my_file.fcs"`.
-   key: `Optional[str] = None` A storage key: a relative filepath within the
-      current default storage, e.g., `"my_samples/my_file.fcs"`.
-   name: `Optional[str] = None` A name or title. Useful if key is auto-generated.
-   run: `Optional[Run] = None` The run that created the file, gets auto-linked
-       if `ln.track()` was called.
-
-Track where files come from by passing the generating :class:`~lamindb.Run`.
-
-Often, files store jointly measured observations of features: track them
-with :class:`~lamindb.FeatureSet`.
-
-If files have corresponding representations in storage and memory, LaminDB
-makes some configurable default choices (e.g., serialize a `DataFrame` as a
-`.parquet` file).
-
-.. admonition:: Examples for storage-memory correspondence
-
-   Listed are typical `suffix` values & in memory data objects.
-
-   - Table: `.csv`, `.tsv`, `.parquet`, `.ipc`
-     ⟷ `pd.DataFrame`, `polars.DataFrame`
-   - Annotated matrix: `.h5ad`, `.h5mu`, `.zrad` ⟷ `AnnData`, `MuData`
-   - Image: `.jpg`, `.png` ⟷ `np.ndarray`, ...
-   - Array: zarr directory, TileDB store ⟷ zarr loader, TileDB loader
-   - Fastq: `.fastq` ⟷ /
-   - VCF: `.vcf` ⟷ /
-   - QC: `.html` ⟷ /
-
-.. note::
-
-    In some cases (`.zarr`), a `File` is present as many small objects in what
-    appears to be a "folder" in storage. Hence, we often refer to files as data
-    artifacts.
-
-"""
-
-
 def serialize(
     provisional_id: str,
     data: Union[Path, UPath, str, pd.DataFrame, AnnData],
@@ -341,7 +298,7 @@ def log_storage_hint(
     logger.hint(hint)
 
 
-def init_file(file: File, *args, **kwargs):
+def __init__(file: File, *args, **kwargs):
     # Below checks for the Django-internal call in from_db()
     # it'd be better if we could avoid this, but not being able to create a File
     # from data with the default constructor renders the central class of the API
@@ -731,33 +688,6 @@ def replace(
     However, it will update the suffix if the file type changes.
     """
     replace_file(file, data, run, format)
-
-
-@overload
-def __init__(
-    file,
-    data: Union[PathLike, DataLike],
-    key: Optional[str] = None,
-    name: Optional[str] = None,
-    run: Optional[Run] = None,
-):
-    ...
-
-
-@overload
-def __init__(
-    file,
-    **kwargs,
-):
-    ...
-
-
-def __init__(  # type: ignore
-    file,
-    *args,
-    **kwargs,
-):
-    init_file(file, *args, **kwargs)
 
 
 File.backed = backed
