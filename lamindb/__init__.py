@@ -101,7 +101,7 @@ if _INSTANCE_SETUP:
 
     from . import _dataset  # noqa
     from . import _feature_set  # noqa
-    from . import _file_methods  # noqa
+    from . import _file  # noqa
     from . import _orm  # noqa
     from . import _transform  # noqa
     from ._delete import delete  # noqa
