@@ -6,6 +6,7 @@ import lamindb_setup
 import pandas as pd
 from anndata import AnnData
 from appdirs import AppDirs
+from django.db.models.query_utils import DeferredAttribute as Field
 from lamin_logger import colors, logger
 from lamindb_setup import settings as setup_settings
 from lamindb_setup.dev._docs import doc_args
@@ -323,17 +324,27 @@ def __init__(file: File, *args, **kwargs):
     feature_sets: Optional[List[FeatureSet]] = (
         kwargs.pop("feature_sets") if "feature_sets" in kwargs else None
     )
+    var_ref: Optional[Field] = kwargs.pop("var_ref") if "var_ref" in kwargs else None
     format = kwargs.pop("format") if "format" in kwargs else None
 
     if not len(kwargs) == 0:
         raise ValueError("Only data, key, run, name & feature_sets can be passed.")
 
     if feature_sets is None:
+        # if var_ref is None:
+        #     response = input(
+        #         "Are you sure you want to create a feature_set without reference?"
+        #         " (y/n)\n  If n: please rerun by providing reference to `var_ref=`"
+        #     )
+        #     if response != "y":
+        #         return None
+        feature_sets = []
         if isinstance(data, pd.DataFrame):
             feature_set = FeatureSet.from_values(data.columns)
-            feature_sets = [feature_set]
-        else:
-            feature_sets = []
+            feature_sets.append(feature_set)
+        elif isinstance(data, AnnData) and var_ref is not None:
+            feature_sets.append(FeatureSet.from_values(data.var.index, var_ref))
+            feature_sets.append(FeatureSet.from_values(data.obs.columns))
 
     provisional_id = ids.base62_20()
     kwargs, privates = get_file_kwargs_from_data(

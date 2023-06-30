@@ -234,18 +234,26 @@ def map_synonyms(
     )
 
 
-def _filter_df_based_on_species(orm: ORM, species: Union[str, ORM, None] = None):
+def _filter_df_based_on_species(orm: ORM, species: Optional[Union[str, ORM]] = None):
     import pandas as pd
 
     records = orm.objects.all()
     try:
         # if the orm has a species field, it's required
         records.model._meta.get_field("species")
+
+        # here, we can safely import lnschema_bionty
+        import lnschema_bionty as lb
+
         if species is None:
-            raise AssertionError(
-                f"{orm.__name__} table requires to specify a species name via"
-                " `species=`!"
-            )
+            if lb.settings.species is None:
+                raise AssertionError(
+                    f"{orm.__name__} table requires to specify a species name via"
+                    " `species=` or or `lb.settings.species=`!"
+                )
+            else:
+                species_name = lb.settings.species.name
+                logger.info(f"using species = {species_name}")
         elif isinstance(species, ORM):
             species_name = species.name
         else:

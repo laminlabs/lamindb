@@ -222,18 +222,3 @@ def _bulk_create_dicts_from_df(
     # keep the last record (assuming most recent) if duplicated
     df = df[~df.index.duplicated(keep="last")]
     return df.loc[list(keys)].reset_index().to_dict(orient="records")
-
-
-def _map_columns_to_fields(df: pd.DataFrame, field: dict) -> pd.DataFrame:
-    """Subset dataframe to mappable fields columns and clean up."""
-    column_mapper = {colname: f.field.name for colname, f in field.items()}
-    # subset to columns containing fields
-    df = df.copy()
-    if df.index.name is not None:
-        df = df.reset_index()
-    df = df.loc[:, df.columns.isin(field.keys())]
-    df = df.rename(columns=column_mapper)
-    df = df.dropna().drop_duplicates()
-    # TODO: remove after having the auto conversion for django ORMs
-    df = df.mask(df == "", None)
-    return df
