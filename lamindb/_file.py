@@ -331,13 +331,13 @@ def __init__(file: File, *args, **kwargs):
         raise ValueError("Only data, key, run, name & feature_sets can be passed.")
 
     if feature_sets is None:
-        if var_ref is None:
-            response = input(
-                "Are you sure you want to create a feature_set without reference?"
-                " (y/n)\n  If n: please rerun by providing reference to `var_ref=`"
-            )
-            if response != "y":
-                return None
+        # if var_ref is None:
+        #     response = input(
+        #         "Are you sure you want to create a feature_set without reference?"
+        #         " (y/n)\n  If n: please rerun by providing reference to `var_ref=`"
+        #     )
+        #     if response != "y":
+        #         return None
         feature_sets = []
         if isinstance(data, pd.DataFrame):
             feature_set = FeatureSet.from_values(data.columns, var_ref)
