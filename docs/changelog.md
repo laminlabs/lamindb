@@ -1,5 +1,6 @@
 # Changelog
 
+- 🚑️ Allow bulk saving of parents [PR816](https://github.com/laminlabs/lamindb/pull/816) [@sunnyosun](https://github.com/sunnyosun)
 - 📝 Fix docs [PR817](https://github.com/laminlabs/lamindb/pull/817) [@falexwolf](https://github.com/falexwolf)
 - 🚚 Move `File` signatures [PR815](https://github.com/laminlabs/lamindb/pull/815) [@falexwolf](https://github.com/falexwolf)
 - ♻️ Put things where they should be and test `ORM` signatures [PR813](https://github.com/laminlabs/lamindb/pull/813) [@falexwolf](https://github.com/falexwolf)
