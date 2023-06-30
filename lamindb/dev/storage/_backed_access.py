@@ -16,7 +16,7 @@ from fsspec.core import OpenFile
 from lamindb_setup.dev.upath import infer_filesystem
 from lnschema_core import File
 
-from lamindb._file_access import filepath_from_file
+from lamindb.dev.storage.file import filepath_from_file
 
 ZARR_INSTALLED = False
 try:

@@ -1,26 +1,46 @@
+from itertools import islice
 from pathlib import Path, PurePath, PurePosixPath
-from typing import Any, List, Optional, Tuple, Union
+from typing import Any, List, Optional, Tuple, Union, overload  # noqa
 
 import lamindb_setup
 import pandas as pd
 from anndata import AnnData
 from appdirs import AppDirs
-from lamin_logger import logger
+from lamin_logger import colors, logger
+from lamindb_setup import settings as setup_settings
+from lamindb_setup.dev._docs import doc_args
 from lnschema_core import FeatureSet, File, Run, ids
 from lnschema_core.types import DataLike, PathLike
 
-from lamindb._file_access import auto_storage_key_from_file
+from lamindb._context import context
 from lamindb.dev._settings import settings
 from lamindb.dev.hashing import b16_to_b64, hash_file
-from lamindb.dev.storage import UPath, infer_suffix, size_adata, write_to_file
+from lamindb.dev.storage import (
+    UPath,
+    delete_storage,
+    infer_suffix,
+    load_to_memory,
+    size_adata,
+    write_to_file,
+)
+from lamindb.dev.storage.file import auto_storage_key_from_file, filepath_from_file
+from lamindb.dev.utils import attach_func_to_class_method
 
-from ._file_access import AUTO_KEY_PREFIX
+from . import _TESTING
+from .dev.storage.file import AUTO_KEY_PREFIX
+
+try:
+    from lamindb.dev.storage._backed_access import AnnDataAccessor, BackedAccessor
+except ImportError:
+
+    class AnnDataAccessor:  # type: ignore
+        pass
+
+    class BackedAccessor:  # type: ignore
+        pass
+
 
 DIRS = AppDirs("lamindb", "laminlabs")
-
-NO_NAME_ERROR = """\
-Pass a name or key in `ln.File(...)`.
-"""
 
 
 def serialize(
@@ -281,7 +301,7 @@ def log_storage_hint(
     logger.hint(hint)
 
 
-def init_file(file: File, *args, **kwargs):
+def __init__(file: File, *args, **kwargs):
     # Below checks for the Django-internal call in from_db()
     # it'd be better if we could avoid this, but not being able to create a File
     # from data with the default constructor renders the central class of the API
@@ -369,12 +389,15 @@ def init_file(file: File, *args, **kwargs):
     super(File, file).__init__(**kwargs)
 
 
+@classmethod  # type: ignore
+@doc_args(File.from_dir.__doc__)
 def from_dir(
-    path: Union[Path, UPath, str],
+    cls,
+    path: PathLike,
     *,
     run: Optional[Run] = None,
-) -> List[File]:
-    """Create a list of file objects from a directory."""
+) -> List["File"]:
+    """{}"""
     folderpath = UPath(path)
     check_path_in_storage = get_check_path_in_storage(folderpath)
 
@@ -407,22 +430,22 @@ def from_dir(
     return files
 
 
-def replace_file(
-    file: File,
-    data: Union[PathLike, DataLike] = None,
+def replace(
+    self,
+    data: Union[PathLike, DataLike],
     run: Optional[Run] = None,
     format: Optional[str] = None,
-):
+) -> None:
     kwargs, privates = get_file_kwargs_from_data(
-        provisional_id=file.id,
+        provisional_id=self.id,
         data=data,
-        name=file.name,
-        key=file.key,
+        name=self.name,
+        key=self.key,
         run=run,
         format=format,
     )
-    if file.key is not None:
-        key_path = PurePosixPath(file.key)
+    if self.key is not None:
+        key_path = PurePosixPath(self.key)
         if isinstance(data, (Path, str)) and kwargs["name"] is not None:
             new_name = kwargs["name"]  # use the name from the data filepath
         else:
@@ -431,28 +454,213 @@ def replace_file(
         if PurePosixPath(new_name).suffixes == []:
             new_name = f"{new_name}{kwargs['suffix']}"
         if key_path.name != new_name:
-            file._clear_storagekey = file.key
-            file.key = str(key_path.with_name(new_name))
+            self._clear_storagekey = self.key
+            self.key = str(key_path.with_name(new_name))
             logger.warning(
-                f"Replacing the file will replace key '{key_path}' with '{file.key}'"
+                f"Replacing the file will replace key '{key_path}' with '{self.key}'"
                 f" and delete '{key_path}' upon `save()`"
             )
     else:
-        file.key = kwargs["key"]
-        old_storage = auto_storage_key_from_file(file)
+        self.key = kwargs["key"]
+        old_storage = auto_storage_key_from_file(self)
         new_storage = (
-            file.key if file.key is not None else f"{file.id}{kwargs['suffix']}"
+            self.key if self.key is not None else f"{self.id}{kwargs['suffix']}"
         )
         if old_storage != new_storage:
-            file._clear_storagekey = old_storage
+            self._clear_storagekey = old_storage
 
-    file.suffix = kwargs["suffix"]
-    file.size = kwargs["size"]
-    file.hash = kwargs["hash"]
-    file.run = kwargs["run"]
-    file._local_filepath = privates["local_filepath"]
-    file._cloud_filepath = privates["cloud_filepath"]
-    file._memory_rep = privates["memory_rep"]
-    file._to_store = not privates[
+    self.suffix = kwargs["suffix"]
+    self.size = kwargs["size"]
+    self.hash = kwargs["hash"]
+    self.run = kwargs["run"]
+    self._local_filepath = privates["local_filepath"]
+    self._cloud_filepath = privates["cloud_filepath"]
+    self._memory_rep = privates["memory_rep"]
+    self._to_store = not privates[
         "check_path_in_storage"
     ]  # no need to upload if new file is already in storage
+
+
+def backed(
+    self, is_run_input: Optional[bool] = None
+) -> Union["AnnDataAccessor", "BackedAccessor"]:
+    suffixes = (".h5", ".hdf5", ".h5ad", ".zrad", ".zarr")
+    if self.suffix not in suffixes:
+        raise ValueError(
+            "File should have a zarr or h5 object as the underlying data, please use"
+            " one of the following suffixes for the object name:"
+            f" {', '.join(suffixes)}."
+        )
+    _track_run_input(self, is_run_input)
+    from lamindb.dev.storage._backed_access import backed_access
+
+    return backed_access(self)
+
+
+def _track_run_input(file: File, is_run_input: Optional[bool] = None):
+    if is_run_input is None:
+        if context.run is not None and not settings.track_run_inputs:
+            logger.hint("Track this file as a run input by passing `is_run_input=True`")
+        track_run_input = settings.track_run_inputs
+    else:
+        track_run_input = is_run_input
+    if track_run_input:
+        if context.run is None:
+            raise ValueError(
+                "No global run context set. Call ln.context.track() or link input to a"
+                " run object via `run.inputs.append(file)`"
+            )
+        if not file.input_of.contains(context.run):
+            context.run.save()
+            file.input_of.add(context.run)
+
+
+def load(self, is_run_input: Optional[bool] = None, stream: bool = False) -> DataLike:
+    _track_run_input(self, is_run_input)
+    return load_to_memory(filepath_from_file(self), stream=stream)
+
+
+def stage(self, is_run_input: Optional[bool] = None) -> Path:
+    if self.suffix in (".zrad", ".zarr"):
+        raise RuntimeError("zarr object can't be staged, please use load() or stream()")
+    _track_run_input(self, is_run_input)
+    return setup_settings.instance.storage.cloud_to_local(filepath_from_file(self))
+
+
+def delete(self, storage: Optional[bool] = None) -> None:
+    if storage is None:
+        response = input(f"Are you sure you want to delete {self} from storage? (y/n)")
+        delete_in_storage = response == "y"
+    else:
+        delete_in_storage = storage
+
+    if delete_in_storage:
+        filepath = self.path()
+        delete_storage(filepath)
+        logger.success(f"Deleted stored object {colors.yellow(f'{filepath}')}")
+    self._delete_skip_storage()
+
+
+def _delete_skip_storage(file, *args, **kwargs) -> None:
+    super(File, file).delete(*args, **kwargs)
+
+
+def save(self, *args, **kwargs) -> None:
+    self._save_skip_storage(*args, **kwargs)
+    from lamindb._save import check_and_attempt_clearing, check_and_attempt_upload
+
+    exception = check_and_attempt_upload(self)
+    if exception is not None:
+        self._delete_skip_storage()
+        raise RuntimeError(exception)
+    exception = check_and_attempt_clearing(self)
+    if exception is not None:
+        raise RuntimeError(exception)
+
+
+def _save_skip_storage(file, *args, **kwargs) -> None:
+    if file.transform is not None:
+        file.transform.save()
+    if file.run is not None:
+        file.run.save()
+    if hasattr(file, "_feature_sets"):
+        for feature_set in file._feature_sets:
+            feature_set.save()
+    super(File, file).save(*args, **kwargs)
+    if hasattr(file, "_feature_sets"):
+        file.feature_sets.set(file._feature_sets)
+
+
+def path(self) -> Union[Path, UPath]:
+    return filepath_from_file(self)
+
+
+# adapted from: https://stackoverflow.com/questions/9727673/list-directory-tree-structure-in-python  # noqa
+@classmethod  # type: ignore
+@doc_args(File.tree.__doc__)
+def tree(
+    cls: File,
+    prefix: Optional[str] = None,
+    *,
+    level: int = -1,
+    limit_to_directories: bool = False,
+    length_limit: int = 1000,
+):
+    """{}"""
+    space = "    "
+    branch = "│   "
+    tee = "├── "
+    last = "└── "
+
+    if prefix is None:
+        dir_path = settings.storage
+    else:
+        dir_path = settings.storage / prefix
+    files = 0
+    directories = 0
+
+    def inner(dir_path: Union[Path, UPath], prefix: str = "", level=-1):
+        nonlocal files, directories
+        if not level:
+            return  # 0, stop iterating
+        stripped_dir_path = dir_path.as_posix().rstrip("/")
+        # do not iterate through zarr directories
+        if stripped_dir_path.endswith((".zarr", ".zrad")):
+            return
+        # this is needed so that the passed folder is not listed
+        contents = [
+            i
+            for i in dir_path.iterdir()
+            if i.as_posix().rstrip("/") != stripped_dir_path
+        ]
+        if limit_to_directories:
+            contents = [d for d in contents if d.is_dir()]
+        pointers = [tee] * (len(contents) - 1) + [last]
+        for pointer, path in zip(pointers, contents):
+            if path.is_dir():
+                yield prefix + pointer + path.name
+                directories += 1
+                extension = branch if pointer == tee else space
+                yield from inner(path, prefix=prefix + extension, level=level - 1)
+            elif not limit_to_directories:
+                yield prefix + pointer + path.name
+                files += 1
+
+    folder_tree = f"{dir_path.name}"
+    iterator = inner(dir_path, level=level)
+    for line in islice(iterator, length_limit):
+        folder_tree += f"\n{line}"
+    if next(iterator, None):
+        folder_tree += f"... length_limit, {length_limit}, reached, counted:"
+    print(folder_tree)
+    print(f"\n{directories} directories" + (f", {files} files" if files else ""))
+
+
+METHOD_NAMES = [
+    "__init__",
+    "backed",
+    "stage",
+    "load",
+    "delete",
+    "save",
+    "replace",
+    "path",
+    "from_dir",
+    "tree",
+]
+
+if _TESTING:
+    from inspect import signature
+
+    SIGS = {
+        name: signature(getattr(File, name))
+        for name in METHOD_NAMES
+        if name != "__init__"
+    }
+
+for name in METHOD_NAMES:
+    attach_func_to_class_method(name, File, globals())
+
+# privates currently dealt with separately
+File._delete_skip_storage = _delete_skip_storage
+File._save_skip_storage = _save_skip_storage

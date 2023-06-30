@@ -4,21 +4,28 @@ from typing import Dict, Iterable, List, Literal, NamedTuple, Optional, Set, Uni
 import pandas as pd
 from django.core.exceptions import FieldDoesNotExist
 from django.db.models import CharField, TextField
+from django.db.models.query_utils import DeferredAttribute as Field
 from lamin_logger import logger
 from lamin_logger._lookup import Lookup
-from lnschema_core import BaseORM
+from lamin_logger._search import search as base_search
+from lamindb_setup.dev._docs import doc_args
+from lnschema_core import ORM
+from lnschema_core.types import ListLike, StrField
 
-from ._from_values import Field, ListLike, get_or_create_records
+from lamindb.dev.utils import attach_func_to_class_method
+
+from . import _TESTING
+from ._from_values import get_or_create_records
 from .dev._settings import settings
 
-_is_ipython = getattr(builtins, "__IPYTHON__", False)
+IPYTHON = getattr(builtins, "__IPYTHON__", False)
 
 
 class ValidationError(Exception):
     pass
 
 
-def validate_required_fields(orm: BaseORM, kwargs):
+def validate_required_fields(orm: ORM, kwargs):
     required_fields = {
         k.name for k in orm._meta.fields if not k.null and k.default is None
     }
@@ -31,7 +38,7 @@ def validate_required_fields(orm: BaseORM, kwargs):
         raise TypeError(f"{missing_fields} are required.")
 
 
-def suggest_objects_with_same_name(orm: BaseORM, kwargs) -> Optional[str]:
+def suggest_objects_with_same_name(orm: ORM, kwargs) -> Optional[str]:
     if kwargs.get("name") is None:
         return None
     else:
@@ -49,7 +56,7 @@ def suggest_objects_with_same_name(orm: BaseORM, kwargs) -> Optional[str]:
                 return "object-with-same-name-exists"
             else:
                 msg = "Entries with similar names exist:"
-                if _is_ipython:
+                if IPYTHON:
                     from IPython.display import display
 
                     logger.warning(f"{msg}")
@@ -59,7 +66,7 @@ def suggest_objects_with_same_name(orm: BaseORM, kwargs) -> Optional[str]:
     return None
 
 
-def __init__(orm: BaseORM, *args, **kwargs):
+def __init__(orm: ORM, *args, **kwargs):
     if not args:
         validate_required_fields(orm, kwargs)
         if settings.upon_create_search_names:
@@ -70,20 +77,22 @@ def __init__(orm: BaseORM, *args, **kwargs):
                     getattr(existing_object, field.attname)
                     for field in orm._meta.concrete_fields
                 ]
-                super(BaseORM, orm).__init__(*new_args)
+                super(ORM, orm).__init__(*new_args)
                 orm._state.adding = False  # mimic from_db
                 orm._state.db = "default"
                 return None
-        super(BaseORM, orm).__init__(**kwargs)
+        super(ORM, orm).__init__(**kwargs)
     elif len(args) != len(orm._meta.concrete_fields):
         raise ValueError("Please provide keyword arguments, not plain arguments")
     else:
-        # object is loaded from DB (**kwargs could be ommitted below, I believe)
-        super(BaseORM, orm).__init__(*args, **kwargs)
+        # object is loaded from DB (**kwargs could be omitted below, I believe)
+        super(ORM, orm).__init__(*args, **kwargs)
 
 
 @classmethod  # type:ignore
-def from_values(cls, values: ListLike, field: Union[Field, str], **kwargs):
+@doc_args(ORM.from_values.__doc__)
+def from_values(cls, identifiers: ListLike, field: StrField, **kwargs):
+    """{}"""
     if isinstance(field, str):
         field = getattr(cls, field)
     if not isinstance(field, Field):  # field is DeferredAttribute
@@ -92,39 +101,23 @@ def from_values(cls, values: ListLike, field: Union[Field, str], **kwargs):
         )
     from_bionty = True if cls.__module__.startswith("lnschema_bionty.") else False
     return get_or_create_records(
-        iterable=values, field=field, from_bionty=from_bionty, **kwargs
+        iterable=identifiers, field=field, from_bionty=from_bionty, **kwargs
     )
 
 
 @classmethod  # type: ignore
+@doc_args(ORM.search.__doc__)
 def search(
     cls,
     string: str,
     *,
-    field: Optional[Union[str, CharField, TextField]] = None,
+    field: Optional[StrField] = None,
     top_hit: bool = False,
     case_sensitive: bool = True,
     synonyms_field: Optional[Union[str, TextField, CharField]] = "synonyms",
     synonyms_sep: str = "|",
-) -> Union[pd.DataFrame, BaseORM]:
-    """Search the table.
-
-    Args:
-        string: `str` The input string to match against the field ontology values.
-        field: `Optional[Union[str, CharField, TextField]] = None` The field
-            against which the input string is matching.
-        top_hit: `bool = False` If `True`, return only the top hit or hits (in
-            case of equal scores).
-        case_sensitive: `bool = False` Whether the match is case sensitive.
-        synonyms_field: `bool = True` Also search synonyms. If `None`, is ignored.
-
-    Returns:
-        A sorted `DataFrame` of search results with a score in column
-        `__ratio__`. If `top_hit` is `True`, the best match.
-    """
-    import pandas as pd
-    from lamin_logger._search import search
-
+) -> Union["pd.DataFrame", "ORM"]:
+    """{}"""
     if field is None:
         field = get_default_str_field(cls)
     if not isinstance(field, str):
@@ -133,7 +126,7 @@ def search(
     records = cls.objects.all()
     df = pd.DataFrame.from_records(records.values())
 
-    result = search(
+    result = base_search(
         df=df,
         string=string,
         field=field,
@@ -154,24 +147,9 @@ def search(
 
 
 @classmethod  # type: ignore
-def lookup(cls, field: Optional[Union[str, CharField, TextField]] = None) -> NamedTuple:
-    """Return an auto-complete object for a field.
-
-    Args:
-        field: `Optional[Union[str, CharField, TextField]] = None` The field to
-            look up the values for. Defaults to 'name'.
-
-    Returns:
-        A `NamedTuple` of lookup information of the field values with a
-        dictionary converter.
-
-    Examples:
-        >>> import lnschema_bionty as lb
-        >>> lookup = lb.Gene.lookup()
-        >>> lookup.adgb_dt
-        >>> lookup_dict = lookup.dict()
-        >>> lookup['ADGB-DT']
-    """
+@doc_args(ORM.lookup.__doc__)
+def lookup(cls, field: Optional[StrField] = None) -> NamedTuple:
+    """{}"""
     if field is None:
         field = get_default_str_field(cls)
     if not isinstance(field, str):
@@ -187,42 +165,20 @@ def lookup(cls, field: Optional[Union[str, CharField, TextField]] = None) -> Nam
     ).lookup()
 
 
-lookup.__doc__ = Lookup.__doc__
-
-
 @classmethod  # type: ignore
+@doc_args(ORM.inspect.__doc__)
 def inspect(
     cls,
-    identifiers: Iterable,
-    field: Union[str, CharField, TextField],
+    identifiers: ListLike,
+    field: StrField,
     *,
     case_sensitive: bool = False,
     inspect_synonyms: bool = True,
     return_df: bool = False,
     logging: bool = True,
     **kwargs,
-) -> Union[pd.DataFrame, Dict[str, List[str]]]:
-    """Inspect if a list of identifiers are mappable to existing values of a field.
-
-    Args:
-        identifiers: Identifiers that will be checked against the field.
-        field: `Union[str, CharField, TextField]` The field of identifiers.
-                Examples are 'ontology_id' to map against the source ID
-                or 'name' to map against the ontologies field names.
-        case_sensitive: Whether the identifier inspection is case sensitive.
-        inspect_synonyms: Whether to inspect synonyms.
-        return_df: Whether to return a Pandas DataFrame.
-
-    Returns:
-        - A Dictionary of "mapped" and "unmapped" identifiers
-        - If `return_df`: A DataFrame indexed by identifiers with a boolean `__mapped__`
-            column that indicates compliance with the identifiers.
-
-    Examples:
-        >>> import lnschema_bionty as lb
-        >>> gene_symbols = ["A1CF", "A1BG", "FANCD1", "FANCD20"]
-        >>> lb.Gene.inspect(gene_symbols, field=lb.Gene.symbol)
-    """
+) -> Union["pd.DataFrame", Dict[str, List[str]]]:
+    """{}"""
     from lamin_logger._inspect import inspect
 
     if not isinstance(field, str):
@@ -240,6 +196,7 @@ def inspect(
 
 
 @classmethod  # type: ignore
+@doc_args(ORM.map_synonyms.__doc__)
 def map_synonyms(
     cls,
     synonyms: Iterable,
@@ -252,35 +209,7 @@ def map_synonyms(
     field: Optional[str] = None,
     **kwargs,
 ) -> Union[List[str], Dict[str, str]]:
-    """Maps input synonyms to standardized names.
-
-    Args:
-        synonyms: `Iterable` Synonyms that will be standardized.
-        return_mapper: `bool = False` If `True`, returns `{input_synonym1:
-            standardized_name1}`.
-        case_sensitive: `bool = False` Whether the mapping is case sensitive.
-        species: `Optional[str]` Map only against this species related entries.
-        keep: `Literal["first", "last", False] = "first"` When a synonym maps to
-            multiple names, determines which duplicates to mark as
-            `pd.DataFrame.duplicated`
-
-                - "first": returns the first mapped standardized name
-                - "last": returns the last mapped standardized name
-                - `False`: returns all mapped standardized name
-        synonyms_field: `str = "synonyms"` A field containing the concatenated synonyms.
-        synonyms_sep: `str = "|"` Which separator is used to separate synonyms.
-        field: `Optional[str]` The field representing the standardized names.
-
-    Returns:
-        If `return_mapper` is `False`: a list of standardized names. Otherwise,
-        a dictionary of mapped values with mappable synonyms as keys and
-        standardized names as values.
-
-    Examples:
-        >>> import lnschema_bionty as lb
-        >>> gene_synonyms = ["A1CF", "A1BG", "FANCD1", "FANCD20"]
-        >>> standardized_names = lb.Gene.map_synonyms(gene_synonyms, species="human")
-    """
+    """{}"""
     from lamin_logger._map_synonyms import map_synonyms
 
     if field is None:
@@ -305,9 +234,7 @@ def map_synonyms(
     )
 
 
-def _filter_df_based_on_species(
-    orm: BaseORM, species: Union[str, BaseORM, None] = None
-):
+def _filter_df_based_on_species(orm: ORM, species: Union[str, ORM, None] = None):
     import pandas as pd
 
     records = orm.objects.all()
@@ -319,7 +246,7 @@ def _filter_df_based_on_species(
                 f"{orm.__name__} table requires to specify a species name via"
                 " `species=`!"
             )
-        elif isinstance(species, BaseORM):
+        elif isinstance(species, ORM):
             species_name = species.name
         else:
             species_name = species
@@ -330,7 +257,7 @@ def _filter_df_based_on_species(
     return pd.DataFrame.from_records(records.values())
 
 
-def get_default_str_field(orm: BaseORM) -> str:
+def get_default_str_field(orm: ORM) -> str:
     """Get the 1st char or text field from the orm."""
     model_field_names = [i.name for i in orm._meta.fields]
 
@@ -356,14 +283,14 @@ def get_default_str_field(orm: BaseORM) -> str:
 
 def _add_or_remove_synonyms(
     synonym: Union[str, Iterable],
-    record: BaseORM,
+    record: ORM,
     action: Literal["add", "remove"],
     force: bool = False,
 ):
     """Add or remove synonyms."""
 
-    def check_synonyms_in_all_records(synonyms: Set[str], record: BaseORM):
-        """Errors if input synonyms are already associated with records in the DB."""
+    def check_synonyms_in_all_records(synonyms: Set[str], record: ORM):
+        """Errors if input synonym is associated with other records in the DB."""
         import pandas as pd
         from IPython.display import display
 
@@ -418,12 +345,12 @@ def _add_or_remove_synonyms(
 
     record.synonyms = syns_str
 
-    # if the record already exists in the DB, save it
+    # if record is already in DB, save the changes to DB
     if not record._state.adding:
         record.save()
 
 
-def _check_synonyms_field_exist(record: BaseORM):
+def _check_synonyms_field_exist(record: ORM):
     try:
         record.__getattribute__("synonyms")
     except AttributeError:
@@ -432,23 +359,35 @@ def _check_synonyms_field_exist(record: BaseORM):
         )
 
 
-def add_synonym(self, synonym: Union[str, Iterable], force: bool = False):
-    """Add synonyms to a record."""
+def add_synonym(self, synonym: Union[str, ListLike], force: bool = False):
     _check_synonyms_field_exist(self)
     _add_or_remove_synonyms(synonym=synonym, record=self, force=force, action="add")
 
 
-def remove_synonym(self, synonym: Union[str, Iterable]):
-    """Remove synonyms from a record."""
+def remove_synonym(self, synonym: Union[str, ListLike]):
     _check_synonyms_field_exist(self)
     _add_or_remove_synonyms(synonym=synonym, record=self, action="remove")
 
 
-BaseORM.__init__ = __init__
-BaseORM.search = search
-BaseORM.lookup = lookup
-BaseORM.map_synonyms = map_synonyms
-BaseORM.inspect = inspect
-BaseORM.add_synonym = add_synonym
-BaseORM.remove_synonym = remove_synonym
-BaseORM.from_values = from_values
+METHOD_NAMES = [
+    "__init__",
+    "search",
+    "lookup",
+    "map_synonyms",
+    "inspect",
+    "add_synonym",
+    "remove_synonym",
+    "from_values",
+]
+
+if _TESTING:
+    from inspect import signature
+
+    SIGS = {
+        name: signature(getattr(ORM, name))
+        for name in METHOD_NAMES
+        if name != "__init__"
+    }
+
+for name in METHOD_NAMES:
+    attach_func_to_class_method(name, ORM, globals())
