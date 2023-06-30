@@ -11,19 +11,17 @@ def test_signatures():
     # way to test violations of the signature equality
     # the MockORM class is needed to get inspect.signature
     # to work
-    class MockORM:
+    class Mock:
         pass
 
     # class methods
-    MockORM.search = orm.search
-    assert signature(MockORM.search) == orm.SIG_ORM_SEARCH
-    MockORM.lookup = orm.lookup
-    assert signature(MockORM.lookup) == orm.SIG_ORM_LOOKUP
-    MockORM.from_values = orm.from_values
-    assert signature(MockORM.from_values) == orm.SIG_ORM_FROM_VALUES
+    class_methods = ["search", "lookup", "from_values", "inspect", "map_synonyms"]
+    for name in class_methods:
+        setattr(Mock, name, getattr(orm, name))
+        assert signature(getattr(Mock, name)) == orm.SIGS.pop(name)
     # methods
-    assert signature(orm.add_synonym) == orm.SIG_ORM_ADD_SYNONYM
-    assert signature(orm.remove_synonym) == orm.SIG_ORM_REMOVE_SYNONYM
+    for name, sig in orm.SIGS.items():
+        assert signature(getattr(orm, name)) == sig
 
 
 def test_init_with_args():

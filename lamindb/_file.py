@@ -8,6 +8,7 @@ from anndata import AnnData
 from appdirs import AppDirs
 from lamin_logger import colors, logger
 from lamindb_setup import settings as setup_settings
+from lamindb_setup.dev._docs import doc_args
 from lnschema_core import FeatureSet, File, Run, ids
 from lnschema_core.types import DataLike, PathLike
 
@@ -23,6 +24,7 @@ from lamindb.dev.storage import (
     write_to_file,
 )
 from lamindb.dev.storage.file import auto_storage_key_from_file, filepath_from_file
+from lamindb.dev.utils import attach_func_to_class_method
 
 from . import _TESTING
 from .dev.storage.file import AUTO_KEY_PREFIX
@@ -388,13 +390,14 @@ def __init__(file: File, *args, **kwargs):
 
 
 @classmethod  # type: ignore
+@doc_args(File.from_dir.__doc__)
 def from_dir(
     cls,
     path: PathLike,
     *,
     run: Optional[Run] = None,
 ) -> List["File"]:
-    """Create a list of file objects from a directory."""
+    """{}"""
     folderpath = UPath(path)
     check_path_in_storage = get_check_path_in_storage(folderpath)
 
@@ -428,21 +431,21 @@ def from_dir(
 
 
 def replace(
-    file,
-    data: Union[PathLike, DataLike] = None,
+    self,
+    data: Union[PathLike, DataLike],
     run: Optional[Run] = None,
     format: Optional[str] = None,
-):
+) -> None:
     kwargs, privates = get_file_kwargs_from_data(
-        provisional_id=file.id,
+        provisional_id=self.id,
         data=data,
-        name=file.name,
-        key=file.key,
+        name=self.name,
+        key=self.key,
         run=run,
         format=format,
     )
-    if file.key is not None:
-        key_path = PurePosixPath(file.key)
+    if self.key is not None:
+        key_path = PurePosixPath(self.key)
         if isinstance(data, (Path, str)) and kwargs["name"] is not None:
             new_name = kwargs["name"]  # use the name from the data filepath
         else:
@@ -451,29 +454,29 @@ def replace(
         if PurePosixPath(new_name).suffixes == []:
             new_name = f"{new_name}{kwargs['suffix']}"
         if key_path.name != new_name:
-            file._clear_storagekey = file.key
-            file.key = str(key_path.with_name(new_name))
+            self._clear_storagekey = self.key
+            self.key = str(key_path.with_name(new_name))
             logger.warning(
-                f"Replacing the file will replace key '{key_path}' with '{file.key}'"
+                f"Replacing the file will replace key '{key_path}' with '{self.key}'"
                 f" and delete '{key_path}' upon `save()`"
             )
     else:
-        file.key = kwargs["key"]
-        old_storage = auto_storage_key_from_file(file)
+        self.key = kwargs["key"]
+        old_storage = auto_storage_key_from_file(self)
         new_storage = (
-            file.key if file.key is not None else f"{file.id}{kwargs['suffix']}"
+            self.key if self.key is not None else f"{self.id}{kwargs['suffix']}"
         )
         if old_storage != new_storage:
-            file._clear_storagekey = old_storage
+            self._clear_storagekey = old_storage
 
-    file.suffix = kwargs["suffix"]
-    file.size = kwargs["size"]
-    file.hash = kwargs["hash"]
-    file.run = kwargs["run"]
-    file._local_filepath = privates["local_filepath"]
-    file._cloud_filepath = privates["cloud_filepath"]
-    file._memory_rep = privates["memory_rep"]
-    file._to_store = not privates[
+    self.suffix = kwargs["suffix"]
+    self.size = kwargs["size"]
+    self.hash = kwargs["hash"]
+    self.run = kwargs["run"]
+    self._local_filepath = privates["local_filepath"]
+    self._cloud_filepath = privates["cloud_filepath"]
+    self._memory_rep = privates["memory_rep"]
+    self._to_store = not privates[
         "check_path_in_storage"
     ]  # no need to upload if new file is already in storage
 
@@ -481,7 +484,6 @@ def replace(
 def backed(
     self, is_run_input: Optional[bool] = None
 ) -> Union["AnnDataAccessor", "BackedAccessor"]:
-    """Return a cloud-backed data object to stream."""
     suffixes = (".h5", ".hdf5", ".h5ad", ".zrad", ".zarr")
     if self.suffix not in suffixes:
         raise ValueError(
@@ -575,6 +577,7 @@ def path(self) -> Union[Path, UPath]:
 
 # adapted from: https://stackoverflow.com/questions/9727673/list-directory-tree-structure-in-python  # noqa
 @classmethod  # type: ignore
+@doc_args(File.tree.__doc__)
 def tree(
     cls: File,
     prefix: Optional[str] = None,
@@ -583,7 +586,7 @@ def tree(
     limit_to_directories: bool = False,
     length_limit: int = 1000,
 ):
-    """Given a prefix, print a visual tree structure of files."""
+    """{}"""
     space = "    "
     branch = "│   "
     tee = "├── "
@@ -633,31 +636,31 @@ def tree(
     print(f"\n{directories} directories" + (f", {files} files" if files else ""))
 
 
-# this captures the original signatures for testing purposes
-# it's used in the unit tests
+METHOD_NAMES = [
+    "__init__",
+    "backed",
+    "stage",
+    "load",
+    "delete",
+    "save",
+    "replace",
+    "path",
+    "from_dir",
+    "tree",
+]
+
 if _TESTING:
     from inspect import signature
 
-    SIG_FROM_DIR = signature(File.from_dir)
-    SIG_REPLACE = signature(File.replace)
-    SIG_BACKED = signature(File.backed)
-    SIG_TREE = signature(File.tree)
-    SIG_PATH = signature(File.path)
-    SIG_LOAD = signature(File.load)
-    SIG_SAVE = signature(File.save)
-    SIG_STAGE = signature(File.stage)
-    SIG_DELETE = signature(File.delete)
+    SIGS = {
+        name: signature(getattr(File, name))
+        for name in METHOD_NAMES
+        if name != "__init__"
+    }
 
+for name in METHOD_NAMES:
+    attach_func_to_class_method(name, File, globals())
 
-File.backed = backed
-File.stage = stage
-File.load = load
-File.delete = delete
+# privates currently dealt with separately
 File._delete_skip_storage = _delete_skip_storage
-File.save = save
 File._save_skip_storage = _save_skip_storage
-File.replace = replace
-File.__init__ = __init__
-File.path = path
-File.from_dir = from_dir
-File.tree = tree
