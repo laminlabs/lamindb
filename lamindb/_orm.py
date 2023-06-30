@@ -1,23 +1,24 @@
 import builtins
-from datetime import datetime
-from typing import Any, Dict, Iterable, List, Literal, NamedTuple, Optional, Set, Union
+from typing import Dict, Iterable, List, Literal, NamedTuple, Optional, Set, Union
 
 import pandas as pd
 from django.core.exceptions import FieldDoesNotExist
-from django.db import models
 from django.db.models import CharField, TextField
 from django.db.models.query_utils import DeferredAttribute as Field
 from lamin_logger import logger
 from lamin_logger._lookup import Lookup
 from lamin_logger._search import search as base_search
+from lamindb_setup.dev._docs import doc_args
 from lnschema_core import ORM
 from lnschema_core.types import ListLike, StrField
+
+from lamindb.dev.utils import attach_func_to_class_method
 
 from . import _TESTING
 from ._from_values import get_or_create_records
 from .dev._settings import settings
 
-_is_ipython = getattr(builtins, "__IPYTHON__", False)
+IPYTHON = getattr(builtins, "__IPYTHON__", False)
 
 
 class ValidationError(Exception):
@@ -55,7 +56,7 @@ def suggest_objects_with_same_name(orm: ORM, kwargs) -> Optional[str]:
                 return "object-with-same-name-exists"
             else:
                 msg = "Entries with similar names exist:"
-                if _is_ipython:
+                if IPYTHON:
                     from IPython.display import display
 
                     logger.warning(f"{msg}")
@@ -89,7 +90,9 @@ def __init__(orm: ORM, *args, **kwargs):
 
 
 @classmethod  # type:ignore
+@doc_args(ORM.from_values.__doc__)
 def from_values(cls, identifiers: ListLike, field: StrField, **kwargs):
+    """{}"""
     if isinstance(field, str):
         field = getattr(cls, field)
     if not isinstance(field, Field):  # field is DeferredAttribute
@@ -103,6 +106,7 @@ def from_values(cls, identifiers: ListLike, field: StrField, **kwargs):
 
 
 @classmethod  # type: ignore
+@doc_args(ORM.search.__doc__)
 def search(
     cls,
     string: str,
@@ -113,6 +117,7 @@ def search(
     synonyms_field: Optional[Union[str, TextField, CharField]] = "synonyms",
     synonyms_sep: str = "|",
 ) -> Union["pd.DataFrame", "ORM"]:
+    """{}"""
     if field is None:
         field = get_default_str_field(cls)
     if not isinstance(field, str):
@@ -142,7 +147,9 @@ def search(
 
 
 @classmethod  # type: ignore
+@doc_args(ORM.lookup.__doc__)
 def lookup(cls, field: Optional[StrField] = None) -> NamedTuple:
+    """{}"""
     if field is None:
         field = get_default_str_field(cls)
     if not isinstance(field, str):
@@ -159,9 +166,10 @@ def lookup(cls, field: Optional[StrField] = None) -> NamedTuple:
 
 
 @classmethod  # type: ignore
+@doc_args(ORM.inspect.__doc__)
 def inspect(
     cls,
-    identifiers: Iterable,
+    identifiers: ListLike,
     field: StrField,
     *,
     case_sensitive: bool = False,
@@ -170,6 +178,7 @@ def inspect(
     logging: bool = True,
     **kwargs,
 ) -> Union["pd.DataFrame", Dict[str, List[str]]]:
+    """{}"""
     from lamin_logger._inspect import inspect
 
     if not isinstance(field, str):
@@ -187,6 +196,7 @@ def inspect(
 
 
 @classmethod  # type: ignore
+@doc_args(ORM.map_synonyms.__doc__)
 def map_synonyms(
     cls,
     synonyms: Iterable,
@@ -199,6 +209,7 @@ def map_synonyms(
     field: Optional[str] = None,
     **kwargs,
 ) -> Union[List[str], Dict[str, str]]:
+    """{}"""
     from lamin_logger._map_synonyms import map_synonyms
 
     if field is None:
@@ -358,58 +369,25 @@ def remove_synonym(self, synonym: Union[str, ListLike]):
     _add_or_remove_synonyms(synonym=synonym, record=self, action="remove")
 
 
-def format_datetime(dt: Union[datetime, Any]) -> str:
-    if not isinstance(dt, datetime):
-        return dt
-    else:
-        return dt.strftime("%Y-%m-%d %H:%M:%S")
+METHOD_NAMES = [
+    "__init__",
+    "search",
+    "lookup",
+    "map_synonyms",
+    "inspect",
+    "add_synonym",
+    "remove_synonym",
+    "from_values",
+]
 
-
-def __repr__(self: ORM) -> str:
-    field_names = [
-        field.name
-        for field in self._meta.fields
-        if not isinstance(field, (models.ForeignKey, models.DateTimeField))
-    ]
-    # skip created_at
-    field_names += [
-        field.name
-        for field in self._meta.fields
-        if isinstance(field, models.DateTimeField) and field.name != "created_at"
-    ]
-    field_names += [
-        f"{field.name}_id"
-        for field in self._meta.fields
-        if isinstance(field, models.ForeignKey)
-    ]
-    fields_str = {
-        k: format_datetime(getattr(self, k)) for k in field_names if hasattr(self, k)
-    }
-    fields_joined_str = ", ".join([f"{k}={fields_str[k]}" for k in fields_str])
-    return f"{self.__class__.__name__}({fields_joined_str})"
-
-
-# this captures the original signatures for testing purposes
-# it's used in the unit tests
 if _TESTING:
     from inspect import signature
 
-    SIG_ORM_SEARCH = signature(ORM.search)
-    SIG_ORM_LOOKUP = signature(ORM.lookup)
-    SIG_ORM_INSPECT = signature(ORM.inspect)
-    SIG_ORM_FROM_VALUES = signature(ORM.from_values)
-    SIG_ORM_MAP_SYNONYM = signature(ORM.map_synonyms)
-    SIG_ORM_ADD_SYNONYM = signature(ORM.add_synonym)
-    SIG_ORM_REMOVE_SYNONYM = signature(ORM.remove_synonym)
+    SIGS = {
+        name: signature(getattr(ORM, name))
+        for name in METHOD_NAMES
+        if name != "__init__"
+    }
 
-
-ORM.__init__ = __init__
-ORM.__repr__ = __repr__
-ORM.__str__ = __repr__
-ORM.search = search
-ORM.lookup = lookup
-ORM.map_synonyms = map_synonyms
-ORM.inspect = inspect
-ORM.add_synonym = add_synonym
-ORM.remove_synonym = remove_synonym
-ORM.from_values = from_values
+for name in METHOD_NAMES:
+    attach_func_to_class_method(name, ORM, globals())
