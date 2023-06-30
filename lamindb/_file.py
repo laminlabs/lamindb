@@ -337,7 +337,7 @@ def __init__(file: File, *args, **kwargs):
             feature_sets.append(feature_set)
         elif isinstance(data, AnnData):
             feature_sets.append(FeatureSet.from_values(data.var.index, var_ref))
-            feature_sets.append(FeatureSet.from_values(data.obs.index))
+            feature_sets.append(FeatureSet.from_values(data.obs.columns))
 
     provisional_id = ids.base62_20()
     kwargs, privates = get_file_kwargs_from_data(
