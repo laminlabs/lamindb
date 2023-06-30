@@ -342,7 +342,7 @@ def __init__(file: File, *args, **kwargs):
         if isinstance(data, pd.DataFrame):
             feature_set = FeatureSet.from_values(data.columns, var_ref)
             feature_sets.append(feature_set)
-        elif isinstance(data, AnnData):
+        elif isinstance(data, AnnData) and var_ref is not None:
             feature_sets.append(FeatureSet.from_values(data.var.index, var_ref))
             feature_sets.append(FeatureSet.from_values(data.obs.columns))
 
