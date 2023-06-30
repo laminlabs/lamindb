@@ -1,5 +1,6 @@
 # Changelog
 
+- 🚑️ Handles categorical input for map_synonyms [PR819](https://github.com/laminlabs/lamindb/pull/819) [@sunnyosun](https://github.com/sunnyosun)
 - 🎉 Stage 0.46 (refactor, signatures, fixes) [PR814](https://github.com/laminlabs/lamindb/pull/814) [@falexwolf](https://github.com/falexwolf)
 - 🚑️ Allow bulk saving of parents [PR816](https://github.com/laminlabs/lamindb/pull/816) [@sunnyosun](https://github.com/sunnyosun)
 - 📝 Fix docs [PR817](https://github.com/laminlabs/lamindb/pull/817) [@falexwolf](https://github.com/falexwolf)
