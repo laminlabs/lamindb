@@ -1,4 +1,5 @@
 import shutil
+from inspect import signature
 from pathlib import Path
 
 import anndata as ad
@@ -8,6 +9,7 @@ import pytest
 from lamindb_setup.dev.upath import UPath
 
 import lamindb as ln
+from lamindb import _file
 from lamindb._file import get_check_path_in_storage, get_relative_path_to_root
 
 # how do we properly abstract out the default storage variable?
@@ -23,7 +25,26 @@ adata = ad.AnnData(
     obsm=dict(X_pca=np.array([[1, 2], [3, 4]])),
 )
 
-# tests as from readme
+
+def test_signatures():
+    # this seems currently the easiest and most transparent
+    # way to test violations of the signature equality
+    # the MockORM class is needed to get inspect.signature
+    # to work
+    class Mock:
+        pass
+
+    # class methods
+    Mock.from_dir = _file.from_dir
+    assert signature(Mock.from_dir) == _file.SIG_FROM_DIR
+    Mock.tree = _file.tree
+    assert signature(Mock.tree) == _file.SIG_TREE
+    # methods
+    assert signature(_file.backed) == _file.SIG_BACKED
+    assert signature(_file.load) == _file.SIG_LOAD
+    assert signature(_file.save) == _file.SIG_SAVE
+    assert signature(_file.stage) == _file.SIG_STAGE
+    assert signature(_file.delete) == _file.SIG_DELETE
 
 
 @pytest.mark.parametrize("name", [None, "my name"])

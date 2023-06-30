@@ -404,6 +404,7 @@ if _TESTING:
 
 
 ORM.__init__ = __init__
+ORM.__repr__ = __repr__
 ORM.__str__ = __repr__
 ORM.search = search
 ORM.lookup = lookup

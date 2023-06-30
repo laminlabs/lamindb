@@ -24,6 +24,7 @@ from lamindb.dev.storage import (
 )
 from lamindb.dev.storage.file import auto_storage_key_from_file, filepath_from_file
 
+from . import _TESTING
 from .dev.storage.file import AUTO_KEY_PREFIX
 
 try:
@@ -38,49 +39,6 @@ except ImportError:
 
 
 DIRS = AppDirs("lamindb", "laminlabs")
-
-
-File.__doc__ = """Files: data artifacts.
-
-Args:
-   data: `Union[PathLike, DataLike]` A file path or an in-memory data
-      object (`DataFrame`, `AnnData`) to serialize. Can be a cloud path, e.g.,
-      `"s3://my-bucket/my_samples/my_file.fcs"`.
-   key: `Optional[str] = None` A storage key: a relative filepath within the
-      current default storage, e.g., `"my_samples/my_file.fcs"`.
-   name: `Optional[str] = None` A name or title. Useful if key is auto-generated.
-   run: `Optional[Run] = None` The run that created the file, gets auto-linked
-       if `ln.track()` was called.
-
-Track where files come from by passing the generating :class:`~lamindb.Run`.
-
-Often, files store jointly measured observations of features: track them
-with :class:`~lamindb.FeatureSet`.
-
-If files have corresponding representations in storage and memory, LaminDB
-makes some configurable default choices (e.g., serialize a `DataFrame` as a
-`.parquet` file).
-
-.. admonition:: Examples for storage-memory correspondence
-
-   Listed are typical `suffix` values & in memory data objects.
-
-   - Table: `.csv`, `.tsv`, `.parquet`, `.ipc`
-     ⟷ `pd.DataFrame`, `polars.DataFrame`
-   - Annotated matrix: `.h5ad`, `.h5mu`, `.zrad` ⟷ `AnnData`, `MuData`
-   - Image: `.jpg`, `.png` ⟷ `np.ndarray`, ...
-   - Array: zarr directory, TileDB store ⟷ zarr loader, TileDB loader
-   - Fastq: `.fastq` ⟷ /
-   - VCF: `.vcf` ⟷ /
-   - QC: `.html` ⟷ /
-
-.. note::
-
-    In some cases (`.zarr`), a `File` is present as many small objects in what
-    appears to be a "folder" in storage. Hence, we often refer to files as data
-    artifacts.
-
-"""
 
 
 def serialize(
@@ -341,7 +299,7 @@ def log_storage_hint(
     logger.hint(hint)
 
 
-def init_file(file: File, *args, **kwargs):
+def __init__(file: File, *args, **kwargs):
     # Below checks for the Django-internal call in from_db()
     # it'd be better if we could avoid this, but not being able to create a File
     # from data with the default constructor renders the central class of the API
@@ -429,11 +387,13 @@ def init_file(file: File, *args, **kwargs):
     super(File, file).__init__(**kwargs)
 
 
+@classmethod  # type: ignore
 def from_dir(
-    path: Union[Path, UPath, str],
+    cls,
+    path: PathLike,
     *,
     run: Optional[Run] = None,
-) -> List[File]:
+) -> List["File"]:
     """Create a list of file objects from a directory."""
     folderpath = UPath(path)
     check_path_in_storage = get_check_path_in_storage(folderpath)
@@ -467,8 +427,8 @@ def from_dir(
     return files
 
 
-def replace_file(
-    file: File,
+def replace(
+    file,
     data: Union[PathLike, DataLike] = None,
     run: Optional[Run] = None,
     format: Optional[str] = None,
@@ -519,20 +479,20 @@ def replace_file(
 
 
 def backed(
-    file: File, is_run_input: Optional[bool] = None
-) -> Union[AnnDataAccessor, BackedAccessor]:
+    self, is_run_input: Optional[bool] = None
+) -> Union["AnnDataAccessor", "BackedAccessor"]:
     """Return a cloud-backed data object to stream."""
     suffixes = (".h5", ".hdf5", ".h5ad", ".zrad", ".zarr")
-    if file.suffix not in suffixes:
+    if self.suffix not in suffixes:
         raise ValueError(
             "File should have a zarr or h5 object as the underlying data, please use"
             " one of the following suffixes for the object name:"
             f" {', '.join(suffixes)}."
         )
-    _track_run_input(file, is_run_input)
+    _track_run_input(self, is_run_input)
     from lamindb.dev.storage._backed_access import backed_access
 
-    return backed_access(file)
+    return backed_access(self)
 
 
 def _track_run_input(file: File, is_run_input: Optional[bool] = None):
@@ -553,70 +513,45 @@ def _track_run_input(file: File, is_run_input: Optional[bool] = None):
             file.input_of.add(context.run)
 
 
-def load(
-    file: File, is_run_input: Optional[bool] = None, stream: bool = False
-) -> DataLike:
-    """Stage and load to memory.
-
-    Returns in-memory representation if possible, e.g., an `AnnData` object
-    for an `h5ad` file.
-    """
-    _track_run_input(file, is_run_input)
-    return load_to_memory(filepath_from_file(file), stream=stream)
+def load(self, is_run_input: Optional[bool] = None, stream: bool = False) -> DataLike:
+    _track_run_input(self, is_run_input)
+    return load_to_memory(filepath_from_file(self), stream=stream)
 
 
-def stage(file: File, is_run_input: Optional[bool] = None) -> Path:
-    """Update cache from cloud storage if outdated.
-
-    Returns a path to a locally cached on-disk object (say, a
-    `.jpg` file).
-    """
-    if file.suffix in (".zrad", ".zarr"):
+def stage(self, is_run_input: Optional[bool] = None) -> Path:
+    if self.suffix in (".zrad", ".zarr"):
         raise RuntimeError("zarr object can't be staged, please use load() or stream()")
-    _track_run_input(file, is_run_input)
-    return setup_settings.instance.storage.cloud_to_local(filepath_from_file(file))
+    _track_run_input(self, is_run_input)
+    return setup_settings.instance.storage.cloud_to_local(filepath_from_file(self))
 
 
-def delete(file, storage: Optional[bool] = None) -> None:
-    """Delete file, optionall from storage.
-
-    Args:
-        storage: `Optional[bool] = None` Indicate whether you want to delete the
-        file in storage.
-
-    Example:
-
-    For any `File` object `file`, call:
-
-    >>> file.delete(storage=True)  # storage=True auto-confirms deletion in storage
-    """
+def delete(self, storage: Optional[bool] = None) -> None:
     if storage is None:
-        response = input(f"Are you sure you want to delete {file} from storage? (y/n)")
+        response = input(f"Are you sure you want to delete {self} from storage? (y/n)")
         delete_in_storage = response == "y"
     else:
         delete_in_storage = storage
 
     if delete_in_storage:
-        filepath = file.path()
+        filepath = self.path()
         delete_storage(filepath)
         logger.success(f"Deleted stored object {colors.yellow(f'{filepath}')}")
-    file._delete_skip_storage()
+    self._delete_skip_storage()
 
 
 def _delete_skip_storage(file, *args, **kwargs) -> None:
     super(File, file).delete(*args, **kwargs)
 
 
-def save(file, *args, **kwargs) -> None:
-    """Save the file to database & storage."""
-    file._save_skip_storage(*args, **kwargs)
+def save(self, *args, **kwargs) -> None:
+    self._save_skip_storage(*args, **kwargs)
     from lamindb._save import check_and_attempt_clearing, check_and_attempt_upload
 
-    exception = check_and_attempt_upload(file)
+    exception = check_and_attempt_upload(self)
     if exception is not None:
-        file._delete_skip_storage()
+        self._delete_skip_storage()
         raise RuntimeError(exception)
-    exception = check_and_attempt_clearing(file)
+    exception = check_and_attempt_clearing(self)
     if exception is not None:
         raise RuntimeError(exception)
 
@@ -635,9 +570,6 @@ def _save_skip_storage(file, *args, **kwargs) -> None:
 
 
 def path(self) -> Union[Path, UPath]:
-    """Path on storage."""
-    from lamindb.dev.storage.file import filepath_from_file
-
     return filepath_from_file(self)
 
 
@@ -701,63 +633,20 @@ def tree(
     print(f"\n{directories} directories" + (f", {files} files" if files else ""))
 
 
-# likely needs an arg `key`
-def replace(
-    file,
-    data: Union[PathLike, DataLike],
-    run: Optional[Run] = None,
-    format: Optional[str] = None,
-) -> None:
-    """Replace file content.
+# this captures the original signatures for testing purposes
+# it's used in the unit tests
+if _TESTING:
+    from inspect import signature
 
-    Args:
-        data: `Union[PathLike, DataLike]` A file path or an in-memory data
-            object (`DataFrame`, `AnnData`).
-        run: `Optional[Run] = None` The run that created the file, gets
-            auto-linked if `ln.track()` was called.
-
-    Examples:
-
-    Say we made a change to the content of a file (e.g., edited the image
-    `paradisi05_laminopathic_nuclei.jpg`).
-
-    This is how we replace the old file in storage with the new file:
-
-    >>> file.replace("paradisi05_laminopathic_nuclei.jpg")
-    >>> file.save()
-
-    Note that this neither changes the storage key nor the filename.
-
-    However, it will update the suffix if the file type changes.
-    """
-    replace_file(file, data, run, format)
-
-
-@overload
-def __init__(
-    file,
-    data: Union[PathLike, DataLike],
-    key: Optional[str] = None,
-    name: Optional[str] = None,
-    run: Optional[Run] = None,
-):
-    ...
-
-
-@overload
-def __init__(
-    file,
-    **kwargs,
-):
-    ...
-
-
-def __init__(  # type: ignore
-    file,
-    *args,
-    **kwargs,
-):
-    init_file(file, *args, **kwargs)
+    SIG_FROM_DIR = signature(File.from_dir)
+    SIG_REPLACE = signature(File.replace)
+    SIG_BACKED = signature(File.backed)
+    SIG_TREE = signature(File.tree)
+    SIG_PATH = signature(File.path)
+    SIG_LOAD = signature(File.load)
+    SIG_SAVE = signature(File.save)
+    SIG_STAGE = signature(File.stage)
+    SIG_DELETE = signature(File.delete)
 
 
 File.backed = backed
