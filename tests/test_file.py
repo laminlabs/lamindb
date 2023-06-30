@@ -35,16 +35,13 @@ def test_signatures():
         pass
 
     # class methods
-    Mock.from_dir = _file.from_dir
-    assert signature(Mock.from_dir) == _file.SIG_FROM_DIR
-    Mock.tree = _file.tree
-    assert signature(Mock.tree) == _file.SIG_TREE
+    class_methods = ["tree", "from_dir"]
+    for name in class_methods:
+        setattr(Mock, name, getattr(_file, name))
+        assert signature(getattr(Mock, name)) == _file.SIGS.pop(name)
     # methods
-    assert signature(_file.backed) == _file.SIG_BACKED
-    assert signature(_file.load) == _file.SIG_LOAD
-    assert signature(_file.save) == _file.SIG_SAVE
-    assert signature(_file.stage) == _file.SIG_STAGE
-    assert signature(_file.delete) == _file.SIG_DELETE
+    for name, sig in _file.SIGS.items():
+        assert signature(getattr(_file, name)) == sig
 
 
 @pytest.mark.parametrize("name", [None, "my name"])
