@@ -35,7 +35,7 @@ def save(records: Iterable[ORM]) -> Iterable[ORM]:  # type: ignore
     ...
 
 
-def save(record: Union[ORM, Iterable[ORM]], **fields) -> None:  # type: ignore
+def save(record: Union[ORM, Iterable[ORM]], **kwargs) -> None:  # type: ignore
     """Save to database & storage.
 
     Inserts a new :term:`record` if the corresponding row doesn't exist.
@@ -74,15 +74,28 @@ def save(record: Union[ORM, Iterable[ORM]], **fields) -> None:  # type: ignore
     elif isinstance(record, ORM):
         records = {record}
 
+    def atomic_save(records: Iterable[ORM], **kwargs):
+        with transaction.atomic():
+            for record in records:
+                record.save(**kwargs)
+
     # we're distinguishing between files and non-files
     # because for files, we want to bulk-upload
     # rather than upload one-by-one
     files = {r for r in records if isinstance(r, File)}
     non_files = records.difference(files)
     if non_files:
-        with transaction.atomic():
+        non_files_with_parents = {r for r in non_files if hasattr(r, "_parents")}
+        if len(non_files_with_parents) < 2:
+            atomic_save(non_files)
+        else:
+            logger.warning("Recursing through parents will take a while...")
+            # first save all records without recursing parents
+            atomic_save(non_files, parents=False)
+            # save the record with parents one by one
             for record in non_files:
                 record.save()
+
     if files:
         with transaction.atomic():
             for record in files:

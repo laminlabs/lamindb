@@ -290,7 +290,7 @@ def _add_or_remove_synonyms(
     """Add or remove synonyms."""
 
     def check_synonyms_in_all_records(synonyms: Set[str], record: ORM):
-        """Errors if input synonyms are already associated with records in the DB."""
+        """Errors if input synonym is associated with other records in the DB."""
         import pandas as pd
         from IPython.display import display
 
@@ -311,10 +311,6 @@ def _add_or_remove_synonyms(
             )
             display(records_df)
             raise SystemExit(AssertionError)
-
-    # raise error if record is not saved
-    if record._state.adding:
-        raise RuntimeError("Please save your record before modifying synonyms!")
 
     # passed synonyms
     if isinstance(synonym, str):
@@ -348,7 +344,10 @@ def _add_or_remove_synonyms(
         syns_str = "|".join(syns_exist_set)
 
     record.synonyms = syns_str
-    record.save()
+
+    # if record is already in DB, save the changes to DB
+    if not record._state.adding:
+        record.save()
 
 
 def _check_synonyms_field_exist(record: ORM):
