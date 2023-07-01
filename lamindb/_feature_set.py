@@ -58,18 +58,16 @@ def parse_features_from_iterable(
     return feature_set
 
 
-def __init__(feature_set, *args, **kwargs):  # type: ignore
-    related_names = [
-        i.related_name for i in feature_set.__class__._meta.related_objects
-    ]
+def __init__(self, *args, **kwargs):  # type: ignore
+    related_names = [i.related_name for i in self.__class__._meta.related_objects]
 
     relationships: Dict = {}
     for related_name in related_names:
         if related_name in kwargs:
             relationships[related_name] = kwargs.pop(related_name)
-    feature_set._relationships = relationships
+    self._relationships = relationships
 
-    super(FeatureSet, feature_set).__init__(*args, **kwargs)
+    super(FeatureSet, self).__init__(*args, **kwargs)
 
 
 def save(feature_set, *args, **kwargs):
