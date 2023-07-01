@@ -94,7 +94,7 @@ def __init__(orm: ORM, *args, **kwargs):
 
 @classmethod  # type:ignore
 @doc_args(ORM.from_values.__doc__)
-def from_values(cls, identifiers: ListLike, field: StrField, **kwargs):
+def from_values(cls, identifiers: ListLike, field: StrField, **kwargs) -> List["ORM"]:
     """{}"""
     if isinstance(field, str):
         field = getattr(cls, field)

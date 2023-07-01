@@ -1,11 +1,16 @@
 from typing import List, Optional
 
+from django.db.models.query_utils import DeferredAttribute as Field
 from lamin_logger import logger
+from lamindb_setup.dev._docs import doc_args
 from lnschema_core import ORM, Feature, FeatureSet
+from lnschema_core.types import ListLike
 
 from lamindb.dev.hashing import hash_set
+from lamindb.dev.utils import attach_func_to_class_method
 
-from ._from_values import Field, ListLike, get_or_create_records, index_iterable
+from . import _TESTING
+from ._from_values import get_or_create_records, index_iterable
 from ._orm import init_self_from_db
 
 
@@ -54,7 +59,6 @@ def __init__(self, *args, **kwargs):
     features_type = validate_features(features)
     related_name = get_related_name(features_type)
     if id is None:
-        print({feature.id for feature in features})
         features_hash = hash_set({feature.id for feature in features})
         feature_set = FeatureSet.select(id=features_hash).one_or_none()
         if feature_set is not None:
@@ -71,8 +75,9 @@ def __init__(self, *args, **kwargs):
     )
 
 
+@doc_args(FeatureSet.save.__doc__)
 def save(self, *args, **kwargs) -> None:
-    """Save."""
+    """{}"""
     super(FeatureSet, self).save(*args, **kwargs)
     if hasattr(self, "_features"):
         related_name, records = self._features
@@ -81,13 +86,15 @@ def save(self, *args, **kwargs) -> None:
 
 
 @classmethod  # type:ignore
+@doc_args(FeatureSet.from_values.__doc__)
 def from_values(
     cls, values: ListLike, field: Field = Feature.name, **kwargs
-) -> Optional[FeatureSet]:
+) -> "FeatureSet":
+    """{}"""
     if not isinstance(field, Field):
         raise TypeError("Argument `field` must be an ORM field, e.g., `Feature.name`")
     if len(values) == 0:
-        return None
+        raise ValueError("Provide a list of at least one value")
     if not isinstance(values[0], (str, int)):
         raise TypeError("values should be list-like of str or int")
     orm = field.field.model
@@ -112,6 +119,20 @@ def from_values(
     return feature_set
 
 
-FeatureSet.__init__ = __init__
-FeatureSet.save = save
-FeatureSet.from_values = from_values
+METHOD_NAMES = [
+    "__init__",
+    "from_values",
+    "save",
+]
+
+if _TESTING:
+    from inspect import signature
+
+    SIGS = {
+        name: signature(getattr(FeatureSet, name))
+        for name in METHOD_NAMES
+        if name != "__init__"
+    }
+
+for name in METHOD_NAMES:
+    attach_func_to_class_method(name, FeatureSet, globals())
