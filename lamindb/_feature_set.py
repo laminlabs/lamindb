@@ -6,6 +6,7 @@ from lnschema_core import ORM, Feature, FeatureSet
 from lamindb.dev.hashing import hash_set
 
 from ._from_values import Field, ListLike, get_or_create_records, index_iterable
+from ._orm import init_self_from_db
 
 
 def get_related_name(features_type: ORM):
@@ -26,13 +27,15 @@ def get_related_name(features_type: ORM):
 
 def validate_features(features: List[ORM]) -> ORM:
     """Validate and return feature type."""
-    if not isinstance(features, ListLike):
+    if len(features) == 0:
+        raise ValueError("provide list of features with at least one element")
+    if not hasattr(features, "__getitem__"):
         raise TypeError("features has to be list-like")
     if not isinstance(features[0], ORM):
         raise TypeError(
             "features has to store feature records! use .from_values() otherwise"
         )
-    feature_types = set([feature.model for feature in features])
+    feature_types = set([feature.__class__ for feature in features])
     if len(feature_types) > 1:
         raise ValueError("feature_set can only contain a single type")
     return next(iter(feature_types))  # return value in set of cardinality 1
@@ -46,48 +49,64 @@ def __init__(self, *args, **kwargs):
     if len(args) > 1:
         raise ValueError("Only one non-keyword arg allowed: features")
     features: List[ORM] = kwargs.pop("features") if len(args) == 0 else args[0]
-    assert len(kwargs) == 0
+    field: Optional[str] = kwargs.pop("field") if "field" in kwargs else None
+    id: Optional[str] = kwargs.pop("id") if "id" in kwargs else None
     features_type = validate_features(features)
     related_name = get_related_name(features_type)
-    features_hash = hash_set({feature.id for feature in features})
+    if id is None:
+        print({feature.id for feature in features})
+        features_hash = hash_set({feature.id for feature in features})
+        feature_set = FeatureSet.select(id=features_hash).one_or_none()
+        if feature_set is not None:
+            logger.info("Returning an existing feature_set")
+            init_self_from_db(self, feature_set)
+            return None
+        else:
+            id = features_hash
     self._features = (related_name, features)
-    field_name = "id"
+    if field is None:
+        field = "id"
     super(FeatureSet, self).__init__(
-        id=features_hash, type=features_type.__name__, field=field_name
+        id=id, type=features_type.__name_with_type__(), field=field
     )
 
 
-def save(self, *args, **kwargs):
+def save(self, *args, **kwargs) -> None:
+    """Save."""
     super(FeatureSet, self).save(*args, **kwargs)
     if hasattr(self, "_features"):
         related_name, records = self._features
+        [record.save() for record in records]
         getattr(self, related_name).set(records)
 
 
 @classmethod  # type:ignore
 def from_values(
-    cls, values: ListLike, field: Field = Feature.name, species: Optional[str] = None
-) -> FeatureSet:
+    cls, values: ListLike, field: Field = Feature.name, **kwargs
+) -> Optional[FeatureSet]:
     if not isinstance(field, Field):
         raise TypeError("Argument `field` must be an ORM field, e.g., `Feature.name`")
+    if len(values) == 0:
+        return None
+    if not isinstance(values[0], (str, int)):
+        raise TypeError("values should be list-like of str or int")
     orm = field.field.model
     iterable_idx = index_iterable(values)
     features_hash = hash_set(set(iterable_idx))
-    feature_set = FeatureSet.select(id=features_hash, type=orm.__name__).one_or_none()
+    feature_set = FeatureSet.select(id=features_hash).one_or_none()
     if feature_set is not None:
         logger.info("Returning an existing feature_set")
     else:
-        from_bionty = orm.__module__.startswith("lnschema_bionty.")
+        from_bionty = orm.__module__.startswith("lnschema_bionty")
         records = get_or_create_records(
             iterable=iterable_idx,
             field=field,
             from_bionty=from_bionty,
-            species=species,
+            **kwargs,
         )
         feature_set = FeatureSet(
             id=features_hash,
-            type=orm.__name__,
-            field=field.field_name,
+            field=field.field.name,
             features=records,
         )
     return feature_set
