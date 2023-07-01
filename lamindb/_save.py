@@ -86,7 +86,7 @@ def save(record: Union[ORM, Iterable[ORM]], **kwargs) -> None:  # type: ignore
     non_files = records.difference(files)
     if non_files:
         non_files_with_parents = {r for r in non_files if hasattr(r, "_parents")}
-        if len(non_files_with_parents) < 2:
+        if len(non_files_with_parents) < 2 or not kwargs.get("parents"):
             atomic_save(non_files)
         else:
             logger.warning("Recursing through parents will take a while...")
