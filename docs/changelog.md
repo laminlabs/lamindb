@@ -1,6 +1,7 @@
 # Changelog
 
 - ✨ Allow annotate to be visible [PR830](https://github.com/laminlabs/lamindb/pull/830) [@falexwolf](https://github.com/falexwolf)
+- 🚨 Remove warnings from zarr writing [PR829](https://github.com/laminlabs/lamindb/pull/829) [@Koncopd](https://github.com/Koncopd)
 - 🎉 Stage 0.46 (refactor features, file description, setup behavior, species setting) [PR826](https://github.com/laminlabs/lamindb/pull/826) [@falexwolf](https://github.com/falexwolf)
 - 🐛 Fix species bug for no-species orms [PR827](https://github.com/laminlabs/lamindb/pull/827) [@sunnyosun](https://github.com/sunnyosun)
 - 🚸 More user-friendly errors if instance not setup [PR825](https://github.com/laminlabs/lamindb/pull/825) [@falexwolf](https://github.com/falexwolf)
