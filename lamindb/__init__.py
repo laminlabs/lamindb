@@ -64,16 +64,31 @@ import lamindb_setup as _lamindb_setup
 # prints warning of python versions
 from lamin_logger import py_version_warning as _py_version_warning
 from lamindb_setup import _check_instance_setup
+from lamindb_setup._check_instance_setup import _INSTANCE_NOT_SETUP_WARNING
 
-_py_version_warning("3.8", "3.10")
+_py_version_warning("3.8", "3.11")
 
 _TESTING = _lamindb_setup._TESTING
 _INSTANCE_SETUP = _check_instance_setup(from_lamindb=True)
 # allow the user to call setup
 from . import setup  # noqa
 
+
+class InstanceNotSetupError(Exception):
+    pass
+
+
+def __getattr__(name):
+    raise InstanceNotSetupError(
+        f"{_INSTANCE_NOT_SETUP_WARNING}If you used the CLI to init or load an instance,"
+        " please RESTART the python session (in a notebook, restart kernel)"
+    )
+
+
 # only import all other functionality if setup was successful
 if _INSTANCE_SETUP:
+    del InstanceNotSetupError
+    del __getattr__  # delete so that imports work out
     from lnschema_core import (  # noqa
         Dataset,
         Feature,
