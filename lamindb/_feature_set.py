@@ -1,6 +1,5 @@
 from typing import List, Optional
 
-from django.db import transaction
 from django.db.models.query_utils import DeferredAttribute as Field
 from lamin_logger import logger
 from lamindb_setup.dev._docs import doc_args
@@ -13,6 +12,7 @@ from lamindb.dev.utils import attach_func_to_class_method
 from . import _TESTING
 from ._from_values import get_or_create_records, index_iterable
 from ._orm import init_self_from_db
+from ._save import bulk_create
 
 
 def get_related_name(features_type: ORM):
@@ -83,8 +83,7 @@ def save(self, *args, **kwargs) -> None:
     super(FeatureSet, self).save(*args, **kwargs)
     if hasattr(self, "_features"):
         related_name, records = self._features
-        with transaction.atomic():
-            [record.save() for record in records]
+        bulk_create(records)
         getattr(self, related_name).set(records)
 
 

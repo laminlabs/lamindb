@@ -74,13 +74,6 @@ def save(record: Union[ORM, Iterable[ORM]], **kwargs) -> None:  # type: ignore
     elif isinstance(record, ORM):
         records = {record}
 
-    def bulk_create(records: Iterable[ORM]):
-        state = any([not r._state.adding for r in records])
-        orm = next(iter(records)).__class__
-        orm.objects.bulk_create(records, ignore_conflicts=True)
-        if state:
-            logger.warning("`ln.save` doesn't handle updates currently, use `orm.save`")
-
     # we're distinguishing between files and non-files
     # because for files, we want to bulk-upload
     # rather than upload one-by-one
@@ -108,6 +101,14 @@ def save(record: Union[ORM, Iterable[ORM]], **kwargs) -> None:  # type: ignore
     # refreshing all of them from the DB would mean a severe performance penalty
     # 2nd reason: consistency with Django Model.save(), which also returns None
     return None
+
+
+def bulk_create(records: Iterable[ORM]):
+    state = any([not r._state.adding for r in records])
+    orm = next(iter(records)).__class__
+    orm.objects.bulk_create(records, ignore_conflicts=True)
+    if state:
+        logger.warning("`ln.save` doesn't handle updates currently, use `orm.save`")
 
 
 # This is also used within File.save()
