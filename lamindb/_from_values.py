@@ -1,4 +1,4 @@
-from typing import Any, Dict, Iterable, List, Union
+from typing import Any, Dict, Iterable, List, Tuple, Union
 
 import pandas as pd
 from django.core.exceptions import FieldDoesNotExist
@@ -147,7 +147,7 @@ def create_records_from_bionty(
     mapped_values = iterable_idx.intersection(bionty_df[field_name])
 
     if len(mapped_values) > 0:
-        bionty_kwargs = _bulk_create_dicts_from_df(
+        bionty_kwargs, multi_msg = _bulk_create_dicts_from_df(
             keys=mapped_values, column_name=field_name, df=bionty_df
         )
         for bk in bionty_kwargs:
@@ -172,6 +172,9 @@ def create_records_from_bionty(
         # make sure that synonyms logging appears after the field logging
         if len(msg_syn) > 0:
             logger.info(msg_syn + source_msg)
+        # warning about multi matches
+        if len(multi_msg) > 0:
+            logger.warning(multi_msg)
 
     # return the values that are not found in the bionty reference
     unmapped_values = iterable_idx.difference(mapped_values)
@@ -200,13 +203,17 @@ def _filter_bionty_df_columns(model: ORM, bionty_object: Any) -> pd.DataFrame:
 
 def _bulk_create_dicts_from_df(
     keys: Union[set, List], column_name: str, df: pd.DataFrame
-) -> dict:
+) -> Tuple[Dict, str]:
     """Get fields from a DataFrame for many rows."""
+    multi_msg = ""
     if df.index.name != column_name:
-        df = df.set_index(column_name)
-    # keep the last record (assuming most recent) if duplicated
-    df = df[~df.index.duplicated(keep="last")]
-    return df.loc[list(keys)].reset_index().to_dict(orient="records")
+        df = df.set_index(column_name).loc[list(keys)]
+    if not df.index.is_unique:
+        # return all records for multi-matches with a warning
+        dup = df.index[df.index.duplicated()].unique().tolist()
+        multi_msg = f"Multiple matches found in Bionty for: {dup}"
+
+    return df.reset_index().to_dict(orient="records"), multi_msg
 
 
 def _has_species_field(orm: ORM) -> bool:
