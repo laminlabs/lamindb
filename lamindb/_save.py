@@ -74,10 +74,12 @@ def save(record: Union[ORM, Iterable[ORM]], **kwargs) -> None:  # type: ignore
     elif isinstance(record, ORM):
         records = {record}
 
-    def atomic_save(records: Iterable[ORM], **kwargs):
-        with transaction.atomic():
-            for record in records:
-                record.save(**kwargs)
+    def bulk_create(records: Iterable[ORM]):
+        state = any([not r._state.adding for r in records])
+        orm = next(iter(records)).__class__
+        orm.objects.bulk_create(records, ignore_conflicts=True)
+        if state:
+            logger.warning("`ln.save` doesn't handle updates currently, use `orm.save`")
 
     # we're distinguishing between files and non-files
     # because for files, we want to bulk-upload
@@ -87,12 +89,12 @@ def save(record: Union[ORM, Iterable[ORM]], **kwargs) -> None:  # type: ignore
     if non_files:
         non_files_with_parents = {r for r in non_files if hasattr(r, "_parents")}
         if len(non_files_with_parents) < 2 or kwargs.get("parents") is False:
-            atomic_save(non_files)
+            bulk_create(non_files)
         else:
-            logger.warning("Recursing through parents will take a while...")
             # first save all records without recursing parents
-            atomic_save(non_files, parents=False)
+            bulk_create(non_files)
             # save the record with parents one by one
+            logger.warning("Recursing through parents will take a while...")
             for record in non_files:
                 record.save()
 

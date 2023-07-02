@@ -1,6 +1,5 @@
-from typing import List, Optional, Union, overload  # noqa
+from typing import List, Union, overload  # noqa
 
-from django.db import transaction
 from lamin_logger import colors, logger
 from lnschema_core import ORM
 
@@ -47,14 +46,11 @@ def delete(  # type: ignore
         >>> file.delete(storage=True)
 
     """
+    logger.warning("For efficient bulk delete, use `queryset.delete` instead")
     if isinstance(records, list):
         records = records
     elif isinstance(records, ORM):
         records = [records]
-    with transaction.atomic():
-        for record in records:
-            record.delete()
-        logger.success(
-            "Deleted"
-            f" {colors.yellow(f'{len(records)}')} {ORM.__class__.__name__} records"
-        )
+    for record in records:
+        record.delete()
+        logger.success(f"Deleted {colors.yellow(f'{record}')}")
