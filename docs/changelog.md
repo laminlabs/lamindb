@@ -1,5 +1,9 @@
 # Changelog
 
+- 🐛 Fix species bug for no-species orms [PR827](https://github.com/laminlabs/lamindb/pull/827) [@sunnyosun](https://github.com/sunnyosun)
+- 🚸 More user-friendly errors if instance not setup [PR825](https://github.com/laminlabs/lamindb/pull/825) [@falexwolf](https://github.com/falexwolf)
+-  🚚 Rename `File.name` to `File.description` [PR824](https://github.com/laminlabs/lamindb/pull/824) [@falexwolf](https://github.com/falexwolf)
+- ♻️ Refactor `FeatureSet` [PR822](https://github.com/laminlabs/lamindb/pull/822) [@falexwolf](https://github.com/falexwolf)
 - 🐛 Fix passing parents to save [PR821](https://github.com/laminlabs/lamindb/pull/821) [@sunnyosun](https://github.com/sunnyosun)
 - 🎨 Allow passing parents=False to ln.save [PR820](https://github.com/laminlabs/lamindb/pull/820) [@sunnyosun](https://github.com/sunnyosun)
 - 🚸 Parse features for `AnnData` [PR818](https://github.com/laminlabs/lamindb/pull/818) [@falexwolf](https://github.com/falexwolf)

@@ -5,7 +5,9 @@
 
 # LaminDB
 
-Open-source data lake to manage your existing data in your existing infrastructure.
+Open-source data lake, warehouse & feature store for biology.
+
+Manage your existing data & analyses in your existing infrastructure.
 
 ```{warning}
 
@@ -17,21 +19,22 @@ Update 2023-06-14:
 - The last version before the migration is 0.41.2.
 ```
 
-## Features
+## What?
 
-Free:
+LaminDB is a free & open-source Python library allowing you to:
 
-- Track [data lineage](https://lamin.ai/docs/guide/data-lineage) across notebooks, pipelines & apps.
-- Manage [biological registries, ontologies & features](https://lamin.ai/docs/biology/registries).
-- [Query, search & look up anything](https://lamin.ai/docs/guide/select), [manage & migrate custom schemas](https://lamin.ai/docs/setup/migrate).
-- [Persist, load](https://lamin.ai/docs/guide/files-records#in-memory-objects) & [stream data objects](https://lamin.ai/docs/guide/stream) with a single line of code.
-- [Idempotent](https://lamin.ai/docs/faq/idempotency) and [ACID](https://lamin.ai/docs/faq/acid) operations.
-- Use a mesh of LaminDB instances and [share them in a hub](https://lamin.ai/laminlabs) akin to GitHub.
+- Manage files & datasets while tracking [provenance](https://lamin.ai/docs/guide/data-lineage) across pipelines, notebooks & apps.
+- Manage biological [registries](https://lamin.ai/docs/biology/registries), [ontologies](https://lamin.ai/docs/bionty/) & features.
+- Rely on integrity & quality through largely automated data validation and [idempotent](https://lamin.ai/docs/faq/idempotency) & [ACID](https://lamin.ai/docs/faq/acid) operations.
+- Use a simple API for common tasks like:
+  - [Queries, searches & look ups](https://lamin.ai/docs/guide/select).
+  - Saving, loading & [streaming](https://lamin.ai/docs/guide/stream) of data objects.
+- Collaborate across a mesh of LaminDB instances ([share them in a hub](https://lamin.ai/laminlabs) akin to GitHub).
 
-Enterprise:
+You can combine LaminDB with LaminApp & consulting services on an enterprise plan:
 
-- Explore, share data & submit samples with LaminApp (deployable in your infrastructure).
-- Receive support, code templates & services for a BioTech data & analytics platform.
+- LaminApp: Explore & collaborate on data in a UI (deployable in your infrastructure).
+- Services: Support & code templates for a BioTech data & analytics platform.
 
 ## Usage overview
 

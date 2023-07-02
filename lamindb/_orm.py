@@ -15,7 +15,7 @@ from lnschema_core.types import ListLike, StrField
 from lamindb.dev.utils import attach_func_to_class_method
 
 from . import _TESTING
-from ._from_values import get_or_create_records
+from ._from_values import _has_species_field, get_or_create_records
 from .dev._settings import settings
 
 IPYTHON = getattr(builtins, "__IPYTHON__", False)
@@ -23,6 +23,15 @@ IPYTHON = getattr(builtins, "__IPYTHON__", False)
 
 class ValidationError(Exception):
     pass
+
+
+def init_self_from_db(self: ORM, existing_record: ORM):
+    new_args = [
+        getattr(existing_record, field.attname) for field in self._meta.concrete_fields
+    ]
+    super(self.__class__, self).__init__(*new_args)
+    self._state.adding = False  # mimic from_db
+    self._state.db = "default"
 
 
 def validate_required_fields(orm: ORM, kwargs):
@@ -72,14 +81,8 @@ def __init__(orm: ORM, *args, **kwargs):
         if settings.upon_create_search_names:
             result = suggest_objects_with_same_name(orm, kwargs)
             if result == "object-with-same-name-exists":
-                existing_object = orm.select(name=kwargs["name"])[0]
-                new_args = [
-                    getattr(existing_object, field.attname)
-                    for field in orm._meta.concrete_fields
-                ]
-                super(ORM, orm).__init__(*new_args)
-                orm._state.adding = False  # mimic from_db
-                orm._state.db = "default"
+                existing_record = orm.select(name=kwargs["name"])[0]
+                init_self_from_db(orm, existing_record)
                 return None
         super(ORM, orm).__init__(**kwargs)
     elif len(args) != len(orm._meta.concrete_fields):
@@ -91,7 +94,7 @@ def __init__(orm: ORM, *args, **kwargs):
 
 @classmethod  # type:ignore
 @doc_args(ORM.from_values.__doc__)
-def from_values(cls, identifiers: ListLike, field: StrField, **kwargs):
+def from_values(cls, identifiers: ListLike, field: StrField, **kwargs) -> List["ORM"]:
     """{}"""
     if isinstance(field, str):
         field = getattr(cls, field)
@@ -238,29 +241,13 @@ def _filter_df_based_on_species(orm: ORM, species: Optional[Union[str, ORM]] = N
     import pandas as pd
 
     records = orm.objects.all()
-    try:
-        # if the orm has a species field, it's required
-        records.model._meta.get_field("species")
-
+    if _has_species_field(orm):
         # here, we can safely import lnschema_bionty
-        import lnschema_bionty as lb
+        from lnschema_bionty._bionty import create_or_get_species_record
 
-        if species is None:
-            if lb.settings.species is None:
-                raise AssertionError(
-                    f"{orm.__name__} table requires to specify a species name via"
-                    " `species=` or or `lb.settings.species=`!"
-                )
-            else:
-                species_name = lb.settings.species.name
-                logger.info(f"using species = {species_name}")
-        elif isinstance(species, ORM):
-            species_name = species.name
-        else:
-            species_name = species
-        records = records.filter(species__name=species_name)
-    except FieldDoesNotExist:
-        pass
+        species_record = create_or_get_species_record(species=species, orm=orm)
+        if species_record is not None:
+            records = records.filter(species__name=species_record.name)
 
     return pd.DataFrame.from_records(records.values())
 
@@ -394,8 +381,18 @@ if _TESTING:
     SIGS = {
         name: signature(getattr(ORM, name))
         for name in METHOD_NAMES
-        if name != "__init__"
+        if not name.startswith("__")
     }
 
 for name in METHOD_NAMES:
     attach_func_to_class_method(name, ORM, globals())
+
+
+@classmethod  # type: ignore
+def __name_with_type__(cls) -> str:
+    schema_module_name = cls.__module__.split(".")[0]
+    schema_name = schema_module_name.replace("lnschema_", "")
+    return f"{schema_name}.{cls.__name__}"
+
+
+setattr(ORM, "__name_with_type__", __name_with_type__)
