@@ -12,6 +12,7 @@ from lamindb.dev.utils import attach_func_to_class_method
 from . import _TESTING
 from ._from_values import get_or_create_records, index_iterable
 from ._orm import init_self_from_db
+from ._save import bulk_create
 
 
 def get_related_name(features_type: ORM):
@@ -78,10 +79,11 @@ def __init__(self, *args, **kwargs):
 @doc_args(FeatureSet.save.__doc__)
 def save(self, *args, **kwargs) -> None:
     """{}"""
+    logger.info("Saving FeatureSet...")
     super(FeatureSet, self).save(*args, **kwargs)
     if hasattr(self, "_features"):
         related_name, records = self._features
-        [record.save() for record in records]
+        bulk_create(records, logging=False)
         getattr(self, related_name).set(records)
 
 
