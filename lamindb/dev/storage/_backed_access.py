@@ -430,9 +430,9 @@ if ZARR_INSTALLED:
             )
 
         if file.suffix in (".h5ad", ".zrad"):
-            return AnnDataAccessor(conn, storage, file.name)
+            return AnnDataAccessor(conn, storage, file.key)
         else:
             if get_spec(storage).encoding_type == "anndata":
-                return AnnDataAccessor(conn, storage, file.name)
+                return AnnDataAccessor(conn, storage, file.key)
             else:
                 return BackedAccessor(conn, storage)
