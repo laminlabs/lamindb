@@ -1,5 +1,6 @@
 # Changelog
 
+- 🎉 Stage 0.46 (refactor features, file description, setup behavior, species setting) [PR826](https://github.com/laminlabs/lamindb/pull/826) [@falexwolf](https://github.com/falexwolf)
 - 🐛 Fix species bug for no-species orms [PR827](https://github.com/laminlabs/lamindb/pull/827) [@sunnyosun](https://github.com/sunnyosun)
 - 🚸 More user-friendly errors if instance not setup [PR825](https://github.com/laminlabs/lamindb/pull/825) [@falexwolf](https://github.com/falexwolf)
 -  🚚 Rename `File.name` to `File.description` [PR824](https://github.com/laminlabs/lamindb/pull/824) [@falexwolf](https://github.com/falexwolf)
