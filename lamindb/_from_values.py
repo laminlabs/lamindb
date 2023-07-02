@@ -1,7 +1,7 @@
 from typing import Any, Dict, Iterable, List, Union
 
 import pandas as pd
-from django.db.models import Q
+from django.core.exceptions import FieldDoesNotExist
 from django.db.models.query_utils import DeferredAttribute as Field
 from lamin_logger import colors, logger
 from lnschema_core.models import ORM
@@ -11,7 +11,7 @@ from ._select import select
 from .dev._settings import settings
 
 
-# The base function for `from_iter` and `from_bionty`
+# The base function for `from_values`
 def get_or_create_records(
     iterable: ListLike,
     field: Field,
@@ -44,7 +44,7 @@ def get_or_create_records(
             if len(unmapped_values) > 0:
                 for i in unmapped_values:
                     records.append(model(**{field_name: i}, **kwargs))
-                logger.hint(
+                logger.info(
                     "Created"
                     f" {colors.red(f'{len(unmapped_values)} {model.__name__} records')}"
                     f" with a single field {colors.red(f'{field_name}')}"
@@ -54,16 +54,20 @@ def get_or_create_records(
         settings.upon_create_search_names = upon_create_search_names
 
 
-def index_iterable(iterable: Iterable) -> pd.Index:
-    idx = pd.Index(iterable).unique()
-    # No entries are made for NAs, '', None
-    # returns an ordered unique not null list
-    return idx[(idx != "") & (~idx.isnull())]
-
-
 def get_existing_records(iterable_idx: pd.Index, field: Field, kwargs: Dict = {}):
     field_name = field.field.name
     model = field.field.model
+    condition: Dict = {}
+
+    if _has_species_field(model):
+        from lnschema_bionty._bionty import create_or_get_species_record
+
+        species_record = create_or_get_species_record(
+            species=kwargs.get("species"), orm=model
+        )
+        if species_record is not None:
+            kwargs.update({"species": species_record})
+            condition.update({"species__name": species_record.name})
 
     # map synonyms based on the DB reference
     syn_mapper = model.map_synonyms(
@@ -83,52 +87,26 @@ def get_existing_records(iterable_idx: pd.Index, field: Field, kwargs: Dict = {}
     # if necessary, create records for the values in kwargs
     # k:v -> k:v_record
     # kwargs is used to deal with species
-    condition = {f"{field_name}__in": iterable_idx.values}
-    kwargs, condition = _species_kwargs(orm=model, kwargs=kwargs, condition=condition)
+    condition.update({f"{field_name}__in": iterable_idx.values})
 
     stmt = select(model, **condition)
 
     records = stmt.list()  # existing records
     n_name = len(records) - len(syn_mapper)
     if n_name > 0:
-        logger.hint(
+        logger.info(
             "Returned"
             f" {colors.green(f'{n_name} existing {model.__name__} DB records')} that"
             f" matched {colors.green(f'{field_name}')} field"
         )
     # make sure that synonyms logging appears after the field logging
     if len(syn_msg) > 0:
-        logger.hint(syn_msg)
+        logger.info(syn_msg)
 
     existing_values = iterable_idx.intersection(stmt.values_list(field_name, flat=True))
     nonexist_values = iterable_idx.difference(existing_values)
 
     return records, nonexist_values
-
-
-def get_existing_records_multifields(df_records: List, model: ORM, kwargs: Dict = {}):
-    q = Q(**df_records[0])
-    for df_record in df_records[1:]:
-        q = q.__getattribute__("__or__")(Q(**df_record))
-
-    kwargs, condition = _species_kwargs(orm=model, kwargs=kwargs)
-    stmt = model.select(**condition).filter(q)
-    return stmt
-
-
-def _species_kwargs(orm: ORM, kwargs: Dict = {}, condition: Dict = {}):
-    """Create records based on the kwargs."""
-    if kwargs.get("species") is not None:
-        from lnschema_bionty._bionty import create_or_get_species_record
-
-        species_record = create_or_get_species_record(
-            species=kwargs.get("species"), orm=orm
-        )
-        if species_record is not None:
-            kwargs.update({"species": species_record})
-            condition.update({"species__name": species_record.name})
-
-    return kwargs, condition
 
 
 def create_records_from_bionty(
@@ -140,10 +118,10 @@ def create_records_from_bionty(
     field_name = field.field.name
     records: List = []
     # populate additional fields from bionty
-    from lnschema_bionty._bionty import get_bionty_object, get_bionty_source_record
+    from lnschema_bionty._bionty import get_bionty_source_record
 
     # create the corresponding bionty object from model
-    bionty_object = get_bionty_object(orm=model, species=kwargs.get("species"))
+    bionty_object = model.bionty(species=kwargs.get("species"))
     # add bionty_source record to the kwargs
     kwargs.update({"bionty_source": get_bionty_source_record(bionty_object)})
 
@@ -190,14 +168,21 @@ def create_records_from_bionty(
                 f" {colors.purple(f'{n_name} {model.__name__} records from Bionty')} that"  # noqa
                 f" matched {colors.purple(f'{field_name}')} field"
             )
-            logger.hint(msg + source_msg)
+            logger.info(msg + source_msg)
         # make sure that synonyms logging appears after the field logging
         if len(msg_syn) > 0:
-            logger.hint(msg_syn + source_msg)
+            logger.info(msg_syn + source_msg)
 
     # return the values that are not found in the bionty reference
     unmapped_values = iterable_idx.difference(mapped_values)
     return records, unmapped_values
+
+
+def index_iterable(iterable: Iterable) -> pd.Index:
+    idx = pd.Index(iterable).unique()
+    # No entries are made for NAs, '', None
+    # returns an ordered unique not null list
+    return idx[(idx != "") & (~idx.isnull())]
 
 
 def _filter_bionty_df_columns(model: ORM, bionty_object: Any) -> pd.DataFrame:
@@ -222,3 +207,11 @@ def _bulk_create_dicts_from_df(
     # keep the last record (assuming most recent) if duplicated
     df = df[~df.index.duplicated(keep="last")]
     return df.loc[list(keys)].reset_index().to_dict(orient="records")
+
+
+def _has_species_field(orm: ORM) -> bool:
+    try:
+        orm._meta.get_field("species")
+        return True
+    except FieldDoesNotExist:
+        return False
