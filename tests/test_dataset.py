@@ -21,7 +21,7 @@ def test_create_delete_from_single_dataframe():
     # basics
     assert dataset.load().iloc[0].tolist() == df.iloc[0].tolist()
     file = dataset.file
-    assert file.name is None
+    assert file.description is None
     assert dataset.hash == file.hash
     assert dataset.id == file.id
     assert ln.File.select(id=dataset.id).one_or_none() is not None
@@ -54,7 +54,7 @@ def test_create_delete_from_single_dataframe():
 #     dataset.save()
 #     assert dataset.load().iloc[0].tolist() == df.iloc[0].tolist()
 #     file = dataset.file
-#     assert file.name is None
+#     assert file.description is None
 #     assert dataset.hash == file.hash
 #     assert dataset.id == file.id
 #     assert ln.File.select(id=dataset.id).one_or_none() is not None
