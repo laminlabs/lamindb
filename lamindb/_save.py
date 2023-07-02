@@ -103,12 +103,13 @@ def save(record: Union[ORM, Iterable[ORM]], **kwargs) -> None:  # type: ignore
     return None
 
 
-def bulk_create(records: Iterable[ORM]):
+def bulk_create(records: Iterable[ORM], logging: bool = True):
     state = any([not r._state.adding for r in records])
+    if logging and state:
+        logger.warning("`ln.save` doesn't handle updates currently, use `orm.save`")
+
     orm = next(iter(records)).__class__
     orm.objects.bulk_create(records, ignore_conflicts=True)
-    if state:
-        logger.warning("`ln.save` doesn't handle updates currently, use `orm.save`")
 
 
 # This is also used within File.save()

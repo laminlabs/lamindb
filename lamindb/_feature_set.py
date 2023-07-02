@@ -83,7 +83,7 @@ def save(self, *args, **kwargs) -> None:
     super(FeatureSet, self).save(*args, **kwargs)
     if hasattr(self, "_features"):
         related_name, records = self._features
-        bulk_create(records)
+        bulk_create(records, logging=False)
         getattr(self, related_name).set(records)
 
 
