@@ -19,7 +19,7 @@ dependencies = [
     # !!! They cannot be pinned ANYWHERE else !!!
     "lnschema_core==0.38.0",
     "lamindb_setup==0.48.1",
-    "lamin_logger==0.7.3",
+    "lamin_logger==0.7.4",
     # Lamin GREATEREQ packages
     "erdiagram>=0.1.2",
     # others
@@ -54,7 +54,7 @@ nbproject = [
     "nbproject>=0.9.0"
 ]
 bionty = [
-    "lnschema_bionty==0.25.4",
+    "lnschema_bionty==0.25.5",
 ]
 zarr = [
     "zarr",

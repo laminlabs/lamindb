@@ -15,7 +15,7 @@ from lnschema_core.types import ListLike, StrField
 from lamindb.dev.utils import attach_func_to_class_method
 
 from . import _TESTING
-from ._from_values import get_or_create_records
+from ._from_values import _has_species_field, get_or_create_records
 from .dev._settings import settings
 
 IPYTHON = getattr(builtins, "__IPYTHON__", False)
@@ -241,29 +241,13 @@ def _filter_df_based_on_species(orm: ORM, species: Optional[Union[str, ORM]] = N
     import pandas as pd
 
     records = orm.objects.all()
-    try:
-        # if the orm has a species field, it's required
-        records.model._meta.get_field("species")
-
+    if _has_species_field(orm):
         # here, we can safely import lnschema_bionty
-        import lnschema_bionty as lb
+        from lnschema_bionty._bionty import create_or_get_species_record
 
-        if species is None:
-            if lb.settings.species is None:
-                raise AssertionError(
-                    f"{orm.__name__} table requires to specify a species name via"
-                    " `species=` or or `lb.settings.species=`!"
-                )
-            else:
-                species_name = lb.settings.species.name
-                logger.info(f"using species = {species_name}")
-        elif isinstance(species, ORM):
-            species_name = species.name
-        else:
-            species_name = species
-        records = records.filter(species__name=species_name)
-    except FieldDoesNotExist:
-        pass
+        species_record = create_or_get_species_record(species=species, orm=orm)
+        if species_record is not None:
+            records = records.filter(species__name=species_record.name)
 
     return pd.DataFrame.from_records(records.values())
 

@@ -33,3 +33,25 @@ def test_from_values_ontology_id(df):
     assert len(result) == 2
     assert names == ["T cell", "hepatocyte"]
     assert result[0].bionty_source.entity == "CellType"
+
+
+def test_from_values_multiple_match():
+    from lnschema_bionty import Gene
+
+    records = Gene.from_values(["ABC1", "PDCD1"], Gene.symbol, species="human")
+    assert len(records) == 3
+
+
+def test_from_values_species():
+    from lnschema_bionty import Gene, settings
+
+    with pytest.raises(AssertionError):
+        Gene.from_values(["ABC1"], Gene.symbol)
+
+    settings.species = "human"
+    records = Gene.from_values(["ABC1"], Gene.symbol)
+    assert records[0].ensembl_gene_id == "ENSG00000068097"
+
+    settings.species = "mouse"
+    records = Gene.from_values(["ABC1"], Gene.symbol)
+    assert records[0].ensembl_gene_id == "ENSMUSG00000015243"
