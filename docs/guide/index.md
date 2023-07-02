@@ -12,9 +12,9 @@
 
 ```{toctree}
 :hidden:
-:caption: Data
+:caption: First steps
 
-guide1
+tutorial1
 data-lineage
 select
 schemas
