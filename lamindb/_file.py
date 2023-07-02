@@ -1,6 +1,6 @@
 from itertools import islice
 from pathlib import Path, PurePath, PurePosixPath
-from typing import Any, List, Optional, Tuple, Union, overload  # noqa
+from typing import Any, Dict, List, Optional, Tuple, Union, overload  # noqa
 
 import lamindb_setup
 import pandas as pd
@@ -236,14 +236,14 @@ def get_relative_path_to_root(
     return get_relative_path_to_directory(path, root)
 
 
-# expose to user via ln.File
+# TODO: integrate this whole function into __init__
 def get_file_kwargs_from_data(
-    provisional_id: str,
+    *,
     data: Union[Path, UPath, str, pd.DataFrame, AnnData],
-    name: Optional[str] = None,
-    key: Optional[str] = None,
-    run: Optional[Run] = None,
-    format: Optional[str] = None,
+    key: Optional[str],
+    run: Optional[Run],
+    format: Optional[str],
+    provisional_id: str,
 ):
     run = get_run(run)
     memory_rep, filepath, suffix = serialize(provisional_id, data, format)
@@ -265,7 +265,6 @@ def get_file_kwargs_from_data(
         raise ValueError(f"Key cannot start with {AUTO_KEY_PREFIX}")
 
     kwargs = dict(
-        name=name,
         suffix=suffix,
         hash=hash,
         key=key,
@@ -320,15 +319,24 @@ def __init__(file: File, *args, **kwargs):
     data: Union[PathLike, DataLike] = kwargs.pop("data") if len(args) == 0 else args[0]
     key: Optional[str] = kwargs.pop("key") if "key" in kwargs else None
     run: Optional[Run] = kwargs.pop("run") if "run" in kwargs else None
-    name: Optional[str] = kwargs.pop("name") if "name" in kwargs else None
+    description: Optional[str] = (
+        kwargs.pop("description") if "description" in kwargs else None
+    )
     feature_sets: Optional[List[FeatureSet]] = (
         kwargs.pop("feature_sets") if "feature_sets" in kwargs else None
     )
+    name: Optional[str] = kwargs.pop("name") if "name" in kwargs else None
     var_ref: Optional[Field] = kwargs.pop("var_ref") if "var_ref" in kwargs else None
     format = kwargs.pop("format") if "format" in kwargs else None
 
     if not len(kwargs) == 0:
         raise ValueError("Only data, key, run, name & feature_sets can be passed.")
+
+    if name is not None and description is not None:
+        raise ValueError("Only pass description, do not pass a name")
+    if name is not None:
+        logger.warning("Argument `name` is deprecated, please use `description`")
+        description = name
 
     if feature_sets is None:
         # if var_ref is None:
@@ -348,12 +356,11 @@ def __init__(file: File, *args, **kwargs):
 
     provisional_id = ids.base62_20()
     kwargs, privates = get_file_kwargs_from_data(
-        provisional_id=provisional_id,
         data=data,
-        name=name,
         key=key,
         run=run,
         format=format,
+        provisional_id=provisional_id,
     )
     # an object with the same hash already exists
     if isinstance(kwargs, File):
@@ -368,6 +375,7 @@ def __init__(file: File, *args, **kwargs):
         return None
 
     kwargs["id"] = provisional_id
+    kwargs["description"] = description
     log_storage_hint(
         check_path_in_storage=privates["check_path_in_storage"],
         key=kwargs["key"],
@@ -450,23 +458,17 @@ def replace(
     kwargs, privates = get_file_kwargs_from_data(
         provisional_id=self.id,
         data=data,
-        name=self.name,
         key=self.key,
         run=run,
         format=format,
     )
     if self.key is not None:
         key_path = PurePosixPath(self.key)
-        if isinstance(data, (Path, str)) and kwargs["name"] is not None:
-            new_name = kwargs["name"]  # use the name from the data filepath
-        else:
-            # do not change the key stem to file.name
-            new_name = key_path.stem  # use the stem of the key for in-memory data
-        if PurePosixPath(new_name).suffixes == []:
-            new_name = f"{new_name}{kwargs['suffix']}"
-        if key_path.name != new_name:
+        new_filename = f"{key_path.stem}{kwargs['suffix']}"
+        # the following will only be true if the suffix changes!
+        if key_path.name != new_filename:
             self._clear_storagekey = self.key
-            self.key = str(key_path.with_name(new_name))
+            self.key = str(key_path.with_name(new_filename))
             logger.warning(
                 f"Replacing the file will replace key '{key_path}' with '{self.key}'"
                 f" and delete '{key_path}' upon `save()`"
