@@ -26,9 +26,9 @@ LaminDB is a free & open-source Python library allowing you to:
 - Manage files & datasets while tracking [provenance](https://lamin.ai/docs/guide/data-lineage) across pipelines, notebooks & apps.
 - Manage biological [registries](https://lamin.ai/docs/biology/registries), [ontologies](https://lamin.ai/docs/bionty/) & features.
 - Rely on integrity & quality through largely automated data validation and [idempotent](https://lamin.ai/docs/faq/idempotency) & [ACID](https://lamin.ai/docs/faq/acid) operations.
-- Use a simple API for many common tasks like:
+- Use a simple API for common tasks like:
   - [Queries, searches & look ups](https://lamin.ai/docs/guide/select).
-  - [Saving, loading](https://lamin.ai/docs/guide/files-records#in-memory-objects) & [streaming](https://lamin.ai/docs/guide/stream) of data objects.
+  - Saving, loading & [streaming](https://lamin.ai/docs/guide/stream) of data objects.
 - Collaborate across a mesh of LaminDB instances ([share them in a hub](https://lamin.ai/laminlabs) akin to GitHub).
 
 You can combine LaminDB with LaminApp & consulting services on an enterprise plan:
