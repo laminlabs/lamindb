@@ -15,6 +15,7 @@ class Settings:
 
     def __init__(self):
         self._verbosity: int = 2  # info-level logging
+        logger.set_verbosity(self._verbosity)
 
     upon_file_create_if_hash_exists: Literal[
         "warn_return_existing", "error", "warn_create_new"
@@ -70,7 +71,7 @@ class Settings:
 
     @property
     def verbosity(self) -> int:
-        """Verbosity (default 2).
+        """Verbosity (default 3).
 
         - 0: only show 'error' messages
         - 1: also show 'warning' messages
