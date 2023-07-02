@@ -206,5 +206,5 @@ def upload_data_object(file) -> None:
     ):
         logger.hint(f"storing file {file.id} with key {file_storage_key}")
         storagepath = lamindb_setup.settings.storage.key_to_filepath(file_storage_key)
-        print_progress = partial(print_hook, filepath=file.name)
+        print_progress = partial(print_hook, filepath=file.key)
         write_adata_zarr(file._memory_rep, storagepath, callback=print_progress)

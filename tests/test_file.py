@@ -55,7 +55,7 @@ def test_create_from_dataframe(name, feature_list):
     else:
         feature_set = None
     file = ln.File(df, name=name, feature_sets=feature_set)
-    assert file.name is None if name is None else file.name == name
+    assert file.description is None if name is None else file.description == name
     assert file.key is None
     file.save()
     if feature_set is None or isinstance(feature_set, ln.FeatureSet):
@@ -94,7 +94,7 @@ def test_create_from_filepath(get_test_filepaths, key, name):
     isin_default_storage = get_test_filepaths[0]
     test_filepath = get_test_filepaths[2]
     file = ln.File(test_filepath, key=key, name=name)
-    assert file.name is None if name is None else file.name == name
+    assert file.description is None if name is None else file.description == name
     assert file.suffix == ".csv"
     if key is None:
         assert (
@@ -135,7 +135,7 @@ def test_delete(get_test_filepaths):
     file.save()
     storage_path = file.path()
     file.delete(storage=True)
-    assert ln.File.select(name="My test file to delete").first() is None
+    assert ln.File.select(description="My test file to delete").first() is None
     assert not Path(storage_path).exists()
 
 
