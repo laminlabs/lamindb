@@ -20,10 +20,9 @@ msg_path_failed = (
     " `notebook_path` to ln.track()."
 )
 
-msg_init_noninteractive = (
-    "Please attach an ID to the notebook by running the CLI: lamin track"
-    " my-notebook.ipynb"
-)
+
+class NonInteractiveEditorError(Exception):
+    pass
 
 
 def _write_notebook_meta(metadata):
@@ -178,10 +177,11 @@ class context:
                             " notebook!\nConsider installing nbproject for automatic"
                             " name, title & id tracking."
                         )
-                    elif str(e) == msg_init_noninteractive:
+                    elif isinstance(e, NonInteractiveEditorError):
                         raise e
                     else:
                         logger.warning(f"Automatic tracking of notebook failed: {e}")
+                        raise e
                     is_tracked_notebook = False
 
             if not is_tracked_notebook:
@@ -292,7 +292,7 @@ class context:
             except Exception as e:
                 nbproject_failed_msg = (
                     "Auto-retrieval of notebook name & title failed.\n\nFixes: Either"
-                    " init on the CLI `lamin track my-notebook.ipynb` or pass"
+                    f" init on the CLI `lamin track {notebook_path}` or pass"
                     " transform manually `ln.track(ln.Transform(name='My"
                     " notebook'))`\n\nPlease consider pasting error at:"
                     f" https://github.com/laminlabs/nbproject/issues/new\n\n{e}"
@@ -317,12 +317,11 @@ class context:
             if _env in ("lab", "notebook"):
                 cls._notebook_meta = metadata  # type: ignore
             else:
-                # nb = nbproject.dev.read_notebook(_filepath)
-                # nb.metadata["nbproject"] = metadata
-                # nbproject.dev.write_notebook(nb, _filepath)
-                # raise SystemExit(msg_init_complete)
-                # the following is safer
-                raise RuntimeError(msg_init_noninteractive)
+                msg_init_noninteractive = (
+                    "Please attach metadata to the notebook by running the CLI: "
+                    f"lamin track {notebook_path}"
+                )
+                raise NonInteractiveEditorError(msg_init_noninteractive)
 
         if _env in ("lab", "notebook"):
             # save the notebook in case that title was updated
