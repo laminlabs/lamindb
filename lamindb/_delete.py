@@ -1,8 +1,8 @@
 from typing import List, Optional, Union, overload  # noqa
 
+from django.db import transaction
+from lamin_logger import colors, logger
 from lnschema_core import ORM
-
-from ._logger import colors, logger
 
 
 @overload
@@ -51,6 +51,10 @@ def delete(  # type: ignore
         records = records
     elif isinstance(records, ORM):
         records = [records]
-    for record in records:
-        record.delete()
-        logger.success(f"Deleted {colors.yellow(f'{record}')}")
+    with transaction.atomic():
+        for record in records:
+            record.delete()
+        logger.success(
+            "Deleted"
+            f" {colors.yellow(f'{len(records)}')} {ORM.__class__.__name__} records"
+        )

@@ -1,5 +1,6 @@
 from typing import List, Optional
 
+from django.db import transaction
 from django.db.models.query_utils import DeferredAttribute as Field
 from lamin_logger import logger
 from lamindb_setup.dev._docs import doc_args
@@ -78,10 +79,12 @@ def __init__(self, *args, **kwargs):
 @doc_args(FeatureSet.save.__doc__)
 def save(self, *args, **kwargs) -> None:
     """{}"""
+    logger.info("Saving FeatureSet...")
     super(FeatureSet, self).save(*args, **kwargs)
     if hasattr(self, "_features"):
         related_name, records = self._features
-        [record.save() for record in records]
+        with transaction.atomic():
+            [record.save() for record in records]
         getattr(self, related_name).set(records)
 
 
