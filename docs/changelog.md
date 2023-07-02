@@ -1,5 +1,6 @@
 # Changelog
 
+- ♻️ Refactor `FeatureSet` [PR822](https://github.com/laminlabs/lamindb/pull/822) [@falexwolf](https://github.com/falexwolf)
 - 🐛 Fix passing parents to save [PR821](https://github.com/laminlabs/lamindb/pull/821) [@sunnyosun](https://github.com/sunnyosun)
 - 🎨 Allow passing parents=False to ln.save [PR820](https://github.com/laminlabs/lamindb/pull/820) [@sunnyosun](https://github.com/sunnyosun)
 - 🚸 Parse features for `AnnData` [PR818](https://github.com/laminlabs/lamindb/pull/818) [@falexwolf](https://github.com/falexwolf)
