@@ -36,7 +36,7 @@ def install(session, group):
         session.run(*f"pip install --no-deps {submodules}".split())
     extras = ""
     if group == "unit":
-        extras += ",bionty,aws,zarr"
+        extras += ",bionty,aws,zarr,postgres"
     elif group == "guide":
         extras += ",aws,bionty,zarr"
     elif group == "biology":
