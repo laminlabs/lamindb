@@ -179,9 +179,13 @@ class context:
                         )
                     elif isinstance(e, NonInteractiveEditorError):
                         raise e
+                    elif isinstance(e, IndexError):
+                        logger.warning(
+                            "The notebook is not saved, please save the notebook and"
+                            " rerun ln.track()."
+                        )
                     else:
                         logger.warning(f"Automatic tracking of notebook failed: {e}")
-                        raise e
                     is_tracked_notebook = False
 
             if not is_tracked_notebook:
