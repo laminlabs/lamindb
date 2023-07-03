@@ -1,5 +1,6 @@
 # Changelog
 
+- ⬆️ Postgres dep [PR833](https://github.com/laminlabs/lamindb/pull/833) [@sunnyosun](https://github.com/sunnyosun)
 - 🚸 Better error behavior when no notebook title set in `ln.track()` [PR834](https://github.com/laminlabs/lamindb/pull/834) [@Koncopd](https://github.com/Koncopd)
 - 🚚 Move queryset here, enable showing many-to-many fields [PR832](https://github.com/laminlabs/lamindb/pull/832) [@falexwolf](https://github.com/falexwolf)
 - 🚑️ Added atomic transaction to features save and delete [PR828](https://github.com/laminlabs/lamindb/pull/828) [@sunnyosun](https://github.com/sunnyosun)
