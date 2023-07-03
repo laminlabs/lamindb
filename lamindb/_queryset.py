@@ -1,5 +1,6 @@
 from typing import List, Optional
 
+import pandas as pd
 from django.db import models
 
 
@@ -20,13 +21,17 @@ class QuerySet(models.QuerySet):
     support it again in the future, these calls will be supported longtime.
     """
 
-    def df(self, lists: Optional[List[str]] = None):
-        """Return query as DataFrame.
+    def df(
+        self, include: Optional[List[str]] = None, exclude: Optional[List[str]] = None
+    ):
+        """Return as DataFrame.
 
-        Include additional fields.
+        Args:
+            include: ``Optional[List[str]] = None`` Additional fields to
+                include. Takes an expression like ``"cell_types__name"``.
+            exclude: ``Optional[List[str]] = None`` Fields to exclude. For
+                instance, ``"run_id"``.
         """
-        import pandas as pd
-
         data = self.values()
         if len(data) > 0:
             keys = list(data[0].keys())
@@ -51,10 +56,10 @@ class QuerySet(models.QuerySet):
             df.updated_at = df.updated_at.dt.strftime("%Y-%m-%d %H:%M:%S")
         if "id" in df.columns:
             df = df.set_index("id")
-        if lists is not None:
-            if isinstance(lists, str):
-                lists = [lists]
-            for expression in lists:
+        if include is not None:
+            if isinstance(include, str):
+                include = [include]
+            for expression in include:
                 split = expression.split("__")
                 field_name = split[0]
                 if len(split) > 1:
@@ -63,14 +68,24 @@ class QuerySet(models.QuerySet):
                     lookup = "id"
                 ORM = self.model
                 field = getattr(ORM, field_name)
-                expression = f"{field.field.model.__name__.lower()}__{lookup}"
+                values_expression = f"{field.field.model.__name__.lower()}__{lookup}"
                 link_df = pd.DataFrame(
-                    field.through.objects.values(ORM.__name__.lower(), expression)
+                    field.through.objects.values(
+                        ORM.__name__.lower(), values_expression
+                    )
                 )
-                link_groupby = link_df.groupby(ORM.__name__.lower())[expression].apply(
-                    list
-                )
+                link_groupby = link_df.groupby(ORM.__name__.lower())[
+                    values_expression
+                ].apply(list)
                 df = df.join(link_groupby)
+                df.rename(columns={values_expression: expression}, inplace=True)
+        if exclude is not None:
+            if isinstance(exclude, str):
+                exclude = [exclude]
+            columns = df.columns.to_list()
+            for item in exclude:
+                columns.remove(item)
+            df = df[columns]
         return df
 
     def list(self) -> List:
