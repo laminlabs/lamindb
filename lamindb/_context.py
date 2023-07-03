@@ -327,8 +327,10 @@ class context:
                 cls._notebook_meta = metadata  # type: ignore
             else:
                 msg = (
-                    "Please attach metadata to the notebook by running the CLI: "
+                    "\n(1) Save your notebook!"
+                    "\n(2) Attach metadata to the notebook by running the CLI: "
                     f"lamin track {notebook_path}"
+                    "\n(3) Reload or re-open your notebook"
                 )
                 raise InitWithNonInteractiveEditorError(msg)
 
