@@ -184,6 +184,7 @@ class context:
                             "The notebook is not saved, please save the notebook and"
                             " rerun ln.track()."
                         )
+                        return None
                     else:
                         logger.warning(f"Automatic tracking of notebook failed: {e}")
                     is_tracked_notebook = False
