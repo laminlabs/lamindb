@@ -122,6 +122,9 @@ def check_and_attempt_upload(file: File) -> Optional[Exception]:
         except Exception as exception:
             logger.warning(f"Could not upload file: {file}")
             return exception
+    # after successful upload, we should remove the attribute so that another call
+    # call to save won't upload again, the user should call replace() then
+    del file._local_filepath
     # returning None means proceed (either success or no action needed)
     return None
 
