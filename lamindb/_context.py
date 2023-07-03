@@ -385,7 +385,7 @@ class context:
                     cls._notebook_meta = metadata  # type: ignore
                     transform.name = title
                     transform.short_name = filestem
-                    ln.save(transform)
+                    transform.save()
                     if response == "y":
                         logger.success(f"Saved: {transform}")
                     else:
