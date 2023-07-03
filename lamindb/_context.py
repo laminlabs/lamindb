@@ -382,7 +382,10 @@ class context:
                         transform, metadata = reinitialize_notebook(
                             transform.id, metadata
                         )
-                    cls._notebook_meta = metadata  # type: ignore
+                        # only write metadata back to notebook if it actually changed!
+                        # if filename or title changed, this does not merit a write!
+                        # it's dangerous to write unnecessarily
+                        cls._notebook_meta = metadata  # type: ignore
                     transform.name = title
                     transform.short_name = filestem
                     transform.save()
