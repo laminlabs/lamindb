@@ -301,6 +301,14 @@ def log_storage_hint(
     logger.hint(hint)
 
 
+def data_is_anndata(data: DataLike):
+    if isinstance(data, AnnData):
+        return True
+    if isinstance(data, (str, Path, UPath)):
+        return Path(data).suffix in {".h5ad", ".zrad"}
+    return False
+
+
 def __init__(file: File, *args, **kwargs):
     # Below checks for the Django-internal call in from_db()
     # it'd be better if we could avoid this, but not being able to create a File
@@ -350,7 +358,7 @@ def __init__(file: File, *args, **kwargs):
         if isinstance(data, pd.DataFrame):
             feature_set = FeatureSet.from_values(data.columns)
             feature_sets.append(feature_set)
-        elif isinstance(data, AnnData) and var_ref is not None:
+        elif data_is_anndata(data) and var_ref is not None:
             feature_sets.append(FeatureSet.from_values(data.var.index, var_ref))
             feature_sets.append(FeatureSet.from_values(data.obs.columns))
 
