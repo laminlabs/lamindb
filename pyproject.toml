@@ -38,6 +38,7 @@ dependencies = [
 Home = "https://github.com/laminlabs/lamindb"
 
 [project.optional-dependencies]
+postgres = ["psycopg2-binary"]
 aws = [
     "botocore==1.29.76",  # for aiobotocore inside s3fs, to fix deps resolution
     "boto3==1.26.76", # to avoid conflicts arising due to the pin on botocore
@@ -54,7 +55,7 @@ nbproject = [
     "nbproject>=0.9.0"
 ]
 bionty = [
-    "lnschema_bionty==0.25.5",
+    "lnschema_bionty==0.26.0",
 ]
 zarr = [
     "zarr",
@@ -71,8 +72,7 @@ test = [
     "coverage",
     "pytest-cov",
     # others
-    "psycopg2-binary",
-    "nbproject>=0.8.7",
+    "nbproject>=0.9.0",
     "nbproject_test>=0.3.0",
     # biology
     "faker-biology",
