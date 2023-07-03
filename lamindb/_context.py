@@ -204,7 +204,7 @@ class context:
                 # transform has an id but unclear whether already saved
                 transform_exists = ln.select(Transform, id=transform.id).first()
             if transform_exists is None:
-                ln.save(transform)
+                transform.save()
                 logger.success(f"Saved: {transform}")
                 transform_exists = transform
             else:
@@ -215,9 +215,11 @@ class context:
             new_run = False if cls.transform.type == TransformType.notebook.value else True  # type: ignore  # noqa
 
         run = None
-        if not new_run:  # try loading latest run
+        if not new_run:  # try loading latest run by same user
             run = (
-                ln.select(ln.Run, transform=cls.transform)
+                ln.Run.select(
+                    transform=cls.transform, created_by_id=ln.setup.settings.user.id
+                )
                 .order_by("-created_at")
                 .first()
             )
