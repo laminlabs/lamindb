@@ -1,5 +1,6 @@
 # Changelog
 
+- 🚚 Move queryset here, enable showing many-to-many fields [PR832](https://github.com/laminlabs/lamindb/pull/832) [@falexwolf](https://github.com/falexwolf)
 - 🚑️ Added atomic transaction to features save and delete [PR828](https://github.com/laminlabs/lamindb/pull/828) [@sunnyosun](https://github.com/sunnyosun)
 - ✨ Allow annotate to be visible [PR830](https://github.com/laminlabs/lamindb/pull/830) [@falexwolf](https://github.com/falexwolf)
 - 🚨 Remove warnings from zarr writing [PR829](https://github.com/laminlabs/lamindb/pull/829) [@Koncopd](https://github.com/Koncopd)
