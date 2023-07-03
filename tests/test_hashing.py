@@ -7,13 +7,18 @@ from lamindb.dev.hashing import b16_to_b64, hash_file, to_b64_str
 def test_compute_hash():
     files = [
         # filepath, content, hash
-        ("file_1.txt", "a", "DMF1ucDxtqgxw5niaXcmYQ"),
-        ("file_1.txt", "b", "kutf_uauL-w61xx3dTFXjw"),
+        ("a", "DMF1ucDxtqgxw5niaXcmYQ", None),
+        ("b", "kutf_uauL-w61xx3dTFXjw", None),
+        ("abc", "kAFQmDzST7DWlj99KOF_cg", None),
+        ("a", "DMF1ucDxtqgxw5niaXcmYQ", 1),
+        ("b", "kutf_uauL-w61xx3dTFXjw", 1),
+        # the last case here triggers multi-chunk compute with sha1
+        ("abc", "od1ZbYc380Hkre4BIjariX", 1),
     ]
-    for path, content, hash in files:
-        filepath = Path(path)
+    for content, hash, chunk_size in files:
+        filepath = Path("file_1.txt")
         filepath.write_text(content)
-        assert hash == hash_file(filepath)
+        assert hash == hash_file(filepath, chunk_size=chunk_size)
         filepath.unlink()
 
 
