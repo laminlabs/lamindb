@@ -1,6 +1,6 @@
 import traceback
 from functools import partial
-from typing import Iterable, List, Optional, Tuple, Union, overload  # noqa
+from typing import Any, Iterable, List, Optional, Tuple, Union, overload  # noqa
 
 import lamindb_setup
 from django.db import transaction
@@ -92,9 +92,7 @@ def save(record: Union[ORM, Iterable[ORM]], **kwargs) -> None:  # type: ignore
                 record.save()
 
     if files:
-        with transaction.atomic():
-            for record in files:
-                record._save_skip_storage()
+        bulk_create(files)
         store_files(files)
 
     # this function returns None as potentially 10k records might be saved
@@ -153,20 +151,23 @@ def store_files(files: Iterable[File]) -> None:
     If any upload fails, subsequent files are cleaned up from the DB.
     """
     exception: Optional[Exception] = None
-    # because uploads might fail, we need to maintain a new list
-    # of the succeeded uploads
-    stored_files = []
 
-    # upload new local files
-    for file in files:
+    def store_file(file) -> Tuple[Optional[Any], Optional[Exception]]:
         exception = check_and_attempt_upload(file)
         if exception is not None:
-            break
-        stored_files += [file]
+            return None, exception
         exception = check_and_attempt_clearing(file)
         if exception is not None:
             logger.warning(f"clean up of {file._clear_storagekey} failed")
-            break
+        return file, exception
+
+    import multiprocessing
+
+    pool = multiprocessing.Pool(8)
+    stored_files, exceptions = zip(*pool.map(store_file, files))
+
+    print(stored_files)
+    print(exceptions)
 
     if exception is not None:
         # clean up metadata for files not uploaded to storage
