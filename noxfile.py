@@ -42,7 +42,7 @@ def install(session, group):
     elif group == "biology":
         extras += ",bionty,fcs"
     elif group == "faq":
-        extras += ",aws"
+        extras += ",aws,postgres"
     elif group == "storage":
         extras += ",aws,zarr"
     elif group == "docs":
