@@ -1,8 +1,7 @@
-from typing import List, Optional, Union, overload  # noqa
+from typing import List, Union, overload  # noqa
 
+from lamin_logger import colors, logger
 from lnschema_core import ORM
-
-from ._logger import colors, logger
 
 
 @overload
@@ -47,6 +46,7 @@ def delete(  # type: ignore
         >>> file.delete(storage=True)
 
     """
+    logger.warning("For efficient bulk delete, use `queryset.delete` instead")
     if isinstance(records, list):
         records = records
     elif isinstance(records, ORM):

@@ -2,7 +2,8 @@ from typing import Union
 
 from django.db.models import Manager
 from lnschema_core import ORM
-from lnschema_core._queryset import QuerySet
+
+from lamindb._queryset import QuerySet
 
 
 def select(*ORM: ORM, **expressions) -> Union[QuerySet, Manager]:
