@@ -2,6 +2,7 @@ from itertools import islice
 from pathlib import Path, PurePath, PurePosixPath
 from typing import Any, Dict, List, Optional, Tuple, Union, overload  # noqa
 
+import anndata as ad
 import lamindb_setup
 import pandas as pd
 from anndata import AnnData
@@ -359,8 +360,11 @@ def __init__(file: File, *args, **kwargs):
             feature_set = FeatureSet.from_values(data.columns)
             feature_sets.append(feature_set)
         elif data_is_anndata(data) and var_ref is not None:
-            feature_sets.append(FeatureSet.from_values(data.var.index, var_ref))
-            feature_sets.append(FeatureSet.from_values(data.obs.columns))
+            data_parse = data
+            if not isinstance(data, AnnData):  # is a path
+                data_parse = ad.read(data, backed="r")
+            feature_sets.append(FeatureSet.from_values(data_parse.var.index, var_ref))
+            feature_sets.append(FeatureSet.from_values(data_parse.obs.columns))
 
     provisional_id = ids.base62_20()
     kwargs, privates = get_file_kwargs_from_data(
