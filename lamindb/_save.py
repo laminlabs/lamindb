@@ -145,21 +145,22 @@ def check_and_attempt_clearing(file: File) -> Optional[Exception]:
     return None
 
 
+def store_file(file) -> Tuple[Optional[Any], Optional[Exception]]:
+    exception = check_and_attempt_upload(file)
+    if exception is not None:
+        return None, exception
+    exception = check_and_attempt_clearing(file)
+    if exception is not None:
+        logger.warning(f"clean up of {file._clear_storagekey} failed")
+    return file, exception
+
+
 def store_files(files: Iterable[File]) -> None:
     """Upload files in a list of database-committed files to storage.
 
     If any upload fails, subsequent files are cleaned up from the DB.
     """
     exception: Optional[Exception] = None
-
-    def store_file(file) -> Tuple[Optional[Any], Optional[Exception]]:
-        exception = check_and_attempt_upload(file)
-        if exception is not None:
-            return None, exception
-        exception = check_and_attempt_clearing(file)
-        if exception is not None:
-            logger.warning(f"clean up of {file._clear_storagekey} failed")
-        return file, exception
 
     import multiprocessing
 
