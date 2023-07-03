@@ -21,16 +21,18 @@ class QuerySet(models.QuerySet):
     support it again in the future, these calls will be supported longtime.
     """
 
-    def df(
-        self, include: Optional[List[str]] = None, exclude: Optional[List[str]] = None
-    ):
+    def df(self, include: Optional[List[str]] = None):
         """Return as DataFrame.
 
         Args:
-            include: ``Optional[List[str]] = None`` Additional fields to
-                include. Takes an expression like ``"cell_types__name"``.
-            exclude: ``Optional[List[str]] = None`` Fields to exclude. For
-                instance, ``"run_id"``.
+            include: ``Optional[List[str]] = None`` Additional (many-to-many)
+            fields to include. Takes expressions like ``"tags__name"``
+            ``"cell_types__name"``.
+
+        Examples:
+
+            >>> ln.Project.select().df(include=["tags__name", "tags__created_by_id"])
+            >>> df = ln.File.select().df(include="cell_types__name")
         """
         data = self.values()
         if len(data) > 0:
@@ -59,6 +61,8 @@ class QuerySet(models.QuerySet):
         if include is not None:
             if isinstance(include, str):
                 include = [include]
+            # fix ordering
+            include = include[::-1]
             for expression in include:
                 split = expression.split("__")
                 field_name = split[0]
@@ -68,7 +72,14 @@ class QuerySet(models.QuerySet):
                     lookup = "id"
                 ORM = self.model
                 field = getattr(ORM, field_name)
-                values_expression = f"{field.field.model.__name__.lower()}__{lookup}"
+                if not isinstance(field.field, models.ManyToManyField):
+                    raise ValueError("Only many-to-many fields are allowed here.")
+                related_ORM = (
+                    field.field.model
+                    if field.field.model != ORM
+                    else field.field.related_model
+                )
+                values_expression = f"{related_ORM.__name__.lower()}__{lookup}"
                 link_df = pd.DataFrame(
                     field.through.objects.values(
                         ORM.__name__.lower(), values_expression
@@ -77,15 +88,8 @@ class QuerySet(models.QuerySet):
                 link_groupby = link_df.groupby(ORM.__name__.lower())[
                     values_expression
                 ].apply(list)
-                df = df.join(link_groupby)
+                df = pd.concat((link_groupby, df), axis=1)
                 df.rename(columns={values_expression: expression}, inplace=True)
-        if exclude is not None:
-            if isinstance(exclude, str):
-                exclude = [exclude]
-            columns = df.columns.to_list()
-            for item in exclude:
-                columns.remove(item)
-            df = df[columns]
         return df
 
     def list(self) -> List:
