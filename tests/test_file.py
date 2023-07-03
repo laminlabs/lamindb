@@ -57,7 +57,10 @@ def test_create_from_dataframe(name, feature_list):
     file = ln.File(df, name=name, feature_sets=feature_set)
     assert file.description is None if name is None else file.description == name
     assert file.key is None
+    assert hasattr(file, "_local_filepath")
     file.save()
+    # check that the local filepath has been cleared
+    assert not hasattr(file, "_local_filepath")
     if feature_set is None or isinstance(feature_set, ln.FeatureSet):
         feature_set_queried = file.feature_sets.get()  # exactly one
         feature_list_queried = ln.Feature.select(

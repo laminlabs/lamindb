@@ -21,7 +21,15 @@ msg_path_failed = (
 )
 
 
-class NonInteractiveEditorError(Exception):
+class InitWithNonInteractiveEditorError(Exception):
+    pass
+
+
+class NotebookNotSavedError(Exception):
+    pass
+
+
+class NoTitleError(Exception):
     pass
 
 
@@ -177,11 +185,12 @@ class context:
                             " notebook!\nConsider installing nbproject for automatic"
                             " name, title & id tracking."
                         )
-                    elif isinstance(e, NonInteractiveEditorError):
+                    elif isinstance(e, InitWithNonInteractiveEditorError):
+                        raise e
+                    elif isinstance(e, NotebookNotSavedError):
                         raise e
                     else:
                         logger.warning(f"Automatic tracking of notebook failed: {e}")
-                        raise e
                     is_tracked_notebook = False
 
             if not is_tracked_notebook:
@@ -317,11 +326,13 @@ class context:
             if _env in ("lab", "notebook"):
                 cls._notebook_meta = metadata  # type: ignore
             else:
-                msg_init_noninteractive = (
-                    "Please attach metadata to the notebook by running the CLI: "
+                msg = (
+                    "\n(1) Save your notebook!"
+                    "\n(2) Attach metadata to the notebook by running the CLI: "
                     f"lamin track {notebook_path}"
+                    "\n(3) Reload or re-open your notebook"
                 )
-                raise NonInteractiveEditorError(msg_init_noninteractive)
+                raise InitWithNonInteractiveEditorError(msg)
 
         if _env in ("lab", "notebook"):
             # save the notebook in case that title was updated
@@ -332,7 +343,17 @@ class context:
             id = metadata["id"]
             version = metadata["version"]
             filestem = Path(_filepath).stem
-            title = nbproject.meta.live.title
+            try:
+                title = nbproject.meta.live.title
+            except IndexError:
+                raise NotebookNotSavedError(
+                    "The notebook is not saved, please save the notebook and"
+                    " rerun `ln.track()`"
+                )
+            if title is None:
+                raise NoTitleError(
+                    "Please add a title to your notebook in a markdown cell: # Title"
+                )
         else:
             version = "0"
             title = None

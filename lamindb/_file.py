@@ -2,6 +2,7 @@ from itertools import islice
 from pathlib import Path, PurePath, PurePosixPath
 from typing import Any, Dict, List, Optional, Tuple, Union, overload  # noqa
 
+import anndata as ad
 import lamindb_setup
 import pandas as pd
 from anndata import AnnData
@@ -301,6 +302,14 @@ def log_storage_hint(
     logger.hint(hint)
 
 
+def data_is_anndata(data: DataLike):
+    if isinstance(data, AnnData):
+        return True
+    if isinstance(data, (str, Path, UPath)):
+        return Path(data).suffix in {".h5ad", ".zrad"}
+    return False
+
+
 def __init__(file: File, *args, **kwargs):
     # Below checks for the Django-internal call in from_db()
     # it'd be better if we could avoid this, but not being able to create a File
@@ -350,9 +359,12 @@ def __init__(file: File, *args, **kwargs):
         if isinstance(data, pd.DataFrame):
             feature_set = FeatureSet.from_values(data.columns)
             feature_sets.append(feature_set)
-        elif isinstance(data, AnnData) and var_ref is not None:
-            feature_sets.append(FeatureSet.from_values(data.var.index, var_ref))
-            feature_sets.append(FeatureSet.from_values(data.obs.columns))
+        elif data_is_anndata(data) and var_ref is not None:
+            data_parse = data
+            if not isinstance(data, AnnData):  # is a path
+                data_parse = ad.read(data, backed="r")
+            feature_sets.append(FeatureSet.from_values(data_parse.var.index, var_ref))
+            feature_sets.append(FeatureSet.from_values(data_parse.obs.columns))
 
     provisional_id = ids.base62_20()
     kwargs, privates = get_file_kwargs_from_data(

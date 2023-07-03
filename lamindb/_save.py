@@ -74,11 +74,6 @@ def save(record: Union[ORM, Iterable[ORM]], **kwargs) -> None:  # type: ignore
     elif isinstance(record, ORM):
         records = {record}
 
-    def atomic_save(records: Iterable[ORM], **kwargs):
-        with transaction.atomic():
-            for record in records:
-                record.save(**kwargs)
-
     # we're distinguishing between files and non-files
     # because for files, we want to bulk-upload
     # rather than upload one-by-one
@@ -87,12 +82,12 @@ def save(record: Union[ORM, Iterable[ORM]], **kwargs) -> None:  # type: ignore
     if non_files:
         non_files_with_parents = {r for r in non_files if hasattr(r, "_parents")}
         if len(non_files_with_parents) < 2 or kwargs.get("parents") is False:
-            atomic_save(non_files)
+            bulk_create(non_files)
         else:
-            logger.warning("Recursing through parents will take a while...")
             # first save all records without recursing parents
-            atomic_save(non_files, parents=False)
+            bulk_create(non_files)
             # save the record with parents one by one
+            logger.warning("Recursing through parents will take a while...")
             for record in non_files:
                 record.save()
 
@@ -108,6 +103,15 @@ def save(record: Union[ORM, Iterable[ORM]], **kwargs) -> None:  # type: ignore
     return None
 
 
+def bulk_create(records: Iterable[ORM], logging: bool = True):
+    state = any([not r._state.adding for r in records])
+    if logging and state:
+        logger.warning("`ln.save` doesn't handle updates currently, use `orm.save`")
+
+    orm = next(iter(records)).__class__
+    orm.objects.bulk_create(records, ignore_conflicts=True)
+
+
 # This is also used within File.save()
 def check_and_attempt_upload(file: File) -> Optional[Exception]:
     # if File object is either newly instantiated or replace() was called on
@@ -118,6 +122,9 @@ def check_and_attempt_upload(file: File) -> Optional[Exception]:
         except Exception as exception:
             logger.warning(f"Could not upload file: {file}")
             return exception
+        # after successful upload, we should remove the attribute so that another call
+        # call to save won't upload again, the user should call replace() then
+        del file._local_filepath
     # returning None means proceed (either success or no action needed)
     return None
 
