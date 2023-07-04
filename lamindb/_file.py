@@ -520,6 +520,13 @@ def backed(
             f" {', '.join(suffixes)}."
         )
     _track_run_input(self, is_run_input)
+    # consider the case where an object is already locally cached
+    local_path = setup_settings.instance.storage.cloud_to_local_no_update(
+        filepath_from_file(self)
+    )
+    if local_path.exists() and self.suffix == ".h5ad":
+        return ad.read_h5ad(local_path, backed="r")
+
     from lamindb.dev.storage._backed_access import backed_access
 
     return backed_access(self)
