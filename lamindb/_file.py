@@ -11,8 +11,8 @@ from django.db.models.query_utils import DeferredAttribute as Field
 from lamin_logger import colors, logger
 from lamindb_setup import settings as setup_settings
 from lamindb_setup.dev._docs import doc_args
-from lnschema_core import FeatureSet, File, Run, ids
-from lnschema_core.types import DataLike, PathLike
+from lnschema_core import Feature, FeatureSet, File, Run, ids
+from lnschema_core.types import AnnDataLike, DataLike, PathLike
 
 from lamindb._context import context
 from lamindb.dev._settings import settings
@@ -338,7 +338,6 @@ def __init__(file: File, *args, **kwargs):
         kwargs.pop("feature_sets") if "feature_sets" in kwargs else None
     )
     name: Optional[str] = kwargs.pop("name") if "name" in kwargs else None
-    var_ref: Optional[Field] = kwargs.pop("var_ref") if "var_ref" in kwargs else None
     format = kwargs.pop("format") if "format" in kwargs else None
 
     if not len(kwargs) == 0:
@@ -351,23 +350,17 @@ def __init__(file: File, *args, **kwargs):
         description = name
 
     if feature_sets is None:
-        # if var_ref is None:
-        #     response = input(
-        #         "Are you sure you want to create a feature_set without reference?"
-        #         " (y/n)\n  If n: please rerun by providing reference to `var_ref=`"
-        #     )
-        #     if response != "y":
-        #         return None
         feature_sets = []
         if isinstance(data, pd.DataFrame):
-            feature_set = FeatureSet.from_values(data.columns)
-            feature_sets.append(feature_set)
-        elif data_is_anndata(data) and var_ref is not None:
-            data_parse = data
-            if not isinstance(data, AnnData):  # is a path
-                data_parse = ad.read(data, backed="r")
-            feature_sets.append(FeatureSet.from_values(data_parse.var.index, var_ref))
-            feature_sets.append(FeatureSet.from_values(data_parse.obs.columns))
+            logger.hint(
+                "This is a dataframe, consider using File.from_df() to link column"
+                " names as features!"
+            )
+        elif data_is_anndata(data):
+            logger.hint(
+                "This is AnnDataLike, consider using File.from_anndata() to link var"
+                " and obs.columns as features!"
+            )
 
     provisional_id = ids.base62_20()
     kwargs, privates = get_file_kwargs_from_data(
@@ -421,6 +414,45 @@ def __init__(file: File, *args, **kwargs):
         )
 
     super(File, file).__init__(**kwargs)
+
+
+@classmethod  # type: ignore
+@doc_args(File.from_df.__doc__)
+def from_df(
+    cls,
+    df: "pd.DataFrame",
+    columns_ref: Field = Feature.name,
+    key: Optional[str] = None,
+    description: Optional[str] = None,
+    run: Optional[Run] = None,
+) -> "File":
+    """{}"""
+    file = File(data=df, key=key, run=run, description=description)
+    file._feature_sets = [FeatureSet.from_values(df.columns)]
+    return file
+
+
+@classmethod  # type: ignore
+@doc_args(File.from_anndata.__doc__)
+def from_anndata(
+    cls,
+    adata: "AnnDataLike",
+    var_ref: Optional[Field],
+    obs_columns_ref: Optional[Field] = Feature.name,
+    key: Optional[str] = None,
+    description: Optional[str] = None,
+    run: Optional[Run] = None,
+) -> "File":
+    """{}"""
+    file = File(data=adata, key=key, run=run, description=description)
+    data_parse = adata
+    if not isinstance(adata, AnnData):  # is a path
+        data_parse = ad.read(adata, backed="r")
+    feature_sets = []
+    feature_sets.append(FeatureSet.from_values(data_parse.var.index, var_ref))
+    feature_sets.append(FeatureSet.from_values(data_parse.obs.columns))
+    file._feature_sets = feature_sets
+    return file
 
 
 @classmethod  # type: ignore
@@ -673,6 +705,8 @@ def tree(
 
 METHOD_NAMES = [
     "__init__",
+    "from_anndata",
+    "from_df",
     "backed",
     "stage",
     "load",
