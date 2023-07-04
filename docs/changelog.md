@@ -1,5 +1,6 @@
 # Changelog
 
+- 🚸 Return locally backed object instead of cloud backed if available, rename `to_adata()` to `to_memory()` [PR840](https://github.com/laminlabs/lamindb/pull/840) [@falexwolf](https://github.com/falexwolf)
 - 🚸 Create new run if notebook is run by different user [PR838](https://github.com/laminlabs/lamindb/pull/838) [@falexwolf](https://github.com/falexwolf)
 - 🚸 Raise more errors in setup API when instance already setup [PR837](https://github.com/laminlabs/lamindb/pull/837) [@falexwolf](https://github.com/falexwolf)
 - 🚸 Hash large files faster [PR836](https://github.com/laminlabs/lamindb/pull/836) [@falexwolf](https://github.com/falexwolf)
