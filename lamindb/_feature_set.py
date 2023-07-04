@@ -96,10 +96,10 @@ def from_values(
         raise TypeError("Argument `field` must be an ORM field, e.g., `Feature.name`")
     if len(values) == 0:
         raise ValueError("Provide a list of at least one value")
-    if not isinstance(values[0], (str, int)):
-        raise TypeError("values should be list-like of str or int")
     orm = field.field.model
     iterable_idx = index_iterable(values)
+    if not isinstance(iterable_idx[0], (str, int)):
+        raise TypeError("values should be list-like of str or int")
     features_hash = hash_set(set(iterable_idx))
     feature_set = FeatureSet.select(id=features_hash).one_or_none()
     if feature_set is not None:
