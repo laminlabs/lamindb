@@ -155,20 +155,39 @@ def store_file(file) -> Tuple[Optional[Any], Optional[Exception]]:
     return file, exception
 
 
+def single_upload(input_tuple):
+    bucket, file = input_tuple
+    if hasattr(file, "_local_filepath"):
+        print(f" uploading {file.id}", end=" ")
+        bucket.upload_file(file._local_filepath, auto_storage_key_from_file(file))
+    else:
+        print(f" skipping {file.id}", end=" ")
+
+
 def store_files(files: Iterable[File]) -> None:
     """Upload files in a list of database-committed files to storage.
 
     If any upload fails, subsequent files are cleaned up from the DB.
     """
     exception: Optional[Exception] = None
+    import itertools
+    from multiprocessing.pool import ThreadPool
 
-    import multiprocessing
+    import boto3
 
-    pool = multiprocessing.Pool(8)
-    stored_files, exceptions = zip(*pool.map(store_file, files))
+    bucket = boto3.resource("s3").Bucket(
+        lamindb_setup.settings.storage.root_as_str.replace("s3://", "")
+    )
+    with ThreadPool(10) as pool:
+        list(
+            pool.imap(
+                single_upload,
+                zip(itertools.repeat(bucket), files),
+            )
+        )
 
-    print(stored_files)
-    print(exceptions)
+    stored_files = []  # type: ignore
+    exception = None
 
     if exception is not None:
         # clean up metadata for files not uploaded to storage
