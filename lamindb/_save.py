@@ -25,6 +25,13 @@ except ImportError:
 def save(records: Iterable[ORM], **kwargs) -> None:  # type: ignore
     """Bulk save to database & storage.
 
+    .. info:
+
+        This is a much **faster** way to save many records in the database.
+
+        It neither automatically creates related records nor updates existing records!
+        Use ``ORM.save()`` for these use cases.
+
     Args:
         records: One or multiple ``ORM`` objects.
 
@@ -36,7 +43,7 @@ def save(records: Iterable[ORM], **kwargs) -> None:  # type: ignore
         >>> projects = [ln.Project(f"Project {i}") for i in range(10)]
         >>> ln.save(projects)
 
-        You can also save a single record, but we recommend `.save()` for it:
+        For a single record, use ``.save()``:
 
         >>> transform = ln.Transform(name="My pipeline")
         >>> transform.save()
@@ -67,8 +74,8 @@ def save(records: Iterable[ORM], **kwargs) -> None:  # type: ignore
             bulk_create(non_files)
             # save the record with parents one by one
             logger.warning(
-                "Now *recursing* through parents. "
-                "This only happens once, but is much slower than bulk saving."
+                "Now recursing through parents: "
+                "this only happens once, but is much slower than bulk saving"
             )
             for record in non_files:
                 record.save()
@@ -85,11 +92,7 @@ def save(records: Iterable[ORM], **kwargs) -> None:  # type: ignore
     return None
 
 
-def bulk_create(records: Iterable[ORM], logging: bool = True):
-    state = any([not r._state.adding for r in records])
-    if logging and state:
-        logger.warning("`ln.save` doesn't handle updates currently, use `orm.save`")
-
+def bulk_create(records: Iterable[ORM]):
     orm = next(iter(records)).__class__
     orm.objects.bulk_create(records, ignore_conflicts=True)
 
