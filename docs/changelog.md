@@ -1,5 +1,6 @@
 # Changelog
 
+- 🩹 Fix error on read partial when no spec is present [PR842](https://github.com/laminlabs/lamindb/pull/842) [@Koncopd](https://github.com/Koncopd)
 - 🎉 Stage 0.46 (annotate, ...) [PR831](https://github.com/laminlabs/lamindb/pull/831) [@falexwolf](https://github.com/falexwolf)
 - ⬆️ Postgres dep [PR833](https://github.com/laminlabs/lamindb/pull/833) [@sunnyosun](https://github.com/sunnyosun)
 - 🚸 Better error behavior when no notebook title set in `ln.track()` [PR834](https://github.com/laminlabs/lamindb/pull/834) [@Koncopd](https://github.com/Koncopd)
