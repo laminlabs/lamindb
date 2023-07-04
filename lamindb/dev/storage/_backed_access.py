@@ -214,7 +214,7 @@ if ZARR_INSTALLED:
 
             return prepare_adata
 
-        def to_adata(self):
+        def to_memory(self):
             adata = AnnData(**self.to_dict())
             return adata
 

@@ -204,7 +204,7 @@ class context:
                 # transform has an id but unclear whether already saved
                 transform_exists = ln.select(Transform, id=transform.id).first()
             if transform_exists is None:
-                ln.save(transform)
+                transform.save()
                 logger.success(f"Saved: {transform}")
                 transform_exists = transform
             else:
@@ -215,9 +215,11 @@ class context:
             new_run = False if cls.transform.type == TransformType.notebook.value else True  # type: ignore  # noqa
 
         run = None
-        if not new_run:  # try loading latest run
+        if not new_run:  # try loading latest run by same user
             run = (
-                ln.select(ln.Run, transform=cls.transform)
+                ln.Run.select(
+                    transform=cls.transform, created_by_id=ln.setup.settings.user.id
+                )
                 .order_by("-created_at")
                 .first()
             )
@@ -382,10 +384,13 @@ class context:
                         transform, metadata = reinitialize_notebook(
                             transform.id, metadata
                         )
-                    cls._notebook_meta = metadata  # type: ignore
+                        # only write metadata back to notebook if it actually changed!
+                        # if filename or title changed, this does not merit a write!
+                        # it's dangerous to write unnecessarily
+                        cls._notebook_meta = metadata  # type: ignore
                     transform.name = title
                     transform.short_name = filestem
-                    ln.save(transform)
+                    transform.save()
                     if response == "y":
                         logger.success(f"Saved: {transform}")
                     else:

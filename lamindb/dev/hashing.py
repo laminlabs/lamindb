@@ -10,7 +10,6 @@
 
 import base64
 import hashlib
-from pathlib import Path
 from typing import Set
 
 
@@ -30,10 +29,22 @@ def hash_set(s: Set[str]) -> str:
     return to_b64_str(hashlib.md5(bstr).digest())[:20]
 
 
-def hash_file(path: Path) -> str:
-    # based on https://stackoverflow.com/questions/3431825/generating-an-md5-hash-of-a-file  # noqa
-    hash_md5 = hashlib.md5()
-    with open(path, "rb") as file:
-        for chunk in iter(lambda: file.read(4096), b""):
-            hash_md5.update(chunk)
-    return to_b64_str(hash_md5.digest())
+def hash_file(file_path, chunk_size=50 * 1024 * 1024):
+    chunks = []
+    with open(file_path, "rb") as fp:
+        # read first chunk
+        chunks = [fp.read(chunk_size)]
+        # try reading the 2nd chunk
+        data = fp.read(chunk_size)
+        if data:
+            # go to end of file
+            fp.seek(-chunk_size, 2)
+            # read last chunk
+            data = fp.read(chunk_size)
+            chunks.append(data)
+    if len(chunks) == 1:
+        digest = hashlib.md5(chunks[0]).digest()
+    else:
+        digests = b"".join(hashlib.sha1(chunks[0]).digest() for chunk in chunks)
+        digest = hashlib.sha1(digests).digest()
+    return to_b64_str(digest)[:22]

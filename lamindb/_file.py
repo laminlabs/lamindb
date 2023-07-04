@@ -107,10 +107,13 @@ def get_hash(filepath, suffix, check_hash: bool = True) -> Optional[Union[str, F
         return None
     if isinstance(filepath, UPath):
         stat = filepath.stat()
-        if "ETag" in stat:
+        if "ETag" in stat and "-" not in stat["ETag"]:
+            # only store hash for non-multipart uploads
+            # we can't rapidly validate multi-part uploaded files client-side
+            # we can add more logic later down-the-road
             hash = b16_to_b64(stat["ETag"])
         else:
-            logger.warning(f"Did not find hash for filepath {filepath}")
+            logger.warning(f"Did not add hash for {filepath}")
     else:
         hash = hash_file(filepath)
     if not check_hash:
@@ -517,6 +520,13 @@ def backed(
             f" {', '.join(suffixes)}."
         )
     _track_run_input(self, is_run_input)
+    # consider the case where an object is already locally cached
+    local_path = setup_settings.instance.storage.cloud_to_local_no_update(
+        filepath_from_file(self)
+    )
+    if local_path.exists() and self.suffix == ".h5ad":
+        return ad.read_h5ad(local_path, backed="r")
+
     from lamindb.dev.storage._backed_access import backed_access
 
     return backed_access(self)
