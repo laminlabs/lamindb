@@ -22,57 +22,43 @@ except ImportError:
         raise ImportError("Please install zarr: pip install zarr")
 
 
-@overload
-def save(record: ORM) -> ORM:
-    ...
+def save(records: Iterable[ORM], **kwargs) -> None:  # type: ignore
+    """Bulk save to database & storage.
 
+    .. info:
 
-# Currently seeing the following error without type ignore:
-# Overloaded function signature 2 will never be matched: signature 1's parameter
-# type(s) are the same or broader
-@overload
-def save(records: Iterable[ORM]) -> Iterable[ORM]:  # type: ignore
-    ...
+        This is a much **faster** way to save many records in the database.
 
-
-def save(record: Union[ORM, Iterable[ORM]], **kwargs) -> None:  # type: ignore
-    """Save to database & storage.
-
-    Inserts a new :term:`record` if the corresponding row doesn't exist.
-    Updates the corresponding row with the record if it exists.
-
-    To update a row, query it with `.select` and modify it before
-    passing it to `save`.
+        It neither automatically creates related records nor updates existing records!
+        Use ``ORM.save()`` for these use cases.
 
     Args:
-        record: One or multiple `ORM` objects.
-
-    Returns:
-        The record as returned from the database with a `created_at` timestamp.
+        records: One or multiple ``ORM`` objects.
 
     Examples:
 
-        Save a record (errors if already exists):
-
-        >>> transform = ln.Transform(name="My pipeline")
-        >>> ln.save(transform)  # equivalent to transform.save()
-
-        Save a collection of records in one transaction:
+        Save a collection of records in one transaction, which is much faster
+        than writing a loop over calls ``projects.save()``:
 
         >>> projects = [ln.Project(f"Project {i}") for i in range(10)]
         >>> ln.save(projects)
 
-        Update an existing record:
+        For a single record, use ``.save()``:
+
+        >>> transform = ln.Transform(name="My pipeline")
+        >>> transform.save()
+
+        Update a single existing record:
 
         >>> transform = ln.select(ln.Transform, id="0Cb86EZj").one()
         >>> transform.name = "New name"
-        >>> ln.save(transform)  # equivalent to transform.save()
+        >>> transform.save()
 
     """
-    if isinstance(record, Iterable):
-        records = set(record)
-    elif isinstance(record, ORM):
-        records = {record}
+    if isinstance(records, Iterable):
+        records = set(records)
+    elif isinstance(records, ORM):
+        records = {records}
 
     # we're distinguishing between files and non-files
     # because for files, we want to bulk-upload
@@ -87,7 +73,10 @@ def save(record: Union[ORM, Iterable[ORM]], **kwargs) -> None:  # type: ignore
             # first save all records without recursing parents
             bulk_create(non_files)
             # save the record with parents one by one
-            logger.warning("Recursing through parents will take a while...")
+            logger.warning(
+                "Now recursing through parents: "
+                "this only happens once, but is much slower than bulk saving"
+            )
             for record in non_files:
                 record.save()
 
@@ -103,11 +92,7 @@ def save(record: Union[ORM, Iterable[ORM]], **kwargs) -> None:  # type: ignore
     return None
 
 
-def bulk_create(records: Iterable[ORM], logging: bool = True):
-    state = any([not r._state.adding for r in records])
-    if logging and state:
-        logger.warning("`ln.save` doesn't handle updates currently, use `orm.save`")
-
+def bulk_create(records: Iterable[ORM]):
     orm = next(iter(records)).__class__
     orm.objects.bulk_create(records, ignore_conflicts=True)
 
