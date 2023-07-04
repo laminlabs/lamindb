@@ -1,5 +1,6 @@
 # Changelog
 
+- 🎉 Stage 0.46 (hashing, backed, parents) [PR835](https://github.com/laminlabs/lamindb/pull/835) [@falexwolf](https://github.com/falexwolf)
 - ⚡️ Speed up parents creation [PR841](https://github.com/laminlabs/lamindb/pull/841) [@falexwolf](https://github.com/falexwolf)
 - 🚸 Return locally backed object instead of cloud backed if available, rename `to_adata()` to `to_memory()` [PR840](https://github.com/laminlabs/lamindb/pull/840) [@falexwolf](https://github.com/falexwolf)
 - 🚸 Create new run if notebook is run by different user [PR838](https://github.com/laminlabs/lamindb/pull/838) [@falexwolf](https://github.com/falexwolf)
