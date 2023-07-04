@@ -78,7 +78,7 @@ def save(records: Iterable[ORM], **kwargs) -> None:  # type: ignore
                 "this only happens once, but is much slower than bulk saving"
             )
             for record in non_files:
-                record.save()
+                record._save_ontology_parents()
 
     if files:
         with transaction.atomic():
