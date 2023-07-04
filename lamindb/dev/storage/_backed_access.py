@@ -60,6 +60,20 @@ if ZARR_INSTALLED:
 
         return read_elem(elem)
 
+    def _safer_read_partial(elem, indices):
+        if get_spec(elem).encoding_type == "":
+            if isinstance(elem, h5py.Datatset):
+                return elem[indices]
+            elif isinstance(elem, zarr.Array):
+                return elem.oindex[indices]
+            else:
+                raise ValueError(
+                    "Can not get a subset of the element of type"
+                    f" {type(elem).__name__} with an empty spec."
+                )
+        else:
+            return read_elem_partial(elem, indices=indices)
+
     class _MapAccessor:
         def __init__(self, elem, name, indices=None):
             self.elem = elem
@@ -70,7 +84,7 @@ if ZARR_INSTALLED:
             if self.indices is None:
                 return _try_backed_full(self.elem[key])
             else:
-                return read_elem_partial(self.elem[key], indices=self.indices)
+                return _safer_read_partial(self.elem[key], indices=self.indices)
 
         def keys(self):
             return list(self.elem.keys())
@@ -92,7 +106,7 @@ if ZARR_INSTALLED:
             indices = getattr(self, "indices", None)
             if indices is not None:
                 indices = (indices[0], slice(None))
-                return read_elem_partial(self.storage["obs"], indices=indices)
+                return _safer_read_partial(self.storage["obs"], indices=indices)
             else:
                 return _read_dataframe(self.storage["obs"])
 
@@ -103,7 +117,7 @@ if ZARR_INSTALLED:
             indices = getattr(self, "indices", None)
             if indices is not None:
                 indices = (indices[1], slice(None))
-                return read_elem_partial(self.storage["var"], indices=indices)
+                return _safer_read_partial(self.storage["var"], indices=indices)
             else:
                 return _read_dataframe(self.storage["var"])
 
@@ -117,7 +131,7 @@ if ZARR_INSTALLED:
         def X(self):
             indices = getattr(self, "indices", None)
             if indices is not None:
-                return read_elem_partial(self.storage["X"], indices=indices)
+                return _safer_read_partial(self.storage["X"], indices=indices)
             else:
                 return _try_backed_full(self.storage["X"])
 

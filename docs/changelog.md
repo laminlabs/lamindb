@@ -5,7 +5,7 @@
 - 🚸 Create new run if notebook is run by different user [PR838](https://github.com/laminlabs/lamindb/pull/838) [@falexwolf](https://github.com/falexwolf)
 - 🚸 Raise more errors in setup API when instance already setup [PR837](https://github.com/laminlabs/lamindb/pull/837) [@falexwolf](https://github.com/falexwolf)
 - 🚸 Hash large files faster [PR836](https://github.com/laminlabs/lamindb/pull/836) [@falexwolf](https://github.com/falexwolf)
-- 🎉 Stage 0.46 (annotate, ...) [PR831](https://github.com/laminlabs/lamindb/pull/831) [@falexwolf](https://github.com/falexwolf)
+- 🩹 Fix error on read partial when no spec is present [PR842](https://github.com/laminlabs/lamindb/pull/842) [@Koncopd](https://github.com/Koncopd)
 - ⬆️ Postgres dep [PR833](https://github.com/laminlabs/lamindb/pull/833) [@sunnyosun](https://github.com/sunnyosun)
 - 🚸 Better error behavior when no notebook title set in `ln.track()` [PR834](https://github.com/laminlabs/lamindb/pull/834) [@Koncopd](https://github.com/Koncopd)
 - 🚚 Move queryset here, enable showing many-to-many fields [PR832](https://github.com/laminlabs/lamindb/pull/832) [@falexwolf](https://github.com/falexwolf)
