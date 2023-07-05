@@ -339,6 +339,7 @@ def __init__(file: File, *args, **kwargs):
     )
     name: Optional[str] = kwargs.pop("name") if "name" in kwargs else None
     format = kwargs.pop("format") if "format" in kwargs else None
+    log_hint = kwargs.pop("log_hint") if "log_hint" in kwargs else True
 
     if not len(kwargs) == 0:
         raise ValueError("Only data, key, run, name & feature_sets can be passed.")
@@ -351,12 +352,12 @@ def __init__(file: File, *args, **kwargs):
 
     if feature_sets is None:
         feature_sets = []
-        if isinstance(data, pd.DataFrame):
+        if isinstance(data, pd.DataFrame) and log_hint:
             logger.hint(
                 "This is a dataframe, consider using File.from_df() to link column"
                 " names as features!"
             )
-        elif data_is_anndata(data):
+        elif data_is_anndata(data) and log_hint:
             logger.hint(
                 "This is AnnDataLike, consider using File.from_anndata() to link var"
                 " and obs.columns as features!"
@@ -427,7 +428,7 @@ def from_df(
     run: Optional[Run] = None,
 ) -> "File":
     """{}"""
-    file = File(data=df, key=key, run=run, description=description)
+    file = File(data=df, key=key, run=run, description=description, log_hint=False)
     file._feature_sets = [FeatureSet.from_values(df.columns)]
     return file
 
@@ -444,7 +445,7 @@ def from_anndata(
     run: Optional[Run] = None,
 ) -> "File":
     """{}"""
-    file = File(data=adata, key=key, run=run, description=description)
+    file = File(data=adata, key=key, run=run, description=description, log_hint=False)
     data_parse = adata
     if not isinstance(adata, AnnData):  # is a path
         data_parse = ad.read(adata, backed="r")

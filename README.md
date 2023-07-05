@@ -5,9 +5,9 @@
 
 # LaminDB
 
-Open-source data lake, warehouse & feature store for biology.
+Open-source data lake & feature store for biology.
 
-Manage your existing data & analyses in your existing infrastructure.
+Manage your existing R&D data & analyses in your existing infrastructure.
 
 ```{warning}
 
@@ -24,19 +24,14 @@ Update 2023-06-14:
 LaminDB is a free & open-source Python library allowing you to:
 
 - Manage files & datasets while tracking [provenance](https://lamin.ai/docs/guide/data-lineage) across pipelines, notebooks & apps.
-- Manage biological [registries](https://lamin.ai/docs/biology/registries), [ontologies](https://lamin.ai/docs/bionty/) & features.
+- Manage biological [registries](https://lamin.ai/docs/biology/registries), [ontologies](https://lamin.ai/docs/bionty/), features & schemas.
 - Build in data integrity through automated validation and [idempotent](https://lamin.ai/docs/faq/idempotency) & [ACID](https://lamin.ai/docs/faq/acid) operations.
-- Use a simple API for common tasks like:
-  - [Queries, searches & look ups](https://lamin.ai/docs/guide/select).
-  - Saving, loading & [streaming](https://lamin.ai/docs/guide/stream) of data objects.
-- Collaborate across a mesh of LaminDB instances ([share them in a hub](https://lamin.ai/laminlabs) akin to GitHub).
+- Use one API for metadata & data to [query, search & look-up](https://lamin.ai/docs/guide/select) and save, load & [stream](https://lamin.ai/docs/guide/stream) data.
+- Collaborate across a mesh of LaminDB instances ([share them in a hub](https://lamin.ai/laminlabs)).
 
-LaminApp is a closed-source data management app built on LaminDB. Think LaminDB ~ git & LaminApp ~ GitHub.
+LaminApp is a data management app built on LaminDB, deployable in your infrastructure. Think LaminApp ~ GitHub and LaminDB ~ git.
 
-LaminApp & support is currently only available on an enterprise plan:
-
-- LaminApp: Explore & collaborate on data in a UI based on LaminDB (deployable in your infrastructure).
-- Services: Support & code templates for a BioTech data & analytics platform.
+LaminApp, support & code templates for a BioTech data & analytics platform are currently only available on an enterprise plan.
 
 ## Usage overview & quick start
 
