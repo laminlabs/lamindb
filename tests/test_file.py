@@ -35,7 +35,7 @@ def test_signatures():
         pass
 
     # class methods
-    class_methods = ["tree", "from_dir"]
+    class_methods = ["tree", "from_dir", "from_df", "from_anndata"]
     for name in class_methods:
         setattr(Mock, name, getattr(_file, name))
         assert signature(getattr(Mock, name)) == _file.SIGS.pop(name)
@@ -61,7 +61,7 @@ def test_create_from_dataframe(name, feature_list):
     file.save()
     # check that the local filepath has been cleared
     assert not hasattr(file, "_local_filepath")
-    if feature_set is None or isinstance(feature_set, ln.FeatureSet):
+    if isinstance(feature_set, ln.FeatureSet):
         feature_set_queried = file.feature_sets.get()  # exactly one
         feature_list_queried = ln.Feature.select(
             feature_sets=feature_set_queried
@@ -71,6 +71,25 @@ def test_create_from_dataframe(name, feature_list):
             assert set(feature_list_queried) == set(df.columns)
         else:
             assert set(feature_list_queried) == set(feature_list)
+        feature_set_queried.delete()
+    else:
+        assert len(file.feature_sets.all()) == 0
+    file.delete(storage=True)
+
+
+@pytest.mark.parametrize("description", [None, "my name"])
+def test_create_from_df(description):
+    file = ln.File.from_df(df, description=description)
+    assert file.description == description
+    assert file.key is None
+    assert hasattr(file, "_local_filepath")
+    file.save()
+    # check that the local filepath has been cleared
+    assert not hasattr(file, "_local_filepath")
+    feature_set_queried = file.feature_sets.get()  # exactly one
+    feature_list_queried = ln.Feature.select(feature_sets=feature_set_queried).list()
+    feature_list_queried = [feature.name for feature in feature_list_queried]
+    assert set(feature_list_queried) == set(df.columns)
     file.delete(storage=True)
 
 

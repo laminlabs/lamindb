@@ -55,8 +55,8 @@ def suggest_objects_with_same_name(orm: ORM, kwargs) -> Optional[str]:
         if results.shape[0] == 0:
             return None
 
-        # subset results to those with at least 0.5 levensteihn distance
-        results = results.loc[results.__ratio__ >= 90]
+        # subset results to those with at least 0.85 levensteihn distance
+        results = results.loc[results.__ratio__ >= 85]
 
         # test for exact match
         if len(results) > 0:

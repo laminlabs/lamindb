@@ -13,8 +13,8 @@ The core schema entities are central to lamindb's API:
 .. autosummary::
    :toctree: .
 
-   Dataset
    File
+   Dataset
    Transform
    Run
    Feature
