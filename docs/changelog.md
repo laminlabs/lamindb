@@ -1,54 +1,32 @@
 # Changelog
 
-- 🎉 Stage 0.46 (from_df, from_anndata, docs) [PR845](https://github.com/laminlabs/lamindb/pull/845) [@falexwolf](https://github.com/falexwolf)
-- 📝 Improve tutorial & fix docstrings [PR846](https://github.com/laminlabs/lamindb/pull/846) [@falexwolf](https://github.com/falexwolf)
-- ✨ Add `from_df` and `from_anndata` to `File` [PR844](https://github.com/laminlabs/lamindb/pull/844) [@falexwolf](https://github.com/falexwolf)
-- 🐛 Check type after na removal [PR843](https://github.com/laminlabs/lamindb/pull/843) [@sunnyosun](https://github.com/sunnyosun)
-- 🎉 Stage 0.46 (hashing, backed, parents) [PR835](https://github.com/laminlabs/lamindb/pull/835) [@falexwolf](https://github.com/falexwolf)
-- ⚡️ Speed up parents creation [PR841](https://github.com/laminlabs/lamindb/pull/841) [@falexwolf](https://github.com/falexwolf)
-- 🚸 Return locally backed object instead of cloud backed if available, rename `to_adata()` to `to_memory()` [PR840](https://github.com/laminlabs/lamindb/pull/840) [@falexwolf](https://github.com/falexwolf)
-- 🚸 Create new run if notebook is run by different user [PR838](https://github.com/laminlabs/lamindb/pull/838) [@falexwolf](https://github.com/falexwolf)
-- 🚸 Raise more errors in setup API when instance already setup [PR837](https://github.com/laminlabs/lamindb/pull/837) [@falexwolf](https://github.com/falexwolf)
-- 🚸 Hash large files faster [PR836](https://github.com/laminlabs/lamindb/pull/836) [@falexwolf](https://github.com/falexwolf)
-- 🩹 Fix error on read partial when no spec is present [PR842](https://github.com/laminlabs/lamindb/pull/842) [@Koncopd](https://github.com/Koncopd)
-- ⬆️ Postgres dep [PR833](https://github.com/laminlabs/lamindb/pull/833) [@sunnyosun](https://github.com/sunnyosun)
-- 🚸 Better error behavior when no notebook title set in `ln.track()` [PR834](https://github.com/laminlabs/lamindb/pull/834) [@Koncopd](https://github.com/Koncopd)
-- 🚚 Move queryset here, enable showing many-to-many fields [PR832](https://github.com/laminlabs/lamindb/pull/832) [@falexwolf](https://github.com/falexwolf)
-- 🚑️ Added atomic transaction to features save and delete [PR828](https://github.com/laminlabs/lamindb/pull/828) [@sunnyosun](https://github.com/sunnyosun)
-- ✨ Allow annotate to be visible [PR830](https://github.com/laminlabs/lamindb/pull/830) [@falexwolf](https://github.com/falexwolf)
-- 🚨 Remove warnings from zarr writing [PR829](https://github.com/laminlabs/lamindb/pull/829) [@Koncopd](https://github.com/Koncopd)
-- 🎉 Stage 0.46 (refactor features, file description, setup behavior, species setting) [PR826](https://github.com/laminlabs/lamindb/pull/826) [@falexwolf](https://github.com/falexwolf)
-- 🐛 Fix species bug for no-species orms [PR827](https://github.com/laminlabs/lamindb/pull/827) [@sunnyosun](https://github.com/sunnyosun)
-- 🚸 More user-friendly errors if instance not setup [PR825](https://github.com/laminlabs/lamindb/pull/825) [@falexwolf](https://github.com/falexwolf)
+## 0.46a1 (2023-07-05)
+
+### Highlights
+
+- ✨ Enable hierarchical metadata, e.g., cell types, tissues, etc. [PR810](https://github.com/laminlabs/lamindb/pull/810) [@sunnyosun](https://github.com/sunnyosun)
+- ✨ Add `Dataset` & `Feature` ORMs, e.g., easily track column names of dataframes [PR805](https://github.com/laminlabs/lamindb/pull/805) [@falexwolf](https://github.com/falexwolf)
+
+### Breaking changes
+
 -  🚚 Rename `File.name` to `File.description` [PR824](https://github.com/laminlabs/lamindb/pull/824) [@falexwolf](https://github.com/falexwolf)
-- ♻️ Refactor `FeatureSet` [PR822](https://github.com/laminlabs/lamindb/pull/822) [@falexwolf](https://github.com/falexwolf)
-- 🐛 Fix passing parents to save [PR821](https://github.com/laminlabs/lamindb/pull/821) [@sunnyosun](https://github.com/sunnyosun)
-- 🎨 Allow passing parents=False to ln.save [PR820](https://github.com/laminlabs/lamindb/pull/820) [@sunnyosun](https://github.com/sunnyosun)
-- 🚸 Parse features for `AnnData` [PR818](https://github.com/laminlabs/lamindb/pull/818) [@falexwolf](https://github.com/falexwolf)
-- 🚑️ Handles categorical input for map_synonyms [PR819](https://github.com/laminlabs/lamindb/pull/819) [@sunnyosun](https://github.com/sunnyosun)
-- 🎉 Stage 0.46 (refactor, signatures, fixes) [PR814](https://github.com/laminlabs/lamindb/pull/814) [@falexwolf](https://github.com/falexwolf)
-- 🚑️ Allow bulk saving of parents [PR816](https://github.com/laminlabs/lamindb/pull/816) [@sunnyosun](https://github.com/sunnyosun)
-- 📝 Fix docs [PR817](https://github.com/laminlabs/lamindb/pull/817) [@falexwolf](https://github.com/falexwolf)
-- 🚚 Move `File` signatures [PR815](https://github.com/laminlabs/lamindb/pull/815) [@falexwolf](https://github.com/falexwolf)
-- ♻️ Put things where they should be and test `ORM` signatures [PR813](https://github.com/laminlabs/lamindb/pull/813) [@falexwolf](https://github.com/falexwolf)
-- 🎉 Stage release 0.46 (`Dataset`, `Feature`, hierarchical ORMs) [PR806](https://github.com/laminlabs/lamindb/pull/806) [@falexwolf](https://github.com/falexwolf)
-- ✨ Also enable `Dataset` from `AnnData` [PR812](https://github.com/laminlabs/lamindb/pull/812) [@falexwolf](https://github.com/falexwolf)
-- ✨ Added self-referential parents, renamed abbr and description [PR810](https://github.com/laminlabs/lamindb/pull/810) [@sunnyosun](https://github.com/sunnyosun)
-- ✨ Enable `Dataset` to be sharded [PR809](https://github.com/laminlabs/lamindb/pull/809) [@falexwolf](https://github.com/falexwolf)
+
+### UX
+
+- 🚚 Easy display of many-to-many fields: `QuerySet.df(include=[field__name])` [PR832](https://github.com/laminlabs/lamindb/pull/832) [@falexwolf](https://github.com/falexwolf)
+- 🚸 Create new run if notebook is run by different user [PR838](https://github.com/laminlabs/lamindb/pull/838) [@falexwolf](https://github.com/falexwolf)
+- 🚸 Speed up bulk saving of records [PR828](https://github.com/laminlabs/lamindb/pull/828) [@sunnyosun](https://github.com/sunnyosun)
+- 🚸 Hash large files faster [PR836](https://github.com/laminlabs/lamindb/pull/836) [@falexwolf](https://github.com/falexwolf)
+- ✨ Add `from_df` and `from_anndata` to `File` [PR844](https://github.com/laminlabs/lamindb/pull/844) [@falexwolf](https://github.com/falexwolf)
+- 🚸 Return locally backed object instead of cloud backed if available [PR840](https://github.com/laminlabs/lamindb/pull/840) [@falexwolf](https://github.com/falexwolf)
+- 🚸 Raise more & more user-friendly errors in setup API when instance already setup [PR837](https://github.com/laminlabs/lamindb/pull/837) [@falexwolf](https://github.com/falexwolf)
+- 🚸 Better error behavior when no notebook title set in `ln.track()` [PR834](https://github.com/laminlabs/lamindb/pull/834) [@Koncopd](https://github.com/Koncopd)
 - 🚸 Store hash for remote files on S3 [PR808](https://github.com/laminlabs/lamindb/pull/808) [@falexwolf](https://github.com/falexwolf)
-- ✨ Add `Dataset` & `Feature` ORMs [PR805](https://github.com/laminlabs/lamindb/pull/805) [@falexwolf](https://github.com/falexwolf)
-- 🐛 Fix the variable bug in File.delete [PR811](https://github.com/laminlabs/lamindb/pull/811) [@Koncopd](https://github.com/Koncopd)
 
 ## 0.45.0 (2023-06-27)
 
-### Features
-
 - ♻️ Replaced `ln.parse` with `ORM.from_values` [PR803](https://github.com/laminlabs/lamindb/pull/803) [@sunnyosun](https://github.com/sunnyosun)
-
-### Refactors
-
 - 🎨 Auto-manage `RunInput` ORM [PR802](https://github.com/laminlabs/lamindb/pull/802) [@falexwolf](https://github.com/falexwolf)
-- ✅ Add some unit tests for storage [PR801](https://github.com/laminlabs/lamindb/pull/801) [@Koncopd](https://github.com/Koncopd)
 
 ## 0.44.2 (2023-06-23)
 
@@ -56,7 +34,7 @@
 
 ## 0.44.1 (2023-06-22)
 
-- ✨ Add `inspect` and `add_synonym` to `BaseORM` [PR797](https://github.com/laminlabs/lamindb/pull/797) [@sunnyosun](https://github.com/sunnyosun)
+- ✨ Add `inspect` and `add_synonym` to `ORM` [PR797](https://github.com/laminlabs/lamindb/pull/797) [@sunnyosun](https://github.com/sunnyosun)
 - 🔧 Rename extra `nbproject` to `jupyter` and add `fcs` extra to docs [PR798](https://github.com/laminlabs/lamindb/pull/798) [@falexwolf](https://github.com/falexwolf)
 - 🚚 Move default storage location from `lndb/` to `.lamindb/` [PR796](https://github.com/laminlabs/lamindb/pull/796) [@falexwolf](https://github.com/falexwolf)
 - 🚸 `ln.Folder` becomes `ln.Tag` & directories now modeled as prefixes (as on S3) [PR794](https://github.com/laminlabs/lamindb/pull/794) [@falexwolf](https://github.com/falexwolf)
@@ -67,7 +45,7 @@
 ### Features
 
 - 🚸 Idempotency across metadata records & data artifacts [FAQ](https://lamin.ai/docs/faq/idempotency) [PR783](https://github.com/laminlabs/lamindb/pull/783) [@falexwolf](https://github.com/falexwolf)
-- ✨ {func}`~lamindb.dev.BaseORM.add_synonym` & {func}`~lamindb.dev.BaseORM.map_synonyms` to enable, e.g., `add_synonym("MyGeneName")` [PR786](https://github.com/laminlabs/lamindb/pull/786) [@sunnyosun](https://github.com/sunnyosun)
+- ✨ {func}`~lamindb.dev.ORM.add_synonym` & {func}`~lamindb.dev.ORM.map_synonyms` to enable, e.g., `add_synonym("MyGeneName")` [PR786](https://github.com/laminlabs/lamindb/pull/786) [@sunnyosun](https://github.com/sunnyosun)
 - ✨ Backed access for general HDF5 and zarr objects [PR781](https://github.com/laminlabs/lamindb/pull/781) [@Koncopd](https://github.com/Koncopd)
 
 ### Refactors
@@ -80,7 +58,7 @@
 
 ### Features
 
-- ✨ Enable `BaseORM.search()` and improved `BaseORM.lookup()` [PR771](https://github.com/laminlabs/lamindb/pull/771) [@sunnyosun](https://github.com/sunnyosun)
+- ✨ Enable `ORM.search()` and improved `ORM.lookup()` [PR771](https://github.com/laminlabs/lamindb/pull/771) [@sunnyosun](https://github.com/sunnyosun)
 - 🎨 Consolidate `lnschema_bionty` and upgrade to latest Bionty [PR775](https://github.com/laminlabs/lamindb/pull/775) [@sunnyosun](https://github.com/sunnyosun)
 - 🚸 Introduce `ln.settings.storage` to switch default storage [PR773](https://github.com/laminlabs/lamindb/pull/773) [@falexwolf](https://github.com/falexwolf)
 - 🚸 Return existing file if hash exists (idempotency) [PR772](https://github.com/laminlabs/lamindb/pull/772) [@falexwolf](https://github.com/falexwolf)
