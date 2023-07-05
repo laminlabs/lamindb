@@ -5,9 +5,9 @@
 
 # LaminDB
 
-Open-source data lake, warehouse & feature store for biology.
+Open-source data lake & feature store for biology.
 
-Manage your existing data & analyses in your existing infrastructure.
+Manage your existing R&D data & analyses in your existing infrastructure.
 
 ```{warning}
 
