@@ -66,18 +66,17 @@ def save(records: Iterable[ORM], **kwargs) -> None:  # type: ignore
     files = {r for r in records if isinstance(r, File)}
     non_files = records.difference(files)
     if non_files:
+        # first save all records without recursing parents
+        bulk_create(non_files)
         non_files_with_parents = {r for r in non_files if hasattr(r, "_parents")}
-        if len(non_files_with_parents) < 2 or kwargs.get("parents") is False:
-            bulk_create(non_files)
-        else:
-            # first save all records without recursing parents
-            bulk_create(non_files)
+
+        if len(non_files_with_parents) > 0 and kwargs.get("parents") is not False:
             # save the record with parents one by one
             logger.warning(
                 "Now recursing through parents: "
                 "this only happens once, but is much slower than bulk saving"
             )
-            for record in non_files:
+            for record in non_files_with_parents:
                 record._save_ontology_parents()
 
     if files:
