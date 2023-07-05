@@ -114,6 +114,7 @@ def get_hash(filepath, suffix, check_hash: bool = True) -> Optional[Union[str, F
             hash = b16_to_b64(stat["ETag"])
         else:
             logger.warning(f"Did not add hash for {filepath}")
+            return None
     else:
         hash = hash_file(filepath)
     if not check_hash:
