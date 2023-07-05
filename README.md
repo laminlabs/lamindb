@@ -19,31 +19,39 @@ Update 2023-06-14:
 - The last version before the migration is 0.41.2.
 ```
 
-## What?
+## Introduction
 
 LaminDB is a free & open-source Python library allowing you to:
 
 - Manage files & datasets while tracking [provenance](https://lamin.ai/docs/guide/data-lineage) across pipelines, notebooks & apps.
 - Manage biological [registries](https://lamin.ai/docs/biology/registries), [ontologies](https://lamin.ai/docs/bionty/) & features.
-- Rely on integrity & quality through largely automated data validation and [idempotent](https://lamin.ai/docs/faq/idempotency) & [ACID](https://lamin.ai/docs/faq/acid) operations.
+- Build in data integrity through automated validation and [idempotent](https://lamin.ai/docs/faq/idempotency) & [ACID](https://lamin.ai/docs/faq/acid) operations.
 - Use a simple API for common tasks like:
   - [Queries, searches & look ups](https://lamin.ai/docs/guide/select).
   - Saving, loading & [streaming](https://lamin.ai/docs/guide/stream) of data objects.
 - Collaborate across a mesh of LaminDB instances ([share them in a hub](https://lamin.ai/laminlabs) akin to GitHub).
 
-You can combine LaminDB with LaminApp & consulting services on an enterprise plan:
+LaminApp is a closed-source data management app built on LaminDB. Think LaminDB ~ git & LaminApp ~ GitHub.
 
-- LaminApp: Explore & collaborate on data in a UI (deployable in your infrastructure).
+LaminApp & support is currently only available on an enterprise plan:
+
+- LaminApp: Explore & collaborate on data in a UI based on LaminDB (deployable in your infrastructure).
 - Services: Support & code templates for a BioTech data & analytics platform.
 
-## Usage overview
+## Usage overview & quick start
 
-Import `lamindb` and initialize a data lake instance with local or cloud default storage:
+If you'd like to run the following snippets: the [setup](#setup) takes 2 min.
+
+Initialize a data lake instance with local or cloud default storage on the CLI:
+
+```shell
+$ lamin init --storage ./mydata   # or s3://my-bucket, gs://my-bucket, etc.
+```
+
+Import `lamindb`:
 
 ```python
 import lamindb as ln
-
-ln.setup.init(storage="./mydata")  # or s3://my-bucket, gs://my-bucket, etc.
 ```
 
 ### Store, query, search & load data objects
@@ -201,21 +209,34 @@ lamin init --storage ./bioartifacts --schema bionty
 
 It's fastest if we do this for you based on our templates within an enterprise plan, but you can fully manage the process yourself.
 
-## Installation
+## Setup
+
+### Installation
 
 ![pyversions](https://img.shields.io/pypi/pyversions/lamindb)
 
 ```shell
-pip install lamindb  # basic data lake
-pip install 'lamindb[jupyter]'  # Jupyter notebook tracking
-pip install 'lamindb[bionty]'  # basic biological entities
-pip install 'lamindb[fcs]'  # .fcs files (flow cytometry)
-pip install 'lamindb[zarr]'  # zarr storage (streaming arrays)
-pip install 'lamindb[aws]'  # AWS (s3fs, etc.)
-pip install 'lamindb[gcp]'  # Google Cloud (gcfs, etc.)
+pip install lamindb  # basic data management
 ```
 
-## Sign up
+You can configure the installation using `extras`, e.g.,
+
+```shell
+pip install lamindb[jupyter,bionty,fcs,aws]
+```
+
+Supported `extras` are:
+
+```
+jupyter  # Track Jupyter notebooks
+bionty   # Manage basic biological entities
+fcs      # Manage .fcs files (flow cytometry)
+zarr     # Store & stream arrays with zarr
+aws      # AWS (s3fs, etc.)
+gcp      # Google Cloud (gcfs, etc.)
+```
+
+### Sign up
 
 Why do I have to sign up?
 
@@ -231,6 +252,8 @@ We do _not_ store any of your data, but only basic metadata about you (email add
 
 ## How does it work?
 
+### Dependencies
+
 LaminDB builds semantics of R&D and biology onto well-established tools:
 
 - SQLite & Postgres for SQL databases using Django ORM (previously: SQLModel)
@@ -240,7 +263,7 @@ LaminDB builds semantics of R&D and biology onto well-established tools:
 
 LaminDB is open source.
 
-## Architecture
+### Architecture
 
 LaminDB consists of the `lamindb` Python package (repository [here](https://github.com/laminlabs/lamindb)) with its components:
 
@@ -259,7 +282,7 @@ Lamin's packages build on the infrastructure listed [above](#how-does-it-work).
 
 - Find all guide notebooks [here](https://github.com/laminlabs/lamindb/tree/main/docs/guide).
 - You can run these notebooks in hosted versions of JupyterLab, e.g., [Saturn Cloud](https://github.com/laminlabs/run-lamin-on-saturn), Google Vertex AI, Google Colab, and others.
-- Jupyter Lab & Notebook offer a fully interactive experience, VS Code & others require using the CLI (`lamin track my-notebook.ipynb`)
+- Jupyter Lab & Notebook offer a fully interactive experience, VS Code & others require using the CLI to track notebooks: `lamin track my-notebook.ipynb`
 
 ## Documentation
 

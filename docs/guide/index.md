@@ -12,9 +12,15 @@
 
 ```{toctree}
 :hidden:
-:caption: First steps
+:caption: Tutorial
 
 tutorial1
+```
+
+```{toctree}
+:hidden:
+:caption: "How to: Basics"
+
 data-lineage
 select
 schemas
@@ -23,7 +29,7 @@ configure
 
 ```{toctree}
 :hidden:
-:caption: Biology
+:caption: "How to: Biology"
 
 ../biology/registries
 ../biology/features
