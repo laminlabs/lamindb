@@ -1,5 +1,6 @@
 # Changelog
 
+- 🎉 Stage 0.46 (from_df, from_anndata, docs) [PR845](https://github.com/laminlabs/lamindb/pull/845) [@falexwolf](https://github.com/falexwolf)
 - 📝 Improve tutorial & fix docstrings [PR846](https://github.com/laminlabs/lamindb/pull/846) [@falexwolf](https://github.com/falexwolf)
 - ✨ Add `from_df` and `from_anndata` to `File` [PR844](https://github.com/laminlabs/lamindb/pull/844) [@falexwolf](https://github.com/falexwolf)
 - 🐛 Check type after na removal [PR843](https://github.com/laminlabs/lamindb/pull/843) [@sunnyosun](https://github.com/sunnyosun)
