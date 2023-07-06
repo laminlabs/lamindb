@@ -42,7 +42,7 @@ def test_from_values():
 
 def test_search():
     qs = ln.User.objects.all()
-    assert qs.df().iloc[0]["handle"] == "testuser1"
+    assert qs.search("testuser1").iloc[0]["handle"] == "testuser1"
 
 
 def test_lookup():
