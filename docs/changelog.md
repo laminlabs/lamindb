@@ -1,20 +1,19 @@
 # Changelog
 
-- 🎉 Stage 0.46 [PR847](https://github.com/laminlabs/lamindb/pull/847) [@falexwolf](https://github.com/falexwolf)
-- 🐛 Fix parents [PR848](https://github.com/laminlabs/lamindb/pull/848) [@sunnyosun](https://github.com/sunnyosun)
-## 0.46a3 (2023-07-05)
+## 0.46.0 (2023-07-06)
 
-### Highlights
+### Features
 
 - ✨ Enable hierarchical metadata, e.g., cell types, tissues, etc. [PR810](https://github.com/laminlabs/lamindb/pull/810) [@sunnyosun](https://github.com/sunnyosun)
 - ✨ Add `Dataset` & `Feature` ORMs, e.g., easily track column names of dataframes [PR805](https://github.com/laminlabs/lamindb/pull/805) [@falexwolf](https://github.com/falexwolf)
 
 ### Breaking changes
 
--  🚚 Rename `File.name` to `File.description` [PR824](https://github.com/laminlabs/lamindb/pull/824) [@falexwolf](https://github.com/falexwolf)
+- 🚚 Rename `File.name` to `File.description` [PR824](https://github.com/laminlabs/lamindb/pull/824) [@falexwolf](https://github.com/falexwolf)
 
 ### UX
 
+- ✨ Globally set species via `lb.settings.species=` [PR142](https://github.com/laminlabs/lnschema-bionty/pull/142) [falexwolf](https://github.com/falexwolf)
 - 🚚 Easy display of many-to-many fields: `QuerySet.df(include=[field__name])` [PR832](https://github.com/laminlabs/lamindb/pull/832) [@falexwolf](https://github.com/falexwolf)
 - 🚸 Create new run if notebook is run by different user [PR838](https://github.com/laminlabs/lamindb/pull/838) [@falexwolf](https://github.com/falexwolf)
 - 🚸 Speed up bulk saving of records [PR828](https://github.com/laminlabs/lamindb/pull/828) [@sunnyosun](https://github.com/sunnyosun)
