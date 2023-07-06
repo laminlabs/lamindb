@@ -38,15 +38,12 @@ def test_one_first():
     assert qs.one_or_none().handle == "testuser1"
 
 
-def test_from_values():
-    qs = ln.Tag.objects.all()
-    records = qs.from_values(["user1", "user2"], ln.Tag.name)
-    assert len(records) == 2
-
-
 def test_search():
-    qs = ln.User.objects.all()
-    assert qs.search("testuser1").iloc[0]["handle"] == "testuser1"
+    tag_names = [f"Tag {i}" for i in range(3)]
+    tags = [ln.Tag(name=name) for name in tag_names]
+    ln.save(tags)
+    qs = ln.Tag.select(name="Tag 2").all()
+    assert qs.search("Tag 1").iloc[0]["name"] == "Tag 2"
 
 
 def test_lookup():

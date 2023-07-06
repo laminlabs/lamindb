@@ -128,15 +128,6 @@ class QuerySet(models.QuerySet):
         else:
             raise MultipleResultsFound
 
-    @doc_args(ORM.from_values.__doc__)
-    def from_values(
-        self, identifiers: ListLike, field: StrField, **kwargs
-    ) -> List["ORM"]:
-        """{}"""
-        from ._orm import _from_values
-
-        return _from_values(cls=self, identifiers=identifiers, field=field, **kwargs)
-
     @doc_args(ORM.search.__doc__)
     def search(self, string: str, **kwargs):
         """{}"""
@@ -171,7 +162,6 @@ setattr(models.QuerySet, "list", QuerySet.list)
 setattr(models.QuerySet, "first", QuerySet.first)
 setattr(models.QuerySet, "one", QuerySet.one)
 setattr(models.QuerySet, "one_or_none", QuerySet.one_or_none)
-setattr(models.QuerySet, "from_values", QuerySet.from_values)
 setattr(models.QuerySet, "search", QuerySet.search)
 setattr(models.QuerySet, "lookup", QuerySet.lookup)
 setattr(models.QuerySet, "inspect", QuerySet.inspect)

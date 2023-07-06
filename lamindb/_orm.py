@@ -94,7 +94,9 @@ def __init__(orm: ORM, *args, **kwargs):
         super(ORM, orm).__init__(*args, **kwargs)
 
 
-def _from_values(cls, identifiers: ListLike, field: StrField, **kwargs) -> List["ORM"]:
+@classmethod  # type:ignore
+@doc_args(ORM.from_values.__doc__)
+def from_values(cls, identifiers: ListLike, field: StrField, **kwargs) -> List["ORM"]:
     """{}"""
     if isinstance(field, str):
         field = getattr(cls, field)
@@ -106,13 +108,6 @@ def _from_values(cls, identifiers: ListLike, field: StrField, **kwargs) -> List[
     return get_or_create_records(
         iterable=identifiers, field=field, from_bionty=from_bionty, **kwargs
     )
-
-
-@classmethod  # type:ignore
-@doc_args(ORM.from_values.__doc__)
-def from_values(cls, identifiers: ListLike, field: StrField, **kwargs) -> List["ORM"]:
-    """{}"""
-    return _from_values(cls=cls, identifiers=identifiers, field=field, **kwargs)
 
 
 def _search(
