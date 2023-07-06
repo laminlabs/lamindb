@@ -1,5 +1,6 @@
 # Changelog
 
+- 🚸 It should be possible to use a schema module prior to importing lamindb [PR852](https://github.com/laminlabs/lamindb/pull/852) [@falexwolf](https://github.com/falexwolf)
 - ✨ Enable search, lookup, from_values, inspect, map_synonyms from QuerySet [PR849](https://github.com/laminlabs/lamindb/pull/849) [@sunnyosun](https://github.com/sunnyosun)
 ## 0.46.0 (2023-07-06)
 
