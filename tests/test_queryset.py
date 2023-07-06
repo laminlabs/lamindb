@@ -26,6 +26,10 @@ def test_df():
     with pytest.raises(ValueError):
         ln.Project.select().df(include="external_id")
 
+    # call it from a non-select-derived queryset
+    qs = ln.User.objects.all()
+    assert qs.df().iloc[0]["handle"] == "testuser1"
+
 
 def test_one_first():
     qs = ln.User.objects.all()
