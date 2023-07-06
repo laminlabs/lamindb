@@ -33,7 +33,7 @@ LaminApp is a data management app built on LaminDB, deployable in your infrastru
 
 LaminApp, support & code templates for a BioTech data & analytics platform are currently only available on an enterprise plan.
 
-## Usage overview & quick start
+## Usage overview & quickstart
 
 If you'd like to run the following snippets: the [setup](#setup) takes 2 min.
 
