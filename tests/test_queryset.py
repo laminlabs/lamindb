@@ -47,16 +47,16 @@ def test_search():
 
 
 def test_lookup():
-    qs = ln.User.select(name="testuser1").all()
+    qs = ln.User.select(handle="testuser1").all()
     lookup = qs.lookup(field="handle")
     assert lookup.testuser1.handle == "testuser1"
 
 
 def test_inspect():
-    qs = ln.User.select(name="testuser1").all()
+    qs = ln.User.select(handle="testuser1").all()
     assert qs.inspect(["user1", "user2"], "name")["mapped"] == []
 
 
 def test_map_synonyms():
-    qs = ln.User.select(name="testuser1").all()
+    qs = ln.User.select(handle="testuser1").all()
     assert qs.map_synonyms(["user1", "user2"]) == ["user1", "user2"]
