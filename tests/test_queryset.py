@@ -31,11 +31,7 @@ def test_one_first():
     qs = ln.User.objects.all()
     assert qs.one().handle == "testuser1"
     assert qs.first().handle == "testuser1"
-
-
-def test_search():
-    qs = ln.User.objects.all()
-    assert qs.df().iloc[0]["handle"] == "testuser1"
+    assert qs.one_or_none().handle == "testuser1"
 
 
 def test_from_values():
@@ -44,7 +40,22 @@ def test_from_values():
     assert len(records) == 2
 
 
+def test_search():
+    qs = ln.User.objects.all()
+    assert qs.df().iloc[0]["handle"] == "testuser1"
+
+
 def test_lookup():
     qs = ln.User.select(name="testuser1").all()
     lookup = qs.lookup(field="handle")
     assert lookup.testuser1.handle == "testuser1"
+
+
+def test_inspect():
+    qs = ln.User.select(name="testuser1").all()
+    assert qs.inspect(["user1", "user2"], "name")["mapped"] == []
+
+
+def test_map_synonyms():
+    qs = ln.User.select(name="testuser1").all()
+    assert qs.map_synonyms(["user1", "user2"]) == ["user1", "user2"]
