@@ -172,6 +172,7 @@ def map_synonyms(self, synonyms: Iterable, **kwargs):
 
 setattr(models.QuerySet, "df", df)
 setattr(models.QuerySet, "list", list)
+setattr(models.QuerySet, "first", first)
 setattr(models.QuerySet, "one", one)
 setattr(models.QuerySet, "one_or_none", one_or_none)
 setattr(models.QuerySet, "from_values", from_values)
@@ -184,6 +185,7 @@ setattr(models.QuerySet, "map_synonyms", map_synonyms)
 METHOD_NAMES = [
     "df",
     "list",
+    "first",
     "one",
     "one_or_none",
     "from_values",

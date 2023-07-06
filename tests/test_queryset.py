@@ -27,9 +27,10 @@ def test_df():
         ln.Project.select().df(include="external_id")
 
 
-def test_one():
+def test_one_first():
     qs = ln.User.objects.all()
     assert qs.one().handle == "testuser1"
+    assert qs.first().handle == "testuser1"
 
 
 def test_search():
