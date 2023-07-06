@@ -1,5 +1,6 @@
 # Changelog
 
+- 🎉 Stage 0.46 [PR847](https://github.com/laminlabs/lamindb/pull/847) [@falexwolf](https://github.com/falexwolf)
 - 🐛 Fix parents [PR848](https://github.com/laminlabs/lamindb/pull/848) [@sunnyosun](https://github.com/sunnyosun)
 ## 0.46a3 (2023-07-05)
 
