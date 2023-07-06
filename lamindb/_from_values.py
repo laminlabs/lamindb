@@ -7,7 +7,6 @@ from lamin_logger import colors, logger
 from lnschema_core.models import ORM
 from lnschema_core.types import ListLike
 
-from ._select import select
 from .dev._settings import settings
 
 
@@ -90,6 +89,8 @@ def get_existing_records(iterable_idx: pd.Index, field: Field, kwargs: Dict = {}
     # k:v -> k:v_record
     # kwargs is used to deal with species
     condition.update({f"{field_name}__in": iterable_idx.values})
+
+    from ._select import select
 
     stmt = select(model, **condition)
 

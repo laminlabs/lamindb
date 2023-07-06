@@ -3,6 +3,7 @@ from typing import Dict, Iterable, List, Literal, NamedTuple, Optional, Set, Uni
 
 import pandas as pd
 from django.core.exceptions import FieldDoesNotExist
+from django.db import models
 from django.db.models import CharField, TextField
 from django.db.models.query_utils import DeferredAttribute as Field
 from lamin_logger import logger
@@ -16,7 +17,6 @@ from lamindb.dev.utils import attach_func_to_class_method
 
 from . import _TESTING
 from ._from_values import _has_species_field, get_or_create_records
-from .dev._settings import settings
 
 IPYTHON = getattr(builtins, "__IPYTHON__", False)
 
@@ -78,6 +78,8 @@ def suggest_objects_with_same_name(orm: ORM, kwargs) -> Optional[str]:
 def __init__(orm: ORM, *args, **kwargs):
     if not args:
         validate_required_fields(orm, kwargs)
+        from .dev._settings import settings
+
         if settings.upon_create_search_names:
             result = suggest_objects_with_same_name(orm, kwargs)
             if result == "object-with-same-name-exists":
@@ -108,9 +110,7 @@ def from_values(cls, identifiers: ListLike, field: StrField, **kwargs) -> List["
     )
 
 
-@classmethod  # type: ignore
-@doc_args(ORM.search.__doc__)
-def search(
+def _search(
     cls,
     string: str,
     *,
@@ -126,7 +126,9 @@ def search(
     if not isinstance(field, str):
         field = field.field.name
 
-    records = cls.objects.all()
+    records = cls.all() if isinstance(cls, models.QuerySet) else cls.objects.all()
+    cls = cls.model if isinstance(cls, models.QuerySet) else cls
+
     df = pd.DataFrame.from_records(records.values())
 
     result = base_search(
@@ -150,15 +152,38 @@ def search(
 
 
 @classmethod  # type: ignore
-@doc_args(ORM.lookup.__doc__)
-def lookup(cls, field: Optional[StrField] = None) -> NamedTuple:
+@doc_args(ORM.search.__doc__)
+def search(
+    cls,
+    string: str,
+    *,
+    field: Optional[StrField] = None,
+    top_hit: bool = False,
+    case_sensitive: bool = True,
+    synonyms_field: Optional[Union[str, TextField, CharField]] = "synonyms",
+    synonyms_sep: str = "|",
+) -> Union["pd.DataFrame", "ORM"]:
+    """{}"""
+    return _search(
+        cls=cls,
+        string=string,
+        field=field,
+        top_hit=top_hit,
+        case_sensitive=case_sensitive,
+        synonyms_field=synonyms_field,
+        synonyms_sep=synonyms_sep,
+    )
+
+
+def _lookup(cls, field: Optional[StrField] = None) -> NamedTuple:
     """{}"""
     if field is None:
         field = get_default_str_field(cls)
     if not isinstance(field, str):
         field = field.field.name
 
-    records = cls.objects.all()
+    records = cls.all() if isinstance(cls, models.QuerySet) else cls.objects.all()
+    cls = cls.model if isinstance(cls, models.QuerySet) else cls
 
     return Lookup(
         records=records,
@@ -169,8 +194,13 @@ def lookup(cls, field: Optional[StrField] = None) -> NamedTuple:
 
 
 @classmethod  # type: ignore
-@doc_args(ORM.inspect.__doc__)
-def inspect(
+@doc_args(ORM.lookup.__doc__)
+def lookup(cls, field: Optional[StrField] = None) -> NamedTuple:
+    """{}"""
+    return _lookup(cls=cls, field=field)
+
+
+def _inspect(
     cls,
     identifiers: ListLike,
     field: StrField,
@@ -187,6 +217,8 @@ def inspect(
     if not isinstance(field, str):
         field = field.field.name
 
+    cls = cls.model if isinstance(cls, models.QuerySet) else cls
+
     return inspect(
         df=_filter_df_based_on_species(orm=cls, species=kwargs.get("species")),
         identifiers=identifiers,
@@ -199,8 +231,32 @@ def inspect(
 
 
 @classmethod  # type: ignore
-@doc_args(ORM.map_synonyms.__doc__)
-def map_synonyms(
+@doc_args(ORM.inspect.__doc__)
+def inspect(
+    cls,
+    identifiers: ListLike,
+    field: StrField,
+    *,
+    case_sensitive: bool = False,
+    inspect_synonyms: bool = True,
+    return_df: bool = False,
+    logging: bool = True,
+    **kwargs,
+) -> Union["pd.DataFrame", Dict[str, List[str]]]:
+    """{}"""
+    return _inspect(
+        cls=cls,
+        identifiers=identifiers,
+        field=field,
+        case_sensitive=case_sensitive,
+        inspect_synonyms=inspect_synonyms,
+        return_df=return_df,
+        logging=logging,
+        **kwargs,
+    )
+
+
+def _map_synonyms(
     cls,
     synonyms: Iterable,
     *,
@@ -220,6 +276,8 @@ def map_synonyms(
     if not isinstance(field, str):
         field = field.field.name
 
+    cls = cls.model if isinstance(cls, models.QuerySet) else cls
+
     try:
         cls._meta.get_field(synonyms_field)
         df = _filter_df_based_on_species(orm=cls, species=kwargs.get("species"))
@@ -237,10 +295,40 @@ def map_synonyms(
     )
 
 
-def _filter_df_based_on_species(orm: ORM, species: Optional[Union[str, ORM]] = None):
+@classmethod  # type: ignore
+@doc_args(ORM.map_synonyms.__doc__)
+def map_synonyms(
+    cls,
+    synonyms: Iterable,
+    *,
+    return_mapper: bool = False,
+    case_sensitive: bool = False,
+    keep: Literal["first", "last", False] = "first",
+    synonyms_field: str = "synonyms",
+    synonyms_sep: str = "|",
+    field: Optional[str] = None,
+    **kwargs,
+) -> Union[List[str], Dict[str, str]]:
+    """{}"""
+    return _map_synonyms(
+        cls=cls,
+        synonyms=synonyms,
+        return_mapper=return_mapper,
+        case_sensitive=case_sensitive,
+        keep=keep,
+        synonyms_field=synonyms_field,
+        synonyms_sep=synonyms_sep,
+        field=field,
+        **kwargs,
+    )
+
+
+def _filter_df_based_on_species(
+    orm: Union[ORM, models.QuerySet], species: Optional[Union[str, ORM]] = None
+):
     import pandas as pd
 
-    records = orm.objects.all()
+    records = orm.all() if isinstance(orm, models.QuerySet) else orm.objects.all()
     if _has_species_field(orm):
         # here, we can safely import lnschema_bionty
         from lnschema_bionty._bionty import create_or_get_species_record
@@ -252,8 +340,10 @@ def _filter_df_based_on_species(orm: ORM, species: Optional[Union[str, ORM]] = N
     return pd.DataFrame.from_records(records.values())
 
 
-def get_default_str_field(orm: ORM) -> str:
+def get_default_str_field(orm: Union[ORM, models.QuerySet]) -> str:
     """Get the 1st char or text field from the orm."""
+    if isinstance(orm, models.QuerySet):
+        orm = orm.model
     model_field_names = [i.name for i in orm._meta.fields]
 
     # set default field

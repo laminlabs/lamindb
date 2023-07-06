@@ -110,12 +110,6 @@ if _INSTANCE_SETUP:
     track = context._track  # noqa
     from lamin_logger import logger as _logger
 
-    # this needs to follow on the import right now
-    _logger.success(
-        f"Loaded instance: {_lamindb_setup.settings.instance.identifier} (lamindb"
-        f" {__version__})"
-    )
-
     from . import _dataset  # noqa
     from . import _feature_set  # noqa
     from . import _file  # noqa

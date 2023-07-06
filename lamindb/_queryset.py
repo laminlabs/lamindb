@@ -1,7 +1,10 @@
-from typing import List, Optional
+from typing import Iterable, List, NamedTuple, Optional
 
 import pandas as pd
 from django.db import models
+from lamindb_setup.dev._docs import doc_args
+from lnschema_core import ORM
+from lnschema_core.types import ListLike, StrField
 
 
 class NoResultFound(Exception):
@@ -22,12 +25,17 @@ class QuerySet(models.QuerySet):
     """
 
     def df(self, include: Optional[List[str]] = None):
-        """Return as DataFrame.
+        """Convert to ``pd.DataFrame``.
+
+        By default, shows all fields that aren't many-to-many fields, except
+        ``created_at``.
+
+        If you'd like to include many-to-many fields, use parameter ``include``.
 
         Args:
             include: ``Optional[List[str]] = None`` Additional (many-to-many)
-            fields to include. Takes expressions like ``"tags__name"``
-            ``"cell_types__name"``.
+                fields to include. Takes expressions like ``"tags__name"``
+                ``"cell_types__name"``.
 
         Examples:
 
@@ -67,9 +75,9 @@ class QuerySet(models.QuerySet):
                 split = expression.split("__")
                 field_name = split[0]
                 if len(split) > 1:
-                    lookup = "__".join(split[1:])
+                    lookup_str = "__".join(split[1:])
                 else:
-                    lookup = "id"
+                    lookup_str = "id"
                 ORM = self.model
                 field = getattr(ORM, field_name)
                 if not isinstance(field.field, models.ManyToManyField):
@@ -79,7 +87,7 @@ class QuerySet(models.QuerySet):
                     if field.field.model != ORM
                     else field.field.related_model
                 )
-                values_expression = f"{related_ORM.__name__.lower()}__{lookup}"
+                values_expression = f"{related_ORM.__name__.lower()}__{lookup_str}"
                 link_df = pd.DataFrame(
                     field.through.objects.values(
                         ORM.__name__.lower(), values_expression
@@ -92,15 +100,18 @@ class QuerySet(models.QuerySet):
                 df.rename(columns={values_expression: expression}, inplace=True)
         return df
 
-    def list(self) -> List:
-        return list(self)
+    def list(self) -> List[ORM]:
+        """Populate a list with the results."""
+        return [item for item in self]
 
-    def first(self):
+    def first(self) -> Optional[ORM]:
+        """If non-empty, the first result in the query set, otherwise None."""
         if len(self) == 0:
             return None
         return self[0]
 
-    def one(self):
+    def one(self) -> ORM:
+        """Exactly one result. Throws error if there are more or none."""
         if len(self) == 0:
             raise NoResultFound
         elif len(self) > 1:
@@ -108,10 +119,50 @@ class QuerySet(models.QuerySet):
         else:
             return self[0]
 
-    def one_or_none(self):
+    def one_or_none(self) -> Optional[ORM]:
+        """At most one result. Returns it if there is one, otherwise returns None."""
         if len(self) == 0:
             return None
         elif len(self) == 1:
             return self[0]
         else:
             raise MultipleResultsFound
+
+    @doc_args(ORM.search.__doc__)
+    def search(self, string: str, **kwargs):
+        """{}"""
+        from ._orm import _search
+
+        return _search(cls=self, string=string, **kwargs)
+
+    @doc_args(ORM.lookup.__doc__)
+    def lookup(self, field: Optional[StrField] = None) -> NamedTuple:
+        """{}"""
+        from ._orm import _lookup
+
+        return _lookup(cls=self, field=field)
+
+    @doc_args(ORM.inspect.__doc__)
+    def inspect(self, identifiers: ListLike, field: StrField, **kwargs):
+        """{}"""
+        from ._orm import _inspect
+
+        return _inspect(cls=self, identifiers=identifiers, field=field, **kwargs)
+
+    @doc_args(ORM.map_synonyms.__doc__)
+    def map_synonyms(self, synonyms: Iterable, **kwargs):
+        """{}"""
+        from ._orm import _map_synonyms
+
+        return _map_synonyms(cls=self, synonyms=synonyms, **kwargs)
+
+
+setattr(models.QuerySet, "df", QuerySet.df)
+setattr(models.QuerySet, "list", QuerySet.list)
+setattr(models.QuerySet, "first", QuerySet.first)
+setattr(models.QuerySet, "one", QuerySet.one)
+setattr(models.QuerySet, "one_or_none", QuerySet.one_or_none)
+setattr(models.QuerySet, "search", QuerySet.search)
+setattr(models.QuerySet, "lookup", QuerySet.lookup)
+setattr(models.QuerySet, "inspect", QuerySet.inspect)
+setattr(models.QuerySet, "map_synonyms", QuerySet.map_synonyms)
