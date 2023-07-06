@@ -28,17 +28,22 @@ class QuerySet(models.QuerySet):
     def df(self, include: Optional[List[str]] = None):
         """Return as DataFrame.
 
+        By default, shows all fields that aren't many-to-many fields, except
+        ``created_at``.
+
+        If you'd like to include many-to-many fields, use parameter ``include``.
+
         Args:
             include: ``Optional[List[str]] = None`` Additional (many-to-many)
-            fields to include. Takes expressions like ``"tags__name"``
-            ``"cell_types__name"``.
+                fields to include. Takes expressions like ``"tags__name"``
+                ``"cell_types__name"``.
 
         Examples:
 
             >>> ln.Project.select().df(include=["tags__name", "tags__created_by_id"])
             >>> df = ln.File.select().df(include="cell_types__name")
         """
-        return df(self=self, include=include)
+        pass
 
     def list(self) -> List:
         """Populate a list with the results."""
@@ -57,7 +62,7 @@ class QuerySet(models.QuerySet):
         pass
 
 
-def df(self: models.QuerySet, include: Optional[List[str]] = None):
+def df(self, include: Optional[List[str]] = None):
     data = self.values()
     if len(data) > 0:
         keys = list(data[0].keys())
