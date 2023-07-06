@@ -10,6 +10,7 @@
 ### Breaking changes
 
 - 🚚 Rename `File.name` to `File.description` [PR824](https://github.com/laminlabs/lamindb/pull/824) [@falexwolf](https://github.com/falexwolf)
+- 🚚 Rename `File.featuresets` to `File.feature_sets` [PR805](https://github.com/laminlabs/lamindb/pull/805) [@falexwolf](https://github.com/falexwolf)
 
 ### UX
 
