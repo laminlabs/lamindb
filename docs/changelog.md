@@ -1,5 +1,6 @@
 # Changelog
 
+- 🐛 Fix parents [PR848](https://github.com/laminlabs/lamindb/pull/848) [@sunnyosun](https://github.com/sunnyosun)
 ## 0.46a3 (2023-07-05)
 
 ### Highlights

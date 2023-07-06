@@ -114,6 +114,7 @@ def get_hash(filepath, suffix, check_hash: bool = True) -> Optional[Union[str, F
             hash = b16_to_b64(stat["ETag"])
         else:
             logger.warning(f"Did not add hash for {filepath}")
+            return None
     else:
         hash = hash_file(filepath)
     if not check_hash:
@@ -342,7 +343,9 @@ def __init__(file: File, *args, **kwargs):
     log_hint = kwargs.pop("log_hint") if "log_hint" in kwargs else True
 
     if not len(kwargs) == 0:
-        raise ValueError("Only data, key, run, name & feature_sets can be passed.")
+        raise ValueError(
+            "Only data, key, run, description & feature_sets can be passed."
+        )
 
     if name is not None and description is not None:
         raise ValueError("Only pass description, do not pass a name")

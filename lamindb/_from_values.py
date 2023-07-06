@@ -44,10 +44,11 @@ def get_or_create_records(
             if len(unmapped_values) > 0:
                 for i in unmapped_values:
                     records.append(model(**{field_name: i}, **kwargs))
+                s = "" if len(unmapped_values) == 1 else "s"
                 logger.info(
                     "Created"
-                    f" {colors.red(f'{len(unmapped_values)} {model.__name__} records')}"
-                    f" with a single field {colors.red(f'{field_name}')}"
+                    f" {colors.red(f'{len(unmapped_values)} {model.__name__} record{s}')} with"  # noqa
+                    f" a single field {colors.red(f'{field_name}')}"
                 )
         return records
     finally:
@@ -76,9 +77,10 @@ def get_existing_records(iterable_idx: pd.Index, field: Field, kwargs: Dict = {}
 
     syn_msg = ""
     if len(syn_mapper) > 0:
+        s = "" if len(syn_mapper) == 1 else "s"
         syn_msg = (
             "Returned"
-            f" {colors.green(f'{len(syn_mapper)} existing {model.__name__} DB records')} that"  # noqa
+            f" {colors.green(f'{len(syn_mapper)} existing {model.__name__} DB record{s}')} that"  # noqa
             f" matched {colors.green('synonyms')}"
         )
         iterable_idx = iterable_idx.to_frame().rename(index=syn_mapper).index
@@ -94,9 +96,10 @@ def get_existing_records(iterable_idx: pd.Index, field: Field, kwargs: Dict = {}
     records = stmt.list()  # existing records
     n_name = len(records) - len(syn_mapper)
     if n_name > 0:
+        s = "" if n_name == 1 else "s"
         logger.info(
             "Returned"
-            f" {colors.green(f'{n_name} existing {model.__name__} DB records')} that"
+            f" {colors.green(f'{n_name} existing {model.__name__} DB record{s}')} that"
             f" matched {colors.green(f'{field_name}')} field"
         )
     # make sure that synonyms logging appears after the field logging
@@ -136,11 +139,13 @@ def create_records_from_bionty(
         syn_mapper = {}
     msg_syn: str = ""
     if len(syn_mapper) > 0:
+        s = "" if len(syn_mapper) == 1 else "s"
         msg_syn = (
             "Created"
-            f" {colors.purple(f'{len(syn_mapper)} {model.__name__} records from Bionty')} that"  # noqa
+            f" {colors.purple(f'{len(syn_mapper)} {model.__name__} record{s} from Bionty')} that"  # noqa
             f" matched {colors.purple('synonyms')}"
         )
+
         iterable_idx = iterable_idx.to_frame().rename(index=syn_mapper).index
 
     # create records for values that are found in the bionty reference
@@ -157,15 +162,16 @@ def create_records_from_bionty(
         source_msg = (
             ""
             if kwargs.get("bionty_source") is None
-            else f", linked to BiontySource id={kwargs.get('bionty_source').id}"  # type:ignore # noqa
+            else f" (bionty_source_id={kwargs.get('bionty_source').id})"  # type:ignore # noqa
         )
 
         # number of records that matches field (not synonyms)
         n_name = len(records) - len(syn_mapper)
         if n_name > 0:
+            s = "" if n_name == 1 else "s"
             msg = (
                 "Created"
-                f" {colors.purple(f'{n_name} {model.__name__} records from Bionty')} that"  # noqa
+                f" {colors.purple(f'{n_name} {model.__name__} record{s} from Bionty')} that"  # noqa
                 f" matched {colors.purple(f'{field_name}')} field"
             )
             logger.info(msg + source_msg)
