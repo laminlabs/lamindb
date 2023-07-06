@@ -25,3 +25,25 @@ def test_df():
     # raise error for non many-to-many
     with pytest.raises(ValueError):
         ln.Project.select().df(include="external_id")
+
+
+def test_one():
+    qs = ln.User.objects.all()
+    assert qs.one().handle == "testuser1"
+
+
+def test_search():
+    qs = ln.User.objects.all()
+    assert qs.df().iloc[0]["handle"] == "testuser1"
+
+
+def test_from_values():
+    qs = ln.Tag.objects.all()
+    records = qs.from_values(["user1", "user2"], ln.Tag.name)
+    assert len(records) == 2
+
+
+def test_lookup():
+    qs = ln.User.select(name="testuser1").all()
+    lookup = qs.lookup(field="handle")
+    assert lookup.testuser1.handle == "testuser1"
