@@ -130,9 +130,10 @@ def _search(
         field = get_default_str_field(cls)
     if not isinstance(field, str):
         field = field.field.name
+
+    records = cls.all() if isinstance(cls, models.QuerySet) else cls.objects.all()
     cls = cls.model if isinstance(cls, models.QuerySet) else cls
 
-    records = cls.objects.all()
     df = pd.DataFrame.from_records(records.values())
 
     result = base_search(
@@ -186,9 +187,8 @@ def _lookup(cls, field: Optional[StrField] = None) -> NamedTuple:
     if not isinstance(field, str):
         field = field.field.name
 
+    records = cls.all() if isinstance(cls, models.QuerySet) else cls.objects.all()
     cls = cls.model if isinstance(cls, models.QuerySet) else cls
-
-    records = cls.objects.all()
 
     return Lookup(
         records=records,
@@ -328,10 +328,12 @@ def map_synonyms(
     )
 
 
-def _filter_df_based_on_species(orm: ORM, species: Optional[Union[str, ORM]] = None):
+def _filter_df_based_on_species(
+    orm: Union[ORM, models.QuerySet], species: Optional[Union[str, ORM]] = None
+):
     import pandas as pd
 
-    records = orm.objects.all()
+    records = orm.all() if isinstance(orm, models.QuerySet) else orm.objects.all()
     if _has_species_field(orm):
         # here, we can safely import lnschema_bionty
         from lnschema_bionty._bionty import create_or_get_species_record
