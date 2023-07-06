@@ -63,7 +63,7 @@ zarr = [
 fcs = [
     "readfcs>=1.1.3",
 ]
-test = [
+dev = [
     # basic test
     "pre-commit",
     "nox",
@@ -72,7 +72,6 @@ test = [
     "coverage",
     "pytest-cov",
     # others
-    "nbproject>=0.9.0",
     "nbproject_test>=0.3.0",
     # biology
     "faker-biology",
