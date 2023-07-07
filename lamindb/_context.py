@@ -236,7 +236,7 @@ class context:
 
         # at this point, we have a transform can display its parents if there are any
         parents = cls.transform.parents.all() if cls.transform is not None else []
-        if len(parents) >= 0:
+        if len(parents) > 0:
             if len(parents) == 1:
                 logger.info(f"Parent transform is: {parents[0]}")
             else:
