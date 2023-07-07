@@ -240,7 +240,8 @@ class context:
             if len(parents) == 1:
                 logger.info(f"Parent transform is: {parents[0]}")
             else:
-                logger.info(f"Parent transforms are: {parents}")
+                parents_formatted = "\n   -".join(parents)
+                logger.info(f"Parent transforms are: {parents_formatted}")
 
         # only for newly intialized notebooks
         if hasattr(cls, "_notebook_meta"):
