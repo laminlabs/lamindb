@@ -1,4 +1,34 @@
-from lnschema_core import ORM
+from lnschema_core import ORM, File, Run
+
+
+def data_lineage(record):
+    import graphviz
+
+    all_runs = _get_all_parent_runs(record)
+    df_edges = _df_edges_from_runs(all_runs)
+
+    record_label = _label_file_run(record)
+
+    u = graphviz.Digraph(
+        record.id, node_attr={"fillcolor": "antiquewhite", "color": "orange"}
+    )
+    u.node(
+        record.id, label=record_label, style="filled", fillcolor="orange", shape="oval"
+    )
+    for _, row in df_edges.iterrows():
+        if isinstance(row["source_record"], Run):
+            style = "rounded"
+            if row["source_record"].transform.type == "notebook":
+                shape = "note"
+            else:
+                shape = "cds"
+        else:
+            shape = "oval"
+            style = "filled"
+        u.node(row["source"], label=row["source_label"], shape=shape, style=style)
+        u.edge(row["source"], row["target"], color="dimgrey")
+
+    return u
 
 
 def view_parents(record: ORM, field: str, distance: int = 100):
@@ -8,7 +38,7 @@ def view_parents(record: ORM, field: str, distance: int = 100):
         )
     import graphviz
 
-    df_edges = _construct_df_edges(record=record, field=field, distance=distance)
+    df_edges = _df_edges_from_parents(record=record, field=field, distance=distance)
 
     record_label = record.__getattribute__(field)
 
@@ -45,7 +75,7 @@ def _get_parents(record: ORM, field: str, distance: int):
     return results
 
 
-def _construct_df_edges(record: ORM, field: str, distance: int):
+def _df_edges_from_parents(record: ORM, field: str, distance: int):
     """Construct a DataFrame of edges as the input of graphviz.Digraph."""
     parents = _get_parents(record=record, field=field, distance=distance)
     records = parents | record.__class__.objects.filter(id=record.id)
@@ -65,3 +95,42 @@ def _construct_df_edges(record: ORM, field: str, distance: int):
     df_edges["source"] = df_edges["source"].str.replace(":", "_")
     df_edges["target"] = df_edges["target"].str.replace(":", "_")
     return df_edges
+
+
+def _get_all_parent_runs(record):
+    """Get all input file runs recursively."""
+    all_runs = {record.run}
+
+    runs = [record.run]
+    while any([r.inputs.exists() for r in runs]):
+        inputs = []
+        for r in runs:
+            inputs += r.inputs.all()
+        runs = [f.run for f in inputs]
+        all_runs.update(runs)
+    return all_runs
+
+
+def _label_file_run(record):
+    if isinstance(record, File):
+        return f"{record.key}\nid:{record.id}" if record.key is not None else record.id
+    elif isinstance(record, Run):
+        return f"{record.transform.name}\nid:{record.id}"
+
+
+def _df_edges_from_runs(all_runs):
+    import pandas as pd
+
+    df_values = []
+    for run in all_runs:
+        if run.inputs.exists():
+            df_values.append((list(run.inputs.all()), run))
+        if run.outputs.exists():
+            df_values.append((run, list(run.outputs.all())))
+    df = pd.DataFrame(df_values, columns=["source_record", "target_record"])
+    df = df.explode("source_record")
+    df = df.explode("target_record")
+    df["source"] = [i.id for i in df["source_record"]]
+    df["target"] = [i.id for i in df["target_record"]]
+    df["source_label"] = df["source_record"].apply(_label_file_run)
+    return df
