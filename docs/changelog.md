@@ -1,5 +1,6 @@
 # Changelog
 
+- ✨ Track parent notebooks [PR859](https://github.com/laminlabs/lamindb/pull/859) [@falexwolf](https://github.com/falexwolf)
 - 🐛 Fix notebook file update logic [PR856](https://github.com/laminlabs/lamindb/pull/856) [@falexwolf](https://github.com/falexwolf)
 
 ## 0.46.1 (2023-07-06)
