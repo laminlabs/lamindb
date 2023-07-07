@@ -573,7 +573,10 @@ def _track_run_input(file: File, is_run_input: Optional[bool] = None):
     if is_run_input is None:
         if context.run is not None:
             if settings.track_run_inputs:
-                logger.hint(f"Tracking {file.id} as input for run {context.run.id}")
+                logger.info(
+                    f"Adding file {file.id} as input for run {context.run.id}, adding"
+                    f" parent transform {file.transform.id}"
+                )
             else:
                 logger.hint(
                     "Track this file as a run input by passing `is_run_input=True`"
@@ -590,6 +593,7 @@ def _track_run_input(file: File, is_run_input: Optional[bool] = None):
         if not file.input_of.contains(context.run):
             context.run.save()
             file.input_of.add(context.run)
+            context.run.transform.parents.add(file.transform)
 
 
 def load(self, is_run_input: Optional[bool] = None, stream: bool = False) -> DataLike:
