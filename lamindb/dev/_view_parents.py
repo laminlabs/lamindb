@@ -1,7 +1,9 @@
+from typing import List
+
 from lnschema_core import ORM, File, Run
 
 
-def data_lineage(record):
+def data_lineage(record: File):
     import graphviz
 
     all_runs = _get_all_parent_runs(record)
@@ -99,7 +101,7 @@ def _df_edges_from_parents(record: ORM, field: str, distance: int):
     return df_edges
 
 
-def _get_all_parent_runs(record):
+def _get_all_parent_runs(record: File):
     """Get all input file runs recursively."""
     all_runs = {record.run}
 
@@ -113,14 +115,14 @@ def _get_all_parent_runs(record):
     return all_runs
 
 
-def _label_file_run(record):
+def _label_file_run(record: ORM):
     if isinstance(record, File):
         return f"{record.key}\nid:{record.id}" if record.key is not None else record.id
     elif isinstance(record, Run):
         return f"{record.transform.name}\nid:{record.id}"
 
 
-def _df_edges_from_runs(all_runs):
+def _df_edges_from_runs(all_runs: List[Run]):
     import pandas as pd
 
     df_values = []
