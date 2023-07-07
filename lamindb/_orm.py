@@ -94,6 +94,18 @@ def __init__(orm: ORM, *args, **kwargs):
         super(ORM, orm).__init__(*args, **kwargs)
 
 
+def view_lineage(self: ORM, field: Optional[StrField] = None, distance: int = 100):
+    """View lineage graph of a record."""
+    from lamindb.dev._view_lineage import view_lineage as vl
+
+    if field is None:
+        field = get_default_str_field(self)
+    if not isinstance(field, str):
+        field = field.field.name
+
+    return vl(record=self, field=field, distance=distance)
+
+
 @classmethod  # type:ignore
 @doc_args(ORM.from_values.__doc__)
 def from_values(cls, identifiers: ListLike, field: StrField, **kwargs) -> List["ORM"]:
@@ -486,3 +498,4 @@ def __name_with_type__(cls) -> str:
 
 
 setattr(ORM, "__name_with_type__", __name_with_type__)
+setattr(ORM, "view_lineage", view_lineage)
