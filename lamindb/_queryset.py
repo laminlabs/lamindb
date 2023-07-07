@@ -105,9 +105,12 @@ class QuerySet(models.QuerySet):
                 df.rename(columns={values_expression: expression}, inplace=True)
         return df
 
-    def list(self) -> List[ORM]:
+    def list(self, field: Optional[str] = None) -> List[ORM]:
         """Populate a list with the results."""
-        return [item for item in self]
+        if field is None:
+            return [item for item in self]
+        else:
+            return [item for item in self.values_list(field, flat=True)]
 
     def first(self) -> Optional[ORM]:
         """If non-empty, the first result in the query set, otherwise None."""
