@@ -64,7 +64,8 @@ def _get_parents(record: ORM, field: str, distance: int):
     if distance < 2:
         return results
 
-    for d in range(2, distance):
+    d = 2
+    while d < distance:
         condition = "children__" + condition
         records = model.select(**{condition: record.__getattribute__(field)}).all()
 
@@ -72,6 +73,7 @@ def _get_parents(record: ORM, field: str, distance: int):
             return results
 
         results = results | records
+        d += 1
     return results
 
 
