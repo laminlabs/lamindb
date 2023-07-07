@@ -379,7 +379,6 @@ class context:
                     "Updated notebook name and/or title: Do you want to assign a"
                     " new id or version? (y/n)"
                 )
-                update_database = False
                 if response == "y":
                     if _env in ("lab", "notebook"):
                         transform, metadata = reinitialize_notebook(
@@ -396,13 +395,12 @@ class context:
                             f" {notebook_path}\n(3) Reload or re-open your notebook"
                         )
                         raise UpdateNbWithNonInteractiveEditorError(msg)
-                if update_database:
-                    transform.name = title
-                    transform.short_name = filestem
-                    transform.save()
-                    if response == "y":
-                        logger.success(f"Saved: {transform}")
-                    else:
-                        logger.success(f"Updated: {transform}")
+                transform.name = title
+                transform.short_name = filestem
+                transform.save()
+                if response == "y":
+                    logger.success(f"Saved: {transform}")
+                else:
+                    logger.success(f"Updated: {transform}")
 
         cls.transform = transform
