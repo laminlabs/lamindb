@@ -234,6 +234,14 @@ class context:
             logger.success(f"Saved: {run}")
         cls.run = run
 
+        # at this point, we have a transform can display its parents if there are any
+        parents = cls.transform.parents.all() if cls.transform is not None else []
+        if len(parents) >= 0:
+            if len(parents) == 1:
+                logger.info(f"Parent transform is: {parents[0]}")
+            else:
+                logger.info(f"Parent transforms are: {parents}")
+
         # only for newly intialized notebooks
         if hasattr(cls, "_notebook_meta"):
             _write_notebook_meta(cls._notebook_meta)  # type: ignore
