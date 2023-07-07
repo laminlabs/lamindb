@@ -82,16 +82,16 @@ class QuerySet(models.QuerySet):
                 field = getattr(ORM, field_name)
                 if not isinstance(field.field, models.ManyToManyField):
                     raise ValueError("Only many-to-many fields are allowed here.")
-                if field.field.model == ORM:
+                related_ORM = (
+                    field.field.model
+                    if field.field.model != ORM
+                    else field.field.related_model
+                )
+                if field.field.model == related_ORM:
                     left_side_link_model = f"from_{ORM.__name__.lower()}"
                     values_expression = f"to_{ORM.__name__.lower()}__{lookup_str}"
                 else:
-                    left_side_link_model = "ORM.__name__.lower()"
-                    related_ORM = (
-                        field.field.model
-                        if field.field.model != ORM
-                        else field.field.related_model
-                    )
+                    left_side_link_model = f"{ORM.__name__.lower()}"
                     values_expression = f"{related_ORM.__name__.lower()}__{lookup_str}"
                 link_df = pd.DataFrame(
                     field.through.objects.values(
