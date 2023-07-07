@@ -21,7 +21,7 @@ msg_path_failed = (
 )
 
 
-class InitWithNonInteractiveEditorError(Exception):
+class UpdateNbWithNonInteractiveEditorError(Exception):
     pass
 
 
@@ -185,7 +185,7 @@ class context:
                             " notebook!\nConsider installing nbproject for automatic"
                             " name, title & id tracking."
                         )
-                    elif isinstance(e, InitWithNonInteractiveEditorError):
+                    elif isinstance(e, UpdateNbWithNonInteractiveEditorError):
                         raise e
                     elif isinstance(e, NotebookNotSavedError):
                         raise e
@@ -330,11 +330,11 @@ class context:
             else:
                 msg = (
                     "\n(1) Save your notebook!"
-                    "\n(2) Attach metadata to the notebook by running the CLI: "
+                    "\n(2) Attach metadata to the notebook by running the CLI:\n"
                     f"lamin track {notebook_path}"
                     "\n(3) Reload or re-open your notebook"
                 )
-                raise InitWithNonInteractiveEditorError(msg)
+                raise UpdateNbWithNonInteractiveEditorError(msg)
 
         if _env in ("lab", "notebook"):
             # save the notebook in case that title was updated
@@ -375,12 +375,13 @@ class context:
         else:
             logger.info(f"Loaded: {transform}")
             if transform.name != title or transform.short_name != filestem:
-                if _env in ("lab", "notebook"):
-                    response = input(
-                        "Updated notebook name and/or title: Do you want to assign a"
-                        " new id or version? (y/n)"
-                    )
-                    if response == "y":
+                response = input(
+                    "Updated notebook name and/or title: Do you want to assign a"
+                    " new id or version? (y/n)"
+                )
+                update_database = False
+                if response == "y":
+                    if _env in ("lab", "notebook"):
                         transform, metadata = reinitialize_notebook(
                             transform.id, metadata
                         )
@@ -388,6 +389,14 @@ class context:
                         # if filename or title changed, this does not merit a write!
                         # it's dangerous to write unnecessarily
                         cls._notebook_meta = metadata  # type: ignore
+                    else:
+                        msg = (
+                            "\n(1) Save your notebook!\n(2) Update id & version in the"
+                            " notebook by running the CLI:\nlamin track"
+                            f" {notebook_path}\n(3) Reload or re-open your notebook"
+                        )
+                        raise UpdateNbWithNonInteractiveEditorError(msg)
+                if update_database:
                     transform.name = title
                     transform.short_name = filestem
                     transform.save()
@@ -395,10 +404,5 @@ class context:
                         logger.success(f"Saved: {transform}")
                     else:
                         logger.success(f"Updated: {transform}")
-                else:
-                    logger.warning(
-                        "Updated notebook name and/or short_name. If you want to assign"
-                        " a new id or version, run: lamin track my-notebook.ipynb"
-                    )
 
         cls.transform = transform
