@@ -589,6 +589,7 @@ def _track_run_input(file: File, is_run_input: Optional[bool] = None):
         if not file.input_of.contains(context.run):
             context.run.save()
             file.input_of.add(context.run)
+            context.run.transform.parents.add(file.transform)
 
 
 def load(self, is_run_input: Optional[bool] = None, stream: bool = False) -> DataLike:
