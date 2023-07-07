@@ -87,13 +87,18 @@ class QuerySet(models.QuerySet):
                     if field.field.model != ORM
                     else field.field.related_model
                 )
-                values_expression = f"{related_ORM.__name__.lower()}__{lookup_str}"
+                if field.field.model == related_ORM:
+                    left_side_link_model = f"from_{ORM.__name__.lower()}"
+                    values_expression = f"to_{ORM.__name__.lower()}__{lookup_str}"
+                else:
+                    left_side_link_model = f"{ORM.__name__.lower()}"
+                    values_expression = f"{related_ORM.__name__.lower()}__{lookup_str}"
                 link_df = pd.DataFrame(
                     field.through.objects.values(
-                        ORM.__name__.lower(), values_expression
+                        left_side_link_model, values_expression
                     )
                 )
-                link_groupby = link_df.groupby(ORM.__name__.lower())[
+                link_groupby = link_df.groupby(left_side_link_model)[
                     values_expression
                 ].apply(list)
                 df = pd.concat((link_groupby, df), axis=1)
