@@ -102,23 +102,33 @@ def serialize(
     return memory_rep, filepath, suffix
 
 
-def get_hash(filepath, suffix, check_hash: bool = True) -> Optional[Union[str, File]]:
+def get_hash(
+    filepath, suffix, check_hash: bool = True
+) -> Union[Tuple[Optional[str], Optional[str]], File]:
     if suffix in {".zarr", ".zrad"}:
         return None
     if isinstance(filepath, UPath):
         stat = filepath.stat()
-        if "ETag" in stat and "-" not in stat["ETag"]:
-            # only store hash for non-multipart uploads
-            # we can't rapidly validate multi-part uploaded files client-side
-            # we can add more logic later down-the-road
-            hash = b16_to_b64(stat["ETag"])
+        if "ETag" in stat:
+            # small files
+            if "-" not in stat["ETag"]:
+                # only store hash for non-multipart uploads
+                # we can't rapidly validate multi-part uploaded files client-side
+                # we can add more logic later down-the-road
+                hash = b16_to_b64(stat["ETag"])
+                hash_type = "md5"
+            else:
+                stripped_etag, suffix = stat["ETag"].split("-")
+                suffix = suffix.strip('"')
+                hash = f"{b16_to_b64(stripped_etag)}-{suffix}"
+                hash_type = "md5-n"  # this is the S3 chunk-hashing strategy
         else:
             logger.warning(f"Did not add hash for {filepath}")
-            return None
+            return None, None
     else:
-        hash = hash_file(filepath)
+        hash, hash_type = hash_file(filepath)
     if not check_hash:
-        return hash
+        return hash, hash_type
     result = File.select(hash=hash).list()
     if len(result) > 0:
         if settings.upon_file_create_if_hash_exists == "error":
@@ -133,12 +143,12 @@ def get_hash(filepath, suffix, check_hash: bool = True) -> Optional[Union[str, F
                 "Creating new File object despite existing file with same hash:"
                 f" {result[0]}"
             )
-            return hash
+            return hash, hash_type
         else:
             logger.warning(f"Returning existing file with same hash: {result[0]}")
             return result[0]
     else:
-        return hash
+        return hash, hash_type
 
 
 def get_run(run: Optional[Run]) -> Optional[Run]:
@@ -162,6 +172,7 @@ def get_path_size_hash(
 ):
     cloudpath = None
     localpath = None
+    hash_and_type: Tuple[Optional[str], Optional[str]]
 
     if suffix == ".zarr":
         if memory_rep is not None:
@@ -176,7 +187,7 @@ def get_path_size_hash(
                 size = sum(
                     f.stat().st_size for f in filepath.rglob("*") if f.is_file()  # type: ignore # noqa
                 )
-        hash = None
+        hash_and_type = None, None
     else:
         if isinstance(filepath, UPath):
             try:
@@ -189,13 +200,13 @@ def get_path_size_hash(
                 else:
                     raise e
             cloudpath = filepath
-            hash = None
+            hash_and_type = None, None
         else:
             size = filepath.stat().st_size  # type: ignore
             localpath = filepath
-        hash = get_hash(filepath, suffix, check_hash=check_hash)
+        hash_and_type = get_hash(filepath, suffix, check_hash=check_hash)
 
-    return localpath, cloudpath, size, hash
+    return localpath, cloudpath, size, hash_and_type
 
 
 def get_check_path_in_storage(
@@ -254,11 +265,13 @@ def get_file_kwargs_from_data(
     memory_rep, filepath, suffix = serialize(provisional_id, data, format)
     # the following will return a localpath that is not None if filepath is local
     # it will return a cloudpath that is not None if filepath is on the cloud
-    local_filepath, cloud_filepath, size, hash = get_path_size_hash(
+    local_filepath, cloud_filepath, size, hash_and_type = get_path_size_hash(
         filepath, memory_rep, suffix
     )
-    if isinstance(hash, File):
-        return hash, None
+    if isinstance(hash_and_type, File):
+        return hash_and_type, None
+    else:
+        hash, hash_type = hash_and_type
     check_path_in_storage = get_check_path_in_storage(filepath)
     # if we pass a file, no storage key, and path is already in storage,
     # then use the existing relative path within the storage location
@@ -272,6 +285,7 @@ def get_file_kwargs_from_data(
     kwargs = dict(
         suffix=suffix,
         hash=hash,
+        hash_type=hash_type,
         key=key,
         size=size,
         storage_id=lamindb_setup.settings.storage.id,

@@ -10,7 +10,7 @@
 
 import base64
 import hashlib
-from typing import Set
+from typing import Set, Tuple
 
 
 def to_b64_str(bstr: bytes):
@@ -29,7 +29,7 @@ def hash_set(s: Set[str]) -> str:
     return to_b64_str(hashlib.md5(bstr).digest())[:20]
 
 
-def hash_file(file_path, chunk_size=50 * 1024 * 1024):
+def hash_file(file_path, chunk_size=50 * 1024 * 1024) -> Tuple[str, str]:
     chunks = []
     with open(file_path, "rb") as fp:
         # read first chunk
@@ -44,7 +44,9 @@ def hash_file(file_path, chunk_size=50 * 1024 * 1024):
             chunks.append(data)
     if len(chunks) == 1:
         digest = hashlib.md5(chunks[0]).digest()
+        hash_type = "md5"
     else:
         digests = b"".join(hashlib.sha1(chunks[0]).digest() for chunk in chunks)
         digest = hashlib.sha1(digests).digest()
-    return to_b64_str(digest)[:22]
+        hash_type = "sha1-fl"  # sha1 first last chunk
+    return to_b64_str(digest)[:22], hash_type
