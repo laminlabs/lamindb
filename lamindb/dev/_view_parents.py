@@ -102,7 +102,7 @@ def _get_all_parent_runs(record):
     all_runs = {record.run}
 
     runs = [record.run]
-    while any([r.inputs.exists() for r in runs]):
+    while any([r.inputs.exists() for r in runs if r is not None]):
         inputs = []
         for r in runs:
             inputs += r.inputs.all()
