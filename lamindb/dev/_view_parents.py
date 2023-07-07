@@ -125,6 +125,8 @@ def _df_edges_from_runs(all_runs):
 
     df_values = []
     for run in all_runs:
+        if run is None:
+            continue
         if run.inputs.exists():
             df_values.append((list(run.inputs.all()), run))
         if run.outputs.exists():
