@@ -1,5 +1,6 @@
 # Changelog
 
+- ✨ Track `hash_type` [PR861](https://github.com/laminlabs/lamindb/pull/861) [@falexwolf](https://github.com/falexwolf)
 - ✨ View parents [PR858](https://github.com/laminlabs/lamindb/pull/858) [@sunnyosun](https://github.com/sunnyosun)
 - ✨ Track parent notebooks [PR859](https://github.com/laminlabs/lamindb/pull/859) [@falexwolf](https://github.com/falexwolf)
 - 🐛 Fix notebook file update logic [PR856](https://github.com/laminlabs/lamindb/pull/856) [@falexwolf](https://github.com/falexwolf)

@@ -335,6 +335,55 @@ def map_synonyms(
     )
 
 
+def describe(record: ORM):
+    """Rich representation of a record with relationships."""
+    model_name = record.__class__.__name__
+    msg = ""
+    fields = record._meta.fields
+    direct_fields = []
+    foreign_key_fields = []
+    for f in fields:
+        if f.is_relation:
+            foreign_key_fields.append(f.name)
+        else:
+            direct_fields.append(f.name)
+    # display line by line the foreign key fields
+    if len(foreign_key_fields) > 0:
+        record_msg = f"{model_name}({''.join([f'{i}={record.__getattribute__(i)}, ' for i in direct_fields])})"  # noqa
+        msg += f"{record_msg.rstrip(', ')}\n\n"
+
+        msg += "One/Many-to-One:\n    "
+        related_msg = "".join(
+            [f"🔗 {i}: {record.__getattribute__(i)}\n    " for i in foreign_key_fields]
+        )
+        msg += related_msg
+    msg = msg.rstrip("    ")
+
+    # display many-to-many relationship objects
+    # fields in the model definition
+    related_names = [i.name for i in record._meta.many_to_many]
+    # fields back linked
+    related_names += [i.related_name for i in record._meta.related_objects]
+    msg += "Many-to-Many:\n"
+    for related_name in related_names:
+        related_objects = record.__getattribute__(related_name)
+        if related_objects.exists():
+            count = related_objects.count()
+            objects = related_objects.all()[:10]
+            try:
+                field = get_default_str_field(objects.first())
+            except ValueError:
+                field = "id"
+            objects_list = list(objects.values_list(field, flat=True))
+            msg_objects = f"    🔗 {related_name} ({count}): {objects_list}\n"
+            if count > 10:
+                msg_objects = msg_objects.replace("]", " ... ]")
+            msg += msg_objects
+    msg = msg.rstrip("\n")
+    msg = msg.rstrip("Related objects:")
+    print(msg)
+
+
 def _filter_df_based_on_species(
     orm: Union[ORM, models.QuerySet], species: Optional[Union[str, ORM]] = None
 ):
@@ -499,3 +548,4 @@ def __name_with_type__(cls) -> str:
 
 setattr(ORM, "__name_with_type__", __name_with_type__)
 setattr(ORM, "view_parents", view_parents)
+setattr(ORM, "describe", describe)
