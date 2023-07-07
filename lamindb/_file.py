@@ -570,8 +570,13 @@ def backed(
 
 def _track_run_input(file: File, is_run_input: Optional[bool] = None):
     if is_run_input is None:
-        if context.run is not None and not settings.track_run_inputs:
-            logger.hint("Track this file as a run input by passing `is_run_input=True`")
+        if context.run is not None:
+            if settings.track_run_inputs:
+                logger.hint(f"Tracking {file.id} as input for run {context.run.id}")
+            else:
+                logger.hint(
+                    "Track this file as a run input by passing `is_run_input=True`"
+                )
         track_run_input = settings.track_run_inputs
     else:
         track_run_input = is_run_input
