@@ -1,22 +1,21 @@
-from typing import List
+from typing import List, Union
 
 from lnschema_core import ORM, File, Run
 
 
-def data_lineage(record: File):
+def data_lineage(file: File):
+    """Graph of data lineage."""
     import graphviz
 
-    all_runs = _get_all_parent_runs(record)
+    all_runs = _get_all_parent_runs(file)
     df_edges = _df_edges_from_runs(all_runs)
 
-    record_label = _label_file_run(record)
+    file_label = _label_file_run(file)
 
     u = graphviz.Digraph(
-        record.id, node_attr={"fillcolor": "antiquewhite", "color": "orange"}
+        file.id, node_attr={"fillcolor": "antiquewhite", "color": "orange"}
     )
-    u.node(
-        record.id, label=record_label, style="filled", fillcolor="orange", shape="oval"
-    )
+    u.node(file.id, label=file_label, style="filled", fillcolor="orange", shape="oval")
     for _, row in df_edges.iterrows():
         if isinstance(row["source_record"], Run):
             style = "rounded"
@@ -34,6 +33,7 @@ def data_lineage(record: File):
 
 
 def view_parents(record: ORM, field: str, distance: int = 100):
+    """Graph of parents."""
     if not hasattr(record, "parents"):
         return NotImplementedError(
             f"Parents view is not supported for {record.__class__.__name__}!"
@@ -101,11 +101,11 @@ def _df_edges_from_parents(record: ORM, field: str, distance: int):
     return df_edges
 
 
-def _get_all_parent_runs(record: File):
+def _get_all_parent_runs(file: File):
     """Get all input file runs recursively."""
-    all_runs = {record.run}
+    all_runs = {file.run}
 
-    runs = [record.run]
+    runs = [file.run]
     while any([r.inputs.exists() for r in runs if r is not None]):
         inputs = []
         for r in runs:
@@ -115,7 +115,7 @@ def _get_all_parent_runs(record: File):
     return all_runs
 
 
-def _label_file_run(record: ORM):
+def _label_file_run(record: Union[File, Run]):
     if isinstance(record, File):
         return f"{record.key}\nid:{record.id}" if record.key is not None else record.id
     elif isinstance(record, Run):

@@ -731,6 +731,34 @@ def tree(
     print(f"\n{directories} directories" + (f", {files} files" if files else ""))
 
 
+def inherit_relationships(self, file: File, fields: Optional[List[str]] = None):
+    """Inherit many-to-many relationships from another file."""
+    if fields is None:
+        # fields in the model definition
+        related_names = [i.name for i in file._meta.many_to_many]
+        # fields back linked
+        related_names += [i.related_name for i in file._meta.related_objects]
+    else:
+        related_names = []
+        for field in fields:
+            if hasattr(file, field):
+                related_names.append(field)
+            else:
+                raise KeyError(f"No many-to-many relationship is found with '{field}'")
+
+    inherit_names = [
+        related_name
+        for related_name in related_names
+        if file.__getattribute__(related_name).exists()
+    ]
+
+    logger.info(f"Inheriting {len(inherit_names)} fields: {inherit_names}")
+    for related_name in inherit_names:
+        self.__getattribute__(related_name).set(
+            file.__getattribute__(related_name).all()
+        )
+
+
 METHOD_NAMES = [
     "__init__",
     "from_anndata",
@@ -762,3 +790,4 @@ for name in METHOD_NAMES:
 File._delete_skip_storage = _delete_skip_storage
 File._save_skip_storage = _save_skip_storage
 setattr(File, "data_lineage", data_lineage)
+setattr(File, "inherit_relationships", inherit_relationships)
