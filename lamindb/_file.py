@@ -585,18 +585,26 @@ def backed(
 
 def _track_run_input(file: File, is_run_input: Optional[bool] = None):
     if is_run_input is None:
-        if context.run is not None and file.run != context.run:
+        if context.run is not None:
+            if file.run != context.run:
+                if settings.track_run_inputs:
+                    logger.info(
+                        f"Adding file {file.id} as input for run {context.run.id},"
+                        f" adding parent transform {file.transform.id}"
+                    )
+                    track_run_input = True
+                else:
+                    logger.hint(
+                        "Track this file as a run input by passing `is_run_input=True`"
+                    )
+                    track_run_input = False
+        else:
+            track_run_input = False
             if settings.track_run_inputs:
-                logger.info(
-                    f"Adding file {file.id} as input for run {context.run.id}, adding"
-                    f" parent transform {file.transform.id}"
-                )
-                logger.hint("Avoid this by passing `is_run_input=False`")
-            else:
                 logger.hint(
-                    "Track this file as a run input by passing `is_run_input=True`"
+                    "You can auto-track this file as a run input by calling"
+                    " `ln.track()`"
                 )
-        track_run_input = settings.track_run_inputs
     else:
         track_run_input = is_run_input
     if track_run_input:
