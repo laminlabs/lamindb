@@ -1,5 +1,6 @@
 # Changelog
 
+- ✅ Add a unit test for file cache [PR866](https://github.com/laminlabs/lamindb/pull/866) [@Koncopd](https://github.com/Koncopd)
 - ⚡️ Copy or move files to the cache [PR864](https://github.com/laminlabs/lamindb/pull/864) [@Koncopd](https://github.com/Koncopd)
 - ✨ Added `Manager.list()` and allow configure `.list()` with field name [PR863](https://github.com/laminlabs/lamindb/pull/863) [@sunnyosun](https://github.com/sunnyosun)
 - ✨ Added `.describe()` for rich repr of related objects [PR862](https://github.com/laminlabs/lamindb/pull/862) [@sunnyosun](https://github.com/sunnyosun)
