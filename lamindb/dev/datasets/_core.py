@@ -7,6 +7,8 @@ import numpy as np
 import pandas as pd
 from lnschema_core import ids
 
+from .._settings import settings
+
 
 def file_fcs() -> Path:
     """Return fcs file example."""
@@ -50,18 +52,19 @@ def file_mini_csv() -> Path:
     return filename
 
 
-def dir_scrnaseq_cellranger() -> Path:
+def dir_scrnaseq_cellranger(in_storage_root=False) -> Path:
     """Directory with exemplary scrnaseq cellranger input and output."""
     filepath, _ = urlretrieve(
         "https://lamindb-test.s3.amazonaws.com/cellranger_run_001.zip"
     )
     from zipfile import ZipFile
 
+    path = Path(".") if not in_storage_root else settings.storage
     with ZipFile(filepath, "r") as zipObj:
         # Extract all the contents of zip file in current directory
-        zipObj.extractall(path=".")
+        zipObj.extractall(path=path)
 
-    return Path("cellranger_run_001")
+    return path / "cellranger_run_001"
 
 
 def anndata_mouse_sc_lymph_node() -> ad.AnnData:

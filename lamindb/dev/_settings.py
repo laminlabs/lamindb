@@ -33,7 +33,7 @@ class Settings:
 
     FAQ: :doc:`/faq/idempotency`
     """
-    track_run_inputs: bool = False
+    track_run_inputs: bool = True
     """Track files as input upon `.load()`, `.stage()` and `.backed()`.
 
     FAQ: :doc:`/faq/track-run-inputs`

@@ -585,12 +585,13 @@ def backed(
 
 def _track_run_input(file: File, is_run_input: Optional[bool] = None):
     if is_run_input is None:
-        if context.run is not None:
+        if context.run is not None and file.run != context.run:
             if settings.track_run_inputs:
                 logger.info(
                     f"Adding file {file.id} as input for run {context.run.id}, adding"
                     f" parent transform {file.transform.id}"
                 )
+                logger.hint("Avoid this by passing `is_run_input=False`")
             else:
                 logger.hint(
                     "Track this file as a run input by passing `is_run_input=True`"
@@ -604,7 +605,9 @@ def _track_run_input(file: File, is_run_input: Optional[bool] = None):
                 "No global run context set. Call ln.context.track() or link input to a"
                 " run object via `run.inputs.append(file)`"
             )
-        if not file.input_of.contains(context.run):
+        # avoid adding the same run twice
+        # and avoid cycles (a file is both input and output)
+        if not file.input_of.contains(context.run) and file.run != context.run:
             context.run.save()
             file.input_of.add(context.run)
             context.run.transform.parents.add(file.transform)
