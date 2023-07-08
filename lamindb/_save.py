@@ -1,6 +1,7 @@
 import os
 import shutil
 import traceback
+from datetime import datetime
 from functools import partial
 from typing import Iterable, List, Optional, Tuple, Union, overload  # noqa
 
@@ -140,9 +141,11 @@ def copy_or_move_to_cache(file: File):
 
     if cache_dir in local_path.parents:
         local_path.replace(cache_path)
-        os.utime(cache_path)
     else:
         shutil.copy(local_path, cache_path)
+    # make sure that the cached version is older than the cloud one
+    mts = datetime.now().timestamp() + 1.0
+    os.utime(cache_path, times=(mts, mts))
 
 
 # This is also used within File.save()
