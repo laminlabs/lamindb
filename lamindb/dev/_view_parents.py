@@ -3,7 +3,7 @@ from typing import List, Union
 from lnschema_core import ORM, File, Run
 
 
-def data_lineage(file: File):
+def view_lineage(file: File):
     """Graph of data lineage."""
     import graphviz
 

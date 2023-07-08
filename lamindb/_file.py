@@ -29,7 +29,7 @@ from lamindb.dev.storage.file import auto_storage_key_from_file, filepath_from_f
 from lamindb.dev.utils import attach_func_to_class_method
 
 from . import _TESTING
-from .dev._view_parents import data_lineage
+from .dev._view_parents import view_lineage
 from .dev.storage.file import AUTO_KEY_PREFIX
 
 try:
@@ -792,5 +792,5 @@ for name in METHOD_NAMES:
 # privates currently dealt with separately
 File._delete_skip_storage = _delete_skip_storage
 File._save_skip_storage = _save_skip_storage
-setattr(File, "data_lineage", data_lineage)
+setattr(File, "view_lineage", view_lineage)
 setattr(File, "inherit_relationships", inherit_relationships)
