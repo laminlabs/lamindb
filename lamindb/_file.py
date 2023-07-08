@@ -584,8 +584,11 @@ def backed(
 
 
 def _track_run_input(file: File, is_run_input: Optional[bool] = None):
+    track_run_input = False
     if is_run_input is None:
+        # we need a global run context for this to work
         if context.run is not None:
+            # avoid cycles (a file is both input and output)
             if file.run != context.run:
                 if settings.track_run_inputs:
                     logger.info(
@@ -597,9 +600,7 @@ def _track_run_input(file: File, is_run_input: Optional[bool] = None):
                     logger.hint(
                         "Track this file as a run input by passing `is_run_input=True`"
                     )
-                    track_run_input = False
         else:
-            track_run_input = False
             if settings.track_run_inputs:
                 logger.hint(
                     "You can auto-track this file as a run input by calling"
@@ -614,7 +615,7 @@ def _track_run_input(file: File, is_run_input: Optional[bool] = None):
                 " run object via `run.inputs.append(file)`"
             )
         # avoid adding the same run twice
-        # and avoid cycles (a file is both input and output)
+        # avoid cycles (a file is both input and output)
         if not file.input_of.contains(context.run) and file.run != context.run:
             context.run.save()
             file.input_of.add(context.run)
