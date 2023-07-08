@@ -7,7 +7,7 @@ from lamindb.dev.storage.file import read_adata_h5ad
 def test_cache():
     ln.settings.storage = "s3://lamindb-ci"
 
-    cache_dir = ln.settings.storage.cache_dir
+    cache_dir = ln.setup.settings.storage.cache_dir
     assert cache_dir is not None
 
     test_file = Path("tests/test-files/pbmc68k.h5ad")
