@@ -1,3 +1,5 @@
+import os
+import shutil
 import traceback
 from functools import partial
 from typing import Iterable, List, Optional, Tuple, Union, overload  # noqa
@@ -106,11 +108,41 @@ def check_and_attempt_upload(file: File) -> Optional[Exception]:
         except Exception as exception:
             logger.warning(f"Could not upload file: {file}")
             return exception
+        # copies (if ob-disk) or moves the temporary file (if in-memory) to the cache
+        copy_or_move_to_cache(file)
         # after successful upload, we should remove the attribute so that another call
         # call to save won't upload again, the user should call replace() then
         del file._local_filepath
     # returning None means proceed (either success or no action needed)
     return None
+
+
+def copy_or_move_to_cache(file: File):
+    local_path = file._local_filepath
+
+    # in-memory zarr or not cloud
+    if local_path is None or not lamindb_setup.settings.storage.is_cloud:
+        return None
+
+    local_path = local_path.resolve()
+
+    # on-disk zarr
+    if not local_path.is_file():
+        return None
+
+    # maybe create something like storage.key_to_local(key) later to simplfy
+    storage_key = auto_storage_key_from_file(file)
+    storage_path = lamindb_setup.settings.storage.key_to_filepath(storage_key)
+    cache_path = lamindb_setup.settings.storage.cloud_to_local_no_update(storage_path)
+    cache_path.parent.mkdir(parents=True, exist_ok=True)
+
+    cache_dir = lamindb_setup.settings.storage.cache_dir
+
+    if cache_dir in local_path.parents:
+        local_path.replace(cache_path)
+        os.utime(cache_path)
+    else:
+        shutil.copy(local_path, cache_path)
 
 
 # This is also used within File.save()
@@ -197,5 +229,5 @@ def upload_data_object(file) -> None:
     ):
         logger.hint(f"storing file {file.id} with key {file_storage_key}")
         storagepath = lamindb_setup.settings.storage.key_to_filepath(file_storage_key)
-        print_progress = partial(print_hook, filepath=file.key)
+        print_progress = partial(print_hook, filepath=file_storage_key)
         write_adata_zarr(file._memory_rep, storagepath, callback=print_progress)
