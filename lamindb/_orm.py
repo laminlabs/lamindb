@@ -4,7 +4,6 @@ from typing import Dict, Iterable, List, Literal, NamedTuple, Optional, Set, Uni
 import pandas as pd
 from django.core.exceptions import FieldDoesNotExist
 from django.db import models
-from django.db.models import CharField, TextField
 from django.db.models.query_utils import DeferredAttribute as Field
 from lamin_logger import logger
 from lamin_logger._lookup import Lookup
@@ -129,19 +128,22 @@ def _search(
     field: Optional[StrField] = None,
     top_hit: bool = False,
     case_sensitive: bool = True,
-    synonyms_field: Optional[Union[str, TextField, CharField]] = "synonyms",
+    synonyms_field: Optional[StrField] = None,
     synonyms_sep: str = "|",
 ) -> Union["pd.DataFrame", "ORM"]:
-    """{}"""
     if field is None:
         field = get_default_str_field(cls)
+        logger.info(f"searching field {field}")
     if not isinstance(field, str):
         field = field.field.name
 
-    records = cls.all() if isinstance(cls, models.QuerySet) else cls.objects.all()
+    query_set = cls.all() if isinstance(cls, models.QuerySet) else cls.objects.all()
     cls = cls.model if isinstance(cls, models.QuerySet) else cls
 
-    df = pd.DataFrame.from_records(records.values())
+    if synonyms_field is None:
+        df = pd.DataFrame(query_set.values("id", field))
+    else:
+        df = pd.DataFrame(query_set.values("id", field, synonyms_field))
 
     result = base_search(
         df=df,
@@ -158,9 +160,9 @@ def _search(
         return result
     else:
         if isinstance(result, list):
-            return [records.get(id=r.id) for r in result]
+            return [query_set.get(id=r.id) for r in result]
         else:
-            return records.get(id=result.id)
+            return query_set.get(id=result.id)
 
 
 @classmethod  # type: ignore
@@ -172,7 +174,7 @@ def search(
     field: Optional[StrField] = None,
     top_hit: bool = False,
     case_sensitive: bool = True,
-    synonyms_field: Optional[Union[str, TextField, CharField]] = "synonyms",
+    synonyms_field: Optional[StrField] = None,
     synonyms_sep: str = "|",
 ) -> Union["pd.DataFrame", "ORM"]:
     """{}"""
