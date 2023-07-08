@@ -8,6 +8,7 @@ from lamindb.dev.storage.file import read_adata_h5ad
 
 # https://stackoverflow.com/questions/22627659/run-code-before-and-after-each-test-in-py-test
 # switch to cloud storage and back
+# needed to isolate this test from the others
 @pytest.fixture(autouse=True)
 def switch_storage():
     ln.settings.storage = "s3://lamindb-ci"
