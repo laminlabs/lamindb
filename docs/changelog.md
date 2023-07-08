@@ -1,5 +1,6 @@
 # Changelog
 
+-  ⚡️ Speed up search [PR868](https://github.com/laminlabs/lamindb/pull/868) [@falexwolf](https://github.com/falexwolf)
 - ✨ Added inherit_relationships to file [PR867](https://github.com/laminlabs/lamindb/pull/867) [@sunnyosun](https://github.com/sunnyosun)
 - ✅ Add a unit test for file cache [PR866](https://github.com/laminlabs/lamindb/pull/866) [@Koncopd](https://github.com/Koncopd)
 - ⚡️ Copy or move files to the cache [PR864](https://github.com/laminlabs/lamindb/pull/864) [@Koncopd](https://github.com/Koncopd)
