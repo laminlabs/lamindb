@@ -1,5 +1,6 @@
 # Changelog
 
+- 🎉 Stage 0.46.2 [PR853](https://github.com/laminlabs/lamindb/pull/853) [@falexwolf](https://github.com/falexwolf)
 - 🚸 Improve data-lineage guide, auto-track run inputs [PR869](https://github.com/laminlabs/lamindb/pull/869) [@falexwolf](https://github.com/falexwolf)
 -  ⚡️ Speed up search [PR868](https://github.com/laminlabs/lamindb/pull/868) [@falexwolf](https://github.com/falexwolf)
 - ✨ Added inherit_relationships to file [PR867](https://github.com/laminlabs/lamindb/pull/867) [@sunnyosun](https://github.com/sunnyosun)
