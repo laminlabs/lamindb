@@ -231,6 +231,10 @@ aws      # AWS (s3fs, etc.)
 gcp      # Google Cloud (gcfs, etc.)
 ```
 
+### Docker
+
+Here is a way of running LaminDB in a docker: [github.com/laminlabs/lamindb-docker](https://github.com/laminlabs/lamindb-docker).
+
 ### Sign up
 
 Why do I have to sign up?
