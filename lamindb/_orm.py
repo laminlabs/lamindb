@@ -69,7 +69,7 @@ def suggest_objects_with_same_name(orm: ORM, kwargs) -> Optional[str]:
                     logger.warning(f"{msg}")
                     display(results)
                 else:
-                    logger.warning(f"{msg}\n{results.name}")
+                    logger.warning(f"{msg}\n{results}")
     return None
 
 

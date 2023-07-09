@@ -237,10 +237,10 @@ class context:
         parents = cls.transform.parents.all() if cls.transform is not None else []
         if len(parents) > 0:
             if len(parents) == 1:
-                logger.info(f"Parent transform is: {parents[0]}")
+                logger.info(f"Parent transform: {parents[0]}")
             else:
-                parents_formatted = "\n   -".join(parents)
-                logger.info(f"Parent transforms are: {parents_formatted}")
+                parents_formatted = "\n   - ".join([f"{parent}" for parent in parents])
+                logger.info(f"Parent transforms:\n   - {parents_formatted}")
 
         # only for newly intialized notebooks
         if hasattr(cls, "_notebook_meta"):
