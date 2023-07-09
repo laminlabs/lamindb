@@ -1,6 +1,6 @@
 # Reference
 
-See the left navbar!
+<meta http-equiv="Refresh" content="0; url=./ref/lamindb" />
 
 ```{toctree}
 :maxdepth: 1
@@ -23,5 +23,8 @@ ref/lnschema-bionty
 :caption: Open-source utilities
 :hidden:
 
-ref/utilities
+ref/readfcs
+ref/bionty
+ref/nbproject
+ref/lamin-logger
 ```
