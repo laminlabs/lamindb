@@ -424,29 +424,35 @@ if ZARR_INSTALLED:
 
     BackedAccessor = namedtuple("BackedAccessor", ["connection", "storage"])
 
-    def backed_access(file: File) -> Union[AnnDataAccessor, BackedAccessor]:
-        fs, file_path_str = infer_filesystem(filepath_from_file(file))
+    def backed_access(file_or_filepath: File) -> Union[AnnDataAccessor, BackedAccessor]:
+        if isinstance(file_or_filepath, File):
+            filepath = filepath_from_file(file_or_filepath)
+            name = File.key
+        else:
+            filepath = file_or_filepath
+            name = filepath.name
+        fs, file_path_str = infer_filesystem(filepath)
 
-        if file.suffix in (".h5", ".hdf5", ".h5ad"):
+        if filepath.suffix in (".h5", ".hdf5", ".h5ad"):
             conn = fs.open(file_path_str, mode="rb")
             try:
                 storage = h5py.File(conn, mode="r")
             except Exception as e:
                 conn.close()
                 raise e
-        elif file.suffix in (".zarr", ".zrad"):
+        elif filepath.suffix in (".zarr", ".zrad"):
             conn = None
             storage = zarr.open(fs.get_mapper(file_path_str, check=True), mode="r")
         else:
             raise ValueError(
                 "file should have .h5, .hdf5, .h5ad, .zarr or .zrad suffix, not"
-                f" {file.suffix}."
+                f" {filepath.suffix}."
             )
 
-        if file.suffix in (".h5ad", ".zrad"):
-            return AnnDataAccessor(conn, storage, file.key)
+        if filepath.suffix in (".h5ad", ".zrad"):
+            return AnnDataAccessor(conn, storage, name)
         else:
             if get_spec(storage).encoding_type == "anndata":
-                return AnnDataAccessor(conn, storage, file.key)
+                return AnnDataAccessor(conn, storage, name)
             else:
                 return BackedAccessor(conn, storage)

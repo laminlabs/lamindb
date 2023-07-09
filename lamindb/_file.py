@@ -466,7 +466,13 @@ def from_anndata(
     file = File(data=adata, key=key, run=run, description=description, log_hint=False)
     data_parse = adata
     if not isinstance(adata, AnnData):  # is a path
-        data_parse = ad.read(adata, backed="r")
+        filepath = UPath(adata)  # returns Path for local
+        if isinstance(filepath, UPath):
+            from lamindb.dev.storage._backed_access import backed_access
+
+            data_parse = backed_access(filepath)
+        else:
+            data_parse = ad.read(filepath, backed="r")
     feature_sets = []
     feature_sets.append(FeatureSet.from_values(data_parse.var.index, var_ref))
     feature_sets.append(FeatureSet.from_values(data_parse.obs.columns))
