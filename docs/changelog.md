@@ -1,17 +1,16 @@
 # Changelog
 
-- 🎉 Stage 0.46.2 [PR853](https://github.com/laminlabs/lamindb/pull/853) [@falexwolf](https://github.com/falexwolf)
+## 0.46.2 (2023-07-09)
+
 - 🚸 Improve data-lineage guide, auto-track run inputs [PR869](https://github.com/laminlabs/lamindb/pull/869) [@falexwolf](https://github.com/falexwolf)
--  ⚡️ Speed up search [PR868](https://github.com/laminlabs/lamindb/pull/868) [@falexwolf](https://github.com/falexwolf)
+- ⚡️ Speed up search [PR868](https://github.com/laminlabs/lamindb/pull/868) [@falexwolf](https://github.com/falexwolf)
 - ✨ Added inherit_relationships to file [PR867](https://github.com/laminlabs/lamindb/pull/867) [@sunnyosun](https://github.com/sunnyosun)
-- ✅ Add a unit test for file cache [PR866](https://github.com/laminlabs/lamindb/pull/866) [@Koncopd](https://github.com/Koncopd)
 - ⚡️ Copy or move files to the cache [PR864](https://github.com/laminlabs/lamindb/pull/864) [@Koncopd](https://github.com/Koncopd)
 - ✨ Added `Manager.list()` and allow configure `.list()` with field name [PR863](https://github.com/laminlabs/lamindb/pull/863) [@sunnyosun](https://github.com/sunnyosun)
 - ✨ Added `.describe()` for rich repr of related objects [PR862](https://github.com/laminlabs/lamindb/pull/862) [@sunnyosun](https://github.com/sunnyosun)
 - ✨ Track `hash_type` [PR861](https://github.com/laminlabs/lamindb/pull/861) [@falexwolf](https://github.com/falexwolf)
 - ✨ View parents [PR858](https://github.com/laminlabs/lamindb/pull/858) [@sunnyosun](https://github.com/sunnyosun)
 - ✨ Track parent notebooks [PR859](https://github.com/laminlabs/lamindb/pull/859) [@falexwolf](https://github.com/falexwolf)
-- 🐛 Fix notebook file update logic [PR856](https://github.com/laminlabs/lamindb/pull/856) [@falexwolf](https://github.com/falexwolf)
 
 ## 0.46.1 (2023-07-06)
 
