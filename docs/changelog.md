@@ -1,8 +1,9 @@
 # Changelog
 
-- 🎉 Stage 0.46.3 [PR872](https://github.com/laminlabs/lamindb/pull/872) [@falexwolf](https://github.com/falexwolf)
-- ✨ Read remote h5ad in backed mode `from_anndata` [PR871](https://github.com/laminlabs/lamindb/pull/871) [@falexwolf](https://github.com/falexwolf)
-- 📝 Restructure reference [PR870](https://github.com/laminlabs/lamindb/pull/870) [@falexwolf](https://github.com/falexwolf)
+## 0.46.3 (2023-07-09)
+
+- ✨ Read remote h5ad in backed mode in `File.from_anndata` [PR871](https://github.com/laminlabs/lamindb/pull/871) [@falexwolf](https://github.com/falexwolf)
+
 ## 0.46.2 (2023-07-09)
 
 - 🚸 Improve data-lineage guide, auto-track run inputs [PR869](https://github.com/laminlabs/lamindb/pull/869) [@falexwolf](https://github.com/falexwolf)
