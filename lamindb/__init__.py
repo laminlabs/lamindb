@@ -31,7 +31,6 @@ Functional tools:
 
    track
    view
-   select
    save
    delete
 
@@ -45,12 +44,6 @@ Static classes & modules:
    types
    setup
    schema
-
-Developer API:
-
-.. autosummary::
-   :toctree: .
-
    dev
 
 """
