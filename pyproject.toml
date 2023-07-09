@@ -75,6 +75,8 @@ dev = [
     "nbproject_test>=0.3.0",
     # biology
     "faker-biology",
+    # view_parents
+    "graphviz",
 ]
 
 [project.scripts]

@@ -4,7 +4,6 @@ from typing import Dict, Iterable, List, Literal, NamedTuple, Optional, Set, Uni
 import pandas as pd
 from django.core.exceptions import FieldDoesNotExist
 from django.db import models
-from django.db.models import CharField, TextField
 from django.db.models.query_utils import DeferredAttribute as Field
 from lamin_logger import logger
 from lamin_logger._lookup import Lookup
@@ -61,7 +60,6 @@ def suggest_objects_with_same_name(orm: ORM, kwargs) -> Optional[str]:
         # test for exact match
         if len(results) > 0:
             if results.index[0] == kwargs["name"]:
-                logger.warning("Object with exact same name exists, returning it")
                 return "object-with-same-name-exists"
             else:
                 msg = "Entries with similar names exist:"
@@ -83,15 +81,39 @@ def __init__(orm: ORM, *args, **kwargs):
         if settings.upon_create_search_names:
             result = suggest_objects_with_same_name(orm, kwargs)
             if result == "object-with-same-name-exists":
-                existing_record = orm.select(name=kwargs["name"])[0]
-                init_self_from_db(orm, existing_record)
-                return None
+                if "version" in kwargs:
+                    version_comment = " and version "
+                    existing_record = orm.select(
+                        name=kwargs["name"], version=kwargs["version"]
+                    ).one_or_none()
+                else:
+                    version_comment = " "
+                    existing_record = orm.select(name=kwargs["name"]).one()
+                if existing_record is not None:
+                    logger.warning(
+                        f"Object with exact same name{version_comment}exists,"
+                        " returning it"
+                    )
+                    init_self_from_db(orm, existing_record)
+                    return None
         super(ORM, orm).__init__(**kwargs)
     elif len(args) != len(orm._meta.concrete_fields):
         raise ValueError("Please provide keyword arguments, not plain arguments")
     else:
         # object is loaded from DB (**kwargs could be omitted below, I believe)
         super(ORM, orm).__init__(*args, **kwargs)
+
+
+def view_parents(self: ORM, field: Optional[StrField] = None, distance: int = 100):
+    """View parents of a record in a graph."""
+    from lamindb.dev._view_parents import view_parents as _view_parents
+
+    if field is None:
+        field = get_default_str_field(self)
+    if not isinstance(field, str):
+        field = field.field.name
+
+    return _view_parents(record=self, field=field, distance=distance)
 
 
 @classmethod  # type:ignore
@@ -117,19 +139,21 @@ def _search(
     field: Optional[StrField] = None,
     top_hit: bool = False,
     case_sensitive: bool = True,
-    synonyms_field: Optional[Union[str, TextField, CharField]] = "synonyms",
+    synonyms_field: Optional[StrField] = None,
     synonyms_sep: str = "|",
 ) -> Union["pd.DataFrame", "ORM"]:
-    """{}"""
     if field is None:
         field = get_default_str_field(cls)
     if not isinstance(field, str):
         field = field.field.name
 
-    records = cls.all() if isinstance(cls, models.QuerySet) else cls.objects.all()
+    query_set = cls.all() if isinstance(cls, models.QuerySet) else cls.objects.all()
     cls = cls.model if isinstance(cls, models.QuerySet) else cls
 
-    df = pd.DataFrame.from_records(records.values())
+    if synonyms_field is None:
+        df = pd.DataFrame(query_set.values("id", field))
+    else:
+        df = pd.DataFrame(query_set.values("id", field, synonyms_field))
 
     result = base_search(
         df=df,
@@ -146,9 +170,9 @@ def _search(
         return result
     else:
         if isinstance(result, list):
-            return [records.get(id=r.id) for r in result]
+            return [query_set.get(id=r.id) for r in result]
         else:
-            return records.get(id=result.id)
+            return query_set.get(id=result.id)
 
 
 @classmethod  # type: ignore
@@ -160,7 +184,7 @@ def search(
     field: Optional[StrField] = None,
     top_hit: bool = False,
     case_sensitive: bool = True,
-    synonyms_field: Optional[Union[str, TextField, CharField]] = "synonyms",
+    synonyms_field: Optional[StrField] = None,
     synonyms_sep: str = "|",
 ) -> Union["pd.DataFrame", "ORM"]:
     """{}"""
@@ -321,6 +345,55 @@ def map_synonyms(
         field=field,
         **kwargs,
     )
+
+
+def describe(record: ORM):
+    """Rich representation of a record with relationships."""
+    model_name = record.__class__.__name__
+    msg = ""
+    fields = record._meta.fields
+    direct_fields = []
+    foreign_key_fields = []
+    for f in fields:
+        if f.is_relation:
+            foreign_key_fields.append(f.name)
+        else:
+            direct_fields.append(f.name)
+    # display line by line the foreign key fields
+    if len(foreign_key_fields) > 0:
+        record_msg = f"{model_name}({''.join([f'{i}={record.__getattribute__(i)}, ' for i in direct_fields])})"  # noqa
+        msg += f"{record_msg.rstrip(', ')}\n\n"
+
+        msg += "One/Many-to-One:\n    "
+        related_msg = "".join(
+            [f"🔗 {i}: {record.__getattribute__(i)}\n    " for i in foreign_key_fields]
+        )
+        msg += related_msg
+    msg = msg.rstrip("    ")
+
+    # display many-to-many relationship objects
+    # fields in the model definition
+    related_names = [i.name for i in record._meta.many_to_many]
+    # fields back linked
+    related_names += [i.related_name for i in record._meta.related_objects]
+    msg += "Many-to-Many:\n"
+    for related_name in related_names:
+        related_objects = record.__getattribute__(related_name)
+        if related_objects.exists():
+            count = related_objects.count()
+            objects = related_objects.all()[:10]
+            try:
+                field = get_default_str_field(objects.first())
+            except ValueError:
+                field = "id"
+            objects_list = list(objects.values_list(field, flat=True))
+            msg_objects = f"    🔗 {related_name} ({count}): {objects_list}\n"
+            if count > 10:
+                msg_objects = msg_objects.replace("]", " ... ]")
+            msg += msg_objects
+    msg = msg.rstrip("\n")
+    msg = msg.rstrip("Related objects:")
+    print(msg)
 
 
 def _filter_df_based_on_species(
@@ -486,3 +559,5 @@ def __name_with_type__(cls) -> str:
 
 
 setattr(ORM, "__name_with_type__", __name_with_type__)
+setattr(ORM, "view_parents", view_parents)
+setattr(ORM, "describe", describe)

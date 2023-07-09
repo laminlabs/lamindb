@@ -29,6 +29,7 @@ from lamindb.dev.storage.file import auto_storage_key_from_file, filepath_from_f
 from lamindb.dev.utils import attach_func_to_class_method
 
 from . import _TESTING
+from .dev._view_parents import view_lineage
 from .dev.storage.file import AUTO_KEY_PREFIX
 
 try:
@@ -102,23 +103,33 @@ def serialize(
     return memory_rep, filepath, suffix
 
 
-def get_hash(filepath, suffix, check_hash: bool = True) -> Optional[Union[str, File]]:
+def get_hash(
+    filepath, suffix, check_hash: bool = True
+) -> Union[Tuple[Optional[str], Optional[str]], File]:
     if suffix in {".zarr", ".zrad"}:
         return None
     if isinstance(filepath, UPath):
         stat = filepath.stat()
-        if "ETag" in stat and "-" not in stat["ETag"]:
-            # only store hash for non-multipart uploads
-            # we can't rapidly validate multi-part uploaded files client-side
-            # we can add more logic later down-the-road
-            hash = b16_to_b64(stat["ETag"])
+        if "ETag" in stat:
+            # small files
+            if "-" not in stat["ETag"]:
+                # only store hash for non-multipart uploads
+                # we can't rapidly validate multi-part uploaded files client-side
+                # we can add more logic later down-the-road
+                hash = b16_to_b64(stat["ETag"])
+                hash_type = "md5"
+            else:
+                stripped_etag, suffix = stat["ETag"].split("-")
+                suffix = suffix.strip('"')
+                hash = f"{b16_to_b64(stripped_etag)}-{suffix}"
+                hash_type = "md5-n"  # this is the S3 chunk-hashing strategy
         else:
             logger.warning(f"Did not add hash for {filepath}")
-            return None
+            return None, None
     else:
-        hash = hash_file(filepath)
+        hash, hash_type = hash_file(filepath)
     if not check_hash:
-        return hash
+        return hash, hash_type
     result = File.select(hash=hash).list()
     if len(result) > 0:
         if settings.upon_file_create_if_hash_exists == "error":
@@ -133,12 +144,12 @@ def get_hash(filepath, suffix, check_hash: bool = True) -> Optional[Union[str, F
                 "Creating new File object despite existing file with same hash:"
                 f" {result[0]}"
             )
-            return hash
+            return hash, hash_type
         else:
             logger.warning(f"Returning existing file with same hash: {result[0]}")
             return result[0]
     else:
-        return hash
+        return hash, hash_type
 
 
 def get_run(run: Optional[Run]) -> Optional[Run]:
@@ -162,6 +173,7 @@ def get_path_size_hash(
 ):
     cloudpath = None
     localpath = None
+    hash_and_type: Tuple[Optional[str], Optional[str]]
 
     if suffix == ".zarr":
         if memory_rep is not None:
@@ -176,7 +188,7 @@ def get_path_size_hash(
                 size = sum(
                     f.stat().st_size for f in filepath.rglob("*") if f.is_file()  # type: ignore # noqa
                 )
-        hash = None
+        hash_and_type = None, None
     else:
         if isinstance(filepath, UPath):
             try:
@@ -189,13 +201,13 @@ def get_path_size_hash(
                 else:
                     raise e
             cloudpath = filepath
-            hash = None
+            hash_and_type = None, None
         else:
             size = filepath.stat().st_size  # type: ignore
             localpath = filepath
-        hash = get_hash(filepath, suffix, check_hash=check_hash)
+        hash_and_type = get_hash(filepath, suffix, check_hash=check_hash)
 
-    return localpath, cloudpath, size, hash
+    return localpath, cloudpath, size, hash_and_type
 
 
 def get_check_path_in_storage(
@@ -254,11 +266,13 @@ def get_file_kwargs_from_data(
     memory_rep, filepath, suffix = serialize(provisional_id, data, format)
     # the following will return a localpath that is not None if filepath is local
     # it will return a cloudpath that is not None if filepath is on the cloud
-    local_filepath, cloud_filepath, size, hash = get_path_size_hash(
+    local_filepath, cloud_filepath, size, hash_and_type = get_path_size_hash(
         filepath, memory_rep, suffix
     )
-    if isinstance(hash, File):
-        return hash, None
+    if isinstance(hash_and_type, File):
+        return hash_and_type, None
+    else:
+        hash, hash_type = hash_and_type
     check_path_in_storage = get_check_path_in_storage(filepath)
     # if we pass a file, no storage key, and path is already in storage,
     # then use the existing relative path within the storage location
@@ -272,6 +286,7 @@ def get_file_kwargs_from_data(
     kwargs = dict(
         suffix=suffix,
         hash=hash,
+        hash_type=hash_type,
         key=key,
         size=size,
         storage_id=lamindb_setup.settings.storage.id,
@@ -569,10 +584,28 @@ def backed(
 
 
 def _track_run_input(file: File, is_run_input: Optional[bool] = None):
+    track_run_input = False
     if is_run_input is None:
-        if context.run is not None and not settings.track_run_inputs:
-            logger.hint("Track this file as a run input by passing `is_run_input=True`")
-        track_run_input = settings.track_run_inputs
+        # we need a global run context for this to work
+        if context.run is not None:
+            # avoid cycles (a file is both input and output)
+            if file.run != context.run:
+                if settings.track_run_inputs:
+                    logger.info(
+                        f"Adding file {file.id} as input for run {context.run.id},"
+                        f" adding parent transform {file.transform.id}"
+                    )
+                    track_run_input = True
+                else:
+                    logger.hint(
+                        "Track this file as a run input by passing `is_run_input=True`"
+                    )
+        else:
+            if settings.track_run_inputs:
+                logger.hint(
+                    "You can auto-track this file as a run input by calling"
+                    " `ln.track()`"
+                )
     else:
         track_run_input = is_run_input
     if track_run_input:
@@ -581,9 +614,12 @@ def _track_run_input(file: File, is_run_input: Optional[bool] = None):
                 "No global run context set. Call ln.context.track() or link input to a"
                 " run object via `run.inputs.append(file)`"
             )
-        if not file.input_of.contains(context.run):
+        # avoid adding the same run twice
+        # avoid cycles (a file is both input and output)
+        if not file.input_of.contains(context.run) and file.run != context.run:
             context.run.save()
             file.input_of.add(context.run)
+            context.run.transform.parents.add(file.transform)
 
 
 def load(self, is_run_input: Optional[bool] = None, stream: bool = False) -> DataLike:
@@ -707,6 +743,34 @@ def tree(
     print(f"\n{directories} directories" + (f", {files} files" if files else ""))
 
 
+def inherit_relationships(self, file: File, fields: Optional[List[str]] = None):
+    """Inherit many-to-many relationships from another file."""
+    if fields is None:
+        # fields in the model definition
+        related_names = [i.name for i in file._meta.many_to_many]
+        # fields back linked
+        related_names += [i.related_name for i in file._meta.related_objects]
+    else:
+        related_names = []
+        for field in fields:
+            if hasattr(file, field):
+                related_names.append(field)
+            else:
+                raise KeyError(f"No many-to-many relationship is found with '{field}'")
+
+    inherit_names = [
+        related_name
+        for related_name in related_names
+        if file.__getattribute__(related_name).exists()
+    ]
+
+    logger.info(f"Inheriting {len(inherit_names)} fields: {inherit_names}")
+    for related_name in inherit_names:
+        self.__getattribute__(related_name).set(
+            file.__getattribute__(related_name).all()
+        )
+
+
 METHOD_NAMES = [
     "__init__",
     "from_anndata",
@@ -737,3 +801,5 @@ for name in METHOD_NAMES:
 # privates currently dealt with separately
 File._delete_skip_storage = _delete_skip_storage
 File._save_skip_storage = _save_skip_storage
+setattr(File, "view_lineage", view_lineage)
+setattr(File, "inherit_relationships", inherit_relationships)

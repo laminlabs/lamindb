@@ -11,7 +11,6 @@ def test_df():
     ln.save(tags)
     for project in projects:
         project.tags.set(tags)
-    ln.save(projects)
     df = ln.Project.select().df(include="tags__name")
     assert df.columns[0] == "tags__name"
     # order is not conserved

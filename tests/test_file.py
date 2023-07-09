@@ -112,7 +112,7 @@ def get_test_filepaths(request):  # -> Tuple[bool, Path, Path]
 # this tests the basic (non-provenance-related) metadata
 @pytest.mark.parametrize("key", [None, "my_new_dir/my_file.csv"])
 @pytest.mark.parametrize("name", [None, "my name"])
-def test_create_from_filepath(get_test_filepaths, key, name):
+def test_create_from_local_filepath(get_test_filepaths, key, name):
     isin_default_storage = get_test_filepaths[0]
     test_filepath = get_test_filepaths[2]
     file = ln.File(test_filepath, key=key, name=name)
@@ -159,6 +159,83 @@ def test_delete(get_test_filepaths):
     file.delete(storage=True)
     assert ln.File.select(description="My test file to delete").first() is None
     assert not Path(storage_path).exists()
+
+
+@pytest.fixture(scope="module")
+def remote_storage():
+    previous_storage = ln.setup.settings.storage.root_as_str
+    ln.settings.storage = "s3://lamindb-ci"
+    yield "s3://lamindb-ci"
+    ln.settings.storage = previous_storage
+
+
+# why does this run so long? in particular the first time?
+@pytest.mark.parametrize(
+    "filepath_str",
+    ["s3://lamindb-ci/test-data/test.parquet", "s3://lamindb-ci/test-data/test.csv"],
+)
+def test_create_small_file_from_remote_path(remote_storage, filepath_str):
+    file = ln.File(filepath_str)
+    file.save()
+    # test stage()
+    file_from_local = ln.File(file.stage())
+    # test hash equivalency when computed on local machine
+    assert file_from_local.hash == file.hash
+    assert file_from_local.hash_type == "md5"
+    assert file.hash_type == "md5"
+    assert file.path().as_posix() == filepath_str
+    assert file.load().iloc[0].tolist() == [
+        0,
+        "Abingdon island giant tortoise",
+        "Chelonoidis abingdonii",
+        106734,
+        "ASM359739v1",
+        "GCA_003597395.1",
+        "Full genebuild",
+        "-",
+        "-",
+    ]
+
+
+def test_create_big_file_from_remote_path():
+    previous_storage = ln.setup.settings.storage.root_as_str
+    ln.settings.storage = "s3://lamindb-test"
+    filepath_str = "s3://lamindb-test/human_immune.h5ad"
+    file = ln.File(filepath_str)
+    assert file.hash.endswith("-2")
+    assert file.hash_type == "md5-n"
+    ln.settings.storage = previous_storage
+
+
+def test_inherit_relationships():
+    with open("test-inherit1", "w") as f:
+        f.write("file1")
+    with open("test-inherit2", "w") as f:
+        f.write("file2")
+
+    file1 = ln.File("test-inherit1")
+    file1.save()
+    file2 = ln.File("test-inherit2")
+    file2.save()
+
+    tag_names = [f"Tag {i}" for i in range(3)]
+    projects = [ln.Project(name=f"Project {i}") for i in range(3)]
+    ln.save(projects)
+    tags = [ln.Tag(name=name) for name in tag_names]
+    ln.save(tags)
+
+    file2.tags.set(tags)
+    file2.projects.set(projects)
+
+    assert file1.tags.exists() is False
+    file1.inherit_relationships(file2, ["tags"])
+    assert file1.tags.count() == file2.tags.count()
+    assert file1.projects.exists() is False
+    file1.inherit_relationships(file2)
+    assert file1.projects.count() == file2.projects.count()
+
+    with pytest.raises(KeyError):
+        file1.inherit_relationships(file2, ["not_exist_field"])
 
 
 # -------------------------------------------------------------------------------------

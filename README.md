@@ -31,7 +31,7 @@ LaminDB is a free & open-source Python library allowing you to:
 
 LaminApp is a data management app built on LaminDB, deployable in your infrastructure. Think LaminApp ~ GitHub and LaminDB ~ git.
 
-LaminApp, support & code templates for a BioTech data & analytics platform are currently only available on an enterprise plan.
+LaminApp, support, code templates & auto-dispatched integration tests for a BioTech data & analytics platform are currently only available on an enterprise plan.
 
 ## Usage overview & quickstart
 
@@ -229,7 +229,12 @@ fcs      # Manage .fcs files (flow cytometry)
 zarr     # Store & stream arrays with zarr
 aws      # AWS (s3fs, etc.)
 gcp      # Google Cloud (gcfs, etc.)
+postgres # Postgres server
 ```
+
+### Docker
+
+Here is a way of running LaminDB in a docker: [github.com/laminlabs/lamindb-docker](https://github.com/laminlabs/lamindb-docker).
 
 ### Sign up
 
