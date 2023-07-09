@@ -362,7 +362,7 @@ def describe(record: ORM):
     # display line by line the foreign key fields
     if len(foreign_key_fields) > 0:
         record_msg = f"{model_name}({''.join([f'{i}={record.__getattribute__(i)}, ' for i in direct_fields])})"  # noqa
-        msg += f"{record_msg.rstrip(', ')}\n\n"
+        msg += f"{record_msg.rstrip(', )')})\n\n"
 
         msg += "One/Many-to-One:\n    "
         related_msg = "".join(
