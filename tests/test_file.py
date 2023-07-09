@@ -114,7 +114,9 @@ def test_create_from_anndata_in_memory():
     file.delete(storage=True)
 
 
-@pytest.mark.parametrize("data", [adata, "s3://lamindb-test/human_immune.h5ad"])
+@pytest.mark.parametrize(
+    "data", [adata, "s3://lamindb-test/scrnaseq_pbmc68k_tiny.h5ad"]
+)
 def test_create_from_anndata_in_storage(data):
     if isinstance(data, ad.AnnData):
         filepath = Path("test_adata.h5ad")
