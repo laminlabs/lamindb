@@ -36,6 +36,8 @@ class Settings:
     track_run_inputs: bool = True
     """Track files as input upon `.load()`, `.stage()` and `.backed()`.
 
+    Requires a global run context with :func:`~lamindb.track` was created!
+
     FAQ: :doc:`/faq/track-run-inputs`
     """
 
