@@ -1,5 +1,6 @@
 # Changelog
 
+- 📝 Restructure reference [PR870](https://github.com/laminlabs/lamindb/pull/870) [@falexwolf](https://github.com/falexwolf)
 ## 0.46.2 (2023-07-09)
 
 - 🚸 Improve data-lineage guide, auto-track run inputs [PR869](https://github.com/laminlabs/lamindb/pull/869) [@falexwolf](https://github.com/falexwolf)
