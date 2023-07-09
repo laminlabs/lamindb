@@ -1,5 +1,6 @@
 # Changelog
 
+- ✅ Fix bug and add test for tracking multiple parent transforms [PR875](https://github.com/laminlabs/lamindb/pull/875) [@falexwolf](https://github.com/falexwolf)
 - ✏️ Fix ending ) of record display [PR873](https://github.com/laminlabs/lamindb/pull/873) [@sunnyosun](https://github.com/sunnyosun)
 ## 0.46.3 (2023-07-09)
 
