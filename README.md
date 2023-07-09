@@ -229,6 +229,7 @@ fcs      # Manage .fcs files (flow cytometry)
 zarr     # Store & stream arrays with zarr
 aws      # AWS (s3fs, etc.)
 gcp      # Google Cloud (gcfs, etc.)
+postgres # Postgres server
 ```
 
 ### Docker
