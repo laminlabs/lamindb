@@ -1,5 +1,6 @@
 # Changelog
 
+- ✨ Read remote h5ad in backed mode `from_anndata` [PR871](https://github.com/laminlabs/lamindb/pull/871) [@falexwolf](https://github.com/falexwolf)
 - 📝 Restructure reference [PR870](https://github.com/laminlabs/lamindb/pull/870) [@falexwolf](https://github.com/falexwolf)
 ## 0.46.2 (2023-07-09)
 
