@@ -29,7 +29,7 @@ from lamindb.dev.storage.file import auto_storage_key_from_file, filepath_from_f
 from lamindb.dev.utils import attach_func_to_class_method
 
 from . import _TESTING
-from .dev._view_parents import data_lineage
+from .dev._view_parents import view_lineage
 from .dev.storage.file import AUTO_KEY_PREFIX
 
 try:
@@ -584,18 +584,28 @@ def backed(
 
 
 def _track_run_input(file: File, is_run_input: Optional[bool] = None):
+    track_run_input = False
     if is_run_input is None:
+        # we need a global run context for this to work
         if context.run is not None:
+            # avoid cycles (a file is both input and output)
+            if file.run != context.run:
+                if settings.track_run_inputs:
+                    logger.info(
+                        f"Adding file {file.id} as input for run {context.run.id},"
+                        f" adding parent transform {file.transform.id}"
+                    )
+                    track_run_input = True
+                else:
+                    logger.hint(
+                        "Track this file as a run input by passing `is_run_input=True`"
+                    )
+        else:
             if settings.track_run_inputs:
-                logger.info(
-                    f"Adding file {file.id} as input for run {context.run.id}, adding"
-                    f" parent transform {file.transform.id}"
-                )
-            else:
                 logger.hint(
-                    "Track this file as a run input by passing `is_run_input=True`"
+                    "You can auto-track this file as a run input by calling"
+                    " `ln.track()`"
                 )
-        track_run_input = settings.track_run_inputs
     else:
         track_run_input = is_run_input
     if track_run_input:
@@ -604,7 +614,9 @@ def _track_run_input(file: File, is_run_input: Optional[bool] = None):
                 "No global run context set. Call ln.context.track() or link input to a"
                 " run object via `run.inputs.append(file)`"
             )
-        if not file.input_of.contains(context.run):
+        # avoid adding the same run twice
+        # avoid cycles (a file is both input and output)
+        if not file.input_of.contains(context.run) and file.run != context.run:
             context.run.save()
             file.input_of.add(context.run)
             context.run.transform.parents.add(file.transform)
@@ -789,5 +801,5 @@ for name in METHOD_NAMES:
 # privates currently dealt with separately
 File._delete_skip_storage = _delete_skip_storage
 File._save_skip_storage = _save_skip_storage
-setattr(File, "data_lineage", data_lineage)
+setattr(File, "view_lineage", view_lineage)
 setattr(File, "inherit_relationships", inherit_relationships)

@@ -126,10 +126,9 @@ class context:
         pypackage: Optional[Union[str, List[str]]] = None,
         editor: Optional[str] = None,
     ) -> None:
-        """Track `Transform` & `Run` records for a notebook or pipeline.
+        """Track global `Transform` & `Run` for a notebook or pipeline.
 
-        Adds these records to the DB and exposes them as
-        `ln.context.transform` and `ln.context.run`.
+        Access them via `ln.context.transform` and `ln.context.run`.
 
         Call without a `transform` record or without arguments
         when tracking a Jupyter notebook.

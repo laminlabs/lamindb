@@ -60,7 +60,6 @@ def suggest_objects_with_same_name(orm: ORM, kwargs) -> Optional[str]:
         # test for exact match
         if len(results) > 0:
             if results.index[0] == kwargs["name"]:
-                logger.warning("Object with exact same name exists, returning it")
                 return "object-with-same-name-exists"
             else:
                 msg = "Entries with similar names exist:"
@@ -82,9 +81,21 @@ def __init__(orm: ORM, *args, **kwargs):
         if settings.upon_create_search_names:
             result = suggest_objects_with_same_name(orm, kwargs)
             if result == "object-with-same-name-exists":
-                existing_record = orm.select(name=kwargs["name"])[0]
-                init_self_from_db(orm, existing_record)
-                return None
+                if "version" in kwargs:
+                    version_comment = " and version "
+                    existing_record = orm.select(
+                        name=kwargs["name"], version=kwargs["version"]
+                    ).one_or_none()
+                else:
+                    version_comment = " "
+                    existing_record = orm.select(name=kwargs["name"]).one()
+                if existing_record is not None:
+                    logger.warning(
+                        f"Object with exact same name{version_comment}exists,"
+                        " returning it"
+                    )
+                    init_self_from_db(orm, existing_record)
+                    return None
         super(ORM, orm).__init__(**kwargs)
     elif len(args) != len(orm._meta.concrete_fields):
         raise ValueError("Please provide keyword arguments, not plain arguments")
@@ -133,7 +144,6 @@ def _search(
 ) -> Union["pd.DataFrame", "ORM"]:
     if field is None:
         field = get_default_str_field(cls)
-        logger.info(f"searching field {field}")
     if not isinstance(field, str):
         field = field.field.name
 
