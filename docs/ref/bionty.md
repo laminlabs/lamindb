@@ -1,5 +1,3 @@
 # `bionty`
 
-```{eval-rst}
-.. automodule:: bionty
-```
+[lamin.ai/docs/bionty](https://lamin.ai/docs/bionty/)

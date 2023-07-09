@@ -3,6 +3,7 @@ from inspect import signature
 from pathlib import Path
 
 import anndata as ad
+import lnschema_bionty as lb
 import numpy as np
 import pandas as pd
 import pytest
@@ -16,12 +17,14 @@ from lamindb._file import get_check_path_in_storage, get_relative_path_to_root
 # currently, we're only mocking it through `default_storage` as
 # set in conftest.py
 
+lb.settings.species = "human"
+
 df = pd.DataFrame({"feat1": [1, 2], "feat2": [3, 4]})
 
 adata = ad.AnnData(
     X=np.array([[1, 2, 3], [4, 5, 6]]),
     obs=dict(Obs=["A", "B"]),
-    var=dict(Feat=["a", "b", "c"]),
+    var=dict(Feat=["MYC1", "TCF7", "GATA1"]),
     obsm=dict(X_pca=np.array([[1, 2], [3, 4]])),
 )
 
@@ -91,6 +94,46 @@ def test_create_from_df(description):
     feature_list_queried = [feature.name for feature in feature_list_queried]
     assert set(feature_list_queried) == set(df.columns)
     file.delete(storage=True)
+
+
+def test_create_from_anndata_in_memory():
+    file = ln.File.from_anndata(adata, var_ref=lb.Gene.symbol)
+    assert hasattr(file, "_local_filepath")
+    file.save()
+    # check that the local filepath has been cleared
+    assert not hasattr(file, "_local_filepath")
+    feature_sets_queried = file.feature_sets.all()
+    feature_list_queried = ln.Feature.select(
+        feature_sets__in=feature_sets_queried
+    ).list()
+    feature_list_queried = [feature.name for feature in feature_list_queried]
+    assert set(feature_list_queried) == set(adata.obs.columns)
+    feature_list_queried = lb.Gene.select(feature_sets__in=feature_sets_queried).list()
+    feature_list_queried = [feature.symbol for feature in feature_list_queried]
+    assert set(feature_list_queried) == set(adata.var.index)
+    file.delete(storage=True)
+
+
+@pytest.mark.parametrize(
+    "data", [adata, "s3://lamindb-test/scrnaseq_pbmc68k_tiny.h5ad"]
+)
+def test_create_from_anndata_in_storage(data):
+    if isinstance(data, ad.AnnData):
+        filepath = Path("test_adata.h5ad")
+        data.write(filepath)
+    else:
+        previous_storage = ln.setup.settings.storage.root_as_str
+        ln.settings.storage = "s3://lamindb-test"
+        filepath = data
+    file = ln.File.from_anndata(filepath, var_ref=lb.Gene.symbol)
+    assert hasattr(file, "_local_filepath")
+    file.save()
+    # check that the local filepath has been cleared
+    assert not hasattr(file, "_local_filepath")
+    if isinstance(data, ad.AnnData):
+        filepath.unlink()
+    else:
+        ln.settings.storage = previous_storage
 
 
 @pytest.fixture(

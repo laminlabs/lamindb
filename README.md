@@ -276,8 +276,6 @@ LaminDB consists of the `lamindb` Python package (repository [here](https://gith
 
 LaminHub & LaminApp are not open-sourced, and neither are templates that model lab operations.
 
-Lamin's packages build on the infrastructure listed [above](#how-does-it-work).
-
 ## Notebooks
 
 - Find all guide notebooks [here](https://github.com/laminlabs/lamindb/tree/main/docs/guide).
