@@ -130,7 +130,6 @@ def test_create_from_anndata_in_storage(data):
     file.save()
     # check that the local filepath has been cleared
     assert not hasattr(file, "_local_filepath")
-    file.delete(storage=True)
     if isinstance(data, ad.AnnData):
         filepath.unlink()
     else:

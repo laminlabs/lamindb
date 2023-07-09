@@ -99,6 +99,7 @@ def anndata_pbmc68k_reduced() -> ad.AnnData:
         del pbmc68k.uns["bulk_labels_colors"]
         del pbmc68k.raw
         sc.pp.subsample(pbmc68k, fraction=0.1, random_state=123)
+        pbmc68k.write("scrnaseq_pbmc68k_tiny.h5ad")
     """
     filepath, _ = urlretrieve(
         "https://lamindb-test.s3.amazonaws.com/scrnaseq_pbmc68k_tiny.h5ad"
@@ -122,13 +123,14 @@ def anndata_human_immune_cells() -> ad.AnnData:
     From: https://cellxgene.cziscience.com/collections/62ef75e4-cbea-454e-a0ce-998ec40223d3  # noqa
     Dataset: Global
 
-    To reproduce the subsample:
-    >>> adata = sc.read('Global.h5ad')
-    >>> adata.obs = adata.obs[['donor_id', 'tissue', 'cell_type', 'assay', 'tissue_ontology_term_id', 'cell_type_ontology_term_id', 'assay_ontology_term_id']].copy() . # noqa
-    >>> sc.pp.subsample(adata, fraction=0.005)
-    >>> del adata.uns["development_stage_ontology_term_id_colors"]
-    >>> del adata.uns["sex_ontology_term_id_colors"]
-    >>> sc.write('human_immune.h5ad', adata)
+    To reproduce the subsample::
+
+        adata = sc.read('Global.h5ad')
+        adata.obs = adata.obs[['donor_id', 'tissue', 'cell_type', 'assay', 'tissue_ontology_term_id', 'cell_type_ontology_term_id', 'assay_ontology_term_id']].copy()
+        sc.pp.subsample(adata, fraction=0.005)
+        del adata.uns["development_stage_ontology_term_id_colors"]
+        del adata.uns["sex_ontology_term_id_colors"]
+        sc.write('human_immune.h5ad', adata)
     """
     filepath, _ = urlretrieve("https://lamindb-test.s3.amazonaws.com/human_immune.h5ad")
     return ad.read(filepath)

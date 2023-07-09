@@ -45,6 +45,8 @@ def test_from_values_multiple_match():
 def test_from_values_species():
     from lnschema_bionty import Gene, settings
 
+    settings.species = None
+
     with pytest.raises(AssertionError):
         Gene.from_values(["ABC1"], Gene.symbol)
 
