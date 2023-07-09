@@ -1,5 +1,6 @@
 # Changelog
 
+- ✏️ Fix ending ) of record display [PR873](https://github.com/laminlabs/lamindb/pull/873) [@sunnyosun](https://github.com/sunnyosun)
 ## 0.46.3 (2023-07-09)
 
 - ✨ Read remote h5ad in backed mode in `File.from_anndata` [PR871](https://github.com/laminlabs/lamindb/pull/871) [@falexwolf](https://github.com/falexwolf)
