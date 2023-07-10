@@ -147,12 +147,18 @@ def _search(
         field = field.field.name
 
     query_set = cls.all() if isinstance(cls, models.QuerySet) else cls.objects.all()
-    cls = cls.model if isinstance(cls, models.QuerySet) else cls
+    orm = cls.model if isinstance(cls, models.QuerySet) else cls
 
-    if synonyms_field is None:
-        df = pd.DataFrame(query_set.values("id", field))
-    else:
+    try:
+        orm._meta.get_field(synonyms_field)
+        synonyms_field_exists = True
+    except FieldDoesNotExist:
+        synonyms_field_exists = False
+
+    if synonyms_field is not None and synonyms_field_exists:
         df = pd.DataFrame(query_set.values("id", field, synonyms_field))
+    else:
+        df = pd.DataFrame(query_set.values("id", field))
 
     result = base_search(
         df=df,
@@ -161,7 +167,7 @@ def _search(
         synonyms_field=str(synonyms_field),
         case_sensitive=case_sensitive,
         return_ranked_results=not top_hit,
-        tuple_name=cls.__name__,
+        tuple_name=orm.__name__,
     )
 
     if not top_hit or result is None:
