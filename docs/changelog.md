@@ -1,29 +1,20 @@
 # Changelog
 
-- 🎉 Stage 0.47.0 [PR874](https://github.com/laminlabs/lamindb/pull/874) [@falexwolf](https://github.com/falexwolf)
-- ✨ Detect interactive environments and other fixes for ln.track() [PR878](https://github.com/laminlabs/lamindb/pull/878) [@Koncopd](https://github.com/Koncopd)
-- 💄 Prettified parents view [PR876](https://github.com/laminlabs/lamindb/pull/876) [@sunnyosun](https://github.com/sunnyosun)
-- 🚸 Case insensitive search [PR877](https://github.com/laminlabs/lamindb/pull/877) [@falexwolf](https://github.com/falexwolf)
-- ✅ Fix bug and add test for tracking multiple parent transforms [PR875](https://github.com/laminlabs/lamindb/pull/875) [@falexwolf](https://github.com/falexwolf)
-- ✏️ Fix ending ) of record display [PR873](https://github.com/laminlabs/lamindb/pull/873) [@sunnyosun](https://github.com/sunnyosun)
-## 0.46.3 (2023-07-09)
+## 0.47.0 (2023-07-10)
 
-- ✨ Read remote h5ad in backed mode in `File.from_anndata` [PR871](https://github.com/laminlabs/lamindb/pull/871) [@falexwolf](https://github.com/falexwolf)
-
-## 0.46.2 (2023-07-09)
-
-- 🚸 Improve data-lineage guide, auto-track run inputs [PR869](https://github.com/laminlabs/lamindb/pull/869) [@falexwolf](https://github.com/falexwolf)
-- ⚡️ Speed up search [PR868](https://github.com/laminlabs/lamindb/pull/868) [@falexwolf](https://github.com/falexwolf)
-- ✨ Added inherit_relationships to file [PR867](https://github.com/laminlabs/lamindb/pull/867) [@sunnyosun](https://github.com/sunnyosun)
-- ⚡️ Copy or move files to the cache [PR864](https://github.com/laminlabs/lamindb/pull/864) [@Koncopd](https://github.com/Koncopd)
-- ✨ Added `Manager.list()` and allow configure `.list()` with field name [PR863](https://github.com/laminlabs/lamindb/pull/863) [@sunnyosun](https://github.com/sunnyosun)
-- ✨ Added `.describe()` for rich repr of related objects [PR862](https://github.com/laminlabs/lamindb/pull/862) [@sunnyosun](https://github.com/sunnyosun)
-- ✨ Track `hash_type` [PR861](https://github.com/laminlabs/lamindb/pull/861) [@falexwolf](https://github.com/falexwolf)
 - ✨ View parents [PR858](https://github.com/laminlabs/lamindb/pull/858) [@sunnyosun](https://github.com/sunnyosun)
 - ✨ Track parent notebooks [PR859](https://github.com/laminlabs/lamindb/pull/859) [@falexwolf](https://github.com/falexwolf)
-
-## 0.46.1 (2023-07-06)
-
+- 🚸 Improve data-lineage guide, auto-track run inputs [PR869](https://github.com/laminlabs/lamindb/pull/869) [@falexwolf](https://github.com/falexwolf)
+- 🚸 More reliably detect interactive environments `ln.track()` [PR878](https://github.com/laminlabs/lamindb/pull/878) [@Koncopd](https://github.com/Koncopd)
+- 🚸 Case insensitive search [PR877](https://github.com/laminlabs/lamindb/pull/877) [@falexwolf](https://github.com/falexwolf)
+- 🚸 Fix bug and add test for tracking multiple parent transforms [PR875](https://github.com/laminlabs/lamindb/pull/875) [@falexwolf](https://github.com/falexwolf)
+- ✨ Read remote h5ad in backed mode in `File.from_anndata` [PR871](https://github.com/laminlabs/lamindb/pull/871) [@falexwolf](https://github.com/falexwolf)
+- ⚡️ Speed up search [PR868](https://github.com/laminlabs/lamindb/pull/868) [@falexwolf](https://github.com/falexwolf)
+- ✨ Added `File.inherit_relationships` [PR867](https://github.com/laminlabs/lamindb/pull/867) [@sunnyosun](https://github.com/sunnyosun)
+- ⚡️ Better cache management [PR864](https://github.com/laminlabs/lamindb/pull/864) [@Koncopd](https://github.com/Koncopd)
+- ✨ Added `Manager.list()` and allow passing field name [PR863](https://github.com/laminlabs/lamindb/pull/863) [@sunnyosun](https://github.com/sunnyosun)
+- ✨ Added `.describe()` for rich repr of related objects [PR862](https://github.com/laminlabs/lamindb/pull/862) [@sunnyosun](https://github.com/sunnyosun)
+- ✨ Track `hash_type` [PR861](https://github.com/laminlabs/lamindb/pull/861) [@falexwolf](https://github.com/falexwolf)
 - 🚸 It should be possible to use a schema module prior to importing `lamindb` [PR852](https://github.com/laminlabs/lamindb/pull/852) [@falexwolf](https://github.com/falexwolf)
 - ✨ Enable `search`, `lookup`, `inspect`, `map_synonyms` from `QuerySet` [PR849](https://github.com/laminlabs/lamindb/pull/849) [@sunnyosun](https://github.com/sunnyosun)
 
