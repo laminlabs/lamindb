@@ -198,7 +198,7 @@ class context:
                         )
                     elif isinstance(e, UpdateNbWithNonInteractiveEditorError):
                         raise e
-                    elif isinstance(e, NotebookNotSavedError):
+                    elif isinstance(e, (NotebookNotSavedError, NoTitleError)):
                         raise e
                     else:
                         logger.warning(f"Automatic tracking of notebook failed: {e}")
