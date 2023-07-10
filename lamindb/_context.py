@@ -101,6 +101,7 @@ def reinitialize_notebook(
         new_version = "0"
     metadata["version"] = new_version
 
+    # here we check that responses to both inputs (for new id and version) were not 'n'
     if transform.stem_id != new_id or transform.version != new_version:
         transform = Transform(
             stem_id=new_id, version=new_version, type=TransformType.notebook
