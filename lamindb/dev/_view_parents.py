@@ -13,20 +13,27 @@ def view_lineage(file: File):
     file_label = _label_file_run(file)
 
     u = graphviz.Digraph(
-        file.id, node_attr={"fillcolor": "antiquewhite", "color": "orange"}
+        file.id,
+        node_attr={"fillcolor": "antiquewhite", "color": "orange"},
+        edge_attr={"arrowsize": "0.5"},
     )
     u.node(file.id, label=file_label, style="filled", fillcolor="orange", shape="oval")
     for _, row in df_edges.iterrows():
         if isinstance(row["source_record"], Run):
-            style = "rounded"
-            if row["source_record"].transform.type == "notebook":
-                shape = "note"
-            else:
-                shape = "cds"
+            style = "rounded,filled"
+            shape = "box"
+            fillcolor = "gainsboro"
         else:
             shape = "oval"
             style = "filled"
-        u.node(row["source"], label=row["source_label"], shape=shape, style=style)
+            fillcolor = "antiquewhite"
+        u.node(
+            row["source"],
+            label=row["source_label"],
+            shape=shape,
+            style=style,
+            fillcolor=fillcolor,
+        )
         u.edge(row["source"], row["target"], color="dimgrey")
 
     return u
@@ -44,16 +51,24 @@ def view_parents(record: ORM, field: str, distance: int = 100):
 
     record_label = record.__getattribute__(field)
 
-    u = graphviz.Digraph(record.id, node_attr={"color": "mediumseagreen"})
+    u = graphviz.Digraph(
+        record.id,
+        node_attr={
+            "color": "orange",
+            "fillcolor": "antiquewhite",
+            "shape": "box",
+            "style": "rounded,filled",
+        },
+        edge_attr={"arrowsize": "0.5"},
+    )
     u.node(
         record_label.replace(":", "_"),
         label=record_label,
-        style="filled",
-        color="mediumseagreen",
+        fillcolor="orange",
     )
     for _, row in df_edges.iterrows():
         u.node(row["source"], label=row["source_label"])
-        u.edge(row["source"], row["target"], color="darkslategrey")
+        u.edge(row["source"], row["target"], color="dimgrey")
 
     return u
 
@@ -133,7 +148,9 @@ def _df_edges_from_runs(all_runs: List[Run]):
             df_values.append((list(run.inputs.all()), run))
         if run.outputs.exists():
             df_values.append((run, list(run.outputs.all())))
-    df = pd.DataFrame(df_values, columns=["source_record", "target_record"])
+    df = pd.DataFrame(
+        df_values, columns=["source_record", "target_record"]
+    ).drop_duplicates()
     df = df.explode("source_record")
     df = df.explode("target_record")
     df["source"] = [i.id for i in df["source_record"]]
