@@ -290,7 +290,6 @@ def _map_synonyms(
     case_sensitive: bool = False,
     keep: Literal["first", "last", False] = "first",
     synonyms_field: str = "synonyms",
-    synonyms_sep: str = "|",
     field: Optional[str] = None,
     **kwargs,
 ) -> Union[List[str], Dict[str, str]]:
@@ -317,7 +316,6 @@ def _map_synonyms(
         case_sensitive=case_sensitive,
         keep=keep,
         synonyms_field=synonyms_field,
-        sep=synonyms_sep,
     )
 
 
@@ -331,7 +329,6 @@ def map_synonyms(
     case_sensitive: bool = False,
     keep: Literal["first", "last", False] = "first",
     synonyms_field: str = "synonyms",
-    synonyms_sep: str = "|",
     field: Optional[str] = None,
     **kwargs,
 ) -> Union[List[str], Dict[str, str]]:
@@ -343,7 +340,6 @@ def map_synonyms(
         case_sensitive=case_sensitive,
         keep=keep,
         synonyms_field=synonyms_field,
-        synonyms_sep=synonyms_sep,
         field=field,
         **kwargs,
     )
