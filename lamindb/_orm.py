@@ -138,9 +138,8 @@ def _search(
     *,
     field: Optional[StrField] = None,
     top_hit: bool = False,
-    case_sensitive: bool = True,
-    synonyms_field: Optional[StrField] = None,
-    synonyms_sep: str = "|",
+    case_sensitive: bool = False,
+    synonyms_field: Optional[StrField] = "synonyms",
 ) -> Union["pd.DataFrame", "ORM"]:
     if field is None:
         field = get_default_str_field(cls)
@@ -162,7 +161,6 @@ def _search(
         synonyms_field=str(synonyms_field),
         case_sensitive=case_sensitive,
         return_ranked_results=not top_hit,
-        synonyms_sep=synonyms_sep,
         tuple_name=cls.__name__,
     )
 
@@ -183,9 +181,8 @@ def search(
     *,
     field: Optional[StrField] = None,
     top_hit: bool = False,
-    case_sensitive: bool = True,
-    synonyms_field: Optional[StrField] = None,
-    synonyms_sep: str = "|",
+    case_sensitive: bool = False,
+    synonyms_field: Optional[StrField] = "synonyms",
 ) -> Union["pd.DataFrame", "ORM"]:
     """{}"""
     return _search(
@@ -195,7 +192,6 @@ def search(
         top_hit=top_hit,
         case_sensitive=case_sensitive,
         synonyms_field=synonyms_field,
-        synonyms_sep=synonyms_sep,
     )
 
 
