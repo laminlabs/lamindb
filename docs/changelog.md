@@ -1,5 +1,6 @@
 # Changelog
 
+- 🎉 Stage 0.47.0 [PR874](https://github.com/laminlabs/lamindb/pull/874) [@falexwolf](https://github.com/falexwolf)
 - ✨ Detect interactive environments and other fixes for ln.track() [PR878](https://github.com/laminlabs/lamindb/pull/878) [@Koncopd](https://github.com/Koncopd)
 - 💄 Prettified parents view [PR876](https://github.com/laminlabs/lamindb/pull/876) [@sunnyosun](https://github.com/sunnyosun)
 - 🚸 Case insensitive search [PR877](https://github.com/laminlabs/lamindb/pull/877) [@falexwolf](https://github.com/falexwolf)
