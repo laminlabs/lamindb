@@ -55,7 +55,7 @@ nbproject = [
     "nbproject>=0.9.0"
 ]
 bionty = [
-    "lnschema_bionty==0.26.2",
+    "lnschema_bionty==0.26.3",
 ]
 zarr = [
     "zarr",
