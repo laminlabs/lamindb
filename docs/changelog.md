@@ -1,5 +1,6 @@
 # Changelog
 
+- 💄 Prettified parents view [PR876](https://github.com/laminlabs/lamindb/pull/876) [@sunnyosun](https://github.com/sunnyosun)
 - 🚸 Case insensitive search [PR877](https://github.com/laminlabs/lamindb/pull/877) [@falexwolf](https://github.com/falexwolf)
 - ✅ Fix bug and add test for tracking multiple parent transforms [PR875](https://github.com/laminlabs/lamindb/pull/875) [@falexwolf](https://github.com/falexwolf)
 - ✏️ Fix ending ) of record display [PR873](https://github.com/laminlabs/lamindb/pull/873) [@sunnyosun](https://github.com/sunnyosun)
