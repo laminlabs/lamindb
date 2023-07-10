@@ -1,6 +1,7 @@
 import builtins
 import os
 import re
+from datetime import datetime
 from pathlib import Path, PurePath
 from typing import Dict, List, Optional, Tuple, Union
 
@@ -20,6 +21,13 @@ msg_path_failed = (
     " `notebook_path` to ln.track()."
 )
 
+msg_manual_init = (
+    "\n(1) Save your notebook!"
+    "\n(2) Attach metadata to the notebook by running the CLI:\n"
+    "lamin track {notebook_path}"
+    "\n(3) Reload or re-open your notebook"
+)
+
 
 class UpdateNbWithNonInteractiveEditorError(Exception):
     pass
@@ -31,6 +39,10 @@ class NotebookNotSavedError(Exception):
 
 class NoTitleError(Exception):
     pass
+
+
+def _seconds_modified(filepath):
+    return datetime.now().timestamp() - Path(filepath).stat().st_mtime
 
 
 def _write_notebook_meta(metadata):
@@ -58,12 +70,13 @@ def _write_notebook_meta(metadata):
 
 
 def reinitialize_notebook(
-    id: str, metadata: Optional[Dict] = None
+    transform: Transform, metadata: Optional[Dict] = None
 ) -> Tuple[Transform, Dict]:
     from nbproject import dev as nb_dev
     from nbproject._header import _filepath
 
-    new_id, new_version = id, None
+    new_id, new_version = transform.stem_id, None
+
     if "NBPRJ_TEST_NBPATH" not in os.environ:
         response = input("Do you want to generate a new id? (y/n)")
     else:
@@ -71,11 +84,8 @@ def reinitialize_notebook(
     if response == "y":
         new_id = lnschema_core.ids.base62_12()
     else:
-        response = input(
-            "Do you want to set a new version (e.g. '1.1')? Type 'n' for"
-            " 'no'. (version/n)"
-        )
-        if response != "n":
+        response = input("Do you want to set a new version (e.g. '1.1')? (y/n)")
+        if response == "y":
             new_version = input("Please type the version: ")
 
     nb = None
@@ -88,9 +98,11 @@ def reinitialize_notebook(
         new_version = "0"
     metadata["version"] = new_version
 
-    transform = Transform(
-        stem_id=new_id, version=new_version, type=TransformType.notebook
-    )
+    # here we check that responses to both inputs (for new id and version) were not 'n'
+    if transform.stem_id != new_id or transform.version != new_version:
+        transform = Transform(
+            stem_id=new_id, version=new_version, type=TransformType.notebook
+        )
     return transform, metadata
 
 
@@ -186,7 +198,7 @@ class context:
                         )
                     elif isinstance(e, UpdateNbWithNonInteractiveEditorError):
                         raise e
-                    elif isinstance(e, NotebookNotSavedError):
+                    elif isinstance(e, (NotebookNotSavedError, NoTitleError)):
                         raise e
                     else:
                         logger.warning(f"Automatic tracking of notebook failed: {e}")
@@ -237,10 +249,10 @@ class context:
         parents = cls.transform.parents.all() if cls.transform is not None else []
         if len(parents) > 0:
             if len(parents) == 1:
-                logger.info(f"Parent transform is: {parents[0]}")
+                logger.info(f"Parent transform: {parents[0]}")
             else:
-                parents_formatted = "\n   -".join(parents)
-                logger.info(f"Parent transforms are: {parents_formatted}")
+                parents_formatted = "\n   - ".join([f"{parent}" for parent in parents])
+                logger.info(f"Parent transforms:\n   - {parents_formatted}")
 
         # only for newly intialized notebooks
         if hasattr(cls, "_notebook_meta"):
@@ -272,6 +284,7 @@ class context:
 
         metadata = None
         needs_init = False
+        is_interactive = False
         reference = None
         if filepath is None:
             path_env = None
@@ -283,7 +296,7 @@ class context:
                 raise RuntimeError(msg_path_failed)
             notebook_path, _env = path_env
         else:
-            notebook_path = filepath
+            notebook_path, _env = filepath, editor
         if isinstance(notebook_path, (Path, PurePath)):
             notebook_path = notebook_path.as_posix()
         if notebook_path.endswith("Untitled.ipynb"):
@@ -336,20 +349,24 @@ class context:
             if _env in ("lab", "notebook"):
                 cls._notebook_meta = metadata  # type: ignore
             else:
-                msg = (
-                    "\n(1) Save your notebook!"
-                    "\n(2) Attach metadata to the notebook by running the CLI:\n"
-                    f"lamin track {notebook_path}"
-                    "\n(3) Reload or re-open your notebook"
-                )
+                msg = msg_manual_init.format(notebook_path=notebook_path)
                 raise UpdateNbWithNonInteractiveEditorError(msg)
 
         if _env in ("lab", "notebook"):
             # save the notebook in case that title was updated
             # but notebook not saved
             nbproject.dev._frontend_commands._save_notebook(_env)
+            # check here if interactivity really works
 
         if metadata is not None:
+            # this only executed if nbproject is used
+            # check here if interactivity really works
+            # timestamp should be recent due to save
+            is_interactive = _seconds_modified(_filepath) < 1.5  # should be ~1 sec
+            if not is_interactive and needs_init:
+                msg = msg_manual_init.format(notebook_path=_filepath)
+                raise UpdateNbWithNonInteractiveEditorError(msg)
+
             id = metadata["id"]
             version = metadata["version"]
             filestem = Path(_filepath).stem
@@ -388,20 +405,14 @@ class context:
                     " new id or version? (y/n)"
                 )
                 if response == "y":
-                    if _env in ("lab", "notebook"):
-                        transform, metadata = reinitialize_notebook(
-                            transform.id, metadata
-                        )
+                    if _env in ("lab", "notebook") and is_interactive:
+                        transform, metadata = reinitialize_notebook(transform, metadata)
                         # only write metadata back to notebook if it actually changed!
                         # if filename or title changed, this does not merit a write!
                         # it's dangerous to write unnecessarily
                         cls._notebook_meta = metadata  # type: ignore
                     else:
-                        msg = (
-                            "\n(1) Save your notebook!\n(2) Update id & version in the"
-                            " notebook by running the CLI:\nlamin track"
-                            f" {notebook_path}\n(3) Reload or re-open your notebook"
-                        )
+                        msg = msg_manual_init.format(notebook_path=notebook_path)
                         raise UpdateNbWithNonInteractiveEditorError(msg)
                 transform.name = title
                 transform.short_name = filestem

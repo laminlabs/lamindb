@@ -69,7 +69,7 @@ def suggest_objects_with_same_name(orm: ORM, kwargs) -> Optional[str]:
                     logger.warning(f"{msg}")
                     display(results)
                 else:
-                    logger.warning(f"{msg}\n{results.name}")
+                    logger.warning(f"{msg}\n{results}")
     return None
 
 
@@ -138,9 +138,8 @@ def _search(
     *,
     field: Optional[StrField] = None,
     top_hit: bool = False,
-    case_sensitive: bool = True,
-    synonyms_field: Optional[StrField] = None,
-    synonyms_sep: str = "|",
+    case_sensitive: bool = False,
+    synonyms_field: Optional[StrField] = "synonyms",
 ) -> Union["pd.DataFrame", "ORM"]:
     if field is None:
         field = get_default_str_field(cls)
@@ -148,12 +147,18 @@ def _search(
         field = field.field.name
 
     query_set = cls.all() if isinstance(cls, models.QuerySet) else cls.objects.all()
-    cls = cls.model if isinstance(cls, models.QuerySet) else cls
+    orm = cls.model if isinstance(cls, models.QuerySet) else cls
 
-    if synonyms_field is None:
-        df = pd.DataFrame(query_set.values("id", field))
-    else:
+    try:
+        orm._meta.get_field(synonyms_field)
+        synonyms_field_exists = True
+    except FieldDoesNotExist:
+        synonyms_field_exists = False
+
+    if synonyms_field is not None and synonyms_field_exists:
         df = pd.DataFrame(query_set.values("id", field, synonyms_field))
+    else:
+        df = pd.DataFrame(query_set.values("id", field))
 
     result = base_search(
         df=df,
@@ -162,8 +167,7 @@ def _search(
         synonyms_field=str(synonyms_field),
         case_sensitive=case_sensitive,
         return_ranked_results=not top_hit,
-        synonyms_sep=synonyms_sep,
-        tuple_name=cls.__name__,
+        tuple_name=orm.__name__,
     )
 
     if not top_hit or result is None:
@@ -183,9 +187,8 @@ def search(
     *,
     field: Optional[StrField] = None,
     top_hit: bool = False,
-    case_sensitive: bool = True,
-    synonyms_field: Optional[StrField] = None,
-    synonyms_sep: str = "|",
+    case_sensitive: bool = False,
+    synonyms_field: Optional[StrField] = "synonyms",
 ) -> Union["pd.DataFrame", "ORM"]:
     """{}"""
     return _search(
@@ -195,7 +198,6 @@ def search(
         top_hit=top_hit,
         case_sensitive=case_sensitive,
         synonyms_field=synonyms_field,
-        synonyms_sep=synonyms_sep,
     )
 
 
@@ -288,7 +290,6 @@ def _map_synonyms(
     case_sensitive: bool = False,
     keep: Literal["first", "last", False] = "first",
     synonyms_field: str = "synonyms",
-    synonyms_sep: str = "|",
     field: Optional[str] = None,
     **kwargs,
 ) -> Union[List[str], Dict[str, str]]:
@@ -315,7 +316,6 @@ def _map_synonyms(
         case_sensitive=case_sensitive,
         keep=keep,
         synonyms_field=synonyms_field,
-        sep=synonyms_sep,
     )
 
 
@@ -329,7 +329,6 @@ def map_synonyms(
     case_sensitive: bool = False,
     keep: Literal["first", "last", False] = "first",
     synonyms_field: str = "synonyms",
-    synonyms_sep: str = "|",
     field: Optional[str] = None,
     **kwargs,
 ) -> Union[List[str], Dict[str, str]]:
@@ -341,7 +340,6 @@ def map_synonyms(
         case_sensitive=case_sensitive,
         keep=keep,
         synonyms_field=synonyms_field,
-        synonyms_sep=synonyms_sep,
         field=field,
         **kwargs,
     )

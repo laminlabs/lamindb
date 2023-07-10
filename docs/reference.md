@@ -23,8 +23,8 @@ ref/lnschema-bionty
 :caption: Open-source utilities
 :hidden:
 
-ref/readfcs
-ref/bionty
-ref/nbproject
+readfcs
+bionty
+nbproject
 ref/lamin-logger
 ```
