@@ -412,11 +412,7 @@ class context:
                         # it's dangerous to write unnecessarily
                         cls._notebook_meta = metadata  # type: ignore
                     else:
-                        msg = (
-                            "\n(1) Save your notebook!\n(2) Update id & version in the"
-                            " notebook by running the CLI:\nlamin track"
-                            f" {notebook_path}\n(3) Reload or re-open your notebook"
-                        )
+                        msg = msg_manual_init.format(notebook_path=notebook_path)
                         raise UpdateNbWithNonInteractiveEditorError(msg)
                 transform.name = title
                 transform.short_name = filestem
