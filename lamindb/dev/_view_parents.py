@@ -1,25 +1,33 @@
-from typing import List, Union
+from typing import List, Set, Union
 
 from lnschema_core import ORM, File, Run
 
 
-def view_lineage(file: File):
+def view_lineage(file: File, with_children: bool = True):
     """Graph of data lineage."""
     import graphviz
 
     all_runs = _get_all_parent_runs(file)
+    if with_children:
+        all_runs.update(_get_all_child_runs(file))
     df_edges = _df_edges_from_runs(all_runs)
 
     file_label = _label_file_run(file)
 
     u = graphviz.Digraph(
         file.id,
-        node_attr={"fillcolor": "antiquewhite", "color": "orange"},
+        node_attr={
+            "fillcolor": "antiquewhite",
+            "color": "orange",
+            "fontname": "Helvetica",
+        },
         edge_attr={"arrowsize": "0.5"},
     )
-    u.node(file.id, label=file_label, style="filled", fillcolor="orange", shape="oval")
-    for _, row in df_edges.iterrows():
-        if isinstance(row["source_record"], Run):
+
+    def add_node(
+        record: Union[Run, File], node_id: str, node_label: str, u: graphviz.Digraph
+    ):
+        if isinstance(record, Run):
             style = "rounded,filled"
             shape = "box"
             fillcolor = "gainsboro"
@@ -28,13 +36,21 @@ def view_lineage(file: File):
             style = "filled"
             fillcolor = "antiquewhite"
         u.node(
-            row["source"],
-            label=row["source_label"],
+            node_id,
+            label=node_label,
             shape=shape,
             style=style,
             fillcolor=fillcolor,
         )
+
+    for _, row in df_edges.iterrows():
+        add_node(row["source_record"], row["source"], row["source_label"], u)
+        if row["target_record"] not in df_edges["source_record"]:
+            add_node(row["target_record"], row["target"], row["target_label"], u)
+
         u.edge(row["source"], row["target"], color="dimgrey")
+    # label the searched file orange
+    u.node(file.id, label=file_label, style="filled", fillcolor="orange", shape="oval")
 
     return u
 
@@ -58,6 +74,7 @@ def view_parents(record: ORM, field: str, distance: int = 100):
             "fillcolor": "antiquewhite",
             "shape": "box",
             "style": "rounded,filled",
+            "fontname": "Helvetica",
         },
         edge_attr={"arrowsize": "0.5"},
     )
@@ -130,11 +147,34 @@ def _get_all_parent_runs(file: File):
     return all_runs
 
 
+def _get_all_child_runs(file: File):
+    """Get all output file runs recursively."""
+    all_runs: Set[Run] = set()
+
+    runs = {f.run for f in file.run.outputs.all()}
+    while runs.difference(all_runs):
+        all_runs.update(runs)
+        child_runs: Set[Run] = set()
+        for r in runs:
+            child_runs.update(Run.select(inputs__id__in=r.outputs.list("id")).list())
+        runs = child_runs
+    return all_runs
+
+
 def _label_file_run(record: Union[File, Run]):
     if isinstance(record, File):
-        return f"{record.key}\nid:{record.id}" if record.key is not None else record.id
+        return (
+            rf'<{record.key}<BR/><FONT COLOR="GREY" POINT-SIZE="10"'
+            rf' FACE="Monospace">id={record.id}</FONT>>'
+            if record.key is not None
+            else record.id
+        )
     elif isinstance(record, Run):
-        return f"{record.transform.name}\nid:{record.id}"
+        name = f'{record.transform.name.replace("&", "&amp;")}   '
+        return (
+            rf'<{name}<BR/><FONT COLOR="GREY" POINT-SIZE="10"'
+            rf' FACE="Monospace">id={record.id}</FONT>>'
+        )
 
 
 def _df_edges_from_runs(all_runs: List[Run]):
@@ -145,15 +185,15 @@ def _df_edges_from_runs(all_runs: List[Run]):
         if run is None:
             continue
         if run.inputs.exists():
-            df_values.append((list(run.inputs.all()), run))
+            df_values.append((run.inputs.list(), run))
         if run.outputs.exists():
-            df_values.append((run, list(run.outputs.all())))
-    df = pd.DataFrame(
-        df_values, columns=["source_record", "target_record"]
-    ).drop_duplicates()
+            df_values.append((run, run.outputs.list()))
+    df = pd.DataFrame(df_values, columns=["source_record", "target_record"])
     df = df.explode("source_record")
     df = df.explode("target_record")
+    df = df.drop_duplicates()
     df["source"] = [i.id for i in df["source_record"]]
     df["target"] = [i.id for i in df["target_record"]]
     df["source_label"] = df["source_record"].apply(_label_file_run)
+    df["target_label"] = df["target_record"].apply(_label_file_run)
     return df
