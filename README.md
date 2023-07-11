@@ -62,7 +62,7 @@ ln.File(df, name="My dataset1").save()  # create a File object and save/upload i
 You have the full power of SQL to query for metadata, but the simplest query for a file is:
 
 ```python
-file = ln.File.select(name="My dataset1").one()  # get exactly one result
+file = ln.File.select(description="My dataset1").one()  # get exactly one result
 ```
 
 If you don't have specific metadata in mind, run a search:
@@ -163,19 +163,9 @@ Now, you can query for the latest pipeline runs:
 ln.Run.select(transform=transform).order_by("-created_at").df()  # get the latest pipeline runs
 ```
 
-#### Run inputs
-
-To track run inputs, pass `is_run_input` to any `File` accessor: `.stage()`, `.load()` or `.backed()`. For instance,
-
-```python
-file.load(is_run_input=True)
-```
-
-You can also track inputs by default by setting `ln.settings.track_run_inputs = True`.
-
 ### Load your data lake from anywhere
 
-If provided with access, others can load your data lake via a single line:
+If provided with access, others can load your data lake via:
 
 ```
 $ lamin load myaccount/myartifacts
