@@ -419,19 +419,17 @@ def _filter_df_based_on_species(
 
 def get_default_str_field(orm: Union[ORM, models.QuerySet, models.Manager]) -> str:
     """Get the 1st char or text field from the orm."""
-    if isinstance(orm, ORM):
-        model = orm
-    else:
-        model = orm.model
-    model_field_names = [i.name for i in model._meta.fields]
+    if isinstance(orm, (models.QuerySet, models.Manager)):
+        orm = orm.model
+    model_field_names = [i.name for i in orm._meta.fields]
 
     # set default field
     if "name" in model_field_names:
         # by default use the name field
-        field = model._meta.get_field("name")
+        field = orm._meta.get_field("name")
     else:
         # first char or text field that doesn't contain "id"
-        for i in model._meta.fields:
+        for i in orm._meta.fields:
             if "id" in i.name:
                 continue
             if i.get_internal_type() in {"CharField", "TextField"}:
