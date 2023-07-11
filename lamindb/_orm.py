@@ -10,6 +10,7 @@ from lamin_logger._lookup import Lookup
 from lamin_logger._search import search as base_search
 from lamindb_setup.dev._docs import doc_args
 from lnschema_core import ORM
+from lnschema_core.models import format_datetime
 from lnschema_core.types import ListLike, StrField
 
 from lamindb.dev.utils import attach_func_to_class_method
@@ -377,20 +378,25 @@ def describe(record: ORM):
     msg += "Many-to-Many:\n"
     for related_name in related_names:
         related_objects = record.__getattribute__(related_name)
-        if related_objects.exists():
-            count = related_objects.count()
-            objects = related_objects.all()[:10]
-            try:
-                field = get_default_str_field(objects.first())
-            except ValueError:
-                field = "id"
-            objects_list = list(objects.values_list(field, flat=True))
+        count = related_objects.count()
+        if count > 0:
+            # show created_at for runs
+            if related_objects.model.__name__ == "Run":
+                field = "created_at"
+            else:
+                try:
+                    field = get_default_str_field(related_objects)
+                except ValueError:
+                    field = "id"
+            objects_list = list(related_objects.values_list(field, flat=True)[:10])
+            if field == "created_at":
+                objects_list = [format_datetime(i) for i in objects_list]
             msg_objects = f"    🔗 {related_name} ({count}): {objects_list}\n"
             if count > 10:
                 msg_objects = msg_objects.replace("]", " ... ]")
             msg += msg_objects
     msg = msg.rstrip("\n")
-    msg = msg.rstrip("Related objects:")
+    msg = msg.rstrip("Many-to-Many:")
     print(msg)
 
 
@@ -411,9 +417,9 @@ def _filter_df_based_on_species(
     return pd.DataFrame.from_records(records.values())
 
 
-def get_default_str_field(orm: Union[ORM, models.QuerySet]) -> str:
+def get_default_str_field(orm: Union[ORM, models.QuerySet, models.Manager]) -> str:
     """Get the 1st char or text field from the orm."""
-    if isinstance(orm, models.QuerySet):
+    if isinstance(orm, (models.QuerySet, models.Manager)):
         orm = orm.model
     model_field_names = [i.name for i in orm._meta.fields]
 
