@@ -1,5 +1,6 @@
 # Changelog
 
+- 🎨 Display created_at for runs in describe [PR879](https://github.com/laminlabs/lamindb/pull/879) [@sunnyosun](https://github.com/sunnyosun)
 ## 0.47.0 (2023-07-10)
 
 - ✨ View parents [PR858](https://github.com/laminlabs/lamindb/pull/858) [@sunnyosun](https://github.com/sunnyosun)
