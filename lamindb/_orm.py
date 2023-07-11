@@ -378,8 +378,8 @@ def describe(record: ORM):
     msg += "Many-to-Many:\n"
     for related_name in related_names:
         related_objects = record.__getattribute__(related_name)
-        if related_objects.exists():
-            count = related_objects.count()
+        count = related_objects.count()
+        if count > 0:
             # show created_at for runs
             if related_objects.model.__name__ == "Run":
                 field = "created_at"
