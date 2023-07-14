@@ -235,7 +235,7 @@ class context:
                 .first()
             )
             if run is not None:  # loaded latest run
-                run.run_at = timezone.now()  # update run time
+                run.run_at = timezone.now(timezone.utc)  # update run time
                 run.save()
                 logger.info(f"Loaded: {run}")
 
