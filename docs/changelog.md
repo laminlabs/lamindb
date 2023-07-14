@@ -1,5 +1,6 @@
 # Changelog
 
+- 🐛 Constrain urllib3 to fix incompatibility with botocore [PR888](https://github.com/laminlabs/lamindb/pull/888) [@Koncopd](https://github.com/Koncopd)
 - 🎨 Display created_at for runs in describe [PR879](https://github.com/laminlabs/lamindb/pull/879) [@sunnyosun](https://github.com/sunnyosun)
 ## 0.47.0 (2023-07-10)
 
