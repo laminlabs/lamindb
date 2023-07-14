@@ -311,9 +311,9 @@ def log_storage_hint(
 ) -> None:
     hint = ""
     if check_path_in_storage:
-        hint += "file in storage ✓"
+        hint += "File in storage ✓"
     else:
-        hint += "file will be copied to storage upon `save()`"
+        hint += "File will be copied to storage upon `save()`"
     if key is None:
         hint += f" using storage key = {id}{suffix}"
     else:
