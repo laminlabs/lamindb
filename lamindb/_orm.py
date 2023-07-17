@@ -347,7 +347,7 @@ def map_synonyms(
 
 
 def describe(record: ORM):
-    """Rich representation of a record with relationships."""
+    """{}"""
     model_name = record.__class__.__name__
     msg = ""
     fields = record._meta.fields
@@ -559,6 +559,9 @@ METHOD_NAMES = [
     "add_synonym",
     "remove_synonym",
     "from_values",
+    "describe",
+    "set_abbr",
+    "view_parents",
 ]
 
 if _TESTING:
@@ -582,6 +585,3 @@ def __name_with_type__(cls) -> str:
 
 
 setattr(ORM, "__name_with_type__", __name_with_type__)
-setattr(ORM, "view_parents", view_parents)
-setattr(ORM, "describe", describe)
-setattr(ORM, "set_abbr", set_abbr)
