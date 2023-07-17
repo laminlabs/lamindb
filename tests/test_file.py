@@ -204,20 +204,12 @@ def test_delete(get_test_filepaths):
     assert not Path(storage_path).exists()
 
 
-@pytest.fixture(scope="module")
-def remote_storage():
-    previous_storage = ln.setup.settings.storage.root_as_str
-    ln.settings.storage = "s3://lamindb-ci"
-    yield "s3://lamindb-ci"
-    ln.settings.storage = previous_storage
-
-
 # why does this run so long? in particular the first time?
 @pytest.mark.parametrize(
     "filepath_str",
     ["s3://lamindb-ci/test-data/test.parquet", "s3://lamindb-ci/test-data/test.csv"],
 )
-def test_create_small_file_from_remote_path(remote_storage, filepath_str):
+def test_create_small_file_from_remote_path(filepath_str):
     file = ln.File(filepath_str)
     file.save()
     # test stage()

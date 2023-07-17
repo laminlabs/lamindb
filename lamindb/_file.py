@@ -10,6 +10,8 @@ from appdirs import AppDirs
 from django.db.models.query_utils import DeferredAttribute as Field
 from lamin_logger import colors, logger
 from lamindb_setup import settings as setup_settings
+from lamindb_setup._init_instance import register_storage
+from lamindb_setup.dev import StorageSettings
 from lamindb_setup.dev._docs import doc_args
 from lnschema_core import Feature, FeatureSet, File, Run, ids
 from lnschema_core.types import AnnDataLike, DataLike, PathLike
@@ -63,14 +65,23 @@ def serialize(
         if isinstance(filepath, UPath):
             new_storage = list(filepath.parents)[-1]
             if not check_path_in_default_storage(filepath):
-                raise ValueError(
-                    "Currently do not support moving cloud data across buckets."
-                    " Set default storage to point to your cloud bucket:\n"
-                    f" `ln.setup.set.storage({new_storage})` or `lamin set --storage"
-                    f" {new_storage}`"
-                )
-            root = lamindb_setup.settings.storage.root
+                new_storage_str = new_storage.as_posix()
+                if not new_storage_str.startswith(("s3://", "gs://")):
+                    raise NotImplementedError(
+                        "Currently don't allow to set local storage locations on"
+                        " the fly"
+                    )
+                else:
+                    logger.warning(
+                        "Creating file outside default storage is slightly slower"
+                    )
+                storage_settings = StorageSettings(new_storage_str)
+                root = storage_settings.root
+                register_storage(storage_settings)
+            else:
+                root = lamindb_setup.settings.storage.root
             if isinstance(root, UPath):
+                # this might be wrong in some cases!
                 filepath = UPath(
                     filepath, **root._kwargs
                 )  # inherit fsspec kwargs from root
