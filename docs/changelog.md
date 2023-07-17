@@ -1,5 +1,8 @@
 # Changelog
 
+- Bionty naming [PR890](https://github.com/laminlabs/lamindb/pull/890) [@Zethson](https://github.com/Zethson)
+- Add better error msg if graphviz is not installed [PR889](https://github.com/laminlabs/lamindb/pull/889) [@Zethson](https://github.com/Zethson)
+- 🐛 Constrain urllib3 to fix incompatibility with botocore [PR888](https://github.com/laminlabs/lamindb/pull/888) [@Koncopd](https://github.com/Koncopd)
 - 🎨 Display created_at for runs in describe [PR879](https://github.com/laminlabs/lamindb/pull/879) [@sunnyosun](https://github.com/sunnyosun)
 ## 0.47.0 (2023-07-10)
 

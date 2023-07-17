@@ -5,7 +5,15 @@ from lnschema_core import ORM, File, Run
 
 def view_lineage(file: File, with_children: bool = True):
     """Graph of data lineage."""
-    import graphviz
+    try:
+        import graphviz
+    except ImportError:
+        raise ImportError(
+            "Drawing diagrams requires 'graphviz' to be installed. This requires the"
+            " Python package 'graphviz' and the associated binary. We recommend to"
+            " install 'graphviz' using your operating systems' package manager or from"
+            " conda."
+        )
 
     all_runs = _get_all_parent_runs(file)
     if with_children:

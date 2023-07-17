@@ -1,12 +1,11 @@
 import builtins
 import os
 import re
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path, PurePath
 from typing import Dict, List, Optional, Tuple, Union
 
 import lnschema_core
-from django.utils import timezone
 from lamin_logger import logger
 from lamindb_setup import settings
 from lamindb_setup.dev import InstanceSettings
@@ -235,7 +234,7 @@ class context:
                 .first()
             )
             if run is not None:  # loaded latest run
-                run.run_at = timezone.now()  # update run time
+                run.run_at = datetime.now(timezone.utc)  # update run time
                 run.save()
                 logger.info(f"Loaded: {run}")
 

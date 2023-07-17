@@ -41,6 +41,7 @@ Home = "https://github.com/laminlabs/lamindb"
 postgres = ["psycopg2-binary"]
 aws = [
     "botocore==1.29.76",  # for aiobotocore inside s3fs, to fix deps resolution
+    "urllib3<2", # for botocore
     "boto3==1.26.76", # to avoid conflicts arising due to the pin on botocore
     "fsspec[s3]==2023.5.0"
 ]
