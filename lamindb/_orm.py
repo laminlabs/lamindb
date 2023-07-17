@@ -403,7 +403,7 @@ def describe(record: ORM):
 def set_abbr(self: ORM, value: str):
     """Set value for abbr field."""
     try:
-        self.add_synonym(value)
+        self.add_synonym(value, save=False)
     except NotImplementedError:
         pass
     self.abbr = value
@@ -457,6 +457,7 @@ def _add_or_remove_synonyms(
     record: ORM,
     action: Literal["add", "remove"],
     force: bool = False,
+    save: Optional[bool] = None,
 ):
     """Add or remove synonyms."""
 
@@ -516,8 +517,10 @@ def _add_or_remove_synonyms(
 
     record.synonyms = syns_str
 
-    # if record is already in DB, save the changes to DB
-    if not record._state.adding:
+    if save is None:
+        # if record is already in DB, save the changes to DB
+        save = not record._state.adding
+    if save:
         record.save()
 
 
@@ -530,9 +533,16 @@ def _check_synonyms_field_exist(record: ORM):
         )
 
 
-def add_synonym(self, synonym: Union[str, ListLike], force: bool = False):
+def add_synonym(
+    self,
+    synonym: Union[str, ListLike],
+    force: bool = False,
+    save: Optional[bool] = None,
+):
     _check_synonyms_field_exist(self)
-    _add_or_remove_synonyms(synonym=synonym, record=self, force=force, action="add")
+    _add_or_remove_synonyms(
+        synonym=synonym, record=self, force=force, action="add", save=save
+    )
 
 
 def remove_synonym(self, synonym: Union[str, ListLike]):
