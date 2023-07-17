@@ -558,7 +558,9 @@ def from_dir(
         if filepath.is_file():
             relative_path = get_relative_path_to_directory(filepath, folderpath)
             file_key = folder_key + "/" + relative_path.as_posix()
-            files.append(File(filepath, run=run, key=file_key))
+            # if creating from rglob, we don't need to check for existence
+            file = File(filepath, run=run, key=file_key, skip_check_exists=True)
+            files.append(file)
     settings.verbosity = verbosity
     logger.info(f"→ {len(files)} files")
     return files
