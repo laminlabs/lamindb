@@ -36,12 +36,11 @@ def attempt_accessing_path(file: File, storage_key: str):
         path = settings.storage.key_to_filepath(storage_key)
     else:
         logger.warning(
-            "file.path() is slower for files outside the currently configured storage"
-            " location"
+            "file.path() is slightly slower for files outside default storage"
         )
         storage = Storage.select(id=file.storage_id).one()
         # find a better way than passing None to instance_settings in the future!
-        storage_settings = StorageSettings(storage.root, instance_settings=None)
+        storage_settings = StorageSettings(storage.root)
         path = storage_settings.key_to_filepath(storage_key)
     # the following is for backward compat
     if storage_key.startswith(AUTO_KEY_PREFIX) and not path.exists():
