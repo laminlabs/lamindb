@@ -345,7 +345,7 @@ def map_synonyms(
     )
 
 
-def describe(self: ORM):
+def describe(self):
     model_name = self.__class__.__name__
     msg = ""
     fields = self._meta.fields
