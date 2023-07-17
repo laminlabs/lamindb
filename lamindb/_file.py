@@ -1,6 +1,6 @@
 from itertools import islice
 from pathlib import Path, PurePath, PurePosixPath
-from typing import Any, Dict, List, Optional, Tuple, Union, overload  # noqa
+from typing import Any, List, Optional, Tuple, Union
 
 import anndata as ad
 import lamindb_setup
@@ -52,6 +52,7 @@ def serialize(
     provisional_id: str,
     data: Union[Path, UPath, str, pd.DataFrame, AnnData],
     format,
+    skip_existence_check: bool = False,
 ) -> Tuple[Any, Union[Path, UPath], str, str, str]:
     """Serialize a data object that's provided as file or in memory."""
     # if not overwritten, data gets stored in default storage
@@ -60,11 +61,12 @@ def serialize(
     # Convert str to either Path or UPath
     if isinstance(data, (str, Path, UPath)):
         filepath = UPath(data)  # returns Path for local
-        try:  # check if file exists
-            if not filepath.exists():
-                raise FileNotFoundError(filepath)
-        except PermissionError:  # we will setup permissions later
-            pass
+        if not skip_existence_check:
+            try:  # check if file exists
+                if not filepath.exists():
+                    raise FileNotFoundError(filepath)
+            except PermissionError:  # we will setup permissions later
+                pass
         if isinstance(filepath, UPath):
             new_storage = list(filepath.parents)[-1]
             if not check_path_in_default_storage(filepath):
@@ -117,13 +119,16 @@ def serialize(
 
 
 def get_hash(
-    filepath, suffix, check_hash: bool = True
+    filepath,
+    suffix,
+    filepath_stat=None,
+    check_hash: bool = True,
 ) -> Union[Tuple[Optional[str], Optional[str]], File]:
     if suffix in {".zarr", ".zrad"}:
         return None
     if isinstance(filepath, UPath):
-        stat = filepath.stat()
-        if "ETag" in stat:
+        stat = filepath_stat
+        if stat is not None and "ETag" in stat:
             # small files
             if "-" not in stat["ETag"]:
                 # only store hash for non-multipart uploads
@@ -182,6 +187,7 @@ def get_path_size_hash(
     filepath: Union[Path, UPath],
     memory_rep: Optional[Union[pd.DataFrame, AnnData]],
     suffix: str,
+    skip_size_and_hash: bool = False,  # to accelerate
     check_hash: bool = True,
 ):
     cloudpath = None
@@ -203,23 +209,29 @@ def get_path_size_hash(
                 )
         hash_and_type = None, None
     else:
-        if isinstance(filepath, UPath):
-            try:
-                size = filepath.stat()["size"]
-            # here trying to fix access issue with new s3 buckets
-            except Exception as e:
-                if filepath._url.scheme == "s3":
-                    filepath = UPath(filepath, cache_regions=True)
-                    size = filepath.stat()["size"]
-                else:
-                    raise e
-            cloudpath = filepath
+        if skip_size_and_hash:
+            size = None
             hash_and_type = None, None
         else:
-            size = filepath.stat().st_size  # type: ignore
-            localpath = filepath
-        hash_and_type = get_hash(filepath, suffix, check_hash=check_hash)
-
+            filepath_stat = filepath.stat()
+            if isinstance(filepath, UPath):
+                try:
+                    size = filepath_stat["size"]  # type: ignore
+                # here trying to fix access issue with new s3 buckets
+                except Exception as e:
+                    if filepath._url.scheme == "s3":
+                        filepath = UPath(filepath, cache_regions=True)
+                        size = filepath_stat["size"]  # type: ignore
+                    else:
+                        raise e
+                cloudpath = filepath
+                hash_and_type = None, None
+            else:
+                size = filepath_stat.st_size  # type: ignore
+                localpath = filepath
+            hash_and_type = get_hash(
+                filepath, suffix, filepath_stat=filepath_stat, check_hash=check_hash
+            )
     return localpath, cloudpath, size, hash_and_type
 
 
@@ -274,15 +286,20 @@ def get_file_kwargs_from_data(
     run: Optional[Run],
     format: Optional[str],
     provisional_id: str,
+    skip_check_exists: bool = False,
+    skip_size_and_hash: bool = False,
 ):
     run = get_run(run)
     memory_rep, filepath, suffix, root, storage_id = serialize(
-        provisional_id, data, format
+        provisional_id, data, format, skip_check_exists
     )
     # the following will return a localpath that is not None if filepath is local
     # it will return a cloudpath that is not None if filepath is on the cloud
     local_filepath, cloud_filepath, size, hash_and_type = get_path_size_hash(
-        filepath, memory_rep, suffix
+        filepath,
+        memory_rep,
+        suffix,
+        skip_size_and_hash=skip_size_and_hash,
     )
     if isinstance(hash_and_type, File):
         return hash_and_type, None
@@ -374,6 +391,12 @@ def __init__(file: File, *args, **kwargs):
     name: Optional[str] = kwargs.pop("name") if "name" in kwargs else None
     format = kwargs.pop("format") if "format" in kwargs else None
     log_hint = kwargs.pop("log_hint") if "log_hint" in kwargs else True
+    skip_check_exists = (
+        kwargs.pop("skip_check_exists") if "skip_check_exists" in kwargs else False
+    )
+    skip_size_and_hash = (
+        kwargs.pop("skip_size_and_hash") if "skip_size_and_hash" in kwargs else False
+    )
 
     if not len(kwargs) == 0:
         raise ValueError(
@@ -406,6 +429,8 @@ def __init__(file: File, *args, **kwargs):
         run=run,
         format=format,
         provisional_id=provisional_id,
+        skip_check_exists=skip_check_exists,
+        skip_size_and_hash=skip_size_and_hash,
     )
     # an object with the same hash already exists
     if isinstance(kwargs, File):

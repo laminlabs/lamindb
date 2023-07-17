@@ -209,15 +209,24 @@ def test_delete(get_test_filepaths):
     "filepath_str",
     ["s3://lamindb-ci/test-data/test.parquet", "s3://lamindb-ci/test-data/test.csv"],
 )
-def test_create_small_file_from_remote_path(filepath_str):
-    file = ln.File(filepath_str)
+@pytest.mark.parametrize("skip_check_exists", [False, True])
+@pytest.mark.parametrize("skip_size_and_hash", [False, True])
+def test_create_small_file_from_remote_path(
+    filepath_str, skip_check_exists, skip_size_and_hash
+):
+    file = ln.File(
+        filepath_str,
+        skip_check_exists=skip_check_exists,
+        skip_size_and_hash=skip_size_and_hash,
+    )
     file.save()
     # test stage()
     file_from_local = ln.File(file.stage())
     # test hash equivalency when computed on local machine
-    assert file_from_local.hash == file.hash
-    assert file_from_local.hash_type == "md5"
-    assert file.hash_type == "md5"
+    if not skip_size_and_hash:
+        assert file_from_local.hash == file.hash
+        assert file_from_local.hash_type == "md5"
+        assert file.hash_type == "md5"
     assert file.path().as_posix() == filepath_str
     assert file.load().iloc[0].tolist() == [
         0,
@@ -230,6 +239,7 @@ def test_create_small_file_from_remote_path(filepath_str):
         "-",
         "-",
     ]
+    file.delete(storage=False)
 
 
 def test_create_big_file_from_remote_path():
