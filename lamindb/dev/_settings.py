@@ -26,8 +26,15 @@ class Settings:
 
     FAQ: :doc:`/faq/idempotency`
     """
+    upon_file_create_skip_size_hash: bool = False
+    """To speed up registering high numbers of files (default `False`).
+
+    This bypasses queries for size and hash to AWS & GCP.
+
+    It speeds up file creation by about a factor 100.
+    """
     upon_create_search_names: bool = True
-    """Behavior upon creating ORM objects (default `True`).
+    """To speed up creating ORM objects (default `True`).
 
     If `True`, search for alternative names.
 
