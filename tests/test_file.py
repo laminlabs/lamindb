@@ -11,7 +11,7 @@ from lamindb_setup.dev.upath import UPath
 
 import lamindb as ln
 from lamindb import _file
-from lamindb._file import get_check_path_in_storage, get_relative_path_to_root
+from lamindb._file import check_path_in_default_storage, get_relative_path_to_root
 
 # how do we properly abstract out the default storage variable?
 # currently, we're only mocking it through `default_storage` as
@@ -204,20 +204,12 @@ def test_delete(get_test_filepaths):
     assert not Path(storage_path).exists()
 
 
-@pytest.fixture(scope="module")
-def remote_storage():
-    previous_storage = ln.setup.settings.storage.root_as_str
-    ln.settings.storage = "s3://lamindb-ci"
-    yield "s3://lamindb-ci"
-    ln.settings.storage = previous_storage
-
-
 # why does this run so long? in particular the first time?
 @pytest.mark.parametrize(
     "filepath_str",
     ["s3://lamindb-ci/test-data/test.parquet", "s3://lamindb-ci/test-data/test.csv"],
 )
-def test_create_small_file_from_remote_path(remote_storage, filepath_str):
+def test_create_small_file_from_remote_path(filepath_str):
     file = ln.File(filepath_str)
     file.save()
     # test stage()
@@ -322,20 +314,20 @@ def test_get_relative_path_to_root():
     )
 
 
-def test_get_check_path_in_storage():
+def test_check_path_in_default_storage():
     # UPath
     root = UPath("s3://lamindb-ci")
     upath = UPath("s3://lamindb-ci/test-data/test.csv")
-    assert get_check_path_in_storage(upath, root=root)
+    assert check_path_in_default_storage(upath, root=root)
     upath2 = UPath("s3://lamindb-setup/test-data/test.csv")
-    assert not get_check_path_in_storage(upath2, root=root)
+    assert not check_path_in_default_storage(upath2, root=root)
     # local path
     root = Path("/lamindb-ci")
     path = Path("/lamindb-ci/test-data/test.csv")
-    assert get_check_path_in_storage(path, root=root)
+    assert check_path_in_default_storage(path, root=root)
     path = Path("/lamindb-other/test-data/test.csv")
-    assert not get_check_path_in_storage(path, root=root)
+    assert not check_path_in_default_storage(path, root=root)
     # Local & UPath
     root = UPath("s3://lamindb-ci")
     path = Path("/lamindb-ci/test-data/test.csv")
-    assert not get_check_path_in_storage(path, root=root)
+    assert not check_path_in_default_storage(path, root=root)

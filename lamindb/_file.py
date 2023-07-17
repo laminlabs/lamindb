@@ -10,6 +10,8 @@ from appdirs import AppDirs
 from django.db.models.query_utils import DeferredAttribute as Field
 from lamin_logger import colors, logger
 from lamindb_setup import settings as setup_settings
+from lamindb_setup._init_instance import register_storage
+from lamindb_setup.dev import StorageSettings
 from lamindb_setup.dev._docs import doc_args
 from lnschema_core import Feature, FeatureSet, File, Run, ids
 from lnschema_core.types import AnnDataLike, DataLike, PathLike
@@ -50,8 +52,11 @@ def serialize(
     provisional_id: str,
     data: Union[Path, UPath, str, pd.DataFrame, AnnData],
     format,
-) -> Tuple[Any, Union[Path, UPath], str]:
+) -> Tuple[Any, Union[Path, UPath], str, str, str]:
     """Serialize a data object that's provided as file or in memory."""
+    # if not overwritten, data gets stored in default storage
+    root = lamindb_setup.settings.storage.root
+    storage_id = lamindb_setup.settings.storage.id
     # Convert str to either Path or UPath
     if isinstance(data, (str, Path, UPath)):
         filepath = UPath(data)  # returns Path for local
@@ -62,15 +67,23 @@ def serialize(
             pass
         if isinstance(filepath, UPath):
             new_storage = list(filepath.parents)[-1]
-            if not get_check_path_in_storage(filepath):
-                raise ValueError(
-                    "Currently do not support moving cloud data across buckets."
-                    " Set default storage to point to your cloud bucket:\n"
-                    f" `ln.setup.set.storage({new_storage})` or `lamin set --storage"
-                    f" {new_storage}`"
-                )
-            root = lamindb_setup.settings.storage.root
+            if not check_path_in_default_storage(filepath):
+                new_storage_str = new_storage.as_posix()
+                if not new_storage_str.startswith(("s3://", "gs://")):
+                    raise NotImplementedError(
+                        "Currently don't allow to set local storage locations on"
+                        " the fly"
+                    )
+                else:
+                    logger.warning(
+                        "Creating file outside default storage is slightly slower"
+                    )
+                storage_settings = StorageSettings(new_storage_str)
+                root = storage_settings.root
+                register_storage(storage_settings)
+                storage_id = storage_settings.id
             if isinstance(root, UPath):
+                # this might be wrong in some cases!
                 filepath = UPath(
                     filepath, **root._kwargs
                 )  # inherit fsspec kwargs from root
@@ -100,7 +113,7 @@ def serialize(
             f"Do not know how to create a file object from {data}, pass a filepath"
             " instead!"
         )
-    return memory_rep, filepath, suffix
+    return memory_rep, filepath, suffix, root, storage_id
 
 
 def get_hash(
@@ -210,7 +223,7 @@ def get_path_size_hash(
     return localpath, cloudpath, size, hash_and_type
 
 
-def get_check_path_in_storage(
+def check_path_in_default_storage(
     filepath: Union[Path, UPath], *, root: Optional[Union[Path, UPath]] = None
 ) -> bool:
     assert isinstance(filepath, Path)
@@ -263,7 +276,9 @@ def get_file_kwargs_from_data(
     provisional_id: str,
 ):
     run = get_run(run)
-    memory_rep, filepath, suffix = serialize(provisional_id, data, format)
+    memory_rep, filepath, suffix, root, storage_id = serialize(
+        provisional_id, data, format
+    )
     # the following will return a localpath that is not None if filepath is local
     # it will return a cloudpath that is not None if filepath is on the cloud
     local_filepath, cloud_filepath, size, hash_and_type = get_path_size_hash(
@@ -273,12 +288,15 @@ def get_file_kwargs_from_data(
         return hash_and_type, None
     else:
         hash, hash_type = hash_and_type
-    check_path_in_storage = get_check_path_in_storage(filepath)
+    path_is_in_default_storage = check_path_in_default_storage(filepath)
+    path_is_remote = filepath.as_posix().startswith(("s3://", "gs://"))
+    # consider a remote path a path that's already in the desired storage location
+    check_path_in_storage = path_is_in_default_storage or path_is_remote
     # if we pass a file, no storage key, and path is already in storage,
     # then use the existing relative path within the storage location
     # as storage key
     if memory_rep is None and key is None and check_path_in_storage:
-        key = get_relative_path_to_root(path=filepath).as_posix()
+        key = get_relative_path_to_root(path=filepath, root=root).as_posix()
 
     if key is not None and key.startswith(AUTO_KEY_PREFIX):
         raise ValueError(f"Key cannot start with {AUTO_KEY_PREFIX}")
@@ -289,7 +307,7 @@ def get_file_kwargs_from_data(
         hash_type=hash_type,
         key=key,
         size=size,
-        storage_id=lamindb_setup.settings.storage.id,
+        storage_id=storage_id,
         # passing both the id and the object
         # to make them both available immediately
         # after object creation
@@ -490,7 +508,7 @@ def from_dir(
 ) -> List["File"]:
     """{}"""
     folderpath = UPath(path)
-    check_path_in_storage = get_check_path_in_storage(folderpath)
+    check_path_in_storage = check_path_in_default_storage(folderpath)
 
     if check_path_in_storage:
         folder_key = get_relative_path_to_root(path=folderpath).as_posix()
