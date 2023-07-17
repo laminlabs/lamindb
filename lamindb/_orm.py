@@ -105,7 +105,7 @@ def __init__(orm: ORM, *args, **kwargs):
         super(ORM, orm).__init__(*args, **kwargs)
 
 
-def view_parents(self: ORM, field: Optional[StrField] = None, distance: int = 100):
+def view_parents(self, field: Optional[StrField] = None, distance: int = 100):
     from lamindb.dev._view_parents import view_parents as _view_parents
 
     if field is None:
@@ -398,7 +398,7 @@ def describe(self):
     print(msg)
 
 
-def set_abbr(self: ORM, value: str):
+def set_abbr(self, value: str):
     try:
         self.add_synonym(value, save=False)
     except NotImplementedError:
