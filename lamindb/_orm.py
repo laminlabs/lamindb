@@ -106,7 +106,6 @@ def __init__(orm: ORM, *args, **kwargs):
 
 
 def view_parents(self: ORM, field: Optional[StrField] = None, distance: int = 100):
-    """View parents of a record in a graph."""
     from lamindb.dev._view_parents import view_parents as _view_parents
 
     if field is None:
@@ -347,7 +346,6 @@ def map_synonyms(
 
 
 def describe(record: ORM):
-    """{}"""
     model_name = record.__class__.__name__
     msg = ""
     fields = record._meta.fields
@@ -401,7 +399,6 @@ def describe(record: ORM):
 
 
 def set_abbr(self: ORM, value: str):
-    """Set value for abbr field."""
     try:
         self.add_synonym(value, save=False)
     except NotImplementedError:
