@@ -105,8 +105,7 @@ def __init__(orm: ORM, *args, **kwargs):
         super(ORM, orm).__init__(*args, **kwargs)
 
 
-def view_parents(self: ORM, field: Optional[StrField] = None, distance: int = 100):
-    """View parents of a record in a graph."""
+def view_parents(self, field: Optional[StrField] = None, distance: int = 100):
     from lamindb.dev._view_parents import view_parents as _view_parents
 
     if field is None:
@@ -346,11 +345,10 @@ def map_synonyms(
     )
 
 
-def describe(record: ORM):
-    """Rich representation of a record with relationships."""
-    model_name = record.__class__.__name__
+def describe(self):
+    model_name = self.__class__.__name__
     msg = ""
-    fields = record._meta.fields
+    fields = self._meta.fields
     direct_fields = []
     foreign_key_fields = []
     for f in fields:
@@ -360,24 +358,24 @@ def describe(record: ORM):
             direct_fields.append(f.name)
     # display line by line the foreign key fields
     if len(foreign_key_fields) > 0:
-        record_msg = f"{model_name}({''.join([f'{i}={record.__getattribute__(i)}, ' for i in direct_fields])})"  # noqa
+        record_msg = f"{model_name}({''.join([f'{i}={self.__getattribute__(i)}, ' for i in direct_fields])})"  # noqa
         msg += f"{record_msg.rstrip(', )')})\n\n"
 
         msg += "One/Many-to-One:\n    "
         related_msg = "".join(
-            [f"🔗 {i}: {record.__getattribute__(i)}\n    " for i in foreign_key_fields]
+            [f"🔗 {i}: {self.__getattribute__(i)}\n    " for i in foreign_key_fields]
         )
         msg += related_msg
     msg = msg.rstrip("    ")
 
     # display many-to-many relationship objects
     # fields in the model definition
-    related_names = [i.name for i in record._meta.many_to_many]
+    related_names = [i.name for i in self._meta.many_to_many]
     # fields back linked
-    related_names += [i.related_name for i in record._meta.related_objects]
+    related_names += [i.related_name for i in self._meta.related_objects]
     msg += "Many-to-Many:\n"
     for related_name in related_names:
-        related_objects = record.__getattribute__(related_name)
+        related_objects = self.__getattribute__(related_name)
         count = related_objects.count()
         if count > 0:
             # show created_at for runs
@@ -398,6 +396,14 @@ def describe(record: ORM):
     msg = msg.rstrip("\n")
     msg = msg.rstrip("Many-to-Many:")
     print(msg)
+
+
+def set_abbr(self, value: str):
+    try:
+        self.add_synonym(value, save=False)
+    except NotImplementedError:
+        pass
+    self.abbr = value
 
 
 def _filter_df_based_on_species(
@@ -448,6 +454,7 @@ def _add_or_remove_synonyms(
     record: ORM,
     action: Literal["add", "remove"],
     force: bool = False,
+    save: Optional[bool] = None,
 ):
     """Add or remove synonyms."""
 
@@ -507,8 +514,10 @@ def _add_or_remove_synonyms(
 
     record.synonyms = syns_str
 
-    # if record is already in DB, save the changes to DB
-    if not record._state.adding:
+    if save is None:
+        # if record is already in DB, save the changes to DB
+        save = not record._state.adding
+    if save:
         record.save()
 
 
@@ -521,9 +530,16 @@ def _check_synonyms_field_exist(record: ORM):
         )
 
 
-def add_synonym(self, synonym: Union[str, ListLike], force: bool = False):
+def add_synonym(
+    self,
+    synonym: Union[str, ListLike],
+    force: bool = False,
+    save: Optional[bool] = None,
+):
     _check_synonyms_field_exist(self)
-    _add_or_remove_synonyms(synonym=synonym, record=self, force=force, action="add")
+    _add_or_remove_synonyms(
+        synonym=synonym, record=self, force=force, action="add", save=save
+    )
 
 
 def remove_synonym(self, synonym: Union[str, ListLike]):
@@ -540,6 +556,9 @@ METHOD_NAMES = [
     "add_synonym",
     "remove_synonym",
     "from_values",
+    "describe",
+    "set_abbr",
+    "view_parents",
 ]
 
 if _TESTING:
@@ -563,5 +582,3 @@ def __name_with_type__(cls) -> str:
 
 
 setattr(ORM, "__name_with_type__", __name_with_type__)
-setattr(ORM, "view_parents", view_parents)
-setattr(ORM, "describe", describe)
