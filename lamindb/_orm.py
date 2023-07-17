@@ -400,6 +400,15 @@ def describe(record: ORM):
     print(msg)
 
 
+def set_abbr(self: ORM, value: str):
+    """Set value for abbr field."""
+    try:
+        self.add_synonym(value)
+    except NotImplementedError:
+        pass
+    self.abbr = value
+
+
 def _filter_df_based_on_species(
     orm: Union[ORM, models.QuerySet], species: Optional[Union[str, ORM]] = None
 ):
@@ -565,3 +574,4 @@ def __name_with_type__(cls) -> str:
 setattr(ORM, "__name_with_type__", __name_with_type__)
 setattr(ORM, "view_parents", view_parents)
 setattr(ORM, "describe", describe)
+setattr(ORM, "set_abbr", set_abbr)
