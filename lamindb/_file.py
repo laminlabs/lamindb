@@ -62,7 +62,7 @@ def serialize(
             pass
         if isinstance(filepath, UPath):
             new_storage = list(filepath.parents)[-1]
-            if not get_check_path_in_storage(filepath):
+            if not check_path_in_default_storage(filepath):
                 raise ValueError(
                     "Currently do not support moving cloud data across buckets."
                     " Set default storage to point to your cloud bucket:\n"
@@ -210,7 +210,7 @@ def get_path_size_hash(
     return localpath, cloudpath, size, hash_and_type
 
 
-def get_check_path_in_storage(
+def check_path_in_default_storage(
     filepath: Union[Path, UPath], *, root: Optional[Union[Path, UPath]] = None
 ) -> bool:
     assert isinstance(filepath, Path)
@@ -273,7 +273,7 @@ def get_file_kwargs_from_data(
         return hash_and_type, None
     else:
         hash, hash_type = hash_and_type
-    check_path_in_storage = get_check_path_in_storage(filepath)
+    check_path_in_storage = check_path_in_default_storage(filepath)
     # if we pass a file, no storage key, and path is already in storage,
     # then use the existing relative path within the storage location
     # as storage key
@@ -490,7 +490,7 @@ def from_dir(
 ) -> List["File"]:
     """{}"""
     folderpath = UPath(path)
-    check_path_in_storage = get_check_path_in_storage(folderpath)
+    check_path_in_storage = check_path_in_default_storage(folderpath)
 
     if check_path_in_storage:
         folder_key = get_relative_path_to_root(path=folderpath).as_posix()
