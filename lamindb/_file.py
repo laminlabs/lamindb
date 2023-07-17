@@ -187,7 +187,6 @@ def get_path_size_hash(
     filepath: Union[Path, UPath],
     memory_rep: Optional[Union[pd.DataFrame, AnnData]],
     suffix: str,
-    skip_size_and_hash: bool = False,  # to accelerate
     check_hash: bool = True,
 ):
     cloudpath = None
@@ -209,7 +208,8 @@ def get_path_size_hash(
                 )
         hash_and_type = None, None
     else:
-        if skip_size_and_hash:
+        # to accelerate ingesting high numbers of files
+        if settings.upon_file_create_skip_size_hash:
             size = None
             hash_and_type = None, None
         else:
@@ -287,7 +287,6 @@ def get_file_kwargs_from_data(
     format: Optional[str],
     provisional_id: str,
     skip_check_exists: bool = False,
-    skip_size_and_hash: bool = False,
 ):
     run = get_run(run)
     memory_rep, filepath, suffix, root, storage_id = serialize(
@@ -299,7 +298,6 @@ def get_file_kwargs_from_data(
         filepath,
         memory_rep,
         suffix,
-        skip_size_and_hash=skip_size_and_hash,
     )
     if isinstance(hash_and_type, File):
         return hash_and_type, None
@@ -394,9 +392,6 @@ def __init__(file: File, *args, **kwargs):
     skip_check_exists = (
         kwargs.pop("skip_check_exists") if "skip_check_exists" in kwargs else False
     )
-    skip_size_and_hash = (
-        kwargs.pop("skip_size_and_hash") if "skip_size_and_hash" in kwargs else False
-    )
 
     if not len(kwargs) == 0:
         raise ValueError(
@@ -430,7 +425,6 @@ def __init__(file: File, *args, **kwargs):
         format=format,
         provisional_id=provisional_id,
         skip_check_exists=skip_check_exists,
-        skip_size_and_hash=skip_size_and_hash,
     )
     # an object with the same hash already exists
     if isinstance(kwargs, File):

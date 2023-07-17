@@ -214,10 +214,10 @@ def test_delete(get_test_filepaths):
 def test_create_small_file_from_remote_path(
     filepath_str, skip_check_exists, skip_size_and_hash
 ):
+    ln.settings.upon_file_create_skip_size_hash = skip_size_and_hash
     file = ln.File(
         filepath_str,
         skip_check_exists=skip_check_exists,
-        skip_size_and_hash=skip_size_and_hash,
     )
     file.save()
     # test stage()
@@ -240,6 +240,7 @@ def test_create_small_file_from_remote_path(
         "-",
     ]
     file.delete(storage=False)
+    ln.settings.upon_file_create_skip_size_hash = False
 
 
 def test_create_big_file_from_remote_path():
