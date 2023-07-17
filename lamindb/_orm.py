@@ -345,10 +345,10 @@ def map_synonyms(
     )
 
 
-def describe(record: ORM):
-    model_name = record.__class__.__name__
+def describe(self: ORM):
+    model_name = self.__class__.__name__
     msg = ""
-    fields = record._meta.fields
+    fields = self._meta.fields
     direct_fields = []
     foreign_key_fields = []
     for f in fields:
@@ -358,24 +358,24 @@ def describe(record: ORM):
             direct_fields.append(f.name)
     # display line by line the foreign key fields
     if len(foreign_key_fields) > 0:
-        record_msg = f"{model_name}({''.join([f'{i}={record.__getattribute__(i)}, ' for i in direct_fields])})"  # noqa
+        record_msg = f"{model_name}({''.join([f'{i}={self.__getattribute__(i)}, ' for i in direct_fields])})"  # noqa
         msg += f"{record_msg.rstrip(', )')})\n\n"
 
         msg += "One/Many-to-One:\n    "
         related_msg = "".join(
-            [f"🔗 {i}: {record.__getattribute__(i)}\n    " for i in foreign_key_fields]
+            [f"🔗 {i}: {self.__getattribute__(i)}\n    " for i in foreign_key_fields]
         )
         msg += related_msg
     msg = msg.rstrip("    ")
 
     # display many-to-many relationship objects
     # fields in the model definition
-    related_names = [i.name for i in record._meta.many_to_many]
+    related_names = [i.name for i in self._meta.many_to_many]
     # fields back linked
-    related_names += [i.related_name for i in record._meta.related_objects]
+    related_names += [i.related_name for i in self._meta.related_objects]
     msg += "Many-to-Many:\n"
     for related_name in related_names:
-        related_objects = record.__getattribute__(related_name)
+        related_objects = self.__getattribute__(related_name)
         count = related_objects.count()
         if count > 0:
             # show created_at for runs
