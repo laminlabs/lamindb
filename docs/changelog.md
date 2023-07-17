@@ -1,5 +1,6 @@
 # Changelog
 
+- ✨ Enable to create `File` outside default storage [PR891](https://github.com/laminlabs/lamindb/pull/891) [@falexwolf](https://github.com/falexwolf)
 - 🎨 Allow set_abbr to also add abbr to synonyms [PR892](https://github.com/laminlabs/lamindb/pull/892) [@sunnyosun](https://github.com/sunnyosun)
 - Bionty naming [PR890](https://github.com/laminlabs/lamindb/pull/890) [@Zethson](https://github.com/Zethson)
 - Add better error msg if graphviz is not installed [PR889](https://github.com/laminlabs/lamindb/pull/889) [@Zethson](https://github.com/Zethson)
