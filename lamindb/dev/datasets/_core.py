@@ -175,7 +175,7 @@ def df_iris() -> pd.DataFrame:
 
 
 def df_iris_in_meter() -> pd.DataFrame:
-    """The iris dataset with lenghts in meter."""
+    """The iris dataset with lengths in meter."""
     df = df_iris()
     # rename columns
     df.rename(
@@ -184,22 +184,25 @@ def df_iris_in_meter() -> pd.DataFrame:
             "sepal width (cm)": "sepal_width",
             "petal length (cm)": "petal_length",
             "petal width (cm)": "petal_width",
-            "target": "iris_species_code",
         },
         inplace=True,
     )
     df[["sepal_length", "sepal_width", "petal_length", "petal_width"]] /= 100
+    df["iris_species_name"] = df["target"].map(
+        {0: "setosa", 1: "versicolor", 2: "virginica"}
+    )
+    del df["target"]
     return df
 
 
 def df_iris_in_meter_batch1() -> pd.DataFrame:
-    """The iris dataset with lenghts in meter."""
+    """The iris dataset with lengths in meter."""
     df_iris = df_iris_in_meter()
     return df_iris.iloc[: len(df_iris) // 2]
 
 
 def df_iris_in_meter_batch2() -> pd.DataFrame:
-    """The iris dataset with lenghts in meter."""
+    """The iris dataset with lengths in meter."""
     df_iris = df_iris_in_meter()
     return df_iris.iloc[len(df_iris) // 2 :]
 
