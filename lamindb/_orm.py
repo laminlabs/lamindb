@@ -178,8 +178,25 @@ def _search(
         case_sensitive=case_sensitive,
     )
 
+    # search in both key and description fields for file
+    if orm.__name__ == "File" and field == "key":
+        result2 = base_search(
+            df=pd.DataFrame(query_set.values("id", "description")),
+            string=string,
+            field="description",
+            limit=limit,
+            synonyms_field=None,
+            case_sensitive=case_sensitive,
+        )
+        result = (
+            result.reset_index()
+            .merge(result2.reset_index(), how="outer")
+            .drop(columns=["index"], errors="ignore")
+            .set_index("id")
+        )
+
     if return_queryset:
-        return _order_queryset_by_ids(query_set, result["id"])
+        return _order_queryset_by_ids(query_set, result.reset_index()["id"])
     else:
         return result
 
