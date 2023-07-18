@@ -3,7 +3,7 @@ from typing import Dict, Iterable, List, Literal, NamedTuple, Optional, Set, Uni
 
 import pandas as pd
 from django.core.exceptions import FieldDoesNotExist
-from django.db import models
+from django.db.models import Manager, QuerySet
 from django.db.models.query_utils import DeferredAttribute as Field
 from lamin_logger import logger
 from lamin_logger._lookup import Lookup
@@ -132,12 +132,21 @@ def from_values(cls, identifiers: ListLike, field: StrField, **kwargs) -> List["
     )
 
 
+# From: https://stackoverflow.com/a/37648265
+def _order_queryset_by_ids(queryset: QuerySet, ids: Iterable):
+    from django.db.models import Case, When
+
+    preserved = Case(*[When(pk=pk, then=pos) for pos, pk in enumerate(ids)])
+    return queryset.filter(pk__in=ids).order_by(preserved)
+
+
 def _search(
     cls,
     string: str,
     *,
     field: Optional[StrField] = None,
-    top_hit: bool = False,
+    return_queryset: bool = False,
+    limit: Optional[int] = None,
     case_sensitive: bool = False,
     synonyms_field: Optional[StrField] = "synonyms",
 ) -> Union["pd.DataFrame", "ORM"]:
@@ -146,8 +155,8 @@ def _search(
     if not isinstance(field, str):
         field = field.field.name
 
-    query_set = cls.all() if isinstance(cls, models.QuerySet) else cls.objects.all()
-    orm = cls.model if isinstance(cls, models.QuerySet) else cls
+    query_set = cls.all() if isinstance(cls, QuerySet) else cls.objects.all()
+    orm = cls.model if isinstance(cls, QuerySet) else cls
 
     try:
         orm._meta.get_field(synonyms_field)
@@ -164,19 +173,15 @@ def _search(
         df=df,
         string=string,
         field=field,
+        limit=limit,
         synonyms_field=str(synonyms_field),
         case_sensitive=case_sensitive,
-        return_ranked_results=not top_hit,
-        tuple_name=orm.__name__,
     )
 
-    if not top_hit or result is None:
-        return result
+    if return_queryset:
+        return _order_queryset_by_ids(query_set, result["id"])
     else:
-        if isinstance(result, list):
-            return [query_set.get(id=r.id) for r in result]
-        else:
-            return query_set.get(id=result.id)
+        return result
 
 
 @classmethod  # type: ignore
@@ -186,16 +191,18 @@ def search(
     string: str,
     *,
     field: Optional[StrField] = None,
-    top_hit: bool = False,
+    return_queryset: bool = False,
+    limit: Optional[int] = None,
     case_sensitive: bool = False,
     synonyms_field: Optional[StrField] = "synonyms",
-) -> Union["pd.DataFrame", "ORM"]:
+) -> Union["pd.DataFrame", "QuerySet"]:
     """{}"""
     return _search(
         cls=cls,
         string=string,
         field=field,
-        top_hit=top_hit,
+        return_queryset=return_queryset,
+        limit=limit,
         case_sensitive=case_sensitive,
         synonyms_field=synonyms_field,
     )
@@ -208,8 +215,8 @@ def _lookup(cls, field: Optional[StrField] = None) -> NamedTuple:
     if not isinstance(field, str):
         field = field.field.name
 
-    records = cls.all() if isinstance(cls, models.QuerySet) else cls.objects.all()
-    cls = cls.model if isinstance(cls, models.QuerySet) else cls
+    records = cls.all() if isinstance(cls, QuerySet) else cls.objects.all()
+    cls = cls.model if isinstance(cls, QuerySet) else cls
 
     return Lookup(
         records=records,
@@ -243,7 +250,7 @@ def _inspect(
     if not isinstance(field, str):
         field = field.field.name
 
-    cls = cls.model if isinstance(cls, models.QuerySet) else cls
+    cls = cls.model if isinstance(cls, QuerySet) else cls
 
     return inspect(
         df=_filter_df_based_on_species(orm=cls, species=kwargs.get("species")),
@@ -301,7 +308,7 @@ def _map_synonyms(
     if not isinstance(field, str):
         field = field.field.name
 
-    cls = cls.model if isinstance(cls, models.QuerySet) else cls
+    cls = cls.model if isinstance(cls, QuerySet) else cls
 
     try:
         cls._meta.get_field(synonyms_field)
@@ -407,11 +414,11 @@ def set_abbr(self, value: str):
 
 
 def _filter_df_based_on_species(
-    orm: Union[ORM, models.QuerySet], species: Optional[Union[str, ORM]] = None
+    orm: Union[ORM, QuerySet], species: Optional[Union[str, ORM]] = None
 ):
     import pandas as pd
 
-    records = orm.all() if isinstance(orm, models.QuerySet) else orm.objects.all()
+    records = orm.all() if isinstance(orm, QuerySet) else orm.objects.all()
     if _has_species_field(orm):
         # here, we can safely import lnschema_bionty
         from lnschema_bionty._bionty import create_or_get_species_record
@@ -423,9 +430,9 @@ def _filter_df_based_on_species(
     return pd.DataFrame.from_records(records.values())
 
 
-def get_default_str_field(orm: Union[ORM, models.QuerySet, models.Manager]) -> str:
+def get_default_str_field(orm: Union[ORM, QuerySet, Manager]) -> str:
     """Get the 1st char or text field from the orm."""
-    if isinstance(orm, (models.QuerySet, models.Manager)):
+    if isinstance(orm, (QuerySet, Manager)):
         orm = orm.model
     model_field_names = [i.name for i in orm._meta.fields]
 
