@@ -202,6 +202,27 @@ def _filter_bionty_df_columns(model: ORM, bionty_object: Any) -> pd.DataFrame:
         # parents needs to be added here as relationships aren't in fields
         model_field_names.add("parents")
         bionty_df = bionty_object.df().reset_index()
+        if model.__name__ == "Gene":
+            # groupby ensembl_gene_id and concat ncbi_gene_ids
+            bionty_df.drop(
+                columns=["hgnc_id", "mgi_id", "index"], errors="ignore", inplace=True
+            )
+            bionty_df.drop_duplicates(["ensembl_gene_id", "ncbi_gene_id"], inplace=True)
+            bionty_df["ncbi_gene_id"] = bionty_df["ncbi_gene_id"].fillna("")
+            bionty_df = (
+                bionty_df.groupby("ensembl_gene_id")
+                .agg(
+                    {
+                        "symbol": "first",
+                        "ncbi_gene_id": "|".join,
+                        "biotype": "first",
+                        "description": "first",
+                        "synonyms": "first",
+                    }
+                )
+                .reset_index()
+            )
+            bionty_df.rename(columns={"ncbi_gene_id": "ncbi_gene_ids"}, inplace=True)
         # rename definition to description for the lnschema_bionty
         bionty_df.rename(columns={"definition": "description"}, inplace=True)
         bionty_df = bionty_df.loc[:, bionty_df.columns.isin(model_field_names)]

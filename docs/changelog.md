@@ -1,5 +1,6 @@
 # Changelog
 
+- 🎨 Make ensembl gene id unique for Gene table [PR895](https://github.com/laminlabs/lamindb/pull/895) [@sunnyosun](https://github.com/sunnyosun)
 - ⚡ Speed up file creation [PR894](https://github.com/laminlabs/lamindb/pull/894) [@falexwolf](https://github.com/falexwolf)
 - 🚚 Rename Readout to ExperimentalFactor [PR893](https://github.com/laminlabs/lamindb/pull/893) [@sunnyosun](https://github.com/sunnyosun)
 - ✨ Enable to create `File` outside default storage [PR891](https://github.com/laminlabs/lamindb/pull/891) [@falexwolf](https://github.com/falexwolf)
