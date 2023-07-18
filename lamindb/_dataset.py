@@ -5,7 +5,7 @@ import pandas as pd
 from lnschema_core import ids
 from lnschema_core.models import Dataset
 
-from . import Feature, FeatureSet, File, Run
+from . import FeatureSet, File, Run
 from .dev.hashing import hash_set
 
 
@@ -34,16 +34,18 @@ def __init__(
     assert len(kwargs) == 0
     if data is not None:
         if isinstance(data, pd.DataFrame):
-            feature_set = FeatureSet.from_values(data.columns, Feature.name)
-            dataset._feature_sets = [feature_set]
+            file = File.from_df(data, run=run)
+            dataset._feature_sets = file._feature_sets
         elif isinstance(data, ad.AnnData):
             if len(feature_sets) != 2:
                 raise ValueError(
                     "Please provide a feature set describing each `.var.index` &"
                     " `.obs.columns`"
                 )
+            file = File.from_anndata(data, run=run, feature_sets=feature_sets)
             dataset._feature_sets = feature_sets
-        file = File(data=data, run=run, feature_sets=dataset._feature_sets)
+        else:
+            raise ValueError("Only DataFrame and AnnData can be passed as data")
         hash = file.hash
         id = file.id
     else:
@@ -86,7 +88,8 @@ def from_files(dataset: Dataset, *, name: str, files: Iterable[File]) -> Dataset
     # we do not allow duplicate hashes
     file_hashes = [file.hash for file in files]
     file_hashes_set = set(file_hashes)
-    assert len(file_hashes) == len(file_hashes_set)
+    if len(file_hashes) != len(file_hashes_set):
+        raise ValueError("Please pass distinct files")
     hash = hash_set(file_hashes_set)
     # create the dataset
     dataset = Dataset(name=name, hash=hash, feature_sets=feature_sets, files=files)

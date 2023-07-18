@@ -18,11 +18,18 @@ The core schema entities are central to lamindb's API:
    Transform
    Run
    Feature
-   FeatureSet
    User
    Storage
    Tag
    Project
+
+More control over feature management:
+
+.. autosummary::
+   :toctree: .
+
+   FeatureSet
+   FeatureValue
 
 Functional tools:
 
@@ -86,6 +93,7 @@ if _INSTANCE_SETUP:
         Dataset,
         Feature,
         FeatureSet,
+        FeatureValue,
         File,
         Project,
         Run,
@@ -104,7 +112,9 @@ if _INSTANCE_SETUP:
     from lamin_logger import logger as _logger
 
     from . import _dataset  # noqa
+    from . import _feature  # noqa
     from . import _feature_set  # noqa
+    from . import _feature_value  # noqa
     from . import _file  # noqa
     from . import _orm  # noqa
     from . import _transform  # noqa

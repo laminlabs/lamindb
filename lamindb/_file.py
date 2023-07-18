@@ -484,7 +484,9 @@ def from_df(
 ) -> "File":
     """{}"""
     file = File(data=df, key=key, run=run, description=description, log_hint=False)
-    file._feature_sets = [FeatureSet.from_values(df.columns)]
+    features = Feature.from_df(df)
+    feature_set = FeatureSet(features)
+    file._feature_sets = [feature_set]
     return file
 
 
@@ -718,6 +720,9 @@ def _save_skip_storage(file, *args, **kwargs) -> None:
     if hasattr(file, "_feature_sets"):
         for feature_set in file._feature_sets:
             feature_set.save()
+    if hasattr(file, "_feature_values"):
+        for feature_value in file._feature_values:
+            feature_value.save()
     super(File, file).save(*args, **kwargs)
     if hasattr(file, "_feature_sets"):
         file.feature_sets.set(file._feature_sets)

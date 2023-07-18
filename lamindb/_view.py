@@ -27,11 +27,11 @@ def view(n: int = 10, schema: Optional[str] = None):
     for schema_name in schema_names:
         schema_module = importlib.import_module(get_schema_module_name(schema_name))
 
-        orms = [
+        orms = {
             i
             for i in schema_module.__dict__.values()
             if inspect.isclass(i) and issubclass(i, ORM) and i.__name__ != "ORM"
-        ]
+        }
         if len(schema_names) > 1:
             section = f"* module: {colors.green(colors.bold(schema_name))} *"
             section_no_color = f"* module: {schema_name} *"
@@ -39,7 +39,11 @@ def view(n: int = 10, schema: Optional[str] = None):
             print(section)
             print("*" * len(section_no_color))
         for orm in orms:
-            df = select(orm).df()
+            if hasattr(orm, "updated_at"):
+                df = select(orm).order_by("-updated_at")[:n].df()
+            else:
+                # need to adjust in the future
+                df = select(orm).df().iloc[-n:]
             if df.shape[0] > 0:
                 print(colors.blue(colors.bold(orm.__name__)))
-                display(df.iloc[-n:])
+                display(df)

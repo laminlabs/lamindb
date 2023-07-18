@@ -1,9 +1,12 @@
 from inspect import signature
 
+import pandas as pd
 import pytest
 
 import lamindb as ln
 from lamindb import _feature_set
+
+df = pd.DataFrame({"feat1": [1, 2], "feat2": [3.1, 4.2], "feat3": ["cond1", "cond2"]})
 
 
 def test_signatures():
@@ -15,7 +18,7 @@ def test_signatures():
         pass
 
     # class methods
-    class_methods = ["from_values"]
+    class_methods = ["from_values", "from_df"]
     for name in class_methods:
         setattr(Mock, name, getattr(_feature_set, name))
         assert signature(getattr(Mock, name)) == _feature_set.SIGS.pop(name)
@@ -57,4 +60,16 @@ def test_feature_set_from_records():
     feature_set = ln.FeatureSet(features)
     assert not feature_set._state.adding
     assert id == feature_set.id
+    feature_set.delete()
+
+
+def test_feature_set_from_df():
+    feature_set = ln.FeatureSet.from_df(df)
+    feature_set.save()
+    assert set(ln.FeatureValue.select(feature__name="feat3").list("value")) == set(
+        ["cond1", "cond2"]
+    )
+    for feature in feature_set.features.all():
+        feature.delete()
+    assert len(ln.FeatureValue.select(feature__name="feat3").list("value")) == 0
     feature_set.delete()
