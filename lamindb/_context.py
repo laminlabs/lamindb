@@ -191,9 +191,8 @@ class context:
                 except Exception as e:
                     if isinstance(e, ImportError):
                         logger.info(
-                            "It looks like you are running ln.track() from a Jupyter"
-                            " notebook!\nConsider installing nbproject for automatic"
-                            " name, title & id tracking."
+                            "It looks like you are running ln.track() from a "
+                            "notebook!\nPlease install nbproject: pip install nbproject"
                         )
                     elif isinstance(e, UpdateNbWithNonInteractiveEditorError):
                         raise e
@@ -300,12 +299,12 @@ class context:
             notebook_path = notebook_path.as_posix()
         if notebook_path.endswith("Untitled.ipynb"):
             raise RuntimeError("Please rename your notebook before tracking it")
-        if notebook_path.startswith("/filedId="):
+        if notebook_path.startswith("/fileId="):
             # This is Google Colab!
             # google colab fileID looks like this
             # /fileId=1KskciVXleoTeS_OGoJasXZJreDU9La_l
             # we'll take the first 12 characters
-            colab_id = notebook_path.replace("/filedId=", "")
+            colab_id = notebook_path.replace("/fileId=", "")
             id = colab_id[:12]
             reference = f"colab_id: {colab_id}"
             filestem = get_notebook_name_colab()
@@ -382,7 +381,7 @@ class context:
                 )
         else:
             version = "0"
-            title = None
+            title = filestem
 
         transform = ln.select(Transform, stem_id=id, version=version).one_or_none()
         if transform is None:
