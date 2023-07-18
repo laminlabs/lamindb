@@ -86,7 +86,8 @@ def from_files(dataset: Dataset, *, name: str, files: Iterable[File]) -> Dataset
     # we do not allow duplicate hashes
     file_hashes = [file.hash for file in files]
     file_hashes_set = set(file_hashes)
-    assert len(file_hashes) == len(file_hashes_set)
+    if len(file_hashes) == len(file_hashes_set):
+        raise ValueError("Please pass distinct files")
     hash = hash_set(file_hashes_set)
     # create the dataset
     dataset = Dataset(name=name, hash=hash, feature_sets=feature_sets, files=files)
