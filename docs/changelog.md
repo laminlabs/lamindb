@@ -1,5 +1,6 @@
 # Changelog
 
+- 🔥 Remove `top_hit` param from search [PR896](https://github.com/laminlabs/lamindb/pull/896) [@sunnyosun](https://github.com/sunnyosun)
 - 🎨 Make ensembl gene id unique for Gene table [PR895](https://github.com/laminlabs/lamindb/pull/895) [@sunnyosun](https://github.com/sunnyosun)
 - ⚡ Speed up file creation [PR894](https://github.com/laminlabs/lamindb/pull/894) [@falexwolf](https://github.com/falexwolf)
 - 🚚 Rename Readout to ExperimentalFactor [PR893](https://github.com/laminlabs/lamindb/pull/893) [@sunnyosun](https://github.com/sunnyosun)
