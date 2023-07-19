@@ -1,3 +1,4 @@
+from datetime import datetime
 from typing import Iterable, List, NamedTuple, Optional
 
 import pandas as pd
@@ -13,6 +14,12 @@ class NoResultFound(Exception):
 
 class MultipleResultsFound(Exception):
     pass
+
+
+def format_and_convert_to_local_time(series: pd.Series):
+    tzinfo = datetime.now().astimezone().tzinfo
+    timedelta = tzinfo.utcoffset(datetime.now())  # type: ignore
+    return (series + timedelta).dt.strftime("%Y-%m-%d %H:%M:%S")
 
 
 class QuerySet(models.QuerySet):
@@ -63,7 +70,9 @@ class QuerySet(models.QuerySet):
             ]
         df = pd.DataFrame(self.values(), columns=keys)
         if len(df) > 0 and "updated_at" in df:
-            df.updated_at = df.updated_at.dt.strftime("%Y-%m-%d %H:%M:%S")
+            df.updated_at = format_and_convert_to_local_time(df.updated_at)
+        if len(df) > 0 and "run_at" in df:
+            df.run_at = format_and_convert_to_local_time(df.run_at)
         if "id" in df.columns:
             df = df.set_index("id")
         if include is not None:
