@@ -36,7 +36,7 @@ def delete(  # type: ignore
         >>> experiment = ln.select(Experiment, id=experiment_id).one()
         >>> ln.delete(experiment)
 
-        Delete files (delete the metadata record and the file in storage)
+        Delete files (delete the metadata record and the file in storage):
 
         >>> file = ln.select(File, id=file_id).one()
         >>> ln.delete(file)
@@ -45,6 +45,15 @@ def delete(  # type: ignore
         >>> # for more control, use:
         >>> file.delete(storage=True)
 
+        Bulk delete via QuerySet:
+
+        >>> ln.save(ln.Tag.from_values(["Tag1", "Tag2", "Tag3"], field="name"))
+        >>> queryset = ln.Tag.select(name__icontains = "tag")
+        >>> queryset.list()
+        [Tag(id=o3FY3c5n, name=Tag2, updated_at=2023-07-19 18:28:16, created_by_id=kmvZDIX9), # noqa
+        Tag(id=Qi3c4utq, name=Tag3, updated_at=2023-07-19 18:28:16, created_by_id=kmvZDIX9), # noqa
+        Tag(id=CcFPLmpq, name=Tag1, updated_at=2023-07-19 18:28:16, created_by_id=kmvZDIX9)] # noqa
+        >>> queryset.delete()
     """
     logger.warning("For efficient bulk delete, use `queryset.delete` instead")
     if isinstance(records, list):

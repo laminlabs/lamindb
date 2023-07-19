@@ -28,9 +28,11 @@ except ImportError:
 def save(records: Iterable[ORM], **kwargs) -> None:  # type: ignore
     """Bulk save to database & storage.
 
-    .. info:
+    Note:
 
         This is a much **faster** way to save many records in the database.
+
+    Warning:
 
         It neither automatically creates related records nor updates existing records!
         Use ``ORM.save()`` for these use cases.
