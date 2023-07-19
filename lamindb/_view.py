@@ -20,6 +20,9 @@ def view(n: int = 10, schema: Optional[str] = None, orms: Optional[List[str]] = 
             `None` and displays all schema modules.
         orms: ``Optional[List[str]] = None`` List of ORM names. Defaults to
             `None` and lists all ORMs.
+
+    Examples:
+        >>> ln.view()
     """
     if schema is not None:
         schema_names = [schema]

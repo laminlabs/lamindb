@@ -163,16 +163,29 @@ class context:
 
         Examples:
 
-        If you're in a Jupyter notebook and installed lamindb with `pip
-        install[jupyter]`, you can simply call:
+            If you're in a Jupyter notebook and installed lamindb with `pip
+            install[jupyter]`, you can simply call:
 
-        >>> ln.track()
+            >>> ln.track()
+            ✅ Saved: Transform(id=1LCd8kco9lZUBg, name=Track data lineage / provenance, short_name=02-data-lineage, stem_id=1LCd8kco9lZU, version=0, type=notebook, updated_at=2023-07-10 18:37:19, created_by_id=DzTjkKse) # noqa
+            ✅ Saved: Run(id=pHgVICV9DxBaV6BAuKJl, run_at=2023-07-10 18:37:19, transform_id=1LCd8kco9lZUBg, created_by_id=DzTjkKse) # noqa
+            >>> ln.context.transform
+            Transform(id=1LCd8kco9lZUBg, name=Track data lineage / provenance, short_name=02-data-lineage, stem_id=1LCd8kco9lZU, version=0, type=notebook, updated_at=2023-07-10 18:37:19, created_by_id=DzTjkKse) # noqa
+            >>> ln.context.run
+            Run(id=pHgVICV9DxBaV6BAuKJl, run_at=2023-07-10 18:37:19, transform_id=1LCd8kco9lZUBg, created_by_id=DzTjkKse) # noqa
 
-        If you'd like to track a pipeline we need to pass a
-        :class:`~lamindb.Transform` object of `type` `"pipeline"`:
+            If you'd like to track a pipeline we need to pass a
+            :class:`~lamindb.Transform` object of `type` `"pipeline"`:
 
-        >>> transform = ln.Transform.select("My pipeline", version="0.1.2").one()
-        >>> ln.track(transform)
+            >>> ln.Transform(name="Cell Ranger", version="7.2.0", type="pipeline").save()
+            >>> transform = ln.Transform.select(name="Cell Ranger", version="7.2.0").one()
+            >>> ln.track(transform)
+            💬 Loaded: Transform(id=ceHkZMaiHFdoB6, name=Cell Ranger, stem_id=ceHkZMaiHFdo, version=7.2.0, type=pipeline, updated_at=2023-07-10 18:37:19, created_by_id=DzTjkKse) # noqa
+            ✅ Saved: Run(id=RcpWIKC8cF74Pn3RUJ1W, run_at=2023-07-10 18:37:19, transform_id=ceHkZMaiHFdoB6, created_by_id=DzTjkKse) # noqa
+            >>> ln.context.transform
+            Transform(id=ceHkZMaiHFdoB6, name=Cell Ranger, stem_id=ceHkZMaiHFdo, version=7.2.0, type=pipeline, updated_at=2023-07-10 18:37:19, created_by_id=DzTjkKse) # noqa
+            >>> ln.context.run
+            Run(id=RcpWIKC8cF74Pn3RUJ1W, run_at=2023-07-10 18:37:19, transform_id=ceHkZMaiHFdoB6, created_by_id=DzTjkKse) # noqa
         """
         cls.instance = settings.instance
         import lamindb as ln
