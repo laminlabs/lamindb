@@ -45,10 +45,12 @@ def get_or_create_records(
                 for value in unmapped_values:
                     records.append(model(**{field_name: value}, **kwargs))
                 s = "" if len(unmapped_values) == 1 else "s"
+                print_unmapped_values = ", ".join(unmapped_values[:7])
+                if len(unmapped_values) > 7:
+                    print_unmapped_values += ", ..."
                 logger.info(
-                    "Created"
-                    f" {colors.red(f'{len(unmapped_values)} {model.__name__} record{s}')} with"  # noqa
-                    f" a single field {colors.red(f'{field_name}')}"
+                    f"Created {colors.red(f'{len(unmapped_values)} {model.__name__} record{s}')} using"  # noqa
+                    f" field {colors.red(f'{field_name}')} and values: {print_unmapped_values}"  # noqa
                 )
         return records
     finally:
