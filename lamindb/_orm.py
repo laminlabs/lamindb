@@ -144,55 +144,74 @@ def _search(
     cls,
     string: str,
     *,
-    field: Optional[StrField] = None,
+    field: Optional[Union[StrField, List[StrField]]] = None,
     return_queryset: bool = False,
     limit: Optional[int] = None,
     case_sensitive: bool = False,
     synonyms_field: Optional[StrField] = "synonyms",
-) -> Union["pd.DataFrame", "ORM"]:
-    if field is None:
-        field = get_default_str_field(cls)
-    if not isinstance(field, str):
-        field = field.field.name
-
+) -> Union["pd.DataFrame", "QuerySet"]:
     query_set = cls.all() if isinstance(cls, QuerySet) else cls.objects.all()
     orm = cls.model if isinstance(cls, QuerySet) else cls
 
-    try:
-        orm._meta.get_field(synonyms_field)
-        synonyms_field_exists = True
-    except FieldDoesNotExist:
-        synonyms_field_exists = False
+    def _search_single_field(
+        string: str,
+        field: Optional[StrField],
+        synonyms_field: Optional[StrField] = "synonyms",
+    ) -> "pd.DataFrame":
+        if field is None:
+            field = get_default_str_field(cls)
+        if not isinstance(field, str):
+            field = field.field.name
 
-    if synonyms_field is not None and synonyms_field_exists:
-        df = pd.DataFrame(query_set.values("id", field, synonyms_field))
-    else:
-        df = pd.DataFrame(query_set.values("id", field))
+        try:
+            orm._meta.get_field(synonyms_field)
+            synonyms_field_exists = True
+        except FieldDoesNotExist:
+            synonyms_field_exists = False
 
-    result = base_search(
-        df=df,
-        string=string,
-        field=field,
-        limit=limit,
-        synonyms_field=str(synonyms_field),
-        case_sensitive=case_sensitive,
-    )
+        if synonyms_field is not None and synonyms_field_exists:
+            df = pd.DataFrame(query_set.values("id", field, synonyms_field))
+        else:
+            df = pd.DataFrame(query_set.values("id", field))
 
-    # search in both key and description fields for file
-    if orm.__name__ == "File" and field == "key":
-        result2 = base_search(
-            df=pd.DataFrame(query_set.values("id", "description")),
+        return base_search(
+            df=df,
             string=string,
-            field="description",
+            field=field,
             limit=limit,
-            synonyms_field=None,
+            synonyms_field=str(synonyms_field),
             case_sensitive=case_sensitive,
         )
+
+    # search in both key and description fields for file
+    if orm.__name__ == "File" and field is None:
+        field = ["key", "description"]
+
+    if not isinstance(field, List):
+        field = [field]
+
+    results = []
+    for fd in field:
+        result_field = _search_single_field(
+            string=string, field=fd, synonyms_field=synonyms_field
+        )
+        results.append(result_field)
+        # turn off synonyms search after the 1st field
+        synonyms_field = None
+
+    if len(results) > 1:
         result = (
-            result.reset_index()
-            .merge(result2.reset_index(), how="outer")
+            pd.concat([r.reset_index() for r in results], join="outer")
             .drop(columns=["index"], errors="ignore")
             .set_index("id")
+        )
+    else:
+        result = results[0]
+
+    # remove results that have __ratio__ 0
+    if "__ratio__" in result.columns:
+        result = result[result["__ratio__"] > 0].sort_values(
+            "__ratio__", ascending=False
         )
 
     if return_queryset:
@@ -402,14 +421,10 @@ def describe(self):
         related_objects = self.__getattribute__(related_name)
         count = related_objects.count()
         if count > 0:
-            # show created_at for runs
-            if related_objects.model.__name__ == "Run":
-                field = "created_at"
-            else:
-                try:
-                    field = get_default_str_field(related_objects)
-                except ValueError:
-                    field = "id"
+            try:
+                field = get_default_str_field(related_objects)
+            except ValueError:
+                field = "id"
             objects_list = list(related_objects.values_list(field, flat=True)[:10])
             if field == "created_at":
                 objects_list = [format_datetime(i) for i in objects_list]
@@ -454,7 +469,9 @@ def get_default_str_field(orm: Union[ORM, QuerySet, Manager]) -> str:
     model_field_names = [i.name for i in orm._meta.fields]
 
     # set default field
-    if "name" in model_field_names:
+    if orm._meta.model.__name__ == "Run":
+        field = orm._meta.get_field("created_at")
+    elif "name" in model_field_names:
         # by default use the name field
         field = orm._meta.get_field("name")
     else:
