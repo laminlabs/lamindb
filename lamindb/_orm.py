@@ -469,7 +469,7 @@ def get_default_str_field(orm: Union[ORM, QuerySet, Manager]) -> str:
     model_field_names = [i.name for i in orm._meta.fields]
 
     # set default field
-    if orm.__name__ == "Run":
+    if orm._meta.model.__name__ == "Run":
         field = orm._meta.get_field("created_at")
     elif "name" in model_field_names:
         # by default use the name field
