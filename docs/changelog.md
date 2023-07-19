@@ -1,5 +1,6 @@
 # Changelog
 
+- 📝 Add examples to docstring [PR900](https://github.com/laminlabs/lamindb/pull/900) [@sunnyosun](https://github.com/sunnyosun)
 - ✨ Multi-field search [PR898](https://github.com/laminlabs/lamindb/pull/898) [@sunnyosun](https://github.com/sunnyosun)
 - ✨ Draft new `Feature` experience [PR897](https://github.com/laminlabs/lamindb/pull/897) [@falexwolf](https://github.com/falexwolf)
 - 🔥 Remove `top_hit` param from search [PR896](https://github.com/laminlabs/lamindb/pull/896) [@sunnyosun](https://github.com/sunnyosun)
