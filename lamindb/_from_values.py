@@ -4,7 +4,7 @@ import pandas as pd
 from django.core.exceptions import FieldDoesNotExist
 from django.db.models.query_utils import DeferredAttribute as Field
 from lamin_logger import colors, logger
-from lnschema_core.models import ORM
+from lnschema_core.models import ORM, Feature, FeatureValue
 from lnschema_core.types import ListLike
 
 from .dev._settings import settings
@@ -48,10 +48,17 @@ def get_or_create_records(
                 print_unmapped_values = ", ".join(unmapped_values[:7])
                 if len(unmapped_values) > 7:
                     print_unmapped_values += ", ..."
-                logger.info(
-                    f"Created {colors.red(f'{len(unmapped_values)} {model.__name__} record{s}')} using"  # noqa
-                    f" field {colors.red(f'{field_name}')} and values: {print_unmapped_values}"  # noqa
-                )
+                if model != FeatureValue:
+                    logger.info(
+                        f"Created {colors.red(f'{len(unmapped_values)} {model.__name__} record{s}')} setting"  # noqa
+                        f" field {colors.red(f'{field_name}')} to: {print_unmapped_values}"  # noqa
+                    )
+                else:
+                    feature = Feature.objects.get(id=kwargs["feature_id"])
+                    logger.info(
+                        f"Created {colors.red(f'{len(unmapped_values)} value{s}')} for"  # noqa
+                        f" feature {colors.red(f'{feature.name}')}: {print_unmapped_values}"  # noqa
+                    )
         return records
     finally:
         settings.upon_create_search_names = upon_create_search_names
