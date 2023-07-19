@@ -144,60 +144,75 @@ def _search(
     cls,
     string: str,
     *,
-    field: Optional[StrField] = None,
+    field: Optional[Union[StrField, List[StrField]]] = None,
     return_queryset: bool = False,
     limit: Optional[int] = None,
     case_sensitive: bool = False,
     synonyms_field: Optional[StrField] = "synonyms",
 ) -> Union["pd.DataFrame", "QuerySet"]:
-    if field is None:
-        field = get_default_str_field(cls)
-    if not isinstance(field, str):
-        field = field.field.name
-
     query_set = cls.all() if isinstance(cls, QuerySet) else cls.objects.all()
     orm = cls.model if isinstance(cls, QuerySet) else cls
 
-    try:
-        orm._meta.get_field(synonyms_field)
-        synonyms_field_exists = True
-    except FieldDoesNotExist:
-        synonyms_field_exists = False
+    def _search_single_field(
+        string: str,
+        field: Optional[StrField],
+        synonyms_field: Optional[StrField] = "synonyms",
+    ) -> "pd.DataFrame":
+        if field is None:
+            field = get_default_str_field(cls)
+        if not isinstance(field, str):
+            field = field.field.name
 
-    if synonyms_field is not None and synonyms_field_exists:
-        df = pd.DataFrame(query_set.values("id", field, synonyms_field))
-    else:
-        df = pd.DataFrame(query_set.values("id", field))
+        try:
+            orm._meta.get_field(synonyms_field)
+            synonyms_field_exists = True
+        except FieldDoesNotExist:
+            synonyms_field_exists = False
 
-    result = base_search(
-        df=df,
-        string=string,
-        field=field,
-        limit=limit,
-        synonyms_field=str(synonyms_field),
-        case_sensitive=case_sensitive,
-    )
+        if synonyms_field is not None and synonyms_field_exists:
+            df = pd.DataFrame(query_set.values("id", field, synonyms_field))
+        else:
+            df = pd.DataFrame(query_set.values("id", field))
 
-    # search in both key and description fields for file
-    if orm.__name__ == "File" and field == "key":
-        result2 = base_search(
-            df=pd.DataFrame(query_set.values("id", "description")),
+        return base_search(
+            df=df,
             string=string,
-            field="description",
+            field=field,
             limit=limit,
-            synonyms_field=None,
+            synonyms_field=str(synonyms_field),
             case_sensitive=case_sensitive,
         )
+
+    # search in both key and description fields for file
+    if orm.__name__ == "File" and field is None:
+        field = ["key", "description"]
+
+    if not isinstance(field, List):
+        field = [field]
+
+    results = []
+    for fd in field:
+        result_field = _search_single_field(
+            string=string, field=fd, synonyms_field=synonyms_field
+        )
+        results.append(result_field.reset_index())
+        # turn off synonyms search after the 1st field
+        synonyms_field = None
+
+    if len(results) > 1:
         result = (
-            result.reset_index()
-            .merge(result2.reset_index(), how="outer")
+            pd.concat(results, join="outer")
             .drop(columns=["index"], errors="ignore")
             .set_index("id")
         )
+    else:
+        result = results[0]
 
     # remove results that have __ratio__ 0
     if "__ratio__" in result.columns:
-        result = result[result["__ratio__"] > 0]
+        result = result[result["__ratio__"] > 0].sort_values(
+            "__ratio__", ascending=False
+        )
 
     if return_queryset:
         return _order_queryset_by_ids(query_set, result.reset_index()["id"])

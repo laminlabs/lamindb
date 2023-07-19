@@ -75,3 +75,10 @@ def test_search_file():
     assert res_q[0].key == "test-search5"
     # queryset returns the same order of results
     assert res.index.tolist() == [i.id for i in res_q]
+
+    f = ln.File.select(key="test-search5").one()
+    f.suffix = ".txt"
+    f.save()
+    # multi-field search
+    res = ln.File.search("txt", field=["key", "description", "suffix"])
+    assert res.iloc[0].suffix == ".txt"
