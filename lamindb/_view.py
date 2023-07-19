@@ -38,7 +38,7 @@ def view(n: int = 10, schema: Optional[str] = None):
             print("*" * len(section_no_color))
             print(section)
             print("*" * len(section_no_color))
-        for orm in orms:
+        for orm in sorted(orms, key=lambda x: x.__name__):
             if hasattr(orm, "updated_at"):
                 df = select(orm).order_by("-updated_at")[:n].df()
             else:
