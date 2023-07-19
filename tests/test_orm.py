@@ -41,14 +41,14 @@ def test_validate_required_fields():
 def test_search_file():
     for i in range(6):
         with open(f"test-search{i}", "w") as f:
-            f.write(f"file{i}")
+            f.write(f"test-search{i}")
 
     file1 = ln.File("test-search1")
     file1.save()
     file2 = ln.File("test-search2")
     file2.save()
 
-    res = ln.File.search("search2")
+    res = ln.File.search("search2", field="key")
     assert res.shape == (0, 2)
 
     # on purpose to be search3 to test duplicated search
