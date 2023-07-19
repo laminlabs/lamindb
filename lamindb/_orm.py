@@ -195,13 +195,13 @@ def _search(
         result_field = _search_single_field(
             string=string, field=fd, synonyms_field=synonyms_field
         )
-        results.append(result_field.reset_index())
+        results.append(result_field)
         # turn off synonyms search after the 1st field
         synonyms_field = None
 
     if len(results) > 1:
         result = (
-            pd.concat(results, join="outer")
+            pd.concat([r.reset_index() for r in results], join="outer")
             .drop(columns=["index"], errors="ignore")
             .set_index("id")
         )
