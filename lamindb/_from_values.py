@@ -4,7 +4,7 @@ import pandas as pd
 from django.core.exceptions import FieldDoesNotExist
 from django.db.models.query_utils import DeferredAttribute as Field
 from lamin_logger import colors, logger
-from lnschema_core.models import ORM, Feature, FeatureValue
+from lnschema_core.models import ORM
 from lnschema_core.types import ListLike
 
 from .dev._settings import settings
@@ -48,17 +48,10 @@ def get_or_create_records(
                 print_unmapped_values = ", ".join(unmapped_values[:7])
                 if len(unmapped_values) > 7:
                     print_unmapped_values += ", ..."
-                if model != FeatureValue:
-                    logger.info(
-                        f"Created {colors.red(f'{len(unmapped_values)} {model.__name__} record{s}')} setting"  # noqa
-                        f" field {colors.red(f'{field_name}')} to: {print_unmapped_values}"  # noqa
-                    )
-                else:
-                    feature = Feature.objects.get(id=kwargs["feature_id"])
-                    logger.info(
-                        f"Created {colors.red(f'{len(unmapped_values)} value{s}')} for"  # noqa
-                        f" feature {colors.red(f'{feature.name}')}: {print_unmapped_values}"  # noqa
-                    )
+                logger.warning(
+                    f"Created {colors.yellow(f'{len(unmapped_values)} {model.__name__} record{s}')} setting"  # noqa
+                    f" field {colors.yellow(f'{field_name}')} to: {print_unmapped_values}"  # noqa
+                )
         return records
     finally:
         settings.upon_create_search_names = upon_create_search_names
@@ -88,8 +81,8 @@ def get_existing_records(iterable_idx: pd.Index, field: Field, kwargs: Dict = {}
     if len(syn_mapper) > 0:
         s = "" if len(syn_mapper) == 1 else "s"
         syn_msg = (
-            "Returned"
-            f" {colors.green(f'{len(syn_mapper)} existing {model.__name__} DB record{s}')} that"  # noqa
+            "Loaded"
+            f" {colors.green(f'{len(syn_mapper)} {model.__name__} record{s}')} that"  # noqa
             f" matched {colors.green('synonyms')}"
         )
         iterable_idx = iterable_idx.to_frame().rename(index=syn_mapper).index
@@ -109,9 +102,9 @@ def get_existing_records(iterable_idx: pd.Index, field: Field, kwargs: Dict = {}
     if n_name > 0:
         s = "" if n_name == 1 else "s"
         logger.info(
-            "Returned"
-            f" {colors.green(f'{n_name} existing {model.__name__} DB record{s}')} that"
-            f" matched {colors.green(f'{field_name}')} field"
+            "Loaded"
+            f" {colors.green(f'{n_name} {model.__name__} record{s}')} that"
+            f" matched field {colors.green(f'{field_name}')}"
         )
     # make sure that synonyms logging appears after the field logging
     if len(syn_msg) > 0:

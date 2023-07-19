@@ -1,7 +1,8 @@
 from typing import List
 
+import pandas as pd
 from lamindb_setup.dev._docs import doc_args
-from lnschema_core import Feature, FeatureValue
+from lnschema_core import Category, Feature
 from pandas.api.types import is_categorical_dtype, is_string_dtype
 
 from lamindb.dev.utils import attach_func_to_class_method
@@ -25,26 +26,34 @@ def __init__(self, *args, **kwargs):
 def from_df(cls, df) -> List["Feature"]:
     """{}"""
     records = Feature.from_values(df.columns, field=Feature.name)
-    string_or_categorical_columns = [
-        col
-        for col in df.columns
-        if is_string_dtype(df[col]) or is_categorical_dtype(df[col])
-    ]
     assert len(records) == len(df.columns)
 
+    string_cols = [col for col in df.columns if is_string_dtype(df[col])]
+    categoricals = {col: df[col] for col in df.columns if is_categorical_dtype(df[col])}
+    for key in string_cols:
+        c = pd.Categorical(df[key])
+        # TODO: We should only check if non-null values are unique, but
+        # this would break cases where string columns with nulls could
+        # be written as categorical, but not as string.
+        # Possible solution: https://github.com/scverse/anndata/issues/504
+        if len(c.categories) < len(c):
+            categoricals[key] = c
+
     for record in records:
-        if record.name in string_or_categorical_columns:
-            record.type = "str"
+        if record.name in categoricals:
+            record.type = "Category"
             feature = Feature.select(name=record.name).one_or_none()
-            values = df[record.name].unique()
+            categories = categoricals[record.name].categories
             if feature is not None:
-                record._values_records = FeatureValue.from_values(
-                    values, feature=feature
+                record._categories_records = Category.from_values(
+                    categories, feature=feature
                 )
             else:
-                record._values_raw = values
+                record._categories_raw = categories
         else:
-            record.type = df[record.name].dtype.name
+            orig_type = df[record.name].dtype.name
+            # strip precision qualifiers
+            record.type = "".join(i for i in orig_type if not i.isdigit())
     return records
 
 
@@ -53,10 +62,10 @@ def save(self, *args, **kwargs) -> None:
     """{}"""
     super(Feature, self).save(*args, **kwargs)
     records = None
-    if hasattr(self, "_values_records"):
-        records = self._values_records
-    if hasattr(self, "_values_raw"):
-        records = FeatureValue.from_values(self._values_raw, feature=self)
+    if hasattr(self, "_categories_records"):
+        records = self._categories_records
+    if hasattr(self, "_categories_raw"):
+        records = Category.from_values(self._categories_raw, feature=self)
     if records is not None:
         bulk_create(records)
 

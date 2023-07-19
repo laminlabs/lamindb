@@ -29,7 +29,7 @@ More control over feature management:
    :toctree: .
 
    FeatureSet
-   FeatureValue
+   Category
 
 Functional tools:
 
@@ -90,10 +90,10 @@ if _INSTANCE_SETUP:
     del InstanceNotSetupError
     del __getattr__  # delete so that imports work out
     from lnschema_core import (  # noqa
+        Category,
         Dataset,
         Feature,
         FeatureSet,
-        FeatureValue,
         File,
         Project,
         Run,
@@ -111,10 +111,10 @@ if _INSTANCE_SETUP:
     track = context._track  # noqa
     from lamin_logger import logger as _logger
 
+    from . import _category  # noqa
     from . import _dataset  # noqa
     from . import _feature  # noqa
     from . import _feature_set  # noqa
-    from . import _feature_value  # noqa
     from . import _file  # noqa
     from . import _orm  # noqa
     from . import _transform  # noqa
