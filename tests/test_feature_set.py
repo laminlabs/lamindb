@@ -6,7 +6,14 @@ import pytest
 import lamindb as ln
 from lamindb import _feature_set
 
-df = pd.DataFrame({"feat1": [1, 2], "feat2": [3.1, 4.2], "feat3": ["cond1", "cond2"]})
+df = pd.DataFrame(
+    {
+        "feat1": [1, 2, 3],
+        "feat2": [3.1, 4.2, 5.3],
+        "feat3": ["cond1", "cond2", "cond2"],
+        "feat4": ["id1", "id2", "id3"],
+    }
+)
 
 
 def test_signatures():
@@ -32,7 +39,8 @@ def test_feature_set_from_values():
     feature_set = ln.FeatureSet.from_values(features)
     id = feature_set.id
     assert feature_set._state.adding
-    assert feature_set.type == "core.Feature"
+    assert feature_set.type == "Feature"
+    assert feature_set.schema == "core"
     assert feature_set.field == "name"
     feature_set.save()
     # test that the feature_set is retrieved from the database
@@ -52,7 +60,8 @@ def test_feature_set_from_records():
     feature_set = ln.FeatureSet(features)
     id = feature_set.id
     assert feature_set._state.adding
-    assert feature_set.type == "core.Feature"
+    assert feature_set.type == "Feature"
+    assert feature_set.schema == "core"
     assert feature_set.field == "id"
     feature_set.save()
     # test that the feature_set is retrieved from the database
@@ -66,10 +75,10 @@ def test_feature_set_from_records():
 def test_feature_set_from_df():
     feature_set = ln.FeatureSet.from_df(df)
     feature_set.save()
-    assert set(ln.FeatureValue.select(feature__name="feat3").list("value")) == set(
+    assert set(ln.Category.select(feature__name="feat3").list("name")) == set(
         ["cond1", "cond2"]
     )
     for feature in feature_set.features.all():
         feature.delete()
-    assert len(ln.FeatureValue.select(feature__name="feat3").list("value")) == 0
+    assert len(ln.Category.select(feature__name="feat3").list("name")) == 0
     feature_set.delete()
