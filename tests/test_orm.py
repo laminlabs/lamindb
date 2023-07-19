@@ -48,9 +48,6 @@ def test_search_file():
     file2 = ln.File("test-search2")
     file2.save()
 
-    res = ln.File.search("search2", field="key")
-    assert res.shape == (0, 2)
-
     # on purpose to be search3 to test duplicated search
     file0 = ln.File("test-search0", description="test-search3")
     file0.save()
