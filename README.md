@@ -56,7 +56,7 @@ Store a `DataFrame` in default storage:
 ```python
 df = pd.DataFrame({"feat1": [1, 2], "feat2": [3, 4]})  # AnnData works, too
 
-ln.File(df, name="My dataset1").save()  # create a File object and save/upload it
+ln.File(df, description="My dataset1").save()  # create a File object and save/upload it
 ```
 
 You have the full power of SQL to query for metadata, but the simplest query for a file is:
@@ -125,7 +125,7 @@ ln.File("my_artifact.parquet").save()  # this file is now aware that it was save
 When you query the file, later on, you'll know from which notebook it came:
 
 ```python
-file = ln.File.select(name="my_artifact.parquet").one()  # query for a file
+file = ln.File.select(description="my_artifact.parquet").one()  # query for a file
 file.transform  # the notebook with id, title, filename, version, etc.
 file.run  # the specific run of the notebook that created the file
 ```
