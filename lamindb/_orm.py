@@ -421,14 +421,10 @@ def describe(self):
         related_objects = self.__getattribute__(related_name)
         count = related_objects.count()
         if count > 0:
-            # show created_at for runs
-            if related_objects.model.__name__ == "Run":
-                field = "created_at"
-            else:
-                try:
-                    field = get_default_str_field(related_objects)
-                except ValueError:
-                    field = "id"
+            try:
+                field = get_default_str_field(related_objects)
+            except ValueError:
+                field = "id"
             objects_list = list(related_objects.values_list(field, flat=True)[:10])
             if field == "created_at":
                 objects_list = [format_datetime(i) for i in objects_list]
@@ -473,7 +469,9 @@ def get_default_str_field(orm: Union[ORM, QuerySet, Manager]) -> str:
     model_field_names = [i.name for i in orm._meta.fields]
 
     # set default field
-    if "name" in model_field_names:
+    if orm.__name__ == "Run":
+        field = orm._meta.get_field("created_at")
+    elif "name" in model_field_names:
         # by default use the name field
         field = orm._meta.get_field("name")
     else:
