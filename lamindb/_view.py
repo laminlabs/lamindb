@@ -18,6 +18,9 @@ def view(n: int = 10, schema: Optional[str] = None):
         n: Display the latest n rows of the tables.
         schema: Schema module to view. Default's to `None` and
             displays all schema modules.
+
+    Examples:
+        >>> ln.view()
     """
     if schema is not None:
         schema_names = [schema]
