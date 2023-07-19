@@ -149,7 +149,7 @@ def _search(
     limit: Optional[int] = None,
     case_sensitive: bool = False,
     synonyms_field: Optional[StrField] = "synonyms",
-) -> Union["pd.DataFrame", "ORM"]:
+) -> Union["pd.DataFrame", "QuerySet"]:
     if field is None:
         field = get_default_str_field(cls)
     if not isinstance(field, str):
@@ -194,6 +194,10 @@ def _search(
             .drop(columns=["index"], errors="ignore")
             .set_index("id")
         )
+
+    # remove results that have __ratio__ 0
+    if "__ratio__" in result.columns:
+        result = result[result["__ratio__"] > 0]
 
     if return_queryset:
         return _order_queryset_by_ids(query_set, result.reset_index()["id"])

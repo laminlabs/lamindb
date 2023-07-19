@@ -36,3 +36,42 @@ def test_validate_required_fields():
     # project has a required name
     with pytest.raises(TypeError):
         ln.Project(external_id="test")
+
+
+def test_search_file():
+    for i in range(6):
+        with open(f"test-search{i}", "w") as f:
+            f.write(f"file{i}")
+
+    file1 = ln.File("test-search1")
+    file1.save()
+    file2 = ln.File("test-search2")
+    file2.save()
+
+    res = ln.File.search("search2")
+    assert res.shape == (0, 2)
+
+    # on purpose to be search3 to test duplicated search
+    file0 = ln.File("test-search0", description="test-search3")
+    file0.save()
+    file3 = ln.File("test-search3", description="test-search3")
+    file3.save()
+    file4 = ln.File("test-search4", description="test-search4")
+    file4.save()
+
+    res = ln.File.search("search3")
+    assert res.iloc[0].description == "test-search3"
+    assert res.iloc[1].description == "test-search3"
+
+    # no returning entries if all search results have __ratio__ 0
+    assert ln.File.search("x").shape[0] == 0
+
+    file5 = ln.File("test-search5", key="test-search5")
+    file5.save()
+    res = ln.File.search("search5")
+    assert res.iloc[0].key == "test-search5"
+
+    res_q = ln.File.search("search5", return_queryset=True)
+    assert res_q[0].key == "test-search5"
+    # queryset returns the same order of results
+    assert res.index.tolist() == [i.id for i in res_q]
