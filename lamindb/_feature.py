@@ -10,6 +10,16 @@ from . import _TESTING
 from ._save import bulk_create
 
 
+def __init__(self, *args, **kwargs):
+    if len(args) == len(self._meta.concrete_fields):
+        super(Feature, self).__init__(*args, **kwargs)
+        return None
+    # now we proceed with the user-facing constructor
+    if len(args) != 0:
+        raise ValueError("Only non-keyword args allowed")
+    super(Feature, self).__init__(*args, **kwargs)
+
+
 @classmethod  # type:ignore
 @doc_args(Feature.from_df.__doc__)
 def from_df(cls, df) -> List["Feature"]:
@@ -52,6 +62,7 @@ def save(self, *args, **kwargs) -> None:
 
 
 METHOD_NAMES = [
+    "__init__",
     "from_df",
     "save",
 ]

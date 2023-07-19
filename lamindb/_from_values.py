@@ -26,6 +26,7 @@ def get_or_create_records(
         model = field.field.model
         iterable_idx = index_iterable(iterable)
 
+        # returns existing records & non-existing values
         records, nonexist_values = get_existing_records(
             iterable_idx=iterable_idx, field=field, kwargs=kwargs
         )
@@ -41,8 +42,8 @@ def get_or_create_records(
                 unmapped_values = nonexist_values
             # unmapped new_ids will only create records with field and kwargs
             if len(unmapped_values) > 0:
-                for i in unmapped_values:
-                    records.append(model(**{field_name: i}, **kwargs))
+                for value in unmapped_values:
+                    records.append(model(**{field_name: value}, **kwargs))
                 s = "" if len(unmapped_values) == 1 else "s"
                 logger.info(
                     "Created"
