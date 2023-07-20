@@ -1,5 +1,7 @@
 # Changelog
 
+## 0.48a1 (2023-07-20)
+
 - 📝 Add examples to docstrings [PR900](https://github.com/laminlabs/lamindb/pull/900) [@sunnyosun](https://github.com/sunnyosun)
 - ✨ Enable to create `File` outside default storage [PR891](https://github.com/laminlabs/lamindb/pull/891) [@falexwolf](https://github.com/falexwolf)
 - ✨ Multi-field search [PR898](https://github.com/laminlabs/lamindb/pull/898) [@sunnyosun](https://github.com/sunnyosun)
