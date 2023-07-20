@@ -1,4 +1,4 @@
-from collections import namedtuple
+from dataclasses import dataclass
 from functools import cached_property
 from typing import Dict, Mapping, Union
 
@@ -422,7 +422,14 @@ if ZARR_INSTALLED:
                 attrs_keys[attr] = keys
         return attrs_keys
 
-    BackedAccessor = namedtuple("BackedAccessor", ["connection", "storage"])
+    @dataclass
+    class BackedAccessor:
+        """h5py.File or zarr.Group accessor."""
+
+        connection: OpenFile
+        """The connection."""
+        storage: Union[h5py.File, zarr.Group]
+        """The storage access."""
 
     def backed_access(file_or_filepath: File) -> Union[AnnDataAccessor, BackedAccessor]:
         if isinstance(file_or_filepath, File):
