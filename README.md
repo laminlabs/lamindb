@@ -19,7 +19,7 @@ Update 2023-06-14:
 
 ## Introduction
 
-LaminDB is a free & open-source Python library to:
+LaminDB is an open-source Python library to:
 
 - Manage files & datasets while tracking provenance across pipelines, notebooks & app uploads.
 - Manage biological registries, ontologies, features & schemas.
