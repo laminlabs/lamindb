@@ -19,7 +19,7 @@ tutorial1
 
 ```{toctree}
 :hidden:
-:caption: "How to: Basics"
+:caption: "How to: Data"
 
 data-lineage
 select
