@@ -33,14 +33,14 @@ LaminApp is a data management app built on LaminDB, deployable in your infrastru
 
 LaminApp, support, code templates & auto-dispatched integration tests for a BioTech data & analytics platform are currently only available on an enterprise plan.
 
-## Usage overview & quickstart
+## Quickstart
 
-If you'd like to run the following snippets: the [setup](#setup) takes 2 min.
+[Installation and sign-up](#setup) take no time: Run `pip install lamindb` and `lamin signup <email>` on the command line.
 
-Initialize a data lake instance with local or cloud default storage on the CLI:
+Then, init a LaminDB instance with local or cloud default storage like you'd init a git repository:
 
 ```shell
-$ lamin init --storage ./mydata   # or s3://my-bucket, gs://my-bucket, etc.
+$ lamin init --storage ./mydata   # or s3://my-bucket, gs://my-bucket
 ```
 
 Import `lamindb`:
@@ -49,26 +49,26 @@ Import `lamindb`:
 import lamindb as ln
 ```
 
-### Store, query, search & load data objects
+### Manage data objects
 
-Store a `DataFrame` in default storage:
+Store a `DataFrame` object:
 
 ```python
 df = pd.DataFrame({"feat1": [1, 2], "feat2": [3, 4]})  # AnnData works, too
 
-ln.File(df, description="My dataset1").save()  # create a File object and save/upload it
-```
-
-You have the full power of SQL to query for metadata, but the simplest query for a file is:
-
-```python
-file = ln.File.select(description="My dataset1").one()  # get exactly one result
+ln.File(df, description="Data batch 1").save()  # create a File object and save/upload it
 ```
 
 If you don't have specific metadata in mind, run a search:
 
 ```python
-ln.File.search("dataset1")
+ln.File.search("batch 1")
+```
+
+You have the full power of SQL to query for metadata, but the simplest query for a file is:
+
+```python
+file = ln.File.select(description="Data batch 1").one()  # get exactly one result
 ```
 
 Once you queried or searched it, load a file back into memory:
@@ -83,7 +83,7 @@ Or get a backed accessor to stream its content from the cloud:
 backed = file.backed()  # currently works for AnnData, zarr, HDF5, not yet for DataFrame
 ```
 
-### Store, query & search files
+### Manage files
 
 The same API works for any file:
 
@@ -95,7 +95,7 @@ file.save()  # register the file
 Query by `key` (the relative path within your storage):
 
 ```python
-file.select(key_startswith="images/").df()  # all files in folder "images/" in default storage
+file.select(key__startswith="images/").df()  # all files in folder "images/" in default storage
 ```
 
 ### Auto-complete categoricals
@@ -110,7 +110,7 @@ ln.File.select(created_by=users.lizlemon)
 ### Track & query data lineage
 
 In addition to basic provenance information (`created_by`, `created_at`,
-`created_by`), you can track which notebooks, pipelines & apps
+`created_by`), you can track which notebooks & pipelines
 transformed files.
 
 #### Notebooks
@@ -133,9 +133,7 @@ file.run  # the specific run of the notebook that created the file
 Alternatively, you can query for notebooks and find the files written by them:
 
 ```python
-transforms = ln.Transform.select(  # all notebooks with 'T cell' in the title created in 2022
-    name__contains="T cell", type="notebook", created_at__year=2022
-).all()
+transforms = ln.Transform.select(type="notebook", created_at__year=2022).search("T cell").all()
 ln.File.select(transform__in=transforms).df()  # the files created by these notebooks
 ```
 
@@ -163,12 +161,12 @@ Now, you can query for the latest pipeline runs:
 ln.Run.select(transform=transform).order_by("-created_at").df()  # get the latest pipeline runs
 ```
 
-### Load your data lake from anywhere
+### Load your instance from anywhere
 
-If provided with access, others can load your data lake via:
+If provided with access, others can load your instance via:
 
 ```
-$ lamin load myaccount/myartifacts
+$ lamin load myaccount/mydata
 ```
 
 ### Manage biological registries

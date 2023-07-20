@@ -1,5 +1,7 @@
 # Changelog
 
+- 💄 Prettify two bio guides [PR905](https://github.com/laminlabs/lamindb/pull/905) [@falexwolf](https://github.com/falexwolf)
+- 👷 Add jupyter extra to biology nbs [PR903](https://github.com/laminlabs/lamindb/pull/903) [@sunnyosun](https://github.com/sunnyosun)
 ## 0.48a1 (2023-07-20)
 
 - 📝 Add examples to docstrings [PR900](https://github.com/laminlabs/lamindb/pull/900) [@sunnyosun](https://github.com/sunnyosun)
