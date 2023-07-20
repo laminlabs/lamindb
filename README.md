@@ -35,7 +35,7 @@ LaminApp, support, code templates & auto-dispatched integration tests for a BioT
 
 ## Quickstart
 
-[Installation and signup](#setup) take no time: Run `pip install lamindb` and `lamin signup <email>` on the command line.
+[Installation and sign-up](#setup) take no time: Run `pip install lamindb` and `lamin signup <email>` on the command line.
 
 Then, init a LaminDB instance with local or cloud default storage like you'd init a git repository:
 
