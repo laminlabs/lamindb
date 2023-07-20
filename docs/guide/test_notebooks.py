@@ -9,3 +9,8 @@ def test_notebooks():
     nbdir = Path(__file__).parent
     ln.setup.login("testuser1")
     test.execute_notebooks(nbdir, write=True)
+
+
+def test_tutorial1():
+    notebook = Path(__file__).parent.parent / "tutorial1.ipynb"
+    test.execute_notebooks(notebook, write=True)
