@@ -1,5 +1,6 @@
 # Changelog
 
+- 🔖 0.48 (3) [PR907](https://github.com/laminlabs/lamindb/pull/907) [@sunnyosun](https://github.com/sunnyosun)
 - ⬆️ Update lb [PR906](https://github.com/laminlabs/lamindb/pull/906) [@sunnyosun](https://github.com/sunnyosun)
 - 🎉 Stage 0.48 (2) [PR904](https://github.com/laminlabs/lamindb/pull/904) [@sunnyosun](https://github.com/sunnyosun)
 - 💄 Prettify two bio guides [PR905](https://github.com/laminlabs/lamindb/pull/905) [@falexwolf](https://github.com/falexwolf)
