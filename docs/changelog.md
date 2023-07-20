@@ -1,5 +1,6 @@
 # Changelog
 
+- 🎉 Stage 0.48.0 [PR880](https://github.com/laminlabs/lamindb/pull/880) [@sunnyosun](https://github.com/sunnyosun)
 - 📝 Fix docs warnings [PR901](https://github.com/laminlabs/lamindb/pull/901) [@falexwolf](https://github.com/falexwolf)
 - 🚚 Rename `inherit_relationships` to `inherit_relations` [PR902](https://github.com/laminlabs/lamindb/pull/902) [@sunnyosun](https://github.com/sunnyosun)
 - 💄 Polish tutorial [PR899](https://github.com/laminlabs/lamindb/pull/899) [@falexwolf](https://github.com/falexwolf)
