@@ -1,5 +1,6 @@
 # Changelog
 
+- 🚚 Rename `inherit_relationships` to `inherit_relations` [PR902](https://github.com/laminlabs/lamindb/pull/902) [@sunnyosun](https://github.com/sunnyosun)
 - 💄 Polish tutorial [PR899](https://github.com/laminlabs/lamindb/pull/899) [@falexwolf](https://github.com/falexwolf)
 - 📝 Add examples to docstring [PR900](https://github.com/laminlabs/lamindb/pull/900) [@sunnyosun](https://github.com/sunnyosun)
 - ✨ Multi-field search [PR898](https://github.com/laminlabs/lamindb/pull/898) [@sunnyosun](https://github.com/sunnyosun)
