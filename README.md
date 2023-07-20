@@ -33,14 +33,14 @@ LaminApp is a data management app built on LaminDB, deployable in your infrastru
 
 LaminApp, support, code templates & auto-dispatched integration tests for a BioTech data & analytics platform are currently only available on an enterprise plan.
 
-## Usage overview & quickstart
+## Quickstart
 
-If you'd like to run the following snippets: the [setup](#setup) takes 2 min.
+[Installation and signup](#setup) take no time: Run `pip install lamindb` and `lamin signup <email>` on the command line.
 
-Initialize a data lake instance with local or cloud default storage on the CLI:
+Then, init a LaminDB instance with local or cloud default storage like you'd init a git repository:
 
 ```shell
-$ lamin init --storage ./mydata   # or s3://my-bucket, gs://my-bucket, etc.
+$ lamin init --storage ./mydata   # or s3://my-bucket, gs://my-bucket
 ```
 
 Import `lamindb`:
@@ -56,19 +56,19 @@ Store a `DataFrame` in default storage:
 ```python
 df = pd.DataFrame({"feat1": [1, 2], "feat2": [3, 4]})  # AnnData works, too
 
-ln.File(df, description="My dataset1").save()  # create a File object and save/upload it
-```
-
-You have the full power of SQL to query for metadata, but the simplest query for a file is:
-
-```python
-file = ln.File.select(description="My dataset1").one()  # get exactly one result
+ln.File(df, description="Data batch 1").save()  # create a File object and save/upload it
 ```
 
 If you don't have specific metadata in mind, run a search:
 
 ```python
-ln.File.search("dataset1")
+ln.File.search("batch 1")
+```
+
+You have the full power of SQL to query for metadata, but the simplest query for a file is:
+
+```python
+file = ln.File.select(description="Data batch 1").one()  # get exactly one result
 ```
 
 Once you queried or searched it, load a file back into memory:
