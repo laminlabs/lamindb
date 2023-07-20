@@ -4,7 +4,14 @@ from lnschema_core import ORM, File, Run
 
 
 def view_lineage(file: File, with_children: bool = True):
-    """Graph of data lineage."""
+    """Graph of data lineage.
+
+    Notes:
+        For more info, see tutorial: :doc:`/guide/data-lineage`.
+
+    Examples:
+        >>> file.view_lineage()
+    """
     try:
         import graphviz
     except ImportError:

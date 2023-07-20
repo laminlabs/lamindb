@@ -274,14 +274,14 @@ def test_inherit_relationships():
     file2.projects.set(projects)
 
     assert file1.tags.exists() is False
-    file1.inherit_relationships(file2, ["tags"])
+    file1.inherit_relations(file2, ["tags"])
     assert file1.tags.count() == file2.tags.count()
     assert file1.projects.exists() is False
-    file1.inherit_relationships(file2)
+    file1.inherit_relations(file2)
     assert file1.projects.count() == file2.projects.count()
 
     with pytest.raises(KeyError):
-        file1.inherit_relationships(file2, ["not_exist_field"])
+        file1.inherit_relations(file2, ["not_exist_field"])
 
 
 # -------------------------------------------------------------------------------------

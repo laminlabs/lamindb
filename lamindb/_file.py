@@ -793,8 +793,22 @@ def tree(
     print(f"\n{directories} directories" + (f", {files} files" if files else ""))
 
 
-def inherit_relationships(self, file: File, fields: Optional[List[str]] = None):
-    """Inherit many-to-many relationships from another file."""
+def inherit_relations(self, file: File, fields: Optional[List[str]] = None):
+    """Inherit many-to-many relationships from another file.
+
+    Examples:
+        >>> file1 = ln.File(pd.DataFrame(index=[0,1]))
+        >>> file1.save()
+        >>> file2 = ln.File(pd.DataFrame(index=[2,3]))
+        >>> file2.save()
+        >>> ln.save(ln.Tag.from_values(["Tag1", "Tag2", "Tag3"], field="name"))
+        >>> tags = ln.Tag.select(name__icontains = "tag").all()
+        >>> file1.tags.set(tags)
+        >>> file2.inherit_relations(file1, ["tags"])
+        💬 Inheriting 1 field: ['tags']
+        >>> file2.tags.list("name")
+        ['Tag1', 'Tag2', 'Tag3']
+    """
     if fields is None:
         # fields in the model definition
         related_names = [i.name for i in file._meta.many_to_many]
@@ -814,7 +828,8 @@ def inherit_relationships(self, file: File, fields: Optional[List[str]] = None):
         if file.__getattribute__(related_name).exists()
     ]
 
-    logger.info(f"Inheriting {len(inherit_names)} fields: {inherit_names}")
+    s = "s" if len(inherit_names) > 1 else ""
+    logger.info(f"Inheriting {len(inherit_names)} field{s}: {inherit_names}")
     for related_name in inherit_names:
         self.__getattribute__(related_name).set(
             file.__getattribute__(related_name).all()
@@ -852,4 +867,4 @@ for name in METHOD_NAMES:
 File._delete_skip_storage = _delete_skip_storage
 File._save_skip_storage = _save_skip_storage
 setattr(File, "view_lineage", view_lineage)
-setattr(File, "inherit_relationships", inherit_relationships)
+setattr(File, "inherit_relations", inherit_relations)
