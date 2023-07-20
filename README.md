@@ -49,9 +49,9 @@ Import `lamindb`:
 import lamindb as ln
 ```
 
-### Store, query, search & load data objects
+### Manage data objects
 
-Store a `DataFrame` in default storage:
+Store a `DataFrame` object:
 
 ```python
 df = pd.DataFrame({"feat1": [1, 2], "feat2": [3, 4]})  # AnnData works, too
@@ -83,7 +83,7 @@ Or get a backed accessor to stream its content from the cloud:
 backed = file.backed()  # currently works for AnnData, zarr, HDF5, not yet for DataFrame
 ```
 
-### Store, query & search files
+### Manage files
 
 The same API works for any file:
 
@@ -95,7 +95,7 @@ file.save()  # register the file
 Query by `key` (the relative path within your storage):
 
 ```python
-file.select(key_startswith="images/").df()  # all files in folder "images/" in default storage
+file.select(key__startswith="images/").df()  # all files in folder "images/" in default storage
 ```
 
 ### Auto-complete categoricals
@@ -110,7 +110,7 @@ ln.File.select(created_by=users.lizlemon)
 ### Track & query data lineage
 
 In addition to basic provenance information (`created_by`, `created_at`,
-`created_by`), you can track which notebooks, pipelines & apps
+`created_by`), you can track which notebooks & pipelines
 transformed files.
 
 #### Notebooks
@@ -133,9 +133,7 @@ file.run  # the specific run of the notebook that created the file
 Alternatively, you can query for notebooks and find the files written by them:
 
 ```python
-transforms = ln.Transform.select(  # all notebooks with 'T cell' in the title created in 2022
-    name__contains="T cell", type="notebook", created_at__year=2022
-).all()
+transforms = ln.Transform.select(type="notebook", created_at__year=2022).search("T cell").all()
 ln.File.select(transform__in=transforms).df()  # the files created by these notebooks
 ```
 
@@ -163,12 +161,12 @@ Now, you can query for the latest pipeline runs:
 ln.Run.select(transform=transform).order_by("-created_at").df()  # get the latest pipeline runs
 ```
 
-### Load your data lake from anywhere
+### Load your instance from anywhere
 
-If provided with access, others can load your data lake via:
+If provided with access, others can load your instance via:
 
 ```
-$ lamin load myaccount/myartifacts
+$ lamin load myaccount/mydata
 ```
 
 ### Manage biological registries
