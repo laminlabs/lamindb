@@ -1,5 +1,21 @@
 # Changelog
 
+- 📝 Fix docs warnings [PR901](https://github.com/laminlabs/lamindb/pull/901) [@falexwolf](https://github.com/falexwolf)
+- 🚚 Rename `inherit_relationships` to `inherit_relations` [PR902](https://github.com/laminlabs/lamindb/pull/902) [@sunnyosun](https://github.com/sunnyosun)
+- 💄 Polish tutorial [PR899](https://github.com/laminlabs/lamindb/pull/899) [@falexwolf](https://github.com/falexwolf)
+- 📝 Add examples to docstring [PR900](https://github.com/laminlabs/lamindb/pull/900) [@sunnyosun](https://github.com/sunnyosun)
+- ✨ Multi-field search [PR898](https://github.com/laminlabs/lamindb/pull/898) [@sunnyosun](https://github.com/sunnyosun)
+- ✨ Draft new `Feature` experience [PR897](https://github.com/laminlabs/lamindb/pull/897) [@falexwolf](https://github.com/falexwolf)
+- 🔥 Remove `top_hit` param from search [PR896](https://github.com/laminlabs/lamindb/pull/896) [@sunnyosun](https://github.com/sunnyosun)
+- 🎨 Make ensembl gene id unique for Gene table [PR895](https://github.com/laminlabs/lamindb/pull/895) [@sunnyosun](https://github.com/sunnyosun)
+- ⚡ Speed up file creation [PR894](https://github.com/laminlabs/lamindb/pull/894) [@falexwolf](https://github.com/falexwolf)
+- 🚚 Rename Readout to ExperimentalFactor [PR893](https://github.com/laminlabs/lamindb/pull/893) [@sunnyosun](https://github.com/sunnyosun)
+- ✨ Enable to create `File` outside default storage [PR891](https://github.com/laminlabs/lamindb/pull/891) [@falexwolf](https://github.com/falexwolf)
+- 🎨 Allow set_abbr to also add abbr to synonyms [PR892](https://github.com/laminlabs/lamindb/pull/892) [@sunnyosun](https://github.com/sunnyosun)
+- Bionty naming [PR890](https://github.com/laminlabs/lamindb/pull/890) [@Zethson](https://github.com/Zethson)
+- Add better error msg if graphviz is not installed [PR889](https://github.com/laminlabs/lamindb/pull/889) [@Zethson](https://github.com/Zethson)
+- 🐛 Constrain urllib3 to fix incompatibility with botocore [PR888](https://github.com/laminlabs/lamindb/pull/888) [@Koncopd](https://github.com/Koncopd)
+- 🎨 Display created_at for runs in describe [PR879](https://github.com/laminlabs/lamindb/pull/879) [@sunnyosun](https://github.com/sunnyosun)
 ## 0.47.0 (2023-07-10)
 
 - ✨ View parents [PR858](https://github.com/laminlabs/lamindb/pull/858) [@sunnyosun](https://github.com/sunnyosun)

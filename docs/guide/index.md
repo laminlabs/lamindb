@@ -23,8 +23,9 @@ tutorial1
 
 data-lineage
 select
+stream
 schemas
-configure
+setup
 ```
 
 ```{toctree}

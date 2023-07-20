@@ -1,5 +1,6 @@
 from typing import List, Optional
 
+import pandas as pd
 from django.db.models.query_utils import DeferredAttribute as Field
 from lamin_logger import logger
 from lamindb_setup.dev._docs import doc_args
@@ -72,7 +73,10 @@ def __init__(self, *args, **kwargs):
     if field is None:
         field = "id"
     super(FeatureSet, self).__init__(
-        id=id, type=features_type.__name_with_type__(), field=field
+        id=id,
+        type=features_type.__name__,
+        schema=features_type.__get_schema_name__(),
+        field=field,
     )
 
 
@@ -82,7 +86,13 @@ def save(self, *args, **kwargs) -> None:
     super(FeatureSet, self).save(*args, **kwargs)
     if hasattr(self, "_features"):
         related_name, records = self._features
-        bulk_create(records)
+        # if values are stored in their dedicated table, we can bulk_create
+        if related_name != "features":
+            bulk_create(records)
+        else:
+            # otherwise, we currently need to save one by one
+            for record in records:
+                record.save()
         getattr(self, related_name).set(records)
 
 
@@ -120,9 +130,22 @@ def from_values(
     return feature_set
 
 
+@classmethod  # type:ignore
+@doc_args(FeatureSet.from_df.__doc__)
+def from_df(
+    cls,
+    df: "pd.DataFrame",
+) -> "FeatureSet":
+    """{}"""
+    features = Feature.from_df(df)
+    feature_set = FeatureSet(features)
+    return feature_set
+
+
 METHOD_NAMES = [
     "__init__",
     "from_values",
+    "from_df",
     "save",
 ]
 

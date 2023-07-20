@@ -26,6 +26,7 @@ def get_or_create_records(
         model = field.field.model
         iterable_idx = index_iterable(iterable)
 
+        # returns existing records & non-existing values
         records, nonexist_values = get_existing_records(
             iterable_idx=iterable_idx, field=field, kwargs=kwargs
         )
@@ -41,13 +42,15 @@ def get_or_create_records(
                 unmapped_values = nonexist_values
             # unmapped new_ids will only create records with field and kwargs
             if len(unmapped_values) > 0:
-                for i in unmapped_values:
-                    records.append(model(**{field_name: i}, **kwargs))
+                for value in unmapped_values:
+                    records.append(model(**{field_name: value}, **kwargs))
                 s = "" if len(unmapped_values) == 1 else "s"
-                logger.info(
-                    "Created"
-                    f" {colors.red(f'{len(unmapped_values)} {model.__name__} record{s}')} with"  # noqa
-                    f" a single field {colors.red(f'{field_name}')}"
+                print_unmapped_values = ", ".join(unmapped_values[:7])
+                if len(unmapped_values) > 7:
+                    print_unmapped_values += ", ..."
+                logger.warning(
+                    f"Created {colors.yellow(f'{len(unmapped_values)} {model.__name__} record{s}')} setting"  # noqa
+                    f" field {colors.yellow(f'{field_name}')} to: {print_unmapped_values}"  # noqa
                 )
         return records
     finally:
@@ -78,8 +81,8 @@ def get_existing_records(iterable_idx: pd.Index, field: Field, kwargs: Dict = {}
     if len(syn_mapper) > 0:
         s = "" if len(syn_mapper) == 1 else "s"
         syn_msg = (
-            "Returned"
-            f" {colors.green(f'{len(syn_mapper)} existing {model.__name__} DB record{s}')} that"  # noqa
+            "Loaded"
+            f" {colors.green(f'{len(syn_mapper)} {model.__name__} record{s}')} that"  # noqa
             f" matched {colors.green('synonyms')}"
         )
         iterable_idx = iterable_idx.to_frame().rename(index=syn_mapper).index
@@ -99,9 +102,9 @@ def get_existing_records(iterable_idx: pd.Index, field: Field, kwargs: Dict = {}
     if n_name > 0:
         s = "" if n_name == 1 else "s"
         logger.info(
-            "Returned"
-            f" {colors.green(f'{n_name} existing {model.__name__} DB record{s}')} that"
-            f" matched {colors.green(f'{field_name}')} field"
+            "Loaded"
+            f" {colors.green(f'{n_name} {model.__name__} record{s}')} that"
+            f" matched field {colors.green(f'{field_name}')}"
         )
     # make sure that synonyms logging appears after the field logging
     if len(syn_msg) > 0:
@@ -202,6 +205,27 @@ def _filter_bionty_df_columns(model: ORM, bionty_object: Any) -> pd.DataFrame:
         # parents needs to be added here as relationships aren't in fields
         model_field_names.add("parents")
         bionty_df = bionty_object.df().reset_index()
+        if model.__name__ == "Gene":
+            # groupby ensembl_gene_id and concat ncbi_gene_ids
+            bionty_df.drop(
+                columns=["hgnc_id", "mgi_id", "index"], errors="ignore", inplace=True
+            )
+            bionty_df.drop_duplicates(["ensembl_gene_id", "ncbi_gene_id"], inplace=True)
+            bionty_df["ncbi_gene_id"] = bionty_df["ncbi_gene_id"].fillna("")
+            bionty_df = (
+                bionty_df.groupby("ensembl_gene_id")
+                .agg(
+                    {
+                        "symbol": "first",
+                        "ncbi_gene_id": "|".join,
+                        "biotype": "first",
+                        "description": "first",
+                        "synonyms": "first",
+                    }
+                )
+                .reset_index()
+            )
+            bionty_df.rename(columns={"ncbi_gene_id": "ncbi_gene_ids"}, inplace=True)
         # rename definition to description for the lnschema_bionty
         bionty_df.rename(columns={"definition": "description"}, inplace=True)
         bionty_df = bionty_df.loc[:, bionty_df.columns.isin(model_field_names)]

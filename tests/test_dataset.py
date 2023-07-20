@@ -33,7 +33,7 @@ def test_create_delete_from_single_dataframe():
         "sepal_width",
         "petal_length",
         "petal_width",
-        "iris_species_code",
+        "iris_species_name",
     ]
     assert len(ln.Feature.select(name__in=feature_list).list()) == 5
     feature_set = ln.FeatureSet.select(datasets=dataset).one()

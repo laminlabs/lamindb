@@ -1,12 +1,11 @@
 import builtins
 import os
 import re
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path, PurePath
 from typing import Dict, List, Optional, Tuple, Union
 
 import lnschema_core
-from django.utils import timezone
 from lamin_logger import logger
 from lamindb_setup import settings
 from lamindb_setup.dev import InstanceSettings
@@ -164,16 +163,29 @@ class context:
 
         Examples:
 
-        If you're in a Jupyter notebook and installed lamindb with `pip
-        install[jupyter]`, you can simply call:
+            If you're in a Jupyter notebook and installed lamindb with `pip
+            install[jupyter]`, you can simply call:
 
-        >>> ln.track()
+            >>> ln.track()
+            ✅ Saved: Transform(id=1LCd8kco9lZUBg, name=Track data lineage / provenance, short_name=02-data-lineage, stem_id=1LCd8kco9lZU, version=0, type=notebook, updated_at=2023-07-10 18:37:19, created_by_id=DzTjkKse) # noqa
+            ✅ Saved: Run(id=pHgVICV9DxBaV6BAuKJl, run_at=2023-07-10 18:37:19, transform_id=1LCd8kco9lZUBg, created_by_id=DzTjkKse) # noqa
+            >>> ln.context.transform
+            Transform(id=1LCd8kco9lZUBg, name=Track data lineage / provenance, short_name=02-data-lineage, stem_id=1LCd8kco9lZU, version=0, type=notebook, updated_at=2023-07-10 18:37:19, created_by_id=DzTjkKse) # noqa
+            >>> ln.context.run
+            Run(id=pHgVICV9DxBaV6BAuKJl, run_at=2023-07-10 18:37:19, transform_id=1LCd8kco9lZUBg, created_by_id=DzTjkKse) # noqa
 
-        If you'd like to track a pipeline we need to pass a
-        :class:`~lamindb.Transform` object of `type` `"pipeline"`:
+            If you'd like to track a pipeline we need to pass a
+            :class:`~lamindb.Transform` object of `type` `"pipeline"`:
 
-        >>> transform = ln.Transform.select("My pipeline", version="0.1.2").one()
-        >>> ln.track(transform)
+            >>> ln.Transform(name="Cell Ranger", version="7.2.0", type="pipeline").save()
+            >>> transform = ln.Transform.select(name="Cell Ranger", version="7.2.0").one()
+            >>> ln.track(transform)
+            💬 Loaded: Transform(id=ceHkZMaiHFdoB6, name=Cell Ranger, stem_id=ceHkZMaiHFdo, version=7.2.0, type=pipeline, updated_at=2023-07-10 18:37:19, created_by_id=DzTjkKse) # noqa
+            ✅ Saved: Run(id=RcpWIKC8cF74Pn3RUJ1W, run_at=2023-07-10 18:37:19, transform_id=ceHkZMaiHFdoB6, created_by_id=DzTjkKse) # noqa
+            >>> ln.context.transform
+            Transform(id=ceHkZMaiHFdoB6, name=Cell Ranger, stem_id=ceHkZMaiHFdo, version=7.2.0, type=pipeline, updated_at=2023-07-10 18:37:19, created_by_id=DzTjkKse) # noqa
+            >>> ln.context.run
+            Run(id=RcpWIKC8cF74Pn3RUJ1W, run_at=2023-07-10 18:37:19, transform_id=ceHkZMaiHFdoB6, created_by_id=DzTjkKse) # noqa
         """
         cls.instance = settings.instance
         import lamindb as ln
@@ -192,9 +204,8 @@ class context:
                 except Exception as e:
                     if isinstance(e, ImportError):
                         logger.info(
-                            "It looks like you are running ln.track() from a Jupyter"
-                            " notebook!\nConsider installing nbproject for automatic"
-                            " name, title & id tracking."
+                            "It looks like you are running ln.track() from a "
+                            "notebook!\nPlease install nbproject: pip install nbproject"
                         )
                     elif isinstance(e, UpdateNbWithNonInteractiveEditorError):
                         raise e
@@ -235,7 +246,7 @@ class context:
                 .first()
             )
             if run is not None:  # loaded latest run
-                run.run_at = timezone.now()  # update run time
+                run.run_at = datetime.now(timezone.utc)  # update run time
                 run.save()
                 logger.info(f"Loaded: {run}")
 
@@ -301,12 +312,12 @@ class context:
             notebook_path = notebook_path.as_posix()
         if notebook_path.endswith("Untitled.ipynb"):
             raise RuntimeError("Please rename your notebook before tracking it")
-        if notebook_path.startswith("/filedId="):
+        if notebook_path.startswith("/fileId="):
             # This is Google Colab!
             # google colab fileID looks like this
             # /fileId=1KskciVXleoTeS_OGoJasXZJreDU9La_l
             # we'll take the first 12 characters
-            colab_id = notebook_path.replace("/filedId=", "")
+            colab_id = notebook_path.replace("/fileId=", "")
             id = colab_id[:12]
             reference = f"colab_id: {colab_id}"
             filestem = get_notebook_name_colab()
@@ -383,7 +394,7 @@ class context:
                 )
         else:
             version = "0"
-            title = None
+            title = filestem
 
         transform = ln.select(Transform, stem_id=id, version=version).one_or_none()
         if transform is None:

@@ -11,7 +11,7 @@ from lamindb_setup.dev.upath import UPath
 
 import lamindb as ln
 from lamindb import _file
-from lamindb._file import get_check_path_in_storage, get_relative_path_to_root
+from lamindb._file import check_path_in_default_storage, get_relative_path_to_root
 
 # how do we properly abstract out the default storage variable?
 # currently, we're only mocking it through `default_storage` as
@@ -204,28 +204,29 @@ def test_delete(get_test_filepaths):
     assert not Path(storage_path).exists()
 
 
-@pytest.fixture(scope="module")
-def remote_storage():
-    previous_storage = ln.setup.settings.storage.root_as_str
-    ln.settings.storage = "s3://lamindb-ci"
-    yield "s3://lamindb-ci"
-    ln.settings.storage = previous_storage
-
-
 # why does this run so long? in particular the first time?
 @pytest.mark.parametrize(
     "filepath_str",
     ["s3://lamindb-ci/test-data/test.parquet", "s3://lamindb-ci/test-data/test.csv"],
 )
-def test_create_small_file_from_remote_path(remote_storage, filepath_str):
-    file = ln.File(filepath_str)
+@pytest.mark.parametrize("skip_check_exists", [False, True])
+@pytest.mark.parametrize("skip_size_and_hash", [False, True])
+def test_create_small_file_from_remote_path(
+    filepath_str, skip_check_exists, skip_size_and_hash
+):
+    ln.settings.upon_file_create_skip_size_hash = skip_size_and_hash
+    file = ln.File(
+        filepath_str,
+        skip_check_exists=skip_check_exists,
+    )
     file.save()
     # test stage()
     file_from_local = ln.File(file.stage())
     # test hash equivalency when computed on local machine
-    assert file_from_local.hash == file.hash
-    assert file_from_local.hash_type == "md5"
-    assert file.hash_type == "md5"
+    if not skip_size_and_hash:
+        assert file_from_local.hash == file.hash
+        assert file_from_local.hash_type == "md5"
+        assert file.hash_type == "md5"
     assert file.path().as_posix() == filepath_str
     assert file.load().iloc[0].tolist() == [
         0,
@@ -238,6 +239,8 @@ def test_create_small_file_from_remote_path(remote_storage, filepath_str):
         "-",
         "-",
     ]
+    file.delete(storage=False)
+    ln.settings.upon_file_create_skip_size_hash = False
 
 
 def test_create_big_file_from_remote_path():
@@ -271,14 +274,14 @@ def test_inherit_relationships():
     file2.projects.set(projects)
 
     assert file1.tags.exists() is False
-    file1.inherit_relationships(file2, ["tags"])
+    file1.inherit_relations(file2, ["tags"])
     assert file1.tags.count() == file2.tags.count()
     assert file1.projects.exists() is False
-    file1.inherit_relationships(file2)
+    file1.inherit_relations(file2)
     assert file1.projects.count() == file2.projects.count()
 
     with pytest.raises(KeyError):
-        file1.inherit_relationships(file2, ["not_exist_field"])
+        file1.inherit_relations(file2, ["not_exist_field"])
 
 
 # -------------------------------------------------------------------------------------
@@ -322,20 +325,20 @@ def test_get_relative_path_to_root():
     )
 
 
-def test_get_check_path_in_storage():
+def test_check_path_in_default_storage():
     # UPath
     root = UPath("s3://lamindb-ci")
     upath = UPath("s3://lamindb-ci/test-data/test.csv")
-    assert get_check_path_in_storage(upath, root=root)
+    assert check_path_in_default_storage(upath, root=root)
     upath2 = UPath("s3://lamindb-setup/test-data/test.csv")
-    assert not get_check_path_in_storage(upath2, root=root)
+    assert not check_path_in_default_storage(upath2, root=root)
     # local path
     root = Path("/lamindb-ci")
     path = Path("/lamindb-ci/test-data/test.csv")
-    assert get_check_path_in_storage(path, root=root)
+    assert check_path_in_default_storage(path, root=root)
     path = Path("/lamindb-other/test-data/test.csv")
-    assert not get_check_path_in_storage(path, root=root)
+    assert not check_path_in_default_storage(path, root=root)
     # Local & UPath
     root = UPath("s3://lamindb-ci")
     path = Path("/lamindb-ci/test-data/test.csv")
-    assert not get_check_path_in_storage(path, root=root)
+    assert not check_path_in_default_storage(path, root=root)

@@ -1,3 +1,4 @@
+from datetime import datetime
 from typing import Iterable, List, NamedTuple, Optional
 
 import pandas as pd
@@ -15,6 +16,12 @@ class MultipleResultsFound(Exception):
     pass
 
 
+def format_and_convert_to_local_time(series: pd.Series):
+    tzinfo = datetime.now().astimezone().tzinfo
+    timedelta = tzinfo.utcoffset(datetime.now())  # type: ignore
+    return (series + timedelta).dt.strftime("%Y-%m-%d %H:%M:%S")
+
+
 class QuerySet(models.QuerySet):
     """Extension of Django QuerySet.
 
@@ -22,6 +29,17 @@ class QuerySet(models.QuerySet):
 
     As LaminDB was based on SQLAlchemy/SQLModel in the beginning, and might
     support it again in the future, these calls will be supported longtime.
+
+    See Also:
+
+        `django QuerySet <https://docs.djangoproject.com/en/4.2/ref/models/querysets/>`__ # noqa
+
+    Examples:
+
+        >>> ln.Tag(name="my tag").save()
+        >>> queryset = ln.Tag.select(name="my tag")
+        >>> queryset
+        <QuerySet [Tag(id=MIeZISeF, name=my tag, updated_at=2023-07-19 19:53:34, created_by_id=DzTjkKse)]> # noqa
     """
 
     def df(self, include: Optional[List[str]] = None):
@@ -39,8 +57,22 @@ class QuerySet(models.QuerySet):
 
         Examples:
 
+            >>> ln.save(ln.Project.from_values(["Project1", "Project2", "Project3"], field="name")) # noqa
+            >>> ln.Project.select().df()
+                          name  external_id           updated_at  created_by_id
+                  id
+            wsCyIq2Z  Project1         None  2023-07-19 19:14:08       DzTjkKse
+            MvpDP8Y3  Project2         None  2023-07-19 19:14:08       DzTjkKse
+            zKFFabCu  Project3         None  2023-07-19 19:14:08       DzTjkKse
+            >>> project = ln.Project.select(name="Project1").one()
+            >>> tag = ln.Tag.select(name="benchmark").one()
+            >>> project.tags.add(tag)
             >>> ln.Project.select().df(include=["tags__name", "tags__created_by_id"])
-            >>> df = ln.File.select().df(include="cell_types__name")
+                      tags__name  tags__created_by_id      name  external_id           updated_at  created_by_id # noqa
+                  id
+            wsCyIq2Z  [benchmark]          [DzTjkKse]  Project1         None  2023-07-19 19:14:08       DzTjkKse # noqa
+            MvpDP8Y3         None                None  Project2         None  2023-07-19 19:14:08       DzTjkKse # noqa
+            zKFFabCu         None                None  Project3         None  2023-07-19 19:14:08       DzTjkKse # noqa
         """
         data = self.values()
         if len(data) > 0:
@@ -63,7 +95,9 @@ class QuerySet(models.QuerySet):
             ]
         df = pd.DataFrame(self.values(), columns=keys)
         if len(df) > 0 and "updated_at" in df:
-            df.updated_at = df.updated_at.dt.strftime("%Y-%m-%d %H:%M:%S")
+            df.updated_at = format_and_convert_to_local_time(df.updated_at)
+        if len(df) > 0 and "run_at" in df:
+            df.run_at = format_and_convert_to_local_time(df.run_at)
         if "id" in df.columns:
             df = df.set_index("id")
         if include is not None:
@@ -106,20 +140,45 @@ class QuerySet(models.QuerySet):
         return df
 
     def list(self, field: Optional[str] = None) -> List[ORM]:
-        """Populate a list with the results."""
+        """Populate a list with the results.
+
+        Examples:
+
+            >>> ln.save(ln.Project.from_values(["Project1", "Project2", "Project3"], field="name")) # noqa
+            >>> queryset = ln.Project.select(name__icontains = "project")
+            >>> queryset.list()
+            [Project(id=NAgTZxoo, name=Project1, updated_at=2023-07-19 19:25:48, created_by_id=DzTjkKse), # noqa
+            Project(id=bnsAgKRC, name=Project2, updated_at=2023-07-19 19:25:48, created_by_id=DzTjkKse), # noqa
+            Project(id=R8xhAJNE, name=Project3, updated_at=2023-07-19 19:25:48, created_by_id=DzTjkKse)] # noqa
+            >>> queryset.list("name")
+            ['Project1', 'Project2', 'Project3']
+        """
         if field is None:
             return [item for item in self]
         else:
             return [item for item in self.values_list(field, flat=True)]
 
     def first(self) -> Optional[ORM]:
-        """If non-empty, the first result in the query set, otherwise None."""
+        """If non-empty, the first result in the query set, otherwise None.
+
+        Examples:
+            >>> ln.save(ln.Project.from_values(["Project1", "Project2", "Project3"], field="name")) # noqa
+            >>> queryset = ln.Project.select(name__icontains = "project")
+            >>> queryset.first()
+            Project(id=NAgTZxoo, name=Project1, updated_at=2023-07-19 19:25:48, created_by_id=DzTjkKse) # noqa
+        """
         if len(self) == 0:
             return None
         return self[0]
 
     def one(self) -> ORM:
-        """Exactly one result. Throws error if there are more or none."""
+        """Exactly one result. Throws error if there are more or none.
+
+        Examples:
+            >>> ln.Tag(name="benchmark").save()
+            >>> ln.Tag.select(name="benchmark").one()
+            Tag(id=gznl0GZk, name=benchmark, updated_at=2023-07-19 19:39:01, created_by_id=DzTjkKse) # noqa
+        """
         if len(self) == 0:
             raise NoResultFound
         elif len(self) > 1:
@@ -128,7 +187,15 @@ class QuerySet(models.QuerySet):
             return self[0]
 
     def one_or_none(self) -> Optional[ORM]:
-        """At most one result. Returns it if there is one, otherwise returns None."""
+        """At most one result. Returns it if there is one, otherwise returns None.
+
+        Examples:
+            >>> ln.Tag(name="benchmark").save()
+            >>> ln.Tag.select(name="benchmark").one_or_none()
+            Tag(id=gznl0GZk, name=benchmark, updated_at=2023-07-19 19:39:01, created_by_id=DzTjkKse) # noqa
+            >>> ln.Tag.select(name="non existing tag").one_or_none()
+            None
+        """
         if len(self) == 0:
             return None
         elif len(self) == 1:

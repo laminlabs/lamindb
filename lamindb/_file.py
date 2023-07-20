@@ -1,6 +1,6 @@
 from itertools import islice
 from pathlib import Path, PurePath, PurePosixPath
-from typing import Any, Dict, List, Optional, Tuple, Union, overload  # noqa
+from typing import Any, List, Optional, Tuple, Union
 
 import anndata as ad
 import lamindb_setup
@@ -10,6 +10,8 @@ from appdirs import AppDirs
 from django.db.models.query_utils import DeferredAttribute as Field
 from lamin_logger import colors, logger
 from lamindb_setup import settings as setup_settings
+from lamindb_setup._init_instance import register_storage
+from lamindb_setup.dev import StorageSettings
 from lamindb_setup.dev._docs import doc_args
 from lnschema_core import Feature, FeatureSet, File, Run, ids
 from lnschema_core.types import AnnDataLike, DataLike, PathLike
@@ -50,27 +52,40 @@ def serialize(
     provisional_id: str,
     data: Union[Path, UPath, str, pd.DataFrame, AnnData],
     format,
-) -> Tuple[Any, Union[Path, UPath], str]:
+    skip_existence_check: bool = False,
+) -> Tuple[Any, Union[Path, UPath], str, str, str]:
     """Serialize a data object that's provided as file or in memory."""
+    # if not overwritten, data gets stored in default storage
+    root = lamindb_setup.settings.storage.root
+    storage_id = lamindb_setup.settings.storage.id
     # Convert str to either Path or UPath
     if isinstance(data, (str, Path, UPath)):
         filepath = UPath(data)  # returns Path for local
-        try:  # check if file exists
-            if not filepath.exists():
-                raise FileNotFoundError(filepath)
-        except PermissionError:  # we will setup permissions later
-            pass
+        if not skip_existence_check:
+            try:  # check if file exists
+                if not filepath.exists():
+                    raise FileNotFoundError(filepath)
+            except PermissionError:  # we will setup permissions later
+                pass
         if isinstance(filepath, UPath):
             new_storage = list(filepath.parents)[-1]
-            if not get_check_path_in_storage(filepath):
-                raise ValueError(
-                    "Currently do not support moving cloud data across buckets."
-                    " Set default storage to point to your cloud bucket:\n"
-                    f" `ln.setup.set.storage({new_storage})` or `lamin set --storage"
-                    f" {new_storage}`"
-                )
-            root = lamindb_setup.settings.storage.root
+            if not check_path_in_default_storage(filepath):
+                new_storage_str = new_storage.as_posix()
+                if not new_storage_str.startswith(("s3://", "gs://")):
+                    raise NotImplementedError(
+                        "Currently don't allow to set local storage locations on"
+                        " the fly"
+                    )
+                else:
+                    logger.warning(
+                        "Creating file outside default storage is slightly slower"
+                    )
+                storage_settings = StorageSettings(new_storage_str)
+                root = storage_settings.root
+                register_storage(storage_settings)
+                storage_id = storage_settings.id
             if isinstance(root, UPath):
+                # this might be wrong in some cases!
                 filepath = UPath(
                     filepath, **root._kwargs
                 )  # inherit fsspec kwargs from root
@@ -100,17 +115,20 @@ def serialize(
             f"Do not know how to create a file object from {data}, pass a filepath"
             " instead!"
         )
-    return memory_rep, filepath, suffix
+    return memory_rep, filepath, suffix, root, storage_id
 
 
 def get_hash(
-    filepath, suffix, check_hash: bool = True
+    filepath,
+    suffix,
+    filepath_stat=None,
+    check_hash: bool = True,
 ) -> Union[Tuple[Optional[str], Optional[str]], File]:
     if suffix in {".zarr", ".zrad"}:
         return None
     if isinstance(filepath, UPath):
-        stat = filepath.stat()
-        if "ETag" in stat:
+        stat = filepath_stat
+        if stat is not None and "ETag" in stat:
             # small files
             if "-" not in stat["ETag"]:
                 # only store hash for non-multipart uploads
@@ -190,27 +208,34 @@ def get_path_size_hash(
                 )
         hash_and_type = None, None
     else:
-        if isinstance(filepath, UPath):
-            try:
-                size = filepath.stat()["size"]
-            # here trying to fix access issue with new s3 buckets
-            except Exception as e:
-                if filepath._url.scheme == "s3":
-                    filepath = UPath(filepath, cache_regions=True)
-                    size = filepath.stat()["size"]
-                else:
-                    raise e
-            cloudpath = filepath
+        # to accelerate ingesting high numbers of files
+        if settings.upon_file_create_skip_size_hash:
+            size = None
             hash_and_type = None, None
         else:
-            size = filepath.stat().st_size  # type: ignore
-            localpath = filepath
-        hash_and_type = get_hash(filepath, suffix, check_hash=check_hash)
-
+            filepath_stat = filepath.stat()
+            if isinstance(filepath, UPath):
+                try:
+                    size = filepath_stat["size"]  # type: ignore
+                # here trying to fix access issue with new s3 buckets
+                except Exception as e:
+                    if filepath._url.scheme == "s3":
+                        filepath = UPath(filepath, cache_regions=True)
+                        size = filepath_stat["size"]  # type: ignore
+                    else:
+                        raise e
+                cloudpath = filepath
+                hash_and_type = None, None
+            else:
+                size = filepath_stat.st_size  # type: ignore
+                localpath = filepath
+            hash_and_type = get_hash(
+                filepath, suffix, filepath_stat=filepath_stat, check_hash=check_hash
+            )
     return localpath, cloudpath, size, hash_and_type
 
 
-def get_check_path_in_storage(
+def check_path_in_default_storage(
     filepath: Union[Path, UPath], *, root: Optional[Union[Path, UPath]] = None
 ) -> bool:
     assert isinstance(filepath, Path)
@@ -261,24 +286,32 @@ def get_file_kwargs_from_data(
     run: Optional[Run],
     format: Optional[str],
     provisional_id: str,
+    skip_check_exists: bool = False,
 ):
     run = get_run(run)
-    memory_rep, filepath, suffix = serialize(provisional_id, data, format)
+    memory_rep, filepath, suffix, root, storage_id = serialize(
+        provisional_id, data, format, skip_check_exists
+    )
     # the following will return a localpath that is not None if filepath is local
     # it will return a cloudpath that is not None if filepath is on the cloud
     local_filepath, cloud_filepath, size, hash_and_type = get_path_size_hash(
-        filepath, memory_rep, suffix
+        filepath,
+        memory_rep,
+        suffix,
     )
     if isinstance(hash_and_type, File):
         return hash_and_type, None
     else:
         hash, hash_type = hash_and_type
-    check_path_in_storage = get_check_path_in_storage(filepath)
+    path_is_in_default_storage = check_path_in_default_storage(filepath)
+    path_is_remote = filepath.as_posix().startswith(("s3://", "gs://"))
+    # consider a remote path a path that's already in the desired storage location
+    check_path_in_storage = path_is_in_default_storage or path_is_remote
     # if we pass a file, no storage key, and path is already in storage,
     # then use the existing relative path within the storage location
     # as storage key
     if memory_rep is None and key is None and check_path_in_storage:
-        key = get_relative_path_to_root(path=filepath).as_posix()
+        key = get_relative_path_to_root(path=filepath, root=root).as_posix()
 
     if key is not None and key.startswith(AUTO_KEY_PREFIX):
         raise ValueError(f"Key cannot start with {AUTO_KEY_PREFIX}")
@@ -289,7 +322,7 @@ def get_file_kwargs_from_data(
         hash_type=hash_type,
         key=key,
         size=size,
-        storage_id=lamindb_setup.settings.storage.id,
+        storage_id=storage_id,
         # passing both the id and the object
         # to make them both available immediately
         # after object creation
@@ -311,9 +344,9 @@ def log_storage_hint(
 ) -> None:
     hint = ""
     if check_path_in_storage:
-        hint += "file in storage ✓"
+        hint += "File in storage ✓"
     else:
-        hint += "file will be copied to storage upon `save()`"
+        hint += "File will be copied to storage upon `save()`"
     if key is None:
         hint += f" using storage key = {id}{suffix}"
     else:
@@ -356,6 +389,9 @@ def __init__(file: File, *args, **kwargs):
     name: Optional[str] = kwargs.pop("name") if "name" in kwargs else None
     format = kwargs.pop("format") if "format" in kwargs else None
     log_hint = kwargs.pop("log_hint") if "log_hint" in kwargs else True
+    skip_check_exists = (
+        kwargs.pop("skip_check_exists") if "skip_check_exists" in kwargs else False
+    )
 
     if not len(kwargs) == 0:
         raise ValueError(
@@ -388,6 +424,7 @@ def __init__(file: File, *args, **kwargs):
         run=run,
         format=format,
         provisional_id=provisional_id,
+        skip_check_exists=skip_check_exists,
     )
     # an object with the same hash already exists
     if isinstance(kwargs, File):
@@ -447,7 +484,9 @@ def from_df(
 ) -> "File":
     """{}"""
     file = File(data=df, key=key, run=run, description=description, log_hint=False)
-    file._feature_sets = [FeatureSet.from_values(df.columns)]
+    features = Feature.from_df(df)
+    feature_set = FeatureSet(features)
+    file._feature_sets = [feature_set]
     return file
 
 
@@ -490,7 +529,7 @@ def from_dir(
 ) -> List["File"]:
     """{}"""
     folderpath = UPath(path)
-    check_path_in_storage = get_check_path_in_storage(folderpath)
+    check_path_in_storage = check_path_in_default_storage(folderpath)
 
     if check_path_in_storage:
         folder_key = get_relative_path_to_root(path=folderpath).as_posix()
@@ -515,7 +554,9 @@ def from_dir(
         if filepath.is_file():
             relative_path = get_relative_path_to_directory(filepath, folderpath)
             file_key = folder_key + "/" + relative_path.as_posix()
-            files.append(File(filepath, run=run, key=file_key))
+            # if creating from rglob, we don't need to check for existence
+            file = File(filepath, run=run, key=file_key, skip_check_exists=True)
+            files.append(file)
     settings.verbosity = verbosity
     logger.info(f"→ {len(files)} files")
     return files
@@ -679,6 +720,9 @@ def _save_skip_storage(file, *args, **kwargs) -> None:
     if hasattr(file, "_feature_sets"):
         for feature_set in file._feature_sets:
             feature_set.save()
+    if hasattr(file, "_feature_values"):
+        for feature_value in file._feature_values:
+            feature_value.save()
     super(File, file).save(*args, **kwargs)
     if hasattr(file, "_feature_sets"):
         file.feature_sets.set(file._feature_sets)
@@ -749,8 +793,22 @@ def tree(
     print(f"\n{directories} directories" + (f", {files} files" if files else ""))
 
 
-def inherit_relationships(self, file: File, fields: Optional[List[str]] = None):
-    """Inherit many-to-many relationships from another file."""
+def inherit_relations(self, file: File, fields: Optional[List[str]] = None):
+    """Inherit many-to-many relationships from another file.
+
+    Examples:
+        >>> file1 = ln.File(pd.DataFrame(index=[0,1]))
+        >>> file1.save()
+        >>> file2 = ln.File(pd.DataFrame(index=[2,3]))
+        >>> file2.save()
+        >>> ln.save(ln.Tag.from_values(["Tag1", "Tag2", "Tag3"], field="name"))
+        >>> tags = ln.Tag.select(name__icontains = "tag").all()
+        >>> file1.tags.set(tags)
+        >>> file2.inherit_relations(file1, ["tags"])
+        💬 Inheriting 1 field: ['tags']
+        >>> file2.tags.list("name")
+        ['Tag1', 'Tag2', 'Tag3']
+    """
     if fields is None:
         # fields in the model definition
         related_names = [i.name for i in file._meta.many_to_many]
@@ -770,7 +828,8 @@ def inherit_relationships(self, file: File, fields: Optional[List[str]] = None):
         if file.__getattribute__(related_name).exists()
     ]
 
-    logger.info(f"Inheriting {len(inherit_names)} fields: {inherit_names}")
+    s = "s" if len(inherit_names) > 1 else ""
+    logger.info(f"Inheriting {len(inherit_names)} field{s}: {inherit_names}")
     for related_name in inherit_names:
         self.__getattribute__(related_name).set(
             file.__getattribute__(related_name).all()
@@ -808,4 +867,4 @@ for name in METHOD_NAMES:
 File._delete_skip_storage = _delete_skip_storage
 File._save_skip_storage = _save_skip_storage
 setattr(File, "view_lineage", view_lineage)
-setattr(File, "inherit_relationships", inherit_relationships)
+setattr(File, "inherit_relations", inherit_relations)

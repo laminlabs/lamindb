@@ -3,13 +3,14 @@ from typing import Dict, Iterable, List, Literal, NamedTuple, Optional, Set, Uni
 
 import pandas as pd
 from django.core.exceptions import FieldDoesNotExist
-from django.db import models
+from django.db.models import Manager, QuerySet
 from django.db.models.query_utils import DeferredAttribute as Field
 from lamin_logger import logger
 from lamin_logger._lookup import Lookup
 from lamin_logger._search import search as base_search
 from lamindb_setup.dev._docs import doc_args
 from lnschema_core import ORM
+from lnschema_core.models import format_datetime
 from lnschema_core.types import ListLike, StrField
 
 from lamindb.dev.utils import attach_func_to_class_method
@@ -104,8 +105,7 @@ def __init__(orm: ORM, *args, **kwargs):
         super(ORM, orm).__init__(*args, **kwargs)
 
 
-def view_parents(self: ORM, field: Optional[StrField] = None, distance: int = 100):
-    """View parents of a record in a graph."""
+def view_parents(self, field: Optional[StrField] = None, distance: int = 100):
     from lamindb.dev._view_parents import view_parents as _view_parents
 
     if field is None:
@@ -132,51 +132,92 @@ def from_values(cls, identifiers: ListLike, field: StrField, **kwargs) -> List["
     )
 
 
+# From: https://stackoverflow.com/a/37648265
+def _order_queryset_by_ids(queryset: QuerySet, ids: Iterable):
+    from django.db.models import Case, When
+
+    preserved = Case(*[When(pk=pk, then=pos) for pos, pk in enumerate(ids)])
+    return queryset.filter(pk__in=ids).order_by(preserved)
+
+
 def _search(
     cls,
     string: str,
     *,
-    field: Optional[StrField] = None,
-    top_hit: bool = False,
+    field: Optional[Union[StrField, List[StrField]]] = None,
+    return_queryset: bool = False,
+    limit: Optional[int] = None,
     case_sensitive: bool = False,
     synonyms_field: Optional[StrField] = "synonyms",
-) -> Union["pd.DataFrame", "ORM"]:
-    if field is None:
-        field = get_default_str_field(cls)
-    if not isinstance(field, str):
-        field = field.field.name
+) -> Union["pd.DataFrame", "QuerySet"]:
+    query_set = cls.all() if isinstance(cls, QuerySet) else cls.objects.all()
+    orm = cls.model if isinstance(cls, QuerySet) else cls
 
-    query_set = cls.all() if isinstance(cls, models.QuerySet) else cls.objects.all()
-    orm = cls.model if isinstance(cls, models.QuerySet) else cls
+    def _search_single_field(
+        string: str,
+        field: Optional[StrField],
+        synonyms_field: Optional[StrField] = "synonyms",
+    ) -> "pd.DataFrame":
+        if field is None:
+            field = get_default_str_field(cls)
+        if not isinstance(field, str):
+            field = field.field.name
 
-    try:
-        orm._meta.get_field(synonyms_field)
-        synonyms_field_exists = True
-    except FieldDoesNotExist:
-        synonyms_field_exists = False
+        try:
+            orm._meta.get_field(synonyms_field)
+            synonyms_field_exists = True
+        except FieldDoesNotExist:
+            synonyms_field_exists = False
 
-    if synonyms_field is not None and synonyms_field_exists:
-        df = pd.DataFrame(query_set.values("id", field, synonyms_field))
-    else:
-        df = pd.DataFrame(query_set.values("id", field))
-
-    result = base_search(
-        df=df,
-        string=string,
-        field=field,
-        synonyms_field=str(synonyms_field),
-        case_sensitive=case_sensitive,
-        return_ranked_results=not top_hit,
-        tuple_name=orm.__name__,
-    )
-
-    if not top_hit or result is None:
-        return result
-    else:
-        if isinstance(result, list):
-            return [query_set.get(id=r.id) for r in result]
+        if synonyms_field is not None and synonyms_field_exists:
+            df = pd.DataFrame(query_set.values("id", field, synonyms_field))
         else:
-            return query_set.get(id=result.id)
+            df = pd.DataFrame(query_set.values("id", field))
+
+        return base_search(
+            df=df,
+            string=string,
+            field=field,
+            limit=limit,
+            synonyms_field=str(synonyms_field),
+            case_sensitive=case_sensitive,
+        )
+
+    # search in both key and description fields for file
+    if orm.__name__ == "File" and field is None:
+        field = ["key", "description"]
+
+    if not isinstance(field, List):
+        field = [field]
+
+    results = []
+    for fd in field:
+        result_field = _search_single_field(
+            string=string, field=fd, synonyms_field=synonyms_field
+        )
+        results.append(result_field)
+        # turn off synonyms search after the 1st field
+        synonyms_field = None
+
+    if len(results) > 1:
+        result = (
+            pd.concat([r.reset_index() for r in results], join="outer")
+            .drop(columns=["index"], errors="ignore")
+            .set_index("id")
+        )
+    else:
+        result = results[0]
+
+    # remove results that have __ratio__ 0
+    if "__ratio__" in result.columns:
+        result = result[result["__ratio__"] > 0].sort_values(
+            "__ratio__", ascending=False
+        )
+
+    if return_queryset:
+        return _order_queryset_by_ids(query_set, result.reset_index()["id"])
+    else:
+        return result
 
 
 @classmethod  # type: ignore
@@ -186,16 +227,18 @@ def search(
     string: str,
     *,
     field: Optional[StrField] = None,
-    top_hit: bool = False,
+    return_queryset: bool = False,
+    limit: Optional[int] = None,
     case_sensitive: bool = False,
     synonyms_field: Optional[StrField] = "synonyms",
-) -> Union["pd.DataFrame", "ORM"]:
+) -> Union["pd.DataFrame", "QuerySet"]:
     """{}"""
     return _search(
         cls=cls,
         string=string,
         field=field,
-        top_hit=top_hit,
+        return_queryset=return_queryset,
+        limit=limit,
         case_sensitive=case_sensitive,
         synonyms_field=synonyms_field,
     )
@@ -208,8 +251,8 @@ def _lookup(cls, field: Optional[StrField] = None) -> NamedTuple:
     if not isinstance(field, str):
         field = field.field.name
 
-    records = cls.all() if isinstance(cls, models.QuerySet) else cls.objects.all()
-    cls = cls.model if isinstance(cls, models.QuerySet) else cls
+    records = cls.all() if isinstance(cls, QuerySet) else cls.objects.all()
+    cls = cls.model if isinstance(cls, QuerySet) else cls
 
     return Lookup(
         records=records,
@@ -243,7 +286,7 @@ def _inspect(
     if not isinstance(field, str):
         field = field.field.name
 
-    cls = cls.model if isinstance(cls, models.QuerySet) else cls
+    cls = cls.model if isinstance(cls, QuerySet) else cls
 
     return inspect(
         df=_filter_df_based_on_species(orm=cls, species=kwargs.get("species")),
@@ -301,7 +344,7 @@ def _map_synonyms(
     if not isinstance(field, str):
         field = field.field.name
 
-    cls = cls.model if isinstance(cls, models.QuerySet) else cls
+    cls = cls.model if isinstance(cls, QuerySet) else cls
 
     try:
         cls._meta.get_field(synonyms_field)
@@ -345,11 +388,10 @@ def map_synonyms(
     )
 
 
-def describe(record: ORM):
-    """Rich representation of a record with relationships."""
-    model_name = record.__class__.__name__
+def describe(self):
+    model_name = self.__class__.__name__
     msg = ""
-    fields = record._meta.fields
+    fields = self._meta.fields
     direct_fields = []
     foreign_key_fields = []
     for f in fields:
@@ -359,47 +401,56 @@ def describe(record: ORM):
             direct_fields.append(f.name)
     # display line by line the foreign key fields
     if len(foreign_key_fields) > 0:
-        record_msg = f"{model_name}({''.join([f'{i}={record.__getattribute__(i)}, ' for i in direct_fields])})"  # noqa
+        record_msg = f"{model_name}({''.join([f'{i}={self.__getattribute__(i)}, ' for i in direct_fields])})"  # noqa
         msg += f"{record_msg.rstrip(', )')})\n\n"
 
         msg += "One/Many-to-One:\n    "
         related_msg = "".join(
-            [f"🔗 {i}: {record.__getattribute__(i)}\n    " for i in foreign_key_fields]
+            [f"🔗 {i}: {self.__getattribute__(i)}\n    " for i in foreign_key_fields]
         )
         msg += related_msg
     msg = msg.rstrip("    ")
 
     # display many-to-many relationship objects
     # fields in the model definition
-    related_names = [i.name for i in record._meta.many_to_many]
+    related_names = [i.name for i in self._meta.many_to_many]
     # fields back linked
-    related_names += [i.related_name for i in record._meta.related_objects]
+    related_names += [i.related_name for i in self._meta.related_objects]
     msg += "Many-to-Many:\n"
     for related_name in related_names:
-        related_objects = record.__getattribute__(related_name)
-        if related_objects.exists():
-            count = related_objects.count()
-            objects = related_objects.all()[:10]
+        related_objects = self.__getattribute__(related_name)
+        count = related_objects.count()
+        if count > 0:
             try:
-                field = get_default_str_field(objects.first())
+                field = get_default_str_field(related_objects)
             except ValueError:
                 field = "id"
-            objects_list = list(objects.values_list(field, flat=True))
+            objects_list = list(related_objects.values_list(field, flat=True)[:10])
+            if field == "created_at":
+                objects_list = [format_datetime(i) for i in objects_list]
             msg_objects = f"    🔗 {related_name} ({count}): {objects_list}\n"
             if count > 10:
                 msg_objects = msg_objects.replace("]", " ... ]")
             msg += msg_objects
     msg = msg.rstrip("\n")
-    msg = msg.rstrip("Related objects:")
+    msg = msg.rstrip("Many-to-Many:")
     print(msg)
 
 
+def set_abbr(self, value: str):
+    try:
+        self.add_synonym(value, save=False)
+    except NotImplementedError:
+        pass
+    self.abbr = value
+
+
 def _filter_df_based_on_species(
-    orm: Union[ORM, models.QuerySet], species: Optional[Union[str, ORM]] = None
+    orm: Union[ORM, QuerySet], species: Optional[Union[str, ORM]] = None
 ):
     import pandas as pd
 
-    records = orm.all() if isinstance(orm, models.QuerySet) else orm.objects.all()
+    records = orm.all() if isinstance(orm, QuerySet) else orm.objects.all()
     if _has_species_field(orm):
         # here, we can safely import lnschema_bionty
         from lnschema_bionty._bionty import create_or_get_species_record
@@ -411,14 +462,16 @@ def _filter_df_based_on_species(
     return pd.DataFrame.from_records(records.values())
 
 
-def get_default_str_field(orm: Union[ORM, models.QuerySet]) -> str:
+def get_default_str_field(orm: Union[ORM, QuerySet, Manager]) -> str:
     """Get the 1st char or text field from the orm."""
-    if isinstance(orm, models.QuerySet):
+    if isinstance(orm, (QuerySet, Manager)):
         orm = orm.model
     model_field_names = [i.name for i in orm._meta.fields]
 
     # set default field
-    if "name" in model_field_names:
+    if orm._meta.model.__name__ == "Run":
+        field = orm._meta.get_field("created_at")
+    elif "name" in model_field_names:
         # by default use the name field
         field = orm._meta.get_field("name")
     else:
@@ -442,6 +495,7 @@ def _add_or_remove_synonyms(
     record: ORM,
     action: Literal["add", "remove"],
     force: bool = False,
+    save: Optional[bool] = None,
 ):
     """Add or remove synonyms."""
 
@@ -501,8 +555,10 @@ def _add_or_remove_synonyms(
 
     record.synonyms = syns_str
 
-    # if record is already in DB, save the changes to DB
-    if not record._state.adding:
+    if save is None:
+        # if record is already in DB, save the changes to DB
+        save = not record._state.adding
+    if save:
         record.save()
 
 
@@ -515,9 +571,16 @@ def _check_synonyms_field_exist(record: ORM):
         )
 
 
-def add_synonym(self, synonym: Union[str, ListLike], force: bool = False):
+def add_synonym(
+    self,
+    synonym: Union[str, ListLike],
+    force: bool = False,
+    save: Optional[bool] = None,
+):
     _check_synonyms_field_exist(self)
-    _add_or_remove_synonyms(synonym=synonym, record=self, force=force, action="add")
+    _add_or_remove_synonyms(
+        synonym=synonym, record=self, force=force, action="add", save=save
+    )
 
 
 def remove_synonym(self, synonym: Union[str, ListLike]):
@@ -534,6 +597,9 @@ METHOD_NAMES = [
     "add_synonym",
     "remove_synonym",
     "from_values",
+    "describe",
+    "set_abbr",
+    "view_parents",
 ]
 
 if _TESTING:
@@ -550,12 +616,10 @@ for name in METHOD_NAMES:
 
 
 @classmethod  # type: ignore
-def __name_with_type__(cls) -> str:
+def __get_schema_name__(cls) -> str:
     schema_module_name = cls.__module__.split(".")[0]
     schema_name = schema_module_name.replace("lnschema_", "")
-    return f"{schema_name}.{cls.__name__}"
+    return schema_name
 
 
-setattr(ORM, "__name_with_type__", __name_with_type__)
-setattr(ORM, "view_parents", view_parents)
-setattr(ORM, "describe", describe)
+setattr(ORM, "__get_schema_name__", __get_schema_name__)
