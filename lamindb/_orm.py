@@ -616,10 +616,10 @@ for name in METHOD_NAMES:
 
 
 @classmethod  # type: ignore
-def __name_with_type__(cls) -> str:
+def __get_schema_name__(cls) -> str:
     schema_module_name = cls.__module__.split(".")[0]
     schema_name = schema_module_name.replace("lnschema_", "")
-    return f"{schema_name}.{cls.__name__}"
+    return schema_name
 
 
-setattr(ORM, "__name_with_type__", __name_with_type__)
+setattr(ORM, "__get_schema_name__", __get_schema_name__)

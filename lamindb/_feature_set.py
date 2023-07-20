@@ -73,7 +73,10 @@ def __init__(self, *args, **kwargs):
     if field is None:
         field = "id"
     super(FeatureSet, self).__init__(
-        id=id, type=features_type.__name_with_type__(), field=field
+        id=id,
+        type=features_type.__name__,
+        schema=features_type.__get_schema_name__(),
+        field=field,
     )
 
 

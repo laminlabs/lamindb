@@ -45,10 +45,12 @@ def get_or_create_records(
                 for value in unmapped_values:
                     records.append(model(**{field_name: value}, **kwargs))
                 s = "" if len(unmapped_values) == 1 else "s"
-                logger.info(
-                    "Created"
-                    f" {colors.red(f'{len(unmapped_values)} {model.__name__} record{s}')} with"  # noqa
-                    f" a single field {colors.red(f'{field_name}')}"
+                print_unmapped_values = ", ".join(unmapped_values[:7])
+                if len(unmapped_values) > 7:
+                    print_unmapped_values += ", ..."
+                logger.warning(
+                    f"Created {colors.yellow(f'{len(unmapped_values)} {model.__name__} record{s}')} setting"  # noqa
+                    f" field {colors.yellow(f'{field_name}')} to: {print_unmapped_values}"  # noqa
                 )
         return records
     finally:
@@ -79,8 +81,8 @@ def get_existing_records(iterable_idx: pd.Index, field: Field, kwargs: Dict = {}
     if len(syn_mapper) > 0:
         s = "" if len(syn_mapper) == 1 else "s"
         syn_msg = (
-            "Returned"
-            f" {colors.green(f'{len(syn_mapper)} existing {model.__name__} DB record{s}')} that"  # noqa
+            "Loaded"
+            f" {colors.green(f'{len(syn_mapper)} {model.__name__} record{s}')} that"  # noqa
             f" matched {colors.green('synonyms')}"
         )
         iterable_idx = iterable_idx.to_frame().rename(index=syn_mapper).index
@@ -100,9 +102,9 @@ def get_existing_records(iterable_idx: pd.Index, field: Field, kwargs: Dict = {}
     if n_name > 0:
         s = "" if n_name == 1 else "s"
         logger.info(
-            "Returned"
-            f" {colors.green(f'{n_name} existing {model.__name__} DB record{s}')} that"
-            f" matched {colors.green(f'{field_name}')} field"
+            "Loaded"
+            f" {colors.green(f'{n_name} {model.__name__} record{s}')} that"
+            f" matched field {colors.green(f'{field_name}')}"
         )
     # make sure that synonyms logging appears after the field logging
     if len(syn_msg) > 0:
