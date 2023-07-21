@@ -2,7 +2,7 @@ from itertools import islice
 from typing import List
 
 import pandas as pd
-from lamin_logger import logger
+from lamin_utils import logger
 from lamindb_setup.dev._docs import doc_args
 from lnschema_core import Category, Feature
 from pandas.api.types import is_categorical_dtype, is_string_dtype

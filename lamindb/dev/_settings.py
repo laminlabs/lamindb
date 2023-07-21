@@ -2,7 +2,7 @@ from pathlib import Path
 from typing import Literal, Mapping, Tuple, Union
 
 import lamindb_setup as ln_setup
-from lamin_logger import logger
+from lamin_utils import logger
 from upath import UPath
 
 

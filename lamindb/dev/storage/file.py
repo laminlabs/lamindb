@@ -6,7 +6,7 @@ from typing import Union
 import anndata as ad
 import fsspec
 import pandas as pd
-from lamin_logger import logger
+from lamin_utils import logger
 from lamindb_setup import settings
 from lamindb_setup.dev import StorageSettings
 from lamindb_setup.dev.upath import UPath, infer_filesystem

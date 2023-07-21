@@ -5,9 +5,9 @@ import pandas as pd
 from django.core.exceptions import FieldDoesNotExist
 from django.db.models import Manager, QuerySet
 from django.db.models.query_utils import DeferredAttribute as Field
-from lamin_logger import logger
-from lamin_logger._lookup import Lookup
-from lamin_logger._search import search as base_search
+from lamin_utils import logger
+from lamin_utils._lookup import Lookup
+from lamin_utils._search import search as base_search
 from lamindb_setup.dev._docs import doc_args
 from lnschema_core import ORM
 from lnschema_core.models import format_datetime
@@ -281,7 +281,7 @@ def _inspect(
     **kwargs,
 ) -> Union["pd.DataFrame", Dict[str, List[str]]]:
     """{}"""
-    from lamin_logger._inspect import inspect
+    from lamin_utils._inspect import inspect
 
     if not isinstance(field, str):
         field = field.field.name
@@ -337,7 +337,7 @@ def _map_synonyms(
     **kwargs,
 ) -> Union[List[str], Dict[str, str]]:
     """{}"""
-    from lamin_logger._map_synonyms import map_synonyms
+    from lamin_utils._map_synonyms import map_synonyms
 
     if field is None:
         field = get_default_str_field(cls)
