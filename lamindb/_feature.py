@@ -60,13 +60,16 @@ def from_df(cls, df) -> List["Feature"]:
             # strip precision qualifiers
             feature.type = "".join(i for i in orig_type if not i.isdigit())
     if len(categoricals) > 0:
+        n_max = 20
         categoricals_with_unmapped_categories_formatted = "\n      ".join(
             [
                 f"{key}: {', '.join(value)}"
-                for key, value in take(7, categoricals_with_unmapped_categories.items())
+                for key, value in take(
+                    n_max, categoricals_with_unmapped_categories.items()
+                )
             ]
         )
-        if len(categoricals_with_unmapped_categories) > 7:
+        if len(categoricals_with_unmapped_categories) > n_max:
             categoricals_with_unmapped_categories_formatted += "\n      ..."
         categoricals_with_unmapped_categories_formatted
         logger.info(
@@ -76,10 +79,10 @@ def from_df(cls, df) -> List["Feature"]:
         hint_formatted = "\n      ".join(
             [
                 f"ln.Category.from_values(df['{key}'])"
-                for key in take(7, categoricals_with_unmapped_categories)
+                for key in take(n_max, categoricals_with_unmapped_categories)
             ]
         )
-        if len(categoricals_with_unmapped_categories) > 7:
+        if len(categoricals_with_unmapped_categories) > n_max:
             hint_formatted += "\n      ..."
         logger.hint(f"Consider adding them via:\n      {hint_formatted}")
     return features

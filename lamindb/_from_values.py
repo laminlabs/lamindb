@@ -50,7 +50,7 @@ def get_or_create_records(
                     records.append(model(**{field_name: value}, **kwargs))
                 s = "" if len(unmapped_values) == 1 else "s"
                 print_unmapped_values = ", ".join(unmapped_values[:7])
-                if len(unmapped_values) > 7:
+                if len(unmapped_values) > 10:
                     print_unmapped_values += ", ..."
                 additional_info = " "
                 if feature is not None:
