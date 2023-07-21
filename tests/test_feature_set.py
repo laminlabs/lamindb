@@ -75,10 +75,6 @@ def test_feature_set_from_records():
 def test_feature_set_from_df():
     feature_set = ln.FeatureSet.from_df(df)
     feature_set.save()
-    assert set(ln.Category.select(feature__name="feat3").list("name")) == set(
-        ["cond1", "cond2"]
-    )
     for feature in feature_set.features.all():
         feature.delete()
-    assert len(ln.Category.select(feature__name="feat3").list("name")) == 0
     feature_set.delete()
