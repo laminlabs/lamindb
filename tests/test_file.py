@@ -265,20 +265,20 @@ def test_inherit_relationships():
     file2.save()
 
     tag_names = [f"Tag {i}" for i in range(3)]
-    projects = [ln.Project(name=f"Project {i}") for i in range(3)]
-    ln.save(projects)
+    tags = [ln.Tag(name=f"Tag {i}") for i in range(3)]
+    ln.save(tags)
     tags = [ln.Tag(name=name) for name in tag_names]
     ln.save(tags)
 
     file2.tags.set(tags)
-    file2.projects.set(projects)
+    file2.tags.set(tags)
 
     assert file1.tags.exists() is False
     file1.inherit_relations(file2, ["tags"])
     assert file1.tags.count() == file2.tags.count()
-    assert file1.projects.exists() is False
+    assert file1.tags.exists() is False
     file1.inherit_relations(file2)
-    assert file1.projects.count() == file2.projects.count()
+    assert file1.tags.count() == file2.tags.count()
 
     with pytest.raises(KeyError):
         file1.inherit_relations(file2, ["not_exist_field"])

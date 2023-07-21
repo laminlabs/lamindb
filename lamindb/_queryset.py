@@ -57,22 +57,22 @@ class QuerySet(models.QuerySet):
 
         Examples:
 
-            >>> ln.save(ln.Project.from_values(["Project1", "Project2", "Project3"], field="name")) # noqa
-            >>> ln.Project.select().df()
+            >>> ln.save(ln.Tag.from_values(["Tag1", "Tag2", "Tag3"], field="name")) # noqa
+            >>> ln.Tag.select().df()
                           name  external_id           updated_at  created_by_id
                   id
-            wsCyIq2Z  Project1         None  2023-07-19 19:14:08       DzTjkKse
-            MvpDP8Y3  Project2         None  2023-07-19 19:14:08       DzTjkKse
-            zKFFabCu  Project3         None  2023-07-19 19:14:08       DzTjkKse
-            >>> project = ln.Project.select(name="Project1").one()
+            wsCyIq2Z  Tag1         None  2023-07-19 19:14:08       DzTjkKse
+            MvpDP8Y3  Tag2         None  2023-07-19 19:14:08       DzTjkKse
+            zKFFabCu  Tag3         None  2023-07-19 19:14:08       DzTjkKse
+            >>> tag = ln.Tag.select(name="Tag1").one()
             >>> tag = ln.Tag.select(name="benchmark").one()
-            >>> project.tags.add(tag)
-            >>> ln.Project.select().df(include=["tags__name", "tags__created_by_id"])
+            >>> tag.parents.add(tag)
+            >>> ln.Tag.select().df(include=["tags__name", "tags__created_by_id"])
                       tags__name  tags__created_by_id      name  external_id           updated_at  created_by_id # noqa
                   id
-            wsCyIq2Z  [benchmark]          [DzTjkKse]  Project1         None  2023-07-19 19:14:08       DzTjkKse # noqa
-            MvpDP8Y3         None                None  Project2         None  2023-07-19 19:14:08       DzTjkKse # noqa
-            zKFFabCu         None                None  Project3         None  2023-07-19 19:14:08       DzTjkKse # noqa
+            wsCyIq2Z  [benchmark]          [DzTjkKse]  Tag1         None  2023-07-19 19:14:08       DzTjkKse # noqa
+            MvpDP8Y3         None                None  Tag2         None  2023-07-19 19:14:08       DzTjkKse # noqa
+            zKFFabCu         None                None  Tag3         None  2023-07-19 19:14:08       DzTjkKse # noqa
         """
         data = self.values()
         if len(data) > 0:
@@ -144,14 +144,14 @@ class QuerySet(models.QuerySet):
 
         Examples:
 
-            >>> ln.save(ln.Project.from_values(["Project1", "Project2", "Project3"], field="name")) # noqa
-            >>> queryset = ln.Project.select(name__icontains = "project")
+            >>> ln.save(ln.Tag.from_values(["Tag1", "Tag2", "Tag3"], field="name")) # noqa
+            >>> queryset = ln.Tag.select(name__icontains = "project")
             >>> queryset.list()
-            [Project(id=NAgTZxoo, name=Project1, updated_at=2023-07-19 19:25:48, created_by_id=DzTjkKse), # noqa
-            Project(id=bnsAgKRC, name=Project2, updated_at=2023-07-19 19:25:48, created_by_id=DzTjkKse), # noqa
-            Project(id=R8xhAJNE, name=Project3, updated_at=2023-07-19 19:25:48, created_by_id=DzTjkKse)] # noqa
+            [Tag(id=NAgTZxoo, name=Tag1, updated_at=2023-07-19 19:25:48, created_by_id=DzTjkKse), # noqa
+            Tag(id=bnsAgKRC, name=Tag2, updated_at=2023-07-19 19:25:48, created_by_id=DzTjkKse), # noqa
+            Tag(id=R8xhAJNE, name=Tag3, updated_at=2023-07-19 19:25:48, created_by_id=DzTjkKse)] # noqa
             >>> queryset.list("name")
-            ['Project1', 'Project2', 'Project3']
+            ['Tag1', 'Tag2', 'Tag3']
         """
         if field is None:
             return [item for item in self]
@@ -162,10 +162,10 @@ class QuerySet(models.QuerySet):
         """If non-empty, the first result in the query set, otherwise None.
 
         Examples:
-            >>> ln.save(ln.Project.from_values(["Project1", "Project2", "Project3"], field="name")) # noqa
-            >>> queryset = ln.Project.select(name__icontains = "project")
+            >>> ln.save(ln.Tag.from_values(["Tag1", "Tag2", "Tag3"], field="name")) # noqa
+            >>> queryset = ln.Tag.select(name__icontains = "project")
             >>> queryset.first()
-            Project(id=NAgTZxoo, name=Project1, updated_at=2023-07-19 19:25:48, created_by_id=DzTjkKse) # noqa
+            Tag(id=NAgTZxoo, name=Tag1, updated_at=2023-07-19 19:25:48, created_by_id=DzTjkKse) # noqa
         """
         if len(self) == 0:
             return None

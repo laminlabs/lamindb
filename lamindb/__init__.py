@@ -21,7 +21,6 @@ The core schema entities are central to lamindb's API:
    User
    Storage
    Tag
-   Project
 
 More control over feature management:
 
@@ -95,7 +94,6 @@ if _INSTANCE_SETUP:
         Feature,
         FeatureSet,
         File,
-        Project,
         Run,
         Storage,
         Tag,

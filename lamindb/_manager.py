@@ -14,10 +14,10 @@ class Manager(models.Manager):
 
         >>> ln.save(ln.Tag.from_values(["Tag1", "Tag2", "Tag3"], field="name"))
         >>> tags = ln.Tag.select(name__icontains = "tag").all()
-        >>> ln.Project(name="Project1").save()
-        >>> project = ln.Project.select(name="Project1").one()
-        >>> project.tags.set(tags)
-        >>> manager = project.tags
+        >>> ln.Tag(name="Tag1").save()
+        >>> tag = ln.Tag.select(name="Tag1").one()
+        >>> tag.parents.set(tags)
+        >>> manager = tag.parents
     """
 
     def list(self, field: Optional[str] = None):
@@ -26,14 +26,14 @@ class Manager(models.Manager):
         Examples:
             >>> ln.save(ln.Tag.from_values(["Tag1", "Tag2", "Tag3"], field="name"))
             >>> tags = ln.Tag.select(name__icontains = "tag").all()
-            >>> ln.Project(name="Project1").save()
-            >>> project = ln.Project.select(name="Project1").one()
-            >>> project.tags.set(tags)
-            >>> project.tags.list()
+            >>> ln.Tag(name="Tag1").save()
+            >>> tag = ln.Tag.select(name="Tag1").one()
+            >>> tag.parents.set(tags)
+            >>> tag.parents.list()
             [Tag(id=sFMcPepC, name=Tag1, updated_at=2023-07-19 19:45:17, created_by_id=DzTjkKse), # noqa
             Tag(id=2SscQvsM, name=Tag2, updated_at=2023-07-19 19:45:17, created_by_id=DzTjkKse), # noqa
             Tag(id=lecV87vi, name=Tag3, updated_at=2023-07-19 19:45:17, created_by_id=DzTjkKse)] # noqa
-            >>> project.tags.list("name")
+            >>> tag.parents.list("name")
             ['Tag1', 'Tag2', 'Tag3']
         """
         if field is None:

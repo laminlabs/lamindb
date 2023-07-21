@@ -33,9 +33,9 @@ def test_validate_required_fields():
     # tag has a required name
     with pytest.raises(TypeError):
         ln.Tag()
-    # project has a required name
+    # tag has a required name
     with pytest.raises(TypeError):
-        ln.Project(external_id="test")
+        ln.Tag(external_id="test")
 
 
 def test_search_file():
