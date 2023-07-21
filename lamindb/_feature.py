@@ -1,3 +1,4 @@
+from itertools import islice
 from typing import List
 
 import pandas as pd
@@ -10,6 +11,11 @@ from lamindb.dev.utils import attach_func_to_class_method
 
 from . import _TESTING
 from ._save import bulk_create
+
+
+def take(n, iterable):
+    """Return the first n items of the iterable as a list."""
+    return list(islice(iterable, n))
 
 
 def __init__(self, *args, **kwargs):
@@ -36,29 +42,41 @@ def from_df(cls, df) -> List["Feature"]:
         if len(c.categories) < len(c):
             categoricals[key] = c
 
-    unmapped_categories = {}
+    categoricals_with_unmapped_categories = {}
     for feature in features:
         if feature.name in categoricals:
             feature.type = "Category"
             categories = categoricals[feature.name].categories
-            unmapped_categories[feature.name] = Category.select(
+            categoricals_with_unmapped_categories[feature.name] = Category.select(
                 feature=feature
-            ).inspect(categories, "name")["not_mapped"]
+            ).inspect(categories, "name", logging=False)["not_mapped"]
         else:
             orig_type = df[feature.name].dtype.name
             # strip precision qualifiers
             feature.type = "".join(i for i in orig_type if not i.isdigit())
     if len(categoricals) > 0:
-        unmapped_categories_formatted = "\n      ".join(
-            [f"{key}: {', '.join(value)}" for key, value in unmapped_categories.items()]
+        categoricals_with_unmapped_categories_formatted = "\n      ".join(
+            [
+                f"{key}: {', '.join(value)}"
+                for key, value in take(7, categoricals_with_unmapped_categories.items())
+            ]
         )
+        if len(categoricals_with_unmapped_categories) > 7:
+            categoricals_with_unmapped_categories_formatted += "\n      ..."
+        categoricals_with_unmapped_categories_formatted
         logger.info(
-            f"There are unmapped categories:\n      {unmapped_categories_formatted}"
+            "There are unmapped categories:\n     "
+            f" {categoricals_with_unmapped_categories_formatted}"
         )
-        logger.hint(
-            "Consider adding them via `ln.Category.from_values(df['column_x'],"
-            " feature='column_x')`"
+        hint_formatted = "\n      ".join(
+            [
+                f"ln.Category.from_values(df['{key}'])"
+                for key in take(7, categoricals_with_unmapped_categories)
+            ]
         )
+        if len(categoricals_with_unmapped_categories) > 7:
+            hint_formatted += "\n      ..."
+        logger.hint(f"Consider adding them via:\n      {hint_formatted}")
     return features
 
 

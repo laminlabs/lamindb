@@ -4,7 +4,7 @@ import pandas as pd
 from django.core.exceptions import FieldDoesNotExist
 from django.db.models.query_utils import DeferredAttribute as Field
 from lamin_logger import colors, logger
-from lnschema_core.models import ORM
+from lnschema_core.models import ORM, Feature
 from lnschema_core.types import ListLike
 
 from .dev._settings import settings
@@ -21,6 +21,10 @@ def get_or_create_records(
     """Get or create records from iterables."""
     upon_create_search_names = settings.upon_create_search_names
     settings.upon_create_search_names = False
+    feature: Feature = None
+    if "feature" in kwargs:
+        feature = kwargs.pop("feature")
+        kwargs["feature_id"] = feature.id
     try:
         field_name = field.field.name
         model = field.field.model
@@ -48,9 +52,12 @@ def get_or_create_records(
                 print_unmapped_values = ", ".join(unmapped_values[:7])
                 if len(unmapped_values) > 7:
                     print_unmapped_values += ", ..."
+                additional_info = " "
+                if feature is not None:
+                    additional_info = f" Feature {feature.name} and "
                 logger.warning(
-                    f"Created {colors.yellow(f'{len(unmapped_values)} {model.__name__} record{s}')} setting"  # noqa
-                    f" field {colors.yellow(f'{field_name}')} to: {print_unmapped_values}"  # noqa
+                    f"Created {colors.yellow(f'{len(unmapped_values)} {model.__name__} record{s}')} for{additional_info}"  # noqa
+                    f"{colors.yellow(f'{field_name}{s}')}: {print_unmapped_values}"  # noqa
                 )
         return records
     finally:
