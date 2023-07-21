@@ -1,6 +1,8 @@
+from itertools import islice
 from typing import List
 
 import pandas as pd
+from lamin_logger import logger
 from lamindb_setup.dev._docs import doc_args
 from lnschema_core import Category, Feature
 from pandas.api.types import is_categorical_dtype, is_string_dtype
@@ -9,6 +11,11 @@ from lamindb.dev.utils import attach_func_to_class_method
 
 from . import _TESTING
 from ._save import bulk_create
+
+
+def take(n, iterable):
+    """Return the first n items of the iterable as a list."""
+    return list(islice(iterable, n))
 
 
 def __init__(self, *args, **kwargs):
@@ -25,36 +32,52 @@ def __init__(self, *args, **kwargs):
 @doc_args(Feature.from_df.__doc__)
 def from_df(cls, df) -> List["Feature"]:
     """{}"""
-    records = Feature.from_values(df.columns, field=Feature.name)
-    assert len(records) == len(df.columns)
+    features = Feature.from_values(df.columns, field=Feature.name)
+    assert len(features) == len(df.columns)
 
     string_cols = [col for col in df.columns if is_string_dtype(df[col])]
     categoricals = {col: df[col] for col in df.columns if is_categorical_dtype(df[col])}
     for key in string_cols:
         c = pd.Categorical(df[key])
-        # TODO: We should only check if non-null values are unique, but
-        # this would break cases where string columns with nulls could
-        # be written as categorical, but not as string.
-        # Possible solution: https://github.com/scverse/anndata/issues/504
         if len(c.categories) < len(c):
             categoricals[key] = c
 
-    for record in records:
-        if record.name in categoricals:
-            record.type = "Category"
-            feature = Feature.select(name=record.name).one_or_none()
-            categories = categoricals[record.name].categories
-            if feature is not None:
-                record._categories_records = Category.from_values(
-                    categories, feature=feature
-                )
-            else:
-                record._categories_raw = categories
+    categoricals_with_unmapped_categories = {}
+    for feature in features:
+        if feature.name in categoricals:
+            feature.type = "Category"
+            categories = categoricals[feature.name].categories
+            categoricals_with_unmapped_categories[feature.name] = Category.select(
+                feature=feature
+            ).inspect(categories, "name", logging=False)["not_mapped"]
         else:
-            orig_type = df[record.name].dtype.name
+            orig_type = df[feature.name].dtype.name
             # strip precision qualifiers
-            record.type = "".join(i for i in orig_type if not i.isdigit())
-    return records
+            feature.type = "".join(i for i in orig_type if not i.isdigit())
+    if len(categoricals) > 0:
+        categoricals_with_unmapped_categories_formatted = "\n      ".join(
+            [
+                f"{key}: {', '.join(value)}"
+                for key, value in take(7, categoricals_with_unmapped_categories.items())
+            ]
+        )
+        if len(categoricals_with_unmapped_categories) > 7:
+            categoricals_with_unmapped_categories_formatted += "\n      ..."
+        categoricals_with_unmapped_categories_formatted
+        logger.info(
+            "There are unmapped categories:\n     "
+            f" {categoricals_with_unmapped_categories_formatted}"
+        )
+        hint_formatted = "\n      ".join(
+            [
+                f"ln.Category.from_values(df['{key}'])"
+                for key in take(7, categoricals_with_unmapped_categories)
+            ]
+        )
+        if len(categoricals_with_unmapped_categories) > 7:
+            hint_formatted += "\n      ..."
+        logger.hint(f"Consider adding them via:\n      {hint_formatted}")
+    return features
 
 
 @doc_args(Feature.save.__doc__)

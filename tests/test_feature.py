@@ -31,6 +31,8 @@ def test_feature_from_df():
             assert feature.type == orig_type_stripped
     for feature in features:
         feature.save()
+    categories = ln.Category.from_values(df["feat3"], feature="feat3")
+    ln.save(categories)
     assert set(ln.Category.select(feature__name="feat3").list("name")) == set(
         ["cond1", "cond2"]
     )

@@ -39,17 +39,17 @@ jobs:
           path: ~/.cache/pre-commit
           key: pre-commit-${{ runner.os }}-${{ hashFiles('.pre-commit-config.yaml') }}
       - name: cache postgres
-        if: ${{ matrix.group == 'faq' }}
+        if: ${{ matrix.group == 'faq' || matrix.group == 'unit' }}
         id: cache-postgres
         uses: actions/cache@v3
         with:
           path: ~/postgres.tar
           key: cache-postgres-0
       - name: cache postgres miss
-        if: ${{ steps.cache-postgres.outputs.cache-hit != 'true' && matrix.group == 'faq' }}
+        if: ${{ steps.cache-postgres.outputs.cache-hit != 'true' && matrix.group == 'faq' || matrix.group == 'unit' }}
         run: docker pull postgres:latest && docker image save postgres:latest --output ~/postgres.tar
       - name: cache postgres use
-        if: ${{ steps.cache-postgres.outputs.cache-hit == 'true' && matrix.group == 'faq' }}
+        if: ${{ steps.cache-postgres.outputs.cache-hit == 'true' && matrix.group == 'faq' || matrix.group == 'unit' }}
         run: docker image load --input ~/postgres.tar
       - name: install Python deps
         run: |
