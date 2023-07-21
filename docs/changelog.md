@@ -1,5 +1,6 @@
 # Changelog
 
+- 🚸 Improve categorical feature management [PR908](https://github.com/laminlabs/lamindb/pull/908) [@falexwolf](https://github.com/falexwolf)
 - 🔖 0.48 (3) [PR907](https://github.com/laminlabs/lamindb/pull/907) [@sunnyosun](https://github.com/sunnyosun)
 - ⬆️ Update lb [PR906](https://github.com/laminlabs/lamindb/pull/906) [@sunnyosun](https://github.com/sunnyosun)
 - 🎉 Stage 0.48 (2) [PR904](https://github.com/laminlabs/lamindb/pull/904) [@sunnyosun](https://github.com/sunnyosun)
