@@ -172,7 +172,7 @@ def _get_all_child_runs(file: File):
         child_runs: Set[Run] = set()
         for r in runs:
             child_runs.update(
-                Run.select(inputs__id__in=r.output_files.list("id")).list()
+                Run.select(input_files__id__in=r.output_files.list("id")).list()
             )
         runs = child_runs
     return all_runs
