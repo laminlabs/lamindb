@@ -1,5 +1,6 @@
 # Changelog
 
+- ♻️ Replace `lamin_logger` with `lamin_utils` [PR912](https://github.com/laminlabs/lamindb/pull/912) [@falexwolf](https://github.com/falexwolf)
 -  ♻️ Replace usage of `ln.Project` with `ln.Tag`, replace `Run.name` with `Run.reference_type` and more [PR910](https://github.com/laminlabs/lamindb/pull/910) [@falexwolf](https://github.com/falexwolf)
 - 🚸 Improve categorical feature management [PR908](https://github.com/laminlabs/lamindb/pull/908) [@falexwolf](https://github.com/falexwolf)
 - 🔖 0.48 (3) [PR907](https://github.com/laminlabs/lamindb/pull/907) [@sunnyosun](https://github.com/sunnyosun)
