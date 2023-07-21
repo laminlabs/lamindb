@@ -111,7 +111,7 @@ def get_existing_records(iterable_idx: pd.Index, field: Field, kwargs: Dict = {}
         logger.info(
             "Loaded"
             f" {colors.green(f'{n_name} {model.__name__} record{s}')} that"
-            f" matched field {colors.green(f'{field_name}')}"
+            f" matched {colors.green(f'{field_name}')}"
         )
     # make sure that synonyms logging appears after the field logging
     if len(syn_msg) > 0:
@@ -152,7 +152,7 @@ def create_records_from_bionty(
     if len(syn_mapper) > 0:
         s = "" if len(syn_mapper) == 1 else "s"
         msg_syn = (
-            "Created"
+            "Loaded"
             f" {colors.purple(f'{len(syn_mapper)} {model.__name__} record{s} from Bionty')} that"  # noqa
             f" matched {colors.purple('synonyms')}"
         )
@@ -181,9 +181,9 @@ def create_records_from_bionty(
         if n_name > 0:
             s = "" if n_name == 1 else "s"
             msg = (
-                "Created"
+                "Loaded"
                 f" {colors.purple(f'{n_name} {model.__name__} record{s} from Bionty')} that"  # noqa
-                f" matched {colors.purple(f'{field_name}')} field"
+                f" matched {colors.purple(f'{field_name}')}"
             )
             logger.info(msg + source_msg)
         # make sure that synonyms logging appears after the field logging
