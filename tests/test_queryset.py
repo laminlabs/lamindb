@@ -4,26 +4,26 @@ import lamindb as ln
 
 
 def test_df():
-    tag_names = [f"Tag {i}" for i in range(3)]
-    tags = [ln.Tag(name=f"Tag {i}") for i in range(3)]
-    ln.save(tags)
-    tags = [ln.Tag(name=name) for name in tag_names]
+    project_tag = ln.Tag(name="Project")
+    project_tag.save()
+    project_names = [f"Project {i}" for i in range(3)]
+    tags = [ln.Tag(name=name) for name in project_names]
     ln.save(tags)
     for tag in tags:
-        tag.parents.set(tags)
-    df = ln.Tag.select().df(include="tags__name")
-    assert df.columns[0] == "tags__name"
+        tag.parents.add(project_tag)
+    df = ln.Tag.select().df(include="parents__name")
+    assert df.columns[0] == "parents__name"
     # order is not conserved
-    assert set(df["tags__name"][0]) == set(tag_names)
+    assert df["parents__name"][0] == [project_tag.name]
     # pass a list
-    df = ln.Tag.select().df(include=["tags__name", "tags__created_by_id"])
-    assert df.columns[1] == "tags__created_by_id"
-    assert set(df["tags__name"][0]) == set(tag_names)
-    assert set(df["tags__created_by_id"][0]) == set([ln.setup.settings.user.id])
+    df = ln.Tag.select().df(include=["parents__name", "parents__created_by_id"])
+    assert df.columns[1] == "parents__created_by_id"
+    assert df["parents__name"][0] == [project_tag.name]
+    assert set(df["parents__created_by_id"][0]) == set([ln.setup.settings.user.id])
 
     # raise error for non many-to-many
     with pytest.raises(ValueError):
-        ln.Tag.select().df(include="external_id")
+        ln.Tag.select().df(include="name")
 
     # call it from a non-select-derived queryset
     qs = ln.User.objects.all()

@@ -253,7 +253,7 @@ def test_create_big_file_from_remote_path():
     ln.settings.storage = previous_storage
 
 
-def test_inherit_relationships():
+def test_inherit_relations():
     with open("test-inherit1", "w") as f:
         f.write("file1")
     with open("test-inherit2", "w") as f:
@@ -264,24 +264,22 @@ def test_inherit_relationships():
     file2 = ln.File("test-inherit2")
     file2.save()
 
-    tag_names = [f"Tag {i}" for i in range(3)]
-    tags = [ln.Tag(name=f"Tag {i}") for i in range(3)]
-    ln.save(tags)
-    tags = [ln.Tag(name=name) for name in tag_names]
+    tag_names = [f"Project {i}" for i in range(3)]
+    tags = [ln.Tag(name=tag_name) for tag_name in tag_names]
     ln.save(tags)
 
-    file2.tags.set(tags)
     file2.tags.set(tags)
 
     assert file1.tags.exists() is False
     file1.inherit_relations(file2, ["tags"])
     assert file1.tags.count() == file2.tags.count()
-    assert file1.tags.exists() is False
-    file1.inherit_relations(file2)
-    assert file1.tags.count() == file2.tags.count()
+    assert file1.tags.exists() is True
 
     with pytest.raises(KeyError):
         file1.inherit_relations(file2, ["not_exist_field"])
+
+    file1.delete()
+    file2.delete()
 
 
 # -------------------------------------------------------------------------------------
