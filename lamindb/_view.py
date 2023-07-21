@@ -3,7 +3,7 @@ import inspect
 from typing import List, Optional
 
 from IPython.display import display
-from lamin_logger import colors
+from lamin_utils import colors
 from lamindb_setup import settings
 from lamindb_setup.dev._setup_schema import get_schema_module_name
 from lnschema_core import ORM

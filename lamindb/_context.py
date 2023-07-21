@@ -6,7 +6,7 @@ from pathlib import Path, PurePath
 from typing import Dict, List, Optional, Tuple, Union
 
 import lnschema_core
-from lamin_logger import logger
+from lamin_utils import logger
 from lamindb_setup import settings
 from lamindb_setup.dev import InstanceSettings
 from lnschema_core import Run, Transform

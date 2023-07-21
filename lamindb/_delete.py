@@ -1,6 +1,6 @@
 from typing import List, Union, overload  # noqa
 
-from lamin_logger import colors, logger
+from lamin_utils import colors, logger
 from lnschema_core import ORM
 
 

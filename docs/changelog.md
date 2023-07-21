@@ -674,7 +674,7 @@ Update lndb_hub version | [176](https://github.com/laminlabs/lamindb/pull/176) |
 🍱 Adapted to `lnschema-biology` `0.1.1` | [97](https://github.com/laminlabs/lamindb/pull/97) | [sunnyosun](https://github.com/sunnyosun) | 2022-07-24 |
 🚸 Let the CLI have actual subcommands | [96](https://github.com/laminlabs/lamindb/pull/96) | [falexwolf](https://github.com/falexwolf) | 2022-07-24 |
 👷 Add time out to GitHub Actions | [93](https://github.com/laminlabs/lamindb/pull/93) | [Koncopd](https://github.com/Koncopd) | 2022-07-23 |
-🔥 Switched logger to use lamin-logger | [92](https://github.com/laminlabs/lamindb/pull/92) | [sunnyosun](https://github.com/sunnyosun) | 2022-07-23 |
+🔥 Switched logger to use lamin-utils | [92](https://github.com/laminlabs/lamindb/pull/92) | [sunnyosun](https://github.com/sunnyosun) | 2022-07-23 |
 ✨  Annotate biometa when annotating genes | [90](https://github.com/laminlabs/lamindb/pull/90) | [sunnyosun](https://github.com/sunnyosun) | 2022-07-23 |
 🔼 Upgrade to schema 0.2.1 | [89](https://github.com/laminlabs/lamindb/pull/89) | [falexwolf](https://github.com/falexwolf) | 2022-07-23 |
 🎨 Use modular schema structure | [88](https://github.com/laminlabs/lamindb/pull/88) | [falexwolf](https://github.com/falexwolf) | 2022-07-22 |

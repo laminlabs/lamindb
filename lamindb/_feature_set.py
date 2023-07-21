@@ -2,7 +2,7 @@ from typing import List, Optional
 
 import pandas as pd
 from django.db.models.query_utils import DeferredAttribute as Field
-from lamin_logger import logger
+from lamin_utils import logger
 from lamindb_setup.dev._docs import doc_args
 from lnschema_core import ORM, Feature, FeatureSet
 from lnschema_core.types import ListLike
