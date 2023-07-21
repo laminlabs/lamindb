@@ -484,8 +484,8 @@ def from_df(
 ) -> "File":
     """{}"""
     file = File(data=df, key=key, run=run, description=description, log_hint=False)
-    features = Feature.from_df(df)
-    feature_set = FeatureSet(features)
+    logger.info("Parsing features")
+    feature_set = FeatureSet.from_df(df)
     file._feature_sets = [feature_set]
     return file
 
@@ -514,7 +514,7 @@ def from_anndata(
             data_parse = ad.read(filepath, backed="r")
     feature_sets = []
     feature_sets.append(FeatureSet.from_values(data_parse.var.index, var_ref))
-    feature_sets.append(FeatureSet.from_values(data_parse.obs.columns))
+    feature_sets.append(FeatureSet.from_df(data_parse.obs))
     file._feature_sets = feature_sets
     return file
 
