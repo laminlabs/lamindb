@@ -46,7 +46,7 @@ def from_df(cls, df) -> List["Feature"]:
     for feature in features:
         if feature.name in categoricals:
             feature.type = "Category"
-            categories = categoricals[feature.name].categories
+            categories = categoricals[feature.name].cat.categories
             categoricals_with_unmapped_categories[feature.name] = Category.select(
                 feature=feature
             ).inspect(categories, "name", logging=False)["not_mapped"]
