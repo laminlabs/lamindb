@@ -8,7 +8,7 @@ import pandas as pd
 from anndata import AnnData
 from appdirs import AppDirs
 from django.db.models.query_utils import DeferredAttribute as Field
-from lamin_logger import colors, logger
+from lamin_utils import colors, logger
 from lamindb_setup import settings as setup_settings
 from lamindb_setup._init_instance import register_storage
 from lamindb_setup.dev import StorageSettings

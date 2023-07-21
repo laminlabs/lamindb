@@ -7,7 +7,7 @@ from typing import Iterable, List, Optional, Tuple, Union, overload  # noqa
 
 import lamindb_setup
 from django.db import transaction
-from lamin_logger import logger
+from lamin_utils import logger
 from lnschema_core.models import ORM, File
 
 from lamindb.dev.storage import store_object

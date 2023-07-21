@@ -3,7 +3,7 @@ from typing import Any, Dict, Iterable, List, Tuple, Union
 import pandas as pd
 from django.core.exceptions import FieldDoesNotExist
 from django.db.models.query_utils import DeferredAttribute as Field
-from lamin_logger import colors, logger
+from lamin_utils import colors, logger
 from lnschema_core.models import ORM, Feature
 from lnschema_core.types import ListLike
 

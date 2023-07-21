@@ -61,7 +61,7 @@ import os as _os
 import lamindb_setup as _lamindb_setup
 
 # prints warning of python versions
-from lamin_logger import py_version_warning as _py_version_warning
+from lamin_utils import py_version_warning as _py_version_warning
 from lamindb_setup import _check_instance_setup
 from lamindb_setup._check_instance_setup import _INSTANCE_NOT_SETUP_WARNING
 
@@ -107,7 +107,7 @@ if _INSTANCE_SETUP:
     from ._context import context  # noqa
 
     track = context._track  # noqa
-    from lamin_logger import logger as _logger
+    from lamin_utils import logger as _logger
 
     from . import _category  # noqa
     from . import _dataset  # noqa
