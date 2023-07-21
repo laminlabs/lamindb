@@ -48,6 +48,8 @@ def test_search():
     ln.save(tags)
     qs = ln.Tag.select(name="Tag 2").all()
     assert qs.search("Tag 1").iloc[0].name == "Tag 2"
+    for tag in tags:
+        tag.delete()
 
 
 def test_lookup():

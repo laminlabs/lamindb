@@ -10,3 +10,6 @@ def test_manager_list():
     tag.parents.set(tags)
     assert len(tag.parents.list()) == 3
     assert "Tag 1" in tag.parents.list("name")
+    tag.delete()
+    for tag in tags:
+        tag.delete()
