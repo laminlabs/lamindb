@@ -46,7 +46,9 @@ def from_df(cls, df) -> List["Feature"]:
     for feature in features:
         if feature.name in categoricals:
             feature.type = "Category"
-            categories = categoricals[feature.name].cat.categories
+            categories = categoricals[
+                feature.name
+            ].unique()  # because .categories > pd2.0, .cat.categories < pd2.0
             categoricals_with_unmapped_categories[feature.name] = Category.select(
                 feature=feature
             ).inspect(categories, "name", logging=False)["not_mapped"]
