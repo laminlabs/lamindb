@@ -513,7 +513,9 @@ def from_anndata(
         else:
             data_parse = ad.read(filepath, backed="r")
     feature_sets = []
+    logger.info("Parsing features of X (numerical)")
     feature_sets.append(FeatureSet.from_values(data_parse.var.index, var_ref))
+    logger.info("Parsing features of obs (numerical & categorical)")
     feature_sets.append(FeatureSet.from_df(data_parse.obs))
     file._feature_sets = feature_sets
     return file
