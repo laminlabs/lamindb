@@ -659,7 +659,7 @@ def _track_run_input(file: File, is_run_input: Optional[bool] = None):
         if context.run is None:
             raise ValueError(
                 "No global run context set. Call ln.context.track() or link input to a"
-                " run object via `run.inputs.append(file)`"
+                " run object via `run.input_files.append(file)`"
             )
         # avoid adding the same run twice
         # avoid cycles (a file is both input and output)

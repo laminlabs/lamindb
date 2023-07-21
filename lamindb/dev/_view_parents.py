@@ -153,10 +153,10 @@ def _get_all_parent_runs(file: File):
     all_runs = {file.run}
 
     runs = [file.run]
-    while any([r.inputs.exists() for r in runs if r is not None]):
+    while any([r.input_files.exists() for r in runs if r is not None]):
         inputs = []
         for r in runs:
-            inputs += r.inputs.all()
+            inputs += r.input_files.all()
         runs = [f.run for f in inputs]
         all_runs.update(runs)
     return all_runs
@@ -166,12 +166,14 @@ def _get_all_child_runs(file: File):
     """Get all output file runs recursively."""
     all_runs: Set[Run] = set()
 
-    runs = {f.run for f in file.run.outputs.all()}
+    runs = {f.run for f in file.run.output_files.all()}
     while runs.difference(all_runs):
         all_runs.update(runs)
         child_runs: Set[Run] = set()
         for r in runs:
-            child_runs.update(Run.select(inputs__id__in=r.outputs.list("id")).list())
+            child_runs.update(
+                Run.select(inputs__id__in=r.output_files.list("id")).list()
+            )
         runs = child_runs
     return all_runs
 
@@ -199,10 +201,10 @@ def _df_edges_from_runs(all_runs: List[Run]):
     for run in all_runs:
         if run is None:
             continue
-        if run.inputs.exists():
-            df_values.append((run.inputs.list(), run))
-        if run.outputs.exists():
-            df_values.append((run, run.outputs.list()))
+        if run.input_files.exists():
+            df_values.append((run.input_files.list(), run))
+        if run.output_files.exists():
+            df_values.append((run, run.output_files.list()))
     df = pd.DataFrame(df_values, columns=["source_record", "target_record"])
     df = df.explode("source_record")
     df = df.explode("target_record")

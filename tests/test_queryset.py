@@ -25,6 +25,11 @@ def test_df():
     with pytest.raises(ValueError):
         ln.Tag.select().df(include="name")
 
+    # clean up
+    project_tag.delete()
+    for tag in tags:
+        tag.delete()
+
     # call it from a non-select-derived queryset
     qs = ln.User.objects.all()
     assert qs.df().iloc[0]["handle"] == "testuser1"

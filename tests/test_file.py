@@ -285,6 +285,10 @@ def test_inherit_relations():
     with pytest.raises(KeyError):
         file1.inherit_relations(file2, ["not_exist_field"])
 
+    for tag in tags:
+        tag.delete()
+    for cell_line in cell_lines:
+        cell_line.delete()
     file1.delete(storage=True)
     file2.delete(storage=True)
 
