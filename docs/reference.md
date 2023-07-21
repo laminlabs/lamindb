@@ -26,5 +26,5 @@ ref/lnschema-bionty
 readfcs
 bionty
 nbproject
-ref/lamin-logger
+ref/lamin-utils
 ```

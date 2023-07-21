@@ -1,3 +1,3 @@
 # `lamin_utils`
 
-[github.com/laminlabs/lamin-logger](https://github.com/laminlabs/lamin-logger)
+[github.com/laminlabs/lamin-utils](https://github.com/laminlabs/lamin-utils)

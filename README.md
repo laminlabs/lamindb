@@ -259,6 +259,8 @@ LaminDB consists of the `lamindb` Python package (repository [here](https://gith
 - [lnschema-bionty](https://github.com/laminlabs/lnschema-bionty): Bionty schema, ORMs that are coupled to Bionty's entities.
 - [lnschema-lamin1](https://github.com/laminlabs/lnschema-lamin1): Exemplary configured schema to track samples, treatments, etc.
 - [nbproject](https://github.com/laminlabs/nbproject): Parse metadata from Jupyter notebooks.
+- [lamin-utils](https://github.com/laminlabs/lamin-utils): Utilities for LaminDB and Bionty.
+- [readfcs](https://github.com/laminlabs/readfcs): FCS file reader.
 
 LaminHub & LaminApp are not open-sourced, and neither are templates that model lab operations.
 
