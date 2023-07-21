@@ -55,7 +55,7 @@ def from_df(cls, df) -> List["Feature"]:
         logger.info(
             f"There are unmapped categories:\n      {unmapped_categories_formatted}"
         )
-        logger.info(
+        logger.hint(
             "Consider adding them via `ln.Category.from_values(df['column_x'],"
             " feature='column_x')`"
         )
