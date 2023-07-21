@@ -484,7 +484,6 @@ def from_df(
 ) -> "File":
     """{}"""
     file = File(data=df, key=key, run=run, description=description, log_hint=False)
-    logger.info("Parsing features")
     feature_set = FeatureSet.from_df(df)
     file._feature_sets = [feature_set]
     return file
