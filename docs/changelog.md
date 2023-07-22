@@ -1,5 +1,6 @@
 # Changelog
 
+- 💚 Deterministic version extension for transform [PR913](https://github.com/laminlabs/lamindb/pull/913) [@falexwolf](https://github.com/falexwolf)
 - ♻️ Use `from_df` in `from_anndata` [PR911](https://github.com/laminlabs/lamindb/pull/911) [@falexwolf](https://github.com/falexwolf)
 - ♻️ Replace `lamin_logger` with `lamin_utils` [PR912](https://github.com/laminlabs/lamindb/pull/912) [@falexwolf](https://github.com/falexwolf)
 -  ♻️ Replace usage of `ln.Project` with `ln.Tag`, replace `Run.name` with `Run.reference_type` and more [PR910](https://github.com/laminlabs/lamindb/pull/910) [@falexwolf](https://github.com/falexwolf)
