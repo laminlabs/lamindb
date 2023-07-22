@@ -220,8 +220,8 @@ def test_create_small_file_from_remote_path(
         skip_check_exists=skip_check_exists,
     )
     file.save()
-    # test slabele()
-    file_from_local = ln.File(file.slabele())
+    # test stage()
+    file_from_local = ln.File(file.stage())
     # test hash equivalency when computed on local machine
     if not skip_size_and_hash:
         assert file_from_local.hash == file.hash

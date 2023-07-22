@@ -128,7 +128,7 @@ def anndata_human_immune_cells() -> ad.AnnData:
         adata = sc.read('Global.h5ad')
         adata.obs = adata.obs[['donor_id', 'tissue', 'cell_type', 'assay', 'tissue_ontology_term_id', 'cell_type_ontology_term_id', 'assay_ontology_term_id']].copy()
         sc.pp.subsample(adata, fraction=0.005)
-        del adata.uns["development_slabele_ontology_term_id_colors"]
+        del adata.uns["development_stage_ontology_term_id_colors"]
         del adata.uns["sex_ontology_term_id_colors"]
         adata.write('human_immune.h5ad')
     """
