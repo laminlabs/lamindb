@@ -4,7 +4,7 @@ from typing import List
 import pandas as pd
 from lamin_utils import logger
 from lamindb_setup.dev._docs import doc_args
-from lnschema_core import Category, Feature
+from lnschema_core import Feature, Label
 from pandas.api.types import is_categorical_dtype, is_string_dtype
 
 from lamindb.dev.utils import attach_func_to_class_method
@@ -45,14 +45,14 @@ def from_df(cls, df) -> List["Feature"]:
     categoricals_with_unmapped_categories = {}
     for feature in features:
         if feature.name in categoricals:
-            feature.type = "Category"
+            feature.type = "Label"
             categorical = categoricals[feature.name]
             if hasattr(
                 categorical, "cat"
             ):  # because .categories > pd2.0, .cat.categories < pd2.0
                 categorical = categorical.cat
             categories = categorical.categories
-            categoricals_with_unmapped_categories[feature.name] = Category.select(
+            categoricals_with_unmapped_categories[feature.name] = Label.select(
                 feature=feature
             ).inspect(categories, "name", logging=False)["not_mapped"]
         else:
@@ -78,7 +78,7 @@ def from_df(cls, df) -> List["Feature"]:
         )
         hint_formatted = "\n      ".join(
             [
-                f"ln.Category.from_values(df['{key}'])"
+                f"ln.Label.from_values(df['{key}'])"
                 for key in take(n_max, categoricals_with_unmapped_categories)
             ]
         )
@@ -96,7 +96,7 @@ def save(self, *args, **kwargs) -> None:
     if hasattr(self, "_categories_records"):
         records = self._categories_records
     if hasattr(self, "_categories_raw"):
-        records = Category.from_values(self._categories_raw, feature=self)
+        records = Label.from_values(self._categories_raw, feature=self)
     if records is not None:
         bulk_create(records)
 

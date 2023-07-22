@@ -24,22 +24,22 @@ def test_feature_from_df():
             categoricals[key] = c
     for feature in features:
         if feature.name in categoricals:
-            assert feature.type == "Category"
+            assert feature.type == "Label"
         else:
             orig_type = df[feature.name].dtype.name
             orig_type_stripped = "".join(i for i in orig_type if not i.isdigit())
             assert feature.type == orig_type_stripped
     for feature in features:
         feature.save()
-    categories = ln.Category.from_values(df["feat3"], feature="feat3")
+    categories = ln.Label.from_values(df["feat3"], feature="feat3")
     ln.save(categories)
-    assert set(ln.Category.select(feature__name="feat3").list("name")) == set(
+    assert set(ln.Label.select(feature__name="feat3").list("name")) == set(
         ["cond1", "cond2"]
     )
     for name in df.columns:
         queried_feature = ln.Feature.select(name=name).one()
         if name in categoricals:
-            assert queried_feature.type == "Category"
+            assert queried_feature.type == "Label"
         else:
             orig_type = df[name].dtype.name
             orig_type_stripped = "".join(i for i in orig_type if not i.isdigit())
@@ -52,4 +52,4 @@ def test_feature_from_df():
     ) == set(["cond1", "cond2"])
     for feature in features:
         feature.delete()
-    assert len(ln.Category.select(feature__name="feat3").list("name")) == 0
+    assert len(ln.Label.select(feature__name="feat3").list("name")) == 0
