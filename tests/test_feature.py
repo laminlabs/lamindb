@@ -31,8 +31,8 @@ def test_feature_from_df():
             assert feature.type == orig_type_stripped
     for feature in features:
         feature.save()
-    categories = ln.Label.from_values(df["feat3"], feature="feat3")
-    ln.save(categories)
+    labels = ln.Label.from_values(df["feat3"], feature="feat3")
+    ln.save(labels)
     assert set(ln.Label.select(feature__name="feat3").list("name")) == set(
         ["cond1", "cond2"]
     )
@@ -47,7 +47,7 @@ def test_feature_from_df():
     assert set(
         ln.Feature.select(name="feat3")
         .one()
-        .categories.all()
+        .labels.all()
         .values_list("name", flat=True)
     ) == set(["cond1", "cond2"])
     for feature in features:
