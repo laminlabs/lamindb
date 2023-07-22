@@ -1,15 +1,16 @@
 from dataclasses import dataclass
 from functools import cached_property
+from pathlib import Path
 from typing import Dict, Mapping, Union
 
 import h5py
+import numpy as np
 import pandas as pd
 from anndata import AnnData
 from anndata._core.index import Index, _normalize_indices
 from anndata._core.sparse_dataset import SparseDataset
 from anndata._core.views import _resolve_idx
 from anndata._io.h5ad import read_dataframe_legacy as read_dataframe_legacy_h5
-from anndata._io.specs.methods import read_indices
 from anndata._io.specs.registry import get_spec, read_elem, read_elem_partial
 from anndata.compat import _read_attr
 from fsspec.core import OpenFile
@@ -73,6 +74,24 @@ if ZARR_INSTALLED:
                 )
         else:
             return read_elem_partial(elem, indices=indices)
+
+    def _safer_read_index(elem):
+        if isinstance(elem, (h5py.Group, zarr.Group)):
+            return read_elem(elem[_read_attr(elem.attrs, "_index")])
+        elif isinstance(elem, (h5py.Dataset, zarr.Array)):
+            indices = None
+            for index_name in ("index", "_index"):
+                if index_name in elem.dtype.names:
+                    indices = elem[index_name]
+                    break
+            if indices is not None and len(indices) > 0:
+                if isinstance(indices[0], bytes):
+                    indices = np.frompyfunc(lambda x: x.decode("utf-8"), 1, 1)(indices)
+                return indices
+            else:
+                raise ValueError("Indices not found.")
+        else:
+            raise ValueError(f"Unknown elem type {type(elem)} when reading indices.")
 
     class _MapAccessor:
         def __init__(self, elem, name, indices=None):
@@ -281,7 +300,7 @@ if ZARR_INSTALLED:
             var_raw = storage_raw["var"]
 
             if var_names is None:
-                var_names = read_elem(var_raw[_read_attr(var_raw.attrs, "_index")])
+                var_names = _safer_read_index(var_raw)
 
             if isinstance(ref_shape, int):
                 ref_shape = ref_shape, len(var_names)
@@ -330,7 +349,8 @@ if ZARR_INSTALLED:
 
             self._name = filename
 
-            self._obs_names, self._var_names = read_indices(self.storage)
+            self._obs_names = _safer_read_index(self.storage["obs"])
+            self._var_names = _safer_read_index(self.storage["var"])
 
         def __del__(self):
             """Closes the connection."""
@@ -431,13 +451,14 @@ if ZARR_INSTALLED:
         storage: Union[h5py.File, zarr.Group]
         """The storage access."""
 
-    def backed_access(file_or_filepath: File) -> Union[AnnDataAccessor, BackedAccessor]:
+    def backed_access(
+        file_or_filepath: Union[File, Path]
+    ) -> Union[AnnDataAccessor, BackedAccessor]:
         if isinstance(file_or_filepath, File):
             filepath = filepath_from_file(file_or_filepath)
-            name = File.key
         else:
             filepath = file_or_filepath
-            name = filepath.name
+        name = filepath.name
         fs, file_path_str = infer_filesystem(filepath)
 
         if filepath.suffix in (".h5", ".hdf5", ".h5ad"):
