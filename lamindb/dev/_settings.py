@@ -41,7 +41,7 @@ class Settings:
     FAQ: :doc:`/faq/idempotency`
     """
     track_run_inputs: bool = True
-    """Track files as input upon `.load()`, `.stage()` and `.backed()`.
+    """Track files as input upon `.load()`, `.slabele()` and `.backed()`.
 
     Requires a global run context with :func:`~lamindb.track` was created!
 

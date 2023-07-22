@@ -128,18 +128,18 @@ def get_hash(
         return None
     if isinstance(filepath, UPath):
         stat = filepath_stat
-        if stat is not None and "ETag" in stat:
+        if stat is not None and "ELabel" in stat:
             # small files
-            if "-" not in stat["ETag"]:
+            if "-" not in stat["ELabel"]:
                 # only store hash for non-multipart uploads
                 # we can't rapidly validate multi-part uploaded files client-side
                 # we can add more logic later down-the-road
-                hash = b16_to_b64(stat["ETag"])
+                hash = b16_to_b64(stat["ELabel"])
                 hash_type = "md5"
             else:
-                stripped_etag, suffix = stat["ETag"].split("-")
+                stripped_elabel, suffix = stat["ELabel"].split("-")
                 suffix = suffix.strip('"')
-                hash = f"{b16_to_b64(stripped_etag)}-{suffix}"
+                hash = f"{b16_to_b64(stripped_elabel)}-{suffix}"
                 hash_type = "md5-n"  # this is the S3 chunk-hashing strategy
         else:
             logger.warning(f"Did not add hash for {filepath}")
@@ -679,9 +679,11 @@ def load(self, is_run_input: Optional[bool] = None, stream: bool = False) -> Dat
     return load_to_memory(filepath_from_file(self), stream=stream)
 
 
-def stage(self, is_run_input: Optional[bool] = None) -> Path:
+def slabele(self, is_run_input: Optional[bool] = None) -> Path:
     if self.suffix in (".zrad", ".zarr"):
-        raise RuntimeError("zarr object can't be staged, please use load() or stream()")
+        raise RuntimeError(
+            "zarr object can't be slabeled, please use load() or stream()"
+        )
     _track_run_input(self, is_run_input)
     return setup_settings.instance.storage.cloud_to_local(filepath_from_file(self))
 
@@ -806,13 +808,13 @@ def inherit_relations(self, file: File, fields: Optional[List[str]] = None):
         >>> file1.save()
         >>> file2 = ln.File(pd.DataFrame(index=[2,3]))
         >>> file2.save()
-        >>> ln.save(ln.Tag.from_values(["Tag1", "Tag2", "Tag3"], field="name"))
-        >>> tags = ln.Tag.select(name__icontains = "tag").all()
-        >>> file1.tags.set(tags)
-        >>> file2.inherit_relations(file1, ["tags"])
-        💬 Inheriting 1 field: ['tags']
-        >>> file2.tags.list("name")
-        ['Tag1', 'Tag2', 'Tag3']
+        >>> ln.save(ln.Label.from_values(["Label1", "Label2", "Label3"], field="name"))
+        >>> labels = ln.Label.select(name__icontains = "label").all()
+        >>> file1.labels.set(labels)
+        >>> file2.inherit_relations(file1, ["labels"])
+        💬 Inheriting 1 field: ['labels']
+        >>> file2.labels.list("name")
+        ['Label1', 'Label2', 'Label3']
     """
     if fields is None:
         # fields in the model definition
@@ -846,7 +848,7 @@ METHOD_NAMES = [
     "from_anndata",
     "from_df",
     "backed",
-    "stage",
+    "slabele",
     "load",
     "delete",
     "save",
