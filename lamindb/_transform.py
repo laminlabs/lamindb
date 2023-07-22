@@ -11,7 +11,9 @@ def __init__(transform, *args, **kwargs):
         super(Transform, transform).__init__(*args, **kwargs)
         return None
     else:  # user-facing calling signature
-        if not isinstance(kwargs["version"], str):
+        if "version" not in kwargs:
+            kwargs["version"] = "0"
+        elif not isinstance(kwargs["version"], str):
             raise ValueError("version must be str, e.g., '0', '1', etc.")
         id_ext = to_b64_str(hashlib.md5(kwargs["version"].encode()).digest())[:2]
         # set default ids
