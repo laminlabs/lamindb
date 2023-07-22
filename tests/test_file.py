@@ -264,20 +264,20 @@ def test_inherit_relations():
     file2 = ln.File("test-inherit2")
     file2.save()
 
-    tag_names = [f"Project {i}" for i in range(3)]
-    tags = [ln.Tag(name=tag_name) for tag_name in tag_names]
-    ln.save(tags)
+    label_names = [f"Project {i}" for i in range(3)]
+    labels = [ln.Label(name=label_name) for label_name in label_names]
+    ln.save(labels)
 
     cell_line_names = [f"Cell line {i}" for i in range(3)]
     cell_lines = [lb.CellLine(name=name) for name in cell_line_names]
     ln.save(cell_lines)
 
-    file2.tags.set(tags)
+    file2.labels.set(labels)
     file2.cell_lines.set(cell_lines)
 
-    assert file1.tags.exists() is False
-    file1.inherit_relations(file2, ["tags"])
-    assert file1.tags.count() == file2.tags.count()
+    assert file1.labels.exists() is False
+    file1.inherit_relations(file2, ["labels"])
+    assert file1.labels.count() == file2.labels.count()
     assert file1.cell_lines.exists() is False
     file1.inherit_relations(file2)
     assert file1.cell_lines.count() == file2.cell_lines.count()
@@ -285,8 +285,8 @@ def test_inherit_relations():
     with pytest.raises(KeyError):
         file1.inherit_relations(file2, ["not_exist_field"])
 
-    for tag in tags:
-        tag.delete()
+    for label in labels:
+        label.delete()
     for cell_line in cell_lines:
         cell_line.delete()
     file1.delete(storage=True)

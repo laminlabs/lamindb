@@ -12,29 +12,29 @@ class Manager(models.Manager):
 
     Examples:
 
-        >>> ln.save(ln.Tag.from_values(["Tag1", "Tag2", "Tag3"], field="name"))
-        >>> tags = ln.Tag.select(name__icontains = "tag").all()
-        >>> ln.Tag(name="Tag1").save()
-        >>> tag = ln.Tag.select(name="Tag1").one()
-        >>> tag.parents.set(tags)
-        >>> manager = tag.parents
+        >>> ln.save(ln.Label.from_values(["Label1", "Label2", "Label3"], field="name"))
+        >>> labels = ln.Label.select(name__icontains = "label").all()
+        >>> ln.Label(name="Label1").save()
+        >>> label = ln.Label.select(name="Label1").one()
+        >>> label.parents.set(labels)
+        >>> manager = label.parents
     """
 
     def list(self, field: Optional[str] = None):
         """Populate a list with the results.
 
         Examples:
-            >>> ln.save(ln.Tag.from_values(["Tag1", "Tag2", "Tag3"], field="name"))
-            >>> tags = ln.Tag.select(name__icontains = "tag").all()
-            >>> ln.Tag(name="Tag1").save()
-            >>> tag = ln.Tag.select(name="Tag1").one()
-            >>> tag.parents.set(tags)
-            >>> tag.parents.list()
-            [Tag(id=sFMcPepC, name=Tag1, updated_at=2023-07-19 19:45:17, created_by_id=DzTjkKse), # noqa
-            Tag(id=2SscQvsM, name=Tag2, updated_at=2023-07-19 19:45:17, created_by_id=DzTjkKse), # noqa
-            Tag(id=lecV87vi, name=Tag3, updated_at=2023-07-19 19:45:17, created_by_id=DzTjkKse)] # noqa
-            >>> tag.parents.list("name")
-            ['Tag1', 'Tag2', 'Tag3']
+            >>> ln.save(ln.Label.from_values(["Label1", "Label2", "Label3"], field="name"))
+            >>> labels = ln.Label.select(name__icontains = "label").all()
+            >>> ln.Label(name="Label1").save()
+            >>> label = ln.Label.select(name="Label1").one()
+            >>> label.parents.set(labels)
+            >>> label.parents.list()
+            [Label(id=sFMcPepC, name=Label1, updated_at=2023-07-19 19:45:17, created_by_id=DzTjkKse), # noqa
+            Label(id=2SscQvsM, name=Label2, updated_at=2023-07-19 19:45:17, created_by_id=DzTjkKse), # noqa
+            Label(id=lecV87vi, name=Label3, updated_at=2023-07-19 19:45:17, created_by_id=DzTjkKse)] # noqa
+            >>> label.parents.list("name")
+            ['Label1', 'Label2', 'Label3']
         """
         if field is None:
             return [item for item in self.all()]

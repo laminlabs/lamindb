@@ -45,7 +45,7 @@ def save(records: Iterable[ORM], **kwargs) -> None:  # type: ignore
         Save a collection of records in one transaction, which is much faster
         than writing a loop over calls ``projects.save()``:
 
-        >>> tags = [ln.Tag(f"Tag {i}") for i in range(10)]
+        >>> labels = [ln.Label(f"Label {i}") for i in range(10)]
         >>> ln.save(projects)
 
         For a single record, use ``.save()``:

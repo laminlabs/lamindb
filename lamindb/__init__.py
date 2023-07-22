@@ -18,9 +18,9 @@ The core schema entities are central to lamindb's API:
    Transform
    Run
    Feature
+   Label
    User
    Storage
-   Tag
 
 More control over feature management:
 
@@ -28,7 +28,6 @@ More control over feature management:
    :toctree: .
 
    FeatureSet
-   Category
 
 Functional tools:
 
@@ -89,14 +88,13 @@ if _INSTANCE_SETUP:
     del InstanceNotSetupError
     del __getattr__  # delete so that imports work out
     from lnschema_core import (  # noqa
-        Category,
         Dataset,
         Feature,
         FeatureSet,
         File,
+        Label,
         Run,
         Storage,
-        Tag,
         Transform,
         User,
     )
@@ -109,11 +107,11 @@ if _INSTANCE_SETUP:
     track = context._track  # noqa
     from lamin_utils import logger as _logger
 
-    from . import _category  # noqa
     from . import _dataset  # noqa
     from . import _feature  # noqa
     from . import _feature_set  # noqa
     from . import _file  # noqa
+    from . import _label  # noqa
     from . import _orm  # noqa
     from . import _transform  # noqa
     from ._delete import delete  # noqa

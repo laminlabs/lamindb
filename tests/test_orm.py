@@ -26,16 +26,16 @@ def test_signatures():
 
 def test_init_with_args():
     with pytest.raises(ValueError):
-        ln.Tag("an arg")
+        ln.Label("an arg")
 
 
 def test_validate_required_fields():
-    # tag has a required name
+    # label has a required name
     with pytest.raises(TypeError):
-        ln.Tag()
-    # tag has a required name
+        ln.Label()
+    # label has a required name
     with pytest.raises(TypeError):
-        ln.Tag(external_id="test")
+        ln.Label(external_id="test")
 
 
 def test_search_file():

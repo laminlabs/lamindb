@@ -806,13 +806,13 @@ def inherit_relations(self, file: File, fields: Optional[List[str]] = None):
         >>> file1.save()
         >>> file2 = ln.File(pd.DataFrame(index=[2,3]))
         >>> file2.save()
-        >>> ln.save(ln.Tag.from_values(["Tag1", "Tag2", "Tag3"], field="name"))
-        >>> tags = ln.Tag.select(name__icontains = "tag").all()
-        >>> file1.tags.set(tags)
-        >>> file2.inherit_relations(file1, ["tags"])
-        💬 Inheriting 1 field: ['tags']
-        >>> file2.tags.list("name")
-        ['Tag1', 'Tag2', 'Tag3']
+        >>> ln.save(ln.Label.from_values(["Label1", "Label2", "Label3"], field="name"))
+        >>> labels = ln.Label.select(name__icontains = "label").all()
+        >>> file1.labels.set(labels)
+        >>> file2.inherit_relations(file1, ["labels"])
+        💬 Inheriting 1 field: ['labels']
+        >>> file2.labels.list("name")
+        ['Label1', 'Label2', 'Label3']
     """
     if fields is None:
         # fields in the model definition
