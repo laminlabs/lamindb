@@ -1,5 +1,8 @@
 # Changelog
 
+- 🍱 Added comprehensive lineage graph example [PR919](https://github.com/laminlabs/lamindb/pull/919) [@sunnyosun](https://github.com/sunnyosun)
+- 🐛 filepath_from_file now returns file._local_filepath if it is present [PR918](https://github.com/laminlabs/lamindb/pull/918) [@Koncopd](https://github.com/Koncopd)
+- ♻️ Refactor `FeatureSet` and `Label` [PR916](https://github.com/laminlabs/lamindb/pull/916) [@falexwolf](https://github.com/falexwolf)
 - 🐛 Some fixes for backed [PR915](https://github.com/laminlabs/lamindb/pull/915) [@Koncopd](https://github.com/Koncopd)
 - 🚚 Integrate `Category` and `Tag` into `Label` [PR914](https://github.com/laminlabs/lamindb/pull/914) [@falexwolf](https://github.com/falexwolf)
 - 💚 Deterministic version extension for transform [PR913](https://github.com/laminlabs/lamindb/pull/913) [@falexwolf](https://github.com/falexwolf)

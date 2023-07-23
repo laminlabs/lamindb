@@ -37,12 +37,7 @@ docs/faq/mydata_postgres/
 docs/guide/myobjects/
 docs/faq/test-run-inputs/
 docs/intro/paradisi05_laminopathic_nuclei.jpg
-test-search0
-test-search1
-test-search2
-test-search3
-test-search4
-test-search5
+docs/guide/figures/
 # General
 .DS_Store
 

@@ -1,6 +1,7 @@
 from typing import List, Set, Union
 
 from lnschema_core import ORM, File, Run
+from lnschema_core.models import format_datetime
 
 
 def view_lineage(file: File, with_children: bool = True):
@@ -47,8 +48,8 @@ def view_lineage(file: File, with_children: bool = True):
             shape = "box"
             fillcolor = "gainsboro"
         else:
-            shape = "oval"
-            style = "filled"
+            style = "rounded,filled"
+            shape = "box"
             fillcolor = "antiquewhite"
         u.node(
             node_id,
@@ -65,7 +66,13 @@ def view_lineage(file: File, with_children: bool = True):
 
         u.edge(row["source"], row["target"], color="dimgrey")
     # label the searched file orange
-    u.node(file.id, label=file_label, style="filled", fillcolor="orange", shape="oval")
+    u.node(
+        file.id,
+        label=file_label,
+        style="rounded,filled",
+        fillcolor="orange",
+        shape="box",
+    )
 
     return u
 
@@ -233,17 +240,20 @@ def _get_all_child_runs(file: File):
 
 def _label_file_run(record: Union[File, Run]):
     if isinstance(record, File):
+        if record.description is None:
+            name = record.key
+        else:
+            name = record.description.replace("&", "&amp;")
         return (
-            rf'<{record.key}<BR/><FONT COLOR="GREY" POINT-SIZE="10"'
-            rf' FACE="Monospace">id={record.id}</FONT>>'
-            if record.key is not None
-            else record.id
+            rf'<{name}   <BR/><FONT COLOR="GREY" POINT-SIZE="10"'
+            rf' FACE="Monospace">id={record.id}<BR/>suffix={record.suffix}</FONT>>'
         )
     elif isinstance(record, Run):
         name = f'{record.transform.name.replace("&", "&amp;")}   '
         return (
             rf'<{name}<BR/><FONT COLOR="GREY" POINT-SIZE="10"'
-            rf' FACE="Monospace">id={record.id}</FONT>>'
+            rf' FACE="Monospace">id={record.id}<BR/>type={record.transform.type},'
+            rf" user={record.created_by.name}<BR/>run_at={format_datetime(record.run_at)}</FONT>>"  # noqa
         )
 
 
