@@ -676,6 +676,8 @@ def _track_run_input(file: File, is_run_input: Optional[bool] = None):
 
 def load(self, is_run_input: Optional[bool] = None, stream: bool = False) -> DataLike:
     _track_run_input(self, is_run_input)
+    if hasattr(self, "_memory_rep") and self._memory_rep is not None:
+        return self._memory_rep
     return load_to_memory(filepath_from_file(self), stream=stream)
 
 
