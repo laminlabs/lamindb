@@ -29,7 +29,7 @@ LaminDB is an open-source Python library to:
 
 LaminApp is a data management app built on LaminDB. If LaminDB ~ git, LaminApp ~ GitHub.
 
-LaminApp, support, code templates & auto-dispatched integration tests for a BioTech data & analytics platform are currently only available on an enterprise plan. LaminApp is available for your cloud or AWS infrastructure or hosted by us.
+LaminApp, support, code templates & auto-dispatched integration tests for a BioTech data & analytics platform are currently only available on an enterprise plan. LaminApp is available for your cloud infrastructure or hosted by us.
 
 ## Quickstart
 
