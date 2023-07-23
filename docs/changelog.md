@@ -1,5 +1,6 @@
 # Changelog
 
+- ♻️ Refactor `FeatureSet` and `Label` [PR916](https://github.com/laminlabs/lamindb/pull/916) [@falexwolf](https://github.com/falexwolf)
 - 🐛 Some fixes for backed [PR915](https://github.com/laminlabs/lamindb/pull/915) [@Koncopd](https://github.com/Koncopd)
 - 🚚 Integrate `Category` and `Tag` into `Label` [PR914](https://github.com/laminlabs/lamindb/pull/914) [@falexwolf](https://github.com/falexwolf)
 - 💚 Deterministic version extension for transform [PR913](https://github.com/laminlabs/lamindb/pull/913) [@falexwolf](https://github.com/falexwolf)
