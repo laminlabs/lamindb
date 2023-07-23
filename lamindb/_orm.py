@@ -105,7 +105,12 @@ def __init__(orm: ORM, *args, **kwargs):
         super(ORM, orm).__init__(*args, **kwargs)
 
 
-def view_parents(self, field: Optional[StrField] = None, distance: int = 100):
+def view_parents(
+    self,
+    field: Optional[StrField] = None,
+    with_children: bool = False,
+    distance: int = 100,
+):
     from lamindb.dev._view_parents import view_parents as _view_parents
 
     if field is None:
@@ -113,7 +118,9 @@ def view_parents(self, field: Optional[StrField] = None, distance: int = 100):
     if not isinstance(field, str):
         field = field.field.name
 
-    return _view_parents(record=self, field=field, distance=distance)
+    return _view_parents(
+        record=self, field=field, with_children=with_children, distance=distance
+    )
 
 
 @classmethod  # type:ignore

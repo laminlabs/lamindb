@@ -70,15 +70,36 @@ def view_lineage(file: File, with_children: bool = True):
     return u
 
 
-def view_parents(record: ORM, field: str, distance: int = 100):
-    """Graph of parents."""
+def view_parents(
+    record: ORM, field: str, with_children: bool = False, distance: int = 100
+):
+    """Graph of parents.
+
+    Notes:
+        For more info, see tutorial: :doc:`/guide/data-lineage`.
+
+    Examples:
+        >>> import lnschema_bionty as lb
+        >>> lb.CellType.from_bionty(name="T cell").save()
+        >>> record = lb.CellType.select(name="hematopoietic cell").one()
+        >>> record.view_parents()
+        >>> record.view_parents(with_children=True)
+    """
     if not hasattr(record, "parents"):
         return NotImplementedError(
             f"Parents view is not supported for {record.__class__.__name__}!"
         )
     import graphviz
+    import pandas as pd
 
     df_edges = _df_edges_from_parents(record=record, field=field, distance=distance)
+    if with_children:
+        df_edges = pd.concat(
+            [
+                df_edges,
+                _df_edges_from_children(record=record, field=field, distance=distance),
+            ]
+        ).drop_duplicates()
 
     record_label = record.__getattribute__(field)
 
@@ -126,6 +147,27 @@ def _get_parents(record: ORM, field: str, distance: int):
     return results
 
 
+def _get_children(record: ORM, field: str, distance: int):
+    """Recursively get parent records within a distance."""
+    model = record.__class__
+    condition = f"parents__{field}"
+    results = model.select(**{condition: record.__getattribute__(field)}).all()
+    if distance < 2:
+        return results
+
+    d = 2
+    while d < distance:
+        condition = "parents__" + condition
+        records = model.select(**{condition: record.__getattribute__(field)}).all()
+
+        if len(records) == 0:
+            return results
+
+        results = results | records
+        d += 1
+    return results
+
+
 def _df_edges_from_parents(record: ORM, field: str, distance: int):
     """Construct a DataFrame of edges as the input of graphviz.Digraph."""
     parents = _get_parents(record=record, field=field, distance=distance)
@@ -136,6 +178,28 @@ def _df_edges_from_parents(record: ORM, field: str, distance: int):
     df_edges.dropna(axis=0, inplace=True)
     df_edges.rename(
         columns={f"parents__{field}": "source", field: "target"}, inplace=True
+    )
+    df_edges = df_edges.drop_duplicates()
+
+    # colons messes with the node formatting:
+    # https://graphviz.readthedocs.io/en/stable/node_ports.html
+    df_edges["source_label"] = df_edges["source"]
+    df_edges["target_label"] = df_edges["target"]
+    df_edges["source"] = df_edges["source"].str.replace(":", "_")
+    df_edges["target"] = df_edges["target"].str.replace(":", "_")
+    return df_edges
+
+
+def _df_edges_from_children(record: ORM, field: str, distance: int):
+    """Construct a DataFrame of edges as the input of graphviz.Digraph."""
+    children = _get_children(record=record, field=field, distance=distance)
+    records = children | record.__class__.objects.filter(id=record.id)
+    df = records.distinct().df(include=[f"children__{field}"])
+    df_edges = df[[f"children__{field}", field]]
+    df_edges = df_edges.explode(f"children__{field}")
+    df_edges.dropna(axis=0, inplace=True)
+    df_edges.rename(
+        columns={f"children__{field}": "source", field: "target"}, inplace=True
     )
     df_edges = df_edges.drop_duplicates()
 
