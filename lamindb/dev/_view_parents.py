@@ -73,18 +73,7 @@ def view_lineage(file: File, with_children: bool = True):
 def view_parents(
     record: ORM, field: str, with_children: bool = False, distance: int = 100
 ):
-    """Graph of parents.
-
-    Notes:
-        For more info, see tutorial: :doc:`/guide/data-lineage`.
-
-    Examples:
-        >>> import lnschema_bionty as lb
-        >>> lb.CellType.from_bionty(name="T cell").save()
-        >>> record = lb.CellType.select(name="hematopoietic cell").one()
-        >>> record.view_parents()
-        >>> record.view_parents(with_children=True)
-    """
+    """Graph of parents."""
     if not hasattr(record, "parents"):
         return NotImplementedError(
             f"Parents view is not supported for {record.__class__.__name__}!"
