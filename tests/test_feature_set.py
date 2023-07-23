@@ -75,6 +75,11 @@ def test_feature_set_from_records():
     assert id == feature_set.id
     feature_set.delete()
 
+    # edge case
+    with pytest.raises(ValueError):
+        positional_arg = 1
+        ln.FeatureSet(features, positional_arg)
+
 
 def test_feature_set_from_df():
     feature_set = ln.FeatureSet.from_df(df)
