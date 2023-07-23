@@ -13,6 +13,13 @@ from . import _TESTING
 from ._save import bulk_create
 
 
+def convert_numpy_dtype_to_lamin_feature_type(dtype) -> str:
+    orig_type = dtype.name
+    # strip precision qualifiers
+    type = "".join(i for i in orig_type if not i.isdigit())
+    return type
+
+
 def take(n, iterable):
     """Return the first n items of the iterable as a list."""
     return list(islice(iterable, n))
@@ -30,11 +37,8 @@ def __init__(self, *args, **kwargs):
 
 @classmethod  # type:ignore
 @doc_args(Feature.from_df.__doc__)
-def from_df(cls, df) -> List["Feature"]:
+def from_df(cls, df: "pd.DataFrame") -> List["Feature"]:
     """{}"""
-    features = Feature.from_values(df.columns, field=Feature.name)
-    assert len(features) == len(df.columns)
-
     string_cols = [col for col in df.columns if is_string_dtype(df[col])]
     categoricals = {col: df[col] for col in df.columns if is_categorical_dtype(df[col])}
     for key in string_cols:
@@ -42,23 +46,26 @@ def from_df(cls, df) -> List["Feature"]:
         if len(c.categories) < len(c):
             categoricals[key] = c
 
+    types = {}
     categoricals_with_unmapped_categories = {}
-    for feature in features:
-        if feature.name in categoricals:
-            feature.type = "Label"
-            categorical = categoricals[feature.name]
+    for name, col in df.items():
+        if name in categoricals:
+            types[name] = "categorical"
+            categorical = categoricals[name]
             if hasattr(
                 categorical, "cat"
             ):  # because .categories > pd2.0, .cat.categories < pd2.0
                 categorical = categorical.cat
             categories = categorical.categories
-            categoricals_with_unmapped_categories[feature.name] = Label.select(
-                feature=feature
+            categoricals_with_unmapped_categories[name] = Label.select(
+                feature=name
             ).inspect(categories, "name", logging=False)["not_mapped"]
         else:
-            orig_type = df[feature.name].dtype.name
-            # strip precision qualifiers
-            feature.type = "".join(i for i in orig_type if not i.isdigit())
+            types[name] = convert_numpy_dtype_to_lamin_feature_type(col.dtype)
+
+    features = Feature.from_values(df.columns, field=Feature.name, types=types)
+    assert len(features) == len(df.columns)
+
     if len(categoricals) > 0:
         n_max = 20
         categoricals_with_unmapped_categories_formatted = "\n      ".join(
