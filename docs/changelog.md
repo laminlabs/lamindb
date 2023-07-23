@@ -1,5 +1,6 @@
 # Changelog
 
+- 📝 Improve bio guides [PR920](https://github.com/laminlabs/lamindb/pull/920) [@falexwolf](https://github.com/falexwolf)
 - ✨ Disentangle File.backed() from zarr [PR923](https://github.com/laminlabs/lamindb/pull/923) [@Koncopd](https://github.com/Koncopd)
 - ✨ Added `with_children` to `view_parents` [PR921](https://github.com/laminlabs/lamindb/pull/921) [@sunnyosun](https://github.com/sunnyosun)
 - 🍱 Added comprehensive lineage graph example [PR919](https://github.com/laminlabs/lamindb/pull/919) [@sunnyosun](https://github.com/sunnyosun)
