@@ -181,6 +181,21 @@ def test_create_from_local_filepath(get_test_filepaths, key, name):
     # file.delete(storage=True)
 
 
+def test_local_path_load():
+    local_filepath = Path("tests/test-files/pbmc68k.h5ad").resolve()
+
+    file = ln.File(local_filepath)
+    assert local_filepath == file._local_filepath
+    assert local_filepath == file.path()
+    assert local_filepath == file.stage()
+
+    adata = ad.read(local_filepath)
+    file = ln.File(adata)
+    assert file._memory_rep is adata
+    assert file.load() is adata
+    assert file._local_filepath.resolve() == file.stage() == file.path()
+
+
 def test_init_from_directory(get_test_filepaths):
     isin_default_storage = get_test_filepaths[0]
     test_dirpath = get_test_filepaths[1]
