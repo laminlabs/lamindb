@@ -27,6 +27,7 @@ from lamindb.dev.storage import (
     size_adata,
     write_to_file,
 )
+from lamindb.dev.storage._backed_access import AnnDataAccessor, BackedAccessor
 from lamindb.dev.storage.file import auto_storage_key_from_file, filepath_from_file
 from lamindb.dev.utils import attach_func_to_class_method
 
@@ -34,17 +35,6 @@ from . import _TESTING
 from ._feature import convert_numpy_dtype_to_lamin_feature_type
 from .dev._view_parents import view_lineage
 from .dev.storage.file import AUTO_KEY_PREFIX
-
-try:
-    from lamindb.dev.storage._backed_access import AnnDataAccessor, BackedAccessor
-except ImportError:
-
-    class AnnDataAccessor:  # type: ignore
-        pass
-
-    class BackedAccessor:  # type: ignore
-        pass
-
 
 DIRS = AppDirs("lamindb", "laminlabs")
 
