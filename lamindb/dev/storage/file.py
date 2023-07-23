@@ -59,6 +59,8 @@ def attempt_accessing_path(file: File, storage_key: str):
 
 # add type annotations back asap when re-organizing the module
 def filepath_from_file(file: File):
+    if hasattr(file, "_local_filepath") and file._local_filepath is not None:
+        return file._local_filepath
     storage_key = auto_storage_key_from_file(file)
     path = attempt_accessing_path(file, storage_key)
     return path

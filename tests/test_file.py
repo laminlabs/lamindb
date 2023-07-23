@@ -98,6 +98,9 @@ def test_create_from_df(description):
 
 def test_create_from_anndata_in_memory():
     file = ln.File.from_anndata(adata, var_ref=lb.Gene.symbol)
+    assert hasattr(file, "_memory_rep")
+    # if _memory_rep exists, it is returned upon load()
+    assert file.load() is adata
     assert hasattr(file, "_local_filepath")
     file.save()
     # check that the local filepath has been cleared
@@ -220,15 +223,8 @@ def test_create_small_file_from_remote_path(
         skip_check_exists=skip_check_exists,
     )
     file.save()
-    # test stage()
-    file_from_local = ln.File(file.stage())
-    # test hash equivalency when computed on local machine
-    if not skip_size_and_hash:
-        assert file_from_local.hash == file.hash
-        assert file_from_local.hash_type == "md5"
-        assert file.hash_type == "md5"
-    assert file.path().as_posix() == filepath_str
-    assert file.load().iloc[0].tolist() == [
+    # list to check load()
+    check_list = [
         0,
         "Abingdon island giant tortoise",
         "Chelonoidis abingdonii",
@@ -239,6 +235,16 @@ def test_create_small_file_from_remote_path(
         "-",
         "-",
     ]
+    # test stage() and load() from a local filepath
+    file_from_local = ln.File(file.stage())
+    assert file_from_local.load().iloc[0].tolist() == check_list
+    # test hash equivalency when computed on local machine
+    if not skip_size_and_hash:
+        assert file_from_local.hash == file.hash
+        assert file_from_local.hash_type == "md5"
+        assert file.hash_type == "md5"
+    assert file.path().as_posix() == filepath_str
+    assert file.load().iloc[0].tolist() == check_list
     file.delete(storage=False)
     ln.settings.upon_file_create_skip_size_hash = False
 
