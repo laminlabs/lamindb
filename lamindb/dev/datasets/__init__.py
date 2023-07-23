@@ -19,6 +19,8 @@
    anndata_pbmc68k_reduced
    anndata_pbmc3k_processed
    anndata_with_obs
+   schmidt22_crispra_gws_IFNG
+   schmidt22_perturbseq
    fake_bio_notebook_titles
 """
 
@@ -39,5 +41,7 @@ from ._core import (
     file_jpg_paradisi05,
     file_mini_csv,
     generate_cell_ranger_files,
+    schmidt22_crispra_gws_IFNG,
+    schmidt22_perturbseq,
 )
 from ._fake import fake_bio_notebook_titles

@@ -48,35 +48,14 @@ def test_signatures():
 
 
 @pytest.mark.parametrize("name", [None, "my name"])
-@pytest.mark.parametrize("feature_list", [None, [], df.columns])
-def test_create_from_dataframe(name, feature_list):
-    if feature_list is not None:
-        if len(feature_list) == 0:
-            feature_set = []
-        else:
-            feature_set = ln.FeatureSet.from_values(feature_list)
-    else:
-        feature_set = None
-    file = ln.File(df, name=name, feature_sets=feature_set)
+def test_create_from_dataframe(name):
+    file = ln.File(df, name=name)
     assert file.description is None if name is None else file.description == name
     assert file.key is None
     assert hasattr(file, "_local_filepath")
     file.save()
     # check that the local filepath has been cleared
     assert not hasattr(file, "_local_filepath")
-    if isinstance(feature_set, ln.FeatureSet):
-        feature_set_queried = file.feature_sets.get()  # exactly one
-        feature_list_queried = ln.Feature.select(
-            feature_sets=feature_set_queried
-        ).list()
-        feature_list_queried = [feature.name for feature in feature_list_queried]
-        if feature_list is None:
-            assert set(feature_list_queried) == set(df.columns)
-        else:
-            assert set(feature_list_queried) == set(feature_list)
-        feature_set_queried.delete()
-    else:
-        assert len(file.feature_sets.all()) == 0
     file.delete(storage=True)
 
 
@@ -181,6 +160,21 @@ def test_create_from_local_filepath(get_test_filepaths, key, name):
     # file.delete(storage=True)
 
 
+def test_local_path_load():
+    local_filepath = Path("tests/test-files/pbmc68k.h5ad").resolve()
+
+    file = ln.File(local_filepath)
+    assert local_filepath == file._local_filepath
+    assert local_filepath == file.path()
+    assert local_filepath == file.stage()
+
+    adata = ad.read(local_filepath)
+    file = ln.File(adata)
+    assert file._memory_rep is adata
+    assert file.load() is adata
+    assert file._local_filepath.resolve() == file.stage() == file.path()
+
+
 def test_init_from_directory(get_test_filepaths):
     isin_default_storage = get_test_filepaths[0]
     test_dirpath = get_test_filepaths[1]
@@ -253,7 +247,7 @@ def test_create_big_file_from_remote_path():
     ln.settings.storage = previous_storage
 
 
-def test_inherit_relationships():
+def test_inherit_relations():
     with open("test-inherit1", "w") as f:
         f.write("file1")
     with open("test-inherit2", "w") as f:
@@ -264,24 +258,33 @@ def test_inherit_relationships():
     file2 = ln.File("test-inherit2")
     file2.save()
 
-    tag_names = [f"Tag {i}" for i in range(3)]
-    projects = [ln.Project(name=f"Project {i}") for i in range(3)]
-    ln.save(projects)
-    tags = [ln.Tag(name=name) for name in tag_names]
-    ln.save(tags)
+    label_names = [f"Project {i}" for i in range(3)]
+    labels = [ln.Label(name=label_name) for label_name in label_names]
+    ln.save(labels)
 
-    file2.tags.set(tags)
-    file2.projects.set(projects)
+    cell_line_names = [f"Cell line {i}" for i in range(3)]
+    cell_lines = [lb.CellLine(name=name) for name in cell_line_names]
+    ln.save(cell_lines)
 
-    assert file1.tags.exists() is False
-    file1.inherit_relations(file2, ["tags"])
-    assert file1.tags.count() == file2.tags.count()
-    assert file1.projects.exists() is False
+    file2.labels.set(labels)
+    file2.cell_lines.set(cell_lines)
+
+    assert file1.labels.exists() is False
+    file1.inherit_relations(file2, ["labels"])
+    assert file1.labels.count() == file2.labels.count()
+    assert file1.cell_lines.exists() is False
     file1.inherit_relations(file2)
-    assert file1.projects.count() == file2.projects.count()
+    assert file1.cell_lines.count() == file2.cell_lines.count()
 
     with pytest.raises(KeyError):
         file1.inherit_relations(file2, ["not_exist_field"])
+
+    for label in labels:
+        label.delete()
+    for cell_line in cell_lines:
+        cell_line.delete()
+    file1.delete(storage=True)
+    file2.delete(storage=True)
 
 
 # -------------------------------------------------------------------------------------

@@ -7,7 +7,7 @@ from typing import Iterable, List, Optional, Tuple, Union, overload  # noqa
 
 import lamindb_setup
 from django.db import transaction
-from lamin_logger import logger
+from lamin_utils import logger
 from lnschema_core.models import ORM, File
 
 from lamindb.dev.storage import store_object
@@ -45,7 +45,7 @@ def save(records: Iterable[ORM], **kwargs) -> None:  # type: ignore
         Save a collection of records in one transaction, which is much faster
         than writing a loop over calls ``projects.save()``:
 
-        >>> projects = [ln.Project(f"Project {i}") for i in range(10)]
+        >>> labels = [ln.Label(f"Label {i}") for i in range(10)]
         >>> ln.save(projects)
 
         For a single record, use ``.save()``:

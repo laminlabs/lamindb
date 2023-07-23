@@ -3,7 +3,7 @@ from subprocess import DEVNULL, run
 
 import lamindb_setup
 import pytest
-from lamin_logger import logger
+from lamin_utils import logger
 from laminci.db import setup_local_test_postgres
 
 

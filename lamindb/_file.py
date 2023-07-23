@@ -8,7 +8,7 @@ import pandas as pd
 from anndata import AnnData
 from appdirs import AppDirs
 from django.db.models.query_utils import DeferredAttribute as Field
-from lamin_logger import colors, logger
+from lamin_utils import colors, logger
 from lamindb_setup import settings as setup_settings
 from lamindb_setup._init_instance import register_storage
 from lamindb_setup.dev import StorageSettings
@@ -27,23 +27,14 @@ from lamindb.dev.storage import (
     size_adata,
     write_to_file,
 )
+from lamindb.dev.storage._backed_access import AnnDataAccessor, BackedAccessor
 from lamindb.dev.storage.file import auto_storage_key_from_file, filepath_from_file
 from lamindb.dev.utils import attach_func_to_class_method
 
 from . import _TESTING
+from ._feature import convert_numpy_dtype_to_lamin_feature_type
 from .dev._view_parents import view_lineage
 from .dev.storage.file import AUTO_KEY_PREFIX
-
-try:
-    from lamindb.dev.storage._backed_access import AnnDataAccessor, BackedAccessor
-except ImportError:
-
-    class AnnDataAccessor:  # type: ignore
-        pass
-
-    class BackedAccessor:  # type: ignore
-        pass
-
 
 DIRS = AppDirs("lamindb", "laminlabs")
 
@@ -383,9 +374,6 @@ def __init__(file: File, *args, **kwargs):
     description: Optional[str] = (
         kwargs.pop("description") if "description" in kwargs else None
     )
-    feature_sets: Optional[List[FeatureSet]] = (
-        kwargs.pop("feature_sets") if "feature_sets" in kwargs else None
-    )
     name: Optional[str] = kwargs.pop("name") if "name" in kwargs else None
     format = kwargs.pop("format") if "format" in kwargs else None
     log_hint = kwargs.pop("log_hint") if "log_hint" in kwargs else True
@@ -404,18 +392,16 @@ def __init__(file: File, *args, **kwargs):
         logger.warning("Argument `name` is deprecated, please use `description`")
         description = name
 
-    if feature_sets is None:
-        feature_sets = []
-        if isinstance(data, pd.DataFrame) and log_hint:
-            logger.hint(
-                "This is a dataframe, consider using File.from_df() to link column"
-                " names as features!"
-            )
-        elif data_is_anndata(data) and log_hint:
-            logger.hint(
-                "This is AnnDataLike, consider using File.from_anndata() to link var"
-                " and obs.columns as features!"
-            )
+    if isinstance(data, pd.DataFrame) and log_hint:
+        logger.hint(
+            "This is a dataframe, consider using File.from_df() to link column"
+            " names as features!"
+        )
+    elif data_is_anndata(data) and log_hint:
+        logger.hint(
+            "This is AnnDataLike, consider using File.from_anndata() to link var_names"
+            " and obs.columns as features!"
+        )
 
     provisional_id = ids.base62_20()
     kwargs, privates = get_file_kwargs_from_data(
@@ -465,9 +451,6 @@ def __init__(file: File, *args, **kwargs):
         file._cloud_filepath = privates["cloud_filepath"]
         file._memory_rep = privates["memory_rep"]
         file._to_store = not privates["check_path_in_storage"]
-        file._feature_sets = (
-            feature_sets if isinstance(feature_sets, list) else [feature_sets]
-        )
 
     super(File, file).__init__(**kwargs)
 
@@ -484,8 +467,7 @@ def from_df(
 ) -> "File":
     """{}"""
     file = File(data=df, key=key, run=run, description=description, log_hint=False)
-    features = Feature.from_df(df)
-    feature_set = FeatureSet(features)
+    feature_set = FeatureSet.from_df(df)
     file._feature_sets = [feature_set]
     return file
 
@@ -512,9 +494,22 @@ def from_anndata(
             data_parse = backed_access(filepath)
         else:
             data_parse = ad.read(filepath, backed="r")
+        type = "float"
+    else:
+        type = convert_numpy_dtype_to_lamin_feature_type(adata.X.dtype)
     feature_sets = []
-    feature_sets.append(FeatureSet.from_values(data_parse.var.index, var_ref))
-    feature_sets.append(FeatureSet.from_values(data_parse.obs.columns))
+    logger.info("Parsing features of X (numerical)")
+    logger.indent = "   "
+    feature_set_x = FeatureSet.from_values(
+        data_parse.var.index, var_ref, type=type, name="var", readout="abundance"
+    )
+    feature_sets.append(feature_set_x)
+    logger.indent = ""
+    logger.info("Parsing features of obs (numerical & categorical)")
+    logger.indent = "   "
+    feature_set_obs = FeatureSet.from_df(data_parse.obs, name="obs")
+    feature_sets.append(feature_set_obs)
+    logger.indent = ""
     file._feature_sets = feature_sets
     return file
 
@@ -617,17 +612,18 @@ def backed(
             " one of the following suffixes for the object name:"
             f" {', '.join(suffixes)}."
         )
-    _track_run_input(self, is_run_input)
-    # consider the case where an object is already locally cached
-    local_path = setup_settings.instance.storage.cloud_to_local_no_update(
-        filepath_from_file(self)
-    )
-    if local_path.exists() and self.suffix == ".h5ad":
-        return ad.read_h5ad(local_path, backed="r")
 
     from lamindb.dev.storage._backed_access import backed_access
 
-    return backed_access(self)
+    _track_run_input(self, is_run_input)
+
+    filepath = filepath_from_file(self)
+    # consider the case where an object is already locally cached
+    localpath = setup_settings.instance.storage.cloud_to_local_no_update(filepath)
+    if localpath.exists():
+        return backed_access(localpath)
+    else:
+        return backed_access(filepath)
 
 
 def _track_run_input(file: File, is_run_input: Optional[bool] = None):
@@ -659,7 +655,7 @@ def _track_run_input(file: File, is_run_input: Optional[bool] = None):
         if context.run is None:
             raise ValueError(
                 "No global run context set. Call ln.context.track() or link input to a"
-                " run object via `run.inputs.append(file)`"
+                " run object via `run.input_files.append(file)`"
             )
         # avoid adding the same run twice
         # avoid cycles (a file is both input and output)
@@ -671,6 +667,8 @@ def _track_run_input(file: File, is_run_input: Optional[bool] = None):
 
 def load(self, is_run_input: Optional[bool] = None, stream: bool = False) -> DataLike:
     _track_run_input(self, is_run_input)
+    if hasattr(self, "_memory_rep") and self._memory_rep is not None:
+        return self._memory_rep
     return load_to_memory(filepath_from_file(self), stream=stream)
 
 
@@ -801,13 +799,13 @@ def inherit_relations(self, file: File, fields: Optional[List[str]] = None):
         >>> file1.save()
         >>> file2 = ln.File(pd.DataFrame(index=[2,3]))
         >>> file2.save()
-        >>> ln.save(ln.Tag.from_values(["Tag1", "Tag2", "Tag3"], field="name"))
-        >>> tags = ln.Tag.select(name__icontains = "tag").all()
-        >>> file1.tags.set(tags)
-        >>> file2.inherit_relations(file1, ["tags"])
-        💬 Inheriting 1 field: ['tags']
-        >>> file2.tags.list("name")
-        ['Tag1', 'Tag2', 'Tag3']
+        >>> ln.save(ln.Label.from_values(["Label1", "Label2", "Label3"], field="name"))
+        >>> labels = ln.Label.select(name__icontains = "label").all()
+        >>> file1.labels.set(labels)
+        >>> file2.inherit_relations(file1, ["labels"])
+        💬 Inheriting 1 field: ['labels']
+        >>> file2.labels.list("name")
+        ['Label1', 'Label2', 'Label3']
     """
     if fields is None:
         # fields in the model definition

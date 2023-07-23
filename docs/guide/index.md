@@ -19,7 +19,7 @@ tutorial1
 
 ```{toctree}
 :hidden:
-:caption: "How to: Data"
+:caption: "How to: data"
 
 data-lineage
 select
@@ -30,11 +30,11 @@ setup
 
 ```{toctree}
 :hidden:
-:caption: "How to: Biology"
+:caption: "How to: biology"
 
 ../biology/registries
-../biology/features
-../biology/samples
+../biology/scrna
+../biology/flow
 ```
 
 ```{toctree}

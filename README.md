@@ -29,7 +29,7 @@ LaminDB is an open-source Python library to:
 
 LaminApp is a data management app built on LaminDB. If LaminDB ~ git, LaminApp ~ GitHub.
 
-LaminApp, support, code templates & auto-dispatched integration tests for a BioTech data & analytics platform are currently only available on an enterprise plan. LaminApp is available for your cloud or AWS infrastructure or hosted by us.
+LaminApp, support, code templates & auto-dispatched integration tests for a BioTech data & analytics platform are currently only available on an enterprise plan. LaminApp is available for your cloud infrastructure or hosted by us.
 
 ## Quickstart
 
@@ -259,6 +259,8 @@ LaminDB consists of the `lamindb` Python package (repository [here](https://gith
 - [lnschema-bionty](https://github.com/laminlabs/lnschema-bionty): Bionty schema, ORMs that are coupled to Bionty's entities.
 - [lnschema-lamin1](https://github.com/laminlabs/lnschema-lamin1): Exemplary configured schema to track samples, treatments, etc.
 - [nbproject](https://github.com/laminlabs/nbproject): Parse metadata from Jupyter notebooks.
+- [lamin-utils](https://github.com/laminlabs/lamin-utils): Utilities for LaminDB and Bionty.
+- [readfcs](https://github.com/laminlabs/readfcs): FCS file reader.
 
 LaminHub & LaminApp are not open-sourced, and neither are templates that model lab operations.
 

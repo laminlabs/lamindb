@@ -12,7 +12,7 @@ ref/lamindb
 
 ```{toctree}
 :maxdepth: 1
-:caption: Open-source plug-ins
+:caption: Plug-ins
 :hidden:
 
 ref/lnschema-bionty
@@ -20,11 +20,11 @@ ref/lnschema-bionty
 
 ```{toctree}
 :maxdepth: 1
-:caption: Open-source utilities
+:caption: Utilities
 :hidden:
 
 readfcs
 bionty
 nbproject
-ref/lamin-logger
+ref/lamin-utils
 ```

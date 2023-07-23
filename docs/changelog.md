@@ -1,5 +1,18 @@
 # Changelog
 
+- 📝 Improve bio guides [PR920](https://github.com/laminlabs/lamindb/pull/920) [@falexwolf](https://github.com/falexwolf)
+- ✨ Disentangle File.backed() from zarr [PR923](https://github.com/laminlabs/lamindb/pull/923) [@Koncopd](https://github.com/Koncopd)
+- ✨ Added `with_children` to `view_parents` [PR921](https://github.com/laminlabs/lamindb/pull/921) [@sunnyosun](https://github.com/sunnyosun)
+- 🍱 Added comprehensive lineage graph example [PR919](https://github.com/laminlabs/lamindb/pull/919) [@sunnyosun](https://github.com/sunnyosun)
+- 🐛 filepath_from_file now returns file._local_filepath if it is present [PR918](https://github.com/laminlabs/lamindb/pull/918) [@Koncopd](https://github.com/Koncopd)
+- ♻️ Refactor `FeatureSet` and `Label` [PR916](https://github.com/laminlabs/lamindb/pull/916) [@falexwolf](https://github.com/falexwolf)
+- 🐛 Some fixes for backed [PR915](https://github.com/laminlabs/lamindb/pull/915) [@Koncopd](https://github.com/Koncopd)
+- 🚚 Integrate `Category` and `Tag` into `Label` [PR914](https://github.com/laminlabs/lamindb/pull/914) [@falexwolf](https://github.com/falexwolf)
+- 💚 Deterministic version extension for transform [PR913](https://github.com/laminlabs/lamindb/pull/913) [@falexwolf](https://github.com/falexwolf)
+- ♻️ Use `from_df` in `from_anndata` [PR911](https://github.com/laminlabs/lamindb/pull/911) [@falexwolf](https://github.com/falexwolf)
+- ♻️ Replace `lamin_logger` with `lamin_utils` [PR912](https://github.com/laminlabs/lamindb/pull/912) [@falexwolf](https://github.com/falexwolf)
+-  ♻️ Replace usage of `ln.Project` with `ln.Tag`, replace `Run.name` with `Run.reference_type` and more [PR910](https://github.com/laminlabs/lamindb/pull/910) [@falexwolf](https://github.com/falexwolf)
+- 🚸 Improve categorical feature management [PR908](https://github.com/laminlabs/lamindb/pull/908) [@falexwolf](https://github.com/falexwolf)
 - 🔖 0.48 (3) [PR907](https://github.com/laminlabs/lamindb/pull/907) [@sunnyosun](https://github.com/sunnyosun)
 - ⬆️ Update lb [PR906](https://github.com/laminlabs/lamindb/pull/906) [@sunnyosun](https://github.com/sunnyosun)
 - 🎉 Stage 0.48 (2) [PR904](https://github.com/laminlabs/lamindb/pull/904) [@sunnyosun](https://github.com/sunnyosun)
@@ -672,7 +685,7 @@ Update lndb_hub version | [176](https://github.com/laminlabs/lamindb/pull/176) |
 🍱 Adapted to `lnschema-biology` `0.1.1` | [97](https://github.com/laminlabs/lamindb/pull/97) | [sunnyosun](https://github.com/sunnyosun) | 2022-07-24 |
 🚸 Let the CLI have actual subcommands | [96](https://github.com/laminlabs/lamindb/pull/96) | [falexwolf](https://github.com/falexwolf) | 2022-07-24 |
 👷 Add time out to GitHub Actions | [93](https://github.com/laminlabs/lamindb/pull/93) | [Koncopd](https://github.com/Koncopd) | 2022-07-23 |
-🔥 Switched logger to use lamin-logger | [92](https://github.com/laminlabs/lamindb/pull/92) | [sunnyosun](https://github.com/sunnyosun) | 2022-07-23 |
+🔥 Switched logger to use lamin-utils | [92](https://github.com/laminlabs/lamindb/pull/92) | [sunnyosun](https://github.com/sunnyosun) | 2022-07-23 |
 ✨  Annotate biometa when annotating genes | [90](https://github.com/laminlabs/lamindb/pull/90) | [sunnyosun](https://github.com/sunnyosun) | 2022-07-23 |
 🔼 Upgrade to schema 0.2.1 | [89](https://github.com/laminlabs/lamindb/pull/89) | [falexwolf](https://github.com/falexwolf) | 2022-07-23 |
 🎨 Use modular schema structure | [88](https://github.com/laminlabs/lamindb/pull/88) | [falexwolf](https://github.com/falexwolf) | 2022-07-22 |

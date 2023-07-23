@@ -36,10 +36,10 @@ class QuerySet(models.QuerySet):
 
     Examples:
 
-        >>> ln.Tag(name="my tag").save()
-        >>> queryset = ln.Tag.select(name="my tag")
+        >>> ln.Label(name="my label").save()
+        >>> queryset = ln.Label.select(name="my label")
         >>> queryset
-        <QuerySet [Tag(id=MIeZISeF, name=my tag, updated_at=2023-07-19 19:53:34, created_by_id=DzTjkKse)]> # noqa
+        <QuerySet [Label(id=MIeZISeF, name=my label, updated_at=2023-07-19 19:53:34, created_by_id=DzTjkKse)]> # noqa
     """
 
     def df(self, include: Optional[List[str]] = None):
@@ -52,27 +52,27 @@ class QuerySet(models.QuerySet):
 
         Args:
             include: ``Optional[List[str]] = None`` Additional (many-to-many)
-                fields to include. Takes expressions like ``"tags__name"``
+                fields to include. Takes expressions like ``"labels__name"``
                 ``"cell_types__name"``.
 
         Examples:
 
-            >>> ln.save(ln.Project.from_values(["Project1", "Project2", "Project3"], field="name")) # noqa
-            >>> ln.Project.select().df()
+            >>> ln.save(ln.Label.from_values(["Label1", "Label2", "Label3"], field="name")) # noqa
+            >>> ln.Label.select().df()
                           name  external_id           updated_at  created_by_id
                   id
-            wsCyIq2Z  Project1         None  2023-07-19 19:14:08       DzTjkKse
-            MvpDP8Y3  Project2         None  2023-07-19 19:14:08       DzTjkKse
-            zKFFabCu  Project3         None  2023-07-19 19:14:08       DzTjkKse
-            >>> project = ln.Project.select(name="Project1").one()
-            >>> tag = ln.Tag.select(name="benchmark").one()
-            >>> project.tags.add(tag)
-            >>> ln.Project.select().df(include=["tags__name", "tags__created_by_id"])
-                      tags__name  tags__created_by_id      name  external_id           updated_at  created_by_id # noqa
+            wsCyIq2Z  Label1         None  2023-07-19 19:14:08       DzTjkKse
+            MvpDP8Y3  Label2         None  2023-07-19 19:14:08       DzTjkKse
+            zKFFabCu  Label3         None  2023-07-19 19:14:08       DzTjkKse
+            >>> label = ln.Label.select(name="Label1").one()
+            >>> label = ln.Label.select(name="benchmark").one()
+            >>> label.parents.add(label)
+            >>> ln.Label.select().df(include=["labels__name", "labels__created_by_id"])
+                      labels__name  labels__created_by_id      name  external_id           updated_at  created_by_id # noqa
                   id
-            wsCyIq2Z  [benchmark]          [DzTjkKse]  Project1         None  2023-07-19 19:14:08       DzTjkKse # noqa
-            MvpDP8Y3         None                None  Project2         None  2023-07-19 19:14:08       DzTjkKse # noqa
-            zKFFabCu         None                None  Project3         None  2023-07-19 19:14:08       DzTjkKse # noqa
+            wsCyIq2Z  [benchmark]          [DzTjkKse]  Label1         None  2023-07-19 19:14:08       DzTjkKse # noqa
+            MvpDP8Y3         None                None  Label2         None  2023-07-19 19:14:08       DzTjkKse # noqa
+            zKFFabCu         None                None  Label3         None  2023-07-19 19:14:08       DzTjkKse # noqa
         """
         data = self.values()
         if len(data) > 0:
@@ -144,14 +144,14 @@ class QuerySet(models.QuerySet):
 
         Examples:
 
-            >>> ln.save(ln.Project.from_values(["Project1", "Project2", "Project3"], field="name")) # noqa
-            >>> queryset = ln.Project.select(name__icontains = "project")
+            >>> ln.save(ln.Label.from_values(["Label1", "Label2", "Label3"], field="name")) # noqa
+            >>> queryset = ln.Label.select(name__icontains = "project")
             >>> queryset.list()
-            [Project(id=NAgTZxoo, name=Project1, updated_at=2023-07-19 19:25:48, created_by_id=DzTjkKse), # noqa
-            Project(id=bnsAgKRC, name=Project2, updated_at=2023-07-19 19:25:48, created_by_id=DzTjkKse), # noqa
-            Project(id=R8xhAJNE, name=Project3, updated_at=2023-07-19 19:25:48, created_by_id=DzTjkKse)] # noqa
+            [Label(id=NAgTZxoo, name=Label1, updated_at=2023-07-19 19:25:48, created_by_id=DzTjkKse), # noqa
+            Label(id=bnsAgKRC, name=Label2, updated_at=2023-07-19 19:25:48, created_by_id=DzTjkKse), # noqa
+            Label(id=R8xhAJNE, name=Label3, updated_at=2023-07-19 19:25:48, created_by_id=DzTjkKse)] # noqa
             >>> queryset.list("name")
-            ['Project1', 'Project2', 'Project3']
+            ['Label1', 'Label2', 'Label3']
         """
         if field is None:
             return [item for item in self]
@@ -162,10 +162,10 @@ class QuerySet(models.QuerySet):
         """If non-empty, the first result in the query set, otherwise None.
 
         Examples:
-            >>> ln.save(ln.Project.from_values(["Project1", "Project2", "Project3"], field="name")) # noqa
-            >>> queryset = ln.Project.select(name__icontains = "project")
+            >>> ln.save(ln.Label.from_values(["Label1", "Label2", "Label3"], field="name")) # noqa
+            >>> queryset = ln.Label.select(name__icontains = "project")
             >>> queryset.first()
-            Project(id=NAgTZxoo, name=Project1, updated_at=2023-07-19 19:25:48, created_by_id=DzTjkKse) # noqa
+            Label(id=NAgTZxoo, name=Label1, updated_at=2023-07-19 19:25:48, created_by_id=DzTjkKse) # noqa
         """
         if len(self) == 0:
             return None
@@ -175,9 +175,9 @@ class QuerySet(models.QuerySet):
         """Exactly one result. Throws error if there are more or none.
 
         Examples:
-            >>> ln.Tag(name="benchmark").save()
-            >>> ln.Tag.select(name="benchmark").one()
-            Tag(id=gznl0GZk, name=benchmark, updated_at=2023-07-19 19:39:01, created_by_id=DzTjkKse) # noqa
+            >>> ln.Label(name="benchmark").save()
+            >>> ln.Label.select(name="benchmark").one()
+            Label(id=gznl0GZk, name=benchmark, updated_at=2023-07-19 19:39:01, created_by_id=DzTjkKse) # noqa
         """
         if len(self) == 0:
             raise NoResultFound
@@ -190,10 +190,10 @@ class QuerySet(models.QuerySet):
         """At most one result. Returns it if there is one, otherwise returns None.
 
         Examples:
-            >>> ln.Tag(name="benchmark").save()
-            >>> ln.Tag.select(name="benchmark").one_or_none()
-            Tag(id=gznl0GZk, name=benchmark, updated_at=2023-07-19 19:39:01, created_by_id=DzTjkKse) # noqa
-            >>> ln.Tag.select(name="non existing tag").one_or_none()
+            >>> ln.Label(name="benchmark").save()
+            >>> ln.Label.select(name="benchmark").one_or_none()
+            Label(id=gznl0GZk, name=benchmark, updated_at=2023-07-19 19:39:01, created_by_id=DzTjkKse) # noqa
+            >>> ln.Label.select(name="non existing label").one_or_none()
             None
         """
         if len(self) == 0:

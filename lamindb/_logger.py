@@ -1,1 +1,1 @@
-from lamin_logger import colors, logger  # noqa
+from lamin_utils import colors, logger  # noqa

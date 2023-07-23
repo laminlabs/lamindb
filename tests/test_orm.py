@@ -26,16 +26,16 @@ def test_signatures():
 
 def test_init_with_args():
     with pytest.raises(ValueError):
-        ln.Tag("an arg")
+        ln.Label("an arg")
 
 
 def test_validate_required_fields():
-    # tag has a required name
+    # label has a required name
     with pytest.raises(TypeError):
-        ln.Tag()
-    # project has a required name
+        ln.Label()
+    # label has a required name
     with pytest.raises(TypeError):
-        ln.Project(external_id="test")
+        ln.Label(external_id="test")
 
 
 def test_search_file():
@@ -79,3 +79,9 @@ def test_search_file():
     # multi-field search
     res = ln.File.search("txt", field=["key", "description", "suffix"])
     assert res.iloc[0].suffix == ".txt"
+    file0.delete(storage=True)
+    file1.delete(storage=True)
+    file2.delete(storage=True)
+    file3.delete(storage=True)
+    file4.delete(storage=True)
+    file5.delete(storage=True)

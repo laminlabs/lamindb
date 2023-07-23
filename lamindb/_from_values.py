@@ -1,10 +1,10 @@
-from typing import Any, Dict, Iterable, List, Tuple, Union
+from typing import Any, Dict, Iterable, List, Optional, Tuple, Union
 
 import pandas as pd
 from django.core.exceptions import FieldDoesNotExist
 from django.db.models.query_utils import DeferredAttribute as Field
-from lamin_logger import colors, logger
-from lnschema_core.models import ORM
+from lamin_utils import colors, logger
+from lnschema_core.models import ORM, Feature
 from lnschema_core.types import ListLike
 
 from .dev._settings import settings
@@ -21,10 +21,21 @@ def get_or_create_records(
     """Get or create records from iterables."""
     upon_create_search_names = settings.upon_create_search_names
     settings.upon_create_search_names = False
+    feature: Feature = None
+    if "feature" in kwargs:
+        feature = kwargs.pop("feature")
+        kwargs["feature_id"] = feature.id
+    types: Optional[Dict] = None
+    if "types" in kwargs:
+        types = kwargs.pop("types")
     try:
         field_name = field.field.name
-        model = field.field.model
+        ORM = field.field.model
         iterable_idx = index_iterable(iterable)
+
+        if isinstance(ORM, Feature):
+            if types is None:
+                raise ValueError("Please pass types as {} or use FeatureSet.from_df()")
 
         # returns existing records & non-existing values
         records, nonexist_values = get_existing_records(
@@ -43,14 +54,20 @@ def get_or_create_records(
             # unmapped new_ids will only create records with field and kwargs
             if len(unmapped_values) > 0:
                 for value in unmapped_values:
-                    records.append(model(**{field_name: value}, **kwargs))
+                    params = {field_name: value}
+                    if types is not None:
+                        params["type"] = str(types[value])
+                    records.append(ORM(**params, **kwargs))
                 s = "" if len(unmapped_values) == 1 else "s"
                 print_unmapped_values = ", ".join(unmapped_values[:7])
-                if len(unmapped_values) > 7:
+                if len(unmapped_values) > 10:
                     print_unmapped_values += ", ..."
+                additional_info = " "
+                if feature is not None:
+                    additional_info = f" Feature {feature.name} and "
                 logger.warning(
-                    f"Created {colors.yellow(f'{len(unmapped_values)} {model.__name__} record{s}')} setting"  # noqa
-                    f" field {colors.yellow(f'{field_name}')} to: {print_unmapped_values}"  # noqa
+                    f"Created {colors.yellow(f'{len(unmapped_values)} {ORM.__name__} record{s}')} for{additional_info}"  # noqa
+                    f"{colors.yellow(f'{field_name}{s}')}: {print_unmapped_values}"  # noqa
                 )
         return records
     finally:
@@ -104,7 +121,7 @@ def get_existing_records(iterable_idx: pd.Index, field: Field, kwargs: Dict = {}
         logger.info(
             "Loaded"
             f" {colors.green(f'{n_name} {model.__name__} record{s}')} that"
-            f" matched field {colors.green(f'{field_name}')}"
+            f" matched {colors.green(f'{field_name}')}"
         )
     # make sure that synonyms logging appears after the field logging
     if len(syn_msg) > 0:
@@ -145,7 +162,7 @@ def create_records_from_bionty(
     if len(syn_mapper) > 0:
         s = "" if len(syn_mapper) == 1 else "s"
         msg_syn = (
-            "Created"
+            "Loaded"
             f" {colors.purple(f'{len(syn_mapper)} {model.__name__} record{s} from Bionty')} that"  # noqa
             f" matched {colors.purple('synonyms')}"
         )
@@ -174,9 +191,9 @@ def create_records_from_bionty(
         if n_name > 0:
             s = "" if n_name == 1 else "s"
             msg = (
-                "Created"
+                "Loaded"
                 f" {colors.purple(f'{n_name} {model.__name__} record{s} from Bionty')} that"  # noqa
-                f" matched {colors.purple(f'{field_name}')} field"
+                f" matched {colors.purple(f'{field_name}')}"
             )
             logger.info(msg + source_msg)
         # make sure that synonyms logging appears after the field logging

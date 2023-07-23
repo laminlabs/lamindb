@@ -1,6 +1,6 @@
 from typing import List, Union, overload  # noqa
 
-from lamin_logger import colors, logger
+from lamin_utils import colors, logger
 from lnschema_core import ORM
 
 
@@ -47,12 +47,12 @@ def delete(  # type: ignore
 
         Bulk delete via QuerySet:
 
-        >>> ln.save(ln.Tag.from_values(["Tag1", "Tag2", "Tag3"], field="name"))
-        >>> queryset = ln.Tag.select(name__icontains = "tag")
+        >>> ln.save(ln.Label.from_values(["Label1", "Label2", "Label3"], field="name"))
+        >>> queryset = ln.Label.select(name__icontains = "label")
         >>> queryset.list()
-        [Tag(id=o3FY3c5n, name=Tag2, updated_at=2023-07-19 18:28:16, created_by_id=kmvZDIX9), # noqa
-        Tag(id=Qi3c4utq, name=Tag3, updated_at=2023-07-19 18:28:16, created_by_id=kmvZDIX9), # noqa
-        Tag(id=CcFPLmpq, name=Tag1, updated_at=2023-07-19 18:28:16, created_by_id=kmvZDIX9)] # noqa
+        [Label(id=o3FY3c5n, name=Label2, updated_at=2023-07-19 18:28:16, created_by_id=kmvZDIX9), # noqa
+        Label(id=Qi3c4utq, name=Label3, updated_at=2023-07-19 18:28:16, created_by_id=kmvZDIX9), # noqa
+        Label(id=CcFPLmpq, name=Label1, updated_at=2023-07-19 18:28:16, created_by_id=kmvZDIX9)] # noqa
         >>> queryset.delete()
     """
     logger.warning("For efficient bulk delete, use `queryset.delete` instead")
