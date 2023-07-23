@@ -83,15 +83,6 @@ def from_df(cls, df: "pd.DataFrame") -> List["Feature"]:
             "There are unmapped categories:\n     "
             f" {categoricals_with_unmapped_categories_formatted}"
         )
-        hint_formatted = "\n      ".join(
-            [
-                f"ln.Label.from_values(df['{key}'])"
-                for key in take(n_max, categoricals_with_unmapped_categories)
-            ]
-        )
-        if len(categoricals_with_unmapped_categories) > n_max:
-            hint_formatted += "\n      ..."
-        logger.hint(f"Consider adding them via:\n      {hint_formatted}")
     return features
 
 
