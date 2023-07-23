@@ -1,5 +1,6 @@
 # Changelog
 
+- ✨ Disentangle File.backed() from zarr [PR923](https://github.com/laminlabs/lamindb/pull/923) [@Koncopd](https://github.com/Koncopd)
 - ✨ Added `with_children` to `view_parents` [PR921](https://github.com/laminlabs/lamindb/pull/921) [@sunnyosun](https://github.com/sunnyosun)
 - 🍱 Added comprehensive lineage graph example [PR919](https://github.com/laminlabs/lamindb/pull/919) [@sunnyosun](https://github.com/sunnyosun)
 - 🐛 filepath_from_file now returns file._local_filepath if it is present [PR918](https://github.com/laminlabs/lamindb/pull/918) [@Koncopd](https://github.com/Koncopd)
