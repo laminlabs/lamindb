@@ -1,5 +1,6 @@
 # Changelog
 
+- ⬆️ Upgrade core and lb versions [PR924](https://github.com/laminlabs/lamindb/pull/924) [@sunnyosun](https://github.com/sunnyosun)
 - 🎉  Stage 0.48 (4) [PR909](https://github.com/laminlabs/lamindb/pull/909) [@sunnyosun](https://github.com/sunnyosun)
 - 📝 Improve bio guides [PR920](https://github.com/laminlabs/lamindb/pull/920) [@falexwolf](https://github.com/falexwolf)
 - ✨ Disentangle File.backed() from zarr [PR923](https://github.com/laminlabs/lamindb/pull/923) [@Koncopd](https://github.com/Koncopd)
