@@ -79,3 +79,4 @@ def test_search_file():
     # multi-field search
     res = ln.File.search("txt", field=["key", "description", "suffix"])
     assert res.iloc[0].suffix == ".txt"
+    ln.delete([file1, file2, file0, file3, file4, file5], storage=True)
