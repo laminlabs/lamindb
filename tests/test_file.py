@@ -48,35 +48,14 @@ def test_signatures():
 
 
 @pytest.mark.parametrize("name", [None, "my name"])
-@pytest.mark.parametrize("feature_list", [None, [], df.columns])
-def test_create_from_dataframe(name, feature_list):
-    if feature_list is not None:
-        if len(feature_list) == 0:
-            feature_set = []
-        else:
-            feature_set = ln.FeatureSet.from_values(feature_list)
-    else:
-        feature_set = None
-    file = ln.File(df, name=name, feature_sets=feature_set)
+def test_create_from_dataframe(name):
+    file = ln.File(df, name=name)
     assert file.description is None if name is None else file.description == name
     assert file.key is None
     assert hasattr(file, "_local_filepath")
     file.save()
     # check that the local filepath has been cleared
     assert not hasattr(file, "_local_filepath")
-    if isinstance(feature_set, ln.FeatureSet):
-        feature_set_queried = file.feature_sets.get()  # exactly one
-        feature_list_queried = ln.Feature.select(
-            feature_sets=feature_set_queried
-        ).list()
-        feature_list_queried = [feature.name for feature in feature_list_queried]
-        if feature_list is None:
-            assert set(feature_list_queried) == set(df.columns)
-        else:
-            assert set(feature_list_queried) == set(feature_list)
-        feature_set_queried.delete()
-    else:
-        assert len(file.feature_sets.all()) == 0
     file.delete(storage=True)
 
 

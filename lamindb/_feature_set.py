@@ -1,4 +1,4 @@
-from typing import List, Optional
+from typing import Iterable, List, Optional, Type, Union
 
 import pandas as pd
 from django.db.models.query_utils import DeferredAttribute as Field
@@ -55,28 +55,45 @@ def __init__(self, *args, **kwargs):
     # now we proceed with the user-facing constructor
     if len(args) > 1:
         raise ValueError("Only one non-keyword arg allowed: features")
-    features: List[ORM] = kwargs.pop("features") if len(args) == 0 else args[0]
-    field: Optional[str] = kwargs.pop("field") if "field" in kwargs else None
+    features: Iterable[ORM] = kwargs.pop("features") if len(args) == 0 else args[0]
+    ref_field: Optional[str] = (
+        kwargs.pop("ref_field") if "ref_field" in kwargs else "id"
+    )
+    type: Optional[Union[type, str]] = kwargs.pop("type") if "type" in kwargs else None
+    readout: Optional[str] = kwargs.pop("readout") if "readout" in kwargs else None
+    name: Optional[str] = kwargs.pop("name") if "name" in kwargs else None
     id: Optional[str] = kwargs.pop("id") if "id" in kwargs else None
-    features_type = validate_features(features)
-    related_name = get_related_name(features_type)
+
+    # now code
+    features_orm = validate_features(features)
+    if features_orm == Feature:
+        type = None
+    else:
+        type = float
+    n_features = len(features)
+    features_hash = hash_set({feature.id for feature in features})
     if id is None:
-        features_hash = hash_set({feature.id for feature in features})
         feature_set = FeatureSet.select(id=features_hash).one_or_none()
         if feature_set is not None:
-            logger.info("Returning an existing feature_set")
+            logger.info("Loaded an existing `feature_set`")
             init_self_from_db(self, feature_set)
             return None
         else:
             id = features_hash
-    self._features = (related_name, features)
-    if field is None:
-        field = "id"
+    self._features = (get_related_name(features_orm), features)
+    if type is not None:
+        type_str = type.__name__ if not isinstance(type, str) else type
+    else:
+        type_str = None
     super(FeatureSet, self).__init__(
         id=id,
-        type=features_type.__name__,
-        schema=features_type.__get_schema_name__(),
-        field=field,
+        name=name,
+        type=type_str,
+        n=n_features,
+        readout=readout,
+        ref_orm=features_orm.__name__,
+        ref_schema=features_orm.__get_schema_name__(),
+        ref_field=ref_field,
     )
 
 
@@ -99,32 +116,46 @@ def save(self, *args, **kwargs) -> None:
 @classmethod  # type:ignore
 @doc_args(FeatureSet.from_values.__doc__)
 def from_values(
-    cls, values: ListLike, field: Field = Feature.name, **kwargs
+    cls,
+    values: ListLike,
+    field: Field = Feature.name,
+    type: Optional[Union[Type, str]] = None,
+    name: Optional[str] = None,
+    readout: Optional[str] = None,
+    **kwargs,
 ) -> "FeatureSet":
     """{}"""
     if not isinstance(field, Field):
         raise TypeError("Argument `field` must be an ORM field, e.g., `Feature.name`")
     if len(values) == 0:
         raise ValueError("Provide a list of at least one value")
-    orm = field.field.model
+    ORM = field.field.model
+    if isinstance(ORM, Feature):
+        raise ValueError("Please use from_df() instead of from_values()")
     iterable_idx = index_iterable(values)
     if not isinstance(iterable_idx[0], (str, int)):
         raise TypeError("values should be list-like of str or int")
+    n_features = len(iterable_idx)
     features_hash = hash_set(set(iterable_idx))
     feature_set = FeatureSet.select(id=features_hash).one_or_none()
     if feature_set is not None:
         logger.info("Returning an existing feature_set")
     else:
-        from_bionty = orm.__module__.startswith("lnschema_bionty")
+        from_bionty = ORM.__module__.startswith("lnschema_bionty")
         records = get_or_create_records(
             iterable=iterable_idx,
             field=field,
             from_bionty=from_bionty,
             **kwargs,
         )
+        # type_str = type.__name__ if not isinstance(type, str) else type
         feature_set = FeatureSet(
             id=features_hash,
-            field=field.field.name,
+            name=name,
+            n=n_features,
+            readout=readout,
+            type=type,
+            ref_field=field.field.name,
             features=records,
         )
     return feature_set
@@ -135,10 +166,11 @@ def from_values(
 def from_df(
     cls,
     df: "pd.DataFrame",
+    name: Optional[str] = None,
 ) -> "FeatureSet":
     """{}"""
     features = Feature.from_df(df)
-    feature_set = FeatureSet(features)
+    feature_set = FeatureSet(features, name=name)
     return feature_set
 
 

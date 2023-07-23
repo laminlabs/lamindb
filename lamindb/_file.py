@@ -31,6 +31,7 @@ from lamindb.dev.storage.file import auto_storage_key_from_file, filepath_from_f
 from lamindb.dev.utils import attach_func_to_class_method
 
 from . import _TESTING
+from ._feature import convert_numpy_dtype_to_lamin_feature_type
 from .dev._view_parents import view_lineage
 from .dev.storage.file import AUTO_KEY_PREFIX
 
@@ -383,9 +384,6 @@ def __init__(file: File, *args, **kwargs):
     description: Optional[str] = (
         kwargs.pop("description") if "description" in kwargs else None
     )
-    feature_sets: Optional[List[FeatureSet]] = (
-        kwargs.pop("feature_sets") if "feature_sets" in kwargs else None
-    )
     name: Optional[str] = kwargs.pop("name") if "name" in kwargs else None
     format = kwargs.pop("format") if "format" in kwargs else None
     log_hint = kwargs.pop("log_hint") if "log_hint" in kwargs else True
@@ -404,18 +402,16 @@ def __init__(file: File, *args, **kwargs):
         logger.warning("Argument `name` is deprecated, please use `description`")
         description = name
 
-    if feature_sets is None:
-        feature_sets = []
-        if isinstance(data, pd.DataFrame) and log_hint:
-            logger.hint(
-                "This is a dataframe, consider using File.from_df() to link column"
-                " names as features!"
-            )
-        elif data_is_anndata(data) and log_hint:
-            logger.hint(
-                "This is AnnDataLike, consider using File.from_anndata() to link var"
-                " and obs.columns as features!"
-            )
+    if isinstance(data, pd.DataFrame) and log_hint:
+        logger.hint(
+            "This is a dataframe, consider using File.from_df() to link column"
+            " names as features!"
+        )
+    elif data_is_anndata(data) and log_hint:
+        logger.hint(
+            "This is AnnDataLike, consider using File.from_anndata() to link var_names"
+            " and obs.columns as features!"
+        )
 
     provisional_id = ids.base62_20()
     kwargs, privates = get_file_kwargs_from_data(
@@ -465,9 +461,6 @@ def __init__(file: File, *args, **kwargs):
         file._cloud_filepath = privates["cloud_filepath"]
         file._memory_rep = privates["memory_rep"]
         file._to_store = not privates["check_path_in_storage"]
-        file._feature_sets = (
-            feature_sets if isinstance(feature_sets, list) else [feature_sets]
-        )
 
     super(File, file).__init__(**kwargs)
 
@@ -511,14 +504,21 @@ def from_anndata(
             data_parse = backed_access(filepath)
         else:
             data_parse = ad.read(filepath, backed="r")
+        type = "float"
+    else:
+        type = convert_numpy_dtype_to_lamin_feature_type(adata.X.dtype)
     feature_sets = []
     logger.info("Parsing features of X (numerical)")
     logger.indent = "   "
-    feature_sets.append(FeatureSet.from_values(data_parse.var.index, var_ref))
+    feature_set_x = FeatureSet.from_values(
+        data_parse.var.index, var_ref, type=type, name="var", readout="abundance"
+    )
+    feature_sets.append(feature_set_x)
     logger.indent = ""
     logger.info("Parsing features of obs (numerical & categorical)")
     logger.indent = "   "
-    feature_sets.append(FeatureSet.from_df(data_parse.obs))
+    feature_set_obs = FeatureSet.from_df(data_parse.obs, name="obs")
+    feature_sets.append(feature_set_obs)
     logger.indent = ""
     file._feature_sets = feature_sets
     return file
