@@ -39,6 +39,7 @@ def install(session, group):
         extras += ",bionty,aws,zarr,postgres"
     elif group == "guide":
         extras += ",aws,bionty,zarr,jupyter"
+        session.run(*"pip install scanpy".split())
     elif group == "biology":
         extras += ",bionty,fcs,jupyter"
     elif group == "faq":
