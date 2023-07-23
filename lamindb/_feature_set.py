@@ -1,4 +1,4 @@
-from typing import Iterable, List, Optional
+from typing import Iterable, List, Optional, Type, Union
 
 import pandas as pd
 from django.db.models.query_utils import DeferredAttribute as Field
@@ -59,22 +59,32 @@ def __init__(self, *args, **kwargs):
     ref_field: Optional[str] = (
         kwargs.pop("ref_field") if "ref_field" in kwargs else "id"
     )
+    type: Optional[Union[type, str]] = kwargs.pop("type") if "type" in kwargs else None
     readout: Optional[str] = kwargs.pop("readout") if "readout" in kwargs else None
     name: Optional[str] = kwargs.pop("name") if "name" in kwargs else None
+    id: Optional[str] = kwargs.pop("id") if "id" in kwargs else None
+
     # now code
     features_orm = validate_features(features)
-    features_hash = hash_set({feature.id for feature in features})
-    feature_set = FeatureSet.select(id=features_hash).one_or_none()
-    if feature_set is not None:
-        logger.info("Loaded an existing `feature_set`")
-        init_self_from_db(self, feature_set)
-        return None
+    if isinstance(features_orm, Feature):
+        type = None
     else:
-        id = features_hash
+        type = float
+    features_hash = hash_set({feature.id for feature in features})
+    if id is None:
+        feature_set = FeatureSet.select(id=features_hash).one_or_none()
+        if feature_set is not None:
+            logger.info("Loaded an existing `feature_set`")
+            init_self_from_db(self, feature_set)
+            return None
+        else:
+            id = features_hash
     self._features = (get_related_name(features_orm), features)
+    type_str = type.__name__ if not isinstance(type, str) else type
     super(FeatureSet, self).__init__(
         id=id,
         name=name,
+        type=type_str,
         readout=readout,
         ref_orm=features_orm.__name__,
         ref_schema=features_orm.__get_schema_name__(),
@@ -101,31 +111,41 @@ def save(self, *args, **kwargs) -> None:
 @classmethod  # type:ignore
 @doc_args(FeatureSet.from_values.__doc__)
 def from_values(
-    cls, values: ListLike, field: Field = Feature.name, **kwargs
+    cls,
+    values: ListLike,
+    field: Field = Feature.name,
+    type: Union[Type, str] = float,
+    **kwargs,
 ) -> "FeatureSet":
     """{}"""
     if not isinstance(field, Field):
         raise TypeError("Argument `field` must be an ORM field, e.g., `Feature.name`")
     if len(values) == 0:
         raise ValueError("Provide a list of at least one value")
-    orm = field.field.model
+    ORM = field.field.model
+    if isinstance(ORM, Feature):
+        raise ValueError("Please use from_df() instead of from_values()")
     iterable_idx = index_iterable(values)
     if not isinstance(iterable_idx[0], (str, int)):
         raise TypeError("values should be list-like of str or int")
     features_hash = hash_set(set(iterable_idx))
+    print(iterable_idx)
+    print(features_hash)
     feature_set = FeatureSet.select(id=features_hash).one_or_none()
     if feature_set is not None:
         logger.info("Returning an existing feature_set")
     else:
-        from_bionty = orm.__module__.startswith("lnschema_bionty")
+        from_bionty = ORM.__module__.startswith("lnschema_bionty")
         records = get_or_create_records(
             iterable=iterable_idx,
             field=field,
             from_bionty=from_bionty,
             **kwargs,
         )
+        type_str = type.__name__ if not isinstance(type, str) else type
         feature_set = FeatureSet(
             id=features_hash,
+            type=type_str,
             ref_field=field.field.name,
             features=records,
         )

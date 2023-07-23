@@ -1,5 +1,6 @@
 from inspect import signature
 
+import lnschema_bionty as lb
 import pandas as pd
 import pytest
 
@@ -35,17 +36,20 @@ def test_signatures():
 
 
 def test_feature_set_from_values():
-    features = ["feat1", "feat2"]
-    feature_set = ln.FeatureSet.from_values(features)
+    gene_symbols = ["TCF7", "MYC"]
+    lb.settings.species = "human"
+    feature_set = ln.FeatureSet.from_values(gene_symbols, lb.Gene.symbol)
     id = feature_set.id
     assert feature_set._state.adding
-    assert feature_set.type == "Feature"
-    assert feature_set.schema == "core"
-    assert feature_set.field == "name"
+    assert feature_set.type == "float"
+    assert feature_set.ref_orm == "Gene"
+    assert feature_set.ref_schema == "bionty"
+    assert feature_set.ref_field == "symbol"
     feature_set.save()
     # test that the feature_set is retrieved from the database
     # in case it already exists
-    feature_set = ln.FeatureSet.from_values(features)
+    print(id)
+    feature_set = ln.FeatureSet.from_values(gene_symbols)
     assert not feature_set._state.adding
     assert id == feature_set.id
     feature_set.delete()
@@ -56,13 +60,14 @@ def test_feature_set_from_values():
 
 
 def test_feature_set_from_records():
-    features = ln.Feature.from_values(["feat1", "feat2"], "name")
+    features = ln.Feature.from_df(df)
     feature_set = ln.FeatureSet(features)
     id = feature_set.id
     assert feature_set._state.adding
-    assert feature_set.type == "Feature"
-    assert feature_set.schema == "core"
-    assert feature_set.field == "id"
+    assert feature_set.type == "float"
+    assert feature_set.ref_orm == "Feature"
+    assert feature_set.ref_schema == "core"
+    assert feature_set.ref_field == "id"
     feature_set.save()
     # test that the feature_set is retrieved from the database
     # in case it already exists

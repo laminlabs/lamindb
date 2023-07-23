@@ -383,9 +383,6 @@ def __init__(file: File, *args, **kwargs):
     description: Optional[str] = (
         kwargs.pop("description") if "description" in kwargs else None
     )
-    feature_sets: Optional[List[FeatureSet]] = (
-        kwargs.pop("feature_sets") if "feature_sets" in kwargs else None
-    )
     name: Optional[str] = kwargs.pop("name") if "name" in kwargs else None
     format = kwargs.pop("format") if "format" in kwargs else None
     log_hint = kwargs.pop("log_hint") if "log_hint" in kwargs else True
@@ -404,18 +401,16 @@ def __init__(file: File, *args, **kwargs):
         logger.warning("Argument `name` is deprecated, please use `description`")
         description = name
 
-    if feature_sets is None:
-        feature_sets = []
-        if isinstance(data, pd.DataFrame) and log_hint:
-            logger.hint(
-                "This is a dataframe, consider using File.from_df() to link column"
-                " names as features!"
-            )
-        elif data_is_anndata(data) and log_hint:
-            logger.hint(
-                "This is AnnDataLike, consider using File.from_anndata() to link var"
-                " and obs.columns as features!"
-            )
+    if isinstance(data, pd.DataFrame) and log_hint:
+        logger.hint(
+            "This is a dataframe, consider using File.from_df() to link column"
+            " names as features!"
+        )
+    elif data_is_anndata(data) and log_hint:
+        logger.hint(
+            "This is AnnDataLike, consider using File.from_anndata() to link var_names"
+            " and obs.columns as features!"
+        )
 
     provisional_id = ids.base62_20()
     kwargs, privates = get_file_kwargs_from_data(
@@ -465,9 +460,6 @@ def __init__(file: File, *args, **kwargs):
         file._cloud_filepath = privates["cloud_filepath"]
         file._memory_rep = privates["memory_rep"]
         file._to_store = not privates["check_path_in_storage"]
-        file._feature_sets = (
-            feature_sets if isinstance(feature_sets, list) else [feature_sets]
-        )
 
     super(File, file).__init__(**kwargs)
 

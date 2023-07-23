@@ -33,6 +33,10 @@ def get_or_create_records(
         ORM = field.field.model
         iterable_idx = index_iterable(iterable)
 
+        if isinstance(ORM, Feature):
+            if types is None:
+                raise ValueError("Please pass types as {} or use FeatureSet.from_df()")
+
         # returns existing records & non-existing values
         records, nonexist_values = get_existing_records(
             iterable_idx=iterable_idx, field=field, kwargs=kwargs
@@ -52,7 +56,7 @@ def get_or_create_records(
                 for value in unmapped_values:
                     params = {field_name: value}
                     if types is not None:
-                        params["type"] = types[value]
+                        params["type"] = str(types[value])
                     records.append(ORM(**params, **kwargs))
                 s = "" if len(unmapped_values) == 1 else "s"
                 print_unmapped_values = ", ".join(unmapped_values[:7])
