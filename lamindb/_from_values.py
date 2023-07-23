@@ -1,4 +1,4 @@
-from typing import Any, Dict, Iterable, List, Tuple, Union
+from typing import Any, Dict, Iterable, List, Optional, Tuple, Union
 
 import pandas as pd
 from django.core.exceptions import FieldDoesNotExist
@@ -25,9 +25,12 @@ def get_or_create_records(
     if "feature" in kwargs:
         feature = kwargs.pop("feature")
         kwargs["feature_id"] = feature.id
+    types: Optional[Dict] = None
+    if "types" in kwargs:
+        types = kwargs.pop("types")
     try:
         field_name = field.field.name
-        model = field.field.model
+        ORM = field.field.model
         iterable_idx = index_iterable(iterable)
 
         # returns existing records & non-existing values
@@ -47,7 +50,10 @@ def get_or_create_records(
             # unmapped new_ids will only create records with field and kwargs
             if len(unmapped_values) > 0:
                 for value in unmapped_values:
-                    records.append(model(**{field_name: value}, **kwargs))
+                    params = {field_name: value}
+                    if types is not None:
+                        params["type"] = types[value]
+                    records.append(ORM(**params, **kwargs))
                 s = "" if len(unmapped_values) == 1 else "s"
                 print_unmapped_values = ", ".join(unmapped_values[:7])
                 if len(unmapped_values) > 10:
@@ -56,7 +62,7 @@ def get_or_create_records(
                 if feature is not None:
                     additional_info = f" Feature {feature.name} and "
                 logger.warning(
-                    f"Created {colors.yellow(f'{len(unmapped_values)} {model.__name__} record{s}')} for{additional_info}"  # noqa
+                    f"Created {colors.yellow(f'{len(unmapped_values)} {ORM.__name__} record{s}')} for{additional_info}"  # noqa
                     f"{colors.yellow(f'{field_name}{s}')}: {print_unmapped_values}"  # noqa
                 )
         return records

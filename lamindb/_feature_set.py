@@ -1,4 +1,4 @@
-from typing import List, Optional
+from typing import Iterable, List, Optional
 
 import pandas as pd
 from django.db.models.query_utils import DeferredAttribute as Field
@@ -55,28 +55,30 @@ def __init__(self, *args, **kwargs):
     # now we proceed with the user-facing constructor
     if len(args) > 1:
         raise ValueError("Only one non-keyword arg allowed: features")
-    features: List[ORM] = kwargs.pop("features") if len(args) == 0 else args[0]
-    field: Optional[str] = kwargs.pop("field") if "field" in kwargs else None
-    id: Optional[str] = kwargs.pop("id") if "id" in kwargs else None
-    features_type = validate_features(features)
-    related_name = get_related_name(features_type)
-    if id is None:
-        features_hash = hash_set({feature.id for feature in features})
-        feature_set = FeatureSet.select(id=features_hash).one_or_none()
-        if feature_set is not None:
-            logger.info("Returning an existing feature_set")
-            init_self_from_db(self, feature_set)
-            return None
-        else:
-            id = features_hash
-    self._features = (related_name, features)
-    if field is None:
-        field = "id"
+    features: Iterable[ORM] = kwargs.pop("features") if len(args) == 0 else args[0]
+    ref_field: Optional[str] = (
+        kwargs.pop("ref_field") if "ref_field" in kwargs else "id"
+    )
+    readout: Optional[str] = kwargs.pop("readout") if "readout" in kwargs else None
+    name: Optional[str] = kwargs.pop("name") if "name" in kwargs else None
+    # now code
+    features_orm = validate_features(features)
+    features_hash = hash_set({feature.id for feature in features})
+    feature_set = FeatureSet.select(id=features_hash).one_or_none()
+    if feature_set is not None:
+        logger.info("Loaded an existing `feature_set`")
+        init_self_from_db(self, feature_set)
+        return None
+    else:
+        id = features_hash
+    self._features = (get_related_name(features_orm), features)
     super(FeatureSet, self).__init__(
         id=id,
-        type=features_type.__name__,
-        schema=features_type.__get_schema_name__(),
-        field=field,
+        name=name,
+        readout=readout,
+        ref_orm=features_orm.__name__,
+        ref_schema=features_orm.__get_schema_name__(),
+        ref_field=ref_field,
     )
 
 
@@ -124,7 +126,7 @@ def from_values(
         )
         feature_set = FeatureSet(
             id=features_hash,
-            field=field.field.name,
+            ref_field=field.field.name,
             features=records,
         )
     return feature_set
