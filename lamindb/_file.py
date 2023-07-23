@@ -31,6 +31,7 @@ from lamindb.dev.storage.file import auto_storage_key_from_file, filepath_from_f
 from lamindb.dev.utils import attach_func_to_class_method
 
 from . import _TESTING
+from ._feature import convert_numpy_dtype_to_lamin_feature_type
 from .dev._view_parents import view_lineage
 from .dev.storage.file import AUTO_KEY_PREFIX
 
@@ -503,14 +504,21 @@ def from_anndata(
             data_parse = backed_access(filepath)
         else:
             data_parse = ad.read(filepath, backed="r")
+        type = "float"
+    else:
+        type = convert_numpy_dtype_to_lamin_feature_type(adata.X.dtype)
     feature_sets = []
     logger.info("Parsing features of X (numerical)")
     logger.indent = "   "
-    feature_sets.append(FeatureSet.from_values(data_parse.var.index, var_ref))
+    feature_set_x = FeatureSet.from_values(
+        data_parse.var.index, var_ref, type=type, name="var", readout="abundance"
+    )
+    feature_sets.append(feature_set_x)
     logger.indent = ""
     logger.info("Parsing features of obs (numerical & categorical)")
     logger.indent = "   "
-    feature_sets.append(FeatureSet.from_df(data_parse.obs))
+    feature_set_obs = FeatureSet.from_df(data_parse.obs, name="obs")
+    feature_sets.append(feature_set_obs)
     logger.indent = ""
     file._feature_sets = feature_sets
     return file

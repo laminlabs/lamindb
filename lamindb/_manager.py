@@ -8,6 +8,7 @@ class Manager(models.Manager):
 
     See Also:
 
+        :class:`lamindb.dev.QuerySet`
         `django Manager <https://docs.djangoproject.com/en/4.2/topics/db/managers/>`__
 
     Examples:
@@ -18,6 +19,7 @@ class Manager(models.Manager):
         >>> label = ln.Label.select(name="Label1").one()
         >>> label.parents.set(labels)
         >>> manager = label.parents
+        >>> manager.df()
     """
 
     def list(self, field: Optional[str] = None):
@@ -41,5 +43,10 @@ class Manager(models.Manager):
         else:
             return [item for item in self.values_list(field, flat=True)]
 
+    def df(self):
+        """Convert to DataFrame."""
+        return self.all().df()
+
 
 setattr(models.Manager, "list", Manager.list)
+setattr(models.Manager, "df", Manager.df)

@@ -13,6 +13,13 @@ from . import _TESTING
 from ._save import bulk_create
 
 
+def convert_numpy_dtype_to_lamin_feature_type(dtype) -> str:
+    orig_type = dtype.name
+    # strip precision qualifiers
+    type = "".join(i for i in orig_type if not i.isdigit())
+    return type
+
+
 def take(n, iterable):
     """Return the first n items of the iterable as a list."""
     return list(islice(iterable, n))
@@ -54,10 +61,7 @@ def from_df(cls, df: "pd.DataFrame") -> List["Feature"]:
                 feature=name
             ).inspect(categories, "name", logging=False)["not_mapped"]
         else:
-            orig_type = col.dtype.name
-            # strip precision qualifiers
-            type = "".join(i for i in orig_type if not i.isdigit())
-            types[name] = type
+            types[name] = convert_numpy_dtype_to_lamin_feature_type(col.dtype)
 
     features = Feature.from_values(df.columns, field=Feature.name, types=types)
     assert len(features) == len(df.columns)

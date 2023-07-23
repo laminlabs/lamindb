@@ -48,7 +48,6 @@ def test_feature_set_from_values():
     feature_set.save()
     # test that the feature_set is retrieved from the database
     # in case it already exists
-    print(id)
     feature_set = ln.FeatureSet.from_values(gene_symbols)
     assert not feature_set._state.adding
     assert id == feature_set.id
@@ -64,7 +63,7 @@ def test_feature_set_from_records():
     feature_set = ln.FeatureSet(features)
     id = feature_set.id
     assert feature_set._state.adding
-    assert feature_set.type == "float"
+    assert feature_set.type is None
     assert feature_set.ref_orm == "Feature"
     assert feature_set.ref_schema == "core"
     assert feature_set.ref_field == "id"
@@ -80,6 +79,7 @@ def test_feature_set_from_records():
 def test_feature_set_from_df():
     feature_set = ln.FeatureSet.from_df(df)
     feature_set.save()
+    assert feature_set.type is None
     for feature in feature_set.features.all():
         feature.delete()
     feature_set.delete()

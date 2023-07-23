@@ -66,7 +66,7 @@ def __init__(self, *args, **kwargs):
 
     # now code
     features_orm = validate_features(features)
-    if isinstance(features_orm, Feature):
+    if features_orm == Feature:
         type = None
     else:
         type = float
@@ -80,7 +80,10 @@ def __init__(self, *args, **kwargs):
         else:
             id = features_hash
     self._features = (get_related_name(features_orm), features)
-    type_str = type.__name__ if not isinstance(type, str) else type
+    if type is not None:
+        type_str = type.__name__ if not isinstance(type, str) else type
+    else:
+        type_str = None
     super(FeatureSet, self).__init__(
         id=id,
         name=name,
@@ -114,7 +117,9 @@ def from_values(
     cls,
     values: ListLike,
     field: Field = Feature.name,
-    type: Union[Type, str] = float,
+    type: Optional[Union[Type, str]] = None,
+    name: Optional[str] = None,
+    readout: Optional[str] = None,
     **kwargs,
 ) -> "FeatureSet":
     """{}"""
@@ -129,8 +134,6 @@ def from_values(
     if not isinstance(iterable_idx[0], (str, int)):
         raise TypeError("values should be list-like of str or int")
     features_hash = hash_set(set(iterable_idx))
-    print(iterable_idx)
-    print(features_hash)
     feature_set = FeatureSet.select(id=features_hash).one_or_none()
     if feature_set is not None:
         logger.info("Returning an existing feature_set")
@@ -142,10 +145,12 @@ def from_values(
             from_bionty=from_bionty,
             **kwargs,
         )
-        type_str = type.__name__ if not isinstance(type, str) else type
+        # type_str = type.__name__ if not isinstance(type, str) else type
         feature_set = FeatureSet(
             id=features_hash,
-            type=type_str,
+            name=name,
+            readout=readout,
+            type=type,
             ref_field=field.field.name,
             features=records,
         )
@@ -157,10 +162,11 @@ def from_values(
 def from_df(
     cls,
     df: "pd.DataFrame",
+    name: Optional[str] = None,
 ) -> "FeatureSet":
     """{}"""
     features = Feature.from_df(df)
-    feature_set = FeatureSet(features)
+    feature_set = FeatureSet(features, name=name)
     return feature_set
 
 
