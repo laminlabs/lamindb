@@ -70,6 +70,7 @@ def __init__(self, *args, **kwargs):
         type = None
     else:
         type = float
+    n_features = len(features)
     features_hash = hash_set({feature.id for feature in features})
     if id is None:
         feature_set = FeatureSet.select(id=features_hash).one_or_none()
@@ -88,6 +89,7 @@ def __init__(self, *args, **kwargs):
         id=id,
         name=name,
         type=type_str,
+        n=n_features,
         readout=readout,
         ref_orm=features_orm.__name__,
         ref_schema=features_orm.__get_schema_name__(),
@@ -133,6 +135,7 @@ def from_values(
     iterable_idx = index_iterable(values)
     if not isinstance(iterable_idx[0], (str, int)):
         raise TypeError("values should be list-like of str or int")
+    n_features = len(iterable_idx)
     features_hash = hash_set(set(iterable_idx))
     feature_set = FeatureSet.select(id=features_hash).one_or_none()
     if feature_set is not None:
@@ -149,6 +152,7 @@ def from_values(
         feature_set = FeatureSet(
             id=features_hash,
             name=name,
+            n=n_features,
             readout=readout,
             type=type,
             ref_field=field.field.name,
