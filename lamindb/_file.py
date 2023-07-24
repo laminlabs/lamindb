@@ -821,6 +821,9 @@ def inherit_relations(self, file: File, fields: Optional[List[str]] = None):
             else:
                 raise KeyError(f"No many-to-many relationship is found with '{field}'")
 
+    if None in related_names:
+        related_names.remove(None)
+
     inherit_names = [
         related_name
         for related_name in related_names
