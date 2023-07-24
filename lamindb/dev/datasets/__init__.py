@@ -4,6 +4,7 @@
    :toctree: .
 
    file_fcs
+   file_fcs_alpert19
    file_jpg_paradisi05
    file_fastq
    file_bam
@@ -38,6 +39,7 @@ from ._core import (
     file_bam,
     file_fastq,
     file_fcs,
+    file_fcs_alpert19,
     file_jpg_paradisi05,
     file_mini_csv,
     generate_cell_ranger_files,
