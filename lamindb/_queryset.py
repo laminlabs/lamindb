@@ -121,7 +121,11 @@ class QuerySet(models.QuerySet):
                     if field.field.model != ORM
                     else field.field.related_model
                 )
-                if field.field.model == related_ORM:
+                # print(ORM)
+                # print(field.field.model)
+                # print(field.field.related_model)
+                # print(related_ORM)
+                if ORM == related_ORM:
                     left_side_link_model = f"from_{ORM.__name__.lower()}"
                     values_expression = f"to_{ORM.__name__.lower()}__{lookup_str}"
                 else:
