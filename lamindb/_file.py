@@ -531,7 +531,7 @@ def from_dir(
     else:
         raise RuntimeError(
             "Currently, only directories in default storage can be registered!\n"
-            "You can either move your folder into the current default storage"
+            "You can either move your folder into the current default storage "
             "or add a new default storage through `ln.settings.storage`"
         )
     # always sanitize by stripping a trailing slash
