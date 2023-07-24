@@ -443,7 +443,7 @@ def describe(self):
                     msg_objects = f"    🔗 {related_name} ({count}):\n"
                     for k, v in labels.items():
                         msg_objects += f"         {k}: {v}\n"
-                        if len(v) > 10:
+                        if len(v) > 5:
                             msg_objects = msg_objects.replace("]", " ... ]")
                     msg += msg_objects
                     continue
@@ -456,7 +456,7 @@ def describe(self):
                 if field == "created_at":
                     objects_list = [format_datetime(i) for i in objects_list]
             msg_objects = f"    🔗 {related_name} ({count}): {objects_list}\n"
-            if count > 10:
+            if count > 5:
                 msg_objects = msg_objects.replace("]", " ... ]")
             msg += msg_objects
     msg = msg.rstrip("\n")
