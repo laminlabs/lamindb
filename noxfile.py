@@ -40,6 +40,7 @@ def install(session, group):
     elif group == "guide":
         extras += ",aws,bionty,zarr,jupyter"
         session.run(*"pip install scanpy".split())
+        session.run(*"pip install matplotlib".split())
     elif group == "biology":
         extras += ",bionty,fcs,jupyter"
     elif group == "faq":
