@@ -395,6 +395,13 @@ def map_synonyms(
     )
 
 
+def _labels_with_feature_names(labels: Union[QuerySet, Manager]) -> Dict:
+    from django.db.models import F
+
+    df = labels.annotate(feature_name=F("feature__name")).df()
+    return df.groupby("feature_name")["name"].apply(list).to_dict()
+
+
 def describe(self):
     model_name = self.__class__.__name__
     msg = ""
@@ -428,15 +435,28 @@ def describe(self):
         related_objects = self.__getattribute__(related_name)
         count = related_objects.count()
         if count > 0:
-            try:
-                field = get_default_str_field(related_objects)
-            except ValueError:
-                field = "id"
-            objects_list = list(related_objects.values_list(field, flat=True)[:10])
-            if field == "created_at":
-                objects_list = [format_datetime(i) for i in objects_list]
+            if related_name == "labels":
+                labels = _labels_with_feature_names(related_objects)
+                if len(labels) < 2:
+                    objects_list = labels
+                else:
+                    msg_objects = f"    🔗 {related_name} ({count}):\n"
+                    for k, v in labels.items():
+                        msg_objects += f"         {k}: {v[:5]}\n"
+                        if len(v) > 5:
+                            msg_objects = msg_objects.replace("]", " ... ]")
+                    msg += msg_objects
+                    continue
+            else:
+                try:
+                    field = get_default_str_field(related_objects)
+                except ValueError:
+                    field = "id"
+                objects_list = list(related_objects.values_list(field, flat=True)[:5])
+                if field == "created_at":
+                    objects_list = [format_datetime(i) for i in objects_list]
             msg_objects = f"    🔗 {related_name} ({count}): {objects_list}\n"
-            if count > 10:
+            if count > 5:
                 msg_objects = msg_objects.replace("]", " ... ]")
             msg += msg_objects
     msg = msg.rstrip("\n")
