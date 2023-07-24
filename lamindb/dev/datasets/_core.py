@@ -133,7 +133,10 @@ def anndata_human_immune_cells() -> ad.AnnData:
         adata.write('human_immune.h5ad')
     """
     filepath, _ = urlretrieve("https://lamindb-test.s3.amazonaws.com/human_immune.h5ad")
-    return ad.read(filepath)
+    adata = ad.read(filepath)
+    del adata.raw
+    adata.var.drop(columns=["gene_symbols", "feature_name"], inplace=True)
+    return adata
 
 
 def anndata_with_obs() -> ad.AnnData:
