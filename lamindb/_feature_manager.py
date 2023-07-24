@@ -6,8 +6,8 @@ from lnschema_core.models import ORM, Dataset, File
 from ._save import save
 
 
-class Features:
-    """Features accessor."""
+class FeatureManager:
+    """Feature manager."""
 
     def __init__(self, host: Union[File, Dataset]):
         self._host = host
