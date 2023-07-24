@@ -442,7 +442,7 @@ def describe(self):
                 else:
                     msg_objects = f"    🔗 {related_name} ({count}):\n"
                     for k, v in labels.items():
-                        msg_objects += f"         {k}: {v}\n"
+                        msg_objects += f"         {k}: {v[:5]}\n"
                         if len(v) > 5:
                             msg_objects = msg_objects.replace("]", " ... ]")
                     msg += msg_objects
@@ -452,7 +452,7 @@ def describe(self):
                     field = get_default_str_field(related_objects)
                 except ValueError:
                     field = "id"
-                objects_list = list(related_objects.values_list(field, flat=True)[:10])
+                objects_list = list(related_objects.values_list(field, flat=True)[:5])
                 if field == "created_at":
                     objects_list = [format_datetime(i) for i in objects_list]
             msg_objects = f"    🔗 {related_name} ({count}): {objects_list}\n"
