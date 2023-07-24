@@ -1,5 +1,6 @@
 # Changelog
 
+- 🐛 Fix `df(include)` for non-self-referential [PR927](https://github.com/laminlabs/lamindb/pull/927) [@falexwolf](https://github.com/falexwolf)
 ## 0.48a3 (2023-07-24)
 
 - ♻️ Disentangle `File.backed()` from `zarr` [PR923](https://github.com/laminlabs/lamindb/pull/923) [@Koncopd](https://github.com/Koncopd)
