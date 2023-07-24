@@ -1,5 +1,6 @@
 # Changelog
 
+- ✏️ Fix spacing in graphs [PR932](https://github.com/laminlabs/lamindb/pull/932) [@sunnyosun](https://github.com/sunnyosun)
 - ✨ Spatial example [PR930](https://github.com/laminlabs/lamindb/pull/930) [@falexwolf](https://github.com/falexwolf)
 - 🍱 Added Suo22 spatial dataset [PR931](https://github.com/laminlabs/lamindb/pull/931) [@sunnyosun](https://github.com/sunnyosun)
 - 📝 Expand flow cytometry example [PR929](https://github.com/laminlabs/lamindb/pull/929) [@sunnyosun](https://github.com/sunnyosun)
