@@ -176,16 +176,11 @@ def test_local_path_load():
 
 
 def test_init_from_directory(get_test_filepaths):
-    isin_default_storage = get_test_filepaths[0]
     test_dirpath = get_test_filepaths[1]
-    if not isin_default_storage:
-        with pytest.raises(RuntimeError):
-            ln.File.from_dir(test_dirpath)
-    else:
-        records = ln.File.from_dir(test_dirpath)
-        assert len(records) == 1
-        # also execute tree
-        ln.File.tree(test_dirpath.name)
+    records = ln.File.from_dir(test_dirpath)
+    assert len(records) == 1
+    # also execute tree
+    ln.File.tree(test_dirpath.name)
 
 
 def test_delete(get_test_filepaths):
