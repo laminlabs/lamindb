@@ -524,8 +524,6 @@ def from_dir(
 ) -> List["File"]:
     """{}"""
     folderpath = UPath(path)
-    check_path_in_storage = check_path_in_default_storage(folderpath)
-
     folder_key = get_relative_path_to_root(path=folderpath).as_posix()
     # always sanitize by stripping a trailing slash
     folder_key = folder_key.rstrip("/")
