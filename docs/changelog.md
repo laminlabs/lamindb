@@ -1,5 +1,6 @@
 # Changelog
 
+- 🍱 Added Suo22 spatial dataset [PR931](https://github.com/laminlabs/lamindb/pull/931) [@sunnyosun](https://github.com/sunnyosun)
 - 📝 Expand flow cytometry example [PR929](https://github.com/laminlabs/lamindb/pull/929) [@sunnyosun](https://github.com/sunnyosun)
 - 📝 Updated scRNA guide [PR925](https://github.com/laminlabs/lamindb/pull/925) [@sunnyosun](https://github.com/sunnyosun)
 - 🐛 Fix `df(include)` for non-self-referential [PR927](https://github.com/laminlabs/lamindb/pull/927) [@falexwolf](https://github.com/falexwolf)
