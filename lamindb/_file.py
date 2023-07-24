@@ -505,11 +505,12 @@ def from_anndata(
     )
     feature_sets.append(feature_set_x)
     logger.indent = ""
-    logger.info("Parsing features of obs (numerical & categorical)")
-    logger.indent = "   "
-    feature_set_obs = FeatureSet.from_df(data_parse.obs, name="obs")
-    feature_sets.append(feature_set_obs)
-    logger.indent = ""
+    if len(data_parse.obs.columns) > 0:
+        logger.info("Parsing features of obs (numerical & categorical)")
+        logger.indent = "   "
+        feature_set_obs = FeatureSet.from_df(data_parse.obs, name="obs")
+        feature_sets.append(feature_set_obs)
+        logger.indent = ""
     file._feature_sets = feature_sets
     return file
 
