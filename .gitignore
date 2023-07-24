@@ -1,5 +1,4 @@
 # LaminDB
-test-inherit*
 docs/guide/data-validation.ipynb
 docs/guide/knowledge.ipynb
 docs/guide/lnschema-bionty.ipynb
@@ -39,6 +38,9 @@ docs/faq/test-run-inputs/
 docs/intro/paradisi05_laminopathic_nuclei.jpg
 docs/guide/figures/
 suo22/
+docs/biology/test-flow/
+docs/biology/test-scrna/
+docs/biology/test-registries/
 # General
 .DS_Store
 

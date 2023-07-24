@@ -42,6 +42,7 @@ def install(session, group):
         session.run(*"pip install scanpy".split())
     elif group == "biology":
         extras += ",bionty,fcs,jupyter"
+        session.run(*"pip install scanpy".split())
     elif group == "faq":
         extras += ",aws,postgres,bionty,jupyter"
     elif group == "storage":
