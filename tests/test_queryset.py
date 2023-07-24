@@ -28,6 +28,7 @@ def test_df():
     feature_set = ln.FeatureSet(features, name="my feature_set")
     feature_set.save()
     feature_set.features.set(features)
+
     df = ln.FeatureSet.select(name="my feature_set").df(include="features__name")
     assert df.columns[0] == "features__name"
     # order is not conserved
