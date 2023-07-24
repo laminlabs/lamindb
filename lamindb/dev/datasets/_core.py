@@ -11,9 +11,19 @@ from .._settings import settings
 
 
 def file_fcs() -> Path:
-    """Return fcs file example."""
+    """Example FCS file."""
     filepath, _ = urlretrieve(
         "https://lamindb-test.s3.amazonaws.com/example.fcs", "example.fcs"
+    )
+    return Path(filepath)
+
+
+def file_fcs_alpert19() -> Path:
+    """FCS file from Alpert19."""
+    filepath, _ = urlretrieve(
+        "https://lamindb-test.s3.amazonaws.com/Alpert19-070314-Mike-Study"
+        " 15-2013-plate 1-15-004-1-13_cells_found.fcs",
+        "Alpert19.fcs",
     )
     return Path(filepath)
 
