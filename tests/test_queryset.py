@@ -29,8 +29,7 @@ def test_df():
     feature_set.save()
     feature_set.features.set(features)
 
-    df = ln.FeatureSet.select(name="my feature_set X").df(include="features__name")
-    ln.FeatureSet.select(name="my feature_set X").one()
+    df = ln.FeatureSet.select(name="my feature_set").df(include="features__name")
     assert df.columns[0] == "features__name"
     # order is not conserved
     assert set(df["features__name"][0]) == set(feature_names)
