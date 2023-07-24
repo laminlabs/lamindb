@@ -33,6 +33,7 @@ from lamindb.dev.utils import attach_func_to_class_method
 
 from . import _TESTING
 from ._feature import convert_numpy_dtype_to_lamin_feature_type
+from ._features import Features
 from .dev._view_parents import view_lineage
 from .dev.storage.file import AUTO_KEY_PREFIX
 
@@ -364,6 +365,7 @@ def __init__(file: File, *args, **kwargs):
     # stay robust
     if len(args) == len(file._meta.concrete_fields):
         super(File, file).__init__(*args, **kwargs)
+        file._features = Features(file)
         return None
     # now we proceed with the user-facing constructor
     if len(args) > 1:
@@ -422,6 +424,7 @@ def __init__(file: File, *args, **kwargs):
         super(File, file).__init__(*new_args)
         file._state.adding = False
         file._state.db = "default"
+        file._features = Features(file)
         return None
 
     kwargs["id"] = provisional_id
@@ -452,6 +455,7 @@ def __init__(file: File, *args, **kwargs):
         file._memory_rep = privates["memory_rep"]
         file._to_store = not privates["check_path_in_storage"]
 
+    file._features = Features(file)
     super(File, file).__init__(**kwargs)
 
 
