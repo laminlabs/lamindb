@@ -100,6 +100,8 @@ class QuerySet(models.QuerySet):
             df.run_at = format_and_convert_to_local_time(df.run_at)
         if "id" in df.columns:
             df = df.set_index("id")
+        if len(df) == 0:
+            return df
         if include is not None:
             if isinstance(include, str):
                 include = [include]
@@ -121,10 +123,6 @@ class QuerySet(models.QuerySet):
                     if field.field.model != ORM
                     else field.field.related_model
                 )
-                # print(ORM)
-                # print(field.field.model)
-                # print(field.field.related_model)
-                # print(related_ORM)
                 if ORM == related_ORM:
                     left_side_link_model = f"from_{ORM.__name__.lower()}"
                     values_expression = f"to_{ORM.__name__.lower()}__{lookup_str}"
@@ -139,7 +137,7 @@ class QuerySet(models.QuerySet):
                 link_groupby = link_df.groupby(left_side_link_model)[
                     values_expression
                 ].apply(list)
-                df = pd.concat((link_groupby, df), axis=1)
+                df = pd.concat((link_groupby, df), axis=1, join="inner")
                 df.rename(columns={values_expression: expression}, inplace=True)
         return df
 
