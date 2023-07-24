@@ -93,7 +93,9 @@ def view_parents(
         df_edges = pd.concat(
             [
                 df_edges,
-                _df_edges_from_children(record=record, field=field, distance=distance),
+                _df_edges_from_parents(
+                    record=record, field=field, distance=distance, children=True
+                ),
             ]
         ).drop_duplicates()
 
@@ -122,17 +124,21 @@ def view_parents(
     return u
 
 
-def _get_parents(record: ORM, field: str, distance: int):
+def _get_parents(record: ORM, field: str, distance: int, children: bool = False):
     """Recursively get parent records within a distance."""
+    if children:
+        key = "parents"
+    else:
+        key = "children"
     model = record.__class__
-    condition = f"children__{field}"
+    condition = f"{key}__{field}"
     results = model.select(**{condition: record.__getattribute__(field)}).all()
     if distance < 2:
         return results
 
     d = 2
     while d < distance:
-        condition = "children__" + condition
+        condition = f"{key}__{condition}"
         records = model.select(**{condition: record.__getattribute__(field)}).all()
 
         if len(records) == 0:
@@ -143,59 +149,21 @@ def _get_parents(record: ORM, field: str, distance: int):
     return results
 
 
-def _get_children(record: ORM, field: str, distance: int):
-    """Recursively get parent records within a distance."""
-    model = record.__class__
-    condition = f"parents__{field}"
-    results = model.select(**{condition: record.__getattribute__(field)}).all()
-    if distance < 2:
-        return results
-
-    d = 2
-    while d < distance:
-        condition = "parents__" + condition
-        records = model.select(**{condition: record.__getattribute__(field)}).all()
-
-        if len(records) == 0:
-            return results
-
-        results = results | records
-        d += 1
-    return results
-
-
-def _df_edges_from_parents(record: ORM, field: str, distance: int):
+def _df_edges_from_parents(
+    record: ORM, field: str, distance: int, children: bool = False
+):
     """Construct a DataFrame of edges as the input of graphviz.Digraph."""
-    parents = _get_parents(record=record, field=field, distance=distance)
-    records = parents | record.__class__.objects.filter(id=record.id)
-    df = records.distinct().df(include=[f"parents__{field}"])
-    df_edges = df[[f"parents__{field}", field]]
-    df_edges = df_edges.explode(f"parents__{field}")
-    df_edges.dropna(axis=0, inplace=True)
-    df_edges.rename(
-        columns={f"parents__{field}": "source", field: "target"}, inplace=True
+    key = "children" if children else "parents"
+    parents = _get_parents(
+        record=record, field=field, distance=distance, children=children
     )
-    df_edges = df_edges.drop_duplicates()
-
-    # colons messes with the node formatting:
-    # https://graphviz.readthedocs.io/en/stable/node_ports.html
-    df_edges["source_label"] = df_edges["source"]
-    df_edges["target_label"] = df_edges["target"]
-    df_edges["source"] = df_edges["source"].str.replace(":", "_")
-    df_edges["target"] = df_edges["target"].str.replace(":", "_")
-    return df_edges
-
-
-def _df_edges_from_children(record: ORM, field: str, distance: int):
-    """Construct a DataFrame of edges as the input of graphviz.Digraph."""
-    children = _get_children(record=record, field=field, distance=distance)
-    records = children | record.__class__.objects.filter(id=record.id)
-    df = records.distinct().df(include=[f"children__{field}"])
-    df_edges = df[[f"children__{field}", field]]
-    df_edges = df_edges.explode(f"children__{field}")
+    records = parents | record.__class__.objects.filter(id=record.id)
+    df = records.distinct().df(include=[f"{key}__{field}"])
+    df_edges = df[[f"{key}__{field}", field]]
+    df_edges = df_edges.explode(f"{key}__{field}")
     df_edges.dropna(axis=0, inplace=True)
     df_edges.rename(
-        columns={f"children__{field}": "source", field: "target"}, inplace=True
+        columns={f"{key}__{field}": "source", field: "target"}, inplace=True
     )
     df_edges = df_edges.drop_duplicates()
 
@@ -245,11 +213,11 @@ def _label_file_run(record: Union[File, Run]):
         else:
             name = record.description.replace("&", "&amp;")
         return (
-            rf'<{name}   <BR/><FONT COLOR="GREY" POINT-SIZE="10"'
+            rf'<{name}<BR/><FONT COLOR="GREY" POINT-SIZE="10"'
             rf' FACE="Monospace">id={record.id}<BR/>suffix={record.suffix}</FONT>>'
         )
     elif isinstance(record, Run):
-        name = f'{record.transform.name.replace("&", "&amp;")}   '
+        name = f'{record.transform.name.replace("&", "&amp;")}'
         return (
             rf'<{name}<BR/><FONT COLOR="GREY" POINT-SIZE="10"'
             rf' FACE="Monospace">id={record.id}<BR/>type={record.transform.type},'
