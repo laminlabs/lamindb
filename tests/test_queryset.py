@@ -25,15 +25,15 @@ def test_df():
     # for other models
     feature_names = [f"Feature {i}" for i in range(3)]
     features = [ln.Feature(name=name, type=int) for name in feature_names]
-    feature_set = ln.FeatureSet(features)
+    feature_set = ln.FeatureSet(features, name="my feature_set")
     feature_set.save()
     feature_set.features.set(features)
-    df = ln.FeatureSet.select().df(include="features__name")
+    df = ln.FeatureSet.select(name="my feature_set").df(include="features__name")
     assert df.columns[0] == "features__name"
     # order is not conserved
     assert set(df["features__name"][0]) == set(feature_names)
     # pass a list
-    df = ln.FeatureSet.select().df(
+    df = ln.FeatureSet.select(name="my feature_set").df(
         include=["features__name", "features__created_by_id"]
     )
     assert df.columns[1] == "features__created_by_id"
