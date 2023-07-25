@@ -88,6 +88,9 @@ def save(records: Iterable[ORM], **kwargs) -> None:  # type: ignore
                     "Now recursing through parents: "
                     "this only happens once, but is much slower than bulk saving"
                 )
+                logger.hint(
+                    "You can switch this off via: lb.settings.auto_save_parents = False"
+                )
                 for record in non_files_with_parents:
                     record._save_ontology_parents()
 
