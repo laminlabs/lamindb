@@ -72,12 +72,24 @@ def get_or_create_records(
         if ORM.__module__.startswith("lnschema_bionty."):
             if isinstance(iterable, pd.Series):
                 feature = iterable.name
+            else:
+                logger.warning(
+                    "Did not receive values as pd.Series, inferring feature from"
+                    f" reference ORM: {ORM.__name__}"
+                )
+                feature = ORM.__name__.lower()
             if isinstance(feature, str):
+                feature_name = feature
                 feature = Feature.select(name=feature).one_or_none()
+            elif feature is not None:
+                feature_name = feature.name
             if feature is not None:
-                logger.info(f"Mapping values to feature {feature}")
                 for record in records:
                     record._feature = feature
+            if feature_name is not None:
+                for record in records:
+                    record._feature = feature_name
+            logger.info(f"Mapping records to feature '{feature_name}'")
         return records
     finally:
         settings.upon_create_search_names = upon_create_search_names
@@ -192,26 +204,23 @@ def create_records_from_bionty(
         for bk in bionty_kwargs:
             records.append(model(**bk, **kwargs))
 
-        # logging of BiontySource linking
-        source_msg = (
-            ""
-            if kwargs.get("bionty_source") is None
-            else f" (bionty_source_id={kwargs.get('bionty_source').id})"  # type:ignore # noqa
-        )
-
         # number of records that matches field (not synonyms)
         n_name = len(records) - len(syn_mapper)
+        names = [getattr(record, field_name) for record in records]
         if n_name > 0:
             s = "" if n_name == 1 else "s"
+            print_values = ", ".join(names[:10])
+            if len(names) > 10:
+                print_values += ", ..."
             msg = (
                 "Loaded"
                 f" {colors.purple(f'{n_name} {model.__name__} record{s} from Bionty')} that"  # noqa
-                f" matched {colors.purple(f'{field_name}')}"
+                f" matched {colors.purple(f'{field_name}')}: {print_values}"
             )
-            logger.info(msg + source_msg)
+            logger.info(msg)
         # make sure that synonyms logging appears after the field logging
         if len(msg_syn) > 0:
-            logger.info(msg_syn + source_msg)
+            logger.info(msg_syn)
         # warning about multi matches
         if len(multi_msg) > 0:
             logger.warning(multi_msg)
