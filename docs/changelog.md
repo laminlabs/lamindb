@@ -1,5 +1,6 @@
 # Changelog
 
+- 🎉 Stage 0.48 (6) [PR935](https://github.com/laminlabs/lamindb/pull/935) [@falexwolf](https://github.com/falexwolf)
 - 🎨 Access feature slots via getitem [PR941](https://github.com/laminlabs/lamindb/pull/941) [@sunnyosun](https://github.com/sunnyosun)
 - 🎨 Add Modality [PR940](https://github.com/laminlabs/lamindb/pull/940) [@falexwolf](https://github.com/falexwolf)
 - 🎨 Describe based on provenance and features [PR936](https://github.com/laminlabs/lamindb/pull/936) [@sunnyosun](https://github.com/sunnyosun)
