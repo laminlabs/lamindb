@@ -48,7 +48,8 @@ class FeatureManager:
             feature.labels_schema = schema_and_accessor_by_orm[orm_name][0]
             feature.save()
 
-    def by_slot(self, slot: str) -> QuerySet:
+    def all(self, slot: str = "columns") -> QuerySet:
+        """All features for a slot."""
         id = (
             self._host.feature_sets.through.objects.filter(
                 file_id=self._host.id, slot=slot
@@ -60,6 +61,7 @@ class FeatureManager:
             field.related_model.__name__: field.name
             for field in self._host._meta.related_objects
         }
+        accessor_by_orm["Feature"] = "features"
         feature_set = self._host.feature_sets.filter(id=id).one()
         return getattr(feature_set, accessor_by_orm[feature_set.ref_orm]).all()
 

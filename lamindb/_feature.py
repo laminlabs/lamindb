@@ -66,7 +66,7 @@ def from_df(cls, df: "pd.DataFrame") -> List["Feature"]:
     features = Feature.from_values(df.columns, field=Feature.name, types=types)
     assert len(features) == len(df.columns)
 
-    if len(categoricals) > 0:
+    if len(categoricals_with_unmapped_categories) > 0:
         n_max = 20
         categoricals_with_unmapped_categories_formatted = "\n      ".join(
             [
