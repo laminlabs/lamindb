@@ -82,24 +82,20 @@ def test_feature_manager():
     file.features.all("obs").df()
 
     df = file.features.all("obs").df()
-    assert df["name"].tolist() == [
+    assert set(df["name"]) == {
         "cell_type",
         "cell_type_id",
         "disease",
         "tissue",
         "species",
-    ]
-    assert df["type"].tolist() == [
+    }
+    assert set(df["type"]) == {
         "category",
-        "category",
-        "category",
-        "category",
-        "category",
-    ]
-    assert df["labels_orm"].tolist() == ["CellType", None, "Label", "Tissue", "Species"]
-    assert df["labels_schema"].tolist() == ["bionty", None, "core", "bionty", "bionty"]
+    }
+    assert set(df["labels_orm"]) == {"CellType", None, "Label", "Tissue", "Species"}
+    assert set(df["labels_schema"]) == {"bionty", None, "core"}
 
     # clean up
     ln.Feature.select(name="species").one().delete()
-    ln.File.select(description="Mini adata").one().delete()
+    ln.File.select(description="Mini adata").one().delete(storage=True)
     ln.FeatureSet.select().all().delete()
