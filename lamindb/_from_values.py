@@ -17,7 +17,7 @@ def get_or_create_records(
     *,
     from_bionty: bool = False,
     **kwargs,
-) -> List:
+) -> List[ORM]:
     """Get or create records from iterables."""
     upon_create_search_names = settings.upon_create_search_names
     settings.upon_create_search_names = False
