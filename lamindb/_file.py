@@ -353,6 +353,19 @@ def data_is_anndata(data: DataLike):
     return False
 
 
+def data_is_mudata(data: DataLike):
+    try:
+        from mudata import MuData
+    except ModuleNotFoundError:
+        return False
+
+    if isinstance(data, MuData):
+        return True
+    if isinstance(data, (str, Path, UPath)):
+        return Path(data).suffix in {".h5mu"}
+    return False
+
+
 def __init__(file: File, *args, **kwargs):
     # Below checks for the Django-internal call in from_db()
     # it'd be better if we could avoid this, but not being able to create a File
@@ -414,7 +427,8 @@ def __init__(file: File, *args, **kwargs):
                 " var_names and obs.columns as features!"
             )
         kwargs["accessor"] = "AnnData"
-
+    elif data_is_mudata(data):
+        kwargs["accessor"] = "MuData"
     # an object with the same hash already exists
     if isinstance(kwargs, File):
         # this is the way Django instantiates from the DB internally
