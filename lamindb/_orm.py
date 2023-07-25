@@ -521,21 +521,27 @@ def describe(self):
             ].index
 
             # for labels
-            labels_schema = "core"
-            labels_orm = "Label"
-            key = f"{labels_schema}.{labels_orm}"
-            related_name = file_related_models.get(key)
-            related_objects = self.__getattribute__(related_name)
-            labels = _labels_with_feature_names(related_objects)
-            msg_objects = ""
-            for k, v in labels.items():
-                msg_objects += f"    🔗 {k} ({len(v)}, {colors.italic(key)}): {v[:5]}\n"
-                if len(v) > 5:
-                    msg_objects = msg_objects.replace("]", " ... ]")
-            msg += msg_objects
+            if len(df_label_index) > 0:
+                labels_schema = "core"
+                labels_orm = "Label"
+                key = f"{labels_schema}.{labels_orm}"
+                related_name = file_related_models.get(key)
+                related_objects = self.__getattribute__(related_name)
+                labels = _labels_with_feature_names(related_objects)
+                msg_objects = ""
+                for k, v in labels.items():
+                    msg_objects += (
+                        f"    🔗 {k} ({len(v)}, {colors.italic(key)}): {v[:5]}\n"
+                    )
+                    if len(v) > 5:
+                        msg_objects = msg_objects.replace("]", " ... ]")
+                msg += msg_objects
 
             # for non-labels
-            df_nonlabels = df_slot.loc[df_slot.index.difference(df_label_index)]
+            nonlabel_index = df_slot.index.difference(df_label_index)
+            if len(nonlabel_index) == 0:
+                continue
+            df_nonlabels = df_slot.loc[nonlabel_index]
             df_nonlabels = (
                 df_nonlabels.groupby(["labels_schema", "labels_orm"], group_keys=False)[
                     "name"
