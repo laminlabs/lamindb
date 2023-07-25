@@ -45,7 +45,7 @@ def test_feature_from_df():
             categoricals[key] = c
     for feature in features:
         if feature.name in categoricals:
-            assert feature.type == "categorical"
+            assert feature.type == "category"
         else:
             orig_type = df[feature.name].dtype.name
             orig_type_stripped = "".join(i for i in orig_type if not i.isdigit())
@@ -60,7 +60,7 @@ def test_feature_from_df():
     for name in df.columns:
         queried_feature = ln.Feature.select(name=name).one()
         if name in categoricals:
-            assert queried_feature.type == "categorical"
+            assert queried_feature.type == "category"
         else:
             orig_type = df[name].dtype.name
             orig_type_stripped = "".join(i for i in orig_type if not i.isdigit())
