@@ -501,7 +501,9 @@ def from_anndata(
     logger.info("Parsing feature names of X, stored in slot .var")
     logger.indent = "   "
     feature_set_x = FeatureSet.from_values(
-        data_parse.var.index, var_ref, type=type, readout="abundance"
+        data_parse.var.index,
+        var_ref,
+        type=type,
     )
     feature_sets["var"] = feature_set_x
     logger.indent = ""
