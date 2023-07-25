@@ -69,6 +69,15 @@ def get_or_create_records(
                     f"Created {colors.yellow(f'{len(unmapped_values)} {ORM.__name__} record{s}')} for{additional_info}"  # noqa
                     f"{colors.yellow(f'{field_name}{s}')}: {print_unmapped_values}"  # noqa
                 )
+        if ORM.__module__.startswith("lnschema_bionty."):
+            if isinstance(iterable, pd.Series):
+                feature = iterable.name
+            if isinstance(feature, str):
+                feature = Feature.select(name=feature).one_or_none()
+            if feature is not None:
+                logger.info(f"Mapping values to feature {feature}")
+                for record in records:
+                    record._feature = feature
         return records
     finally:
         settings.upon_create_search_names = upon_create_search_names

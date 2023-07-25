@@ -35,6 +35,7 @@ setup
 ../biology/registries
 ../biology/scrna
 ../biology/flow
+../biology/spatial
 ```
 
 ```{toctree}

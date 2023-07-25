@@ -432,6 +432,8 @@ def describe(self):
     related_names += [i.related_name for i in self._meta.related_objects]
     msg += "Many-to-Many:\n"
     for related_name in related_names:
+        if related_name is None:
+            continue
         related_objects = self.__getattribute__(related_name)
         count = related_objects.count()
         if count > 0:

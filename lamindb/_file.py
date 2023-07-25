@@ -505,11 +505,12 @@ def from_anndata(
     )
     feature_sets.append(feature_set_x)
     logger.indent = ""
-    logger.info("Parsing features of obs (numerical & categorical)")
-    logger.indent = "   "
-    feature_set_obs = FeatureSet.from_df(data_parse.obs, name="obs")
-    feature_sets.append(feature_set_obs)
-    logger.indent = ""
+    if len(data_parse.obs.columns) > 0:
+        logger.info("Parsing features of obs (numerical & categorical)")
+        logger.indent = "   "
+        feature_set_obs = FeatureSet.from_df(data_parse.obs, name="obs")
+        feature_sets.append(feature_set_obs)
+        logger.indent = ""
     file._feature_sets = feature_sets
     return file
 
@@ -813,6 +814,9 @@ def inherit_relations(self, file: File, fields: Optional[List[str]] = None):
                 related_names.append(field)
             else:
                 raise KeyError(f"No many-to-many relationship is found with '{field}'")
+
+    if None in related_names:
+        related_names.remove(None)
 
     inherit_names = [
         related_name
