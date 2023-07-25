@@ -33,8 +33,8 @@ def view_lineage(file: File, with_children: bool = True):
     u = graphviz.Digraph(
         file.id,
         node_attr={
-            "fillcolor": "antiquewhite",
-            "color": "orange",
+            "fillcolor": "honeydew",
+            "color": "seagreen",
             "fontname": "Helvetica",
         },
         edge_attr={"arrowsize": "0.5"},
@@ -50,7 +50,7 @@ def view_lineage(file: File, with_children: bool = True):
         else:
             style = "rounded,filled"
             shape = "box"
-            fillcolor = "antiquewhite"
+            fillcolor = "honeydew"
         u.node(
             node_id,
             label=node_label,
@@ -65,12 +65,12 @@ def view_lineage(file: File, with_children: bool = True):
             add_node(row["target_record"], row["target"], row["target_label"], u)
 
         u.edge(row["source"], row["target"], color="dimgrey")
-    # label the searched file orange
+    # label the searched file mediumseagreen
     u.node(
         file.id,
         label=file_label,
         style="rounded,filled",
-        fillcolor="orange",
+        fillcolor="mediumseagreen",
         shape="box",
     )
 
@@ -104,8 +104,8 @@ def view_parents(
     u = graphviz.Digraph(
         record.id,
         node_attr={
-            "color": "orange",
-            "fillcolor": "antiquewhite",
+            "color": "seagreen",
+            "fillcolor": "honeydew",
             "shape": "box",
             "style": "rounded,filled",
             "fontname": "Helvetica",
@@ -115,7 +115,7 @@ def view_parents(
     u.node(
         record_label.replace(":", "_"),
         label=record_label,
-        fillcolor="orange",
+        fillcolor="mediumseagreen",
     )
     for _, row in df_edges.iterrows():
         u.node(row["source"], label=row["source_label"])
