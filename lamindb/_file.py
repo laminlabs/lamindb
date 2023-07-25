@@ -354,7 +354,10 @@ def data_is_anndata(data: DataLike):
 
 
 def data_is_mudata(data: DataLike):
-    from mudata import MuData
+    try:
+        from mudata import MuData
+    except ModuleNotFoundError:
+        return False
 
     if isinstance(data, MuData):
         return True
