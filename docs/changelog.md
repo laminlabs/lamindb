@@ -1,5 +1,14 @@
 # Changelog
 
+- ♻️ Polish scRNA [PR934](https://github.com/laminlabs/lamindb/pull/934) [@falexwolf](https://github.com/falexwolf)
+- ♻️ Remove unnecessary check in `from_dir` [PR928](https://github.com/laminlabs/lamindb/pull/928) [@Zethson](https://github.com/Zethson)
+- 🚸 Add `File.features` accessor: `FeaturesManager` [PR933](https://github.com/laminlabs/lamindb/pull/933) [@falexwolf](https://github.com/falexwolf)
+- ✏️ Fix spacing in graphs [PR932](https://github.com/laminlabs/lamindb/pull/932) [@sunnyosun](https://github.com/sunnyosun)
+- ✨ Spatial example [PR930](https://github.com/laminlabs/lamindb/pull/930) [@falexwolf](https://github.com/falexwolf)
+- 🍱 Added Suo22 spatial dataset [PR931](https://github.com/laminlabs/lamindb/pull/931) [@sunnyosun](https://github.com/sunnyosun)
+- 📝 Expand flow cytometry example [PR929](https://github.com/laminlabs/lamindb/pull/929) [@sunnyosun](https://github.com/sunnyosun)
+- 📝 Updated scRNA guide [PR925](https://github.com/laminlabs/lamindb/pull/925) [@sunnyosun](https://github.com/sunnyosun)
+- 🐛 Fix `df(include)` for non-self-referential [PR927](https://github.com/laminlabs/lamindb/pull/927) [@falexwolf](https://github.com/falexwolf)
 ## 0.48a3 (2023-07-24)
 
 - ♻️ Disentangle `File.backed()` from `zarr` [PR923](https://github.com/laminlabs/lamindb/pull/923) [@Koncopd](https://github.com/Koncopd)

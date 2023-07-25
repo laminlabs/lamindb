@@ -178,13 +178,14 @@ def test_local_path_load():
 def test_init_from_directory(get_test_filepaths):
     isin_default_storage = get_test_filepaths[0]
     test_dirpath = get_test_filepaths[1]
-    if not isin_default_storage:
-        with pytest.raises(RuntimeError):
-            ln.File.from_dir(test_dirpath)
+    if isin_default_storage:
+        storage_root = None
     else:
-        records = ln.File.from_dir(test_dirpath)
-        assert len(records) == 1
-        # also execute tree
+        storage_root = test_dirpath.parent
+    records = ln.File.from_dir(test_dirpath, storage_root=storage_root)
+    assert len(records) == 1
+    # also execute tree
+    if isin_default_storage:
         ln.File.tree(test_dirpath.name)
 
 

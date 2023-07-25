@@ -42,12 +42,13 @@ def install(session, group):
         session.run(*"pip install scanpy".split())
     elif group == "biology":
         extras += ",bionty,fcs,jupyter"
+        session.run(*"pip install scanpy".split())
     elif group == "faq":
         extras += ",aws,postgres,bionty,jupyter"
     elif group == "storage":
         extras += ",aws,zarr"
     elif group == "docs":
-        extras += ",bionty,zarr"
+        extras += ",bionty"
     if os.getenv("GITHUB_EVENT_NAME") != "push":
         if "bionty" in extras:
             session.run(*"pip install --no-deps ./sub/lnschema-bionty".split())

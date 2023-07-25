@@ -50,7 +50,7 @@ def from_df(cls, df: "pd.DataFrame") -> List["Feature"]:
     categoricals_with_unmapped_categories = {}
     for name, col in df.items():
         if name in categoricals:
-            types[name] = "categorical"
+            types[name] = "category"
             categorical = categoricals[name]
             if hasattr(
                 categorical, "cat"
@@ -66,7 +66,7 @@ def from_df(cls, df: "pd.DataFrame") -> List["Feature"]:
     features = Feature.from_values(df.columns, field=Feature.name, types=types)
     assert len(features) == len(df.columns)
 
-    if len(categoricals) > 0:
+    if len(categoricals_with_unmapped_categories) > 0:
         n_max = 20
         categoricals_with_unmapped_categories_formatted = "\n      ".join(
             [

@@ -468,7 +468,7 @@ def from_df(
     """{}"""
     file = File(data=df, key=key, run=run, description=description, log_hint=False)
     feature_set = FeatureSet.from_df(df)
-    file._feature_sets = [feature_set]
+    file._feature_sets = {"columns": feature_set}
     return file
 
 
@@ -497,19 +497,20 @@ def from_anndata(
         type = "float"
     else:
         type = convert_numpy_dtype_to_lamin_feature_type(adata.X.dtype)
-    feature_sets = []
-    logger.info("Parsing features of X (numerical)")
+    feature_sets = {}
+    logger.info("Parsing feature names of X, stored in slot .var")
     logger.indent = "   "
     feature_set_x = FeatureSet.from_values(
-        data_parse.var.index, var_ref, type=type, name="var", readout="abundance"
+        data_parse.var.index, var_ref, type=type, readout="abundance"
     )
-    feature_sets.append(feature_set_x)
+    feature_sets["var"] = feature_set_x
     logger.indent = ""
-    logger.info("Parsing features of obs (numerical & categorical)")
-    logger.indent = "   "
-    feature_set_obs = FeatureSet.from_df(data_parse.obs, name="obs")
-    feature_sets.append(feature_set_obs)
-    logger.indent = ""
+    if len(data_parse.obs.columns) > 0:
+        logger.info("Parsing feature names of slot .obs")
+        logger.indent = "   "
+        feature_set_obs = FeatureSet.from_df(data_parse.obs)
+        feature_sets["obs"] = feature_set_obs
+        logger.indent = ""
     file._feature_sets = feature_sets
     return file
 
@@ -521,19 +522,13 @@ def from_dir(
     path: PathLike,
     *,
     run: Optional[Run] = None,
+    storage_root: Optional[PathLike] = None,
 ) -> List["File"]:
     """{}"""
     folderpath = UPath(path)
-    check_path_in_storage = check_path_in_default_storage(folderpath)
-
-    if check_path_in_storage:
-        folder_key = get_relative_path_to_root(path=folderpath).as_posix()
-    else:
-        raise RuntimeError(
-            "Currently, only directories in default storage can be registered!\n"
-            "You can either move your folder into the current default storage"
-            "or add a new default storage through `ln.settings.storage`"
-        )
+    folder_key = get_relative_path_to_root(
+        path=folderpath, root=storage_root
+    ).as_posix()
     # always sanitize by stripping a trailing slash
     folder_key = folder_key.rstrip("/")
     logger.hint(f"using storage prefix = {folder_key}/")
@@ -634,9 +629,14 @@ def _track_run_input(file: File, is_run_input: Optional[bool] = None):
             # avoid cycles (a file is both input and output)
             if file.run != context.run:
                 if settings.track_run_inputs:
+                    transform_note = ""
+                    if file.transform is not None:
+                        transform_note = (
+                            f", adding parent transform {file.transform.id}"
+                        )
                     logger.info(
-                        f"Adding file {file.id} as input for run {context.run.id},"
-                        f" adding parent transform {file.transform.id}"
+                        f"Adding file {file.id} as input for run"
+                        f" {context.run.id}{transform_note}"
                     )
                     track_run_input = True
                 else:
@@ -716,14 +716,21 @@ def _save_skip_storage(file, *args, **kwargs) -> None:
     if file.run is not None:
         file.run.save()
     if hasattr(file, "_feature_sets"):
-        for feature_set in file._feature_sets:
+        for feature_set in file._feature_sets.values():
             feature_set.save()
-    if hasattr(file, "_feature_values"):
-        for feature_value in file._feature_values:
-            feature_value.save()
     super(File, file).save(*args, **kwargs)
     if hasattr(file, "_feature_sets"):
-        file.feature_sets.set(file._feature_sets)
+        links = []
+        for slot, feature_set in file._feature_sets.items():
+            links.append(
+                File.feature_sets.through(
+                    file_id=file.id, featureset_id=feature_set.id, slot=slot
+                )
+            )
+
+        from lamindb._save import bulk_create
+
+        bulk_create(links)
 
 
 def path(self) -> Union[Path, UPath]:
@@ -819,6 +826,9 @@ def inherit_relations(self, file: File, fields: Optional[List[str]] = None):
                 related_names.append(field)
             else:
                 raise KeyError(f"No many-to-many relationship is found with '{field}'")
+
+    if None in related_names:
+        related_names.remove(None)
 
     inherit_names = [
         related_name

@@ -128,13 +128,16 @@ def delete(dataset: Dataset, storage: bool = False):
 def save(dataset: Dataset):
     if dataset.file is not None:
         dataset.file.save()
-    for feature_set in dataset._feature_sets:
+    feature_sets = dataset._feature_sets
+    if isinstance(feature_sets, dict):
+        feature_sets = feature_sets.values()
+    for feature_set in feature_sets:
         feature_set.save()
     super(Dataset, dataset).save()
     if len(dataset._files) > 0:
         dataset.files.set(dataset._files)
     if len(dataset._feature_sets) > 0:
-        dataset.feature_sets.set(dataset._feature_sets)
+        dataset.feature_sets.set(feature_sets)
 
 
 Dataset.__init__ = __init__
