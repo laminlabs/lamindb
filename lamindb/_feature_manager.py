@@ -2,6 +2,7 @@ from collections import defaultdict
 from typing import List, Optional, Union
 
 import pandas as pd
+from lamin_utils import logger
 from lnschema_core.models import ORM, Dataset, Feature, File
 
 from ._queryset import QuerySet
@@ -44,6 +45,7 @@ class FeatureManager:
             save(records)
             getattr(self._host, schema_and_accessor_by_orm[orm_name][1]).set(records)
         for (feature, orm_name), records in records_by_feature_orm.items():
+            logger.info(f"Linking feature {feature.name} to {orm_name}")
             feature.labels_orm = orm_name
             feature.labels_schema = schema_and_accessor_by_orm[orm_name][0]
             feature.save()
