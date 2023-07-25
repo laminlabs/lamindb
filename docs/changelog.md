@@ -1,5 +1,6 @@
 # Changelog
 
+- ♻️ Remove unnecessary check in `from_dir` [PR928](https://github.com/laminlabs/lamindb/pull/928) [@Zethson](https://github.com/Zethson)
 - 🚸 Add `File.features` accessor: `FeaturesManager` [PR933](https://github.com/laminlabs/lamindb/pull/933) [@falexwolf](https://github.com/falexwolf)
 - ✏️ Fix spacing in graphs [PR932](https://github.com/laminlabs/lamindb/pull/932) [@sunnyosun](https://github.com/sunnyosun)
 - ✨ Spatial example [PR930](https://github.com/laminlabs/lamindb/pull/930) [@falexwolf](https://github.com/falexwolf)
