@@ -6,11 +6,10 @@ Import the package::
 
 .. note::
 
-    `File` provides access to objects in storage, abstracting over any storage
-    format: blob-like files (`.pdf`, `.txt`, etc.) and streamable storage
-    backend (HDF5, DuckDB, zarr, TileDB, etc.) are equally possible.
+    `File` abstracts over objects in storage from blob-like files (pdf, txt, etc.)
+    to streamable storage backends (HDF5, DuckDB, zarr, TileDB, etc.).
 
-    `Dataset` abstracts over `File` and objects in classical warehouses (BigQuery, Snowflake).
+    `Dataset` abstracts over `File` and tables in classical warehouses (BigQuery, Snowflake).
 
 .. autosummary::
    :toctree: .
@@ -18,13 +17,13 @@ Import the package::
    File
    Dataset
    Transform
-   Run
    Label
    Feature
-   Modality
    FeatureSet
+   Modality
    User
    Storage
+   Run
 
 Functional tools:
 
