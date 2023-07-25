@@ -76,13 +76,23 @@ def save(records: Iterable[ORM], **kwargs) -> None:  # type: ignore
         non_files_with_parents = {r for r in non_files if hasattr(r, "_parents")}
 
         if len(non_files_with_parents) > 0 and kwargs.get("parents") is not False:
-            # save the record with parents one by one
-            logger.warning(
-                "Now recursing through parents: "
-                "this only happens once, but is much slower than bulk saving"
-            )
-            for record in non_files_with_parents:
-                record._save_ontology_parents()
+            # this can only happen within lnschema_bionty right now!!
+            # we might extend to core lamindb later
+            import lnschema_bionty as lb
+
+            if kwargs.get("parents") or (
+                kwargs.get("parents") is None and lb.settings.auto_save_parents
+            ):
+                # save the record with parents one by one
+                logger.warning(
+                    "Now recursing through parents: "
+                    "this only happens once, but is much slower than bulk saving"
+                )
+                logger.hint(
+                    "You can switch this off via: lb.settings.auto_save_parents = False"
+                )
+                for record in non_files_with_parents:
+                    record._save_ontology_parents()
 
     if files:
         with transaction.atomic():

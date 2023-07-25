@@ -2,6 +2,7 @@ from typing import Any, Dict, Iterable, List, Optional, Tuple, Union
 
 import pandas as pd
 from django.core.exceptions import FieldDoesNotExist
+from django.db.models import Case, When
 from django.db.models.query_utils import DeferredAttribute as Field
 from lamin_utils import colors, logger
 from lnschema_core.models import ORM, Feature
@@ -17,7 +18,7 @@ def get_or_create_records(
     *,
     from_bionty: bool = False,
     **kwargs,
-) -> List:
+) -> List[ORM]:
     """Get or create records from iterables."""
     upon_create_search_names = settings.upon_create_search_names
     settings.upon_create_search_names = False
@@ -72,12 +73,24 @@ def get_or_create_records(
         if ORM.__module__.startswith("lnschema_bionty."):
             if isinstance(iterable, pd.Series):
                 feature = iterable.name
+            else:
+                logger.warning(
+                    "Did not receive values as pd.Series, inferring feature from"
+                    f" reference ORM: {ORM.__name__}"
+                )
+                feature = ORM.__name__.lower()
             if isinstance(feature, str):
+                feature_name = feature
                 feature = Feature.select(name=feature).one_or_none()
+            elif feature is not None:
+                feature_name = feature.name
             if feature is not None:
-                logger.info(f"Mapping values to feature {feature}")
                 for record in records:
                     record._feature = feature
+            if feature_name is not None:
+                for record in records:
+                    record._feature = feature_name
+            logger.info(f"Mapping records to feature '{feature_name}'")
         return records
     finally:
         settings.upon_create_search_names = upon_create_search_names
@@ -121,9 +134,17 @@ def get_existing_records(iterable_idx: pd.Index, field: Field, kwargs: Dict = {}
 
     from ._select import select
 
-    stmt = select(model, **condition)
+    query_set = select(model, **condition)
 
-    records = stmt.list()  # existing records
+    # new we have to sort the list of queried records
+    preserved = Case(
+        *[
+            When(**{field_name: value}, then=pos)
+            for pos, value in enumerate(iterable_idx)
+        ]
+    )
+    records = query_set.order_by(preserved).list()
+
     n_name = len(records) - len(syn_mapper)
     names = [getattr(record, field_name) for record in records]
     if n_name > 0:
@@ -140,7 +161,9 @@ def get_existing_records(iterable_idx: pd.Index, field: Field, kwargs: Dict = {}
     if len(syn_msg) > 0:
         logger.info(syn_msg)
 
-    existing_values = iterable_idx.intersection(stmt.values_list(field_name, flat=True))
+    existing_values = iterable_idx.intersection(
+        query_set.values_list(field_name, flat=True)
+    )
     nonexist_values = iterable_idx.difference(existing_values)
 
     return records, nonexist_values
@@ -192,26 +215,23 @@ def create_records_from_bionty(
         for bk in bionty_kwargs:
             records.append(model(**bk, **kwargs))
 
-        # logging of BiontySource linking
-        source_msg = (
-            ""
-            if kwargs.get("bionty_source") is None
-            else f" (bionty_source_id={kwargs.get('bionty_source').id})"  # type:ignore # noqa
-        )
-
         # number of records that matches field (not synonyms)
         n_name = len(records) - len(syn_mapper)
+        names = [getattr(record, field_name) for record in records]
         if n_name > 0:
             s = "" if n_name == 1 else "s"
+            print_values = ", ".join(names[:10])
+            if len(names) > 10:
+                print_values += ", ..."
             msg = (
                 "Loaded"
                 f" {colors.purple(f'{n_name} {model.__name__} record{s} from Bionty')} that"  # noqa
-                f" matched {colors.purple(f'{field_name}')}"
+                f" matched {colors.purple(f'{field_name}')}: {print_values}"
             )
-            logger.info(msg + source_msg)
+            logger.info(msg)
         # make sure that synonyms logging appears after the field logging
         if len(msg_syn) > 0:
-            logger.info(msg_syn + source_msg)
+            logger.info(msg_syn)
         # warning about multi matches
         if len(multi_msg) > 0:
             logger.warning(multi_msg)
