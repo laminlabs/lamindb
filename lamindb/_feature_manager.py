@@ -1,8 +1,10 @@
 from collections import defaultdict
 from typing import List, Union
 
+import pandas as pd
 from lnschema_core.models import ORM, Dataset, File
 
+from ._queryset import QuerySet
 from ._save import save
 
 
@@ -35,3 +37,31 @@ class FeatureManager:
             feature.labels_orm = orm_name
             feature.labels_schema = schema_and_accessor_by_orm[orm_name][0]
             feature.save()
+
+    def by_slot(self, slot: str) -> QuerySet:
+        id = (
+            self._host.feature_sets.through.objects.filter(
+                file_id=self._host.id, slot=slot
+            )
+            .one()
+            .featureset_id
+        )
+        accessor_by_orm = {
+            field.related_model.__name__: field.name
+            for field in self._host._meta.related_objects
+        }
+        feature_set = self._host.feature_sets.filter(id=id).one()
+        return getattr(feature_set, accessor_by_orm[feature_set.ref_orm]).all()
+
+    def df(self) -> pd.DataFrame:
+        """Return DataFrame."""
+        df = self._host.feature_sets.df()
+        df.insert(
+            0,
+            "slot",
+            self._host.feature_sets.through.objects.filter(file_id=self._host.id)
+            .df()
+            .set_index("featureset_id")
+            .slot,
+        )
+        return df

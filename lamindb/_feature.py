@@ -50,7 +50,7 @@ def from_df(cls, df: "pd.DataFrame") -> List["Feature"]:
     categoricals_with_unmapped_categories = {}
     for name, col in df.items():
         if name in categoricals:
-            types[name] = "categorical"
+            types[name] = "category"
             categorical = categoricals[name]
             if hasattr(
                 categorical, "cat"

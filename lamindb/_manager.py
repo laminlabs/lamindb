@@ -43,9 +43,9 @@ class Manager(models.Manager):
         else:
             return [item for item in self.values_list(field, flat=True)]
 
-    def df(self):
+    def df(self, **kwargs):
         """Convert to DataFrame."""
-        return self.all().df()
+        return self.all().df(**kwargs)
 
 
 setattr(models.Manager, "list", Manager.list)
