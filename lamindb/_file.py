@@ -521,10 +521,13 @@ def from_dir(
     path: PathLike,
     *,
     run: Optional[Run] = None,
+    storage_root: Optional[PathLike] = None,
 ) -> List["File"]:
     """{}"""
     folderpath = UPath(path)
-    folder_key = get_relative_path_to_root(path=folderpath).as_posix()
+    folder_key = get_relative_path_to_root(
+        path=folderpath, root=storage_root
+    ).as_posix()
     # always sanitize by stripping a trailing slash
     folder_key = folder_key.rstrip("/")
     logger.hint(f"using storage prefix = {folder_key}/")
