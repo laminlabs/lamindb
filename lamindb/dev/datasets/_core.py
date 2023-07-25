@@ -207,6 +207,27 @@ def anndata_suo22_Visium10X():
     return ad.read(filepath)
 
 
+def mudata_papalexi21_subset():
+    """A subsetted mudata from papalexi21.
+
+    To reproduce the subsetting:
+    >>> !wget https://figshare.com/ndownloader/files/36509460
+    >>> import mudata as md
+    >>> import scanpy as sc
+    >>> mdata = md.read_h5mu("36509460")
+    >>> mdata = sc.pp.subsample(mdata, n_obs=200, copy=True)[0]
+    >>> mdata[:, -300:].copy().write("papalexi21_subset_200x300_lamindb_demo_2023-07-25.h5mu")  # noqa
+    """
+    import mudata as md
+
+    filepath, _ = urlretrieve(
+        "https://lamindb-test.s3.amazonaws.com/papalexi21_subset_200x300_lamindb_demo_2023-07-25.h5mu",  # noqa
+        "papalexi21_subset.h5mu",
+    )
+
+    return md.read_h5mu(filepath)
+
+
 def df_iris() -> pd.DataFrame:
     """The iris dataset as in sklearn.
 

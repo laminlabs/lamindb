@@ -22,6 +22,7 @@
    anndata_pbmc3k_processed
    anndata_with_obs
    anndata_suo22_Visium10X
+   mudata_papalexi21_subset
    schmidt22_crispra_gws_IFNG
    schmidt22_perturbseq
    fake_bio_notebook_titles
@@ -47,6 +48,7 @@ from ._core import (
     file_mini_csv,
     file_tiff_suo22,
     generate_cell_ranger_files,
+    mudata_papalexi21_subset,
     schmidt22_crispra_gws_IFNG,
     schmidt22_perturbseq,
 )

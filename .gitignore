@@ -182,6 +182,7 @@ _build
 *.zip
 *.feather
 *.h5ad
+*.h5mu
 *.parquet
 *.bam
 *.fastq.gz
