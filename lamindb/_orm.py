@@ -5,7 +5,7 @@ import pandas as pd
 from django.core.exceptions import FieldDoesNotExist
 from django.db.models import Manager, QuerySet
 from django.db.models.query_utils import DeferredAttribute as Field
-from lamin_utils import logger
+from lamin_utils import colors, logger
 from lamin_utils._lookup import Lookup
 from lamin_utils._search import search as base_search
 from lamindb_setup.dev._docs import doc_args
@@ -403,7 +403,7 @@ def _labels_with_feature_names(labels: Union[QuerySet, Manager]) -> Dict:
 
 
 def describe(self):
-    model_name = self.__class__.__name__
+    model_name = colors.green(self.__class__.__name__)
     msg = ""
     fields = self._meta.fields
     direct_fields = []
@@ -413,31 +413,48 @@ def describe(self):
             foreign_key_fields.append(f.name)
         else:
             direct_fields.append(f.name)
-    # display line by line the foreign key fields
+    # Display line by line the foreign key fields
     if len(foreign_key_fields) > 0:
         record_msg = f"{model_name}({''.join([f'{i}={self.__getattribute__(i)}, ' for i in direct_fields])})"  # noqa
         msg += f"{record_msg.rstrip(', )')})\n\n"
 
-        msg += "One/Many-to-One:\n    "
+        msg += f"{colors.green('Data lineage')}:\n    "
         related_msg = "".join(
             [f"🔗 {i}: {self.__getattribute__(i)}\n    " for i in foreign_key_fields]
         )
         msg += related_msg
     msg = msg.rstrip("    ")
 
-    # display many-to-many relationship objects
+    # Display Features
     # fields in the model definition
     related_names = [i.name for i in self._meta.many_to_many]
     # fields back linked
     related_names += [i.related_name for i in self._meta.related_objects]
-    msg += "Many-to-Many:\n"
+    # combine all features into one dataframe
+    feature_sets = self.feature_sets.filter(ref_orm="Feature").all()
+    features = []
+    for feature_set in feature_sets:
+        features_df = feature_set.features.exclude(labels_orm__isnull=True).df()
+        slots = self.feature_sets.through.objects.filter(
+            file=self, featureset=feature_set
+        ).list("slot")
+        features_df["slot"] = str(slots)
+        features.append(features_df)
+    features_df = pd.concat(features)
+    msg += f"{colors.green('Features')}:\n"
     for related_name in related_names:
         if related_name is None:
             continue
         related_objects = self.__getattribute__(related_name)
         count = related_objects.count()
         if count > 0:
-            if related_name == "labels":
+            # show the slot for feature sets
+            if related_name == "feature_sets":
+                objects_list = self.feature_sets.through.objects.filter(file=self).list(
+                    "slot"
+                )
+            # display labels by the feature name
+            elif related_name == "labels":
                 labels = _labels_with_feature_names(related_objects)
                 if len(labels) < 2:
                     objects_list = labels
@@ -449,20 +466,33 @@ def describe(self):
                             msg_objects = msg_objects.replace("]", " ... ]")
                     msg += msg_objects
                     continue
+            # features that directly linked to file with their own ORMs
             else:
                 try:
                     field = get_default_str_field(related_objects)
                 except ValueError:
                     field = "id"
                 objects_list = list(related_objects.values_list(field, flat=True)[:5])
+                # for runs
                 if field == "created_at":
                     objects_list = [format_datetime(i) for i in objects_list]
+                # get the related ORM
+                related_orm = self._meta.get_field(related_name).related_model
+                labels_orm = related_orm.__name__
+                labels_schema = related_orm.__module__.lstrip("lnschema_").rstrip(
+                    ".models"
+                )
+                names = features_df[
+                    (features_df["labels_orm"] == labels_orm)
+                    & (features_df["labels_schema"] == labels_schema)
+                ]["name"].tolist()
+                related_name = ",".join(names)
             msg_objects = f"    🔗 {related_name} ({count}): {objects_list}\n"
             if count > 5:
                 msg_objects = msg_objects.replace("]", " ... ]")
             msg += msg_objects
     msg = msg.rstrip("\n")
-    msg = msg.rstrip("Many-to-Many:")
+    msg = msg.rstrip("Features:")
     print(msg)
 
 
