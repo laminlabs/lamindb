@@ -1,5 +1,6 @@
 # Changelog
 
+- 📝 Added MuData example [PR945](https://github.com/laminlabs/lamindb/pull/945) [@sunnyosun](https://github.com/sunnyosun)
 - 📝 Polish guides [PR943](https://github.com/laminlabs/lamindb/pull/943) [@sunnyosun](https://github.com/sunnyosun)
 - ⬆️ Updated pinnings of lnschema packages [PR942](https://github.com/laminlabs/lamindb/pull/942) [@sunnyosun](https://github.com/sunnyosun)
 - 🎉 Stage 0.48 (6) [PR935](https://github.com/laminlabs/lamindb/pull/935) [@falexwolf](https://github.com/falexwolf)
