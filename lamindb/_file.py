@@ -382,26 +382,13 @@ def __init__(file: File, *args, **kwargs):
     )
 
     if not len(kwargs) == 0:
-        raise ValueError(
-            "Only data, key, run, description & feature_sets can be passed."
-        )
+        raise ValueError("Only data, key, run, description can be passed.")
 
     if name is not None and description is not None:
         raise ValueError("Only pass description, do not pass a name")
     if name is not None:
         logger.warning("Argument `name` is deprecated, please use `description`")
         description = name
-
-    if isinstance(data, pd.DataFrame) and log_hint:
-        logger.hint(
-            "This is a dataframe, consider using File.from_df() to link column"
-            " names as features!"
-        )
-    elif data_is_anndata(data) and log_hint:
-        logger.hint(
-            "This is AnnDataLike, consider using File.from_anndata() to link var_names"
-            " and obs.columns as features!"
-        )
 
     provisional_id = ids.base62_20()
     kwargs, privates = get_file_kwargs_from_data(
@@ -412,6 +399,22 @@ def __init__(file: File, *args, **kwargs):
         provisional_id=provisional_id,
         skip_check_exists=skip_check_exists,
     )
+
+    if isinstance(data, pd.DataFrame):
+        if log_hint:
+            logger.hint(
+                "This is a dataframe, consider using File.from_df() to link column"
+                " names as features!"
+            )
+        kwargs["accessor"] = "DataFrame"
+    elif data_is_anndata(data):
+        if log_hint:
+            logger.hint(
+                "This is AnnDataLike, consider using File.from_anndata() to link"
+                " var_names and obs.columns as features!"
+            )
+        kwargs["accessor"] = "AnnData"
+
     # an object with the same hash already exists
     if isinstance(kwargs, File):
         # this is the way Django instantiates from the DB internally
@@ -501,7 +504,9 @@ def from_anndata(
     logger.info("Parsing feature names of X, stored in slot .var")
     logger.indent = "   "
     feature_set_x = FeatureSet.from_values(
-        data_parse.var.index, var_ref, type=type, readout="abundance"
+        data_parse.var.index,
+        var_ref,
+        type=type,
     )
     feature_sets["var"] = feature_set_x
     logger.indent = ""

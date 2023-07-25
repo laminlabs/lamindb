@@ -1,5 +1,8 @@
+import lnschema_bionty as lb
 import pandas as pd
 import pytest
+
+import lamindb as ln  # noqa
 
 
 @pytest.fixture(scope="module")
@@ -15,9 +18,8 @@ def df():
 
 
 def test_from_values_name(df):
-    from lnschema_bionty import CellType
-
-    result = CellType.from_values(df.cell_type, CellType.name)
+    assert df["cell_type_id"].tolist() == ["CL:0000084", "CL:0000182", ""]
+    result = lb.CellType.from_values(df.cell_type, "name")
     ids = [i.ontology_id for i in result]
     assert len(result) == 3
     assert ids == ["CL:0000084", "CL:0000182", None]
@@ -26,9 +28,7 @@ def test_from_values_name(df):
 
 
 def test_from_values_ontology_id(df):
-    from lnschema_bionty import CellType
-
-    result = CellType.from_values(df.cell_type_id, CellType.ontology_id)
+    result = lb.CellType.from_values(df.cell_type_id, "ontology_id")
     names = [i.name for i in result]
     assert len(result) == 2
     assert names == ["T cell", "hepatocyte"]
@@ -36,9 +36,7 @@ def test_from_values_ontology_id(df):
 
 
 def test_from_values_multiple_match():
-    from lnschema_bionty import Gene
-
-    records = Gene.from_values(["ABC1", "PDCD1"], Gene.symbol, species="human")
+    records = lb.Gene.from_values(["ABC1", "PDCD1"], lb.Gene.symbol, species="human")
     assert len(records) == 3
 
 

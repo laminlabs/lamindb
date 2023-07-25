@@ -4,11 +4,12 @@ Import the package::
 
    import lamindb as ln
 
-`File` tracks data artifacts in form of files, on-disk (`zarr`, etc.) and
-in-memory data objects (`DataFrame`, `AnnData`, etc.) and allows to link them
-against entities of core schema & custom schemas.
+.. note::
 
-The core schema entities are central to lamindb's API:
+    `File` abstracts over objects in storage from blob-like files (pdf, txt, etc.)
+    to streamable storage backends (HDF5, DuckDB, zarr, TileDB, etc.).
+
+    `Dataset` abstracts over `File` and tables in classical warehouses (BigQuery, Snowflake).
 
 .. autosummary::
    :toctree: .
@@ -16,18 +17,13 @@ The core schema entities are central to lamindb's API:
    File
    Dataset
    Transform
-   Run
-   Feature
    Label
+   Feature
+   FeatureSet
+   Modality
    User
    Storage
-
-More control over feature management:
-
-.. autosummary::
-   :toctree: .
-
-   FeatureSet
+   Run
 
 Functional tools:
 
@@ -37,7 +33,6 @@ Functional tools:
    track
    view
    save
-   delete
 
 Static classes & modules:
 
@@ -45,7 +40,6 @@ Static classes & modules:
    :toctree: .
 
    settings
-   context
    types
    setup
    schema
@@ -93,6 +87,7 @@ if _INSTANCE_SETUP:
         FeatureSet,
         File,
         Label,
+        Modality,
         Run,
         Storage,
         Transform,

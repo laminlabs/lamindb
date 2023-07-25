@@ -52,6 +52,7 @@ def test_create_from_dataframe(name):
     file = ln.File(df, name=name)
     assert file.description is None if name is None else file.description == name
     assert file.key is None
+    assert file.accessor == "DataFrame"
     assert hasattr(file, "_local_filepath")
     file.save()
     # check that the local filepath has been cleared
@@ -60,10 +61,11 @@ def test_create_from_dataframe(name):
 
 
 @pytest.mark.parametrize("description", [None, "my name"])
-def test_create_from_df(description):
+def test_create_from_dataframe_using_from_df(description):
     file = ln.File.from_df(df, description=description)
     assert file.description == description
     assert file.key is None
+    assert file.accessor == "DataFrame"
     assert hasattr(file, "_local_filepath")
     file.save()
     # check that the local filepath has been cleared
@@ -77,6 +79,7 @@ def test_create_from_df(description):
 
 def test_create_from_anndata_in_memory():
     file = ln.File.from_anndata(adata, var_ref=lb.Gene.symbol)
+    assert file.accessor == "AnnData"
     assert hasattr(file, "_local_filepath")
     file.save()
     # check that the local filepath has been cleared
@@ -105,6 +108,7 @@ def test_create_from_anndata_in_storage(data):
         ln.settings.storage = "s3://lamindb-test"
         filepath = data
     file = ln.File.from_anndata(filepath, var_ref=lb.Gene.symbol)
+    assert file.accessor == "AnnData"
     assert hasattr(file, "_local_filepath")
     file.save()
     # check that the local filepath has been cleared

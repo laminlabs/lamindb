@@ -1,5 +1,9 @@
 # Changelog
 
+- 🎨 Access feature slots via getitem [PR941](https://github.com/laminlabs/lamindb/pull/941) [@sunnyosun](https://github.com/sunnyosun)
+- 🎨 Add Modality [PR940](https://github.com/laminlabs/lamindb/pull/940) [@falexwolf](https://github.com/falexwolf)
+- 🎨 Describe based on provenance and features [PR936](https://github.com/laminlabs/lamindb/pull/936) [@sunnyosun](https://github.com/sunnyosun)
+- ✅ Test feature manager [PR937](https://github.com/laminlabs/lamindb/pull/937) [@falexwolf](https://github.com/falexwolf)
 - 🎉 Stage 0.48 (5) [PR926](https://github.com/laminlabs/lamindb/pull/926) [@falexwolf](https://github.com/falexwolf)
 - ♻️ Polish scRNA [PR934](https://github.com/laminlabs/lamindb/pull/934) [@falexwolf](https://github.com/falexwolf)
 - ♻️ Remove unnecessary check in `from_dir` [PR928](https://github.com/laminlabs/lamindb/pull/928) [@Zethson](https://github.com/Zethson)
