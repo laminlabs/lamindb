@@ -4,13 +4,13 @@ Import the package::
 
    import lamindb as ln
 
-`File` provides access to storage.
+.. note::
 
-, on-disk (`zarr`, etc.) and
-in-memory data objects (`DataFrame`, `AnnData`, etc.) and allows to link them
-against entities of core schema & custom schemas.
+    `File` provides access to objects in storage, abstracting over any storage
+    format: blob-like files (`.pdf`, `.txt`, etc.) and streamable storage
+    backend (HDF5, DuckDB, zarr, TileDB, etc.) are equally possible.
 
-The core schema entities are central to lamindb's API:
+    `Dataset` abstracts over `File` and objects in classical warehouses (BigQuery, Snowflake).
 
 .. autosummary::
    :toctree: .
@@ -88,6 +88,7 @@ if _INSTANCE_SETUP:
         FeatureSet,
         File,
         Label,
+        Modality,
         Run,
         Storage,
         Transform,
