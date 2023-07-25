@@ -1,5 +1,6 @@
 # Changelog
 
+- 🎨 Add Modality [PR940](https://github.com/laminlabs/lamindb/pull/940) [@falexwolf](https://github.com/falexwolf)
 - 🎨 Describe based on provenance and features [PR936](https://github.com/laminlabs/lamindb/pull/936) [@sunnyosun](https://github.com/sunnyosun)
 - ✅ Test feature manager [PR937](https://github.com/laminlabs/lamindb/pull/937) [@falexwolf](https://github.com/falexwolf)
 - 🎉 Stage 0.48 (5) [PR926](https://github.com/laminlabs/lamindb/pull/926) [@falexwolf](https://github.com/falexwolf)

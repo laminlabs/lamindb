@@ -60,7 +60,7 @@ def __init__(self, *args, **kwargs):
         kwargs.pop("ref_field") if "ref_field" in kwargs else "id"
     )
     type: Optional[Union[type, str]] = kwargs.pop("type") if "type" in kwargs else None
-    readout: Optional[str] = kwargs.pop("readout") if "readout" in kwargs else None
+    modality: Optional[str] = kwargs.pop("modality") if "modality" in kwargs else None
     name: Optional[str] = kwargs.pop("name") if "name" in kwargs else None
     id: Optional[str] = kwargs.pop("id") if "id" in kwargs else None
 
@@ -90,7 +90,7 @@ def __init__(self, *args, **kwargs):
         name=name,
         type=type_str,
         n=n_features,
-        readout=readout,
+        modality=modality,
         ref_orm=features_orm.__name__,
         ref_schema=features_orm.__get_schema_name__(),
         ref_field=ref_field,
@@ -121,7 +121,7 @@ def from_values(
     field: Field = Feature.name,
     type: Optional[Union[Type, str]] = None,
     name: Optional[str] = None,
-    readout: Optional[str] = None,
+    modality: Optional[str] = None,
     **kwargs,
 ) -> "FeatureSet":
     """{}"""
@@ -153,7 +153,7 @@ def from_values(
             id=features_hash,
             name=name,
             n=n_features,
-            readout=readout,
+            modality=modality,
             type=type,
             ref_field=field.field.name,
             features=records,
