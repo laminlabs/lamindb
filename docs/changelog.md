@@ -1,5 +1,6 @@
 # Changelog
 
+- ⬆️ Updated pinnings of lnschema packages [PR942](https://github.com/laminlabs/lamindb/pull/942) [@sunnyosun](https://github.com/sunnyosun)
 - 🎉 Stage 0.48 (6) [PR935](https://github.com/laminlabs/lamindb/pull/935) [@falexwolf](https://github.com/falexwolf)
 - 🎨 Access feature slots via getitem [PR941](https://github.com/laminlabs/lamindb/pull/941) [@sunnyosun](https://github.com/sunnyosun)
 - 🎨 Add Modality [PR940](https://github.com/laminlabs/lamindb/pull/940) [@falexwolf](https://github.com/falexwolf)
