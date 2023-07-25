@@ -25,14 +25,18 @@ class FeatureManager:
             records_by_orm[record.__class__.__name__].append(record)
             if feature is None:
                 try:
-                    feature = (
+                    record_feature = (
                         record._feature
                         if hasattr(record, "_feature")
                         else record.feature
                     )
                 except ValueError:
                     raise ValueError("Pass feature argument")
-            records_by_feature_orm[(feature, record.__class__.__name__)].append(record)
+            else:
+                record_feature = feature
+            records_by_feature_orm[(record_feature, record.__class__.__name__)].append(
+                record
+            )
         schema_and_accessor_by_orm = {
             field.related_model.__name__: (
                 field.related_model.__get_schema_name__(),
