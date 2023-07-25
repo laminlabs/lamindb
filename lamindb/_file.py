@@ -522,19 +522,13 @@ def from_dir(
     path: PathLike,
     *,
     run: Optional[Run] = None,
+    storage_root: Optional[PathLike] = None,
 ) -> List["File"]:
     """{}"""
     folderpath = UPath(path)
-    check_path_in_storage = check_path_in_default_storage(folderpath)
-
-    if check_path_in_storage:
-        folder_key = get_relative_path_to_root(path=folderpath).as_posix()
-    else:
-        raise RuntimeError(
-            "Currently, only directories in default storage can be registered!\n"
-            "You can either move your folder into the current default storage "
-            "or add a new default storage through `ln.settings.storage`"
-        )
+    folder_key = get_relative_path_to_root(
+        path=folderpath, root=storage_root
+    ).as_posix()
     # always sanitize by stripping a trailing slash
     folder_key = folder_key.rstrip("/")
     logger.hint(f"using storage prefix = {folder_key}/")
