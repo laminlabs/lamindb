@@ -17,6 +17,7 @@ from lamindb.dev.utils import attach_func_to_class_method
 
 from . import _TESTING
 from ._from_values import _has_species_field, get_or_create_records
+from .dev._settings import settings
 
 IPYTHON = getattr(builtins, "__IPYTHON__", False)
 
@@ -405,6 +406,43 @@ def _labels_with_feature_names(labels: Union[QuerySet, Manager]) -> Dict:
 def describe(self):
     model_name = colors.green(self.__class__.__name__)
     msg = ""
+
+    def features_df(file, feature_sets):
+        features = []
+        for feature_set in feature_sets:
+            features_df = feature_set.features.exclude(labels_orm__isnull=True).df()
+            slots = file.feature_sets.through.objects.filter(
+                file=file, featureset=feature_set
+            ).list("slot")
+            for slot in slots:
+                features_df["slot"] = slot
+                features.append(features_df)
+        features_df = pd.concat(features)
+        return features_df.sort_values(["labels_schema", "labels_orm"])
+
+    def dict_related_model_to_related_name(orm):
+        d: Dict = {
+            f"{i.related_model.__get_schema_name__()}.{i.related_model.__name__}": (
+                i.related_name
+            )
+            for i in orm._meta.related_objects
+            if i.related_name is not None
+        }
+        d.update(
+            {
+                f"{i.related_model.__get_schema_name__()}.{i.related_model.__name__}": (
+                    i.name
+                )
+                for i in orm._meta.many_to_many
+                if i.name is not None
+            }
+        )
+
+        return d
+
+    file_related_models = dict_related_model_to_related_name(self)
+
+    # Display the file record
     fields = self._meta.fields
     direct_fields = []
     foreign_key_fields = []
@@ -413,87 +451,117 @@ def describe(self):
             foreign_key_fields.append(f.name)
         else:
             direct_fields.append(f.name)
-    # Display line by line the foreign key fields
+
+    # Display Provenance
+    # display line by line the foreign key fields
+    emojis = {"storage": "💾", "created_by": "👤", "transform": "💫", "run": "🚗"}
     if len(foreign_key_fields) > 0:
         record_msg = f"{model_name}({''.join([f'{i}={self.__getattribute__(i)}, ' for i in direct_fields])})"  # noqa
         msg += f"{record_msg.rstrip(', )')})\n\n"
 
-        msg += f"{colors.green('Data lineage')}:\n    "
+        msg += f"{colors.green('Provenance')}:\n    "
         related_msg = "".join(
-            [f"🔗 {i}: {self.__getattribute__(i)}\n    " for i in foreign_key_fields]
+            [
+                f"{emojis.get(i, '📎')} {i}: {self.__getattribute__(i)}\n    "
+                for i in foreign_key_fields
+            ]
         )
         msg += related_msg
+    # input of
+    if self.input_of.exists():
+        values = [format_datetime(i.run_at) for i in self.input_of.all()]
+        msg += f"⬇️ input_of ({colors.italic('core.Run')}): {values}\n    "
     msg = msg.rstrip("    ")
 
-    # Display Features
-    # fields in the model definition
-    related_names = [i.name for i in self._meta.many_to_many]
-    # fields back linked
-    related_names += [i.related_name for i in self._meta.related_objects]
-    # combine all features into one dataframe
-    feature_sets = self.feature_sets.filter(ref_orm="Feature").all()
-    features = []
-    for feature_set in feature_sets:
-        features_df = feature_set.features.exclude(labels_orm__isnull=True).df()
-        slots = self.feature_sets.through.objects.filter(
-            file=self, featureset=feature_set
-        ).list("slot")
-        features_df["slot"] = str(slots)
-        features.append(features_df)
-    features_df = pd.concat(features)
+    if not self.feature_sets.exists():
+        print(msg)
+        return
+    else:
+        feature_sets_related_models = dict_related_model_to_related_name(
+            self.feature_sets.first()
+        )
+    # Display Features by slot
     msg += f"{colors.green('Features')}:\n"
-    for related_name in related_names:
-        if related_name is None:
-            continue
-        related_objects = self.__getattribute__(related_name)
-        count = related_objects.count()
-        if count > 0:
-            # show the slot for feature sets
-            if related_name == "feature_sets":
-                objects_list = self.feature_sets.through.objects.filter(file=self).list(
-                    "slot"
+    # var
+    feature_sets = self.feature_sets.exclude(ref_orm="Feature")
+    if feature_sets.exists():
+        for feature_set in feature_sets.all():
+            key = f"{feature_set.ref_schema}.{feature_set.ref_orm}"
+            related_name = feature_sets_related_models.get(key)
+            values = (
+                feature_set.__getattribute__(related_name)
+                .all()[:5]
+                .list(feature_set.ref_field)
+            )
+            slots = self.feature_sets.through.objects.filter(
+                file=self, featureset=feature_set
+            ).list("slot")
+            for slot in slots:
+                if slot == "var":
+                    slot += " (X)"
+                msg += f"  🗺️ {colors.bold(slot)}:\n"
+                ref = colors.italic(f"{key}.{feature_set.ref_field}")
+                msg += f"    🔗 index ({feature_set.n}, {ref}): {values}\n".replace(
+                    "]", "...]"
                 )
-            # display labels by the feature name
-            elif related_name == "labels":
-                labels = _labels_with_feature_names(related_objects)
-                if len(labels) < 2:
-                    objects_list = labels
-                else:
-                    msg_objects = f"    🔗 {related_name} ({count}):\n"
-                    for k, v in labels.items():
-                        msg_objects += f"         {k}: {v[:5]}\n"
-                        if len(v) > 5:
-                            msg_objects = msg_objects.replace("]", " ... ]")
-                    msg += msg_objects
-                    continue
-            # features that directly linked to file with their own ORMs
-            else:
+
+    # obs
+    # ref_orm=Feature, combine all features into one dataframe
+    feature_sets = self.feature_sets.filter(ref_orm="Feature").all()
+    if feature_sets.exists():
+        features_df = features_df(file=self, feature_sets=feature_sets.all())
+        for slot in features_df["slot"].unique():
+            df_slot = features_df[features_df.slot == slot]
+            if slot == "obs":
+                slot += " (metadata)"
+            msg += f"  🗺️ {colors.bold(slot)}:\n"
+            df_label_index = df_slot[
+                (df_slot["labels_orm"] == "Label")
+                & (df_slot["labels_schema"] == "core")
+            ].index
+
+            # for labels
+            labels_schema = "core"
+            labels_orm = "Label"
+            key = f"{labels_schema}.{labels_orm}"
+            related_name = file_related_models.get(key)
+            related_objects = self.__getattribute__(related_name)
+            labels = _labels_with_feature_names(related_objects)
+            msg_objects = ""
+            for k, v in labels.items():
+                msg_objects += f"    🔗 {k} ({len(v)}, {colors.italic(key)}): {v[:5]}\n"
+                if len(v) > 5:
+                    msg_objects = msg_objects.replace("]", " ... ]")
+            msg += msg_objects
+
+            # for non-labels
+            df_nonlabels = df_slot.loc[df_slot.index.difference(df_label_index)]
+            df_nonlabels = (
+                df_nonlabels.groupby(["labels_schema", "labels_orm"], group_keys=False)[
+                    "name"
+                ]
+                .apply(lambda x: "|".join(x))
+                .reset_index()
+            )
+            for _, row in df_nonlabels.iterrows():
+                key = f"{row.labels_schema}.{row.labels_orm}"
+                related_name = file_related_models.get(key)
+                related_objects = self.__getattribute__(related_name)
+                count = related_objects.count()
+                count_str = f"{count}, {colors.italic(f'{key}')}"
                 try:
                     field = get_default_str_field(related_objects)
                 except ValueError:
                     field = "id"
-                objects_list = list(related_objects.values_list(field, flat=True)[:5])
-                # for runs
-                if field == "created_at":
-                    objects_list = [format_datetime(i) for i in objects_list]
-                # get the related ORM
-                related_orm = self._meta.get_field(related_name).related_model
-                labels_orm = related_orm.__name__
-                labels_schema = related_orm.__module__.lstrip("lnschema_").rstrip(
-                    ".models"
-                )
-                names = features_df[
-                    (features_df["labels_orm"] == labels_orm)
-                    & (features_df["labels_schema"] == labels_schema)
-                ]["name"].tolist()
-                related_name = ",".join(names)
-            msg_objects = f"    🔗 {related_name} ({count}): {objects_list}\n"
-            if count > 5:
-                msg_objects = msg_objects.replace("]", " ... ]")
-            msg += msg_objects
+                values = list(related_objects.values_list(field, flat=True)[:5])
+                msg_objects = f"    🔗 {row['name']} ({count_str}): {values}\n"
+                msg += msg_objects
     msg = msg.rstrip("\n")
     msg = msg.rstrip("Features:")
-    print(msg)
+    verbosity = settings.verbosity
+    settings.verbosity = 2
+    logger.info(msg)
+    settings.verbosity = verbosity
 
 
 def set_abbr(self, value: str):
