@@ -116,7 +116,7 @@ def get_notebook_name_colab() -> str:
     return name.rstrip(".ipynb")
 
 
-class context:
+class run_context:
     """Global run context."""
 
     instance: Optional[InstanceSettings] = None
@@ -434,3 +434,6 @@ class context:
                     logger.success(f"Updated: {transform}")
 
         cls.transform = transform
+
+
+context = run_context

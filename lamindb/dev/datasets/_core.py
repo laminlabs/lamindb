@@ -39,26 +39,31 @@ def file_jpg_paradisi05() -> Path:
     return Path(filepath)
 
 
-def file_fastq() -> Path:
+def file_fastq(in_storage_root=False) -> Path:
     """Mini mock fastq file."""
-    with open("./input.fastq.gz", "w") as f:
+    basedir = Path(".") if not in_storage_root else settings.storage
+    filepath = basedir / "input.fastq.gz"
+    with open(filepath, "w") as f:
         f.write("Mock fastq file.")
-    return Path("./input.fastq.gz")
+    return filepath
 
 
-def file_bam() -> Path:
+def file_bam(in_storage_root=False) -> Path:
     """Mini mock bam file."""
-    with open("./output.bam", "w") as f:
+    basedir = Path(".") if not in_storage_root else settings.storage
+    filepath = basedir / "output.bam"
+    with open(filepath, "w") as f:
         f.write("Mock bam file.")
-    return Path("./output.bam")
+    return filepath
 
 
-def file_mini_csv() -> Path:
+def file_mini_csv(in_storage_root=False) -> Path:
     """Mini csv file."""
-    filename = Path("./mini.csv")
+    basedir = Path(".") if not in_storage_root else settings.storage
+    filepath = basedir / "mini.csv"
     df = pd.DataFrame([1, 2, 3], columns=["test"])
-    df.to_csv(filename, index=False)
-    return filename
+    df.to_csv(filepath, index=False)
+    return filepath
 
 
 def file_tiff_suo22():
@@ -82,12 +87,12 @@ def dir_scrnaseq_cellranger(in_storage_root=False) -> Path:
     )
     from zipfile import ZipFile
 
-    path = Path(".") if not in_storage_root else settings.storage
+    basedir = Path(".") if not in_storage_root else settings.storage
     with ZipFile(filepath, "r") as zipObj:
         # Extract all the contents of zip file in current directory
-        zipObj.extractall(path=path)
+        zipObj.extractall(path=basedir)
 
-    return path / "cellranger_run_001"
+    return basedir / "cellranger_run_001"
 
 
 def anndata_mouse_sc_lymph_node() -> ad.AnnData:
