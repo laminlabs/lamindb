@@ -1,8 +1,10 @@
 from collections import defaultdict
-from typing import List, Union
+from typing import List, Optional, Union
 
-from lnschema_core.models import ORM, Dataset, File
+import pandas as pd
+from lnschema_core.models import ORM, Dataset, Feature, File
 
+from ._queryset import QuerySet
 from ._save import save
 
 
@@ -12,13 +14,23 @@ class FeatureManager:
     def __init__(self, host: Union[File, Dataset]):
         self._host = host
 
-    def add_labels(self, records: List[ORM]):
+    def add_labels(self, records: List[ORM], feature: Optional[Union[str, ORM]] = None):
         """Add new labels and associate them with a feature."""
+        if isinstance(feature, str):
+            feature = Feature.select(name=feature).one()
         records_by_orm = defaultdict(list)
         records_by_feature_orm = defaultdict(list)
         for record in records:
             records_by_orm[record.__class__.__name__].append(record)
-            feature = record._feature if hasattr(record, "_feature") else record.feature
+            if feature is None:
+                try:
+                    feature = (
+                        record._feature
+                        if hasattr(record, "_feature")
+                        else record.feature
+                    )
+                except ValueError:
+                    raise ValueError("Pass feature argument")
             records_by_feature_orm[(feature, record.__class__.__name__)].append(record)
         schema_and_accessor_by_orm = {
             field.related_model.__name__: (
@@ -35,3 +47,31 @@ class FeatureManager:
             feature.labels_orm = orm_name
             feature.labels_schema = schema_and_accessor_by_orm[orm_name][0]
             feature.save()
+
+    def by_slot(self, slot: str) -> QuerySet:
+        id = (
+            self._host.feature_sets.through.objects.filter(
+                file_id=self._host.id, slot=slot
+            )
+            .one()
+            .featureset_id
+        )
+        accessor_by_orm = {
+            field.related_model.__name__: field.name
+            for field in self._host._meta.related_objects
+        }
+        feature_set = self._host.feature_sets.filter(id=id).one()
+        return getattr(feature_set, accessor_by_orm[feature_set.ref_orm]).all()
+
+    def df(self) -> pd.DataFrame:
+        """Return DataFrame."""
+        df = self._host.feature_sets.df()
+        df.insert(
+            0,
+            "slot",
+            self._host.feature_sets.through.objects.filter(file_id=self._host.id)
+            .df()
+            .set_index("featureset_id")
+            .slot,
+        )
+        return df
