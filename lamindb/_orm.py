@@ -16,6 +16,7 @@ from lnschema_core.types import ListLike, StrField
 from lamindb.dev.utils import attach_func_to_class_method
 
 from . import _TESTING
+from ._feature_manager import create_features_df
 from ._from_values import _has_species_field, get_or_create_records
 from .dev._settings import settings
 
@@ -407,19 +408,6 @@ def describe(self):
     model_name = colors.green(self.__class__.__name__)
     msg = ""
 
-    def features_df(file, feature_sets):
-        features = []
-        for feature_set in feature_sets:
-            features_df = feature_set.features.exclude(labels_orm__isnull=True).df()
-            slots = file.feature_sets.through.objects.filter(
-                file=file, featureset=feature_set
-            ).list("slot")
-            for slot in slots:
-                features_df["slot"] = slot
-                features.append(features_df)
-        features_df = pd.concat(features)
-        return features_df.sort_values(["labels_schema", "labels_orm"])
-
     def dict_related_model_to_related_name(orm):
         d: Dict = {
             f"{i.related_model.__get_schema_name__()}.{i.related_model.__name__}": (
@@ -509,7 +497,9 @@ def describe(self):
     # ref_orm=Feature, combine all features into one dataframe
     feature_sets = self.feature_sets.filter(ref_orm="Feature").all()
     if feature_sets.exists():
-        features_df = features_df(file=self, feature_sets=feature_sets.all())
+        features_df = create_features_df(
+            file=self, feature_sets=feature_sets.all(), exclude=True
+        )
         for slot in features_df["slot"].unique():
             df_slot = features_df[features_df.slot == slot]
             if slot == "obs":

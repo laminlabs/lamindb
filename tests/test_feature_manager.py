@@ -79,9 +79,9 @@ def test_feature_manager():
 
     file.features.add_labels(diseases)
 
-    file.features.all("obs").df()
+    file.features["obs"].df()
 
-    df = file.features.all("obs").df()
+    df = file.features["obs"].df()
     assert set(df["name"]) == {
         "cell_type",
         "cell_type_id",
