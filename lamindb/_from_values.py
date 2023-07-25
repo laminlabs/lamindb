@@ -2,6 +2,7 @@ from typing import Any, Dict, Iterable, List, Optional, Tuple, Union
 
 import pandas as pd
 from django.core.exceptions import FieldDoesNotExist
+from django.db.models import Case, When
 from django.db.models.query_utils import DeferredAttribute as Field
 from lamin_utils import colors, logger
 from lnschema_core.models import ORM, Feature
@@ -133,9 +134,17 @@ def get_existing_records(iterable_idx: pd.Index, field: Field, kwargs: Dict = {}
 
     from ._select import select
 
-    stmt = select(model, **condition)
+    query_set = select(model, **condition)
 
-    records = stmt.list()  # existing records
+    # new we have to sort the list of queried records
+    preserved = Case(
+        *[
+            When(**{field_name: value}, then=pos)
+            for pos, value in enumerate(iterable_idx)
+        ]
+    )
+    records = query_set.order_by(preserved).list()
+
     n_name = len(records) - len(syn_mapper)
     names = [getattr(record, field_name) for record in records]
     if n_name > 0:
@@ -152,7 +161,9 @@ def get_existing_records(iterable_idx: pd.Index, field: Field, kwargs: Dict = {}
     if len(syn_msg) > 0:
         logger.info(syn_msg)
 
-    existing_values = iterable_idx.intersection(stmt.values_list(field_name, flat=True))
+    existing_values = iterable_idx.intersection(
+        query_set.values_list(field_name, flat=True)
+    )
     nonexist_values = iterable_idx.difference(existing_values)
 
     return records, nonexist_values
