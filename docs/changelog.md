@@ -1,5 +1,6 @@
 # Changelog
 
+- 💄 Smaller fontsize for graph labels [PR947](https://github.com/laminlabs/lamindb/pull/947) [@sunnyosun](https://github.com/sunnyosun)
 - 🚚 Rename `featureset_id` to `feature_set_id` in `FileFeatureSet` link table [PR946](https://github.com/laminlabs/lamindb/pull/946) [@falexwolf](https://github.com/falexwolf)
 - 📝 Added MuData example [PR945](https://github.com/laminlabs/lamindb/pull/945) [@sunnyosun](https://github.com/sunnyosun)
 - 📝 Polish guides [PR943](https://github.com/laminlabs/lamindb/pull/943) [@sunnyosun](https://github.com/sunnyosun)
