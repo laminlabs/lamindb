@@ -119,10 +119,14 @@ def get_existing_records(iterable_idx: pd.Index, field: Field, kwargs: Dict = {}
     syn_msg = ""
     if len(syn_mapper) > 0:
         s = "" if len(syn_mapper) == 1 else "s"
+        names = list(syn_mapper.keys())
+        print_values = ", ".join(names[:10])
+        if len(names) > 10:
+            print_values += ", ..."
         syn_msg = (
             "Loaded"
             f" {colors.green(f'{len(syn_mapper)} {model.__name__} record{s}')} that"  # noqa
-            f" matched {colors.green('synonyms')}"
+            f" matched {colors.green('synonyms')}: {print_values}"
         )
         iterable_idx = iterable_idx.to_frame().rename(index=syn_mapper).index
 
@@ -147,6 +151,7 @@ def get_existing_records(iterable_idx: pd.Index, field: Field, kwargs: Dict = {}
 
     n_name = len(records) - len(syn_mapper)
     names = [getattr(record, field_name) for record in records]
+    names = [name for name in names if name not in syn_mapper.values()]
     if n_name > 0:
         s = "" if n_name == 1 else "s"
         print_values = ", ".join(names[:10])
@@ -197,10 +202,14 @@ def create_records_from_bionty(
     msg_syn: str = ""
     if len(syn_mapper) > 0:
         s = "" if len(syn_mapper) == 1 else "s"
+        names = list(syn_mapper.keys())
+        print_values = ", ".join(names[:10])
+        if len(names) > 10:
+            print_values += ", ..."
         msg_syn = (
             "Loaded"
             f" {colors.purple(f'{len(syn_mapper)} {model.__name__} record{s} from Bionty')} that"  # noqa
-            f" matched {colors.purple('synonyms')}"
+            f" matched {colors.purple('synonyms')}: {print_values}"
         )
 
         iterable_idx = iterable_idx.to_frame().rename(index=syn_mapper).index
@@ -218,6 +227,7 @@ def create_records_from_bionty(
         # number of records that matches field (not synonyms)
         n_name = len(records) - len(syn_mapper)
         names = [getattr(record, field_name) for record in records]
+        names = [name for name in names if name not in syn_mapper.values()]
         if n_name > 0:
             s = "" if n_name == 1 else "s"
             print_values = ", ".join(names[:10])
