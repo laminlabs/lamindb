@@ -1,5 +1,6 @@
 # Changelog
 
+- 🎉  Stage 0.48 (7) [PR944](https://github.com/laminlabs/lamindb/pull/944) [@sunnyosun](https://github.com/sunnyosun)
 - ♻️ Add field `hash` to `FeatureSet` [PR948](https://github.com/laminlabs/lamindb/pull/948) [@falexwolf](https://github.com/falexwolf)
 - 💄 Smaller fontsize for graph labels [PR947](https://github.com/laminlabs/lamindb/pull/947) [@sunnyosun](https://github.com/sunnyosun)
 - 🚚 Rename `featureset_id` to `feature_set_id` in `FileFeatureSet` link table [PR946](https://github.com/laminlabs/lamindb/pull/946) [@falexwolf](https://github.com/falexwolf)
