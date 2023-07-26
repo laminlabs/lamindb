@@ -68,7 +68,7 @@ class FeatureManager:
                 file_id=self._host.id, slot=slot
             )
             .one()
-            .featureset_id
+            .feature_set_id
         )
         accessor_by_orm = {
             field.related_model.__name__: field.name
@@ -86,7 +86,7 @@ class FeatureManager:
             "slot",
             self._host.feature_sets.through.objects.filter(file_id=self._host.id)
             .df()
-            .set_index("featureset_id")
+            .set_index("feature_set_id")
             .slot,
         )
         return df

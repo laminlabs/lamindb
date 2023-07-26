@@ -743,7 +743,7 @@ def _save_skip_storage(file, *args, **kwargs) -> None:
         for slot, feature_set in file._feature_sets.items():
             links.append(
                 File.feature_sets.through(
-                    file_id=file.id, featureset_id=feature_set.id, slot=slot
+                    file_id=file.id, feature_set_id=feature_set.id, slot=slot
                 )
             )
 
