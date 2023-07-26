@@ -65,7 +65,6 @@ def __init__(self, *args, **kwargs):
     # hash is only internally used
     hash: Optional[str] = kwargs.pop("hash") if "hash" in kwargs else None
     if len(kwargs) > 0:
-        print(kwargs)
         raise ValueError(
             "Only features, ref_field, type, modality, name are valid keyword arguments"
         )
