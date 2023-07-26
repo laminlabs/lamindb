@@ -31,7 +31,7 @@ def create_features_df(
         else:
             features_df = feature_set.features.df()
         slots = file.feature_sets.through.objects.filter(
-            file=file, featureset=feature_set
+            file=file, feature_set=feature_set
         ).list("slot")
         for slot in slots:
             features_df["slot"] = slot
@@ -68,7 +68,7 @@ class FeatureManager:
                 file_id=self._host.id, slot=slot
             )
             .one()
-            .featureset_id
+            .feature_set_id
         )
         accessor_by_orm = {
             field.related_model.__name__: field.name
@@ -86,7 +86,7 @@ class FeatureManager:
             "slot",
             self._host.feature_sets.through.objects.filter(file_id=self._host.id)
             .df()
-            .set_index("featureset_id")
+            .set_index("feature_set_id")
             .slot,
         )
         return df
@@ -170,7 +170,7 @@ class FeatureManager:
         feature_set.save()
         self._host.feature_sets.add(feature_set)
         link_record = self._host.feature_sets.through.objects.filter(
-            file=self._host, featureset=feature_set
+            file=self._host, feature_set=feature_set
         ).one()
         link_record.slot = slot
         link_record.save()

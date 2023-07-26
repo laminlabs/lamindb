@@ -482,7 +482,7 @@ def describe(self):
                 .list(feature_set.ref_field)
             )
             slots = self.feature_sets.through.objects.filter(
-                file=self, featureset=feature_set
+                file=self, feature_set=feature_set
             ).list("slot")
             for slot in slots:
                 if slot == "var":
