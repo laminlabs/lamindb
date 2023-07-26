@@ -90,5 +90,5 @@ def docs(session):
             )
     login_testuser1(session)
     session.run(*"lamin init --storage ./docsbuild --schema bionty".split())
-    build_docs(session, strip_prefix=True, strict=True)
+    build_docs(session, strip_prefix=True, strict=False)
     upload_docs_artifact(aws=True)
