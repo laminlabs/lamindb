@@ -1,5 +1,6 @@
 # Changelog
 
+- 🚚 Rename `featureset_id` to `feature_set_id` in `FileFeatureSet` link table [PR946](https://github.com/laminlabs/lamindb/pull/946) [@falexwolf](https://github.com/falexwolf)
 - 📝 Added MuData example [PR945](https://github.com/laminlabs/lamindb/pull/945) [@sunnyosun](https://github.com/sunnyosun)
 - 📝 Polish guides [PR943](https://github.com/laminlabs/lamindb/pull/943) [@sunnyosun](https://github.com/sunnyosun)
 - ⬆️ Updated pinnings of lnschema packages [PR942](https://github.com/laminlabs/lamindb/pull/942) [@sunnyosun](https://github.com/sunnyosun)
