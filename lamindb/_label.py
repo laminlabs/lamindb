@@ -17,8 +17,8 @@ def __init__(self, *args, **kwargs):
         super(Label, self).__init__(*args, **kwargs)
         return None
     # now we proceed with the user-facing constructor
-    if len(args) > 1:
-        raise ValueError("Only one non-keyword arg allowed: features")
+    if len(args) > 0:
+        raise ValueError("Only one non-keyword arg allowed")
     name: Optional[str] = kwargs.pop("name") if "name" in kwargs else None
     description: Optional[str] = (
         kwargs.pop("description") if "description" in kwargs else None
@@ -28,7 +28,6 @@ def __init__(self, *args, **kwargs):
         kwargs.pop("feature_id") if "feature_id" in kwargs else None
     )
     if len(kwargs) > 0:
-        print(kwargs)
         raise ValueError("Only name, description, feature are valid keyword arguments")
     # continue
     if feature is None and feature_id is None:

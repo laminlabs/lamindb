@@ -26,7 +26,7 @@ def test_signatures():
 
 def test_init_with_args():
     with pytest.raises(ValueError):
-        ln.Label("an arg")
+        ln.Label("an arg", name="test")
 
 
 def test_validate_required_fields():
@@ -35,7 +35,7 @@ def test_validate_required_fields():
         ln.Label()
     # label has a required name
     with pytest.raises(TypeError):
-        ln.Label(external_id="test")
+        ln.Label(description="test")
 
 
 def test_search_file():
