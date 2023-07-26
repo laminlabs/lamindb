@@ -404,7 +404,7 @@ def __init__(file: File, *args, **kwargs):
         description = name
 
     provisional_id = ids.base62_20()
-    kwargs, privates = get_file_kwargs_from_data(
+    kwargs_or_file, privates = get_file_kwargs_from_data(
         data=data,
         key=key,
         run=run,
@@ -412,6 +412,20 @@ def __init__(file: File, *args, **kwargs):
         provisional_id=provisional_id,
         skip_check_exists=skip_check_exists,
     )
+
+    # an object with the same hash already exists
+    if isinstance(kwargs_or_file, File):
+        # this is the way Django instantiates from the DB internally
+        # https://github.com/django/django/blob/549d6ffeb6d626b023acc40c3bb2093b4b25b3d6/django/db/models/base.py#LL488C1-L491C51
+        new_args = [
+            getattr(kwargs, field.attname) for field in file._meta.concrete_fields
+        ]
+        super(File, file).__init__(*new_args)
+        file._state.adding = False
+        file._state.db = "default"
+        return None
+    else:
+        kwargs = kwargs_or_file
 
     if isinstance(data, pd.DataFrame):
         if log_hint:
@@ -429,17 +443,6 @@ def __init__(file: File, *args, **kwargs):
         kwargs["accessor"] = "AnnData"
     elif data_is_mudata(data):
         kwargs["accessor"] = "MuData"
-    # an object with the same hash already exists
-    if isinstance(kwargs, File):
-        # this is the way Django instantiates from the DB internally
-        # https://github.com/django/django/blob/549d6ffeb6d626b023acc40c3bb2093b4b25b3d6/django/db/models/base.py#LL488C1-L491C51
-        new_args = [
-            getattr(kwargs, field.attname) for field in file._meta.concrete_fields
-        ]
-        super(File, file).__init__(*new_args)
-        file._state.adding = False
-        file._state.db = "default"
-        return None
 
     kwargs["id"] = provisional_id
     kwargs["description"] = description
