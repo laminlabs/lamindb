@@ -17,6 +17,7 @@ from lnschema_core import Feature, FeatureSet, File, Run, ids
 from lnschema_core.types import AnnDataLike, DataLike, PathLike
 
 from lamindb._context import context
+from lamindb.dev import FeatureManager
 from lamindb.dev._settings import settings
 from lamindb.dev.hashing import b16_to_b64, hash_file
 from lamindb.dev.storage import (
@@ -418,7 +419,8 @@ def __init__(file: File, *args, **kwargs):
         # this is the way Django instantiates from the DB internally
         # https://github.com/django/django/blob/549d6ffeb6d626b023acc40c3bb2093b4b25b3d6/django/db/models/base.py#LL488C1-L491C51
         new_args = [
-            getattr(kwargs, field.attname) for field in file._meta.concrete_fields
+            getattr(kwargs_or_file, field.attname)
+            for field in file._meta.concrete_fields
         ]
         super(File, file).__init__(*new_args)
         file._state.adding = False
@@ -866,6 +868,15 @@ def inherit_relations(self, file: File, fields: Optional[List[str]] = None):
         )
 
 
+@property  # type: ignore
+@doc_args(File.features.__doc__)
+def features(self) -> "FeatureManager":
+    """{}"""
+    from lamindb._feature_manager import FeatureManager
+
+    return FeatureManager(self)
+
+
 METHOD_NAMES = [
     "__init__",
     "from_anndata",
@@ -896,5 +907,8 @@ for name in METHOD_NAMES:
 # privates currently dealt with separately
 File._delete_skip_storage = _delete_skip_storage
 File._save_skip_storage = _save_skip_storage
+# TODO: move these to METHOD_NAMES
 setattr(File, "view_lineage", view_lineage)
 setattr(File, "inherit_relations", inherit_relations)
+# property signature is not tested:
+setattr(File, "features", features)
