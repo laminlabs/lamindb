@@ -31,7 +31,7 @@ def create_features_df(
         else:
             features_df = feature_set.features.df()
         slots = file.feature_sets.through.objects.filter(
-            file=file, featureset=feature_set
+            file=file, feature_set=feature_set
         ).list("slot")
         for slot in slots:
             features_df["slot"] = slot
@@ -170,7 +170,7 @@ class FeatureManager:
         feature_set.save()
         self._host.feature_sets.add(feature_set)
         link_record = self._host.feature_sets.through.objects.filter(
-            file=self._host, featureset=feature_set
+            file=self._host, feature_set=feature_set
         ).one()
         link_record.slot = slot
         link_record.save()
