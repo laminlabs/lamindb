@@ -1,5 +1,5 @@
 from itertools import islice
-from typing import List
+from typing import List, Optional, Union
 
 import pandas as pd
 from lamin_utils import logger
@@ -32,6 +32,12 @@ def __init__(self, *args, **kwargs):
     # now we proceed with the user-facing constructor
     if len(args) != 0:
         raise ValueError("Only non-keyword args allowed")
+    type: Optional[Union[type, str]] = kwargs.pop("type") if "type" in kwargs else None
+    if type is not None:
+        type_str = type.__name__ if not isinstance(type, str) else type
+    else:
+        type_str = None
+    kwargs["type"] = type_str
     super(Feature, self).__init__(*args, **kwargs)
 
 

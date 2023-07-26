@@ -4,7 +4,7 @@ import pandas as pd
 from django.db.models.query_utils import DeferredAttribute as Field
 from lamin_utils import logger
 from lamindb_setup.dev._docs import doc_args
-from lnschema_core import ORM, Feature, FeatureSet
+from lnschema_core import ORM, Feature, FeatureSet, ids
 from lnschema_core.types import ListLike
 
 from lamindb.dev.hashing import hash_set
@@ -62,7 +62,13 @@ def __init__(self, *args, **kwargs):
     type: Optional[Union[type, str]] = kwargs.pop("type") if "type" in kwargs else None
     modality: Optional[str] = kwargs.pop("modality") if "modality" in kwargs else None
     name: Optional[str] = kwargs.pop("name") if "name" in kwargs else None
-    id: Optional[str] = kwargs.pop("id") if "id" in kwargs else None
+    # hash is only internally used
+    hash: Optional[str] = kwargs.pop("hash") if "hash" in kwargs else None
+    if len(kwargs) > 0:
+        print(kwargs)
+        raise ValueError(
+            "Only features, ref_field, type, modality, name are valid keyword arguments"
+        )
 
     # now code
     features_orm = validate_features(features)
@@ -71,22 +77,22 @@ def __init__(self, *args, **kwargs):
     else:
         type = float
     n_features = len(features)
-    features_hash = hash_set({feature.id for feature in features})
-    if id is None:
-        feature_set = FeatureSet.select(id=features_hash).one_or_none()
+    if hash is None:
+        features_hash = hash_set({feature.id for feature in features})
+        feature_set = FeatureSet.select(hash=features_hash).one_or_none()
         if feature_set is not None:
-            logger.info("Loaded an existing `feature_set`")
+            logger.info(f"Loaded {feature_set}")
             init_self_from_db(self, feature_set)
             return None
         else:
-            id = features_hash
+            hash = features_hash
     self._features = (get_related_name(features_orm), features)
     if type is not None:
         type_str = type.__name__ if not isinstance(type, str) else type
     else:
         type_str = None
     super(FeatureSet, self).__init__(
-        id=id,
+        id=ids.base62_20(),
         name=name,
         type=type_str,
         n=n_features,
@@ -94,6 +100,7 @@ def __init__(self, *args, **kwargs):
         ref_orm=features_orm.__name__,
         ref_schema=features_orm.__get_schema_name__(),
         ref_field=ref_field,
+        hash=hash,
     )
 
 
@@ -135,11 +142,10 @@ def from_values(
     iterable_idx = index_iterable(values)
     if not isinstance(iterable_idx[0], (str, int)):
         raise TypeError("values should be list-like of str or int")
-    n_features = len(iterable_idx)
     features_hash = hash_set(set(iterable_idx))
-    feature_set = FeatureSet.select(id=features_hash).one_or_none()
+    feature_set = FeatureSet.select(hash=features_hash).one_or_none()
     if feature_set is not None:
-        logger.info("Returning an existing feature_set")
+        logger.info(f"Loaded {feature_set}")
     else:
         from_bionty = ORM.__module__.startswith("lnschema_bionty")
         records = get_or_create_records(
@@ -150,13 +156,12 @@ def from_values(
         )
         # type_str = type.__name__ if not isinstance(type, str) else type
         feature_set = FeatureSet(
-            id=features_hash,
+            features=records,
+            hash=features_hash,
             name=name,
-            n=n_features,
             modality=modality,
             type=type,
             ref_field=field.field.name,
-            features=records,
         )
     return feature_set
 
