@@ -482,7 +482,7 @@ def describe(self):
                 .list(feature_set.ref_field)
             )
             slots = self.feature_sets.through.objects.filter(
-                file=self, featureset=feature_set
+                file=self, feature_set=feature_set
             ).list("slot")
             for slot in slots:
                 if slot == "var":
@@ -520,11 +520,12 @@ def describe(self):
                 labels = _labels_with_feature_names(related_objects)
                 msg_objects = ""
                 for k, v in labels.items():
-                    msg_objects += (
+                    msg_objects_k = (
                         f"    🔗 {k} ({len(v)}, {colors.italic(key)}): {v[:5]}\n"
                     )
                     if len(v) > 5:
-                        msg_objects = msg_objects.replace("]", " ... ]")
+                        msg_objects_k = msg_objects_k.replace("]", " ... ]")
+                    msg_objects += msg_objects_k
                 msg += msg_objects
 
             # for non-labels

@@ -17,6 +17,7 @@ from lnschema_core import Feature, FeatureSet, File, Run, ids
 from lnschema_core.types import AnnDataLike, DataLike, PathLike
 
 from lamindb._context import context
+from lamindb.dev import FeatureManager
 from lamindb.dev._settings import settings
 from lamindb.dev.hashing import b16_to_b64, hash_file
 from lamindb.dev.storage import (
@@ -353,6 +354,19 @@ def data_is_anndata(data: DataLike):
     return False
 
 
+def data_is_mudata(data: DataLike):
+    try:
+        from mudata import MuData
+    except ModuleNotFoundError:
+        return False
+
+    if isinstance(data, MuData):
+        return True
+    if isinstance(data, (str, Path, UPath)):
+        return Path(data).suffix in {".h5mu"}
+    return False
+
+
 def __init__(file: File, *args, **kwargs):
     # Below checks for the Django-internal call in from_db()
     # it'd be better if we could avoid this, but not being able to create a File
@@ -391,7 +405,7 @@ def __init__(file: File, *args, **kwargs):
         description = name
 
     provisional_id = ids.base62_20()
-    kwargs, privates = get_file_kwargs_from_data(
+    kwargs_or_file, privates = get_file_kwargs_from_data(
         data=data,
         key=key,
         run=run,
@@ -399,6 +413,21 @@ def __init__(file: File, *args, **kwargs):
         provisional_id=provisional_id,
         skip_check_exists=skip_check_exists,
     )
+
+    # an object with the same hash already exists
+    if isinstance(kwargs_or_file, File):
+        # this is the way Django instantiates from the DB internally
+        # https://github.com/django/django/blob/549d6ffeb6d626b023acc40c3bb2093b4b25b3d6/django/db/models/base.py#LL488C1-L491C51
+        new_args = [
+            getattr(kwargs_or_file, field.attname)
+            for field in file._meta.concrete_fields
+        ]
+        super(File, file).__init__(*new_args)
+        file._state.adding = False
+        file._state.db = "default"
+        return None
+    else:
+        kwargs = kwargs_or_file
 
     if isinstance(data, pd.DataFrame):
         if log_hint:
@@ -414,18 +443,8 @@ def __init__(file: File, *args, **kwargs):
                 " var_names and obs.columns as features!"
             )
         kwargs["accessor"] = "AnnData"
-
-    # an object with the same hash already exists
-    if isinstance(kwargs, File):
-        # this is the way Django instantiates from the DB internally
-        # https://github.com/django/django/blob/549d6ffeb6d626b023acc40c3bb2093b4b25b3d6/django/db/models/base.py#LL488C1-L491C51
-        new_args = [
-            getattr(kwargs, field.attname) for field in file._meta.concrete_fields
-        ]
-        super(File, file).__init__(*new_args)
-        file._state.adding = False
-        file._state.db = "default"
-        return None
+    elif data_is_mudata(data):
+        kwargs["accessor"] = "MuData"
 
     kwargs["id"] = provisional_id
     kwargs["description"] = description
@@ -729,7 +748,7 @@ def _save_skip_storage(file, *args, **kwargs) -> None:
         for slot, feature_set in file._feature_sets.items():
             links.append(
                 File.feature_sets.through(
-                    file_id=file.id, featureset_id=feature_set.id, slot=slot
+                    file_id=file.id, feature_set_id=feature_set.id, slot=slot
                 )
             )
 
@@ -849,6 +868,15 @@ def inherit_relations(self, file: File, fields: Optional[List[str]] = None):
         )
 
 
+@property  # type: ignore
+@doc_args(File.features.__doc__)
+def features(self) -> "FeatureManager":
+    """{}"""
+    from lamindb._feature_manager import FeatureManager
+
+    return FeatureManager(self)
+
+
 METHOD_NAMES = [
     "__init__",
     "from_anndata",
@@ -879,5 +907,8 @@ for name in METHOD_NAMES:
 # privates currently dealt with separately
 File._delete_skip_storage = _delete_skip_storage
 File._save_skip_storage = _save_skip_storage
+# TODO: move these to METHOD_NAMES
 setattr(File, "view_lineage", view_lineage)
 setattr(File, "inherit_relations", inherit_relations)
+# property signature is not tested:
+setattr(File, "features", features)

@@ -1,5 +1,10 @@
 # Changelog
 
+- ♻️ Add field `hash` to `FeatureSet` [PR948](https://github.com/laminlabs/lamindb/pull/948) [@falexwolf](https://github.com/falexwolf)
+- 💄 Smaller fontsize for graph labels [PR947](https://github.com/laminlabs/lamindb/pull/947) [@sunnyosun](https://github.com/sunnyosun)
+- 🚚 Rename `featureset_id` to `feature_set_id` in `FileFeatureSet` link table [PR946](https://github.com/laminlabs/lamindb/pull/946) [@falexwolf](https://github.com/falexwolf)
+- 📝 Added MuData example [PR945](https://github.com/laminlabs/lamindb/pull/945) [@sunnyosun](https://github.com/sunnyosun)
+- 📝 Polish guides [PR943](https://github.com/laminlabs/lamindb/pull/943) [@sunnyosun](https://github.com/sunnyosun)
 - ⬆️ Updated pinnings of lnschema packages [PR942](https://github.com/laminlabs/lamindb/pull/942) [@sunnyosun](https://github.com/sunnyosun)
 - 🎉 Stage 0.48 (6) [PR935](https://github.com/laminlabs/lamindb/pull/935) [@falexwolf](https://github.com/falexwolf)
 - 🎨 Access feature slots via getitem [PR941](https://github.com/laminlabs/lamindb/pull/941) [@sunnyosun](https://github.com/sunnyosun)

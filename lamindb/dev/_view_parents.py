@@ -36,6 +36,7 @@ def view_lineage(file: File, with_children: bool = True):
             "fillcolor": "honeydew",
             "color": "seagreen",
             "fontname": "Helvetica",
+            "fontsize": "10",
         },
         edge_attr={"arrowsize": "0.5"},
     )
@@ -109,6 +110,7 @@ def view_parents(
             "shape": "box",
             "style": "rounded,filled",
             "fontname": "Helvetica",
+            "fontsize": "10",
         },
         edge_attr={"arrowsize": "0.5"},
     )
@@ -214,13 +216,13 @@ def _label_file_run(record: Union[File, Run]):
             name = record.description.replace("&", "&amp;")
 
         return (
-            rf'<   {name}   <BR/><FONT COLOR="GREY" POINT-SIZE="10"'
+            rf'<{name}<BR/><FONT COLOR="GREY" POINT-SIZE="10"'
             rf' FACE="Monospace">id={record.id}<BR/>suffix={record.suffix}</FONT>>'
         )
     elif isinstance(record, Run):
         name = f'{record.transform.name.replace("&", "&amp;")}'
         return (
-            rf'<   {name}   <BR/><FONT COLOR="GREY" POINT-SIZE="10"'
+            rf'<{name}<BR/><FONT COLOR="GREY" POINT-SIZE="10"'
             rf' FACE="Monospace">id={record.id}<BR/>type={record.transform.type},'
             rf" user={record.created_by.name}<BR/>run_at={format_datetime(record.run_at)}</FONT>>"  # noqa
         )

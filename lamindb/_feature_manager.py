@@ -31,7 +31,7 @@ def create_features_df(
         else:
             features_df = feature_set.features.df()
         slots = file.feature_sets.through.objects.filter(
-            file=file, featureset=feature_set
+            file=file, feature_set=feature_set
         ).list("slot")
         for slot in slots:
             features_df["slot"] = slot
@@ -68,7 +68,7 @@ class FeatureManager:
                 file_id=self._host.id, slot=slot
             )
             .one()
-            .featureset_id
+            .feature_set_id
         )
         accessor_by_orm = {
             field.related_model.__name__: field.name
@@ -77,6 +77,19 @@ class FeatureManager:
         accessor_by_orm["Feature"] = "features"
         feature_set = self._host.feature_sets.filter(id=id).one()
         return getattr(feature_set, accessor_by_orm[feature_set.ref_orm]).all()
+
+    def _feature_set_df_with_slots(self) -> pd.DataFrame:
+        """Return DataFrame."""
+        df = self._host.feature_sets.df()
+        df.insert(
+            0,
+            "slot",
+            self._host.feature_sets.through.objects.filter(file_id=self._host.id)
+            .df()
+            .set_index("feature_set_id")
+            .slot,
+        )
+        return df
 
     def add_labels(
         self, records: Union[ORM, List[ORM]], feature: Optional[Union[str, ORM]] = None
@@ -136,12 +149,10 @@ class FeatureManager:
             feature.labels_orm = orm_name
             feature.labels_schema = schema_and_accessor_by_orm[orm_name][0]
             feature.save()
-            if orm_name in feature_sets_by_orm:
-                feature_set = feature_sets_by_orm[orm_name]
-                accessor = accessor_by_orm[orm_name]
-            else:
-                feature_set = feature_sets_by_orm["Feature"]
-                accessor = "features"
+            # check whether we have to update the feature set that manages labels
+            # (Feature) to account for a new feature
+            feature_set = feature_sets_by_orm["Feature"]
+            accessor = "features"
             linked_features = getattr(feature_set, accessor)
             if feature not in linked_features.all():
                 logger.info(
@@ -151,15 +162,15 @@ class FeatureManager:
                 feature_set.n += 1
                 feature_set.save()
 
-    def _feature_set_df_with_slots(self) -> pd.DataFrame:
-        """Return DataFrame."""
-        df = self._host.feature_sets.df()
-        df.insert(
-            0,
-            "slot",
-            self._host.feature_sets.through.objects.filter(file_id=self._host.id)
-            .df()
-            .set_index("featureset_id")
-            .slot,
-        )
-        return df
+    def add_feature_set(self, feature_set: FeatureSet, slot: str):
+        if self._host._state.adding:
+            raise ValueError(
+                "Please save the file or dataset before adding a feature set!"
+            )
+        feature_set.save()
+        self._host.feature_sets.add(feature_set)
+        link_record = self._host.feature_sets.through.objects.filter(
+            file=self._host, feature_set=feature_set
+        ).one()
+        link_record.slot = slot
+        link_record.save()

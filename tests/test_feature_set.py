@@ -48,7 +48,7 @@ def test_feature_set_from_values():
     feature_set.save()
     # test that the feature_set is retrieved from the database
     # in case it already exists
-    feature_set = ln.FeatureSet.from_values(gene_symbols)
+    feature_set = ln.FeatureSet.from_values(gene_symbols, lb.Gene.symbol)
     assert not feature_set._state.adding
     assert id == feature_set.id
     feature_set.delete()

@@ -39,26 +39,31 @@ def file_jpg_paradisi05() -> Path:
     return Path(filepath)
 
 
-def file_fastq() -> Path:
+def file_fastq(in_storage_root=False) -> Path:
     """Mini mock fastq file."""
-    with open("./input.fastq.gz", "w") as f:
+    basedir = Path(".") if not in_storage_root else settings.storage
+    filepath = basedir / "input.fastq.gz"
+    with open(filepath, "w") as f:
         f.write("Mock fastq file.")
-    return Path("./input.fastq.gz")
+    return filepath
 
 
-def file_bam() -> Path:
+def file_bam(in_storage_root=False) -> Path:
     """Mini mock bam file."""
-    with open("./output.bam", "w") as f:
+    basedir = Path(".") if not in_storage_root else settings.storage
+    filepath = basedir / "output.bam"
+    with open(filepath, "w") as f:
         f.write("Mock bam file.")
-    return Path("./output.bam")
+    return filepath
 
 
-def file_mini_csv() -> Path:
+def file_mini_csv(in_storage_root=False) -> Path:
     """Mini csv file."""
-    filename = Path("./mini.csv")
+    basedir = Path(".") if not in_storage_root else settings.storage
+    filepath = basedir / "mini.csv"
     df = pd.DataFrame([1, 2, 3], columns=["test"])
-    df.to_csv(filename, index=False)
-    return filename
+    df.to_csv(filepath, index=False)
+    return filepath
 
 
 def file_tiff_suo22():
@@ -82,12 +87,12 @@ def dir_scrnaseq_cellranger(in_storage_root=False) -> Path:
     )
     from zipfile import ZipFile
 
-    path = Path(".") if not in_storage_root else settings.storage
+    basedir = Path(".") if not in_storage_root else settings.storage
     with ZipFile(filepath, "r") as zipObj:
         # Extract all the contents of zip file in current directory
-        zipObj.extractall(path=path)
+        zipObj.extractall(path=basedir)
 
-    return path / "cellranger_run_001"
+    return basedir / "cellranger_run_001"
 
 
 def anndata_mouse_sc_lymph_node() -> ad.AnnData:
@@ -200,6 +205,27 @@ def anndata_suo22_Visium10X():
     Path("suo22/").mkdir(exist_ok=True)
     filepath = Path(filepath).rename("suo22/Visium10X_data_LI_subset.h5ad")
     return ad.read(filepath)
+
+
+def mudata_papalexi21_subset():
+    """A subsetted mudata from papalexi21.
+
+    To reproduce the subsetting:
+    >>> !wget https://figshare.com/ndownloader/files/36509460
+    >>> import mudata as md
+    >>> import scanpy as sc
+    >>> mdata = md.read_h5mu("36509460")
+    >>> mdata = sc.pp.subsample(mdata, n_obs=200, copy=True)[0]
+    >>> mdata[:, -300:].copy().write("papalexi21_subset_200x300_lamindb_demo_2023-07-25.h5mu")  # noqa
+    """
+    import mudata as md
+
+    filepath, _ = urlretrieve(
+        "https://lamindb-test.s3.amazonaws.com/papalexi21_subset_200x300_lamindb_demo_2023-07-25.h5mu",  # noqa
+        "papalexi21_subset.h5mu",
+    )
+
+    return md.read_h5mu(filepath)
 
 
 def df_iris() -> pd.DataFrame:
