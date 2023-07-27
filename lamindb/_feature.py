@@ -76,7 +76,11 @@ def from_df(cls, df: "pd.DataFrame") -> List["Feature"]:
         n_max = 20
         categoricals_with_unmapped_categories_formatted = "\n      ".join(
             [
-                f"{key}: {', '.join(value)}"
+                (
+                    f"{key} ({len(value)}): {', '.join(value)}"
+                    if len(value) <= 10
+                    else f"{key} ({len(value)}): {', '.join(value)} ..."
+                )
                 for key, value in take(
                     n_max, categoricals_with_unmapped_categories.items()
                 )
