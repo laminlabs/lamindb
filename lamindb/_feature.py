@@ -91,7 +91,7 @@ def from_df(cls, df: "pd.DataFrame") -> List["Feature"]:
         categoricals_with_unmapped_categories_formatted
         logger.info(
             f"{len(categoricals_with_unmapped_categories)} features have"
-            f" {colors.orange('unmapped categories')}:\n     "
+            f" {colors.yellow('unmapped categories')}:\n     "
             f" {categoricals_with_unmapped_categories_formatted}"
         )
     return features
