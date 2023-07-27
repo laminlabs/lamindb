@@ -60,7 +60,7 @@ def get_or_create_records(
                         params["type"] = str(types[value])
                     records.append(ORM(**params, **kwargs))
                 s = "" if len(unmapped_values) == 1 else "s"
-                print_unmapped_values = ", ".join(unmapped_values[:10])
+                print_unmapped_values = ", ".join(unmapped_values[:5])
                 if len(unmapped_values) > 10:
                     print_unmapped_values += ", ..."
                 additional_info = " "
@@ -120,8 +120,8 @@ def get_existing_records(iterable_idx: pd.Index, field: Field, kwargs: Dict = {}
     if len(syn_mapper) > 0:
         s = "" if len(syn_mapper) == 1 else "s"
         names = list(syn_mapper.keys())
-        print_values = ", ".join(names[:10])
-        if len(names) > 10:
+        print_values = ", ".join(names[:5])
+        if len(names) > 5:
             print_values += ", ..."
         syn_msg = (
             "Loaded"
@@ -154,8 +154,8 @@ def get_existing_records(iterable_idx: pd.Index, field: Field, kwargs: Dict = {}
     names = [name for name in names if name not in syn_mapper.values()]
     if n_name > 0:
         s = "" if n_name == 1 else "s"
-        print_values = ", ".join(names[:10])
-        if len(names) > 10:
+        print_values = ", ".join(names[:5])
+        if len(names) > 5:
             print_values += ", ..."
         logger.info(
             "Loaded"
@@ -203,8 +203,8 @@ def create_records_from_bionty(
     if len(syn_mapper) > 0:
         s = "" if len(syn_mapper) == 1 else "s"
         names = list(syn_mapper.keys())
-        print_values = ", ".join(names[:10])
-        if len(names) > 10:
+        print_values = ", ".join(names[:5])
+        if len(names) > 5:
             print_values += ", ..."
         msg_syn = (
             "Loaded"
@@ -230,8 +230,8 @@ def create_records_from_bionty(
         names = [name for name in names if name not in syn_mapper.values()]
         if n_name > 0:
             s = "" if n_name == 1 else "s"
-            print_values = ", ".join(names[:10])
-            if len(names) > 10:
+            print_values = ", ".join(names[:5])
+            if len(names) > 5:
                 print_values += ", ..."
             msg = (
                 "Loaded"
