@@ -79,7 +79,7 @@ def from_df(cls, df: "pd.DataFrame") -> List["Feature"]:
                 (
                     f"{key} ({len(value)}): {', '.join(value)}"
                     if len(value) <= 10
-                    else f"{key} ({len(value)}): {', '.join(value)} ..."
+                    else f"{key} ({len(value)}): {', '.join(value[:10])} ..."
                 )
                 for key, value in take(
                     n_max, categoricals_with_unmapped_categories.items()
