@@ -2,7 +2,7 @@ from itertools import islice
 from typing import List, Optional, Union
 
 import pandas as pd
-from lamin_utils import logger
+from lamin_utils import colors, logger
 from lamindb_setup.dev._docs import doc_args
 from lnschema_core import Feature, Label
 from pandas.api.types import is_categorical_dtype, is_string_dtype
@@ -90,8 +90,9 @@ def from_df(cls, df: "pd.DataFrame") -> List["Feature"]:
             categoricals_with_unmapped_categories_formatted += "\n      ..."
         categoricals_with_unmapped_categories_formatted
         logger.info(
-            f"{len(categoricals_with_unmapped_categories)} features have unmapped"
-            f" categories:\n      {categoricals_with_unmapped_categories_formatted}"
+            f"{len(categoricals_with_unmapped_categories)} features have"
+            f" {colors.orange('unmapped categories')}:\n     "
+            f" {categoricals_with_unmapped_categories_formatted}"
         )
     return features
 
