@@ -1,5 +1,6 @@
 # Changelog
 
+- 🔊 Only log 10 labels for unmapped categories [PR950](https://github.com/laminlabs/lamindb/pull/950) [@sunnyosun](https://github.com/sunnyosun)
 ## 0.48.0 (2023-07-26)
 
 - 📝 Add MuData example [PR945](https://github.com/laminlabs/lamindb/pull/945) [@sunnyosun](https://github.com/sunnyosun)
