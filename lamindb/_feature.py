@@ -78,8 +78,8 @@ def from_df(cls, df: "pd.DataFrame") -> List["Feature"]:
             [
                 (
                     f"{key} ({len(value)}): {', '.join(value)}"
-                    if len(value) <= 10
-                    else f"{key} ({len(value)}): {', '.join(value[:10])} ..."
+                    if len(value) <= 5
+                    else f"{key} ({len(value)}): {', '.join(value[:5])} ..."
                 )
                 for key, value in take(
                     n_max, categoricals_with_unmapped_categories.items()
@@ -90,8 +90,8 @@ def from_df(cls, df: "pd.DataFrame") -> List["Feature"]:
             categoricals_with_unmapped_categories_formatted += "\n      ..."
         categoricals_with_unmapped_categories_formatted
         logger.info(
-            "There are unmapped categories:\n     "
-            f" {categoricals_with_unmapped_categories_formatted}"
+            f"{len(categoricals_with_unmapped_categories)} features have unmapped"
+            f" categories:\n      {categoricals_with_unmapped_categories_formatted}"
         )
     return features
 
