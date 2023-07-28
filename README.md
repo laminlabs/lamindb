@@ -57,7 +57,7 @@ ln.File(df, description="Data batch 1").save()  # create a File object and save/
 
 # If you don't have specific metadata in mind, run a search
 ln.File.search("batch 1")
-# Or run a SQL query (you have the full power of SQL to query for metadata)
+# Or run a simple filter (you have the full power of SQL to query for metadata)
 file = ln.File.select(description="Data batch 1").one()  # get exactly one result
 
 # Load a file back into memory
@@ -110,12 +110,19 @@ When you query the file, later on, you'll know from which notebook it came:
 file = ln.File.select(description="my_artifact.parquet").one()  # query for a file
 file.transform  # the notebook with id, title, filename, version, etc.
 file.run  # the specific run of the notebook that created the file
-file.view_lineage() # view all parent transforms and files in a lineage graph
 
 # Alternatively, you can query for notebooks and find the files written by them
 transforms = ln.Transform.select(type="notebook", created_at__year=2022).search("T cell").all()
 ln.File.select(transform__in=transforms).df()  # the files created by these notebooks
 ```
+
+View all parent transforms and files in a lineage graph:
+
+```python
+file.view_lineage()
+```
+
+<img src="./docs/img/readme/view_lineage.svg" width="800">
 
 #### Pipelines
 
@@ -149,8 +156,8 @@ $ lamin init --storage ./bioartifacts --schema bionty
 ```
 
 ```python
-# create a knowledge-coupled record and save it
-lb.CellType.from_bionty(name="T cell").save()
+# create an ontology-coupled record and save it
+lb.CellType.from_bionty(name="neuron").save()
 
 # bulk create knowledge-coupled records
 adata = ln.dev.datasets.anndata_with_obs()
@@ -161,9 +168,11 @@ ln.save(cell_types) # bulk save cell types
 lb.CellType.map_synonyms(["T cell", "T-cell", "T lymphocyte"])
 
 # view ontological hierarchy of a record
-t_cell = lb.CellType.lookup().t_cell
-t_cell.view_parents()
+neuron = lb.CellType.lookup().neuron
+neuron.view_parents(distance=3)
 ```
+
+<img src="./docs/img/readme/neuron_view_parents_dist=2.svg">
 
 ### Track biological features
 
