@@ -75,6 +75,8 @@ def from_files(dataset: Dataset, *, name: str, files: Iterable[File]) -> Dataset
     feature_set_ids_types = [
         (feature_set.id, feature_set.type) for feature_set in feature_sets
     ]
+    print(feature_set_types)
+    print(feature_set_ids_types)
     if len(set(feature_set_ids_types)) != len(set(feature_set_types)):
         # we can do below in the future!
         # logger.warning(

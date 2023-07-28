@@ -53,7 +53,7 @@ def __init__(self, *args, **kwargs):
             if not hasattr(cls, "__get_name_with_schema__"):
                 raise ValueError("each element of the list has to be an ORM type")
             label_orms_str += cls.__get_name_with_schema__() + "|"
-        label_orms_str.rstrip("|")
+        label_orms_str = label_orms_str.rstrip("|")
     kwargs["label_orms"] = label_orms_str
     super(Feature, self).__init__(*args, **kwargs)
 

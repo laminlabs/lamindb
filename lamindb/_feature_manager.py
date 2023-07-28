@@ -31,7 +31,7 @@ def create_features_df(
     features = []
     for feature_set in feature_sets:
         if exclude:
-            features_df = feature_set.features.exclude(labels_orm__isnull=True).df()
+            features_df = feature_set.features.exclude(label_orms__isnull=True).df()
         else:
             features_df = feature_set.features.df()
         slots = file.feature_sets.through.objects.filter(
@@ -41,7 +41,7 @@ def create_features_df(
             features_df["slot"] = slot
             features.append(features_df)
     features_df = pd.concat(features)
-    return features_df.sort_values(["labels_schema", "labels_orm"])
+    return features_df.sort_values(["label_orms"])
 
 
 class FeatureManager:
@@ -142,7 +142,7 @@ class FeatureManager:
         schema_and_accessor_by_orm["Label"] = ("core", "labels")
         for orm_name, records in records_by_orm.items():
             save(records)
-            getattr(self._host, schema_and_accessor_by_orm[orm_name][1]).set(records)
+            getattr(self._host, schema_and_accessor_by_orm[orm_name][1]).add(*records)
         accessor_by_orm = {
             field.related_model.__name__: field.name
             for field in self._host._meta.related_objects
@@ -166,10 +166,13 @@ class FeatureManager:
             logger.info(f"Linking feature {feature.name} to {orm_name}")
             feature.label_orms = orm_name
             feature.save()
+            for record in records:
+                record.feature_id = feature.id
+                record.save()
             # check whether we have to update the feature set that manages labels
             # (Feature) to account for a new feature
             found_feature = False
-            for slot, linked_features in linked_features_by_slot.items():
+            for _, linked_features in linked_features_by_slot.items():
                 if feature in linked_features:
                     found_feature = True
             if not found_feature:
