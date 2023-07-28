@@ -4,7 +4,7 @@ import pandas as pd
 from django.db.models.query_utils import DeferredAttribute as Field
 from lamin_utils import logger
 from lamindb_setup.dev._docs import doc_args
-from lnschema_core import ORM, Feature, FeatureSet, ids
+from lnschema_core import ORM, Feature, FeatureSet, Modality, ids
 from lnschema_core.types import ListLike
 
 from lamindb.dev.hashing import hash_set
@@ -90,12 +90,21 @@ def __init__(self, *args, **kwargs):
         type_str = type.__name__ if not isinstance(type, str) else type
     else:
         type_str = None
+    if isinstance(modality, str):
+        modality_record = Modality.select(name=modality).one_or_none()
+        if modality_record is None:
+            modality_record = Modality(name=modality)
+            modality_record.save()
+    elif isinstance(modality, Modality):
+        modality_record = modality
+    else:
+        raise ValueError("modality needs to be string or Modality record")
     super(FeatureSet, self).__init__(
         id=ids.base62_20(),
         name=name,
         type=type_str,
         n=n_features,
-        modality=modality,
+        modality=modality_record,
         ref_orm=features_orm.__name__,
         ref_schema=features_orm.__get_schema_name__(),
         ref_field=ref_field,

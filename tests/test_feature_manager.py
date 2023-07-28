@@ -6,7 +6,19 @@ import lamindb as ln
 adata = ln.dev.datasets.anndata_with_obs()
 
 
-def test_feature_manager():
+def test_features_add_labels():
+    label = ln.Label(name="Project 1")
+    label.save()
+    file = ln.File.select().first()
+    with pytest.raises(ValueError) as error:
+        file.features.add_labels(label)
+    assert (
+        error.exconly()
+        == "ValueError: Please pass feature: add_labels(labels, feature='myfeature')"
+    )
+
+
+def test_features_add_labels_using_anndata():
     species = lb.Species.from_bionty(name="mouse")
     cell_types = lb.CellType.from_values(adata.obs["cell_type"], "name")
     tissues = lb.Tissue.from_values(adata.obs["tissue"], "name")

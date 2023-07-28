@@ -31,7 +31,7 @@ def __init__(self, *args, **kwargs):
         raise ValueError("Only name, description, feature are valid keyword arguments")
     # continue
     if feature is None and feature_id is None:
-        logger.warning("Consider passing a corresponding feature for your label!")
+        logger.hint("Consider passing a corresponding feature for your label!")
     if isinstance(feature, str):
         feature = Feature.select(name=feature).one_or_none()
         if feature is None:

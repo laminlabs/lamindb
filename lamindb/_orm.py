@@ -746,4 +746,11 @@ def __get_schema_name__(cls) -> str:
     return schema_name
 
 
+@classmethod  # type: ignore
+def __get_name_with_schema__(cls) -> str:
+    schema_name = cls.__get_schema_name__()
+    return f"{schema_name}.{cls.__name__}"
+
+
 setattr(ORM, "__get_schema_name__", __get_schema_name__)
+setattr(ORM, "__get_name_with_schema__", __get_name_with_schema__)

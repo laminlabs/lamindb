@@ -1,5 +1,5 @@
 from collections import defaultdict
-from typing import Iterable, List, Optional, Union
+from typing import List, Optional, Union
 
 import pandas as pd
 from lamin_utils import logger
@@ -9,15 +9,19 @@ from ._queryset import QuerySet
 from ._save import save
 
 
-def validate_and_cast_feature(feature) -> Feature:
+def validate_and_cast_feature(
+    feature: Union[str, Feature], records: List[ORM]
+) -> Feature:
     if isinstance(feature, str):
         feature_name = feature
         feature = Feature.select(name=feature_name).one_or_none()
         if feature is None:
-            raise ValueError(
-                f"Please create feature: ln.Feature(name='{feature_name}',"
-                " type='category').save()"
+            orm_types = set([record.__class__ for record in records])
+            feature = Feature(
+                name=feature_name, type="category", label_orms=list(orm_types)
             )
+            logger.warning(f"Created & saved: {feature}")
+            feature.save()
     return feature
 
 
@@ -95,7 +99,7 @@ class FeatureManager:
         self, records: Union[ORM, List[ORM]], feature: Optional[Union[str, ORM]] = None
     ):
         """Add one or several labels and associate them with a feature."""
-        if isinstance(records, str) or not isinstance(records, Iterable):
+        if isinstance(records, str) or not isinstance(records, List):
             records = [records]
         if isinstance(records[0], str):  # type: ignore
             raise ValueError(
@@ -104,12 +108,15 @@ class FeatureManager:
             )
         if self._host._state.adding:
             raise ValueError("Please save the file or dataset before adding a label!")
-        feature = validate_and_cast_feature(feature)
+        feature = validate_and_cast_feature(feature, records)
         records_by_orm = defaultdict(list)
         records_by_feature_orm = defaultdict(list)
         for record in records:
             records_by_orm[record.__class__.__name__].append(record)
             if feature is None:
+                error_msg = (
+                    "Please pass feature: add_labels(labels, feature='myfeature')"
+                )
                 try:
                     record_feature = (
                         record._feature
@@ -117,12 +124,14 @@ class FeatureManager:
                         else record.feature
                     )
                 except ValueError:
-                    raise ValueError("Pass feature argument")
+                    raise ValueError(error_msg)
+                if record_feature is None:
+                    raise ValueError(error_msg)
             else:
                 record_feature = feature
-            records_by_feature_orm[(record_feature, record.__class__.__name__)].append(
-                record
-            )
+            records_by_feature_orm[
+                (record_feature, record.__class__.__get_name_with_schema__())
+            ].append(record)
         schema_and_accessor_by_orm = {
             field.related_model.__name__: (
                 field.related_model.__get_schema_name__(),
@@ -139,28 +148,44 @@ class FeatureManager:
             for field in self._host._meta.related_objects
         }
         accessor_by_orm["Feature"] = "features"
-        feature_sets = self._host.feature_sets.all()
-        feature_sets_by_orm = {
-            feature_set.ref_orm: feature_set for feature_set in feature_sets
+        feature_set_links = self._host.feature_sets.through.objects.filter(
+            file_id=self._host.id
+        )
+        feature_set_ids = [link.feature_set_id for link in feature_set_links.all()]
+        # get all linked features of type Feature
+        feature_sets = FeatureSet.select(id__in=feature_set_ids).all()
+        linked_features_by_slot = {
+            feature_set_links.filter(feature_set_id=feature_set.id)
+            .one()
+            .slot: feature_set.features.all()
+            for feature_set in feature_sets
+            if feature_set.ref_orm == "Feature"
         }
         for (feature, orm_name), records in records_by_feature_orm.items():
-            feature = validate_and_cast_feature(feature)
+            feature = validate_and_cast_feature(feature, records)
             logger.info(f"Linking feature {feature.name} to {orm_name}")
-            feature.labels_orm = orm_name
-            feature.labels_schema = schema_and_accessor_by_orm[orm_name][0]
+            feature.label_orms = orm_name
             feature.save()
             # check whether we have to update the feature set that manages labels
             # (Feature) to account for a new feature
-            feature_set = feature_sets_by_orm["Feature"]
-            accessor = "features"
-            linked_features = getattr(feature_set, accessor)
-            if feature not in linked_features.all():
-                logger.info(
-                    f"Linking feature {feature.name} to feature set {feature_set}"
-                )
-                linked_features.add(feature)
-                feature_set.n += 1
-                feature_set.save()
+            found_feature = False
+            for slot, linked_features in linked_features_by_slot.items():
+                if feature in linked_features:
+                    found_feature = True
+            if not found_feature:
+                if "ext" not in linked_features_by_slot:
+                    logger.info("Creating FeatureSet for slot 'ext'")
+                    feature_set = FeatureSet([feature], modality="meta")
+                    feature_set.save()
+                    self.add_feature_set(feature_set, slot="ext")
+                else:
+                    feature_set = linked_features_by_slot["ext"]
+                    logger.info(
+                        f"Linking feature {feature.name} to feature set {feature_set}"
+                    )
+                    linked_features_by_slot["ext"].add(feature)
+                    linked_features_by_slot["ext"].n += 1
+                    linked_features_by_slot["ext"].save()
 
     def add_feature_set(self, feature_set: FeatureSet, slot: str):
         if self._host._state.adding:
@@ -168,9 +193,6 @@ class FeatureManager:
                 "Please save the file or dataset before adding a feature set!"
             )
         feature_set.save()
-        self._host.feature_sets.add(feature_set)
-        link_record = self._host.feature_sets.through.objects.filter(
-            file=self._host, feature_set=feature_set
-        ).one()
-        link_record.slot = slot
-        link_record.save()
+        self._host.feature_sets.through(
+            file=self._host, feature_set=feature_set, slot=slot
+        ).save()
