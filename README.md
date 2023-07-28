@@ -95,6 +95,14 @@ In addition to basic provenance information (`created_by`, `created_at`,
 `created_by`), you can track which notebooks & pipelines
 transformed files.
 
+View all parent transforms and files in a lineage graph:
+
+```python
+file.view_lineage()
+```
+
+<img src="./docs/img/readme/view_lineage.svg" width="800">
+
 #### Notebooks
 
 Track a Jupyter Notebook:
@@ -115,14 +123,6 @@ file.run  # the specific run of the notebook that created the file
 transforms = ln.Transform.select(type="notebook", created_at__year=2022).search("T cell").all()
 ln.File.select(transform__in=transforms).df()  # the files created by these notebooks
 ```
-
-View all parent transforms and files in a lineage graph:
-
-```python
-file.view_lineage()
-```
-
-<img src="./docs/img/readme/view_lineage.svg" width="800">
 
 #### Pipelines
 
@@ -172,7 +172,7 @@ neuron = lb.CellType.lookup().neuron
 neuron.view_parents(distance=3)
 ```
 
-<img src="./docs/img/readme/neuron_view_parents_dist=2.svg">
+<img src="./docs/img/readme/neuron_view_parents_dist=2.svg" width="500">
 
 ### Track biological features
 
