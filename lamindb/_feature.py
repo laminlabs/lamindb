@@ -44,14 +44,16 @@ def __init__(self, *args, **kwargs):
         type_str = None
     kwargs["type"] = type_str
     # cast label_orms
-    if not isinstance(label_orms, List):
-        raise ValueError("label_orms has to be a list of ORM types")
-    label_orms_str = ""
-    for cls in label_orms:
-        if not hasattr(cls, "__get_name_with_schema__"):
-            raise ValueError("each element of the list has to be an ORM type")
-        label_orms_str += cls.__get_name_with_schema__() + "|"
-    label_orms_str.rstrip("|")
+    label_orms_str: Optional[str] = None
+    if label_orms is not None:
+        if not isinstance(label_orms, List):
+            raise ValueError("label_orms has to be a list of ORM types")
+        label_orms_str = ""
+        for cls in label_orms:
+            if not hasattr(cls, "__get_name_with_schema__"):
+                raise ValueError("each element of the list has to be an ORM type")
+            label_orms_str += cls.__get_name_with_schema__() + "|"
+        label_orms_str.rstrip("|")
     kwargs["label_orms"] = label_orms_str
     super(Feature, self).__init__(*args, **kwargs)
 

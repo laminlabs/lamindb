@@ -90,15 +90,18 @@ def __init__(self, *args, **kwargs):
         type_str = type.__name__ if not isinstance(type, str) else type
     else:
         type_str = None
-    if isinstance(modality, str):
-        modality_record = Modality.select(name=modality).one_or_none()
-        if modality_record is None:
-            modality_record = Modality(name=modality)
-            modality_record.save()
-    elif isinstance(modality, Modality):
-        modality_record = modality
+    if modality is not None:
+        if isinstance(modality, str):
+            modality_record = Modality.select(name=modality).one_or_none()
+            if modality_record is None:
+                modality_record = Modality(name=modality)
+                modality_record.save()
+        elif isinstance(modality, Modality):
+            modality_record = modality
+        else:
+            raise ValueError("modality needs to be string or Modality record")
     else:
-        raise ValueError("modality needs to be string or Modality record")
+        modality_record = modality
     super(FeatureSet, self).__init__(
         id=ids.base62_20(),
         name=name,
