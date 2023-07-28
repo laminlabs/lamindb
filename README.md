@@ -45,54 +45,35 @@ Import `lamindb`:
 
 ```python
 import lamindb as ln
+# import lnschema_bionty as lb # optional, for bionty schema
 ```
 
 ### Manage data objects
 
-Store a `DataFrame` object:
-
 ```python
+# Store a DataFrame object
 df = pd.DataFrame({"feat1": [1, 2], "feat2": [3, 4]})  # AnnData works, too
-
 ln.File(df, description="Data batch 1").save()  # create a File object and save/upload it
-```
 
-If you don't have specific metadata in mind, run a search:
-
-```python
+# If you don't have specific metadata in mind, run a search
 ln.File.search("batch 1")
-```
-
-You have the full power of SQL to query for metadata, but the simplest query for a file is:
-
-```python
+# Or run a SQL query (you have the full power of SQL to query for metadata)
 file = ln.File.select(description="Data batch 1").one()  # get exactly one result
-```
 
-Once you queried or searched it, load a file back into memory:
-
-```python
+# Load a file back into memory
 df = file.load()
-```
-
-Or get a backed accessor to stream its content from the cloud:
-
-```python
+# Or get a backed accessor to stream its content from the cloud:
 backed = file.backed()  # currently works for AnnData, zarr, HDF5, not yet for DataFrame
 ```
 
 ### Manage files
 
-The same API works for any file:
-
 ```python
+# Store a file
 file = ln.File("s3://my-bucket/images/image001.jpg")  # or a local path
 file.save()  # register the file
-```
 
-Query by `key` (the relative path within your storage):
-
-```python
+# Query by `key` (the relative path within your storage) and load into memory
 file.select(key__startswith="images/").df()  # all files in folder "images/" in default storage
 ```
 
@@ -126,11 +107,8 @@ When you query the file, later on, you'll know from which notebook it came:
 file = ln.File.select(description="my_artifact.parquet").one()  # query for a file
 file.transform  # the notebook with id, title, filename, version, etc.
 file.run  # the specific run of the notebook that created the file
-```
 
-Alternatively, you can query for notebooks and find the files written by them:
-
-```python
+# Alternatively, you can query for notebooks and find the files written by them
 transforms = ln.Transform.select(type="notebook", created_at__year=2022).search("T cell").all()
 ln.File.select(transform__in=transforms).df()  # the files created by these notebooks
 ```
@@ -151,11 +129,8 @@ Track a pipeline run:
 transform = ln.Transform.select(name="Awesom-O", version="0.41.2").one()  # select pipeline from the registry
 ln.track(transform)  # create a new global run context
 ln.File("s3://my_samples01/my_artifact.fastq.gz").save()  # file gets auto-linked against run & transform
-```
 
-Now, you can query for the latest pipeline runs:
-
-```python
+# Now, you can query for the latest pipeline runs
 ln.Run.select(transform=transform).order_by("-created_at").df()  # get the latest pipeline runs
 ```
 
@@ -163,25 +138,47 @@ ln.Run.select(transform=transform).order_by("-created_at").df()  # get the lates
 
 If provided with access, others can load your instance via:
 
-```
+```shell
 $ lamin load myaccount/mydata
 ```
 
 ### Manage biological registries
 
 ```shell
-lamin init --storage ./bioartifacts --schema bionty
+$ lamin init --storage ./bioartifacts --schema bionty
 ```
 
-...
+```python
+# create a knowledge-coupled record and save it
+lb.CellType.from_bionty(name="T cell").save()
+
+# bulk create knowledge-coupled records
+adata = ln.dev.datasets.anndata_with_obs()
+lb.CellType.from_values(adata.obs.cell_type, field=lb.CellType.name)
+```
 
 ### Track biological features
 
-...
+```python
+# track features present in var(X) and obs
+adata = ln.dev.datasets.anndata_with_obs()
+file = ln.File.from_anndata(
+    adata, description="my RNA-seq dataset", var_ref=lb.Gene.ensembl_gene_id
+)
+file.save()
 
-### Track biological samples
+# view a summary of tracked features
+# you have registered two feature sets: 'obs' and 'var'
+file.features
 
-...
+# add labels to features
+tissues = lb.Tissue.from_values(adata.obs["tissue"], field=lb.Tissue.name)
+diseases = lb.Disease.from_values(adata.obs["disease"], field=lb.Disease.name)
+file.features.add_labels(tissues + diseases)
+
+# fetch labels of a feature
+file.features["obs"].get(name="tissue").df()
+```
 
 ### Manage custom schemas
 
