@@ -77,13 +77,16 @@ file.save()  # register the file
 file.select(key__startswith="images/").df()  # all files in folder "images/" in default storage
 ```
 
-### Auto-complete categoricals
-
-When you're unsure about spellings, use a lookup object:
+### Auto-complete categoricals and search
 
 ```python
+# When you're unsure about spellings, use a lookup object:
 users = ln.User.lookup()
 ln.File.select(created_by=users.lizlemon)
+
+# Or search
+ln.User.search("liz lemon", field="name")
+user = ln.User.search("liz lemon", return_queryset=True).first() # grab the top search result as a record
 ```
 
 ### Track & query data lineage
@@ -107,6 +110,7 @@ When you query the file, later on, you'll know from which notebook it came:
 file = ln.File.select(description="my_artifact.parquet").one()  # query for a file
 file.transform  # the notebook with id, title, filename, version, etc.
 file.run  # the specific run of the notebook that created the file
+file.view_lineage() # view all parent transforms and files in a lineage graph
 
 # Alternatively, you can query for notebooks and find the files written by them
 transforms = ln.Transform.select(type="notebook", created_at__year=2022).search("T cell").all()
@@ -117,15 +121,11 @@ ln.File.select(transform__in=transforms).df()  # the files created by these note
 
 This works like for notebooks just that you need to provide pipeline metadata yourself.
 
-To save a pipeline to the `Transform` registry, call
-
 ```python
+# To save a pipeline to the `Transform` registry, call
 ln.Transform(name="Awesom-O", version="0.41.2").save()  # save a pipeline, optionally with metadata
-```
 
-Track a pipeline run:
-
-```python
+# Track a pipeline run
 transform = ln.Transform.select(name="Awesom-O", version="0.41.2").one()  # select pipeline from the registry
 ln.track(transform)  # create a new global run context
 ln.File("s3://my_samples01/my_artifact.fastq.gz").save()  # file gets auto-linked against run & transform
@@ -154,7 +154,15 @@ lb.CellType.from_bionty(name="T cell").save()
 
 # bulk create knowledge-coupled records
 adata = ln.dev.datasets.anndata_with_obs()
-lb.CellType.from_values(adata.obs.cell_type, field=lb.CellType.name)
+cell_types = lb.CellType.from_values(adata.obs.cell_type, field=lb.CellType.name)
+ln.save(cell_types) # bulk save cell types
+
+# standardize synonyms
+lb.CellType.map_synonyms(["T cell", "T-cell", "T lymphocyte"])
+
+# view ontological hierarchy of a record
+t_cell = lb.CellType.lookup().t_cell
+t_cell.view_parents()
 ```
 
 ### Track biological features
@@ -178,6 +186,9 @@ file.features.add_labels(tissues + diseases)
 
 # fetch labels of a feature
 file.features["obs"].get(name="tissue").df()
+
+# display rich metadata of a file (provenance and features)
+file.describe()
 ```
 
 ### Manage custom schemas
@@ -205,10 +216,10 @@ pip install 'lamindb[jupyter,bionty,fcs,aws]'
 
 Supported `extras` are:
 
-```
+```yaml
 jupyter  # Track Jupyter notebooks
 bionty   # Manage basic biological entities
-fcs      # Manage .fcs files (flow cytometry)
+fcs      # Manage FCS files (flow cytometry)
 zarr     # Store & stream arrays with zarr
 aws      # AWS (s3fs, etc.)
 gcp      # Google Cloud (gcfs, etc.)
