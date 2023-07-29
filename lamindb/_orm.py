@@ -129,7 +129,7 @@ def view_parents(
 
 @classmethod  # type:ignore
 @doc_args(ORM.from_values.__doc__)
-def from_values(cls, identifiers: ListLike, field: StrField, **kwargs) -> List["ORM"]:
+def from_values(cls, values: ListLike, field: StrField, **kwargs) -> List["ORM"]:
     """{}"""
     if isinstance(field, str):
         field = getattr(cls, field)
@@ -139,7 +139,7 @@ def from_values(cls, identifiers: ListLike, field: StrField, **kwargs) -> List["
         )
     from_bionty = True if cls.__module__.startswith("lnschema_bionty.") else False
     return get_or_create_records(
-        iterable=identifiers, field=field, from_bionty=from_bionty, **kwargs
+        iterable=values, field=field, from_bionty=from_bionty, **kwargs
     )
 
 
