@@ -1,4 +1,4 @@
-"""LaminDB: Manage R&D data & analyses.
+"""Open-source data lake & feature store for biology.
 
 Import the package::
 

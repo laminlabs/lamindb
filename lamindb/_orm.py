@@ -65,7 +65,10 @@ def suggest_objects_with_same_name(orm: ORM, kwargs) -> Optional[str]:
             if results.index[0] == kwargs["name"]:
                 return "object-with-same-name-exists"
             else:
-                msg = "Entries with similar names exist:"
+                msg = (
+                    "Records with similar names exist! Did you mean to load one of"
+                    " them?"
+                )
                 if IPYTHON:
                     from IPython.display import display
 
@@ -93,9 +96,8 @@ def __init__(orm: ORM, *args, **kwargs):
                     version_comment = " "
                     existing_record = orm.select(name=kwargs["name"]).one()
                 if existing_record is not None:
-                    logger.warning(
-                        f"Object with exact same name{version_comment}exists,"
-                        " returning it"
+                    logger.success(
+                        f"Loaded record with exact same name{version_comment}"
                     )
                     init_self_from_db(orm, existing_record)
                     return None
@@ -401,7 +403,7 @@ def _labels_with_feature_names(labels: Union[QuerySet, Manager]) -> Dict:
     from django.db.models import F
 
     df = labels.annotate(feature_name=F("feature__name")).df()
-    return df.groupby("feature_name")["name"].apply(list).to_dict()
+    return df.groupby("feature_name", group_keys=False)["name"].apply(list).to_dict()
 
 
 def describe(self):
@@ -410,17 +412,13 @@ def describe(self):
 
     def dict_related_model_to_related_name(orm):
         d: Dict = {
-            f"{i.related_model.__get_schema_name__()}.{i.related_model.__name__}": (
-                i.related_name
-            )
+            i.related_model.__get_name_with_schema__(): (i.related_name)
             for i in orm._meta.related_objects
             if i.related_name is not None
         }
         d.update(
             {
-                f"{i.related_model.__get_schema_name__()}.{i.related_model.__name__}": (
-                    i.name
-                )
+                i.related_model.__get_name_with_schema__(): (i.name)
                 for i in orm._meta.many_to_many
                 if i.name is not None
             }
@@ -505,21 +503,17 @@ def describe(self):
             if slot == "obs":
                 slot += " (metadata)"
             msg += f"  🗺️ {colors.bold(slot)}:\n"
-            df_label_index = df_slot[
-                (df_slot["labels_orm"] == "Label")
-                & (df_slot["labels_schema"] == "core")
-            ].index
-
+            df_label_index = df_slot[df_slot["label_orms"] == "core.Label"].index
             # for labels
             if len(df_label_index) > 0:
-                labels_schema = "core"
-                labels_orm = "Label"
-                key = f"{labels_schema}.{labels_orm}"
+                key = "core.Label"
                 related_name = file_related_models.get(key)
-                related_objects = self.__getattribute__(related_name)
+                related_objects = self.__getattribute__(related_name).all()
                 labels = _labels_with_feature_names(related_objects)
                 msg_objects = ""
                 for k, v in labels.items():
+                    if k not in df_slot.name.values:
+                        continue
                     msg_objects_k = (
                         f"    🔗 {k} ({len(v)}, {colors.italic(key)}): {v[:5]}\n"
                     )
@@ -527,21 +521,18 @@ def describe(self):
                         msg_objects_k = msg_objects_k.replace("]", " ... ]")
                     msg_objects += msg_objects_k
                 msg += msg_objects
-
             # for non-labels
             nonlabel_index = df_slot.index.difference(df_label_index)
             if len(nonlabel_index) == 0:
                 continue
             df_nonlabels = df_slot.loc[nonlabel_index]
             df_nonlabels = (
-                df_nonlabels.groupby(["labels_schema", "labels_orm"], group_keys=False)[
-                    "name"
-                ]
+                df_nonlabels.groupby(["label_orms"], group_keys=False)["name"]
                 .apply(lambda x: "|".join(x))
                 .reset_index()
             )
             for _, row in df_nonlabels.iterrows():
-                key = f"{row.labels_schema}.{row.labels_orm}"
+                key = row.label_orms
                 related_name = file_related_models.get(key)
                 related_objects = self.__getattribute__(related_name)
                 count = related_objects.count()
@@ -746,4 +737,11 @@ def __get_schema_name__(cls) -> str:
     return schema_name
 
 
+@classmethod  # type: ignore
+def __get_name_with_schema__(cls) -> str:
+    schema_name = cls.__get_schema_name__()
+    return f"{schema_name}.{cls.__name__}"
+
+
 setattr(ORM, "__get_schema_name__", __get_schema_name__)
+setattr(ORM, "__get_name_with_schema__", __get_name_with_schema__)

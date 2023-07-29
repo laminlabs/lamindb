@@ -5,6 +5,7 @@ import pandas as pd
 from lamin_utils import colors, logger
 from lamindb_setup.dev._docs import doc_args
 from lnschema_core import Feature, Label
+from lnschema_core.models import ORM
 from pandas.api.types import is_categorical_dtype, is_string_dtype
 
 from lamindb.dev.utils import attach_func_to_class_method
@@ -33,11 +34,27 @@ def __init__(self, *args, **kwargs):
     if len(args) != 0:
         raise ValueError("Only non-keyword args allowed")
     type: Optional[Union[type, str]] = kwargs.pop("type") if "type" in kwargs else None
+    label_orms: Optional[List[ORM]] = (
+        kwargs.pop("label_orms") if "label_orms" in kwargs else None
+    )
+    # cast type
     if type is not None:
         type_str = type.__name__ if not isinstance(type, str) else type
     else:
         type_str = None
     kwargs["type"] = type_str
+    # cast label_orms
+    label_orms_str: Optional[str] = None
+    if label_orms is not None:
+        if not isinstance(label_orms, List):
+            raise ValueError("label_orms has to be a list of ORM types")
+        label_orms_str = ""
+        for cls in label_orms:
+            if not hasattr(cls, "__get_name_with_schema__"):
+                raise ValueError("each element of the list has to be an ORM type")
+            label_orms_str += cls.__get_name_with_schema__() + "|"
+        label_orms_str = label_orms_str.rstrip("|")
+    kwargs["label_orms"] = label_orms_str
     super(Feature, self).__init__(*args, **kwargs)
 
 

@@ -42,6 +42,14 @@ docs/biology/test-flow/
 docs/biology/test-scrna/
 docs/biology/test-registries/
 docs/biology/test-multimodal/
+test-inherit1
+test-inherit2
+test-search0
+test-search1
+test-search2
+test-search3
+test-search4
+test-search5
 # General
 .DS_Store
 
