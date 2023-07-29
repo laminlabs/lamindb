@@ -1,5 +1,6 @@
 # Changelog
 
+- 🎨 Enable file/dataset-external feature sets [PR953](https://github.com/laminlabs/lamindb/pull/953) [@falexwolf](https://github.com/falexwolf)
 - 📝 Updated readme [PR952](https://github.com/laminlabs/lamindb/pull/952) [@sunnyosun](https://github.com/sunnyosun)
 - 🔊 Only log 10 labels for unmapped categories [PR950](https://github.com/laminlabs/lamindb/pull/950) [@sunnyosun](https://github.com/sunnyosun)
 ## 0.48.0 (2023-07-26)
