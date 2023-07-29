@@ -65,7 +65,10 @@ def suggest_objects_with_same_name(orm: ORM, kwargs) -> Optional[str]:
             if results.index[0] == kwargs["name"]:
                 return "object-with-same-name-exists"
             else:
-                msg = "Entries with similar names exist:"
+                msg = (
+                    "Records with similar names exist! Did you mean to load one of"
+                    " them?"
+                )
                 if IPYTHON:
                     from IPython.display import display
 
@@ -93,9 +96,8 @@ def __init__(orm: ORM, *args, **kwargs):
                     version_comment = " "
                     existing_record = orm.select(name=kwargs["name"]).one()
                 if existing_record is not None:
-                    logger.warning(
-                        f"Object with exact same name{version_comment}exists,"
-                        " returning it"
+                    logger.success(
+                        f"Loaded record with exact same name{version_comment}"
                     )
                     init_self_from_db(orm, existing_record)
                     return None

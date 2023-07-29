@@ -69,23 +69,6 @@ def from_files(dataset: Dataset, *, name: str, files: Iterable[File]) -> Dataset
     )
     feature_set_ids = [link.feature_set_id for link in feature_set_file_links]
     feature_sets = FeatureSet.select(id__in=feature_set_ids)
-    # validate consistency of feature_sets
-    # we only allow one feature set per type
-    feature_set_types = [feature_set.type for feature_set in feature_sets]
-    feature_set_ids_types = [
-        (feature_set.id, feature_set.type) for feature_set in feature_sets
-    ]
-    print(feature_set_types)
-    print(feature_set_ids_types)
-    if len(set(feature_set_ids_types)) != len(set(feature_set_types)):
-        # we can do below in the future!
-        # logger.warning(
-        #     "feature sets are inconsistent across files"
-        #     "computing union! files will be outer-joined"
-        # )
-        raise ValueError(
-            "Currently only supporting datasets from files with same feature sets"
-        )
     # validate consistency of hashes
     # we do not allow duplicate hashes
     file_hashes = [file.hash for file in files]

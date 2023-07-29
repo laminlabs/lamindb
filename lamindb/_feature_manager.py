@@ -177,7 +177,7 @@ class FeatureManager:
                     found_feature = True
             if not found_feature:
                 if "ext" not in linked_features_by_slot:
-                    logger.info("Creating FeatureSet for slot 'ext'")
+                    logger.info("Creating feature_set for slot 'ext' (external)")
                     feature_set = FeatureSet([feature], modality="meta")
                     feature_set.save()
                     self.add_feature_set(feature_set, slot="ext")
