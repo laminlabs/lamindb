@@ -230,7 +230,7 @@ def _search(
     if return_queryset:
         return _order_queryset_by_ids(query_set, result.reset_index()["id"])
     else:
-        return result
+        return result.fillna("")
 
 
 @classmethod  # type: ignore
