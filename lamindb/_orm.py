@@ -224,6 +224,8 @@ def _search(
         result = result[result["__ratio__"] > 0].sort_values(
             "__ratio__", ascending=False
         )
+        # move the __ratio__ to be the last column
+        result["__ratio__"] = result.pop("__ratio__")
 
     if return_queryset:
         return _order_queryset_by_ids(query_set, result.reset_index()["id"])
@@ -412,13 +414,13 @@ def describe(self):
 
     def dict_related_model_to_related_name(orm):
         d: Dict = {
-            i.related_model.__get_name_with_schema__(): (i.related_name)
+            i.related_model.__get_name_with_schema__(): i.related_name
             for i in orm._meta.related_objects
             if i.related_name is not None
         }
         d.update(
             {
-                i.related_model.__get_name_with_schema__(): (i.name)
+                i.related_model.__get_name_with_schema__(): i.name
                 for i in orm._meta.many_to_many
                 if i.name is not None
             }
