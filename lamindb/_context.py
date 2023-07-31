@@ -354,8 +354,6 @@ class run_context:
                 logger.debug("Inferring imported packages failed")
                 pass
 
-        import lamindb as ln
-
         if needs_init:
             if _env in ("lab", "notebook"):
                 cls._notebook_meta = metadata  # type: ignore
@@ -396,7 +394,7 @@ class run_context:
             version = "0"
             title = filestem
 
-        transform = ln.filter(Transform, stem_id=id, version=version).one_or_none()
+        transform = Transform.filter(stem_id=id, version=version).one_or_none()
         if transform is None:
             transform = Transform(
                 stem_id=id,
