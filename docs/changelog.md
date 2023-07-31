@@ -1,5 +1,6 @@
 # Changelog
 
+- 🚚 Rename `Feature.label_orms` to `Feature.registries` [PR957](https://github.com/laminlabs/lamindb/pull/957) [@falexwolf](https://github.com/falexwolf)
 - ♻️ Aggregate ref_field, ref_orm, ref_schema into ref_field [PR955](https://github.com/laminlabs/lamindb/pull/955) [@falexwolf](https://github.com/falexwolf)
 - 🎨 Move feature foreignkey from label to link between label and file [PR954](https://github.com/laminlabs/lamindb/pull/954) [@falexwolf](https://github.com/falexwolf)
 - 🎨 Enable file/dataset-external feature sets [PR953](https://github.com/laminlabs/lamindb/pull/953) [@falexwolf](https://github.com/falexwolf)
