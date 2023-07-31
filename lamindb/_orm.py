@@ -473,12 +473,11 @@ def describe(self):
                     "You have a legacy entry in feature_set.field, should be format"
                     " 'bionty.Gene.symbol'"
                 )
-            key = f"{key_split[0]}.{key_split[1]}"
-            related_name = feature_sets_related_models.get(key)
+            orm_name_with_schema = f"{key_split[0]}.{key_split[1]}"
+            field_name = key_split[2]
+            related_name = feature_sets_related_models.get(orm_name_with_schema)
             values = (
-                feature_set.__getattribute__(related_name)
-                .all()[:5]
-                .list(feature_set.ref_field)
+                feature_set.__getattribute__(related_name).all()[:5].list(field_name)
             )
             slots = self.feature_sets.through.objects.filter(
                 file=self, feature_set=feature_set
@@ -487,7 +486,7 @@ def describe(self):
                 if slot == "var":
                     slot += " (X)"
                 msg += f"  🗺️ {colors.bold(slot)}:\n"
-                ref = colors.italic(f"{key}.{feature_set.ref_field}")
+                ref = colors.italic(f"{orm_name_with_schema}.{field_name}")
                 msg += f"    🔗 index ({feature_set.n}, {ref}): {values}\n".replace(
                     "]", "...]"
                 )
