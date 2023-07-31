@@ -1,5 +1,6 @@
 # Changelog
 
+- ✨ Add a simple progress monitoring to file.load() and file.stage() [PR959](https://github.com/laminlabs/lamindb/pull/959) [@Koncopd](https://github.com/Koncopd)
 - 🚚 Rename `ORM.select()` to `ORM.filter()` [PR958](https://github.com/laminlabs/lamindb/pull/958) [@falexwolf](https://github.com/falexwolf)
 - 🚚 Rename `Feature.label_orms` to `Feature.registries` [PR957](https://github.com/laminlabs/lamindb/pull/957) [@falexwolf](https://github.com/falexwolf)
 - ♻️ Aggregate ref_field, ref_orm, ref_schema into ref_field [PR955](https://github.com/laminlabs/lamindb/pull/955) [@falexwolf](https://github.com/falexwolf)
