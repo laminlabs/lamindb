@@ -30,9 +30,11 @@ def test_features_add_labels():
 def test_features_add_labels_using_anndata():
     species = lb.Species.from_bionty(name="mouse")
     cell_types = lb.CellType.from_values(adata.obs["cell_type"], "name")
+    ln.save(cell_types)
     cell_types_from_expert = lb.CellType.from_values(
         adata.obs["cell_type_from_expert"], "name"
     )
+    ln.save(cell_types_from_expert)
     tissues = lb.Tissue.from_values(adata.obs["tissue"], "name")
 
     assert cell_types[0]._feature == "cell_type"
