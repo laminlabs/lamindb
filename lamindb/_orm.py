@@ -10,7 +10,7 @@ from lamin_utils._lookup import Lookup
 from lamin_utils._search import search as base_search
 from lamindb_setup.dev._docs import doc_args
 from lnschema_core import ORM
-from lnschema_core.models import format_datetime
+from lnschema_core.models import FileLabel, format_datetime
 from lnschema_core.types import ListLike, StrField
 
 from lamindb.dev.utils import attach_func_to_class_method
@@ -493,6 +493,8 @@ def describe(self):
 
     # obs
     # ref_orm=Feature, combine all features into one dataframe
+    from django.db.models import F
+
     feature_sets = self.feature_sets.filter(ref_orm="Feature").all()
     if feature_sets.exists():
         features_df = create_features_df(
@@ -509,15 +511,29 @@ def describe(self):
                 key = "core.Label"
                 related_name = file_related_models.get(key)
                 related_objects = self.__getattribute__(related_name).all()
-                labels = _labels_with_feature_names(related_objects)
+                filelabel_links_df = (
+                    FileLabel.select(file_id=self.id)
+                    .annotate(
+                        feature_name=F("feature__name"), label_name=F("label__name")
+                    )
+                    .df()
+                )
+                groupby = (
+                    filelabel_links_df.groupby("feature_name", group_keys=False)[
+                        "label_name"
+                    ]
+                    .apply(list)
+                    .to_dict()
+                )
                 msg_objects = ""
-                for k, v in labels.items():
-                    if k not in df_slot.name.values:
+                for feature, labels in groupby.items():
+                    if feature not in df_slot.name.values:
                         continue
                     msg_objects_k = (
-                        f"    🔗 {k} ({len(v)}, {colors.italic(key)}): {v[:5]}\n"
+                        f"    🔗 {feature} ({len(labels)}, {colors.italic(key)}):"
+                        f" {labels[:5]}\n"
                     )
-                    if len(v) > 5:
+                    if len(labels) > 5:
                         msg_objects_k = msg_objects_k.replace("]", " ... ]")
                     msg_objects += msg_objects_k
                 msg += msg_objects
