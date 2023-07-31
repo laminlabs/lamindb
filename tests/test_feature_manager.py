@@ -67,17 +67,18 @@ def test_features_add_labels_using_anndata():
 
     file.save()
 
+    # check the basic construction of the feature set based on obs
     feature_set_obs = file.feature_sets.filter(
         ref_field__startswith="core.Feature", filefeatureset__slot="obs"
     ).one()
     assert feature_set_obs.n == 4
     assert "species" not in feature_set_obs.features.list("name")
 
+    # now, we add species and run checks
     file.features.add_labels(species, feature="species")
     feature = ln.Feature.filter(name="species").one()
     assert feature.type == "category"
     assert feature.registries == "bionty.Species"
-
     feature_set_obs = file.feature_sets.filter(
         ref_field__startswith="core.Feature", filefeatureset__slot="obs"
     ).one()
@@ -88,6 +89,7 @@ def test_features_add_labels_using_anndata():
     assert feature_set_ext.n == 1
     assert "species" in feature_set_ext.features.list("name")
 
+    # now we add cell types & tissues and run checks
     file.features.add_labels(cell_types + tissues)
     feature = ln.Feature.filter(name="cell_type").one()
     assert feature.type == "category"
@@ -95,11 +97,8 @@ def test_features_add_labels_using_anndata():
     feature = ln.Feature.filter(name="tissue").one()
     assert feature.type == "category"
     assert feature.registries == "bionty.Tissue"
-
-    # on purpose, we don't use bionty ORM here, to simulate an ordinary label
     diseases = ln.Label.from_values(adata.obs["disease"])
     file.features.add_labels(diseases, feature="disease")
-
     df = file.features["obs"].df()
     assert set(df["name"]) == {
         "cell_type",
@@ -117,14 +116,21 @@ def test_features_add_labels_using_anndata():
         "bionty.Tissue",
     }
 
+    # now, let's add another feature to ext
+    project_1 = ln.Label(name="Project 1")
+    file.features.add_labels(project_1, feature="project")
+
     df = file.features["ext"].df()
     assert set(df["name"]) == {
         "species",
+        "project",
     }
     assert set(df["type"]) == {
         "category",
     }
-    assert set(df["registries"]) == {"bionty.Species"}
+    assert set(df["registries"]) == {"bionty.Species", "core.Label"}
+
+    assert project_1 in file.labels.all()
 
     # clean up
     ln.Feature.filter(name="species").one().delete()
