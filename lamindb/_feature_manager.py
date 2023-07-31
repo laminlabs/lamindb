@@ -41,7 +41,7 @@ def create_features_df(
             features_df["slot"] = slot
             features.append(features_df)
     features_df = pd.concat(features)
-    return features_df.sort_values(["registries"])
+    return features_df.sort_values(["slots", "registries"])
 
 
 class FeatureManager:
