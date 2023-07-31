@@ -1,5 +1,5 @@
 from collections import defaultdict
-from typing import List, Optional, Union
+from typing import Dict, List, Optional, Union
 
 import pandas as pd
 from lamin_utils import logger
@@ -49,18 +49,21 @@ class FeatureManager:
 
     def __init__(self, host: Union[File, Dataset]):
         self._host = host
+
+    def _slots(self) -> Dict:
         slot_feature_sets = (
             self._feature_set_df_with_slots().reset_index().set_index("slot")["id"]
         )
-        self._slots = {
+        return {
             slot: self._host.feature_sets.get(id=i)
             for slot, i in slot_feature_sets.items()
         }
 
     def __repr__(self) -> str:
-        if len(self._slots) > 0:
+        slots = self._slots()
+        if len(slots) > 0:
             msg = "slots:\n"
-            for slot, feature_set in self._slots.items():
+            for slot, feature_set in slots.items():
                 msg += f"    {slot}: {feature_set}\n"
             return msg
         else:
@@ -179,13 +182,13 @@ class FeatureManager:
                     feature_set.save()
                     self.add_feature_set(feature_set, slot="ext")
                 else:
-                    feature_set = linked_features_by_slot["ext"]
+                    feature_set = self._slots()["ext"]
                     logger.info(
                         f"Linking feature {feature.name} to feature set {feature_set}"
                     )
-                    linked_features_by_slot["ext"].add(feature)
-                    linked_features_by_slot["ext"].n += 1
-                    linked_features_by_slot["ext"].save()
+                    feature_set.features.add(feature)
+                    feature_set.n += 1
+                    feature_set.save()
 
     def add_feature_set(self, feature_set: FeatureSet, slot: str):
         if self._host._state.adding:
