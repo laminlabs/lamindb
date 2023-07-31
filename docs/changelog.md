@@ -1,5 +1,6 @@
 # Changelog
 
+- ⚡️ Speed up & remove auto-generation of feature name [PR963](https://github.com/laminlabs/lamindb/pull/963) [@falexwolf](https://github.com/falexwolf)
 - 🚑️ Fix ext [PR961](https://github.com/laminlabs/lamindb/pull/961) [@sunnyosun](https://github.com/sunnyosun)
 ## 0.49.0 (2023-07-31)
 
