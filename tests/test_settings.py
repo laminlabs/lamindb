@@ -13,6 +13,6 @@ def test_settings_switch_storage():
     assert ln.setup.settings.storage.root.fs.cache_regions
     ln.settings.storage = "s3://lamindb-ci", dict(cache_regions=False)
     assert not ln.setup.settings.storage.root.fs.cache_regions
-    assert ln.Storage.select(root="s3://lamindb-ci").one_or_none() is not None
+    assert ln.Storage.filter(root="s3://lamindb-ci").one_or_none() is not None
     # switch back to default storage
     ln.settings.storage = "./default_storage"

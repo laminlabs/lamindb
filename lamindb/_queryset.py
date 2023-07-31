@@ -37,7 +37,7 @@ class QuerySet(models.QuerySet):
     Examples:
 
         >>> ln.Label(name="my label").save()
-        >>> queryset = ln.Label.select(name="my label")
+        >>> queryset = ln.Label.filter(name="my label")
         >>> queryset
         <QuerySet [Label(id=MIeZISeF, name=my label, updated_at=2023-07-19 19:53:34, created_by_id=DzTjkKse)]> # noqa
     """
@@ -58,16 +58,16 @@ class QuerySet(models.QuerySet):
         Examples:
 
             >>> ln.save(ln.Label.from_values(["Label1", "Label2", "Label3"], field="name")) # noqa
-            >>> ln.Label.select().df()
+            >>> ln.Label.filter().df()
                           name  external_id           updated_at  created_by_id
                   id
             wsCyIq2Z  Label1         None  2023-07-19 19:14:08       DzTjkKse
             MvpDP8Y3  Label2         None  2023-07-19 19:14:08       DzTjkKse
             zKFFabCu  Label3         None  2023-07-19 19:14:08       DzTjkKse
-            >>> label = ln.Label.select(name="Label1").one()
-            >>> label = ln.Label.select(name="benchmark").one()
+            >>> label = ln.Label.filter(name="Label1").one()
+            >>> label = ln.Label.filter(name="benchmark").one()
             >>> label.parents.add(label)
-            >>> ln.Label.select().df(include=["labels__name", "labels__created_by_id"])
+            >>> ln.Label.filter().df(include=["labels__name", "labels__created_by_id"])
                       labels__name  labels__created_by_id      name  external_id           updated_at  created_by_id # noqa
                   id
             wsCyIq2Z  [benchmark]          [DzTjkKse]  Label1         None  2023-07-19 19:14:08       DzTjkKse # noqa
@@ -147,7 +147,7 @@ class QuerySet(models.QuerySet):
         Examples:
 
             >>> ln.save(ln.Label.from_values(["Label1", "Label2", "Label3"], field="name")) # noqa
-            >>> queryset = ln.Label.select(name__icontains = "project")
+            >>> queryset = ln.Label.filter(name__icontains = "project")
             >>> queryset.list()
             [Label(id=NAgTZxoo, name=Label1, updated_at=2023-07-19 19:25:48, created_by_id=DzTjkKse), # noqa
             Label(id=bnsAgKRC, name=Label2, updated_at=2023-07-19 19:25:48, created_by_id=DzTjkKse), # noqa
@@ -165,7 +165,7 @@ class QuerySet(models.QuerySet):
 
         Examples:
             >>> ln.save(ln.Label.from_values(["Label1", "Label2", "Label3"], field="name")) # noqa
-            >>> queryset = ln.Label.select(name__icontains = "project")
+            >>> queryset = ln.Label.filter(name__icontains = "project")
             >>> queryset.first()
             Label(id=NAgTZxoo, name=Label1, updated_at=2023-07-19 19:25:48, created_by_id=DzTjkKse) # noqa
         """
@@ -178,7 +178,7 @@ class QuerySet(models.QuerySet):
 
         Examples:
             >>> ln.Label(name="benchmark").save()
-            >>> ln.Label.select(name="benchmark").one()
+            >>> ln.Label.filter(name="benchmark").one()
             Label(id=gznl0GZk, name=benchmark, updated_at=2023-07-19 19:39:01, created_by_id=DzTjkKse) # noqa
         """
         if len(self) == 0:
@@ -193,9 +193,9 @@ class QuerySet(models.QuerySet):
 
         Examples:
             >>> ln.Label(name="benchmark").save()
-            >>> ln.Label.select(name="benchmark").one_or_none()
+            >>> ln.Label.filter(name="benchmark").one_or_none()
             Label(id=gznl0GZk, name=benchmark, updated_at=2023-07-19 19:39:01, created_by_id=DzTjkKse) # noqa
-            >>> ln.Label.select(name="non existing label").one_or_none()
+            >>> ln.Label.filter(name="non existing label").one_or_none()
             None
         """
         if len(self) == 0:

@@ -178,7 +178,7 @@ class run_context:
             :class:`~lamindb.Transform` object of `type` `"pipeline"`:
 
             >>> ln.Transform(name="Cell Ranger", version="7.2.0", type="pipeline").save()
-            >>> transform = ln.Transform.select(name="Cell Ranger", version="7.2.0").one()
+            >>> transform = ln.Transform.filter(name="Cell Ranger", version="7.2.0").one()
             >>> ln.track(transform)
             💬 Loaded: Transform(id=ceHkZMaiHFdoB6, name=Cell Ranger, stem_id=ceHkZMaiHFdo, version=7.2.0, type=pipeline, updated_at=2023-07-10 18:37:19, created_by_id=DzTjkKse) # noqa
             ✅ Saved: Run(id=RcpWIKC8cF74Pn3RUJ1W, run_at=2023-07-10 18:37:19, transform_id=ceHkZMaiHFdoB6, created_by_id=DzTjkKse) # noqa
@@ -224,7 +224,7 @@ class run_context:
             transform_exists = None
             if transform.id is not None:
                 # transform has an id but unclear whether already saved
-                transform_exists = ln.select(Transform, id=transform.id).first()
+                transform_exists = ln.filter(Transform, id=transform.id).first()
             if transform_exists is None:
                 transform.save()
                 logger.success(f"Saved: {transform}")
@@ -239,7 +239,7 @@ class run_context:
         run = None
         if not new_run:  # try loading latest run by same user
             run = (
-                ln.Run.select(
+                ln.Run.filter(
                     transform=cls.transform, created_by_id=ln.setup.settings.user.id
                 )
                 .order_by("-created_at")
@@ -396,7 +396,7 @@ class run_context:
             version = "0"
             title = filestem
 
-        transform = ln.select(Transform, stem_id=id, version=version).one_or_none()
+        transform = ln.filter(Transform, stem_id=id, version=version).one_or_none()
         if transform is None:
             transform = Transform(
                 stem_id=id,

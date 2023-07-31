@@ -73,7 +73,7 @@ def test_search_file():
     # queryset returns the same order of results
     assert res.index.tolist() == [i.id for i in res_q]
 
-    f = ln.File.select(key="test-search5").one()
+    f = ln.File.filter(key="test-search5").one()
     f.suffix = ".txt"
     f.save()
     # multi-field search

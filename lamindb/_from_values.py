@@ -81,7 +81,7 @@ def get_or_create_records(
                 feature = ORM.__name__.lower()
             if isinstance(feature, str):
                 feature_name = feature
-                feature = Feature.select(name=feature).one_or_none()
+                feature = Feature.filter(name=feature).one_or_none()
             elif feature is not None:
                 feature_name = feature.name
             if feature is not None:

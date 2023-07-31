@@ -58,11 +58,11 @@ def test_feature_from_df():
         feature.save()
     labels = ln.Label.from_values(df["feat3"])
     file.features.add_labels(labels, feature="feat3")
-    assert set(ln.Label.select(filelabel__feature__name="feat3").list("name")) == set(
+    assert set(ln.Label.filter(filelabel__feature__name="feat3").list("name")) == set(
         ["cond1", "cond2"]
     )
     for name in df.columns:
-        queried_feature = ln.Feature.select(name=name).one()
+        queried_feature = ln.Feature.filter(name=name).one()
         if name in categoricals:
             assert queried_feature.type == "category"
         else:

@@ -14,9 +14,9 @@ class Manager(models.Manager):
     Examples:
 
         >>> ln.save(ln.Label.from_values(["Label1", "Label2", "Label3"], field="name"))
-        >>> labels = ln.Label.select(name__icontains = "label").all()
+        >>> labels = ln.Label.filter(name__icontains = "label").all()
         >>> ln.Label(name="Label1").save()
-        >>> label = ln.Label.select(name="Label1").one()
+        >>> label = ln.Label.filter(name="Label1").one()
         >>> label.parents.set(labels)
         >>> manager = label.parents
         >>> manager.df()
@@ -27,9 +27,9 @@ class Manager(models.Manager):
 
         Examples:
             >>> ln.save(ln.Label.from_values(["Label1", "Label2", "Label3"], field="name"))
-            >>> labels = ln.Label.select(name__icontains = "label").all()
+            >>> labels = ln.Label.filter(name__icontains = "label").all()
             >>> ln.Label(name="Label1").save()
-            >>> label = ln.Label.select(name="Label1").one()
+            >>> label = ln.Label.filter(name="Label1").one()
             >>> label.parents.set(labels)
             >>> label.parents.list()
             [Label(id=sFMcPepC, name=Label1, updated_at=2023-07-19 19:45:17, created_by_id=DzTjkKse), # noqa

@@ -89,12 +89,12 @@ def __init__(orm: ORM, *args, **kwargs):
             if result == "object-with-same-name-exists":
                 if "version" in kwargs:
                     version_comment = " and version "
-                    existing_record = orm.select(
+                    existing_record = orm.filter(
                         name=kwargs["name"], version=kwargs["version"]
                     ).one_or_none()
                 else:
                     version_comment = " "
-                    existing_record = orm.select(name=kwargs["name"]).one()
+                    existing_record = orm.filter(name=kwargs["name"]).one()
                 if existing_record is not None:
                     logger.success(
                         f"Loaded record with exact same name{version_comment}"
@@ -512,7 +512,7 @@ def describe(self):
                 related_name = file_related_models.get(key)
                 related_objects = self.__getattribute__(related_name).all()
                 filelabel_links_df = (
-                    FileLabel.select(file_id=self.id)
+                    FileLabel.filter(file_id=self.id)
                     .annotate(
                         feature_name=F("feature__name"), label_name=F("label__name")
                     )

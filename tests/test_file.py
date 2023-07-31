@@ -71,7 +71,7 @@ def test_create_from_dataframe_using_from_df(description):
     # check that the local filepath has been cleared
     assert not hasattr(file, "_local_filepath")
     feature_set_queried = file.feature_sets.get()  # exactly one
-    feature_list_queried = ln.Feature.select(feature_sets=feature_set_queried).list()
+    feature_list_queried = ln.Feature.filter(feature_sets=feature_set_queried).list()
     feature_list_queried = [feature.name for feature in feature_list_queried]
     assert set(feature_list_queried) == set(df.columns)
     file.delete(storage=True)
@@ -85,12 +85,12 @@ def test_create_from_anndata_in_memory():
     # check that the local filepath has been cleared
     assert not hasattr(file, "_local_filepath")
     feature_sets_queried = file.feature_sets.all()
-    feature_list_queried = ln.Feature.select(
+    feature_list_queried = ln.Feature.filter(
         feature_sets__in=feature_sets_queried
     ).list()
     feature_list_queried = [feature.name for feature in feature_list_queried]
     assert set(feature_list_queried) == set(adata.obs.columns)
-    feature_list_queried = lb.Gene.select(feature_sets__in=feature_sets_queried).list()
+    feature_list_queried = lb.Gene.filter(feature_sets__in=feature_sets_queried).list()
     feature_list_queried = [feature.symbol for feature in feature_list_queried]
     assert set(feature_list_queried) == set(adata.var.index)
     file.delete(storage=True)
@@ -199,7 +199,7 @@ def test_delete(get_test_filepaths):
     file.save()
     storage_path = file.path()
     file.delete(storage=True)
-    assert ln.File.select(description="My test file to delete").first() is None
+    assert ln.File.filter(description="My test file to delete").first() is None
     assert not Path(storage_path).exists()
 
 
