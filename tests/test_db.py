@@ -6,4 +6,4 @@ def test_create_to_load():
     ln.save(transform)
     run = ln.Run(transform=transform)
     ln.save(run)
-    ln.filter(ln.Storage, root=str(ln.setup.settings.storage.root)).one()
+    ln.Storage.filter(root=str(ln.setup.settings.storage.root)).one()

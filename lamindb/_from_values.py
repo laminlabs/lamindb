@@ -136,9 +136,7 @@ def get_existing_records(iterable_idx: pd.Index, field: Field, kwargs: Dict = {}
     # kwargs is used to deal with species
     condition.update({f"{field_name}__in": iterable_idx.values})
 
-    from ._select import select
-
-    query_set = select(model, **condition)
+    query_set = model.filter(**condition)
 
     # new we have to sort the list of queried records
     preserved = Case(

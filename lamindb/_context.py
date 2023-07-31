@@ -224,7 +224,7 @@ class run_context:
             transform_exists = None
             if transform.id is not None:
                 # transform has an id but unclear whether already saved
-                transform_exists = ln.filter(Transform, id=transform.id).first()
+                transform_exists = Transform.filter(id=transform.id).first()
             if transform_exists is None:
                 transform.save()
                 logger.success(f"Saved: {transform}")
