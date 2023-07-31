@@ -18,7 +18,7 @@ def validate_and_cast_feature(
         if feature is None:
             orm_types = set([record.__class__ for record in records])
             feature = Feature(
-                name=feature_name, type="category", label_orms=list(orm_types)
+                name=feature_name, type="category", registries=list(orm_types)
             )
             logger.warning(f"Created & saved: {feature}")
             feature.save()
@@ -31,7 +31,7 @@ def create_features_df(
     features = []
     for feature_set in feature_sets:
         if exclude:
-            features_df = feature_set.features.exclude(label_orms__isnull=True).df()
+            features_df = feature_set.features.exclude(registries__isnull=True).df()
         else:
             features_df = feature_set.features.df()
         slots = file.feature_sets.through.objects.filter(
@@ -41,7 +41,7 @@ def create_features_df(
             features_df["slot"] = slot
             features.append(features_df)
     features_df = pd.concat(features)
-    return features_df.sort_values(["label_orms"])
+    return features_df.sort_values(["registries"])
 
 
 class FeatureManager:
@@ -161,7 +161,7 @@ class FeatureManager:
         for (feature, orm_name), records in records_by_feature_orm.items():
             feature = validate_and_cast_feature(feature, records)
             logger.info(f"Linking feature {feature.name} to {orm_name}")
-            feature.label_orms = orm_name
+            feature.registries = orm_name
             feature.save()
             for record in records:
                 record.feature_id = feature.id

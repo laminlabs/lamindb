@@ -34,8 +34,8 @@ def __init__(self, *args, **kwargs):
     if len(args) != 0:
         raise ValueError("Only non-keyword args allowed")
     type: Optional[Union[type, str]] = kwargs.pop("type") if "type" in kwargs else None
-    label_orms: Optional[List[ORM]] = (
-        kwargs.pop("label_orms") if "label_orms" in kwargs else None
+    registries: Optional[List[ORM]] = (
+        kwargs.pop("registries") if "registries" in kwargs else None
     )
     # cast type
     if type is not None:
@@ -43,18 +43,18 @@ def __init__(self, *args, **kwargs):
     else:
         type_str = None
     kwargs["type"] = type_str
-    # cast label_orms
-    label_orms_str: Optional[str] = None
-    if label_orms is not None:
-        if not isinstance(label_orms, List):
-            raise ValueError("label_orms has to be a list of ORM types")
-        label_orms_str = ""
-        for cls in label_orms:
+    # cast registries
+    registries_str: Optional[str] = None
+    if registries is not None:
+        if not isinstance(registries, List):
+            raise ValueError("registries has to be a list of ORM types")
+        registries_str = ""
+        for cls in registries:
             if not hasattr(cls, "__get_name_with_schema__"):
                 raise ValueError("each element of the list has to be an ORM type")
-            label_orms_str += cls.__get_name_with_schema__() + "|"
-        label_orms_str = label_orms_str.rstrip("|")
-    kwargs["label_orms"] = label_orms_str
+            registries_str += cls.__get_name_with_schema__() + "|"
+        registries_str = registries_str.rstrip("|")
+    kwargs["registries"] = registries_str
     super(Feature, self).__init__(*args, **kwargs)
 
 

@@ -20,7 +20,7 @@ def test_features_add_labels():
     file.features.add_labels(label, feature="project")
     feature = ln.Feature.select(name="project").one()
     assert feature.type == "category"
-    assert feature.label_orms == "core.Label"
+    assert feature.registries == "core.Label"
     file.delete(storage=True)
 
 
@@ -76,7 +76,7 @@ def test_features_add_labels_using_anndata():
     file.features.add_labels(species, feature="species")
     feature = ln.Feature.select(name="species").one()
     assert feature.type == "category"
-    assert feature.label_orms == "bionty.Species"
+    assert feature.registries == "bionty.Species"
 
     feature_set_obs = file.feature_sets.filter(
         ref_field__startswith="core.Feature", filefeatureset__slot="obs"
@@ -91,10 +91,10 @@ def test_features_add_labels_using_anndata():
     file.features.add_labels(cell_types + tissues)
     feature = ln.Feature.select(name="cell_type").one()
     assert feature.type == "category"
-    assert feature.label_orms == "bionty.CellType"
+    assert feature.registries == "bionty.CellType"
     feature = ln.Feature.select(name="tissue").one()
     assert feature.type == "category"
-    assert feature.label_orms == "bionty.Tissue"
+    assert feature.registries == "bionty.Tissue"
 
     # on purpose, we don't use bionty ORM here, to simulate an ordinary label
     diseases = ln.Label.from_values(adata.obs["disease"])
@@ -110,7 +110,7 @@ def test_features_add_labels_using_anndata():
     assert set(df["type"]) == {
         "category",
     }
-    assert set(df["label_orms"]) == {
+    assert set(df["registries"]) == {
         "bionty.CellType",
         None,
         "core.Label",
@@ -124,7 +124,7 @@ def test_features_add_labels_using_anndata():
     assert set(df["type"]) == {
         "category",
     }
-    assert set(df["label_orms"]) == {"bionty.Species"}
+    assert set(df["registries"]) == {"bionty.Species"}
 
     # clean up
     ln.Feature.select(name="species").one().delete()
