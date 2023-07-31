@@ -735,7 +735,7 @@ METHOD_NAMES = [
     "view_parents",
 ]
 
-if _TESTING:
+if _TESTING:  # type: ignore
     from inspect import signature
 
     SIGS = {
@@ -761,5 +761,16 @@ def __get_name_with_schema__(cls) -> str:
     return f"{schema_name}.{cls.__name__}"
 
 
+def select_backward(cls, **expressions):
+    logger.warning("select() is deprecated! Please rename: ORM.filter()")
+    return cls.filter(**expressions)
+
+
+@classmethod  # type: ignore
+def select(cls, **expressions):
+    return select_backward(cls, **expressions)
+
+
 setattr(ORM, "__get_schema_name__", __get_schema_name__)
 setattr(ORM, "__get_name_with_schema__", __get_name_with_schema__)
+setattr(ORM, "select", select)  # backward compat
