@@ -560,6 +560,8 @@ def set_abbr(self, value: str):
     except NotImplementedError:
         pass
     self.abbr = value
+    if not self._state.adding:
+        self.save()
 
 
 def _filter_df_based_on_species(
