@@ -1,14 +1,14 @@
 # Changelog
 
-- 🎉 Stage 0.49.0 [PR951](https://github.com/laminlabs/lamindb/pull/951) [@sunnyosun](https://github.com/sunnyosun)
-- ✨ Add a simple progress monitoring to file.load() and file.stage() [PR959](https://github.com/laminlabs/lamindb/pull/959) [@Koncopd](https://github.com/Koncopd)
+## 0.49.0 (2023-07-31)
+
+- ✨ Add a progress monitoring to file.load() and file.stage() [PR959](https://github.com/laminlabs/lamindb/pull/959) [@Koncopd](https://github.com/Koncopd)
 - 🚚 Rename `ORM.select()` to `ORM.filter()` [PR958](https://github.com/laminlabs/lamindb/pull/958) [@falexwolf](https://github.com/falexwolf)
 - 🚚 Rename `Feature.label_orms` to `Feature.registries` [PR957](https://github.com/laminlabs/lamindb/pull/957) [@falexwolf](https://github.com/falexwolf)
 - ♻️ Aggregate ref_field, ref_orm, ref_schema into ref_field [PR955](https://github.com/laminlabs/lamindb/pull/955) [@falexwolf](https://github.com/falexwolf)
 - 🎨 Move feature foreignkey from label to link between label and file [PR954](https://github.com/laminlabs/lamindb/pull/954) [@falexwolf](https://github.com/falexwolf)
 - 🎨 Enable file/dataset-external feature sets [PR953](https://github.com/laminlabs/lamindb/pull/953) [@falexwolf](https://github.com/falexwolf)
-- 📝 Updated readme [PR952](https://github.com/laminlabs/lamindb/pull/952) [@sunnyosun](https://github.com/sunnyosun)
-- 🔊 Only log 10 labels for unmapped categories [PR950](https://github.com/laminlabs/lamindb/pull/950) [@sunnyosun](https://github.com/sunnyosun)
+
 ## 0.48.0 (2023-07-26)
 
 - 📝 Add MuData example [PR945](https://github.com/laminlabs/lamindb/pull/945) [@sunnyosun](https://github.com/sunnyosun)
