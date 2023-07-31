@@ -55,10 +55,10 @@ import lamindb as ln
 df = pd.DataFrame({"feat1": [1, 2], "feat2": [3, 4]})  # AnnData works, too
 ln.File(df, description="Data batch 1").save()  # create a File object and save/upload it
 
-# If you don't have specific metadata in mind, run a search
+# To find it, if you don't have specific metadata in mind, run a search
 ln.File.search("batch 1")
-# Or run a simple filter (you have the full power of SQL to query for metadata)
-file = ln.File.select(description="Data batch 1").one()  # get exactly one result
+# Or filter (under-the-hood, you have the full power of SQL to query)
+file = ln.File.filter(description="Data batch 1").one()  # get exactly one result
 
 # Load a file back into memory
 df = file.load()
@@ -74,7 +74,7 @@ file = ln.File("s3://my-bucket/images/image001.jpg")  # or a local path
 file.save()  # register the file
 
 # Query by `key` (the relative path within your storage) and load into memory
-file.select(key__startswith="images/").df()  # all files in folder "images/" in default storage
+file.filter(key__startswith="images/").df()  # all files in folder "images/" in default storage
 ```
 
 ### Auto-complete categoricals and search
@@ -82,7 +82,7 @@ file.select(key__startswith="images/").df()  # all files in folder "images/" in 
 ```python
 # When you're unsure about spellings, use a lookup object:
 users = ln.User.lookup()
-ln.File.select(created_by=users.lizlemon)
+ln.File.filter(created_by=users.lizlemon)
 
 # Or search
 ln.User.search("liz lemon", field="name")
@@ -115,13 +115,13 @@ ln.File("my_artifact.parquet").save()  # this file is now aware that it was save
 When you query the file, later on, you'll know from which notebook it came:
 
 ```python
-file = ln.File.select(description="my_artifact.parquet").one()  # query for a file
+file = ln.File.filter(description="my_artifact.parquet").one()  # query for a file
 file.transform  # the notebook with id, title, filename, version, etc.
 file.run  # the specific run of the notebook that created the file
 
 # Alternatively, you can query for notebooks and find the files written by them
-transforms = ln.Transform.select(type="notebook", created_at__year=2022).search("T cell").all()
-ln.File.select(transform__in=transforms).df()  # the files created by these notebooks
+transforms = ln.Transform.filter(type="notebook", created_at__year=2022).search("T cell").all()
+ln.File.filter(transform__in=transforms).df()  # the files created by these notebooks
 ```
 
 #### Pipelines
@@ -133,12 +133,12 @@ This works like for notebooks just that you need to provide pipeline metadata yo
 ln.Transform(name="Awesom-O", version="0.41.2").save()  # save a pipeline, optionally with metadata
 
 # Track a pipeline run
-transform = ln.Transform.select(name="Awesom-O", version="0.41.2").one()  # select pipeline from the registry
+transform = ln.Transform.filter(name="Awesom-O", version="0.41.2").one()  # filter pipeline from the registry
 ln.track(transform)  # create a new global run context
 ln.File("s3://my_samples01/my_artifact.fastq.gz").save()  # file gets auto-linked against run & transform
 
 # Now, you can query for the latest pipeline runs
-ln.Run.select(transform=transform).order_by("-created_at").df()  # get the latest pipeline runs
+ln.Run.filter(transform=transform).order_by("-created_at").df()  # get the latest pipeline runs
 ```
 
 ### Load your instance from anywhere
