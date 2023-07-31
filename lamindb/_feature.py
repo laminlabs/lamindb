@@ -83,7 +83,7 @@ def from_df(cls, df: "pd.DataFrame") -> List["Feature"]:
             # ):  # because .categories > pd2.0, .cat.categories < pd2.0
             #     categorical = categorical.cat
             # categories = categorical.categories
-            # categoricals_with_unmapped_categories[name] = Label.select(
+            # categoricals_with_unmapped_categories[name] = Label.filter(
             #     feature=name
             # ).inspect(categories, "name", logging=False)["not_mapped"]
         else:

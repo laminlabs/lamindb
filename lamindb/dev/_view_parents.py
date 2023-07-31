@@ -134,14 +134,14 @@ def _get_parents(record: ORM, field: str, distance: int, children: bool = False)
         key = "children"
     model = record.__class__
     condition = f"{key}__{field}"
-    results = model.select(**{condition: record.__getattribute__(field)}).all()
+    results = model.filter(**{condition: record.__getattribute__(field)}).all()
     if distance < 2:
         return results
 
     d = 2
     while d < distance:
         condition = f"{key}__{condition}"
-        records = model.select(**{condition: record.__getattribute__(field)}).all()
+        records = model.filter(**{condition: record.__getattribute__(field)}).all()
 
         if len(records) == 0:
             return results
@@ -202,7 +202,7 @@ def _get_all_child_runs(file: File):
         child_runs: Set[Run] = set()
         for r in runs:
             child_runs.update(
-                Run.select(input_files__id__in=r.output_files.list("id")).list()
+                Run.filter(input_files__id__in=r.output_files.list("id")).list()
             )
         runs = child_runs
     return all_runs

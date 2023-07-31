@@ -33,12 +33,12 @@ def delete(  # type: ignore
 
         Delete by record:
 
-        >>> experiment = ln.select(Experiment, id=experiment_id).one()
+        >>> experiment = ln.filter(Experiment, id=experiment_id).one()
         >>> ln.delete(experiment)
 
         Delete files (delete the metadata record and the file in storage):
 
-        >>> file = ln.select(File, id=file_id).one()
+        >>> file = ln.filter(File, id=file_id).one()
         >>> ln.delete(file)
         >>> # deleting the record occurs automatically
         >>> # you will be asked whether to delete the file in storage
@@ -48,7 +48,7 @@ def delete(  # type: ignore
         Bulk delete via QuerySet:
 
         >>> ln.save(ln.Label.from_values(["Label1", "Label2", "Label3"], field="name"))
-        >>> queryset = ln.Label.select(name__icontains = "label")
+        >>> queryset = ln.Label.filter(name__icontains = "label")
         >>> queryset.list()
         [Label(id=o3FY3c5n, name=Label2, updated_at=2023-07-19 18:28:16, created_by_id=kmvZDIX9), # noqa
         Label(id=Qi3c4utq, name=Label3, updated_at=2023-07-19 18:28:16, created_by_id=kmvZDIX9), # noqa

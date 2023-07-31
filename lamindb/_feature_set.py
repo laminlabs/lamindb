@@ -78,7 +78,7 @@ def __init__(self, *args, **kwargs):
     n_features = len(features)
     if hash is None:
         features_hash = hash_set({feature.id for feature in features})
-        feature_set = FeatureSet.select(hash=features_hash).one_or_none()
+        feature_set = FeatureSet.filter(hash=features_hash).one_or_none()
         if feature_set is not None:
             logger.info(f"Loaded {feature_set}")
             init_self_from_db(self, feature_set)
@@ -92,7 +92,7 @@ def __init__(self, *args, **kwargs):
         type_str = None
     if modality is not None:
         if isinstance(modality, str):
-            modality_record = Modality.select(name=modality).one_or_none()
+            modality_record = Modality.filter(name=modality).one_or_none()
             if modality_record is None:
                 modality_record = Modality(name=modality)
                 modality_record.save()
@@ -152,7 +152,7 @@ def from_values(
     if not isinstance(iterable_idx[0], (str, int)):
         raise TypeError("values should be list-like of str or int")
     features_hash = hash_set(set(iterable_idx))
-    feature_set = FeatureSet.select(hash=features_hash).one_or_none()
+    feature_set = FeatureSet.filter(hash=features_hash).one_or_none()
     if feature_set is not None:
         logger.info(f"Loaded {feature_set}")
     else:

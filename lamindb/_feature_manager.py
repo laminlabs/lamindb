@@ -14,7 +14,7 @@ def validate_and_cast_feature(
 ) -> Feature:
     if isinstance(feature, str):
         feature_name = feature
-        feature = Feature.select(name=feature_name).one_or_none()
+        feature = Feature.filter(name=feature_name).one_or_none()
         if feature is None:
             orm_types = set([record.__class__ for record in records])
             feature = Feature(
@@ -150,7 +150,7 @@ class FeatureManager:
         )
         feature_set_ids = [link.feature_set_id for link in feature_set_links.all()]
         # get all linked features of type Feature
-        feature_sets = FeatureSet.select(id__in=feature_set_ids).all()
+        feature_sets = FeatureSet.filter(id__in=feature_set_ids).all()
         linked_features_by_slot = {
             feature_set_links.filter(feature_set_id=feature_set.id)
             .one()

@@ -89,12 +89,12 @@ def __init__(orm: ORM, *args, **kwargs):
             if result == "object-with-same-name-exists":
                 if "version" in kwargs:
                     version_comment = " and version "
-                    existing_record = orm.select(
+                    existing_record = orm.filter(
                         name=kwargs["name"], version=kwargs["version"]
                     ).one_or_none()
                 else:
                     version_comment = " "
-                    existing_record = orm.select(name=kwargs["name"]).one()
+                    existing_record = orm.filter(name=kwargs["name"]).one()
                 if existing_record is not None:
                     logger.success(
                         f"Loaded record with exact same name{version_comment}"
@@ -512,7 +512,7 @@ def describe(self):
                 related_name = file_related_models.get(key)
                 related_objects = self.__getattribute__(related_name).all()
                 filelabel_links_df = (
-                    FileLabel.select(file_id=self.id)
+                    FileLabel.filter(file_id=self.id)
                     .annotate(
                         feature_name=F("feature__name"), label_name=F("label__name")
                     )
@@ -735,7 +735,7 @@ METHOD_NAMES = [
     "view_parents",
 ]
 
-if _TESTING:
+if _TESTING:  # type: ignore
     from inspect import signature
 
     SIGS = {
@@ -761,5 +761,16 @@ def __get_name_with_schema__(cls) -> str:
     return f"{schema_name}.{cls.__name__}"
 
 
+def select_backward(cls, **expressions):
+    logger.warning("select() is deprecated! Please rename: ORM.filter()")
+    return cls.filter(**expressions)
+
+
+@classmethod  # type: ignore
+def select(cls, **expressions):
+    return select_backward(cls, **expressions)
+
+
 setattr(ORM, "__get_schema_name__", __get_schema_name__)
 setattr(ORM, "__get_name_with_schema__", __get_name_with_schema__)
+setattr(ORM, "select", select)  # backward compat

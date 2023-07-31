@@ -110,8 +110,8 @@ if _INSTANCE_SETUP:
     from . import _orm  # noqa
     from . import _transform  # noqa
     from ._delete import delete  # noqa
+    from ._orm import select_backward as select  # noqa
     from ._save import save  # noqa
-    from ._select import select  # noqa
     from ._view import view  # noqa
     from .dev._settings import settings
 

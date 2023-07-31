@@ -18,7 +18,7 @@ def test_features_add_labels():
         == "ValueError: Please pass feature: add_labels(labels, feature='myfeature')"
     )
     file.features.add_labels(label, feature="project")
-    feature = ln.Feature.select(name="project").one()
+    feature = ln.Feature.filter(name="project").one()
     assert feature.type == "category"
     assert feature.registries == "core.Label"
     file.delete(storage=True)
@@ -38,13 +38,13 @@ def test_features_add_labels_using_anndata():
     lb.settings.auto_save_parents = False
 
     # clean up DB state
-    species_feature = ln.Feature.select(name="species").one_or_none()
+    species_feature = ln.Feature.filter(name="species").one_or_none()
     if species_feature is not None:
         species_feature.delete()
-    file = ln.File.select(description="Mini adata").one_or_none()
+    file = ln.File.filter(description="Mini adata").one_or_none()
     if file is not None:
         file.delete(storage=True)
-    ln.FeatureSet.select().all().delete()
+    ln.FeatureSet.filter().all().delete()
 
     file = ln.File.from_anndata(
         adata, description="Mini adata", var_ref=lb.Gene.ensembl_gene_id
@@ -74,7 +74,7 @@ def test_features_add_labels_using_anndata():
     assert "species" not in feature_set_obs.features.list("name")
 
     file.features.add_labels(species, feature="species")
-    feature = ln.Feature.select(name="species").one()
+    feature = ln.Feature.filter(name="species").one()
     assert feature.type == "category"
     assert feature.registries == "bionty.Species"
 
@@ -89,10 +89,10 @@ def test_features_add_labels_using_anndata():
     assert "species" in feature_set_ext.features.list("name")
 
     file.features.add_labels(cell_types + tissues)
-    feature = ln.Feature.select(name="cell_type").one()
+    feature = ln.Feature.filter(name="cell_type").one()
     assert feature.type == "category"
     assert feature.registries == "bionty.CellType"
-    feature = ln.Feature.select(name="tissue").one()
+    feature = ln.Feature.filter(name="tissue").one()
     assert feature.type == "category"
     assert feature.registries == "bionty.Tissue"
 
@@ -127,6 +127,6 @@ def test_features_add_labels_using_anndata():
     assert set(df["registries"]) == {"bionty.Species"}
 
     # clean up
-    ln.Feature.select(name="species").one().delete()
-    ln.File.select(description="Mini adata").one().delete(storage=True)
-    ln.FeatureSet.select().all().delete()
+    ln.Feature.filter(name="species").one().delete()
+    ln.File.filter(description="Mini adata").one().delete(storage=True)
+    ln.FeatureSet.filter().all().delete()

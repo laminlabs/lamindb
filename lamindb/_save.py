@@ -56,7 +56,7 @@ def save(records: Iterable[ORM], **kwargs) -> None:  # type: ignore
 
         Update a single existing record:
 
-        >>> transform = ln.select(ln.Transform, id="0Cb86EZj").one()
+        >>> transform = ln.filter(ln.Transform, id="0Cb86EZj").one()
         >>> transform.name = "New name"
         >>> transform.save()
 

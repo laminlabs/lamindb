@@ -8,8 +8,6 @@ from lamindb_setup import settings
 from lamindb_setup.dev._setup_schema import get_schema_module_name
 from lnschema_core import ORM
 
-from ._select import select
-
 
 def view(n: int = 10, schema: Optional[str] = None, orms: Optional[List[str]] = None):
     """View data.
@@ -49,10 +47,10 @@ def view(n: int = 10, schema: Optional[str] = None, orms: Optional[List[str]] = 
             print("*" * len(section_no_color))
         for orm in sorted(filtered_orms, key=lambda x: x.__name__):
             if hasattr(orm, "updated_at"):
-                df = select(orm).order_by("-updated_at")[:n].df()
+                df = orm.filter().order_by("-updated_at")[:n].df()
             else:
                 # need to adjust in the future
-                df = select(orm).df().iloc[-n:]
+                df = orm.filter().df().iloc[-n:]
             if df.shape[0] > 0:
                 print(colors.blue(colors.bold(orm.__name__)))
                 display(df)

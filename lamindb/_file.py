@@ -140,7 +140,7 @@ def get_hash(
         hash, hash_type = hash_file(filepath)
     if not check_hash:
         return hash, hash_type
-    result = File.select(hash=hash).list()
+    result = File.filter(hash=hash).list()
     if len(result) > 0:
         if settings.upon_file_create_if_hash_exists == "error":
             msg = f"A file with same hash exists: {result[0]}"
@@ -831,7 +831,7 @@ def inherit_relations(self, file: File, fields: Optional[List[str]] = None):
         >>> file2 = ln.File(pd.DataFrame(index=[2,3]))
         >>> file2.save()
         >>> ln.save(ln.Label.from_values(["Label1", "Label2", "Label3"], field="name"))
-        >>> labels = ln.Label.select(name__icontains = "label").all()
+        >>> labels = ln.Label.filter(name__icontains = "label").all()
         >>> file1.labels.set(labels)
         >>> file2.inherit_relations(file1, ["labels"])
         💬 Inheriting 1 field: ['labels']

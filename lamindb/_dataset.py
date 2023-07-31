@@ -68,7 +68,7 @@ def from_files(dataset: Dataset, *, name: str, files: Iterable[File]) -> Dataset
         file_id__in=file_ids
     )
     feature_set_ids = [link.feature_set_id for link in feature_set_file_links]
-    feature_sets = FeatureSet.select(id__in=feature_set_ids)
+    feature_sets = FeatureSet.filter(id__in=feature_set_ids)
     # validate consistency of hashes
     # we do not allow duplicate hashes
     file_hashes = [file.hash for file in files]
