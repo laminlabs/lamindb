@@ -29,7 +29,11 @@ from lamindb.dev.storage import (
     write_to_file,
 )
 from lamindb.dev.storage._backed_access import AnnDataAccessor, BackedAccessor
-from lamindb.dev.storage.file import auto_storage_key_from_file, filepath_from_file
+from lamindb.dev.storage.file import (
+    ProgressCallback,
+    auto_storage_key_from_file,
+    filepath_from_file,
+)
 from lamindb.dev.utils import attach_func_to_class_method
 
 from . import _TESTING
@@ -700,7 +704,10 @@ def stage(self, is_run_input: Optional[bool] = None) -> Path:
     if self.suffix in (".zrad", ".zarr"):
         raise RuntimeError("zarr object can't be staged, please use load() or stream()")
     _track_run_input(self, is_run_input)
-    return setup_settings.instance.storage.cloud_to_local(filepath_from_file(self))
+
+    filepath = filepath_from_file(self)
+    cb = ProgressCallback("downloading")
+    return setup_settings.instance.storage.cloud_to_local(filepath, callback=cb)
 
 
 def delete(self, storage: Optional[bool] = None) -> None:

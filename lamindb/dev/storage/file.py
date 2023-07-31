@@ -1,7 +1,7 @@
 import os
 import shutil
 from pathlib import Path
-from typing import Union
+from typing import Literal, Union
 
 import anndata as ad
 import fsspec
@@ -74,9 +74,12 @@ def read_adata_h5ad(filepath, **kwargs) -> ad.AnnData:
         return adata
 
 
-def print_hook(size, value, **kwargs):
+def print_hook(size: int, value: int, **kwargs):
     progress = value / size
-    out = f"... uploading {Path(kwargs['filepath']).name}: {min(progress, 1.):4.2f}"
+    out = (
+        f"... {kwargs['action']} {Path(kwargs['filepath']).name}:"
+        f" {min(progress, 1.):4.2f}"
+    )
     if progress >= 1:
         out += "\n"
     if "NBPRJ_TEST_NBPATH" not in os.environ:
@@ -84,9 +87,13 @@ def print_hook(size, value, **kwargs):
 
 
 class ProgressCallback(fsspec.callbacks.Callback):
+    def __init__(self, action: Literal["uploading", "downloading"]):
+        super().__init__()
+        self.action = action
+
     def branch(self, path_1, path_2, kwargs):
         kwargs["callback"] = fsspec.callbacks.Callback(
-            hooks=dict(print_hook=print_hook), filepath=path_1
+            hooks=dict(print_hook=print_hook), filepath=path_1, action=self.action
         )
 
     def call(self, *args, **kwargs):
@@ -108,7 +115,7 @@ def store_object(localpath: Union[str, Path], storagekey: str) -> float:
 
     if isinstance(storagepath, UPath):
         if localpath.suffix != ".zarr":
-            cb = ProgressCallback()
+            cb = ProgressCallback("uploading")
         else:
             # todo: make proper progress bar for zarr
             cb = fsspec.callbacks.NoOpCallback()
@@ -169,7 +176,8 @@ def load_to_memory(filepath: Union[str, Path, UPath], stream: bool = False):
     if not stream:
         # caching happens here if filename is a UPath
         # todo: make it safe when filepath is just Path
-        filepath = settings.instance.storage.cloud_to_local(filepath)
+        cb = ProgressCallback("downloading")
+        filepath = settings.instance.storage.cloud_to_local(filepath, callback=cb)
 
     READER_FUNCS = {
         ".csv": pd.read_csv,
