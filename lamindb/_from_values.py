@@ -300,7 +300,15 @@ def _bulk_create_dicts_from_df(
     if not df.index.is_unique:
         # return all records for multi-matches with a warning
         dup = df.index[df.index.duplicated()].unique().tolist()
-        multi_msg = f"Multiple matches found in Bionty for: {dup}"
+        if len(dup) > 0:
+            s = "" if len(dup) == 1 else "s"
+            print_values = ", ".join(dup[:5])
+            if len(dup) > 5:
+                print_values += ", ..."
+            multi_msg = (
+                f"Multiple matches found in Bionty for {len(dup)} record{s}:"
+                f" {print_values}"
+            )
 
     return df.reset_index().to_dict(orient="records"), multi_msg
 
