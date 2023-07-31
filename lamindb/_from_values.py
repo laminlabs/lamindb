@@ -73,24 +73,16 @@ def get_or_create_records(
         if ORM.__module__.startswith("lnschema_bionty.") or ORM == Label:
             if isinstance(iterable, pd.Series):
                 feature = iterable.name
-            else:
-                logger.warning(
-                    "Did not receive values as pd.Series, inferring feature from"
-                    f" reference ORM: {ORM.__name__}"
-                )
-                feature = ORM.__name__.lower()
+            feature_name = None
             if isinstance(feature, str):
                 feature_name = feature
-                feature = Feature.filter(name=feature).one_or_none()
             elif feature is not None:
                 feature_name = feature.name
-            if feature is not None:
-                for record in records:
-                    record._feature = feature
             if feature_name is not None:
-                for record in records:
-                    record._feature = feature_name
-            logger.info(f"Mapping records to feature '{feature_name}'")
+                if feature_name is not None:
+                    for record in records:
+                        record._feature = feature_name
+                logger.hint(f"Added default feature '{feature_name}'")
         return records
     finally:
         settings.upon_create_search_names = upon_create_search_names

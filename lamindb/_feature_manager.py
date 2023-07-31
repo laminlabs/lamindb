@@ -165,11 +165,11 @@ class FeatureManager:
         for (feature, orm_name), records in records_by_feature_orm.items():
             feature = validate_and_cast_feature(feature, records)
             logger.info(f"Linking feature {feature.name} to {orm_name}")
-            feature.registries = orm_name
+            if feature.registries is None:
+                feature.registries = orm_name
+            elif orm_name not in feature.registries:
+                feature.registries += f"|{orm_name}"
             feature.save()
-            for record in records:
-                record.feature_id = feature.id
-                record.save()
             # check whether we have to update the feature set that manages labels
             # (Feature) to account for a new feature
             found_feature = False
