@@ -1,5 +1,6 @@
 # Changelog
 
+- 🚑️ Fix ext [PR961](https://github.com/laminlabs/lamindb/pull/961) [@sunnyosun](https://github.com/sunnyosun)
 ## 0.49.0 (2023-07-31)
 
 - ✨ Add a progress monitoring to file.load() and file.stage() [PR959](https://github.com/laminlabs/lamindb/pull/959) [@Koncopd](https://github.com/Koncopd)
