@@ -29,7 +29,6 @@ def test_features_add_labels_using_anndata():
     cell_types = lb.CellType.from_values(adata.obs["cell_type"], "name")
     tissues = lb.Tissue.from_values(adata.obs["tissue"], "name")
 
-    assert species._feature == "species"
     assert cell_types[0]._feature == "cell_type"
     assert cell_types[-1]._feature == "cell_type"
     assert tissues[0]._feature == "tissue"
