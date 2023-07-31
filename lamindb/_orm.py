@@ -399,13 +399,6 @@ def map_synonyms(
     )
 
 
-def _labels_with_feature_names(labels: Union[QuerySet, Manager]) -> Dict:
-    from django.db.models import F
-
-    df = labels.annotate(feature_name=F("feature__name")).df()
-    return df.groupby("feature_name", group_keys=False)["name"].apply(list).to_dict()
-
-
 def describe(self):
     model_name = colors.green(self.__class__.__name__)
     msg = ""
