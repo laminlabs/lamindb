@@ -7,7 +7,7 @@ from lnschema_core.types import ListLike
 from lamindb.dev.utils import attach_func_to_class_method
 
 from . import _TESTING
-from ._from_values import get_or_create_records, index_iterable
+from ._from_values import get_or_create_records
 
 
 def __init__(self, *args, **kwargs):
@@ -33,9 +33,8 @@ def __init__(self, *args, **kwargs):
 @doc_args(Label.from_values.__doc__)
 def from_values(cls, values: ListLike, **kwargs) -> List["Label"]:
     """{}"""
-    iterable_idx = index_iterable(values)
     records = get_or_create_records(
-        iterable=iterable_idx,
+        iterable=values,
         field=Label.name,
     )
     return records
