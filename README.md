@@ -45,64 +45,48 @@ Import `lamindb`:
 
 ```python
 import lamindb as ln
+# import lnschema_bionty as lb # optional, for bionty schema
 ```
 
 ### Manage data objects
 
-Store a `DataFrame` object:
-
 ```python
+# Store a DataFrame object
 df = pd.DataFrame({"feat1": [1, 2], "feat2": [3, 4]})  # AnnData works, too
-
 ln.File(df, description="Data batch 1").save()  # create a File object and save/upload it
-```
 
-If you don't have specific metadata in mind, run a search:
-
-```python
+# To find it, if you don't have specific metadata in mind, run a search
 ln.File.search("batch 1")
-```
+# Or filter (under-the-hood, you have the full power of SQL to query)
+file = ln.File.filter(description="Data batch 1").one()  # get exactly one result
 
-You have the full power of SQL to query for metadata, but the simplest query for a file is:
-
-```python
-file = ln.File.select(description="Data batch 1").one()  # get exactly one result
-```
-
-Once you queried or searched it, load a file back into memory:
-
-```python
+# Load a file back into memory
 df = file.load()
-```
-
-Or get a backed accessor to stream its content from the cloud:
-
-```python
+# Or get a backed accessor to stream its content from the cloud:
 backed = file.backed()  # currently works for AnnData, zarr, HDF5, not yet for DataFrame
 ```
 
 ### Manage files
 
-The same API works for any file:
-
 ```python
+# Store a file
 file = ln.File("s3://my-bucket/images/image001.jpg")  # or a local path
 file.save()  # register the file
+
+# Query by `key` (the relative path within your storage) and load into memory
+file.filter(key__startswith="images/").df()  # all files in folder "images/" in default storage
 ```
 
-Query by `key` (the relative path within your storage):
+### Auto-complete categoricals and search
 
 ```python
-file.select(key__startswith="images/").df()  # all files in folder "images/" in default storage
-```
-
-### Auto-complete categoricals
-
-When you're unsure about spellings, use a lookup object:
-
-```python
+# When you're unsure about spellings, use a lookup object:
 users = ln.User.lookup()
-ln.File.select(created_by=users.lizlemon)
+ln.File.filter(created_by=users.lizlemon)
+
+# Or search
+ln.User.search("liz lemon", field="name")
+user = ln.User.search("liz lemon", return_queryset=True).first() # grab the top search result as a record
 ```
 
 ### Track & query data lineage
@@ -110,6 +94,14 @@ ln.File.select(created_by=users.lizlemon)
 In addition to basic provenance information (`created_by`, `created_at`,
 `created_by`), you can track which notebooks & pipelines
 transformed files.
+
+View all parent transforms and files in a lineage graph:
+
+```python
+file.view_lineage()
+```
+
+<img src="./docs/img/readme/view_lineage.svg" width="800">
 
 #### Notebooks
 
@@ -123,65 +115,90 @@ ln.File("my_artifact.parquet").save()  # this file is now aware that it was save
 When you query the file, later on, you'll know from which notebook it came:
 
 ```python
-file = ln.File.select(description="my_artifact.parquet").one()  # query for a file
+file = ln.File.filter(description="my_artifact.parquet").one()  # query for a file
 file.transform  # the notebook with id, title, filename, version, etc.
 file.run  # the specific run of the notebook that created the file
-```
 
-Alternatively, you can query for notebooks and find the files written by them:
-
-```python
-transforms = ln.Transform.select(type="notebook", created_at__year=2022).search("T cell").all()
-ln.File.select(transform__in=transforms).df()  # the files created by these notebooks
+# Alternatively, you can query for notebooks and find the files written by them
+transforms = ln.Transform.filter(type="notebook", created_at__year=2022).search("T cell").all()
+ln.File.filter(transform__in=transforms).df()  # the files created by these notebooks
 ```
 
 #### Pipelines
 
 This works like for notebooks just that you need to provide pipeline metadata yourself.
 
-To save a pipeline to the `Transform` registry, call
-
 ```python
+# To save a pipeline to the `Transform` registry, call
 ln.Transform(name="Awesom-O", version="0.41.2").save()  # save a pipeline, optionally with metadata
-```
 
-Track a pipeline run:
-
-```python
-transform = ln.Transform.select(name="Awesom-O", version="0.41.2").one()  # select pipeline from the registry
+# Track a pipeline run
+transform = ln.Transform.filter(name="Awesom-O", version="0.41.2").one()  # filter pipeline from the registry
 ln.track(transform)  # create a new global run context
 ln.File("s3://my_samples01/my_artifact.fastq.gz").save()  # file gets auto-linked against run & transform
-```
 
-Now, you can query for the latest pipeline runs:
-
-```python
-ln.Run.select(transform=transform).order_by("-created_at").df()  # get the latest pipeline runs
+# Now, you can query for the latest pipeline runs
+ln.Run.filter(transform=transform).order_by("-created_at").df()  # get the latest pipeline runs
 ```
 
 ### Load your instance from anywhere
 
 If provided with access, others can load your instance via:
 
-```
+```shell
 $ lamin load myaccount/mydata
 ```
 
 ### Manage biological registries
 
 ```shell
-lamin init --storage ./bioartifacts --schema bionty
+$ lamin init --storage ./bioartifacts --schema bionty
 ```
 
-...
+```python
+# create an ontology-coupled record and save it
+lb.CellType.from_bionty(name="neuron").save()
+
+# bulk create knowledge-coupled records
+adata = ln.dev.datasets.anndata_with_obs()
+cell_types = lb.CellType.from_values(adata.obs.cell_type, field=lb.CellType.name)
+ln.save(cell_types) # bulk save cell types
+
+# standardize synonyms
+lb.CellType.map_synonyms(["T cell", "T-cell", "T lymphocyte"])
+
+# view ontological hierarchy of a record
+neuron = lb.CellType.lookup().neuron
+neuron.view_parents(distance=3)
+```
+
+<img src="./docs/img/readme/neuron_view_parents_dist=2.svg" width="500">
 
 ### Track biological features
 
-...
+```python
+# track features present in var(X) and obs
+adata = ln.dev.datasets.anndata_with_obs()
+file = ln.File.from_anndata(
+    adata, description="my RNA-seq dataset", var_ref=lb.Gene.ensembl_gene_id
+)
+file.save()
 
-### Track biological samples
+# view a summary of tracked features
+# you have registered two feature sets: 'obs' and 'var'
+file.features
 
-...
+# add labels to features
+tissues = lb.Tissue.from_values(adata.obs["tissue"], field=lb.Tissue.name)
+diseases = lb.Disease.from_values(adata.obs["disease"], field=lb.Disease.name)
+file.features.add_labels(tissues + diseases)
+
+# fetch labels of a feature
+file.features["obs"].get(name="tissue").df()
+
+# display rich metadata of a file (provenance and features)
+file.describe()
+```
 
 ### Manage custom schemas
 
@@ -208,10 +225,10 @@ pip install 'lamindb[jupyter,bionty,fcs,aws]'
 
 Supported `extras` are:
 
-```
+```yaml
 jupyter  # Track Jupyter notebooks
 bionty   # Manage basic biological entities
-fcs      # Manage .fcs files (flow cytometry)
+fcs      # Manage FCS files (flow cytometry)
 zarr     # Store & stream arrays with zarr
 aws      # AWS (s3fs, etc.)
 gcp      # Google Cloud (gcfs, etc.)

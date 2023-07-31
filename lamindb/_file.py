@@ -29,7 +29,11 @@ from lamindb.dev.storage import (
     write_to_file,
 )
 from lamindb.dev.storage._backed_access import AnnDataAccessor, BackedAccessor
-from lamindb.dev.storage.file import auto_storage_key_from_file, filepath_from_file
+from lamindb.dev.storage.file import (
+    ProgressCallback,
+    auto_storage_key_from_file,
+    filepath_from_file,
+)
 from lamindb.dev.utils import attach_func_to_class_method
 
 from . import _TESTING
@@ -140,7 +144,7 @@ def get_hash(
         hash, hash_type = hash_file(filepath)
     if not check_hash:
         return hash, hash_type
-    result = File.select(hash=hash).list()
+    result = File.filter(hash=hash).list()
     if len(result) > 0:
         if settings.upon_file_create_if_hash_exists == "error":
             msg = f"A file with same hash exists: {result[0]}"
@@ -700,7 +704,10 @@ def stage(self, is_run_input: Optional[bool] = None) -> Path:
     if self.suffix in (".zrad", ".zarr"):
         raise RuntimeError("zarr object can't be staged, please use load() or stream()")
     _track_run_input(self, is_run_input)
-    return setup_settings.instance.storage.cloud_to_local(filepath_from_file(self))
+
+    filepath = filepath_from_file(self)
+    cb = ProgressCallback("downloading")
+    return setup_settings.instance.storage.cloud_to_local(filepath, callback=cb)
 
 
 def delete(self, storage: Optional[bool] = None) -> None:
@@ -831,7 +838,7 @@ def inherit_relations(self, file: File, fields: Optional[List[str]] = None):
         >>> file2 = ln.File(pd.DataFrame(index=[2,3]))
         >>> file2.save()
         >>> ln.save(ln.Label.from_values(["Label1", "Label2", "Label3"], field="name"))
-        >>> labels = ln.Label.select(name__icontains = "label").all()
+        >>> labels = ln.Label.filter(name__icontains = "label").all()
         >>> file1.labels.set(labels)
         >>> file2.inherit_relations(file1, ["labels"])
         💬 Inheriting 1 field: ['labels']
@@ -857,6 +864,7 @@ def inherit_relations(self, file: File, fields: Optional[List[str]] = None):
     inherit_names = [
         related_name
         for related_name in related_names
+        if related_name is not None
         if file.__getattribute__(related_name).exists()
     ]
 

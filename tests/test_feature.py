@@ -1,6 +1,7 @@
 from inspect import signature
 
 import pandas as pd
+from lnschema_core.models import FileLabel
 from pandas.api.types import is_categorical_dtype, is_string_dtype
 
 import lamindb as ln
@@ -35,7 +36,10 @@ def test_signatures():
 
 
 def test_feature_from_df():
-    features = ln.Feature.from_df(df)
+    file = ln.File.from_df(df)
+    file.save()
+    feature_set = file._feature_sets["columns"]
+    features = feature_set.features.all()
     assert len(features) == len(df.columns)
     string_cols = [col for col in df.columns if is_string_dtype(df[col])]
     categoricals = {col: df[col] for col in df.columns if is_categorical_dtype(df[col])}
@@ -52,25 +56,24 @@ def test_feature_from_df():
             assert feature.type == orig_type_stripped
     for feature in features:
         feature.save()
-    labels = ln.Label.from_values(df["feat3"], feature="feat3")
-    ln.save(labels)
-    assert set(ln.Label.select(feature__name="feat3").list("name")) == set(
+    labels = ln.Label.from_values(df["feat3"])
+    file.features.add_labels(labels, feature="feat3")
+    assert set(ln.Label.filter(filelabel__feature__name="feat3").list("name")) == set(
         ["cond1", "cond2"]
     )
     for name in df.columns:
-        queried_feature = ln.Feature.select(name=name).one()
+        queried_feature = ln.Feature.filter(name=name).one()
         if name in categoricals:
             assert queried_feature.type == "category"
         else:
             orig_type = df[name].dtype.name
             orig_type_stripped = "".join(i for i in orig_type if not i.isdigit())
             assert queried_feature.type == orig_type_stripped
+    filelabel_links = FileLabel.objects.filter(file_id=file.id, feature__name="feat3")
+    label_ids = filelabel_links.values_list("label_id")
     assert set(
-        ln.Feature.select(name="feat3")
-        .one()
-        .labels.all()
-        .values_list("name", flat=True)
+        ln.Label.objects.filter(id__in=label_ids).values_list("name", flat=True)
     ) == set(["cond1", "cond2"])
     for feature in features:
         feature.delete()
-    assert len(ln.Label.select(feature__name="feat3").list("name")) == 0
+    file.delete(storage=True)

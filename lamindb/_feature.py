@@ -2,9 +2,10 @@ from itertools import islice
 from typing import List, Optional, Union
 
 import pandas as pd
-from lamin_utils import logger
+from lamin_utils import colors, logger
 from lamindb_setup.dev._docs import doc_args
 from lnschema_core import Feature, Label
+from lnschema_core.models import ORM
 from pandas.api.types import is_categorical_dtype, is_string_dtype
 
 from lamindb.dev.utils import attach_func_to_class_method
@@ -33,11 +34,27 @@ def __init__(self, *args, **kwargs):
     if len(args) != 0:
         raise ValueError("Only non-keyword args allowed")
     type: Optional[Union[type, str]] = kwargs.pop("type") if "type" in kwargs else None
+    registries: Optional[List[ORM]] = (
+        kwargs.pop("registries") if "registries" in kwargs else None
+    )
+    # cast type
     if type is not None:
         type_str = type.__name__ if not isinstance(type, str) else type
     else:
         type_str = None
     kwargs["type"] = type_str
+    # cast registries
+    registries_str: Optional[str] = None
+    if registries is not None:
+        if not isinstance(registries, List):
+            raise ValueError("registries has to be a list of ORM types")
+        registries_str = ""
+        for cls in registries:
+            if not hasattr(cls, "__get_name_with_schema__"):
+                raise ValueError("each element of the list has to be an ORM type")
+            registries_str += cls.__get_name_with_schema__() + "|"
+        registries_str = registries_str.rstrip("|")
+    kwargs["registries"] = registries_str
     super(Feature, self).__init__(*args, **kwargs)
 
 
@@ -53,19 +70,22 @@ def from_df(cls, df: "pd.DataFrame") -> List["Feature"]:
             categoricals[key] = c
 
     types = {}
-    categoricals_with_unmapped_categories = {}
+    categoricals_with_unmapped_categories = {}  # type: ignore
     for name, col in df.items():
         if name in categoricals:
             types[name] = "category"
-            categorical = categoricals[name]
-            if hasattr(
-                categorical, "cat"
-            ):  # because .categories > pd2.0, .cat.categories < pd2.0
-                categorical = categorical.cat
-            categories = categorical.categories
-            categoricals_with_unmapped_categories[name] = Label.select(
-                feature=name
-            ).inspect(categories, "name", logging=False)["not_mapped"]
+            # below is a harder feature to write, now, because it requires to
+            # query the link tables between the label ORM and file or dataset
+            # the original implementation fell short
+            # categorical = categoricals[name]
+            # if hasattr(
+            #     categorical, "cat"
+            # ):  # because .categories > pd2.0, .cat.categories < pd2.0
+            #     categorical = categorical.cat
+            # categories = categorical.categories
+            # categoricals_with_unmapped_categories[name] = Label.filter(
+            #     feature=name
+            # ).inspect(categories, "name", logging=False)["not_mapped"]
         else:
             types[name] = convert_numpy_dtype_to_lamin_feature_type(col.dtype)
 
@@ -76,7 +96,11 @@ def from_df(cls, df: "pd.DataFrame") -> List["Feature"]:
         n_max = 20
         categoricals_with_unmapped_categories_formatted = "\n      ".join(
             [
-                f"{key}: {', '.join(value)}"
+                (
+                    f"{key} ({len(value)}): {', '.join(value)}"
+                    if len(value) <= 5
+                    else f"{key} ({len(value)}): {', '.join(value[:5])} ..."
+                )
                 for key, value in take(
                     n_max, categoricals_with_unmapped_categories.items()
                 )
@@ -86,7 +110,8 @@ def from_df(cls, df: "pd.DataFrame") -> List["Feature"]:
             categoricals_with_unmapped_categories_formatted += "\n      ..."
         categoricals_with_unmapped_categories_formatted
         logger.info(
-            "There are unmapped categories:\n     "
+            f"{len(categoricals_with_unmapped_categories)} features have"
+            f" {colors.yellow('unmapped categories')}:\n     "
             f" {categoricals_with_unmapped_categories_formatted}"
         )
     return features

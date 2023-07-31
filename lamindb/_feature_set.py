@@ -4,7 +4,7 @@ import pandas as pd
 from django.db.models.query_utils import DeferredAttribute as Field
 from lamin_utils import logger
 from lamindb_setup.dev._docs import doc_args
-from lnschema_core import ORM, Feature, FeatureSet, ids
+from lnschema_core import ORM, Feature, FeatureSet, Modality, ids
 from lnschema_core.types import ListLike
 
 from lamindb.dev.hashing import hash_set
@@ -78,7 +78,7 @@ def __init__(self, *args, **kwargs):
     n_features = len(features)
     if hash is None:
         features_hash = hash_set({feature.id for feature in features})
-        feature_set = FeatureSet.select(hash=features_hash).one_or_none()
+        feature_set = FeatureSet.filter(hash=features_hash).one_or_none()
         if feature_set is not None:
             logger.info(f"Loaded {feature_set}")
             init_self_from_db(self, feature_set)
@@ -90,15 +90,25 @@ def __init__(self, *args, **kwargs):
         type_str = type.__name__ if not isinstance(type, str) else type
     else:
         type_str = None
+    if modality is not None:
+        if isinstance(modality, str):
+            modality_record = Modality.filter(name=modality).one_or_none()
+            if modality_record is None:
+                modality_record = Modality(name=modality)
+                modality_record.save()
+        elif isinstance(modality, Modality):
+            modality_record = modality
+        else:
+            raise ValueError("modality needs to be string or Modality record")
+    else:
+        modality_record = modality
     super(FeatureSet, self).__init__(
         id=ids.base62_20(),
         name=name,
         type=type_str,
         n=n_features,
-        modality=modality,
-        ref_orm=features_orm.__name__,
-        ref_schema=features_orm.__get_schema_name__(),
-        ref_field=ref_field,
+        modality=modality_record,
+        ref_field=f"{features_orm.__get_name_with_schema__()}.{ref_field}",
         hash=hash,
     )
 
@@ -142,7 +152,7 @@ def from_values(
     if not isinstance(iterable_idx[0], (str, int)):
         raise TypeError("values should be list-like of str or int")
     features_hash = hash_set(set(iterable_idx))
-    feature_set = FeatureSet.select(hash=features_hash).one_or_none()
+    feature_set = FeatureSet.filter(hash=features_hash).one_or_none()
     if feature_set is not None:
         logger.info(f"Loaded {feature_set}")
     else:

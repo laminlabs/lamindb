@@ -10,7 +10,7 @@ from lamin_utils._lookup import Lookup
 from lamin_utils._search import search as base_search
 from lamindb_setup.dev._docs import doc_args
 from lnschema_core import ORM
-from lnschema_core.models import format_datetime
+from lnschema_core.models import FileLabel, format_datetime
 from lnschema_core.types import ListLike, StrField
 
 from lamindb.dev.utils import attach_func_to_class_method
@@ -65,7 +65,10 @@ def suggest_objects_with_same_name(orm: ORM, kwargs) -> Optional[str]:
             if results.index[0] == kwargs["name"]:
                 return "object-with-same-name-exists"
             else:
-                msg = "Entries with similar names exist:"
+                msg = (
+                    "Records with similar names exist! Did you mean to load one of"
+                    " them?"
+                )
                 if IPYTHON:
                     from IPython.display import display
 
@@ -86,16 +89,15 @@ def __init__(orm: ORM, *args, **kwargs):
             if result == "object-with-same-name-exists":
                 if "version" in kwargs:
                     version_comment = " and version "
-                    existing_record = orm.select(
+                    existing_record = orm.filter(
                         name=kwargs["name"], version=kwargs["version"]
                     ).one_or_none()
                 else:
                     version_comment = " "
-                    existing_record = orm.select(name=kwargs["name"]).one()
+                    existing_record = orm.filter(name=kwargs["name"]).one()
                 if existing_record is not None:
-                    logger.warning(
-                        f"Object with exact same name{version_comment}exists,"
-                        " returning it"
+                    logger.success(
+                        f"Loaded record with exact same name{version_comment}"
                     )
                     init_self_from_db(orm, existing_record)
                     return None
@@ -127,7 +129,7 @@ def view_parents(
 
 @classmethod  # type:ignore
 @doc_args(ORM.from_values.__doc__)
-def from_values(cls, identifiers: ListLike, field: StrField, **kwargs) -> List["ORM"]:
+def from_values(cls, values: ListLike, field: StrField, **kwargs) -> List["ORM"]:
     """{}"""
     if isinstance(field, str):
         field = getattr(cls, field)
@@ -137,7 +139,7 @@ def from_values(cls, identifiers: ListLike, field: StrField, **kwargs) -> List["
         )
     from_bionty = True if cls.__module__.startswith("lnschema_bionty.") else False
     return get_or_create_records(
-        iterable=identifiers, field=field, from_bionty=from_bionty, **kwargs
+        iterable=values, field=field, from_bionty=from_bionty, **kwargs
     )
 
 
@@ -222,11 +224,13 @@ def _search(
         result = result[result["__ratio__"] > 0].sort_values(
             "__ratio__", ascending=False
         )
+        # move the __ratio__ to be the last column
+        result["__ratio__"] = result.pop("__ratio__")
 
     if return_queryset:
         return _order_queryset_by_ids(query_set, result.reset_index()["id"])
     else:
-        return result
+        return result.fillna("")
 
 
 @classmethod  # type: ignore
@@ -397,30 +401,19 @@ def map_synonyms(
     )
 
 
-def _labels_with_feature_names(labels: Union[QuerySet, Manager]) -> Dict:
-    from django.db.models import F
-
-    df = labels.annotate(feature_name=F("feature__name")).df()
-    return df.groupby("feature_name")["name"].apply(list).to_dict()
-
-
 def describe(self):
     model_name = colors.green(self.__class__.__name__)
     msg = ""
 
     def dict_related_model_to_related_name(orm):
         d: Dict = {
-            f"{i.related_model.__get_schema_name__()}.{i.related_model.__name__}": (
-                i.related_name
-            )
+            i.related_model.__get_name_with_schema__(): i.related_name
             for i in orm._meta.related_objects
             if i.related_name is not None
         }
         d.update(
             {
-                f"{i.related_model.__get_schema_name__()}.{i.related_model.__name__}": (
-                    i.name
-                )
+                i.related_model.__get_name_with_schema__(): i.name
                 for i in orm._meta.many_to_many
                 if i.name is not None
             }
@@ -471,15 +464,20 @@ def describe(self):
     # Display Features by slot
     msg += f"{colors.green('Features')}:\n"
     # var
-    feature_sets = self.feature_sets.exclude(ref_orm="Feature")
+    feature_sets = self.feature_sets.exclude(ref_field__startswith="core.Feature")
     if feature_sets.exists():
         for feature_set in feature_sets.all():
-            key = f"{feature_set.ref_schema}.{feature_set.ref_orm}"
-            related_name = feature_sets_related_models.get(key)
+            key_split = feature_set.ref_field.split(".")
+            if len(key_split) != 3:
+                logger.warning(
+                    "You have a legacy entry in feature_set.field, should be format"
+                    " 'bionty.Gene.symbol'"
+                )
+            orm_name_with_schema = f"{key_split[0]}.{key_split[1]}"
+            field_name = key_split[2]
+            related_name = feature_sets_related_models.get(orm_name_with_schema)
             values = (
-                feature_set.__getattribute__(related_name)
-                .all()[:5]
-                .list(feature_set.ref_field)
+                feature_set.__getattribute__(related_name).all()[:5].list(field_name)
             )
             slots = self.feature_sets.through.objects.filter(
                 file=self, feature_set=feature_set
@@ -488,14 +486,16 @@ def describe(self):
                 if slot == "var":
                     slot += " (X)"
                 msg += f"  🗺️ {colors.bold(slot)}:\n"
-                ref = colors.italic(f"{key}.{feature_set.ref_field}")
+                ref = colors.italic(f"{orm_name_with_schema}.{field_name}")
                 msg += f"    🔗 index ({feature_set.n}, {ref}): {values}\n".replace(
                     "]", "...]"
                 )
 
     # obs
-    # ref_orm=Feature, combine all features into one dataframe
-    feature_sets = self.feature_sets.filter(ref_orm="Feature").all()
+    # Feature, combine all features into one dataframe
+    from django.db.models import F
+
+    feature_sets = self.feature_sets.filter(ref_field__startswith="core.Feature").all()
     if feature_sets.exists():
         features_df = create_features_df(
             file=self, feature_sets=feature_sets.all(), exclude=True
@@ -505,43 +505,50 @@ def describe(self):
             if slot == "obs":
                 slot += " (metadata)"
             msg += f"  🗺️ {colors.bold(slot)}:\n"
-            df_label_index = df_slot[
-                (df_slot["labels_orm"] == "Label")
-                & (df_slot["labels_schema"] == "core")
-            ].index
-
+            df_label_index = df_slot[df_slot["registries"] == "core.Label"].index
             # for labels
             if len(df_label_index) > 0:
-                labels_schema = "core"
-                labels_orm = "Label"
-                key = f"{labels_schema}.{labels_orm}"
+                key = "core.Label"
                 related_name = file_related_models.get(key)
-                related_objects = self.__getattribute__(related_name)
-                labels = _labels_with_feature_names(related_objects)
-                msg_objects = ""
-                for k, v in labels.items():
-                    msg_objects_k = (
-                        f"    🔗 {k} ({len(v)}, {colors.italic(key)}): {v[:5]}\n"
+                related_objects = self.__getattribute__(related_name).all()
+                filelabel_links_df = (
+                    FileLabel.filter(file_id=self.id)
+                    .annotate(
+                        feature_name=F("feature__name"), label_name=F("label__name")
                     )
-                    if len(v) > 5:
+                    .df()
+                )
+                groupby = (
+                    filelabel_links_df.groupby("feature_name", group_keys=False)[
+                        "label_name"
+                    ]
+                    .apply(list)
+                    .to_dict()
+                )
+                msg_objects = ""
+                for feature, labels in groupby.items():
+                    if feature not in df_slot.name.values:
+                        continue
+                    msg_objects_k = (
+                        f"    🔗 {feature} ({len(labels)}, {colors.italic(key)}):"
+                        f" {labels[:5]}\n"
+                    )
+                    if len(labels) > 5:
                         msg_objects_k = msg_objects_k.replace("]", " ... ]")
                     msg_objects += msg_objects_k
                 msg += msg_objects
-
             # for non-labels
             nonlabel_index = df_slot.index.difference(df_label_index)
             if len(nonlabel_index) == 0:
                 continue
             df_nonlabels = df_slot.loc[nonlabel_index]
             df_nonlabels = (
-                df_nonlabels.groupby(["labels_schema", "labels_orm"], group_keys=False)[
-                    "name"
-                ]
+                df_nonlabels.groupby(["registries"], group_keys=False)["name"]
                 .apply(lambda x: "|".join(x))
                 .reset_index()
             )
             for _, row in df_nonlabels.iterrows():
-                key = f"{row.labels_schema}.{row.labels_orm}"
+                key = row.registries
                 related_name = file_related_models.get(key)
                 related_objects = self.__getattribute__(related_name)
                 count = related_objects.count()
@@ -567,6 +574,8 @@ def set_abbr(self, value: str):
     except NotImplementedError:
         pass
     self.abbr = value
+    if not self._state.adding:
+        self.save()
 
 
 def _filter_df_based_on_species(
@@ -726,7 +735,7 @@ METHOD_NAMES = [
     "view_parents",
 ]
 
-if _TESTING:
+if _TESTING:  # type: ignore
     from inspect import signature
 
     SIGS = {
@@ -746,4 +755,22 @@ def __get_schema_name__(cls) -> str:
     return schema_name
 
 
+@classmethod  # type: ignore
+def __get_name_with_schema__(cls) -> str:
+    schema_name = cls.__get_schema_name__()
+    return f"{schema_name}.{cls.__name__}"
+
+
+def select_backward(cls, **expressions):
+    logger.warning("select() is deprecated! Please rename: ORM.filter()")
+    return cls.filter(**expressions)
+
+
+@classmethod  # type: ignore
+def select(cls, **expressions):
+    return select_backward(cls, **expressions)
+
+
 setattr(ORM, "__get_schema_name__", __get_schema_name__)
+setattr(ORM, "__get_name_with_schema__", __get_name_with_schema__)
+setattr(ORM, "select", select)  # backward compat

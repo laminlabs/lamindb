@@ -5,7 +5,7 @@ from django.core.exceptions import FieldDoesNotExist
 from django.db.models import Case, When
 from django.db.models.query_utils import DeferredAttribute as Field
 from lamin_utils import colors, logger
-from lnschema_core.models import ORM, Feature
+from lnschema_core.models import ORM, Feature, Label
 from lnschema_core.types import ListLike
 
 from .dev._settings import settings
@@ -60,7 +60,7 @@ def get_or_create_records(
                         params["type"] = str(types[value])
                     records.append(ORM(**params, **kwargs))
                 s = "" if len(unmapped_values) == 1 else "s"
-                print_unmapped_values = ", ".join(unmapped_values[:10])
+                print_unmapped_values = ", ".join(unmapped_values[:5])
                 if len(unmapped_values) > 10:
                     print_unmapped_values += ", ..."
                 additional_info = " "
@@ -70,7 +70,7 @@ def get_or_create_records(
                     f"Created {colors.yellow(f'{len(unmapped_values)} {ORM.__name__} record{s}')} for{additional_info}"  # noqa
                     f"{colors.yellow(f'{field_name}{s}')}: {print_unmapped_values}"  # noqa
                 )
-        if ORM.__module__.startswith("lnschema_bionty."):
+        if ORM.__module__.startswith("lnschema_bionty.") or ORM == Label:
             if isinstance(iterable, pd.Series):
                 feature = iterable.name
             else:
@@ -81,7 +81,7 @@ def get_or_create_records(
                 feature = ORM.__name__.lower()
             if isinstance(feature, str):
                 feature_name = feature
-                feature = Feature.select(name=feature).one_or_none()
+                feature = Feature.filter(name=feature).one_or_none()
             elif feature is not None:
                 feature_name = feature.name
             if feature is not None:
@@ -120,8 +120,8 @@ def get_existing_records(iterable_idx: pd.Index, field: Field, kwargs: Dict = {}
     if len(syn_mapper) > 0:
         s = "" if len(syn_mapper) == 1 else "s"
         names = list(syn_mapper.keys())
-        print_values = ", ".join(names[:10])
-        if len(names) > 10:
+        print_values = ", ".join(names[:5])
+        if len(names) > 5:
             print_values += ", ..."
         syn_msg = (
             "Loaded"
@@ -136,9 +136,7 @@ def get_existing_records(iterable_idx: pd.Index, field: Field, kwargs: Dict = {}
     # kwargs is used to deal with species
     condition.update({f"{field_name}__in": iterable_idx.values})
 
-    from ._select import select
-
-    query_set = select(model, **condition)
+    query_set = model.filter(**condition)
 
     # new we have to sort the list of queried records
     preserved = Case(
@@ -154,8 +152,8 @@ def get_existing_records(iterable_idx: pd.Index, field: Field, kwargs: Dict = {}
     names = [name for name in names if name not in syn_mapper.values()]
     if n_name > 0:
         s = "" if n_name == 1 else "s"
-        print_values = ", ".join(names[:10])
-        if len(names) > 10:
+        print_values = ", ".join(names[:5])
+        if len(names) > 5:
             print_values += ", ..."
         logger.info(
             "Loaded"
@@ -203,8 +201,8 @@ def create_records_from_bionty(
     if len(syn_mapper) > 0:
         s = "" if len(syn_mapper) == 1 else "s"
         names = list(syn_mapper.keys())
-        print_values = ", ".join(names[:10])
-        if len(names) > 10:
+        print_values = ", ".join(names[:5])
+        if len(names) > 5:
             print_values += ", ..."
         msg_syn = (
             "Loaded"
@@ -230,8 +228,8 @@ def create_records_from_bionty(
         names = [name for name in names if name not in syn_mapper.values()]
         if n_name > 0:
             s = "" if n_name == 1 else "s"
-            print_values = ", ".join(names[:10])
-            if len(names) > 10:
+            print_values = ", ".join(names[:5])
+            if len(names) > 5:
                 print_values += ", ..."
             msg = (
                 "Loaded"

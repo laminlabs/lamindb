@@ -24,8 +24,8 @@ def test_create_delete_from_single_dataframe():
     assert file.description is None
     assert dataset.hash == file.hash
     assert dataset.id == file.id
-    assert ln.File.select(id=dataset.id).one_or_none() is not None
-    assert ln.File.select(id=file.id).one_or_none() is not None
+    assert ln.File.filter(id=dataset.id).one_or_none() is not None
+    assert ln.File.filter(id=file.id).one_or_none() is not None
 
     # features
     feature_list = [
@@ -35,18 +35,18 @@ def test_create_delete_from_single_dataframe():
         "petal_width",
         "iris_species_name",
     ]
-    assert len(ln.Feature.select(name__in=feature_list).list()) == 5
-    feature_set = ln.FeatureSet.select(datasets=dataset).one()
-    feature_list_queried = ln.Feature.select(feature_sets=feature_set).list()
+    assert len(ln.Feature.filter(name__in=feature_list).list()) == 5
+    feature_set = ln.FeatureSet.filter(datasets=dataset).one()
+    feature_list_queried = ln.Feature.filter(feature_sets=feature_set).list()
     feature_list_queried = [feature.name for feature in feature_list_queried]
     assert set(feature_list_queried) == set(feature_list)
     # the feature_set is also linked to the file
-    assert ln.FeatureSet.select(files=dataset.file).one() == feature_set
+    assert ln.FeatureSet.filter(files=dataset.file).one() == feature_set
 
     # now proceed to deletion
     dataset.delete(storage=True)
-    assert ln.File.select(id=dataset.id).one_or_none() is None
-    assert ln.File.select(id=file.id).one_or_none() is None
+    assert ln.File.filter(id=dataset.id).one_or_none() is None
+    assert ln.File.filter(id=file.id).one_or_none() is None
 
 
 # def test_create_delete_from_single_anndata():
@@ -57,8 +57,8 @@ def test_create_delete_from_single_dataframe():
 #     assert file.description is None
 #     assert dataset.hash == file.hash
 #     assert dataset.id == file.id
-#     assert ln.File.select(id=dataset.id).one_or_none() is not None
-#     assert ln.File.select(id=file.id).one_or_none() is not None
+#     assert ln.File.filter(id=dataset.id).one_or_none() is not None
+#     assert ln.File.filter(id=file.id).one_or_none() is not None
 #     dataset.delete(storage=True)
-#     assert ln.File.select(id=dataset.id).one_or_none() is None
-#     assert ln.File.select(id=file.id).one_or_none() is None
+#     assert ln.File.filter(id=dataset.id).one_or_none() is None
+#     assert ln.File.filter(id=file.id).one_or_none() is None
