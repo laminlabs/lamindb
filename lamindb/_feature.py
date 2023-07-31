@@ -70,19 +70,22 @@ def from_df(cls, df: "pd.DataFrame") -> List["Feature"]:
             categoricals[key] = c
 
     types = {}
-    categoricals_with_unmapped_categories = {}
+    categoricals_with_unmapped_categories = {}  # type: ignore
     for name, col in df.items():
         if name in categoricals:
             types[name] = "category"
-            categorical = categoricals[name]
-            if hasattr(
-                categorical, "cat"
-            ):  # because .categories > pd2.0, .cat.categories < pd2.0
-                categorical = categorical.cat
-            categories = categorical.categories
-            categoricals_with_unmapped_categories[name] = Label.select(
-                feature=name
-            ).inspect(categories, "name", logging=False)["not_mapped"]
+            # below is a harder feature to write, now, because it requires to
+            # query the link tables between the label ORM and file or dataset
+            # the original implementation fell short
+            # categorical = categoricals[name]
+            # if hasattr(
+            #     categorical, "cat"
+            # ):  # because .categories > pd2.0, .cat.categories < pd2.0
+            #     categorical = categorical.cat
+            # categories = categorical.categories
+            # categoricals_with_unmapped_categories[name] = Label.select(
+            #     feature=name
+            # ).inspect(categories, "name", logging=False)["not_mapped"]
         else:
             types[name] = convert_numpy_dtype_to_lamin_feature_type(col.dtype)
 

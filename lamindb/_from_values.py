@@ -5,7 +5,7 @@ from django.core.exceptions import FieldDoesNotExist
 from django.db.models import Case, When
 from django.db.models.query_utils import DeferredAttribute as Field
 from lamin_utils import colors, logger
-from lnschema_core.models import ORM, Feature
+from lnschema_core.models import ORM, Feature, Label
 from lnschema_core.types import ListLike
 
 from .dev._settings import settings
@@ -70,7 +70,7 @@ def get_or_create_records(
                     f"Created {colors.yellow(f'{len(unmapped_values)} {ORM.__name__} record{s}')} for{additional_info}"  # noqa
                     f"{colors.yellow(f'{field_name}{s}')}: {print_unmapped_values}"  # noqa
                 )
-        if ORM.__module__.startswith("lnschema_bionty."):
+        if ORM.__module__.startswith("lnschema_bionty.") or ORM == Label:
             if isinstance(iterable, pd.Series):
                 feature = iterable.name
             else:

@@ -1,6 +1,7 @@
 import os
 import shutil
 import traceback
+from collections import defaultdict
 from datetime import datetime
 from functools import partial
 from typing import Iterable, List, Optional, Tuple, Union, overload  # noqa
@@ -107,8 +108,11 @@ def save(records: Iterable[ORM], **kwargs) -> None:  # type: ignore
 
 
 def bulk_create(records: Iterable[ORM]):
-    orm = next(iter(records)).__class__
-    orm.objects.bulk_create(records, ignore_conflicts=True)
+    records_by_orm = defaultdict(list)
+    for record in records:
+        records_by_orm[record.__class__].append(record)
+    for orm, records in records_by_orm.items():
+        orm.objects.bulk_create(records, ignore_conflicts=True)
 
 
 # This is also used within File.save()

@@ -857,6 +857,7 @@ def inherit_relations(self, file: File, fields: Optional[List[str]] = None):
     inherit_names = [
         related_name
         for related_name in related_names
+        if related_name is not None
         if file.__getattribute__(related_name).exists()
     ]
 

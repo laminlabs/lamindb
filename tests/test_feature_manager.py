@@ -97,8 +97,8 @@ def test_features_add_labels_using_anndata():
     assert feature.label_orms == "bionty.Tissue"
 
     # on purpose, we don't use bionty ORM here, to simulate an ordinary label
-    diseases = ln.Label.from_values(adata.obs["disease"], feature="disease")
-    file.features.add_labels(diseases)
+    diseases = ln.Label.from_values(adata.obs["disease"])
+    file.features.add_labels(diseases, feature="disease")
 
     df = file.features["obs"].df()
     assert set(df["name"]) == {
