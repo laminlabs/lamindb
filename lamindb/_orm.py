@@ -505,7 +505,7 @@ def describe(self):
             if slot == "obs":
                 slot += " (metadata)"
             msg += f"  🗺️ {colors.bold(slot)}:\n"
-            df_label_index = df_slot[df_slot["label_orms"] == "core.Label"].index
+            df_label_index = df_slot[df_slot["registries"] == "core.Label"].index
             # for labels
             if len(df_label_index) > 0:
                 key = "core.Label"
@@ -543,12 +543,12 @@ def describe(self):
                 continue
             df_nonlabels = df_slot.loc[nonlabel_index]
             df_nonlabels = (
-                df_nonlabels.groupby(["label_orms"], group_keys=False)["name"]
+                df_nonlabels.groupby(["registries"], group_keys=False)["name"]
                 .apply(lambda x: "|".join(x))
                 .reset_index()
             )
             for _, row in df_nonlabels.iterrows():
-                key = row.label_orms
+                key = row.registries
                 related_name = file_related_models.get(key)
                 related_objects = self.__getattribute__(related_name)
                 count = related_objects.count()
