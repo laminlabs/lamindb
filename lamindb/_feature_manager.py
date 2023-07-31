@@ -80,7 +80,8 @@ class FeatureManager:
         }
         accessor_by_orm["Feature"] = "features"
         feature_set = self._host.feature_sets.filter(id=id).one()
-        return getattr(feature_set, accessor_by_orm[feature_set.ref_orm]).all()
+        orm_name = feature_set.ref_field.split(".")[1]
+        return getattr(feature_set, accessor_by_orm[orm_name]).all()
 
     def _feature_set_df_with_slots(self) -> pd.DataFrame:
         """Return DataFrame."""
@@ -155,7 +156,7 @@ class FeatureManager:
             .one()
             .slot: feature_set.features.all()
             for feature_set in feature_sets
-            if feature_set.ref_orm == "Feature"
+            if "core.Feature" in feature_set.ref_field
         }
         for (feature, orm_name), records in records_by_feature_orm.items():
             feature = validate_and_cast_feature(feature, records)

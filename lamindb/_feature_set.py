@@ -108,9 +108,7 @@ def __init__(self, *args, **kwargs):
         type=type_str,
         n=n_features,
         modality=modality_record,
-        ref_orm=features_orm.__name__,
-        ref_schema=features_orm.__get_schema_name__(),
-        ref_field=ref_field,
+        ref_field=f"{features_orm.__get_name_with_schema__()}.{ref_field}",
         hash=hash,
     )
 

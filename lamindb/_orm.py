@@ -464,10 +464,16 @@ def describe(self):
     # Display Features by slot
     msg += f"{colors.green('Features')}:\n"
     # var
-    feature_sets = self.feature_sets.exclude(ref_orm="Feature")
+    feature_sets = self.feature_sets.exclude(ref_field__startswith="core.Feature")
     if feature_sets.exists():
         for feature_set in feature_sets.all():
-            key = f"{feature_set.ref_schema}.{feature_set.ref_orm}"
+            key_split = feature_set.ref_field.split(".")
+            if len(key_split) != 3:
+                logger.warning(
+                    "You have a legacy entry in feature_set.field, should be format"
+                    " 'bionty.Gene.symbol'"
+                )
+            key = f"{key_split[0]}.{key_split[1]}"
             related_name = feature_sets_related_models.get(key)
             values = (
                 feature_set.__getattribute__(related_name)
@@ -487,10 +493,10 @@ def describe(self):
                 )
 
     # obs
-    # ref_orm=Feature, combine all features into one dataframe
+    # Feature, combine all features into one dataframe
     from django.db.models import F
 
-    feature_sets = self.feature_sets.filter(ref_orm="Feature").all()
+    feature_sets = self.feature_sets.filter(ref_field__startswith="core.Feature").all()
     if feature_sets.exists():
         features_df = create_features_df(
             file=self, feature_sets=feature_sets.all(), exclude=True
