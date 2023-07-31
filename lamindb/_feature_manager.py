@@ -41,7 +41,7 @@ def create_features_df(
             features_df["slot"] = slot
             features.append(features_df)
     features_df = pd.concat(features)
-    return features_df.sort_values(["registries"])
+    return features_df.sort_values(["slot", "registries"])
 
 
 class FeatureManager:
@@ -49,6 +49,9 @@ class FeatureManager:
 
     def __init__(self, host: Union[File, Dataset]):
         self._host = host
+        self._compute_slots()
+
+    def _compute_slots(self) -> None:
         slot_feature_sets = (
             self._feature_set_df_with_slots().reset_index().set_index("slot")["id"]
         )
@@ -58,6 +61,7 @@ class FeatureManager:
         }
 
     def __repr__(self) -> str:
+        self._compute_slots()
         if len(self._slots) > 0:
             msg = "slots:\n"
             for slot, feature_set in self._slots.items():
@@ -179,13 +183,14 @@ class FeatureManager:
                     feature_set.save()
                     self.add_feature_set(feature_set, slot="ext")
                 else:
-                    feature_set = linked_features_by_slot["ext"]
+                    feature_set = self._slots["ext"]
                     logger.info(
                         f"Linking feature {feature.name} to feature set {feature_set}"
                     )
-                    linked_features_by_slot["ext"].add(feature)
-                    linked_features_by_slot["ext"].n += 1
-                    linked_features_by_slot["ext"].save()
+                    feature_set.features.add(feature)
+                    feature_set.n += 1
+                    feature_set.save()
+        self._compute_slots()
 
     def add_feature_set(self, feature_set: FeatureSet, slot: str):
         if self._host._state.adding:
