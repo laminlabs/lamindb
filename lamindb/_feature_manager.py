@@ -109,40 +109,36 @@ class FeatureManager:
         if self._host._state.adding:
             raise ValueError("Please save the file or dataset before adding a label!")
         feature = validate_and_cast_feature(feature, records)
-        records_by_orm = defaultdict(list)
         records_by_feature_orm = defaultdict(list)
         for record in records:
-            records_by_orm[record.__class__.__name__].append(record)
             if feature is None:
                 error_msg = (
                     "Please pass feature: add_labels(labels, feature='myfeature')"
                 )
-                try:
-                    record_feature = (
-                        record._feature
-                        if hasattr(record, "_feature")
-                        else record.feature
-                    )
-                except ValueError:
-                    raise ValueError(error_msg)
+                record_feature = feature
+                if hasattr(record, "_feature"):
+                    record_feature = record._feature
                 if record_feature is None:
                     raise ValueError(error_msg)
+                # TODO: refactor so that we don't call the following line
+                # repeatedly for the same feature
+                record_feature = validate_and_cast_feature(record_feature, [record])
             else:
                 record_feature = feature
             records_by_feature_orm[
                 (record_feature, record.__class__.__get_name_with_schema__())
             ].append(record)
-        schema_and_accessor_by_orm = {
-            field.related_model.__name__: (
-                field.related_model.__get_schema_name__(),
-                field.name,
-            )
+        accessor_by_orm = {
+            field.related_model.__get_name_with_schema__(): field.name
             for field in self._host._meta.related_objects
         }
-        schema_and_accessor_by_orm["Label"] = ("core", "labels")
-        for orm_name, records in records_by_orm.items():
-            save(records)
-            getattr(self._host, schema_and_accessor_by_orm[orm_name][1]).add(*records)
+        accessor_by_orm["core.Label"] = "labels"
+        # ensure all labels are saved
+        save(records)
+        for (feature, orm_name), records in records_by_feature_orm.items():
+            getattr(self._host, accessor_by_orm[orm_name]).add(
+                *records, through_defaults={"feature_id": feature.id}
+            )
         accessor_by_orm = {
             field.related_model.__name__: field.name
             for field in self._host._meta.related_objects
