@@ -4,6 +4,9 @@ import pytest
 import lamindb as ln
 
 adata = ln.dev.datasets.anndata_with_obs()
+# add another column
+adata.obs["cell_type_from_expert"] = adata.obs["cell_type"]
+adata.obs.loc["obs0", "cell_type_from_expert"] = "B cell"
 
 
 def test_features_add_labels():
@@ -27,6 +30,9 @@ def test_features_add_labels():
 def test_features_add_labels_using_anndata():
     species = lb.Species.from_bionty(name="mouse")
     cell_types = lb.CellType.from_values(adata.obs["cell_type"], "name")
+    cell_types_from_expert = lb.CellType.from_values(
+        adata.obs["cell_type_from_expert"], "name"
+    )
     tissues = lb.Tissue.from_values(adata.obs["tissue"], "name")
 
     assert cell_types[0]._feature == "cell_type"
@@ -70,7 +76,7 @@ def test_features_add_labels_using_anndata():
     feature_set_obs = file.feature_sets.filter(
         ref_field__startswith="core.Feature", filefeatureset__slot="obs"
     ).one()
-    assert feature_set_obs.n == 4
+    assert feature_set_obs.n == 5
     assert "species" not in feature_set_obs.features.list("name")
 
     # now, we add species and run checks
@@ -81,7 +87,7 @@ def test_features_add_labels_using_anndata():
     feature_set_obs = file.feature_sets.filter(
         ref_field__startswith="core.Feature", filefeatureset__slot="obs"
     ).one()
-    assert feature_set_obs.n == 4
+    assert feature_set_obs.n == 5
     feature_set_ext = file.feature_sets.filter(
         ref_field__startswith="core.Feature", filefeatureset__slot="ext"
     ).one()
@@ -89,8 +95,11 @@ def test_features_add_labels_using_anndata():
     assert "species" in feature_set_ext.features.list("name")
 
     # now we add cell types & tissues and run checks
-    file.features.add_labels(cell_types + tissues)
+    file.features.add_labels(cell_types + tissues + cell_types_from_expert)
     feature = ln.Feature.filter(name="cell_type").one()
+    assert feature.type == "category"
+    assert feature.registries == "bionty.CellType"
+    feature = ln.Feature.filter(name="cell_type_from_expert").one()
     assert feature.type == "category"
     assert feature.registries == "bionty.CellType"
     feature = ln.Feature.filter(name="tissue").one()
@@ -104,6 +113,7 @@ def test_features_add_labels_using_anndata():
         "cell_type_id",
         "disease",
         "tissue",
+        "cell_type_from_expert",
     }
     assert set(df["type"]) == {
         "category",
@@ -128,7 +138,6 @@ def test_features_add_labels_using_anndata():
         "category",
     }
     assert set(df["registries"]) == {"bionty.Species", "core.Label"}
-
     assert project_1 in file.labels.all()
 
     # clean up

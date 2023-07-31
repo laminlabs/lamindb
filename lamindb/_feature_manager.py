@@ -167,7 +167,7 @@ class FeatureManager:
             logger.info(f"Linking feature {feature.name} to {orm_name}")
             if feature.registries is None:
                 feature.registries = orm_name
-            else:
+            elif orm_name not in feature.registries:
                 feature.registries += f"|{orm_name}"
             feature.save()
             # check whether we have to update the feature set that manages labels
