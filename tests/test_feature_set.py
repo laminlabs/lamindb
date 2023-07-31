@@ -42,9 +42,7 @@ def test_feature_set_from_values():
     id = feature_set.id
     assert feature_set._state.adding
     assert feature_set.type == "float"
-    assert feature_set.ref_orm == "Gene"
-    assert feature_set.ref_schema == "bionty"
-    assert feature_set.ref_field == "symbol"
+    assert feature_set.ref_field == "bionty.Gene.symbol"
     feature_set.save()
     # test that the feature_set is retrieved from the database
     # in case it already exists
@@ -64,9 +62,7 @@ def test_feature_set_from_records():
     id = feature_set.id
     assert feature_set._state.adding
     assert feature_set.type is None
-    assert feature_set.ref_orm == "Feature"
-    assert feature_set.ref_schema == "core"
-    assert feature_set.ref_field == "id"
+    assert feature_set.ref_field == "core.Feature.id"
     feature_set.save()
     # test that the feature_set is retrieved from the database
     # in case it already exists

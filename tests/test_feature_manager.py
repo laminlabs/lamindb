@@ -68,7 +68,7 @@ def test_features_add_labels_using_anndata():
     file.save()
 
     feature_set_obs = file.feature_sets.filter(
-        ref_orm="Feature", filefeatureset__slot="obs"
+        ref_field__startswith="core.Feature", filefeatureset__slot="obs"
     ).one()
     assert feature_set_obs.n == 4
     assert "species" not in feature_set_obs.features.list("name")
@@ -79,11 +79,11 @@ def test_features_add_labels_using_anndata():
     assert feature.label_orms == "bionty.Species"
 
     feature_set_obs = file.feature_sets.filter(
-        ref_orm="Feature", filefeatureset__slot="obs"
+        ref_field__startswith="core.Feature", filefeatureset__slot="obs"
     ).one()
     assert feature_set_obs.n == 4
     feature_set_ext = file.feature_sets.filter(
-        ref_orm="Feature", filefeatureset__slot="ext"
+        ref_field__startswith="core.Feature", filefeatureset__slot="ext"
     ).one()
     assert feature_set_ext.n == 1
     assert "species" in feature_set_ext.features.list("name")

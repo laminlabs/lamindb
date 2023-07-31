@@ -464,15 +464,20 @@ def describe(self):
     # Display Features by slot
     msg += f"{colors.green('Features')}:\n"
     # var
-    feature_sets = self.feature_sets.exclude(ref_orm="Feature")
+    feature_sets = self.feature_sets.exclude(ref_field__startswith="core.Feature")
     if feature_sets.exists():
         for feature_set in feature_sets.all():
-            key = f"{feature_set.ref_schema}.{feature_set.ref_orm}"
-            related_name = feature_sets_related_models.get(key)
+            key_split = feature_set.ref_field.split(".")
+            if len(key_split) != 3:
+                logger.warning(
+                    "You have a legacy entry in feature_set.field, should be format"
+                    " 'bionty.Gene.symbol'"
+                )
+            orm_name_with_schema = f"{key_split[0]}.{key_split[1]}"
+            field_name = key_split[2]
+            related_name = feature_sets_related_models.get(orm_name_with_schema)
             values = (
-                feature_set.__getattribute__(related_name)
-                .all()[:5]
-                .list(feature_set.ref_field)
+                feature_set.__getattribute__(related_name).all()[:5].list(field_name)
             )
             slots = self.feature_sets.through.objects.filter(
                 file=self, feature_set=feature_set
@@ -481,16 +486,16 @@ def describe(self):
                 if slot == "var":
                     slot += " (X)"
                 msg += f"  🗺️ {colors.bold(slot)}:\n"
-                ref = colors.italic(f"{key}.{feature_set.ref_field}")
+                ref = colors.italic(f"{orm_name_with_schema}.{field_name}")
                 msg += f"    🔗 index ({feature_set.n}, {ref}): {values}\n".replace(
                     "]", "...]"
                 )
 
     # obs
-    # ref_orm=Feature, combine all features into one dataframe
+    # Feature, combine all features into one dataframe
     from django.db.models import F
 
-    feature_sets = self.feature_sets.filter(ref_orm="Feature").all()
+    feature_sets = self.feature_sets.filter(ref_field__startswith="core.Feature").all()
     if feature_sets.exists():
         features_df = create_features_df(
             file=self, feature_sets=feature_sets.all(), exclude=True
