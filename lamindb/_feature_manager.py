@@ -1,5 +1,5 @@
 from collections import defaultdict
-from typing import List, Optional, Union
+from typing import Dict, List, Optional, Union
 
 import pandas as pd
 from lamin_utils import logger
@@ -44,61 +44,53 @@ def create_features_df(
     return features_df.sort_values(["slot", "registries"])
 
 
+def get_accessor_by_orm(host: Union[File, Dataset]) -> Dict:
+    dictionary = {
+        field.related_model.__get_name_with_schema__(): field.name
+        for field in host._meta.related_objects
+    }
+    dictionary["core.Feature"] = "features"
+    dictionary["core.Label"] = "labels"
+    return dictionary
+
+
+def _get_feature_set_by_slot(host) -> Dict:
+    feature_set_links = host.feature_sets.through.objects.filter(file_id=host.id)
+    return {
+        feature_set_link.slot: FeatureSet.objects.get(
+            id=feature_set_link.feature_set_id
+        )
+        for feature_set_link in feature_set_links
+    }
+
+
 class FeatureManager:
     """Feature manager."""
 
     def __init__(self, host: Union[File, Dataset]):
         self._host = host
-        self._compute_slots()
-
-    def _compute_slots(self) -> None:
-        slot_feature_sets = (
-            self._feature_set_df_with_slots().reset_index().set_index("slot")["id"]
-        )
-        self._slots = {
-            slot: self._host.feature_sets.get(id=i)
-            for slot, i in slot_feature_sets.items()
-        }
+        self._feature_set_by_slot = _get_feature_set_by_slot(host)
+        self._accessor_by_orm = get_accessor_by_orm(host)
 
     def __repr__(self) -> str:
-        self._compute_slots()
-        if len(self._slots) > 0:
+        if len(self._feature_set_by_slot) > 0:
             msg = "slots:\n"
-            for slot, feature_set in self._slots.items():
+            for slot, feature_set in self._feature_set_by_slot.items():
                 msg += f"    {slot}: {feature_set}\n"
             return msg
         else:
             return "No linked features."
 
     def __getitem__(self, slot) -> QuerySet:
-        id = (
-            self._host.feature_sets.through.objects.filter(
-                file_id=self._host.id, slot=slot
-            )
-            .one()
-            .feature_set_id
-        )
-        accessor_by_orm = {
-            field.related_model.__name__: field.name
-            for field in self._host._meta.related_objects
-        }
-        accessor_by_orm["Feature"] = "features"
-        feature_set = self._host.feature_sets.filter(id=id).one()
-        orm_name = feature_set.ref_field.split(".")[1]
-        return getattr(feature_set, accessor_by_orm[orm_name]).all()
+        feature_set = self._feature_set_by_slot[slot]
+        orm_name = ".".join(feature_set.ref_field.split(".")[:2])
+        return getattr(feature_set, self._accessor_by_orm[orm_name]).all()
 
-    def _feature_set_df_with_slots(self) -> pd.DataFrame:
-        """Return DataFrame."""
-        df = self._host.feature_sets.df()
-        df.insert(
-            0,
-            "slot",
-            self._host.feature_sets.through.objects.filter(file_id=self._host.id)
-            .df()
-            .set_index("feature_set_id")
-            .slot,
-        )
-        return df
+    def get_labels(self, feature: Optional[Union[str, ORM]] = None) -> None:
+        if isinstance(feature, str):
+            feature_name = feature
+            feature = Feature.filter(name=feature_name).one_or_none()
+        return None
 
     def add_labels(
         self, records: Union[ORM, List[ORM]], feature: Optional[Union[str, ORM]] = None
@@ -133,22 +125,12 @@ class FeatureManager:
             records_by_feature_orm[
                 (record_feature, record.__class__.__get_name_with_schema__())
             ].append(record)
-        accessor_by_orm = {
-            field.related_model.__get_name_with_schema__(): field.name
-            for field in self._host._meta.related_objects
-        }
-        accessor_by_orm["core.Label"] = "labels"
         # ensure all labels are saved
         save(records)
         for (feature, orm_name), records in records_by_feature_orm.items():
-            getattr(self._host, accessor_by_orm[orm_name]).add(
+            getattr(self._host, self._accessor_by_orm[orm_name]).add(
                 *records, through_defaults={"feature_id": feature.id}
             )
-        accessor_by_orm = {
-            field.related_model.__name__: field.name
-            for field in self._host._meta.related_objects
-        }
-        accessor_by_orm["Feature"] = "features"
         feature_set_links = self._host.feature_sets.through.objects.filter(
             file_id=self._host.id
         )
@@ -183,14 +165,13 @@ class FeatureManager:
                     feature_set.save()
                     self.add_feature_set(feature_set, slot="ext")
                 else:
-                    feature_set = self._slots["ext"]
+                    feature_set = self._feature_set_by_slot["ext"]
                     logger.info(
                         f"Linking feature {feature.name} to feature set {feature_set}"
                     )
                     feature_set.features.add(feature)
                     feature_set.n += 1
                     feature_set.save()
-        self._compute_slots()
 
     def add_feature_set(self, feature_set: FeatureSet, slot: str):
         if self._host._state.adding:
@@ -201,3 +182,4 @@ class FeatureManager:
         self._host.feature_sets.through(
             file=self._host, feature_set=feature_set, slot=slot
         ).save()
+        self._feature_set_by_slot[slot] = feature_set
