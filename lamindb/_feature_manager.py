@@ -87,8 +87,11 @@ class FeatureManager:
         return getattr(feature_set, self._accessor_by_orm[orm_name]).all()
 
     def get_labels(
-        self, feature: Optional[Union[str, ORM]] = None, mute: bool = False
-    ) -> Union[QuerySet, Dict[str, QuerySet]]:
+        self,
+        feature: Optional[Union[str, ORM]] = None,
+        mute: bool = False,
+        flat: bool = False,
+    ) -> Union[QuerySet, Dict[str, QuerySet], List]:
         """Get labels given a feature."""
         if isinstance(feature, str):
             feature_name = feature
@@ -117,12 +120,25 @@ class FeatureManager:
         if len(registries_to_check) == 1:
             return qs_by_registry[registry]
         else:
-            return qs_by_registry
+            if flat:
+                # returns a flat list of values
+                from ._orm import get_default_str_field
+
+                values = []
+                for v in qs_by_registry.values():
+                    values += v.list(get_default_str_field(v))
+                return values
+            else:
+                return qs_by_registry
 
     def add_labels(
-        self, records: Union[ORM, List[ORM]], feature: Optional[Union[str, ORM]] = None
+        self,
+        records: Union[ORM, List[ORM], QuerySet],
+        feature: Optional[Union[str, ORM]] = None,
     ) -> None:
         """Add one or several labels and associate them with a feature."""
+        if isinstance(records, QuerySet):
+            records = records.list()
         if isinstance(records, str) or not isinstance(records, List):
             records = [records]
         if isinstance(records[0], str):  # type: ignore
