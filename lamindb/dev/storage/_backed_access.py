@@ -93,7 +93,7 @@ def read_dataframe(elem: Union[h5py.Dataset, h5py.Group]):
 @registry.register("h5py")
 def safer_read_partial(elem, indices):
     if get_spec(elem).encoding_type == "":
-        if isinstance(elem, h5py.Datatset):
+        if isinstance(elem, h5py.Dataset):
             return elem[indices]
         else:
             raise ValueError(
@@ -245,7 +245,7 @@ def _try_backed_full(elem):
 
 def _safer_read_index(elem):
     if isinstance(elem, GroupTypes):
-        return read_elem(elem[_read_attr(elem.attrs, "_index")])
+        return pd.Index(read_elem(elem[_read_attr(elem.attrs, "_index")]))
     elif isinstance(elem, ArrayTypes):
         indices = None
         for index_name in ("index", "_index"):
@@ -255,7 +255,7 @@ def _safer_read_index(elem):
         if indices is not None and len(indices) > 0:
             if isinstance(indices[0], bytes):
                 indices = np.frompyfunc(lambda x: x.decode("utf-8"), 1, 1)(indices)
-            return indices
+            return pd.Index(indices)
         else:
             raise ValueError("Indices not found.")
     else:

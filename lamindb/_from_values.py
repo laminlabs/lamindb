@@ -73,24 +73,16 @@ def get_or_create_records(
         if ORM.__module__.startswith("lnschema_bionty.") or ORM == Label:
             if isinstance(iterable, pd.Series):
                 feature = iterable.name
-            else:
-                logger.warning(
-                    "Did not receive values as pd.Series, inferring feature from"
-                    f" reference ORM: {ORM.__name__}"
-                )
-                feature = ORM.__name__.lower()
+            feature_name = None
             if isinstance(feature, str):
                 feature_name = feature
-                feature = Feature.filter(name=feature).one_or_none()
             elif feature is not None:
                 feature_name = feature.name
-            if feature is not None:
-                for record in records:
-                    record._feature = feature
             if feature_name is not None:
-                for record in records:
-                    record._feature = feature_name
-            logger.info(f"Mapping records to feature '{feature_name}'")
+                if feature_name is not None:
+                    for record in records:
+                        record._feature = feature_name
+                logger.hint(f"Added default feature '{feature_name}'")
         return records
     finally:
         settings.upon_create_search_names = upon_create_search_names
@@ -300,7 +292,15 @@ def _bulk_create_dicts_from_df(
     if not df.index.is_unique:
         # return all records for multi-matches with a warning
         dup = df.index[df.index.duplicated()].unique().tolist()
-        multi_msg = f"Multiple matches found in Bionty for: {dup}"
+        if len(dup) > 0:
+            s = "" if len(dup) == 1 else "s"
+            print_values = ", ".join(dup[:5])
+            if len(dup) > 5:
+                print_values += ", ..."
+            multi_msg = (
+                f"Multiple matches found in Bionty for {len(dup)} record{s}:"
+                f" {print_values}"
+            )
 
     return df.reset_index().to_dict(orient="records"), multi_msg
 
