@@ -10,7 +10,7 @@ from lamin_utils._lookup import Lookup
 from lamin_utils._search import search as base_search
 from lamindb_setup.dev._docs import doc_args
 from lnschema_core import ORM
-from lnschema_core.models import FileLabel, format_datetime
+from lnschema_core.models import format_datetime
 from lnschema_core.types import ListLike, StrField
 
 from lamindb.dev.utils import attach_func_to_class_method
@@ -421,8 +421,6 @@ def describe(self):
 
         return d
 
-    file_related_models = dict_related_model_to_related_name(self)
-
     # Display the file record
     fields = self._meta.fields
     direct_fields = []
@@ -493,8 +491,6 @@ def describe(self):
 
     # obs
     # Feature, combine all features into one dataframe
-    from django.db.models import F
-
     feature_sets = self.feature_sets.filter(ref_field__startswith="core.Feature").all()
     if feature_sets.exists():
         features_df = create_features_df(
@@ -505,61 +501,25 @@ def describe(self):
             if slot == "obs":
                 slot += " (metadata)"
             msg += f"  🗺️ {colors.bold(slot)}:\n"
-            df_label_index = df_slot[df_slot["registries"] == "core.Label"].index
-            # for labels
-            if len(df_label_index) > 0:
-                key = "core.Label"
-                related_name = file_related_models.get(key)
-                related_objects = self.__getattribute__(related_name).all()
-                filelabel_links_df = (
-                    FileLabel.filter(file_id=self.id)
-                    .annotate(
-                        feature_name=F("feature__name"), label_name=F("label__name")
+            for _, row in df_slot.iterrows():
+                labels = self.features.get_labels(row["name"])
+                indent = ""
+                if isinstance(labels, dict):
+                    msg += f"    🔗 {row['name']} ({row.registries})\n"
+                    indent = "    "
+                else:
+                    labels = {row["registries"]: labels}
+                for registry, labels in labels.items():
+                    count_str = f"{len(labels)}, {colors.italic(f'{registry}')}"
+                    try:
+                        field = get_default_str_field(labels)
+                    except ValueError:
+                        field = "id"
+                    values = labels.list(field)[:5]
+                    msg_objects = (
+                        f"{indent}    🔗 {row['name']} ({count_str}): {values}\n"
                     )
-                    .df()
-                )
-                groupby = (
-                    filelabel_links_df.groupby("feature_name", group_keys=False)[
-                        "label_name"
-                    ]
-                    .apply(list)
-                    .to_dict()
-                )
-                msg_objects = ""
-                for feature, labels in groupby.items():
-                    if feature not in df_slot.name.values:
-                        continue
-                    msg_objects_k = (
-                        f"    🔗 {feature} ({len(labels)}, {colors.italic(key)}):"
-                        f" {labels[:5]}\n"
-                    )
-                    if len(labels) > 5:
-                        msg_objects_k = msg_objects_k.replace("]", " ... ]")
-                    msg_objects += msg_objects_k
-                msg += msg_objects
-            # for non-labels
-            nonlabel_index = df_slot.index.difference(df_label_index)
-            if len(nonlabel_index) == 0:
-                continue
-            df_nonlabels = df_slot.loc[nonlabel_index]
-            df_nonlabels = (
-                df_nonlabels.groupby(["registries"], group_keys=False)["name"]
-                .apply(lambda x: "|".join(x))
-                .reset_index()
-            )
-            for _, row in df_nonlabels.iterrows():
-                key = row.registries
-                related_name = file_related_models.get(key)
-                related_objects = self.__getattribute__(related_name)
-                count = related_objects.count()
-                count_str = f"{count}, {colors.italic(f'{key}')}"
-                try:
-                    field = get_default_str_field(related_objects)
-                except ValueError:
-                    field = "id"
-                values = list(related_objects.values_list(field, flat=True)[:5])
-                msg_objects = f"    🔗 {row['name']} ({count_str}): {values}\n"
-                msg += msg_objects
+                    msg += msg_objects
     msg = msg.rstrip("\n")
     msg = msg.rstrip("Features:")
     verbosity = settings.verbosity

@@ -178,6 +178,9 @@ def test_features_add_labels_using_anndata():
     assert set(df["registries"]) == {"bionty.Species", "core.Label"}
     assert project_1 in file.labels.all()
 
+    # call describe
+    file.describe()
+
     # clean up
     ln.Feature.filter(name="species").one().delete()
     ln.File.filter(description="Mini adata").one().delete(storage=True)
