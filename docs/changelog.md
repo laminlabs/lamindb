@@ -1,5 +1,6 @@
 # Changelog
 
+- 🎨 Allow passing queryset to add.labels [PR969](https://github.com/laminlabs/lamindb/pull/969) [@sunnyosun](https://github.com/sunnyosun)
 - 🐛 Make obs and var names indices [PR968](https://github.com/laminlabs/lamindb/pull/968) [@Koncopd](https://github.com/Koncopd)
 - 🐛 Fix typo in backed [PR967](https://github.com/laminlabs/lamindb/pull/967) [@Koncopd](https://github.com/Koncopd)
 - ♻️ Refactor describe [PR966](https://github.com/laminlabs/lamindb/pull/966) [@falexwolf](https://github.com/falexwolf)
