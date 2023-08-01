@@ -93,7 +93,7 @@ def read_dataframe(elem: Union[h5py.Dataset, h5py.Group]):
 @registry.register("h5py")
 def safer_read_partial(elem, indices):
     if get_spec(elem).encoding_type == "":
-        if isinstance(elem, h5py.Datatset):
+        if isinstance(elem, h5py.Dataset):
             return elem[indices]
         else:
             raise ValueError(
