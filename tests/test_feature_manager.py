@@ -127,7 +127,7 @@ def test_features_add_labels_using_anndata():
         "bionty.CellType",
         None,
         "core.Label",
-        "bionty.Tissue",
+        "bionty.Tissue|core.Label",
     }
 
     # now, let's add another feature to ext
