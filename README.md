@@ -167,9 +167,11 @@ ln.save(cell_types) # bulk save cell types
 # standardize synonyms
 lb.CellType.map_synonyms(["T cell", "T-cell", "T lymphocyte"])
 
-# view ontological hierarchy of a record
+# construct and view ontological hierarchy of a record
 neuron = lb.CellType.lookup().neuron
-neuron.view_parents(distance=3)
+my_cell_type = lb.CellType(name="my neuron cell")
+my_cell_type.parents.add(neuron)
+my_cell_type.view_parents(distance=3)
 ```
 
 <img src="https://raw.githubusercontent.com/laminlabs/lamindb/main/docs/img/readme/neuron_view_parents_dist%3D2.svg" width="500">
