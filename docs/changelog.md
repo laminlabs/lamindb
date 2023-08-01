@@ -1,5 +1,6 @@
 # Changelog
 
+- 🐛 Fix typo in backed [PR967](https://github.com/laminlabs/lamindb/pull/967) [@Koncopd](https://github.com/Koncopd)
 - ♻️ Refactor describe [PR966](https://github.com/laminlabs/lamindb/pull/966) [@falexwolf](https://github.com/falexwolf)
 - 🎨 Refactor FeatureManager [PR965](https://github.com/laminlabs/lamindb/pull/965) [@falexwolf](https://github.com/falexwolf)
 - ⚡️ Speed up & remove auto-generation of feature name [PR963](https://github.com/laminlabs/lamindb/pull/963) [@falexwolf](https://github.com/falexwolf)
