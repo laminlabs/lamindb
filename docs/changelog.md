@@ -1,5 +1,6 @@
 # Changelog
 
+- 🐛 Make obs and var names indices [PR968](https://github.com/laminlabs/lamindb/pull/968) [@Koncopd](https://github.com/Koncopd)
 - 🐛 Fix typo in backed [PR967](https://github.com/laminlabs/lamindb/pull/967) [@Koncopd](https://github.com/Koncopd)
 - ♻️ Refactor describe [PR966](https://github.com/laminlabs/lamindb/pull/966) [@falexwolf](https://github.com/falexwolf)
 - 🎨 Refactor FeatureManager [PR965](https://github.com/laminlabs/lamindb/pull/965) [@falexwolf](https://github.com/falexwolf)
