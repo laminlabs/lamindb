@@ -101,7 +101,7 @@ View all parent transforms and files in a lineage graph:
 file.view_lineage()
 ```
 
-<img src="./docs/img/readme/view_lineage.svg" width="800">
+<img src="https://raw.githubusercontent.com/laminlabs/lamindb/main/docs/img/readme/view_lineage.svg" width="800">
 
 #### Notebooks
 
@@ -172,7 +172,7 @@ neuron = lb.CellType.lookup().neuron
 neuron.view_parents(distance=3)
 ```
 
-<img src="./docs/img/readme/neuron_view_parents_dist=2.svg" width="500">
+<img src="https://raw.githubusercontent.com/laminlabs/lamindb/main/docs/img/readme/neuron_view_parents_dist%3D2.svg" width="500">
 
 ### Track biological features
 
