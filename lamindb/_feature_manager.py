@@ -136,7 +136,7 @@ class FeatureManager:
         feature: Optional[Union[str, ORM]] = None,
     ) -> None:
         """Add one or several labels and associate them with a feature."""
-        if isinstance(records, QuerySet):
+        if isinstance(records, (QuerySet, QuerySet.__base__)):  # need to have both
             records = records.list()
         if isinstance(records, str) or not isinstance(records, List):
             records = [records]
