@@ -3,7 +3,7 @@ from typing import Dict, List, Optional, Union
 
 import pandas as pd
 from lamin_utils import logger
-from lnschema_core.models import ORM, Dataset, Feature, FeatureSet, File
+from lnschema_core.models import ORM, Dataset, Feature, FeatureSet, File, Label
 
 from ._queryset import QuerySet
 from ._save import save
@@ -54,7 +54,7 @@ def get_accessor_by_orm(host: Union[File, Dataset]) -> Dict:
     return dictionary
 
 
-def _get_feature_set_by_slot(host) -> Dict:
+def get_feature_set_by_slot(host) -> Dict:
     feature_set_links = host.feature_sets.through.objects.filter(file_id=host.id)
     return {
         feature_set_link.slot: FeatureSet.objects.get(
@@ -69,7 +69,7 @@ class FeatureManager:
 
     def __init__(self, host: Union[File, Dataset]):
         self._host = host
-        self._feature_set_by_slot = _get_feature_set_by_slot(host)
+        self._feature_set_by_slot = get_feature_set_by_slot(host)
         self._accessor_by_orm = get_accessor_by_orm(host)
 
     def __repr__(self) -> str:
@@ -86,15 +86,42 @@ class FeatureManager:
         orm_name = ".".join(feature_set.ref_field.split(".")[:2])
         return getattr(feature_set, self._accessor_by_orm[orm_name]).all()
 
-    def get_labels(self, feature: Optional[Union[str, ORM]] = None) -> None:
+    def get_labels(
+        self, feature: Optional[Union[str, ORM]] = None
+    ) -> Union[QuerySet, Dict[str, QuerySet]]:
+        """Get labels given a feature."""
         if isinstance(feature, str):
             feature_name = feature
             feature = Feature.filter(name=feature_name).one_or_none()
-        return None
+            if feature is None:
+                raise ValueError("Feature doesn't exist")
+        if feature.registries is None:
+            raise ValueError("Feature does not have linked labels")
+        registries_to_check = feature.registries.split("|")
+        if len(registries_to_check) > 1:
+            logger.warning("Labels come from multiple registries!")
+        qs_by_registry = {}
+        for registry in registries_to_check:
+            # currently need to distinguish between Label and non-Label, because
+            # we only have the feature information for Label
+            if registry == "core.Label":
+                links_to_labels = getattr(
+                    self._host, self._accessor_by_orm[registry]
+                ).through.objects.filter(file_id=self._host.id, feature_id=feature.id)
+                label_ids = [link.label_id for link in links_to_labels]
+                qs_by_registry[registry] = Label.objects.filter(id__in=label_ids)
+            else:
+                qs_by_registry[registry] = getattr(
+                    self._host, self._accessor_by_orm[registry]
+                ).all()
+        if len(registries_to_check) == 1:
+            return qs_by_registry[registry]
+        else:
+            return qs_by_registry
 
     def add_labels(
         self, records: Union[ORM, List[ORM]], feature: Optional[Union[str, ORM]] = None
-    ):
+    ) -> None:
         """Add one or several labels and associate them with a feature."""
         if isinstance(records, str) or not isinstance(records, List):
             records = [records]
@@ -174,6 +201,12 @@ class FeatureManager:
                     feature_set.save()
 
     def add_feature_set(self, feature_set: FeatureSet, slot: str):
+        """Add new feature set to a slot.
+
+        Args:
+            feature_set: `FeatureSet` A feature set object.
+            slot: `str` The access slot.
+        """
         if self._host._state.adding:
             raise ValueError(
                 "Please save the file or dataset before adding a feature set!"

@@ -130,7 +130,6 @@ def test_features_add_labels_using_anndata():
     # now, let's add another feature to ext
     project_1 = ln.Label(name="Project 1")
     file.features.add_labels(project_1, feature="project")
-
     df = file.features["ext"].df()
     assert set(df["name"]) == {
         "species",
@@ -139,6 +138,37 @@ def test_features_add_labels_using_anndata():
     assert set(df["type"]) == {
         "category",
     }
+
+    assert set(file.features.get_labels("project").list("name")) == {"Project 1"}
+    assert set(file.features.get_labels("disease").list("name")) == {
+        "chronic kidney disease",
+        "Alzheimer disease",
+        "liver lymphoma",
+        "cardiac ventricle disorder",
+    }
+    assert set(file.features.get_labels("species").list("name")) == {"mouse"}
+    assert set(file.features.get_labels("tissue").list("name")) == {
+        "liver",
+        "heart",
+        "kidney",
+        "brain",
+    }
+    # currently, we can't stratify the two cases below
+    assert set(file.features.get_labels("cell_type").list("name")) == {
+        "T cell",
+        "my new cell type",
+        "hepatocyte",
+        "hematopoietic stem cell",
+        "B cell",
+    }
+    assert set(file.features.get_labels("cell_type_from_expert").list("name")) == {
+        "T cell",
+        "my new cell type",
+        "hepatocyte",
+        "hematopoietic stem cell",
+        "B cell",
+    }
+
     assert set(df["registries"]) == {"bionty.Species", "core.Label"}
     assert project_1 in file.labels.all()
 
