@@ -150,11 +150,14 @@ def test_features_add_labels_using_anndata():
         "cardiac ventricle disorder",
     }
     assert set(file.features.get_labels("species").list("name")) == {"mouse"}
-    assert set(file.features.get_labels("tissue").list("name")) == {
+    assert set(file.features.get_labels("tissue")["bionty.Tissue"].list("name")) == {
         "liver",
         "heart",
         "kidney",
         "brain",
+    }
+    assert set(file.features.get_labels("tissue")["core.Label"].list("name")) == {
+        "organoid",
     }
     # currently, we can't stratify the two cases below
     assert set(file.features.get_labels("cell_type").list("name")) == {
