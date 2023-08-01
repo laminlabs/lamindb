@@ -87,7 +87,7 @@ class FeatureManager:
         return getattr(feature_set, self._accessor_by_orm[orm_name]).all()
 
     def get_labels(
-        self, feature: Optional[Union[str, ORM]] = None
+        self, feature: Optional[Union[str, ORM]] = None, mute: bool = False
     ) -> Union[QuerySet, Dict[str, QuerySet]]:
         """Get labels given a feature."""
         if isinstance(feature, str):
@@ -98,7 +98,7 @@ class FeatureManager:
         if feature.registries is None:
             raise ValueError("Feature does not have linked labels")
         registries_to_check = feature.registries.split("|")
-        if len(registries_to_check) > 1:
+        if len(registries_to_check) > 1 and not mute:
             logger.warning("Labels come from multiple registries!")
         qs_by_registry = {}
         for registry in registries_to_check:

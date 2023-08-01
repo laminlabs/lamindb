@@ -502,7 +502,7 @@ def describe(self):
                 slot += " (metadata)"
             msg += f"  🗺️ {colors.bold(slot)}:\n"
             for _, row in df_slot.iterrows():
-                labels = self.features.get_labels(row["name"])
+                labels = self.features.get_labels(row["name"], mute=True)
                 indent = ""
                 if isinstance(labels, dict):
                     msg += f"    🔗 {row['name']} ({row.registries})\n"
