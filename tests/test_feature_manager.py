@@ -35,7 +35,9 @@ def test_features_add_labels_using_anndata():
         adata.obs["cell_type_from_expert"], "name"
     )
     ln.save(cell_types_from_expert)
-    tissues = lb.Tissue.from_values(adata.obs["tissue"], "name")
+    actual_tissues = lb.Tissue.from_values(adata.obs["tissue"], "name")
+    organoid = ln.Label(name="organoid")
+    tissues = actual_tissues + [organoid]
 
     assert cell_types[0]._feature == "cell_type"
     assert cell_types[-1]._feature == "cell_type"
@@ -97,7 +99,8 @@ def test_features_add_labels_using_anndata():
     assert "species" in feature_set_ext.features.list("name")
 
     # now we add cell types & tissues and run checks
-    file.features.add_labels(cell_types + tissues + cell_types_from_expert)
+    file.features.add_labels(cell_types + cell_types_from_expert)
+    file.features.add_labels(tissues, feature="tissue")
     feature = ln.Feature.filter(name="cell_type").one()
     assert feature.type == "category"
     assert feature.registries == "bionty.CellType"
@@ -106,7 +109,7 @@ def test_features_add_labels_using_anndata():
     assert feature.registries == "bionty.CellType"
     feature = ln.Feature.filter(name="tissue").one()
     assert feature.type == "category"
-    assert feature.registries == "bionty.Tissue"
+    assert feature.registries == "bionty.Tissue|core.Label"
     diseases = ln.Label.from_values(adata.obs["disease"])
     file.features.add_labels(diseases, feature="disease")
     df = file.features["obs"].df()
