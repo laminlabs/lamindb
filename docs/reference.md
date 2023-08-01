@@ -1,13 +1,13 @@
 # Reference
 
-<meta http-equiv="Refresh" content="0; url=./ref/lamindb" />
+<meta http-equiv="Refresh" content="0; url=./lamindb.html" />
 
 ```{toctree}
 :maxdepth: 1
 :caption: Core API
 :hidden:
 
-ref/lamindb
+lamindb
 ```
 
 ```{toctree}
