@@ -46,22 +46,26 @@ DIRS = AppDirs("lamindb", "laminlabs")
 
 def process_pathlike(
     filepath: Union[Path, UPath], skip_existence_check: bool = False
-) -> Tuple[str, str]:
+) -> Tuple[Union[UPath, Path], str]:
     if not skip_existence_check:
         try:  # check if file exists
             if not filepath.exists():
                 raise FileNotFoundError(filepath)
         except PermissionError:
             pass
+    filepath = filepath.resolve()
     # check whether the path is in default storage
-    if check_path_is_child_of_root(filepath):
-        root = lamindb_setup.settings.storage.root
-        storage_id = lamindb_setup.settings.storage.id
+    root = lamindb_setup.settings.storage.root
+    storage_id = lamindb_setup.settings.storage.id
+    if check_path_is_child_of_root(filepath, root):
+        return root, storage_id
     else:
         # check whether the path is part of of one the existing
         # already-registered storage locations
         result = check_path_in_existing_storage(filepath)
-        if not isinstance(result, Storage):
+        if isinstance(result, Storage):
+            return UPath(result.root), result.id
+        else:
             # if the path is in the cloud, we have a good candidate
             # for the storage root: the bucket
             if isinstance(filepath, UPath):
@@ -73,19 +77,21 @@ def process_pathlike(
                 )
                 storage_settings = StorageSettings(new_root_str)
                 register_storage(storage_settings)
-                root = storage_settings.root
-                storage_id = storage_settings.id
-            else:
+                return storage_settings.root, storage_settings.id
+            # if filepath is local, we treat it as a cache filepath if the
+            # default storage is in the cloud - the file is going to be uploaded
+            # upon saving it if the default storage is local, we throw an error
+            # - moving files locally is not a use case that people would expect
+            elif not lamindb_setup.settings.storage.is_cloud:
+                formatted_roots = "\n".join(Storage.filter().list("root"))
                 raise ValueError(
                     "Currently don't support tracking files outside one of the"
-                    f" existing storage roots:\n{Storage.filter().df()}\nRegister a new"
-                    " storage location via: ln.Storage(root='path/to/my/new_root',"
+                    f" storage roots:\n{formatted_roots}\nRegister a new"
+                    " storage location:\nln.Storage(root='path/to/my/new_root',"
                     " type='local').save()"
                 )
-        else:
-            root = result.root
-            storage_id = result.id
-    return root, storage_id
+            else:
+                return root, storage_id
 
 
 def process_data(
@@ -93,7 +99,7 @@ def process_data(
     data: Union[Path, UPath, str, pd.DataFrame, AnnData],
     format,
     skip_existence_check: bool = False,
-) -> Tuple[Any, Union[Path, UPath], str, str, str]:
+) -> Tuple[Any, Union[Path, UPath], str, Union[Path, UPath], str]:
     """Serialize a data object that's provided as file or in memory."""
     # if not overwritten, data gets stored in default storage
     if isinstance(data, (str, Path, UPath)):
@@ -251,13 +257,14 @@ def check_path_in_existing_storage(
 ) -> Union[Storage, bool]:
     for storage in Storage.filter().all():
         # if path is part of storage, return it
-        if check_path_is_child_of_root(filepath, root=storage.root):
+        print(storage)
+        if check_path_is_child_of_root(filepath, root=UPath(storage.root)):
             return storage
     return False
 
 
 def check_path_is_child_of_root(
-    filepath: Union[Path, UPath], *, root: Optional[Union[Path, UPath]] = None
+    filepath: Union[Path, UPath], root: Optional[Union[Path, UPath]] = None
 ) -> bool:
     assert isinstance(filepath, Path)
     if root is None:
@@ -270,7 +277,7 @@ def check_path_is_child_of_root(
         # test as equivalent
         return list(filepath.parents)[-1].as_posix() == root.as_posix()
     elif not isinstance(filepath, UPath) and not isinstance(root, UPath):
-        return root in filepath.resolve().parents
+        return root.resolve() in filepath.resolve().parents
     else:
         return False
 
@@ -288,15 +295,6 @@ def get_relative_path_to_directory(
     else:
         raise TypeError("directory not of type Path or UPath")
     return relpath
-
-
-def get_relative_path_to_root(
-    path: Union[Path, UPath], *, root: Optional[Union[Path, UPath]] = None
-) -> Union[PurePath, Path]:
-    """Relative path to the storage root path."""
-    if root is None:
-        root = lamindb_setup.settings.storage.root
-    return get_relative_path_to_directory(path, root)
 
 
 def get_file_kwargs_from_data(
@@ -331,7 +329,7 @@ def get_file_kwargs_from_data(
     # then use the existing relative path within the storage location
     # as storage key
     if memory_rep is None and key is None and check_path_in_storage:
-        key = get_relative_path_to_root(path=filepath, root=root).as_posix()
+        key = get_relative_path_to_directory(path=filepath, directory=root).as_posix()
 
     if key is not None and key.startswith(AUTO_KEY_PREFIX):
         raise ValueError(f"Key cannot start with {AUTO_KEY_PREFIX}")
@@ -574,16 +572,15 @@ def from_dir(
     path: PathLike,
     *,
     run: Optional[Run] = None,
-    storage_root: Optional[PathLike] = None,
 ) -> List["File"]:
     """{}"""
     folderpath = UPath(path)
-    folder_key = get_relative_path_to_root(
-        path=folderpath, root=storage_root
-    ).as_posix()
+    root, _ = process_pathlike(folderpath)
+    folder_key_path = get_relative_path_to_directory(folderpath, root)
+
     # always sanitize by stripping a trailing slash
-    folder_key = folder_key.rstrip("/")
-    logger.hint(f"using storage prefix = {folder_key}/")
+    folder_key = folder_key_path.as_posix().rstrip("/")
+    logger.hint(f"using storage {root} and key prefix = {folder_key}/")
 
     # TODO: UPath doesn't list the first level files and dirs with "*"
     pattern = "" if isinstance(folderpath, UPath) else "*"
@@ -797,7 +794,7 @@ def path(self) -> Union[Path, UPath]:
 @doc_args(File.tree.__doc__)
 def tree(
     cls: File,
-    prefix: Optional[str] = None,
+    path: Optional[PathLike] = None,
     *,
     level: int = -1,
     limit_to_directories: bool = False,
@@ -809,10 +806,10 @@ def tree(
     tee = "├── "
     last = "└── "
 
-    if prefix is None:
+    if path is None:
         dir_path = settings.storage
     else:
-        dir_path = settings.storage / prefix
+        dir_path = UPath(path)
     files = 0
     directories = 0
 

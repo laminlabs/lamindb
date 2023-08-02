@@ -11,7 +11,7 @@ from lamindb_setup.dev.upath import UPath
 
 import lamindb as ln
 from lamindb import _file
-from lamindb._file import check_path_is_child_of_root, get_relative_path_to_root
+from lamindb._file import check_path_is_child_of_root, get_relative_path_to_directory
 
 # how do we properly abstract out the default storage variable?
 # currently, we're only mocking it through `default_storage` as
@@ -101,7 +101,7 @@ def test_create_from_anndata_in_memory():
 )
 def test_create_from_anndata_in_storage(data):
     if isinstance(data, ad.AnnData):
-        filepath = Path("test_adata.h5ad")
+        filepath = Path("./default_storage/test_adata.h5ad")
         data.write(filepath)
     else:
         previous_storage = ln.setup.settings.storage.root_as_str
@@ -132,8 +132,8 @@ def get_test_filepaths(request):  # -> Tuple[bool, Path, Path, Path]
     root_dir: Path = Path(request.param[1])
     if isin_existing_storage:
         # ensure that it's actually registered
-        if ln.Storage.filter(root=root_dir.as_posix()).one_or_none() is None:
-            ln.Storage(root=root_dir.as_posix(), type="local").save()
+        if ln.Storage.filter(root=root_dir.resolve().as_posix()).one_or_none() is None:
+            ln.Storage(root=root_dir.resolve().as_posix(), type="local").save()
     test_dir = root_dir / "my_dir/"
     test_dir.mkdir(parents=True)
     test_filepath = test_dir / "my_file.csv"
@@ -194,18 +194,25 @@ def test_local_path_load():
     assert file._local_filepath.resolve() == file.stage() == file.path()
 
 
+ERROR_MESSAGE = """\
+ValueError: Currently don't support tracking files outside one of the storage roots:
+/Users/falexwolf/repos/lamin-platform/src/lamindb/default_storage
+/Users/falexwolf/repos/lamin-platform/src/lamindb/registered_storage
+Register a new storage location:
+ln.Storage(root='path/to/my/new_root', type='local').save()"""
+
+
 def test_init_from_directory(get_test_filepaths):
     isin_existing_storage = get_test_filepaths[0]
-    test_dirpath = get_test_filepaths[1]
+    test_dirpath = get_test_filepaths[2]
     if isin_existing_storage:
-        storage_root = None
+        records = ln.File.from_dir(test_dirpath)
+        assert len(records) == 1
+        ln.File.tree(test_dirpath)
     else:
-        storage_root = test_dirpath.parent
-    records = ln.File.from_dir(test_dirpath, storage_root=storage_root)
-    assert len(records) == 1
-    # also execute tree
-    if isin_existing_storage:
-        ln.File.tree(test_dirpath.name)
+        with pytest.raises(ValueError) as error:
+            ln.File.from_dir(test_dirpath)
+        assert error.exconly() == ERROR_MESSAGE
 
 
 def test_delete(get_test_filepaths):
@@ -333,18 +340,20 @@ def test_storage_root_upath_equivalence():
     assert filepath.parents[-1] == storage_root
 
 
-def test_get_relative_path_to_root():
+def test_get_relative_path_to_directory():
     # upath on S3
     root = UPath("s3://lamindb-ci")
     upath = UPath("s3://lamindb-ci/test-data/test.csv")
     assert (
-        "test-data/test.csv" == get_relative_path_to_root(upath, root=root).as_posix()
+        "test-data/test.csv"
+        == get_relative_path_to_directory(upath, directory=root).as_posix()
     )
     # local path
     root = Path("/lamindb-ci")
     upath = Path("/lamindb-ci/test-data/test.csv")
     assert (
-        "test-data/test.csv" == get_relative_path_to_root(upath, root=root).as_posix()
+        "test-data/test.csv"
+        == get_relative_path_to_directory(upath, directory=root).as_posix()
     )
 
 
