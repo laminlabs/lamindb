@@ -257,13 +257,16 @@ def _filter_bionty_df_columns(model: ORM, bionty_object: Any) -> pd.DataFrame:
         bionty_df = bionty_object.df().reset_index()
         if model.__name__ == "Gene":
             # groupby ensembl_gene_id and concat ncbi_gene_ids
+            groupby_id_col = (
+                "ensembl_gene_id" if "ensembl_gene_id" in bionty_df else "stable_id"
+            )
             bionty_df.drop(
                 columns=["hgnc_id", "mgi_id", "index"], errors="ignore", inplace=True
             )
-            bionty_df.drop_duplicates(["ensembl_gene_id", "ncbi_gene_id"], inplace=True)
+            bionty_df.drop_duplicates([groupby_id_col, "ncbi_gene_id"], inplace=True)
             bionty_df["ncbi_gene_id"] = bionty_df["ncbi_gene_id"].fillna("")
             bionty_df = (
-                bionty_df.groupby("ensembl_gene_id")
+                bionty_df.groupby(groupby_id_col)
                 .agg(
                     {
                         "symbol": "first",
