@@ -54,7 +54,10 @@ def process_pathlike(
         except PermissionError:
             pass
     # check whether the path is in default storage
-    if not check_path_is_child_of_root(filepath):
+    if check_path_is_child_of_root(filepath):
+        root = lamindb_setup.settings.storage.root
+        storage_id = lamindb_setup.settings.storage.id
+    else:
         # check whether the path is part of of one the existing
         # already-registered storage locations
         result = check_path_in_existing_storage(filepath)
@@ -93,8 +96,6 @@ def process_data(
 ) -> Tuple[Any, Union[Path, UPath], str, str, str]:
     """Serialize a data object that's provided as file or in memory."""
     # if not overwritten, data gets stored in default storage
-    root = lamindb_setup.settings.storage.root
-    storage_id = lamindb_setup.settings.storage.id
     if isinstance(data, (str, Path, UPath)):
         filepath = UPath(data)  # returns Path for local
         root, storage_id = process_pathlike(
@@ -103,6 +104,8 @@ def process_data(
         suffix = suffix = "".join(filepath.suffixes)
         memory_rep = None
     elif isinstance(data, (pd.DataFrame, AnnData)):
+        root = lamindb_setup.settings.storage.root
+        storage_id = lamindb_setup.settings.storage.id
         memory_rep = data
         suffix = infer_suffix(data, format)
         cache_name = f"{provisional_id}{suffix}"
