@@ -120,18 +120,27 @@ def test_create_from_anndata_in_storage(data):
 
 
 @pytest.fixture(
-    scope="module", params=[(True, "./default_storage/"), (False, "./outside_storage/")]
+    scope="module",
+    params=[
+        (True, "./default_storage/"),
+        (True, "./registered_storage/"),
+        (False, "./nonregistered_storage/"),
+    ],
 )
-def get_test_filepaths(request):  # -> Tuple[bool, Path, Path]
-    isin_default_storage: bool = request.param[0]
+def get_test_filepaths(request):  # -> Tuple[bool, Path, Path, Path]
+    isin_existing_storage: bool = request.param[0]
     root_dir: Path = Path(request.param[1])
+    if isin_existing_storage:
+        # ensure that it's actually registered
+        if ln.Storage.filter(root=root_dir.as_posix()).one_or_none() is None:
+            ln.Storage(root=root_dir.as_posix(), type="local").save()
     test_dir = root_dir / "my_dir/"
     test_dir.mkdir(parents=True)
     test_filepath = test_dir / "my_file.csv"
     test_filepath.write_text("a")
     # return a boolean indicating whether test filepath is in default storage
     # and the test filepath
-    yield (isin_default_storage, test_dir, test_filepath)
+    yield (isin_existing_storage, root_dir, test_dir, test_filepath)
     shutil.rmtree(test_dir)
 
 
@@ -139,22 +148,28 @@ def get_test_filepaths(request):  # -> Tuple[bool, Path, Path]
 @pytest.mark.parametrize("key", [None, "my_new_dir/my_file.csv"])
 @pytest.mark.parametrize("name", [None, "my name"])
 def test_create_from_local_filepath(get_test_filepaths, key, name):
-    isin_default_storage = get_test_filepaths[0]
-    test_filepath = get_test_filepaths[2]
-    file = ln.File(test_filepath, key=key, name=name)
+    isin_existing_storage = get_test_filepaths[0]
+    root_dir = get_test_filepaths[1]
+    test_filepath = get_test_filepaths[3]
+    if isin_existing_storage:
+        file = ln.File(test_filepath, key=key, name=name)
+    else:
+        with pytest.raises(ValueError):
+            file = ln.File(test_filepath, key=key, name=name)
+        return None
     assert file.description is None if name is None else file.description == name
     assert file.suffix == ".csv"
     if key is None:
         assert (
             file.key == "my_dir/my_file.csv"
-            if isin_default_storage
+            if isin_existing_storage
             else file.key is None
         )
     else:
         assert file.key == key
-    assert file.storage.root == Path("./default_storage").resolve().as_posix()
+    assert file.storage.root == root_dir.resolve().as_posix()
     assert file.hash == "DMF1ucDxtqgxw5niaXcmYQ"
-    if isin_default_storage and key is None:
+    if isin_existing_storage and key is None:
         assert str(test_filepath.resolve()) == str(file.path())
 
     # need to figure out how to save!
@@ -180,16 +195,16 @@ def test_local_path_load():
 
 
 def test_init_from_directory(get_test_filepaths):
-    isin_default_storage = get_test_filepaths[0]
+    isin_existing_storage = get_test_filepaths[0]
     test_dirpath = get_test_filepaths[1]
-    if isin_default_storage:
+    if isin_existing_storage:
         storage_root = None
     else:
         storage_root = test_dirpath.parent
     records = ln.File.from_dir(test_dirpath, storage_root=storage_root)
     assert len(records) == 1
     # also execute tree
-    if isin_default_storage:
+    if isin_existing_storage:
         ln.File.tree(test_dirpath.name)
 
 
