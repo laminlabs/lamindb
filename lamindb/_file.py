@@ -65,7 +65,7 @@ def serialize(
                 pass
         if isinstance(filepath, UPath):
             new_storage = list(filepath.parents)[-1]
-            if not check_path_in_default_storage(filepath):
+            if not check_path_is_child_of_root(filepath):
                 new_storage_str = new_storage.as_posix()
                 if not new_storage_str.startswith(("s3://", "gs://")):
                     raise NotImplementedError(
@@ -231,7 +231,7 @@ def get_path_size_hash(
     return localpath, cloudpath, size, hash_and_type
 
 
-def check_path_in_default_storage(
+def check_path_is_child_of_root(
     filepath: Union[Path, UPath], *, root: Optional[Union[Path, UPath]] = None
 ) -> bool:
     assert isinstance(filepath, Path)
@@ -274,7 +274,6 @@ def get_relative_path_to_root(
     return get_relative_path_to_directory(path, root)
 
 
-# TODO: integrate this whole function into __init__
 def get_file_kwargs_from_data(
     *,
     data: Union[Path, UPath, str, pd.DataFrame, AnnData],
@@ -299,7 +298,7 @@ def get_file_kwargs_from_data(
         return hash_and_type, None
     else:
         hash, hash_type = hash_and_type
-    path_is_in_default_storage = check_path_in_default_storage(filepath)
+    path_is_in_default_storage = check_path_is_child_of_root(filepath)
     path_is_remote = filepath.as_posix().startswith(("s3://", "gs://"))
     # consider a remote path a path that's already in the desired storage location
     check_path_in_storage = path_is_in_default_storage or path_is_remote
@@ -401,7 +400,6 @@ def __init__(file: File, *args, **kwargs):
 
     if not len(kwargs) == 0:
         raise ValueError("Only data, key, run, description can be passed.")
-
     if name is not None and description is not None:
         raise ValueError("Only pass description, do not pass a name")
     if name is not None:
@@ -420,10 +418,11 @@ def __init__(file: File, *args, **kwargs):
 
     # an object with the same hash already exists
     if isinstance(kwargs_or_file, File):
+        existing_file = kwargs_or_file
         # this is the way Django instantiates from the DB internally
         # https://github.com/django/django/blob/549d6ffeb6d626b023acc40c3bb2093b4b25b3d6/django/db/models/base.py#LL488C1-L491C51
         new_args = [
-            getattr(kwargs_or_file, field.attname)
+            getattr(existing_file, field.attname)
             for field in file._meta.concrete_fields
         ]
         super(File, file).__init__(*new_args)
