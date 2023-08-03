@@ -1,5 +1,6 @@
 # Changelog
 
+- 🎉 Stage 0.49.2 [PR972](https://github.com/laminlabs/lamindb/pull/972) [@falexwolf](https://github.com/falexwolf)
 - ♻️ Refactor storage root management [PR973](https://github.com/laminlabs/lamindb/pull/973) [@falexwolf](https://github.com/falexwolf)
 - 🎨 Make add_feature_set acid [PR980](https://github.com/laminlabs/lamindb/pull/980) [@sunnyosun](https://github.com/sunnyosun)
 - 📝 Simplified tutorial1 [PR977](https://github.com/laminlabs/lamindb/pull/977) [@sunnyosun](https://github.com/sunnyosun)
