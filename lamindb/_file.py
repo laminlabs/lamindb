@@ -260,7 +260,7 @@ def check_path_in_existing_storage(
 ) -> Union[Storage, bool]:
     for storage in Storage.filter().all():
         # if path is part of storage, return it
-        if check_path_is_child_of_root(filepath, root=UPath(storage.root)):
+        if check_path_is_child_of_root(filepath, root=_str_to_path(storage.root)):
             return storage
     return False
 
@@ -841,7 +841,7 @@ def tree(
     if path is None:
         dir_path = settings.storage
     else:
-        dir_path = UPath(path)
+        dir_path = path if isinstance(path, (Path, UPath)) else _str_to_path(path)
     files = 0
     directories = 0
 
