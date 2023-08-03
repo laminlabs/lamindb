@@ -359,9 +359,16 @@ def test_check_path_is_child_of_root():
 def test_serialize_paths():
     fp_str = "tests/test-files/pbmc68k.h5ad"
     fp_path = Path(fp_str)
-    #    fp_upath = UPath("s3://lamindb-ci/test-data/test.csv")
+
+    up_str = "s3://lamindb-ci/test-data/test.csv"
+    up_upath = UPath(up_str)
 
     _, filepath, _, _, _ = serialize("id", fp_str, None, skip_existence_check=True)
     assert isinstance(filepath, Path) and not isinstance(filepath, UPath)
     _, filepath, _, _, _ = serialize("id", fp_path, None, skip_existence_check=True)
     assert isinstance(filepath, Path) and not isinstance(filepath, UPath)
+
+    _, filepath, _, _, _ = serialize("id", up_str, None, skip_existence_check=True)
+    assert isinstance(filepath, UPath)
+    _, filepath, _, _, _ = serialize("id", up_upath, None, skip_existence_check=True)
+    assert isinstance(filepath, UPath)

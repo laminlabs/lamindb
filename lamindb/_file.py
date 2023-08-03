@@ -57,10 +57,7 @@ def serialize(
     storage_id = lamindb_setup.settings.storage.id
     # Convert str to either Path or UPath
     if isinstance(data, (str, Path, UPath)):
-        if isinstance(data, (Path, UPath)):
-            filepath = data
-        else:
-            filepath = _str_to_path(data)
+        filepath = data if isinstance(data, (Path, UPath)) else _str_to_path(data)
         if not skip_existence_check:
             try:  # check if file exists
                 if not filepath.exists():
@@ -516,7 +513,7 @@ def from_anndata(
     file = File(data=adata, key=key, run=run, description=description, log_hint=False)
     data_parse = adata
     if not isinstance(adata, AnnData):  # is a path
-        filepath = UPath(adata)  # returns Path for local
+        filepath = adata if isinstance(adata, (Path, UPath)) else _str_to_path(adata)
         if isinstance(filepath, UPath):
             from lamindb.dev.storage._backed_access import backed_access
 
@@ -556,7 +553,7 @@ def from_dir(
     storage_root: Optional[PathLike] = None,
 ) -> List["File"]:
     """{}"""
-    folderpath = UPath(path)
+    folderpath = path if isinstance(path, (Path, UPath)) else _str_to_path(path)
     folder_key = get_relative_path_to_root(
         path=folderpath, root=storage_root
     ).as_posix()
