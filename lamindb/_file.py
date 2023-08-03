@@ -13,7 +13,7 @@ from lamindb_setup import settings as setup_settings
 from lamindb_setup._init_instance import register_storage
 from lamindb_setup.dev import StorageSettings
 from lamindb_setup.dev._docs import doc_args
-from lnschema_core import Feature, FeatureSet, File, Run, ids
+from lnschema_core import Feature, FeatureSet, File, Run, Storage, ids
 from lnschema_core.types import AnnDataLike, DataLike, PathLike
 
 from lamindb._context import context
@@ -31,6 +31,7 @@ from lamindb.dev.storage import (
 from lamindb.dev.storage._backed_access import AnnDataAccessor, BackedAccessor
 from lamindb.dev.storage.file import (
     ProgressCallback,
+    _str_to_path,
     auto_storage_key_from_file,
     filepath_from_file,
 )
@@ -44,53 +45,75 @@ from .dev.storage.file import AUTO_KEY_PREFIX
 DIRS = AppDirs("lamindb", "laminlabs")
 
 
-def serialize(
+def process_pathlike(
+    filepath: Union[Path, UPath], skip_existence_check: bool = False
+) -> Tuple[Storage, bool]:
+    if not skip_existence_check:
+        try:  # check if file exists
+            if not filepath.exists():
+                raise FileNotFoundError(filepath)
+        except PermissionError:
+            pass
+    if not isinstance(filepath, UPath):
+        filepath = filepath.resolve()
+    # check whether the path is in default storage
+    default_storage = lamindb_setup.settings.storage.record
+    if check_path_is_child_of_root(filepath, default_storage.root_as_path()):
+        use_existing_storage_key = True
+        return default_storage, use_existing_storage_key
+    else:
+        # check whether the path is part of one of the existing
+        # already-registered storage locations
+        result = check_path_in_existing_storage(filepath)
+        if isinstance(result, Storage):
+            use_existing_storage_key = True
+            return result, use_existing_storage_key
+        else:
+            # if the path is in the cloud, we have a good candidate
+            # for the storage root: the bucket
+            if isinstance(filepath, UPath):
+                # for a UPath, new_root is always the bucket name
+                new_root = list(filepath.parents)[-1]
+                new_root_str = new_root.as_posix()
+                logger.warning(
+                    f"Creating new storage location for root: {new_root_str}"
+                )
+                storage_settings = StorageSettings(new_root_str)
+                register_storage(storage_settings)
+                use_existing_storage_key = True
+                return storage_settings.record, use_existing_storage_key
+            # if the filepath is local
+            else:
+                use_existing_storage_key = False
+                # if the default storage is local we'll throw an error if the user
+                # doesn't provide a key
+                if not lamindb_setup.settings.storage.is_cloud:
+                    return default_storage, use_existing_storage_key
+                # if the default storage is in the cloud (the file is going to
+                # be uploaded upon saving it), we treat the filepath as a cache
+                else:
+                    return default_storage, use_existing_storage_key
+
+
+def process_data(
     provisional_id: str,
-    data: Union[Path, UPath, str, pd.DataFrame, AnnData],
+    data: Union[PathLike, DataLike],
     format,
     skip_existence_check: bool = False,
-) -> Tuple[Any, Union[Path, UPath], str, str, str]:
+) -> Tuple[Any, Union[Path, UPath], str, Storage, bool]:
     """Serialize a data object that's provided as file or in memory."""
     # if not overwritten, data gets stored in default storage
-    root = lamindb_setup.settings.storage.root
-    storage_id = lamindb_setup.settings.storage.id
-    # Convert str to either Path or UPath
-    if isinstance(data, (str, Path, UPath)):
-        filepath = UPath(data)  # returns Path for local
-        if not skip_existence_check:
-            try:  # check if file exists
-                if not filepath.exists():
-                    raise FileNotFoundError(filepath)
-            except PermissionError:  # we will setup permissions later
-                pass
-        if isinstance(filepath, UPath):
-            new_storage = list(filepath.parents)[-1]
-            if not check_path_in_default_storage(filepath):
-                new_storage_str = new_storage.as_posix()
-                if not new_storage_str.startswith(("s3://", "gs://")):
-                    raise NotImplementedError(
-                        "Currently don't allow to set local storage locations on"
-                        " the fly"
-                    )
-                else:
-                    logger.warning(
-                        "Creating file outside default storage is slightly slower"
-                    )
-                storage_settings = StorageSettings(new_storage_str)
-                root = storage_settings.root
-                register_storage(storage_settings)
-                storage_id = storage_settings.id
-            if isinstance(root, UPath):
-                # this might be wrong in some cases!
-                filepath = UPath(
-                    filepath, **root._kwargs
-                )  # inherit fsspec kwargs from root
+    if isinstance(data, (str, Path, UPath)):  # PathLike, spelled out
+        filepath = (
+            data if isinstance(data, (Path, UPath)) else _str_to_path(data)
+        )  # returns Path for local
+        storage, use_existing_storage_key = process_pathlike(
+            filepath, skip_existence_check=skip_existence_check
+        )
+        suffix = suffix = "".join(filepath.suffixes)
         memory_rep = None
-        # also see tests/test_file_hashing.py
-        suffix = "".join(filepath.suffixes)
-    # For now, in-memory objects are always saved to local_filepath first
-    # This behavior will change in the future
-    elif isinstance(data, (pd.DataFrame, AnnData)):
+    elif isinstance(data, (pd.DataFrame, AnnData)):  # DataLike, spelled out
+        storage = lamindb_setup.settings.storage.record
         memory_rep = data
         suffix = infer_suffix(data, format)
         cache_name = f"{provisional_id}{suffix}"
@@ -106,12 +129,13 @@ def serialize(
             filepath = filepath.with_suffix(suffix)
         if suffix != ".zarr":
             write_to_file(data, filepath)
+        use_existing_storage_key = False
     else:
         raise NotImplementedError(
             f"Do not know how to create a file object from {data}, pass a filepath"
             " instead!"
         )
-    return memory_rep, filepath, suffix, root, storage_id
+    return memory_rep, filepath, suffix, storage, use_existing_storage_key
 
 
 def get_hash(
@@ -231,8 +255,18 @@ def get_path_size_hash(
     return localpath, cloudpath, size, hash_and_type
 
 
-def check_path_in_default_storage(
-    filepath: Union[Path, UPath], *, root: Optional[Union[Path, UPath]] = None
+def check_path_in_existing_storage(
+    filepath: Union[Path, UPath]
+) -> Union[Storage, bool]:
+    for storage in Storage.filter().all():
+        # if path is part of storage, return it
+        if check_path_is_child_of_root(filepath, root=_str_to_path(storage.root)):
+            return storage
+    return False
+
+
+def check_path_is_child_of_root(
+    filepath: Union[Path, UPath], root: Optional[Union[Path, UPath]] = None
 ) -> bool:
     assert isinstance(filepath, Path)
     if root is None:
@@ -245,7 +279,7 @@ def check_path_in_default_storage(
         # test as equivalent
         return list(filepath.parents)[-1].as_posix() == root.as_posix()
     elif not isinstance(filepath, UPath) and not isinstance(root, UPath):
-        return root in filepath.resolve().parents
+        return root.resolve() in filepath.resolve().parents
     else:
         return False
 
@@ -265,16 +299,6 @@ def get_relative_path_to_directory(
     return relpath
 
 
-def get_relative_path_to_root(
-    path: Union[Path, UPath], *, root: Optional[Union[Path, UPath]] = None
-) -> Union[PurePath, Path]:
-    """Relative path to the storage root path."""
-    if root is None:
-        root = lamindb_setup.settings.storage.root
-    return get_relative_path_to_directory(path, root)
-
-
-# TODO: integrate this whole function into __init__
 def get_file_kwargs_from_data(
     *,
     data: Union[Path, UPath, str, pd.DataFrame, AnnData],
@@ -285,7 +309,7 @@ def get_file_kwargs_from_data(
     skip_check_exists: bool = False,
 ):
     run = get_run(run)
-    memory_rep, filepath, suffix, root, storage_id = serialize(
+    memory_rep, filepath, suffix, storage, use_existing_storage_key = process_data(
         provisional_id, data, format, skip_check_exists
     )
     # the following will return a localpath that is not None if filepath is local
@@ -299,18 +323,26 @@ def get_file_kwargs_from_data(
         return hash_and_type, None
     else:
         hash, hash_type = hash_and_type
-    path_is_in_default_storage = check_path_in_default_storage(filepath)
-    path_is_remote = filepath.as_posix().startswith(("s3://", "gs://"))
-    # consider a remote path a path that's already in the desired storage location
-    check_path_in_storage = path_is_in_default_storage or path_is_remote
-    # if we pass a file, no storage key, and path is already in storage,
-    # then use the existing relative path within the storage location
-    # as storage key
-    if memory_rep is None and key is None and check_path_in_storage:
-        key = get_relative_path_to_root(path=filepath, root=root).as_posix()
+
+    check_path_in_storage = False
+    if key is None and use_existing_storage_key:
+        key = get_relative_path_to_directory(
+            path=filepath, directory=storage.root_as_path()
+        ).as_posix()
+        check_path_in_storage = True
+    else:
+        storage = lamindb_setup.settings.storage.record
 
     if key is not None and key.startswith(AUTO_KEY_PREFIX):
         raise ValueError(f"Key cannot start with {AUTO_KEY_PREFIX}")
+
+    log_storage_hint(
+        check_path_in_storage=check_path_in_storage,
+        storage=storage,
+        key=key,
+        id=provisional_id,
+        suffix=suffix,
+    )
 
     kwargs = dict(
         suffix=suffix,
@@ -318,7 +350,7 @@ def get_file_kwargs_from_data(
         hash_type=hash_type,
         key=key,
         size=size,
-        storage_id=storage_id,
+        storage_id=storage.id,
         # passing both the id and the object
         # to make them both available immediately
         # after object creation
@@ -336,17 +368,22 @@ def get_file_kwargs_from_data(
 
 
 def log_storage_hint(
-    *, check_path_in_storage: bool, key: str, id: str, suffix: str
+    *,
+    check_path_in_storage: bool,
+    storage: Optional[Storage],
+    key: Optional[str],
+    id: str,
+    suffix: str,
 ) -> None:
     hint = ""
     if check_path_in_storage:
-        hint += "File in storage ✓"
+        hint += f"file in storage {storage.root}"  # type: ignore
     else:
-        hint += "File will be copied to storage upon `save()`"
+        hint += "file will be copied to default storage upon `save()`"
     if key is None:
-        hint += f" using storage key = {id}{suffix}"
+        hint += f" with key = {id}{suffix}"
     else:
-        hint += f" using storage key = {key}"
+        hint += f" with key = {key}"
     logger.hint(hint)
 
 
@@ -401,7 +438,6 @@ def __init__(file: File, *args, **kwargs):
 
     if not len(kwargs) == 0:
         raise ValueError("Only data, key, run, description can be passed.")
-
     if name is not None and description is not None:
         raise ValueError("Only pass description, do not pass a name")
     if name is not None:
@@ -420,10 +456,11 @@ def __init__(file: File, *args, **kwargs):
 
     # an object with the same hash already exists
     if isinstance(kwargs_or_file, File):
+        existing_file = kwargs_or_file
         # this is the way Django instantiates from the DB internally
         # https://github.com/django/django/blob/549d6ffeb6d626b023acc40c3bb2093b4b25b3d6/django/db/models/base.py#LL488C1-L491C51
         new_args = [
-            getattr(kwargs_or_file, field.attname)
+            getattr(existing_file, field.attname)
             for field in file._meta.concrete_fields
         ]
         super(File, file).__init__(*new_args)
@@ -452,13 +489,6 @@ def __init__(file: File, *args, **kwargs):
 
     kwargs["id"] = provisional_id
     kwargs["description"] = description
-    log_storage_hint(
-        check_path_in_storage=privates["check_path_in_storage"],
-        key=kwargs["key"],
-        id=kwargs["id"],
-        suffix=kwargs["suffix"],
-    )
-
     # transform cannot be directly passed, just via run
     # it's directly stored in the file table to avoid another join
     # mediate by the run table
@@ -513,7 +543,7 @@ def from_anndata(
     file = File(data=adata, key=key, run=run, description=description, log_hint=False)
     data_parse = adata
     if not isinstance(adata, AnnData):  # is a path
-        filepath = UPath(adata)  # returns Path for local
+        filepath = adata if isinstance(adata, (Path, UPath)) else _str_to_path(adata)
         if isinstance(filepath, UPath):
             from lamindb.dev.storage._backed_access import backed_access
 
@@ -548,18 +578,41 @@ def from_anndata(
 def from_dir(
     cls,
     path: PathLike,
+    key: Optional[str] = None,
     *,
     run: Optional[Run] = None,
-    storage_root: Optional[PathLike] = None,
 ) -> List["File"]:
     """{}"""
-    folderpath = UPath(path)
-    folder_key = get_relative_path_to_root(
-        path=folderpath, root=storage_root
-    ).as_posix()
+    folderpath = path if isinstance(path, (Path, UPath)) else _str_to_path(path)
+    storage, use_existing_storage = process_pathlike(folderpath)
+    # we are never erroring right now, can remove below, soon
+    # if key is None and not use_existing_storage:
+    #     formatted_roots = "\n".join(Storage.filter().list("root"))
+    #     raise ValueError(
+    #   "If `key` is None, don't support tracking folders outside one of the"
+    #   f" storage roots:\n{formatted_roots}\nEither pass key, move folder"
+    #   " or register new storage location:\nln.Storage(root='path/to/my/new_root',"
+    #   " type='local').save()"
+    #     )
+    folder_key_path: Union[PurePath, Path]
+    if key is None:
+        if not use_existing_storage:
+            logger.warning(
+                "Folder is outside existing storage location, will copy files from"
+                f" {path} to {storage}/{folderpath.name}"
+            )
+            folder_key_path = Path(folderpath.name)
+        else:
+            # maintain the hierachy within an existing storage location
+            folder_key_path = get_relative_path_to_directory(
+                folderpath, storage.root_as_path()
+            )
+    else:
+        folder_key_path = Path(key)
+
     # always sanitize by stripping a trailing slash
-    folder_key = folder_key.rstrip("/")
-    logger.hint(f"using storage prefix = {folder_key}/")
+    folder_key = folder_key_path.as_posix().rstrip("/")
+    logger.hint(f"using storage {storage.root} and key prefix = {folder_key}/")
 
     # TODO: UPath doesn't list the first level files and dirs with "*"
     pattern = "" if isinstance(folderpath, UPath) else "*"
@@ -773,7 +826,7 @@ def path(self) -> Union[Path, UPath]:
 @doc_args(File.tree.__doc__)
 def tree(
     cls: File,
-    prefix: Optional[str] = None,
+    path: Optional[PathLike] = None,
     *,
     level: int = -1,
     limit_to_directories: bool = False,
@@ -785,10 +838,10 @@ def tree(
     tee = "├── "
     last = "└── "
 
-    if prefix is None:
+    if path is None:
         dir_path = settings.storage
     else:
-        dir_path = settings.storage / prefix
+        dir_path = path if isinstance(path, (Path, UPath)) else _str_to_path(path)
     files = 0
     directories = 0
 

@@ -17,8 +17,8 @@ dependencies = [
     # Lamin PINNED packages
     # !!! These packages should ALWAYS be pinned, do not unpin !!!
     # !!! They cannot be pinned ANYWHERE else !!!
-    "lnschema_core==0.43.0",
-    "lamindb_setup==0.49.2",
+    "lnschema_core==0.43.2",
+    "lamindb_setup==0.49.3",
     "lamin_utils==0.9.3",
     # Lamin GREATEREQ packages
     "erdiagram>=0.1.2",
@@ -30,7 +30,7 @@ dependencies = [
     "python-dateutil",
     "anndata>=0.9.1",  # includes scipy
     "fsspec",
-    "universal_pathlib",
+    "universal_pathlib==0.1.0",
     "pandas",
 ]
 
