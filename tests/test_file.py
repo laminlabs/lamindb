@@ -3,6 +3,7 @@ from inspect import signature
 from pathlib import Path
 
 import anndata as ad
+import lamindb_setup
 import lnschema_bionty as lb
 import numpy as np
 import pandas as pd
@@ -17,6 +18,7 @@ from lamindb._file import check_path_is_child_of_root, get_relative_path_to_dire
 # currently, we're only mocking it through `default_storage` as
 # set in conftest.py
 
+ln.settings.verbosity = 3
 lb.settings.species = "human"
 
 df = pd.DataFrame({"feat1": [1, 2], "feat2": [3, 4]})
@@ -146,18 +148,17 @@ def get_test_filepaths(request):  # -> Tuple[bool, Path, Path, Path]
 
 # this tests the basic (non-provenance-related) metadata
 @pytest.mark.parametrize("key", [None, "my_new_dir/my_file.csv"])
-@pytest.mark.parametrize("name", [None, "my name"])
-def test_create_from_local_filepath(get_test_filepaths, key, name):
+@pytest.mark.parametrize("description", [None, "my description"])
+def test_create_from_local_filepath(get_test_filepaths, key, description):
     isin_existing_storage = get_test_filepaths[0]
     root_dir = get_test_filepaths[1]
     test_filepath = get_test_filepaths[3]
-    if isin_existing_storage:
-        file = ln.File(test_filepath, key=key, name=name)
-    else:
-        with pytest.raises(ValueError):
-            file = ln.File(test_filepath, key=key, name=name)
-        return None
-    assert file.description is None if name is None else file.description == name
+    file = ln.File(test_filepath, key=key, description=description)
+    assert (
+        file.description is None
+        if description is None
+        else file.description == description
+    )
     assert file.suffix == ".csv"
     if key is None:
         assert (
@@ -165,18 +166,27 @@ def test_create_from_local_filepath(get_test_filepaths, key, name):
             if isin_existing_storage
             else file.key is None
         )
+        if isin_existing_storage:
+            assert file.storage.root == root_dir.resolve().as_posix()
+        else:
+            assert file.storage.root == lamindb_setup.settings.storage.root_as_str
     else:
         assert file.key == key
-    assert file.storage.root == root_dir.resolve().as_posix()
+        assert file.storage.root == lamindb_setup.settings.storage.root_as_str
     assert file.hash == "DMF1ucDxtqgxw5niaXcmYQ"
+
+    # test that the file didn't move
     if isin_existing_storage and key is None:
         assert str(test_filepath.resolve()) == str(file.path())
 
-    # need to figure out how to save!
-    # now save it
-    # file.save()
-    # assert file.path().exists()
-    # file.delete(storage=True)
+    # now, save the file
+    file.save()
+    print(file.path())
+    assert file.path().exists()
+
+    # only delete from storage if a file copy took place
+    delete_from_storage = str(test_filepath.resolve()) != str(file.path())
+    file.delete(storage=delete_from_storage)
 
 
 def test_local_path_load():
@@ -195,29 +205,21 @@ def test_local_path_load():
 
 
 ERROR_MESSAGE = """\
-ValueError: Currently don't support tracking files outside one of the storage roots:
-/Users/falexwolf/repos/lamin-platform/src/lamindb/default_storage
-/Users/falexwolf/repos/lamin-platform/src/lamindb/registered_storage
-Register a new storage location:
-ln.Storage(root='path/to/my/new_root', type='local').save()"""
+ValueError: Currently don't support tracking folders outside one of the storage roots:
+"""
 
 
-def test_init_from_directory(get_test_filepaths):
-    isin_existing_storage = get_test_filepaths[0]
+@pytest.mark.parametrize("key", [None, "my_new_folder"])
+def test_init_from_directory(get_test_filepaths, key):
     test_dirpath = get_test_filepaths[2]
-    if isin_existing_storage:
-        records = ln.File.from_dir(test_dirpath)
-        assert len(records) == 1
-        ln.File.tree(test_dirpath)
-    else:
-        with pytest.raises(ValueError) as error:
-            ln.File.from_dir(test_dirpath)
-        assert error.exconly() == ERROR_MESSAGE
+    records = ln.File.from_dir(test_dirpath, key=key)
+    assert len(records) == 1
+    ln.File.tree(test_dirpath)
 
 
 def test_delete(get_test_filepaths):
-    test_filepath = get_test_filepaths[2]
-    file = ln.File(test_filepath, name="My test file to delete")
+    test_filepath = get_test_filepaths[3]
+    file = ln.File(test_filepath, description="My test file to delete")
     file.save()
     storage_path = file.path()
     file.delete(storage=True)
