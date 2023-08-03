@@ -2,7 +2,7 @@ from pathlib import Path
 
 import h5py
 
-from lamindb.dev.storage import _infer_filesystem, delete_storage
+from lamindb.dev.storage import delete_storage, infer_filesystem
 from lamindb.dev.storage._backed_access import AnnDataAccessor
 from lamindb.dev.storage._zarr import read_adata_zarr, write_adata_zarr
 from lamindb.dev.storage.file import read_adata_h5ad
@@ -27,7 +27,7 @@ def test_anndata_io():
 
 
 def test_backed_access():
-    fs, file_path_str = _infer_filesystem("tests/test-files/pbmc68k.h5ad")
+    fs, file_path_str = infer_filesystem("tests/test-files/pbmc68k.h5ad")
     conn = fs.open(file_path_str, mode="rb")
     storage = h5py.File(conn, mode="r")
 
