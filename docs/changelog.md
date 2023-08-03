@@ -1,5 +1,6 @@
 # Changelog
 
+- 🎨 Make add_feature_set acid [PR980](https://github.com/laminlabs/lamindb/pull/980) [@sunnyosun](https://github.com/sunnyosun)
 - 📝 Simplified tutorial1 [PR977](https://github.com/laminlabs/lamindb/pull/977) [@sunnyosun](https://github.com/sunnyosun)
 - 📌 Pin upath [PR979](https://github.com/laminlabs/lamindb/pull/979) [@Koncopd](https://github.com/Koncopd)
 - 🐛 Prepare for a new upath release [PR976](https://github.com/laminlabs/lamindb/pull/976) [@Koncopd](https://github.com/Koncopd)
