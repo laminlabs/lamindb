@@ -133,7 +133,6 @@ def store_object(localpath: Union[str, Path], storagekey: str) -> float:
         if localpath.is_file():
             try:
                 shutil.copyfile(localpath, storagepath)
-                print(f"copied file from {localpath} to {storagepath}")
             except shutil.SameFileError:
                 pass
         else:
