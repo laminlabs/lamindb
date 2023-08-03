@@ -31,6 +31,7 @@ from lamindb.dev.storage import (
 from lamindb.dev.storage._backed_access import AnnDataAccessor, BackedAccessor
 from lamindb.dev.storage.file import (
     ProgressCallback,
+    _str_to_path,
     auto_storage_key_from_file,
     filepath_from_file,
 )
@@ -59,7 +60,7 @@ def serialize(
         if isinstance(data, (Path, UPath)):
             filepath = data
         else:
-            filepath = StorageSettings._str_to_path(data)
+            filepath = _str_to_path(data)
         if not skip_existence_check:
             try:  # check if file exists
                 if not filepath.exists():

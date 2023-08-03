@@ -57,6 +57,14 @@ def attempt_accessing_path(file: File, storage_key: str):
     return path
 
 
+def _str_to_path(path_str: str) -> Union[Path, UPath]:
+    protocol = fsspec.utils.get_protocol(path_str)
+    if protocol == "file":
+        return Path(path_str)
+    else:
+        return UPath(path_str)
+
+
 # add type annotations back asap when re-organizing the module
 def filepath_from_file(file: File):
     if hasattr(file, "_local_filepath") and file._local_filepath is not None:
