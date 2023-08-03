@@ -3,6 +3,7 @@ from inspect import signature
 from pathlib import Path
 
 import anndata as ad
+import lamindb_setup
 import lnschema_bionty as lb
 import numpy as np
 import pandas as pd
@@ -13,14 +14,15 @@ import lamindb as ln
 from lamindb import _file
 from lamindb._file import (
     check_path_is_child_of_root,
-    get_relative_path_to_root,
-    serialize,
+    get_relative_path_to_directory,
+    process_data,
 )
 
 # how do we properly abstract out the default storage variable?
 # currently, we're only mocking it through `default_storage` as
 # set in conftest.py
 
+ln.settings.verbosity = 3
 lb.settings.species = "human"
 
 df = pd.DataFrame({"feat1": [1, 2], "feat2": [3, 4]})
@@ -105,7 +107,7 @@ def test_create_from_anndata_in_memory():
 )
 def test_create_from_anndata_in_storage(data):
     if isinstance(data, ad.AnnData):
-        filepath = Path("test_adata.h5ad")
+        filepath = Path("./default_storage/test_adata.h5ad")
         data.write(filepath)
     else:
         previous_storage = ln.setup.settings.storage.root_as_str
@@ -124,48 +126,71 @@ def test_create_from_anndata_in_storage(data):
 
 
 @pytest.fixture(
-    scope="module", params=[(True, "./default_storage/"), (False, "./outside_storage/")]
+    scope="module",
+    params=[
+        (True, "./default_storage/"),
+        (True, "./registered_storage/"),
+        (False, "./nonregistered_storage/"),
+    ],
 )
-def get_test_filepaths(request):  # -> Tuple[bool, Path, Path]
-    isin_default_storage: bool = request.param[0]
+def get_test_filepaths(request):  # -> Tuple[bool, Path, Path, Path]
+    isin_existing_storage: bool = request.param[0]
     root_dir: Path = Path(request.param[1])
+    if isin_existing_storage:
+        # ensure that it's actually registered
+        if ln.Storage.filter(root=root_dir.resolve().as_posix()).one_or_none() is None:
+            ln.Storage(root=root_dir.resolve().as_posix(), type="local").save()
     test_dir = root_dir / "my_dir/"
     test_dir.mkdir(parents=True)
     test_filepath = test_dir / "my_file.csv"
     test_filepath.write_text("a")
     # return a boolean indicating whether test filepath is in default storage
     # and the test filepath
-    yield (isin_default_storage, test_dir, test_filepath)
+    yield (isin_existing_storage, root_dir, test_dir, test_filepath)
     shutil.rmtree(test_dir)
 
 
 # this tests the basic (non-provenance-related) metadata
 @pytest.mark.parametrize("key", [None, "my_new_dir/my_file.csv"])
-@pytest.mark.parametrize("name", [None, "my name"])
-def test_create_from_local_filepath(get_test_filepaths, key, name):
-    isin_default_storage = get_test_filepaths[0]
-    test_filepath = get_test_filepaths[2]
-    file = ln.File(test_filepath, key=key, name=name)
-    assert file.description is None if name is None else file.description == name
+@pytest.mark.parametrize("description", [None, "my description"])
+def test_create_from_local_filepath(get_test_filepaths, key, description):
+    isin_existing_storage = get_test_filepaths[0]
+    root_dir = get_test_filepaths[1]
+    test_filepath = get_test_filepaths[3]
+    file = ln.File(test_filepath, key=key, description=description)
+    assert (
+        file.description is None
+        if description is None
+        else file.description == description
+    )
     assert file.suffix == ".csv"
     if key is None:
         assert (
             file.key == "my_dir/my_file.csv"
-            if isin_default_storage
+            if isin_existing_storage
             else file.key is None
         )
+        if isin_existing_storage:
+            assert file.storage.root == root_dir.resolve().as_posix()
+        else:
+            assert file.storage.root == lamindb_setup.settings.storage.root_as_str
     else:
         assert file.key == key
-    assert file.storage.root == Path("./default_storage").resolve().as_posix()
+        assert file.storage.root == lamindb_setup.settings.storage.root_as_str
     assert file.hash == "DMF1ucDxtqgxw5niaXcmYQ"
-    if isin_default_storage and key is None:
+
+    # test that the file didn't move
+    if isin_existing_storage and key is None:
         assert str(test_filepath.resolve()) == str(file.path())
 
-    # need to figure out how to save!
-    # now save it
-    # file.save()
-    # assert file.path().exists()
-    # file.delete(storage=True)
+    # now, save the file
+    file.save()
+    print(file.path())
+    assert file.path().exists()
+
+    # only delete from storage if a file copy took place
+    delete_from_storage = str(test_filepath.resolve()) != str(file.path())
+    file.delete(storage=delete_from_storage)
 
 
 def test_local_path_load():
@@ -183,23 +208,22 @@ def test_local_path_load():
     assert file._local_filepath.resolve() == file.stage() == file.path()
 
 
-def test_init_from_directory(get_test_filepaths):
-    isin_default_storage = get_test_filepaths[0]
-    test_dirpath = get_test_filepaths[1]
-    if isin_default_storage:
-        storage_root = None
-    else:
-        storage_root = test_dirpath.parent
-    records = ln.File.from_dir(test_dirpath, storage_root=storage_root)
+ERROR_MESSAGE = """\
+ValueError: Currently don't support tracking folders outside one of the storage roots:
+"""
+
+
+@pytest.mark.parametrize("key", [None, "my_new_folder"])
+def test_init_from_directory(get_test_filepaths, key):
+    test_dirpath = get_test_filepaths[2]
+    records = ln.File.from_dir(test_dirpath, key=key)
     assert len(records) == 1
-    # also execute tree
-    if isin_default_storage:
-        ln.File.tree(test_dirpath.name)
+    ln.File.tree(test_dirpath)
 
 
 def test_delete(get_test_filepaths):
-    test_filepath = get_test_filepaths[2]
-    file = ln.File(test_filepath, name="My test file to delete")
+    test_filepath = get_test_filepaths[3]
+    file = ln.File(test_filepath, description="My test file to delete")
     file.save()
     storage_path = file.path()
     file.delete(storage=True)
@@ -322,18 +346,20 @@ def test_storage_root_upath_equivalence():
     assert filepath.parents[-1] == storage_root
 
 
-def test_get_relative_path_to_root():
+def test_get_relative_path_to_directory():
     # upath on S3
     root = UPath("s3://lamindb-ci")
     upath = UPath("s3://lamindb-ci/test-data/test.csv")
     assert (
-        "test-data/test.csv" == get_relative_path_to_root(upath, root=root).as_posix()
+        "test-data/test.csv"
+        == get_relative_path_to_directory(upath, directory=root).as_posix()
     )
     # local path
     root = Path("/lamindb-ci")
     upath = Path("/lamindb-ci/test-data/test.csv")
     assert (
-        "test-data/test.csv" == get_relative_path_to_root(upath, root=root).as_posix()
+        "test-data/test.csv"
+        == get_relative_path_to_directory(upath, directory=root).as_posix()
     )
 
 
@@ -363,12 +389,12 @@ def test_serialize_paths():
     up_str = "s3://lamindb-ci/test-data/test.csv"
     up_upath = UPath(up_str)
 
-    _, filepath, _, _, _ = serialize("id", fp_str, None, skip_existence_check=True)
+    _, filepath, _, _, _ = process_data("id", fp_str, None, skip_existence_check=True)
     assert isinstance(filepath, Path) and not isinstance(filepath, UPath)
-    _, filepath, _, _, _ = serialize("id", fp_path, None, skip_existence_check=True)
+    _, filepath, _, _, _ = process_data("id", fp_path, None, skip_existence_check=True)
     assert isinstance(filepath, Path) and not isinstance(filepath, UPath)
 
-    _, filepath, _, _, _ = serialize("id", up_str, None, skip_existence_check=True)
+    _, filepath, _, _, _ = process_data("id", up_str, None, skip_existence_check=True)
     assert isinstance(filepath, UPath)
-    _, filepath, _, _, _ = serialize("id", up_upath, None, skip_existence_check=True)
+    _, filepath, _, _, _ = process_data("id", up_upath, None, skip_existence_check=True)
     assert isinstance(filepath, UPath)
