@@ -12,8 +12,11 @@ from lamindb_setup.dev.upath import UPath
 
 import lamindb as ln
 from lamindb import _file
-from lamindb._file import check_path_is_child_of_root, get_relative_path_to_directory, process_data
-
+from lamindb._file import (
+    check_path_is_child_of_root,
+    get_relative_path_to_directory,
+    process_data,
+)
 
 # how do we properly abstract out the default storage variable?
 # currently, we're only mocking it through `default_storage` as

@@ -104,7 +104,9 @@ def process_data(
     """Serialize a data object that's provided as file or in memory."""
     # if not overwritten, data gets stored in default storage
     if isinstance(data, (str, Path, UPath)):  # PathLike, spelled out
-        filepath = data if isinstance(data, (Path, UPath)) else _str_to_path(data)  # returns Path for local
+        filepath = (
+            data if isinstance(data, (Path, UPath)) else _str_to_path(data)
+        )  # returns Path for local
         storage, use_existing_storage_key = process_pathlike(
             filepath, skip_existence_check=skip_existence_check
         )
