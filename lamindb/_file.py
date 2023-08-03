@@ -31,6 +31,7 @@ from lamindb.dev.storage import (
 from lamindb.dev.storage._backed_access import AnnDataAccessor, BackedAccessor
 from lamindb.dev.storage.file import (
     ProgressCallback,
+    _str_to_path,
     auto_storage_key_from_file,
     filepath_from_file,
 )
@@ -103,7 +104,7 @@ def process_data(
     """Serialize a data object that's provided as file or in memory."""
     # if not overwritten, data gets stored in default storage
     if isinstance(data, (str, Path, UPath)):  # PathLike, spelled out
-        filepath = UPath(data)  # returns Path for local
+        filepath = data if isinstance(data, (Path, UPath)) else _str_to_path(data)  # returns Path for local
         storage, use_existing_storage_key = process_pathlike(
             filepath, skip_existence_check=skip_existence_check
         )
@@ -540,7 +541,7 @@ def from_anndata(
     file = File(data=adata, key=key, run=run, description=description, log_hint=False)
     data_parse = adata
     if not isinstance(adata, AnnData):  # is a path
-        filepath = UPath(adata)  # returns Path for local
+        filepath = adata if isinstance(adata, (Path, UPath)) else _str_to_path(adata)
         if isinstance(filepath, UPath):
             from lamindb.dev.storage._backed_access import backed_access
 
@@ -580,7 +581,7 @@ def from_dir(
     run: Optional[Run] = None,
 ) -> List["File"]:
     """{}"""
-    folderpath = UPath(path)
+    folderpath = path if isinstance(path, (Path, UPath)) else _str_to_path(path)
     storage, use_existing_storage = process_pathlike(folderpath)
     # we are never erroring right now, can remove below, soon
     # if key is None and not use_existing_storage:

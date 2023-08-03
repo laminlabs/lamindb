@@ -30,7 +30,7 @@ dependencies = [
     "python-dateutil",
     "anndata>=0.9.1",  # includes scipy
     "fsspec",
-    "universal_pathlib",
+    "universal_pathlib==0.1.0",
     "pandas",
 ]
 

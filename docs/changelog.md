@@ -1,5 +1,8 @@
 # Changelog
 
+- 📌 Pin upath [PR979](https://github.com/laminlabs/lamindb/pull/979) [@Koncopd](https://github.com/Koncopd)
+- 🐛 Prepare for a new upath release [PR976](https://github.com/laminlabs/lamindb/pull/976) [@Koncopd](https://github.com/Koncopd)
+- 🎨 Adapted to stable_id [PR974](https://github.com/laminlabs/lamindb/pull/974) [@sunnyosun](https://github.com/sunnyosun)
 ## 0.49.1 (2023-08-01)
 
 - 🎨 Allow passing QuerySet to `features.add_labels`` [PR969](https://github.com/laminlabs/lamindb/pull/969) [@sunnyosun](https://github.com/sunnyosun)

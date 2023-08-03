@@ -12,7 +12,8 @@ from lamindb_setup.dev.upath import UPath
 
 import lamindb as ln
 from lamindb import _file
-from lamindb._file import check_path_is_child_of_root, get_relative_path_to_directory
+from lamindb._file import check_path_is_child_of_root, get_relative_path_to_directory, process_data
+
 
 # how do we properly abstract out the default storage variable?
 # currently, we're only mocking it through `default_storage` as
@@ -376,3 +377,21 @@ def test_check_path_is_child_of_root():
     root = UPath("s3://lamindb-ci")
     path = Path("/lamindb-ci/test-data/test.csv")
     assert not check_path_is_child_of_root(path, root=root)
+
+
+def test_serialize_paths():
+    fp_str = "tests/test-files/pbmc68k.h5ad"
+    fp_path = Path(fp_str)
+
+    up_str = "s3://lamindb-ci/test-data/test.csv"
+    up_upath = UPath(up_str)
+
+    _, filepath, _, _, _ = process_data("id", fp_str, None, skip_existence_check=True)
+    assert isinstance(filepath, Path) and not isinstance(filepath, UPath)
+    _, filepath, _, _, _ = process_data("id", fp_path, None, skip_existence_check=True)
+    assert isinstance(filepath, Path) and not isinstance(filepath, UPath)
+
+    _, filepath, _, _, _ = process_data("id", up_str, None, skip_existence_check=True)
+    assert isinstance(filepath, UPath)
+    _, filepath, _, _, _ = process_data("id", up_upath, None, skip_existence_check=True)
+    assert isinstance(filepath, UPath)
