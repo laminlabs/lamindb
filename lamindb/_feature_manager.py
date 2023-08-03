@@ -227,7 +227,11 @@ class FeatureManager:
                 "Please save the file or dataset before adding a feature set!"
             )
         feature_set.save()
-        self._host.feature_sets.through(
+        link_record = self._host.feature_sets.through.objects.filter(
             file=self._host, feature_set=feature_set, slot=slot
-        ).save()
-        self._feature_set_by_slot[slot] = feature_set
+        ).one_or_none()
+        if link_record is None:
+            self._host.feature_sets.through(
+                file=self._host, feature_set=feature_set, slot=slot
+            ).save()
+            self._feature_set_by_slot[slot] = feature_set
