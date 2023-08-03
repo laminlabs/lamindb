@@ -1,18 +1,24 @@
 # Changelog
 
-- 🎉 Stage 0.49.2 [PR972](https://github.com/laminlabs/lamindb/pull/972) [@falexwolf](https://github.com/falexwolf)
-- ♻️ Refactor storage root management [PR973](https://github.com/laminlabs/lamindb/pull/973) [@falexwolf](https://github.com/falexwolf)
-- 🎨 Make add_feature_set acid [PR980](https://github.com/laminlabs/lamindb/pull/980) [@sunnyosun](https://github.com/sunnyosun)
-- 📝 Simplified tutorial1 [PR977](https://github.com/laminlabs/lamindb/pull/977) [@sunnyosun](https://github.com/sunnyosun)
-- 📌 Pin upath [PR979](https://github.com/laminlabs/lamindb/pull/979) [@Koncopd](https://github.com/Koncopd)
-- 🐛 Prepare for a new upath release [PR976](https://github.com/laminlabs/lamindb/pull/976) [@Koncopd](https://github.com/Koncopd)
-- 🎨 Adapted to stable_id [PR974](https://github.com/laminlabs/lamindb/pull/974) [@sunnyosun](https://github.com/sunnyosun)
-## 0.49.1 (2023-08-01)
+```{eval-rst}
+.. role:: small
+```
 
-- 🎨 Allow passing QuerySet to `features.add_labels`` [PR969](https://github.com/laminlabs/lamindb/pull/969) [@sunnyosun](https://github.com/sunnyosun)
+## 0.49
+
+### 0.49.2 {small}`2023-08-03`
+
+- ♻️ Refactor storage root management [PR973](https://github.com/laminlabs/lamindb/pull/973) [@falexwolf](https://github.com/falexwolf)
+- 🎨 Make `add_feature_set` acid [PR980](https://github.com/laminlabs/lamindb/pull/980) [@sunnyosun](https://github.com/sunnyosun)
+- 📝 Simplify tutorial [PR977](https://github.com/laminlabs/lamindb/pull/977) [@sunnyosun](https://github.com/sunnyosun)
+- 🐛 Account for `universal_pathlib` 0.1 release [PR976](https://github.com/laminlabs/lamindb/pull/976) [@Koncopd](https://github.com/Koncopd)
+
+### 0.49.1 {small}`2023-08-01`
+
+- 🎨 Allow passing `QuerySet` to `.features.add_labels()` [PR969](https://github.com/laminlabs/lamindb/pull/969) [@sunnyosun](https://github.com/sunnyosun)
 - ⚡️ Speed up & remove auto-generation of feature name [PR963](https://github.com/laminlabs/lamindb/pull/963) [@falexwolf](https://github.com/falexwolf)
 
-## 0.49.0 (2023-07-31)
+### 0.49.0 {small}`2023-07-31`
 
 - ✨ Add a progress monitoring to file.load() and file.stage() [PR959](https://github.com/laminlabs/lamindb/pull/959) [@Koncopd](https://github.com/Koncopd)
 - 🚚 Rename `ORM.select()` to `ORM.filter()` [PR958](https://github.com/laminlabs/lamindb/pull/958) [@falexwolf](https://github.com/falexwolf)
@@ -21,7 +27,9 @@
 - 🎨 Move feature foreignkey from label to link between label and file [PR954](https://github.com/laminlabs/lamindb/pull/954) [@falexwolf](https://github.com/falexwolf)
 - 🎨 Enable file/dataset-external feature sets [PR953](https://github.com/laminlabs/lamindb/pull/953) [@falexwolf](https://github.com/falexwolf)
 
-## 0.48.0 (2023-07-26)
+## 0.48
+
+### 0.48.0 {small}`2023-07-26`
 
 - 📝 Add MuData example [PR945](https://github.com/laminlabs/lamindb/pull/945) [@sunnyosun](https://github.com/sunnyosun)
 - 🎨 Add `Modality` [PR940](https://github.com/laminlabs/lamindb/pull/940) [@falexwolf](https://github.com/falexwolf)
@@ -42,7 +50,9 @@
 - 🚚 Rename `Readout` to `ExperimentalFactor` [PR893](https://github.com/laminlabs/lamindb/pull/893) [@sunnyosun](https://github.com/sunnyosun)
 - 🎨 `set_abbr` adds `abbr` to `synonyms` [PR892](https://github.com/laminlabs/lamindb/pull/892) [@sunnyosun](https://github.com/sunnyosun)
 
-## 0.47.0 (2023-07-10)
+## 0.47.0
+
+### 0.47.0 {small}`2023-07-10`
 
 - ✨ View parents [PR858](https://github.com/laminlabs/lamindb/pull/858) [@sunnyosun](https://github.com/sunnyosun)
 - ✨ Track parent notebooks [PR859](https://github.com/laminlabs/lamindb/pull/859) [@falexwolf](https://github.com/falexwolf)
@@ -60,19 +70,21 @@
 - 🚸 It should be possible to use a schema module prior to importing `lamindb` [PR852](https://github.com/laminlabs/lamindb/pull/852) [@falexwolf](https://github.com/falexwolf)
 - ✨ Enable `search`, `lookup`, `inspect`, `map_synonyms` from `QuerySet` [PR849](https://github.com/laminlabs/lamindb/pull/849) [@sunnyosun](https://github.com/sunnyosun)
 
-## 0.46.0 (2023-07-06)
+## 0.46
 
-### Features
+### 0.46.0 {small}`2023-07-06`
+
+Features:
 
 - ✨ Enable hierarchical metadata, e.g., cell types, tissues, etc. [PR810](https://github.com/laminlabs/lamindb/pull/810) [@sunnyosun](https://github.com/sunnyosun)
 - ✨ Add `Dataset` & `Feature` ORMs, e.g., easily track column names of dataframes [PR805](https://github.com/laminlabs/lamindb/pull/805) [@falexwolf](https://github.com/falexwolf)
 
-### Breaking changes
+Breaking changes:
 
 - 🚚 Rename `File.name` to `File.description` [PR824](https://github.com/laminlabs/lamindb/pull/824) [@falexwolf](https://github.com/falexwolf)
 - 🚚 Rename `File.featuresets` to `File.feature_sets` [PR805](https://github.com/laminlabs/lamindb/pull/805) [@falexwolf](https://github.com/falexwolf)
 
-### UX
+UX:
 
 - ✨ Globally set species via `lb.settings.species=` [PR142](https://github.com/laminlabs/lnschema-bionty/pull/142) [falexwolf](https://github.com/falexwolf)
 - 🚚 Easy display of many-to-many fields: `QuerySet.df(include=[field__name])` [PR832](https://github.com/laminlabs/lamindb/pull/832) [@falexwolf](https://github.com/falexwolf)
@@ -85,16 +97,20 @@
 - 🚸 Better error behavior when no notebook title set in `ln.track()` [PR834](https://github.com/laminlabs/lamindb/pull/834) [@Koncopd](https://github.com/Koncopd)
 - 🚸 Store hash for remote files on S3 [PR808](https://github.com/laminlabs/lamindb/pull/808) [@falexwolf](https://github.com/falexwolf)
 
-## 0.45.0 (2023-06-27)
+## 0.45
+
+### 0.45.0 {small}`2023-06-27`
 
 - ♻️ Replaced `ln.parse` with `ORM.from_values` [PR803](https://github.com/laminlabs/lamindb/pull/803) [@sunnyosun](https://github.com/sunnyosun)
 - 🎨 Auto-manage `RunInput` ORM [PR802](https://github.com/laminlabs/lamindb/pull/802) [@falexwolf](https://github.com/falexwolf)
 
-## 0.44.2 (2023-06-23)
+## 0.44
+
+### 0.44.2 {small}`2023-06-23`
 
 - ♻️ Make `zarr` optional [PR800](https://github.com/laminlabs/lamindb/pull/800) [@falexwolf](https://github.com/falexwolf)
 
-## 0.44.1 (2023-06-22)
+### 0.44.1 {small}`2023-06-22`
 
 - ✨ Add `inspect` and `add_synonym` to `ORM` [PR797](https://github.com/laminlabs/lamindb/pull/797) [@sunnyosun](https://github.com/sunnyosun)
 - 🔧 Rename extra `nbproject` to `jupyter` and add `fcs` extra to docs [PR798](https://github.com/laminlabs/lamindb/pull/798) [@falexwolf](https://github.com/falexwolf)
@@ -102,23 +118,23 @@
 - 🚸 `ln.Folder` becomes `ln.Tag` & directories now modeled as prefixes (as on S3) [PR794](https://github.com/laminlabs/lamindb/pull/794) [@falexwolf](https://github.com/falexwolf)
 - ♻️ Refactor storage code [PR792](https://github.com/laminlabs/lamindb/pull/792) [@falexwolf](https://github.com/falexwolf) [@Koncopd](https://github.com/Koncopd)
 
-## 0.44.0 (2023-06-20)
+### 0.44.0 {small}`2023-06-20`
 
-### Features
+Features:
 
 - 🚸 Idempotency across metadata records & data artifacts [FAQ](https://lamin.ai/docs/faq/idempotency) [PR783](https://github.com/laminlabs/lamindb/pull/783) [@falexwolf](https://github.com/falexwolf)
 - ✨ {func}`~lamindb.dev.ORM.add_synonym` & {func}`~lamindb.dev.ORM.map_synonyms` to enable, e.g., `add_synonym("MyGeneName")` [PR786](https://github.com/laminlabs/lamindb/pull/786) [@sunnyosun](https://github.com/sunnyosun)
 - ✨ Backed access for general HDF5 and zarr objects [PR781](https://github.com/laminlabs/lamindb/pull/781) [@Koncopd](https://github.com/Koncopd)
 
-### Refactors
+Refactors:
 
 - 🚸 Return records list from `.from_bionty` for multiple matches [PR789](https://github.com/laminlabs/lamindb/pull/789) [@sunnyosun](https://github.com/sunnyosun)
 - 🎨 Remove `lnhub-rest` from `lamindb-setup` [PR784](https://github.com/laminlabs/lamindb/pull/784) [bpenteado](https://github.com/bpenteado)
 - 🔊 Move logging from stderr to stdout [PR776](https://github.com/laminlabs/lamindb/pull/776) [@falexwolf](https://github.com/falexwolf)
 
-## 0.43.0 (2023-06-15)
+## 0.43.0 {small}`2023-06-15`
 
-### Features
+Features:
 
 - ✨ Enable `ORM.search()` and improved `ORM.lookup()` [PR771](https://github.com/laminlabs/lamindb/pull/771) [@sunnyosun](https://github.com/sunnyosun)
 - 🎨 Consolidate `lnschema_bionty` and upgrade to latest Bionty [PR775](https://github.com/laminlabs/lamindb/pull/775) [@sunnyosun](https://github.com/sunnyosun)
@@ -126,19 +142,19 @@
 - 🚸 Return existing file if hash exists (idempotency) [PR772](https://github.com/laminlabs/lamindb/pull/772) [@falexwolf](https://github.com/falexwolf)
 - 🚸 `ln.settings` can now change logging verbosity levels [PR630](https://github.com/laminlabs/lamindb/pull/630) [@falexwolf](https://github.com/falexwolf)
 
-### Refactors
+Refactors:
 
 - ♻️ Refactor core schema methods and storage access [PR770](https://github.com/laminlabs/lamindb/pull/770) [@falexwolf](https://github.com/falexwolf)
 - 🐛 Make `User.name` nullable again [PR769](https://github.com/laminlabs/lamindb/pull/769) [@falexwolf](https://github.com/falexwolf)
 - ✅ Add integrity tests for migrations back [PR768](https://github.com/laminlabs/lamindb/pull/768) [@falexwolf](https://github.com/falexwolf)
 
-## 0.42.0 (2023-06-14)
+## 0.42.0 {small}`2023-06-14`
 
 This is the first release after migrating from SQLModel/SQLAlchemy to Django.
 
 With this, we're hopeful that we get closer to a production-ready 1.0.0 API.
 
-### Highlights
+Highlights:
 
 - More robust & simpler automated migrations: `lamin migrate create` & `lamin migrate deploy`
 - Simpler query syntax (no joins anymore): `ln.File.select(transform__created_by=user)`
@@ -146,7 +162,7 @@ With this, we're hopeful that we get closer to a production-ready 1.0.0 API.
 - No need to write out link models in schemas & generally simplified schema syntax
 - Any schema package (`lnschema_myschema`) is now managed as minimal Django app
 
-### Breaking changes
+Breaking changes:
 
 - Renamed `ln.Features` to `ln.FeatureSet` and is now typically instantiated with `FeatureSet.from_iterable()`
 - Removed `ln.Session`
@@ -156,7 +172,7 @@ With this, we're hopeful that we get closer to a production-ready 1.0.0 API.
 - Removed `File.stream()` as all functionality is now provided through `File.backed()`
 - Many-to-many fields are now set with `Run.inputs.set()` and appended with `Run.inputs.add()`
 
-### Non-breaking changes
+Non-breaking changes:
 
 - Vastly simplified dependencies & introduced configurable installation
 - Auto-generated storage keys are now of the form `lndb/{id}.{suffix}` rather than just `{id}.{suffix}`
@@ -164,7 +180,7 @@ With this, we're hopeful that we get closer to a production-ready 1.0.0 API.
 - Introduced `ORM.select()`, `ORM.save()`, and `ORM.delete()`
 - Better tracking & linking of Bionty sources in `lnschema_bionty`
 
-### Additional notes
+Additional notes:
 
 - Consolidated docs and auto-generate upon push events to lamindb main
 - Consolidated submodules (renamed `lndb` to `lamindb-setup`, removed `lndb-storage`)
@@ -175,7 +191,7 @@ The main downsides of migrating to Django are:
 - Type hints & constructor signatures are less pythonic (SQLModel uses less magic than Django) and lead to idiosyncrasies in model definition (nullable defaults) and validation (validation at the ORM-level is more manual as Django foresees validation at the Form level)
 - SQLAlchemy provides the more powerful ORM, and there might be future use cases that will require them
 
-### Complete list of changes
+Complete list of changes below.
 
 <!-- prettier-ignore -->
 Name | PR | Developer | Date | Version
