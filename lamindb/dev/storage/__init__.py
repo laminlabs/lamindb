@@ -8,8 +8,7 @@
    UPath
 
 """
-from lamindb_setup.dev.upath import UPath
-from lamindb_setup.dev.upath import infer_filesystem as _infer_filesystem
+from lamindb_setup.dev.upath import UPath, infer_filesystem
 
 from ._anndata_sizes import size_adata
 from ._backed_access import AnnDataAccessor, BackedAccessor

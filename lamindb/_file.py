@@ -56,7 +56,10 @@ def serialize(
     storage_id = lamindb_setup.settings.storage.id
     # Convert str to either Path or UPath
     if isinstance(data, (str, Path, UPath)):
-        filepath = UPath(data)  # returns Path for local
+        if isinstance(data, Path):
+            filepath = data  # UPath is a subclass of Path
+        else:
+            filepath = StorageSettings._str_to_path(data)
         if not skip_existence_check:
             try:  # check if file exists
                 if not filepath.exists():
