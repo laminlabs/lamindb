@@ -31,6 +31,7 @@ dependencies = [
     "anndata>=0.9.1",  # includes scipy
     "fsspec",
     "universal_pathlib==0.1.0",
+    "pydantic<2",
     "pandas",
 ]
 
