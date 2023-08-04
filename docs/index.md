@@ -3,13 +3,13 @@
 :end-line: 5
 ```
 
-<meta http-equiv="Refresh" content="0; url=./guide/" />
+<meta http-equiv="Refresh" content="0; url=./guide.html" />
 
 ```{toctree}
 :maxdepth: 1
 :hidden:
 
-guide/index
+guide
 reference
 changelog
 ```
