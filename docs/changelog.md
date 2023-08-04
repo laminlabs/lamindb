@@ -1,11 +1,14 @@
 # Changelog
 
-- 🔧 Eliminate index files & upper bound pydantic and other core dependencies by major versions [PR981](https://github.com/laminlabs/lamindb/pull/981) [@falexwolf](https://github.com/falexwolf)
 ```{eval-rst}
 .. role:: small
 ```
 
 ## 0.49
+
+### 0.49.3 {small}`2023-08-04`
+
+- 🔧 Eliminate index files & upper bound pydantic and other core dependencies by major versions [PR981](https://github.com/laminlabs/lamindb/pull/981) [@falexwolf](https://github.com/falexwolf)
 
 ### 0.49.2 {small}`2023-08-03`
 
