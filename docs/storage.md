@@ -3,6 +3,6 @@
 ```{toctree}
 :maxdepth: 1
 
-upload
-add-replace-stage
+storage/upload
+storage/add-replace-stage
 ```
