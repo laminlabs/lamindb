@@ -5,7 +5,7 @@ import pandas as pd
 from lamin_utils import logger
 from lnschema_core.models import Dataset, Feature, FeatureSet, File, Label, Registry
 
-from ._queryset import QuerySet
+from ._query_set import QuerySet
 from ._save import save
 
 
