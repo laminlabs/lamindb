@@ -1,5 +1,6 @@
 # Changelog
 
+- 🚚 Rename `Manager` to `QueryManager` [PR984](https://github.com/laminlabs/lamindb/pull/984) [@falexwolf](https://github.com/falexwolf)
 - 🚚 Rename ORM to Registry [PR982](https://github.com/laminlabs/lamindb/pull/982) [@sunnyosun](https://github.com/sunnyosun)
 ```{eval-rst}
 .. role:: small
