@@ -144,7 +144,7 @@ def from_values(cls, values: ListLike, field: StrField, **kwargs) -> List["Regis
 
 
 # From: https://stackoverflow.com/a/37648265
-def _order_queryset_by_ids(queryset: QuerySet, ids: Iterable):
+def _order_query_set_by_ids(queryset: QuerySet, ids: Iterable):
     from django.db.models import Case, When
 
     preserved = Case(*[When(pk=pk, then=pos) for pos, pk in enumerate(ids)])
@@ -228,7 +228,7 @@ def _search(
         result["__ratio__"] = result.pop("__ratio__")
 
     if return_queryset:
-        return _order_queryset_by_ids(query_set, result.reset_index()["id"])
+        return _order_query_set_by_ids(query_set, result.reset_index()["id"])
     else:
         return result.fillna("")
 
