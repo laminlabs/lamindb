@@ -49,6 +49,8 @@ def get_or_create_records(
                 records_bionty, unmapped_values = create_records_from_bionty(
                     iterable_idx=nonexist_values, field=field, **kwargs
                 )
+                for record in records_bionty:
+                    record._from_bionty = True
                 records += records_bionty
             else:
                 unmapped_values = nonexist_values
@@ -67,7 +69,7 @@ def get_or_create_records(
                 if feature is not None:
                     additional_info = f" Feature {feature.name} and "
                 logger.warning(
-                    f"Created {colors.yellow(f'{len(unmapped_values)} {Registry.__name__} record{s}')} for{additional_info}"  # noqa
+                    f"Did not validate {colors.yellow(f'{len(unmapped_values)} {Registry.__name__} record{s}')} for{additional_info}"  # noqa
                     f"{colors.yellow(f'{field_name}{s}')}: {print_unmapped_values}"  # noqa
                 )
         if Registry.__module__.startswith("lnschema_bionty.") or Registry == Label:
@@ -116,9 +118,9 @@ def get_existing_records(iterable_idx: pd.Index, field: Field, kwargs: Dict = {}
         if len(names) > 5:
             print_values += ", ..."
         syn_msg = (
-            "Loaded"
-            f" {colors.green(f'{len(syn_mapper)} {model.__name__} record{s}')} that"  # noqa
-            f" matched {colors.green('synonyms')}: {print_values}"
+            "Validated"
+            f" {colors.green(f'{len(syn_mapper)} {model.__name__} record{s}')}"  # noqa
+            f" on {colors.green('synonyms')}: {print_values}"
         )
         iterable_idx = iterable_idx.to_frame().rename(index=syn_mapper).index
 
@@ -147,10 +149,10 @@ def get_existing_records(iterable_idx: pd.Index, field: Field, kwargs: Dict = {}
         print_values = ", ".join(names[:5])
         if len(names) > 5:
             print_values += ", ..."
-        logger.info(
-            "Loaded"
-            f" {colors.green(f'{n_name} {model.__name__} record{s}')} that"
-            f" matched {colors.green(f'{field_name}')}: {print_values}"
+        logger.success(
+            "Validated"
+            f" {colors.green(f'{n_name} {model.__name__} record{s}')}"
+            f" on {colors.green(f'{field_name}')}: {print_values}"
         )
     # make sure that synonyms logging appears after the field logging
     if len(syn_msg) > 0:
@@ -197,9 +199,9 @@ def create_records_from_bionty(
         if len(names) > 5:
             print_values += ", ..."
         msg_syn = (
-            "Loaded"
-            f" {colors.purple(f'{len(syn_mapper)} {model.__name__} record{s} from Bionty')} that"  # noqa
-            f" matched {colors.purple('synonyms')}: {print_values}"
+            "Validated"
+            f" {colors.purple(f'{len(syn_mapper)} {model.__name__} record{s} from Bionty')}"  # noqa
+            f" on {colors.purple('synonyms')}: {print_values}"
         )
 
         iterable_idx = iterable_idx.to_frame().rename(index=syn_mapper).index
@@ -224,14 +226,14 @@ def create_records_from_bionty(
             if len(names) > 5:
                 print_values += ", ..."
             msg = (
-                "Loaded"
-                f" {colors.purple(f'{n_name} {model.__name__} record{s} from Bionty')} that"  # noqa
-                f" matched {colors.purple(f'{field_name}')}: {print_values}"
+                "Validated"
+                f" {colors.purple(f'{n_name} {model.__name__} record{s} from Bionty')}"  # noqa
+                f" on {colors.purple(f'{field_name}')}: {print_values}"
             )
-            logger.info(msg)
+            logger.success(msg)
         # make sure that synonyms logging appears after the field logging
         if len(msg_syn) > 0:
-            logger.info(msg_syn)
+            logger.success(msg_syn)
         # warning about multi matches
         if len(multi_msg) > 0:
             logger.warning(multi_msg)
@@ -301,7 +303,7 @@ def _bulk_create_dicts_from_df(
             if len(dup) > 5:
                 print_values += ", ..."
             multi_msg = (
-                f"Multiple matches found in Bionty for {len(dup)} record{s}:"
+                f"Ambiguous validation in Bionty for {len(dup)} record{s}:"
                 f" {print_values}"
             )
 

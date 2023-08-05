@@ -16,3 +16,7 @@ from lnschema_core.types import (  # noqa
     StrField,
     TransformType,
 )
+
+
+class ValidationError(Exception):
+    pass

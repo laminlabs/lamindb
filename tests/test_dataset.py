@@ -14,8 +14,15 @@ adata = ad.AnnData(
 def test_create_delete_from_single_dataframe():
     df = ln.dev.datasets.df_iris_in_meter_batch1()
 
-    # create and save the dataset
+    # try to create and save the dataset
     dataset = ln.Dataset(df, name="Iris flower dataset1")
+    # because features weren't registered, there is no linked feature set
+    assert dataset._feature_sets == {}
+    # register features and then repeat
+    ln.save(ln.Feature.from_df(df))
+    dataset = ln.Dataset(df, name="Iris flower dataset1")
+    assert "columns" in dataset._feature_sets
+
     dataset.save()
 
     # basics
