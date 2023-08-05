@@ -48,17 +48,22 @@ import lamindb as ln
 # import lnschema_bionty as lb # optional, for bionty schema
 ```
 
-### Manage data objects
+### Manage files and data objects
 
 ```python
-# Store a DataFrame object
+# Store and register a file
+ln.File("s3://my-bucket/images/image001.jpg").save()  # or a local path
+
+# Store and register a DataFrame object
 df = pd.DataFrame({"feat1": [1, 2], "feat2": [3, 4]})  # AnnData works, too
 ln.File(df, description="Data batch 1").save()  # create a File object and save/upload it
 
 # To find it, if you don't have specific metadata in mind, run a search
 ln.File.search("batch 1")
-# Or filter (under-the-hood, you have the full power of SQL to query)
+# Or query (under-the-hood, you have the full power of SQL to query)
 file = ln.File.filter(description="Data batch 1").one()  # get exactly one result
+# Query by `key` (the relative path within your storage)
+ln.File.filter(key__startswith="images/").df()  # get query results as a DataFrame
 
 # Load a file back into memory
 df = file.load()
@@ -66,27 +71,19 @@ df = file.load()
 backed = file.backed()  # currently works for AnnData, zarr, HDF5, not yet for DataFrame
 ```
 
-### Manage files
-
-```python
-# Store a file
-file = ln.File("s3://my-bucket/images/image001.jpg")  # or a local path
-file.save()  # register the file
-
-# Query by `key` (the relative path within your storage) and load into memory
-file.filter(key__startswith="images/").df()  # all files in folder "images/" in default storage
-```
-
 ### Auto-complete categoricals and search
 
 ```python
-# When you're unsure about spellings, use a lookup object:
-users = ln.User.lookup()
+# When you're unsure about spellings, use a lookup object
+users = ln.User.lookup() # by default uses handle field
 ln.File.filter(created_by=users.lizlemon)
+users = ln.User.lookup("name") # a lookup object of the name field
+users.liz_lemon
 
 # Or search
-ln.User.search("liz lemon", field="name")
+ln.User.search("liz lemon") # by default searches the handle field
 user = ln.User.search("liz lemon", return_queryset=True).first() # grab the top search result as a record
+ln.User.search("liz lemon", field=["name", "handle"]) # search against multiple fields
 ```
 
 ### Track & query data lineage
@@ -108,11 +105,12 @@ file.view_lineage()
 Track a Jupyter Notebook:
 
 ```python
+# my-analysis.ipynb
 ln.track()  # auto-detect & save notebook metadata
 ln.File("my_artifact.parquet").save()  # this file is now aware that it was saved in this notebook
 ```
 
-When you query the file, later on, you'll know from which notebook it came:
+When you query the file, later on, you'll know which notebook it came from:
 
 ```python
 file = ln.File.filter(description="my_artifact.parquet").one()  # query for a file
