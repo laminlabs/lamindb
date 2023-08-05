@@ -5,7 +5,7 @@ import pandas as pd
 from lamin_utils import colors, logger
 from lamindb_setup.dev._docs import doc_args
 from lnschema_core import Feature, Label
-from lnschema_core.models import ORM
+from lnschema_core.models import Registry
 from pandas.api.types import is_categorical_dtype, is_string_dtype
 
 from lamindb.dev.utils import attach_func_to_class_method
@@ -34,7 +34,7 @@ def __init__(self, *args, **kwargs):
     if len(args) != 0:
         raise ValueError("Only non-keyword args allowed")
     type: Optional[Union[type, str]] = kwargs.pop("type") if "type" in kwargs else None
-    registries: Optional[List[ORM]] = (
+    registries: Optional[List[Registry]] = (
         kwargs.pop("registries") if "registries" in kwargs else None
     )
     # cast type
@@ -47,11 +47,11 @@ def __init__(self, *args, **kwargs):
     registries_str: Optional[str] = None
     if registries is not None:
         if not isinstance(registries, List):
-            raise ValueError("registries has to be a list of ORM types")
+            raise ValueError("registries has to be a list of Registry types")
         registries_str = ""
         for cls in registries:
             if not hasattr(cls, "__get_name_with_schema__"):
-                raise ValueError("each element of the list has to be an ORM type")
+                raise ValueError("each element of the list has to be an Registry type")
             registries_str += cls.__get_name_with_schema__() + "|"
         registries_str = registries_str.rstrip("|")
     kwargs["registries"] = registries_str
@@ -75,7 +75,7 @@ def from_df(cls, df: "pd.DataFrame") -> List["Feature"]:
         if name in categoricals:
             types[name] = "category"
             # below is a harder feature to write, now, because it requires to
-            # query the link tables between the label ORM and file or dataset
+            # query the link tables between the label Registry and file or dataset
             # the original implementation fell short
             # categorical = categoricals[name]
             # if hasattr(

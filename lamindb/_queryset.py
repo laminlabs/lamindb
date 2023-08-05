@@ -4,7 +4,7 @@ from typing import Iterable, List, NamedTuple, Optional
 import pandas as pd
 from django.db import models
 from lamindb_setup.dev._docs import doc_args
-from lnschema_core import ORM
+from lnschema_core import Registry
 from lnschema_core.types import ListLike, StrField
 
 
@@ -114,20 +114,20 @@ class QuerySet(models.QuerySet):
                     lookup_str = "__".join(split[1:])
                 else:
                     lookup_str = "id"
-                ORM = self.model
-                field = getattr(ORM, field_name)
+                Registry = self.model
+                field = getattr(Registry, field_name)
                 if not isinstance(field.field, models.ManyToManyField):
                     raise ValueError("Only many-to-many fields are allowed here.")
                 related_ORM = (
                     field.field.model
-                    if field.field.model != ORM
+                    if field.field.model != Registry
                     else field.field.related_model
                 )
-                if ORM == related_ORM:
-                    left_side_link_model = f"from_{ORM.__name__.lower()}"
-                    values_expression = f"to_{ORM.__name__.lower()}__{lookup_str}"
+                if Registry == related_ORM:
+                    left_side_link_model = f"from_{Registry.__name__.lower()}"
+                    values_expression = f"to_{Registry.__name__.lower()}__{lookup_str}"
                 else:
-                    left_side_link_model = f"{ORM.__name__.lower()}"
+                    left_side_link_model = f"{Registry.__name__.lower()}"
                     values_expression = f"{related_ORM.__name__.lower()}__{lookup_str}"
                 link_df = pd.DataFrame(
                     field.through.objects.values(
@@ -141,7 +141,7 @@ class QuerySet(models.QuerySet):
                 df.rename(columns={values_expression: expression}, inplace=True)
         return df
 
-    def list(self, field: Optional[str] = None) -> List[ORM]:
+    def list(self, field: Optional[str] = None) -> List[Registry]:
         """Populate a list with the results.
 
         Examples:
@@ -160,7 +160,7 @@ class QuerySet(models.QuerySet):
         else:
             return [item for item in self.values_list(field, flat=True)]
 
-    def first(self) -> Optional[ORM]:
+    def first(self) -> Optional[Registry]:
         """If non-empty, the first result in the query set, otherwise None.
 
         Examples:
@@ -173,7 +173,7 @@ class QuerySet(models.QuerySet):
             return None
         return self[0]
 
-    def one(self) -> ORM:
+    def one(self) -> Registry:
         """Exactly one result. Throws error if there are more or none.
 
         Examples:
@@ -188,7 +188,7 @@ class QuerySet(models.QuerySet):
         else:
             return self[0]
 
-    def one_or_none(self) -> Optional[ORM]:
+    def one_or_none(self) -> Optional[Registry]:
         """At most one result. Returns it if there is one, otherwise returns None.
 
         Examples:
@@ -205,31 +205,31 @@ class QuerySet(models.QuerySet):
         else:
             raise MultipleResultsFound
 
-    @doc_args(ORM.search.__doc__)
+    @doc_args(Registry.search.__doc__)
     def search(self, string: str, **kwargs):
         """{}"""
-        from ._orm import _search
+        from ._registry import _search
 
         return _search(cls=self, string=string, **kwargs)
 
-    @doc_args(ORM.lookup.__doc__)
+    @doc_args(Registry.lookup.__doc__)
     def lookup(self, field: Optional[StrField] = None) -> NamedTuple:
         """{}"""
-        from ._orm import _lookup
+        from ._registry import _lookup
 
         return _lookup(cls=self, field=field)
 
-    @doc_args(ORM.inspect.__doc__)
+    @doc_args(Registry.inspect.__doc__)
     def inspect(self, identifiers: ListLike, field: StrField, **kwargs):
         """{}"""
-        from ._orm import _inspect
+        from ._registry import _inspect
 
         return _inspect(cls=self, identifiers=identifiers, field=field, **kwargs)
 
-    @doc_args(ORM.map_synonyms.__doc__)
+    @doc_args(Registry.map_synonyms.__doc__)
     def map_synonyms(self, synonyms: Iterable, **kwargs):
         """{}"""
-        from ._orm import _map_synonyms
+        from ._registry import _map_synonyms
 
         return _map_synonyms(cls=self, synonyms=synonyms, **kwargs)
 

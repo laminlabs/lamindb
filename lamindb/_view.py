@@ -6,7 +6,7 @@ from IPython.display import display
 from lamin_utils import colors
 from lamindb_setup import settings
 from lamindb_setup.dev._setup_schema import get_schema_module_name
-from lnschema_core import ORM
+from lnschema_core import Registry
 
 
 def view(n: int = 10, schema: Optional[str] = None, orms: Optional[List[str]] = None):
@@ -16,7 +16,7 @@ def view(n: int = 10, schema: Optional[str] = None, orms: Optional[List[str]] = 
         n: ``int = 10`` Display the last `n` rows of a table.
         schema: ``Optional[str] = None`` Schema module to view. Default's to
             `None` and displays all schema modules.
-        orms: ``Optional[List[str]] = None`` List of ORM names. Defaults to
+        orms: ``Optional[List[str]] = None`` List of Registry names. Defaults to
             `None` and lists all ORMs.
 
     Examples:
@@ -33,7 +33,9 @@ def view(n: int = 10, schema: Optional[str] = None, orms: Optional[List[str]] = 
         all_orms = {
             orm
             for orm in schema_module.__dict__.values()
-            if inspect.isclass(orm) and issubclass(orm, ORM) and orm.__name__ != "ORM"
+            if inspect.isclass(orm)
+            and issubclass(orm, Registry)
+            and orm.__name__ != "Registry"
         }
         if orms is not None:
             filtered_orms = {orm for orm in all_orms if orm.__name__ in orms}

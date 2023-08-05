@@ -9,7 +9,7 @@ from lamin_utils import colors, logger
 from lamin_utils._lookup import Lookup
 from lamin_utils._search import search as base_search
 from lamindb_setup.dev._docs import doc_args
-from lnschema_core import ORM
+from lnschema_core import Registry
 from lnschema_core.models import format_datetime
 from lnschema_core.types import ListLike, StrField
 
@@ -27,7 +27,7 @@ class ValidationError(Exception):
     pass
 
 
-def init_self_from_db(self: ORM, existing_record: ORM):
+def init_self_from_db(self: Registry, existing_record: Registry):
     new_args = [
         getattr(existing_record, field.attname) for field in self._meta.concrete_fields
     ]
@@ -36,7 +36,7 @@ def init_self_from_db(self: ORM, existing_record: ORM):
     self._state.db = "default"
 
 
-def validate_required_fields(orm: ORM, kwargs):
+def validate_required_fields(orm: Registry, kwargs):
     required_fields = {
         k.name for k in orm._meta.fields if not k.null and k.default is None
     }
@@ -49,7 +49,7 @@ def validate_required_fields(orm: ORM, kwargs):
         raise TypeError(f"{missing_fields} are required.")
 
 
-def suggest_objects_with_same_name(orm: ORM, kwargs) -> Optional[str]:
+def suggest_objects_with_same_name(orm: Registry, kwargs) -> Optional[str]:
     if kwargs.get("name") is None:
         return None
     else:
@@ -79,7 +79,7 @@ def suggest_objects_with_same_name(orm: ORM, kwargs) -> Optional[str]:
     return None
 
 
-def __init__(orm: ORM, *args, **kwargs):
+def __init__(orm: Registry, *args, **kwargs):
     if not args:
         validate_required_fields(orm, kwargs)
         from .dev._settings import settings
@@ -101,12 +101,12 @@ def __init__(orm: ORM, *args, **kwargs):
                     )
                     init_self_from_db(orm, existing_record)
                     return None
-        super(ORM, orm).__init__(**kwargs)
+        super(Registry, orm).__init__(**kwargs)
     elif len(args) != len(orm._meta.concrete_fields):
         raise ValueError("Please provide keyword arguments, not plain arguments")
     else:
         # object is loaded from DB (**kwargs could be omitted below, I believe)
-        super(ORM, orm).__init__(*args, **kwargs)
+        super(Registry, orm).__init__(*args, **kwargs)
 
 
 def view_parents(
@@ -128,14 +128,14 @@ def view_parents(
 
 
 @classmethod  # type:ignore
-@doc_args(ORM.from_values.__doc__)
-def from_values(cls, values: ListLike, field: StrField, **kwargs) -> List["ORM"]:
+@doc_args(Registry.from_values.__doc__)
+def from_values(cls, values: ListLike, field: StrField, **kwargs) -> List["Registry"]:
     """{}"""
     if isinstance(field, str):
         field = getattr(cls, field)
     if not isinstance(field, Field):  # field is DeferredAttribute
         raise TypeError(
-            "field must be a string or an ORM field, e.g., `CellType.name`!"
+            "field must be a string or an Registry field, e.g., `CellType.name`!"
         )
     from_bionty = True if cls.__module__.startswith("lnschema_bionty.") else False
     return get_or_create_records(
@@ -234,7 +234,7 @@ def _search(
 
 
 @classmethod  # type: ignore
-@doc_args(ORM.search.__doc__)
+@doc_args(Registry.search.__doc__)
 def search(
     cls,
     string: str,
@@ -276,7 +276,7 @@ def _lookup(cls, field: Optional[StrField] = None) -> NamedTuple:
 
 
 @classmethod  # type: ignore
-@doc_args(ORM.lookup.__doc__)
+@doc_args(Registry.lookup.__doc__)
 def lookup(cls, field: Optional[StrField] = None) -> NamedTuple:
     """{}"""
     return _lookup(cls=cls, field=field)
@@ -313,7 +313,7 @@ def _inspect(
 
 
 @classmethod  # type: ignore
-@doc_args(ORM.inspect.__doc__)
+@doc_args(Registry.inspect.__doc__)
 def inspect(
     cls,
     identifiers: ListLike,
@@ -376,7 +376,7 @@ def _map_synonyms(
 
 
 @classmethod  # type: ignore
-@doc_args(ORM.map_synonyms.__doc__)
+@doc_args(Registry.map_synonyms.__doc__)
 def map_synonyms(
     cls,
     synonyms: Iterable,
@@ -539,7 +539,7 @@ def set_abbr(self, value: str):
 
 
 def _filter_df_based_on_species(
-    orm: Union[ORM, QuerySet], species: Optional[Union[str, ORM]] = None
+    orm: Union[Registry, QuerySet], species: Optional[Union[str, Registry]] = None
 ):
     import pandas as pd
 
@@ -555,7 +555,7 @@ def _filter_df_based_on_species(
     return pd.DataFrame.from_records(records.values())
 
 
-def get_default_str_field(orm: Union[ORM, QuerySet, Manager]) -> str:
+def get_default_str_field(orm: Union[Registry, QuerySet, Manager]) -> str:
     """Get the 1st char or text field from the orm."""
     if isinstance(orm, (QuerySet, Manager)):
         orm = orm.model
@@ -585,14 +585,14 @@ def get_default_str_field(orm: Union[ORM, QuerySet, Manager]) -> str:
 
 def _add_or_remove_synonyms(
     synonym: Union[str, Iterable],
-    record: ORM,
+    record: Registry,
     action: Literal["add", "remove"],
     force: bool = False,
     save: Optional[bool] = None,
 ):
     """Add or remove synonyms."""
 
-    def check_synonyms_in_all_records(synonyms: Set[str], record: ORM):
+    def check_synonyms_in_all_records(synonyms: Set[str], record: Registry):
         """Errors if input synonym is associated with other records in the DB."""
         import pandas as pd
         from IPython.display import display
@@ -655,7 +655,7 @@ def _add_or_remove_synonyms(
         record.save()
 
 
-def _check_synonyms_field_exist(record: ORM):
+def _check_synonyms_field_exist(record: Registry):
     try:
         record.__getattribute__("synonyms")
     except AttributeError:
@@ -699,13 +699,13 @@ if _TESTING:  # type: ignore
     from inspect import signature
 
     SIGS = {
-        name: signature(getattr(ORM, name))
+        name: signature(getattr(Registry, name))
         for name in METHOD_NAMES
         if not name.startswith("__")
     }
 
 for name in METHOD_NAMES:
-    attach_func_to_class_method(name, ORM, globals())
+    attach_func_to_class_method(name, Registry, globals())
 
 
 @classmethod  # type: ignore
@@ -722,7 +722,7 @@ def __get_name_with_schema__(cls) -> str:
 
 
 def select_backward(cls, **expressions):
-    logger.warning("select() is deprecated! Please rename: ORM.filter()")
+    logger.warning("select() is deprecated! Please rename: Registry.filter()")
     return cls.filter(**expressions)
 
 
@@ -731,6 +731,6 @@ def select(cls, **expressions):
     return select_backward(cls, **expressions)
 
 
-setattr(ORM, "__get_schema_name__", __get_schema_name__)
-setattr(ORM, "__get_name_with_schema__", __get_name_with_schema__)
-setattr(ORM, "select", select)  # backward compat
+setattr(Registry, "__get_schema_name__", __get_schema_name__)
+setattr(Registry, "__get_name_with_schema__", __get_name_with_schema__)
+setattr(Registry, "select", select)  # backward compat

@@ -1,30 +1,30 @@
 from typing import List, Union, overload  # noqa
 
 from lamin_utils import colors, logger
-from lnschema_core import ORM
+from lnschema_core import Registry
 
 
 @overload
 def delete(
-    record: ORM,
+    record: Registry,
 ) -> None:
     ...
 
 
 @overload
 def delete(
-    records: List[ORM],
+    records: List[Registry],
 ) -> None:  # type: ignore
     ...
 
 
 def delete(  # type: ignore
-    records: Union[ORM, List[ORM]],
+    records: Union[Registry, List[Registry]],
 ) -> None:
     """Delete metadata records & files.
 
     Args:
-        records: `Union[ORM, List[ORM]]` One or multiple records.
+        records: `Union[Registry, List[Registry]]` One or multiple records.
 
     Returns:
         `None`
@@ -58,7 +58,7 @@ def delete(  # type: ignore
     logger.warning("For efficient bulk delete, use `queryset.delete` instead")
     if isinstance(records, list):
         records = records
-    elif isinstance(records, ORM):
+    elif isinstance(records, Registry):
         records = [records]
     for record in records:
         record.delete()

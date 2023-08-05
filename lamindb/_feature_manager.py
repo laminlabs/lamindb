@@ -3,14 +3,14 @@ from typing import Dict, List, Optional, Union
 
 import pandas as pd
 from lamin_utils import logger
-from lnschema_core.models import ORM, Dataset, Feature, FeatureSet, File, Label
+from lnschema_core.models import Dataset, Feature, FeatureSet, File, Label, Registry
 
 from ._queryset import QuerySet
 from ._save import save
 
 
 def validate_and_cast_feature(
-    feature: Union[str, Feature], records: List[ORM]
+    feature: Union[str, Feature], records: List[Registry]
 ) -> Feature:
     if isinstance(feature, str):
         feature_name = feature
@@ -88,7 +88,7 @@ class FeatureManager:
 
     def get_labels(
         self,
-        feature: Optional[Union[str, ORM]] = None,
+        feature: Optional[Union[str, Registry]] = None,
         mute: bool = False,
         flat_names: bool = False,
     ) -> Union[QuerySet, Dict[str, QuerySet], List]:
@@ -119,7 +119,7 @@ class FeatureManager:
                 ).all()
         if flat_names:
             # returns a flat list of names
-            from ._orm import get_default_str_field
+            from ._registry import get_default_str_field
 
             values = []
             for v in qs_by_registry.values():
@@ -132,8 +132,8 @@ class FeatureManager:
 
     def add_labels(
         self,
-        records: Union[ORM, List[ORM], QuerySet],
-        feature: Optional[Union[str, ORM]] = None,
+        records: Union[Registry, List[Registry], QuerySet],
+        feature: Optional[Union[str, Registry]] = None,
     ) -> None:
         """Add one or several labels and associate them with a feature."""
         if isinstance(records, (QuerySet, QuerySet.__base__)):  # need to have both
@@ -142,7 +142,8 @@ class FeatureManager:
             records = [records]
         if isinstance(records[0], str):  # type: ignore
             raise ValueError(
-                "Please pass a record (an ORM object), not a string, e.g., via: label"
+                "Please pass a record (an Registry object), not a string, e.g., via:"
+                " label"
                 f" = ln.Label(name='{records[0]}')"  # type: ignore
             )
         if self._host._state.adding:

@@ -3,7 +3,7 @@
 .. autosummary::
    :toctree: .
 
-   ORM
+   Registry
    QuerySet
    Manager
    FeatureManager
@@ -14,7 +14,7 @@
    run_context
 """
 
-from lnschema_core.models import ORM
+from lnschema_core.models import Registry
 
 from lamindb._feature_manager import FeatureManager
 from lamindb._manager import Manager
