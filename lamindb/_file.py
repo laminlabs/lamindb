@@ -837,7 +837,7 @@ def tree(
     level: int = -1,
     limit_to_directories: bool = False,
     length_limit: int = 1000,
-):
+) -> None:
     """{}"""
     space = "    "
     branch = "│   "
@@ -884,8 +884,12 @@ def tree(
         folder_tree += f"\n{line}"
     if next(iterator, None):
         folder_tree += f"... length_limit, {length_limit}, reached, counted:"
-    print(folder_tree)
-    print(f"\n{directories} directories" + (f", {files} files" if files else ""))
+    print(
+        f"{directories} subdirectories"
+        + (f", {files} files" if files else "")
+        + ":\n"
+        + folder_tree
+    )
 
 
 def inherit_relations(self, file: File, fields: Optional[List[str]] = None):
