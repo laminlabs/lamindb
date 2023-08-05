@@ -4,8 +4,9 @@
    :toctree: .
 
    Registry
+   Data
    QuerySet
-   Manager
+   QueryManager
    FeatureManager
    datasets
    hashing
@@ -17,9 +18,10 @@
 from lnschema_core.models import Registry
 
 from lamindb._feature_manager import FeatureManager
-from lamindb._manager import Manager
-from lamindb._queryset import QuerySet
+from lamindb._query_manager import QueryManager
+from lamindb._query_set import QuerySet
 
 from .._context import run_context
 from . import datasets  # noqa
+from ._data import Data
 from ._settings import Settings

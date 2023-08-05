@@ -3,8 +3,8 @@ from typing import Optional
 from django.db import models
 
 
-class Manager(models.Manager):
-    """Extension of Django Manager.
+class QueryManager(models.Manager):
+    """Manage queries through fields.
 
     See Also:
 
@@ -44,9 +44,12 @@ class Manager(models.Manager):
             return [item for item in self.values_list(field, flat=True)]
 
     def df(self, **kwargs):
-        """Convert to DataFrame."""
+        """Convert to DataFrame.
+
+        For `**kwargs`, see :meth:`lamindb.dev.QuerySet.df`.
+        """
         return self.all().df(**kwargs)
 
 
-setattr(models.Manager, "list", Manager.list)
-setattr(models.Manager, "df", Manager.df)
+setattr(models.Manager, "list", QueryManager.list)
+setattr(models.Manager, "df", QueryManager.df)

@@ -27,7 +27,7 @@ except ImportError:
 
 
 def save(records: Iterable[Registry], **kwargs) -> None:  # type: ignore
-    """Bulk save to database & storage.
+    """Bulk save to registries & storage.
 
     Note:
 
