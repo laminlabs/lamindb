@@ -23,8 +23,11 @@ def test_from_values_name(df):
     ids = [i.ontology_id for i in result]
     assert len(result) == 3
     assert set(ids) == {"CL:0000084", "CL:0000182", None}
-    assert result[0].bionty_source.entity == "CellType"
-    assert result[2].bionty_source is None
+    for r in result:
+        if r.ontology_id == "CL:0000084":
+            assert r.bionty_source.entity == "CellType"
+        if r.ontology_id is None:
+            assert r.bionty_source is None
 
 
 def test_from_values_ontology_id(df):
