@@ -58,7 +58,7 @@ bionty = [
     "lnschema_bionty==0.29.0",
 ]
 zarr = [
-    "zarr",
+    "zarr>=2.16.0",
 ]
 fcs = [
     "readfcs>=1.1.3",
