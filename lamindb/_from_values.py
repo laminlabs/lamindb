@@ -5,7 +5,7 @@ from django.core.exceptions import FieldDoesNotExist
 from django.db.models import Case, When
 from django.db.models.query_utils import DeferredAttribute as Field
 from lamin_utils import colors, logger
-from lnschema_core.models import ORM, Feature, Label
+from lnschema_core.models import Feature, Label, Registry
 from lnschema_core.types import ListLike
 
 from .dev._settings import settings
@@ -18,7 +18,7 @@ def get_or_create_records(
     *,
     from_bionty: bool = False,
     **kwargs,
-) -> List[ORM]:
+) -> List[Registry]:
     """Get or create records from iterables."""
     upon_create_search_names = settings.upon_create_search_names
     settings.upon_create_search_names = False
@@ -31,10 +31,10 @@ def get_or_create_records(
         types = kwargs.pop("types")
     try:
         field_name = field.field.name
-        ORM = field.field.model
+        Registry = field.field.model
         iterable_idx = index_iterable(iterable)
 
-        if isinstance(ORM, Feature):
+        if isinstance(Registry, Feature):
             if types is None:
                 raise ValueError("Please pass types as {} or use FeatureSet.from_df()")
 
@@ -58,7 +58,7 @@ def get_or_create_records(
                     params = {field_name: value}
                     if types is not None:
                         params["type"] = str(types[value])
-                    records.append(ORM(**params, **kwargs))
+                    records.append(Registry(**params, **kwargs))
                 s = "" if len(unmapped_values) == 1 else "s"
                 print_unmapped_values = ", ".join(unmapped_values[:5])
                 if len(unmapped_values) > 10:
@@ -67,10 +67,10 @@ def get_or_create_records(
                 if feature is not None:
                     additional_info = f" Feature {feature.name} and "
                 logger.warning(
-                    f"Created {colors.yellow(f'{len(unmapped_values)} {ORM.__name__} record{s}')} for{additional_info}"  # noqa
+                    f"Created {colors.yellow(f'{len(unmapped_values)} {Registry.__name__} record{s}')} for{additional_info}"  # noqa
                     f"{colors.yellow(f'{field_name}{s}')}: {print_unmapped_values}"  # noqa
                 )
-        if ORM.__module__.startswith("lnschema_bionty.") or ORM == Label:
+        if Registry.__module__.startswith("lnschema_bionty.") or Registry == Label:
             if isinstance(iterable, pd.Series):
                 feature = iterable.name
             feature_name = None
@@ -248,7 +248,7 @@ def index_iterable(iterable: Iterable) -> pd.Index:
     return idx[(idx != "") & (~idx.isnull())]
 
 
-def _filter_bionty_df_columns(model: ORM, bionty_object: Any) -> pd.DataFrame:
+def _filter_bionty_df_columns(model: Registry, bionty_object: Any) -> pd.DataFrame:
     bionty_df = pd.DataFrame()
     if bionty_object is not None:
         model_field_names = {i.name for i in model._meta.fields}
@@ -308,7 +308,7 @@ def _bulk_create_dicts_from_df(
     return df.reset_index().to_dict(orient="records"), multi_msg
 
 
-def _has_species_field(orm: ORM) -> bool:
+def _has_species_field(orm: Registry) -> bool:
     try:
         orm._meta.get_field("species")
         return True

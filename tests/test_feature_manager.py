@@ -63,8 +63,8 @@ def test_features_add_labels_using_anndata():
         file.features.add_labels("species")
     assert (
         error.exconly()
-        == "ValueError: Please pass a record (an ORM object), not a string, e.g., via:"
-        " label = ln.Label(name='species')"
+        == "ValueError: Please pass a record (an Registry object), not a string, e.g.,"
+        " via: label = ln.Label(name='species')"
     )
 
     with pytest.raises(ValueError) as error:

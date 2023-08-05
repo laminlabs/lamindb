@@ -261,7 +261,7 @@ We do _not_ store any of your data, but only basic metadata about you (email add
 
 LaminDB builds semantics of R&D and biology onto well-established tools:
 
-- SQLite & Postgres for SQL databases using Django ORM (previously: SQLModel)
+- SQLite & Postgres for SQL databases using Django Registry (previously: SQLModel)
 - S3, GCP & local storage for object storage using fsspec
 - Configurable storage formats: pyarrow, anndata, zarr, etc.
 - Biological knowledge sources & ontologies: see [Bionty](https://lamin.ai/docs/bionty)

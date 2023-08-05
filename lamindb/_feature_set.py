@@ -4,7 +4,7 @@ import pandas as pd
 from django.db.models.query_utils import DeferredAttribute as Field
 from lamin_utils import logger
 from lamindb_setup.dev._docs import doc_args
-from lnschema_core import ORM, Feature, FeatureSet, Modality, ids
+from lnschema_core import Feature, FeatureSet, Modality, Registry, ids
 from lnschema_core.types import ListLike
 
 from lamindb.dev.hashing import hash_set
@@ -12,11 +12,11 @@ from lamindb.dev.utils import attach_func_to_class_method
 
 from . import _TESTING
 from ._from_values import get_or_create_records, index_iterable
-from ._orm import init_self_from_db
+from ._registry import init_self_from_db
 from ._save import bulk_create
 
 
-def get_related_name(features_type: ORM):
+def get_related_name(features_type: Registry):
     candidates = [
         field.related_name
         for field in FeatureSet._meta.related_objects
@@ -26,19 +26,20 @@ def get_related_name(features_type: ORM):
         raise ValueError(
             f"Can't create feature sets from {features_type.__name__} because it's not"
             " related to it!\nYou need to create a link model between FeatureSet and"
-            " your ORM in your custom schema.\nTo do so, add a line:\nfeature_sets ="
-            " models.ManyToMany(FeatureSet, related_name='mythings')\n"
+            " your Registry in your custom schema.\nTo do so, add a"
+            " line:\nfeature_sets = models.ManyToMany(FeatureSet,"
+            " related_name='mythings')\n"
         )
     return candidates[0]
 
 
-def validate_features(features: List[ORM]) -> ORM:
+def validate_features(features: List[Registry]) -> Registry:
     """Validate and return feature type."""
     if len(features) == 0:
         raise ValueError("provide list of features with at least one element")
     if not hasattr(features, "__getitem__"):
         raise TypeError("features has to be list-like")
-    if not isinstance(features[0], ORM):
+    if not isinstance(features[0], Registry):
         raise TypeError(
             "features has to store feature records! use .from_values() otherwise"
         )
@@ -55,7 +56,7 @@ def __init__(self, *args, **kwargs):
     # now we proceed with the user-facing constructor
     if len(args) > 1:
         raise ValueError("Only one non-keyword arg allowed: features")
-    features: Iterable[ORM] = kwargs.pop("features") if len(args) == 0 else args[0]
+    features: Iterable[Registry] = kwargs.pop("features") if len(args) == 0 else args[0]
     ref_field: Optional[str] = (
         kwargs.pop("ref_field") if "ref_field" in kwargs else "id"
     )
@@ -142,11 +143,13 @@ def from_values(
 ) -> "FeatureSet":
     """{}"""
     if not isinstance(field, Field):
-        raise TypeError("Argument `field` must be an ORM field, e.g., `Feature.name`")
+        raise TypeError(
+            "Argument `field` must be an Registry field, e.g., `Feature.name`"
+        )
     if len(values) == 0:
         raise ValueError("Provide a list of at least one value")
-    ORM = field.field.model
-    if isinstance(ORM, Feature):
+    Registry = field.field.model
+    if isinstance(Registry, Feature):
         raise ValueError("Please use from_df() instead of from_values()")
     iterable_idx = index_iterable(values)
     if not isinstance(iterable_idx[0], (str, int)):
@@ -156,7 +159,7 @@ def from_values(
     if feature_set is not None:
         logger.info(f"Loaded {feature_set}")
     else:
-        from_bionty = ORM.__module__.startswith("lnschema_bionty")
+        from_bionty = Registry.__module__.startswith("lnschema_bionty")
         records = get_or_create_records(
             iterable=iterable_idx,
             field=field,

@@ -1,6 +1,6 @@
 from typing import List, Set, Union
 
-from lnschema_core import ORM, File, Run
+from lnschema_core import File, Registry, Run
 from lnschema_core.models import format_datetime
 
 
@@ -79,7 +79,7 @@ def view_lineage(file: File, with_children: bool = True):
 
 
 def view_parents(
-    record: ORM, field: str, with_children: bool = False, distance: int = 100
+    record: Registry, field: str, with_children: bool = False, distance: int = 100
 ):
     """Graph of parents."""
     if not hasattr(record, "parents"):
@@ -126,7 +126,7 @@ def view_parents(
     return u
 
 
-def _get_parents(record: ORM, field: str, distance: int, children: bool = False):
+def _get_parents(record: Registry, field: str, distance: int, children: bool = False):
     """Recursively get parent records within a distance."""
     if children:
         key = "parents"
@@ -152,7 +152,7 @@ def _get_parents(record: ORM, field: str, distance: int, children: bool = False)
 
 
 def _df_edges_from_parents(
-    record: ORM, field: str, distance: int, children: bool = False
+    record: Registry, field: str, distance: int, children: bool = False
 ):
     """Construct a DataFrame of edges as the input of graphviz.Digraph."""
     key = "children" if children else "parents"

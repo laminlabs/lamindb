@@ -34,7 +34,7 @@ class Settings:
     It speeds up file creation by about a factor 100.
     """
     upon_create_search_names: bool = True
-    """To speed up creating ORM objects (default `True`).
+    """To speed up creating Registry objects (default `True`).
 
     If `True`, search for alternative names.
 

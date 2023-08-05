@@ -9,7 +9,7 @@ from typing import Iterable, List, Optional, Tuple, Union, overload  # noqa
 import lamindb_setup
 from django.db import transaction
 from lamin_utils import logger
-from lnschema_core.models import ORM, File
+from lnschema_core.models import File, Registry
 
 from lamindb.dev.storage import store_object
 from lamindb.dev.storage.file import (
@@ -26,7 +26,7 @@ except ImportError:
         raise ImportError("Please install zarr: pip install zarr")
 
 
-def save(records: Iterable[ORM], **kwargs) -> None:  # type: ignore
+def save(records: Iterable[Registry], **kwargs) -> None:  # type: ignore
     """Bulk save to database & storage.
 
     Note:
@@ -36,10 +36,10 @@ def save(records: Iterable[ORM], **kwargs) -> None:  # type: ignore
     Warning:
 
         It neither automatically creates related records nor updates existing records!
-        Use ``ORM.save()`` for these use cases.
+        Use ``Registry.save()`` for these use cases.
 
     Args:
-        records: One or multiple ``ORM`` objects.
+        records: One or multiple ``Registry`` objects.
 
     Examples:
 
@@ -63,7 +63,7 @@ def save(records: Iterable[ORM], **kwargs) -> None:  # type: ignore
     """
     if isinstance(records, Iterable):
         records = set(records)
-    elif isinstance(records, ORM):
+    elif isinstance(records, Registry):
         records = {records}
 
     # we're distinguishing between files and non-files
@@ -107,7 +107,7 @@ def save(records: Iterable[ORM], **kwargs) -> None:  # type: ignore
     return None
 
 
-def bulk_create(records: Iterable[ORM]):
+def bulk_create(records: Iterable[Registry]):
     records_by_orm = defaultdict(list)
     for record in records:
         records_by_orm[record.__class__].append(record)
