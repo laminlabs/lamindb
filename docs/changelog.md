@@ -1,5 +1,6 @@
 # Changelog
 
+- 🚚 Rename ORM to Registry [PR982](https://github.com/laminlabs/lamindb/pull/982) [@sunnyosun](https://github.com/sunnyosun)
 ```{eval-rst}
 .. role:: small
 ```
