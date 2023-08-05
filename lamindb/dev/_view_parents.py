@@ -3,6 +3,10 @@ from typing import List, Set, Union
 from lnschema_core import File, Registry, Run
 from lnschema_core.models import format_datetime
 
+LAMIN_GREEN_LIGHTER = "#10b981"
+LAMIN_GREEN_DARKER = "#065f46"
+GREEN_FILL = "honeydew"
+
 
 def view_lineage(file: File, with_children: bool = True):
     """Graph of data lineage.
@@ -33,8 +37,8 @@ def view_lineage(file: File, with_children: bool = True):
     u = graphviz.Digraph(
         file.id,
         node_attr={
-            "fillcolor": "honeydew",
-            "color": "seagreen",
+            "fillcolor": GREEN_FILL,
+            "color": LAMIN_GREEN_DARKER,
             "fontname": "Helvetica",
             "fontsize": "10",
         },
@@ -51,7 +55,7 @@ def view_lineage(file: File, with_children: bool = True):
         else:
             style = "rounded,filled"
             shape = "box"
-            fillcolor = "honeydew"
+            fillcolor = GREEN_FILL
         u.node(
             node_id,
             label=node_label,
@@ -66,12 +70,12 @@ def view_lineage(file: File, with_children: bool = True):
             add_node(row["target_record"], row["target"], row["target_label"], u)
 
         u.edge(row["source"], row["target"], color="dimgrey")
-    # label the searched file mediumseagreen
+    # label the searched file
     u.node(
         file.id,
         label=file_label,
         style="rounded,filled",
-        fillcolor="mediumseagreen",
+        fillcolor=LAMIN_GREEN_LIGHTER,
         shape="box",
     )
 
@@ -105,8 +109,8 @@ def view_parents(
     u = graphviz.Digraph(
         record.id,
         node_attr={
-            "color": "seagreen",
-            "fillcolor": "honeydew",
+            "color": LAMIN_GREEN_DARKER,
+            "fillcolor": GREEN_FILL,
             "shape": "box",
             "style": "rounded,filled",
             "fontname": "Helvetica",
@@ -117,7 +121,7 @@ def view_parents(
     u.node(
         record_label.replace(":", "_"),
         label=record_label,
-        fillcolor="mediumseagreen",
+        fillcolor=LAMIN_GREEN_LIGHTER,
     )
     for _, row in df_edges.iterrows():
         u.node(row["source"], label=row["source_label"])
