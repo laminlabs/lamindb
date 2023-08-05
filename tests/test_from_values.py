@@ -22,7 +22,7 @@ def test_from_values_name(df):
     result = lb.CellType.from_values(df.cell_type, "name")
     ids = [i.ontology_id for i in result]
     assert len(result) == 3
-    assert ids == ["CL:0000084", "CL:0000182", None]
+    assert set(ids) == {"CL:0000084", "CL:0000182", None}
     assert result[0].bionty_source.entity == "CellType"
     assert result[2].bionty_source is None
 

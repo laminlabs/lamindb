@@ -10,7 +10,7 @@ from lamin_utils._lookup import Lookup
 from lamin_utils._search import search as base_search
 from lamindb_setup.dev._docs import doc_args
 from lnschema_core import Registry
-from lnschema_core.models import format_datetime
+from lnschema_core.models import format_field_value
 from lnschema_core.types import ListLike, StrField
 
 from lamindb.dev.utils import attach_func_to_class_method
@@ -448,7 +448,7 @@ def describe(self):
         msg += related_msg
     # input of
     if self.input_of.exists():
-        values = [format_datetime(i.run_at) for i in self.input_of.all()]
+        values = [format_field_value(i.run_at) for i in self.input_of.all()]
         msg += f"⬇️ input_of ({colors.italic('core.Run')}): {values}\n    "
     msg = msg.rstrip("    ")
 
