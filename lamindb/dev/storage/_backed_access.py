@@ -94,12 +94,23 @@ def read_dataframe(elem: Union[h5py.Dataset, h5py.Group]):
 def safer_read_partial(elem, indices):
     if get_spec(elem).encoding_type == "":
         if isinstance(elem, h5py.Dataset):
-            return elem[indices]
-        else:
-            raise ValueError(
-                "Can not get a subset of the element of type"
-                f" {type(elem).__name__} with an empty spec."
-            )
+            dims = len(elem.shape)
+            if dims == 2:
+                return elem[indices]
+            elif dims == 1:
+                if indices[0] == slice(None):
+                    return elem[indices[1]]
+                elif indices[1] == slice(None):
+                    return elem[indices[0]]
+        elif isinstance(elem, h5py.Group):
+            try:
+                return SparseDataset(elem)[indices]
+            except Exception:
+                pass
+        raise ValueError(
+            "Can not get a subset of the element of type"
+            f" {type(elem).__name__} with an empty spec."
+        )
     else:
         return read_elem_partial(elem, indices=indices)
 
@@ -140,6 +151,16 @@ if ZARR_INSTALLED:
     GroupTypes.append(zarr.Group)
     StorageTypes.append(zarr.Group)
 
+    def _subset_sparse_zarr(elem: zarr.Group, indices):
+        ds = SparseDataset(elem)
+        has_arrays = isinstance(indices[0], np.ndarray) or isinstance(
+            indices[1], np.ndarray
+        )
+        if not has_arrays and indices == (slice(None), slice(None)):
+            return ds.to_memory()
+        else:
+            return ds[indices]
+
     @registry.register_open("zarr")
     def open(filepath: Union[UPath, Path, str]):  # noqa
         fs, file_path_str = infer_filesystem(filepath)
@@ -156,16 +177,31 @@ if ZARR_INSTALLED:
 
     @registry.register("zarr")
     def safer_read_partial(elem, indices):  # noqa
-        if get_spec(elem).encoding_type == "":
+        encoding_type = get_spec(elem).encoding_type
+        if encoding_type == "":
             if isinstance(elem, zarr.Array):
-                return elem.oindex[indices]
-            else:
-                raise ValueError(
-                    "Can not get a subset of the element of type"
-                    f" {type(elem).__name__} with an empty spec."
-                )
+                dims = len(elem.shape)
+                if dims == 2:
+                    return elem.oindex[indices]
+                elif dims == 1:
+                    if indices[0] == slice(None):
+                        return elem.oindex[indices[1]]
+                    elif indices[1] == slice(None):
+                        return elem.oindex[indices[0]]
+            elif isinstance(elem, zarr.Group):
+                try:
+                    return _subset_sparse_zarr(elem, indices)
+                except Exception:
+                    pass
+            raise ValueError(
+                "Can not get a subset of the element of type"
+                f" {type(elem).__name__} with an empty spec."
+            )
         else:
-            return read_elem_partial(elem, indices=indices)
+            if encoding_type in ("csr_matrix", "csc_matrix"):
+                return _subset_sparse_zarr(elem, indices)
+            else:
+                return read_elem_partial(elem, indices=indices)
 
     # this is needed because accessing zarr.Group.keys() directly is very slow
     @registry.register("zarr")
@@ -213,8 +249,6 @@ ArrayTypes = tuple(ArrayTypes)  # type: ignore
 GroupTypes = tuple(GroupTypes)  # type: ignore
 StorageTypes = tuple(StorageTypes)  # type: ignore
 
-ArrayOrSparseTypes = ArrayTypes + (SparseDataset,)  # type: ignore
-
 
 ArrayType = Union[ArrayTypes]  # type: ignore
 GroupType = Union[GroupTypes]  # type: ignore
@@ -222,8 +256,10 @@ StorageType = Union[StorageTypes]  # type: ignore
 
 
 def _to_memory(elem):
-    if isinstance(elem, ArrayOrSparseTypes):
+    if isinstance(elem, ArrayTypes):
         return elem[()]
+    elif isinstance(elem, SparseDataset):
+        return elem.to_memory()
     else:
         return elem
 
