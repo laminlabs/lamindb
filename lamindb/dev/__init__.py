@@ -4,6 +4,7 @@
    :toctree: .
 
    Registry
+   Data
    QuerySet
    QueryManager
    FeatureManager
@@ -22,4 +23,5 @@ from lamindb._query_set import QuerySet
 
 from .._context import run_context
 from . import datasets  # noqa
+from ._data import Data
 from ._settings import Settings
