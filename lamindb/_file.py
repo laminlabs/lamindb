@@ -558,21 +558,23 @@ def from_anndata(
     else:
         type = convert_numpy_dtype_to_lamin_feature_type(adata.X.dtype)
     feature_sets = {}
-    logger.info("Parsing feature names of X, stored in slot 'var'")
+    logger.info("parsing feature names of X, stored in slot 'var'")
     logger.indent = "   "
-    feature_set_x = FeatureSet.from_values(
+    feature_set_var = FeatureSet.from_values(
         data_parse.var.index,
         var_ref,
         type=type,
     )
-    if feature_set_x is not None:
-        feature_sets["var"] = feature_set_x
+    if feature_set_var is not None:
+        logger.info(f"linking: {feature_set_var}")
+        feature_sets["var"] = feature_set_var
     logger.indent = ""
     if len(data_parse.obs.columns) > 0:
-        logger.info("Parsing feature names of slot 'obs'")
+        logger.info("parsing feature names of slot 'obs'")
         logger.indent = "   "
         feature_set_obs = FeatureSet.from_df(data_parse.obs)
         if feature_set_obs is not None:
+            logger.info(f"linking: {feature_set_obs}")
             feature_sets["obs"] = feature_set_obs
         logger.indent = ""
     file._feature_sets = feature_sets
@@ -808,6 +810,10 @@ def _save_skip_storage(file, *args, **kwargs) -> None:
     if hasattr(file, "_feature_sets"):
         for feature_set in file._feature_sets.values():
             feature_set.save()
+        logger.info(
+            f"Saved {len(file._feature_sets)} feature sets for slots:"
+            f" {file._feature_sets.keys()}"
+        )
     super(File, file).save(*args, **kwargs)
     if hasattr(file, "_feature_sets"):
         links = []

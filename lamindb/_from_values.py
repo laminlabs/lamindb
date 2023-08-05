@@ -2,7 +2,6 @@ from typing import Any, Dict, Iterable, List, Optional, Tuple, Union
 
 import pandas as pd
 from django.core.exceptions import FieldDoesNotExist
-from django.db.models import Case, When
 from django.db.models.query_utils import DeferredAttribute as Field
 from lamin_utils import colors, logger
 from lnschema_core.models import Feature, Label, Registry
@@ -62,14 +61,14 @@ def get_or_create_records(
                         params["type"] = str(types[value])
                     records.append(Registry(**params, **kwargs))
                 s = "" if len(unmapped_values) == 1 else "s"
-                print_unmapped_values = ", ".join(unmapped_values[:5])
-                if len(unmapped_values) > 10:
+                print_unmapped_values = ", ".join(unmapped_values[:20])
+                if len(unmapped_values) > 20:
                     print_unmapped_values += ", ..."
                 additional_info = " "
                 if feature is not None:
                     additional_info = f" Feature {feature.name} and "
                 logger.warning(
-                    f"Did not validate {colors.yellow(f'{len(unmapped_values)} {Registry.__name__} record{s}')} for{additional_info}"  # noqa
+                    f"did not validate {colors.yellow(f'{len(unmapped_values)} {Registry.__name__} record{s}')} for{additional_info}"  # noqa
                     f"{colors.yellow(f'{field_name}{s}')}: {print_unmapped_values}"  # noqa
                 )
         if Registry.__module__.startswith("lnschema_bionty.") or Registry == Label:
@@ -118,7 +117,7 @@ def get_existing_records(iterable_idx: pd.Index, field: Field, kwargs: Dict = {}
         if len(names) > 5:
             print_values += ", ..."
         syn_msg = (
-            "Validated"
+            "validated"
             f" {colors.green(f'{len(syn_mapper)} {model.__name__} record{s}')}"  # noqa
             f" on {colors.green('synonyms')}: {print_values}"
         )
@@ -131,26 +130,28 @@ def get_existing_records(iterable_idx: pd.Index, field: Field, kwargs: Dict = {}
     condition.update({f"{field_name}__in": iterable_idx.values})
 
     query_set = model.filter(**condition)
+    records = query_set.list()
 
-    # new we have to sort the list of queried records
-    preserved = Case(
-        *[
-            When(**{field_name: value}, then=pos)
-            for pos, value in enumerate(iterable_idx)
-        ]
-    )
-    records = query_set.order_by(preserved).list()
+    # now we have to sort the list of queried records
+    # preserved = Case(
+    #     *[
+    #         When(**{field_name: value}, then=pos)
+    #         for pos, value in enumerate(iterable_idx)
+    #     ]
+    # )
+    # order by causes a factor 10 in runtime
+    # records = query_set.order_by(preserved).list()
 
     n_name = len(records) - len(syn_mapper)
     names = [getattr(record, field_name) for record in records]
     names = [name for name in names if name not in syn_mapper.values()]
     if n_name > 0:
         s = "" if n_name == 1 else "s"
-        print_values = ", ".join(names[:5])
-        if len(names) > 5:
+        print_values = ", ".join(names[:20])
+        if len(names) > 20:
             print_values += ", ..."
         logger.success(
-            "Validated"
+            "validated"
             f" {colors.green(f'{n_name} {model.__name__} record{s}')}"
             f" on {colors.green(f'{field_name}')}: {print_values}"
         )
@@ -195,11 +196,11 @@ def create_records_from_bionty(
     if len(syn_mapper) > 0:
         s = "" if len(syn_mapper) == 1 else "s"
         names = list(syn_mapper.keys())
-        print_values = ", ".join(names[:5])
-        if len(names) > 5:
+        print_values = ", ".join(names[:20])
+        if len(names) > 20:
             print_values += ", ..."
         msg_syn = (
-            "Validated"
+            "validated"
             f" {colors.purple(f'{len(syn_mapper)} {model.__name__} record{s} from Bionty')}"  # noqa
             f" on {colors.purple('synonyms')}: {print_values}"
         )
@@ -222,11 +223,11 @@ def create_records_from_bionty(
         names = [name for name in names if name not in syn_mapper.values()]
         if n_name > 0:
             s = "" if n_name == 1 else "s"
-            print_values = ", ".join(names[:5])
-            if len(names) > 5:
+            print_values = ", ".join(names[:20])
+            if len(names) > 20:
                 print_values += ", ..."
             msg = (
-                "Validated"
+                "validated"
                 f" {colors.purple(f'{n_name} {model.__name__} record{s} from Bionty')}"  # noqa
                 f" on {colors.purple(f'{field_name}')}: {print_values}"
             )
@@ -299,8 +300,8 @@ def _bulk_create_dicts_from_df(
         dup = df.index[df.index.duplicated()].unique().tolist()
         if len(dup) > 0:
             s = "" if len(dup) == 1 else "s"
-            print_values = ", ".join(dup[:5])
-            if len(dup) > 5:
+            print_values = ", ".join(dup[:20])
+            if len(dup) > 20:
                 print_values += ", ..."
             multi_msg = (
                 f"Ambiguous validation in Bionty for {len(dup)} record{s}:"

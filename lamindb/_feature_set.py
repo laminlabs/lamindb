@@ -12,7 +12,7 @@ from lamindb.dev.utils import attach_func_to_class_method
 
 from . import _TESTING
 from ._from_values import get_or_create_records, index_iterable
-from ._registry import get_default_str_field, init_self_from_db
+from ._registry import init_self_from_db
 from ._save import bulk_create
 
 
@@ -49,19 +49,18 @@ def sanity_check_features(features: List[Registry]) -> Registry:
     return next(iter(feature_types))  # return value in set of cardinality 1
 
 
-def get_validated_features(features: List[Registry]) -> List[Registry]:
+def get_validated_features(features: List[Registry], field: Field) -> List[Registry]:
     validated_features = []
     non_validated_features = []
     for feature in features:
         if feature._state.adding and not (
             hasattr(feature, "_from_bionty") and feature._from_bionty
         ):
-            field_name = get_default_str_field(feature)
-            non_validated_features.append(getattr(feature, field_name))
+            non_validated_features.append(getattr(feature, field.field.name))
         else:
             validated_features.append(feature)
     if non_validated_features:
-        logger.info(f"Ignoring non-validated features: {non_validated_features}")
+        logger.info(f"ignoring unvalidated features: {non_validated_features}")
     return validated_features
 
 
@@ -97,7 +96,7 @@ def __init__(self, *args, **kwargs):
         features_hash = hash_set({feature.id for feature in features})
         feature_set = FeatureSet.filter(hash=features_hash).one_or_none()
         if feature_set is not None:
-            logger.info(f"Loaded {feature_set}")
+            logger.success(f"Loaded: {feature_set}")
             init_self_from_db(self, feature_set)
             return None
         else:
@@ -177,7 +176,7 @@ def from_values(
         from_bionty=from_bionty,
         **kwargs,
     )
-    validated_features = get_validated_features(features)
+    validated_features = get_validated_features(features, field)
     validated_feature_ids = [feature.id for feature in validated_features]
     features_hash = hash_set(set(validated_feature_ids))
     feature_set = FeatureSet.filter(hash=features_hash).one_or_none()
@@ -211,7 +210,7 @@ def from_df(
 ) -> Optional["FeatureSet"]:
     """{}"""
     features = Feature.from_df(df)
-    validated_features = get_validated_features(features)
+    validated_features = get_validated_features(features, Feature.name)
     if validated_features:
         feature_set = FeatureSet(validated_features, name=name)
     else:

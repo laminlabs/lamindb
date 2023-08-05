@@ -1,7 +1,7 @@
 from typing import List, Set, Union
 
 from lnschema_core import File, Registry, Run
-from lnschema_core.models import format_datetime
+from lnschema_core.models import format_field_value
 
 LAMIN_GREEN_LIGHTER = "#10b981"
 LAMIN_GREEN_DARKER = "#065f46"
@@ -228,7 +228,7 @@ def _label_file_run(record: Union[File, Run]):
         return (
             rf'<{name}<BR/><FONT COLOR="GREY" POINT-SIZE="10"'
             rf' FACE="Monospace">id={record.id}<BR/>type={record.transform.type},'
-            rf" user={record.created_by.name}<BR/>run_at={format_datetime(record.run_at)}</FONT>>"  # noqa
+            rf" user={record.created_by.name}<BR/>run_at={format_field_value(record.run_at)}</FONT>>"  # noqa
         )
 
 
