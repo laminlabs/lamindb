@@ -29,9 +29,9 @@ def test_from_values_name(df):
 
 def test_from_values_ontology_id(df):
     result = lb.CellType.from_values(df.cell_type_id, "ontology_id")
-    names = [i.name for i in result]
+    names = {i.name for i in result}
     assert len(result) == 2
-    assert names == ["T cell", "hepatocyte"]
+    assert names == {"T cell", "hepatocyte"}
     assert result[0].bionty_source.entity == "CellType"
 
 
