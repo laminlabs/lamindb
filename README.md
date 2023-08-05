@@ -5,27 +5,27 @@
 
 # LaminDB
 
-Open-source data lake & feature store for biology.
+Open-source data platform for biology.
 
 ```{warning}
 
-Public beta: Currently only recommended for collaborators as we still make breaking changes.
+Public beta: Close to having converged a stable API, but some breaking changes might still occur.
 
-Update 2023-06-14:
-
-- We completed a major migration from SQLAlchemy/SQLModel to Django, available in 0.42.0.
-- The last version before the migration is 0.41.2.
 ```
 
 ## Introduction
 
-LaminDB is an open-source Python library to:
+LaminDB is an open-source Python library to manage files & datasets while
 
-- Manage files & datasets while tracking provenance across pipelines, notebooks & app uploads.
-- Manage biological registries, ontologies, features & schemas.
-- Enhance integrity through built-in data validation and [idempotent](https://lamin.ai/docs/faq/idempotency), [ACID](https://lamin.ai/docs/faq/acid) operations.
+- tracking provenance across pipelines, notebooks & app uploads
+- validating & linking data batches using biological registries & ontologies
+
+You can
+
+- Manage features & labels schema-less or schema-full.
 - Query, search, look up, save, load and stream with one API.
 - Collaborate across a mesh of LaminDB instances.
+- Enjoy [idempotent](https://lamin.ai/docs/faq/idempotency) & [ACID](https://lamin.ai/docs/faq/acid) operations.
 
 LaminApp is a data management app built on LaminDB. If LaminDB ~ git, LaminApp ~ GitHub.
 
