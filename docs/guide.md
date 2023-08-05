@@ -14,7 +14,7 @@
 :hidden:
 :caption: Tutorial
 
-guide/tutorial1
+tutorial1
 ```
 
 ```{toctree}
