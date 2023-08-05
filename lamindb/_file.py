@@ -811,8 +811,8 @@ def _save_skip_storage(file, *args, **kwargs) -> None:
         for feature_set in file._feature_sets.values():
             feature_set.save()
         logger.info(
-            f"Saved {len(file._feature_sets)} feature sets for slots:"
-            f" {file._feature_sets.keys()}"
+            f"saved {len(file._feature_sets)} feature sets for slots:"
+            f" {list(file._feature_sets.keys())}"
         )
     super(File, file).save(*args, **kwargs)
     if hasattr(file, "_feature_sets"):
