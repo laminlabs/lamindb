@@ -224,9 +224,10 @@ def _label_file_run(record: Union[File, Run]):
             rf' FACE="Monospace">id={record.id}<BR/>suffix={record.suffix}</FONT>>'
         )
     elif isinstance(record, Run):
+        emojis = {"notebook": "📔", "app": "🖥️"}
         name = f'{record.transform.name.replace("&", "&amp;")}'
         return (
-            rf'<{name}<BR/><FONT COLOR="GREY" POINT-SIZE="10"'
+            rf'<{emojis.get(record.transform.type, "🧩")} {name}<BR/><FONT COLOR="GREY" POINT-SIZE="10"'  # noqa
             rf' FACE="Monospace">id={record.id}<BR/>type={record.transform.type},'
             rf" user={record.created_by.name}<BR/>run_at={format_field_value(record.run_at)}</FONT>>"  # noqa
         )
