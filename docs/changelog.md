@@ -1,5 +1,6 @@
 # Changelog
 
+- 🚸 Only link validated features [PR987](https://github.com/laminlabs/lamindb/pull/987) [@falexwolf](https://github.com/falexwolf)
 - ✅ More fixes and tests for backed [PR988](https://github.com/laminlabs/lamindb/pull/988) [@Koncopd](https://github.com/Koncopd)
 - 🚚 Move biology notebooks to usecases [PR985](https://github.com/laminlabs/lamindb/pull/985) [@sunnyosun](https://github.com/sunnyosun)
 - 📝 Improve API description [PR986](https://github.com/laminlabs/lamindb/pull/986) [@falexwolf](https://github.com/falexwolf)
