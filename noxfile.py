@@ -86,6 +86,8 @@ def docs(session):
             Path("./docs/biology/lnschema-bionty.ipynb").rename(
                 "./docs/lnschema-bionty.ipynb"
             )
+        elif group == "guide":
+            Path("./docs/guide/tutorial1.ipynb").rename("./docs/tutorial1.ipynb")
     login_testuser1(session)
     session.run(*"lamin init --storage ./docsbuild --schema bionty".split())
     build_docs(session, strip_prefix=True, strict=True)
