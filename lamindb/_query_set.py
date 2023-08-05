@@ -23,12 +23,7 @@ def format_and_convert_to_local_time(series: pd.Series):
 
 
 class QuerySet(models.QuerySet):
-    """Extension of Django QuerySet.
-
-    This brings some of the SQLAlchemy/SQLModel/SQL-inspired calls.
-
-    As LaminDB was based on SQLAlchemy/SQLModel in the beginning, and might
-    support it again in the future, these calls will be supported longtime.
+    """Lazily loaded queried records returned by queries.
 
     See Also:
 
