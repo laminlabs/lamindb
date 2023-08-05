@@ -14,6 +14,7 @@ from lamindb_setup._init_instance import register_storage
 from lamindb_setup.dev import StorageSettings
 from lamindb_setup.dev._docs import doc_args
 from lnschema_core import Feature, FeatureSet, File, Run, Storage, ids
+from lnschema_core.models import Data
 from lnschema_core.types import AnnDataLike, DataLike, PathLike
 
 from lamindb._context import context
@@ -930,7 +931,7 @@ def inherit_relations(self, file: File, fields: Optional[List[str]] = None):
 
 
 @property  # type: ignore
-@doc_args(File.features.__doc__)
+@doc_args(Data.features.__doc__)
 def features(self) -> "FeatureManager":
     """{}"""
     from lamindb._feature_manager import FeatureManager
@@ -972,4 +973,4 @@ File._save_skip_storage = _save_skip_storage
 setattr(File, "view_lineage", view_lineage)
 setattr(File, "inherit_relations", inherit_relations)
 # property signature is not tested:
-setattr(File, "features", features)
+setattr(Data, "features", features)
