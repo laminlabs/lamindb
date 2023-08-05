@@ -16,10 +16,6 @@ from ._registry import init_self_from_db
 from ._save import bulk_create
 
 
-class ValidationError(Exception):
-    pass
-
-
 def get_related_name(features_type: Registry):
     candidates = [
         field.related_name
@@ -188,15 +184,27 @@ def from_df(
     cls,
     df: "pd.DataFrame",
     name: Optional[str] = None,
-) -> "FeatureSet":
+) -> Optional["FeatureSet"]:
     """{}"""
     features = Feature.from_df(df)
+    validated_features = []
+    non_validated_features = []
     for feature in features:
         if feature._state.adding and not (
             hasattr(feature, "_from_bionty") and feature._from_bionty
         ):
-            raise ValidationError
-    feature_set = FeatureSet(features, name=name)
+            # just take the name attribute here
+            non_validated_features.append(feature.name)
+        else:
+            validated_features.append(feature)
+    if non_validated_features:
+        logger.info(f"Ignoring non-validated features: {non_validated_features}")
+    if validated_features:
+        feature_set = FeatureSet(validated_features, name=name)
+    else:
+        logger.warning("No validated features, not linking any features")
+        feature_set = None
+        # raise ValidationError("Dataframe columns contain no validated feature names")
     return feature_set
 
 

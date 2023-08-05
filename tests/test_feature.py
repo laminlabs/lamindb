@@ -37,6 +37,8 @@ def test_signatures():
 
 def test_feature_from_df():
     file = ln.File.from_df(df)
+    assert file._feature_sets == {}
+    quit()
     file.save()
     feature_set = file._feature_sets["columns"]
     features = feature_set.features.all()

@@ -525,7 +525,10 @@ def from_df(
     """{}"""
     file = File(data=df, key=key, run=run, description=description, log_hint=False)
     feature_set = FeatureSet.from_df(df)
-    file._feature_sets = {"columns": feature_set}
+    if feature_set is not None:
+        file._feature_sets = {"columns": feature_set}
+    else:
+        file._feature_sets = {}
     return file
 
 
