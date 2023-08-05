@@ -82,6 +82,12 @@ class FeatureManager:
             return "No linked features."
 
     def __getitem__(self, slot) -> QuerySet:
+        if slot not in self._feature_set_by_slot:
+            raise ValueError(
+                f"No linked feature set for slot: {slot}\nDid you get validation"
+                " warnings? Only features that match registered features get validated"
+                " and linked."
+            )
         feature_set = self._feature_set_by_slot[slot]
         orm_name = ".".join(feature_set.ref_field.split(".")[:2])
         return getattr(feature_set, self._accessor_by_orm[orm_name]).all()
