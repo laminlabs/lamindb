@@ -1,5 +1,6 @@
 # Changelog
 
+- 🚸 Ignore `synonyms` in `from_values` to incentivize explicit curation process [PR993](https://github.com/laminlabs/lamindb/pull/993) [@falexwolf](https://github.com/falexwolf)
 - 💄 Fine tuned green for graphs [PR990](https://github.com/laminlabs/lamindb/pull/990) [@sunnyosun](https://github.com/sunnyosun)
 - 🚚 Move tutorial1 one level down [PR989](https://github.com/laminlabs/lamindb/pull/989) [@falexwolf](https://github.com/falexwolf)
 - 🚸 Only link validated features [PR987](https://github.com/laminlabs/lamindb/pull/987) [@falexwolf](https://github.com/falexwolf)
