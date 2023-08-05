@@ -32,6 +32,7 @@ guide/setup
 :hidden:
 :caption: "How to: biology"
 
+lnschema-bionty
 biology/registries
 biology/analyses
 ```
