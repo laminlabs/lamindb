@@ -1,5 +1,6 @@
 # Changelog
 
+- 💄 Fine tuned green for graphs [PR990](https://github.com/laminlabs/lamindb/pull/990) [@sunnyosun](https://github.com/sunnyosun)
 - 🚚 Move tutorial1 one level down [PR989](https://github.com/laminlabs/lamindb/pull/989) [@falexwolf](https://github.com/falexwolf)
 - 🚸 Only link validated features [PR987](https://github.com/laminlabs/lamindb/pull/987) [@falexwolf](https://github.com/falexwolf)
 - ✅ More fixes and tests for backed [PR988](https://github.com/laminlabs/lamindb/pull/988) [@Koncopd](https://github.com/Koncopd)
