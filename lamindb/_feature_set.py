@@ -96,7 +96,7 @@ def __init__(self, *args, **kwargs):
         features_hash = hash_set({feature.id for feature in features})
         feature_set = FeatureSet.filter(hash=features_hash).one_or_none()
         if feature_set is not None:
-            logger.success(f"Loaded: {feature_set}")
+            logger.info(f"loaded: {feature_set}")
             init_self_from_db(self, feature_set)
             return None
         else:
@@ -181,7 +181,7 @@ def from_values(
     features_hash = hash_set(set(validated_feature_ids))
     feature_set = FeatureSet.filter(hash=features_hash).one_or_none()
     if feature_set is not None:
-        logger.info(f"Loaded {feature_set}")
+        logger.info(f"loaded {feature_set}")
     else:
         if type is not None:
             type_str = type.__name__ if not isinstance(type, str) else type
