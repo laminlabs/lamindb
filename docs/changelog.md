@@ -1,5 +1,6 @@
 # Changelog
 
+- 🚚 Move tutorial1 one level down [PR989](https://github.com/laminlabs/lamindb/pull/989) [@falexwolf](https://github.com/falexwolf)
 - 🚸 Only link validated features [PR987](https://github.com/laminlabs/lamindb/pull/987) [@falexwolf](https://github.com/falexwolf)
 - ✅ More fixes and tests for backed [PR988](https://github.com/laminlabs/lamindb/pull/988) [@Koncopd](https://github.com/Koncopd)
 - 🚚 Move biology notebooks to usecases [PR985](https://github.com/laminlabs/lamindb/pull/985) [@sunnyosun](https://github.com/sunnyosun)
