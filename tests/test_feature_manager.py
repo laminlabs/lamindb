@@ -3,6 +3,9 @@ import pytest
 
 import lamindb as ln
 
+lb.settings.auto_save_parents = False
+
+
 adata = ln.dev.datasets.anndata_with_obs()
 # add another column
 adata.obs["cell_type_from_expert"] = adata.obs["cell_type"]
@@ -55,6 +58,19 @@ def test_features_add_labels_using_anndata():
         file.delete(storage=True)
     ln.FeatureSet.filter().all().delete()
 
+    # try to construct without registering metadata features
+    file = ln.File.from_anndata(
+        adata, description="Mini adata", var_ref=lb.Gene.ensembl_gene_id
+    )
+    assert "obs" not in file._feature_sets
+
+    # now register features we want to validate
+    # (we are not interested in cell_type_id, here)
+    ln.save(
+        ln.Feature.from_df(
+            adata.obs[["cell_type", "tissue", "cell_type_from_expert", "disease"]]
+        )
+    )
     file = ln.File.from_anndata(
         adata, description="Mini adata", var_ref=lb.Gene.ensembl_gene_id
     )
@@ -80,7 +96,7 @@ def test_features_add_labels_using_anndata():
     feature_set_obs = file.feature_sets.filter(
         ref_field__startswith="core.Feature", filefeatureset__slot="obs"
     ).one()
-    assert feature_set_obs.n == 5
+    assert feature_set_obs.n == 4
     assert "species" not in feature_set_obs.features.list("name")
 
     # now, we add species and run checks
@@ -91,7 +107,7 @@ def test_features_add_labels_using_anndata():
     feature_set_obs = file.feature_sets.filter(
         ref_field__startswith="core.Feature", filefeatureset__slot="obs"
     ).one()
-    assert feature_set_obs.n == 5
+    assert feature_set_obs.n == 4
     feature_set_ext = file.feature_sets.filter(
         ref_field__startswith="core.Feature", filefeatureset__slot="ext"
     ).one()
@@ -115,7 +131,6 @@ def test_features_add_labels_using_anndata():
     df = file.features["obs"].df()
     assert set(df["name"]) == {
         "cell_type",
-        "cell_type_id",
         "disease",
         "tissue",
         "cell_type_from_expert",
@@ -125,7 +140,6 @@ def test_features_add_labels_using_anndata():
     }
     assert set(df["registries"]) == {
         "bionty.CellType",
-        None,
         "core.Label",
         "bionty.Tissue|core.Label",
     }

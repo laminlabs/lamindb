@@ -558,20 +558,22 @@ def from_anndata(
     else:
         type = convert_numpy_dtype_to_lamin_feature_type(adata.X.dtype)
     feature_sets = {}
-    logger.info("Parsing feature names of X, stored in slot .var")
+    logger.info("Parsing feature names of X, stored in slot 'var'")
     logger.indent = "   "
     feature_set_x = FeatureSet.from_values(
         data_parse.var.index,
         var_ref,
         type=type,
     )
-    feature_sets["var"] = feature_set_x
+    if feature_set_x is not None:
+        feature_sets["var"] = feature_set_x
     logger.indent = ""
     if len(data_parse.obs.columns) > 0:
-        logger.info("Parsing feature names of slot .obs")
+        logger.info("Parsing feature names of slot 'obs'")
         logger.indent = "   "
         feature_set_obs = FeatureSet.from_df(data_parse.obs)
-        feature_sets["obs"] = feature_set_obs
+        if feature_set_obs is not None:
+            feature_sets["obs"] = feature_set_obs
         logger.indent = ""
     file._feature_sets = feature_sets
     return file

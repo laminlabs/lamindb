@@ -13,6 +13,7 @@ df = pd.DataFrame(
         "feat2": [3.1, 4.2, 5.3],
         "feat3": ["cond1", "cond2", "cond2"],
         "feat4": ["id1", "id2", "id3"],
+        "rando_feature": ["rando1", "rando2", "rando3"],
     }
 )
 
@@ -36,13 +37,18 @@ def test_signatures():
 
 
 def test_feature_from_df():
+    # try to generate the file without validated features
     file = ln.File.from_df(df)
     assert file._feature_sets == {}
-    quit()
+    # now, register all 4 features
+    ln.save(ln.Feature.from_df(df.iloc[:, :4]))
+    # try again
+    file = ln.File.from_df(df)
+    assert "columns" in file._feature_sets
     file.save()
     feature_set = file._feature_sets["columns"]
     features = feature_set.features.all()
-    assert len(features) == len(df.columns)
+    assert len(features) == len(df.columns[:4])
     string_cols = [col for col in df.columns if is_string_dtype(df[col])]
     categoricals = {col: df[col] for col in df.columns if is_categorical_dtype(df[col])}
     for key in string_cols:
@@ -63,7 +69,7 @@ def test_feature_from_df():
     assert set(ln.Label.filter(filelabel__feature__name="feat3").list("name")) == set(
         ["cond1", "cond2"]
     )
-    for name in df.columns:
+    for name in df.columns[:4]:
         queried_feature = ln.Feature.filter(name=name).one()
         if name in categoricals:
             assert queried_feature.type == "category"

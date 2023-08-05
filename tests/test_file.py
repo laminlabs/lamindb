@@ -29,8 +29,8 @@ df = pd.DataFrame({"feat1": [1, 2], "feat2": [3, 4]})
 
 adata = ad.AnnData(
     X=np.array([[1, 2, 3], [4, 5, 6]]),
-    obs=dict(Obs=["A", "B"]),
-    var=dict(Feat=["MYC1", "TCF7", "GATA1"]),
+    obs=dict(feat1=["A", "B"]),
+    var=pd.DataFrame(index=["MYC", "TCF7", "GATA1"]),
     obsm=dict(X_pca=np.array([[1, 2], [3, 4]])),
 )
 
@@ -68,6 +68,7 @@ def test_create_from_dataframe(name):
 
 @pytest.mark.parametrize("description", [None, "my name"])
 def test_create_from_dataframe_using_from_df(description):
+    ln.save(ln.Feature.from_df(df))
     file = ln.File.from_df(df, description=description)
     assert file.description == description
     assert file.key is None
@@ -80,10 +81,13 @@ def test_create_from_dataframe_using_from_df(description):
     feature_list_queried = ln.Feature.filter(feature_sets=feature_set_queried).list()
     feature_list_queried = [feature.name for feature in feature_list_queried]
     assert set(feature_list_queried) == set(df.columns)
+    feature_set_queried.delete()
     file.delete(storage=True)
+    ln.Feature.filter(name__in=["feat1", "feat2"]).delete()
 
 
 def test_create_from_anndata_in_memory():
+    ln.save(ln.Feature.from_df(adata.obs))
     file = ln.File.from_anndata(adata, var_ref=lb.Gene.symbol)
     assert file.accessor == "AnnData"
     assert hasattr(file, "_local_filepath")
@@ -91,14 +95,13 @@ def test_create_from_anndata_in_memory():
     # check that the local filepath has been cleared
     assert not hasattr(file, "_local_filepath")
     feature_sets_queried = file.feature_sets.all()
-    feature_list_queried = ln.Feature.filter(
-        feature_sets__in=feature_sets_queried
-    ).list()
-    feature_list_queried = [feature.name for feature in feature_list_queried]
-    assert set(feature_list_queried) == set(adata.obs.columns)
-    feature_list_queried = lb.Gene.filter(feature_sets__in=feature_sets_queried).list()
-    feature_list_queried = [feature.symbol for feature in feature_list_queried]
-    assert set(feature_list_queried) == set(adata.var.index)
+    features_queried = ln.Feature.filter(feature_sets__in=feature_sets_queried).all()
+    assert set(features_queried.list("name")) == set(adata.obs.columns)
+    genes_queried = lb.Gene.filter(feature_sets__in=feature_sets_queried).all()
+    assert set(genes_queried.list("symbol")) == set(adata.var.index)
+    feature_sets_queried.delete()
+    features_queried.delete()
+    genes_queried.delete()
     file.delete(storage=True)
 
 
