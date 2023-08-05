@@ -1,4 +1,1 @@
-class Data:
-    """Base class for File & Dataset."""
-
-    pass
+# to come

@@ -33,10 +33,7 @@ guide/setup
 :caption: "How to: biology"
 
 biology/registries
-biology/scrna
-biology/flow
-biology/spatial
-biology/multimodal
+biology/analyses
 ```
 
 ```{toctree}

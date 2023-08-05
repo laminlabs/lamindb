@@ -1,5 +1,6 @@
 # Changelog
 
+- 🚚 Move biology notebooks to usecases [PR985](https://github.com/laminlabs/lamindb/pull/985) [@sunnyosun](https://github.com/sunnyosun)
 - 📝 Improve API description [PR986](https://github.com/laminlabs/lamindb/pull/986) [@falexwolf](https://github.com/falexwolf)
 - 🚚 Rename `Manager` to `QueryManager` [PR984](https://github.com/laminlabs/lamindb/pull/984) [@falexwolf](https://github.com/falexwolf)
 - 🚚 Rename ORM to Registry [PR982](https://github.com/laminlabs/lamindb/pull/982) [@sunnyosun](https://github.com/sunnyosun)
