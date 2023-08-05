@@ -16,6 +16,10 @@ from ._registry import init_self_from_db
 from ._save import bulk_create
 
 
+class ValidationError(Exception):
+    pass
+
+
 def get_related_name(features_type: Registry):
     candidates = [
         field.related_name
@@ -187,6 +191,11 @@ def from_df(
 ) -> "FeatureSet":
     """{}"""
     features = Feature.from_df(df)
+    for feature in features:
+        if feature._state.adding and not (
+            hasattr(feature, "_from_bionty") and feature._from_bionty
+        ):
+            raise ValidationError
     feature_set = FeatureSet(features, name=name)
     return feature_set
 

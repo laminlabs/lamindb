@@ -49,6 +49,8 @@ def get_or_create_records(
                 records_bionty, unmapped_values = create_records_from_bionty(
                     iterable_idx=nonexist_values, field=field, **kwargs
                 )
+                for record in records_bionty:
+                    record._from_bionty = True
                 records += records_bionty
             else:
                 unmapped_values = nonexist_values
@@ -67,7 +69,7 @@ def get_or_create_records(
                 if feature is not None:
                     additional_info = f" Feature {feature.name} and "
                 logger.warning(
-                    f"Created {colors.yellow(f'{len(unmapped_values)} {Registry.__name__} record{s}')} for{additional_info}"  # noqa
+                    f"Non-validated: {colors.yellow(f'{len(unmapped_values)} {Registry.__name__} record{s}')} for{additional_info}"  # noqa
                     f"{colors.yellow(f'{field_name}{s}')}: {print_unmapped_values}"  # noqa
                 )
         if Registry.__module__.startswith("lnschema_bionty.") or Registry == Label:
