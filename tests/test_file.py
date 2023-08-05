@@ -68,8 +68,14 @@ def test_create_from_dataframe(name):
 
 @pytest.mark.parametrize("description", [None, "my name"])
 def test_create_from_dataframe_using_from_df(description):
+    file = ln.File.from_df(df, description=description)
+    assert file._feature_sets == {}
+    with pytest.raises(ValueError):
+        file.features["columns"]
     ln.save(ln.Feature.from_df(df))
     file = ln.File.from_df(df, description=description)
+    # mere access test right now
+    file.features["columns"]
     assert file.description == description
     assert file.key is None
     assert file.accessor == "DataFrame"

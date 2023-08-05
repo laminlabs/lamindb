@@ -55,6 +55,10 @@ def get_accessor_by_orm(host: Union[File, Dataset]) -> Dict:
 
 
 def get_feature_set_by_slot(host) -> Dict:
+    # if the host is not yet saved
+    if host._state.adding:
+        return host._feature_sets
+    # otherwise, we need a query
     feature_set_links = host.feature_sets.through.objects.filter(file_id=host.id)
     return {
         feature_set_link.slot: FeatureSet.objects.get(
