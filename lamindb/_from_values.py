@@ -89,7 +89,12 @@ def get_or_create_records(
         settings.upon_create_search_names = upon_create_search_names
 
 
-def get_existing_records(iterable_idx: pd.Index, field: Field, kwargs: Dict = {}):
+def get_existing_records(
+    iterable_idx: pd.Index,
+    field: Field,
+    kwargs: Dict = {},
+    ignore_synonyms: bool = True,
+):
     field_name = field.field.name
     model = field.field.model
     condition: Dict = {}
@@ -104,24 +109,25 @@ def get_existing_records(iterable_idx: pd.Index, field: Field, kwargs: Dict = {}
             kwargs.update({"species": species_record})
             condition.update({"species__name": species_record.name})
 
-    # map synonyms based on the DB reference
-    syn_mapper = model.map_synonyms(
-        iterable_idx, species=kwargs.get("species"), return_mapper=True
-    )
-
     syn_msg = ""
-    if len(syn_mapper) > 0:
-        s = "" if len(syn_mapper) == 1 else "s"
-        names = list(syn_mapper.keys())
-        print_values = ", ".join(names[:5])
-        if len(names) > 5:
-            print_values += ", ..."
-        syn_msg = (
-            "validated"
-            f" {colors.green(f'{len(syn_mapper)} {model.__name__} record{s}')}"  # noqa
-            f" on {colors.green('synonyms')}: {print_values}"
+    syn_mapper = {}
+    if not ignore_synonyms:
+        # map synonyms based on the DB reference
+        syn_mapper = model.map_synonyms(
+            iterable_idx, species=kwargs.get("species"), return_mapper=True
         )
-        iterable_idx = iterable_idx.to_frame().rename(index=syn_mapper).index
+        if len(syn_mapper) > 0:
+            s = "" if len(syn_mapper) == 1 else "s"
+            names = list(syn_mapper.keys())
+            print_values = ", ".join(names[:5])
+            if len(names) > 5:
+                print_values += ", ..."
+            syn_msg = (
+                "validated"
+                f" {colors.green(f'{len(syn_mapper)} {model.__name__} record{s}')}"  # noqa
+                f" on {colors.green('synonyms')}: {print_values}"
+            )
+            iterable_idx = iterable_idx.to_frame().rename(index=syn_mapper).index
 
     # get all existing records in the db
     # if necessary, create records for the values in kwargs
@@ -170,6 +176,7 @@ def get_existing_records(iterable_idx: pd.Index, field: Field, kwargs: Dict = {}
 def create_records_from_bionty(
     iterable_idx: pd.Index,
     field: Field,
+    ignore_synonyms: bool = True,
     **kwargs,
 ):
     model = field.field.model
@@ -187,29 +194,30 @@ def create_records_from_bionty(
     bionty_df = _filter_bionty_df_columns(model=model, bionty_object=bionty_object)
 
     # map synonyms in the bionty reference
-    try:
-        syn_mapper = bionty_object.map_synonyms(iterable_idx, return_mapper=True)
-    except KeyError:
-        # no synonyms column
-        syn_mapper = {}
-    msg_syn: str = ""
-    if len(syn_mapper) > 0:
-        s = "" if len(syn_mapper) == 1 else "s"
-        names = list(syn_mapper.keys())
-        print_values = ", ".join(names[:20])
-        if len(names) > 20:
-            print_values += ", ..."
-        msg_syn = (
-            "validated"
-            f" {colors.purple(f'{len(syn_mapper)} {model.__name__} record{s} from Bionty')}"  # noqa
-            f" on {colors.purple('synonyms')}: {print_values}"
-        )
-
-        iterable_idx = iterable_idx.to_frame().rename(index=syn_mapper).index
+    msg_syn = ""
+    syn_mapper = {}
+    if not ignore_synonyms:
+        try:
+            syn_mapper = bionty_object.map_synonyms(iterable_idx, return_mapper=True)
+        except KeyError:
+            pass
+        if len(syn_mapper) > 0:
+            s = "" if len(syn_mapper) == 1 else "s"
+            names = list(syn_mapper.keys())
+            print_values = ", ".join(names[:20])
+            if len(names) > 20:
+                print_values += ", ..."
+            msg_syn = (
+                "validated"
+                f" {colors.purple(f'{len(syn_mapper)} {model.__name__} record{s} from Bionty')}"  # noqa
+                f" on {colors.purple('synonyms')}: {print_values}"
+            )
+            iterable_idx = iterable_idx.to_frame().rename(index=syn_mapper).index
 
     # create records for values that are found in the bionty reference
     mapped_values = iterable_idx.intersection(bionty_df[field_name])
 
+    multi_msg = ""
     if len(mapped_values) > 0:
         bionty_kwargs, multi_msg = _bulk_create_dicts_from_df(
             keys=mapped_values, column_name=field_name, df=bionty_df
@@ -232,12 +240,13 @@ def create_records_from_bionty(
                 f" on {colors.purple(f'{field_name}')}: {print_values}"
             )
             logger.success(msg)
-        # make sure that synonyms logging appears after the field logging
-        if len(msg_syn) > 0:
-            logger.success(msg_syn)
-        # warning about multi matches
-        if len(multi_msg) > 0:
-            logger.warning(multi_msg)
+
+    # make sure that synonyms logging appears after the field logging
+    if len(msg_syn) > 0:
+        logger.success(msg_syn)
+    # warning about multi matches
+    if len(multi_msg) > 0:
+        logger.warning(multi_msg)
 
     # return the values that are not found in the bionty reference
     unmapped_values = iterable_idx.difference(mapped_values)
