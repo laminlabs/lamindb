@@ -1,5 +1,6 @@
 # Changelog
 
+- 🎉 Stage 0.50 [PR983](https://github.com/laminlabs/lamindb/pull/983) [@sunnyosun](https://github.com/sunnyosun)
 -  🚸 Turn `File.path()` into property [PR1008](https://github.com/laminlabs/lamindb/pull/1008) [@falexwolf](https://github.com/falexwolf)
 - 🔥 Remove backward compat for auto-keyed paths [PR1007](https://github.com/laminlabs/lamindb/pull/1007) [@falexwolf](https://github.com/falexwolf)
 - 🚸 Introduce Label validation [PR1006](https://github.com/laminlabs/lamindb/pull/1006) [@falexwolf](https://github.com/falexwolf)
