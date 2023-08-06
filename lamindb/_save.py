@@ -242,7 +242,7 @@ def upload_data_object(file) -> None:
         display_key = (
             f"`{file.key}` ('{file_storage_key}')"
             if file.key is None
-            else "'file_storage_key'"
+            else f"'{file_storage_key}'"
         )
         logger.hint(f"storing file '{file.id}' with key {display_key}")
         store_object(file._local_filepath, file_storage_key)
