@@ -1,5 +1,6 @@
 # Changelog
 
+- ♻️ Better treatment of suffixes [PR1004](https://github.com/laminlabs/lamindb/pull/1004) [@falexwolf](https://github.com/falexwolf)
 - 🍱 Add nf-core rna-seq testdataset [PR1002](https://github.com/laminlabs/lamindb/pull/1002) [@falexwolf](https://github.com/falexwolf)
 - 🚚 Move `add_labels` and `get_labels` from `FeatureManager` to `Data` [PR999](https://github.com/laminlabs/lamindb/pull/999) [@falexwolf](https://github.com/falexwolf)
 - 🚚 Rename `FeatureSet.ref_field` to `FeatureSet.registry` [PR997](https://github.com/laminlabs/lamindb/pull/997) [@falexwolf](https://github.com/falexwolf)
