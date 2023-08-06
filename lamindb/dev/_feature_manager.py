@@ -64,7 +64,7 @@ class FeatureManager:
         if len(self._feature_set_by_slot) > 0:
             msg = ""
             for slot, feature_set in self._feature_set_by_slot.items():
-                msg += f"{slot}: {feature_set}\n"
+                msg += f"'{slot}': {feature_set}\n"
             return msg
         else:
             return "no linked features"

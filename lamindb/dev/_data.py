@@ -6,6 +6,7 @@ from lamindb_setup.dev._docs import doc_args
 from lnschema_core.models import Data, Feature, FeatureSet, Label, Registry
 
 from .._query_set import QuerySet
+from .._registry import get_default_str_field
 from .._save import save
 from ._feature_manager import FeatureManager
 from .exc import ValidationError
@@ -101,6 +102,7 @@ def add_labels(
                 f"{record} not validated. If it looks correct: record.save()"
             )
     feature = validate_and_cast_feature(feature, records)
+    orig_feature = feature
     records_by_feature_orm = defaultdict(list)
     for record in records:
         if feature is None:
@@ -137,13 +139,25 @@ def add_labels(
     }
     for (feature, orm_name), records in records_by_feature_orm.items():
         feature = validate_and_cast_feature(feature, records)
+        msg = ""
+        if orig_feature is None:
+            records_display = ", ".join(
+                [
+                    f"'{getattr(record, get_default_str_field(record))}'"
+                    for record in records
+                ]
+            )
+            msg += f"linking labels {records_display} to feature '{feature.name}'"
+        if msg != "":
+            msg += ", "
         if feature.registries is None or orm_name not in feature.registries:
-            logger.success(f"linking feature {feature.name} to {orm_name}")
+            msg += f"linking feature '{feature.name}' to registry '{orm_name}'"
             if feature.registries is None:
                 feature.registries = orm_name
             elif orm_name not in feature.registries:
                 feature.registries += f"|{orm_name}"
             feature.save()
+        logger.success(msg)
         # check whether we have to update the feature set that manages labels
         # (Feature) to account for a new feature
         found_feature = False
@@ -152,7 +166,7 @@ def add_labels(
                 found_feature = True
         if not found_feature:
             if "ext" not in linked_features_by_slot:
-                logger.success("creating feature_set for slot 'ext' (external)")
+                logger.success("creating feature set for slot 'ext' (external)")
                 feature_set = FeatureSet([feature], modality="meta")
                 feature_set.save()
                 self.features.add_feature_set(feature_set, slot="ext")
