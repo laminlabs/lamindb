@@ -65,6 +65,7 @@ def test_feature_from_df():
     for feature in features:
         feature.save()
     labels = ln.Label.from_values(df["feat3"])
+    ln.save(labels)
     file.add_labels(labels, feature="feat3")
     assert set(ln.Label.filter(filelabel__feature__name="feat3").list("name")) == set(
         ["cond1", "cond2"]

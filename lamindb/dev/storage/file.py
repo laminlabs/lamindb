@@ -205,6 +205,11 @@ def read_fcs(*args, **kwargs):
     return readfcs.read(*args, **kwargs)
 
 
+def read_tsv(path: Union[str, Path]) -> pd.DataFrame:
+    path_sanitized = Path(path)
+    return pd.read_csv(path_sanitized, sep="\t")
+
+
 def load_to_memory(filepath: Union[str, Path, UPath], stream: bool = False):
     """Load a file into memory.
 
@@ -226,6 +231,7 @@ def load_to_memory(filepath: Union[str, Path, UPath], stream: bool = False):
 
     READER_FUNCS = {
         ".csv": pd.read_csv,
+        ".tsv": read_tsv,
         ".h5ad": read_adata_h5ad,
         ".parquet": pd.read_parquet,
         ".fcs": read_fcs,

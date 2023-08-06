@@ -8,6 +8,7 @@ from lnschema_core.models import Data, Feature, FeatureSet, Label, Registry
 from .._query_set import QuerySet
 from .._save import save
 from ._feature_manager import FeatureManager
+from .exc import ValidationError
 
 
 def validate_and_cast_feature(
@@ -17,12 +18,15 @@ def validate_and_cast_feature(
         feature_name = feature
         feature = Feature.filter(name=feature_name).one_or_none()
         if feature is None:
-            orm_types = set([record.__class__ for record in records])
-            feature = Feature(
-                name=feature_name, type="category", registries=list(orm_types)
+            registries = set(
+                [record.__class__.__get_name_with_schema__() for record in records]
             )
-            logger.warning(f"Created & saved: {feature}")
-            feature.save()
+            registries_str = "|".join(registries)
+            msg = (
+                f"ln.Feature(name='{feature_name}', type='category',"
+                f" registries='{registries_str}').save()"
+            )
+            raise ValidationError(f"Feature not validated. If it looks correct: {msg}")
     return feature
 
 
@@ -85,12 +89,17 @@ def add_labels(
         records = [records]
     if isinstance(records[0], str):  # type: ignore
         raise ValueError(
-            "Please pass a record (an Registry object), not a string, e.g., via:"
+            "Please pass a record (a `Registry` object), not a string, e.g., via:"
             " label"
             f" = ln.Label(name='{records[0]}')"  # type: ignore
         )
     if self._state.adding:
         raise ValueError("Please save the file or dataset before adding a label!")
+    for record in records:
+        if record._state.adding:
+            raise ValidationError(
+                f"{record} not validated. If it looks correct: record.save()"
+            )
     feature = validate_and_cast_feature(feature, records)
     records_by_feature_orm = defaultdict(list)
     for record in records:
@@ -128,12 +137,13 @@ def add_labels(
     }
     for (feature, orm_name), records in records_by_feature_orm.items():
         feature = validate_and_cast_feature(feature, records)
-        logger.info(f"Linking feature {feature.name} to {orm_name}")
-        if feature.registries is None:
-            feature.registries = orm_name
-        elif orm_name not in feature.registries:
-            feature.registries += f"|{orm_name}"
-        feature.save()
+        if feature.registries is None or orm_name not in feature.registries:
+            logger.success(f"linking feature {feature.name} to {orm_name}")
+            if feature.registries is None:
+                feature.registries = orm_name
+            elif orm_name not in feature.registries:
+                feature.registries += f"|{orm_name}"
+            feature.save()
         # check whether we have to update the feature set that manages labels
         # (Feature) to account for a new feature
         found_feature = False
@@ -142,14 +152,14 @@ def add_labels(
                 found_feature = True
         if not found_feature:
             if "ext" not in linked_features_by_slot:
-                logger.info("Creating feature_set for slot 'ext' (external)")
+                logger.success("creating feature_set for slot 'ext' (external)")
                 feature_set = FeatureSet([feature], modality="meta")
                 feature_set.save()
                 self.features.add_feature_set(feature_set, slot="ext")
             else:
                 feature_set = self.features._feature_set_by_slot["ext"]
-                logger.info(
-                    f"Linking feature {feature.name} to feature set {feature_set}"
+                logger.success(
+                    f"linking feature {feature.name} to feature set {feature_set}"
                 )
                 feature_set.features.add(feature)
                 feature_set.n += 1

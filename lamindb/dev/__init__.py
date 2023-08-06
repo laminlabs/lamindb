@@ -15,6 +15,7 @@
    storage
    Settings
    run_context
+   exc.ValidationError
 """
 
 from lnschema_core.models import Data, Registry, SynonymsAware, ValidationAware
@@ -25,5 +26,5 @@ from lamindb.dev._feature_manager import FeatureManager
 
 from .._context import run_context
 from . import datasets  # noqa
-from . import _data
+from . import _data, exc
 from ._settings import Settings

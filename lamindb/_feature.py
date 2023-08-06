@@ -46,14 +46,18 @@ def __init__(self, *args, **kwargs):
     # cast registries
     registries_str: Optional[str] = None
     if registries is not None:
-        if not isinstance(registries, List):
-            raise ValueError("registries has to be a list of Registry types")
-        registries_str = ""
-        for cls in registries:
-            if not hasattr(cls, "__get_name_with_schema__"):
-                raise ValueError("each element of the list has to be an Registry type")
-            registries_str += cls.__get_name_with_schema__() + "|"
-        registries_str = registries_str.rstrip("|")
+        if isinstance(registries, str):
+            # TODO: add more validation
+            registries_str = registries
+        else:
+            if not isinstance(registries, List):
+                raise ValueError("registries has to be a list of Registry types")
+            registries_str = ""
+            for cls in registries:
+                if not hasattr(cls, "__get_name_with_schema__"):
+                    raise ValueError("each element of the list has to be a Registry")
+                registries_str += cls.__get_name_with_schema__() + "|"
+            registries_str = registries_str.rstrip("|")
     kwargs["registries"] = registries_str
     super(Feature, self).__init__(*args, **kwargs)
 

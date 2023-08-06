@@ -50,7 +50,10 @@ def get_feature_set_by_slot(host) -> Dict:
 
 
 class FeatureManager:
-    """Feature manager."""
+    """Feature manager (:attr:`~lamindb.dev.Data.features`).
+
+    See :class:`~lamindb.dev.Data` for more information.
+    """
 
     def __init__(self, host: Union[File, Dataset]):
         self._host = host
@@ -59,12 +62,12 @@ class FeatureManager:
 
     def __repr__(self) -> str:
         if len(self._feature_set_by_slot) > 0:
-            msg = "slots:\n"
+            msg = ""
             for slot, feature_set in self._feature_set_by_slot.items():
-                msg += f"    {slot}: {feature_set}\n"
+                msg += f"{slot}: {feature_set}\n"
             return msg
         else:
-            return "No linked features."
+            return "no linked features"
 
     def __getitem__(self, slot) -> QuerySet:
         if slot not in self._feature_set_by_slot:
