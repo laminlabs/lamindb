@@ -79,18 +79,6 @@ def attempt_accessing_path(file: File, storage_key: str):
         # find a better way than passing None to instance_settings in the future!
         storage_settings = StorageSettings(storage.root)
         path = storage_settings.key_to_filepath(storage_key)
-    # the following is for backward compat
-    if storage_key.startswith(AUTO_KEY_PREFIX) and not path.exists():
-        logger.warning(
-            "You have auto-keyed files in your storage root, please move them into"
-            f" {AUTO_KEY_PREFIX} within your storage location"
-        )
-        # try legacy_storage_key in root
-        for previous_prefix in ["", "lndb/"]:
-            legacy_storage_key = storage_key.replace(AUTO_KEY_PREFIX, previous_prefix)
-            path = settings.storage.key_to_filepath(legacy_storage_key)
-            if path.exists():
-                return path
     return path
 
 
