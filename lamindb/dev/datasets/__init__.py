@@ -1,16 +1,17 @@
-"""Small example datasets.
+"""Test datasets.
 
 .. autosummary::
    :toctree: .
 
    file_fcs
    file_fcs_alpert19
+   file_tsv_rnaseq_nfcore_salmon_merged_gene_counts
    file_jpg_paradisi05
    file_tiff_suo22
    file_fastq
    file_bam
    file_mini_csv
-   generate_cell_ranger_files
+   dir_scrnaseq_cellranger
    df_iris
    df_iris_in_meter
    df_iris_in_meter_batch1
@@ -38,6 +39,7 @@ from ._core import (
     df_iris_in_meter,
     df_iris_in_meter_batch1,
     df_iris_in_meter_batch2,
+    dir_scrnaseq_cellranger,
     file_bam,
     file_fastq,
     file_fcs,
@@ -45,7 +47,7 @@ from ._core import (
     file_jpg_paradisi05,
     file_mini_csv,
     file_tiff_suo22,
-    generate_cell_ranger_files,
+    file_tsv_rnaseq_nfcore_salmon_merged_gene_counts,
     mudata_papalexi21_subset,
     schmidt22_crispra_gws_IFNG,
     schmidt22_perturbseq,

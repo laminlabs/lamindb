@@ -39,6 +39,18 @@ def file_jpg_paradisi05() -> Path:
     return Path(filepath)
 
 
+def file_tsv_rnaseq_nfcore_salmon_merged_gene_counts() -> Path:
+    """Gene counts table from nf-core RNA-seq pipeline.
+
+    Output of: https://nf-co.re/rnaseq
+    """
+    filepath, _ = urlretrieve(
+        "https://lamindb-test.s3.amazonaws.com/salmon.merged.gene_counts.tsv",
+        "salmon.merged.gene_counts.tsv",
+    )
+    return Path(filepath)
+
+
 def file_fastq(in_storage_root=False) -> Path:
     """Mini mock fastq file."""
     basedir = Path(".") if not in_storage_root else settings.storage
@@ -257,7 +269,7 @@ def df_iris_in_meter_batch2() -> pd.DataFrame:
     return df_iris.iloc[len(df_iris) // 2 :]
 
 
-def generate_cell_ranger_files(
+def dir_scrnaseq_cellranger(
     sample_name: str, basedir: Union[str, Path] = "./", output_only: bool = True
 ):
     """Generate mock cell ranger outputs.
@@ -266,7 +278,6 @@ def generate_cell_ranger_files(
         sample_name: name of the sample
         basedir: run directory
         output_only: only generate output files
-
     """
     basedir = Path(basedir)
 
