@@ -1,5 +1,6 @@
 # Changelog
 
+- 🚚 Rename `FeatureSet.ref_field` to `FeatureSet.registry` [PR997](https://github.com/laminlabs/lamindb/pull/997) [@falexwolf](https://github.com/falexwolf)
 - 🚸 Ignore `synonyms` in `from_values` to incentivize explicit curation process [PR993](https://github.com/laminlabs/lamindb/pull/993) [@falexwolf](https://github.com/falexwolf)
 - 💄 Fine tuned green for graphs [PR990](https://github.com/laminlabs/lamindb/pull/990) [@sunnyosun](https://github.com/sunnyosun)
 - 🚚 Move tutorial1 one level down [PR989](https://github.com/laminlabs/lamindb/pull/989) [@falexwolf](https://github.com/falexwolf)
