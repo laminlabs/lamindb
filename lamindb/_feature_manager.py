@@ -93,7 +93,7 @@ class FeatureManager:
                 " and linked."
             )
         feature_set = self._feature_set_by_slot[slot]
-        orm_name = ".".join(feature_set.ref_field.split(".")[:2])
+        orm_name = feature_set.registry
         return getattr(feature_set, self._accessor_by_orm[orm_name]).all()
 
     def get_labels(
@@ -195,7 +195,7 @@ class FeatureManager:
             .one()
             .slot: feature_set.features.all()
             for feature_set in feature_sets
-            if "core.Feature" in feature_set.ref_field
+            if "core.Feature" == feature_set.registry
         }
         for (feature, orm_name), records in records_by_feature_orm.items():
             feature = validate_and_cast_feature(feature, records)
