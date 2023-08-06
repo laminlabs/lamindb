@@ -32,6 +32,7 @@ from lamindb.dev.storage.file import (
     ProgressCallback,
     _str_to_path,
     auto_storage_key_from_file,
+    extract_suffix_from_path,
     filepath_from_file,
 )
 from lamindb.dev.utils import attach_func_to_class_method
@@ -109,7 +110,7 @@ def process_data(
         storage, use_existing_storage_key = process_pathlike(
             filepath, skip_existence_check=skip_existence_check
         )
-        suffix = suffix = "".join(filepath.suffixes)
+        suffix = extract_suffix_from_path(filepath)
         memory_rep = None
     elif isinstance(data, (pd.DataFrame, AnnData)):  # DataLike, spelled out
         storage = lamindb_setup.settings.storage.record
