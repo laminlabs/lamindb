@@ -862,8 +862,8 @@ def tree(
 
     # by default only including registered files
     # need a flag and a proper implementation
-    registered_paths: Set[Any] = Set()
-    registered_dirs: Set[Any] = Set()
+    registered_paths: Set[Any] = set()
+    registered_dirs: Set[Any] = set()
     if path is None:
         registered_paths = {
             file.path()
