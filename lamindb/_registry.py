@@ -465,21 +465,19 @@ def describe(self):
     # Display Features by slot
     msg += f"{colors.green('Features')}:\n"
     # var
-    feature_sets = self.feature_sets.exclude(ref_field__startswith="core.Feature")
+    feature_sets = self.feature_sets.exclude(registry="core.Feature")
     if feature_sets.exists():
         for feature_set in feature_sets.all():
-            key_split = feature_set.ref_field.split(".")
+            key_split = feature_set.registry.split(".")
             if len(key_split) != 3:
                 logger.warning(
                     "You have a legacy entry in feature_set.field, should be format"
                     " 'bionty.Gene.symbol'"
                 )
             orm_name_with_schema = f"{key_split[0]}.{key_split[1]}"
-            field_name = key_split[2]
+            field_name = "id"
             related_name = feature_sets_related_models.get(orm_name_with_schema)
-            values = (
-                feature_set.__getattribute__(related_name).all()[:5].list(field_name)
-            )
+            values = feature_set.__getattribute__(related_name).all()[:5].list("id")
             slots = self.feature_sets.through.objects.filter(
                 file=self, feature_set=feature_set
             ).list("slot")
@@ -494,7 +492,7 @@ def describe(self):
 
     # obs
     # Feature, combine all features into one dataframe
-    feature_sets = self.feature_sets.filter(ref_field__startswith="core.Feature").all()
+    feature_sets = self.feature_sets.filter(registry="core.Feature").all()
     if feature_sets.exists():
         features_df = create_features_df(
             file=self, feature_sets=feature_sets.all(), exclude=True
