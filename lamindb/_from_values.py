@@ -2,10 +2,9 @@ from typing import Any, Dict, Iterable, List, Optional, Tuple, Union
 
 import pandas as pd
 from django.core.exceptions import FieldDoesNotExist
-from django.db.models import Case, When
 from django.db.models.query_utils import DeferredAttribute as Field
 from lamin_utils import colors, logger
-from lnschema_core.models import ORM, Feature, Label
+from lnschema_core.models import Feature, Label, Registry
 from lnschema_core.types import ListLike
 
 from .dev._settings import settings
@@ -18,7 +17,7 @@ def get_or_create_records(
     *,
     from_bionty: bool = False,
     **kwargs,
-) -> List[ORM]:
+) -> List[Registry]:
     """Get or create records from iterables."""
     upon_create_search_names = settings.upon_create_search_names
     settings.upon_create_search_names = False
@@ -31,10 +30,10 @@ def get_or_create_records(
         types = kwargs.pop("types")
     try:
         field_name = field.field.name
-        ORM = field.field.model
+        Registry = field.field.model
         iterable_idx = index_iterable(iterable)
 
-        if isinstance(ORM, Feature):
+        if isinstance(Registry, Feature):
             if types is None:
                 raise ValueError("Please pass types as {} or use FeatureSet.from_df()")
 
@@ -49,6 +48,8 @@ def get_or_create_records(
                 records_bionty, unmapped_values = create_records_from_bionty(
                     iterable_idx=nonexist_values, field=field, **kwargs
                 )
+                for record in records_bionty:
+                    record._from_bionty = True
                 records += records_bionty
             else:
                 unmapped_values = nonexist_values
@@ -58,19 +59,19 @@ def get_or_create_records(
                     params = {field_name: value}
                     if types is not None:
                         params["type"] = str(types[value])
-                    records.append(ORM(**params, **kwargs))
+                    records.append(Registry(**params, **kwargs))
                 s = "" if len(unmapped_values) == 1 else "s"
-                print_unmapped_values = ", ".join(unmapped_values[:5])
-                if len(unmapped_values) > 10:
+                print_unmapped_values = ", ".join(unmapped_values[:20])
+                if len(unmapped_values) > 20:
                     print_unmapped_values += ", ..."
                 additional_info = " "
                 if feature is not None:
                     additional_info = f" Feature {feature.name} and "
                 logger.warning(
-                    f"Created {colors.yellow(f'{len(unmapped_values)} {ORM.__name__} record{s}')} for{additional_info}"  # noqa
+                    f"did not validate {colors.yellow(f'{len(unmapped_values)} {Registry.__name__} record{s}')} for{additional_info}"  # noqa
                     f"{colors.yellow(f'{field_name}{s}')}: {print_unmapped_values}"  # noqa
                 )
-        if ORM.__module__.startswith("lnschema_bionty.") or ORM == Label:
+        if Registry.__module__.startswith("lnschema_bionty.") or Registry == Label:
             if isinstance(iterable, pd.Series):
                 feature = iterable.name
             feature_name = None
@@ -82,13 +83,17 @@ def get_or_create_records(
                 if feature_name is not None:
                     for record in records:
                         record._feature = feature_name
-                logger.hint(f"Added default feature '{feature_name}'")
+                logger.debug(f"added default feature '{feature_name}'")
         return records
     finally:
         settings.upon_create_search_names = upon_create_search_names
 
 
-def get_existing_records(iterable_idx: pd.Index, field: Field, kwargs: Dict = {}):
+def get_existing_records(
+    iterable_idx: pd.Index,
+    field: Field,
+    kwargs: Dict = {},
+):
     field_name = field.field.name
     model = field.field.model
     condition: Dict = {}
@@ -103,25 +108,6 @@ def get_existing_records(iterable_idx: pd.Index, field: Field, kwargs: Dict = {}
             kwargs.update({"species": species_record})
             condition.update({"species__name": species_record.name})
 
-    # map synonyms based on the DB reference
-    syn_mapper = model.map_synonyms(
-        iterable_idx, species=kwargs.get("species"), return_mapper=True
-    )
-
-    syn_msg = ""
-    if len(syn_mapper) > 0:
-        s = "" if len(syn_mapper) == 1 else "s"
-        names = list(syn_mapper.keys())
-        print_values = ", ".join(names[:5])
-        if len(names) > 5:
-            print_values += ", ..."
-        syn_msg = (
-            "Loaded"
-            f" {colors.green(f'{len(syn_mapper)} {model.__name__} record{s}')} that"  # noqa
-            f" matched {colors.green('synonyms')}: {print_values}"
-        )
-        iterable_idx = iterable_idx.to_frame().rename(index=syn_mapper).index
-
     # get all existing records in the db
     # if necessary, create records for the values in kwargs
     # k:v -> k:v_record
@@ -129,32 +115,31 @@ def get_existing_records(iterable_idx: pd.Index, field: Field, kwargs: Dict = {}
     condition.update({f"{field_name}__in": iterable_idx.values})
 
     query_set = model.filter(**condition)
+    records = query_set.list()
 
-    # new we have to sort the list of queried records
-    preserved = Case(
-        *[
-            When(**{field_name: value}, then=pos)
-            for pos, value in enumerate(iterable_idx)
-        ]
-    )
-    records = query_set.order_by(preserved).list()
+    # now we have to sort the list of queried records
+    # preserved = Case(
+    #     *[
+    #         When(**{field_name: value}, then=pos)
+    #         for pos, value in enumerate(iterable_idx)
+    #     ]
+    # )
+    # order by causes a factor 10 in runtime
+    # records = query_set.order_by(preserved).list()
 
-    n_name = len(records) - len(syn_mapper)
+    n_name = len(records)
     names = [getattr(record, field_name) for record in records]
-    names = [name for name in names if name not in syn_mapper.values()]
+    names = [name for name in names]
     if n_name > 0:
         s = "" if n_name == 1 else "s"
-        print_values = ", ".join(names[:5])
-        if len(names) > 5:
+        print_values = ", ".join(names[:20])
+        if len(names) > 20:
             print_values += ", ..."
-        logger.info(
-            "Loaded"
-            f" {colors.green(f'{n_name} {model.__name__} record{s}')} that"
-            f" matched {colors.green(f'{field_name}')}: {print_values}"
+        logger.success(
+            "validated"
+            f" {colors.green(f'{n_name} {model.__name__} record{s}')}"
+            f" on {colors.green(f'{field_name}')}: {print_values}"
         )
-    # make sure that synonyms logging appears after the field logging
-    if len(syn_msg) > 0:
-        logger.info(syn_msg)
 
     existing_values = iterable_idx.intersection(
         query_set.values_list(field_name, flat=True)
@@ -183,30 +168,10 @@ def create_records_from_bionty(
     # filter the columns in bionty df based on fields
     bionty_df = _filter_bionty_df_columns(model=model, bionty_object=bionty_object)
 
-    # map synonyms in the bionty reference
-    try:
-        syn_mapper = bionty_object.map_synonyms(iterable_idx, return_mapper=True)
-    except KeyError:
-        # no synonyms column
-        syn_mapper = {}
-    msg_syn: str = ""
-    if len(syn_mapper) > 0:
-        s = "" if len(syn_mapper) == 1 else "s"
-        names = list(syn_mapper.keys())
-        print_values = ", ".join(names[:5])
-        if len(names) > 5:
-            print_values += ", ..."
-        msg_syn = (
-            "Loaded"
-            f" {colors.purple(f'{len(syn_mapper)} {model.__name__} record{s} from Bionty')} that"  # noqa
-            f" matched {colors.purple('synonyms')}: {print_values}"
-        )
-
-        iterable_idx = iterable_idx.to_frame().rename(index=syn_mapper).index
-
     # create records for values that are found in the bionty reference
     mapped_values = iterable_idx.intersection(bionty_df[field_name])
 
+    multi_msg = ""
     if len(mapped_values) > 0:
         bionty_kwargs, multi_msg = _bulk_create_dicts_from_df(
             keys=mapped_values, column_name=field_name, df=bionty_df
@@ -215,26 +180,24 @@ def create_records_from_bionty(
             records.append(model(**bk, **kwargs))
 
         # number of records that matches field (not synonyms)
-        n_name = len(records) - len(syn_mapper)
+        n_name = len(records)
         names = [getattr(record, field_name) for record in records]
-        names = [name for name in names if name not in syn_mapper.values()]
+        names = [name for name in names]
         if n_name > 0:
             s = "" if n_name == 1 else "s"
-            print_values = ", ".join(names[:5])
-            if len(names) > 5:
+            print_values = ", ".join(names[:20])
+            if len(names) > 20:
                 print_values += ", ..."
             msg = (
-                "Loaded"
-                f" {colors.purple(f'{n_name} {model.__name__} record{s} from Bionty')} that"  # noqa
-                f" matched {colors.purple(f'{field_name}')}: {print_values}"
+                "validated"
+                f" {colors.purple(f'{n_name} {model.__name__} record{s} from Bionty')}"  # noqa
+                f" on {colors.purple(f'{field_name}')}: {print_values}"
             )
-            logger.info(msg)
-        # make sure that synonyms logging appears after the field logging
-        if len(msg_syn) > 0:
-            logger.info(msg_syn)
-        # warning about multi matches
-        if len(multi_msg) > 0:
-            logger.warning(multi_msg)
+            logger.success(msg)
+
+    # warning about multi matches
+    if len(multi_msg) > 0:
+        logger.warning(multi_msg)
 
     # return the values that are not found in the bionty reference
     unmapped_values = iterable_idx.difference(mapped_values)
@@ -248,7 +211,7 @@ def index_iterable(iterable: Iterable) -> pd.Index:
     return idx[(idx != "") & (~idx.isnull())]
 
 
-def _filter_bionty_df_columns(model: ORM, bionty_object: Any) -> pd.DataFrame:
+def _filter_bionty_df_columns(model: Registry, bionty_object: Any) -> pd.DataFrame:
     bionty_df = pd.DataFrame()
     if bionty_object is not None:
         model_field_names = {i.name for i in model._meta.fields}
@@ -297,18 +260,18 @@ def _bulk_create_dicts_from_df(
         dup = df.index[df.index.duplicated()].unique().tolist()
         if len(dup) > 0:
             s = "" if len(dup) == 1 else "s"
-            print_values = ", ".join(dup[:5])
-            if len(dup) > 5:
+            print_values = ", ".join(dup[:20])
+            if len(dup) > 20:
                 print_values += ", ..."
             multi_msg = (
-                f"Multiple matches found in Bionty for {len(dup)} record{s}:"
+                f"Ambiguous validation in Bionty for {len(dup)} record{s}:"
                 f" {print_values}"
             )
 
     return df.reset_index().to_dict(orient="records"), multi_msg
 
 
-def _has_species_field(orm: ORM) -> bool:
+def _has_species_field(orm: Registry) -> bool:
     try:
         orm._meta.get_field("species")
         return True

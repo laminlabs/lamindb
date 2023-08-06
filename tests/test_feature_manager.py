@@ -3,6 +3,9 @@ import pytest
 
 import lamindb as ln
 
+lb.settings.auto_save_parents = False
+
+
 adata = ln.dev.datasets.anndata_with_obs()
 # add another column
 adata.obs["cell_type_from_expert"] = adata.obs["cell_type"]
@@ -10,18 +13,30 @@ adata.obs.loc["obs0", "cell_type_from_expert"] = "B cell"
 
 
 def test_features_add_labels():
-    label = ln.Label(name="Project 1")
-    label.save()
+    label = ln.Label(name="Experiment 1")
     file = ln.File(adata)
     file.save()
+    with pytest.raises(ln.dev.exc.ValidationError) as error:
+        file.add_labels(label)
+    assert "not validated. If it looks correct: record.save()" in error.exconly()
+    label.save()
     with pytest.raises(ValueError) as error:
-        file.features.add_labels(label)
+        file.add_labels(label)
     assert (
         error.exconly()
         == "ValueError: Please pass feature: add_labels(labels, feature='myfeature')"
     )
-    file.features.add_labels(label, feature="project")
-    feature = ln.Feature.filter(name="project").one()
+    with pytest.raises(ln.dev.exc.ValidationError) as error:
+        file.add_labels(label, feature="experiment")
+    assert (
+        error.exconly()
+        == "lamindb.dev.exc.ValidationError: Feature not validated. If it looks"
+        " correct: ln.Feature(name='experiment', type='category',"
+        " registries='core.Label').save()"
+    )
+    ln.Feature(name="experiment", type="category", registries="core.Label").save()
+    file.add_labels(label, feature="experiment")
+    feature = ln.Feature.filter(name="experiment").one()
     assert feature.type == "category"
     assert feature.registries == "core.Label"
     file.delete(storage=True)
@@ -38,6 +53,7 @@ def test_features_add_labels_using_anndata():
     actual_tissues = lb.Tissue.from_values(adata.obs["tissue"], "name")
     organoid = ln.Label(name="organoid")
     tissues = actual_tissues + [organoid]
+    ln.save(tissues)
 
     assert cell_types[0]._feature == "cell_type"
     assert cell_types[-1]._feature == "cell_type"
@@ -55,20 +71,33 @@ def test_features_add_labels_using_anndata():
         file.delete(storage=True)
     ln.FeatureSet.filter().all().delete()
 
+    # try to construct without registering metadata features
+    file = ln.File.from_anndata(
+        adata, description="Mini adata", var_ref=lb.Gene.ensembl_gene_id
+    )
+    assert "obs" not in file._feature_sets
+
+    # now register features we want to validate
+    # (we are not interested in cell_type_id, here)
+    ln.save(
+        ln.Feature.from_df(
+            adata.obs[["cell_type", "tissue", "cell_type_from_expert", "disease"]]
+        )
+    )
     file = ln.File.from_anndata(
         adata, description="Mini adata", var_ref=lb.Gene.ensembl_gene_id
     )
 
     with pytest.raises(ValueError) as error:
-        file.features.add_labels("species")
+        file.add_labels("species")
     assert (
         error.exconly()
-        == "ValueError: Please pass a record (an ORM object), not a string, e.g., via:"
-        " label = ln.Label(name='species')"
+        == "ValueError: Please pass a record (a `Registry` object), not a string, e.g.,"
+        " via: label = ln.Label(name='species')"
     )
 
     with pytest.raises(ValueError) as error:
-        file.features.add_labels(species, feature="species")
+        file.add_labels(species, feature="species")
     assert (
         error.exconly()
         == "ValueError: Please save the file or dataset before adding a label!"
@@ -78,29 +107,35 @@ def test_features_add_labels_using_anndata():
 
     # check the basic construction of the feature set based on obs
     feature_set_obs = file.feature_sets.filter(
-        ref_field__startswith="core.Feature", filefeatureset__slot="obs"
+        registry="core.Feature", filefeatureset__slot="obs"
     ).one()
-    assert feature_set_obs.n == 5
+    assert feature_set_obs.n == 4
     assert "species" not in feature_set_obs.features.list("name")
 
     # now, we add species and run checks
-    file.features.add_labels(species, feature="species")
+    with pytest.raises(ln.dev.exc.ValidationError):
+        file.add_labels(species, feature="species")
+    species.save()
+    with pytest.raises(ln.dev.exc.ValidationError):
+        file.add_labels(species, feature="species")
+    ln.Feature(name="species", type="category", registries="bionty.Species").save()
+    file.add_labels(species, feature="species")
     feature = ln.Feature.filter(name="species").one()
     assert feature.type == "category"
     assert feature.registries == "bionty.Species"
     feature_set_obs = file.feature_sets.filter(
-        ref_field__startswith="core.Feature", filefeatureset__slot="obs"
+        registry="core.Feature", filefeatureset__slot="obs"
     ).one()
-    assert feature_set_obs.n == 5
+    assert feature_set_obs.n == 4
     feature_set_ext = file.feature_sets.filter(
-        ref_field__startswith="core.Feature", filefeatureset__slot="ext"
+        registry="core.Feature", filefeatureset__slot="ext"
     ).one()
     assert feature_set_ext.n == 1
     assert "species" in feature_set_ext.features.list("name")
 
     # now we add cell types & tissues and run checks
-    file.features.add_labels(cell_types + cell_types_from_expert)
-    file.features.add_labels(tissues, feature="tissue")
+    file.add_labels(cell_types + cell_types_from_expert)
+    file.add_labels(tissues, feature="tissue")
     feature = ln.Feature.filter(name="cell_type").one()
     assert feature.type == "category"
     assert feature.registries == "bionty.CellType"
@@ -111,11 +146,11 @@ def test_features_add_labels_using_anndata():
     assert feature.type == "category"
     assert feature.registries == "bionty.Tissue|core.Label"
     diseases = ln.Label.from_values(adata.obs["disease"])
-    file.features.add_labels(diseases, feature="disease")
+    ln.save(diseases)
+    file.add_labels(diseases, feature="disease")
     df = file.features["obs"].df()
     assert set(df["name"]) == {
         "cell_type",
-        "cell_type_id",
         "disease",
         "tissue",
         "cell_type_from_expert",
@@ -125,49 +160,50 @@ def test_features_add_labels_using_anndata():
     }
     assert set(df["registries"]) == {
         "bionty.CellType",
-        None,
         "core.Label",
         "bionty.Tissue|core.Label",
     }
 
     # now, let's add another feature to ext
-    project_1 = ln.Label(name="Project 1")
-    file.features.add_labels(project_1, feature="project")
+    experiment_1 = ln.Label(name="experiment_1")
+    experiment_1.save()
+    ln.Feature(name="experiment", type="category").save()
+    file.add_labels(experiment_1, feature="experiment")
     df = file.features["ext"].df()
     assert set(df["name"]) == {
         "species",
-        "project",
+        "experiment",
     }
     assert set(df["type"]) == {
         "category",
     }
 
-    assert set(file.features.get_labels("project").list("name")) == {"Project 1"}
-    assert set(file.features.get_labels("disease").list("name")) == {
+    assert set(file.get_labels("experiment").list("name")) == {"experiment_1"}
+    assert set(file.get_labels("disease").list("name")) == {
         "chronic kidney disease",
         "Alzheimer disease",
         "liver lymphoma",
         "cardiac ventricle disorder",
     }
-    assert set(file.features.get_labels("species").list("name")) == {"mouse"}
-    assert set(file.features.get_labels("tissue")["bionty.Tissue"].list("name")) == {
+    assert set(file.get_labels("species").list("name")) == {"mouse"}
+    assert set(file.get_labels("tissue")["bionty.Tissue"].list("name")) == {
         "liver",
         "heart",
         "kidney",
         "brain",
     }
-    assert set(file.features.get_labels("tissue")["core.Label"].list("name")) == {
+    assert set(file.get_labels("tissue")["core.Label"].list("name")) == {
         "organoid",
     }
     # currently, we can't stratify the two cases below
-    assert set(file.features.get_labels("cell_type").list("name")) == {
+    assert set(file.get_labels("cell_type").list("name")) == {
         "T cell",
         "my new cell type",
         "hepatocyte",
         "hematopoietic stem cell",
         "B cell",
     }
-    assert set(file.features.get_labels("cell_type_from_expert").list("name")) == {
+    assert set(file.get_labels("cell_type_from_expert").list("name")) == {
         "T cell",
         "my new cell type",
         "hepatocyte",
@@ -176,7 +212,7 @@ def test_features_add_labels_using_anndata():
     }
 
     assert set(df["registries"]) == {"bionty.Species", "core.Label"}
-    assert project_1 in file.labels.all()
+    assert experiment_1 in file.labels.all()
 
     # call describe
     file.describe()

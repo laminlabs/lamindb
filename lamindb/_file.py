@@ -1,6 +1,6 @@
 from itertools import islice
 from pathlib import Path, PurePath, PurePosixPath
-from typing import Any, List, Optional, Tuple, Union
+from typing import Any, List, Optional, Set, Tuple, Union
 
 import anndata as ad
 import lamindb_setup
@@ -17,7 +17,6 @@ from lnschema_core import Feature, FeatureSet, File, Run, Storage, ids
 from lnschema_core.types import AnnDataLike, DataLike, PathLike
 
 from lamindb._context import context
-from lamindb.dev import FeatureManager
 from lamindb.dev._settings import settings
 from lamindb.dev.hashing import b16_to_b64, hash_file
 from lamindb.dev.storage import (
@@ -33,6 +32,7 @@ from lamindb.dev.storage.file import (
     ProgressCallback,
     _str_to_path,
     auto_storage_key_from_file,
+    extract_suffix_from_path,
     filepath_from_file,
 )
 from lamindb.dev.utils import attach_func_to_class_method
@@ -76,7 +76,7 @@ def process_pathlike(
                 new_root = list(filepath.parents)[-1]
                 new_root_str = new_root.as_posix()
                 logger.warning(
-                    f"Creating new storage location for root: {new_root_str}"
+                    f"creating new storage location for root: {new_root_str}"
                 )
                 storage_settings = StorageSettings(new_root_str)
                 register_storage(storage_settings)
@@ -110,7 +110,7 @@ def process_data(
         storage, use_existing_storage_key = process_pathlike(
             filepath, skip_existence_check=skip_existence_check
         )
-        suffix = suffix = "".join(filepath.suffixes)
+        suffix = extract_suffix_from_path(filepath)
         memory_rep = None
     elif isinstance(data, (pd.DataFrame, AnnData)):  # DataLike, spelled out
         storage = lamindb_setup.settings.storage.record
@@ -162,7 +162,7 @@ def get_hash(
                 hash = f"{b16_to_b64(stripped_etag)}-{suffix}"
                 hash_type = "md5-n"  # this is the S3 chunk-hashing strategy
         else:
-            logger.warning(f"Did not add hash for {filepath}")
+            logger.warning(f"did not add hash for {filepath}")
             return None, None
     else:
         hash, hash_type = hash_file(filepath)
@@ -171,7 +171,7 @@ def get_hash(
     result = File.filter(hash=hash).list()
     if len(result) > 0:
         if settings.upon_file_create_if_hash_exists == "error":
-            msg = f"A file with same hash exists: {result[0]}"
+            msg = f"File with same hash exists: {result[0]}"
             hint = (
                 "💡 You can make this error a warning:\n"
                 "    ln.settings.upon_file_create_if_hash_exists"
@@ -179,12 +179,12 @@ def get_hash(
             raise RuntimeError(f"{msg}\n{hint}")
         elif settings.upon_file_create_if_hash_exists == "warn_create_new":
             logger.warning(
-                "Creating new File object despite existing file with same hash:"
+                "creating new File object despite existing file with same hash:"
                 f" {result[0]}"
             )
             return hash, hash_type
         else:
-            logger.warning(f"Returning existing file with same hash: {result[0]}")
+            logger.warning(f"returning existing file with same hash: {result[0]}")
             return result[0]
     else:
         return hash, hash_type
@@ -295,7 +295,7 @@ def get_relative_path_to_directory(
     elif isinstance(directory, PurePath):
         relpath = path.relative_to(directory)
     else:
-        raise TypeError("directory not of type Path or UPath")
+        raise TypeError("Directory not of type Path or UPath")
     return relpath
 
 
@@ -377,13 +377,13 @@ def log_storage_hint(
 ) -> None:
     hint = ""
     if check_path_in_storage:
-        hint += f"file in storage {storage.root}"  # type: ignore
+        hint += f"file in storage '{storage.root}'"  # type: ignore
     else:
         hint += "file will be copied to default storage upon `save()`"
     if key is None:
-        hint += f" with key = {id}{suffix}"
+        hint += f" with key = '{id}{suffix}'"
     else:
-        hint += f" with key = {key}"
+        hint += f" with key = '{key}'"
     logger.hint(hint)
 
 
@@ -441,7 +441,7 @@ def __init__(file: File, *args, **kwargs):
     if name is not None and description is not None:
         raise ValueError("Only pass description, do not pass a name")
     if name is not None:
-        logger.warning("Argument `name` is deprecated, please use `description`")
+        logger.warning("argument `name` is deprecated, please use `description`")
         description = name
 
     provisional_id = ids.base62_20()
@@ -473,15 +473,15 @@ def __init__(file: File, *args, **kwargs):
     if isinstance(data, pd.DataFrame):
         if log_hint:
             logger.hint(
-                "This is a dataframe, consider using File.from_df() to link column"
-                " names as features!"
+                "file is a dataframe, consider using File.from_df() to link column"
+                " names as features"
             )
         kwargs["accessor"] = "DataFrame"
     elif data_is_anndata(data):
         if log_hint:
             logger.hint(
-                "This is AnnDataLike, consider using File.from_anndata() to link"
-                " var_names and obs.columns as features!"
+                "file is AnnDataLike, consider using File.from_anndata() to link"
+                " var_names and obs.columns as features"
             )
         kwargs["accessor"] = "AnnData"
     elif data_is_mudata(data):
@@ -524,7 +524,10 @@ def from_df(
     """{}"""
     file = File(data=df, key=key, run=run, description=description, log_hint=False)
     feature_set = FeatureSet.from_df(df)
-    file._feature_sets = {"columns": feature_set}
+    if feature_set is not None:
+        file._feature_sets = {"columns": feature_set}
+    else:
+        file._feature_sets = {}
     return file
 
 
@@ -554,20 +557,24 @@ def from_anndata(
     else:
         type = convert_numpy_dtype_to_lamin_feature_type(adata.X.dtype)
     feature_sets = {}
-    logger.info("Parsing feature names of X, stored in slot .var")
+    logger.info("parsing feature names of X, stored in slot 'var'")
     logger.indent = "   "
-    feature_set_x = FeatureSet.from_values(
+    feature_set_var = FeatureSet.from_values(
         data_parse.var.index,
         var_ref,
         type=type,
     )
-    feature_sets["var"] = feature_set_x
+    if feature_set_var is not None:
+        logger.info(f"linking: {feature_set_var}")
+        feature_sets["var"] = feature_set_var
     logger.indent = ""
     if len(data_parse.obs.columns) > 0:
-        logger.info("Parsing feature names of slot .obs")
+        logger.info("parsing feature names of slot 'obs'")
         logger.indent = "   "
         feature_set_obs = FeatureSet.from_df(data_parse.obs)
-        feature_sets["obs"] = feature_set_obs
+        if feature_set_obs is not None:
+            logger.info(f"linking: {feature_set_obs}")
+            feature_sets["obs"] = feature_set_obs
         logger.indent = ""
     file._feature_sets = feature_sets
     return file
@@ -598,7 +605,7 @@ def from_dir(
     if key is None:
         if not use_existing_storage:
             logger.warning(
-                "Folder is outside existing storage location, will copy files from"
+                "folder is outside existing storage location, will copy files from"
                 f" {path} to {storage}/{folderpath.name}"
             )
             folder_key_path = Path(folderpath.name)
@@ -612,7 +619,6 @@ def from_dir(
 
     # always sanitize by stripping a trailing slash
     folder_key = folder_key_path.as_posix().rstrip("/")
-    logger.hint(f"using storage {storage.root} and key prefix = {folder_key}/")
 
     # TODO: UPath doesn't list the first level files and dirs with "*"
     pattern = "" if isinstance(folderpath, UPath) else "*"
@@ -629,7 +635,10 @@ def from_dir(
             file = File(filepath, run=run, key=file_key, skip_check_exists=True)
             files.append(file)
     settings.verbosity = verbosity
-    logger.info(f"→ {len(files)} files")
+    logger.success(
+        f"created {len(files)} files from directory using storage"
+        f" {storage.root} and key = {folder_key}/"
+    )
     return files
 
 
@@ -716,18 +725,18 @@ def _track_run_input(file: File, is_run_input: Optional[bool] = None):
                             f", adding parent transform {file.transform.id}"
                         )
                     logger.info(
-                        f"Adding file {file.id} as input for run"
+                        f"adding file {file.id} as input for run"
                         f" {context.run.id}{transform_note}"
                     )
                     track_run_input = True
                 else:
                     logger.hint(
-                        "Track this file as a run input by passing `is_run_input=True`"
+                        "track this file as a run input by passing `is_run_input=True`"
                     )
         else:
             if settings.track_run_inputs:
                 logger.hint(
-                    "You can auto-track this file as a run input by calling"
+                    "you can auto-track this file as a run input by calling"
                     " `ln.track()`"
                 )
     else:
@@ -771,9 +780,9 @@ def delete(self, storage: Optional[bool] = None) -> None:
         delete_in_storage = storage
 
     if delete_in_storage:
-        filepath = self.path()
+        filepath = self.path
         delete_storage(filepath)
-        logger.success(f"Deleted stored object {colors.yellow(f'{filepath}')}")
+        logger.success(f"deleted stored object {colors.yellow(f'{filepath}')}")
     self._delete_skip_storage()
 
 
@@ -802,6 +811,11 @@ def _save_skip_storage(file, *args, **kwargs) -> None:
     if hasattr(file, "_feature_sets"):
         for feature_set in file._feature_sets.values():
             feature_set.save()
+        s = "s" if len(file._feature_sets) > 1 else ""
+        logger.info(
+            f"saved {len(file._feature_sets)} feature set{s} for slot{s}:"
+            f" {list(file._feature_sets.keys())}"
+        )
     super(File, file).save(*args, **kwargs)
     if hasattr(file, "_feature_sets"):
         links = []
@@ -817,11 +831,14 @@ def _save_skip_storage(file, *args, **kwargs) -> None:
         bulk_create(links)
 
 
+@property  # type: ignore
+@doc_args(File.path.__doc__)
 def path(self) -> Union[Path, UPath]:
+    """{}"""
     return filepath_from_file(self)
 
 
-# adapted from: https://stackoverflow.com/questions/9727673/list-directory-tree-structure-in-python  # noqa
+# adapted from: https://stackoverflow.com/questions/9727673
 @classmethod  # type: ignore
 @doc_args(File.tree.__doc__)
 def tree(
@@ -831,7 +848,7 @@ def tree(
     level: int = -1,
     limit_to_directories: bool = False,
     length_limit: int = 1000,
-):
+) -> None:
     """{}"""
     space = "    "
     branch = "│   "
@@ -842,11 +859,21 @@ def tree(
         dir_path = settings.storage
     else:
         dir_path = path if isinstance(path, (Path, UPath)) else _str_to_path(path)
-    files = 0
-    directories = 0
+    n_files = 0
+    n_directories = 0
+
+    # by default only including registered files
+    # need a flag and a proper implementation
+    registered_paths: Set[Any] = set()
+    registered_dirs: Set[Any] = set()
+    if path is None:
+        registered_paths = {
+            file.path for file in cls.filter(storage_id=setup_settings.storage.id).all()
+        }
+        registered_dirs = {d for p in registered_paths for d in p.parents}
 
     def inner(dir_path: Union[Path, UPath], prefix: str = "", level=-1):
-        nonlocal files, directories
+        nonlocal n_files, n_directories
         if not level:
             return  # 0, stop iterating
         stripped_dir_path = dir_path.as_posix().rstrip("/")
@@ -864,22 +891,29 @@ def tree(
         pointers = [tee] * (len(contents) - 1) + [last]
         for pointer, path in zip(pointers, contents):
             if path.is_dir():
+                if registered_dirs and path not in registered_dirs:
+                    continue
                 yield prefix + pointer + path.name
-                directories += 1
+                n_directories += 1
                 extension = branch if pointer == tee else space
                 yield from inner(path, prefix=prefix + extension, level=level - 1)
             elif not limit_to_directories:
+                if registered_paths and path not in registered_paths:
+                    continue
                 yield prefix + pointer + path.name
-                files += 1
+                n_files += 1
 
-    folder_tree = f"{dir_path.name}"
+    folder_tree = ""
     iterator = inner(dir_path, level=level)
     for line in islice(iterator, length_limit):
         folder_tree += f"\n{line}"
     if next(iterator, None):
         folder_tree += f"... length_limit, {length_limit}, reached, counted:"
-    print(folder_tree)
-    print(f"\n{directories} directories" + (f", {files} files" if files else ""))
+    directory_info = "directory" if n_directories == 1 else "directories"
+    print(
+        f"{dir_path.name} ({n_directories} sub-{directory_info} & {n_files} files):"
+        f" {folder_tree}"
+    )
 
 
 def inherit_relations(self, file: File, fields: Optional[List[str]] = None):
@@ -922,20 +956,11 @@ def inherit_relations(self, file: File, fields: Optional[List[str]] = None):
     ]
 
     s = "s" if len(inherit_names) > 1 else ""
-    logger.info(f"Inheriting {len(inherit_names)} field{s}: {inherit_names}")
+    logger.info(f"inheriting {len(inherit_names)} field{s}: {inherit_names}")
     for related_name in inherit_names:
         self.__getattribute__(related_name).set(
             file.__getattribute__(related_name).all()
         )
-
-
-@property  # type: ignore
-@doc_args(File.features.__doc__)
-def features(self) -> "FeatureManager":
-    """{}"""
-    from lamindb._feature_manager import FeatureManager
-
-    return FeatureManager(self)
 
 
 METHOD_NAMES = [
@@ -948,7 +973,6 @@ METHOD_NAMES = [
     "delete",
     "save",
     "replace",
-    "path",
     "from_dir",
     "tree",
 ]
@@ -971,5 +995,4 @@ File._save_skip_storage = _save_skip_storage
 # TODO: move these to METHOD_NAMES
 setattr(File, "view_lineage", view_lineage)
 setattr(File, "inherit_relations", inherit_relations)
-# property signature is not tested:
-setattr(File, "features", features)
+setattr(File, "path", path)

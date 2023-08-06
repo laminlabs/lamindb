@@ -1,5 +1,23 @@
 # Changelog
 
+-  🚸 Turn `File.path()` into property [PR1008](https://github.com/laminlabs/lamindb/pull/1008) [@falexwolf](https://github.com/falexwolf)
+- 🔥 Remove backward compat for auto-keyed paths [PR1007](https://github.com/laminlabs/lamindb/pull/1007) [@falexwolf](https://github.com/falexwolf)
+- 🚸 Introduce Label validation [PR1006](https://github.com/laminlabs/lamindb/pull/1006) [@falexwolf](https://github.com/falexwolf)
+- ✨ Add validate [PR1000](https://github.com/laminlabs/lamindb/pull/1000) [@sunnyosun](https://github.com/sunnyosun)
+- 🚸 Increase default verbosity to hint-level [PR1005](https://github.com/laminlabs/lamindb/pull/1005) [@falexwolf](https://github.com/falexwolf)
+- ♻️ Better treatment of suffixes [PR1004](https://github.com/laminlabs/lamindb/pull/1004) [@falexwolf](https://github.com/falexwolf)
+- 🍱 Add nf-core rna-seq testdataset [PR1002](https://github.com/laminlabs/lamindb/pull/1002) [@falexwolf](https://github.com/falexwolf)
+- 🚚 Move `add_labels` and `get_labels` from `FeatureManager` to `Data` [PR999](https://github.com/laminlabs/lamindb/pull/999) [@falexwolf](https://github.com/falexwolf)
+- 🚚 Rename `FeatureSet.ref_field` to `FeatureSet.registry` [PR997](https://github.com/laminlabs/lamindb/pull/997) [@falexwolf](https://github.com/falexwolf)
+- 🚸 Ignore `synonyms` in `from_values` to incentivize explicit curation process [PR993](https://github.com/laminlabs/lamindb/pull/993) [@falexwolf](https://github.com/falexwolf)
+- 💄 Fine tuned green for graphs [PR990](https://github.com/laminlabs/lamindb/pull/990) [@sunnyosun](https://github.com/sunnyosun)
+- 🚚 Move tutorial1 one level down [PR989](https://github.com/laminlabs/lamindb/pull/989) [@falexwolf](https://github.com/falexwolf)
+- 🚸 Only link validated features [PR987](https://github.com/laminlabs/lamindb/pull/987) [@falexwolf](https://github.com/falexwolf)
+- ✅ More fixes and tests for backed [PR988](https://github.com/laminlabs/lamindb/pull/988) [@Koncopd](https://github.com/Koncopd)
+- 🚚 Move biology notebooks to usecases [PR985](https://github.com/laminlabs/lamindb/pull/985) [@sunnyosun](https://github.com/sunnyosun)
+- 📝 Improve API description [PR986](https://github.com/laminlabs/lamindb/pull/986) [@falexwolf](https://github.com/falexwolf)
+- 🚚 Rename `Manager` to `QueryManager` [PR984](https://github.com/laminlabs/lamindb/pull/984) [@falexwolf](https://github.com/falexwolf)
+- 🚚 Rename ORM to Registry [PR982](https://github.com/laminlabs/lamindb/pull/982) [@sunnyosun](https://github.com/sunnyosun)
 ```{eval-rst}
 .. role:: small
 ```
@@ -25,7 +43,7 @@
 ### 0.49.0 {small}`2023-07-31`
 
 - ✨ Add a progress monitoring to file.load() and file.stage() [PR959](https://github.com/laminlabs/lamindb/pull/959) [@Koncopd](https://github.com/Koncopd)
-- 🚚 Rename `ORM.select()` to `ORM.filter()` [PR958](https://github.com/laminlabs/lamindb/pull/958) [@falexwolf](https://github.com/falexwolf)
+- 🚚 Rename `Registry.select()` to `Registry.filter()` [PR958](https://github.com/laminlabs/lamindb/pull/958) [@falexwolf](https://github.com/falexwolf)
 - 🚚 Rename `Feature.label_orms` to `Feature.registries` [PR957](https://github.com/laminlabs/lamindb/pull/957) [@falexwolf](https://github.com/falexwolf)
 - ♻️ Aggregate ref_field, ref_orm, ref_schema into ref_field [PR955](https://github.com/laminlabs/lamindb/pull/955) [@falexwolf](https://github.com/falexwolf)
 - 🎨 Move feature foreignkey from label to link between label and file [PR954](https://github.com/laminlabs/lamindb/pull/954) [@falexwolf](https://github.com/falexwolf)
@@ -105,8 +123,8 @@ UX:
 
 ### 0.45.0 {small}`2023-06-27`
 
-- ♻️ Replaced `ln.parse` with `ORM.from_values` [PR803](https://github.com/laminlabs/lamindb/pull/803) [@sunnyosun](https://github.com/sunnyosun)
-- 🎨 Auto-manage `RunInput` ORM [PR802](https://github.com/laminlabs/lamindb/pull/802) [@falexwolf](https://github.com/falexwolf)
+- ♻️ Replaced `ln.parse` with `Registry.from_values` [PR803](https://github.com/laminlabs/lamindb/pull/803) [@sunnyosun](https://github.com/sunnyosun)
+- 🎨 Auto-manage `RunInput` Registry [PR802](https://github.com/laminlabs/lamindb/pull/802) [@falexwolf](https://github.com/falexwolf)
 
 ## 0.44
 
@@ -116,7 +134,7 @@ UX:
 
 ### 0.44.1 {small}`2023-06-22`
 
-- ✨ Add `inspect` and `add_synonym` to `ORM` [PR797](https://github.com/laminlabs/lamindb/pull/797) [@sunnyosun](https://github.com/sunnyosun)
+- ✨ Add `inspect` and `add_synonym` to `Registry` [PR797](https://github.com/laminlabs/lamindb/pull/797) [@sunnyosun](https://github.com/sunnyosun)
 - 🔧 Rename extra `nbproject` to `jupyter` and add `fcs` extra to docs [PR798](https://github.com/laminlabs/lamindb/pull/798) [@falexwolf](https://github.com/falexwolf)
 - 🚚 Move default storage location from `lndb/` to `.lamindb/` [PR796](https://github.com/laminlabs/lamindb/pull/796) [@falexwolf](https://github.com/falexwolf)
 - 🚸 `ln.Folder` becomes `ln.Tag` & directories now modeled as prefixes (as on S3) [PR794](https://github.com/laminlabs/lamindb/pull/794) [@falexwolf](https://github.com/falexwolf)
@@ -127,7 +145,7 @@ UX:
 Features:
 
 - 🚸 Idempotency across metadata records & data artifacts [FAQ](https://lamin.ai/docs/faq/idempotency) [PR783](https://github.com/laminlabs/lamindb/pull/783) [@falexwolf](https://github.com/falexwolf)
-- ✨ {func}`~lamindb.dev.ORM.add_synonym` & {func}`~lamindb.dev.ORM.map_synonyms` to enable, e.g., `add_synonym("MyGeneName")` [PR786](https://github.com/laminlabs/lamindb/pull/786) [@sunnyosun](https://github.com/sunnyosun)
+- ✨ `add_synonym` & `map_synonyms` to enable, e.g., `add_synonym("MyGeneName")` [PR786](https://github.com/laminlabs/lamindb/pull/786) [@sunnyosun](https://github.com/sunnyosun)
 - ✨ Backed access for general HDF5 and zarr objects [PR781](https://github.com/laminlabs/lamindb/pull/781) [@Koncopd](https://github.com/Koncopd)
 
 Refactors:
@@ -140,7 +158,7 @@ Refactors:
 
 Features:
 
-- ✨ Enable `ORM.search()` and improved `ORM.lookup()` [PR771](https://github.com/laminlabs/lamindb/pull/771) [@sunnyosun](https://github.com/sunnyosun)
+- ✨ Enable `Registry.search()` and improved `Registry.lookup()` [PR771](https://github.com/laminlabs/lamindb/pull/771) [@sunnyosun](https://github.com/sunnyosun)
 - 🎨 Consolidate `lnschema_bionty` and upgrade to latest Bionty [PR775](https://github.com/laminlabs/lamindb/pull/775) [@sunnyosun](https://github.com/sunnyosun)
 - 🚸 Introduce `ln.settings.storage` to switch default storage [PR773](https://github.com/laminlabs/lamindb/pull/773) [@falexwolf](https://github.com/falexwolf)
 - 🚸 Return existing file if hash exists (idempotency) [PR772](https://github.com/laminlabs/lamindb/pull/772) [@falexwolf](https://github.com/falexwolf)
@@ -172,7 +190,7 @@ Breaking changes:
 - Removed `ln.Session`
 - Removed `.join()` (replaced `SelectStmt` with `QuerySet`)
 - `.all()` now returns a `QuerySet` and no longer a list (use `.list()` instead)
-- Access `Bionty` objects within `lnschema_bionty` via `ORM.bionty()` instead of `ORM.bionty`
+- Access `Bionty` objects within `lnschema_bionty` via `Registry.bionty()` instead of `Registry.bionty`
 - Removed `File.stream()` as all functionality is now provided through `File.backed()`
 - Many-to-many fields are now set with `Run.inputs.set()` and appended with `Run.inputs.add()`
 
@@ -181,7 +199,7 @@ Non-breaking changes:
 - Vastly simplified dependencies & introduced configurable installation
 - Auto-generated storage keys are now of the form `lndb/{id}.{suffix}` rather than just `{id}.{suffix}`
 - Renamed `ln.add()` to `ln.save()`
-- Introduced `ORM.select()`, `ORM.save()`, and `ORM.delete()`
+- Introduced `Registry.select()`, `Registry.save()`, and `Registry.delete()`
 - Better tracking & linking of Bionty sources in `lnschema_bionty`
 
 Additional notes:
@@ -192,8 +210,8 @@ Additional notes:
 The main downsides of migrating to Django are:
 
 - Currently only one LaminDB instance loadable per Python session
-- Type hints & constructor signatures are less pythonic (SQLModel uses less magic than Django) and lead to idiosyncrasies in model definition (nullable defaults) and validation (validation at the ORM-level is more manual as Django foresees validation at the Form level)
-- SQLAlchemy provides the more powerful ORM, and there might be future use cases that will require them
+- Type hints & constructor signatures are less pythonic (SQLModel uses less magic than Django) and lead to idiosyncrasies in model definition (nullable defaults) and validation (validation at the Registry-level is more manual as Django foresees validation at the Form level)
+- SQLAlchemy provides the more powerful Registry, and there might be future use cases that will require them
 
 Complete list of changes below.
 
@@ -398,7 +416,7 @@ van -> can | [641](https://github.com/laminlabs/lamindb/pull/641) | [ThomVett](h
 🔥 Drop populating runin and tracking usage upon load | [484](https://github.com/laminlabs/lamindb/pull/484) | [sunnyosun](https://github.com/sunnyosun) | 2023-02-13 |
 🚸 Better `ln.nb.header()` auto-retrieval error message | [483](https://github.com/laminlabs/lamindb/pull/483) | [falexwolf](https://github.com/falexwolf) | 2023-02-09 |
 🚸  Make DObject upload ACID | [476](https://github.com/laminlabs/lamindb/pull/476) | [bpenteado](https://github.com/bpenteado) | 2023-02-08 |
-📝 Add notebook on ORM lazy loading behavior to FAQ | [472](https://github.com/laminlabs/lamindb/pull/472) | [bpenteado](https://github.com/bpenteado) | 2023-02-06 |
+📝 Add notebook on Registry lazy loading behavior to FAQ | [472](https://github.com/laminlabs/lamindb/pull/472) | [bpenteado](https://github.com/bpenteado) | 2023-02-06 |
 🎨 Robust generation of `DObject._filekey` | [481](https://github.com/laminlabs/lamindb/pull/481) | [sunnyosun](https://github.com/sunnyosun) | 2023-02-06 | 0.26.1
 🎨 Added erroring behavior when file doesn't exist for `ln.delete` | [480](https://github.com/laminlabs/lamindb/pull/480) | [sunnyosun](https://github.com/sunnyosun) | 2023-02-06 |
 📝 Removed extra fields in dev.datasets.pbmc68k | [479](https://github.com/laminlabs/lamindb/pull/479) | [sunnyosun](https://github.com/sunnyosun) | 2023-02-06 |
@@ -406,7 +424,7 @@ van -> can | [641](https://github.com/laminlabs/lamindb/pull/641) | [ThomVett](h
 📝 Query book | [470](https://github.com/laminlabs/lamindb/pull/470) | [sunnyosun](https://github.com/sunnyosun) | 2023-02-06 |
 🩹 Print dobject name for zarr upload | [475](https://github.com/laminlabs/lamindb/pull/475) | [Koncopd](https://github.com/Koncopd) | 2023-02-02 |
 🐛 Fix load | [474](https://github.com/laminlabs/lamindb/pull/474) | [Koncopd](https://github.com/Koncopd) | 2023-02-02 |
-🔥 Disable ORM relationship preview | [473](https://github.com/laminlabs/lamindb/pull/473) | [bpenteado](https://github.com/bpenteado) | 2023-02-02 |
+🔥 Disable Registry relationship preview | [473](https://github.com/laminlabs/lamindb/pull/473) | [bpenteado](https://github.com/bpenteado) | 2023-02-02 |
 ✨ Allow ingesting existing data in the cloud | [471](https://github.com/laminlabs/lamindb/pull/471) | [sunnyosun](https://github.com/sunnyosun) | 2023-02-02 |
 🐛 Correct filepath in header | [469](https://github.com/laminlabs/lamindb/pull/469) | [Koncopd](https://github.com/Koncopd) | 2023-02-01 |
 🚸 Add post-setup settings manager, error on duplicate insert <span class="badge badge-warning">Breaking</span> | [466](https://github.com/laminlabs/lamindb/pull/466) | [falexwolf](https://github.com/falexwolf) | 2023-02-01 | 0.26.0
@@ -428,7 +446,7 @@ van -> can | [641](https://github.com/laminlabs/lamindb/pull/641) | [ThomVett](h
 ➖ Remove s3fs dependency | [450](https://github.com/laminlabs/lamindb/pull/450) | [fredericenard](https://github.com/fredericenard) | 2023-01-23 |
 ⬆️ Upgrade lndb-setup to 0.30.8 | [449](https://github.com/laminlabs/lamindb/pull/449) | [fredericenard](https://github.com/fredericenard) | 2023-01-23 |
 🩹 Better treat edge cases upon signup, login, failed instance loading | [446](https://github.com/laminlabs/lamindb/pull/446) | [falexwolf](https://github.com/falexwolf) | 2023-01-20 | 0.25.0
-🚸 Introduce data validation on the ORM level | [445](https://github.com/laminlabs/lamindb/pull/445) | [bpenteado](https://github.com/bpenteado) | 2023-01-20 |
+🚸 Introduce data validation on the Registry level | [445](https://github.com/laminlabs/lamindb/pull/445) | [bpenteado](https://github.com/bpenteado) | 2023-01-20 |
 ♻️ Reorganize quickstart and get-started | [444](https://github.com/laminlabs/lamindb/pull/444) | [sunnyosun](https://github.com/sunnyosun) | 2023-01-20 |
 📝 Refactor init guide and show bionty versions in guide | [443](https://github.com/laminlabs/lamindb/pull/443) | [sunnyosun](https://github.com/sunnyosun) | 2023-01-18 | 0.24.6
 ⬆️ Upgrade wetlab schema to 0.13.3 | [442](https://github.com/laminlabs/lamindb/pull/442) | [sunnyosun](https://github.com/sunnyosun) | 2023-01-17 | 0.24.5

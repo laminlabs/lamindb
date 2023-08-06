@@ -14,7 +14,7 @@ class Settings:
     """
 
     def __init__(self):
-        self._verbosity: int = 2  # info-level logging
+        self._verbosity: int = 4  # hint-level logging
         logger.set_verbosity(self._verbosity)
 
     upon_file_create_if_hash_exists: Literal[
@@ -34,7 +34,7 @@ class Settings:
     It speeds up file creation by about a factor 100.
     """
     upon_create_search_names: bool = True
-    """To speed up creating ORM objects (default `True`).
+    """To speed up creating Registry objects (default `True`).
 
     If `True`, search for alternative names.
 
@@ -80,13 +80,14 @@ class Settings:
 
     @property
     def verbosity(self) -> int:
-        """Verbosity (default 3).
+        """Verbosity (default 4 / 'hint').
 
-        - 0: only show 'error' messages
-        - 1: also show 'warning' messages
-        - 2: also show 'info' messages
-        - 3: also show 'hint' messages
-        - 4: also show detailed 'debug' messages
+        - 0: ❌ only show 'error' messages
+        - 1: 🔶 also show 'warning' messages
+        - 2: ✅ also show 'success' messages
+        - 3: 💬 also show 'info' messages
+        - 4: 💡 also show 'hint' messages
+        - 5: 🐛 also show detailed 'debug' messages
 
         This is based on Scanpy's and Django's verbosity setting.
         """

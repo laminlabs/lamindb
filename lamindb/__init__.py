@@ -1,29 +1,67 @@
-"""Open-source data lake & feature store for biology.
+"""Open-source data platform for biology.
 
-Import the package::
-
-   import lamindb as ln
-
-.. note::
-
-    `File` abstracts over objects in storage from blob-like files (pdf, txt, etc.)
-    to streamable storage backends (HDF5, DuckDB, zarr, TileDB, etc.).
-
-    `Dataset` abstracts over `File` and tables in classical warehouses (BigQuery, Snowflake).
+LaminDB helps you manage data using registries.
+The two most central are:
 
 .. autosummary::
    :toctree: .
 
    File
    Dataset
+
+
+.. dropdown::  With more detail, what are files & datasets?
+
+    Both files & datasets
+
+    - track numerical & categorical data batches of arbitrary format & size
+
+    - can validate & link features (the measured dimensions in a data batch)
+
+    Roughly,
+
+    - a file stores a single immutable batch of data
+
+    - a dataset stores a mutable collection of data batches
+
+    Examples:
+
+    - Blob-like immutable files (pdf, txt, csv, jpg, ...) or arrays (h5, h5ad,
+      ...) → :class:`~lamindb.File`
+
+    - Mutable streamable backends (DuckDB, zarr, TileDB, ...) → :class:`~lamindb.Dataset` wrapping :class:`~lamindb.File`
+
+    - Collections of files → :class:`~lamindb.Dataset` wrapping :class:`~lamindb.File`
+
+    - Datasets in BigQuery, Snowflake, Postgres, ... → :class:`~lamindb.Dataset` (not yet implemented)
+
+    Hence, while
+
+    - files *always* have a one-to-one correspondence with a storage accessor
+
+    - datasets *can* reference a single file, multiple files or a dataset
+      in a warehouse like BigQuery or Snowflake
+
+
+There are four registries to track provenance of data batches:
+
+.. autosummary::
+   :toctree: .
+
+   User
+   Storage
    Transform
+   Run
+
+And four registries to validate & contextualize measurements in data batches:
+
+.. autosummary::
+   :toctree: .
+
    Label
    Feature
    FeatureSet
    Modality
-   User
-   Storage
-   Run
 
 Functional tools:
 
@@ -107,11 +145,13 @@ if _INSTANCE_SETUP:
     from . import _feature_set  # noqa
     from . import _file  # noqa
     from . import _label  # noqa
-    from . import _orm  # noqa
+    from . import _registry  # noqa
     from . import _storage  # noqa
+    from . import _synonym  # noqa
     from . import _transform  # noqa
+    from . import _validate  # noqa
     from ._delete import delete  # noqa
-    from ._orm import select_backward as select  # noqa
+    from ._registry import select_backward as select  # noqa
     from ._save import save  # noqa
     from ._view import view  # noqa
     from .dev._settings import settings

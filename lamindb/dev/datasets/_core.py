@@ -39,6 +39,18 @@ def file_jpg_paradisi05() -> Path:
     return Path(filepath)
 
 
+def file_tsv_rnaseq_nfcore_salmon_merged_gene_counts() -> Path:
+    """Gene counts table from nf-core RNA-seq pipeline.
+
+    Output of: https://nf-co.re/rnaseq
+    """
+    filepath, _ = urlretrieve(
+        "https://lamindb-test.s3.amazonaws.com/salmon.merged.gene_counts.tsv",
+        "salmon.merged.gene_counts.tsv",
+    )
+    return Path(filepath)
+
+
 def file_fastq(in_storage_root=False) -> Path:
     """Mini mock fastq file."""
     basedir = Path(".") if not in_storage_root else settings.storage
@@ -78,21 +90,6 @@ def file_tiff_suo22():
     Path("suo22/").mkdir(exist_ok=True)
     filepath = Path(filepath).rename("suo22/F121_LP1_4LIV.tiff")
     return Path(filepath)
-
-
-def dir_scrnaseq_cellranger(in_storage_root=False) -> Path:
-    """Directory with exemplary scrnaseq cellranger input and output."""
-    filepath, _ = urlretrieve(
-        "https://lamindb-test.s3.amazonaws.com/cellranger_run_001.zip"
-    )
-    from zipfile import ZipFile
-
-    basedir = Path(".") if not in_storage_root else settings.storage
-    with ZipFile(filepath, "r") as zipObj:
-        # Extract all the contents of zip file in current directory
-        zipObj.extractall(path=basedir)
-
-    return basedir / "cellranger_run_001"
 
 
 def anndata_mouse_sc_lymph_node() -> ad.AnnData:
@@ -272,7 +269,7 @@ def df_iris_in_meter_batch2() -> pd.DataFrame:
     return df_iris.iloc[len(df_iris) // 2 :]
 
 
-def generate_cell_ranger_files(
+def dir_scrnaseq_cellranger(
     sample_name: str, basedir: Union[str, Path] = "./", output_only: bool = True
 ):
     """Generate mock cell ranger outputs.
@@ -281,7 +278,6 @@ def generate_cell_ranger_files(
         sample_name: name of the sample
         basedir: run directory
         output_only: only generate output files
-
     """
     basedir = Path(basedir)
 

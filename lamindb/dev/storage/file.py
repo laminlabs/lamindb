@@ -23,6 +23,43 @@ except ImportError:
 AUTO_KEY_PREFIX = ".lamindb/"
 
 
+KNOWN_SUFFIXES = {
+    # without readers
+    ".txt",
+    ".tsv",
+    ".pdf",
+    ".fastq",
+    ".tar",
+    ".zip",
+    # with readers (see below)
+    ".h5ad",
+    ".parquet",
+    ".csv",
+    ".fcs",
+    ".zarr",
+    ".zrad",
+}
+
+
+def extract_suffix_from_path(path: Union[UPath, Path]) -> str:
+    # this if-clause is based on https://stackoverflow.com/questions/31890341
+    # the rest conscsiously deviates
+    if len(path.suffixes) <= 2:
+        return "".join(path.suffixes)
+    else:
+        msg = "file has more than two suffixes (path.suffixes), "
+        # first check the 2nd-to-last suffix because it might be followed by .gz
+        # or another compression-related suffix
+        if path.suffixes[-2] in KNOWN_SUFFIXES:
+            suffix = "".join(path.suffixes[-2:])
+            msg += f"inferring:'{suffix}'"
+        else:
+            suffix = path.suffixes[-1]
+            msg += f"using only last suffix: '{suffix}'"
+        logger.warning(msg)
+        return suffix
+
+
 # add type annotations back asap when re-organizing the module
 def auto_storage_key_from_file(file: File):
     if file.key is None:
@@ -35,25 +72,11 @@ def attempt_accessing_path(file: File, storage_key: str):
     if file.storage_id == settings.storage.id:
         path = settings.storage.key_to_filepath(storage_key)
     else:
-        logger.warning(
-            "file.path() is slightly slower for files outside default storage"
-        )
+        logger.warning("file.path is slightly slower for files outside default storage")
         storage = Storage.filter(id=file.storage_id).one()
         # find a better way than passing None to instance_settings in the future!
         storage_settings = StorageSettings(storage.root)
         path = storage_settings.key_to_filepath(storage_key)
-    # the following is for backward compat
-    if storage_key.startswith(AUTO_KEY_PREFIX) and not path.exists():
-        logger.warning(
-            "You have auto-keyed files in your storage root, please move them into"
-            f" {AUTO_KEY_PREFIX} within your storage location"
-        )
-        # try legacy_storage_key in root
-        for previous_prefix in ["", "lndb/"]:
-            legacy_storage_key = storage_key.replace(AUTO_KEY_PREFIX, previous_prefix)
-            path = settings.storage.key_to_filepath(legacy_storage_key)
-            if path.exists():
-                return path
     return path
 
 
@@ -168,6 +191,11 @@ def read_fcs(*args, **kwargs):
     return readfcs.read(*args, **kwargs)
 
 
+def read_tsv(path: Union[str, Path]) -> pd.DataFrame:
+    path_sanitized = Path(path)
+    return pd.read_csv(path_sanitized, sep="\t")
+
+
 def load_to_memory(filepath: Union[str, Path, UPath], stream: bool = False):
     """Load a file into memory.
 
@@ -189,6 +217,7 @@ def load_to_memory(filepath: Union[str, Path, UPath], stream: bool = False):
 
     READER_FUNCS = {
         ".csv": pd.read_csv,
+        ".tsv": read_tsv,
         ".h5ad": read_adata_h5ad,
         ".parquet": pd.read_parquet,
         ".fcs": read_fcs,

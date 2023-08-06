@@ -167,8 +167,8 @@ class run_context:
             install[jupyter]`, you can simply call:
 
             >>> ln.track()
-            ✅ Saved: Transform(id=1LCd8kco9lZUBg, name=Track data lineage / provenance, short_name=02-data-lineage, stem_id=1LCd8kco9lZU, version=0, type=notebook, updated_at=2023-07-10 18:37:19, created_by_id=DzTjkKse) # noqa
-            ✅ Saved: Run(id=pHgVICV9DxBaV6BAuKJl, run_at=2023-07-10 18:37:19, transform_id=1LCd8kco9lZUBg, created_by_id=DzTjkKse) # noqa
+            ✅ saved: Transform(id=1LCd8kco9lZUBg, name=Track data lineage / provenance, short_name=02-data-lineage, stem_id=1LCd8kco9lZU, version=0, type=notebook, updated_at=2023-07-10 18:37:19, created_by_id=DzTjkKse) # noqa
+            ✅ saved: Run(id=pHgVICV9DxBaV6BAuKJl, run_at=2023-07-10 18:37:19, transform_id=1LCd8kco9lZUBg, created_by_id=DzTjkKse) # noqa
             >>> ln.context.transform
             Transform(id=1LCd8kco9lZUBg, name=Track data lineage / provenance, short_name=02-data-lineage, stem_id=1LCd8kco9lZU, version=0, type=notebook, updated_at=2023-07-10 18:37:19, created_by_id=DzTjkKse) # noqa
             >>> ln.context.run
@@ -180,8 +180,8 @@ class run_context:
             >>> ln.Transform(name="Cell Ranger", version="7.2.0", type="pipeline").save()
             >>> transform = ln.Transform.filter(name="Cell Ranger", version="7.2.0").one()
             >>> ln.track(transform)
-            💬 Loaded: Transform(id=ceHkZMaiHFdoB6, name=Cell Ranger, stem_id=ceHkZMaiHFdo, version=7.2.0, type=pipeline, updated_at=2023-07-10 18:37:19, created_by_id=DzTjkKse) # noqa
-            ✅ Saved: Run(id=RcpWIKC8cF74Pn3RUJ1W, run_at=2023-07-10 18:37:19, transform_id=ceHkZMaiHFdoB6, created_by_id=DzTjkKse) # noqa
+            💬 loaded: Transform(id=ceHkZMaiHFdoB6, name=Cell Ranger, stem_id=ceHkZMaiHFdo, version=7.2.0, type=pipeline, updated_at=2023-07-10 18:37:19, created_by_id=DzTjkKse) # noqa
+            ✅ saved: Run(id=RcpWIKC8cF74Pn3RUJ1W, run_at=2023-07-10 18:37:19, transform_id=ceHkZMaiHFdoB6, created_by_id=DzTjkKse) # noqa
             >>> ln.context.transform
             Transform(id=ceHkZMaiHFdoB6, name=Cell Ranger, stem_id=ceHkZMaiHFdo, version=7.2.0, type=pipeline, updated_at=2023-07-10 18:37:19, created_by_id=DzTjkKse) # noqa
             >>> ln.context.run
@@ -227,10 +227,10 @@ class run_context:
                 transform_exists = Transform.filter(id=transform.id).first()
             if transform_exists is None:
                 transform.save()
-                logger.success(f"Saved: {transform}")
+                logger.info(f"saved: {transform}")
                 transform_exists = transform
             else:
-                logger.info(f"Loaded: {transform_exists}")
+                logger.success(f"loaded: {transform_exists}")
             cls.transform = transform_exists
 
         if new_run is None:  # for notebooks, default to loading latest runs
@@ -248,22 +248,22 @@ class run_context:
             if run is not None:  # loaded latest run
                 run.run_at = datetime.now(timezone.utc)  # update run time
                 run.save()
-                logger.info(f"Loaded: {run}")
+                logger.success(f"loaded: {run}")
 
         if run is None:  # create new run
             run = ln.Run(transform=cls.transform)
             run.save()
-            logger.success(f"Saved: {run}")
+            logger.info(f"saved: {run}")
         cls.run = run
 
         # at this point, we have a transform can display its parents if there are any
         parents = cls.transform.parents.all() if cls.transform is not None else []
         if len(parents) > 0:
             if len(parents) == 1:
-                logger.info(f"Parent transform: {parents[0]}")
+                logger.info(f"parent transform: {parents[0]}")
             else:
                 parents_formatted = "\n   - ".join([f"{parent}" for parent in parents])
-                logger.info(f"Parent transforms:\n   - {parents_formatted}")
+                logger.info(f"parent transforms:\n   - {parents_formatted}")
 
         # only for newly intialized notebooks
         if hasattr(cls, "_notebook_meta"):
@@ -347,11 +347,11 @@ class run_context:
 
                 dm = DisplayMeta(metadata)
                 logger.info(
-                    "Notebook imports:"
+                    "notebook imports:"
                     f" {' '.join(dm.pypackage(infer_pypackages(nb, pin_versions=True)))}"  # noqa
                 )
             except Exception:
-                logger.debug("Inferring imported packages failed")
+                logger.debug("inferring imported packages failed")
                 pass
 
         if needs_init:
@@ -405,9 +405,9 @@ class run_context:
                 type=TransformType.notebook,
             )
             transform.save()
-            logger.success(f"Saved: {transform}")
+            logger.success(f"saved: {transform}")
         else:
-            logger.info(f"Loaded: {transform}")
+            logger.info(f"loaded: {transform}")
             if transform.name != title or transform.short_name != filestem:
                 response = input(
                     "Updated notebook name and/or title: Do you want to assign a"
@@ -427,9 +427,9 @@ class run_context:
                 transform.short_name = filestem
                 transform.save()
                 if response == "y":
-                    logger.success(f"Saved: {transform}")
+                    logger.success(f"saved: {transform}")
                 else:
-                    logger.success(f"Updated: {transform}")
+                    logger.success(f"updated: {transform}")
 
         cls.transform = transform
 

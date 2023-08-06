@@ -1,7 +1,11 @@
 from typing import List, Set, Union
 
-from lnschema_core import ORM, File, Run
-from lnschema_core.models import format_datetime
+from lnschema_core import File, Registry, Run
+from lnschema_core.models import format_field_value
+
+LAMIN_GREEN_LIGHTER = "#10b981"
+LAMIN_GREEN_DARKER = "#065f46"
+GREEN_FILL = "honeydew"
 
 
 def view_lineage(file: File, with_children: bool = True):
@@ -33,8 +37,8 @@ def view_lineage(file: File, with_children: bool = True):
     u = graphviz.Digraph(
         file.id,
         node_attr={
-            "fillcolor": "honeydew",
-            "color": "seagreen",
+            "fillcolor": GREEN_FILL,
+            "color": LAMIN_GREEN_DARKER,
             "fontname": "Helvetica",
             "fontsize": "10",
         },
@@ -51,7 +55,7 @@ def view_lineage(file: File, with_children: bool = True):
         else:
             style = "rounded,filled"
             shape = "box"
-            fillcolor = "honeydew"
+            fillcolor = GREEN_FILL
         u.node(
             node_id,
             label=node_label,
@@ -66,12 +70,12 @@ def view_lineage(file: File, with_children: bool = True):
             add_node(row["target_record"], row["target"], row["target_label"], u)
 
         u.edge(row["source"], row["target"], color="dimgrey")
-    # label the searched file mediumseagreen
+    # label the searched file
     u.node(
         file.id,
         label=file_label,
         style="rounded,filled",
-        fillcolor="mediumseagreen",
+        fillcolor=LAMIN_GREEN_LIGHTER,
         shape="box",
     )
 
@@ -79,7 +83,7 @@ def view_lineage(file: File, with_children: bool = True):
 
 
 def view_parents(
-    record: ORM, field: str, with_children: bool = False, distance: int = 100
+    record: Registry, field: str, with_children: bool = False, distance: int = 100
 ):
     """Graph of parents."""
     if not hasattr(record, "parents"):
@@ -105,8 +109,8 @@ def view_parents(
     u = graphviz.Digraph(
         record.id,
         node_attr={
-            "color": "seagreen",
-            "fillcolor": "honeydew",
+            "color": LAMIN_GREEN_DARKER,
+            "fillcolor": GREEN_FILL,
             "shape": "box",
             "style": "rounded,filled",
             "fontname": "Helvetica",
@@ -117,7 +121,7 @@ def view_parents(
     u.node(
         record_label.replace(":", "_"),
         label=record_label,
-        fillcolor="mediumseagreen",
+        fillcolor=LAMIN_GREEN_LIGHTER,
     )
     for _, row in df_edges.iterrows():
         u.node(row["source"], label=row["source_label"])
@@ -126,7 +130,7 @@ def view_parents(
     return u
 
 
-def _get_parents(record: ORM, field: str, distance: int, children: bool = False):
+def _get_parents(record: Registry, field: str, distance: int, children: bool = False):
     """Recursively get parent records within a distance."""
     if children:
         key = "parents"
@@ -152,7 +156,7 @@ def _get_parents(record: ORM, field: str, distance: int, children: bool = False)
 
 
 def _df_edges_from_parents(
-    record: ORM, field: str, distance: int, children: bool = False
+    record: Registry, field: str, distance: int, children: bool = False
 ):
     """Construct a DataFrame of edges as the input of graphviz.Digraph."""
     key = "children" if children else "parents"
@@ -220,11 +224,12 @@ def _label_file_run(record: Union[File, Run]):
             rf' FACE="Monospace">id={record.id}<BR/>suffix={record.suffix}</FONT>>'
         )
     elif isinstance(record, Run):
+        emojis = {"notebook": "📔", "app": "🖥️"}
         name = f'{record.transform.name.replace("&", "&amp;")}'
         return (
-            rf'<{name}<BR/><FONT COLOR="GREY" POINT-SIZE="10"'
+            rf'<{emojis.get(record.transform.type, "🧩")} {name}<BR/><FONT COLOR="GREY" POINT-SIZE="10"'  # noqa
             rf' FACE="Monospace">id={record.id}<BR/>type={record.transform.type},'
-            rf" user={record.created_by.name}<BR/>run_at={format_datetime(record.run_at)}</FONT>>"  # noqa
+            rf" user={record.created_by.name}<BR/>run_at={format_field_value(record.run_at)}</FONT>>"  # noqa
         )
 
 

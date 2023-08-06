@@ -4,7 +4,7 @@ import pandas as pd
 from django.db.models.query_utils import DeferredAttribute as Field
 from lamin_utils import logger
 from lamindb_setup.dev._docs import doc_args
-from lnschema_core import ORM, Feature, FeatureSet, Modality, ids
+from lnschema_core import Feature, FeatureSet, Modality, Registry, ids
 from lnschema_core.types import ListLike
 
 from lamindb.dev.hashing import hash_set
@@ -12,11 +12,11 @@ from lamindb.dev.utils import attach_func_to_class_method
 
 from . import _TESTING
 from ._from_values import get_or_create_records, index_iterable
-from ._orm import init_self_from_db
+from ._registry import init_self_from_db
 from ._save import bulk_create
 
 
-def get_related_name(features_type: ORM):
+def get_related_name(features_type: Registry):
     candidates = [
         field.related_name
         for field in FeatureSet._meta.related_objects
@@ -26,19 +26,20 @@ def get_related_name(features_type: ORM):
         raise ValueError(
             f"Can't create feature sets from {features_type.__name__} because it's not"
             " related to it!\nYou need to create a link model between FeatureSet and"
-            " your ORM in your custom schema.\nTo do so, add a line:\nfeature_sets ="
-            " models.ManyToMany(FeatureSet, related_name='mythings')\n"
+            " your Registry in your custom schema.\nTo do so, add a"
+            " line:\nfeature_sets = models.ManyToMany(FeatureSet,"
+            " related_name='mythings')\n"
         )
     return candidates[0]
 
 
-def validate_features(features: List[ORM]) -> ORM:
+def sanity_check_features(features: List[Registry]) -> Registry:
     """Validate and return feature type."""
     if len(features) == 0:
         raise ValueError("provide list of features with at least one element")
     if not hasattr(features, "__getitem__"):
         raise TypeError("features has to be list-like")
-    if not isinstance(features[0], ORM):
+    if not isinstance(features[0], Registry):
         raise TypeError(
             "features has to store feature records! use .from_values() otherwise"
         )
@@ -48,6 +49,24 @@ def validate_features(features: List[ORM]) -> ORM:
     return next(iter(feature_types))  # return value in set of cardinality 1
 
 
+def get_validated_features(features: List[Registry], field: Field) -> List[Registry]:
+    validated_features = []
+    non_validated_features = []
+    for feature in features:
+        if feature._state.adding and not (
+            hasattr(feature, "_from_bionty") and feature._from_bionty
+        ):
+            non_validated_features.append(getattr(feature, field.field.name))
+        else:
+            validated_features.append(feature)
+    if non_validated_features:
+        non_validated_features_display = ",".join(non_validated_features)
+        logger.warning(
+            f"ignoring unvalidated features: {non_validated_features_display}"
+        )
+    return validated_features
+
+
 def __init__(self, *args, **kwargs):
     if len(args) == len(self._meta.concrete_fields):
         super(FeatureSet, self).__init__(*args, **kwargs)
@@ -55,10 +74,7 @@ def __init__(self, *args, **kwargs):
     # now we proceed with the user-facing constructor
     if len(args) > 1:
         raise ValueError("Only one non-keyword arg allowed: features")
-    features: Iterable[ORM] = kwargs.pop("features") if len(args) == 0 else args[0]
-    ref_field: Optional[str] = (
-        kwargs.pop("ref_field") if "ref_field" in kwargs else "id"
-    )
+    features: Iterable[Registry] = kwargs.pop("features") if len(args) == 0 else args[0]
     type: Optional[Union[type, str]] = kwargs.pop("type") if "type" in kwargs else None
     modality: Optional[str] = kwargs.pop("modality") if "modality" in kwargs else None
     name: Optional[str] = kwargs.pop("name") if "name" in kwargs else None
@@ -66,11 +82,11 @@ def __init__(self, *args, **kwargs):
     hash: Optional[str] = kwargs.pop("hash") if "hash" in kwargs else None
     if len(kwargs) > 0:
         raise ValueError(
-            "Only features, ref_field, type, modality, name are valid keyword arguments"
+            "Only features, type, modality, name are valid keyword arguments"
         )
 
     # now code
-    features_orm = validate_features(features)
+    features_orm = sanity_check_features(features)
     if features_orm == Feature:
         type = None
     else:
@@ -80,7 +96,7 @@ def __init__(self, *args, **kwargs):
         features_hash = hash_set({feature.id for feature in features})
         feature_set = FeatureSet.filter(hash=features_hash).one_or_none()
         if feature_set is not None:
-            logger.info(f"Loaded {feature_set}")
+            logger.info(f"loaded: {feature_set}")
             init_self_from_db(self, feature_set)
             return None
         else:
@@ -108,7 +124,7 @@ def __init__(self, *args, **kwargs):
         type=type_str,
         n=n_features,
         modality=modality_record,
-        ref_field=f"{features_orm.__get_name_with_schema__()}.{ref_field}",
+        registry=features_orm.__get_name_with_schema__(),
         hash=hash,
     )
 
@@ -139,39 +155,48 @@ def from_values(
     name: Optional[str] = None,
     modality: Optional[str] = None,
     **kwargs,
-) -> "FeatureSet":
+) -> Optional["FeatureSet"]:
     """{}"""
     if not isinstance(field, Field):
-        raise TypeError("Argument `field` must be an ORM field, e.g., `Feature.name`")
+        raise TypeError(
+            "Argument `field` must be an Registry field, e.g., `Feature.name`"
+        )
     if len(values) == 0:
         raise ValueError("Provide a list of at least one value")
-    ORM = field.field.model
-    if isinstance(ORM, Feature):
+    registry = field.field.model
+    if isinstance(registry, Feature):
         raise ValueError("Please use from_df() instead of from_values()")
     iterable_idx = index_iterable(values)
     if not isinstance(iterable_idx[0], (str, int)):
         raise TypeError("values should be list-like of str or int")
-    features_hash = hash_set(set(iterable_idx))
+    from_bionty = registry.__module__.startswith("lnschema_bionty")
+    features = get_or_create_records(
+        iterable=iterable_idx,
+        field=field,
+        from_bionty=from_bionty,
+        **kwargs,
+    )
+    validated_features = get_validated_features(features, field)
+    validated_feature_ids = [feature.id for feature in validated_features]
+    features_hash = hash_set(set(validated_feature_ids))
     feature_set = FeatureSet.filter(hash=features_hash).one_or_none()
     if feature_set is not None:
-        logger.info(f"Loaded {feature_set}")
+        logger.info(f"loaded {feature_set}")
     else:
-        from_bionty = ORM.__module__.startswith("lnschema_bionty")
-        records = get_or_create_records(
-            iterable=iterable_idx,
-            field=field,
-            from_bionty=from_bionty,
-            **kwargs,
-        )
-        # type_str = type.__name__ if not isinstance(type, str) else type
-        feature_set = FeatureSet(
-            features=records,
-            hash=features_hash,
-            name=name,
-            modality=modality,
-            type=type,
-            ref_field=field.field.name,
-        )
+        if type is not None:
+            type_str = type.__name__ if not isinstance(type, str) else type
+        else:
+            type_str = None
+        if validated_features:
+            feature_set = FeatureSet(
+                features=validated_features,
+                hash=features_hash,
+                name=name,
+                modality=modality,
+                type=type_str,
+            )
+        else:
+            feature_set = None
     return feature_set
 
 
@@ -181,10 +206,16 @@ def from_df(
     cls,
     df: "pd.DataFrame",
     name: Optional[str] = None,
-) -> "FeatureSet":
+) -> Optional["FeatureSet"]:
     """{}"""
     features = Feature.from_df(df)
-    feature_set = FeatureSet(features, name=name)
+    validated_features = get_validated_features(features, Feature.name)
+    if validated_features:
+        feature_set = FeatureSet(validated_features, name=name)
+    else:
+        logger.warning("no validated features, not creating feature set")
+        feature_set = None
+        # raise ValidationError("Dataframe columns contain no validated feature names")
     return feature_set
 
 

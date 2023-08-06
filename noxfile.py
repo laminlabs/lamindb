@@ -42,8 +42,6 @@ def install(session, group):
         session.run(*"pip install scanpy".split())
     elif group == "biology":
         extras += ",bionty,fcs,jupyter"
-        session.run(*"pip install scanpy".split())
-        session.run(*"pip install mudata".split())
     elif group == "faq":
         extras += ",aws,postgres,bionty,jupyter"
     elif group == "storage":
@@ -88,6 +86,8 @@ def docs(session):
             Path("./docs/biology/lnschema-bionty.ipynb").rename(
                 "./docs/lnschema-bionty.ipynb"
             )
+        elif group == "guide":
+            Path("./docs/guide/tutorial1.ipynb").rename("./docs/tutorial1.ipynb")
     login_testuser1(session)
     session.run(*"lamin init --storage ./docsbuild --schema bionty".split())
     build_docs(session, strip_prefix=True, strict=True)

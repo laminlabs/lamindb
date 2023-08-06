@@ -80,7 +80,12 @@ def test_lookup():
 
 def test_inspect():
     qs = ln.User.filter(handle="testuser1").all()
-    assert qs.inspect(["user1", "user2"], "name")["mapped"] == []
+    assert qs.inspect(["user1", "user2"], "name")["validated"] == []
+
+
+def test_validate():
+    qs = ln.User.filter(handle="testuser1").all()
+    assert qs.validate(["testuser1", "Test User1"], "handle").tolist() == [True, False]
 
 
 def test_map_synonyms():

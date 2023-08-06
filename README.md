@@ -5,27 +5,27 @@
 
 # LaminDB
 
-Open-source data lake & feature store for biology.
+Open-source data platform for biology.
 
 ```{warning}
 
-Public beta: Currently only recommended for collaborators as we still make breaking changes.
+Public beta: Close to having converged a stable API, but some breaking changes might still occur.
 
-Update 2023-06-14:
-
-- We completed a major migration from SQLAlchemy/SQLModel to Django, available in 0.42.0.
-- The last version before the migration is 0.41.2.
 ```
 
 ## Introduction
 
-LaminDB is an open-source Python library to:
+LaminDB is an open-source Python library to manage files & datasets while
 
-- Manage files & datasets while tracking provenance across pipelines, notebooks & app uploads.
-- Manage biological registries, ontologies, features & schemas.
-- Enhance integrity through built-in data validation and [idempotent](https://lamin.ai/docs/faq/idempotency), [ACID](https://lamin.ai/docs/faq/acid) operations.
+- tracking provenance across pipelines, notebooks & app uploads
+- validating & linking data batches using biological registries & ontologies
+
+You can
+
+- Manage features & labels schema-less or schema-full.
 - Query, search, look up, save, load and stream with one API.
 - Collaborate across a mesh of LaminDB instances.
+- Enjoy [idempotent](https://lamin.ai/docs/faq/idempotency) & [ACID](https://lamin.ai/docs/faq/acid) operations.
 
 LaminApp is a data management app built on LaminDB. If LaminDB ~ git, LaminApp ~ GitHub.
 
@@ -48,17 +48,22 @@ import lamindb as ln
 # import lnschema_bionty as lb # optional, for bionty schema
 ```
 
-### Manage data objects
+### Manage files and data objects
 
 ```python
-# Store a DataFrame object
+# Store and register a file
+ln.File("s3://my-bucket/images/image001.jpg").save()  # or a local path
+
+# Store and register a DataFrame object
 df = pd.DataFrame({"feat1": [1, 2], "feat2": [3, 4]})  # AnnData works, too
 ln.File(df, description="Data batch 1").save()  # create a File object and save/upload it
 
 # To find it, if you don't have specific metadata in mind, run a search
 ln.File.search("batch 1")
-# Or filter (under-the-hood, you have the full power of SQL to query)
+# Or query (under-the-hood, you have the full power of SQL to query)
 file = ln.File.filter(description="Data batch 1").one()  # get exactly one result
+# Query by `key` (the relative path within your storage)
+ln.File.filter(key__startswith="images/").df()  # get query results as a DataFrame
 
 # Load a file back into memory
 df = file.load()
@@ -66,27 +71,19 @@ df = file.load()
 backed = file.backed()  # currently works for AnnData, zarr, HDF5, not yet for DataFrame
 ```
 
-### Manage files
-
-```python
-# Store a file
-file = ln.File("s3://my-bucket/images/image001.jpg")  # or a local path
-file.save()  # register the file
-
-# Query by `key` (the relative path within your storage) and load into memory
-file.filter(key__startswith="images/").df()  # all files in folder "images/" in default storage
-```
-
 ### Auto-complete categoricals and search
 
 ```python
-# When you're unsure about spellings, use a lookup object:
-users = ln.User.lookup()
+# When you're unsure about spellings, use a lookup object
+users = ln.User.lookup() # by default uses handle field
 ln.File.filter(created_by=users.lizlemon)
+users = ln.User.lookup("name") # a lookup object of the name field
+users.liz_lemon
 
 # Or search
-ln.User.search("liz lemon", field="name")
+ln.User.search("liz lemon") # by default searches the handle field
 user = ln.User.search("liz lemon", return_queryset=True).first() # grab the top search result as a record
+ln.User.search("liz lemon", field=["name", "handle"]) # search against multiple fields
 ```
 
 ### Track & query data lineage
@@ -108,11 +105,12 @@ file.view_lineage()
 Track a Jupyter Notebook:
 
 ```python
+# my-analysis.ipynb
 ln.track()  # auto-detect & save notebook metadata
 ln.File("my_artifact.parquet").save()  # this file is now aware that it was saved in this notebook
 ```
 
-When you query the file, later on, you'll know from which notebook it came:
+When you query the file, later on, you'll know which notebook it came from:
 
 ```python
 file = ln.File.filter(description="my_artifact.parquet").one()  # query for a file
@@ -261,7 +259,7 @@ We do _not_ store any of your data, but only basic metadata about you (email add
 
 LaminDB builds semantics of R&D and biology onto well-established tools:
 
-- SQLite & Postgres for SQL databases using Django ORM (previously: SQLModel)
+- SQLite & Postgres for SQL databases using Django Registry (previously: SQLModel)
 - S3, GCP & local storage for object storage using fsspec
 - Configurable storage formats: pyarrow, anndata, zarr, etc.
 - Biological knowledge sources & ontologies: see [Bionty](https://lamin.ai/docs/bionty)

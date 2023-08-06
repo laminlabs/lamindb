@@ -1,13 +1,13 @@
 from typing import Type
 
-from lnschema_core import ORM
+from lnschema_core import Registry
 
-from lamindb._queryset import QuerySet
+from lamindb._query_set import QuerySet
 
 
-def filter(ORM: Type[ORM], **expressions) -> QuerySet:
-    """See :meth:`~lamindb.dev.ORM.filter`."""
-    qs = QuerySet(model=ORM)
+def filter(Registry: Type[Registry], **expressions) -> QuerySet:
+    """See :meth:`~lamindb.dev.Registry.filter`."""
+    qs = QuerySet(model=Registry)
     if len(expressions) > 0:
         return qs.filter(**expressions)
     else:

@@ -14,7 +14,7 @@
 :hidden:
 :caption: Tutorial
 
-guide/tutorial1
+tutorial1
 ```
 
 ```{toctree}
@@ -33,10 +33,8 @@ guide/setup
 :caption: "How to: biology"
 
 biology/registries
-biology/scrna
-biology/flow
-biology/spatial
-biology/multimodal
+lnschema-bionty
+biology/analyses
 ```
 
 ```{toctree}

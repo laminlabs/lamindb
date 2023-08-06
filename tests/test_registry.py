@@ -3,7 +3,7 @@ from inspect import signature
 import pytest
 
 import lamindb as ln
-from lamindb import _orm as orm
+from lamindb import _registry as registry
 
 
 def test_signatures():
@@ -15,13 +15,13 @@ def test_signatures():
         pass
 
     # class methods
-    class_methods = ["search", "lookup", "from_values", "inspect", "map_synonyms"]
+    class_methods = ["search", "lookup", "from_values"]
     for name in class_methods:
-        setattr(Mock, name, getattr(orm, name))
-        assert signature(getattr(Mock, name)) == orm.SIGS.pop(name)
+        setattr(Mock, name, getattr(registry, name))
+        assert signature(getattr(Mock, name)) == registry.SIGS.pop(name)
     # methods
-    for name, sig in orm.SIGS.items():
-        assert signature(getattr(orm, name)) == sig
+    for name, sig in registry.SIGS.items():
+        assert signature(getattr(registry, name)) == sig
 
 
 def test_init_with_args():

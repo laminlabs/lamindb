@@ -17,6 +17,7 @@ from lamindb._file import (
     get_relative_path_to_directory,
     process_data,
 )
+from lamindb.dev.storage.file import extract_suffix_from_path
 
 # how do we properly abstract out the default storage variable?
 # currently, we're only mocking it through `default_storage` as
@@ -29,8 +30,8 @@ df = pd.DataFrame({"feat1": [1, 2], "feat2": [3, 4]})
 
 adata = ad.AnnData(
     X=np.array([[1, 2, 3], [4, 5, 6]]),
-    obs=dict(Obs=["A", "B"]),
-    var=dict(Feat=["MYC1", "TCF7", "GATA1"]),
+    obs=dict(feat1=["A", "B"]),
+    var=pd.DataFrame(index=["MYC", "TCF7", "GATA1"]),
     obsm=dict(X_pca=np.array([[1, 2], [3, 4]])),
 )
 
@@ -69,6 +70,13 @@ def test_create_from_dataframe(name):
 @pytest.mark.parametrize("description", [None, "my name"])
 def test_create_from_dataframe_using_from_df(description):
     file = ln.File.from_df(df, description=description)
+    assert file._feature_sets == {}
+    with pytest.raises(ValueError):
+        file.features["columns"]
+    ln.save(ln.Feature.from_df(df))
+    file = ln.File.from_df(df, description=description)
+    # mere access test right now
+    file.features["columns"]
     assert file.description == description
     assert file.key is None
     assert file.accessor == "DataFrame"
@@ -80,10 +88,13 @@ def test_create_from_dataframe_using_from_df(description):
     feature_list_queried = ln.Feature.filter(feature_sets=feature_set_queried).list()
     feature_list_queried = [feature.name for feature in feature_list_queried]
     assert set(feature_list_queried) == set(df.columns)
+    feature_set_queried.delete()
     file.delete(storage=True)
+    ln.Feature.filter(name__in=["feat1", "feat2"]).delete()
 
 
 def test_create_from_anndata_in_memory():
+    ln.save(ln.Feature.from_df(adata.obs))
     file = ln.File.from_anndata(adata, var_ref=lb.Gene.symbol)
     assert file.accessor == "AnnData"
     assert hasattr(file, "_local_filepath")
@@ -91,14 +102,13 @@ def test_create_from_anndata_in_memory():
     # check that the local filepath has been cleared
     assert not hasattr(file, "_local_filepath")
     feature_sets_queried = file.feature_sets.all()
-    feature_list_queried = ln.Feature.filter(
-        feature_sets__in=feature_sets_queried
-    ).list()
-    feature_list_queried = [feature.name for feature in feature_list_queried]
-    assert set(feature_list_queried) == set(adata.obs.columns)
-    feature_list_queried = lb.Gene.filter(feature_sets__in=feature_sets_queried).list()
-    feature_list_queried = [feature.symbol for feature in feature_list_queried]
-    assert set(feature_list_queried) == set(adata.var.index)
+    features_queried = ln.Feature.filter(feature_sets__in=feature_sets_queried).all()
+    assert set(features_queried.list("name")) == set(adata.obs.columns)
+    genes_queried = lb.Gene.filter(feature_sets__in=feature_sets_queried).all()
+    assert set(genes_queried.list("symbol")) == set(adata.var.index)
+    feature_sets_queried.delete()
+    features_queried.delete()
+    genes_queried.delete()
     file.delete(storage=True)
 
 
@@ -181,15 +191,15 @@ def test_create_from_local_filepath(get_test_filepaths, key, description):
 
     # test that the file didn't move
     if isin_existing_storage and key is None:
-        assert str(test_filepath.resolve()) == str(file.path())
+        assert str(test_filepath.resolve()) == str(file.path)
 
     # now, save the file
     file.save()
-    print(file.path())
-    assert file.path().exists()
+    print(file.path)
+    assert file.path.exists()
 
     # only delete from storage if a file copy took place
-    delete_from_storage = str(test_filepath.resolve()) != str(file.path())
+    delete_from_storage = str(test_filepath.resolve()) != str(file.path)
     file.delete(storage=delete_from_storage)
 
 
@@ -198,14 +208,14 @@ def test_local_path_load():
 
     file = ln.File(local_filepath)
     assert local_filepath == file._local_filepath
-    assert local_filepath == file.path()
+    assert local_filepath == file.path
     assert local_filepath == file.stage()
 
     adata = ad.read(local_filepath)
     file = ln.File(adata)
     assert file._memory_rep is adata
     assert file.load() is adata
-    assert file._local_filepath.resolve() == file.stage() == file.path()
+    assert file._local_filepath.resolve() == file.stage() == file.path
 
 
 ERROR_MESSAGE = """\
@@ -225,7 +235,7 @@ def test_delete(get_test_filepaths):
     test_filepath = get_test_filepaths[3]
     file = ln.File(test_filepath, description="My test file to delete")
     file.save()
-    storage_path = file.path()
+    storage_path = file.path
     file.delete(storage=True)
     assert ln.File.filter(description="My test file to delete").first() is None
     assert not Path(storage_path).exists()
@@ -254,7 +264,7 @@ def test_create_small_file_from_remote_path(
         assert file_from_local.hash == file.hash
         assert file_from_local.hash_type == "md5"
         assert file.hash_type == "md5"
-    assert file.path().as_posix() == filepath_str
+    assert file.path.as_posix() == filepath_str
     assert file.load().iloc[0].tolist() == [
         0,
         "Abingdon island giant tortoise",
@@ -325,19 +335,20 @@ def test_inherit_relations():
 # -------------------------------------------------------------------------------------
 
 
-def test_get_name_suffix_from_filepath():
-    # based on https://stackoverflow.com/questions/31890341/clean-way-to-get-the-true-stem-of-a-path-object  # noqa
+def test_extract_suffix_from_path():
     dataset = [
         ("a", "a", ""),
         ("a.txt", "a", ".txt"),
         ("archive.tar.gz", "archive", ".tar.gz"),
         ("directory/file", "file", ""),
-        ("d.x.y.z/f.a.b.c", "f", ".a.b.c"),
+        ("d.x.y.z/f.a.b.c", "f", ".c"),
         ("logs/date.log.txt", "date", ".log.txt"),
+        ("salmon.merged.gene_counts.tsv", "salmon.merged.gene_counts", ".tsv"),
+        ("salmon.merged.gene_counts.tsv.gz", "salmon.merged.gene_counts", ".tsv.gz"),
     ]
     for path, _, suffix in dataset:
         filepath = Path(path)
-        assert suffix == "".join(filepath.suffixes)
+        assert suffix == extract_suffix_from_path(filepath)
 
 
 def test_storage_root_upath_equivalence():
