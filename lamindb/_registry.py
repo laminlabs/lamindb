@@ -16,8 +16,8 @@ from lnschema_core.types import ListLike, StrField
 from lamindb.dev.utils import attach_func_to_class_method
 
 from . import _TESTING
+from ._from_values import get_or_create_records
 from .dev._feature_manager import create_features_df
-from ._from_values import _has_species_field, get_or_create_records
 from .dev._settings import settings
 
 IPYTHON = getattr(builtins, "__IPYTHON__", False)
