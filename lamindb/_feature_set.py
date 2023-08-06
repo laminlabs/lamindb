@@ -60,7 +60,10 @@ def get_validated_features(features: List[Registry], field: Field) -> List[Regis
         else:
             validated_features.append(feature)
     if non_validated_features:
-        logger.info(f"ignoring unvalidated features: {non_validated_features}")
+        non_validated_features_display = ",".join(non_validated_features)
+        logger.warning(
+            f"ignoring unvalidated features: {non_validated_features_display}"
+        )
     return validated_features
 
 
