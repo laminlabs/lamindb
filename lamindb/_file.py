@@ -831,7 +831,10 @@ def _save_skip_storage(file, *args, **kwargs) -> None:
         bulk_create(links)
 
 
+@property  # type: ignore
+@doc_args(File.path.__doc__)
 def path(self) -> Union[Path, UPath]:
+    """{}"""
     return filepath_from_file(self)
 
 
@@ -970,7 +973,6 @@ METHOD_NAMES = [
     "delete",
     "save",
     "replace",
-    "path",
     "from_dir",
     "tree",
 ]
@@ -993,3 +995,4 @@ File._save_skip_storage = _save_skip_storage
 # TODO: move these to METHOD_NAMES
 setattr(File, "view_lineage", view_lineage)
 setattr(File, "inherit_relations", inherit_relations)
+setattr(File, "path", path)
