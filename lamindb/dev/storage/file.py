@@ -72,9 +72,7 @@ def attempt_accessing_path(file: File, storage_key: str):
     if file.storage_id == settings.storage.id:
         path = settings.storage.key_to_filepath(storage_key)
     else:
-        logger.warning(
-            "file.path() is slightly slower for files outside default storage"
-        )
+        logger.warning("file.path is slightly slower for files outside default storage")
         storage = Storage.filter(id=file.storage_id).one()
         # find a better way than passing None to instance_settings in the future!
         storage_settings = StorageSettings(storage.root)

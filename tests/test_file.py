@@ -191,15 +191,15 @@ def test_create_from_local_filepath(get_test_filepaths, key, description):
 
     # test that the file didn't move
     if isin_existing_storage and key is None:
-        assert str(test_filepath.resolve()) == str(file.path())
+        assert str(test_filepath.resolve()) == str(file.path)
 
     # now, save the file
     file.save()
-    print(file.path())
-    assert file.path().exists()
+    print(file.path)
+    assert file.path.exists()
 
     # only delete from storage if a file copy took place
-    delete_from_storage = str(test_filepath.resolve()) != str(file.path())
+    delete_from_storage = str(test_filepath.resolve()) != str(file.path)
     file.delete(storage=delete_from_storage)
 
 
@@ -208,14 +208,14 @@ def test_local_path_load():
 
     file = ln.File(local_filepath)
     assert local_filepath == file._local_filepath
-    assert local_filepath == file.path()
+    assert local_filepath == file.path
     assert local_filepath == file.stage()
 
     adata = ad.read(local_filepath)
     file = ln.File(adata)
     assert file._memory_rep is adata
     assert file.load() is adata
-    assert file._local_filepath.resolve() == file.stage() == file.path()
+    assert file._local_filepath.resolve() == file.stage() == file.path
 
 
 ERROR_MESSAGE = """\
@@ -235,7 +235,7 @@ def test_delete(get_test_filepaths):
     test_filepath = get_test_filepaths[3]
     file = ln.File(test_filepath, description="My test file to delete")
     file.save()
-    storage_path = file.path()
+    storage_path = file.path
     file.delete(storage=True)
     assert ln.File.filter(description="My test file to delete").first() is None
     assert not Path(storage_path).exists()
@@ -264,7 +264,7 @@ def test_create_small_file_from_remote_path(
         assert file_from_local.hash == file.hash
         assert file_from_local.hash_type == "md5"
         assert file.hash_type == "md5"
-    assert file.path().as_posix() == filepath_str
+    assert file.path.as_posix() == filepath_str
     assert file.load().iloc[0].tolist() == [
         0,
         "Abingdon island giant tortoise",

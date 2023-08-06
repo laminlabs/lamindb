@@ -780,7 +780,7 @@ def delete(self, storage: Optional[bool] = None) -> None:
         delete_in_storage = storage
 
     if delete_in_storage:
-        filepath = self.path()
+        filepath = self.path
         delete_storage(filepath)
         logger.success(f"deleted stored object {colors.yellow(f'{filepath}')}")
     self._delete_skip_storage()
@@ -865,8 +865,7 @@ def tree(
     registered_dirs: Set[Any] = set()
     if path is None:
         registered_paths = {
-            file.path()
-            for file in cls.filter(storage_id=setup_settings.storage.id).all()
+            file.path for file in cls.filter(storage_id=setup_settings.storage.id).all()
         }
         registered_dirs = {d for p in registered_paths for d in p.parents}
 
