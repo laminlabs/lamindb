@@ -1,5 +1,6 @@
 # Changelog
 
+- 🔥 Remove backward compat for auto-keyed paths [PR1007](https://github.com/laminlabs/lamindb/pull/1007) [@falexwolf](https://github.com/falexwolf)
 - 🚸 Introduce Label validation [PR1006](https://github.com/laminlabs/lamindb/pull/1006) [@falexwolf](https://github.com/falexwolf)
 - ✨ Add validate [PR1000](https://github.com/laminlabs/lamindb/pull/1000) [@sunnyosun](https://github.com/sunnyosun)
 - 🚸 Increase default verbosity to hint-level [PR1005](https://github.com/laminlabs/lamindb/pull/1005) [@falexwolf](https://github.com/falexwolf)
