@@ -214,6 +214,13 @@ class QuerySet(models.QuerySet):
 
         return _lookup(cls=self, field=field)
 
+    @doc_args(ValidationAware.validate.__doc__)
+    def validate(self, values: ListLike, field: StrField, **kwargs):
+        """{}"""
+        from ._validate import validate
+
+        return validate(cls=self, values=values, field=field, **kwargs)
+
     @doc_args(ValidationAware.inspect.__doc__)
     def inspect(self, values: ListLike, field: StrField, **kwargs):
         """{}"""
@@ -236,5 +243,6 @@ setattr(models.QuerySet, "one", QuerySet.one)
 setattr(models.QuerySet, "one_or_none", QuerySet.one_or_none)
 setattr(models.QuerySet, "search", QuerySet.search)
 setattr(models.QuerySet, "lookup", QuerySet.lookup)
+setattr(models.QuerySet, "validate", QuerySet.validate)
 setattr(models.QuerySet, "inspect", QuerySet.inspect)
 setattr(models.QuerySet, "map_synonyms", QuerySet.map_synonyms)

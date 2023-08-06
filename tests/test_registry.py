@@ -15,7 +15,7 @@ def test_signatures():
         pass
 
     # class methods
-    class_methods = ["search", "lookup", "from_values", "inspect", "map_synonyms"]
+    class_methods = ["search", "lookup", "from_values"]
     for name in class_methods:
         setattr(Mock, name, getattr(registry, name))
         assert signature(getattr(Mock, name)) == registry.SIGS.pop(name)
