@@ -14,15 +14,27 @@ adata.obs.loc["obs0", "cell_type_from_expert"] = "B cell"
 
 def test_features_add_labels():
     label = ln.Label(name="Project 1")
-    label.save()
     file = ln.File(adata)
     file.save()
+    with pytest.raises(ln.dev.exc.ValidationError) as error:
+        file.add_labels(label)
+    assert "not validated. If it looks correct: record.save()" in error.exconly()
+    label.save()
     with pytest.raises(ValueError) as error:
         file.add_labels(label)
     assert (
         error.exconly()
         == "ValueError: Please pass feature: add_labels(labels, feature='myfeature')"
     )
+    with pytest.raises(ln.dev.exc.ValidationError) as error:
+        file.add_labels(label, feature="project")
+    assert (
+        error.exconly()
+        == "lamindb.dev.exc.ValidationError: Feature not validated. If it looks"
+        " correct: ln.Feature(name='project', type='category',"
+        " registries='core.Label').save()"
+    )
+    ln.Feature(name="project", type="category", registries="core.Label").save()
     file.add_labels(label, feature="project")
     feature = ln.Feature.filter(name="project").one()
     assert feature.type == "category"

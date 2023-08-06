@@ -83,7 +83,7 @@ def get_or_create_records(
                 if feature_name is not None:
                     for record in records:
                         record._feature = feature_name
-                logger.hint(f"Added default feature '{feature_name}'")
+                logger.debug(f"added default feature '{feature_name}'")
         return records
     finally:
         settings.upon_create_search_names = upon_create_search_names
