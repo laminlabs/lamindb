@@ -137,12 +137,13 @@ def add_labels(
     }
     for (feature, orm_name), records in records_by_feature_orm.items():
         feature = validate_and_cast_feature(feature, records)
-        logger.info(f"Linking feature {feature.name} to {orm_name}")
-        if feature.registries is None:
-            feature.registries = orm_name
-        elif orm_name not in feature.registries:
-            feature.registries += f"|{orm_name}"
-        feature.save()
+        if feature.registries is None or orm_name not in feature.registries:
+            logger.success(f"linking feature {feature.name} to {orm_name}")
+            if feature.registries is None:
+                feature.registries = orm_name
+            elif orm_name not in feature.registries:
+                feature.registries += f"|{orm_name}"
+            feature.save()
         # check whether we have to update the feature set that manages labels
         # (Feature) to account for a new feature
         found_feature = False
@@ -151,14 +152,14 @@ def add_labels(
                 found_feature = True
         if not found_feature:
             if "ext" not in linked_features_by_slot:
-                logger.info("Creating feature_set for slot 'ext' (external)")
+                logger.success("creating feature_set for slot 'ext' (external)")
                 feature_set = FeatureSet([feature], modality="meta")
                 feature_set.save()
                 self.features.add_feature_set(feature_set, slot="ext")
             else:
                 feature_set = self.features._feature_set_by_slot["ext"]
-                logger.info(
-                    f"Linking feature {feature.name} to feature set {feature_set}"
+                logger.success(
+                    f"linking feature {feature.name} to feature set {feature_set}"
                 )
                 feature_set.features.add(feature)
                 feature_set.n += 1
