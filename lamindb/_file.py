@@ -638,7 +638,7 @@ def from_dir(
     settings.verbosity = verbosity
     logger.success(
         f"created {len(files)} files from directory using storage"
-        f" {storage.root.name} and key = {folder_key}/"
+        f" {storage.root} and key = {folder_key}/"
     )
     return files
 
