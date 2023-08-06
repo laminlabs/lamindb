@@ -1,5 +1,7 @@
 # Changelog
 
+- ✨ Add validate [PR1000](https://github.com/laminlabs/lamindb/pull/1000) [@sunnyosun](https://github.com/sunnyosun)
+- 🚸 Increase default verbosity to hint-level [PR1005](https://github.com/laminlabs/lamindb/pull/1005) [@falexwolf](https://github.com/falexwolf)
 - ♻️ Better treatment of suffixes [PR1004](https://github.com/laminlabs/lamindb/pull/1004) [@falexwolf](https://github.com/falexwolf)
 - 🍱 Add nf-core rna-seq testdataset [PR1002](https://github.com/laminlabs/lamindb/pull/1002) [@falexwolf](https://github.com/falexwolf)
 - 🚚 Move `add_labels` and `get_labels` from `FeatureManager` to `Data` [PR999](https://github.com/laminlabs/lamindb/pull/999) [@falexwolf](https://github.com/falexwolf)

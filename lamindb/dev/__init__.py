@@ -8,6 +8,8 @@
    QuerySet
    QueryManager
    FeatureManager
+   ValidationAware
+   SynonymsAware
    datasets
    hashing
    storage
@@ -16,7 +18,7 @@
    exc.ValidationError
 """
 
-from lnschema_core.models import Data, Registry
+from lnschema_core.models import Data, Registry, SynonymsAware, ValidationAware
 
 from lamindb._query_manager import QueryManager
 from lamindb._query_set import QuerySet
