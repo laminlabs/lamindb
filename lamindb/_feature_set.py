@@ -72,9 +72,6 @@ def __init__(self, *args, **kwargs):
     if len(args) > 1:
         raise ValueError("Only one non-keyword arg allowed: features")
     features: Iterable[Registry] = kwargs.pop("features") if len(args) == 0 else args[0]
-    ref_field: Optional[str] = (
-        kwargs.pop("ref_field") if "ref_field" in kwargs else "id"
-    )
     type: Optional[Union[type, str]] = kwargs.pop("type") if "type" in kwargs else None
     modality: Optional[str] = kwargs.pop("modality") if "modality" in kwargs else None
     name: Optional[str] = kwargs.pop("name") if "name" in kwargs else None
@@ -82,7 +79,7 @@ def __init__(self, *args, **kwargs):
     hash: Optional[str] = kwargs.pop("hash") if "hash" in kwargs else None
     if len(kwargs) > 0:
         raise ValueError(
-            "Only features, ref_field, type, modality, name are valid keyword arguments"
+            "Only features, type, modality, name are valid keyword arguments"
         )
 
     # now code
@@ -124,7 +121,7 @@ def __init__(self, *args, **kwargs):
         type=type_str,
         n=n_features,
         modality=modality_record,
-        ref_field=f"{features_orm.__get_name_with_schema__()}.{ref_field}",
+        registry=features_orm.__get_name_with_schema__(),
         hash=hash,
     )
 
@@ -194,7 +191,7 @@ def from_values(
                 name=name,
                 modality=modality,
                 type=type_str,
-                ref_field=field.field.name,
+                registry=registry.__get_name_with_schema__(),
             )
         else:
             feature_set = None
