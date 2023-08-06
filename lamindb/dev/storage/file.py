@@ -47,7 +47,7 @@ def extract_suffix_from_path(path: Union[UPath, Path]) -> str:
     if len(path.suffixes) <= 2:
         return "".join(path.suffixes)
     else:
-        msg = "File has more than two suffixes according to `Path.suffixes`, "
+        msg = "file has more than two suffixes (path.suffixes), "
         # first check the 2nd-to-last suffix because it might be followed by .gz
         # or another compression-related suffix
         if path.suffixes[-2] in KNOWN_SUFFIXES:
