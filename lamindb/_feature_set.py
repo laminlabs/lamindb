@@ -214,7 +214,7 @@ def from_df(
     if validated_features:
         feature_set = FeatureSet(validated_features, name=name)
     else:
-        logger.warning("No validated features, not constructing FeatureSet")
+        logger.warning("no validated features, not creating feature set")
         feature_set = None
         # raise ValidationError("Dataframe columns contain no validated feature names")
     return feature_set

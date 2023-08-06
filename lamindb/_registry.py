@@ -260,7 +260,10 @@ def search(
 def _lookup(cls, field: Optional[StrField] = None) -> NamedTuple:
     """{}"""
     if field is None:
-        field = get_default_str_field(cls)
+        if cls._meta.model.__name__ == "User":
+            field = cls._meta.get_field("handle").name
+        else:
+            field = get_default_str_field(cls)
     if not isinstance(field, str):
         field = field.field.name
 
