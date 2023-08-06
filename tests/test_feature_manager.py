@@ -13,7 +13,7 @@ adata.obs.loc["obs0", "cell_type_from_expert"] = "B cell"
 
 
 def test_features_add_labels():
-    label = ln.Label(name="Project 1")
+    label = ln.Label(name="Experiment 1")
     file = ln.File(adata)
     file.save()
     with pytest.raises(ln.dev.exc.ValidationError) as error:
@@ -27,16 +27,16 @@ def test_features_add_labels():
         == "ValueError: Please pass feature: add_labels(labels, feature='myfeature')"
     )
     with pytest.raises(ln.dev.exc.ValidationError) as error:
-        file.add_labels(label, feature="project")
+        file.add_labels(label, feature="experiment")
     assert (
         error.exconly()
         == "lamindb.dev.exc.ValidationError: Feature not validated. If it looks"
-        " correct: ln.Feature(name='project', type='category',"
+        " correct: ln.Feature(name='experiment', type='category',"
         " registries='core.Label').save()"
     )
-    ln.Feature(name="project", type="category", registries="core.Label").save()
-    file.add_labels(label, feature="project")
-    feature = ln.Feature.filter(name="project").one()
+    ln.Feature(name="experiment", type="category", registries="core.Label").save()
+    file.add_labels(label, feature="experiment")
+    feature = ln.Feature.filter(name="experiment").one()
     assert feature.type == "category"
     assert feature.registries == "core.Label"
     file.delete(storage=True)
@@ -53,6 +53,7 @@ def test_features_add_labels_using_anndata():
     actual_tissues = lb.Tissue.from_values(adata.obs["tissue"], "name")
     organoid = ln.Label(name="organoid")
     tissues = actual_tissues + [organoid]
+    ln.save(tissues)
 
     assert cell_types[0]._feature == "cell_type"
     assert cell_types[-1]._feature == "cell_type"
@@ -91,7 +92,7 @@ def test_features_add_labels_using_anndata():
         file.add_labels("species")
     assert (
         error.exconly()
-        == "ValueError: Please pass a record (an Registry object), not a string, e.g.,"
+        == "ValueError: Please pass a record (a `Registry` object), not a string, e.g.,"
         " via: label = ln.Label(name='species')"
     )
 
@@ -112,6 +113,12 @@ def test_features_add_labels_using_anndata():
     assert "species" not in feature_set_obs.features.list("name")
 
     # now, we add species and run checks
+    with pytest.raises(ln.dev.exc.ValidationError):
+        file.add_labels(species, feature="species")
+    species.save()
+    with pytest.raises(ln.dev.exc.ValidationError):
+        file.add_labels(species, feature="species")
+    ln.Feature(name="species", type="category", registries="bionty.Species").save()
     file.add_labels(species, feature="species")
     feature = ln.Feature.filter(name="species").one()
     assert feature.type == "category"
@@ -139,6 +146,7 @@ def test_features_add_labels_using_anndata():
     assert feature.type == "category"
     assert feature.registries == "bionty.Tissue|core.Label"
     diseases = ln.Label.from_values(adata.obs["disease"])
+    ln.save(diseases)
     file.add_labels(diseases, feature="disease")
     df = file.features["obs"].df()
     assert set(df["name"]) == {
@@ -157,18 +165,20 @@ def test_features_add_labels_using_anndata():
     }
 
     # now, let's add another feature to ext
-    project_1 = ln.Label(name="Project 1")
-    file.add_labels(project_1, feature="project")
+    experiment_1 = ln.Label(name="experiment_1")
+    experiment_1.save()
+    ln.Feature(name="experiment", type="category").save()
+    file.add_labels(experiment_1, feature="experiment")
     df = file.features["ext"].df()
     assert set(df["name"]) == {
         "species",
-        "project",
+        "experiment",
     }
     assert set(df["type"]) == {
         "category",
     }
 
-    assert set(file.get_labels("project").list("name")) == {"Project 1"}
+    assert set(file.get_labels("experiment").list("name")) == {"experiment_1"}
     assert set(file.get_labels("disease").list("name")) == {
         "chronic kidney disease",
         "Alzheimer disease",
@@ -202,7 +212,7 @@ def test_features_add_labels_using_anndata():
     }
 
     assert set(df["registries"]) == {"bionty.Species", "core.Label"}
-    assert project_1 in file.labels.all()
+    assert experiment_1 in file.labels.all()
 
     # call describe
     file.describe()

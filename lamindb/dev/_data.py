@@ -89,7 +89,7 @@ def add_labels(
         records = [records]
     if isinstance(records[0], str):  # type: ignore
         raise ValueError(
-            "Please pass a record (a ln.dev.Registry object), not a string, e.g., via:"
+            "Please pass a record (a `Registry` object), not a string, e.g., via:"
             " label"
             f" = ln.Label(name='{records[0]}')"  # type: ignore
         )
