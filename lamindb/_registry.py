@@ -350,10 +350,10 @@ def describe(self):
     if feature_sets.exists():
         for feature_set in feature_sets.all():
             key_split = feature_set.registry.split(".")
-            if len(key_split) != 3:
+            if len(key_split) == 3:
                 logger.warning(
-                    "You have a legacy entry in feature_set.field, should be format"
-                    " 'bionty.Gene.symbol'"
+                    "You have a legacy entry in feature_set.field, should be just"
+                    " 'bionty.Gene'"
                 )
             orm_name_with_schema = f"{key_split[0]}.{key_split[1]}"
             field_name = "id"
@@ -405,7 +405,7 @@ def describe(self):
     msg = msg.rstrip("\n")
     msg = msg.rstrip("Features:")
     verbosity = settings.verbosity
-    settings.verbosity = 2
+    settings.verbosity = 3
     logger.info(msg)
     settings.verbosity = verbosity
 
