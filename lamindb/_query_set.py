@@ -217,9 +217,9 @@ class QuerySet(models.QuerySet):
     @doc_args(ValidationAware.validate.__doc__)
     def validate(self, values: ListLike, field: StrField, **kwargs):
         """{}"""
-        from ._validate import validate
+        from ._validate import _validate
 
-        return validate(cls=self, values=values, field=field, **kwargs)
+        return _validate(cls=self, values=values, field=field, **kwargs)
 
     @doc_args(ValidationAware.inspect.__doc__)
     def inspect(self, values: ListLike, field: StrField, **kwargs):

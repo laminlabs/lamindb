@@ -39,25 +39,7 @@ def inspect(
 @doc_args(ValidationAware.validate.__doc__)
 def validate(cls, values: ListLike, field: StrField, **kwargs) -> np.ndarray[bool]:
     """{}"""
-    from lamin_utils._inspect import validate
-
-    if isinstance(values, str):
-        values = [values]
-    if not isinstance(field, str):
-        field = field.field.name
-
-    orm = cls.model if isinstance(cls, QuerySet) else cls
-    field_values = pd.Series(
-        _filter_query_based_on_species(
-            orm=orm, species=kwargs.get("species"), values_list_field=field
-        )
-    )
-    return validate(
-        identifiers=values,
-        field_values=field_values,
-        case_sensitive=True,
-        return_df=False,
-    )
+    return _validate(cls=cls, values=values, field=field, **kwargs)
 
 
 def _inspect(
@@ -86,6 +68,29 @@ def _inspect(
         inspect_synonyms=True,
         return_df=return_df,
         logging=not mute,
+    )
+
+
+def _validate(cls, values: ListLike, field: StrField, **kwargs) -> np.ndarray[bool]:
+    """{}"""
+    from lamin_utils._inspect import validate
+
+    if isinstance(values, str):
+        values = [values]
+    if not isinstance(field, str):
+        field = field.field.name
+
+    orm = cls.model if isinstance(cls, QuerySet) else cls
+    field_values = pd.Series(
+        _filter_query_based_on_species(
+            orm=orm, species=kwargs.get("species"), values_list_field=field
+        )
+    )
+    return validate(
+        identifiers=values,
+        field_values=field_values,
+        case_sensitive=True,
+        return_df=False,
     )
 
 
