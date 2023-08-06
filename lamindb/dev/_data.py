@@ -26,13 +26,14 @@ def validate_and_cast_feature(
     return feature
 
 
+@doc_args(Data.get_labels.__doc__)
 def get_labels(
     self,
     feature: Optional[Union[str, Registry]] = None,
     mute: bool = False,
     flat_names: bool = False,
 ) -> Union[QuerySet, Dict[str, QuerySet], List]:
-    """Get labels given a feature."""
+    """{}"""
     if isinstance(feature, str):
         feature_name = feature
         feature = Feature.filter(name=feature_name).one_or_none()
@@ -71,12 +72,13 @@ def get_labels(
         return qs_by_registry
 
 
+@doc_args(Data.add_labels.__doc__)
 def add_labels(
     self,
     records: Union[Registry, List[Registry], QuerySet],
     feature: Optional[Union[str, Registry]] = None,
 ) -> None:
-    """Add one or several labels and associate them with a feature."""
+    """{}"""
     if isinstance(records, (QuerySet, QuerySet.__base__)):  # need to have both
         records = records.list()
     if isinstance(records, str) or not isinstance(records, List):
@@ -164,5 +166,5 @@ def features(self) -> "FeatureManager":
 
 
 setattr(Data, "features", features)
-setattr(Data, "features", add_labels)
-setattr(Data, "features", get_labels)
+setattr(Data, "add_labels", add_labels)
+setattr(Data, "get_labels", get_labels)
