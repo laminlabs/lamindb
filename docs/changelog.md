@@ -1,5 +1,6 @@
 # Changelog
 
+- 🍱 Add nf-core rna-seq testdataset [PR1002](https://github.com/laminlabs/lamindb/pull/1002) [@falexwolf](https://github.com/falexwolf)
 - 🚚 Move `add_labels` and `get_labels` from `FeatureManager` to `Data` [PR999](https://github.com/laminlabs/lamindb/pull/999) [@falexwolf](https://github.com/falexwolf)
 - 🚚 Rename `FeatureSet.ref_field` to `FeatureSet.registry` [PR997](https://github.com/laminlabs/lamindb/pull/997) [@falexwolf](https://github.com/falexwolf)
 - 🚸 Ignore `synonyms` in `from_values` to incentivize explicit curation process [PR993](https://github.com/laminlabs/lamindb/pull/993) [@falexwolf](https://github.com/falexwolf)
