@@ -53,7 +53,7 @@ def validate(cls, values: ListLike, field: StrField, **kwargs) -> np.ndarray[boo
         )
     )
     return validate(
-        values=values,
+        identifiers=values,
         field_values=field_values,
         case_sensitive=True,
         return_df=False,
@@ -72,6 +72,8 @@ def _inspect(
     """{}"""
     from lamin_utils._inspect import inspect
 
+    if isinstance(values, str):
+        values = [values]
     if not isinstance(field, str):
         field = field.field.name
 
@@ -79,7 +81,7 @@ def _inspect(
 
     return inspect(
         df=_filter_query_based_on_species(orm=orm, species=kwargs.get("species")),
-        values=values,
+        identifiers=values,
         field=str(field),
         inspect_synonyms=True,
         return_df=return_df,

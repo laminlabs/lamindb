@@ -163,6 +163,8 @@ def _map_synonyms(
     """{}"""
     from lamin_utils._map_synonyms import map_synonyms
 
+    if isinstance(synonyms, str):
+        synonyms = [synonyms]
     if field is None:
         field = get_default_str_field(cls)
     if not isinstance(field, str):
