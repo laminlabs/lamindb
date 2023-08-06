@@ -23,6 +23,43 @@ except ImportError:
 AUTO_KEY_PREFIX = ".lamindb/"
 
 
+KNOWN_SUFFIXES = {
+    # without readers
+    ".txt",
+    ".tsv",
+    ".pdf",
+    ".fastq",
+    ".tar",
+    ".zip",
+    # with readers (see below)
+    ".h5ad",
+    ".parquet",
+    ".csv",
+    ".fcs",
+    ".zarr",
+    ".zrad",
+}
+
+
+def extract_suffix_from_path(path: Union[UPath, Path]) -> str:
+    # this if-clause is based on https://stackoverflow.com/questions/31890341
+    # the rest conscsiously deviates
+    if len(path.suffixes) <= 2:
+        return "".join(path.suffixes)
+    else:
+        msg = "file has more than two suffixes (path.suffixes), "
+        # first check the 2nd-to-last suffix because it might be followed by .gz
+        # or another compression-related suffix
+        if path.suffixes[-2] in KNOWN_SUFFIXES:
+            suffix = "".join(path.suffixes[-2:])
+            msg += f"inferring:'{suffix}'"
+        else:
+            suffix = path.suffixes[-1]
+            msg += f"using only last suffix: '{suffix}'"
+        logger.warning(msg)
+        return suffix
+
+
 # add type annotations back asap when re-organizing the module
 def auto_storage_key_from_file(file: File):
     if file.key is None:

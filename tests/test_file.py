@@ -17,6 +17,7 @@ from lamindb._file import (
     get_relative_path_to_directory,
     process_data,
 )
+from lamindb.dev.storage.file import extract_suffix_from_path
 
 # how do we properly abstract out the default storage variable?
 # currently, we're only mocking it through `default_storage` as
@@ -334,19 +335,20 @@ def test_inherit_relations():
 # -------------------------------------------------------------------------------------
 
 
-def test_get_name_suffix_from_filepath():
-    # based on https://stackoverflow.com/questions/31890341/clean-way-to-get-the-true-stem-of-a-path-object  # noqa
+def test_extract_suffix_from_path():
     dataset = [
         ("a", "a", ""),
         ("a.txt", "a", ".txt"),
         ("archive.tar.gz", "archive", ".tar.gz"),
         ("directory/file", "file", ""),
-        ("d.x.y.z/f.a.b.c", "f", ".a.b.c"),
+        ("d.x.y.z/f.a.b.c", "f", ".c"),
         ("logs/date.log.txt", "date", ".log.txt"),
+        ("salmon.merged.gene_counts.tsv", "salmon.merged.gene_counts", ".tsv"),
+        ("salmon.merged.gene_counts.tsv.gz", "salmon.merged.gene_counts", ".tsv.gz"),
     ]
     for path, _, suffix in dataset:
         filepath = Path(path)
-        assert suffix == "".join(filepath.suffixes)
+        assert suffix == extract_suffix_from_path(filepath)
 
 
 def test_storage_root_upath_equivalence():
