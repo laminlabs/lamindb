@@ -10,7 +10,6 @@
    file_fastq
    file_bam
    file_mini_csv
-   dir_scrnaseq_cellranger
    generate_cell_ranger_files
    df_iris
    df_iris_in_meter
@@ -39,7 +38,6 @@ from ._core import (
     df_iris_in_meter,
     df_iris_in_meter_batch1,
     df_iris_in_meter_batch2,
-    dir_scrnaseq_cellranger,
     file_bam,
     file_fastq,
     file_fcs,

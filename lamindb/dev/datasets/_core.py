@@ -80,21 +80,6 @@ def file_tiff_suo22():
     return Path(filepath)
 
 
-def dir_scrnaseq_cellranger(in_storage_root=False) -> Path:
-    """Directory with exemplary scrnaseq cellranger input and output."""
-    filepath, _ = urlretrieve(
-        "https://lamindb-test.s3.amazonaws.com/cellranger_run_001.zip"
-    )
-    from zipfile import ZipFile
-
-    basedir = Path(".") if not in_storage_root else settings.storage
-    with ZipFile(filepath, "r") as zipObj:
-        # Extract all the contents of zip file in current directory
-        zipObj.extractall(path=basedir)
-
-    return basedir / "cellranger_run_001"
-
-
 def anndata_mouse_sc_lymph_node() -> ad.AnnData:
     """Mouse lymph node scRNA-seq dataset from EBI.
 
