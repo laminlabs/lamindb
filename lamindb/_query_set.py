@@ -215,11 +215,11 @@ class QuerySet(models.QuerySet):
         return _lookup(cls=self, field=field)
 
     @doc_args(ValidationAware.inspect.__doc__)
-    def inspect(self, identifiers: ListLike, field: StrField, **kwargs):
+    def inspect(self, values: ListLike, field: StrField, **kwargs):
         """{}"""
         from ._validate import _inspect
 
-        return _inspect(cls=self, identifiers=identifiers, field=field, **kwargs)
+        return _inspect(cls=self, values=values, field=field, **kwargs)
 
     @doc_args(SynonymsAware.map_synonyms.__doc__)
     def map_synonyms(self, synonyms: Iterable, **kwargs):

@@ -5,9 +5,12 @@ from django.core.exceptions import FieldDoesNotExist
 from django.db.models import QuerySet
 from lamin_utils import logger
 from lamindb_setup.dev._docs import doc_args
-from lnschema_core.models import Registry, SynonymsAware
+from lnschema_core import Registry, SynonymsAware
 from lnschema_core.types import ListLike
 
+from lamindb.dev.utils import attach_func_to_class_method
+
+from . import _TESTING
 from ._registry import get_default_str_field
 from ._validate import _filter_query_based_on_species
 
@@ -181,3 +184,18 @@ def _map_synonyms(
         keep=keep,
         synonyms_field=synonyms_field,
     )
+
+
+METHOD_NAMES = ["map_synonyms", "add_synonym", "remove_synonym", "set_abbr"]
+
+if _TESTING:  # type: ignore
+    from inspect import signature
+
+    SIGS = {
+        name: signature(getattr(SynonymsAware, name))
+        for name in METHOD_NAMES
+        if not name.startswith("__")
+    }
+
+for name in METHOD_NAMES:
+    attach_func_to_class_method(name, SynonymsAware, globals())

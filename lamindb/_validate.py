@@ -4,9 +4,12 @@ import numpy as np
 import pandas as pd
 from django.db.models import QuerySet
 from lamindb_setup.dev._docs import doc_args
-from lnschema_core.models import Registry, ValidationAware
+from lnschema_core import Registry, ValidationAware
 from lnschema_core.types import ListLike, StrField
 
+from lamindb.dev.utils import attach_func_to_class_method
+
+from . import _TESTING
 from ._from_values import _has_species_field
 
 
@@ -14,24 +17,20 @@ from ._from_values import _has_species_field
 @doc_args(ValidationAware.inspect.__doc__)
 def inspect(
     cls,
-    identifiers: ListLike,
+    values: ListLike,
     field: StrField,
     *,
-    case_sensitive: bool = False,
-    inspect_synonyms: bool = True,
     return_df: bool = False,
-    logging: bool = True,
+    mute: bool = False,
     **kwargs,
 ) -> Union["pd.DataFrame", Dict[str, List[str]]]:
     """{}"""
     return _inspect(
         cls=cls,
-        identifiers=identifiers,
+        values=values,
         field=field,
-        case_sensitive=case_sensitive,
-        inspect_synonyms=inspect_synonyms,
         return_df=return_df,
-        logging=logging,
+        mute=mute,
         **kwargs,
     )
 
@@ -40,29 +39,34 @@ def inspect(
 @doc_args(ValidationAware.validate.__doc__)
 def validate(cls, values: ListLike, field: StrField, **kwargs) -> np.ndarray[bool]:
     """{}"""
+    from lamin_utils._inspect import validate
+
     if isinstance(values, str):
         values = [values]
     if not isinstance(field, str):
         field = field.field.name
 
     orm = cls.model if isinstance(cls, QuerySet) else cls
-    std_values = set(
+    field_values = pd.Series(
         _filter_query_based_on_species(
             orm=orm, species=kwargs.get("species"), values_list_field=field
         )
     )
-    return pd.Index(values).isin(std_values)
+    return validate(
+        values=values,
+        field_values=field_values,
+        case_sensitive=True,
+        return_df=False,
+    )
 
 
 def _inspect(
     cls,
-    identifiers: ListLike,
+    values: ListLike,
     field: StrField,
     *,
-    case_sensitive: bool = False,
-    inspect_synonyms: bool = True,
     return_df: bool = False,
-    logging: bool = True,
+    mute: bool = False,
     **kwargs,
 ) -> Union["pd.DataFrame", Dict[str, List[str]]]:
     """{}"""
@@ -75,12 +79,11 @@ def _inspect(
 
     return inspect(
         df=_filter_query_based_on_species(orm=orm, species=kwargs.get("species")),
-        identifiers=identifiers,
+        values=values,
         field=str(field),
-        case_sensitive=case_sensitive,
-        inspect_synonyms=inspect_synonyms,
+        inspect_synonyms=True,
         return_df=return_df,
-        logging=logging,
+        logging=not mute,
     )
 
 
@@ -109,3 +112,21 @@ def _filter_query_based_on_species(
         return pd.DataFrame.from_records(records.values())
     else:
         return records.values_list(values_list_field, flat=True)
+
+
+METHOD_NAMES = [
+    "validate",
+    "inspect",
+]
+
+if _TESTING:  # type: ignore
+    from inspect import signature
+
+    SIGS = {
+        name: signature(getattr(ValidationAware, name))
+        for name in METHOD_NAMES
+        if not name.startswith("__")
+    }
+
+for name in METHOD_NAMES:
+    attach_func_to_class_method(name, ValidationAware, globals())
