@@ -94,7 +94,7 @@ def test_features_add_labels_using_anndata():
 
     # check the basic construction of the feature set based on obs
     feature_set_obs = file.feature_sets.filter(
-        ref_field__startswith="core.Feature", filefeatureset__slot="obs"
+        registry="core.Feature", filefeatureset__slot="obs"
     ).one()
     assert feature_set_obs.n == 4
     assert "species" not in feature_set_obs.features.list("name")
@@ -105,11 +105,11 @@ def test_features_add_labels_using_anndata():
     assert feature.type == "category"
     assert feature.registries == "bionty.Species"
     feature_set_obs = file.feature_sets.filter(
-        ref_field__startswith="core.Feature", filefeatureset__slot="obs"
+        registry="core.Feature", filefeatureset__slot="obs"
     ).one()
     assert feature_set_obs.n == 4
     feature_set_ext = file.feature_sets.filter(
-        ref_field__startswith="core.Feature", filefeatureset__slot="ext"
+        registry="core.Feature", filefeatureset__slot="ext"
     ).one()
     assert feature_set_ext.n == 1
     assert "species" in feature_set_ext.features.list("name")

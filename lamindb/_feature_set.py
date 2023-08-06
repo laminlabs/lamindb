@@ -191,7 +191,6 @@ def from_values(
                 name=name,
                 modality=modality,
                 type=type_str,
-                registry=registry.__get_name_with_schema__(),
             )
         else:
             feature_set = None
