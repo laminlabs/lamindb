@@ -32,7 +32,7 @@ def test_cache():
     assert cache_dir in temp_path.parents
     file.save()
     assert not temp_path.exists()
-    cloud_path = file.path()
+    cloud_path = file.path
     cache_path = ln.setup.settings.storage.cloud_to_local_no_update(cloud_path)
     assert cache_path.exists()
     assert cloud_path.modified.timestamp() < cache_path.stat().st_mtime
@@ -42,7 +42,7 @@ def test_cache():
     # test cache for saving an on-disk object
     file = ln.File(test_file, key="test_cache.h5ad")
     file.save()
-    cloud_path = file.path()
+    cloud_path = file.path
     cache_path = ln.setup.settings.storage.cloud_to_local_no_update(cloud_path)
     assert cache_path.exists()
     assert test_file.stat().st_mtime < cache_path.stat().st_mtime
