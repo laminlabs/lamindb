@@ -4,7 +4,7 @@ from typing import Iterable, List, NamedTuple, Optional
 import pandas as pd
 from django.db import models
 from lamindb_setup.dev._docs import doc_args
-from lnschema_core import Registry
+from lnschema_core.models import Registry, SynonymsAware, ValidationAware
 from lnschema_core.types import ListLike, StrField
 
 
@@ -214,17 +214,24 @@ class QuerySet(models.QuerySet):
 
         return _lookup(cls=self, field=field)
 
-    @doc_args(Registry.inspect.__doc__)
-    def inspect(self, identifiers: ListLike, field: StrField, **kwargs):
+    @doc_args(ValidationAware.validate.__doc__)
+    def validate(self, values: ListLike, field: StrField, **kwargs):
         """{}"""
-        from ._registry import _inspect
+        from ._validate import _validate
 
-        return _inspect(cls=self, identifiers=identifiers, field=field, **kwargs)
+        return _validate(cls=self, values=values, field=field, **kwargs)
 
-    @doc_args(Registry.map_synonyms.__doc__)
+    @doc_args(ValidationAware.inspect.__doc__)
+    def inspect(self, values: ListLike, field: StrField, **kwargs):
+        """{}"""
+        from ._validate import _inspect
+
+        return _inspect(cls=self, values=values, field=field, **kwargs)
+
+    @doc_args(SynonymsAware.map_synonyms.__doc__)
     def map_synonyms(self, synonyms: Iterable, **kwargs):
         """{}"""
-        from ._registry import _map_synonyms
+        from ._synonym import _map_synonyms
 
         return _map_synonyms(cls=self, synonyms=synonyms, **kwargs)
 
@@ -236,5 +243,6 @@ setattr(models.QuerySet, "one", QuerySet.one)
 setattr(models.QuerySet, "one_or_none", QuerySet.one_or_none)
 setattr(models.QuerySet, "search", QuerySet.search)
 setattr(models.QuerySet, "lookup", QuerySet.lookup)
+setattr(models.QuerySet, "validate", QuerySet.validate)
 setattr(models.QuerySet, "inspect", QuerySet.inspect)
 setattr(models.QuerySet, "map_synonyms", QuerySet.map_synonyms)
