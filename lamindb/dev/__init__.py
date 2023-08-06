@@ -17,9 +17,9 @@
 
 from lnschema_core.models import Data, Registry
 
-from lamindb._feature_manager import FeatureManager
 from lamindb._query_manager import QueryManager
 from lamindb._query_set import QuerySet
+from lamindb.dev._feature_manager import FeatureManager
 
 from .._context import run_context
 from . import datasets  # noqa

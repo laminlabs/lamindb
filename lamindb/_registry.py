@@ -16,8 +16,8 @@ from lnschema_core.types import ListLike, StrField
 from lamindb.dev.utils import attach_func_to_class_method
 
 from . import _TESTING
-from ._feature_manager import create_features_df
 from ._from_values import _has_species_field, get_or_create_records
+from .dev._feature_manager import create_features_df
 from .dev._settings import settings
 
 IPYTHON = getattr(builtins, "__IPYTHON__", False)
@@ -503,7 +503,7 @@ def describe(self):
                 slot += " (metadata)"
             msg += f"  🗺️ {colors.bold(slot)}:\n"
             for _, row in df_slot.iterrows():
-                labels = self.features.get_labels(row["name"], mute=True)
+                labels = self.get_labels(row["name"], mute=True)
                 indent = ""
                 if isinstance(labels, dict):
                     msg += f"    🔗 {row['name']} ({row.registries})\n"

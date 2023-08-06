@@ -240,9 +240,11 @@ def upload_data_object(file) -> None:
     file_storage_key = auto_storage_key_from_file(file)
     if hasattr(file, "_to_store") and file._to_store and file.suffix != ".zarr":
         display_key = (
-            f"{file.key} ({file_storage_key})" if file.key is None else file_storage_key
+            f"`{file.key}` ('{file_storage_key}')"
+            if file.key is None
+            else f"'{file_storage_key}'"
         )
-        logger.hint(f"storing file '{file.id}' with key '{display_key}'")
+        logger.hint(f"storing file '{file.id}' with key {display_key}")
         store_object(file._local_filepath, file_storage_key)
     elif (
         file.suffix in {".zarr", ".zrad"}
