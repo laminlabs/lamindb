@@ -381,9 +381,9 @@ def log_storage_hint(
     else:
         hint += "file will be copied to default storage upon `save()`"
     if key is None:
-        hint += f" with key = '{id}{suffix}'"
+        hint += f" with key '{id}{suffix}'"
     else:
-        hint += f" with key = '{key}'"
+        hint += f" with key '{key}'"
     logger.hint(hint)
 
 

@@ -121,11 +121,11 @@ def view_parents(
     )
     u.node(
         record_label.replace(":", "_"),
-        label=f"{_emoji(record)} {record_label}",
+        label=_add_emoji(record, record_label),
         fillcolor=LAMIN_GREEN_LIGHTER,
     )
     for _, row in df_edges.iterrows():
-        u.node(row["source"], label=row["source_label"])
+        u.node(row["source"], label=_add_emoji(record, row["source_label"]))
         u.edge(row["source"], row["target"], color="dimgrey")
 
     return u
@@ -176,20 +176,21 @@ def _df_edges_from_parents(
 
     # colons messes with the node formatting:
     # https://graphviz.readthedocs.io/en/stable/node_ports.html
-    emoji = _emoji(record)
-    df_edges["source_label"] = emoji + " " + df_edges["source"].astype(str)
-    df_edges["target_label"] = emoji + " " + df_edges["target"].astype(str)
+    df_edges["source_label"] = df_edges["source"]
+    df_edges["target_label"] = df_edges["target"]
     df_edges["source"] = df_edges["source"].str.replace(":", "_")
     df_edges["target"] = df_edges["target"].str.replace(":", "_")
     return df_edges
 
 
-def _emoji(record: Registry):
+def _add_emoji(record: Registry, label: str):
     if record.__class__.__name__ == "Transform":
-        emoji = EMOJIS.get(record.type, "🧩")
+        emoji = EMOJIS.get(record.type, "💫")
+    elif record.__class__.__name__ == "Run":
+        emoji = EMOJIS.get(record.transform.type, "💫")
     else:
         emoji = ""
-    return emoji
+    return f"{emoji} {label}"
 
 
 def _get_all_parent_runs(file: File):
@@ -236,7 +237,7 @@ def _label_file_run(record: Union[File, Run]):
     elif isinstance(record, Run):
         name = f'{record.transform.name.replace("&", "&amp;")}'
         return (
-            rf'<{EMOJIS.get(record.transform.type, "🧩")} {name}<BR/><FONT COLOR="GREY" POINT-SIZE="10"'  # noqa
+            rf'<{EMOJIS.get(str(record.transform.type), "🧩")} {name}<BR/><FONT COLOR="GREY" POINT-SIZE="10"'  # noqa
             rf' FACE="Monospace">id={record.id}<BR/>type={record.transform.type},'
             rf" user={record.created_by.name}<BR/>run_at={format_field_value(record.run_at)}</FONT>>"  # noqa
         )

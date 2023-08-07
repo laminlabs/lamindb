@@ -147,11 +147,11 @@ def add_labels(
                     for record in records
                 ]
             )
-            msg += f"linking labels {records_display} to feature '{feature.name}'"
+            msg += f"linked labels {records_display} to feature '{feature.name}'"
         if msg != "":
             msg += ", "
         if feature.registries is None or orm_name not in feature.registries:
-            msg += f"linking feature '{feature.name}' to registry '{orm_name}'"
+            msg += f"linked feature '{feature.name}' to registry '{orm_name}'"
             if feature.registries is None:
                 feature.registries = orm_name
             elif orm_name not in feature.registries:

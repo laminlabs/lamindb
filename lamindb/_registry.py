@@ -65,9 +65,10 @@ def suggest_objects_with_same_name(orm: Registry, kwargs) -> Optional[str]:
             if results.index[0] == kwargs["name"]:
                 return "object-with-same-name-exists"
             else:
+                s = "" if results.shape[0] == 1 else "s"
+                it = "it" if results.shape[0] == 1 else "one of them"
                 msg = (
-                    "Records with similar names exist! Did you mean to load one of"
-                    " them?"
+                    f"record{s} with similar name{s} exist! did you mean to load {it}?"
                 )
                 if IPYTHON:
                     from IPython.display import display
