@@ -10,6 +10,7 @@
    FeatureManager
    ValidationAware
    SynonymsAware
+   InspectResult
    datasets
    hashing
    storage
@@ -18,6 +19,7 @@
    exc.ValidationError
 """
 
+from lamin_utils._inspect import InspectResult
 from lnschema_core.models import Data, Registry, SynonymsAware, ValidationAware
 
 from lamindb._query_manager import QueryManager
