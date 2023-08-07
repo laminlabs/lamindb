@@ -1,28 +1,28 @@
 # Changelog
 
-- ♻️ Small fixes [PR1009](https://github.com/laminlabs/lamindb/pull/1009) [@falexwolf](https://github.com/falexwolf)
-- 🎉 Stage 0.50 [PR983](https://github.com/laminlabs/lamindb/pull/983) [@sunnyosun](https://github.com/sunnyosun)
--  🚸 Turn `File.path()` into property [PR1008](https://github.com/laminlabs/lamindb/pull/1008) [@falexwolf](https://github.com/falexwolf)
-- 🔥 Remove backward compat for auto-keyed paths [PR1007](https://github.com/laminlabs/lamindb/pull/1007) [@falexwolf](https://github.com/falexwolf)
-- 🚸 Introduce Label validation [PR1006](https://github.com/laminlabs/lamindb/pull/1006) [@falexwolf](https://github.com/falexwolf)
-- ✨ Add validate [PR1000](https://github.com/laminlabs/lamindb/pull/1000) [@sunnyosun](https://github.com/sunnyosun)
-- 🚸 Increase default verbosity to hint-level [PR1005](https://github.com/laminlabs/lamindb/pull/1005) [@falexwolf](https://github.com/falexwolf)
-- ♻️ Better treatment of suffixes [PR1004](https://github.com/laminlabs/lamindb/pull/1004) [@falexwolf](https://github.com/falexwolf)
-- 🍱 Add nf-core rna-seq testdataset [PR1002](https://github.com/laminlabs/lamindb/pull/1002) [@falexwolf](https://github.com/falexwolf)
-- 🚚 Move `add_labels` and `get_labels` from `FeatureManager` to `Data` [PR999](https://github.com/laminlabs/lamindb/pull/999) [@falexwolf](https://github.com/falexwolf)
-- 🚚 Rename `FeatureSet.ref_field` to `FeatureSet.registry` [PR997](https://github.com/laminlabs/lamindb/pull/997) [@falexwolf](https://github.com/falexwolf)
-- 🚸 Ignore `synonyms` in `from_values` to incentivize explicit curation process [PR993](https://github.com/laminlabs/lamindb/pull/993) [@falexwolf](https://github.com/falexwolf)
-- 💄 Fine tuned green for graphs [PR990](https://github.com/laminlabs/lamindb/pull/990) [@sunnyosun](https://github.com/sunnyosun)
-- 🚚 Move tutorial1 one level down [PR989](https://github.com/laminlabs/lamindb/pull/989) [@falexwolf](https://github.com/falexwolf)
-- 🚸 Only link validated features [PR987](https://github.com/laminlabs/lamindb/pull/987) [@falexwolf](https://github.com/falexwolf)
-- ✅ More fixes and tests for backed [PR988](https://github.com/laminlabs/lamindb/pull/988) [@Koncopd](https://github.com/Koncopd)
-- 🚚 Move biology notebooks to usecases [PR985](https://github.com/laminlabs/lamindb/pull/985) [@sunnyosun](https://github.com/sunnyosun)
-- 📝 Improve API description [PR986](https://github.com/laminlabs/lamindb/pull/986) [@falexwolf](https://github.com/falexwolf)
-- 🚚 Rename `Manager` to `QueryManager` [PR984](https://github.com/laminlabs/lamindb/pull/984) [@falexwolf](https://github.com/falexwolf)
-- 🚚 Rename ORM to Registry [PR982](https://github.com/laminlabs/lamindb/pull/982) [@sunnyosun](https://github.com/sunnyosun)
 ```{eval-rst}
 .. role:: small
 ```
+
+## 0.50 {small}`2023-08-07`
+
+- 🚸 Introduce Label validation [PR1006](https://github.com/laminlabs/lamindb/pull/1006) [@falexwolf](https://github.com/falexwolf)
+- 🚸 Turn `File.path()` into property [PR1008](https://github.com/laminlabs/lamindb/pull/1008) [@falexwolf](https://github.com/falexwolf)
+- 🔥 Remove backward compat for auto-keyed paths [PR1007](https://github.com/laminlabs/lamindb/pull/1007) [@falexwolf](https://github.com/falexwolf)
+- ✨ Add `ValidationAware.validate()` [PR1000](https://github.com/laminlabs/lamindb/pull/1000) [@sunnyosun](https://github.com/sunnyosun)
+- 🚸 Increase default verbosity to hint-level [PR1005](https://github.com/laminlabs/lamindb/pull/1005) [@falexwolf](https://github.com/falexwolf)
+- ♻️ Better treatment of suffixes [PR1004](https://github.com/laminlabs/lamindb/pull/1004) [@falexwolf](https://github.com/falexwolf)
+- 🍱 Add nf-core rna-seq test dataset [PR1002](https://github.com/laminlabs/lamindb/pull/1002) [@falexwolf](https://github.com/falexwolf)
+- 🚚 Move `add_labels` and `get_labels` from `FeatureManager` to `Data` [PR999](https://github.com/laminlabs/lamindb/pull/999) [@falexwolf](https://github.com/falexwolf)
+- 🚚 Rename `FeatureSet.ref_field` to `FeatureSet.registry` [PR997](https://github.com/laminlabs/lamindb/pull/997) [@falexwolf](https://github.com/falexwolf)
+- 🚸 Ignore `synonyms` in `from_values` to incentivize explicit curation process [PR993](https://github.com/laminlabs/lamindb/pull/993) [@falexwolf](https://github.com/falexwolf)
+- 🚚 Move `tutorial1` one level down [PR989](https://github.com/laminlabs/lamindb/pull/989) [@falexwolf](https://github.com/falexwolf)
+- 🚸 Only link validated features [PR987](https://github.com/laminlabs/lamindb/pull/987) [@falexwolf](https://github.com/falexwolf)
+- ✅ More fixes and tests for backed [PR988](https://github.com/laminlabs/lamindb/pull/988) [@Koncopd](https://github.com/Koncopd)
+- 🚚 Move biology notebooks to `lamin-usecases` [PR985](https://github.com/laminlabs/lamindb/pull/985) [@sunnyosun](https://github.com/sunnyosun)
+- 📝 Improve API layout & description [PR986](https://github.com/laminlabs/lamindb/pull/986) [@falexwolf](https://github.com/falexwolf)
+- 🚚 Rename `Manager` to `QueryManager` [PR984](https://github.com/laminlabs/lamindb/pull/984) [@falexwolf](https://github.com/falexwolf)
+- 🚚 Rename `ORM` to `Registry` [PR982](https://github.com/laminlabs/lamindb/pull/982) [@sunnyosun](https://github.com/sunnyosun)
 
 ## 0.49
 
@@ -51,9 +51,7 @@
 - 🎨 Move feature foreignkey from label to link between label and file [PR954](https://github.com/laminlabs/lamindb/pull/954) [@falexwolf](https://github.com/falexwolf)
 - 🎨 Enable file/dataset-external feature sets [PR953](https://github.com/laminlabs/lamindb/pull/953) [@falexwolf](https://github.com/falexwolf)
 
-## 0.48
-
-### 0.48.0 {small}`2023-07-26`
+## 0.48 {small}`2023-07-26`
 
 - 📝 Add MuData example [PR945](https://github.com/laminlabs/lamindb/pull/945) [@sunnyosun](https://github.com/sunnyosun)
 - 🎨 Add `Modality` [PR940](https://github.com/laminlabs/lamindb/pull/940) [@falexwolf](https://github.com/falexwolf)
@@ -74,9 +72,7 @@
 - 🚚 Rename `Readout` to `ExperimentalFactor` [PR893](https://github.com/laminlabs/lamindb/pull/893) [@sunnyosun](https://github.com/sunnyosun)
 - 🎨 `set_abbr` adds `abbr` to `synonyms` [PR892](https://github.com/laminlabs/lamindb/pull/892) [@sunnyosun](https://github.com/sunnyosun)
 
-## 0.47.0
-
-### 0.47.0 {small}`2023-07-10`
+## 0.47.0 {small}`2023-07-10`
 
 - ✨ View parents [PR858](https://github.com/laminlabs/lamindb/pull/858) [@sunnyosun](https://github.com/sunnyosun)
 - ✨ Track parent notebooks [PR859](https://github.com/laminlabs/lamindb/pull/859) [@falexwolf](https://github.com/falexwolf)
@@ -94,9 +90,7 @@
 - 🚸 It should be possible to use a schema module prior to importing `lamindb` [PR852](https://github.com/laminlabs/lamindb/pull/852) [@falexwolf](https://github.com/falexwolf)
 - ✨ Enable `search`, `lookup`, `inspect`, `map_synonyms` from `QuerySet` [PR849](https://github.com/laminlabs/lamindb/pull/849) [@sunnyosun](https://github.com/sunnyosun)
 
-## 0.46
-
-### 0.46.0 {small}`2023-07-06`
+## 0.46 {small}`2023-07-06`
 
 Features:
 
@@ -121,9 +115,7 @@ UX:
 - 🚸 Better error behavior when no notebook title set in `ln.track()` [PR834](https://github.com/laminlabs/lamindb/pull/834) [@Koncopd](https://github.com/Koncopd)
 - 🚸 Store hash for remote files on S3 [PR808](https://github.com/laminlabs/lamindb/pull/808) [@falexwolf](https://github.com/falexwolf)
 
-## 0.45
-
-### 0.45.0 {small}`2023-06-27`
+## 0.45 {small}`2023-06-27`
 
 - ♻️ Replaced `ln.parse` with `Registry.from_values` [PR803](https://github.com/laminlabs/lamindb/pull/803) [@sunnyosun](https://github.com/sunnyosun)
 - 🎨 Auto-manage `RunInput` Registry [PR802](https://github.com/laminlabs/lamindb/pull/802) [@falexwolf](https://github.com/falexwolf)
