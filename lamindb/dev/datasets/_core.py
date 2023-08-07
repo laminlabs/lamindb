@@ -132,6 +132,17 @@ def anndata_pbmc68k_reduced() -> ad.AnnData:
     return ad.read(filepath)
 
 
+def anndata_file_pbmc68k_test() -> Path:
+    """Modified from scanpy.datasets.pbmc68k_reduced().
+
+    Additional slots were added for testing purposes.
+    """
+    filepath, _ = urlretrieve(
+        "https://lamindb-test.s3.amazonaws.com/pbmc68k_test.h5ad", "pbmc68k_test.h5ad"
+    )
+    return Path(filepath)
+
+
 def anndata_pbmc3k_processed() -> ad.AnnData:
     """Modified from scanpy.pbmc3k_processed()."""
     filepath, _ = urlretrieve(
