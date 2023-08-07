@@ -113,7 +113,7 @@ def view_parents(
     self,
     field: Optional[StrField] = None,
     with_children: bool = False,
-    distance: int = 100,
+    distance: int = 5,
 ):
     from lamindb.dev._view_parents import view_parents as _view_parents
 
