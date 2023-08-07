@@ -55,11 +55,11 @@ def delete(  # type: ignore
         Label(id=CcFPLmpq, name=Label1, updated_at=2023-07-19 18:28:16, created_by_id=kmvZDIX9)] # noqa
         >>> queryset.delete()
     """
-    logger.warning("For efficient bulk delete, use `queryset.delete` instead")
+    logger.warning("for efficient bulk delete, use `queryset.delete` instead")
     if isinstance(records, list):
         records = records
     elif isinstance(records, Registry):
         records = [records]
     for record in records:
         record.delete()
-        logger.success(f"Deleted {colors.yellow(f'{record}')}")
+        logger.success(f"deleted {colors.yellow(f'{record}')}")

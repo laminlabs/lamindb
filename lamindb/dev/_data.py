@@ -148,16 +148,17 @@ def add_labels(
                 ]
             )
             msg += f"linked labels {records_display} to feature '{feature.name}'"
-        if msg != "":
-            msg += ", "
         if feature.registries is None or orm_name not in feature.registries:
+            if len(msg) > 0:
+                msg += ", "
             msg += f"linked feature '{feature.name}' to registry '{orm_name}'"
             if feature.registries is None:
                 feature.registries = orm_name
             elif orm_name not in feature.registries:
                 feature.registries += f"|{orm_name}"
             feature.save()
-        logger.success(msg)
+        if len(msg) > 0:
+            logger.save(msg)
         # check whether we have to update the feature set that manages labels
         # (Feature) to account for a new feature
         found_feature = False
@@ -169,13 +170,13 @@ def add_labels(
                 feature_set = FeatureSet([feature], modality="meta")
                 feature_set.save()
                 self.features.add_feature_set(feature_set, slot="external")
-                logger.success("created feature set for slot 'external'")
+                logger.save("created feature set for slot 'external'")
             else:
                 feature_set = self.features._feature_set_by_slot["external"]
                 feature_set.features.add(feature)
                 feature_set.n += 1
                 feature_set.save()
-                logger.success(
+                logger.save(
                     f"linked feature {feature.name} to feature set {feature_set}"
                 )
 

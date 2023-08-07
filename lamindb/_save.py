@@ -240,14 +240,14 @@ def upload_data_object(file) -> None:
     file_storage_key = auto_storage_key_from_file(file)
     msg = f"storing file '{file.id}' with key '{file_storage_key}'"
     if hasattr(file, "_to_store") and file._to_store and file.suffix != ".zarr":
-        logger.download(msg)
+        logger.save(msg)
         store_object(file._local_filepath, file_storage_key)
     elif (
         file.suffix in {".zarr", ".zrad"}
         and hasattr(file, "_memory_rep")
         and file._memory_rep is not None
     ):
-        logger.download(msg)
+        logger.save(msg)
         storagepath = lamindb_setup.settings.storage.key_to_filepath(file_storage_key)
         print_progress = partial(
             print_hook, filepath=file_storage_key, action="uploading"

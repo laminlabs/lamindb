@@ -564,25 +564,20 @@ def from_anndata(
         var_ref,
         type=type,
     )
-    success_msg = ""
+
     if feature_set_var is not None:
-        logger.info(f"linking {feature_set_var}")
         feature_sets["var"] = feature_set_var
-        success_msg += f"\n   'var': {feature_set_var}"
+        logger.save(f"linked: {feature_set_var}")
     logger.indent = ""
     if len(data_parse.obs.columns) > 0:
         logger.info("parsing feature names of slot 'obs'")
         logger.indent = "   "
         feature_set_obs = FeatureSet.from_df(data_parse.obs)
         if feature_set_obs is not None:
-            logger.info(f"linking {feature_set_obs}")
             feature_sets["obs"] = feature_set_obs
-            success_msg += f"\n   'obs': {feature_set_obs}"
+            logger.save(f"linked: {feature_set_obs}")
         logger.indent = ""
     file._feature_sets = feature_sets
-    if len(success_msg) > 0:
-        s = "" if len(feature_sets) > 1 else "s"
-        logger.success(f"linked feature set{s}:{success_msg}")
     return file
 
 
@@ -818,7 +813,7 @@ def _save_skip_storage(file, *args, **kwargs) -> None:
         for feature_set in file._feature_sets.values():
             feature_set.save()
         s = "s" if len(file._feature_sets) > 1 else ""
-        logger.success(
+        logger.save(
             f"saved {len(file._feature_sets)} feature set{s} for slot{s}:"
             f" {list(file._feature_sets.keys())}"
         )

@@ -1,12 +1,12 @@
 from typing import List, Set, Union
 
-from lnschema_core import File, Registry, Run
+from lnschema_core import File, Registry, Run, Transform
 from lnschema_core.models import format_field_value
 
 LAMIN_GREEN_LIGHTER = "#10b981"
 LAMIN_GREEN_DARKER = "#065f46"
 GREEN_FILL = "honeydew"
-EMOJIS = {"notebook": "📔", "app": "🖥️", "pipeline": "🧩"}
+TRANSFORM_EMOJIS = {"notebook": "📔", "app": "🖥️", "pipeline": "🧩"}
 
 
 def view_lineage(file: File, with_children: bool = True):
@@ -185,9 +185,9 @@ def _df_edges_from_parents(
 
 def _add_emoji(record: Registry, label: str):
     if record.__class__.__name__ == "Transform":
-        emoji = EMOJIS.get(record.type, "💫")
+        emoji = TRANSFORM_EMOJIS.get(record.type, "💫")
     elif record.__class__.__name__ == "Run":
-        emoji = EMOJIS.get(record.transform.type, "💫")
+        emoji = TRANSFORM_EMOJIS.get(record.transform.type, "💫")
     else:
         emoji = ""
     return f"{emoji} {label}"
@@ -237,7 +237,7 @@ def _label_file_run(record: Union[File, Run]):
     elif isinstance(record, Run):
         name = f'{record.transform.name.replace("&", "&amp;")}'
         return (
-            rf'<{EMOJIS.get(str(record.transform.type), "🧩")} {name}<BR/><FONT COLOR="GREY" POINT-SIZE="10"'  # noqa
+            rf'<{TRANSFORM_EMOJIS.get(str(record.transform.type), "💫")} {name}<BR/><FONT COLOR="GREY" POINT-SIZE="10"'  # noqa
             rf' FACE="Monospace">id={record.id}<BR/>type={record.transform.type},'
             rf" user={record.created_by.name}<BR/>run_at={format_field_value(record.run_at)}</FONT>>"  # noqa
         )
@@ -263,3 +263,7 @@ def _df_edges_from_runs(all_runs: List[Run]):
     df["source_label"] = df["source_record"].apply(_label_file_run)
     df["target_label"] = df["target_record"].apply(_label_file_run)
     return df
+
+
+def _transform_emoji(transform: Transform):
+    return TRANSFORM_EMOJIS.get(transform.type, "💫")

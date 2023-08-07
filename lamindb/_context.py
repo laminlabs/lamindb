@@ -227,7 +227,7 @@ class run_context:
                 transform_exists = Transform.filter(id=transform.id).first()
             if transform_exists is None:
                 transform.save()
-                logger.download(f"saved: {transform}")
+                logger.save(f"saved: {transform}")
                 transform_exists = transform
             else:
                 logger.success(f"loaded: {transform_exists}")
@@ -253,7 +253,7 @@ class run_context:
         if run is None:  # create new run
             run = ln.Run(transform=cls.transform)
             run.save()
-            logger.download(f"saved: {run}")
+            logger.save(f"saved: {run}")
         cls.run = run
 
         # at this point, we have a transform can display its parents if there are any
@@ -405,7 +405,7 @@ class run_context:
                 type=TransformType.notebook,
             )
             transform.save()
-            logger.download(f"saved: {transform}")
+            logger.save(f"saved: {transform}")
         else:
             logger.success(f"loaded: {transform}")
             if transform.name != title or transform.short_name != filestem:
@@ -427,7 +427,7 @@ class run_context:
                 transform.short_name = filestem
                 transform.save()
                 if response == "y":
-                    logger.download(f"saved: {transform}")
+                    logger.save(f"saved: {transform}")
                 else:
                     logger.success(f"updated: {transform}")
 

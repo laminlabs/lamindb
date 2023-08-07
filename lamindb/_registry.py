@@ -19,6 +19,7 @@ from . import _TESTING
 from ._from_values import get_or_create_records
 from .dev._feature_manager import create_features_df
 from .dev._settings import settings
+from .dev._view_parents import _transform_emoji
 
 IPYTHON = getattr(builtins, "__IPYTHON__", False)
 
@@ -318,7 +319,12 @@ def describe(self):
 
     # Display Provenance
     # display line by line the foreign key fields
-    emojis = {"storage": "💾", "created_by": "👤", "transform": "💫", "run": "🚗"}
+    emojis = {
+        "storage": "🗃️",
+        "created_by": "👤",
+        "transform": _transform_emoji(self.transform),
+        "run": "🚗",
+    }
     if len(foreign_key_fields) > 0:
         record_msg = f"{model_name}({''.join([f'{i}={self.__getattribute__(i)}, ' for i in direct_fields])})"  # noqa
         msg += f"{record_msg.rstrip(', )')})\n\n"
