@@ -1,8 +1,7 @@
-from pathlib import Path
-
 import pandas as pd
 import pytest
 
+import lamindb as ln
 from lamindb.dev.storage import delete_storage
 from lamindb.dev.storage._backed_access import backed_access
 from lamindb.dev.storage._zarr import read_adata_zarr, write_adata_zarr
@@ -10,14 +9,14 @@ from lamindb.dev.storage.file import read_adata_h5ad
 
 
 def test_anndata_io():
-    test_files = Path("tests/test-files")
+    test_file = ln.dev.datasets.anndata_file_pbmc68k_test()
 
-    adata = read_adata_h5ad(test_files / "pbmc68k.h5ad")
+    adata = read_adata_h5ad(test_file)
 
     def callback(*args, **kwargs):
         pass
 
-    zarr_path = test_files / "pbmc68k.zarr"
+    zarr_path = test_file.with_suffix(".zarr")
     write_adata_zarr(adata, zarr_path, callback)
 
     adata = read_adata_zarr(zarr_path)
@@ -29,7 +28,7 @@ def test_anndata_io():
 
 @pytest.mark.parametrize("adata_format", ["h5ad", "zarr"])
 def test_backed_access(adata_format):
-    fp = Path("tests/test-files/pbmc68k.h5ad")
+    fp = ln.dev.datasets.anndata_file_pbmc68k_test()
     if adata_format == "zarr":
         adata = read_adata_h5ad(fp)
 
