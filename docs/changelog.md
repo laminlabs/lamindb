@@ -1,5 +1,6 @@
 # Changelog
 
+- 💄 Improved viz, loggings [PR1011](https://github.com/laminlabs/lamindb/pull/1011) [@sunnyosun](https://github.com/sunnyosun)
 ```{eval-rst}
 .. role:: small
 ```
