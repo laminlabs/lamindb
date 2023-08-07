@@ -165,13 +165,13 @@ def add_labels(
             if feature in linked_features:
                 found_feature = True
         if not found_feature:
-            if "ext" not in linked_features_by_slot:
-                logger.success("creating feature set for slot 'ext' (external)")
+            if "external" not in linked_features_by_slot:
+                logger.success("creating feature set for slot 'external'")
                 feature_set = FeatureSet([feature], modality="meta")
                 feature_set.save()
-                self.features.add_feature_set(feature_set, slot="ext")
+                self.features.add_feature_set(feature_set, slot="external")
             else:
-                feature_set = self.features._feature_set_by_slot["ext"]
+                feature_set = self.features._feature_set_by_slot["external"]
                 logger.success(
                     f"linking feature {feature.name} to feature set {feature_set}"
                 )
