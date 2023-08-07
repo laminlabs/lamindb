@@ -3,6 +3,7 @@ from typing import Dict, List, Optional, Union
 import numpy as np
 import pandas as pd
 from django.db.models import QuerySet
+from lamin_utils._inspect import InspectResult
 from lamindb_setup.dev._docs import doc_args
 from lnschema_core import Registry, ValidationAware
 from lnschema_core.types import ListLike, StrField
@@ -20,16 +21,14 @@ def inspect(
     values: ListLike,
     field: StrField,
     *,
-    return_df: bool = False,
     mute: bool = False,
     **kwargs,
-) -> Union["pd.DataFrame", Dict[str, List[str]]]:
+) -> InspectResult:
     """{}"""
     return _inspect(
         cls=cls,
         values=values,
         field=field,
-        return_df=return_df,
         mute=mute,
         **kwargs,
     )
@@ -47,7 +46,6 @@ def _inspect(
     values: ListLike,
     field: StrField,
     *,
-    return_df: bool = False,
     mute: bool = False,
     **kwargs,
 ) -> Union["pd.DataFrame", Dict[str, List[str]]]:
@@ -66,8 +64,8 @@ def _inspect(
         identifiers=values,
         field=str(field),
         inspect_synonyms=True,
-        return_df=return_df,
-        logging=not mute,
+        mute=mute,
+        **kwargs,
     )
 
 
@@ -87,10 +85,7 @@ def _validate(cls, values: ListLike, field: StrField, **kwargs) -> np.ndarray[bo
         )
     )
     return validate(
-        identifiers=values,
-        field_values=field_values,
-        case_sensitive=True,
-        return_df=False,
+        identifiers=values, field_values=field_values, case_sensitive=True, **kwargs
     )
 
 
