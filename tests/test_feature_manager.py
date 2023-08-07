@@ -128,7 +128,7 @@ def test_features_add_labels_using_anndata():
     ).one()
     assert feature_set_obs.n == 4
     feature_set_ext = file.feature_sets.filter(
-        registry="core.Feature", filefeatureset__slot="ext"
+        registry="core.Feature", filefeatureset__slot="external"
     ).one()
     assert feature_set_ext.n == 1
     assert "species" in feature_set_ext.features.list("name")
@@ -169,7 +169,7 @@ def test_features_add_labels_using_anndata():
     experiment_1.save()
     ln.Feature(name="experiment", type="category").save()
     file.add_labels(experiment_1, feature="experiment")
-    df = file.features["ext"].df()
+    df = file.features["external"].df()
     assert set(df["name"]) == {
         "species",
         "experiment",
