@@ -1,5 +1,3 @@
-from pathlib import Path
-
 import pytest
 
 import lamindb as ln
@@ -22,7 +20,7 @@ def test_cache():
     cache_dir = ln.setup.settings.storage.cache_dir
     assert cache_dir is not None
 
-    test_file = Path("tests/test-files/pbmc68k.h5ad")
+    test_file = ln.dev.datasets.anndata_file_pbmc68k_test()
 
     # test cache for saving an in-memory object
     adata = read_adata_h5ad(test_file)

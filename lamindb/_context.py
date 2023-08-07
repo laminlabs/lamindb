@@ -15,16 +15,16 @@ from lnschema_core.types import TransformType
 is_run_from_ipython = getattr(builtins, "__IPYTHON__", False)
 
 msg_path_failed = (
-    "Failed to infer notebook path.\nFix: Either track manually via"
+    "failed to infer notebook path.\nfix: either track manually via"
     " `ln.track(ln.Transform(name='My notebook'))` or pass"
-    " `notebook_path` to ln.track()."
+    " `notebook_path` to ln.track()"
 )
 
 msg_manual_init = (
-    "\n(1) Save your notebook!"
-    "\n(2) Attach metadata to the notebook by running the CLI:\n"
+    "\n(1) save your notebook!"
+    "\n(2) attach metadata to the notebook by running the CLI:\n"
     "lamin track {notebook_path}"
-    "\n(3) Reload or re-open your notebook"
+    "\n(3) reload or re-open your notebook"
 )
 
 
@@ -204,20 +204,20 @@ class run_context:
                 except Exception as e:
                     if isinstance(e, ImportError):
                         logger.info(
-                            "It looks like you are running ln.track() from a "
-                            "notebook!\nPlease install nbproject: pip install nbproject"
+                            "it looks like you are running ln.track() from a "
+                            "notebook!\nplease install nbproject: pip install nbproject"
                         )
                     elif isinstance(e, UpdateNbWithNonInteractiveEditorError):
                         raise e
                     elif isinstance(e, (NotebookNotSavedError, NoTitleError)):
                         raise e
                     else:
-                        logger.warning(f"Automatic tracking of notebook failed: {e}")
+                        logger.warning(f"automatic tracking of notebook failed: {e}")
                     is_tracked_notebook = False
 
             if not is_tracked_notebook:
                 logger.warning(
-                    "No automatic metadata detection, consider passing transform"
+                    "no automatic metadata detection, consider passing transform"
                 )
                 return None
         else:
@@ -227,7 +227,7 @@ class run_context:
                 transform_exists = Transform.filter(id=transform.id).first()
             if transform_exists is None:
                 transform.save()
-                logger.info(f"saved: {transform}")
+                logger.save(f"saved: {transform}")
                 transform_exists = transform
             else:
                 logger.success(f"loaded: {transform_exists}")
@@ -253,17 +253,17 @@ class run_context:
         if run is None:  # create new run
             run = ln.Run(transform=cls.transform)
             run.save()
-            logger.info(f"saved: {run}")
+            logger.save(f"saved: {run}")
         cls.run = run
 
         # at this point, we have a transform can display its parents if there are any
         parents = cls.transform.parents.all() if cls.transform is not None else []
         if len(parents) > 0:
             if len(parents) == 1:
-                logger.info(f"parent transform: {parents[0]}")
+                logger.info(f"  parent transform: {parents[0]}")
             else:
                 parents_formatted = "\n   - ".join([f"{parent}" for parent in parents])
-                logger.info(f"parent transforms:\n   - {parents_formatted}")
+                logger.info(f"  parent transforms:\n   - {parents_formatted}")
 
         # only for newly intialized notebooks
         if hasattr(cls, "_notebook_meta"):
@@ -405,9 +405,9 @@ class run_context:
                 type=TransformType.notebook,
             )
             transform.save()
-            logger.success(f"saved: {transform}")
+            logger.save(f"saved: {transform}")
         else:
-            logger.info(f"loaded: {transform}")
+            logger.success(f"loaded: {transform}")
             if transform.name != title or transform.short_name != filestem:
                 response = input(
                     "Updated notebook name and/or title: Do you want to assign a"
@@ -427,7 +427,7 @@ class run_context:
                 transform.short_name = filestem
                 transform.save()
                 if response == "y":
-                    logger.success(f"saved: {transform}")
+                    logger.save(f"saved: {transform}")
                 else:
                     logger.success(f"updated: {transform}")
 

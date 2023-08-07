@@ -204,7 +204,7 @@ def test_create_from_local_filepath(get_test_filepaths, key, description):
 
 
 def test_local_path_load():
-    local_filepath = Path("tests/test-files/pbmc68k.h5ad").resolve()
+    local_filepath = ln.dev.datasets.anndata_file_pbmc68k_test().resolve()
 
     file = ln.File(local_filepath)
     assert local_filepath == file._local_filepath
@@ -394,7 +394,7 @@ def test_check_path_is_child_of_root():
 
 
 def test_serialize_paths():
-    fp_str = "tests/test-files/pbmc68k.h5ad"
+    fp_str = ln.dev.datasets.anndata_file_pbmc68k_test().as_posix()
     fp_path = Path(fp_str)
 
     up_str = "s3://lamindb-ci/test-data/test.csv"

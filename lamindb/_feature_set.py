@@ -62,7 +62,7 @@ def get_validated_features(features: List[Registry], field: Field) -> List[Regis
     if non_validated_features:
         non_validated_features_display = ",".join(non_validated_features)
         logger.warning(
-            f"ignoring unvalidated features: {non_validated_features_display}"
+            f"ignoring non-validated features: {non_validated_features_display}"
         )
     return validated_features
 
@@ -96,7 +96,7 @@ def __init__(self, *args, **kwargs):
         features_hash = hash_set({feature.id for feature in features})
         feature_set = FeatureSet.filter(hash=features_hash).one_or_none()
         if feature_set is not None:
-            logger.info(f"loaded: {feature_set}")
+            logger.success(f"loaded: {feature_set}")
             init_self_from_db(self, feature_set)
             return None
         else:
@@ -181,7 +181,7 @@ def from_values(
     features_hash = hash_set(set(validated_feature_ids))
     feature_set = FeatureSet.filter(hash=features_hash).one_or_none()
     if feature_set is not None:
-        logger.info(f"loaded {feature_set}")
+        logger.success(f"loaded {feature_set}")
     else:
         if type is not None:
             type_str = type.__name__ if not isinstance(type, str) else type
@@ -213,7 +213,7 @@ def from_df(
     if validated_features:
         feature_set = FeatureSet(validated_features, name=name)
     else:
-        logger.warning("no validated features, not creating feature set")
+        logger.warning("no validated features, skip creating feature set")
         feature_set = None
         # raise ValidationError("Dataframe columns contain no validated feature names")
     return feature_set
