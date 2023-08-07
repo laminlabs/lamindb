@@ -1,12 +1,17 @@
 # Changelog
 
-- ✨ Add InspectResult [PR1012](https://github.com/laminlabs/lamindb/pull/1012) [@sunnyosun](https://github.com/sunnyosun)
-- 💄 Improved viz, loggings [PR1011](https://github.com/laminlabs/lamindb/pull/1011) [@sunnyosun](https://github.com/sunnyosun)
 ```{eval-rst}
 .. role:: small
 ```
 
 ## 0.50 {small}`2023-08-07`
+
+### 0.50.1 {small}`2023-08-08`
+
+- ✨ Add `InspectResult` [PR1012](https://github.com/laminlabs/lamindb/pull/1012) [@sunnyosun](https://github.com/sunnyosun)
+- 💄 Improved logging & visualizations [PR1011](https://github.com/laminlabs/lamindb/pull/1011) [@sunnyosun](https://github.com/sunnyosun)
+
+### 0.50.0 {small}`2023-08-07`
 
 - 🚸 Introduce Label validation [PR1006](https://github.com/laminlabs/lamindb/pull/1006) [@falexwolf](https://github.com/falexwolf)
 - 🚸 Turn `File.path()` into property [PR1008](https://github.com/laminlabs/lamindb/pull/1008) [@falexwolf](https://github.com/falexwolf)
