@@ -33,7 +33,7 @@ guide/setup
 :caption: "How to: biology"
 
 biology/registries
-lnschema-bionty
+biology/lnschema-bionty
 biology/analyses
 ```
 
