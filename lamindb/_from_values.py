@@ -264,7 +264,7 @@ def _bulk_create_dicts_from_df(
             if len(dup) > 20:
                 print_values += ", ..."
             multi_msg = (
-                f"Ambiguous validation in Bionty for {len(dup)} record{s}:"
+                f"ambiguous validation in Bionty for {len(dup)} record{s}:"
                 f" {print_values}"
             )
 
