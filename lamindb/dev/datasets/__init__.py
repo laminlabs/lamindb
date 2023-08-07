@@ -19,10 +19,10 @@
    anndata_mouse_sc_lymph_node
    anndata_human_immune_cells
    anndata_pbmc68k_reduced
+   anndata_file_pbmc68k_test
    anndata_pbmc3k_processed
    anndata_with_obs
    anndata_suo22_Visium10X
-   anndata_file_pbmc68k_test
    mudata_papalexi21_subset
    schmidt22_crispra_gws_IFNG
    schmidt22_perturbseq

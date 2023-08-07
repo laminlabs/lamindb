@@ -135,7 +135,18 @@ def anndata_pbmc68k_reduced() -> ad.AnnData:
 def anndata_file_pbmc68k_test() -> Path:
     """Modified from scanpy.datasets.pbmc68k_reduced().
 
-    Additional slots were added for testing purposes.
+    Additional slots were added for testing purposes. Returns the filepath.
+
+    To reproduce::
+
+        pbmc68k = ln.dev.datasets.anndata_pbmc68k_reduced()
+        pbmc68k_test = pbmc68k[:30, :200].copy()
+        pbmc68k_test.raw = pbmc68k_test[:, :100]
+        pbmc68k_test.obsp["test"] = sparse.eye(pbmc68k_test.shape[0], format="csr")
+        pbmc68k_test.varp["test"] = sparse.eye(pbmc68k_test.shape[1], format="csr")
+        pbmc68k_test.layers["test"] = sparse.csr_matrix(pbmc68k_test.shape)
+        pbmc68k_test.layers["test"][0] = 1.
+        pbmc68k_test.write("pbmc68k_test.h5ad")
     """
     filepath, _ = urlretrieve(
         "https://lamindb-test.s3.amazonaws.com/pbmc68k_test.h5ad", "pbmc68k_test.h5ad"
