@@ -1,5 +1,6 @@
 # Changelog
 
+- 🎉 Stage 0.50.1 [PR1010](https://github.com/laminlabs/lamindb/pull/1010) [@Koncopd](https://github.com/Koncopd)
 - ✨ Add InspectResult [PR1012](https://github.com/laminlabs/lamindb/pull/1012) [@sunnyosun](https://github.com/sunnyosun)
 - 💄 Improved viz, loggings [PR1011](https://github.com/laminlabs/lamindb/pull/1011) [@sunnyosun](https://github.com/sunnyosun)
 ```{eval-rst}
