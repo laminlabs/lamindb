@@ -19,6 +19,7 @@ from . import _TESTING
 from ._from_values import get_or_create_records
 from .dev._feature_manager import create_features_df
 from .dev._settings import settings
+from .dev._view_parents import _transform_emoji
 
 IPYTHON = getattr(builtins, "__IPYTHON__", False)
 
@@ -65,9 +66,10 @@ def suggest_objects_with_same_name(orm: Registry, kwargs) -> Optional[str]:
             if results.index[0] == kwargs["name"]:
                 return "object-with-same-name-exists"
             else:
+                s = "" if results.shape[0] == 1 else "s"
+                it = "it" if results.shape[0] == 1 else "one of them"
                 msg = (
-                    "Records with similar names exist! Did you mean to load one of"
-                    " them?"
+                    f"record{s} with similar name{s} exist! did you mean to load {it}?"
                 )
                 if IPYTHON:
                     from IPython.display import display
@@ -97,13 +99,13 @@ def __init__(orm: Registry, *args, **kwargs):
                     existing_record = orm.filter(name=kwargs["name"]).one()
                 if existing_record is not None:
                     logger.success(
-                        f"Loaded record with exact same name{version_comment}"
+                        f"loaded record with exact same name{version_comment}"
                     )
                     init_self_from_db(orm, existing_record)
                     return None
         super(Registry, orm).__init__(**kwargs)
     elif len(args) != len(orm._meta.concrete_fields):
-        raise ValueError("Please provide keyword arguments, not plain arguments")
+        raise ValueError("please provide keyword arguments, not plain arguments")
     else:
         # object is loaded from DB (**kwargs could be omitted below, I believe)
         super(Registry, orm).__init__(*args, **kwargs)
@@ -317,7 +319,12 @@ def describe(self):
 
     # Display Provenance
     # display line by line the foreign key fields
-    emojis = {"storage": "💾", "created_by": "👤", "transform": "💫", "run": "🚗"}
+    emojis = {
+        "storage": "🗃️",
+        "created_by": "👤",
+        "transform": _transform_emoji(self.transform),
+        "run": "🚗",
+    }
     if len(foreign_key_fields) > 0:
         record_msg = f"{model_name}({''.join([f'{i}={self.__getattribute__(i)}, ' for i in direct_fields])})"  # noqa
         msg += f"{record_msg.rstrip(', )')})\n\n"
@@ -352,7 +359,7 @@ def describe(self):
             key_split = feature_set.registry.split(".")
             if len(key_split) == 3:
                 logger.warning(
-                    "You have a legacy entry in feature_set.field, should be just"
+                    "you have a legacy entry in feature_set.field, should be just"
                     " 'bionty.Gene'"
                 )
             orm_name_with_schema = f"{key_split[0]}.{key_split[1]}"
@@ -474,7 +481,7 @@ def __get_name_with_schema__(cls) -> str:
 
 
 def select_backward(cls, **expressions):
-    logger.warning("select() is deprecated! Please rename: Registry.filter()")
+    logger.warning("select() is deprecated! please use: Registry.filter()")
     return cls.filter(**expressions)
 
 

@@ -171,9 +171,9 @@ def get_hash(
     result = File.filter(hash=hash).list()
     if len(result) > 0:
         if settings.upon_file_create_if_hash_exists == "error":
-            msg = f"File with same hash exists: {result[0]}"
+            msg = f"file with same hash exists: {result[0]}"
             hint = (
-                "💡 You can make this error a warning:\n"
+                "💡 you can make this error a warning:\n"
                 "    ln.settings.upon_file_create_if_hash_exists"
             )
             raise RuntimeError(f"{msg}\n{hint}")
@@ -381,9 +381,9 @@ def log_storage_hint(
     else:
         hint += "file will be copied to default storage upon `save()`"
     if key is None:
-        hint += f" with key = '{id}{suffix}'"
+        hint += f" with key '{id}{suffix}'"
     else:
-        hint += f" with key = '{key}'"
+        hint += f" with key '{key}'"
     logger.hint(hint)
 
 
@@ -557,24 +557,25 @@ def from_anndata(
     else:
         type = convert_numpy_dtype_to_lamin_feature_type(adata.X.dtype)
     feature_sets = {}
-    logger.info("parsing feature names of X, stored in slot 'var'")
+    logger.info("parsing feature names of X stored in slot 'var'")
     logger.indent = "   "
     feature_set_var = FeatureSet.from_values(
         data_parse.var.index,
         var_ref,
         type=type,
     )
+
     if feature_set_var is not None:
-        logger.info(f"linking: {feature_set_var}")
         feature_sets["var"] = feature_set_var
+        logger.save(f"linked: {feature_set_var}")
     logger.indent = ""
     if len(data_parse.obs.columns) > 0:
         logger.info("parsing feature names of slot 'obs'")
         logger.indent = "   "
         feature_set_obs = FeatureSet.from_df(data_parse.obs)
         if feature_set_obs is not None:
-            logger.info(f"linking: {feature_set_obs}")
             feature_sets["obs"] = feature_set_obs
+            logger.save(f"linked: {feature_set_obs}")
         logger.indent = ""
     file._feature_sets = feature_sets
     return file
@@ -663,7 +664,7 @@ def replace(
             self._clear_storagekey = self.key
             self.key = str(key_path.with_name(new_filename))
             logger.warning(
-                f"Replacing the file will replace key '{key_path}' with '{self.key}'"
+                f"replacing the file will replace key '{key_path}' with '{self.key}'"
                 f" and delete '{key_path}' upon `save()`"
             )
     else:
@@ -812,7 +813,7 @@ def _save_skip_storage(file, *args, **kwargs) -> None:
         for feature_set in file._feature_sets.values():
             feature_set.save()
         s = "s" if len(file._feature_sets) > 1 else ""
-        logger.info(
+        logger.save(
             f"saved {len(file._feature_sets)} feature set{s} for slot{s}:"
             f" {list(file._feature_sets.keys())}"
         )
