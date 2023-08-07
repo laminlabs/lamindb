@@ -6,6 +6,7 @@ from lnschema_core.models import format_field_value
 LAMIN_GREEN_LIGHTER = "#10b981"
 LAMIN_GREEN_DARKER = "#065f46"
 GREEN_FILL = "honeydew"
+EMOJIS = {"notebook": "📔", "app": "🖥️", "pipeline": "🧩"}
 
 
 def view_lineage(file: File, with_children: bool = True):
@@ -120,7 +121,7 @@ def view_parents(
     )
     u.node(
         record_label.replace(":", "_"),
-        label=record_label,
+        label=f"{_emoji(record)} {record_label}",
         fillcolor=LAMIN_GREEN_LIGHTER,
     )
     for _, row in df_edges.iterrows():
@@ -175,11 +176,20 @@ def _df_edges_from_parents(
 
     # colons messes with the node formatting:
     # https://graphviz.readthedocs.io/en/stable/node_ports.html
-    df_edges["source_label"] = df_edges["source"]
-    df_edges["target_label"] = df_edges["target"]
+    emoji = _emoji(record)
+    df_edges["source_label"] = emoji + " " + df_edges["source"].astype(str)
+    df_edges["target_label"] = emoji + " " + df_edges["target"].astype(str)
     df_edges["source"] = df_edges["source"].str.replace(":", "_")
     df_edges["target"] = df_edges["target"].str.replace(":", "_")
     return df_edges
+
+
+def _emoji(record: Registry):
+    if record.__class__.__name__ == "Transform":
+        emoji = EMOJIS.get(record.type, "🧩")
+    else:
+        emoji = ""
+    return emoji
 
 
 def _get_all_parent_runs(file: File):
@@ -224,10 +234,9 @@ def _label_file_run(record: Union[File, Run]):
             rf' FACE="Monospace">id={record.id}<BR/>suffix={record.suffix}</FONT>>'
         )
     elif isinstance(record, Run):
-        emojis = {"notebook": "📔", "app": "🖥️"}
         name = f'{record.transform.name.replace("&", "&amp;")}'
         return (
-            rf'<{emojis.get(record.transform.type, "🧩")} {name}<BR/><FONT COLOR="GREY" POINT-SIZE="10"'  # noqa
+            rf'<{EMOJIS.get(record.transform.type, "🧩")} {name}<BR/><FONT COLOR="GREY" POINT-SIZE="10"'  # noqa
             rf' FACE="Monospace">id={record.id}<BR/>type={record.transform.type},'
             rf" user={record.created_by.name}<BR/>run_at={format_field_value(record.run_at)}</FONT>>"  # noqa
         )
