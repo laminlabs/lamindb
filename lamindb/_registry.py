@@ -97,13 +97,13 @@ def __init__(orm: Registry, *args, **kwargs):
                     existing_record = orm.filter(name=kwargs["name"]).one()
                 if existing_record is not None:
                     logger.success(
-                        f"Loaded record with exact same name{version_comment}"
+                        f"loaded record with exact same name{version_comment}"
                     )
                     init_self_from_db(orm, existing_record)
                     return None
         super(Registry, orm).__init__(**kwargs)
     elif len(args) != len(orm._meta.concrete_fields):
-        raise ValueError("Please provide keyword arguments, not plain arguments")
+        raise ValueError("please provide keyword arguments, not plain arguments")
     else:
         # object is loaded from DB (**kwargs could be omitted below, I believe)
         super(Registry, orm).__init__(*args, **kwargs)
@@ -352,7 +352,7 @@ def describe(self):
             key_split = feature_set.registry.split(".")
             if len(key_split) == 3:
                 logger.warning(
-                    "You have a legacy entry in feature_set.field, should be just"
+                    "you have a legacy entry in feature_set.field, should be just"
                     " 'bionty.Gene'"
                 )
             orm_name_with_schema = f"{key_split[0]}.{key_split[1]}"
@@ -474,7 +474,7 @@ def __get_name_with_schema__(cls) -> str:
 
 
 def select_backward(cls, **expressions):
-    logger.warning("select() is deprecated! Please rename: Registry.filter()")
+    logger.warning("select() is deprecated! please use: Registry.filter()")
     return cls.filter(**expressions)
 
 

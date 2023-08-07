@@ -94,8 +94,8 @@ def _add_or_remove_synonyms(
         if matches_df.shape[0] > 0:
             records_df = pd.DataFrame(syns_all.filter(id__in=matches_df["id"]).values())
             logger.error(
-                f"Input synonyms {matches_df['synonyms'].unique()} already associated"
-                " with the following records:\n(Pass `force=True` to ignore this error)"
+                f"input synonyms {matches_df['synonyms'].unique()} already associated"
+                " with the following records:\n"
             )
             display(records_df)
             raise SystemExit(AssertionError)
@@ -110,7 +110,7 @@ def _add_or_remove_synonyms(
         return
     # because we use | as the separator
     if any(["|" in i for i in syn_new_set]):
-        raise AssertionError("A synonym can't contain '|'!")
+        raise AssertionError("a synonym can't contain '|'!")
 
     # existing synonyms
     syns_exist = record.synonyms

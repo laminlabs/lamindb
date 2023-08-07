@@ -86,11 +86,11 @@ def save(records: Iterable[Registry], **kwargs) -> None:  # type: ignore
             ):
                 # save the record with parents one by one
                 logger.warning(
-                    "Now recursing through parents: "
+                    "now recursing through parents: "
                     "this only happens once, but is much slower than bulk saving"
                 )
                 logger.hint(
-                    "You can switch this off via: lb.settings.auto_save_parents = False"
+                    "you can switch this off via: lb.settings.auto_save_parents = False"
                 )
                 for record in non_files_with_parents:
                     record._save_ontology_parents()
@@ -123,7 +123,7 @@ def check_and_attempt_upload(file: File) -> Optional[Exception]:
         try:
             upload_data_object(file)
         except Exception as exception:
-            logger.warning(f"Could not upload file: {file}")
+            logger.warning(f"could not upload file: {file}")
             return exception
         # copies (if ob-disk) or moves the temporary file (if in-memory) to the cache
         copy_or_move_to_cache(file)
@@ -173,7 +173,7 @@ def check_and_attempt_clearing(file: File) -> Optional[Exception]:
             if file._clear_storagekey is not None:
                 delete_storage_using_key(file, file._clear_storagekey)
                 logger.success(
-                    f"Deleted stale object at storage key {file._clear_storagekey}"
+                    f"deleted stale object at storage key {file._clear_storagekey}"
                 )
                 file._clear_storagekey = None
         except Exception as exception:
@@ -244,14 +244,14 @@ def upload_data_object(file) -> None:
             if file.key is None
             else f"'{file_storage_key}'"
         )
-        logger.hint(f"storing file '{file.id}' with key {display_key}")
+        logger.download(f"storing file '{file.id}' with key {display_key}")
         store_object(file._local_filepath, file_storage_key)
     elif (
         file.suffix in {".zarr", ".zrad"}
         and hasattr(file, "_memory_rep")
         and file._memory_rep is not None
     ):
-        logger.hint(f"storing file {file.id} with key {file_storage_key}")
+        logger.download(f"storing file {file.id} with key {file_storage_key}")
         storagepath = lamindb_setup.settings.storage.key_to_filepath(file_storage_key)
         print_progress = partial(
             print_hook, filepath=file_storage_key, action="uploading"

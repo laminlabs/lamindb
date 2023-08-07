@@ -43,12 +43,12 @@ def get_labels(
         feature_name = feature
         feature = Feature.filter(name=feature_name).one_or_none()
         if feature is None:
-            raise ValueError("Feature doesn't exist")
+            raise ValueError("feature doesn't exist")
     if feature.registries is None:
-        raise ValueError("Feature does not have linked labels")
+        raise ValueError("feature does not have linked labels")
     registries_to_check = feature.registries.split("|")
     if len(registries_to_check) > 1 and not mute:
-        logger.warning("Labels come from multiple registries!")
+        logger.warning("labels come from multiple registries!")
     qs_by_registry = {}
     for registry in registries_to_check:
         # currently need to distinguish between Label and non-Label, because
@@ -166,18 +166,18 @@ def add_labels(
                 found_feature = True
         if not found_feature:
             if "external" not in linked_features_by_slot:
-                logger.success("creating feature set for slot 'external'")
                 feature_set = FeatureSet([feature], modality="meta")
                 feature_set.save()
                 self.features.add_feature_set(feature_set, slot="external")
+                logger.success("created feature set for slot 'external'")
             else:
                 feature_set = self.features._feature_set_by_slot["external"]
-                logger.success(
-                    f"linking feature {feature.name} to feature set {feature_set}"
-                )
                 feature_set.features.add(feature)
                 feature_set.n += 1
                 feature_set.save()
+                logger.success(
+                    f"linked feature {feature.name} to feature set {feature_set}"
+                )
 
 
 @property  # type: ignore
