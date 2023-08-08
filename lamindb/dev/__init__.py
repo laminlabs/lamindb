@@ -14,6 +14,7 @@
    datasets
    hashing
    storage
+   fields
    Settings
    run_context
    exc.ValidationError
@@ -28,5 +29,5 @@ from lamindb.dev._feature_manager import FeatureManager
 
 from .._context import run_context
 from . import datasets  # noqa
-from . import _data, exc
+from . import _data, exc, fields
 from ._settings import Settings

@@ -7,14 +7,13 @@ import lamindb_setup
 import pandas as pd
 from anndata import AnnData
 from appdirs import AppDirs
-from django.db.models.query_utils import DeferredAttribute as Field
 from lamin_utils import colors, logger
 from lamindb_setup import settings as setup_settings
 from lamindb_setup._init_instance import register_storage
 from lamindb_setup.dev import StorageSettings
 from lamindb_setup.dev._docs import doc_args
 from lnschema_core import Feature, FeatureSet, File, Run, Storage, ids
-from lnschema_core.types import AnnDataLike, DataLike, PathLike
+from lnschema_core.types import AnnDataLike, DataLike, FieldAttr, PathLike
 
 from lamindb._context import context
 from lamindb.dev._settings import settings
@@ -516,7 +515,7 @@ def __init__(file: File, *args, **kwargs):
 def from_df(
     cls,
     df: "pd.DataFrame",
-    columns_ref: Field = Feature.name,
+    columns_ref: FieldAttr = Feature.name,
     key: Optional[str] = None,
     description: Optional[str] = None,
     run: Optional[Run] = None,
@@ -536,8 +535,8 @@ def from_df(
 def from_anndata(
     cls,
     adata: "AnnDataLike",
-    var_ref: Optional[Field],
-    obs_columns_ref: Optional[Field] = Feature.name,
+    var_ref: Optional[FieldAttr],
+    obs_columns_ref: Optional[FieldAttr] = Feature.name,
     key: Optional[str] = None,
     description: Optional[str] = None,
     run: Optional[Run] = None,

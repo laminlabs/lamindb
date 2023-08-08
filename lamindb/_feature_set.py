@@ -1,11 +1,10 @@
 from typing import Iterable, List, Optional, Type, Union
 
 import pandas as pd
-from django.db.models.query_utils import DeferredAttribute as Field
 from lamin_utils import logger
 from lamindb_setup.dev._docs import doc_args
 from lnschema_core import Feature, FeatureSet, Modality, Registry, ids
-from lnschema_core.types import ListLike
+from lnschema_core.types import FieldAttr, ListLike
 
 from lamindb.dev.hashing import hash_set
 from lamindb.dev.utils import attach_func_to_class_method
@@ -49,7 +48,9 @@ def sanity_check_features(features: List[Registry]) -> Registry:
     return next(iter(feature_types))  # return value in set of cardinality 1
 
 
-def get_validated_features(features: List[Registry], field: Field) -> List[Registry]:
+def get_validated_features(
+    features: List[Registry], field: FieldAttr
+) -> List[Registry]:
     validated_features = []
     non_validated_features = []
     for feature in features:
@@ -150,16 +151,16 @@ def save(self, *args, **kwargs) -> None:
 def from_values(
     cls,
     values: ListLike,
-    field: Field = Feature.name,
+    field: FieldAttr = Feature.name,
     type: Optional[Union[Type, str]] = None,
     name: Optional[str] = None,
     modality: Optional[str] = None,
     **kwargs,
 ) -> Optional["FeatureSet"]:
     """{}"""
-    if not isinstance(field, Field):
+    if not isinstance(field, FieldAttr):
         raise TypeError(
-            "Argument `field` must be an Registry field, e.g., `Feature.name`"
+            "Argument `field` must be a Registry field, e.g., `Feature.name`"
         )
     if len(values) == 0:
         raise ValueError("Provide a list of at least one value")
