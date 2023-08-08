@@ -1,5 +1,6 @@
 # Changelog
 
+- 🔊 Fix validate logging [PR1017](https://github.com/laminlabs/lamindb/pull/1017) [@sunnyosun](https://github.com/sunnyosun)
 - ✨ Enable versioning of files [PR1014](https://github.com/laminlabs/lamindb/pull/1014) [@falexwolf](https://github.com/falexwolf)
 ```{eval-rst}
 .. role:: small
