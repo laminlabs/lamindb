@@ -15,7 +15,9 @@ from lamindb import _file
 from lamindb._file import (
     check_path_is_child_of_root,
     get_relative_path_to_directory,
+    init_ids,
     process_data,
+    set_version,
 )
 from lamindb.dev.storage.file import extract_suffix_from_path
 
@@ -52,6 +54,57 @@ def test_signatures():
     # methods
     for name, sig in _file.SIGS.items():
         assert signature(getattr(_file, name)) == sig
+
+
+def test_set_version():
+    # all remaining lines are covered in notebooks
+    with pytest.raises(ValueError):
+        set_version(None, "1.2")
+    assert set_version(None, "0") == "1"
+    assert set_version(None, "1") == "2"
+    assert set_version("1.2.3", "0") == "1.2.3"
+    assert set_version("1.2.3") == "1.2.3"
+
+
+def test_init_ids():
+    # test error
+    with pytest.raises(AssertionError):
+        # stem_id no proper length
+        init_ids(None, stem_id="NJvdsWWbJlZS", version="0")
+
+
+def test_make_new_version_of_versioned_file():
+    # create a versioned file
+    file = ln.File(df, stem_id="NJvdsWWbJlZSWbJlZS", version="1")
+    assert file.id.startswith("NJvdsWWbJlZSWbJlZS")
+    assert file.stem_id == "NJvdsWWbJlZSWbJlZS"
+    assert file.version == "1"
+    file.save()
+
+    # create new file from old file
+    new_file = ln.File(adata, make_new_version_of=file)
+    assert new_file.id.startswith("NJvdsWWbJlZSWbJlZS")
+    assert new_file.stem_id == "NJvdsWWbJlZSWbJlZS"
+    assert new_file.version == "2"
+
+    file.delete(storage=True)
+
+
+def test_make_new_version_of_unversioned_file():
+    # unversioned file
+    file = ln.File(df)
+    assert file.stem_id is None
+    assert file.version is None
+
+    # create new file from old file
+    new_file = ln.File(adata, make_new_version_of=file)
+    assert new_file.id.startswith(file.id[:18])
+    assert file.stem_id == file.id[:18]
+    assert new_file.stem_id == file.id[:18]
+    assert file.version == "1"
+    assert new_file.version == "2"
+
+    file.delete(storage=True)
 
 
 @pytest.mark.parametrize("name", [None, "my name"])
