@@ -1,5 +1,6 @@
 # Changelog
 
+- ✨ Enable versioning of files [PR1014](https://github.com/laminlabs/lamindb/pull/1014) [@falexwolf](https://github.com/falexwolf)
 ```{eval-rst}
 .. role:: small
 ```
