@@ -407,6 +407,75 @@ def data_is_mudata(data: DataLike):
     return False
 
 
+def init_ids(
+    provisional_id: Optional[None], stem_id: Optional[str], version: Optional[str]
+) -> Tuple[str, Optional[str]]:
+    if version is not None:
+        if not isinstance(version, str):
+            raise ValueError("version must be None or str, e.g., '0', '1', etc.")
+    # first consider an unversioned record
+    if version is None and stem_id is None:
+        provisional_id = ids.base62_20()
+        return provisional_id, stem_id  # type: ignore
+    # now consider a versioned record
+    id_ext = ids.base62(2)
+    if provisional_id is None and stem_id is None:
+        stem_id = ids.base62_18
+        provisional_id = stem_id + id_ext
+    elif stem_id is not None:
+        assert isinstance(stem_id, str) and len(stem_id) == 18
+        provisional_id = stem_id + id_ext
+    elif provisional_id is not None:
+        assert isinstance(provisional_id, str) and len(provisional_id) == 20
+        stem_id = provisional_id[:18]
+    return provisional_id, stem_id  # type: ignore
+
+
+def set_version(version: Optional[str] = None, previous_version: Optional[str] = None):
+    """(Auto-) set version.
+
+    If `version` is `None`, returns the stored version.
+    Otherwise sets the version to the passed version.
+
+    Args:
+        version: Version string.
+        stored_version: Mock stored version for testing purposes.
+    """
+    if version is None and previous_version is not None:
+        try:
+            version = str(int(previous_version) + 1)  # increment version by 1
+        except ValueError:
+            raise ValueError(
+                "Cannot auto-increment non-integer castable version, please provide"
+                " manually"
+            )
+    return version
+
+
+def get_ids_from_old_version_of_file(
+    make_new_version_of: File,
+    version: Optional[str],
+) -> Tuple[str, str, str]:
+    """{}"""
+    msg = ""
+    if make_new_version_of.version is None:
+        previous_version = "1"
+        msg = "setting version of old file to '1'"
+    else:
+        previous_version = make_new_version_of.version
+    version = set_version(version, previous_version)
+    new_file_id, stem_id = init_ids(
+        make_new_version_of.id, make_new_version_of.stem_id, version
+    )
+    if make_new_version_of.stem_id is None or make_new_version_of.version is None:
+        make_new_version_of.stem_id = stem_id
+        make_new_version_of.version = previous_version
+        make_new_version_of.save()
+        if msg != "":
+            msg += f"& of new file to '{version}' (stem id to '{stem_id}')"
+    return new_file_id, stem_id, version  # type: ignore
+
+
 def __init__(file: File, *args, **kwargs):
     # Below checks for the Django-internal call in from_db()
     # it'd be better if we could avoid this, but not being able to create a File
@@ -428,6 +497,11 @@ def __init__(file: File, *args, **kwargs):
     description: Optional[str] = (
         kwargs.pop("description") if "description" in kwargs else None
     )
+    make_new_version_of: Optional[File] = (
+        kwargs.pop("make_new_version_of") if "make_new_version_of" in kwargs else None
+    )
+    stem_id: Optional[str] = kwargs.pop("stem_id") if "stem_id" in kwargs else None
+    version: Optional[str] = kwargs.pop("version") if "version" in kwargs else None
     name: Optional[str] = kwargs.pop("name") if "name" in kwargs else None
     format = kwargs.pop("format") if "format" in kwargs else None
     log_hint = kwargs.pop("log_hint") if "log_hint" in kwargs else True
@@ -443,7 +517,14 @@ def __init__(file: File, *args, **kwargs):
         logger.warning("argument `name` is deprecated, please use `description`")
         description = name
 
-    provisional_id = ids.base62_20()
+    if make_new_version_of is None:
+        provisional_id, stem_id = init_ids(None, stem_id, version)
+    else:
+        if not isinstance(make_new_version_of, File):
+            raise TypeError("make_new_version_of has to be of type ln.File")
+        provisional_id, stem_id, version = get_ids_from_old_version_of_file(
+            make_new_version_of, version
+        )
     kwargs_or_file, privates = get_file_kwargs_from_data(
         data=data,
         key=key,
@@ -487,6 +568,8 @@ def __init__(file: File, *args, **kwargs):
         kwargs["accessor"] = "MuData"
 
     kwargs["id"] = provisional_id
+    kwargs["stem_id"] = stem_id
+    kwargs["version"] = version
     kwargs["description"] = description
     # transform cannot be directly passed, just via run
     # it's directly stored in the file table to avoid another join
