@@ -36,9 +36,11 @@ def inspect(
 
 @classmethod  # type: ignore
 @doc_args(ValidationAware.validate.__doc__)
-def validate(cls, values: ListLike, field: StrField, **kwargs) -> np.ndarray[bool]:
+def validate(
+    cls, values: ListLike, field: StrField, *, mute: bool = False, **kwargs
+) -> np.ndarray:
     """{}"""
-    return _validate(cls=cls, values=values, field=field, **kwargs)
+    return _validate(cls=cls, values=values, field=field, mute=mute, **kwargs)
 
 
 def _inspect(
@@ -69,7 +71,9 @@ def _inspect(
     )
 
 
-def _validate(cls, values: ListLike, field: StrField, **kwargs) -> np.ndarray[bool]:
+def _validate(
+    cls, values: ListLike, field: StrField, *, mute: bool = False, **kwargs
+) -> np.ndarray:
     """{}"""
     from lamin_utils._inspect import validate
 
@@ -85,7 +89,11 @@ def _validate(cls, values: ListLike, field: StrField, **kwargs) -> np.ndarray[bo
         )
     )
     return validate(
-        identifiers=values, field_values=field_values, case_sensitive=True, **kwargs
+        identifiers=values,
+        field_values=field_values,
+        case_sensitive=True,
+        mute=mute,
+        **kwargs,
     )
 
 
