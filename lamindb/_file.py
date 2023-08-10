@@ -418,7 +418,9 @@ def init_id(
 ) -> str:
     if version is not None:
         if not isinstance(version, str):
-            raise ValueError("version must be None or str, e.g., '0', '1', etc.")
+            raise ValueError(
+                "`version` parameter must be `None` or `str`, e.g., '0', '1', etc."
+            )
     if initial_version_id is not None:
         stem_id = initial_version_id[:18]
     else:

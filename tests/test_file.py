@@ -67,33 +67,47 @@ def test_set_version():
 
 
 def test_make_new_version_of_versioned_file():
+    # attempt to create a file with an invalid version
+    with pytest.raises(ValueError) as error:
+        file = ln.File(df, version=0)
+    assert (
+        error.exconly()
+        == "ValueError: `version` parameter must be `None` or `str`, e.g., '0', '1',"
+        " etc."
+    )
+
     # create a versioned file
     file = ln.File(df, version="0")
     assert file.version == "0"
 
     assert file.path.exists()  # because of cache file already exists
-
     file.save()
-
     assert file.path.exists()
 
     # create new file from old file
-    new_file = ln.File(adata, make_new_version_of=file)
-    assert new_file.id[:18] == file.id[:18]  # stem_id
+    file_v2 = ln.File(adata, make_new_version_of=file)
+    assert file_v2.id[:18] == file.id[:18]  # stem_id
     assert file.version == "0"
     assert file.initial_version_id is None  # initial file has initial_version_id None
-    assert new_file.initial_version_id == file.id
-    assert new_file.version == "1"
-    assert new_file.key is None
+    assert file_v2.initial_version_id == file.id
+    assert file_v2.version == "1"
+    assert file_v2.key is None
 
-    new_file.save()
+    file_v2.save()
+    assert file_v2.path.exists()
 
-    assert new_file.path.exists()
+    # create new file from newly versioned file
+    df.iloc[0, 0] = 0
+    file_v3 = ln.File(df, make_new_version_of=file_v2)
+    assert file_v3.id[:18] == file.id[:18]  # stem_id
+    assert file_v3.initial_version_id == file.id
+    assert file_v3.version == "2"
 
+    # test that reference file cannot be deleted
     with pytest.raises(ProtectedError):
         file.delete(storage=True)
-
-    new_file.delete(storage=True)
+    file_v2.delete(storage=True)
+    file_v3.delete(storage=True)
     file.delete(storage=True)
 
 
