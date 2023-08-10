@@ -407,20 +407,32 @@ def data_is_mudata(data: DataLike):
     return False
 
 
-def init_ids(
-    provisional_id: Optional[None], stem_id: Optional[str], version: Optional[str]
-) -> Tuple[str, Optional[str]]:
+# uses `initial_version_id` to extract a stem_id that's part of id
+# this entire piece of logic might be removed in the future if it doesn't turn out
+# to be robustly maintainable
+def init_id(
+    *,
+    provisional_id: Optional[None] = None,
+    initial_version_id: Optional[str] = None,
+    version: Optional[str] = None,
+) -> str:
     if version is not None:
         if not isinstance(version, str):
-            raise ValueError("version must be None or str, e.g., '0', '1', etc.")
+            raise ValueError(
+                "`version` parameter must be `None` or `str`, e.g., '0', '1', etc."
+            )
+    if initial_version_id is not None:
+        stem_id = initial_version_id[:18]
+    else:
+        stem_id = None
     # first consider an unversioned record
     if version is None and stem_id is None:
         provisional_id = ids.base62_20()
-        return provisional_id, stem_id  # type: ignore
+        return provisional_id  # type: ignore
     # now consider a versioned record
     id_ext = ids.base62(2)
     if provisional_id is None and stem_id is None:
-        stem_id = ids.base62_18
+        stem_id = ids.base62_18()
         provisional_id = stem_id + id_ext
     elif stem_id is not None:
         assert isinstance(stem_id, str) and len(stem_id) == 18
@@ -428,7 +440,7 @@ def init_ids(
     elif provisional_id is not None:
         assert isinstance(provisional_id, str) and len(provisional_id) == 20
         stem_id = provisional_id[:18]
-    return provisional_id, stem_id  # type: ignore
+    return provisional_id  # type: ignore
 
 
 def set_version(version: Optional[str] = None, previous_version: Optional[str] = None):
@@ -464,16 +476,25 @@ def get_ids_from_old_version_of_file(
     else:
         previous_version = make_new_version_of.version
     version = set_version(version, previous_version)
-    new_file_id, stem_id = init_ids(
-        make_new_version_of.id, make_new_version_of.stem_id, version
+    if make_new_version_of.initial_version_id is None:
+        initial_version_id = make_new_version_of.id
+    else:
+        initial_version_id = make_new_version_of.initial_version_id
+    new_file_id = init_id(
+        provisional_id=make_new_version_of.id,
+        initial_version_id=initial_version_id,
+        version=version,
     )
-    if make_new_version_of.stem_id is None or make_new_version_of.version is None:
-        make_new_version_of.stem_id = stem_id
+    # the following covers the edge case where the old file was unversioned
+    if make_new_version_of.version is None:
         make_new_version_of.version = previous_version
         make_new_version_of.save()
         if msg != "":
-            msg += f"& of new file to '{version}' (stem id to '{stem_id}')"
-    return new_file_id, stem_id, version  # type: ignore
+            msg += (
+                f"& of new file to '{version}' (initial_version_id ="
+                f" '{initial_version_id}')"
+            )
+    return new_file_id, initial_version_id, version  # type: ignore
 
 
 def __init__(file: File, *args, **kwargs):
@@ -500,7 +521,9 @@ def __init__(file: File, *args, **kwargs):
     make_new_version_of: Optional[File] = (
         kwargs.pop("make_new_version_of") if "make_new_version_of" in kwargs else None
     )
-    stem_id: Optional[str] = kwargs.pop("stem_id") if "stem_id" in kwargs else None
+    initial_version_id: Optional[str] = (
+        kwargs.pop("initial_version_id") if "initial_version_id" in kwargs else None
+    )
     version: Optional[str] = kwargs.pop("version") if "version" in kwargs else None
     name: Optional[str] = kwargs.pop("name") if "name" in kwargs else None
     format = kwargs.pop("format") if "format" in kwargs else None
@@ -518,13 +541,19 @@ def __init__(file: File, *args, **kwargs):
         description = name
 
     if make_new_version_of is None:
-        provisional_id, stem_id = init_ids(None, stem_id, version)
+        provisional_id = init_id(version=version)
     else:
         if not isinstance(make_new_version_of, File):
             raise TypeError("make_new_version_of has to be of type ln.File")
-        provisional_id, stem_id, version = get_ids_from_old_version_of_file(
+        provisional_id, initial_version_id, version = get_ids_from_old_version_of_file(
             make_new_version_of, version
         )
+    if version is not None:
+        if initial_version_id is None:
+            logger.info(
+                "initializing versioning for this file! create future versions of it"
+                " using ln.File(..., make_new_version_of=old_file)"
+            )
     kwargs_or_file, privates = get_file_kwargs_from_data(
         data=data,
         key=key,
@@ -568,7 +597,7 @@ def __init__(file: File, *args, **kwargs):
         kwargs["accessor"] = "MuData"
 
     kwargs["id"] = provisional_id
-    kwargs["stem_id"] = stem_id
+    kwargs["initial_version_id"] = initial_version_id
     kwargs["version"] = version
     kwargs["description"] = description
     # transform cannot be directly passed, just via run
@@ -862,11 +891,16 @@ def delete(self, storage: Optional[bool] = None) -> None:
     else:
         delete_in_storage = storage
 
+    # need to grab file path before deletion
+    filepath = self.path
+    # only delete in storage if DB delete is successful
+    # DB delete might error because of a foreign key constraint violated etc.
+    self._delete_skip_storage()
+    # we don't yet have any way to bring back the deleted metadata record
+    # in case the storage deletion fails - this is important for ACID down the road
     if delete_in_storage:
-        filepath = self.path
         delete_storage(filepath)
         logger.success(f"deleted stored object {colors.yellow(f'{filepath}')}")
-    self._delete_skip_storage()
 
 
 def _delete_skip_storage(file, *args, **kwargs) -> None:

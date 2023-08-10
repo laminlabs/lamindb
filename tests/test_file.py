@@ -8,6 +8,7 @@ import lnschema_bionty as lb
 import numpy as np
 import pandas as pd
 import pytest
+from django.db.models.deletion import ProtectedError
 from lamindb_setup.dev.upath import UPath
 
 import lamindb as ln
@@ -15,7 +16,6 @@ from lamindb import _file
 from lamindb._file import (
     check_path_is_child_of_root,
     get_relative_path_to_directory,
-    init_ids,
     process_data,
     set_version,
 )
@@ -66,42 +66,67 @@ def test_set_version():
     assert set_version("1.2.3") == "1.2.3"
 
 
-def test_init_ids():
-    # test error
-    with pytest.raises(AssertionError):
-        # stem_id no proper length
-        init_ids(None, stem_id="NJvdsWWbJlZS", version="0")
-
-
 def test_make_new_version_of_versioned_file():
+    # attempt to create a file with an invalid version
+    with pytest.raises(ValueError) as error:
+        file = ln.File(df, version=0)
+    assert (
+        error.exconly()
+        == "ValueError: `version` parameter must be `None` or `str`, e.g., '0', '1',"
+        " etc."
+    )
+
     # create a versioned file
-    file = ln.File(df, stem_id="NJvdsWWbJlZSWbJlZS", version="1")
-    assert file.id.startswith("NJvdsWWbJlZSWbJlZS")
-    assert file.stem_id == "NJvdsWWbJlZSWbJlZS"
-    assert file.version == "1"
+    file = ln.File(df, version="0")
+    assert file.version == "0"
+
+    assert file.path.exists()  # because of cache file already exists
     file.save()
+    assert file.path.exists()
 
     # create new file from old file
-    new_file = ln.File(adata, make_new_version_of=file)
-    assert new_file.id.startswith("NJvdsWWbJlZSWbJlZS")
-    assert new_file.stem_id == "NJvdsWWbJlZSWbJlZS"
-    assert new_file.version == "2"
+    file_v2 = ln.File(adata, make_new_version_of=file)
+    assert file_v2.id[:18] == file.id[:18]  # stem_id
+    assert file.version == "0"
+    assert file.initial_version_id is None  # initial file has initial_version_id None
+    assert file_v2.initial_version_id == file.id
+    assert file_v2.version == "1"
+    assert file_v2.key is None
 
+    file_v2.save()
+    assert file_v2.path.exists()
+
+    # create new file from newly versioned file
+    df.iloc[0, 0] = 0
+    file_v3 = ln.File(df, make_new_version_of=file_v2)
+    assert file_v3.id[:18] == file.id[:18]  # stem_id
+    assert file_v3.initial_version_id == file.id
+    assert file_v3.version == "2"
+
+    # test that reference file cannot be deleted
+    with pytest.raises(ProtectedError):
+        file.delete(storage=True)
+    file_v2.delete(storage=True)
+    file_v3.delete(storage=True)
     file.delete(storage=True)
 
 
 def test_make_new_version_of_unversioned_file():
     # unversioned file
     file = ln.File(df)
-    assert file.stem_id is None
+    assert file.initial_version_id is None
     assert file.version is None
+
+    # what happens if we don't save the old file?
+    # add a test for it!
+    file.save()
 
     # create new file from old file
     new_file = ln.File(adata, make_new_version_of=file)
-    assert new_file.id.startswith(file.id[:18])
-    assert file.stem_id == file.id[:18]
-    assert new_file.stem_id == file.id[:18]
+    assert new_file.id[:18] == file.id[:18]  # stem_id
     assert file.version == "1"
+    assert file.initial_version is None
+    assert new_file.initial_version_id == file.id
     assert new_file.version == "2"
 
     file.delete(storage=True)

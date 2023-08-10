@@ -17,7 +17,7 @@ dependencies = [
     # Lamin PINNED packages
     # !!! These packages should ALWAYS be pinned, do not unpin !!!
     # !!! They cannot be pinned ANYWHERE else !!!
-    "lnschema_core==0.44.3",
+    "lnschema_core==0.45.0",
     "lamindb_setup==0.49.6",
     "lamin_utils==0.9.6",
     # Lamin GREATEREQ packages
