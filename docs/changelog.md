@@ -1,5 +1,6 @@
 # Changelog
 
+- 🎉 Stage 0.50.2 [PR1013](https://github.com/laminlabs/lamindb/pull/1013) [@falexwolf](https://github.com/falexwolf)
 - ♻️ Refactor file versioning [PR1018](https://github.com/laminlabs/lamindb/pull/1018) [@falexwolf](https://github.com/falexwolf)
 - 🔊 Fix validate logging [PR1017](https://github.com/laminlabs/lamindb/pull/1017) [@sunnyosun](https://github.com/sunnyosun)
 - ✨ Enable versioning of files [PR1014](https://github.com/laminlabs/lamindb/pull/1014) [@falexwolf](https://github.com/falexwolf)
