@@ -1,24 +1,21 @@
 import builtins
-from typing import Dict, Iterable, List, NamedTuple, Optional, Union
+from typing import Iterable, List, NamedTuple, Optional, Union
 
 import pandas as pd
 from django.core.exceptions import FieldDoesNotExist
 from django.db.models import Manager, QuerySet
 from django.db.models.query_utils import DeferredAttribute as Field
-from lamin_utils import colors, logger
+from lamin_utils import logger
 from lamin_utils._lookup import Lookup
 from lamin_utils._search import search as base_search
 from lamindb_setup.dev._docs import doc_args
 from lnschema_core import Registry
-from lnschema_core.models import format_field_value
 from lnschema_core.types import ListLike, StrField
 
 from lamindb.dev.utils import attach_func_to_class_method
 
 from . import _TESTING
 from ._from_values import get_or_create_records
-from .dev._feature_manager import create_features_df
-from .dev._settings import settings
 
 IPYTHON = getattr(builtins, "__IPYTHON__", False)
 
@@ -268,138 +265,6 @@ def lookup(cls, field: Optional[StrField] = None) -> NamedTuple:
     return _lookup(cls=cls, field=field)
 
 
-def describe(self):
-    model_name = colors.green(self.__class__.__name__)
-    msg = ""
-
-    def dict_related_model_to_related_name(orm):
-        d: Dict = {
-            i.related_model.__get_name_with_schema__(): i.related_name
-            for i in orm._meta.related_objects
-            if i.related_name is not None
-        }
-        d.update(
-            {
-                i.related_model.__get_name_with_schema__(): i.name
-                for i in orm._meta.many_to_many
-                if i.name is not None
-            }
-        )
-
-        return d
-
-    # Display the file record
-    fields = self._meta.fields
-    direct_fields = []
-    foreign_key_fields = []
-    for f in fields:
-        if f.is_relation:
-            foreign_key_fields.append(f.name)
-        else:
-            direct_fields.append(f.name)
-
-    # Display Provenance
-    # display line by line the foreign key fields
-    from ._parents import _transform_emoji
-
-    emojis = {
-        "storage": "🗃️",
-        "created_by": "👤",
-        "transform": _transform_emoji(self.transform),
-        "run": "🚗",
-    }
-    if len(foreign_key_fields) > 0:
-        record_msg = f"{model_name}({''.join([f'{i}={self.__getattribute__(i)}, ' for i in direct_fields])})"  # noqa
-        msg += f"{record_msg.rstrip(', )')})\n\n"
-
-        msg += f"{colors.green('Provenance')}:\n    "
-        related_msg = "".join(
-            [
-                f"{emojis.get(i, '📎')} {i}: {self.__getattribute__(i)}\n    "
-                for i in foreign_key_fields
-            ]
-        )
-        msg += related_msg
-    # input of
-    if self.input_of.exists():
-        values = [format_field_value(i.run_at) for i in self.input_of.all()]
-        msg += f"⬇️ input_of ({colors.italic('core.Run')}): {values}\n    "
-    msg = msg.rstrip("    ")
-
-    if not self.feature_sets.exists():
-        print(msg)
-        return
-    else:
-        feature_sets_related_models = dict_related_model_to_related_name(
-            self.feature_sets.first()
-        )
-    # Display Features by slot
-    msg += f"{colors.green('Features')}:\n"
-    # var
-    feature_sets = self.feature_sets.exclude(registry="core.Feature")
-    if feature_sets.exists():
-        for feature_set in feature_sets.all():
-            key_split = feature_set.registry.split(".")
-            if len(key_split) == 3:
-                logger.warning(
-                    "you have a legacy entry in feature_set.field, should be just"
-                    " 'bionty.Gene'"
-                )
-            orm_name_with_schema = f"{key_split[0]}.{key_split[1]}"
-            field_name = "id"
-            related_name = feature_sets_related_models.get(orm_name_with_schema)
-            values = feature_set.__getattribute__(related_name).all()[:5].list("id")
-            slots = self.feature_sets.through.objects.filter(
-                file=self, feature_set=feature_set
-            ).list("slot")
-            for slot in slots:
-                if slot == "var":
-                    slot += " (X)"
-                msg += f"  🗺️ {colors.bold(slot)}:\n"
-                ref = colors.italic(f"{orm_name_with_schema}.{field_name}")
-                msg += f"    🔗 index ({feature_set.n}, {ref}): {values}\n".replace(
-                    "]", "...]"
-                )
-
-    # obs
-    # Feature, combine all features into one dataframe
-    feature_sets = self.feature_sets.filter(registry="core.Feature").all()
-    if feature_sets.exists():
-        features_df = create_features_df(
-            file=self, feature_sets=feature_sets.all(), exclude=True
-        )
-        for slot in features_df["slot"].unique():
-            df_slot = features_df[features_df.slot == slot]
-            if slot == "obs":
-                slot += " (metadata)"
-            msg += f"  🗺️ {colors.bold(slot)}:\n"
-            for _, row in df_slot.iterrows():
-                labels = self.get_labels(row["name"], mute=True)
-                indent = ""
-                if isinstance(labels, dict):
-                    msg += f"    🔗 {row['name']} ({row.registries})\n"
-                    indent = "    "
-                else:
-                    labels = {row["registries"]: labels}
-                for registry, labels in labels.items():
-                    count_str = f"{len(labels)}, {colors.italic(f'{registry}')}"
-                    try:
-                        field = get_default_str_field(labels)
-                    except ValueError:
-                        field = "id"
-                    values = labels.list(field)[:5]
-                    msg_objects = (
-                        f"{indent}    🔗 {row['name']} ({count_str}): {values}\n"
-                    )
-                    msg += msg_objects
-    msg = msg.rstrip("\n")
-    msg = msg.rstrip("Features:")
-    verbosity = settings.verbosity
-    settings.verbosity = 3
-    logger.info(msg)
-    settings.verbosity = verbosity
-
-
 def get_default_str_field(orm: Union[Registry, QuerySet, Manager]) -> str:
     """Get the 1st char or text field from the orm."""
     if isinstance(orm, (QuerySet, Manager)):
@@ -433,7 +298,6 @@ METHOD_NAMES = [
     "search",
     "lookup",
     "from_values",
-    "describe",
 ]
 
 if _TESTING:  # type: ignore
