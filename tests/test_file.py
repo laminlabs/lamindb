@@ -66,7 +66,7 @@ def test_set_version():
     assert set_version("1.2.3") == "1.2.3"
 
 
-def test_make_new_version_of_versioned_file():
+def test_is_new_version_of_versioned_file():
     # attempt to create a file with an invalid version
     with pytest.raises(ValueError) as error:
         file = ln.File(df, description="test", version=0)
@@ -85,7 +85,7 @@ def test_make_new_version_of_versioned_file():
     assert file.path.exists()
 
     # create new file from old file
-    file_v2 = ln.File(adata, make_new_version_of=file)
+    file_v2 = ln.File(adata, is_new_version_of=file)
     assert file_v2.id[:18] == file.id[:18]  # stem_id
     assert file.version == "0"
     assert file.initial_version_id is None  # initial file has initial_version_id None
@@ -99,7 +99,7 @@ def test_make_new_version_of_versioned_file():
 
     # create new file from newly versioned file
     df.iloc[0, 0] = 0
-    file_v3 = ln.File(df, description="test1", make_new_version_of=file_v2)
+    file_v3 = ln.File(df, description="test1", is_new_version_of=file_v2)
     assert file_v3.id[:18] == file.id[:18]  # stem_id
     assert file_v3.initial_version_id == file.id
     assert file_v3.version == "2"
@@ -113,7 +113,7 @@ def test_make_new_version_of_versioned_file():
     file.delete(storage=True)
 
 
-def test_make_new_version_of_unversioned_file():
+def test_is_new_version_of_unversioned_file():
     # unversioned file
     file = ln.File(df, description="test2")
     assert file.initial_version_id is None
@@ -124,7 +124,7 @@ def test_make_new_version_of_unversioned_file():
     file.save()
 
     # create new file from old file
-    new_file = ln.File(adata, make_new_version_of=file)
+    new_file = ln.File(adata, is_new_version_of=file)
     assert new_file.id[:18] == file.id[:18]  # stem_id
     assert file.version == "1"
     assert file.initial_version is None

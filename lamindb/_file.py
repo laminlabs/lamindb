@@ -465,30 +465,30 @@ def set_version(version: Optional[str] = None, previous_version: Optional[str] =
 
 
 def get_ids_from_old_version_of_file(
-    make_new_version_of: File,
+    is_new_version_of: File,
     version: Optional[str],
 ) -> Tuple[str, str, str]:
     """{}"""
     msg = ""
-    if make_new_version_of.version is None:
+    if is_new_version_of.version is None:
         previous_version = "1"
         msg = "setting version of old file to '1'"
     else:
-        previous_version = make_new_version_of.version
+        previous_version = is_new_version_of.version
     version = set_version(version, previous_version)
-    if make_new_version_of.initial_version_id is None:
-        initial_version_id = make_new_version_of.id
+    if is_new_version_of.initial_version_id is None:
+        initial_version_id = is_new_version_of.id
     else:
-        initial_version_id = make_new_version_of.initial_version_id
+        initial_version_id = is_new_version_of.initial_version_id
     new_file_id = init_id(
-        provisional_id=make_new_version_of.id,
+        provisional_id=is_new_version_of.id,
         initial_version_id=initial_version_id,
         version=version,
     )
     # the following covers the edge case where the old file was unversioned
-    if make_new_version_of.version is None:
-        make_new_version_of.version = previous_version
-        make_new_version_of.save()
+    if is_new_version_of.version is None:
+        is_new_version_of.version = previous_version
+        is_new_version_of.save()
         if msg != "":
             msg += (
                 f"& of new file to '{version}' (initial_version_id ="
@@ -518,8 +518,8 @@ def __init__(file: File, *args, **kwargs):
     description: Optional[str] = (
         kwargs.pop("description") if "description" in kwargs else None
     )
-    make_new_version_of: Optional[File] = (
-        kwargs.pop("make_new_version_of") if "make_new_version_of" in kwargs else None
+    is_new_version_of: Optional[File] = (
+        kwargs.pop("is_new_version_of") if "is_new_version_of" in kwargs else None
     )
     initial_version_id: Optional[str] = (
         kwargs.pop("initial_version_id") if "initial_version_id" in kwargs else None
@@ -534,22 +534,22 @@ def __init__(file: File, *args, **kwargs):
     if not len(kwargs) == 0:
         raise ValueError("Only data, key, run, description can be passed.")
 
-    if make_new_version_of is None:
+    if is_new_version_of is None:
         provisional_id = init_id(version=version)
     else:
-        if not isinstance(make_new_version_of, File):
-            raise TypeError("make_new_version_of has to be of type ln.File")
+        if not isinstance(is_new_version_of, File):
+            raise TypeError("is_new_version_of has to be of type ln.File")
         provisional_id, initial_version_id, version = get_ids_from_old_version_of_file(
-            make_new_version_of, version
+            is_new_version_of, version
         )
         if description is None:
-            description = make_new_version_of.description
+            description = is_new_version_of.description
 
     if version is not None:
         if initial_version_id is None:
             logger.info(
                 "initializing versioning for this file! create future versions of it"
-                " using ln.File(..., make_new_version_of=old_file)"
+                " using ln.File(..., is_new_version_of=old_file)"
             )
     kwargs_or_file, privates = get_file_kwargs_from_data(
         data=data,
