@@ -72,7 +72,7 @@ def test_search_file(get_search_test_filepaths):
     # no returning entries if all search results have __ratio__ 0
     assert ln.File.search("x").shape[0] == 0
 
-    file5 = ln.File("test-search5", key="test-search5")
+    file5 = ln.File("./unregistered_storage/test-search5", key="test-search5")
     file5.save()
     res = ln.File.search("search5")
     assert res.iloc[0].key == "test-search5"
