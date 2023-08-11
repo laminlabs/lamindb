@@ -1,5 +1,6 @@
 # Changelog
 
+- 🎉 Stage 0.50.3 [PR1019](https://github.com/laminlabs/lamindb/pull/1019) [@falexwolf](https://github.com/falexwolf)
 - 🚚 Rename `make_new_version_of` to `is_new_version_of` [PR1027](https://github.com/laminlabs/lamindb/pull/1027) [@falexwolf](https://github.com/falexwolf)
 - 🚚 Move data lineage to use cases [PR1026](https://github.com/laminlabs/lamindb/pull/1026) [@falexwolf](https://github.com/falexwolf)
 - 🚸 Do not allow creating files with none of key, description and run [PR1022](https://github.com/laminlabs/lamindb/pull/1022) [@falexwolf](https://github.com/falexwolf)
