@@ -38,7 +38,7 @@ from lamindb.dev.utils import attach_func_to_class_method
 
 from . import _TESTING
 from ._feature import convert_numpy_dtype_to_lamin_feature_type
-from .dev._view_parents import view_lineage
+from ._view_parents import view_lineage
 from .dev.storage.file import AUTO_KEY_PREFIX
 
 DIRS = AppDirs("lamindb", "laminlabs")

@@ -19,7 +19,6 @@ from . import _TESTING
 from ._from_values import get_or_create_records
 from .dev._feature_manager import create_features_df
 from .dev._settings import settings
-from .dev._view_parents import _transform_emoji
 
 IPYTHON = getattr(builtins, "__IPYTHON__", False)
 
@@ -109,24 +108,6 @@ def __init__(orm: Registry, *args, **kwargs):
     else:
         # object is loaded from DB (**kwargs could be omitted below, I believe)
         super(Registry, orm).__init__(*args, **kwargs)
-
-
-def view_parents(
-    self,
-    field: Optional[StrField] = None,
-    with_children: bool = False,
-    distance: int = 5,
-):
-    from lamindb.dev._view_parents import view_parents as _view_parents
-
-    if field is None:
-        field = get_default_str_field(self)
-    if not isinstance(field, str):
-        field = field.field.name
-
-    return _view_parents(
-        record=self, field=field, with_children=with_children, distance=distance
-    )
 
 
 @classmethod  # type:ignore
@@ -319,6 +300,8 @@ def describe(self):
 
     # Display Provenance
     # display line by line the foreign key fields
+    from _view_parents import _transform_emoji
+
     emojis = {
         "storage": "🗃️",
         "created_by": "👤",
