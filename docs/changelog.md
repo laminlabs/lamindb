@@ -1,5 +1,6 @@
 # Changelog
 
+- Parents aware [PR1023](https://github.com/laminlabs/lamindb/pull/1023) [@sunnyosun](https://github.com/sunnyosun)
 - 🚚 Move `setup-user` guide from `lamindb-setup` here [PR1021](https://github.com/laminlabs/lamindb/pull/1021) [@falexwolf](https://github.com/falexwolf)
 - 🔥 Remove `lamin-project.yaml` [PR1020](https://github.com/laminlabs/lamindb/pull/1020) [@falexwolf](https://github.com/falexwolf)
 ```{eval-rst}
