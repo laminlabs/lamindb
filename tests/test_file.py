@@ -16,7 +16,6 @@ from lamindb import _file
 from lamindb._file import (
     check_path_is_child_of_root,
     get_relative_path_to_directory,
-    init_ids,
     process_data,
     set_version,
 )

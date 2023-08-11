@@ -434,7 +434,6 @@ METHOD_NAMES = [
     "lookup",
     "from_values",
     "describe",
-    "view_parents",
 ]
 
 if _TESTING:  # type: ignore
