@@ -145,6 +145,7 @@ if _INSTANCE_SETUP:
     from . import _feature_set  # noqa
     from . import _file  # noqa
     from . import _label  # noqa
+    from . import _parents  # noqa
     from . import _registry  # noqa
     from . import _storage  # noqa
     from . import _synonym  # noqa
