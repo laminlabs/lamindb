@@ -10,3 +10,6 @@ def test_track_with_multi_parents():
     child.save()
     child.parents.set([parent1, parent2])
     ln.track(child)
+    # unset to remove side effects
+    ln.dev.run_context.run = None
+    ln.dev.run_context.transform = None

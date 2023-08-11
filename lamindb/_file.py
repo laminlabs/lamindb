@@ -525,7 +525,6 @@ def __init__(file: File, *args, **kwargs):
         kwargs.pop("initial_version_id") if "initial_version_id" in kwargs else None
     )
     version: Optional[str] = kwargs.pop("version") if "version" in kwargs else None
-    name: Optional[str] = kwargs.pop("name") if "name" in kwargs else None
     format = kwargs.pop("format") if "format" in kwargs else None
     log_hint = kwargs.pop("log_hint") if "log_hint" in kwargs else True
     skip_check_exists = (
@@ -534,11 +533,6 @@ def __init__(file: File, *args, **kwargs):
 
     if not len(kwargs) == 0:
         raise ValueError("Only data, key, run, description can be passed.")
-    if name is not None and description is not None:
-        raise ValueError("Only pass description, do not pass a name")
-    if name is not None:
-        logger.warning("argument `name` is deprecated, please use `description`")
-        description = name
 
     if make_new_version_of is None:
         provisional_id = init_id(version=version)
@@ -548,6 +542,9 @@ def __init__(file: File, *args, **kwargs):
         provisional_id, initial_version_id, version = get_ids_from_old_version_of_file(
             make_new_version_of, version
         )
+        if description is None:
+            description = make_new_version_of.description
+
     if version is not None:
         if initial_version_id is None:
             logger.info(
@@ -600,6 +597,15 @@ def __init__(file: File, *args, **kwargs):
     kwargs["initial_version_id"] = initial_version_id
     kwargs["version"] = version
     kwargs["description"] = description
+    # this check needs to come down here because key might be populated from an
+    # existing file path during get_file_kwargs_from_data()
+    if (
+        kwargs["key"] is None
+        and kwargs["description"] is None
+        and kwargs["run"] is None
+    ):
+        raise ValueError("Pass one of key, run or description as a parameter")
+
     # transform cannot be directly passed, just via run
     # it's directly stored in the file table to avoid another join
     # mediate by the run table

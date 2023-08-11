@@ -28,7 +28,7 @@ def test_create_delete_from_single_dataframe():
     # basics
     assert dataset.load().iloc[0].tolist() == df.iloc[0].tolist()
     file = dataset.file
-    assert file.description is None
+    assert file.description == f"See dataset {dataset.id}"
     assert dataset.hash == file.hash
     assert dataset.id == file.id
     assert ln.File.filter(id=dataset.id).one_or_none() is not None

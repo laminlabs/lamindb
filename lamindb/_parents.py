@@ -15,7 +15,10 @@ TRANSFORM_EMOJIS = {"notebook": "📔", "app": "🖥️", "pipeline": "🧩"}
 
 
 def _transform_emoji(transform: Transform):
-    return TRANSFORM_EMOJIS.get(transform.type, "💫")
+    if transform is not None:
+        return TRANSFORM_EMOJIS.get(transform.type, "💫")
+    else:
+        return TRANSFORM_EMOJIS["pipeline"]
 
 
 def view_parents(
