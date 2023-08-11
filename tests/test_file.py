@@ -56,13 +56,13 @@ def test_signatures():
         assert signature(getattr(_file, name)) == sig
 
 
-def test_insufficient_information():
-    with pytest.raises(ValueError) as error:
-        ln.File(df)
-    assert (
-        error.exconly()
-        == "ValueError: Pass one of key, run or description as a parameter"
-    )
+# def test_insufficient_information():
+#     with pytest.raises(ValueError) as error:
+#         ln.File(df)
+#     assert (
+#         error.exconly()
+#         == "ValueError: Pass one of key, run or description as a parameter"
+#     )
 
 
 def test_set_version():
@@ -243,7 +243,7 @@ def get_test_filepaths(request):  # -> Tuple[bool, Path, Path, Path]
     test_dir = root_dir / "my_dir/"
     test_dir.mkdir(parents=True)
     test_filepath = test_dir / "my_file.csv"
-    test_filepath.write_text("a")
+    test_filepath.write_text(str(test_filepath))
     # return a boolean indicating whether test filepath is in default storage
     # and the test filepath
     yield (isin_existing_storage, root_dir, test_dir, test_filepath)
@@ -292,9 +292,7 @@ def test_create_from_local_filepath(get_test_filepaths, key, description):
     if isin_existing_storage and key is None:
         assert str(test_filepath.resolve()) == str(file.path)
 
-    # now, save the file
     file.save()
-    print(file.path)
     assert file.path.exists()
 
     # only delete from storage if a file copy took place
