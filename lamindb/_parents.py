@@ -34,7 +34,7 @@ def view_parents(
     )
 
 
-def _view_lineage(file: File, with_children: bool = True):
+def view_lineage(file: File, with_children: bool = True):
     """Graph of data lineage.
 
     Notes:

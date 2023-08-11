@@ -300,7 +300,7 @@ def describe(self):
 
     # Display Provenance
     # display line by line the foreign key fields
-    from _view_parents import _transform_emoji
+    from ._parents import _transform_emoji
 
     emojis = {
         "storage": "🗃️",
