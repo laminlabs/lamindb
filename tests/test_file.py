@@ -56,6 +56,15 @@ def test_signatures():
         assert signature(getattr(_file, name)) == sig
 
 
+def test_insufficient_information():
+    with pytest.raises(ValueError) as error:
+        ln.File(df)
+    assert (
+        error.exconly()
+        == "ValueError: Pass one of key, run or description as a parameter"
+    )
+
+
 def test_set_version():
     # all remaining lines are covered in notebooks
     with pytest.raises(ValueError):
@@ -69,7 +78,7 @@ def test_set_version():
 def test_make_new_version_of_versioned_file():
     # attempt to create a file with an invalid version
     with pytest.raises(ValueError) as error:
-        file = ln.File(df, version=0)
+        file = ln.File(df, description="test", version=0)
     assert (
         error.exconly()
         == "ValueError: `version` parameter must be `None` or `str`, e.g., '0', '1',"
@@ -77,7 +86,7 @@ def test_make_new_version_of_versioned_file():
     )
 
     # create a versioned file
-    file = ln.File(df, version="0")
+    file = ln.File(df, description="test", version="0")
     assert file.version == "0"
 
     assert file.path.exists()  # because of cache file already exists
@@ -92,16 +101,18 @@ def test_make_new_version_of_versioned_file():
     assert file_v2.initial_version_id == file.id
     assert file_v2.version == "1"
     assert file_v2.key is None
+    assert file_v2.description == "test"
 
     file_v2.save()
     assert file_v2.path.exists()
 
     # create new file from newly versioned file
     df.iloc[0, 0] = 0
-    file_v3 = ln.File(df, make_new_version_of=file_v2)
+    file_v3 = ln.File(df, description="test1", make_new_version_of=file_v2)
     assert file_v3.id[:18] == file.id[:18]  # stem_id
     assert file_v3.initial_version_id == file.id
     assert file_v3.version == "2"
+    assert file_v3.description == "test1"
 
     # test that reference file cannot be deleted
     with pytest.raises(ProtectedError):
@@ -113,7 +124,7 @@ def test_make_new_version_of_versioned_file():
 
 def test_make_new_version_of_unversioned_file():
     # unversioned file
-    file = ln.File(df)
+    file = ln.File(df, description="test2")
     assert file.initial_version_id is None
     assert file.version is None
 
@@ -128,14 +139,15 @@ def test_make_new_version_of_unversioned_file():
     assert file.initial_version is None
     assert new_file.initial_version_id == file.id
     assert new_file.version == "2"
+    assert new_file.description == file.description
 
     file.delete(storage=True)
 
 
-@pytest.mark.parametrize("name", [None, "my name"])
-def test_create_from_dataframe(name):
-    file = ln.File(df, name=name)
-    assert file.description is None if name is None else file.description == name
+# also test legacy name parameter (got removed by description)
+def test_create_from_dataframe():
+    file = ln.File(df, description="test1")
+    assert file.description == "test1"
     assert file.key is None
     assert file.accessor == "DataFrame"
     assert hasattr(file, "_local_filepath")
@@ -145,8 +157,8 @@ def test_create_from_dataframe(name):
     file.delete(storage=True)
 
 
-@pytest.mark.parametrize("description", [None, "my name"])
-def test_create_from_dataframe_using_from_df(description):
+def test_create_from_dataframe_using_from_df():
+    description = "my description"
     file = ln.File.from_df(df, description=description)
     assert file._feature_sets == {}
     with pytest.raises(ValueError):
@@ -173,7 +185,7 @@ def test_create_from_dataframe_using_from_df(description):
 
 def test_create_from_anndata_in_memory():
     ln.save(ln.Feature.from_df(adata.obs))
-    file = ln.File.from_anndata(adata, var_ref=lb.Gene.symbol)
+    file = ln.File.from_anndata(adata, description="test", var_ref=lb.Gene.symbol)
     assert file.accessor == "AnnData"
     assert hasattr(file, "_local_filepath")
     file.save()
@@ -245,7 +257,16 @@ def test_create_from_local_filepath(get_test_filepaths, key, description):
     isin_existing_storage = get_test_filepaths[0]
     root_dir = get_test_filepaths[1]
     test_filepath = get_test_filepaths[3]
-    file = ln.File(test_filepath, key=key, description=description)
+    if key is None and not isin_existing_storage and description is None:
+        with pytest.raises(ValueError) as error:
+            ln.File(test_filepath, key=key, description=description)
+        assert (
+            error.exconly()
+            == "ValueError: Pass one of key, run or description as a parameter"
+        )
+        return None
+    else:
+        file = ln.File(test_filepath, key=key, description=description)
     assert (
         file.description is None
         if description is None
@@ -284,13 +305,13 @@ def test_create_from_local_filepath(get_test_filepaths, key, description):
 def test_local_path_load():
     local_filepath = ln.dev.datasets.anndata_file_pbmc68k_test().resolve()
 
-    file = ln.File(local_filepath)
+    file = ln.File(local_filepath, description="test")
     assert local_filepath == file._local_filepath
     assert local_filepath == file.path
     assert local_filepath == file.stage()
 
     adata = ad.read(local_filepath)
-    file = ln.File(adata)
+    file = ln.File(adata, description="test")
     assert file._memory_rep is adata
     assert file.load() is adata
     assert file._local_filepath.resolve() == file.stage() == file.path
@@ -336,7 +357,7 @@ def test_create_small_file_from_remote_path(
     )
     file.save()
     # test stage()
-    file_from_local = ln.File(file.stage())
+    file_from_local = ln.File(file.stage(), description="test")
     # test hash equivalency when computed on local machine
     if not skip_size_and_hash:
         assert file_from_local.hash == file.hash
@@ -363,20 +384,21 @@ def test_create_big_file_from_remote_path():
     ln.settings.storage = "s3://lamindb-test"
     filepath_str = "s3://lamindb-test/human_immune.h5ad"
     file = ln.File(filepath_str)
+    assert file.key == "human_immune.h5ad"
     assert file.hash.endswith("-2")
     assert file.hash_type == "md5-n"
     ln.settings.storage = previous_storage
 
 
 def test_inherit_relations():
-    with open("test-inherit1", "w") as f:
+    with open("./default_storage/test-inherit1", "w") as f:
         f.write("file1")
-    with open("test-inherit2", "w") as f:
+    with open("./default_storage/test-inherit2", "w") as f:
         f.write("file2")
 
-    file1 = ln.File("test-inherit1")
+    file1 = ln.File("./default_storage/test-inherit1")
     file1.save()
-    file2 = ln.File("test-inherit2")
+    file2 = ln.File("./default_storage/test-inherit2")
     file2.save()
 
     label_names = [f"Project {i}" for i in range(3)]
