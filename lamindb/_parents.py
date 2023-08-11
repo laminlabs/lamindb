@@ -1,7 +1,12 @@
-from typing import List, Set, Union
+from typing import List, Optional, Set, Union
 
 from lnschema_core import File, Registry, Run, Transform
-from lnschema_core.models import format_field_value
+from lnschema_core.models import ParentsAware, format_field_value
+
+from lamindb.dev.utils import attach_func_to_class_method
+
+from . import _TESTING
+from ._registry import StrField, get_default_str_field
 
 LAMIN_GREEN_LIGHTER = "#10b981"
 LAMIN_GREEN_DARKER = "#065f46"
@@ -9,11 +14,34 @@ GREEN_FILL = "honeydew"
 TRANSFORM_EMOJIS = {"notebook": "📔", "app": "🖥️", "pipeline": "🧩"}
 
 
+def _transform_emoji(transform: Transform):
+    if transform is not None:
+        return TRANSFORM_EMOJIS.get(transform.type, "💫")
+    else:
+        return TRANSFORM_EMOJIS["pipeline"]
+
+
+def view_parents(
+    self,
+    field: Optional[StrField] = None,
+    with_children: bool = False,
+    distance: int = 5,
+):
+    if field is None:
+        field = get_default_str_field(self)
+    if not isinstance(field, str):
+        field = field.field.name
+
+    return _view_parents(
+        record=self, field=field, with_children=with_children, distance=distance
+    )
+
+
 def view_lineage(file: File, with_children: bool = True):
     """Graph of data lineage.
 
     Notes:
-        For more info, see tutorial: :doc:`/guide/data-lineage`.
+        For more info, see use cases: :doc:`docs:data-lineage`.
 
     Examples:
         >>> file.view_lineage()
@@ -83,7 +111,7 @@ def view_lineage(file: File, with_children: bool = True):
     return u
 
 
-def view_parents(
+def _view_parents(
     record: Registry, field: str, with_children: bool = False, distance: int = 100
 ):
     """Graph of parents."""
@@ -265,5 +293,18 @@ def _df_edges_from_runs(all_runs: List[Run]):
     return df
 
 
-def _transform_emoji(transform: Transform):
-    return TRANSFORM_EMOJIS.get(transform.type, "💫")
+METHOD_NAMES = [
+    "view_parents",
+]
+
+if _TESTING:  # type: ignore
+    from inspect import signature
+
+    SIGS = {
+        name: signature(getattr(ParentsAware, name))
+        for name in METHOD_NAMES
+        if not name.startswith("__")
+    }
+
+for name in METHOD_NAMES:
+    attach_func_to_class_method(name, ParentsAware, globals())

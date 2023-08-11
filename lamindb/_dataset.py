@@ -34,7 +34,8 @@ def __init__(
     assert len(kwargs) == 0
     if data is not None:
         if isinstance(data, pd.DataFrame):
-            file = File.from_df(data, run=run)
+            # description filled in below
+            file = File.from_df(data, run=run, description="See dataset {}")
             dataset._feature_sets = file._feature_sets
         elif isinstance(data, ad.AnnData):
             if len(feature_sets) != 2:
@@ -42,12 +43,15 @@ def __init__(
                     "Please provide a feature set describing each `.var.index` &"
                     " `.obs.columns`"
                 )
-            file = File.from_anndata(data, run=run, feature_sets=feature_sets)
+            file = File.from_anndata(
+                data, run=run, feature_sets=feature_sets, description="See dataset {}"
+            )
             dataset._feature_sets = feature_sets
         else:
             raise ValueError("Only DataFrame and AnnData can be passed as data")
         hash = file.hash
         id = file.id
+        file.description = f"See dataset {id}"
     else:
         id = ids.base62_20()
         dataset._feature_sets = feature_sets

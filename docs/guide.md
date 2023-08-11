@@ -19,22 +19,14 @@ tutorial1
 
 ```{toctree}
 :hidden:
-:caption: "How to: data"
+:caption: "How to"
 
-guide/data-lineage
 guide/select
 guide/stream
 guide/schemas
 guide/setup
-```
-
-```{toctree}
-:hidden:
-:caption: "How to: biology"
-
 biology/registries
 biology/lnschema-bionty
-biology/analyses
 ```
 
 ```{toctree}

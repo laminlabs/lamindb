@@ -14,7 +14,7 @@ adata.obs.loc["obs0", "cell_type_from_expert"] = "B cell"
 
 def test_features_add_labels():
     label = ln.Label(name="Experiment 1")
-    file = ln.File(adata)
+    file = ln.File(adata, description="test")
     file.save()
     with pytest.raises(ln.dev.exc.ValidationError) as error:
         file.add_labels(label)

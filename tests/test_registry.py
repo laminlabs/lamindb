@@ -1,4 +1,6 @@
+import shutil
 from inspect import signature
+from pathlib import Path
 
 import pytest
 
@@ -38,32 +40,39 @@ def test_validate_required_fields():
         ln.Label(description="test")
 
 
-def test_search_file():
-    for i in range(6):
-        with open(f"test-search{i}", "w") as f:
-            f.write(f"test-search{i}")
+@pytest.fixture
+def get_search_test_filepaths():
+    Path("unregistered_storage/").mkdir(exist_ok=True)
+    filepaths = [Path(f"./unregistered_storage/test-search{i}") for i in range(6)]
+    for filepath in filepaths:
+        filepath.write_text(filepath.name)
+    yield None
+    shutil.rmtree("unregistered_storage/")
 
-    file1 = ln.File("test-search1")
+
+def test_search_file(get_search_test_filepaths):
+    file1 = ln.File("./unregistered_storage/test-search1", description="nonsense")
     file1.save()
-    file2 = ln.File("test-search2")
+    file2 = ln.File("./unregistered_storage/test-search2", description="nonsense")
     file2.save()
 
     # on purpose to be search3 to test duplicated search
-    file0 = ln.File("test-search0", description="test-search3")
+    file0 = ln.File("./unregistered_storage/test-search0", description="test-search3")
     file0.save()
-    file3 = ln.File("test-search3", description="test-search3")
+    file3 = ln.File("./unregistered_storage/test-search3", description="test-search3")
     file3.save()
-    file4 = ln.File("test-search4", description="test-search4")
+    file4 = ln.File("./unregistered_storage/test-search4", description="test-search4")
     file4.save()
 
     res = ln.File.search("search3")
+    print(res)
     assert res.iloc[0].description == "test-search3"
     assert res.iloc[1].description == "test-search3"
 
     # no returning entries if all search results have __ratio__ 0
     assert ln.File.search("x").shape[0] == 0
 
-    file5 = ln.File("test-search5", key="test-search5")
+    file5 = ln.File("./unregistered_storage/test-search5", key="test-search5")
     file5.save()
     res = ln.File.search("search5")
     assert res.iloc[0].key == "test-search5"

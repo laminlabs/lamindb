@@ -10,6 +10,7 @@
    FeatureManager
    ValidationAware
    SynonymsAware
+   ParentsAware
    InspectResult
    datasets
    hashing
@@ -21,7 +22,13 @@
 """
 
 from lamin_utils._inspect import InspectResult
-from lnschema_core.models import Data, Registry, SynonymsAware, ValidationAware
+from lnschema_core.models import (
+    Data,
+    ParentsAware,
+    Registry,
+    SynonymsAware,
+    ValidationAware,
+)
 
 from lamindb._query_manager import QueryManager
 from lamindb._query_set import QuerySet
