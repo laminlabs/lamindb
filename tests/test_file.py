@@ -248,9 +248,13 @@ def test_create_from_local_filepath(get_test_filepaths, key, description):
     isin_existing_storage = get_test_filepaths[0]
     root_dir = get_test_filepaths[1]
     test_filepath = get_test_filepaths[3]
+    # this test insufficient information being provided
     if key is None and not isin_existing_storage and description is None:
+        # this can fail because ln.track() might set a global run context
+        # in that case, the File would have a run that's not None and the
+        # error below wouldn't be thrown
         with pytest.raises(ValueError) as error:
-            ln.File(test_filepath, key=key, description=description)
+            file = ln.File(test_filepath, key=key, description=description)
         assert (
             error.exconly()
             == "ValueError: Pass one of key, run or description as a parameter"
@@ -258,6 +262,8 @@ def test_create_from_local_filepath(get_test_filepaths, key, description):
         return None
     else:
         file = ln.File(test_filepath, key=key, description=description)
+        print(test_filepath)
+        assert file._state.adding  # make sure that this is a new file in the db
     assert (
         file.description is None
         if description is None

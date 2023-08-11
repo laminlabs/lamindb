@@ -38,12 +38,12 @@ def test_signatures():
 
 def test_feature_from_df():
     # try to generate the file without validated features
-    file = ln.File.from_df(df)
+    file = ln.File.from_df(df, description="test")
     assert file._feature_sets == {}
     # now, register all 4 features
     ln.save(ln.Feature.from_df(df.iloc[:, :4]))
     # try again
-    file = ln.File.from_df(df)
+    file = ln.File.from_df(df, description="test")
     assert "columns" in file._feature_sets
     file.save()
     feature_set = file._feature_sets["columns"]

@@ -1,4 +1,4 @@
-from typing import List, Set, Union
+from typing import List, Optional, Set, Union
 
 from lnschema_core import File, Registry, Run, Transform
 from lnschema_core.models import format_field_value
@@ -265,5 +265,8 @@ def _df_edges_from_runs(all_runs: List[Run]):
     return df
 
 
-def _transform_emoji(transform: Transform):
-    return TRANSFORM_EMOJIS.get(transform.type, "💫")
+def _transform_emoji(transform: Optional[Transform]):
+    if transform is not None:
+        return TRANSFORM_EMOJIS.get(transform.type, "💫")
+    else:
+        return TRANSFORM_EMOJIS["pipeline"]
