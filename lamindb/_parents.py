@@ -41,7 +41,7 @@ def view_lineage(file: File, with_children: bool = True):
     """Graph of data lineage.
 
     Notes:
-        For more info, see tutorial: :doc:`/guide/data-lineage`.
+        For more info, see use cases: :doc:`docs:data-lineage`.
 
     Examples:
         >>> file.view_lineage()
