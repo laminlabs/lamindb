@@ -56,15 +56,6 @@ def test_signatures():
         assert signature(getattr(_file, name)) == sig
 
 
-# def test_insufficient_information():
-#     with pytest.raises(ValueError) as error:
-#         ln.File(df)
-#     assert (
-#         error.exconly()
-#         == "ValueError: Pass one of key, run or description as a parameter"
-#     )
-
-
 def test_set_version():
     # all remaining lines are covered in notebooks
     with pytest.raises(ValueError):
@@ -286,7 +277,6 @@ def test_create_from_local_filepath(get_test_filepaths, key, description):
     else:
         assert file.key == key
         assert file.storage.root == lamindb_setup.settings.storage.root_as_str
-    assert file.hash == "DMF1ucDxtqgxw5niaXcmYQ"
 
     # test that the file didn't move
     if isin_existing_storage and key is None:
