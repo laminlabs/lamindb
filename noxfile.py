@@ -104,7 +104,8 @@ def docs(session):
     # move artifacts into right place
     for group in ["guide", "biology", "faq", "storage"]:
         if Path(f"./docs-{group}").exists():
-            shutil.rmtree(f"./docs/{group}")
+            if Path(f"./docs/{group}").exists():
+                shutil.rmtree(f"./docs/{group}")
             Path(f"./docs-{group}").rename(f"./docs/{group}")
         # move back to root level
         if group in {"guide", "biology"}:
