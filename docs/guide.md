@@ -21,12 +21,12 @@ tutorial1
 :hidden:
 :caption: "How to"
 
-guide/select
-guide/stream
-guide/schemas
-guide/setup
-biology/registries
-biology/lnschema-bionty
+meta
+data
+schemas
+setup
+bio-registries
+lnschema-bionty-overview
 ```
 
 ```{toctree}
