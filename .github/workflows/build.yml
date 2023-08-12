@@ -76,8 +76,6 @@ jobs:
         with:
           name: coverage--${{ matrix.group }}
           path: .coverage
-      # manually move two notebooks
-      - run: mv ./docs/tutorial1.ipynb ./docs/guide/
       - name: upload docs
         if: ${{ matrix.group == 'guide' || matrix.group == 'biology' || matrix.group == 'faq' || matrix.group == 'storage' }}
         uses: actions/upload-artifact@v2
