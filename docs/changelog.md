@@ -1,5 +1,6 @@
 # Changelog
 
+- 🎨 Re-organize docs [PR1029](https://github.com/laminlabs/lamindb/pull/1029) [@falexwolf](https://github.com/falexwolf)
 ```{eval-rst}
 .. role:: small
 ```
