@@ -42,10 +42,15 @@ def map_synonyms(
 
 
 def set_abbr(self, value: str):
-    try:
-        self.add_synonym(value, save=False)
-    except NotImplementedError:
+    if hasattr(self, "name") and value == self.name:
         pass
+    elif hasattr(self, "symbol") and value == self.symbol:
+        pass
+    else:
+        try:
+            self.add_synonym(value, save=False)
+        except NotImplementedError:
+            pass
     self.abbr = value
     if not self._state.adding:
         self.save()
