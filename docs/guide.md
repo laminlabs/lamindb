@@ -190,7 +190,6 @@ data
 schemas
 setup
 bio-registries
-lnschema-bionty-overview
 ```
 
 ```{toctree}
