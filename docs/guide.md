@@ -94,10 +94,10 @@ $ lamin load myaccount/myinstance
 
 ### Manage custom schemas
 
-1. Create a GitHub repository with Django ORMs similar to [github.com/laminlabs/lnschema-lamin1](https://github.com/laminlabs/lnschema-lamin1)
+1. Create a GitHub repository with registries similar to [github.com/laminlabs/lnschema-lamin1](https://github.com/laminlabs/lnschema-lamin1)
 2. Create & deploy migrations via `lamin migrate create` and `lamin migrate deploy`
 
-It's fastest if we do this for you based on our templates within an enterprise plan, but you can fully manage the process yourself.
+It's fastest if we do this for you based on our templates within an enterprise plan.
 
 ## Setup
 
