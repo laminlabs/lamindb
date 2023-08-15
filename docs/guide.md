@@ -145,7 +145,6 @@ query-search
 schemas
 setup
 bio-registries
-lnschema-bionty-overview
 ```
 
 ```{toctree}

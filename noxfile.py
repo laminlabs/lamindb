@@ -23,7 +23,6 @@ GROUPS["guide"] = [
 ]
 GROUPS["biology"] = [
     "bio-registries.ipynb",
-    "lnschema-bionty-overview.ipynb",
 ]
 
 
