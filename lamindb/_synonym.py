@@ -227,7 +227,7 @@ def _map_synonyms(
 
         val_res = orm.validate(std_names_db, field=field, mute=True, species=species)
         if all(val_res):
-            return std_names_db
+            return mapper if return_mapper else std_names_db
 
         nonval = np.array(std_names_db)[~val_res]
         std_names_bt_mapper = orm.bionty(species=species).map_synonyms(
