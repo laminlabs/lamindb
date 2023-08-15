@@ -1,7 +1,6 @@
 [![Stars](https://img.shields.io/github/stars/laminlabs/lamindb?logo=GitHub&color=yellow)](https://github.com/laminlabs/lamindb)
 [![codecov](https://codecov.io/gh/laminlabs/lamindb/branch/main/graph/badge.svg?token=VKMRJ7OWR3)](https://codecov.io/gh/laminlabs/lamindb)
 [![pypi](https://img.shields.io/pypi/v/lamindb?color=blue&label=pypi%20package)](https://pypi.org/project/lamindb)
-[![Documentation](https://img.shields.io/badge/Documentation-green)](https://lamin.ai/docs/guide/)
 
 # LaminDB - Open-source data platform for biology
 
@@ -11,10 +10,10 @@ Public beta: Close to having converged a stable API, but some breaking changes m
 
 ```
 
-LaminDB is a Python library to manage files, datasets & analyses:
+LaminDB is a Python library to manage files, datasets & analyses in biology.
 
+- Track & query data lineage across pipelines, notebooks & app uploads
 - Query, validate & link data batches using biological registries & ontologies
-- Query provenance of data batches across pipelines, notebooks & app uploads
 - Manage features & labels schema-less or schema-full
 - Collaborate across a mesh of LaminDB instances
 
@@ -36,6 +35,7 @@ Validate & register a `DataFrame`:
 
 ```python
 import lamindb as ln
+import pandas as pd
 
 ln.track()  # track run context in a notebook
 
@@ -47,7 +47,6 @@ ln.File.from_df(df, description="Data batch 1").save()  # create a File object a
 Query & use a `DataFrame`:
 
 ```python
-
 ln.File.search("batch 1")  # run a search
 
 file = ln.File.filter(labels="pert1").one()  # or a query (under-the-hood, you have the full power of SQL to query)
