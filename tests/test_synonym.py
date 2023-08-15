@@ -55,7 +55,7 @@ def test_add_remove_synonym():
     tcell.synonyms == "my cell type"
 
     # clean up
-    lb.CellType.filter.all().delete()
+    lb.CellType.filter().all().delete()
 
 
 def test_set_abbr():
@@ -64,7 +64,7 @@ def test_set_abbr():
     # if abbr is name, do not add to synonyms
     record.set_abbr("my cell type")
     assert record.abbr == "my cell type"
-    assert "my cell type" not in record.synonyms
+    assert record.synonyms is None
 
     record.set_abbr("myct")
     assert record.abbr == "myct"
