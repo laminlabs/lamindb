@@ -14,7 +14,7 @@ Public beta: Close to having converged a stable API, but some breaking changes m
 LaminDB is a Python library to manage files, datasets & analyses:
 
 - Query, validate & link data batches using biological registries & ontologies
-- Query provenance of data batches across pipelines, notebooks & app uploads
+- Query data lineage across pipelines, notebooks & app uploads
 - Manage features & labels schema-less or schema-full
 - Collaborate across a mesh of LaminDB instances
 
