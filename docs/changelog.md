@@ -1,5 +1,6 @@
 # Changelog
 
+- ♻️ Refactor `run_context` [PR1030](https://github.com/laminlabs/lamindb/pull/1030) [@falexwolf](https://github.com/falexwolf)
 - 🎨 Re-organize docs [PR1029](https://github.com/laminlabs/lamindb/pull/1029) [@falexwolf](https://github.com/falexwolf)
 ```{eval-rst}
 .. role:: small

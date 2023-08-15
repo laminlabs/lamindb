@@ -432,6 +432,3 @@ class run_context:
                     logger.success(f"updated: {transform}")
 
         cls.transform = transform
-
-
-context = run_context

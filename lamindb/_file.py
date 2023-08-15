@@ -15,7 +15,7 @@ from lamindb_setup.dev._docs import doc_args
 from lnschema_core import Feature, FeatureSet, File, Run, Storage, ids
 from lnschema_core.types import AnnDataLike, DataLike, FieldAttr, PathLike
 
-from lamindb._context import context
+from lamindb.dev import run_context
 from lamindb.dev._settings import settings
 from lamindb.dev.hashing import b16_to_b64, hash_file
 from lamindb.dev.storage import (
@@ -191,9 +191,7 @@ def get_hash(
 
 def get_run(run: Optional[Run]) -> Optional[Run]:
     if run is None:
-        from ._context import context
-
-        run = context.run
+        run = run_context.run
         if run is None:
             logger.hint(
                 "no run & transform get linked, consider passing a `run` or calling"
@@ -833,9 +831,9 @@ def _track_run_input(file: File, is_run_input: Optional[bool] = None):
     track_run_input = False
     if is_run_input is None:
         # we need a global run context for this to work
-        if context.run is not None:
+        if run_context.run is not None:
             # avoid cycles (a file is both input and output)
-            if file.run != context.run:
+            if file.run != run_context.run:
                 if settings.track_run_inputs:
                     transform_note = ""
                     if file.transform is not None:
@@ -844,7 +842,7 @@ def _track_run_input(file: File, is_run_input: Optional[bool] = None):
                         )
                     logger.info(
                         f"adding file {file.id} as input for run"
-                        f" {context.run.id}{transform_note}"
+                        f" {run_context.run.id}{transform_note}"
                     )
                     track_run_input = True
                 else:
@@ -860,17 +858,17 @@ def _track_run_input(file: File, is_run_input: Optional[bool] = None):
     else:
         track_run_input = is_run_input
     if track_run_input:
-        if context.run is None:
+        if run_context.run is None:
             raise ValueError(
                 "No global run context set. Call ln.context.track() or link input to a"
                 " run object via `run.input_files.append(file)`"
             )
         # avoid adding the same run twice
         # avoid cycles (a file is both input and output)
-        if not file.input_of.contains(context.run) and file.run != context.run:
-            context.run.save()
-            file.input_of.add(context.run)
-            context.run.transform.parents.add(file.transform)
+        if not file.input_of.contains(run_context.run) and file.run != run_context.run:
+            run_context.run.save()
+            file.input_of.add(run_context.run)
+            run_context.run.transform.parents.add(file.transform)
 
 
 def load(self, is_run_input: Optional[bool] = None, stream: bool = False) -> DataLike:

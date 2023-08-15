@@ -135,9 +135,9 @@ if _INSTANCE_SETUP:
     from . import dev  # noqa
     from . import schema  # noqa
     from . import types  # noqa
-    from ._context import context  # noqa
+    from .dev._run_context import run_context  # noqa
 
-    track = context._track  # noqa
+    track = run_context._track  # noqa
     from lamin_utils import logger as _logger
 
     from . import _dataset  # noqa
