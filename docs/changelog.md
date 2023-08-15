@@ -1,5 +1,6 @@
 # Changelog
 
+- 🎉 Stage 0.50.4 [PR1028](https://github.com/laminlabs/lamindb/pull/1028) [@falexwolf](https://github.com/falexwolf)
 - 📝 A single bio registry guide [PR1034](https://github.com/laminlabs/lamindb/pull/1034) [@sunnyosun](https://github.com/sunnyosun)
 - 📝 Refactor docs [PR1033](https://github.com/laminlabs/lamindb/pull/1033) [@falexwolf](https://github.com/falexwolf)
 - ✨ `map_synonyms` also map in Bionty [PR1031](https://github.com/laminlabs/lamindb/pull/1031) [@sunnyosun](https://github.com/sunnyosun)
