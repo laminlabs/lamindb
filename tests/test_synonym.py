@@ -14,7 +14,7 @@ def test_map_synonyms():
     assert mapper == {"ABC1": "HEATR6"}
 
     # synonym already in the database
-    lb.Gene.from_bionty(symbol="BRCA2").save()
-    mapper = lb.Gene.map_synonyms(["ABC1", "FANCD1"], return_mapper=True)
-    assert mapper == {"FANCD1": "BRCA2", "ABC1": "HEATR6"}
-    assert lb.Gene.map_synonyms(["BRCA2"]) == ["BRCA2"]
+    lb.Gene.from_bionty(symbol="LMNA").save()
+    mapper = lb.Gene.map_synonyms(["ABC1", "LMN1"], return_mapper=True)
+    assert mapper == {"LMN1": "LMNA", "ABC1": "HEATR6"}
+    assert lb.Gene.map_synonyms(["LMNA"]) == ["LMNA"]
