@@ -39,7 +39,7 @@ new_cell.view_parents()
 
 <img src="https://raw.githubusercontent.com/laminlabs/lamindb/main/docs/img/readme/neuron_view_parents_dist%3D2.svg" width="500">
 
-### Query validated biological features & labels
+### Query validated features & labels
 
 Query for rich, validated meta-data and get an overview using `file.describe()` (from [here](docs:scrna)):
 
