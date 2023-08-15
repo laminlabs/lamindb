@@ -1,5 +1,6 @@
 # Changelog
 
+- 🚑 Fix inspect [PR1036](https://github.com/laminlabs/lamindb/pull/1036) [@sunnyosun](https://github.com/sunnyosun)
 - 🚑 Fix return for map_synonyms [PR1035](https://github.com/laminlabs/lamindb/pull/1035) [@sunnyosun](https://github.com/sunnyosun)
 - 🎉 Stage 0.50.4 [PR1028](https://github.com/laminlabs/lamindb/pull/1028) [@falexwolf](https://github.com/falexwolf)
 - 📝 A single bio registry guide [PR1034](https://github.com/laminlabs/lamindb/pull/1034) [@sunnyosun](https://github.com/sunnyosun)
