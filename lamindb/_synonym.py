@@ -109,9 +109,14 @@ def _add_or_remove_synonyms(
             raise SystemExit(AssertionError)
 
     # passed synonyms
+    # nothing happens when passing an empty string or list
     if isinstance(synonym, str):
+        if len(synonym) == 0:
+            return
         syn_new_set = set([synonym])
     else:
+        if synonym == [""]:
+            return
         syn_new_set = set(synonym)
     # nothing happens when passing an empty string or list
     if len(syn_new_set) == 0:
