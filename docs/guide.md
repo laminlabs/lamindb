@@ -57,30 +57,34 @@ new_cell.view_parents()
 
 <img src="https://raw.githubusercontent.com/laminlabs/lamindb/main/docs/img/readme/neuron_view_parents_dist%3D2.svg" width="500">
 
-### Track biological features
+### Query by biological features & labels
+
+Query for rich meta-data:
 
 ```python
-# track features present in var(X) and obs
-adata = ln.dev.datasets.anndata_with_obs()
-file = ln.File.from_anndata(
-    adata, description="my RNA-seq dataset", var_ref=lb.Gene.ensembl_gene_id
-)
-file.save()
-
-# view a summary of tracked features
-# you have registered two feature sets: 'obs' and 'var'
-file.features
-
-# add labels to features
-tissues = lb.Tissue.from_values(adata.obs["tissue"], field=lb.Tissue.name)
-diseases = lb.Disease.from_values(adata.obs["disease"], field=lb.Disease.name)
-file.features.add_labels(tissues + diseases)
-
-# fetch labels of a feature
-file.features["obs"].get(name="tissue").df()
-
-# display rich metadata of a file (provenance and features)
 file.describe()
+
+💡 File(id='9Vjx1TIujVLWYS9mCPI1', key=None, suffix='.h5ad', accessor='AnnData', description='Detmar22', version=None, size=17342743, hash='rk5lSoJvz6PHRRjmcB919w', hash_type='md5, created_at=2023-08-11 21:09:12, updated_at=2023-08-11 21:09:12)
+
+Provenance:
+    🗃️ storage: Storage(id='9I6JaaId', root='/home/runner/work/lamin-usecases/lamin-usecases/docs/test-scrna', type='local', updated_at=2023-08-11 21:08:57, created_by_id='DzTjkKse')
+    📎 initial_version: None
+    📔 transform: Transform(id='Nv48yAceNSh8z8', name='Curate & link scRNA-seq datasets', short_name='scrna', stem_id='Nv48yAceNSh8', version='0', type='notebook', updated_at=2023-08-11 21:09:10, created_by_id='DzTjkKse')
+    🚗 run: Run(id='R196yqBUWTUxGKMvs2FG', run_at=2023-08-11 21:09:01, transform_id='Nv48yAceNSh8z8', created_by_id='DzTjkKse')
+    👤 created_by: User(id='DzTjkKse', handle='testuser1', email='testuser1@lamin.ai', name='Test User1', updated_at=2023-08-11 21:08:57)
+Features:
+  🗺️ var (X):
+    🔗 index (10000, bionty.Gene.id): ['VcU5mnneH03x', 'l55Q0YM7RDQf', 'YDe8mgi709Ac', '0arsKViksVaU', 'A9yNGag7UckC'...]
+  🗺️ obs (metadata):
+    🔗 cell_type (1, bionty.CellType): ['endothelial cell']
+    🔗 strain (2, bionty.ExperimentalFactor): ['obsolete_C57BL/6', 'adult']
+    🔗 developmental_stage (2, bionty.ExperimentalFactor): ['obsolete_C57BL/6', 'adult']
+    🔗 species (1, bionty.Species): ['mouse']
+    🔗 tissue (1, bionty.Tissue): ['inguinal lymph node']
+    🔗 immunophenotype (2, core.Label): ['CD45 positive', 'CD45 negative']
+    🔗 age (1, core.Label): ['8 to 10 week']
+    🔗 sex (1, core.Label): ['female']
+    🔗 genotype (1, core.Label): ['wild type genotype']
 ```
 
 ### Collaborate across a mesh of instances
