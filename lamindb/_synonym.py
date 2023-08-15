@@ -178,12 +178,13 @@ def _map_synonyms(
 
     orm = cls.model if isinstance(cls, QuerySet) else cls
 
+    species = kwargs.get("species")
     if _has_species_field(orm):
         # here, we can safely import lnschema_bionty
         from lnschema_bionty._bionty import create_or_get_species_record
 
         species_record = create_or_get_species_record(
-            species=kwargs.get("species"),
+            species=species,
             orm=orm.model if isinstance(orm, QuerySet) else orm,
         )
         species = species_record.name if species_record is not None else species_record
