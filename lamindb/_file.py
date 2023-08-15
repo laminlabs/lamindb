@@ -15,7 +15,7 @@ from lamindb_setup.dev._docs import doc_args
 from lnschema_core import Feature, FeatureSet, File, Run, Storage, ids
 from lnschema_core.types import AnnDataLike, DataLike, FieldAttr, PathLike
 
-from lamindb._context import context
+from lamindb._track import context
 from lamindb.dev._settings import settings
 from lamindb.dev.hashing import b16_to_b64, hash_file
 from lamindb.dev.storage import (
@@ -191,7 +191,7 @@ def get_hash(
 
 def get_run(run: Optional[Run]) -> Optional[Run]:
     if run is None:
-        from ._context import context
+        from ._track import context
 
         run = context.run
         if run is None:
