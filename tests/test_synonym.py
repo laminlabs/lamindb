@@ -30,7 +30,7 @@ def test_add_remove_synonym():
         bionty_source.add_synonym("syn")
 
     cell_types = lb.CellType.from_values(["T cell", "B cell"], "name")
-    ln.save(cell_types)
+    ln.save(cell_types, parents=False)
     tcell = lb.CellType.filter(name="T cell").one()
     bcell = lb.CellType.filter(name="B cell").one()
     tcell.add_synonym(["my cell type"])
