@@ -141,8 +141,7 @@ tutorial
 :hidden:
 :caption: "How to"
 
-meta
-data
+query-search
 schemas
 setup
 bio-registries
