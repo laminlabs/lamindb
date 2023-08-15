@@ -22,6 +22,7 @@ def test_map_synonyms():
     mapper = lb.Gene.map_synonyms(["ABC1", "LMN1"], return_mapper=True)
     assert mapper == {"LMN1": "LMNA", "ABC1": "HEATR6"}
     assert lb.Gene.map_synonyms(["LMNA"]) == ["LMNA"]
+    assert lb.Gene.map_synonyms(["LMNA"], return_mapper=True) == {"LMN1": "LMNA"}
 
 
 def test_add_remove_synonym():
