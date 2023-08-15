@@ -11,10 +11,10 @@ Public beta: Close to having converged a stable API, but some breaking changes m
 
 ```
 
-LaminDB is a Python library to manage files, datasets & analyses:
+LaminDB is a Python library to manage files, datasets & analyses in biology.
 
+- Track & query data lineage across pipelines, notebooks & app uploads
 - Query, validate & link data batches using biological registries & ontologies
-- Query data lineage across pipelines, notebooks & app uploads
 - Manage features & labels schema-less or schema-full
 - Collaborate across a mesh of LaminDB instances
 
@@ -36,6 +36,7 @@ Validate & register a `DataFrame`:
 
 ```python
 import lamindb as ln
+import pandas as pd
 
 ln.track()  # track run context in a notebook
 
@@ -47,7 +48,6 @@ ln.File.from_df(df, description="Data batch 1").save()  # create a File object a
 Query & use a `DataFrame`:
 
 ```python
-
 ln.File.search("batch 1")  # run a search
 
 file = ln.File.filter(labels="pert1").one()  # or a query (under-the-hood, you have the full power of SQL to query)

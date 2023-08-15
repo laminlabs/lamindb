@@ -22,28 +22,9 @@ file.view_lineage()
 
 <img src="https://raw.githubusercontent.com/laminlabs/lamindb/main/docs/img/readme/view_lineage.svg" width="800">
 
-Track a Jupyter Notebook:
-
-```python
-ln.track()  # auto-detect notebook metadata, create global run context
-```
-
-Or track a pipeline:
-
-```python
-ln.Transform(name="Cell Ranger", version="0.7.2").save()  # save a pipeline to the transform registry
-
-transforms = ln.Transform.filter(name="Cell Ranger", version="0.41.2").one()  # query pipeline from the registry
-ln.track(transform)  # create a new global run context
-```
-
 ### Manage biological registries
 
-```shell
-$ lamin init --storage ./biodata --schema bionty  # mount plug in lnschema_bionty
-```
-
-Create a cell type registry from public knowledge and add a new cell state:
+Create a cell type registry from public knowledge and add a new cell state (from [here](bio-registries)):
 
 ```python
 import lnschema_bionty as lb  # import basic biological registries
@@ -88,7 +69,7 @@ Features:
 
 ### Collaborate across a mesh of instances
 
-If provided with access, others can load your instance via:
+If provided with access, others can enjoy validated & queryable data by loading your instance via:
 
 ```shell
 $ lamin load myaccount/myinstance
