@@ -14,7 +14,7 @@
 
 ### Track & query data lineage
 
-View all parent transforms and files (from [here](docs:birds-eye)):
+View the lineage of a given file (from [here](docs:birds-eye)):
 
 ```python
 file.view_lineage()
@@ -40,11 +40,10 @@ ln.track(transform)  # create a new global run context
 ### Manage biological registries
 
 ```shell
-$ lamin init --storage ./biodata --schema bionty  # this time, mout plug in lnschema_bionty
+$ lamin init --storage ./biodata --schema bionty  # mount plug in lnschema_bionty
 ```
 
 ```python
-import lamindb as ln
 import lnschema_bionty as lb  # import basic biological registries
 
 lb.CellType.from_bionty(name="neuron").save()  # create an ontology-coupled cell type record and save it
@@ -59,11 +58,9 @@ new_cell.view_parents()
 
 ### Query by biological features & labels
 
-Query for rich meta-data:
+Query for rich, validated meta-data and get an overview using `file.describe()` (from [here](docs:scrna)):
 
-```python
-file.describe()
-
+```
 💡 File(id='9Vjx1TIujVLWYS9mCPI1', key=None, suffix='.h5ad', accessor='AnnData', description='Detmar22', version=None, size=17342743, hash='rk5lSoJvz6PHRRjmcB919w', hash_type='md5, created_at=2023-08-11 21:09:12, updated_at=2023-08-11 21:09:12)
 
 Provenance:
@@ -132,17 +129,9 @@ postgres # Postgres server
 
 ### Sign up
 
-Why do I have to sign up?
+```{include} signup-login.md
 
-- Data lineage requires a user identity (who modified which data when?).
-- Collaboration requires a user identity (who shares this with me?).
-
-Signing up takes 1 min.
-
-We do _not_ store any of your data, but only basic metadata about you (email address, etc.) & your LaminDB instances (S3 bucket names, etc.).
-
-- Sign up: `lamin signup <email>`
-- Log in: `lamin login <handle>`
+```
 
 ## How does it work?
 
