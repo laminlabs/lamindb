@@ -7,7 +7,7 @@ pip install lamindb  # basic data management
 You can configure the installation using `extras`, e.g.,
 
 ```shell
-pip install 'lamindb[jupyter,bionty,fcs,aws]'
+pip install 'lamindb[jupyter,bionty]'
 ```
 
 Supported `extras` are:
