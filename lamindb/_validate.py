@@ -65,7 +65,6 @@ def _inspect(
         df=_filter_query_based_on_species(orm=orm, species=kwargs.get("species")),
         identifiers=values,
         field=str(field),
-        inspect_synonyms=True,
         mute=mute,
         **kwargs,
     )
