@@ -103,28 +103,8 @@ It's fastest if we do this for you based on our templates within an enterprise p
 
 ### Installation
 
-![pyversions](https://img.shields.io/pypi/pyversions/lamindb)
+```{include} installation.md
 
-```shell
-pip install lamindb  # basic data management
-```
-
-You can configure the installation using `extras`, e.g.,
-
-```shell
-pip install 'lamindb[jupyter,bionty,fcs,aws]'
-```
-
-Supported `extras` are:
-
-```yaml
-jupyter  # Track Jupyter notebooks
-bionty   # Manage basic biological entities
-fcs      # Manage FCS files (flow cytometry)
-zarr     # Store & stream arrays with zarr
-aws      # AWS (s3fs, etc.)
-gcp      # Google Cloud (gcfs, etc.)
-postgres # Postgres server
 ```
 
 ### Sign up
