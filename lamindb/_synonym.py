@@ -1,5 +1,6 @@
 from typing import Dict, Iterable, List, Literal, Optional, Set, Union
 
+import numpy as np
 import pandas as pd
 from django.core.exceptions import FieldDoesNotExist
 from django.db.models import QuerySet
@@ -12,7 +13,7 @@ from lamindb.dev.utils import attach_func_to_class_method
 
 from . import _TESTING
 from ._registry import get_default_str_field
-from ._validate import _filter_query_based_on_species
+from ._validate import _filter_query_based_on_species, _has_species_field
 
 
 @classmethod  # type: ignore
@@ -175,22 +176,75 @@ def _map_synonyms(
     if not isinstance(field, str):
         field = field.field.name
 
-    cls = cls.model if isinstance(cls, QuerySet) else cls
+    orm = cls.model if isinstance(cls, QuerySet) else cls
+
+    if _has_species_field(orm):
+        # here, we can safely import lnschema_bionty
+        from lnschema_bionty._bionty import create_or_get_species_record
+
+        species_record = create_or_get_species_record(
+            species=kwargs.get("species"),
+            orm=orm.model if isinstance(orm, QuerySet) else orm,
+        )
+        species = species_record.name if species_record is not None else species_record
 
     try:
-        cls._meta.get_field(synonyms_field)
-        df = _filter_query_based_on_species(orm=cls, species=kwargs.get("species"))
+        orm._meta.get_field(synonyms_field)
+        df = _filter_query_based_on_species(orm=orm, species=species)
     except FieldDoesNotExist:
         df = pd.DataFrame()
-    return map_synonyms(
-        df=df,
-        identifiers=synonyms,
+
+    _kwargs = dict(
         field=field,
-        return_mapper=return_mapper,
         case_sensitive=case_sensitive,
         keep=keep,
         synonyms_field=synonyms_field,
     )
+    # standardized names from the DB
+    std_names_db = map_synonyms(
+        df=df,
+        identifiers=synonyms,
+        return_mapper=return_mapper,
+        **_kwargs,
+    )
+
+    # map synonyms in Bionty
+    if orm.__get_schema_name__() == "bionty":
+        mapper = {}
+        if return_mapper:
+            mapper = std_names_db
+            std_names_db = map_synonyms(
+                df=df, identifiers=synonyms, return_mapper=False, **_kwargs
+            )
+
+        val_res = orm.validate(std_names_db, field=field, mute=True, species=species)
+        if all(val_res):
+            return std_names_db
+
+        nonval = np.array(std_names_db)[~val_res]
+        std_names_bt_mapper = orm.bionty(species=species).map_synonyms(
+            nonval, return_mapper=True, **_kwargs
+        )
+
+        if len(std_names_bt_mapper) > 0:
+            s = "" if len(std_names_bt_mapper) == 1 else "s"
+            warn_msg = (
+                f"found {len(std_names_bt_mapper)} synonym{s} in Bionty:"
+                f" {list(std_names_bt_mapper.keys())}"
+            )
+            warn_msg += (
+                "\n   please add corresponding records via"
+                f" `.from_values({list(std_names_bt_mapper.values())})`"
+            )
+            logger.warning(warn_msg)
+
+        if return_mapper:
+            mapper.update(std_names_bt_mapper)
+            return mapper
+        else:
+            return pd.Series(std_names_db).replace(std_names_bt_mapper).tolist()
+    else:
+        return std_names_db
 
 
 METHOD_NAMES = ["map_synonyms", "add_synonym", "remove_synonym", "set_abbr"]
