@@ -51,7 +51,12 @@ def test_add_remove_synonym():
     tcell.synonyms = None
     tcell.save()
     tcell.add_synonym("")
+    tcell.add_synonym([""])
+    tcell.add_synonym([])
     tcell.add_synonym(["my cell type"])
+    tcell.add_synonym("")
+    tcell.add_synonym([""])
+    tcell.add_synonym([])
     tcell.synonyms == "my cell type"
 
     # clean up
