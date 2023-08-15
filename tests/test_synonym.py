@@ -46,8 +46,11 @@ def test_add_remove_synonym():
     tcell.remove_synonym("my cell type")
     assert "my cell type" not in tcell.synonyms
 
+    bcell.synonyms = None
+    bcell.save()
     tcell.synonyms = None
     tcell.save()
+    tcell.add_synonym("")
     tcell.add_synonym(["my cell type"])
     tcell.synonyms == "my cell type"
 
@@ -70,3 +73,4 @@ def test_set_abbr():
     bionty_source = lb.BiontySource.filter(species="human").first()
     with pytest.raises(AttributeError):
         bionty_source.set_abbr("abbr")
+    record.delete()
