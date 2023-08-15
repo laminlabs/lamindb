@@ -45,13 +45,15 @@ def map_synonyms(
 def set_abbr(self, value: str):
     if hasattr(self, "name") and value == self.name:
         pass
-    elif hasattr(self, "symbol") and value == self.symbol:
-        pass
     else:
         try:
             self.add_synonym(value, save=False)
         except NotImplementedError:
             pass
+    if not hasattr(self, "abbr"):
+        raise AttributeError(
+            f"'{self.__class__.__name__}' object has no attribute 'abbr'"
+        )
     self.abbr = value
     if not self._state.adding:
         self.save()

@@ -50,3 +50,23 @@ def test_add_remove_synonym():
     tcell.save()
     tcell.add_synonym(["my cell type"])
     tcell.synonyms == "my cell type"
+
+    # clean up
+    lb.CellType.filter.all().delete()
+
+
+def test_set_abbr():
+    lb.CellType(name="my cell type").save(parents=False)
+    record = lb.CellType.filter(name="my cell type").one()
+    # if abbr is name, do not add to synonyms
+    record.set_abbr("my cell type")
+    assert record.abbr == "my cell type"
+    assert "my cell type" not in record.synonyms
+
+    record.set_abbr("myct")
+    assert record.abbr == "myct"
+    assert "myct" in record.synonyms
+
+    bionty_source = lb.BiontySource.filter(species="human").first()
+    with pytest.raises(AttributeError):
+        bionty_source.set_abbr("abbr")
