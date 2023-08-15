@@ -1,5 +1,6 @@
 # Changelog
 
+- ✨ `map_synonyms` also map in Bionty [PR1031](https://github.com/laminlabs/lamindb/pull/1031) [@sunnyosun](https://github.com/sunnyosun)
 - ♻️ Re-organize README & guide landing page [PR1032](https://github.com/laminlabs/lamindb/pull/1032) [@falexwolf](https://github.com/falexwolf)
 - ♻️ Refactor `run_context` [PR1030](https://github.com/laminlabs/lamindb/pull/1030) [@falexwolf](https://github.com/falexwolf)
 - 🎨 Re-organize docs [PR1029](https://github.com/laminlabs/lamindb/pull/1029) [@falexwolf](https://github.com/falexwolf)
