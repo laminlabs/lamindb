@@ -10,6 +10,9 @@ def test_map_synonyms():
     result = lb.Gene.map_synonyms(["ABC1", "PDCD1"])
     assert result == ["HEATR6", "PDCD1"]
 
+    result = lb.Gene.map_synonyms(["ABC1", "PDCD1"], field=lb.Gene.symbol)
+    assert result == ["HEATR6", "PDCD1"]
+
     mapper = lb.Gene.map_synonyms(["ABC1", "PDCD1"], return_mapper=True)
     assert mapper == {"ABC1": "HEATR6"}
 
