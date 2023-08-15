@@ -76,7 +76,7 @@ def install(session, group):
 def build(session, group):
     login_testuser2(session)
     login_testuser1(session)
-    coverage_args = "--cov=lamindb --cov-append --cov-report=term-missing"  # noqa
+    coverage_args = "--cov=lamindb --cov-append --cov-report=term-missing"
     if group == "unit":
         session.run(*f"pytest {coverage_args} ./tests".split())
     elif group == "guide":

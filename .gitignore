@@ -21,6 +21,7 @@ lamin_sphinx
 docs/conf.py
 *.db
 *.lndb
+*.zarr/
 lamindb/setup/.env
 _secrets.py
 _configuration.py
