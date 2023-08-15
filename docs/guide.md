@@ -43,6 +43,8 @@ ln.track(transform)  # create a new global run context
 $ lamin init --storage ./biodata --schema bionty  # mount plug in lnschema_bionty
 ```
 
+Create a cell type registry from public knowledge and add a new cell state:
+
 ```python
 import lnschema_bionty as lb  # import basic biological registries
 
@@ -56,7 +58,7 @@ new_cell.view_parents()
 
 <img src="https://raw.githubusercontent.com/laminlabs/lamindb/main/docs/img/readme/neuron_view_parents_dist%3D2.svg" width="500">
 
-### Query by biological features & labels
+### Query validated biological features & labels
 
 Query for rich, validated meta-data and get an overview using `file.describe()` (from [here](docs:scrna)):
 
