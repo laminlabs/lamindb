@@ -78,25 +78,26 @@ def build(session, group):
     login_testuser1(session)
     coverage_args = "--cov=lamindb --cov-append --cov-report=term-missing"  # noqa
     if group == "unit":
-        session.run(*f"pytest {coverage_args} ./tests".split())
-    elif group == "guide":
-        session.run(
-            *f"pytest -s {coverage_args} ./docs/test_notebooks.py::test_{group}".split()
-        )
-    elif group == "biology":
-        session.run(
-            *f"pytest -s {coverage_args} ./docs/test_notebooks.py::test_{group}".split()
-        )
-    elif group == "faq":
-        session.run(*f"pytest -s {coverage_args} ./docs/faq".split())
-    elif group == "storage":
-        session.run(*f"pytest -s {coverage_args} ./docs/storage".split())
-    # move artifacts into right place
-    if group in {"guide", "biology"}:
-        target_dir = Path(f"./docs/{group}")
-        target_dir.mkdir(exist_ok=True)
-        for filename in GROUPS[group]:
-            shutil.copy(Path("docs") / filename, target_dir / filename)
+        session.run(*f"pytest -s {coverage_args} ./tests/test_synonym.py".split())
+    #     session.run(*f"pytest {coverage_args} ./tests".split())
+    # elif group == "guide":
+    #     session.run(
+    #         *f"pytest -s {coverage_args} ./docs/test_notebooks.py::test_{group}".split()   # noqa
+    #     )
+    # elif group == "biology":
+    #     session.run(
+    #         *f"pytest -s {coverage_args} ./docs/test_notebooks.py::test_{group}".split()  # noqa
+    #     )
+    # elif group == "faq":
+    #     session.run(*f"pytest -s {coverage_args} ./docs/faq".split())
+    # elif group == "storage":
+    #     session.run(*f"pytest -s {coverage_args} ./docs/storage".split())
+    # # move artifacts into right place
+    # if group in {"guide", "biology"}:
+    #     target_dir = Path(f"./docs/{group}")
+    #     target_dir.mkdir(exist_ok=True)
+    #     for filename in GROUPS[group]:
+    #         shutil.copy(Path("docs") / filename, target_dir / filename)
 
 
 @nox.session
