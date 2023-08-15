@@ -85,8 +85,11 @@ def _validate(
     orm = cls.model if isinstance(cls, QuerySet) else cls
     field_values = pd.Series(
         _filter_query_based_on_species(
-            orm=orm, species=kwargs.get("species"), values_list_field=field
-        )
+            orm=orm,
+            species=kwargs.get("species"),
+            values_list_field=field,
+        ),
+        dtype="object",
     )
     return validate(
         identifiers=values,

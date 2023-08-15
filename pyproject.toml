@@ -17,9 +17,9 @@ dependencies = [
     # Lamin PINNED packages
     # !!! These packages should ALWAYS be pinned, do not unpin !!!
     # !!! They cannot be pinned ANYWHERE else !!!
-    "lnschema_core==0.45.2",
+    "lnschema_core==0.45.3",
     "lamindb_setup==0.49.7",
-    "lamin_utils==0.9.6",
+    "lamin_utils==0.9.7",
     # Lamin GREATEREQ packages
     "erdiagram>=0.1.2",
     # others
@@ -38,7 +38,7 @@ Home = "https://github.com/laminlabs/lamindb"
 
 [project.optional-dependencies]
 bionty = [
-    "lnschema_bionty==0.29.3",
+    "lnschema_bionty==0.29.4",
 ]
 postgres = ["psycopg2-binary"]
 aws = [
@@ -51,11 +51,11 @@ gcp = [
     "fsspec[gs]==2023.5.0"
 ]
 jupyter = [
-    "nbproject==0.9.0"  # keep pinning
+    "nbproject==0.9.2"  # keep pinning
 ]
 # deprecated extra, replaced by jupyter extra
 nbproject = [
-    "nbproject==0.9.0"
+    "nbproject==0.9.2"
 ]
 zarr = [
     "zarr>=2.16.0",

@@ -1,7 +1,7 @@
 """Open-source data platform for biology.
 
 LaminDB helps you manage data using registries.
-The two most central are:
+The most central are:
 
 .. autosummary::
    :toctree: .
@@ -9,49 +9,15 @@ The two most central are:
    File
    Dataset
 
-
-.. dropdown::  With more detail, what are files & datasets?
-
-    Both files & datasets
-
-    - track numerical & categorical data batches of arbitrary format & size
-
-    - can validate & link features (the measured dimensions in a data batch)
-
-    Roughly,
-
-    - a file stores a single immutable batch of data
-
-    - a dataset stores a mutable collection of data batches
-
-    Examples:
-
-    - Blob-like immutable files (pdf, txt, csv, jpg, ...) or arrays (h5, h5ad,
-      ...) → :class:`~lamindb.File`
-
-    - Mutable streamable backends (DuckDB, zarr, TileDB, ...) → :class:`~lamindb.Dataset` wrapping :class:`~lamindb.File`
-
-    - Collections of files → :class:`~lamindb.Dataset` wrapping :class:`~lamindb.File`
-
-    - Datasets in BigQuery, Snowflake, Postgres, ... → :class:`~lamindb.Dataset` (not yet implemented)
-
-    Hence, while
-
-    - files *always* have a one-to-one correspondence with a storage accessor
-
-    - datasets *can* reference a single file, multiple files or a dataset
-      in a warehouse like BigQuery or Snowflake
-
-
 There are four registries to track provenance of data batches:
 
 .. autosummary::
    :toctree: .
 
-   User
-   Storage
    Transform
    Run
+   User
+   Storage
 
 And four registries to validate & contextualize measurements in data batches:
 
@@ -135,9 +101,9 @@ if _INSTANCE_SETUP:
     from . import dev  # noqa
     from . import schema  # noqa
     from . import types  # noqa
-    from ._context import context  # noqa
+    from .dev._run_context import run_context  # noqa
 
-    track = context._track  # noqa
+    track = run_context._track  # noqa
     from lamin_utils import logger as _logger
 
     from . import _dataset  # noqa

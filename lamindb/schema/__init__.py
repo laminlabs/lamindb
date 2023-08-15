@@ -1,6 +1,6 @@
 """Schema tools & overview.
 
-Guide: :doc:`/guide/schemas`
+Guide: :doc:`/schemas`
 
 You can access mounted schema modules with domain-specific entities via
 available via `ln.schema.<module>.<entity>`.
