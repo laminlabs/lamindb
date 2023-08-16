@@ -19,7 +19,7 @@ from lamindb._file import (
     process_data,
     set_version,
 )
-from lamindb.dev.storage.file import extract_suffix_from_path
+from lamindb.dev.storage.file import extract_suffix_from_path, load_to_memory, read_tsv
 
 # how do we properly abstract out the default storage variable?
 # currently, we're only mocking it through `default_storage` as
@@ -503,3 +503,19 @@ def test_serialize_paths():
     assert isinstance(filepath, UPath)
     _, filepath, _, _, _ = process_data("id", up_upath, None, skip_existence_check=True)
     assert isinstance(filepath, UPath)
+
+
+def test_load_to_memory():
+    # tsv
+    pd.DataFrame([1, 2]).to_csv("test.tsv", sep="\t")
+    df = read_tsv("file.tsv")
+    assert isinstance(df, pd.DataFrame)
+    # other
+    pd.DataFrame([1, 2]).to_csv("test.zrad", sep="\t")
+    load_to_memory("test.zrad")
+    # none
+    pd.DataFrame([1, 2]).to_csv("test.zip", sep="\t")
+    load_to_memory("test.zip")
+    UPath("file.tsv").unlink()
+    UPath("file.zrad").unlink()
+    UPath("file.zip").unlink()

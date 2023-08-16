@@ -183,7 +183,8 @@ def delete_storage(storagepath: Union[Path, UPath]):
         raise FileNotFoundError(f"{storagepath} is not an existing path!")
 
 
-def read_fcs(*args, **kwargs):
+# tested in lamin-usecases
+def read_fcs(*args, **kwargs):  # pragma: no cover
     try:
         import readfcs
     except ImportError:
