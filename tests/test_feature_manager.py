@@ -40,12 +40,10 @@ def test_features_add_labels():
     assert feature.type == "category"
     assert feature.registries == "core.Label"
 
-    # add feature set
-    feature = ln.Feature(name="feature name", type="category", registries="core.Label")
-    feature_set = ln.FeatureSet(features=[feature])
-    with pytest.raises(ValueError):
-        file.features.add_feature_set(feature_set, slot="random")
     file.delete(storage=True)
+    ln.Feature.filter().all().delete()
+    ln.Label.filter().all().delete()
+    ln.FeatureSet.filter().all().delete()
 
 
 def test_features_add_labels_using_anndata():
@@ -82,6 +80,11 @@ def test_features_add_labels_using_anndata():
         adata, description="Mini adata", var_ref=lb.Gene.ensembl_gene_id
     )
     assert "obs" not in file._feature_sets
+    # add feature set without saving file
+    feature = ln.Feature(name="feature name", type="category", registries="core.Label")
+    feature_set = ln.FeatureSet(features=[feature])
+    with pytest.raises(ValueError):
+        file.features.add_feature_set(feature_set, slot="random")
 
     # now register features we want to validate
     # (we are not interested in cell_type_id, here)
