@@ -512,7 +512,8 @@ def test_load_to_memory():
     assert isinstance(df, pd.DataFrame)
     # other
     pd.DataFrame([1, 2]).to_csv("test.zrad", sep="\t")
-    load_to_memory("test.zrad")
+    with pytest.raises(NotADirectoryError):
+        load_to_memory("test.zrad")
     # none
     pd.DataFrame([1, 2]).to_csv("test.zip", sep="\t")
     load_to_memory("test.zip")
