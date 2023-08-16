@@ -1,5 +1,6 @@
 # Changelog
 
+- 🩹 Allow logging in different users in the same python session into th… [PR1044](https://github.com/laminlabs/lamindb/pull/1044) [@falexwolf](https://github.com/falexwolf)
 ```{eval-rst}
 .. role:: small
 ```
