@@ -1,4 +1,3 @@
-from itertools import islice
 from typing import List, Optional, Union
 
 import pandas as pd
@@ -19,9 +18,10 @@ def convert_numpy_dtype_to_lamin_feature_type(dtype) -> str:
     return type
 
 
-def take(n, iterable):
-    """Return the first n items of the iterable as a list."""
-    return list(islice(iterable, n))
+# def take(n, iterable):
+# from itertools import islice
+#     """Return the first n items of the iterable as a list."""
+#     return list(islice(iterable, n))
 
 
 def __init__(self, *args, **kwargs):
