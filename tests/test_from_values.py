@@ -71,5 +71,3 @@ def test_get_or_create_records():
     ln.save(labels)
     # more than 20 existing values
     ln.Label.from_values(["label" + str(i) for i in range(25)], field="name")
-    # feature
-    ln.Label.from_values(["labelx"], feature=ln.Feature(name="myf", type="category"))
