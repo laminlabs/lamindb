@@ -6,6 +6,7 @@ import pytest
 
 import lamindb as ln
 from lamindb import _feature_set
+from lamindb._feature_set import get_related_name, sanity_check_features
 
 df = pd.DataFrame(
     {
@@ -55,6 +56,16 @@ def test_feature_set_from_values():
     with pytest.raises(ValueError):
         feature_set = ln.FeatureSet.from_values([])
 
+    with pytest.raises(TypeError):
+        ln.FeatureSet.from_values(["a"], field="name")
+    with pytest.raises(ValueError):
+        ln.FeatureSet.from_values(["name"], field=ln.Feature.name, type="rna")
+    with pytest.raises(TypeError):
+        ln.FeatureSet.from_values([1], field=ln.Label.name, type="rna")
+
+    # return none if no validated features
+    assert ln.FeatureSet.from_values(["name"], field=ln.Label.name, type="rna") is None
+
 
 def test_feature_set_from_records():
     features = ln.Feature.from_df(df)
@@ -84,3 +95,34 @@ def test_feature_set_from_df():
     for feature in feature_set.features.all():
         feature.delete()
     feature_set.delete()
+
+
+def test_get_related_name():
+    with pytest.raises(ValueError):
+        get_related_name(ln.Transform)
+
+
+def test_sanity_check_features():
+    with pytest.raises(ValueError):
+        sanity_check_features([])
+    with pytest.raises(TypeError):
+        sanity_check_features(["feature"])
+    with pytest.raises(TypeError):
+        sanity_check_features({"feature"})
+    with pytest.raises(ValueError):
+        sanity_check_features([ln.Run(), ln.Transform()])
+
+
+def test_kwargs():
+    with pytest.raises(ValueError):
+        ln.FeatureSet(x="1", features=[])
+
+
+def test_pass_modality():
+    m = ln.Modality(name="rna")
+    feature_set = ln.FeatureSet(modality=m, features=[ln.Feature(name="f", type="f")])
+    assert feature_set.modality == m
+    with pytest.raises(ValueError):
+        feature_set = ln.FeatureSet(
+            modality=ln.Transform(), features=[ln.Feature(name="f", type="f")]
+        )
