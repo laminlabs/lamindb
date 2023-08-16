@@ -9,6 +9,7 @@ from lamindb.dev.storage import delete_storage
 from lamindb.dev.storage._backed_access import backed_access
 from lamindb.dev.storage._zarr import read_adata_zarr, write_adata_zarr
 from lamindb.dev.storage.file import read_adata_h5ad
+from lamindb.dev.storage.object import infer_suffix, write_to_file
 
 
 @pytest.fixture
@@ -107,6 +108,19 @@ def test_backed_access(adata_format):
         assert fp.suffix == ".zarr"
         delete_storage(fp)
 
+def test_infer_suffix():
+    import anndata as ad
+
+    adata = ad.AnnData()
+    assert infer_suffix(adata, adata_format="h5ad") == ".h5ad"
+    with pytest.raises(ValueError):
+        infer_suffix(adata, adata_format="my format")
+    with pytest.raises(NotImplementedError):
+        infer_suffix(ln.File)
+
+def test_write_to_file():
+    with pytest.raises(NotImplementedError):
+        write_to_file(ln.File, "path")
 
 def test_backed_bad_format(bad_adata_path):
     access = backed_access(bad_adata_path)

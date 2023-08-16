@@ -59,6 +59,7 @@ def test_add_remove_synonym():
     tcell.add_synonym([""])
     tcell.add_synonym([])
     tcell.synonyms == "my cell type"
+    tcell.remove_synonym("my cell type")
 
     # clean up
     lb.CellType.filter().all().delete()

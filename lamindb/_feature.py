@@ -4,14 +4,13 @@ from typing import List, Optional, Union
 import pandas as pd
 from lamin_utils import colors, logger
 from lamindb_setup.dev._docs import doc_args
-from lnschema_core import Feature, Label
+from lnschema_core import Feature
 from lnschema_core.models import Registry
 from pandas.api.types import is_categorical_dtype, is_string_dtype
 
 from lamindb.dev.utils import attach_func_to_class_method
 
 from . import _TESTING
-from ._save import bulk_create
 
 
 def convert_numpy_dtype_to_lamin_feature_type(dtype) -> str:
@@ -125,13 +124,6 @@ def from_df(cls, df: "pd.DataFrame") -> List["Feature"]:
 def save(self, *args, **kwargs) -> None:
     """{}"""
     super(Feature, self).save(*args, **kwargs)
-    records = None
-    if hasattr(self, "_categories_records"):
-        records = self._categories_records
-    if hasattr(self, "_categories_raw"):
-        records = Label.from_values(self._categories_raw, feature=self)
-    if records is not None:
-        bulk_create(records)
 
 
 METHOD_NAMES = [

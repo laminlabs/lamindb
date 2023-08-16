@@ -10,4 +10,8 @@ Settings:
    StorageSettings
 
 """
-from lamindb_setup.dev import InstanceSettings, StorageSettings, UserSettings  # noqa
+from lamindb_setup.dev import (  # pragma: no cover
+    InstanceSettings,
+    StorageSettings,
+    UserSettings,
+)

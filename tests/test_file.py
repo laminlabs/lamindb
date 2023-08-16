@@ -19,7 +19,13 @@ from lamindb._file import (
     process_data,
     set_version,
 )
-from lamindb.dev.storage.file import extract_suffix_from_path
+from lamindb.dev.storage.file import (
+    delete_storage,
+    extract_suffix_from_path,
+    load_to_memory,
+    read_fcs,
+    read_tsv,
+)
 
 # how do we properly abstract out the default storage variable?
 # currently, we're only mocking it through `default_storage` as
@@ -503,3 +509,34 @@ def test_serialize_paths():
     assert isinstance(filepath, UPath)
     _, filepath, _, _, _ = process_data("id", up_upath, None, skip_existence_check=True)
     assert isinstance(filepath, UPath)
+
+
+def test_load_to_memory():
+    # tsv
+    pd.DataFrame([1, 2]).to_csv("test.tsv", sep="\t")
+    df = read_tsv("test.tsv")
+    assert isinstance(df, pd.DataFrame)
+    # fcs
+    adata = read_fcs(ln.dev.datasets.file_fcs())
+    assert isinstance(adata, ad.AnnData)
+    # other
+    pd.DataFrame([1, 2]).to_csv("test.zrad", sep="\t")
+    with pytest.raises(NotADirectoryError):
+        load_to_memory("test.zrad")
+    # none
+    pd.DataFrame([1, 2]).to_csv("test.zip", sep="\t")
+    load_to_memory("test.zip")
+    UPath("test.tsv").unlink()
+    UPath("test.zrad").unlink()
+    UPath("test.zip").unlink()
+
+
+def test_delete_storage():
+    with pytest.raises(FileNotFoundError):
+        delete_storage(UPath("test"))
+
+
+def test_describe():
+    ln.dev.datasets.file_mini_csv()
+    file = ln.File("mini.csv", description="test")
+    file.describe()
