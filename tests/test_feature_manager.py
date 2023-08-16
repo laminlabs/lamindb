@@ -209,6 +209,13 @@ def test_features_add_labels_using_anndata():
         "hematopoietic stem cell",
         "B cell",
     }
+    assert set(file.get_labels("cell_type", flat_names=True)) == {
+        "T cell",
+        "my new cell type",
+        "hepatocyte",
+        "hematopoietic stem cell",
+        "B cell",
+    }
     assert set(file.get_labels("cell_type_from_expert").list("name")) == {
         "T cell",
         "my new cell type",
