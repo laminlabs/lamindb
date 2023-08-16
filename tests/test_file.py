@@ -534,3 +534,9 @@ def test_load_to_memory():
 def test_delete_storage():
     with pytest.raises(FileNotFoundError):
         delete_storage(UPath("test"))
+
+
+def test_describe():
+    ln.dev.datasets.file_mini_csv()
+    file = ln.File("mini.csv", description="test")
+    file.describe()

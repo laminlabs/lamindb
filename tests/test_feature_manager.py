@@ -227,3 +227,23 @@ def test_features_add_labels_using_anndata():
     ln.Feature.filter(name="species").one().delete()
     ln.File.filter(description="Mini adata").one().delete(storage=True)
     ln.FeatureSet.filter().all().delete()
+
+
+def test_get_labels():
+    ln.dev.datasets.file_mini_csv()
+    file = ln.File("mini.csv", description="test")
+    # feature doesn't exist
+    with pytest.raises(ValueError):
+        file.get_labels("x")
+
+    # no linked labels
+    feature = ln.Feature(name="feature name", type="category")
+    feature_set = ln.FeatureSet(features=[feature])
+    feature_set.save()
+    file.save()
+    file.features.add_feature_set(feature_set, slot="random")
+    with pytest.raises(ValueError):
+        file.get_labels("feature name")
+
+    file.delete(storage=True)
+    feature_set.delete()
