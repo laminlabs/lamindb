@@ -142,9 +142,9 @@ tutorial
 :caption: "How to"
 
 query-search
+bio-registries
 schemas
 setup
-bio-registries
 ```
 
 ```{toctree}
