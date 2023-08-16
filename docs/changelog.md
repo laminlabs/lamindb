@@ -1,5 +1,6 @@
 # Changelog
 
+- ✅ More tests and fixes backed [PR1040](https://github.com/laminlabs/lamindb/pull/1040) [@Koncopd](https://github.com/Koncopd)
 - 🚑 Fix inspect [PR1036](https://github.com/laminlabs/lamindb/pull/1036) [@sunnyosun](https://github.com/sunnyosun)
 - 🚑 Fix return for map_synonyms [PR1035](https://github.com/laminlabs/lamindb/pull/1035) [@sunnyosun](https://github.com/sunnyosun)
 - 🎉 Stage 0.50.4 [PR1028](https://github.com/laminlabs/lamindb/pull/1028) [@falexwolf](https://github.com/falexwolf)
