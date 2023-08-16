@@ -1,5 +1,6 @@
 # Changelog
 
+- 🧪 More tests for feature [PR1042](https://github.com/laminlabs/lamindb/pull/1042) [@sunnyosun](https://github.com/sunnyosun)
 - 🧪 Increase cov [PR1038](https://github.com/laminlabs/lamindb/pull/1038) [@sunnyosun](https://github.com/sunnyosun)
 - ✅ More tests and fixes backed [PR1040](https://github.com/laminlabs/lamindb/pull/1040) [@Koncopd](https://github.com/Koncopd)
 - 🚑 Fix inspect [PR1036](https://github.com/laminlabs/lamindb/pull/1036) [@sunnyosun](https://github.com/sunnyosun)
