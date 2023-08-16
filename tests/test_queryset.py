@@ -95,11 +95,23 @@ def test_lookup():
 def test_inspect():
     qs = ln.User.filter(handle="testuser1").all()
     assert qs.inspect(["user1", "user2"], "name")["validated"] == []
+    assert ln.User.inspect(["user1", "user2"], "name")["validated"] == []
+    assert ln.User.inspect(["user1", "user2"], ln.User.name)["validated"] == []
+    assert ln.User.inspect("user1", "name")["validated"] == []
 
 
 def test_validate():
     qs = ln.User.filter(handle="testuser1").all()
     assert qs.validate(["testuser1", "Test User1"], "handle").tolist() == [True, False]
+    assert ln.User.validate(["testuser1", "Test User1"], "handle").tolist() == [
+        True,
+        False,
+    ]
+    assert ln.User.validate(["testuser1", "Test User1"], ln.User.handle).tolist() == [
+        True,
+        False,
+    ]
+    assert ln.User.validate("testuser1", ln.User.handle).tolist() == [True]
 
 
 def test_map_synonyms():
