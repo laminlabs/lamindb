@@ -44,7 +44,7 @@ def test_features_add_labels():
     feature = ln.Feature(name="feature name", type="category", registries="core.Label")
     feature_set = ln.FeatureSet(features=[feature])
     with pytest.raises(ValueError):
-        file.features.add_feature_set(feature_set)
+        file.features.add_feature_set(feature_set, slot="random")
     file.delete(storage=True)
 
 
