@@ -1,6 +1,8 @@
 from inspect import signature
 
+import lnschema_bionty as lb
 import pandas as pd
+import pytest
 from lnschema_core.models import FileLabel
 from pandas.api.types import is_categorical_dtype, is_string_dtype
 
@@ -86,3 +88,18 @@ def test_feature_from_df():
     for feature in features:
         feature.delete()
     file.delete(storage=True)
+
+
+def test_feature_init():
+    # no args allowed
+    with pytest.raises(ValueError):
+        ln.Feature("x")
+    # registries has to be a list of Registry types
+    with pytest.raises(ValueError):
+        ln.Feature(name="feat", type="category", registries=1)
+    # each element of the list has to be a Registry
+    with pytest.raises(ValueError):
+        ln.Feature(name="feat", type="category", registries=[1])
+    # registries_str
+    feature = ln.Feature(name="feat1", type="category", registries=[ln.Label, lb.Gene])
+    assert feature.registries == "core.Label|bionty.Gene"

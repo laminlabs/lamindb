@@ -389,10 +389,10 @@ def data_is_anndata(data: DataLike):
         return True
     if isinstance(data, (str, Path, UPath)):
         return Path(data).suffix in {".h5ad", ".zrad"}
-    return False
+    return False  # pragma: no cover
 
 
-def data_is_mudata(data: DataLike):
+def data_is_mudata(data: DataLike):  # pragma: no cover
     try:
         from mudata import MuData
     except ModuleNotFoundError:
