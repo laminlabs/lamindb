@@ -24,9 +24,6 @@ def write_to_file(dmem, filepath: Union[str, Path]):
     if isinstance(dmem, AnnData):
         dmem.write(filepath)
     elif isinstance(dmem, DataFrame):
-        try:
-            dmem.to_parquet(filepath)
-        except ValueError:
-            dmem.reset_index().to_parquet(filepath)
+        dmem.to_parquet(filepath)
     else:
         raise NotImplementedError
