@@ -165,7 +165,7 @@ def from_values(
     if len(values) == 0:
         raise ValueError("Provide a list of at least one value")
     registry = field.field.model
-    if isinstance(registry, Feature):
+    if registry.__name__ == "Feature":
         raise ValueError("Please use from_df() instead of from_values()")
     iterable_idx = index_iterable(values)
     if not isinstance(iterable_idx[0], (str, int)):

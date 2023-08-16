@@ -272,6 +272,7 @@ def get_default_str_field(orm: Union[Registry, QuerySet, Manager]) -> str:
     model_field_names = [i.name for i in orm._meta.fields]
 
     # set default field
+    field = None
     if orm._meta.model.__name__ == "Run":
         field = orm._meta.get_field("created_at")
     elif "name" in model_field_names:

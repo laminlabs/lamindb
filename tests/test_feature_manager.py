@@ -2,6 +2,7 @@ import lnschema_bionty as lb
 import pytest
 
 import lamindb as ln
+from lamindb.dev._feature_manager import create_features_df
 
 lb.settings.auto_save_parents = False
 
@@ -36,10 +37,15 @@ def test_features_add_labels():
     )
     ln.Feature(name="experiment", type="category", registries="core.Label").save()
     file.add_labels(label, feature="experiment")
+    file.add_labels(ln.Label.filter(name="Experiment 1").all(), feature="experiment")
     feature = ln.Feature.filter(name="experiment").one()
     assert feature.type == "category"
     assert feature.registries == "core.Label"
+
     file.delete(storage=True)
+    ln.Feature.filter().all().delete()
+    ln.Label.filter().all().delete()
+    ln.FeatureSet.filter().all().delete()
 
 
 def test_features_add_labels_using_anndata():
@@ -76,6 +82,11 @@ def test_features_add_labels_using_anndata():
         adata, description="Mini adata", var_ref=lb.Gene.ensembl_gene_id
     )
     assert "obs" not in file._feature_sets
+    # add feature set without saving file
+    feature = ln.Feature(name="feature name", type="category", registries="core.Label")
+    feature_set = ln.FeatureSet(features=[feature])
+    with pytest.raises(ValueError):
+        file.features.add_feature_set(feature_set, slot="random")
 
     # now register features we want to validate
     # (we are not interested in cell_type_id, here)
@@ -203,6 +214,13 @@ def test_features_add_labels_using_anndata():
         "hematopoietic stem cell",
         "B cell",
     }
+    assert set(file.get_labels("cell_type", flat_names=True)) == {
+        "T cell",
+        "my new cell type",
+        "hepatocyte",
+        "hematopoietic stem cell",
+        "B cell",
+    }
     assert set(file.get_labels("cell_type_from_expert").list("name")) == {
         "T cell",
         "my new cell type",
@@ -221,3 +239,27 @@ def test_features_add_labels_using_anndata():
     ln.Feature.filter(name="species").one().delete()
     ln.File.filter(description="Mini adata").one().delete(storage=True)
     ln.FeatureSet.filter().all().delete()
+
+
+def test_get_labels():
+    ln.dev.datasets.file_mini_csv()
+    file = ln.File("mini.csv", description="test")
+    # feature doesn't exist
+    with pytest.raises(ValueError):
+        file.get_labels("x")
+
+    # no linked labels
+    feature = ln.Feature(name="feature name", type="category")
+    feature_set = ln.FeatureSet(features=[feature])
+    feature_set.save()
+    file.save()
+    assert str(file.features) == "no linked features"
+    file.features.add_feature_set(feature_set, slot="random")
+    with pytest.raises(ValueError):
+        file.get_labels("feature name")
+
+    # exclude=False for create_features_df
+    df = create_features_df(file, [feature_set], exclude=False)
+    assert df.shape[0] == 1
+    file.delete(storage=True)
+    feature_set.delete()

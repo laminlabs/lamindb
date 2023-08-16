@@ -8,14 +8,14 @@ from lnschema_core import Registry
 def delete(
     record: Registry,
 ) -> None:
-    ...
+    ...  # pragma: no cover
 
 
 @overload
 def delete(
     records: List[Registry],
 ) -> None:  # type: ignore
-    ...
+    ...  # pragma: no cover
 
 
 def delete(  # type: ignore

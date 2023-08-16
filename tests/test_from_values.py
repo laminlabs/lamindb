@@ -28,6 +28,8 @@ def test_from_values_name(df):
             assert r.bionty_source.entity == "CellType"
         if r.ontology_id is None:
             assert r.bionty_source is None
+    with pytest.raises(TypeError):
+        result = lb.CellType.from_values(df.cell_type, field=lb.CellType)
 
 
 def test_from_values_ontology_id(df):
@@ -64,3 +66,10 @@ def test_from_values_species():
     print(curated_values)
     records = Gene.from_values(curated_values, Gene.symbol)
     assert records[0].ensembl_gene_id == "ENSMUSG00000015243"
+
+
+def test_get_or_create_records():
+    labels = ln.Label.from_values(["label" + str(i) for i in range(25)], field="name")
+    ln.save(labels)
+    # more than 20 existing values
+    ln.Label.from_values(["label" + str(i) for i in range(25)], field="name")

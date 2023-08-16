@@ -94,3 +94,17 @@ def test_search_file(get_search_test_filepaths):
     file3.delete(storage=True)
     file4.delete(storage=True)
     file5.delete(storage=True)
+
+
+def test_pass_version():
+    transform = ln.Transform(name="mytransform", version="1")
+    transform.save()
+    assert ln.Transform(name="mytransform", version="1") == transform
+    with pytest.raises(ValueError):
+        ln.Transform("1")
+
+
+def test_get_default_str_field():
+    assert registry.get_default_str_field(ln.Run()) == "created_at"
+    with pytest.raises(ValueError):
+        registry.get_default_str_field(ln.File.labels.through())

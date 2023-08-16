@@ -1,6 +1,8 @@
+import lnschema_bionty as lb
 import pytest
 
 import lamindb as ln
+from lamindb._query_set import MultipleResultsFound, NoResultFound
 
 
 def test_df():
@@ -61,6 +63,15 @@ def test_one_first():
     assert qs.first().handle == "testuser1"
     assert qs.one_or_none().handle == "testuser1"
 
+    qs = ln.User.filter(handle="test")
+    with pytest.raises(NoResultFound):
+        qs.one()
+    qs = lb.BiontySource.filter().all()
+    with pytest.raises(MultipleResultsFound):
+        qs.one()
+    with pytest.raises(MultipleResultsFound):
+        qs.one_or_none()
+
 
 def test_search():
     label_names = [f"Label {i}" for i in range(3)]
@@ -68,6 +79,7 @@ def test_search():
     ln.save(labels)
     qs = ln.Label.filter(name="Label 2").all()
     assert qs.search("Label 1").iloc[0].name == "Label 2"
+    assert qs.search("Label 1", field=ln.Label.name).iloc[0].name == "Label 2"
     for label in labels:
         label.delete()
 
@@ -76,16 +88,30 @@ def test_lookup():
     qs = ln.User.filter(handle="testuser1").all()
     lookup = qs.lookup(field="handle")
     assert lookup.testuser1.handle == "testuser1"
+    lookup = qs.lookup(field=ln.User.handle)
+    assert lookup.testuser1.handle == "testuser1"
 
 
 def test_inspect():
     qs = ln.User.filter(handle="testuser1").all()
     assert qs.inspect(["user1", "user2"], "name")["validated"] == []
+    assert ln.User.inspect(["user1", "user2"], "name")["validated"] == []
+    assert ln.User.inspect(["user1", "user2"], ln.User.name)["validated"] == []
+    assert ln.User.inspect("user1", "name")["validated"] == []
 
 
 def test_validate():
     qs = ln.User.filter(handle="testuser1").all()
     assert qs.validate(["testuser1", "Test User1"], "handle").tolist() == [True, False]
+    assert ln.User.validate(["testuser1", "Test User1"], "handle").tolist() == [
+        True,
+        False,
+    ]
+    assert ln.User.validate(["testuser1", "Test User1"], ln.User.handle).tolist() == [
+        True,
+        False,
+    ]
+    assert ln.User.validate("testuser1", ln.User.handle).tolist() == [True]
 
 
 def test_map_synonyms():
