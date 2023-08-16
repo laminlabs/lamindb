@@ -1,3 +1,6 @@
+import shutil
+
+import h5py
 import pandas as pd
 import pytest
 
@@ -6,6 +9,31 @@ from lamindb.dev.storage import delete_storage
 from lamindb.dev.storage._backed_access import backed_access
 from lamindb.dev.storage._zarr import read_adata_zarr, write_adata_zarr
 from lamindb.dev.storage.file import read_adata_h5ad
+
+
+@pytest.fixture
+def bad_adata_path():
+    fp = ln.dev.datasets.anndata_file_pbmc68k_test()
+    adata = read_adata_h5ad(fp)
+    to = fp.with_name("pbmc68k_bad.h5ad")
+    shutil.copy(fp, to)
+    fp = to
+    file = h5py.File(fp, mode="r+")
+    for field_name in ("obs", "var"):
+        field = getattr(adata, field_name).to_records()
+        formats = []
+        for name, (dt, _) in field.dtype.fields.items():
+            if dt == "O":
+                new_dt = str(field[name].astype(str).dtype).replace("<U", "S")
+            else:
+                new_dt = dt
+            formats.append((name, new_dt))
+        del file[field_name]
+        file.create_dataset(field_name, data=field.astype(formats))
+    del file["X"].attrs["encoding-type"]
+    del file["X"].attrs["encoding-version"]
+    file.close()
+    return fp
 
 
 def test_anndata_io():
@@ -74,6 +102,24 @@ def test_backed_access(adata_format):
     assert access.to_memory().shape == (30, 200)
     assert sub.to_memory().shape == (30, 3)
 
+    access.close()
     if adata_format == "zarr":
         assert fp.suffix == ".zarr"
         delete_storage(fp)
+
+
+def test_backed_bad_format(bad_adata_path):
+    access = backed_access(bad_adata_path)
+    sub = access[:10]
+
+    assert sub.X.shape == (10, 200)
+
+    assert isinstance(sub.obs, pd.DataFrame)
+    assert isinstance(sub.var, pd.DataFrame)
+    assert isinstance(sub.obs_names, pd.Index)
+    assert isinstance(sub.var_names, pd.Index)
+
+    assert sub.to_memory().shape == (10, 200)
+
+    access.close()
+    delete_storage(bad_adata_path)

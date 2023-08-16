@@ -26,6 +26,27 @@ def get_module_name(obj):
     return inspect.getmodule(obj).__name__.partition(".")[0]
 
 
+def _records_to_df(obj):
+    if isinstance(obj, pd.DataFrame):
+        return obj
+
+    if hasattr(obj, "dtype") and obj.dtype.names is not None:
+        formats = []
+        for name, (dt, _) in obj.dtype.fields.items():
+            if dt.char == "S":
+                new_dt = str(dt).replace("S", "U")
+            else:
+                new_dt = dt
+            formats.append((name, new_dt))
+        df = pd.DataFrame(obj.astype(formats, copy=False))
+        for index_name in ("index", "_index"):
+            if index_name in df.columns:
+                return df.set_index(index_name)
+            return df
+    else:
+        return obj
+
+
 class Registry:
     def __init__(self):
         self._registry = {}
@@ -331,7 +352,8 @@ class _AnnDataAttrsMixin:
         indices = getattr(self, "indices", None)
         if indices is not None:
             indices = (indices[0], slice(None))
-            return registry.safer_read_partial(self.storage["obs"], indices=indices)  # type: ignore # noqa
+            obj = registry.safer_read_partial(self.storage["obs"], indices=indices)  # type: ignore # noqa
+            return _records_to_df(obj)
         else:
             return registry.read_dataframe(self.storage["obs"])  # type: ignore
 
@@ -342,7 +364,8 @@ class _AnnDataAttrsMixin:
         indices = getattr(self, "indices", None)
         if indices is not None:
             indices = (indices[1], slice(None))
-            return registry.safer_read_partial(self.storage["var"], indices=indices)  # type: ignore # noqa
+            obj = registry.safer_read_partial(self.storage["var"], indices=indices)  # type: ignore # noqa
+            return _records_to_df(obj)
         else:
             return registry.read_dataframe(self.storage["var"])  # type: ignore
 
@@ -552,11 +575,15 @@ class AnnDataAccessor(_AnnDataAttrsMixin):
         self._obs_names = _safer_read_index(self.storage["obs"])  # type: ignore
         self._var_names = _safer_read_index(self.storage["var"])  # type: ignore
 
-    def __del__(self):
+    def close(self):
         """Closes the connection."""
         if self._conn is not None:
             self.storage.close()
             self._conn.close()
+
+    def __del__(self):
+        """Closes the connection on deletion."""
+        self.close()
 
     def __getitem__(self, index: Index) -> AnnDataAccessorSubset:
         """Access a subset of the underlying AnnData object."""
