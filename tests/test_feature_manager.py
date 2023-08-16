@@ -37,6 +37,7 @@ def test_features_add_labels():
     )
     ln.Feature(name="experiment", type="category", registries="core.Label").save()
     file.add_labels(label, feature="experiment")
+    file.add_labels(ln.Label.filter(name="Experiment 1").all(), feature="experiment")
     feature = ln.Feature.filter(name="experiment").one()
     assert feature.type == "category"
     assert feature.registries == "core.Label"
