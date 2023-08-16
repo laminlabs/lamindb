@@ -116,4 +116,4 @@ def test_validate():
 
 def test_map_synonyms():
     qs = ln.User.filter(handle="testuser1").all()
-    assert qs.map_synonyms(["user1", "user2"]) == ["user1", "user2"]
+    assert qs.standardize(["user1", "user2"]) == ["user1", "user2"]
