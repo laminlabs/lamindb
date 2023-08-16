@@ -1,27 +1,18 @@
 # Changelog
 
-- 🎉 Stage 0.50.4 (2) [PR1037](https://github.com/laminlabs/lamindb/pull/1037) [@sunnyosun](https://github.com/sunnyosun)
-- 📌 Restrict anndata versions [PR1043](https://github.com/laminlabs/lamindb/pull/1043) [@falexwolf](https://github.com/falexwolf)
-- 🚸 Remove SA as a dependency and use delete dialogue [PR1041](https://github.com/laminlabs/lamindb/pull/1041) [@falexwolf](https://github.com/falexwolf)
-- 🧪 More tests for feature [PR1042](https://github.com/laminlabs/lamindb/pull/1042) [@sunnyosun](https://github.com/sunnyosun)
-- 🧪 Increase cov [PR1038](https://github.com/laminlabs/lamindb/pull/1038) [@sunnyosun](https://github.com/sunnyosun)
-- ✅ More tests and fixes backed [PR1040](https://github.com/laminlabs/lamindb/pull/1040) [@Koncopd](https://github.com/Koncopd)
-- 🚑 Fix inspect [PR1036](https://github.com/laminlabs/lamindb/pull/1036) [@sunnyosun](https://github.com/sunnyosun)
-- 🚑 Fix return for map_synonyms [PR1035](https://github.com/laminlabs/lamindb/pull/1035) [@sunnyosun](https://github.com/sunnyosun)
-- 🎉 Stage 0.50.4 [PR1028](https://github.com/laminlabs/lamindb/pull/1028) [@falexwolf](https://github.com/falexwolf)
-- 📝 A single bio registry guide [PR1034](https://github.com/laminlabs/lamindb/pull/1034) [@sunnyosun](https://github.com/sunnyosun)
-- 📝 Refactor docs [PR1033](https://github.com/laminlabs/lamindb/pull/1033) [@falexwolf](https://github.com/falexwolf)
-- ✨ `map_synonyms` also map in Bionty [PR1031](https://github.com/laminlabs/lamindb/pull/1031) [@sunnyosun](https://github.com/sunnyosun)
-- ♻️ Re-organize README & guide landing page [PR1032](https://github.com/laminlabs/lamindb/pull/1032) [@falexwolf](https://github.com/falexwolf)
-- ♻️ Refactor `run_context` [PR1030](https://github.com/laminlabs/lamindb/pull/1030) [@falexwolf](https://github.com/falexwolf)
-- 🎨 Re-organize docs [PR1029](https://github.com/laminlabs/lamindb/pull/1029) [@falexwolf](https://github.com/falexwolf)
 ```{eval-rst}
 .. role:: small
 ```
 
 ## 0.50
 
-### 0.50.2 {small}`2023-08-11`
+### 0.50.4 {small}`2023-08-16`
+
+- ✨ `map_synonyms` also map in Bionty [PR1031](https://github.com/laminlabs/lamindb/pull/1031) [@sunnyosun](https://github.com/sunnyosun)
+- ♻️ Refactor `run_context` [PR1030](https://github.com/laminlabs/lamindb/pull/1030) [@falexwolf](https://github.com/falexwolf)
+- 🚸 Remove SA as a dependency and use delete dialogue [PR1041](https://github.com/laminlabs/lamindb/pull/1041) [@falexwolf](https://github.com/falexwolf)
+
+### 0.50.3 {small}`2023-08-11`
 
 - 🚚 Move data lineage to use cases [PR1026](https://github.com/laminlabs/lamindb/pull/1026) [@falexwolf](https://github.com/falexwolf)
 - 🚸 Do not allow creating files with none of `key`, `description` and `run` [PR1022](https://github.com/laminlabs/lamindb/pull/1022) [@falexwolf](https://github.com/falexwolf)
