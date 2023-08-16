@@ -13,11 +13,18 @@ pip install 'lamindb[jupyter,bionty]'
 Supported `extras` are:
 
 ```yaml
-jupyter  # Track Jupyter notebooks
-bionty   # Manage basic biological entities
-fcs      # Manage FCS files (flow cytometry)
-zarr     # Store & stream arrays with zarr
-aws      # AWS (s3fs, etc.)
-gcp      # Google Cloud (gcfs, etc.)
-postgres # Postgres server
+# commonly used
+jupyter   # parse Jupyter notebooks
+bionty    # manage basic biological entities
+# cloud backends
+aws       # AWS (s3fs, etc.)
+gcp       # Google Cloud (gcfs, etc.)
+# biological file formats
+fcs       # manage FCS files (flow cytometry)
+# storage backends
+zarr      # store & stream arrays with zarr
+# database backends
+postgres  # postgres tools
+# others
+erdiagram # visualize ER diagrams, also needs graphviz
 ```
