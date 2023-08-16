@@ -508,7 +508,7 @@ def test_serialize_paths():
 def test_load_to_memory():
     # tsv
     pd.DataFrame([1, 2]).to_csv("test.tsv", sep="\t")
-    df = read_tsv("file.tsv")
+    df = read_tsv("test.tsv")
     assert isinstance(df, pd.DataFrame)
     # other
     pd.DataFrame([1, 2]).to_csv("test.zrad", sep="\t")
@@ -516,6 +516,6 @@ def test_load_to_memory():
     # none
     pd.DataFrame([1, 2]).to_csv("test.zip", sep="\t")
     load_to_memory("test.zip")
-    UPath("file.tsv").unlink()
-    UPath("file.zrad").unlink()
-    UPath("file.zip").unlink()
+    UPath("test.tsv").unlink()
+    UPath("test.zrad").unlink()
+    UPath("test.zip").unlink()
