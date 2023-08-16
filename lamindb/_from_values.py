@@ -21,21 +21,14 @@ def get_or_create_records(
     """Get or create records from iterables."""
     upon_create_search_names = settings.upon_create_search_names
     settings.upon_create_search_names = False
-    feature: Feature = None
-    if "feature" in kwargs:
-        feature = kwargs.pop("feature")
-        kwargs["feature_id"] = feature.id
     types: Optional[Dict] = None
+    feature: Feature = None
     if "types" in kwargs:
         types = kwargs.pop("types")
     try:
         field_name = field.field.name
         Registry = field.field.model
         iterable_idx = index_iterable(iterable)
-
-        if isinstance(Registry, Feature):
-            if types is None:
-                raise ValueError("Please pass types as {} or use FeatureSet.from_df()")
 
         # returns existing records & non-existing values
         records, nonexist_values = get_existing_records(
@@ -65,8 +58,6 @@ def get_or_create_records(
                 if len(unmapped_values) > 20:
                     print_unmapped_values += ", ..."
                 additional_info = " "
-                if feature is not None:
-                    additional_info = f" Feature {feature.name} and "
                 logger.warning(
                     f"did not validate {colors.yellow(f'{len(unmapped_values)} {Registry.__name__} record{s}')} for{additional_info}"  # noqa
                     f"{colors.yellow(f'{field_name}{s}')}: {print_unmapped_values}"  # noqa
@@ -77,8 +68,6 @@ def get_or_create_records(
             feature_name = None
             if isinstance(feature, str):
                 feature_name = feature
-            elif feature is not None:
-                feature_name = feature.name
             if feature_name is not None:
                 if feature_name is not None:
                     for record in records:
