@@ -517,7 +517,7 @@ def test_load_to_memory():
     df = read_tsv("test.tsv")
     assert isinstance(df, pd.DataFrame)
     # fcs
-    adata = read_fcs(ln.dev.datasets.file_mini_csv())
+    adata = read_fcs(ln.dev.datasets.file_fcs())
     assert isinstance(adata, ad.AnnData)
     # other
     pd.DataFrame([1, 2]).to_csv("test.zrad", sep="\t")
