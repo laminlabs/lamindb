@@ -28,6 +28,8 @@ def test_from_values_name(df):
             assert r.bionty_source.entity == "CellType"
         if r.ontology_id is None:
             assert r.bionty_source is None
+    with pytest.raises(TypeError):
+        result = lb.CellType.from_values(df.cell_type, field=lb.CellType)
 
 
 def test_from_values_ontology_id(df):

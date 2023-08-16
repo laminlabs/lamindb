@@ -97,7 +97,9 @@ def test_search_file(get_search_test_filepaths):
 
 
 def test_pass_version():
-    ln.Transform(version="1")
+    transform = ln.Transform(name="mytransform", version="1")
+    transform.save()
+    assert ln.Transform(name="mytransform", version="1") == transform
     with pytest.raises(ValueError):
         ln.Transform("1")
 
