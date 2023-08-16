@@ -2,7 +2,6 @@ from itertools import islice
 from typing import List, Optional, Union
 
 import pandas as pd
-from lamin_utils import colors, logger
 from lamindb_setup.dev._docs import doc_args
 from lnschema_core import Feature
 from lnschema_core.models import Registry
@@ -37,10 +36,9 @@ def __init__(self, *args, **kwargs):
         kwargs.pop("registries") if "registries" in kwargs else None
     )
     # cast type
+    type_str = None
     if type is not None:
         type_str = type.__name__ if not isinstance(type, str) else type
-    else:
-        type_str = None
     kwargs["type"] = type_str
     # cast registries
     registries_str: Optional[str] = None
@@ -73,7 +71,7 @@ def from_df(cls, df: "pd.DataFrame") -> List["Feature"]:
             categoricals[key] = c
 
     types = {}
-    categoricals_with_unmapped_categories = {}  # type: ignore
+    # categoricals_with_unmapped_categories = {}  # type: ignore
     for name, col in df.items():
         if name in categoricals:
             types[name] = "category"
@@ -95,28 +93,28 @@ def from_df(cls, df: "pd.DataFrame") -> List["Feature"]:
     features = Feature.from_values(df.columns, field=Feature.name, types=types)
     assert len(features) == len(df.columns)
 
-    if len(categoricals_with_unmapped_categories) > 0:
-        n_max = 20
-        categoricals_with_unmapped_categories_formatted = "\n      ".join(
-            [
-                (
-                    f"{key} ({len(value)}): {', '.join(value)}"
-                    if len(value) <= 5
-                    else f"{key} ({len(value)}): {', '.join(value[:5])} ..."
-                )
-                for key, value in take(
-                    n_max, categoricals_with_unmapped_categories.items()
-                )
-            ]
-        )
-        if len(categoricals_with_unmapped_categories) > n_max:
-            categoricals_with_unmapped_categories_formatted += "\n      ..."
-        categoricals_with_unmapped_categories_formatted
-        logger.info(
-            f"{len(categoricals_with_unmapped_categories)} features have"
-            f" {colors.yellow('unmapped categories')}:\n     "
-            f" {categoricals_with_unmapped_categories_formatted}"
-        )
+    # if len(categoricals_with_unmapped_categories) > 0:
+    #     n_max = 20
+    #     categoricals_with_unmapped_categories_formatted = "\n      ".join(
+    #         [
+    #             (
+    #                 f"{key} ({len(value)}): {', '.join(value)}"
+    #                 if len(value) <= 5
+    #                 else f"{key} ({len(value)}): {', '.join(value[:5])} ..."
+    #             )
+    #             for key, value in take(
+    #                 n_max, categoricals_with_unmapped_categories.items()
+    #             )
+    #         ]
+    #     )
+    #     if len(categoricals_with_unmapped_categories) > n_max:
+    #         categoricals_with_unmapped_categories_formatted += "\n      ..."
+    #     categoricals_with_unmapped_categories_formatted
+    #     logger.info(
+    #         f"{len(categoricals_with_unmapped_categories)} features have"
+    #         f" {colors.yellow('unmapped categories')}:\n     "
+    #         f" {categoricals_with_unmapped_categories_formatted}"
+    #     )
     return features
 
 
