@@ -19,8 +19,8 @@ def test_view_parents():
         lb.Species(name="mouse").view_parents()
 
 
-def add_emoji():
-    assert _add_emoji(ln.Transform(type="app"), label="transform") == "🖥️ transform"
-    assert (
-        _add_emoji(ln.Run(transform=ln.Transform(type="app")), label="run") == "🖥️ run"
-    )
+def test_add_emoji():
+    record = ln.Transform(type="app")
+    assert _add_emoji(record, label="transform") == "🖥️ transform"
+    record = ln.Run(transform=ln.Transform(type="app"))
+    assert _add_emoji(record, label="run") == "🖥️ run"
