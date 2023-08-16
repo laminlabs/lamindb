@@ -108,6 +108,7 @@ def test_backed_access(adata_format):
         assert fp.suffix == ".zarr"
         delete_storage(fp)
 
+
 def test_infer_suffix():
     import anndata as ad
 
@@ -118,9 +119,11 @@ def test_infer_suffix():
     with pytest.raises(NotImplementedError):
         infer_suffix(ln.File)
 
+
 def test_write_to_file():
     with pytest.raises(NotImplementedError):
         write_to_file(ln.File, "path")
+
 
 def test_backed_bad_format(bad_adata_path):
     access = backed_access(bad_adata_path)
