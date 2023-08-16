@@ -84,6 +84,7 @@ def test_infer_suffix():
     import anndata as ad
 
     adata = ad.AnnData()
+    assert infer_suffix(adata, adata_format="h5ad") == ".h5ad"
     with pytest.raises(ValueError):
         infer_suffix(adata, adata_format="my format")
     with pytest.raises(NotImplementedError):
