@@ -48,7 +48,7 @@ def view_lineage(file: File, with_children: bool = True):
     """
     try:
         import graphviz
-    except ImportError:
+    except ImportError:  # pragma: no cover
         raise ImportError(
             "Drawing diagrams requires 'graphviz' to be installed. This requires the"
             " Python package 'graphviz' and the associated binary. We recommend to"
@@ -116,7 +116,7 @@ def _view_parents(
 ):
     """Graph of parents."""
     if not hasattr(record, "parents"):
-        return NotImplementedError(
+        raise NotImplementedError(
             f"Parents view is not supported for {record.__class__.__name__}!"
         )
     import graphviz
@@ -276,12 +276,11 @@ def _df_edges_from_runs(all_runs: List[Run]):
 
     df_values = []
     for run in all_runs:
-        if run is None:
-            continue
-        if run.input_files.exists():
-            df_values.append((run.input_files.list(), run))
-        if run.output_files.exists():
-            df_values.append((run, run.output_files.list()))
+        if run is not None:
+            if run.input_files.exists():
+                df_values.append((run.input_files.list(), run))
+            if run.output_files.exists():
+                df_values.append((run, run.output_files.list()))
     df = pd.DataFrame(df_values, columns=["source_record", "target_record"])
     df = df.explode("source_record")
     df = df.explode("target_record")

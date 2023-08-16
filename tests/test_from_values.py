@@ -64,3 +64,12 @@ def test_from_values_species():
     print(curated_values)
     records = Gene.from_values(curated_values, Gene.symbol)
     assert records[0].ensembl_gene_id == "ENSMUSG00000015243"
+
+
+def test_get_or_create_records():
+    labels = ln.Label.from_values(["label" + str(i) for i in range(25)], field="name")
+    ln.save(labels)
+    # more than 20 existing values
+    ln.Label.from_values(["label" + str(i) for i in range(25)], field="name")
+    # feature
+    ln.Label.from_values(["labelx"], feature=ln.Feature(name="myf", type="category"))
