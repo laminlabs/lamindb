@@ -1,5 +1,6 @@
 # Changelog
 
+- 🎉 Stage 0.50.4 (2) [PR1037](https://github.com/laminlabs/lamindb/pull/1037) [@sunnyosun](https://github.com/sunnyosun)
 - 📌 Restrict anndata versions [PR1043](https://github.com/laminlabs/lamindb/pull/1043) [@falexwolf](https://github.com/falexwolf)
 - 🚸 Remove SA as a dependency and use delete dialogue [PR1041](https://github.com/laminlabs/lamindb/pull/1041) [@falexwolf](https://github.com/falexwolf)
 - 🧪 More tests for feature [PR1042](https://github.com/laminlabs/lamindb/pull/1042) [@sunnyosun](https://github.com/sunnyosun)
