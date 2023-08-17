@@ -1,12 +1,14 @@
 # Changelog
 
-- 🚑 Fix bionty-source default versions [PR1049](https://github.com/laminlabs/lamindb/pull/1049) [@sunnyosun](https://github.com/sunnyosun)
-- ♻️ Refactor tutorial [PR1048](https://github.com/laminlabs/lamindb/pull/1048) [@falexwolf](https://github.com/falexwolf)
 ```{eval-rst}
 .. role:: small
 ```
 
 ## 0.50
+
+### 0.50.7 {small}`2023-08-17`
+
+- 🚑 Fix bionty-source default versions [PR1049](https://github.com/laminlabs/lamindb/pull/1049) [@sunnyosun](https://github.com/sunnyosun)
 
 ### 0.50.6 {small}`2023-08-16`
 
