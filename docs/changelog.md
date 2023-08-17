@@ -1,5 +1,6 @@
 # Changelog
 
+- 🎉 Stage 0.50.X [PR1052](https://github.com/laminlabs/lamindb/pull/1052) [@Koncopd](https://github.com/Koncopd)
 - 🚸 Allow `reference` & `reference_type` params in `ln.track()` [PR1053](https://github.com/laminlabs/lamindb/pull/1053) [@falexwolf](https://github.com/falexwolf)
 - ✅ More tests and fixes for backed [PR1050](https://github.com/laminlabs/lamindb/pull/1050) [@Koncopd](https://github.com/Koncopd)
 ```{eval-rst}
