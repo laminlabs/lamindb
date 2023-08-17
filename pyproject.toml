@@ -19,7 +19,7 @@ dependencies = [
     # !!! They cannot be pinned ANYWHERE else !!!
     "lnschema_core==0.45.5",
     "lamindb_setup==0.50.2",
-    "lamin_utils==0.10.0",
+    "lamin_utils==0.10.1",
     # others
     "rapidfuzz",
     "pyarrow",
