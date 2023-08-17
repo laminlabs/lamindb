@@ -22,6 +22,24 @@ from lnschema_core import File
 from lamindb.dev.storage.file import filepath_from_file
 
 
+# try csr for groups with no encoding_type
+class SparseDatasetCSR(SparseDataset):
+    @property
+    def format_str(self) -> str:
+        return "csr"
+
+
+# zarr and SparseDatasetCSR have problems with full selection
+def _subset_sparse(sparse_ds: Union[SparseDatasetCSR, SparseDataset], indices):
+    has_arrays = isinstance(indices[0], np.ndarray) or isinstance(
+        indices[1], np.ndarray
+    )
+    if not has_arrays and indices == (slice(None), slice(None)):
+        return sparse_ds.to_memory()
+    else:
+        return sparse_ds[indices]
+
+
 def get_module_name(obj):
     return inspect.getmodule(obj).__name__.partition(".")[0]
 
@@ -125,7 +143,8 @@ def safer_read_partial(elem, indices):
                     return elem[indices[0]]
         elif isinstance(elem, h5py.Group):
             try:
-                return SparseDataset(elem)[indices]
+                ds = SparseDatasetCSR(elem)
+                return _subset_sparse(ds, indices)
             except Exception:
                 pass
         raise ValueError(
@@ -172,16 +191,6 @@ if ZARR_INSTALLED:
     GroupTypes.append(zarr.Group)
     StorageTypes.append(zarr.Group)
 
-    def _subset_sparse_zarr(elem: zarr.Group, indices):
-        ds = SparseDataset(elem)
-        has_arrays = isinstance(indices[0], np.ndarray) or isinstance(
-            indices[1], np.ndarray
-        )
-        if not has_arrays and indices == (slice(None), slice(None)):
-            return ds.to_memory()
-        else:
-            return ds[indices]
-
     @registry.register_open("zarr")
     def open(filepath: Union[UPath, Path, str]):  # noqa
         fs, file_path_str = infer_filesystem(filepath)
@@ -211,7 +220,8 @@ if ZARR_INSTALLED:
                         return elem.oindex[indices[0]]
             elif isinstance(elem, zarr.Group):
                 try:
-                    return _subset_sparse_zarr(elem, indices)
+                    ds = SparseDatasetCSR(elem)
+                    return _subset_sparse(ds, indices)
                 except Exception:
                     pass
             raise ValueError(
@@ -220,7 +230,8 @@ if ZARR_INSTALLED:
             )
         else:
             if encoding_type in ("csr_matrix", "csc_matrix"):
-                return _subset_sparse_zarr(elem, indices)
+                ds = SparseDataset(elem)
+                return _subset_sparse(ds, indices)
             else:
                 return read_elem_partial(elem, indices=indices)
 
@@ -296,6 +307,8 @@ def _try_backed_full(elem):
             return SparseDataset(elem)
         if "h5sparse_format" in elem.attrs:
             return SparseDataset(elem)
+        if encoding_type == "" and "indptr" in elem:
+            return SparseDatasetCSR(elem)
 
     return read_elem(elem)
 

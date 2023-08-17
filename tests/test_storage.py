@@ -3,6 +3,7 @@ import shutil
 import h5py
 import pandas as pd
 import pytest
+import zarr
 
 import lamindb as ln
 from lamindb.dev.storage import delete_storage
@@ -33,6 +34,8 @@ def bad_adata_path():
         file.create_dataset(field_name, data=field.astype(formats))
     del file["X"].attrs["encoding-type"]
     del file["X"].attrs["encoding-version"]
+    del file["obsp"]["test"].attrs["encoding-type"]
+    del file["obsp"]["test"].attrs["encoding-version"]
     file.close()
     return fp
 
@@ -67,6 +70,13 @@ def test_backed_access(adata_format):
         fp = fp.with_suffix(".zarr")
         write_adata_zarr(adata, fp, callback)
         del adata
+        # remove encoding information to check correctness of backed accessor
+        store = zarr.open(fp)
+        del store["obsp"]["test"].attrs["encoding-type"]
+        del store["obsp"]["test"].attrs["encoding-version"]
+        del store["obsm"]["X_pca"].attrs["encoding-type"]
+        del store["obsm"]["X_pca"].attrs["encoding-version"]
+        del store
 
     with pytest.raises(ValueError):
         access = backed_access(fp.with_suffix(".invalid_suffix"))
@@ -86,6 +96,7 @@ def test_backed_access(adata_format):
     assert sub.raw.shape == (10, 100)
     assert sub.obsp["test"].sum() == 10
     assert sub.varp["test"].sum() == 200
+    assert sub.obsm["X_pca"].shape == (10, 50)
 
     with pytest.raises(AttributeError):
         sub.raw.raw
@@ -127,9 +138,13 @@ def test_write_to_file():
 
 def test_backed_bad_format(bad_adata_path):
     access = backed_access(bad_adata_path)
+
+    assert access.obsp["test"].to_memory().sum() == 30
+
     sub = access[:10]
 
     assert sub.X.shape == (10, 200)
+    assert sub.obsp["test"].sum() == 10
 
     assert isinstance(sub.obs, pd.DataFrame)
     assert isinstance(sub.var, pd.DataFrame)
