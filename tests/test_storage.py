@@ -129,6 +129,9 @@ def test_write_to_file():
 
 def test_backed_bad_format(bad_adata_path):
     access = backed_access(bad_adata_path)
+
+    assert access.obsp["test"].to_memory().sum() == 30
+
     sub = access[:10]
 
     assert sub.X.shape == (10, 200)
