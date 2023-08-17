@@ -133,30 +133,32 @@ class run_context:
         transform: Optional[Transform] = None,
         *,
         new_run: Optional[bool] = None,
+        reference: Optional[str] = None,
+        reference_type: Optional[str] = None,
         notebook_path: Optional[str] = None,
         pypackage: Optional[Union[str, List[str]]] = None,
         editor: Optional[str] = None,
     ) -> None:
         """Track global `Transform` & `Run` for a notebook or pipeline.
 
-        Access them via `ln.context.transform` and `ln.context.run`.
+        Creates or loads a :class:`~lamindb.Run` record and sets a global
+        :class:`~lamindb.dev.run_context`.
 
-        Call without a `transform` record or without arguments
-        when tracking a Jupyter notebook.
-
-        If a Jupyter notebook has no associated metadata, attempts to write
-        metadata to disk.
+        In a Jupyter notebook, call without any argument (metadata is parsed).
+        If the notebook has no associated metadata ("is not initialized"),
+        attempts to write metadata to disk. If it fails to so interactively, it
+        will ask you to leverage the CLI.
 
         Args:
-            transform: `Optional[Transform] = None` - Can be of type
-                "pipeline" or "notebook" (:class:`lamindb.types.TransformType`).
-            new_run: `Optional[bool] = None` - If False, loads latest run of transform
+            transform: Can be of type `"pipeline"` or `"notebook"`
+                (:class:`~lamindb.types.TransformType`).
+            new_run: If `False`, loads latest run of transform
                 (default notebook), if True, creates new run (default pipeline).
-            notebook_path: `Optional[str] = None` - Filepath of notebook.
-                Only needed if inference fails.
-            pypackage: `Optional[Union[str, List[str]]] = None` - One or more
-                python packages to track.
-            editor: `Optional[str] = None` - Editor environment.
+            reference: Reference to pass to :class:`~lamindb.Run` record.
+            reference_type: Reference type to pass to :class:`~lamindb.Run` record (e.g. "url").
+            notebook_path: Filepath of notebook. Only needed if inference fails.
+            pypackage: One or more python packages for which to parse versions.
+            editor: Editor environment.
                 Pass `'lab'` for jupyter lab and `'notebook'` for jupyter notebook,
                 this can help to identify the correct mechanism for interactivity
                 when automatic inference fails.
@@ -169,9 +171,9 @@ class run_context:
             >>> ln.track()
             ✅ saved: Transform(id=1LCd8kco9lZUBg, name=Track data lineage / provenance, short_name=02-data-lineage, stem_id=1LCd8kco9lZU, version=0, type=notebook, updated_at=2023-07-10 18:37:19, created_by_id=DzTjkKse) # noqa
             ✅ saved: Run(id=pHgVICV9DxBaV6BAuKJl, run_at=2023-07-10 18:37:19, transform_id=1LCd8kco9lZUBg, created_by_id=DzTjkKse) # noqa
-            >>> ln.context.transform
+            >>> ln.dev.run_context.transform
             Transform(id=1LCd8kco9lZUBg, name=Track data lineage / provenance, short_name=02-data-lineage, stem_id=1LCd8kco9lZU, version=0, type=notebook, updated_at=2023-07-10 18:37:19, created_by_id=DzTjkKse) # noqa
-            >>> ln.context.run
+            >>> ln.dev.run_context.run
             Run(id=pHgVICV9DxBaV6BAuKJl, run_at=2023-07-10 18:37:19, transform_id=1LCd8kco9lZUBg, created_by_id=DzTjkKse) # noqa
 
             If you'd like to track a pipeline we need to pass a
@@ -247,11 +249,17 @@ class run_context:
             )
             if run is not None:  # loaded latest run
                 run.run_at = datetime.now(timezone.utc)  # update run time
+                run.reference = reference
+                run.reference_type = reference_type
                 run.save()
                 logger.success(f"loaded: {run}")
 
         if run is None:  # create new run
-            run = ln.Run(transform=cls.transform)
+            run = ln.Run(
+                transform=cls.transform,
+                reference=reference,
+                reference_type=reference_type,
+            )
             run.save()
             logger.save(f"saved: {run}")
         cls.run = run
