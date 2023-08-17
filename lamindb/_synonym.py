@@ -176,8 +176,10 @@ def _standardize(
     """{}"""
     from lamin_utils._map_synonyms import map_synonyms
 
+    return_str = False
     if isinstance(values, str):
         values = [values]
+        return_str = True
     if field is None:
         field = get_default_str_field(cls)
     if not isinstance(field, str):
@@ -216,6 +218,14 @@ def _standardize(
         **_kwargs,
     )
 
+    def _return(result: List, mapper: Dict, return_mapper: bool, return_str: bool):
+        if return_mapper:
+            return mapper
+        else:
+            if return_str and len(result) == 1:
+                return result[0]
+            return result
+
     # map synonyms in Bionty
     if orm.__get_schema_name__() == "bionty":
         mapper = {}
@@ -227,7 +237,12 @@ def _standardize(
 
         val_res = orm.validate(std_names_db, field=field, mute=True, species=species)
         if all(val_res):
-            return mapper if return_mapper else std_names_db
+            return _return(
+                result=std_names_db,
+                mapper=mapper,
+                return_mapper=return_mapper,
+                return_str=return_str,
+            )
 
         nonval = np.array(std_names_db)[~val_res]
         std_names_bt_mapper = orm.bionty(species=species).standardize(
@@ -246,13 +261,22 @@ def _standardize(
             )
             logger.warning(warn_msg)
 
-        if return_mapper:
-            mapper.update(std_names_bt_mapper)
-            return mapper
-        else:
-            return pd.Series(std_names_db).replace(std_names_bt_mapper).tolist()
+        mapper.update(std_names_bt_mapper)
+        result = pd.Series(std_names_db).replace(std_names_bt_mapper).tolist()
+        return _return(
+            result=result,
+            mapper=mapper,
+            return_mapper=return_mapper,
+            return_str=return_str,
+        )
+
     else:
-        return std_names_db
+        return _return(
+            result=std_names_db,
+            mapper=mapper,
+            return_mapper=return_mapper,
+            return_str=return_str,
+        )
 
 
 METHOD_NAMES = ["standardize", "add_synonym", "remove_synonym", "set_abbr"]
