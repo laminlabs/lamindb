@@ -1,5 +1,6 @@
 # Changelog
 
+- ♻️ Refactor tutorial [PR1048](https://github.com/laminlabs/lamindb/pull/1048) [@falexwolf](https://github.com/falexwolf)
 ```{eval-rst}
 .. role:: small
 ```
