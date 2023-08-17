@@ -96,7 +96,9 @@ def file_tiff_suo22():  # pragma: no cover
     return Path(filepath)
 
 
-def anndata_mouse_sc_lymph_node(populate_registries: bool = False) -> ad.AnnData:
+def anndata_mouse_sc_lymph_node(
+    populate_registries: bool = False,
+) -> ad.AnnData:  # pragma: no cover
     """Mouse lymph node scRNA-seq dataset from EBI.
 
     Subsampled to 10k genes.
