@@ -1,5 +1,6 @@
 # Changelog
 
+- ✅ More tests and fixes for backed [PR1050](https://github.com/laminlabs/lamindb/pull/1050) [@Koncopd](https://github.com/Koncopd)
 ```{eval-rst}
 .. role:: small
 ```
