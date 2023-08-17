@@ -33,6 +33,8 @@ def bad_adata_path():
         file.create_dataset(field_name, data=field.astype(formats))
     del file["X"].attrs["encoding-type"]
     del file["X"].attrs["encoding-version"]
+    del file["obsp"]["test"].attrs["encoding-type"]
+    del file["obsp"]["test"].attrs["encoding-version"]
     file.close()
     return fp
 
@@ -130,6 +132,7 @@ def test_backed_bad_format(bad_adata_path):
     sub = access[:10]
 
     assert sub.X.shape == (10, 200)
+    assert sub.obsp["test"].sum() == 10
 
     assert isinstance(sub.obs, pd.DataFrame)
     assert isinstance(sub.var, pd.DataFrame)
