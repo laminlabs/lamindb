@@ -70,7 +70,7 @@ def auto_storage_key_from_file(file: File):
 
 def auto_storage_key_from_id_suffix(id: str, suffix: str) -> str:
     assert isinstance(id, str)
-    assert suffix is not None
+    assert isinstance(suffix, str)
     storage_key = f"{AUTO_KEY_PREFIX}{id}{suffix}"
     return storage_key
 

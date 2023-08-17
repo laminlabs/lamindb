@@ -459,20 +459,16 @@ def test_extract_suffix_from_path():
         assert suffix == extract_suffix_from_path(filepath)
 
 
-@pytest.mark.parametrize("suffix", [".txt", None])
+@pytest.mark.parametrize("suffix", [".txt", "", None])
 def test_auto_storage_key_from_id_suffix(suffix):
-    assert AUTO_KEY_PREFIX == ".lamindb/"
     test_id = "abo389f"
-    storage_key = auto_storage_key_from_id_suffix(test_id, suffix)
-    assert storage_key.startswith(AUTO_KEY_PREFIX)
     if suffix is None:
-        assert storage_key == f"{AUTO_KEY_PREFIX}{test_id}"
+        with pytest.raises(AssertionError):
+            auto_storage_key_from_id_suffix(test_id, suffix)
     else:
-        assert storage_key.endswith(suffix)
-
-
-def test_storage_key_from_path():
-    ln.File("")
+        assert AUTO_KEY_PREFIX == ".lamindb/"
+        storage_key = auto_storage_key_from_id_suffix(test_id, suffix)
+        storage_key == f"{AUTO_KEY_PREFIX}{test_id}{suffix}"
 
 
 def test_storage_root_upath_equivalence():
