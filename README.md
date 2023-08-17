@@ -10,12 +10,12 @@ Public beta: Close to having converged a stable API, but some breaking changes m
 
 ```
 
-LaminDB is a Python library to manage files, datasets & analyses in biology.
+LaminDB is a Python library to manage data & analyses related to biology:
 
-- Track & query data lineage across pipelines, notebooks & app uploads
-- Query, validate & link data batches using biological registries & ontologies
-- Manage features & labels schema-less or schema-full
-- Collaborate across a mesh of LaminDB instances
+- Track & query data lineage across pipelines, notebooks & app uploads.
+- Query, validate & link data batches using biological registries & ontologies.
+- Manage features & labels schema-less or schema-full.
+- Collaborate across a mesh of LaminDB instances.
 
 If you want a UI: LaminApp is built on LaminDB. If LaminDB ~ git, LaminApp ~ GitHub.
 
