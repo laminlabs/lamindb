@@ -8,21 +8,21 @@ def test_map_synonyms():
     lb.settings.species = "human"
 
     # synonym not in the database
-    result = lb.Gene.map_synonyms(["ABC1", "PDCD1"])
+    result = lb.Gene.standardize(["ABC1", "PDCD1"])
     assert result == ["HEATR6", "PDCD1"]
 
-    result = lb.Gene.map_synonyms(["ABC1", "PDCD1"], field=lb.Gene.symbol)
+    result = lb.Gene.standardize(["ABC1", "PDCD1"], field=lb.Gene.symbol)
     assert result == ["HEATR6", "PDCD1"]
 
-    mapper = lb.Gene.map_synonyms(["ABC1", "PDCD1"], return_mapper=True)
+    mapper = lb.Gene.standardize(["ABC1", "PDCD1"], return_mapper=True)
     assert mapper == {"ABC1": "HEATR6"}
 
     # synonym already in the database
     lb.Gene.from_bionty(symbol="LMNA").save()
-    mapper = lb.Gene.map_synonyms(["ABC1", "LMN1"], return_mapper=True)
+    mapper = lb.Gene.standardize(["ABC1", "LMN1"], return_mapper=True)
     assert mapper == {"LMN1": "LMNA", "ABC1": "HEATR6"}
-    assert lb.Gene.map_synonyms(["LMNA"]) == ["LMNA"]
-    assert lb.Gene.map_synonyms(["LMN1"], return_mapper=True) == {"LMN1": "LMNA"}
+    assert lb.Gene.standardize(["LMNA"]) == ["LMNA"]
+    assert lb.Gene.standardize(["LMN1"], return_mapper=True) == {"LMN1": "LMNA"}
 
 
 def test_add_remove_synonym():

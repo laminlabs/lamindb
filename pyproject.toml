@@ -17,9 +17,9 @@ dependencies = [
     # Lamin PINNED packages
     # !!! These packages should ALWAYS be pinned, do not unpin !!!
     # !!! They cannot be pinned ANYWHERE else !!!
-    "lnschema_core==0.45.3",
+    "lnschema_core==0.45.4",
     "lamindb_setup==0.50.2",
-    "lamin_utils==0.9.7",
+    "lamin_utils==0.9.8",
     # others
     "rapidfuzz",
     "pyarrow",
@@ -35,7 +35,7 @@ Home = "https://github.com/laminlabs/lamindb"
 
 [project.optional-dependencies]
 bionty = [
-    "lnschema_bionty==0.29.4",
+    "lnschema_bionty==0.29.5",
 ]
 postgres = ["psycopg2-binary"]
 aws = [

@@ -17,10 +17,10 @@ from ._validate import _filter_query_based_on_species, _has_species_field
 
 
 @classmethod  # type: ignore
-@doc_args(SynonymsAware.map_synonyms.__doc__)
-def map_synonyms(
+@doc_args(SynonymsAware.standardize.__doc__)
+def standardize(
     cls,
-    synonyms: Iterable,
+    values: Iterable,
     *,
     return_mapper: bool = False,
     case_sensitive: bool = False,
@@ -30,9 +30,9 @@ def map_synonyms(
     **kwargs,
 ) -> Union[List[str], Dict[str, str]]:
     """{}"""
-    return _map_synonyms(
+    return _standardize(
         cls=cls,
-        synonyms=synonyms,
+        values=values,
         return_mapper=return_mapper,
         case_sensitive=case_sensitive,
         keep=keep,
@@ -162,9 +162,9 @@ def _check_synonyms_field_exist(record: Registry):
         )
 
 
-def _map_synonyms(
+def _standardize(
     cls,
-    synonyms: Iterable,
+    values: Iterable,
     *,
     return_mapper: bool = False,
     case_sensitive: bool = False,
@@ -176,8 +176,8 @@ def _map_synonyms(
     """{}"""
     from lamin_utils._map_synonyms import map_synonyms
 
-    if isinstance(synonyms, str):
-        synonyms = [synonyms]
+    if isinstance(values, str):
+        values = [values]
     if field is None:
         field = get_default_str_field(cls)
     if not isinstance(field, str):
@@ -211,7 +211,7 @@ def _map_synonyms(
     # standardized names from the DB
     std_names_db = map_synonyms(
         df=df,
-        identifiers=synonyms,
+        identifiers=values,
         return_mapper=return_mapper,
         **_kwargs,
     )
@@ -222,7 +222,7 @@ def _map_synonyms(
         if return_mapper:
             mapper = std_names_db
             std_names_db = map_synonyms(
-                df=df, identifiers=synonyms, return_mapper=False, **_kwargs
+                df=df, identifiers=values, return_mapper=False, **_kwargs
             )
 
         val_res = orm.validate(std_names_db, field=field, mute=True, species=species)
@@ -230,7 +230,7 @@ def _map_synonyms(
             return mapper if return_mapper else std_names_db
 
         nonval = np.array(std_names_db)[~val_res]
-        std_names_bt_mapper = orm.bionty(species=species).map_synonyms(
+        std_names_bt_mapper = orm.bionty(species=species).standardize(
             nonval, return_mapper=True, **_kwargs
         )
 
@@ -255,7 +255,7 @@ def _map_synonyms(
         return std_names_db
 
 
-METHOD_NAMES = ["map_synonyms", "add_synonym", "remove_synonym", "set_abbr"]
+METHOD_NAMES = ["standardize", "add_synonym", "remove_synonym", "set_abbr"]
 
 if _TESTING:  # type: ignore
     from inspect import signature

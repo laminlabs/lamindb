@@ -228,12 +228,12 @@ class QuerySet(models.QuerySet):
 
         return _inspect(cls=self, values=values, field=field, **kwargs)
 
-    @doc_args(SynonymsAware.map_synonyms.__doc__)
-    def map_synonyms(self, synonyms: Iterable, **kwargs):
+    @doc_args(SynonymsAware.standardize.__doc__)
+    def standardize(self, values: Iterable, **kwargs):
         """{}"""
-        from ._synonym import _map_synonyms
+        from ._synonym import _standardize
 
-        return _map_synonyms(cls=self, synonyms=synonyms, **kwargs)
+        return _standardize(cls=self, values=values, **kwargs)
 
 
 setattr(models.QuerySet, "df", QuerySet.df)
@@ -245,4 +245,4 @@ setattr(models.QuerySet, "search", QuerySet.search)
 setattr(models.QuerySet, "lookup", QuerySet.lookup)
 setattr(models.QuerySet, "validate", QuerySet.validate)
 setattr(models.QuerySet, "inspect", QuerySet.inspect)
-setattr(models.QuerySet, "map_synonyms", QuerySet.map_synonyms)
+setattr(models.QuerySet, "standardize", QuerySet.standardize)
