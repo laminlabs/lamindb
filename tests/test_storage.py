@@ -3,6 +3,7 @@ import shutil
 import h5py
 import pandas as pd
 import pytest
+import zarr
 
 import lamindb as ln
 from lamindb.dev.storage import delete_storage
@@ -69,6 +70,11 @@ def test_backed_access(adata_format):
         fp = fp.with_suffix(".zarr")
         write_adata_zarr(adata, fp, callback)
         del adata
+        # remove encoding information to check correctness of backed accessor
+        store = zarr.open(fp)
+        del store["obsp"]["test"].attrs["encoding-type"]
+        del store["obsp"]["test"].attrs["encoding-version"]
+        del store
 
     with pytest.raises(ValueError):
         access = backed_access(fp.with_suffix(".invalid_suffix"))
