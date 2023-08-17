@@ -48,6 +48,10 @@ def file_tsv_rnaseq_nfcore_salmon_merged_gene_counts() -> Path:  # pragma: no co
         "https://lamindb-test.s3.amazonaws.com/salmon.merged.gene_counts.tsv",
         "salmon.merged.gene_counts.tsv",
     )
+    # avoids download bars
+    import bionty as bt
+
+    bt.Gene(species="saccharomyces cerevisiae")
     return Path(filepath)
 
 
@@ -92,15 +96,80 @@ def file_tiff_suo22():  # pragma: no cover
     return Path(filepath)
 
 
-def anndata_mouse_sc_lymph_node() -> ad.AnnData:
+def anndata_mouse_sc_lymph_node(populate_registries: bool = False) -> ad.AnnData:
     """Mouse lymph node scRNA-seq dataset from EBI.
 
     Subsampled to 10k genes.
 
     From: https://www.ebi.ac.uk/arrayexpress/experiments/E-MTAB-8414/
+
+    Args:
+        populate_registries: pre-populate metadata records to simulate existing registries  # noqa
     """
     filepath, _ = urlretrieve("https://lamindb-test.s3.amazonaws.com/E-MTAB-8414.h5ad")
-    return ad.read(filepath)
+    adata = ad.read(filepath)
+
+    # The column names are a bit lengthy, let's abbreviate them:
+    adata.obs.columns = (
+        adata.obs.columns.str.replace("Sample Characteristic", "")
+        .str.replace("Factor Value ", "Factor Value:", regex=True)
+        .str.replace("Factor Value\[", "Factor Value:", regex=True)  # noqa
+        .str.replace(" Ontology Term\[", "ontology_id:", regex=True)  # noqa
+        .str.strip("[]")
+        .str.replace("organism part", "tissue")
+        .str.replace("organism", "species")
+        .str.replace("developmental stage", "developmental_stage")
+        .str.replace("cell type", "cell_type")
+        # the last one could be interesting, too
+        # .str.replace("Factor Value:Ontology Term[inferred cell_type - authors labels", "cell_type_authors")  # noqa
+    )
+    # subset columns to only the ones with names
+    columns = [
+        col
+        for col in adata.obs.columns
+        if not col.startswith("ontology_id")
+        and not col.startswith("Factor Value")
+        and col != "strain"
+    ]
+    adata.obs = adata.obs[columns]
+
+    # pre-populate registries
+    if populate_registries:
+        import lnschema_bionty as lb
+
+        import lamindb as ln
+
+        verbosity = ln.settings.verbosity
+        ln.settings.verbosity = 0
+        auto_save_parents = lb.settings.auto_save_parents
+        lb.settings.auto_save_parents = False
+        # strain
+        lb.ExperimentalFactor.from_bionty(ontology_id="EFO:0004472").save()
+        # developmental stage
+        lb.ExperimentalFactor.from_bionty(ontology_id="EFO:0001272").save()
+        # tissue
+        lb.Tissue.from_bionty(ontology_id="UBERON:0001542").save()
+        # cell types
+        ln.save(lb.CellType.from_values(["CL:0000115", "CL:0000738"], "ontology_id"))
+        # genes
+        validated = lb.Gene.bionty(species="mouse").validate(
+            adata.var.index, field="ensembl_gene_id"
+        )
+        ln.save(
+            lb.Gene.from_values(
+                adata.var.index[validated], field="ensembl_gene_id", species="mouse"
+            )
+        )
+        # labels
+        labels = ln.Label.from_values(adata.obs["sex"])
+        labels += ln.Label.from_values(adata.obs["age"])
+        labels += ln.Label.from_values(adata.obs["genotype"])
+        labels += ln.Label.from_values(adata.obs["immunophenotype"])
+        ln.save(labels)
+        ln.settings.verbosity = verbosity
+        lb.settings.auto_save_parents = auto_save_parents
+
+    return adata
 
 
 def anndata_pbmc68k_reduced() -> ad.AnnData:
@@ -164,7 +233,9 @@ def anndata_pbmc3k_processed() -> ad.AnnData:  # pragma: no cover
     return pbmc3k
 
 
-def anndata_human_immune_cells() -> ad.AnnData:  # pragma: no cover
+def anndata_human_immune_cells(
+    populate_registries: bool = False,
+) -> ad.AnnData:  # pragma: no cover
     """Cross-tissue immune cell analysis reveals tissue-specific features in humans.
 
     From: https://cellxgene.cziscience.com/collections/62ef75e4-cbea-454e-a0ce-998ec40223d3  # noqa
@@ -183,6 +254,28 @@ def anndata_human_immune_cells() -> ad.AnnData:  # pragma: no cover
     adata = ad.read(filepath)
     del adata.raw
     adata.var.drop(columns=["gene_symbols", "feature_name"], inplace=True)
+    adata.obs.columns = adata.obs.columns.str.replace("donor_id", "donor")
+    columns = [col for col in adata.obs.columns if "ontology_term" not in col]
+    adata.obs = adata.obs[columns]
+    if populate_registries:
+        import lnschema_bionty as lb
+
+        import lamindb as ln
+
+        verbosity = ln.settings.verbosity
+        ln.settings.verbosity = 0
+        auto_save_parents = lb.settings.auto_save_parents
+        lb.settings.auto_save_parents = False
+        ln.save(
+            lb.Gene.from_values(
+                adata.var.index, field="ensembl_gene_id", species="human"
+            )
+        )
+        ln.save(lb.CellType.from_values(adata.obs.cell_type, field="name"))
+        ln.save(lb.ExperimentalFactor.from_values(adata.obs.assay, field="name"))
+        ln.save(lb.Tissue.from_values(adata.obs.tissue, field="name"))
+        ln.settings.verbosity = verbosity
+        lb.settings.auto_save_parents = auto_save_parents
     return adata
 
 
