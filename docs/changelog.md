@@ -1,14 +1,18 @@
 # Changelog
 
-- ✏️ Fix typo of map_synonyms backward compat [PR1047](https://github.com/laminlabs/lamindb/pull/1047) [@sunnyosun](https://github.com/sunnyosun)
-- 🚚 Rename map_synonyms to standardize [PR1046](https://github.com/laminlabs/lamindb/pull/1046) [@sunnyosun](https://github.com/sunnyosun)
-- 📝 Simplify readme & bio-registries [PR1045](https://github.com/laminlabs/lamindb/pull/1045) [@falexwolf](https://github.com/falexwolf)
-- 🩹 Allow logging in different users in the same python session into th… [PR1044](https://github.com/laminlabs/lamindb/pull/1044) [@falexwolf](https://github.com/falexwolf)
 ```{eval-rst}
 .. role:: small
 ```
 
 ## 0.50
+
+### 0.50.6 {small}`2023-08-16`
+
+- 🚚 Rename map_synonyms to standardize [PR1046](https://github.com/laminlabs/lamindb/pull/1046) [@sunnyosun](https://github.com/sunnyosun)
+
+### 0.50.5 {small}`2023-08-16`
+
+- 🩹 Allow logging in different users in the same python session into th… [PR1044](https://github.com/laminlabs/lamindb/pull/1044) [@falexwolf](https://github.com/falexwolf)
 
 ### 0.50.4 {small}`2023-08-16`
 
