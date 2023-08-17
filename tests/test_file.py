@@ -20,6 +20,8 @@ from lamindb._file import (
     set_version,
 )
 from lamindb.dev.storage.file import (
+    AUTO_KEY_PREFIX,
+    auto_storage_key_from_id_suffix,
     delete_storage,
     extract_suffix_from_path,
     load_to_memory,
@@ -225,35 +227,41 @@ def test_create_from_anndata_in_storage(data):
 @pytest.fixture(
     scope="module",
     params=[
-        (True, "./default_storage/"),
-        (True, "./registered_storage/"),
-        (False, "./nonregistered_storage/"),
+        # tuple of isin_existing_storage, path, suffix
+        (True, "./default_storage/", ".csv"),
+        (True, "./default_storage/", ""),
+        (True, "./registered_storage/", ".csv"),
+        (True, "./registered_storage/", ""),
+        (False, "./nonregistered_storage/", ".csv"),
+        (False, "./nonregistered_storage/", ""),
     ],
 )
-def get_test_filepaths(request):  # -> Tuple[bool, Path, Path, Path]
+def get_test_filepaths(request):  # -> Tuple[bool, Path, Path, Path, str]
     isin_existing_storage: bool = request.param[0]
     root_dir: Path = Path(request.param[1])
+    suffix: str = request.param[2]
     if isin_existing_storage:
         # ensure that it's actually registered
         if ln.Storage.filter(root=root_dir.resolve().as_posix()).one_or_none() is None:
             ln.Storage(root=root_dir.resolve().as_posix(), type="local").save()
     test_dir = root_dir / "my_dir/"
     test_dir.mkdir(parents=True)
-    test_filepath = test_dir / "my_file.csv"
+    test_filepath = test_dir / f"my_file{suffix}"
     test_filepath.write_text(str(test_filepath))
     # return a boolean indicating whether test filepath is in default storage
     # and the test filepath
-    yield (isin_existing_storage, root_dir, test_dir, test_filepath)
+    yield (isin_existing_storage, root_dir, test_dir, test_filepath, suffix)
     shutil.rmtree(test_dir)
 
 
 # this tests the basic (non-provenance-related) metadata
-@pytest.mark.parametrize("key", [None, "my_new_dir/my_file.csv"])
+@pytest.mark.parametrize("key", [None, "my_new_dir/my_file.csv", "nosuffix"])
 @pytest.mark.parametrize("description", [None, "my description"])
 def test_create_from_local_filepath(get_test_filepaths, key, description):
     isin_existing_storage = get_test_filepaths[0]
     root_dir = get_test_filepaths[1]
     test_filepath = get_test_filepaths[3]
+    suffix = get_test_filepaths[4]
     # this test insufficient information being provided
     if key is None and not isin_existing_storage and description is None:
         # this can fail because ln.track() might set a global run context
@@ -268,17 +276,16 @@ def test_create_from_local_filepath(get_test_filepaths, key, description):
         return None
     else:
         file = ln.File(test_filepath, key=key, description=description)
-        print(test_filepath)
         assert file._state.adding  # make sure that this is a new file in the db
     assert (
         file.description is None
         if description is None
         else file.description == description
     )
-    assert file.suffix == ".csv"
+    assert file.suffix == suffix
     if key is None:
         assert (
-            file.key == "my_dir/my_file.csv"
+            file.key == f"my_dir/my_file{suffix}"
             if isin_existing_storage
             else file.key is None
         )
@@ -436,6 +443,7 @@ def test_inherit_relations():
 
 
 def test_extract_suffix_from_path():
+    # this is a dataset of path, stem, suffix tuples
     dataset = [
         ("a", "a", ""),
         ("a.txt", "a", ".txt"),
@@ -449,6 +457,22 @@ def test_extract_suffix_from_path():
     for path, _, suffix in dataset:
         filepath = Path(path)
         assert suffix == extract_suffix_from_path(filepath)
+
+
+@pytest.mark.parametrize("suffix", [".txt", None])
+def test_auto_storage_key_from_id_suffix(suffix):
+    assert AUTO_KEY_PREFIX == ".lamindb/"
+    test_id = "abo389f"
+    storage_key = auto_storage_key_from_id_suffix(test_id, suffix)
+    assert storage_key.startswith(AUTO_KEY_PREFIX)
+    if suffix is None:
+        assert storage_key == f"{AUTO_KEY_PREFIX}{test_id}"
+    else:
+        assert storage_key.endswith(suffix)
+
+
+def test_storage_key_from_path():
+    ln.File("")
 
 
 def test_storage_root_upath_equivalence():

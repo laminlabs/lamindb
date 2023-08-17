@@ -238,7 +238,7 @@ def upload_data_object(file) -> None:
     """Store and add file and its linked entries."""
     # do NOT hand-craft the storage key!
     file_storage_key = auto_storage_key_from_file(file)
-    msg = f"storing file '{file.id}' with key '{file_storage_key}'"
+    msg = f"storing file '{file.id}' at '{file_storage_key}'"
     if hasattr(file, "_to_store") and file._to_store and file.suffix != ".zarr":
         logger.save(msg)
         store_object(file._local_filepath, file_storage_key)
