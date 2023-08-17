@@ -74,6 +74,8 @@ def test_backed_access(adata_format):
         store = zarr.open(fp)
         del store["obsp"]["test"].attrs["encoding-type"]
         del store["obsp"]["test"].attrs["encoding-version"]
+        del store["obsm"]["X_pca"].attrs["encoding-type"]
+        del store["obsm"]["X_pca"].attrs["encoding-version"]
         del store
 
     with pytest.raises(ValueError):
@@ -94,6 +96,7 @@ def test_backed_access(adata_format):
     assert sub.raw.shape == (10, 100)
     assert sub.obsp["test"].sum() == 10
     assert sub.varp["test"].sum() == 200
+    assert sub.obsm["X_pca"].shape == (10, 50)
 
     with pytest.raises(AttributeError):
         sub.raw.raw
