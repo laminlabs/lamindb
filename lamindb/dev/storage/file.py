@@ -43,7 +43,7 @@ KNOWN_SUFFIXES = {
 
 def extract_suffix_from_path(path: Union[UPath, Path]) -> str:
     # this if-clause is based on https://stackoverflow.com/questions/31890341
-    # the rest conscsiously deviates
+    # the rest consciously deviates
     if len(path.suffixes) <= 2:
         return "".join(path.suffixes)
     else:
@@ -63,9 +63,16 @@ def extract_suffix_from_path(path: Union[UPath, Path]) -> str:
 # add type annotations back asap when re-organizing the module
 def auto_storage_key_from_file(file: File):
     if file.key is None:
-        return f"{AUTO_KEY_PREFIX}{file.id}{file.suffix}"
+        return auto_storage_key_from_id_suffix(file.id, file.suffix)
     else:
         return file.key
+
+
+def auto_storage_key_from_id_suffix(id: str, suffix: str) -> str:
+    assert isinstance(id, str)
+    assert isinstance(suffix, str)
+    storage_key = f"{AUTO_KEY_PREFIX}{id}{suffix}"
+    return storage_key
 
 
 def attempt_accessing_path(file: File, storage_key: str):

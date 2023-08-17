@@ -31,6 +31,7 @@ from lamindb.dev.storage.file import (
     ProgressCallback,
     _str_to_path,
     auto_storage_key_from_file,
+    auto_storage_key_from_id_suffix,
     extract_suffix_from_path,
     filepath_from_file,
 )
@@ -374,11 +375,20 @@ def log_storage_hint(
 ) -> None:
     hint = ""
     if check_path_in_storage:
-        hint += f"file in storage '{storage.root}'"  # type: ignore
+        display_root = storage.root  # type: ignore
+        # check whether path is local
+        if not storage.root.startswith(("s3://", "gs://")):  # type: ignore
+            # if it's a local path, check whether it's in the current working directory
+            root_path = Path(storage.root)  # type: ignore
+            if check_path_is_child_of_root(root_path, Path.cwd()):
+                # only display the relative path, not the fully resolved path
+                display_root = root_path.relative_to(Path.cwd())
+        hint += f"file in storage '{display_root}'"  # type: ignore
     else:
         hint += "file will be copied to default storage upon `save()`"
     if key is None:
-        hint += f" with key '{id}{suffix}'"
+        storage_key = auto_storage_key_from_id_suffix(id, suffix)
+        hint += f" with key `None` ('{storage_key}')"
     else:
         hint += f" with key '{key}'"
     logger.hint(hint)
