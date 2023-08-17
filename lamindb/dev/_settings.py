@@ -83,9 +83,9 @@ class Settings:
         """Verbosity (default 4 / 'hint').
 
         - 0: ❌ only show 'error' messages
-        - 1: 🔶 also show 'warning' messages
-        - 2: ✅ also show 'success' messages
-        - 3: 💬 also show 'info' messages
+        - 1: ❗ also show 'warning' messages
+        - 2: ✅ also show 'success' and 'save' messages
+        - 3: 💡 also show 'info' messages
         - 4: 💡 also show 'hint' messages
         - 5: 🐛 also show detailed 'debug' messages
 

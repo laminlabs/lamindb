@@ -58,7 +58,8 @@ def describe(self):
         "storage": "🗃️",
         "created_by": "👤",
         "transform": _transform_emoji(self.transform),
-        "run": "🚗",
+        "run": "👣",
+        "initial_version": "🔖",
     }
     if len(foreign_key_fields) > 0:
         record_msg = f"{model_name}({''.join([f'{i}={self.__getattribute__(i)}, ' for i in direct_fields])})"  # noqa
@@ -69,6 +70,7 @@ def describe(self):
             [
                 f"{emojis.get(i, '📎')} {i}: {self.__getattribute__(i)}\n    "
                 for i in foreign_key_fields
+                if self.__getattribute__(i) is not None
             ]
         )
         msg += related_msg
@@ -107,7 +109,7 @@ def describe(self):
             for slot in slots:
                 if slot == "var":
                     slot += " (X)"
-                msg += f"  🗺️ {colors.bold(slot)}:\n"
+                msg += f"  {colors.bold(slot)}:\n"
                 ref = colors.italic(f"{orm_name_with_schema}.{field_name}")
                 msg += f"    🔗 index ({feature_set.n}, {ref}): {values}\n".replace(
                     "]", "...]"
@@ -124,7 +126,7 @@ def describe(self):
             df_slot = features_df[features_df.slot == slot]
             if slot == "obs":
                 slot += " (metadata)"
-            msg += f"  🗺️ {colors.bold(slot)}:\n"
+            msg += f"  {colors.bold(slot)}:\n"
             for _, row in df_slot.iterrows():
                 labels = self.get_labels(row["name"], mute=True)
                 indent = ""
