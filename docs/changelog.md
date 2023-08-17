@@ -6,37 +6,17 @@
 
 ## 0.50
 
-### 0.50.7 {small}`2023-08-17`
+### 0.50.X {small}`2023-08-17`
 
-- 🚑 Fix bionty-source default versions [PR1049](https://github.com/laminlabs/lamindb/pull/1049) [@sunnyosun](https://github.com/sunnyosun)
-
-### 0.50.6 {small}`2023-08-16`
-
-- 🚚 Rename map_synonyms to standardize [PR1046](https://github.com/laminlabs/lamindb/pull/1046) [@sunnyosun](https://github.com/sunnyosun)
-
-### 0.50.5 {small}`2023-08-16`
-
-- 🩹 Allow logging in different users in the same python session into th… [PR1044](https://github.com/laminlabs/lamindb/pull/1044) [@falexwolf](https://github.com/falexwolf)
-
-### 0.50.4 {small}`2023-08-16`
-
-- ✨ `map_synonyms` also map in Bionty [PR1031](https://github.com/laminlabs/lamindb/pull/1031) [@sunnyosun](https://github.com/sunnyosun)
+- 🚑 Fix bionty source default versions [PR1049](https://github.com/laminlabs/lamindb/pull/1049) [@sunnyosun](https://github.com/sunnyosun)
+- 🚚 Rename `map_synonyms()` to `standardize()` [PR1046](https://github.com/laminlabs/lamindb/pull/1046) [@sunnyosun](https://github.com/sunnyosun)
 - ♻️ Refactor `run_context` [PR1030](https://github.com/laminlabs/lamindb/pull/1030) [@falexwolf](https://github.com/falexwolf)
 - 🚸 Remove SA as a dependency and use delete dialogue [PR1041](https://github.com/laminlabs/lamindb/pull/1041) [@falexwolf](https://github.com/falexwolf)
-
-### 0.50.3 {small}`2023-08-11`
-
 - 🚚 Move data lineage to use cases [PR1026](https://github.com/laminlabs/lamindb/pull/1026) [@falexwolf](https://github.com/falexwolf)
 - 🚸 Do not allow creating files with none of `key`, `description` and `run` [PR1022](https://github.com/laminlabs/lamindb/pull/1022) [@falexwolf](https://github.com/falexwolf)
 - ♻️ Introduce `ParentsAware` [PR1023](https://github.com/laminlabs/lamindb/pull/1023) [@sunnyosun](https://github.com/sunnyosun)
-
-### 0.50.2 {small}`2023-08-10`
-
 - ♻️ Re-enable file versioning [PR1014](https://github.com/laminlabs/lamindb/pull/1014) [PR1018](https://github.com/laminlabs/lamindb/pull/1018) [@falexwolf](https://github.com/falexwolf)
 - 🔊 Fix validate logging [PR1017](https://github.com/laminlabs/lamindb/pull/1017) [@sunnyosun](https://github.com/sunnyosun)
-
-### 0.50.1 {small}`2023-08-08`
-
 - ✨ Add `InspectResult` [PR1012](https://github.com/laminlabs/lamindb/pull/1012) [@sunnyosun](https://github.com/sunnyosun)
 - 💄 Improved logging & visualizations [PR1011](https://github.com/laminlabs/lamindb/pull/1011) [@sunnyosun](https://github.com/sunnyosun)
 
@@ -108,7 +88,7 @@
 - 🚚 Rename `Readout` to `ExperimentalFactor` [PR893](https://github.com/laminlabs/lamindb/pull/893) [@sunnyosun](https://github.com/sunnyosun)
 - 🎨 `set_abbr` adds `abbr` to `synonyms` [PR892](https://github.com/laminlabs/lamindb/pull/892) [@sunnyosun](https://github.com/sunnyosun)
 
-## 0.47.0 {small}`2023-07-10`
+## 0.47 {small}`2023-07-10`
 
 - ✨ View parents [PR858](https://github.com/laminlabs/lamindb/pull/858) [@sunnyosun](https://github.com/sunnyosun)
 - ✨ Track parent notebooks [PR859](https://github.com/laminlabs/lamindb/pull/859) [@falexwolf](https://github.com/falexwolf)
