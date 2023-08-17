@@ -273,7 +273,7 @@ def _standardize(
     else:
         return _return(
             result=std_names_db,
-            mapper=mapper,
+            mapper=std_names_db,
             return_mapper=return_mapper,
             return_str=return_str,
         )
