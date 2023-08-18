@@ -1,5 +1,6 @@
 # Changelog
 
+- 🍱 Added populate_registries to flow and bulk-rna datasets [PR1061](https://github.com/laminlabs/lamindb/pull/1061) [@sunnyosun](https://github.com/sunnyosun)
 - ✨ Add get_feature_set to .features accessor [PR1057](https://github.com/laminlabs/lamindb/pull/1057) [@sunnyosun](https://github.com/sunnyosun)
 - 🍱 Updated datasets [PR1056](https://github.com/laminlabs/lamindb/pull/1056) [@sunnyosun](https://github.com/sunnyosun)
 - 🎨 Add populate_registries to datasets [PR1054](https://github.com/laminlabs/lamindb/pull/1054) [@sunnyosun](https://github.com/sunnyosun)
