@@ -1,25 +1,23 @@
 # Changelog
 
-- 🎉 Stage 0.51 [PR1055](https://github.com/laminlabs/lamindb/pull/1055) [@falexwolf](https://github.com/falexwolf)
-- 🍱 Add the Iris images dev dataset [PR1062](https://github.com/laminlabs/lamindb/pull/1062) [@falexwolf](https://github.com/falexwolf)
-- 🚸 Datasets from multiple files [PR1060](https://github.com/laminlabs/lamindb/pull/1060) [@falexwolf](https://github.com/falexwolf)
-- 🍱 Added populate_registries to flow and bulk-rna datasets [PR1061](https://github.com/laminlabs/lamindb/pull/1061) [@sunnyosun](https://github.com/sunnyosun)
-- ✨ Add get_feature_set to .features accessor [PR1057](https://github.com/laminlabs/lamindb/pull/1057) [@sunnyosun](https://github.com/sunnyosun)
-- 🍱 Updated datasets [PR1056](https://github.com/laminlabs/lamindb/pull/1056) [@sunnyosun](https://github.com/sunnyosun)
-- 🎨 Add populate_registries to datasets [PR1054](https://github.com/laminlabs/lamindb/pull/1054) [@sunnyosun](https://github.com/sunnyosun)
-- 🎉 Stage 0.50.X [PR1052](https://github.com/laminlabs/lamindb/pull/1052) [@Koncopd](https://github.com/Koncopd)
-- 🚸 Allow `reference` & `reference_type` params in `ln.track()` [PR1053](https://github.com/laminlabs/lamindb/pull/1053) [@falexwolf](https://github.com/falexwolf)
-- ✅ More tests and fixes for backed [PR1050](https://github.com/laminlabs/lamindb/pull/1050) [@Koncopd](https://github.com/Koncopd)
 ```{eval-rst}
 .. role:: small
 ```
+
+## 0.51
+
+### 0.51a1 {small}`2023-08-18`
+
+- 🍱 Add the Iris images dev dataset [PR1062](https://github.com/laminlabs/lamindb/pull/1062) [@falexwolf](https://github.com/falexwolf)
+- 🚚 `Dataset.from_files` replaced with default constructor  [PR1060](https://github.com/laminlabs/lamindb/pull/1060) [@falexwolf](https://github.com/falexwolf)
+- 🍱 Added `populate_registries` to some datasets [PR1061](https://github.com/laminlabs/lamindb/pull/1061) [@sunnyosun](https://github.com/sunnyosun)
+- ✨ Add `get_feature_set` to `.features` accessor [PR1057](https://github.com/laminlabs/lamindb/pull/1057) [@sunnyosun](https://github.com/sunnyosun)
+- 🚸 Allow `reference` & `reference_type` params in `ln.track()` [PR1053](https://github.com/laminlabs/lamindb/pull/1053) [@falexwolf](https://github.com/falexwolf)
 
 ## 0.50
 
 ### 0.50.X {small}`2023-08-17`
 
-- 🚑 Fix bionty source default versions [PR1049](https://github.com/laminlabs/lamindb/pull/1049) [@sunnyosun](https://github.com/sunnyosun)
-- 🚚 Rename `map_synonyms()` to `standardize()` [PR1046](https://github.com/laminlabs/lamindb/pull/1046) [@sunnyosun](https://github.com/sunnyosun)
 - ♻️ Refactor `run_context` [PR1030](https://github.com/laminlabs/lamindb/pull/1030) [@falexwolf](https://github.com/falexwolf)
 - 🚸 Remove SA as a dependency and use delete dialogue [PR1041](https://github.com/laminlabs/lamindb/pull/1041) [@falexwolf](https://github.com/falexwolf)
 - 🚚 Move data lineage to use cases [PR1026](https://github.com/laminlabs/lamindb/pull/1026) [@falexwolf](https://github.com/falexwolf)
@@ -28,6 +26,7 @@
 - ♻️ Re-enable file versioning [PR1014](https://github.com/laminlabs/lamindb/pull/1014) [PR1018](https://github.com/laminlabs/lamindb/pull/1018) [@falexwolf](https://github.com/falexwolf)
 - 🔊 Fix validate logging [PR1017](https://github.com/laminlabs/lamindb/pull/1017) [@sunnyosun](https://github.com/sunnyosun)
 - ✨ Add `InspectResult` [PR1012](https://github.com/laminlabs/lamindb/pull/1012) [@sunnyosun](https://github.com/sunnyosun)
+- 🚚 Rename `map_synonyms()` to `standardize()` [PR1046](https://github.com/laminlabs/lamindb/pull/1046) [@sunnyosun](https://github.com/sunnyosun)
 - 💄 Improved logging & visualizations [PR1011](https://github.com/laminlabs/lamindb/pull/1011) [@sunnyosun](https://github.com/sunnyosun)
 
 ### 0.50.0 {small}`2023-08-07`
