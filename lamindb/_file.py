@@ -742,7 +742,7 @@ def from_dir(
 
     # silence fine-grained logging
     verbosity = settings.verbosity
-    settings.verbosity = 0  # just warnings
+    settings.verbosity = 1  # just warnings
     files = []
     for filepath in folderpath.rglob(pattern):
         if filepath.is_file():
