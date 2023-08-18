@@ -1,5 +1,6 @@
 # Changelog
 
+- 🎉 Stage 0.51 [PR1055](https://github.com/laminlabs/lamindb/pull/1055) [@falexwolf](https://github.com/falexwolf)
 - 🍱 Add the Iris images dev dataset [PR1062](https://github.com/laminlabs/lamindb/pull/1062) [@falexwolf](https://github.com/falexwolf)
 - 🚸 Datasets from multiple files [PR1060](https://github.com/laminlabs/lamindb/pull/1060) [@falexwolf](https://github.com/falexwolf)
 - 🍱 Added populate_registries to flow and bulk-rna datasets [PR1061](https://github.com/laminlabs/lamindb/pull/1061) [@sunnyosun](https://github.com/sunnyosun)
