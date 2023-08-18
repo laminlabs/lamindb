@@ -718,21 +718,12 @@ def from_dir(
     """{}"""
     folderpath = path if isinstance(path, (Path, UPath)) else _str_to_path(path)
     storage, use_existing_storage = process_pathlike(folderpath)
-    # we are never erroring right now, can remove below, soon
-    # if key is None and not use_existing_storage:
-    #     formatted_roots = "\n".join(Storage.filter().list("root"))
-    #     raise ValueError(
-    #   "If `key` is None, don't support tracking folders outside one of the"
-    #   f" storage roots:\n{formatted_roots}\nEither pass key, move folder"
-    #   " or register new storage location:\nln.Storage(root='path/to/my/new_root',"
-    #   " type='local').save()"
-    #     )
     folder_key_path: Union[PurePath, Path]
     if key is None:
         if not use_existing_storage:
             logger.warning(
                 "folder is outside existing storage location, will copy files from"
-                f" {path} to {storage}/{folderpath.name}"
+                f" {path} to {storage.root}/{folderpath.name}"
             )
             folder_key_path = Path(folderpath.name)
         else:
@@ -751,7 +742,7 @@ def from_dir(
 
     # silence fine-grained logging
     verbosity = settings.verbosity
-    settings.verbosity = 1  # just warnings
+    settings.verbosity = 0  # just warnings
     files = []
     for filepath in folderpath.rglob(pattern):
         if filepath.is_file():
@@ -761,6 +752,32 @@ def from_dir(
             file = File(filepath, run=run, key=file_key, skip_check_exists=True)
             files.append(file)
     settings.verbosity = verbosity
+
+    # run sanity check on hashes
+    hashes = [file.hash for file in files if file.hash is not None]
+    ids = [file.id for file in files]
+    if len(set(hashes)) != len(hashes):
+        # consider exact duplicates (same id, same hash)
+        if len(set(ids)) == len(set(hashes)):
+            logger.warning("dropping duplicate records in list of file records")
+            files = list(set(files))
+        # consider false duplicates (different id, same hash)
+        else:
+            seen_hashes = set()
+            non_unique_files = [
+                file
+                for file in files
+                if file.hash in seen_hashes or seen_hashes.add(file.hash)  # type: ignore  # noqa
+            ]
+            display_non_unique = "\n    ".join(f"{file}" for file in non_unique_files)
+            logger.warning(
+                "there are different file ids with the same hashes, dropping"
+                f" {len(non_unique_files)} duplicates out of {len(files)} files:\n   "
+                f" {display_non_unique}"
+            )
+            files = [
+                file for file in files if file not in set(non_unique_files)
+            ]  # noqa
     logger.success(
         f"created {len(files)} files from directory using storage"
         f" {storage.root} and key = {folder_key}/"

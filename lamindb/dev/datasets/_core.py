@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import Union
+from typing import List, Union
 from urllib.request import urlretrieve
 
 import anndata as ad
@@ -131,6 +131,19 @@ def file_tiff_suo22():  # pragma: no cover
     Path("suo22/").mkdir(exist_ok=True)
     filepath = Path(filepath).rename("suo22/F121_LP1_4LIV.tiff")
     return Path(filepath)
+
+
+def images_meta() -> List[str]:
+    """Images of iris and metadata.
+
+    Based on: https://www.kaggle.com/code/lykin22/iris-flower-analysis
+    """
+    urls = [
+        "http://upload.wikimedia.org/wikipedia/commons/9/9f/Iris_virginica.jpg",
+        "http://upload.wikimedia.org/wikipedia/commons/4/41/Iris_versicolor_3.jpg",
+        "http://upload.wikimedia.org/wikipedia/commons/9/9f/Iris_virginica.jpg",
+    ]
+    return urls
 
 
 def anndata_mouse_sc_lymph_node(

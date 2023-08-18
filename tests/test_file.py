@@ -248,6 +248,12 @@ def get_test_filepaths(request):  # -> Tuple[bool, Path, Path, Path, str]
     test_dir.mkdir(parents=True)
     test_filepath = test_dir / f"my_file{suffix}"
     test_filepath.write_text(str(test_filepath))
+    # create a duplicated file
+    test_filepath1 = test_dir / f"my_file1{suffix}"
+    test_filepath1.write_text(str(test_filepath))
+    # create a non-duplicated file
+    test_filepath2 = test_dir / f"my_file2{suffix}"
+    test_filepath2.write_text(str(test_filepath2))
     # return a boolean indicating whether test filepath is in default storage
     # and the test filepath
     yield (isin_existing_storage, root_dir, test_dir, test_filepath, suffix)
@@ -330,11 +336,22 @@ ValueError: Currently don't support tracking folders outside one of the storage 
 
 
 @pytest.mark.parametrize("key", [None, "my_new_folder"])
-def test_init_from_directory(get_test_filepaths, key):
+def test_from_dir(get_test_filepaths, key):
     test_dirpath = get_test_filepaths[2]
-    records = ln.File.from_dir(test_dirpath, key=key)
-    assert len(records) == 1
+    # the directory contains 3 files, two of them are duplicated
+    files = ln.File.from_dir(test_dirpath, key=key)
+    # we only return the duplicated ones
+    hashes = [file.hash for file in files if file.hash is not None]
+    assert len(set(hashes)) == len(hashes)
     ln.File.tree(test_dirpath)
+    # now save
+    ln.save(files)
+    # now run again, because now we'll have hash-based lookup!
+    files = ln.File.from_dir(test_dirpath, key=key)
+    assert len(files) == 2
+    assert len(set(hashes)) == len(hashes)
+    for file in files:
+        file.delete(storage=False)
 
 
 def test_delete(get_test_filepaths):

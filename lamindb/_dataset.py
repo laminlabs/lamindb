@@ -1,8 +1,7 @@
-from typing import Iterable, List, Optional, Union
+from typing import Iterable, List, Optional, Tuple, Union
 
 import anndata as ad
 import pandas as pd
-from lnschema_core import ids
 from lnschema_core.models import Dataset
 
 from . import FeatureSet, File, Run
@@ -24,47 +23,45 @@ def __init__(
     if "data" in kwargs or len(args) == 1:
         data = kwargs.pop("data") if len(args) == 0 else args[0]
     name: Optional[str] = kwargs.pop("name") if "name" in kwargs else None
-    run: Optional[Run] = kwargs.pop("run") if "run" in kwargs else None
-    files: List[File] = kwargs.pop("files") if "files" in kwargs else []
-    file: Optional[File] = kwargs.pop("file") if "file" in kwargs else None
-    hash: Optional[str] = kwargs.pop("hash") if "hash" in kwargs else None
-    feature_sets: List[FeatureSet] = (
-        kwargs.pop("feature_sets") if "feature_sets" in kwargs else []
+    description: Optional[str] = (
+        kwargs.pop("description") if "description" in kwargs else None
     )
+    run: Optional[Run] = kwargs.pop("run") if "run" in kwargs else None
     assert len(kwargs) == 0
-    if data is not None:
+    id = None
+    feature_sets = None
+    # init file
+    if isinstance(data, pd.DataFrame) or isinstance(data, ad.AnnData):
+        files = None
         if isinstance(data, pd.DataFrame):
-            # description filled in below
-            file = File.from_df(data, run=run, description="See dataset {}")
-            dataset._feature_sets = file._feature_sets
+            file = File.from_df(data, run=run, description="tmp")
         elif isinstance(data, ad.AnnData):
-            if len(feature_sets) != 2:
-                raise ValueError(
-                    "Please provide a feature set describing each `.var.index` &"
-                    " `.obs.columns`"
-                )
-            file = File.from_anndata(
-                data, run=run, feature_sets=feature_sets, description="See dataset {}"
-            )
-            dataset._feature_sets = feature_sets
-        else:
-            raise ValueError("Only DataFrame and AnnData can be passed as data")
-        hash = file.hash
-        id = file.id
-        file.description = f"See dataset {id}"
+            file = File.from_anndata(data, run=run, description="tmp")
+        feature_sets = file._feature_sets  # type: ignore
+        hash = file.hash  # type: ignore
+        id = file.id  # type: ignore
+        file.description = f"See dataset {id}"  # type: ignore
+    # init files
     else:
-        id = ids.base62_20()
-        dataset._feature_sets = feature_sets
-    super(Dataset, dataset).__init__(id=id, name=name, file=file, hash=hash)
+        file = None
+        if hasattr(data, "__getitem__"):
+            assert isinstance(data[0], File)  # type: ignore
+            files = data
+            hash, feature_sets = from_files(files)  # type: ignore
+        else:
+            raise ValueError("Only DataFrame, AnnData and iterable of File is allowed")
+    super(Dataset, dataset).__init__(
+        id=id, name=name, description=description, file=file, hash=hash
+    )
     dataset._files = files
+    dataset._feature_sets = feature_sets
 
 
-@classmethod  # type: ignore
-def from_files(dataset: Dataset, *, name: str, files: Iterable[File]) -> Dataset:
+def from_files(files: Iterable[File]) -> Tuple[str, List[FeatureSet]]:
     # assert all files are already saved
-    # saved = not any([file._state._adding for file in files])
-    # if not saved:
-    #     raise ValueError("Not all files are yet saved, please save them")
+    saved = not any([file._state.adding for file in files])
+    if not saved:
+        raise ValueError("Not all files are yet saved, please save them")
     # query all feature sets of files
     file_ids = [file.id for file in files]
     # query all feature sets at the same time rather than making a single query per file
@@ -75,14 +72,16 @@ def from_files(dataset: Dataset, *, name: str, files: Iterable[File]) -> Dataset
     feature_sets = FeatureSet.filter(id__in=feature_set_ids)
     # validate consistency of hashes
     # we do not allow duplicate hashes
-    file_hashes = [file.hash for file in files]
-    file_hashes_set = set(file_hashes)
-    if len(file_hashes) != len(file_hashes_set):
-        raise ValueError("Please pass distinct files")
-    hash = hash_set(file_hashes_set)
-    # create the dataset
-    dataset = Dataset(name=name, hash=hash, feature_sets=feature_sets, files=files)
-    return dataset
+    hashes = [file.hash for file in files]
+    if len(hashes) != len(set(hashes)):
+        seen = set()
+        non_unique = [x for x in hashes if x in seen or seen.add(x)]  # type: ignore
+        raise ValueError(
+            "Please pass files with distinct hashes: these ones are non-unique"
+            f" {non_unique}"
+        )
+    hash = hash_set(set(hashes))
+    return hash, feature_sets
 
 
 def backed(dataset: Dataset):
@@ -123,7 +122,7 @@ def save(dataset: Dataset):
     for feature_set in feature_sets:
         feature_set.save()
     super(Dataset, dataset).save()
-    if len(dataset._files) > 0:
+    if dataset._files is not None and len(dataset._files) > 0:
         dataset.files.set(dataset._files)
     if len(dataset._feature_sets) > 0:
         dataset.feature_sets.set(feature_sets)
