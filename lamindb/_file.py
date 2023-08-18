@@ -718,21 +718,12 @@ def from_dir(
     """{}"""
     folderpath = path if isinstance(path, (Path, UPath)) else _str_to_path(path)
     storage, use_existing_storage = process_pathlike(folderpath)
-    # we are never erroring right now, can remove below, soon
-    # if key is None and not use_existing_storage:
-    #     formatted_roots = "\n".join(Storage.filter().list("root"))
-    #     raise ValueError(
-    #   "If `key` is None, don't support tracking folders outside one of the"
-    #   f" storage roots:\n{formatted_roots}\nEither pass key, move folder"
-    #   " or register new storage location:\nln.Storage(root='path/to/my/new_root',"
-    #   " type='local').save()"
-    #     )
     folder_key_path: Union[PurePath, Path]
     if key is None:
         if not use_existing_storage:
             logger.warning(
                 "folder is outside existing storage location, will copy files from"
-                f" {path} to {storage}/{folderpath.name}"
+                f" {path} to {storage.root}/{folderpath.name}"
             )
             folder_key_path = Path(folderpath.name)
         else:
@@ -761,6 +752,23 @@ def from_dir(
             file = File(filepath, run=run, key=file_key, skip_check_exists=True)
             files.append(file)
     settings.verbosity = verbosity
+
+    # run sanity check on hashes
+    hashes = [file.hash for file in files if file.hash is not None]
+    if len(set(hashes)) != len(hashes):
+        seen_hashes = set()
+        non_unique_files = [
+            file
+            for file in files
+            if file.hash in seen_hashes or seen_hashes.add(file.hash)  # type: ignore
+        ]
+        display_non_unique = "\n    ".join(f"{file}" for file in non_unique_files)
+        logger.warning(
+            f"there are non-unique hashes, dropping {len(non_unique_files)} duplicates"
+            f" out of {len(files)} files from returned list:    \n{display_non_unique}"
+        )
+        non_unique_ids = set([file.id for file in non_unique_files])
+        files = [file for file in files if file.id not in non_unique_ids]  # noqa
     logger.success(
         f"created {len(files)} files from directory using storage"
         f" {storage.root} and key = {folder_key}/"
