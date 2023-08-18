@@ -153,11 +153,12 @@ def anndata_mouse_sc_lymph_node(
         lb.Tissue.from_bionty(ontology_id="UBERON:0001542").save()
         # cell types
         ln.save(lb.CellType.from_values(["CL:0000115", "CL:0000738"], "ontology_id"))
-        # assays
+        # assays and modality
         ln.Feature(
             name="assay", type="category", registries=[lb.ExperimentalFactor]
         ).save()
         lb.ExperimentalFactor.from_bionty(ontology_id="EFO:0008913").save()
+        ln.Modality(name="rna", description="RNA measurements").save()
         # genes
         validated = lb.Gene.bionty(species="mouse").validate(
             adata.var.index, field="ensembl_gene_id"

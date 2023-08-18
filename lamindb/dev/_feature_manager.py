@@ -1,6 +1,7 @@
 from typing import Dict, List, Union
 
 import pandas as pd
+from lamin_utils import logger
 from lnschema_core.models import Dataset, FeatureSet, File
 
 from .._query_set import QuerySet
@@ -63,8 +64,15 @@ class FeatureManager:
     def __repr__(self) -> str:
         if len(self._feature_set_by_slot) > 0:
             msg = ""
+            no_modality = []
             for slot, feature_set in self._feature_set_by_slot.items():
                 msg += f"'{slot}': {feature_set}\n"
+                if feature_set.modality is None:
+                    no_modality.append(feature_set.id)
+            if len(no_modality) > 0:
+                ids = ", ".join(no_modality)
+                s = "" if len(no_modality) == 1 else "s"
+                logger.warning(f"consider assigning modality to feature set{s}: {ids}")
             return msg
         else:
             return "no linked features"
@@ -100,3 +108,11 @@ class FeatureManager:
                 file=self._host, feature_set=feature_set, slot=slot
             ).save()
             self._feature_set_by_slot[slot] = feature_set
+
+    def get_feature_set(self, slot: str) -> FeatureSet:
+        """Get feature set by slot.
+
+        Args:
+            slot: `str` The access slot.
+        """
+        return self._feature_set_by_slot.get(slot)
