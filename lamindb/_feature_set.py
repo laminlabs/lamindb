@@ -207,12 +207,13 @@ def from_df(
     cls,
     df: "pd.DataFrame",
     name: Optional[str] = None,
+    **kwargs,
 ) -> Optional["FeatureSet"]:
     """{}"""
     features = Feature.from_df(df)
     validated_features = get_validated_features(features, Feature.name)
     if validated_features:
-        feature_set = FeatureSet(validated_features, name=name)
+        feature_set = FeatureSet(validated_features, name=name, **kwargs)
     else:
         logger.warning("no validated features, skip creating feature set")
         feature_set = None

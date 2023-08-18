@@ -6,6 +6,7 @@ import anndata as ad
 import numpy as np
 import pandas as pd
 from lnschema_core import ids
+from upath import UPath
 
 from .._settings import settings
 
@@ -18,12 +19,36 @@ def file_fcs() -> Path:
     return Path(filepath)
 
 
-def file_fcs_alpert19() -> Path:  # pragma: no cover
-    """FCS file from Alpert19."""
+def file_fcs_alpert19(populate_registries: bool = False) -> Path:  # pragma: no cover
+    """FCS file from Alpert19.
+
+    Args:
+        populate_registries: pre-populate metadata records to simulate existing registries  # noqa
+    """
     filepath, _ = urlretrieve(
         "https://lamindb-test.s3.amazonaws.com/Alpert19-070314-Mike-Study+15-2013-plate+1-15-004-1-13_cells_found.fcs",  # noqa
         "Alpert19.fcs",
     )
+    if populate_registries:
+        import lnschema_bionty as lb
+        import readfcs
+
+        import lamindb as ln
+
+        verbosity = ln.settings.verbosity
+        ln.settings.verbosity = 0
+        adata = readfcs.read(filepath)
+        std = lb.CellMarker.bionty().standardize(adata.var.index)
+        ln.save(
+            lb.CellMarker.from_values(
+                lb.CellMarker.bionty().inspect(std, "name").validated, "name"
+            )
+        )
+        ln.Feature(
+            name="assay", type="category", registries=[lb.ExperimentalFactor]
+        ).save()
+        ln.Feature(name="species", type="category", registries=[lb.Species]).save()
+        ln.settings.verbosity = verbosity
     return Path(filepath)
 
 
@@ -39,7 +64,9 @@ def file_jpg_paradisi05() -> Path:
     return Path(filepath)
 
 
-def file_tsv_rnaseq_nfcore_salmon_merged_gene_counts() -> Path:  # pragma: no cover
+def file_tsv_rnaseq_nfcore_salmon_merged_gene_counts(
+    populate_registries: bool = False,
+) -> Path:  # pragma: no cover
     """Gene counts table from nf-core RNA-seq pipeline.
 
     Output of: https://nf-co.re/rnaseq
@@ -48,10 +75,21 @@ def file_tsv_rnaseq_nfcore_salmon_merged_gene_counts() -> Path:  # pragma: no co
         "https://lamindb-test.s3.amazonaws.com/salmon.merged.gene_counts.tsv",
         "salmon.merged.gene_counts.tsv",
     )
-    # avoids download bars
-    import bionty as bt
+    if populate_registries:
+        import lnschema_bionty as lb
 
-    bt.Gene(species="saccharomyces cerevisiae")
+        import lamindb as ln
+
+        verbosity = ln.settings.verbosity
+        ln.settings.verbosity = 0
+        ln.Feature(
+            name="assay", type="category", registries=[lb.ExperimentalFactor]
+        ).save()
+        ln.Feature(name="species", type="category", registries=[lb.Species]).save()
+        ln.Modality(name="rna", description="RNA measurements").save()
+        lb.ExperimentalFactor.from_bionty(ontology_id="EFO:0008896").save()
+        ln.settings.verbosity = verbosity
+
     return Path(filepath)
 
 
@@ -94,6 +132,14 @@ def file_tiff_suo22():  # pragma: no cover
     Path("suo22/").mkdir(exist_ok=True)
     filepath = Path(filepath).rename("suo22/F121_LP1_4LIV.tiff")
     return Path(filepath)
+
+
+def iris_images() -> UPath:
+    """3 studies of the Iris flower, collecting 405 images & metadata.
+
+    Based on: https://github.com/laminlabs/lamindb-dev-datasets/pull/2
+    """
+    return UPath("s3://lamindb-dev-datasets/iris_studies")
 
 
 def anndata_mouse_sc_lymph_node(
@@ -153,13 +199,21 @@ def anndata_mouse_sc_lymph_node(
         lb.Tissue.from_bionty(ontology_id="UBERON:0001542").save()
         # cell types
         ln.save(lb.CellType.from_values(["CL:0000115", "CL:0000738"], "ontology_id"))
+        # assays and modality
+        ln.Feature(
+            name="assay", type="category", registries=[lb.ExperimentalFactor]
+        ).save()
+        lb.ExperimentalFactor.from_bionty(ontology_id="EFO:0008913").save()
+        ln.Modality(name="rna", description="RNA measurements").save()
         # genes
         validated = lb.Gene.bionty(species="mouse").validate(
             adata.var.index, field="ensembl_gene_id"
         )
         ln.save(
             lb.Gene.from_values(
-                adata.var.index[validated], field="ensembl_gene_id", species="mouse"
+                adata.var.index[validated][:-19],
+                field="ensembl_gene_id",
+                species="mouse",
             )
         )
         # labels

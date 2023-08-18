@@ -31,7 +31,7 @@ def get_or_create_records(
         iterable_idx = index_iterable(iterable)
 
         # returns existing records & non-existing values
-        records, nonexist_values = get_existing_records(
+        records, nonexist_values, msg = get_existing_records(
             iterable_idx=iterable_idx, field=field, kwargs=kwargs
         )
 
@@ -39,8 +39,10 @@ def get_or_create_records(
         if len(nonexist_values) > 0:
             if from_bionty:
                 records_bionty, unmapped_values = create_records_from_bionty(
-                    iterable_idx=nonexist_values, field=field, **kwargs
+                    iterable_idx=nonexist_values, field=field, msg=msg, **kwargs
                 )
+                if len(records_bionty) > 0:
+                    msg = ""
                 for record in records_bionty:
                     record._from_bionty = True
                 records += records_bionty
@@ -48,6 +50,8 @@ def get_or_create_records(
                 unmapped_values = nonexist_values
             # unmapped new_ids will only create records with field and kwargs
             if len(unmapped_values) > 0:
+                if len(msg) > 0:
+                    logger.success(msg)
                 for value in unmapped_values:
                     params = {field_name: value}
                     if types is not None:
@@ -118,13 +122,13 @@ def get_existing_records(
 
     n_name = len(records)
     names = [getattr(record, field_name) for record in records]
-    names = [name for name in names]
+    msg = ""
     if n_name > 0:
         s = "" if n_name == 1 else "s"
         print_values = ", ".join(names[:20])
         if len(names) > 20:
             print_values += ", ..."
-        logger.success(
+        msg = (
             "validated"
             f" {colors.green(f'{n_name} {model.__name__} record{s}')}"
             f" on {colors.green(f'{field_name}')}: {print_values}"
@@ -135,12 +139,13 @@ def get_existing_records(
     )
     nonexist_values = iterable_idx.difference(existing_values)
 
-    return records, nonexist_values
+    return records, nonexist_values, msg
 
 
 def create_records_from_bionty(
     iterable_idx: pd.Index,
     field: Field,
+    msg: str = "",
     **kwargs,
 ):
     model = field.field.model
@@ -177,12 +182,17 @@ def create_records_from_bionty(
             print_values = ", ".join(names[:20])
             if len(names) > 20:
                 print_values += ", ..."
-            msg = (
-                "validated"
-                f" {colors.purple(f'{n_name} {model.__name__} record{s} from Bionty')}"  # noqa
-                f" on {colors.purple(f'{field_name}')}: {print_values}"
+            if len(msg) > 0:
+                logger.success(
+                    msg
+                )  # this is the success msg for existing records in the DB
+            logger.success(
+                (
+                    "validated"
+                    f" {colors.purple(f'{n_name} {model.__name__} record{s} from Bionty')}"  # noqa
+                    f" on {colors.purple(f'{field_name}')}: {print_values}"
+                )
             )
-            logger.success(msg)
 
     # warning about multi matches
     if len(multi_msg) > 0:

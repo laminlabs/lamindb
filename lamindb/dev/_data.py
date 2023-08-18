@@ -312,15 +312,12 @@ def add_labels(
                 feature_set = FeatureSet([feature], modality="meta")
                 feature_set.save()
                 self.features.add_feature_set(feature_set, slot="external")
-                logger.save("created feature set for slot 'external'")
             else:
                 feature_set = self.features._feature_set_by_slot["external"]
                 feature_set.features.add(feature)
                 feature_set.n += 1
                 feature_set.save()
-                logger.save(
-                    f"linked feature {feature.name} to feature set {feature_set}"
-                )
+            logger.save(f"linked feature {feature.name} to feature set {feature_set}")
 
 
 @property  # type: ignore
