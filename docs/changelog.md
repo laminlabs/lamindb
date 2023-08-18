@@ -1,5 +1,6 @@
 # Changelog
 
+- 🍱 Add the Iris images dev dataset [PR1062](https://github.com/laminlabs/lamindb/pull/1062) [@falexwolf](https://github.com/falexwolf)
 - 🚸 Datasets from multiple files [PR1060](https://github.com/laminlabs/lamindb/pull/1060) [@falexwolf](https://github.com/falexwolf)
 - 🍱 Added populate_registries to flow and bulk-rna datasets [PR1061](https://github.com/laminlabs/lamindb/pull/1061) [@sunnyosun](https://github.com/sunnyosun)
 - ✨ Add get_feature_set to .features accessor [PR1057](https://github.com/laminlabs/lamindb/pull/1057) [@sunnyosun](https://github.com/sunnyosun)
