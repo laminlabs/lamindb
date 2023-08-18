@@ -1,11 +1,12 @@
 from pathlib import Path
-from typing import List, Union
+from typing import Union
 from urllib.request import urlretrieve
 
 import anndata as ad
 import numpy as np
 import pandas as pd
 from lnschema_core import ids
+from upath import UPath
 
 from .._settings import settings
 
@@ -133,17 +134,12 @@ def file_tiff_suo22():  # pragma: no cover
     return Path(filepath)
 
 
-def images_meta() -> List[str]:
-    """Images of iris and metadata.
+def iris_images() -> UPath:
+    """3 studies of the Iris flower, collecting 405 images & metadata.
 
-    Based on: https://www.kaggle.com/code/lykin22/iris-flower-analysis
+    Based on: https://github.com/laminlabs/lamindb-dev-datasets/pull/2
     """
-    urls = [
-        "http://upload.wikimedia.org/wikipedia/commons/9/9f/Iris_virginica.jpg",
-        "http://upload.wikimedia.org/wikipedia/commons/4/41/Iris_versicolor_3.jpg",
-        "http://upload.wikimedia.org/wikipedia/commons/9/9f/Iris_virginica.jpg",
-    ]
-    return urls
+    return UPath("s3://lamindb-dev-datasets/iris_studies")
 
 
 def anndata_mouse_sc_lymph_node(
