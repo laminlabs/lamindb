@@ -336,7 +336,7 @@ ValueError: Currently don't support tracking folders outside one of the storage 
 
 
 @pytest.mark.parametrize("key", [None, "my_new_folder"])
-def test_init_from_directory(get_test_filepaths, key):
+def test_from_dir(get_test_filepaths, key):
     test_dirpath = get_test_filepaths[2]
     # the directory contains 3 files, two of them are duplicated
     files = ln.File.from_dir(test_dirpath, key=key)
@@ -344,6 +344,14 @@ def test_init_from_directory(get_test_filepaths, key):
     hashes = [file.hash for file in files if file.hash is not None]
     assert len(set(hashes)) == len(hashes)
     ln.File.tree(test_dirpath)
+    # now save
+    ln.save(files)
+    # now run again, because now we'll have hash-based lookup!
+    files = ln.File.from_dir(test_dirpath, key=key)
+    assert len(files) == 2
+    assert len(set(hashes)) == len(hashes)
+    for file in files:
+        file.delete(storage=False)
 
 
 def test_delete(get_test_filepaths):

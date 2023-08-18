@@ -742,7 +742,7 @@ def from_dir(
 
     # silence fine-grained logging
     verbosity = settings.verbosity
-    settings.verbosity = 1  # just warnings
+    settings.verbosity = 0  # just warnings
     files = []
     for filepath in folderpath.rglob(pattern):
         if filepath.is_file():
@@ -755,20 +755,29 @@ def from_dir(
 
     # run sanity check on hashes
     hashes = [file.hash for file in files if file.hash is not None]
+    ids = [file.id for file in files]
     if len(set(hashes)) != len(hashes):
-        seen_hashes = set()
-        non_unique_files = [
-            file
-            for file in files
-            if file.hash in seen_hashes or seen_hashes.add(file.hash)  # type: ignore
-        ]
-        display_non_unique = "\n    ".join(f"{file}" for file in non_unique_files)
-        logger.warning(
-            f"there are non-unique hashes, dropping {len(non_unique_files)} duplicates"
-            f" out of {len(files)} files from returned list:    \n{display_non_unique}"
-        )
-        non_unique_ids = set([file.id for file in non_unique_files])
-        files = [file for file in files if file.id not in non_unique_ids]  # noqa
+        # consider exact duplicates (same id, same hash)
+        if len(set(ids)) == len(set(hashes)):
+            logger.warning("dropping duplicate records in list of file records")
+            files = list(set(files))
+        # consider false duplicates (different id, same hash)
+        else:
+            seen_hashes = set()
+            non_unique_files = [
+                file
+                for file in files
+                if file.hash in seen_hashes or seen_hashes.add(file.hash)  # type: ignore  # noqa
+            ]
+            display_non_unique = "\n    ".join(f"{file}" for file in non_unique_files)
+            logger.warning(
+                "there are different file ids with the same hashes, dropping"
+                f" {len(non_unique_files)} duplicates out of {len(files)} files:\n   "
+                f" {display_non_unique}"
+            )
+            files = [
+                file for file in files if file not in set(non_unique_files)
+            ]  # noqa
     logger.success(
         f"created {len(files)} files from directory using storage"
         f" {storage.root} and key = {folder_key}/"
