@@ -255,6 +255,7 @@ def test_get_labels():
     file.save()
     assert str(file.features) == "no linked features"
     file.features.add_feature_set(feature_set, slot="random")
+    assert file.features.add_feature_set(slot="random") == feature_set
     with pytest.raises(ValueError):
         file.get_labels("feature name")
 
