@@ -122,7 +122,7 @@ def save(dataset: Dataset):
     for feature_set in feature_sets:
         feature_set.save()
     super(Dataset, dataset).save()
-    if len(dataset._files) > 0:
+    if dataset._files is not None and len(dataset._files) > 0:
         dataset.files.set(dataset._files)
     if len(dataset._feature_sets) > 0:
         dataset.feature_sets.set(feature_sets)
