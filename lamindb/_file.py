@@ -697,7 +697,7 @@ def from_anndata(
     if len(data_parse.obs.columns) > 0:
         logger.info("parsing feature names of slot 'obs'")
         logger.indent = "   "
-        feature_set_obs = FeatureSet.from_df(data_parse.obs)
+        feature_set_obs = FeatureSet.from_df(data_parse.obs, modality="meta")
         if feature_set_obs is not None:
             feature_sets["obs"] = feature_set_obs
             logger.save(f"linked: {feature_set_obs}")

@@ -1,5 +1,7 @@
 # Changelog
 
+- ✨ Add get_feature_set to .features accessor [PR1057](https://github.com/laminlabs/lamindb/pull/1057) [@sunnyosun](https://github.com/sunnyosun)
+- 🍱 Updated datasets [PR1056](https://github.com/laminlabs/lamindb/pull/1056) [@sunnyosun](https://github.com/sunnyosun)
 - 🎨 Add populate_registries to datasets [PR1054](https://github.com/laminlabs/lamindb/pull/1054) [@sunnyosun](https://github.com/sunnyosun)
 - 🎉 Stage 0.50.X [PR1052](https://github.com/laminlabs/lamindb/pull/1052) [@Koncopd](https://github.com/Koncopd)
 - 🚸 Allow `reference` & `reference_type` params in `ln.track()` [PR1053](https://github.com/laminlabs/lamindb/pull/1053) [@falexwolf](https://github.com/falexwolf)
