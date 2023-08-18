@@ -19,7 +19,7 @@ LaminDB is a Python library to manage data & analyses related to biology:
 
 If you want a UI: LaminApp is built on LaminDB. If LaminDB ~ git, LaminApp ~ GitHub.
 
-(LaminApp, support, integration tests & schemas for an enterprise platform are available on a paid plan - on-prem or hosted by us.)
+(LaminApp, support, integration tests & schemas for an enterprise platform are available on a paid plan - in your or our infrastructure.)
 
 ## Quickstart
 
