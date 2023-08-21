@@ -1,5 +1,6 @@
 # Changelog
 
+- ✅ Fix coverage compute for hashing [PR1064](https://github.com/laminlabs/lamindb/pull/1064) [@falexwolf](https://github.com/falexwolf)
 ```{eval-rst}
 .. role:: small
 ```
