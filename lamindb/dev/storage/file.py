@@ -6,6 +6,7 @@ from typing import Literal, Union
 import anndata as ad
 import fsspec
 import pandas as pd
+from botocore.exceptions import NoCredentialsError
 from lamin_utils import logger
 from lamindb_setup import settings
 from lamindb_setup.dev import StorageSettings
@@ -92,7 +93,12 @@ def _str_to_path(path_str: str) -> Union[Path, UPath]:
     if protocol == "file":
         return Path(path_str)
     else:
-        return UPath(path_str)
+        path = UPath(path_str, cache_regions=True)
+        try:
+            path.fs.call_s3("head_bucket", Bucket=path._url.netloc)
+        except NoCredentialsError:
+            path = UPath(path_str, anon=True)
+        return path
 
 
 # add type annotations back asap when re-organizing the module
