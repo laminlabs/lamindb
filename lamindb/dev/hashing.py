@@ -46,7 +46,7 @@ def hash_file(file_path, chunk_size=50 * 1024 * 1024) -> Tuple[str, str]:
         digest = hashlib.md5(chunks[0]).digest()
         hash_type = "md5"
     else:
-        digests = b"".join(hashlib.sha1(chunks[0]).digest() for chunk in chunks)
+        digests = b"".join(hashlib.sha1(chunk).digest() for chunk in chunks)
         digest = hashlib.sha1(digests).digest()
         hash_type = "sha1-fl"  # sha1 first last chunk
     return to_b64_str(digest)[:22], hash_type
