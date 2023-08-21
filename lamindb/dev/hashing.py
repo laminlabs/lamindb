@@ -30,7 +30,6 @@ def hash_set(s: Set[str]) -> str:
 
 
 def hash_file(file_path, chunk_size=50 * 1024 * 1024) -> Tuple[str, str]:
-    print(file_path)
     chunks = []
     with open(file_path, "rb") as fp:
         # read first chunk
