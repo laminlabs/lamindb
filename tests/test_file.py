@@ -280,6 +280,16 @@ def test_create_from_local_filepath(get_test_filepaths, key, description):
             == "ValueError: Pass one of key, run or description as a parameter"
         )
         return None
+    elif key is not None and isin_existing_storage:
+        with pytest.raises(ValueError) as error:
+            file = ln.File(test_filepath, key=key, description=description)
+        assert (
+            error.exconly()
+            == "ValueError: You passed a target key within a registered storage"
+            " location that differs from the current location. Please move the file"
+            " before registering in lamindb."
+        )
+        return None
     else:
         file = ln.File(test_filepath, key=key, description=description)
         assert file._state.adding  # make sure that this is a new file in the db
@@ -337,9 +347,21 @@ ValueError: Currently don't support tracking folders outside one of the storage 
 
 @pytest.mark.parametrize("key", [None, "my_new_folder"])
 def test_from_dir(get_test_filepaths, key):
+    isin_existing_storage = get_test_filepaths[0]
     test_dirpath = get_test_filepaths[2]
     # the directory contains 3 files, two of them are duplicated
-    files = ln.File.from_dir(test_dirpath, key=key)
+    if key is not None and isin_existing_storage:
+        with pytest.raises(ValueError) as error:
+            ln.File.from_dir(test_dirpath, key=key)
+        assert (
+            error.exconly()
+            == "ValueError: You passed a target key within a registered storage"
+            " location that differs from the current location. Please move the file"
+            " before registering in lamindb."
+        )
+        return None
+    else:
+        files = ln.File.from_dir(test_dirpath, key=key)
     # we only return the duplicated ones
     hashes = [file.hash for file in files if file.hash is not None]
     assert len(set(hashes)) == len(hashes)
@@ -496,11 +518,21 @@ def test_storage_root_upath_equivalence():
 
 def test_get_relative_path_to_directory():
     # upath on S3
-    root = UPath("s3://lamindb-ci")
-    upath = UPath("s3://lamindb-ci/test-data/test.csv")
+    upath_root = UPath("s3://lamindb-ci")
+    upath_directory1 = UPath("s3://lamindb-ci/test-data")  # no trailing slash
+    upath_directory2 = UPath("s3://lamindb-ci/test-data/")  # trailing slash
+    upath_file = UPath("s3://lamindb-ci/test-data/test.csv")
     assert (
         "test-data/test.csv"
-        == get_relative_path_to_directory(upath, directory=root).as_posix()
+        == get_relative_path_to_directory(upath_file, upath_root).as_posix()
+    )
+    assert (
+        "test.csv"
+        == get_relative_path_to_directory(upath_file, upath_directory1).as_posix()
+    )
+    assert (
+        "test.csv"
+        == get_relative_path_to_directory(upath_file, upath_directory2).as_posix()
     )
     # local path
     root = Path("/lamindb-ci")
