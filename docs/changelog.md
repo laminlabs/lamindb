@@ -1,5 +1,6 @@
 # Changelog
 
+- 🐛 Fix tree view for anonymous access [PR1065](https://github.com/laminlabs/lamindb/pull/1065) [@falexwolf](https://github.com/falexwolf)
 - ✅ Fix coverage compute for hashing [PR1064](https://github.com/laminlabs/lamindb/pull/1064) [@falexwolf](https://github.com/falexwolf)
 ```{eval-rst}
 .. role:: small
