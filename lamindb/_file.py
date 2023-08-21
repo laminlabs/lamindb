@@ -74,7 +74,7 @@ def process_pathlike(
             if isinstance(filepath, UPath):
                 # for a UPath, new_root is always the bucket name
                 new_root = list(filepath.parents)[-1]
-                new_root_str = new_root.as_posix()
+                new_root_str = new_root.as_posix().rstrip("/")
                 logger.warning(
                     f"creating new storage location for root: {new_root_str}"
                 )
@@ -194,7 +194,7 @@ def get_run(run: Optional[Run]) -> Optional[Run]:
     if run is None:
         run = run_context.run
         if run is None:
-            logger.hint(
+            logger.warning(
                 "no run & transform get linked, consider passing a `run` or calling"
                 " ln.track()"
             )
@@ -287,7 +287,11 @@ def get_relative_path_to_directory(
 ) -> Union[PurePath, Path]:
     if isinstance(directory, UPath):
         # UPath.relative_to() is not behaving as it should (2023-04-07)
-        relpath = PurePath(path.as_posix().replace(directory.as_posix(), ""))
+        # need to lstrip otherwise inconsistent behavior across trailing slashes
+        # see test_file.py: test_get_relative_path_to_directory
+        relpath = PurePath(
+            path.as_posix().replace(directory.as_posix(), "").lstrip("/")
+        )
     elif isinstance(directory, Path):
         relpath = path.resolve().relative_to(directory.resolve())  # type: ignore
     elif isinstance(directory, PurePath):
@@ -323,10 +327,19 @@ def get_file_kwargs_from_data(
         hash, hash_type = hash_and_type
 
     check_path_in_storage = False
-    if key is None and use_existing_storage_key:
-        key = get_relative_path_to_directory(
+    if use_existing_storage_key:
+        inferred_key = get_relative_path_to_directory(
             path=filepath, directory=storage.root_as_path()
         ).as_posix()
+        if key is None:
+            key = inferred_key
+        else:
+            if not key == inferred_key:
+                raise ValueError(
+                    "You passed a target key within a registered storage location that"
+                    " differs from the current location. Please move the file before"
+                    " registering in lamindb."
+                )
         check_path_in_storage = True
     else:
         storage = lamindb_setup.settings.storage.record
@@ -898,11 +911,13 @@ def _track_run_input(file: File, is_run_input: Optional[bool] = None):
             run_context.run.transform.parents.add(file.transform)
 
 
-def load(self, is_run_input: Optional[bool] = None, stream: bool = False) -> DataLike:
+def load(
+    self, is_run_input: Optional[bool] = None, stream: bool = False, **kwargs
+) -> DataLike:
     _track_run_input(self, is_run_input)
     if hasattr(self, "_memory_rep") and self._memory_rep is not None:
         return self._memory_rep
-    return load_to_memory(filepath_from_file(self), stream=stream)
+    return load_to_memory(filepath_from_file(self), stream=stream, **kwargs)
 
 
 def stage(self, is_run_input: Optional[bool] = None) -> Path:

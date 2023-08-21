@@ -496,11 +496,21 @@ def test_storage_root_upath_equivalence():
 
 def test_get_relative_path_to_directory():
     # upath on S3
-    root = UPath("s3://lamindb-ci")
-    upath = UPath("s3://lamindb-ci/test-data/test.csv")
+    upath_root = UPath("s3://lamindb-ci")
+    upath_directory1 = UPath("s3://lamindb-ci/test-data")  # no trailing slash
+    upath_directory2 = UPath("s3://lamindb-ci/test-data/")  # trailing slash
+    upath_file = UPath("s3://lamindb-ci/test-data/test.csv")
     assert (
         "test-data/test.csv"
-        == get_relative_path_to_directory(upath, directory=root).as_posix()
+        == get_relative_path_to_directory(upath_file, upath_root).as_posix()
+    )
+    assert (
+        "test.csv"
+        == get_relative_path_to_directory(upath_file, upath_directory1).as_posix()
+    )
+    assert (
+        "test.csv"
+        == get_relative_path_to_directory(upath_file, upath_directory2).as_posix()
     )
     # local path
     root = Path("/lamindb-ci")
