@@ -24,6 +24,8 @@ def standardize(
     *,
     return_mapper: bool = False,
     case_sensitive: bool = False,
+    mute: bool = False,
+    bionty_aware: bool = True,
     keep: Literal["first", "last", False] = "first",
     synonyms_field: str = "synonyms",
     field: Optional[str] = None,
@@ -35,6 +37,8 @@ def standardize(
         values=values,
         return_mapper=return_mapper,
         case_sensitive=case_sensitive,
+        mute=mute,
+        bionty_aware=bionty_aware,
         keep=keep,
         synonyms_field=synonyms_field,
         field=field,
@@ -168,6 +172,8 @@ def _standardize(
     *,
     return_mapper: bool = False,
     case_sensitive: bool = False,
+    mute: bool = False,
+    bionty_aware: bool = True,
     keep: Literal["first", "last", False] = "first",
     synonyms_field: str = "synonyms",
     field: Optional[str] = None,
@@ -227,7 +233,7 @@ def _standardize(
             return result
 
     # map synonyms in Bionty
-    if orm.__get_schema_name__() == "bionty":
+    if orm.__get_schema_name__() == "bionty" and bionty_aware:
         mapper = {}
         if return_mapper:
             mapper = std_names_db
@@ -249,7 +255,7 @@ def _standardize(
             nonval, return_mapper=True, **_kwargs
         )
 
-        if len(std_names_bt_mapper) > 0:
+        if len(std_names_bt_mapper) > 0 and not mute:
             s = "" if len(std_names_bt_mapper) == 1 else "s"
             warn_msg = (
                 f"found {len(std_names_bt_mapper)} synonym{s} in Bionty:"

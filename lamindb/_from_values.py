@@ -31,7 +31,7 @@ def get_or_create_records(
         iterable_idx = index_iterable(iterable)
 
         # returns existing records & non-existing values
-        records, nonexist_values, msg = get_existing_records(
+        records, nonexist_values, msgs = get_existing_records(
             iterable_idx=iterable_idx, field=field, kwargs=kwargs
         )
 
@@ -39,10 +39,10 @@ def get_or_create_records(
         if len(nonexist_values) > 0:
             if from_bionty:
                 records_bionty, unmapped_values = create_records_from_bionty(
-                    iterable_idx=nonexist_values, field=field, msg=msg, **kwargs
+                    iterable_idx=nonexist_values, field=field, msgs=msgs, **kwargs
                 )
                 if len(records_bionty) > 0:
-                    msg = ""
+                    msgs = ("", "")
                 for record in records_bionty:
                     record._from_bionty = True
                 records += records_bionty
@@ -50,8 +50,10 @@ def get_or_create_records(
                 unmapped_values = nonexist_values
             # unmapped new_ids will only create records with field and kwargs
             if len(unmapped_values) > 0:
-                if len(msg) > 0:
-                    logger.success(msg)
+                if len(msgs[0]) > 0:
+                    logger.success(msgs[0])
+                if len(msgs[1]) > 0:
+                    logger.success(msgs[1])
                 for value in unmapped_values:
                     params = {field_name: value}
                     if types is not None:
@@ -101,6 +103,29 @@ def get_existing_records(
             kwargs.update({"species": species_record})
             condition.update({"species__name": species_record.name})
 
+    # map synonyms based on the DB reference
+    syn_mapper = model.standardize(
+        iterable_idx,
+        species=kwargs.get("species"),
+        return_mapper=True,
+        mute=True,
+        bionty_aware=False,
+    )
+
+    syn_msg = ""
+    if len(syn_mapper) > 0:
+        s = "" if len(syn_mapper) == 1 else "s"
+        names = list(syn_mapper.keys())
+        print_values = ", ".join(names[:5])
+        if len(names) > 5:
+            print_values += ", ..."
+        syn_msg = (
+            "loaded"
+            f" {colors.green(f'{len(syn_mapper)} {model.__name__} record{s}')}"
+            f" matching {colors.green('synonyms')}: {print_values}"
+        )
+        iterable_idx = iterable_idx.to_frame().rename(index=syn_mapper).index
+
     # get all existing records in the db
     # if necessary, create records for the values in kwargs
     # k:v -> k:v_record
@@ -129,9 +154,9 @@ def get_existing_records(
         if len(names) > 20:
             print_values += ", ..."
         msg = (
-            "validated"
+            "loaded"
             f" {colors.green(f'{n_name} {model.__name__} record{s}')}"
-            f" on {colors.green(f'{field_name}')}: {print_values}"
+            f" matching {colors.green(f'{field_name}')}: {print_values}"
         )
 
     existing_values = iterable_idx.intersection(
@@ -139,13 +164,13 @@ def get_existing_records(
     )
     nonexist_values = iterable_idx.difference(existing_values)
 
-    return records, nonexist_values, msg
+    return records, nonexist_values, (msg, syn_msg)
 
 
 def create_records_from_bionty(
     iterable_idx: pd.Index,
     field: Field,
-    msg: str = "",
+    msgs: Tuple = ("", ""),
     **kwargs,
 ):
     model = field.field.model
@@ -161,6 +186,27 @@ def create_records_from_bionty(
 
     # filter the columns in bionty df based on fields
     bionty_df = _filter_bionty_df_columns(model=model, bionty_object=bionty_object)
+
+    # map synonyms in the bionty reference
+    try:
+        syn_mapper = bionty_object.standardize(iterable_idx, return_mapper=True)
+    except KeyError:
+        # no synonyms column
+        syn_mapper = {}
+    msg_syn: str = ""
+    if len(syn_mapper) > 0:
+        s = "" if len(syn_mapper) == 1 else "s"
+        names = list(syn_mapper.keys())
+        print_values = ", ".join(names[:5])
+        if len(names) > 5:
+            print_values += ", ..."
+        msg_syn = (
+            "created"
+            f" {colors.purple(f'{len(syn_mapper)} {model.__name__} record{s} from Bionty')}"  # noqa
+            f" matching {colors.purple('synonyms')}: {print_values}"
+        )
+
+        iterable_idx = iterable_idx.to_frame().rename(index=syn_mapper).index
 
     # create records for values that are found in the bionty reference
     mapped_values = iterable_idx.intersection(bionty_df[field_name])
@@ -182,18 +228,22 @@ def create_records_from_bionty(
             print_values = ", ".join(names[:20])
             if len(names) > 20:
                 print_values += ", ..."
-            if len(msg) > 0:
-                logger.success(
-                    msg
-                )  # this is the success msg for existing records in the DB
+            # this is the success msg for existing records in the DB
+            if len(msgs[0]) > 0:
+                logger.success(msgs[0])
+            if len(msgs[1]) > 0:
+                logger.success(msgs[1])
             logger.success(
                 (
-                    "validated"
+                    "created"
                     f" {colors.purple(f'{n_name} {model.__name__} record{s} from Bionty')}"  # noqa
-                    f" on {colors.purple(f'{field_name}')}: {print_values}"
+                    f" matching {colors.purple(f'{field_name}')}: {print_values}"
                 )
             )
 
+    # make sure that synonyms logging appears after the field logging
+    if len(msg_syn) > 0:
+        logger.success(msg_syn)
     # warning about multi matches
     if len(multi_msg) > 0:
         logger.warning(multi_msg)

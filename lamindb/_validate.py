@@ -3,6 +3,7 @@ from typing import Dict, List, Optional, Union
 import numpy as np
 import pandas as pd
 from django.db.models import QuerySet
+from lamin_utils import colors, logger
 from lamin_utils._inspect import InspectResult
 from lamindb_setup.dev._docs import doc_args
 from lnschema_core import Registry, ValidationAware
@@ -61,13 +62,52 @@ def _inspect(
 
     orm = cls.model if isinstance(cls, QuerySet) else cls
 
-    return inspect(
+    # inspect in the DB
+    result_db = inspect(
         df=_filter_query_based_on_species(orm=orm, species=kwargs.get("species")),
         identifiers=values,
         field=str(field),
         mute=mute,
         **kwargs,
     )
+    nonval = set(result_db.non_validated).difference(result_db.synonyms_mapper.keys())
+
+    if len(nonval) > 0 and orm.__get_schema_name__() == "bionty":
+        bionty_result = orm.bionty().inspect(
+            values=nonval, field=str(field), mute=True, **kwargs
+        )
+        bionty_validated = bionty_result.validated
+        bionty_mapper = bionty_result.synonyms_mapper
+        hint = False
+        if len(bionty_validated) > 0 and not mute:
+            print_values = ", ".join(bionty_validated[:20])
+            if len(bionty_validated) > 20:
+                print_values += ", ..."
+            s = "" if len(bionty_validated) == 1 else "s"
+            logger.info(
+                f"-- detected {len(bionty_validated)} term{s} in Bionty for"
+                f" {str(field)}: {print_values}"
+            )
+            hint = True
+
+        if len(bionty_mapper) > 0 and not mute:
+            print_values = ", ".join(list(bionty_mapper.keys())[:20])
+            if len(bionty_mapper) > 20:
+                print_values += ", ..."
+            s = "" if len(bionty_mapper) == 1 else "s"
+            logger.info(
+                f"-- detected {len(bionty_mapper)} term{s} in Bionty as synonym{s}:"
+                f" {print_values}"
+            )
+            hint = True
+
+        if hint:
+            logger.hint(
+                "   add records from Bionty to your registry via"
+                f" {colors.italic('.from_values()')}"
+            )
+
+    return result_db
 
 
 def _validate(
