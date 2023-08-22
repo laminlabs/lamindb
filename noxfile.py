@@ -14,9 +14,11 @@ nox.options.default_venv_backend = "none"
 
 
 GROUPS = {}
-GROUPS["guide"] = [
+GROUPS["tutorial"] = [
     "tutorial.ipynb",
     "tutorial1.ipynb",
+]
+GROUPS["guide"] = [
     "data.ipynb",
     "meta.ipynb",
     "schemas.ipynb",
@@ -35,7 +37,7 @@ def lint(session: nox.Session) -> None:
 @nox.session
 @nox.parametrize(
     "group",
-    ["unit", "guide", "biology", "faq", "storage", "docs"],
+    ["unit", "tutorial", "guide", "biology", "faq", "storage", "docs"],
 )
 def install(session, group):
     # run with pypi install on main
@@ -51,6 +53,8 @@ def install(session, group):
     extras = ""
     if group == "unit":
         extras += ",bionty,aws,zarr,postgres,fcs"
+    elif group == "tutorial":
+        extras += "jupyter"
     elif group == "guide":
         extras += ",aws,bionty,zarr,jupyter,erdiagram"
         session.run(*"pip install scanpy".split())
@@ -71,7 +75,7 @@ def install(session, group):
 @nox.session
 @nox.parametrize(
     "group",
-    ["unit", "guide", "biology", "faq", "storage"],
+    ["unit", "tutorial", "guide", "biology", "faq", "storage"],
 )
 def build(session, group):
     login_testuser2(session)
@@ -79,6 +83,10 @@ def build(session, group):
     coverage_args = "--cov=lamindb --cov-append --cov-report=term-missing"
     if group == "unit":
         session.run(*f"pytest {coverage_args} ./tests".split())
+    elif group == "tutorial":
+        session.run(
+            *f"pytest -s {coverage_args} ./docs/test_notebooks.py::test_{group}".split()
+        )
     elif group == "guide":
         session.run(
             *f"pytest -s {coverage_args} ./docs/test_notebooks.py::test_{group}".split()
@@ -102,13 +110,13 @@ def build(session, group):
 @nox.session
 def docs(session):
     # move artifacts into right place
-    for group in ["guide", "biology", "faq", "storage"]:
+    for group in ["tutorial", "guide", "biology", "faq", "storage"]:
         if Path(f"./docs-{group}").exists():
             if Path(f"./docs/{group}").exists():
                 shutil.rmtree(f"./docs/{group}")
             Path(f"./docs-{group}").rename(f"./docs/{group}")
         # move back to root level
-        if group in {"guide", "biology"}:
+        if group in {"tutorial", "guide", "biology"}:
             for path in Path(f"./docs/{group}").glob("*"):
                 path.rename(f"./docs/{path.name}")
     login_testuser1(session)
