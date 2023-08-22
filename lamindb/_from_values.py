@@ -101,6 +101,25 @@ def get_existing_records(
             kwargs.update({"species": species_record})
             condition.update({"species__name": species_record.name})
 
+    # standardize based on the DB reference
+    # log synonyms mapped terms
+    result = model.inspect(
+        iterable_idx, field=field_name, species=kwargs.get("species"), mute=True
+    )
+    syn_mapper = result.synonyms_mapper
+
+    syn_msg = ""
+    if len(syn_mapper) > 0:
+        s = "" if len(syn_mapper) == 1 else "s"
+        names = list(syn_mapper.keys())
+        print_values = _print_values(names)
+        syn_msg = (
+            "loaded"
+            f" {colors.green(f'{len(syn_mapper)} {model.__name__} record{s}')}"
+            f" matching {colors.green('synonyms')}: {print_values}"
+        )
+        iterable_idx = iterable_idx.to_frame().rename(index=syn_mapper).index
+
     # get all existing records in the db
     # if necessary, create records for the values in kwargs
     # k:v -> k:v_record
@@ -120,19 +139,25 @@ def get_existing_records(
     # order by causes a factor 10 in runtime
     # records = query_set.order_by(preserved).list()
 
-    n_name = len(records)
-    names = [getattr(record, field_name) for record in records]
+    # log validated terms
+    validated = result.validated
     msg = ""
-    if n_name > 0:
-        s = "" if n_name == 1 else "s"
-        print_values = ", ".join(names[:20])
-        if len(names) > 20:
-            print_values += ", ..."
+    if len(validated) > 0:
+        s = "" if len(validated) == 1 else "s"
+        print_values = _print_values(validated)
         msg = (
-            "validated"
-            f" {colors.green(f'{n_name} {model.__name__} record{s}')}"
-            f" on {colors.green(f'{field_name}')}: {print_values}"
+            "loaded"
+            f" {colors.green(f'{len(validated)} {model.__name__} record{s}')}"
+            f" matching {colors.green(f'{field_name}')}: {print_values}"
         )
+
+    # no logging if all values are validated
+    # logs if there are synonyms
+    if len(syn_msg) > 0:
+        if len(msg) > 0:
+            logger.success(msg)
+        logger.success(syn_msg)
+        msg = ""
 
     existing_values = iterable_idx.intersection(
         query_set.values_list(field_name, flat=True)
@@ -162,7 +187,25 @@ def create_records_from_bionty(
     # filter the columns in bionty df based on fields
     bionty_df = _filter_bionty_df_columns(model=model, bionty_object=bionty_object)
 
+    # standardize in the bionty reference
+    result = bionty_object.inspect(iterable_idx, field=field_name, mute=True)
+    syn_mapper = result.synonyms_mapper
+
+    msg_syn: str = ""
+    if len(syn_mapper) > 0:
+        s = "" if len(syn_mapper) == 1 else "s"
+        names = list(syn_mapper.keys())
+        print_values = _print_values(names)
+        msg_syn = (
+            "created"
+            f" {colors.purple(f'{len(syn_mapper)} {model.__name__} record{s} from Bionty')}"  # noqa
+            f" matching {colors.purple('synonyms')}: {print_values}"
+        )
+
+        iterable_idx = iterable_idx.to_frame().rename(index=syn_mapper).index
+
     # create records for values that are found in the bionty reference
+    # matching either field or synonyms
     mapped_values = iterable_idx.intersection(bionty_df[field_name])
 
     multi_msg = ""
@@ -174,26 +217,24 @@ def create_records_from_bionty(
             records.append(model(**bk, **kwargs))
 
         # number of records that matches field (not synonyms)
-        n_name = len(records)
-        names = [getattr(record, field_name) for record in records]
-        names = [name for name in names]
-        if n_name > 0:
-            s = "" if n_name == 1 else "s"
-            print_values = ", ".join(names[:20])
-            if len(names) > 20:
-                print_values += ", ..."
+        validated = result.validated
+        if len(validated) > 0:
+            s = "" if len(validated) == 1 else "s"
+            print_values = _print_values(validated)
+            # this is the success msg for existing records in the DB
             if len(msg) > 0:
-                logger.success(
-                    msg
-                )  # this is the success msg for existing records in the DB
+                logger.success(msg)
             logger.success(
                 (
-                    "validated"
-                    f" {colors.purple(f'{n_name} {model.__name__} record{s} from Bionty')}"  # noqa
-                    f" on {colors.purple(f'{field_name}')}: {print_values}"
+                    "created"
+                    f" {colors.purple(f'{len(validated)} {model.__name__} record{s} from Bionty')}"  # noqa
+                    f" matching {colors.purple(f'{field_name}')}: {print_values}"
                 )
             )
 
+    # make sure that synonyms logging appears after the field logging
+    if len(msg_syn) > 0:
+        logger.success(msg_syn)
     # warning about multi matches
     if len(multi_msg) > 0:
         logger.warning(multi_msg)
@@ -208,6 +249,13 @@ def index_iterable(iterable: Iterable) -> pd.Index:
     # No entries are made for NAs, '', None
     # returns an ordered unique not null list
     return idx[(idx != "") & (~idx.isnull())]
+
+
+def _print_values(names: List, n: int = 20) -> str:
+    print_values = ", ".join(names[:n])
+    if len(names) > n:
+        print_values += ", ..."
+    return print_values
 
 
 def _filter_bionty_df_columns(model: Registry, bionty_object: Any) -> pd.DataFrame:
@@ -259,9 +307,7 @@ def _bulk_create_dicts_from_df(
         dup = df.index[df.index.duplicated()].unique().tolist()
         if len(dup) > 0:
             s = "" if len(dup) == 1 else "s"
-            print_values = ", ".join(dup[:20])
-            if len(dup) > 20:
-                print_values += ", ..."
+            print_values = _print_values(dup)
             multi_msg = (
                 f"ambiguous validation in Bionty for {len(dup)} record{s}:"
                 f" {print_values}"
