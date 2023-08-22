@@ -6,6 +6,7 @@ import lamindb as ln  # noqa
 
 # some validate tests are in test_queryset
 def test_inspect():
+    lb.Gene.filter().all().delete()
     lb.settings.species = "human"
     result = lb.Gene.inspect("TCF7", "symbol")
     assert result.validated == []
