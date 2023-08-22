@@ -75,7 +75,7 @@ def _inspect(
     nonval = set(result_db.non_validated).difference(result_db.synonyms_mapper.keys())
 
     if len(nonval) > 0 and orm.__get_schema_name__() == "bionty":
-        bionty_result = orm.bionty().inspect(
+        bionty_result = orm.bionty(species=kwargs.get("species")).inspect(
             values=nonval, field=str(field), mute=True, **kwargs
         )
         bionty_validated = bionty_result.validated
