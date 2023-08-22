@@ -1,5 +1,6 @@
 # Changelog
 
+- ♻️ Use `create_path` [PR1072](https://github.com/laminlabs/lamindb/pull/1072) [@falexwolf](https://github.com/falexwolf)
 - 🎨 Make `from_values` synonyms aware, `inspect` bionty aware [PR1066](https://github.com/laminlabs/lamindb/pull/1066) [@sunnyosun](https://github.com/sunnyosun)
 - 📝 Write section on labels & features for files [PR1071](https://github.com/laminlabs/lamindb/pull/1071) [@falexwolf](https://github.com/falexwolf)
 - 📝 Break out tutorial in two parts [PR1070](https://github.com/laminlabs/lamindb/pull/1070) [@falexwolf](https://github.com/falexwolf)
