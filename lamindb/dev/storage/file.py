@@ -6,7 +6,6 @@ from typing import Literal, Union
 import anndata as ad
 import fsspec
 import pandas as pd
-from botocore.exceptions import NoCredentialsError
 from lamin_utils import logger
 from lamindb_setup import settings
 from lamindb_setup.dev import StorageSettings
@@ -80,25 +79,12 @@ def attempt_accessing_path(file: File, storage_key: str):
     if file.storage_id == settings.storage.id:
         path = settings.storage.key_to_filepath(storage_key)
     else:
-        logger.warning("file.path is slightly slower for files outside default storage")
+        logger.debug("file.path is slightly slower for files outside default storage")
         storage = Storage.filter(id=file.storage_id).one()
         # find a better way than passing None to instance_settings in the future!
         storage_settings = StorageSettings(storage.root)
         path = storage_settings.key_to_filepath(storage_key)
     return path
-
-
-def _str_to_path(path_str: str) -> Union[Path, UPath]:
-    protocol = fsspec.utils.get_protocol(path_str)
-    if protocol == "file":
-        return Path(path_str)
-    else:
-        path = UPath(path_str, cache_regions=True)
-        try:
-            path.fs.call_s3("head_bucket", Bucket=path._url.netloc)
-        except NoCredentialsError:
-            path = UPath(path_str, anon=True)
-        return path
 
 
 # add type annotations back asap when re-organizing the module
@@ -210,13 +196,12 @@ def read_tsv(path: Union[str, Path]) -> pd.DataFrame:
     return pd.read_csv(path_sanitized, sep="\t")
 
 
-def load_to_memory(filepath: Union[str, Path, UPath], stream: bool = False):
+def load_to_memory(filepath: Union[str, Path, UPath], stream: bool = False, **kwargs):
     """Load a file into memory.
 
     Returns the filepath if no in-memory form is found.
     """
-    if isinstance(filepath, str):
-        filepath = _str_to_path(filepath)
+    filepath = settings.storage.to_path(filepath)
 
     if filepath.suffix in (".zarr", ".zrad"):
         stream = True
@@ -243,4 +228,4 @@ def load_to_memory(filepath: Union[str, Path, UPath], stream: bool = False):
     if reader is None:
         return filepath
     else:
-        return reader(filepath)
+        return reader(filepath, **kwargs)
