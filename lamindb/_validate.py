@@ -89,26 +89,40 @@ def _inspect(
         if len(bionty_validated) > 0 and not mute:
             print_values = _print_values(bionty_validated)
             s = "" if len(bionty_validated) == 1 else "s"
+            labels = colors.yellow(f"{len(bionty_validated)} term{s}")
             logger.info(
-                f"-- detected {len(bionty_validated)} term{s} in Bionty for"
-                f" {str(field)}: {print_values}"
+                f"   detected {labels} in Bionty for"
+                f" {str(field)}: {colors.yellow(print_values)}"
             )
             hint = True
 
         if len(bionty_mapper) > 0 and not mute:
             print_values = _print_values(list(bionty_mapper.keys()))
             s = "" if len(bionty_mapper) == 1 else "s"
+            labels = colors.yellow(f"{len(bionty_mapper)} term{s}")
             logger.info(
-                f"-- detected {len(bionty_mapper)} term{s} in Bionty as synonym{s}:"
-                f" {print_values}"
+                f"   detected {labels} in Bionty as synonym{s}:"
+                f" {colors.yellow(print_values)}"
             )
             hint = True
 
         if hint:
             logger.hint(
-                "   add records from Bionty to your registry via"
+                "→  add records from Bionty to your registry via"
                 f" {colors.italic('.from_values()')}"
             )
+
+        nonval = bionty_result.non_validated
+
+    if len(nonval) > 0 and not mute:
+        print_values = _print_values(list(nonval))
+        s = "" if len(nonval) == 1 else "s"
+        labels = colors.red(f"{len(nonval)} term{s}")
+        logger.info(f"   couldn't validate {labels}: {colors.red(print_values)}")
+        logger.hint(
+            "→  if you are sure, add records to your registry via"
+            f" {colors.italic('.from_values()')}"
+        )
 
     return result_db
 
