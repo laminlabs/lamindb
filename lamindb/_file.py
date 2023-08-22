@@ -31,7 +31,6 @@ from lamindb.dev.storage import (
 from lamindb.dev.storage._backed_access import AnnDataAccessor, BackedAccessor
 from lamindb.dev.storage.file import (
     ProgressCallback,
-    _str_to_path,
     auto_storage_key_from_file,
     auto_storage_key_from_id_suffix,
     extract_suffix_from_path,
@@ -107,9 +106,7 @@ def process_data(
     """Serialize a data object that's provided as file or in memory."""
     # if not overwritten, data gets stored in default storage
     if isinstance(data, (str, Path, UPath)):  # PathLike, spelled out
-        filepath = (
-            data if isinstance(data, (Path, UPath)) else _str_to_path(data)
-        )  # returns Path for local
+        filepath = setup_settings.storage.to_path(data)  # returns Path for local
         storage, use_existing_storage_key = process_pathlike(
             filepath, skip_existence_check=skip_existence_check
         )
@@ -261,7 +258,9 @@ def check_path_in_existing_storage(
 ) -> Union[Storage, bool]:
     for storage in Storage.filter().all():
         # if path is part of storage, return it
-        if check_path_is_child_of_root(filepath, root=_str_to_path(storage.root)):
+        if check_path_is_child_of_root(
+            filepath, root=setup_settings.storage.to_path(storage.root)
+        ):
             return storage
     return False
 
@@ -687,7 +686,7 @@ def from_anndata(
     file = File(data=adata, key=key, run=run, description=description, log_hint=False)
     data_parse = adata
     if not isinstance(adata, AnnData):  # is a path
-        filepath = adata if isinstance(adata, (Path, UPath)) else _str_to_path(adata)
+        filepath = setup_settings.storage.to_path(adata)  # returns Path for local
         if isinstance(filepath, UPath):
             from lamindb.dev.storage._backed_access import backed_access
 
@@ -732,7 +731,7 @@ def from_dir(
     run: Optional[Run] = None,
 ) -> List["File"]:
     """{}"""
-    folderpath = path if isinstance(path, (Path, UPath)) else _str_to_path(path)
+    folderpath = setup_settings.storage.to_path(path)  # returns Path for local
     storage, use_existing_storage = process_pathlike(folderpath)
     folder_key_path: Union[PurePath, Path]
     if key is None:
@@ -1025,7 +1024,7 @@ def tree(
     if path is None:
         dir_path = settings.storage
     else:
-        dir_path = path if isinstance(path, (Path, UPath)) else _str_to_path(path)
+        dir_path = setup_settings.storage.to_path(path)  # returns Path for local
     n_files = 0
     n_directories = 0
 
