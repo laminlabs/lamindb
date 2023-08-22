@@ -100,7 +100,7 @@ def build(session, group):
     elif group == "storage":
         session.run(*f"pytest -s {coverage_args} ./docs/storage".split())
     # move artifacts into right place
-    if group in {"guide", "biology"}:
+    if group in {"tutorial", "guide", "biology"}:
         target_dir = Path(f"./docs/{group}")
         target_dir.mkdir(exist_ok=True)
         for filename in GROUPS[group]:

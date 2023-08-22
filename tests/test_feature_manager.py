@@ -111,7 +111,7 @@ def test_features_add_labels_using_anndata():
         file.add_labels(species, feature="species")
     assert (
         error.exconly()
-        == "ValueError: Please save the file or dataset before adding a label!"
+        == "ValueError: Please save the file/dataset before adding a label!"
     )
 
     file.save()
