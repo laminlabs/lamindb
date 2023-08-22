@@ -13,7 +13,7 @@ from lnschema_core.types import ListLike, StrField
 from lamindb.dev.utils import attach_func_to_class_method
 
 from . import _TESTING
-from ._from_values import _has_species_field
+from ._from_values import _has_species_field, _print_values
 from ._registry import get_default_str_field
 
 
@@ -87,9 +87,7 @@ def _inspect(
         bionty_mapper = bionty_result.synonyms_mapper
         hint = False
         if len(bionty_validated) > 0 and not mute:
-            print_values = ", ".join(bionty_validated[:20])
-            if len(bionty_validated) > 20:
-                print_values += ", ..."
+            print_values = _print_values(bionty_validated)
             s = "" if len(bionty_validated) == 1 else "s"
             logger.info(
                 f"-- detected {len(bionty_validated)} term{s} in Bionty for"
@@ -98,9 +96,7 @@ def _inspect(
             hint = True
 
         if len(bionty_mapper) > 0 and not mute:
-            print_values = ", ".join(list(bionty_mapper.keys())[:20])
-            if len(bionty_mapper) > 20:
-                print_values += ", ..."
+            print_values = _print_values(list(bionty_mapper.keys()))
             s = "" if len(bionty_mapper) == 1 else "s"
             logger.info(
                 f"-- detected {len(bionty_mapper)} term{s} in Bionty as synonym{s}:"
