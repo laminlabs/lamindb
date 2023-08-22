@@ -22,7 +22,7 @@ from ._registry import get_default_str_field
 def inspect(
     cls,
     values: ListLike,
-    field: StrField,
+    field: Optional[Union[str, StrField]] = None,
     *,
     mute: bool = False,
     **kwargs,
@@ -40,7 +40,12 @@ def inspect(
 @classmethod  # type: ignore
 @doc_args(ValidationMixin.validate.__doc__)
 def validate(
-    cls, values: ListLike, field: StrField, *, mute: bool = False, **kwargs
+    cls,
+    values: ListLike,
+    field: Optional[Union[str, StrField]] = None,
+    *,
+    mute: bool = False,
+    **kwargs,
 ) -> np.ndarray:
     """{}"""
     return _validate(cls=cls, values=values, field=field, mute=mute, **kwargs)
@@ -49,7 +54,7 @@ def validate(
 def _inspect(
     cls,
     values: ListLike,
-    field: StrField,
+    field: Optional[Union[str, StrField]] = None,
     *,
     mute: bool = False,
     **kwargs,
@@ -59,8 +64,8 @@ def _inspect(
 
     if isinstance(values, str):
         values = [values]
-    if not isinstance(field, str):
-        field = field.field.name
+
+    field = get_default_str_field(cls, field=field)
 
     orm = cls.model if isinstance(cls, QuerySet) else cls
 
@@ -113,15 +118,20 @@ def _inspect(
 
 
 def _validate(
-    cls, values: ListLike, field: StrField, *, mute: bool = False, **kwargs
+    cls,
+    values: ListLike,
+    field: Optional[Union[str, StrField]] = None,
+    *,
+    mute: bool = False,
+    **kwargs,
 ) -> np.ndarray:
     """{}"""
     from lamin_utils._inspect import validate
 
     if isinstance(values, str):
         values = [values]
-    if not isinstance(field, str):
-        field = field.field.name
+
+    field = get_default_str_field(cls, field=field)
 
     orm = cls.model if isinstance(cls, QuerySet) else cls
     field_values = pd.Series(
@@ -147,6 +157,7 @@ def _validate(
 def standardize(
     cls,
     values: Iterable,
+    field: Optional[str] = None,
     *,
     return_mapper: bool = False,
     case_sensitive: bool = False,
@@ -154,20 +165,19 @@ def standardize(
     bionty_aware: bool = True,
     keep: Literal["first", "last", False] = "first",
     synonyms_field: str = "synonyms",
-    field: Optional[str] = None,
     **kwargs,
 ) -> Union[List[str], Dict[str, str]]:
     """{}"""
     return _standardize(
         cls=cls,
         values=values,
+        field=field,
         return_mapper=return_mapper,
         case_sensitive=case_sensitive,
         mute=mute,
         bionty_aware=bionty_aware,
         keep=keep,
         synonyms_field=synonyms_field,
-        field=field,
         **kwargs,
     )
 
@@ -209,6 +219,7 @@ def remove_synonym(self, synonym: Union[str, ListLike]):
 def _standardize(
     cls,
     values: Iterable,
+    field: Optional[Union[str, StrField]] = None,
     *,
     return_mapper: bool = False,
     case_sensitive: bool = False,
@@ -216,21 +227,16 @@ def _standardize(
     bionty_aware: bool = True,
     keep: Literal["first", "last", False] = "first",
     synonyms_field: str = "synonyms",
-    field: Optional[str] = None,
     **kwargs,
 ) -> Union[List[str], Dict[str, str]]:
     """{}"""
     from lamin_utils._map_synonyms import map_synonyms
 
-    return_str = False
+    return_str = True if isinstance(values, str) else False
     if isinstance(values, str):
         values = [values]
-        return_str = True
-    if field is None:
-        field = get_default_str_field(cls)
-    if not isinstance(field, str):
-        field = field.field.name
 
+    field = get_default_str_field(cls, field=field)
     orm = cls.model if isinstance(cls, QuerySet) else cls
 
     species = kwargs.get("species")
