@@ -1,5 +1,6 @@
 # Changelog
 
+- ♻️ Add `transform`, `run` & `input_of` to `Dataset` [PR1074](https://github.com/laminlabs/lamindb/pull/1074) [@falexwolf](https://github.com/falexwolf)
 - 🚸 Better UX of graphviz installation [PR1075](https://github.com/laminlabs/lamindb/pull/1075) [@sunnyosun](https://github.com/sunnyosun)
 - 👷 Run tutorial on anonymous worker [PR1073](https://github.com/laminlabs/lamindb/pull/1073) [@falexwolf](https://github.com/falexwolf)
 - ♻️ Use `create_path` [PR1072](https://github.com/laminlabs/lamindb/pull/1072) [@falexwolf](https://github.com/falexwolf)
