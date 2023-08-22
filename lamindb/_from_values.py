@@ -58,13 +58,10 @@ def get_or_create_records(
                         params["type"] = str(types[value])
                     records.append(Registry(**params, **kwargs))
                 s = "" if len(unmapped_values) == 1 else "s"
-                print_unmapped_values = ", ".join(unmapped_values[:20])
-                if len(unmapped_values) > 20:
-                    print_unmapped_values += ", ..."
-                additional_info = " "
+                print_values = _print_values(unmapped_values)
                 logger.warning(
-                    f"did not validate {colors.yellow(f'{len(unmapped_values)} {Registry.__name__} record{s}')} for{additional_info}"  # noqa
-                    f"{colors.yellow(f'{field_name}{s}')}: {print_unmapped_values}"  # noqa
+                    f"did not validate {colors.yellow(f'{len(unmapped_values)} {Registry.__name__} record{s}')} for "  # noqa
+                    f"{colors.italic(f'{field_name}{s}')}: {colors.yellow(print_values)}"  # noqa
                 )
         if Registry.__module__.startswith("lnschema_bionty.") or Registry == Label:
             if isinstance(iterable, pd.Series):
@@ -116,7 +113,7 @@ def get_existing_records(
         syn_msg = (
             "loaded"
             f" {colors.green(f'{len(syn_mapper)} {model.__name__} record{s}')}"
-            f" matching {colors.green('synonyms')}: {print_values}"
+            f" matching {colors.italic('synonyms')}: {colors.green(print_values)}"
         )
         iterable_idx = iterable_idx.to_frame().rename(index=syn_mapper).index
 
@@ -148,7 +145,7 @@ def get_existing_records(
         msg = (
             "loaded"
             f" {colors.green(f'{len(validated)} {model.__name__} record{s}')}"
-            f" matching {colors.green(f'{field_name}')}: {print_values}"
+            f" matching {colors.italic(f'{field_name}')}: {colors.green(print_values)}"
         )
 
     # no logging if all values are validated
@@ -199,7 +196,7 @@ def create_records_from_bionty(
         msg_syn = (
             "created"
             f" {colors.purple(f'{len(syn_mapper)} {model.__name__} record{s} from Bionty')}"  # noqa
-            f" matching {colors.purple('synonyms')}: {print_values}"
+            f" matching {colors.italic('synonyms')}: {colors.purple(print_values)}"
         )
 
         iterable_idx = iterable_idx.to_frame().rename(index=syn_mapper).index
@@ -228,7 +225,7 @@ def create_records_from_bionty(
                 (
                     "created"
                     f" {colors.purple(f'{len(validated)} {model.__name__} record{s} from Bionty')}"  # noqa
-                    f" matching {colors.purple(f'{field_name}')}: {print_values}"
+                    f" matching {colors.italic(f'{field_name}')}: {colors.purple(print_values)}"  # noqa
                 )
             )
 
