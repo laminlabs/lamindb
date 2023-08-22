@@ -6,11 +6,10 @@ from typing import Literal, Union
 import anndata as ad
 import fsspec
 import pandas as pd
-from botocore.exceptions import NoCredentialsError
 from lamin_utils import logger
 from lamindb_setup import settings
 from lamindb_setup.dev import StorageSettings
-from lamindb_setup.dev.upath import S3Path, UPath, infer_filesystem
+from lamindb_setup.dev.upath import UPath, infer_filesystem
 from lnschema_core.models import File, Storage
 
 try:
@@ -86,20 +85,6 @@ def attempt_accessing_path(file: File, storage_key: str):
         storage_settings = StorageSettings(storage.root)
         path = storage_settings.key_to_filepath(storage_key)
     return path
-
-
-def _str_to_path(path_str: str) -> Union[Path, UPath]:
-    protocol = fsspec.utils.get_protocol(path_str)
-    if protocol == "file":
-        return Path(path_str)
-    else:
-        path = UPath(path_str, cache_regions=True)
-        if isinstance(path, S3Path):
-            try:
-                path.fs.call_s3("head_bucket", Bucket=path._url.netloc)
-            except NoCredentialsError:
-                path = UPath(path_str, anon=True)
-        return path
 
 
 # add type annotations back asap when re-organizing the module
@@ -216,8 +201,7 @@ def load_to_memory(filepath: Union[str, Path, UPath], stream: bool = False, **kw
 
     Returns the filepath if no in-memory form is found.
     """
-    if isinstance(filepath, str):
-        filepath = _str_to_path(filepath)
+    filepath = settings.storage.to_path(filepath)
 
     if filepath.suffix in (".zarr", ".zrad"):
         stream = True
