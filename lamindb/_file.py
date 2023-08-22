@@ -40,9 +40,9 @@ from lamindb.dev.storage.file import (
 from lamindb.dev.utils import attach_func_to_class_method
 
 from . import _TESTING
-from ._data import add_transform_to_kwargs, get_run
 from ._feature import convert_numpy_dtype_to_lamin_feature_type
 from ._parents import view_lineage
+from .dev._data import add_transform_to_kwargs, get_run
 from .dev.storage.file import AUTO_KEY_PREFIX
 
 DIRS = AppDirs("lamindb", "laminlabs")

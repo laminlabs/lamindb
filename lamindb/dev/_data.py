@@ -1,8 +1,9 @@
 from collections import defaultdict
-from typing import Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional, Union
 
 from lamin_utils import colors, logger
 from lamindb_setup.dev._docs import doc_args
+from lnschema_core import Run
 from lnschema_core.models import (
     Data,
     Feature,
@@ -15,9 +16,31 @@ from lnschema_core.models import (
 from .._query_set import QuerySet
 from .._registry import get_default_str_field
 from .._save import save
-from ._feature_manager import FeatureManager, create_features_df
+from ._feature_manager import (
+    FeatureManager,
+    create_features_df,
+    get_feature_set_links,
+    get_label_links,
+)
+from ._run_context import run_context
 from ._settings import settings
 from .exc import ValidationError
+
+
+def get_run(run: Optional[Run]) -> Optional[Run]:
+    if run is None:
+        run = run_context.run
+        if run is None:
+            logger.warning(
+                "no run & transform get linked, consider passing a `run` or calling"
+                " ln.track()"
+            )
+    return run
+
+
+def add_transform_to_kwargs(kwargs: Dict[str, Any], run: Run):
+    if run is not None:
+        kwargs["transform"] = run.transform
 
 
 def describe(self):
@@ -40,7 +63,6 @@ def describe(self):
 
         return d
 
-    # Display the file record
     fields = self._meta.fields
     direct_fields = []
     foreign_key_fields = []
@@ -62,7 +84,7 @@ def describe(self):
         "initial_version": "🔖",
     }
     if len(foreign_key_fields) > 0:
-        record_msg = f"{model_name}({''.join([f'{i}={self.__getattribute__(i)}, ' for i in direct_fields])})"  # noqa
+        record_msg = f"{model_name}({''.join([f'{i}={format_field_value(self.__getattribute__(i))}, ' for i in direct_fields])})"  # noqa
         msg += f"{record_msg.rstrip(', )')})\n\n"
 
         msg += f"{colors.green('Provenance')}:\n    "
@@ -120,7 +142,7 @@ def describe(self):
     feature_sets = self.feature_sets.filter(registry="core.Feature").all()
     if feature_sets.exists():
         features_df = create_features_df(
-            file=self, feature_sets=feature_sets.all(), exclude=True
+            host=self, feature_sets=feature_sets.all(), exclude=True
         )
         for slot in features_df["slot"].unique():
             df_slot = features_df[features_df.slot == slot]
@@ -196,9 +218,7 @@ def get_labels(
         # currently need to distinguish between Label and non-Label, because
         # we only have the feature information for Label
         if registry == "core.Label":
-            links_to_labels = getattr(
-                self, self.features._accessor_by_orm[registry]
-            ).through.objects.filter(file_id=self.id, feature_id=feature.id)
+            links_to_labels = get_label_links(self, registry, feature)
             label_ids = [link.label_id for link in links_to_labels]
             qs_by_registry[registry] = Label.objects.filter(id__in=label_ids)
         else:
@@ -237,7 +257,7 @@ def add_labels(
             f" = ln.Label(name='{records[0]}')"  # type: ignore
         )
     if self._state.adding:
-        raise ValueError("Please save the file or dataset before adding a label!")
+        raise ValueError("Please save the file/dataset before adding a label!")
     for record in records:
         if record._state.adding:
             raise ValidationError(
@@ -268,7 +288,7 @@ def add_labels(
         getattr(self, self.features._accessor_by_orm[orm_name]).add(
             *records, through_defaults={"feature_id": feature.id}
         )
-    feature_set_links = self.feature_sets.through.objects.filter(file_id=self.id)
+    feature_set_links = get_feature_set_links(self)
     feature_set_ids = [link.feature_set_id for link in feature_set_links.all()]
     # get all linked features of type Feature
     feature_sets = FeatureSet.filter(id__in=feature_set_ids).all()

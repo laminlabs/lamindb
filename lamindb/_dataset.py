@@ -5,7 +5,7 @@ import pandas as pd
 from lnschema_core.models import Dataset
 
 from . import FeatureSet, File, Run
-from ._data import add_transform_to_kwargs, get_run
+from .dev._data import add_transform_to_kwargs, get_run
 from .dev.hashing import hash_set
 
 
