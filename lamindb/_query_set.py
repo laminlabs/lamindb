@@ -4,7 +4,7 @@ from typing import Iterable, List, NamedTuple, Optional
 import pandas as pd
 from django.db import models
 from lamindb_setup.dev._docs import doc_args
-from lnschema_core.models import Registry, SynonymsAware, ValidationAware
+from lnschema_core.models import Registry, ValidationMixin
 from lnschema_core.types import ListLike, StrField
 
 
@@ -214,24 +214,24 @@ class QuerySet(models.QuerySet):
 
         return _lookup(cls=self, field=field)
 
-    @doc_args(ValidationAware.validate.__doc__)
+    @doc_args(ValidationMixin.validate.__doc__)
     def validate(self, values: ListLike, field: StrField, **kwargs):
         """{}"""
         from ._validate import _validate
 
         return _validate(cls=self, values=values, field=field, **kwargs)
 
-    @doc_args(ValidationAware.inspect.__doc__)
+    @doc_args(ValidationMixin.inspect.__doc__)
     def inspect(self, values: ListLike, field: StrField, **kwargs):
         """{}"""
         from ._validate import _inspect
 
         return _inspect(cls=self, values=values, field=field, **kwargs)
 
-    @doc_args(SynonymsAware.standardize.__doc__)
+    @doc_args(ValidationMixin.standardize.__doc__)
     def standardize(self, values: Iterable, **kwargs):
         """{}"""
-        from ._synonym import _standardize
+        from ._validate import _standardize
 
         return _standardize(cls=self, values=values, **kwargs)
 

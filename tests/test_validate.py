@@ -4,7 +4,8 @@ import pytest
 import lamindb as ln  # noqa
 
 
-def test_map_synonyms():
+# some validate tests are in test_queryset
+def test_standardize():
     lb.settings.species = "human"
 
     # synonym not in the database
@@ -23,6 +24,11 @@ def test_map_synonyms():
     assert mapper == {"LMN1": "LMNA", "ABC1": "HEATR6"}
     assert lb.Gene.standardize(["LMNA"]) == ["LMNA"]
     assert lb.Gene.standardize(["LMN1"], return_mapper=True) == {"LMN1": "LMNA"}
+
+
+def test_standardize_bionty_aware():
+    result = lb.Gene.standardize(["ABC1", "PDCD1"], bionty_aware=False)
+    assert result == ["ABC1", "PDCD1"]
 
 
 def test_add_remove_synonym():

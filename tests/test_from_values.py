@@ -73,3 +73,41 @@ def test_get_or_create_records():
     ln.save(labels)
     # more than 20 existing values
     ln.Label.from_values(["label" + str(i) for i in range(25)], field="name")
+
+
+def test_from_values_synonyms_aware():
+    lb.CellType.from_bionty(name="T cell").save(parents=False)
+    # existing validated values
+    records = lb.CellType.from_values(["T cell"], "name")
+    assert len(records) == 1
+    assert records[0].name == "T cell"
+    assert isinstance(records[0].bionty_source, lb.BiontySource)
+    # existing validated values and synonyms
+    records = lb.CellType.from_values(["T cell", "T-cell"], "name")
+    assert len(records) == 1
+    assert records[0].name == "T cell"
+    assert isinstance(records[0].bionty_source, lb.BiontySource)
+    # bionty values and synonyms
+    records = lb.CellType.from_values(["B-cell", "B cell"], "name")
+    assert len(records) == 1
+    assert records[0].name == "B cell"
+    assert isinstance(records[0].bionty_source, lb.BiontySource)
+    # all possibilities of validated values
+    records = lb.CellType.from_values(
+        ["T cell", "T-cell", "t cell", "B cell", "B-cell"], "name"
+    )
+    assert len(records) == 2
+    names = [r.name for r in records]
+    assert set(names) == set(["T cell", "B cell"])
+    assert isinstance(records[0].bionty_source, lb.BiontySource)
+    assert isinstance(records[1].bionty_source, lb.BiontySource)
+    # non-validated values
+    records = lb.CellType.from_values(["T cell", "mycell"], "name")
+    assert len(records) == 2
+    mycell = [i for i in records if i.name == "mycell"][0]
+    assert mycell.bionty_source is None
+    assert mycell.ontology_id is None
+    tcell = [i for i in records if i.name == "T cell"][0]
+    assert isinstance(tcell.bionty_source, lb.BiontySource)
+    assert tcell.ontology_id == "CL:0000084"
+    lb.CellType.filter().all().delete()

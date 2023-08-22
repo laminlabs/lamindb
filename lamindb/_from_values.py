@@ -31,7 +31,7 @@ def get_or_create_records(
         iterable_idx = index_iterable(iterable)
 
         # returns existing records & non-existing values
-        records, nonexist_values, msgs = get_existing_records(
+        records, nonexist_values, msg = get_existing_records(
             iterable_idx=iterable_idx, field=field, kwargs=kwargs
         )
 
@@ -39,10 +39,10 @@ def get_or_create_records(
         if len(nonexist_values) > 0:
             if from_bionty:
                 records_bionty, unmapped_values = create_records_from_bionty(
-                    iterable_idx=nonexist_values, field=field, msgs=msgs, **kwargs
+                    iterable_idx=nonexist_values, field=field, msg=msg, **kwargs
                 )
                 if len(records_bionty) > 0:
-                    msgs = ("", "")
+                    msg = ""
                 for record in records_bionty:
                     record._from_bionty = True
                 records += records_bionty
@@ -50,10 +50,8 @@ def get_or_create_records(
                 unmapped_values = nonexist_values
             # unmapped new_ids will only create records with field and kwargs
             if len(unmapped_values) > 0:
-                if len(msgs[0]) > 0:
-                    logger.success(msgs[0])
-                if len(msgs[1]) > 0:
-                    logger.success(msgs[1])
+                if len(msg) > 0:
+                    logger.success(msg)
                 for value in unmapped_values:
                     params = {field_name: value}
                     if types is not None:
@@ -103,14 +101,12 @@ def get_existing_records(
             kwargs.update({"species": species_record})
             condition.update({"species__name": species_record.name})
 
-    # map synonyms based on the DB reference
-    syn_mapper = model.standardize(
-        iterable_idx,
-        species=kwargs.get("species"),
-        return_mapper=True,
-        mute=True,
-        bionty_aware=False,
+    # standardize based on the DB reference
+    # log synonyms mapped terms
+    result = model.inspect(
+        iterable_idx, field=field_name, species=kwargs.get("species"), mute=True
     )
+    syn_mapper = result.synonyms_mapper
 
     syn_msg = ""
     if len(syn_mapper) > 0:
@@ -145,32 +141,40 @@ def get_existing_records(
     # order by causes a factor 10 in runtime
     # records = query_set.order_by(preserved).list()
 
-    n_name = len(records)
-    names = [getattr(record, field_name) for record in records]
+    # log validated terms
+    validated = result.validated
     msg = ""
-    if n_name > 0:
-        s = "" if n_name == 1 else "s"
-        print_values = ", ".join(names[:20])
-        if len(names) > 20:
+    if len(validated) > 0:
+        s = "" if len(validated) == 1 else "s"
+        print_values = ", ".join(validated[:20])
+        if len(validated) > 20:
             print_values += ", ..."
         msg = (
             "loaded"
-            f" {colors.green(f'{n_name} {model.__name__} record{s}')}"
+            f" {colors.green(f'{len(validated)} {model.__name__} record{s}')}"
             f" matching {colors.green(f'{field_name}')}: {print_values}"
         )
+
+    # no logging if all values are validated
+    # logs if there are synonyms
+    if len(syn_msg) > 0:
+        if len(msg) > 0:
+            logger.success(msg)
+        logger.success(syn_msg)
+        msg = ""
 
     existing_values = iterable_idx.intersection(
         query_set.values_list(field_name, flat=True)
     )
     nonexist_values = iterable_idx.difference(existing_values)
 
-    return records, nonexist_values, (msg, syn_msg)
+    return records, nonexist_values, msg
 
 
 def create_records_from_bionty(
     iterable_idx: pd.Index,
     field: Field,
-    msgs: Tuple = ("", ""),
+    msg: str = "",
     **kwargs,
 ):
     model = field.field.model
@@ -187,12 +191,10 @@ def create_records_from_bionty(
     # filter the columns in bionty df based on fields
     bionty_df = _filter_bionty_df_columns(model=model, bionty_object=bionty_object)
 
-    # map synonyms in the bionty reference
-    try:
-        syn_mapper = bionty_object.standardize(iterable_idx, return_mapper=True)
-    except KeyError:
-        # no synonyms column
-        syn_mapper = {}
+    # standardize in the bionty reference
+    result = bionty_object.inspect(iterable_idx, field=field_name, mute=True)
+    syn_mapper = result.synonyms_mapper
+
     msg_syn: str = ""
     if len(syn_mapper) > 0:
         s = "" if len(syn_mapper) == 1 else "s"
@@ -209,6 +211,7 @@ def create_records_from_bionty(
         iterable_idx = iterable_idx.to_frame().rename(index=syn_mapper).index
 
     # create records for values that are found in the bionty reference
+    # matching either field or synonyms
     mapped_values = iterable_idx.intersection(bionty_df[field_name])
 
     multi_msg = ""
@@ -220,23 +223,19 @@ def create_records_from_bionty(
             records.append(model(**bk, **kwargs))
 
         # number of records that matches field (not synonyms)
-        n_name = len(records)
-        names = [getattr(record, field_name) for record in records]
-        names = [name for name in names]
-        if n_name > 0:
-            s = "" if n_name == 1 else "s"
-            print_values = ", ".join(names[:20])
-            if len(names) > 20:
+        validated = result.validated
+        if len(validated) > 0:
+            s = "" if len(validated) == 1 else "s"
+            print_values = ", ".join(validated[:20])
+            if len(validated) > 20:
                 print_values += ", ..."
             # this is the success msg for existing records in the DB
-            if len(msgs[0]) > 0:
-                logger.success(msgs[0])
-            if len(msgs[1]) > 0:
-                logger.success(msgs[1])
+            if len(msg) > 0:
+                logger.success(msg)
             logger.success(
                 (
                     "created"
-                    f" {colors.purple(f'{n_name} {model.__name__} record{s} from Bionty')}"  # noqa
+                    f" {colors.purple(f'{len(validated)} {model.__name__} record{s} from Bionty')}"  # noqa
                     f" matching {colors.purple(f'{field_name}')}: {print_values}"
                 )
             )
