@@ -128,6 +128,7 @@ def _validate(
     """{}"""
     from lamin_utils._inspect import validate
 
+    return_str = True if isinstance(values, str) else False
     if isinstance(values, str):
         values = [values]
 
@@ -142,7 +143,8 @@ def _validate(
         ),
         dtype="object",
     )
-    return validate(
+
+    result = validate(
         identifiers=values,
         field_values=field_values,
         case_sensitive=True,
@@ -150,6 +152,10 @@ def _validate(
         field=field,
         **kwargs,
     )
+    if return_str and len(result) == 1:
+        return result[0]
+    else:
+        return result
 
 
 @classmethod  # type: ignore

@@ -7,10 +7,12 @@ import lamindb as ln  # noqa
 # some validate tests are in test_queryset
 def test_inspect():
     lb.settings.species = "human"
-    result = lb.Gene.inspect(["TCF7"], "symbol")
+    result = lb.Gene.inspect("TCF7", "symbol")
     assert result.validated == []
 
     lb.Gene.from_bionty(symbol="TCF7").save()
+    result = lb.Gene.inspect("TCF7")
+    assert lb.Gene.validate("TCF7", species="human")
     result = lb.Gene.inspect(["TCF7", "ABC1"], "symbol")
     assert result.validated == ["TCF7"]
 
@@ -36,6 +38,7 @@ def test_standardize():
     mapper = lb.Gene.standardize(["ABC1", "LMN1"], return_mapper=True)
     assert mapper == {"LMN1": "LMNA", "ABC1": "HEATR6"}
     assert lb.Gene.standardize(["LMNA"]) == ["LMNA"]
+    assert lb.Gene.standardize("LMNA") == "LMNA"
     assert lb.Gene.standardize(["LMN1"], return_mapper=True) == {"LMN1": "LMNA"}
 
 
