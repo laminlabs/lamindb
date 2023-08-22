@@ -201,8 +201,7 @@ def load_to_memory(filepath: Union[str, Path, UPath], stream: bool = False, **kw
 
     Returns the filepath if no in-memory form is found.
     """
-    if isinstance(filepath, str):
-        filepath = settings.storage.to_path(filepath)
+    filepath = settings.storage.to_path(filepath)
 
     if filepath.suffix in (".zarr", ".zrad"):
         stream = True
