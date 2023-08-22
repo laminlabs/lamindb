@@ -10,15 +10,15 @@ from lnschema_core import Registry
 
 
 def view(
-    n: int = 10, schema: Optional[str] = None, registries: Optional[List[str]] = None
+    n: int = 7, schema: Optional[str] = None, registries: Optional[List[str]] = None
 ):
     """View data.
 
     Args:
-        n: ``int = 10`` Display the last `n` rows of a table.
-        schema: ``Optional[str] = None`` Schema module to view. Default's to
+        n: Display the last `n` rows of a table.
+        schema: Schema module to view. Default's to
             `None` and displays all schema modules.
-        registries: ``Optional[List[str]] = None`` List of Registry names. Defaults to
+        registries: List of Registry names. Defaults to
             `None` and lists all ORMs.
 
     Examples:

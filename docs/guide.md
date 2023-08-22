@@ -135,6 +135,7 @@ LaminHub & LaminApp are not open-sourced, and neither are templates that model l
 :caption: Tutorial
 
 tutorial
+tutorial1
 ```
 
 ```{toctree}
