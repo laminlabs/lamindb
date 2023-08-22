@@ -52,24 +52,24 @@ def install(session, group):
         session.run(*f"pip install --no-deps {submodules}".split())
     extras = ""
     if group == "unit":
-        extras += ",bionty,aws,zarr,postgres,fcs"
+        extras += "bionty,aws,zarr,postgres,fcs"
     elif group == "tutorial":
         extras += "jupyter"
     elif group == "guide":
-        extras += ",aws,bionty,zarr,jupyter,erdiagram"
+        extras += "aws,bionty,zarr,jupyter,erdiagram"
         session.run(*"pip install scanpy".split())
     elif group == "biology":
-        extras += ",bionty,fcs,jupyter"
+        extras += "bionty,fcs,jupyter"
     elif group == "faq":
-        extras += ",aws,postgres,bionty,jupyter"
+        extras += "aws,postgres,bionty,jupyter"
     elif group == "storage":
-        extras += ",aws,zarr"
+        extras += "aws,zarr"
     elif group == "docs":
-        extras += ",bionty"
+        extras += "bionty"
     if os.getenv("GITHUB_EVENT_NAME") != "push":
         if "bionty" in extras:
             session.run(*"pip install --no-deps ./sub/lnschema-bionty".split())
-    session.run(*f"pip install -e .[dev{extras}]".split())
+    session.run(*f"pip install -e .[dev,{extras}]".split())
 
 
 @nox.session
