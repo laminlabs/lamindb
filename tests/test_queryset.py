@@ -111,7 +111,8 @@ def test_validate():
         True,
         False,
     ]
-    assert ln.User.validate("testuser1", ln.User.handle).tolist() == [True]
+    # returns True
+    assert ln.User.validate("testuser1", ln.User.handle)
 
 
 def test_map_synonyms():
