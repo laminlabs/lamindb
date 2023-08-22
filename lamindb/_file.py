@@ -1,3 +1,4 @@
+from collections import defaultdict
 from itertools import islice
 from pathlib import Path, PurePath, PurePosixPath
 from typing import Any, List, Optional, Set, Tuple, Union
@@ -12,6 +13,7 @@ from lamindb_setup import settings as setup_settings
 from lamindb_setup._init_instance import register_storage
 from lamindb_setup.dev import StorageSettings
 from lamindb_setup.dev._docs import doc_args
+from lamindb_setup.dev._hub_utils import get_storage_region
 from lnschema_core import Feature, FeatureSet, File, Run, Storage, ids
 from lnschema_core.types import AnnDataLike, DataLike, FieldAttr, PathLike
 
@@ -78,7 +80,8 @@ def process_pathlike(
                 logger.warning(
                     f"creating new storage location for root: {new_root_str}"
                 )
-                storage_settings = StorageSettings(new_root_str)
+                region = get_storage_region(new_root_str)
+                storage_settings = StorageSettings(new_root_str, region)
                 register_storage(storage_settings)
                 use_existing_storage_key = True
                 return storage_settings.record, use_existing_storage_key
@@ -1017,6 +1020,7 @@ def tree(
     branch = "│   "
     tee = "├── "
     last = "└── "
+    max_files_per_dir_per_type = 7
 
     if path is None:
         dir_path = settings.storage
@@ -1034,9 +1038,10 @@ def tree(
             file.path for file in cls.filter(storage_id=setup_settings.storage.id).all()
         }
         registered_dirs = {d for p in registered_paths for d in p.parents}
+    suffixes = set()
 
     def inner(dir_path: Union[Path, UPath], prefix: str = "", level=-1):
-        nonlocal n_files, n_directories
+        nonlocal n_files, n_directories, suffixes
         if not level:
             return  # 0, stop iterating
         stripped_dir_path = dir_path.as_posix().rstrip("/")
@@ -1052,19 +1057,29 @@ def tree(
         if limit_to_directories:
             contents = [d for d in contents if d.is_dir()]
         pointers = [tee] * (len(contents) - 1) + [last]
+        n_files_per_dir_per_type = defaultdict(lambda: 0)  # type: ignore
         for pointer, path in zip(pointers, contents):
             if path.is_dir():
                 if registered_dirs and path not in registered_dirs:
                     continue
                 yield prefix + pointer + path.name
                 n_directories += 1
+                n_files_per_dir_per_type = defaultdict(lambda: 0)
                 extension = branch if pointer == tee else space
                 yield from inner(path, prefix=prefix + extension, level=level - 1)
             elif not limit_to_directories:
                 if registered_paths and path not in registered_paths:
                     continue
-                yield prefix + pointer + path.name
+                suffix = extract_suffix_from_path(path)
+                suffixes.add(suffix)
+                n_files_per_dir_per_type[suffix] += 1
                 n_files += 1
+                if n_files_per_dir_per_type[suffix] == max_files_per_dir_per_type:
+                    yield prefix + "..."
+                elif n_files_per_dir_per_type[suffix] > max_files_per_dir_per_type:
+                    continue
+                else:
+                    yield prefix + pointer + path.name
 
     folder_tree = ""
     iterator = inner(dir_path, level=level)
@@ -1073,9 +1088,10 @@ def tree(
     if next(iterator, None):
         folder_tree += f"... length_limit, {length_limit}, reached, counted:"
     directory_info = "directory" if n_directories == 1 else "directories"
+    display_suffixes = ", ".join([f"{suffix!r}" for suffix in suffixes])
     print(
-        f"{dir_path.name} ({n_directories} sub-{directory_info} & {n_files} files):"
-        f" {folder_tree}"
+        f"{dir_path.name} ({n_directories} sub-{directory_info} & {n_files} files with"
+        f" suffixes {display_suffixes}): {folder_tree}"
     )
 
 
