@@ -1,5 +1,6 @@
 # Changelog
 
+- 📝 Write section on labels & features for files [PR1071](https://github.com/laminlabs/lamindb/pull/1071) [@falexwolf](https://github.com/falexwolf)
 - 📝 Break out tutorial in two parts [PR1070](https://github.com/laminlabs/lamindb/pull/1070) [@falexwolf](https://github.com/falexwolf)
 - ♻️ Use principled conversion to paths with options inheritance [PR1069](https://github.com/laminlabs/lamindb/pull/1069) [@Koncopd](https://github.com/Koncopd)
 - ♻️ Improve tutorial [PR1068](https://github.com/laminlabs/lamindb/pull/1068) [@falexwolf](https://github.com/falexwolf)
