@@ -428,13 +428,13 @@ def df_iris_in_meter() -> pd.DataFrame:
     return df
 
 
-def df_iris_in_meter_batch1() -> pd.DataFrame:
+def df_iris_in_meter_study1() -> pd.DataFrame:
     """The iris dataset with lengths in meter."""
     df_iris = df_iris_in_meter()
     return df_iris.iloc[: len(df_iris) // 2]
 
 
-def df_iris_in_meter_batch2() -> pd.DataFrame:
+def df_iris_in_meter_study2() -> pd.DataFrame:
     """The iris dataset with lengths in meter."""
     df_iris = df_iris_in_meter()
     return df_iris.iloc[len(df_iris) // 2 :]

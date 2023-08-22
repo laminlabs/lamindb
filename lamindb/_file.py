@@ -42,7 +42,12 @@ from lamindb.dev.utils import attach_func_to_class_method
 from . import _TESTING
 from ._feature import convert_numpy_dtype_to_lamin_feature_type
 from ._parents import view_lineage
-from .dev._data import add_transform_to_kwargs, get_run
+from .dev._data import (
+    add_transform_to_kwargs,
+    get_run,
+    save_feature_set_links,
+    save_transform_run_feature_sets,
+)
 from .dev.storage.file import AUTO_KEY_PREFIX
 
 DIRS = AppDirs("lamindb", "laminlabs")
@@ -947,31 +952,9 @@ def save(self, *args, **kwargs) -> None:
 
 
 def _save_skip_storage(file, *args, **kwargs) -> None:
-    if file.transform is not None:
-        file.transform.save()
-    if file.run is not None:
-        file.run.save()
-    if hasattr(file, "_feature_sets"):
-        for feature_set in file._feature_sets.values():
-            feature_set.save()
-        s = "s" if len(file._feature_sets) > 1 else ""
-        logger.save(
-            f"saved {len(file._feature_sets)} feature set{s} for slot{s}:"
-            f" {list(file._feature_sets.keys())}"
-        )
+    save_transform_run_feature_sets(file)
     super(File, file).save(*args, **kwargs)
-    if hasattr(file, "_feature_sets"):
-        links = []
-        for slot, feature_set in file._feature_sets.items():
-            links.append(
-                File.feature_sets.through(
-                    file_id=file.id, feature_set_id=feature_set.id, slot=slot
-                )
-            )
-
-        from lamindb._save import bulk_create
-
-        bulk_create(links)
+    save_feature_set_links(file)
 
 
 @property  # type: ignore

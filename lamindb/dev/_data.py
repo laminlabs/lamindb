@@ -6,8 +6,10 @@ from lamindb_setup.dev._docs import doc_args
 from lnschema_core import Run
 from lnschema_core.models import (
     Data,
+    Dataset,
     Feature,
     FeatureSet,
+    File,
     Label,
     Registry,
     format_field_value,
@@ -20,6 +22,7 @@ from ._feature_manager import (
     FeatureManager,
     create_features_df,
     get_feature_set_links,
+    get_host_id_field,
     get_label_links,
 )
 from ._run_context import run_context
@@ -41,6 +44,43 @@ def get_run(run: Optional[Run]) -> Optional[Run]:
 def add_transform_to_kwargs(kwargs: Dict[str, Any], run: Run):
     if run is not None:
         kwargs["transform"] = run.transform
+
+
+def save_transform_run_feature_sets(self: Union[File, Dataset]) -> None:
+    if self.transform is not None:
+        self.transform.save()
+    if self.run is not None:
+        self.run.save()
+    if hasattr(self, "_feature_sets"):
+        for feature_set in self._feature_sets.values():
+            feature_set.save()
+        s = "s" if len(self._feature_sets) > 1 else ""
+        logger.save(
+            f"saved {len(self._feature_sets)} feature set{s} for slot{s}:"
+            f" {list(self._feature_sets.keys())}"
+        )
+
+
+def save_feature_set_links(self: Union[File, Dataset]) -> None:
+    from lamindb._save import bulk_create
+
+    Data = self.__class__
+    if hasattr(self, "_feature_sets"):
+        links = []
+        host_id_field = get_host_id_field(self)
+        for slot, feature_set in self._feature_sets.items():
+            if isinstance(feature_set, str):
+                assert len(feature_set) == 20
+                feature_set_id = feature_set
+            else:
+                feature_set_id = feature_set.id
+            kwargs = {
+                host_id_field: self.id,
+                "feature_set_id": feature_set_id,
+                "slot": slot,
+            }
+            links.append(Data.feature_sets.through(**kwargs))
+        bulk_create(links)
 
 
 def describe(self):

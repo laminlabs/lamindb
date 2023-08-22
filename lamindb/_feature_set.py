@@ -210,14 +210,13 @@ def from_df(
     **kwargs,
 ) -> Optional["FeatureSet"]:
     """{}"""
-    features = Feature.from_df(df)
-    validated_features = get_validated_features(features, Feature.name)
-    if validated_features:
+    validated = Feature.validate(df.columns)
+    if validated.sum() > 1:
+        validated_features = Feature.from_df(df.loc[:, validated])
         feature_set = FeatureSet(validated_features, name=name, **kwargs)
     else:
         logger.warning("no validated features, skip creating feature set")
         feature_set = None
-        # raise ValidationError("Dataframe columns contain no validated feature names")
     return feature_set
 
 
