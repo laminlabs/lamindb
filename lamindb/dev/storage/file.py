@@ -9,7 +9,7 @@ import pandas as pd
 from lamin_utils import logger
 from lamindb_setup import settings
 from lamindb_setup.dev import StorageSettings
-from lamindb_setup.dev.upath import UPath, infer_filesystem
+from lamindb_setup.dev.upath import UPath, create_path, infer_filesystem
 from lnschema_core.models import File, Storage
 
 try:
@@ -201,7 +201,7 @@ def load_to_memory(filepath: Union[str, Path, UPath], stream: bool = False, **kw
 
     Returns the filepath if no in-memory form is found.
     """
-    filepath = settings.storage.to_path(filepath)
+    filepath = create_path(filepath)
 
     if filepath.suffix in (".zarr", ".zrad"):
         stream = True
