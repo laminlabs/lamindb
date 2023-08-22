@@ -40,6 +40,7 @@ from lamindb.dev.storage.file import (
 from lamindb.dev.utils import attach_func_to_class_method
 
 from . import _TESTING
+from ._data import add_transform_to_kwargs, get_run
 from ._feature import convert_numpy_dtype_to_lamin_feature_type
 from ._parents import view_lineage
 from .dev.storage.file import AUTO_KEY_PREFIX
@@ -189,17 +190,6 @@ def get_hash(
             return result[0]
     else:
         return hash, hash_type
-
-
-def get_run(run: Optional[Run]) -> Optional[Run]:
-    if run is None:
-        run = run_context.run
-        if run is None:
-            logger.warning(
-                "no run & transform get linked, consider passing a `run` or calling"
-                " ln.track()"
-            )
-    return run
 
 
 def get_path_size_hash(
@@ -628,18 +618,7 @@ def __init__(file: File, *args, **kwargs):
     ):
         raise ValueError("Pass one of key, run or description as a parameter")
 
-    # transform cannot be directly passed, just via run
-    # it's directly stored in the file table to avoid another join
-    # mediate by the run table
-    if kwargs["run"] is not None:
-        if kwargs["run"].transform_id is not None:
-            kwargs["transform_id"] = kwargs["run"].transform_id
-        else:
-            # accessing the relationship should always be possible if
-            # the above if clause was false as then, we should have a fresh
-            # Transform object that is not queried from the DB
-            assert kwargs["run"].transform is not None
-            kwargs["transform"] = kwargs["run"].transform
+    add_transform_to_kwargs(kwargs, run)
 
     if data is not None:
         file._local_filepath = privates["local_filepath"]

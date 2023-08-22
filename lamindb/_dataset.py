@@ -5,6 +5,7 @@ import pandas as pd
 from lnschema_core.models import Dataset
 
 from . import FeatureSet, File, Run
+from ._data import add_transform_to_kwargs, get_run
 from .dev.hashing import hash_set
 
 
@@ -30,6 +31,7 @@ def __init__(
     assert len(kwargs) == 0
     id = None
     feature_sets = None
+    run = get_run(run)
     # init file
     if isinstance(data, pd.DataFrame) or isinstance(data, ad.AnnData):
         files = None
@@ -50,8 +52,16 @@ def __init__(
             hash, feature_sets = from_files(files)  # type: ignore
         else:
             raise ValueError("Only DataFrame, AnnData and iterable of File is allowed")
+    kwargs = {}
+    add_transform_to_kwargs(kwargs, run)
     super(Dataset, dataset).__init__(
-        id=id, name=name, description=description, file=file, hash=hash
+        id=id,
+        name=name,
+        description=description,
+        file=file,
+        hash=hash,
+        run=run,
+        **kwargs,
     )
     dataset._files = files
     dataset._feature_sets = feature_sets
