@@ -1,5 +1,6 @@
 # Changelog
 
+- 🚸 Better UX of graphviz installation [PR1075](https://github.com/laminlabs/lamindb/pull/1075) [@sunnyosun](https://github.com/sunnyosun)
 - 👷 Run tutorial on anonymous worker [PR1073](https://github.com/laminlabs/lamindb/pull/1073) [@falexwolf](https://github.com/falexwolf)
 - ♻️ Use `create_path` [PR1072](https://github.com/laminlabs/lamindb/pull/1072) [@falexwolf](https://github.com/falexwolf)
 - 🎨 Make `from_values` synonyms aware, `inspect` bionty aware [PR1066](https://github.com/laminlabs/lamindb/pull/1066) [@sunnyosun](https://github.com/sunnyosun)
