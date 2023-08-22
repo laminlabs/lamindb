@@ -54,7 +54,7 @@ def install(session, group):
     if group == "unit":
         extras += "bionty,aws,zarr,postgres,fcs"
     elif group == "tutorial":
-        extras += "jupyter"
+        extras += "aws,jupyter"  # despite no AWS credentials, we need s3fs
     elif group == "guide":
         extras += "aws,bionty,zarr,jupyter,erdiagram"
         session.run(*"pip install scanpy".split())
