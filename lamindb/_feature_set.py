@@ -211,7 +211,7 @@ def from_df(
 ) -> Optional["FeatureSet"]:
     """{}"""
     validated = Feature.validate(df.columns)
-    if validated.sum() > 1:
+    if validated.sum() > 0:
         validated_features = Feature.from_df(df.loc[:, validated])
         feature_set = FeatureSet(validated_features, name=name, **kwargs)
     else:

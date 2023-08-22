@@ -12,7 +12,7 @@ adata = ad.AnnData(
 
 
 def test_create_delete_from_single_dataframe():
-    df = ln.dev.datasets.df_iris_in_meter_batch1()
+    df = ln.dev.datasets.df_iris_in_meter_study1()
 
     # try to create and save the dataset
     dataset = ln.Dataset(df, name="Iris flower dataset1")
