@@ -198,7 +198,7 @@ def validate_and_cast_feature(
 @doc_args(Data.get_labels.__doc__)
 def get_labels(
     self,
-    feature: Optional[Union[str, Registry]] = None,
+    feature: Union[str, Registry],
     mute: bool = False,
     flat_names: bool = False,
 ) -> Union[QuerySet, Dict[str, QuerySet], List]:
