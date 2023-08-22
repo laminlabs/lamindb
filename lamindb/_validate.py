@@ -157,7 +157,7 @@ def _validate(
 def standardize(
     cls,
     values: Iterable,
-    field: Optional[str] = None,
+    field: Optional[Union[str, StrField]] = None,
     *,
     return_mapper: bool = False,
     case_sensitive: bool = False,

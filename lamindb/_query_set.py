@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import Iterable, List, NamedTuple, Optional
+from typing import Iterable, List, NamedTuple, Optional, Union
 
 import pandas as pd
 from django.db import models
@@ -215,25 +215,31 @@ class QuerySet(models.QuerySet):
         return _lookup(cls=self, field=field)
 
     @doc_args(ValidationMixin.validate.__doc__)
-    def validate(self, values: ListLike, field: StrField, **kwargs):
+    def validate(
+        self, values: ListLike, field: Optional[Union[str, StrField]] = None, **kwargs
+    ):
         """{}"""
         from ._validate import _validate
 
         return _validate(cls=self, values=values, field=field, **kwargs)
 
     @doc_args(ValidationMixin.inspect.__doc__)
-    def inspect(self, values: ListLike, field: StrField, **kwargs):
+    def inspect(
+        self, values: ListLike, field: Optional[Union[str, StrField]] = None, **kwargs
+    ):
         """{}"""
         from ._validate import _inspect
 
         return _inspect(cls=self, values=values, field=field, **kwargs)
 
     @doc_args(ValidationMixin.standardize.__doc__)
-    def standardize(self, values: Iterable, **kwargs):
+    def standardize(
+        self, values: Iterable, field: Optional[Union[str, StrField]] = None, **kwargs
+    ):
         """{}"""
         from ._validate import _standardize
 
-        return _standardize(cls=self, values=values, **kwargs)
+        return _standardize(cls=self, values=values, field=field, **kwargs)
 
 
 setattr(models.QuerySet, "df", QuerySet.df)

@@ -12,6 +12,8 @@ def test_inspect():
     result = lb.Gene.inspect(["TCF7", "ABC1"], "symbol")
     assert result.validated == ["TCF7"]
 
+    lb.Gene.inspect(["TCF7", "ABC1"], "symbol")
+
 
 def test_standardize():
     lb.settings.species = "human"
