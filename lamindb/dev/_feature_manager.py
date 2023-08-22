@@ -100,7 +100,7 @@ class FeatureManager:
             if len(no_modality) > 0:
                 ids = ", ".join(no_modality)
                 s = "" if len(no_modality) == 1 else "s"
-                logger.warning(f"consider assigning modality to feature set{s}: {ids}")
+                logger.info(f"consider assigning modality to feature set{s}: {ids}")
             return msg
         else:
             return "no linked features"
