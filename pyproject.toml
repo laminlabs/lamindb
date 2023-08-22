@@ -28,6 +28,7 @@ dependencies = [
     "anndata>=0.9.1,<=0.9.2",  # we're using anndata internals
     "fsspec",
     "pandas",
+    "graphviz",
 ]
 
 [project.urls]
@@ -71,8 +72,6 @@ dev = [
     "nbproject_test>=0.3.0",
     # biology
     "faker-biology",
-    # view_parents
-    "graphviz",
 ]
 
 [project.scripts]
