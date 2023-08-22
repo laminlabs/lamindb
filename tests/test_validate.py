@@ -7,12 +7,15 @@ import lamindb as ln  # noqa
 # some validate tests are in test_queryset
 def test_inspect():
     lb.settings.species = "human"
-    lb.Gene.from_bionty(symbol="TCF7").save()
+    result = lb.Gene.inspect(["TCF7"], "symbol")
+    assert result.validated == []
 
+    lb.Gene.from_bionty(symbol="TCF7").save()
     result = lb.Gene.inspect(["TCF7", "ABC1"], "symbol")
     assert result.validated == ["TCF7"]
 
-    lb.Gene.inspect(["TCF7", "ABC1"], "symbol")
+    # clean up
+    lb.Gene.filter().all().delete()
 
 
 def test_standardize():
