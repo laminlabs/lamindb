@@ -112,9 +112,7 @@ def get_existing_records(
     if len(syn_mapper) > 0:
         s = "" if len(syn_mapper) == 1 else "s"
         names = list(syn_mapper.keys())
-        print_values = ", ".join(names[:5])
-        if len(names) > 5:
-            print_values += ", ..."
+        print_values = _print_values(names)
         syn_msg = (
             "loaded"
             f" {colors.green(f'{len(syn_mapper)} {model.__name__} record{s}')}"
@@ -146,9 +144,7 @@ def get_existing_records(
     msg = ""
     if len(validated) > 0:
         s = "" if len(validated) == 1 else "s"
-        print_values = ", ".join(validated[:20])
-        if len(validated) > 20:
-            print_values += ", ..."
+        print_values = _print_values(validated)
         msg = (
             "loaded"
             f" {colors.green(f'{len(validated)} {model.__name__} record{s}')}"
@@ -199,9 +195,7 @@ def create_records_from_bionty(
     if len(syn_mapper) > 0:
         s = "" if len(syn_mapper) == 1 else "s"
         names = list(syn_mapper.keys())
-        print_values = ", ".join(names[:5])
-        if len(names) > 5:
-            print_values += ", ..."
+        print_values = _print_values(names)
         msg_syn = (
             "created"
             f" {colors.purple(f'{len(syn_mapper)} {model.__name__} record{s} from Bionty')}"  # noqa
@@ -226,9 +220,7 @@ def create_records_from_bionty(
         validated = result.validated
         if len(validated) > 0:
             s = "" if len(validated) == 1 else "s"
-            print_values = ", ".join(validated[:20])
-            if len(validated) > 20:
-                print_values += ", ..."
+            print_values = _print_values(validated)
             # this is the success msg for existing records in the DB
             if len(msg) > 0:
                 logger.success(msg)
@@ -257,6 +249,13 @@ def index_iterable(iterable: Iterable) -> pd.Index:
     # No entries are made for NAs, '', None
     # returns an ordered unique not null list
     return idx[(idx != "") & (~idx.isnull())]
+
+
+def _print_values(names: List, n: int = 20) -> str:
+    print_values = ", ".join(names[:n])
+    if len(names) > n:
+        print_values += ", ..."
+    return print_values
 
 
 def _filter_bionty_df_columns(model: Registry, bionty_object: Any) -> pd.DataFrame:
@@ -308,9 +307,7 @@ def _bulk_create_dicts_from_df(
         dup = df.index[df.index.duplicated()].unique().tolist()
         if len(dup) > 0:
             s = "" if len(dup) == 1 else "s"
-            print_values = ", ".join(dup[:20])
-            if len(dup) > 20:
-                print_values += ", ..."
+            print_values = _print_values(dup)
             multi_msg = (
                 f"ambiguous validation in Bionty for {len(dup)} record{s}:"
                 f" {print_values}"
