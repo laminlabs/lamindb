@@ -1,32 +1,60 @@
-import hashlib
+from typing import Optional
 
-from lnschema_core.ids import base62
-from lnschema_core.models import Transform
+from lnschema_core.models import TRANSFORM_TYPE_DEFAULT, Transform
+from lnschema_core.types import TransformType
 
-from .dev.hashing import to_b64_str
+from .dev.versioning import get_ids_from_old_version, init_id
 
 
-def __init__(transform, *args, **kwargs):
-    if len(args) > 0:  # initialize with all fields from db as args
+def __init__(transform: Transform, *args, **kwargs):
+    if len(args) == len(transform._meta.concrete_fields):
         super(Transform, transform).__init__(*args, **kwargs)
         return None
-    else:  # user-facing calling signature
-        if "version" not in kwargs:
-            kwargs["version"] = "0"
-        elif not isinstance(kwargs["version"], str):
-            raise ValueError("version must be str, e.g., '0', '1', etc.")
-        id_ext = to_b64_str(hashlib.md5(kwargs["version"].encode()).digest())[:2]
-        # set default ids
-        if "id" not in kwargs and "stem_id" not in kwargs:
-            kwargs["stem_id"] = base62(12)
-            kwargs["id"] = kwargs["stem_id"] + id_ext
-        elif "stem_id" in kwargs:
-            assert isinstance(kwargs["stem_id"], str) and len(kwargs["stem_id"]) == 12
-            kwargs["id"] = kwargs["stem_id"] + id_ext
-        elif "id" in kwargs:
-            assert isinstance(kwargs["id"], str) and len(kwargs["id"]) == 14
-            kwargs["stem_id"] = kwargs["id"][:12]
-        super(Transform, transform).__init__(**kwargs)
+    name: Optional[str] = kwargs.pop("name") if "name" in kwargs else None
+    short_name: Optional[str] = (
+        kwargs.pop("short_name") if "short_name" in kwargs else None
+    )
+    is_new_version_of: Optional[Transform] = (
+        kwargs.pop("is_new_version_of") if "is_new_version_of" in kwargs else None
+    )
+    initial_version_id: Optional[str] = (
+        kwargs.pop("initial_version_id") if "initial_version_id" in kwargs else None
+    )
+    version: Optional[str] = kwargs.pop("version") if "version" in kwargs else None
+    type: Optional[TransformType] = (
+        kwargs.pop("type") if "type" in kwargs else TRANSFORM_TYPE_DEFAULT
+    )
+    reference: Optional[str] = (
+        kwargs.pop("reference") if "reference" in kwargs else None
+    )
+    # below is internal use that we'll hopefully be able to eliminate
+    id: Optional[str] = kwargs.pop("id") if "id" in kwargs else None
+    if not len(kwargs) == 0:
+        raise ValueError(
+            "Only name, short_name, version, type, is_new_version_of can be passed,"
+            f" but you passed: {kwargs}"
+        )
+    if is_new_version_of is None:
+        new_id = init_id(version=version, n_full_id=14)
+    else:
+        if not isinstance(is_new_version_of, Transform):
+            raise TypeError("is_new_version_of has to be of type ln.Transform")
+        new_id, initial_version_id, version = get_ids_from_old_version(
+            is_new_version_of, version, n_full_id=14
+        )
+        if name is None:
+            name = is_new_version_of.name
+    if id is None:
+        id = new_id
+    super(Transform, transform).__init__(
+        id=id,
+        name=name,
+        short_name=short_name,
+        type=type,
+        version=version,
+        initial_version_id=initial_version_id,
+        reference=reference,
+    )
 
 
 Transform.__init__ = __init__

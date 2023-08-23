@@ -1,16 +1,19 @@
 import builtins
-import os
+import hashlib
 import re
 from datetime import datetime, timezone
 from pathlib import Path, PurePath
 from typing import Dict, List, Optional, Tuple, Union
 
-import lnschema_core
 from lamin_utils import logger
 from lamindb_setup import settings
 from lamindb_setup.dev import InstanceSettings
 from lnschema_core import Run, Transform
 from lnschema_core.types import TransformType
+
+from lamindb.dev.versioning import get_ids_from_old_version, init_id
+
+from .hashing import to_b64_str
 
 is_run_from_ipython = getattr(builtins, "__IPYTHON__", False)
 
@@ -68,39 +71,43 @@ def _write_notebook_meta(metadata):
     nb_dev._frontend_commands._reload_notebook(_env)
 
 
+# also see lamindb-setup._notebook for related code
 def reinitialize_notebook(
-    transform: Transform, metadata: Optional[Dict] = None
+    transform: Transform, metadata: Optional[Dict] = None, ask_for_new_id: bool = True
 ) -> Tuple[Transform, Dict]:
     from nbproject import dev as nb_dev
     from nbproject._header import _filepath
 
-    new_id, new_version = transform.stem_id, None
+    # init new_id, new_version
+    new_id, new_version = transform.id, None
 
-    if "NBPRJ_TEST_NBPATH" not in os.environ:
-        response = input("Do you want to generate a new id? (y/n)")
+    if ask_for_new_id:
+        response = input("Do you want to generate a new id? (y/n) ")
     else:
         response = "y"
     if response == "y":
-        new_id = lnschema_core.ids.base62_12()
+        new_id = init_id(n_full_id=14)
     else:
-        response = input("Do you want to set a new version (e.g. '1.1')? (y/n)")
+        response = input("Do you want to set a new version (e.g. '1.1')? (y/n) ")
         if response == "y":
             new_version = input("Please type the version: ")
+            new_id = get_ids_from_old_version(
+                is_new_version_of=transform, version=new_version, n_full_id=14
+            )
 
     nb = None
     if metadata is None:
         nb = nb_dev.read_notebook(_filepath)
         metadata = nb.metadata["nbproject"]
 
-    metadata["id"] = new_id
-    if new_version is None:
-        new_version = "0"
+    # nbproject metadata needs the shorter nbproject id
+    metadata["id"] = new_id[:12]
     metadata["version"] = new_version
 
     # here we check that responses to both inputs (for new id and version) were not 'n'
-    if transform.stem_id != new_id or transform.version != new_version:
+    if transform.id != new_id or transform.version != new_version:
         transform = Transform(
-            stem_id=new_id, version=new_version, type=TransformType.notebook
+            id=new_id, version=new_version, type=TransformType.notebook
         )
     return transform, metadata
 
@@ -114,6 +121,22 @@ def get_notebook_name_colab() -> str:
     ip = gethostbyname(gethostname())  # 172.28.0.12
     name = get(f"http://{ip}:9000/api/sessions").json()[0]["name"]
     return name.rstrip(".ipynb")
+
+
+def get_transform_kwargs_from_nbproject(
+    nbproject_id: str, nbproject_version: str, nbproject_title: str
+) -> Tuple[Optional[Transform], str, str, str, Optional[Transform]]:
+    id_ext = to_b64_str(hashlib.md5(nbproject_version.encode()).digest())[:2]
+    id = nbproject_id + id_ext
+    version = nbproject_version
+    transform = Transform.filter(
+        id__startswith=nbproject_id, version=version
+    ).one_or_none()
+    name = nbproject_title
+    old_version_of = None
+    if transform is None:
+        old_version_of = Transform.filter(id__startswith=nbproject_id).first()
+    return transform, id, version, name, old_version_of
 
 
 class run_context:
@@ -199,7 +222,7 @@ class run_context:
                 try:
                     cls._track_notebook(
                         pypackage=pypackage,
-                        filepath=notebook_path,
+                        notebook_path=notebook_path,
                         editor=editor,
                     )
                     is_tracked_notebook = True
@@ -215,6 +238,7 @@ class run_context:
                         raise e
                     else:
                         logger.warning(f"automatic tracking of notebook failed: {e}")
+                        raise e
                     is_tracked_notebook = False
 
             if not is_tracked_notebook:
@@ -282,7 +306,7 @@ class run_context:
     def _track_notebook(
         cls,
         *,
-        filepath: Optional[str] = None,
+        notebook_path: Optional[str] = None,
         pypackage: Optional[Union[str, List[str]]] = None,
         editor: Optional[str] = None,
     ):
@@ -290,14 +314,17 @@ class run_context:
 
         Args:
             pypackage: One or more python packages to track.
-            filepath: Filepath of notebook. Only needed if automatic inference fails.
+            notebook_path: Filepath of notebook. Only needed if automatic
+                inference fails.
             editor: Editor environment. Only needed if automatic inference fails.
                 Pass `'lab'` for jupyter lab and `'notebook'` for jupyter notebook,
                 this can help to identify the correct mechanism for interactivity
                 when automatic inference fails.
         """
         import nbproject
-        from nbproject.dev._jupyter_communicate import notebook_path
+        from nbproject.dev._jupyter_communicate import (
+            notebook_path as get_notebook_path,
+        )
 
         cls.instance = settings.instance
 
@@ -305,28 +332,32 @@ class run_context:
         needs_init = False
         is_interactive = False
         reference = None
-        if filepath is None:
+        version = None
+        colab_id = None
+        nbproject_id = None
+        if notebook_path is None:
             path_env = None
             try:
-                path_env = notebook_path(return_env=True)
+                path_env = get_notebook_path(return_env=True)
             except Exception:
                 raise RuntimeError(msg_path_failed)
             if path_env is None:
                 raise RuntimeError(msg_path_failed)
             notebook_path, _env = path_env
         else:
-            notebook_path, _env = filepath, editor
+            notebook_path, _env = notebook_path, editor
         if isinstance(notebook_path, (Path, PurePath)):
-            notebook_path = notebook_path.as_posix()
-        if notebook_path.endswith("Untitled.ipynb"):
+            notebook_path_str = notebook_path.as_posix()  # type: ignore
+        else:
+            notebook_path_str = str(notebook_path)
+        if notebook_path_str.endswith("Untitled.ipynb"):
             raise RuntimeError("Please rename your notebook before tracking it")
-        if notebook_path.startswith("/fileId="):
+        if notebook_path_str.startswith("/fileId="):
             # This is Google Colab!
             # google colab fileID looks like this
             # /fileId=1KskciVXleoTeS_OGoJasXZJreDU9La_l
             # we'll take the first 12 characters
-            colab_id = notebook_path.replace("/fileId=", "")
-            id = colab_id[:12]
+            colab_id = notebook_path_str.replace("/fileId=", "")
             reference = f"colab_id: {colab_id}"
             filestem = get_notebook_name_colab()
             _env = "colab"
@@ -334,7 +365,7 @@ class run_context:
             try:
                 metadata, needs_init, nb = nbproject.header(
                     pypackage=pypackage,
-                    filepath=notebook_path if filepath is None else filepath,
+                    filepath=notebook_path_str,
                     env=_env if editor is None else editor,
                     metadata_only=True,
                 )
@@ -343,7 +374,7 @@ class run_context:
             except Exception as e:
                 nbproject_failed_msg = (
                     "Auto-retrieval of notebook name & title failed.\n\nFixes: Either"
-                    f" init on the CLI `lamin track {notebook_path}` or pass"
+                    f" init on the CLI `lamin track {notebook_path_str}` or pass"
                     " transform manually `ln.track(ln.Transform(name='My"
                     " notebook'))`\n\nPlease consider pasting error at:"
                     f" https://github.com/laminlabs/nbproject/issues/new\n\n{e}"
@@ -366,7 +397,7 @@ class run_context:
             if _env in ("lab", "notebook"):
                 cls._notebook_meta = metadata  # type: ignore
             else:
-                msg = msg_manual_init.format(notebook_path=notebook_path)
+                msg = msg_manual_init.format(notebook_path=notebook_path_str)
                 raise UpdateNbWithNonInteractiveEditorError(msg)
 
         if _env in ("lab", "notebook"):
@@ -384,39 +415,56 @@ class run_context:
                 msg = msg_manual_init.format(notebook_path=_filepath)
                 raise UpdateNbWithNonInteractiveEditorError(msg)
 
-            id = metadata["id"]
-            version = metadata["version"]
+            nbproject_id = metadata["id"]
+            nbproject_version = metadata["version"]
             filestem = Path(_filepath).stem
             try:
-                title = nbproject.meta.live.title
+                nbproject_title = nbproject.meta.live.title
             except IndexError:
                 raise NotebookNotSavedError(
                     "The notebook is not saved, please save the notebook and"
                     " rerun `ln.track()`"
                 )
-            if title is None:
+            if nbproject_title is None:
                 raise NoTitleError(
                     "Please add a title to your notebook in a markdown cell: # Title"
                 )
-        else:
-            version = "0"
-            title = filestem
-
-        transform = Transform.filter(stem_id=id, version=version).one_or_none()
+        # colab parsing succesful
+        if colab_id is not None:
+            id = colab_id[:14]
+            transform = Transform.filter(id=id).one_or_none()
+            name = filestem
+            short_name = None
+            old_version_of = None
+        # nbproject parsing successful
+        elif nbproject_id is not None:
+            (
+                transform,
+                id,
+                version,
+                name,
+                old_version_of,
+            ) = get_transform_kwargs_from_nbproject(
+                nbproject_id, nbproject_version, nbproject_title
+            )
+            short_name = filestem
+        # make a new transform record
         if transform is None:
             transform = Transform(
-                stem_id=id,
+                id=id,
                 version=version,
-                name=title,
-                short_name=filestem,
+                name=name,
+                short_name=short_name,
                 reference=reference,
+                is_new_version_of=old_version_of,
                 type=TransformType.notebook,
             )
             transform.save()
             logger.save(f"saved: {transform}")
         else:
             logger.success(f"loaded: {transform}")
-            if transform.name != title or transform.short_name != filestem:
+            # check whether there was an update
+            if transform.name != name or transform.short_name != short_name:
                 response = input(
                     "Updated notebook name and/or title: Do you want to assign a"
                     " new id or version? (y/n)"
@@ -431,12 +479,11 @@ class run_context:
                     else:
                         msg = msg_manual_init.format(notebook_path=notebook_path)
                         raise UpdateNbWithNonInteractiveEditorError(msg)
-                transform.name = title
+                transform.name = name
                 transform.short_name = filestem
                 transform.save()
                 if response == "y":
                     logger.save(f"saved: {transform}")
                 else:
                     logger.success(f"updated: {transform}")
-
         cls.transform = transform
