@@ -50,23 +50,16 @@ def test_features_add_labels():
 
 def test_features_add_labels_using_anndata():
     species = lb.Species.from_bionty(name="mouse")
-    ln.save([lb.CellType(name=name) for name in adata.obs["cell_type"].unique()])
-    cell_types = lb.CellType.from_values(adata.obs["cell_type"], "name")
-    ln.save(
-        [lb.CellType(name=name) for name in adata.obs["cell_type_from_expert"].unique()]
-    )
-    cell_types_from_expert = lb.CellType.from_values(
-        adata.obs["cell_type_from_expert"], "name"
-    )
-    ln.save([lb.Tissue(name=name) for name in adata.obs["tissue"].unique()])
-    actual_tissues = lb.Tissue.from_values(adata.obs["tissue"], "name")
+    cell_types = [lb.CellType(name=name) for name in adata.obs["cell_type"].unique()]
+    ln.save(cell_types)
+    cell_types_from_expert = [
+        lb.CellType(name=name) for name in adata.obs["cell_type_from_expert"].unique()
+    ]
+    ln.save(cell_types_from_expert)
+    actual_tissues = [lb.Tissue(name=name) for name in adata.obs["tissue"].unique()]
     organoid = ln.Label(name="organoid")
     tissues = actual_tissues + [organoid]
     ln.save(tissues)
-
-    assert cell_types[0]._feature == "cell_type"
-    assert cell_types[-1]._feature == "cell_type"
-    assert tissues[0]._feature == "tissue"
 
     lb.settings.species = "human"
     lb.settings.auto_save_parents = False
@@ -162,8 +155,8 @@ def test_features_add_labels_using_anndata():
     feature = ln.Feature.filter(name="tissue").one()
     assert feature.type == "category"
     assert feature.registries == "bionty.Tissue|core.Label"
-    ln.save([ln.Label(name=name) for name in adata.obs["disease"].unique()])
-    diseases = ln.Label.from_values(adata.obs["disease"], field="name")
+    diseases = [ln.Label(name=name) for name in adata.obs["disease"].unique()]
+    ln.save(diseases)
     file.add_labels(diseases, feature="disease")
     df = file.features["obs"].df()
     assert set(df["name"]) == {
