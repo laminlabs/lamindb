@@ -39,6 +39,7 @@ def test_signatures():
 def test_feature_set_from_values():
     gene_symbols = ["TCF7", "MYC"]
     lb.settings.species = "human"
+    lb.Gene.filter(symbol__in=gene_symbols).all().delete()
     feature_set = ln.FeatureSet.from_values(gene_symbols, lb.Gene.symbol)
     assert feature_set is None
     ln.save(lb.Gene.from_values(gene_symbols, "symbol"))
