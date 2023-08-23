@@ -127,7 +127,7 @@ def from_anndata(
         assert adata.accessor == "AnnData"
         adata_parse = adata.path
     else:
-        adata_parse = adata_parse
+        adata_parse = adata
     feature_sets = parse_feature_sets_from_anndata(adata_parse, var_ref)
     dataset = Dataset(
         data=adata,
