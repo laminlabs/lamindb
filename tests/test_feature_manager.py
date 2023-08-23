@@ -144,7 +144,7 @@ def test_features_add_labels_using_anndata():
     assert "species" in feature_set_ext.features.list("name")
 
     # now we add cell types & tissues and run checks
-    file.add_labels(cell_types + cell_types_from_expert)
+    file.add_labels(cell_types + cell_types_from_expert, feature="cell_type")
     file.add_labels(tissues, feature="tissue")
     feature = ln.Feature.filter(name="cell_type").one()
     assert feature.type == "category"

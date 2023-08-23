@@ -18,7 +18,7 @@ def df():
 
 
 def test_from_values_name(df):
-    assert df["cell_type_id"].tolist() == ["CL:0000084", "CL:0000182", ""]
+    assert df["cell_type"].tolist() == ["T cell", "hepatocyte", "my new cell type"]
     # create records from bionty
     result = lb.CellType.from_values(df.cell_type, "name")
     ids = [i.ontology_id for i in result]
@@ -32,6 +32,7 @@ def test_from_values_name(df):
 
 
 def test_from_values_ontology_id(df):
+    assert df["cell_type_id"].tolist() == ["CL:0000084", "CL:0000182", ""]
     result = lb.CellType.from_values(df.cell_type_id, "ontology_id")
     names = {i.name for i in result}
     assert len(result) == 2
