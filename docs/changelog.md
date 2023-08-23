@@ -1,5 +1,6 @@
 # Changelog
 
+- 💚 Fix Dataset.describe() bug [PR1088](https://github.com/laminlabs/lamindb/pull/1088) [@falexwolf](https://github.com/falexwolf)
 - 🔥 Disable creating non-validated records with `from_values` [PR1086](https://github.com/laminlabs/lamindb/pull/1086) [@sunnyosun](https://github.com/sunnyosun)
 - ♻️ Enable passing AnnData-like `File` object to `Dataset.from_anndata` [PR1085](https://github.com/laminlabs/lamindb/pull/1085) [@falexwolf](https://github.com/falexwolf)
 - ♻️ Refactor transform versioning [PR1080](https://github.com/laminlabs/lamindb/pull/1080) [@falexwolf](https://github.com/falexwolf)
