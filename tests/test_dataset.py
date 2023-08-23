@@ -71,6 +71,23 @@ def test_create_delete_from_single_anndata():
     dataset.delete(storage=True)
     assert ln.File.filter(id=dataset.id).one_or_none() is None
     assert ln.File.filter(id=dataset.file.id).one_or_none() is None
+    # let's try passing a file & link feature sets
+    file = ln.File(adata, description="my adata")
+    file.save()
+    lb.settings.species = "human"
+    ln.save(lb.Gene.from_values(adata.var.index, "symbol"))
+    ln.save(ln.Feature.from_df(adata.obs))
+    dataset = ln.Dataset.from_anndata(file, name="My dataset", var_ref=lb.Gene.symbol)
+    dataset.save()
+    feature_sets_queried = dataset.feature_sets.all()
+    features_queried = ln.Feature.filter(feature_sets__in=feature_sets_queried).all()
+    assert set(features_queried.list("name")) == set(adata.obs.columns)
+    genes_queried = lb.Gene.filter(feature_sets__in=feature_sets_queried).all()
+    assert set(genes_queried.list("symbol")) == set(adata.var.index)
+    feature_sets_queried.delete()
+    features_queried.delete()
+    genes_queried.delete()
+    dataset.delete(storage=True)
 
 
 def test_from_single_file():

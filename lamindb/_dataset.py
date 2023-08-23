@@ -2,6 +2,7 @@ from typing import Dict, Iterable, Optional, Tuple, Union
 
 import anndata as ad
 import pandas as pd
+from lamin_utils import logger
 from lamindb_setup.dev._docs import doc_args
 from lnschema_core.models import Dataset, Feature, FeatureSet
 from lnschema_core.types import AnnDataLike, FieldAttr
@@ -52,7 +53,11 @@ def __init__(
             file = data
             if file._state.adding:
                 raise ValueError("Save file before creating dataset!")
-            feature_sets = file.features._feature_set_by_slot
+            if not feature_sets:
+                feature_sets = file.features._feature_set_by_slot
+            else:
+                if len(file.features._feature_set_by_slot) > 0:
+                    logger.info("overwriting feature sets linked to file")
         else:
             log_hint = True if feature_sets is None else False
             file = File(data, run=run, description="tmp", log_hint=log_hint)
@@ -117,7 +122,13 @@ def from_anndata(
     run: Optional[Run] = None,
 ) -> "Dataset":
     """{}"""
-    feature_sets = parse_feature_sets_from_anndata(adata, var_ref)
+    if isinstance(adata, File):
+        assert not adata._state.adding
+        assert adata.accessor == "AnnData"
+        adata_parse = adata.path
+    else:
+        adata_parse = adata_parse
+    feature_sets = parse_feature_sets_from_anndata(adata_parse, var_ref)
     dataset = Dataset(
         data=adata,
         run=run,
