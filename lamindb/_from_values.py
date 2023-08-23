@@ -1,4 +1,4 @@
-from typing import Any, Dict, Iterable, List, Optional, Tuple, Union
+from typing import Any, Dict, Iterable, List, Tuple, Union
 
 import pandas as pd
 from django.core.exceptions import FieldDoesNotExist
@@ -21,10 +21,7 @@ def get_or_create_records(
     """Get or create records from iterables."""
     upon_create_search_names = settings.upon_create_search_names
     settings.upon_create_search_names = False
-    types: Optional[Dict] = None
     feature: Feature = None
-    if "types" in kwargs:
-        types = kwargs.pop("types")
     try:
         field_name = field.field.name
         Registry = field.field.model
@@ -48,20 +45,17 @@ def get_or_create_records(
                 records += records_bionty
             else:
                 unmapped_values = nonexist_values
-            # unmapped new_ids will only create records with field and kwargs
+            # unmapped new_ids will NOT create records
             if len(unmapped_values) > 0:
                 if len(msg) > 0:
                     logger.success(msg)
-                for value in unmapped_values:
-                    params = {field_name: value}
-                    if types is not None:
-                        params["type"] = str(types[value])
-                    records.append(Registry(**params, **kwargs))
                 s = "" if len(unmapped_values) == 1 else "s"
-                print_values = _print_values(unmapped_values)
+                print_values = colors.yellow(_print_values(unmapped_values))
+                name = Registry.__name__
+                n_nonval = colors.yellow(f"{len(unmapped_values)} non-validated")
                 logger.warning(
-                    f"did not validate {colors.yellow(f'{len(unmapped_values)} {Registry.__name__} record{s}')} for "  # noqa
-                    f"{colors.italic(f'{field_name}{s}')}: {colors.yellow(print_values)}"  # noqa
+                    f"{colors.red('did not create')} {name} record{s} for "
+                    f"{n_nonval} {colors.italic(f'{field_name}{s}')}: {print_values}"
                 )
         if Registry.__module__.startswith("lnschema_bionty.") or Registry == Label:
             if isinstance(iterable, pd.Series):
@@ -109,11 +103,11 @@ def get_existing_records(
     if len(syn_mapper) > 0:
         s = "" if len(syn_mapper) == 1 else "s"
         names = list(syn_mapper.keys())
-        print_values = _print_values(names)
+        print_values = colors.green(_print_values(names))
         syn_msg = (
             "loaded"
             f" {colors.green(f'{len(syn_mapper)} {model.__name__} record{s}')}"
-            f" matching {colors.italic('synonyms')}: {colors.green(print_values)}"
+            f" matching {colors.italic('synonyms')}: {print_values}"
         )
         iterable_idx = iterable_idx.to_frame().rename(index=syn_mapper).index
 
@@ -141,11 +135,11 @@ def get_existing_records(
     msg = ""
     if len(validated) > 0:
         s = "" if len(validated) == 1 else "s"
-        print_values = _print_values(validated)
+        print_values = colors.green(_print_values(validated))
         msg = (
             "loaded"
             f" {colors.green(f'{len(validated)} {model.__name__} record{s}')}"
-            f" matching {colors.italic(f'{field_name}')}: {colors.green(print_values)}"
+            f" matching {colors.italic(f'{field_name}')}: {print_values}"
         )
 
     # no logging if all values are validated
@@ -192,11 +186,11 @@ def create_records_from_bionty(
     if len(syn_mapper) > 0:
         s = "" if len(syn_mapper) == 1 else "s"
         names = list(syn_mapper.keys())
-        print_values = _print_values(names)
+        print_values = colors.purple(_print_values(names))
         msg_syn = (
             "created"
             f" {colors.purple(f'{len(syn_mapper)} {model.__name__} record{s} from Bionty')}"  # noqa
-            f" matching {colors.italic('synonyms')}: {colors.purple(print_values)}"
+            f" matching {colors.italic('synonyms')}: {print_values}"
         )
 
         iterable_idx = iterable_idx.to_frame().rename(index=syn_mapper).index
@@ -217,7 +211,7 @@ def create_records_from_bionty(
         validated = result.validated
         if len(validated) > 0:
             s = "" if len(validated) == 1 else "s"
-            print_values = _print_values(validated)
+            print_values = colors.purple(_print_values(validated))
             # this is the success msg for existing records in the DB
             if len(msg) > 0:
                 logger.success(msg)
@@ -225,7 +219,7 @@ def create_records_from_bionty(
                 (
                     "created"
                     f" {colors.purple(f'{len(validated)} {model.__name__} record{s} from Bionty')}"  # noqa
-                    f" matching {colors.italic(f'{field_name}')}: {colors.purple(print_values)}"  # noqa
+                    f" matching {colors.italic(f'{field_name}')}: {print_values}"  # noqa
                 )
             )
 
