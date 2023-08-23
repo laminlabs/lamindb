@@ -125,7 +125,7 @@ def get_notebook_name_colab() -> str:
 
 def get_transform_kwargs_from_nbproject(
     nbproject_id: str, nbproject_version: str, nbproject_title: str
-) -> Tuple[str, str, str, Optional[Transform]]:
+) -> Tuple[Optional[Transform], str, str, str, Optional[Transform]]:
     id_ext = to_b64_str(hashlib.md5(nbproject_version.encode()).digest())[:2]
     id = nbproject_id + id_ext
     version = nbproject_version
@@ -135,7 +135,7 @@ def get_transform_kwargs_from_nbproject(
     name = nbproject_title
     if transform is None:
         old_version_of = Transform.filter(id__startswith=nbproject_id).first()
-    return id, version, name, old_version_of
+    return transform, id, version, name, old_version_of
 
 
 class run_context:
@@ -237,6 +237,7 @@ class run_context:
                         raise e
                     else:
                         logger.warning(f"automatic tracking of notebook failed: {e}")
+                        raise e
                     is_tracked_notebook = False
 
             if not is_tracked_notebook:
@@ -436,7 +437,13 @@ class run_context:
             old_version_of = None
         # nbproject parsing successful
         elif nbproject_id is not None:
-            id, version, name, old_version_of = get_transform_kwargs_from_nbproject(
+            (
+                transform,
+                id,
+                version,
+                name,
+                old_version_of,
+            ) = get_transform_kwargs_from_nbproject(
                 nbproject_id, nbproject_version, nbproject_title
             )
             short_name = filestem

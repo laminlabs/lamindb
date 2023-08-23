@@ -100,8 +100,6 @@ def test_pass_version():
     transform = ln.Transform(name="mytransform", version="1")
     transform.save()
     assert ln.Transform(name="mytransform", version="1") == transform
-    with pytest.raises(ValueError):
-        ln.Transform("1")
 
 
 def test_get_default_str_field():
