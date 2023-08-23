@@ -25,20 +25,28 @@ def __init__(transform: Transform, *args, **kwargs):
     type: Optional[TransformType] = (
         kwargs.pop("type") if "type" in kwargs else TRANSFORM_TYPE_DEFAULT
     )
+    reference: Optional[str] = (
+        kwargs.pop("reference") if "reference" in kwargs else None
+    )
+    # below is internal use that we'll hopefully be able to eliminate
+    id: Optional[str] = kwargs.pop("id") if "id" in kwargs else None
     if not len(kwargs) == 0:
         raise ValueError(
-            "Only name, short_name, version, is_new_version_of can be passed."
+            "Only name, short_name, version, type, is_new_version_of can be passed,"
+            f" but you passed: {kwargs}"
         )
     if is_new_version_of is None:
-        id = init_id(version=version, n_full_id=14)
+        new_id = init_id(version=version, n_full_id=14)
     else:
         if not isinstance(is_new_version_of, Transform):
             raise TypeError("is_new_version_of has to be of type ln.Transform")
-        id, initial_version_id, version = get_ids_from_old_version(
+        new_id, initial_version_id, version = get_ids_from_old_version(
             is_new_version_of, version, n_full_id=14
         )
         if name is None:
             name = is_new_version_of.name
+    if id is None:
+        id = new_id
     if version is not None:
         if initial_version_id is None:
             logger.info(
@@ -52,6 +60,7 @@ def __init__(transform: Transform, *args, **kwargs):
         type=type,
         version=version,
         initial_version_id=initial_version_id,
+        reference=reference,
     )
 
 

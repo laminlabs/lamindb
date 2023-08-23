@@ -72,6 +72,14 @@ def init_id(
     return provisional_id  # type: ignore
 
 
+def get_initial_version_id(is_new_version_of: Union[File, Transform]):
+    if is_new_version_of.initial_version_id is None:
+        initial_version_id = is_new_version_of.id
+    else:
+        initial_version_id = is_new_version_of.initial_version_id
+    return initial_version_id
+
+
 def get_ids_from_old_version(
     is_new_version_of: Union[File, Transform],
     version: Optional[str],
@@ -85,10 +93,7 @@ def get_ids_from_old_version(
     else:
         previous_version = is_new_version_of.version
     version = set_version(version, previous_version)
-    if is_new_version_of.initial_version_id is None:
-        initial_version_id = is_new_version_of.id
-    else:
-        initial_version_id = is_new_version_of.initial_version_id
+    initial_version_id = get_initial_version_id(is_new_version_of)
     new_file_id = init_id(
         provisional_id=is_new_version_of.id,
         initial_version_id=initial_version_id,
