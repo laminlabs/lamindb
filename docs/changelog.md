@@ -1,5 +1,6 @@
 # Changelog
 
+- ♻️ Use `CanValidate` & `HasParents` [PR1078](https://github.com/laminlabs/lamindb/pull/1078) [@falexwolf](https://github.com/falexwolf)
 - 👷 Main is the new staging, release the new production branch [PR1077](https://github.com/laminlabs/lamindb/pull/1077) [@falexwolf](https://github.com/falexwolf)
 - 🎉 Stage 0.51 (2) [PR1063](https://github.com/laminlabs/lamindb/pull/1063) [@falexwolf](https://github.com/falexwolf)
 - ♻️ Refactor tutorial1 [PR1076](https://github.com/laminlabs/lamindb/pull/1076) [@falexwolf](https://github.com/falexwolf)
