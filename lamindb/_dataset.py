@@ -8,7 +8,12 @@ from lnschema_core.types import AnnDataLike, FieldAttr
 
 from . import File, Run
 from ._file import parse_feature_sets_from_anndata
-from .dev._data import add_transform_to_kwargs, get_run, save_feature_set_links
+from .dev._data import (
+    add_transform_to_kwargs,
+    get_run,
+    save_feature_set_links,
+    save_transform_run_feature_sets,
+)
 from .dev.hashing import hash_set
 
 
@@ -184,7 +189,7 @@ def save(dataset: Dataset):
     if dataset.file is not None:
         dataset.file.save()
     # we don't need to save feature sets again
-    # save_transform_run_feature_sets(dataset)
+    save_transform_run_feature_sets(dataset)
     super(Dataset, dataset).save()
     if dataset._files is not None and len(dataset._files) > 0:
         dataset.files.set(dataset._files)
