@@ -7,7 +7,7 @@ from django.db.models import QuerySet
 from lamin_utils import colors, logger
 from lamin_utils._inspect import InspectResult
 from lamindb_setup.dev._docs import doc_args
-from lnschema_core import Registry, ValidationMixin
+from lnschema_core import CanValidate, Registry
 from lnschema_core.types import ListLike, StrField
 
 from lamindb.dev.utils import attach_func_to_class_method
@@ -18,7 +18,7 @@ from ._registry import get_default_str_field
 
 
 @classmethod  # type: ignore
-@doc_args(ValidationMixin.inspect.__doc__)
+@doc_args(CanValidate.inspect.__doc__)
 def inspect(
     cls,
     values: ListLike,
@@ -38,7 +38,7 @@ def inspect(
 
 
 @classmethod  # type: ignore
-@doc_args(ValidationMixin.validate.__doc__)
+@doc_args(CanValidate.validate.__doc__)
 def validate(
     cls,
     values: ListLike,
@@ -169,7 +169,7 @@ def _validate(
 
 
 @classmethod  # type: ignore
-@doc_args(ValidationMixin.standardize.__doc__)
+@doc_args(CanValidate.standardize.__doc__)
 def standardize(
     cls,
     values: Iterable,
@@ -474,10 +474,10 @@ if _TESTING:  # type: ignore
     from inspect import signature
 
     SIGS = {
-        name: signature(getattr(ValidationMixin, name))
+        name: signature(getattr(CanValidate, name))
         for name in METHOD_NAMES
         if not name.startswith("__")
     }
 
 for name in METHOD_NAMES:
-    attach_func_to_class_method(name, ValidationMixin, globals())
+    attach_func_to_class_method(name, CanValidate, globals())

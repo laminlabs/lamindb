@@ -4,7 +4,7 @@ from typing import Iterable, List, NamedTuple, Optional, Union
 import pandas as pd
 from django.db import models
 from lamindb_setup.dev._docs import doc_args
-from lnschema_core.models import Registry, ValidationMixin
+from lnschema_core.models import CanValidate, Registry
 from lnschema_core.types import ListLike, StrField
 
 
@@ -214,7 +214,7 @@ class QuerySet(models.QuerySet):
 
         return _lookup(cls=self, field=field)
 
-    @doc_args(ValidationMixin.validate.__doc__)
+    @doc_args(CanValidate.validate.__doc__)
     def validate(
         self, values: ListLike, field: Optional[Union[str, StrField]] = None, **kwargs
     ):
@@ -223,7 +223,7 @@ class QuerySet(models.QuerySet):
 
         return _validate(cls=self, values=values, field=field, **kwargs)
 
-    @doc_args(ValidationMixin.inspect.__doc__)
+    @doc_args(CanValidate.inspect.__doc__)
     def inspect(
         self, values: ListLike, field: Optional[Union[str, StrField]] = None, **kwargs
     ):
@@ -232,7 +232,7 @@ class QuerySet(models.QuerySet):
 
         return _inspect(cls=self, values=values, field=field, **kwargs)
 
-    @doc_args(ValidationMixin.standardize.__doc__)
+    @doc_args(CanValidate.standardize.__doc__)
     def standardize(
         self, values: Iterable, field: Optional[Union[str, StrField]] = None, **kwargs
     ):

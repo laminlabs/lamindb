@@ -8,8 +8,8 @@
    QuerySet
    QueryManager
    FeatureManager
-   ValidationMixin
-   ParentsAware
+   CanValidate
+   HasParents
    InspectResult
    datasets
    hashing
@@ -21,7 +21,7 @@
 """
 
 from lamin_utils._inspect import InspectResult
-from lnschema_core.models import Data, ParentsAware, Registry, ValidationMixin
+from lnschema_core.models import CanValidate, Data, HasParents, Registry
 
 from lamindb._query_manager import QueryManager
 from lamindb._query_set import QuerySet
