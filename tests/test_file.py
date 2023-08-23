@@ -17,7 +17,6 @@ from lamindb._file import (
     check_path_is_child_of_root,
     get_relative_path_to_directory,
     process_data,
-    set_version,
 )
 from lamindb.dev.storage.file import (
     AUTO_KEY_PREFIX,
@@ -62,16 +61,6 @@ def test_signatures():
     # methods
     for name, sig in _file.SIGS.items():
         assert signature(getattr(_file, name)) == sig
-
-
-def test_set_version():
-    # all remaining lines are covered in notebooks
-    with pytest.raises(ValueError):
-        set_version(None, "1.2")
-    assert set_version(None, "0") == "1"
-    assert set_version(None, "1") == "2"
-    assert set_version("1.2.3", "0") == "1.2.3"
-    assert set_version("1.2.3") == "1.2.3"
 
 
 def test_is_new_version_of_versioned_file():
