@@ -69,7 +69,7 @@ def test_feature_from_df():
             assert feature.type == orig_type_stripped
     for feature in features:
         feature.save()
-    labels = [ln.Label(name=name) for name in df["feat3"]]
+    labels = [ln.Label(name=name) for name in df["feat3"].unique()]
     ln.save(labels)
     file.add_labels(labels, feature="feat3")
     assert set(ln.Label.filter(filelabel__feature__name="feat3").list("name")) == set(

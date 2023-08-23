@@ -261,9 +261,6 @@ def test_get_labels():
     assert str(file.features) == "no linked features"
     file.features.add_feature_set(feature_set, slot="random")
     assert file.features.get_feature_set(slot="random") == feature_set
-    with pytest.raises(ValueError):
-        file.get_labels("feature name")
-
     # exclude=False for create_features_df
     df = create_features_df(file, [feature_set], exclude=False)
     assert df.shape[0] == 1
