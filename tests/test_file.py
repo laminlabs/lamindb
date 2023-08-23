@@ -183,6 +183,7 @@ def test_create_from_dataframe_using_from_df():
 
 
 def test_create_from_anndata_in_memory():
+    ln.save(lb.Gene.from_values(adata.var.index, "symbol"))
     ln.save(ln.Feature.from_df(adata.obs))
     file = ln.File.from_anndata(adata, description="test", var_ref=lb.Gene.symbol)
     assert file.accessor == "AnnData"

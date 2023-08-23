@@ -2,9 +2,12 @@ from typing import Dict, Iterable, Optional, Tuple, Union
 
 import anndata as ad
 import pandas as pd
-from lnschema_core.models import Dataset
+from lamindb_setup.dev._docs import doc_args
+from lnschema_core.models import Dataset, Feature, FeatureSet
+from lnschema_core.types import AnnDataLike, FieldAttr
 
 from . import File, Run
+from ._file import parse_feature_sets_from_anndata
 from .dev._data import add_transform_to_kwargs, get_run, save_feature_set_links
 from .dev.hashing import hash_set
 
@@ -28,21 +31,30 @@ def __init__(
         kwargs.pop("description") if "description" in kwargs else None
     )
     run: Optional[Run] = kwargs.pop("run") if "run" in kwargs else None
-    assert len(kwargs) == 0
+    feature_sets: Optional[Dict[str, FeatureSet]] = (
+        kwargs.pop("feature_sets") if "feature_sets" in kwargs else {}
+    )
+    if not len(kwargs) == 0:
+        raise ValueError(
+            f"Only data, name, run, description can be passed, you passed: {kwargs}"
+        )
     id = None
-    feature_sets = None
     run = get_run(run)
     # init file
-    if isinstance(data, pd.DataFrame) or isinstance(data, ad.AnnData):
+    if isinstance(data, (pd.DataFrame, ad.AnnData, File)):
         files = None
-        if isinstance(data, pd.DataFrame):
-            file = File.from_df(data, run=run, description="tmp")
-        elif isinstance(data, ad.AnnData):
-            file = File.from_anndata(data, run=run, description="tmp")
-        feature_sets = file._feature_sets  # type: ignore
+        if isinstance(data, File):
+            file = data
+            if file._state.adding:
+                raise ValueError("Save file before creating dataset!")
+            feature_sets = file.features._feature_set_by_slot
+        else:
+            log_hint = True if feature_sets is None else False
+            file = File(data, run=run, description="tmp", log_hint=log_hint)
         hash = file.hash  # type: ignore
         id = file.id  # type: ignore
         file.description = f"See dataset {id}"  # type: ignore
+        file._feature_sets = feature_sets
     # init files
     else:
         file = None
@@ -65,6 +77,50 @@ def __init__(
     )
     dataset._files = files
     dataset._feature_sets = feature_sets
+
+
+@classmethod  # type: ignore
+@doc_args(Dataset.from_df.__doc__)
+def from_df(
+    cls,
+    df: "pd.DataFrame",
+    columns_ref: FieldAttr = Feature.name,
+    name: Optional[str] = None,
+    description: Optional[str] = None,
+    run: Optional[Run] = None,
+) -> "Dataset":
+    """{}"""
+    feature_set = FeatureSet.from_df(df)
+    if feature_set is not None:
+        feature_sets = {"columns": feature_set}
+    else:
+        feature_sets = {}
+    dataset = Dataset(
+        data=df, name=name, run=run, description=description, feature_sets=feature_sets
+    )
+    return dataset
+
+
+@classmethod  # type: ignore
+@doc_args(Dataset.from_anndata.__doc__)
+def from_anndata(
+    cls,
+    adata: "AnnDataLike",
+    var_ref: Optional[FieldAttr],
+    name: Optional[str] = None,
+    description: Optional[str] = None,
+    run: Optional[Run] = None,
+) -> "Dataset":
+    """{}"""
+    feature_sets = parse_feature_sets_from_anndata(adata, var_ref)
+    dataset = Dataset(
+        data=adata,
+        run=run,
+        name=name,
+        description=description,
+        feature_sets=feature_sets,
+    )
+    return dataset
 
 
 def from_files(files: Iterable[File]) -> Tuple[str, Dict[str, str]]:
@@ -136,7 +192,8 @@ def save(dataset: Dataset):
 
 
 Dataset.__init__ = __init__
-Dataset.from_files = from_files
+Dataset.from_df = from_df
+Dataset.from_anndata = from_anndata
 Dataset.backed = backed
 Dataset.load = load
 Dataset.delete = delete

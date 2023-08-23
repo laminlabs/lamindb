@@ -6,7 +6,7 @@ import pytest
 
 import lamindb as ln
 from lamindb import _feature_set
-from lamindb._feature_set import get_related_name, sanity_check_features
+from lamindb._feature_set import get_related_name, validate_features
 
 df = pd.DataFrame(
     {
@@ -40,11 +40,14 @@ def test_feature_set_from_values():
     gene_symbols = ["TCF7", "MYC"]
     lb.settings.species = "human"
     feature_set = ln.FeatureSet.from_values(gene_symbols, lb.Gene.symbol)
-    id = feature_set.id
+    assert feature_set is None
+    ln.save(lb.Gene.from_values(gene_symbols, "symbol"))
+    feature_set = ln.FeatureSet.from_values(gene_symbols, lb.Gene.symbol)
     assert feature_set._state.adding
     assert feature_set.type == "float"
     assert feature_set.registry == "bionty.Gene"
     feature_set.save()
+    id = feature_set.id
     # test that the feature_set is retrieved from the database
     # in case it already exists
     feature_set = ln.FeatureSet.from_values(gene_symbols, lb.Gene.symbol)
@@ -58,8 +61,10 @@ def test_feature_set_from_values():
 
     with pytest.raises(TypeError):
         ln.FeatureSet.from_values(["a"], field="name")
-    with pytest.raises(ValueError):
-        ln.FeatureSet.from_values(["name"], field=ln.Feature.name, type="rna")
+    feature_set = ln.FeatureSet.from_values(
+        ["weird_name"], field=ln.Feature.name, type="rna"
+    )
+    assert feature_set is None
     with pytest.raises(TypeError):
         ln.FeatureSet.from_values([1], field=ln.Label.name, type="rna")
 
@@ -69,6 +74,14 @@ def test_feature_set_from_values():
 
 def test_feature_set_from_records():
     features = ln.Feature.from_df(df)
+    with pytest.raises(ValueError) as error:
+        feature_set = ln.FeatureSet(features)
+    assert (
+        error.exconly()
+        == "ValueError: Can only construct feature sets from validated features"
+    )
+
+    ln.save(features)
     feature_set = ln.FeatureSet(features)
     id = feature_set.id
     assert feature_set._state.adding
@@ -102,15 +115,15 @@ def test_get_related_name():
         get_related_name(ln.Transform)
 
 
-def test_sanity_check_features():
+def test_validate_features():
     with pytest.raises(ValueError):
-        sanity_check_features([])
+        validate_features([])
     with pytest.raises(TypeError):
-        sanity_check_features(["feature"])
+        validate_features(["feature"])
     with pytest.raises(TypeError):
-        sanity_check_features({"feature"})
+        validate_features({"feature"})
     with pytest.raises(ValueError):
-        sanity_check_features([ln.Run(), ln.Transform()])
+        validate_features([ln.Run(), ln.Transform()])
 
 
 def test_kwargs():
@@ -118,11 +131,22 @@ def test_kwargs():
         ln.FeatureSet(x="1", features=[])
 
 
-def test_pass_modality():
-    m = ln.Modality(name="rna")
-    feature_set = ln.FeatureSet(modality=m, features=[ln.Feature(name="f", type="f")])
-    assert feature_set.modality == m
-    with pytest.raises(ValueError):
-        feature_set = ln.FeatureSet(
-            modality=ln.Transform(), features=[ln.Feature(name="f", type="f")]
-        )
+def test_edge_cases():
+    modality = ln.Modality(name="rna")
+    feature = ln.Feature(name="rna", type="float")
+    ln.save([feature])
+    feature_set = ln.FeatureSet([feature], modality=modality)
+    assert feature_set.modality == modality
+    with pytest.raises(ValueError) as error:
+        feature_set = ln.FeatureSet(feature, modality=ln.Transform())
+    assert (
+        error.exconly()
+        == "ValueError: Please pass a ListLike of features, not a single feature"
+    )
+    with pytest.raises(ValueError) as error:
+        feature_set = ln.FeatureSet([feature], modality=ln.Transform())
+    assert (
+        error.exconly() == "ValueError: modality needs to be string or Modality record"
+    )
+    feature.delete()
+    feature_set.delete()
