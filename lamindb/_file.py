@@ -549,7 +549,9 @@ def __init__(file: File, *args, **kwargs):
     )
 
     if not len(kwargs) == 0:
-        raise ValueError("Only data, key, run, description can be passed.")
+        raise ValueError(
+            f"Only data, key, run, description can be passed, you passed: {kwargs}"
+        )
 
     if is_new_version_of is None:
         provisional_id = init_id(version=version)
@@ -596,14 +598,14 @@ def __init__(file: File, *args, **kwargs):
     if isinstance(data, pd.DataFrame):
         if log_hint:
             logger.hint(
-                "file is a dataframe, consider using File.from_df() to link column"
+                "data is a dataframe, consider using .from_df() to link column"
                 " names as features"
             )
         kwargs["accessor"] = "DataFrame"
     elif data_is_anndata(data):
         if log_hint:
             logger.hint(
-                "file is AnnDataLike, consider using File.from_anndata() to link"
+                "data is AnnDataLike, consider using .from_anndata() to link"
                 " var_names and obs.columns as features"
             )
         kwargs["accessor"] = "AnnData"
@@ -654,19 +656,7 @@ def from_df(
     return file
 
 
-@classmethod  # type: ignore
-@doc_args(File.from_anndata.__doc__)
-def from_anndata(
-    cls,
-    adata: "AnnDataLike",
-    var_ref: Optional[FieldAttr],
-    obs_columns_ref: Optional[FieldAttr] = Feature.name,
-    key: Optional[str] = None,
-    description: Optional[str] = None,
-    run: Optional[Run] = None,
-) -> "File":
-    """{}"""
-    file = File(data=adata, key=key, run=run, description=description, log_hint=False)
+def parse_feature_sets_from_anndata(adata: AnnDataLike, var_ref: Optional[FieldAttr]):
     data_parse = adata
     if not isinstance(adata, AnnData):  # is a path
         filepath = create_path(adata)  # returns Path for local
@@ -687,7 +677,6 @@ def from_anndata(
         var_ref,
         type=type,
     )
-
     if feature_set_var is not None:
         feature_sets["var"] = feature_set_var
         logger.save(f"linked: {feature_set_var}")
@@ -700,7 +689,22 @@ def from_anndata(
             feature_sets["obs"] = feature_set_obs
             logger.save(f"linked: {feature_set_obs}")
         logger.indent = ""
-    file._feature_sets = feature_sets
+    return feature_sets
+
+
+@classmethod  # type: ignore
+@doc_args(File.from_anndata.__doc__)
+def from_anndata(
+    cls,
+    adata: "AnnDataLike",
+    var_ref: Optional[FieldAttr],
+    key: Optional[str] = None,
+    description: Optional[str] = None,
+    run: Optional[Run] = None,
+) -> "File":
+    """{}"""
+    file = File(data=adata, key=key, run=run, description=description, log_hint=False)
+    file._feature_sets = parse_feature_sets_from_anndata(adata, var_ref)
     return file
 
 

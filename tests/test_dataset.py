@@ -1,12 +1,15 @@
 import anndata as ad
+import lnschema_bionty as lb
 import numpy as np
+import pandas as pd
+import pytest
 
 import lamindb as ln
 
 adata = ad.AnnData(
     X=np.array([[1, 2, 3], [4, 5, 6]]),
-    obs=dict(Obs=["A", "B"]),
-    var=dict(Feat=["a", "b", "c"]),
+    obs=dict(feat1=["A", "B"]),
+    var=pd.DataFrame(index=["MYC", "TCF7", "GATA1"]),
     obsm=dict(X_pca=np.array([[1, 2], [3, 4]])),
 )
 
@@ -14,13 +17,19 @@ adata = ad.AnnData(
 def test_create_delete_from_single_dataframe():
     df = ln.dev.datasets.df_iris_in_meter_study1()
 
-    # try to create and save the dataset
-    dataset = ln.Dataset(df, name="Iris flower dataset1")
+    dataset = ln.Dataset.from_df(df, name="Iris flower dataset1")
     # because features weren't registered, there is no linked feature set
     assert dataset._feature_sets == {}
-    # register features and then repeat
+
+    # register features
     ln.save(ln.Feature.from_df(df))
+
+    # won't work with like so
     dataset = ln.Dataset(df, name="Iris flower dataset1")
+    assert dataset._feature_sets == {}
+
+    # will work like so
+    dataset = ln.Dataset.from_df(df, name="Iris flower dataset1")
     assert "columns" in dataset._feature_sets
 
     dataset.save()
@@ -56,16 +65,33 @@ def test_create_delete_from_single_dataframe():
     assert ln.File.filter(id=file.id).one_or_none() is None
 
 
-# def test_create_delete_from_single_anndata():
-#     dataset = ln.Dataset(adata, name="My adata")
-#     dataset.save()
-#     assert dataset.load().iloc[0].tolist() == df.iloc[0].tolist()
-#     file = dataset.file
-#     assert file.description is None
-#     assert dataset.hash == file.hash
-#     assert dataset.id == file.id
-#     assert ln.File.filter(id=dataset.id).one_or_none() is not None
-#     assert ln.File.filter(id=file.id).one_or_none() is not None
-#     dataset.delete(storage=True)
-#     assert ln.File.filter(id=dataset.id).one_or_none() is None
-#     assert ln.File.filter(id=file.id).one_or_none() is None
+def test_create_delete_from_single_anndata():
+    dataset = ln.Dataset(adata, name="My adata")
+    dataset.save()
+    dataset.delete(storage=True)
+    assert ln.File.filter(id=dataset.id).one_or_none() is None
+    assert ln.File.filter(id=dataset.file.id).one_or_none() is None
+
+
+def test_from_single_file():
+    lb.settings.species = "human"
+    ln.save(ln.Feature.from_df(adata.obs))
+    file = ln.File.from_anndata(adata, description="My adata", var_ref=lb.Gene.symbol)
+    with pytest.raises(ValueError):
+        ln.Dataset(file)
+    file.save()
+    dataset = ln.Dataset(file, name="My new dataset")
+    dataset.save()
+    assert set(file.feature_sets.list("id")) == set(
+        dataset.file.feature_sets.list("id")
+    )
+    assert set(file.features._feature_set_by_slot.keys()) == set(
+        dataset.features._feature_set_by_slot.keys()
+    )
+    feature_sets_queried = file.feature_sets.all()
+    features_queried = ln.Feature.filter(feature_sets__in=feature_sets_queried).all()
+    feature_sets_queried.delete()
+    features_queried.delete()
+    dataset.delete(storage=True)
+    assert ln.File.filter(id=dataset.id).one_or_none() is None
+    assert ln.File.filter(id=dataset.file.id).one_or_none() is None

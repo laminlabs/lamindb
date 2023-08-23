@@ -83,8 +83,11 @@ def test_features_add_labels_using_anndata():
     )
     assert "obs" not in file._feature_sets
     # add feature set without saving file
-    feature = ln.Feature(name="feature name", type="category", registries="core.Label")
-    feature_set = ln.FeatureSet(features=[feature])
+    feature_name_feature = ln.Feature(
+        name="feature name", type="category", registries="core.Label"
+    )
+    feature_name_feature.save()
+    feature_set = ln.FeatureSet(features=[feature_name_feature])
     with pytest.raises(ValueError):
         file.features.add_feature_set(feature_set, slot="random")
 
@@ -239,6 +242,7 @@ def test_features_add_labels_using_anndata():
     ln.Feature.filter(name="species").one().delete()
     ln.File.filter(description="Mini adata").one().delete(storage=True)
     ln.FeatureSet.filter().all().delete()
+    feature_name_feature.delete()
 
 
 def test_get_labels():
@@ -249,8 +253,9 @@ def test_get_labels():
         file.get_labels("x")
 
     # no linked labels
-    feature = ln.Feature(name="feature name", type="category")
-    feature_set = ln.FeatureSet(features=[feature])
+    feature_name_feature = ln.Feature(name="feature name", type="category")
+    feature_name_feature.save()
+    feature_set = ln.FeatureSet(features=[feature_name_feature])
     feature_set.save()
     file.save()
     assert str(file.features) == "no linked features"
@@ -264,3 +269,4 @@ def test_get_labels():
     assert df.shape[0] == 1
     file.delete(storage=True)
     feature_set.delete()
+    feature_name_feature.delete()

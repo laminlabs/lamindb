@@ -40,6 +40,9 @@ def test_signatures():
 
 def test_feature_from_df():
     # try to generate the file without validated features
+    feat1 = ln.Feature.filter(name="feat1").one_or_none()
+    if feat1 is not None:
+        feat1.delete()
     file = ln.File.from_df(df, description="test")
     assert file._feature_sets == {}
     # now, register all 4 features

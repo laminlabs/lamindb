@@ -1,5 +1,6 @@
 from typing import Iterable, List, Optional, Type, Union
 
+import numpy as np
 import pandas as pd
 from lamin_utils import logger
 from lamindb_setup.dev._docs import doc_args
@@ -10,7 +11,6 @@ from lamindb.dev.hashing import hash_set
 from lamindb.dev.utils import attach_func_to_class_method
 
 from . import _TESTING
-from ._from_values import get_or_create_records, index_iterable
 from ._registry import init_self_from_db
 from ._save import bulk_create
 
@@ -32,10 +32,13 @@ def get_related_name(features_type: Registry):
     return candidates[0]
 
 
-def sanity_check_features(features: List[Registry]) -> Registry:
+def validate_features(features: List[Registry]) -> Registry:
     """Validate and return feature type."""
-    if len(features) == 0:
-        raise ValueError("provide list of features with at least one element")
+    try:
+        if len(features) == 0:
+            raise ValueError("Provide list of features with at least one element")
+    except TypeError:
+        raise ValueError("Please pass a ListLike of features, not a single feature")
     if not hasattr(features, "__getitem__"):
         raise TypeError("features has to be list-like")
     if not isinstance(features[0], Registry):
@@ -45,6 +48,9 @@ def sanity_check_features(features: List[Registry]) -> Registry:
     feature_types = set([feature.__class__ for feature in features])
     if len(feature_types) > 1:
         raise ValueError("feature_set can only contain a single type")
+    for feature in features:
+        if feature._state.adding:
+            raise ValueError("Can only construct feature sets from validated features")
     return next(iter(feature_types))  # return value in set of cardinality 1
 
 
@@ -79,30 +85,26 @@ def __init__(self, *args, **kwargs):
     type: Optional[Union[type, str]] = kwargs.pop("type") if "type" in kwargs else None
     modality: Optional[str] = kwargs.pop("modality") if "modality" in kwargs else None
     name: Optional[str] = kwargs.pop("name") if "name" in kwargs else None
-    # hash is only internally used
-    hash: Optional[str] = kwargs.pop("hash") if "hash" in kwargs else None
     if len(kwargs) > 0:
         raise ValueError(
             "Only features, type, modality, name are valid keyword arguments"
         )
-
     # now code
-    features_orm = sanity_check_features(features)
-    if features_orm == Feature:
+    features_registry = validate_features(features)
+    if features_registry == Feature:
         type = None
     else:
         type = float
     n_features = len(features)
-    if hash is None:
-        features_hash = hash_set({feature.id for feature in features})
-        feature_set = FeatureSet.filter(hash=features_hash).one_or_none()
-        if feature_set is not None:
-            logger.success(f"loaded: {feature_set}")
-            init_self_from_db(self, feature_set)
-            return None
-        else:
-            hash = features_hash
-    self._features = (get_related_name(features_orm), features)
+    features_hash = hash_set({feature.id for feature in features})
+    feature_set = FeatureSet.filter(hash=features_hash).one_or_none()
+    if feature_set is not None:
+        logger.success(f"loaded: {feature_set}")
+        init_self_from_db(self, feature_set)
+        return None
+    else:
+        hash = features_hash
+    self._features = (get_related_name(features_registry), features)
     if type is not None:
         type_str = type.__name__ if not isinstance(type, str) else type
     else:
@@ -125,7 +127,7 @@ def __init__(self, *args, **kwargs):
         type=type_str,
         n=n_features,
         modality=modality_record,
-        registry=features_orm.__get_name_with_schema__(),
+        registry=features_registry.__get_name_with_schema__(),
         hash=hash,
     )
 
@@ -165,39 +167,22 @@ def from_values(
     if len(values) == 0:
         raise ValueError("Provide a list of at least one value")
     registry = field.field.model
-    if registry.__name__ == "Feature":
-        raise ValueError("Please use from_df() instead of from_values()")
-    iterable_idx = index_iterable(values)
-    if not isinstance(iterable_idx[0], (str, int)):
-        raise TypeError("values should be list-like of str or int")
-    from_bionty = registry.__module__.startswith("lnschema_bionty")
-    features = get_or_create_records(
-        iterable=iterable_idx,
-        field=field,
-        from_bionty=from_bionty,
-        **kwargs,
-    )
-    validated_features = get_validated_features(features, field)
-    validated_feature_ids = [feature.id for feature in validated_features]
-    features_hash = hash_set(set(validated_feature_ids))
-    feature_set = FeatureSet.filter(hash=features_hash).one_or_none()
-    if feature_set is not None:
-        logger.success(f"loaded {feature_set}")
+    validated = registry.validate(values, field=field)
+    if validated.sum() == 0:
+        logger.warning("no validated features, skip creating feature set")
+        return None
+    validated_values = np.array(values)[validated]
+    validated_features = registry.from_values(validated_values, field=field, **kwargs)
+    if type is not None:
+        type_str = type.__name__ if not isinstance(type, str) else type
     else:
-        if type is not None:
-            type_str = type.__name__ if not isinstance(type, str) else type
-        else:
-            type_str = None
-        if validated_features:
-            feature_set = FeatureSet(
-                features=validated_features,
-                hash=features_hash,
-                name=name,
-                modality=modality,
-                type=type_str,
-            )
-        else:
-            feature_set = None
+        type_str = None
+    feature_set = FeatureSet(
+        features=validated_features,
+        name=name,
+        modality=modality,
+        type=type_str,
+    )
     return feature_set
 
 
@@ -206,17 +191,22 @@ def from_values(
 def from_df(
     cls,
     df: "pd.DataFrame",
+    field: FieldAttr = Feature.name,
     name: Optional[str] = None,
-    **kwargs,
+    modality: Optional[str] = None,
 ) -> Optional["FeatureSet"]:
     """{}"""
-    validated = Feature.validate(df.columns)
-    if validated.sum() > 0:
-        validated_features = Feature.from_df(df.loc[:, validated])
-        feature_set = FeatureSet(validated_features, name=name, **kwargs)
-    else:
+    registry = field.field.model
+    if registry != Feature:
+        raise ValueError("from_df() only available for ln.Feature, use from_values()")
+    validated = Feature.validate(df.columns, field=field)
+    if validated.sum() == 0:
         logger.warning("no validated features, skip creating feature set")
-        feature_set = None
+        return None
+    validated_features = Feature.from_df(df.loc[:, validated])
+    feature_set = FeatureSet(
+        validated_features, name=name, type=None, modality=modality
+    )
     return feature_set
 
 
