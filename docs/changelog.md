@@ -1,5 +1,6 @@
 # Changelog
 
+- ♻️ Refactor transform versioning [PR1080](https://github.com/laminlabs/lamindb/pull/1080) [@falexwolf](https://github.com/falexwolf)
 - ♻️ Refactor FeatureSet & Dataset [PR1083](https://github.com/laminlabs/lamindb/pull/1083) [@falexwolf](https://github.com/falexwolf)
 - 🔊 More consistent logging of inspect [PR1081](https://github.com/laminlabs/lamindb/pull/1081) [@sunnyosun](https://github.com/sunnyosun)
 - 🔥 Removed inherit_relations [PR1079](https://github.com/laminlabs/lamindb/pull/1079) [@sunnyosun](https://github.com/sunnyosun)
