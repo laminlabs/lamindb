@@ -123,6 +123,7 @@ def from_anndata(
 ) -> "Dataset":
     """{}"""
     if isinstance(adata, File):
+        assert not adata._state.adding
         assert adata.accessor == "AnnData"
         adata_parse = adata.path
     else:
