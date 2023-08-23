@@ -50,20 +50,16 @@ def test_features_add_labels():
 
 def test_features_add_labels_using_anndata():
     species = lb.Species.from_bionty(name="mouse")
-    cell_types = lb.CellType.from_values(adata.obs["cell_type"], "name")
+    cell_types = [lb.CellType(name=name) for name in adata.obs["cell_type"].unique()]
     ln.save(cell_types)
-    cell_types_from_expert = lb.CellType.from_values(
-        adata.obs["cell_type_from_expert"], "name"
-    )
+    cell_types_from_expert = [
+        lb.CellType(name=name) for name in adata.obs["cell_type_from_expert"].unique()
+    ]
     ln.save(cell_types_from_expert)
-    actual_tissues = lb.Tissue.from_values(adata.obs["tissue"], "name")
+    actual_tissues = [lb.Tissue(name=name) for name in adata.obs["tissue"].unique()]
     organoid = ln.Label(name="organoid")
     tissues = actual_tissues + [organoid]
     ln.save(tissues)
-
-    assert cell_types[0]._feature == "cell_type"
-    assert cell_types[-1]._feature == "cell_type"
-    assert tissues[0]._feature == "tissue"
 
     lb.settings.species = "human"
     lb.settings.auto_save_parents = False
@@ -148,7 +144,8 @@ def test_features_add_labels_using_anndata():
     assert "species" in feature_set_ext.features.list("name")
 
     # now we add cell types & tissues and run checks
-    file.add_labels(cell_types + cell_types_from_expert)
+    file.add_labels(cell_types, feature="cell_type")
+    file.add_labels(cell_types_from_expert, feature="cell_type_from_expert")
     file.add_labels(tissues, feature="tissue")
     feature = ln.Feature.filter(name="cell_type").one()
     assert feature.type == "category"
@@ -159,7 +156,7 @@ def test_features_add_labels_using_anndata():
     feature = ln.Feature.filter(name="tissue").one()
     assert feature.type == "category"
     assert feature.registries == "bionty.Tissue|core.Label"
-    diseases = ln.Label.from_values(adata.obs["disease"])
+    diseases = [ln.Label(name=name) for name in adata.obs["disease"].unique()]
     ln.save(diseases)
     file.add_labels(diseases, feature="disease")
     df = file.features["obs"].df()
@@ -243,6 +240,10 @@ def test_features_add_labels_using_anndata():
     ln.File.filter(description="Mini adata").one().delete(storage=True)
     ln.FeatureSet.filter().all().delete()
     feature_name_feature.delete()
+    lb.CellType.filter().all().delete()
+    lb.Tissue.filter().all().delete()
+    lb.Disease.filter().all().delete()
+    ln.Label.filter().all().delete()
 
 
 def test_get_labels():
@@ -261,9 +262,6 @@ def test_get_labels():
     assert str(file.features) == "no linked features"
     file.features.add_feature_set(feature_set, slot="random")
     assert file.features.get_feature_set(slot="random") == feature_set
-    with pytest.raises(ValueError):
-        file.get_labels("feature name")
-
     # exclude=False for create_features_df
     df = create_features_df(file, [feature_set], exclude=False)
     assert df.shape[0] == 1

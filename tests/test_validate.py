@@ -49,6 +49,7 @@ def test_standardize_bionty_aware():
 
 
 def test_add_remove_synonym():
+    lb.CellType.filter().all().delete()
     # a registry that cannot validate
     bionty_source = lb.BiontySource.filter(species="human").first()
     with pytest.raises(AttributeError):
@@ -95,6 +96,7 @@ def test_add_remove_synonym():
 
 
 def test_set_abbr():
+    lb.CellType.filter().all().delete()
     lb.CellType(name="my cell type").save(parents=False)
     record = lb.CellType.filter(name="my cell type").one()
     # if abbr is name, do not add to synonyms

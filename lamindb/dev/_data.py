@@ -312,15 +312,9 @@ def add_labels(
     records_by_feature_orm = defaultdict(list)
     for record in records:
         if feature is None:
-            error_msg = "Please pass feature: add_labels(labels, feature='myfeature')"
-            record_feature = feature
-            if hasattr(record, "_feature"):
-                record_feature = record._feature
-            if record_feature is None:
-                raise ValueError(error_msg)
-            # TODO: refactor so that we don't call the following line
-            # repeatedly for the same feature
-            record_feature = validate_and_cast_feature(record_feature, [record])
+            raise ValueError(
+                "Please pass feature: add_labels(labels, feature='myfeature')"
+            )
         else:
             record_feature = feature
         records_by_feature_orm[
