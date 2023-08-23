@@ -1,6 +1,5 @@
 import builtins
 import hashlib
-import os
 import re
 from datetime import datetime, timezone
 from pathlib import Path, PurePath
@@ -72,8 +71,9 @@ def _write_notebook_meta(metadata):
     nb_dev._frontend_commands._reload_notebook(_env)
 
 
+# also see lamindb-setup._notebook for related code
 def reinitialize_notebook(
-    transform: Transform, metadata: Optional[Dict] = None
+    transform: Transform, metadata: Optional[Dict] = None, ask_for_new_id: bool = True
 ) -> Tuple[Transform, Dict]:
     from nbproject import dev as nb_dev
     from nbproject._header import _filepath
@@ -81,14 +81,14 @@ def reinitialize_notebook(
     # init new_id, new_version
     new_id, new_version = transform.id, None
 
-    if "NBPRJ_TEST_NBPATH" not in os.environ:
-        response = input("Do you want to generate a new id? (y/n)")
+    if ask_for_new_id:
+        response = input("Do you want to generate a new id? (y/n) ")
     else:
         response = "y"
     if response == "y":
         new_id = init_id(n_full_id=14)
     else:
-        response = input("Do you want to set a new version (e.g. '1.1')? (y/n)")
+        response = input("Do you want to set a new version (e.g. '1.1')? (y/n) ")
         if response == "y":
             new_version = input("Please type the version: ")
             new_id = get_ids_from_old_version(
@@ -100,9 +100,9 @@ def reinitialize_notebook(
         nb = nb_dev.read_notebook(_filepath)
         metadata = nb.metadata["nbproject"]
 
-    # nbproject metadata follows different conventions
+    # nbproject metadata needs the shorter nbproject id
     metadata["id"] = new_id[:12]
-    metadata["version"] = "0" if new_version is None else new_version
+    metadata["version"] = new_version
 
     # here we check that responses to both inputs (for new id and version) were not 'n'
     if transform.id != new_id or transform.version != new_version:
