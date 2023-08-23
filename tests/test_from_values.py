@@ -19,15 +19,14 @@ def df():
 
 def test_from_values_name(df):
     assert df["cell_type_id"].tolist() == ["CL:0000084", "CL:0000182", ""]
+    # create records from bionty
     result = lb.CellType.from_values(df.cell_type, "name")
     ids = [i.ontology_id for i in result]
-    assert len(result) == 3
-    assert set(ids) == {"CL:0000084", "CL:0000182", None}
-    for r in result:
-        if r.ontology_id == "CL:0000084":
-            assert r.bionty_source.entity == "CellType"
-        if r.ontology_id is None:
-            assert r.bionty_source is None
+    assert len(result) == 2
+    assert set(ids) == {"CL:0000084", "CL:0000182"}
+    assert result[0].bionty_source.entity == "CellType"
+
+    # wrong field type
     with pytest.raises(TypeError):
         result = lb.CellType.from_values(df.cell_type, field=lb.CellType)
 
@@ -69,10 +68,12 @@ def test_from_values_species():
 
 
 def test_get_or_create_records():
-    labels = ln.Label.from_values(["label" + str(i) for i in range(25)], field="name")
+    names = ["label" + str(i) for i in range(25)]
+    labels = [ln.Label(name=name) for name in names]
     ln.save(labels)
     # more than 20 existing values
-    ln.Label.from_values(["label" + str(i) for i in range(25)], field="name")
+    labels = ln.Label.from_values(names, field="name")
+    assert len(labels) == 25
 
 
 def test_from_values_synonyms_aware():
@@ -103,11 +104,8 @@ def test_from_values_synonyms_aware():
     assert isinstance(records[1].bionty_source, lb.BiontySource)
     # non-validated values
     records = lb.CellType.from_values(["T cell", "mycell"], "name")
-    assert len(records) == 2
-    mycell = [i for i in records if i.name == "mycell"][0]
-    assert mycell.bionty_source is None
-    assert mycell.ontology_id is None
-    tcell = [i for i in records if i.name == "T cell"][0]
-    assert isinstance(tcell.bionty_source, lb.BiontySource)
-    assert tcell.ontology_id == "CL:0000084"
+    assert len(records) == 1
+    assert records[0].name == "T cell"
+    assert isinstance(records[0].bionty_source, lb.BiontySource)
+    assert records[0].ontology_id == "CL:0000084"
     lb.CellType.filter().all().delete()
