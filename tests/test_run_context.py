@@ -1,4 +1,5 @@
 import lamindb as ln
+from lamindb.dev._run_context import get_transform_kwargs_from_nbproject
 
 
 def test_track_with_multi_parents():
@@ -28,3 +29,22 @@ def test_track_with_reference():
 def test_track_notebook_colab():
     notebook_path = "/fileId=1KskciVXleoTeS_OGoJasXZJreDU9La_l"
     ln.dev.run_context._track(notebook_path=notebook_path)
+
+
+def test_track_from_nbproject():
+    title = "nbproject title"
+    id, version, name, old_version_of = get_transform_kwargs_from_nbproject(
+        nbproject_id="NJvdsWWbJlZS", nbproject_version="0", nbproject_title=title
+    )
+    assert id == "NJvdsWWbJlZSz8"
+    assert version == "0"
+    assert name == title
+    assert old_version_of is None
+    ln.Transform(id=id, version=version, name=name).save()
+    id, version, name, old_version_of = get_transform_kwargs_from_nbproject(
+        nbproject_id="NJvdsWWbJlZS", nbproject_version="1", nbproject_title=title
+    )
+    assert id.startswith("NJvdsWWbJlZS")
+    assert version == "1"
+    assert name == title
+    assert old_version_of is not None

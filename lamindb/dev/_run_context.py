@@ -123,6 +123,21 @@ def get_notebook_name_colab() -> str:
     return name.rstrip(".ipynb")
 
 
+def get_transform_kwargs_from_nbproject(
+    nbproject_id: str, nbproject_version: str, nbproject_title: str
+) -> Tuple[str, str, str, Optional[Transform]]:
+    id_ext = to_b64_str(hashlib.md5(nbproject_version.encode()).digest())[:2]
+    id = nbproject_id + id_ext
+    version = nbproject_version
+    transform = Transform.filter(
+        id__startswith=nbproject_id, version=version
+    ).one_or_none()
+    name = nbproject_title
+    if transform is None:
+        old_version_of = Transform.filter(id__startswith=nbproject_id).first()
+    return id, version, name, old_version_of
+
+
 class run_context:
     """Global run context."""
 
@@ -421,17 +436,10 @@ class run_context:
             old_version_of = None
         # nbproject parsing successful
         elif nbproject_id is not None:
-            id_ext = to_b64_str(hashlib.md5(nbproject_version.encode()).digest())[:2]
-            id = nbproject_id + id_ext
-            if nbproject_version != "0":
-                version = nbproject_version
-            transform = Transform.filter(
-                id__startswith=nbproject_id, version=version
-            ).one_or_none()
-            name = nbproject_title
+            id, version, name, old_version_of = get_transform_kwargs_from_nbproject(
+                nbproject_id, nbproject_version, nbproject_title
+            )
             short_name = filestem
-            if transform is None:
-                old_version_of = Transform.filter(id__startswith=nbproject_id).first()
         # make a new transform record
         if transform is None:
             transform = Transform(
@@ -440,8 +448,8 @@ class run_context:
                 name=name,
                 short_name=short_name,
                 reference=reference,
-                type=TransformType.notebook,
                 is_new_version_of=old_version_of,
+                type=TransformType.notebook,
             )
             transform.save()
             logger.save(f"saved: {transform}")

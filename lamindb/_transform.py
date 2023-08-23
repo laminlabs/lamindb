@@ -1,6 +1,5 @@
 from typing import Optional
 
-from lamin_utils import logger
 from lnschema_core.models import TRANSFORM_TYPE_DEFAULT, Transform
 from lnschema_core.types import TransformType
 
@@ -47,12 +46,6 @@ def __init__(transform: Transform, *args, **kwargs):
             name = is_new_version_of.name
     if id is None:
         id = new_id
-    if version is not None:
-        if initial_version_id is None:
-            logger.info(
-                "initializing versioning for this transform! create future versions of"
-                " it using ln.Transform(..., is_new_version_of=old_transform)"
-            )
     super(Transform, transform).__init__(
         id=id,
         name=name,

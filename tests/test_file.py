@@ -69,25 +69,29 @@ def test_is_new_version_of_versioned_file():
         file = ln.File(df, description="test", version=0)
     assert (
         error.exconly()
-        == "ValueError: `version` parameter must be `None` or `str`, e.g., '0', '1',"
-        " etc."
+        == "ValueError: `version` parameter must be `None` or `str`, e.g., '0.1', '1',"
+        " '2', etc."
     )
 
     # create a versioned file
-    file = ln.File(df, description="test", version="0")
-    assert file.version == "0"
+    file = ln.File(df, description="test", version="1")
+    assert file.version == "1"
 
     assert file.path.exists()  # because of cache file already exists
     file.save()
     assert file.path.exists()
 
+    with pytest.raises(ValueError) as error:
+        file_v2 = ln.File(adata, is_new_version_of=file, version="1")
+    assert error.exconly() == "ValueError: Please increment the previous version: '1'"
+
     # create new file from old file
     file_v2 = ln.File(adata, is_new_version_of=file)
     assert file_v2.id[:18] == file.id[:18]  # stem_id
-    assert file.version == "0"
+    assert file.version == "1"
     assert file.initial_version_id is None  # initial file has initial_version_id None
     assert file_v2.initial_version_id == file.id
-    assert file_v2.version == "1"
+    assert file_v2.version == "2"
     assert file_v2.key is None
     assert file_v2.description == "test"
 
@@ -99,7 +103,7 @@ def test_is_new_version_of_versioned_file():
     file_v3 = ln.File(df, description="test1", is_new_version_of=file_v2)
     assert file_v3.id[:18] == file.id[:18]  # stem_id
     assert file_v3.initial_version_id == file.id
-    assert file_v3.version == "2"
+    assert file_v3.version == "3"
     assert file_v3.description == "test1"
 
     # test that reference file cannot be deleted

@@ -14,6 +14,8 @@ def set_version(version: Optional[str] = None, previous_version: Optional[str] =
         version: Version string.
         stored_version: Mock stored version for testing purposes.
     """
+    if version == previous_version:
+        raise ValueError(f"Please increment the previous version: '{previous_version}'")
     if version is None and previous_version is not None:
         try:
             version = str(int(previous_version) + 1)  # increment version by 1
@@ -46,10 +48,11 @@ def init_id(
                 "`version` parameter must be `None` or `str`, e.g., '0.1', '1', '2',"
                 " etc."
             )
-        if version == "0":
-            raise ValueError(
-                "please choose a version != '0', as it could be interpreted as `None`"
-            )
+        # considered below, but not doing this right now
+        # if version == "0":
+        #     raise ValueError(
+        #         "Please choose a version != '0', as it could be interpreted as `None`"
+        #     )
     if initial_version_id is not None:
         stem_id = initial_version_id[:n_stem_id]
     else:
@@ -89,7 +92,7 @@ def get_ids_from_old_version(
     msg = ""
     if is_new_version_of.version is None:
         previous_version = "1"
-        msg = "setting previous version to '1'"
+        msg = f"setting previous version to '{previous_version}'"
     else:
         previous_version = is_new_version_of.version
     version = set_version(version, previous_version)
