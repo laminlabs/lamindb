@@ -92,7 +92,7 @@ def _inspect(
             labels = colors.yellow(f"{len(bionty_validated)} term{s}")
             logger.info(
                 f"   detected {labels} in Bionty for"
-                f" {str(field)}: {colors.yellow(print_values)}"
+                f" {colors.italic(str(field))}: {colors.yellow(print_values)}"
             )
             hint = True
 
@@ -101,7 +101,7 @@ def _inspect(
             s = "" if len(bionty_mapper) == 1 else "s"
             labels = colors.yellow(f"{len(bionty_mapper)} term{s}")
             logger.info(
-                f"   detected {labels} in Bionty as synonym{s}:"
+                f"   detected {labels} in Bionty as {colors.italic(f'synonym{s}')}:"
                 f" {colors.yellow(print_values)}"
             )
             hint = True
