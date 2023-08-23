@@ -169,9 +169,9 @@ def describe(self):
             field_name = "id"
             related_name = feature_sets_related_models.get(orm_name_with_schema)
             values = feature_set.__getattribute__(related_name).all()[:5].list("id")
-            slots = self.feature_sets.through.objects.filter(
-                file=self, feature_set=feature_set
-            ).list("slot")
+            host_id_field = get_host_id_field(self)
+            kwargs = {host_id_field: self.id, "feature_set_id": feature_set.id}
+            slots = self.feature_sets.through.objects.filter(**kwargs).list("slot")
             for slot in slots:
                 if slot == "var":
                     slot += " (X)"
