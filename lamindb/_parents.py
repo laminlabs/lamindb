@@ -3,7 +3,7 @@ from typing import List, Optional, Set, Union
 
 from lamin_utils import logger
 from lnschema_core import File, Registry, Run, Transform
-from lnschema_core.models import ParentsAware, format_field_value
+from lnschema_core.models import HasParents, format_field_value
 
 from lamindb.dev.utils import attach_func_to_class_method
 
@@ -311,10 +311,10 @@ if _TESTING:  # type: ignore
     from inspect import signature
 
     SIGS = {
-        name: signature(getattr(ParentsAware, name))
+        name: signature(getattr(HasParents, name))
         for name in METHOD_NAMES
         if not name.startswith("__")
     }
 
 for name in METHOD_NAMES:
-    attach_func_to_class_method(name, ParentsAware, globals())
+    attach_func_to_class_method(name, HasParents, globals())
