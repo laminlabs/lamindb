@@ -68,6 +68,7 @@ def test_create_delete_from_single_dataframe():
 
 
 def test_create_delete_from_single_anndata():
+    ln.track(ln.Transform(name="Test transform"))
     dataset = ln.Dataset(adata, name="My adata")
     dataset.save()
     dataset.delete(storage=True)
@@ -84,6 +85,7 @@ def test_create_delete_from_single_anndata():
     dataset = ln.Dataset.from_anndata(file, name="My dataset", var_ref=lb.Gene.symbol)
     dataset.save()
     dataset.describe()
+    dataset.view_lineage()
     feature_sets_queried = dataset.feature_sets.all()
     features_queried = ln.Feature.filter(feature_sets__in=feature_sets_queried).all()
     assert set(features_queried.list("name")) == set(adata.obs.columns)
@@ -93,6 +95,8 @@ def test_create_delete_from_single_anndata():
     features_queried.delete()
     genes_queried.delete()
     dataset.delete(storage=True)
+    ln.dev.run_context.run = None
+    ln.dev.run_context.transform = None
 
 
 def test_from_single_file():

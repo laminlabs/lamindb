@@ -46,6 +46,8 @@ def __init__(
         )
     id = None
     run = get_run(run)
+    # there are exactly two ways of creating a Dataset object right now
+    # using exactly one file or using more than one file
     # init file
     if isinstance(data, (pd.DataFrame, ad.AnnData, File)):
         files = None
@@ -190,6 +192,13 @@ def load(dataset: Dataset):
             return ad.concat(objects)
 
 
+def view_lineage(dataset: Dataset, with_children: bool = True) -> None:
+    if dataset.file is not None:
+        dataset.file.view_lineage(with_children=with_children)
+    else:
+        dataset.files.first().view_lineage(with_children=with_children)
+
+
 def delete(dataset: Dataset, storage: bool = False):
     super(Dataset, dataset).delete()
     if dataset.file is not None:
@@ -210,6 +219,7 @@ def save(dataset: Dataset):
 Dataset.__init__ = __init__
 Dataset.from_df = from_df
 Dataset.from_anndata = from_anndata
+Dataset.view_lineage = view_lineage
 Dataset.backed = backed
 Dataset.load = load
 Dataset.delete = delete
