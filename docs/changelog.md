@@ -1,5 +1,6 @@
 # Changelog
 
+- ♻️ Re-load `Dataset` based on hash [PR1091](https://github.com/laminlabs/lamindb/pull/1091) [@falexwolf](https://github.com/falexwolf)
 - ♻️ Make suffix non-nullable and root unique [PR1090](https://github.com/laminlabs/lamindb/pull/1090) [@falexwolf](https://github.com/falexwolf)
 - ♻️ Add `view_lineage` to `Dataset` [PR1089](https://github.com/laminlabs/lamindb/pull/1089) [@falexwolf](https://github.com/falexwolf)
 - 💚 Fix Dataset.describe() bug [PR1088](https://github.com/laminlabs/lamindb/pull/1088) [@falexwolf](https://github.com/falexwolf)
