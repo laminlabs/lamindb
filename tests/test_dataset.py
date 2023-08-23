@@ -71,6 +71,11 @@ def test_create_delete_from_single_anndata():
     dataset.delete(storage=True)
     assert ln.File.filter(id=dataset.id).one_or_none() is None
     assert ln.File.filter(id=dataset.file.id).one_or_none() is None
+    # let's try passing a file
+    file = ln.File(adata, description="my adata")
+    file.save()
+    dataset = ln.Dataset.from_anndata(file)
+    dataset.delete(storage=True)
 
 
 def test_from_single_file():
