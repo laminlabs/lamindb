@@ -1,12 +1,11 @@
-# from inspect import signature
+from inspect import signature
 
 import lnschema_bionty as lb
 import pandas as pd
 import pytest
 
 import lamindb as ln
-
-# from lamindb import _feature_set
+from lamindb import _feature_set
 from lamindb._feature_set import get_related_name, sanity_check_features
 
 df = pd.DataFrame(
@@ -19,22 +18,22 @@ df = pd.DataFrame(
 )
 
 
-# def test_signatures():
-#     # this seems currently the easiest and most transparent
-#     # way to test violations of the signature equality
-#     # the MockORM class is needed to get inspect.signature
-#     # to work
-#     class Mock:
-#         pass
+def test_signatures():
+    # this seems currently the easiest and most transparent
+    # way to test violations of the signature equality
+    # the MockORM class is needed to get inspect.signature
+    # to work
+    class Mock:
+        pass
 
-#     # class methods
-#     class_methods = ["from_values", "from_df"]
-#     for name in class_methods:
-#         setattr(Mock, name, getattr(_feature_set, name))
-#         assert signature(getattr(Mock, name)) == _feature_set.SIGS.pop(name)
-#     # methods
-#     for name, sig in _feature_set.SIGS.items():
-#         assert signature(getattr(_feature_set, name)) == sig
+    # class methods
+    class_methods = ["from_values", "from_df"]
+    for name in class_methods:
+        setattr(Mock, name, getattr(_feature_set, name))
+        assert signature(getattr(Mock, name)) == _feature_set.SIGS.pop(name)
+    # methods
+    for name, sig in _feature_set.SIGS.items():
+        assert signature(getattr(_feature_set, name)) == sig
 
 
 def test_feature_set_from_values():

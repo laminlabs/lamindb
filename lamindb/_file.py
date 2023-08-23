@@ -1,3 +1,4 @@
+from collections import defaultdict
 from itertools import islice
 from pathlib import Path, PurePath, PurePosixPath
 from typing import Any, List, Optional, Set, Tuple, Union
@@ -12,6 +13,8 @@ from lamindb_setup import settings as setup_settings
 from lamindb_setup._init_instance import register_storage
 from lamindb_setup.dev import StorageSettings
 from lamindb_setup.dev._docs import doc_args
+from lamindb_setup.dev._hub_utils import get_storage_region
+from lamindb_setup.dev.upath import create_path
 from lnschema_core import Feature, FeatureSet, File, Run, Storage, ids
 from lnschema_core.types import AnnDataLike, DataLike, FieldAttr, PathLike
 
@@ -29,7 +32,6 @@ from lamindb.dev.storage import (
 from lamindb.dev.storage._backed_access import AnnDataAccessor, BackedAccessor
 from lamindb.dev.storage.file import (
     ProgressCallback,
-    _str_to_path,
     auto_storage_key_from_file,
     auto_storage_key_from_id_suffix,
     extract_suffix_from_path,
@@ -40,6 +42,12 @@ from lamindb.dev.utils import attach_func_to_class_method
 from . import _TESTING
 from ._feature import convert_numpy_dtype_to_lamin_feature_type
 from ._parents import view_lineage
+from .dev._data import (
+    add_transform_to_kwargs,
+    get_run,
+    save_feature_set_links,
+    save_transform_run_feature_sets,
+)
 from .dev.storage.file import AUTO_KEY_PREFIX
 
 DIRS = AppDirs("lamindb", "laminlabs")
@@ -74,11 +82,12 @@ def process_pathlike(
             if isinstance(filepath, UPath):
                 # for a UPath, new_root is always the bucket name
                 new_root = list(filepath.parents)[-1]
-                new_root_str = new_root.as_posix()
+                new_root_str = new_root.as_posix().rstrip("/")
                 logger.warning(
                     f"creating new storage location for root: {new_root_str}"
                 )
-                storage_settings = StorageSettings(new_root_str)
+                region = get_storage_region(new_root_str)
+                storage_settings = StorageSettings(new_root_str, region)
                 register_storage(storage_settings)
                 use_existing_storage_key = True
                 return storage_settings.record, use_existing_storage_key
@@ -104,9 +113,7 @@ def process_data(
     """Serialize a data object that's provided as file or in memory."""
     # if not overwritten, data gets stored in default storage
     if isinstance(data, (str, Path, UPath)):  # PathLike, spelled out
-        filepath = (
-            data if isinstance(data, (Path, UPath)) else _str_to_path(data)
-        )  # returns Path for local
+        filepath = create_path(data)  # returns Path for local
         storage, use_existing_storage_key = process_pathlike(
             filepath, skip_existence_check=skip_existence_check
         )
@@ -190,17 +197,6 @@ def get_hash(
         return hash, hash_type
 
 
-def get_run(run: Optional[Run]) -> Optional[Run]:
-    if run is None:
-        run = run_context.run
-        if run is None:
-            logger.hint(
-                "no run & transform get linked, consider passing a `run` or calling"
-                " ln.track()"
-            )
-    return run
-
-
 def get_path_size_hash(
     filepath: Union[Path, UPath],
     memory_rep: Optional[Union[pd.DataFrame, AnnData]],
@@ -258,7 +254,7 @@ def check_path_in_existing_storage(
 ) -> Union[Storage, bool]:
     for storage in Storage.filter().all():
         # if path is part of storage, return it
-        if check_path_is_child_of_root(filepath, root=_str_to_path(storage.root)):
+        if check_path_is_child_of_root(filepath, root=create_path(storage.root)):
             return storage
     return False
 
@@ -287,7 +283,11 @@ def get_relative_path_to_directory(
 ) -> Union[PurePath, Path]:
     if isinstance(directory, UPath):
         # UPath.relative_to() is not behaving as it should (2023-04-07)
-        relpath = PurePath(path.as_posix().replace(directory.as_posix(), ""))
+        # need to lstrip otherwise inconsistent behavior across trailing slashes
+        # see test_file.py: test_get_relative_path_to_directory
+        relpath = PurePath(
+            path.as_posix().replace(directory.as_posix(), "").lstrip("/")
+        )
     elif isinstance(directory, Path):
         relpath = path.resolve().relative_to(directory.resolve())  # type: ignore
     elif isinstance(directory, PurePath):
@@ -323,10 +323,19 @@ def get_file_kwargs_from_data(
         hash, hash_type = hash_and_type
 
     check_path_in_storage = False
-    if key is None and use_existing_storage_key:
-        key = get_relative_path_to_directory(
+    if use_existing_storage_key:
+        inferred_key = get_relative_path_to_directory(
             path=filepath, directory=storage.root_as_path()
         ).as_posix()
+        if key is None:
+            key = inferred_key
+        else:
+            if not key == inferred_key:
+                raise ValueError(
+                    "You passed a target key within a registered storage location that"
+                    " differs from the current location. Please move the file before"
+                    " registering in lamindb."
+                )
         check_path_in_storage = True
     else:
         storage = lamindb_setup.settings.storage.record
@@ -614,18 +623,7 @@ def __init__(file: File, *args, **kwargs):
     ):
         raise ValueError("Pass one of key, run or description as a parameter")
 
-    # transform cannot be directly passed, just via run
-    # it's directly stored in the file table to avoid another join
-    # mediate by the run table
-    if kwargs["run"] is not None:
-        if kwargs["run"].transform_id is not None:
-            kwargs["transform_id"] = kwargs["run"].transform_id
-        else:
-            # accessing the relationship should always be possible if
-            # the above if clause was false as then, we should have a fresh
-            # Transform object that is not queried from the DB
-            assert kwargs["run"].transform is not None
-            kwargs["transform"] = kwargs["run"].transform
+    add_transform_to_kwargs(kwargs, run)
 
     if data is not None:
         file._local_filepath = privates["local_filepath"]
@@ -671,7 +669,7 @@ def from_anndata(
     file = File(data=adata, key=key, run=run, description=description, log_hint=False)
     data_parse = adata
     if not isinstance(adata, AnnData):  # is a path
-        filepath = adata if isinstance(adata, (Path, UPath)) else _str_to_path(adata)
+        filepath = create_path(adata)  # returns Path for local
         if isinstance(filepath, UPath):
             from lamindb.dev.storage._backed_access import backed_access
 
@@ -716,7 +714,7 @@ def from_dir(
     run: Optional[Run] = None,
 ) -> List["File"]:
     """{}"""
-    folderpath = path if isinstance(path, (Path, UPath)) else _str_to_path(path)
+    folderpath = create_path(path)  # returns Path for local
     storage, use_existing_storage = process_pathlike(folderpath)
     folder_key_path: Union[PurePath, Path]
     if key is None:
@@ -898,11 +896,13 @@ def _track_run_input(file: File, is_run_input: Optional[bool] = None):
             run_context.run.transform.parents.add(file.transform)
 
 
-def load(self, is_run_input: Optional[bool] = None, stream: bool = False) -> DataLike:
+def load(
+    self, is_run_input: Optional[bool] = None, stream: bool = False, **kwargs
+) -> DataLike:
     _track_run_input(self, is_run_input)
     if hasattr(self, "_memory_rep") and self._memory_rep is not None:
         return self._memory_rep
-    return load_to_memory(filepath_from_file(self), stream=stream)
+    return load_to_memory(filepath_from_file(self), stream=stream, **kwargs)
 
 
 def stage(self, is_run_input: Optional[bool] = None) -> Path:
@@ -952,31 +952,9 @@ def save(self, *args, **kwargs) -> None:
 
 
 def _save_skip_storage(file, *args, **kwargs) -> None:
-    if file.transform is not None:
-        file.transform.save()
-    if file.run is not None:
-        file.run.save()
-    if hasattr(file, "_feature_sets"):
-        for feature_set in file._feature_sets.values():
-            feature_set.save()
-        s = "s" if len(file._feature_sets) > 1 else ""
-        logger.save(
-            f"saved {len(file._feature_sets)} feature set{s} for slot{s}:"
-            f" {list(file._feature_sets.keys())}"
-        )
+    save_transform_run_feature_sets(file)
     super(File, file).save(*args, **kwargs)
-    if hasattr(file, "_feature_sets"):
-        links = []
-        for slot, feature_set in file._feature_sets.items():
-            links.append(
-                File.feature_sets.through(
-                    file_id=file.id, feature_set_id=feature_set.id, slot=slot
-                )
-            )
-
-        from lamindb._save import bulk_create
-
-        bulk_create(links)
+    save_feature_set_links(file)
 
 
 @property  # type: ignore
@@ -1002,11 +980,12 @@ def tree(
     branch = "│   "
     tee = "├── "
     last = "└── "
+    max_files_per_dir_per_type = 7
 
     if path is None:
         dir_path = settings.storage
     else:
-        dir_path = path if isinstance(path, (Path, UPath)) else _str_to_path(path)
+        dir_path = create_path(path)  # returns Path for local
     n_files = 0
     n_directories = 0
 
@@ -1019,9 +998,10 @@ def tree(
             file.path for file in cls.filter(storage_id=setup_settings.storage.id).all()
         }
         registered_dirs = {d for p in registered_paths for d in p.parents}
+    suffixes = set()
 
     def inner(dir_path: Union[Path, UPath], prefix: str = "", level=-1):
-        nonlocal n_files, n_directories
+        nonlocal n_files, n_directories, suffixes
         if not level:
             return  # 0, stop iterating
         stripped_dir_path = dir_path.as_posix().rstrip("/")
@@ -1037,19 +1017,29 @@ def tree(
         if limit_to_directories:
             contents = [d for d in contents if d.is_dir()]
         pointers = [tee] * (len(contents) - 1) + [last]
+        n_files_per_dir_per_type = defaultdict(lambda: 0)  # type: ignore
         for pointer, path in zip(pointers, contents):
             if path.is_dir():
                 if registered_dirs and path not in registered_dirs:
                     continue
                 yield prefix + pointer + path.name
                 n_directories += 1
+                n_files_per_dir_per_type = defaultdict(lambda: 0)
                 extension = branch if pointer == tee else space
                 yield from inner(path, prefix=prefix + extension, level=level - 1)
             elif not limit_to_directories:
                 if registered_paths and path not in registered_paths:
                     continue
-                yield prefix + pointer + path.name
+                suffix = extract_suffix_from_path(path)
+                suffixes.add(suffix)
+                n_files_per_dir_per_type[suffix] += 1
                 n_files += 1
+                if n_files_per_dir_per_type[suffix] == max_files_per_dir_per_type:
+                    yield prefix + "..."
+                elif n_files_per_dir_per_type[suffix] > max_files_per_dir_per_type:
+                    continue
+                else:
+                    yield prefix + pointer + path.name
 
     folder_tree = ""
     iterator = inner(dir_path, level=level)
@@ -1058,9 +1048,10 @@ def tree(
     if next(iterator, None):
         folder_tree += f"... length_limit, {length_limit}, reached, counted:"
     directory_info = "directory" if n_directories == 1 else "directories"
+    display_suffixes = ", ".join([f"{suffix!r}" for suffix in suffixes])
     print(
-        f"{dir_path.name} ({n_directories} sub-{directory_info} & {n_files} files):"
-        f" {folder_tree}"
+        f"{dir_path.name} ({n_directories} sub-{directory_info} & {n_files} files with"
+        f" suffixes {display_suffixes}): {folder_tree}"
     )
 
 

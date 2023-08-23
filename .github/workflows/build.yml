@@ -14,9 +14,9 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python-version: ["3.9"]
         group:
           - "unit"
+          - "tutorial"
           - "guide"
           - "biology"
           - "faq"
@@ -30,7 +30,7 @@ jobs:
           fetch-depth: 0
       - uses: actions/setup-python@v4
         with:
-          python-version: ${{ matrix.python-version }}
+          python-version: "3.10"
           cache: "pip"
           cache-dependency-path: ".github/workflows/build.yml"
       - name: cache pre-commit
@@ -51,21 +51,19 @@ jobs:
       - name: cache postgres use
         if: ${{ steps.cache-postgres.outputs.cache-hit == 'true' && matrix.group == 'faq' || matrix.group == 'unit' }}
         run: docker image load --input ~/postgres.tar
-      - name: install Python deps
-        run: |
-          python -m pip install -U pip
-          pip install -U laminci
+      - run: pip install -U laminci
       - name: install postgres
         if: ${{ matrix.group == 'faq' }}
         run: sudo apt-get install libpq-dev
       - name: install graphviz
-        if: ${{ matrix.group == 'guide' || matrix.group == 'biology' }}
+        if: ${{ matrix.group == 'tutorial' || matrix.group == 'guide' || matrix.group == 'biology' }}
         run: sudo apt-get -y install graphviz
       - run: nox -s lint
-        if: ${{ matrix.python-version == '3.9' && matrix.group == 'unit' }}
+        if: ${{ matrix.group == 'unit' }}
       - run: nox -s "install(group='${{ matrix.group }}')"
       - uses: aws-actions/configure-aws-credentials@v1
-        if: ${{ matrix.group == 'guide' || matrix.group == 'storage' || matrix.group == 'unit' }}
+        if: ${{ matrix.group == 'unit' || matrix.group == 'guide' || matrix.group == 'storage' }}
+        # in particular, the tutorial should be run on an anonymous worker *without* AWS credentials
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
@@ -77,7 +75,7 @@ jobs:
           name: coverage--${{ matrix.group }}
           path: .coverage
       - name: upload docs
-        if: ${{ matrix.group == 'guide' || matrix.group == 'biology' || matrix.group == 'faq' || matrix.group == 'storage' }}
+        if: ${{ matrix.group == 'tutorial' || matrix.group == 'guide' || matrix.group == 'biology' || matrix.group == 'faq' || matrix.group == 'storage' }}
         uses: actions/upload-artifact@v2
         with:
           name: docs-${{ matrix.group }}
@@ -105,13 +103,10 @@ jobs:
           aws-region: us-east-1
       - uses: actions/setup-python@v4
         with:
-          python-version: 3.9
+          python-version: "3.10"
           cache: "pip"
           cache-dependency-path: ".github/workflows/build.yml"
-      - name: install Python deps
-        run: |
-          python -m pip install --upgrade pip
-          pip install laminci
+      - run: pip install -U laminci
       - run: nox -s "install(group='docs')"
       - uses: actions/download-artifact@v2
       - run: nox -s docs

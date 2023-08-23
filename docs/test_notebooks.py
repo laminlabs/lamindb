@@ -10,13 +10,16 @@ from noxfile import GROUPS  # noqa
 DOCS = Path(__file__).parents[1] / "docs/"
 
 
+def test_tutorial():
+    for filename in GROUPS["tutorial"]:
+        test.execute_notebooks(DOCS / filename, write=True)
+
+
 def test_guide():
     for filename in GROUPS["guide"]:
-        print(filename)
         test.execute_notebooks(DOCS / filename, write=True)
 
 
 def test_biology():
     for filename in GROUPS["biology"]:
-        print(filename)
         test.execute_notebooks(DOCS / filename, write=True)

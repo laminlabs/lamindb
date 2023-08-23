@@ -6,19 +6,21 @@ from lamindb.dev.hashing import b16_to_b64, hash_file, to_b64_str
 
 def test_compute_hash():
     files = [
-        # filepath, content, hash
+        # file_content, hash, chunk_size, hash_type
         ("a", "DMF1ucDxtqgxw5niaXcmYQ", None, "md5"),
         ("b", "kutf_uauL-w61xx3dTFXjw", None, "md5"),
         ("abc", "kAFQmDzST7DWlj99KOF_cg", None, "md5"),
         ("a", "DMF1ucDxtqgxw5niaXcmYQ", 1, "md5"),
         ("b", "kutf_uauL-w61xx3dTFXjw", 1, "md5"),
         # the last case here triggers multi-chunk compute with sha1
-        ("abc", "od1ZbYc380Hkre4BIjariX", 1, "sha1-fl"),
+        ("abc", "p0EbDbQEP1wS-Tw6TuBjKS", 1, "sha1-fl"),
     ]
     for content, hash, chunk_size, hash_type in files:
         filepath = Path("file_1.txt")
         filepath.write_text(content)
-        assert hash, hash_type == hash_file(filepath, chunk_size=chunk_size)
+        computed_hash, computed_hash_type = hash_file(filepath, chunk_size=chunk_size)
+        assert computed_hash == hash
+        assert computed_hash_type == hash_type
         filepath.unlink()
 
 

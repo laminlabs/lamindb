@@ -2,13 +2,21 @@ from typing import Dict, List, Union
 
 import pandas as pd
 from lamin_utils import logger
-from lnschema_core.models import Dataset, FeatureSet, File
+from lnschema_core.models import Dataset, Feature, FeatureSet, File
 
 from .._query_set import QuerySet
 
 
+def get_host_id_field(host: Union[File, Dataset]) -> str:
+    if isinstance(host, File):
+        host_id_field = "file_id"
+    else:
+        host_id_field = "dataset_id"
+    return host_id_field
+
+
 def create_features_df(
-    file: File, feature_sets: List[FeatureSet], exclude: bool = True
+    host: Union[File, Dataset], feature_sets: List[FeatureSet], exclude: bool = True
 ):
     features = []
     for feature_set in feature_sets:
@@ -16,9 +24,9 @@ def create_features_df(
             features_df = feature_set.features.exclude(registries__isnull=True).df()
         else:
             features_df = feature_set.features.df()
-        slots = file.feature_sets.through.objects.filter(
-            file=file, feature_set=feature_set
-        ).list("slot")
+        host_id_field = get_host_id_field(host)
+        kwargs = {host_id_field: host.id, "feature_set": feature_set}
+        slots = host.feature_sets.through.objects.filter(**kwargs).list("slot")
         for slot in slots:
             features_df["slot"] = slot
             features.append(features_df)
@@ -40,14 +48,34 @@ def get_feature_set_by_slot(host) -> Dict:
     # if the host is not yet saved
     if host._state.adding:
         return host._feature_sets
+    host_id_field = get_host_id_field(host)
+    kwargs = {host_id_field: host.id}
     # otherwise, we need a query
-    feature_set_links = host.feature_sets.through.objects.filter(file_id=host.id)
+    feature_set_links = host.feature_sets.through.objects.filter(**kwargs)
     return {
         feature_set_link.slot: FeatureSet.objects.get(
             id=feature_set_link.feature_set_id
         )
         for feature_set_link in feature_set_links
     }
+
+
+def get_label_links(
+    host: Union[File, Dataset], registry: str, feature: Feature
+) -> QuerySet:
+    host_id_field = get_host_id_field(host)
+    kwargs = {host_id_field: host.id, "feature_id": feature.id}
+    link_records = getattr(
+        host, host.features._accessor_by_orm[registry]
+    ).through.objects.filter(**kwargs)
+    return link_records
+
+
+def get_feature_set_links(host: Union[File, Dataset]) -> QuerySet:
+    host_id_field = get_host_id_field(host)
+    kwargs = {host_id_field: host.id}
+    feature_set_links = host.feature_sets.through.objects.filter(**kwargs)
+    return feature_set_links
 
 
 class FeatureManager:
@@ -72,7 +100,7 @@ class FeatureManager:
             if len(no_modality) > 0:
                 ids = ", ".join(no_modality)
                 s = "" if len(no_modality) == 1 else "s"
-                logger.warning(f"consider assigning modality to feature set{s}: {ids}")
+                logger.info(f"consider assigning modality to feature set{s}: {ids}")
             return msg
         else:
             return "no linked features"
@@ -100,13 +128,17 @@ class FeatureManager:
                 "Please save the file or dataset before adding a feature set!"
             )
         feature_set.save()
+        host_id_field = get_host_id_field(self._host)
+        kwargs = {
+            host_id_field: self._host.id,
+            "feature_set": feature_set,
+            "slot": slot,
+        }
         link_record = self._host.feature_sets.through.objects.filter(
-            file=self._host, feature_set=feature_set, slot=slot
+            **kwargs
         ).one_or_none()
         if link_record is None:
-            self._host.feature_sets.through(
-                file=self._host, feature_set=feature_set, slot=slot
-            ).save()
+            self._host.feature_sets.through(**kwargs).save()
             self._feature_set_by_slot[slot] = feature_set
 
     def get_feature_set(self, slot: str) -> FeatureSet:

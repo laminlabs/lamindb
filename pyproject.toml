@@ -19,7 +19,7 @@ dependencies = [
     # !!! They cannot be pinned ANYWHERE else !!!
     "lnschema_core==0.45.5",
     "lamindb_setup==0.50.2",
-    "lamin_utils==0.10.2",
+    "lamin_utils==0.10.4",
     # others
     "rapidfuzz",
     "pyarrow",
@@ -28,6 +28,7 @@ dependencies = [
     "anndata>=0.9.1,<=0.9.2",  # we're using anndata internals
     "fsspec",
     "pandas",
+    "graphviz",
 ]
 
 [project.urls]
@@ -35,7 +36,7 @@ Home = "https://github.com/laminlabs/lamindb"
 
 [project.optional-dependencies]
 bionty = [
-    "lnschema_bionty==0.29.6",
+    "lnschema_bionty==0.29.7",
 ]
 postgres = ["psycopg2-binary"]
 aws = [
@@ -71,8 +72,6 @@ dev = [
     "nbproject_test>=0.3.0",
     # biology
     "faker-biology",
-    # view_parents
-    "graphviz",
 ]
 
 [project.scripts]

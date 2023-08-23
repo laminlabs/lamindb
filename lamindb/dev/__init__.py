@@ -8,8 +8,7 @@
    QuerySet
    QueryManager
    FeatureManager
-   ValidationAware
-   SynonymsAware
+   ValidationMixin
    ParentsAware
    InspectResult
    datasets
@@ -22,13 +21,7 @@
 """
 
 from lamin_utils._inspect import InspectResult
-from lnschema_core.models import (
-    Data,
-    ParentsAware,
-    Registry,
-    SynonymsAware,
-    ValidationAware,
-)
+from lnschema_core.models import Data, ParentsAware, Registry, ValidationMixin
 
 from lamindb._query_manager import QueryManager
 from lamindb._query_set import QuerySet

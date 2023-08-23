@@ -1,5 +1,7 @@
+import builtins
 from typing import List, Optional, Set, Union
 
+from lamin_utils import logger
 from lnschema_core import File, Registry, Run, Transform
 from lnschema_core.models import ParentsAware, format_field_value
 
@@ -12,6 +14,7 @@ LAMIN_GREEN_LIGHTER = "#10b981"
 LAMIN_GREEN_DARKER = "#065f46"
 GREEN_FILL = "honeydew"
 TRANSFORM_EMOJIS = {"notebook": "📔", "app": "🖥️", "pipeline": "🧩"}
+is_run_from_ipython = getattr(builtins, "__IPYTHON__", False)
 
 
 def _transform_emoji(transform: Transform):
@@ -19,6 +22,22 @@ def _transform_emoji(transform: Transform):
         return TRANSFORM_EMOJIS.get(transform.type, "💫")
     else:
         return TRANSFORM_EMOJIS["pipeline"]
+
+
+def _view(u):
+    try:
+        if is_run_from_ipython:
+            from IPython.display import display
+
+            return display(u)
+        else:
+            return u
+    except (FileNotFoundError, RuntimeError):
+        logger.error(
+            "please install the graphviz executable on your system:\n  - Ubuntu: `sudo"
+            " apt-get install graphviz`\n  - Windows:"
+            " https://graphviz.org/download/#windows\n  - Mac: `brew install graphviz`"
+        )
 
 
 def view_parents(
@@ -46,15 +65,7 @@ def view_lineage(file: File, with_children: bool = True):
     Examples:
         >>> file.view_lineage()
     """
-    try:
-        import graphviz
-    except ImportError:  # pragma: no cover
-        raise ImportError(
-            "Drawing diagrams requires 'graphviz' to be installed. This requires the"
-            " Python package 'graphviz' and the associated binary. We recommend to"
-            " install 'graphviz' using your operating systems' package manager or from"
-            " conda."
-        )
+    import graphviz
 
     all_runs = _get_all_parent_runs(file)
     if with_children:
@@ -108,7 +119,7 @@ def view_lineage(file: File, with_children: bool = True):
         shape="box",
     )
 
-    return u
+    _view(u)
 
 
 def _view_parents(
@@ -156,7 +167,7 @@ def _view_parents(
         u.node(row["source"], label=_add_emoji(record, row["source_label"]))
         u.edge(row["source"], row["target"], color="dimgrey")
 
-    return u
+    _view(u)
 
 
 def _get_parents(record: Registry, field: str, distance: int, children: bool = False):

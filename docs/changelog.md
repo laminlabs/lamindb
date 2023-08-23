@@ -1,5 +1,18 @@
 # Changelog
 
+- ♻️ Refactor tutorial1 [PR1076](https://github.com/laminlabs/lamindb/pull/1076) [@falexwolf](https://github.com/falexwolf)
+- ♻️ Add `transform`, `run` & `input_of` to `Dataset` [PR1074](https://github.com/laminlabs/lamindb/pull/1074) [@falexwolf](https://github.com/falexwolf)
+- 🚸 Better UX of graphviz installation [PR1075](https://github.com/laminlabs/lamindb/pull/1075) [@sunnyosun](https://github.com/sunnyosun)
+- 👷 Run tutorial on anonymous worker [PR1073](https://github.com/laminlabs/lamindb/pull/1073) [@falexwolf](https://github.com/falexwolf)
+- ♻️ Use `create_path` [PR1072](https://github.com/laminlabs/lamindb/pull/1072) [@falexwolf](https://github.com/falexwolf)
+- 🎨 Make `from_values` synonyms aware, `inspect` bionty aware [PR1066](https://github.com/laminlabs/lamindb/pull/1066) [@sunnyosun](https://github.com/sunnyosun)
+- 📝 Write section on labels & features for files [PR1071](https://github.com/laminlabs/lamindb/pull/1071) [@falexwolf](https://github.com/falexwolf)
+- 📝 Break out tutorial in two parts [PR1070](https://github.com/laminlabs/lamindb/pull/1070) [@falexwolf](https://github.com/falexwolf)
+- ♻️ Use principled conversion to paths with options inheritance [PR1069](https://github.com/laminlabs/lamindb/pull/1069) [@Koncopd](https://github.com/Koncopd)
+- ♻️ Improve tutorial [PR1068](https://github.com/laminlabs/lamindb/pull/1068) [@falexwolf](https://github.com/falexwolf)
+- ♻️ Refactor tutorial and some storage code [PR1067](https://github.com/laminlabs/lamindb/pull/1067) [@falexwolf](https://github.com/falexwolf)
+- 🐛 Fix tree view for anonymous access [PR1065](https://github.com/laminlabs/lamindb/pull/1065) [@falexwolf](https://github.com/falexwolf)
+- ✅ Fix coverage compute for hashing [PR1064](https://github.com/laminlabs/lamindb/pull/1064) [@falexwolf](https://github.com/falexwolf)
 ```{eval-rst}
 .. role:: small
 ```

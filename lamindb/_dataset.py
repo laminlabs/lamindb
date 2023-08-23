@@ -1,10 +1,11 @@
-from typing import Iterable, List, Optional, Tuple, Union
+from typing import Dict, Iterable, Optional, Tuple, Union
 
 import anndata as ad
 import pandas as pd
 from lnschema_core.models import Dataset
 
-from . import FeatureSet, File, Run
+from . import File, Run
+from .dev._data import add_transform_to_kwargs, get_run, save_feature_set_links
 from .dev.hashing import hash_set
 
 
@@ -30,6 +31,7 @@ def __init__(
     assert len(kwargs) == 0
     id = None
     feature_sets = None
+    run = get_run(run)
     # init file
     if isinstance(data, pd.DataFrame) or isinstance(data, ad.AnnData):
         files = None
@@ -50,14 +52,22 @@ def __init__(
             hash, feature_sets = from_files(files)  # type: ignore
         else:
             raise ValueError("Only DataFrame, AnnData and iterable of File is allowed")
+    kwargs = {}
+    add_transform_to_kwargs(kwargs, run)
     super(Dataset, dataset).__init__(
-        id=id, name=name, description=description, file=file, hash=hash
+        id=id,
+        name=name,
+        description=description,
+        file=file,
+        hash=hash,
+        run=run,
+        **kwargs,
     )
     dataset._files = files
     dataset._feature_sets = feature_sets
 
 
-def from_files(files: Iterable[File]) -> Tuple[str, List[FeatureSet]]:
+def from_files(files: Iterable[File]) -> Tuple[str, Dict[str, str]]:
     # assert all files are already saved
     saved = not any([file._state.adding for file in files])
     if not saved:
@@ -68,8 +78,9 @@ def from_files(files: Iterable[File]) -> Tuple[str, List[FeatureSet]]:
     feature_set_file_links = File.feature_sets.through.objects.filter(
         file_id__in=file_ids
     )
-    feature_set_ids = [link.feature_set_id for link in feature_set_file_links]
-    feature_sets = FeatureSet.filter(id__in=feature_set_ids)
+    feature_set_slots_ids = {}
+    for link in feature_set_file_links:
+        feature_set_slots_ids[link.slot] = link.feature_set_id
     # validate consistency of hashes
     # we do not allow duplicate hashes
     hashes = [file.hash for file in files]
@@ -81,7 +92,7 @@ def from_files(files: Iterable[File]) -> Tuple[str, List[FeatureSet]]:
             f" {non_unique}"
         )
     hash = hash_set(set(hashes))
-    return hash, feature_sets
+    return hash, feature_set_slots_ids
 
 
 def backed(dataset: Dataset):
@@ -116,16 +127,12 @@ def delete(dataset: Dataset, storage: bool = False):
 def save(dataset: Dataset):
     if dataset.file is not None:
         dataset.file.save()
-    feature_sets = dataset._feature_sets
-    if isinstance(feature_sets, dict):
-        feature_sets = feature_sets.values()
-    for feature_set in feature_sets:
-        feature_set.save()
+    # we don't need to save feature sets again
+    # save_transform_run_feature_sets(dataset)
     super(Dataset, dataset).save()
     if dataset._files is not None and len(dataset._files) > 0:
         dataset.files.set(dataset._files)
-    if len(dataset._feature_sets) > 0:
-        dataset.feature_sets.set(feature_sets)
+    save_feature_set_links(dataset)
 
 
 Dataset.__init__ = __init__

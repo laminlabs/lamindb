@@ -265,33 +265,41 @@ def lookup(cls, field: Optional[StrField] = None) -> NamedTuple:
     return _lookup(cls=cls, field=field)
 
 
-def get_default_str_field(orm: Union[Registry, QuerySet, Manager]) -> str:
+def get_default_str_field(
+    orm: Union[Registry, QuerySet, Manager],
+    *,
+    field: Optional[Union[str, StrField]] = None,
+) -> str:
     """Get the 1st char or text field from the orm."""
     if isinstance(orm, (QuerySet, Manager)):
         orm = orm.model
     model_field_names = [i.name for i in orm._meta.fields]
 
     # set default field
-    field = None
-    if orm._meta.model.__name__ == "Run":
-        field = orm._meta.get_field("created_at")
-    elif "name" in model_field_names:
-        # by default use the name field
-        field = orm._meta.get_field("name")
-    else:
-        # first char or text field that doesn't contain "id"
-        for i in orm._meta.fields:
-            if "id" in i.name:
-                continue
-            if i.get_internal_type() in {"CharField", "TextField"}:
-                field = i
-                break
-
-    # no default field can be found
     if field is None:
-        raise ValueError("Please specify a field to search against!")
+        if orm._meta.model.__name__ == "Run":
+            field = orm._meta.get_field("created_at")
+        elif "name" in model_field_names:
+            # by default use the name field
+            field = orm._meta.get_field("name")
+        else:
+            # first char or text field that doesn't contain "id"
+            for i in orm._meta.fields:
+                if "id" in i.name:
+                    continue
+                if i.get_internal_type() in {"CharField", "TextField"}:
+                    field = i
+                    break
 
-    return field.name
+        # no default field can be found
+        if field is None:
+            raise ValueError("Please specify a field!")
+        else:
+            field = field.name  # type:ignore
+    if not isinstance(field, str):
+        field = field.field.name
+
+    return field
 
 
 METHOD_NAMES = [

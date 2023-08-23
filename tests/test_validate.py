@@ -4,7 +4,24 @@ import pytest
 import lamindb as ln  # noqa
 
 
-def test_map_synonyms():
+# some validate tests are in test_queryset
+def test_inspect():
+    lb.Gene.filter().all().delete()
+    lb.settings.species = "human"
+    result = lb.Gene.inspect("TCF7", "symbol")
+    assert result.validated == []
+
+    lb.Gene.from_bionty(symbol="TCF7").save()
+    result = lb.Gene.inspect("TCF7")
+    assert lb.Gene.validate("TCF7", species="human")
+    result = lb.Gene.inspect(["TCF7", "ABC1"], "symbol")
+    assert result.validated == ["TCF7"]
+
+    # clean up
+    lb.Gene.filter().all().delete()
+
+
+def test_standardize():
     lb.settings.species = "human"
 
     # synonym not in the database
@@ -22,7 +39,13 @@ def test_map_synonyms():
     mapper = lb.Gene.standardize(["ABC1", "LMN1"], return_mapper=True)
     assert mapper == {"LMN1": "LMNA", "ABC1": "HEATR6"}
     assert lb.Gene.standardize(["LMNA"]) == ["LMNA"]
+    assert lb.Gene.standardize("LMNA") == "LMNA"
     assert lb.Gene.standardize(["LMN1"], return_mapper=True) == {"LMN1": "LMNA"}
+
+
+def test_standardize_bionty_aware():
+    result = lb.Gene.standardize(["ABC1", "PDCD1"], bionty_aware=False)
+    assert result == ["ABC1", "PDCD1"]
 
 
 def test_add_remove_synonym():
