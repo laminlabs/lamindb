@@ -1,5 +1,6 @@
 # Changelog
 
+- ♻️ Enable passing AnnData-like `File` object to `Dataset.from_anndata` [PR1085](https://github.com/laminlabs/lamindb/pull/1085) [@falexwolf](https://github.com/falexwolf)
 - ♻️ Refactor transform versioning [PR1080](https://github.com/laminlabs/lamindb/pull/1080) [@falexwolf](https://github.com/falexwolf)
 - ♻️ Refactor FeatureSet & Dataset [PR1083](https://github.com/laminlabs/lamindb/pull/1083) [@falexwolf](https://github.com/falexwolf)
 - 🔊 More consistent logging of inspect [PR1081](https://github.com/laminlabs/lamindb/pull/1081) [@sunnyosun](https://github.com/sunnyosun)
