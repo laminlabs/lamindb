@@ -15,7 +15,7 @@ from lamindb_setup.dev import StorageSettings
 from lamindb_setup.dev._docs import doc_args
 from lamindb_setup.dev._hub_utils import get_storage_region
 from lamindb_setup.dev.upath import create_path
-from lnschema_core import Feature, FeatureSet, File, Run, Storage, ids
+from lnschema_core import Feature, FeatureSet, File, Run, Storage
 from lnschema_core.types import AnnDataLike, DataLike, FieldAttr, PathLike
 
 from lamindb.dev import run_context
@@ -38,6 +38,7 @@ from lamindb.dev.storage.file import (
     filepath_from_file,
 )
 from lamindb.dev.utils import attach_func_to_class_method
+from lamindb.dev.versioning import get_ids_from_old_version, init_id
 
 from . import _TESTING
 from ._feature import convert_numpy_dtype_to_lamin_feature_type
@@ -424,96 +425,6 @@ def data_is_mudata(data: DataLike):  # pragma: no cover
     return False
 
 
-# uses `initial_version_id` to extract a stem_id that's part of id
-# this entire piece of logic might be removed in the future if it doesn't turn out
-# to be robustly maintainable
-def init_id(
-    *,
-    provisional_id: Optional[None] = None,
-    initial_version_id: Optional[str] = None,
-    version: Optional[str] = None,
-) -> str:
-    if version is not None:
-        if not isinstance(version, str):
-            raise ValueError(
-                "`version` parameter must be `None` or `str`, e.g., '0', '1', etc."
-            )
-    if initial_version_id is not None:
-        stem_id = initial_version_id[:18]
-    else:
-        stem_id = None
-    # first consider an unversioned record
-    if version is None and stem_id is None:
-        provisional_id = ids.base62_20()
-        return provisional_id  # type: ignore
-    # now consider a versioned record
-    id_ext = ids.base62(2)
-    if provisional_id is None and stem_id is None:
-        stem_id = ids.base62_18()
-        provisional_id = stem_id + id_ext
-    elif stem_id is not None:
-        assert isinstance(stem_id, str) and len(stem_id) == 18
-        provisional_id = stem_id + id_ext
-    elif provisional_id is not None:
-        assert isinstance(provisional_id, str) and len(provisional_id) == 20
-        stem_id = provisional_id[:18]
-    return provisional_id  # type: ignore
-
-
-def set_version(version: Optional[str] = None, previous_version: Optional[str] = None):
-    """(Auto-) set version.
-
-    If `version` is `None`, returns the stored version.
-    Otherwise sets the version to the passed version.
-
-    Args:
-        version: Version string.
-        stored_version: Mock stored version for testing purposes.
-    """
-    if version is None and previous_version is not None:
-        try:
-            version = str(int(previous_version) + 1)  # increment version by 1
-        except ValueError:
-            raise ValueError(
-                "Cannot auto-increment non-integer castable version, please provide"
-                " manually"
-            )
-    return version
-
-
-def get_ids_from_old_version_of_file(
-    is_new_version_of: File,
-    version: Optional[str],
-) -> Tuple[str, str, str]:
-    """{}"""
-    msg = ""
-    if is_new_version_of.version is None:
-        previous_version = "1"
-        msg = "setting version of old file to '1'"
-    else:
-        previous_version = is_new_version_of.version
-    version = set_version(version, previous_version)
-    if is_new_version_of.initial_version_id is None:
-        initial_version_id = is_new_version_of.id
-    else:
-        initial_version_id = is_new_version_of.initial_version_id
-    new_file_id = init_id(
-        provisional_id=is_new_version_of.id,
-        initial_version_id=initial_version_id,
-        version=version,
-    )
-    # the following covers the edge case where the old file was unversioned
-    if is_new_version_of.version is None:
-        is_new_version_of.version = previous_version
-        is_new_version_of.save()
-        if msg != "":
-            msg += (
-                f"& of new file to '{version}' (initial_version_id ="
-                f" '{initial_version_id}')"
-            )
-    return new_file_id, initial_version_id, version  # type: ignore
-
-
 def __init__(file: File, *args, **kwargs):
     # Below checks for the Django-internal call in from_db()
     # it'd be better if we could avoid this, but not being able to create a File
@@ -549,15 +460,18 @@ def __init__(file: File, *args, **kwargs):
     )
 
     if not len(kwargs) == 0:
-        raise ValueError("Only data, key, run, description can be passed.")
+        raise ValueError(
+            "Only data, key, run, description, version, is_new_version_of can be"
+            " passed."
+        )
 
     if is_new_version_of is None:
-        provisional_id = init_id(version=version)
+        provisional_id = init_id(version=version, n_full_id=20)
     else:
         if not isinstance(is_new_version_of, File):
             raise TypeError("is_new_version_of has to be of type ln.File")
-        provisional_id, initial_version_id, version = get_ids_from_old_version_of_file(
-            is_new_version_of, version
+        provisional_id, initial_version_id, version = get_ids_from_old_version(
+            is_new_version_of, version, n_full_id=20
         )
         if description is None:
             description = is_new_version_of.description

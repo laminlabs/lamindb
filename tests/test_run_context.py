@@ -23,3 +23,8 @@ def test_track_with_reference():
     # unset to remove side effects
     ln.dev.run_context.run = None
     ln.dev.run_context.transform = None
+
+
+def test_track_notebook_colab():
+    notebook_path = "/fileId=1KskciVXleoTeS_OGoJasXZJreDU9La_l"
+    ln.dev.run_context._track(notebook_path=notebook_path)
