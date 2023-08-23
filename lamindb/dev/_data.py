@@ -54,7 +54,7 @@ def save_transform_run_feature_sets(self: Union[File, Dataset]) -> None:
     if hasattr(self, "_feature_sets"):
         saved_feature_sets = {}
         for key, feature_set in self._feature_sets.items():
-            if feature_set._state.adding:
+            if isinstance(feature_set, FeatureSet) and feature_set._state.adding:
                 feature_set.save()
                 saved_feature_sets[key] = feature_set
         if len(saved_feature_sets) > 0:
