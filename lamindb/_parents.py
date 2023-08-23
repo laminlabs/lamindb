@@ -32,7 +32,7 @@ def _view(u):
             return display(u)
         else:
             return u
-    except (FileNotFoundError, RuntimeError):
+    except (FileNotFoundError, RuntimeError):  # pragma: no cover
         logger.error(
             "please install the graphviz executable on your system:\n  - Ubuntu: `sudo"
             " apt-get install graphviz`\n  - Windows:"

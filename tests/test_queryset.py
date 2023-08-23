@@ -27,6 +27,7 @@ def test_df():
     # for other models
     feature_names = [f"Feature {i}" for i in range(3)]
     features = [ln.Feature(name=name, type=int) for name in feature_names]
+    ln.save(features)
     feature_set = ln.FeatureSet(features, name="my feature_set")
     feature_set.save()
     feature_set.features.set(features)
@@ -51,6 +52,9 @@ def test_df():
     project_label.delete()
     for label in labels:
         label.delete()
+
+    for feature in features:
+        feature.delete()
 
     # call it from a non-select-derived queryset
     qs = ln.User.objects.all()

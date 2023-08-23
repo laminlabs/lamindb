@@ -176,6 +176,7 @@ def test_create_from_dataframe_using_from_df():
 
 
 def test_create_from_anndata_in_memory():
+    ln.save(lb.Gene.from_values(adata.var.index, "symbol"))
     ln.save(ln.Feature.from_df(adata.obs))
     file = ln.File.from_anndata(adata, description="test", var_ref=lb.Gene.symbol)
     assert file.accessor == "AnnData"
@@ -427,46 +428,6 @@ def test_create_big_file_from_remote_path():
     assert file.hash.endswith("-2")
     assert file.hash_type == "md5-n"
     ln.settings.storage = previous_storage
-
-
-def test_inherit_relations():
-    with open("./default_storage/test-inherit1", "w") as f:
-        f.write("file1")
-    with open("./default_storage/test-inherit2", "w") as f:
-        f.write("file2")
-
-    file1 = ln.File("./default_storage/test-inherit1")
-    file1.save()
-    file2 = ln.File("./default_storage/test-inherit2")
-    file2.save()
-
-    label_names = [f"Project {i}" for i in range(3)]
-    labels = [ln.Label(name=label_name) for label_name in label_names]
-    ln.save(labels)
-
-    cell_line_names = [f"Cell line {i}" for i in range(3)]
-    cell_lines = [lb.CellLine(name=name) for name in cell_line_names]
-    ln.save(cell_lines)
-
-    file2.labels.set(labels)
-    file2.cell_lines.set(cell_lines)
-
-    assert file1.labels.exists() is False
-    file1.inherit_relations(file2, ["labels"])
-    assert file1.labels.count() == file2.labels.count()
-    assert file1.cell_lines.exists() is False
-    file1.inherit_relations(file2)
-    assert file1.cell_lines.count() == file2.cell_lines.count()
-
-    with pytest.raises(KeyError):
-        file1.inherit_relations(file2, ["not_exist_field"])
-
-    for label in labels:
-        label.delete()
-    for cell_line in cell_lines:
-        cell_line.delete()
-    file1.delete(storage=True)
-    file2.delete(storage=True)
 
 
 # -------------------------------------------------------------------------------------

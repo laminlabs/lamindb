@@ -462,7 +462,7 @@ def __init__(file: File, *args, **kwargs):
     if not len(kwargs) == 0:
         raise ValueError(
             "Only data, key, run, description, version, is_new_version_of can be"
-            " passed."
+            f" passed, you passed: {kwargs}"
         )
 
     if is_new_version_of is None:
@@ -510,14 +510,14 @@ def __init__(file: File, *args, **kwargs):
     if isinstance(data, pd.DataFrame):
         if log_hint:
             logger.hint(
-                "file is a dataframe, consider using File.from_df() to link column"
+                "data is a dataframe, consider using .from_df() to link column"
                 " names as features"
             )
         kwargs["accessor"] = "DataFrame"
     elif data_is_anndata(data):
         if log_hint:
             logger.hint(
-                "file is AnnDataLike, consider using File.from_anndata() to link"
+                "data is AnnDataLike, consider using .from_anndata() to link"
                 " var_names and obs.columns as features"
             )
         kwargs["accessor"] = "AnnData"
@@ -568,19 +568,7 @@ def from_df(
     return file
 
 
-@classmethod  # type: ignore
-@doc_args(File.from_anndata.__doc__)
-def from_anndata(
-    cls,
-    adata: "AnnDataLike",
-    var_ref: Optional[FieldAttr],
-    obs_columns_ref: Optional[FieldAttr] = Feature.name,
-    key: Optional[str] = None,
-    description: Optional[str] = None,
-    run: Optional[Run] = None,
-) -> "File":
-    """{}"""
-    file = File(data=adata, key=key, run=run, description=description, log_hint=False)
+def parse_feature_sets_from_anndata(adata: AnnDataLike, var_ref: Optional[FieldAttr]):
     data_parse = adata
     if not isinstance(adata, AnnData):  # is a path
         filepath = create_path(adata)  # returns Path for local
@@ -601,7 +589,6 @@ def from_anndata(
         var_ref,
         type=type,
     )
-
     if feature_set_var is not None:
         feature_sets["var"] = feature_set_var
         logger.save(f"linked: {feature_set_var}")
@@ -614,7 +601,22 @@ def from_anndata(
             feature_sets["obs"] = feature_set_obs
             logger.save(f"linked: {feature_set_obs}")
         logger.indent = ""
-    file._feature_sets = feature_sets
+    return feature_sets
+
+
+@classmethod  # type: ignore
+@doc_args(File.from_anndata.__doc__)
+def from_anndata(
+    cls,
+    adata: "AnnDataLike",
+    var_ref: Optional[FieldAttr],
+    key: Optional[str] = None,
+    description: Optional[str] = None,
+    run: Optional[Run] = None,
+) -> "File":
+    """{}"""
+    file = File(data=adata, key=key, run=run, description=description, log_hint=False)
+    file._feature_sets = parse_feature_sets_from_anndata(adata, var_ref)
     return file
 
 
@@ -969,53 +971,6 @@ def tree(
     )
 
 
-def inherit_relations(self, file: File, fields: Optional[List[str]] = None):
-    """Inherit many-to-many relationships from another file.
-
-    Examples:
-        >>> file1 = ln.File(pd.DataFrame(index=[0,1]))
-        >>> file1.save()
-        >>> file2 = ln.File(pd.DataFrame(index=[2,3]))
-        >>> file2.save()
-        >>> ln.save(ln.Label.from_values(["Label1", "Label2", "Label3"], field="name"))
-        >>> labels = ln.Label.filter(name__icontains = "label").all()
-        >>> file1.labels.set(labels)
-        >>> file2.inherit_relations(file1, ["labels"])
-        💬 Inheriting 1 field: ['labels']
-        >>> file2.labels.list("name")
-        ['Label1', 'Label2', 'Label3']
-    """
-    if fields is None:
-        # fields in the model definition
-        related_names = [i.name for i in file._meta.many_to_many]
-        # fields back linked
-        related_names += [i.related_name for i in file._meta.related_objects]
-    else:
-        related_names = []
-        for field in fields:
-            if hasattr(file, field):
-                related_names.append(field)
-            else:
-                raise KeyError(f"No many-to-many relationship is found with '{field}'")
-
-    if None in related_names:
-        related_names.remove(None)
-
-    inherit_names = [
-        related_name
-        for related_name in related_names
-        if related_name is not None
-        if file.__getattribute__(related_name).exists()
-    ]
-
-    s = "s" if len(inherit_names) > 1 else ""
-    logger.info(f"inheriting {len(inherit_names)} field{s}: {inherit_names}")
-    for related_name in inherit_names:
-        self.__getattribute__(related_name).set(
-            file.__getattribute__(related_name).all()
-        )
-
-
 METHOD_NAMES = [
     "__init__",
     "from_anndata",
@@ -1047,5 +1002,4 @@ File._delete_skip_storage = _delete_skip_storage
 File._save_skip_storage = _save_skip_storage
 # TODO: move these to METHOD_NAMES
 setattr(File, "view_lineage", view_lineage)
-setattr(File, "inherit_relations", inherit_relations)
 setattr(File, "path", path)

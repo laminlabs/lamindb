@@ -52,13 +52,17 @@ def save_transform_run_feature_sets(self: Union[File, Dataset]) -> None:
     if self.run is not None:
         self.run.save()
     if hasattr(self, "_feature_sets"):
-        for feature_set in self._feature_sets.values():
-            feature_set.save()
-        s = "s" if len(self._feature_sets) > 1 else ""
-        logger.save(
-            f"saved {len(self._feature_sets)} feature set{s} for slot{s}:"
-            f" {list(self._feature_sets.keys())}"
-        )
+        saved_feature_sets = {}
+        for key, feature_set in self._feature_sets.items():
+            if isinstance(feature_set, FeatureSet) and feature_set._state.adding:
+                feature_set.save()
+                saved_feature_sets[key] = feature_set
+        if len(saved_feature_sets) > 0:
+            s = "s" if len(saved_feature_sets) > 1 else ""
+            logger.save(
+                f"saved {len(saved_feature_sets)} feature set{s} for slot{s}:"
+                f" {list(saved_feature_sets.keys())}"
+            )
 
 
 def save_feature_set_links(self: Union[File, Dataset]) -> None:
