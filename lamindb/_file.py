@@ -537,7 +537,7 @@ def __init__(file: File, *args, **kwargs):
     ):
         raise ValueError("Pass one of key, run or description as a parameter")
 
-    add_transform_to_kwargs(kwargs, run)
+    add_transform_to_kwargs(kwargs, kwargs["run"])
 
     if data is not None:
         file._local_filepath = privates["local_filepath"]
