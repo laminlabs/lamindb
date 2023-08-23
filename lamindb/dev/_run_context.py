@@ -133,6 +133,7 @@ def get_transform_kwargs_from_nbproject(
         id__startswith=nbproject_id, version=version
     ).one_or_none()
     name = nbproject_title
+    old_version_of = None
     if transform is None:
         old_version_of = Transform.filter(id__startswith=nbproject_id).first()
     return transform, id, version, name, old_version_of
