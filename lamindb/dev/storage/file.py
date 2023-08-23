@@ -179,7 +179,7 @@ def delete_storage(storagepath: Union[Path, UPath]):
         else:
             shutil.rmtree(storagepath)
     else:
-        logger.warning(f"{storagepath} is not an existing path!")
+        raise FileNotFoundError(f"{storagepath} is not an existing path!")
 
 
 # tested in lamin-usecases
