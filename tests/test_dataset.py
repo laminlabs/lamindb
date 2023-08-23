@@ -6,6 +6,8 @@ import pytest
 
 import lamindb as ln
 
+df = pd.DataFrame({"feat1": [1, 2], "feat2": [3, 4]})
+
 adata = ad.AnnData(
     X=np.array([[1, 2, 3], [4, 5, 6]]),
     obs=dict(feat1=["A", "B"]),
@@ -71,12 +73,14 @@ def test_create_delete_from_single_anndata():
     dataset.delete(storage=True)
     assert ln.File.filter(id=dataset.id).one_or_none() is None
     assert ln.File.filter(id=dataset.file.id).one_or_none() is None
-    # let's try passing a file & link feature sets
-    file = ln.File(adata, description="my adata")
-    file.save()
+    # and now with from_anndata
     lb.settings.species = "human"
-    ln.save(lb.Gene.from_values(adata.var.index, "symbol"))
+    dataset = ln.Dataset.from_anndata(adata, name="My adata", var_ref=lb.Gene.symbol)
+    # let's now try passing an AnnData-like file with some feature sets linked
     ln.save(ln.Feature.from_df(adata.obs))
+    file = ln.File.from_anndata(adata, description="my adata", var_ref=lb.Gene.symbol)
+    file.save()
+    ln.save(lb.Gene.from_values(adata.var.index, "symbol"))
     dataset = ln.Dataset.from_anndata(file, name="My dataset", var_ref=lb.Gene.symbol)
     dataset.save()
     feature_sets_queried = dataset.feature_sets.all()
@@ -112,3 +116,11 @@ def test_from_single_file():
     dataset.delete(storage=True)
     assert ln.File.filter(id=dataset.id).one_or_none() is None
     assert ln.File.filter(id=dataset.file.id).one_or_none() is None
+
+
+def test_edge_cases():
+    with pytest.raises(ValueError) as error:
+        ln.Dataset(df, invalid_param=1)
+    assert str(error.exconly()).startswith(
+        "ValueError: Only data, name, run, description can be passed, you passed: "
+    )
