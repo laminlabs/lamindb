@@ -49,9 +49,15 @@ def test_standardize_bionty_aware():
 
 
 def test_add_remove_synonym():
+    # a registry that cannot validate
     bionty_source = lb.BiontySource.filter(species="human").first()
-    with pytest.raises(NotImplementedError):
+    with pytest.raises(AttributeError):
         bionty_source.add_synonym("syn")
+
+    # a registry that doesn't have a synonyms column
+    user = ln.User.filter(handle="testuser1").one()
+    with pytest.raises(NotImplementedError):
+        user.add_synonym("syn")
 
     cell_types = lb.CellType.from_values(["T cell", "B cell"], "name")
     ln.save(cell_types, parents=False)
