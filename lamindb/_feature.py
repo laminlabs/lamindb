@@ -90,7 +90,7 @@ def from_df(cls, df: "pd.DataFrame") -> List["Feature"]:
         else:
             types[name] = convert_numpy_dtype_to_lamin_feature_type(col.dtype)
 
-    features = [Feature(name=name, types=type) for name, type in types.items()]
+    features = [Feature(name=name, type=type) for name, type in types.items()]
     assert len(features) == len(df.columns)
 
     # if len(categoricals_with_unmapped_categories) > 0:
