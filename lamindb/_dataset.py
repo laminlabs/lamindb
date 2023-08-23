@@ -9,6 +9,7 @@ from lnschema_core.types import AnnDataLike, FieldAttr
 
 from . import File, Run
 from ._file import parse_feature_sets_from_anndata
+from ._registry import init_self_from_db
 from .dev._data import (
     add_transform_to_kwargs,
     get_run,
@@ -76,17 +77,22 @@ def __init__(
             hash, feature_sets = from_files(files)  # type: ignore
         else:
             raise ValueError("Only DataFrame, AnnData and iterable of File is allowed")
-    kwargs = {}
-    add_transform_to_kwargs(kwargs, run)
-    super(Dataset, dataset).__init__(
-        id=id,
-        name=name,
-        description=description,
-        file=file,
-        hash=hash,
-        run=run,
-        **kwargs,
-    )
+    existing_dataset = Dataset.filter(hash=hash).one_or_none()
+    if existing_dataset is not None:
+        logger.success(f"loaded: {existing_dataset}")
+        init_self_from_db(dataset, existing_dataset)
+    else:
+        kwargs = {}
+        add_transform_to_kwargs(kwargs, run)
+        super(Dataset, dataset).__init__(
+            id=id,
+            name=name,
+            description=description,
+            file=file,
+            hash=hash,
+            run=run,
+            **kwargs,
+        )
     dataset._files = files
     dataset._feature_sets = feature_sets
 
