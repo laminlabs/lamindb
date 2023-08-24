@@ -1,5 +1,6 @@
 # Changelog
 
+- 📝 Polish tutorial [PR1093](https://github.com/laminlabs/lamindb/pull/1093) [@falexwolf](https://github.com/falexwolf)
 ```{eval-rst}
 .. role:: small
 ```
