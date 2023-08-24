@@ -1,38 +1,31 @@
 # Changelog
 
-- ♻️ Make suffix non-nullable and root unique [PR1090](https://github.com/laminlabs/lamindb/pull/1090) [@falexwolf](https://github.com/falexwolf)
-- ♻️ Add `view_lineage` to `Dataset` [PR1089](https://github.com/laminlabs/lamindb/pull/1089) [@falexwolf](https://github.com/falexwolf)
-- 💚 Fix Dataset.describe() bug [PR1088](https://github.com/laminlabs/lamindb/pull/1088) [@falexwolf](https://github.com/falexwolf)
-- 🔥 Disable creating non-validated records with `from_values` [PR1086](https://github.com/laminlabs/lamindb/pull/1086) [@sunnyosun](https://github.com/sunnyosun)
-- ♻️ Enable passing AnnData-like `File` object to `Dataset.from_anndata` [PR1085](https://github.com/laminlabs/lamindb/pull/1085) [@falexwolf](https://github.com/falexwolf)
-- ♻️ Refactor transform versioning [PR1080](https://github.com/laminlabs/lamindb/pull/1080) [@falexwolf](https://github.com/falexwolf)
-- ♻️ Refactor FeatureSet & Dataset [PR1083](https://github.com/laminlabs/lamindb/pull/1083) [@falexwolf](https://github.com/falexwolf)
-- 🔊 More consistent logging of inspect [PR1081](https://github.com/laminlabs/lamindb/pull/1081) [@sunnyosun](https://github.com/sunnyosun)
-- 🔥 Removed inherit_relations [PR1079](https://github.com/laminlabs/lamindb/pull/1079) [@sunnyosun](https://github.com/sunnyosun)
-- ♻️ Use `CanValidate` & `HasParents` [PR1078](https://github.com/laminlabs/lamindb/pull/1078) [@falexwolf](https://github.com/falexwolf)
-- 👷 Main is the new staging, release the new production branch [PR1077](https://github.com/laminlabs/lamindb/pull/1077) [@falexwolf](https://github.com/falexwolf)
-- 🎉 Stage 0.51 (2) [PR1063](https://github.com/laminlabs/lamindb/pull/1063) [@falexwolf](https://github.com/falexwolf)
-- ♻️ Refactor tutorial1 [PR1076](https://github.com/laminlabs/lamindb/pull/1076) [@falexwolf](https://github.com/falexwolf)
-- ♻️ Add `transform`, `run` & `input_of` to `Dataset` [PR1074](https://github.com/laminlabs/lamindb/pull/1074) [@falexwolf](https://github.com/falexwolf)
-- 🚸 Better UX of graphviz installation [PR1075](https://github.com/laminlabs/lamindb/pull/1075) [@sunnyosun](https://github.com/sunnyosun)
-- 👷 Run tutorial on anonymous worker [PR1073](https://github.com/laminlabs/lamindb/pull/1073) [@falexwolf](https://github.com/falexwolf)
-- ♻️ Use `create_path` [PR1072](https://github.com/laminlabs/lamindb/pull/1072) [@falexwolf](https://github.com/falexwolf)
-- 🎨 Make `from_values` synonyms aware, `inspect` bionty aware [PR1066](https://github.com/laminlabs/lamindb/pull/1066) [@sunnyosun](https://github.com/sunnyosun)
-- 📝 Write section on labels & features for files [PR1071](https://github.com/laminlabs/lamindb/pull/1071) [@falexwolf](https://github.com/falexwolf)
-- 📝 Break out tutorial in two parts [PR1070](https://github.com/laminlabs/lamindb/pull/1070) [@falexwolf](https://github.com/falexwolf)
-- ♻️ Use principled conversion to paths with options inheritance [PR1069](https://github.com/laminlabs/lamindb/pull/1069) [@Koncopd](https://github.com/Koncopd)
-- ♻️ Improve tutorial [PR1068](https://github.com/laminlabs/lamindb/pull/1068) [@falexwolf](https://github.com/falexwolf)
-- ♻️ Refactor tutorial and some storage code [PR1067](https://github.com/laminlabs/lamindb/pull/1067) [@falexwolf](https://github.com/falexwolf)
-- 🐛 Fix tree view for anonymous access [PR1065](https://github.com/laminlabs/lamindb/pull/1065) [@falexwolf](https://github.com/falexwolf)
-- ✅ Fix coverage compute for hashing [PR1064](https://github.com/laminlabs/lamindb/pull/1064) [@falexwolf](https://github.com/falexwolf)
 ```{eval-rst}
 .. role:: small
 ```
 
 ## 0.51
 
-### 0.51a1 {small}`2023-08-18`
+### 0.51.0 {small}`2023-08-24`
 
+- ♻️ Make suffix non-nullable and root unique [PR1090](https://github.com/laminlabs/lamindb/pull/1090) [@falexwolf](https://github.com/falexwolf)
+- ♻️ Add `view_lineage` to `Dataset` [PR1089](https://github.com/laminlabs/lamindb/pull/1089) [@falexwolf](https://github.com/falexwolf)
+- 🔥 Disable creating non-validated records with `from_values` [PR1086](https://github.com/laminlabs/lamindb/pull/1086) [@sunnyosun](https://github.com/sunnyosun)
+- ♻️ Enable passing AnnData-like `File` object to `Dataset.from_anndata` [PR1085](https://github.com/laminlabs/lamindb/pull/1085) [@falexwolf](https://github.com/falexwolf)
+- 🔊 More consistent logging of inspect [PR1081](https://github.com/laminlabs/lamindb/pull/1081) [@sunnyosun](https://github.com/sunnyosun)
+- 🔥 Removed inherit_relations [PR1079](https://github.com/laminlabs/lamindb/pull/1079) [@sunnyosun](https://github.com/sunnyosun)
+- ♻️ Use `CanValidate` & `HasParents` [PR1078](https://github.com/laminlabs/lamindb/pull/1078) [@falexwolf](https://github.com/falexwolf)
+- 👷 Main is the new staging, release the new production branch [PR1077](https://github.com/laminlabs/lamindb/pull/1077) [@falexwolf](https://github.com/falexwolf)
+- 🎉 Stage 0.51 (2) [PR1063](https://github.com/laminlabs/lamindb/pull/1063) [@falexwolf](https://github.com/falexwolf)
+- ♻️ Refactor tutorial [PR1076](https://github.com/laminlabs/lamindb/pull/1076) [@falexwolf](https://github.com/falexwolf)
+- ♻️ Add `transform`, `run` & `input_of` to `Dataset` [PR1074](https://github.com/laminlabs/lamindb/pull/1074) [@falexwolf](https://github.com/falexwolf)
+- 🚸 Better UX of graphviz installation [PR1075](https://github.com/laminlabs/lamindb/pull/1075) [@sunnyosun](https://github.com/sunnyosun)
+- 👷 Run tutorial on anonymous worker [PR1073](https://github.com/laminlabs/lamindb/pull/1073) [@falexwolf](https://github.com/falexwolf)
+- ♻️ Use `create_path` [PR1072](https://github.com/laminlabs/lamindb/pull/1072) [@falexwolf](https://github.com/falexwolf)
+- 🎨 Make `from_values` synonyms aware, `inspect` bionty aware [PR1066](https://github.com/laminlabs/lamindb/pull/1066) [@sunnyosun](https://github.com/sunnyosun)
+- ♻️ Use principled conversion to paths with options inheritance [PR1069](https://github.com/laminlabs/lamindb/pull/1069) [@Koncopd](https://github.com/Koncopd)
+- ♻️ Refactor tutorial and some storage code [PR1067](https://github.com/laminlabs/lamindb/pull/1067) [@falexwolf](https://github.com/falexwolf)
+- 🐛 Fix tree view for anonymous access [PR1065](https://github.com/laminlabs/lamindb/pull/1065) [@falexwolf](https://github.com/falexwolf)
 - 🍱 Add the Iris images dev dataset [PR1062](https://github.com/laminlabs/lamindb/pull/1062) [@falexwolf](https://github.com/falexwolf)
 - 🚚 `Dataset.from_files` replaced with default constructor  [PR1060](https://github.com/laminlabs/lamindb/pull/1060) [@falexwolf](https://github.com/falexwolf)
 - 🍱 Added `populate_registries` to some datasets [PR1061](https://github.com/laminlabs/lamindb/pull/1061) [@sunnyosun](https://github.com/sunnyosun)
