@@ -1,5 +1,6 @@
 # Changelog
 
+- 🚑️ Fix pre-populate of datasets [PR1094](https://github.com/laminlabs/lamindb/pull/1094) [@sunnyosun](https://github.com/sunnyosun)
 - 📝 Polish tutorial [PR1093](https://github.com/laminlabs/lamindb/pull/1093) [@falexwolf](https://github.com/falexwolf)
 ```{eval-rst}
 .. role:: small
