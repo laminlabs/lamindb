@@ -58,9 +58,12 @@ def save_transform_run_feature_sets(self: Union[File, Dataset]) -> None:
                 saved_feature_sets[key] = feature_set
         if len(saved_feature_sets) > 0:
             s = "s" if len(saved_feature_sets) > 1 else ""
+            display_feature_set_keys = ",".join(
+                f"'{key}'" for key in saved_feature_sets.keys()
+            )
             logger.save(
                 f"saved {len(saved_feature_sets)} feature set{s} for slot{s}:"
-                f" {list(saved_feature_sets.keys())}"
+                f" {display_feature_set_keys}"
             )
 
 
