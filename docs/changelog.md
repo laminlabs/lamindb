@@ -1,5 +1,6 @@
 # Changelog
 
+- ✏️ Fix transform emoji [PR1097](https://github.com/laminlabs/lamindb/pull/1097) [@sunnyosun](https://github.com/sunnyosun)
 - 📝 Update readme [PR1096](https://github.com/laminlabs/lamindb/pull/1096) [@sunnyosun](https://github.com/sunnyosun)
 - 🎨 Make species not nullable in Gene, Protein, CellType [PR1095](https://github.com/laminlabs/lamindb/pull/1095) [@sunnyosun](https://github.com/sunnyosun)
 - 🚑️ Fix pre-populate of datasets [PR1094](https://github.com/laminlabs/lamindb/pull/1094) [@sunnyosun](https://github.com/sunnyosun)
