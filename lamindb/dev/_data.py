@@ -17,7 +17,6 @@ from lnschema_core.models import (
 
 from .._query_set import QuerySet
 from .._registry import get_default_str_field
-from .._save import save
 from ._feature_manager import (
     FeatureManager,
     create_features_df,
@@ -146,14 +145,15 @@ def describe(self):
         msg += f"⬇️ input_of ({colors.italic('core.Run')}): {values}\n    "
     msg = msg.rstrip("    ")
 
-    # Display Features by slot
-    feature_sets = self.feature_sets.exclude(registry="core.Feature")
-    if feature_sets.exists():
+    feature_sets_all = self.feature_sets.all()
+    if len(feature_sets_all) > 0:
         msg += f"{colors.green('Features')}:\n"
+    feature_sets_subset = feature_sets_all.exclude(registry="core.Feature")
+    if feature_sets_subset.exists():
         feature_sets_related_models = dict_related_model_to_related_name(
-            self.feature_sets.first()
+            feature_sets_subset.first()
         )
-        for feature_set in feature_sets.all():
+        for feature_set in feature_sets_subset:
             key_split = feature_set.registry.split(".")
             if len(key_split) == 3:
                 logger.warning(
@@ -176,9 +176,8 @@ def describe(self):
                     "]", "...]"
                 )
 
-    # obs
-    # Feature, combine all features into one dataframe
-    feature_sets = self.feature_sets.filter(registry="core.Feature").all()
+    # display core.Feature features
+    feature_sets = feature_sets_all.filter(registry="core.Feature").all()
     if feature_sets.exists():
         features_df = create_features_df(
             host=self, feature_sets=feature_sets.all(), exclude=True
@@ -313,8 +312,6 @@ def add_labels(
         records_by_feature_orm[
             (record_feature, record.__class__.__get_name_with_schema__())
         ].append(record)
-    # ensure all labels are saved
-    save(records)
     for (feature, orm_name), records in records_by_feature_orm.items():
         getattr(self, self.features._accessor_by_orm[orm_name]).add(
             *records, through_defaults={"feature_id": feature.id}
@@ -359,16 +356,34 @@ def add_labels(
             if feature in linked_features:
                 found_feature = True
         if not found_feature:
-            if "external" not in linked_features_by_slot:
-                feature_set = FeatureSet([feature], modality="meta")
-                feature_set.save()
-                self.features.add_feature_set(feature_set, slot="external")
-            else:
+            if "external" in linked_features_by_slot:
                 feature_set = self.features._feature_set_by_slot["external"]
-                feature_set.features.add(feature)
-                feature_set.n += 1
-                feature_set.save()
-            logger.save(f"linked feature {feature.name} to feature set {feature_set}")
+                features_list = feature_set.features.list()
+            else:
+                features_list = []
+            features_list.append(feature)
+            feature_set = FeatureSet(features_list, modality="meta")
+            feature_set.save()
+            if "external" in linked_features_by_slot:
+                old_feature_set_link = feature_set_links.filter(slot="external").one()
+                old_feature_set_link.delete()
+                remaining_links = self.feature_sets.through.objects.filter(
+                    feature_set_id=feature_set.id
+                ).all()
+                if len(remaining_links) == 0:
+                    old_feature_set = FeatureSet.filter(
+                        id=old_feature_set_link.feature_set_id
+                    ).one()
+                    logger.info(
+                        "no file links to it anymore, deleting feature set"
+                        f" {old_feature_set}"
+                    )
+                    old_feature_set.delete()
+            self.features.add_feature_set(feature_set, slot="external")
+            logger.save(
+                f"linked new feature '{feature.name}' together with new feature set"
+                f" {feature_set}"
+            )
 
 
 @property  # type: ignore
