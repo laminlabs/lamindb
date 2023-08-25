@@ -31,7 +31,7 @@ Init a LaminDB instance with local or cloud default storage like you'd init a gi
 $ lamin init --storage ./mydata   # or s3://my-bucket, gs://my-bucket
 ```
 
-Validate & register a `DataFrame` containing basic metadata:
+Validate & register a `DataFrame` that comes with basic metadata:
 
 ```python
 import lamindb as ln
