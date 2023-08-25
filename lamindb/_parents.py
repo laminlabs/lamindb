@@ -231,7 +231,7 @@ def _df_edges_from_parents(
         df_edges["source_label"] = df_edges["source_record"].apply(
             lambda x: x.__getattribute__(field)
         )
-        df_edges["target_label"] = df_edges["target_label"].apply(
+        df_edges["target_label"] = df_edges["target_record"].apply(
             lambda x: x.__getattribute__(field)
         )
     return df_edges
