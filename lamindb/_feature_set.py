@@ -96,9 +96,7 @@ def __init__(self, *args, **kwargs):
     else:
         type = float
     n_features = len(features)
-    print(features)
     features_hash = hash_set({feature.id for feature in features})
-    print(features_hash)
     feature_set = FeatureSet.filter(hash=features_hash).one_or_none()
     if feature_set is not None:
         logger.success(f"loaded: {feature_set}")
