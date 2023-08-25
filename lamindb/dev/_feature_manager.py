@@ -98,9 +98,9 @@ class FeatureManager:
                 if feature_set.modality is None:
                     no_modality.append(feature_set.id)
             if len(no_modality) > 0:
-                ids = ", ".join(no_modality)
+                ids = ", ".join(f"'{key}'" for key in no_modality)
                 s = "" if len(no_modality) == 1 else "s"
-                logger.info(f"consider assigning modality to feature set{s}: {ids}")
+                logger.debug(f"consider assigning modality to feature set{s}: {ids}")
             return msg
         else:
             return "no linked features"

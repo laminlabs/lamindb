@@ -13,7 +13,7 @@ adata.obs["cell_type_from_expert"] = adata.obs["cell_type"]
 adata.obs.loc["obs0", "cell_type_from_expert"] = "B cell"
 
 
-def test_features_add_labels():
+def test_add_labels():
     label = ln.Label(name="Experiment 1")
     file = ln.File(adata, description="test")
     file.save()
@@ -35,12 +35,37 @@ def test_features_add_labels():
         " correct: ln.Feature(name='experiment', type='category',"
         " registries='core.Label').save()"
     )
-    ln.Feature(name="experiment", type="category", registries="core.Label").save()
+    ln.Feature(name="experiment", type="category").save()
     file.add_labels(label, feature="experiment")
-    file.add_labels(ln.Label.filter(name="Experiment 1").all(), feature="experiment")
+    # check that the feature was updated with registries = "core.Label"
     feature = ln.Feature.filter(name="experiment").one()
-    assert feature.type == "category"
     assert feature.registries == "core.Label"
+    # check that the label is there, it's exactly one label with name "Experiment 1"
+    experiment = file.get_labels("experiment")
+    assert experiment.get().name == "Experiment 1"
+
+    # try adding the same label again, nothing should happen
+    file.add_labels(label, feature="experiment")
+    # check that the label is there, it's exactly one label with name "Experiment 1"
+    experiments = file.get_labels("experiment")
+    assert experiments.get().name == "Experiment 1"
+
+    feature_set_n1 = ln.FeatureSet.filter(features__name="experiment").one()
+
+    # now, try adding a new label for a new feature, extending the feature set
+    project = ln.Label(name="project 1")
+    project.save()
+    ln.Feature(name="project", type="category").save()
+    file.add_labels(project, feature="project")
+    # check that the label is there, it's exactly one label with name "Experiment 1"
+    projects = file.get_labels("project")
+    assert projects.get().name == "project 1"
+
+    # here, we test that feature_set_n1 was removed because it was no longer
+    # linked to any file
+    feature_set_n2 = ln.FeatureSet.filter(features__name="experiment").one()
+    assert feature_set_n1.id != feature_set_n2.id
+    assert file.feature_sets.get() == feature_set_n2
 
     file.delete(storage=True)
     ln.Feature.filter().all().delete()
@@ -48,7 +73,7 @@ def test_features_add_labels():
     ln.FeatureSet.filter().all().delete()
 
 
-def test_features_add_labels_using_anndata():
+def test_add_labels_using_anndata():
     species = lb.Species.from_bionty(name="mouse")
     cell_types = [lb.CellType(name=name) for name in adata.obs["cell_type"].unique()]
     ln.save(cell_types)
