@@ -164,7 +164,7 @@ def _view_parents(
         fillcolor=LAMIN_GREEN_LIGHTER,
     )
     for _, row in df_edges.iterrows():
-        u.node(row["source"], label=_add_emoji(record, row["source_label"]))
+        u.node(row["source"], label=_add_emoji(row["source"], row["source_label"]))
         u.edge(row["source"], row["target"], color="dimgrey")
 
     _view(u)
