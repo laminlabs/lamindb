@@ -72,7 +72,7 @@ def view_lineage(file: File, with_children: bool = True):
         all_runs.update(_get_all_child_runs(file))
     df_edges = _df_edges_from_runs(all_runs)
 
-    file_label = _label_file_run(file)
+    file_label = _label_file_run_transform(file)
 
     u = graphviz.Digraph(
         file.id,
@@ -160,7 +160,7 @@ def _view_parents(
     )
     u.node(
         record.id,
-        label=_label_file_run(record)
+        label=_label_file_run_transform(record)
         if record.__class__.__name__ == "Transform"
         else _add_emoji(record, record_label),
         fillcolor=LAMIN_GREEN_LIGHTER,
@@ -221,8 +221,12 @@ def _df_edges_from_parents(
     df_edges["source_record"] = df_edges["source"].apply(lambda x: all.get(id=x))
     df_edges["target_record"] = df_edges["target"].apply(lambda x: all.get(id=x))
     if record.__class__.__name__ == "Transform":
-        df_edges["source_label"] = df_edges["source_record"].apply(_label_file_run)
-        df_edges["target_label"] = df_edges["target_record"].apply(_label_file_run)
+        df_edges["source_label"] = df_edges["source_record"].apply(
+            _label_file_run_transform
+        )
+        df_edges["target_label"] = df_edges["target_record"].apply(
+            _label_file_run_transform
+        )
     else:
         df_edges["source_label"] = df_edges["source_record"].apply(
             lambda x: x.__getattribute__(field)
@@ -273,7 +277,7 @@ def _get_all_child_runs(file: File):
     return all_runs
 
 
-def _label_file_run(record: Union[File, Run, Transform]):
+def _label_file_run_transform(record: Union[File, Run, Transform]):
     if isinstance(record, File):
         if record.description is None:
             name = record.key
@@ -318,8 +322,8 @@ def _df_edges_from_runs(all_runs: List[Run]):
     df = df.drop_duplicates()
     df["source"] = [i.id for i in df["source_record"]]
     df["target"] = [i.id for i in df["target_record"]]
-    df["source_label"] = df["source_record"].apply(_label_file_run)
-    df["target_label"] = df["target_record"].apply(_label_file_run)
+    df["source_label"] = df["source_record"].apply(_label_file_run_transform)
+    df["target_label"] = df["target_record"].apply(_label_file_run_transform)
     return df
 
 
