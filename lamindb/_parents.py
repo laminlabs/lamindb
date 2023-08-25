@@ -159,8 +159,10 @@ def _view_parents(
         edge_attr={"arrowsize": "0.5"},
     )
     u.node(
-        record_label.replace(":", "_"),
-        label=_add_emoji(record, record_label),
+        record.id,
+        label=_label_file_run(record)
+        if record.__class__.__name__ == "Transform"
+        else _add_emoji(record, record_label),
         fillcolor=LAMIN_GREEN_LIGHTER,
     )
     for _, row in df_edges.iterrows():
@@ -203,22 +205,31 @@ def _df_edges_from_parents(
     parents = _get_parents(
         record=record, field=field, distance=distance, children=children
     )
-    records = parents | record.__class__.objects.filter(id=record.id)
-    df = records.distinct().df(include=[f"{key}__{field}"])
-    df_edges = df[[f"{key}__{field}", field]]
-    df_edges = df_edges.explode(f"{key}__{field}")
+    all = record.__class__.objects
+    records = parents | all.filter(id=record.id)
+    df = records.distinct().df(include=[f"{key}__id"])
+    df_edges = df[[f"{key}__id"]]
+    df_edges = df_edges.explode(f"{key}__id")
+    df_edges.index.name = "target"
+    df_edges = df_edges.reset_index()
     df_edges.dropna(axis=0, inplace=True)
-    df_edges.rename(
-        columns={f"{key}__{field}": "source", field: "target"}, inplace=True
-    )
+    df_edges.rename(columns={f"{key}__id": "source"}, inplace=True)
     df_edges = df_edges.drop_duplicates()
 
     # colons messes with the node formatting:
     # https://graphviz.readthedocs.io/en/stable/node_ports.html
-    df_edges["source_label"] = df_edges["source"].apply(_label_file_run)
-    df_edges["target_label"] = df_edges["target"].apply(_label_file_run)
-    df_edges["source"] = df_edges["source"].str.replace(":", "_")
-    df_edges["target"] = df_edges["target"].str.replace(":", "_")
+    df_edges["source_record"] = df_edges["source"].apply(lambda x: all.get(id=x))
+    df_edges["target_record"] = df_edges["target"].apply(lambda x: all.get(id=x))
+    if record.__class__.__name__ == "Transform":
+        df_edges["source_label"] = df_edges["source_record"].apply(_label_file_run)
+        df_edges["target_label"] = df_edges["target_record"].apply(_label_file_run)
+    else:
+        df_edges["source_label"] = df_edges["source_record"].apply(
+            lambda x: x.__getattribute__(field)
+        )
+        df_edges["target_label"] = df_edges["target_label"].apply(
+            lambda x: x.__getattribute__(field)
+        )
     return df_edges
 
 
