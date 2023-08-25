@@ -146,18 +146,13 @@ def describe(self):
         msg += f"⬇️ input_of ({colors.italic('core.Run')}): {values}\n    "
     msg = msg.rstrip("    ")
 
-    if not self.feature_sets.exists():
-        print(msg)
-        return
-    else:
+    # Display Features by slot
+    feature_sets = self.feature_sets.exclude(registry="core.Feature")
+    if feature_sets.exists():
+        msg += f"{colors.green('Features')}:\n"
         feature_sets_related_models = dict_related_model_to_related_name(
             self.feature_sets.first()
         )
-    # Display Features by slot
-    msg += f"{colors.green('Features')}:\n"
-    # var
-    feature_sets = self.feature_sets.exclude(registry="core.Feature")
-    if feature_sets.exists():
         for feature_set in feature_sets.all():
             key_split = feature_set.registry.split(".")
             if len(key_split) == 3:
@@ -212,8 +207,6 @@ def describe(self):
                         f"{indent}    🔗 {row['name']} ({count_str}): {values}\n"
                     )
                     msg += msg_objects
-    msg = msg.rstrip("\n")
-    msg = msg.rstrip("Features:")
     verbosity = settings.verbosity
     settings.verbosity = 3
     logger.info(msg)
