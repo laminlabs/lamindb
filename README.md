@@ -31,7 +31,7 @@ Init a LaminDB instance with local or cloud default storage like you'd init a gi
 $ lamin init --storage ./mydata   # or s3://my-bucket, gs://my-bucket
 ```
 
-Validate & register a `DataFrame`:
+Validate & register a `DataFrame` containing basic metadata:
 
 ```python
 import lamindb as ln
@@ -39,27 +39,27 @@ import pandas as pd
 
 ln.track()  # track run context in a notebook
 
-df = pd.DataFrame(
-    {"feat1": [1, 2], "feat2": [3, 4], "perturbation": ["pert1", "pert2"]}
-)
-
-# validate features
-validated = ln.Feature.validate(df.columns)
-# register new features
-features = ln.Feature.from_df(df.loc[:, ~validated])
+# save target feature names in Feature registry
+features = ln.Feature.from_values(["feature1", "feature2", "perturbation"])
 ln.save(features)
 
-# create a File object and save/upload it
-ln.File.from_df(df, description="Data batch 1").save()
+# receive a batch of data
+df = pd.DataFrame(
+    {"feature1": [1, 2, 3], "feature2": [3, 4, 5], "perturbation": ["pert1", "pert2", "pert1"]}
+)
+
+# validate features & create a Dataset object
+dataset = ln.Dataset.from_df(df, name="Dataset 1")
+dataset.save()  # save/upload dataset
 ```
 
-Query & use a `DataFrame`:
+Search, query, and load a `DataFrame`:
 
 ```python
-ln.File.search("batch 1")  # run a search
+ln.Dataset.search("dataset 1")  # run a search
 
-# or a query (under-the-hood, you have the full power of SQL to query)
-file = ln.File.filter(description__contains="batch 1").one()
+# run a query (under the hood, you have the full power of SQL to query)
+file = ln.Dataset.filter(name__contains="set 1").one()
 
 df = file.load()
 ```
