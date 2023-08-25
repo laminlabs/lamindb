@@ -59,9 +59,9 @@ Search, query, and load a `DataFrame`:
 ln.Dataset.search("dataset 1")  # run a search
 
 # run a query (under the hood, you have the full power of SQL to query)
-file = ln.Dataset.filter(name__contains="set 1").one()
+dataset = ln.Dataset.filter(name__contains="set 1").one()
 
-df = file.load()
+df = dataset.load()
 ```
 
 ## Documentation
