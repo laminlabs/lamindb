@@ -1,5 +1,6 @@
 # Changelog
 
+- 🐛 Fix feature set updates & `describe()` if no features are present [PR1098](https://github.com/laminlabs/lamindb/pull/1098) [@falexwolf](https://github.com/falexwolf)
 - ✏️ Fix transform emoji [PR1097](https://github.com/laminlabs/lamindb/pull/1097) [@sunnyosun](https://github.com/sunnyosun)
 - 📝 Update readme [PR1096](https://github.com/laminlabs/lamindb/pull/1096) [@sunnyosun](https://github.com/sunnyosun)
 - 🎨 Make species not nullable in Gene, Protein, CellType [PR1095](https://github.com/laminlabs/lamindb/pull/1095) [@sunnyosun](https://github.com/sunnyosun)
