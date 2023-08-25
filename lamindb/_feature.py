@@ -6,6 +6,7 @@ from lnschema_core import Feature
 from lnschema_core.models import Registry
 from pandas.api.types import is_categorical_dtype, is_string_dtype
 
+from lamindb.dev._settings import settings
 from lamindb.dev.utils import attach_func_to_class_method
 
 from . import _TESTING
@@ -90,7 +91,12 @@ def from_df(cls, df: "pd.DataFrame") -> List["Feature"]:
         else:
             types[name] = convert_numpy_dtype_to_lamin_feature_type(col.dtype)
 
+    # silence the info "loaded record with exact same name "
+    verbosity = settings.verbosity
+    settings.verbosity = 1
     features = [Feature(name=name, type=type) for name, type in types.items()]
+    settings.verbosity = verbosity
+
     assert len(features) == len(df.columns)
 
     # if len(categoricals_with_unmapped_categories) > 0:

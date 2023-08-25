@@ -39,9 +39,18 @@ import pandas as pd
 
 ln.track()  # track run context in a notebook
 
-df = pd.DataFrame({"feat1": [1, 2], "feat2": [3, 4], "perturbation": ["pert1", "pert2"]})
+df = pd.DataFrame(
+    {"feat1": [1, 2], "feat2": [3, 4], "perturbation": ["pert1", "pert2"]}
+)
 
-ln.File.from_df(df, description="Data batch 1").save()  # create a File object and save/upload it
+# validate features
+validated = ln.Feature.validate(df.columns)
+# register new features
+features = ln.Feature.from_df(df.loc[:, ~validated])
+ln.save(features)
+
+# create a File object and save/upload it
+ln.File.from_df(df, description="Data batch 1").save()
 ```
 
 Query & use a `DataFrame`:
@@ -49,7 +58,8 @@ Query & use a `DataFrame`:
 ```python
 ln.File.search("batch 1")  # run a search
 
-file = ln.File.filter(labels="pert1").one()  # or a query (under-the-hood, you have the full power of SQL to query)
+# or a query (under-the-hood, you have the full power of SQL to query)
+file = ln.File.filter(description__contains="batch 1").one()
 
 df = file.load()
 ```
