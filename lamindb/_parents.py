@@ -164,7 +164,7 @@ def _view_parents(
         fillcolor=LAMIN_GREEN_LIGHTER,
     )
     for _, row in df_edges.iterrows():
-        u.node(row["source"], label=_add_emoji(row["source"], row["source_label"]))
+        u.node(row["source"], label=row["source_label"])
         u.edge(row["source"], row["target"], color="dimgrey")
 
     _view(u)
@@ -215,8 +215,8 @@ def _df_edges_from_parents(
 
     # colons messes with the node formatting:
     # https://graphviz.readthedocs.io/en/stable/node_ports.html
-    df_edges["source_label"] = df_edges["source"]
-    df_edges["target_label"] = df_edges["target"]
+    df_edges["source_label"] = df_edges["source"].apply(_label_file_run)
+    df_edges["target_label"] = df_edges["target"].apply(_label_file_run)
     df_edges["source"] = df_edges["source"].str.replace(":", "_")
     df_edges["target"] = df_edges["target"].str.replace(":", "_")
     return df_edges
@@ -262,7 +262,7 @@ def _get_all_child_runs(file: File):
     return all_runs
 
 
-def _label_file_run(record: Union[File, Run]):
+def _label_file_run(record: Union[File, Run, Transform]):
     if isinstance(record, File):
         if record.description is None:
             name = record.key
@@ -280,6 +280,15 @@ def _label_file_run(record: Union[File, Run]):
             rf' FACE="Monospace">id={record.id}<BR/>type={record.transform.type},'
             rf" user={record.created_by.name}<BR/>run_at={format_field_value(record.run_at)}</FONT>>"  # noqa
         )
+    elif isinstance(record, Transform):
+        name = f'{record.name.replace("&", "&amp;")}'
+        return (
+            rf'<{TRANSFORM_EMOJIS.get(str(record.type), "💫")} {name}<BR/><FONT COLOR="GREY" POINT-SIZE="10"'  # noqa
+            rf' FACE="Monospace">id={record.id}<BR/>type={record.type},'
+            rf" user={record.created_by.name}<BR/>updated_at={format_field_value(record.updated_at)}</FONT>>"  # noqa
+        )
+    else:
+        return record
 
 
 def _df_edges_from_runs(all_runs: List[Run]):
