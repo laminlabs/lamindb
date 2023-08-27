@@ -22,6 +22,7 @@ from lamindb.dev import run_context
 from lamindb.dev._settings import settings
 from lamindb.dev.hashing import b16_to_b64, hash_file
 from lamindb.dev.storage import (
+    LocalPathClasses,
     UPath,
     delete_storage,
     infer_suffix,
@@ -54,7 +55,7 @@ DIRS = AppDirs("lamindb", "laminlabs")
 
 
 def process_pathlike(
-    filepath: Union[Path, UPath], skip_existence_check: bool = False
+    filepath: UPath, skip_existence_check: bool = False
 ) -> Tuple[Storage, bool]:
     if not skip_existence_check:
         try:  # check if file exists
@@ -62,8 +63,7 @@ def process_pathlike(
                 raise FileNotFoundError(filepath)
         except PermissionError:
             pass
-    if not isinstance(filepath, UPath):
-        filepath = filepath.resolve()
+    filepath = filepath.resolve()  # works for UPath also
     # check whether the path is in default storage
     default_storage = lamindb_setup.settings.storage.record
     if check_path_is_child_of_root(filepath, default_storage.root_as_path()):
@@ -79,8 +79,8 @@ def process_pathlike(
         else:
             # if the path is in the cloud, we have a good candidate
             # for the storage root: the bucket
-            if isinstance(filepath, UPath):
-                # for a UPath, new_root is always the bucket name
+            if not isinstance(filepath, LocalPathClasses):
+                # for a cloud path, new_root is always the bucket name
                 new_root = list(filepath.parents)[-1]
                 new_root_str = new_root.as_posix().rstrip("/")
                 logger.warning(
@@ -113,7 +113,7 @@ def process_data(
     """Serialize a data object that's provided as file or in memory."""
     # if not overwritten, data gets stored in default storage
     if isinstance(data, (str, Path, UPath)):  # PathLike, spelled out
-        filepath = create_path(data)  # returns Path for local
+        filepath = create_path(data)
         storage, use_existing_storage_key = process_pathlike(
             filepath, skip_existence_check=skip_existence_check
         )
@@ -198,7 +198,7 @@ def get_hash(
 
 
 def get_path_size_hash(
-    filepath: Union[Path, UPath],
+    filepath: UPath,
     memory_rep: Optional[Union[pd.DataFrame, AnnData]],
     suffix: str,
     check_hash: bool = True,
@@ -211,7 +211,7 @@ def get_path_size_hash(
         if memory_rep is not None:
             size = size_adata(memory_rep)
         else:
-            if isinstance(filepath, UPath):
+            if not isinstance(filepath, LocalPathClasses):
                 cloudpath = filepath
                 # todo: properly calculate size
                 size = 0
@@ -228,16 +228,8 @@ def get_path_size_hash(
             hash_and_type = None, None
         else:
             filepath_stat = filepath.stat()
-            if isinstance(filepath, UPath):
-                try:
-                    size = filepath_stat["size"]  # type: ignore
-                # here trying to fix access issue with new s3 buckets
-                except Exception as e:
-                    if filepath._url.scheme == "s3":
-                        filepath = UPath(filepath, cache_regions=True)
-                        size = filepath_stat["size"]  # type: ignore
-                    else:
-                        raise e
+            if not isinstance(filepath, LocalPathClasses):
+                size = filepath_stat["size"]
                 cloudpath = filepath
                 hash_and_type = None, None
             else:
@@ -571,7 +563,7 @@ def parse_feature_sets_from_anndata(adata: AnnDataLike, var_ref: Optional[FieldA
     data_parse = adata
     if not isinstance(adata, AnnData):  # is a path
         filepath = create_path(adata)  # returns Path for local
-        if isinstance(filepath, UPath):
+        if not isinstance(filepath, LocalPathClasses):
             from lamindb.dev.storage._backed_access import backed_access
 
             data_parse = backed_access(filepath)
