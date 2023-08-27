@@ -1,7 +1,7 @@
 """Open-source data platform for biology.
 
-LaminDB helps you manage data using registries.
-The most central are:
+LaminDB helps you manage data using registries for metadata.
+The two most central are:
 
 .. autosummary::
    :toctree: .
@@ -9,7 +9,7 @@ The most central are:
    File
    Dataset
 
-There are four registries to track provenance of data batches:
+Four registries track provenance of data batches:
 
 .. autosummary::
    :toctree: .
@@ -19,7 +19,7 @@ There are four registries to track provenance of data batches:
    User
    Storage
 
-And four registries to validate & contextualize measurements in data batches:
+Four registries validate & contextualize measurements:
 
 .. autosummary::
    :toctree: .
@@ -44,7 +44,6 @@ Static classes & modules:
    :toctree: .
 
    settings
-   types
    setup
    schema
    dev
@@ -98,14 +97,6 @@ if _INSTANCE_SETUP:
         User,
     )
 
-    from . import dev  # noqa
-    from . import schema  # noqa
-    from . import types  # noqa
-    from .dev._run_context import run_context  # noqa
-
-    track = run_context._track  # noqa
-    from lamin_utils import logger as _logger
-
     from . import _dataset  # noqa
     from . import _feature  # noqa
     from . import _feature_set  # noqa
@@ -116,12 +107,15 @@ if _INSTANCE_SETUP:
     from . import _storage  # noqa
     from . import _transform  # noqa
     from . import _validate  # noqa
+    from . import dev  # noqa
+    from . import schema  # noqa
     from ._delete import delete  # noqa
     from ._registry import select_backward as select  # noqa
     from ._save import save  # noqa
     from ._view import view  # noqa
+    from .dev._run_context import run_context  # noqa
     from .dev._settings import settings
 
+    track = run_context._track  # noqa
     add = save  # backward compat
-
     settings.__doc__ = """Global :class:`~lamindb.dev.Settings`."""

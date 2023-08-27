@@ -26,7 +26,7 @@ from ._feature_manager import (
 )
 from ._run_context import run_context
 from ._settings import settings
-from .exc import ValidationError
+from .exceptions import ValidationError
 
 
 def get_run(run: Optional[Run]) -> Optional[Run]:

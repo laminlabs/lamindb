@@ -1,4 +1,4 @@
-"""Storage.
+"""Storage tools.
 
 .. autosummary::
    :toctree: .
