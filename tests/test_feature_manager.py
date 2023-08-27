@@ -17,7 +17,7 @@ def test_add_labels():
     label = ln.Label(name="Experiment 1")
     file = ln.File(adata, description="test")
     file.save()
-    with pytest.raises(ln.dev.exc.ValidationError) as error:
+    with pytest.raises(ln.dev.exceptions.ValidationError) as error:
         file.add_labels(label)
     assert "not validated. If it looks correct: record.save()" in error.exconly()
     label.save()
@@ -27,11 +27,11 @@ def test_add_labels():
         error.exconly()
         == "ValueError: Please pass feature: add_labels(labels, feature='myfeature')"
     )
-    with pytest.raises(ln.dev.exc.ValidationError) as error:
+    with pytest.raises(ln.dev.exceptions.ValidationError) as error:
         file.add_labels(label, feature="experiment")
     assert (
         error.exconly()
-        == "lamindb.dev.exc.ValidationError: Feature not validated. If it looks"
+        == "lamindb.dev.exceptions.ValidationError: Feature not validated. If it looks"
         " correct: ln.Feature(name='experiment', type='category',"
         " registries='core.Label').save()"
     )
@@ -148,10 +148,10 @@ def test_add_labels_using_anndata():
     assert "species" not in feature_set_obs.features.list("name")
 
     # now, we add species and run checks
-    with pytest.raises(ln.dev.exc.ValidationError):
+    with pytest.raises(ln.dev.exceptions.ValidationError):
         file.add_labels(species, feature="species")
     species.save()
-    with pytest.raises(ln.dev.exc.ValidationError):
+    with pytest.raises(ln.dev.exceptions.ValidationError):
         file.add_labels(species, feature="species")
     ln.Feature(name="species", type="category", registries="bionty.Species").save()
     file.add_labels(species, feature="species")
