@@ -15,6 +15,13 @@ adata = ad.AnnData(
     obsm=dict(X_pca=np.array([[1, 2], [3, 4]])),
 )
 
+adata2 = ad.AnnData(
+    X=np.array([[1, 2, 5], [4, 5, 8]]),
+    obs=dict(feat1=["A", "B"]),
+    var=pd.DataFrame(index=["MYC", "TCF7", "GATA1"]),
+    obsm=dict(X_pca=np.array([[1, 2], [3, 4]])),
+)
+
 
 def test_create_delete_from_single_dataframe():
     df = ln.dev.datasets.df_iris_in_meter_study1()
@@ -26,7 +33,7 @@ def test_create_delete_from_single_dataframe():
     # register features
     ln.save(ln.Feature.from_df(df))
 
-    # won't work with like so
+    # won't work with features like so
     dataset = ln.Dataset(df, name="Iris flower dataset1")
     assert dataset._feature_sets == {}
 
@@ -60,6 +67,11 @@ def test_create_delete_from_single_dataframe():
     assert set(feature_list_queried) == set(feature_list)
     # the feature_set is also linked to the file
     assert ln.FeatureSet.filter(files=dataset.file).one() == feature_set
+
+    # accidental recreation (re-load based on hash)
+    dataset1 = ln.Dataset.from_df(df, name="Iris Flower data1")
+    assert dataset1.id == dataset.id
+    assert dataset1.hash == dataset.hash
 
     # now proceed to deletion
     dataset.delete(storage=True)
@@ -129,3 +141,57 @@ def test_edge_cases():
     assert str(error.exconly()).startswith(
         "ValueError: Only data, name, run, description can be passed, you passed: "
     )
+    with pytest.raises(ValueError) as error:
+        ln.Dataset(1, name="Invalid")
+    assert str(error.exconly()).startswith(
+        "ValueError: Only DataFrame, AnnData and iterable of File is allowed"
+    )
+    file = ln.File(df, description="Test file")
+    assert file._state.adding
+    with pytest.raises(ValueError) as error:
+        ln.Dataset([file])
+    assert str(error.exconly()).startswith(
+        "ValueError: Not all files are yet saved, please save them"
+    )
+    file.save()
+    with pytest.raises(ValueError) as error:
+        ln.Dataset([file, file])
+    assert str(error.exconly()).startswith(
+        "ValueError: Please pass files with distinct hashes: these ones are non-unique"
+    )
+    file.delete(storage=True)
+
+
+def test_backed():
+    dataset = ln.Dataset(adata, name="My test")
+    dataset.backed()
+
+
+def test_load_inconsistent_files():
+    file1 = ln.File(df, description="My test")
+    file1.save()
+    file2 = ln.File(adata, description="My test2")
+    file2.save()
+    dataset = ln.Dataset([file1, file2], name="Inconsistent")
+    dataset.save()
+    with pytest.raises(RuntimeError) as error:
+        dataset.load()
+    assert str(error.exconly()).startswith(
+        "RuntimeError: Can only load datasets where all files have the same suffix"
+    )
+    file1.delete(storage=True)
+    file2.delete(storage=True)
+    dataset.delete()
+
+
+def test_load_consistent_files():
+    file1 = ln.File(adata, description="My test")
+    file1.save()
+    file2 = ln.File(adata2, description="My test2")
+    file2.save()
+    dataset = ln.Dataset([file1, file2], name="My test")
+    dataset.save()
+    dataset.load()
+    file1.delete(storage=True)
+    file2.delete(storage=True)
+    dataset.delete()
