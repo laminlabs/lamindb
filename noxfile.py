@@ -21,6 +21,7 @@ GROUPS["tutorial"] = [
 GROUPS["guide"] = [
     "data.ipynb",
     "meta.ipynb",
+    "validate.ipynb",
     "schemas.ipynb",
     "setup.ipynb",
 ]
