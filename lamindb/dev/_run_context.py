@@ -174,7 +174,7 @@ class run_context:
 
         Args:
             transform: Can be of type `"pipeline"` or `"notebook"`
-                (:class:`~lamindb.types.TransformType`).
+                (:class:`~lamindb.dev.types.TransformType`).
             new_run: If `False`, loads latest run of transform
                 (default notebook), if True, creates new run (default pipeline).
             reference: Reference to pass to :class:`~lamindb.Run` record.

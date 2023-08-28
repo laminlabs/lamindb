@@ -5,4 +5,5 @@
 
 storage/upload
 storage/add-replace-stage
+storage/anndata-accessor
 ```
