@@ -4,6 +4,7 @@ from pathlib import Path, PurePath, PurePosixPath
 from typing import Any, List, Optional, Set, Tuple, Union
 
 import anndata as ad
+import fsspec
 import lamindb_setup
 import pandas as pd
 from anndata import AnnData
@@ -255,17 +256,22 @@ def check_path_in_existing_storage(
 def check_path_is_child_of_root(
     filepath: Union[Path, UPath], root: Optional[Union[Path, UPath]] = None
 ) -> bool:
-    assert isinstance(filepath, Path)
     if root is None:
         root = lamindb_setup.settings.storage.root
+
+    filepath = UPath(filepath)
+    root = UPath(root)
+
     # the following comparisons can fail if types aren't comparable
-    if isinstance(filepath, UPath) and isinstance(root, UPath):
+    if not isinstance(filepath, LocalPathClasses) and not isinstance(
+        root, LocalPathClasses
+    ):
         # the following tests equivalency of two UPath objects
         # via string representations; otherwise
         # S3Path('s3://lndb-storage/') and S3Path('s3://lamindb-ci/')
         # test as equivalent
         return list(filepath.parents)[-1].as_posix() == root.as_posix()
-    elif not isinstance(filepath, UPath) and not isinstance(root, UPath):
+    elif isinstance(filepath, LocalPathClasses) and isinstance(root, LocalPathClasses):
         return root.resolve() in filepath.resolve().parents
     else:
         return False
@@ -274,7 +280,7 @@ def check_path_is_child_of_root(
 def get_relative_path_to_directory(
     path: Union[PurePath, Path, UPath], directory: Union[PurePath, Path, UPath]
 ) -> Union[PurePath, Path]:
-    if isinstance(directory, UPath):
+    if isinstance(directory, UPath) and not isinstance(directory, LocalPathClasses):
         # UPath.relative_to() is not behaving as it should (2023-04-07)
         # need to lstrip otherwise inconsistent behavior across trailing slashes
         # see test_file.py: test_get_relative_path_to_directory
@@ -379,7 +385,7 @@ def log_storage_hint(
     if check_path_in_storage:
         display_root = storage.root  # type: ignore
         # check whether path is local
-        if not storage.root.startswith(("s3://", "gs://")):  # type: ignore
+        if fsspec.utils.get_protocol(storage.root) == "file":  # type: ignore
             # if it's a local path, check whether it's in the current working directory
             root_path = Path(storage.root)  # type: ignore
             if check_path_is_child_of_root(root_path, Path.cwd()):
