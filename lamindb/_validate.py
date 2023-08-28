@@ -120,8 +120,8 @@ def _inspect(
         labels = colors.red(f"{len(nonval)} term{s}")
         logger.info(f"   couldn't validate {labels}: {colors.red(print_values)}")
         logger.hint(
-            "→  if you are sure, add records to your registry via"
-            f" {colors.italic('.from_values()')}"
+            f"→  if you are sure, create new record{s} via"
+            f" {colors.italic(f'ln.{orm.__name__}()')} and save to your registry"
         )
 
     return result_db

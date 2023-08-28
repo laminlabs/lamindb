@@ -143,6 +143,7 @@ tutorial1
 :caption: "How to"
 
 query-search
+validate
 bio-registries
 schemas
 setup
