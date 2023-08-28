@@ -1,5 +1,6 @@
 # Changelog
 
+- 📝 Added validate guide [PR1104](https://github.com/laminlabs/lamindb/pull/1104) [@sunnyosun](https://github.com/sunnyosun)
 - 📝 Polish tutorial, readme, setup, data [PR1105](https://github.com/laminlabs/lamindb/pull/1105) [@falexwolf](https://github.com/falexwolf)
 - 🍱 Updated registry popoulat for conde22 dataset [PR1103](https://github.com/laminlabs/lamindb/pull/1103) [@sunnyosun](https://github.com/sunnyosun)
 - ✅ Add more tests for dataset [PR1101](https://github.com/laminlabs/lamindb/pull/1101) [@falexwolf](https://github.com/falexwolf)
