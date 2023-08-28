@@ -9,7 +9,12 @@ import pandas as pd
 from lamin_utils import logger
 from lamindb_setup import settings
 from lamindb_setup.dev import StorageSettings
-from lamindb_setup.dev.upath import UPath, create_path, infer_filesystem
+from lamindb_setup.dev.upath import (
+    LocalPathClasses,
+    UPath,
+    create_path,
+    infer_filesystem,
+)
 from lnschema_core.models import File, Storage
 
 try:
@@ -174,10 +179,10 @@ def delete_storage(storagepath: Union[Path, UPath]):
     if storagepath.is_file():
         storagepath.unlink()
     elif storagepath.is_dir():
-        if isinstance(storagepath, UPath):
-            storagepath.rmdir()
-        else:
+        if isinstance(storagepath, LocalPathClasses):
             shutil.rmtree(storagepath)
+        else:
+            storagepath.rmdir()
     else:
         raise FileNotFoundError(f"{storagepath} is not an existing path!")
 

@@ -63,7 +63,8 @@ def process_pathlike(
                 raise FileNotFoundError(filepath)
         except PermissionError:
             pass
-    filepath = filepath.resolve()  # works for UPath also
+    if isinstance(filepath, LocalPathClasses):
+        filepath = filepath.resolve()
     # check whether the path is in default storage
     default_storage = lamindb_setup.settings.storage.record
     if check_path_is_child_of_root(filepath, default_storage.root_as_path()):
@@ -146,14 +147,14 @@ def process_data(
 
 
 def get_hash(
-    filepath,
+    filepath: UPath,
     suffix,
     filepath_stat=None,
     check_hash: bool = True,
 ) -> Union[Tuple[Optional[str], Optional[str]], File]:
     if suffix in {".zarr", ".zrad"}:
         return None
-    if isinstance(filepath, UPath):
+    if not isinstance(filepath, LocalPathClasses):
         stat = filepath_stat
         if stat is not None and "ETag" in stat:
             # small files
