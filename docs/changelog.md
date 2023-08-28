@@ -1,22 +1,17 @@
 # Changelog
 
-- ✅ Add more tests [PR1106](https://github.com/laminlabs/lamindb/pull/1106) [@falexwolf](https://github.com/falexwolf)
-- 📝 Added validate guide [PR1104](https://github.com/laminlabs/lamindb/pull/1104) [@sunnyosun](https://github.com/sunnyosun)
-- 📝 Polish tutorial, readme, setup, data [PR1105](https://github.com/laminlabs/lamindb/pull/1105) [@falexwolf](https://github.com/falexwolf)
-- 🍱 Updated registry popoulat for conde22 dataset [PR1103](https://github.com/laminlabs/lamindb/pull/1103) [@sunnyosun](https://github.com/sunnyosun)
-- ✅ Add more tests for dataset [PR1101](https://github.com/laminlabs/lamindb/pull/1101) [@falexwolf](https://github.com/falexwolf)
-- 💄 Polish developer API [PR1100](https://github.com/laminlabs/lamindb/pull/1100) [@falexwolf](https://github.com/falexwolf)
-- 🐛 Fix feature set updates & `describe()` if no features are present [PR1098](https://github.com/laminlabs/lamindb/pull/1098) [@falexwolf](https://github.com/falexwolf)
-- ✏️ Fix transform emoji [PR1097](https://github.com/laminlabs/lamindb/pull/1097) [@sunnyosun](https://github.com/sunnyosun)
-- 📝 Update readme [PR1096](https://github.com/laminlabs/lamindb/pull/1096) [@sunnyosun](https://github.com/sunnyosun)
-- 🎨 Make species not nullable in Gene, Protein, CellType [PR1095](https://github.com/laminlabs/lamindb/pull/1095) [@sunnyosun](https://github.com/sunnyosun)
-- 🚑️ Fix pre-populate of datasets [PR1094](https://github.com/laminlabs/lamindb/pull/1094) [@sunnyosun](https://github.com/sunnyosun)
-- 📝 Polish tutorial [PR1093](https://github.com/laminlabs/lamindb/pull/1093) [@falexwolf](https://github.com/falexwolf)
+
 ```{eval-rst}
 .. role:: small
 ```
 
 ## 0.51
+
+### 0.51.1 {small}`2023-08-24`
+
+- 📝 Added validate guide [PR1104](https://github.com/laminlabs/lamindb/pull/1104) [@sunnyosun](https://github.com/sunnyosun)
+- 🐛 Fix feature set updates & `describe()` if no features are present [PR1098](https://github.com/laminlabs/lamindb/pull/1098) [@falexwolf](https://github.com/falexwolf)
+- 🎨 Make species not nullable in Gene, Protein, CellType [PR1095](https://github.com/laminlabs/lamindb/pull/1095) [@sunnyosun](https://github.com/sunnyosun)
 
 ### 0.51.0 {small}`2023-08-24`
 
@@ -46,7 +41,7 @@
 
 ## 0.50
 
-### 0.50.X {small}`2023-08-17`
+### 0.50.1 {small}`2023-08-17`
 
 - ♻️ Refactor `run_context` [PR1030](https://github.com/laminlabs/lamindb/pull/1030) [@falexwolf](https://github.com/falexwolf)
 - 🚸 Remove SA as a dependency and use delete dialogue [PR1041](https://github.com/laminlabs/lamindb/pull/1041) [@falexwolf](https://github.com/falexwolf)
