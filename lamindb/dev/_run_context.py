@@ -119,7 +119,13 @@ def get_notebook_name_colab() -> str:
     from requests import get  # type: ignore
 
     ip = gethostbyname(gethostname())  # 172.28.0.12
-    name = get(f"http://{ip}:9000/api/sessions").json()[0]["name"]
+    try:
+        name = get(f"http://{ip}:9000/api/sessions").json()[0]["name"]
+    except Exception:
+        logger.warning(
+            "could not get notebook name from Google Colab, using: Notebook.ipynb"
+        )
+        name = "Notebook.ipynb"
     return name.rstrip(".ipynb")
 
 
