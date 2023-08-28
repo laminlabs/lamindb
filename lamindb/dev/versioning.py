@@ -69,9 +69,6 @@ def init_id(
     elif stem_id is not None:
         assert isinstance(stem_id, str) and len(stem_id) == n_stem_id
         provisional_id = stem_id + id_ext
-    elif provisional_id is not None:
-        assert isinstance(provisional_id, str) and len(provisional_id) == n_full_id
-        stem_id = provisional_id[:n_stem_id]
     return provisional_id  # type: ignore
 
 

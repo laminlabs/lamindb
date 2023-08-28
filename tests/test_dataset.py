@@ -115,9 +115,17 @@ def test_from_single_file():
     lb.settings.species = "human"
     ln.save(ln.Feature.from_df(adata.obs))
     file = ln.File.from_anndata(adata, description="My adata", var_ref=lb.Gene.symbol)
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError) as error:
         ln.Dataset(file)
+    assert str(error.exconly()).startswith(
+        "ValueError: Save file before creating dataset!"
+    )
     file.save()
+    with pytest.raises(ValueError) as error:
+        ln.Dataset(file, file)
+    assert str(error.exconly()).startswith(
+        "ValueError: Only one non-keyword arg allowed: data"
+    )
     dataset = ln.Dataset(file, name="My new dataset")
     dataset.save()
     assert set(file.feature_sets.list("id")) == set(
@@ -192,6 +200,11 @@ def test_load_consistent_files():
     dataset = ln.Dataset([file1, file2], name="My test")
     dataset.save()
     dataset.load()
+    with pytest.raises(RuntimeError) as error:
+        dataset.backed()
+    assert str(error.exconly()).startswith(
+        "RuntimeError: Can only call backed() for datasets with a single file"
+    )
     file1.delete(storage=True)
     file2.delete(storage=True)
     dataset.delete()

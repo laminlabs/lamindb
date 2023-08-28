@@ -54,26 +54,6 @@ def validate_features(features: List[Registry]) -> Registry:
     return next(iter(feature_types))  # return value in set of cardinality 1
 
 
-def get_validated_features(
-    features: List[Registry], field: FieldAttr
-) -> List[Registry]:
-    validated_features = []
-    non_validated_features = []
-    for feature in features:
-        if feature._state.adding and not (
-            hasattr(feature, "_from_bionty") and feature._from_bionty
-        ):
-            non_validated_features.append(getattr(feature, field.field.name))
-        else:
-            validated_features.append(feature)
-    if non_validated_features:
-        non_validated_features_display = ",".join(non_validated_features)
-        logger.warning(
-            f"ignoring non-validated features: {non_validated_features_display}"
-        )
-    return validated_features
-
-
 def __init__(self, *args, **kwargs):
     if len(args) == len(self._meta.concrete_fields):
         super(FeatureSet, self).__init__(*args, **kwargs)

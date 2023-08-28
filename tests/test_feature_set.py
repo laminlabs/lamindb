@@ -103,6 +103,12 @@ def test_feature_set_from_records():
 
 
 def test_feature_set_from_df():
+    with pytest.raises(ValueError) as error:
+        feature_set = ln.FeatureSet.from_df(df, field=lb.Gene.symbol)
+    assert (
+        error.exconly()
+        == "ValueError: from_df() only available for ln.Feature, use from_values()"
+    )
     feature_set = ln.FeatureSet.from_df(df)
     feature_set.save()
     assert feature_set.type is None
