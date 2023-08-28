@@ -19,7 +19,7 @@ Four registries track provenance of data batches:
    User
    Storage
 
-Four registries validate & contextualize measurements:
+Four registries validate & contextualize data batches:
 
 .. autosummary::
    :toctree: .
