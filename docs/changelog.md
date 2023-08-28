@@ -1,5 +1,6 @@
 # Changelog
 
+- 🍱 Updated registry popoulat for conde22 dataset [PR1103](https://github.com/laminlabs/lamindb/pull/1103) [@sunnyosun](https://github.com/sunnyosun)
 - ✅ Add more tests for dataset [PR1101](https://github.com/laminlabs/lamindb/pull/1101) [@falexwolf](https://github.com/falexwolf)
 - 💄 Polish developer API [PR1100](https://github.com/laminlabs/lamindb/pull/1100) [@falexwolf](https://github.com/falexwolf)
 - 🐛 Fix feature set updates & `describe()` if no features are present [PR1098](https://github.com/laminlabs/lamindb/pull/1098) [@falexwolf](https://github.com/falexwolf)
