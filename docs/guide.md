@@ -82,20 +82,6 @@ $ lamin load myhandle/myinstance
 
 It's fastest if we do this for you based on our templates within an enterprise plan.
 
-## Setup
-
-### Installation
-
-```{include} installation.md
-
-```
-
-### Sign up
-
-```{include} signup-login.md
-
-```
-
 ## How does it work?
 
 ### Dependencies
