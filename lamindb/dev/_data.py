@@ -12,6 +12,7 @@ from lnschema_core.models import (
     File,
     Label,
     Registry,
+    __repr__,
     format_field_value,
 )
 
@@ -130,8 +131,6 @@ def describe(self):
         "initial_version": "🔖",
     }
     if len(foreign_key_fields) > 0:  # always True for File and Dataset
-        from lnschema_core._models import __repr__
-
         record_msg = f"{colors.green(model_name)}{__repr__(self, include_foreign_keys=False).lstrip(model_name)}"  # noqa
         msg += f"{record_msg}\n\n"
 
