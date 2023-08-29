@@ -11,6 +11,7 @@ from lamindb.dev.hashing import hash_set
 from lamindb.dev.utils import attach_func_to_class_method
 
 from . import _TESTING
+from ._feature import convert_numpy_dtype_to_lamin_feature_type
 from ._registry import init_self_from_db
 from ._save import bulk_create
 
@@ -177,16 +178,25 @@ def from_df(
 ) -> Optional["FeatureSet"]:
     """{}"""
     registry = field.field.model
-    if registry != Feature:
-        raise ValueError("from_df() only available for ln.Feature, use from_values()")
-    validated = Feature.validate(df.columns, field=field)
+    validated = registry.validate(df.columns, field=field)
     if validated.sum() == 0:
         logger.warning("no validated features, skip creating feature set")
         return None
-    validated_features = Feature.from_df(df.loc[:, validated])
-    feature_set = FeatureSet(
-        validated_features, name=name, type=None, modality=modality
-    )
+    if registry == Feature:
+        validated_features = Feature.from_df(df.loc[:, validated])
+        feature_set = FeatureSet(
+            validated_features, name=name, type=None, modality=modality
+        )
+    else:
+        dtypes = [col.dtype for (_, col) in df.loc[:, validated].items()]
+        if len(set(dtypes)) != 1:
+            raise ValueError(f"Data types are inhomogeneous: {set(dtypes)}")
+        type = convert_numpy_dtype_to_lamin_feature_type(dtypes[0])
+        feature_set = FeatureSet.from_values(
+            df.columns[validated],
+            field,
+            type=type,
+        )
     return feature_set
 
 

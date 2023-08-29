@@ -559,7 +559,7 @@ def from_df(
 ) -> "File":
     """{}"""
     file = File(data=df, key=key, run=run, description=description, log_hint=False)
-    feature_set = FeatureSet.from_df(df)
+    feature_set = FeatureSet.from_df(df, field=columns_ref)
     if feature_set is not None:
         file._feature_sets = {"columns": feature_set}
     else:
