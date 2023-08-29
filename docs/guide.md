@@ -12,15 +12,15 @@
 
 ## Overview
 
-### Track & query data lineage
+### Track & query data flow
 
-View the lineage of a given file (from [here](docs:birds-eye)):
+View the flow of a given file (from [here](docs:birds-eye)):
 
 ```python
-file.view_lineage()
+file.view_flow()
 ```
 
-<img src="https://raw.githubusercontent.com/laminlabs/lamindb/main/docs/img/readme/view_lineage.svg" width="800">
+<img src="https://raw.githubusercontent.com/laminlabs/lamindb/main/docs/img/readme/view_flow.svg" width="800">
 
 ### Manage biological registries
 
@@ -97,7 +97,7 @@ LaminDB consists of the `lamindb` Python package (repository [here](https://gith
 
 - [bionty](https://github.com/laminlabs/bionty): Basic biological entities (usable standalone).
 - [lamindb-setup](https://github.com/laminlabs/lamindb-setup): Setup & configure LaminDB, client for Lamin Hub.
-- [lnschema-core](https://github.com/laminlabs/lnschema-core): Core schema, ORMs to model data objects & data lineage.
+- [lnschema-core](https://github.com/laminlabs/lnschema-core): Core schema, ORMs to model data objects & data flow.
 - [lnschema-bionty](https://github.com/laminlabs/lnschema-bionty): Bionty schema, ORMs that are coupled to Bionty's entities.
 - [lnschema-lamin1](https://github.com/laminlabs/lnschema-lamin1): Exemplary configured schema to track samples, treatments, etc.
 - [nbproject](https://github.com/laminlabs/nbproject): Parse metadata from Jupyter notebooks.

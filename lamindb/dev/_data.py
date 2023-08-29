@@ -16,6 +16,7 @@ from lnschema_core.models import (
     format_field_value,
 )
 
+from .._parents import view_flow
 from .._query_set import QuerySet
 from .._registry import get_default_str_field
 from ._feature_manager import (
@@ -403,3 +404,6 @@ setattr(Data, "features", features)
 setattr(Data, "add_labels", add_labels)
 setattr(Data, "get_labels", get_labels)
 setattr(Data, "describe", describe)
+setattr(File, "view_flow", view_flow)
+# backward compat
+setattr(File, "view_lineage", view_flow)

@@ -15,7 +15,7 @@ Here is an [intro video](https://www.youtube.com/watch?v=DtJ9KnqWA8Q) to guide b
 LaminDB is a Python library to manage data & analyses related to biology:
 
 - Query, validate & link data batches using biological registries & ontologies.
-- Track & query data lineage across pipelines, notebooks & app uploads.
+- Track data flow across pipelines, notebooks & app uploads.
 - Manage features & labels schema-less or schema-full.
 - Collaborate across a mesh of LaminDB instances.
 
@@ -39,13 +39,13 @@ Validate & register a `DataFrame` that comes with basic metadata:
 import lamindb as ln
 import pandas as pd
 
-ln.track()  # track run context in a notebook
+ln.track()  # track data flow (here: notebook run context)
 
-# save target feature names in Feature registry
+# save target features in Feature registry
 features = ln.Feature.from_values(["feature1", "feature2", "perturbation"])
 ln.save(features)
 
-# receive a batch of data
+# access a new batch of data
 df = pd.DataFrame(
     {"feature1": [1, 2, 3], "feature2": [3, 4, 5], "perturbation": ["pert1", "pert2", "pert1"]}
 )
@@ -68,4 +68,4 @@ df = dataset.load()
 
 ## Documentation
 
-Read the [docs](https://lamin.ai/docs/guide/).
+Read the [docs](https://lamin.ai/docs).

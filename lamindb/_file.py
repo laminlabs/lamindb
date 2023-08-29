@@ -42,7 +42,6 @@ from lamindb.dev.versioning import get_ids_from_old_version, init_id
 
 from . import _TESTING
 from ._feature import convert_numpy_dtype_to_lamin_feature_type
-from ._parents import view_lineage
 from .dev._data import (
     add_transform_to_kwargs,
     get_run,
@@ -1000,6 +999,4 @@ for name in METHOD_NAMES:
 # privates currently dealt with separately
 File._delete_skip_storage = _delete_skip_storage
 File._save_skip_storage = _save_skip_storage
-# TODO: move these to METHOD_NAMES
-setattr(File, "view_lineage", view_lineage)
 setattr(File, "path", path)

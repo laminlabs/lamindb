@@ -56,14 +56,14 @@ def view_parents(
     )
 
 
-def view_lineage(file: File, with_children: bool = True):
-    """Graph of data lineage.
+def view_flow(file: File, with_children: bool = True):
+    """Graph of data flow.
 
     Notes:
-        For more info, see use cases: :doc:`docs:data-lineage`.
+        For more info, see use cases: :doc:`docs:data-flow`.
 
     Examples:
-        >>> file.view_lineage()
+        >>> file.view_flow()
     """
     import graphviz
 

@@ -116,7 +116,7 @@
 <g id="node14" class="node">
 <title>25AzwtmP3m77i2ZlT8Tx</title>
 <path fill="gainsboro" stroke="#065f46" d="M583,-48C583,-48 410,-48 410,-48 404,-48 398,-42 398,-36 398,-36 398,-12 398,-12 398,-6 404,0 410,0 410,0 583,0 583,0 589,0 595,-6 595,-12 595,-12 595,-36 595,-36 595,-42 589,-48 583,-48"/>
-<text text-anchor="start" x="443.5" y="-37" font-family="Helvetica,sans-Serif" font-size="10.00">📔 Track data lineage</text>
+<text text-anchor="start" x="443.5" y="-37" font-family="Helvetica,sans-Serif" font-size="10.00">📔 Track data flow</text>
 <text text-anchor="start" x="427" y="-27" font-family="Monospace" font-size="10.00" fill="GREY">id=25AzwtmP3m77i2ZlT8Tx</text>
 <text text-anchor="start" x="406" y="-17" font-family="Monospace" font-size="10.00" fill="GREY">type=notebook, user=Test User2</text>
 <text text-anchor="start" x="418" y="-7" font-family="Monospace" font-size="10.00" fill="GREY">run_at=2023&#45;08&#45;05 17:37:59</text>
