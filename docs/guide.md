@@ -20,7 +20,7 @@ View the flow of a given file or dataset (from [here](docs:project-flow)):
 file.view_flow()
 ```
 
-<img src="https://raw.githubusercontent.com/laminlabs/lamindb/main/docs/img/readme/view_flow.svg" width="800">
+<img src="https://raw.githubusercontent.com/laminlabs/lamindb/main/docs/img/readme/view_lineage.svg" width="800">
 
 ### Manage biological registries
 

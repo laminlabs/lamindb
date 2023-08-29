@@ -41,29 +41,51 @@ import pandas as pd
 
 ln.track()  # track data flow (here: notebook run context)
 
-# save target features in Feature registry
-features = ln.Feature.from_values(["feature1", "feature2", "perturbation"])
+# define validation criteria by populating the Feature registry
+names_types = [("CD14", int), ("CD45", int), ("perturbation", "category")]
+features = [ln.Feature(name=name, type=type) for (name, type) in names_types]
 ln.save(features)
 
 # access a new batch of data
 df = pd.DataFrame(
-    {"feature1": [1, 2, 3], "feature2": [3, 4, 5], "perturbation": ["pert1", "pert2", "pert1"]}
+    {"CD14": [1, 2, 3], "CD45": [3, 4, 5], "perturbation": ["DMSO", "IFNG", "DMSO"]}
 )
 
-# validate features & create a Dataset object
-dataset = ln.Dataset.from_df(df, name="Dataset 1")
+# validate features & register a Dataset
+dataset = ln.Dataset.from_df(df, name="Immune phenotyping 1")
 dataset.save()  # save/upload dataset
 ```
 
-Search, query, and load a `DataFrame`:
+Search, query, and load a dataset:
 
 ```python
-ln.Dataset.search("dataset 1")  # run a search
+ln.Dataset.search("immune")  # run a search
 
 # run a query (under the hood, you have the full power of SQL to query)
-dataset = ln.Dataset.filter(name__contains="set 1").one()
+dataset = ln.Dataset.filter(name__contains="phenotyping 1").one()
 
+# view data flow that generated the dataset
+dataset.view_flow()
+
+# load the dataset
 df = dataset.load()
+```
+
+Use the `bionty` plug-in to type biological entities. For instance, register a whole panel of cell markers:
+
+```python
+import lnschema_bionty as lb
+
+# populate the Cell Marker registry using a public ontology
+cell_markers = lb.CellMarker.from_values(["CD14", "CD45"])
+ln.save(cell_markers)
+# define feature validation criteria by registering a panel of markers
+marker_panel = ln.FeatureSet(cell_markers, type=int)
+ln.save(marker_panel)
+
+# validate a new batch of data against the marker_panel
+dataset = ln.Dataset.from_df(df, name="Immune phenotyping 1", columns_ref=lb.CellMarker.name)
+dataset.save()  # register dataset
 ```
 
 ## Documentation
