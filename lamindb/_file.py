@@ -8,7 +8,6 @@ import fsspec
 import lamindb_setup
 import pandas as pd
 from anndata import AnnData
-from appdirs import AppDirs
 from lamin_utils import colors, logger
 from lamindb_setup import settings as setup_settings
 from lamindb_setup._init_instance import register_storage
@@ -51,8 +50,6 @@ from .dev._data import (
     save_transform_run_feature_sets,
 )
 from .dev.storage.file import AUTO_KEY_PREFIX
-
-DIRS = AppDirs("lamindb", "laminlabs")
 
 
 def process_pathlike(
@@ -126,13 +123,7 @@ def process_data(
         memory_rep = data
         suffix = infer_suffix(data, format)
         cache_name = f"{provisional_id}{suffix}"
-        if lamindb_setup.settings.storage.cache_dir is not None:
-            filepath = lamindb_setup.settings.storage.cache_dir / cache_name
-        else:
-            # this should likely be added to lamindb_setup.settings.storage
-            cache_dir = Path(DIRS.user_cache_dir)
-            cache_dir.mkdir(parents=True, exist_ok=True)
-            filepath = cache_dir / cache_name
+        filepath = lamindb_setup.settings.storage.cache_dir / cache_name
         # Alex: I don't understand the line below
         if filepath.suffixes == []:
             filepath = filepath.with_suffix(suffix)
