@@ -1,5 +1,6 @@
 # Changelog
 
+- ♻️ Enable typed feature sets for dataframes [PR1110](https://github.com/laminlabs/lamindb/pull/1110) [@falexwolf](https://github.com/falexwolf)
 - ♻️ Refactor to use UPath everywhere [PR1102](https://github.com/laminlabs/lamindb/pull/1102) [@Koncopd](https://github.com/Koncopd)
 - ⚡️ Delete cached files for local instances on File.save() [PR1109](https://github.com/laminlabs/lamindb/pull/1109) [@Koncopd](https://github.com/Koncopd)
 - 🚚 Rename data lineage to data flow [PR1108](https://github.com/laminlabs/lamindb/pull/1108) [@falexwolf](https://github.com/falexwolf)
