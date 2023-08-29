@@ -14,7 +14,7 @@
 
 ### Track & query data flow
 
-View the flow of a given file (from [here](docs:birds-eye)):
+View the flow of a given file or dataset (from [here](docs:project-flow)):
 
 ```python
 file.view_flow()
@@ -39,9 +39,9 @@ new_cell.view_parents()
 
 <img src="https://raw.githubusercontent.com/laminlabs/lamindb/main/docs/img/readme/neuron_view_parents_dist%3D2.svg" width="500">
 
-### Query validated features & labels
+### Validate & query data & metadata
 
-Query for rich, validated meta-data and get an overview using `file.describe()` (from [here](docs:scrna)):
+Query for rich, validated meta-data. Get an overview using `file.describe()` (from [here](docs:scrna)):
 
 ```
 💡 File(id='qrjrjSL5cIOVK4zSUINn', suffix='.h5ad', accessor='AnnData', description='Conde22', size=28049505, hash='WEFcMZxJNmMiUOFrcSTaig', hash_type='md5', created_at=2023-08-28 21:34:02, updated_at=2023-08-28 21:34:02)
