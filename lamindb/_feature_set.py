@@ -72,10 +72,8 @@ def __init__(self, *args, **kwargs):
         )
     # now code
     features_registry = validate_features(features)
-    if features_registry == Feature:
-        type = None
-    else:
-        type = float
+    if type is None:
+        type = None if features_registry == Feature else "numeric"
     n_features = len(features)
     features_hash = hash_set({feature.id for feature in features})
     feature_set = FeatureSet.filter(hash=features_hash).one_or_none()
@@ -86,10 +84,6 @@ def __init__(self, *args, **kwargs):
     else:
         hash = features_hash
     self._features = (get_related_name(features_registry), features)
-    if type is not None:
-        type_str = type.__name__ if not isinstance(type, str) else type
-    else:
-        type_str = None
     if modality is not None:
         if isinstance(modality, str):
             modality_record = Modality.filter(name=modality).one_or_none()
@@ -105,7 +99,7 @@ def __init__(self, *args, **kwargs):
     super(FeatureSet, self).__init__(
         id=ids.base62_20(),
         name=name,
-        type=type_str,
+        type=get_type_str(type),
         n=n_features,
         modality=modality_record,
         registry=features_registry.__get_name_with_schema__(),
@@ -157,7 +151,8 @@ def from_values(
         raise ValueError("Provide a list of at least one value")
     registry = field.field.model
     if registry != Feature and type is None:
-        raise ValueError("type is required if registry != Feature")
+        type = "numeric"
+        logger.debug("setting feature set to 'numeric'")
     validated = registry.validate(values, field=field)
     if validated.sum() == 0:
         logger.warning("no validated features, skip creating feature set")
