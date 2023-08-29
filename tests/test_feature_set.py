@@ -11,7 +11,7 @@ from lamindb._feature_set import get_related_name, validate_features
 df = pd.DataFrame(
     {
         "feat1": [1, 2, 3],
-        "feat2": [3.1, 4.2, 5.3],
+        "feat2": [3, 4, 5],
         "feat3": ["cond1", "cond2", "cond2"],
         "feat4": ["id1", "id2", "id3"],
     }
@@ -40,10 +40,13 @@ def test_feature_set_from_values():
     gene_symbols = ["TCF7", "MYC"]
     lb.settings.species = "human"
     lb.Gene.filter(symbol__in=gene_symbols).all().delete()
-    feature_set = ln.FeatureSet.from_values(gene_symbols, lb.Gene.symbol)
+    with pytest.raises(ValueError) as error:
+        ln.FeatureSet.from_values(gene_symbols, lb.Gene.symbol)
+    assert error.exconly() == "ValueError: type is required if registry != Feature"
+    feature_set = ln.FeatureSet.from_values(gene_symbols, lb.Gene.symbol, type=int)
     assert feature_set is None
     ln.save(lb.Gene.from_values(gene_symbols, "symbol"))
-    feature_set = ln.FeatureSet.from_values(gene_symbols, lb.Gene.symbol)
+    feature_set = ln.FeatureSet.from_values(gene_symbols, lb.Gene.symbol, type=int)
     assert feature_set._state.adding
     assert feature_set.type == "float"
     assert feature_set.registry == "bionty.Gene"
@@ -51,7 +54,7 @@ def test_feature_set_from_values():
     id = feature_set.id
     # test that the feature_set is retrieved from the database
     # in case it already exists
-    feature_set = ln.FeatureSet.from_values(gene_symbols, lb.Gene.symbol)
+    feature_set = ln.FeatureSet.from_values(gene_symbols, lb.Gene.symbol, type=int)
     assert not feature_set._state.adding
     assert id == feature_set.id
     feature_set.delete()
@@ -103,12 +106,22 @@ def test_feature_set_from_records():
 
 
 def test_feature_set_from_df():
+    # test using type
+    lb.settings.species = "human"
+    genes = [lb.Gene(symbol=name) for name in df.columns]
+    ln.save(genes)
     with pytest.raises(ValueError) as error:
-        feature_set = ln.FeatureSet.from_df(df, field=lb.Gene.symbol)
-    assert (
-        error.exconly()
-        == "ValueError: from_df() only available for ln.Feature, use from_values()"
-    )
+        ln.FeatureSet.from_df(df, field=lb.Gene.symbol)
+    assert error.exconly().startswith("ValueError: Data types are inhomogeneous:")
+    feature_set = ln.FeatureSet.from_df(df[["feat1", "feat2"]], field=lb.Gene.symbol)
+    # clean up
+    feature_set.delete()
+    for gene in genes:
+        gene.delete()
+
+    # now for the features registry
+    features = ln.Feature.from_df(df)
+    ln.save(features)
     feature_set = ln.FeatureSet.from_df(df)
     feature_set.save()
     assert feature_set.type is None

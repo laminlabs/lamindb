@@ -86,16 +86,17 @@ def __init__(orm: Registry, *args, **kwargs):
             result = suggest_objects_with_same_name(orm, kwargs)
             if result == "object-with-same-name-exists":
                 if "version" in kwargs:
-                    version_comment = " and version "
+                    version_comment = " and version"
                     existing_record = orm.filter(
                         name=kwargs["name"], version=kwargs["version"]
                     ).one_or_none()
                 else:
-                    version_comment = " "
+                    version_comment = ""
                     existing_record = orm.filter(name=kwargs["name"]).one()
                 if existing_record is not None:
                     logger.success(
-                        f"loaded record with exact same name{version_comment}"
+                        f"loaded {orm.__class__.__name__} record with exact same"
+                        f" name{version_comment}: '{kwargs['name']}'"
                     )
                     init_self_from_db(orm, existing_record)
                     return None

@@ -15,6 +15,7 @@ nox.options.default_venv_backend = "none"
 
 GROUPS = {}
 GROUPS["tutorial"] = [
+    "guide.ipynb",
     "tutorial.ipynb",
     "tutorial1.ipynb",
 ]
@@ -55,7 +56,7 @@ def install(session, group):
     if group == "unit":
         extras += "bionty,aws,zarr,postgres,fcs"
     elif group == "tutorial":
-        extras += "aws,jupyter"  # despite no AWS credentials, we need s3fs
+        extras += "aws,jupyter,bionty"  # despite no AWS credentials, we need s3fs
     elif group == "guide":
         extras += "aws,bionty,zarr,jupyter,erdiagram"
         session.run(*"pip install scanpy".split())

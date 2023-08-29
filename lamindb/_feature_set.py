@@ -11,6 +11,7 @@ from lamindb.dev.hashing import hash_set
 from lamindb.dev.utils import attach_func_to_class_method
 
 from . import _TESTING
+from ._feature import convert_numpy_dtype_to_lamin_feature_type
 from ._registry import init_self_from_db
 from ._save import bulk_create
 
@@ -128,6 +129,14 @@ def save(self, *args, **kwargs) -> None:
         getattr(self, related_name).set(records)
 
 
+def get_type_str(type: Optional[Union[Type, str]]) -> Optional[str]:
+    if type is not None:
+        type_str = type.__name__ if not isinstance(type, str) else type
+    else:
+        type_str = None
+    return type_str
+
+
 @classmethod  # type:ignore
 @doc_args(FeatureSet.from_values.__doc__)
 def from_values(
@@ -147,21 +156,19 @@ def from_values(
     if len(values) == 0:
         raise ValueError("Provide a list of at least one value")
     registry = field.field.model
+    if registry != Feature and type is None:
+        raise ValueError("type is required if registry != Feature")
     validated = registry.validate(values, field=field)
     if validated.sum() == 0:
         logger.warning("no validated features, skip creating feature set")
         return None
     validated_values = np.array(values)[validated]
     validated_features = registry.from_values(validated_values, field=field, **kwargs)
-    if type is not None:
-        type_str = type.__name__ if not isinstance(type, str) else type
-    else:
-        type_str = None
     feature_set = FeatureSet(
         features=validated_features,
         name=name,
         modality=modality,
-        type=type_str,
+        type=get_type_str(type),
     )
     return feature_set
 
@@ -177,16 +184,27 @@ def from_df(
 ) -> Optional["FeatureSet"]:
     """{}"""
     registry = field.field.model
-    if registry != Feature:
-        raise ValueError("from_df() only available for ln.Feature, use from_values()")
-    validated = Feature.validate(df.columns, field=field)
+    validated = registry.validate(df.columns, field=field)
     if validated.sum() == 0:
         logger.warning("no validated features, skip creating feature set")
         return None
-    validated_features = Feature.from_df(df.loc[:, validated])
-    feature_set = FeatureSet(
-        validated_features, name=name, type=None, modality=modality
-    )
+    if registry == Feature:
+        validated_features = Feature.from_df(df.loc[:, validated])
+        feature_set = FeatureSet(
+            validated_features, name=name, type=None, modality=modality
+        )
+    else:
+        dtypes = [col.dtype for (_, col) in df.loc[:, validated].items()]
+        if len(set(dtypes)) != 1:
+            raise ValueError(f"Data types are inhomogeneous: {set(dtypes)}")
+        type = convert_numpy_dtype_to_lamin_feature_type(dtypes[0])
+        validated_features = registry.from_values(df.columns[validated], field=field)
+        feature_set = FeatureSet(
+            features=validated_features,
+            name=name,
+            modality=modality,
+            type=get_type_str(type),
+        )
     return feature_set
 
 

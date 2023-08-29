@@ -108,7 +108,7 @@ def from_df(
     run: Optional[Run] = None,
 ) -> "Dataset":
     """{}"""
-    feature_set = FeatureSet.from_df(df)
+    feature_set = FeatureSet.from_df(df, field=columns_ref)
     if feature_set is not None:
         feature_sets = {"columns": feature_set}
     else:
