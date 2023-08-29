@@ -284,10 +284,9 @@ def _label_file_run_transform(record: Union[File, Run, Transform]):
         elif record.description.startswith("See dataset "):
             dataset_id = record.description.lstrip("See dataset ")
             dataset = Dataset.filter(id=dataset_id).one()
-            name = dataset.name
+            name = dataset.name.replace("&", "&amp;")
         else:
-            name = record.description
-        name = name.replace("&", "&amp;")
+            name = record.description.replace("&", "&amp;")
 
         return (
             rf'<{name}<BR/><FONT COLOR="GREY" POINT-SIZE="10"'

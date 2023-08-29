@@ -40,15 +40,14 @@ def test_feature_set_from_values():
     gene_symbols = ["TCF7", "MYC"]
     lb.settings.species = "human"
     lb.Gene.filter(symbol__in=gene_symbols).all().delete()
-    with pytest.raises(ValueError) as error:
-        ln.FeatureSet.from_values(gene_symbols, lb.Gene.symbol)
-    assert error.exconly() == "ValueError: type is required if registry != Feature"
     feature_set = ln.FeatureSet.from_values(gene_symbols, lb.Gene.symbol, type=int)
     assert feature_set is None
     ln.save(lb.Gene.from_values(gene_symbols, "symbol"))
+    feature_set = ln.FeatureSet.from_values(gene_symbols, lb.Gene.symbol)
+    assert feature_set.type == "numeric"
     feature_set = ln.FeatureSet.from_values(gene_symbols, lb.Gene.symbol, type=int)
     assert feature_set._state.adding
-    assert feature_set.type == "float"
+    assert feature_set.type == "int"
     assert feature_set.registry == "bionty.Gene"
     feature_set.save()
     id = feature_set.id
@@ -66,14 +65,16 @@ def test_feature_set_from_values():
     with pytest.raises(TypeError):
         ln.FeatureSet.from_values(["a"], field="name")
     feature_set = ln.FeatureSet.from_values(
-        ["weird_name"], field=ln.Feature.name, type="rna"
+        ["weird_name"], field=ln.Feature.name, type="float"
     )
     assert feature_set is None
     with pytest.raises(TypeError):
-        ln.FeatureSet.from_values([1], field=ln.Label.name, type="rna")
+        ln.FeatureSet.from_values([1], field=ln.Label.name, type="float")
 
     # return none if no validated features
-    assert ln.FeatureSet.from_values(["name"], field=ln.Label.name, type="rna") is None
+    assert (
+        ln.FeatureSet.from_values(["name"], field=ln.Label.name, type="float") is None
+    )
 
 
 def test_feature_set_from_records():
