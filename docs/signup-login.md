@@ -1,4 +1,4 @@
-Why do I have to sign up? → Data lineage needs a user identity to answer questions like: Who modified which data when? Who shares this with me?
+Why do I have to sign up? → Data flow needs a user identity to answer questions like: Who modified which data when? Who shares this with me?
 
 Signing up takes 1 min. On the command line, run:
 

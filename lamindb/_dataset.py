@@ -198,11 +198,11 @@ def load(dataset: Dataset):
             return ad.concat(objects)
 
 
-def view_lineage(dataset: Dataset, with_children: bool = True) -> None:
+def view_flow(dataset: Dataset, with_children: bool = True) -> None:
     if dataset.file is not None:
-        dataset.file.view_lineage(with_children=with_children)
+        dataset.file.view_flow(with_children=with_children)
     else:
-        dataset.files.first().view_lineage(with_children=with_children)
+        dataset.files.first().view_flow(with_children=with_children)
 
 
 def delete(dataset: Dataset, storage: bool = False):
@@ -225,7 +225,8 @@ def save(dataset: Dataset):
 Dataset.__init__ = __init__
 Dataset.from_df = from_df
 Dataset.from_anndata = from_anndata
-Dataset.view_lineage = view_lineage
+Dataset.view_flow = view_flow
+Dataset.view_lineage = view_flow
 Dataset.backed = backed
 Dataset.load = load
 Dataset.delete = delete

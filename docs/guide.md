@@ -12,15 +12,15 @@
 
 ## Overview
 
-### Track & query data lineage
+### Track & query data flow
 
-View the lineage of a given file (from [here](docs:birds-eye)):
+View the flow of a given file or dataset (from [here](docs:project-flow)):
 
 ```python
-file.view_lineage()
+file.view_flow()
 ```
 
-<img src="https://raw.githubusercontent.com/laminlabs/lamindb/main/docs/img/readme/view_lineage.svg" width="800">
+<img src="https://raw.githubusercontent.com/laminlabs/lamindb/main/docs/img/readme/view_flow.svg" width="800">
 
 ### Manage biological registries
 
@@ -39,9 +39,9 @@ new_cell.view_parents()
 
 <img src="https://raw.githubusercontent.com/laminlabs/lamindb/main/docs/img/readme/neuron_view_parents_dist%3D2.svg" width="500">
 
-### Query validated features & labels
+### Validate & query data & metadata
 
-Query for rich, validated meta-data and get an overview using `file.describe()` (from [here](docs:scrna)):
+Query for rich, validated meta-data. Get an overview using `file.describe()` (from [here](docs:scrna)):
 
 ```
 💡 File(id='qrjrjSL5cIOVK4zSUINn', suffix='.h5ad', accessor='AnnData', description='Conde22', size=28049505, hash='WEFcMZxJNmMiUOFrcSTaig', hash_type='md5', created_at=2023-08-28 21:34:02, updated_at=2023-08-28 21:34:02)
@@ -97,7 +97,7 @@ LaminDB consists of the `lamindb` Python package (repository [here](https://gith
 
 - [bionty](https://github.com/laminlabs/bionty): Basic biological entities (usable standalone).
 - [lamindb-setup](https://github.com/laminlabs/lamindb-setup): Setup & configure LaminDB, client for Lamin Hub.
-- [lnschema-core](https://github.com/laminlabs/lnschema-core): Core schema, ORMs to model data objects & data lineage.
+- [lnschema-core](https://github.com/laminlabs/lnschema-core): Core schema, ORMs to model data objects & data flow.
 - [lnschema-bionty](https://github.com/laminlabs/lnschema-bionty): Bionty schema, ORMs that are coupled to Bionty's entities.
 - [lnschema-lamin1](https://github.com/laminlabs/lnschema-lamin1): Exemplary configured schema to track samples, treatments, etc.
 - [nbproject](https://github.com/laminlabs/nbproject): Parse metadata from Jupyter notebooks.
