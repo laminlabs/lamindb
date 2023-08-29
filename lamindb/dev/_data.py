@@ -90,7 +90,7 @@ def save_feature_set_links(self: Union[File, Dataset]) -> None:
 
 
 def describe(self):
-    model_name = colors.green(self.__class__.__name__)
+    model_name = self.__class__.__name__
     msg = ""
 
     def dict_related_model_to_related_name(orm):
@@ -129,9 +129,11 @@ def describe(self):
         "run": "👣",
         "initial_version": "🔖",
     }
-    if len(foreign_key_fields) > 0:
-        record_msg = f"{model_name}({''.join([f'{i}={format_field_value(self.__getattribute__(i))}, ' for i in direct_fields])})"  # noqa
-        msg += f"{record_msg.rstrip(', )')})\n\n"
+    if len(foreign_key_fields) > 0:  # always True for File and Dataset
+        from lnschema_core._models import __repr__
+
+        record_msg = f"{colors.green(model_name)}{__repr__(self, include_foreign_keys=False).lstrip(model_name)}"  # noqa
+        msg += f"{record_msg}\n\n"
 
         msg += f"{colors.green('Provenance')}:\n    "
         related_msg = "".join(

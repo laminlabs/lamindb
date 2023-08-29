@@ -44,27 +44,23 @@ new_cell.view_parents()
 Query for rich, validated meta-data and get an overview using `file.describe()` (from [here](docs:scrna)):
 
 ```
-💡 File(id='nRwgLc3CMIBr84ckw7jj', key=None, suffix='.h5ad', accessor='AnnData', description='Detmar22', version=None, size=17177479, hash='7ni-11ZJqq0h3LKvS2NcyQ', hash_type='md5', created_at=2023-08-24 20:38:51, updated_at=2023-08-24 20:38:51)
+💡 File(id='qrjrjSL5cIOVK4zSUINn', suffix='.h5ad', accessor='AnnData', description='Conde22', size=28049505, hash='WEFcMZxJNmMiUOFrcSTaig', hash_type='md5', created_at=2023-08-28 21:34:02, updated_at=2023-08-28 21:34:02)
 
 Provenance:
-    🗃️ storage: Storage(id='FbnPfTQx', root='/home/runner/work/lamin-usecases/lamin-usecases/docs/test-scrna', type='local', updated_at=2023-08-24 20:38:26, created_by_id='DzTjkKse')
-    💫 transform: Transform(id='Nv48yAceNSh8z8', name='Validate & register scRNA-seq datasets', short_name='scrna', version='0', type=notebook, updated_at=2023-08-24 20:38:50, created_by_id='DzTjkKse')
-    👣 run: Run(id='eVOa2WmrpGmBAR4cvJzZ', run_at=2023-08-24 20:38:28, transform_id='Nv48yAceNSh8z8', created_by_id='DzTjkKse')
-    👤 created_by: User(id='DzTjkKse', handle='testuser1', email='testuser1@lamin.ai', name='Test User1', updated_at=2023-08-24 20:38:26)
+    🗃️ storage: Storage(id='U89WhwzI', root='/home/runner/work/lamin-usecases/lamin-usecases/docs/test-scrna', type='local', updated_at=2023-08-28 21:33:26, created_by_id='DzTjkKse')
+    💫 transform: Transform(id='Nv48yAceNSh8z8', name='Validate & register scRNA-seq datasets', short_name='scrna', version='0', type=notebook, updated_at=2023-08-28 21:33:57, created_by_id='DzTjkKse')
+    👣 run: Run(id='jxoUKhAoN73coXjQZLcG', run_at=2023-08-28 21:33:28, transform_id='Nv48yAceNSh8z8', created_by_id='DzTjkKse')
+    👤 created_by: User(id='DzTjkKse', handle='testuser1', email='testuser1@lamin.ai', name='Test User1', updated_at=2023-08-28 21:33:26)
 Features:
   var (X):
-    🔗 index (10000, bionty.Gene.id): ['f9vsAIUY3qUV', '5uxXp1P1fnh0', 'bk8oApw4bzwT', 'IYxX3I0M3jTw', '0tY7C8m0z0EM'...]
+    🔗 index (36503, bionty.Gene.id): ['yqq0AoR40Zds', 'Fhp0Xl5AlfIA', '7Z6yFaHjoiCK', 'LfFNaOvjysQC', '8PGr70IVfonQ'...]
   external:
-    🔗 assay (2, bionty.ExperimentalFactor): ['single-cell RNA sequencing', 'adult']
+    🔗 species (1, bionty.Species): ['human']
   obs (metadata):
-    🔗 cell_type (1, bionty.CellType): ['endothelial cell']
-    🔗 developmental_stage (2, bionty.ExperimentalFactor): ['single-cell RNA sequencing', 'adult']
-    🔗 species (1, bionty.Species): ['mouse']
-    🔗 tissue (1, bionty.Tissue): ['inguinal lymph node']
-    🔗 immunophenotype (2, core.Label): ['CD45 positive', 'CD45 negative']
-    🔗 genotype (1, core.Label): ['wild type genotype']
-    🔗 age (1, core.Label): ['8 to 10 week']
-    🔗 sex (1, core.Label): ['female']
+    🔗 cell_type (32, bionty.CellType): ['lymphocyte', 'plasmacytoid dendritic cell', 'regulatory T cell', 'macrophage', 'classical monocyte']
+    🔗 assay (4, bionty.ExperimentalFactor): ["10x 3' v3", "10x 5' v2", "10x 5' v1", 'single-cell RNA sequencing']
+    🔗 tissue (17, bionty.Tissue): ['ileum', 'sigmoid colon', 'transverse colon', 'jejunal epithelium', 'bone marrow']
+    🔗 donor (12, core.Label): ['582C', 'A52', '640C', 'A36', 'D503']
 ```
 
 ### Collaborate across a mesh of instances
