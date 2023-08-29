@@ -619,7 +619,7 @@ def from_dir(
     run: Optional[Run] = None,
 ) -> List["File"]:
     """{}"""
-    folderpath = create_path(path)  # returns Path for local
+    folderpath: UPath = create_path(path)  # returns Path for local
     storage, use_existing_storage = process_pathlike(folderpath)
     folder_key_path: Union[PurePath, Path]
     if key is None:
@@ -640,8 +640,8 @@ def from_dir(
     # always sanitize by stripping a trailing slash
     folder_key = folder_key_path.as_posix().rstrip("/")
 
-    # TODO: UPath doesn't list the first level files and dirs with "*"
-    pattern = "" if isinstance(folderpath, UPath) else "*"
+    # TODO: (non-local) UPath doesn't list the first level files and dirs with "*"
+    pattern = "" if not isinstance(folderpath, LocalPathClasses) else "*"
 
     # silence fine-grained logging
     verbosity = settings.verbosity
