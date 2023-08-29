@@ -9,7 +9,12 @@ import pandas as pd
 from lamin_utils import logger
 from lamindb_setup import settings
 from lamindb_setup.dev import StorageSettings
-from lamindb_setup.dev.upath import UPath, create_path, infer_filesystem
+from lamindb_setup.dev.upath import (
+    LocalPathClasses,
+    UPath,
+    create_path,
+    infer_filesystem,
+)
 from lnschema_core.models import File, Storage
 
 try:
@@ -130,12 +135,12 @@ class ProgressCallback(fsspec.callbacks.Callback):
         return None
 
 
-def store_object(localpath: Union[str, Path], storagekey: str) -> float:
+def store_object(localpath: Union[str, Path, UPath], storagekey: str) -> float:
     """Store arbitrary file to configured storage location.
 
     Returns size in bytes.
     """
-    storagepath = settings.instance.storage.key_to_filepath(storagekey)
+    storagepath: UPath = settings.instance.storage.key_to_filepath(storagekey)
     localpath = Path(localpath)
 
     if localpath.is_file():
@@ -143,7 +148,7 @@ def store_object(localpath: Union[str, Path], storagekey: str) -> float:
     else:
         size = sum(f.stat().st_size for f in localpath.rglob("*") if f.is_file())
 
-    if isinstance(storagepath, UPath):
+    if not isinstance(storagepath, LocalPathClasses):
         if localpath.suffix != ".zarr":
             cb = ProgressCallback("uploading")
         else:
@@ -174,10 +179,12 @@ def delete_storage(storagepath: Union[Path, UPath]):
     if storagepath.is_file():
         storagepath.unlink()
     elif storagepath.is_dir():
-        if isinstance(storagepath, UPath):
-            storagepath.rmdir()
-        else:
+        if isinstance(storagepath, LocalPathClasses) or not isinstance(
+            storagepath, UPath
+        ):
             shutil.rmtree(storagepath)
+        else:
+            storagepath.rmdir()
     else:
         raise FileNotFoundError(f"{storagepath} is not an existing path!")
 
@@ -191,7 +198,7 @@ def read_fcs(*args, **kwargs):
     return readfcs.read(*args, **kwargs)
 
 
-def read_tsv(path: Union[str, Path]) -> pd.DataFrame:
+def read_tsv(path: Union[str, Path, UPath]) -> pd.DataFrame:
     path_sanitized = Path(path)
     return pd.read_csv(path_sanitized, sep="\t")
 

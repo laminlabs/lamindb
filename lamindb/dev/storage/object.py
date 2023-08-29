@@ -2,6 +2,7 @@ from pathlib import Path
 from typing import Optional, Union
 
 from anndata import AnnData
+from lamindb_setup.dev.upath import UPath
 from pandas import DataFrame
 
 
@@ -20,7 +21,7 @@ def infer_suffix(dmem, adata_format: Optional[str] = None):
         raise NotImplementedError
 
 
-def write_to_file(dmem, filepath: Union[str, Path]):
+def write_to_file(dmem, filepath: Union[str, Path, UPath]):
     if isinstance(dmem, AnnData):
         dmem.write(filepath)
     elif isinstance(dmem, DataFrame):

@@ -4,10 +4,10 @@ from pathlib import Path, PurePath, PurePosixPath
 from typing import Any, List, Optional, Set, Tuple, Union
 
 import anndata as ad
+import fsspec
 import lamindb_setup
 import pandas as pd
 from anndata import AnnData
-from appdirs import AppDirs
 from lamin_utils import colors, logger
 from lamindb_setup import settings as setup_settings
 from lamindb_setup._init_instance import register_storage
@@ -22,6 +22,7 @@ from lamindb.dev import run_context
 from lamindb.dev._settings import settings
 from lamindb.dev.hashing import b16_to_b64, hash_file
 from lamindb.dev.storage import (
+    LocalPathClasses,
     UPath,
     delete_storage,
     infer_suffix,
@@ -50,11 +51,9 @@ from .dev._data import (
 )
 from .dev.storage.file import AUTO_KEY_PREFIX
 
-DIRS = AppDirs("lamindb", "laminlabs")
-
 
 def process_pathlike(
-    filepath: Union[Path, UPath], skip_existence_check: bool = False
+    filepath: UPath, skip_existence_check: bool = False
 ) -> Tuple[Storage, bool]:
     if not skip_existence_check:
         try:  # check if file exists
@@ -62,7 +61,7 @@ def process_pathlike(
                 raise FileNotFoundError(filepath)
         except PermissionError:
             pass
-    if not isinstance(filepath, UPath):
+    if isinstance(filepath, LocalPathClasses):
         filepath = filepath.resolve()
     # check whether the path is in default storage
     default_storage = lamindb_setup.settings.storage.record
@@ -79,8 +78,8 @@ def process_pathlike(
         else:
             # if the path is in the cloud, we have a good candidate
             # for the storage root: the bucket
-            if isinstance(filepath, UPath):
-                # for a UPath, new_root is always the bucket name
+            if not isinstance(filepath, LocalPathClasses):
+                # for a cloud path, new_root is always the bucket name
                 new_root = list(filepath.parents)[-1]
                 new_root_str = new_root.as_posix().rstrip("/")
                 logger.warning(
@@ -113,7 +112,7 @@ def process_data(
     """Serialize a data object that's provided as file or in memory."""
     # if not overwritten, data gets stored in default storage
     if isinstance(data, (str, Path, UPath)):  # PathLike, spelled out
-        filepath = create_path(data)  # returns Path for local
+        filepath = create_path(data)
         storage, use_existing_storage_key = process_pathlike(
             filepath, skip_existence_check=skip_existence_check
         )
@@ -124,13 +123,7 @@ def process_data(
         memory_rep = data
         suffix = infer_suffix(data, format)
         cache_name = f"{provisional_id}{suffix}"
-        if lamindb_setup.settings.storage.cache_dir is not None:
-            filepath = lamindb_setup.settings.storage.cache_dir / cache_name
-        else:
-            # this should likely be added to lamindb_setup.settings.storage
-            cache_dir = Path(DIRS.user_cache_dir)
-            cache_dir.mkdir(parents=True, exist_ok=True)
-            filepath = cache_dir / cache_name
+        filepath = lamindb_setup.settings.storage.cache_dir / cache_name
         # Alex: I don't understand the line below
         if filepath.suffixes == []:
             filepath = filepath.with_suffix(suffix)
@@ -146,14 +139,14 @@ def process_data(
 
 
 def get_hash(
-    filepath,
+    filepath: UPath,
     suffix,
     filepath_stat=None,
     check_hash: bool = True,
 ) -> Union[Tuple[Optional[str], Optional[str]], File]:
     if suffix in {".zarr", ".zrad"}:
         return None
-    if isinstance(filepath, UPath):
+    if not isinstance(filepath, LocalPathClasses):
         stat = filepath_stat
         if stat is not None and "ETag" in stat:
             # small files
@@ -198,7 +191,7 @@ def get_hash(
 
 
 def get_path_size_hash(
-    filepath: Union[Path, UPath],
+    filepath: UPath,
     memory_rep: Optional[Union[pd.DataFrame, AnnData]],
     suffix: str,
     check_hash: bool = True,
@@ -211,7 +204,7 @@ def get_path_size_hash(
         if memory_rep is not None:
             size = size_adata(memory_rep)
         else:
-            if isinstance(filepath, UPath):
+            if not isinstance(filepath, LocalPathClasses):
                 cloudpath = filepath
                 # todo: properly calculate size
                 size = 0
@@ -228,16 +221,8 @@ def get_path_size_hash(
             hash_and_type = None, None
         else:
             filepath_stat = filepath.stat()
-            if isinstance(filepath, UPath):
-                try:
-                    size = filepath_stat["size"]  # type: ignore
-                # here trying to fix access issue with new s3 buckets
-                except Exception as e:
-                    if filepath._url.scheme == "s3":
-                        filepath = UPath(filepath, cache_regions=True)
-                        size = filepath_stat["size"]  # type: ignore
-                    else:
-                        raise e
+            if not isinstance(filepath, LocalPathClasses):
+                size = filepath_stat["size"]
                 cloudpath = filepath
                 hash_and_type = None, None
             else:
@@ -262,17 +247,22 @@ def check_path_in_existing_storage(
 def check_path_is_child_of_root(
     filepath: Union[Path, UPath], root: Optional[Union[Path, UPath]] = None
 ) -> bool:
-    assert isinstance(filepath, Path)
     if root is None:
         root = lamindb_setup.settings.storage.root
+
+    filepath = UPath(str(filepath)) if not isinstance(filepath, UPath) else filepath
+    root = UPath(str(root)) if not isinstance(root, UPath) else root
+
     # the following comparisons can fail if types aren't comparable
-    if isinstance(filepath, UPath) and isinstance(root, UPath):
+    if not isinstance(filepath, LocalPathClasses) and not isinstance(
+        root, LocalPathClasses
+    ):
         # the following tests equivalency of two UPath objects
         # via string representations; otherwise
         # S3Path('s3://lndb-storage/') and S3Path('s3://lamindb-ci/')
         # test as equivalent
         return list(filepath.parents)[-1].as_posix() == root.as_posix()
-    elif not isinstance(filepath, UPath) and not isinstance(root, UPath):
+    elif isinstance(filepath, LocalPathClasses) and isinstance(root, LocalPathClasses):
         return root.resolve() in filepath.resolve().parents
     else:
         return False
@@ -281,7 +271,7 @@ def check_path_is_child_of_root(
 def get_relative_path_to_directory(
     path: Union[PurePath, Path, UPath], directory: Union[PurePath, Path, UPath]
 ) -> Union[PurePath, Path]:
-    if isinstance(directory, UPath):
+    if isinstance(directory, UPath) and not isinstance(directory, LocalPathClasses):
         # UPath.relative_to() is not behaving as it should (2023-04-07)
         # need to lstrip otherwise inconsistent behavior across trailing slashes
         # see test_file.py: test_get_relative_path_to_directory
@@ -386,7 +376,7 @@ def log_storage_hint(
     if check_path_in_storage:
         display_root = storage.root  # type: ignore
         # check whether path is local
-        if not storage.root.startswith(("s3://", "gs://")):  # type: ignore
+        if fsspec.utils.get_protocol(storage.root) == "file":  # type: ignore
             # if it's a local path, check whether it's in the current working directory
             root_path = Path(storage.root)  # type: ignore
             if check_path_is_child_of_root(root_path, Path.cwd()):
@@ -571,7 +561,7 @@ def parse_feature_sets_from_anndata(adata: AnnDataLike, var_ref: Optional[FieldA
     data_parse = adata
     if not isinstance(adata, AnnData):  # is a path
         filepath = create_path(adata)  # returns Path for local
-        if isinstance(filepath, UPath):
+        if not isinstance(filepath, LocalPathClasses):
             from lamindb.dev.storage._backed_access import backed_access
 
             data_parse = backed_access(filepath)
@@ -629,7 +619,7 @@ def from_dir(
     run: Optional[Run] = None,
 ) -> List["File"]:
     """{}"""
-    folderpath = create_path(path)  # returns Path for local
+    folderpath: UPath = create_path(path)  # returns Path for local
     storage, use_existing_storage = process_pathlike(folderpath)
     folder_key_path: Union[PurePath, Path]
     if key is None:
@@ -650,8 +640,8 @@ def from_dir(
     # always sanitize by stripping a trailing slash
     folder_key = folder_key_path.as_posix().rstrip("/")
 
-    # TODO: UPath doesn't list the first level files and dirs with "*"
-    pattern = "" if isinstance(folderpath, UPath) else "*"
+    # TODO: (non-local) UPath doesn't list the first level files and dirs with "*"
+    pattern = "" if not isinstance(folderpath, LocalPathClasses) else "*"
 
     # silence fine-grained logging
     verbosity = settings.verbosity
