@@ -1,5 +1,6 @@
 # Changelog
 
+- 🚚 Rename data lineage to data flow [PR1108](https://github.com/laminlabs/lamindb/pull/1108) [@falexwolf](https://github.com/falexwolf)
 - 🎨 Use __repr__ code for describe [PR1107](https://github.com/laminlabs/lamindb/pull/1107) [@sunnyosun](https://github.com/sunnyosun)
 
 ```{eval-rst}
