@@ -148,7 +148,7 @@ def copy_or_move_to_cache(file: File):
     if not lamindb_setup.settings.storage.is_cloud:
         if cache_dir in local_path.parents:
             local_path.unlink()
-            return None
+        return None
 
     # maybe create something like storage.key_to_local(key) later to simplfy
     storage_key = auto_storage_key_from_file(file)
