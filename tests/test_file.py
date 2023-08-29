@@ -9,7 +9,7 @@ import numpy as np
 import pandas as pd
 import pytest
 from django.db.models.deletion import ProtectedError
-from lamindb_setup.dev.upath import UPath
+from lamindb_setup.dev.upath import CloudPath, LocalPathClasses, UPath
 
 import lamindb as ln
 from lamindb import _file
@@ -524,14 +524,14 @@ def test_serialize_paths():
     up_upath = UPath(up_str)
 
     _, filepath, _, _, _ = process_data("id", fp_str, None, skip_existence_check=True)
-    assert isinstance(filepath, Path) and not isinstance(filepath, UPath)
+    assert isinstance(filepath, LocalPathClasses)
     _, filepath, _, _, _ = process_data("id", fp_path, None, skip_existence_check=True)
-    assert isinstance(filepath, Path) and not isinstance(filepath, UPath)
+    assert isinstance(filepath, LocalPathClasses)
 
     _, filepath, _, _, _ = process_data("id", up_str, None, skip_existence_check=True)
-    assert isinstance(filepath, UPath)
+    assert isinstance(filepath, CloudPath)
     _, filepath, _, _, _ = process_data("id", up_upath, None, skip_existence_check=True)
-    assert isinstance(filepath, UPath)
+    assert isinstance(filepath, CloudPath)
 
 
 def test_load_to_memory():
