@@ -129,6 +129,14 @@ def save(self, *args, **kwargs) -> None:
         getattr(self, related_name).set(records)
 
 
+def get_type_str(type: Optional[Union[Type, str]]) -> Optional[str]:
+    if type is not None:
+        type_str = type.__name__ if not isinstance(type, str) else type
+    else:
+        type_str = None
+    return type_str
+
+
 @classmethod  # type:ignore
 @doc_args(FeatureSet.from_values.__doc__)
 def from_values(
@@ -148,21 +156,19 @@ def from_values(
     if len(values) == 0:
         raise ValueError("Provide a list of at least one value")
     registry = field.field.model
+    if registry != Feature and type is None:
+        raise ValueError("type is required if registry != Feature")
     validated = registry.validate(values, field=field)
     if validated.sum() == 0:
         logger.warning("no validated features, skip creating feature set")
         return None
     validated_values = np.array(values)[validated]
     validated_features = registry.from_values(validated_values, field=field, **kwargs)
-    if type is not None:
-        type_str = type.__name__ if not isinstance(type, str) else type
-    else:
-        type_str = None
     feature_set = FeatureSet(
         features=validated_features,
         name=name,
         modality=modality,
-        type=type_str,
+        type=get_type_str(type),
     )
     return feature_set
 
@@ -192,10 +198,12 @@ def from_df(
         if len(set(dtypes)) != 1:
             raise ValueError(f"Data types are inhomogeneous: {set(dtypes)}")
         type = convert_numpy_dtype_to_lamin_feature_type(dtypes[0])
-        feature_set = FeatureSet.from_values(
-            df.columns[validated],
-            field,
-            type=type,
+        validated_features = registry.from_values(df.columns[validated], field=field)
+        feature_set = FeatureSet(
+            features=validated_features,
+            name=name,
+            modality=modality,
+            type=get_type_str(type),
         )
     return feature_set
 

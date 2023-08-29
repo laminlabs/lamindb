@@ -40,10 +40,13 @@ def test_feature_set_from_values():
     gene_symbols = ["TCF7", "MYC"]
     lb.settings.species = "human"
     lb.Gene.filter(symbol__in=gene_symbols).all().delete()
-    feature_set = ln.FeatureSet.from_values(gene_symbols, lb.Gene.symbol)
+    with pytest.raises(ValueError) as error:
+        ln.FeatureSet.from_values(gene_symbols, lb.Gene.symbol)
+    assert error.exconly() == "ValueError: type is required if registry != Feature"
+    feature_set = ln.FeatureSet.from_values(gene_symbols, lb.Gene.symbol, type=int)
     assert feature_set is None
     ln.save(lb.Gene.from_values(gene_symbols, "symbol"))
-    feature_set = ln.FeatureSet.from_values(gene_symbols, lb.Gene.symbol)
+    feature_set = ln.FeatureSet.from_values(gene_symbols, lb.Gene.symbol, type=int)
     assert feature_set._state.adding
     assert feature_set.type == "float"
     assert feature_set.registry == "bionty.Gene"
@@ -51,7 +54,7 @@ def test_feature_set_from_values():
     id = feature_set.id
     # test that the feature_set is retrieved from the database
     # in case it already exists
-    feature_set = ln.FeatureSet.from_values(gene_symbols, lb.Gene.symbol)
+    feature_set = ln.FeatureSet.from_values(gene_symbols, lb.Gene.symbol, type=int)
     assert not feature_set._state.adding
     assert id == feature_set.id
     feature_set.delete()

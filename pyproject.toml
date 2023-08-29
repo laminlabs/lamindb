@@ -15,8 +15,6 @@ classifiers = [
 ]
 dependencies = [
     # Lamin PINNED packages
-    # !!! These packages should ALWAYS be pinned, do not unpin !!!
-    # !!! They cannot be pinned ANYWHERE else !!!
     "lnschema_core==0.46.3",
     "lamindb_setup==0.51.0",
     "lamin_utils==0.10.4",
@@ -36,7 +34,7 @@ Home = "https://github.com/laminlabs/lamindb"
 
 [project.optional-dependencies]
 bionty = [
-    "lnschema_bionty==0.30.1",
+    "lnschema_bionty==0.30.2",
 ]
 postgres = ["psycopg2-binary"]
 aws = [

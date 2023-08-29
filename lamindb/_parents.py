@@ -2,7 +2,7 @@ import builtins
 from typing import List, Optional, Set, Union
 
 from lamin_utils import logger
-from lnschema_core import File, Registry, Run, Transform
+from lnschema_core import Dataset, File, Registry, Run, Transform
 from lnschema_core.models import HasParents, format_field_value
 
 from lamindb.dev.utils import attach_func_to_class_method
@@ -281,8 +281,13 @@ def _label_file_run_transform(record: Union[File, Run, Transform]):
     if isinstance(record, File):
         if record.description is None:
             name = record.key
+        elif record.description.startswith("See dataset "):
+            dataset_id = record.description.lstrip("See dataset ")
+            dataset = Dataset.filter(id=dataset_id).one()
+            name = dataset.name
         else:
-            name = record.description.replace("&", "&amp;")
+            name = record.description
+        name = name.replace("&", "&amp;")
 
         return (
             rf'<{name}<BR/><FONT COLOR="GREY" POINT-SIZE="10"'
