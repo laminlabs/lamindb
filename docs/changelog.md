@@ -1,19 +1,19 @@
 # Changelog
 
-- ♻️ Refactor typing of FeatureSet [PR1111](https://github.com/laminlabs/lamindb/pull/1111) [@falexwolf](https://github.com/falexwolf)
-- ♻️ Enable typed feature sets for dataframes [PR1110](https://github.com/laminlabs/lamindb/pull/1110) [@falexwolf](https://github.com/falexwolf)
-- ♻️ Refactor to use UPath everywhere [PR1102](https://github.com/laminlabs/lamindb/pull/1102) [@Koncopd](https://github.com/Koncopd)
-- ⚡️ Delete cached files for local instances on File.save() [PR1109](https://github.com/laminlabs/lamindb/pull/1109) [@Koncopd](https://github.com/Koncopd)
-- 🚚 Rename data lineage to data flow [PR1108](https://github.com/laminlabs/lamindb/pull/1108) [@falexwolf](https://github.com/falexwolf)
-- 🎨 Use __repr__ code for describe [PR1107](https://github.com/laminlabs/lamindb/pull/1107) [@sunnyosun](https://github.com/sunnyosun)
-
 ```{eval-rst}
 .. role:: small
 ```
 
 ## 0.51
 
-### 0.51.1 {small}`2023-08-24`
+### 0.51.2 {small}`2023-08-28`
+
+- ♻️ Enable typed feature sets for dataframes [PR1110](https://github.com/laminlabs/lamindb/pull/1110) [@falexwolf](https://github.com/falexwolf)
+- ♻️ Refactor to use `UPath` everywhere [PR1102](https://github.com/laminlabs/lamindb/pull/1102) [@Koncopd](https://github.com/Koncopd)
+- ⚡️ Delete cached files for local instances on File.save() [PR1109](https://github.com/laminlabs/lamindb/pull/1109) [@Koncopd](https://github.com/Koncopd)
+- 🚚 Rename data lineage to data flow [PR1108](https://github.com/laminlabs/lamindb/pull/1108) [@falexwolf](https://github.com/falexwolf)
+
+### 0.51.1 {small}`2023-08-28`
 
 - 📝 Added validate guide [PR1104](https://github.com/laminlabs/lamindb/pull/1104) [@sunnyosun](https://github.com/sunnyosun)
 - 🐛 Fix feature set updates & `describe()` if no features are present [PR1098](https://github.com/laminlabs/lamindb/pull/1098) [@falexwolf](https://github.com/falexwolf)
