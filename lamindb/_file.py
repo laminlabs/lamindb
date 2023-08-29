@@ -250,8 +250,8 @@ def check_path_is_child_of_root(
     if root is None:
         root = lamindb_setup.settings.storage.root
 
-    filepath = UPath(filepath)
-    root = UPath(root)
+    filepath = UPath(str(filepath)) if not isinstance(filepath, UPath) else filepath
+    root = UPath(str(root)) if not isinstance(root, UPath) else root
 
     # the following comparisons can fail if types aren't comparable
     if not isinstance(filepath, LocalPathClasses) and not isinstance(

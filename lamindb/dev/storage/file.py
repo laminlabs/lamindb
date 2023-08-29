@@ -179,7 +179,9 @@ def delete_storage(storagepath: Union[Path, UPath]):
     if storagepath.is_file():
         storagepath.unlink()
     elif storagepath.is_dir():
-        if isinstance(storagepath, LocalPathClasses):
+        if isinstance(storagepath, LocalPathClasses) or not isinstance(
+            storagepath, UPath
+        ):
             shutil.rmtree(storagepath)
         else:
             storagepath.rmdir()
