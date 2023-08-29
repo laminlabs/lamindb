@@ -137,23 +137,24 @@ def check_and_attempt_upload(file: File) -> Optional[Exception]:
 def copy_or_move_to_cache(file: File):
     local_path = file._local_filepath
 
-    # in-memory zarr or not cloud
-    if local_path is None or not lamindb_setup.settings.storage.is_cloud:
+    # in-memory zarr or on-disk zarr
+    if local_path is None or not local_path.is_file():
         return None
 
     local_path = local_path.resolve()
+    cache_dir = lamindb_setup.settings.storage.cache_dir
 
-    # on-disk zarr
-    if not local_path.is_file():
-        return None
+    # local instance, just delete the cached file
+    if not lamindb_setup.settings.storage.is_cloud:
+        if cache_dir in local_path.parents:
+            local_path.unlink()
+            return None
 
     # maybe create something like storage.key_to_local(key) later to simplfy
     storage_key = auto_storage_key_from_file(file)
     storage_path = lamindb_setup.settings.storage.key_to_filepath(storage_key)
     cache_path = lamindb_setup.settings.storage.cloud_to_local_no_update(storage_path)
     cache_path.parent.mkdir(parents=True, exist_ok=True)
-
-    cache_dir = lamindb_setup.settings.storage.cache_dir
 
     if cache_dir in local_path.parents:
         local_path.replace(cache_path)
