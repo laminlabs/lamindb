@@ -282,7 +282,7 @@ def _label_file_run_transform(record: Union[File, Run, Transform]):
         if record.description is None:
             name = record.key
         elif record.description.startswith("See dataset "):
-            dataset_id = record.description.lstrip("See dataset ")
+            dataset_id = record.description.replace("See dataset ", "")
             dataset = Dataset.filter(id=dataset_id).one()
             name = dataset.name.replace("&", "&amp;")
         else:
