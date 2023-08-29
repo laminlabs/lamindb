@@ -84,7 +84,7 @@ It's fastest if we do this for you based on our templates within an enterprise p
 
 LaminDB builds semantics of R&D and biology onto well-established tools:
 
-- SQLite & Postgres for SQL databases using Django Registry (previously: SQLModel)
+- SQLite & Postgres for SQL databases using the Django ORM (previously: SQLModel)
 - S3, GCP & local storage for object storage using fsspec
 - Configurable storage formats: pyarrow, anndata, zarr, etc.
 - Biological knowledge sources & ontologies: see [Bionty](https://lamin.ai/docs/bionty)
