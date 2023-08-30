@@ -36,6 +36,8 @@ KNOWN_SUFFIXES = {
     ".fastq",
     ".tar",
     ".zip",
+    ".png",
+    ".jpg",
     # with readers (see below)
     ".h5ad",
     ".parquet",
@@ -47,19 +49,17 @@ KNOWN_SUFFIXES = {
 
 
 def extract_suffix_from_path(path: Union[UPath, Path]) -> str:
-    # this if-clause is based on https://stackoverflow.com/questions/31890341
-    # the rest consciously deviates
-    if len(path.suffixes) <= 2:
-        return "".join(path.suffixes)
+    if len(path.suffixes) <= 1:
+        return path.suffix
     else:
-        msg = "file has more than two suffixes (path.suffixes), "
+        msg = "file has more than one suffix (path.suffixes), "
         # first check the 2nd-to-last suffix because it might be followed by .gz
         # or another compression-related suffix
         if path.suffixes[-2] in KNOWN_SUFFIXES:
             suffix = "".join(path.suffixes[-2:])
             msg += f"inferring:'{suffix}'"
         else:
-            suffix = path.suffixes[-1]
+            suffix = path.suffixes[-1]  # this is equivalent to path.suffix!!!
             msg += f"using only last suffix: '{suffix}'"
         logger.warning(msg)
         return suffix
