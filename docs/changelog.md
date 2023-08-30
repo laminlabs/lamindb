@@ -1,5 +1,6 @@
 # Changelog
 
+- 🚸 Better treatment of `File.suffix` [PR1113](https://github.com/laminlabs/lamindb/pull/1113) [@falexwolf](https://github.com/falexwolf)
 ```{eval-rst}
 .. role:: small
 ```
