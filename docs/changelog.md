@@ -1,12 +1,15 @@
 # Changelog
 
-- 📝 Polish readme [PR1112](https://github.com/laminlabs/lamindb/pull/1112) [@falexwolf](https://github.com/falexwolf)
-- 🚸 Better treatment of `File.suffix` [PR1113](https://github.com/laminlabs/lamindb/pull/1113) [@falexwolf](https://github.com/falexwolf)
 ```{eval-rst}
 .. role:: small
 ```
 
 ## 0.51
+
+### 0.51.3 {small}`2023-08-30`
+
+- 📝 Polish readme [PR1112](https://github.com/laminlabs/lamindb/pull/1112) [@falexwolf](https://github.com/falexwolf)
+- 🚸 Better treatment of `File.suffix` [PR1113](https://github.com/laminlabs/lamindb/pull/1113) [@falexwolf](https://github.com/falexwolf)
 
 ### 0.51.2 {small}`2023-08-28`
 
