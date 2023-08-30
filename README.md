@@ -14,7 +14,7 @@ Here is an [intro video](https://www.youtube.com/watch?v=DtJ9KnqWA8Q).
 
 LaminDB is a Python library to manage data & analyses related to biology.
 
-<img src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/BunYmHkyFLITlM5MYQTN.png" style="max-width:600px;width:100%">
+<img src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/BunYmHkyFLITlM5MYQTN.png" width="350px">
 
 ## Features
 
