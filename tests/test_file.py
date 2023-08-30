@@ -442,8 +442,9 @@ def test_extract_suffix_from_path():
         ("a.txt", "a", ".txt"),
         ("archive.tar.gz", "archive", ".tar.gz"),
         ("directory/file", "file", ""),
+        ("d.x.y.z/f.b.c", "f", ".c"),
         ("d.x.y.z/f.a.b.c", "f", ".c"),
-        ("logs/date.log.txt", "date", ".log.txt"),
+        ("logs/date.log.txt", "date", ".txt"),
         ("salmon.merged.gene_counts.tsv", "salmon.merged.gene_counts", ".tsv"),
         ("salmon.merged.gene_counts.tsv.gz", "salmon.merged.gene_counts", ".tsv.gz"),
     ]
