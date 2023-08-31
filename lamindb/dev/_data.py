@@ -184,6 +184,7 @@ def describe(self):
 
     # display core.Feature features
     feature_sets = feature_sets_all.filter(registry="core.Feature").all()
+    features = Feature.lookup()
     if feature_sets.exists():
         features_df = create_features_df(
             host=self, feature_sets=feature_sets.all(), exclude=True
@@ -192,7 +193,7 @@ def describe(self):
             df_slot = features_df[features_df.slot == slot]
             msg += f"  {colors.bold(slot)}:\n"
             for _, row in df_slot.iterrows():
-                labels = self.get_labels(row["name"], mute=True)
+                labels = self.get_labels(getattr(features, row["name"]), mute=True)
                 indent = ""
                 if isinstance(labels, dict):
                     msg += f"    🔗 {row['name']} ({row.registries})\n"
@@ -216,38 +217,29 @@ def describe(self):
     settings.verbosity = verbosity
 
 
-def validate_and_cast_feature(
-    feature: Union[str, Feature], records: List[Registry]
-) -> Feature:
-    if isinstance(feature, str):
-        feature_name = feature
-        feature = Feature.filter(name=feature_name).one_or_none()
-        if feature is None:
-            registries = set(
-                [record.__class__.__get_name_with_schema__() for record in records]
-            )
-            registries_str = "|".join(registries)
-            msg = (
-                f"ln.Feature(name='{feature_name}', type='category',"
-                f" registries='{registries_str}').save()"
-            )
-            raise ValidationError(f"Feature not validated. If it looks correct: {msg}")
-    return feature
+def validate_feature(feature: Feature, records: List[Registry]) -> None:
+    if feature._state.adding:
+        registries = set(
+            [record.__class__.__get_name_with_schema__() for record in records]
+        )
+        registries_str = "|".join(registries)
+        msg = (
+            f"ln.Feature(name='{feature.name}', type='category',"
+            f" registries='{registries_str}').save()"
+        )
+        raise ValidationError(f"Feature not validated. If it looks correct: {msg}")
 
 
 @doc_args(Data.get_labels.__doc__)
 def get_labels(
     self,
-    feature: Union[str, Registry],
+    feature: Feature,
     mute: bool = False,
     flat_names: bool = False,
 ) -> Union[QuerySet, Dict[str, QuerySet], List]:
     """{}"""
-    if isinstance(feature, str):
-        feature_name = feature
-        feature = Feature.filter(name=feature_name).one_or_none()
-        if feature is None:
-            raise ValueError("feature doesn't exist")
+    if not isinstance(feature, Feature):
+        raise TypeError("feature has to be of type Feature")
     if feature.registries is None:
         raise ValueError("feature does not have linked labels")
     registries_to_check = feature.registries.split("|")
@@ -283,7 +275,7 @@ def get_labels(
 def add_labels(
     self,
     records: Union[Registry, List[Registry], QuerySet],
-    feature: Optional[Union[str, Registry]] = None,
+    feature: Feature,
 ) -> None:
     """{}"""
     if isinstance(records, (QuerySet, QuerySet.__base__)):  # need to have both
@@ -303,21 +295,12 @@ def add_labels(
             raise ValidationError(
                 f"{record} not validated. If it looks correct: record.save()"
             )
-    feature = validate_and_cast_feature(feature, records)
-    orig_feature = feature
-    records_by_feature_orm = defaultdict(list)
+    validate_feature(feature, records)
+    records_by_registry = defaultdict(list)
     for record in records:
-        if feature is None:
-            raise ValueError(
-                "Please pass feature: add_labels(labels, feature='myfeature')"
-            )
-        else:
-            record_feature = feature
-        records_by_feature_orm[
-            (record_feature, record.__class__.__get_name_with_schema__())
-        ].append(record)
-    for (feature, orm_name), records in records_by_feature_orm.items():
-        getattr(self, self.features._accessor_by_orm[orm_name]).add(
+        records_by_registry[record.__class__.__get_name_with_schema__()].append(record)
+    for registry_name, records in records_by_registry.items():
+        getattr(self, self.features._accessor_by_orm[registry_name]).add(
             *records, through_defaults={"feature_id": feature.id}
         )
     feature_set_links = get_feature_set_links(self)
@@ -331,25 +314,16 @@ def add_labels(
         for feature_set in feature_sets
         if "core.Feature" == feature_set.registry
     }
-    for (feature, orm_name), records in records_by_feature_orm.items():
-        feature = validate_and_cast_feature(feature, records)
+    for registry_name, records in records_by_registry.items():
         msg = ""
-        if orig_feature is None:
-            records_display = ", ".join(
-                [
-                    f"'{getattr(record, get_default_str_field(record))}'"
-                    for record in records
-                ]
-            )
-            msg += f"linked labels {records_display} to feature '{feature.name}'"
-        if feature.registries is None or orm_name not in feature.registries:
+        if feature.registries is None or registry_name not in feature.registries:
             if len(msg) > 0:
                 msg += ", "
-            msg += f"linked feature '{feature.name}' to registry '{orm_name}'"
+            msg += f"linked feature '{feature.name}' to registry '{registry_name}'"
             if feature.registries is None:
-                feature.registries = orm_name
-            elif orm_name not in feature.registries:
-                feature.registries += f"|{orm_name}"
+                feature.registries = registry_name
+            elif registry_name not in feature.registries:
+                feature.registries += f"|{registry_name}"
             feature.save()
         if len(msg) > 0:
             logger.save(msg)
