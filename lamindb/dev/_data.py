@@ -403,6 +403,6 @@ setattr(Data, "features", features)
 setattr(Data, "add_labels", add_labels)
 setattr(Data, "get_labels", get_labels)
 setattr(Data, "describe", describe)
-setattr(File, "view_flow", view_flow)
+setattr(Data, "view_flow", view_flow)
 # backward compat
-setattr(File, "view_lineage", view_flow)
+setattr(Data, "view_lineage", view_flow)
