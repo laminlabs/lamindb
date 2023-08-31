@@ -4,7 +4,7 @@ import pandas as pd
 from lamindb_setup.dev._docs import doc_args
 from lnschema_core import Feature
 from lnschema_core.models import Registry
-from pandas.api.types import is_categorical_dtype, is_string_dtype
+from pandas.api.types import CategoricalDtype, is_string_dtype
 
 from lamindb.dev._settings import settings
 from lamindb.dev.utils import attach_func_to_class_method
@@ -65,7 +65,11 @@ def __init__(self, *args, **kwargs):
 def from_df(cls, df: "pd.DataFrame") -> List["Feature"]:
     """{}"""
     string_cols = [col for col in df.columns if is_string_dtype(df[col])]
-    categoricals = {col: df[col] for col in df.columns if is_categorical_dtype(df[col])}
+    categoricals = {
+        col: df[col]
+        for col in df.columns
+        if isinstance(df[col].dtype, CategoricalDtype)
+    }
     for key in string_cols:
         c = pd.Categorical(df[key])
         if len(c.categories) < len(c):
