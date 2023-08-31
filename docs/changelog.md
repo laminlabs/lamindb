@@ -1,5 +1,6 @@
 # Changelog
 
+- 🩹 Replace deprecated `is_categorical_dtype` [PR1114](https://github.com/laminlabs/lamindb/pull/1114) [@falexwolf](https://github.com/falexwolf)
 ```{eval-rst}
 .. role:: small
 ```
