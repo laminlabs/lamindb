@@ -88,13 +88,13 @@ def test_create_delete_from_single_anndata():
     assert ln.File.filter(id=dataset.file.id).one_or_none() is None
     # and now with from_anndata
     lb.settings.species = "human"
-    dataset = ln.Dataset.from_anndata(adata, name="My adata", var_ref=lb.Gene.symbol)
+    dataset = ln.Dataset.from_anndata(adata, name="My adata", field=lb.Gene.symbol)
     # let's now try passing an AnnData-like file with some feature sets linked
     ln.save(ln.Feature.from_df(adata.obs))
-    file = ln.File.from_anndata(adata, description="my adata", var_ref=lb.Gene.symbol)
+    file = ln.File.from_anndata(adata, description="my adata", field=lb.Gene.symbol)
     file.save()
     ln.save(lb.Gene.from_values(adata.var.index, "symbol"))
-    dataset = ln.Dataset.from_anndata(file, name="My dataset", var_ref=lb.Gene.symbol)
+    dataset = ln.Dataset.from_anndata(file, name="My dataset", field=lb.Gene.symbol)
     dataset.save()
     dataset.describe()
     dataset.view_flow()
@@ -114,7 +114,7 @@ def test_create_delete_from_single_anndata():
 def test_from_single_file():
     lb.settings.species = "human"
     ln.save(ln.Feature.from_df(adata.obs))
-    file = ln.File.from_anndata(adata, description="My adata", var_ref=lb.Gene.symbol)
+    file = ln.File.from_anndata(adata, description="My adata", field=lb.Gene.symbol)
     with pytest.raises(ValueError) as error:
         ln.Dataset(file)
     assert str(error.exconly()).startswith(

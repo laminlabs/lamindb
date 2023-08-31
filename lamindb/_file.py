@@ -15,7 +15,7 @@ from lamindb_setup.dev import StorageSettings
 from lamindb_setup.dev._docs import doc_args
 from lamindb_setup.dev._hub_utils import get_storage_region
 from lamindb_setup.dev.upath import create_path
-from lnschema_core import Feature, FeatureSet, File, Run, Storage
+from lnschema_core import Feature, FeatureSet, File, Modality, Run, Storage
 from lnschema_core.types import AnnDataLike, DataLike, FieldAttr, PathLike
 
 from lamindb.dev import run_context
@@ -43,6 +43,7 @@ from lamindb.dev.versioning import get_ids_from_old_version, init_id
 
 from . import _TESTING
 from ._feature import convert_numpy_dtype_to_lamin_feature_type
+from ._priors import priors
 from .dev._data import (
     add_transform_to_kwargs,
     get_run,
@@ -542,14 +543,15 @@ def __init__(file: File, *args, **kwargs):
 def from_df(
     cls,
     df: "pd.DataFrame",
-    columns_ref: FieldAttr = Feature.name,
+    field: FieldAttr = Feature.name,
     key: Optional[str] = None,
     description: Optional[str] = None,
     run: Optional[Run] = None,
+    modality: Optional[Modality] = None,
 ) -> "File":
     """{}"""
     file = File(data=df, key=key, run=run, description=description, log_hint=False)
-    feature_set = FeatureSet.from_df(df, field=columns_ref)
+    feature_set = FeatureSet.from_df(df, field=field, modality=modality)
     if feature_set is not None:
         file._feature_sets = {"columns": feature_set}
     else:
@@ -557,7 +559,9 @@ def from_df(
     return file
 
 
-def parse_feature_sets_from_anndata(adata: AnnDataLike, var_ref: Optional[FieldAttr]):
+def parse_feature_sets_from_anndata(
+    adata: AnnDataLike, field: Optional[FieldAttr], modality: Optional[Modality] = None
+):
     data_parse = adata
     if not isinstance(adata, AnnData):  # is a path
         filepath = create_path(adata)  # returns Path for local
@@ -575,8 +579,9 @@ def parse_feature_sets_from_anndata(adata: AnnDataLike, var_ref: Optional[FieldA
     logger.indent = "   "
     feature_set_var = FeatureSet.from_values(
         data_parse.var.index,
-        var_ref,
+        field,
         type=type,
+        modality=modality,
     )
     if feature_set_var is not None:
         feature_sets["var"] = feature_set_var
@@ -585,7 +590,9 @@ def parse_feature_sets_from_anndata(adata: AnnDataLike, var_ref: Optional[FieldA
     if len(data_parse.obs.columns) > 0:
         logger.info("parsing feature names of slot 'obs'")
         logger.indent = "   "
-        feature_set_obs = FeatureSet.from_df(data_parse.obs, modality="meta")
+        feature_set_obs = FeatureSet.from_df(
+            data_parse.obs, modality=priors.modalities.meta
+        )
         if feature_set_obs is not None:
             feature_sets["obs"] = feature_set_obs
             logger.save(f"linked: {feature_set_obs}")
@@ -598,14 +605,15 @@ def parse_feature_sets_from_anndata(adata: AnnDataLike, var_ref: Optional[FieldA
 def from_anndata(
     cls,
     adata: "AnnDataLike",
-    var_ref: Optional[FieldAttr],
+    field: Optional[FieldAttr],
     key: Optional[str] = None,
     description: Optional[str] = None,
     run: Optional[Run] = None,
+    modality: Optional[Modality] = None,
 ) -> "File":
     """{}"""
     file = File(data=adata, key=key, run=run, description=description, log_hint=False)
-    file._feature_sets = parse_feature_sets_from_anndata(adata, var_ref)
+    file._feature_sets = parse_feature_sets_from_anndata(adata, field, modality)
     return file
 
 

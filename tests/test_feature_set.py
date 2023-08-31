@@ -153,21 +153,30 @@ def test_kwargs():
 
 
 def test_edge_cases():
-    modality = ln.Modality(name="rna")
     feature = ln.Feature(name="rna", type="float")
     ln.save([feature])
+    # wrong type for modality
+    with pytest.raises(TypeError):
+        ln.FeatureSet([feature], modality="random")
+    # unsaved modality
+    result = ln.Modality.filter(name="rna").one_or_none()
+    if result is not None:
+        result.delete()
+    modality = ln.Modality(name="rna")
+    with pytest.raises(ValueError) as error:
+        ln.FeatureSet([feature], modality=modality)
+    assert error.exconly().startswith(
+        "ValueError: unvalidated modality, save to registry if you're sure it is"
+        " correct: "
+    )
+    modality.save()
     feature_set = ln.FeatureSet([feature], modality=modality)
     assert feature_set.modality == modality
     with pytest.raises(ValueError) as error:
-        feature_set = ln.FeatureSet(feature, modality=ln.Transform())
+        feature_set = ln.FeatureSet(feature)
     assert (
         error.exconly()
         == "ValueError: Please pass a ListLike of features, not a single feature"
-    )
-    with pytest.raises(ValueError) as error:
-        feature_set = ln.FeatureSet([feature], modality=ln.Transform())
-    assert (
-        error.exconly() == "ValueError: modality needs to be string or Modality record"
     )
     feature.delete()
     feature_set.delete()
