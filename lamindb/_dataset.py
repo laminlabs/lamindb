@@ -102,13 +102,13 @@ def __init__(
 def from_df(
     cls,
     df: "pd.DataFrame",
-    columns_ref: FieldAttr = Feature.name,
+    field: FieldAttr = Feature.name,
     name: Optional[str] = None,
     description: Optional[str] = None,
     run: Optional[Run] = None,
 ) -> "Dataset":
     """{}"""
-    feature_set = FeatureSet.from_df(df, field=columns_ref)
+    feature_set = FeatureSet.from_df(df, field=field)
     if feature_set is not None:
         feature_sets = {"columns": feature_set}
     else:

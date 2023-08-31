@@ -542,14 +542,14 @@ def __init__(file: File, *args, **kwargs):
 def from_df(
     cls,
     df: "pd.DataFrame",
-    columns_ref: FieldAttr = Feature.name,
+    field: FieldAttr = Feature.name,
     key: Optional[str] = None,
     description: Optional[str] = None,
     run: Optional[Run] = None,
 ) -> "File":
     """{}"""
     file = File(data=df, key=key, run=run, description=description, log_hint=False)
-    feature_set = FeatureSet.from_df(df, field=columns_ref)
+    feature_set = FeatureSet.from_df(df, field=field)
     if feature_set is not None:
         file._feature_sets = {"columns": feature_set}
     else:
