@@ -306,8 +306,6 @@ def _label_file_run_transform(record: Union[File, Run, Transform]):
             rf' FACE="Monospace">id={record.id}<BR/>type={record.type},'
             rf" user={record.created_by.name}<BR/>updated_at={format_field_value(record.updated_at)}</FONT>>"  # noqa
         )
-    else:
-        return record
 
 
 def _df_edges_from_runs(all_runs: List[Run]):
