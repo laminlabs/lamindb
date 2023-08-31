@@ -173,15 +173,10 @@ def test_edge_cases():
     feature_set = ln.FeatureSet([feature], modality=modality)
     assert feature_set.modality == modality
     with pytest.raises(ValueError) as error:
-        feature_set = ln.FeatureSet(feature, modality=ln.Transform())
+        feature_set = ln.FeatureSet(feature)
     assert (
         error.exconly()
         == "ValueError: Please pass a ListLike of features, not a single feature"
-    )
-    with pytest.raises(ValueError) as error:
-        feature_set = ln.FeatureSet([feature], modality=ln.Transform())
-    assert (
-        error.exconly() == "ValueError: modality needs to be string or Modality record"
     )
     feature.delete()
     feature_set.delete()
