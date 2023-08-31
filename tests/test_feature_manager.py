@@ -100,7 +100,7 @@ def test_add_labels_using_anndata():
 
     # try to construct without registering metadata features
     file = ln.File.from_anndata(
-        adata, description="Mini adata", var_ref=lb.Gene.ensembl_gene_id
+        adata, description="Mini adata", field=lb.Gene.ensembl_gene_id
     )
     assert "obs" not in file._feature_sets
     # add feature set without saving file
@@ -120,7 +120,7 @@ def test_add_labels_using_anndata():
         )
     )
     file = ln.File.from_anndata(
-        adata, description="Mini adata", var_ref=lb.Gene.ensembl_gene_id
+        adata, description="Mini adata", field=lb.Gene.ensembl_gene_id
     )
 
     with pytest.raises(ValueError) as error:

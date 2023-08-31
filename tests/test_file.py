@@ -178,7 +178,7 @@ def test_create_from_dataframe_using_from_df():
 def test_create_from_anndata_in_memory():
     ln.save(lb.Gene.from_values(adata.var.index, "symbol"))
     ln.save(ln.Feature.from_df(adata.obs))
-    file = ln.File.from_anndata(adata, description="test", var_ref=lb.Gene.symbol)
+    file = ln.File.from_anndata(adata, description="test", field=lb.Gene.symbol)
     assert file.accessor == "AnnData"
     assert hasattr(file, "_local_filepath")
     file.save()
@@ -206,7 +206,7 @@ def test_create_from_anndata_in_storage(data):
         previous_storage = ln.setup.settings.storage.root_as_str
         ln.settings.storage = "s3://lamindb-test"
         filepath = data
-    file = ln.File.from_anndata(filepath, var_ref=lb.Gene.symbol)
+    file = ln.File.from_anndata(filepath, field=lb.Gene.symbol)
     assert file.accessor == "AnnData"
     assert hasattr(file, "_local_filepath")
     file.save()

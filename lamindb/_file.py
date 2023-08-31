@@ -557,7 +557,7 @@ def from_df(
     return file
 
 
-def parse_feature_sets_from_anndata(adata: AnnDataLike, var_ref: Optional[FieldAttr]):
+def parse_feature_sets_from_anndata(adata: AnnDataLike, field: Optional[FieldAttr]):
     data_parse = adata
     if not isinstance(adata, AnnData):  # is a path
         filepath = create_path(adata)  # returns Path for local
@@ -575,7 +575,7 @@ def parse_feature_sets_from_anndata(adata: AnnDataLike, var_ref: Optional[FieldA
     logger.indent = "   "
     feature_set_var = FeatureSet.from_values(
         data_parse.var.index,
-        var_ref,
+        field,
         type=type,
     )
     if feature_set_var is not None:
@@ -598,14 +598,14 @@ def parse_feature_sets_from_anndata(adata: AnnDataLike, var_ref: Optional[FieldA
 def from_anndata(
     cls,
     adata: "AnnDataLike",
-    var_ref: Optional[FieldAttr],
+    field: Optional[FieldAttr],
     key: Optional[str] = None,
     description: Optional[str] = None,
     run: Optional[Run] = None,
 ) -> "File":
     """{}"""
     file = File(data=adata, key=key, run=run, description=description, log_hint=False)
-    file._feature_sets = parse_feature_sets_from_anndata(adata, var_ref)
+    file._feature_sets = parse_feature_sets_from_anndata(adata, field)
     return file
 
 
