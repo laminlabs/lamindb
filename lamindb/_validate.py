@@ -14,7 +14,7 @@ from lamindb.dev.utils import attach_func_to_class_method
 
 from . import _TESTING
 from ._from_values import _has_species_field, _print_values
-from ._registry import get_default_str_field
+from ._registry import _queryset, get_default_str_field
 
 
 @classmethod  # type: ignore
@@ -66,12 +66,14 @@ def _inspect(
         values = [values]
 
     field = get_default_str_field(cls, field=field)
-
-    orm = cls.model if isinstance(cls, QuerySet) else cls
+    queryset = _queryset(cls)
+    orm = queryset.model
 
     # inspect in the DB
     result_db = inspect(
-        df=_filter_query_based_on_species(orm=orm, species=kwargs.get("species")),
+        df=_filter_query_based_on_species(
+            queryset=queryset, species=kwargs.get("species")
+        ),
         identifiers=values,
         field=str(field),
         mute=mute,
@@ -144,10 +146,10 @@ def _validate(
 
     field = get_default_str_field(cls, field=field)
 
-    orm = cls.model if isinstance(cls, QuerySet) else cls
+    queryset = _queryset(cls)
     field_values = pd.Series(
         _filter_query_based_on_species(
-            orm=orm,
+            queryset=queryset,
             species=kwargs.get("species"),
             values_list_field=field,
         ),
@@ -253,22 +255,20 @@ def _standardize(
         values = [values]
 
     field = get_default_str_field(cls, field=field)
-    orm = cls.model if isinstance(cls, QuerySet) else cls
+    queryset = _queryset(cls)
+    orm = queryset.model
 
     species = kwargs.get("species")
     if _has_species_field(orm):
         # here, we can safely import lnschema_bionty
         from lnschema_bionty._bionty import create_or_get_species_record
 
-        species_record = create_or_get_species_record(
-            species=species,
-            orm=orm.model if isinstance(orm, QuerySet) else orm,
-        )
+        species_record = create_or_get_species_record(species=species, orm=orm)
         species = species_record.name if species_record is not None else species_record
 
     try:
         orm._meta.get_field(synonyms_field)
-        df = _filter_query_based_on_species(orm=orm, species=species)
+        df = _filter_query_based_on_species(queryset=queryset, species=species)
     except FieldDoesNotExist:
         df = pd.DataFrame()
 
@@ -435,25 +435,21 @@ def _check_synonyms_field_exist(record: Registry):
 
 
 def _filter_query_based_on_species(
-    orm: Union[Registry, QuerySet],
+    queryset: QuerySet,
     species: Optional[Union[str, Registry]] = None,
     values_list_field: Optional[str] = None,
 ):
     import pandas as pd
 
-    if values_list_field is None:
-        records = orm.all() if isinstance(orm, QuerySet) else orm.objects.all()
-    else:
-        records = orm if isinstance(orm, QuerySet) else orm.objects
+    orm = queryset.model
+
     if _has_species_field(orm):
         # here, we can safely import lnschema_bionty
         from lnschema_bionty._bionty import create_or_get_species_record
 
-        species_record = create_or_get_species_record(
-            species=species, orm=orm.model if isinstance(orm, QuerySet) else orm
-        )
+        species_record = create_or_get_species_record(species=species, orm=orm)
         if species_record is not None:
-            records = records.filter(species__name=species_record.name)
+            records = queryset.filter(species__name=species_record.name)
 
     if values_list_field is None:
         return pd.DataFrame.from_records(records.values())
