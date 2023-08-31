@@ -1,5 +1,6 @@
 # Changelog
 
+- ♻️ Simplify standardize code [PR1117](https://github.com/laminlabs/lamindb/pull/1117) [@sunnyosun](https://github.com/sunnyosun)
 - 🐛 Fix lookup for queryset [PR1115](https://github.com/laminlabs/lamindb/pull/1115) [@sunnyosun](https://github.com/sunnyosun)
 - 🩹 Replace deprecated `is_categorical_dtype` [PR1114](https://github.com/laminlabs/lamindb/pull/1114) [@falexwolf](https://github.com/falexwolf)
 ```{eval-rst}
