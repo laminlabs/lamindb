@@ -157,10 +157,6 @@ def test_create_from_dataframe_using_from_df():
         file.features["columns"]
     ln.save(ln.Feature.from_df(df))
     file = ln.File.from_df(df, description=description)
-    # wrong type for modality
-    with pytest.raises(TypeError):
-        file = ln.File.from_df(df, description=description, modality="random")
-    # unsaved modality
     result = ln.Modality.filter(name="random").one_or_none()
     if result is not None:
         result.delete()

@@ -156,6 +156,10 @@ def test_edge_cases():
     modality = ln.Modality(name="rna")
     feature = ln.Feature(name="rna", type="float")
     ln.save([feature])
+    # wrong type for modality
+    with pytest.raises(TypeError):
+        ln.FeatureSet([feature], modality="random")
+    # unsaved modality
     with pytest.raises(ValueError) as error:
         ln.FeatureSet([feature], modality=modality)
     assert error.exconly().startswith(
