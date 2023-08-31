@@ -240,21 +240,21 @@ def search(
 
 def _lookup(cls, field: Optional[StrField] = None) -> NamedTuple:
     """{}"""
+    query_set = cls.all() if isinstance(cls, QuerySet) else cls.objects.all()
+    orm = cls.model if isinstance(cls, QuerySet) else cls
+
     if field is None:
-        if cls._meta.model.__name__ == "User":
-            field = cls._meta.get_field("handle").name
+        if orm._meta.model.__name__ == "User":
+            field = orm._meta.get_field("handle").name
         else:
-            field = get_default_str_field(cls)
+            field = get_default_str_field(orm)
     if not isinstance(field, str):
         field = field.field.name
 
-    records = cls.all() if isinstance(cls, QuerySet) else cls.objects.all()
-    cls = cls.model if isinstance(cls, QuerySet) else cls
-
     return Lookup(
-        records=records,
-        values=[i.get(field) for i in records.values()],
-        tuple_name=cls.__name__,
+        records=query_set,
+        values=[i.get(field) for i in query_set.values()],
+        tuple_name=cls.__class__.__name__,
         prefix="ln",
     ).lookup()
 
