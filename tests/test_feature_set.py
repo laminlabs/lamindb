@@ -153,13 +153,16 @@ def test_kwargs():
 
 
 def test_edge_cases():
-    modality = ln.Modality(name="rna")
     feature = ln.Feature(name="rna", type="float")
     ln.save([feature])
     # wrong type for modality
     with pytest.raises(TypeError):
         ln.FeatureSet([feature], modality="random")
     # unsaved modality
+    result = ln.Modality.filter(name="rna").one_or_none()
+    if result is not None:
+        result.delete()
+    modality = ln.Modality(name="rna")
     with pytest.raises(ValueError) as error:
         ln.FeatureSet([feature], modality=modality)
     assert error.exconly().startswith(

@@ -157,9 +157,6 @@ def test_create_from_dataframe_using_from_df():
         file.features["columns"]
     ln.save(ln.Feature.from_df(df))
     file = ln.File.from_df(df, description=description)
-    result = ln.Modality.filter(name="random").one_or_none()
-    if result is not None:
-        result.delete()
     ln.Modality(name="random").save()
     modalities = ln.Modality.lookup()
     file = ln.File.from_df(df, description=description, modality=modalities.random)
