@@ -173,7 +173,7 @@ def _search(
         )
 
     # search in both key and description fields for file
-    if orm.__name__ == "File" and field is None:
+    if orm._meta.model.__name__ == "File" and field is None:
         field = ["key", "description"]
 
     if not isinstance(field, List):
@@ -267,9 +267,9 @@ def get_default_str_field(
 
     # set default field
     if field is None:
-        if orm.__name__ == "Run":
+        if orm._meta.model.__name__ == "Run":
             field = orm._meta.get_field("created_at")
-        elif orm.__name__ == "User":
+        elif orm._meta.model.__name__ == "User":
             field = orm._meta.get_field("handle")
         elif "name" in model_field_names:
             # by default use the name field
