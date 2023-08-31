@@ -64,7 +64,9 @@ def __init__(self, *args, **kwargs):
         raise ValueError("Only one non-keyword arg allowed: features")
     features: Iterable[Registry] = kwargs.pop("features") if len(args) == 0 else args[0]
     type: Optional[Union[type, str]] = kwargs.pop("type") if "type" in kwargs else None
-    modality: Optional[str] = kwargs.pop("modality") if "modality" in kwargs else None
+    modality: Optional[Modality] = (
+        kwargs.pop("modality") if "modality" in kwargs else None
+    )
     name: Optional[str] = kwargs.pop("name") if "name" in kwargs else None
     if len(kwargs) > 0:
         raise ValueError(
@@ -85,23 +87,19 @@ def __init__(self, *args, **kwargs):
         hash = features_hash
     self._features = (get_related_name(features_registry), features)
     if modality is not None:
-        if isinstance(modality, str):
-            modality_record = Modality.filter(name=modality).one_or_none()
-            if modality_record is None:
-                modality_record = Modality(name=modality)
-                modality_record.save()
-        elif isinstance(modality, Modality):
-            modality_record = modality
-        else:
-            raise ValueError("modality needs to be string or Modality record")
-    else:
-        modality_record = modality
+        if not isinstance(modality, Modality):
+            raise TypeError("modality needs to be of type Modality")
+        if modality._state.adding:
+            raise ValueError(
+                "unvalidated modality, save to registry if you're sure it is correct:"
+                f" {modality}"
+            )
     super(FeatureSet, self).__init__(
         id=ids.base62_20(),
         name=name,
         type=get_type_str(type),
         n=n_features,
-        modality=modality_record,
+        modality=modality,
         registry=features_registry.__get_name_with_schema__(),
         hash=hash,
     )
@@ -139,7 +137,7 @@ def from_values(
     field: FieldAttr = Feature.name,
     type: Optional[Union[Type, str]] = None,
     name: Optional[str] = None,
-    modality: Optional[str] = None,
+    modality: Optional[Modality] = None,
     **kwargs,
 ) -> Optional["FeatureSet"]:
     """{}"""
@@ -175,7 +173,7 @@ def from_df(
     df: "pd.DataFrame",
     field: FieldAttr = Feature.name,
     name: Optional[str] = None,
-    modality: Optional[str] = None,
+    modality: Optional[Modality] = None,
 ) -> Optional["FeatureSet"]:
     """{}"""
     registry = field.field.model

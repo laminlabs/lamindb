@@ -157,6 +157,22 @@ def test_create_from_dataframe_using_from_df():
         file.features["columns"]
     ln.save(ln.Feature.from_df(df))
     file = ln.File.from_df(df, description=description)
+    # wrong type for modality
+    with pytest.raises(TypeError) as error:
+        file = ln.File.from_df(df, description=description, modality="random")
+    # unsaved modality
+    result = ln.Modality.filter(name="random").one_or_none()
+    if result is not None:
+        result.delete()
+    modality = ln.Modality(name="random")
+    with pytest.raises(ValueError) as error:
+        file = ln.File.from_df(df, description=description, modality=modality)
+    assert error.exconly().startswith(
+        "unvalidated modality, save to registry if you're sure it is correct: "
+    )
+    modality.save()
+    modalities = ln.Modality.lookup()
+    file = ln.File.from_df(df, description=description, modality=modalities.random)
     # mere access test right now
     file.features["columns"]
     assert file.description == description
@@ -167,6 +183,7 @@ def test_create_from_dataframe_using_from_df():
     # check that the local filepath has been cleared
     assert not hasattr(file, "_local_filepath")
     feature_set_queried = file.feature_sets.get()  # exactly one
+    assert feature_set_queried.modality == modalities.random
     feature_list_queried = ln.Feature.filter(feature_sets=feature_set_queried).list()
     feature_list_queried = [feature.name for feature in feature_list_queried]
     assert set(feature_list_queried) == set(df.columns)
@@ -178,7 +195,11 @@ def test_create_from_dataframe_using_from_df():
 def test_create_from_anndata_in_memory():
     ln.save(lb.Gene.from_values(adata.var.index, "symbol"))
     ln.save(ln.Feature.from_df(adata.obs))
-    file = ln.File.from_anndata(adata, description="test", field=lb.Gene.symbol)
+    ln.Modality(name="random").save()
+    modalities = ln.Modality.lookup()
+    file = ln.File.from_anndata(
+        adata, description="test", field=lb.Gene.symbol, modality=modalities.random
+    )
     assert file.accessor == "AnnData"
     assert hasattr(file, "_local_filepath")
     file.save()

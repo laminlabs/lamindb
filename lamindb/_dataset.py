@@ -4,6 +4,7 @@ import anndata as ad
 import pandas as pd
 from lamin_utils import logger
 from lamindb_setup.dev._docs import doc_args
+from lnschema_core import Modality
 from lnschema_core.models import Dataset, Feature, FeatureSet
 from lnschema_core.types import AnnDataLike, FieldAttr
 
@@ -106,9 +107,10 @@ def from_df(
     name: Optional[str] = None,
     description: Optional[str] = None,
     run: Optional[Run] = None,
+    modality: Optional[Modality] = None,
 ) -> "Dataset":
     """{}"""
-    feature_set = FeatureSet.from_df(df, field=field)
+    feature_set = FeatureSet.from_df(df, field=field, modality=modality)
     if feature_set is not None:
         feature_sets = {"columns": feature_set}
     else:
@@ -128,6 +130,7 @@ def from_anndata(
     name: Optional[str] = None,
     description: Optional[str] = None,
     run: Optional[Run] = None,
+    modality: Optional[Modality] = None,
 ) -> "Dataset":
     """{}"""
     if isinstance(adata, File):
@@ -136,7 +139,7 @@ def from_anndata(
         adata_parse = adata.path
     else:
         adata_parse = adata
-    feature_sets = parse_feature_sets_from_anndata(adata_parse, field)
+    feature_sets = parse_feature_sets_from_anndata(adata_parse, field, modality)
     dataset = Dataset(
         data=adata,
         run=run,

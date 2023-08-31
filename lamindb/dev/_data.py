@@ -17,6 +17,7 @@ from lnschema_core.models import (
 )
 
 from .._parents import view_flow
+from .._priors import priors
 from .._query_set import QuerySet
 from .._registry import get_default_str_field
 from ._feature_manager import (
@@ -175,8 +176,6 @@ def describe(self):
             kwargs = {host_id_field: self.id, "feature_set_id": feature_set.id}
             slots = self.feature_sets.through.objects.filter(**kwargs).list("slot")
             for slot in slots:
-                if slot == "var":
-                    slot += " (X)"
                 msg += f"  {colors.bold(slot)}:\n"
                 ref = colors.italic(f"{orm_name_with_schema}.{field_name}")
                 msg += f"    🔗 index ({feature_set.n}, {ref}): {values}\n".replace(
@@ -191,8 +190,6 @@ def describe(self):
         )
         for slot in features_df["slot"].unique():
             df_slot = features_df[features_df.slot == slot]
-            if slot == "obs":
-                slot += " (metadata)"
             msg += f"  {colors.bold(slot)}:\n"
             for _, row in df_slot.iterrows():
                 labels = self.get_labels(row["name"], mute=True)
@@ -369,7 +366,7 @@ def add_labels(
             else:
                 features_list = []
             features_list.append(feature)
-            feature_set = FeatureSet(features_list, modality="meta")
+            feature_set = FeatureSet(features_list, modality=priors.modalities.meta)
             feature_set.save()
             if "external" in linked_features_by_slot:
                 old_feature_set_link = feature_set_links.filter(slot="external").one()
