@@ -449,12 +449,12 @@ def _filter_query_based_on_species(
 
         species_record = create_or_get_species_record(species=species, orm=orm)
         if species_record is not None:
-            records = queryset.filter(species__name=species_record.name)
+            queryset = queryset.filter(species__name=species_record.name)
 
     if values_list_field is None:
-        return pd.DataFrame.from_records(records.values())
+        return pd.DataFrame.from_records(queryset.values())
     else:
-        return records.values_list(values_list_field, flat=True)
+        return queryset.values_list(values_list_field, flat=True)
 
 
 METHOD_NAMES = [

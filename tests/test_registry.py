@@ -27,8 +27,12 @@ def test_signatures():
 
 
 def test_init_with_args():
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError) as error:
         ln.Label("an arg", name="test")
+    assert (
+        error.exconly()
+        == "ValueError: please provide keyword arguments, not plain arguments"
+    )
 
 
 def test_validate_required_fields():
