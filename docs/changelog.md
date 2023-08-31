@@ -1,5 +1,6 @@
 # Changelog
 
+- 🚸 Enable to pass modality to `from_df` and `from_anndata` [PR1116](https://github.com/laminlabs/lamindb/pull/1116) [@falexwolf](https://github.com/falexwolf)
 - ⬆️ Upgrade lamindb_setup [PR1120](https://github.com/laminlabs/lamindb/pull/1120) [@bpenteado](https://github.com/bpenteado)
 - 🚑️ Fix map_synonyms bug [PR1119](https://github.com/laminlabs/lamindb/pull/1119) [@sunnyosun](https://github.com/sunnyosun)
 - 🐛 Fix target_label in view_parents [PR1118](https://github.com/laminlabs/lamindb/pull/1118) [@sunnyosun](https://github.com/sunnyosun)
