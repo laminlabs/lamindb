@@ -1,23 +1,26 @@
 # Changelog
 
-- ♻️ Type features [PR1121](https://github.com/laminlabs/lamindb/pull/1121) [@falexwolf](https://github.com/falexwolf)
-- 📝 Refactored landing page [PR1122](https://github.com/laminlabs/lamindb/pull/1122) [@sunnyosun](https://github.com/sunnyosun)
-- 🚸 Enable to pass modality to `from_df` and `from_anndata` [PR1116](https://github.com/laminlabs/lamindb/pull/1116) [@falexwolf](https://github.com/falexwolf)
-- ⬆️ Upgrade lamindb_setup [PR1120](https://github.com/laminlabs/lamindb/pull/1120) [@bpenteado](https://github.com/bpenteado)
-- 🚑️ Fix map_synonyms bug [PR1119](https://github.com/laminlabs/lamindb/pull/1119) [@sunnyosun](https://github.com/sunnyosun)
-- 🐛 Fix target_label in view_parents [PR1118](https://github.com/laminlabs/lamindb/pull/1118) [@sunnyosun](https://github.com/sunnyosun)
-- ♻️ Simplify standardize code [PR1117](https://github.com/laminlabs/lamindb/pull/1117) [@sunnyosun](https://github.com/sunnyosun)
-- 🐛 Fix lookup for queryset [PR1115](https://github.com/laminlabs/lamindb/pull/1115) [@sunnyosun](https://github.com/sunnyosun)
-- 🩹 Replace deprecated `is_categorical_dtype` [PR1114](https://github.com/laminlabs/lamindb/pull/1114) [@falexwolf](https://github.com/falexwolf)
 ```{eval-rst}
 .. role:: small
 ```
+
+## 0.52
+
+### 0.52.0 {small}`2023-09-01`
+
+- ♻️ Type features [PR1121](https://github.com/laminlabs/lamindb/pull/1121) [@falexwolf](https://github.com/falexwolf)
+- 🚸 Enable to pass modality to `from_df` and `from_anndata` [PR1116](https://github.com/laminlabs/lamindb/pull/1116) [@falexwolf](https://github.com/falexwolf)
+- ⬆️ Cache instance id in settings files [PR1120](https://github.com/laminlabs/lamindb/pull/1120) [@bpenteado](https://github.com/bpenteado)
+- 🚑️ Fix map_synonyms bug [PR1119](https://github.com/laminlabs/lamindb/pull/1119) [@sunnyosun](https://github.com/sunnyosun)
+- 🐛 Fix `target_label` in `view_parents` [PR1118](https://github.com/laminlabs/lamindb/pull/1118) [@sunnyosun](https://github.com/sunnyosun)
+- ♻️ Simplify `.standardize()` implementation [PR1117](https://github.com/laminlabs/lamindb/pull/1117) [@sunnyosun](https://github.com/sunnyosun)
+- 🐛 Fix `lookup()` for `QuerySet` [PR1115](https://github.com/laminlabs/lamindb/pull/1115) [@sunnyosun](https://github.com/sunnyosun)
+- 🩹 Replace deprecated `is_categorical_dtype` [PR1114](https://github.com/laminlabs/lamindb/pull/1114) [@falexwolf](https://github.com/falexwolf)
 
 ## 0.51
 
 ### 0.51.3 {small}`2023-08-30`
 
-- 📝 Polish readme [PR1112](https://github.com/laminlabs/lamindb/pull/1112) [@falexwolf](https://github.com/falexwolf)
 - 🚸 Better treatment of `File.suffix` [PR1113](https://github.com/laminlabs/lamindb/pull/1113) [@falexwolf](https://github.com/falexwolf)
 
 ### 0.51.2 {small}`2023-08-28`
@@ -29,21 +32,20 @@
 
 ### 0.51.1 {small}`2023-08-28`
 
-- 📝 Added validate guide [PR1104](https://github.com/laminlabs/lamindb/pull/1104) [@sunnyosun](https://github.com/sunnyosun)
+- 📝 Added `validate` guide [PR1104](https://github.com/laminlabs/lamindb/pull/1104) [@sunnyosun](https://github.com/sunnyosun)
 - 🐛 Fix feature set updates & `describe()` if no features are present [PR1098](https://github.com/laminlabs/lamindb/pull/1098) [@falexwolf](https://github.com/falexwolf)
-- 🎨 Make species not nullable in Gene, Protein, CellType [PR1095](https://github.com/laminlabs/lamindb/pull/1095) [@sunnyosun](https://github.com/sunnyosun)
+- 🎨 Make `species` not nullable in `Gene`, `Protein`, `CellType` [PR1095](https://github.com/laminlabs/lamindb/pull/1095) [@sunnyosun](https://github.com/sunnyosun)
 
 ### 0.51.0 {small}`2023-08-24`
 
-- ♻️ Make suffix non-nullable and root unique [PR1090](https://github.com/laminlabs/lamindb/pull/1090) [@falexwolf](https://github.com/falexwolf)
+- ♻️ Make `suffix` non-nullable and root unique [PR1090](https://github.com/laminlabs/lamindb/pull/1090) [@falexwolf](https://github.com/falexwolf)
 - ♻️ Add `view_lineage` to `Dataset` [PR1089](https://github.com/laminlabs/lamindb/pull/1089) [@falexwolf](https://github.com/falexwolf)
-- 🔥 Disable creating non-validated records with `from_values` [PR1086](https://github.com/laminlabs/lamindb/pull/1086) [@sunnyosun](https://github.com/sunnyosun)
+- 🚸 Disable creating non-validated records with `from_values` [PR1086](https://github.com/laminlabs/lamindb/pull/1086) [@sunnyosun](https://github.com/sunnyosun)
 - ♻️ Enable passing AnnData-like `File` object to `Dataset.from_anndata` [PR1085](https://github.com/laminlabs/lamindb/pull/1085) [@falexwolf](https://github.com/falexwolf)
 - 🔊 More consistent logging of inspect [PR1081](https://github.com/laminlabs/lamindb/pull/1081) [@sunnyosun](https://github.com/sunnyosun)
-- 🔥 Removed inherit_relations [PR1079](https://github.com/laminlabs/lamindb/pull/1079) [@sunnyosun](https://github.com/sunnyosun)
+- 🔥 Remove `inherit_relations` [PR1079](https://github.com/laminlabs/lamindb/pull/1079) [@sunnyosun](https://github.com/sunnyosun)
 - ♻️ Use `CanValidate` & `HasParents` [PR1078](https://github.com/laminlabs/lamindb/pull/1078) [@falexwolf](https://github.com/falexwolf)
 - 👷 Main is the new staging, release the new production branch [PR1077](https://github.com/laminlabs/lamindb/pull/1077) [@falexwolf](https://github.com/falexwolf)
-- 🎉 Stage 0.51 (2) [PR1063](https://github.com/laminlabs/lamindb/pull/1063) [@falexwolf](https://github.com/falexwolf)
 - ♻️ Refactor tutorial [PR1076](https://github.com/laminlabs/lamindb/pull/1076) [@falexwolf](https://github.com/falexwolf)
 - ♻️ Add `transform`, `run` & `input_of` to `Dataset` [PR1074](https://github.com/laminlabs/lamindb/pull/1074) [@falexwolf](https://github.com/falexwolf)
 - 🚸 Better UX of graphviz installation [PR1075](https://github.com/laminlabs/lamindb/pull/1075) [@sunnyosun](https://github.com/sunnyosun)
@@ -51,7 +53,7 @@
 - ♻️ Use `create_path` [PR1072](https://github.com/laminlabs/lamindb/pull/1072) [@falexwolf](https://github.com/falexwolf)
 - 🎨 Make `from_values` synonyms aware, `inspect` bionty aware [PR1066](https://github.com/laminlabs/lamindb/pull/1066) [@sunnyosun](https://github.com/sunnyosun)
 - ♻️ Use principled conversion to paths with options inheritance [PR1069](https://github.com/laminlabs/lamindb/pull/1069) [@Koncopd](https://github.com/Koncopd)
-- ♻️ Refactor tutorial and some storage code [PR1067](https://github.com/laminlabs/lamindb/pull/1067) [@falexwolf](https://github.com/falexwolf)
+- ♻️ Refactor storage [PR1067](https://github.com/laminlabs/lamindb/pull/1067) [@falexwolf](https://github.com/falexwolf)
 - 🐛 Fix tree view for anonymous access [PR1065](https://github.com/laminlabs/lamindb/pull/1065) [@falexwolf](https://github.com/falexwolf)
 - 🍱 Add the Iris images dev dataset [PR1062](https://github.com/laminlabs/lamindb/pull/1062) [@falexwolf](https://github.com/falexwolf)
 - 🚚 `Dataset.from_files` replaced with default constructor  [PR1060](https://github.com/laminlabs/lamindb/pull/1060) [@falexwolf](https://github.com/falexwolf)
