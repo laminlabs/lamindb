@@ -158,19 +158,13 @@ def test_create_from_dataframe_using_from_df():
     ln.save(ln.Feature.from_df(df))
     file = ln.File.from_df(df, description=description)
     # wrong type for modality
-    with pytest.raises(TypeError) as error:
+    with pytest.raises(TypeError):
         file = ln.File.from_df(df, description=description, modality="random")
     # unsaved modality
     result = ln.Modality.filter(name="random").one_or_none()
     if result is not None:
         result.delete()
-    modality = ln.Modality(name="random")
-    with pytest.raises(ValueError) as error:
-        file = ln.File.from_df(df, description=description, modality=modality)
-    assert error.exconly().startswith(
-        "unvalidated modality, save to registry if you're sure it is correct: "
-    )
-    modality.save()
+    ln.Modality(name="random").save()
     modalities = ln.Modality.lookup()
     file = ln.File.from_df(df, description=description, modality=modalities.random)
     # mere access test right now

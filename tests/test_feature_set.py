@@ -156,6 +156,13 @@ def test_edge_cases():
     modality = ln.Modality(name="rna")
     feature = ln.Feature(name="rna", type="float")
     ln.save([feature])
+    with pytest.raises(ValueError) as error:
+        ln.FeatureSet([feature], modality=modality)
+    assert error.exconly().startswith(
+        "ValueError: unvalidated modality, save to registry if you're sure it is"
+        " correct: "
+    )
+    modality.save()
     feature_set = ln.FeatureSet([feature], modality=modality)
     assert feature_set.modality == modality
     with pytest.raises(ValueError) as error:
