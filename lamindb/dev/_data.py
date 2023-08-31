@@ -218,6 +218,8 @@ def describe(self):
 
 
 def validate_feature(feature: Feature, records: List[Registry]) -> None:
+    if not isinstance(feature, Feature):
+        raise TypeError("feature has to be of type Feature")
     if feature._state.adding:
         registries = set(
             [record.__class__.__get_name_with_schema__() for record in records]

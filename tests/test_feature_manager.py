@@ -29,6 +29,8 @@ def test_add_labels():
         file.add_labels(label, experiment)
     assert "not validated. If it looks correct: record.save()" in error.exconly()
     label.save()
+    with pytest.raises(TypeError) as error:
+        file.add_labels(label, "experiment 1")
     with pytest.raises(ln.dev.exceptions.ValidationError) as error:
         file.add_labels(label, feature=experiment)
     assert (
