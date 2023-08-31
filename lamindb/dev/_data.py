@@ -122,6 +122,7 @@ def describe(self):
 
     # Display Provenance
     # display line by line the foreign key fields
+    from .._from_values import _print_values
     from .._parents import _transform_emoji
 
     emojis = {
@@ -168,7 +169,8 @@ def describe(self):
             orm_name_with_schema = f"{key_split[0]}.{key_split[1]}"
             field_name = "id"
             related_name = feature_sets_related_models.get(orm_name_with_schema)
-            values = feature_set.__getattribute__(related_name).all()[:5].list("id")
+            values = feature_set.__getattribute__(related_name).list("id")
+            print_values = _print_values(values, n=5)
             host_id_field = get_host_id_field(self)
             kwargs = {host_id_field: self.id, "feature_set_id": feature_set.id}
             slots = self.feature_sets.through.objects.filter(**kwargs).list("slot")
@@ -206,9 +208,9 @@ def describe(self):
                         field = get_default_str_field(labels)
                     except ValueError:
                         field = "id"
-                    values = labels.list(field)[:5]
+                    print_values = _print_values(labels.list(field), n=5)
                     msg_objects = (
-                        f"{indent}    🔗 {row['name']} ({count_str}): {values}\n"
+                        f"{indent}    🔗 {row['name']} ({count_str}): {print_values}\n"
                     )
                     msg += msg_objects
     verbosity = settings.verbosity

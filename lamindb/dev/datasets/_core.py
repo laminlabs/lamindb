@@ -134,7 +134,7 @@ def file_tiff_suo22():  # pragma: no cover
     return Path(filepath)
 
 
-def dir_iris_images() -> UPath:
+def dir_iris_images() -> UPath:  # pragma: no cover
     """Directory with 3 studies of the Iris flower: 405 images & metadata.
 
     Based on: https://github.com/laminlabs/lamindb-dev-datasets/pull/2

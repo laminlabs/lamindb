@@ -27,8 +27,13 @@ def test_signatures():
 
 
 def test_init_with_args():
-    with pytest.raises(ValueError):
-        ln.Label("an arg", name="test")
+    with pytest.raises(ValueError) as error:
+        # can't use Label here because it raises "Only one non-keyword arg allowed"
+        ln.Run("an arg")
+    assert (
+        error.exconly()
+        == "ValueError: please provide keyword arguments, not plain arguments"
+    )
 
 
 def test_validate_required_fields():

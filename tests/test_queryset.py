@@ -90,9 +90,15 @@ def test_search():
 
 def test_lookup():
     qs = ln.User.filter(handle="testuser1").all()
+    # pass str to field
     lookup = qs.lookup(field="handle")
     assert lookup.testuser1.handle == "testuser1"
+    # pass StrField to field
     lookup = qs.lookup(field=ln.User.handle)
+    assert lookup.testuser1.handle == "testuser1"
+    # manager, default field
+    qsm = ln.User.filter(handle="testuser1")
+    lookup = qsm.lookup()
     assert lookup.testuser1.handle == "testuser1"
 
 

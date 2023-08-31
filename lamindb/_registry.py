@@ -125,7 +125,7 @@ def from_values(cls, values: ListLike, field: StrField, **kwargs) -> List["Regis
 
 
 # From: https://stackoverflow.com/a/37648265
-def _order_query_set_by_ids(queryset: QuerySet, ids: Iterable):
+def _order_queryset_by_ids(queryset: QuerySet, ids: Iterable):
     from django.db.models import Case, When
 
     preserved = Case(*[When(pk=pk, then=pos) for pos, pk in enumerate(ids)])
@@ -142,18 +142,15 @@ def _search(
     case_sensitive: bool = False,
     synonyms_field: Optional[StrField] = "synonyms",
 ) -> Union["pd.DataFrame", "QuerySet"]:
-    query_set = cls.all() if isinstance(cls, QuerySet) else cls.objects.all()
-    orm = cls.model if isinstance(cls, QuerySet) else cls
+    queryset = _queryset(cls)
+    orm = queryset.model
 
     def _search_single_field(
         string: str,
         field: Optional[StrField],
         synonyms_field: Optional[StrField] = "synonyms",
     ) -> "pd.DataFrame":
-        if field is None:
-            field = get_default_str_field(cls)
-        if not isinstance(field, str):
-            field = field.field.name
+        field = get_default_str_field(orm=orm, field=field)
 
         try:
             orm._meta.get_field(synonyms_field)
@@ -162,9 +159,9 @@ def _search(
             synonyms_field_exists = False
 
         if synonyms_field is not None and synonyms_field_exists:
-            df = pd.DataFrame(query_set.values("id", field, synonyms_field))
+            df = pd.DataFrame(queryset.values("id", field, synonyms_field))
         else:
-            df = pd.DataFrame(query_set.values("id", field))
+            df = pd.DataFrame(queryset.values("id", field))
 
         return base_search(
             df=df,
@@ -176,7 +173,7 @@ def _search(
         )
 
     # search in both key and description fields for file
-    if orm.__name__ == "File" and field is None:
+    if orm._meta.model.__name__ == "File" and field is None:
         field = ["key", "description"]
 
     if not isinstance(field, List):
@@ -209,7 +206,7 @@ def _search(
         result["__ratio__"] = result.pop("__ratio__")
 
     if return_queryset:
-        return _order_query_set_by_ids(query_set, result.reset_index()["id"])
+        return _order_queryset_by_ids(queryset, result.reset_index()["id"])
     else:
         return result.fillna("")
 
@@ -240,21 +237,13 @@ def search(
 
 def _lookup(cls, field: Optional[StrField] = None) -> NamedTuple:
     """{}"""
-    if field is None:
-        if cls._meta.model.__name__ == "User":
-            field = cls._meta.get_field("handle").name
-        else:
-            field = get_default_str_field(cls)
-    if not isinstance(field, str):
-        field = field.field.name
-
-    records = cls.all() if isinstance(cls, QuerySet) else cls.objects.all()
-    cls = cls.model if isinstance(cls, QuerySet) else cls
+    queryset = _queryset(cls)
+    field = get_default_str_field(orm=queryset.model, field=field)
 
     return Lookup(
-        records=records,
-        values=[i.get(field) for i in records.values()],
-        tuple_name=cls.__name__,
+        records=queryset,
+        values=[i.get(field) for i in queryset.values()],
+        tuple_name=cls.__class__.__name__,
         prefix="ln",
     ).lookup()
 
@@ -280,6 +269,8 @@ def get_default_str_field(
     if field is None:
         if orm._meta.model.__name__ == "Run":
             field = orm._meta.get_field("created_at")
+        elif orm._meta.model.__name__ == "User":
+            field = orm._meta.get_field("handle")
         elif "name" in model_field_names:
             # by default use the name field
             field = orm._meta.get_field("name")
@@ -301,6 +292,11 @@ def get_default_str_field(
         field = field.field.name
 
     return field
+
+
+def _queryset(cls: Union[Registry, QuerySet, Manager]) -> QuerySet:
+    queryset = cls.all() if isinstance(cls, QuerySet) else cls.objects.all()
+    return queryset
 
 
 METHOD_NAMES = [
