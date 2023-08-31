@@ -167,6 +167,7 @@ def _view_parents(
     )
     for _, row in df_edges.iterrows():
         u.node(row["source"], label=row["source_label"])
+        u.node(row["target"], label=row["target_label"])
         u.edge(row["source"], row["target"], color="dimgrey")
 
     _view(u)
