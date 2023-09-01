@@ -10,12 +10,15 @@ from lamindb._utils import attach_func_to_class_method
 from lamindb.dev._settings import settings
 
 from . import _TESTING
+from .dev._priors import NUMBER_TYPE
 
 
 def convert_numpy_dtype_to_lamin_feature_type(dtype) -> str:
     orig_type = dtype.name
     # strip precision qualifiers
     type = "".join(i for i in orig_type if not i.isdigit())
+    if type == "int" or type == "float":
+        type = NUMBER_TYPE
     return type
 
 

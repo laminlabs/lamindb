@@ -21,7 +21,6 @@ from .._query_set import QuerySet
 from .._registry import get_default_str_field
 from ._feature_manager import (
     FeatureManager,
-    create_features_df,
     get_feature_set_links,
     get_host_id_field,
     get_label_links,
@@ -93,7 +92,7 @@ def save_feature_set_links(self: Union[File, Dataset]) -> None:
 
 
 @doc_args(Data.describe.__doc__)
-def describe(self):
+def describe(self: Data):
     """{}"""
     model_name = self.__class__.__name__
     msg = ""
@@ -164,36 +163,29 @@ def describe(self):
         )
         for feature_set in feature_sets_subset:
             key_split = feature_set.registry.split(".")
-            if len(key_split) == 3:
-                logger.warning(
-                    "you have a legacy entry in feature_set.field, should be just"
-                    " 'bionty.Gene'"
-                )
             orm_name_with_schema = f"{key_split[0]}.{key_split[1]}"
-            field_name = "id"
             related_name = feature_sets_related_models.get(orm_name_with_schema)
-            values = feature_set.__getattribute__(related_name).list("id")
-            print_values = _print_values(values, n=5)
+            # first 5 feature records
+            features = feature_set.__getattribute__(related_name).all()[:5]
+            name_field = get_default_str_field(features[0])
+            feature_names = [getattr(feature, name_field) for feature in features]
             host_id_field = get_host_id_field(self)
             kwargs = {host_id_field: self.id, "feature_set_id": feature_set.id}
             slots = self.feature_sets.through.objects.filter(**kwargs).list("slot")
             for slot in slots:
-                msg += f"  {colors.bold(slot)}:\n"
-                ref = colors.italic(f"{orm_name_with_schema}.{field_name}")
-                msg += f"    🔗 index ({feature_set.n}, {ref}): {values}\n".replace(
-                    "]", "...]"
-                )
+                ref = colors.italic(f"{orm_name_with_schema}")
+                msg += f"  {colors.bold(slot)} ({feature_set.n}, {ref}):\n"
+                for feature_name in feature_names:
+                    msg += f"    {feature_name} ({feature_set.type})\n"
 
     # display core.Feature features
     feature_sets = feature_sets_all.filter(registry="core.Feature").all()
     features = Feature.lookup()
     if feature_sets.exists():
-        features_df = create_features_df(
-            host=self, feature_sets=feature_sets.all(), exclude=False
-        )
-        for slot in features_df["slot"].unique():
-            df_slot = features_df[features_df.slot == slot]
-            msg += f"  {colors.bold(slot)}:\n"
+        for slot, feature_set in self.features._feature_set_by_slot.items():
+            df_slot = feature_set.features.df()
+            ref = colors.italic("core.Feature")
+            msg += f"  {colors.bold(slot)} ({feature_set.n}, {ref}):\n"
             for _, row in df_slot.iterrows():
                 if row["type"] == "category":
                     labels = self.get_labels(getattr(features, row["name"]), mute=True)
@@ -205,18 +197,15 @@ def describe(self):
                         labels = {row["registries"]: labels}
                     for registry, labels in labels.items():
                         count_str = f"{len(labels)}, {colors.italic(f'{registry}')}"
-                        try:
-                            field = get_default_str_field(labels)
-                        except ValueError:
-                            field = "id"
-                        print_values = _print_values(labels.list(field), n=5)
+                        field = get_default_str_field(labels)
+                        print_values = _print_values(labels.list(field), n=10)
                         msg_objects = (
                             f"{indent}    🔗 {row['name']} ({count_str}):"
                             f" {print_values}\n"
                         )
                         msg += msg_objects
                 else:
-                    msg += f"      {row['name']}: {row['type']}\n"
+                    msg += f"      {row['name']} ({row['type']})\n"
     verbosity = settings.verbosity
     settings.verbosity = 3
     logger.info(msg)

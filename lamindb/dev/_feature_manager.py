@@ -1,6 +1,5 @@
-from typing import Dict, List, Union
+from typing import Dict, Union
 
-import pandas as pd
 from lamin_utils import logger
 from lnschema_core.models import Dataset, Feature, FeatureSet, File
 
@@ -13,25 +12,6 @@ def get_host_id_field(host: Union[File, Dataset]) -> str:
     else:
         host_id_field = "dataset_id"
     return host_id_field
-
-
-def create_features_df(
-    host: Union[File, Dataset], feature_sets: List[FeatureSet], exclude: bool = True
-):
-    features = []
-    for feature_set in feature_sets:
-        if exclude:
-            features_df = feature_set.features.exclude(registries__isnull=True).df()
-        else:
-            features_df = feature_set.features.df()
-        host_id_field = get_host_id_field(host)
-        kwargs = {host_id_field: host.id, "feature_set": feature_set}
-        slots = host.feature_sets.through.objects.filter(**kwargs).list("slot")
-        for slot in slots:
-            features_df["slot"] = slot
-            features.append(features_df)
-    features_df = pd.concat(features)
-    return features_df.sort_values(["slot", "registries"])
 
 
 def get_accessor_by_orm(host: Union[File, Dataset]) -> Dict:

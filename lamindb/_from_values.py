@@ -243,7 +243,7 @@ def index_iterable(iterable: Iterable) -> pd.Index:
 
 
 def _print_values(names: List, n: int = 20) -> str:
-    print_values = ", ".join(names[:n])
+    print_values = ", ".join([f"'{name}'" for name in names[:n]])
     if len(names) > n:
         print_values += ", ..."
     return print_values
