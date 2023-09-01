@@ -43,13 +43,13 @@ from lamindb.dev.versioning import get_ids_from_old_version, init_id
 
 from . import _TESTING
 from ._feature import convert_numpy_dtype_to_lamin_feature_type
-from ._priors import priors
 from .dev._data import (
     add_transform_to_kwargs,
     get_run,
     save_feature_set_links,
     save_transform_run_feature_sets,
 )
+from .dev._priors import priors
 from .dev.storage.file import AUTO_KEY_PREFIX
 
 

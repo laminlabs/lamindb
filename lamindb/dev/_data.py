@@ -17,7 +17,6 @@ from lnschema_core.models import (
 )
 
 from .._parents import view_flow
-from .._priors import priors
 from .._query_set import QuerySet
 from .._registry import get_default_str_field
 from ._feature_manager import (
@@ -27,6 +26,7 @@ from ._feature_manager import (
     get_host_id_field,
     get_label_links,
 )
+from ._priors import priors
 from ._run_context import run_context
 from ._settings import settings
 from .exceptions import ValidationError

@@ -2,10 +2,11 @@ from functools import cached_property
 
 from lnschema_core import Modality, User
 
-from . import settings
-from ._save import save
+from .. import settings
+from .._save import save
 
 MODALITIES = ["meta"]
+NUMBER_TYPE = "number"
 
 
 # might be a bad design idea & disappear again
