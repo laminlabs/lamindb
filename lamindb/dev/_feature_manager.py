@@ -1,9 +1,27 @@
 from typing import Dict, Union
 
-from lamin_utils import logger
-from lnschema_core.models import Dataset, Feature, FeatureSet, File
+from lamin_utils import colors
+from lnschema_core.models import Data, Dataset, Feature, FeatureSet, File
 
 from .._query_set import QuerySet
+from .._registry import get_default_str_field
+
+
+def dict_related_model_to_related_name(orm):
+    d: Dict = {
+        i.related_model.__get_name_with_schema__(): i.related_name
+        for i in orm._meta.related_objects
+        if i.related_name is not None
+    }
+    d.update(
+        {
+            i.related_model.__get_name_with_schema__(): i.name
+            for i in orm._meta.many_to_many
+            if i.name is not None
+        }
+    )
+
+    return d
 
 
 def get_host_id_field(host: Union[File, Dataset]) -> str:
@@ -58,6 +76,64 @@ def get_feature_set_links(host: Union[File, Dataset]) -> QuerySet:
     return feature_set_links
 
 
+def print_features(self: Data) -> str:
+    from .._from_values import _print_values
+
+    msg = ""
+    feature_sets_all = self.feature_sets.all()
+    if len(feature_sets_all) > 0:
+        msg += f"{colors.green('Features')}:\n"
+    feature_sets_subset = feature_sets_all.exclude(registry="core.Feature")
+    if feature_sets_subset.exists():
+        feature_sets_related_models = dict_related_model_to_related_name(
+            feature_sets_subset.first()
+        )
+        for feature_set in feature_sets_subset:
+            key_split = feature_set.registry.split(".")
+            orm_name_with_schema = f"{key_split[0]}.{key_split[1]}"
+            related_name = feature_sets_related_models.get(orm_name_with_schema)
+            # first 5 feature records
+            features = feature_set.__getattribute__(related_name).all()[:10]
+            name_field = get_default_str_field(features[0])
+            feature_names = [getattr(feature, name_field) for feature in features]
+            host_id_field = get_host_id_field(self)
+            kwargs = {host_id_field: self.id, "feature_set_id": feature_set.id}
+            slots = self.feature_sets.through.objects.filter(**kwargs).list("slot")
+            for slot in slots:
+                msg += f"  {colors.bold(slot)}: {feature_set}\n"
+                for feature_name in feature_names:
+                    msg += f"    {feature_name} ({feature_set.type})\n"
+
+    # display core.Feature features
+    feature_sets = feature_sets_all.filter(registry="core.Feature").all()
+    features = Feature.lookup()
+    if feature_sets.exists():
+        for slot, feature_set in self.features._feature_set_by_slot.items():
+            df_slot = feature_set.features.df()
+            msg += f"  {colors.bold(slot)}: {feature_set}\n"
+            for _, row in df_slot.iterrows():
+                if row["type"] == "category" and row["registries"] is not None:
+                    labels = self.get_labels(getattr(features, row["name"]), mute=True)
+                    indent = ""
+                    if isinstance(labels, dict):
+                        msg += f"    🔗 {row['name']} ({row.registries})\n"
+                        indent = "    "
+                    else:
+                        labels = {row["registries"]: labels}
+                    for registry, labels in labels.items():
+                        count_str = f"{len(labels)}, {colors.italic(f'{registry}')}"
+                        field = get_default_str_field(labels)
+                        print_values = _print_values(labels.list(field), n=10)
+                        msg_objects = (
+                            f"{indent}    🔗 {row['name']} ({count_str}):"
+                            f" {print_values}\n"
+                        )
+                        msg += msg_objects
+                else:
+                    msg += f"    {row['name']} ({row['type']})\n"
+    return msg
+
+
 class FeatureManager:
     """Feature manager (:attr:`~lamindb.dev.Data.features`).
 
@@ -71,17 +147,7 @@ class FeatureManager:
 
     def __repr__(self) -> str:
         if len(self._feature_set_by_slot) > 0:
-            msg = ""
-            no_modality = []
-            for slot, feature_set in self._feature_set_by_slot.items():
-                msg += f"'{slot}': {feature_set}\n"
-                if feature_set.modality is None:
-                    no_modality.append(feature_set.id)
-            if len(no_modality) > 0:
-                ids = ", ".join(f"'{key}'" for key in no_modality)
-                s = "" if len(no_modality) == 1 else "s"
-                logger.debug(f"consider assigning modality to feature set{s}: {ids}")
-            return msg
+            return print_features(self._host)
         else:
             return "no linked features"
 

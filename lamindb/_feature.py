@@ -22,12 +22,6 @@ def convert_numpy_dtype_to_lamin_feature_type(dtype) -> str:
     return type
 
 
-# def take(n, iterable):
-# from itertools import islice
-#     """Return the first n items of the iterable as a list."""
-#     return list(islice(iterable, n))
-
-
 def __init__(self, *args, **kwargs):
     if len(args) == len(self._meta.concrete_fields):
         super(Feature, self).__init__(*args, **kwargs)
