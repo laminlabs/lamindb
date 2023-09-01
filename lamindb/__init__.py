@@ -103,7 +103,6 @@ if _INSTANCE_SETUP:
     from . import _file  # noqa
     from . import _label  # noqa
     from . import _parents  # noqa
-    from . import _priors  # noqa
     from . import _registry  # noqa
     from . import _run  # noqa
     from . import _storage  # noqa
@@ -115,6 +114,7 @@ if _INSTANCE_SETUP:
     from ._registry import select_backward as select  # noqa
     from ._save import save  # noqa
     from ._view import view  # noqa
+    from .dev import _priors  # noqa
     from .dev._run_context import run_context  # noqa
     from .dev._settings import settings
 

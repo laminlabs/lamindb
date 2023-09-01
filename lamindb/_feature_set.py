@@ -14,6 +14,7 @@ from . import _TESTING
 from ._feature import convert_numpy_dtype_to_lamin_feature_type
 from ._registry import init_self_from_db
 from ._save import bulk_create
+from .dev._priors import NUMBER_TYPE
 
 
 def get_related_name(features_type: Registry):
@@ -149,8 +150,8 @@ def from_values(
         raise ValueError("Provide a list of at least one value")
     registry = field.field.model
     if registry != Feature and type is None:
-        type = "numeric"
-        logger.debug("setting feature set to 'numeric'")
+        type = NUMBER_TYPE
+        logger.debug(f"setting feature set to '{NUMBER_TYPE}'")
     validated = registry.validate(values, field=field)
     if validated.sum() == 0:
         logger.warning("no validated features, skip creating feature set")

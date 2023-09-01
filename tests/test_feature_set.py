@@ -44,7 +44,7 @@ def test_feature_set_from_values():
     assert feature_set is None
     ln.save(lb.Gene.from_values(gene_symbols, "symbol"))
     feature_set = ln.FeatureSet.from_values(gene_symbols, lb.Gene.symbol)
-    assert feature_set.type == "numeric"
+    assert feature_set.type == "number"  # this is NUMBER_TYPE
     feature_set = ln.FeatureSet.from_values(gene_symbols, lb.Gene.symbol, type=int)
     assert feature_set._state.adding
     assert feature_set.type == "int"

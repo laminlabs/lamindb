@@ -17,7 +17,6 @@ from lnschema_core.models import (
 )
 
 from .._parents import view_flow
-from .._priors import priors
 from .._query_set import QuerySet
 from .._registry import get_default_str_field
 from ._feature_manager import (
@@ -27,6 +26,7 @@ from ._feature_manager import (
     get_host_id_field,
     get_label_links,
 )
+from ._priors import priors
 from ._run_context import run_context
 from ._settings import settings
 from .exceptions import ValidationError
@@ -189,33 +189,37 @@ def describe(self):
     features = Feature.lookup()
     if feature_sets.exists():
         features_df = create_features_df(
-            host=self, feature_sets=feature_sets.all(), exclude=True
+            host=self, feature_sets=feature_sets.all(), exclude=False
         )
         for slot in features_df["slot"].unique():
             df_slot = features_df[features_df.slot == slot]
             msg += f"  {colors.bold(slot)}:\n"
             for _, row in df_slot.iterrows():
-                labels = self.get_labels(getattr(features, row["name"]), mute=True)
-                indent = ""
-                if isinstance(labels, dict):
-                    msg += f"    🔗 {row['name']} ({row.registries})\n"
-                    indent = "    "
+                if row["type"] == "category":
+                    labels = self.get_labels(getattr(features, row["name"]), mute=True)
+                    indent = ""
+                    if isinstance(labels, dict):
+                        msg += f"    🔗 {row['name']} ({row.registries})\n"
+                        indent = "    "
+                    else:
+                        labels = {row["registries"]: labels}
+                    for registry, labels in labels.items():
+                        count_str = f"{len(labels)}, {colors.italic(f'{registry}')}"
+                        try:
+                            field = get_default_str_field(labels)
+                        except ValueError:
+                            field = "id"
+                        print_values = _print_values(labels.list(field), n=5)
+                        msg_objects = (
+                            f"{indent}    🔗 {row['name']} ({count_str}):"
+                            f" {print_values}\n"
+                        )
+                        msg += msg_objects
                 else:
-                    labels = {row["registries"]: labels}
-                for registry, labels in labels.items():
-                    count_str = f"{len(labels)}, {colors.italic(f'{registry}')}"
-                    try:
-                        field = get_default_str_field(labels)
-                    except ValueError:
-                        field = "id"
-                    print_values = _print_values(labels.list(field), n=5)
-                    msg_objects = (
-                        f"{indent}    🔗 {row['name']} ({count_str}): {print_values}\n"
-                    )
-                    msg += msg_objects
+                    msg += f"      {row['name']}: {row['type']}\n"
     verbosity = settings.verbosity
     settings.verbosity = 3
-    logger.info("\r" + msg)
+    logger.info(msg)
     settings.verbosity = verbosity
 
 
