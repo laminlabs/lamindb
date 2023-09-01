@@ -219,7 +219,7 @@ def describe(self):
                     msg += f"      {row['name']}: {row['type']}\n"
     verbosity = settings.verbosity
     settings.verbosity = 3
-    logger.info("\r" + msg)
+    logger.info(msg)
     settings.verbosity = verbosity
 
 
