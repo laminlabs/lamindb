@@ -13,7 +13,7 @@ NUMBER_TYPE = "number"
 class Priors:
     @cached_property
     def modalities(self):
-        all_defaults = Modality.filter(modality__in=MODALITIES).all()
+        all_defaults = Modality.filter(name__in=MODALITIES).all()
         # update the registry
         if len(all_defaults) != len(MODALITIES):
             upon_create_search_names = settings.upon_create_search_names
