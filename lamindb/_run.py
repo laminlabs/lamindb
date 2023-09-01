@@ -28,4 +28,4 @@ def __init__(run: Run, *args, **kwargs):
     )
 
 
-Transform.__init__ = __init__
+Run.__init__ = __init__
