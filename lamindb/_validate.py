@@ -68,6 +68,7 @@ def _inspect(
     field = get_default_str_field(cls, field=field)
     queryset = _queryset(cls)
     orm = queryset.model
+    model_name = orm._meta.model.__name__
 
     # inspect in the DB
     result_db = inspect(
@@ -91,7 +92,7 @@ def _inspect(
         if len(bionty_validated) > 0 and not mute:
             print_values = _print_values(bionty_validated)
             s = "" if len(bionty_validated) == 1 else "s"
-            labels = colors.yellow(f"{len(bionty_validated)} term{s}")
+            labels = colors.yellow(f"{len(bionty_validated)} {model_name} term{s}")
             logger.info(
                 f"   detected {labels} in Bionty for"
                 f" {colors.italic(str(field))}: {colors.yellow(print_values)}"
@@ -101,7 +102,7 @@ def _inspect(
         if len(bionty_mapper) > 0 and not mute:
             print_values = _print_values(list(bionty_mapper.keys()))
             s = "" if len(bionty_mapper) == 1 else "s"
-            labels = colors.yellow(f"{len(bionty_mapper)} term{s}")
+            labels = colors.yellow(f"{len(bionty_mapper)} {model_name} term{s}")
             logger.info(
                 f"   detected {labels} in Bionty as {colors.italic(f'synonym{s}')}:"
                 f" {colors.yellow(print_values)}"
@@ -110,7 +111,7 @@ def _inspect(
 
         if hint:
             logger.hint(
-                "→  add records from Bionty to your registry via"
+                "→  add records from Bionty to your {model_name} registry via"
                 f" {colors.italic('.from_values()')}"
             )
 
@@ -320,7 +321,7 @@ def _standardize(
                 f" {list(std_names_bt_mapper.keys())}"
             )
             warn_msg += (
-                "\n   please add corresponding records via"
+                f"\n   please add corresponding {orm._meta.model.__name__} records via"
                 f" `.from_values({list(std_names_bt_mapper.values())})`"
             )
             logger.warning(warn_msg)
