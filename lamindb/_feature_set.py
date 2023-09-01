@@ -48,7 +48,7 @@ def validate_features(features: List[Registry]) -> Registry:
         )
     feature_types = set([feature.__class__ for feature in features])
     if len(feature_types) > 1:
-        raise ValueError("feature_set can only contain a single type")
+        raise TypeError("feature_set can only contain a single type")
     for feature in features:
         if feature._state.adding:
             raise ValueError("Can only construct feature sets from validated features")

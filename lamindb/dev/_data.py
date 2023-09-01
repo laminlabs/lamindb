@@ -92,7 +92,9 @@ def save_feature_set_links(self: Union[File, Dataset]) -> None:
         bulk_create(links)
 
 
+@doc_args(Data.describe.__doc__)
 def describe(self):
+    """{}"""
     model_name = self.__class__.__name__
     msg = ""
 
@@ -380,5 +382,3 @@ setattr(Data, "add_labels", add_labels)
 setattr(Data, "get_labels", get_labels)
 setattr(Data, "describe", describe)
 setattr(Data, "view_flow", view_flow)
-# backward compat
-setattr(Data, "view_lineage", view_flow)

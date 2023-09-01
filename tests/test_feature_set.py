@@ -143,8 +143,13 @@ def test_validate_features():
         validate_features(["feature"])
     with pytest.raises(TypeError):
         validate_features({"feature"})
-    with pytest.raises(ValueError):
-        validate_features([ln.Run(), ln.Transform()])
+    transform = ln.Transform(name="test")
+    transform.save()
+    # This is just a type check
+    with pytest.raises(TypeError) as error:
+        validate_features([transform, ln.Run(transform)])
+    assert error.exconly() == "TypeError: feature_set can only contain a single type"
+    transform.delete()
 
 
 def test_kwargs():
