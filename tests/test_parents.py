@@ -22,5 +22,8 @@ def test_view_parents():
 def test_add_emoji():
     record = ln.Transform(type="app")
     assert _add_emoji(record, label="transform") == "🖥️ transform"
-    record = ln.Run(transform=ln.Transform(type="app"))
+    transform = ln.Transform(name="test", type="app")
+    transform.save()
+    record = ln.Run(transform=transform)
     assert _add_emoji(record, label="run") == "🖥️ run"
+    transform.delete()

@@ -144,7 +144,7 @@ def test_validate_features():
     with pytest.raises(TypeError):
         validate_features({"feature"})
     with pytest.raises(ValueError):
-        validate_features([ln.Run(), ln.Transform()])
+        validate_features([ln.Transform(name="test")])
 
 
 def test_kwargs():

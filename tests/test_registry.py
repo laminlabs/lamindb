@@ -29,7 +29,7 @@ def test_signatures():
 def test_init_with_args():
     with pytest.raises(ValueError) as error:
         # can't use Label here because it raises "Only one non-keyword arg allowed"
-        ln.Run("an arg")
+        ln.User("an arg")
     assert (
         error.exconly()
         == "ValueError: please provide keyword arguments, not plain arguments"
@@ -108,6 +108,9 @@ def test_pass_version():
 
 
 def test_get_default_str_field():
-    assert registry.get_default_str_field(ln.Run()) == "created_at"
+    transform = ln.Transform(name="test")
+    transform.save()
+    assert registry.get_default_str_field(ln.Run(transform)) == "created_at"
     with pytest.raises(ValueError):
         registry.get_default_str_field(ln.File.labels.through())
+    transform.delete()
