@@ -18,6 +18,7 @@ from lamindb_setup.dev.upath import create_path
 from lnschema_core import Feature, FeatureSet, File, Modality, Run, Storage
 from lnschema_core.types import AnnDataLike, DataLike, FieldAttr, PathLike
 
+from lamindb._utils import attach_func_to_class_method
 from lamindb.dev import run_context
 from lamindb.dev._settings import settings
 from lamindb.dev.hashing import b16_to_b64, hash_file
@@ -38,7 +39,6 @@ from lamindb.dev.storage.file import (
     extract_suffix_from_path,
     filepath_from_file,
 )
-from lamindb.dev.utils import attach_func_to_class_method
 from lamindb.dev.versioning import get_ids_from_old_version, init_id
 
 from . import _TESTING
@@ -483,16 +483,10 @@ def __init__(file: File, *args, **kwargs):
 
     # an object with the same hash already exists
     if isinstance(kwargs_or_file, File):
-        existing_file = kwargs_or_file
-        # this is the way Django instantiates from the DB internally
-        # https://github.com/django/django/blob/549d6ffeb6d626b023acc40c3bb2093b4b25b3d6/django/db/models/base.py#LL488C1-L491C51
-        new_args = [
-            getattr(existing_file, field.attname)
-            for field in file._meta.concrete_fields
-        ]
-        super(File, file).__init__(*new_args)
-        file._state.adding = False
-        file._state.db = "default"
+        from ._registry import init_self_from_db
+
+        # kwargs_or_file is an existing file
+        init_self_from_db(file, kwargs_or_file)
         return None
     else:
         kwargs = kwargs_or_file
