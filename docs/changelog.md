@@ -1,5 +1,6 @@
 # Changelog
 
+- ♻️ Refactor feature set linking [PR1128](https://github.com/laminlabs/lamindb/pull/1128) [@falexwolf](https://github.com/falexwolf)
 - ♻️ Add display of numerical features [PR1127](https://github.com/laminlabs/lamindb/pull/1127) [@falexwolf](https://github.com/falexwolf)
 - 📝 Rewrite landing page [PR1126](https://github.com/laminlabs/lamindb/pull/1126) [@falexwolf](https://github.com/falexwolf)
 - 📝 Improved bio-registries [PR1125](https://github.com/laminlabs/lamindb/pull/1125) [@sunnyosun](https://github.com/sunnyosun)
