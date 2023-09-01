@@ -1,6 +1,6 @@
 from functools import cached_property
 
-from lnschema_core import Modality, User
+from lnschema_core import Modality
 
 from .._save import save
 from ._settings import settings
@@ -22,10 +22,6 @@ class Priors:
             settings.upon_create_search_names = upon_create_search_names
             save(modalities)
         return Modality.lookup()
-
-    @cached_property
-    def users(self):
-        return User.lookup()
 
 
 priors = Priors()
