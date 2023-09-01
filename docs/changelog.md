@@ -1,5 +1,6 @@
 # Changelog
 
+- 🔊 Improved logging message for inspect [PR1124](https://github.com/laminlabs/lamindb/pull/1124) [@sunnyosun](https://github.com/sunnyosun)
 ```{eval-rst}
 .. role:: small
 ```
