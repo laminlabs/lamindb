@@ -151,7 +151,7 @@ def from_values(
     registry = field.field.model
     if registry != Feature and type is None:
         type = NUMBER_TYPE
-        logger.debug("setting feature set to 'number'")
+        logger.debug(f"setting feature set to '{NUMBER_TYPE}'")
     validated = registry.validate(values, field=field)
     if validated.sum() == 0:
         logger.warning("no validated features, skip creating feature set")
