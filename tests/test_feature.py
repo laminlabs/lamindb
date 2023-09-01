@@ -65,7 +65,7 @@ def test_feature_from_df():
         if feature.name in categoricals:
             assert feature.type == "category"
         else:
-            orig_type = df[feature.name].dtype.name
+            orig_type = df[feature.name].dtype
             assert feature.type == convert_numpy_dtype_to_lamin_feature_type(orig_type)
     for feature in features:
         feature.save()
@@ -81,7 +81,7 @@ def test_feature_from_df():
         if name in categoricals:
             assert queried_feature.type == "category"
         else:
-            orig_type = df[name].dtype.name
+            orig_type = df[name].dtype
             assert queried_feature.type == convert_numpy_dtype_to_lamin_feature_type(
                 orig_type
             )
