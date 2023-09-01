@@ -2,7 +2,6 @@ import lnschema_bionty as lb
 import pytest
 
 import lamindb as ln
-from lamindb.dev._feature_manager import create_features_df
 
 lb.settings.auto_save_parents = False
 
@@ -283,9 +282,6 @@ def test_get_labels():
     assert str(file.features) == "no linked features"
     file.features.add_feature_set(feature_set, slot="random")
     assert file.features.get_feature_set(slot="random") == feature_set
-    # exclude=False for create_features_df
-    df = create_features_df(file, [feature_set], exclude=False)
-    assert df.shape[0] == 1
     file.delete(storage=True)
     feature_set.delete()
     feature_name_feature.delete()

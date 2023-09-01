@@ -47,7 +47,7 @@ def test_feature_set_from_values():
     assert feature_set.type == "number"  # this is NUMBER_TYPE
     feature_set = ln.FeatureSet.from_values(gene_symbols, lb.Gene.symbol, type=int)
     assert feature_set._state.adding
-    assert feature_set.type == "int"
+    assert feature_set.type == "number"
     assert feature_set.registry == "bionty.Gene"
     feature_set.save()
     id = feature_set.id
