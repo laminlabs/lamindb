@@ -1,5 +1,6 @@
 # Changelog
 
+- 📝 Improved bio-registries [PR1125](https://github.com/laminlabs/lamindb/pull/1125) [@sunnyosun](https://github.com/sunnyosun)
 -  🚸 Validate `Run` records [PR1123](https://github.com/laminlabs/lamindb/pull/1123) [@falexwolf](https://github.com/falexwolf)
 - 🔊 Improved logging message for inspect [PR1124](https://github.com/laminlabs/lamindb/pull/1124) [@sunnyosun](https://github.com/sunnyosun)
 ```{eval-rst}
