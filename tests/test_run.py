@@ -22,3 +22,12 @@ def test_run():
     transform.delete()
     run.delete()
     run2.delete()
+
+
+def test_edge_cases():
+    with pytest.raises(ValueError) as error:
+        ln.Run(1, 2)
+    assert error.exconly() == "ValueError: Only one non-keyword arg allowed: transform"
+    with pytest.raises(TypeError) as error:
+        ln.Run()
+    assert error.exconly() == "TypeError: Pass transform parameter"

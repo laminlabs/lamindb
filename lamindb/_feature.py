@@ -6,8 +6,8 @@ from lnschema_core import Feature
 from lnschema_core.models import Registry
 from pandas.api.types import CategoricalDtype, is_string_dtype
 
+from lamindb._utils import attach_func_to_class_method
 from lamindb.dev._settings import settings
-from lamindb.dev.utils import attach_func_to_class_method
 
 from . import _TESTING
 

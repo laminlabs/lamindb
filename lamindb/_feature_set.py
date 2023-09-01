@@ -7,8 +7,8 @@ from lamindb_setup.dev._docs import doc_args
 from lnschema_core import Feature, FeatureSet, Modality, Registry, ids
 from lnschema_core.types import FieldAttr, ListLike
 
+from lamindb._utils import attach_func_to_class_method
 from lamindb.dev.hashing import hash_set
-from lamindb.dev.utils import attach_func_to_class_method
 
 from . import _TESTING
 from ._feature import convert_numpy_dtype_to_lamin_feature_type

@@ -5,7 +5,7 @@ from lamin_utils import logger
 from lnschema_core import Dataset, File, Registry, Run, Transform
 from lnschema_core.models import HasParents, format_field_value
 
-from lamindb.dev.utils import attach_func_to_class_method
+from lamindb._utils import attach_func_to_class_method
 
 from . import _TESTING
 from ._registry import StrField, get_default_str_field

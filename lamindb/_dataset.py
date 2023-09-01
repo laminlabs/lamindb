@@ -39,7 +39,7 @@ def __init__(
         kwargs.pop("description") if "description" in kwargs else None
     )
     run: Optional[Run] = kwargs.pop("run") if "run" in kwargs else None
-    feature_sets: Optional[Dict[str, FeatureSet]] = (
+    feature_sets: Dict[str, FeatureSet] = (
         kwargs.pop("feature_sets") if "feature_sets" in kwargs else {}
     )
     if not len(kwargs) == 0:
@@ -80,8 +80,13 @@ def __init__(
             raise ValueError("Only DataFrame, AnnData and iterable of File is allowed")
     existing_dataset = Dataset.filter(hash=hash).one_or_none()
     if existing_dataset is not None:
-        logger.success(f"loaded: {existing_dataset}")
+        logger.warning(f"returning existing dataset with same hash: {existing_dataset}")
         init_self_from_db(dataset, existing_dataset)
+        for slot, feature_set in dataset.features._feature_set_by_slot.items():
+            if slot in feature_sets:
+                if not feature_sets[slot] == feature_set:
+                    dataset.feature_sets.remove(feature_set)
+                    logger.warning(f"removing feature set: {feature_set}")
     else:
         kwargs = {}
         add_transform_to_kwargs(kwargs, run)
@@ -220,8 +225,9 @@ def save(dataset: Dataset):
     # we don't need to save feature sets again
     save_transform_run_feature_sets(dataset)
     super(Dataset, dataset).save()
-    if dataset._files is not None and len(dataset._files) > 0:
-        dataset.files.set(dataset._files)
+    if hasattr(dataset, "_files"):
+        if dataset._files is not None and len(dataset._files) > 0:
+            dataset.files.set(dataset._files)
     save_feature_set_links(dataset)
 
 

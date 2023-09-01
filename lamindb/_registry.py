@@ -12,7 +12,7 @@ from lamindb_setup.dev._docs import doc_args
 from lnschema_core import Registry
 from lnschema_core.types import ListLike, StrField
 
-from lamindb.dev.utils import attach_func_to_class_method
+from lamindb._utils import attach_func_to_class_method
 
 from . import _TESTING
 from ._from_values import get_or_create_records
