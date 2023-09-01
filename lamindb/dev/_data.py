@@ -215,7 +215,7 @@ def describe(self):
                     msg += msg_objects
     verbosity = settings.verbosity
     settings.verbosity = 3
-    logger.info(msg)
+    logger.info("\r" + msg)
     settings.verbosity = verbosity
 
 
