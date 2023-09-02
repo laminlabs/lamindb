@@ -83,9 +83,6 @@ def process_pathlike(
                 # for a cloud path, new_root is always the bucket name
                 new_root = list(filepath.parents)[-1]
                 new_root_str = new_root.as_posix().rstrip("/")
-                logger.warning(
-                    f"creating new storage location for root: {new_root_str}"
-                )
                 region = get_storage_region(new_root_str)
                 storage_settings = StorageSettings(new_root_str, region)
                 register_storage(storage_settings)
