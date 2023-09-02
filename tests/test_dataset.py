@@ -3,6 +3,7 @@ import lnschema_bionty as lb
 import numpy as np
 import pandas as pd
 import pytest
+from django.db.models.deletion import ProtectedError
 
 import lamindb as ln
 
@@ -208,3 +209,64 @@ def test_load_consistent_files():
     file1.delete(storage=True)
     file2.delete(storage=True)
     dataset.delete()
+
+
+def test_is_new_version_of_versioned_dataset():
+    # create a versioned dataset
+    dataset = ln.Dataset(df, name="test", version="1")
+    assert dataset.version == "1"
+    dataset.save()
+
+    with pytest.raises(ValueError) as error:
+        dataset_v2 = ln.Dataset(adata, is_new_version_of=dataset, version="1")
+    assert error.exconly() == "ValueError: Please increment the previous version: '1'"
+
+    # create new dataset from old dataset
+    dataset_v2 = ln.Dataset(adata, is_new_version_of=dataset)
+    assert dataset_v2.id[:18] == dataset.id[:18]  # stem_id
+    assert dataset.version == "1"
+    assert (
+        dataset.initial_version_id is None
+    )  # initial dataset has initial_version_id None
+    assert dataset_v2.initial_version_id == dataset.id
+    assert dataset_v2.version == "2"
+    assert dataset_v2.name == "test"
+
+    dataset_v2.save()
+
+    # create new dataset from newly versioned dataset
+    df.iloc[0, 0] = 0
+    dataset_v3 = ln.Dataset(df, name="test1", is_new_version_of=dataset_v2)
+    assert dataset_v3.id[:18] == dataset.id[:18]  # stem_id
+    assert dataset_v3.initial_version_id == dataset.id
+    assert dataset_v3.version == "3"
+    assert dataset_v3.name == "test1"
+
+    # test that reference dataset cannot be deleted
+    with pytest.raises(ProtectedError):
+        dataset.delete(storage=True)
+    dataset_v2.delete(storage=True)
+    dataset_v3.delete(storage=True)
+    dataset.delete(storage=True)
+
+
+def test_is_new_version_of_unversioned_dataset():
+    # unversioned dataset
+    dataset = ln.Dataset(df, name="test2")
+    assert dataset.initial_version_id is None
+    assert dataset.version is None
+
+    # what happens if we don't save the old dataset?
+    # add a test for it!
+    dataset.save()
+
+    # create new dataset from old dataset
+    new_dataset = ln.Dataset(adata, is_new_version_of=dataset)
+    assert new_dataset.id[:18] == dataset.id[:18]  # stem_id
+    assert dataset.version == "1"
+    assert dataset.initial_version is None
+    assert new_dataset.initial_version_id == dataset.id
+    assert new_dataset.version == "2"
+    assert new_dataset.name == dataset.name
+
+    dataset.delete(storage=True)
