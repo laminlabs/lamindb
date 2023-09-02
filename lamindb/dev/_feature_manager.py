@@ -45,7 +45,10 @@ def get_accessor_by_orm(host: Union[File, Dataset]) -> Dict:
 def get_feature_set_by_slot(host) -> Dict:
     # if the host is not yet saved
     if host._state.adding:
-        return host._feature_sets
+        if hasattr(host, "_feature_sets"):
+            return host._feature_sets
+        else:
+            return {}
     host_id_field = get_host_id_field(host)
     kwargs = {host_id_field: host.id}
     # otherwise, we need a query
