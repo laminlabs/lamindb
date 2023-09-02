@@ -8,6 +8,8 @@ from lnschema_core import Modality
 from lnschema_core.models import Dataset, Feature, FeatureSet
 from lnschema_core.types import AnnDataLike, FieldAttr
 
+from lamindb.dev.versioning import get_ids_from_old_version, init_id
+
 from . import File, Run
 from ._file import parse_feature_sets_from_anndata
 from ._registry import init_self_from_db
@@ -31,14 +33,21 @@ def __init__(
     # now we proceed with the user-facing constructor
     if len(args) > 1:
         raise ValueError("Only one non-keyword arg allowed: data")
-    data: Optional[Union[pd.DataFrame, ad.AnnData]] = None
-    if "data" in kwargs or len(args) == 1:
-        data = kwargs.pop("data") if len(args) == 0 else args[0]
+    data: Union[pd.DataFrame, ad.AnnData, File, Iterable[File]] = (
+        kwargs.pop("data") if len(args) == 0 else args[0]
+    )
     name: Optional[str] = kwargs.pop("name") if "name" in kwargs else None
     description: Optional[str] = (
         kwargs.pop("description") if "description" in kwargs else None
     )
     run: Optional[Run] = kwargs.pop("run") if "run" in kwargs else None
+    is_new_version_of: Optional[Dataset] = (
+        kwargs.pop("is_new_version_of") if "is_new_version_of" in kwargs else None
+    )
+    initial_version_id: Optional[str] = (
+        kwargs.pop("initial_version_id") if "initial_version_id" in kwargs else None
+    )
+    version: Optional[str] = kwargs.pop("version") if "version" in kwargs else None
     feature_sets: Dict[str, FeatureSet] = (
         kwargs.pop("feature_sets") if "feature_sets" in kwargs else {}
     )
@@ -46,7 +55,24 @@ def __init__(
         raise ValueError(
             f"Only data, name, run, description can be passed, you passed: {kwargs}"
         )
-    id = None
+
+    if is_new_version_of is None:
+        provisional_id = init_id(version=version, n_full_id=20)
+    else:
+        if not isinstance(is_new_version_of, Dataset):
+            raise TypeError("is_new_version_of has to be of type ln.Dataset")
+        provisional_id, initial_version_id, version = get_ids_from_old_version(
+            is_new_version_of, version, n_full_id=20
+        )
+        if name is None:
+            name = is_new_version_of.name
+    if version is not None:
+        if initial_version_id is None:
+            logger.info(
+                "initializing versioning for this dataset! create future versions of it"
+                " using ln.Dataset(..., is_new_version_of=old_dataset)"
+            )
+
     run = get_run(run)
     # there are exactly two ways of creating a Dataset object right now
     # using exactly one file or using more than one file
@@ -64,10 +90,20 @@ def __init__(
                     logger.info("overwriting feature sets linked to file")
         else:
             log_hint = True if feature_sets is None else False
-            file = File(data, run=run, description="tmp", log_hint=log_hint)
+            file_is_new_version_of = (
+                is_new_version_of.file if is_new_version_of is not None else None
+            )
+            file = File(
+                data,
+                run=run,
+                description="tmp",
+                log_hint=log_hint,
+                version=version,
+                is_new_version_of=file_is_new_version_of,
+            )
         hash = file.hash  # type: ignore
-        id = file.id  # type: ignore
-        file.description = f"See dataset {id}"  # type: ignore
+        provisional_id = file.id  # type: ignore
+        file.description = f"See dataset {provisional_id}"  # type: ignore
         file._feature_sets = feature_sets
     # init files
     else:
@@ -91,12 +127,14 @@ def __init__(
         kwargs = {}
         add_transform_to_kwargs(kwargs, run)
         super(Dataset, dataset).__init__(
-            id=id,
+            id=provisional_id,
             name=name,
             description=description,
             file=file,
             hash=hash,
             run=run,
+            version=version,
+            initial_version_id=initial_version_id,
             **kwargs,
         )
     dataset._files = files
@@ -234,8 +272,6 @@ def save(dataset: Dataset):
 Dataset.__init__ = __init__
 Dataset.from_df = from_df
 Dataset.from_anndata = from_anndata
-Dataset.view_flow = view_flow
-Dataset.view_lineage = view_flow
 Dataset.backed = backed
 Dataset.load = load
 Dataset.delete = delete
