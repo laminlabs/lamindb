@@ -17,7 +17,7 @@ LaminDB is a Python library to manage data & analyses related to biology. Most i
 
 The API supports a unified data warehousing & learning process:
 
-<img src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/BunYmHkyFLITlM5MYQS2.png" width="600px">
+<img src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/BunYmHkyFLITlM5MYQci.svg" width="450px" style="background: transparent">
 
 ## Documentation
 
