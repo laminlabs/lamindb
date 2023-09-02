@@ -1,19 +1,19 @@
 # Changelog
 
-- ♻️ Refactor describe [PR1131](https://github.com/laminlabs/lamindb/pull/1131) [@falexwolf](https://github.com/falexwolf)
-- 📝 Iterate on docs [PR1130](https://github.com/laminlabs/lamindb/pull/1130) [@falexwolf](https://github.com/falexwolf)
-- ♻️ Refactor features display [PR1129](https://github.com/laminlabs/lamindb/pull/1129) [@falexwolf](https://github.com/falexwolf)
-- ♻️ Refactor feature set linking [PR1128](https://github.com/laminlabs/lamindb/pull/1128) [@falexwolf](https://github.com/falexwolf)
-- ♻️ Add display of numerical features [PR1127](https://github.com/laminlabs/lamindb/pull/1127) [@falexwolf](https://github.com/falexwolf)
-- 📝 Rewrite landing page [PR1126](https://github.com/laminlabs/lamindb/pull/1126) [@falexwolf](https://github.com/falexwolf)
-- 📝 Improved bio-registries [PR1125](https://github.com/laminlabs/lamindb/pull/1125) [@sunnyosun](https://github.com/sunnyosun)
--  🚸 Validate `Run` records [PR1123](https://github.com/laminlabs/lamindb/pull/1123) [@falexwolf](https://github.com/falexwolf)
-- 🔊 Improved logging message for inspect [PR1124](https://github.com/laminlabs/lamindb/pull/1124) [@sunnyosun](https://github.com/sunnyosun)
 ```{eval-rst}
 .. role:: small
 ```
 
 ## 0.52
+
+### 0.52.1 {small}`2023-09-02`
+
+- ♻️ Refactor features display [PR1129](https://github.com/laminlabs/lamindb/pull/1129) [@falexwolf](https://github.com/falexwolf)
+- ♻️ Refactor feature set linking [PR1128](https://github.com/laminlabs/lamindb/pull/1128) [@falexwolf](https://github.com/falexwolf)
+- ♻️ Add display of numerical features [PR1127](https://github.com/laminlabs/lamindb/pull/1127) [@falexwolf](https://github.com/falexwolf)
+- 📝 Rewrite landing page [PR1126](https://github.com/laminlabs/lamindb/pull/1126) [@falexwolf](https://github.com/falexwolf)
+- 🚸 Validate `Run` records [PR1123](https://github.com/laminlabs/lamindb/pull/1123) [@falexwolf](https://github.com/falexwolf)
+- 🔊 Improved logging message for inspect [PR1124](https://github.com/laminlabs/lamindb/pull/1124) [@sunnyosun](https://github.com/sunnyosun)
 
 ### 0.52.0 {small}`2023-09-01`
 
