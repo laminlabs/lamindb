@@ -1,5 +1,6 @@
 # Changelog
 
+- ♻️ Refactor describe [PR1131](https://github.com/laminlabs/lamindb/pull/1131) [@falexwolf](https://github.com/falexwolf)
 - 📝 Iterate on docs [PR1130](https://github.com/laminlabs/lamindb/pull/1130) [@falexwolf](https://github.com/falexwolf)
 - ♻️ Refactor features display [PR1129](https://github.com/laminlabs/lamindb/pull/1129) [@falexwolf](https://github.com/falexwolf)
 - ♻️ Refactor feature set linking [PR1128](https://github.com/laminlabs/lamindb/pull/1128) [@falexwolf](https://github.com/falexwolf)
