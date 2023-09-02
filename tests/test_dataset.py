@@ -260,6 +260,9 @@ def test_is_new_version_of_unversioned_dataset():
     # add a test for it!
     dataset.save()
 
+    with pytest.raises(TypeError):
+        ln.Dataset(adata, is_new_version_of="wrong-type")
+
     # create new dataset from old dataset
     new_dataset = ln.Dataset(adata, is_new_version_of=dataset)
     assert new_dataset.id[:18] == dataset.id[:18]  # stem_id
