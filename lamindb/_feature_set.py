@@ -76,7 +76,7 @@ def __init__(self, *args, **kwargs):
     # now code
     features_registry = validate_features(features)
     if type is None:
-        type = None if features_registry == Feature else "numeric"
+        type = None if features_registry == Feature else NUMBER_TYPE
     n_features = len(features)
     features_hash = hash_set({feature.id for feature in features})
     feature_set = FeatureSet.filter(hash=features_hash).one_or_none()
@@ -127,6 +127,8 @@ def get_type_str(type: Optional[Union[Type, str]]) -> Optional[str]:
         type_str = type.__name__ if not isinstance(type, str) else type
     else:
         type_str = None
+    if type == "int" or type == "float":
+        type_str = NUMBER_TYPE
     return type_str
 
 

@@ -8,6 +8,7 @@ from pandas.api.types import is_categorical_dtype, is_string_dtype
 
 import lamindb as ln
 from lamindb import _feature
+from lamindb._feature import convert_numpy_dtype_to_lamin_feature_type
 
 df = pd.DataFrame(
     {
@@ -64,9 +65,8 @@ def test_feature_from_df():
         if feature.name in categoricals:
             assert feature.type == "category"
         else:
-            orig_type = df[feature.name].dtype.name
-            orig_type_stripped = "".join(i for i in orig_type if not i.isdigit())
-            assert feature.type == orig_type_stripped
+            orig_type = df[feature.name].dtype
+            assert feature.type == convert_numpy_dtype_to_lamin_feature_type(orig_type)
     for feature in features:
         feature.save()
     labels = [ln.Label(name=name) for name in df["feat3"].unique()]
@@ -81,9 +81,10 @@ def test_feature_from_df():
         if name in categoricals:
             assert queried_feature.type == "category"
         else:
-            orig_type = df[name].dtype.name
-            orig_type_stripped = "".join(i for i in orig_type if not i.isdigit())
-            assert queried_feature.type == orig_type_stripped
+            orig_type = df[name].dtype
+            assert queried_feature.type == convert_numpy_dtype_to_lamin_feature_type(
+                orig_type
+            )
     filelabel_links = FileLabel.objects.filter(file_id=file.id, feature__name="feat3")
     label_ids = filelabel_links.values_list("label_id")
     assert set(
@@ -105,5 +106,8 @@ def test_feature_init():
     with pytest.raises(ValueError):
         ln.Feature(name="feat", type="category", registries=[1])
     # registries_str
+    feat1 = ln.Feature.filter(name="feat1").one_or_none()
+    if feat1 is not None:
+        feat1.delete()
     feature = ln.Feature(name="feat1", type="category", registries=[ln.Label, lb.Gene])
     assert feature.registries == "core.Label|bionty.Gene"

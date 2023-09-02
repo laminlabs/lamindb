@@ -18,13 +18,12 @@ from lnschema_core.models import (
 
 from .._parents import view_flow
 from .._query_set import QuerySet
-from .._registry import get_default_str_field
 from ._feature_manager import (
     FeatureManager,
-    create_features_df,
     get_feature_set_links,
     get_host_id_field,
     get_label_links,
+    print_features,
 )
 from ._priors import priors
 from ._run_context import run_context
@@ -93,26 +92,10 @@ def save_feature_set_links(self: Union[File, Dataset]) -> None:
 
 
 @doc_args(Data.describe.__doc__)
-def describe(self):
+def describe(self: Data):
     """{}"""
     model_name = self.__class__.__name__
     msg = ""
-
-    def dict_related_model_to_related_name(orm):
-        d: Dict = {
-            i.related_model.__get_name_with_schema__(): i.related_name
-            for i in orm._meta.related_objects
-            if i.related_name is not None
-        }
-        d.update(
-            {
-                i.related_model.__get_name_with_schema__(): i.name
-                for i in orm._meta.many_to_many
-                if i.name is not None
-            }
-        )
-
-        return d
 
     fields = self._meta.fields
     direct_fields = []
@@ -125,7 +108,6 @@ def describe(self):
 
     # Display Provenance
     # display line by line the foreign key fields
-    from .._from_values import _print_values
     from .._parents import _transform_emoji
 
     emojis = {
@@ -139,10 +121,10 @@ def describe(self):
         record_msg = f"{colors.green(model_name)}{__repr__(self, include_foreign_keys=False).lstrip(model_name)}"  # noqa
         msg += f"{record_msg}\n\n"
 
-        msg += f"{colors.green('Provenance')}:\n    "
+        msg += f"{colors.green('Provenance')}:\n  "
         related_msg = "".join(
             [
-                f"{emojis.get(i, '📎')} {i}: {self.__getattribute__(i)}\n    "
+                f"{emojis.get(i, '📎')} {i}: {self.__getattribute__(i)}\n  "
                 for i in foreign_key_fields
                 if self.__getattribute__(i) is not None
             ]
@@ -153,70 +135,7 @@ def describe(self):
         values = [format_field_value(i.run_at) for i in self.input_of.all()]
         msg += f"⬇️ input_of ({colors.italic('core.Run')}): {values}\n    "
     msg = msg.rstrip("    ")
-
-    feature_sets_all = self.feature_sets.all()
-    if len(feature_sets_all) > 0:
-        msg += f"{colors.green('Features')}:\n"
-    feature_sets_subset = feature_sets_all.exclude(registry="core.Feature")
-    if feature_sets_subset.exists():
-        feature_sets_related_models = dict_related_model_to_related_name(
-            feature_sets_subset.first()
-        )
-        for feature_set in feature_sets_subset:
-            key_split = feature_set.registry.split(".")
-            if len(key_split) == 3:
-                logger.warning(
-                    "you have a legacy entry in feature_set.field, should be just"
-                    " 'bionty.Gene'"
-                )
-            orm_name_with_schema = f"{key_split[0]}.{key_split[1]}"
-            field_name = "id"
-            related_name = feature_sets_related_models.get(orm_name_with_schema)
-            values = feature_set.__getattribute__(related_name).list("id")
-            print_values = _print_values(values, n=5)
-            host_id_field = get_host_id_field(self)
-            kwargs = {host_id_field: self.id, "feature_set_id": feature_set.id}
-            slots = self.feature_sets.through.objects.filter(**kwargs).list("slot")
-            for slot in slots:
-                msg += f"  {colors.bold(slot)}:\n"
-                ref = colors.italic(f"{orm_name_with_schema}.{field_name}")
-                msg += f"    🔗 index ({feature_set.n}, {ref}): {values}\n".replace(
-                    "]", "...]"
-                )
-
-    # display core.Feature features
-    feature_sets = feature_sets_all.filter(registry="core.Feature").all()
-    features = Feature.lookup()
-    if feature_sets.exists():
-        features_df = create_features_df(
-            host=self, feature_sets=feature_sets.all(), exclude=False
-        )
-        for slot in features_df["slot"].unique():
-            df_slot = features_df[features_df.slot == slot]
-            msg += f"  {colors.bold(slot)}:\n"
-            for _, row in df_slot.iterrows():
-                if row["type"] == "category":
-                    labels = self.get_labels(getattr(features, row["name"]), mute=True)
-                    indent = ""
-                    if isinstance(labels, dict):
-                        msg += f"    🔗 {row['name']} ({row.registries})\n"
-                        indent = "    "
-                    else:
-                        labels = {row["registries"]: labels}
-                    for registry, labels in labels.items():
-                        count_str = f"{len(labels)}, {colors.italic(f'{registry}')}"
-                        try:
-                            field = get_default_str_field(labels)
-                        except ValueError:
-                            field = "id"
-                        print_values = _print_values(labels.list(field), n=5)
-                        msg_objects = (
-                            f"{indent}    🔗 {row['name']} ({count_str}):"
-                            f" {print_values}\n"
-                        )
-                        msg += msg_objects
-                else:
-                    msg += f"      {row['name']}: {row['type']}\n"
+    msg += print_features(self)
     verbosity = settings.verbosity
     settings.verbosity = 3
     logger.info(msg)
