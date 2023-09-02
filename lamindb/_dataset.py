@@ -272,8 +272,6 @@ def save(dataset: Dataset):
 Dataset.__init__ = __init__
 Dataset.from_df = from_df
 Dataset.from_anndata = from_anndata
-Dataset.view_flow = view_flow
-Dataset.view_lineage = view_flow
 Dataset.backed = backed
 Dataset.load = load
 Dataset.delete = delete
