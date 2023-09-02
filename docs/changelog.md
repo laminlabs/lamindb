@@ -1,5 +1,6 @@
 # Changelog
 
+- 🚚 Rename `File.tree` to `File.view_tree` [PR1133](https://github.com/laminlabs/lamindb/pull/1133) [@falexwolf](https://github.com/falexwolf)
 - ✨ Enable dataset versioning [PR1132](https://github.com/laminlabs/lamindb/pull/1132) [@falexwolf](https://github.com/falexwolf)
 ```{eval-rst}
 .. role:: small
