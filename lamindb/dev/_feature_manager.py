@@ -45,7 +45,10 @@ def get_accessor_by_orm(host: Union[File, Dataset]) -> Dict:
 def get_feature_set_by_slot(host) -> Dict:
     # if the host is not yet saved
     if host._state.adding:
-        return host._feature_sets
+        if hasattr(host, "_feature_sets"):
+            return host._feature_sets
+        else:
+            return {}
     host_id_field = get_host_id_field(host)
     kwargs = {host_id_field: host.id}
     # otherwise, we need a query
@@ -80,17 +83,14 @@ def print_features(self: Data) -> str:
     from .._from_values import _print_values
 
     msg = ""
-    feature_sets_all = self.feature_sets.all()
-    if len(feature_sets_all) > 0:
-        msg += f"{colors.green('Features')}:\n"
-    feature_sets_subset = feature_sets_all.exclude(registry="core.Feature")
-    if feature_sets_subset.exists():
-        feature_sets_related_models = dict_related_model_to_related_name(
-            feature_sets_subset.first()
-        )
-        for feature_set in feature_sets_subset:
+    features_lookup = Feature.lookup()
+    for slot, feature_set in self.features._feature_set_by_slot.items():
+        if feature_set.registry != "core.Feature":
             key_split = feature_set.registry.split(".")
             orm_name_with_schema = f"{key_split[0]}.{key_split[1]}"
+            feature_sets_related_models = dict_related_model_to_related_name(
+                feature_set
+            )
             related_name = feature_sets_related_models.get(orm_name_with_schema)
             # first 5 feature records
             features = feature_set.__getattribute__(related_name).all()[:10]
@@ -103,17 +103,16 @@ def print_features(self: Data) -> str:
                 msg += f"  {colors.bold(slot)}: {feature_set}\n"
                 for feature_name in feature_names:
                     msg += f"    {feature_name} ({feature_set.type})\n"
-
-    # display core.Feature features
-    feature_sets = feature_sets_all.filter(registry="core.Feature").all()
-    features = Feature.lookup()
-    if feature_sets.exists():
-        for slot, feature_set in self.features._feature_set_by_slot.items():
+                if feature_set.n > 10:
+                    msg += "    ... \n"
+        else:
             df_slot = feature_set.features.df()
             msg += f"  {colors.bold(slot)}: {feature_set}\n"
             for _, row in df_slot.iterrows():
                 if row["type"] == "category" and row["registries"] is not None:
-                    labels = self.get_labels(getattr(features, row["name"]), mute=True)
+                    labels = self.get_labels(
+                        getattr(features_lookup, row["name"]), mute=True
+                    )
                     indent = ""
                     if isinstance(labels, dict):
                         msg += f"    🔗 {row['name']} ({row.registries})\n"
@@ -131,6 +130,8 @@ def print_features(self: Data) -> str:
                         msg += msg_objects
                 else:
                     msg += f"    {row['name']} ({row['type']})\n"
+    if msg != "":
+        msg = f"{colors.green('Features')}:\n" + msg
     return msg
 
 
