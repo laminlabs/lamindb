@@ -54,7 +54,7 @@ def test_signatures():
         pass
 
     # class methods
-    class_methods = ["tree", "from_dir", "from_df", "from_anndata"]
+    class_methods = ["view_tree", "from_dir", "from_df", "from_anndata"]
     for name in class_methods:
         setattr(Mock, name, getattr(_file, name))
         assert signature(getattr(Mock, name)) == _file.SIGS.pop(name)
