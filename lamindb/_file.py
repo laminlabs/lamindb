@@ -870,8 +870,8 @@ def path(self) -> Union[Path, UPath]:
 
 # adapted from: https://stackoverflow.com/questions/9727673
 @classmethod  # type: ignore
-@doc_args(File.tree.__doc__)
-def tree(
+@doc_args(File.view_tree.__doc__)
+def view_tree(
     cls: File,
     path: Optional[PathLike] = None,
     *,
@@ -970,7 +970,7 @@ METHOD_NAMES = [
     "save",
     "replace",
     "from_dir",
-    "tree",
+    "view_tree",
 ]
 
 if _TESTING:

@@ -54,7 +54,7 @@ def test_signatures():
         pass
 
     # class methods
-    class_methods = ["tree", "from_dir", "from_df", "from_anndata"]
+    class_methods = ["view_tree", "from_dir", "from_df", "from_anndata"]
     for name in class_methods:
         setattr(Mock, name, getattr(_file, name))
         assert signature(getattr(Mock, name)) == _file.SIGS.pop(name)
@@ -367,7 +367,7 @@ def test_from_dir(get_test_filepaths, key):
     # we only return the duplicated ones
     hashes = [file.hash for file in files if file.hash is not None]
     assert len(set(hashes)) == len(hashes)
-    ln.File.tree(test_dirpath)
+    ln.File.view_tree(test_dirpath)
     # now save
     ln.save(files)
     # now run again, because now we'll have hash-based lookup!
