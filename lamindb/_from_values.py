@@ -175,7 +175,7 @@ def create_records_from_bionty(
     bionty_df = _filter_bionty_df_columns(model=model, bionty_object=bionty_object)
 
     # standardize in the bionty reference
-    result = bionty_object.inspect(iterable_idx, field=field, mute=True)
+    result = bionty_object.inspect(iterable_idx, field=field.field.name, mute=True)
     syn_mapper = result.synonyms_mapper
 
     msg_syn: str = ""
