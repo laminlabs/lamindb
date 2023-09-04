@@ -184,7 +184,8 @@ class run_context:
             new_run: If `False`, loads latest run of transform
                 (default notebook), if True, creates new run (default pipeline).
             reference: Reference to pass to :class:`~lamindb.Run` record.
-            reference_type: Reference type to pass to :class:`~lamindb.Run` record (e.g. "url").
+            reference_type: Reference type to pass to :class:`~lamindb.Run`
+                record (e.g. "url").
             notebook_path: Filepath of notebook. Only needed if inference fails.
             pypackage: One or more python packages for which to parse versions.
             editor: Editor environment.
@@ -198,25 +199,15 @@ class run_context:
             install[jupyter]`, you can simply call:
 
             >>> ln.track()
-            ✅ saved: Transform(id=1LCd8kco9lZUBg, name=Track data flow / provenance, short_name=02-data-flow, stem_id=1LCd8kco9lZU, version=0, type=notebook, updated_at=2023-07-10 18:37:19, created_by_id=DzTjkKse) # noqa
-            ✅ saved: Run(id=pHgVICV9DxBaV6BAuKJl, run_at=2023-07-10 18:37:19, transform_id=1LCd8kco9lZUBg, created_by_id=DzTjkKse) # noqa
             >>> ln.dev.run_context.transform
-            Transform(id=1LCd8kco9lZUBg, name=Track data flow / provenance, short_name=02-data-flow, stem_id=1LCd8kco9lZU, version=0, type=notebook, updated_at=2023-07-10 18:37:19, created_by_id=DzTjkKse) # noqa
             >>> ln.dev.run_context.run
-            Run(id=pHgVICV9DxBaV6BAuKJl, run_at=2023-07-10 18:37:19, transform_id=1LCd8kco9lZUBg, created_by_id=DzTjkKse) # noqa
 
-            If you'd like to track a pipeline we need to pass a
+            If you'd like to track a pipeline, pass a
             :class:`~lamindb.Transform` object of `type` `"pipeline"`:
 
-            >>> ln.Transform(name="Cell Ranger", version="7.2.0", type="pipeline").save()
-            >>> transform = ln.Transform.filter(name="Cell Ranger", version="7.2.0").one()
+            >>> ln.Transform(name="Cell Ranger", version="2", type="pipeline").save()
+            >>> transform = ln.Transform.filter(name="Cell Ranger", version="2").one()
             >>> ln.track(transform)
-            💬 loaded: Transform(id=ceHkZMaiHFdoB6, name=Cell Ranger, stem_id=ceHkZMaiHFdo, version=7.2.0, type=pipeline, updated_at=2023-07-10 18:37:19, created_by_id=DzTjkKse) # noqa
-            ✅ saved: Run(id=RcpWIKC8cF74Pn3RUJ1W, run_at=2023-07-10 18:37:19, transform_id=ceHkZMaiHFdoB6, created_by_id=DzTjkKse) # noqa
-            >>> ln.context.transform
-            Transform(id=ceHkZMaiHFdoB6, name=Cell Ranger, stem_id=ceHkZMaiHFdo, version=7.2.0, type=pipeline, updated_at=2023-07-10 18:37:19, created_by_id=DzTjkKse) # noqa
-            >>> ln.context.run
-            Run(id=RcpWIKC8cF74Pn3RUJ1W, run_at=2023-07-10 18:37:19, transform_id=ceHkZMaiHFdoB6, created_by_id=DzTjkKse) # noqa
         """
         cls.instance = settings.instance
         import lamindb as ln
