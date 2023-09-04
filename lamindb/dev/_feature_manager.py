@@ -101,10 +101,8 @@ def print_features(self: Data) -> str:
             slots = self.feature_sets.through.objects.filter(**kwargs).list("slot")
             for slot in slots:
                 msg += f"  {colors.bold(slot)}: {feature_set}\n"
-                for feature_name in feature_names:
-                    msg += f"    {feature_name} ({feature_set.type})\n"
-                if feature_set.n > 10:
-                    msg += "    ... \n"
+                print_values = _print_values(feature_names, n=10)
+                msg += f"    {print_values}\n"
         else:
             df_slot = feature_set.features.df()
             msg += f"  {colors.bold(slot)}: {feature_set}\n"

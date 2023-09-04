@@ -16,10 +16,13 @@ from lnschema_core.models import (
     format_field_value,
 )
 
+from .._from_values import _print_values
 from .._parents import view_flow
 from .._query_set import QuerySet
+from .._registry import get_default_str_field
 from ._feature_manager import (
     FeatureManager,
+    dict_related_model_to_related_name,
     get_feature_set_links,
     get_host_id_field,
     get_label_links,
@@ -116,6 +119,7 @@ def describe(self: Data):
         "transform": _transform_emoji(self.transform),
         "run": "👣",
         "initial_version": "🔖",
+        "file": "📁",
     }
     if len(foreign_key_fields) > 0:  # always True for File and Dataset
         record_msg = f"{colors.green(model_name)}{__repr__(self, include_foreign_keys=False).lstrip(model_name)}"  # noqa
@@ -136,6 +140,24 @@ def describe(self: Data):
         msg += f"⬇️ input_of ({colors.italic('core.Run')}): {values}\n    "
     msg = msg.rstrip("    ")
     msg += print_features(self)
+
+    # labels
+    labels_msg = ""
+    for related_model, related_name in dict_related_model_to_related_name(
+        self.__class__
+    ).items():
+        if related_name == "feature_sets":
+            continue
+        labels = self.__getattribute__(related_name)
+        if labels.exists():
+            n = labels.count()
+            field = get_default_str_field(labels)
+            print_values = _print_values(labels.list(field), n=10)
+            labels_msg += f"  🏷️ {related_name} ({n}, {colors.italic(related_model)}): {print_values}\n"  # noqa
+    if len(labels_msg) > 0:
+        msg += f"{colors.green('Labels')}:\n"
+        msg += labels_msg
+
     verbosity = settings.verbosity
     settings.verbosity = 3
     logger.info(msg)
