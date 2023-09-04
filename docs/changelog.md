@@ -1,5 +1,6 @@
 # Changelog
 
+- 📝 Improve tutorial [PR1140](https://github.com/laminlabs/lamindb/pull/1140) [@falexwolf](https://github.com/falexwolf)
 - 🎨 Add labels to describe [PR1139](https://github.com/laminlabs/lamindb/pull/1139) [@sunnyosun](https://github.com/sunnyosun)
 - 📝 More clarity in landing page [PR1138](https://github.com/laminlabs/lamindb/pull/1138) [@falexwolf](https://github.com/falexwolf)
 - 🎨 Set default field for from_values [PR1137](https://github.com/laminlabs/lamindb/pull/1137) [@sunnyosun](https://github.com/sunnyosun)
