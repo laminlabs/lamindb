@@ -1,5 +1,6 @@
 # Changelog
 
+- 🎨 Switch to WRatio and default to limit=20 for search [PR1135](https://github.com/laminlabs/lamindb/pull/1135) [@sunnyosun](https://github.com/sunnyosun)
 - 📝 Add bionty documentation to landing page [PR1134](https://github.com/laminlabs/lamindb/pull/1134) [@falexwolf](https://github.com/falexwolf)
 - 🚚 Rename `File.tree` to `File.view_tree` [PR1133](https://github.com/laminlabs/lamindb/pull/1133) [@falexwolf](https://github.com/falexwolf)
 - ✨ Enable dataset versioning [PR1132](https://github.com/laminlabs/lamindb/pull/1132) [@falexwolf](https://github.com/falexwolf)
