@@ -286,12 +286,17 @@ def get_default_str_field(
         # no default field can be found
         if field is None:
             raise ValueError(
-                "Please specify a Registry string field, e.g., `CellType.name`!"
+                "please pass a Registry string field, e.g., `CellType.name`!"
             )
         else:
             field = field.name  # type:ignore
     if not isinstance(field, str):
-        field = field.field.name
+        try:
+            field = field.field.name
+        except AttributeError:
+            raise TypeError(
+                "please pass a Registry string field, e.g., `CellType.name`!"
+            )
 
     return field
 
