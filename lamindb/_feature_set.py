@@ -192,7 +192,7 @@ def from_df(
     else:
         dtypes = [col.dtype for (_, col) in df.loc[:, validated].items()]
         if len(set(dtypes)) != 1:
-            raise ValueError(f"Data types are inhomogeneous: {set(dtypes)}")
+            raise ValueError(f"data types are heterogeneous: {set(dtypes)}")
         type = convert_numpy_dtype_to_lamin_feature_type(dtypes[0])
         validated_features = registry.from_values(df.columns[validated], field=field)
         feature_set = FeatureSet(
