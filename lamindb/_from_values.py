@@ -2,10 +2,9 @@ from typing import Any, Dict, Iterable, List, Tuple, Union
 
 import pandas as pd
 from django.core.exceptions import FieldDoesNotExist
-from django.db.models.query_utils import DeferredAttribute as Field
 from lamin_utils import colors, logger
 from lnschema_core.models import Feature, Label, Registry
-from lnschema_core.types import ListLike
+from lnschema_core.types import ListLike, StrField
 
 from .dev._settings import settings
 
@@ -13,7 +12,7 @@ from .dev._settings import settings
 # The base function for `from_values`
 def get_or_create_records(
     iterable: ListLike,
-    field: Field,
+    field: StrField,
     *,
     from_bionty: bool = False,
     **kwargs,
@@ -23,7 +22,6 @@ def get_or_create_records(
     settings.upon_create_search_names = False
     feature: Feature = None
     try:
-        field_name = field.field.name
         Registry = field.field.model
         iterable_idx = index_iterable(iterable)
 
@@ -55,7 +53,7 @@ def get_or_create_records(
                 n_nonval = colors.yellow(f"{len(unmapped_values)} non-validated")
                 logger.warning(
                     f"{colors.red('did not create')} {name} record{s} for "
-                    f"{n_nonval} {colors.italic(f'{field_name}{s}')}: {print_values}"
+                    f"{n_nonval} {colors.italic(f'{field}{s}')}: {print_values}"
                 )
         if Registry.__module__.startswith("lnschema_bionty.") or Registry == Label:
             if isinstance(iterable, pd.Series):
@@ -75,10 +73,9 @@ def get_or_create_records(
 
 def get_existing_records(
     iterable_idx: pd.Index,
-    field: Field,
+    field: StrField,
     kwargs: Dict = {},
 ):
-    field_name = field.field.name
     model = field.field.model
     condition: Dict = {}
 
@@ -95,7 +92,7 @@ def get_existing_records(
     # standardize based on the DB reference
     # log synonyms mapped terms
     result = model.inspect(
-        iterable_idx, field=field_name, species=kwargs.get("species"), mute=True
+        iterable_idx, field=field, species=kwargs.get("species"), mute=True
     )
     syn_mapper = result.synonyms_mapper
 
@@ -115,7 +112,7 @@ def get_existing_records(
     # if necessary, create records for the values in kwargs
     # k:v -> k:v_record
     # kwargs is used to deal with species
-    condition.update({f"{field_name}__in": iterable_idx.values})
+    condition.update({f"{field.field.name}__in": iterable_idx.values})
 
     query_set = model.filter(**condition)
     records = query_set.list()
@@ -123,7 +120,7 @@ def get_existing_records(
     # now we have to sort the list of queried records
     # preserved = Case(
     #     *[
-    #         When(**{field_name: value}, then=pos)
+    #         When(**{field.field.name: value}, then=pos)
     #         for pos, value in enumerate(iterable_idx)
     #     ]
     # )
@@ -139,7 +136,7 @@ def get_existing_records(
         msg = (
             "loaded"
             f" {colors.green(f'{len(validated)} {model.__name__} record{s}')}"
-            f" matching {colors.italic(f'{field_name}')}: {print_values}"
+            f" matching {colors.italic(f'{field.field.name}')}: {print_values}"
         )
 
     # no logging if all values are validated
@@ -151,7 +148,7 @@ def get_existing_records(
         msg = ""
 
     existing_values = iterable_idx.intersection(
-        query_set.values_list(field_name, flat=True)
+        query_set.values_list(field.field.name, flat=True)
     )
     nonexist_values = iterable_idx.difference(existing_values)
 
@@ -160,12 +157,11 @@ def get_existing_records(
 
 def create_records_from_bionty(
     iterable_idx: pd.Index,
-    field: Field,
+    field: StrField,
     msg: str = "",
     **kwargs,
 ):
     model = field.field.model
-    field_name = field.field.name
     records: List = []
     # populate additional fields from bionty
     from lnschema_bionty._bionty import get_bionty_source_record
@@ -179,7 +175,7 @@ def create_records_from_bionty(
     bionty_df = _filter_bionty_df_columns(model=model, bionty_object=bionty_object)
 
     # standardize in the bionty reference
-    result = bionty_object.inspect(iterable_idx, field=field_name, mute=True)
+    result = bionty_object.inspect(iterable_idx, field=field, mute=True)
     syn_mapper = result.synonyms_mapper
 
     msg_syn: str = ""
@@ -197,12 +193,12 @@ def create_records_from_bionty(
 
     # create records for values that are found in the bionty reference
     # matching either field or synonyms
-    mapped_values = iterable_idx.intersection(bionty_df[field_name])
+    mapped_values = iterable_idx.intersection(bionty_df[field.field.name])
 
     multi_msg = ""
     if len(mapped_values) > 0:
         bionty_kwargs, multi_msg = _bulk_create_dicts_from_df(
-            keys=mapped_values, column_name=field_name, df=bionty_df
+            keys=mapped_values, column_name=field.field.name, df=bionty_df
         )
         for bk in bionty_kwargs:
             records.append(model(**bk, **kwargs))
@@ -219,7 +215,7 @@ def create_records_from_bionty(
                 (
                     "created"
                     f" {colors.purple(f'{len(validated)} {model.__name__} record{s} from Bionty')}"  # noqa
-                    f" matching {colors.italic(f'{field_name}')}: {print_values}"  # noqa
+                    f" matching {colors.italic(f'{field.field.name}')}: {print_values}"  # noqa
                 )
             )
 
