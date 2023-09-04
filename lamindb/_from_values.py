@@ -112,7 +112,7 @@ def get_existing_records(
     # if necessary, create records for the values in kwargs
     # k:v -> k:v_record
     # kwargs is used to deal with species
-    condition.update({f"{field.name}__in": iterable_idx.values})
+    condition.update({f"{field.field.name}__in": iterable_idx.values})
 
     query_set = model.filter(**condition)
     records = query_set.list()
@@ -120,7 +120,7 @@ def get_existing_records(
     # now we have to sort the list of queried records
     # preserved = Case(
     #     *[
-    #         When(**{field.name: value}, then=pos)
+    #         When(**{field.field.name: value}, then=pos)
     #         for pos, value in enumerate(iterable_idx)
     #     ]
     # )
@@ -136,7 +136,7 @@ def get_existing_records(
         msg = (
             "loaded"
             f" {colors.green(f'{len(validated)} {model.__name__} record{s}')}"
-            f" matching {colors.italic(f'{field.name}')}: {print_values}"
+            f" matching {colors.italic(f'{field.field.name}')}: {print_values}"
         )
 
     # no logging if all values are validated
@@ -148,7 +148,7 @@ def get_existing_records(
         msg = ""
 
     existing_values = iterable_idx.intersection(
-        query_set.values_list(field.name, flat=True)
+        query_set.values_list(field.field.name, flat=True)
     )
     nonexist_values = iterable_idx.difference(existing_values)
 
@@ -193,12 +193,12 @@ def create_records_from_bionty(
 
     # create records for values that are found in the bionty reference
     # matching either field or synonyms
-    mapped_values = iterable_idx.intersection(bionty_df[field.name])
+    mapped_values = iterable_idx.intersection(bionty_df[field.field.name])
 
     multi_msg = ""
     if len(mapped_values) > 0:
         bionty_kwargs, multi_msg = _bulk_create_dicts_from_df(
-            keys=mapped_values, column_name=field.name, df=bionty_df
+            keys=mapped_values, column_name=field.field.name, df=bionty_df
         )
         for bk in bionty_kwargs:
             records.append(model(**bk, **kwargs))
@@ -215,7 +215,7 @@ def create_records_from_bionty(
                 (
                     "created"
                     f" {colors.purple(f'{len(validated)} {model.__name__} record{s} from Bionty')}"  # noqa
-                    f" matching {colors.italic(f'{field.name}')}: {print_values}"  # noqa
+                    f" matching {colors.italic(f'{field.field.name}')}: {print_values}"  # noqa
                 )
             )
 

@@ -116,7 +116,7 @@ def from_values(cls, values: ListLike, field: StrField, **kwargs) -> List["Regis
     field_str = get_default_str_field(cls, field=field)
     return get_or_create_records(
         iterable=values,
-        field=cls._meta.get_field(field_str),
+        field=getattr(cls, field_str),
         from_bionty=from_bionty,
         **kwargs,
     )
