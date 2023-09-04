@@ -110,7 +110,9 @@ def __init__(orm: Registry, *args, **kwargs):
 # from_values doesn't apply for QuerySet or Manager
 @classmethod  # type:ignore
 @doc_args(Registry.from_values.__doc__)
-def from_values(cls, values: ListLike, field: StrField, **kwargs) -> List["Registry"]:
+def from_values(
+    cls, values: ListLike, field: Optional[StrField] = None, **kwargs
+) -> List["Registry"]:
     """{}"""
     from_bionty = True if cls.__module__.startswith("lnschema_bionty.") else False
     field_str = get_default_str_field(cls, field=field)
