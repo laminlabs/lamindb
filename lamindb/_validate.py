@@ -76,7 +76,7 @@ def _inspect(
             queryset=queryset, species=kwargs.get("species")
         ),
         identifiers=values,
-        field=str(field),
+        field=field,
         mute=mute,
         **kwargs,
     )
@@ -84,7 +84,7 @@ def _inspect(
 
     if len(nonval) > 0 and orm.__get_schema_name__() == "bionty":
         bionty_result = orm.bionty(species=kwargs.get("species")).inspect(
-            values=nonval, field=str(field), mute=True, **kwargs
+            values=nonval, field=field, mute=True, **kwargs
         )
         bionty_validated = bionty_result.validated
         bionty_mapper = bionty_result.synonyms_mapper
@@ -95,7 +95,7 @@ def _inspect(
             labels = colors.yellow(f"{len(bionty_validated)} {model_name} term{s}")
             logger.info(
                 f"   detected {labels} in Bionty for"
-                f" {colors.italic(str(field))}: {colors.yellow(print_values)}"
+                f" {colors.italic(field)}: {colors.yellow(print_values)}"
             )
             hint = True
 
