@@ -281,7 +281,7 @@ def test_get_labels():
     file.save()
     assert str(file.features) == "no linked features"
     file.features.add_feature_set(feature_set, slot="random")
-    assert file.features.get_feature_set(slot="random") == feature_set
+    assert file.feature_sets["random"] == feature_set
     file.delete(storage=True)
     feature_set.delete()
     feature_name_feature.delete()

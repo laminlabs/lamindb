@@ -2,6 +2,8 @@ from typing import Optional
 
 from django.db import models
 
+from .dev._feature_manager import get_feature_set_by_slot
+
 
 class QueryManager(models.Manager):
     """Manage queries through fields.
@@ -50,6 +52,21 @@ class QueryManager(models.Manager):
         """
         return self.all().df(**kwargs)
 
+    def __getitem__(self, item: str):
+        try:
+            source_field_name = self.source_field_name
+            target_field_name = self.target_field_name
+
+            if (
+                source_field_name in {"file", "dataset"}
+                and target_field_name == "feature_set"
+            ):
+                return get_feature_set_by_slot(host=self.instance).get(item)
+
+        except Exception:  # pragma: no cover
+            return
+
 
 setattr(models.Manager, "list", QueryManager.list)
 setattr(models.Manager, "df", QueryManager.df)
+setattr(models.Manager, "__getitem__", QueryManager.__getitem__)
