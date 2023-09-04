@@ -113,7 +113,7 @@ def test_feature_set_from_df():
     ln.save(genes)
     with pytest.raises(ValueError) as error:
         ln.FeatureSet.from_df(df, field=lb.Gene.symbol)
-    assert error.exconly().startswith("ValueError: Data types are inhomogeneous:")
+    assert error.exconly().startswith("ValueError: data types are heterogeneous:")
     feature_set = ln.FeatureSet.from_df(df[["feat1", "feat2"]], field=lb.Gene.symbol)
     # clean up
     feature_set.delete()
