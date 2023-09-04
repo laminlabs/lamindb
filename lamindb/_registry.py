@@ -107,6 +107,7 @@ def __init__(orm: Registry, *args, **kwargs):
         super(Registry, orm).__init__(*args, **kwargs)
 
 
+# from_values doesn't apply for QuerySet or Manager
 @classmethod  # type:ignore
 @doc_args(Registry.from_values.__doc__)
 def from_values(cls, values: ListLike, field: StrField, **kwargs) -> List["Registry"]:
