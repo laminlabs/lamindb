@@ -137,8 +137,8 @@ def _search(
     string: str,
     *,
     field: Optional[Union[StrField, List[StrField]]] = None,
+    limit: Optional[int] = 20,
     return_queryset: bool = False,
-    limit: Optional[int] = None,
     case_sensitive: bool = False,
     synonyms_field: Optional[StrField] = "synonyms",
 ) -> Union["pd.DataFrame", "QuerySet"]:
@@ -218,8 +218,8 @@ def search(
     string: str,
     *,
     field: Optional[StrField] = None,
+    limit: Optional[int] = 20,
     return_queryset: bool = False,
-    limit: Optional[int] = None,
     case_sensitive: bool = False,
     synonyms_field: Optional[StrField] = "synonyms",
 ) -> Union["pd.DataFrame", "QuerySet"]:
