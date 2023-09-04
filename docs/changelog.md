@@ -1,5 +1,6 @@
 # Changelog
 
+- 🎨 Set default field for from_values [PR1137](https://github.com/laminlabs/lamindb/pull/1137) [@sunnyosun](https://github.com/sunnyosun)
 - 📝 More comprehensive landing page [PR1136](https://github.com/laminlabs/lamindb/pull/1136) [@falexwolf](https://github.com/falexwolf)
 - 🎨 Switch to WRatio and default to limit=20 for search [PR1135](https://github.com/laminlabs/lamindb/pull/1135) [@sunnyosun](https://github.com/sunnyosun)
 - 📝 Add bionty documentation to landing page [PR1134](https://github.com/laminlabs/lamindb/pull/1134) [@falexwolf](https://github.com/falexwolf)
