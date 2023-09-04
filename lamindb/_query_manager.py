@@ -62,10 +62,8 @@ class QueryManager(models.Manager):
                 and target_field_name == "feature_set"
             ):
                 return get_feature_set_by_slot(host=self.instance).get(item)
-            else:
-                return
 
-        except Exception:
+        except Exception:  # pragma: no cover
             return
 
 
