@@ -1,20 +1,21 @@
 # Changelog
 
 - 🚚 Replace `get_feature_set` with `.feature_sets.__getitem__` [PR1141](https://github.com/laminlabs/lamindb/pull/1141) [@sunnyosun](https://github.com/sunnyosun)
-- 📝 Improve tutorial [PR1140](https://github.com/laminlabs/lamindb/pull/1140) [@falexwolf](https://github.com/falexwolf)
-- 🎨 Add labels to describe [PR1139](https://github.com/laminlabs/lamindb/pull/1139) [@sunnyosun](https://github.com/sunnyosun)
-- 📝 More clarity in landing page [PR1138](https://github.com/laminlabs/lamindb/pull/1138) [@falexwolf](https://github.com/falexwolf)
-- 🎨 Set default field for from_values [PR1137](https://github.com/laminlabs/lamindb/pull/1137) [@sunnyosun](https://github.com/sunnyosun)
-- 📝 More comprehensive landing page [PR1136](https://github.com/laminlabs/lamindb/pull/1136) [@falexwolf](https://github.com/falexwolf)
-- 🎨 Switch to WRatio and default to limit=20 for search [PR1135](https://github.com/laminlabs/lamindb/pull/1135) [@sunnyosun](https://github.com/sunnyosun)
-- 📝 Add bionty documentation to landing page [PR1134](https://github.com/laminlabs/lamindb/pull/1134) [@falexwolf](https://github.com/falexwolf)
-- 🚚 Rename `File.tree` to `File.view_tree` [PR1133](https://github.com/laminlabs/lamindb/pull/1133) [@falexwolf](https://github.com/falexwolf)
-- ✨ Enable dataset versioning [PR1132](https://github.com/laminlabs/lamindb/pull/1132) [@falexwolf](https://github.com/falexwolf)
+
 ```{eval-rst}
 .. role:: small
 ```
 
 ## 0.52
+
+### 0.52.2 {small}`2023-09-05`
+
+- 🎨 Add labels to describe [PR1139](https://github.com/laminlabs/lamindb/pull/1139) [@sunnyosun](https://github.com/sunnyosun)
+- 🎨 Set default field for from_values [PR1137](https://github.com/laminlabs/lamindb/pull/1137) [@sunnyosun](https://github.com/sunnyosun)
+- 📝 More comprehensive landing page [PR1136](https://github.com/laminlabs/lamindb/pull/1136) [@falexwolf](https://github.com/falexwolf)
+- 🎨 Switch to WRatio and default to limit=20 for search [PR1135](https://github.com/laminlabs/lamindb/pull/1135) [@sunnyosun](https://github.com/sunnyosun)
+- 🚚 Rename `File.tree` to `File.view_tree` [PR1133](https://github.com/laminlabs/lamindb/pull/1133) [@falexwolf](https://github.com/falexwolf)
+- ✨ Enable dataset versioning [PR1132](https://github.com/laminlabs/lamindb/pull/1132) [@falexwolf](https://github.com/falexwolf)
 
 ### 0.52.1 {small}`2023-09-02`
 
