@@ -185,11 +185,3 @@ class FeatureManager:
         if link_record is None:
             self._host.feature_sets.through(**kwargs).save()
             self._feature_set_by_slot[slot] = feature_set
-
-    def get_feature_set(self, slot: str) -> FeatureSet:
-        """Get feature set by slot.
-
-        Args:
-            slot: `str` The access slot.
-        """
-        return self._feature_set_by_slot.get(slot)
