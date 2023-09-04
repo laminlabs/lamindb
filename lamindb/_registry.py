@@ -4,7 +4,6 @@ from typing import Iterable, List, NamedTuple, Optional, Union
 import pandas as pd
 from django.core.exceptions import FieldDoesNotExist
 from django.db.models import Manager, QuerySet
-from django.db.models.query_utils import DeferredAttribute as Field
 from lamin_utils import logger
 from lamin_utils._lookup import Lookup
 from lamin_utils._search import search as base_search
@@ -108,19 +107,20 @@ def __init__(orm: Registry, *args, **kwargs):
         super(Registry, orm).__init__(*args, **kwargs)
 
 
+# from_values doesn't apply for QuerySet or Manager
 @classmethod  # type:ignore
 @doc_args(Registry.from_values.__doc__)
-def from_values(cls, values: ListLike, field: StrField, **kwargs) -> List["Registry"]:
+def from_values(
+    cls, values: ListLike, field: Optional[StrField] = None, **kwargs
+) -> List["Registry"]:
     """{}"""
-    if isinstance(field, str):
-        field = getattr(cls, field)
-    if not isinstance(field, Field):  # field is DeferredAttribute
-        raise TypeError(
-            "field must be a string or an Registry field, e.g., `CellType.name`!"
-        )
     from_bionty = True if cls.__module__.startswith("lnschema_bionty.") else False
+    field_str = get_default_str_field(cls, field=field)
     return get_or_create_records(
-        iterable=values, field=field, from_bionty=from_bionty, **kwargs
+        iterable=values,
+        field=getattr(cls, field_str),
+        from_bionty=from_bionty,
+        **kwargs,
     )
 
 
@@ -285,11 +285,18 @@ def get_default_str_field(
 
         # no default field can be found
         if field is None:
-            raise ValueError("Please specify a field!")
+            raise ValueError(
+                "please pass a Registry string field, e.g., `CellType.name`!"
+            )
         else:
             field = field.name  # type:ignore
     if not isinstance(field, str):
-        field = field.field.name
+        try:
+            field = field.field.name
+        except AttributeError:
+            raise TypeError(
+                "please pass a Registry string field, e.g., `CellType.name`!"
+            )
 
     return field
 
