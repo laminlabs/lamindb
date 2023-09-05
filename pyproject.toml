@@ -34,7 +34,7 @@ Home = "https://github.com/laminlabs/lamindb"
 
 [project.optional-dependencies]
 bionty = [
-    "lnschema_bionty==0.30.3",
+    "lnschema_bionty==0.30.4",
 ]
 postgres = ["psycopg2-binary"]
 aws = [
