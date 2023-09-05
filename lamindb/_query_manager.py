@@ -63,7 +63,7 @@ class QueryManager(models.Manager):
         feature: Feature,
     ) -> None:
         """{}"""
-        if not isinstance(self.isinstance, (Dataset, File)):
+        if not isinstance(self.instance, (Dataset, File)):
             raise TypeError("Instance must be File or Dataset.")
         return add_labels(self=self.instance, records=records, feature=feature)
 
@@ -75,7 +75,7 @@ class QueryManager(models.Manager):
         flat_names: bool = False,
     ) -> Union[QuerySet, Dict[str, QuerySet], List]:
         """{}"""
-        if not isinstance(self.isinstance, (Dataset, File)):
+        if not isinstance(self.instance, (Dataset, File)):
             raise TypeError("Instance must be File or Dataset.")
         return get_labels(
             self=self.instance, feature=feature, mute=mute, flat_names=flat_names
