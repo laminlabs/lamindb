@@ -56,7 +56,14 @@ def view_parents(
     )
 
 
-def view_flow(file: File, with_children: bool = True):
+def view_flow_dataset(dataset: Dataset, with_children: bool = True) -> None:
+    if dataset.file is not None:
+        dataset.file._view_flow(with_children=with_children)
+    else:
+        dataset.files.first()._view_flow(with_children=with_children)
+
+
+def view_flow_file(file: File, with_children: bool = True):
     """Graph of data flow.
 
     Notes:

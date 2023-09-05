@@ -244,13 +244,6 @@ def load(dataset: Dataset):
             return ad.concat(objects)
 
 
-def view_flow(dataset: Dataset, with_children: bool = True) -> None:
-    if dataset.file is not None:
-        dataset.file.view_flow(with_children=with_children)
-    else:
-        dataset.files.first().view_flow(with_children=with_children)
-
-
 def delete(dataset: Dataset, storage: bool = False):
     super(Dataset, dataset).delete()
     if dataset.file is not None:
