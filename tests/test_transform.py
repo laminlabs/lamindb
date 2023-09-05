@@ -49,7 +49,7 @@ def test_is_new_version_of_versioned_transform():
     assert transform_v3.name == transform_v2.name
 
     # wrong transform type
-    with pytest.raises(ValueError) as error:
+    with pytest.raises(TypeError) as error:
         ln.Transform(is_new_version_of=ln.Label(name="x"))
     error.exconly() == "TypeError: is_new_version_of has to be of type ln.Transform"
 
