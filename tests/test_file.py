@@ -106,12 +106,30 @@ def test_is_new_version_of_versioned_file():
     assert file_v3.version == "3"
     assert file_v3.description == "test1"
 
+    with pytest.raises(TypeError) as error:
+        ln.File(df, description="test1a", is_new_version_of=ln.Transform())
+    error.exconly() == "TypeError: is_new_version_of has to be of type ln.File"
+
     # test that reference file cannot be deleted
     with pytest.raises(ProtectedError):
         file.delete(storage=True)
     file_v2.delete(storage=True)
     file_v3.delete(storage=True)
     file.delete(storage=True)
+
+    # extra kwargs
+    with pytest.raises(ValueError):
+        ln.File(df, description="test1b", extra_kwarg="extra")
+
+    # > 1 args
+    with pytest.raises(ValueError) as error:
+        ln.File(df, df)
+    error.exconly() == "ValueError: Only one non-keyword arg allowed: data"
+
+    # AUTO_KEY_PREFIX
+    with pytest.raises(ValueError) as error:
+        ln.File(df, key=".lamindb/")
+    error.exconly() == "ValueError: Key cannot start with .lamindb/"
 
 
 def test_is_new_version_of_unversioned_file():
@@ -144,6 +162,9 @@ def test_create_from_dataframe():
     assert file.accessor == "DataFrame"
     assert hasattr(file, "_local_filepath")
     file.save()
+    # can't do backed
+    with pytest.raises(ValueError):
+        file.backed()
     # check that the local filepath has been cleared
     assert not hasattr(file, "_local_filepath")
     file.delete(storage=True)
@@ -572,3 +593,14 @@ def test_describe():
     ln.dev.datasets.file_mini_csv()
     file = ln.File("mini.csv", description="test")
     file.describe()
+
+
+def test_file_zarr():
+    with open("test.zarr", "w") as f:
+        f.write("zarr")
+    file = ln.File("test.zarr", description="test-zarr")
+    with pytest.raises(RuntimeError) as error:
+        file.stage()
+    error.exconly() == "RuntimeError: zarr object can't be staged, please use load() or stream()"  # noqa
+    file.save()
+    file.delete(storage=True)
