@@ -15,6 +15,7 @@ import lamindb as ln
 from lamindb import _file
 from lamindb._file import (
     check_path_is_child_of_root,
+    get_hash,
     get_relative_path_to_directory,
     process_data,
 )
@@ -108,7 +109,7 @@ def test_is_new_version_of_versioned_file():
 
     with pytest.raises(TypeError) as error:
         ln.File(df, description="test1a", is_new_version_of=ln.Transform())
-    error.exconly() == "TypeError: is_new_version_of has to be of type ln.File"
+    assert error.exconly() == "TypeError: is_new_version_of has to be of type ln.File"
 
     # test that reference file cannot be deleted
     with pytest.raises(ProtectedError):
@@ -124,12 +125,12 @@ def test_is_new_version_of_versioned_file():
     # > 1 args
     with pytest.raises(ValueError) as error:
         ln.File(df, df)
-    error.exconly() == "ValueError: Only one non-keyword arg allowed: data"
+    assert error.exconly() == "ValueError: Only one non-keyword arg allowed: data"
 
     # AUTO_KEY_PREFIX
     with pytest.raises(ValueError) as error:
         ln.File(df, key=".lamindb/")
-    error.exconly() == "ValueError: Key cannot start with .lamindb/"
+    assert error.exconly() == "ValueError: Key cannot start with .lamindb/"
 
 
 def test_is_new_version_of_unversioned_file():
@@ -579,9 +580,18 @@ def test_load_to_memory():
     # none
     pd.DataFrame([1, 2]).to_csv("test.zip", sep="\t")
     load_to_memory("test.zip")
+    assert isinstance(get_hash("test.zip", suffix=".zip", check_hash=False)[0], str)
     UPath("test.tsv").unlink()
     UPath("test.zrad").unlink()
     UPath("test.zip").unlink()
+
+    with pytest.raises(NotImplementedError) as error:
+        ln.File(True)
+    assert (
+        error.exconly()
+        == "NotImplementedError: Do not know how to create a file object from True,"
+        " pass a filepath instead!"
+    )
 
 
 def test_delete_storage():
@@ -598,10 +608,14 @@ def test_describe():
 def test_file_zarr():
     with open("test.zarr", "w") as f:
         f.write("zarr")
+    assert get_hash(UPath("test.zarr"), suffix=".zarr") is None
     file = ln.File("test.zarr", description="test-zarr")
     with pytest.raises(RuntimeError) as error:
         file.stage()
-    error.exconly() == "RuntimeError: zarr object can't be staged, please use load() or stream()"  # noqa
+    assert (
+        error.exconly()
+        == "RuntimeError: zarr object can't be staged, please use load() or stream()"
+    )  # noqa
     file.save()
     file.delete(storage=False)
     UPath("test.zarr").unlink()

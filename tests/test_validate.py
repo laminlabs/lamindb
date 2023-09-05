@@ -111,6 +111,9 @@ def test_set_abbr():
     bionty_source = lb.BiontySource.filter(species="human").first()
     with pytest.raises(AttributeError) as error:
         bionty_source.set_abbr("abbr")
-    error.exconly() == "AttributeError: 'BiontySource' object has no attribute 'set_abbr'"  # noqa
+    assert (
+        error.exconly()
+        == "AttributeError: 'BiontySource' object has no attribute 'set_abbr'"
+    )  # noqa
 
     record.delete()
