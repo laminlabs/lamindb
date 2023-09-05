@@ -93,7 +93,7 @@ def print_features(self: Data) -> str:
             )
             related_name = feature_sets_related_models.get(orm_name_with_schema)
             # first 5 feature records
-            features = feature_set.__getattribute__(related_name).all()[:10]
+            features = feature_set.__getattribute__(related_name).all()
             name_field = get_default_str_field(features[0])
             feature_names = [getattr(feature, name_field) for feature in features]
             host_id_field = get_host_id_field(self)

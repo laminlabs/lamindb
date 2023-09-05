@@ -53,7 +53,7 @@ def get_or_create_records(
                 n_nonval = colors.yellow(f"{len(unmapped_values)} non-validated")
                 logger.warning(
                     f"{colors.red('did not create')} {name} record{s} for "
-                    f"{n_nonval} {colors.italic(f'{field}{s}')}: {print_values}"
+                    f"{n_nonval} {colors.italic(f'{field.field.name}{s}')}: {print_values}"  # noqa
                 )
         if Registry.__module__.startswith("lnschema_bionty.") or Registry == Label:
             if isinstance(iterable, pd.Series):
