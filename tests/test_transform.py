@@ -44,6 +44,15 @@ def test_is_new_version_of_versioned_transform():
     assert transform_v3.initial_version_id == transform.id
     assert transform_v3.version == "3"
 
+    # default name
+    transform_v3 = ln.Transform(is_new_version_of=transform_v2)
+    assert transform_v3.name == transform_v2.name
+
+    # wrong transform type
+    with pytest.raises(ValueError) as error:
+        ln.Transform(is_new_version_of=ln.Label(name="x"))
+    error.exconly() == "TypeError: is_new_version_of has to be of type ln.Transform"
+
     # test that reference transform cannot be deleted
     with pytest.raises(ProtectedError):
         transform.delete()
