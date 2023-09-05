@@ -15,6 +15,7 @@ import lamindb as ln
 from lamindb import _file
 from lamindb._file import (
     check_path_is_child_of_root,
+    get_hash,
     get_relative_path_to_directory,
     process_data,
 )
@@ -106,12 +107,30 @@ def test_is_new_version_of_versioned_file():
     assert file_v3.version == "3"
     assert file_v3.description == "test1"
 
+    with pytest.raises(TypeError) as error:
+        ln.File(df, description="test1a", is_new_version_of=ln.Transform())
+    assert error.exconly() == "TypeError: is_new_version_of has to be of type ln.File"
+
     # test that reference file cannot be deleted
     with pytest.raises(ProtectedError):
         file.delete(storage=True)
     file_v2.delete(storage=True)
     file_v3.delete(storage=True)
     file.delete(storage=True)
+
+    # extra kwargs
+    with pytest.raises(ValueError):
+        ln.File(df, description="test1b", extra_kwarg="extra")
+
+    # > 1 args
+    with pytest.raises(ValueError) as error:
+        ln.File(df, df)
+    assert error.exconly() == "ValueError: Only one non-keyword arg allowed: data"
+
+    # AUTO_KEY_PREFIX
+    with pytest.raises(ValueError) as error:
+        ln.File(df, key=".lamindb/")
+    assert error.exconly() == "ValueError: Key cannot start with .lamindb/"
 
 
 def test_is_new_version_of_unversioned_file():
@@ -144,6 +163,9 @@ def test_create_from_dataframe():
     assert file.accessor == "DataFrame"
     assert hasattr(file, "_local_filepath")
     file.save()
+    # can't do backed
+    with pytest.raises(ValueError):
+        file.backed()
     # check that the local filepath has been cleared
     assert not hasattr(file, "_local_filepath")
     file.delete(storage=True)
@@ -504,6 +526,9 @@ def test_get_relative_path_to_directory():
         "test-data/test.csv"
         == get_relative_path_to_directory(upath, directory=root).as_posix()
     )
+    with pytest.raises(TypeError) as error:
+        get_relative_path_to_directory(upath, directory=".")
+    assert error.exconly() == "TypeError: Directory not of type Path or UPath"
 
 
 def test_check_path_is_child_of_root():
@@ -523,6 +548,8 @@ def test_check_path_is_child_of_root():
     root = UPath("s3://lamindb-ci")
     path = Path("/lamindb-ci/test-data/test.csv")
     assert not check_path_is_child_of_root(path, root=root)
+    # default root
+    assert not check_path_is_child_of_root(path)
 
 
 def test_serialize_paths():
@@ -558,9 +585,18 @@ def test_load_to_memory():
     # none
     pd.DataFrame([1, 2]).to_csv("test.zip", sep="\t")
     load_to_memory("test.zip")
+    assert get_hash("test.zip", suffix=".zip", check_hash=False)[0] is None
     UPath("test.tsv").unlink()
     UPath("test.zrad").unlink()
     UPath("test.zip").unlink()
+
+    with pytest.raises(NotImplementedError) as error:
+        ln.File(True)
+    assert (
+        error.exconly()
+        == "NotImplementedError: Do not know how to create a file object from True,"
+        " pass a filepath instead!"
+    )
 
 
 def test_delete_storage():
@@ -572,3 +608,19 @@ def test_describe():
     ln.dev.datasets.file_mini_csv()
     file = ln.File("mini.csv", description="test")
     file.describe()
+
+
+def test_file_zarr():
+    with open("test.zarr", "w") as f:
+        f.write("zarr")
+    assert get_hash(UPath("test.zarr"), suffix=".zarr") is None
+    file = ln.File("test.zarr", description="test-zarr")
+    with pytest.raises(RuntimeError) as error:
+        file.stage()
+    assert (
+        error.exconly()
+        == "RuntimeError: zarr object can't be staged, please use load() or stream()"
+    )  # noqa
+    file.save()
+    file.delete(storage=False)
+    UPath("test.zarr").unlink()

@@ -202,17 +202,19 @@ def standardize(
 
 
 def set_abbr(self, value: str):
+    if not hasattr(self, "abbr"):
+        raise AttributeError(
+            f"'{self.__class__.__name__}' object has no attribute 'abbr'"
+        )
+
     if hasattr(self, "name") and value == self.name:
         pass
     else:
         try:
             self.add_synonym(value, save=False)
-        except NotImplementedError:
+        except Exception:  # pragma: no cover
             pass
-    if not hasattr(self, "abbr"):
-        raise AttributeError(
-            f"'{self.__class__.__name__}' object has no attribute 'abbr'"
-        )
+
     self.abbr = value
     if not self._state.adding:
         self.save()
