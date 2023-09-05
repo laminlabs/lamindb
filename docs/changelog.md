@@ -1,5 +1,6 @@
 # Changelog
 
+- ⬆️ Transient download bar [PR1142](https://github.com/laminlabs/lamindb/pull/1142) [@sunnyosun](https://github.com/sunnyosun)
 - 🚚 Replace `get_feature_set` with `.feature_sets.__getitem__` [PR1141](https://github.com/laminlabs/lamindb/pull/1141) [@sunnyosun](https://github.com/sunnyosun)
 
 ```{eval-rst}
