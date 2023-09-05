@@ -526,6 +526,9 @@ def test_get_relative_path_to_directory():
         "test-data/test.csv"
         == get_relative_path_to_directory(upath, directory=root).as_posix()
     )
+    with pytest.raises(TypeError) as error:
+        get_relative_path_to_directory(upath, directory=".")
+    assert error.exconly() == "TypeError: Directory not of type Path or UPath"
 
 
 def test_check_path_is_child_of_root():
@@ -545,6 +548,8 @@ def test_check_path_is_child_of_root():
     root = UPath("s3://lamindb-ci")
     path = Path("/lamindb-ci/test-data/test.csv")
     assert not check_path_is_child_of_root(path, root=root)
+    # default root
+    assert not check_path_is_child_of_root(path)
 
 
 def test_serialize_paths():
