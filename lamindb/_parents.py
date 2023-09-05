@@ -58,9 +58,9 @@ def view_parents(
 
 def view_flow_dataset(dataset: Dataset, with_children: bool = True) -> None:
     if dataset.file is not None:
-        dataset.file.view_flow_file(with_children=with_children)
+        dataset.file.view_flow(with_children=with_children)
     else:
-        dataset.files.first().view_flow_file(with_children=with_children)
+        dataset.files.first().view_flow(with_children=with_children)
 
 
 def view_flow_file(file: File, with_children: bool = True):
