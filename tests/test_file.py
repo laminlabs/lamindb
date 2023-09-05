@@ -585,7 +585,7 @@ def test_load_to_memory():
     # none
     pd.DataFrame([1, 2]).to_csv("test.zip", sep="\t")
     load_to_memory("test.zip")
-    assert isinstance(get_hash("test.zip", suffix=".zip", check_hash=False)[0], str)
+    assert get_hash("test.zip", suffix=".zip", check_hash=False)[0] is None
     UPath("test.tsv").unlink()
     UPath("test.zrad").unlink()
     UPath("test.zip").unlink()
