@@ -603,4 +603,5 @@ def test_file_zarr():
         file.stage()
     error.exconly() == "RuntimeError: zarr object can't be staged, please use load() or stream()"  # noqa
     file.save()
-    file.delete(storage=True)
+    file.delete(storage=False)
+    UPath("test.zarr").unlink()
