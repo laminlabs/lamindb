@@ -62,10 +62,18 @@ def test_add_labels():
     project.save()
     ln.Feature(name="project", type="category").save()
     features = ln.Feature.lookup()
-    file.add_labels(project, feature=features.project)
+    file.labels.add_by_feature(project, feature=features.project)
     # check that the label is there, it's exactly one label with name "Experiment 1"
-    projects = file.get_labels(features.project)
+    projects = file.labels.get_by_feature(features.project)
     assert projects.get().name == "project 1"
+
+    with pytest.raises(TypeError) as error:
+        label.files.add_by_feature(project, feature=features.project)
+    error.exconly() == "TypeError: Instance must be File or Dataset."
+
+    with pytest.raises(TypeError) as error:
+        label.files.add_by_feature(features.project)
+    error.exconly() == "TypeError: Instance must be File or Dataset."
 
     # here, we test that feature_set_n1 was removed because it was no longer
     # linked to any file
