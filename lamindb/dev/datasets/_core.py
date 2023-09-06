@@ -330,12 +330,12 @@ def anndata_human_immune_cells(
         ln.save(lb.ExperimentalFactor.from_values(adata.obs.assay, field="name"))
         ln.save(lb.Tissue.from_values(adata.obs.tissue, field="name"))
         ln.Modality(name="rna").save()
-        ln.save(
-            [
-                ln.Feature(name=name, type="category")
-                for name in ["cell_type", "assay", "tissue", "species"]
-            ]
-        )
+        ln.Feature(name="cell_type", type="category", registries=[lb.CellType]).save()
+        ln.Feature(
+            name="assay", type="category", registries=[lb.ExperimentalFactor]
+        ).save()
+        ln.Feature(name="tissue", type="category", registries=[lb.Tissue]).save()
+        ln.Feature(name="species", type="category", registries=[lb.Species]).save()
         lb.ExperimentalFactor.from_bionty(ontology_id="EFO:0008913").save()
         ln.settings.verbosity = verbosity
         lb.settings.auto_save_parents = auto_save_parents

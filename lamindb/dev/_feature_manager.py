@@ -24,6 +24,23 @@ def dict_related_model_to_related_name(orm):
     return d
 
 
+def dict_schema_name_to_model_name(orm):
+    d: Dict = {
+        i.related_model.__get_name_with_schema__(): i.related_model
+        for i in orm._meta.related_objects
+        if i.related_name is not None
+    }
+    d.update(
+        {
+            i.related_model.__get_name_with_schema__(): i.related_model
+            for i in orm._meta.many_to_many
+            if i.name is not None
+        }
+    )
+
+    return d
+
+
 def get_host_id_field(host: Union[File, Dataset]) -> str:
     if isinstance(host, File):
         host_id_field = "file_id"
