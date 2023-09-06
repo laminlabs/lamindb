@@ -64,7 +64,7 @@ def test_add_labels():
     features = ln.Feature.lookup()
     file.labels.add_by_feature(project, feature=features.project)
     # check that the label is there, it's exactly one label with name "Experiment 1"
-    projects = file.labels.get_by_feature(features.project)
+    projects = file.get_labels(features.project)
     assert projects.get().name == "project 1"
 
     with pytest.raises(TypeError) as error:
