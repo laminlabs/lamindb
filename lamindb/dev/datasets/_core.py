@@ -48,6 +48,7 @@ def file_fcs_alpert19(populate_registries: bool = False) -> Path:  # pragma: no 
             name="assay", type="category", registries=[lb.ExperimentalFactor]
         ).save()
         ln.Feature(name="species", type="category", registries=[lb.Species]).save()
+        ln.Modality(name="protein", description="Protein measurements").save()
         ln.settings.verbosity = verbosity
     return Path(filepath)
 
@@ -329,7 +330,7 @@ def anndata_human_immune_cells(
         ln.save(lb.CellType.from_values(adata.obs.cell_type, field="name")[:-2])
         ln.save(lb.ExperimentalFactor.from_values(adata.obs.assay, field="name"))
         ln.save(lb.Tissue.from_values(adata.obs.tissue, field="name"))
-        ln.Modality(name="rna").save()
+        ln.Modality(name="rna", description="RNA measurements").save()
         ln.Feature(name="cell_type", type="category", registries=[lb.CellType]).save()
         ln.Feature(
             name="assay", type="category", registries=[lb.ExperimentalFactor]
