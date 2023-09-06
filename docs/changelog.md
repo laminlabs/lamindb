@@ -1,5 +1,6 @@
 # Changelog
 
+- 🍱 Register protein modality for flow datasets [PR1146](https://github.com/laminlabs/lamindb/pull/1146) [@sunnyosun](https://github.com/sunnyosun)
 - 🔥 Removed `get_by_feature` [PR1145](https://github.com/laminlabs/lamindb/pull/1145) [@sunnyosun](https://github.com/sunnyosun)
 - 🚚 Replace `add_labels`, `get_labels` with `labels.add_by_feature`, `labels.get_by_feature` [PR1144](https://github.com/laminlabs/lamindb/pull/1144) [@sunnyosun](https://github.com/sunnyosun)
 - 🧪 Add more tests for file [PR1143](https://github.com/laminlabs/lamindb/pull/1143) [@sunnyosun](https://github.com/sunnyosun)
