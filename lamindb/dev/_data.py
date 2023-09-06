@@ -236,12 +236,13 @@ def add_labels(
     if isinstance(records, (str, Registry)):
         records = [records]
     if isinstance(records[0], str):  # type: ignore
+        records_validated = []
         if feature.registries is not None:
             orm_dict = dict_schema_name_to_model_name(File)
-            records_validated = []
             for reg in feature.registries.split("|"):
                 orm = orm_dict.get(reg)
                 records_validated += orm.from_values(records, field=field)
+
         # feature doesn't have registries and therefore can't create records from values
         # ask users to pass records
         if len(records_validated) == 0:
@@ -251,6 +252,7 @@ def add_labels(
                 f" = ln.Label(name='{records[0]}')"  # type: ignore
             )
         records = records_validated
+
     if self._state.adding:
         raise ValueError("Please save the file/dataset before adding a label!")
     for record in records:
