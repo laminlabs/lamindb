@@ -3,7 +3,6 @@ from typing import Any, Dict, List, Optional, Union
 
 from lamin_utils import colors, logger
 from lamindb_setup.dev._docs import doc_args
-from lnschema_core import Run
 from lnschema_core.models import (
     Data,
     Dataset,
@@ -12,6 +11,7 @@ from lnschema_core.models import (
     File,
     Label,
     Registry,
+    Run,
     __repr__,
     format_field_value,
 )
@@ -237,6 +237,7 @@ def add_labels(
             " label"
             f" = ln.Label(name='{records[0]}')"  # type: ignore
         )
+
     if self._state.adding:
         raise ValueError("Please save the file/dataset before adding a label!")
     for record in records:

@@ -1,9 +1,8 @@
-from typing import List, Optional, Union
+from typing import Dict, List, Optional, Union
 
 import pandas as pd
 from lamindb_setup.dev._docs import doc_args
-from lnschema_core import Feature
-from lnschema_core.models import Registry
+from lnschema_core.models import Feature, Registry
 from pandas.api.types import CategoricalDtype, is_string_dtype
 
 from lamindb._utils import attach_func_to_class_method
@@ -57,10 +56,8 @@ def __init__(self, *args, **kwargs):
     super(Feature, self).__init__(*args, **kwargs)
 
 
-@classmethod  # type:ignore
-@doc_args(Feature.from_df.__doc__)
-def from_df(cls, df: "pd.DataFrame") -> List["Feature"]:
-    """{}"""
+def categoricals_from_df(df: "pd.DataFrame") -> Dict:
+    """Returns categorical columns."""
     string_cols = [col for col in df.columns if is_string_dtype(df[col])]
     categoricals = {
         col: df[col]
@@ -71,6 +68,14 @@ def from_df(cls, df: "pd.DataFrame") -> List["Feature"]:
         c = pd.Categorical(df[key])
         if len(c.categories) < len(c):
             categoricals[key] = c
+    return categoricals
+
+
+@classmethod  # type:ignore
+@doc_args(Feature.from_df.__doc__)
+def from_df(cls, df: "pd.DataFrame") -> List["Feature"]:
+    """{}"""
+    categoricals = categoricals_from_df(df)
 
     types = {}
     # categoricals_with_unmapped_categories = {}  # type: ignore
@@ -95,6 +100,7 @@ def from_df(cls, df: "pd.DataFrame") -> List["Feature"]:
     # silence the info "loaded record with exact same name "
     verbosity = settings.verbosity
     settings.verbosity = 1
+    # create records for all features including non-validated
     features = [Feature(name=name, type=type) for name, type in types.items()]
     settings.verbosity = verbosity
 

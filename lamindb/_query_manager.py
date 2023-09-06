@@ -1,11 +1,11 @@
-from typing import Dict, List, Optional, Union
+from typing import List, Optional, Union
 
 from django.db import models
 from lamindb_setup.dev._docs import doc_args
 from lnschema_core.models import Data, Dataset, Feature, File, Registry
 
 from ._query_set import QuerySet
-from .dev._data import add_labels, get_labels
+from .dev._data import add_labels
 from .dev._feature_manager import get_feature_set_by_slot
 
 
@@ -65,21 +65,8 @@ class QueryManager(models.Manager):
         """{}"""
         if not isinstance(self.instance, (Dataset, File)):
             raise TypeError("Instance must be File or Dataset.")
+        # TODO: add assert for target_field
         return add_labels(self=self.instance, records=records, feature=feature)
-
-    @doc_args(Data.get_labels.__doc__)
-    def get_by_feature(
-        self,
-        feature: Feature,
-        mute: bool = False,
-        flat_names: bool = False,
-    ) -> Union[QuerySet, Dict[str, QuerySet], List]:
-        """{}"""
-        if not isinstance(self.instance, (Dataset, File)):
-            raise TypeError("Instance must be File or Dataset.")
-        return get_labels(
-            self=self.instance, feature=feature, mute=mute, flat_names=flat_names
-        )
 
     def __getitem__(self, item: str):
         try:
@@ -100,4 +87,3 @@ setattr(models.Manager, "list", QueryManager.list)
 setattr(models.Manager, "df", QueryManager.df)
 setattr(models.Manager, "__getitem__", QueryManager.__getitem__)
 setattr(models.Manager, "add_by_feature", QueryManager.add_by_feature)
-setattr(models.Manager, "get_by_feature", QueryManager.get_by_feature)
