@@ -57,16 +57,6 @@ def test_add_labels():
 
     feature_set_n1 = ln.FeatureSet.filter(features__name="experiment").one()
 
-    # running from_values to load validated label records under the hood
-    experiment = ln.Feature(
-        name="experiment_with_reg", type="category", registries=[ln.Label]
-    )
-    experiment.save()
-    ln.Label(name="Experiment 2").save()
-    file.add_labels("Experiment 2", experiment)
-    experiments = file.get_labels(experiment)
-    assert experiments.get().name == "Experiment 2"
-
     # now, try adding a new label for a new feature, extending the feature set
     project = ln.Label(name="project 1")
     project.save()

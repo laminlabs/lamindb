@@ -71,20 +71,6 @@ def categoricals_from_df(df: "pd.DataFrame") -> Dict:
     return categoricals
 
 
-# def validated_labels_from_feature(features: List["Feature"], categoricals: Dict):
-#     d = dict_schema_name_to_model_name(File)
-#     for feature in features:
-#         if feature.registries is None:
-#             continue
-
-#         registries = feature.registries.split("|")
-#         for registry in registries:
-#             orm = d.get(registry)
-#             if orm is None:
-#                 continue
-#             orm.from_values(categoricals)
-
-
 @classmethod  # type:ignore
 @doc_args(Feature.from_df.__doc__)
 def from_df(cls, df: "pd.DataFrame") -> List["Feature"]:
