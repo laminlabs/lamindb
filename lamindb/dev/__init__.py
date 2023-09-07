@@ -22,6 +22,7 @@ Functionality of data registries:
 
    Data
    FeatureManager
+   LabelManager
 
 Functionality of metadata registries:
 
@@ -53,6 +54,7 @@ from lnschema_core.models import CanValidate, Data, HasParents, Registry
 from lamindb._query_manager import QueryManager
 from lamindb._query_set import QuerySet
 from lamindb.dev._feature_manager import FeatureManager
+from lamindb.dev._label_manager import LabelManager
 
 from . import _data, datasets, exceptions, fields, types  # noqa
 from ._run_context import run_context

@@ -28,7 +28,7 @@ def test_signatures():
 
 def test_init_with_args():
     with pytest.raises(ValueError) as error:
-        # can't use Label here because it raises "Only one non-keyword arg allowed"
+        # can't use ULabel here because it raises "Only one non-keyword arg allowed"
         ln.User("an arg")
     assert (
         error.exconly()
@@ -39,10 +39,10 @@ def test_init_with_args():
 def test_validate_required_fields():
     # label has a required name
     with pytest.raises(TypeError):
-        ln.Label()
+        ln.ULabel()
     # label has a required name
     with pytest.raises(TypeError):
-        ln.Label(description="test")
+        ln.ULabel(description="test")
 
 
 @pytest.fixture
@@ -112,5 +112,5 @@ def test_get_default_str_field():
     transform.save()
     assert registry.get_default_str_field(ln.Run(transform)) == "created_at"
     with pytest.raises(ValueError):
-        registry.get_default_str_field(ln.File.labels.through())
+        registry.get_default_str_field(ln.File.ulabels.through())
     transform.delete()

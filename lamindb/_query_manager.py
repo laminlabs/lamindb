@@ -1,11 +1,7 @@
-from typing import List, Optional, Union
+from typing import Optional
 
 from django.db import models
-from lamindb_setup.dev._docs import doc_args
-from lnschema_core.models import Data, Dataset, Feature, File, Registry
 
-from ._query_set import QuerySet
-from .dev._data import add_labels
 from .dev._feature_manager import get_feature_set_by_slot
 
 
@@ -19,10 +15,10 @@ class QueryManager(models.Manager):
 
     Examples:
 
-        >>> ln.save(ln.Label.from_values(["Label1", "Label2", "Label3"], field="name"))
-        >>> labels = ln.Label.filter(name__icontains = "label").all()
-        >>> ln.Label(name="Label1").save()
-        >>> label = ln.Label.filter(name="Label1").one()
+        >>> ln.save(ln.ULabel.from_values(["ULabel1", "ULabel2", "ULabel3"], field="name"))  # noqa
+        >>> labels = ln.ULabel.filter(name__icontains = "label").all()
+        >>> ln.ULabel(name="ULabel1").save()
+        >>> label = ln.ULabel.filter(name="ULabel1").one()
         >>> label.parents.set(labels)
         >>> manager = label.parents
         >>> manager.df()
@@ -32,17 +28,17 @@ class QueryManager(models.Manager):
         """Populate a list with the results.
 
         Examples:
-            >>> ln.save(ln.Label.from_values(["Label1", "Label2", "Label3"], field="name"))
-            >>> labels = ln.Label.filter(name__icontains = "label").all()
-            >>> ln.Label(name="Label1").save()
-            >>> label = ln.Label.filter(name="Label1").one()
+            >>> ln.save(ln.ULabel.from_values(["ULabel1", "ULabel2", "ULabel3"], field="name"))
+            >>> labels = ln.ULabel.filter(name__icontains = "label").all()
+            >>> ln.ULabel(name="ULabel1").save()
+            >>> label = ln.ULabel.filter(name="ULabel1").one()
             >>> label.parents.set(labels)
             >>> label.parents.list()
-            [Label(id=sFMcPepC, name=Label1, updated_at=2023-07-19 19:45:17, created_by_id=DzTjkKse), # noqa
-            Label(id=2SscQvsM, name=Label2, updated_at=2023-07-19 19:45:17, created_by_id=DzTjkKse), # noqa
-            Label(id=lecV87vi, name=Label3, updated_at=2023-07-19 19:45:17, created_by_id=DzTjkKse)] # noqa
+            [ULabel(id=sFMcPepC, name=ULabel1, updated_at=2023-07-19 19:45:17, created_by_id=DzTjkKse), # noqa
+            ULabel(id=2SscQvsM, name=ULabel2, updated_at=2023-07-19 19:45:17, created_by_id=DzTjkKse), # noqa
+            ULabel(id=lecV87vi, name=ULabel3, updated_at=2023-07-19 19:45:17, created_by_id=DzTjkKse)] # noqa
             >>> label.parents.list("name")
-            ['Label1', 'Label2', 'Label3']
+            ['ULabel1', 'ULabel2', 'ULabel3']
         """
         if field is None:
             return [item for item in self.all()]
@@ -55,18 +51,6 @@ class QueryManager(models.Manager):
         For `**kwargs`, see :meth:`lamindb.dev.QuerySet.df`.
         """
         return self.all().df(**kwargs)
-
-    @doc_args(Data.add_labels.__doc__)
-    def add_by_feature(
-        self,
-        records: Union[Registry, List[Registry], QuerySet],
-        feature: Feature,
-    ) -> None:
-        """{}"""
-        if not isinstance(self.instance, (Dataset, File)):
-            raise TypeError("Instance must be File or Dataset.")
-        # TODO: add assert for target_field
-        return add_labels(self=self.instance, records=records, feature=feature)
 
     def __getitem__(self, item: str):
         try:
@@ -86,4 +70,3 @@ class QueryManager(models.Manager):
 setattr(models.Manager, "list", QueryManager.list)
 setattr(models.Manager, "df", QueryManager.df)
 setattr(models.Manager, "__getitem__", QueryManager.__getitem__)
-setattr(models.Manager, "add_by_feature", QueryManager.add_by_feature)

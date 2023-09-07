@@ -47,12 +47,12 @@ def delete(  # type: ignore
 
         Bulk delete via QuerySet:
 
-        >>> ln.save(ln.Label.from_values(["Label1", "Label2", "Label3"], field="name"))
-        >>> queryset = ln.Label.filter(name__icontains = "label")
+        >>> ln.save(ln.ULabel.from_values(["ULabel1", "ULabel2", "ULabel3"], field="name"))
+        >>> queryset = ln.ULabel.filter(name__icontains = "label")
         >>> queryset.list()
-        [Label(id=o3FY3c5n, name=Label2, updated_at=2023-07-19 18:28:16, created_by_id=kmvZDIX9), # noqa
-        Label(id=Qi3c4utq, name=Label3, updated_at=2023-07-19 18:28:16, created_by_id=kmvZDIX9), # noqa
-        Label(id=CcFPLmpq, name=Label1, updated_at=2023-07-19 18:28:16, created_by_id=kmvZDIX9)] # noqa
+        [ULabel(id=o3FY3c5n, name=ULabel2, updated_at=2023-07-19 18:28:16, created_by_id=kmvZDIX9), # noqa
+        ULabel(id=Qi3c4utq, name=ULabel3, updated_at=2023-07-19 18:28:16, created_by_id=kmvZDIX9), # noqa
+        ULabel(id=CcFPLmpq, name=ULabel1, updated_at=2023-07-19 18:28:16, created_by_id=kmvZDIX9)] # noqa
         >>> queryset.delete()
     """
     logger.warning("for efficient bulk delete, use `queryset.delete` instead")

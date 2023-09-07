@@ -1,5 +1,5 @@
 from collections import defaultdict
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, Iterable, List, Optional, Union
 
 from lamin_utils import colors, logger
 from lamindb_setup.dev._docs import doc_args
@@ -9,25 +9,25 @@ from lnschema_core.models import (
     Feature,
     FeatureSet,
     File,
-    Label,
     Registry,
     Run,
+    ULabel,
     __repr__,
     format_field_value,
 )
+from lnschema_core.types import StrField
 
-from .._from_values import _print_values
 from .._parents import view_flow_dataset, view_flow_file
 from .._query_set import QuerySet
-from .._registry import get_default_str_field
 from ._feature_manager import (
     FeatureManager,
-    dict_related_model_to_related_name,
+    dict_schema_name_to_model_name,
     get_feature_set_links,
     get_host_id_field,
     get_label_links,
     print_features,
 )
+from ._label_manager import LabelManager, print_labels
 from ._priors import priors
 from ._run_context import run_context
 from ._settings import settings
@@ -140,23 +140,7 @@ def describe(self: Data):
         msg += f"⬇️ input_of ({colors.italic('core.Run')}): {values}\n    "
     msg = msg.rstrip("    ")
     msg += print_features(self)
-
-    # labels
-    labels_msg = ""
-    for related_model, related_name in dict_related_model_to_related_name(
-        self.__class__
-    ).items():
-        if related_name in {"feature_sets", "files", "input_of"}:
-            continue
-        labels = self.__getattribute__(related_name)
-        if labels.exists():
-            n = labels.count()
-            field = get_default_str_field(labels)
-            print_values = _print_values(labels.list(field), n=10)
-            labels_msg += f"  🏷️ {related_name} ({n}, {colors.italic(related_model)}): {print_values}\n"  # noqa
-    if len(labels_msg) > 0:
-        msg += f"{colors.green('Labels')}:\n"
-        msg += labels_msg
+    msg += print_labels(self)
 
     verbosity = settings.verbosity
     settings.verbosity = 3
@@ -198,10 +182,10 @@ def get_labels(
     for registry in registries_to_check:
         # currently need to distinguish between Label and non-Label, because
         # we only have the feature information for Label
-        if registry == "core.Label":
+        if registry == "core.ULabel":
             links_to_labels = get_label_links(self, registry, feature)
-            label_ids = [link.label_id for link in links_to_labels]
-            qs_by_registry[registry] = Label.objects.filter(id__in=label_ids)
+            label_ids = [link.ulabel_id for link in links_to_labels]
+            qs_by_registry[registry] = ULabel.objects.filter(id__in=label_ids)
         else:
             qs_by_registry[registry] = getattr(
                 self, self.features._accessor_by_orm[registry]
@@ -223,20 +207,33 @@ def get_labels(
 @doc_args(Data.add_labels.__doc__)
 def add_labels(
     self,
-    records: Union[Registry, List[Registry], QuerySet],
+    records: Union[Registry, List[Registry], QuerySet, Iterable],
     feature: Feature,
+    *,
+    field: Optional[StrField] = None,
 ) -> None:
     """{}"""
     if isinstance(records, (QuerySet, QuerySet.__base__)):  # need to have both
         records = records.list()
-    if isinstance(records, str) or not isinstance(records, List):
+    if isinstance(records, (str, Registry)):
         records = [records]
     if isinstance(records[0], str):  # type: ignore
-        raise ValueError(
-            "Please pass a record (a `Registry` object), not a string, e.g., via:"
-            " label"
-            f" = ln.Label(name='{records[0]}')"  # type: ignore
-        )
+        records_validated = []
+        if feature.registries is not None:
+            orm_dict = dict_schema_name_to_model_name(File)
+            for reg in feature.registries.split("|"):
+                orm = orm_dict.get(reg)
+                records_validated += orm.from_values(records, field=field)
+
+        # feature doesn't have registries and therefore can't create records from values
+        # ask users to pass records
+        if len(records_validated) == 0:
+            raise ValueError(
+                "Please pass a record (a `Registry` object), not a string, e.g., via:"
+                " label"
+                f" = ln.ULabel(name='{records[0]}')"  # type: ignore
+            )
+        records = records_validated
 
     if self._state.adding:
         raise ValueError("Please save the file/dataset before adding a label!")
@@ -245,7 +242,7 @@ def add_labels(
             raise ValidationError(
                 f"{record} not validated. If it looks correct: record.save()"
             )
-    validate_feature(feature, records)
+    validate_feature(feature, records)  # type:ignore
     records_by_registry = defaultdict(list)
     for record in records:
         records_by_registry[record.__class__.__get_name_with_schema__()].append(record)
@@ -330,7 +327,17 @@ def features(self) -> "FeatureManager":
     return FeatureManager(self)
 
 
+@property  # type: ignore
+@doc_args(Data.labels.__doc__)
+def labels(self) -> "LabelManager":
+    """{}"""
+    from lamindb.dev._label_manager import LabelManager
+
+    return LabelManager(self)
+
+
 setattr(Data, "features", features)
+setattr(Data, "labels", labels)
 setattr(Data, "add_labels", add_labels)
 setattr(Data, "get_labels", get_labels)
 setattr(Data, "describe", describe)
