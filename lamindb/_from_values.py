@@ -77,7 +77,7 @@ def get_existing_records(
     kwargs: Dict = {},
 ):
     model = field.field.model
-    condition: Dict = {}
+    condition: Dict = {} if len(kwargs) == 0 else kwargs.copy()
 
     if _has_species_field(model):
         from lnschema_bionty._bionty import create_or_get_species_record
@@ -87,7 +87,7 @@ def get_existing_records(
         )
         if species_record is not None:
             kwargs.update({"species": species_record})
-            condition.update({"species__name": species_record.name})
+            condition.update({"species": species_record})
 
     # standardize based on the DB reference
     # log synonyms mapped terms
@@ -167,7 +167,9 @@ def create_records_from_bionty(
     from lnschema_bionty._bionty import get_bionty_source_record
 
     # create the corresponding bionty object from model
-    bionty_object = model.bionty(species=kwargs.get("species"))
+    bionty_object = model.bionty(
+        species=kwargs.get("species"), bionty_source=kwargs.get("bionty_source")
+    )
     # add bionty_source record to the kwargs
     kwargs.update({"bionty_source": get_bionty_source_record(bionty_object)})
 
