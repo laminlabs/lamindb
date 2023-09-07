@@ -57,6 +57,16 @@ def test_labels_add():
 
     feature_set_n1 = ln.FeatureSet.filter(features__name="experiment").one()
 
+    # running from_values to load validated label records under the hood
+    experiment = ln.Feature(
+        name="experiment_with_reg", type="category", registries=[ln.ULabel]
+    )
+    experiment.save()
+    ln.ULabel(name="Experiment 2").save()
+    file.labels.add("Experiment 2", experiment)
+    experiments = file.labels.get(experiment)
+    assert experiments.get().name == "Experiment 2"
+
     # now, try adding a new label for a new feature, extending the feature set
     project = ln.ULabel(name="project 1")
     project.save()
@@ -66,14 +76,6 @@ def test_labels_add():
     # check that the label is there, it's exactly one label with name "Experiment 1"
     projects = file.labels.get(features.project)
     assert projects.get().name == "project 1"
-
-    with pytest.raises(TypeError) as error:
-        file.labels.add(project, feature=features.project)
-    error.exconly() == "TypeError: Instance must be File or Dataset."
-
-    with pytest.raises(TypeError) as error:
-        file.labels.add(features.project)
-    error.exconly() == "TypeError: Instance must be File or Dataset."
 
     # here, we test that feature_set_n1 was removed because it was no longer
     # linked to any file
@@ -263,7 +265,7 @@ def test_add_labels_using_anndata():
     }
 
     assert set(df["registries"]) == {"bionty.Species", "core.ULabel"}
-    assert experiment_1 in file.labels.all()
+    assert experiment_1 in file.ulabels.all()
 
     # call describe
     file.describe()

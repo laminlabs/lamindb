@@ -73,7 +73,7 @@ def test_feature_from_df():
     ln.save(labels)
     features_lookup = ln.Feature.lookup()
     file.add_labels(labels, feature=features_lookup.feat3)
-    assert set(ln.ULabel.filter(filelabel__feature__name="feat3").list("name")) == set(
+    assert set(ln.ULabel.filter(fileulabel__feature__name="feat3").list("name")) == set(
         ["cond1", "cond2"]
     )
     for name in df.columns[:4]:
