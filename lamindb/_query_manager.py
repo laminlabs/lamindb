@@ -1,11 +1,7 @@
-from typing import List, Optional, Union
+from typing import Optional
 
 from django.db import models
-from lamindb_setup.dev._docs import doc_args
-from lnschema_core.models import Data, Dataset, Feature, File, Registry
 
-from ._query_set import QuerySet
-from .dev._data import add_labels
 from .dev._feature_manager import get_feature_set_by_slot
 
 
@@ -56,18 +52,6 @@ class QueryManager(models.Manager):
         """
         return self.all().df(**kwargs)
 
-    @doc_args(Data.add_labels.__doc__)
-    def add_by_feature(
-        self,
-        records: Union[Registry, List[Registry], QuerySet],
-        feature: Feature,
-    ) -> None:
-        """{}"""
-        if not isinstance(self.instance, (Dataset, File)):
-            raise TypeError("Instance must be File or Dataset.")
-        # TODO: add assert for target_field
-        return add_labels(self=self.instance, records=records, feature=feature)
-
     def __getitem__(self, item: str):
         try:
             source_field_name = self.source_field_name
@@ -86,4 +70,3 @@ class QueryManager(models.Manager):
 setattr(models.Manager, "list", QueryManager.list)
 setattr(models.Manager, "df", QueryManager.df)
 setattr(models.Manager, "__getitem__", QueryManager.__getitem__)
-setattr(models.Manager, "add_by_feature", QueryManager.add_by_feature)
