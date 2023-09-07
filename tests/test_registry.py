@@ -112,5 +112,5 @@ def test_get_default_str_field():
     transform.save()
     assert registry.get_default_str_field(ln.Run(transform)) == "created_at"
     with pytest.raises(ValueError):
-        registry.get_default_str_field(ln.File.labels.through())
+        registry.get_default_str_field(ln.File.ulabels.through())
     transform.delete()

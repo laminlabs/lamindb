@@ -62,17 +62,17 @@ def test_labels_add():
     project.save()
     ln.Feature(name="project", type="category").save()
     features = ln.Feature.lookup()
-    file.labels.add_by_feature(project, feature=features.project)
+    file.labels.add(project, feature=features.project)
     # check that the label is there, it's exactly one label with name "Experiment 1"
     projects = file.labels.get(features.project)
     assert projects.get().name == "project 1"
 
     with pytest.raises(TypeError) as error:
-        label.files.add_by_feature(project, feature=features.project)
+        file.labels.add(project, feature=features.project)
     error.exconly() == "TypeError: Instance must be File or Dataset."
 
     with pytest.raises(TypeError) as error:
-        label.files.add_by_feature(features.project)
+        file.labels.add(features.project)
     error.exconly() == "TypeError: Instance must be File or Dataset."
 
     # here, we test that feature_set_n1 was removed because it was no longer
@@ -123,8 +123,12 @@ def test_add_labels_using_anndata():
     )
     feature_name_feature.save()
     feature_set = ln.FeatureSet(features=[feature_name_feature])
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError) as error:
         file.features.add_feature_set(feature_set, slot="random")
+    assert (
+        error.exconly()
+        == "ValueError: Please save the file or dataset before adding a feature set!"
+    )
 
     # now register features we want to validate
     # (we are not interested in cell_type_id, here)

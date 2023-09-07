@@ -86,7 +86,7 @@ def test_feature_from_df():
                 orig_type
             )
     filelabel_links = FileULabel.objects.filter(file_id=file.id, feature__name="feat3")
-    label_ids = filelabel_links.values_list("label_id")
+    label_ids = filelabel_links.values_list("ulabel_id")
     assert set(
         ln.ULabel.objects.filter(id__in=label_ids).values_list("name", flat=True)
     ) == set(["cond1", "cond2"])

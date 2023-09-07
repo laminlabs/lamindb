@@ -69,7 +69,7 @@ def test_from_values_species():
 
 
 def test_get_or_create_records():
-    names = ["label" + str(i) for i in range(25)]
+    names = ["ulabel" + str(i) for i in range(25)]
     labels = [ln.ULabel(name=name) for name in names]
     ln.save(labels)
     # more than 20 existing values
