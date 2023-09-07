@@ -171,8 +171,7 @@ def create_records_from_bionty(
         species=kwargs.get("species"), bionty_source=kwargs.get("bionty_source")
     )
     # add bionty_source record to the kwargs
-    if kwargs.get("bionty_source") is not None:
-        kwargs.update({"bionty_source": get_bionty_source_record(bionty_object)})
+    kwargs.update({"bionty_source": get_bionty_source_record(bionty_object)})
 
     # filter the columns in bionty df based on fields
     bionty_df = _filter_bionty_df_columns(model=model, bionty_object=bionty_object)
