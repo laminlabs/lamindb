@@ -31,10 +31,10 @@ class QuerySet(models.QuerySet):
 
     Examples:
 
-        >>> ln.Label(name="my label").save()
-        >>> queryset = ln.Label.filter(name="my label")
+        >>> ln.ULabel(name="my label").save()
+        >>> queryset = ln.ULabel.filter(name="my label")
         >>> queryset
-        <QuerySet [Label(id=MIeZISeF, name=my label, updated_at=2023-07-19 19:53:34, created_by_id=DzTjkKse)]> # noqa
+        <QuerySet [ULabel(id=MIeZISeF, name=my label, updated_at=2023-07-19 19:53:34, created_by_id=DzTjkKse)]> # noqa
     """
 
     def df(self, include: Optional[List[str]] = None):
@@ -52,22 +52,22 @@ class QuerySet(models.QuerySet):
 
         Examples:
 
-            >>> ln.save(ln.Label.from_values(["Label1", "Label2", "Label3"], field="name")) # noqa
-            >>> ln.Label.filter().df()
+            >>> ln.save(ln.ULabel.from_values(["ULabel1", "ULabel2", "ULabel3"], field="name")) # noqa
+            >>> ln.ULabel.filter().df()
                           name  external_id           updated_at  created_by_id
                   id
-            wsCyIq2Z  Label1         None  2023-07-19 19:14:08       DzTjkKse
-            MvpDP8Y3  Label2         None  2023-07-19 19:14:08       DzTjkKse
-            zKFFabCu  Label3         None  2023-07-19 19:14:08       DzTjkKse
-            >>> label = ln.Label.filter(name="Label1").one()
-            >>> label = ln.Label.filter(name="benchmark").one()
+            wsCyIq2Z  ULabel1         None  2023-07-19 19:14:08       DzTjkKse
+            MvpDP8Y3  ULabel2         None  2023-07-19 19:14:08       DzTjkKse
+            zKFFabCu  ULabel3         None  2023-07-19 19:14:08       DzTjkKse
+            >>> label = ln.ULabel.filter(name="ULabel1").one()
+            >>> label = ln.ULabel.filter(name="benchmark").one()
             >>> label.parents.add(label)
-            >>> ln.Label.filter().df(include=["labels__name", "labels__created_by_id"])
+            >>> ln.ULabel.filter().df(include=["labels__name", "labels__created_by_id"])
                       labels__name  labels__created_by_id      name  external_id           updated_at  created_by_id # noqa
                   id
-            wsCyIq2Z  [benchmark]          [DzTjkKse]  Label1         None  2023-07-19 19:14:08       DzTjkKse # noqa
-            MvpDP8Y3         None                None  Label2         None  2023-07-19 19:14:08       DzTjkKse # noqa
-            zKFFabCu         None                None  Label3         None  2023-07-19 19:14:08       DzTjkKse # noqa
+            wsCyIq2Z  [benchmark]          [DzTjkKse]  ULabel1         None  2023-07-19 19:14:08       DzTjkKse # noqa
+            MvpDP8Y3         None                None  ULabel2         None  2023-07-19 19:14:08       DzTjkKse # noqa
+            zKFFabCu         None                None  ULabel3         None  2023-07-19 19:14:08       DzTjkKse # noqa
         """
         data = self.values()
         if len(data) > 0:
@@ -141,14 +141,14 @@ class QuerySet(models.QuerySet):
 
         Examples:
 
-            >>> ln.save(ln.Label.from_values(["Label1", "Label2", "Label3"], field="name")) # noqa
-            >>> queryset = ln.Label.filter(name__icontains = "project")
+            >>> ln.save(ln.ULabel.from_values(["ULabel1", "ULabel2", "ULabel3"], field="name")) # noqa
+            >>> queryset = ln.ULabel.filter(name__icontains = "project")
             >>> queryset.list()
-            [Label(id=NAgTZxoo, name=Label1, updated_at=2023-07-19 19:25:48, created_by_id=DzTjkKse), # noqa
-            Label(id=bnsAgKRC, name=Label2, updated_at=2023-07-19 19:25:48, created_by_id=DzTjkKse), # noqa
-            Label(id=R8xhAJNE, name=Label3, updated_at=2023-07-19 19:25:48, created_by_id=DzTjkKse)] # noqa
+            [ULabel(id=NAgTZxoo, name=ULabel1, updated_at=2023-07-19 19:25:48, created_by_id=DzTjkKse), # noqa
+            ULabel(id=bnsAgKRC, name=ULabel2, updated_at=2023-07-19 19:25:48, created_by_id=DzTjkKse), # noqa
+            ULabel(id=R8xhAJNE, name=ULabel3, updated_at=2023-07-19 19:25:48, created_by_id=DzTjkKse)] # noqa
             >>> queryset.list("name")
-            ['Label1', 'Label2', 'Label3']
+            ['ULabel1', 'ULabel2', 'ULabel3']
         """
         if field is None:
             return [item for item in self]
@@ -159,10 +159,10 @@ class QuerySet(models.QuerySet):
         """If non-empty, the first result in the query set, otherwise None.
 
         Examples:
-            >>> ln.save(ln.Label.from_values(["Label1", "Label2", "Label3"], field="name")) # noqa
-            >>> queryset = ln.Label.filter(name__icontains = "project")
+            >>> ln.save(ln.ULabel.from_values(["ULabel1", "ULabel2", "ULabel3"], field="name")) # noqa
+            >>> queryset = ln.ULabel.filter(name__icontains = "project")
             >>> queryset.first()
-            Label(id=NAgTZxoo, name=Label1, updated_at=2023-07-19 19:25:48, created_by_id=DzTjkKse) # noqa
+            ULabel(id=NAgTZxoo, name=ULabel1, updated_at=2023-07-19 19:25:48, created_by_id=DzTjkKse) # noqa
         """
         if len(self) == 0:
             return None
@@ -172,9 +172,9 @@ class QuerySet(models.QuerySet):
         """Exactly one result. Throws error if there are more or none.
 
         Examples:
-            >>> ln.Label(name="benchmark").save()
-            >>> ln.Label.filter(name="benchmark").one()
-            Label(id=gznl0GZk, name=benchmark, updated_at=2023-07-19 19:39:01, created_by_id=DzTjkKse) # noqa
+            >>> ln.ULabel(name="benchmark").save()
+            >>> ln.ULabel.filter(name="benchmark").one()
+            ULabel(id=gznl0GZk, name=benchmark, updated_at=2023-07-19 19:39:01, created_by_id=DzTjkKse) # noqa
         """
         if len(self) == 0:
             raise NoResultFound
@@ -187,10 +187,10 @@ class QuerySet(models.QuerySet):
         """At most one result. Returns it if there is one, otherwise returns None.
 
         Examples:
-            >>> ln.Label(name="benchmark").save()
-            >>> ln.Label.filter(name="benchmark").one_or_none()
-            Label(id=gznl0GZk, name=benchmark, updated_at=2023-07-19 19:39:01, created_by_id=DzTjkKse) # noqa
-            >>> ln.Label.filter(name="non existing label").one_or_none()
+            >>> ln.ULabel(name="benchmark").save()
+            >>> ln.ULabel.filter(name="benchmark").one_or_none()
+            ULabel(id=gznl0GZk, name=benchmark, updated_at=2023-07-19 19:39:01, created_by_id=DzTjkKse) # noqa
+            >>> ln.ULabel.filter(name="non existing label").one_or_none()
             None
         """
         if len(self) == 0:

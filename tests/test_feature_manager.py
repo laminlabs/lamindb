@@ -12,59 +12,59 @@ adata.obs["cell_type_from_expert"] = adata.obs["cell_type"]
 adata.obs.loc["obs0", "cell_type_from_expert"] = "B cell"
 
 
-def test_add_labels():
-    label = ln.Label(name="Experiment 1")
+def test_labels_add():
+    label = ln.ULabel(name="Experiment 1")
     file = ln.File(adata, description="test")
     file.save()
     experiment = ln.Feature(name="experiment", type="category")
     with pytest.raises(ValueError) as error:
-        file.add_labels("experiment_1", experiment)
+        file.labels.add("experiment_1", experiment)
     assert (
         error.exconly()
         == "ValueError: Please pass a record (a `Registry` object), not a string, e.g.,"
-        " via: label = ln.Label(name='experiment_1')"
+        " via: label = ln.ULabel(name='experiment_1')"
     )
     with pytest.raises(ln.dev.exceptions.ValidationError) as error:
-        file.add_labels(label, experiment)
+        file.labels.add(label, experiment)
     assert "not validated. If it looks correct: record.save()" in error.exconly()
     label.save()
     with pytest.raises(TypeError) as error:
-        file.add_labels(label, "experiment 1")
+        file.labels.add(label, "experiment 1")
     with pytest.raises(ln.dev.exceptions.ValidationError) as error:
-        file.add_labels(label, feature=experiment)
+        file.labels.add(label, feature=experiment)
     assert (
         error.exconly()
         == "lamindb.dev.exceptions.ValidationError: Feature not validated. If it looks"
         " correct: ln.Feature(name='experiment', type='category',"
-        " registries='core.Label').save()"
+        " registries='core.ULabel').save()"
     )
     experiment.save()
-    file.add_labels(label, feature=experiment)
-    # check that the feature was updated with registries = "core.Label"
+    file.labels.add(label, feature=experiment)
+    # check that the feature was updated with registries = "core.ULabel"
     feature = ln.Feature.filter(name="experiment").one()
-    assert feature.registries == "core.Label"
+    assert feature.registries == "core.ULabel"
     with pytest.raises(TypeError):
-        experiments = file.get_labels("experiment")
+        experiments = file.labels.get("experiment")
     # check that the label is there, it's exactly one label with name "Experiment 1"
-    experiments = file.get_labels(experiment)
+    experiments = file.labels.get(experiment)
     assert experiments.get().name == "Experiment 1"
 
     # try adding the same label again, nothing should happen
-    file.add_labels(label, feature=experiment)
+    file.labels.add(label, feature=experiment)
     # check that the label is there, it's exactly one label with name "Experiment 1"
-    experiments = file.get_labels(experiment)
+    experiments = file.labels.get(experiment)
     assert experiments.get().name == "Experiment 1"
 
     feature_set_n1 = ln.FeatureSet.filter(features__name="experiment").one()
 
     # now, try adding a new label for a new feature, extending the feature set
-    project = ln.Label(name="project 1")
+    project = ln.ULabel(name="project 1")
     project.save()
     ln.Feature(name="project", type="category").save()
     features = ln.Feature.lookup()
     file.labels.add_by_feature(project, feature=features.project)
     # check that the label is there, it's exactly one label with name "Experiment 1"
-    projects = file.get_labels(features.project)
+    projects = file.labels.get(features.project)
     assert projects.get().name == "project 1"
 
     with pytest.raises(TypeError) as error:
@@ -83,7 +83,7 @@ def test_add_labels():
 
     file.delete(storage=True)
     ln.Feature.filter().all().delete()
-    ln.Label.filter().all().delete()
+    ln.ULabel.filter().all().delete()
     ln.FeatureSet.filter().all().delete()
 
 
@@ -96,7 +96,7 @@ def test_add_labels_using_anndata():
     ]
     ln.save(cell_types_from_expert)
     actual_tissues = [lb.Tissue(name=name) for name in adata.obs["tissue"].unique()]
-    organoid = ln.Label(name="organoid")
+    organoid = ln.ULabel(name="organoid")
     tissues = actual_tissues + [organoid]
     ln.save(tissues)
 
@@ -119,7 +119,7 @@ def test_add_labels_using_anndata():
     assert "obs" not in file._feature_sets
     # add feature set without saving file
     feature_name_feature = ln.Feature(
-        name="feature name", type="category", registries="core.Label"
+        name="feature name", type="category", registries="core.ULabel"
     )
     feature_name_feature.save()
     feature_set = ln.FeatureSet(features=[feature_name_feature])
@@ -139,7 +139,7 @@ def test_add_labels_using_anndata():
     ln.Feature(name="species", type="category", registries="bionty.Species").save()
     features = ln.Feature.lookup()
     with pytest.raises(ValueError) as error:
-        file.add_labels(species, feature=features.species)
+        file.labels.add(species, feature=features.species)
     assert (
         error.exconly()
         == "ValueError: Please save the file/dataset before adding a label!"
@@ -155,9 +155,9 @@ def test_add_labels_using_anndata():
 
     # now, we add species and run checks
     with pytest.raises(ln.dev.exceptions.ValidationError):
-        file.add_labels(species, feature=features.species)
+        file.labels.add(species, feature=features.species)
     species.save()
-    file.add_labels(species, feature=features.species)
+    file.labels.add(species, feature=features.species)
     feature = ln.Feature.filter(name="species").one()
     assert feature.type == "category"
     assert feature.registries == "bionty.Species"
@@ -175,18 +175,18 @@ def test_add_labels_using_anndata():
     ln.Feature(name="cell_type", type="category").save()
     ln.Feature(name="cell_type_from_expert", type="category").save()
     ln.Feature(name="tissue", type="category").save()
-    file.add_labels(cell_types, feature=features.cell_type)
-    file.add_labels(cell_types_from_expert, feature=features.cell_type_from_expert)
-    file.add_labels(tissues, feature=features.tissue)
+    file.labels.add(cell_types, feature=features.cell_type)
+    file.labels.add(cell_types_from_expert, feature=features.cell_type_from_expert)
+    file.labels.add(tissues, feature=features.tissue)
     feature = ln.Feature.filter(name="cell_type").one()
     assert feature.registries == "bionty.CellType"
     feature = ln.Feature.filter(name="cell_type_from_expert").one()
     assert feature.registries == "bionty.CellType"
     feature = ln.Feature.filter(name="tissue").one()
-    assert feature.registries == "bionty.Tissue|core.Label"
-    diseases = [ln.Label(name=name) for name in adata.obs["disease"].unique()]
+    assert feature.registries == "bionty.Tissue|core.ULabel"
+    diseases = [ln.ULabel(name=name) for name in adata.obs["disease"].unique()]
     ln.save(diseases)
-    file.add_labels(diseases, feature=features.disease)
+    file.labels.add(diseases, feature=features.disease)
     df = file.features["obs"].df()
     assert set(df["name"]) == {
         "cell_type",
@@ -199,16 +199,16 @@ def test_add_labels_using_anndata():
     }
     assert set(df["registries"]) == {
         "bionty.CellType",
-        "core.Label",
-        "bionty.Tissue|core.Label",
+        "core.ULabel",
+        "bionty.Tissue|core.ULabel",
     }
 
     # now, let's add another feature to ext
-    experiment_1 = ln.Label(name="experiment_1")
+    experiment_1 = ln.ULabel(name="experiment_1")
     experiment_1.save()
     ln.Feature(name="experiment", type="category").save()
     features = ln.Feature.lookup()
-    file.add_labels(experiment_1, feature=features.experiment)
+    file.labels.add(experiment_1, feature=features.experiment)
     df = file.features["external"].df()
     assert set(df["name"]) == {
         "species",
@@ -218,39 +218,39 @@ def test_add_labels_using_anndata():
         "category",
     }
 
-    assert set(file.get_labels(features.experiment).list("name")) == {"experiment_1"}
-    assert set(file.get_labels(features.disease).list("name")) == {
+    assert set(file.labels.get(features.experiment).list("name")) == {"experiment_1"}
+    assert set(file.labels.get(features.disease).list("name")) == {
         "chronic kidney disease",
         "Alzheimer disease",
         "liver lymphoma",
         "cardiac ventricle disorder",
     }
-    assert set(file.get_labels(features.species).list("name")) == {"mouse"}
-    assert set(file.get_labels(features.tissue)["bionty.Tissue"].list("name")) == {
+    assert set(file.labels.get(features.species).list("name")) == {"mouse"}
+    assert set(file.labels.get(features.tissue)["bionty.Tissue"].list("name")) == {
         "liver",
         "heart",
         "kidney",
         "brain",
     }
-    assert set(file.get_labels(features.tissue)["core.Label"].list("name")) == {
+    assert set(file.labels.get(features.tissue)["core.ULabel"].list("name")) == {
         "organoid",
     }
     # currently, we can't stratify the two cases below
-    assert set(file.get_labels(features.cell_type).list("name")) == {
+    assert set(file.labels.get(features.cell_type).list("name")) == {
         "T cell",
         "my new cell type",
         "hepatocyte",
         "hematopoietic stem cell",
         "B cell",
     }
-    assert set(file.get_labels(features.cell_type, flat_names=True)) == {
+    assert set(file.labels.get(features.cell_type, flat_names=True)) == {
         "T cell",
         "my new cell type",
         "hepatocyte",
         "hematopoietic stem cell",
         "B cell",
     }
-    assert set(file.get_labels(features.cell_type_from_expert).list("name")) == {
+    assert set(file.labels.get(features.cell_type_from_expert).list("name")) == {
         "T cell",
         "my new cell type",
         "hepatocyte",
@@ -258,7 +258,7 @@ def test_add_labels_using_anndata():
         "B cell",
     }
 
-    assert set(df["registries"]) == {"bionty.Species", "core.Label"}
+    assert set(df["registries"]) == {"bionty.Species", "core.ULabel"}
     assert experiment_1 in file.labels.all()
 
     # call describe
@@ -272,15 +272,15 @@ def test_add_labels_using_anndata():
     lb.CellType.filter().all().delete()
     lb.Tissue.filter().all().delete()
     lb.Disease.filter().all().delete()
-    ln.Label.filter().all().delete()
+    ln.ULabel.filter().all().delete()
 
 
-def test_get_labels():
+def test_labels_get():
     ln.dev.datasets.file_mini_csv()
     file = ln.File("mini.csv", description="test")
     # feature doesn't exist
     with pytest.raises(TypeError):
-        file.get_labels("x")
+        file.labels.get("x")
     # no linked labels
     feature_name_feature = ln.Feature(name="feature name", type="category")
     feature_name_feature.save()

@@ -3,7 +3,7 @@ from inspect import signature
 import lnschema_bionty as lb
 import pandas as pd
 import pytest
-from lnschema_core.models import FileLabel
+from lnschema_core.models import FileULabel
 from pandas.api.types import is_categorical_dtype, is_string_dtype
 
 import lamindb as ln
@@ -69,11 +69,11 @@ def test_feature_from_df():
             assert feature.type == convert_numpy_dtype_to_lamin_feature_type(orig_type)
     for feature in features:
         feature.save()
-    labels = [ln.Label(name=name) for name in df["feat3"].unique()]
+    labels = [ln.ULabel(name=name) for name in df["feat3"].unique()]
     ln.save(labels)
     features_lookup = ln.Feature.lookup()
     file.add_labels(labels, feature=features_lookup.feat3)
-    assert set(ln.Label.filter(filelabel__feature__name="feat3").list("name")) == set(
+    assert set(ln.ULabel.filter(filelabel__feature__name="feat3").list("name")) == set(
         ["cond1", "cond2"]
     )
     for name in df.columns[:4]:
@@ -85,10 +85,10 @@ def test_feature_from_df():
             assert queried_feature.type == convert_numpy_dtype_to_lamin_feature_type(
                 orig_type
             )
-    filelabel_links = FileLabel.objects.filter(file_id=file.id, feature__name="feat3")
+    filelabel_links = FileULabel.objects.filter(file_id=file.id, feature__name="feat3")
     label_ids = filelabel_links.values_list("label_id")
     assert set(
-        ln.Label.objects.filter(id__in=label_ids).values_list("name", flat=True)
+        ln.ULabel.objects.filter(id__in=label_ids).values_list("name", flat=True)
     ) == set(["cond1", "cond2"])
     for feature in features:
         feature.delete()
@@ -109,5 +109,5 @@ def test_feature_init():
     feat1 = ln.Feature.filter(name="feat1").one_or_none()
     if feat1 is not None:
         feat1.delete()
-    feature = ln.Feature(name="feat1", type="category", registries=[ln.Label, lb.Gene])
-    assert feature.registries == "core.Label|bionty.Gene"
+    feature = ln.Feature(name="feat1", type="category", registries=[ln.ULabel, lb.Gene])
+    assert feature.registries == "core.ULabel|bionty.Gene"

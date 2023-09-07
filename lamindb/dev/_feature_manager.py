@@ -55,7 +55,7 @@ def get_accessor_by_orm(host: Union[File, Dataset]) -> Dict:
         for field in host._meta.related_objects
     }
     dictionary["core.Feature"] = "features"
-    dictionary["core.Label"] = "labels"
+    dictionary["core.ULabel"] = "ulabels"
     return dictionary
 
 

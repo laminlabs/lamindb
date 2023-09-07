@@ -28,7 +28,7 @@ def test_signatures():
 
 def test_init_with_args():
     with pytest.raises(ValueError) as error:
-        # can't use Label here because it raises "Only one non-keyword arg allowed"
+        # can't use ULabel here because it raises "Only one non-keyword arg allowed"
         ln.User("an arg")
     assert (
         error.exconly()
@@ -39,10 +39,10 @@ def test_init_with_args():
 def test_validate_required_fields():
     # label has a required name
     with pytest.raises(TypeError):
-        ln.Label()
+        ln.ULabel()
     # label has a required name
     with pytest.raises(TypeError):
-        ln.Label(description="test")
+        ln.ULabel(description="test")
 
 
 @pytest.fixture

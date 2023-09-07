@@ -7,19 +7,19 @@ from lamindb._query_set import MultipleResultsFound, NoResultFound
 
 def test_df():
     # for self-referential models
-    project_label = ln.Label(name="Project")
+    project_label = ln.ULabel(name="Project")
     project_label.save()
     project_names = [f"Project {i}" for i in range(3)]
-    labels = [ln.Label(name=name) for name in project_names]
+    labels = [ln.ULabel(name=name) for name in project_names]
     ln.save(labels)
     for label in labels:
         label.parents.add(project_label)
-    df = ln.Label.filter().df(include="parents__name")
+    df = ln.ULabel.filter().df(include="parents__name")
     assert df.columns[0] == "parents__name"
     # order is not conserved
     assert df["parents__name"][0] == [project_label.name]
     # pass a list
-    df = ln.Label.filter().df(include=["parents__name", "parents__created_by_id"])
+    df = ln.ULabel.filter().df(include=["parents__name", "parents__created_by_id"])
     assert df.columns[1] == "parents__created_by_id"
     assert df["parents__name"][0] == [project_label.name]
     assert set(df["parents__created_by_id"][0]) == set([ln.setup.settings.user.id])
@@ -46,7 +46,7 @@ def test_df():
 
     # raise error for non many-to-many
     with pytest.raises(ValueError):
-        ln.Label.filter().df(include="name")
+        ln.ULabel.filter().df(include="name")
 
     # clean up
     project_label.delete()
@@ -78,12 +78,12 @@ def test_one_first():
 
 
 def test_search():
-    label_names = [f"Label {i}" for i in range(3)]
-    labels = [ln.Label(name=name) for name in label_names]
+    label_names = [f"ULabel {i}" for i in range(3)]
+    labels = [ln.ULabel(name=name) for name in label_names]
     ln.save(labels)
-    qs = ln.Label.filter(name="Label 2").all()
-    assert qs.search("Label 1").iloc[0].name == "Label 2"
-    assert qs.search("Label 1", field=ln.Label.name).iloc[0].name == "Label 2"
+    qs = ln.ULabel.filter(name="ULabel 2").all()
+    assert qs.search("ULabel 1").iloc[0].name == "ULabel 2"
+    assert qs.search("ULabel 1", field=ln.ULabel.name).iloc[0].name == "ULabel 2"
     for label in labels:
         label.delete()
 

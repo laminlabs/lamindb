@@ -24,7 +24,7 @@ Four registries validate & contextualize data batches:
 .. autosummary::
    :toctree: .
 
-   Label
+   ULabel
    Feature
    FeatureSet
    Modality
@@ -89,11 +89,11 @@ if _INSTANCE_SETUP:
         Feature,
         FeatureSet,
         File,
-        Label,
         Modality,
         Run,
         Storage,
         Transform,
+        ULabel,
         User,
     )
 

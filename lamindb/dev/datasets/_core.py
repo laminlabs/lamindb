@@ -220,7 +220,7 @@ def anndata_mouse_sc_lymph_node(
         # labels
         labels = []
         for col in ["sex", "age", "genotype", "immunophenotype"]:
-            labels += [ln.Label(name=name) for name in adata.obs[col]]
+            labels += [ln.ULabel(name=name) for name in adata.obs[col]]
         ln.save(labels)
         ln.settings.verbosity = verbosity
         lb.settings.auto_save_parents = auto_save_parents

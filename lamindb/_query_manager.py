@@ -19,10 +19,10 @@ class QueryManager(models.Manager):
 
     Examples:
 
-        >>> ln.save(ln.Label.from_values(["Label1", "Label2", "Label3"], field="name"))
-        >>> labels = ln.Label.filter(name__icontains = "label").all()
-        >>> ln.Label(name="Label1").save()
-        >>> label = ln.Label.filter(name="Label1").one()
+        >>> ln.save(ln.ULabel.from_values(["ULabel1", "ULabel2", "ULabel3"], field="name"))  # noqa
+        >>> labels = ln.ULabel.filter(name__icontains = "label").all()
+        >>> ln.ULabel(name="ULabel1").save()
+        >>> label = ln.ULabel.filter(name="ULabel1").one()
         >>> label.parents.set(labels)
         >>> manager = label.parents
         >>> manager.df()
@@ -32,17 +32,17 @@ class QueryManager(models.Manager):
         """Populate a list with the results.
 
         Examples:
-            >>> ln.save(ln.Label.from_values(["Label1", "Label2", "Label3"], field="name"))
-            >>> labels = ln.Label.filter(name__icontains = "label").all()
-            >>> ln.Label(name="Label1").save()
-            >>> label = ln.Label.filter(name="Label1").one()
+            >>> ln.save(ln.ULabel.from_values(["ULabel1", "ULabel2", "ULabel3"], field="name"))
+            >>> labels = ln.ULabel.filter(name__icontains = "label").all()
+            >>> ln.ULabel(name="ULabel1").save()
+            >>> label = ln.ULabel.filter(name="ULabel1").one()
             >>> label.parents.set(labels)
             >>> label.parents.list()
-            [Label(id=sFMcPepC, name=Label1, updated_at=2023-07-19 19:45:17, created_by_id=DzTjkKse), # noqa
-            Label(id=2SscQvsM, name=Label2, updated_at=2023-07-19 19:45:17, created_by_id=DzTjkKse), # noqa
-            Label(id=lecV87vi, name=Label3, updated_at=2023-07-19 19:45:17, created_by_id=DzTjkKse)] # noqa
+            [ULabel(id=sFMcPepC, name=ULabel1, updated_at=2023-07-19 19:45:17, created_by_id=DzTjkKse), # noqa
+            ULabel(id=2SscQvsM, name=ULabel2, updated_at=2023-07-19 19:45:17, created_by_id=DzTjkKse), # noqa
+            ULabel(id=lecV87vi, name=ULabel3, updated_at=2023-07-19 19:45:17, created_by_id=DzTjkKse)] # noqa
             >>> label.parents.list("name")
-            ['Label1', 'Label2', 'Label3']
+            ['ULabel1', 'ULabel2', 'ULabel3']
         """
         if field is None:
             return [item for item in self.all()]

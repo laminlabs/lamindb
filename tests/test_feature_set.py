@@ -69,11 +69,11 @@ def test_feature_set_from_values():
     )
     assert feature_set is None
     with pytest.raises(TypeError):
-        ln.FeatureSet.from_values([1], field=ln.Label.name, type="float")
+        ln.FeatureSet.from_values([1], field=ln.ULabel.name, type="float")
 
     # return none if no validated features
     assert (
-        ln.FeatureSet.from_values(["name"], field=ln.Label.name, type="float") is None
+        ln.FeatureSet.from_values(["name"], field=ln.ULabel.name, type="float") is None
     )
 
 

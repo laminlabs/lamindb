@@ -3,7 +3,7 @@ from typing import Any, Dict, Iterable, List, Tuple, Union
 import pandas as pd
 from django.core.exceptions import FieldDoesNotExist
 from lamin_utils import colors, logger
-from lnschema_core.models import Feature, Label, Registry
+from lnschema_core.models import Feature, Registry, ULabel
 from lnschema_core.types import ListLike, StrField
 
 from .dev._settings import settings
@@ -55,7 +55,7 @@ def get_or_create_records(
                     f"{colors.red('did not create')} {name} record{s} for "
                     f"{n_nonval} {colors.italic(f'{field.field.name}{s}')}: {print_values}"  # noqa
                 )
-        if Registry.__module__.startswith("lnschema_bionty.") or Registry == Label:
+        if Registry.__module__.startswith("lnschema_bionty.") or Registry == ULabel:
             if isinstance(iterable, pd.Series):
                 feature = iterable.name
             feature_name = None
