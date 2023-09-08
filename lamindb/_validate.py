@@ -11,6 +11,7 @@ from lnschema_core import CanValidate, Registry
 from lnschema_core.types import ListLike, StrField
 
 from lamindb._utils import attach_func_to_class_method
+from lamindb.dev._settings import settings
 
 from . import _TESTING
 from ._from_values import _has_species_field, _print_values
@@ -61,6 +62,9 @@ def _inspect(
 ) -> Union["pd.DataFrame", Dict[str, List[str]]]:
     """{}"""
     from lamin_utils._inspect import inspect
+
+    verbosity = settings.verbosity
+    settings.verbosity = 4
 
     if isinstance(values, str):
         values = [values]
@@ -127,6 +131,7 @@ def _inspect(
             f" {colors.italic(f'ln.{orm.__name__}()')} and save to your registry"
         )
 
+    settings.verbosity = verbosity
     return result_db
 
 
