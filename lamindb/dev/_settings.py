@@ -14,7 +14,7 @@ class Settings:
     """
 
     def __init__(self):
-        self._verbosity: int = 4  # hint-level logging
+        self._verbosity: int = 1  # success-level logging
         logger.set_verbosity(self._verbosity)
 
     upon_file_create_if_hash_exists: Literal[
@@ -80,7 +80,7 @@ class Settings:
 
     @property
     def verbosity(self) -> int:
-        """Verbosity (default 4 / 'hint').
+        """Verbosity (default 1 / 'warning').
 
         - 0: ❌ only show 'error' messages
         - 1: ❗ also show 'warning' messages
