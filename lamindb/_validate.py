@@ -115,7 +115,7 @@ def _inspect(
 
         if hint:
             logger.hint(
-                "→  add records from Bionty to your {model_name} registry via"
+                f"→  add records from Bionty to your {model_name} registry via"
                 f" {colors.italic('.from_values()')}"
             )
 
