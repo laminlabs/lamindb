@@ -1,5 +1,6 @@
 # Changelog
 
+- 🔇 Default verbosity to warning level [PR1149](https://github.com/laminlabs/lamindb/pull/1149) [@sunnyosun](https://github.com/sunnyosun)
 - 🚚 Add `Data.labels` accessor, rename `Label` to `ULabel` [PR1148](https://github.com/laminlabs/lamindb/pull/1148) [@sunnyosun](https://github.com/sunnyosun)
 - ✨ Allow create records from non-default bionty sources [PR1147](https://github.com/laminlabs/lamindb/pull/1147) [@sunnyosun](https://github.com/sunnyosun)
 - 🍱 Register protein modality for flow datasets [PR1146](https://github.com/laminlabs/lamindb/pull/1146) [@sunnyosun](https://github.com/sunnyosun)
