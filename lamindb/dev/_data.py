@@ -217,6 +217,8 @@ def add_labels(
         records = records.list()
     if isinstance(records, (str, Registry)):
         records = [records]
+    if not isinstance(records, List):  # avoids warning for pd Series
+        records = list(records)
     if isinstance(records[0], str):  # type: ignore
         records_validated = []
         if feature.registries is not None:
