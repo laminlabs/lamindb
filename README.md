@@ -8,7 +8,7 @@
 
 **LaminDB** is a Python library to manage biological data and analyses in well-established infrastructure:
 
-- Manage metadata to access & validate data.
+- Access & validate data with metadata registries.
 - Track data flow through pipelines, notebooks & apps.
 - Unify learning with data warehousing.
 
