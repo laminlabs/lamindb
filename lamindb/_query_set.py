@@ -208,11 +208,13 @@ class QuerySet(models.QuerySet):
         return _search(cls=self, string=string, **kwargs)
 
     @doc_args(Registry.lookup.__doc__)
-    def lookup(self, field: Optional[StrField] = None) -> NamedTuple:
+    def lookup(
+        self, field: Optional[StrField] = None, return_field: Optional[StrField] = None
+    ) -> NamedTuple:
         """{}"""
         from ._registry import _lookup
 
-        return _lookup(cls=self, field=field)
+        return _lookup(cls=self, field=field, return_field=return_field)
 
     @doc_args(CanValidate.validate.__doc__)
     def validate(
