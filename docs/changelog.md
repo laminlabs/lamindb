@@ -1,5 +1,6 @@
 # Changelog
 
+- 🎨 Increased search threshold to 90 [PR1156](https://github.com/laminlabs/lamindb/pull/1156) [@sunnyosun](https://github.com/sunnyosun)
 
 ```{eval-rst}
 .. role:: small
