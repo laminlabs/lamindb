@@ -1,5 +1,6 @@
 # Changelog
 
+- 🔥 Remove add_labels & get_labels [PR1155](https://github.com/laminlabs/lamindb/pull/1155) [@falexwolf](https://github.com/falexwolf)
 - 🎨 Increased search threshold to 90 [PR1156](https://github.com/laminlabs/lamindb/pull/1156) [@sunnyosun](https://github.com/sunnyosun)
 
 ```{eval-rst}
