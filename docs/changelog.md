@@ -1,22 +1,22 @@
 # Changelog
 
-- ♻️ Refactor hub client [PR1150](https://github.com/laminlabs/lamindb/pull/1150) [@falexwolf](https://github.com/falexwolf)
-- ✨ Added return_field to lookup [PR1153](https://github.com/laminlabs/lamindb/pull/1153) [@sunnyosun](https://github.com/sunnyosun)
-- 🩹 Fix Series getitem warning for labels.add [PR1152](https://github.com/laminlabs/lamindb/pull/1152) [@sunnyosun](https://github.com/sunnyosun)
-- 🔇 Silence download bar for <5MB bionty files [PR1151](https://github.com/laminlabs/lamindb/pull/1151) [@sunnyosun](https://github.com/sunnyosun)
-- 🔇 Default verbosity to warning level [PR1149](https://github.com/laminlabs/lamindb/pull/1149) [@sunnyosun](https://github.com/sunnyosun)
-- 🚚 Add `Data.labels` accessor, rename `Label` to `ULabel` [PR1148](https://github.com/laminlabs/lamindb/pull/1148) [@sunnyosun](https://github.com/sunnyosun)
-- ✨ Allow create records from non-default bionty sources [PR1147](https://github.com/laminlabs/lamindb/pull/1147) [@sunnyosun](https://github.com/sunnyosun)
-- 🍱 Register protein modality for flow datasets [PR1146](https://github.com/laminlabs/lamindb/pull/1146) [@sunnyosun](https://github.com/sunnyosun)
-- 🔥 Removed `get_by_feature` [PR1145](https://github.com/laminlabs/lamindb/pull/1145) [@sunnyosun](https://github.com/sunnyosun)
-- 🚚 Replace `add_labels`, `get_labels` with `labels.add_by_feature`, `labels.get_by_feature` [PR1144](https://github.com/laminlabs/lamindb/pull/1144) [@sunnyosun](https://github.com/sunnyosun)
-- 🧪 Add more tests for file [PR1143](https://github.com/laminlabs/lamindb/pull/1143) [@sunnyosun](https://github.com/sunnyosun)
-- ⬆️ Transient download bar [PR1142](https://github.com/laminlabs/lamindb/pull/1142) [@sunnyosun](https://github.com/sunnyosun)
-- 🚚 Replace `get_feature_set` with `.feature_sets.__getitem__` [PR1141](https://github.com/laminlabs/lamindb/pull/1141) [@sunnyosun](https://github.com/sunnyosun)
 
 ```{eval-rst}
 .. role:: small
 ```
+
+## 0.53
+
+## 0.53.0 {small}`2023-09-09`
+
+- ♻️ Refactor hub client [PR1150](https://github.com/laminlabs/lamindb/pull/1150) [@falexwolf](https://github.com/falexwolf)
+- ✨ Add `return_field` to `Lookup` [PR1153](https://github.com/laminlabs/lamindb/pull/1153) [@sunnyosun](https://github.com/sunnyosun)
+- 🔇 Silence download bar for <5MB bionty files [PR1151](https://github.com/laminlabs/lamindb/pull/1151) [@sunnyosun](https://github.com/sunnyosun)
+- 🔇 Set default verbosity to warning [PR1149](https://github.com/laminlabs/lamindb/pull/1149) [@sunnyosun](https://github.com/sunnyosun)
+- 🚚 Add `Data.labels` accessor, rename `Label` to `ULabel` [PR1148](https://github.com/laminlabs/lamindb/pull/1148) [@sunnyosun](https://github.com/sunnyosun)
+- ✨ Allow create records from non-default bionty sources [PR1147](https://github.com/laminlabs/lamindb/pull/1147) [@sunnyosun](https://github.com/sunnyosun)
+- 🔥 Removed `get_by_feature` [PR1145](https://github.com/laminlabs/lamindb/pull/1145) [@sunnyosun](https://github.com/sunnyosun)
+- 🚚 Replace `get_feature_set` with `.feature_sets.__getitem__` [PR1141](https://github.com/laminlabs/lamindb/pull/1141) [@sunnyosun](https://github.com/sunnyosun)
 
 ## 0.52
 
