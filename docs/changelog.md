@@ -1,5 +1,8 @@
 # Changelog
 
+- ✨ Added return_field to lookup [PR1153](https://github.com/laminlabs/lamindb/pull/1153) [@sunnyosun](https://github.com/sunnyosun)
+- 🩹 Fix Series getitem warning for labels.add [PR1152](https://github.com/laminlabs/lamindb/pull/1152) [@sunnyosun](https://github.com/sunnyosun)
+- 🔇 Silence download bar for <5MB bionty files [PR1151](https://github.com/laminlabs/lamindb/pull/1151) [@sunnyosun](https://github.com/sunnyosun)
 - 🔇 Default verbosity to warning level [PR1149](https://github.com/laminlabs/lamindb/pull/1149) [@sunnyosun](https://github.com/sunnyosun)
 - 🚚 Add `Data.labels` accessor, rename `Label` to `ULabel` [PR1148](https://github.com/laminlabs/lamindb/pull/1148) [@sunnyosun](https://github.com/sunnyosun)
 - ✨ Allow create records from non-default bionty sources [PR1147](https://github.com/laminlabs/lamindb/pull/1147) [@sunnyosun](https://github.com/sunnyosun)

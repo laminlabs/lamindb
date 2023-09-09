@@ -235,7 +235,9 @@ def search(
     )
 
 
-def _lookup(cls, field: Optional[StrField] = None) -> NamedTuple:
+def _lookup(
+    cls, field: Optional[StrField] = None, return_field: Optional[StrField] = None
+) -> NamedTuple:
     """{}"""
     queryset = _queryset(cls)
     field = get_default_str_field(orm=queryset.model, field=field)
@@ -245,14 +247,20 @@ def _lookup(cls, field: Optional[StrField] = None) -> NamedTuple:
         values=[i.get(field) for i in queryset.values()],
         tuple_name=cls.__class__.__name__,
         prefix="ln",
-    ).lookup()
+    ).lookup(
+        return_field=get_default_str_field(orm=queryset.model, field=return_field)
+        if return_field is not None
+        else None
+    )
 
 
 @classmethod  # type: ignore
 @doc_args(Registry.lookup.__doc__)
-def lookup(cls, field: Optional[StrField] = None) -> NamedTuple:
+def lookup(
+    cls, field: Optional[StrField] = None, return_field: Optional[StrField] = None
+) -> NamedTuple:
     """{}"""
-    return _lookup(cls=cls, field=field)
+    return _lookup(cls=cls, field=field, return_field=return_field)
 
 
 def get_default_str_field(
