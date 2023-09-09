@@ -1,5 +1,6 @@
 # Changelog
 
+- ♻️ Refactor hub client [PR1150](https://github.com/laminlabs/lamindb/pull/1150) [@falexwolf](https://github.com/falexwolf)
 - ✨ Added return_field to lookup [PR1153](https://github.com/laminlabs/lamindb/pull/1153) [@sunnyosun](https://github.com/sunnyosun)
 - 🩹 Fix Series getitem warning for labels.add [PR1152](https://github.com/laminlabs/lamindb/pull/1152) [@sunnyosun](https://github.com/sunnyosun)
 - 🔇 Silence download bar for <5MB bionty files [PR1151](https://github.com/laminlabs/lamindb/pull/1151) [@sunnyosun](https://github.com/sunnyosun)
