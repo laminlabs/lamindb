@@ -72,7 +72,7 @@ def test_feature_from_df():
     labels = [ln.ULabel(name=name) for name in df["feat3"].unique()]
     ln.save(labels)
     features_lookup = ln.Feature.lookup()
-    file.add_labels(labels, feature=features_lookup.feat3)
+    file.labels.add(labels, feature=features_lookup.feat3)
     assert set(ln.ULabel.filter(fileulabel__feature__name="feat3").list("name")) == set(
         ["cond1", "cond2"]
     )
