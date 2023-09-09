@@ -1,7 +1,6 @@
 from typing import Dict, List, Union
 
 from lamin_utils import colors
-from lamindb_setup.dev._docs import doc_args
 from lnschema_core.models import Data, Dataset, Feature, File, Registry
 
 from .._from_values import _print_values
@@ -45,25 +44,35 @@ class LabelManager:
         else:
             return "no linked labels"
 
-    @doc_args(Data.add_labels.__doc__)
     def add(
         self,
         records: Union[Registry, List[Registry], QuerySet],
         feature: Feature,
     ) -> None:
-        """{}"""
+        """Add one or several labels and associate them with a feature.
+
+        Args:
+            records: Label records to add.
+            feature: Feature under which to group the labels.
+            field: Field to parse iterable with from_values.
+        """
         from ._data import add_labels
 
         return add_labels(self._host, records=records, feature=feature)
 
-    @doc_args(Data.get_labels.__doc__)
     def get(
         self,
         feature: Feature,
         mute: bool = False,
         flat_names: bool = False,
     ) -> Union[QuerySet, Dict[str, QuerySet], List]:
-        """{}"""
+        """Get labels given a feature.
+
+        Args:
+            feature: Feature under which labels are grouped.
+            mute: Show no logging.
+            flat_names: Flatten list to names rather than returning records.
+        """
         from ._data import get_labels
 
         return get_labels(self._host, feature=feature, mute=mute, flat_names=flat_names)
