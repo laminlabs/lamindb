@@ -125,7 +125,7 @@ def print_features(self: Data) -> str:
             msg += f"  {colors.bold(slot)}: {feature_set}\n"
             for _, row in df_slot.iterrows():
                 if row["type"] == "category" and row["registries"] is not None:
-                    labels = self.get_labels(
+                    labels = self.labels.get(
                         getattr(features_lookup, row["name"]), mute=True
                     )
                     indent = ""

@@ -163,7 +163,6 @@ def validate_feature(feature: Feature, records: List[Registry]) -> None:
         raise ValidationError(f"Feature not validated. If it looks correct: {msg}")
 
 
-@doc_args(Data.get_labels.__doc__)
 def get_labels(
     self,
     feature: Feature,
@@ -204,7 +203,6 @@ def get_labels(
         return qs_by_registry
 
 
-@doc_args(Data.add_labels.__doc__)
 def add_labels(
     self,
     records: Union[Registry, List[Registry], QuerySet, Iterable],
@@ -340,7 +338,5 @@ def labels(self) -> "LabelManager":
 
 setattr(Data, "features", features)
 setattr(Data, "labels", labels)
-setattr(Data, "add_labels", add_labels)
-setattr(Data, "get_labels", get_labels)
 setattr(Data, "describe", describe)
 setattr(Data, "view_flow", view_flow)
