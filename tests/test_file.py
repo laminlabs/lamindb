@@ -19,6 +19,7 @@ from lamindb._file import (
     get_relative_path_to_directory,
     process_data,
 )
+from lamindb.dev.storage._zarr import write_adata_zarr
 from lamindb.dev.storage.file import (
     AUTO_KEY_PREFIX,
     auto_storage_key_from_id_suffix,
@@ -624,3 +625,23 @@ def test_file_zarr():
     file.save()
     file.delete(storage=False)
     UPath("test.zarr").unlink()
+
+
+def test_zarr_folder_upload():
+    previous_storage = ln.setup.settings.storage.root_as_str
+    ln.settings.storage = "s3://lamindb-test"
+
+    def callback(*args, **kwargs):
+        pass
+
+    zarr_path = Path("./default_storage/test_adata.zrad")
+    write_adata_zarr(adata, zarr_path, callback)
+
+    file = ln.File(zarr_path)
+    file.save()
+
+    assert isinstance(file.path, CloudPath) and file.path.exists()
+
+    file.delete(storage=True)
+    delete_storage(zarr_path)
+    ln.settings.storage = previous_storage
