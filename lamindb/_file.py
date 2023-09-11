@@ -104,7 +104,8 @@ def process_pathlike(
 def process_data(
     provisional_id: str,
     data: Union[PathLike, DataLike],
-    format,
+    format: Optional[str],
+    key: Optional[str],
     skip_existence_check: bool = False,
 ) -> Tuple[Any, Union[Path, UPath], str, Storage, bool]:
     """Serialize a data object that's provided as file or in memory."""
@@ -119,7 +120,19 @@ def process_data(
     elif isinstance(data, (pd.DataFrame, AnnData)):  # DataLike, spelled out
         storage = lamindb_setup.settings.storage.record
         memory_rep = data
+        if key is not None:
+            key_suffix = PurePosixPath(key).suffix
+            # use suffix as the (adata) format if the format is not provided
+            if isinstance(data, AnnData) and format is None:
+                format = key_suffix[1:]
+        else:
+            key_suffix = None
         suffix = infer_suffix(data, format)
+        if key_suffix is not None and key_suffix != suffix:
+            raise ValueError(
+                f"The suffix '{key_suffix}' of the provided key is incorrect, it should"
+                f" be '{suffix}'."
+            )
         cache_name = f"{provisional_id}{suffix}"
         filepath = lamindb_setup.settings.storage.cache_dir / cache_name
         # Alex: I don't understand the line below
@@ -296,15 +309,8 @@ def get_file_kwargs_from_data(
 ):
     run = get_run(run)
     memory_rep, filepath, suffix, storage, use_existing_storage_key = process_data(
-        provisional_id, data, format, skip_check_exists
+        provisional_id, data, format, key, skip_check_exists
     )
-    if memory_rep is not None and key is not None:
-        key_suffix = PurePosixPath(key).suffix
-        if key_suffix != suffix:
-            raise ValueError(
-                f"The suffix '{key_suffix}' of the provided key is incorrect, it should"
-                f" be '{suffix}'."
-            )
     # the following will return a localpath that is not None if filepath is local
     # it will return a cloudpath that is not None if filepath is on the cloud
     local_filepath, cloud_filepath, size, hash_and_type = get_path_size_hash(

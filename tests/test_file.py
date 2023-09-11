@@ -130,7 +130,7 @@ def test_is_new_version_of_versioned_file():
 
     # AUTO_KEY_PREFIX
     with pytest.raises(ValueError) as error:
-        ln.File(df, key=".lamindb/")
+        ln.File(df, key=".lamindb/test_df.parquet")
     assert error.exconly() == "ValueError: Key cannot start with .lamindb/"
 
 
@@ -560,14 +560,22 @@ def test_serialize_paths():
     up_str = "s3://lamindb-ci/test-data/test.csv"
     up_upath = UPath(up_str)
 
-    _, filepath, _, _, _ = process_data("id", fp_str, None, skip_existence_check=True)
+    _, filepath, _, _, _ = process_data(
+        "id", fp_str, None, None, skip_existence_check=True
+    )
     assert isinstance(filepath, LocalPathClasses)
-    _, filepath, _, _, _ = process_data("id", fp_path, None, skip_existence_check=True)
+    _, filepath, _, _, _ = process_data(
+        "id", fp_path, None, None, skip_existence_check=True
+    )
     assert isinstance(filepath, LocalPathClasses)
 
-    _, filepath, _, _, _ = process_data("id", up_str, None, skip_existence_check=True)
+    _, filepath, _, _, _ = process_data(
+        "id", up_str, None, None, skip_existence_check=True
+    )
     assert isinstance(filepath, CloudPath)
-    _, filepath, _, _, _ = process_data("id", up_upath, None, skip_existence_check=True)
+    _, filepath, _, _, _ = process_data(
+        "id", up_upath, None, None, skip_existence_check=True
+    )
     assert isinstance(filepath, CloudPath)
 
 
@@ -654,4 +662,31 @@ def test_invalid_suffix(inpt):
     assert (
         error.exconly().partition(",")[0]
         == "ValueError: The suffix '.def' of the provided key is incorrect"
+    )
+
+
+def test_adata_suffix():
+    file = ln.File(adata, key="test_.h5ad")
+    assert file.suffix == ".h5ad"
+    file = ln.File(adata, format="h5ad", key="test_.h5ad")
+    assert file.suffix == ".h5ad"
+    file = ln.File(adata, key="test_.zarr")
+    assert file.suffix == ".zarr"
+    file = ln.File(adata, key="test_.zrad")
+    assert file.suffix == ".zrad"
+    file = ln.File(adata, format="zrad", key="test_.zrad")
+    assert file.suffix == ".zrad"
+
+    with pytest.raises(ValueError) as error:
+        file = ln.File(adata, key="abc.def")
+    assert (
+        error.exconly().partition(",")[0]
+        == "ValueError: Error when specifying AnnData storage format"
+    )
+
+    with pytest.raises(ValueError) as error:
+        file = ln.File(adata, format="h5ad", key="test.zrad")
+    assert (
+        error.exconly().partition(",")[0]
+        == "ValueError: The suffix '.zrad' of the provided key is incorrect"
     )

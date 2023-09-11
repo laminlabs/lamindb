@@ -12,7 +12,11 @@ def infer_suffix(dmem, adata_format: Optional[str] = None):
         if adata_format is not None:
             # below should be zrad, not zarr
             if adata_format not in ("h5ad", "zarr", "zrad"):
-                raise ValueError
+                raise ValueError(
+                    "Error when specifying AnnData storage format, it should be"
+                    f" 'h5ad', 'zarr' or 'zrad', not '{adata_format}'. Check 'format'"
+                    " or the suffix of 'key'."
+                )
             return "." + adata_format
         return ".h5ad"
     elif isinstance(dmem, DataFrame):
