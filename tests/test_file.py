@@ -653,5 +653,5 @@ def test_invalid_suffix(inpt):
         file = ln.File(inpt, key="abc.def")  # noqa
     assert (
         error.exconly().partition(",")[0]
-        == "ValueError: The suffix '.cgf' of the provided key is incorrect"
+        == "ValueError: The suffix '.def' of the provided key is incorrect"
     )
