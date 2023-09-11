@@ -225,7 +225,7 @@ class run_context:
                     is_tracked_notebook = True
                 except Exception as e:
                     if isinstance(e, ImportError):
-                        logger.info(
+                        logger.warning(
                             "it looks like you are running ln.track() from a "
                             "notebook!\nplease install nbproject: pip install nbproject"
                         )
@@ -250,10 +250,12 @@ class run_context:
                 transform_exists = Transform.filter(id=transform.id).first()
             if transform_exists is None:
                 transform.save()
-                logger.save(f"saved: {transform}")
+                logger.success("saved: ")
+                logger.important(transform)
                 transform_exists = transform
             else:
-                logger.success(f"loaded: {transform_exists}")
+                logger.success("loaded: ")
+                logger.important(transform_exists)
             cls.transform = transform_exists
 
         if new_run is None:  # for notebooks, default to loading latest runs
@@ -273,7 +275,8 @@ class run_context:
                 run.reference = reference
                 run.reference_type = reference_type
                 run.save()
-                logger.success(f"loaded: {run}")
+                logger.success("loaded: ")
+                logger.important(run)
 
         if run is None:  # create new run
             run = ln.Run(
@@ -282,17 +285,18 @@ class run_context:
                 reference_type=reference_type,
             )
             run.save()
-            logger.save(f"saved: {run}")
+            logger.success("saved: ")
+            logger.important(run)
         cls.run = run
 
         # at this point, we have a transform can display its parents if there are any
         parents = cls.transform.parents.all() if cls.transform is not None else []
         if len(parents) > 0:
             if len(parents) == 1:
-                logger.info(f"  parent transform: {parents[0]}")
+                logger.important(f"  parent transform: {parents[0]}")
             else:
                 parents_formatted = "\n   - ".join([f"{parent}" for parent in parents])
-                logger.info(f"  parent transforms:\n   - {parents_formatted}")
+                logger.important(f"  parent transforms:\n   - {parents_formatted}")
 
         # only for newly intialized notebooks
         if hasattr(cls, "_notebook_meta"):
@@ -382,7 +386,7 @@ class run_context:
                 from nbproject.dev._pypackage import infer_pypackages
 
                 dm = DisplayMeta(metadata)
-                logger.info(
+                logger.important(
                     "notebook imports:"
                     f" {' '.join(dm.pypackage(infer_pypackages(nb, pin_versions=True)))}"  # noqa
                 )
@@ -457,9 +461,11 @@ class run_context:
                 type=TransformType.notebook,
             )
             transform.save()
-            logger.save(f"saved: {transform}")
+            logger.success("saved: ")
+            logger.important(transform)
         else:
-            logger.success(f"loaded: {transform}")
+            logger.success("loaded: ")
+            logger.important(transform)
             # check whether there was an update
             if transform.name != name or transform.short_name != short_name:
                 response = input(
@@ -480,7 +486,9 @@ class run_context:
                 transform.short_name = filestem
                 transform.save()
                 if response == "y":
-                    logger.save(f"saved: {transform}")
+                    logger.success("saved: ")
+                    logger.important(transform)
                 else:
-                    logger.success(f"updated: {transform}")
+                    logger.success("updated: ")
+                    logger.important(transform)
         cls.transform = transform

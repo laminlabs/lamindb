@@ -30,7 +30,6 @@ from ._feature_manager import (
 from ._label_manager import LabelManager, print_labels
 from ._priors import priors
 from ._run_context import run_context
-from ._settings import settings
 from .exceptions import ValidationError
 
 
@@ -142,10 +141,7 @@ def describe(self: Data):
     msg += print_features(self)
     msg += print_labels(self)
 
-    verbosity = settings.verbosity
-    settings.verbosity = 3
-    logger.info(msg)
-    settings.verbosity = verbosity
+    logger.print(msg)
 
 
 def validate_feature(feature: Feature, records: List[Registry]) -> None:

@@ -11,7 +11,6 @@ from lnschema_core import CanValidate, Registry
 from lnschema_core.types import ListLike, StrField
 
 from lamindb._utils import attach_func_to_class_method
-from lamindb.dev._settings import settings
 
 from . import _TESTING
 from ._from_values import _has_species_field, _print_values
@@ -63,9 +62,6 @@ def _inspect(
     """{}"""
     from lamin_utils._inspect import inspect
 
-    verbosity = settings.verbosity
-    settings.verbosity = 4
-
     if isinstance(values, str):
         values = [values]
 
@@ -97,7 +93,7 @@ def _inspect(
             print_values = _print_values(bionty_validated)
             s = "" if len(bionty_validated) == 1 else "s"
             labels = colors.yellow(f"{len(bionty_validated)} {model_name} term{s}")
-            logger.info(
+            logger.print(
                 f"   detected {labels} in Bionty for"
                 f" {colors.italic(field)}: {colors.yellow(print_values)}"
             )
@@ -107,14 +103,14 @@ def _inspect(
             print_values = _print_values(list(bionty_mapper.keys()))
             s = "" if len(bionty_mapper) == 1 else "s"
             labels = colors.yellow(f"{len(bionty_mapper)} {model_name} term{s}")
-            logger.info(
+            logger.print(
                 f"   detected {labels} in Bionty as {colors.italic(f'synonym{s}')}:"
                 f" {colors.yellow(print_values)}"
             )
             hint = True
 
         if hint:
-            logger.hint(
+            logger.print(
                 f"→  add records from Bionty to your {model_name} registry via"
                 f" {colors.italic('.from_values()')}"
             )
@@ -125,13 +121,12 @@ def _inspect(
         print_values = _print_values(list(nonval))
         s = "" if len(nonval) == 1 else "s"
         labels = colors.red(f"{len(nonval)} term{s}")
-        logger.info(f"   couldn't validate {labels}: {colors.red(print_values)}")
-        logger.hint(
+        logger.print(f"   couldn't validate {labels}: {colors.red(print_values)}")
+        logger.print(
             f"→  if you are sure, create new record{s} via"
             f" {colors.italic(f'ln.{orm.__name__}()')} and save to your registry"
         )
 
-    settings.verbosity = verbosity
     return result_db
 
 

@@ -70,7 +70,7 @@ def test_search_file(get_search_test_filepaths):
     file4.save()
 
     res = ln.File.search("search3")
-    print(res)
+
     assert res.iloc[0].description == "test-search3"
     assert res.iloc[1].description == "test-search3"
 
