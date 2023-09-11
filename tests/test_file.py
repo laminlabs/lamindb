@@ -637,7 +637,7 @@ def test_zarr_folder_upload():
     zarr_path = Path("./test_adata.zrad")
     write_adata_zarr(adata, zarr_path, callback)
 
-    file = ln.File(zarr_path)
+    file = ln.File(zarr_path, key="test_adata.zrad")
     file.save()
 
     assert isinstance(file.path, CloudPath) and file.path.exists()
