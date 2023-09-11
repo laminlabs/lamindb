@@ -31,6 +31,15 @@ msg_manual_init = (
 )
 
 
+def save_or_load(msg):
+    if logger._verbosity > 2:
+        logger.success(msg)
+    else:
+        logger.important(
+            msg.replace("loaded: ", "").replace("saved: ", "").replace("updated: ", "")
+        )
+
+
 class UpdateNbWithNonInteractiveEditorError(Exception):
     pass
 
@@ -250,12 +259,10 @@ class run_context:
                 transform_exists = Transform.filter(id=transform.id).first()
             if transform_exists is None:
                 transform.save()
-                logger.success("saved: ")
-                logger.important(transform)
+                save_or_load(f"saved: {transform}")
                 transform_exists = transform
             else:
-                logger.success("loaded: ")
-                logger.important(transform_exists)
+                save_or_load(f"loaded: {transform}")
             cls.transform = transform_exists
 
         if new_run is None:  # for notebooks, default to loading latest runs
@@ -275,8 +282,7 @@ class run_context:
                 run.reference = reference
                 run.reference_type = reference_type
                 run.save()
-                logger.success("loaded: ")
-                logger.important(run)
+                save_or_load(f"loaded: {run}")
 
         if run is None:  # create new run
             run = ln.Run(
@@ -285,18 +291,17 @@ class run_context:
                 reference_type=reference_type,
             )
             run.save()
-            logger.success("saved: ")
-            logger.important(run)
+            save_or_load(f"saved: {run}")
         cls.run = run
 
         # at this point, we have a transform can display its parents if there are any
         parents = cls.transform.parents.all() if cls.transform is not None else []
         if len(parents) > 0:
             if len(parents) == 1:
-                logger.important(f"  parent transform: {parents[0]}")
+                save_or_load(f"  parent transform: {parents[0]}")
             else:
                 parents_formatted = "\n   - ".join([f"{parent}" for parent in parents])
-                logger.important(f"  parent transforms:\n   - {parents_formatted}")
+                save_or_load(f"  parent transforms:\n   - {parents_formatted}")
 
         # only for newly intialized notebooks
         if hasattr(cls, "_notebook_meta"):
@@ -461,11 +466,9 @@ class run_context:
                 type=TransformType.notebook,
             )
             transform.save()
-            logger.success("saved: ")
-            logger.important(transform)
+            save_or_load(f"saved: {transform}")
         else:
-            logger.success("loaded: ")
-            logger.important(transform)
+            save_or_load(f"loaded: {transform}")
             # check whether there was an update
             if transform.name != name or transform.short_name != short_name:
                 response = input(
@@ -486,9 +489,7 @@ class run_context:
                 transform.short_name = filestem
                 transform.save()
                 if response == "y":
-                    logger.success("saved: ")
-                    logger.important(transform)
+                    save_or_load(f"saved: {transform}")
                 else:
-                    logger.success("updated: ")
-                    logger.important(transform)
+                    save_or_load(f"updated: {transform}")
         cls.transform = transform
