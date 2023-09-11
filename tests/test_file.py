@@ -655,10 +655,12 @@ def test_zarr_folder_upload():
     ln.settings.storage = previous_storage
 
 
-@pytest.mark.parametrize("inpt", [adata, df])
-def test_invalid_suffix(inpt):
+def test_df_suffix():
+    file = ln.File(df, key="test_.parquet")
+    assert file.suffix == ".parquet"
+
     with pytest.raises(ValueError) as error:
-        file = ln.File(inpt, key="abc.def")  # noqa
+        file = ln.File(df, key="test_.def")
     assert (
         error.exconly().partition(",")[0]
         == "ValueError: The suffix '.def' of the provided key is incorrect"
@@ -678,7 +680,7 @@ def test_adata_suffix():
     assert file.suffix == ".zrad"
 
     with pytest.raises(ValueError) as error:
-        file = ln.File(adata, key="abc.def")
+        file = ln.File(adata, key="test_.def")
     assert (
         error.exconly().partition(",")[0]
         == "ValueError: Error when specifying AnnData storage format"
