@@ -207,10 +207,7 @@ def standardize(
 
 
 def set_abbr(self, value: str):
-    if not hasattr(self, "abbr"):
-        raise AttributeError(
-            f"'{self.__class__.__name__}' object has no attribute 'abbr'"
-        )
+    self.abbr = value
 
     if hasattr(self, "name") and value == self.name:
         pass
@@ -220,7 +217,6 @@ def set_abbr(self, value: str):
         except Exception:  # pragma: no cover
             pass
 
-    self.abbr = value
     if not self._state.adding:
         self.save()
 
