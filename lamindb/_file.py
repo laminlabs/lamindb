@@ -298,6 +298,13 @@ def get_file_kwargs_from_data(
     memory_rep, filepath, suffix, storage, use_existing_storage_key = process_data(
         provisional_id, data, format, skip_check_exists
     )
+    if memory_rep is not None and key is not None:
+        key_suffix = PurePosixPath(key).suffix
+        if key_suffix != suffix:
+            raise ValueError(
+                f"The suffix '{key_suffix}' of the provided key is incorrect, it should"
+                f" be '{suffix}'."
+            )
     # the following will return a localpath that is not None if filepath is local
     # it will return a cloudpath that is not None if filepath is on the cloud
     local_filepath, cloud_filepath, size, hash_and_type = get_path_size_hash(

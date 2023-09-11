@@ -645,3 +645,13 @@ def test_zarr_folder_upload():
     file.delete(storage=True)
     delete_storage(zarr_path)
     ln.settings.storage = previous_storage
+
+
+@pytest.mark.parametrize("inpt", [adata, df])
+def test_invalid_suffix(inpt):
+    with pytest.raises(ValueError) as error:
+        file = ln.File(inpt, key="abc.def")  # noqa
+    assert (
+        error.exconly().partition(",")[0]
+        == "ValueError: The suffix '.cgf' of the provided key is incorrect"
+    )
