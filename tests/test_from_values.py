@@ -56,14 +56,12 @@ def test_from_values_species():
     settings.species = "human"
     values = ["ABC1"]
     curated_values = Gene.bionty().standardize(values)
-    print(curated_values)
     records = Gene.from_values(curated_values, Gene.symbol)
     assert records[0].ensembl_gene_id == "ENSG00000068097"
 
     settings.species = "mouse"
     values = ["ABC1"]
     curated_values = Gene.bionty().standardize(values)
-    print(curated_values)
     records = Gene.from_values(curated_values, Gene.symbol)
     assert records[0].ensembl_gene_id == "ENSMUSG00000015243"
 

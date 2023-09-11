@@ -953,7 +953,7 @@ def view_tree(
         folder_tree += f"... length_limit, {length_limit}, reached, counted:"
     directory_info = "directory" if n_directories == 1 else "directories"
     display_suffixes = ", ".join([f"{suffix!r}" for suffix in suffixes])
-    print(
+    logger.print(
         f"{dir_path.name} ({n_directories} sub-{directory_info} & {n_files} files with"
         f" suffixes {display_suffixes}): {folder_tree}"
     )
