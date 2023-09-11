@@ -3,7 +3,7 @@ import inspect
 from typing import List, Optional
 
 from IPython.display import display
-from lamin_utils import colors
+from lamin_utils import colors, logger
 from lamindb_setup import settings
 from lamindb_setup.dev._setup_schema import get_schema_module_name
 from lnschema_core import Registry
@@ -48,9 +48,9 @@ def view(
         if len(schema_names) > 1:
             section = f"* module: {colors.green(colors.bold(schema_name))} *"
             section_no_color = f"* module: {schema_name} *"
-            print("*" * len(section_no_color))
-            print(section)
-            print("*" * len(section_no_color))
+            logger.print("*" * len(section_no_color))
+            logger.print(section)
+            logger.print("*" * len(section_no_color))
         for orm in sorted(filtered_registries, key=lambda x: x.__name__):
             if hasattr(orm, "updated_at"):
                 df = orm.filter().order_by("-updated_at")[:n].df()
@@ -58,5 +58,5 @@ def view(
                 # need to adjust in the future
                 df = orm.filter().df().iloc[-n:]
             if df.shape[0] > 0:
-                print(colors.blue(colors.bold(orm.__name__)))
+                logger.print(colors.blue(colors.bold(orm.__name__)))
                 display(df)
