@@ -149,7 +149,7 @@ def store_object(localpath: Union[str, Path, UPath], storagekey: str) -> float:
         size = sum(f.stat().st_size for f in localpath.rglob("*") if f.is_file())
 
     if not isinstance(storagepath, LocalPathClasses):
-        if localpath.suffix != ".zarr":
+        if localpath.suffix not in {".zarr", ".zrad"}:
             cb = ProgressCallback("uploading")
         else:
             # todo: make proper progress bar for zarr

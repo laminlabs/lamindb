@@ -11,7 +11,7 @@ def infer_suffix(dmem, adata_format: Optional[str] = None):
     if isinstance(dmem, AnnData):
         if adata_format is not None:
             # below should be zrad, not zarr
-            if adata_format not in ("h5ad", "zarr"):
+            if adata_format not in ("h5ad", "zarr", "zrad"):
                 raise ValueError
             return "." + adata_format
         return ".h5ad"
