@@ -125,7 +125,7 @@ def process_data(
         # Alex: I don't understand the line below
         if filepath.suffixes == []:
             filepath = filepath.with_suffix(suffix)
-        if suffix != ".zarr":
+        if suffix not in {".zarr", ".zrad"}:
             write_to_file(data, filepath)
         use_existing_storage_key = False
     else:
@@ -198,7 +198,7 @@ def get_path_size_hash(
     localpath = None
     hash_and_type: Tuple[Optional[str], Optional[str]]
 
-    if suffix == ".zarr":
+    if suffix in {".zarr", ".zrad"}:
         if memory_rep is not None:
             size = size_adata(memory_rep)
         else:
@@ -810,7 +810,7 @@ def load(
 
 
 def stage(self, is_run_input: Optional[bool] = None) -> Path:
-    if self.suffix in (".zrad", ".zarr"):
+    if self.suffix in {".zrad", ".zarr"}:
         raise RuntimeError("zarr object can't be staged, please use load() or stream()")
     _track_run_input(self, is_run_input)
 
