@@ -1,5 +1,6 @@
 # Changelog
 
+- 🔊 Add important and print level loggings [PR1159](https://github.com/laminlabs/lamindb/pull/1159) [@sunnyosun](https://github.com/sunnyosun)
 - 📝 Minor edits of landing page [PR1158](https://github.com/laminlabs/lamindb/pull/1158) [@sunnyosun](https://github.com/sunnyosun)
 - 🧪 Test save [PR1157](https://github.com/laminlabs/lamindb/pull/1157) [@sunnyosun](https://github.com/sunnyosun)
 - 🔥 Remove add_labels & get_labels [PR1155](https://github.com/laminlabs/lamindb/pull/1155) [@falexwolf](https://github.com/falexwolf)
