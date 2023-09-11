@@ -634,7 +634,7 @@ def test_zarr_folder_upload():
     def callback(*args, **kwargs):
         pass
 
-    zarr_path = Path("./default_storage/test_adata.zrad")
+    zarr_path = Path("./test_adata.zrad")
     write_adata_zarr(adata, zarr_path, callback)
 
     file = ln.File(zarr_path)
