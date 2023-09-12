@@ -121,9 +121,9 @@ def process_data(
         storage = lamindb_setup.settings.storage.record
         memory_rep = data
         if key is not None:
-            key_suffix = PurePosixPath(key).suffix
+            key_suffix = extract_suffix_from_path(PurePosixPath(key), arg_name="key")
             # use suffix as the (adata) format if the format is not provided
-            if isinstance(data, AnnData) and format is None:
+            if isinstance(data, AnnData) and format is None and len(key_suffix) > 0:
                 format = key_suffix[1:]
         else:
             key_suffix = None

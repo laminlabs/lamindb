@@ -1,7 +1,7 @@
 import os
 import shutil
 from pathlib import Path
-from typing import Literal, Union
+from typing import Literal, Optional, Union
 
 import anndata as ad
 import fsspec
@@ -48,11 +48,14 @@ KNOWN_SUFFIXES = {
 }
 
 
-def extract_suffix_from_path(path: Union[UPath, Path]) -> str:
+def extract_suffix_from_path(
+    path: Union[UPath, Path], arg_name: Optional[str] = None
+) -> str:
     if len(path.suffixes) <= 1:
         return path.suffix
     else:
-        msg = "file has more than one suffix (path.suffixes), "
+        arg_name = "file" if arg_name is None else arg_name  # for the warning
+        msg = f"{arg_name} has more than one suffix (path.suffixes), "
         # first check the 2nd-to-last suffix because it might be followed by .gz
         # or another compression-related suffix
         if path.suffixes[-2] in KNOWN_SUFFIXES:

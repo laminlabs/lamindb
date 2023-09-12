@@ -678,6 +678,8 @@ def test_adata_suffix():
     assert file.suffix == ".zrad"
     file = ln.File(adata, format="zrad", key="test_.zrad")
     assert file.suffix == ".zrad"
+    file = ln.File(adata, key="test_")
+    assert file.suffix == ".h5ad"
 
     with pytest.raises(ValueError) as error:
         file = ln.File(adata, key="test_.def")
