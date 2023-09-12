@@ -18,20 +18,11 @@ lnschema_bionty as bt`.
 import importlib as _importlib
 
 from lamindb_setup import settings as _settings
-from lamindb_setup.dev._setup_schema import (
-    check_schema_version_and_import as _check_schema_version_and_import,
-)
+from lamindb_setup._init_instance import reload_schema_modules as _reload_schema_modules
 
 from .. import _INSTANCE_SETUP
 
-
-def _import_schema():
-    for name in _settings.instance.schema:
-        module = _check_schema_version_and_import(name)
-        globals()[module._name] = module
-
-
 if _INSTANCE_SETUP:
-    _import_schema()
+    _reload_schema_modules(_settings.instance)
 
 from ._core import graph, view
