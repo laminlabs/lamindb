@@ -1,5 +1,6 @@
 # Changelog
 
+- ⬆️ Update fsspec to 2023.9.0 [PR1162](https://github.com/laminlabs/lamindb/pull/1162) [@Koncopd](https://github.com/Koncopd)
 - 🎨 More validation for `File` creation, fix some aspects of zarr backend [PR1160](https://github.com/laminlabs/lamindb/pull/1160) [@Koncopd](https://github.com/Koncopd)
 - 🔊 Only log saved and loaded when verbosity is success [PR1161](https://github.com/laminlabs/lamindb/pull/1161) [@sunnyosun](https://github.com/sunnyosun)
 - 🔊 Add important and print level loggings [PR1159](https://github.com/laminlabs/lamindb/pull/1159) [@sunnyosun](https://github.com/sunnyosun)
