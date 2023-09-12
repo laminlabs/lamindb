@@ -5,7 +5,7 @@ from typing import List, Optional
 from IPython.display import display
 from lamin_utils import colors, logger
 from lamindb_setup import settings
-from lamindb_setup.dev._setup_schema import get_schema_module_name
+from lamindb_setup._init_instance import get_schema_module_name
 from lnschema_core import Registry
 
 
