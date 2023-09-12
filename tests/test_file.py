@@ -678,8 +678,6 @@ def test_adata_suffix():
     assert file.suffix == ".zrad"
     file = ln.File(adata, format="zrad", key="test_.zrad")
     assert file.suffix == ".zrad"
-    file = ln.File(adata, key="test_")
-    assert file.suffix == ".h5ad"
 
     with pytest.raises(ValueError) as error:
         file = ln.File(adata, key="test_.def")
@@ -693,4 +691,11 @@ def test_adata_suffix():
     assert (
         error.exconly().partition(",")[0]
         == "ValueError: The suffix '.zrad' of the provided key is incorrect"
+    )
+
+    with pytest.raises(ValueError) as error:
+        file = ln.File(adata, key="test_")
+    assert (
+        error.exconly().partition(",")[0]
+        == "ValueError: The suffix '' of the provided key is incorrect"
     )
