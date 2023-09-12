@@ -19,6 +19,7 @@ from lamindb._file import (
     get_relative_path_to_directory,
     process_data,
 )
+from lamindb.dev.storage._zarr import write_adata_zarr
 from lamindb.dev.storage.file import (
     AUTO_KEY_PREFIX,
     auto_storage_key_from_id_suffix,
@@ -129,7 +130,7 @@ def test_is_new_version_of_versioned_file():
 
     # AUTO_KEY_PREFIX
     with pytest.raises(ValueError) as error:
-        ln.File(df, key=".lamindb/")
+        ln.File(df, key=".lamindb/test_df.parquet")
     assert error.exconly() == "ValueError: Key cannot start with .lamindb/"
 
 
@@ -559,14 +560,22 @@ def test_serialize_paths():
     up_str = "s3://lamindb-ci/test-data/test.csv"
     up_upath = UPath(up_str)
 
-    _, filepath, _, _, _ = process_data("id", fp_str, None, skip_existence_check=True)
+    _, filepath, _, _, _ = process_data(
+        "id", fp_str, None, None, skip_existence_check=True
+    )
     assert isinstance(filepath, LocalPathClasses)
-    _, filepath, _, _, _ = process_data("id", fp_path, None, skip_existence_check=True)
+    _, filepath, _, _, _ = process_data(
+        "id", fp_path, None, None, skip_existence_check=True
+    )
     assert isinstance(filepath, LocalPathClasses)
 
-    _, filepath, _, _, _ = process_data("id", up_str, None, skip_existence_check=True)
+    _, filepath, _, _, _ = process_data(
+        "id", up_str, None, None, skip_existence_check=True
+    )
     assert isinstance(filepath, CloudPath)
-    _, filepath, _, _, _ = process_data("id", up_upath, None, skip_existence_check=True)
+    _, filepath, _, _, _ = process_data(
+        "id", up_upath, None, None, skip_existence_check=True
+    )
     assert isinstance(filepath, CloudPath)
 
 
@@ -624,3 +633,69 @@ def test_file_zarr():
     file.save()
     file.delete(storage=False)
     UPath("test.zarr").unlink()
+
+
+def test_zarr_folder_upload():
+    previous_storage = ln.setup.settings.storage.root_as_str
+    ln.settings.storage = "s3://lamindb-test"
+
+    def callback(*args, **kwargs):
+        pass
+
+    zarr_path = Path("./test_adata.zrad")
+    write_adata_zarr(adata, zarr_path, callback)
+
+    file = ln.File(zarr_path, key="test_adata.zrad")
+    file.save()
+
+    assert isinstance(file.path, CloudPath) and file.path.exists()
+
+    file.delete(storage=True)
+    delete_storage(zarr_path)
+    ln.settings.storage = previous_storage
+
+
+def test_df_suffix():
+    file = ln.File(df, key="test_.parquet")
+    assert file.suffix == ".parquet"
+
+    with pytest.raises(ValueError) as error:
+        file = ln.File(df, key="test_.def")
+    assert (
+        error.exconly().partition(",")[0]
+        == "ValueError: The suffix '.def' of the provided key is incorrect"
+    )
+
+
+def test_adata_suffix():
+    file = ln.File(adata, key="test_.h5ad")
+    assert file.suffix == ".h5ad"
+    file = ln.File(adata, format="h5ad", key="test_.h5ad")
+    assert file.suffix == ".h5ad"
+    file = ln.File(adata, key="test_.zarr")
+    assert file.suffix == ".zarr"
+    file = ln.File(adata, key="test_.zrad")
+    assert file.suffix == ".zrad"
+    file = ln.File(adata, format="zrad", key="test_.zrad")
+    assert file.suffix == ".zrad"
+
+    with pytest.raises(ValueError) as error:
+        file = ln.File(adata, key="test_.def")
+    assert (
+        error.exconly().partition(",")[0]
+        == "ValueError: Error when specifying AnnData storage format"
+    )
+
+    with pytest.raises(ValueError) as error:
+        file = ln.File(adata, format="h5ad", key="test.zrad")
+    assert (
+        error.exconly().partition(",")[0]
+        == "ValueError: The suffix '.zrad' of the provided key is incorrect"
+    )
+
+    with pytest.raises(ValueError) as error:
+        file = ln.File(adata, key="test_")
+    assert (
+        error.exconly().partition(",")[0]
+        == "ValueError: The suffix '' of the provided key is incorrect"
+    )
