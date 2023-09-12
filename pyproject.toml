@@ -38,13 +38,14 @@ bionty = [
 ]
 postgres = ["psycopg2-binary"]
 aws = [
-    "botocore==1.29.76",  # for aiobotocore inside s3fs, to fix deps resolution
+    "botocore==1.31.17",  # for aiobotocore inside s3fs, to fix deps resolution
     "urllib3<2", # for botocore
-    "boto3==1.26.76", # to avoid conflicts arising due to the pin on botocore
-    "fsspec[s3]==2023.5.0"
+    "boto3==1.28.17", # to avoid conflicts arising due to the pin on botocore
+    "aiobotocore==2.5.4",
+    "fsspec[s3]==2023.9.0"
 ]
 gcp = [
-    "fsspec[gs]==2023.5.0"
+    "fsspec[gs]==2023.9.0"
 ]
 jupyter = [
     "nbproject==0.9.2"  # keep pinning
