@@ -13,11 +13,11 @@ LaminDB attempts to provide a unified framework that addresses the [key problems
   - {class}`~lamindb.dev.CanValidate.validate` & {class}`~lamindb.dev.CanValidate.standardize` metadata of vectors & arrays, {class}`~lamindb.dev.CanValidate.inspect` validation failures
   - register & annotate: use {class}`~lamindb.dev.LabelManager.add` to annotate with untyped or typed labels, {class}`~lamindb.File.save` to save data & metadata
 - {meth}`~lamindb.track` data flow (provenance/ lineage) across notebooks, pipelines & UI using just two classes: {class}`~lamindb.Transform` & {class}`~lamindb.Run`
-- Unify registries for experimental metadata & [ontologies](lamindb.dev.HasParents) in a SQL database, embed custom ontologies in public knowledge with plug-in {mod}`lnschema_bionty`
+- Unify registries for experimental metadata & ontologies in a SQL database, embed custom ontologies in public knowledge with plug-in {mod}`lnschema_bionty`
 - Bridge immutable data artifacts ({class}`~lamindb.File`) and data warehousing ({class}`~lamindb.Dataset`)
-- Model data [schema-less](lamindb.ULabel) or [schema-full](lnschema_bionty), add [custom schema plug-ins & manage schema migrations](/schemas)
+- Model data schema-less or schema-full, add [custom schema plug-ins & manage schema migrations](/schemas)
 - No silos: create DB instances within seconds and share data across a mesh of instances
-- Awareness of [common array formats in memory & storage](lamindb.File): `DataFrame`, `AnnData`, `MuData`, `pyarrow.Table` backed by `h5ad`, `parquet`, `zarr`, `TileDB`, `HDF5`
+- Awareness of common array formats in memory & storage: `DataFrame`, `AnnData`, `MuData`, `pyarrow.Table` backed by `h5ad`, `parquet`, `zarr`, `TileDB`, `HDF5`
 - Model data to drive insights with learning: {class}`~lamindb.Feature`, {class}`~lamindb.FeatureSet`, {class}`~lamindb.ULabel`, {class}`~lamindb.Modality`
 
 **How?**
@@ -43,7 +43,7 @@ LaminDB attempts to provide a unified framework that addresses the [key problems
    d. Concatenated array stores for large-scale atlas-like datasets
 3. Semantics of high-level embeddings ("inflammatory", "lipophile") are typically anchored in experimental metadata and ontologies
 4. Experimental metadata is another ontology type
-5. Experiments measure features ({class}`~lamindb.Feature`, {class}`~lamindb.CellMarker`, ...) and is annotated by labels ({class}`~lamindb.ULabel`, {class}`~lamindb.CellLine`)
+5. Experiments measure features ({class}`~lamindb.Feature`, {class}`~lnschema_bionty.CellMarker`, ...) and is annotated by labels ({class}`~lamindb.ULabel`, {class}`~lnschema_bionty.CellLine`)
 6. Learning and data warehousing both consist in iterative data transformations ({class}`~lamindb.Transform`)
 7. Basic biological entities should have the same meaning to anyone and across any data platform instance
 8. Migrations should be easy
