@@ -129,6 +129,8 @@ class QuerySet(models.QuerySet):
                         left_side_link_model, values_expression
                     )
                 )
+                if link_df.shape[0] == 0:
+                    return df
                 link_groupby = link_df.groupby(left_side_link_model)[
                     values_expression
                 ].apply(list)
