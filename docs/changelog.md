@@ -1,5 +1,6 @@
 # Changelog
 
+- 🔊 Turn on hint for tutorials [PR1164](https://github.com/laminlabs/lamindb/pull/1164) [@sunnyosun](https://github.com/sunnyosun)
 - ⚡ Speed up instance loading time & refactor lamindb-setup [PR1163](https://github.com/laminlabs/lamindb/pull/1163) [@falexwolf](https://github.com/falexwolf)
 - ⬆️ Update fsspec to 2023.9.0 [PR1162](https://github.com/laminlabs/lamindb/pull/1162) [@Koncopd](https://github.com/Koncopd)
 - 🎨 More validation for `File` creation, fix some aspects of zarr backend [PR1160](https://github.com/laminlabs/lamindb/pull/1160) [@Koncopd](https://github.com/Koncopd)
