@@ -1,5 +1,9 @@
 # Changelog
 
+- 📝 Improve validate docs [PR1170](https://github.com/laminlabs/lamindb/pull/1170) [@sunnyosun](https://github.com/sunnyosun)
+- ⬆️ Fix inspect logging [PR1169](https://github.com/laminlabs/lamindb/pull/1169) [@sunnyosun](https://github.com/sunnyosun)
+- 🔇 Do not log transform twice when a transform in updated [PR1168](https://github.com/laminlabs/lamindb/pull/1168) [@sunnyosun](https://github.com/sunnyosun)
+- 🐛 Fix view_parents when there are no parents [PR1167](https://github.com/laminlabs/lamindb/pull/1167) [@sunnyosun](https://github.com/sunnyosun)
 - 📝 Add more explanations to validate and bio-registries guides [PR1165](https://github.com/laminlabs/lamindb/pull/1165) [@sunnyosun](https://github.com/sunnyosun)
 - 🔊 Turn on hint for tutorials [PR1164](https://github.com/laminlabs/lamindb/pull/1164) [@sunnyosun](https://github.com/sunnyosun)
 - ⚡ Speed up instance loading time & refactor lamindb-setup [PR1163](https://github.com/laminlabs/lamindb/pull/1163) [@falexwolf](https://github.com/falexwolf)

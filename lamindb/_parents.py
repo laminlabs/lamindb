@@ -140,16 +140,23 @@ def _view_parents(
     import graphviz
     import pandas as pd
 
-    df_edges = _df_edges_from_parents(record=record, field=field, distance=distance)
+    df_edges = None
+    df_edges_parents = _df_edges_from_parents(
+        record=record, field=field, distance=distance
+    )
+    if df_edges_parents is not None:
+        df_edges = df_edges_parents
     if with_children:
-        df_edges = pd.concat(
-            [
-                df_edges,
-                _df_edges_from_parents(
-                    record=record, field=field, distance=distance, children=True
-                ),
-            ]
-        ).drop_duplicates()
+        df_edges_children = _df_edges_from_parents(
+            record=record, field=field, distance=distance, children=True
+        )
+        if df_edges_children is not None:
+            if df_edges is not None:
+                df_edges = pd.concat(
+                    [df_edges_parents, df_edges_children]
+                ).drop_duplicates()
+            else:
+                df_edges = df_edges_children
 
     record_label = record.__getattribute__(field)
 
@@ -172,10 +179,11 @@ def _view_parents(
         else _add_emoji(record, record_label),
         fillcolor=LAMIN_GREEN_LIGHTER,
     )
-    for _, row in df_edges.iterrows():
-        u.node(row["source"], label=row["source_label"])
-        u.node(row["target"], label=row["target_label"])
-        u.edge(row["source"], row["target"], color="dimgrey")
+    if df_edges is not None:
+        for _, row in df_edges.iterrows():
+            u.node(row["source"], label=row["source_label"])
+            u.node(row["target"], label=row["target_label"])
+            u.edge(row["source"], row["target"], color="dimgrey")
 
     _view(u)
 
@@ -216,6 +224,8 @@ def _df_edges_from_parents(
     all = record.__class__.objects
     records = parents | all.filter(id=record.id)
     df = records.distinct().df(include=[f"{key}__id"])
+    if f"{key}__id" not in df.columns:
+        return None
     df_edges = df[[f"{key}__id"]]
     df_edges = df_edges.explode(f"{key}__id")
     df_edges.index.name = "target"

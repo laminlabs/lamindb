@@ -468,7 +468,6 @@ class run_context:
             transform.save()
             save_or_load(f"saved: {transform}")
         else:
-            save_or_load(f"loaded: {transform}")
             # check whether there was an update
             if transform.name != name or transform.short_name != short_name:
                 response = input(
@@ -492,4 +491,6 @@ class run_context:
                     save_or_load(f"saved: {transform}")
                 else:
                     save_or_load(f"updated: {transform}")
+            else:
+                save_or_load(f"loaded: {transform}")
         cls.transform = transform
