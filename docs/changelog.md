@@ -1,5 +1,6 @@
 # Changelog
 
+- 📝 Improve validate docs [PR1170](https://github.com/laminlabs/lamindb/pull/1170) [@sunnyosun](https://github.com/sunnyosun)
 - ⬆️ Fix inspect logging [PR1169](https://github.com/laminlabs/lamindb/pull/1169) [@sunnyosun](https://github.com/sunnyosun)
 - 🔇 Do not log transform twice when a transform in updated [PR1168](https://github.com/laminlabs/lamindb/pull/1168) [@sunnyosun](https://github.com/sunnyosun)
 - 🐛 Fix view_parents when there are no parents [PR1167](https://github.com/laminlabs/lamindb/pull/1167) [@sunnyosun](https://github.com/sunnyosun)
