@@ -1,4 +1,4 @@
-**Why?**
+**Motivations**
 
 In many organizations, fragmented object stores, SQL databases & ELN/LIMS systems pile up non-findable, inaccessible, hard-to-integrate & non-backtracable data.
 
@@ -6,21 +6,31 @@ This also holds for the derived analytical insights, which makes it hard to opti
 
 LaminDB attempts to provide a unified framework that addresses the [key problems](https://lamin.ai/blog/2022/problems) underlying this tendency.
 
-**What?**
+**Key features**
 
-- Unified Python API to manage data & metadata across storage & SQL database backends
-  - access: {class}`~lamindb.dev.Registry.filter`, {class}`~lamindb.dev.Registry.search`, {class}`~lamindb.File.stage`, {class}`~lamindb.File.backed`, {class}`~lamindb.File.load`
-  - {class}`~lamindb.dev.CanValidate.validate` & {class}`~lamindb.dev.CanValidate.standardize` metadata of vectors & arrays, {class}`~lamindb.dev.CanValidate.inspect` validation failures
-  - register & annotate: use {class}`~lamindb.dev.LabelManager.add` to annotate with untyped or typed labels, {class}`~lamindb.File.save` to save data & metadata
-- {meth}`~lamindb.track` data flow (provenance/ lineage) across notebooks, pipelines & UI using just two classes: {class}`~lamindb.Transform` & {class}`~lamindb.Run`
-- Unify registries for experimental metadata & ontologies in a SQL database, embed custom ontologies in public knowledge with plug-in {mod}`lnschema_bionty`
+`LaminDB` is a Python library to manage biological data and analyses with well-established backends (SQL, arrays):
+
+🗃️ Unified access: Same API to manage data & metadata across storage & SQL database backends
+
+- Awareness of common array formats in memory & storage: `DataFrame`, `AnnData`, `MuData`, `pyarrow.Table` backed by `h5ad`, `parquet`, `zarr`, `TileDB`, `HDF5`
 - Bridge immutable data artifacts ({class}`~lamindb.File`) and data warehousing ({class}`~lamindb.Dataset`)
 - Model data schema-less or schema-full, add [custom schema plug-ins & manage schema migrations](/schemas)
-- No silos: create DB instances within seconds and share data across a mesh of instances
-- Awareness of common array formats in memory & storage: `DataFrame`, `AnnData`, `MuData`, `pyarrow.Table` backed by `h5ad`, `parquet`, `zarr`, `TileDB`, `HDF5`
+- access: {class}`~lamindb.dev.Registry.filter`, {class}`~lamindb.dev.Registry.search`, {class}`~lamindb.File.stage`, {class}`~lamindb.File.backed`, {class}`~lamindb.File.load`
+
+🛤️ Track the process: {meth}`~lamindb.track` data flow (provenance/ lineage) across notebooks, pipelines & UI with {class}`~lamindb.Transform` & {class}`~lamindb.Run`
+
+✅ Built-in validations: {class}`~lamindb.dev.CanValidate.validate` & {class}`~lamindb.dev.CanValidate.standardize` metadata of vectors & arrays, {class}`~lamindb.dev.CanValidate.inspect` validation failures
+
+📜 Register & annotate data: Unified registries for experimental metadata & ontologies in a SQL database
+
+- Embed in > 20 public ontologies with plug-in {mod}`lnschema_bionty`
+- **Bionty** is a plug-in to model basic biological entities. For instance, {class}`~lnschema_bionty.Gene`, {class}`~lnschema_bionty.Protein`, {class}`~lnschema_bionty.CellMarker`, {class}`~lnschema_bionty.ExperimentalFactor`, {class}`~lnschema_bionty.CellType`, {class}`~lnschema_bionty.CellLine`, ...
+- use {class}`~lamindb.dev.LabelManager.add` to annotate with untyped or typed labels, {class}`~lamindb.File.save` to save data & metadata
 - Model data to drive insights with learning: {class}`~lamindb.Feature`, {class}`~lamindb.FeatureSet`, {class}`~lamindb.ULabel`, {class}`~lamindb.Modality`
 
-**How?**
+🔗 No silos: Create DB instances within seconds and share data across a mesh of instances
+
+**For platform builders**
 
 - Zero lock-in: universal, simple storage formats, LaminDB is **not** a client for "Lamin Cloud" but can run server-side allowing you to build your own apps
 - Scalable: metadata tables support 100s of millions of entries at reasonable query speed
