@@ -8,7 +8,7 @@ LaminDB attempts to provide a unified framework that addresses the [key problems
 
 **Key features**
 
-`LaminDB` is a Python library to manage biological data and analyses with well-established backends (SQL, arrays):
+**LaminDB** is a Python library to manage biological data and analyses with well-established backends (SQL, arrays):
 
 🗃️ Unified access: Same API to manage data & metadata across storage & SQL database backends
 
