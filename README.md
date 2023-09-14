@@ -10,7 +10,7 @@
 
 - 🗃️ Unified access to manage data & metadata across storage & SQL database backends
 - 🛤️ Track the data flow across notebooks, pipelines & UI
-- ✅ Built-in validations to increase re-usability of data
+- ✅ Built-in categorical validations against in-house & public references
 - 📜 Unified registries for experimental metadata & ontologies in a SQL database
 - 🔗 Create DB instances within seconds and share data across a mesh of instances
 
