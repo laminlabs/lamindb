@@ -306,13 +306,17 @@ def test_create_from_local_filepath(get_test_filepaths, key, description):
         )
         return None
     elif key is not None and isin_existing_storage:
+        inferred_key = get_relative_path_to_directory(
+            path=test_filepath, directory=root_dir
+        ).as_posix()
         with pytest.raises(ValueError) as error:
             file = ln.File(test_filepath, key=key, description=description)
         assert (
             error.exconly()
-            == "ValueError: You passed a target key within a registered storage"
-            " location that differs from the current location. Please move the file"
-            " before registering in lamindb."
+            == "ValueError: The file is already in registered storage"
+            f" '{root_dir.resolve().as_posix()}' with key '{inferred_key}'\nYou"
+            f" passed conflicting key {key}: please move the file before"
+            " registering it."
         )
         return None
     else:
@@ -373,16 +377,14 @@ ValueError: Currently don't support tracking folders outside one of the storage 
 @pytest.mark.parametrize("key", [None, "my_new_folder"])
 def test_from_dir(get_test_filepaths, key):
     isin_existing_storage = get_test_filepaths[0]
+    root_dir = get_test_filepaths[1]
     test_dirpath = get_test_filepaths[2]
     # the directory contains 3 files, two of them are duplicated
     if key is not None and isin_existing_storage:
         with pytest.raises(ValueError) as error:
             ln.File.from_dir(test_dirpath, key=key)
-        assert (
-            error.exconly()
-            == "ValueError: You passed a target key within a registered storage"
-            " location that differs from the current location. Please move the file"
-            " before registering in lamindb."
+        assert error.exconly().startswith(
+            f"ValueError: The file is already in registered storage '{root_dir}'"
         )
         return None
     else:
