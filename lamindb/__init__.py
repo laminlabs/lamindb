@@ -101,12 +101,12 @@ if _INSTANCE_SETUP:
     from . import _feature  # noqa
     from . import _feature_set  # noqa
     from . import _file  # noqa
-    from . import _label  # noqa
     from . import _parents  # noqa
     from . import _registry  # noqa
     from . import _run  # noqa
     from . import _storage  # noqa
     from . import _transform  # noqa
+    from . import _ulabel  # noqa
     from . import _validate  # noqa
     from . import dev  # noqa
     from . import schema  # noqa
