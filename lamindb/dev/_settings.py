@@ -109,7 +109,7 @@ class Settings:
         else:
             verbosity_int = verbosity
         self._verbosity = verbosity_int
-        logger.set_verbosity(verbosity)
+        logger.set_verbosity(verbosity_int)
 
 
 settings = Settings()
