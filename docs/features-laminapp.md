@@ -14,3 +14,7 @@ Browse files.
 <br>
 
 If logged in, explore a public demo LaminDB instance: [lamin.ai/laminlabs/lamindata](https://lamin.ai/laminlabs/lamindata)
+
+<br>
+
+Unlike GitHub, LaminApp does not host data or metadata, but merely connects to storage locations & databases.
