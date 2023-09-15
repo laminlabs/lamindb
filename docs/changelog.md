@@ -1,5 +1,7 @@
 # Changelog
 
+- 🔒 Add client fallbacks to lamindb-setup [PR1172](https://github.com/laminlabs/lamindb/pull/1172) [@falexwolf](https://github.com/falexwolf)
+- 📝 Add a features page & re-organize landing page [PR1166](https://github.com/laminlabs/lamindb/pull/1166) [@falexwolf](https://github.com/falexwolf)
 - 📝 Improve validate docs [PR1170](https://github.com/laminlabs/lamindb/pull/1170) [@sunnyosun](https://github.com/sunnyosun)
 - ⬆️ Fix inspect logging [PR1169](https://github.com/laminlabs/lamindb/pull/1169) [@sunnyosun](https://github.com/sunnyosun)
 - 🔇 Do not log transform twice when a transform in updated [PR1168](https://github.com/laminlabs/lamindb/pull/1168) [@sunnyosun](https://github.com/sunnyosun)
