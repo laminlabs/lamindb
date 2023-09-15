@@ -4,13 +4,13 @@
 
 # LaminDB - Open-source data platform for biology
 
-<img src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/BunYmHkyFLITlM5MYQci.svg" width="350px" style="background: transparent" align="right">
+LaminDB is a Python framework to manage biological data & analyses in generic backends:
 
-**LaminDB** is a Python library to manage biological data and analyses with well-established backends (SQL, arrays):
-
-- Access & validate data with metadata ontologies.
-- Track data flow through pipelines, notebooks & UI.
-- Unify learning with data warehousing.
+- Unify access to data & metadata across storage (files, arrays) & database (SQL) backends.
+- Track data flow across notebooks, pipelines & UI.
+- Manage registries for experimental metadata & ontologies in a simple database.
+- Validate & annotate data using in-house & public knowledge.
+- Create DB instances within seconds and share data across a mesh of instances.
 
 ## Documentation
 
