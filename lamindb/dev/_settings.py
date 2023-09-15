@@ -5,6 +5,15 @@ import lamindb_setup as ln_setup
 from lamin_utils import logger
 from upath import UPath
 
+VERBOSITY_TO_INT = {
+    "error": 0,  # 40
+    "warning": 1,  # 30
+    "success": 2,  # 25
+    "info": 3,  # 20
+    "hint": 4,  # 15
+    "debug": 5,  # 10
+}
+
 
 class Settings:
     """Settings.
@@ -94,9 +103,13 @@ class Settings:
         return self._verbosity
 
     @verbosity.setter
-    def verbosity(self, verbosity: int):
-        self._verbosity = verbosity
-        logger.set_verbosity(verbosity)
+    def verbosity(self, verbosity: Union[str, int]):
+        if isinstance(verbosity, str):
+            verbosity_int = VERBOSITY_TO_INT[verbosity]
+        else:
+            verbosity_int = verbosity
+        self._verbosity = verbosity_int
+        logger.set_verbosity(verbosity_int)
 
 
 settings = Settings()
