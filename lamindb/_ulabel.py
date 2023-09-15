@@ -21,11 +21,21 @@ def __init__(self, *args, **kwargs):
     description: Optional[str] = (
         kwargs.pop("description") if "description" in kwargs else None
     )
+    reference: Optional[str] = (
+        kwargs.pop("reference") if "reference" in kwargs else None
+    )
+    reference_type: Optional[str] = (
+        kwargs.pop("reference_type") if "reference_type" in kwargs else None
+    )
     if len(kwargs) > 0:
-        raise ValueError("Only name & description are valid keyword arguments")
+        raise ValueError(
+            "Only name, description, reference, reference_type are valid keyword arguments"  # noqa
+        )
     super(ULabel, self).__init__(
         name=name,
         description=description,
+        reference=reference,
+        reference_type=reference_type,
     )
 
 
