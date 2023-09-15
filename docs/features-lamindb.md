@@ -1,59 +1,55 @@
-**Motivations**
-
-In many organizations, fragmented object stores, SQL databases & ELN/LIMS systems pile up non-findable, inaccessible, hard-to-integrate & non-backtracable data.
+In many organizations, fragmented object stores, SQL databases & ELN/LIMS systems pile up non-findable, inaccessible, hard-to-integrate & non-traceable data.
 
 This also holds for the derived analytical insights, which makes it hard to optimize learning & decision-making across team & ML models.
 
-LaminDB attempts to provide a unified framework that addresses the [key problems](https://lamin.ai/blog/2022/problems) underlying this tendency.
+LaminDB aims to provide a framework that addresses the [key problems](https://lamin.ai/blog/2022/problems) underlying this tendency.
 
 **Key features**
 
-**LaminDB** is a Python library to manage biological data and analyses with well-established backends (SQL, arrays):
-
-🗃️ Unified access: Same API to manage data & metadata across storage & SQL database backends
-
-- Awareness of common array formats in memory & storage: `DataFrame`, `AnnData`, `MuData`, `pyarrow.Table` backed by `h5ad`, `parquet`, `zarr`, `TileDB`, `HDF5`
-- Bridge immutable data artifacts ({class}`~lamindb.File`) and data warehousing ({class}`~lamindb.Dataset`)
-- Model data schema-less or schema-full, add [custom schema plug-ins & manage schema migrations](/schemas)
-- access: {class}`~lamindb.dev.Registry.filter`, {class}`~lamindb.dev.Registry.search`, {class}`~lamindb.File.stage`, {class}`~lamindb.File.backed`, {class}`~lamindb.File.load`
-
-🛤️ Track the process: {meth}`~lamindb.track` data flow (provenance/ lineage) across notebooks, pipelines & UI with {class}`~lamindb.Transform` & {class}`~lamindb.Run`
-
-✅ Built-in validations: {class}`~lamindb.dev.CanValidate.validate` & {class}`~lamindb.dev.CanValidate.standardize` metadata of vectors & arrays, {class}`~lamindb.dev.CanValidate.inspect` validation failures
-
-📜 Register & annotate data: Unified registries for experimental metadata & ontologies in a SQL database
-
-- Embed in > 20 public ontologies with plug-in {mod}`lnschema_bionty`
-- **Bionty** is a plug-in to model basic biological entities. For instance, {class}`~lnschema_bionty.Gene`, {class}`~lnschema_bionty.Protein`, {class}`~lnschema_bionty.CellMarker`, {class}`~lnschema_bionty.ExperimentalFactor`, {class}`~lnschema_bionty.CellType`, {class}`~lnschema_bionty.CellLine`, ...
-- use {class}`~lamindb.dev.LabelManager.add` to annotate with untyped or typed labels, {class}`~lamindb.File.save` to save data & metadata
-- Model data to drive insights with learning: {class}`~lamindb.Feature`, {class}`~lamindb.FeatureSet`, {class}`~lamindb.ULabel`, {class}`~lamindb.Modality`
-
-🔗 No silos: Create DB instances within seconds and share data across a mesh of instances
+- Unify access to data & metadata across storage & SQL database backends:
+  - Query & search by anything: {class}`~lamindb.dev.Registry.filter`, {class}`~lamindb.dev.Registry.search`
+  - Stage, load or stream files & datasets: {class}`~lamindb.File.stage`, {class}`~lamindb.File.load`, {class}`~lamindb.File.backed`
+  - Model data schema-less or schema-full, add [custom schema plug-ins & manage schema migrations](/schemas)
+  - Organize data around learning: {class}`~lamindb.Feature`, {class}`~lamindb.FeatureSet`, {class}`~lamindb.ULabel`, {class}`~lamindb.Modality`
+  - Leverage support for common array formats in memory & storage: `DataFrame`, `AnnData`, `MuData`, `pyarrow.Table` backed by `h5ad`, `parquet`, `zarr`, `TileDB`, `HDF5`
+  - Bridge immutable data artifacts ({class}`~lamindb.File`) and data warehousing ({class}`~lamindb.Dataset`)
+- Track data flow across notebooks, pipelines & UI: {meth}`~lamindb.track`, {class}`~lamindb.Transform` & {class}`~lamindb.Run`.
+- Manage registries for experimental metadata & ontologies in a simple database:
+  - Use >20 public ontologies with plug-in {mod}`lnschema_bionty`
+  - For instance, {class}`~lnschema_bionty.Gene`, {class}`~lnschema_bionty.Protein`, {class}`~lnschema_bionty.CellMarker`, {class}`~lnschema_bionty.ExperimentalFactor`, {class}`~lnschema_bionty.CellType` ...
+- Validate, standardize & annotate data:
+  - {class}`~lamindb.dev.CanValidate.validate` & {class}`~lamindb.dev.CanValidate.standardize`
+  - {class}`~lamindb.dev.CanValidate.inspect` validation failures
+  - annotate with untyped or typed labels: {class}`~lamindb.dev.LabelManager.add`
+  - save data & metadata ACID: {class}`~lamindb.File.save`
+- Create DB instances within seconds and share data across a mesh of instances.
 
 **For platform builders**
 
-- Zero lock-in: universal, simple storage formats, LaminDB is **not** a client for "Lamin Cloud" but can run server-side allowing you to build your own apps
-- Scalable: metadata tables support 100s of millions of entries at reasonable query speed
-- Flexible storage backends (local, S3, GCP, anything [fsspec](https://github.com/fsspec) supports)
-- Currently two SQL backends: SQLite & Postgres (more to come)
-- High-level access management through Lamin's collaborator roles
-- Fine-grained access management via embedded storage & SQL restrictions
-- Secure: fully secure due to embedding in your infrastructure (Lamin has no access to your data & metadata unless you grant us access)
+- Zero lock-in: universal backends, LaminDB is not a client for "Lamin Cloud" but runs server-side
+  - Flexible storage backends (local, S3, GCP, anything [fsspec](https://github.com/fsspec) supports)
+  - Currently two SQL backends for managing metadata: SQLite & Postgres
+- Scalable: metadata tables support 100s of millions of entries
+- Access management:
+  - High-level access management through Lamin's collaborator roles
+  - Fine-grained access management via embedded storage & SQL roles
+- Secure: embedded in your infrastructure (Lamin has no access to your data & metadata)
 - [Idempotent](docs:faq/idempotency) & [ACID](docs:faq/acid) operations
-- File & dataset versioning
-- Numerous safeguards against typos & duplications when populating registries
+- File, dataset & transform versioning
+- Safeguards against typos & duplications when populating registries
 
 **Principles & assumptions**
 
 1. Data is generated by instruments that process physical samples: it comes in batches stored as immutable files.
-2. Data batches (files) are transformed into more useful data representations, e.g.:
-   a. Summary statistics like count matrices for fastq files
-   b. Array stores of non-array-like input data (say images)
-   c. Higher-level embeddings for lower-level array, text or graph representations
-   d. Concatenated array stores for large-scale atlas-like datasets
-3. Semantics of high-level embeddings ("inflammatory", "lipophile") are typically anchored in experimental metadata and ontologies
+2. Files are transformed into more useful data representations, e.g.:
+   - Summary statistics like count matrices for fastq files
+   - Array stores of non-array-like input data (e.g., images)
+   - Higher-level embeddings for lower-level array, text or graph representations
+   - Concatenated array stores for large-scale atlas-like datasets
+3. Semantics of high-level embeddings ("inflammatory", "lipophile") are anchored in experimental metadata and knowledge (ontologies)
 4. Experimental metadata is another ontology type
-5. Experiments measure features ({class}`~lamindb.Feature`, {class}`~lnschema_bionty.CellMarker`, ...) and is annotated by labels ({class}`~lamindb.ULabel`, {class}`~lnschema_bionty.CellLine`)
-6. Learning and data warehousing both consist in iterative data transformations ({class}`~lamindb.Transform`)
-7. Basic biological entities should have the same meaning to anyone and across any data platform instance
-8. Migrations should be easy
+5. Experiments measure features ({class}`~lamindb.Feature`, {class}`~lnschema_bionty.CellMarker`, ...)
+6. Samples are annotated by labels ({class}`~lamindb.ULabel`, {class}`~lnschema_bionty.CellLine`, ...)
+7. Learning and data warehousing both iterate data transformations ({class}`~lamindb.Transform`)
+8. Basic biological entities should have the same meaning to anyone and across any data platform
+9. Schema migrations have to be easy
