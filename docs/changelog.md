@@ -1,38 +1,26 @@
 # Changelog
 
-- 📝 Refactor docs [PR1179](https://github.com/laminlabs/lamindb/pull/1179) [@falexwolf](https://github.com/falexwolf)
-- 📝 Improve clarity of the tutorial [PR1180](https://github.com/laminlabs/lamindb/pull/1180) [@sunnyosun](https://github.com/sunnyosun)
-- ✏️ Fix view for iteractive terminal [PR1178](https://github.com/laminlabs/lamindb/pull/1178) [@sunnyosun](https://github.com/sunnyosun)
-- 📝 Better email address [PR1177](https://github.com/laminlabs/lamindb/pull/1177) [@falexwolf](https://github.com/falexwolf)
-- 📝 Rename to data framework [PR1176](https://github.com/laminlabs/lamindb/pull/1176) [@falexwolf](https://github.com/falexwolf)
-- 🚸 Improve error message for conflicting storage keys [PR1174](https://github.com/laminlabs/lamindb/pull/1174) [@falexwolf](https://github.com/falexwolf)
-- ♻️ Add string levels, update tutorial intro [PR1173](https://github.com/laminlabs/lamindb/pull/1173) [@falexwolf](https://github.com/falexwolf)
-- ✨ Add `reference` and `reference_type` to `Dataset`, `ULabel` [PR1171](https://github.com/laminlabs/lamindb/pull/1171) [@sunnyosun](https://github.com/sunnyosun)
-- 🔒 Add client fallbacks to lamindb-setup [PR1172](https://github.com/laminlabs/lamindb/pull/1172) [@falexwolf](https://github.com/falexwolf)
-- 📝 Add a features page & re-organize landing page [PR1166](https://github.com/laminlabs/lamindb/pull/1166) [@falexwolf](https://github.com/falexwolf)
-- 📝 Improve validate docs [PR1170](https://github.com/laminlabs/lamindb/pull/1170) [@sunnyosun](https://github.com/sunnyosun)
-- ⬆️ Fix inspect logging [PR1169](https://github.com/laminlabs/lamindb/pull/1169) [@sunnyosun](https://github.com/sunnyosun)
-- 🔇 Do not log transform twice when a transform in updated [PR1168](https://github.com/laminlabs/lamindb/pull/1168) [@sunnyosun](https://github.com/sunnyosun)
-- 🐛 Fix view_parents when there are no parents [PR1167](https://github.com/laminlabs/lamindb/pull/1167) [@sunnyosun](https://github.com/sunnyosun)
-- 📝 Add more explanations to validate and bio-registries guides [PR1165](https://github.com/laminlabs/lamindb/pull/1165) [@sunnyosun](https://github.com/sunnyosun)
-- 🔊 Turn on hint for tutorials [PR1164](https://github.com/laminlabs/lamindb/pull/1164) [@sunnyosun](https://github.com/sunnyosun)
-- ⚡ Speed up instance loading time & refactor lamindb-setup [PR1163](https://github.com/laminlabs/lamindb/pull/1163) [@falexwolf](https://github.com/falexwolf)
-- ⬆️ Update fsspec to 2023.9.0 [PR1162](https://github.com/laminlabs/lamindb/pull/1162) [@Koncopd](https://github.com/Koncopd)
-- 🎨 More validation for `File` creation, fix some aspects of zarr backend [PR1160](https://github.com/laminlabs/lamindb/pull/1160) [@Koncopd](https://github.com/Koncopd)
-- 🔊 Only log saved and loaded when verbosity is success [PR1161](https://github.com/laminlabs/lamindb/pull/1161) [@sunnyosun](https://github.com/sunnyosun)
-- 🔊 Add important and print level loggings [PR1159](https://github.com/laminlabs/lamindb/pull/1159) [@sunnyosun](https://github.com/sunnyosun)
-- 📝 Minor edits of landing page [PR1158](https://github.com/laminlabs/lamindb/pull/1158) [@sunnyosun](https://github.com/sunnyosun)
-- 🧪 Test save [PR1157](https://github.com/laminlabs/lamindb/pull/1157) [@sunnyosun](https://github.com/sunnyosun)
-- 🔥 Remove add_labels & get_labels [PR1155](https://github.com/laminlabs/lamindb/pull/1155) [@falexwolf](https://github.com/falexwolf)
-- 🎨 Increased search threshold to 90 [PR1156](https://github.com/laminlabs/lamindb/pull/1156) [@sunnyosun](https://github.com/sunnyosun)
 
 ```{eval-rst}
 .. role:: small
 ```
 
-## 0.53
+## 0.54 {small}`2023-09-17`
 
-## 0.53.0 {small}`2023-09-09`
+- ✏️ Fix views for interactive terminal [PR1178](https://github.com/laminlabs/lamindb/pull/1178) [@sunnyosun](https://github.com/sunnyosun)
+- 🚸 Improve error message for conflicting storage keys [PR1174](https://github.com/laminlabs/lamindb/pull/1174) [@falexwolf](https://github.com/falexwolf)
+- ♻️ Add string levels [PR1173](https://github.com/laminlabs/lamindb/pull/1173) [@falexwolf](https://github.com/falexwolf)
+- ✨ Add `reference` and `reference_type` to `Dataset`, `ULabel` [PR1171](https://github.com/laminlabs/lamindb/pull/1171) [@sunnyosun](https://github.com/sunnyosun)
+- 🔒 Add client fallbacks to lamindb-setup [PR1172](https://github.com/laminlabs/lamindb/pull/1172) [@falexwolf](https://github.com/falexwolf)
+- 🐛 Fix `view_parents()` when there are no parents [PR1167](https://github.com/laminlabs/lamindb/pull/1167) [@sunnyosun](https://github.com/sunnyosun)
+- 🔊 Turn on hint for tutorials [PR1164](https://github.com/laminlabs/lamindb/pull/1164) [@sunnyosun](https://github.com/sunnyosun)
+- ⚡ Speed up instance loading time & refactor lamindb-setup [PR1163](https://github.com/laminlabs/lamindb/pull/1163) [@falexwolf](https://github.com/falexwolf)
+- ⬆️ Update fsspec to 2023.9.0 [PR1162](https://github.com/laminlabs/lamindb/pull/1162) [@Koncopd](https://github.com/Koncopd)
+- 🎨 More validation for `File` creation, improve zarr backend [PR1160](https://github.com/laminlabs/lamindb/pull/1160) [@Koncopd](https://github.com/Koncopd)
+- 🔥 Remove `add_labels()` & `get_labels()` [PR1155](https://github.com/laminlabs/lamindb/pull/1155) [@falexwolf](https://github.com/falexwolf)
+- 🎨 Increased search threshold to 90 [PR1156](https://github.com/laminlabs/lamindb/pull/1156) [@sunnyosun](https://github.com/sunnyosun)
+
+## 0.53 {small}`2023-09-09`
 
 - ♻️ Refactor hub client [PR1150](https://github.com/laminlabs/lamindb/pull/1150) [@falexwolf](https://github.com/falexwolf)
 - ✨ Add `return_field` to `Lookup` [PR1153](https://github.com/laminlabs/lamindb/pull/1153) [@sunnyosun](https://github.com/sunnyosun)
