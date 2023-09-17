@@ -8,6 +8,8 @@ lnschema_bionty_docs/
 lnschema_core_docs/
 _build
 mydata/
+lamin-intro/
+lamin-tutorial/
 mytest/
 rds/
 mydb/

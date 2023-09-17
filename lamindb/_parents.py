@@ -27,9 +27,14 @@ def _transform_emoji(transform: Transform):
 def _view(u):
     try:
         if is_run_from_ipython:
+            from IPython import get_ipython
             from IPython.display import display
 
-            return display(u)
+            #  True if the code is running in a Jupyter Notebook or Lab environment
+            if get_ipython().__class__.__name__ == "TerminalInteractiveShell":
+                return u.view()
+            else:
+                display(u)
         else:
             return u
     except (FileNotFoundError, RuntimeError):  # pragma: no cover
