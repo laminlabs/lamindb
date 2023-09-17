@@ -15,7 +15,7 @@ nox.options.default_venv_backend = "none"
 
 GROUPS = {}
 GROUPS["tutorial"] = [
-    "guide.ipynb",
+    "introduction.ipynb",
     "tutorial.ipynb",
     "tutorial1.ipynb",
 ]
