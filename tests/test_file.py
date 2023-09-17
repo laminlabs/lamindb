@@ -316,7 +316,7 @@ def test_create_from_local_filepath(get_test_filepaths, key, description):
             == f"ValueError: The path '{test_filepath}' is already in registered"
             " storage"
             f" '{root_dir.resolve().as_posix()}' with key '{inferred_key}'\nYou"
-            f" passed conflicting key {key}: please move the file before"
+            f" passed conflicting key '{key}': please move the file before"
             " registering it."
         )
         return None
