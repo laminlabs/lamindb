@@ -5,7 +5,7 @@ build-backend = "flit_core.buildapi"
 [project]
 name = "lamindb"
 requires-python = ">=3.8"
-authors = [{name = "Lamin Labs", email = "laminlabs@gmail.com"}]
+authors = [{name = "Lamin Labs", email = "open-source@lamin.ai"}]
 readme = "README.md"
 dynamic = ["version", "description"]
 classifiers = [
