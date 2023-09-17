@@ -13,7 +13,7 @@ LaminDB aims to provide a framework that addresses the [key problems](https://la
   - Organize data around learning: {class}`~lamindb.Feature`, {class}`~lamindb.FeatureSet`, {class}`~lamindb.ULabel`, {class}`~lamindb.Modality`
   - Leverage support for common array formats in memory & storage: `DataFrame`, `AnnData`, `MuData`, `pyarrow.Table` backed by `h5ad`, `parquet`, `zarr`, `TileDB`, `HDF5`
   - Bridge immutable data artifacts ({class}`~lamindb.File`) and data warehousing ({class}`~lamindb.Dataset`)
-- Track data flow across notebooks, pipelines & UI: {meth}`~lamindb.track`, {class}`~lamindb.Transform` & {class}`~lamindb.Run`.
+- Track data flow across notebooks, pipelines & UI: {meth}`~lamindb.track`, {class}`~lamindb.Transform` & {class}`~lamindb.Run`
 - Manage registries for experimental metadata & ontologies in a simple database:
   - Use >20 public ontologies with plug-in {mod}`lnschema_bionty`
   - For instance, {class}`~lnschema_bionty.Gene`, {class}`~lnschema_bionty.Protein`, {class}`~lnschema_bionty.CellMarker`, {class}`~lnschema_bionty.ExperimentalFactor`, {class}`~lnschema_bionty.CellType` ...
@@ -22,7 +22,7 @@ LaminDB aims to provide a framework that addresses the [key problems](https://la
   - {class}`~lamindb.dev.CanValidate.inspect` validation failures
   - annotate with untyped or typed labels: {class}`~lamindb.dev.LabelManager.add`
   - save data & metadata ACID: {class}`~lamindb.File.save`
-- Create DB instances within seconds and share data across a mesh of instances.
+- Create DB instances within seconds and share data across a mesh of instances: {mod}`~lamindb.setup`
 
 **For platform builders**
 
