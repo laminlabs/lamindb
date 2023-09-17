@@ -1,5 +1,6 @@
 # Changelog
 
+- 🚸 Improve error message for conflicting storage keys [PR1174](https://github.com/laminlabs/lamindb/pull/1174) [@falexwolf](https://github.com/falexwolf)
 - ♻️ Add string levels, update tutorial intro [PR1173](https://github.com/laminlabs/lamindb/pull/1173) [@falexwolf](https://github.com/falexwolf)
 - ✨ Add `reference` and `reference_type` to `Dataset`, `ULabel` [PR1171](https://github.com/laminlabs/lamindb/pull/1171) [@sunnyosun](https://github.com/sunnyosun)
 - 🔒 Add client fallbacks to lamindb-setup [PR1172](https://github.com/laminlabs/lamindb/pull/1172) [@falexwolf](https://github.com/falexwolf)
