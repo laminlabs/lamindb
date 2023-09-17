@@ -59,7 +59,7 @@ jobs:
         if: ${{ matrix.group == 'tutorial' || matrix.group == 'guide' || matrix.group == 'biology' }}
         run: sudo apt-get -y install graphviz
       - run: nox -s lint
-        if: ${{ matrix.group == 'unit' }}
+        if: ${{ matrix.group == 'tutorial' }} # choose a fast-running a group
       - run: nox -s "install(group='${{ matrix.group }}')"
       - uses: aws-actions/configure-aws-credentials@v1
         if: ${{ matrix.group == 'unit' || matrix.group == 'guide' || matrix.group == 'storage' }}
