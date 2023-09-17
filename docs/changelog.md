@@ -1,5 +1,6 @@
 # Changelog
 
+- 📝 Refactor docs [PR1179](https://github.com/laminlabs/lamindb/pull/1179) [@falexwolf](https://github.com/falexwolf)
 - 📝 Improve clarity of the tutorial [PR1180](https://github.com/laminlabs/lamindb/pull/1180) [@sunnyosun](https://github.com/sunnyosun)
 - ✏️ Fix view for iteractive terminal [PR1178](https://github.com/laminlabs/lamindb/pull/1178) [@sunnyosun](https://github.com/sunnyosun)
 - 📝 Better email address [PR1177](https://github.com/laminlabs/lamindb/pull/1177) [@falexwolf](https://github.com/falexwolf)
