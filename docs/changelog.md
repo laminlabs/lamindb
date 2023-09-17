@@ -1,5 +1,6 @@
 # Changelog
 
+- 📝 Rename to data framework [PR1176](https://github.com/laminlabs/lamindb/pull/1176) [@falexwolf](https://github.com/falexwolf)
 - 🚸 Improve error message for conflicting storage keys [PR1174](https://github.com/laminlabs/lamindb/pull/1174) [@falexwolf](https://github.com/falexwolf)
 - ♻️ Add string levels, update tutorial intro [PR1173](https://github.com/laminlabs/lamindb/pull/1173) [@falexwolf](https://github.com/falexwolf)
 - ✨ Add `reference` and `reference_type` to `Dataset`, `ULabel` [PR1171](https://github.com/laminlabs/lamindb/pull/1171) [@sunnyosun](https://github.com/sunnyosun)
