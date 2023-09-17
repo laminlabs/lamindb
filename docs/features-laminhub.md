@@ -1,4 +1,4 @@
-Unlike GitHub, Lamin does not host data or metadata, but merely connects to storage locations & databases that are managed by LaminDB.
+Unlike GitHub, LaminHub does not host data or metadata, but merely connects to storage locations & databases through LaminDB.
 
 <br>
 
