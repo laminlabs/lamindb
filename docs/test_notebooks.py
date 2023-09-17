@@ -15,8 +15,8 @@ def test_tutorial():
         test.execute_notebooks(DOCS / filename, write=True)
 
 
-def test_introduction():
-    for filename in GROUPS["introduction"]:
+def test_guide():
+    for filename in GROUPS["guide"]:
         test.execute_notebooks(DOCS / filename, write=True)
 
 
