@@ -333,9 +333,10 @@ def get_file_kwargs_from_data(
         else:
             if not key == inferred_key:
                 raise ValueError(
-                    "You passed a target key within a registered storage location that"
-                    " differs from the current location. Please move the file before"
-                    " registering in lamindb."
+                    f"The path '{data}' is already in registered storage"
+                    f" '{storage.root}' with key '{inferred_key}'\nYou passed"
+                    f" conflicting key '{key}': please move the file before"
+                    " registering it."
                 )
         check_path_in_storage = True
     else:
