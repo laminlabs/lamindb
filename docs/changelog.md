@@ -1,5 +1,6 @@
 # Changelog
 
+- 📝 Better email address [PR1177](https://github.com/laminlabs/lamindb/pull/1177) [@falexwolf](https://github.com/falexwolf)
 - 📝 Rename to data framework [PR1176](https://github.com/laminlabs/lamindb/pull/1176) [@falexwolf](https://github.com/falexwolf)
 - 🚸 Improve error message for conflicting storage keys [PR1174](https://github.com/laminlabs/lamindb/pull/1174) [@falexwolf](https://github.com/falexwolf)
 - ♻️ Add string levels, update tutorial intro [PR1173](https://github.com/laminlabs/lamindb/pull/1173) [@falexwolf](https://github.com/falexwolf)
