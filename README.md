@@ -2,7 +2,7 @@
 [![codecov](https://codecov.io/gh/laminlabs/lamindb/branch/main/graph/badge.svg?token=VKMRJ7OWR3)](https://codecov.io/gh/laminlabs/lamindb)
 [![pypi](https://img.shields.io/pypi/v/lamindb?color=blue&label=pypi%20package)](https://pypi.org/project/lamindb)
 
-# LaminDB - Open-source data platform for biology
+# LaminDB - Data framework for biology
 
 LaminDB is a Python framework to manage biological data & analyses in generic backends:
 
