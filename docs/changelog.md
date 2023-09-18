@@ -1,5 +1,6 @@
 # Changelog
 
+- 📝 Improve guides [PR1182](https://github.com/laminlabs/lamindb/pull/1182) [@sunnyosun](https://github.com/sunnyosun)
 - 🩹 Better suffix handling [PR1181](https://github.com/laminlabs/lamindb/pull/1181) [@falexwolf](https://github.com/falexwolf)
 
 ```{eval-rst}
