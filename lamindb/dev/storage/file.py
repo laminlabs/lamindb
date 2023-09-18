@@ -31,21 +31,25 @@ AUTO_KEY_PREFIX = ".lamindb/"
 # also see https://gist.github.com/securifera/e7eed730cbe1ce43d0c29d7cd2d582f4
 #    ".gz" is not listed here as it typically occurs with another suffix
 KNOWN_SUFFIXES = {
+    #
     # without readers
+    #
     ".fasta",
-    ".txt",
-    ".tsv",
-    ".obo",
-    ".pdf",
     ".fastq",
-    ".tar",
-    ".tiff",
-    ".zip",
-    ".png",
     ".jpg",
     ".mtx",
+    ".obo",
+    ".pdf",
+    ".png",
+    ".tar",
+    ".tiff",
+    ".txt",
+    ".tsv",
+    ".zip",
     ".xml",
+    #
     # with readers (see below)
+    #
     ".h5ad",
     ".parquet",
     ".csv",
