@@ -1,5 +1,6 @@
 # Changelog
 
+- 🩹 Better suffix handling [PR1181](https://github.com/laminlabs/lamindb/pull/1181) [@falexwolf](https://github.com/falexwolf)
 
 ```{eval-rst}
 .. role:: small
