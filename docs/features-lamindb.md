@@ -1,12 +1,11 @@
-In many organizations, fragmented object stores, SQL databases & ELN/LIMS systems pile up non-findable, inaccessible, hard-to-integrate & non-traceable data.
-
+In many organizations, fragmented object stores, SQL databases & ELN/LIMS systems pile up "messy data".
 This also holds for the derived analytical insights, which makes it hard to optimize learning & decision-making across team & ML models.
 
-LaminDB aims to provide a framework that addresses the [key problems](https://lamin.ai/blog/2022/problems) underlying this tendency.
+LaminDB's features aim to address [key problems](https://lamin.ai/blog/2022/problems) underlying this tendency, [taking inspiration](docs:influences) from a number of data tools.
 
-**Key features**
+**For data users**
 
-- Unify access to data & metadata across storage & SQL database backends:
+- Unify access to data & metadata across storage (arrays, files) & SQL database backends:
   - Query & search by anything: {class}`~lamindb.dev.Registry.filter`, {class}`~lamindb.dev.Registry.search`
   - Stage, load or stream files & datasets: {class}`~lamindb.File.stage`, {class}`~lamindb.File.load`, {class}`~lamindb.File.backed`
   - Model data schema-less or schema-full, add [custom schema plug-ins & manage schema migrations](/schemas)
@@ -26,7 +25,7 @@ LaminDB aims to provide a framework that addresses the [key problems](https://la
 
 **For platform builders**
 
-- Zero lock-in: universal backends, LaminDB is not a client for "Lamin Cloud" but runs server-side
+- Zero lock-in: LaminDB runs on generic backends server-side and is not a client for "Lamin Cloud"
   - Flexible storage backends (local, S3, GCP, anything [fsspec](https://github.com/fsspec) supports)
   - Currently two SQL backends for managing metadata: SQLite & Postgres
 - Scalable: metadata tables support 100s of millions of entries
@@ -37,3 +36,4 @@ LaminDB aims to provide a framework that addresses the [key problems](https://la
 - [Idempotent](docs:faq/idempotency) & [ACID](docs:faq/acid) operations
 - File, dataset & transform versioning
 - Safeguards against typos & duplications when populating registries
+- Tested & typed (up to Django Model fields, to come)
