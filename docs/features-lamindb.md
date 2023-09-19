@@ -1,7 +1,7 @@
 In many organizations, fragmented object stores, SQL databases & ELN/LIMS systems pile up "messy data".
 This also holds for the derived analytical insights, which makes it hard to optimize learning & decision-making across team & ML models.
 
-LaminDB's features aim to address [key problems](https://lamin.ai/blog/2022/problems) underlying this tendency, [taking inspiration](docs:/influences) from a number of data tools.
+LaminDB's features aim to address [key problems](https://lamin.ai/blog/2022/problems) underlying this tendency, [taking inspiration](docs:influences) from a number of data tools.
 
 **For data users**
 
@@ -36,3 +36,4 @@ LaminDB's features aim to address [key problems](https://lamin.ai/blog/2022/prob
 - [Idempotent](docs:faq/idempotency) & [ACID](docs:faq/acid) operations
 - File, dataset & transform versioning
 - Safeguards against typos & duplications when populating registries
+- Tested & typed (up to Django Model fields, to come)
