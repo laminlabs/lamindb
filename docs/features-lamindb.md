@@ -1,16 +1,15 @@
-In many organizations, fragmented object stores, SQL databases & ELN/LIMS systems pile up "messy data".
-This also holds for the derived analytical insights, which makes it hard to optimize learning & decision-making across team & ML models.
+In many organizations, siloed object stores, SQL databases & ELN/LIMS systems pile up inaccessible & hard-to-integrate data impacting derived analytical insights, learning, and decision-making across team & ML models.
 
 LaminDB's features aim to address [key problems](https://lamin.ai/blog/2022/problems) underlying this tendency, [taking inspiration](docs:influences) from a number of data tools.
 
 **For data users**
 
 - Unify access to data & metadata across storage (arrays, files) & SQL database backends:
-  - Query & search by anything: {class}`~lamindb.dev.Registry.filter`, {class}`~lamindb.dev.Registry.search`
+  - Query by & search for anything: {class}`~lamindb.dev.Registry.filter`, {class}`~lamindb.dev.Registry.search`
   - Stage, load or stream files & datasets: {class}`~lamindb.File.stage`, {class}`~lamindb.File.load`, {class}`~lamindb.File.backed`
-  - Model data schema-less or schema-full, add [custom schema plug-ins & manage schema migrations](/schemas)
+  - Model data schema-less or schema-full, mount custom schema plug-ins & manage schema migrations ([schemas](/schemas))
   - Organize data around learning: {class}`~lamindb.Feature`, {class}`~lamindb.FeatureSet`, {class}`~lamindb.ULabel`, {class}`~lamindb.Modality`
-  - Leverage support for common array formats in memory & storage: `DataFrame`, `AnnData`, `MuData`, `pyarrow.Table` backed by `h5ad`, `parquet`, `zarr`, `TileDB`, `HDF5`
+  - Leverage support for common array formats in memory & storage: `DataFrame`, `AnnData`, `MuData`, `pyarrow.Table` backed by `parquet`, `zarr`, `TileDB`, `HDF5`, `h5ad`, `DuckDB`
   - Bridge immutable data artifacts ({class}`~lamindb.File`) and data warehousing ({class}`~lamindb.Dataset`)
 - Track data flow across notebooks, pipelines & UI: {meth}`~lamindb.track`, {class}`~lamindb.Transform` & {class}`~lamindb.Run`
 - Manage registries for experimental metadata & ontologies in a simple database:
@@ -21,7 +20,7 @@ LaminDB's features aim to address [key problems](https://lamin.ai/blog/2022/prob
   - {class}`~lamindb.dev.CanValidate.inspect` validation failures
   - annotate with untyped or typed labels: {class}`~lamindb.dev.LabelManager.add`
   - save data & metadata ACID: {class}`~lamindb.File.save`
-- Create DB instances within seconds and share data across a mesh of instances: {mod}`~lamindb.setup`
+- Create DB instances within seconds and share data across a mesh of instances ({mod}`~lamindb.setup`)
 
 **For platform builders**
 
