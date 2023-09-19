@@ -1,7 +1,12 @@
 """Open-source data platform for biology.
 
-LaminDB helps you manage data using registries for metadata.
-The two most central are:
+LaminDB assumes that data is stored in scalable storage backends, typically
+array formats like parquet, zarr, HDF5, TileDB or DuckDB or simple files in
+object storage.
+
+LaminDB helps you manage these data using registries for metadata.
+
+The two most important are:
 
 .. autosummary::
    :toctree: .
