@@ -25,7 +25,7 @@ LaminDB's features aim to address [key problems](https://lamin.ai/blog/2022/prob
 
 **For platform builders**
 
-- Zero lock-in: universal backends, LaminDB is not a client for "Lamin Cloud" but runs server-side
+- Zero lock-in: LaminDB runs on generic backends server-side and is not a client for "Lamin Cloud"
   - Flexible storage backends (local, S3, GCP, anything [fsspec](https://github.com/fsspec) supports)
   - Currently two SQL backends for managing metadata: SQLite & Postgres
 - Scalable: metadata tables support 100s of millions of entries
