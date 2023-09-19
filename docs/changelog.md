@@ -1,5 +1,6 @@
 # Changelog
 
+- 📝 Improve features lists [PR1186](https://github.com/laminlabs/lamindb/pull/1186) [@falexwolf](https://github.com/falexwolf)
 - 🔇 Fix warning logging upon save [PR1185](https://github.com/laminlabs/lamindb/pull/1185) [@sunnyosun](https://github.com/sunnyosun)
 - 📝 Explain File, Transform, Run [PR1183](https://github.com/laminlabs/lamindb/pull/1183) [@sunnyosun](https://github.com/sunnyosun)
 - 📝 Improve guides [PR1182](https://github.com/laminlabs/lamindb/pull/1182) [@sunnyosun](https://github.com/sunnyosun)
