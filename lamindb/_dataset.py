@@ -40,6 +40,12 @@ def __init__(
     description: Optional[str] = (
         kwargs.pop("description") if "description" in kwargs else None
     )
+    reference: Optional[str] = (
+        kwargs.pop("reference") if "reference" in kwargs else None
+    )
+    reference_type: Optional[str] = (
+        kwargs.pop("reference_type") if "reference_type" in kwargs else None
+    )
     run: Optional[Run] = kwargs.pop("run") if "run" in kwargs else None
     is_new_version_of: Optional[Dataset] = (
         kwargs.pop("is_new_version_of") if "is_new_version_of" in kwargs else None
@@ -53,7 +59,7 @@ def __init__(
     )
     if not len(kwargs) == 0:
         raise ValueError(
-            f"Only data, name, run, description can be passed, you passed: {kwargs}"
+            f"Only data, name, run, description, reference, reference_type can be passed, you passed: {kwargs}"  # noqa
         )
 
     if is_new_version_of is None:
@@ -130,6 +136,8 @@ def __init__(
             id=provisional_id,
             name=name,
             description=description,
+            reference=reference,
+            reference_type=reference_type,
             file=file,
             hash=hash,
             run=run,
