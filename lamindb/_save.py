@@ -84,16 +84,19 @@ def save(records: Iterable[Registry], **kwargs) -> None:  # type: ignore
             if kwargs.get("parents") or (
                 kwargs.get("parents") is None and lb.settings.auto_save_parents
             ):
-                # save the record with parents one by one
-                logger.warning(
-                    "now recursing through parents: "
-                    "this only happens once, but is much slower than bulk saving"
-                )
-                logger.hint(
-                    "you can switch this off via: lb.settings.auto_save_parents = False"
-                )
+                mute = False if kwargs.get("mute") is None else kwargs.get("mute")
+                if not mute:
+                    # save the record with parents one by one
+                    logger.warning(
+                        "now recursing through parents: "
+                        "this only happens once, but is much slower than bulk saving"
+                    )
+                    logger.hint(
+                        "you can switch this off via: lb.settings.auto_save_parents ="
+                        " False"
+                    )
                 for record in non_files_with_parents:
-                    record._save_ontology_parents()
+                    record._save_ontology_parents(mute=True)
 
     if files:
         with transaction.atomic():
