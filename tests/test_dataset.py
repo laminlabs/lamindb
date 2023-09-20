@@ -148,7 +148,7 @@ def test_edge_cases():
     with pytest.raises(ValueError) as error:
         ln.Dataset(df, invalid_param=1)
     assert str(error.exconly()).startswith(
-        "ValueError: Only data, name, run, description can be passed, you passed: "
+        "ValueError: Only data, name, run, description, reference, reference_type can be passed, you passed: "  # noqa
     )
     with pytest.raises(ValueError) as error:
         ln.Dataset(1, name="Invalid")
