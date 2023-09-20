@@ -1,5 +1,6 @@
 # Changelog
 
+- 🔇 Mute repetitive warning for saving parents [PR1190](https://github.com/laminlabs/lamindb/pull/1190) [@sunnyosun](https://github.com/sunnyosun)
 - 🚑️ Fixed dataset init kwargs [PR1187](https://github.com/laminlabs/lamindb/pull/1187) [@sunnyosun](https://github.com/sunnyosun)
 - 📝 Prettify [PR1189](https://github.com/laminlabs/lamindb/pull/1189) [@falexwolf](https://github.com/falexwolf)
 - 📝 Improve features lists [PR1186](https://github.com/laminlabs/lamindb/pull/1186) [@falexwolf](https://github.com/falexwolf)
