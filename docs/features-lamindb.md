@@ -9,7 +9,7 @@ LaminDB's features aim to address [key problems](https://lamin.ai/blog/2022/prob
   - Stage, load or stream files & datasets: {class}`~lamindb.File.stage`, {class}`~lamindb.File.load`, {class}`~lamindb.File.backed`
   - Model data schema-less or schema-full, mount custom schema plug-ins & manage schema migrations ([schemas](/schemas))
   - Organize data around learning: {class}`~lamindb.Feature`, {class}`~lamindb.FeatureSet`, {class}`~lamindb.ULabel`, {class}`~lamindb.Modality`
-  - Leverage support for common array formats in memory & storage: `DataFrame`, `AnnData`, `MuData`, `pyarrow.Table` backed by `parquet`, `zarr`, `TileDB`, `HDF5`, `h5ad`, `DuckDB`
+  - Leverage support for common array formats in memory & storage: `DataFrame`, `AnnData`, `MuData`, `pyarrow.Table` backed by `parquet`, `zarr`, [TileDB](docs:cellxgene-census), [HDF5](/data), [h5ad](/data), [DuckDB](docs:rxrx)
   - Bridge immutable data artifacts ({class}`~lamindb.File`) and data warehousing ({class}`~lamindb.Dataset`)
 - Track data flow across notebooks, pipelines & UI: {meth}`~lamindb.track`, {class}`~lamindb.Transform` & {class}`~lamindb.Run`
 - Manage registries for experimental metadata & ontologies in a simple database:
