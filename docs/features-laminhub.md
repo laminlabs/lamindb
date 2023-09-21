@@ -19,6 +19,6 @@ Public demo instances to explore in the UI or load using the CLI via `lamin load
 
 <img src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/RIfWLxuEQ3oDjAtPaSDA.png" width="700px">
 
-<p style="font-weight: bolder; margin-top: 1rem; margin-bottom: 0.5rem; background: transparent">Browse files</p>
+<p style="font-weight: bolder; margin-top: 1rem; margin-bottom: 0.5rem; background: transparent">Browse files:</p>
 
 <img src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/JPGVeyqzGYHSYHqBPrKg.png" width="700px">
