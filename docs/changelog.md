@@ -1,21 +1,20 @@
 # Changelog
 
-- 📝 Subset images & prettify tutorial [PR1192](https://github.com/laminlabs/lamindb/pull/1192) [@falexwolf](https://github.com/falexwolf)
-- 📝 Improve sign up docs [PR1191](https://github.com/laminlabs/lamindb/pull/1191) [@falexwolf](https://github.com/falexwolf)
-- 🔇 Mute repetitive warning for saving parents [PR1190](https://github.com/laminlabs/lamindb/pull/1190) [@sunnyosun](https://github.com/sunnyosun)
-- 🚑️ Fixed dataset init kwargs [PR1187](https://github.com/laminlabs/lamindb/pull/1187) [@sunnyosun](https://github.com/sunnyosun)
-- 📝 Prettify [PR1189](https://github.com/laminlabs/lamindb/pull/1189) [@falexwolf](https://github.com/falexwolf)
-- 📝 Improve features lists [PR1186](https://github.com/laminlabs/lamindb/pull/1186) [@falexwolf](https://github.com/falexwolf)
-- 🔇 Fix warning logging upon save [PR1185](https://github.com/laminlabs/lamindb/pull/1185) [@sunnyosun](https://github.com/sunnyosun)
-- 📝 Explain File, Transform, Run [PR1183](https://github.com/laminlabs/lamindb/pull/1183) [@sunnyosun](https://github.com/sunnyosun)
-- 📝 Improve guides [PR1182](https://github.com/laminlabs/lamindb/pull/1182) [@sunnyosun](https://github.com/sunnyosun)
-- 🩹 Better suffix handling [PR1181](https://github.com/laminlabs/lamindb/pull/1181) [@falexwolf](https://github.com/falexwolf)
+
 
 ```{eval-rst}
 .. role:: small
 ```
 
-## 0.54 {small}`2023-09-17`
+## 0.54
+
+### 0.54.1 {small}`2023-09-21`
+
+- 🔇 Mute repetitive warning for saving parents [PR1190](https://github.com/laminlabs/lamindb/pull/1190) [@sunnyosun](https://github.com/sunnyosun)
+- 🔇 Fix warning logging upon save [PR1185](https://github.com/laminlabs/lamindb/pull/1185) [@sunnyosun](https://github.com/sunnyosun)
+- 🩹 Better suffix handling [PR1181](https://github.com/laminlabs/lamindb/pull/1181) [@falexwolf](https://github.com/falexwolf)
+
+### 0.54.0 {small}`2023-09-17`
 
 - ✏️ Fix views for interactive terminal [PR1178](https://github.com/laminlabs/lamindb/pull/1178) [@sunnyosun](https://github.com/sunnyosun)
 - 🚸 Improve error message for conflicting storage keys [PR1174](https://github.com/laminlabs/lamindb/pull/1174) [@falexwolf](https://github.com/falexwolf)
