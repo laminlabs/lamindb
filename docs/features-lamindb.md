@@ -15,7 +15,7 @@ LaminDB's features aim to address [key problems](https://lamin.ai/blog/2022/prob
 - Manage registries for experimental metadata & ontologies in a simple database:
   - Use >20 public ontologies with plug-in {mod}`lnschema_bionty`
   - For instance, {class}`~lnschema_bionty.Gene`, {class}`~lnschema_bionty.Protein`, {class}`~lnschema_bionty.CellMarker`, {class}`~lnschema_bionty.ExperimentalFactor`, {class}`~lnschema_bionty.CellType` ...
-- Validate, standardize & annotate data:
+- Validate, standardize & annotate data batches:
   - {class}`~lamindb.dev.CanValidate.validate` & {class}`~lamindb.dev.CanValidate.standardize`
   - {class}`~lamindb.dev.CanValidate.inspect` validation failures
   - annotate with untyped or typed labels: {class}`~lamindb.dev.LabelManager.add`
