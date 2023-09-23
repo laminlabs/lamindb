@@ -6,11 +6,14 @@ from lamin_utils import logger
 from lamindb_setup.dev._docs import doc_args
 from lnschema_core import Modality
 from lnschema_core.models import Dataset, Feature, FeatureSet
-from lnschema_core.types import AnnDataLike, FieldAttr
+from lnschema_core.types import AnnDataLike, DataLike, FieldAttr
 
+from lamindb._utils import attach_func_to_class_method
+from lamindb.dev._data import _track_run_input
+from lamindb.dev.storage._backed_access import AnnDataAccessor, BackedAccessor
 from lamindb.dev.versioning import get_ids_from_old_version, init_id
 
-from . import File, Run
+from . import _TESTING, File, Run
 from ._file import parse_feature_sets_from_anndata
 from ._registry import init_self_from_db
 from .dev._data import (
@@ -159,6 +162,8 @@ def from_df(
     description: Optional[str] = None,
     run: Optional[Run] = None,
     modality: Optional[Modality] = None,
+    reference: Optional[str] = None,
+    reference_type: Optional[str] = None,
 ) -> "Dataset":
     """{}"""
     feature_set = FeatureSet.from_df(df, field=field, modality=modality)
@@ -182,6 +187,8 @@ def from_anndata(
     description: Optional[str] = None,
     run: Optional[Run] = None,
     modality: Optional[Modality] = None,
+    reference: Optional[str] = None,
+    reference_type: Optional[str] = None,
 ) -> "Dataset":
     """{}"""
     if isinstance(adata, File):
@@ -201,6 +208,7 @@ def from_anndata(
     return dataset
 
 
+# internal function, not exposed to user
 def from_files(files: Iterable[File]) -> Tuple[str, Dict[str, str]]:
     # assert all files are already saved
     saved = not any([file._state.adding for file in files])
@@ -229,51 +237,74 @@ def from_files(files: Iterable[File]) -> Tuple[str, Dict[str, str]]:
     return hash, feature_set_slots_ids
 
 
-def backed(dataset: Dataset):
-    if dataset.file is None:
+# docstring handled through attach_func_to_class_method
+def backed(
+    self, is_run_input: Optional[bool] = None
+) -> Union["AnnDataAccessor", "BackedAccessor"]:
+    _track_run_input(self, is_run_input)
+    if self.file is None:
         raise RuntimeError("Can only call backed() for datasets with a single file")
-    return dataset.file.backed()
+    return self.file.backed()
 
 
-def load(dataset: Dataset):
-    """Load the combined dataset."""
-    if dataset.file is not None:
-        return dataset.file.load()
+# docstring handled through attach_func_to_class_method
+def load(self, is_run_input: Optional[bool] = None, **kwargs) -> DataLike:
+    _track_run_input(self, is_run_input)
+    if self.file is not None:
+        return self.file.load()
     else:
-        suffixes = [file.suffix for file in dataset.files.all()]
+        all_files = self.files.all()
+        suffixes = [file.suffix for file in all_files]
         if len(set(suffixes)) != 1:
             raise RuntimeError(
                 "Can only load datasets where all files have the same suffix"
             )
-        objects = [file.load() for file in dataset.files.all()]
+        objects = [file.load() for file in all_files]
+        file_ids = [file.id for file in all_files]
         if isinstance(objects[0], pd.DataFrame):
             return pd.concat(objects)
         elif isinstance(objects[0], ad.AnnData):
-            return ad.concat(objects)
+            return ad.concat(objects, label="file_id", keys=file_ids)
 
 
-def delete(dataset: Dataset, storage: bool = False):
-    super(Dataset, dataset).delete()
-    if dataset.file is not None:
-        dataset.file.delete(storage=storage)
+# docstring handled through attach_func_to_class_method
+def delete(self, storage: Optional[bool] = None) -> None:
+    super(Dataset, self).delete()
+    if self.file is not None:
+        self.file.delete(storage=storage)
 
 
-def save(dataset: Dataset):
-    if dataset.file is not None:
-        dataset.file.save()
+# docstring handled through attach_func_to_class_method
+def save(self, *args, **kwargs) -> None:
+    if self.file is not None:
+        self.file.save()
     # we don't need to save feature sets again
-    save_transform_run_feature_sets(dataset)
-    super(Dataset, dataset).save()
-    if hasattr(dataset, "_files"):
-        if dataset._files is not None and len(dataset._files) > 0:
-            dataset.files.set(dataset._files)
-    save_feature_set_links(dataset)
+    save_transform_run_feature_sets(self)
+    super(Dataset, self).save()
+    if hasattr(self, "_files"):
+        if self._files is not None and len(self._files) > 0:
+            self.files.set(self._files)
+    save_feature_set_links(self)
 
 
-Dataset.__init__ = __init__
-Dataset.from_df = from_df
-Dataset.from_anndata = from_anndata
-Dataset.backed = backed
-Dataset.load = load
-Dataset.delete = delete
-Dataset.save = save
+METHOD_NAMES = [
+    "__init__",
+    "from_anndata",
+    "from_df",
+    "backed",
+    "load",
+    "delete",
+    "save",
+]
+
+if _TESTING:
+    from inspect import signature
+
+    SIGS = {
+        name: signature(getattr(Dataset, name))
+        for name in METHOD_NAMES
+        if name != "__init__"
+    }
+
+for name in METHOD_NAMES:
+    attach_func_to_class_method(name, Dataset, globals())

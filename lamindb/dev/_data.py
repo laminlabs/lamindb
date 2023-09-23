@@ -17,6 +17,8 @@ from lnschema_core.models import (
 )
 from lnschema_core.types import StrField
 
+from lamindb.dev._settings import settings
+
 from .._parents import view_flow_dataset, view_flow_file
 from .._query_set import QuerySet
 from ._feature_manager import (
@@ -312,6 +314,50 @@ def view_flow(data: Data, with_children: bool = True) -> None:
         view_flow_file(file=data, with_children=with_children)
     elif isinstance(data, Dataset):
         view_flow_dataset(dataset=data, with_children=with_children)
+
+
+def _track_run_input(data: Data, is_run_input: Optional[bool] = None):
+    track_run_input = False
+    if is_run_input is None:
+        # we need a global run context for this to work
+        if run_context.run is not None:
+            # avoid cycles (a file is both input and output)
+            if data.run != run_context.run:
+                if settings.track_run_inputs:
+                    transform_note = ""
+                    if data.transform is not None:
+                        transform_note = (
+                            f", adding parent transform {data.transform.id}"
+                        )
+                    logger.info(
+                        f"adding file {data.id} as input for run"
+                        f" {run_context.run.id}{transform_note}"
+                    )
+                    track_run_input = True
+                else:
+                    logger.hint(
+                        "track this file as a run input by passing `is_run_input=True`"
+                    )
+        else:
+            if settings.track_run_inputs:
+                logger.hint(
+                    "you can auto-track this file as a run input by calling"
+                    " `ln.track()`"
+                )
+    else:
+        track_run_input = is_run_input
+    if track_run_input:
+        if run_context.run is None:
+            raise ValueError(
+                "No global run context set. Call ln.context.track() or link input to a"
+                " run object via `run.input_files.append(file)`"
+            )
+        # avoid adding the same run twice
+        # avoid cycles (a file is both input and output)
+        if not data.input_of.contains(run_context.run) and data.run != run_context.run:
+            run_context.run.save()
+            data.input_of.add(run_context.run)
+            run_context.run.transform.parents.add(data.transform)
 
 
 @property  # type: ignore
