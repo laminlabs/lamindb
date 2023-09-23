@@ -236,20 +236,22 @@ def backed(dataset: Dataset):
 
 
 def load(dataset: Dataset):
-    """Load the combined dataset."""
+    """Load the dataset into memory."""
     if dataset.file is not None:
         return dataset.file.load()
     else:
-        suffixes = [file.suffix for file in dataset.files.all()]
+        all_files = dataset.files.all()
+        suffixes = [file.suffix for file in all_files]
         if len(set(suffixes)) != 1:
             raise RuntimeError(
                 "Can only load datasets where all files have the same suffix"
             )
-        objects = [file.load() for file in dataset.files.all()]
+        objects = [file.load() for file in all_files]
+        file_ids = [file.id for file in all_files]
         if isinstance(objects[0], pd.DataFrame):
             return pd.concat(objects)
         elif isinstance(objects[0], ad.AnnData):
-            return ad.concat(objects)
+            return ad.concat(objects, label="file_id", keys=file_ids)
 
 
 def delete(dataset: Dataset, storage: bool = False):
