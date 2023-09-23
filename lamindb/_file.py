@@ -12,6 +12,7 @@ from lamin_utils import colors, logger
 from lamindb_setup import settings as setup_settings
 from lamindb_setup._init_instance import register_storage
 from lamindb_setup.dev import StorageSettings
+from lamindb_setup.dev._data import _track_run_input
 from lamindb_setup.dev._docs import doc_args
 from lamindb_setup.dev._hub_utils import get_storage_region
 from lamindb_setup.dev.upath import create_path
@@ -19,7 +20,6 @@ from lnschema_core import Feature, FeatureSet, File, Modality, Run, Storage
 from lnschema_core.types import AnnDataLike, DataLike, FieldAttr, PathLike
 
 from lamindb._utils import attach_func_to_class_method
-from lamindb.dev import run_context
 from lamindb.dev._settings import settings
 from lamindb.dev.hashing import b16_to_b64, hash_file
 from lamindb.dev.storage import (
@@ -702,6 +702,7 @@ def from_dir(
     return files
 
 
+# docstring handled through attach_func_to_class_method
 def replace(
     self,
     data: Union[PathLike, DataLike],
@@ -747,6 +748,7 @@ def replace(
     ]  # no need to upload if new file is already in storage
 
 
+# docstring handled through attach_func_to_class_method
 def backed(
     self, is_run_input: Optional[bool] = None
 ) -> Union["AnnDataAccessor", "BackedAccessor"]:
@@ -771,50 +773,7 @@ def backed(
         return backed_access(filepath)
 
 
-def _track_run_input(file: File, is_run_input: Optional[bool] = None):
-    track_run_input = False
-    if is_run_input is None:
-        # we need a global run context for this to work
-        if run_context.run is not None:
-            # avoid cycles (a file is both input and output)
-            if file.run != run_context.run:
-                if settings.track_run_inputs:
-                    transform_note = ""
-                    if file.transform is not None:
-                        transform_note = (
-                            f", adding parent transform {file.transform.id}"
-                        )
-                    logger.info(
-                        f"adding file {file.id} as input for run"
-                        f" {run_context.run.id}{transform_note}"
-                    )
-                    track_run_input = True
-                else:
-                    logger.hint(
-                        "track this file as a run input by passing `is_run_input=True`"
-                    )
-        else:
-            if settings.track_run_inputs:
-                logger.hint(
-                    "you can auto-track this file as a run input by calling"
-                    " `ln.track()`"
-                )
-    else:
-        track_run_input = is_run_input
-    if track_run_input:
-        if run_context.run is None:
-            raise ValueError(
-                "No global run context set. Call ln.context.track() or link input to a"
-                " run object via `run.input_files.append(file)`"
-            )
-        # avoid adding the same run twice
-        # avoid cycles (a file is both input and output)
-        if not file.input_of.contains(run_context.run) and file.run != run_context.run:
-            run_context.run.save()
-            file.input_of.add(run_context.run)
-            run_context.run.transform.parents.add(file.transform)
-
-
+# docstring handled through attach_func_to_class_method
 def load(
     self, is_run_input: Optional[bool] = None, stream: bool = False, **kwargs
 ) -> DataLike:
@@ -824,6 +783,7 @@ def load(
     return load_to_memory(filepath_from_file(self), stream=stream, **kwargs)
 
 
+# docstring handled through attach_func_to_class_method
 def stage(self, is_run_input: Optional[bool] = None) -> Path:
     if self.suffix in {".zrad", ".zarr"}:
         raise RuntimeError("zarr object can't be staged, please use load() or stream()")
@@ -834,6 +794,7 @@ def stage(self, is_run_input: Optional[bool] = None) -> Path:
     return setup_settings.instance.storage.cloud_to_local(filepath, callback=cb)
 
 
+# docstring handled through attach_func_to_class_method
 def delete(self, storage: Optional[bool] = None) -> None:
     if storage is None:
         response = input(f"Are you sure you want to delete {self} from storage? (y/n)")
@@ -857,6 +818,7 @@ def _delete_skip_storage(file, *args, **kwargs) -> None:
     super(File, file).delete(*args, **kwargs)
 
 
+# docstring handled through attach_func_to_class_method
 def save(self, *args, **kwargs) -> None:
     self._save_skip_storage(*args, **kwargs)
     from lamindb._save import check_and_attempt_clearing, check_and_attempt_upload
