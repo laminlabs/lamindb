@@ -1,5 +1,6 @@
 # Changelog
 
+- ♻️ Test dataset signatures and methods [PR1193](https://github.com/laminlabs/lamindb/pull/1193) [@falexwolf](https://github.com/falexwolf)
 
 
 ```{eval-rst}
