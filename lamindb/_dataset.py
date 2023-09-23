@@ -162,6 +162,8 @@ def from_df(
     description: Optional[str] = None,
     run: Optional[Run] = None,
     modality: Optional[Modality] = None,
+    reference: Optional[str] = None,
+    reference_type: Optional[str] = None,
 ) -> "Dataset":
     """{}"""
     feature_set = FeatureSet.from_df(df, field=field, modality=modality)
@@ -185,6 +187,8 @@ def from_anndata(
     description: Optional[str] = None,
     run: Optional[Run] = None,
     modality: Optional[Modality] = None,
+    reference: Optional[str] = None,
+    reference_type: Optional[str] = None,
 ) -> "Dataset":
     """{}"""
     if isinstance(adata, File):
@@ -264,23 +268,23 @@ def load(self, is_run_input: Optional[bool] = None, **kwargs) -> DataLike:
 
 
 # docstring handled through attach_func_to_class_method
-def delete(dataset: Dataset, storage: bool = False):
-    super(Dataset, dataset).delete()
-    if dataset.file is not None:
-        dataset.file.delete(storage=storage)
+def delete(self, storage: Optional[bool] = None) -> None:
+    super(Dataset, self).delete()
+    if self.file is not None:
+        self.file.delete(storage=storage)
 
 
 # docstring handled through attach_func_to_class_method
-def save(dataset: Dataset):
-    if dataset.file is not None:
-        dataset.file.save()
+def save(self, *args, **kwargs) -> None:
+    if self.file is not None:
+        self.file.save()
     # we don't need to save feature sets again
-    save_transform_run_feature_sets(dataset)
-    super(Dataset, dataset).save()
-    if hasattr(dataset, "_files"):
-        if dataset._files is not None and len(dataset._files) > 0:
-            dataset.files.set(dataset._files)
-    save_feature_set_links(dataset)
+    save_transform_run_feature_sets(self)
+    super(Dataset, self).save()
+    if hasattr(self, "_files"):
+        if self._files is not None and len(self._files) > 0:
+            self.files.set(self._files)
+    save_feature_set_links(self)
 
 
 METHOD_NAMES = [
@@ -288,7 +292,6 @@ METHOD_NAMES = [
     "from_anndata",
     "from_df",
     "backed",
-    "stage",
     "load",
     "delete",
     "save",
@@ -298,10 +301,10 @@ if _TESTING:
     from inspect import signature
 
     SIGS = {
-        name: signature(getattr(File, name))
+        name: signature(getattr(Dataset, name))
         for name in METHOD_NAMES
         if name != "__init__"
     }
 
 for name in METHOD_NAMES:
-    attach_func_to_class_method(name, File, globals())
+    attach_func_to_class_method(name, Dataset, globals())

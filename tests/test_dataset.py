@@ -1,3 +1,5 @@
+from inspect import signature
+
 import anndata as ad
 import lnschema_bionty as lb
 import numpy as np
@@ -6,6 +8,7 @@ import pytest
 from django.db.models.deletion import ProtectedError
 
 import lamindb as ln
+from lamindb import _dataset
 
 df = pd.DataFrame({"feat1": [1, 2], "feat2": [3, 4]})
 
@@ -22,6 +25,24 @@ adata2 = ad.AnnData(
     var=pd.DataFrame(index=["MYC", "TCF7", "GATA1"]),
     obsm=dict(X_pca=np.array([[1, 2], [3, 4]])),
 )
+
+
+def test_signatures():
+    # this seems currently the easiest and most transparent
+    # way to test violations of the signature equality
+    # the MockORM class is needed to get inspect.signature
+    # to work
+    class Mock:
+        pass
+
+    # class methods
+    class_methods = ["from_df", "from_anndata"]
+    for name in class_methods:
+        setattr(Mock, name, getattr(_dataset, name))
+        assert signature(getattr(Mock, name)) == _dataset.SIGS.pop(name)
+    # methods
+    for name, sig in _dataset.SIGS.items():
+        assert signature(getattr(_dataset, name)) == sig
 
 
 def test_create_delete_from_single_dataframe():

@@ -12,7 +12,6 @@ from lamin_utils import colors, logger
 from lamindb_setup import settings as setup_settings
 from lamindb_setup._init_instance import register_storage
 from lamindb_setup.dev import StorageSettings
-from lamindb_setup.dev._data import _track_run_input
 from lamindb_setup.dev._docs import doc_args
 from lamindb_setup.dev._hub_utils import get_storage_region
 from lamindb_setup.dev.upath import create_path
@@ -20,6 +19,7 @@ from lnschema_core import Feature, FeatureSet, File, Modality, Run, Storage
 from lnschema_core.types import AnnDataLike, DataLike, FieldAttr, PathLike
 
 from lamindb._utils import attach_func_to_class_method
+from lamindb.dev._data import _track_run_input
 from lamindb.dev._settings import settings
 from lamindb.dev.hashing import b16_to_b64, hash_file
 from lamindb.dev.storage import (
