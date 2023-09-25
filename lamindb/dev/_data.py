@@ -120,7 +120,7 @@ def describe(self: Data):
         "transform": _transform_emoji(self.transform),
         "run": "👣",
         "initial_version": "🔖",
-        "file": "📁",
+        "file": "📄",
     }
     if len(foreign_key_fields) > 0:  # always True for File and Dataset
         record_msg = f"{colors.green(model_name)}{__repr__(self, include_foreign_keys=False).lstrip(model_name)}"  # noqa
