@@ -19,7 +19,7 @@ from lnschema_core.types import StrField
 
 from lamindb.dev._settings import settings
 
-from .._parents import view_flow_dataset, view_flow_file
+from .._parents import view_flow
 from .._query_set import QuerySet
 from ._feature_manager import (
     FeatureManager,
@@ -307,13 +307,6 @@ def add_labels(
                 f"linked new feature '{feature.name}' together with new feature set"
                 f" {feature_set}"
             )
-
-
-def view_flow(data: Data, with_children: bool = True) -> None:
-    if isinstance(data, File):
-        view_flow_file(file=data, with_children=with_children)
-    elif isinstance(data, Dataset):
-        view_flow_dataset(dataset=data, with_children=with_children)
 
 
 def _track_run_input(data: Data, is_run_input: Optional[bool] = None):
