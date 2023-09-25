@@ -1,6 +1,6 @@
 Why do I have to sign up? → Data flow needs a user identity to answer questions like: Who modified which data when? Who shares this with me?
 
-An account is free & [signing up](https://lamin.ai/signup-form) takes 1 min.
+An account is free & [signing up](https://lamin.ai/signup) takes 1 min.
 
 ```{note}
 
