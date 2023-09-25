@@ -1,5 +1,6 @@
 # Changelog
 
+- 📝 Migrate signup route [PR1198](https://github.com/laminlabs/lamindb/pull/1198) [@falexwolf](https://github.com/falexwolf)
 - Simplify last statement on readme [PR1197](https://github.com/laminlabs/lamindb/pull/1197) [@falexwolf](https://github.com/falexwolf)
 - 💄 Fix code displays for setup [PR1196](https://github.com/laminlabs/lamindb/pull/1196) [@sunnyosun](https://github.com/sunnyosun)
 - 💄 Updated dataset emoji in view_flow [PR1195](https://github.com/laminlabs/lamindb/pull/1195) [@sunnyosun](https://github.com/sunnyosun)
