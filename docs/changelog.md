@@ -1,5 +1,6 @@
 # Changelog
 
+- 💄 Updated dataset emoji in view_flow [PR1195](https://github.com/laminlabs/lamindb/pull/1195) [@sunnyosun](https://github.com/sunnyosun)
 - 🎨 Better implementation of `dataset.view_flow` [PR1194](https://github.com/laminlabs/lamindb/pull/1194) [@sunnyosun](https://github.com/sunnyosun)
 - ♻️ Test dataset signatures and methods [PR1193](https://github.com/laminlabs/lamindb/pull/1193) [@falexwolf](https://github.com/falexwolf)
 
