@@ -61,33 +61,27 @@ def view_parents(
     )
 
 
-def view_flow_dataset(dataset: Dataset, with_children: bool = True) -> None:
-    if dataset.file is not None:
-        dataset.file.view_flow(with_children=with_children)
-    else:
-        dataset.files.first().view_flow(with_children=with_children)
-
-
-def view_flow_file(file: File, with_children: bool = True):
+def view_flow(data: Union[File, Dataset], with_children: bool = True) -> None:
     """Graph of data flow.
 
     Notes:
         For more info, see use cases: :doc:`docs:data-flow`.
 
     Examples:
+        >>> dataset.view_flow()
         >>> file.view_flow()
     """
     import graphviz
 
-    all_runs = _get_all_parent_runs(file)
+    df_values = _get_all_parent_runs(data)
     if with_children:
-        all_runs.update(_get_all_child_runs(file))
-    df_edges = _df_edges_from_runs(all_runs)
+        df_values += _get_all_child_runs(data)
+    df_edges = _df_edges_from_runs(df_values)
 
-    file_label = _label_file_run_transform(file)
+    data_label = _label_data_run_transform(data)
 
     u = graphviz.Digraph(
-        file.id,
+        data.id,
         node_attr={
             "fillcolor": GREEN_FILL,
             "color": LAMIN_GREEN_DARKER,
@@ -98,21 +92,20 @@ def view_flow_file(file: File, with_children: bool = True):
     )
 
     def add_node(
-        record: Union[Run, File], node_id: str, node_label: str, u: graphviz.Digraph
+        record: Union[Run, File, Dataset],
+        node_id: str,
+        node_label: str,
+        u: graphviz.Digraph,
     ):
         if isinstance(record, Run):
-            style = "rounded,filled"
-            shape = "box"
             fillcolor = "gainsboro"
         else:
-            style = "rounded,filled"
-            shape = "box"
             fillcolor = GREEN_FILL
         u.node(
             node_id,
             label=node_label,
-            shape=shape,
-            style=style,
+            shape="box",
+            style="rounded,filled",
             fillcolor=fillcolor,
         )
 
@@ -124,8 +117,8 @@ def view_flow_file(file: File, with_children: bool = True):
         u.edge(row["source"], row["target"], color="dimgrey")
     # label the searched file
     u.node(
-        file.id,
-        label=file_label,
+        data.id,
+        label=data_label,
         style="rounded,filled",
         fillcolor=LAMIN_GREEN_LIGHTER,
         shape="box",
@@ -179,7 +172,7 @@ def _view_parents(
     )
     u.node(
         record.id,
-        label=_label_file_run_transform(record)
+        label=_label_data_run_transform(record)
         if record.__class__.__name__ == "Transform"
         else _add_emoji(record, record_label),
         fillcolor=LAMIN_GREEN_LIGHTER,
@@ -245,10 +238,10 @@ def _df_edges_from_parents(
     df_edges["target_record"] = df_edges["target"].apply(lambda x: all.get(id=x))
     if record.__class__.__name__ == "Transform":
         df_edges["source_label"] = df_edges["source_record"].apply(
-            _label_file_run_transform
+            _label_data_run_transform
         )
         df_edges["target_label"] = df_edges["target_record"].apply(
-            _label_file_run_transform
+            _label_data_run_transform
         )
     else:
         df_edges["source_label"] = df_edges["source_record"].apply(
@@ -270,50 +263,69 @@ def _add_emoji(record: Registry, label: str):
     return f"{emoji} {label}"
 
 
-def _get_all_parent_runs(file: File):
-    """Get all input file runs recursively."""
-    all_runs = {file.run}
+def _get_all_parent_runs(data: Union[File, Dataset]) -> List:
+    """Get all input file/dataset runs recursively."""
+    run_inputs_outputs = []
 
-    runs = [file.run]
-    while any([r.input_files.exists() for r in runs if r is not None]):
+    runs = [data.run]
+    while any([r.input_files.exists() for r in runs if r is not None]) or any(
+        [r.input_datasets.exists() for r in runs if r is not None]
+    ):
         inputs = []
         for r in runs:
-            inputs += r.input_files.all()
+            inputs_run = r.input_files.list() + r.input_datasets.list()
+            run_inputs_outputs += [(inputs_run, r)]
+            run_inputs_outputs += [
+                (r, r.output_files.list() + r.output_datasets.list())
+            ]
+            inputs += inputs_run
         runs = [f.run for f in inputs]
-        all_runs.update(runs)
-    return all_runs
+    return run_inputs_outputs
 
 
-def _get_all_child_runs(file: File):
-    """Get all output file runs recursively."""
+def _get_all_child_runs(data: Union[File, Dataset]) -> List:
+    """Get all output file/dataset runs recursively."""
     all_runs: Set[Run] = set()
+    run_inputs_outputs = []
 
-    runs = {f.run for f in file.run.output_files.all()}
+    runs = {f.run for f in data.run.output_files.all()}
+    runs.update({f.run for f in data.run.output_datasets.all()})
     while runs.difference(all_runs):
         all_runs.update(runs)
         child_runs: Set[Run] = set()
         for r in runs:
+            if r != data.run:
+                run_inputs_outputs += [
+                    (r.input_files.list() + r.input_datasets.list(), r)
+                ]
+            run_outputs = r.output_files
+            run_inputs_outputs += [(r, run_outputs.list())]
             child_runs.update(
                 Run.filter(input_files__id__in=r.output_files.list("id")).list()
             )
+            child_runs.update(
+                Run.filter(input_datasets__id__in=r.output_datasets.list("id")).list()
+            )
         runs = child_runs
-    return all_runs
+    return run_inputs_outputs
 
 
-def _label_file_run_transform(record: Union[File, Run, Transform]):
+def _label_data_run_transform(record: Union[File, Run, Transform]):
     if isinstance(record, File):
         if record.description is None:
             name = record.key
-        elif record.description.startswith("See dataset "):
-            dataset_id = record.description.replace("See dataset ", "")
-            dataset = Dataset.filter(id=dataset_id).one()
-            name = dataset.name.replace("&", "&amp;")
         else:
             name = record.description.replace("&", "&amp;")
 
         return (
-            rf'<{name}<BR/><FONT COLOR="GREY" POINT-SIZE="10"'
+            rf'<📄 {name}<BR/><FONT COLOR="GREY" POINT-SIZE="10"'
             rf' FACE="Monospace">id={record.id}<BR/>suffix={record.suffix}</FONT>>'
+        )
+    elif isinstance(record, Dataset):
+        name = record.name.replace("&", "&amp;")
+        return (
+            rf'<🍱 {name}<BR/><FONT COLOR="GREY" POINT-SIZE="10"'
+            rf' FACE="Monospace">id={record.id}<BR/>version={record.version}</FONT>>'
         )
     elif isinstance(record, Run):
         name = f'{record.transform.name.replace("&", "&amp;")}'
@@ -331,24 +343,17 @@ def _label_file_run_transform(record: Union[File, Run, Transform]):
         )
 
 
-def _df_edges_from_runs(all_runs: List[Run]):
+def _df_edges_from_runs(df_values: List):
     import pandas as pd
 
-    df_values = []
-    for run in all_runs:
-        if run is not None:
-            if run.input_files.exists():
-                df_values.append((run.input_files.list(), run))
-            if run.output_files.exists():
-                df_values.append((run, run.output_files.list()))
     df = pd.DataFrame(df_values, columns=["source_record", "target_record"])
     df = df.explode("source_record")
     df = df.explode("target_record")
     df = df.drop_duplicates()
     df["source"] = [i.id for i in df["source_record"]]
     df["target"] = [i.id for i in df["target_record"]]
-    df["source_label"] = df["source_record"].apply(_label_file_run_transform)
-    df["target_label"] = df["target_record"].apply(_label_file_run_transform)
+    df["source_label"] = df["source_record"].apply(_label_data_run_transform)
+    df["target_label"] = df["target_record"].apply(_label_data_run_transform)
     return df
 
 
