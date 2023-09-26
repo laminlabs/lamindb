@@ -1,5 +1,6 @@
 # Changelog
 
+- 🐛 Fix view_flow [PR1201](https://github.com/laminlabs/lamindb/pull/1201) [@sunnyosun](https://github.com/sunnyosun)
 - 🐛 Fix bug in view_flow [PR1200](https://github.com/laminlabs/lamindb/pull/1200) [@sunnyosun](https://github.com/sunnyosun)
 - 🚑️ Fix edge case in view_flow [PR1199](https://github.com/laminlabs/lamindb/pull/1199) [@sunnyosun](https://github.com/sunnyosun)
 - 📝 Migrate signup route [PR1198](https://github.com/laminlabs/lamindb/pull/1198) [@falexwolf](https://github.com/falexwolf)
