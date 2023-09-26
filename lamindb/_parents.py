@@ -268,9 +268,7 @@ def _get_all_parent_runs(data: Union[File, Dataset]) -> List:
     run_inputs_outputs = []
 
     runs = [data.run]
-    while any([r.input_files.exists() for r in runs if r is not None]) or any(
-        [r.input_datasets.exists() for r in runs if r is not None]
-    ):
+    while len(runs) > 0:
         inputs = []
         for r in runs:
             inputs_run = r.input_files.list() + r.input_datasets.list()
@@ -294,10 +292,7 @@ def _get_all_child_runs(data: Union[File, Dataset]) -> List:
         all_runs.update(runs)
         child_runs: Set[Run] = set()
         for r in runs:
-            if r != data.run:
-                run_inputs_outputs += [
-                    (r.input_files.list() + r.input_datasets.list(), r)
-                ]
+            run_inputs_outputs += [(r.input_files.list() + r.input_datasets.list(), r)]
             run_outputs = r.output_files
             run_inputs_outputs += [(r, run_outputs.list())]
             child_runs.update(
