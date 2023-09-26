@@ -1,5 +1,6 @@
 # Changelog
 
+- 📝 Polish bio-registries [PR1203](https://github.com/laminlabs/lamindb/pull/1203) [@falexwolf](https://github.com/falexwolf)
 - ✅ Add tests for dataset provenance [PR1202](https://github.com/laminlabs/lamindb/pull/1202) [@falexwolf](https://github.com/falexwolf)
 - 🐛 Fix view_flow [PR1201](https://github.com/laminlabs/lamindb/pull/1201) [@sunnyosun](https://github.com/sunnyosun)
 - 🐛 Fix bug in view_flow [PR1200](https://github.com/laminlabs/lamindb/pull/1200) [@sunnyosun](https://github.com/sunnyosun)
