@@ -150,6 +150,13 @@ def __init__(
         )
     dataset._files = files
     dataset._feature_sets = feature_sets
+    # register provenance
+    if file is not None:
+        _track_run_input(file, run=run)
+    elif files is not None:
+        for file in files:
+            _track_run_input(file, run=run)
+    # there is not other possibility
 
 
 @classmethod  # type: ignore

@@ -148,8 +148,14 @@ def test_from_single_file():
     assert str(error.exconly()).startswith(
         "ValueError: Only one non-keyword arg allowed: data"
     )
-    dataset = ln.Dataset(file, name="My new dataset")
+    transform = ln.Transform(name="My test transform")
+    transform.save()
+    run = ln.Run(transform)
+    dataset = ln.Dataset(file, name="My new dataset", run=run)
     dataset.save()
+    # test data flow
+    assert dataset.run.input_files.get() == file
+    # test features
     assert set(file.feature_sets.list("id")) == set(
         dataset.file.feature_sets.list("id")
     )
@@ -197,7 +203,7 @@ def test_backed():
     dataset.backed()
 
 
-def test_load_inconsistent_files():
+def test_from_inconsistent_files():
     file1 = ln.File(df, description="My test")
     file1.save()
     file2 = ln.File(adata, description="My test2")
@@ -214,13 +220,17 @@ def test_load_inconsistent_files():
     dataset.delete()
 
 
-def test_load_consistent_files():
+def test_from_consistent_files():
     file1 = ln.File(adata, description="My test")
     file1.save()
     file2 = ln.File(adata2, description="My test2")
     file2.save()
-    dataset = ln.Dataset([file1, file2], name="My test")
+    transform = ln.Transform(name="My test transform")
+    transform.save()
+    run = ln.Run(transform)
+    dataset = ln.Dataset([file1, file2], name="My test", run=run)
     dataset.save()
+    assert set(dataset.run.input_files.all()) == {file1, file2}
     dataset.load()
     with pytest.raises(RuntimeError) as error:
         dataset.backed()

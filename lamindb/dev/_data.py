@@ -309,13 +309,17 @@ def add_labels(
             )
 
 
-def _track_run_input(data: Data, is_run_input: Optional[bool] = None):
+def _track_run_input(
+    data: Data, is_run_input: Optional[bool] = None, run: Optional[Run] = None
+):
+    if run is None:
+        run = run_context.run
     track_run_input = False
     if is_run_input is None:
         # we need a global run context for this to work
-        if run_context.run is not None:
+        if run is not None:
             # avoid cycles (a file is both input and output)
-            if data.run != run_context.run:
+            if data.run != run:
                 if settings.track_run_inputs:
                     transform_note = ""
                     if data.transform is not None:
@@ -324,7 +328,7 @@ def _track_run_input(data: Data, is_run_input: Optional[bool] = None):
                         )
                     logger.info(
                         f"adding file {data.id} as input for run"
-                        f" {run_context.run.id}{transform_note}"
+                        f" {run.id}{transform_note}"
                     )
                     track_run_input = True
                 else:
@@ -340,17 +344,18 @@ def _track_run_input(data: Data, is_run_input: Optional[bool] = None):
     else:
         track_run_input = is_run_input
     if track_run_input:
-        if run_context.run is None:
+        if run is None:
             raise ValueError(
-                "No global run context set. Call ln.context.track() or link input to a"
-                " run object via `run.input_files.append(file)`"
+                "No run context set. Call ln.track() or link input to a"
+                " run object via `run.input_files.add(file)`"
             )
         # avoid adding the same run twice
         # avoid cycles (a file is both input and output)
-        if not data.input_of.contains(run_context.run) and data.run != run_context.run:
-            run_context.run.save()
-            data.input_of.add(run_context.run)
-            run_context.run.transform.parents.add(data.transform)
+        if not data.input_of.contains(run) and data.run != run:
+            run.save()
+            data.input_of.add(run)
+            if data.transform is not None:
+                run.transform.parents.add(data.transform)
 
 
 @property  # type: ignore
