@@ -267,7 +267,7 @@ def _get_all_parent_runs(data: Union[File, Dataset]) -> List:
     """Get all input file/dataset runs recursively."""
     run_inputs_outputs = []
 
-    runs = [data.run]
+    runs = [data.run] if data.run is not None else []
     while len(runs) > 0:
         inputs = []
         for r in runs:
@@ -277,7 +277,7 @@ def _get_all_parent_runs(data: Union[File, Dataset]) -> List:
                 (r, r.output_files.list() + r.output_datasets.list())
             ]
             inputs += inputs_run
-        runs = [f.run for f in inputs]
+        runs = [f.run for f in inputs if f.run is not None]
     return run_inputs_outputs
 
 
