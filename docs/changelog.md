@@ -1,23 +1,14 @@
 # Changelog
 
-- 📝 Polish bio-registries [PR1203](https://github.com/laminlabs/lamindb/pull/1203) [@falexwolf](https://github.com/falexwolf)
-- ✅ Add tests for dataset provenance [PR1202](https://github.com/laminlabs/lamindb/pull/1202) [@falexwolf](https://github.com/falexwolf)
-- 🐛 Fix view_flow [PR1201](https://github.com/laminlabs/lamindb/pull/1201) [@sunnyosun](https://github.com/sunnyosun)
-- 🐛 Fix bug in view_flow [PR1200](https://github.com/laminlabs/lamindb/pull/1200) [@sunnyosun](https://github.com/sunnyosun)
-- 🚑️ Fix edge case in view_flow [PR1199](https://github.com/laminlabs/lamindb/pull/1199) [@sunnyosun](https://github.com/sunnyosun)
-- 📝 Migrate signup route [PR1198](https://github.com/laminlabs/lamindb/pull/1198) [@falexwolf](https://github.com/falexwolf)
-- Simplify last statement on readme [PR1197](https://github.com/laminlabs/lamindb/pull/1197) [@falexwolf](https://github.com/falexwolf)
-- 💄 Fix code displays for setup [PR1196](https://github.com/laminlabs/lamindb/pull/1196) [@sunnyosun](https://github.com/sunnyosun)
-- 💄 Updated dataset emoji in view_flow [PR1195](https://github.com/laminlabs/lamindb/pull/1195) [@sunnyosun](https://github.com/sunnyosun)
-- 🎨 Better implementation of `dataset.view_flow` [PR1194](https://github.com/laminlabs/lamindb/pull/1194) [@sunnyosun](https://github.com/sunnyosun)
-- ♻️ Test dataset signatures and methods [PR1193](https://github.com/laminlabs/lamindb/pull/1193) [@falexwolf](https://github.com/falexwolf)
-
-
 ```{eval-rst}
 .. role:: small
 ```
 
 ## 0.54
+
+### 0.54.2 {small}`2023-09-26`
+
+- 🎨 Better implementation of `dataset.view_flow` [PR1194](https://github.com/laminlabs/lamindb/pull/1194) [@sunnyosun](https://github.com/sunnyosun)
 
 ### 0.54.1 {small}`2023-09-21`
 
