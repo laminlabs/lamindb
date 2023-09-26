@@ -266,7 +266,9 @@ def load(self, is_run_input: Optional[bool] = None, **kwargs) -> DataLike:
             raise RuntimeError(
                 "Can only load datasets where all files have the same suffix"
             )
-        objects = [file.load() for file in all_files]
+        # because we're tracking data flow on the dataset-level, here, we don't
+        # want to track it on the file-level
+        objects = [file.load(is_run_input=False) for file in all_files]
         file_ids = [file.id for file in all_files]
         if isinstance(objects[0], pd.DataFrame):
             return pd.concat(objects)
