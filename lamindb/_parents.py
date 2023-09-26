@@ -349,7 +349,7 @@ def _df_edges_from_runs(df_values: List):
     df = pd.DataFrame(df_values, columns=["source_record", "target_record"])
     df = df.explode("source_record")
     df = df.explode("target_record")
-    df = df.drop_duplicates()
+    df = df.drop_duplicates().dropna()
     df["source"] = [i.id for i in df["source_record"]]
     df["target"] = [i.id for i in df["target_record"]]
     df["source_label"] = df["source_record"].apply(_label_data_run_transform)
