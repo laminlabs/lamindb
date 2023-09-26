@@ -1,5 +1,6 @@
 # Changelog
 
+- 🚑️ Fix edge case in view_flow [PR1199](https://github.com/laminlabs/lamindb/pull/1199) [@sunnyosun](https://github.com/sunnyosun)
 - 📝 Migrate signup route [PR1198](https://github.com/laminlabs/lamindb/pull/1198) [@falexwolf](https://github.com/falexwolf)
 - Simplify last statement on readme [PR1197](https://github.com/laminlabs/lamindb/pull/1197) [@falexwolf](https://github.com/falexwolf)
 - 💄 Fix code displays for setup [PR1196](https://github.com/laminlabs/lamindb/pull/1196) [@sunnyosun](https://github.com/sunnyosun)
