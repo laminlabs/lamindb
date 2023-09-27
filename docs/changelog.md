@@ -1,5 +1,6 @@
 # Changelog
 
+- 📝 Improve quickstart [PR1207](https://github.com/laminlabs/lamindb/pull/1207) [@falexwolf](https://github.com/falexwolf)
 - 💄 Fix double arrows for file and dataset [PR1206](https://github.com/laminlabs/lamindb/pull/1206) [@sunnyosun](https://github.com/sunnyosun)
 - 🎨 Add a members property to FeatureSet [PR1205](https://github.com/laminlabs/lamindb/pull/1205) [@falexwolf](https://github.com/falexwolf)
 - ♻️ Streamline features print [PR1204](https://github.com/laminlabs/lamindb/pull/1204) [@falexwolf](https://github.com/falexwolf)
