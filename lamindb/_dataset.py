@@ -112,7 +112,8 @@ def __init__(
             )
         hash = file.hash  # type: ignore
         provisional_id = file.id  # type: ignore
-        file.description = f"See dataset {provisional_id}"  # type: ignore
+        if file.description is None:
+            file.description = f"See dataset {provisional_id}"  # type: ignore
         file._feature_sets = feature_sets
     # init files
     else:
@@ -151,11 +152,12 @@ def __init__(
     dataset._files = files
     dataset._feature_sets = feature_sets
     # register provenance
-    if file is not None:
+    if file is not None and file.run != run:
         _track_run_input(file, run=run)
     elif files is not None:
         for file in files:
-            _track_run_input(file, run=run)
+            if file.run != run:
+                _track_run_input(file, run=run)
     # there is not other possibility
 
 
