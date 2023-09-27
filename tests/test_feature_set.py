@@ -44,12 +44,15 @@ def test_feature_set_from_values():
     assert feature_set is None
     ln.save(lb.Gene.from_values(gene_symbols, "symbol"))
     feature_set = ln.FeatureSet.from_values(gene_symbols, lb.Gene.symbol)
+    # below should be a queryset and not a list
+    assert set(feature_set.members) == set(lb.Gene.from_values(gene_symbols, "symbol"))
     assert feature_set.type == "number"  # this is NUMBER_TYPE
     feature_set = ln.FeatureSet.from_values(gene_symbols, lb.Gene.symbol, type=int)
     assert feature_set._state.adding
     assert feature_set.type == "number"
     assert feature_set.registry == "bionty.Gene"
     feature_set.save()
+    assert set(feature_set.members) == set(feature_set.genes.all())
     id = feature_set.id
     # test that the feature_set is retrieved from the database
     # in case it already exists

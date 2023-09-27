@@ -244,6 +244,8 @@ def from_df(
 def members(self) -> "QuerySet":
     """{}"""
     if self._state.adding:
+        # this should return a queryset and not a list...
+        # need to fix this
         return self._features[1]
     key_split = self.registry.split(".")
     orm_name_with_schema = f"{key_split[0]}.{key_split[1]}"
