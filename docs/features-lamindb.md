@@ -1,6 +1,4 @@
-Often, siloed object stores, SQL databases & ELN/LIMS systems pile up inaccessible & hard-to-integrate data impacting derived analytical insights.
-
-LaminDB's features aim to address [key problems](https://lamin.ai/blog/2022/problems) underlying this tendency, [taking inspiration](docs:influences) from a number of data tools.
+[Influenced](docs:influences) by a number of data tools, LaminDB's features address [key data management problem](https://lamin.ai/blog/2022/problems).
 
 **For data users**
 
