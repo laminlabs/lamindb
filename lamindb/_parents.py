@@ -110,6 +110,10 @@ def view_flow(data: Union[File, Dataset], with_children: bool = True) -> None:
         )
 
     for _, row in df_edges.iterrows():
+        if (row["source"] == data.id) & (row["source_record"] != data):
+            continue
+        if (row["target"] == data.id) & (row["target_record"] != data):
+            continue
         add_node(row["source_record"], row["source"], row["source_label"], u)
         if row["target_record"] not in df_edges["source_record"]:
             add_node(row["target_record"], row["target"], row["target_label"], u)
