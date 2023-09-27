@@ -1,3 +1,4 @@
+from collections import defaultdict
 from typing import Dict, Iterable, Optional, Tuple, Union
 
 import anndata as ad
@@ -112,7 +113,7 @@ def __init__(
             )
         hash = file.hash  # type: ignore
         provisional_id = file.id  # type: ignore
-        if file.description is None:
+        if file.description is not None and file.description != "tmp":
             file.description = f"See dataset {provisional_id}"  # type: ignore
         file._feature_sets = feature_sets
     # init files
@@ -229,9 +230,19 @@ def from_files(files: Iterable[File]) -> Tuple[str, Dict[str, str]]:
     feature_set_file_links = File.feature_sets.through.objects.filter(
         file_id__in=file_ids
     )
-    feature_set_slots_ids = {}
+    feature_set_ids = [link.feature_set_id for link in feature_set_file_links]
+    feature_sets = FeatureSet.filter(id__in=feature_set_ids).all()
+    feature_sets_by_slots = defaultdict(list)
     for link in feature_set_file_links:
-        feature_set_slots_ids[link.slot] = link.feature_set_id
+        feature_sets_by_slots[link.slot].append(
+            feature_sets.filter(id=link.feature_set_id).one()
+        )
+    feature_sets_union = {}
+    for slot, feature_sets_slot in feature_sets_by_slots.items():
+        members = feature_sets_slot[0].members
+        for feature_set in feature_sets_slot[1:]:
+            members = members | feature_set.members
+        feature_sets_union[slot] = FeatureSet(members)
     # validate consistency of hashes
     # we do not allow duplicate hashes
     hashes = [file.hash for file in files]
@@ -243,7 +254,7 @@ def from_files(files: Iterable[File]) -> Tuple[str, Dict[str, str]]:
             f" {non_unique}"
         )
     hash = hash_set(set(hashes))
-    return hash, feature_set_slots_ids
+    return hash, feature_sets_union
 
 
 # docstring handled through attach_func_to_class_method

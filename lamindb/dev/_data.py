@@ -19,11 +19,11 @@ from lnschema_core.types import StrField
 
 from lamindb.dev._settings import settings
 
+from .._feature_set import dict_schema_name_to_model_name
 from .._parents import view_flow
 from .._query_set import QuerySet
 from ._feature_manager import (
     FeatureManager,
-    dict_schema_name_to_model_name,
     get_feature_set_links,
     get_host_id_field,
     get_label_links,
