@@ -113,7 +113,7 @@ def __init__(
             )
         hash = file.hash  # type: ignore
         provisional_id = file.id  # type: ignore
-        if file.description is not None and file.description != "tmp":
+        if file.description is None or file.description == "tmp":
             file.description = f"See dataset {provisional_id}"  # type: ignore
         file._feature_sets = feature_sets
     # init files
