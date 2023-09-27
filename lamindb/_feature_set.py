@@ -1,4 +1,4 @@
-from typing import Iterable, List, Optional, Type, Union
+from typing import Dict, Iterable, List, Optional, Type, Union
 
 import numpy as np
 import pandas as pd
@@ -12,9 +12,44 @@ from lamindb.dev.hashing import hash_set
 
 from . import _TESTING
 from ._feature import convert_numpy_dtype_to_lamin_feature_type
+from ._query_set import QuerySet
 from ._registry import init_self_from_db
 from ._save import bulk_create
 from .dev._priors import NUMBER_TYPE
+
+
+def dict_related_model_to_related_name(orm):
+    d: Dict = {
+        i.related_model.__get_name_with_schema__(): i.related_name
+        for i in orm._meta.related_objects
+        if i.related_name is not None
+    }
+    d.update(
+        {
+            i.related_model.__get_name_with_schema__(): i.name
+            for i in orm._meta.many_to_many
+            if i.name is not None
+        }
+    )
+
+    return d
+
+
+def dict_schema_name_to_model_name(orm):
+    d: Dict = {
+        i.related_model.__get_name_with_schema__(): i.related_model
+        for i in orm._meta.related_objects
+        if i.related_name is not None
+    }
+    d.update(
+        {
+            i.related_model.__get_name_with_schema__(): i.related_model
+            for i in orm._meta.many_to_many
+            if i.name is not None
+        }
+    )
+
+    return d
 
 
 def get_related_name(features_type: Registry):
@@ -204,6 +239,21 @@ def from_df(
     return feature_set
 
 
+@property  # type: ignore
+@doc_args(FeatureSet.members.__doc__)
+def members(self) -> "QuerySet":
+    """{}"""
+    if self._state.adding:
+        # this should return a queryset and not a list...
+        # need to fix this
+        return self._features[1]
+    key_split = self.registry.split(".")
+    orm_name_with_schema = f"{key_split[0]}.{key_split[1]}"
+    feature_sets_related_models = dict_related_model_to_related_name(self)
+    related_name = feature_sets_related_models.get(orm_name_with_schema)
+    return self.__getattribute__(related_name).all()
+
+
 METHOD_NAMES = [
     "__init__",
     "from_values",
@@ -222,3 +272,5 @@ if _TESTING:
 
 for name in METHOD_NAMES:
     attach_func_to_class_method(name, FeatureSet, globals())
+
+setattr(FeatureSet, "members", members)

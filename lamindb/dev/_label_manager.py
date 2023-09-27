@@ -3,10 +3,10 @@ from typing import Dict, List, Union
 from lamin_utils import colors
 from lnschema_core.models import Data, Dataset, Feature, File, Registry
 
+from .._feature_set import dict_related_model_to_related_name
 from .._from_values import _print_values
 from .._query_set import QuerySet
 from .._registry import get_default_str_field
-from ._feature_manager import dict_related_model_to_related_name
 
 
 def print_labels(self: Data):

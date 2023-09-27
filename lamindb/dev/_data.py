@@ -19,11 +19,11 @@ from lnschema_core.types import StrField
 
 from lamindb.dev._settings import settings
 
+from .._feature_set import dict_schema_name_to_model_name
 from .._parents import view_flow
 from .._query_set import QuerySet
 from ._feature_manager import (
     FeatureManager,
-    dict_schema_name_to_model_name,
     get_feature_set_links,
     get_host_id_field,
     get_label_links,
@@ -81,14 +81,9 @@ def save_feature_set_links(self: Union[File, Dataset]) -> None:
         links = []
         host_id_field = get_host_id_field(self)
         for slot, feature_set in self._feature_sets.items():
-            if isinstance(feature_set, str):
-                assert len(feature_set) == 20
-                feature_set_id = feature_set
-            else:
-                feature_set_id = feature_set.id
             kwargs = {
                 host_id_field: self.id,
-                "feature_set_id": feature_set_id,
+                "feature_set_id": feature_set.id,
                 "slot": slot,
             }
             links.append(Data.feature_sets.through(**kwargs))

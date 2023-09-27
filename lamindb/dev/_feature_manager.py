@@ -1,44 +1,11 @@
 from typing import Dict, Union
 
 from lamin_utils import colors
-from lnschema_core.models import Data, Dataset, Feature, FeatureSet, File
+from lnschema_core.models import Data, Dataset, Feature, File
 
+from .._feature_set import FeatureSet
 from .._query_set import QuerySet
 from .._registry import get_default_str_field
-
-
-def dict_related_model_to_related_name(orm):
-    d: Dict = {
-        i.related_model.__get_name_with_schema__(): i.related_name
-        for i in orm._meta.related_objects
-        if i.related_name is not None
-    }
-    d.update(
-        {
-            i.related_model.__get_name_with_schema__(): i.name
-            for i in orm._meta.many_to_many
-            if i.name is not None
-        }
-    )
-
-    return d
-
-
-def dict_schema_name_to_model_name(orm):
-    d: Dict = {
-        i.related_model.__get_name_with_schema__(): i.related_model
-        for i in orm._meta.related_objects
-        if i.related_name is not None
-    }
-    d.update(
-        {
-            i.related_model.__get_name_with_schema__(): i.related_model
-            for i in orm._meta.many_to_many
-            if i.name is not None
-        }
-    )
-
-    return d
 
 
 def get_host_id_field(host: Union[File, Dataset]) -> str:
@@ -103,14 +70,7 @@ def print_features(self: Data) -> str:
     features_lookup = Feature.lookup()
     for slot, feature_set in self.features._feature_set_by_slot.items():
         if feature_set.registry != "core.Feature":
-            key_split = feature_set.registry.split(".")
-            orm_name_with_schema = f"{key_split[0]}.{key_split[1]}"
-            feature_sets_related_models = dict_related_model_to_related_name(
-                feature_set
-            )
-            related_name = feature_sets_related_models.get(orm_name_with_schema)
-            # first n feature records
-            features = feature_set.__getattribute__(related_name).all()
+            features = feature_set.members
             name_field = get_default_str_field(features[0])
             feature_names = [getattr(feature, name_field) for feature in features]
             msg += f"  {colors.bold(slot)}: {feature_set}\n"
