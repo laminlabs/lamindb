@@ -109,17 +109,13 @@ def print_features(self: Data) -> str:
                 feature_set
             )
             related_name = feature_sets_related_models.get(orm_name_with_schema)
-            # first 5 feature records
+            # first n feature records
             features = feature_set.__getattribute__(related_name).all()
             name_field = get_default_str_field(features[0])
             feature_names = [getattr(feature, name_field) for feature in features]
-            host_id_field = get_host_id_field(self)
-            kwargs = {host_id_field: self.id, "feature_set_id": feature_set.id}
-            slots = self.feature_sets.through.objects.filter(**kwargs).list("slot")
-            for slot in slots:
-                msg += f"  {colors.bold(slot)}: {feature_set}\n"
-                print_values = _print_values(feature_names, n=10)
-                msg += f"    {print_values}\n"
+            msg += f"  {colors.bold(slot)}: {feature_set}\n"
+            print_values = _print_values(feature_names, n=20)
+            msg += f"    {print_values}\n"
         else:
             df_slot = feature_set.features.df()
             msg += f"  {colors.bold(slot)}: {feature_set}\n"
