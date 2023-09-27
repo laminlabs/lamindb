@@ -1,5 +1,6 @@
 # Changelog
 
+- 🎨 Add a members property to FeatureSet [PR1205](https://github.com/laminlabs/lamindb/pull/1205) [@falexwolf](https://github.com/falexwolf)
 - ♻️ Streamline features print [PR1204](https://github.com/laminlabs/lamindb/pull/1204) [@falexwolf](https://github.com/falexwolf)
 ```{eval-rst}
 .. role:: small
