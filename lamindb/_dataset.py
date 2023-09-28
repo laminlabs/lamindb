@@ -153,6 +153,8 @@ def __init__(
     dataset._files = files
     dataset._feature_sets = feature_sets
     # register provenance
+    if is_new_version_of is not None:
+        _track_run_input(is_new_version_of, run=run)
     if file is not None and file.run != run:
         _track_run_input(file, run=run)
     elif files is not None:
