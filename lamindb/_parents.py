@@ -80,17 +80,6 @@ def view_flow(data: Union[File, Dataset], with_children: bool = True) -> None:
 
     data_label = _label_data_run_transform(data)
 
-    u = graphviz.Digraph(
-        data.id,
-        node_attr={
-            "fillcolor": GREEN_FILL,
-            "color": LAMIN_GREEN_DARKER,
-            "fontname": "Helvetica",
-            "fontsize": "10",
-        },
-        edge_attr={"arrowsize": "0.5"},
-    )
-
     def add_node(
         record: Union[Run, File, Dataset],
         node_id: str,
@@ -109,11 +98,18 @@ def view_flow(data: Union[File, Dataset], with_children: bool = True) -> None:
             fillcolor=fillcolor,
         )
 
+    u = graphviz.Digraph(
+        f"{data._meta.model_name}_{data.id}",
+        node_attr={
+            "fillcolor": GREEN_FILL,
+            "color": LAMIN_GREEN_DARKER,
+            "fontname": "Helvetica",
+            "fontsize": "10",
+        },
+        edge_attr={"arrowsize": "0.5"},
+    )
+
     for _, row in df_edges.iterrows():
-        if (row["source"] == data.id) & (row["source_record"] != data):
-            continue
-        if (row["target"] == data.id) & (row["target_record"] != data):
-            continue
         add_node(row["source_record"], row["source"], row["source_label"], u)
         if row["target_record"] not in df_edges["source_record"]:
             add_node(row["target_record"], row["target"], row["target_label"], u)
@@ -121,7 +117,7 @@ def view_flow(data: Union[File, Dataset], with_children: bool = True) -> None:
         u.edge(row["source"], row["target"], color="dimgrey")
     # label the searched file
     u.node(
-        data.id,
+        f"{data._meta.model_name}_{data.id}",
         label=data_label,
         style="rounded,filled",
         fillcolor=LAMIN_GREEN_LIGHTER,
@@ -349,8 +345,8 @@ def _df_edges_from_runs(df_values: List):
     df = df.explode("source_record")
     df = df.explode("target_record")
     df = df.drop_duplicates().dropna()
-    df["source"] = [i.id for i in df["source_record"]]
-    df["target"] = [i.id for i in df["target_record"]]
+    df["source"] = [f"{i._meta.model_name}_{i.id}" for i in df["source_record"]]
+    df["target"] = [f"{i._meta.model_name}_{i.id}" for i in df["target_record"]]
     df["source_label"] = df["source_record"].apply(_label_data_run_transform)
     df["target_label"] = df["target_record"].apply(_label_data_run_transform)
     return df
