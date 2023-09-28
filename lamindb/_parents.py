@@ -265,17 +265,21 @@ def _add_emoji(record: Registry, label: str):
 
 def _get_all_parent_runs(data: Union[File, Dataset]) -> List:
     """Get all input file/dataset runs recursively."""
+    name = data._meta.model_name
     run_inputs_outputs = []
 
     runs = [data.run] if data.run is not None else []
     while len(runs) > 0:
         inputs = []
         for r in runs:
-            inputs_run = r.input_files.list() + r.input_datasets.list()
+            inputs_run = r.__getattribute__(f"input_{name}s").list()
+            if name == "file":
+                inputs_run += r.input_datasets.list()
             run_inputs_outputs += [(inputs_run, r)]
-            run_inputs_outputs += [
-                (r, r.output_files.list() + r.output_datasets.list())
-            ]
+            outputs_run = r.__getattribute__(f"output_{name}s").list()
+            if name == "file":
+                outputs_run += r.output_datasets.list()
+            run_inputs_outputs += [(r, outputs_run)]
             inputs += inputs_run
         runs = [f.run for f in inputs if f.run is not None]
     return run_inputs_outputs
@@ -283,24 +287,36 @@ def _get_all_parent_runs(data: Union[File, Dataset]) -> List:
 
 def _get_all_child_runs(data: Union[File, Dataset]) -> List:
     """Get all output file/dataset runs recursively."""
+    name = data._meta.model_name
     all_runs: Set[Run] = set()
     run_inputs_outputs = []
 
-    runs = {f.run for f in data.run.output_files.all()}
-    runs.update({f.run for f in data.run.output_datasets.all()})
+    runs = {f.run for f in data.run.__getattribute__(f"output_{name}s").all()}
+    if name == "file":
+        runs.update({f.run for f in data.run.output_datasets.all()})
     while runs.difference(all_runs):
         all_runs.update(runs)
         child_runs: Set[Run] = set()
         for r in runs:
-            run_inputs_outputs += [(r.input_files.list() + r.input_datasets.list(), r)]
-            run_outputs = r.output_files
-            run_inputs_outputs += [(r, run_outputs.list())]
+            inputs_run = r.__getattribute__(f"input_{name}s").list()
+            if name == "file":
+                inputs_run += r.input_datasets.list()
+            run_inputs_outputs += [(inputs_run, r)]
+            outputs_run = r.__getattribute__(f"output_{name}s").list()
+            if name == "file":
+                outputs_run += r.output_datasets.list()
+            run_inputs_outputs += [(r, outputs_run)]
             child_runs.update(
-                Run.filter(input_files__id__in=r.output_files.list("id")).list()
+                Run.filter(
+                    **{f"input_{name}s__id__in": [i.id for i in outputs_run]}
+                ).list()
             )
-            child_runs.update(
-                Run.filter(input_datasets__id__in=r.output_datasets.list("id")).list()
-            )
+            if name == "file":
+                child_runs.update(
+                    Run.filter(
+                        input_datasets__id__in=[i.id for i in outputs_run]
+                    ).list()
+                )
         runs = child_runs
     return run_inputs_outputs
 
