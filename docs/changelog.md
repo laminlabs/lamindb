@@ -1,5 +1,6 @@
 # Changelog
 
+- 📝 Minor edits to introduction [PR1208](https://github.com/laminlabs/lamindb/pull/1208) [@sunnyosun](https://github.com/sunnyosun)
 
 ```{eval-rst}
 .. role:: small
