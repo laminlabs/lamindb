@@ -19,6 +19,7 @@ def get_test_files():
     file2.delete(storage=True)
 
 
+# also see test_feature_manager!
 def test_add_from(get_test_files):
     file1, file2 = get_test_files
     label_names = [f"Project {i}" for i in range(3)]

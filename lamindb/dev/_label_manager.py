@@ -14,7 +14,7 @@ def get_labels_as_dict(self: Data):
     for related_model, related_name in dict_related_model_to_related_name(
         self.__class__
     ).items():
-        if related_name in {"feature_sets", "files", "input_of"}:
+        if related_name in {"feature_sets", "files", "input_of", "datasets"}:
             continue
         labels[related_name] = (related_model, self.__getattribute__(related_name))
     return labels
