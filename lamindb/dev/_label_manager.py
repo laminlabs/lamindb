@@ -9,14 +9,20 @@ from .._query_set import QuerySet
 from .._registry import get_default_str_field
 
 
-def print_labels(self: Data):
-    labels_msg = ""
+def get_labels_as_dict(self: Data):
+    labels = {}
     for related_model, related_name in dict_related_model_to_related_name(
         self.__class__
     ).items():
-        if related_name in {"feature_sets", "files", "input_of"}:
+        if related_name in {"feature_sets", "files", "input_of", "datasets"}:
             continue
-        labels = self.__getattribute__(related_name)
+        labels[related_name] = (related_model, self.__getattribute__(related_name))
+    return labels
+
+
+def print_labels(self: Data):
+    labels_msg = ""
+    for related_name, (related_model, labels) in get_labels_as_dict(self).items():
         if labels.exists():
             n = labels.count()
             field = get_default_str_field(labels)
@@ -30,6 +36,10 @@ def print_labels(self: Data):
 
 class LabelManager:
     """Label manager (:attr:`~lamindb.dev.Data.labels`).
+
+    This allows to manage untyped labels :class:`~lamindb.ULabel` and arbitrary
+    typed labels (e.g., :class:`~lnschema_bionty.CellLine`) and associate labels
+    with features.
 
     See :class:`~lamindb.dev.Data` for more information.
     """
@@ -76,3 +86,33 @@ class LabelManager:
         from ._data import get_labels
 
         return get_labels(self._host, feature=feature, mute=mute, flat_names=flat_names)
+
+    def add_from(self, data: Data):
+        """Transfer labels from a file or dataset.
+
+        Examples:
+            >>> file1 = ln.File(pd.DataFrame(index=[0, 1]))
+            >>> file1.save()
+            >>> file2 = ln.File(pd.DataFrame(index=[2, 3]))
+            >>> file2.save()
+            >>> ulabels = ln.ULabel.from_values(["Label1", "Label2"], field="name")
+            >>> ln.save(ulabels)
+            >>> labels = ln.ULabel.filter(name__icontains = "label").all()
+            >>> file1.ulabels.set(labels)
+            >>> file2.labels.add_from(file1)
+        """
+        features_lookup = Feature.lookup()
+        for _, feature_set in data.features._feature_set_by_slot.items():
+            if feature_set.registry == "core.Feature":
+                df_slot = feature_set.features.df()
+                for _, row in df_slot.iterrows():
+                    if row["type"] == "category" and row["registries"] is not None:
+                        labels = data.labels.get(
+                            getattr(features_lookup, row["name"]), mute=True
+                        )
+                        self._host.labels.add(
+                            labels, feature=getattr(features_lookup, row["name"])
+                        )
+        # for now, have this be duplicated, need to disentangle above
+        for related_name, (_, labels) in get_labels_as_dict(data).items():
+            getattr(self._host, related_name).add(*labels.all())

@@ -83,7 +83,14 @@ def test_labels_add():
     assert feature_set_n1.id != feature_set_n2.id
     assert file.feature_sets.get() == feature_set_n2
 
-    file.delete(storage=True)
+    # test add_from
+    dataset = ln.Dataset(file, name="My dataset")
+    dataset.save()
+    dataset.labels.add_from(file)
+    experiments = dataset.labels.get(experiment)
+    assert experiments.get().name == "Experiment 2"
+
+    dataset.delete(storage=True)
     ln.Feature.filter().all().delete()
     ln.ULabel.filter().all().delete()
     ln.FeatureSet.filter().all().delete()
