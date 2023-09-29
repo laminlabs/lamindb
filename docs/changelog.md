@@ -1,5 +1,6 @@
 # Changelog
 
+- ♻️ Perform outer join during load [PR1212](https://github.com/laminlabs/lamindb/pull/1212) [@falexwolf](https://github.com/falexwolf)
 - 📝 Prettify quickstart [PR1210](https://github.com/laminlabs/lamindb/pull/1210) [@falexwolf](https://github.com/falexwolf)
 - 🎨 Show both file and dataset in view_flow [PR1209](https://github.com/laminlabs/lamindb/pull/1209) [@sunnyosun](https://github.com/sunnyosun)
 - 📝 Minor edits to introduction [PR1208](https://github.com/laminlabs/lamindb/pull/1208) [@sunnyosun](https://github.com/sunnyosun)
