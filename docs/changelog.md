@@ -1,16 +1,16 @@
 # Changelog
 
-- ✨ Add labels transfer through `labels.add_from` [PR1211](https://github.com/laminlabs/lamindb/pull/1211) [@falexwolf](https://github.com/falexwolf)
-- ♻️ Perform outer join during load [PR1212](https://github.com/laminlabs/lamindb/pull/1212) [@falexwolf](https://github.com/falexwolf)
-- 📝 Prettify quickstart [PR1210](https://github.com/laminlabs/lamindb/pull/1210) [@falexwolf](https://github.com/falexwolf)
-- 🎨 Show both file and dataset in view_flow [PR1209](https://github.com/laminlabs/lamindb/pull/1209) [@sunnyosun](https://github.com/sunnyosun)
-- 📝 Minor edits to introduction [PR1208](https://github.com/laminlabs/lamindb/pull/1208) [@sunnyosun](https://github.com/sunnyosun)
-
 ```{eval-rst}
 .. role:: small
 ```
 
 ## 0.54
+
+### 0.54.4 {small}`2023-09-29`
+
+- ✨ Add labels transfer through `labels.add_from` [PR1211](https://github.com/laminlabs/lamindb/pull/1211) [@falexwolf](https://github.com/falexwolf)
+- ♻️ Perform outer join during load [PR1212](https://github.com/laminlabs/lamindb/pull/1212) [@falexwolf](https://github.com/falexwolf)
+- 🎨 Show both file and dataset in view_flow [PR1209](https://github.com/laminlabs/lamindb/pull/1209) [@sunnyosun](https://github.com/sunnyosun)
 
 ### 0.54.3 {small}`2023-09-27`
 
