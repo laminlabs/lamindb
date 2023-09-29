@@ -1,5 +1,5 @@
 from collections import defaultdict
-from typing import Dict, Iterable, Optional, Tuple, Union
+from typing import Dict, Iterable, Literal, Optional, Tuple, Union
 
 import anndata as ad
 import pandas as pd
@@ -270,7 +270,12 @@ def backed(
 
 
 # docstring handled through attach_func_to_class_method
-def load(self, is_run_input: Optional[bool] = None, **kwargs) -> DataLike:
+def load(
+    self,
+    join: Literal["inner", "outer"] = "outer",
+    is_run_input: Optional[bool] = None,
+    **kwargs,
+) -> DataLike:
     _track_run_input(self, is_run_input)
     if self.file is not None:
         return self.file.load()
@@ -286,9 +291,9 @@ def load(self, is_run_input: Optional[bool] = None, **kwargs) -> DataLike:
         objects = [file.load(is_run_input=False) for file in all_files]
         file_ids = [file.id for file in all_files]
         if isinstance(objects[0], pd.DataFrame):
-            return pd.concat(objects)
+            return pd.concat(objects, join=join)
         elif isinstance(objects[0], ad.AnnData):
-            return ad.concat(objects, label="file_id", keys=file_ids)
+            return ad.concat(objects, join=join, label="file_id", keys=file_ids)
 
 
 # docstring handled through attach_func_to_class_method
