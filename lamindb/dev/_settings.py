@@ -57,7 +57,7 @@ class Settings:
     FAQ: :doc:`/faq/track-run-inputs`
     """
     silence_file_run_transform_warning: bool = False
-    """Silence """
+    """Silence warning about missing run & transform during file creation."""
 
     @property
     def storage(self) -> Union[Path, UPath]:
