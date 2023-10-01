@@ -1,5 +1,6 @@
 # Changelog
 
+- ♻️ Move lamin-vault dependency to postgres extra [PR1214](https://github.com/laminlabs/lamindb/pull/1214) [@falexwolf](https://github.com/falexwolf)
 - ✨ Save notebook files [PR1213](https://github.com/laminlabs/lamindb/pull/1213) [@falexwolf](https://github.com/falexwolf)
 ```{eval-rst}
 .. role:: small
