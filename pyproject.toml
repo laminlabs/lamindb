@@ -48,7 +48,8 @@ gcp = [
     "fsspec[gs]==2023.9.0"
 ]
 jupyter = [
-    "nbproject==0.9.2"  # keep pinning
+    "nbproject==0.9.2",  # keep pinning
+    "nbstripout",
 ]
 zarr = [
     "zarr>=2.16.0",
