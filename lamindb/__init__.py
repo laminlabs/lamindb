@@ -50,7 +50,6 @@ Static classes & modules:
 
    settings
    setup
-   schema
    dev
 
 """
@@ -65,6 +64,7 @@ import lamindb_setup as _lamindb_setup
 from lamin_utils import py_version_warning as _py_version_warning
 from lamindb_setup import _check_instance_setup
 from lamindb_setup._check_instance_setup import _INSTANCE_NOT_SETUP_WARNING
+from lamindb_setup._init_instance import reload_schema_modules as _reload_schema_modules
 
 _py_version_warning("3.8", "3.11")
 
@@ -114,7 +114,6 @@ if _INSTANCE_SETUP:
     from . import _ulabel  # noqa
     from . import _validate  # noqa
     from . import dev  # noqa
-    from . import schema  # noqa
     from ._delete import delete  # noqa
     from ._registry import select_backward as select  # noqa
     from ._save import save  # noqa
@@ -123,6 +122,8 @@ if _INSTANCE_SETUP:
     from .dev._run_context import run_context  # noqa
     from .dev._settings import settings
 
+    # schema modules
+    _reload_schema_modules(_lamindb_setup.settings.instance)
+
     track = run_context._track  # noqa
-    add = save  # backward compat
     settings.__doc__ = """Global :class:`~lamindb.dev.Settings`."""
