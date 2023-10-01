@@ -1,5 +1,6 @@
 # Changelog
 
+- ✨ Save notebook files [PR1213](https://github.com/laminlabs/lamindb/pull/1213) [@falexwolf](https://github.com/falexwolf)
 ```{eval-rst}
 .. role:: small
 ```
