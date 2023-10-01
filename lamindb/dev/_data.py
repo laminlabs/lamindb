@@ -38,7 +38,7 @@ from .exceptions import ValidationError
 def get_run(run: Optional[Run]) -> Optional[Run]:
     if run is None:
         run = run_context.run
-        if run is None:
+        if run is None and not settings.silence_file_run_transform_warning:
             logger.warning(
                 "no run & transform get linked, consider passing a `run` or calling"
                 " ln.track()"

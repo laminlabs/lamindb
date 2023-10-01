@@ -56,6 +56,8 @@ class Settings:
 
     FAQ: :doc:`/faq/track-run-inputs`
     """
+    silence_file_run_transform_warning: bool = False
+    """Silence """
 
     @property
     def storage(self) -> Union[Path, UPath]:
