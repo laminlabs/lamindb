@@ -1,6 +1,7 @@
 import builtins
 import hashlib
 import re
+from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path, PurePath
 from typing import Dict, List, Optional, Tuple, Union
@@ -18,7 +19,8 @@ from .hashing import to_b64_str
 is_run_from_ipython = getattr(builtins, "__IPYTHON__", False)
 
 msg_path_failed = (
-    "failed to infer notebook path.\nfix: either track manually via"
+    "failed to infer notebook path.\n"
+    "fix: either track manually via"
     " `ln.track(ln.Transform(name='My notebook'))` or pass"
     " `notebook_path` to ln.track()"
 )
@@ -152,6 +154,94 @@ def get_transform_kwargs_from_nbproject(
     if transform is None:
         old_version_of = Transform.filter(id__startswith=nbproject_id).first()
     return transform, id, version, name, old_version_of
+
+
+def _track_environment():
+    _track_container_engine()
+
+
+@dataclass
+class ContainerEngineResult:
+    container_engine_name: str | None = None
+    container_engine_version: str | None = None
+    container_id: str | None = None
+
+
+def _track_container_engine():
+    # We assume that all containers are running some Linux flavor.
+    import sys
+
+    if not sys.platform.startswith("linux"):
+        return ContainerEngineResult()
+
+    def _is_docker() -> ContainerEngineResult | None:
+        """Determines whether we're running inside a Docker container.
+
+        Inspiration https://www.baeldung.com/linux/is-process-running-inside-container
+
+        Returns:
+            A ContainerEngineResult if Docker is active, None otherwise
+        """
+        container = ContainerEngineResult()
+        import subprocess
+
+        #
+        # Determine which cgroup version the current host has (if any)
+        # https://unix.stackexchange.com/questions/471476/how-do-i-check-cgroup-v2-is-installed-on-my-machine
+        cgroup_grep_cmd = subprocess.run(
+            ["grep", "cgroup", "/proc/filesystems"], stdout=subprocess.PIPE, text=True
+        )
+        cgroup_grep_result = cgroup_grep_cmd.stdout.split("\n")
+
+        if len(cgroup_grep_result) == 2 and "cgroup" in cgroup_grep_result[0]:
+            cgroup_version = "v1"
+        elif (
+            len(cgroup_grep_result) == 3
+            and "cgroup" in cgroup_grep_result[0]
+            and "cgroup2" in cgroup_grep_result[1]
+        ):
+            cgroup_version = "v2"
+        else:
+            cgroup_version = None
+
+        if cgroup_version == "v1":
+            cgroup_v1_cmd = subprocess.run(
+                ["cat", "/proc/1/cgroup"], stdout=subprocess.PIPE, text=True
+            )
+            cgroup_v1_result = cgroup_v1_cmd.stdout.split("\n")
+            lines_containing_docker = [
+                line for line in cgroup_v1_result if "docker" in line
+            ]
+
+        elif cgroup_version == "v2":
+            cgroup_v2_cmd = subprocess.run(
+                ["cat", "/proc/self/mountinfo"], stdout=subprocess.PIPE, text=True
+            )
+            cgroup_v2_result = cgroup_v2_cmd.stdout.split("\n")
+            lines_containing_docker = [
+                line for line in cgroup_v2_result if "docker" in line
+            ]
+        else:
+            return container
+
+        if len(lines_containing_docker) > 0:
+            docker_container_id_pattern = (
+                r"/docker/([0-9a-fA-F]+)"
+                if cgroup_version == "v1"
+                else r"/docker/containers/([0-9a-fA-F]+)"
+            )
+            first_container_id_match = next(
+                (
+                    re.search(docker_container_id_pattern, line).group(1)  # type: ignore  # noqa: E501
+                    for line in lines_containing_docker
+                    if re.search(docker_container_id_pattern, line)
+                ),
+                None,
+            )
+            container.container_engine_name = "docker"
+            container.container_id = first_container_id_match
+
+        return container if container.container_engine_name == "docker" else None
 
 
 class run_context:
