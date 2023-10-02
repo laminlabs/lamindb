@@ -34,15 +34,16 @@ from ._priors import priors
 from ._run_context import run_context
 from .exceptions import ValidationError
 
+WARNING_RUN_TRANSFORM = (
+    "no run & transform get linked, consider passing a `run` or calling ln.track()"
+)
+
 
 def get_run(run: Optional[Run]) -> Optional[Run]:
     if run is None:
         run = run_context.run
         if run is None and not settings.silence_file_run_transform_warning:
-            logger.warning(
-                "no run & transform get linked, consider passing a `run` or calling"
-                " ln.track()"
-            )
+            logger.warning(WARNING_RUN_TRANSFORM)
     return run
 
 
@@ -51,11 +52,7 @@ def add_transform_to_kwargs(kwargs: Dict[str, Any], run: Run):
         kwargs["transform"] = run.transform
 
 
-def save_transform_run_feature_sets(self: Union[File, Dataset]) -> None:
-    if self.transform is not None:
-        self.transform.save()
-    if self.run is not None:
-        self.run.save()
+def save_feature_sets(self: Union[File, Dataset]) -> None:
     if hasattr(self, "_feature_sets"):
         saved_feature_sets = {}
         for key, feature_set in self._feature_sets.items():

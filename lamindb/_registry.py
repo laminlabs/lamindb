@@ -1,6 +1,7 @@
 import builtins
 from typing import Iterable, List, NamedTuple, Optional, Union
 
+import lamindb_setup as ln_setup
 import pandas as pd
 from django.core.exceptions import FieldDoesNotExist
 from django.db.models import Manager, QuerySet
@@ -314,10 +315,59 @@ def _queryset(cls: Union[Registry, QuerySet, Manager]) -> QuerySet:
     return queryset
 
 
+def transfer_to_default_db(record: Registry, save: bool = False):
+    db = record._state.db
+    if db is not None and db != "default":
+        logger.info(f"saving from instance {db} to default instance: {record}")
+        from lamindb.dev._data import WARNING_RUN_TRANSFORM
+        from lamindb.dev._run_context import run_context
+
+        logger.hint("saving to default instance")
+        if (
+            hasattr(record, "created_by_id")
+            and record.created_by_id != ln_setup.settings.user.id
+        ):
+            logger.info(f"updating created_by_id with {ln_setup.settings.user.id}")
+            record.created_by_id = ln_setup.settings.user.id
+        if hasattr(record, "run_id"):
+            if run_context.run is not None:
+                logger.info("updating run & transform to current run & transform")
+                record.run_id = run_context.run.id
+            else:
+                logger.warning(WARNING_RUN_TRANSFORM)
+                record.run_id = None
+        if hasattr(record, "transform_id"):
+            if run_context.transform is not None:
+                record.transform_id = run_context.transform.id
+            else:
+                record.transform_id = None
+        if hasattr(record, "storage_id"):
+            record.storage.save()
+        record._state.db = "default"
+        if save:
+            record.save()
+
+
+# docstring handled through attach_func_to_class_method
+def save(self, *args, **kwargs) -> None:
+    db = self._state.db
+    transfer_to_default_db(self)
+    super(Registry, self).save(*args, **kwargs)
+    if db is not None and db != "default":
+        if hasattr(self, "labels"):
+            logger.info("transfer labels")
+            from copy import copy
+
+            self_on_db = copy(self)
+            self_on_db._state.db = db
+            self.labels.add_from(self_on_db)
+
+
 METHOD_NAMES = [
     "__init__",
     "search",
     "lookup",
+    "save",
     "from_values",
 ]
 
@@ -347,16 +397,5 @@ def __get_name_with_schema__(cls) -> str:
     return f"{schema_name}.{cls.__name__}"
 
 
-def select_backward(cls, **expressions):
-    logger.warning("select() is deprecated! please use: Registry.filter()")
-    return cls.filter(**expressions)
-
-
-@classmethod  # type: ignore
-def select(cls, **expressions):
-    return select_backward(cls, **expressions)
-
-
 setattr(Registry, "__get_schema_name__", __get_schema_name__)
 setattr(Registry, "__get_name_with_schema__", __get_name_with_schema__)
-setattr(Registry, "select", select)  # backward compat

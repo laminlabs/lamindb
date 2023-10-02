@@ -21,7 +21,7 @@ from .dev._data import (
     add_transform_to_kwargs,
     get_run,
     save_feature_set_links,
-    save_transform_run_feature_sets,
+    save_feature_sets,
 )
 from .dev.hashing import hash_set
 
@@ -308,7 +308,7 @@ def save(self, *args, **kwargs) -> None:
     if self.file is not None:
         self.file.save()
     # we don't need to save feature sets again
-    save_transform_run_feature_sets(self)
+    save_feature_sets(self)
     super(Dataset, self).save()
     if hasattr(self, "_files"):
         if self._files is not None and len(self._files) > 0:

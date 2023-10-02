@@ -115,7 +115,6 @@ if _INSTANCE_SETUP:
     from . import _validate  # noqa
     from . import dev  # noqa
     from ._delete import delete  # noqa
-    from ._registry import select_backward as select  # noqa
     from ._save import save  # noqa
     from ._view import view  # noqa
     from .dev import _priors  # noqa
