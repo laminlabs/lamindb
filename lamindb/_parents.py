@@ -78,7 +78,7 @@ def view_flow(data: Union[File, Dataset], with_children: bool = True) -> None:
         df_values += _get_all_child_runs(data)
     df_edges = _df_edges_from_runs(df_values)
 
-    data_label = _label_data_run_transform(data)
+    data_label = _record_label(data)
 
     def add_node(
         record: Union[Run, File, Dataset],
@@ -156,7 +156,7 @@ def _view_parents(
             else:
                 df_edges = df_edges_children
 
-    record_label = record.__getattribute__(field)
+    record_label = _record_label(record, field)
 
     u = graphviz.Digraph(
         record.id,
@@ -172,7 +172,7 @@ def _view_parents(
     )
     u.node(
         record.id,
-        label=_label_data_run_transform(record)
+        label=_record_label(record)
         if record.__class__.__name__ == "Transform"
         else _add_emoji(record, record_label),
         fillcolor=LAMIN_GREEN_LIGHTER,
@@ -237,20 +237,55 @@ def _df_edges_from_parents(
     df_edges["source_record"] = df_edges["source"].apply(lambda x: all.get(id=x))
     df_edges["target_record"] = df_edges["target"].apply(lambda x: all.get(id=x))
     if record.__class__.__name__ == "Transform":
-        df_edges["source_label"] = df_edges["source_record"].apply(
-            _label_data_run_transform
-        )
-        df_edges["target_label"] = df_edges["target_record"].apply(
-            _label_data_run_transform
-        )
+        df_edges["source_label"] = df_edges["source_record"].apply(_record_label)
+        df_edges["target_label"] = df_edges["target_record"].apply(_record_label)
     else:
         df_edges["source_label"] = df_edges["source_record"].apply(
-            lambda x: x.__getattribute__(field)
+            lambda x: _record_label(x, field)
         )
         df_edges["target_label"] = df_edges["target_record"].apply(
-            lambda x: x.__getattribute__(field)
+            lambda x: _record_label(x, field)
         )
     return df_edges
+
+
+def _record_label(record: Registry, field: Optional[str] = None):
+    if isinstance(record, File):
+        if record.description is None:
+            name = record.key
+        else:
+            name = record.description.replace("&", "&amp;")
+
+        return (
+            rf'<📄 {name}<BR/><FONT COLOR="GREY" POINT-SIZE="10"'
+            rf' FACE="Monospace">id={record.id}<BR/>suffix={record.suffix}</FONT>>'
+        )
+    elif isinstance(record, Dataset):
+        name = record.name.replace("&", "&amp;")
+        return (
+            rf'<🍱 {name}<BR/><FONT COLOR="GREY" POINT-SIZE="10"'
+            rf' FACE="Monospace">id={record.id}<BR/>version={record.version}</FONT>>'
+        )
+    elif isinstance(record, Run):
+        name = f'{record.transform.name.replace("&", "&amp;")}'
+        return (
+            rf'<{TRANSFORM_EMOJIS.get(str(record.transform.type), "💫")} {name}<BR/><FONT COLOR="GREY" POINT-SIZE="10"'  # noqa
+            rf' FACE="Monospace">id={record.id}<BR/>type={record.transform.type},'
+            rf" user={record.created_by.name}<BR/>run_at={format_field_value(record.run_at)}</FONT>>"  # noqa
+        )
+    elif isinstance(record, Transform):
+        name = f'{record.name.replace("&", "&amp;")}'
+        return (
+            rf'<{TRANSFORM_EMOJIS.get(str(record.type), "💫")} {name}<BR/><FONT COLOR="GREY" POINT-SIZE="10"'  # noqa
+            rf' FACE="Monospace">id={record.id}<BR/>type={record.type},'
+            rf" user={record.created_by.name}<BR/>updated_at={format_field_value(record.updated_at)}</FONT>>"  # noqa
+        )
+    else:
+        name = record.__getattribute__(field)
+        return (
+            rf'<{name}<BR/><FONT COLOR="GREY" POINT-SIZE="10"'
+            rf' FACE="Monospace">id={record.id}</FONT>>'
+        )
 
 
 def _add_emoji(record: Registry, label: str):
@@ -321,39 +356,6 @@ def _get_all_child_runs(data: Union[File, Dataset]) -> List:
     return run_inputs_outputs
 
 
-def _label_data_run_transform(record: Union[File, Run, Transform]):
-    if isinstance(record, File):
-        if record.description is None:
-            name = record.key
-        else:
-            name = record.description.replace("&", "&amp;")
-
-        return (
-            rf'<📄 {name}<BR/><FONT COLOR="GREY" POINT-SIZE="10"'
-            rf' FACE="Monospace">id={record.id}<BR/>suffix={record.suffix}</FONT>>'
-        )
-    elif isinstance(record, Dataset):
-        name = record.name.replace("&", "&amp;")
-        return (
-            rf'<🍱 {name}<BR/><FONT COLOR="GREY" POINT-SIZE="10"'
-            rf' FACE="Monospace">id={record.id}<BR/>version={record.version}</FONT>>'
-        )
-    elif isinstance(record, Run):
-        name = f'{record.transform.name.replace("&", "&amp;")}'
-        return (
-            rf'<{TRANSFORM_EMOJIS.get(str(record.transform.type), "💫")} {name}<BR/><FONT COLOR="GREY" POINT-SIZE="10"'  # noqa
-            rf' FACE="Monospace">id={record.id}<BR/>type={record.transform.type},'
-            rf" user={record.created_by.name}<BR/>run_at={format_field_value(record.run_at)}</FONT>>"  # noqa
-        )
-    elif isinstance(record, Transform):
-        name = f'{record.name.replace("&", "&amp;")}'
-        return (
-            rf'<{TRANSFORM_EMOJIS.get(str(record.type), "💫")} {name}<BR/><FONT COLOR="GREY" POINT-SIZE="10"'  # noqa
-            rf' FACE="Monospace">id={record.id}<BR/>type={record.type},'
-            rf" user={record.created_by.name}<BR/>updated_at={format_field_value(record.updated_at)}</FONT>>"  # noqa
-        )
-
-
 def _df_edges_from_runs(df_values: List):
     import pandas as pd
 
@@ -363,8 +365,8 @@ def _df_edges_from_runs(df_values: List):
     df = df.drop_duplicates().dropna()
     df["source"] = [f"{i._meta.model_name}_{i.id}" for i in df["source_record"]]
     df["target"] = [f"{i._meta.model_name}_{i.id}" for i in df["target_record"]]
-    df["source_label"] = df["source_record"].apply(_label_data_run_transform)
-    df["target_label"] = df["target_record"].apply(_label_data_run_transform)
+    df["source_label"] = df["source_record"].apply(_record_label)
+    df["target_label"] = df["target_record"].apply(_record_label)
     return df
 
 
