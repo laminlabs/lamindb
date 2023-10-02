@@ -222,7 +222,7 @@ def _track_container_engine():
                 line for line in cgroup_v2_result if "docker" in line
             ]
         else:
-            return container
+            return None
 
         if len(lines_containing_docker) > 0:
             docker_container_id_pattern = (
