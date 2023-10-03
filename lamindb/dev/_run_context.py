@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import builtins
 import hashlib
 import re
@@ -156,53 +158,60 @@ def get_transform_kwargs_from_nbproject(
     return transform, id, version, name, old_version_of
 
 
-def _track_environment():
-    _track_container_engine()
-
-
 @dataclass
 class ContainerEngineResult:
     container_engine_name: str | None = None
-    container_engine_version: str | None = None
     container_id: str | None = None
 
 
-def _track_container_engine():
+def _track_container_engine() -> ContainerEngineResult:
+    """Determines the container engine (if any) the current process is running in.
+
+    Currently supports
+      1. Docker
+      2. Podman
+      3. Apptainer/Singularity
+
+    Returns:
+        A ContainerEngineResult with the container information.
+        Returns a ContainerEngineResult with None values if the process is
+        not running inside a container.
+    """
     # We assume that all containers are running some Linux flavor.
     import sys
 
     if not sys.platform.startswith("linux"):
         return ContainerEngineResult()
 
+    import subprocess
+
+    # Determine which cgroup version the current host has (if any)
+    # https://unix.stackexchange.com/questions/471476/how-do-i-check-cgroup-v2-is-installed-on-my-machine
+    cgroup_grep_cmd = subprocess.run(
+        ["grep", "cgroup", "/proc/filesystems"], stdout=subprocess.PIPE, text=True
+    )
+    cgroup_grep_result = cgroup_grep_cmd.stdout.split("\n")
+
+    if len(cgroup_grep_result) == 2 and "cgroup" in cgroup_grep_result[0]:
+        cgroup_version = "v1"
+    elif (
+        len(cgroup_grep_result) == 3
+        and "cgroup" in cgroup_grep_result[0]
+        and "cgroup2" in cgroup_grep_result[1]
+    ):
+        cgroup_version = "v2"
+    else:
+        cgroup_version = None
+
     def _is_docker() -> ContainerEngineResult | None:
-        """Determines whether we're running inside a Docker container.
+        """Determines whether the current process is running inside a Docker container.
 
         Inspiration https://www.baeldung.com/linux/is-process-running-inside-container
 
         Returns:
-            A ContainerEngineResult if Docker is active, None otherwise
+            A ContainerEngineResult if Docker is active, None otherwise.
         """
         container = ContainerEngineResult()
-        import subprocess
-
-        #
-        # Determine which cgroup version the current host has (if any)
-        # https://unix.stackexchange.com/questions/471476/how-do-i-check-cgroup-v2-is-installed-on-my-machine
-        cgroup_grep_cmd = subprocess.run(
-            ["grep", "cgroup", "/proc/filesystems"], stdout=subprocess.PIPE, text=True
-        )
-        cgroup_grep_result = cgroup_grep_cmd.stdout.split("\n")
-
-        if len(cgroup_grep_result) == 2 and "cgroup" in cgroup_grep_result[0]:
-            cgroup_version = "v1"
-        elif (
-            len(cgroup_grep_result) == 3
-            and "cgroup" in cgroup_grep_result[0]
-            and "cgroup2" in cgroup_grep_result[1]
-        ):
-            cgroup_version = "v2"
-        else:
-            cgroup_version = None
 
         if cgroup_version == "v1":
             cgroup_v1_cmd = subprocess.run(
@@ -210,7 +219,7 @@ def _track_container_engine():
             )
             cgroup_v1_result = cgroup_v1_cmd.stdout.split("\n")
             lines_containing_docker = [
-                line for line in cgroup_v1_result if "docker" in line
+                line for line in cgroup_v1_result if "docker/containers" in line
             ]
 
         elif cgroup_version == "v2":
@@ -219,7 +228,7 @@ def _track_container_engine():
             )
             cgroup_v2_result = cgroup_v2_cmd.stdout.split("\n")
             lines_containing_docker = [
-                line for line in cgroup_v2_result if "docker" in line
+                line for line in cgroup_v2_result if "docker/containers" in line
             ]
         else:
             return None
@@ -242,6 +251,90 @@ def _track_container_engine():
             container.container_id = first_container_id_match
 
         return container if container.container_engine_name == "docker" else None
+
+    def _is_podman() -> ContainerEngineResult | None:
+        """Determines whether the current process is running inside a Podman container.
+
+        Approach obtained from https://github.com/containers/podman/issues/3586
+        and https://stackoverflow.com/questions/64033560/podman-how-to-know-the-process-is-running-inside-the-podman  # noqa: E501
+
+        Returns:
+            A ContainerEngineResult if Podman is active, None otherwise.
+        """
+        container = ContainerEngineResult()
+
+        import os
+
+        if os.environ.get("container") == "podman":
+            if cgroup_version == "v1":
+                cgroup_v1_cmd = subprocess.run(
+                    ["cat", "/proc/self/cgroup"], stdout=subprocess.PIPE, text=True
+                )
+                cgroup_v1_result = cgroup_v1_cmd.stdout.split("\n")
+                lines_containing_podman = [
+                    line
+                    for line in cgroup_v1_result
+                    if "containers/overlay-containers" in line
+                ]
+
+            elif cgroup_version == "v2":
+                cgroup_v2_cmd = subprocess.run(
+                    ["cat", "/proc/self/mountinfo"], stdout=subprocess.PIPE, text=True
+                )
+                cgroup_v2_result = cgroup_v2_cmd.stdout.split("\n")
+                lines_containing_podman = [
+                    line
+                    for line in cgroup_v2_result
+                    if "containers/overlay-containers" in line
+                ]
+            else:
+                return None
+
+            if len(lines_containing_podman) > 0:
+                podman_container_id_pattern = (
+                    r"/containers/overlay-containers([0-9a-fA-F]+)"
+                    if cgroup_version == "v1"
+                    else r"/containers/overlay-containers/([0-9a-fA-F]+)"
+                )
+                first_container_id_match = next(
+                    (
+                        re.search(podman_container_id_pattern, line).group(1)  # type: ignore  # noqa: E501
+                        for line in lines_containing_podman
+                        if re.search(podman_container_id_pattern, line)
+                    ),
+                    None,
+                )
+                container.container_engine_name = "podman"
+                container.container_id = first_container_id_match
+
+        return container if container.container_engine_name == "podman" else None
+
+    def _is_apptainer() -> ContainerEngineResult | None:
+        """Determines whether the current process is running inside a Apptainer/Singularity container.  # noqa: E501
+
+        Approach adapted from https://stackoverflow.com/questions/71524077/how-to-verify-if-in-singularityapptainer-container  # noqa: E501
+
+        Returns:
+            A ContainerEngineResult if Apptainer/Singularity is active, None otherwise.
+        """
+        container = ContainerEngineResult()
+
+        import os
+
+        if os.environ.get("SINGULARITY_NAME"):
+            container.container_engine_name = "apptainer"
+            container.container_id = os.environ.get("INVOCATION_ID")
+
+        return container if container.container_engine_name == "apptainer" else None
+
+    if docker_result := _is_docker():
+        return docker_result
+    elif podman_result := _is_podman():
+        return podman_result
+    elif singularity_result := _is_apptainer():
+        return singularity_result
+    else:
+        return ContainerEngineResult()
 
 
 class run_context:
