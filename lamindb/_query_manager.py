@@ -1,6 +1,7 @@
 from typing import Optional
 
 from django.db import models
+from lamin_utils import logger
 
 from .dev._feature_manager import get_feature_set_by_slot
 
@@ -51,6 +52,21 @@ class QueryManager(models.Manager):
         For `**kwargs`, see :meth:`lamindb.dev.QuerySet.df`.
         """
         return self.all().df(**kwargs)
+
+    def all(self):
+        """Return QuerySet of all.
+
+        For `**kwargs`, see :meth:`lamindb.dev.QuerySet.df`.
+        """
+        if hasattr(self, "source_field_name") and hasattr(self, "target_field_name"):
+            if self.source_field_name == "dataset" and self.target_field_name == "file":
+                from lamindb.dev._data import WARNING_RUN_TRANSFORM, _track_run_input
+                from lamindb.dev._run_context import run_context
+
+                if run_context.run is None:
+                    logger.warning(WARNING_RUN_TRANSFORM)
+                _track_run_input(self.instance)
+        return self.all()
 
     def __getitem__(self, item: str):
         try:
