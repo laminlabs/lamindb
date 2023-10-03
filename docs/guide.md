@@ -6,7 +6,7 @@
 
 introduction
 tutorial
-tutorial1
+tutorial2
 ```
 
 ```{toctree}

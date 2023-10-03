@@ -17,7 +17,7 @@ GROUPS = {}
 GROUPS["tutorial"] = [
     "introduction.ipynb",
     "tutorial.ipynb",
-    "tutorial1.ipynb",
+    "tutorial2.ipynb",
 ]
 GROUPS["guide"] = [
     "data.ipynb",
