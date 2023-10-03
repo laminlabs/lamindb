@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import builtins
 import hashlib
+import os
 import re
 from dataclasses import dataclass
 from datetime import datetime, timezone
@@ -183,10 +184,10 @@ def _track_container_engine() -> ContainerEngineResult:
     if not sys.platform.startswith("linux"):
         return ContainerEngineResult()
 
-    import subprocess
-
     # Determine which cgroup version the current host has (if any)
     # https://unix.stackexchange.com/questions/471476/how-do-i-check-cgroup-v2-is-installed-on-my-machine
+    import subprocess
+
     cgroup_grep_cmd = subprocess.run(
         ["grep", "cgroup", "/proc/filesystems"], stdout=subprocess.PIPE, text=True
     )
@@ -263,8 +264,6 @@ def _track_container_engine() -> ContainerEngineResult:
         """
         container = ContainerEngineResult()
 
-        import os
-
         if os.environ.get("container") == "podman":
             if cgroup_version == "v1":
                 cgroup_v1_cmd = subprocess.run(
@@ -318,8 +317,6 @@ def _track_container_engine() -> ContainerEngineResult:
             A ContainerEngineResult if Apptainer/Singularity is active, None otherwise.
         """
         container = ContainerEngineResult()
-
-        import os
 
         if os.environ.get("SINGULARITY_NAME"):
             container.container_engine_name = "apptainer"
