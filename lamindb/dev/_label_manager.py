@@ -6,7 +6,7 @@ from lnschema_core.models import Data, Dataset, Feature, File, Registry
 from .._feature_set import dict_related_model_to_related_name
 from .._from_values import _print_values
 from .._query_set import QuerySet
-from .._registry import get_default_str_field
+from .._registry import get_default_str_field, transfer_to_default_db
 
 
 def get_labels_as_dict(self: Data):
@@ -117,9 +117,14 @@ class LabelManager:
                         labels = data.labels.get(
                             getattr(features_lookup, row["name"]), mute=True
                         )
+                        for label in labels:
+                            transfer_to_default_db(label, save=True)
                         self._host.labels.add(
                             labels, feature=getattr(features_lookup, row["name"])
                         )
         # for now, have this be duplicated, need to disentangle above
         for related_name, (_, labels) in get_labels_as_dict(data).items():
-            getattr(self._host, related_name).add(*labels.all())
+            labels_list = labels.list()
+            for label in labels_list:
+                transfer_to_default_db(label, save=True)
+            getattr(self._host, related_name).add(*labels_list)

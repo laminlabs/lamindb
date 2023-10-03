@@ -47,7 +47,7 @@ from .dev._data import (
     add_transform_to_kwargs,
     get_run,
     save_feature_set_links,
-    save_transform_run_feature_sets,
+    save_feature_sets,
 )
 from .dev._priors import priors
 from .dev.storage.file import AUTO_KEY_PREFIX
@@ -833,7 +833,7 @@ def save(self, *args, **kwargs) -> None:
 
 
 def _save_skip_storage(file, *args, **kwargs) -> None:
-    save_transform_run_feature_sets(file)
+    save_feature_sets(file)
     super(File, file).save(*args, **kwargs)
     save_feature_set_links(file)
 

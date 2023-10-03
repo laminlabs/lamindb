@@ -18,6 +18,7 @@ query-search
 validate
 bio-registries
 schemas
+transfer
 ```
 
 ```{toctree}

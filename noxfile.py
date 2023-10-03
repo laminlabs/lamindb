@@ -25,6 +25,7 @@ GROUPS["guide"] = [
     "validate.ipynb",
     "schemas.ipynb",
     "setup.ipynb",
+    "transfer.ipynb",
 ]
 GROUPS["biology"] = [
     "bio-registries.ipynb",
