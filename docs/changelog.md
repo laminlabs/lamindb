@@ -1,16 +1,18 @@
 # Changelog
 
-- 🚚 Rename tutorial1 to tutorial2 [PR1221](https://github.com/laminlabs/lamindb/pull/1221) [@sunnyosun](https://github.com/sunnyosun)
-- ♻️ Track dataset as run input also for dataset.files [PR1219](https://github.com/laminlabs/lamindb/pull/1219) [@falexwolf](https://github.com/falexwolf)
-- ✨ Enable to transfer data between instances [PR1216](https://github.com/laminlabs/lamindb/pull/1216) [@falexwolf](https://github.com/falexwolf)
-- 💄 Display id in view_parents [PR1215](https://github.com/laminlabs/lamindb/pull/1215) [@sunnyosun](https://github.com/sunnyosun)
-- ♻️ Move lamin-vault dependency to postgres extra [PR1214](https://github.com/laminlabs/lamindb/pull/1214) [@falexwolf](https://github.com/falexwolf)
-- ✨ Save notebook files [PR1213](https://github.com/laminlabs/lamindb/pull/1213) [@falexwolf](https://github.com/falexwolf)
 ```{eval-rst}
 .. role:: small
 ```
 
-## 0.54
+## 0.55
+
+### 0.55.0 {small}`2023-10-03`
+
+- ✨ Enable to transfer data between instances [PR1216](https://github.com/laminlabs/lamindb/pull/1216) [@falexwolf](https://github.com/falexwolf)
+- ✨ Save notebook files [PR1213](https://github.com/laminlabs/lamindb/pull/1213) [@falexwolf](https://github.com/falexwolf)
+- ♻️ Track dataset as run input also for dataset.files [PR1219](https://github.com/laminlabs/lamindb/pull/1219) [@falexwolf](https://github.com/falexwolf)
+- 💄 Display id in view_parents [PR1215](https://github.com/laminlabs/lamindb/pull/1215) [@sunnyosun](https://github.com/sunnyosun)
+- ♻️ Move lamin-vault dependency to postgres extra [PR1214](https://github.com/laminlabs/lamindb/pull/1214) [@falexwolf](https://github.com/falexwolf)
 
 ### 0.54.4 {small}`2023-09-29`
 
