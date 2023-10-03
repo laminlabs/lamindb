@@ -1,10 +1,15 @@
 from collections import defaultdict
+from pathlib import Path
 from typing import Dict, Iterable, Literal, Optional, Tuple, Union
 
 import anndata as ad
 import pandas as pd
 from lamin_utils import logger
+from lamindb_setup._init_instance import register_storage
+from lamindb_setup.dev import StorageSettings
 from lamindb_setup.dev._docs import doc_args
+from lamindb_setup.dev._hub_utils import get_storage_region
+from lamindb_setup.dev.upath import UPath
 from lnschema_core import Modality
 from lnschema_core.models import Dataset, Feature, FeatureSet
 from lnschema_core.types import AnnDataLike, DataLike, FieldAttr
@@ -84,11 +89,12 @@ def __init__(
             )
 
     run = get_run(run)
-    # there are exactly two ways of creating a Dataset object right now
+    # there are exactly 3 ways of creating a Dataset object right now
     # using exactly one file or using more than one file
     # init file
     if isinstance(data, (pd.DataFrame, ad.AnnData, File)):
         files = None
+        storage = None
         if isinstance(data, File):
             file = data
             if file._state.adding:
@@ -116,9 +122,22 @@ def __init__(
         if file.description is None or file.description == "tmp":
             file.description = f"See dataset {provisional_id}"  # type: ignore
         file._feature_sets = feature_sets
+        storage = None
+    # init from directory or bucket
+    elif isinstance(data, (str, Path, UPath)):
+        file = None
+        files = None
+        upath = UPath(data)
+        if not upath.is_dir:
+            raise ValueError(f"Can only pass buckets or directories, not {data}")
+        upath_str = upath.as_posix().rstrip("/")
+        region = get_storage_region(upath_str)
+        storage_settings = StorageSettings(upath_str, region)
+        storage = register_storage(storage_settings)
     # init files
     else:
         file = None
+        storage = None
         if hasattr(data, "__getitem__"):
             assert isinstance(data[0], File)  # type: ignore
             files = data
@@ -144,6 +163,7 @@ def __init__(
             reference=reference,
             reference_type=reference_type,
             file=file,
+            storage=storage,
             hash=hash,
             run=run,
             version=version,
@@ -316,6 +336,13 @@ def save(self, *args, **kwargs) -> None:
     save_feature_set_links(self)
 
 
+@property  # type: ignore
+@doc_args(Dataset.path.__doc__)
+def path(self) -> Union[Path, UPath]:
+    """{}"""
+    return self.storage.path
+
+
 METHOD_NAMES = [
     "__init__",
     "from_anndata",
@@ -337,3 +364,5 @@ if _TESTING:
 
 for name in METHOD_NAMES:
     attach_func_to_class_method(name, Dataset, globals())
+
+setattr(Dataset, "path", path)

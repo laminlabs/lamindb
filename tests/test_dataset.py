@@ -304,3 +304,9 @@ def test_is_new_version_of_unversioned_dataset():
     assert new_dataset.name == dataset.name
 
     dataset.delete(storage=True)
+
+
+def test_dataset_from_storage(get_test_filepaths):
+    # this should only accept folders
+    dataset = ln.Dataset("./nonregistered_storage/")
+    assert dataset.path.name == "nonregistered_storage"
