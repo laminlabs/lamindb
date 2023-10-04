@@ -1,5 +1,6 @@
 # Changelog
 
+- 🚸 Do not search for alternative names if id is passed [PR1225](https://github.com/laminlabs/lamindb/pull/1225) [@falexwolf](https://github.com/falexwolf)
 - 📝 Added lamindata badge [PR1223](https://github.com/laminlabs/lamindb/pull/1223) [@sunnyosun](https://github.com/sunnyosun)
 - ♻️ Refactor data flow tracking for Dataset [PR1224](https://github.com/laminlabs/lamindb/pull/1224) [@falexwolf](https://github.com/falexwolf)
 - ✨ Dataset from paths aka storage [PR1222](https://github.com/laminlabs/lamindb/pull/1222) [@falexwolf](https://github.com/falexwolf)
