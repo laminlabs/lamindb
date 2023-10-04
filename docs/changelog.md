@@ -1,5 +1,6 @@
 # Changelog
 
+- ♻️ Do not use `DatabaseWrapper` directly [PR1220](https://github.com/laminlabs/lamindb/pull/1220) [@Koncopd](https://github.com/Koncopd)
 ```{eval-rst}
 .. role:: small
 ```
