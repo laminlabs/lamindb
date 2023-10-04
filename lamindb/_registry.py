@@ -82,7 +82,9 @@ def __init__(orm: Registry, *args, **kwargs):
         validate_required_fields(orm, kwargs)
         from .dev._settings import settings
 
-        if settings.upon_create_search_names:
+        # do not search for names if an id is passed; this is important
+        # e.g. when synching ids from the notebook store to lamindb
+        if settings.upon_create_search_names and orm.id is None:
             result = suggest_objects_with_same_name(orm, kwargs)
             if result == "object-with-same-name-exists":
                 if "version" in kwargs:
