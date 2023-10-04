@@ -44,8 +44,14 @@ def __init__(transform: Transform, *args, **kwargs):
         )
         if name is None:
             name = is_new_version_of.name
+
+    # this is only because the user-facing constructor allows passing an id
+    # most others don't
     if id is None:
+        has_consciously_provided_id = False
         id = new_id
+    else:
+        has_consciously_provided_id = True
     super(Transform, transform).__init__(
         id=id,
         name=name,
@@ -54,6 +60,7 @@ def __init__(transform: Transform, *args, **kwargs):
         version=version,
         initial_version_id=initial_version_id,
         reference=reference,
+        _has_consciously_provided_id=has_consciously_provided_id,
     )
 
 
