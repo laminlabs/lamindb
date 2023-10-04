@@ -297,8 +297,9 @@ def load(
     is_run_input: Optional[bool] = None,
     **kwargs,
 ) -> DataLike:
-    _track_run_input(self, is_run_input)
+    # cannot call _track_run_input here, see comment further down
     if self.file is not None:
+        _track_run_input(self, is_run_input)
         return self.file.load()
     else:
         all_files = self.files.all()
@@ -312,9 +313,14 @@ def load(
         objects = [file.load(is_run_input=False) for file in all_files]
         file_ids = [file.id for file in all_files]
         if isinstance(objects[0], pd.DataFrame):
-            return pd.concat(objects, join=join)
+            concat_object = pd.concat(objects, join=join)
         elif isinstance(objects[0], ad.AnnData):
-            return ad.concat(objects, join=join, label="file_id", keys=file_ids)
+            concat_object = ad.concat(
+                objects, join=join, label="file_id", keys=file_ids
+            )
+        # only call it here because there might be errors during concat
+        _track_run_input(self, is_run_input)
+        return concat_object
 
 
 # docstring handled through attach_func_to_class_method
@@ -341,6 +347,7 @@ def save(self, *args, **kwargs) -> None:
 @doc_args(Dataset.path.__doc__)
 def path(self) -> Union[Path, UPath]:
     """{}"""
+    _track_run_input(self)
     return self.storage.path
 
 

@@ -211,6 +211,12 @@ def test_from_inconsistent_files():
     file2.save()
     dataset = ln.Dataset([file1, file2], name="Inconsistent")
     dataset.save()
+    # create a run context
+    ln.track(ln.Transform(name="My test transform"))
+    # can iterate over them
+    files = dataset.files.all()  # noqa
+    assert set(ln.dev.run_context.run.input_datasets.all()) == {dataset}
+    # loading will throw an error here
     with pytest.raises(RuntimeError) as error:
         dataset.load()
     assert str(error.exconly()).startswith(
@@ -219,6 +225,8 @@ def test_from_inconsistent_files():
     file1.delete(storage=True)
     file2.delete(storage=True)
     dataset.delete()
+    ln.dev.run_context.run = None
+    ln.dev.run_context.transform = None
 
 
 def test_from_consistent_files():

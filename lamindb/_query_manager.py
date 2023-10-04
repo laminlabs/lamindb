@@ -25,6 +25,18 @@ class QueryManager(models.Manager):
         >>> manager.df()
     """
 
+    def _track_run_input_manager(self):
+        print("hello")
+        if hasattr(self, "source_field_name") and hasattr(self, "target_field_name"):
+            print("within hello")
+            if self.source_field_name == "dataset" and self.target_field_name == "file":
+                from lamindb.dev._data import WARNING_RUN_TRANSFORM, _track_run_input
+                from lamindb.dev._run_context import run_context
+
+                if run_context.run is None:
+                    logger.warning(WARNING_RUN_TRANSFORM)
+                _track_run_input(self.instance)
+
     def list(self, field: Optional[str] = None):
         """Populate a list with the results.
 
@@ -41,6 +53,7 @@ class QueryManager(models.Manager):
             >>> label.parents.list("name")
             ['ULabel1', 'ULabel2', 'ULabel3']
         """
+        self._track_run_input_manager()
         if field is None:
             return [item for item in self.all()]
         else:
@@ -58,15 +71,8 @@ class QueryManager(models.Manager):
 
         For `**kwargs`, see :meth:`lamindb.dev.QuerySet.df`.
         """
-        if hasattr(self, "source_field_name") and hasattr(self, "target_field_name"):
-            if self.source_field_name == "dataset" and self.target_field_name == "file":
-                from lamindb.dev._data import WARNING_RUN_TRANSFORM, _track_run_input
-                from lamindb.dev._run_context import run_context
-
-                if run_context.run is None:
-                    logger.warning(WARNING_RUN_TRANSFORM)
-                _track_run_input(self.instance)
-        return self.all()
+        self._track_run_input_manager()
+        return self.all_base_class()
 
     def __getitem__(self, item: str):
         try:
@@ -86,3 +92,10 @@ class QueryManager(models.Manager):
 setattr(models.Manager, "list", QueryManager.list)
 setattr(models.Manager, "df", QueryManager.df)
 setattr(models.Manager, "__getitem__", QueryManager.__getitem__)
+setattr(
+    models.Manager, "_track_run_input_manager", QueryManager._track_run_input_manager
+)
+# the two lines below would be easy if we could actually inherit; like this,
+# they're suboptimal
+setattr(models.Manager, "all_base_class", models.Manager.all)
+setattr(models.Manager, "all", QueryManager.all)
