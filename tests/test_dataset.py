@@ -1,4 +1,5 @@
 from inspect import signature
+from pathlib import Path
 
 import anndata as ad
 import lnschema_bionty as lb
@@ -306,7 +307,9 @@ def test_is_new_version_of_unversioned_dataset():
     dataset.delete(storage=True)
 
 
-def test_dataset_from_storage(get_test_filepaths):
+def test_dataset_from_storage():
     # this should only accept folders
-    dataset = ln.Dataset("./nonregistered_storage/", name="My test dataset")
+    path = Path("./nonregistered_storage/")
+    path.mkdir(exist_ok=True)
+    dataset = ln.Dataset(path, name="My test dataset")
     assert dataset.path.name == "nonregistered_storage"
