@@ -85,9 +85,9 @@ def process_pathlike(
                 new_root_str = new_root.as_posix().rstrip("/")
                 region = get_storage_region(new_root_str)
                 storage_settings = StorageSettings(new_root_str, region)
-                register_storage(storage_settings)
+                storage_record = register_storage(storage_settings)
                 use_existing_storage_key = True
-                return storage_settings.record, use_existing_storage_key
+                return storage_record, use_existing_storage_key
             # if the filepath is local
             else:
                 use_existing_storage_key = False

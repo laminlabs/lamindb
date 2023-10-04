@@ -341,7 +341,7 @@ def transfer_to_default_db(record: Registry, save: bool = False):
                 record.transform_id = run_context.transform.id
             else:
                 record.transform_id = None
-        if hasattr(record, "storage_id"):
+        if hasattr(record, "storage_id") and record.storage_id is not None:
             record.storage.save()
         record._state.db = "default"
         if save:
