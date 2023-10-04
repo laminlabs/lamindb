@@ -26,9 +26,7 @@ class QueryManager(models.Manager):
     """
 
     def _track_run_input_manager(self):
-        print("hello")
         if hasattr(self, "source_field_name") and hasattr(self, "target_field_name"):
-            print("within hello")
             if self.source_field_name == "dataset" and self.target_field_name == "file":
                 from lamindb.dev._data import WARNING_RUN_TRANSFORM, _track_run_input
                 from lamindb.dev._run_context import run_context
