@@ -25,6 +25,16 @@ class QueryManager(models.Manager):
         >>> manager.df()
     """
 
+    def _track_run_input(self):
+        if hasattr(self, "source_field_name") and hasattr(self, "target_field_name"):
+            if self.source_field_name == "dataset" and self.target_field_name == "file":
+                from lamindb.dev._data import WARNING_RUN_TRANSFORM, _track_run_input
+                from lamindb.dev._run_context import run_context
+
+                if run_context.run is None:
+                    logger.warning(WARNING_RUN_TRANSFORM)
+                _track_run_input(self.instance)
+
     def list(self, field: Optional[str] = None):
         """Populate a list with the results.
 
@@ -41,6 +51,7 @@ class QueryManager(models.Manager):
             >>> label.parents.list("name")
             ['ULabel1', 'ULabel2', 'ULabel3']
         """
+        self._track_run_input()
         if field is None:
             return [item for item in self.all()]
         else:
@@ -58,14 +69,7 @@ class QueryManager(models.Manager):
 
         For `**kwargs`, see :meth:`lamindb.dev.QuerySet.df`.
         """
-        if hasattr(self, "source_field_name") and hasattr(self, "target_field_name"):
-            if self.source_field_name == "dataset" and self.target_field_name == "file":
-                from lamindb.dev._data import WARNING_RUN_TRANSFORM, _track_run_input
-                from lamindb.dev._run_context import run_context
-
-                if run_context.run is None:
-                    logger.warning(WARNING_RUN_TRANSFORM)
-                _track_run_input(self.instance)
+        self._track_run_input()
         return self.all()
 
     def __getitem__(self, item: str):
