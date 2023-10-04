@@ -82,9 +82,14 @@ def __init__(orm: Registry, *args, **kwargs):
         validate_required_fields(orm, kwargs)
         from .dev._settings import settings
 
+        print(kwargs)
+
         # do not search for names if an id is passed; this is important
         # e.g. when synching ids from the notebook store to lamindb
-        if settings.upon_create_search_names and "id" not in kwargs:
+        has_consciously_provided_id = False
+        if "has_consciously_provided_id" in kwargs:
+            has_consciously_provided_id = kwargs.pop("has_consciously_provided_id")
+        if settings.upon_create_search_names and not has_consciously_provided_id:
             result = suggest_objects_with_same_name(orm, kwargs)
             if result == "object-with-same-name-exists":
                 if "version" in kwargs:
