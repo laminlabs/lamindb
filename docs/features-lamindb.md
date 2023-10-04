@@ -1,4 +1,4 @@
-[Influenced](docs:influences) by a number of data tools, LaminDB's features address [key data management problem](https://lamin.ai/blog/2022/problems).
+[Influenced](docs:influences) by a number of data tools, LaminDB's features address [key data management problems](https://lamin.ai/blog/2022/problems).
 
 **For data users**
 
