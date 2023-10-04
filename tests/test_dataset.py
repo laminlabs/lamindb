@@ -225,6 +225,8 @@ def test_from_inconsistent_files():
     file1.delete(storage=True)
     file2.delete(storage=True)
     dataset.delete()
+    ln.dev.run_context.run = None
+    ln.dev.run_context.transform = None
 
 
 def test_from_consistent_files():
