@@ -134,6 +134,7 @@ def __init__(
         region = get_storage_region(upath_str)
         storage_settings = StorageSettings(upath_str, region)
         storage = register_storage(storage_settings)
+        hash = None
     # init files
     else:
         file = None
