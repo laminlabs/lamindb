@@ -1,23 +1,25 @@
 # Changelog
 
-- 🚸 Do not search for alternative names if id is passed [PR1225](https://github.com/laminlabs/lamindb/pull/1225) [@falexwolf](https://github.com/falexwolf)
-- 📝 Added lamindata badge [PR1223](https://github.com/laminlabs/lamindb/pull/1223) [@sunnyosun](https://github.com/sunnyosun)
-- ♻️ Refactor data flow tracking for Dataset [PR1224](https://github.com/laminlabs/lamindb/pull/1224) [@falexwolf](https://github.com/falexwolf)
-- ✨ Dataset from paths aka storage [PR1222](https://github.com/laminlabs/lamindb/pull/1222) [@falexwolf](https://github.com/falexwolf)
-- ♻️ Do not use `DatabaseWrapper` directly [PR1220](https://github.com/laminlabs/lamindb/pull/1220) [@Koncopd](https://github.com/Koncopd)
 ```{eval-rst}
 .. role:: small
 ```
 
 ## 0.55
 
+### 0.55.1 {small}`2023-10-4`
+
+- ✨ Dataset from paths aka storage [PR1222](https://github.com/laminlabs/lamindb/pull/1222) [@falexwolf](https://github.com/falexwolf)
+- 🚸 Do not search for alternative names if id is passed [PR1225](https://github.com/laminlabs/lamindb/pull/1225) [@falexwolf](https://github.com/falexwolf)
+- 📝 Added lamindata badge [PR1223](https://github.com/laminlabs/lamindb/pull/1223) [@sunnyosun](https://github.com/sunnyosun)
+- ♻️ Refactor data flow tracking for Dataset [PR1224](https://github.com/laminlabs/lamindb/pull/1224) [@falexwolf](https://github.com/falexwolf)
+
 ### 0.55.0 {small}`2023-10-03`
 
 - ✨ Enable to transfer data between instances [PR1216](https://github.com/laminlabs/lamindb/pull/1216) [@falexwolf](https://github.com/falexwolf)
-- ✨ Save notebook files [PR1213](https://github.com/laminlabs/lamindb/pull/1213) [@falexwolf](https://github.com/falexwolf)
-- ♻️ Track dataset as run input also for dataset.files [PR1219](https://github.com/laminlabs/lamindb/pull/1219) [@falexwolf](https://github.com/falexwolf)
+- ✨ Enable saving notebook files [PR1213](https://github.com/laminlabs/lamindb/pull/1213) [@falexwolf](https://github.com/falexwolf)
 - 💄 Display id in view_parents [PR1215](https://github.com/laminlabs/lamindb/pull/1215) [@sunnyosun](https://github.com/sunnyosun)
-- ♻️ Move lamin-vault dependency to postgres extra [PR1214](https://github.com/laminlabs/lamindb/pull/1214) [@falexwolf](https://github.com/falexwolf)
+
+## 0.54
 
 ### 0.54.4 {small}`2023-09-29`
 
