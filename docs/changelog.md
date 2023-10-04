@@ -1,5 +1,6 @@
 # Changelog
 
+- ♻️ Refactor data flow tracking for Dataset [PR1224](https://github.com/laminlabs/lamindb/pull/1224) [@falexwolf](https://github.com/falexwolf)
 - ✨ Dataset from paths aka storage [PR1222](https://github.com/laminlabs/lamindb/pull/1222) [@falexwolf](https://github.com/falexwolf)
 - ♻️ Do not use `DatabaseWrapper` directly [PR1220](https://github.com/laminlabs/lamindb/pull/1220) [@Koncopd](https://github.com/Koncopd)
 ```{eval-rst}
