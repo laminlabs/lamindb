@@ -127,4 +127,7 @@ class LabelManager:
             labels_list = labels.list()
             for label in labels_list:
                 transfer_to_default_db(label, save=True)
-            getattr(self._host, related_name).add(*labels_list)
+            # this should not occur as file and dataset should have the same attributes
+            # but this might not be true for custom schema
+            if hasattr(self._host, related_name):
+                getattr(self._host, related_name).add(*labels_list)
