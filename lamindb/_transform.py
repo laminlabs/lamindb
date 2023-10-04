@@ -60,7 +60,7 @@ def __init__(transform: Transform, *args, **kwargs):
         version=version,
         initial_version_id=initial_version_id,
         reference=reference,
-        has_consciously_provided_id=has_consciously_provided_id,
+        _has_consciously_provided_id=has_consciously_provided_id,
     )
 
 
