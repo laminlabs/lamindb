@@ -365,6 +365,7 @@ def save(self, *args, **kwargs) -> None:
 
             self_on_db = copy(self)
             self_on_db._state.db = db
+            self.features._add_from(self_on_db)
             self.labels.add_from(self_on_db)
 
 
