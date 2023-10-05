@@ -1,5 +1,3 @@
-[Influenced](docs:influences) by a number of data tools, LaminDB's features address [basic data management problems](https://lamin.ai/blog/2022/problems).
-
 **Unify access to data & metadata across storage (arrays, files) & SQL database backends.**
 
 - Query by & search for anything: {class}`~lamindb.dev.Registry.filter`, {class}`~lamindb.dev.Registry.search`
