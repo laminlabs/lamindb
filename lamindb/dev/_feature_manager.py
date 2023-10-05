@@ -170,7 +170,7 @@ class FeatureManager:
             registry = members[0].__class__
             member_ids = np.array([member.id for member in members])
             validated = registry.validate(member_ids, field="id")
-            new_features = members[np.argwhere(validated)]
+            new_features = [members[i] for i in np.argwhere(validated)]
             for feature in new_features:
                 # not calling save=True here as in labels, because want to
                 # bulk ave below
