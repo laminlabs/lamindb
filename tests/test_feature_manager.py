@@ -98,7 +98,7 @@ def test_labels_add():
     assert len(dataset.feature_sets.all()) == 0
     # second,
     dataset.features._add_from(file)
-    assert set(dataset.feature_sets) == set(feature_sets)
+    assert set(dataset.feature_sets.all()) == set(feature_sets)
 
     dataset.delete(storage=True)
     ln.Feature.filter().all().delete()
