@@ -90,6 +90,16 @@ def test_labels_add():
     experiments = dataset.labels.get(experiment)
     assert experiments.get().name == "Experiment 2"
 
+    # test features._add_from
+    # first, remove all feature sets
+    feature_sets = dataset.feature_sets.all()
+    for feature_set in feature_sets:
+        dataset.feature_sets.remove(feature_set)
+    assert len(dataset.feature_sets.all()) == 0
+    # second,
+    dataset.features._add_from(file)
+    assert set(dataset.feature_sets) == set(feature_sets)
+
     dataset.delete(storage=True)
     ln.Feature.filter().all().delete()
     ln.ULabel.filter().all().delete()
