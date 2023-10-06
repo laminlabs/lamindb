@@ -1,11 +1,13 @@
 from typing import Dict, Union
 
+import numpy as np
 from lamin_utils import colors
 from lnschema_core.models import Data, Dataset, Feature, File
 
 from .._feature_set import FeatureSet
 from .._query_set import QuerySet
-from .._registry import get_default_str_field
+from .._registry import get_default_str_field, transfer_to_default_db
+from .._save import save
 
 
 def get_host_id_field(host: Union[File, Dataset]) -> str:
@@ -158,3 +160,19 @@ class FeatureManager:
         if link_record is None:
             self._host.feature_sets.through(**kwargs).save()
             self._feature_set_by_slot[slot] = feature_set
+
+    def _add_from(self, data: Data):
+        """Transfer features from a file or dataset."""
+        for slot, feature_set in data.features._feature_set_by_slot.items():
+            transfer_to_default_db(feature_set, save=True)
+            self._host.features.add_feature_set(feature_set, slot)
+            members = feature_set.members
+            registry = members[0].__class__
+            member_ids = np.array([member.id for member in members])
+            validated = registry.validate(member_ids, field="id")
+            new_features = [members[i] for i in np.argwhere(~validated).flatten()]
+            for feature in new_features:
+                # not calling save=True here as in labels, because want to
+                # bulk ave below
+                transfer_to_default_db(feature)
+            save(new_features)
