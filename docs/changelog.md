@@ -1,5 +1,6 @@
 # Changelog
 
+- ✨ Also transfer features [PR1226](https://github.com/laminlabs/lamindb/pull/1226) [@falexwolf](https://github.com/falexwolf)
 ```{eval-rst}
 .. role:: small
 ```
