@@ -1,5 +1,6 @@
 # Changelog
 
+- ♻️ Keep raw in pbmc68k_reduced and human_immune_cells [PR1228](https://github.com/laminlabs/lamindb/pull/1228) [@Koncopd](https://github.com/Koncopd)
 - ⬆️ Make backed compatible with anndata==0.10.1 [PR1227](https://github.com/laminlabs/lamindb/pull/1227) [@Koncopd](https://github.com/Koncopd)
 - ✨ Also transfer features [PR1226](https://github.com/laminlabs/lamindb/pull/1226) [@falexwolf](https://github.com/falexwolf)
 ```{eval-rst}
