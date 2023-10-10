@@ -40,6 +40,11 @@ else:
     )
     from anndata._core.sparse_dataset import CSRDataset, sparse_dataset  # type: ignore
 
+    def _check_group_format(**args):
+        pass
+
+    CSRDataset._check_group_format = _check_group_format
+
 
 # zarr and CSRDataset have problems with full selection
 def _subset_sparse(sparse_ds: Union[CSRDataset, SparseDataset], indices):
