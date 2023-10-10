@@ -247,12 +247,11 @@ def anndata_pbmc68k_reduced() -> ad.AnnData:
         del pbmc68k.var["means"]
         del pbmc68k.uns["rank_genes_groups"]
         del pbmc68k.uns["bulk_labels_colors"]
-        del pbmc68k.raw
         sc.pp.subsample(pbmc68k, fraction=0.1, random_state=123)
         pbmc68k.write("scrnaseq_pbmc68k_tiny.h5ad")
     """
     filepath, _ = urlretrieve(
-        "https://lamindb-test.s3.amazonaws.com/scrnaseq_pbmc68k_tiny.h5ad"
+        "https://lamindb-dev-datasets.s3.amazonaws.com/scrnaseq_pbmc68k_tiny.h5ad"
     )
     return ad.read(filepath)
 
@@ -308,7 +307,6 @@ def anndata_human_immune_cells(
     """
     filepath, _ = urlretrieve("https://lamindb-test.s3.amazonaws.com/human_immune.h5ad")
     adata = ad.read(filepath)
-    del adata.raw
     adata.var.drop(columns=["gene_symbols", "feature_name"], inplace=True)
     adata.obs.columns = adata.obs.columns.str.replace("donor_id", "donor")
     columns = [col for col in adata.obs.columns if "ontology_term" not in col]
