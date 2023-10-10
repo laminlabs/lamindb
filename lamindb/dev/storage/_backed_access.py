@@ -40,7 +40,7 @@ else:
     )
     from anndata._core.sparse_dataset import CSRDataset, sparse_dataset  # type: ignore
 
-    def _check_group_format(**args):
+    def _check_group_format(*args):
         pass
 
     CSRDataset._check_group_format = _check_group_format
