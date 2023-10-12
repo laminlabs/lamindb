@@ -11,7 +11,7 @@ from lamindb_setup.dev import InstanceSettings
 from lnschema_core import Run, Transform
 from lnschema_core.types import TransformType
 
-from lamindb.dev.versioning import get_ids_from_old_version, init_id
+from lamindb.dev.versioning import get_ids_from_old_version, init_uid
 
 from .hashing import to_b64_str
 
@@ -95,12 +95,12 @@ def reinitialize_notebook(
     else:
         response = "y"
     if response == "y":
-        new_id = init_id(n_full_id=14)
+        new_uid = init_uid(n_full_id=14)
     else:
         response = input("Do you want to set a new version (e.g. '1.1')? (y/n) ")
         if response == "y":
             new_version = input("Please type the version: ")
-            new_id = get_ids_from_old_version(
+            new_uid, _, _ = get_ids_from_old_version(
                 is_new_version_of=transform, version=new_version, n_full_id=14
             )
 
@@ -110,7 +110,7 @@ def reinitialize_notebook(
         metadata = nb.metadata["nbproject"]
 
     # nbproject metadata needs the shorter nbproject id
-    metadata["id"] = new_id[:12]
+    metadata["id"] = new_uid[:12]
     metadata["version"] = new_version
 
     # here we check that responses to both inputs (for new id and version) were not 'n'
@@ -142,7 +142,7 @@ def get_transform_kwargs_from_nbproject(
     nbproject_id: str, nbproject_version: str, nbproject_title: str
 ) -> Tuple[Optional[Transform], str, str, str, Optional[Transform]]:
     id_ext = to_b64_str(hashlib.md5(nbproject_version.encode()).digest())[:2]
-    id = nbproject_id + id_ext
+    uid = nbproject_id + id_ext
     version = nbproject_version
     transform = Transform.filter(
         id__startswith=nbproject_id, version=version
@@ -151,7 +151,7 @@ def get_transform_kwargs_from_nbproject(
     old_version_of = None
     if transform is None:
         old_version_of = Transform.filter(id__startswith=nbproject_id).first()
-    return transform, id, version, name, old_version_of
+    return transform, uid, version, name, old_version_of
 
 
 class run_context:
@@ -437,7 +437,7 @@ class run_context:
                 )
         # colab parsing succesful
         if colab_id is not None:
-            id = colab_id[:14]
+            uid = colab_id[:14]
             transform = Transform.filter(id=id).one_or_none()
             name = filestem
             short_name = None
@@ -446,7 +446,7 @@ class run_context:
         elif nbproject_id is not None:
             (
                 transform,
-                id,
+                uid,
                 version,
                 name,
                 old_version_of,
@@ -457,7 +457,7 @@ class run_context:
         # make a new transform record
         if transform is None:
             transform = Transform(
-                id=id,
+                uid=uid,
                 version=version,
                 name=name,
                 short_name=short_name,

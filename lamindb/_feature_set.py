@@ -113,7 +113,7 @@ def __init__(self, *args, **kwargs):
     if type is None:
         type = None if features_registry == Feature else NUMBER_TYPE
     n_features = len(features)
-    features_hash = hash_set({feature.id for feature in features})
+    features_hash = hash_set({feature.uid for feature in features})
     feature_set = FeatureSet.filter(hash=features_hash).one_or_none()
     if feature_set is not None:
         logger.success(f"loaded: {feature_set}")

@@ -84,10 +84,10 @@ def __init__(orm: Registry, *args, **kwargs):
 
         # do not search for names if an id is passed; this is important
         # e.g. when synching ids from the notebook store to lamindb
-        has_consciously_provided_id = False
-        if "_has_consciously_provided_id" in kwargs:
-            has_consciously_provided_id = kwargs.pop("_has_consciously_provided_id")
-        if settings.upon_create_search_names and not has_consciously_provided_id:
+        has_consciously_provided_uid = False
+        if "_has_consciously_provided_uid" in kwargs:
+            has_consciously_provided_uid = kwargs.pop("_has_consciously_provided_uid")
+        if settings.upon_create_search_names and not has_consciously_provided_uid:
             result = suggest_objects_with_same_name(orm, kwargs)
             if result == "object-with-same-name-exists":
                 if "version" in kwargs:

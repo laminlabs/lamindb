@@ -27,11 +27,11 @@ def set_version(version: Optional[str] = None, previous_version: Optional[str] =
     return version
 
 
-# uses `initial_version_id` to extract a stem_id that's part of id
-def init_id(
+# uses `initial_version_uid` to extract a stem_id that's part of id
+def init_uid(
     *,
-    provisional_id: Optional[None] = None,
-    initial_version_id: Optional[str] = None,
+    provisional_uid: Optional[None] = None,
+    initial_version_uid: Optional[str] = None,
     version: Optional[str] = None,
     n_full_id: int = 20,
 ) -> str:
@@ -53,23 +53,23 @@ def init_id(
         #     raise ValueError(
         #         "Please choose a version != '0', as it could be interpreted as `None`"
         #     )
-    if initial_version_id is not None:
-        stem_id = initial_version_id[:n_stem_id]
+    if initial_version_uid is not None:
+        stem_id = initial_version_uid[:n_stem_id]
     else:
         stem_id = None
     # first consider an unversioned record
     if version is None and stem_id is None:
-        provisional_id = gen_full_id()
-        return provisional_id  # type: ignore
+        provisional_uid = gen_full_id()
+        return provisional_uid  # type: ignore
     # now consider a versioned record
     id_ext = ids.base62(2)
-    if provisional_id is None and stem_id is None:
+    if provisional_uid is None and stem_id is None:
         stem_id = gen_stem_id()
-        provisional_id = stem_id + id_ext
+        provisional_uid = stem_id + id_ext
     elif stem_id is not None:
         assert isinstance(stem_id, str) and len(stem_id) == n_stem_id
-        provisional_id = stem_id + id_ext
-    return provisional_id  # type: ignore
+        provisional_uid = stem_id + id_ext
+    return provisional_uid  # type: ignore
 
 
 def get_initial_version_id(is_new_version_of: Union[File, Transform]):
@@ -94,9 +94,9 @@ def get_ids_from_old_version(
         previous_version = is_new_version_of.version
     version = set_version(version, previous_version)
     initial_version_id = get_initial_version_id(is_new_version_of)
-    new_file_id = init_id(
-        provisional_id=is_new_version_of.id,
-        initial_version_id=initial_version_id,
+    new_file_id = init_uid(
+        provisional_uid=is_new_version_of.uid,
+        initial_version_uid=initial_version_id,
         version=version,
         n_full_id=n_full_id,
     )

@@ -39,7 +39,7 @@ from lamindb.dev.storage.file import (
     extract_suffix_from_path,
     filepath_from_file,
 )
-from lamindb.dev.versioning import get_ids_from_old_version, init_id
+from lamindb.dev.versioning import get_ids_from_old_version, init_uid
 
 from . import _TESTING
 from ._feature import convert_numpy_dtype_to_lamin_feature_type
@@ -102,7 +102,7 @@ def process_pathlike(
 
 
 def process_data(
-    provisional_id: str,
+    provisional_uid: str,
     data: Union[PathLike, DataLike],
     format: Optional[str],
     key: Optional[str],
@@ -133,7 +133,7 @@ def process_data(
                 f"The suffix '{key_suffix}' of the provided key is incorrect, it should"
                 f" be '{suffix}'."
             )
-        cache_name = f"{provisional_id}{suffix}"
+        cache_name = f"{provisional_uid}{suffix}"
         filepath = lamindb_setup.settings.storage.cache_dir / cache_name
         # Alex: I don't understand the line below
         if filepath.suffixes == []:
@@ -304,12 +304,12 @@ def get_file_kwargs_from_data(
     key: Optional[str],
     run: Optional[Run],
     format: Optional[str],
-    provisional_id: str,
+    provisional_uid: str,
     skip_check_exists: bool = False,
 ):
     run = get_run(run)
     memory_rep, filepath, suffix, storage, use_existing_storage_key = process_data(
-        provisional_id, data, format, key, skip_check_exists
+        provisional_uid, data, format, key, skip_check_exists
     )
     # the following will return a localpath that is not None if filepath is local
     # it will return a cloudpath that is not None if filepath is on the cloud
@@ -349,7 +349,7 @@ def get_file_kwargs_from_data(
         check_path_in_storage=check_path_in_storage,
         storage=storage,
         key=key,
-        id=provisional_id,
+        uid=provisional_uid,
         suffix=suffix,
     )
 
@@ -381,7 +381,7 @@ def log_storage_hint(
     check_path_in_storage: bool,
     storage: Optional[Storage],
     key: Optional[str],
-    id: str,
+    uid: str,
     suffix: str,
 ) -> None:
     hint = ""
@@ -398,7 +398,7 @@ def log_storage_hint(
     else:
         hint += "file will be copied to default storage upon `save()`"
     if key is None:
-        storage_key = auto_storage_key_from_id_suffix(id, suffix)
+        storage_key = auto_storage_key_from_id_suffix(uid, suffix)
         hint += f" with key `None` ('{storage_key}')"
     else:
         hint += f" with key '{key}'"
@@ -450,8 +450,8 @@ def __init__(file: File, *args, **kwargs):
     is_new_version_of: Optional[File] = (
         kwargs.pop("is_new_version_of") if "is_new_version_of" in kwargs else None
     )
-    initial_version_id: Optional[str] = (
-        kwargs.pop("initial_version_id") if "initial_version_id" in kwargs else None
+    initial_version_uid: Optional[str] = (
+        kwargs.pop("initial_version_uid") if "initial_version_uid" in kwargs else None
     )
     version: Optional[str] = kwargs.pop("version") if "version" in kwargs else None
     format = kwargs.pop("format") if "format" in kwargs else None
@@ -467,18 +467,18 @@ def __init__(file: File, *args, **kwargs):
         )
 
     if is_new_version_of is None:
-        provisional_id = init_id(version=version, n_full_id=20)
+        provisional_uid = init_uid(version=version, n_full_id=20)
     else:
         if not isinstance(is_new_version_of, File):
             raise TypeError("is_new_version_of has to be of type ln.File")
-        provisional_id, initial_version_id, version = get_ids_from_old_version(
+        provisional_uid, initial_version_uid, version = get_ids_from_old_version(
             is_new_version_of, version, n_full_id=20
         )
         if description is None:
             description = is_new_version_of.description
 
     if version is not None:
-        if initial_version_id is None:
+        if initial_version_uid is None:
             logger.info(
                 "initializing versioning for this file! create future versions of it"
                 " using ln.File(..., is_new_version_of=old_file)"
@@ -488,7 +488,7 @@ def __init__(file: File, *args, **kwargs):
         key=key,
         run=run,
         format=format,
-        provisional_id=provisional_id,
+        provisional_uid=provisional_uid,
         skip_check_exists=skip_check_exists,
     )
 
@@ -519,8 +519,8 @@ def __init__(file: File, *args, **kwargs):
     elif data_is_mudata(data):
         kwargs["accessor"] = "MuData"
 
-    kwargs["id"] = provisional_id
-    kwargs["initial_version_id"] = initial_version_id
+    kwargs["uid"] = provisional_uid
+    kwargs["initial_version_uid"] = initial_version_uid
     kwargs["version"] = version
     kwargs["description"] = description
     # this check needs to come down here because key might be populated from an
@@ -710,7 +710,7 @@ def replace(
     format: Optional[str] = None,
 ) -> None:
     kwargs, privates = get_file_kwargs_from_data(
-        provisional_id=self.id,
+        provisional_uid=self.id,
         data=data,
         key=self.key,
         run=run,
