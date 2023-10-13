@@ -28,7 +28,6 @@ def test_is_new_version_of_versioned_transform():
 
     # create new transform from old transform
     transform_v2 = ln.Transform(name="My 2nd transform", is_new_version_of=transform)
-    assert transform_v2.id[:12] == transform.id[:12]  # stem_id
     assert transform.version == "1"
     assert (
         transform.initial_version_id is None
@@ -40,7 +39,6 @@ def test_is_new_version_of_versioned_transform():
 
     # create new transform from newly versioned transform
     transform_v3 = ln.Transform(name="My transform", is_new_version_of=transform_v2)
-    assert transform_v3.id[:12] == transform.id[:12]  # stem_id
     assert transform_v3.initial_version_id == transform.id
     assert transform_v3.version == "3"
 
@@ -68,7 +66,6 @@ def test_is_new_version_of_versioned_transform():
     with pytest.raises(ProtectedError):
         transform.delete()
     transform_v2.delete()
-    transform_v3.delete()
     transform.delete()
 
 
@@ -84,7 +81,6 @@ def test_is_new_version_of_unversioned_transform():
 
     # create new transform from old transform
     new_transform = ln.Transform(name="My new transform", is_new_version_of=transform)
-    assert new_transform.id[:12] == transform.id[:12]  # stem_id
     assert transform.version == "1"
     assert transform.initial_version is None
     assert new_transform.initial_version_id == transform.id

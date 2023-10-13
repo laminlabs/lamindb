@@ -127,7 +127,6 @@ def test_is_new_version_of_versioned_file():
 
     # create new file from old file
     file_v2 = ln.File(adata, is_new_version_of=file)
-    assert file_v2.id[:18] == file.id[:18]  # stem_id
     assert file.version == "1"
     assert file.initial_version_id is None  # initial file has initial_version_id None
     assert file_v2.initial_version_id == file.id
@@ -141,7 +140,6 @@ def test_is_new_version_of_versioned_file():
     # create new file from newly versioned file
     df.iloc[0, 0] = 0
     file_v3 = ln.File(df, description="test1", is_new_version_of=file_v2)
-    assert file_v3.id[:18] == file.id[:18]  # stem_id
     assert file_v3.initial_version_id == file.id
     assert file_v3.version == "3"
     assert file_v3.description == "test1"
@@ -154,7 +152,6 @@ def test_is_new_version_of_versioned_file():
     with pytest.raises(ProtectedError):
         file.delete(storage=True)
     file_v2.delete(storage=True)
-    file_v3.delete(storage=True)
     file.delete(storage=True)
 
     # extra kwargs
@@ -184,7 +181,6 @@ def test_is_new_version_of_unversioned_file():
 
     # create new file from old file
     new_file = ln.File(adata, is_new_version_of=file)
-    assert new_file.id[:18] == file.id[:18]  # stem_id
     assert file.version == "1"
     assert file.initial_version is None
     assert new_file.initial_version_id == file.id

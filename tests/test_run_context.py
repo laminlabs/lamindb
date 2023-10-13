@@ -36,24 +36,24 @@ def test_track_notebook_colab():
 
 def test_track_from_nbproject():
     title = "nbproject title"
-    transform, id, version, name, old_version_of = get_transform_kwargs_from_nbproject(
+    transform, uid, version, name, old_version_of = get_transform_kwargs_from_nbproject(
         nbproject_id="NJvdsWWbJlZS", nbproject_version="0", nbproject_title=title
     )
     assert transform is None
-    assert id == "NJvdsWWbJlZSz8"
+    assert uid == "NJvdsWWbJlZSz8"
     assert version == "0"
     assert name == title
     assert old_version_of is None
-    ln.Transform(id=id, version=version, name=name).save()
-    transform, id, version, name, old_version_of = get_transform_kwargs_from_nbproject(
+    ln.Transform(uid=uid, version=version, name=name).save()
+    transform, uid, version, name, old_version_of = get_transform_kwargs_from_nbproject(
         nbproject_id="NJvdsWWbJlZS", nbproject_version="0", nbproject_title=title
     )
     assert transform is not None
-    transform, id, version, name, old_version_of = get_transform_kwargs_from_nbproject(
+    transform, uid, version, name, old_version_of = get_transform_kwargs_from_nbproject(
         nbproject_id="NJvdsWWbJlZS", nbproject_version="1", nbproject_title=title
     )
     assert transform is None
-    assert id.startswith("NJvdsWWbJlZS")
+    assert uid.startswith("NJvdsWWbJlZS")
     assert version == "1"
     assert name == title
     assert old_version_of is not None

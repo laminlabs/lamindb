@@ -450,8 +450,8 @@ def __init__(file: File, *args, **kwargs):
     is_new_version_of: Optional[File] = (
         kwargs.pop("is_new_version_of") if "is_new_version_of" in kwargs else None
     )
-    initial_version_uid: Optional[str] = (
-        kwargs.pop("initial_version_uid") if "initial_version_uid" in kwargs else None
+    initial_version_id: Optional[int] = (
+        kwargs.pop("initial_version_id") if "initial_version_id" in kwargs else None
     )
     version: Optional[str] = kwargs.pop("version") if "version" in kwargs else None
     format = kwargs.pop("format") if "format" in kwargs else None
@@ -471,14 +471,14 @@ def __init__(file: File, *args, **kwargs):
     else:
         if not isinstance(is_new_version_of, File):
             raise TypeError("is_new_version_of has to be of type ln.File")
-        provisional_uid, initial_version_uid, version = get_ids_from_old_version(
+        provisional_uid, initial_version_id, version = get_ids_from_old_version(
             is_new_version_of, version, n_full_id=20
         )
         if description is None:
             description = is_new_version_of.description
 
     if version is not None:
-        if initial_version_uid is None:
+        if initial_version_id is None:
             logger.info(
                 "initializing versioning for this file! create future versions of it"
                 " using ln.File(..., is_new_version_of=old_file)"
@@ -520,7 +520,7 @@ def __init__(file: File, *args, **kwargs):
         kwargs["accessor"] = "MuData"
 
     kwargs["uid"] = provisional_uid
-    kwargs["initial_version_uid"] = initial_version_uid
+    kwargs["initial_version_id"] = initial_version_id
     kwargs["version"] = version
     kwargs["description"] = description
     # this check needs to come down here because key might be populated from an
@@ -660,41 +660,46 @@ def from_dir(
     verbosity = settings.verbosity
     if verbosity >= 1:
         settings.verbosity = 1  # just warnings
-    files = []
+    files_dict = {}
     for filepath in folderpath.rglob(pattern):
         if filepath.is_file():
             relative_path = get_relative_path_to_directory(filepath, folderpath)
             file_key = folder_key + "/" + relative_path.as_posix()
             # if creating from rglob, we don't need to check for existence
             file = File(filepath, run=run, key=file_key, skip_check_exists=True)
-            files.append(file)
+            files_dict[file.uid] = file
     settings.verbosity = verbosity
 
     # run sanity check on hashes
-    hashes = [file.hash for file in files if file.hash is not None]
-    ids = [file.id for file in files]
-    if len(set(hashes)) != len(hashes):
+    hashes = [file.hash for file in files_dict.values() if file.hash is not None]
+    uids = files_dict.keys()
+    if len(set(hashes)) == len(hashes):
+        files = list(files_dict.values())
+    else:
         # consider exact duplicates (same id, same hash)
-        if len(set(ids)) == len(set(hashes)):
-            logger.warning("dropping duplicate records in list of file records")
-            files = list(set(files))
+        # below can't happen anymore because files is a dict now
+        # if len(set(uids)) == len(set(hashes)):
+        #     logger.warning("dropping duplicate records in list of file records")
+        #     files = list(set(uids))
         # consider false duplicates (different id, same hash)
-        else:
+        if not len(set(uids)) == len(set(hashes)):
             seen_hashes = set()
-            non_unique_files = [
-                file
-                for file in files
+            non_unique_files = {
+                hash: file
+                for hash, file in files_dict.items()
                 if file.hash in seen_hashes or seen_hashes.add(file.hash)  # type: ignore  # noqa
-            ]
+            }
             display_non_unique = "\n    ".join(f"{file}" for file in non_unique_files)
             logger.warning(
-                "there are different file ids with the same hashes, dropping"
-                f" {len(non_unique_files)} duplicates out of {len(files)} files:\n   "
-                f" {display_non_unique}"
+                "there are multiple file uids with the same hashes, dropping"
+                f" {len(non_unique_files)} duplicates out of {len(files_dict)} files:\n"
+                f"    {display_non_unique}"
             )
             files = [
-                file for file in files if file not in set(non_unique_files)
-            ]  # noqa
+                file
+                for file in files_dict.values()
+                if file not in non_unique_files.values()
+            ]
     logger.success(
         f"created {len(files)} files from directory using storage"
         f" {storage.root} and key = {folder_key}/"

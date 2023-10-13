@@ -27,49 +27,23 @@ def set_version(version: Optional[str] = None, previous_version: Optional[str] =
     return version
 
 
-# uses `initial_version_uid` to extract a stem_id that's part of id
+# uses `initial_version_id` to extract a stem_id that's part of id
 def init_uid(
     *,
-    provisional_uid: Optional[None] = None,
-    initial_version_uid: Optional[str] = None,
     version: Optional[str] = None,
     n_full_id: int = 20,
 ) -> str:
-    n_stem_id = n_full_id - 2
     if n_full_id == 20:
         gen_full_id = ids.base62_20
-        gen_stem_id = ids.base62_18
-    elif n_full_id:
+    elif n_full_id == 14:
         gen_full_id = ids.base62_14
-        gen_stem_id = ids.base62_12
     if version is not None:
         if not isinstance(version, str):
             raise ValueError(
                 "`version` parameter must be `None` or `str`, e.g., '0.1', '1', '2',"
                 " etc."
             )
-        # considered below, but not doing this right now
-        # if version == "0":
-        #     raise ValueError(
-        #         "Please choose a version != '0', as it could be interpreted as `None`"
-        #     )
-    if initial_version_uid is not None:
-        stem_id = initial_version_uid[:n_stem_id]
-    else:
-        stem_id = None
-    # first consider an unversioned record
-    if version is None and stem_id is None:
-        provisional_uid = gen_full_id()
-        return provisional_uid  # type: ignore
-    # now consider a versioned record
-    id_ext = ids.base62(2)
-    if provisional_uid is None and stem_id is None:
-        stem_id = gen_stem_id()
-        provisional_uid = stem_id + id_ext
-    elif stem_id is not None:
-        assert isinstance(stem_id, str) and len(stem_id) == n_stem_id
-        provisional_uid = stem_id + id_ext
-    return provisional_uid  # type: ignore
+    return gen_full_id()
 
 
 def get_initial_version_id(is_new_version_of: Union[File, Transform]):
@@ -84,7 +58,7 @@ def get_ids_from_old_version(
     is_new_version_of: Union[File, Transform],
     version: Optional[str],
     n_full_id: int = 20,
-) -> Tuple[str, str, str]:
+) -> Tuple[str, int, str]:
     """{}"""
     msg = ""
     if is_new_version_of.version is None:
@@ -94,9 +68,7 @@ def get_ids_from_old_version(
         previous_version = is_new_version_of.version
     version = set_version(version, previous_version)
     initial_version_id = get_initial_version_id(is_new_version_of)
-    new_file_id = init_uid(
-        provisional_uid=is_new_version_of.uid,
-        initial_version_uid=initial_version_id,
+    new_uid = init_uid(
         version=version,
         n_full_id=n_full_id,
     )
@@ -109,4 +81,4 @@ def get_ids_from_old_version(
                 f"& new version to '{version}' (initial_version_id ="
                 f" '{initial_version_id}')"
             )
-    return new_file_id, initial_version_id, version  # type: ignore
+    return new_uid, initial_version_id, version  # type: ignore

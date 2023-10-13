@@ -84,7 +84,7 @@ def save_feature_set_links(self: Union[File, Dataset]) -> None:
                 "slot": slot,
             }
             links.append(Data.feature_sets.through(**kwargs))
-        bulk_create(links)
+        bulk_create(links, ignore_conflicts=True)
 
 
 @doc_args(Data.describe.__doc__)
@@ -128,7 +128,8 @@ def describe(self: Data):
         )
         msg += related_msg
     # input of
-    if self.input_of.exists():
+    # can only access many-to-many once record is saved
+    if not self._state.adding and self.input_of.exists():
         values = [format_field_value(i.run_at) for i in self.input_of.all()]
         msg += f"⬇️ input_of ({colors.italic('core.Run')}): {values}\n    "
     msg = msg.rstrip("    ")

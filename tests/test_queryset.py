@@ -1,5 +1,6 @@
 import lnschema_bionty as lb
 import pytest
+from lnschema_core.users import current_user_id
 
 import lamindb as ln
 from lamindb._query_set import MultipleResultsFound, NoResultFound
@@ -17,12 +18,12 @@ def test_df():
     df = ln.ULabel.filter().df(include="parents__name")
     assert df.columns[0] == "parents__name"
     # order is not conserved
-    assert df["parents__name"][0] == [project_label.name]
+    assert df["parents__name"].iloc[0] == [project_label.name]
     # pass a list
     df = ln.ULabel.filter().df(include=["parents__name", "parents__created_by_id"])
     assert df.columns[1] == "parents__created_by_id"
-    assert df["parents__name"][0] == [project_label.name]
-    assert set(df["parents__created_by_id"][0]) == set([ln.setup.settings.user.id])
+    assert df["parents__name"].iloc[0] == [project_label.name]
+    assert set(df["parents__created_by_id"].iloc[0]) == set([current_user_id()])
 
     # for other models
     feature_names = [f"Feature {i}" for i in range(3)]
@@ -35,14 +36,14 @@ def test_df():
     df = ln.FeatureSet.filter(name="my feature_set").df(include="features__name")
     assert df.columns[0] == "features__name"
     # order is not conserved
-    assert set(df["features__name"][0]) == set(feature_names)
+    assert set(df["features__name"].iloc[0]) == set(feature_names)
     # pass a list
     df = ln.FeatureSet.filter(name="my feature_set").df(
         include=["features__name", "features__created_by_id"]
     )
     assert df.columns[1] == "features__created_by_id"
-    assert set(df["features__name"][0]) == set(feature_names)
-    assert set(df["features__created_by_id"][0]) == set([ln.setup.settings.user.id])
+    assert set(df["features__name"].iloc[0]) == set(feature_names)
+    assert set(df["features__created_by_id"].iloc[0]) == set([current_user_id()])
 
     # raise error for non many-to-many
     with pytest.raises(ValueError):

@@ -145,12 +145,12 @@ def get_transform_kwargs_from_nbproject(
     uid = nbproject_id + id_ext
     version = nbproject_version
     transform = Transform.filter(
-        id__startswith=nbproject_id, version=version
+        uid__startswith=nbproject_id, version=version
     ).one_or_none()
     name = nbproject_title
     old_version_of = None
     if transform is None:
-        old_version_of = Transform.filter(id__startswith=nbproject_id).first()
+        old_version_of = Transform.filter(uid__startswith=nbproject_id).first()
     return transform, uid, version, name, old_version_of
 
 
@@ -438,7 +438,7 @@ class run_context:
         # colab parsing succesful
         if colab_id is not None:
             uid = colab_id[:14]
-            transform = Transform.filter(id=id).one_or_none()
+            transform = Transform.filter(uid=uid).one_or_none()
             name = filestem
             short_name = None
             old_version_of = None

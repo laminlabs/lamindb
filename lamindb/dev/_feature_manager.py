@@ -134,7 +134,12 @@ class FeatureManager:
             )
         feature_set = self._feature_set_by_slot[slot]
         orm_name = feature_set.registry
-        return getattr(feature_set, self._accessor_by_orm[orm_name]).all()
+        if hasattr(feature_set, "_features"):
+            # feature set is not yet saved
+            # need to think about turning this into a queryset
+            return feature_set._features
+        else:
+            return getattr(feature_set, self._accessor_by_orm[orm_name]).all()
 
     def add_feature_set(self, feature_set: FeatureSet, slot: str):
         """Add new feature set to a slot.

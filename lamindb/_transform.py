@@ -17,7 +17,7 @@ def __init__(transform: Transform, *args, **kwargs):
     is_new_version_of: Optional[Transform] = (
         kwargs.pop("is_new_version_of") if "is_new_version_of" in kwargs else None
     )
-    initial_version_id: Optional[str] = (
+    initial_version_id: Optional[int] = (
         kwargs.pop("initial_version_id") if "initial_version_id" in kwargs else None
     )
     version: Optional[str] = kwargs.pop("version") if "version" in kwargs else None

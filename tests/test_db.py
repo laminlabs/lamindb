@@ -3,7 +3,7 @@ import lamindb as ln
 
 def test_create_to_load():
     transform = ln.Transform(version="0", name="test", type="pipeline")
-    ln.save(transform)
+    transform.save()
     run = ln.Run(transform=transform)
-    ln.save(run)
+    run.save()
     ln.Storage.filter(root=str(ln.setup.settings.storage.root)).one()

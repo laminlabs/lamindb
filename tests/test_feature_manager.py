@@ -110,10 +110,11 @@ def test_add_labels_using_anndata():
     species = lb.Species.from_bionty(name="mouse")
     cell_types = [lb.CellType(name=name) for name in adata.obs["cell_type"].unique()]
     ln.save(cell_types)
-    cell_types_from_expert = [
-        lb.CellType(name=name) for name in adata.obs["cell_type_from_expert"].unique()
-    ]
-    ln.save(cell_types_from_expert)
+    inspector = lb.CellType.inspect(adata.obs["cell_type_from_expert"].unique())
+    ln.save([lb.CellType(name=name) for name in inspector.non_validated])
+    cell_types_from_expert = lb.CellType.from_values(
+        adata.obs["cell_type_from_expert"].unique()
+    )
     actual_tissues = [lb.Tissue(name=name) for name in adata.obs["tissue"].unique()]
     organoid = ln.ULabel(name="organoid")
     tissues = actual_tissues + [organoid]
