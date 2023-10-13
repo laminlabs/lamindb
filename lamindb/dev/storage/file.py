@@ -91,15 +91,15 @@ def extract_suffix_from_path(
 # add type annotations back asap when re-organizing the module
 def auto_storage_key_from_file(file: File):
     if file.key is None:
-        return auto_storage_key_from_id_suffix(file.id, file.suffix)
+        return auto_storage_key_from_id_suffix(file.uid, file.suffix)
     else:
         return file.key
 
 
-def auto_storage_key_from_id_suffix(id: str, suffix: str) -> str:
-    assert isinstance(id, str)
+def auto_storage_key_from_id_suffix(uid: str, suffix: str) -> str:
+    assert isinstance(uid, str)
     assert isinstance(suffix, str)
-    storage_key = f"{AUTO_KEY_PREFIX}{id}{suffix}"
+    storage_key = f"{AUTO_KEY_PREFIX}{uid}{suffix}"
     return storage_key
 
 

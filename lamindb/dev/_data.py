@@ -84,7 +84,7 @@ def save_feature_set_links(self: Union[File, Dataset]) -> None:
                 "slot": slot,
             }
             links.append(Data.feature_sets.through(**kwargs))
-        bulk_create(links)
+        bulk_create(links, ignore_conflicts=True)
 
 
 @doc_args(Data.describe.__doc__)
@@ -128,7 +128,8 @@ def describe(self: Data):
         )
         msg += related_msg
     # input of
-    if self.input_of.exists():
+    # can only access many-to-many once record is saved
+    if self.id is not None and self.input_of.exists():
         values = [format_field_value(i.run_at) for i in self.input_of.all()]
         msg += f"⬇️ input_of ({colors.italic('core.Run')}): {values}\n    "
     msg = msg.rstrip("    ")
@@ -167,9 +168,12 @@ def get_labels(
     registries_to_check = feature.registries.split("|")
     if len(registries_to_check) > 1 and not mute:
         logger.warning("labels come from multiple registries!")
+    # return an empty query set if self.id is still None
+    if self.id is None:
+        return QuerySet(self.__class__)
     qs_by_registry = {}
     for registry in registries_to_check:
-        # currently need to distinguish between Label and non-Label, because
+        # currently need to distinguish between ULabel and non-ULabel, because
         # we only have the feature information for Label
         if registry == "core.ULabel":
             links_to_labels = get_label_links(self, registry, feature)

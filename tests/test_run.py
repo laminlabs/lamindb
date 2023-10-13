@@ -18,10 +18,8 @@ def test_run():
     run2 = ln.Run(transform, reference="test1", reference_type="test2")
     assert run2.reference == "test1"
     assert run2.reference_type == "test2"
-    assert run.id != run2.id
+    assert run.uid != run2.uid
     transform.delete()
-    run.delete()
-    run2.delete()
 
 
 def test_edge_cases():

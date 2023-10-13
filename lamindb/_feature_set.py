@@ -14,7 +14,6 @@ from . import _TESTING
 from ._feature import convert_numpy_dtype_to_lamin_feature_type
 from ._query_set import QuerySet
 from ._registry import init_self_from_db
-from ._save import bulk_create
 from .dev._priors import NUMBER_TYPE
 
 
@@ -113,7 +112,7 @@ def __init__(self, *args, **kwargs):
     if type is None:
         type = None if features_registry == Feature else NUMBER_TYPE
     n_features = len(features)
-    features_hash = hash_set({feature.id for feature in features})
+    features_hash = hash_set({feature.uid for feature in features})
     feature_set = FeatureSet.filter(hash=features_hash).one_or_none()
     if feature_set is not None:
         logger.success(f"loaded: {feature_set}")
@@ -131,7 +130,7 @@ def __init__(self, *args, **kwargs):
                 f" {modality}"
             )
     super(FeatureSet, self).__init__(
-        id=ids.base62_20(),
+        uid=ids.base62_20(),
         name=name,
         type=get_type_str(type),
         n=n_features,
@@ -147,13 +146,6 @@ def save(self, *args, **kwargs) -> None:
     super(FeatureSet, self).save(*args, **kwargs)
     if hasattr(self, "_features"):
         related_name, records = self._features
-        # if values are stored in their dedicated table, we can bulk_create
-        if related_name != "features":
-            bulk_create(records)
-        else:
-            # otherwise, we currently need to save one by one
-            for record in records:
-                record.save()
         getattr(self, related_name).set(records)
 
 

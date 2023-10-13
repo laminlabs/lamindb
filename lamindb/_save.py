@@ -8,6 +8,7 @@ from typing import Iterable, List, Optional, Tuple, Union, overload  # noqa
 
 import lamindb_setup
 from django.db import transaction
+from django.utils.functional import partition
 from lamin_utils import logger
 from lnschema_core.models import File, Registry
 
@@ -26,55 +27,64 @@ except ImportError:
         raise ImportError("Please install zarr: pip install zarr")
 
 
-def save(records: Iterable[Registry], **kwargs) -> None:  # type: ignore
+def save(
+    records: Iterable[Registry], ignore_conflicts: Optional[bool] = False, **kwargs
+) -> None:
     """Bulk save to registries & storage.
 
     Note:
 
-        This is a much **faster** way to save many records in the database.
+        This is a much faster than saving records using ``record.save()``.
 
     Warning:
 
-        It neither automatically creates related records nor updates existing records!
-        Use ``Registry.save()`` for these use cases.
+        Bulk saving neither automatically creates related records nor updates
+        existing records! Use ``record.save()`` for these use cases.
 
     Args:
-        records: One or multiple ``Registry`` objects.
+        records: Multiple :class:`~lamindb.dev.Registry` objects.
+        ignore_conflicts: If ``True``, do not error if some records violate a
+           unique or another constraint. However, it won't inplace update the id
+           fields of records. If you need records with ids, you need to query
+           them from the database.
 
     Examples:
 
         Save a collection of records in one transaction, which is much faster
-        than writing a loop over calls ``projects.save()``:
+        than writing a loop over ``projects.save()``:
 
-        >>> labels = [ln.ULabel(f"ULabel {i}") for i in range(10)]
+        >>> labels = [ln.ULabel(f"Label {i}") for i in range(10)]
         >>> ln.save(projects)
 
-        For a single record, use ``.save()``:
+        For a single record, use ``record.save()``:
 
         >>> transform = ln.Transform(name="My pipeline")
         >>> transform.save()
 
         Update a single existing record:
 
-        >>> transform = ln.filter(ln.Transform, id="0Cb86EZj").one()
+        >>> transform = ln.filter(ln.Transform, uid="0Cb86EZj").one()
         >>> transform.name = "New name"
         >>> transform.save()
 
     """
-    if isinstance(records, Iterable):
-        records = set(records)
-    elif isinstance(records, Registry):
-        records = {records}
+    if isinstance(records, Registry):
+        raise ValueError("Please use record.save() if saving a single record.")
 
-    # we're distinguishing between files and non-files
-    # because for files, we want to bulk-upload
+    # previously, this was all set based,
+    # but models without primary keys aren't hashable
+    # we distinguish between files and non-files
+    # for files, we want to bulk-upload
     # rather than upload one-by-one
-    files = {r for r in records if isinstance(r, File)}
-    non_files = records.difference(files)
+    non_files, files = partition(lambda r: isinstance(r, File), records)
     if non_files:
-        # first save all records without recursing parents
-        bulk_create(non_files)
-        non_files_with_parents = {r for r in non_files if hasattr(r, "_parents")}
+        # first save all records that do not yet have a primary key without
+        # recursing parents
+        _, non_files_without_pk = partition(lambda r: r.pk is None, non_files)
+        bulk_create(non_files_without_pk, ignore_conflicts=ignore_conflicts)
+        non_files_with_parents = [
+            r for r in non_files_without_pk if hasattr(r, "_parents")
+        ]
 
         if len(non_files_with_parents) > 0 and kwargs.get("parents") is not False:
             # this can only happen within lnschema_bionty right now!!
@@ -110,12 +120,12 @@ def save(records: Iterable[Registry], **kwargs) -> None:  # type: ignore
     return None
 
 
-def bulk_create(records: Iterable[Registry]):
+def bulk_create(records: Iterable[Registry], ignore_conflicts: Optional[bool] = False):
     records_by_orm = defaultdict(list)
     for record in records:
         records_by_orm[record.__class__].append(record)
     for orm, records in records_by_orm.items():
-        orm.objects.bulk_create(records, ignore_conflicts=True)
+        orm.objects.bulk_create(records, ignore_conflicts=ignore_conflicts)
 
 
 # This is also used within File.save()

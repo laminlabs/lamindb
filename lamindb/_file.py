@@ -39,7 +39,7 @@ from lamindb.dev.storage.file import (
     extract_suffix_from_path,
     filepath_from_file,
 )
-from lamindb.dev.versioning import get_ids_from_old_version, init_id
+from lamindb.dev.versioning import get_ids_from_old_version, init_uid
 
 from . import _TESTING
 from ._feature import convert_numpy_dtype_to_lamin_feature_type
@@ -102,7 +102,7 @@ def process_pathlike(
 
 
 def process_data(
-    provisional_id: str,
+    provisional_uid: str,
     data: Union[PathLike, DataLike],
     format: Optional[str],
     key: Optional[str],
@@ -133,7 +133,7 @@ def process_data(
                 f"The suffix '{key_suffix}' of the provided key is incorrect, it should"
                 f" be '{suffix}'."
             )
-        cache_name = f"{provisional_id}{suffix}"
+        cache_name = f"{provisional_uid}{suffix}"
         filepath = lamindb_setup.settings.storage.cache_dir / cache_name
         # Alex: I don't understand the line below
         if filepath.suffixes == []:
@@ -304,12 +304,12 @@ def get_file_kwargs_from_data(
     key: Optional[str],
     run: Optional[Run],
     format: Optional[str],
-    provisional_id: str,
+    provisional_uid: str,
     skip_check_exists: bool = False,
 ):
     run = get_run(run)
     memory_rep, filepath, suffix, storage, use_existing_storage_key = process_data(
-        provisional_id, data, format, key, skip_check_exists
+        provisional_uid, data, format, key, skip_check_exists
     )
     # the following will return a localpath that is not None if filepath is local
     # it will return a cloudpath that is not None if filepath is on the cloud
@@ -349,7 +349,7 @@ def get_file_kwargs_from_data(
         check_path_in_storage=check_path_in_storage,
         storage=storage,
         key=key,
-        id=provisional_id,
+        uid=provisional_uid,
         suffix=suffix,
     )
 
@@ -381,7 +381,7 @@ def log_storage_hint(
     check_path_in_storage: bool,
     storage: Optional[Storage],
     key: Optional[str],
-    id: str,
+    uid: str,
     suffix: str,
 ) -> None:
     hint = ""
@@ -398,7 +398,7 @@ def log_storage_hint(
     else:
         hint += "file will be copied to default storage upon `save()`"
     if key is None:
-        storage_key = auto_storage_key_from_id_suffix(id, suffix)
+        storage_key = auto_storage_key_from_id_suffix(uid, suffix)
         hint += f" with key `None` ('{storage_key}')"
     else:
         hint += f" with key '{key}'"
@@ -450,7 +450,7 @@ def __init__(file: File, *args, **kwargs):
     is_new_version_of: Optional[File] = (
         kwargs.pop("is_new_version_of") if "is_new_version_of" in kwargs else None
     )
-    initial_version_id: Optional[str] = (
+    initial_version_id: Optional[int] = (
         kwargs.pop("initial_version_id") if "initial_version_id" in kwargs else None
     )
     version: Optional[str] = kwargs.pop("version") if "version" in kwargs else None
@@ -467,11 +467,11 @@ def __init__(file: File, *args, **kwargs):
         )
 
     if is_new_version_of is None:
-        provisional_id = init_id(version=version, n_full_id=20)
+        provisional_uid = init_uid(version=version, n_full_id=20)
     else:
         if not isinstance(is_new_version_of, File):
             raise TypeError("is_new_version_of has to be of type ln.File")
-        provisional_id, initial_version_id, version = get_ids_from_old_version(
+        provisional_uid, initial_version_id, version = get_ids_from_old_version(
             is_new_version_of, version, n_full_id=20
         )
         if description is None:
@@ -488,7 +488,7 @@ def __init__(file: File, *args, **kwargs):
         key=key,
         run=run,
         format=format,
-        provisional_id=provisional_id,
+        provisional_uid=provisional_uid,
         skip_check_exists=skip_check_exists,
     )
 
@@ -519,7 +519,7 @@ def __init__(file: File, *args, **kwargs):
     elif data_is_mudata(data):
         kwargs["accessor"] = "MuData"
 
-    kwargs["id"] = provisional_id
+    kwargs["uid"] = provisional_uid
     kwargs["initial_version_id"] = initial_version_id
     kwargs["version"] = version
     kwargs["description"] = description
@@ -660,41 +660,46 @@ def from_dir(
     verbosity = settings.verbosity
     if verbosity >= 1:
         settings.verbosity = 1  # just warnings
-    files = []
+    files_dict = {}
     for filepath in folderpath.rglob(pattern):
         if filepath.is_file():
             relative_path = get_relative_path_to_directory(filepath, folderpath)
             file_key = folder_key + "/" + relative_path.as_posix()
             # if creating from rglob, we don't need to check for existence
             file = File(filepath, run=run, key=file_key, skip_check_exists=True)
-            files.append(file)
+            files_dict[file.uid] = file
     settings.verbosity = verbosity
 
     # run sanity check on hashes
-    hashes = [file.hash for file in files if file.hash is not None]
-    ids = [file.id for file in files]
-    if len(set(hashes)) != len(hashes):
+    hashes = [file.hash for file in files_dict.values() if file.hash is not None]
+    uids = files_dict.keys()
+    if len(set(hashes)) == len(hashes):
+        files = list(files_dict.values())
+    else:
         # consider exact duplicates (same id, same hash)
-        if len(set(ids)) == len(set(hashes)):
-            logger.warning("dropping duplicate records in list of file records")
-            files = list(set(files))
+        # below can't happen anymore because files is a dict now
+        # if len(set(uids)) == len(set(hashes)):
+        #     logger.warning("dropping duplicate records in list of file records")
+        #     files = list(set(uids))
         # consider false duplicates (different id, same hash)
-        else:
+        if not len(set(uids)) == len(set(hashes)):
             seen_hashes = set()
-            non_unique_files = [
-                file
-                for file in files
+            non_unique_files = {
+                hash: file
+                for hash, file in files_dict.items()
                 if file.hash in seen_hashes or seen_hashes.add(file.hash)  # type: ignore  # noqa
-            ]
+            }
             display_non_unique = "\n    ".join(f"{file}" for file in non_unique_files)
             logger.warning(
-                "there are different file ids with the same hashes, dropping"
-                f" {len(non_unique_files)} duplicates out of {len(files)} files:\n   "
-                f" {display_non_unique}"
+                "there are multiple file uids with the same hashes, dropping"
+                f" {len(non_unique_files)} duplicates out of {len(files_dict)} files:\n"
+                f"    {display_non_unique}"
             )
             files = [
-                file for file in files if file not in set(non_unique_files)
-            ]  # noqa
+                file
+                for file in files_dict.values()
+                if file not in non_unique_files.values()
+            ]
     logger.success(
         f"created {len(files)} files from directory using storage"
         f" {storage.root} and key = {folder_key}/"
@@ -710,7 +715,7 @@ def replace(
     format: Optional[str] = None,
 ) -> None:
     kwargs, privates = get_file_kwargs_from_data(
-        provisional_id=self.id,
+        provisional_uid=self.uid,
         data=data,
         key=self.key,
         run=run,
@@ -731,7 +736,7 @@ def replace(
         self.key = kwargs["key"]
         old_storage = auto_storage_key_from_file(self)
         new_storage = (
-            self.key if self.key is not None else f"{self.id}{kwargs['suffix']}"
+            self.key if self.key is not None else f"{self.uid}{kwargs['suffix']}"
         )
         if old_storage != new_storage:
             self._clear_storagekey = old_storage

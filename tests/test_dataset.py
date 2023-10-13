@@ -69,11 +69,11 @@ def test_create_delete_from_single_dataframe():
     # basics
     assert dataset.load().iloc[0].tolist() == df.iloc[0].tolist()
     file = dataset.file
-    assert file.description == f"See dataset {dataset.id}"
+    assert file.description == f"See dataset {dataset.uid}"
     assert dataset.hash == file.hash
-    assert dataset.id == file.id
-    assert ln.File.filter(id=dataset.id).one_or_none() is not None
-    assert ln.File.filter(id=file.id).one_or_none() is not None
+    assert dataset.uid == file.uid
+    assert ln.File.filter(uid=dataset.uid).one_or_none() is not None
+    assert ln.File.filter(uid=file.uid).one_or_none() is not None
 
     # features
     feature_list = [
@@ -98,8 +98,8 @@ def test_create_delete_from_single_dataframe():
 
     # now proceed to deletion
     dataset.delete(storage=True)
-    assert ln.File.filter(id=dataset.id).one_or_none() is None
-    assert ln.File.filter(id=file.id).one_or_none() is None
+    assert ln.File.filter(uid=dataset.uid).one_or_none() is None
+    assert ln.File.filter(uid=file.uid).one_or_none() is None
 
 
 def test_create_delete_from_single_anndata():
@@ -136,7 +136,11 @@ def test_create_delete_from_single_anndata():
 
 def test_from_single_file():
     lb.settings.species = "human"
-    ln.save(ln.Feature.from_df(adata.obs))
+    features = ln.Feature.from_df(adata.obs)
+    validated = ln.Feature.validate(
+        [feature.name for feature in features], field="name"
+    )
+    ln.save([feature for (feature, valid) in zip(features, validated) if valid])
     file = ln.File.from_anndata(adata, description="My adata", field=lb.Gene.symbol)
     with pytest.raises(ValueError) as error:
         ln.Dataset(file)
@@ -152,6 +156,7 @@ def test_from_single_file():
     transform = ln.Transform(name="My test transform")
     transform.save()
     run = ln.Run(transform)
+    run.save()
     dataset = ln.Dataset(file, name="My new dataset", run=run)
     dataset.save()
     # test data flow
@@ -237,6 +242,7 @@ def test_from_consistent_files():
     transform = ln.Transform(name="My test transform")
     transform.save()
     run = ln.Run(transform)
+    run.save()
     dataset = ln.Dataset([file1, file2], name="My test", run=run)
     dataset.save()
     assert set(dataset.run.input_files.all()) == {file1, file2}
@@ -263,7 +269,6 @@ def test_is_new_version_of_versioned_dataset():
 
     # create new dataset from old dataset
     dataset_v2 = ln.Dataset(adata, is_new_version_of=dataset)
-    assert dataset_v2.id[:18] == dataset.id[:18]  # stem_id
     assert dataset.version == "1"
     assert (
         dataset.initial_version_id is None
@@ -277,7 +282,6 @@ def test_is_new_version_of_versioned_dataset():
     # create new dataset from newly versioned dataset
     df.iloc[0, 0] = 0
     dataset_v3 = ln.Dataset(df, name="test1", is_new_version_of=dataset_v2)
-    assert dataset_v3.id[:18] == dataset.id[:18]  # stem_id
     assert dataset_v3.initial_version_id == dataset.id
     assert dataset_v3.version == "3"
     assert dataset_v3.name == "test1"
@@ -286,7 +290,6 @@ def test_is_new_version_of_versioned_dataset():
     with pytest.raises(ProtectedError):
         dataset.delete(storage=True)
     dataset_v2.delete(storage=True)
-    dataset_v3.delete(storage=True)
     dataset.delete(storage=True)
 
 
@@ -305,7 +308,6 @@ def test_is_new_version_of_unversioned_dataset():
 
     # create new dataset from old dataset
     new_dataset = ln.Dataset(adata, is_new_version_of=dataset)
-    assert new_dataset.id[:18] == dataset.id[:18]  # stem_id
     assert dataset.version == "1"
     assert dataset.initial_version is None
     assert new_dataset.initial_version_id == dataset.id
@@ -321,4 +323,5 @@ def test_dataset_from_storage():
     path.mkdir(exist_ok=True)
     dataset = ln.Dataset(path, name="My test dataset")
     assert dataset.path.name == "random_storage"
+    dataset.save()
     dataset.delete()

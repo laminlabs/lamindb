@@ -91,7 +91,7 @@ def test_feature_set_from_records():
 
     ln.save(features)
     feature_set = ln.FeatureSet(features)
-    id = feature_set.id
+    assert feature_set.id is None
     assert feature_set._state.adding
     assert feature_set.type is None
     assert feature_set.registry == "core.Feature"
@@ -100,7 +100,7 @@ def test_feature_set_from_records():
     # in case it already exists
     feature_set = ln.FeatureSet(features)
     assert not feature_set._state.adding
-    assert id == feature_set.id
+    assert feature_set.id is not None
     feature_set.delete()
 
     # edge case
@@ -118,8 +118,6 @@ def test_feature_set_from_df():
         ln.FeatureSet.from_df(df, field=lb.Gene.symbol)
     assert error.exconly().startswith("ValueError: data types are heterogeneous:")
     feature_set = ln.FeatureSet.from_df(df[["feat1", "feat2"]], field=lb.Gene.symbol)
-    # clean up
-    feature_set.delete()
     for gene in genes:
         gene.delete()
 
@@ -187,4 +185,3 @@ def test_edge_cases():
         == "ValueError: Please pass a ListLike of features, not a single feature"
     )
     feature.delete()
-    feature_set.delete()

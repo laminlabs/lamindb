@@ -99,7 +99,7 @@ def view_flow(data: Union[File, Dataset], with_children: bool = True) -> None:
         )
 
     u = graphviz.Digraph(
-        f"{data._meta.model_name}_{data.id}",
+        f"{data._meta.model_name}_{data.uid}",
         node_attr={
             "fillcolor": GREEN_FILL,
             "color": LAMIN_GREEN_DARKER,
@@ -117,7 +117,7 @@ def view_flow(data: Union[File, Dataset], with_children: bool = True) -> None:
         u.edge(row["source"], row["target"], color="dimgrey")
     # label the searched file
     u.node(
-        f"{data._meta.model_name}_{data.id}",
+        f"{data._meta.model_name}_{data.uid}",
         label=data_label,
         style="rounded,filled",
         fillcolor=LAMIN_GREEN_LIGHTER,
@@ -159,7 +159,7 @@ def _view_parents(
     record_label = _record_label(record, field)
 
     u = graphviz.Digraph(
-        record.id,
+        record.uid,
         node_attr={
             "color": LAMIN_GREEN_DARKER,
             "fillcolor": GREEN_FILL,
@@ -171,7 +171,7 @@ def _view_parents(
         edge_attr={"arrowsize": "0.5"},
     )
     u.node(
-        record.id,
+        record.uid,
         label=_record_label(record)
         if record.__class__.__name__ == "Transform"
         else _add_emoji(record, record_label),
@@ -246,6 +246,8 @@ def _df_edges_from_parents(
         df_edges["target_label"] = df_edges["target_record"].apply(
             lambda x: _record_label(x, field)
         )
+    df_edges["source"] = df_edges["source_record"].apply(lambda x: x.uid)
+    df_edges["target"] = df_edges["target_record"].apply(lambda x: x.uid)
     return df_edges
 
 
@@ -258,33 +260,33 @@ def _record_label(record: Registry, field: Optional[str] = None):
 
         return (
             rf'<📄 {name}<BR/><FONT COLOR="GREY" POINT-SIZE="10"'
-            rf' FACE="Monospace">id={record.id}<BR/>suffix={record.suffix}</FONT>>'
+            rf' FACE="Monospace">uid={record.uid}<BR/>suffix={record.suffix}</FONT>>'
         )
     elif isinstance(record, Dataset):
         name = record.name.replace("&", "&amp;")
         return (
             rf'<🍱 {name}<BR/><FONT COLOR="GREY" POINT-SIZE="10"'
-            rf' FACE="Monospace">id={record.id}<BR/>version={record.version}</FONT>>'
+            rf' FACE="Monospace">uid={record.uid}<BR/>version={record.version}</FONT>>'
         )
     elif isinstance(record, Run):
         name = f'{record.transform.name.replace("&", "&amp;")}'
         return (
             rf'<{TRANSFORM_EMOJIS.get(str(record.transform.type), "💫")} {name}<BR/><FONT COLOR="GREY" POINT-SIZE="10"'  # noqa
-            rf' FACE="Monospace">id={record.id}<BR/>type={record.transform.type},'
+            rf' FACE="Monospace">uid={record.uid}<BR/>type={record.transform.type},'
             rf" user={record.created_by.name}<BR/>run_at={format_field_value(record.run_at)}</FONT>>"  # noqa
         )
     elif isinstance(record, Transform):
         name = f'{record.name.replace("&", "&amp;")}'
         return (
             rf'<{TRANSFORM_EMOJIS.get(str(record.type), "💫")} {name}<BR/><FONT COLOR="GREY" POINT-SIZE="10"'  # noqa
-            rf' FACE="Monospace">id={record.id}<BR/>type={record.type},'
+            rf' FACE="Monospace">uid={record.uid}<BR/>type={record.type},'
             rf" user={record.created_by.name}<BR/>updated_at={format_field_value(record.updated_at)}</FONT>>"  # noqa
         )
     else:
         name = record.__getattribute__(field)
         return (
             rf'<{name}<BR/><FONT COLOR="GREY" POINT-SIZE="10"'
-            rf' FACE="Monospace">id={record.id}</FONT>>'
+            rf' FACE="Monospace">uid={record.uid}</FONT>>'
         )
 
 
@@ -363,8 +365,8 @@ def _df_edges_from_runs(df_values: List):
     df = df.explode("source_record")
     df = df.explode("target_record")
     df = df.drop_duplicates().dropna()
-    df["source"] = [f"{i._meta.model_name}_{i.id}" for i in df["source_record"]]
-    df["target"] = [f"{i._meta.model_name}_{i.id}" for i in df["target_record"]]
+    df["source"] = [f"{i._meta.model_name}_{i.uid}" for i in df["source_record"]]
+    df["target"] = [f"{i._meta.model_name}_{i.uid}" for i in df["target_record"]]
     df["source_label"] = df["source_record"].apply(_record_label)
     df["target_label"] = df["target_record"].apply(_record_label)
     return df
