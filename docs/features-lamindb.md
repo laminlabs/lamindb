@@ -1,4 +1,4 @@
-**Unify access to data & metadata across storage (arrays, files) & SQL database backends.**
+**Access data & metadata across storage (files, arrays) & database (SQL) backends.**
 
 - Query by & search for anything: {class}`~lamindb.dev.Registry.filter`, {class}`~lamindb.dev.Registry.search`
 - Stage, load or stream files & datasets: {class}`~lamindb.File.stage`, {class}`~lamindb.File.load`, {class}`~lamindb.File.backed`
@@ -12,13 +12,14 @@
 - Associate execution reports & source code with [notebooks](/tutorial)
 - Integrate with workflow managers: [redun](docs:redun), [nextflow](docs:nextflow), [snakemake](docs:snakemake)
 
-**Manage registries for experimental metadata & ontologies in a simple database.**
+**Manage registries for experimental metadata & in-house ontologies, import public ontologies.**
 
 - Use >20 public ontologies with plug-in {mod}`lnschema_bionty`
 - {class}`~lnschema_bionty.Gene`, {class}`~lnschema_bionty.Protein`, {class}`~lnschema_bionty.CellMarker`
 - {class}`~lnschema_bionty.ExperimentalFactor`, {class}`~lnschema_bionty.CellType`, {class}`~lnschema_bionty.CellLine`, {class}`~lnschema_bionty.Tissue`, ...
+- Safeguards against typos & duplications
 
-**Validate, standardize & annotate data batches.**
+**Validate, standardize & annotate data using registries.**
 
 - {class}`~lamindb.dev.CanValidate.validate` & {class}`~lamindb.dev.CanValidate.standardize`, {class}`~lamindb.dev.CanValidate.inspect` validation failures
 - annotate with untyped or typed labels: {class}`~lamindb.dev.LabelManager.add`
@@ -40,6 +41,5 @@
   - Fine-grained access management via embedded storage & SQL roles
 - Secure: embedded in your infrastructure (Lamin has no access to your data & metadata)
 - File, dataset & transform versioning
-- Safeguards against typos & duplications when populating registries
 - Tested & typed (up to Django Model fields, to come)
 - [Idempotent](docs:faq/idempotency) & [ACID](docs:faq/acid) operations
