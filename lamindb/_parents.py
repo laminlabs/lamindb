@@ -179,7 +179,6 @@ def _view_parents(
     )
     if df_edges is not None:
         for _, row in df_edges.iterrows():
-            print(row["source"], row["source_label"])
             u.node(row["source"], label=row["source_label"])
             u.node(row["target"], label=row["target_label"])
             u.edge(row["source"], row["target"], color="dimgrey")
