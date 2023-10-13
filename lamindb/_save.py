@@ -28,7 +28,7 @@ except ImportError:
 
 
 def save(
-    records: Iterable[Registry], ignore_conflicts: Optional[bool] = None, **kwargs
+    records: Iterable[Registry], ignore_conflicts: Optional[bool] = False, **kwargs
 ) -> None:
     """Bulk save to registries & storage.
 
@@ -120,7 +120,7 @@ def save(
     return None
 
 
-def bulk_create(records: Iterable[Registry], ignore_conflicts: Optional[bool] = None):
+def bulk_create(records: Iterable[Registry], ignore_conflicts: Optional[bool] = False):
     records_by_orm = defaultdict(list)
     for record in records:
         records_by_orm[record.__class__].append(record)
