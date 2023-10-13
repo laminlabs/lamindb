@@ -168,8 +168,9 @@ def get_labels(
     registries_to_check = feature.registries.split("|")
     if len(registries_to_check) > 1 and not mute:
         logger.warning("labels come from multiple registries!")
+    # return an empty query set if self.id is still None
     if self.id is None:
-        return []
+        return QuerySet(self.__class__)
     qs_by_registry = {}
     for registry in registries_to_check:
         # currently need to distinguish between ULabel and non-ULabel, because
