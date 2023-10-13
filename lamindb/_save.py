@@ -125,18 +125,7 @@ def bulk_create(records: Iterable[Registry], ignore_conflicts: Optional[bool] = 
     for record in records:
         records_by_orm[record.__class__].append(record)
     for orm, records in records_by_orm.items():
-        if ignore_conflicts is None:
-            try:
-                orm.objects.bulk_create(records, ignore_conflicts=False)
-            except Exception:
-                ignore_conflicts = True
-                logger.warning(
-                    "ignored records violating constraints, manually refreshing id"
-                )
-                records = orm.objects.bulk_create(records, ignore_conflicts=True)
-                _, records_without_pk = partition(lambda o: o.pk is None, records)
-        else:
-            orm.objects.bulk_create(records, ignore_conflicts=ignore_conflicts)
+        orm.objects.bulk_create(records, ignore_conflicts=ignore_conflicts)
 
 
 # This is also used within File.save()
