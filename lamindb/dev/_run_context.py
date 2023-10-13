@@ -89,7 +89,7 @@ def reinitialize_notebook(
     from nbproject._header import _filepath
 
     # init new_id, new_version
-    new_id, new_version = transform.id, None
+    new_uid, new_version = transform.uid, None
 
     if ask_for_new_id:
         response = input("Do you want to generate a new id? (y/n) ")
@@ -115,9 +115,9 @@ def reinitialize_notebook(
     metadata["version"] = new_version
 
     # here we check that responses to both inputs (for new id and version) were not 'n'
-    if transform.id != new_id or transform.version != new_version:
+    if transform.uid != new_uid or transform.version != new_version:
         transform = Transform(
-            id=new_id, version=new_version, type=TransformType.notebook
+            uid=new_uid, version=new_version, type=TransformType.notebook
         )
     return transform, metadata
 

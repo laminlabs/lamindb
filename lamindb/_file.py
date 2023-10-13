@@ -715,7 +715,7 @@ def replace(
     format: Optional[str] = None,
 ) -> None:
     kwargs, privates = get_file_kwargs_from_data(
-        provisional_uid=self.id,
+        provisional_uid=self.uid,
         data=data,
         key=self.key,
         run=run,
@@ -736,7 +736,7 @@ def replace(
         self.key = kwargs["key"]
         old_storage = auto_storage_key_from_file(self)
         new_storage = (
-            self.key if self.key is not None else f"{self.id}{kwargs['suffix']}"
+            self.key if self.key is not None else f"{self.uid}{kwargs['suffix']}"
         )
         if old_storage != new_storage:
             self._clear_storagekey = old_storage
