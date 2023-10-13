@@ -168,9 +168,11 @@ def get_labels(
     registries_to_check = feature.registries.split("|")
     if len(registries_to_check) > 1 and not mute:
         logger.warning("labels come from multiple registries!")
+    if self.id is None:
+        return []
     qs_by_registry = {}
     for registry in registries_to_check:
-        # currently need to distinguish between Label and non-Label, because
+        # currently need to distinguish between ULabel and non-ULabel, because
         # we only have the feature information for Label
         if registry == "core.ULabel":
             links_to_labels = get_label_links(self, registry, feature)
