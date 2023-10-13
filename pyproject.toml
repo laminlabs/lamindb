@@ -15,8 +15,8 @@ classifiers = [
 ]
 dependencies = [
     # Lamin PINNED packages
-    "lnschema_core==0.50.0",
-    "lamindb_setup==0.54.3",
+    "lnschema_core==0.51.0",
+    "lamindb_setup==0.55.0",
     "lamin_utils==0.11.4",
     # others
     "rapidfuzz",
@@ -34,7 +34,7 @@ Home = "https://github.com/laminlabs/lamindb"
 
 [project.optional-dependencies]
 bionty = [
-    "lnschema_bionty==0.31.2",
+    "lnschema_bionty==0.32.0",
 ]
 postgres = [
     "psycopg2-binary",
