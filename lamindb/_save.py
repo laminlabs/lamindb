@@ -8,6 +8,7 @@ from typing import Iterable, List, Optional, Tuple, Union, overload  # noqa
 
 import lamindb_setup
 from django.db import transaction
+from django.utils.functional import partition
 from lamin_utils import logger
 from lnschema_core.models import File, Registry
 
@@ -75,12 +76,15 @@ def save(
     # we distinguish between files and non-files
     # for files, we want to bulk-upload
     # rather than upload one-by-one
-    files = [r for r in records if isinstance(r, File)]
-    non_files = [r for r in records if not isinstance(r, File)]
+    non_files, files = partition(lambda r: isinstance(r, File), records)
     if non_files:
-        # first save all records without recursing parents
-        bulk_create(non_files, ignore_conflicts=ignore_conflicts)
-        non_files_with_parents = [r for r in non_files if hasattr(r, "_parents")]
+        # first save all records that do not yet have a primary key without
+        # recursing parents
+        _, non_files_without_pk = partition(lambda r: r.pk is None, non_files)
+        bulk_create(non_files_without_pk, ignore_conflicts=ignore_conflicts)
+        non_files_with_parents = [
+            r for r in non_files_without_pk if hasattr(r, "_parents")
+        ]
 
         if len(non_files_with_parents) > 0 and kwargs.get("parents") is not False:
             # this can only happen within lnschema_bionty right now!!
@@ -123,14 +127,14 @@ def bulk_create(records: Iterable[Registry], ignore_conflicts: Optional[bool] = 
     for orm, records in records_by_orm.items():
         if ignore_conflicts is None:
             try:
-                ignore_conflicts = False
-                orm.objects.bulk_create(records, ignore_conflicts=ignore_conflicts)
+                orm.objects.bulk_create(records, ignore_conflicts=False)
             except Exception:
                 ignore_conflicts = True
                 logger.warning(
-                    "ignored records violating constraints, did not update `id`"
+                    "ignored records violating constraints, manually refreshing id"
                 )
-                orm.objects.bulk_create(records, ignore_conflicts=ignore_conflicts)
+                records = orm.objects.bulk_create(records, ignore_conflicts=True)
+                _, records_without_pk = partition(lambda o: o.pk is None, records)
         else:
             orm.objects.bulk_create(records, ignore_conflicts=ignore_conflicts)
 
