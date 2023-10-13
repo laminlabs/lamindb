@@ -129,7 +129,7 @@ def describe(self: Data):
         msg += related_msg
     # input of
     # can only access many-to-many once record is saved
-    if not self._state.adding and self.input_of.exists():
+    if self.id is not None and self.input_of.exists():
         values = [format_field_value(i.run_at) for i in self.input_of.all()]
         msg += f"⬇️ input_of ({colors.italic('core.Run')}): {values}\n    "
     msg = msg.rstrip("    ")

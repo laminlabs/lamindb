@@ -23,7 +23,8 @@ def get_labels_as_dict(self: Data):
             "report_of",
         }:
             continue
-        labels[related_name] = (related_model, self.__getattribute__(related_name))
+        if self.id is not None:
+            labels[related_name] = (related_model, self.__getattribute__(related_name))
     return labels
 
 
