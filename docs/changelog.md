@@ -1,5 +1,6 @@
 # Changelog
 
+- 🚚 Migrate to integer primary keys [PR1229](https://github.com/laminlabs/lamindb/pull/1229) [@falexwolf](https://github.com/falexwolf)
 ```{eval-rst}
 .. role:: small
 ```
