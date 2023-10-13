@@ -10,6 +10,7 @@ from lamindb_setup import settings
 from lamindb_setup.dev import InstanceSettings
 from lnschema_core import Run, Transform
 from lnschema_core.types import TransformType
+from lnschema_core.users import current_user_id
 
 from lamindb.dev.versioning import get_ids_from_old_version, init_uid
 
@@ -271,9 +272,7 @@ class run_context:
         run = None
         if not new_run:  # try loading latest run by same user
             run = (
-                ln.Run.filter(
-                    transform=cls.transform, created_by_id=ln.setup.settings.user.id
-                )
+                ln.Run.filter(transform=cls.transform, created_by_id=current_user_id())
                 .order_by("-created_at")
                 .first()
             )
