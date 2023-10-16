@@ -323,11 +323,10 @@ def _queryset(cls: Union[Registry, QuerySet, Manager]) -> QuerySet:
 def transfer_to_default_db(record: Registry, save: bool = False):
     db = record._state.db
     if db is not None and db != "default":
-        logger.info(f"saving from instance {db} to default instance: {record}")
+        logger.hint(f"saving from instance {db} to default instance: {record}")
         from lamindb.dev._data import WARNING_RUN_TRANSFORM
         from lamindb.dev._run_context import run_context
 
-        logger.hint("saving to default instance")
         if (
             hasattr(record, "created_by_id")
             and record.created_by_id != ln_setup.settings.user.id
@@ -348,6 +347,7 @@ def transfer_to_default_db(record: Registry, save: bool = False):
                 record.transform_id = None
         if hasattr(record, "storage_id") and record.storage_id is not None:
             record.storage.save()
+        record.id = None
         record._state.db = "default"
         if save:
             record.save()
@@ -356,6 +356,7 @@ def transfer_to_default_db(record: Registry, save: bool = False):
 # docstring handled through attach_func_to_class_method
 def save(self, *args, **kwargs) -> None:
     db = self._state.db
+    id_on_db = self.id
     transfer_to_default_db(self)
     super(Registry, self).save(*args, **kwargs)
     if db is not None and db != "default":
@@ -365,6 +366,7 @@ def save(self, *args, **kwargs) -> None:
 
             self_on_db = copy(self)
             self_on_db._state.db = db
+            self_on_db.id = id_on_db
             self.features._add_from(self_on_db)
             self.labels.add_from(self_on_db)
 
