@@ -1,14 +1,19 @@
 # Changelog
 
-- ♻️ Adopt transfer data to integer primary keys [PR1231](https://github.com/laminlabs/lamindb/pull/1231) [@falexwolf](https://github.com/falexwolf)
-- ♻️ More flexible cache management [PR1230](https://github.com/laminlabs/lamindb/pull/1230) [@falexwolf](https://github.com/falexwolf)
 ```{eval-rst}
 .. role:: small
 ```
 
-## 0.56a1
+## 0.56.0 {small}`2023-10-17`
+
+The previous universal primary keys are now stored us unique universal ids in `.uid` and the instance-internal ids are now integer and big integers and stored in `.id`.
+
+The reason for this mostly is storage efficiency of indexes & constraints in link tables with >10 million rows.
+
+A dialogue will guide you through the migration process.
 
 - 🚚 Migrate to integer primary keys [PR1229](https://github.com/laminlabs/lamindb/pull/1229) [@falexwolf](https://github.com/falexwolf)
+- ♻️ More flexible cache management [PR1230](https://github.com/laminlabs/lamindb/pull/1230) [@Koncopd](https://github.com/Koncopd)
 
 ## 0.55
 
