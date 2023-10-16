@@ -173,8 +173,8 @@ class FeatureManager:
             self._host.features.add_feature_set(feature_set, slot)
             members = feature_set.members
             registry = members[0].__class__
-            member_ids = np.array([member.id for member in members])
-            validated = registry.validate(member_ids, field="id")
+            member_uids = np.array([member.uid for member in members])
+            validated = registry.validate(member_uids, field="uid")
             new_features = [members[i] for i in np.argwhere(~validated).flatten()]
             for feature in new_features:
                 # not calling save=True here as in labels, because want to
