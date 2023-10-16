@@ -1,5 +1,6 @@
 # Changelog
 
+- ♻️ More flexible cache management [PR1230](https://github.com/laminlabs/lamindb/pull/1230) [@falexwolf](https://github.com/falexwolf)
 ```{eval-rst}
 .. role:: small
 ```
