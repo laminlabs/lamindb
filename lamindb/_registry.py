@@ -9,7 +9,7 @@ from lamin_utils import logger
 from lamin_utils._lookup import Lookup
 from lamin_utils._search import search as base_search
 from lamindb_setup.dev._docs import doc_args
-from lnschema_core import Registry
+from lnschema_core import Modality, Registry, Storage
 from lnschema_core.types import ListLike, StrField
 
 from lamindb._utils import attach_func_to_class_method
@@ -346,7 +346,21 @@ def transfer_to_default_db(record: Registry, save: bool = False):
             else:
                 record.transform_id = None
         if hasattr(record, "storage_id") and record.storage_id is not None:
-            record.storage.save()
+            storage = Storage.filter(root=record.storage.root).one_or_none()
+            if storage is None:
+                storage = record.storage
+                storage.id = None
+                storage.save()
+            else:
+                record.storage_id = storage.id
+        if hasattr(record, "modality_id") and record.modality_id is not None:
+            modality = Modality.filter(name=record.modality.name).one_or_none()
+            if modality is None:
+                modality = record.modality
+                modality.id = None
+                modality.save()
+            else:
+                record.modality_id = modality.id
         record.id = None
         record._state.db = "default"
         if save:
@@ -367,8 +381,8 @@ def save(self, *args, **kwargs) -> None:
             self_on_db = copy(self)
             self_on_db._state.db = db
             self_on_db.id = id_on_db
-            self.features._add_from(self_on_db)
             self.labels.add_from(self_on_db)
+            self.features._add_from(self_on_db)
 
 
 METHOD_NAMES = [

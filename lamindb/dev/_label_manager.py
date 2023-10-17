@@ -109,7 +109,7 @@ class LabelManager:
             >>> file1.ulabels.set(labels)
             >>> file2.labels.add_from(file1)
         """
-        features_lookup = Feature.lookup()
+        features_lookup = Feature.objects.using(data._state.db).lookup()
         for _, feature_set in data.features._feature_set_by_slot.items():
             if feature_set.registry == "core.Feature":
                 df_slot = feature_set.features.df()
