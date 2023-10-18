@@ -43,6 +43,44 @@ def print_labels(self: Data):
         return ""
 
 
+def transfer_add_labels(labels, features_lookup_self, self, row):
+    def transfer_single_registry(validated_labels, new_labels):
+        # here the new labels are transferred to the self db
+        for label in new_labels:
+            transfer_to_default_db(label, save=True, mute=True)
+        # link labels records from self db
+        self._host.labels.add(
+            validated_labels + new_labels,
+            feature=getattr(features_lookup_self, row["name"]),
+        )
+
+    # validate labels on the default db
+    result = validate_labels(labels)
+    if isinstance(result, Dict):
+        for _, (validated_labels, new_labels) in result.items():
+            transfer_single_registry(validated_labels, new_labels)
+    else:
+        transfer_single_registry(*result)
+
+
+def validate_labels(labels: Union[QuerySet, List, Dict]):
+    def validate_labels_registry(labels: Union[QuerySet, List, Dict]):
+        model = labels[0].__class__
+        label_uids = np.array([label.uid for label in labels if label is not None])
+        validated = model.validate(label_uids, field="uid", mute=True)
+        validated_uids = label_uids[validated]
+        validated_labels = model.filter(uid__in=validated_uids).list()
+        new_labels = [labels[int(i)] for i in np.argwhere(~validated).flatten()]
+        return validated_labels, new_labels
+
+    if isinstance(labels, Dict):
+        result = {}
+        for registry, labels_registry in labels.items():
+            result[registry] = validate_labels_registry(labels_registry)
+    else:
+        return validate_labels_registry(labels)
+
+
 class LabelManager:
     """Label manager (:attr:`~lamindb.dev.Data.labels`).
 
@@ -113,7 +151,9 @@ class LabelManager:
         features_lookup_self = Feature.lookup()
         features_lookup_data = Feature.objects.using(data._state.db).lookup()
         for _, feature_set in data.features._feature_set_by_slot.items():
+            # add labels stratified by feature
             if feature_set.registry == "core.Feature":
+                # df_slot is the Feature table with type and registries
                 df_slot = feature_set.features.df()
                 for _, row in df_slot.iterrows():
                     if row["type"] == "category" and row["registries"] is not None:
@@ -122,16 +162,8 @@ class LabelManager:
                         labels = data.labels.get(
                             getattr(features_lookup_data, row["name"]), mute=True
                         )
-                        # validate labels on the default db
-                        validated_labels, new_labels = validate_labels(labels)
-                        # here the new labels are transferred to the self db
-                        for label in new_labels:
-                            transfer_to_default_db(label, save=True, mute=True)
-                        # link labels records from self db
-                        self._host.labels.add(
-                            validated_labels + new_labels,
-                            feature=getattr(features_lookup_self, row["name"]),
-                        )
+                        transfer_add_labels(labels, features_lookup_self, self, row)
+
         # for now, have this be duplicated, need to disentangle above
         for related_name, (_, labels) in get_labels_as_dict(data).items():
             labels = labels.all()
@@ -145,14 +177,3 @@ class LabelManager:
             labels_list = validated_labels + new_labels
             if hasattr(self._host, related_name):
                 getattr(self._host, related_name).add(*labels_list)
-
-
-def validate_labels(labels):
-    # TODO: deal with multiple registries
-    model = labels[0].__class__
-    label_uids = np.array([label.uid for label in labels if label is not None])
-    validated = model.validate(label_uids, field="uid", mute=True)
-    validated_uids = label_uids[validated]
-    validated_labels = model.filter(uid__in=validated_uids).list()
-    new_labels = [labels[int(i)] for i in np.argwhere(~validated).flatten()]
-    return validated_labels, new_labels
