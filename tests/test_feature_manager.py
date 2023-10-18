@@ -87,8 +87,7 @@ def test_labels_add():
     dataset = ln.Dataset(file, name="My dataset")
     dataset.save()
     dataset.labels.add_from(file)
-    experiments = dataset.labels.get(experiment)
-    assert experiments.one().name == "Experiment 2"
+    assert dataset.ulabels.filter().one().name == "Experiment 2"
 
     # test features._add_from
     # first, remove all feature sets
