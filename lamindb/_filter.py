@@ -26,7 +26,12 @@ def filter(Registry: Type[Registry], using: str = None, **expressions) -> QueryS
     """See :meth:`~lamindb.dev.Registry.filter`."""
     if using is not None:
         owner, name = get_owner_name_from_identifier(using)
-        instance_result, storage_result = load_instance(owner=owner, name=name)
+        load_result = load_instance(owner=owner, name=name)
+        if isinstance(load_result, str):
+            raise RuntimeError(
+                f"Fail to load instance {using}, please check your permission!"
+            )
+        instance_result, storage_result = load_result
         isettings = InstanceSettings(
             owner=owner,
             name=name,
