@@ -1,17 +1,22 @@
 # Changelog
 
-- 📝 Add back cellxgene-census [PR1232](https://github.com/laminlabs/lamindb/pull/1232) [@sunnyosun](https://github.com/sunnyosun)
 ```{eval-rst}
 .. role:: small
 ```
 
-## 0.56.0 {small}`2023-10-17`
+## 0.56 {small}`2023-10-17`
 
-The previous universal primary keys are now stored us unique universal ids in `.uid` and the instance-internal ids are now integer and big integers and stored in `.id`.
+### 0.56.1 {small}`2023-10-18`
 
-The reason for this mostly is storage efficiency of indexes & constraints in link tables with >10 million rows.
+- 🐛 Fix transfer of features [PR1232](https://github.com/laminlabs/lamindb/pull/1232) [@sunnyosun](https://github.com/sunnyosun)
 
-A dialogue will guide you through the migration process.
+### 0.56.0 {small}`2023-10-17`
+
+The previous universal primary keys are now stored us unique universal ids in `.uid` and `.id` stores integer primary keys.
+
+This leads to significantly higher storage efficiency of indexes & constraints in link tables with >10 million rows.
+
+A dialogue guides you through the migration process.
 
 - 🚚 Migrate to integer primary keys [PR1229](https://github.com/laminlabs/lamindb/pull/1229) [@falexwolf](https://github.com/falexwolf)
 - ♻️ More flexible cache management [PR1230](https://github.com/laminlabs/lamindb/pull/1230) [@Koncopd](https://github.com/Koncopd)
