@@ -4,9 +4,9 @@ import lamindb as ln
 def test_transfer():
     import lnschema_bionty as lb
 
-    lb.Gene.filter().delete()
-    lb.Species.filter().delete()
-    ln.ULabel.filter().delete()
+    lb.Gene.filter().all().delete()
+    lb.Species.filter().all().delete()
+    ln.ULabel.filter().all().delete()
 
     # insert human as species id=2
     lb.settings.species = "mouse"
@@ -17,10 +17,11 @@ def test_transfer():
         using="sunnyosun/cellxgene-census",
         description__icontains="tabula sapiens - lung",
     ).one()
+    ulabel_id_remote = file.ulabels.get(name="Tabula Sapiens").id
     file.save()
 
     assert file.species.get(name="human").id == lb.settings.species.id
-    assert file.ulabels.get(name="Tabula Sapiens").id == 1
+    assert file.ulabels.get(name="Tabula Sapiens").id != ulabel_id_remote
     ulabel = file.ulabels.get(name="Tabula Sapiens")
     # mimic we have an existing ulabel with a different uid but same name
     ulabel.uid = "existing"
@@ -34,7 +35,7 @@ def test_transfer():
     file.save()
 
     assert file.species.get(name="human").id == lb.settings.species.id
-    assert file.ulabels.get(name="Tabula Sapiens").id == 1
+    assert file.ulabels.get(name="Tabula Sapiens").id != ulabel_id_remote
 
     lb.Gene.filter().delete()
     lb.Species.filter().delete()
