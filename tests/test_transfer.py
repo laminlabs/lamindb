@@ -12,8 +12,6 @@ def test_transfer():
     lb.settings.species = "mouse"
     lb.settings.species = "human"
 
-    ln.ULabel()
-
     # transfer 1st file
     file = ln.File.filter(
         using="sunnyosun/cellxgene-census",
