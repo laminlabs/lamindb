@@ -47,13 +47,13 @@ def test_labels_add():
         experiments = file.labels.get("experiment")
     # check that the label is there, it's exactly one label with name "Experiment 1"
     experiments = file.labels.get(experiment)
-    assert experiments.get().name == "Experiment 1"
+    assert experiments.one().name == "Experiment 1"
 
     # try adding the same label again, nothing should happen
     file.labels.add(label, feature=experiment)
     # check that the label is there, it's exactly one label with name "Experiment 1"
     experiments = file.labels.get(experiment)
-    assert experiments.get().name == "Experiment 1"
+    assert experiments.one().name == "Experiment 1"
 
     feature_set_n1 = ln.FeatureSet.filter(features__name="experiment").one()
 
@@ -65,7 +65,7 @@ def test_labels_add():
     ln.ULabel(name="Experiment 2").save()
     file.labels.add("Experiment 2", experiment)
     experiments = file.labels.get(experiment)
-    assert experiments.get().name == "Experiment 2"
+    assert experiments.one().name == "Experiment 2"
 
     # now, try adding a new label for a new feature, extending the feature set
     project = ln.ULabel(name="project 1")
@@ -75,20 +75,20 @@ def test_labels_add():
     file.labels.add(project, feature=features.project)
     # check that the label is there, it's exactly one label with name "Experiment 1"
     projects = file.labels.get(features.project)
-    assert projects.get().name == "project 1"
+    assert projects.one().name == "project 1"
 
     # here, we test that feature_set_n1 was removed because it was no longer
     # linked to any file
     feature_set_n2 = ln.FeatureSet.filter(features__name="experiment").one()
     assert feature_set_n1.id != feature_set_n2.id
-    assert file.feature_sets.get() == feature_set_n2
+    assert file.feature_sets.one() == feature_set_n2
 
     # test add_from
     dataset = ln.Dataset(file, name="My dataset")
     dataset.save()
     dataset.labels.add_from(file)
     experiments = dataset.labels.get(experiment)
-    assert experiments.get().name == "Experiment 2"
+    assert experiments.one().name == "Experiment 2"
 
     # test features._add_from
     # first, remove all feature sets
