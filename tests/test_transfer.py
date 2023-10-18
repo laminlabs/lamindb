@@ -4,6 +4,7 @@ import lamindb as ln
 def test_transfer():
     import lnschema_bionty as lb
 
+    lb.Gene.filter().delete()
     lb.Species.filter().delete()
     ln.ULabel.filter().delete()
 
