@@ -1,5 +1,6 @@
 # Changelog
 
+- 📝 Add back cellxgene-census [PR1232](https://github.com/laminlabs/lamindb/pull/1232) [@sunnyosun](https://github.com/sunnyosun)
 ```{eval-rst}
 .. role:: small
 ```
