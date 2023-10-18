@@ -1,6 +1,7 @@
 from typing import Dict, List, Union
 
-from lamin_utils import colors
+import numpy as np
+from lamin_utils import colors, logger
 from lnschema_core.models import Data, Dataset, Feature, File, Registry
 
 from .._feature_set import dict_related_model_to_related_name
@@ -109,26 +110,49 @@ class LabelManager:
             >>> file1.ulabels.set(labels)
             >>> file2.labels.add_from(file1)
         """
-        features_lookup = Feature.objects.using(data._state.db).lookup()
+        features_lookup_self = Feature.lookup()
+        features_lookup_data = Feature.objects.using(data._state.db).lookup()
         for _, feature_set in data.features._feature_set_by_slot.items():
             if feature_set.registry == "core.Feature":
                 df_slot = feature_set.features.df()
                 for _, row in df_slot.iterrows():
                     if row["type"] == "category" and row["registries"] is not None:
+                        logger.info(f"transferring {row['name']}")
+                        # labels records from data db
                         labels = data.labels.get(
-                            getattr(features_lookup, row["name"]), mute=True
+                            getattr(features_lookup_data, row["name"]), mute=True
                         )
-                        for label in labels:
-                            transfer_to_default_db(label, save=True)
+                        # validate labels on the default db
+                        validated_labels, new_labels = validate_labels(labels)
+                        # here the new labels are transferred to the self db
+                        for label in new_labels:
+                            transfer_to_default_db(label, save=True, mute=True)
+                        # link labels records from self db
                         self._host.labels.add(
-                            labels, feature=getattr(features_lookup, row["name"])
+                            validated_labels + new_labels,
+                            feature=getattr(features_lookup_self, row["name"]),
                         )
         # for now, have this be duplicated, need to disentangle above
         for related_name, (_, labels) in get_labels_as_dict(data).items():
-            labels_list = labels.list()
-            for label in labels_list:
+            labels = labels.all()
+            if len(labels) == 0:
+                continue
+            validated_labels, new_labels = validate_labels(labels.all())
+            for label in new_labels:
                 transfer_to_default_db(label, save=True)
             # this should not occur as file and dataset should have the same attributes
             # but this might not be true for custom schema
+            labels_list = validated_labels + new_labels
             if hasattr(self._host, related_name):
                 getattr(self._host, related_name).add(*labels_list)
+
+
+def validate_labels(labels):
+    # TODO: deal with multiple registries
+    model = labels[0].__class__
+    label_uids = np.array([label.uid for label in labels if label is not None])
+    validated = model.validate(label_uids, field="uid", mute=True)
+    validated_uids = label_uids[validated]
+    validated_labels = model.filter(uid__in=validated_uids).list()
+    new_labels = [labels[int(i)] for i in np.argwhere(~validated).flatten()]
+    return validated_labels, new_labels

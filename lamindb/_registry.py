@@ -320,10 +320,11 @@ def _queryset(cls: Union[Registry, QuerySet, Manager]) -> QuerySet:
     return queryset
 
 
-def transfer_to_default_db(record: Registry, save: bool = False):
+def transfer_to_default_db(record: Registry, save: bool = False, mute: bool = False):
     db = record._state.db
     if db is not None and db != "default":
-        logger.hint(f"saving from instance {db} to default instance: {record}")
+        if not mute:
+            logger.hint(f"saving from instance {db} to default instance: {record}")
         from lamindb.dev._data import WARNING_RUN_TRANSFORM
         from lamindb.dev._run_context import run_context
 
@@ -375,14 +376,15 @@ def save(self, *args, **kwargs) -> None:
     super(Registry, self).save(*args, **kwargs)
     if db is not None and db != "default":
         if hasattr(self, "labels"):
-            logger.info("transfer labels")
             from copy import copy
 
             self_on_db = copy(self)
             self_on_db._state.db = db
             self_on_db.id = id_on_db
-            self.labels.add_from(self_on_db)
+            logger.info("transfer features")
             self.features._add_from(self_on_db)
+            logger.info("transfer labels")
+            self.labels.add_from(self_on_db)
 
 
 METHOD_NAMES = [

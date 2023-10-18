@@ -179,13 +179,20 @@ class FeatureManager:
         for slot, feature_set in data.features._feature_set_by_slot.items():
             members = feature_set.members
             registry = members[0].__class__
-            transfer_to_default_db(feature_set, save=True)
-            self._host.features.add_feature_set(feature_set, slot)
             member_uids = np.array([member.uid for member in members])
-            validated = registry.validate(member_uids, field="uid")
-            new_features = [members[i] for i in np.argwhere(~validated).flatten()]
+            # note here the features are transferred based on uid
+            validated = registry.objects.using(self._host._state.db).validate(
+                member_uids, field="uid", mute=True
+            )
+            new_features = [members[int(i)] for i in np.argwhere(~validated).flatten()]
+            mute = True if len(new_features) > 10 else False
             for feature in new_features:
                 # not calling save=True here as in labels, because want to
                 # bulk save below
-                transfer_to_default_db(feature)
+                transfer_to_default_db(feature, mute=mute)
             save(new_features)
+
+            # create a new feature set from feature values using the same uid
+            feature_set_self = FeatureSet.from_values(member_uids, field=registry.uid)
+            feature_set_self.uid = feature_set.uid
+            self._host.features.add_feature_set(feature_set_self, slot)
