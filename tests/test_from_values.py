@@ -18,6 +18,7 @@ def df():
 
 
 def test_from_values_name(df):
+    lb.CellType.filter().delete()
     assert df["cell_type"].tolist() == ["T cell", "hepatocyte", "my new cell type"]
     # create records from bionty
     result = lb.CellType.from_values(df.cell_type, "name")

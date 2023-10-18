@@ -178,7 +178,9 @@ def get_labels(
         if registry == "core.ULabel":
             links_to_labels = get_label_links(self, registry, feature)
             label_ids = [link.ulabel_id for link in links_to_labels]
-            qs_by_registry[registry] = ULabel.objects.filter(id__in=label_ids)
+            qs_by_registry[registry] = ULabel.objects.using(self._state.db).filter(
+                id__in=label_ids
+            )
         else:
             qs_by_registry[registry] = getattr(
                 self, self.features._accessor_by_orm[registry]

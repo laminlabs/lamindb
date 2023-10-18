@@ -320,10 +320,43 @@ def _queryset(cls: Union[Registry, QuerySet, Manager]) -> QuerySet:
     return queryset
 
 
-def transfer_to_default_db(record: Registry, save: bool = False):
+REGISTRY_UNIQUE_FIELD = {
+    "storage": "root",
+    "modality": "name",
+    "feature": "name",
+    "ulabel": "name",
+}
+
+
+def update_fk_to_default_db(records: Union[Registry, List[Registry]], fk: str):
+    record = records[0] if isinstance(records, List) else records
+    if hasattr(record, f"{fk}_id") and getattr(record, f"{fk}_id") is not None:
+        fk_record = getattr(record, fk)
+        field = REGISTRY_UNIQUE_FIELD.get(fk, "uid")
+        fk_record_default = fk_record.__class__.filter(
+            **{field: getattr(fk_record, field)}
+        ).one_or_none()
+        if fk_record_default is None:
+            fk_record_default = fk_record
+            fk_record_default.id = None
+            fk_record_default.save()
+        if isinstance(records, List):
+            for r in records:
+                setattr(r, f"{fk}_id", fk_record_default.id)
+        else:
+            setattr(records, f"{fk}_id", fk_record_default.id)
+
+
+def transfer_fk_to_default_db_bulk(records: List):
+    for fk in ["species", "bionty_source"]:
+        update_fk_to_default_db(records, fk)
+
+
+def transfer_to_default_db(record: Registry, save: bool = False, mute: bool = False):
     db = record._state.db
     if db is not None and db != "default":
-        logger.hint(f"saving from instance {db} to default instance: {record}")
+        if not mute:
+            logger.hint(f"saving from instance {db} to default instance: {record}")
         from lamindb.dev._data import WARNING_RUN_TRANSFORM
         from lamindb.dev._run_context import run_context
 
@@ -345,8 +378,8 @@ def transfer_to_default_db(record: Registry, save: bool = False):
                 record.transform_id = run_context.transform.id
             else:
                 record.transform_id = None
-        if hasattr(record, "storage_id") and record.storage_id is not None:
-            record.storage.save()
+        update_fk_to_default_db(record, "storage")
+        update_fk_to_default_db(record, "modality")
         record.id = None
         record._state.db = "default"
         if save:
@@ -361,13 +394,14 @@ def save(self, *args, **kwargs) -> None:
     super(Registry, self).save(*args, **kwargs)
     if db is not None and db != "default":
         if hasattr(self, "labels"):
-            logger.info("transfer labels")
             from copy import copy
 
             self_on_db = copy(self)
             self_on_db._state.db = db
             self_on_db.id = id_on_db
+            logger.info("transfer features")
             self.features._add_from(self_on_db)
+            logger.info("transfer labels")
             self.labels.add_from(self_on_db)
 
 
