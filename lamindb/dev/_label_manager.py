@@ -57,11 +57,11 @@ def transfer_add_labels(labels, features_lookup_self, self, row):
             for label in new_labels:
                 transfer_to_default_db(label, mute=True)
             save(new_labels)
-            # link labels records from self db
-            self._host.labels.add(
-                validated_labels + new_labels,
-                feature=getattr(features_lookup_self, row["name"]),
-            )
+        # link labels records from self db
+        self._host.labels.add(
+            validated_labels + new_labels,
+            feature=getattr(features_lookup_self, row["name"]),
+        )
 
     # validate labels on the default db
     result = validate_labels(labels)
