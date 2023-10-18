@@ -7,7 +7,13 @@ from lnschema_core.models import Data, Dataset, Feature, File, Registry
 from .._feature_set import dict_related_model_to_related_name
 from .._from_values import _print_values
 from .._query_set import QuerySet
-from .._registry import get_default_str_field, transfer_to_default_db
+from .._registry import (
+    REGISTRY_UNIQUE_FIELD,
+    get_default_str_field,
+    transfer_fk_to_default_db_bulk,
+    transfer_to_default_db,
+)
+from .._save import save
 
 
 def get_labels_as_dict(self: Data):
@@ -46,13 +52,16 @@ def print_labels(self: Data):
 def transfer_add_labels(labels, features_lookup_self, self, row):
     def transfer_single_registry(validated_labels, new_labels):
         # here the new labels are transferred to the self db
-        for label in new_labels:
-            transfer_to_default_db(label, save=True, mute=True)
-        # link labels records from self db
-        self._host.labels.add(
-            validated_labels + new_labels,
-            feature=getattr(features_lookup_self, row["name"]),
-        )
+        if len(new_labels) > 0:
+            transfer_fk_to_default_db_bulk(new_labels)
+            for label in new_labels:
+                transfer_to_default_db(label, mute=True)
+            save(new_labels)
+            # link labels records from self db
+            self._host.labels.add(
+                validated_labels + new_labels,
+                feature=getattr(features_lookup_self, row["name"]),
+            )
 
     # validate labels on the default db
     result = validate_labels(labels)
@@ -65,11 +74,14 @@ def transfer_add_labels(labels, features_lookup_self, self, row):
 
 def validate_labels(labels: Union[QuerySet, List, Dict]):
     def validate_labels_registry(labels: Union[QuerySet, List, Dict]):
-        model = labels[0].__class__
-        label_uids = np.array([label.uid for label in labels if label is not None])
-        validated = model.validate(label_uids, field="uid", mute=True)
+        registry = labels[0].__class__
+        field = REGISTRY_UNIQUE_FIELD.get(registry.__name__.lower(), "uid")
+        label_uids = np.array(
+            [getattr(label, field) for label in labels if label is not None]
+        )
+        validated = registry.validate(label_uids, field=field, mute=True)
         validated_uids = label_uids[validated]
-        validated_labels = model.filter(uid__in=validated_uids).list()
+        validated_labels = registry.filter(**{f"{field}__in": validated_uids}).list()
         new_labels = [labels[int(i)] for i in np.argwhere(~validated).flatten()]
         return validated_labels, new_labels
 
@@ -170,8 +182,11 @@ class LabelManager:
             if len(labels) == 0:
                 continue
             validated_labels, new_labels = validate_labels(labels.all())
-            for label in new_labels:
-                transfer_to_default_db(label, save=True)
+            if len(new_labels) > 0:
+                transfer_fk_to_default_db_bulk(new_labels)
+                for label in new_labels:
+                    transfer_to_default_db(label, mute=True)
+                save(new_labels)
             # this should not occur as file and dataset should have the same attributes
             # but this might not be true for custom schema
             labels_list = validated_labels + new_labels

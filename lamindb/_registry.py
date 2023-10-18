@@ -9,7 +9,7 @@ from lamin_utils import logger
 from lamin_utils._lookup import Lookup
 from lamin_utils._search import search as base_search
 from lamindb_setup.dev._docs import doc_args
-from lnschema_core import Modality, Registry, Storage
+from lnschema_core import Registry
 from lnschema_core.types import ListLike, StrField
 
 from lamindb._utils import attach_func_to_class_method
@@ -320,6 +320,38 @@ def _queryset(cls: Union[Registry, QuerySet, Manager]) -> QuerySet:
     return queryset
 
 
+REGISTRY_UNIQUE_FIELD = {
+    "storage": "root",
+    "modality": "name",
+    "feature": "name",
+    "ulabel": "name",
+}
+
+
+def update_fk_to_default_db(records: Union[Registry, List[Registry]], fk: str):
+    record = records[0] if isinstance(records, List) else records
+    if hasattr(record, f"{fk}_id") and getattr(record, f"{fk}_id") is not None:
+        fk_record = getattr(record, fk)
+        field = REGISTRY_UNIQUE_FIELD.get(fk, "uid")
+        fk_record_default = fk_record.__class__.filter(
+            **{field: getattr(fk_record, field)}
+        ).one_or_none()
+        if fk_record_default is None:
+            fk_record_default = fk_record
+            fk_record_default.id = None
+            fk_record_default.save()
+        if isinstance(records, List):
+            for r in records:
+                setattr(r, f"{fk}_id", fk_record_default.id)
+        else:
+            setattr(records, f"{fk}_id", fk_record_default.id)
+
+
+def transfer_fk_to_default_db_bulk(records: List):
+    for fk in ["species", "bionty_source"]:
+        update_fk_to_default_db(records, fk)
+
+
 def transfer_to_default_db(record: Registry, save: bool = False, mute: bool = False):
     db = record._state.db
     if db is not None and db != "default":
@@ -346,22 +378,8 @@ def transfer_to_default_db(record: Registry, save: bool = False, mute: bool = Fa
                 record.transform_id = run_context.transform.id
             else:
                 record.transform_id = None
-        if hasattr(record, "storage_id") and record.storage_id is not None:
-            storage = Storage.filter(root=record.storage.root).one_or_none()
-            if storage is None:
-                storage = record.storage
-                storage.id = None
-                storage.save()
-            else:
-                record.storage_id = storage.id
-        if hasattr(record, "modality_id") and record.modality_id is not None:
-            modality = Modality.filter(name=record.modality.name).one_or_none()
-            if modality is None:
-                modality = record.modality
-                modality.id = None
-                modality.save()
-            else:
-                record.modality_id = modality.id
+        update_fk_to_default_db(record, "storage")
+        update_fk_to_default_db(record, "modality")
         record.id = None
         record._state.db = "default"
         if save:

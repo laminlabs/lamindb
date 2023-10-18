@@ -6,7 +6,12 @@ from lnschema_core.models import Data, Dataset, Feature, File
 
 from .._feature_set import FeatureSet
 from .._query_set import QuerySet
-from .._registry import get_default_str_field, transfer_to_default_db
+from .._registry import (
+    REGISTRY_UNIQUE_FIELD,
+    get_default_str_field,
+    transfer_fk_to_default_db_bulk,
+    transfer_to_default_db,
+)
 from .._save import save
 
 
@@ -179,20 +184,26 @@ class FeatureManager:
         for slot, feature_set in data.features._feature_set_by_slot.items():
             members = feature_set.members
             registry = members[0].__class__
-            member_uids = np.array([member.uid for member in members])
-            # note here the features are transferred based on uid
+            # note here the features are transferred based on an unique field
+            field = REGISTRY_UNIQUE_FIELD.get(registry.__name__.lower(), "uid")
+            member_uids = np.array([getattr(member, field) for member in members])
             validated = registry.objects.using(self._host._state.db).validate(
-                member_uids, field="uid", mute=True
+                member_uids, field=field, mute=True
             )
             new_features = [members[int(i)] for i in np.argwhere(~validated).flatten()]
-            mute = True if len(new_features) > 10 else False
-            for feature in new_features:
-                # not calling save=True here as in labels, because want to
-                # bulk save below
-                transfer_to_default_db(feature, mute=mute)
-            save(new_features)
+            if len(new_features) > 0:
+                mute = True if len(new_features) > 10 else False
+                # transfer foreign keys needs to be run before transfer to default db
+                transfer_fk_to_default_db_bulk(new_features)
+                for feature in new_features:
+                    # not calling save=True here as in labels, because want to
+                    # bulk save below
+                    transfer_to_default_db(feature, mute=mute)
+                save(new_features)
 
             # create a new feature set from feature values using the same uid
-            feature_set_self = FeatureSet.from_values(member_uids, field=registry.uid)
+            feature_set_self = FeatureSet.from_values(
+                member_uids, field=getattr(registry, field)
+            )
             feature_set_self.uid = feature_set.uid
             self._host.features.add_feature_set(feature_set_self, slot)
