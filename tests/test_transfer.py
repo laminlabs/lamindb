@@ -4,9 +4,9 @@ import lamindb as ln
 def test_transfer():
     import lnschema_bionty as lb
 
-    lb.Gene.filter().all().delete()
-    lb.Species.filter().all().delete()
-    ln.ULabel.filter().all().delete()
+    lb.Gene.filter().delete()
+    lb.Species.filter().delete()
+    ln.ULabel.filter().delete()
 
     # insert human as species id=2
     lb.settings.species = "mouse"
@@ -42,4 +42,4 @@ def test_transfer():
     ln.ULabel.filter().delete()
     lb.Disease.filter().delete()
     lb.CellLine.filter().delete()
-    ln.CellType.filter().delete()
+    lb.CellType.filter().delete()
