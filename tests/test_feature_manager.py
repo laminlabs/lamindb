@@ -47,7 +47,7 @@ def test_labels_add():
         experiments = file.labels.get("experiment")
     # check that the label is there, it's exactly one label with name "Experiment 1"
     experiments = file.labels.get(experiment)
-    assert experiments.get().name == "Experiment 1"
+    assert experiments.one().name == "Experiment 1"
 
     # try adding the same label again, nothing should happen
     file.labels.add(label, feature=experiment)
@@ -86,6 +86,7 @@ def test_labels_add():
     # test add_from
     dataset = ln.Dataset(file, name="My dataset")
     dataset.save()
+    dataset.labels.add_from(file)
     experiments = dataset.labels.get(experiment)
     assert experiments.get().name == "Experiment 2"
 
