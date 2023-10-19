@@ -1,5 +1,6 @@
 # Changelog
 
+- 🚑️ Fix fk in transfer [PR1234](https://github.com/laminlabs/lamindb/pull/1234) [@sunnyosun](https://github.com/sunnyosun)
 - 🚚 Migrate from password to apikey [PR1233](https://github.com/laminlabs/lamindb/pull/1233) [@falexwolf](https://github.com/falexwolf)
 ```{eval-rst}
 .. role:: small
