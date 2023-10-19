@@ -5,10 +5,10 @@ def test_transfer():
     import lnschema_bionty as lb
 
     lb.Gene.filter().delete()
-    lb.Species.filter().delete()
+    lb.Organism.filter().delete()
     ln.ULabel.filter().delete()
 
-    lb.settings.species = "human"
+    lb.settings.organism = "human"
 
     # transfer 1st file
     file = ln.File.filter(
@@ -26,7 +26,7 @@ def test_transfer():
     file.save()
 
     # check all ids are adjusted
-    assert file.species.get(name="human") == lb.settings.species
+    assert file.organism.get(name="human") == lb.settings.organism
     assert id_remote != file.id
     assert run_remote != file.run
     assert transform_remote != file.transform
@@ -46,11 +46,11 @@ def test_transfer():
     ).one()
     file2.save()
 
-    assert file2.species.get(name="human") == lb.settings.species
+    assert file2.organism.get(name="human") == lb.settings.organism
     assert file2.ulabels.get(name="Tabula Sapiens").uid == "existing"
 
     lb.Gene.filter().delete()
-    lb.Species.filter().delete()
+    lb.Organism.filter().delete()
     ln.ULabel.filter().delete()
     lb.Disease.filter().delete()
     lb.CellLine.filter().delete()

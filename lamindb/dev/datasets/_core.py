@@ -47,7 +47,7 @@ def file_fcs_alpert19(populate_registries: bool = False) -> Path:  # pragma: no 
         ln.Feature(
             name="assay", type="category", registries=[lb.ExperimentalFactor]
         ).save()
-        ln.Feature(name="species", type="category", registries=[lb.Species]).save()
+        ln.Feature(name="organism", type="category", registries=[lb.Organism]).save()
         ln.Modality(name="protein", description="Protein measurements").save()
         ln.settings.verbosity = verbosity
     return Path(filepath)
@@ -86,7 +86,7 @@ def file_tsv_rnaseq_nfcore_salmon_merged_gene_counts(
         ln.Feature(
             name="assay", type="category", registries=[lb.ExperimentalFactor]
         ).save()
-        ln.Feature(name="species", type="category", registries=[lb.Species]).save()
+        ln.Feature(name="organism", type="category", registries=[lb.Organism]).save()
         ln.Modality(name="rna", description="RNA measurements").save()
         lb.ExperimentalFactor.from_bionty(ontology_id="EFO:0008896").save()
         ln.settings.verbosity = verbosity
@@ -166,7 +166,7 @@ def anndata_mouse_sc_lymph_node(
         .str.replace(" Ontology Term\[", "ontology_id:", regex=True)  # noqa
         .str.strip("[]")
         .str.replace("organism part", "tissue")
-        .str.replace("organism", "species")
+        .str.replace("organism", "organism")
         .str.replace("developmental stage", "developmental_stage")
         .str.replace("cell type", "cell_type")
         # the last one could be interesting, too
@@ -207,14 +207,14 @@ def anndata_mouse_sc_lymph_node(
         lb.ExperimentalFactor.from_bionty(ontology_id="EFO:0008913").save()
         ln.Modality(name="rna", description="RNA measurements").save()
         # genes
-        validated = lb.Gene.bionty(species="mouse").validate(
+        validated = lb.Gene.bionty(organism="mouse").validate(
             adata.var.index, field="ensembl_gene_id"
         )
         ln.save(
             lb.Gene.from_values(
                 adata.var.index[validated][:-19],
                 field="ensembl_gene_id",
-                species="mouse",
+                organism="mouse",
             )
         )
         # labels
@@ -322,7 +322,7 @@ def anndata_human_immune_cells(
         lb.settings.auto_save_parents = False
         ln.save(
             lb.Gene.from_values(
-                adata.var.index, field="ensembl_gene_id", species="human"
+                adata.var.index, field="ensembl_gene_id", organism="human"
             )[:-35]
         )
         ln.save(lb.CellType.from_values(adata.obs.cell_type, field="name")[:-2])
@@ -334,7 +334,7 @@ def anndata_human_immune_cells(
             name="assay", type="category", registries=[lb.ExperimentalFactor]
         ).save()
         ln.Feature(name="tissue", type="category", registries=[lb.Tissue]).save()
-        ln.Feature(name="species", type="category", registries=[lb.Species]).save()
+        ln.Feature(name="organism", type="category", registries=[lb.Organism]).save()
         lb.ExperimentalFactor.from_bionty(ontology_id="EFO:0008913").save()
         ln.settings.verbosity = verbosity
         lb.settings.auto_save_parents = auto_save_parents
@@ -427,7 +427,7 @@ def df_iris_in_meter() -> pd.DataFrame:
         inplace=True,
     )
     df[["sepal_length", "sepal_width", "petal_length", "petal_width"]] /= 100
-    df["iris_species_name"] = df["target"].map(
+    df["iris_organism_name"] = df["target"].map(
         {0: "setosa", 1: "versicolor", 2: "virginica"}
     )
     del df["target"]

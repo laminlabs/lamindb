@@ -79,20 +79,20 @@ def get_existing_records(
     model = field.field.model
     condition: Dict = {} if len(kwargs) == 0 else kwargs.copy()
 
-    if _has_species_field(model):
-        from lnschema_bionty._bionty import create_or_get_species_record
+    if _has_organism_field(model):
+        from lnschema_bionty._bionty import create_or_get_organism_record
 
-        species_record = create_or_get_species_record(
-            species=kwargs.get("species"), orm=model
+        organism_record = create_or_get_organism_record(
+            organism=kwargs.get("organism"), orm=model
         )
-        if species_record is not None:
-            kwargs.update({"species": species_record})
-            condition.update({"species": species_record})
+        if organism_record is not None:
+            kwargs.update({"organism": organism_record})
+            condition.update({"organism": organism_record})
 
     # standardize based on the DB reference
     # log synonyms mapped terms
     result = model.inspect(
-        iterable_idx, field=field, species=kwargs.get("species"), mute=True
+        iterable_idx, field=field, organism=kwargs.get("organism"), mute=True
     )
     syn_mapper = result.synonyms_mapper
 
@@ -111,7 +111,7 @@ def get_existing_records(
     # get all existing records in the db
     # if necessary, create records for the values in kwargs
     # k:v -> k:v_record
-    # kwargs is used to deal with species
+    # kwargs is used to deal with organism
     condition.update({f"{field.field.name}__in": iterable_idx.values})
 
     query_set = model.filter(**condition)
@@ -168,7 +168,7 @@ def create_records_from_bionty(
 
     # create the corresponding bionty object from model
     bionty_object = model.bionty(
-        species=kwargs.get("species"), bionty_source=kwargs.get("bionty_source")
+        organism=kwargs.get("organism"), bionty_source=kwargs.get("bionty_source")
     )
     # add bionty_source record to the kwargs
     kwargs.update({"bionty_source": get_bionty_source_record(bionty_object)})
@@ -305,9 +305,9 @@ def _bulk_create_dicts_from_df(
     return df.reset_index().to_dict(orient="records"), multi_msg
 
 
-def _has_species_field(orm: Registry) -> bool:
+def _has_organism_field(orm: Registry) -> bool:
     try:
-        orm._meta.get_field("species")
+        orm._meta.get_field("organism")
         return True
     except FieldDoesNotExist:
         return False

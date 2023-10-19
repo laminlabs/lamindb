@@ -42,25 +42,25 @@ def test_from_values_ontology_id(df):
 
 
 def test_from_values_multiple_match():
-    records = lb.Gene.from_values(["ABC1", "PDCD1"], lb.Gene.symbol, species="human")
+    records = lb.Gene.from_values(["ABC1", "PDCD1"], lb.Gene.symbol, organism="human")
     assert len(records) == 3
 
 
-def test_from_values_species():
+def test_from_values_organism():
     from lnschema_bionty import Gene, settings
 
-    settings._species = None
+    settings._organism = None
 
     with pytest.raises(AssertionError):
         Gene.from_values(["ABC1"], Gene.symbol)
 
-    settings.species = "human"
+    settings.organism = "human"
     values = ["ABC1"]
     curated_values = Gene.bionty().standardize(values)
     records = Gene.from_values(curated_values, Gene.symbol)
     assert records[0].ensembl_gene_id == "ENSG00000068097"
 
-    settings.species = "mouse"
+    settings.organism = "mouse"
     values = ["ABC1"]
     curated_values = Gene.bionty().standardize(values)
     records = Gene.from_values(curated_values, Gene.symbol)

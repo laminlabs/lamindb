@@ -352,7 +352,7 @@ def update_fk_to_default_db(records: Union[Registry, List[Registry]], fk: str):
 
 def transfer_fk_to_default_db_bulk(records: List):
     for fk in [
-        "species",
+        "organism",
         "bionty_source",
         "initial_version",
         "latest_report",  # Transform

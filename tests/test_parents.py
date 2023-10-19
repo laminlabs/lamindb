@@ -16,7 +16,7 @@ def test_view_parents():
     label2.delete()
 
     with pytest.raises(NotImplementedError):
-        lb.Species(name="mouse").view_parents()
+        lb.Organism(name="mouse").view_parents()
 
 
 def test_add_emoji():
