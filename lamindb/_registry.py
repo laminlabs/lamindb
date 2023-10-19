@@ -337,9 +337,10 @@ def update_fk_to_default_db(records: Union[Registry, List[Registry]], fk: str):
             **{field: getattr(fk_record, field)}
         ).one_or_none()
         if fk_record_default is None:
-            fk_record_default = fk_record
-            fk_record_default.id = None
-            fk_record_default.save()
+            from copy import copy
+
+            fk_record_default = copy(fk_record)
+            transfer_to_default_db(fk_record_default, save=True)
         if isinstance(records, List):
             for r in records:
                 setattr(r, f"{fk}_id", fk_record_default.id)
@@ -348,7 +349,14 @@ def update_fk_to_default_db(records: Union[Registry, List[Registry]], fk: str):
 
 
 def transfer_fk_to_default_db_bulk(records: List):
-    for fk in ["species", "bionty_source"]:
+    for fk in [
+        "species",
+        "bionty_source",
+        "initial_version",
+        "latest_report",  # Transform
+        "source_file",  # Transform
+        "report",  # Run
+    ]:
         update_fk_to_default_db(records, fk)
 
 
@@ -360,20 +368,19 @@ def transfer_to_default_db(record: Registry, save: bool = False, mute: bool = Fa
         from lamindb.dev._data import WARNING_RUN_TRANSFORM
         from lamindb.dev._run_context import run_context
 
-        if (
-            hasattr(record, "created_by_id")
-            and record.created_by_id != ln_setup.settings.user.id
-        ):
-            logger.info(f"updating created_by_id with {ln_setup.settings.user.id}")
+        if hasattr(record, "created_by_id"):
+            # this line is needed to point created_by to default db
+            record.created_by = None
             record.created_by_id = ln_setup.settings.user.id
         if hasattr(record, "run_id"):
+            record.run = None
             if run_context.run is not None:
-                logger.info("updating run & transform to current run & transform")
                 record.run_id = run_context.run.id
             else:
                 logger.warning(WARNING_RUN_TRANSFORM)
                 record.run_id = None
         if hasattr(record, "transform_id"):
+            record.transform = None
             if run_context.transform is not None:
                 record.transform_id = run_context.transform.id
             else:
