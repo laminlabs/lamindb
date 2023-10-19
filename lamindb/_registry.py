@@ -337,7 +337,9 @@ def update_fk_to_default_db(records: Union[Registry, List[Registry]], fk: str):
             **{field: getattr(fk_record, field)}
         ).one_or_none()
         if fk_record_default is None:
-            fk_record_default = fk_record
+            from copy import copy
+
+            fk_record_default = copy(fk_record)
             transfer_to_default_db(fk_record_default, save=True)
         if isinstance(records, List):
             for r in records:
