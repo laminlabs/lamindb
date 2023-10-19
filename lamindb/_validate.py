@@ -13,7 +13,7 @@ from lnschema_core.types import ListLike, StrField
 from lamindb._utils import attach_func_to_class_method
 
 from . import _TESTING
-from ._from_values import _has_species_field, _print_values
+from ._from_values import _has_organism_field, _print_values
 from ._registry import _queryset, get_default_str_field
 
 
@@ -72,8 +72,8 @@ def _inspect(
 
     # inspect in the DB
     result_db = inspect(
-        df=_filter_query_based_on_species(
-            queryset=queryset, species=kwargs.get("species")
+        df=_filter_query_based_on_organism(
+            queryset=queryset, organism=kwargs.get("organism")
         ),
         identifiers=values,
         field=field,
@@ -83,7 +83,7 @@ def _inspect(
     nonval = set(result_db.non_validated).difference(result_db.synonyms_mapper.keys())
 
     if len(nonval) > 0 and orm.__get_schema_name__() == "bionty":
-        bionty_result = orm.bionty(species=kwargs.get("species")).inspect(
+        bionty_result = orm.bionty(organism=kwargs.get("organism")).inspect(
             values=nonval, field=field, mute=True, **kwargs
         )
         bionty_validated = bionty_result.validated
@@ -149,9 +149,9 @@ def _validate(
 
     queryset = _queryset(cls)
     field_values = pd.Series(
-        _filter_query_based_on_species(
+        _filter_query_based_on_organism(
             queryset=queryset,
-            species=kwargs.get("species"),
+            organism=kwargs.get("organism"),
             values_list_field=field,
         ),
         dtype="object",
@@ -257,17 +257,19 @@ def _standardize(
     queryset = _queryset(cls)
     orm = queryset.model
 
-    species = kwargs.get("species")
-    if _has_species_field(orm):
+    organism = kwargs.get("organism")
+    if _has_organism_field(orm):
         # here, we can safely import lnschema_bionty
-        from lnschema_bionty._bionty import create_or_get_species_record
+        from lnschema_bionty._bionty import create_or_get_organism_record
 
-        species_record = create_or_get_species_record(species=species, orm=orm)
-        species = species_record.name if species_record is not None else species_record
+        organism_record = create_or_get_organism_record(organism=organism, orm=orm)
+        organism = (
+            organism_record.name if organism_record is not None else organism_record
+        )
 
     try:
         orm._meta.get_field(synonyms_field)
-        df = _filter_query_based_on_species(queryset=queryset, species=species)
+        df = _filter_query_based_on_organism(queryset=queryset, organism=organism)
     except FieldDoesNotExist:
         df = pd.DataFrame()
 
@@ -303,12 +305,12 @@ def _standardize(
                 df=df, identifiers=values, return_mapper=False, mute=True, **_kwargs
             )
 
-        val_res = orm.validate(std_names_db, field=field, mute=True, species=species)
+        val_res = orm.validate(std_names_db, field=field, mute=True, organism=organism)
         if all(val_res):
             return _return(result=std_names_db, mapper=mapper)
 
         nonval = np.array(std_names_db)[~val_res]
-        std_names_bt_mapper = orm.bionty(species=species).standardize(
+        std_names_bt_mapper = orm.bionty(organism=organism).standardize(
             nonval, return_mapper=True, mute=True, **_kwargs
         )
 
@@ -418,22 +420,22 @@ def _check_synonyms_field_exist(record: Registry):
         )
 
 
-def _filter_query_based_on_species(
+def _filter_query_based_on_organism(
     queryset: QuerySet,
-    species: Optional[Union[str, Registry]] = None,
+    organism: Optional[Union[str, Registry]] = None,
     values_list_field: Optional[str] = None,
 ):
     import pandas as pd
 
     orm = queryset.model
 
-    if _has_species_field(orm):
+    if _has_organism_field(orm):
         # here, we can safely import lnschema_bionty
-        from lnschema_bionty._bionty import create_or_get_species_record
+        from lnschema_bionty._bionty import create_or_get_organism_record
 
-        species_record = create_or_get_species_record(species=species, orm=orm)
-        if species_record is not None:
-            queryset = queryset.filter(species__name=species_record.name)
+        organism_record = create_or_get_organism_record(organism=organism, orm=orm)
+        if organism_record is not None:
+            queryset = queryset.filter(organism__name=organism_record.name)
 
     if values_list_field is None:
         return pd.DataFrame.from_records(queryset.values())

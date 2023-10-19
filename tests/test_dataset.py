@@ -81,7 +81,7 @@ def test_create_delete_from_single_dataframe():
         "sepal_width",
         "petal_length",
         "petal_width",
-        "iris_species_name",
+        "iris_organism_name",
     ]
     assert len(ln.Feature.filter(name__in=feature_list).list()) == 5
     feature_set = ln.FeatureSet.filter(datasets=dataset).one()
@@ -110,7 +110,7 @@ def test_create_delete_from_single_anndata():
     assert ln.File.filter(id=dataset.id).one_or_none() is None
     assert ln.File.filter(id=dataset.file.id).one_or_none() is None
     # and now with from_anndata
-    lb.settings.species = "human"
+    lb.settings.organism = "human"
     dataset = ln.Dataset.from_anndata(adata, name="My adata", field=lb.Gene.symbol)
     # let's now try passing an AnnData-like file with some feature sets linked
     ln.save(ln.Feature.from_df(adata.obs))
@@ -135,7 +135,7 @@ def test_create_delete_from_single_anndata():
 
 
 def test_from_single_file():
-    lb.settings.species = "human"
+    lb.settings.organism = "human"
     features = ln.Feature.from_df(adata.obs)
     validated = ln.Feature.validate(
         [feature.name for feature in features], field="name"

@@ -107,7 +107,7 @@ def test_labels_add():
 
 
 def test_add_labels_using_anndata():
-    species = lb.Species.from_bionty(name="mouse")
+    organism = lb.Organism.from_bionty(name="mouse")
     cell_types = [lb.CellType(name=name) for name in adata.obs["cell_type"].unique()]
     ln.save(cell_types)
     inspector = lb.CellType.inspect(adata.obs["cell_type_from_expert"].unique())
@@ -120,13 +120,13 @@ def test_add_labels_using_anndata():
     tissues = actual_tissues + [organoid]
     ln.save(tissues)
 
-    lb.settings.species = "human"
+    lb.settings.organism = "human"
     lb.settings.auto_save_parents = False
 
     # clean up DB state
-    species_feature = ln.Feature.filter(name="species").one_or_none()
-    if species_feature is not None:
-        species_feature.delete()
+    organism_feature = ln.Feature.filter(name="organism").one_or_none()
+    if organism_feature is not None:
+        organism_feature.delete()
     file = ln.File.filter(description="Mini adata").one_or_none()
     if file is not None:
         file.delete(storage=True)
@@ -160,10 +160,10 @@ def test_add_labels_using_anndata():
     file = ln.File.from_anndata(
         adata, description="Mini adata", field=lb.Gene.ensembl_gene_id
     )
-    ln.Feature(name="species", type="category", registries="bionty.Species").save()
+    ln.Feature(name="organism", type="category", registries="bionty.Organism").save()
     features = ln.Feature.lookup()
     with pytest.raises(ValueError) as error:
-        file.labels.add(species, feature=features.species)
+        file.labels.add(organism, feature=features.organism)
     assert (
         error.exconly()
         == "ValueError: Please save the file/dataset before adding a label!"
@@ -175,16 +175,16 @@ def test_add_labels_using_anndata():
         registry="core.Feature", filefeatureset__slot="obs"
     ).one()
     assert feature_set_obs.n == 4
-    assert "species" not in feature_set_obs.features.list("name")
+    assert "organism" not in feature_set_obs.features.list("name")
 
-    # now, we add species and run checks
+    # now, we add organism and run checks
     with pytest.raises(ln.dev.exceptions.ValidationError):
-        file.labels.add(species, feature=features.species)
-    species.save()
-    file.labels.add(species, feature=features.species)
-    feature = ln.Feature.filter(name="species").one()
+        file.labels.add(organism, feature=features.organism)
+    organism.save()
+    file.labels.add(organism, feature=features.organism)
+    feature = ln.Feature.filter(name="organism").one()
     assert feature.type == "category"
-    assert feature.registries == "bionty.Species"
+    assert feature.registries == "bionty.Organism"
     feature_set_obs = file.feature_sets.filter(
         registry="core.Feature", filefeatureset__slot="obs"
     ).one()
@@ -193,7 +193,7 @@ def test_add_labels_using_anndata():
         registry="core.Feature", filefeatureset__slot="external"
     ).one()
     assert feature_set_ext.n == 1
-    assert "species" in feature_set_ext.features.list("name")
+    assert "organism" in feature_set_ext.features.list("name")
 
     # now we add cell types & tissues and run checks
     ln.Feature(name="cell_type", type="category").save()
@@ -235,7 +235,7 @@ def test_add_labels_using_anndata():
     file.labels.add(experiment_1, feature=features.experiment)
     df = file.features["external"].df()
     assert set(df["name"]) == {
-        "species",
+        "organism",
         "experiment",
     }
     assert set(df["type"]) == {
@@ -249,7 +249,7 @@ def test_add_labels_using_anndata():
         "liver lymphoma",
         "cardiac ventricle disorder",
     }
-    assert set(file.labels.get(features.species).list("name")) == {"mouse"}
+    assert set(file.labels.get(features.organism).list("name")) == {"mouse"}
     assert set(file.labels.get(features.tissue)["bionty.Tissue"].list("name")) == {
         "liver",
         "heart",
@@ -282,14 +282,14 @@ def test_add_labels_using_anndata():
         "B cell",
     }
 
-    assert set(df["registries"]) == {"bionty.Species", "core.ULabel"}
+    assert set(df["registries"]) == {"bionty.Organism", "core.ULabel"}
     assert experiment_1 in file.ulabels.all()
 
     # call describe
     file.describe()
 
     # clean up
-    ln.Feature.filter(name="species").one().delete()
+    ln.Feature.filter(name="organism").one().delete()
     ln.File.filter(description="Mini adata").one().delete(storage=True)
     ln.FeatureSet.filter().all().delete()
     feature_name_feature.delete()

@@ -38,7 +38,7 @@ def test_signatures():
 
 def test_feature_set_from_values():
     gene_symbols = ["TCF7", "MYC"]
-    lb.settings.species = "human"
+    lb.settings.organism = "human"
     lb.Gene.filter(symbol__in=gene_symbols).all().delete()
     feature_set = ln.FeatureSet.from_values(gene_symbols, lb.Gene.symbol, type=int)
     assert feature_set is None
@@ -111,7 +111,7 @@ def test_feature_set_from_records():
 
 def test_feature_set_from_df():
     # test using type
-    lb.settings.species = "human"
+    lb.settings.organism = "human"
     genes = [lb.Gene(symbol=name) for name in df.columns]
     ln.save(genes)
     with pytest.raises(ValueError) as error:

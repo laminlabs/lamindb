@@ -7,13 +7,13 @@ import lamindb as ln  # noqa
 # some validate tests are in test_queryset
 def test_inspect():
     lb.Gene.filter().all().delete()
-    lb.settings.species = "human"
+    lb.settings.organism = "human"
     result = lb.Gene.inspect("TCF7", "symbol")
     assert result.validated == []
 
     lb.Gene.from_bionty(symbol="TCF7").save()
     result = lb.Gene.inspect("TCF7")
-    assert lb.Gene.validate("TCF7", species="human")
+    assert lb.Gene.validate("TCF7", organism="human")
     result = lb.Gene.inspect(["TCF7", "ABC1"], "symbol")
     assert result.validated == ["TCF7"]
 
@@ -22,7 +22,7 @@ def test_inspect():
 
 
 def test_standardize():
-    lb.settings.species = "human"
+    lb.settings.organism = "human"
 
     # synonym not in the database
     result = lb.Gene.standardize(["ABC1", "PDCD1"])
@@ -51,7 +51,7 @@ def test_standardize_bionty_aware():
 def test_add_remove_synonym():
     lb.CellType.filter().all().delete()
     # a registry that cannot validate
-    bionty_source = lb.BiontySource.filter(species="human").first()
+    bionty_source = lb.BiontySource.filter(organism="human").first()
     with pytest.raises(AttributeError):
         bionty_source.add_synonym("syn")
 
@@ -108,7 +108,7 @@ def test_set_abbr():
     assert record.abbr == "myct"
     assert "myct" in record.synonyms
 
-    bionty_source = lb.BiontySource.filter(species="human").first()
+    bionty_source = lb.BiontySource.filter(organism="human").first()
     with pytest.raises(AttributeError) as error:
         bionty_source.set_abbr("abbr")
     assert (
