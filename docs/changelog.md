@@ -1,5 +1,6 @@
 # Changelog
 
+- 🚚 Migrate from password to apikey [PR1233](https://github.com/laminlabs/lamindb/pull/1233) [@falexwolf](https://github.com/falexwolf)
 ```{eval-rst}
 .. role:: small
 ```
