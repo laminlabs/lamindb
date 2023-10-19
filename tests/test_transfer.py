@@ -32,6 +32,7 @@ def test_transfer():
     assert transform_remote != file.transform
     assert created_by_remote.handle != file.created_by.handle
     assert storage_remote.uid == file.storage.uid
+    assert storage_remote.created_at != file.storage.created_at
     ulabel = file.ulabels.get(name="Tabula Sapiens")
     assert ulabel != ulabel_remote
     # mimic we have an existing ulabel with a different uid but same name
