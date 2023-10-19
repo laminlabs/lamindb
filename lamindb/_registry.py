@@ -343,8 +343,10 @@ def update_fk_to_default_db(records: Union[Registry, List[Registry]], fk: str):
             transfer_to_default_db(fk_record_default, save=True)
         if isinstance(records, List):
             for r in records:
+                setattr(r, f"{fk}", None)
                 setattr(r, f"{fk}_id", fk_record_default.id)
         else:
+            setattr(records, f"{fk}", None)
             setattr(records, f"{fk}_id", fk_record_default.id)
 
 
@@ -356,6 +358,7 @@ def transfer_fk_to_default_db_bulk(records: List):
         "latest_report",  # Transform
         "source_file",  # Transform
         "report",  # Run
+        "file",  # Dataset
     ]:
         update_fk_to_default_db(records, fk)
 
