@@ -338,8 +338,7 @@ def update_fk_to_default_db(records: Union[Registry, List[Registry]], fk: str):
         ).one_or_none()
         if fk_record_default is None:
             fk_record_default = fk_record
-            fk_record_default.id = None
-            fk_record_default.save()
+            transfer_to_default_db(fk_record_default, save=True)
         if isinstance(records, List):
             for r in records:
                 setattr(r, f"{fk}_id", fk_record_default.id)
@@ -348,7 +347,14 @@ def update_fk_to_default_db(records: Union[Registry, List[Registry]], fk: str):
 
 
 def transfer_fk_to_default_db_bulk(records: List):
-    for fk in ["species", "bionty_source"]:
+    for fk in [
+        "species",
+        "bionty_source",
+        "initial_version",
+        "latest_report",  # Transform
+        "source_file",  # Transform
+        "report",  # Run
+    ]:
         update_fk_to_default_db(records, fk)
 
 

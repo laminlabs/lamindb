@@ -30,7 +30,7 @@ def test_transfer():
     assert id_remote != file.id
     assert run_remote != file.run
     assert transform_remote != file.transform
-    assert created_by_remote != file.created_by
+    assert created_by_remote.handle != file.created_by.handle
     assert storage_remote != file.storage
     ulabel = file.ulabels.get(name="Tabula Sapiens")
     assert ulabel != ulabel_remote
