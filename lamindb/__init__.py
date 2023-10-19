@@ -1,10 +1,9 @@
-"""Open-source data platform for biology.
+"""A data framework for biology.
 
-LaminDB assumes that data is stored in scalable storage backends, typically
-array formats like parquet, zarr, HDF5, TileDB or DuckDB or simple files in
-object storage.
+We assume that data is stored as files or in array formats like parquet, zarr,
+HDF5, TileDB or DuckDB.
 
-LaminDB helps you manage these data using registries for metadata.
+LaminDB helps you manage these data with registries for metadata.
 
 The two most important are:
 
@@ -54,7 +53,7 @@ Static classes & modules:
 
 """
 
-__version__ = "0.56.1"  # denote a release candidate for 0.1.0 with 0.1rc1
+__version__ = "0.56.2"  # denote a release candidate for 0.1.0 with 0.1rc1
 
 import os as _os
 
