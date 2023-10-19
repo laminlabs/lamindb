@@ -12,7 +12,7 @@ def test_transfer():
 
     # transfer 1st file
     file = ln.File.filter(
-        using="sunnyosun/cellxgene-census",
+        using="laminlabs/cellxgene-census",
         description__icontains="tabula sapiens - lung",
     ).one()
 
@@ -41,7 +41,7 @@ def test_transfer():
 
     # transfer 2nd file
     file2 = ln.File.filter(
-        using="sunnyosun/cellxgene-census",
+        using="laminlabs/cellxgene-census",
         description__icontains="tabula sapiens - liver",
     ).one()
     file2.save()
