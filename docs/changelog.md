@@ -1,12 +1,14 @@
 # Changelog
 
-- 🔥 Do not populate user email in User registry [PR1238](https://github.com/laminlabs/lamindb/pull/1238) [@falexwolf](https://github.com/falexwolf)
-- 🚚 Rename `Species` to `Organism` [PR1237](https://github.com/laminlabs/lamindb/pull/1237) [@sunnyosun](https://github.com/sunnyosun)
-- 📝 Transfer census instance to laminlabs [PR1236](https://github.com/laminlabs/lamindb/pull/1236) [@sunnyosun](https://github.com/sunnyosun)
-- 🐛 Fix storage transfer [PR1235](https://github.com/laminlabs/lamindb/pull/1235) [@sunnyosun](https://github.com/sunnyosun)
+
 ```{eval-rst}
 .. role:: small
 ```
+
+## 0.57 {small}`2023-10-19`
+
+- 🚚 Rename `Species` to `Organism` [PR1237](https://github.com/laminlabs/lamindb/pull/1237) [@sunnyosun](https://github.com/sunnyosun)
+- 🔥 Remove email field from `User` registry [PR1238](https://github.com/laminlabs/lamindb/pull/1238) [@falexwolf](https://github.com/falexwolf)
 
 ## 0.56
 
