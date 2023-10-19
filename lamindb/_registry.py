@@ -360,20 +360,19 @@ def transfer_to_default_db(record: Registry, save: bool = False, mute: bool = Fa
         from lamindb.dev._data import WARNING_RUN_TRANSFORM
         from lamindb.dev._run_context import run_context
 
-        if (
-            hasattr(record, "created_by_id")
-            and record.created_by_id != ln_setup.settings.user.id
-        ):
-            logger.info(f"updating created_by_id with {ln_setup.settings.user.id}")
+        if hasattr(record, "created_by_id"):
+            # this line is needed to point created_by to default db
+            record.created_by = None
             record.created_by_id = ln_setup.settings.user.id
         if hasattr(record, "run_id"):
+            record.run = None
             if run_context.run is not None:
-                logger.info("updating run & transform to current run & transform")
                 record.run_id = run_context.run.id
             else:
                 logger.warning(WARNING_RUN_TRANSFORM)
                 record.run_id = None
         if hasattr(record, "transform_id"):
+            record.transform = None
             if run_context.transform is not None:
                 record.transform_id = run_context.transform.id
             else:
