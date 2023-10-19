@@ -15,8 +15,8 @@ lamin login testuser1@lamin.ai
 lamin login testuser1
 ```
 
-If you don't have a cached password in your environment, you need to pass it:
+If you don't have a cached key in your environment, you need to pass it:
 
 ```
-lamin login <email> --password <password>
+lamin login <email> --key <key>
 ```
