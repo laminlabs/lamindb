@@ -55,7 +55,7 @@ def suggest_objects_with_same_name(orm: Registry, kwargs) -> Optional[str]:
             return None
 
         # subset results to those with at least 0.90 levensteihn distance
-        results = results.loc[results.__ratio__ >= 90]
+        results = results.loc[results.score >= 90]
 
         # test for exact match
         if len(results) > 0:
