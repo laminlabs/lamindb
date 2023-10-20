@@ -85,7 +85,7 @@ def test_search_file(get_search_test_filepaths):
     res_q = ln.File.search("search5", return_queryset=True)
     assert res_q[0].key == "test-search5"
     # queryset returns the same order of results
-    assert res.index.tolist() == [i.id for i in res_q]
+    assert res.index.tolist() == [i.uid for i in res_q]
 
     f = ln.File.filter(key="test-search5").one()
     f.suffix = ".txt"
