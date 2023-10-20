@@ -1,5 +1,6 @@
 # Changelog
 
+- ⬆️ Update setup [PR1242](https://github.com/laminlabs/lamindb/pull/1242) [@sunnyosun](https://github.com/sunnyosun)
 - 🐛 Fix return_queryset in search [PR1241](https://github.com/laminlabs/lamindb/pull/1241) [@sunnyosun](https://github.com/sunnyosun)
 - 🚑️ Fix search score [PR1240](https://github.com/laminlabs/lamindb/pull/1240) [@sunnyosun](https://github.com/sunnyosun)
 - 🎨 Display uid instead of id in search result [PR1239](https://github.com/laminlabs/lamindb/pull/1239) [@sunnyosun](https://github.com/sunnyosun)
