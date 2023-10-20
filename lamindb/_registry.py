@@ -134,8 +134,8 @@ def from_values(
 def _order_queryset_by_ids(queryset: QuerySet, ids: Iterable):
     from django.db.models import Case, When
 
-    preserved = Case(*[When(pk=pk, then=pos) for pos, pk in enumerate(ids)])
-    return queryset.filter(pk__in=ids).order_by(preserved)
+    preserved = Case(*[When(uid=pk, then=pos) for pos, pk in enumerate(ids)])
+    return queryset.filter(uid__in=ids).order_by(preserved)
 
 
 def _search(
