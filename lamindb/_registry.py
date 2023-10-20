@@ -143,7 +143,7 @@ def _search(
     string: str,
     *,
     field: Optional[Union[StrField, List[StrField]]] = None,
-    limit: Optional[int] = 20,
+    limit: Optional[int] = 10,
     return_queryset: bool = False,
     case_sensitive: bool = False,
     synonyms_field: Optional[StrField] = "synonyms",
@@ -165,9 +165,9 @@ def _search(
             synonyms_field_exists = False
 
         if synonyms_field is not None and synonyms_field_exists:
-            df = pd.DataFrame(queryset.values("id", field, synonyms_field))
+            df = pd.DataFrame(queryset.values("uid", field, synonyms_field))
         else:
-            df = pd.DataFrame(queryset.values("id", field))
+            df = pd.DataFrame(queryset.values("uid", field))
 
         return base_search(
             df=df,
@@ -198,7 +198,7 @@ def _search(
         result = (
             pd.concat([r.reset_index() for r in results], join="outer")
             .drop(columns=["index"], errors="ignore")
-            .set_index("id")
+            .set_index("uid")
         )
     else:
         result = results[0]
@@ -208,11 +208,12 @@ def _search(
         result = result[result["__ratio__"] > 0].sort_values(
             "__ratio__", ascending=False
         )
-        # move the __ratio__ to be the last column
-        result["__ratio__"] = result.pop("__ratio__")
+        # restrict to 1 decimal
+        # move the score to be the last column
+        result["score"] = result.pop("__ratio__").round(1)
 
     if return_queryset:
-        return _order_queryset_by_ids(queryset, result.reset_index()["id"])
+        return _order_queryset_by_ids(queryset, result.reset_index()["uid"])
     else:
         return result.fillna("")
 
