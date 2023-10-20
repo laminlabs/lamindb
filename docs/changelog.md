@@ -1,15 +1,17 @@
 # Changelog
 
-- ⬆️ Update setup [PR1242](https://github.com/laminlabs/lamindb/pull/1242) [@sunnyosun](https://github.com/sunnyosun)
-- 🐛 Fix return_queryset in search [PR1241](https://github.com/laminlabs/lamindb/pull/1241) [@sunnyosun](https://github.com/sunnyosun)
-- 🚑️ Fix search score [PR1240](https://github.com/laminlabs/lamindb/pull/1240) [@sunnyosun](https://github.com/sunnyosun)
-- 🎨 Display uid instead of id in search result [PR1239](https://github.com/laminlabs/lamindb/pull/1239) [@sunnyosun](https://github.com/sunnyosun)
 
 ```{eval-rst}
 .. role:: small
 ```
 
-## 0.57 {small}`2023-10-19`
+## 0.57
+
+### 0.57.1 {small}`2023-10-20`
+
+- 🎨 Display uid instead of id in search result [PR1239](https://github.com/laminlabs/lamindb/pull/1239) [@sunnyosun](https://github.com/sunnyosun)
+
+### 0.57.0 {small}`2023-10-19`
 
 - 🚚 Rename `Species` to `Organism` [PR1237](https://github.com/laminlabs/lamindb/pull/1237) [@sunnyosun](https://github.com/sunnyosun)
 - 🔥 Remove email field from `User` registry [PR1238](https://github.com/laminlabs/lamindb/pull/1238) [@falexwolf](https://github.com/falexwolf)
