@@ -553,9 +553,19 @@ def from_df(
     description: Optional[str] = None,
     run: Optional[Run] = None,
     modality: Optional[Modality] = None,
+    version: Optional[str] = None,
+    is_new_version_of: Optional["File"] = None,
 ) -> "File":
     """{}"""
-    file = File(data=df, key=key, run=run, description=description, log_hint=False)
+    file = File(
+        data=df,
+        key=key,
+        run=run,
+        description=description,
+        version=version,
+        is_new_version_of=is_new_version_of,
+        log_hint=False,
+    )
     feature_set = FeatureSet.from_df(df, field=field, modality=modality)
     if feature_set is not None:
         file._feature_sets = {"columns": feature_set}
