@@ -1,5 +1,6 @@
 # Changelog
 
+- ♻️ Polish introduction [PR1247](https://github.com/laminlabs/lamindb/pull/1247) [@falexwolf](https://github.com/falexwolf)
 - ✨ Add `parents` to `Organism` [PR1245](https://github.com/laminlabs/lamindb/pull/1245) [@sunnyosun](https://github.com/sunnyosun)
 - 📝 Polish feature pages [PR1246](https://github.com/laminlabs/lamindb/pull/1246) [@falexwolf](https://github.com/falexwolf)
 ```{eval-rst}
