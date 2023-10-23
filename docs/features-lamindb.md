@@ -1,6 +1,6 @@
 **Access data & metadata across storage (files, arrays) & database (SQL) backends.**
 
-- Query by & search for anything: {class}`~lamindb.dev.Registry.filter`, {class}`~lamindb.dev.Registry.search`
+- Query & search by anything: {class}`~lamindb.dev.Registry.filter`, {class}`~lamindb.dev.Registry.search`
 - Stage, load or stream files & datasets: {class}`~lamindb.File.stage`, {class}`~lamindb.File.load`, {class}`~lamindb.File.backed`
 - Model data using built-in concepts: {class}`~lamindb.Feature`, {class}`~lamindb.FeatureSet`, {class}`~lamindb.ULabel`, {class}`~lamindb.Modality`
 - Plug-in custom [schemas](/schemas) & manage schema migrations with ease
