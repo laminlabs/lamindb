@@ -1,12 +1,14 @@
 # Changelog
 
-- ➕ Allow more anndata versions [PR1244](https://github.com/laminlabs/lamindb/pull/1244) [@Koncopd](https://github.com/Koncopd)
-
 ```{eval-rst}
 .. role:: small
 ```
 
 ## 0.57
+
+### 0.57.2 {small}`2023-10-23`
+
+- ➕ Allow more anndata versions [PR1244](https://github.com/laminlabs/lamindb/pull/1244) [@Koncopd](https://github.com/Koncopd)
 
 ### 0.57.1 {small}`2023-10-20`
 
