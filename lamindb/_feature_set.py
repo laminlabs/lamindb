@@ -68,6 +68,14 @@ def get_related_name(features_type: Registry):
     return candidates[0]
 
 
+def get_related_name_from_feature_set(feature_set: FeatureSet) -> str:
+    key_split = feature_set.registry.split(".")
+    orm_name_with_schema = f"{key_split[0]}.{key_split[1]}"
+    feature_sets_related_models = dict_related_model_to_related_name(feature_set)
+    related_name = feature_sets_related_models.get(orm_name_with_schema)
+    return related_name
+
+
 def validate_features(features: List[Registry]) -> Registry:
     """Validate and return feature type."""
     try:
@@ -239,10 +247,7 @@ def members(self) -> "QuerySet":
         # this should return a queryset and not a list...
         # need to fix this
         return self._features[1]
-    key_split = self.registry.split(".")
-    orm_name_with_schema = f"{key_split[0]}.{key_split[1]}"
-    feature_sets_related_models = dict_related_model_to_related_name(self)
-    related_name = feature_sets_related_models.get(orm_name_with_schema)
+    related_name = get_related_name_from_feature_set(self)
     return self.__getattribute__(related_name).all()
 
 

@@ -260,30 +260,38 @@ def from_anndata(
 # internal function, not exposed to user
 def from_files(files: Iterable[File]) -> Tuple[str, Dict[str, str]]:
     # assert all files are already saved
+    logger.debug("check not saved")
     saved = not any([file._state.adding for file in files])
     if not saved:
         raise ValueError("Not all files are yet saved, please save them")
     # query all feature sets of files
+    logger.debug("file ids")
     file_ids = [file.id for file in files]
     # query all feature sets at the same time rather than making a single query per file
+    logger.debug("feature_set_file_links")
     feature_set_file_links = File.feature_sets.through.objects.filter(
         file_id__in=file_ids
     )
-    feature_set_ids = [link.feature_set_id for link in feature_set_file_links]
-    feature_sets = FeatureSet.filter(id__in=feature_set_ids).all()
     feature_sets_by_slots = defaultdict(list)
+    logger.debug("slots")
     for link in feature_set_file_links:
-        feature_sets_by_slots[link.slot].append(
-            feature_sets.filter(id=link.feature_set_id).one()
-        )
+        feature_sets_by_slots[link.slot].append(link.feature_set_id)
     feature_sets_union = {}
-    for slot, feature_sets_slot in feature_sets_by_slots.items():
-        members = feature_sets_slot[0].members
-        for feature_set in feature_sets_slot[1:]:
-            members = members | feature_set.members
-        feature_sets_union[slot] = FeatureSet(members)
+    logger.debug("union")
+    for slot, feature_set_ids_slot in feature_sets_by_slots.items():
+        logger.debug(f"slot: {slot}, {len(feature_set_ids_slot)}")
+        feature_sets_slot = FeatureSet.filter(id__in=feature_set_ids_slot).all()
+        from ._feature_set import get_related_name_from_feature_set
+
+        related_name = get_related_name_from_feature_set(feature_sets_slot[0])
+        features_registry = getattr(FeatureSet, related_name).field.model
+        logger.debug("run filter")
+        features = features_registry.filter(feature_sets__in=feature_sets_slot)
+        logger.debug(f"create feature_set from {len(features)} features")
+        feature_sets_union[slot] = FeatureSet(features)
     # validate consistency of hashes
     # we do not allow duplicate hashes
+    logger.debug("hashes")
     hashes = [file.hash for file in files]
     if len(hashes) != len(set(hashes)):
         seen = set()
@@ -292,6 +300,7 @@ def from_files(files: Iterable[File]) -> Tuple[str, Dict[str, str]]:
             "Please pass files with distinct hashes: these ones are non-unique"
             f" {non_unique}"
         )
+    logger.debug("hash")
     hash = hash_set(set(hashes))
     return hash, feature_sets_union
 
