@@ -197,6 +197,8 @@ def from_df(
     modality: Optional[Modality] = None,
     reference: Optional[str] = None,
     reference_type: Optional[str] = None,
+    version: Optional[str] = None,
+    is_new_version_of: Optional["File"] = None,
 ) -> "Dataset":
     """{}"""
     feature_set = FeatureSet.from_df(df, field=field, modality=modality)
@@ -205,7 +207,15 @@ def from_df(
     else:
         feature_sets = {}
     dataset = Dataset(
-        data=df, name=name, run=run, description=description, feature_sets=feature_sets
+        data=df,
+        name=name,
+        run=run,
+        description=description,
+        feature_sets=feature_sets,
+        reference=reference,
+        reference_type=reference_type,
+        version=version,
+        is_new_version_of=is_new_version_of,
     )
     return dataset
 
@@ -222,6 +232,8 @@ def from_anndata(
     modality: Optional[Modality] = None,
     reference: Optional[str] = None,
     reference_type: Optional[str] = None,
+    version: Optional[str] = None,
+    is_new_version_of: Optional["File"] = None,
 ) -> "Dataset":
     """{}"""
     if isinstance(adata, File):
@@ -237,6 +249,10 @@ def from_anndata(
         name=name,
         description=description,
         feature_sets=feature_sets,
+        reference=reference,
+        reference_type=reference_type,
+        version=version,
+        is_new_version_of=is_new_version_of,
     )
     return dataset
 
