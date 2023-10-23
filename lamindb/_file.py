@@ -625,9 +625,19 @@ def from_anndata(
     description: Optional[str] = None,
     run: Optional[Run] = None,
     modality: Optional[Modality] = None,
+    version: Optional[str] = None,
+    is_new_version_of: Optional["File"] = None,
 ) -> "File":
     """{}"""
-    file = File(data=adata, key=key, run=run, description=description, log_hint=False)
+    file = File(
+        data=adata,
+        key=key,
+        run=run,
+        description=description,
+        version=version,
+        is_new_version_of=is_new_version_of,
+        log_hint=False,
+    )
     file._feature_sets = parse_feature_sets_from_anndata(adata, field, modality)
     return file
 
