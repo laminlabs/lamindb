@@ -16,13 +16,22 @@ from anndata._io.h5ad import read_dataframe_legacy as read_dataframe_legacy_h5
 from anndata._io.specs.registry import get_spec, read_elem, read_elem_partial
 from anndata.compat import _read_attr
 from fsspec.core import OpenFile
+from lamin_utils import logger
 from lamindb_setup.dev.upath import UPath, infer_filesystem
 from lnschema_core import File
 from packaging import version
 
 from lamindb.dev.storage.file import filepath_from_file
 
-if version.parse(anndata_version) < version.parse("0.10.0"):
+anndata_version_parse = version.parse(anndata_version)
+
+if anndata_version_parse < version.parse("0.10.0"):
+    if anndata_version_parse < version.parse("0.9.1"):
+        logger.warning(
+            "Full backed capabilities are not available for this version of anndata,"
+            " please install anndata>=0.9.1."
+        )
+
     from anndata._core.sparse_dataset import SparseDataset
 
     # try csr for groups with no encoding_type

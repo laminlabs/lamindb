@@ -23,7 +23,7 @@ dependencies = [
     "pyarrow",
     "typing_extensions!=4.6.0",
     "python-dateutil",
-    "anndata==0.10.2",  # we're using anndata internals
+    "anndata>=0.8.0,<=0.10.2",  # we're using anndata internals
     "fsspec",
     "pandas",
     "graphviz",
