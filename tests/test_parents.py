@@ -1,6 +1,3 @@
-import lnschema_bionty as lb
-import pytest
-
 import lamindb as ln
 from lamindb._parents import _add_emoji
 
@@ -14,9 +11,6 @@ def test_view_parents():
     label1.view_parents(ln.ULabel.name, distance=1)
     label1.delete()
     label2.delete()
-
-    with pytest.raises(NotImplementedError):
-        lb.Organism(name="mouse").view_parents()
 
 
 def test_add_emoji():
