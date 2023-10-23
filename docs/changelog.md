@@ -1,5 +1,6 @@
 # Changelog
 
+- 📝 Polish feature pages [PR1246](https://github.com/laminlabs/lamindb/pull/1246) [@falexwolf](https://github.com/falexwolf)
 ```{eval-rst}
 .. role:: small
 ```
