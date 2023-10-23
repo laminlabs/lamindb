@@ -201,13 +201,18 @@ def _get_parents(record: Registry, field: str, distance: int, children: bool = F
     d = 2
     while d < distance:
         condition = f"{key}__{condition}"
-        records = model.filter(**{condition: record.__getattribute__(field)}).all()
+        records = model.filter(**{condition: record.__getattribute__(field)})
 
-        if len(records) == 0:
+        try:
+            if not records.exists():
+                return results
+
+            results = results | records.all()
+            d += 1
+        except Exception:
+            # For OperationalError:
+            # SQLite does not support joins containing more than 64 tables
             return results
-
-        results = results | records
-        d += 1
     return results
 
 
