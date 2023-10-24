@@ -377,8 +377,6 @@ def _track_run_input(
             links = [
                 LinkORM(run_id=run.id, dataset_id=data_id) for data_id in input_data_ids
             ]
-        print(data_iter)
-        print(links)
         LinkORM.objects.bulk_create(links, ignore_conflicts=True)
         # generalize below for more than one data batch
         if len(input_data) == 1:
