@@ -1,5 +1,6 @@
 # Changelog
 
+- ⚡️ Speed up dataset creation in presence of millions of feature links [PR1248](https://github.com/laminlabs/lamindb/pull/1248) [@falexwolf](https://github.com/falexwolf)
 - 📝 Add a faq for custome validator [PR1249](https://github.com/laminlabs/lamindb/pull/1249) [@sunnyosun](https://github.com/sunnyosun)
 - ♻️ Polish introduction [PR1247](https://github.com/laminlabs/lamindb/pull/1247) [@falexwolf](https://github.com/falexwolf)
 - ✨ Add `parents` to `Organism` [PR1245](https://github.com/laminlabs/lamindb/pull/1245) [@sunnyosun](https://github.com/sunnyosun)
