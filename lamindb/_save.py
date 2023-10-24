@@ -252,18 +252,20 @@ def upload_data_object(file) -> None:
     """Store and add file and its linked entries."""
     # do NOT hand-craft the storage key!
     file_storage_key = auto_storage_key_from_file(file)
-    msg = f"storing file '{file.id}' at '{file_storage_key}'"
+    storage_path = lamindb_setup.settings.instance.storage.key_to_filepath(
+        file_storage_key
+    )
+    msg = f"storing file '{file.uid}' at '{storage_path}'"
     if (
         file.suffix in {".zarr", ".zrad"}
         and hasattr(file, "_memory_rep")
         and file._memory_rep is not None
     ):
         logger.save(msg)
-        storagepath = lamindb_setup.settings.storage.key_to_filepath(file_storage_key)
         print_progress = partial(
             print_hook, filepath=file_storage_key, action="uploading"
         )
-        write_adata_zarr(file._memory_rep, storagepath, callback=print_progress)
+        write_adata_zarr(file._memory_rep, storage_path, callback=print_progress)
     elif hasattr(file, "_to_store") and file._to_store:
         logger.save(msg)
         store_object(file._local_filepath, file_storage_key)
