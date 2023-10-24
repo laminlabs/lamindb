@@ -179,10 +179,7 @@ def __init__(
     if file is not None and file.run != run:
         _track_run_input(file, run=run)
     elif files is not None:
-        for file in files:
-            if file.run != run:
-                _track_run_input(file, run=run)
-    # there is not other possibility
+        _track_run_input(files, run=run)
 
 
 @classmethod  # type: ignore
@@ -260,30 +257,48 @@ def from_anndata(
 # internal function, not exposed to user
 def from_files(files: Iterable[File]) -> Tuple[str, Dict[str, str]]:
     # assert all files are already saved
+    logger.debug("check not saved")
     saved = not any([file._state.adding for file in files])
     if not saved:
         raise ValueError("Not all files are yet saved, please save them")
     # query all feature sets of files
+    logger.debug("file ids")
     file_ids = [file.id for file in files]
     # query all feature sets at the same time rather than making a single query per file
+    logger.debug("feature_set_file_links")
     feature_set_file_links = File.feature_sets.through.objects.filter(
         file_id__in=file_ids
     )
-    feature_set_ids = [link.feature_set_id for link in feature_set_file_links]
-    feature_sets = FeatureSet.filter(id__in=feature_set_ids).all()
     feature_sets_by_slots = defaultdict(list)
+    logger.debug("slots")
     for link in feature_set_file_links:
-        feature_sets_by_slots[link.slot].append(
-            feature_sets.filter(id=link.feature_set_id).one()
-        )
+        feature_sets_by_slots[link.slot].append(link.feature_set_id)
     feature_sets_union = {}
-    for slot, feature_sets_slot in feature_sets_by_slots.items():
-        members = feature_sets_slot[0].members
-        for feature_set in feature_sets_slot[1:]:
-            members = members | feature_set.members
-        feature_sets_union[slot] = FeatureSet(members)
+    logger.debug("union")
+    for slot, feature_set_ids_slot in feature_sets_by_slots.items():
+        feature_set_1 = FeatureSet.filter(id=feature_set_ids_slot[0]).one()
+        related_name = feature_set_1._get_related_name()
+        features_registry = getattr(FeatureSet, related_name).field.model
+        start_time = logger.debug("run filter")
+        # this way of writing the __in statement turned out to be the fastest
+        # evaluated on a link table with 16M entries connecting 500 feature sets with
+        # 60k genes
+        feature_ids = (
+            features_registry.feature_sets.through.objects.filter(
+                featureset_id__in=feature_set_ids_slot
+            )
+            .values(f"{features_registry.__name__.lower()}_id")
+            .distinct()
+        )
+        start_time = logger.debug("done, start evaluate", time=start_time)
+        features = features_registry.filter(id__in=feature_ids)
+        feature_sets_union[slot] = FeatureSet(
+            features, type=feature_set_1.type, modality=feature_set_1.modality
+        )
+        start_time = logger.debug("done", time=start_time)
     # validate consistency of hashes
     # we do not allow duplicate hashes
+    logger.debug("hashes")
     hashes = [file.hash for file in files]
     if len(hashes) != len(set(hashes)):
         seen = set()
@@ -292,7 +307,9 @@ def from_files(files: Iterable[File]) -> Tuple[str, Dict[str, str]]:
             "Please pass files with distinct hashes: these ones are non-unique"
             f" {non_unique}"
         )
+    time = logger.debug("hash")
     hash = hash_set(set(hashes))
+    logger.debug("done", time=time)
     return hash, feature_sets_union
 
 

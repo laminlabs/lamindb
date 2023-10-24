@@ -239,11 +239,16 @@ def members(self) -> "QuerySet":
         # this should return a queryset and not a list...
         # need to fix this
         return self._features[1]
+    related_name = self._get_related_name()
+    return self.__getattribute__(related_name).all()
+
+
+def _get_related_name(self: FeatureSet) -> str:
     key_split = self.registry.split(".")
     orm_name_with_schema = f"{key_split[0]}.{key_split[1]}"
     feature_sets_related_models = dict_related_model_to_related_name(self)
     related_name = feature_sets_related_models.get(orm_name_with_schema)
-    return self.__getattribute__(related_name).all()
+    return related_name
 
 
 METHOD_NAMES = [
@@ -266,3 +271,4 @@ for name in METHOD_NAMES:
     attach_func_to_class_method(name, FeatureSet, globals())
 
 setattr(FeatureSet, "members", members)
+setattr(FeatureSet, "_get_related_name", _get_related_name)
