@@ -317,11 +317,13 @@ def _track_run_input(
     # consider that data is an iterable of Data
     data_iter: Iterable[Data] = [data] if isinstance(data, Data) else data
     track_run_input = False
-    data_class_name = data.__class__.__name__.lower()
+    input_data = []
     if run is not None:
         # avoid cycles: data can't be both input and output
         input_data = [data for data in data_iter if data.run != run]
         input_data_ids = [data.id for data in data_iter if data.run != run]
+    if input_data:
+        data_class_name = input_data[0].__class__.__name__.lower()
     # let us first look at the case in which the user does not
     # provide a boolean value for `is_run_input`
     # hence, we need to determine whether we actually want to
@@ -375,6 +377,8 @@ def _track_run_input(
             links = [
                 LinkORM(run_id=run.id, dataset_id=data_id) for data_id in input_data_ids
             ]
+        print(data_iter)
+        print(links)
         LinkORM.objects.bulk_create(links, ignore_conflicts=True)
         # generalize below for more than one data batch
         if len(input_data) == 1:
