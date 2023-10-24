@@ -279,16 +279,26 @@ def from_files(files: Iterable[File]) -> Tuple[str, Dict[str, str]]:
     feature_sets_union = {}
     logger.debug("union")
     for slot, feature_set_ids_slot in feature_sets_by_slots.items():
-        logger.debug(f"slot: {slot}, {len(feature_set_ids_slot)}")
-        feature_sets_slot = FeatureSet.filter(id__in=feature_set_ids_slot).all()
-        from ._feature_set import get_related_name_from_feature_set
-
-        related_name = get_related_name_from_feature_set(feature_sets_slot[0])
+        feature_set_1 = FeatureSet.filter(id=feature_set_ids_slot[0]).one()
+        related_name = feature_set_1._get_related_name()
         features_registry = getattr(FeatureSet, related_name).field.model
-        logger.debug("run filter")
-        features = features_registry.filter(feature_sets__in=feature_sets_slot)
-        logger.debug(f"create feature_set from {len(features)} features")
-        feature_sets_union[slot] = FeatureSet(features)
+        start_time = logger.debug("run filter")
+        # this way of writing the __in statement turned out to be the fastest
+        # evaluated on a link table with 16M entries connecting 500 feature sets with
+        # 60k genes
+        feature_ids = (
+            features_registry.feature_sets.through.objects.filter(
+                featureset_id__in=feature_set_ids_slot
+            )
+            .values(f"{features_registry.__name__.lower()}_id")
+            .distinct()
+        )
+        start_time = logger.debug("done, start evaluate", time=start_time)
+        features = features_registry.filter(id__in=feature_ids)
+        feature_sets_union[slot] = FeatureSet(
+            features, type=feature_set_1.type, modality=feature_set_1.modality
+        )
+        start_time = logger.debug("done", time=start_time)
     # validate consistency of hashes
     # we do not allow duplicate hashes
     logger.debug("hashes")
