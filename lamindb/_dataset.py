@@ -344,12 +344,12 @@ def load(
         # because we're tracking data flow on the dataset-level, here, we don't
         # want to track it on the file-level
         objects = [file.load(is_run_input=False) for file in all_files]
-        file_ids = [file.id for file in all_files]
+        file_uids = [file.uid for file in all_files]
         if isinstance(objects[0], pd.DataFrame):
             concat_object = pd.concat(objects, join=join)
         elif isinstance(objects[0], ad.AnnData):
             concat_object = ad.concat(
-                objects, join=join, label="file_id", keys=file_ids
+                objects, join=join, label="file_uid", keys=file_uids
             )
         # only call it here because there might be errors during concat
         _track_run_input(self, is_run_input)
