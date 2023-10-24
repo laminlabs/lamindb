@@ -156,7 +156,7 @@ def anndata_mouse_sc_lymph_node(
         populate_registries: pre-populate metadata records to simulate existing registries  # noqa
     """
     filepath, _ = urlretrieve("https://lamindb-test.s3.amazonaws.com/E-MTAB-8414.h5ad")
-    adata = ad.read(filepath)
+    adata = ad.read_h5ad(filepath)
 
     # The column names are a bit lengthy, let's abbreviate them:
     adata.obs.columns = (
@@ -253,7 +253,7 @@ def anndata_pbmc68k_reduced() -> ad.AnnData:
     filepath, _ = urlretrieve(
         "https://lamindb-dev-datasets.s3.amazonaws.com/scrnaseq_pbmc68k_tiny.h5ad"
     )
-    return ad.read(filepath)
+    return ad.read_h5ad(filepath)
 
 
 def anndata_file_pbmc68k_test() -> Path:
@@ -283,7 +283,7 @@ def anndata_pbmc3k_processed() -> ad.AnnData:  # pragma: no cover
     filepath, _ = urlretrieve(
         "https://lamindb-test.s3.amazonaws.com/scrnaseq_scanpy_pbmc3k_processed.h5ad"
     )
-    pbmc3k = ad.read(filepath)
+    pbmc3k = ad.read_h5ad(filepath)
     pbmc3k.obs.rename(columns={"louvain": "cell_type"}, inplace=True)
     return pbmc3k
 
@@ -306,8 +306,11 @@ def anndata_human_immune_cells(
         adata.write('human_immune.h5ad')
     """
     filepath, _ = urlretrieve("https://lamindb-test.s3.amazonaws.com/human_immune.h5ad")
-    adata = ad.read(filepath)
+    adata = ad.read_h5ad(filepath)
     adata.var.drop(columns=["gene_symbols", "feature_name"], inplace=True)
+    adata.uns.pop("cell_type_ontology_term_id_colors")
+    adata.uns.pop("title")
+    adata.uns.pop("schema_version")
     adata.obs.columns = adata.obs.columns.str.replace("donor_id", "donor")
     columns = [col for col in adata.obs.columns if "ontology_term" not in col]
     adata.obs = adata.obs[columns]
@@ -378,7 +381,7 @@ def anndata_suo22_Visium10X():  # pragma: no cover
     )
     Path("suo22/").mkdir(exist_ok=True)
     filepath = Path(filepath).rename("suo22/Visium10X_data_LI_subset.h5ad")
-    return ad.read(filepath)
+    return ad.read_h5ad(filepath)
 
 
 def mudata_papalexi21_subset():  # pragma: no cover

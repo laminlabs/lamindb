@@ -10,4 +10,5 @@ faq/notebooks
 faq/setup
 faq/import-schema
 faq/reference-field
+faq/validator
 ```
