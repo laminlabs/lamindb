@@ -320,8 +320,8 @@ def _track_run_input(
     input_data = []
     if run is not None:
         # avoid cycles: data can't be both input and output
-        input_data = [data for data in data_iter if data.run != run]
-        input_data_ids = [data.id for data in data_iter if data.run != run]
+        input_data = [data for data in data_iter if data.run_id != run.id]
+        input_data_ids = [data.id for data in data_iter if data.run_id != run.id]
     if input_data:
         data_class_name = input_data[0].__class__.__name__.lower()
     # let us first look at the case in which the user does not
