@@ -246,7 +246,9 @@ def test_from_consistent_files():
     dataset = ln.Dataset([file1, file2], name="My test", run=run)
     dataset.save()
     assert set(dataset.run.input_files.all()) == {file1, file2}
-    dataset.load()
+    adata_joined = dataset.load()
+    assert "file_uid" in adata_joined.obs.columns
+    assert file1.uid in adata_joined.obs.file_uid.cat.categories
     with pytest.raises(RuntimeError) as error:
         dataset.backed()
     assert str(error.exconly()).startswith(
