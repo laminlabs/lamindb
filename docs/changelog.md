@@ -1,5 +1,6 @@
 # Changelog
 
+-  💄 Prettify validator & validation guide [PR1251](https://github.com/laminlabs/lamindb/pull/1251) [@falexwolf](https://github.com/falexwolf)
 - ♻️ Use file.uid instead of file.id in dataset.load() [PR1250](https://github.com/laminlabs/lamindb/pull/1250) [@falexwolf](https://github.com/falexwolf)
 
 ```{eval-rst}
