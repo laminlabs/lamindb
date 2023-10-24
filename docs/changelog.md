@@ -1,13 +1,17 @@
 # Changelog
 
-- ⚡️ Speed up dataset creation in presence of millions of feature links [PR1248](https://github.com/laminlabs/lamindb/pull/1248) [@falexwolf](https://github.com/falexwolf)
-- 📝 Add a faq for custome validator [PR1249](https://github.com/laminlabs/lamindb/pull/1249) [@sunnyosun](https://github.com/sunnyosun)
-- ♻️ Polish introduction [PR1247](https://github.com/laminlabs/lamindb/pull/1247) [@falexwolf](https://github.com/falexwolf)
-- ✨ Add `parents` to `Organism` [PR1245](https://github.com/laminlabs/lamindb/pull/1245) [@sunnyosun](https://github.com/sunnyosun)
-- 📝 Polish feature pages [PR1246](https://github.com/laminlabs/lamindb/pull/1246) [@falexwolf](https://github.com/falexwolf)
+
 ```{eval-rst}
 .. role:: small
 ```
+
+## 0.58
+
+### 0.58.0 {small}`2023-10-24`
+
+- ⚡️ Speed up dataset creation in presence of millions of feature links [PR1248](https://github.com/laminlabs/lamindb/pull/1248) [@falexwolf](https://github.com/falexwolf)
+- 📝 Add a faq for custom validator [PR1249](https://github.com/laminlabs/lamindb/pull/1249) [@sunnyosun](https://github.com/sunnyosun)
+- ✨ Add `parents` to `Organism` [PR1245](https://github.com/laminlabs/lamindb/pull/1245) [@sunnyosun](https://github.com/sunnyosun)
 
 ## 0.57
 
