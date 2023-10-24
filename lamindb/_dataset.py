@@ -179,10 +179,7 @@ def __init__(
     if file is not None and file.run != run:
         _track_run_input(file, run=run)
     elif files is not None:
-        for file in files:
-            if file.run != run:
-                _track_run_input(file, run=run)
-    # there is not other possibility
+        _track_run_input(files, run=run)
 
 
 @classmethod  # type: ignore
@@ -310,8 +307,9 @@ def from_files(files: Iterable[File]) -> Tuple[str, Dict[str, str]]:
             "Please pass files with distinct hashes: these ones are non-unique"
             f" {non_unique}"
         )
-    logger.debug("hash")
+    time = logger.debug("hash")
     hash = hash_set(set(hashes))
+    logger.debug("done", time=time)
     return hash, feature_sets_union
 
 

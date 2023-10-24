@@ -308,24 +308,46 @@ def add_labels(
 
 
 def _track_run_input(
-    data: Data, is_run_input: Optional[bool] = None, run: Optional[Run] = None
+    data: Union[Data, Iterable[Data]],
+    is_run_input: Optional[bool] = None,
+    run: Optional[Run] = None,
 ):
     if run is None:
         run = run_context.run
+    # consider that data is an iterable of Data
+    data_iter: Iterable[Data] = [data] if isinstance(data, Data) else data
     track_run_input = False
+    data_class_name = data.__class__.__name__.lower()
+    if run is not None:
+        # avoid cycles: data can't be both input and output
+        input_data = [data for data in data_iter if data.run != run]
+        input_data_ids = [data.id for data in data_iter if data.run != run]
+    # let us first look at the case in which the user does not
+    # provide a boolean value for `is_run_input`
+    # hence, we need to determine whether we actually want to
+    # track a run or not
     if is_run_input is None:
-        # we need a global run context for this to work
-        if run is not None:
-            # avoid cycles (a file is both input and output)
-            if data.run != run:
+        # we don't have a run record
+        if run is None:
+            if settings.track_run_inputs:
+                logger.hint(
+                    "you can auto-track this file as a run input by calling"
+                    " `ln.track()`"
+                )
+        # assume we have a run record
+        else:
+            # assume there is non-cyclic candidate input data
+            if input_data:
                 if settings.track_run_inputs:
                     transform_note = ""
-                    if data.transform is not None:
-                        transform_note = (
-                            f", adding parent transform {data.transform.id}"
-                        )
+                    if len(input_data) == 1:
+                        if input_data[0].transform is not None:
+                            transform_note = (
+                                ", adding parent transform"
+                                f" {input_data[0].transform.id}"
+                            )
                     logger.info(
-                        f"adding file {data.id} as input for run"
+                        f"adding {data_class_name} {input_data_ids} as input for run"
                         f" {run.id}{transform_note}"
                     )
                     track_run_input = True
@@ -333,12 +355,6 @@ def _track_run_input(
                     logger.hint(
                         "track this file as a run input by passing `is_run_input=True`"
                     )
-        else:
-            if settings.track_run_inputs:
-                logger.hint(
-                    "you can auto-track this file as a run input by calling"
-                    " `ln.track()`"
-                )
     else:
         track_run_input = is_run_input
     if track_run_input:
@@ -348,12 +364,22 @@ def _track_run_input(
                 " run object via `run.input_files.add(file)`"
             )
         # avoid adding the same run twice
-        # avoid cycles (a file is both input and output)
-        if not data.input_of.contains(run) and data.run != run:
-            run.save()
-            data.input_of.add(run)
-            if data.transform is not None:
-                run.transform.parents.add(data.transform)
+        run.save()
+        if data_class_name == "file":
+            LinkORM = run.input_files.through
+            links = [
+                LinkORM(run_id=run.id, file_id=data_id) for data_id in input_data_ids
+            ]
+        else:
+            LinkORM = run.input_datasets.through
+            links = [
+                LinkORM(run_id=run.id, dataset_id=data_id) for data_id in input_data_ids
+            ]
+        LinkORM.objects.bulk_create(links, ignore_conflicts=True)
+        # generalize below for more than one data batch
+        if len(input_data) == 1:
+            if input_data[0].transform is not None:
+                run.transform.parents.add(input_data[0].transform)
 
 
 @property  # type: ignore
