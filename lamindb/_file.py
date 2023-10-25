@@ -820,23 +820,45 @@ def stage(self, is_run_input: Optional[bool] = None) -> Path:
 
 
 # docstring handled through attach_func_to_class_method
-def delete(self, storage: Optional[bool] = None) -> None:
-    if storage is None:
-        response = input(f"Are you sure you want to delete {self} from storage? (y/n)")
-        delete_in_storage = response == "y"
-    else:
-        delete_in_storage = storage
+def delete(self, force: Optional[bool] = None, storage: Optional[bool] = None) -> None:
+    # if the file is already in the trash
+    if self.visibility == 2:
+        if force is None:
+            response = input(
+                "File record is already in trash! Are you sure to delete it from your"
+                " database? (y/n) You can't undo this action."
+            )
+            delete_record = response == "y"
+        else:
+            delete_record = force
 
-    # need to grab file path before deletion
-    filepath = self.path
-    # only delete in storage if DB delete is successful
-    # DB delete might error because of a foreign key constraint violated etc.
-    self._delete_skip_storage()
-    # we don't yet have any way to bring back the deleted metadata record
-    # in case the storage deletion fails - this is important for ACID down the road
-    if delete_in_storage:
-        delete_storage(filepath)
-        logger.success(f"deleted stored object {colors.yellow(f'{filepath}')}")
+        # need to grab file path before deletion
+        filepath = self.path
+
+        # only delete in storage if DB delete is successful
+        # DB delete might error because of a foreign key constraint violated etc.
+        if delete_record:
+            self._delete_skip_storage()
+            if self.key is None:
+                delete_in_storage = True
+            else:
+                if storage is None:
+                    response = input(
+                        f"Are you sure to delete {filepath}? (y/n)  You can't undo this"
+                        " action."
+                    )
+                    delete_in_storage = response == "y"
+                else:
+                    delete_in_storage = storage
+            # we don't yet have any way to bring back the deleted metadata record
+            # in case storage deletion fails - this is important for ACID down the road
+            if delete_in_storage:
+                delete_storage(filepath)
+                logger.success(f"deleted {colors.yellow(f'{filepath}')}")
+    # change visibility to 2 (trash)
+    else:
+        self.visibility = 2
+        self.save()
 
 
 def _delete_skip_storage(file, *args, **kwargs) -> None:

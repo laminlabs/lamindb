@@ -9,16 +9,29 @@ def test_file_visibility():
     assert file.visibility == 0
     file.save()
 
-    # filtering
-    result = ln.File.filter(description="test-visibility").all()
+    # create a dataset from file
+    dataset = ln.Dataset(file, name="test-visibility")
+    dataset.save()
+
+    # delete a dataset will put both dataset and linked file in trash
+    dataset.delete()
+    assert dataset.file.visibility == 2
+    result = ln.Dataset.filter(description="test-visibility").all()
+    assert len(result) == 0
+    result = ln.Dataset.filter(
+        description="test-visibility", visibility="default"
+    ).all()
+    assert len(result) == 0
+    result = ln.Dataset.filter(description="test-visibility", visibility=None).all()
     assert len(result) == 1
 
-    # file is hidden
-    file.visibility = 1
-    file.save()
+    # delete a file
     result = ln.File.filter(description="test-visibility").all()
     assert len(result) == 0
     result = ln.File.filter(description="test-visibility", visibility=None).all()
     assert len(result) == 1
-    result = ln.File.filter(description="test-visibility", visibility="default").all()
+
+    # delete a dataset from trash
+    dataset.delete(force=True)
+    result = ln.File.filter(description="test-visibility", visibility=None).all()
     assert len(result) == 0

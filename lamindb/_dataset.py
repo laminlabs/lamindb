@@ -357,10 +357,27 @@ def load(
 
 
 # docstring handled through attach_func_to_class_method
-def delete(self, storage: Optional[bool] = None) -> None:
-    super(Dataset, self).delete()
-    if self.file is not None:
-        self.file.delete(storage=storage)
+def delete(self, force: Optional[bool] = None, storage: Optional[bool] = None) -> None:
+    if self.visibility == 2:
+        if force is None:
+            response = input(
+                "File record is already in trash! Are you sure to delete it from your"
+                " database? (y/n) You can't undo this action."
+            )
+            delete_record = response == "y"
+        else:
+            delete_record = force
+
+        if delete_record:
+            super(Dataset, self).delete()
+        if self.file is not None:
+            self.file.delete(force=force, storage=storage)
+    else:
+        self.visibility = 2
+        self.save()
+        if self.file is not None:
+            self.file.visibility = 2
+            self.file.save()
 
 
 # docstring handled through attach_func_to_class_method
