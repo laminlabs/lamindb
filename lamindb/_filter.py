@@ -43,17 +43,13 @@ def filter(Registry: Type[Registry], using: str = None, **expressions) -> QueryS
         )
         add_db_connection(isettings, using)
 
-    if Registry.__class__.__name__ in {"File", "Dataset"}:
+    if Registry.__name__ in {"File", "Dataset"}:
         # visibility is set to 0 by default
-        if "visibility" in expressions:
+        if "visibility" not in expressions:
             expressions["visibility"] = 0
         # if visibility is None, will not apply any filter for visibility
-        visibility = expressions.get("visibility")
-        if visibility is None:
-            expressions.pop("visibility")
-        else:
-            if visibility == "default":
-                expressions["visibility"] = 0
+        if expressions.get("visibility") == "default":
+            expressions["visibility"] = 0
 
     qs = QuerySet(model=Registry, using=using)
     if len(expressions) > 0:
