@@ -147,8 +147,9 @@ def _search(
     return_queryset: bool = False,
     case_sensitive: bool = False,
     synonyms_field: Optional[StrField] = "synonyms",
+    **expressions,
 ) -> Union["pd.DataFrame", "QuerySet"]:
-    queryset = _queryset(cls)
+    queryset = _queryset(cls, **expressions)
     orm = queryset.model
 
     def _search_single_field(
@@ -229,6 +230,7 @@ def search(
     return_queryset: bool = False,
     case_sensitive: bool = False,
     synonyms_field: Optional[StrField] = "synonyms",
+    **expressions,
 ) -> Union["pd.DataFrame", "QuerySet"]:
     """{}"""
     return _search(
@@ -239,14 +241,18 @@ def search(
         limit=limit,
         case_sensitive=case_sensitive,
         synonyms_field=synonyms_field,
+        **expressions,
     )
 
 
 def _lookup(
-    cls, field: Optional[StrField] = None, return_field: Optional[StrField] = None
+    cls,
+    field: Optional[StrField] = None,
+    return_field: Optional[StrField] = None,
+    **expressions,
 ) -> NamedTuple:
     """{}"""
-    queryset = _queryset(cls)
+    queryset = _queryset(cls, **expressions)
     field = get_default_str_field(orm=queryset.model, field=field)
 
     return Lookup(
@@ -264,10 +270,13 @@ def _lookup(
 @classmethod  # type: ignore
 @doc_args(Registry.lookup.__doc__)
 def lookup(
-    cls, field: Optional[StrField] = None, return_field: Optional[StrField] = None
+    cls,
+    field: Optional[StrField] = None,
+    return_field: Optional[StrField] = None,
+    **expressions,
 ) -> NamedTuple:
     """{}"""
-    return _lookup(cls=cls, field=field, return_field=return_field)
+    return _lookup(cls=cls, field=field, return_field=return_field, **expressions)
 
 
 def get_default_str_field(
@@ -316,8 +325,12 @@ def get_default_str_field(
     return field
 
 
-def _queryset(cls: Union[Registry, QuerySet, Manager]) -> QuerySet:
-    queryset = cls.all() if isinstance(cls, QuerySet) else cls.objects.all()
+def _queryset(cls: Union[Registry, QuerySet, Manager], **expressions) -> QuerySet:
+    queryset = (
+        cls.filter(**expressions).all()
+        if isinstance(cls, QuerySet)
+        else cls.filter(**expressions).all()
+    )
     return queryset
 
 
