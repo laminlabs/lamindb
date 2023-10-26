@@ -1,5 +1,6 @@
 # Changelog
 
+- 🔒️ Enable to pass DB URLs during load [PR1256](https://github.com/laminlabs/lamindb/pull/1256) [@falexwolf](https://github.com/falexwolf)
 - ✨ Enable passing filter expressions to lookup and search [PR1255](https://github.com/laminlabs/lamindb/pull/1255) [@sunnyosun](https://github.com/sunnyosun)
 - 💄 Prettify storage logging [PR1252](https://github.com/laminlabs/lamindb/pull/1252) [@falexwolf](https://github.com/falexwolf)
 -  💄 Prettify validator & validation guide [PR1251](https://github.com/laminlabs/lamindb/pull/1251) [@falexwolf](https://github.com/falexwolf)
