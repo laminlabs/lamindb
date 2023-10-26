@@ -148,7 +148,8 @@ def __init__(
             hash, feature_sets = from_files(files)  # type: ignore
         else:
             raise ValueError("Only DataFrame, AnnData and iterable of File is allowed")
-    existing_dataset = Dataset.filter(hash=hash, visibility=None).one_or_none()
+    # we ignore datasets in trash containing the same hash
+    existing_dataset = Dataset.filter(hash=hash).one_or_none()
     if existing_dataset is not None:
         logger.warning(f"returning existing dataset with same hash: {existing_dataset}")
         init_self_from_db(dataset, existing_dataset)

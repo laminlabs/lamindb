@@ -179,7 +179,8 @@ def get_hash(
         hash, hash_type = hash_file(filepath)
     if not check_hash:
         return hash, hash_type
-    result = File.filter(hash=hash, visibility=None).list()
+    # we ignore datasets in trash containing the same hash
+    result = File.filter(hash=hash).list()
     if len(result) > 0:
         if settings.upon_file_create_if_hash_exists == "error":
             msg = f"file with same hash exists: {result[0]}"
