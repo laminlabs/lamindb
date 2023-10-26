@@ -1,12 +1,14 @@
 # Changelog
 
-- 👷 Enable to read db from env variable [PR1258](https://github.com/laminlabs/lamindb/pull/1258) [@falexwolf](https://github.com/falexwolf)
-
 ```{eval-rst}
 .. role:: small
 ```
 
 ## 0.58
+
+### 0.58.2 {small}`2023-10-26`
+
+- 👷 Enable to read db from env variable [PR1258](https://github.com/laminlabs/lamindb/pull/1258) [@falexwolf](https://github.com/falexwolf)
 
 ### 0.58.1 {small}`2023-10-26`
 
