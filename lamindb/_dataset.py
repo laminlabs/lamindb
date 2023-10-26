@@ -357,27 +357,32 @@ def load(
 
 
 # docstring handled through attach_func_to_class_method
-def delete(self, force: Optional[bool] = None, storage: Optional[bool] = None) -> None:
-    if self.visibility == 2:
-        if force is None:
-            response = input(
-                "File record is already in trash! Are you sure to delete it from your"
-                " database? (y/n) You can't undo this action."
-            )
-            delete_record = response == "y"
-        else:
-            delete_record = force
-
-        if delete_record:
-            super(Dataset, self).delete()
-        if self.file is not None:
-            self.file.delete(force=force, storage=storage)
-    else:
+def delete(
+    self, permanent: Optional[bool] = None, storage: Optional[bool] = None
+) -> None:
+    # change visibility to 2 (trash)
+    if self.visibility < 2 and permanent is not True:
         self.visibility = 2
         self.save()
         if self.file is not None:
             self.file.visibility = 2
             self.file.save()
+        return
+
+    # permanent delete
+    if permanent is None:
+        response = input(
+            "File record is already in trash! Are you sure to delete it from your"
+            " database? (y/n) You can't undo this action."
+        )
+        delete_record = response == "y"
+    else:
+        delete_record = permanent
+
+    if delete_record:
+        super(Dataset, self).delete()
+    if self.file is not None:
+        self.file.delete(permanent=permanent, storage=storage)
 
 
 # docstring handled through attach_func_to_class_method
@@ -401,6 +406,15 @@ def path(self) -> Union[Path, UPath]:
     return self.storage.path
 
 
+# docstring handled through attach_func_to_class_method
+def restore(self) -> None:
+    self.visibility = 0
+    self.save()
+    if self.file is not None:
+        self.file.visibility = 0
+        self.file.save()
+
+
 METHOD_NAMES = [
     "__init__",
     "from_anndata",
@@ -409,6 +423,7 @@ METHOD_NAMES = [
     "load",
     "delete",
     "save",
+    "restore",
 ]
 
 if _TESTING:

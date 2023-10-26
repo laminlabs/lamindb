@@ -93,12 +93,12 @@ def test_search_file(get_search_test_filepaths):
     # multi-field search
     res = ln.File.search("txt", field=["key", "description", "suffix"])
     assert res.iloc[0].suffix == ".txt"
-    file0.delete(storage=True)
-    file1.delete(storage=True)
-    file2.delete(storage=True)
-    file3.delete(storage=True)
-    file4.delete(storage=True)
-    file5.delete(storage=True)
+    file0.delete(permanent=True, storage=True)
+    file1.delete(permanent=True, storage=True)
+    file2.delete(permanent=True, storage=True)
+    file3.delete(permanent=True, storage=True)
+    file4.delete(permanent=True, storage=True)
+    file5.delete(permanent=True, storage=True)
 
 
 def test_pass_version():

@@ -97,7 +97,7 @@ def test_create_delete_from_single_dataframe():
     assert dataset1.hash == dataset.hash
 
     # now proceed to deletion
-    dataset.delete(storage=True)
+    dataset.delete(permanent=True, storage=True)
     assert ln.File.filter(uid=dataset.uid).one_or_none() is None
     assert ln.File.filter(uid=file.uid).one_or_none() is None
 
@@ -106,7 +106,7 @@ def test_create_delete_from_single_anndata():
     ln.track(ln.Transform(name="Test transform"))
     dataset = ln.Dataset(adata, name="My adata")
     dataset.save()
-    dataset.delete(storage=True)
+    dataset.delete(permanent=True, storage=True)
     assert ln.File.filter(id=dataset.id).one_or_none() is None
     assert ln.File.filter(id=dataset.file.id).one_or_none() is None
     # and now with from_anndata
@@ -129,7 +129,7 @@ def test_create_delete_from_single_anndata():
     feature_sets_queried.delete()
     features_queried.delete()
     genes_queried.delete()
-    dataset.delete(storage=True)
+    dataset.delete(permanent=True, storage=True)
     ln.dev.run_context.run = None
     ln.dev.run_context.transform = None
 
@@ -172,7 +172,7 @@ def test_from_single_file():
     features_queried = ln.Feature.filter(feature_sets__in=feature_sets_queried).all()
     feature_sets_queried.delete()
     features_queried.delete()
-    dataset.delete(storage=True)
+    dataset.delete(permanent=True, storage=True)
     assert ln.File.filter(id=dataset.id).one_or_none() is None
     assert ln.File.filter(id=dataset.file.id).one_or_none() is None
 
@@ -201,7 +201,7 @@ def test_edge_cases():
     assert str(error.exconly()).startswith(
         "ValueError: Please pass files with distinct hashes: these ones are non-unique"
     )
-    file.delete(storage=True)
+    file.delete(permanent=True, storage=True)
 
 
 def test_backed():
@@ -227,9 +227,9 @@ def test_from_inconsistent_files():
     assert str(error.exconly()).startswith(
         "RuntimeError: Can only load datasets where all files have the same suffix"
     )
-    file1.delete(storage=True)
-    file2.delete(storage=True)
-    dataset.delete()
+    file1.delete(permanent=True, storage=True)
+    file2.delete(permanent=True, storage=True)
+    dataset.delete(permanent=True)
     ln.dev.run_context.run = None
     ln.dev.run_context.transform = None
 
@@ -254,9 +254,9 @@ def test_from_consistent_files():
     assert str(error.exconly()).startswith(
         "RuntimeError: Can only call backed() for datasets with a single file"
     )
-    file1.delete(storage=True)
-    file2.delete(storage=True)
-    dataset.delete()
+    file1.delete(permanent=True, storage=True)
+    file2.delete(permanent=True, storage=True)
+    dataset.delete(permanent=True)
 
 
 def test_is_new_version_of_versioned_dataset():
@@ -290,9 +290,9 @@ def test_is_new_version_of_versioned_dataset():
 
     # test that reference dataset cannot be deleted
     with pytest.raises(ProtectedError):
-        dataset.delete(storage=True)
-    dataset_v2.delete(storage=True)
-    dataset.delete(storage=True)
+        dataset.delete(permanent=True, storage=True)
+    dataset_v2.delete(permanent=True, storage=True)
+    dataset.delete(permanent=True, storage=True)
 
 
 def test_is_new_version_of_unversioned_dataset():
@@ -316,7 +316,7 @@ def test_is_new_version_of_unversioned_dataset():
     assert new_dataset.version == "2"
     assert new_dataset.name == dataset.name
 
-    dataset.delete(storage=True)
+    dataset.delete(permanent=True, storage=True)
 
 
 def test_dataset_from_storage():
@@ -326,4 +326,4 @@ def test_dataset_from_storage():
     dataset = ln.Dataset(path, name="My test dataset")
     assert dataset.path.name == "random_storage"
     dataset.save()
-    dataset.delete()
+    dataset.delete(permanent=True)

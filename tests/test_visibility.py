@@ -25,13 +25,13 @@ def test_file_visibility():
     result = ln.Dataset.filter(description="test-visibility", visibility=None).all()
     assert len(result) == 1
 
-    # delete a file
-    result = ln.File.filter(description="test-visibility").all()
-    assert len(result) == 0
-    result = ln.File.filter(description="test-visibility", visibility=None).all()
-    assert len(result) == 1
+    # restore
+    dataset.restore()
+    assert dataset.visibility == 0
+    assert dataset.file.visibility == 0
 
-    # delete a dataset from trash
-    dataset.delete(force=True)
+    # permanent delete
+    dataset.delete(permanent=True)
     result = ln.File.filter(description="test-visibility", visibility=None).all()
+    # also permanently deleted linked file
     assert len(result) == 0

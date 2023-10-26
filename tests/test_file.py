@@ -150,9 +150,9 @@ def test_is_new_version_of_versioned_file():
 
     # test that reference file cannot be deleted
     with pytest.raises(ProtectedError):
-        file.delete(storage=True)
-    file_v2.delete(storage=True)
-    file.delete(storage=True)
+        file.delete(permanent=True, storage=True)
+    file_v2.delete(permanent=True, storage=True)
+    file.delete(permanent=True, storage=True)
 
     # extra kwargs
     with pytest.raises(ValueError):
@@ -187,7 +187,7 @@ def test_is_new_version_of_unversioned_file():
     assert new_file.version == "2"
     assert new_file.description == file.description
 
-    file.delete(storage=True)
+    file.delete(permanent=True, storage=True)
 
 
 # also test legacy name parameter (got removed by description)
@@ -203,7 +203,7 @@ def test_create_from_dataframe():
         file.backed()
     # check that the local filepath has been cleared
     assert not hasattr(file, "_local_filepath")
-    file.delete(storage=True)
+    file.delete(permanent=True, storage=True)
 
 
 def test_create_from_dataframe_using_from_df():
@@ -232,7 +232,7 @@ def test_create_from_dataframe_using_from_df():
     feature_list_queried = [feature.name for feature in feature_list_queried]
     assert set(feature_list_queried) == set(df.columns)
     feature_set_queried.delete()
-    file.delete(storage=True)
+    file.delete(permanent=True, storage=True)
     ln.Feature.filter(name__in=["feat1", "feat2"]).delete()
 
 
@@ -257,7 +257,7 @@ def test_create_from_anndata_in_memory():
     feature_sets_queried.delete()
     features_queried.delete()
     genes_queried.delete()
-    file.delete(storage=True)
+    file.delete(permanent=True, storage=True)
 
 
 @pytest.mark.parametrize(
@@ -350,7 +350,7 @@ def test_create_from_local_filepath(get_test_filepaths, key, description):
 
     # only delete from storage if a file copy took place
     delete_from_storage = str(test_filepath.resolve()) != str(file.path)
-    file.delete(storage=delete_from_storage)
+    file.delete(permanent=True, storage=delete_from_storage)
 
 
 def test_local_path_load():
@@ -399,7 +399,7 @@ def test_from_dir(get_test_filepaths, key):
     assert len(files) == 2
     assert len(set(hashes)) == len(hashes)
     for file in files:
-        file.delete(storage=False)
+        file.delete(permanent=True, storage=False)
 
 
 def test_delete(get_test_filepaths):
@@ -407,7 +407,7 @@ def test_delete(get_test_filepaths):
     file = ln.File(test_filepath, description="My test file to delete")
     file.save()
     storage_path = file.path
-    file.delete(storage=True)
+    file.delete(permanent=True, storage=True)
     assert ln.File.filter(description="My test file to delete").first() is None
     assert not Path(storage_path).exists()
 
@@ -447,7 +447,7 @@ def test_create_small_file_from_remote_path(
         "-",
         "-",
     ]
-    file.delete(storage=False)
+    file.delete(permanent=True, storage=False)
     ln.settings.upon_file_create_skip_size_hash = False
 
 
@@ -632,7 +632,7 @@ def test_file_zarr():
         == "RuntimeError: zarr object can't be staged, please use load() or stream()"
     )  # noqa
     file.save()
-    file.delete(storage=False)
+    file.delete(permanent=True, storage=False)
     UPath("test.zarr").unlink()
 
 
@@ -651,7 +651,7 @@ def test_zarr_folder_upload():
 
     assert isinstance(file.path, CloudPath) and file.path.exists()
 
-    file.delete(storage=True)
+    file.delete(permanent=True, storage=True)
     delete_storage(zarr_path)
     ln.settings.storage = previous_storage
 
