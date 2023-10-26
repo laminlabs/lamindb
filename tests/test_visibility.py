@@ -16,13 +16,11 @@ def test_file_visibility():
     # delete a dataset will put both dataset and linked file in trash
     dataset.delete()
     assert dataset.file.visibility == 2
-    result = ln.Dataset.filter(description="test-visibility").all()
+    result = ln.Dataset.filter(name="test-visibility").all()
     assert len(result) == 0
-    result = ln.Dataset.filter(
-        description="test-visibility", visibility="default"
-    ).all()
+    result = ln.Dataset.filter(name="test-visibility", visibility="default").all()
     assert len(result) == 0
-    result = ln.Dataset.filter(description="test-visibility", visibility=None).all()
+    result = ln.Dataset.filter(name="test-visibility", visibility=None).all()
     assert len(result) == 1
 
     # restore
