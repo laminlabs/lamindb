@@ -64,7 +64,7 @@ def __init__(
     )
     version: Optional[str] = kwargs.pop("version") if "version" in kwargs else None
     visibility: Optional[int] = (
-        kwargs.pop("visibility") if "visibility" in kwargs else None
+        kwargs.pop("visibility") if "visibility" in kwargs else 0
     )
     feature_sets: Dict[str, FeatureSet] = (
         kwargs.pop("feature_sets") if "feature_sets" in kwargs else {}
