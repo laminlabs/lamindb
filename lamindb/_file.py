@@ -179,6 +179,7 @@ def get_hash(
         hash, hash_type = hash_file(filepath)
     if not check_hash:
         return hash, hash_type
+    # we ignore datasets in trash containing the same hash
     result = File.filter(hash=hash).list()
     if len(result) > 0:
         if settings.upon_file_create_if_hash_exists == "error":
@@ -454,6 +455,9 @@ def __init__(file: File, *args, **kwargs):
         kwargs.pop("initial_version_id") if "initial_version_id" in kwargs else None
     )
     version: Optional[str] = kwargs.pop("version") if "version" in kwargs else None
+    visibility: Optional[int] = (
+        kwargs.pop("visibility") if "visibility" in kwargs else 0
+    )
     format = kwargs.pop("format") if "format" in kwargs else None
     log_hint = kwargs.pop("log_hint") if "log_hint" in kwargs else True
     skip_check_exists = (
@@ -462,8 +466,8 @@ def __init__(file: File, *args, **kwargs):
 
     if not len(kwargs) == 0:
         raise ValueError(
-            "Only data, key, run, description, version, is_new_version_of can be"
-            f" passed, you passed: {kwargs}"
+            "Only data, key, run, description, version, is_new_version_of, visibility"
+            f" can be passed, you passed: {kwargs}"
         )
 
     if is_new_version_of is None:
@@ -523,6 +527,7 @@ def __init__(file: File, *args, **kwargs):
     kwargs["initial_version_id"] = initial_version_id
     kwargs["version"] = version
     kwargs["description"] = description
+    kwargs["visibility"] = visibility
     # this check needs to come down here because key might be populated from an
     # existing file path during get_file_kwargs_from_data()
     if (
@@ -820,23 +825,49 @@ def stage(self, is_run_input: Optional[bool] = None) -> Path:
 
 
 # docstring handled through attach_func_to_class_method
-def delete(self, storage: Optional[bool] = None) -> None:
-    if storage is None:
-        response = input(f"Are you sure you want to delete {self} from storage? (y/n)")
-        delete_in_storage = response == "y"
+def delete(
+    self, permanent: Optional[bool] = None, storage: Optional[bool] = None
+) -> None:
+    # change visibility to 2 (trash)
+    if self.visibility < 2 and permanent is not True:
+        self.visibility = 2
+        self.save()
+        return
+
+    # if the file is already in the trash
+    # permanent delete skips the trash
+    if permanent is None:
+        response = input(
+            "File record is already in trash! Are you sure to delete it from your"
+            " database? (y/n) You can't undo this action."
+        )
+        delete_record = response == "y"
     else:
-        delete_in_storage = storage
+        delete_record = permanent
 
     # need to grab file path before deletion
     filepath = self.path
+
     # only delete in storage if DB delete is successful
     # DB delete might error because of a foreign key constraint violated etc.
-    self._delete_skip_storage()
-    # we don't yet have any way to bring back the deleted metadata record
-    # in case the storage deletion fails - this is important for ACID down the road
-    if delete_in_storage:
-        delete_storage(filepath)
-        logger.success(f"deleted stored object {colors.yellow(f'{filepath}')}")
+    if delete_record:
+        self._delete_skip_storage()
+        if self.key is None:
+            delete_in_storage = True
+        else:
+            if storage is None:
+                response = input(
+                    f"Are you sure to delete {filepath}? (y/n)  You can't undo this"
+                    " action."
+                )
+                delete_in_storage = response == "y"
+            else:
+                delete_in_storage = storage
+        # we don't yet have any way to bring back the deleted metadata record
+        # in case storage deletion fails - this is important for ACID down the road
+        if delete_in_storage:
+            delete_storage(filepath)
+            logger.success(f"deleted {colors.yellow(f'{filepath}')}")
 
 
 def _delete_skip_storage(file, *args, **kwargs) -> None:
@@ -961,6 +992,12 @@ def view_tree(
     )
 
 
+# docstring handled through attach_func_to_class_method
+def restore(self) -> None:
+    self.visibility = 0
+    self.save()
+
+
 METHOD_NAMES = [
     "__init__",
     "from_anndata",
@@ -973,6 +1010,7 @@ METHOD_NAMES = [
     "replace",
     "from_dir",
     "view_tree",
+    "restore",
 ]
 
 if _TESTING:

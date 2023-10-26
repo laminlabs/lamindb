@@ -92,7 +92,7 @@ def test_feature_from_df():
     ) == set(["cond1", "cond2"])
     for feature in features:
         feature.delete()
-    file.delete(storage=True)
+    file.delete(permanent=True, storage=True)
 
 
 def test_feature_init():
