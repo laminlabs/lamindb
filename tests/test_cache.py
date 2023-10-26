@@ -36,7 +36,7 @@ def test_local_cache():
     assert file.path.exists()
     assert not temp_path.exists()
 
-    file.delete(storage=True)
+    file.delete(permanent=True, storage=True)
 
 
 def test_cloud_cache(switch_storage):
@@ -61,7 +61,7 @@ def test_cloud_cache(switch_storage):
     assert cache_path.exists()
     assert cloud_path.modified.timestamp() < cache_path.stat().st_mtime
 
-    file.delete(storage=True)
+    file.delete(permanent=True, storage=True)
 
     # test cache for saving an on-disk object
     file = ln.File(test_file, key="test_cache.h5ad")
@@ -72,4 +72,4 @@ def test_cloud_cache(switch_storage):
     assert test_file.stat().st_mtime < cache_path.stat().st_mtime
     assert cloud_path.modified.timestamp() < cache_path.stat().st_mtime
 
-    file.delete(storage=True)
+    file.delete(permanent=True, storage=True)

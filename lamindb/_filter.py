@@ -52,8 +52,8 @@ def filter(Registry: Type[Registry], using: str = None, **expressions) -> QueryS
             if expressions["visibility"] is None:
                 expressions.pop("visibility")
             elif expressions["visibility"] == "default":
+                expressions.pop("visibility")
                 expressions["visibility__lt"] = 2
-
     qs = QuerySet(model=Registry, using=using)
     if len(expressions) > 0:
         return qs.filter(**expressions)
