@@ -454,6 +454,9 @@ def __init__(file: File, *args, **kwargs):
         kwargs.pop("initial_version_id") if "initial_version_id" in kwargs else None
     )
     version: Optional[str] = kwargs.pop("version") if "version" in kwargs else None
+    visibility: Optional[int] = (
+        kwargs.pop("visibility") if "visibility" in kwargs else None
+    )
     format = kwargs.pop("format") if "format" in kwargs else None
     log_hint = kwargs.pop("log_hint") if "log_hint" in kwargs else True
     skip_check_exists = (
@@ -462,8 +465,8 @@ def __init__(file: File, *args, **kwargs):
 
     if not len(kwargs) == 0:
         raise ValueError(
-            "Only data, key, run, description, version, is_new_version_of can be"
-            f" passed, you passed: {kwargs}"
+            "Only data, key, run, description, version, is_new_version_of, visibility"
+            f" can be passed, you passed: {kwargs}"
         )
 
     if is_new_version_of is None:
@@ -523,6 +526,7 @@ def __init__(file: File, *args, **kwargs):
     kwargs["initial_version_id"] = initial_version_id
     kwargs["version"] = version
     kwargs["description"] = description
+    kwargs["visibility"] = visibility
     # this check needs to come down here because key might be populated from an
     # existing file path during get_file_kwargs_from_data()
     if (

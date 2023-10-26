@@ -63,12 +63,15 @@ def __init__(
         kwargs.pop("initial_version_id") if "initial_version_id" in kwargs else None
     )
     version: Optional[str] = kwargs.pop("version") if "version" in kwargs else None
+    visibility: Optional[int] = (
+        kwargs.pop("visibility") if "visibility" in kwargs else None
+    )
     feature_sets: Dict[str, FeatureSet] = (
         kwargs.pop("feature_sets") if "feature_sets" in kwargs else {}
     )
     if not len(kwargs) == 0:
         raise ValueError(
-            f"Only data, name, run, description, reference, reference_type can be passed, you passed: {kwargs}"  # noqa
+            f"Only data, name, run, description, reference, reference_type, visibility can be passed, you passed: {kwargs}"  # noqa
         )
 
     if is_new_version_of is None:
@@ -169,6 +172,7 @@ def __init__(
             run=run,
             version=version,
             initial_version_id=initial_version_id,
+            visibility=visibility,
             **kwargs,
         )
     dataset._files = files
