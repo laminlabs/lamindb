@@ -356,6 +356,7 @@ def using(
     cls,
     instance: str,
 ) -> QuerySet:
+    """{}"""
     owner, name = get_owner_name_from_identifier(instance)
     load_result = load_instance(owner=owner, name=name)
     if isinstance(load_result, str):
