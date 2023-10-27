@@ -46,14 +46,14 @@ def filter(Registry: Type[Registry], using: str = None, **expressions) -> QueryS
     if Registry.__name__ in {"File", "Dataset"}:
         # visibility is set to <2 by default
         if not any([e.startswith("visibility") for e in expressions]):
-            expressions["visibility__lt"] = 2
+            expressions["visibility__lt"] = 1
         # if visibility is None, will not apply any filter for visibility
         elif "visibility" in expressions:
             if expressions["visibility"] is None:
                 expressions.pop("visibility")
             elif expressions["visibility"] == "default":
                 expressions.pop("visibility")
-                expressions["visibility__lt"] = 2
+                expressions["visibility__lt"] = 1
     qs = QuerySet(model=Registry, using=using)
     if len(expressions) > 0:
         return qs.filter(**expressions)
