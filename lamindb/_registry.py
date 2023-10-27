@@ -328,7 +328,7 @@ def get_default_str_field(
 
 
 def _queryset(cls: Union[Registry, QuerySet, Manager]) -> QuerySet:
-    queryset = cls.all() if isinstance(cls, QuerySet) else cls.all()
+    queryset = cls.all() if isinstance(cls, QuerySet) else cls.objects.all()
     return queryset
 
 
