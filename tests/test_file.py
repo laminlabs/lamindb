@@ -87,6 +87,10 @@ def get_test_filepaths(request):  # -> Tuple[bool, Path, Path, Path, str]
         # ensure that it's actually registered
         if ln.Storage.filter(root=root_dir.resolve().as_posix()).one_or_none() is None:
             ln.Storage(root=root_dir.resolve().as_posix(), type="local").save()
+    else:
+        assert (
+            ln.Storage.filter(root=root_dir.resolve().as_posix()).one_or_none() is None
+        )
     test_dir = root_dir / "my_dir/"
     test_dir.mkdir(parents=True)
     test_filepath = test_dir / f"my_file{suffix}"
@@ -208,7 +212,7 @@ def test_create_from_dataframe():
 
 def test_create_from_dataframe_using_from_df():
     description = "my description"
-    file = ln.File.from_df(df, description=description)
+    file = ln.File.from_df(df, key="folder/hello.parquet", description=description)
     assert file._feature_sets == {}
     with pytest.raises(ValueError):
         file.features["columns"]
@@ -223,6 +227,9 @@ def test_create_from_dataframe_using_from_df():
     assert file.key is None
     assert file.accessor == "DataFrame"
     assert hasattr(file, "_local_filepath")
+    assert file.key == "folder/hello.parquet"
+    assert file.key_is_virtual
+    assert file.uid in file.path.to_posix()
     file.save()
     # check that the local filepath has been cleared
     assert not hasattr(file, "_local_filepath")
@@ -284,14 +291,18 @@ def test_create_from_anndata_in_storage(data):
 
 
 # this tests the basic (non-provenance-related) metadata
+@pytest.mark.parametrize("key_is_virtual", [True, False])
 @pytest.mark.parametrize("key", [None, "my_new_dir/my_file.csv", "nosuffix"])
 @pytest.mark.parametrize("description", [None, "my description"])
-def test_create_from_local_filepath(get_test_filepaths, key, description):
+def test_create_from_local_filepath(
+    get_test_filepaths, key_is_virtual, key, description
+):
+    ln.settings.file_use_virtual_keys = key_is_virtual
     isin_existing_storage = get_test_filepaths[0]
     root_dir = get_test_filepaths[1]
     test_filepath = get_test_filepaths[3]
     suffix = get_test_filepaths[4]
-    # this test insufficient information being provided
+    # this tests if insufficient information is being provided
     if key is None and not isin_existing_storage and description is None:
         # this can fail because ln.track() might set a global run context
         # in that case, the File would have a run that's not None and the
@@ -327,6 +338,7 @@ def test_create_from_local_filepath(get_test_filepaths, key, description):
         else file.description == description
     )
     assert file.suffix == suffix
+
     if key is None:
         assert (
             file.key == f"my_dir/my_file{suffix}"
@@ -335,15 +347,32 @@ def test_create_from_local_filepath(get_test_filepaths, key, description):
         )
         if isin_existing_storage:
             assert file.storage.root == root_dir.resolve().as_posix()
+            assert file.path == test_filepath.resolve()
         else:
             assert file.storage.root == lamindb_setup.settings.storage.root_as_str
+            assert (
+                file.path
+                == lamindb_setup.settings.storage.root / f".lamindb/{file.uid}.{suffix}"
+            )
     else:
         assert file.key == key
-        assert file.storage.root == lamindb_setup.settings.storage.root_as_str
-
-    # test that the file didn't move
-    if isin_existing_storage and key is None:
-        assert str(test_filepath.resolve()) == str(file.path)
+        assert file.key_is_virtual == key_is_virtual
+        if isin_existing_storage:
+            # this would only hit if the key matches the correct key
+            assert file.storage.root == root_dir.resolve().as_posix()
+            assert file.path == root_dir / f"{key}{suffix}" == test_filepath.resolve()
+        else:
+            # file is moved into default storage
+            if key_is_virtual:
+                assert (
+                    file.path
+                    == lamindb_setup.settings.storage.root
+                    / f".lamindb/{file.uid}.{suffix}"
+                )
+            else:
+                assert (
+                    file.path == lamindb_setup.settings.storage.root / f"{key}{suffix}"
+                )
 
     file.save()
     assert file.path.exists()
@@ -351,6 +380,7 @@ def test_create_from_local_filepath(get_test_filepaths, key, description):
     # only delete from storage if a file copy took place
     delete_from_storage = str(test_filepath.resolve()) != str(file.path)
     file.delete(permanent=True, storage=delete_from_storage)
+    ln.settings.file_use_virtual_keys = True
 
 
 def test_local_path_load():
