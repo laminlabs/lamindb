@@ -18,7 +18,7 @@ def test_file_visibility():
     assert dataset.file.visibility == 2
     result = ln.Dataset.filter(name="test-visibility").all()
     assert len(result) == 0
-    result = ln.Dataset.filter(name="test-visibility", visibility="default").all()
+    result = ln.Dataset.filter(name="test-visibility", visibility=0).all()
     assert len(result) == 0
     result = ln.Dataset.filter(name="test-visibility", visibility=None).all()
     assert len(result) == 1
