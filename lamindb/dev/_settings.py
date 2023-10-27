@@ -58,6 +58,11 @@ class Settings:
     """
     silence_file_run_transform_warning: bool = False
     """Silence warning about missing run & transform during file creation."""
+    file_use_virtual_keys: bool = True
+    """The `key` parameter in :class:`~lamindb.File` is treated as a virtual storage key.
+
+    If `True`, the `key` is **not** used to construct file paths.
+    """
 
     @property
     def storage(self) -> Union[Path, UPath]:

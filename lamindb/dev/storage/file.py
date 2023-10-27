@@ -90,7 +90,7 @@ def extract_suffix_from_path(
 
 # add type annotations back asap when re-organizing the module
 def auto_storage_key_from_file(file: File):
-    if file.key is None:
+    if file.key is None or file.key_is_virtual:
         return auto_storage_key_from_id_suffix(file.uid, file.suffix)
     else:
         return file.key
