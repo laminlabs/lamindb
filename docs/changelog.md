@@ -1,5 +1,6 @@
 # Changelog
 
+- 🚸 Only show visible files in view_parents [PR1263](https://github.com/laminlabs/lamindb/pull/1263) [@sunnyosun](https://github.com/sunnyosun)
 
 ```{eval-rst}
 .. role:: small
