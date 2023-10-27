@@ -275,10 +275,9 @@ def lookup(
     cls,
     field: Optional[StrField] = None,
     return_field: Optional[StrField] = None,
-    **expressions,
 ) -> NamedTuple:
     """{}"""
-    return _lookup(cls=cls, field=field, return_field=return_field, **expressions)
+    return _lookup(cls=cls, field=field, return_field=return_field)
 
 
 def get_default_str_field(
