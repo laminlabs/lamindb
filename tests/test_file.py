@@ -339,6 +339,9 @@ def test_create_from_local_filepath(
     )
     assert file.suffix == suffix
 
+    file.save()
+    assert file.path.exists()
+
     if key is None:
         assert (
             file.key == f"my_dir/my_file{suffix}"
@@ -352,7 +355,7 @@ def test_create_from_local_filepath(
             assert file.storage.root == lamindb_setup.settings.storage.root_as_str
             assert (
                 file.path
-                == lamindb_setup.settings.storage.root / f".lamindb/{file.uid}.{suffix}"
+                == lamindb_setup.settings.storage.root / f".lamindb/{file.uid}{suffix}"
             )
     else:
         assert file.key == key
@@ -367,15 +370,10 @@ def test_create_from_local_filepath(
                 assert (
                     file.path
                     == lamindb_setup.settings.storage.root
-                    / f".lamindb/{file.uid}.{suffix}"
+                    / f".lamindb/{file.uid}{suffix}"
                 )
             else:
-                assert (
-                    file.path == lamindb_setup.settings.storage.root / f"{key}{suffix}"
-                )
-
-    file.save()
-    assert file.path.exists()
+                assert file.path == lamindb_setup.settings.storage.root / key
 
     # only delete from storage if a file copy took place
     delete_from_storage = str(test_filepath.resolve()) != str(file.path)
