@@ -220,7 +220,12 @@ def test_create_from_dataframe_using_from_df():
     file = ln.File.from_df(df, description=description)
     ln.Modality(name="random").save()
     modalities = ln.Modality.lookup()
-    file = ln.File.from_df(df, description=description, modality=modalities.random)
+    file = ln.File.from_df(
+        df,
+        key="folder/hello.parquet",
+        description=description,
+        modality=modalities.random,
+    )
     # mere access test right now
     file.features["columns"]
     assert file.description == description
