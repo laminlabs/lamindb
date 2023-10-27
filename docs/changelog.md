@@ -1,5 +1,6 @@
 # Changelog
 
+- ♻️ Turn `using` into a `Registry` method [PR1259](https://github.com/laminlabs/lamindb/pull/1259) [@falexwolf](https://github.com/falexwolf)
 ```{eval-rst}
 .. role:: small
 ```
