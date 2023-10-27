@@ -1,14 +1,20 @@
 import builtins
 from typing import Iterable, List, NamedTuple, Optional, Union
+from uuid import UUID
 
+import dj_database_url
 import lamindb_setup as ln_setup
 import pandas as pd
 from django.core.exceptions import FieldDoesNotExist
+from django.db import connections
 from django.db.models import Manager, QuerySet
 from lamin_utils import logger
 from lamin_utils._lookup import Lookup
 from lamin_utils._search import search as base_search
+from lamindb_setup._init_instance import InstanceSettings
+from lamindb_setup._load_instance import get_owner_name_from_identifier
 from lamindb_setup.dev._docs import doc_args
+from lamindb_setup.dev._hub_core import load_instance
 from lnschema_core import Registry
 from lnschema_core.types import ListLike, StrField
 
@@ -147,9 +153,8 @@ def _search(
     return_queryset: bool = False,
     case_sensitive: bool = False,
     synonyms_field: Optional[StrField] = "synonyms",
-    **expressions,
 ) -> Union["pd.DataFrame", "QuerySet"]:
-    queryset = _queryset(cls, **expressions)
+    queryset = _queryset(cls)
     orm = queryset.model
 
     def _search_single_field(
@@ -230,7 +235,6 @@ def search(
     return_queryset: bool = False,
     case_sensitive: bool = False,
     synonyms_field: Optional[StrField] = "synonyms",
-    **expressions,
 ) -> Union["pd.DataFrame", "QuerySet"]:
     """{}"""
     return _search(
@@ -241,7 +245,6 @@ def search(
         limit=limit,
         case_sensitive=case_sensitive,
         synonyms_field=synonyms_field,
-        **expressions,
     )
 
 
@@ -249,10 +252,9 @@ def _lookup(
     cls,
     field: Optional[StrField] = None,
     return_field: Optional[StrField] = None,
-    **expressions,
 ) -> NamedTuple:
     """{}"""
-    queryset = _queryset(cls, **expressions)
+    queryset = _queryset(cls)
     field = get_default_str_field(orm=queryset.model, field=field)
 
     return Lookup(
@@ -273,10 +275,9 @@ def lookup(
     cls,
     field: Optional[StrField] = None,
     return_field: Optional[StrField] = None,
-    **expressions,
 ) -> NamedTuple:
     """{}"""
-    return _lookup(cls=cls, field=field, return_field=return_field, **expressions)
+    return _lookup(cls=cls, field=field, return_field=return_field)
 
 
 def get_default_str_field(
@@ -325,13 +326,46 @@ def get_default_str_field(
     return field
 
 
-def _queryset(cls: Union[Registry, QuerySet, Manager], **expressions) -> QuerySet:
-    queryset = (
-        cls.filter(**expressions).all()
-        if isinstance(cls, QuerySet)
-        else cls.filter(**expressions).all()
-    )
+def _queryset(cls: Union[Registry, QuerySet, Manager]) -> QuerySet:
+    queryset = cls.all() if isinstance(cls, QuerySet) else cls.objects.all()
     return queryset
+
+
+def add_db_connection(isettings: InstanceSettings, using: str):
+    db_config = dj_database_url.config(
+        default=isettings.db, conn_max_age=600, conn_health_checks=True
+    )
+    db_config["TIME_ZONE"] = "UTC"
+    db_config["OPTIONS"] = {}
+    db_config["AUTOCOMMIT"] = True
+    connections.settings[using] = db_config
+
+
+@classmethod  # type: ignore
+@doc_args(Registry.using.__doc__)
+def using(
+    cls,
+    instance: str,
+) -> "QuerySet":
+    """{}"""
+    owner, name = get_owner_name_from_identifier(instance)
+    load_result = load_instance(owner=owner, name=name)
+    if isinstance(load_result, str):
+        raise RuntimeError(
+            f"Fail to load instance {instance}, please check your permission!"
+        )
+    instance_result, storage_result = load_result
+    isettings = InstanceSettings(
+        owner=owner,
+        name=name,
+        storage_root=storage_result["root"],
+        storage_region=storage_result["region"],
+        db=instance_result["db"],
+        schema=instance_result["schema_str"],
+        id=UUID(instance_result["id"]),
+    )
+    add_db_connection(isettings, instance)
+    return QuerySet(model=cls, using=instance)
 
 
 REGISTRY_UNIQUE_FIELD = {
@@ -435,6 +469,7 @@ METHOD_NAMES = [
     "lookup",
     "save",
     "from_values",
+    "using",
 ]
 
 if _TESTING:  # type: ignore
