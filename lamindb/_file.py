@@ -354,6 +354,14 @@ def get_file_kwargs_from_data(
         suffix=suffix,
     )
 
+    # do we use a virtual or an actual storage key?
+    key_is_virtual = settings.file_use_virtual_keys
+
+    # if the file is already in storage, independent of the default
+    # we use an actual storage key
+    if check_path_in_storage:
+        key_is_virtual = False
+
     kwargs = dict(
         suffix=suffix,
         hash=hash,
@@ -366,6 +374,7 @@ def get_file_kwargs_from_data(
         # after object creation
         run_id=run.id if run is not None else None,
         run=run,
+        key_is_virtual=key_is_virtual,
     )
     privates = dict(
         local_filepath=local_filepath,

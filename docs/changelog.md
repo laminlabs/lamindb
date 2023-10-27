@@ -1,9 +1,17 @@
 # Changelog
 
-- ♻️ Turn `using` into a `Registry` method [PR1259](https://github.com/laminlabs/lamindb/pull/1259) [@falexwolf](https://github.com/falexwolf)
+
 ```{eval-rst}
 .. role:: small
 ```
+
+## 0.59
+
+### 0.59.0 {small}`2023-10-27`
+
+- 🚸 Introduce virtual keys [PR1262](https://github.com/laminlabs/lamindb/pull/1262) [@falexwolf](https://github.com/falexwolf)
+- ♻️ Refactor visibility [PR1261](https://github.com/laminlabs/lamindb/pull/1261) [@falexwolf](https://github.com/falexwolf)
+- ♻️ Turn `using` into a `Registry` method [PR1259](https://github.com/laminlabs/lamindb/pull/1259) [@falexwolf](https://github.com/falexwolf)
 
 ## 0.58
 
