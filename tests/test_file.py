@@ -229,12 +229,11 @@ def test_create_from_dataframe_using_from_df():
     # mere access test right now
     file.features["columns"]
     assert file.description == description
-    assert file.key is None
     assert file.accessor == "DataFrame"
     assert hasattr(file, "_local_filepath")
     assert file.key == "folder/hello.parquet"
     assert file.key_is_virtual
-    assert file.uid in file.path.to_posix()
+    assert file.uid in file.path.as_posix()
     file.save()
     # check that the local filepath has been cleared
     assert not hasattr(file, "_local_filepath")
