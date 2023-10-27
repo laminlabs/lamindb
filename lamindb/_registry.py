@@ -153,9 +153,8 @@ def _search(
     return_queryset: bool = False,
     case_sensitive: bool = False,
     synonyms_field: Optional[StrField] = "synonyms",
-    **expressions,
 ) -> Union["pd.DataFrame", "QuerySet"]:
-    queryset = _queryset(cls, **expressions)
+    queryset = _queryset(cls)
     orm = queryset.model
 
     def _search_single_field(
@@ -236,7 +235,6 @@ def search(
     return_queryset: bool = False,
     case_sensitive: bool = False,
     synonyms_field: Optional[StrField] = "synonyms",
-    **expressions,
 ) -> Union["pd.DataFrame", "QuerySet"]:
     """{}"""
     return _search(
@@ -247,7 +245,6 @@ def search(
         limit=limit,
         case_sensitive=case_sensitive,
         synonyms_field=synonyms_field,
-        **expressions,
     )
 
 
@@ -255,10 +252,9 @@ def _lookup(
     cls,
     field: Optional[StrField] = None,
     return_field: Optional[StrField] = None,
-    **expressions,
 ) -> NamedTuple:
     """{}"""
-    queryset = _queryset(cls, **expressions)
+    queryset = _queryset(cls)
     field = get_default_str_field(orm=queryset.model, field=field)
 
     return Lookup(
@@ -331,12 +327,8 @@ def get_default_str_field(
     return field
 
 
-def _queryset(cls: Union[Registry, QuerySet, Manager], **expressions) -> QuerySet:
-    queryset = (
-        cls.filter(**expressions).all()
-        if isinstance(cls, QuerySet)
-        else cls.filter(**expressions).all()
-    )
+def _queryset(cls: Union[Registry, QuerySet, Manager]) -> QuerySet:
+    queryset = cls.all() if isinstance(cls, QuerySet) else cls.all()
     return queryset
 
 
@@ -361,7 +353,7 @@ def using(
     load_result = load_instance(owner=owner, name=name)
     if isinstance(load_result, str):
         raise RuntimeError(
-            f"Fail to load instance {using}, please check your permission!"
+            f"Fail to load instance {instance}, please check your permission!"
         )
     instance_result, storage_result = load_result
     isettings = InstanceSettings(
@@ -373,8 +365,8 @@ def using(
         schema=instance_result["schema_str"],
         id=UUID(instance_result["id"]),
     )
-    add_db_connection(isettings, using)
-    return QuerySet(model=cls, using=using)
+    add_db_connection(isettings, instance)
+    return QuerySet(model=cls, using=instance)
 
 
 REGISTRY_UNIQUE_FIELD = {
