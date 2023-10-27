@@ -346,7 +346,7 @@ def add_db_connection(isettings: InstanceSettings, using: str):
 def using(
     cls,
     instance: str,
-) -> QuerySet:
+) -> "QuerySet":
     """{}"""
     owner, name = get_owner_name_from_identifier(instance)
     load_result = load_instance(owner=owner, name=name)
