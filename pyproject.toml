@@ -80,8 +80,5 @@ dev = [
     "faker-biology",
 ]
 
-[project.scripts]
-lamin = "lamindb_setup.__main__:main"
-
 [tool.black]
 preview = true

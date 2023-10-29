@@ -21,6 +21,7 @@ jobs:
           - "biology"
           - "faq"
           - "storage"
+          - "cli"
     timeout-minutes: 10
 
     steps:

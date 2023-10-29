@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import Literal, Mapping, Tuple, Union
+from typing import Dict, Literal, Mapping, Tuple, Union
 
 import lamindb_setup as ln_setup
 from lamin_utils import logger
@@ -13,6 +13,9 @@ VERBOSITY_TO_INT = {
     "hint": 4,  # 15
     "debug": 5,  # 10
 }
+VERBOSITY_TO_STR: Dict[int, str] = dict(
+    [reversed(i) for i in VERBOSITY_TO_INT.items()]  # type: ignore
+)
 
 
 class Settings:
@@ -95,19 +98,19 @@ class Settings:
         ln_setup.set.storage(path, **kwargs)
 
     @property
-    def verbosity(self) -> int:
-        """Verbosity (default 1 / 'warning').
+    def verbosity(self) -> str:
+        """Logger verbosity (default 'warning').
 
-        - 0: ❌ only show 'error' messages
-        - 1: ❗ also show 'warning' messages
-        - 2: ✅ also show 'success' and 'save' messages
-        - 3: 💡 also show 'info' messages
-        - 4: 💡 also show 'hint' messages
-        - 5: 🐛 also show detailed 'debug' messages
+        - 'error': ❌ only show error messages
+        - 'warning': ❗ also show warning messages
+        - 'success': ✅ also show success and save messages
+        - 'info': 💡 also show info messages
+        - 'hint': 💡 also show hint messages
+        - 'debug': 🐛 also show detailed debug messages
 
         This is based on Scanpy's and Django's verbosity setting.
         """
-        return self._verbosity
+        return VERBOSITY_TO_STR[self._verbosity_int]
 
     @verbosity.setter
     def verbosity(self, verbosity: Union[str, int]):
@@ -115,7 +118,7 @@ class Settings:
             verbosity_int = VERBOSITY_TO_INT[verbosity]
         else:
             verbosity_int = verbosity
-        self._verbosity = verbosity_int
+        self._verbosity_int = verbosity_int
         logger.set_verbosity(verbosity_int)
 
 
