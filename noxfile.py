@@ -153,7 +153,7 @@ def docs(session):
                         # replace the "nox" command with the "lamin" command
                         help_string = subparser.format_help().replace("nox", "lamin")
                         page += f"## `lamin {command}`\n\n```\n{help_string}```\n\n"
-        Path("./docs/lamin.md").write_text(page)
+        Path("./docs/cli.md").write_text(page)
 
     from lamin_cli import __main__
 

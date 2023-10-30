@@ -7,7 +7,7 @@
 :caption: CLI
 :hidden:
 
-lamin
+cli
 ```
 
 ```{toctree}
