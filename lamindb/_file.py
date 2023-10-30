@@ -1056,3 +1056,5 @@ for name in METHOD_NAMES:
 File._delete_skip_storage = _delete_skip_storage
 File._save_skip_storage = _save_skip_storage
 setattr(File, "path", path)
+# this seems a Django-generated function
+delattr(File, "get_visibility_display")
