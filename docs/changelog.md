@@ -1,5 +1,6 @@
 # Changelog
 
+- 🔈 Prettify delete logging [PR1267](https://github.com/laminlabs/lamindb/pull/1267) [@falexwolf](https://github.com/falexwolf)
 - 🚚 Move `lamin-cli` to git submodule [PR1266](https://github.com/laminlabs/lamindb/pull/1266) [@falexwolf](https://github.com/falexwolf)
 - 🚚 Move CLI from lamindb-setup here [PR1264](https://github.com/laminlabs/lamindb/pull/1264) [@falexwolf](https://github.com/falexwolf)
 - ✨ Change replace to work with virtual keys [PR1265](https://github.com/laminlabs/lamindb/pull/1265) [@Koncopd](https://github.com/Koncopd)
