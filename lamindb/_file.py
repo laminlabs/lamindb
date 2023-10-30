@@ -755,7 +755,16 @@ def replace(
         run=run,
         format=format,
     )
-    if self.key is not None:
+
+    # this file already exists
+    if privates is None:
+        return kwargs
+
+    check_path_in_storage = privates["check_path_in_storage"]
+    if check_path_in_storage:
+        raise ValueError("Can only replace with a local file not in any Storage.")
+
+    if self.key is not None and not self.key_is_virtual:
         key_path = PurePosixPath(self.key)
         new_filename = f"{key_path.stem}{kwargs['suffix']}"
         # the following will only be true if the suffix changes!
@@ -767,24 +776,26 @@ def replace(
                 f" and delete '{key_path}' upon `save()`"
             )
     else:
-        self.key = kwargs["key"]
         old_storage = auto_storage_key_from_file(self)
-        new_storage = (
-            self.key if self.key is not None else f"{self.uid}{kwargs['suffix']}"
-        )
+        new_storage = auto_storage_key_from_id_suffix(self.uid, kwargs["suffix"])
         if old_storage != new_storage:
             self._clear_storagekey = old_storage
+            if self.key is not None:
+                new_key_path = PurePosixPath(self.key).with_suffix(kwargs["suffix"])
+                self.key = str(new_key_path)
 
     self.suffix = kwargs["suffix"]
     self.size = kwargs["size"]
     self.hash = kwargs["hash"]
+    self.hash_type = kwargs["hash_type"]
+    self.run_id = kwargs["run_id"]
     self.run = kwargs["run"]
+
     self._local_filepath = privates["local_filepath"]
     self._cloud_filepath = privates["cloud_filepath"]
     self._memory_rep = privates["memory_rep"]
-    self._to_store = not privates[
-        "check_path_in_storage"
-    ]  # no need to upload if new file is already in storage
+    # no need to upload if new file is already in storage
+    self._to_store = not check_path_in_storage
 
 
 # docstring handled through attach_func_to_class_method
