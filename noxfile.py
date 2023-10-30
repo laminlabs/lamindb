@@ -129,5 +129,21 @@ def docs(session):
                 path.rename(f"./docs/{path.name}")
     login_testuser1(session)
     session.run(*"lamin init --storage ./docsbuild --schema bionty".split())
+
+    def generate_cli_docs(main_parser):
+        for action_group in main_parser._action_groups:
+            for group_action in action_group._group_actions:
+                if type(group_action).__name__ == "_SubParsersAction":
+                    for name, subparser in group_action.choices.items():
+                        if name in {"init-vault", "cache", "register"}:
+                            continue
+                        filepath = Path("./docs/lamin/{name}.md")
+                        filepath.write_text("# {name}")
+                        filepath.write_text(subparser.format_help())
+
+    from lamin_cli import __main__
+
+    generate_cli_docs(__main__.parser)
+
     build_docs(session, strip_prefix=True, strict=True)
     upload_docs_artifact(aws=True)
