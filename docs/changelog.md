@@ -1,5 +1,6 @@
 # Changelog
 
+- 📝 Do not expose `get_visibility_display` [PR1269](https://github.com/laminlabs/lamindb/pull/1269) [@falexwolf](https://github.com/falexwolf)
 - 📝 Document the CLI [PR1268](https://github.com/laminlabs/lamindb/pull/1268) [@falexwolf](https://github.com/falexwolf)
 - 🔈 Prettify delete logging [PR1267](https://github.com/laminlabs/lamindb/pull/1267) [@falexwolf](https://github.com/falexwolf)
 - 🚚 Move `lamin-cli` to git submodule [PR1266](https://github.com/laminlabs/lamindb/pull/1266) [@falexwolf](https://github.com/falexwolf)
