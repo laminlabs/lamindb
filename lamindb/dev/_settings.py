@@ -26,8 +26,8 @@ class Settings:
     """
 
     def __init__(self):
-        self._verbosity: int = 1  # success-level logging
-        logger.set_verbosity(self._verbosity)
+        self._verbosity_int: int = 1  # success-level logging
+        logger.set_verbosity(self._verbosity_int)
 
     upon_file_create_if_hash_exists: Literal[
         "warn_return_existing", "error", "warn_create_new"
