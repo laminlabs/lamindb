@@ -61,9 +61,7 @@ def test_save_non_consecutive():
 
 
 def test_save_consecutive():
-    notebook_path = Path.cwd() / Path(
-        "tests/notebooks/test-notebooks/with-title-and-initialized-consecutive.ipynb"
-    )
+    notebook_path = Path(f"{notebook_dir}/with-title-and-initialized-consecutive.ipynb")
     env = os.environ
     env["LAMIN_TESTING"] = "true"
 
