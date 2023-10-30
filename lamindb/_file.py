@@ -849,8 +849,11 @@ def stage(self, is_run_input: Optional[bool] = None) -> Path:
 def delete(
     self, permanent: Optional[bool] = None, storage: Optional[bool] = None
 ) -> None:
-    # change visibility to 2 (trash)
+    # by default, we only move files into the trash
     if self.visibility < 2 and permanent is not True:
+        if storage is not None:
+            logger.warning("moving file to trash, storage arg is ignored")
+        # change visibility to 2 (trash)
         self.visibility = 2
         self.save()
         return
@@ -859,32 +862,35 @@ def delete(
     # permanent delete skips the trash
     if permanent is None:
         response = input(
-            "File record is already in trash! Are you sure to delete it from your"
-            " database? (y/n) You can't undo this action."
+            "File record is already in trash! Are you sure you want to permanently"
+            " delete it? (y/n) You can't undo this action."
         )
         delete_record = response == "y"
     else:
         delete_record = permanent
 
-    # need to grab file path before deletion
-    filepath = self.path
-
-    # only delete in storage if DB delete is successful
-    # DB delete might error because of a foreign key constraint violated etc.
     if delete_record:
+        # need to grab file path before deletion
+        filepath = self.path
+        # only delete in storage if DB delete is successful
+        # DB delete might error because of a foreign key constraint violated etc.
         self._delete_skip_storage()
-        if self.key is None:
+        if self.key is None or self.key_is_virtual:
             delete_in_storage = True
+            if storage is not None:
+                logger.warning("storage arg is ignored if storage key is non-semantic")
         else:
+            # for files with non-virtual semantic storage keys (key is not None)
+            # ask for extra-confirmation
             if storage is None:
                 response = input(
-                    f"Are you sure to delete {filepath}? (y/n)  You can't undo this"
-                    " action."
+                    f"Are you sure to want to delete {filepath}? (y/n)  You can't undo"
+                    " this action."
                 )
                 delete_in_storage = response == "y"
             else:
                 delete_in_storage = storage
-        # we don't yet have any way to bring back the deleted metadata record
+        # we don't yet have logic to bring back the deleted metadata record
         # in case storage deletion fails - this is important for ACID down the road
         if delete_in_storage:
             delete_storage(filepath)
