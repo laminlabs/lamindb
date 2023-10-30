@@ -4,6 +4,14 @@
 
 ```{toctree}
 :maxdepth: 1
+:caption: CLI
+:hidden:
+
+lamin
+```
+
+```{toctree}
+:maxdepth: 1
 :caption: Core API
 :hidden:
 
