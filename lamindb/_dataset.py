@@ -444,3 +444,5 @@ for name in METHOD_NAMES:
     attach_func_to_class_method(name, Dataset, globals())
 
 setattr(Dataset, "path", path)
+# this seems a Django-generated function
+delattr(Dataset, "get_visibility_display")
