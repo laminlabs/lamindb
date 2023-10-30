@@ -50,6 +50,7 @@ def install(session, group):
             [
                 "./sub/lamindb-setup",
                 "./sub/lnschema-core",
+                "./sub/lamin-cli",
             ]
         )
         session.run(*f"pip install --no-deps {submodules}".split())
