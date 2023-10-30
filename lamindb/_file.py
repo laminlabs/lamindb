@@ -692,8 +692,9 @@ def from_dir(
 
     # silence fine-grained logging
     verbosity = settings.verbosity
-    if verbosity >= 1:
-        settings.verbosity = 1  # just warnings
+    verbosity_int = settings._verbosity_int
+    if verbosity_int >= 1:
+        settings.verbosity = "warning"
     files_dict = {}
     for filepath in folderpath.rglob(pattern):
         if filepath.is_file():

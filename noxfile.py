@@ -40,7 +40,7 @@ def lint(session: nox.Session) -> None:
 @nox.session
 @nox.parametrize(
     "group",
-    ["unit", "tutorial", "guide", "biology", "faq", "storage", "docs"],
+    ["unit", "tutorial", "guide", "biology", "faq", "storage", "docs", "cli"],
 )
 def install(session, group):
     # run with pypi install on main
@@ -50,6 +50,7 @@ def install(session, group):
             [
                 "./sub/lamindb-setup",
                 "./sub/lnschema-core",
+                "./sub/lamin-cli",
             ]
         )
         session.run(*f"pip install --no-deps {submodules}".split())
@@ -69,6 +70,8 @@ def install(session, group):
         extras += "aws,zarr"
     elif group == "docs":
         extras += "bionty"
+    elif group == "cli":
+        extras += "jupyter"
     if os.getenv("GITHUB_EVENT_NAME") != "push":
         if "bionty" in extras:
             session.run(*"pip install --no-deps ./sub/lnschema-bionty".split())
@@ -78,7 +81,7 @@ def install(session, group):
 @nox.session
 @nox.parametrize(
     "group",
-    ["unit", "tutorial", "guide", "biology", "faq", "storage"],
+    ["unit", "tutorial", "guide", "biology", "faq", "storage", "cli"],
 )
 def build(session, group):
     login_testuser2(session)
@@ -102,6 +105,8 @@ def build(session, group):
         session.run(*f"pytest -s {coverage_args} ./docs/faq".split())
     elif group == "storage":
         session.run(*f"pytest -s {coverage_args} ./docs/storage".split())
+    elif group == "cli":
+        session.run(*f"pytest {coverage_args} ./sub/lamin-cli/tests".split())
     # move artifacts into right place
     if group in {"tutorial", "guide", "biology"}:
         target_dir = Path(f"./docs/{group}")
