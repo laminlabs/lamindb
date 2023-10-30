@@ -250,11 +250,11 @@ def main():
         if args.action == "view":
             return view()
     elif args.command == "track":
-        from lamindb_setup._notebook import track
+        from lamin_cli._notebook import track
 
         track(args.filepath, args.pypackage)
     elif args.command == "save":
-        from lamindb_setup._notebook import save
+        from lamin_cli._notebook import save
 
         return save(args.filepath)
     elif args.command == "cache":
