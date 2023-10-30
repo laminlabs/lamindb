@@ -7,3 +7,6 @@
 [submodule "sub/lnschema-bionty"]
 	path = sub/lnschema-bionty
 	url = https://github.com/laminlabs/lnschema-bionty
+[submodule "sub/lamin-cli"]
+	path = sub/lamin-cli
+	url = https://github.com/laminlabs/lamin-cli
