@@ -4,7 +4,7 @@ from pathlib import Path
 
 import nbproject_test
 
-notebook_dir = "./sub/lamin-cli/notebooks/"
+notebook_dir = "./sub/lamin-cli/tests/notebooks/"
 
 
 def test_track_not_initialized():
