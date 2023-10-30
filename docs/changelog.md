@@ -1,5 +1,6 @@
 # Changelog
 
+- 🚚 Move CLI from lamindb-setup here [PR1264](https://github.com/laminlabs/lamindb/pull/1264) [@falexwolf](https://github.com/falexwolf)
 - ✨ Change replace to work with virtual keys [PR1265](https://github.com/laminlabs/lamindb/pull/1265) [@Koncopd](https://github.com/Koncopd)
 - 🚸 Only show visible files in view_parents [PR1263](https://github.com/laminlabs/lamindb/pull/1263) [@sunnyosun](https://github.com/sunnyosun)
 
