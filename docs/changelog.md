@@ -1,5 +1,6 @@
 # Changelog
 
+- 📝 Add note on features vs labels in tutorial 2 [PR1271](https://github.com/laminlabs/lamindb/pull/1271) [@bpenteado](https://github.com/bpenteado)
 - 🔊 More consistent timezone display [PR1270](https://github.com/laminlabs/lamindb/pull/1270) [@falexwolf](https://github.com/falexwolf)
 - 📝 Do not expose `get_visibility_display` [PR1269](https://github.com/laminlabs/lamindb/pull/1269) [@falexwolf](https://github.com/falexwolf)
 - 📝 Document the CLI [PR1268](https://github.com/laminlabs/lamindb/pull/1268) [@falexwolf](https://github.com/falexwolf)
