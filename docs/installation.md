@@ -28,3 +28,5 @@ postgres  # postgres tools
 # others
 erdiagram # visualize ER diagrams, also needs graphviz
 ```
+
+If you'd like a docker container, here is a way: [github.com/laminlabs/lamindb-docker](https://github.com/laminlabs/lamindb-docker).

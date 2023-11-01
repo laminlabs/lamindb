@@ -4,7 +4,11 @@ An account is free & [signing up](https://lamin.ai/signup) takes 1 min.
 
 ```{note}
 
-Lamin does _not_ store or see any of your data, but only _basic_ metadata about you (email address, etc.) & your LaminDB instances (S3 bucket names, etc.): see the [open-source client](https://github.com/laminlabs/lamindb-setup) & the [privacy policy](https://lamin.ai/legal/privacy-policy).
+Lamin does _not_ store or see any of your data, but only _basic_ metadata about you (email address, etc.).
+
+If you register a LaminDB instance on LaminHub, Lamin only stores the storage location (AWS S3 or GCP bucket names, directory names).
+
+For more, see our guide on [access management & security](docs:access), [the source code](https://github.com/laminlabs/lamindb-setup), or the [privacy policy](https://lamin.ai/legal/privacy-policy).
 
 ```
 
