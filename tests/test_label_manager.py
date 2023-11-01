@@ -15,8 +15,8 @@ def get_test_files():
     file2 = ln.File("./default_storage/test-inherit2")
     file2.save()
     yield file1, file2
-    file1.delete(storage=True)
-    file2.delete(storage=True)
+    file1.delete(permanent=True, storage=True)
+    file2.delete(permanent=True, storage=True)
 
 
 # also see test_feature_manager!

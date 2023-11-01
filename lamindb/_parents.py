@@ -314,13 +314,17 @@ def _get_all_parent_runs(data: Union[File, Dataset]) -> List:
     while len(runs) > 0:
         inputs = []
         for r in runs:
-            inputs_run = r.__getattribute__(f"input_{name}s").list()
+            inputs_run = (
+                r.__getattribute__(f"input_{name}s").all().filter(visibility=0).list()
+            )
             if name == "file":
-                inputs_run += r.input_datasets.list()
+                inputs_run += r.input_datasets.all().filter(visibility=0).list()
             run_inputs_outputs += [(inputs_run, r)]
-            outputs_run = r.__getattribute__(f"output_{name}s").list()
+            outputs_run = (
+                r.__getattribute__(f"output_{name}s").all().filter(visibility=0).list()
+            )
             if name == "file":
-                outputs_run += r.output_datasets.list()
+                outputs_run += r.output_datasets.all().filter(visibility=0).list()
             run_inputs_outputs += [(r, outputs_run)]
             inputs += inputs_run
         runs = [f.run for f in inputs if f.run is not None]
@@ -335,18 +339,24 @@ def _get_all_child_runs(data: Union[File, Dataset]) -> List:
 
     runs = {f.run for f in data.run.__getattribute__(f"output_{name}s").all()}
     if name == "file":
-        runs.update({f.run for f in data.run.output_datasets.all()})
+        runs.update(
+            {f.run for f in data.run.output_datasets.all().filter(visibility=0).all()}
+        )
     while runs.difference(all_runs):
         all_runs.update(runs)
         child_runs: Set[Run] = set()
         for r in runs:
-            inputs_run = r.__getattribute__(f"input_{name}s").list()
+            inputs_run = (
+                r.__getattribute__(f"input_{name}s").all().filter(visibility=0).list()
+            )
             if name == "file":
-                inputs_run += r.input_datasets.list()
+                inputs_run += r.input_datasets.all().filter(visibility=0).list()
             run_inputs_outputs += [(inputs_run, r)]
-            outputs_run = r.__getattribute__(f"output_{name}s").list()
+            outputs_run = (
+                r.__getattribute__(f"output_{name}s").all().filter(visibility=0).list()
+            )
             if name == "file":
-                outputs_run += r.output_datasets.list()
+                outputs_run += r.output_datasets.all().filter(visibility=0).list()
             run_inputs_outputs += [(r, outputs_run)]
             child_runs.update(
                 Run.filter(

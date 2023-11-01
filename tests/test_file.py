@@ -34,7 +34,7 @@ from lamindb.dev.storage.file import (
 # currently, we're only mocking it through `default_storage` as
 # set in conftest.py
 
-ln.settings.verbosity = 3
+ln.settings.verbosity = "success"
 lb.settings.organism = "human"
 
 df = pd.DataFrame({"feat1": [1, 2], "feat2": [3, 4]})
@@ -87,6 +87,10 @@ def get_test_filepaths(request):  # -> Tuple[bool, Path, Path, Path, str]
         # ensure that it's actually registered
         if ln.Storage.filter(root=root_dir.resolve().as_posix()).one_or_none() is None:
             ln.Storage(root=root_dir.resolve().as_posix(), type="local").save()
+    else:
+        assert (
+            ln.Storage.filter(root=root_dir.resolve().as_posix()).one_or_none() is None
+        )
     test_dir = root_dir / "my_dir/"
     test_dir.mkdir(parents=True)
     test_filepath = test_dir / f"my_file{suffix}"
@@ -150,9 +154,9 @@ def test_is_new_version_of_versioned_file():
 
     # test that reference file cannot be deleted
     with pytest.raises(ProtectedError):
-        file.delete(storage=True)
-    file_v2.delete(storage=True)
-    file.delete(storage=True)
+        file.delete(permanent=True, storage=True)
+    file_v2.delete(permanent=True, storage=True)
+    file.delete(permanent=True, storage=True)
 
     # extra kwargs
     with pytest.raises(ValueError):
@@ -187,7 +191,7 @@ def test_is_new_version_of_unversioned_file():
     assert new_file.version == "2"
     assert new_file.description == file.description
 
-    file.delete(storage=True)
+    file.delete(permanent=True, storage=True)
 
 
 # also test legacy name parameter (got removed by description)
@@ -203,12 +207,12 @@ def test_create_from_dataframe():
         file.backed()
     # check that the local filepath has been cleared
     assert not hasattr(file, "_local_filepath")
-    file.delete(storage=True)
+    file.delete(permanent=True, storage=True)
 
 
 def test_create_from_dataframe_using_from_df():
     description = "my description"
-    file = ln.File.from_df(df, description=description)
+    file = ln.File.from_df(df, key="folder/hello.parquet", description=description)
     assert file._feature_sets == {}
     with pytest.raises(ValueError):
         file.features["columns"]
@@ -216,13 +220,20 @@ def test_create_from_dataframe_using_from_df():
     file = ln.File.from_df(df, description=description)
     ln.Modality(name="random").save()
     modalities = ln.Modality.lookup()
-    file = ln.File.from_df(df, description=description, modality=modalities.random)
+    file = ln.File.from_df(
+        df,
+        key="folder/hello.parquet",
+        description=description,
+        modality=modalities.random,
+    )
     # mere access test right now
     file.features["columns"]
     assert file.description == description
-    assert file.key is None
     assert file.accessor == "DataFrame"
     assert hasattr(file, "_local_filepath")
+    assert file.key == "folder/hello.parquet"
+    assert file.key_is_virtual
+    assert file.uid in file.path.as_posix()
     file.save()
     # check that the local filepath has been cleared
     assert not hasattr(file, "_local_filepath")
@@ -232,7 +243,7 @@ def test_create_from_dataframe_using_from_df():
     feature_list_queried = [feature.name for feature in feature_list_queried]
     assert set(feature_list_queried) == set(df.columns)
     feature_set_queried.delete()
-    file.delete(storage=True)
+    file.delete(permanent=True, storage=True)
     ln.Feature.filter(name__in=["feat1", "feat2"]).delete()
 
 
@@ -257,7 +268,7 @@ def test_create_from_anndata_in_memory():
     feature_sets_queried.delete()
     features_queried.delete()
     genes_queried.delete()
-    file.delete(storage=True)
+    file.delete(permanent=True, storage=True)
 
 
 @pytest.mark.parametrize(
@@ -284,14 +295,18 @@ def test_create_from_anndata_in_storage(data):
 
 
 # this tests the basic (non-provenance-related) metadata
+@pytest.mark.parametrize("key_is_virtual", [True, False])
 @pytest.mark.parametrize("key", [None, "my_new_dir/my_file.csv", "nosuffix"])
 @pytest.mark.parametrize("description", [None, "my description"])
-def test_create_from_local_filepath(get_test_filepaths, key, description):
+def test_create_from_local_filepath(
+    get_test_filepaths, key_is_virtual, key, description
+):
+    ln.settings.file_use_virtual_keys = key_is_virtual
     isin_existing_storage = get_test_filepaths[0]
     root_dir = get_test_filepaths[1]
     test_filepath = get_test_filepaths[3]
     suffix = get_test_filepaths[4]
-    # this test insufficient information being provided
+    # this tests if insufficient information is being provided
     if key is None and not isin_existing_storage and description is None:
         # this can fail because ln.track() might set a global run context
         # in that case, the File would have a run that's not None and the
@@ -327,6 +342,10 @@ def test_create_from_local_filepath(get_test_filepaths, key, description):
         else file.description == description
     )
     assert file.suffix == suffix
+
+    file.save()
+    assert file.path.exists()
+
     if key is None:
         assert (
             file.key == f"my_dir/my_file{suffix}"
@@ -335,22 +354,35 @@ def test_create_from_local_filepath(get_test_filepaths, key, description):
         )
         if isin_existing_storage:
             assert file.storage.root == root_dir.resolve().as_posix()
+            assert file.path == test_filepath.resolve()
         else:
             assert file.storage.root == lamindb_setup.settings.storage.root_as_str
+            assert (
+                file.path
+                == lamindb_setup.settings.storage.root / f".lamindb/{file.uid}{suffix}"
+            )
     else:
         assert file.key == key
-        assert file.storage.root == lamindb_setup.settings.storage.root_as_str
-
-    # test that the file didn't move
-    if isin_existing_storage and key is None:
-        assert str(test_filepath.resolve()) == str(file.path)
-
-    file.save()
-    assert file.path.exists()
+        assert file.key_is_virtual == key_is_virtual
+        if isin_existing_storage:
+            # this would only hit if the key matches the correct key
+            assert file.storage.root == root_dir.resolve().as_posix()
+            assert file.path == root_dir / f"{key}{suffix}" == test_filepath.resolve()
+        else:
+            # file is moved into default storage
+            if key_is_virtual:
+                assert (
+                    file.path
+                    == lamindb_setup.settings.storage.root
+                    / f".lamindb/{file.uid}{suffix}"
+                )
+            else:
+                assert file.path == lamindb_setup.settings.storage.root / key
 
     # only delete from storage if a file copy took place
     delete_from_storage = str(test_filepath.resolve()) != str(file.path)
-    file.delete(storage=delete_from_storage)
+    file.delete(permanent=True, storage=delete_from_storage)
+    ln.settings.file_use_virtual_keys = True
 
 
 def test_local_path_load():
@@ -399,7 +431,7 @@ def test_from_dir(get_test_filepaths, key):
     assert len(files) == 2
     assert len(set(hashes)) == len(hashes)
     for file in files:
-        file.delete(storage=False)
+        file.delete(permanent=True, storage=False)
 
 
 def test_delete(get_test_filepaths):
@@ -407,7 +439,7 @@ def test_delete(get_test_filepaths):
     file = ln.File(test_filepath, description="My test file to delete")
     file.save()
     storage_path = file.path
-    file.delete(storage=True)
+    file.delete(permanent=True, storage=True)
     assert ln.File.filter(description="My test file to delete").first() is None
     assert not Path(storage_path).exists()
 
@@ -447,7 +479,7 @@ def test_create_small_file_from_remote_path(
         "-",
         "-",
     ]
-    file.delete(storage=False)
+    file.delete(permanent=True, storage=False)
     ln.settings.upon_file_create_skip_size_hash = False
 
 
@@ -632,7 +664,7 @@ def test_file_zarr():
         == "RuntimeError: zarr object can't be staged, please use load() or stream()"
     )  # noqa
     file.save()
-    file.delete(storage=False)
+    file.delete(permanent=True, storage=False)
     UPath("test.zarr").unlink()
 
 
@@ -651,7 +683,7 @@ def test_zarr_folder_upload():
 
     assert isinstance(file.path, CloudPath) and file.path.exists()
 
-    file.delete(storage=True)
+    file.delete(permanent=True, storage=True)
     delete_storage(zarr_path)
     ln.settings.storage = previous_storage
 

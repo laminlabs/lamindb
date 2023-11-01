@@ -1,14 +1,40 @@
 # Changelog
 
-- 💄 Prettify storage logging [PR1252](https://github.com/laminlabs/lamindb/pull/1252) [@falexwolf](https://github.com/falexwolf)
--  💄 Prettify validator & validation guide [PR1251](https://github.com/laminlabs/lamindb/pull/1251) [@falexwolf](https://github.com/falexwolf)
-- ♻️ Use file.uid instead of file.id in dataset.load() [PR1250](https://github.com/laminlabs/lamindb/pull/1250) [@falexwolf](https://github.com/falexwolf)
+- 📝 Add note on features vs labels in tutorial 2 [PR1271](https://github.com/laminlabs/lamindb/pull/1271) [@bpenteado](https://github.com/bpenteado)
+- 🔊 More consistent timezone display [PR1270](https://github.com/laminlabs/lamindb/pull/1270) [@falexwolf](https://github.com/falexwolf)
+- 📝 Do not expose `get_visibility_display` [PR1269](https://github.com/laminlabs/lamindb/pull/1269) [@falexwolf](https://github.com/falexwolf)
+- 📝 Document the CLI [PR1268](https://github.com/laminlabs/lamindb/pull/1268) [@falexwolf](https://github.com/falexwolf)
+- 🔈 Prettify delete logging [PR1267](https://github.com/laminlabs/lamindb/pull/1267) [@falexwolf](https://github.com/falexwolf)
+- 🚚 Move `lamin-cli` to git submodule [PR1266](https://github.com/laminlabs/lamindb/pull/1266) [@falexwolf](https://github.com/falexwolf)
+- 🚚 Move CLI from lamindb-setup here [PR1264](https://github.com/laminlabs/lamindb/pull/1264) [@falexwolf](https://github.com/falexwolf)
+- ✨ Change replace to work with virtual keys [PR1265](https://github.com/laminlabs/lamindb/pull/1265) [@Koncopd](https://github.com/Koncopd)
+- 🚸 Only show visible files in view_parents [PR1263](https://github.com/laminlabs/lamindb/pull/1263) [@sunnyosun](https://github.com/sunnyosun)
 
 ```{eval-rst}
 .. role:: small
 ```
 
+## 0.59
+
+### 0.59.0 {small}`2023-10-27`
+
+- 🚸 Introduce virtual keys [PR1262](https://github.com/laminlabs/lamindb/pull/1262) [@falexwolf](https://github.com/falexwolf)
+- ♻️ Refactor visibility [PR1261](https://github.com/laminlabs/lamindb/pull/1261) [@falexwolf](https://github.com/falexwolf)
+- ♻️ Turn `using` into a `Registry` method [PR1259](https://github.com/laminlabs/lamindb/pull/1259) [@falexwolf](https://github.com/falexwolf)
+
 ## 0.58
+
+### 0.58.2 {small}`2023-10-26`
+
+- 👷 Enable to read db from env variable [PR1258](https://github.com/laminlabs/lamindb/pull/1258) [@falexwolf](https://github.com/falexwolf)
+
+### 0.58.1 {small}`2023-10-26`
+
+- 🔒️ Re-enable read-only access for public instances [PR1257](https://github.com/laminlabs/lamindb/pull/1257) [@falexwolf](https://github.com/falexwolf)
+- ✨ Introduce `visibility` to `File` and `Dataset` [PR1254](https://github.com/laminlabs/lamindb/pull/1254) [@sunnyosun](https://github.com/sunnyosun)
+- 🔒️ Enable to pass DB URLs during load [PR1256](https://github.com/laminlabs/lamindb/pull/1256) [@falexwolf](https://github.com/falexwolf)
+- ✨ Enable passing filter expressions to lookup and search [PR1255](https://github.com/laminlabs/lamindb/pull/1255) [@sunnyosun](https://github.com/sunnyosun)
+- ♻️ Use `file.uid` instead of `file.id` in `dataset.load()` [PR1250](https://github.com/laminlabs/lamindb/pull/1250) [@falexwolf](https://github.com/falexwolf)
 
 ### 0.58.0 {small}`2023-10-24`
 

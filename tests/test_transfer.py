@@ -11,10 +11,13 @@ def test_transfer():
     lb.settings.organism = "human"
 
     # transfer 1st file
-    file = ln.File.filter(
-        using="laminlabs/cellxgene-census",
-        description__icontains="tabula sapiens - lung",
-    ).one()
+    file = (
+        ln.File.using("laminlabs/cellxgene-census")
+        .filter(
+            description__icontains="tabula sapiens - lung",
+        )
+        .one()
+    )
 
     id_remote = file.id
     run_remote = file.run
@@ -40,10 +43,13 @@ def test_transfer():
     ulabel.save()
 
     # transfer 2nd file
-    file2 = ln.File.filter(
-        using="laminlabs/cellxgene-census",
-        description__icontains="tabula sapiens - liver",
-    ).one()
+    file2 = (
+        ln.File.using("laminlabs/cellxgene-census")
+        .filter(
+            description__icontains="tabula sapiens - liver",
+        )
+        .one()
+    )
     file2.save()
 
     assert file2.organism.get(name="human") == lb.settings.organism
