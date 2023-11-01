@@ -1,5 +1,6 @@
 # Changelog
 
+- 📝 Reposition as data rather than Python framework [PR1273](https://github.com/laminlabs/lamindb/pull/1273) [@falexwolf](https://github.com/falexwolf)
 - 📝 Harmonize setup docs, access docs and CLI docs [PR1272](https://github.com/laminlabs/lamindb/pull/1272) [@falexwolf](https://github.com/falexwolf)
 - 📝 Add note on features vs labels in tutorial 2 [PR1271](https://github.com/laminlabs/lamindb/pull/1271) [@bpenteado](https://github.com/bpenteado)
 - 🔊 More consistent timezone display [PR1270](https://github.com/laminlabs/lamindb/pull/1270) [@falexwolf](https://github.com/falexwolf)
