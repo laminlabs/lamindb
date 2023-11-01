@@ -1,10 +1,10 @@
-By default, LaminHub neither hosts data nor metadata, but connects to storage locations & databases through LaminDB.
-
 Public demo instances to explore in the UI or load using the CLI via `lamin load owner/instance`:
 
 - [lamin.ai/laminlabs/lamindata](https://lamin.ai/laminlabs/lamindata) - Lamin's main demo instance
 - [lamin.ai/laminlabs/cellxgene-census](https://lamin.ai/laminlabs/cellxgene-census) - cellxgene-census ([guide](docs:cellxgene-census))
 - [lamin.ai/laminlabs/lamin-site-assets](https://lamin.ai/laminlabs/lamin-site-assets) - Lamin's website assets
+
+LaminHub neither hosts data nor metadata, but connects to distributed storage locations & databases through LaminDB.
 
 <p style="font-weight: bolder; margin-top: 1rem; margin-bottom: 0.5rem; background: transparent">See validated files & arrays in context of ontologies & experimental metadata.</p>
 

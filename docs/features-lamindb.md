@@ -31,15 +31,16 @@
 - Create & load instances like git repos: `lamin init` & `lamin load`
 - Zero-copy [transfer](/transfer) data across instances
 
-**Zero lock-in, scalable, access management, and more.**
+**Zero lock-in, scalable, auditable, access management, and more.**
 
 - Zero lock-in: LaminDB runs on generic backends server-side and is not a client for "Lamin Cloud"
   - Flexible storage backends (local, S3, GCP, anything [fsspec](https://github.com/fsspec) supports)
   - Currently two SQL backends for managing metadata: SQLite & Postgres
 - Scalable: metadata tables support 100s of millions of entries
-- Access management:
+- Auditable: data & metadata records are hashed, timestamped, and attributed to users (soon to come: LaminDB Log)
+- [Access](docs:access) management:
   - High-level access management through Lamin's collaborator roles
-  - Fine-grained access management via embedded storage & SQL roles
-- Secure: embedded in your infrastructure (Lamin has no access to your data & metadata)
+  - Fine-grained access management via storage & SQL roles (and soon to come: Lamin Vault)
+- [Secure](docs:access): embedded in your infrastructure (Lamin has no access to your data & metadata)
 - Tested & typed (up to Django Model fields)
 - [Idempotent](docs:faq/idempotency) & [ACID](docs:faq/acid) operations
