@@ -63,12 +63,15 @@ def __init__(
         kwargs.pop("initial_version_id") if "initial_version_id" in kwargs else None
     )
     version: Optional[str] = kwargs.pop("version") if "version" in kwargs else None
+    visibility: Optional[int] = (
+        kwargs.pop("visibility") if "visibility" in kwargs else 0
+    )
     feature_sets: Dict[str, FeatureSet] = (
         kwargs.pop("feature_sets") if "feature_sets" in kwargs else {}
     )
     if not len(kwargs) == 0:
         raise ValueError(
-            f"Only data, name, run, description, reference, reference_type can be passed, you passed: {kwargs}"  # noqa
+            f"Only data, name, run, description, reference, reference_type, visibility can be passed, you passed: {kwargs}"  # noqa
         )
 
     if is_new_version_of is None:
@@ -145,6 +148,7 @@ def __init__(
             hash, feature_sets = from_files(files)  # type: ignore
         else:
             raise ValueError("Only DataFrame, AnnData and iterable of File is allowed")
+    # we ignore datasets in trash containing the same hash
     existing_dataset = Dataset.filter(hash=hash).one_or_none()
     if existing_dataset is not None:
         logger.warning(f"returning existing dataset with same hash: {existing_dataset}")
@@ -169,6 +173,7 @@ def __init__(
             run=run,
             version=version,
             initial_version_id=initial_version_id,
+            visibility=visibility,
             **kwargs,
         )
     dataset._files = files
@@ -357,10 +362,32 @@ def load(
 
 
 # docstring handled through attach_func_to_class_method
-def delete(self, storage: Optional[bool] = None) -> None:
-    super(Dataset, self).delete()
+def delete(
+    self, permanent: Optional[bool] = None, storage: Optional[bool] = None
+) -> None:
+    # change visibility to 2 (trash)
+    if self.visibility < 2 and permanent is not True:
+        self.visibility = 2
+        self.save()
+        if self.file is not None:
+            self.file.visibility = 2
+            self.file.save()
+        return
+
+    # permanent delete
+    if permanent is None:
+        response = input(
+            "File record is already in trash! Are you sure to delete it from your"
+            " database? (y/n) You can't undo this action."
+        )
+        delete_record = response == "y"
+    else:
+        delete_record = permanent
+
+    if delete_record:
+        super(Dataset, self).delete()
     if self.file is not None:
-        self.file.delete(storage=storage)
+        self.file.delete(permanent=permanent, storage=storage)
 
 
 # docstring handled through attach_func_to_class_method
@@ -384,6 +411,15 @@ def path(self) -> Union[Path, UPath]:
     return self.storage.path
 
 
+# docstring handled through attach_func_to_class_method
+def restore(self) -> None:
+    self.visibility = 0
+    self.save()
+    if self.file is not None:
+        self.file.visibility = 0
+        self.file.save()
+
+
 METHOD_NAMES = [
     "__init__",
     "from_anndata",
@@ -392,6 +428,7 @@ METHOD_NAMES = [
     "load",
     "delete",
     "save",
+    "restore",
 ]
 
 if _TESTING:
@@ -407,3 +444,5 @@ for name in METHOD_NAMES:
     attach_func_to_class_method(name, Dataset, globals())
 
 setattr(Dataset, "path", path)
+# this seems a Django-generated function
+delattr(Dataset, "get_visibility_display")

@@ -12,4 +12,6 @@ faq/import-schema
 faq/reference-field
 faq/validator
 faq/key
+faq/visibility
+faq/delete
 ```

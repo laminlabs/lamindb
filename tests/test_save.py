@@ -27,7 +27,7 @@ def test_zarr_upload_data_object():
     file.suffix = ".zarr"
     file._memory_rep = ad.AnnData()
     file.save()
-    file.delete(storage=True)
+    file.delete(permanent=True, storage=True)
 
 
 def test_store_files_acid():

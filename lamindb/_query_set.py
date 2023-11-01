@@ -1,4 +1,3 @@
-from datetime import datetime
 from typing import Iterable, List, NamedTuple, Optional, Union
 
 import pandas as pd
@@ -16,10 +15,10 @@ class MultipleResultsFound(Exception):
     pass
 
 
-def format_and_convert_to_local_time(series: pd.Series):
-    tzinfo = datetime.now().astimezone().tzinfo
-    timedelta = tzinfo.utcoffset(datetime.now())  # type: ignore
-    return (series + timedelta).dt.strftime("%Y-%m-%d %H:%M:%S")
+# def format_and_convert_to_local_time(series: pd.Series):
+#     tzinfo = datetime.now().astimezone().tzinfo
+#     timedelta = tzinfo.utcoffset(datetime.now())  # type: ignore
+#     return (series + timedelta).dt.strftime("%Y-%m-%d %H:%M:%S %Z")
 
 
 class QuerySet(models.QuerySet):
@@ -89,10 +88,10 @@ class QuerySet(models.QuerySet):
                 if isinstance(field, models.ForeignKey)
             ]
         df = pd.DataFrame(self.values(), columns=keys)
-        if len(df) > 0 and "updated_at" in df:
-            df.updated_at = format_and_convert_to_local_time(df.updated_at)
-        if len(df) > 0 and "run_at" in df:
-            df.run_at = format_and_convert_to_local_time(df.run_at)
+        # if len(df) > 0 and "updated_at" in df:
+        #     df.updated_at = format_and_convert_to_local_time(df.updated_at)
+        # if len(df) > 0 and "run_at" in df:
+        #     df.run_at = format_and_convert_to_local_time(df.run_at)
         if "id" in df.columns:
             df = df.set_index("id")
         if len(df) == 0:
@@ -210,13 +209,11 @@ class QuerySet(models.QuerySet):
         return _search(cls=self, string=string, **kwargs)
 
     @doc_args(Registry.lookup.__doc__)
-    def lookup(
-        self, field: Optional[StrField] = None, return_field: Optional[StrField] = None
-    ) -> NamedTuple:
+    def lookup(self, field: Optional[StrField] = None, **kwargs) -> NamedTuple:
         """{}"""
         from ._registry import _lookup
 
-        return _lookup(cls=self, field=field, return_field=return_field)
+        return _lookup(cls=self, field=field, **kwargs)
 
     @doc_args(CanValidate.validate.__doc__)
     def validate(

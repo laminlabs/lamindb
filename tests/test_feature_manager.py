@@ -100,7 +100,7 @@ def test_labels_add():
     dataset.features._add_from(file)
     assert set(dataset.feature_sets.all()) == set(feature_sets)
 
-    dataset.delete(storage=True)
+    dataset.delete(permanent=True, storage=True)
     ln.Feature.filter().all().delete()
     ln.ULabel.filter().all().delete()
     ln.FeatureSet.filter().all().delete()
@@ -129,7 +129,7 @@ def test_add_labels_using_anndata():
         organism_feature.delete()
     file = ln.File.filter(description="Mini adata").one_or_none()
     if file is not None:
-        file.delete(storage=True)
+        file.delete(permanent=True, storage=True)
     ln.FeatureSet.filter().all().delete()
 
     # try to construct without registering metadata features
@@ -290,7 +290,7 @@ def test_add_labels_using_anndata():
 
     # clean up
     ln.Feature.filter(name="organism").one().delete()
-    ln.File.filter(description="Mini adata").one().delete(storage=True)
+    ln.File.filter(description="Mini adata").one().delete(permanent=True, storage=True)
     ln.FeatureSet.filter().all().delete()
     feature_name_feature.delete()
     lb.CellType.filter().all().delete()
@@ -314,6 +314,6 @@ def test_labels_get():
     assert str(file.features) == "no linked features"
     file.features.add_feature_set(feature_set, slot="random")
     assert file.feature_sets["random"] == feature_set
-    file.delete(storage=True)
+    file.delete(permanent=True, storage=True)
     feature_set.delete()
     feature_name_feature.delete()

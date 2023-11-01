@@ -99,7 +99,7 @@ def from_df(cls, df: "pd.DataFrame") -> List["Feature"]:
 
     # silence the info "loaded record with exact same name "
     verbosity = settings.verbosity
-    settings.verbosity = 1
+    settings.verbosity = "warning"
     # create records for all features including non-validated
     features = [Feature(name=name, type=type) for name, type in types.items()]
     settings.verbosity = verbosity

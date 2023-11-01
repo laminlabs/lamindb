@@ -45,8 +45,8 @@ repos:
       - id: nbstripout
         exclude: |
           (?x)(
-              docs/examples/|
-              docs/notes/
+              lamin-cli/|
+              tests
           )
   - repo: https://github.com/Lucas-C/pre-commit-hooks
     rev: v1.1.9
@@ -65,7 +65,8 @@ repos:
       - id: mypy
         exclude: |
           (?x)(
-              test_notebooks.py
+              test_notebooks.py|
+              sub/lamin-cli/tests/conftest.py
           )
   - repo: https://github.com/pycqa/pydocstyle
     rev: 6.2.3
@@ -73,4 +74,4 @@ repos:
       - id: pydocstyle
         exclude: lamindb/schema/dev/__init__.py
         args: # google style + __init__, see http://www.pydocstyle.org/en/stable/error_codes.html
-          - --ignore=D100,D101,D102,D103,D105,D106,D107,D203,D204,D205,D213,D214,D215,D400,D401,D403,D404,D406,D407,D408,D409,D412,D413,D415,D418,D104,D417
+          - --ignore=D100,D101,D102,D103,D105,D106,D107,D203,D204,D205,D213,D214,D215,D400,D401,D402,D403,D404,D406,D407,D408,D409,D412,D413,D415,D418,D104,D417
