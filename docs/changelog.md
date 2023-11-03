@@ -1,23 +1,15 @@
 # Changelog
 
-- 🐛 Pass is_consecutive to run when saving notebook [PR1274](https://github.com/laminlabs/lamindb/pull/1274) [@sunnyosun](https://github.com/sunnyosun)
-- 📝 Reposition as data rather than Python framework [PR1273](https://github.com/laminlabs/lamindb/pull/1273) [@falexwolf](https://github.com/falexwolf)
-- 📝 Harmonize setup docs, access docs and CLI docs [PR1272](https://github.com/laminlabs/lamindb/pull/1272) [@falexwolf](https://github.com/falexwolf)
-- 📝 Add note on features vs labels in tutorial 2 [PR1271](https://github.com/laminlabs/lamindb/pull/1271) [@bpenteado](https://github.com/bpenteado)
-- 🔊 More consistent timezone display [PR1270](https://github.com/laminlabs/lamindb/pull/1270) [@falexwolf](https://github.com/falexwolf)
-- 📝 Do not expose `get_visibility_display` [PR1269](https://github.com/laminlabs/lamindb/pull/1269) [@falexwolf](https://github.com/falexwolf)
-- 📝 Document the CLI [PR1268](https://github.com/laminlabs/lamindb/pull/1268) [@falexwolf](https://github.com/falexwolf)
-- 🔈 Prettify delete logging [PR1267](https://github.com/laminlabs/lamindb/pull/1267) [@falexwolf](https://github.com/falexwolf)
-- 🚚 Move `lamin-cli` to git submodule [PR1266](https://github.com/laminlabs/lamindb/pull/1266) [@falexwolf](https://github.com/falexwolf)
-- 🚚 Move CLI from lamindb-setup here [PR1264](https://github.com/laminlabs/lamindb/pull/1264) [@falexwolf](https://github.com/falexwolf)
-- ✨ Change replace to work with virtual keys [PR1265](https://github.com/laminlabs/lamindb/pull/1265) [@Koncopd](https://github.com/Koncopd)
-- 🚸 Only show visible files in view_parents [PR1263](https://github.com/laminlabs/lamindb/pull/1263) [@sunnyosun](https://github.com/sunnyosun)
-
 ```{eval-rst}
 .. role:: small
 ```
 
 ## 0.59
+
+### 0.59.1 {small}`2023-11-03`
+
+- ♻️ Move CLI from lamindb-setup here [PR1264](https://github.com/laminlabs/lamindb/pull/1264) [@falexwolf](https://github.com/falexwolf)
+- 🐛 `file.replace()` works with virtual keys [PR1265](https://github.com/laminlabs/lamindb/pull/1265) [@Koncopd](https://github.com/Koncopd)
 
 ### 0.59.0 {small}`2023-10-27`
 
