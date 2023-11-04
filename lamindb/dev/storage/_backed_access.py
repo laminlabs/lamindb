@@ -547,7 +547,7 @@ class AnnDataAccessorSubset(_AnnDataAttrsMixin):
         prepare_indices = None
         if self.indices is not None:
             oidx = self.indices[0]
-            if oidx != slice(None):
+            if isinstance(oidx, np.ndarray) or oidx != slice(None):
                 prepare_indices = oidx, slice(None)
         return AnnDataRawAccessor(
             self.storage["raw"],
