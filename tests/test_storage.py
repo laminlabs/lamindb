@@ -111,6 +111,7 @@ def test_backed_access(adata_format):
 
     idx = np.array([1, 2, 5])
     sub = access[idx]
+    assert sub.raw.shape == (3, 100)
     assert sub.to_memory().shape == (3, 200)
 
     var_sub = ["SSU72", "PARK7", "RBP7"]
