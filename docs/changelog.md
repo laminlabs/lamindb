@@ -1,17 +1,20 @@
 # Changelog
 
-- 🐛 Backed raw subset fix [PR1278](https://github.com/laminlabs/lamindb/pull/1278) [@Koncopd](https://github.com/Koncopd)
-- 🚸 Improve connection stability [PR1277](https://github.com/laminlabs/lamindb/pull/1277) [@falexwolf](https://github.com/falexwolf)
-- 🎨 Update search default scorer for multi words [PR1275](https://github.com/laminlabs/lamindb/pull/1275) [@sunnyosun](https://github.com/sunnyosun)
 ```{eval-rst}
 .. role:: small
 ```
 
 ## 0.59
 
+### 0.59.2 {small}`2023-11-04`
+
+- 🐛 Backed raw subset fix [PR1278](https://github.com/laminlabs/lamindb/pull/1278) [@Koncopd](https://github.com/Koncopd)
+- 🚸 Improve connection stability [PR1277](https://github.com/laminlabs/lamindb/pull/1277) [@falexwolf](https://github.com/falexwolf)
+- 🚸 Improve search [PR1275](https://github.com/laminlabs/lamindb/pull/1275) [@sunnyosun](https://github.com/sunnyosun)
+
 ### 0.59.1 {small}`2023-11-03`
 
-- ♻️ Move CLI from lamindb-setup here [PR1264](https://github.com/laminlabs/lamindb/pull/1264) [@falexwolf](https://github.com/falexwolf)
+- ♻️ Move CLI from `lamindb-setup` here [PR1264](https://github.com/laminlabs/lamindb/pull/1264) [@falexwolf](https://github.com/falexwolf)
 - 🐛 `file.replace()` works with virtual keys [PR1265](https://github.com/laminlabs/lamindb/pull/1265) [@Koncopd](https://github.com/Koncopd)
 
 ### 0.59.0 {small}`2023-10-27`
