@@ -1,5 +1,6 @@
 # Changelog
 
+- Search token [PR1279](https://github.com/laminlabs/lamindb/pull/1279) [@sunnyosun](https://github.com/sunnyosun)
 ```{eval-rst}
 .. role:: small
 ```
