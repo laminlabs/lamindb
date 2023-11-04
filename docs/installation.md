@@ -14,8 +14,8 @@ Supported `extras` are:
 
 ```yaml
 # commonly used
-jupyter   # parse Jupyter notebooks
-bionty    # manage basic biological entities
+jupyter   # parse Jupyter notebook metadata
+bionty    # access basic biological ontologies
 # cloud backends
 aws       # AWS (s3fs, etc.)
 gcp       # Google Cloud (gcfs, etc.)
@@ -23,8 +23,6 @@ gcp       # Google Cloud (gcfs, etc.)
 fcs       # manage FCS files (flow cytometry)
 # storage backends
 zarr      # store & stream arrays with zarr
-# database backends
-postgres  # postgres tools
 # others
 erdiagram # visualize ER diagrams, also needs graphviz
 ```

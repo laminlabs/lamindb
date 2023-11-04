@@ -547,7 +547,7 @@ class AnnDataAccessorSubset(_AnnDataAttrsMixin):
         prepare_indices = None
         if self.indices is not None:
             oidx = self.indices[0]
-            if oidx != slice(None):
+            if isinstance(oidx, np.ndarray) or oidx != slice(None):
                 prepare_indices = oidx, slice(None)
         return AnnDataRawAccessor(
             self.storage["raw"],
@@ -575,7 +575,7 @@ class AnnDataRawAccessor(AnnDataAccessorSubset):
 
         if attrs_keys is None:
             attrs_keys = {}
-            if isinstance(var_raw, (h5py.Dataset, zarr.Array)):
+            if isinstance(var_raw, ArrayTypes):
                 attrs_keys["var"] = list(var_raw.dtype.fields.keys())
             else:
                 # for some reason list(var_raw.keys()) is very slow for zarr
