@@ -1,12 +1,15 @@
 # Changelog
 
-- 💄 Show transform uid in view_flow [PR1280](https://github.com/laminlabs/lamindb/pull/1280) [@sunnyosun](https://github.com/sunnyosun)
-- Search token [PR1279](https://github.com/laminlabs/lamindb/pull/1279) [@sunnyosun](https://github.com/sunnyosun)
 ```{eval-rst}
 .. role:: small
 ```
 
 ## 0.59
+
+### 0.59.3 {small}`2023-11-04`
+
+- 💄 Show transform uid in view_flow [PR1280](https://github.com/laminlabs/lamindb/pull/1280) [@sunnyosun](https://github.com/sunnyosun)
+- 🚸 Improve search [PR1279](https://github.com/laminlabs/lamindb/pull/1279) [@sunnyosun](https://github.com/sunnyosun)
 
 ### 0.59.2 {small}`2023-11-04`
 
