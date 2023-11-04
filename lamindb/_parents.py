@@ -277,7 +277,7 @@ def _record_label(record: Registry, field: Optional[str] = None):
         name = f'{record.transform.name.replace("&", "&amp;")}'
         return (
             rf'<{TRANSFORM_EMOJIS.get(str(record.transform.type), "💫")} {name}<BR/><FONT COLOR="GREY" POINT-SIZE="10"'  # noqa
-            rf' FACE="Monospace">uid={record.uid}<BR/>type={record.transform.type},'
+            rf' FACE="Monospace">uid={record.transform.uid}<BR/>type={record.transform.type},'  # noqa
             rf" user={record.created_by.name}<BR/>run_at={format_field_value(record.run_at)}</FONT>>"  # noqa
         )
     elif isinstance(record, Transform):
