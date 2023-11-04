@@ -1,5 +1,6 @@
 # Changelog
 
+- 🐛 Backed raw subset fix [PR1278](https://github.com/laminlabs/lamindb/pull/1278) [@Koncopd](https://github.com/Koncopd)
 - 🚸 Improve connection stability [PR1277](https://github.com/laminlabs/lamindb/pull/1277) [@falexwolf](https://github.com/falexwolf)
 - 🎨 Update search default scorer for multi words [PR1275](https://github.com/laminlabs/lamindb/pull/1275) [@sunnyosun](https://github.com/sunnyosun)
 ```{eval-rst}
