@@ -24,10 +24,11 @@ dependencies = [
     "pyarrow",
     "typing_extensions!=4.6.0",
     "python-dateutil",
-    "anndata>=0.8.0,<=0.10.2",  # we're using anndata internals
+    "anndata>=0.8.0,<=0.10.2",  # will upgrade to new anndata releases
     "fsspec",
     "pandas",
     "graphviz",
+    "psycopg2-binary",
 ]
 
 [project.urls]
@@ -37,16 +38,13 @@ Home = "https://github.com/laminlabs/lamindb"
 bionty = [
     "lnschema_bionty==0.34.0",
 ]
-postgres = [
-    "psycopg2-binary",
-    "lamin_vault",  # only used for secrets management
-]
 aws = [
     "botocore==1.31.17",  # for aiobotocore inside s3fs, to fix deps resolution
     "urllib3<2", # for botocore
     "boto3==1.28.17", # to avoid conflicts arising due to the pin on botocore
     "aiobotocore==2.5.4",
-    "fsspec[s3]==2023.9.0"
+    "fsspec[s3]==2023.9.0",
+    "s3fs>=2023.1.0",  # very old versions of s3fs don't work
 ]
 gcp = [
     "fsspec[gs]==2023.9.0"
@@ -79,6 +77,8 @@ dev = [
     "nbproject_test>=0.3.0",
     # biology
     "faker-biology",
+    # vault
+    "lamin_vault",
 ]
 
 [tool.black]
