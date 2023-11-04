@@ -1,5 +1,6 @@
 # Changelog
 
+- 🎨 Update search default scorer for multi words [PR1275](https://github.com/laminlabs/lamindb/pull/1275) [@sunnyosun](https://github.com/sunnyosun)
 ```{eval-rst}
 .. role:: small
 ```
