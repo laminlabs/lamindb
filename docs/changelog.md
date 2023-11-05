@@ -1,11 +1,14 @@
 # Changelog
 
-- ⬆️ Upgrade lamindb-setup [PR1281](https://github.com/laminlabs/lamindb/pull/1281) [@fredericenard](https://github.com/fredericenard)
 ```{eval-rst}
 .. role:: small
 ```
 
 ## 0.59
+
+### 0.59.4 {small}`2023-11-05`
+
+- ⬆️ Upgrade lamindb-setup [PR1281](https://github.com/laminlabs/lamindb/pull/1281) [@fredericenard](https://github.com/fredericenard)
 
 ### 0.59.3 {small}`2023-11-04`
 
