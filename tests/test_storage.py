@@ -1,6 +1,7 @@
 import shutil
 
 import h5py
+import numpy as np
 import pandas as pd
 import pytest
 import zarr
@@ -106,6 +107,12 @@ def test_backed_access(adata_format):
     obs_sub = ["TCAATCACCCTTCG-8", "CGTTATACAGTACC-8", "TGCCAAGATTGTGG-7"]
     sub = access[obs_sub]
     assert sub.obs_names.tolist() == obs_sub
+    assert sub.to_memory().shape == (3, 200)
+
+    idx = np.array([1, 2, 5])
+    sub = access[idx]
+    assert sub.raw.shape == (3, 100)
+    assert sub.to_memory().shape == (3, 200)
 
     var_sub = ["SSU72", "PARK7", "RBP7"]
     sub = access[:, var_sub]

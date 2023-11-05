@@ -36,7 +36,7 @@ def file_fcs_alpert19(populate_registries: bool = False) -> Path:  # pragma: no 
         import lamindb as ln
 
         verbosity = ln.settings.verbosity
-        ln.settings.verbosity = 0
+        ln.settings.verbosity = "error"
         adata = readfcs.read(filepath)
         std = lb.CellMarker.bionty().standardize(adata.var.index)
         ln.save(
@@ -82,7 +82,7 @@ def file_tsv_rnaseq_nfcore_salmon_merged_gene_counts(
         import lamindb as ln
 
         verbosity = ln.settings.verbosity
-        ln.settings.verbosity = 0
+        ln.settings.verbosity = "error"
         ln.Feature(
             name="assay", type="category", registries=[lb.ExperimentalFactor]
         ).save()
@@ -189,7 +189,7 @@ def anndata_mouse_sc_lymph_node(
         import lamindb as ln
 
         verbosity = ln.settings.verbosity
-        ln.settings.verbosity = 0
+        ln.settings.verbosity = "error"
         auto_save_parents = lb.settings.auto_save_parents
         lb.settings.auto_save_parents = False
         # strain
@@ -320,7 +320,7 @@ def anndata_human_immune_cells(
         import lamindb as ln
 
         verbosity = ln.settings.verbosity
-        ln.settings.verbosity = 0
+        ln.settings.verbosity = "error"
         auto_save_parents = lb.settings.auto_save_parents
         lb.settings.auto_save_parents = False
         ln.save(

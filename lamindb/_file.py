@@ -692,8 +692,9 @@ def from_dir(
 
     # silence fine-grained logging
     verbosity = settings.verbosity
-    if verbosity >= 1:
-        settings.verbosity = 1  # just warnings
+    verbosity_int = settings._verbosity_int
+    if verbosity_int >= 1:
+        settings.verbosity = "warning"
     files_dict = {}
     for filepath in folderpath.rglob(pattern):
         if filepath.is_file():
@@ -755,7 +756,16 @@ def replace(
         run=run,
         format=format,
     )
-    if self.key is not None:
+
+    # this file already exists
+    if privates is None:
+        return kwargs
+
+    check_path_in_storage = privates["check_path_in_storage"]
+    if check_path_in_storage:
+        raise ValueError("Can only replace with a local file not in any Storage.")
+
+    if self.key is not None and not self.key_is_virtual:
         key_path = PurePosixPath(self.key)
         new_filename = f"{key_path.stem}{kwargs['suffix']}"
         # the following will only be true if the suffix changes!
@@ -767,24 +777,26 @@ def replace(
                 f" and delete '{key_path}' upon `save()`"
             )
     else:
-        self.key = kwargs["key"]
         old_storage = auto_storage_key_from_file(self)
-        new_storage = (
-            self.key if self.key is not None else f"{self.uid}{kwargs['suffix']}"
-        )
+        new_storage = auto_storage_key_from_id_suffix(self.uid, kwargs["suffix"])
         if old_storage != new_storage:
             self._clear_storagekey = old_storage
+            if self.key is not None:
+                new_key_path = PurePosixPath(self.key).with_suffix(kwargs["suffix"])
+                self.key = str(new_key_path)
 
     self.suffix = kwargs["suffix"]
     self.size = kwargs["size"]
     self.hash = kwargs["hash"]
+    self.hash_type = kwargs["hash_type"]
+    self.run_id = kwargs["run_id"]
     self.run = kwargs["run"]
+
     self._local_filepath = privates["local_filepath"]
     self._cloud_filepath = privates["cloud_filepath"]
     self._memory_rep = privates["memory_rep"]
-    self._to_store = not privates[
-        "check_path_in_storage"
-    ]  # no need to upload if new file is already in storage
+    # no need to upload if new file is already in storage
+    self._to_store = not check_path_in_storage
 
 
 # docstring handled through attach_func_to_class_method
@@ -837,8 +849,11 @@ def stage(self, is_run_input: Optional[bool] = None) -> Path:
 def delete(
     self, permanent: Optional[bool] = None, storage: Optional[bool] = None
 ) -> None:
-    # change visibility to 2 (trash)
+    # by default, we only move files into the trash
     if self.visibility < 2 and permanent is not True:
+        if storage is not None:
+            logger.warning("moving file to trash, storage arg is ignored")
+        # change visibility to 2 (trash)
         self.visibility = 2
         self.save()
         return
@@ -847,32 +862,35 @@ def delete(
     # permanent delete skips the trash
     if permanent is None:
         response = input(
-            "File record is already in trash! Are you sure to delete it from your"
-            " database? (y/n) You can't undo this action."
+            "File record is already in trash! Are you sure you want to permanently"
+            " delete it? (y/n) You can't undo this action."
         )
         delete_record = response == "y"
     else:
         delete_record = permanent
 
-    # need to grab file path before deletion
-    filepath = self.path
-
-    # only delete in storage if DB delete is successful
-    # DB delete might error because of a foreign key constraint violated etc.
     if delete_record:
+        # need to grab file path before deletion
+        filepath = self.path
+        # only delete in storage if DB delete is successful
+        # DB delete might error because of a foreign key constraint violated etc.
         self._delete_skip_storage()
-        if self.key is None:
+        if self.key is None or self.key_is_virtual:
             delete_in_storage = True
+            if storage is not None:
+                logger.warning("storage arg is ignored if storage key is non-semantic")
         else:
+            # for files with non-virtual semantic storage keys (key is not None)
+            # ask for extra-confirmation
             if storage is None:
                 response = input(
-                    f"Are you sure to delete {filepath}? (y/n)  You can't undo this"
-                    " action."
+                    f"Are you sure to want to delete {filepath}? (y/n)  You can't undo"
+                    " this action."
                 )
                 delete_in_storage = response == "y"
             else:
                 delete_in_storage = storage
-        # we don't yet have any way to bring back the deleted metadata record
+        # we don't yet have logic to bring back the deleted metadata record
         # in case storage deletion fails - this is important for ACID down the road
         if delete_in_storage:
             delete_storage(filepath)
@@ -1038,3 +1056,5 @@ for name in METHOD_NAMES:
 File._delete_skip_storage = _delete_skip_storage
 File._save_skip_storage = _save_skip_storage
 setattr(File, "path", path)
+# this seems a Django-generated function
+delattr(File, "get_visibility_display")

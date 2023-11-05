@@ -11,6 +11,7 @@ LaminDB is an open-source Python framework to manage biological data & analyses 
 - Manage registries for experimental metadata & in-house ontologies, import public ontologies.
 - Validate, standardize & annotate data using registries.
 - Organize and share data across a mesh of LaminDB instances.
+- Manage data access with an auditable system of record.
 
 ## Documentation
 

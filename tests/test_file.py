@@ -34,7 +34,7 @@ from lamindb.dev.storage.file import (
 # currently, we're only mocking it through `default_storage` as
 # set in conftest.py
 
-ln.settings.verbosity = 3
+ln.settings.verbosity = "success"
 lb.settings.organism = "human"
 
 df = pd.DataFrame({"feat1": [1, 2], "feat2": [3, 4]})

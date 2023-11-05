@@ -1,12 +1,26 @@
 # Changelog
 
-- 🚸 Only show visible files in view_parents [PR1263](https://github.com/laminlabs/lamindb/pull/1263) [@sunnyosun](https://github.com/sunnyosun)
-
 ```{eval-rst}
 .. role:: small
 ```
 
 ## 0.59
+
+### 0.59.3 {small}`2023-11-04`
+
+- 💄 Show transform uid in view_flow [PR1280](https://github.com/laminlabs/lamindb/pull/1280) [@sunnyosun](https://github.com/sunnyosun)
+- 🚸 Improve search [PR1279](https://github.com/laminlabs/lamindb/pull/1279) [@sunnyosun](https://github.com/sunnyosun)
+
+### 0.59.2 {small}`2023-11-04`
+
+- 🐛 Backed raw subset fix [PR1278](https://github.com/laminlabs/lamindb/pull/1278) [@Koncopd](https://github.com/Koncopd)
+- 🚸 Improve connection stability [PR1277](https://github.com/laminlabs/lamindb/pull/1277) [@falexwolf](https://github.com/falexwolf)
+- 🚸 Improve search [PR1275](https://github.com/laminlabs/lamindb/pull/1275) [@sunnyosun](https://github.com/sunnyosun)
+
+### 0.59.1 {small}`2023-11-03`
+
+- ♻️ Move CLI from `lamindb-setup` here [PR1264](https://github.com/laminlabs/lamindb/pull/1264) [@falexwolf](https://github.com/falexwolf)
+- 🐛 `file.replace()` works with virtual keys [PR1265](https://github.com/laminlabs/lamindb/pull/1265) [@Koncopd](https://github.com/Koncopd)
 
 ### 0.59.0 {small}`2023-10-27`
 
