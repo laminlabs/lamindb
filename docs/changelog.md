@@ -1,5 +1,6 @@
 # Changelog
 
+- ♻️ Perfect pre-population of registries for conde22 [PR1283](https://github.com/laminlabs/lamindb/pull/1283) [@falexwolf](https://github.com/falexwolf)
 ```{eval-rst}
 .. role:: small
 ```
