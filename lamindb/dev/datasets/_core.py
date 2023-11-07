@@ -326,9 +326,9 @@ def anndata_human_immune_cells(
         ln.save(
             lb.Gene.from_values(
                 adata.var.index, field="ensembl_gene_id", organism="human"
-            )[:-35]
+            )
         )
-        ln.save(lb.CellType.from_values(adata.obs.cell_type, field="name")[:-2])
+        ln.save(lb.CellType.from_values(adata.obs.cell_type, field="name"))
         ln.save(lb.ExperimentalFactor.from_values(adata.obs.assay, field="name"))
         ln.save(lb.Tissue.from_values(adata.obs.tissue, field="name"))
         ln.Modality(name="rna", description="RNA measurements").save()
@@ -338,7 +338,9 @@ def anndata_human_immune_cells(
         ).save()
         ln.Feature(name="tissue", type="category", registries=[lb.Tissue]).save()
         ln.Feature(name="organism", type="category", registries=[lb.Organism]).save()
+        ln.Feature(name="donor", type="category", registries=[ln.ULabel]).save()
         lb.ExperimentalFactor.from_bionty(ontology_id="EFO:0008913").save()
+        ln.save([ln.ULabel(name=name) for name in adata.obs.donor.unique()])
         ln.settings.verbosity = verbosity
         lb.settings.auto_save_parents = auto_save_parents
     return adata
