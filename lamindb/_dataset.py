@@ -155,7 +155,7 @@ def __init__(
             data_init_complete = True
         else:
             raise ValueError(
-                "Only DataFrame, AnnData, folder or list of File is allowed"
+                "Only DataFrame, AnnData, folder or list of File is allowed."
             )
     # we ignore datasets in trash containing the same hash
     existing_dataset = Dataset.filter(hash=hash).one_or_none()
