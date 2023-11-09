@@ -1,5 +1,6 @@
 # Changelog
 
+- ♻️ Move UPath to root-level API [PR1286](https://github.com/laminlabs/lamindb/pull/1286) [@falexwolf](https://github.com/falexwolf)
 - 🔧 Allow to set bionty versionsdir [PR1287](https://github.com/laminlabs/lamindb/pull/1287) [@sunnyosun](https://github.com/sunnyosun)
 - 🚸 Enable adding labels without passing a feature [PR1285](https://github.com/laminlabs/lamindb/pull/1285) [@sunnyosun](https://github.com/sunnyosun)
 
