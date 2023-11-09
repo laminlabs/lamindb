@@ -5,8 +5,6 @@
 
    AnnDataAccessor
    BackedAccessor
-   UPath
-
 """
 from lamindb_setup.dev.upath import LocalPathClasses, UPath, infer_filesystem
 
