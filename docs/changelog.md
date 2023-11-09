@@ -1,12 +1,14 @@
 # Changelog
 
+## 0.59
+
+### 0.59.5 {small}`2023-11-09`
+
 - ⬆️ Upgrade lamindb-setup [PR1284](https://github.com/laminlabs/lamindb/pull/1284) [@fredericenard](https://github.com/fredericenard)
 - ♻️ Perfect pre-population of registries for conde22 [PR1283](https://github.com/laminlabs/lamindb/pull/1283) [@falexwolf](https://github.com/falexwolf)
 ```{eval-rst}
 .. role:: small
 ```
-
-## 0.59
 
 ### 0.59.4 {small}`2023-11-05`
 
