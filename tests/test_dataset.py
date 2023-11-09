@@ -186,7 +186,7 @@ def test_edge_cases():
     with pytest.raises(ValueError) as error:
         ln.Dataset(1, name="Invalid")
     assert str(error.exconly()).startswith(
-        "ValueError: Only DataFrame, AnnData and iterable of File is allowed"
+        "ValueError: Only DataFrame, AnnData, folder or list of File is allowed."
     )
     file = ln.File(df, description="Test file")
     assert file._state.adding

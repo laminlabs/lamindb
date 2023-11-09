@@ -45,6 +45,7 @@ def __init__(
     data: Union[pd.DataFrame, ad.AnnData, File, Iterable[File]] = (
         kwargs.pop("data") if len(args) == 0 else args[0]
     )
+    meta: Optional[str] = kwargs.pop("meta") if "meta" in kwargs else None
     name: Optional[str] = kwargs.pop("name") if "name" in kwargs else None
     description: Optional[str] = (
         kwargs.pop("description") if "description" in kwargs else None
@@ -92,9 +93,26 @@ def __init__(
             )
 
     run = get_run(run)
+    data_init_complete = False
     # there are exactly 3 ways of creating a Dataset object right now
     # using exactly one file or using more than one file
     # init file
+    # init from directory or bucket
+    if isinstance(data, (str, Path, UPath)):
+        file = None
+        files = None
+        upath = UPath(data)
+        if not upath.is_dir:
+            raise ValueError(f"Can only pass buckets or directories, not {data}")
+        upath_str = upath.as_posix().rstrip("/")
+        region = get_storage_region(upath_str)
+        storage_settings = StorageSettings(upath_str, region)
+        storage = register_storage(storage_settings)
+        hash = None
+        data_init_complete = True
+    # now handle the metadata
+    if isinstance(meta, (pd.DataFrame, ad.AnnData, File)):
+        data = meta
     if isinstance(data, (pd.DataFrame, ad.AnnData, File)):
         files = None
         storage = None
@@ -126,28 +144,19 @@ def __init__(
             file.description = f"See dataset {provisional_uid}"  # type: ignore
         file._feature_sets = feature_sets
         storage = None
-    # init from directory or bucket
-    elif isinstance(data, (str, Path, UPath)):
-        file = None
-        files = None
-        upath = UPath(data)
-        if not upath.is_dir:
-            raise ValueError(f"Can only pass buckets or directories, not {data}")
-        upath_str = upath.as_posix().rstrip("/")
-        region = get_storage_region(upath_str)
-        storage_settings = StorageSettings(upath_str, region)
-        storage = register_storage(storage_settings)
-        hash = None
-    # init files
-    else:
+        data_init_complete = True
+    if not data_init_complete:
         file = None
         storage = None
         if hasattr(data, "__getitem__"):
             assert isinstance(data[0], File)  # type: ignore
             files = data
             hash, feature_sets = from_files(files)  # type: ignore
+            data_init_complete = True
         else:
-            raise ValueError("Only DataFrame, AnnData and iterable of File is allowed")
+            raise ValueError(
+                "Only DataFrame, AnnData, folder or list of File is allowed."
+            )
     # we ignore datasets in trash containing the same hash
     existing_dataset = Dataset.filter(hash=hash).one_or_none()
     if existing_dataset is not None:
