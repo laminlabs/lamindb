@@ -1,7 +1,5 @@
-from collections import defaultdict
-from itertools import islice
 from pathlib import Path, PurePath, PurePosixPath
-from typing import Any, List, Optional, Set, Tuple, Union
+from typing import Any, List, Optional, Tuple, Union
 
 import anndata as ad
 import fsspec
@@ -14,7 +12,7 @@ from lamindb_setup._init_instance import register_storage
 from lamindb_setup.dev import StorageSettings
 from lamindb_setup.dev._docs import doc_args
 from lamindb_setup.dev._hub_utils import get_storage_region
-from lamindb_setup.dev.upath import create_path
+from lamindb_setup.dev.upath import create_path, extract_suffix_from_path
 from lnschema_core import Feature, FeatureSet, File, Modality, Run, Storage
 from lnschema_core.types import AnnDataLike, DataLike, FieldAttr, PathLike
 
@@ -36,7 +34,6 @@ from lamindb.dev.storage.file import (
     ProgressCallback,
     auto_storage_key_from_file,
     auto_storage_key_from_id_suffix,
-    extract_suffix_from_path,
     filepath_from_file,
 )
 from lamindb.dev.versioning import get_ids_from_old_version, init_uid
@@ -928,7 +925,6 @@ def path(self) -> Union[Path, UPath]:
     return filepath_from_file(self)
 
 
-# adapted from: https://stackoverflow.com/questions/9727673
 @classmethod  # type: ignore
 @doc_args(File.view_tree.__doc__)
 def view_tree(
@@ -940,82 +936,18 @@ def view_tree(
     length_limit: int = 1000,
 ) -> None:
     """{}"""
-    space = "    "
-    branch = "│   "
-    tee = "├── "
-    last = "└── "
-    max_files_per_dir_per_type = 7
-
+    logger.warning("Deprecated: Please use UPath.view_tree()")
+    include_paths = None
     if path is None:
-        dir_path = settings.storage
-    else:
-        dir_path = create_path(path)  # returns Path for local
-    n_files = 0
-    n_directories = 0
-
-    # by default only including registered files
-    # need a flag and a proper implementation
-    registered_paths: Set[Any] = set()
-    registered_dirs: Set[Any] = set()
-    if path is None:
-        registered_paths = {
+        path = settings.storage
+        include_paths = {
             file.path for file in cls.filter(storage_id=setup_settings.storage.id).all()
         }
-        registered_dirs = {d for p in registered_paths for d in p.parents}
-    suffixes = set()
-
-    def inner(dir_path: Union[Path, UPath], prefix: str = "", level=-1):
-        nonlocal n_files, n_directories, suffixes
-        if not level:
-            return  # 0, stop iterating
-        stripped_dir_path = dir_path.as_posix().rstrip("/")
-        # do not iterate through zarr directories
-        if stripped_dir_path.endswith((".zarr", ".zrad")):
-            return
-        # this is needed so that the passed folder is not listed
-        contents = [
-            i
-            for i in dir_path.iterdir()
-            if i.as_posix().rstrip("/") != stripped_dir_path
-        ]
-        if limit_to_directories:
-            contents = [d for d in contents if d.is_dir()]
-        pointers = [tee] * (len(contents) - 1) + [last]
-        n_files_per_dir_per_type = defaultdict(lambda: 0)  # type: ignore
-        for pointer, path in zip(pointers, contents):
-            if path.is_dir():
-                if registered_dirs and path not in registered_dirs:
-                    continue
-                yield prefix + pointer + path.name
-                n_directories += 1
-                n_files_per_dir_per_type = defaultdict(lambda: 0)
-                extension = branch if pointer == tee else space
-                yield from inner(path, prefix=prefix + extension, level=level - 1)
-            elif not limit_to_directories:
-                if registered_paths and path not in registered_paths:
-                    continue
-                suffix = extract_suffix_from_path(path)
-                suffixes.add(suffix)
-                n_files_per_dir_per_type[suffix] += 1
-                n_files += 1
-                if n_files_per_dir_per_type[suffix] == max_files_per_dir_per_type:
-                    yield prefix + "..."
-                elif n_files_per_dir_per_type[suffix] > max_files_per_dir_per_type:
-                    continue
-                else:
-                    yield prefix + pointer + path.name
-
-    folder_tree = ""
-    iterator = inner(dir_path, level=level)
-    for line in islice(iterator, length_limit):
-        folder_tree += f"\n{line}"
-    if next(iterator, None):
-        folder_tree += f"... length_limit, {length_limit}, reached, counted:"
-    directory_info = "directory" if n_directories == 1 else "directories"
-    display_suffixes = ", ".join([f"{suffix!r}" for suffix in suffixes])
-    logger.print(
-        f"{dir_path.name} ({n_directories} sub-{directory_info} & {n_files} files with"
-        f" suffixes {display_suffixes}): {folder_tree}"
+    UPath(path).view_tree(
+        level=level,
+        limit_to_directories=limit_to_directories,
+        length_limit=length_limit,
+        include_paths=include_paths,
     )
 
 

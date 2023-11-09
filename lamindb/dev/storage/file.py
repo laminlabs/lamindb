@@ -1,7 +1,7 @@
 import os
 import shutil
 from pathlib import Path
-from typing import Literal, Optional, Union
+from typing import Literal, Union
 
 import anndata as ad
 import fsspec
@@ -26,66 +26,6 @@ except ImportError:
 
 
 AUTO_KEY_PREFIX = ".lamindb/"
-
-
-# also see https://gist.github.com/securifera/e7eed730cbe1ce43d0c29d7cd2d582f4
-#    ".gz" is not listed here as it typically occurs with another suffix
-KNOWN_SUFFIXES = {
-    #
-    # without readers
-    #
-    ".fasta",
-    ".fastq",
-    ".jpg",
-    ".mtx",
-    ".obo",
-    ".pdf",
-    ".png",
-    ".tar",
-    ".tiff",
-    ".txt",
-    ".tsv",
-    ".zip",
-    ".xml",
-    #
-    # with readers (see below)
-    #
-    ".h5ad",
-    ".parquet",
-    ".csv",
-    ".fcs",
-    ".xslx",
-    ".zarr",
-    ".zrad",
-}
-
-
-def extract_suffix_from_path(
-    path: Union[UPath, Path], arg_name: Optional[str] = None
-) -> str:
-    if len(path.suffixes) <= 1:
-        return path.suffix
-    else:
-        arg_name = "file" if arg_name is None else arg_name  # for the warning
-        msg = f"{arg_name} has more than one suffix (path.suffixes), "
-        # first check the 2nd-to-last suffix because it might be followed by .gz
-        # or another compression-related suffix
-        # Alex thought about adding logic along the lines of path.suffixes[-1]
-        # in COMPRESSION_SUFFIXES to detect something like .random.gz and then
-        # add ".random.gz" but concluded it's too dangerous it's safer to just
-        # use ".gz" in such a case
-        if path.suffixes[-2] in KNOWN_SUFFIXES:
-            suffix = "".join(path.suffixes[-2:])
-            msg += f"inferring: '{suffix}'"
-        else:
-            suffix = path.suffixes[-1]  # this is equivalent to path.suffix!!!
-            msg += (
-                f"using only last suffix: '{suffix}' - if you want your file format to"
-                " be recognized, make an issue:"
-                " https://github.com/laminlabs/lamindb/issues/new"
-            )
-        logger.warning(msg)
-        return suffix
 
 
 # add type annotations back asap when re-organizing the module
