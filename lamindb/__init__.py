@@ -28,7 +28,7 @@ Registries to validate & contextualize:
    FeatureSet
    Modality
 
-Key-value store for paths:
+You can also access data directly via paths:
 
 .. autosummary::
    :toctree: .
