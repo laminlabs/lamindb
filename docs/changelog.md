@@ -1,25 +1,20 @@
 # Changelog
 
-- 🚸 Enable to pass metadata file to dataset [PR1289](https://github.com/laminlabs/lamindb/pull/1289) [@falexwolf](https://github.com/falexwolf)
-- 🚚 Move `view_tree` to `UPath` [PR1288](https://github.com/laminlabs/lamindb/pull/1288) [@falexwolf](https://github.com/falexwolf)
-- ♻️ Move UPath to root-level API [PR1286](https://github.com/laminlabs/lamindb/pull/1286) [@falexwolf](https://github.com/falexwolf)
-- 🔧 Allow to set bionty versionsdir [PR1287](https://github.com/laminlabs/lamindb/pull/1287) [@sunnyosun](https://github.com/sunnyosun)
-- 🚸 Enable adding labels without passing a feature [PR1285](https://github.com/laminlabs/lamindb/pull/1285) [@sunnyosun](https://github.com/sunnyosun)
 
 ```{eval-rst}
 .. role:: small
 ```
 
+## 0.60
+
+### 0.60.0 {small}`2023-11-09`
+
+- 🚸 Enable to pass metadata to dataset [PR1289](https://github.com/laminlabs/lamindb/pull/1289) [@falexwolf](https://github.com/falexwolf)
+- 🚚 Move `view_tree` to `UPath` [PR1288](https://github.com/laminlabs/lamindb/pull/1288) [@falexwolf](https://github.com/falexwolf)
+- ♻️ Move `UPath` to root-level API [PR1286](https://github.com/laminlabs/lamindb/pull/1286) [@falexwolf](https://github.com/falexwolf)
+- 🚸 Enable to add labels without a feature [PR1285](https://github.com/laminlabs/lamindb/pull/1285) [@sunnyosun](https://github.com/sunnyosun)
+
 ## 0.59
-
-### 0.59.5 {small}`2023-11-09`
-
-- ⬆️ Upgrade lamindb-setup [PR1284](https://github.com/laminlabs/lamindb/pull/1284) [@fredericenard](https://github.com/fredericenard)
-- ♻️ Perfect pre-population of registries for conde22 [PR1283](https://github.com/laminlabs/lamindb/pull/1283) [@falexwolf](https://github.com/falexwolf)
-
-### 0.59.4 {small}`2023-11-05`
-
-- ⬆️ Upgrade lamindb-setup [PR1281](https://github.com/laminlabs/lamindb/pull/1281) [@fredericenard](https://github.com/fredericenard)
 
 ### 0.59.3 {small}`2023-11-04`
 
