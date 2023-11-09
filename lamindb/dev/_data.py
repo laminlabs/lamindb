@@ -19,7 +19,10 @@ from lnschema_core.types import StrField
 
 from lamindb.dev._settings import settings
 
-from .._feature_set import dict_schema_name_to_model_name
+from .._feature_set import (
+    dict_related_model_to_related_name,
+    dict_schema_name_to_model_name,
+)
 from .._parents import view_flow
 from .._query_set import QuerySet
 from ._feature_manager import (
@@ -202,19 +205,29 @@ def get_labels(
 def add_labels(
     self,
     records: Union[Registry, List[Registry], QuerySet, Iterable],
-    feature: Feature,
+    feature: Optional[Feature] = None,
     *,
     field: Optional[StrField] = None,
 ) -> None:
     """{}"""
+    if self._state.adding:
+        raise ValueError("Please save the file/dataset before adding a label!")
+
     if isinstance(records, (QuerySet, QuerySet.__base__)):  # need to have both
         records = records.list()
     if isinstance(records, (str, Registry)):
         records = [records]
     if not isinstance(records, List):  # avoids warning for pd Series
         records = list(records)
+    # create records from values
     if isinstance(records[0], str):  # type: ignore
         records_validated = []
+        # feature is needed if we want to create records from values
+        if feature is None:
+            raise ValueError(
+                "Please pass a feature, e.g., via: label = ln.ULabel(name='my_label',"
+                " feature=ln.Feature(name='my_feature'))"
+            )
         if feature.registries is not None:
             orm_dict = dict_schema_name_to_model_name(File)
             for reg in feature.registries.split("|"):
@@ -231,80 +244,98 @@ def add_labels(
             )
         records = records_validated
 
-    if self._state.adding:
-        raise ValueError("Please save the file/dataset before adding a label!")
     for record in records:
         if record._state.adding:
             raise ValidationError(
                 f"{record} not validated. If it looks correct: record.save()"
             )
-    validate_feature(feature, records)  # type:ignore
-    records_by_registry = defaultdict(list)
-    for record in records:
-        records_by_registry[record.__class__.__get_name_with_schema__()].append(record)
-    for registry_name, records in records_by_registry.items():
-        getattr(self, self.features._accessor_by_orm[registry_name]).add(
-            *records, through_defaults={"feature_id": feature.id}
-        )
-    feature_set_links = get_feature_set_links(self)
-    feature_set_ids = [link.feature_set_id for link in feature_set_links.all()]
-    # get all linked features of type Feature
-    feature_sets = FeatureSet.filter(id__in=feature_set_ids).all()
-    linked_features_by_slot = {
-        feature_set_links.filter(feature_set_id=feature_set.id)
-        .one()
-        .slot: feature_set.features.all()
-        for feature_set in feature_sets
-        if "core.Feature" == feature_set.registry
-    }
-    for registry_name, records in records_by_registry.items():
-        msg = ""
-        if feature.registries is None or registry_name not in feature.registries:
-            if len(msg) > 0:
-                msg += ", "
-            msg += f"linked feature '{feature.name}' to registry '{registry_name}'"
-            if feature.registries is None:
-                feature.registries = registry_name
-            elif registry_name not in feature.registries:
-                feature.registries += f"|{registry_name}"
-            feature.save()
-        if len(msg) > 0:
-            logger.save(msg)
-        # check whether we have to update the feature set that manages labels
-        # (Feature) to account for a new feature
-        found_feature = False
-        for _, linked_features in linked_features_by_slot.items():
-            if feature in linked_features:
-                found_feature = True
-        if not found_feature:
-            if "external" in linked_features_by_slot:
-                feature_set = self.features._feature_set_by_slot["external"]
-                features_list = feature_set.features.list()
-            else:
-                features_list = []
-            features_list.append(feature)
-            feature_set = FeatureSet(features_list, modality=priors.modalities.meta)
-            feature_set.save()
-            if "external" in linked_features_by_slot:
-                old_feature_set_link = feature_set_links.filter(slot="external").one()
-                old_feature_set_link.delete()
-                remaining_links = self.feature_sets.through.objects.filter(
-                    feature_set_id=feature_set.id
-                ).all()
-                if len(remaining_links) == 0:
-                    old_feature_set = FeatureSet.filter(
-                        id=old_feature_set_link.feature_set_id
-                    ).one()
-                    logger.info(
-                        "no file links to it anymore, deleting feature set"
-                        f" {old_feature_set}"
-                    )
-                    old_feature_set.delete()
-            self.features.add_feature_set(feature_set, slot="external")
-            logger.save(
-                f"linked new feature '{feature.name}' together with new feature set"
-                f" {feature_set}"
+
+    if feature is None:
+        d = dict_related_model_to_related_name(self.__class__)
+        # strategy: group records by registry to reduce number of transactions
+        records_by_related_name: Dict = {}
+        for record in records:
+            related_name = d.get(record.__class__.__get_name_with_schema__())
+            if related_name is None:
+                raise ValueError(f"Can't add labels to {record.__class__} record!")
+            if related_name not in records_by_related_name:
+                records_by_related_name[related_name] = []
+            records_by_related_name[related_name].append(record)
+        for related_name, records in records_by_related_name.items():
+            print(related_name, records)
+            getattr(self, related_name).add(*records)
+    else:
+        validate_feature(feature, records)  # type:ignore
+        records_by_registry = defaultdict(list)
+        for record in records:
+            records_by_registry[record.__class__.__get_name_with_schema__()].append(
+                record
             )
+        for registry_name, records in records_by_registry.items():
+            getattr(self, self.features._accessor_by_orm[registry_name]).add(
+                *records, through_defaults={"feature_id": feature.id}
+            )
+        feature_set_links = get_feature_set_links(self)
+        feature_set_ids = [link.feature_set_id for link in feature_set_links.all()]
+        # get all linked features of type Feature
+        feature_sets = FeatureSet.filter(id__in=feature_set_ids).all()
+        linked_features_by_slot = {
+            feature_set_links.filter(feature_set_id=feature_set.id)
+            .one()
+            .slot: feature_set.features.all()
+            for feature_set in feature_sets
+            if "core.Feature" == feature_set.registry
+        }
+        for registry_name, records in records_by_registry.items():
+            msg = ""
+            if feature.registries is None or registry_name not in feature.registries:
+                if len(msg) > 0:
+                    msg += ", "
+                msg += f"linked feature '{feature.name}' to registry '{registry_name}'"
+                if feature.registries is None:
+                    feature.registries = registry_name
+                elif registry_name not in feature.registries:
+                    feature.registries += f"|{registry_name}"
+                feature.save()
+            if len(msg) > 0:
+                logger.save(msg)
+            # check whether we have to update the feature set that manages labels
+            # (Feature) to account for a new feature
+            found_feature = False
+            for _, linked_features in linked_features_by_slot.items():
+                if feature in linked_features:
+                    found_feature = True
+            if not found_feature:
+                if "external" in linked_features_by_slot:
+                    feature_set = self.features._feature_set_by_slot["external"]
+                    features_list = feature_set.features.list()
+                else:
+                    features_list = []
+                features_list.append(feature)
+                feature_set = FeatureSet(features_list, modality=priors.modalities.meta)
+                feature_set.save()
+                if "external" in linked_features_by_slot:
+                    old_feature_set_link = feature_set_links.filter(
+                        slot="external"
+                    ).one()
+                    old_feature_set_link.delete()
+                    remaining_links = self.feature_sets.through.objects.filter(
+                        feature_set_id=feature_set.id
+                    ).all()
+                    if len(remaining_links) == 0:
+                        old_feature_set = FeatureSet.filter(
+                            id=old_feature_set_link.feature_set_id
+                        ).one()
+                        logger.info(
+                            "no file links to it anymore, deleting feature set"
+                            f" {old_feature_set}"
+                        )
+                        old_feature_set.delete()
+                self.features.add_feature_set(feature_set, slot="external")
+                logger.save(
+                    f"linked new feature '{feature.name}' together with new feature set"
+                    f" {feature_set}"
+                )
 
 
 def _track_run_input(
