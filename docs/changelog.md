@@ -1,5 +1,6 @@
 # Changelog
 
+- 🚸 Enable adding labels without passing a feature [PR1285](https://github.com/laminlabs/lamindb/pull/1285) [@sunnyosun](https://github.com/sunnyosun)
 ## 0.59
 
 ### 0.59.5 {small}`2023-11-09`
