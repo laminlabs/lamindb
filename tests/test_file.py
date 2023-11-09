@@ -9,7 +9,12 @@ import numpy as np
 import pandas as pd
 import pytest
 from django.db.models.deletion import ProtectedError
-from lamindb_setup.dev.upath import CloudPath, LocalPathClasses, UPath
+from lamindb_setup.dev.upath import (
+    CloudPath,
+    LocalPathClasses,
+    UPath,
+    extract_suffix_from_path,
+)
 
 import lamindb as ln
 from lamindb import _file
@@ -24,7 +29,6 @@ from lamindb.dev.storage.file import (
     AUTO_KEY_PREFIX,
     auto_storage_key_from_id_suffix,
     delete_storage,
-    extract_suffix_from_path,
     load_to_memory,
     read_fcs,
     read_tsv,
