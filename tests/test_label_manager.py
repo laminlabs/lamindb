@@ -31,7 +31,9 @@ def test_add_from(get_test_files):
     ln.save(cell_lines)
 
     file2.ulabels.add(*labels)
-    file2.cell_lines.add(*cell_lines)
+    # here test add without passing a feature
+    file2.labels.add(cell_lines)
+    assert file2.cell_lines.count() == len(cell_lines)
 
     assert file1.ulabels.exists() is False
     file1.labels.add_from(file2)

@@ -1,4 +1,4 @@
-from typing import Dict, List, Union
+from typing import Dict, List, Optional, Union
 
 import numpy as np
 from lamin_utils import colors, logger
@@ -116,7 +116,7 @@ class LabelManager:
     def add(
         self,
         records: Union[Registry, List[Registry], QuerySet],
-        feature: Feature,
+        feature: Optional[Feature] = None,
     ) -> None:
         """Add one or several labels and associate them with a feature.
 
