@@ -427,7 +427,7 @@ def test_from_dir(get_test_filepaths, key):
     # we only return the duplicated ones
     hashes = [file.hash for file in files if file.hash is not None]
     assert len(set(hashes)) == len(hashes)
-    ln.File.view_tree(test_dirpath)
+    ln.UPath(test_dirpath).view_tree()
     # now save
     ln.save(files)
     # now run again, because now we'll have hash-based lookup!
