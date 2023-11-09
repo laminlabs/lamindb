@@ -9,7 +9,12 @@ import numpy as np
 import pandas as pd
 import pytest
 from django.db.models.deletion import ProtectedError
-from lamindb_setup.dev.upath import CloudPath, LocalPathClasses, UPath
+from lamindb_setup.dev.upath import (
+    CloudPath,
+    LocalPathClasses,
+    UPath,
+    extract_suffix_from_path,
+)
 
 import lamindb as ln
 from lamindb import _file
@@ -24,7 +29,6 @@ from lamindb.dev.storage.file import (
     AUTO_KEY_PREFIX,
     auto_storage_key_from_id_suffix,
     delete_storage,
-    extract_suffix_from_path,
     load_to_memory,
     read_fcs,
     read_tsv,
@@ -423,7 +427,7 @@ def test_from_dir(get_test_filepaths, key):
     # we only return the duplicated ones
     hashes = [file.hash for file in files if file.hash is not None]
     assert len(set(hashes)) == len(hashes)
-    ln.File.view_tree(test_dirpath)
+    ln.UPath(test_dirpath).view_tree()
     # now save
     ln.save(files)
     # now run again, because now we'll have hash-based lookup!
