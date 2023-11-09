@@ -11,15 +11,15 @@ from lnschema_core import Registry
 
 def view(
     n: int = 7, schema: Optional[str] = None, registries: Optional[List[str]] = None
-):
-    """View data.
+) -> None:
+    """View latest metadata state.
 
     Args:
-        n: Display the last `n` rows of a table.
+        n: Display the last `n` rows of a registry.
         schema: Schema module to view. Default's to
             `None` and displays all schema modules.
         registries: List of Registry names. Defaults to
-            `None` and lists all ORMs.
+            `None` and lists all registries.
 
     Examples:
         >>> ln.view()

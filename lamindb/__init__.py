@@ -1,11 +1,6 @@
 """A data framework for biology.
 
-We assume that data is stored as files or in array formats like parquet, zarr,
-HDF5, TileDB or DuckDB.
-
-LaminDB helps you manage these data with registries for metadata.
-
-The two most important are:
+LaminDB helps you manage data with registries for metadata:
 
 .. autosummary::
    :toctree: .
@@ -13,7 +8,7 @@ The two most important are:
    File
    Dataset
 
-Four registries track provenance of data batches:
+Registries to track provenance:
 
 .. autosummary::
    :toctree: .
@@ -23,7 +18,7 @@ Four registries track provenance of data batches:
    User
    Storage
 
-Four registries validate & contextualize data batches:
+Registries to validate & contextualize:
 
 .. autosummary::
    :toctree: .
@@ -33,7 +28,14 @@ Four registries validate & contextualize data batches:
    FeatureSet
    Modality
 
-Functional tools:
+You can also access data directly via paths:
+
+.. autosummary::
+   :toctree: .
+
+   UPath
+
+Functions:
 
 .. autosummary::
    :toctree: .
@@ -42,7 +44,7 @@ Functional tools:
    view
    save
 
-Static classes & modules:
+Modules & settings:
 
 .. autosummary::
    :toctree: .
@@ -64,6 +66,7 @@ from lamin_utils import py_version_warning as _py_version_warning
 from lamindb_setup import _check_instance_setup
 from lamindb_setup._check_instance_setup import _INSTANCE_NOT_SETUP_WARNING
 from lamindb_setup._init_instance import reload_schema_modules as _reload_schema_modules
+from lamindb_setup.dev.upath import UPath
 
 _py_version_warning("3.8", "3.11")
 
