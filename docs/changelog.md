@@ -1,5 +1,6 @@
 # Changelog
 
+- 🚸 Enable to pass metadata file to dataset [PR1289](https://github.com/laminlabs/lamindb/pull/1289) [@falexwolf](https://github.com/falexwolf)
 - 🚚 Move `view_tree` to `UPath` [PR1288](https://github.com/laminlabs/lamindb/pull/1288) [@falexwolf](https://github.com/falexwolf)
 - ♻️ Move UPath to root-level API [PR1286](https://github.com/laminlabs/lamindb/pull/1286) [@falexwolf](https://github.com/falexwolf)
 - 🔧 Allow to set bionty versionsdir [PR1287](https://github.com/laminlabs/lamindb/pull/1287) [@sunnyosun](https://github.com/sunnyosun)
