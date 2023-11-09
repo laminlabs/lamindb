@@ -93,6 +93,7 @@ def __init__(
             )
 
     run = get_run(run)
+    data_init_complete = False
     # there are exactly 3 ways of creating a Dataset object right now
     # using exactly one file or using more than one file
     # init file
@@ -108,16 +109,7 @@ def __init__(
         storage_settings = StorageSettings(upath_str, region)
         storage = register_storage(storage_settings)
         hash = None
-    # init files
-    else:
-        file = None
-        storage = None
-        if hasattr(data, "__getitem__"):
-            assert isinstance(data[0], File)  # type: ignore
-            files = data
-            hash, feature_sets = from_files(files)  # type: ignore
-        else:
-            raise ValueError("Only DataFrame, AnnData and iterable of File is allowed")
+        data_init_complete = True
     # now handle the metadata
     if isinstance(meta, (pd.DataFrame, ad.AnnData, File)):
         data = meta
@@ -152,6 +144,19 @@ def __init__(
             file.description = f"See dataset {provisional_uid}"  # type: ignore
         file._feature_sets = feature_sets
         storage = None
+        data_init_complete = True
+    if not data_init_complete:
+        file = None
+        storage = None
+        if hasattr(data, "__getitem__"):
+            assert isinstance(data[0], File)  # type: ignore
+            files = data
+            hash, feature_sets = from_files(files)  # type: ignore
+            data_init_complete = True
+        else:
+            raise ValueError(
+                "Only DataFrame, AnnData, folder or list of File is allowed"
+            )
     # we ignore datasets in trash containing the same hash
     existing_dataset = Dataset.filter(hash=hash).one_or_none()
     if existing_dataset is not None:
