@@ -566,6 +566,7 @@ def from_df(
     modality: Optional[Modality] = None,
     version: Optional[str] = None,
     is_new_version_of: Optional["File"] = None,
+    **kwargs,
 ) -> "File":
     """{}"""
     file = File(
@@ -577,7 +578,7 @@ def from_df(
         is_new_version_of=is_new_version_of,
         log_hint=False,
     )
-    feature_set = FeatureSet.from_df(df, field=field, modality=modality)
+    feature_set = FeatureSet.from_df(df, field=field, modality=modality, **kwargs)
     if feature_set is not None:
         file._feature_sets = {"columns": feature_set}
     else:

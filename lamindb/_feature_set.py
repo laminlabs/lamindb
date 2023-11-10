@@ -204,10 +204,11 @@ def from_df(
     field: FieldAttr = Feature.name,
     name: Optional[str] = None,
     modality: Optional[Modality] = None,
+    **kwargs,
 ) -> Optional["FeatureSet"]:
     """{}"""
     registry = field.field.model
-    validated = registry.validate(df.columns, field=field)
+    validated = registry.validate(df.columns, field=field, **kwargs)
     if validated.sum() == 0:
         logger.warning("no validated features, skip creating feature set")
         return None
@@ -221,7 +222,9 @@ def from_df(
         if len(set(dtypes)) != 1:
             raise ValueError(f"data types are heterogeneous: {set(dtypes)}")
         type = convert_numpy_dtype_to_lamin_feature_type(dtypes[0])
-        validated_features = registry.from_values(df.columns[validated], field=field)
+        validated_features = registry.from_values(
+            df.columns[validated], field=field, **kwargs
+        )
         feature_set = FeatureSet(
             features=validated_features,
             name=name,
