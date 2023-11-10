@@ -1,5 +1,6 @@
 # Changelog
 
+- 📝 Clearer badge titles [PR1291](https://github.com/laminlabs/lamindb/pull/1291) [@falexwolf](https://github.com/falexwolf)
 - ⏪ Fix bionty versionsdir [PR1290](https://github.com/laminlabs/lamindb/pull/1290) [@sunnyosun](https://github.com/sunnyosun)
 
 ```{eval-rst}
