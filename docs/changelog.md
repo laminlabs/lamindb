@@ -1,13 +1,17 @@
 # Changelog
 
-- 📝 Clearer badge titles [PR1291](https://github.com/laminlabs/lamindb/pull/1291) [@falexwolf](https://github.com/falexwolf)
-- ⏪ Fix bionty versionsdir [PR1290](https://github.com/laminlabs/lamindb/pull/1290) [@sunnyosun](https://github.com/sunnyosun)
-
+- Filelock [PR1293](https://github.com/laminlabs/lamindb/pull/1293) [@sunnyosun](https://github.com/sunnyosun)
+- ⬆️ Update bionty filelock [PR1292](https://github.com/laminlabs/lamindb/pull/1292) [@sunnyosun](https://github.com/sunnyosun)
 ```{eval-rst}
 .. role:: small
 ```
 
 ## 0.60
+
+### 0.60.1 {small}`2023-11-10`
+
+- 📝 Clearer badge titles [PR1291](https://github.com/laminlabs/lamindb/pull/1291) [@falexwolf](https://github.com/falexwolf)
+- ⏪ Fix bionty versionsdir [PR1290](https://github.com/laminlabs/lamindb/pull/1290) [@sunnyosun](https://github.com/sunnyosun)
 
 ### 0.60.0 {small}`2023-11-09`
 
