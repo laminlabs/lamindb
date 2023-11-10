@@ -1,5 +1,6 @@
 # Changelog
 
+- ⏪ Fix bionty versionsdir [PR1290](https://github.com/laminlabs/lamindb/pull/1290) [@sunnyosun](https://github.com/sunnyosun)
 
 ```{eval-rst}
 .. role:: small
