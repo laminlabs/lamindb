@@ -1,5 +1,6 @@
 # Changelog
 
+- ⬆️ Update bionty filelock [PR1292](https://github.com/laminlabs/lamindb/pull/1292) [@sunnyosun](https://github.com/sunnyosun)
 ```{eval-rst}
 .. role:: small
 ```
