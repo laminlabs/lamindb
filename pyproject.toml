@@ -24,7 +24,7 @@ dependencies = [
     "pyarrow",
     "typing_extensions!=4.6.0",
     "python-dateutil",
-    "anndata==0.10.3",  # will upgrade to new anndata releases
+    "anndata>=0.8.0,<=0.10.3",  # will upgrade to new anndata releases
     "fsspec",
     "pandas",
     "graphviz",
