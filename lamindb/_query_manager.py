@@ -1,7 +1,10 @@
-from typing import Optional
+from typing import NamedTuple, Optional
 
 from django.db import models
 from lamin_utils import logger
+from lamindb_setup.dev._docs import doc_args
+from lnschema_core.models import Registry
+from lnschema_core.types import StrField
 
 from .dev._feature_manager import get_feature_set_by_slot
 
@@ -72,6 +75,20 @@ class QueryManager(models.Manager):
         self._track_run_input_manager()
         return self.all_base_class()
 
+    @doc_args(Registry.search.__doc__)
+    def search(self, string: str, **kwargs):
+        """{}"""
+        from ._registry import _search
+
+        return _search(cls=self.all(), string=string, **kwargs)
+
+    @doc_args(Registry.lookup.__doc__)
+    def lookup(self, field: Optional[StrField] = None, **kwargs) -> NamedTuple:
+        """{}"""
+        from ._registry import _lookup
+
+        return _lookup(cls=self.all(), field=field, **kwargs)
+
     def __getitem__(self, item: str):
         try:
             source_field_name = self.source_field_name
@@ -89,6 +106,8 @@ class QueryManager(models.Manager):
 
 setattr(models.Manager, "list", QueryManager.list)
 setattr(models.Manager, "df", QueryManager.df)
+setattr(models.Manager, "search", QueryManager.search)
+setattr(models.Manager, "lookup", QueryManager.lookup)
 setattr(models.Manager, "__getitem__", QueryManager.__getitem__)
 setattr(
     models.Manager, "_track_run_input_manager", QueryManager._track_run_input_manager
