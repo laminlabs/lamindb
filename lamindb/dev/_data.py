@@ -262,7 +262,6 @@ def add_labels(
                 records_by_related_name[related_name] = []
             records_by_related_name[related_name].append(record)
         for related_name, records in records_by_related_name.items():
-            print(related_name, records)
             getattr(self, related_name).add(*records)
     else:
         validate_feature(feature, records)  # type:ignore

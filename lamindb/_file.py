@@ -566,6 +566,7 @@ def from_df(
     modality: Optional[Modality] = None,
     version: Optional[str] = None,
     is_new_version_of: Optional["File"] = None,
+    **kwargs,
 ) -> "File":
     """{}"""
     file = File(
@@ -577,7 +578,7 @@ def from_df(
         is_new_version_of=is_new_version_of,
         log_hint=False,
     )
-    feature_set = FeatureSet.from_df(df, field=field, modality=modality)
+    feature_set = FeatureSet.from_df(df, field=field, modality=modality, **kwargs)
     if feature_set is not None:
         file._feature_sets = {"columns": feature_set}
     else:
@@ -586,7 +587,10 @@ def from_df(
 
 
 def parse_feature_sets_from_anndata(
-    adata: AnnDataLike, field: Optional[FieldAttr], modality: Optional[Modality] = None
+    adata: AnnDataLike,
+    field: Optional[FieldAttr],
+    modality: Optional[Modality] = None,
+    **kwargs,
 ):
     data_parse = adata
     if not isinstance(adata, AnnData):  # is a path
@@ -608,6 +612,7 @@ def parse_feature_sets_from_anndata(
         field,
         type=type,
         modality=modality,
+        **kwargs,
     )
     if feature_set_var is not None:
         feature_sets["var"] = feature_set_var
@@ -617,7 +622,9 @@ def parse_feature_sets_from_anndata(
         logger.info("parsing feature names of slot 'obs'")
         logger.indent = "   "
         feature_set_obs = FeatureSet.from_df(
-            data_parse.obs, modality=priors.modalities.meta
+            data_parse.obs,
+            modality=priors.modalities.meta,
+            **kwargs,
         )
         if feature_set_obs is not None:
             feature_sets["obs"] = feature_set_obs
@@ -638,6 +645,7 @@ def from_anndata(
     modality: Optional[Modality] = None,
     version: Optional[str] = None,
     is_new_version_of: Optional["File"] = None,
+    **kwargs,
 ) -> "File":
     """{}"""
     file = File(
@@ -649,7 +657,9 @@ def from_anndata(
         is_new_version_of=is_new_version_of,
         log_hint=False,
     )
-    file._feature_sets = parse_feature_sets_from_anndata(adata, field, modality)
+    file._feature_sets = parse_feature_sets_from_anndata(
+        adata, field, modality, **kwargs
+    )
     return file
 
 
