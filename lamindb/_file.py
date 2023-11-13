@@ -13,7 +13,7 @@ from lamindb_setup.dev import StorageSettings
 from lamindb_setup.dev._docs import doc_args
 from lamindb_setup.dev._hub_utils import get_storage_region
 from lamindb_setup.dev.upath import create_path, extract_suffix_from_path
-from lnschema_core import Feature, FeatureSet, File, Modality, Run, Storage
+from lnschema_core import Feature, FeatureSet, File, Run, Storage
 from lnschema_core.types import AnnDataLike, DataLike, FieldAttr, PathLike
 
 from lamindb._utils import attach_func_to_class_method
@@ -46,7 +46,6 @@ from .dev._data import (
     save_feature_set_links,
     save_feature_sets,
 )
-from .dev._priors import priors
 from .dev.storage.file import AUTO_KEY_PREFIX
 
 
@@ -563,7 +562,6 @@ def from_df(
     key: Optional[str] = None,
     description: Optional[str] = None,
     run: Optional[Run] = None,
-    modality: Optional[Modality] = None,
     version: Optional[str] = None,
     is_new_version_of: Optional["File"] = None,
     **kwargs,
@@ -578,7 +576,7 @@ def from_df(
         is_new_version_of=is_new_version_of,
         log_hint=False,
     )
-    feature_set = FeatureSet.from_df(df, field=field, modality=modality, **kwargs)
+    feature_set = FeatureSet.from_df(df, field=field, **kwargs)
     if feature_set is not None:
         file._feature_sets = {"columns": feature_set}
     else:
@@ -589,7 +587,6 @@ def from_df(
 def parse_feature_sets_from_anndata(
     adata: AnnDataLike,
     field: Optional[FieldAttr],
-    modality: Optional[Modality] = None,
     **kwargs,
 ):
     data_parse = adata
@@ -611,7 +608,6 @@ def parse_feature_sets_from_anndata(
         data_parse.var.index,
         field,
         type=type,
-        modality=modality,
         **kwargs,
     )
     if feature_set_var is not None:
@@ -623,7 +619,6 @@ def parse_feature_sets_from_anndata(
         logger.indent = "   "
         feature_set_obs = FeatureSet.from_df(
             data_parse.obs,
-            modality=priors.modalities.meta,
             **kwargs,
         )
         if feature_set_obs is not None:
@@ -642,7 +637,6 @@ def from_anndata(
     key: Optional[str] = None,
     description: Optional[str] = None,
     run: Optional[Run] = None,
-    modality: Optional[Modality] = None,
     version: Optional[str] = None,
     is_new_version_of: Optional["File"] = None,
     **kwargs,
@@ -657,9 +651,7 @@ def from_anndata(
         is_new_version_of=is_new_version_of,
         log_hint=False,
     )
-    file._feature_sets = parse_feature_sets_from_anndata(
-        adata, field, modality, **kwargs
-    )
+    file._feature_sets = parse_feature_sets_from_anndata(adata, field, **kwargs)
     return file
 
 

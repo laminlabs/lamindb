@@ -26,7 +26,6 @@ Registries to validate & contextualize:
    ULabel
    Feature
    FeatureSet
-   Modality
 
 You can also access data directly via paths:
 
@@ -96,7 +95,6 @@ if _INSTANCE_SETUP:
         Feature,
         FeatureSet,
         File,
-        Modality,
         Run,
         Storage,
         Transform,
@@ -119,7 +117,6 @@ if _INSTANCE_SETUP:
     from ._delete import delete  # noqa
     from ._save import save  # noqa
     from ._view import view  # noqa
-    from .dev import _priors  # noqa
     from .dev._run_context import run_context  # noqa
     from .dev._settings import settings
 

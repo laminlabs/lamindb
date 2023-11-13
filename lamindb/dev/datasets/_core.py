@@ -48,7 +48,6 @@ def file_fcs_alpert19(populate_registries: bool = False) -> Path:  # pragma: no 
             name="assay", type="category", registries=[lb.ExperimentalFactor]
         ).save()
         ln.Feature(name="organism", type="category", registries=[lb.Organism]).save()
-        ln.Modality(name="protein", description="Protein measurements").save()
         ln.settings.verbosity = verbosity
     return Path(filepath)
 
@@ -87,7 +86,6 @@ def file_tsv_rnaseq_nfcore_salmon_merged_gene_counts(
             name="assay", type="category", registries=[lb.ExperimentalFactor]
         ).save()
         ln.Feature(name="organism", type="category", registries=[lb.Organism]).save()
-        ln.Modality(name="rna", description="RNA measurements").save()
         lb.ExperimentalFactor.from_bionty(ontology_id="EFO:0008896").save()
         ln.settings.verbosity = verbosity
 
@@ -200,12 +198,11 @@ def anndata_mouse_sc_lymph_node(
         lb.Tissue.from_bionty(ontology_id="UBERON:0001542").save()
         # cell types
         ln.save(lb.CellType.from_values(["CL:0000115", "CL:0000738"], "ontology_id"))
-        # assays and modality
+        # assays
         ln.Feature(
             name="assay", type="category", registries=[lb.ExperimentalFactor]
         ).save()
         lb.ExperimentalFactor.from_bionty(ontology_id="EFO:0008913").save()
-        ln.Modality(name="rna", description="RNA measurements").save()
         # genes
         validated = lb.Gene.bionty(organism="mouse").validate(
             adata.var.index, field="ensembl_gene_id"
@@ -331,7 +328,6 @@ def anndata_human_immune_cells(
         ln.save(lb.CellType.from_values(adata.obs.cell_type, field="name"))
         ln.save(lb.ExperimentalFactor.from_values(adata.obs.assay, field="name"))
         ln.save(lb.Tissue.from_values(adata.obs.tissue, field="name"))
-        ln.Modality(name="rna", description="RNA measurements").save()
         ln.Feature(name="cell_type", type="category", registries=[lb.CellType]).save()
         ln.Feature(
             name="assay", type="category", registries=[lb.ExperimentalFactor]
