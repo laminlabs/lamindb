@@ -1,5 +1,6 @@
 # Changelog
 
+- 🚑  Fix visibility choices, updated intro [PR1294](https://github.com/laminlabs/lamindb/pull/1294) [@sunnyosun](https://github.com/sunnyosun)
 - Filelock [PR1293](https://github.com/laminlabs/lamindb/pull/1293) [@sunnyosun](https://github.com/sunnyosun)
 - ⬆️ Update bionty filelock [PR1292](https://github.com/laminlabs/lamindb/pull/1292) [@sunnyosun](https://github.com/sunnyosun)
 ```{eval-rst}
