@@ -15,7 +15,7 @@ classifiers = [
 ]
 dependencies = [
     # Lamin PINNED packages
-    "lnschema_core==0.54.1",
+    "lnschema_core==0.55.0",
     "lamindb_setup==0.58.1",
     "lamin_utils==0.11.7",
     "lamin_cli==0.1.2",
@@ -36,7 +36,7 @@ Home = "https://github.com/laminlabs/lamindb"
 
 [project.optional-dependencies]
 bionty = [
-    "lnschema_bionty==0.34.4",
+    "lnschema_bionty==0.35.0",
 ]
 aws = [
     "botocore==1.31.17",  # for aiobotocore inside s3fs, to fix deps resolution
