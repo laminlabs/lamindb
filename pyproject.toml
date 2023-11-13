@@ -24,7 +24,7 @@ dependencies = [
     "pyarrow",
     "typing_extensions!=4.6.0",
     "python-dateutil",
-    "anndata>=0.8.0,<=0.10.2",  # will upgrade to new anndata releases
+    "anndata==0.10.3",  # will upgrade to new anndata releases
     "fsspec",
     "pandas",
     "graphviz",
@@ -44,7 +44,7 @@ aws = [
     "boto3==1.28.17", # to avoid conflicts arising due to the pin on botocore
     "aiobotocore==2.5.4",
     "fsspec[s3]==2023.9.0",
-    "s3fs>=2023.1.0",  # very old versions of s3fs don't work
+    "s3fs>=2023.9.0",  # very old versions of s3fs don't work
 ]
 gcp = [
     "fsspec[gs]==2023.9.0"
