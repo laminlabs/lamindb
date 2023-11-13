@@ -246,6 +246,7 @@ def from_anndata(
     reference_type: Optional[str] = None,
     version: Optional[str] = None,
     is_new_version_of: Optional["File"] = None,
+    **kwargs,
 ) -> "Dataset":
     """{}"""
     if isinstance(adata, File):
@@ -254,7 +255,9 @@ def from_anndata(
         adata_parse = adata.path
     else:
         adata_parse = adata
-    feature_sets = parse_feature_sets_from_anndata(adata_parse, field, modality)
+    feature_sets = parse_feature_sets_from_anndata(
+        adata_parse, field, modality, **kwargs
+    )
     dataset = Dataset(
         data=adata,
         run=run,
