@@ -1,5 +1,6 @@
 # Changelog
 
+- ⬆️ Update required versions of anndata, s3fs [PR1295](https://github.com/laminlabs/lamindb/pull/1295) [@Koncopd](https://github.com/Koncopd)
 
 ```{eval-rst}
 .. role:: small
