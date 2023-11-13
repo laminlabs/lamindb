@@ -33,7 +33,6 @@ from ._feature_manager import (
     print_features,
 )
 from ._label_manager import LabelManager, print_labels
-from ._priors import priors
 from ._run_context import run_context
 from .exceptions import ValidationError
 
@@ -311,7 +310,7 @@ def add_labels(
                 else:
                     features_list = []
                 features_list.append(feature)
-                feature_set = FeatureSet(features_list, modality=priors.modalities.meta)
+                feature_set = FeatureSet(features_list)
                 feature_set.save()
                 if "external" in linked_features_by_slot:
                     old_feature_set_link = feature_set_links.filter(

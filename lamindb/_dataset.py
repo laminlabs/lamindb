@@ -10,7 +10,6 @@ from lamindb_setup.dev import StorageSettings
 from lamindb_setup.dev._docs import doc_args
 from lamindb_setup.dev._hub_utils import get_storage_region
 from lamindb_setup.dev.upath import UPath
-from lnschema_core import Modality
 from lnschema_core.models import Dataset, Feature, FeatureSet
 from lnschema_core.types import AnnDataLike, DataLike, FieldAttr
 
@@ -205,7 +204,6 @@ def from_df(
     name: Optional[str] = None,
     description: Optional[str] = None,
     run: Optional[Run] = None,
-    modality: Optional[Modality] = None,
     reference: Optional[str] = None,
     reference_type: Optional[str] = None,
     version: Optional[str] = None,
@@ -213,7 +211,7 @@ def from_df(
     **kwargs,
 ) -> "Dataset":
     """{}"""
-    feature_set = FeatureSet.from_df(df, field=field, modality=modality, **kwargs)
+    feature_set = FeatureSet.from_df(df, field=field, **kwargs)
     if feature_set is not None:
         feature_sets = {"columns": feature_set}
     else:
@@ -241,7 +239,6 @@ def from_anndata(
     name: Optional[str] = None,
     description: Optional[str] = None,
     run: Optional[Run] = None,
-    modality: Optional[Modality] = None,
     reference: Optional[str] = None,
     reference_type: Optional[str] = None,
     version: Optional[str] = None,
@@ -255,9 +252,7 @@ def from_anndata(
         adata_parse = adata.path
     else:
         adata_parse = adata
-    feature_sets = parse_feature_sets_from_anndata(
-        adata_parse, field, modality, **kwargs
-    )
+    feature_sets = parse_feature_sets_from_anndata(adata_parse, field, **kwargs)
     dataset = Dataset(
         data=adata,
         run=run,
@@ -310,9 +305,7 @@ def from_files(files: Iterable[File]) -> Tuple[str, Dict[str, str]]:
         )
         start_time = logger.debug("done, start evaluate", time=start_time)
         features = features_registry.filter(id__in=feature_ids)
-        feature_sets_union[slot] = FeatureSet(
-            features, type=feature_set_1.type, modality=feature_set_1.modality
-        )
+        feature_sets_union[slot] = FeatureSet(features, type=feature_set_1.type)
         start_time = logger.debug("done", time=start_time)
     # validate consistency of hashes
     # we do not allow duplicate hashes

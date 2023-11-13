@@ -263,9 +263,11 @@ def _lookup(
         tuple_name=cls.__class__.__name__,
         prefix="ln",
     ).lookup(
-        return_field=get_default_str_field(orm=queryset.model, field=return_field)
-        if return_field is not None
-        else None
+        return_field=(
+            get_default_str_field(orm=queryset.model, field=return_field)
+            if return_field is not None
+            else None
+        )
     )
 
 
@@ -370,7 +372,6 @@ def using(
 
 REGISTRY_UNIQUE_FIELD = {
     "storage": "root",
-    "modality": "name",
     "feature": "name",
     "ulabel": "name",
 }
@@ -437,7 +438,6 @@ def transfer_to_default_db(record: Registry, save: bool = False, mute: bool = Fa
             else:
                 record.transform_id = None
         update_fk_to_default_db(record, "storage")
-        update_fk_to_default_db(record, "modality")
         record.id = None
         record._state.db = "default"
         if save:

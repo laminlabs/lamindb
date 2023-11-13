@@ -4,7 +4,7 @@ import numpy as np
 import pandas as pd
 from lamin_utils import logger
 from lamindb_setup.dev._docs import doc_args
-from lnschema_core import Feature, FeatureSet, Modality, Registry, ids
+from lnschema_core import Feature, FeatureSet, Registry, ids
 from lnschema_core.types import FieldAttr, ListLike
 
 from lamindb._utils import attach_func_to_class_method
@@ -14,7 +14,8 @@ from . import _TESTING
 from ._feature import convert_numpy_dtype_to_lamin_feature_type
 from ._query_set import QuerySet
 from ._registry import init_self_from_db
-from .dev._priors import NUMBER_TYPE
+
+NUMBER_TYPE = "number"
 
 
 def dict_related_model_to_related_name(orm):
@@ -99,14 +100,9 @@ def __init__(self, *args, **kwargs):
         raise ValueError("Only one non-keyword arg allowed: features")
     features: Iterable[Registry] = kwargs.pop("features") if len(args) == 0 else args[0]
     type: Optional[Union[type, str]] = kwargs.pop("type") if "type" in kwargs else None
-    modality: Optional[Modality] = (
-        kwargs.pop("modality") if "modality" in kwargs else None
-    )
     name: Optional[str] = kwargs.pop("name") if "name" in kwargs else None
     if len(kwargs) > 0:
-        raise ValueError(
-            "Only features, type, modality, name are valid keyword arguments"
-        )
+        raise ValueError("Only features, type, name are valid keyword arguments")
     # now code
     features_registry = validate_features(features)
     if type is None:
@@ -121,20 +117,12 @@ def __init__(self, *args, **kwargs):
     else:
         hash = features_hash
     self._features = (get_related_name(features_registry), features)
-    if modality is not None:
-        if not isinstance(modality, Modality):
-            raise TypeError("modality needs to be of type Modality")
-        if modality._state.adding:
-            raise ValueError(
-                "unvalidated modality, save to registry if you're sure it is correct:"
-                f" {modality}"
-            )
+
     super(FeatureSet, self).__init__(
         uid=ids.base62_20(),
         name=name,
         type=get_type_str(type),
         n=n_features,
-        modality=modality,
         registry=features_registry.__get_name_with_schema__(),
         hash=hash,
     )
@@ -167,7 +155,6 @@ def from_values(
     field: FieldAttr = Feature.name,
     type: Optional[Union[Type, str]] = None,
     name: Optional[str] = None,
-    modality: Optional[Modality] = None,
     **kwargs,
 ) -> Optional["FeatureSet"]:
     """{}"""
@@ -180,7 +167,7 @@ def from_values(
     registry = field.field.model
     if registry != Feature and type is None:
         type = NUMBER_TYPE
-        logger.debug(f"setting feature set to '{NUMBER_TYPE}'")
+        logger.debug("setting feature set to 'number'")
     validated = registry.validate(values, field=field)
     if validated.sum() == 0:
         logger.warning("no validated features, skip creating feature set")
@@ -190,7 +177,6 @@ def from_values(
     feature_set = FeatureSet(
         features=validated_features,
         name=name,
-        modality=modality,
         type=get_type_str(type),
     )
     return feature_set
@@ -203,7 +189,6 @@ def from_df(
     df: "pd.DataFrame",
     field: FieldAttr = Feature.name,
     name: Optional[str] = None,
-    modality: Optional[Modality] = None,
     **kwargs,
 ) -> Optional["FeatureSet"]:
     """{}"""
@@ -214,9 +199,7 @@ def from_df(
         return None
     if registry == Feature:
         validated_features = Feature.from_df(df.loc[:, validated])
-        feature_set = FeatureSet(
-            validated_features, name=name, type=None, modality=modality
-        )
+        feature_set = FeatureSet(validated_features, name=name, type=None)
     else:
         dtypes = [col.dtype for (_, col) in df.loc[:, validated].items()]
         if len(set(dtypes)) != 1:
@@ -228,7 +211,6 @@ def from_df(
         feature_set = FeatureSet(
             features=validated_features,
             name=name,
-            modality=modality,
             type=get_type_str(type),
         )
     return feature_set
