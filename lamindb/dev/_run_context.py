@@ -468,6 +468,26 @@ class run_context:
             save_or_load(f"saved: {transform}")
         else:
             # check whether there was an update
+            if (
+                transform.source_file_id is not None
+                or transform.latest_report_id is not None
+            ):
+                response = input(
+                    "You already saved a source file and a report for this transform"
+                    " version! Do you want to increase the version number? (y/n)"
+                )
+                if response == "y":
+                    if _env in ("lab", "notebook") and is_interactive:
+                        transform, metadata = reinitialize_notebook(transform, metadata)
+                        cls._notebook_meta = metadata  # type: ignore
+                    else:
+                        msg = msg_manual_init.format(notebook_path=notebook_path)
+                        raise UpdateNbWithNonInteractiveEditorError(msg)
+                logger.warning(
+                    "not tracking this notebook, either increase version or delete the"
+                    " saved source_file and report"
+                )
+                return None
             if transform.name != name or transform.short_name != short_name:
                 response = input(
                     "Updated notebook name and/or title: Do you want to assign a"
