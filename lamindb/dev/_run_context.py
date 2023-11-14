@@ -83,7 +83,10 @@ def _write_notebook_meta(metadata):
 
 # also see lamindb-setup._notebook for related code
 def reinitialize_notebook(
-    transform: Transform, metadata: Optional[Dict] = None, ask_for_new_id: bool = True
+    transform: Transform,
+    metadata: Optional[Dict] = None,
+    ask_for_new_id: bool = True,
+    bump_version: bool = False,
 ) -> Tuple[Transform, Dict]:
     from nbproject import dev as nb_dev
     from nbproject._header import _filepath
@@ -91,14 +94,19 @@ def reinitialize_notebook(
     # init new_id, new_version
     new_uid, new_version = transform.uid, None
 
-    if ask_for_new_id:
-        response = input("Do you want to generate a new id? (y/n) ")
-    else:
-        response = "y"
-    if response == "y":
-        new_uid = init_uid(n_full_id=14)
-    else:
-        response = input("Do you want to set a new version (e.g. '1.1')? (y/n) ")
+    # handle id
+    if not bump_version:
+        if ask_for_new_id:
+            response = input("Do you want to generate a new id? (y/n) ")
+        else:
+            response = "y"
+        if response == "y":
+            new_uid = init_uid(n_full_id=14)
+        else:
+            bump_version = True
+    # now consider bumping version
+    if bump_version:
+        response = input("Do you want to update the version? (y/n) ")
         if response == "y":
             new_version = input("Please type the version: ")
             new_uid, _, _ = get_ids_from_old_version(
@@ -308,6 +316,24 @@ class run_context:
             del cls._notebook_meta  # type: ignore
 
     @classmethod
+    def _attempt_reinitialize_notebook(
+        cls,
+        is_interactive: bool,
+        transform: Transform,
+        metadata: Dict,
+        notebook_path: str,
+        bump_version: bool = False,
+    ):
+        if is_interactive:
+            transform, metadata = reinitialize_notebook(
+                transform, metadata, bump_version=bump_version
+            )
+            cls._notebook_meta = metadata  # type: ignore
+        else:
+            msg = msg_manual_init.format(notebook_path=notebook_path)
+            raise UpdateNbWithNonInteractiveEditorError(msg)
+
+    @classmethod
     def _track_notebook(
         cls,
         *,
@@ -474,35 +500,31 @@ class run_context:
             ):
                 response = input(
                     "You already saved a source file and a report for this transform"
-                    " version! Do you want to increase the version number? (y/n)"
+                    " version! Do you want to increase the version? (y/n)"
                 )
                 if response == "y":
-                    if _env in ("lab", "notebook") and is_interactive:
-                        transform, metadata = reinitialize_notebook(transform, metadata)
-                        cls._notebook_meta = metadata  # type: ignore
-                    else:
-                        msg = msg_manual_init.format(notebook_path=notebook_path)
-                        raise UpdateNbWithNonInteractiveEditorError(msg)
-                logger.warning(
-                    "not tracking this notebook, either increase version or delete the"
-                    " saved source_file and report"
-                )
-                return None
+                    cls._attempt_reinitialize_notebook(
+                        is_interactive,
+                        transform,
+                        metadata,
+                        notebook_path,
+                        bump_version=True,
+                    )
+                else:
+                    logger.warning(
+                        "not tracking this notebook, either increase version or delete"
+                        " the saved transform.source_file and transform.latest_report"
+                    )
+                    return None
             if transform.name != name or transform.short_name != short_name:
                 response = input(
                     "Updated notebook name and/or title: Do you want to assign a"
                     " new id or version? (y/n)"
                 )
                 if response == "y":
-                    if _env in ("lab", "notebook") and is_interactive:
-                        transform, metadata = reinitialize_notebook(transform, metadata)
-                        # only write metadata back to notebook if it actually changed!
-                        # if filename or title changed, this does not merit a write!
-                        # it's dangerous to write unnecessarily
-                        cls._notebook_meta = metadata  # type: ignore
-                    else:
-                        msg = msg_manual_init.format(notebook_path=notebook_path)
-                        raise UpdateNbWithNonInteractiveEditorError(msg)
+                    cls._attempt_reinitialize_notebook(
+                        is_interactive, transform, metadata, notebook_path
+                    )
                 transform.name = name
                 transform.short_name = filestem
                 transform.save()
