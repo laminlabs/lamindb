@@ -1,5 +1,6 @@
 # Changelog
 
+- 🚸 Ensure saved notebooks aren't rerun with the same version [PR1298](https://github.com/laminlabs/lamindb/pull/1298) [@falexwolf](https://github.com/falexwolf)
 - 🔥 Remove Modality [PR1297](https://github.com/laminlabs/lamindb/pull/1297) [@sunnyosun](https://github.com/sunnyosun)
 - 📝 Refactored intro [PR1296](https://github.com/laminlabs/lamindb/pull/1296) [@sunnyosun](https://github.com/sunnyosun)
 - ⬆️ Update required versions of anndata, s3fs [PR1295](https://github.com/laminlabs/lamindb/pull/1295) [@Koncopd](https://github.com/Koncopd)
