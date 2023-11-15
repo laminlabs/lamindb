@@ -1,5 +1,6 @@
 # Changelog
 
+- 📝 Added an annotate guide [PR1302](https://github.com/laminlabs/lamindb/pull/1302) [@sunnyosun](https://github.com/sunnyosun)
 ```{eval-rst}
 .. role:: small
 ```
