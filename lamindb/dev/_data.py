@@ -142,6 +142,7 @@ def describe(self: Data):
 
 
 def validate_feature(feature: Feature, records: List[Registry]) -> None:
+    """Validate feature record, set feature.registries based on labels records."""
     if not isinstance(feature, Feature):
         raise TypeError("feature has to be of type Feature")
     if feature._state.adding:
@@ -270,9 +271,14 @@ def add_labels(
                 record
             )
         for registry_name, records in records_by_registry.items():
-            getattr(self, self.features._accessor_by_orm[registry_name]).add(
-                *records, through_defaults={"feature_id": feature.id}
+            labels_accessor = getattr(
+                self, self.features._accessor_by_orm[registry_name]
             )
+            # remove labels that are already linked as add doesn't perform update
+            linked_labels = [r for r in records if r in labels_accessor.filter()]
+            if len(linked_labels) > 0:
+                labels_accessor.remove(*linked_labels)
+            labels_accessor.add(*records, through_defaults={"feature_id": feature.id})
         feature_set_links = get_feature_set_links(self)
         feature_set_ids = [link.feature_set_id for link in feature_set_links.all()]
         # get all linked features of type Feature
