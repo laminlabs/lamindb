@@ -1,5 +1,6 @@
 # Changelog
 
+- 💚 Fix tests [PR1301](https://github.com/laminlabs/lamindb/pull/1301) [@falexwolf](https://github.com/falexwolf)
 - ♻️ Refactor dataset from directory [PR1300](https://github.com/laminlabs/lamindb/pull/1300) [@falexwolf](https://github.com/falexwolf)
 - 🚸 Prettify view_tree, check for ahead migrations [PR1299](https://github.com/laminlabs/lamindb/pull/1299) [@falexwolf](https://github.com/falexwolf)
 - 🚸 Ensure saved notebooks aren't rerun with the same version [PR1298](https://github.com/laminlabs/lamindb/pull/1298) [@falexwolf](https://github.com/falexwolf)
