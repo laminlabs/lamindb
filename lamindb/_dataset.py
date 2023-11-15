@@ -93,13 +93,11 @@ def __init__(
 
     run = get_run(run)
     data_init_complete = False
-    # there are exactly 3 ways of creating a Dataset object right now
-    # using exactly one file or using more than one file
-    # init file
+    file = None
+    files = None
+    storage = None
     # init from directory or bucket
     if isinstance(data, (str, Path, UPath)):
-        file = None
-        files = None
         upath = UPath(data)
         if not upath.is_dir:
             raise ValueError(f"Can only pass buckets or directories, not {data}")
@@ -109,12 +107,15 @@ def __init__(
         storage = register_storage(storage_settings)
         hash = None
         data_init_complete = True
-    # now handle the metadata
-    if isinstance(meta, (pd.DataFrame, ad.AnnData, File)):
+    # now handle potential metadata
+    if meta is not None:
+        if not isinstance(meta, (pd.DataFrame, ad.AnnData, File)):
+            raise ValueError(
+                "meta has to be of type `(pd.DataFrame, ad.AnnData, File)`"
+            )
         data = meta
+    # init file - is either data or metadata
     if isinstance(data, (pd.DataFrame, ad.AnnData, File)):
-        files = None
-        storage = None
         if isinstance(data, File):
             file = data
             if file._state.adding:
@@ -141,12 +142,10 @@ def __init__(
         provisional_uid = file.uid  # type: ignore
         if file.description is None or file.description == "tmp":
             file.description = f"See dataset {provisional_uid}"  # type: ignore
-        file._feature_sets = feature_sets
-        storage = None
+        if feature_sets is None:
+            file._feature_sets = feature_sets
         data_init_complete = True
     if not data_init_complete:
-        file = None
-        storage = None
         if hasattr(data, "__getitem__"):
             assert isinstance(data[0], File)  # type: ignore
             files = data
@@ -157,7 +156,10 @@ def __init__(
                 "Only DataFrame, AnnData, folder or list of File is allowed."
             )
     # we ignore datasets in trash containing the same hash
-    existing_dataset = Dataset.filter(hash=hash).one_or_none()
+    if hash is not None:
+        existing_dataset = Dataset.filter(hash=hash).one_or_none()
+    else:
+        existing_dataset = None
     if existing_dataset is not None:
         logger.warning(f"returning existing dataset with same hash: {existing_dataset}")
         init_self_from_db(dataset, existing_dataset)
@@ -383,7 +385,7 @@ def delete(
     # permanent delete
     if permanent is None:
         response = input(
-            "File record is already in trash! Are you sure to delete it from your"
+            "Dataset record is already in trash! Are you sure to delete it from your"
             " database? (y/n) You can't undo this action."
         )
         delete_record = response == "y"
