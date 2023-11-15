@@ -50,7 +50,10 @@ def attempt_accessing_path(file: File, storage_key: str):
         path = settings.storage.key_to_filepath(storage_key)
     else:
         logger.debug("file.path is slightly slower for files outside default storage")
-        storage = Storage.using(file._state.db).filter(id=file.storage_id).one()
+        if file._state.db not in ("default", None):
+            storage = Storage.using(file._state.db).filter(id=file.storage_id).one()
+        else:
+            storage = Storage.filter(id=file.storage_id).one()
         # find a better way than passing None to instance_settings in the future!
         storage_settings = StorageSettings(storage.root)
         path = storage_settings.key_to_filepath(storage_key)
