@@ -99,7 +99,7 @@ def __init__(
     # init from directory or bucket
     if isinstance(data, (str, Path, UPath)):
         upath = UPath(data)
-        if not upath.is_dir:
+        if not upath.is_dir():
             raise ValueError(f"Can only pass buckets or directories, not {data}")
         upath_str = upath.as_posix().rstrip("/")
         region = get_storage_region(upath_str)
