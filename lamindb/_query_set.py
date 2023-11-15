@@ -3,7 +3,7 @@ from typing import Iterable, List, NamedTuple, Optional, Union
 import pandas as pd
 from django.db import models
 from lamindb_setup.dev._docs import doc_args
-from lnschema_core.models import CanValidate, Registry
+from lnschema_core.models import CanValidate, Dataset, File, Registry
 from lnschema_core.types import ListLike, StrField
 
 
@@ -200,6 +200,24 @@ class QuerySet(models.QuerySet):
             return self[0]
         else:
             raise MultipleResultsFound
+
+    def filter(self, **expressions):
+        """Filter the query set."""
+        if self.model in [File, Dataset]:
+            # visibility is set to 0 unless expressions contains id or uid equality
+            if not ("id" in expressions or "uid" in expressions):
+                visibility = "visibility"
+                if not any([e.startswith(visibility) for e in expressions]):
+                    expressions[visibility] = 0
+                # if visibility is None, do not apply a filter
+                # otherwise, it would mean filtering for NULL values, which doesn't make
+                # sense for a non-NULLABLE column
+                elif visibility in expressions and expressions[visibility] is None:
+                    expressions.pop(visibility)
+        if len(expressions) > 0:
+            return self.filter(**expressions)
+        else:
+            return self
 
     @doc_args(Registry.search.__doc__)
     def search(self, string: str, **kwargs):
