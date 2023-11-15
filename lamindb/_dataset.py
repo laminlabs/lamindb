@@ -138,12 +138,13 @@ def __init__(
                 version=version,
                 is_new_version_of=file_is_new_version_of,
             )
+            # do we really want to update the file here?
+            if feature_sets:
+                file._feature_sets = feature_sets
         hash = file.hash  # type: ignore
         provisional_uid = file.uid  # type: ignore
         if file.description is None or file.description == "tmp":
             file.description = f"See dataset {provisional_uid}"  # type: ignore
-        if feature_sets is None:
-            file._feature_sets = feature_sets
         data_init_complete = True
     if not data_init_complete:
         if hasattr(data, "__getitem__"):
