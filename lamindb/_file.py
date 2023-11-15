@@ -947,7 +947,7 @@ def view_tree(
         }
     UPath(path).view_tree(
         level=level,
-        limit_to_directories=limit_to_directories,
+        only_dirs=limit_to_directories,
         length_limit=length_limit,
         include_paths=include_paths,
     )
