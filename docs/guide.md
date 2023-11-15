@@ -17,6 +17,7 @@ setup
 query-search
 validate
 bio-registries
+annotate
 schemas
 transfer
 ```
