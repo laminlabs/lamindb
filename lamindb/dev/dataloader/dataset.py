@@ -5,7 +5,7 @@ from typing import List, Optional, Union
 
 import numpy as np
 
-from ..storage._backed_access import ArrayTypes, GroupTypes, registry
+from ..storage._backed_access import ArrayTypes, GroupTypes, StorageType, registry
 
 
 class ListDataset:
@@ -58,8 +58,10 @@ class ListDataset:
                 out.append(label_idx)
         return out
 
-    def get_data_idx(self, storage, idx: int, layer_key: Optional[str] = None):
-        layer = storage["X"] if layer_key is None else storage["layers"][layer_key]
+    def get_data_idx(
+        self, storage: StorageType, idx: int, layer_key: Optional[str] = None  # type: ignore # noqa
+    ):
+        layer = storage["X"] if layer_key is None else storage["layers"][layer_key]  # type: ignore # noqa
         if isinstance(layer, ArrayTypes):  # type: ignore
             return layer[idx]
         else:  # assume csr_matrix here
@@ -71,8 +73,8 @@ class ListDataset:
             layer_idx[indices[s]] = data[s]
             return layer_idx
 
-    def get_label_idx(self, storage, idx: int, label_key: str):
-        obs = storage["obs"]
+    def get_label_idx(self, storage: StorageType, idx: int, label_key: str):  # type: ignore # noqa
+        obs = storage["obs"]  # type: ignore
         # how backwards compatible do we want to be here actually?
         if isinstance(obs, ArrayTypes):  # type: ignore
             label = obs[idx][obs.dtype.names.index(label_key)]
@@ -123,12 +125,12 @@ class ListDataset:
                 cats_merge.update(codes)
         return cats_merge
 
-    def get_categories(self, storage, label_key: str):
-        obs = storage["obs"]
+    def get_categories(self, storage: StorageType, label_key: str):  # type: ignore
+        obs = storage["obs"]  # type: ignore
         if isinstance(obs, ArrayTypes):  # type: ignore
             cat_key_uns = f"{label_key}_categories"
-            if cat_key_uns in storage["uns"]:
-                return storage["uns"][cat_key_uns]
+            if cat_key_uns in storage["uns"]:  # type: ignore
+                return storage["uns"][cat_key_uns]  # type: ignore
             else:
                 return None
         else:
@@ -151,8 +153,8 @@ class ListDataset:
                     return None
         return None
 
-    def get_codes(self, storage, label_key: str):
-        obs = storage["obs"]
+    def get_codes(self, storage: StorageType, label_key: str):  # type: ignore
+        obs = storage["obs"]  # type: ignore
         if isinstance(obs, ArrayTypes):  # type: ignore
             label = obs[label_key]
         else:
