@@ -15,7 +15,7 @@ from lnschema_core.types import AnnDataLike, DataLike, FieldAttr
 
 from lamindb._utils import attach_func_to_class_method
 from lamindb.dev._data import _track_run_input
-from lamindb.dev.dataloader.dataset import ListDataset
+from lamindb.dev.dataloader import ListDataset
 from lamindb.dev.storage._backed_access import AnnDataAccessor, BackedAccessor
 from lamindb.dev.versioning import get_ids_from_old_version, init_uid
 
