@@ -1,6 +1,6 @@
 from collections import defaultdict
 from pathlib import Path
-from typing import Dict, Iterable, Literal, Optional, Tuple, Union
+from typing import Dict, Iterable, List, Literal, Optional, Tuple, Union
 
 import anndata as ad
 import pandas as pd
@@ -15,6 +15,7 @@ from lnschema_core.types import AnnDataLike, DataLike, FieldAttr
 
 from lamindb._utils import attach_func_to_class_method
 from lamindb.dev._data import _track_run_input
+from lamindb.dev.dataloader.dataset import ListDataset
 from lamindb.dev.storage._backed_access import AnnDataAccessor, BackedAccessor
 from lamindb.dev.versioning import get_ids_from_old_version, init_uid
 
@@ -329,6 +330,23 @@ def from_files(files: Iterable[File]) -> Tuple[str, Dict[str, str]]:
     return hash, feature_sets_union
 
 
+def filelist_dataset(
+    self,
+    labels: Optional[Union[str, List[str]]] = None,
+    encode_labels: bool = True,
+    stream: bool = False,
+) -> "ListDataset":
+    pth_list = []
+    for file in self.files.all():
+        if file.suffix not in {".h5ad", ".zrad", ".zarr"}:
+            continue
+        elif not stream and file.suffix == ".h5ad":
+            pth_list.append(file.stage())
+        else:
+            pth_list.append(file.path)
+    return ListDataset(pth_list, labels, encode_labels)
+
+
 # docstring handled through attach_func_to_class_method
 def backed(
     self, is_run_input: Optional[bool] = None
@@ -437,6 +455,7 @@ METHOD_NAMES = [
     "from_df",
     "backed",
     "load",
+    "filelist_dataset",
     "delete",
     "save",
     "restore",
