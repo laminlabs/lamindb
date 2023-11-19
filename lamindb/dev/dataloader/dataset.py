@@ -8,7 +8,10 @@ import numpy as np
 from ..storage._backed_access import ArrayTypes, GroupTypes, StorageType, registry
 
 
+# this is based on sCimilarity (https://github.com/Genentech/scimilarity) Datasets
 class ListDataset:
+    """Dataset from a list of paths to use with dataloaders."""
+
     def __init__(
         self,
         pth_list: List[Union[str, PathLike]],
