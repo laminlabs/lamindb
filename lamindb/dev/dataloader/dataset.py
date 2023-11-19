@@ -26,7 +26,13 @@ class ListDataset:
             self.conns.append(conn)
             self.storages.append(storage)
 
-        self.n_obs_list = [storage["X"].attrs["shape"][0] for storage in self.storages]
+        self.n_obs_list = []
+        for storage in self.storages:
+            X = storage["X"]
+            if isinstance(X, ArrayTypes):  # type: ignore
+                self.n_obs_list.append(X.shape[0])
+            else:
+                self.n_obs_list.append(X.attrs["shape"][0])
         self.n_obs = sum(self.n_obs_list)
 
         self.indices = np.hstack([np.arange(n_obs) for n_obs in self.n_obs_list])
