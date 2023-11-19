@@ -259,6 +259,22 @@ def test_from_consistent_files():
     dataset.delete(permanent=True)
 
 
+def test_filelist_dataset():
+    file1 = ln.File(adata, description="Part one")
+    file1.save()
+    file2 = ln.File(adata2, description="Part two")
+    file2.save()
+    dataset = ln.Dataset([file1, file2], name="Gather")
+    dataset.save()
+
+    ls_ds = dataset.filelist_dataset(labels="feat1")
+    assert len(ls_ds[0]) == 2
+
+    file1.delete(permanent=True, storage=True)
+    file2.delete(permanent=True, storage=True)
+    dataset.delete(permanent=True)
+
+
 def test_is_new_version_of_versioned_dataset():
     # create a versioned dataset
     dataset = ln.Dataset(df, name="test", version="1")
