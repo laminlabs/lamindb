@@ -260,6 +260,7 @@ def test_from_consistent_files():
 
 
 def test_filelist_dataset():
+    adata.strings_to_categoricals()
     file1 = ln.File(adata, description="Part one")
     file1.save()
     file2 = ln.File(adata2, description="Part two")
@@ -269,6 +270,8 @@ def test_filelist_dataset():
 
     ls_ds = dataset.filelist_dataset(labels="feat1")
     assert len(ls_ds[0]) == 2
+    weights = ls_ds.get_labels_weights("feat1")
+    assert all(weights[1:] == weights[0])
 
     file1.delete(permanent=True, storage=True)
     file2.delete(permanent=True, storage=True)
