@@ -7,6 +7,7 @@ import numpy as np
 import pandas as pd
 import pytest
 from django.db.models.deletion import ProtectedError
+from scipy.sparse import csr_matrix
 
 import lamindb as ln
 from lamindb import _dataset
@@ -263,13 +264,14 @@ def test_filelist_dataset():
     adata.strings_to_categoricals()
     file1 = ln.File(adata, description="Part one")
     file1.save()
+    adata2.X = csr_matrix(adata2.X)
     file2 = ln.File(adata2, description="Part two")
     file2.save()
     dataset = ln.Dataset([file1, file2], name="Gather")
     dataset.save()
 
     ls_ds = dataset.filelist_dataset(labels="feat1")
-    assert len(ls_ds[0]) == 2
+    assert len(ls_ds[0]) == 2 and len(ls_ds[2]) == 2
     weights = ls_ds.get_labels_weights("feat1")
     assert all(weights[1:] == weights[0])
 
