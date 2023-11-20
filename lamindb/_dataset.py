@@ -316,7 +316,9 @@ def from_files(files: Iterable[File]) -> Tuple[str, Dict[str, str]]:
     # validate consistency of hashes
     # we do not allow duplicate hashes
     logger.debug("hashes")
-    hashes = [file.hash for file in files]
+    # file.hash is None for zarr
+    # todo: more careful handling of such cases
+    hashes = [file.hash for file in files if file.hash is not None]
     if len(hashes) != len(set(hashes)):
         seen = set()
         non_unique = [x for x in hashes if x in seen or seen.add(x)]  # type: ignore
