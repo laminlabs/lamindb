@@ -260,7 +260,7 @@ def test_from_consistent_files():
     dataset.delete(permanent=True)
 
 
-def test_dataset_indexed():
+def test_dataset_mapped():
     adata.strings_to_categoricals()
     file1 = ln.File(adata, description="Part one")
     file1.save()
@@ -270,12 +270,11 @@ def test_dataset_indexed():
     dataset = ln.Dataset([file1, file2], name="Gather")
     dataset.save()
 
-    ls_ds = dataset.indexed(labels="feat1")
+    ls_ds = dataset.mapped(labels="feat1")
     assert len(ls_ds) == 4
     assert len(ls_ds[0]) == 2 and len(ls_ds[2]) == 2
-    weights = ls_ds.get_labels_weights("feat1")
+    weights = ls_ds.get_label_weights("feat1")
     assert all(weights[1:] == weights[0])
-
     ls_ds.close()
 
     file1.delete(permanent=True, storage=True)

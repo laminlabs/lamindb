@@ -5,27 +5,36 @@ from typing import List, Optional, Union
 import numpy as np
 from lamindb_setup.dev.upath import UPath
 
-from ..storage._backed_access import ArrayTypes, GroupTypes, StorageType, registry
+from .storage._backed_access import ArrayTypes, GroupTypes, StorageType, registry
 
 
-# this is based on sCimilarity (https://github.com/Genentech/scimilarity) Datasets
-class IndexedDataset:
-    """Dataset from a list of paths to use with dataloaders."""
+class MappedDataset:
+    """Map-style dataset for use in data loaders.
+
+    This currently only works for collections of `AnnData` objects.
+
+    For an example, see :meth:`~lamindb.Dataset.mapped`.
+
+    .. note::
+
+        A similar data loader exists `here
+        <https://github.com/Genentech/scimilarity>`__.
+    """
 
     def __init__(
         self,
-        pth_list: List[Union[str, PathLike]],
-        labels: Optional[Union[str, List[str]]] = None,
+        path_list: List[Union[str, PathLike]],
+        label_keys: Optional[Union[str, List[str]]] = None,
         encode_labels: bool = True,
     ):
         self.storages = []
         self.conns = []
-        for pth in pth_list:
-            pth = UPath(pth)
-            if pth.exists() and pth.is_file():  # type: ignore
-                conn, storage = registry.open("h5py", pth)
+        for path in path_list:
+            path = UPath(path)
+            if path.exists() and path.is_file():  # type: ignore
+                conn, storage = registry.open("h5py", path)
             else:
-                conn, storage = registry.open("zarr", pth)
+                conn, storage = registry.open("zarr", path)
             self.conns.append(conn)
             self.storages.append(storage)
 
@@ -42,13 +51,13 @@ class IndexedDataset:
         self.storage_idx = np.repeat(np.arange(len(self.storages)), self.n_obs_list)
 
         self.encode_labels = encode_labels
-        if isinstance(labels, str):
-            labels = [labels]
-        self.labels = labels
-        if self.labels is not None:
+        if isinstance(label_keys, str):
+            label_keys = [label_keys]
+        self.label_keys = label_keys
+        if self.label_keys is not None:
             if self.encode_labels:
                 self.encoders = []
-                for label in self.labels:
+                for label in self.label_keys:
                     cats = self.get_merged_categories(label)
                     self.encoders.append({cat: i for i, cat in enumerate(cats)})
 
@@ -59,8 +68,8 @@ class IndexedDataset:
         obs_idx = self.indices[idx]
         storage = self.storages[self.storage_idx[idx]]
         out = [self.get_data_idx(storage, obs_idx)]
-        if self.labels is not None:
-            for i, label in enumerate(self.labels):
+        if self.label_keys is not None:
+            for i, label in enumerate(self.label_keys):
                 label_idx = self.get_label_idx(storage, obs_idx, label)
                 if self.encode_labels:
                     label_idx = self.encoders[i][label_idx]
@@ -70,6 +79,7 @@ class IndexedDataset:
     def get_data_idx(
         self, storage: StorageType, idx: int, layer_key: Optional[str] = None  # type: ignore # noqa
     ):
+        """Get the index for the data."""
         layer = storage["X"] if layer_key is None else storage["layers"][layer_key]  # type: ignore # noqa
         if isinstance(layer, ArrayTypes):  # type: ignore
             return layer[idx]
@@ -83,6 +93,7 @@ class IndexedDataset:
             return layer_idx
 
     def get_label_idx(self, storage: StorageType, idx: int, label_key: str):  # type: ignore # noqa
+        """Get the index for the label by key."""
         obs = storage["obs"]  # type: ignore
         # how backwards compatible do we want to be here actually?
         if isinstance(obs, ArrayTypes):  # type: ignore
@@ -101,13 +112,15 @@ class IndexedDataset:
             label = label.decode("utf-8")
         return label
 
-    def get_labels_weights(self, label_key: str):
+    def get_label_weights(self, label_key: str):
+        """Get all weights for a given label key."""
         labels = self.get_merged_labels(label_key)
         counter = Counter(labels)  # type: ignore
         weights = np.array([counter[label] for label in labels]) / len(labels)
         return weights
 
     def get_merged_labels(self, label_key: str):
+        """Get merged labels."""
         labels_merge = []
         decode = np.frompyfunc(lambda x: x.decode("utf-8"), 1, 1)
         for storage in self.storages:
@@ -121,6 +134,7 @@ class IndexedDataset:
         return np.hstack(labels_merge)
 
     def get_merged_categories(self, label_key: str):
+        """Get merged categories."""
         cats_merge = set()
         decode = np.frompyfunc(lambda x: x.decode("utf-8"), 1, 1)
         for storage in self.storages:
@@ -135,6 +149,7 @@ class IndexedDataset:
         return cats_merge
 
     def get_categories(self, storage: StorageType, label_key: str):  # type: ignore
+        """Get categories."""
         obs = storage["obs"]  # type: ignore
         if isinstance(obs, ArrayTypes):  # type: ignore
             cat_key_uns = f"{label_key}_categories"
@@ -163,6 +178,7 @@ class IndexedDataset:
         return None
 
     def get_codes(self, storage: StorageType, label_key: str):  # type: ignore
+        """Get codes."""
         obs = storage["obs"]  # type: ignore
         if isinstance(obs, ArrayTypes):  # type: ignore
             label = obs[label_key]
@@ -174,6 +190,7 @@ class IndexedDataset:
                 return label["codes"][...]
 
     def close(self):
+        """Close connection to array streaming backend."""
         for storage in self.storages:
             if hasattr(storage, "close"):
                 storage.close()

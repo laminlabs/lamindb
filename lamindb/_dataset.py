@@ -15,7 +15,7 @@ from lnschema_core.types import AnnDataLike, DataLike, FieldAttr
 
 from lamindb._utils import attach_func_to_class_method
 from lamindb.dev._data import _track_run_input
-from lamindb.dev.dataloader import IndexedDataset
+from lamindb.dev._mapped_dataset import MappedDataset
 from lamindb.dev.storage._backed_access import AnnDataAccessor, BackedAccessor
 from lamindb.dev.versioning import get_ids_from_old_version, init_uid
 
@@ -333,21 +333,24 @@ def from_files(files: Iterable[File]) -> Tuple[str, Dict[str, str]]:
 
 
 # docstring handled through attach_func_to_class_method
-def indexed(
+def mapped(
     self,
-    labels: Optional[Union[str, List[str]]] = None,
+    label_keys: Optional[Union[str, List[str]]] = None,
     encode_labels: bool = True,
     stream: bool = False,
-) -> "IndexedDataset":
-    pth_list = []
+    is_run_input: Optional[bool] = None,
+) -> "MappedDataset":
+    _track_run_input(self, is_run_input)
+    path_list = []
     for file in self.files.all():
         if file.suffix not in {".h5ad", ".zrad", ".zarr"}:
+            logger.warning(f"Ignoring file with suffix {file.suffix}")
             continue
         elif not stream and file.suffix == ".h5ad":
-            pth_list.append(file.stage())
+            path_list.append(file.stage())
         else:
-            pth_list.append(file.path)
-    return IndexedDataset(pth_list, labels, encode_labels)
+            path_list.append(file.path)
+    return MappedDataset(path_list, label_keys, encode_labels)
 
 
 # docstring handled through attach_func_to_class_method
@@ -456,7 +459,7 @@ METHOD_NAMES = [
     "__init__",
     "from_anndata",
     "from_df",
-    "indexed",
+    "mapped",
     "backed",
     "load",
     "delete",
