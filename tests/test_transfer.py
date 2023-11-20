@@ -1,6 +1,7 @@
 import lamindb as ln
 
 
+# this test has to be refactored and sped up a lot
 def test_transfer():
     import lnschema_bionty as lb
 
@@ -36,6 +37,18 @@ def test_transfer():
     assert created_by_remote.handle != file.created_by.handle
     assert storage_remote.uid == file.storage.uid
     assert storage_remote.created_at != file.storage.created_at
+
+    # now check that this is idempotent and we can run it again
+    file_repeat = (
+        ln.File.using("laminlabs/cellxgene-census")
+        .filter(
+            description__icontains="tabula sapiens - lung",
+        )
+        .one()
+    )
+    file_repeat.save()
+
+    # now prepare a new test case
     ulabel = file.ulabels.get(name="Tabula Sapiens")
     assert ulabel != ulabel_remote
     # mimic we have an existing ulabel with a different uid but same name

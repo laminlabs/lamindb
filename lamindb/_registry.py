@@ -412,9 +412,18 @@ def transfer_fk_to_default_db_bulk(records: List):
         update_fk_to_default_db(records, fk)
 
 
-def transfer_to_default_db(record: Registry, save: bool = False, mute: bool = False):
+def transfer_to_default_db(
+    record: Registry, save: bool = False, mute: bool = False
+) -> Optional[Registry]:
     db = record._state.db
     if db is not None and db != "default":
+        registry = record.__class__
+        record_on_default = registry.objects.filter(uid=record.uid).one_or_none()
+        if record_on_default is not None:
+            logger.warning(
+                f"record with {record.uid} already exists on default database: {record}"
+            )
+            return record_on_default
         if not mute:
             logger.hint(f"saving from instance {db} to default instance: {record}")
         from lamindb.dev._data import WARNING_RUN_TRANSFORM
@@ -442,14 +451,18 @@ def transfer_to_default_db(record: Registry, save: bool = False, mute: bool = Fa
         record._state.db = "default"
         if save:
             record.save()
+    return None
 
 
 # docstring handled through attach_func_to_class_method
 def save(self, *args, **kwargs) -> None:
     db = self._state.db
     id_on_db = self.id
-    transfer_to_default_db(self)
-    super(Registry, self).save(*args, **kwargs)
+    result = transfer_to_default_db(self)
+    if result is not None:
+        init_self_from_db(self, result)
+    else:
+        super(Registry, self).save(*args, **kwargs)
     if db is not None and db != "default":
         if hasattr(self, "labels"):
             from copy import copy
