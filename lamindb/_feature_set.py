@@ -168,7 +168,7 @@ def from_values(
     if registry != Feature and type is None:
         type = NUMBER_TYPE
         logger.debug("setting feature set to 'number'")
-    validated = registry.validate(values, field=field)
+    validated = registry.validate(values, field=field, organism=kwargs.get("organism"))
     if validated.sum() == 0:
         logger.warning("no validated features, skip creating feature set")
         return None
