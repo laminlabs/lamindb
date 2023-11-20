@@ -36,7 +36,7 @@ class QuerySet(models.QuerySet):
         <QuerySet [ULabel(id=MIeZISeF, name=my label, updated_at=2023-07-19 19:53:34, created_by_id=DzTjkKse)]> # noqa
     """
 
-    def df(self, include: Optional[List[str]] = None):
+    def df(self, include: Optional[List[str]] = None) -> pd.DataFrame:
         """Convert to ``pd.DataFrame``.
 
         By default, shows all fields that aren't many-to-many fields, except
