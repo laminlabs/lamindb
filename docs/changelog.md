@@ -1,15 +1,20 @@
 # Changelog
 
-- ♻️ Rename IndexedDataset to MappedDataset, homogenize [PR1314](https://github.com/laminlabs/lamindb/pull/1314) [@falexwolf](https://github.com/falexwolf)
-- 🐛 Fix passing organism to featureset.from_values [PR1312](https://github.com/laminlabs/lamindb/pull/1312) [@sunnyosun](https://github.com/sunnyosun)
-- 🐛 Fix bug in transfer files [PR1311](https://github.com/laminlabs/lamindb/pull/1311) [@falexwolf](https://github.com/falexwolf)
-- 🚸 Add `.df()` to `Registry` [PR1313](https://github.com/laminlabs/lamindb/pull/1313) [@falexwolf](https://github.com/falexwolf)
-- ✨ Initial implementation of IndexedDataset [PR1307](https://github.com/laminlabs/lamindb/pull/1307) [@Koncopd](https://github.com/Koncopd)
-- 🍱 Updated bionty sources [PR1305](https://github.com/laminlabs/lamindb/pull/1305) [@sunnyosun](https://github.com/sunnyosun)
-- 📝 Added an annotate guide [PR1302](https://github.com/laminlabs/lamindb/pull/1302) [@sunnyosun](https://github.com/sunnyosun)
+
 ```{eval-rst}
 .. role:: small
 ```
+
+## 0.62
+
+### 0.62.0 {small}`2023-11-20`
+
+- ✨ Create `dataset.mapped()` for data loaders over `AnnData` [PR1307](https://github.com/laminlabs/lamindb/pull/1307) [@Koncopd](https://github.com/Koncopd)
+- 🚸 Add `.df()` to `Registry` [PR1313](https://github.com/laminlabs/lamindb/pull/1313) [@falexwolf](https://github.com/falexwolf)
+- 🐛 Fix passing organism to featureset.from_values [PR1312](https://github.com/laminlabs/lamindb/pull/1312) [@sunnyosun](https://github.com/sunnyosun)
+- 🐛 Fix idempotency of transfer files [PR1311](https://github.com/laminlabs/lamindb/pull/1311) [@falexwolf](https://github.com/falexwolf)
+- 🍱 Updated bionty sources [PR1305](https://github.com/laminlabs/lamindb/pull/1305) [@sunnyosun](https://github.com/sunnyosun)
+- 📝 Add an annotation guide [PR1302](https://github.com/laminlabs/lamindb/pull/1302) [@sunnyosun](https://github.com/sunnyosun)
 
 ## 0.61
 
