@@ -265,7 +265,7 @@ def test_filelist_dataset():
     file1 = ln.File(adata, description="Part one")
     file1.save()
     adata2.X = csr_matrix(adata2.X)
-    file2 = ln.File(adata2, description="Part two")
+    file2 = ln.File(adata2, description="Part two", format="zrad")
     file2.save()
     dataset = ln.Dataset([file1, file2], name="Gather")
     dataset.save()
