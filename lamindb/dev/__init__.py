@@ -46,7 +46,7 @@ Auxiliary tools:
    Settings
    types
    exceptions
-   dataloader
+   MappedDataset
 """
 
 from lamin_utils._inspect import InspectResult
@@ -58,5 +58,6 @@ from lamindb.dev._feature_manager import FeatureManager
 from lamindb.dev._label_manager import LabelManager
 
 from . import _data, datasets, exceptions, fields, types  # noqa
+from ._mapped_dataset import MappedDataset
 from ._run_context import run_context
 from ._settings import Settings
