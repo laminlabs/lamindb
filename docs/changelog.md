@@ -1,5 +1,6 @@
 # Changelog
 
+- 🚸 Add `.df()` to `Registry` [PR1313](https://github.com/laminlabs/lamindb/pull/1313) [@falexwolf](https://github.com/falexwolf)
 - ✨ Initial implementation of IndexedDataset [PR1307](https://github.com/laminlabs/lamindb/pull/1307) [@Koncopd](https://github.com/Koncopd)
 - 🍱 Updated bionty sources [PR1305](https://github.com/laminlabs/lamindb/pull/1305) [@sunnyosun](https://github.com/sunnyosun)
 - 📝 Added an annotate guide [PR1302](https://github.com/laminlabs/lamindb/pull/1302) [@sunnyosun](https://github.com/sunnyosun)
