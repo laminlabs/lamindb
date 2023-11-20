@@ -456,7 +456,7 @@ METHOD_NAMES = [
     "__init__",
     "from_anndata",
     "from_df",
-    "filelist_dataset",
+    "indexed",
     "backed",
     "load",
     "delete",
