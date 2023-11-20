@@ -3,6 +3,6 @@
 .. autosummary::
    :toctree: .
 
-   ListDataset
+   IndexedDataset
 """
-from .dataset import ListDataset
+from .indexed_dataset import IndexedDataset

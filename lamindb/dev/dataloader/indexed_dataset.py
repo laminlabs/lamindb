@@ -9,7 +9,7 @@ from ..storage._backed_access import ArrayTypes, GroupTypes, StorageType, regist
 
 
 # this is based on sCimilarity (https://github.com/Genentech/scimilarity) Datasets
-class ListDataset:
+class IndexedDataset:
     """Dataset from a list of paths to use with dataloaders."""
 
     def __init__(

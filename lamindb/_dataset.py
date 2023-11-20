@@ -15,7 +15,7 @@ from lnschema_core.types import AnnDataLike, DataLike, FieldAttr
 
 from lamindb._utils import attach_func_to_class_method
 from lamindb.dev._data import _track_run_input
-from lamindb.dev.dataloader import ListDataset
+from lamindb.dev.dataloader import IndexedDataset
 from lamindb.dev.storage._backed_access import AnnDataAccessor, BackedAccessor
 from lamindb.dev.versioning import get_ids_from_old_version, init_uid
 
@@ -332,12 +332,13 @@ def from_files(files: Iterable[File]) -> Tuple[str, Dict[str, str]]:
     return hash, feature_sets_union
 
 
-def filelist_dataset(
+# docstring handled through attach_func_to_class_method
+def indexed(
     self,
     labels: Optional[Union[str, List[str]]] = None,
     encode_labels: bool = True,
     stream: bool = False,
-) -> "ListDataset":
+) -> "IndexedDataset":
     pth_list = []
     for file in self.files.all():
         if file.suffix not in {".h5ad", ".zrad", ".zarr"}:
@@ -346,7 +347,7 @@ def filelist_dataset(
             pth_list.append(file.stage())
         else:
             pth_list.append(file.path)
-    return ListDataset(pth_list, labels, encode_labels)
+    return IndexedDataset(pth_list, labels, encode_labels)
 
 
 # docstring handled through attach_func_to_class_method
