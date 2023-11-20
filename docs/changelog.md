@@ -1,5 +1,6 @@
 # Changelog
 
+- ♻️ Rename IndexedDataset to MappedDataset, homogenize [PR1314](https://github.com/laminlabs/lamindb/pull/1314) [@falexwolf](https://github.com/falexwolf)
 - 🐛 Fix passing organism to featureset.from_values [PR1312](https://github.com/laminlabs/lamindb/pull/1312) [@sunnyosun](https://github.com/sunnyosun)
 - 🐛 Fix bug in transfer files [PR1311](https://github.com/laminlabs/lamindb/pull/1311) [@falexwolf](https://github.com/falexwolf)
 - 🚸 Add `.df()` to `Registry` [PR1313](https://github.com/laminlabs/lamindb/pull/1313) [@falexwolf](https://github.com/falexwolf)
