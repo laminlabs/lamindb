@@ -271,6 +271,7 @@ def test_filelist_dataset():
     dataset.save()
 
     ls_ds = dataset.filelist_dataset(labels="feat1")
+    assert len(ls_ds) == 4
     assert len(ls_ds[0]) == 2 and len(ls_ds[2]) == 2
     weights = ls_ds.get_labels_weights("feat1")
     assert all(weights[1:] == weights[0])
