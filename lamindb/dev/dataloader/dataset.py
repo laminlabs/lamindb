@@ -1,9 +1,9 @@
 from collections import Counter
 from os import PathLike
-from pathlib import Path
 from typing import List, Optional, Union
 
 import numpy as np
+from lamindb_setup.dev.upath import UPath
 
 from ..storage._backed_access import ArrayTypes, GroupTypes, StorageType, registry
 
@@ -21,8 +21,8 @@ class ListDataset:
         self.storages = []
         self.conns = []
         for pth in pth_list:
-            pth = Path(pth) if not isinstance(pth, Path) else pth
-            if pth.exists() and pth.is_file():
+            pth = UPath(pth)
+            if pth.exists() and pth.is_file():  # type: ignore
                 conn, storage = registry.open("h5py", pth)
             else:
                 conn, storage = registry.open("zarr", pth)
@@ -172,3 +172,11 @@ class ListDataset:
                 return label[...]
             else:
                 return label["codes"][...]
+
+    def close(self):
+        for storage in self.storages:
+            if hasattr(storage, "close"):
+                storage.close()
+        for conn in self.conns:
+            if hasattr(conn, "close"):
+                conn.close()

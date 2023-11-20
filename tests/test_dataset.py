@@ -275,6 +275,8 @@ def test_filelist_dataset():
     weights = ls_ds.get_labels_weights("feat1")
     assert all(weights[1:] == weights[0])
 
+    ls_ds.close()
+
     file1.delete(permanent=True, storage=True)
     file2.delete(permanent=True, storage=True)
     dataset.delete(permanent=True)
