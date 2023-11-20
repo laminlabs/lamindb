@@ -622,8 +622,9 @@ class AnnDataAccessor(_AnnDataAttrsMixin):
 
     def close(self):
         """Closes the connection."""
-        if self._conn is not None:
+        if hasattr(self, "storage") and hasattr(self.storage, "close"):
             self.storage.close()
+        if hasattr(self, "_conn") and hasattr(self._conn, "close"):
             self._conn.close()
 
     def __del__(self):
