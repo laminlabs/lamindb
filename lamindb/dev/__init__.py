@@ -46,6 +46,7 @@ Auxiliary tools:
    Settings
    types
    exceptions
+   dataloader
 """
 
 from lamin_utils._inspect import InspectResult

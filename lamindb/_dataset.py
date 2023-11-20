@@ -1,6 +1,6 @@
 from collections import defaultdict
 from pathlib import Path
-from typing import Dict, Iterable, Literal, Optional, Tuple, Union
+from typing import Dict, Iterable, List, Literal, Optional, Tuple, Union
 
 import anndata as ad
 import pandas as pd
@@ -15,6 +15,7 @@ from lnschema_core.types import AnnDataLike, DataLike, FieldAttr
 
 from lamindb._utils import attach_func_to_class_method
 from lamindb.dev._data import _track_run_input
+from lamindb.dev.dataloader import IndexedDataset
 from lamindb.dev.storage._backed_access import AnnDataAccessor, BackedAccessor
 from lamindb.dev.versioning import get_ids_from_old_version, init_uid
 
@@ -315,7 +316,9 @@ def from_files(files: Iterable[File]) -> Tuple[str, Dict[str, str]]:
     # validate consistency of hashes
     # we do not allow duplicate hashes
     logger.debug("hashes")
-    hashes = [file.hash for file in files]
+    # file.hash is None for zarr
+    # todo: more careful handling of such cases
+    hashes = [file.hash for file in files if file.hash is not None]
     if len(hashes) != len(set(hashes)):
         seen = set()
         non_unique = [x for x in hashes if x in seen or seen.add(x)]  # type: ignore
@@ -327,6 +330,24 @@ def from_files(files: Iterable[File]) -> Tuple[str, Dict[str, str]]:
     hash = hash_set(set(hashes))
     logger.debug("done", time=time)
     return hash, feature_sets_union
+
+
+# docstring handled through attach_func_to_class_method
+def indexed(
+    self,
+    labels: Optional[Union[str, List[str]]] = None,
+    encode_labels: bool = True,
+    stream: bool = False,
+) -> "IndexedDataset":
+    pth_list = []
+    for file in self.files.all():
+        if file.suffix not in {".h5ad", ".zrad", ".zarr"}:
+            continue
+        elif not stream and file.suffix == ".h5ad":
+            pth_list.append(file.stage())
+        else:
+            pth_list.append(file.path)
+    return IndexedDataset(pth_list, labels, encode_labels)
 
 
 # docstring handled through attach_func_to_class_method
@@ -435,6 +456,7 @@ METHOD_NAMES = [
     "__init__",
     "from_anndata",
     "from_df",
+    "indexed",
     "backed",
     "load",
     "delete",

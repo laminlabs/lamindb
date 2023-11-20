@@ -16,6 +16,7 @@ from anndata._io.h5ad import read_dataframe_legacy as read_dataframe_legacy_h5
 from anndata._io.specs.registry import get_spec, read_elem, read_elem_partial
 from anndata.compat import _read_attr
 from fsspec.core import OpenFile
+from fsspec.implementations.local import LocalFileSystem
 from lamin_utils import logger
 from lamindb_setup.dev.upath import UPath, infer_filesystem
 from lnschema_core import File
@@ -221,7 +222,12 @@ if ZARR_INSTALLED:
     def open(filepath: Union[UPath, Path, str]):  # noqa
         fs, file_path_str = infer_filesystem(filepath)
         conn = None
-        storage = zarr.open(fs.get_mapper(file_path_str, check=True), mode="r")
+        if isinstance(fs, LocalFileSystem):
+            # this is faster than through an fsspec mapper for local
+            open_obj = file_path_str
+        else:
+            open_obj = fs.get_mapper(file_path_str, check=True)
+        storage = zarr.open(open_obj, mode="r")
         return conn, storage
 
     @registry.register("zarr")
@@ -616,8 +622,9 @@ class AnnDataAccessor(_AnnDataAttrsMixin):
 
     def close(self):
         """Closes the connection."""
-        if self._conn is not None:
+        if hasattr(self, "storage") and hasattr(self.storage, "close"):
             self.storage.close()
+        if hasattr(self, "_conn") and hasattr(self._conn, "close"):
             self._conn.close()
 
     def __del__(self):
