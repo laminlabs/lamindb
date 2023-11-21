@@ -1,5 +1,6 @@
 # Changelog
 
+- 📝 Add an FAQ on storage keys & locations [PR1253](https://github.com/laminlabs/lamindb/pull/1253) [@Zethson](https://github.com/Zethson)
 
 ```{eval-rst}
 .. role:: small
