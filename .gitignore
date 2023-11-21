@@ -204,6 +204,9 @@ _build
 # Pycharm
 .idea
 
+# VSCode
+.vscode
+
 # fred files
 docs/guide/insert-some-data-into-frederic-hub.ipynb
 docs/guide/insert-data-in-test-user-1-profile.ipynb
