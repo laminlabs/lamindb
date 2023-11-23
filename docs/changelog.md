@@ -1,5 +1,6 @@
 # Changelog
 
+- 📝 Start with File in quickstart [PR1317](https://github.com/laminlabs/lamindb/pull/1317) [@sunnyosun](https://github.com/sunnyosun)
 - 🐛 Fix save parents with bionty_source [PR1315](https://github.com/laminlabs/lamindb/pull/1315) [@sunnyosun](https://github.com/sunnyosun)
 - 📝 Add an FAQ on storage keys & locations [PR1253](https://github.com/laminlabs/lamindb/pull/1253) [@Zethson](https://github.com/Zethson)
 
