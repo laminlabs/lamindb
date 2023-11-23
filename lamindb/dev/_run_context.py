@@ -138,20 +138,20 @@ def get_notebook_name_colab() -> str:
     return name.rstrip(".ipynb")
 
 
-def get_transform_kwargs_from_nbproject(
-    nbproject_id: str, nbproject_version: str, nbproject_title: str
-) -> Tuple[Optional[Transform], str, str, str, Optional[Transform]]:
+def get_transform_kwargs_from_uid_prefix(
+    nbproject_id: str,
+    nbproject_version: str,
+) -> Tuple[Optional[Transform], str, str, Optional[Transform]]:
     id_ext = to_b64_str(hashlib.md5(nbproject_version.encode()).digest())[:2]
     uid = nbproject_id + id_ext
     version = nbproject_version
     transform = Transform.filter(
         uid__startswith=nbproject_id, version=version
     ).one_or_none()
-    name = nbproject_title
     old_version_of = None
     if transform is None:
         old_version_of = Transform.filter(uid__startswith=nbproject_id).first()
-    return transform, uid, version, name, old_version_of
+    return transform, uid, version, old_version_of
 
 
 class run_context:
@@ -222,7 +222,7 @@ class run_context:
         import lamindb as ln
 
         if transform is None:
-            is_tracked_notebook = False
+            is_tracked = False
 
             if is_run_from_ipython:
                 try:
@@ -236,7 +236,7 @@ class run_context:
                     # to create a new tracking context
                     if cls.transform is None:
                         return None
-                    is_tracked_notebook = True
+                    is_tracked = True
                 except Exception as e:
                     if isinstance(e, ImportError):
                         logger.warning(
@@ -250,11 +250,39 @@ class run_context:
                     else:
                         logger.warning(f"automatic tracking of notebook failed: {e}")
                         raise e
-                    is_tracked_notebook = False
+                    is_tracked = False
+            else:
+                import inspect
 
-            if not is_tracked_notebook:
+                frame = inspect.stack()[1]
+                module = inspect.getmodule(frame[0])
+                name = Path(module.__file__).stem  # type: ignore
+                (
+                    transform,
+                    uid,
+                    version,
+                    old_version_of,
+                ) = get_transform_kwargs_from_uid_prefix(
+                    module.__lamindb_uid_prefix__, module.__version__  # type: ignore
+                )
+                short_name = Path(module.__file__).name  # type: ignore
+                cls._create_or_load_transform(
+                    uid=uid,
+                    version=version,
+                    name=name,
+                    reference=reference,
+                    is_new_version_of=old_version_of,
+                    transform_type=TransformType.pipeline,
+                    short_name=short_name,
+                    is_interactive=False,
+                    filepath=module.__file__,  # type: ignore
+                    transform=transform,
+                )
+                is_tracked = True
+
+            if not is_tracked:
                 logger.warning(
-                    "no automatic metadata detection, consider passing transform"
+                    "no uid_prefix and version detected, pass a Transform record"
                 )
                 return None
         else:
@@ -456,7 +484,7 @@ class run_context:
                 raise NoTitleError(
                     "Please add a title to your notebook in a markdown cell: # Title"
                 )
-        # colab parsing succesful
+        # colab parsing successful
         if colab_id is not None:
             uid = colab_id[:14]
             transform = Transform.filter(uid=uid).one_or_none()
@@ -465,16 +493,44 @@ class run_context:
             old_version_of = None
         # nbproject parsing successful
         elif nbproject_id is not None:
+            name = nbproject_title
             (
                 transform,
                 uid,
                 version,
-                name,
                 old_version_of,
-            ) = get_transform_kwargs_from_nbproject(
-                nbproject_id, nbproject_version, nbproject_title
-            )
+            ) = get_transform_kwargs_from_uid_prefix(nbproject_id, nbproject_version)
             short_name = filestem
+        cls._create_or_load_transform(
+            uid=uid,
+            version=version,
+            name=name,
+            reference=reference,
+            is_new_version_of=old_version_of,
+            transform_type=TransformType.notebook,
+            short_name=short_name,
+            is_interactive=is_interactive,
+            filepath=notebook_path,
+            transform=transform,
+            metadata=metadata,
+        )
+
+    @classmethod
+    def _create_or_load_transform(
+        cls,
+        *,
+        uid: str,
+        version: Optional[str],
+        name: str,
+        reference: Optional[str],
+        is_new_version_of: Optional[Transform],
+        short_name: Optional[str],
+        transform_type: TransformType,
+        is_interactive: bool,
+        filepath: str,
+        transform: Optional[Transform] = None,
+        metadata: Optional[Dict] = None,
+    ):
         # make a new transform record
         if transform is None:
             transform = Transform(
@@ -483,8 +539,8 @@ class run_context:
                 name=name,
                 short_name=short_name,
                 reference=reference,
-                is_new_version_of=old_version_of,
-                type=TransformType.notebook,
+                is_new_version_of=is_new_version_of,
+                type=transform_type,
             )
             transform.save()
             logger.important(f"saved: {transform}")
@@ -499,16 +555,21 @@ class run_context:
                     " version! Do you want to increase the version? (y/n)"
                 )
                 if response == "y":
-                    cls._attempt_reinitialize_notebook(
-                        is_interactive,
-                        transform,
-                        metadata,
-                        notebook_path,
-                        bump_version=True,
-                    )
+                    if is_run_from_ipython:
+                        cls._attempt_reinitialize_notebook(
+                            is_interactive,
+                            transform,
+                            metadata,  # type: ignore
+                            filepath,
+                            bump_version=True,
+                        )
+                    else:
+                        from lamin_cli._transform import track
+
+                        track(filepath)
                 else:
                     logger.warning(
-                        "not tracking this notebook, either increase version or delete"
+                        "not tracking this transform, either increase version or delete"
                         " the saved transform.source_file and transform.latest_report"
                     )
                     return None
@@ -519,10 +580,10 @@ class run_context:
                 )
                 if response == "y":
                     cls._attempt_reinitialize_notebook(
-                        is_interactive, transform, metadata, notebook_path
+                        is_interactive, transform, metadata, filepath  # type: ignore
                     )
                 transform.name = name
-                transform.short_name = filestem
+                transform.short_name = short_name
                 transform.save()
                 if response == "y":
                     logger.important(f"saved: {transform}")
