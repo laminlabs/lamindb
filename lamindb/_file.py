@@ -14,7 +14,13 @@ from lamindb_setup.dev._docs import doc_args
 from lamindb_setup.dev._hub_utils import get_storage_region
 from lamindb_setup.dev.upath import create_path, extract_suffix_from_path
 from lnschema_core import Feature, FeatureSet, File, Run, Storage
-from lnschema_core.types import AnnDataLike, DataLike, FieldAttr, PathLike
+from lnschema_core.types import (
+    AnnDataLike,
+    DataLike,
+    FieldAttr,
+    PathLike,
+    VisibilityChoice,
+)
 
 from lamindb._utils import attach_func_to_class_method
 from lamindb.dev._data import _track_run_input
@@ -470,7 +476,9 @@ def __init__(file: File, *args, **kwargs):
     )
     version: Optional[str] = kwargs.pop("version") if "version" in kwargs else None
     visibility: Optional[int] = (
-        kwargs.pop("visibility") if "visibility" in kwargs else 1
+        kwargs.pop("visibility")
+        if "visibility" in kwargs
+        else VisibilityChoice.default.value
     )
     format = kwargs.pop("format") if "format" in kwargs else None
     log_hint = kwargs.pop("log_hint") if "log_hint" in kwargs else True
@@ -858,11 +866,11 @@ def delete(
     self, permanent: Optional[bool] = None, storage: Optional[bool] = None
 ) -> None:
     # by default, we only move files into the trash
-    if self.visibility > -1 and permanent is not True:
+    if self.visibility > VisibilityChoice.trash.value and permanent is not True:
         if storage is not None:
             logger.warning("moving file to trash, storage arg is ignored")
-        # change visibility to 2 (trash)
-        self.visibility = -1
+        # move to trash
+        self.visibility = VisibilityChoice.trash.value
         self.save()
         logger.warning("moved file to trash")
         return
@@ -965,7 +973,7 @@ def view_tree(
 
 # docstring handled through attach_func_to_class_method
 def restore(self) -> None:
-    self.visibility = 1
+    self.visibility = VisibilityChoice.default.value
     self.save()
 
 
