@@ -1,5 +1,6 @@
 # Changelog
 
+- 🚚 Recode visibility [PR1319](https://github.com/laminlabs/lamindb/pull/1319) [@sunnyosun](https://github.com/sunnyosun)
 - ✨ Track Python scripts [PR1318](https://github.com/laminlabs/lamindb/pull/1318) [@falexwolf](https://github.com/falexwolf)
 - 📝 Start with File in quickstart [PR1317](https://github.com/laminlabs/lamindb/pull/1317) [@sunnyosun](https://github.com/sunnyosun)
 - 🐛 Fix save parents with bionty_source [PR1315](https://github.com/laminlabs/lamindb/pull/1315) [@sunnyosun](https://github.com/sunnyosun)
