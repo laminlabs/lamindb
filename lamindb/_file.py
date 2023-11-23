@@ -470,7 +470,7 @@ def __init__(file: File, *args, **kwargs):
     )
     version: Optional[str] = kwargs.pop("version") if "version" in kwargs else None
     visibility: Optional[int] = (
-        kwargs.pop("visibility") if "visibility" in kwargs else 0
+        kwargs.pop("visibility") if "visibility" in kwargs else 1
     )
     format = kwargs.pop("format") if "format" in kwargs else None
     log_hint = kwargs.pop("log_hint") if "log_hint" in kwargs else True
