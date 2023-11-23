@@ -12,7 +12,7 @@ def filter(Registry: Type[Registry], **expressions) -> QuerySet:
         if not ("id" in expressions or "uid" in expressions):
             visibility = "visibility"
             if not any([e.startswith(visibility) for e in expressions]):
-                expressions[visibility] = 0
+                expressions[visibility] = 1  # default visibility
             # if visibility is None, do not apply a filter
             # otherwise, it would mean filtering for NULL values, which doesn't make
             # sense for a non-NULLABLE column

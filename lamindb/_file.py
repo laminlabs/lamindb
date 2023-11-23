@@ -175,8 +175,8 @@ def get_hash(
         hash, hash_type = hash_file(filepath)
     if not check_hash:
         return hash, hash_type
-    # we ignore datasets in trash containing the same hash
-    result = File.filter(hash=hash).list()
+    # also checks hidden and trashed files
+    result = File.filter(hash=hash, visibility=None).list()
     if len(result) > 0:
         if settings.upon_file_create_if_hash_exists == "error":
             msg = f"file with same hash exists: {result[0]}"
@@ -193,6 +193,15 @@ def get_hash(
             return hash, hash_type
         else:
             logger.warning(f"returning existing file with same hash: {result[0]}")
+            if result[0].visibility < 1:
+                if result[0].visibility == -1:
+                    visibility_text = "in the trash"
+                elif result[0].visibility == 0:
+                    visibility_text = "hidden"
+                logger.warning(
+                    f"the existing file is {visibility_text}, restore it before use:"
+                    " `file.restore()`"
+                )
             return result[0]
     else:
         return hash, hash_type
@@ -849,11 +858,11 @@ def delete(
     self, permanent: Optional[bool] = None, storage: Optional[bool] = None
 ) -> None:
     # by default, we only move files into the trash
-    if self.visibility < 2 and permanent is not True:
+    if self.visibility > -1 and permanent is not True:
         if storage is not None:
             logger.warning("moving file to trash, storage arg is ignored")
         # change visibility to 2 (trash)
-        self.visibility = 2
+        self.visibility = -1
         self.save()
         return
 
@@ -955,7 +964,7 @@ def view_tree(
 
 # docstring handled through attach_func_to_class_method
 def restore(self) -> None:
-    self.visibility = 0
+    self.visibility = 1
     self.save()
 
 

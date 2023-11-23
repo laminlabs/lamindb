@@ -6,7 +6,7 @@ def test_file_visibility():
     with open("./test-visibility.txt", "w") as f:
         f.write("visibility")
     file = ln.File("./test-visibility.txt", description="test-visibility")
-    assert file.visibility == 0
+    assert file.visibility == 1
     file.save()
 
     # create a dataset from file
@@ -15,18 +15,18 @@ def test_file_visibility():
 
     # delete a dataset will put both dataset and linked file in trash
     dataset.delete()
-    assert dataset.file.visibility == 2
+    assert dataset.file.visibility == -1
     result = ln.Dataset.filter(name="test-visibility").all()
     assert len(result) == 0
-    result = ln.Dataset.filter(name="test-visibility", visibility=0).all()
+    result = ln.Dataset.filter(name="test-visibility", visibility=1).all()
     assert len(result) == 0
     result = ln.Dataset.filter(name="test-visibility", visibility=None).all()
     assert len(result) == 1
 
     # restore
     dataset.restore()
-    assert dataset.visibility == 0
-    assert dataset.file.visibility == 0
+    assert dataset.visibility == 1
+    assert dataset.file.visibility == 1
 
     # permanent delete
     dataset.delete(permanent=True)

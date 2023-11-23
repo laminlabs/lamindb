@@ -448,10 +448,10 @@ def path(self) -> Union[Path, UPath]:
 
 # docstring handled through attach_func_to_class_method
 def restore(self) -> None:
-    self.visibility = 0
+    self.visibility = 1
     self.save()
     if self.file is not None:
-        self.file.visibility = 0
+        self.file.visibility = 1
         self.file.save()
 
 
