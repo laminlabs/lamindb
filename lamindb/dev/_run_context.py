@@ -256,29 +256,33 @@ class run_context:
 
                 frame = inspect.stack()[1]
                 module = inspect.getmodule(frame[0])
-                name = Path(module.__file__).stem  # type: ignore
-                (
-                    transform,
-                    uid,
-                    version,
-                    old_version_of,
-                ) = get_transform_kwargs_from_uid_prefix(
-                    module.__lamindb_uid_prefix__, module.__version__  # type: ignore
-                )
-                short_name = Path(module.__file__).name  # type: ignore
-                cls._create_or_load_transform(
-                    uid=uid,
-                    version=version,
-                    name=name,
-                    reference=reference,
-                    is_new_version_of=old_version_of,
-                    transform_type=TransformType.pipeline,
-                    short_name=short_name,
-                    is_interactive=False,
-                    filepath=module.__file__,  # type: ignore
-                    transform=transform,
-                )
-                is_tracked = True
+                if module is None:
+                    is_tracked = False
+                else:
+                    name = Path(module.__file__).stem  # type: ignore
+                    (
+                        transform,
+                        uid,
+                        version,
+                        old_version_of,
+                    ) = get_transform_kwargs_from_uid_prefix(
+                        module.__lamindb_uid_prefix__,
+                        module.__version__,  # noqa type: ignore
+                    )
+                    short_name = Path(module.__file__).name  # type: ignore
+                    cls._create_or_load_transform(
+                        uid=uid,
+                        version=version,
+                        name=name,
+                        reference=reference,
+                        is_new_version_of=old_version_of,
+                        transform_type=TransformType.pipeline,
+                        short_name=short_name,
+                        is_interactive=False,
+                        filepath=module.__file__,  # type: ignore
+                        transform=transform,
+                    )
+                    is_tracked = True
 
             if not is_tracked:
                 logger.warning(
