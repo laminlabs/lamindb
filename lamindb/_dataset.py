@@ -404,9 +404,11 @@ def delete(
     if self.visibility > -1 and permanent is not True:
         self.visibility = -1
         self.save()
+        logger.warning("moved dataset to trash.")
         if self.file is not None:
             self.file.visibility = -1
             self.file.save()
+            logger.warning("moved dataset.file to trash.")
         return
 
     # permanent delete

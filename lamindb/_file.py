@@ -864,6 +864,7 @@ def delete(
         # change visibility to 2 (trash)
         self.visibility = -1
         self.save()
+        logger.warning("moved file to trash")
         return
 
     # if the file is already in the trash
