@@ -78,6 +78,9 @@ def get_existing_records(
 ):
     model = field.field.model
     condition: Dict = {} if len(kwargs) == 0 else kwargs.copy()
+    # existing records matching is agnostic to the bionty source
+    if "bionty_source" in condition:
+        condition.pop("bionty_source")
 
     if _has_organism_field(model):
         from lnschema_bionty._bionty import create_or_get_organism_record
