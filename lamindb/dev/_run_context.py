@@ -571,6 +571,8 @@ class run_context:
                         from lamin_cli._transform import track
 
                         track(filepath)
+                        # needs to restart the python session
+                        raise SystemExit("You can now rerun the script.")
                 else:
                     logger.warning(
                         "not tracking this transform, either increase version or delete"
