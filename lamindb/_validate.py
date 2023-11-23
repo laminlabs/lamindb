@@ -83,39 +83,43 @@ def _inspect(
     nonval = set(result_db.non_validated).difference(result_db.synonyms_mapper.keys())
 
     if len(nonval) > 0 and orm.__get_schema_name__() == "bionty":
-        bionty_result = orm.bionty(organism=kwargs.get("organism")).inspect(
-            values=nonval, field=field, mute=True, **kwargs
-        )
-        bionty_validated = bionty_result.validated
-        bionty_mapper = bionty_result.synonyms_mapper
-        hint = False
-        if len(bionty_validated) > 0 and not mute:
-            print_values = _print_values(bionty_validated)
-            s = "" if len(bionty_validated) == 1 else "s"
-            labels = colors.yellow(f"{len(bionty_validated)} {model_name} term{s}")
-            logger.print(
-                f"   detected {labels} in Bionty for"
-                f" {colors.italic(field)}: {colors.yellow(print_values)}"
+        try:
+            bionty_result = orm.bionty(organism=kwargs.get("organism")).inspect(
+                values=nonval, field=field, mute=True, **kwargs
             )
-            hint = True
+            bionty_validated = bionty_result.validated
+            bionty_mapper = bionty_result.synonyms_mapper
+            hint = False
+            if len(bionty_validated) > 0 and not mute:
+                print_values = _print_values(bionty_validated)
+                s = "" if len(bionty_validated) == 1 else "s"
+                labels = colors.yellow(f"{len(bionty_validated)} {model_name} term{s}")
+                logger.print(
+                    f"   detected {labels} in Bionty for"
+                    f" {colors.italic(field)}: {colors.yellow(print_values)}"
+                )
+                hint = True
 
-        if len(bionty_mapper) > 0 and not mute:
-            print_values = _print_values(list(bionty_mapper.keys()))
-            s = "" if len(bionty_mapper) == 1 else "s"
-            labels = colors.yellow(f"{len(bionty_mapper)} {model_name} term{s}")
-            logger.print(
-                f"   detected {labels} in Bionty as {colors.italic(f'synonym{s}')}:"
-                f" {colors.yellow(print_values)}"
-            )
-            hint = True
+            if len(bionty_mapper) > 0 and not mute:
+                print_values = _print_values(list(bionty_mapper.keys()))
+                s = "" if len(bionty_mapper) == 1 else "s"
+                labels = colors.yellow(f"{len(bionty_mapper)} {model_name} term{s}")
+                logger.print(
+                    f"   detected {labels} in Bionty as {colors.italic(f'synonym{s}')}:"
+                    f" {colors.yellow(print_values)}"
+                )
+                hint = True
 
-        if hint:
-            logger.print(
-                f"→  add records from Bionty to your {model_name} registry via"
-                f" {colors.italic('.from_values()')}"
-            )
+            if hint:
+                logger.print(
+                    f"→  add records from Bionty to your {model_name} registry via"
+                    f" {colors.italic('.from_values()')}"
+                )
 
-        nonval = bionty_result.non_validated
+            nonval = bionty_result.non_validated
+        # no bionty source is found
+        except ValueError:
+            logger.warning("no Bionty source found, skipping Bionty validation")
 
     if len(nonval) > 0 and not mute:
         print_values = _print_values(list(nonval))
@@ -425,6 +429,7 @@ def _filter_query_based_on_organism(
     organism: Optional[Union[str, Registry]] = None,
     values_list_field: Optional[str] = None,
 ):
+    """Filter a queryset based on organism."""
     import pandas as pd
 
     orm = queryset.model
