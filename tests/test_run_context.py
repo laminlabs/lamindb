@@ -1,5 +1,5 @@
 import lamindb as ln
-from lamindb.dev._run_context import get_transform_kwargs_from_nbproject
+from lamindb.dev._run_context import get_transform_kwargs_from_uid_prefix
 
 
 def test_track_with_multi_parents():
@@ -36,24 +36,25 @@ def test_track_notebook_colab():
 
 def test_track_from_nbproject():
     title = "nbproject title"
-    transform, uid, version, name, old_version_of = get_transform_kwargs_from_nbproject(
-        nbproject_id="NJvdsWWbJlZS", nbproject_version="0", nbproject_title=title
+    transform, uid, version, old_version_of = get_transform_kwargs_from_uid_prefix(
+        nbproject_id="NJvdsWWbJlZS",
+        nbproject_version="0",
     )
     assert transform is None
     assert uid == "NJvdsWWbJlZSz8"
     assert version == "0"
-    assert name == title
     assert old_version_of is None
-    ln.Transform(uid=uid, version=version, name=name).save()
-    transform, uid, version, name, old_version_of = get_transform_kwargs_from_nbproject(
-        nbproject_id="NJvdsWWbJlZS", nbproject_version="0", nbproject_title=title
+    ln.Transform(uid=uid, version=version, name=title).save()
+    transform, uid, version, old_version_of = get_transform_kwargs_from_uid_prefix(
+        nbproject_id="NJvdsWWbJlZS",
+        nbproject_version="0",
     )
     assert transform is not None
-    transform, uid, version, name, old_version_of = get_transform_kwargs_from_nbproject(
-        nbproject_id="NJvdsWWbJlZS", nbproject_version="1", nbproject_title=title
+    transform, uid, version, old_version_of = get_transform_kwargs_from_uid_prefix(
+        nbproject_id="NJvdsWWbJlZS",
+        nbproject_version="1",
     )
     assert transform is None
     assert uid.startswith("NJvdsWWbJlZS")
     assert version == "1"
-    assert name == title
     assert old_version_of is not None
