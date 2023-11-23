@@ -400,12 +400,12 @@ def load(
 def delete(
     self, permanent: Optional[bool] = None, storage: Optional[bool] = None
 ) -> None:
-    # change visibility to 2 (trash)
-    if self.visibility < 2 and permanent is not True:
-        self.visibility = 2
+    # change visibility to -1 (trash)
+    if self.visibility > -1 and permanent is not True:
+        self.visibility = -1
         self.save()
         if self.file is not None:
-            self.file.visibility = 2
+            self.file.visibility = -1
             self.file.save()
         return
 
