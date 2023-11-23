@@ -11,7 +11,7 @@ from lamindb_setup.dev._docs import doc_args
 from lamindb_setup.dev._hub_utils import get_storage_region
 from lamindb_setup.dev.upath import UPath
 from lnschema_core.models import Dataset, Feature, FeatureSet
-from lnschema_core.types import AnnDataLike, DataLike, FieldAttr
+from lnschema_core.types import AnnDataLike, DataLike, FieldAttr, VisibilityChoice
 
 from lamindb._utils import attach_func_to_class_method
 from lamindb.dev._data import _track_run_input
@@ -65,7 +65,9 @@ def __init__(
     )
     version: Optional[str] = kwargs.pop("version") if "version" in kwargs else None
     visibility: Optional[int] = (
-        kwargs.pop("visibility") if "visibility" in kwargs else 0
+        kwargs.pop("visibility")
+        if "visibility" in kwargs
+        else VisibilityChoice.default.value
     )
     feature_sets: Dict[str, FeatureSet] = (
         kwargs.pop("feature_sets") if "feature_sets" in kwargs else {}
@@ -400,13 +402,15 @@ def load(
 def delete(
     self, permanent: Optional[bool] = None, storage: Optional[bool] = None
 ) -> None:
-    # change visibility to 2 (trash)
-    if self.visibility < 2 and permanent is not True:
-        self.visibility = 2
+    # change visibility to trash
+    if self.visibility > VisibilityChoice.trash.value and permanent is not True:
+        self.visibility = VisibilityChoice.trash.value
         self.save()
+        logger.warning("moved dataset to trash.")
         if self.file is not None:
-            self.file.visibility = 2
+            self.file.visibility = VisibilityChoice.trash.value
             self.file.save()
+            logger.warning("moved dataset.file to trash.")
         return
 
     # permanent delete
@@ -448,10 +452,10 @@ def path(self) -> Union[Path, UPath]:
 
 # docstring handled through attach_func_to_class_method
 def restore(self) -> None:
-    self.visibility = 0
+    self.visibility = VisibilityChoice.default.value
     self.save()
     if self.file is not None:
-        self.file.visibility = 0
+        self.file.visibility = VisibilityChoice.default.value
         self.file.save()
 
 

@@ -1,6 +1,7 @@
 from typing import Type
 
 from lnschema_core import Dataset, File, Registry
+from lnschema_core.types import VisibilityChoice
 
 from lamindb._query_set import QuerySet
 
@@ -12,7 +13,9 @@ def filter(Registry: Type[Registry], **expressions) -> QuerySet:
         if not ("id" in expressions or "uid" in expressions):
             visibility = "visibility"
             if not any([e.startswith(visibility) for e in expressions]):
-                expressions[visibility] = 0
+                expressions[
+                    visibility
+                ] = VisibilityChoice.default.value  # default visibility
             # if visibility is None, do not apply a filter
             # otherwise, it would mean filtering for NULL values, which doesn't make
             # sense for a non-NULLABLE column
