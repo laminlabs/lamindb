@@ -170,9 +170,13 @@ def create_records_from_bionty(
     from lnschema_bionty._bionty import get_bionty_source_record
 
     # create the corresponding bionty object from model
-    bionty_object = model.bionty(
-        organism=kwargs.get("organism"), bionty_source=kwargs.get("bionty_source")
-    )
+    try:
+        bionty_object = model.bionty(
+            organism=kwargs.get("organism"), bionty_source=kwargs.get("bionty_source")
+        )
+    except Exception:
+        # for custom records that are not created from bionty sources
+        return records, iterable_idx
     # add bionty_source record to the kwargs
     kwargs.update({"bionty_source": get_bionty_source_record(bionty_object)})
 
