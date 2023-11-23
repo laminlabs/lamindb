@@ -4,7 +4,7 @@
 - Stage, load or stream files & datasets: {class}`~lamindb.File.stage`, {class}`~lamindb.File.load`, {class}`~lamindb.File.backed`
 - Model data using {class}`~lamindb.Feature`, {class}`~lamindb.FeatureSet`, {class}`~lamindb.ULabel`
 - Plug-in custom [schemas](/schemas) & manage schema migrations
-- Use array formats in memory & storage: [DataFrame](/tutorial), [AnnData](/data), [MuData](docs:multimodal), [SOMA](docs:cellxgene-census), ... backed by [parquet](/tutorial), [zarr](/data), [TileDB](docs:cellxgene-census), [HDF5](/data), [h5ad](/data), [DuckDB](docs:rxrx), ...
+- Use array formats in memory & storage: [DataFrame](/tutorial), [AnnData](/data), [MuData](docs:multimodal), [SOMA](docs:cellxgene), ... backed by [parquet](/tutorial), [zarr](/data), [TileDB](docs:cellxgene), [HDF5](/data), [h5ad](/data), [DuckDB](docs:rxrx), ...
 - Bridge data artifacts and warehousing: {class}`~lamindb.File`, {class}`~lamindb.Dataset`
 - Version files, datasets & transforms
 

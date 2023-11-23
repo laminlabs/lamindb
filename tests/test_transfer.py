@@ -13,7 +13,7 @@ def test_transfer():
 
     # transfer 1st file
     file = (
-        ln.File.using("laminlabs/cellxgene-census")
+        ln.File.using("laminlabs/cellxgene")
         .filter(
             description__icontains="tabula sapiens - lung",
         )
@@ -40,7 +40,7 @@ def test_transfer():
 
     # now check that this is idempotent and we can run it again
     file_repeat = (
-        ln.File.using("laminlabs/cellxgene-census")
+        ln.File.using("laminlabs/cellxgene")
         .filter(
             description__icontains="tabula sapiens - lung",
         )
@@ -57,7 +57,7 @@ def test_transfer():
 
     # transfer 2nd file
     file2 = (
-        ln.File.using("laminlabs/cellxgene-census")
+        ln.File.using("laminlabs/cellxgene")
         .filter(
             description__icontains="tabula sapiens - liver",
         )
