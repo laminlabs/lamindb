@@ -315,16 +315,16 @@ def _get_all_parent_runs(data: Union[File, Dataset]) -> List:
         inputs = []
         for r in runs:
             inputs_run = (
-                r.__getattribute__(f"input_{name}s").all().filter(visibility=0).list()
+                r.__getattribute__(f"input_{name}s").all().filter(visibility=1).list()
             )
             if name == "file":
-                inputs_run += r.input_datasets.all().filter(visibility=0).list()
+                inputs_run += r.input_datasets.all().filter(visibility=1).list()
             run_inputs_outputs += [(inputs_run, r)]
             outputs_run = (
-                r.__getattribute__(f"output_{name}s").all().filter(visibility=0).list()
+                r.__getattribute__(f"output_{name}s").all().filter(visibility=1).list()
             )
             if name == "file":
-                outputs_run += r.output_datasets.all().filter(visibility=0).list()
+                outputs_run += r.output_datasets.all().filter(visibility=1).list()
             run_inputs_outputs += [(r, outputs_run)]
             inputs += inputs_run
         runs = [f.run for f in inputs if f.run is not None]
@@ -340,23 +340,23 @@ def _get_all_child_runs(data: Union[File, Dataset]) -> List:
     runs = {f.run for f in data.run.__getattribute__(f"output_{name}s").all()}
     if name == "file":
         runs.update(
-            {f.run for f in data.run.output_datasets.all().filter(visibility=0).all()}
+            {f.run for f in data.run.output_datasets.all().filter(visibility=1).all()}
         )
     while runs.difference(all_runs):
         all_runs.update(runs)
         child_runs: Set[Run] = set()
         for r in runs:
             inputs_run = (
-                r.__getattribute__(f"input_{name}s").all().filter(visibility=0).list()
+                r.__getattribute__(f"input_{name}s").all().filter(visibility=1).list()
             )
             if name == "file":
-                inputs_run += r.input_datasets.all().filter(visibility=0).list()
+                inputs_run += r.input_datasets.all().filter(visibility=1).list()
             run_inputs_outputs += [(inputs_run, r)]
             outputs_run = (
-                r.__getattribute__(f"output_{name}s").all().filter(visibility=0).list()
+                r.__getattribute__(f"output_{name}s").all().filter(visibility=1).list()
             )
             if name == "file":
-                outputs_run += r.output_datasets.all().filter(visibility=0).list()
+                outputs_run += r.output_datasets.all().filter(visibility=1).list()
             run_inputs_outputs += [(r, outputs_run)]
             child_runs.update(
                 Run.filter(
