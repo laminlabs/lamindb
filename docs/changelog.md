@@ -1,5 +1,6 @@
 # Changelog
 
+- 🩹 Fixed visibility of hidden files [PR1324](https://github.com/laminlabs/lamindb/pull/1324) [@sunnyosun](https://github.com/sunnyosun)
 - 💚 Fix visibility of flow graphs [PR1323](https://github.com/laminlabs/lamindb/pull/1323) [@falexwolf](https://github.com/falexwolf)
 - ♻️ Centralize progressbar and convert to percentage [PR1322](https://github.com/laminlabs/lamindb/pull/1322) [@falexwolf](https://github.com/falexwolf)
 - ✨ Added view_tree for keys [PR1321](https://github.com/laminlabs/lamindb/pull/1321) [@sunnyosun](https://github.com/sunnyosun)
