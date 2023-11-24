@@ -14,6 +14,7 @@ from lamindb_setup.dev._docs import doc_args
 from lamindb_setup.dev._hub_utils import get_storage_region
 from lamindb_setup.dev.upath import create_path, extract_suffix_from_path
 from lnschema_core import Feature, FeatureSet, File, Run, Storage
+from lnschema_core.models import IsTree
 from lnschema_core.types import (
     AnnDataLike,
     DataLike,
@@ -946,28 +947,23 @@ def path(self) -> Union[Path, UPath]:
 
 
 @classmethod  # type: ignore
-@doc_args(File.view_tree.__doc__)
+@doc_args(IsTree.view_tree.__doc__)
 def view_tree(
-    cls: File,
-    path: Optional[PathLike] = None,
-    *,
+    cls,
     level: int = -1,
     limit_to_directories: bool = False,
     length_limit: int = 1000,
+    max_files_per_dir_per_type: int = 7,
 ) -> None:
     """{}"""
-    logger.warning("Deprecated: Please use UPath.view_tree()")
-    include_paths = None
-    if path is None:
-        path = settings.storage
-        include_paths = {
-            file.path for file in cls.filter(storage_id=setup_settings.storage.id).all()
-        }
-    UPath(path).view_tree(
+    from lamindb.dev._view_tree import view_tree as _view_tree
+
+    _view_tree(
+        cls=cls,
         level=level,
-        only_dirs=limit_to_directories,
+        limit_to_directories=limit_to_directories,
         length_limit=length_limit,
-        include_paths=include_paths,
+        max_files_per_dir_per_type=max_files_per_dir_per_type,
     )
 
 
@@ -988,8 +984,8 @@ METHOD_NAMES = [
     "save",
     "replace",
     "from_dir",
-    "view_tree",
     "restore",
+    "view_tree",
 ]
 
 if _TESTING:

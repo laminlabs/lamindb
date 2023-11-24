@@ -418,6 +418,8 @@ def test_from_dir(get_test_filepaths, key):
     ln.UPath(test_dirpath).view_tree()
     # now save
     ln.save(files)
+    ln.File.view_tree()
+    ln.File.filter().all().view_tree()
     # now run again, because now we'll have hash-based lookup!
     files = ln.File.from_dir(test_dirpath, key=key)
     assert len(files) == 2

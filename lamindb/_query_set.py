@@ -3,7 +3,7 @@ from typing import Iterable, List, NamedTuple, Optional, Union
 import pandas as pd
 from django.db import models
 from lamindb_setup.dev._docs import doc_args
-from lnschema_core.models import CanValidate, Registry
+from lnschema_core.models import CanValidate, IsTree, Registry
 from lnschema_core.types import ListLike, StrField
 
 
@@ -21,7 +21,7 @@ class MultipleResultsFound(Exception):
 #     return (series + timedelta).dt.strftime("%Y-%m-%d %H:%M:%S %Z")
 
 
-class QuerySet(models.QuerySet):
+class QuerySet(models.QuerySet, CanValidate, IsTree):
     """Lazily loaded queried records returned by queries.
 
     See Also:
@@ -242,6 +242,25 @@ class QuerySet(models.QuerySet):
 
         return _standardize(cls=self, values=values, field=field, **kwargs)
 
+    @doc_args(IsTree.view_tree.__doc__)
+    def view_tree(
+        self,
+        level: int = -1,
+        limit_to_directories: bool = False,
+        length_limit: int = 1000,
+        max_files_per_dir_per_type: int = 7,
+    ) -> None:
+        """{}"""
+        from .dev._view_tree import view_tree as _view_tree
+
+        _view_tree(
+            cls=self,
+            level=level,
+            limit_to_directories=limit_to_directories,
+            length_limit=length_limit,
+            max_files_per_dir_per_type=max_files_per_dir_per_type,
+        )
+
 
 setattr(models.QuerySet, "df", QuerySet.df)
 setattr(models.QuerySet, "list", QuerySet.list)
@@ -250,6 +269,3 @@ setattr(models.QuerySet, "one", QuerySet.one)
 setattr(models.QuerySet, "one_or_none", QuerySet.one_or_none)
 setattr(models.QuerySet, "search", QuerySet.search)
 setattr(models.QuerySet, "lookup", QuerySet.lookup)
-setattr(models.QuerySet, "validate", QuerySet.validate)
-setattr(models.QuerySet, "inspect", QuerySet.inspect)
-setattr(models.QuerySet, "standardize", QuerySet.standardize)
