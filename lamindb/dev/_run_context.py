@@ -1,5 +1,6 @@
 import builtins
 import hashlib
+import os
 import re
 from datetime import datetime, timezone
 from pathlib import Path, PurePath
@@ -84,7 +85,7 @@ def update_notebook_metadata(
     uid_prefix = notebook.metadata["nbproject"]["id"]
     version = notebook.metadata["nbproject"]["version"]
 
-    new_uid_prefix, new_version = update_transform_source_metadata(
+    updated, new_uid_prefix, new_version = update_transform_source_metadata(
         notebook, _filepath, bump_version=bump_version, run_from_cli=False
     )
 
@@ -98,7 +99,7 @@ def update_notebook_metadata(
         new_uid = new_uid_prefix + ids.base62(n_char=2)
 
     # here we check that responses to both inputs (for new id and version) were not 'n'
-    if transform.uid != new_uid or transform.version != new_version:
+    if updated:
         transform = Transform(
             uid=new_uid, version=new_version, type=TransformType.notebook
         )
@@ -254,7 +255,7 @@ class run_context:
                         module.__version__,  # noqa type: ignore
                     )
                     short_name = Path(module.__file__).name  # type: ignore
-                    cls._create_or_load_transform(
+                    is_tracked = cls._create_or_load_transform(
                         uid=uid,
                         version=version,
                         name=name,
@@ -266,11 +267,11 @@ class run_context:
                         filepath=module.__file__,  # type: ignore
                         transform=transform,
                     )
-                    is_tracked = True
 
             if not is_tracked:
                 logger.warning(
-                    "no uid_prefix and version detected, pass a Transform record"
+                    "no automated tracking (consider manually passing a Transform"
+                    " record)"
                 )
                 return None
         else:
@@ -503,11 +504,19 @@ class run_context:
                 msg = msg_manual_init.format(notebook_path=filepath)
                 raise UpdateNbWithNonInteractiveEditorError(msg)
         else:
-            from lamin_cli._transform import track
+            from lamin_cli._transform import update_transform_source_metadata
 
-            track(filepath, bump_version=bump_version)
+            with open(filepath) as f:
+                content = f.read()
+
+            updated, _, _ = update_transform_source_metadata(
+                content, filepath, bump_version=bump_version
+            )
             # need to restart the python session, scripts are never interactive
-            raise SystemExit("You can now rerun the script.")
+            if updated:
+                raise SystemExit("You can now rerun the script.")
+            else:
+                raise IOError("You did not update uid prefix or version")
 
     @classmethod
     def _create_or_load_transform(
@@ -524,7 +533,7 @@ class run_context:
         filepath: str,
         transform: Optional[Transform] = None,
         metadata: Optional[Dict] = None,
-    ):
+    ) -> bool:
         # make a new transform record
         if transform is None:
             transform = Transform(
@@ -544,10 +553,13 @@ class run_context:
                 transform.source_file_id is not None
                 or transform.latest_report_id is not None
             ):
-                response = input(
-                    "You already saved a source file and a report for this transform"
-                    " version! Do you want to bump the version? (y/n)"
-                )
+                if os.getenv["LAMIN_TESTING"] is None:  # type: ignore
+                    response = input(
+                        "You already saved a source file for this transform."
+                        " Do you want to bump the version? (y/n)"
+                    )
+                else:
+                    response = "y"
                 if response == "y":
                     cls._update_transform_source(
                         is_interactive, transform, filepath, bump_version=True
@@ -557,7 +569,7 @@ class run_context:
                         "not tracking this transform, either increase version or delete"
                         " the saved transform.source_file and transform.latest_report"
                     )
-                    return None
+                    return False
             if transform.name != name or transform.short_name != short_name:
                 response = input(
                     "Updated notebook name and/or title: Do you want to assign a"
@@ -575,3 +587,4 @@ class run_context:
             else:
                 logger.important(f"loaded: {transform}")
         cls.transform = transform
+        return True
