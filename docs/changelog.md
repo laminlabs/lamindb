@@ -1,5 +1,6 @@
 # Changelog
 
+- ✨ Added view_tree for keys [PR1321](https://github.com/laminlabs/lamindb/pull/1321) [@sunnyosun](https://github.com/sunnyosun)
 - ♻️ Refactor notebook & script tracking [PR1320](https://github.com/laminlabs/lamindb/pull/1320) [@falexwolf](https://github.com/falexwolf)
 - 🚚 Recode visibility [PR1319](https://github.com/laminlabs/lamindb/pull/1319) [@sunnyosun](https://github.com/sunnyosun)
 - ✨ Track Python scripts [PR1318](https://github.com/laminlabs/lamindb/pull/1318) [@falexwolf](https://github.com/falexwolf)
