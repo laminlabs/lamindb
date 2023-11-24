@@ -1,19 +1,19 @@
 # Changelog
 
-- 🩹 Fixed visibility of hidden files [PR1324](https://github.com/laminlabs/lamindb/pull/1324) [@sunnyosun](https://github.com/sunnyosun)
-- 💚 Fix visibility of flow graphs [PR1323](https://github.com/laminlabs/lamindb/pull/1323) [@falexwolf](https://github.com/falexwolf)
-- ♻️ Centralize progressbar and convert to percentage [PR1322](https://github.com/laminlabs/lamindb/pull/1322) [@falexwolf](https://github.com/falexwolf)
-- ✨ Added view_tree for keys [PR1321](https://github.com/laminlabs/lamindb/pull/1321) [@sunnyosun](https://github.com/sunnyosun)
-- ♻️ Refactor notebook & script tracking [PR1320](https://github.com/laminlabs/lamindb/pull/1320) [@falexwolf](https://github.com/falexwolf)
-- 🚚 Recode visibility [PR1319](https://github.com/laminlabs/lamindb/pull/1319) [@sunnyosun](https://github.com/sunnyosun)
-- ✨ Track Python scripts [PR1318](https://github.com/laminlabs/lamindb/pull/1318) [@falexwolf](https://github.com/falexwolf)
-- 📝 Start with File in quickstart [PR1317](https://github.com/laminlabs/lamindb/pull/1317) [@sunnyosun](https://github.com/sunnyosun)
-- 🐛 Fix save parents with bionty_source [PR1315](https://github.com/laminlabs/lamindb/pull/1315) [@sunnyosun](https://github.com/sunnyosun)
-- 📝 Add an FAQ on storage keys & locations [PR1253](https://github.com/laminlabs/lamindb/pull/1253) [@Zethson](https://github.com/Zethson)
-
 ```{eval-rst}
 .. role:: small
 ```
+
+## 0.63
+
+### 0.63.0 {small}`2023-11-24`
+
+- ♻️ Centralize progressbar and convert to percentage [PR1322](https://github.com/laminlabs/lamindb/pull/1322) [@falexwolf](https://github.com/falexwolf)
+- ✨ Added view_tree for keys [PR1321](https://github.com/laminlabs/lamindb/pull/1321) [@sunnyosun](https://github.com/sunnyosun)
+- 🚚 Recode visibility to default 1, hidden 0, trash -1 [PR1319](https://github.com/laminlabs/lamindb/pull/1319) [@sunnyosun](https://github.com/sunnyosun)
+- ✨ Track Python scripts [PR1318](https://github.com/laminlabs/lamindb/pull/1318) [@falexwolf](https://github.com/falexwolf)
+- 📝 Modify Quickstart to use File instead of Dataset [PR1317](https://github.com/laminlabs/lamindb/pull/1317) [@sunnyosun](https://github.com/sunnyosun)
+- 📝 Add an FAQ on storage keys & locations [PR1253](https://github.com/laminlabs/lamindb/pull/1253) [@Zethson](https://github.com/Zethson)
 
 ## 0.62
 
