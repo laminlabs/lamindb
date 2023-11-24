@@ -1,5 +1,6 @@
 import builtins
 import hashlib
+import os
 import re
 from datetime import datetime, timezone
 from pathlib import Path, PurePath
@@ -8,11 +9,11 @@ from typing import Dict, List, Optional, Tuple, Union
 from lamin_utils import logger
 from lamindb_setup import settings
 from lamindb_setup.dev import InstanceSettings
-from lnschema_core import Run, Transform
+from lnschema_core import Run, Transform, ids
 from lnschema_core.types import TransformType
 from lnschema_core.users import current_user_id
 
-from lamindb.dev.versioning import get_ids_from_old_version, init_uid
+from lamindb.dev.versioning import get_ids_from_old_version
 
 from .hashing import to_b64_str
 
@@ -72,53 +73,37 @@ def _write_notebook_meta(metadata):
     nb_dev._frontend_commands._reload_notebook(_env)
 
 
-# also see lamindb-setup._notebook for related code
-def reinitialize_notebook(
+def update_notebook_metadata(
     transform: Transform,
-    metadata: Optional[Dict] = None,
-    ask_for_new_id: bool = True,
     bump_version: bool = False,
 ) -> Tuple[Transform, Dict]:
-    from nbproject import dev as nb_dev
+    import nbproject.dev as nb_dev
+    from lamin_cli._transform import update_transform_source_metadata
     from nbproject._header import _filepath
 
-    # init new_id, new_version
-    new_uid, new_version = transform.uid, None
+    notebook = nb_dev.read_notebook(_filepath)
+    uid_prefix = notebook.metadata["nbproject"]["id"]
+    version = notebook.metadata["nbproject"]["version"]
 
-    # handle id
-    if not bump_version:
-        if ask_for_new_id:
-            response = input("Do you want to generate a new id? (y/n) ")
-        else:
-            response = "y"
-        if response == "y":
-            new_uid = init_uid(n_full_id=14)
-        else:
-            bump_version = True
-    # now consider bumping version
-    if bump_version:
-        response = input("Do you want to update the version? (y/n) ")
-        if response == "y":
-            new_version = input("Please type the version: ")
-            new_uid, _, _ = get_ids_from_old_version(
-                is_new_version_of=transform, version=new_version, n_full_id=14
-            )
+    updated, new_uid_prefix, new_version = update_transform_source_metadata(
+        notebook, _filepath, bump_version=bump_version, run_from_cli=False
+    )
 
-    nb = None
-    if metadata is None:
-        nb = nb_dev.read_notebook(_filepath)
-        metadata = nb.metadata["nbproject"]
-
-    # nbproject metadata needs the shorter nbproject id
-    metadata["id"] = new_uid[:12]
-    metadata["version"] = new_version
+    if version != new_version:
+        notebook.metadata["nbproject"]["version"] = new_version
+        new_uid, _, _ = get_ids_from_old_version(
+            is_new_version_of=transform, version=new_version, n_full_id=14
+        )
+    else:
+        notebook.metadata["nbproject"]["id"] = uid_prefix
+        new_uid = new_uid_prefix + ids.base62(n_char=2)
 
     # here we check that responses to both inputs (for new id and version) were not 'n'
-    if transform.uid != new_uid or transform.version != new_version:
+    if updated:
         transform = Transform(
             uid=new_uid, version=new_version, type=TransformType.notebook
         )
-    return transform, metadata
+    return transform, notebook.metadata["nbproject"]
 
 
 # from https://stackoverflow.com/questions/61901628
@@ -270,7 +255,7 @@ class run_context:
                         module.__version__,  # noqa type: ignore
                     )
                     short_name = Path(module.__file__).name  # type: ignore
-                    cls._create_or_load_transform(
+                    is_tracked = cls._create_or_load_transform(
                         uid=uid,
                         version=version,
                         name=name,
@@ -282,11 +267,11 @@ class run_context:
                         filepath=module.__file__,  # type: ignore
                         transform=transform,
                     )
-                    is_tracked = True
 
             if not is_tracked:
                 logger.warning(
-                    "no uid_prefix and version detected, pass a Transform record"
+                    "no automated tracking (consider manually passing a Transform"
+                    " record)"
                 )
                 return None
         else:
@@ -342,24 +327,6 @@ class run_context:
         if hasattr(cls, "_notebook_meta"):
             _write_notebook_meta(cls._notebook_meta)  # type: ignore
             del cls._notebook_meta  # type: ignore
-
-    @classmethod
-    def _attempt_reinitialize_notebook(
-        cls,
-        is_interactive: bool,
-        transform: Transform,
-        metadata: Dict,
-        notebook_path: str,
-        bump_version: bool = False,
-    ):
-        if is_interactive:
-            transform, metadata = reinitialize_notebook(
-                transform, metadata, bump_version=bump_version
-            )
-            cls._notebook_meta = metadata  # type: ignore
-        else:
-            msg = msg_manual_init.format(notebook_path=notebook_path)
-            raise UpdateNbWithNonInteractiveEditorError(msg)
 
     @classmethod
     def _track_notebook(
@@ -520,6 +487,38 @@ class run_context:
         )
 
     @classmethod
+    def _update_transform_source(
+        cls,
+        is_interactive: bool,
+        transform: Transform,
+        filepath: str,
+        bump_version: bool = False,
+    ):
+        if is_run_from_ipython:
+            if is_interactive:
+                transform, metadata = update_notebook_metadata(
+                    transform, bump_version=bump_version
+                )
+                cls._notebook_meta = metadata  # type: ignore
+            else:
+                msg = msg_manual_init.format(notebook_path=filepath)
+                raise UpdateNbWithNonInteractiveEditorError(msg)
+        else:
+            from lamin_cli._transform import update_transform_source_metadata
+
+            with open(filepath) as f:
+                content = f.read()
+
+            updated, _, _ = update_transform_source_metadata(
+                content, filepath, bump_version=bump_version
+            )
+            # need to restart the python session, scripts are never interactive
+            if updated:
+                raise SystemExit("You can now rerun the script.")
+            else:
+                raise IOError("You did not update uid prefix or version")
+
+    @classmethod
     def _create_or_load_transform(
         cls,
         *,
@@ -534,7 +533,7 @@ class run_context:
         filepath: str,
         transform: Optional[Transform] = None,
         metadata: Optional[Dict] = None,
-    ):
+    ) -> bool:
         # make a new transform record
         if transform is None:
             transform = Transform(
@@ -554,40 +553,30 @@ class run_context:
                 transform.source_file_id is not None
                 or transform.latest_report_id is not None
             ):
-                response = input(
-                    "You already saved a source file and a report for this transform"
-                    " version! Do you want to increase the version? (y/n)"
-                )
+                if os.getenv("LAMIN_TESTING") is None:
+                    response = input(
+                        "You already saved a source file for this transform."
+                        " Do you want to bump the version? (y/n)"
+                    )
+                else:
+                    response = "y"
                 if response == "y":
-                    if is_run_from_ipython:
-                        cls._attempt_reinitialize_notebook(
-                            is_interactive,
-                            transform,
-                            metadata,  # type: ignore
-                            filepath,
-                            bump_version=True,
-                        )
-                    else:
-                        from lamin_cli._transform import track
-
-                        track(filepath)
-                        # needs to restart the python session
-                        raise SystemExit("You can now rerun the script.")
+                    cls._update_transform_source(
+                        is_interactive, transform, filepath, bump_version=True
+                    )
                 else:
                     logger.warning(
                         "not tracking this transform, either increase version or delete"
                         " the saved transform.source_file and transform.latest_report"
                     )
-                    return None
+                    return False
             if transform.name != name or transform.short_name != short_name:
                 response = input(
                     "Updated notebook name and/or title: Do you want to assign a"
-                    " new id or version? (y/n)"
+                    " new uid prefix or version? (y/n)"
                 )
                 if response == "y":
-                    cls._attempt_reinitialize_notebook(
-                        is_interactive, transform, metadata, filepath  # type: ignore
-                    )
+                    cls._update_transform_source(is_interactive, transform, filepath)
                 transform.name = name
                 transform.short_name = short_name
                 transform.save()
@@ -598,3 +587,4 @@ class run_context:
             else:
                 logger.important(f"loaded: {transform}")
         cls.transform = transform
+        return True
