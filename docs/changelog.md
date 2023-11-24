@@ -1,5 +1,6 @@
 # Changelog
 
+- ♻️ Refactor notebook & script tracking [PR1320](https://github.com/laminlabs/lamindb/pull/1320) [@falexwolf](https://github.com/falexwolf)
 - 🚚 Recode visibility [PR1319](https://github.com/laminlabs/lamindb/pull/1319) [@sunnyosun](https://github.com/sunnyosun)
 - ✨ Track Python scripts [PR1318](https://github.com/laminlabs/lamindb/pull/1318) [@falexwolf](https://github.com/falexwolf)
 - 📝 Start with File in quickstart [PR1317](https://github.com/laminlabs/lamindb/pull/1317) [@sunnyosun](https://github.com/sunnyosun)
