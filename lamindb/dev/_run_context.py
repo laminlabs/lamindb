@@ -8,11 +8,11 @@ from typing import Dict, List, Optional, Tuple, Union
 from lamin_utils import logger
 from lamindb_setup import settings
 from lamindb_setup.dev import InstanceSettings
-from lnschema_core import Run, Transform
+from lnschema_core import Run, Transform, ids
 from lnschema_core.types import TransformType
 from lnschema_core.users import current_user_id
 
-from lamindb.dev.versioning import get_ids_from_old_version, init_uid
+from lamindb.dev.versioning import get_ids_from_old_version
 
 from .hashing import to_b64_str
 
@@ -95,7 +95,7 @@ def update_notebook_metadata(
         )
     else:
         notebook.metadata["nbproject"]["id"] = uid_prefix
-        new_uid = new_uid_prefix + init_uid(n_full_id=2)
+        new_uid = new_uid_prefix + ids.base62(n_char=2)
 
     # here we check that responses to both inputs (for new id and version) were not 'n'
     if transform.uid != new_uid or transform.version != new_version:
