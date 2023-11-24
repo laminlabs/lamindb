@@ -553,7 +553,7 @@ class run_context:
                 transform.source_file_id is not None
                 or transform.latest_report_id is not None
             ):
-                if os.getenv["LAMIN_TESTING"] is None:  # type: ignore
+                if os.getenv("LAMIN_TESTING") is None:
                     response = input(
                         "You already saved a source file for this transform."
                         " Do you want to bump the version? (y/n)"
