@@ -89,7 +89,7 @@ def store_object(localpath: Union[str, Path, UPath], storagekey: str) -> float:
         size = sum(f.stat().st_size for f in localpath.rglob("*") if f.is_file())
 
     if not isinstance(storagepath, LocalPathClasses):
-        storagepath.upload_from(localpath, recursive=True)
+        storagepath.upload_from(localpath, recursive=True, print_progress=True)
     else:  # storage path is local
         storagepath.parent.mkdir(parents=True, exist_ok=True)
         if localpath.is_file():
@@ -153,7 +153,9 @@ def load_to_memory(filepath: Union[str, Path, UPath], stream: bool = False, **kw
     if not stream:
         # caching happens here if filename is a UPath
         # todo: make it safe when filepath is just Path
-        filepath = settings.instance.storage.cloud_to_local(filepath)
+        filepath = settings.instance.storage.cloud_to_local(
+            filepath, print_progress=True
+        )
 
     READER_FUNCS = {
         ".csv": pd.read_csv,
