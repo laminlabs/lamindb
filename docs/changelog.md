@@ -1,5 +1,6 @@
 # Changelog
 
+- 🔊 Turn on progress on upload and download [PR1325](https://github.com/laminlabs/lamindb/pull/1325) [@Koncopd](https://github.com/Koncopd)
 ```{eval-rst}
 .. role:: small
 ```
