@@ -857,7 +857,7 @@ def stage(self, is_run_input: Optional[bool] = None) -> Path:
     _track_run_input(self, is_run_input)
 
     filepath = filepath_from_file(self)
-    return setup_settings.instance.storage.cloud_to_local(filepath)
+    return setup_settings.instance.storage.cloud_to_local(filepath, print_progress=True)
 
 
 # docstring handled through attach_func_to_class_method
