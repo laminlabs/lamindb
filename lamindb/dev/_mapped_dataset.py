@@ -61,6 +61,8 @@ class MappedDataset:
                     cats = self.get_merged_categories(label)
                     self.encoders.append({cat: i for i, cat in enumerate(cats)})
 
+        self._closed = False
+
     def __len__(self):
         return self.n_obs
 
@@ -197,3 +199,14 @@ class MappedDataset:
         for conn in self.conns:
             if hasattr(conn, "close"):
                 conn.close()
+        self._closed = True
+
+    @property
+    def closed(self):
+        return self._closed
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.close()
