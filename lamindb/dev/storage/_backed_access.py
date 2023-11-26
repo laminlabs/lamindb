@@ -620,15 +620,24 @@ class AnnDataAccessor(_AnnDataAttrsMixin):
         self._obs_names = _safer_read_index(self.storage["obs"])  # type: ignore
         self._var_names = _safer_read_index(self.storage["var"])  # type: ignore
 
+        self._closed = False
+
     def close(self):
         """Closes the connection."""
         if hasattr(self, "storage") and hasattr(self.storage, "close"):
             self.storage.close()
         if hasattr(self, "_conn") and hasattr(self._conn, "close"):
             self._conn.close()
+        self._closed = True
 
-    def __del__(self):
-        """Closes the connection on deletion."""
+    @property
+    def closed(self):
+        return self._closed
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
         self.close()
 
     def __getitem__(self, index: Index) -> AnnDataAccessorSubset:
