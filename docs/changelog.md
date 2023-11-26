@@ -1,5 +1,6 @@
 # Changelog
 
+- ✨ Add context manager to File.backed and Dataset.mapped [PR1326](https://github.com/laminlabs/lamindb/pull/1326) [@Koncopd](https://github.com/Koncopd)
 - 🔊 Turn on progress on upload and download [PR1325](https://github.com/laminlabs/lamindb/pull/1325) [@Koncopd](https://github.com/Koncopd)
 ```{eval-rst}
 .. role:: small
