@@ -271,11 +271,22 @@ def test_dataset_mapped():
     dataset.save()
 
     ls_ds = dataset.mapped(label_keys="feat1")
+    assert not ls_ds.closed
+
     assert len(ls_ds) == 4
     assert len(ls_ds[0]) == 2 and len(ls_ds[2]) == 2
     weights = ls_ds.get_label_weights("feat1")
     assert all(weights[1:] == weights[0])
+
     ls_ds.close()
+    assert ls_ds.closed
+    del ls_ds
+
+    with dataset.mapped(label_keys="feat1") as ls_ds:
+        assert not ls_ds.closed
+        assert len(ls_ds) == 4
+        assert len(ls_ds[0]) == 2 and len(ls_ds[2]) == 2
+    assert ls_ds.closed
 
     file1.delete(permanent=True, storage=True)
     file2.delete(permanent=True, storage=True)

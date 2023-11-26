@@ -83,6 +83,7 @@ def test_backed_access(adata_format):
         access = backed_access(fp.with_suffix(".invalid_suffix"))
 
     access = backed_access(fp)
+    assert not access.closed
 
     assert isinstance(access.obs_names, pd.Index)
     assert isinstance(access.var_names, pd.Index)
@@ -122,6 +123,16 @@ def test_backed_access(adata_format):
     assert sub.to_memory().shape == (30, 3)
 
     access.close()
+    assert access.closed
+    del access
+
+    with backed_access(fp) as access:
+        assert not access.closed
+        sub = access[:10]
+        assert sub[:5].shape == (5, 200)
+        assert sub.layers["test"].shape == sub.shape
+    assert access.closed
+
     if adata_format == "zarr":
         assert fp.suffix == ".zarr"
         delete_storage(fp)
