@@ -1,13 +1,16 @@
 # Changelog
 
-- 🚸 Do not rely on naming the primary key id [PR1328](https://github.com/laminlabs/lamindb/pull/1328) [@falexwolf](https://github.com/falexwolf)
-- ✨ Add context manager to File.backed and Dataset.mapped [PR1326](https://github.com/laminlabs/lamindb/pull/1326) [@Koncopd](https://github.com/Koncopd)
-- 🔊 Turn on progress on upload and download [PR1325](https://github.com/laminlabs/lamindb/pull/1325) [@Koncopd](https://github.com/Koncopd)
 ```{eval-rst}
 .. role:: small
 ```
 
 ## 0.63
+
+### 0.63.1 {small}`2023-11-28`
+
+- 🚸 Enable schema packages that do not start with `lnschema_` [592](https://github.com/laminlabs/lamindb-setup/pull/592) [falexwolf](https://github.com/falexwolf)
+- 🚸 Do not rely on naming the primary key id [PR1328](https://github.com/laminlabs/lamindb/pull/1328) [@falexwolf](https://github.com/falexwolf)
+- ✨ Add context manager to `File.backed` and `Dataset.mapped` [PR1326](https://github.com/laminlabs/lamindb/pull/1326) [@Koncopd](https://github.com/Koncopd)
 
 ### 0.63.0 {small}`2023-11-24`
 
