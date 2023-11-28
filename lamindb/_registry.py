@@ -457,7 +457,7 @@ def transfer_to_default_db(
 # docstring handled through attach_func_to_class_method
 def save(self, *args, **kwargs) -> None:
     db = self._state.db
-    id_on_db = self.id
+    pk_on_db = self.pk
     result = transfer_to_default_db(self)
     if result is not None:
         init_self_from_db(self, result)
@@ -469,7 +469,7 @@ def save(self, *args, **kwargs) -> None:
 
             self_on_db = copy(self)
             self_on_db._state.db = db
-            self_on_db.id = id_on_db
+            self_on_db.pk = pk_on_db
             logger.info("transfer features")
             self.features._add_from(self_on_db)
             logger.info("transfer labels")

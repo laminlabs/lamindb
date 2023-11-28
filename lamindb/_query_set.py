@@ -53,20 +53,10 @@ class QuerySet(models.QuerySet, CanValidate, IsTree):
 
             >>> ln.save(ln.ULabel.from_values(["ULabel1", "ULabel2", "ULabel3"], field="name")) # noqa
             >>> ln.ULabel.filter().df()
-                          name  external_id           updated_at  created_by_id
-                  id
-            wsCyIq2Z  ULabel1         None  2023-07-19 19:14:08       DzTjkKse
-            MvpDP8Y3  ULabel2         None  2023-07-19 19:14:08       DzTjkKse
-            zKFFabCu  ULabel3         None  2023-07-19 19:14:08       DzTjkKse
             >>> label = ln.ULabel.filter(name="ULabel1").one()
             >>> label = ln.ULabel.filter(name="benchmark").one()
             >>> label.parents.add(label)
             >>> ln.ULabel.filter().df(include=["labels__name", "labels__created_by_id"])
-                      labels__name  labels__created_by_id      name  external_id           updated_at  created_by_id # noqa
-                  id
-            wsCyIq2Z  [benchmark]          [DzTjkKse]  ULabel1         None  2023-07-19 19:14:08       DzTjkKse # noqa
-            MvpDP8Y3         None                None  ULabel2         None  2023-07-19 19:14:08       DzTjkKse # noqa
-            zKFFabCu         None                None  ULabel3         None  2023-07-19 19:14:08       DzTjkKse # noqa
         """
         data = self.values()
         if len(data) > 0:
@@ -92,8 +82,10 @@ class QuerySet(models.QuerySet, CanValidate, IsTree):
         #     df.updated_at = format_and_convert_to_local_time(df.updated_at)
         # if len(df) > 0 and "run_at" in df:
         #     df.run_at = format_and_convert_to_local_time(df.run_at)
-        if "id" in df.columns:
-            df = df.set_index("id")
+        pk_name = self.model._meta.pk.name
+        pk_column_name = pk_name if pk_name in df.columns else f"{pk_name}_id"
+        if pk_column_name in df.columns:
+            df = df.set_index(pk_column_name)
         if len(df) == 0:
             return df
         if include is not None:
