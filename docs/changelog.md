@@ -1,5 +1,6 @@
 # Changelog
 
+- 💚 Fix transfer [PR1329](https://github.com/laminlabs/lamindb/pull/1329) [@sunnyosun](https://github.com/sunnyosun)
 ```{eval-rst}
 .. role:: small
 ```
