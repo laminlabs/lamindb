@@ -15,9 +15,9 @@ def test_transfer():
     file = (
         ln.File.using("laminlabs/cellxgene")
         .filter(
-            description__icontains="tabula sapiens - lung",
+            description__icontains="tabula sapiens",
         )
-        .one()
+        .first()
     )
 
     id_remote = file.id
@@ -42,9 +42,9 @@ def test_transfer():
     file_repeat = (
         ln.File.using("laminlabs/cellxgene")
         .filter(
-            description__icontains="tabula sapiens - lung",
+            description__icontains="tabula sapiens",
         )
-        .one()
+        .first()
     )
     file_repeat.save()
 
@@ -59,9 +59,9 @@ def test_transfer():
     file2 = (
         ln.File.using("laminlabs/cellxgene")
         .filter(
-            description__icontains="tabula sapiens - liver",
+            description__icontains="tabula sapiens",
         )
-        .one()
+        .last()
     )
     file2.save()
 
@@ -74,6 +74,13 @@ def test_transfer():
     lb.Disease.filter().delete()
     lb.CellLine.filter().delete()
     lb.CellType.filter().delete()
+    lb.Phenotype.filter().delete()
+    lb.Ethnicity.filter().delete()
+    lb.ExperimentalFactor.filter().delete()
+    lb.DevelopmentalStage.filter().delete()
+    lb.Tissue.filter().delete()
+    ln.Feature.filter().delete()
+    ln.FeatureSet.filter().delete()
     ln.Run.filter().delete()
     ln.Transform.filter().delete()
     ln.File.filter().delete()
