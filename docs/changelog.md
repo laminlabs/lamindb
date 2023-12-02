@@ -1,13 +1,15 @@
 # Changelog
 
-- ✨ Standardize return field [PR1331](https://github.com/laminlabs/lamindb/pull/1331) [@sunnyosun](https://github.com/sunnyosun)
-- ✨ Fix and extend get_label_weights in Dataset.mapped [PR1330](https://github.com/laminlabs/lamindb/pull/1330) [@Koncopd](https://github.com/Koncopd)
-- 💚 Fix transfer [PR1329](https://github.com/laminlabs/lamindb/pull/1329) [@sunnyosun](https://github.com/sunnyosun)
 ```{eval-rst}
 .. role:: small
 ```
 
 ## 0.63
+
+### 0.63.2 {small}`2023-12-02`
+
+- ✨ Add `return_field` to `standardize()` [PR1331](https://github.com/laminlabs/lamindb/pull/1331) [@sunnyosun](https://github.com/sunnyosun)
+- ♻️ Extend `MappedDataset.get_label_weights` [PR1330](https://github.com/laminlabs/lamindb/pull/1330) [@Koncopd](https://github.com/Koncopd)
 
 ### 0.63.1 {small}`2023-11-28`
 
