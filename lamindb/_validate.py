@@ -182,6 +182,7 @@ def standardize(
     values: Iterable,
     field: Optional[Union[str, StrField]] = None,
     *,
+    return_field: str = None,
     return_mapper: bool = False,
     case_sensitive: bool = False,
     mute: bool = False,
@@ -195,6 +196,7 @@ def standardize(
         cls=cls,
         values=values,
         field=field,
+        return_field=return_field,
         return_mapper=return_mapper,
         case_sensitive=case_sensitive,
         mute=mute,
@@ -242,6 +244,7 @@ def _standardize(
     values: Iterable,
     field: Optional[Union[str, StrField]] = None,
     *,
+    return_field: str = None,
     return_mapper: bool = False,
     case_sensitive: bool = False,
     mute: bool = False,
@@ -251,13 +254,16 @@ def _standardize(
     **kwargs,
 ) -> Union[List[str], Dict[str, str]]:
     """{}"""
-    from lamin_utils._map_synonyms import map_synonyms
+    from lamin_utils._standardize import standardize as map_synonyms
 
     return_str = True if isinstance(values, str) else False
     if isinstance(values, str):
         values = [values]
 
     field = get_default_str_field(cls, field=field)
+    return_field = get_default_str_field(
+        cls, field=field if return_field is None else return_field
+    )
     queryset = _queryset(cls)
     orm = queryset.model
 
@@ -279,6 +285,7 @@ def _standardize(
 
     _kwargs = dict(
         field=field,
+        return_field=return_field,
         case_sensitive=case_sensitive,
         keep=keep,
         synonyms_field=synonyms_field,
@@ -320,8 +327,9 @@ def _standardize(
 
         if len(std_names_bt_mapper) > 0 and not mute:
             s = "" if len(std_names_bt_mapper) == 1 else "s"
+            field_print = "synonym" if field == return_field else field
             warn_msg = (
-                f"found {len(std_names_bt_mapper)} synonym{s} in Bionty:"
+                f"found {len(std_names_bt_mapper)} {field_print}{s} in Bionty:"
                 f" {list(std_names_bt_mapper.keys())}"
             )
             warn_msg += (
