@@ -1,5 +1,6 @@
 # Changelog
 
+- ✨ Fix and extend get_label_weights in Dataset.mapped [PR1330](https://github.com/laminlabs/lamindb/pull/1330) [@Koncopd](https://github.com/Koncopd)
 - 💚 Fix transfer [PR1329](https://github.com/laminlabs/lamindb/pull/1329) [@sunnyosun](https://github.com/sunnyosun)
 ```{eval-rst}
 .. role:: small
