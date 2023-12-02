@@ -1,6 +1,6 @@
 """A data framework for biology.
 
-LaminDB helps you manage data with registries for metadata:
+LaminDB helps you manage data batches with two basic registries:
 
 .. autosummary::
    :toctree: .
@@ -8,7 +8,7 @@ LaminDB helps you manage data with registries for metadata:
    File
    Dataset
 
-Registries to track provenance:
+Four registries track provenance of data batches:
 
 .. autosummary::
    :toctree: .
@@ -18,7 +18,7 @@ Registries to track provenance:
    User
    Storage
 
-Registries to validate & contextualize:
+Three registries validate & contextualize:
 
 .. autosummary::
    :toctree: .
