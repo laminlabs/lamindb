@@ -262,9 +262,11 @@ def test_from_consistent_files():
 
 def test_dataset_mapped():
     adata.strings_to_categoricals()
+    adata.obs["feat2"] = adata.obs["feat1"]
     file1 = ln.File(adata, description="Part one")
     file1.save()
     adata2.X = csr_matrix(adata2.X)
+    adata2.obs["feat2"] = adata2.obs["feat1"]
     file2 = ln.File(adata2, description="Part two", format="zrad")
     file2.save()
     dataset = ln.Dataset([file1, file2], name="Gather")
@@ -277,7 +279,8 @@ def test_dataset_mapped():
     assert len(ls_ds[0]) == 2 and len(ls_ds[2]) == 2
     weights = ls_ds.get_label_weights("feat1")
     assert all(weights[1:] == weights[0])
-
+    weights = ls_ds.get_label_weights(["feat1", "feat2"])
+    assert all(weights[1:] == weights[0])
     ls_ds.close()
     assert ls_ds.closed
     del ls_ds

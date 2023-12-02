@@ -1,4 +1,5 @@
 from collections import Counter
+from functools import reduce
 from os import PathLike
 from typing import List, Optional, Union
 
@@ -114,11 +115,21 @@ class MappedDataset:
             label = label.decode("utf-8")
         return label
 
-    def get_label_weights(self, label_key: str):
-        """Get all weights for a given label key."""
+    def get_label_weights(self, label_keys: Union[str, List[str]]):
+        """Get all weights for the given label keys."""
+        if isinstance(label_keys, str):
+            label_keys = [label_keys]
+        labels_list = []
+        for label_key in label_keys:
+            labels_to_str = self.get_merged_labels(label_key).astype(str).astype("O")
+            labels_list.append(labels_to_str)
+        if len(labels_list) > 1:
+            labels = reduce(lambda a, b: a + b, labels_list)
+        else:
+            labels = labels_list[0]
         labels = self.get_merged_labels(label_key)
         counter = Counter(labels)  # type: ignore
-        weights = np.array([counter[label] for label in labels]) / len(labels)
+        weights = 1.0 / np.array([counter[label] for label in labels])
         return weights
 
     def get_merged_labels(self, label_key: str):
