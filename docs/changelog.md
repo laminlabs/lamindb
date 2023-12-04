@@ -1,5 +1,6 @@
 # Changelog
 
+- 🚚 Move high-level bionty docs here [PR1332](https://github.com/laminlabs/lamindb/pull/1332) [@falexwolf](https://github.com/falexwolf)
 ```{eval-rst}
 .. role:: small
 ```
