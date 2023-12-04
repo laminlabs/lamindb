@@ -19,6 +19,7 @@ validate
 public-ontologies
 bio-registries
 annotate
+notebook
 schemas
 transfer
 ```
