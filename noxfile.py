@@ -29,7 +29,7 @@ GROUPS["guide"] = [
     "transfer.ipynb",
 ]
 GROUPS["biology"] = [
-    "bio-registries.ipynb",
+    "public-ontologies.ipynbbio-registries.ipynb",
 ]
 
 
