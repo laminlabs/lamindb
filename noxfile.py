@@ -24,6 +24,7 @@ GROUPS["guide"] = [
     "meta.ipynb",
     "validate.ipynb",
     "annotate.ipynb",
+    "notebook.ipynb",
     "schemas.ipynb",
     "setup.ipynb",
     "transfer.ipynb",
