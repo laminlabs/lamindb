@@ -16,6 +16,7 @@ tutorial2
 setup
 query-search
 validate
+public-ontologies
 bio-registries
 annotate
 schemas
