@@ -16,6 +16,30 @@ from .storage._backed_access import (
 )
 
 
+class _Connect:
+    def __init__(self, storage):
+        if isinstance(storage, UPath):
+            self.conn, self.store = registry.open("h5py", storage)
+            self.to_close = True
+        else:
+            self.conn, self.store = None, storage
+            self.to_close = False
+
+    def __enter__(self):
+        return self.store
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.close()
+
+    def close(self):
+        if not self.to_close:
+            return
+        if hasattr(self.store, "close"):
+            self.store.close()
+        if hasattr(self.conn, "close"):
+            self.conn.close()
+
+
 class MappedDataset:
     """Map-style dataset for use in data loaders.
 
@@ -35,18 +59,21 @@ class MappedDataset:
         label_keys: Optional[Union[str, List[str]]] = None,
         join_vars: Optional[Literal["auto", "inner"]] = "auto",
         encode_labels: bool = True,
+        parallel: bool = False,
     ):
         self.storages = []  # type: ignore
         self.conns = []  # type: ignore
-        self._make_connections(path_list)
+        self.parallel = parallel
+        self._make_connections(path_list, parallel)
 
         self.n_obs_list = []
         for storage in self.storages:
-            X = storage["X"]
-            if isinstance(X, ArrayTypes):  # type: ignore
-                self.n_obs_list.append(X.shape[0])
-            else:
-                self.n_obs_list.append(X.attrs["shape"][0])
+            with _Connect(storage) as store:
+                X = store["X"]
+                if isinstance(X, ArrayTypes):  # type: ignore
+                    self.n_obs_list.append(X.shape[0])
+                else:
+                    self.n_obs_list.append(X.attrs["shape"][0])
         self.n_obs = sum(self.n_obs_list)
 
         self.indices = np.hstack([np.arange(n_obs) for n_obs in self.n_obs_list])
@@ -64,11 +91,14 @@ class MappedDataset:
 
         self._closed = False
 
-    def _make_connections(self, path_list: list):
+    def _make_connections(self, path_list: list, parallel: bool):
         for path in path_list:
             path = UPath(path)
             if path.exists() and path.is_file():  # type: ignore
-                conn, storage = registry.open("h5py", path)
+                if parallel:
+                    conn, storage = None, path
+                else:
+                    conn, storage = registry.open("h5py", path)
             else:
                 conn, storage = registry.open("zarr", path)
             self.conns.append(conn)
@@ -107,15 +137,15 @@ class MappedDataset:
             var_idxs = self.var_indices[storage_idx]
         else:
             var_idxs = None
-        storage = self.storages[storage_idx]
 
-        out = [self.get_data_idx(storage, obs_idx, var_idxs)]
-        if self.label_keys is not None:
-            for i, label in enumerate(self.label_keys):
-                label_idx = self.get_label_idx(storage, obs_idx, label)
-                if self.encode_labels:
-                    label_idx = self.encoders[i][label_idx]
-                out.append(label_idx)
+        with _Connect(self.storages[storage_idx]) as store:
+            out = [self.get_data_idx(store, obs_idx, var_idxs)]
+            if self.label_keys is not None:
+                for i, label in enumerate(self.label_keys):
+                    label_idx = self.get_label_idx(store, obs_idx, label)
+                    if self.encode_labels:
+                        label_idx = self.encoders[i][label_idx]
+                    out.append(label_idx)
         return out
 
     def get_data_idx(
@@ -182,13 +212,14 @@ class MappedDataset:
         labels_merge = []
         decode = np.frompyfunc(lambda x: x.decode("utf-8"), 1, 1)
         for storage in self.storages:
-            codes = self.get_codes(storage, label_key)
-            labels = decode(codes) if isinstance(codes[0], bytes) else codes
-            cats = self.get_categories(storage, label_key)
-            if cats is not None:
-                cats = decode(cats) if isinstance(cats[0], bytes) else cats
-                labels = cats[labels]
-            labels_merge.append(labels)
+            with _Connect(storage) as store:
+                codes = self.get_codes(store, label_key)
+                labels = decode(codes) if isinstance(codes[0], bytes) else codes
+                cats = self.get_categories(store, label_key)
+                if cats is not None:
+                    cats = decode(cats) if isinstance(cats[0], bytes) else cats
+                    labels = cats[labels]
+                labels_merge.append(labels)
         return np.hstack(labels_merge)
 
     def get_merged_categories(self, label_key: str):
@@ -196,14 +227,15 @@ class MappedDataset:
         cats_merge = set()
         decode = np.frompyfunc(lambda x: x.decode("utf-8"), 1, 1)
         for storage in self.storages:
-            cats = self.get_categories(storage, label_key)
-            if cats is not None:
-                cats = decode(cats) if isinstance(cats[0], bytes) else cats
-                cats_merge.update(cats)
-            else:
-                codes = self.get_codes(storage, label_key)
-                codes = decode(codes) if isinstance(codes[0], bytes) else codes
-                cats_merge.update(codes)
+            with _Connect(storage) as store:
+                cats = self.get_categories(store, label_key)
+                if cats is not None:
+                    cats = decode(cats) if isinstance(cats[0], bytes) else cats
+                    cats_merge.update(cats)
+                else:
+                    codes = self.get_codes(store, label_key)
+                    codes = decode(codes) if isinstance(codes[0], bytes) else codes
+                    cats_merge.update(codes)
         return cats_merge
 
     def get_categories(self, storage: StorageType, label_key: str):  # type: ignore
