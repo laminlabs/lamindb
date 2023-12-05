@@ -28,16 +28,9 @@ class MappedDataset:
         label_keys: Optional[Union[str, List[str]]] = None,
         encode_labels: bool = True,
     ):
-        self.storages = []
-        self.conns = []
-        for path in path_list:
-            path = UPath(path)
-            if path.exists() and path.is_file():  # type: ignore
-                conn, storage = registry.open("h5py", path)
-            else:
-                conn, storage = registry.open("zarr", path)
-            self.conns.append(conn)
-            self.storages.append(storage)
+        self.storages = []  # type: ignore
+        self.conns = []  # type: ignore
+        self._make_connections(path_list)
 
         self.n_obs_list = []
         for storage in self.storages:
@@ -52,22 +45,32 @@ class MappedDataset:
         self.storage_idx = np.repeat(np.arange(len(self.storages)), self.n_obs_list)
 
         self.encode_labels = encode_labels
-        if isinstance(label_keys, str):
-            label_keys = [label_keys]
-        self.label_keys = label_keys
-        if self.label_keys is not None:
-            if self.encode_labels:
-                self.encoders = []
-                for label in self.label_keys:
-                    cats = self.get_merged_categories(label)
-                    self.encoders.append({cat: i for i, cat in enumerate(cats)})
+        self.label_keys = [label_keys] if isinstance(label_keys, str) else label_keys
+        if self.label_keys is not None and self.encode_labels:
+            self.encoders: List[dict] = []
+            self._make_encoders(self.label_keys)
 
         self._closed = False
+
+    def _make_connections(self, path_list: list):
+        for path in path_list:
+            path = UPath(path)
+            if path.exists() and path.is_file():  # type: ignore
+                conn, storage = registry.open("h5py", path)
+            else:
+                conn, storage = registry.open("zarr", path)
+            self.conns.append(conn)
+            self.storages.append(storage)
+
+    def _make_encoders(self, label_keys: list):
+        for label in label_keys:
+            cats = self.get_merged_categories(label)
+            self.encoders.append({cat: i for i, cat in enumerate(cats)})
 
     def __len__(self):
         return self.n_obs
 
-    def __getitem__(self, idx):
+    def __getitem__(self, idx: int):
         obs_idx = self.indices[idx]
         storage = self.storages[self.storage_idx[idx]]
         out = [self.get_data_idx(storage, obs_idx)]
