@@ -285,11 +285,14 @@ def test_dataset_mapped():
     assert ls_ds.closed
     del ls_ds
 
-    with dataset.mapped(label_keys="feat1") as ls_ds:
+    with dataset.mapped(label_keys="feat1", join_vars="inner") as ls_ds:
         assert not ls_ds.closed
         assert len(ls_ds) == 4
         assert len(ls_ds[0]) == 2 and len(ls_ds[2]) == 2
     assert ls_ds.closed
+
+    ls_ds = dataset.mapped(label_keys="feat1", parallel=True)
+    assert len(ls_ds[0]) == 2 and len(ls_ds[2]) == 2
 
     file1.delete(permanent=True, storage=True)
     file2.delete(permanent=True, storage=True)

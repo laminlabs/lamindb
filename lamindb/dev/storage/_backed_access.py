@@ -139,6 +139,8 @@ registry = Registry()
 @registry.register_open("h5py")
 def open(filepath: Union[UPath, Path, str]):
     fs, file_path_str = infer_filesystem(filepath)
+    if isinstance(fs, LocalFileSystem):
+        return None, h5py.File(file_path_str, mode="r")
     conn = fs.open(file_path_str, mode="rb")
     try:
         storage = h5py.File(conn, mode="r")

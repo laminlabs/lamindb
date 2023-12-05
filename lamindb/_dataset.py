@@ -338,7 +338,9 @@ def from_files(files: Iterable[File]) -> Tuple[str, Dict[str, str]]:
 def mapped(
     self,
     label_keys: Optional[Union[str, List[str]]] = None,
+    join_vars: Optional[Literal["auto", "inner"]] = "auto",
     encode_labels: bool = True,
+    parallel: bool = False,
     stream: bool = False,
     is_run_input: Optional[bool] = None,
 ) -> "MappedDataset":
@@ -352,7 +354,7 @@ def mapped(
             path_list.append(file.stage())
         else:
             path_list.append(file.path)
-    return MappedDataset(path_list, label_keys, encode_labels)
+    return MappedDataset(path_list, label_keys, join_vars, encode_labels, parallel)
 
 
 # docstring handled through attach_func_to_class_method
