@@ -161,7 +161,8 @@ class MappedDataset:
         """Get the index for the data."""
         layer = storage["X"] if layer_key is None else storage["layers"][layer_key]  # type: ignore # noqa
         if isinstance(layer, ArrayTypes):  # type: ignore
-            return layer[idx] if var_idxs is None else layer[idx, var_idxs]
+            # todo: better way to select variables
+            return layer[idx] if var_idxs is None else layer[idx][var_idxs]
         else:  # assume csr_matrix here
             data = layer["data"]
             indices = layer["indices"]
