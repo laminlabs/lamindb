@@ -1,5 +1,6 @@
 # Changelog
 
+- ✨ Do virtual inner join of variables in Dataset.mapped [PR1334](https://github.com/laminlabs/lamindb/pull/1334) [@Koncopd](https://github.com/Koncopd)
 - 📝 Add a track notebooks how-to [PR1333](https://github.com/laminlabs/lamindb/pull/1333) [@sunnyosun](https://github.com/sunnyosun)
 - 🚚 Move high-level bionty docs here [PR1332](https://github.com/laminlabs/lamindb/pull/1332) [@falexwolf](https://github.com/falexwolf)
 ```{eval-rst}
