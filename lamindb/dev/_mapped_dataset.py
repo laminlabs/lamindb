@@ -1,12 +1,19 @@
 from collections import Counter
 from functools import reduce
 from os import PathLike
-from typing import List, Optional, Union
+from typing import List, Literal, Optional, Union
 
 import numpy as np
+import pandas as pd
 from lamindb_setup.dev.upath import UPath
 
-from .storage._backed_access import ArrayTypes, GroupTypes, StorageType, registry
+from .storage._backed_access import (
+    ArrayTypes,
+    GroupTypes,
+    StorageType,
+    _safer_read_index,
+    registry,
+)
 
 
 class MappedDataset:
@@ -26,6 +33,7 @@ class MappedDataset:
         self,
         path_list: List[Union[str, PathLike]],
         label_keys: Optional[Union[str, List[str]]] = None,
+        join_vars: Optional[Literal["auto", "inner"]] = "auto",
         encode_labels: bool = True,
     ):
         self.storages = []  # type: ignore
@@ -44,10 +52,14 @@ class MappedDataset:
         self.indices = np.hstack([np.arange(n_obs) for n_obs in self.n_obs_list])
         self.storage_idx = np.repeat(np.arange(len(self.storages)), self.n_obs_list)
 
+        self.join_vars = join_vars if len(path_list) > 1 else None
+        self.var_indices = None
+        if self.join_vars is not None:
+            self._make_join_vars()
+
         self.encode_labels = encode_labels
         self.label_keys = [label_keys] if isinstance(label_keys, str) else label_keys
         if self.label_keys is not None and self.encode_labels:
-            self.encoders: List[dict] = []
             self._make_encoders(self.label_keys)
 
         self._closed = False
@@ -63,17 +75,41 @@ class MappedDataset:
             self.storages.append(storage)
 
     def _make_encoders(self, label_keys: list):
+        self.encoders = []
         for label in label_keys:
             cats = self.get_merged_categories(label)
             self.encoders.append({cat: i for i, cat in enumerate(cats)})
+
+    def _make_join_vars(self):
+        var_list = [_safer_read_index(storage["var"]) for storage in self.storages]
+        if self.join_vars == "auto":
+            vars_eq = all([var_list[0].equals(vrs) for vrs in var_list[1:]])
+            if vars_eq:
+                self.join_vars = None
+                return
+            else:
+                self.join_vars = "inner"
+        if self.join_vars == "inner":
+            self.var_joint = reduce(pd.Index.intersection, var_list)
+            if len(self.var_joint) == 0:
+                raise ValueError(
+                    "The provided AnnData objects don't have shared varibales."
+                )
+            self.var_indices = [vrs.get_indexer(self.var_joint) for vrs in var_list]
 
     def __len__(self):
         return self.n_obs
 
     def __getitem__(self, idx: int):
         obs_idx = self.indices[idx]
-        storage = self.storages[self.storage_idx[idx]]
-        out = [self.get_data_idx(storage, obs_idx)]
+        storage_idx = self.storage_idx[idx]
+        if self.var_indices is not None:
+            var_idxs = self.var_indices[storage_idx]
+        else:
+            var_idxs = None
+        storage = self.storages[storage_idx]
+
+        out = [self.get_data_idx(storage, obs_idx, var_idxs)]
         if self.label_keys is not None:
             for i, label in enumerate(self.label_keys):
                 label_idx = self.get_label_idx(storage, obs_idx, label)
@@ -83,20 +119,26 @@ class MappedDataset:
         return out
 
     def get_data_idx(
-        self, storage: StorageType, idx: int, layer_key: Optional[str] = None  # type: ignore # noqa
+        self,
+        storage: StorageType,  # type: ignore
+        idx: int,
+        var_idxs: Optional[list] = None,
+        layer_key: Optional[str] = None,
     ):
         """Get the index for the data."""
         layer = storage["X"] if layer_key is None else storage["layers"][layer_key]  # type: ignore # noqa
         if isinstance(layer, ArrayTypes):  # type: ignore
-            return layer[idx]
+            return layer[idx] if var_idxs is None else layer[idx, var_idxs]
         else:  # assume csr_matrix here
             data = layer["data"]
             indices = layer["indices"]
             indptr = layer["indptr"]
             s = slice(*(indptr[idx : idx + 2]))
+            # this requires more memory than csr_matrix when var_idxs is not None
+            # but it is faster
             layer_idx = np.zeros(layer.attrs["shape"][1])
             layer_idx[indices[s]] = data[s]
-            return layer_idx
+            return layer_idx if var_idxs is None else layer_idx[var_idxs]
 
     def get_label_idx(self, storage: StorageType, idx: int, label_key: str):  # type: ignore # noqa
         """Get the index for the label by key."""
