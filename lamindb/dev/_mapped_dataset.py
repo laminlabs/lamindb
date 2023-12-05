@@ -111,7 +111,10 @@ class MappedDataset:
             self.encoders.append({cat: i for i, cat in enumerate(cats)})
 
     def _make_join_vars(self):
-        var_list = [_safer_read_index(storage["var"]) for storage in self.storages]
+        var_list = []
+        for storage in self.storages:
+            with _Connect(storage) as store:
+                var_list.append(_safer_read_index(store["var"]))
         if self.join_vars == "auto":
             vars_eq = all([var_list[0].equals(vrs) for vrs in var_list[1:]])
             if vars_eq:
