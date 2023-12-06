@@ -17,6 +17,8 @@ def convert_numpy_dtype_to_lamin_feature_type(dtype) -> str:
     type = "".join(i for i in orig_type if not i.isdigit())
     if type == "int" or type == "float":
         type = "number"
+    elif type == "object" or type == "str":
+        type = "category"
     return type
 
 
@@ -37,8 +39,8 @@ def __init__(self, *args, **kwargs):
         type_str = type.__name__ if not isinstance(type, str) else type
     if type_str is None:
         raise ValueError("Please specify a type!")
-    if type_str not in ["number", "category"]:
-        raise ValueError("type has to be either 'number' or 'category'!")
+    if type_str not in {"number", "category", "bool"}:
+        raise ValueError("type has to be one of 'number', 'category', 'bool'!")
     kwargs["type"] = type_str
     # cast registries
     registries_str: Optional[str] = None
