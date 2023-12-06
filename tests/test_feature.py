@@ -99,6 +99,12 @@ def test_feature_init():
     # no args allowed
     with pytest.raises(ValueError):
         ln.Feature("x")
+    # no type passed
+    with pytest.raises(ValueError):
+        ln.Feature(name="feat")
+    # wrong type
+    with pytest.raises(ValueError):
+        ln.Feature(name="feat", type="x")
     # registries has to be a list of Registry types
     with pytest.raises(ValueError):
         ln.Feature(name="feat", type="category", registries=1)
