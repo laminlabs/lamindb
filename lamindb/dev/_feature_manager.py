@@ -79,7 +79,7 @@ def print_features(self: Data) -> str:
     from .._from_values import _print_values
 
     msg = ""
-    features_lookup = Feature.objects.using(self._state.db).lookup()
+    features_lookup = Feature.objects.using(self._state.db).lookup().dict()
     for slot, feature_set in self.features._feature_set_by_slot.items():
         if feature_set.registry != "core.Feature":
             features = feature_set.members
@@ -94,7 +94,7 @@ def print_features(self: Data) -> str:
             for _, row in df_slot.iterrows():
                 if row["type"] == "category" and row["registries"] is not None:
                     labels = self.labels.get(
-                        getattr(features_lookup, row["name"]), mute=True
+                        features_lookup.get(row["name"]), mute=True
                     )
                     indent = ""
                     if isinstance(labels, dict):
