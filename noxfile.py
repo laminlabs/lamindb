@@ -134,10 +134,7 @@ def docs(session):
     session.run(*"lamin init --storage ./docsbuild --schema bionty".split())
 
     def generate_cli_docs(main_parser):
-        page = (
-            "# `lamin`\n\nThis page stores the CLI reference, for a guide, see:"
-            " {doc}`/setup`."
-        )
+        page = "# `lamin`\n\nFor a guide, see: {doc}`/setup`.\n\n"
         commands = [
             "login",
             "init",
