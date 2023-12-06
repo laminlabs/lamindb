@@ -22,9 +22,9 @@ GROUPS["tutorial"] = [
 GROUPS["guide"] = [
     "data.ipynb",
     "meta.ipynb",
+    "track.ipynb",
     "validate.ipynb",
     "annotate.ipynb",
-    "notebook.ipynb",
     "schemas.ipynb",
     "setup.ipynb",
     "transfer.ipynb",
