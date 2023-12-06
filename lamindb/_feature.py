@@ -35,6 +35,10 @@ def __init__(self, *args, **kwargs):
     type_str = None
     if type is not None:
         type_str = type.__name__ if not isinstance(type, str) else type
+    if type_str is None:
+        raise ValueError("Please specify a type!")
+    if type_str not in ["number", "category"]:
+        raise ValueError("type has to be either 'number' or 'category'!")
     kwargs["type"] = type_str
     # cast registries
     registries_str: Optional[str] = None
