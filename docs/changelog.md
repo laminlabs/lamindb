@@ -1,5 +1,6 @@
 # Changelog
 
+- 📝 Updated track guide to include scripts [PR1338](https://github.com/laminlabs/lamindb/pull/1338) [@sunnyosun](https://github.com/sunnyosun)
 - 🚑️ Fix capitalization of feature names in describe [PR1337](https://github.com/laminlabs/lamindb/pull/1337) [@sunnyosun](https://github.com/sunnyosun)
 ```{eval-rst}
 .. role:: small
