@@ -10,6 +10,13 @@ from lamindb.dev._settings import settings
 
 from . import _TESTING
 
+FEATURE_TYPES = {
+    "int": "number",
+    "float": "number",
+    "str": "category",
+    "object": "category",
+}
+
 
 def convert_numpy_dtype_to_lamin_feature_type(dtype) -> str:
     orig_type = dtype.name
@@ -39,6 +46,7 @@ def __init__(self, *args, **kwargs):
         type_str = type.__name__ if not isinstance(type, str) else type
     if type_str is None:
         raise ValueError("Please specify a type!")
+    type_str = FEATURE_TYPES.get(type_str, type_str)
     if type_str not in {"number", "category", "bool"}:
         raise ValueError("type has to be one of 'number', 'category', 'bool'!")
     kwargs["type"] = type_str
