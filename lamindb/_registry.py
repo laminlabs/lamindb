@@ -466,6 +466,7 @@ def save(self, *args, **kwargs) -> None:
         # when creating the first element of a version family of records
         # it has to be first saved
         # only when the pk is known, we can set initial_version_id
+        print(self)
         if hasattr(self, "version") and hasattr(self, "initial_version_id"):
             if self.version is not None and self.initial_version_id is None:
                 self.initial_version_id = self.id

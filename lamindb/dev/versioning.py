@@ -82,6 +82,8 @@ def get_ids_from_old_version(
     # the following covers the edge case where the old file was unversioned
     if is_new_version_of.version is None:
         is_new_version_of.version = previous_version
+        if is_new_version_of.initial_version_id is None:
+            is_new_version_of.initial_version_id = is_new_version_of.id
         is_new_version_of.save()
         if msg != "":
             msg += (
