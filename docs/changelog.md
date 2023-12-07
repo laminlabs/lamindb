@@ -1,5 +1,6 @@
 # Changelog
 
+- 🚸 Raise proper error when tracking script fails [PR1340](https://github.com/laminlabs/lamindb/pull/1340) [@sunnyosun](https://github.com/sunnyosun)
 - 🚸 Added literal checks for type when creating a Feature [PR1339](https://github.com/laminlabs/lamindb/pull/1339) [@sunnyosun](https://github.com/sunnyosun)
 - 📝 Updated track guide to include scripts [PR1338](https://github.com/laminlabs/lamindb/pull/1338) [@sunnyosun](https://github.com/sunnyosun)
 - 🚑️ Fix capitalization of feature names in describe [PR1337](https://github.com/laminlabs/lamindb/pull/1337) [@sunnyosun](https://github.com/sunnyosun)
