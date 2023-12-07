@@ -1,5 +1,6 @@
 # Changelog
 
+- 🚸 Parse variables upon track, do not access storage during load [PR1341](https://github.com/laminlabs/lamindb/pull/1341) [@falexwolf](https://github.com/falexwolf)
 - 🚸 Raise proper error when tracking script fails [PR1340](https://github.com/laminlabs/lamindb/pull/1340) [@sunnyosun](https://github.com/sunnyosun)
 - 🚸 Added literal checks for type when creating a Feature [PR1339](https://github.com/laminlabs/lamindb/pull/1339) [@sunnyosun](https://github.com/sunnyosun)
 - 📝 Updated track guide to include scripts [PR1338](https://github.com/laminlabs/lamindb/pull/1338) [@sunnyosun](https://github.com/sunnyosun)
