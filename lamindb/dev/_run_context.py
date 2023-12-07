@@ -245,6 +245,11 @@ class run_context:
                     is_tracked = False
                 else:
                     name = Path(module.__file__).stem  # type: ignore
+                    if not hasattr(module, "__lamindb_uid_prefix__"):
+                        raise RuntimeError(
+                            "no automated tracking because no uid attached to script!\n"
+                            f"please run: lamin track {module.__file__}\n"
+                        )
                     (
                         transform,
                         uid,
