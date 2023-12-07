@@ -312,9 +312,7 @@ def test_is_new_version_of_versioned_dataset():
     # create new dataset from old dataset
     dataset_v2 = ln.Dataset(adata, is_new_version_of=dataset)
     assert dataset.version == "1"
-    assert (
-        dataset.initial_version_id is None
-    )  # initial dataset has initial_version_id None
+    assert dataset.initial_version_id == dataset.id
     assert dataset_v2.initial_version_id == dataset.id
     assert dataset_v2.version == "2"
     assert dataset_v2.name == "test"
@@ -344,6 +342,7 @@ def test_is_new_version_of_unversioned_dataset():
     # what happens if we don't save the old dataset?
     # add a test for it!
     dataset.save()
+    assert dataset.initial_version_id == dataset.id
 
     with pytest.raises(TypeError):
         ln.Dataset(adata, is_new_version_of="wrong-type")

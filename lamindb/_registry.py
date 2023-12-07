@@ -463,6 +463,12 @@ def save(self, *args, **kwargs) -> None:
         init_self_from_db(self, result)
     else:
         super(Registry, self).save(*args, **kwargs)
+        # when creating the first element of a version family of records
+        # it has to be first saved
+        # only when the pk is known, we can set initial_version_id
+        if hasattr(self, "version") and hasattr(self, "initial_version_id"):
+            if self.version is not None and self.initial_version_id is None:
+                self.initial_version_id = self.id
     if db is not None and db != "default":
         if hasattr(self, "labels"):
             from copy import copy

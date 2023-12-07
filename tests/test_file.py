@@ -124,9 +124,13 @@ def test_is_new_version_of_versioned_file():
     # create a versioned file
     file = ln.File(df, description="test", version="1")
     assert file.version == "1"
+    assert file.id is None
+    assert file.initial_version_id is None
 
     assert file.path.exists()  # because of cache file already exists
     file.save()
+    assert file.id is not None
+    assert file.initial_version_id == file.id
     assert file.path.exists()
 
     with pytest.raises(ValueError) as error:
@@ -136,7 +140,7 @@ def test_is_new_version_of_versioned_file():
     # create new file from old file
     file_v2 = ln.File(adata, is_new_version_of=file)
     assert file.version == "1"
-    assert file.initial_version_id is None  # initial file has initial_version_id None
+    assert file.initial_version_id == file.id
     assert file_v2.initial_version_id == file.id
     assert file_v2.version == "2"
     assert file_v2.key is None
@@ -190,7 +194,7 @@ def test_is_new_version_of_unversioned_file():
     # create new file from old file
     new_file = ln.File(adata, is_new_version_of=file)
     assert file.version == "1"
-    assert file.initial_version is None
+    assert file.initial_version_id == file.id
     assert new_file.initial_version_id == file.id
     assert new_file.version == "2"
     assert new_file.description == file.description

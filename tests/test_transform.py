@@ -29,9 +29,7 @@ def test_is_new_version_of_versioned_transform():
     # create new transform from old transform
     transform_v2 = ln.Transform(name="My 2nd transform", is_new_version_of=transform)
     assert transform.version == "1"
-    assert (
-        transform.initial_version_id is None
-    )  # initial transform has initial_version_id None
+    assert transform.initial_version_id == transform.id
     assert transform_v2.initial_version_id == transform.id
     assert transform_v2.version == "2"
 

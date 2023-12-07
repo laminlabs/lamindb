@@ -1,5 +1,6 @@
 from typing import Optional, Tuple, Union
 
+from lamin_utils import logger
 from lnschema_core import ids
 from lnschema_core.models import File, Transform
 
@@ -47,8 +48,14 @@ def init_uid(
 
 
 def get_initial_version_id(is_new_version_of: Union[File, Transform]):
+    # the first part of this if condition is only to deal with
+    # legacy data
     if is_new_version_of.initial_version_id is None:
         initial_version_id = is_new_version_of.id
+        logger.warning(
+            "fix legacy convention: please set .initial_version_id of"
+            f" {is_new_version_of} to {is_new_version_of.id}"
+        )
     else:
         initial_version_id = is_new_version_of.initial_version_id
     return initial_version_id
