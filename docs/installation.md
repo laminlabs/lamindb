@@ -23,6 +23,8 @@ gcp       # Google Cloud (gcfs, etc.)
 fcs       # FCS files (flow cytometry)
 # storage backends
 zarr      # store & stream arrays with zarr
+# others
+erdiagram # display schema graphs
 ```
 
 If you'd like a docker container, here is a way: [github.com/laminlabs/lamindb-docker](https://github.com/laminlabs/lamindb-docker).
