@@ -10,7 +10,7 @@
 
 **Track data flow across notebooks, pipelines & UI: {meth}`~lamindb.track`, {class}`~lamindb.Transform` & {class}`~lamindb.Run`.**
 
-- Execution reports & source code for [notebooks](/tutorial)
+- Execution reports & source code for [notebooks & scripts](/track)
 - Integrate with workflow managers: [redun](docs:redun), [nextflow](docs:nextflow), [snakemake](docs:snakemake)
 
 **Manage registries for experimental metadata & in-house ontologies, import public ontologies.**
@@ -40,7 +40,7 @@
 - Auditable: data & metadata records are hashed, timestamped, and attributed to users (soon to come: LaminDB Log)
 - [Access](docs:access) management:
   - High-level access management through Lamin's collaborator roles
-  - Fine-grained access management via storage & SQL roles (and soon to come: Lamin Vault)
+  - Fine-grained access management via storage & SQL roles (soon to come: Lamin Vault)
 - [Secure](docs:access): embedded in your infrastructure (Lamin has no access to your data & metadata)
 - Tested & typed (up to Django Model fields)
 - [Idempotent](docs:faq/idempotency) & [ACID](docs:faq/acid) operations
