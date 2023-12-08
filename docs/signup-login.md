@@ -19,8 +19,8 @@ lamin login testuser1@lamin.ai
 lamin login testuser1
 ```
 
-If you don't have a cached key in your environment, you need to pass it:
+If you don't have a cached API-key in your environment, you need to copy it from your lamin.ai account and pass it:
 
 ```
-lamin login <email> --key <key>
+lamin login <email> --key <API-key>
 ```
