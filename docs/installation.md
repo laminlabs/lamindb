@@ -15,16 +15,14 @@ Supported `extras` are:
 ```yaml
 # commonly used
 jupyter   # parse Jupyter notebook metadata
-bionty    # access basic biological ontologies
+bionty    # basic biological ontologies
 # cloud backends
 aws       # AWS (s3fs, etc.)
 gcp       # Google Cloud (gcfs, etc.)
 # biological file formats
-fcs       # manage FCS files (flow cytometry)
+fcs       # FCS files (flow cytometry)
 # storage backends
 zarr      # store & stream arrays with zarr
-# others
-erdiagram # visualize ER diagrams, also needs graphviz
 ```
 
 If you'd like a docker container, here is a way: [github.com/laminlabs/lamindb-docker](https://github.com/laminlabs/lamindb-docker).
