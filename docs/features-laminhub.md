@@ -6,11 +6,15 @@ Public demo instances to explore in the UI or load using the CLI via `lamin load
 
 LaminHub neither hosts data nor metadata, but connects to distributed storage locations & databases through LaminDB.
 
-<p style="font-weight: bolder; margin-top: 1rem; margin-bottom: 0.5rem; background: transparent">See validated files & arrays in context of ontologies & experimental metadata.</p>
+<p style="font-weight: bolder; margin-top: 1rem; margin-bottom: 0.5rem; background: transparent">See validated data artifacts in context of ontologies & experimental metadata.</p>
 
 <img src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/DjVOPEBiAcGlt3Gq7Qc1.png" width="700px">
 
-<p style="font-weight: bolder; margin-top: 1rem; margin-bottom: 0.5rem; background: transparent">See execution reports of notebooks with their inputs & outputs.</p>
+<p style="font-weight: bolder; margin-top: 1rem; margin-bottom: 0.5rem; background: transparent">Query & search.</p>
+
+<img src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/L188T2JjzZHWHfv2S0ib.png" width="700px">
+
+<p style="font-weight: bolder; margin-top: 1rem; margin-bottom: 0.5rem; background: transparent">See scripts, notebooks & pipelines with their inputs & outputs.</p>
 
 <img src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/RGXj5wcAf7EAc6J8aBoM.png" width="700px">
 
