@@ -69,7 +69,7 @@ def view_flow(data: Union[File, Dataset], with_children: bool = True) -> None:
 
     Examples:
         >>> dataset.view_flow()
-        >>> file.view_flow()
+        >>> artifact.view_flow()
     """
     import graphviz
 

@@ -1,11 +1,11 @@
 **Access data & metadata across storage (files, arrays) & database (SQL) backends.**
 
 - Query & search: {class}`~lamindb.dev.Registry.filter`, {class}`~lamindb.dev.Registry.search`
-- Stage, load or stream files & datasets: {class}`~lamindb.File.stage`, {class}`~lamindb.File.load`, {class}`~lamindb.File.backed`
+- Stage, load or stream files & datasets: {class}`~lamindb.Artifact.stage`, {class}`~lamindb.Artifact.load`, {class}`~lamindb.Artifact.backed`
 - Model data using {class}`~lamindb.Feature`, {class}`~lamindb.FeatureSet`, {class}`~lamindb.ULabel`
 - Plug-in custom [schemas](/schemas) & manage schema migrations
 - Use array formats in memory & storage: [DataFrame](/tutorial), [AnnData](/data), [MuData](docs:multimodal), [SOMA](docs:cellxgene), ... backed by [parquet](/tutorial), [zarr](/data), [TileDB](docs:cellxgene), [HDF5](/data), [h5ad](/data), [DuckDB](docs:rxrx), ...
-- Bridge data artifacts and warehousing: {class}`~lamindb.File`, {class}`~lamindb.Dataset`
+- Bridge data artifacts and warehousing: {class}`~lamindb.Artifact`, {class}`~lamindb.Dataset`
 - Version files, datasets & transforms
 
 **Track data flow across notebooks, pipelines & UI: {meth}`~lamindb.track`, {class}`~lamindb.Transform` & {class}`~lamindb.Run`.**
@@ -24,7 +24,7 @@
 
 - Inspect validation failures: {class}`~lamindb.dev.CanValidate.inspect`
 - Annotate with untyped or typed labels: {class}`~lamindb.dev.LabelManager.add`
-- Save data & metadata ACID: {class}`~lamindb.File.save`
+- Save data & metadata ACID: {class}`~lamindb.Artifact.save`
 
 **Organize and share data across a mesh of LaminDB instances.**
 

@@ -69,12 +69,12 @@ def test_create_delete_from_single_dataframe():
 
     # basics
     assert dataset.load().iloc[0].tolist() == df.iloc[0].tolist()
-    file = dataset.file
-    assert file.description == f"See dataset {dataset.uid}"
-    assert dataset.hash == file.hash
-    assert dataset.uid == file.uid
-    assert ln.File.filter(uid=dataset.uid).one_or_none() is not None
-    assert ln.File.filter(uid=file.uid).one_or_none() is not None
+    artifact = dataset.artifact
+    assert artifact.description == f"See dataset {dataset.uid}"
+    assert dataset.hash == artifact.hash
+    assert dataset.uid == artifact.uid
+    assert ln.Artifact.filter(uid=dataset.uid).one_or_none() is not None
+    assert ln.Artifact.filter(uid=artifact.uid).one_or_none() is not None
 
     # features
     feature_list = [
@@ -99,8 +99,8 @@ def test_create_delete_from_single_dataframe():
 
     # now proceed to deletion
     dataset.delete(permanent=True, storage=True)
-    assert ln.File.filter(uid=dataset.uid).one_or_none() is None
-    assert ln.File.filter(uid=file.uid).one_or_none() is None
+    assert ln.Artifact.filter(uid=dataset.uid).one_or_none() is None
+    assert ln.Artifact.filter(uid=artifact.uid).one_or_none() is None
 
 
 def test_create_delete_from_single_anndata():
@@ -108,17 +108,19 @@ def test_create_delete_from_single_anndata():
     dataset = ln.Dataset(adata, name="My adata")
     dataset.save()
     dataset.delete(permanent=True, storage=True)
-    assert ln.File.filter(id=dataset.id).one_or_none() is None
-    assert ln.File.filter(id=dataset.file.id).one_or_none() is None
+    assert ln.Artifact.filter(id=dataset.id).one_or_none() is None
+    assert ln.Artifact.filter(id=dataset.artifact.id).one_or_none() is None
     # and now with from_anndata
     lb.settings.organism = "human"
     dataset = ln.Dataset.from_anndata(adata, name="My adata", field=lb.Gene.symbol)
     # let's now try passing an AnnData-like file with some feature sets linked
     ln.save(ln.Feature.from_df(adata.obs))
-    file = ln.File.from_anndata(adata, description="my adata", field=lb.Gene.symbol)
-    file.save()
+    artifact = ln.Artifact.from_anndata(
+        adata, description="my adata", field=lb.Gene.symbol
+    )
+    artifact.save()
     ln.save(lb.Gene.from_values(adata.var.index, "symbol"))
-    dataset = ln.Dataset.from_anndata(file, name="My dataset", field=lb.Gene.symbol)
+    dataset = ln.Dataset.from_anndata(artifact, name="My dataset", field=lb.Gene.symbol)
     dataset.save()
     dataset.describe()
     dataset.view_flow()
@@ -142,15 +144,17 @@ def test_from_single_file():
         [feature.name for feature in features], field="name"
     )
     ln.save([feature for (feature, valid) in zip(features, validated) if valid])
-    file = ln.File.from_anndata(adata, description="My adata", field=lb.Gene.symbol)
+    artifact = ln.Artifact.from_anndata(
+        adata, description="My adata", field=lb.Gene.symbol
+    )
     with pytest.raises(ValueError) as error:
-        ln.Dataset(file)
+        ln.Dataset(artifact)
     assert str(error.exconly()).startswith(
         "ValueError: Save file before creating dataset!"
     )
-    file.save()
+    artifact.save()
     with pytest.raises(ValueError) as error:
-        ln.Dataset(file, file)
+        ln.Dataset(artifact, artifact)
     assert str(error.exconly()).startswith(
         "ValueError: Only one non-keyword arg allowed: data"
     )
@@ -158,24 +162,24 @@ def test_from_single_file():
     transform.save()
     run = ln.Run(transform)
     run.save()
-    dataset = ln.Dataset(file, name="My new dataset", run=run)
+    dataset = ln.Dataset(artifact, name="My new dataset", run=run)
     dataset.save()
     # test data flow
-    assert dataset.run.input_files.get() == file
+    assert dataset.run.input_artifacts.get() == artifact
     # test features
-    assert set(file.feature_sets.list("id")) == set(
-        dataset.file.feature_sets.list("id")
+    assert set(artifact.feature_sets.list("id")) == set(
+        dataset.artifact.feature_sets.list("id")
     )
-    assert set(file.features._feature_set_by_slot.keys()) == set(
+    assert set(artifact.features._feature_set_by_slot.keys()) == set(
         dataset.features._feature_set_by_slot.keys()
     )
-    feature_sets_queried = file.feature_sets.all()
+    feature_sets_queried = artifact.feature_sets.all()
     features_queried = ln.Feature.filter(feature_sets__in=feature_sets_queried).all()
     feature_sets_queried.delete()
     features_queried.delete()
     dataset.delete(permanent=True, storage=True)
-    assert ln.File.filter(id=dataset.id).one_or_none() is None
-    assert ln.File.filter(id=dataset.file.id).one_or_none() is None
+    assert ln.Artifact.filter(id=dataset.id).one_or_none() is None
+    assert ln.Artifact.filter(id=dataset.artifact.id).one_or_none() is None
 
 
 def test_edge_cases():
@@ -189,20 +193,20 @@ def test_edge_cases():
     assert str(error.exconly()).startswith(
         "ValueError: Only DataFrame, AnnData, folder or list of File is allowed."
     )
-    file = ln.File(df, description="Test file")
-    assert file._state.adding
+    artifact = ln.Artifact(df, description="Test file")
+    assert artifact._state.adding
     with pytest.raises(ValueError) as error:
-        ln.Dataset([file])
+        ln.Dataset([artifact])
     assert str(error.exconly()).startswith(
         "ValueError: Not all files are yet saved, please save them"
     )
-    file.save()
+    artifact.save()
     with pytest.raises(ValueError) as error:
-        ln.Dataset([file, file])
+        ln.Dataset([artifact, artifact])
     assert str(error.exconly()).startswith(
         "ValueError: Please pass files with distinct hashes: these ones are non-unique"
     )
-    file.delete(permanent=True, storage=True)
+    artifact.delete(permanent=True, storage=True)
 
 
 def test_backed():
@@ -211,9 +215,9 @@ def test_backed():
 
 
 def test_from_inconsistent_files():
-    file1 = ln.File(df, description="My test")
+    file1 = ln.Artifact(df, description="My test")
     file1.save()
-    file2 = ln.File(adata, description="My test2")
+    file2 = ln.Artifact(adata, description="My test2")
     file2.save()
     dataset = ln.Dataset([file1, file2], name="Inconsistent")
     dataset.save()
@@ -236,9 +240,9 @@ def test_from_inconsistent_files():
 
 
 def test_from_consistent_files():
-    file1 = ln.File(adata, description="My test")
+    file1 = ln.Artifact(adata, description="My test")
     file1.save()
-    file2 = ln.File(adata2, description="My test2")
+    file2 = ln.Artifact(adata2, description="My test2")
     file2.save()
     transform = ln.Transform(name="My test transform")
     transform.save()
@@ -263,11 +267,11 @@ def test_from_consistent_files():
 def test_dataset_mapped():
     adata.strings_to_categoricals()
     adata.obs["feat2"] = adata.obs["feat1"]
-    file1 = ln.File(adata, description="Part one")
+    file1 = ln.Artifact(adata, description="Part one")
     file1.save()
     adata2.X = csr_matrix(adata2.X)
     adata2.obs["feat2"] = adata2.obs["feat1"]
-    file2 = ln.File(adata2, description="Part two", format="zrad")
+    file2 = ln.Artifact(adata2, description="Part two", format="zrad")
     file2.save()
     dataset = ln.Dataset([file1, file2], name="Gather")
     dataset.save()

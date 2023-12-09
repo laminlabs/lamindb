@@ -11,36 +11,36 @@ def test_transfer():
 
     lb.settings.organism = "human"
 
-    # transfer 1st file
-    file = (
-        ln.File.using("laminlabs/cellxgene")
+    # transfer 1st artifact
+    artifact = (
+        ln.Artifact.using("laminlabs/cellxgene")
         .filter(
             description__icontains="tabula sapiens",
         )
         .first()
     )
 
-    id_remote = file.id
-    run_remote = file.run
-    transform_remote = file.transform
-    created_by_remote = file.created_by
-    storage_remote = file.storage
-    ulabel_remote = file.ulabels.get(name="Tabula Sapiens")
+    id_remote = artifact.id
+    run_remote = artifact.run
+    transform_remote = artifact.transform
+    created_by_remote = artifact.created_by
+    storage_remote = artifact.storage
+    ulabel_remote = artifact.ulabels.get(name="Tabula Sapiens")
 
-    file.save()
+    artifact.save()
 
     # check all ids are adjusted
-    assert file.organism.get(name="human") == lb.settings.organism
-    assert id_remote != file.id
-    assert run_remote != file.run
-    assert transform_remote != file.transform
-    assert created_by_remote.handle != file.created_by.handle
-    assert storage_remote.uid == file.storage.uid
-    assert storage_remote.created_at != file.storage.created_at
+    assert artifact.organism.get(name="human") == lb.settings.organism
+    assert id_remote != artifact.id
+    assert run_remote != artifact.run
+    assert transform_remote != artifact.transform
+    assert created_by_remote.handle != artifact.created_by.handle
+    assert storage_remote.uid == artifact.storage.uid
+    assert storage_remote.created_at != artifact.storage.created_at
 
     # now check that this is idempotent and we can run it again
     file_repeat = (
-        ln.File.using("laminlabs/cellxgene")
+        ln.Artifact.using("laminlabs/cellxgene")
         .filter(
             description__icontains="tabula sapiens",
         )
@@ -49,7 +49,7 @@ def test_transfer():
     file_repeat.save()
 
     # now prepare a new test case
-    ulabel = file.ulabels.get(name="Tabula Sapiens")
+    ulabel = artifact.ulabels.get(name="Tabula Sapiens")
     assert ulabel != ulabel_remote
     # mimic we have an existing ulabel with a different uid but same name
     ulabel.uid = "existing"
@@ -57,7 +57,7 @@ def test_transfer():
 
     # transfer 2nd file
     file2 = (
-        ln.File.using("laminlabs/cellxgene")
+        ln.Artifact.using("laminlabs/cellxgene")
         .filter(
             description__icontains="tabula sapiens",
         )
@@ -83,4 +83,4 @@ def test_transfer():
     ln.FeatureSet.filter().delete()
     ln.Run.filter().delete()
     ln.Transform.filter().delete()
-    ln.File.filter().delete()
+    ln.Artifact.filter().delete()

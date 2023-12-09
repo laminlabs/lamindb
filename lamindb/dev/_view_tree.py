@@ -30,9 +30,9 @@ def view_tree(
         storage_id: storages.get(id=storage_id).root for storage_id in storage_ids
     }
     keys = set()
-    for file in qs:
-        root = storage_roots.get(file.storage_id, "")
-        keys.add(f"{root}/{file.key}")
+    for artifact in qs:
+        root = storage_roots.get(artifact.storage_id, "")
+        keys.add(f"{root}/{artifact.key}")
 
     _view_tree(
         keys=keys,

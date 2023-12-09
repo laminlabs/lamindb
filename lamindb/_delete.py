@@ -43,7 +43,7 @@ def delete(  # type: ignore
         >>> # deleting the record occurs automatically
         >>> # you will be asked whether to delete the file in storage
         >>> # for more control, use:
-        >>> file.delete(storage=True)
+        >>> artifact.delete(storage=True)
 
         Bulk delete via QuerySet:
 

@@ -22,7 +22,7 @@ from lamindb_setup.dev.upath import UPath, infer_filesystem
 from lnschema_core import File
 from packaging import version
 
-from lamindb.dev.storage.file import filepath_from_file
+from lamindb.dev.storage.file import filepath_from_artifact
 
 anndata_version_parse = version.parse(anndata_version)
 
@@ -687,7 +687,7 @@ def backed_access(
     file_or_filepath: Union[File, Path]
 ) -> Union[AnnDataAccessor, BackedAccessor]:
     if isinstance(file_or_filepath, File):
-        filepath = filepath_from_file(file_or_filepath)
+        filepath = filepath_from_artifact(file_or_filepath)
     else:
         filepath = file_or_filepath
     name = filepath.name

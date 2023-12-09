@@ -150,9 +150,9 @@ class LabelManager:
         """Transfer labels from a file or dataset.
 
         Examples:
-            >>> file1 = ln.File(pd.DataFrame(index=[0, 1]))
+            >>> file1 = ln.Artifact(pd.DataFrame(index=[0, 1]))
             >>> file1.save()
-            >>> file2 = ln.File(pd.DataFrame(index=[2, 3]))
+            >>> file2 = ln.Artifact(pd.DataFrame(index=[2, 3]))
             >>> file2.save()
             >>> ulabels = ln.ULabel.from_values(["Label1", "Label2"], field="name")
             >>> ln.save(ulabels)
