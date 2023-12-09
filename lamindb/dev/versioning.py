@@ -1,7 +1,7 @@
 from typing import Optional, Tuple, Union
 
 from lnschema_core import ids
-from lnschema_core.models import File, Transform
+from lnschema_core.models import Artifact, Transform
 
 
 def set_version(version: Optional[str] = None, previous_version: Optional[str] = None):
@@ -46,7 +46,7 @@ def init_uid(
     return gen_full_id()
 
 
-def get_initial_version_id(is_new_version_of: Union[File, Transform]):
+def get_initial_version_id(is_new_version_of: Union[Artifact, Transform]):
     if is_new_version_of.initial_version_id is None:
         initial_version_id = is_new_version_of.id
     else:
@@ -55,7 +55,7 @@ def get_initial_version_id(is_new_version_of: Union[File, Transform]):
 
 
 def get_ids_from_old_version(
-    is_new_version_of: Union[File, Transform],
+    is_new_version_of: Union[Artifact, Transform],
     version: Optional[str],
     n_full_id: int = 20,
 ) -> Tuple[str, int, str]:

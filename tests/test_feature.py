@@ -3,7 +3,7 @@ from inspect import signature
 import lnschema_bionty as lb
 import pandas as pd
 import pytest
-from lnschema_core.models import FileULabel
+from lnschema_core.models import ArtifactULabel
 from pandas.api.types import is_categorical_dtype, is_string_dtype
 
 import lamindb as ln
@@ -85,10 +85,10 @@ def test_feature_from_df():
             assert queried_feature.type == convert_numpy_dtype_to_lamin_feature_type(
                 orig_type
             )
-    filelabel_links = FileULabel.objects.filter(
+    artifactlabel_links = ArtifactULabel.objects.filter(
         file_id=artifact.id, feature__name="feat3"
     )
-    label_ids = filelabel_links.values_list("ulabel_id")
+    label_ids = artifactlabel_links.values_list("ulabel_id")
     assert set(
         ln.ULabel.objects.filter(id__in=label_ids).values_list("name", flat=True)
     ) == set(["cond1", "cond2"])
