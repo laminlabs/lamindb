@@ -398,12 +398,12 @@ def _track_run_input(
         if run is None:
             raise ValueError(
                 "No run context set. Call ln.track() or link input to a"
-                " run object via `run.input_files.add(file)`"
+                " run object via `run.input_artifacts.add(artifact)`"
             )
         # avoid adding the same run twice
         run.save()
-        if data_class_name == "file":
-            LinkORM = run.input_files.through
+        if data_class_name == "artifact":
+            LinkORM = run.input_artifacts.through
             links = [
                 LinkORM(run_id=run.id, artifact_id=data_id)
                 for data_id in input_data_ids

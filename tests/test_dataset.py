@@ -90,7 +90,7 @@ def test_create_delete_from_single_dataframe():
     feature_list_queried = [feature.name for feature in feature_list_queried]
     assert set(feature_list_queried) == set(feature_list)
     # the feature_set is also linked to the file
-    assert ln.FeatureSet.filter(files=dataset.artifact).one() == feature_set
+    assert ln.FeatureSet.filter(artifacts=dataset.artifact).one() == feature_set
 
     # accidental recreation (re-load based on hash)
     dataset1 = ln.Dataset.from_df(df, name="Iris Flower data1")
@@ -150,7 +150,7 @@ def test_from_single_file():
     with pytest.raises(ValueError) as error:
         ln.Dataset(artifact)
     assert str(error.exconly()).startswith(
-        "ValueError: Save file before creating dataset!"
+        "ValueError: Save artifact before creating dataset!"
     )
     artifact.save()
     with pytest.raises(ValueError) as error:
@@ -191,20 +191,21 @@ def test_edge_cases():
     with pytest.raises(ValueError) as error:
         ln.Dataset(1, name="Invalid")
     assert str(error.exconly()).startswith(
-        "ValueError: Only DataFrame, AnnData, folder or list of File is allowed."
+        "ValueError: Only DataFrame, AnnData, folder or list of Artifact is allowed."
     )
     artifact = ln.Artifact(df, description="Test file")
     assert artifact._state.adding
     with pytest.raises(ValueError) as error:
         ln.Dataset([artifact])
     assert str(error.exconly()).startswith(
-        "ValueError: Not all files are yet saved, please save them"
+        "ValueError: Not all artifacts are yet saved, please save them"
     )
     artifact.save()
     with pytest.raises(ValueError) as error:
         ln.Dataset([artifact, artifact])
     assert str(error.exconly()).startswith(
-        "ValueError: Please pass files with distinct hashes: these ones are non-unique"
+        "ValueError: Please pass artifacts with distinct hashes: these ones are"
+        " non-unique"
     )
     artifact.delete(permanent=True, storage=True)
 
@@ -224,13 +225,13 @@ def test_from_inconsistent_files():
     # create a run context
     ln.track(ln.Transform(name="My test transform"))
     # can iterate over them
-    files = dataset.artifacts.all()  # noqa
+    artifacts = dataset.artifacts.all()  # noqa
     assert set(ln.dev.run_context.run.input_datasets.all()) == {dataset}
     # loading will throw an error here
     with pytest.raises(RuntimeError) as error:
         dataset.load()
     assert str(error.exconly()).startswith(
-        "RuntimeError: Can only load datasets where all files have the same suffix"
+        "RuntimeError: Can only load datasets where all artifacts have the same suffix"
     )
     file1.delete(permanent=True, storage=True)
     file2.delete(permanent=True, storage=True)
@@ -250,14 +251,14 @@ def test_from_consistent_files():
     run.save()
     dataset = ln.Dataset([file1, file2], name="My test", run=run)
     dataset.save()
-    assert set(dataset.run.input_files.all()) == {file1, file2}
+    assert set(dataset.run.input_artifacts.all()) == {file1, file2}
     adata_joined = dataset.load()
     assert "artifact_uid" in adata_joined.obs.columns
     assert file1.uid in adata_joined.obs.artifact_uid.cat.categories
     with pytest.raises(RuntimeError) as error:
         dataset.backed()
     assert str(error.exconly()).startswith(
-        "RuntimeError: Can only call backed() for datasets with a single file"
+        "RuntimeError: Can only call backed() for datasets with a single artifact"
     )
     file1.delete(permanent=True, storage=True)
     file2.delete(permanent=True, storage=True)
