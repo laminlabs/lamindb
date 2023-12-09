@@ -25,7 +25,7 @@ from lamindb._artifact import (
     process_data,
 )
 from lamindb.dev.storage._zarr import write_adata_zarr
-from lamindb.dev.storage.artifact import (
+from lamindb.dev.storage.file import (
     AUTO_KEY_PREFIX,
     auto_storage_key_from_id_suffix,
     delete_storage,
