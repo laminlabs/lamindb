@@ -38,7 +38,7 @@ def delete(  # type: ignore
 
         Delete files (delete the metadata record and the file in storage):
 
-        >>> file = ln.filter(File, id=file_id).one()
+        >>> file = ln.filter(File, id=artifact_id).one()
         >>> ln.delete(file)
         >>> # deleting the record occurs automatically
         >>> # you will be asked whether to delete the file in storage

@@ -14,7 +14,7 @@ from lamindb_setup.dev.upath import print_hook
 from lnschema_core.models import Artifact, Registry
 
 from lamindb.dev.storage import store_object
-from lamindb.dev.storage.file import (
+from lamindb.dev.storage.artifact import (
     auto_storage_key_from_file,
     delete_storage_using_key,
 )

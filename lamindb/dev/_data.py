@@ -405,7 +405,8 @@ def _track_run_input(
         if data_class_name == "file":
             LinkORM = run.input_files.through
             links = [
-                LinkORM(run_id=run.id, file_id=data_id) for data_id in input_data_ids
+                LinkORM(run_id=run.id, artifact_id=data_id)
+                for data_id in input_data_ids
             ]
         else:
             LinkORM = run.input_datasets.through

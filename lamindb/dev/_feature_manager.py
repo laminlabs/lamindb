@@ -17,7 +17,7 @@ from .._save import save
 
 def get_host_id_field(host: Union[Artifact, Dataset]) -> str:
     if isinstance(host, Artifact):
-        host_id_field = "file_id"
+        host_id_field = "artifact_id"
     else:
         host_id_field = "dataset_id"
     return host_id_field

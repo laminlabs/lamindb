@@ -73,9 +73,9 @@ def test_feature_from_df():
     ln.save(labels)
     features_lookup = ln.Feature.lookup()
     artifact.labels.add(labels, feature=features_lookup.feat3)
-    assert set(ln.ULabel.filter(fileulabel__feature__name="feat3").list("name")) == set(
-        ["cond1", "cond2"]
-    )
+    assert set(
+        ln.ULabel.filter(artifactulabel__feature__name="feat3").list("name")
+    ) == set(["cond1", "cond2"])
     for name in df.columns[:4]:
         queried_feature = ln.Feature.filter(name=name).one()
         if name in categoricals:
@@ -86,7 +86,7 @@ def test_feature_from_df():
                 orig_type
             )
     artifactlabel_links = ArtifactULabel.objects.filter(
-        file_id=artifact.id, feature__name="feat3"
+        artifact_id=artifact.id, feature__name="feat3"
     )
     label_ids = artifactlabel_links.values_list("ulabel_id")
     assert set(

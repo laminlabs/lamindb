@@ -90,7 +90,7 @@ def test_create_delete_from_single_dataframe():
     feature_list_queried = [feature.name for feature in feature_list_queried]
     assert set(feature_list_queried) == set(feature_list)
     # the feature_set is also linked to the file
-    assert ln.FeatureSet.filter(files=dataset.file).one() == feature_set
+    assert ln.FeatureSet.filter(files=dataset.artifact).one() == feature_set
 
     # accidental recreation (re-load based on hash)
     dataset1 = ln.Dataset.from_df(df, name="Iris Flower data1")
@@ -224,7 +224,7 @@ def test_from_inconsistent_files():
     # create a run context
     ln.track(ln.Transform(name="My test transform"))
     # can iterate over them
-    files = dataset.files.all()  # noqa
+    files = dataset.artifacts.all()  # noqa
     assert set(ln.dev.run_context.run.input_datasets.all()) == {dataset}
     # loading will throw an error here
     with pytest.raises(RuntimeError) as error:
@@ -252,8 +252,8 @@ def test_from_consistent_files():
     dataset.save()
     assert set(dataset.run.input_files.all()) == {file1, file2}
     adata_joined = dataset.load()
-    assert "file_uid" in adata_joined.obs.columns
-    assert file1.uid in adata_joined.obs.file_uid.cat.categories
+    assert "artifact_uid" in adata_joined.obs.columns
+    assert file1.uid in adata_joined.obs.artifact_uid.cat.categories
     with pytest.raises(RuntimeError) as error:
         dataset.backed()
     assert str(error.exconly()).startswith(

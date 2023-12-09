@@ -37,7 +37,7 @@ from lamindb.dev.storage import (
     write_to_file,
 )
 from lamindb.dev.storage._backed_access import AnnDataAccessor, BackedAccessor
-from lamindb.dev.storage.file import (
+from lamindb.dev.storage.artifact import (
     auto_storage_key_from_file,
     auto_storage_key_from_id_suffix,
     filepath_from_artifact,
@@ -52,7 +52,7 @@ from .dev._data import (
     save_feature_set_links,
     save_feature_sets,
 )
-from .dev.storage.file import AUTO_KEY_PREFIX
+from .dev.storage.artifact import AUTO_KEY_PREFIX
 
 
 def process_pathlike(
@@ -366,7 +366,7 @@ def get_artifact_kwargs_from_data(
     )
 
     # do we use a virtual or an actual storage key?
-    key_is_virtual = settings.file_use_virtual_keys
+    key_is_virtual = settings.artifact_use_virtual_keys
 
     # if the file is already in storage, independent of the default
     # we use an actual storage key

@@ -555,7 +555,7 @@ class run_context:
         else:
             # check whether there was an update
             if (
-                transform.source_file_id is not None
+                transform.source_artifact_id is not None
                 or transform.latest_report_id is not None
             ):
                 if os.getenv("LAMIN_TESTING") is None:
