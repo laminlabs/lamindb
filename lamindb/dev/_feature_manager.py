@@ -160,7 +160,7 @@ class FeatureManager:
         """
         if self._host._state.adding:
             raise ValueError(
-                "Please save the file or dataset before adding a feature set!"
+                "Please save the artifact or dataset before adding a feature set!"
             )
         host_db = self._host._state.db
         feature_set.save(using=host_db)
@@ -180,7 +180,7 @@ class FeatureManager:
             self._feature_set_by_slot[slot] = feature_set
 
     def _add_from(self, data: Data):
-        """Transfer features from a file or dataset."""
+        """Transfer features from a artifact or dataset."""
         for slot, feature_set in data.features._feature_set_by_slot.items():
             members = feature_set.members
             registry = members[0].__class__

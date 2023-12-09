@@ -147,7 +147,8 @@ def test_add_labels_using_anndata():
         artifact.features.add_feature_set(feature_set, slot="random")
     assert (
         error.exconly()
-        == "ValueError: Please save the file or dataset before adding a feature set!"
+        == "ValueError: Please save the artifact or dataset before adding a feature"
+        " set!"
     )
 
     # now register features we want to validate
@@ -172,7 +173,7 @@ def test_add_labels_using_anndata():
 
     # check the basic construction of the feature set based on obs
     feature_set_obs = artifact.feature_sets.filter(
-        registry="core.Feature", artifactulabel__slot="obs"
+        registry="core.Feature", artifactfeatureset__slot="obs"
     ).one()
     assert feature_set_obs.n == 4
     assert "organism" not in feature_set_obs.features.list("name")
@@ -186,11 +187,11 @@ def test_add_labels_using_anndata():
     assert feature.type == "category"
     assert feature.registries == "bionty.Organism"
     feature_set_obs = artifact.feature_sets.filter(
-        registry="core.Feature", artifactulabel__slot="obs"
+        registry="core.Feature", artifactfeatureset__slot="obs"
     ).one()
     assert feature_set_obs.n == 4
     feature_set_ext = artifact.feature_sets.filter(
-        registry="core.Feature", artifactulabel__slot="external"
+        registry="core.Feature", artifactfeatureset__slot="external"
     ).one()
     assert feature_set_ext.n == 1
     assert "organism" in feature_set_ext.features.list("name")

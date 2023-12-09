@@ -754,7 +754,7 @@ def from_dir(
                 if file not in non_unique_files.values()
             ]
     logger.success(
-        f"created {len(files)} files from directory using storage"
+        f"created {len(files)} artifacts from directory using storage"
         f" {storage.root} and key = {folder_key}/"
     )
     return files

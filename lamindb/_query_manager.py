@@ -98,7 +98,7 @@ class QueryManager(models.Manager):
             target_field_name = self.target_field_name
 
             if (
-                source_field_name in {"file", "dataset"}
+                source_field_name in {"artifact", "dataset"}
                 and target_field_name == "feature_set"
             ):
                 return get_feature_set_by_slot(host=self.instance).get(item)
