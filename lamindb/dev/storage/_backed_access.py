@@ -19,7 +19,7 @@ from fsspec.core import OpenFile
 from fsspec.implementations.local import LocalFileSystem
 from lamin_utils import logger
 from lamindb_setup.dev.upath import UPath, infer_filesystem
-from lnschema_core import File
+from lnschema_core import Artifact
 from packaging import version
 
 from lamindb.dev.storage.file import filepath_from_artifact
@@ -684,12 +684,12 @@ class BackedAccessor:
 
 
 def backed_access(
-    file_or_filepath: Union[File, Path]
+    artifact_or_filepath: Union[Artifact, Path]
 ) -> Union[AnnDataAccessor, BackedAccessor]:
-    if isinstance(file_or_filepath, File):
-        filepath = filepath_from_artifact(file_or_filepath)
+    if isinstance(artifact_or_filepath, Artifact):
+        filepath = filepath_from_artifact(artifact_or_filepath)
     else:
-        filepath = file_or_filepath
+        filepath = artifact_or_filepath
     name = filepath.name
 
     if filepath.suffix in (".h5", ".hdf5", ".h5ad"):
