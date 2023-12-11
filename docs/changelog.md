@@ -1,5 +1,6 @@
 # Changelog
 
+- ✨ Enable artifacts to consume directories [PR1348](https://github.com/laminlabs/lamindb/pull/1348) [@falexwolf](https://github.com/falexwolf)
 - 🚚 Rename `File` to `Artifact` [PR1344](https://github.com/laminlabs/lamindb/pull/1344) [@falexwolf](https://github.com/falexwolf)
 ```{eval-rst}
 .. role:: small
