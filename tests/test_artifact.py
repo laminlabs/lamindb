@@ -20,7 +20,6 @@ import lamindb as ln
 from lamindb import _artifact
 from lamindb._artifact import (
     check_path_is_child_of_root,
-    get_hash,
     get_relative_path_to_directory,
     process_data,
 )
@@ -630,7 +629,6 @@ def test_load_to_memory():
     # none
     pd.DataFrame([1, 2]).to_csv("test.zip", sep="\t")
     load_to_memory("test.zip")
-    assert get_hash("test.zip", suffix=".zip", check_hash=False)[0] is None
     UPath("test.tsv").unlink()
     UPath("test.zrad").unlink()
     UPath("test.zip").unlink()
@@ -658,7 +656,6 @@ def test_describe():
 def test_file_zarr():
     with open("test.zarr", "w") as f:
         f.write("zarr")
-    assert get_hash(UPath("test.zarr"), suffix=".zarr") is None
     artifact = ln.Artifact("test.zarr", description="test-zarr")
     with pytest.raises(RuntimeError) as error:
         artifact.stage()

@@ -151,18 +151,22 @@ def process_data(
     return memory_rep, filepath, suffix, storage, use_existing_storage_key
 
 
-def get_hash(
+def get_stat_or_artifact(
     path: UPath,
-    suffix,
-    filepath_stat=None,
+    suffix: str,
+    memory_rep: Optional[Any] = None,
     check_hash: bool = True,
-) -> Union[Tuple[Optional[str], Optional[str]], Artifact]:
-    if suffix in {".zarr", ".zrad"}:
-        return None
+) -> Union[Tuple[int, Optional[str], Optional[str]], Artifact]:
+    if settings.upon_file_create_skip_size_hash:
+        return None, None, None
+    if memory_rep is not None and isinstance(memory_rep, AnnData):
+        size = size_adata(memory_rep)
+        return size, None, None
+    stat = path.stat()
     if not isinstance(path, LocalPathClasses):
-        stat = filepath_stat
         if stat is not None:
             if "ETag" in stat:
+                size = stat["size"]
                 # small files
                 if "-" not in stat["ETag"]:
                     # only store hash for non-multipart uploads
@@ -183,24 +187,29 @@ def get_hash(
                 bucket, key, _ = path.fs.split_path(path.as_posix())
                 # assuming this here is the fastest way of querying for many objects
                 objects = s3.Bucket(bucket).objects.filter(Prefix=key)
+                size = sum([object.size for object in objects])
                 md5s = [
-                    object.e_tag[1:-1] for object in objects
-                ]  # skip leading and trailing quotes
+                    # skip leading and trailing quotes
+                    object.e_tag[1:-1]
+                    for object in objects
+                ]
                 hash, hash_type = hash_md5s_from_dir(md5s)
         else:
             logger.warning(f"did not add hash for {path}")
-            return None, None
+            return size, None, None
     else:
         if path.is_dir():
+            sizes = [path.stat().st_size for subpath in path.glob("*")]
+            size = sum(sizes)
             md5s = [
                 hash_file(subpath)[0] for subpath in path.glob("*") if subpath.is_file()
             ]
-            print(md5s)
             hash, hash_type = hash_md5s_from_dir(md5s)
         else:
             hash, hash_type = hash_file(path)
+            size = stat.st_size
     if not check_hash:
-        return hash, hash_type
+        return size, hash, hash_type
     # also checks hidden and trashed files
     result = Artifact.filter(hash=hash, visibility=None).list()
     if len(result) > 0:
@@ -216,7 +225,7 @@ def get_hash(
                 "creating new Artifact object despite existing artifact with same hash:"
                 f" {result[0]}"
             )
-            return hash, hash_type
+            return size, hash, hash_type
         else:
             logger.warning(f"returning existing artifact with same hash: {result[0]}")
             if result[0].visibility < 1:
@@ -230,51 +239,7 @@ def get_hash(
                 )
             return result[0]
     else:
-        return hash, hash_type
-
-
-def get_path_size_hash(
-    filepath: UPath,
-    memory_rep: Optional[Union[pd.DataFrame, AnnData]],
-    suffix: str,
-    check_hash: bool = True,
-):
-    cloudpath = None
-    localpath = None
-    hash_and_type: Tuple[Optional[str], Optional[str]]
-
-    if suffix in {".zarr", ".zrad"}:
-        if memory_rep is not None:
-            size = size_adata(memory_rep)
-        else:
-            if not isinstance(filepath, LocalPathClasses):
-                cloudpath = filepath
-                # todo: properly calculate size
-                size = 0
-            else:
-                localpath = filepath
-                size = sum(
-                    f.stat().st_size for f in filepath.rglob("*") if f.is_file()  # type: ignore # noqa
-                )
-        hash_and_type = None, None
-    else:
-        # to accelerate ingesting high numbers of files
-        if settings.upon_file_create_skip_size_hash:
-            size = None
-            hash_and_type = None, None
-        else:
-            filepath_stat = filepath.stat()
-            if not isinstance(filepath, LocalPathClasses):
-                size = filepath_stat["size"]
-                cloudpath = filepath
-                hash_and_type = None, None
-            else:
-                size = filepath_stat.st_size  # type: ignore
-                localpath = filepath
-            hash_and_type = get_hash(
-                filepath, suffix, filepath_stat=filepath_stat, check_hash=check_hash
-            )
-    return localpath, cloudpath, size, hash_and_type
+        return size, hash, hash_type
 
 
 def check_path_in_existing_storage(
@@ -343,17 +308,15 @@ def get_artifact_kwargs_from_data(
     memory_rep, filepath, suffix, storage, use_existing_storage_key = process_data(
         provisional_uid, data, format, key, skip_check_exists
     )
-    # the following will return a localpath that is not None if filepath is local
-    # it will return a cloudpath that is not None if filepath is on the cloud
-    local_filepath, cloud_filepath, size, hash_and_type = get_path_size_hash(
-        filepath,
-        memory_rep,
-        suffix,
+    stat_or_artifact = get_stat_or_artifact(
+        path=filepath,
+        suffix=suffix,
+        memory_rep=memory_rep,
     )
-    if isinstance(hash_and_type, Artifact):
-        return hash_and_type, None
+    if isinstance(stat_or_artifact, Artifact):
+        return stat_or_artifact, None
     else:
-        hash, hash_type = hash_and_type
+        size, hash, hash_type = stat_or_artifact
 
     check_path_in_storage = False
     if use_existing_storage_key:
@@ -407,6 +370,12 @@ def get_artifact_kwargs_from_data(
         run=run,
         key_is_virtual=key_is_virtual,
     )
+    if not isinstance(filepath, LocalPathClasses):
+        local_filepath = None
+        cloud_filepath = filepath
+    else:
+        local_filepath = filepath
+        cloud_filepath = None
     privates = dict(
         local_filepath=local_filepath,
         cloud_filepath=cloud_filepath,
