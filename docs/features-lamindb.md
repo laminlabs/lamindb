@@ -1,11 +1,11 @@
-**Access data & metadata across storage (artifacts, arrays) & database (SQL) backends.**
+**Access data & metadata across storage (files, arrays) & database (SQL) backends.**
 
 - Query & search: {class}`~lamindb.dev.Registry.filter`, {class}`~lamindb.dev.Registry.search`
-- Stage, load or stream artifacts & datasets: {class}`~lamindb.Artifact.stage`, {class}`~lamindb.Artifact.load`, {class}`~lamindb.Artifact.backed`
+- Stage, load or stream artifacts: {class}`~lamindb.Artifact.stage`, {class}`~lamindb.Artifact.load`, {class}`~lamindb.Artifact.backed`
 - Model data using {class}`~lamindb.Feature`, {class}`~lamindb.FeatureSet`, {class}`~lamindb.ULabel`
 - Plug-in custom [schemas](/schemas) & manage schema migrations
 - Use array formats in memory & storage: [DataFrame](/tutorial), [AnnData](/data), [MuData](docs:multimodal), [SOMA](docs:cellxgene), ... backed by [parquet](/tutorial), [zarr](/data), [TileDB](docs:cellxgene), [HDF5](/data), [h5ad](/data), [DuckDB](docs:rxrx), ...
-- Bridge data artifacts and warehousing: {class}`~lamindb.Artifact`, {class}`~lamindb.Dataset`
+- Bridge artifacts and warehousing: {class}`~lamindb.Artifact`, {class}`~lamindb.Dataset`
 - Version artifacts, datasets & transforms
 
 **Track data flow across notebooks, pipelines & UI: {meth}`~lamindb.track`, {class}`~lamindb.Transform` & {class}`~lamindb.Run`.**
