@@ -184,14 +184,14 @@ def get_hash(
     # also checks hidden and trashed files
     result = Artifact.filter(hash=hash, visibility=None).list()
     if len(result) > 0:
-        if settings.upon_file_create_if_hash_exists == "error":
+        if settings.upon_artifact_create_if_hash_exists == "error":
             msg = f"artifact with same hash exists: {result[0]}"
             hint = (
                 "💡 you can make this error a warning:\n"
-                "    ln.settings.upon_file_create_if_hash_exists"
+                "    ln.settings.upon_artifact_create_if_hash_exists"
             )
             raise RuntimeError(f"{msg}\n{hint}")
-        elif settings.upon_file_create_if_hash_exists == "warn_create_new":
+        elif settings.upon_artifact_create_if_hash_exists == "warn_create_new":
             logger.warning(
                 "creating new Artifact object despite existing artifact with same hash:"
                 f" {result[0]}"

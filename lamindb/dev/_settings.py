@@ -29,7 +29,7 @@ class Settings:
         self._verbosity_int: int = 1  # success-level logging
         logger.set_verbosity(self._verbosity_int)
 
-    upon_file_create_if_hash_exists: Literal[
+    upon_artifact_create_if_hash_exists: Literal[
         "warn_return_existing", "error", "warn_create_new"
     ] = "warn_return_existing"
     """Behavior if file hash exists (default `"warn_return_existing"`).
