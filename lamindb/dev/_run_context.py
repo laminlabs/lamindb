@@ -555,7 +555,7 @@ class run_context:
         else:
             # check whether there was an update
             if (
-                transform.source_artifact_id is not None
+                transform.source_code_id is not None
                 or transform.latest_report_id is not None
             ):
                 if os.getenv("LAMIN_TESTING") is None:
@@ -572,7 +572,7 @@ class run_context:
                 else:
                     logger.warning(
                         "not tracking this transform, either increase version or delete"
-                        " the saved transform.source_file and transform.latest_report"
+                        " the saved transform.source_code and transform.latest_report"
                     )
                     return False
             if transform.name != name or transform.short_name != short_name:
