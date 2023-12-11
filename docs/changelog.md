@@ -2,11 +2,16 @@
 
 - ✨ Enable artifacts to consume directories [PR1348](https://github.com/laminlabs/lamindb/pull/1348) [@falexwolf](https://github.com/falexwolf)
 - 🚚 Rename `File` to `Artifact` [PR1344](https://github.com/laminlabs/lamindb/pull/1344) [@falexwolf](https://github.com/falexwolf)
+
 ```{eval-rst}
 .. role:: small
 ```
 
 ## 0.63
+
+### 0.63.5 {small}`2023-12-11`
+
+- 🐛 Fix `lamin save` bug for scripts [PR1346](https://github.com/laminlabs/lamindb/pull/1346) [@sunnyosun](https://github.com/sunnyosun)
 
 ### 0.63.4 {small}`2023-12-08`
 
