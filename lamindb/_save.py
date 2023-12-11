@@ -13,10 +13,10 @@ from lamin_utils import logger
 from lamindb_setup.dev.upath import print_hook
 from lnschema_core.models import Artifact, Registry
 
-from lamindb.dev.storage import store_object
 from lamindb.dev.storage.file import (
     auto_storage_key_from_file,
     delete_storage_using_key,
+    store_artifact,
 )
 
 try:
@@ -134,7 +134,7 @@ def check_and_attempt_upload(artifact: Artifact) -> Optional[Exception]:
     # a local env it will have a _local_filepath and needs to be uploaded
     if hasattr(artifact, "_local_filepath"):
         try:
-            upload_data_object(artifact)
+            upload_artifact(artifact)
         except Exception as exception:
             logger.warning(f"could not upload artifact: {artifact}")
             return exception
@@ -248,14 +248,14 @@ def prepare_error_message(records, stored_artifacts, exception) -> str:
     return error_message
 
 
-def upload_data_object(artifact) -> None:
+def upload_artifact(artifact) -> None:
     """Store and add file and its linked entries."""
     # do NOT hand-craft the storage key!
     file_storage_key = auto_storage_key_from_file(artifact)
     storage_path = lamindb_setup.settings.instance.storage.key_to_filepath(
         file_storage_key
     )
-    msg = f"storing file '{artifact.uid}' at '{storage_path}'"
+    msg = f"storing artifact '{artifact.uid}' at '{storage_path}'"
     if (
         artifact.suffix in {".zarr", ".zrad"}
         and hasattr(artifact, "_memory_rep")
@@ -268,4 +268,4 @@ def upload_data_object(artifact) -> None:
         write_adata_zarr(artifact._memory_rep, storage_path, callback=print_progress)
     elif hasattr(artifact, "_to_store") and artifact._to_store:
         logger.save(msg)
-        store_object(artifact._local_filepath, file_storage_key)
+        store_artifact(artifact._local_filepath, file_storage_key)

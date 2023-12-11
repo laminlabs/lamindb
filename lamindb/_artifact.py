@@ -26,7 +26,7 @@ from lnschema_core.types import (
 from lamindb._utils import attach_func_to_class_method
 from lamindb.dev._data import _track_run_input
 from lamindb.dev._settings import settings
-from lamindb.dev.hashing import b16_to_b64, hash_file
+from lamindb.dev.hashing import b16_to_b64, hash_file, hash_md5s_from_dir
 from lamindb.dev.storage import (
     LocalPathClasses,
     UPath,
@@ -113,11 +113,11 @@ def process_data(
     """Serialize a data object that's provided as file or in memory."""
     # if not overwritten, data gets stored in default storage
     if isinstance(data, (str, Path, UPath)):  # PathLike, spelled out
-        filepath = create_path(data)
+        path = create_path(data)
         storage, use_existing_storage_key = process_pathlike(
-            filepath, skip_existence_check=skip_existence_check
+            path, skip_existence_check=skip_existence_check
         )
-        suffix = extract_suffix_from_path(filepath)
+        suffix = extract_suffix_from_path(path)
         memory_rep = None
     elif isinstance(data, (pd.DataFrame, AnnData)):  # DataLike, spelled out
         storage = lamindb_setup.settings.storage.record
@@ -136,51 +136,90 @@ def process_data(
                 f" be '{suffix}'."
             )
         cache_name = f"{provisional_uid}{suffix}"
-        filepath = lamindb_setup.settings.storage.cache_dir / cache_name
+        path = lamindb_setup.settings.storage.cache_dir / cache_name
         # Alex: I don't understand the line below
-        if filepath.suffixes == []:
-            filepath = filepath.with_suffix(suffix)
+        if path.suffixes == []:
+            path = path.with_suffix(suffix)
         if suffix not in {".zarr", ".zrad"}:
-            write_to_file(data, filepath)
+            write_to_file(data, path)
         use_existing_storage_key = False
     else:
         raise NotImplementedError(
-            f"Do not know how to create a artifact object from {data}, pass a filepath"
+            f"Do not know how to create a artifact object from {data}, pass a path"
             " instead!"
         )
-    return memory_rep, filepath, suffix, storage, use_existing_storage_key
+    return memory_rep, path, suffix, storage, use_existing_storage_key
 
 
-def get_hash(
-    filepath: UPath,
-    suffix,
-    filepath_stat=None,
+def get_stat_or_artifact(
+    path: UPath,
+    suffix: str,
+    memory_rep: Optional[Any] = None,
     check_hash: bool = True,
-) -> Union[Tuple[Optional[str], Optional[str]], Artifact]:
-    if suffix in {".zarr", ".zrad"}:
-        return None
-    if not isinstance(filepath, LocalPathClasses):
-        stat = filepath_stat
-        if stat is not None and "ETag" in stat:
-            # small files
-            if "-" not in stat["ETag"]:
-                # only store hash for non-multipart uploads
-                # we can't rapidly validate multi-part uploaded files client-side
-                # we can add more logic later down-the-road
-                hash = b16_to_b64(stat["ETag"])
-                hash_type = "md5"
+) -> Union[Tuple[int, Optional[str], Optional[str]], Artifact]:
+    if settings.upon_file_create_skip_size_hash:
+        return None, None, None
+    if memory_rep is not None and isinstance(memory_rep, AnnData):
+        size = size_adata(memory_rep)
+        return size, None, None
+    stat = path.stat()
+    if not isinstance(path, LocalPathClasses):
+        if stat is not None:
+            if "ETag" in stat:
+                size = stat["size"]
+                # small files
+                if "-" not in stat["ETag"]:
+                    # only store hash for non-multipart uploads
+                    # we can't rapidly validate multi-part uploaded files client-side
+                    # we can add more logic later down-the-road
+                    hash = b16_to_b64(stat["ETag"])
+                    hash_type = "md5"
+                else:
+                    stripped_etag, suffix = stat["ETag"].split("-")
+                    suffix = suffix.strip('"')
+                    hash = f"{b16_to_b64(stripped_etag)}-{suffix}"
+                    hash_type = "md5-n"  # this is the S3 chunk-hashing strategy
             else:
-                stripped_etag, suffix = stat["ETag"].split("-")
-                suffix = suffix.strip('"')
-                hash = f"{b16_to_b64(stripped_etag)}-{suffix}"
-                hash_type = "md5-n"  # this is the S3 chunk-hashing strategy
+                assert path.is_dir() and path.protocol == "s3"
+                import boto3
+                from lamindb_setup.dev.upath import AWS_CREDENTIALS_PRESENT
+
+                if not AWS_CREDENTIALS_PRESENT:
+                    # passing the following param directly to Session() doesn't
+                    # work, unfortunately: botocore_session=path.fs.session
+                    from botocore import UNSIGNED
+                    from botocore.config import Config
+
+                    config = Config(signature_version=UNSIGNED)
+                    s3 = boto3.session.Session().resource("s3", config=config)
+                else:
+                    s3 = boto3.session.Session().resource("s3")
+                bucket, key, _ = path.fs.split_path(path.as_posix())
+                # assuming this here is the fastest way of querying for many objects
+                objects = s3.Bucket(bucket).objects.filter(Prefix=key)
+                size = sum([object.size for object in objects])
+                md5s = [
+                    # skip leading and trailing quotes
+                    object.e_tag[1:-1]
+                    for object in objects
+                ]
+                hash, hash_type = hash_md5s_from_dir(md5s)
         else:
-            logger.warning(f"did not add hash for {filepath}")
-            return None, None
+            logger.warning(f"did not add hash for {path}")
+            return size, None, None
     else:
-        hash, hash_type = hash_file(filepath)
+        if path.is_dir():
+            sizes = [path.stat().st_size for subpath in path.glob("*")]
+            size = sum(sizes)
+            md5s = [
+                hash_file(subpath)[0] for subpath in path.glob("*") if subpath.is_file()
+            ]
+            hash, hash_type = hash_md5s_from_dir(md5s)
+        else:
+            hash, hash_type = hash_file(path)
+            size = stat.st_size
     if not check_hash:
-        return hash, hash_type
+        return size, hash, hash_type
     # also checks hidden and trashed files
     result = Artifact.filter(hash=hash, visibility=None).list()
     if len(result) > 0:
@@ -196,7 +235,7 @@ def get_hash(
                 "creating new Artifact object despite existing artifact with same hash:"
                 f" {result[0]}"
             )
-            return hash, hash_type
+            return size, hash, hash_type
         else:
             logger.warning(f"returning existing artifact with same hash: {result[0]}")
             if result[0].visibility < 1:
@@ -210,83 +249,37 @@ def get_hash(
                 )
             return result[0]
     else:
-        return hash, hash_type
+        return size, hash, hash_type
 
 
-def get_path_size_hash(
-    filepath: UPath,
-    memory_rep: Optional[Union[pd.DataFrame, AnnData]],
-    suffix: str,
-    check_hash: bool = True,
-):
-    cloudpath = None
-    localpath = None
-    hash_and_type: Tuple[Optional[str], Optional[str]]
-
-    if suffix in {".zarr", ".zrad"}:
-        if memory_rep is not None:
-            size = size_adata(memory_rep)
-        else:
-            if not isinstance(filepath, LocalPathClasses):
-                cloudpath = filepath
-                # todo: properly calculate size
-                size = 0
-            else:
-                localpath = filepath
-                size = sum(
-                    f.stat().st_size for f in filepath.rglob("*") if f.is_file()  # type: ignore # noqa
-                )
-        hash_and_type = None, None
-    else:
-        # to accelerate ingesting high numbers of files
-        if settings.upon_file_create_skip_size_hash:
-            size = None
-            hash_and_type = None, None
-        else:
-            filepath_stat = filepath.stat()
-            if not isinstance(filepath, LocalPathClasses):
-                size = filepath_stat["size"]
-                cloudpath = filepath
-                hash_and_type = None, None
-            else:
-                size = filepath_stat.st_size  # type: ignore
-                localpath = filepath
-            hash_and_type = get_hash(
-                filepath, suffix, filepath_stat=filepath_stat, check_hash=check_hash
-            )
-    return localpath, cloudpath, size, hash_and_type
-
-
-def check_path_in_existing_storage(
-    filepath: Union[Path, UPath]
-) -> Union[Storage, bool]:
+def check_path_in_existing_storage(path: Union[Path, UPath]) -> Union[Storage, bool]:
     for storage in Storage.filter().all():
         # if path is part of storage, return it
-        if check_path_is_child_of_root(filepath, root=create_path(storage.root)):
+        if check_path_is_child_of_root(path, root=create_path(storage.root)):
             return storage
     return False
 
 
 def check_path_is_child_of_root(
-    filepath: Union[Path, UPath], root: Optional[Union[Path, UPath]] = None
+    path: Union[Path, UPath], root: Optional[Union[Path, UPath]] = None
 ) -> bool:
     if root is None:
         root = lamindb_setup.settings.storage.root
 
-    filepath = UPath(str(filepath)) if not isinstance(filepath, UPath) else filepath
+    path = UPath(str(path)) if not isinstance(path, UPath) else path
     root = UPath(str(root)) if not isinstance(root, UPath) else root
 
     # the following comparisons can fail if types aren't comparable
-    if not isinstance(filepath, LocalPathClasses) and not isinstance(
+    if not isinstance(path, LocalPathClasses) and not isinstance(
         root, LocalPathClasses
     ):
         # the following tests equivalency of two UPath objects
         # via string representations; otherwise
         # S3Path('s3://lndb-storage/') and S3Path('s3://lamindb-ci/')
         # test as equivalent
-        return list(filepath.parents)[-1].as_posix() == root.as_posix()
-    elif isinstance(filepath, LocalPathClasses) and isinstance(root, LocalPathClasses):
-        return root.resolve() in filepath.resolve().parents
+        return list(path.parents)[-1].as_posix() == root.as_posix()
+    elif isinstance(path, LocalPathClasses) and isinstance(root, LocalPathClasses):
+        return root.resolve() in path.resolve().parents
     else:
         return False
 
@@ -320,25 +313,23 @@ def get_artifact_kwargs_from_data(
     skip_check_exists: bool = False,
 ):
     run = get_run(run)
-    memory_rep, filepath, suffix, storage, use_existing_storage_key = process_data(
+    memory_rep, path, suffix, storage, use_existing_storage_key = process_data(
         provisional_uid, data, format, key, skip_check_exists
     )
-    # the following will return a localpath that is not None if filepath is local
-    # it will return a cloudpath that is not None if filepath is on the cloud
-    local_filepath, cloud_filepath, size, hash_and_type = get_path_size_hash(
-        filepath,
-        memory_rep,
-        suffix,
+    stat_or_artifact = get_stat_or_artifact(
+        path=path,
+        suffix=suffix,
+        memory_rep=memory_rep,
     )
-    if isinstance(hash_and_type, Artifact):
-        return hash_and_type, None
+    if isinstance(stat_or_artifact, Artifact):
+        return stat_or_artifact, None
     else:
-        hash, hash_type = hash_and_type
+        size, hash, hash_type = stat_or_artifact
 
     check_path_in_storage = False
     if use_existing_storage_key:
         inferred_key = get_relative_path_to_directory(
-            path=filepath, directory=storage.root_as_path()
+            path=path, directory=storage.root_as_path()
         ).as_posix()
         if key is None:
             key = inferred_key
@@ -387,6 +378,12 @@ def get_artifact_kwargs_from_data(
         run=run,
         key_is_virtual=key_is_virtual,
     )
+    if not isinstance(path, LocalPathClasses):
+        local_filepath = None
+        cloud_filepath = path
+    else:
+        local_filepath = path
+        cloud_filepath = None
     privates = dict(
         local_filepath=local_filepath,
         cloud_filepath=cloud_filepath,
@@ -415,9 +412,9 @@ def log_storage_hint(
             if check_path_is_child_of_root(root_path, Path.cwd()):
                 # only display the relative path, not the fully resolved path
                 display_root = root_path.relative_to(Path.cwd())
-        hint += f"file in storage '{display_root}'"  # type: ignore
+        hint += f"path in storage '{display_root}'"  # type: ignore
     else:
-        hint += "file will be copied to default storage upon `save()`"
+        hint += "path content will be copied to default storage upon `save()`"
     if key is None:
         storage_key = auto_storage_key_from_id_suffix(uid, suffix)
         hint += f" with key `None` ('{storage_key}')"
@@ -682,6 +679,10 @@ def from_dir(
     run: Optional[Run] = None,
 ) -> List["Artifact"]:
     """{}"""
+    logger.warning(
+        "this creates one artifact per file in the directory - you might simply call"
+        " ln.Artifact(dir) to get one artifact for the entire directory"
+    )
     folderpath: UPath = create_path(path)  # returns Path for local
     storage, use_existing_storage = process_pathlike(folderpath)
     folder_key_path: Union[PurePath, Path]

@@ -82,20 +82,15 @@ def read_adata_h5ad(filepath, **kwargs) -> ad.AnnData:
         return adata
 
 
-def store_object(localpath: Union[str, Path, UPath], storagekey: str) -> float:
-    """Store arbitrary file to configured storage location.
+def store_artifact(localpath: Union[str, Path, UPath], storagekey: str) -> None:
+    """Store directory or file to configured storage location.
 
     Returns size in bytes.
     """
     storagepath: UPath = settings.instance.storage.key_to_filepath(storagekey)
     localpath = Path(localpath)
-
-    if localpath.is_file():
-        size = localpath.stat().st_size
-    else:
-        size = sum(f.stat().st_size for f in localpath.rglob("*") if f.is_file())
-
     if not isinstance(storagepath, LocalPathClasses):
+        # this uploads files and directories
         storagepath.upload_from(localpath, recursive=True, print_progress=True)
     else:  # storage path is local
         storagepath.parent.mkdir(parents=True, exist_ok=True)
@@ -108,7 +103,6 @@ def store_object(localpath: Union[str, Path, UPath], storagekey: str) -> float:
             if storagepath.exists():
                 shutil.rmtree(storagepath)
             shutil.copytree(localpath, storagepath)
-    return float(size)  # because this is how we store in the db
 
 
 def delete_storage_using_key(artifact: Artifact, storage_key: str):

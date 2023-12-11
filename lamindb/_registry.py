@@ -405,7 +405,7 @@ def transfer_fk_to_default_db_bulk(records: List):
         "bionty_source",
         "initial_version",
         "latest_report",  # Transform
-        "source_file",  # Transform
+        "source_code",  # Transform
         "report",  # Run
         "file",  # Dataset
     ]:

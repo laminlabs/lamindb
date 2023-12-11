@@ -5,10 +5,7 @@ from typing import Dict, Iterable, List, Literal, Optional, Tuple, Union
 import anndata as ad
 import pandas as pd
 from lamin_utils import logger
-from lamindb_setup._init_instance import register_storage
-from lamindb_setup.dev import StorageSettings
 from lamindb_setup.dev._docs import doc_args
-from lamindb_setup.dev._hub_utils import get_storage_region
 from lamindb_setup.dev.upath import UPath
 from lnschema_core.models import Dataset, Feature, FeatureSet
 from lnschema_core.types import AnnDataLike, DataLike, FieldAttr, VisibilityChoice
@@ -98,20 +95,6 @@ def __init__(
     data_init_complete = False
     artifact = None
     artifacts = None
-    storage = None
-    # init from directory or bucket
-    if isinstance(data, (str, Path, UPath)):
-        upath = UPath(data)
-        # below frequently times out on GCP
-        # comment this and corresponding test out
-        # if not upath.is_dir():
-        #     raise ValueError(f"Can only pass buckets or directories, not {data}")
-        upath_str = upath.as_posix().rstrip("/")
-        region = get_storage_region(upath_str)
-        storage_settings = StorageSettings(upath_str, region)
-        storage = register_storage(storage_settings)
-        hash = None
-        data_init_complete = True
     # now handle potential metadata
     if meta is not None:
         if not isinstance(meta, (pd.DataFrame, ad.AnnData, Artifact)):
@@ -159,7 +142,7 @@ def __init__(
             data_init_complete = True
         else:
             raise ValueError(
-                "Only DataFrame, AnnData, folder or list of Artifact is allowed."
+                "Only DataFrame, AnnData, Artifact or list of artifacts is allowed."
             )
     # we ignore datasets in trash containing the same hash
     if hash is not None:
@@ -184,7 +167,6 @@ def __init__(
             reference=reference,
             reference_type=reference_type,
             artifact=artifact,
-            storage=storage,
             hash=hash,
             run=run,
             version=version,
