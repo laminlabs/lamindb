@@ -3,7 +3,7 @@ from inspect import signature
 import lnschema_bionty as lb
 import pandas as pd
 import pytest
-from lnschema_core.models import FileULabel
+from lnschema_core.models import ArtifactULabel
 from pandas.api.types import is_categorical_dtype, is_string_dtype
 
 import lamindb as ln
@@ -44,15 +44,15 @@ def test_feature_from_df():
     feat1 = ln.Feature.filter(name="feat1").one_or_none()
     if feat1 is not None:
         feat1.delete()
-    file = ln.File.from_df(df, description="test")
-    assert file._feature_sets == {}
+    artifact = ln.Artifact.from_df(df, description="test")
+    assert artifact._feature_sets == {}
     # now, register all 4 features
     ln.save(ln.Feature.from_df(df.iloc[:, :4]))
     # try again
-    file = ln.File.from_df(df, description="test")
-    assert "columns" in file._feature_sets
-    file.save()
-    feature_set = file._feature_sets["columns"]
+    artifact = ln.Artifact.from_df(df, description="test")
+    assert "columns" in artifact._feature_sets
+    artifact.save()
+    feature_set = artifact._feature_sets["columns"]
     features = feature_set.features.all()
     assert len(features) == len(df.columns[:4])
     string_cols = [col for col in df.columns if is_string_dtype(df[col])]
@@ -72,10 +72,10 @@ def test_feature_from_df():
     labels = [ln.ULabel(name=name) for name in df["feat3"].unique()]
     ln.save(labels)
     features_lookup = ln.Feature.lookup()
-    file.labels.add(labels, feature=features_lookup.feat3)
-    assert set(ln.ULabel.filter(fileulabel__feature__name="feat3").list("name")) == set(
-        ["cond1", "cond2"]
-    )
+    artifact.labels.add(labels, feature=features_lookup.feat3)
+    assert set(
+        ln.ULabel.filter(artifactulabel__feature__name="feat3").list("name")
+    ) == set(["cond1", "cond2"])
     for name in df.columns[:4]:
         queried_feature = ln.Feature.filter(name=name).one()
         if name in categoricals:
@@ -85,14 +85,16 @@ def test_feature_from_df():
             assert queried_feature.type == convert_numpy_dtype_to_lamin_feature_type(
                 orig_type
             )
-    filelabel_links = FileULabel.objects.filter(file_id=file.id, feature__name="feat3")
-    label_ids = filelabel_links.values_list("ulabel_id")
+    artifactlabel_links = ArtifactULabel.objects.filter(
+        artifact_id=artifact.id, feature__name="feat3"
+    )
+    label_ids = artifactlabel_links.values_list("ulabel_id")
     assert set(
         ln.ULabel.objects.filter(id__in=label_ids).values_list("name", flat=True)
     ) == set(["cond1", "cond2"])
     for feature in features:
         feature.delete()
-    file.delete(permanent=True, storage=True)
+    artifact.delete(permanent=True, storage=True)
 
 
 def test_feature_init():

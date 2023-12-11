@@ -184,8 +184,8 @@ def _search(
             case_sensitive=case_sensitive,
         )
 
-    # search in both key and description fields for file
-    if orm._meta.model.__name__ == "File" and field is None:
+    # search in both key and description fields for Artifact
+    if orm._meta.model.__name__ == "Artifact" and field is None:
         field = ["key", "description"]
 
     if not isinstance(field, List):

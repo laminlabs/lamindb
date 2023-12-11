@@ -146,12 +146,12 @@ def test_infer_suffix():
     with pytest.raises(ValueError):
         infer_suffix(adata, adata_format="my format")
     with pytest.raises(NotImplementedError):
-        infer_suffix(ln.File)
+        infer_suffix(ln.Artifact)
 
 
 def test_write_to_file():
     with pytest.raises(NotImplementedError):
-        write_to_file(ln.File, "path")
+        write_to_file(ln.Artifact, "path")
 
 
 def test_backed_bad_format(bad_adata_path):

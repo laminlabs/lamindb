@@ -4,11 +4,11 @@ from typing import Any, Dict, Iterable, List, Optional, Union
 from lamin_utils import colors, logger
 from lamindb_setup.dev._docs import doc_args
 from lnschema_core.models import (
+    Artifact,
     Data,
     Dataset,
     Feature,
     FeatureSet,
-    File,
     Registry,
     Run,
     ULabel,
@@ -54,7 +54,7 @@ def add_transform_to_kwargs(kwargs: Dict[str, Any], run: Run):
         kwargs["transform"] = run.transform
 
 
-def save_feature_sets(self: Union[File, Dataset]) -> None:
+def save_feature_sets(self: Union[Artifact, Dataset]) -> None:
     if hasattr(self, "_feature_sets"):
         saved_feature_sets = {}
         for key, feature_set in self._feature_sets.items():
@@ -72,7 +72,7 @@ def save_feature_sets(self: Union[File, Dataset]) -> None:
             )
 
 
-def save_feature_set_links(self: Union[File, Dataset]) -> None:
+def save_feature_set_links(self: Union[Artifact, Dataset]) -> None:
     from lamindb._save import bulk_create
 
     Data = self.__class__
@@ -116,7 +116,7 @@ def describe(self: Data):
         "initial_version": "🔖",
         "file": "📄",
     }
-    if len(foreign_key_fields) > 0:  # always True for File and Dataset
+    if len(foreign_key_fields) > 0:  # always True for Artifact and Dataset
         record_msg = f"{colors.green(model_name)}{__repr__(self, include_foreign_keys=False).lstrip(model_name)}"  # noqa
         msg += f"{record_msg}\n\n"
 
@@ -229,7 +229,7 @@ def add_labels(
                 " feature=ln.Feature(name='my_feature'))"
             )
         if feature.registries is not None:
-            orm_dict = dict_schema_name_to_model_name(File)
+            orm_dict = dict_schema_name_to_model_name(Artifact)
             for reg in feature.registries.split("|"):
                 orm = orm_dict.get(reg)
                 records_validated += orm.from_values(records, field=field)
@@ -398,14 +398,15 @@ def _track_run_input(
         if run is None:
             raise ValueError(
                 "No run context set. Call ln.track() or link input to a"
-                " run object via `run.input_files.add(file)`"
+                " run object via `run.input_artifacts.add(artifact)`"
             )
         # avoid adding the same run twice
         run.save()
-        if data_class_name == "file":
-            LinkORM = run.input_files.through
+        if data_class_name == "artifact":
+            LinkORM = run.input_artifacts.through
             links = [
-                LinkORM(run_id=run.id, file_id=data_id) for data_id in input_data_ids
+                LinkORM(run_id=run.id, artifact_id=data_id)
+                for data_id in input_data_ids
             ]
         else:
             LinkORM = run.input_datasets.through
