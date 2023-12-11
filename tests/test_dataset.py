@@ -1,5 +1,4 @@
 from inspect import signature
-from pathlib import Path
 
 import anndata as ad
 import lnschema_bionty as lb
@@ -362,22 +361,3 @@ def test_is_new_version_of_unversioned_dataset():
     assert new_dataset.name == dataset.name
 
     dataset.delete(permanent=True, storage=True)
-
-
-def test_dataset_from_storage():
-    # this should only accept folders
-    dirpath = Path("./random_storage/")
-    dirpath.mkdir(exist_ok=True)
-    # below is currently commented out because path.is_dir()
-    # frequently times out on GCP
-    # filepath = dirpath / "test.txt"
-    # filepath.touch()
-    # with pytest.raises(ValueError) as error:
-    #     ln.Dataset(filepath, name="My test dataset")
-    # assert error.exconly().startswith(
-    #     "ValueError: Can only pass buckets or directories, not"
-    # )
-    dataset = ln.Dataset(dirpath, name="My test dataset")
-    assert dataset.path.name == "random_storage"
-    dataset.save()
-    dataset.delete(permanent=True)

@@ -26,7 +26,7 @@ from lnschema_core.types import (
 from lamindb._utils import attach_func_to_class_method
 from lamindb.dev._data import _track_run_input
 from lamindb.dev._settings import settings
-from lamindb.dev.hashing import b16_to_b64, hash_file
+from lamindb.dev.hashing import b16_to_b64, hash_file, hash_md5s_from_dir
 from lamindb.dev.storage import (
     LocalPathClasses,
     UPath,
@@ -152,33 +152,53 @@ def process_data(
 
 
 def get_hash(
-    filepath: UPath,
+    path: UPath,
     suffix,
     filepath_stat=None,
     check_hash: bool = True,
 ) -> Union[Tuple[Optional[str], Optional[str]], Artifact]:
     if suffix in {".zarr", ".zrad"}:
         return None
-    if not isinstance(filepath, LocalPathClasses):
+    if not isinstance(path, LocalPathClasses):
         stat = filepath_stat
-        if stat is not None and "ETag" in stat:
-            # small files
-            if "-" not in stat["ETag"]:
-                # only store hash for non-multipart uploads
-                # we can't rapidly validate multi-part uploaded files client-side
-                # we can add more logic later down-the-road
-                hash = b16_to_b64(stat["ETag"])
-                hash_type = "md5"
+        if stat is not None:
+            if "ETag" in stat:
+                # small files
+                if "-" not in stat["ETag"]:
+                    # only store hash for non-multipart uploads
+                    # we can't rapidly validate multi-part uploaded files client-side
+                    # we can add more logic later down-the-road
+                    hash = b16_to_b64(stat["ETag"])
+                    hash_type = "md5"
+                else:
+                    stripped_etag, suffix = stat["ETag"].split("-")
+                    suffix = suffix.strip('"')
+                    hash = f"{b16_to_b64(stripped_etag)}-{suffix}"
+                    hash_type = "md5-n"  # this is the S3 chunk-hashing strategy
             else:
-                stripped_etag, suffix = stat["ETag"].split("-")
-                suffix = suffix.strip('"')
-                hash = f"{b16_to_b64(stripped_etag)}-{suffix}"
-                hash_type = "md5-n"  # this is the S3 chunk-hashing strategy
+                assert path.is_dir() and path.protocol == "s3"
+                import boto3
+
+                s3 = boto3.session.Session().resource("s3")
+                bucket, key, _ = path.fs.split_path(path.as_posix())
+                # assuming this here is the fastest way of querying for many objects
+                objects = s3.Bucket(bucket).objects.filter(Prefix=key)
+                md5s = [
+                    object.e_tag[1:-1] for object in objects
+                ]  # skip leading and trailing quotes
+                hash, hash_type = hash_md5s_from_dir(md5s)
         else:
-            logger.warning(f"did not add hash for {filepath}")
+            logger.warning(f"did not add hash for {path}")
             return None, None
     else:
-        hash, hash_type = hash_file(filepath)
+        if path.is_dir():
+            md5s = [
+                hash_file(subpath)[0] for subpath in path.glob("*") if subpath.is_file()
+            ]
+            print(md5s)
+            hash, hash_type = hash_md5s_from_dir(md5s)
+        else:
+            hash, hash_type = hash_file(path)
     if not check_hash:
         return hash, hash_type
     # also checks hidden and trashed files

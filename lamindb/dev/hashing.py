@@ -10,7 +10,7 @@
 
 import base64
 import hashlib
-from typing import Set, Tuple
+from typing import List, Set, Tuple
 
 
 def to_b64_str(bstr: bytes):
@@ -27,6 +27,12 @@ def hash_set(s: Set[str]) -> str:
     bstr = ":".join(sorted(s)).encode("utf-8")
     # as we're truncating at 20 b64, we choose md5 over sha512
     return to_b64_str(hashlib.md5(bstr).digest())[:20]
+
+
+def hash_md5s_from_dir(etags: List[str]) -> Tuple[str, str]:
+    digests = b"".join(hashlib.md5(etag.encode("utf-8")).digest() for etag in etags)
+    digest = hashlib.md5(digests).digest()
+    return to_b64_str(digest)[:22], "md5-d"
 
 
 def hash_file(file_path, chunk_size=50 * 1024 * 1024) -> Tuple[str, str]:
