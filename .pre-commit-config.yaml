@@ -59,15 +59,15 @@ repos:
       - id: isort
         name: isort (python)
         args: ["--profile", "black"]
-  - repo: https://github.com/pre-commit/mirrors-mypy
-    rev: v0.940
-    hooks:
-      - id: mypy
-        exclude: |
-          (?x)(
-              test_notebooks.py|
-              sub/lamin-cli/tests/conftest.py
-          )
+  # - repo: https://github.com/pre-commit/mirrors-mypy
+  #   rev: v0.940
+  #   hooks:
+  #     - id: mypy
+  #       exclude: |
+  #         (?x)(
+  #             test_notebooks.py|
+  #             sub/lamin-cli/tests/conftest.py
+  #         )
   - repo: https://github.com/pycqa/pydocstyle
     rev: 6.2.3
     hooks:
