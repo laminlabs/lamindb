@@ -1,5 +1,6 @@
 # Changelog
 
+- 🚚 Rename `File` to `Artifact` [PR1344](https://github.com/laminlabs/lamindb/pull/1344) [@falexwolf](https://github.com/falexwolf)
 ```{eval-rst}
 .. role:: small
 ```
