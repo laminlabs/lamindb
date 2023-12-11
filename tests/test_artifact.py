@@ -735,17 +735,10 @@ def test_adata_suffix():
 
 
 def test_artifact_from_directory():
-    # this should only accept folders
     dirpath = Path("./random_storage/")
     dirpath.mkdir(exist_ok=True)
-    # frequently times out on GCP
     filepath = dirpath / "test.txt"
     filepath.touch()
-    # with pytest.raises(ValueError) as error:
-    #     ln.Dataset(filepath, name="My test dataset")
-    # assert error.exconly().startswith(
-    #     "ValueError: Can only pass buckets or directories, not"
-    # )
     artifact = ln.Artifact(dirpath, description="My test dataset in folder")
     assert artifact.path.name == "random_storage"
     artifact.save()
