@@ -703,7 +703,7 @@ def from_dir(
     # always sanitize by stripping a trailing slash
     folder_key = folder_key_path.as_posix().rstrip("/")
 
-    # TODO: (non-local) UPath doesn't list the first level files and dirs with "*"
+    # TODO: (non-local) UPath doesn't list the first level artifacts and dirs with "*"
     pattern = "" if not isinstance(folderpath, LocalPathClasses) else "*"
 
     # silence fine-grained logging
@@ -711,53 +711,59 @@ def from_dir(
     verbosity_int = settings._verbosity_int
     if verbosity_int >= 1:
         settings.verbosity = "warning"
-    files_dict = {}
+    artifacts_dict = {}
     for filepath in folderpath.rglob(pattern):
         if filepath.is_file():
             relative_path = get_relative_path_to_directory(filepath, folderpath)
-            file_key = folder_key + "/" + relative_path.as_posix()
+            artifact_key = folder_key + "/" + relative_path.as_posix()
             # if creating from rglob, we don't need to check for existence
-            artifact = Artifact(filepath, run=run, key=file_key, skip_check_exists=True)
-            files_dict[artifact.uid] = artifact
+            artifact = Artifact(
+                filepath, run=run, key=artifact_key, skip_check_exists=True
+            )
+            artifacts_dict[artifact.uid] = artifact
     settings.verbosity = verbosity
 
     # run sanity check on hashes
     hashes = [
-        artifact.hash for file in files_dict.values() if artifact.hash is not None
+        artifact.hash
+        for artifact in artifacts_dict.values()
+        if artifact.hash is not None
     ]
-    uids = files_dict.keys()
+    uids = artifacts_dict.keys()
     if len(set(hashes)) == len(hashes):
-        files = list(files_dict.values())
+        artifacts = list(artifacts_dict.values())
     else:
         # consider exact duplicates (same id, same hash)
-        # below can't happen anymore because files is a dict now
+        # below can't happen anymore because artifacts is a dict now
         # if len(set(uids)) == len(set(hashes)):
-        #     logger.warning("dropping duplicate records in list of file records")
-        #     files = list(set(uids))
+        #     logger.warning("dropping duplicate records in list of artifact records")
+        #     artifacts = list(set(uids))
         # consider false duplicates (different id, same hash)
         if not len(set(uids)) == len(set(hashes)):
             seen_hashes = set()
-            non_unique_files = {
-                hash: file
-                for hash, file in files_dict.items()
+            non_unique_artifacts = {
+                hash: artifact
+                for hash, artifact in artifacts_dict.items()
                 if artifact.hash in seen_hashes or seen_hashes.add(artifact.hash)  # type: ignore  # noqa
             }
-            display_non_unique = "\n    ".join(f"{file}" for file in non_unique_files)
-            logger.warning(
-                "there are multiple file uids with the same hashes, dropping"
-                f" {len(non_unique_files)} duplicates out of {len(files_dict)} files:\n"
-                f"    {display_non_unique}"
+            display_non_unique = "\n    ".join(
+                f"{artifact}" for artifact in non_unique_artifacts
             )
-            files = [
-                file
-                for file in files_dict.values()
-                if file not in non_unique_files.values()
+            logger.warning(
+                "there are multiple artifact uids with the same hashes, dropping"
+                f" {len(non_unique_artifacts)} duplicates out of"
+                f" {len(artifacts_dict)} artifacts:\n    {display_non_unique}"
+            )
+            artifacts = [
+                artifact
+                for artifact in artifacts_dict.values()
+                if artifact not in non_unique_artifacts.values()
             ]
     logger.success(
-        f"created {len(files)} artifacts from directory using storage"
+        f"created {len(artifacts)} artifacts from directory using storage"
         f" {storage.root} and key = {folder_key}/"
     )
-    return files
+    return artifacts
 
 
 # docstring handled through attach_func_to_class_method
@@ -775,7 +781,7 @@ def replace(
         format=format,
     )
 
-    # this file already exists
+    # this artifact already exists
     if privates is None:
         return kwargs
 
@@ -866,7 +872,7 @@ def stage(self, is_run_input: Optional[bool] = None) -> Path:
 def delete(
     self, permanent: Optional[bool] = None, storage: Optional[bool] = None
 ) -> None:
-    # by default, we only move files into the trash
+    # by default, we only move artifacts into the trash
     if self.visibility > VisibilityChoice.trash.value and permanent is not True:
         if storage is not None:
             logger.warning("moving file to trash, storage arg is ignored")
