@@ -55,36 +55,39 @@ def get_search_test_filepaths():
     shutil.rmtree("unregistered_storage/")
 
 
-def test_search_file(get_search_test_filepaths):
-    file1 = ln.Artifact("./unregistered_storage/test-search1", description="nonsense")
-    file1.save()
-    file2 = ln.Artifact("./unregistered_storage/test-search2", description="nonsense")
-    file2.save()
+def test_search_artifact(get_search_test_filepaths):
+    artifact1 = ln.Artifact(
+        "./unregistered_storage/test-search1", description="nonsense"
+    )
+    artifact1.save()
+    artifact2 = ln.Artifact(
+        "./unregistered_storage/test-search2", description="nonsense"
+    )
+    artifact2.save()
 
     # on purpose to be search3 to test duplicated search
-    file0 = ln.Artifact(
+    artifact0 = ln.Artifact(
         "./unregistered_storage/test-search0", description="test-search3"
     )
-    file0.save()
-    file3 = ln.Artifact(
+    artifact0.save()
+    artifact3 = ln.Artifact(
         "./unregistered_storage/test-search3", description="test-search3"
     )
-    file3.save()
-    file4 = ln.Artifact(
+    artifact3.save()
+    artifact4 = ln.Artifact(
         "./unregistered_storage/test-search4", description="test-search4"
     )
-    file4.save()
+    artifact4.save()
 
-    res = ln.Artifact.search("search3")
-
-    assert res.iloc[0].description == "test-search3"
-    assert res.iloc[1].description == "test-search3"
+    result = ln.Artifact.search("search3")
+    assert result.iloc[0].description == "test-search3"
+    assert result.iloc[1].description == "test-search3"
 
     # no returning entries if all search results have __ratio__ 0
     assert ln.Artifact.search("x").shape[0] == 0
 
-    file5 = ln.Artifact("./unregistered_storage/test-search5", key="test-search5")
-    file5.save()
+    artifact5 = ln.Artifact("./unregistered_storage/test-search5", key="test-search5")
+    artifact5.save()
     res = ln.Artifact.search("search5")
     assert res.iloc[0].key == "test-search5"
 
@@ -99,12 +102,12 @@ def test_search_file(get_search_test_filepaths):
     # multi-field search
     res = ln.Artifact.search("txt", field=["key", "description", "suffix"])
     assert res.iloc[0].suffix == ".txt"
-    file0.delete(permanent=True, storage=True)
-    file1.delete(permanent=True, storage=True)
-    file2.delete(permanent=True, storage=True)
-    file3.delete(permanent=True, storage=True)
-    file4.delete(permanent=True, storage=True)
-    file5.delete(permanent=True, storage=True)
+    artifact0.delete(permanent=True, storage=True)
+    artifact1.delete(permanent=True, storage=True)
+    artifact2.delete(permanent=True, storage=True)
+    artifact3.delete(permanent=True, storage=True)
+    artifact4.delete(permanent=True, storage=True)
+    artifact5.delete(permanent=True, storage=True)
 
 
 def test_pass_version():
