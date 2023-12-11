@@ -288,9 +288,7 @@ def test_create_from_anndata_in_storage(data):
     artifact.save()
     # check that the local filepath has been cleared
     assert not hasattr(artifact, "_local_filepath")
-    if isinstance(data, ad.AnnData):
-        filepath.unlink()
-    else:
+    if not isinstance(data, ad.AnnData):
         ln.settings.storage = previous_storage
 
 

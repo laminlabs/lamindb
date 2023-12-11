@@ -875,14 +875,14 @@ def delete(
     # by default, we only move artifacts into the trash
     if self.visibility > VisibilityChoice.trash.value and permanent is not True:
         if storage is not None:
-            logger.warning("moving file to trash, storage arg is ignored")
+            logger.warning("moving artifact to trash, storage arg is ignored")
         # move to trash
         self.visibility = VisibilityChoice.trash.value
         self.save()
-        logger.warning("moved file to trash")
+        logger.warning("moved artifact to trash")
         return
 
-    # if the file is already in the trash
+    # if the artifact is already in the trash
     # permanent delete skips the trash
     if permanent is None:
         response = input(
@@ -904,7 +904,7 @@ def delete(
             if storage is not None:
                 logger.warning("storage arg is ignored if storage key is non-semantic")
         else:
-            # for files with non-virtual semantic storage keys (key is not None)
+            # for artifacts with non-virtual semantic storage keys (key is not None)
             # ask for extra-confirmation
             if storage is None:
                 response = input(
@@ -921,8 +921,8 @@ def delete(
             logger.success(f"deleted {colors.yellow(f'{filepath}')}")
 
 
-def _delete_skip_storage(file, *args, **kwargs) -> None:
-    super(Artifact, file).delete(*args, **kwargs)
+def _delete_skip_storage(artifact, *args, **kwargs) -> None:
+    super(Artifact, artifact).delete(*args, **kwargs)
 
 
 # docstring handled through attach_func_to_class_method
