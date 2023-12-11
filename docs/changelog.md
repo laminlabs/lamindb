@@ -1,5 +1,6 @@
 # Changelog
 
+- ⬆️ Update setup and cli versions [PR1346](https://github.com/laminlabs/lamindb/pull/1346) [@sunnyosun](https://github.com/sunnyosun)
 ```{eval-rst}
 .. role:: small
 ```
