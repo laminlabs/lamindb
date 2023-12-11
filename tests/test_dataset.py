@@ -190,7 +190,7 @@ def test_edge_cases():
     with pytest.raises(ValueError) as error:
         ln.Dataset(1, name="Invalid")
     assert str(error.exconly()).startswith(
-        "ValueError: Only DataFrame, AnnData, folder or list of Artifact is allowed."
+        "ValueError: Only DataFrame, AnnData, Artifact or list of artifacts is allowed."
     )
     artifact = ln.Artifact(df, description="Test file")
     assert artifact._state.adding
