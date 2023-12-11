@@ -404,9 +404,9 @@ def log_storage_hint(
             if check_path_is_child_of_root(root_path, Path.cwd()):
                 # only display the relative path, not the fully resolved path
                 display_root = root_path.relative_to(Path.cwd())
-        hint += f"file in storage '{display_root}'"  # type: ignore
+        hint += f"path in storage '{display_root}'"  # type: ignore
     else:
-        hint += "file will be copied to default storage upon `save()`"
+        hint += "path content will be copied to default storage upon `save()`"
     if key is None:
         storage_key = auto_storage_key_from_id_suffix(uid, suffix)
         hint += f" with key `None` ('{storage_key}')"
@@ -671,6 +671,10 @@ def from_dir(
     run: Optional[Run] = None,
 ) -> List["Artifact"]:
     """{}"""
+    logger.warning(
+        "this creates one artifact per file in the directory - you might simply call"
+        " ln.Artifact(dir) to get one artifact for the entire directory"
+    )
     folderpath: UPath = create_path(path)  # returns Path for local
     storage, use_existing_storage = process_pathlike(folderpath)
     folder_key_path: Union[PurePath, Path]
