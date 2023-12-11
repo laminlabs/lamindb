@@ -1,11 +1,13 @@
 # Changelog
 
-- ⬆️ Update setup and cli versions [PR1346](https://github.com/laminlabs/lamindb/pull/1346) [@sunnyosun](https://github.com/sunnyosun)
-```{eval-rst}
 .. role:: small
 ```
 
 ## 0.63
+
+### 0.63.5 {small}`2023-12-11`
+
+- 🐛 Fix `lamin save` bug for scripts [PR1346](https://github.com/laminlabs/lamindb/pull/1346) [@sunnyosun](https://github.com/sunnyosun)
 
 ### 0.63.4 {small}`2023-12-08`
 
