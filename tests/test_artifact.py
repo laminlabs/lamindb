@@ -638,7 +638,7 @@ def test_load_to_memory():
     assert (
         error.exconly()
         == "NotImplementedError: Do not know how to create a artifact object from True,"
-        " pass a filepath instead!"
+        " pass a path instead!"
     )
 
 
