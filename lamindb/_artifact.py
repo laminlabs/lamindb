@@ -113,11 +113,11 @@ def process_data(
     """Serialize a data object that's provided as file or in memory."""
     # if not overwritten, data gets stored in default storage
     if isinstance(data, (str, Path, UPath)):  # PathLike, spelled out
-        filepath = create_path(data)
+        path = create_path(data)
         storage, use_existing_storage_key = process_pathlike(
-            filepath, skip_existence_check=skip_existence_check
+            path, skip_existence_check=skip_existence_check
         )
-        suffix = extract_suffix_from_path(filepath)
+        suffix = extract_suffix_from_path(path)
         memory_rep = None
     elif isinstance(data, (pd.DataFrame, AnnData)):  # DataLike, spelled out
         storage = lamindb_setup.settings.storage.record
@@ -136,19 +136,19 @@ def process_data(
                 f" be '{suffix}'."
             )
         cache_name = f"{provisional_uid}{suffix}"
-        filepath = lamindb_setup.settings.storage.cache_dir / cache_name
+        path = lamindb_setup.settings.storage.cache_dir / cache_name
         # Alex: I don't understand the line below
-        if filepath.suffixes == []:
-            filepath = filepath.with_suffix(suffix)
+        if path.suffixes == []:
+            path = path.with_suffix(suffix)
         if suffix not in {".zarr", ".zrad"}:
-            write_to_file(data, filepath)
+            write_to_file(data, path)
         use_existing_storage_key = False
     else:
         raise NotImplementedError(
-            f"Do not know how to create a artifact object from {data}, pass a filepath"
+            f"Do not know how to create a artifact object from {data}, pass a path"
             " instead!"
         )
-    return memory_rep, filepath, suffix, storage, use_existing_storage_key
+    return memory_rep, path, suffix, storage, use_existing_storage_key
 
 
 def get_stat_or_artifact(
@@ -182,8 +182,18 @@ def get_stat_or_artifact(
             else:
                 assert path.is_dir() and path.protocol == "s3"
                 import boto3
+                from lamindb_setup.dev.upath import AWS_CREDENTIALS_PRESENT
 
-                s3 = boto3.session.Session().resource("s3")
+                if not AWS_CREDENTIALS_PRESENT:
+                    # passing the following param directly to Session() doesn't
+                    # work, unfortunately: botocore_session=path.fs.session
+                    from botocore import UNSIGNED
+                    from botocore.config import Config
+
+                    config = Config(signature_version=UNSIGNED)
+                    s3 = boto3.session.Session().resource("s3", config=config)
+                else:
+                    s3 = boto3.session.Session().resource("s3")
                 bucket, key, _ = path.fs.split_path(path.as_posix())
                 # assuming this here is the fastest way of querying for many objects
                 objects = s3.Bucket(bucket).objects.filter(Prefix=key)
@@ -242,36 +252,34 @@ def get_stat_or_artifact(
         return size, hash, hash_type
 
 
-def check_path_in_existing_storage(
-    filepath: Union[Path, UPath]
-) -> Union[Storage, bool]:
+def check_path_in_existing_storage(path: Union[Path, UPath]) -> Union[Storage, bool]:
     for storage in Storage.filter().all():
         # if path is part of storage, return it
-        if check_path_is_child_of_root(filepath, root=create_path(storage.root)):
+        if check_path_is_child_of_root(path, root=create_path(storage.root)):
             return storage
     return False
 
 
 def check_path_is_child_of_root(
-    filepath: Union[Path, UPath], root: Optional[Union[Path, UPath]] = None
+    path: Union[Path, UPath], root: Optional[Union[Path, UPath]] = None
 ) -> bool:
     if root is None:
         root = lamindb_setup.settings.storage.root
 
-    filepath = UPath(str(filepath)) if not isinstance(filepath, UPath) else filepath
+    path = UPath(str(path)) if not isinstance(path, UPath) else path
     root = UPath(str(root)) if not isinstance(root, UPath) else root
 
     # the following comparisons can fail if types aren't comparable
-    if not isinstance(filepath, LocalPathClasses) and not isinstance(
+    if not isinstance(path, LocalPathClasses) and not isinstance(
         root, LocalPathClasses
     ):
         # the following tests equivalency of two UPath objects
         # via string representations; otherwise
         # S3Path('s3://lndb-storage/') and S3Path('s3://lamindb-ci/')
         # test as equivalent
-        return list(filepath.parents)[-1].as_posix() == root.as_posix()
-    elif isinstance(filepath, LocalPathClasses) and isinstance(root, LocalPathClasses):
-        return root.resolve() in filepath.resolve().parents
+        return list(path.parents)[-1].as_posix() == root.as_posix()
+    elif isinstance(path, LocalPathClasses) and isinstance(root, LocalPathClasses):
+        return root.resolve() in path.resolve().parents
     else:
         return False
 
@@ -305,11 +313,11 @@ def get_artifact_kwargs_from_data(
     skip_check_exists: bool = False,
 ):
     run = get_run(run)
-    memory_rep, filepath, suffix, storage, use_existing_storage_key = process_data(
+    memory_rep, path, suffix, storage, use_existing_storage_key = process_data(
         provisional_uid, data, format, key, skip_check_exists
     )
     stat_or_artifact = get_stat_or_artifact(
-        path=filepath,
+        path=path,
         suffix=suffix,
         memory_rep=memory_rep,
     )
@@ -321,7 +329,7 @@ def get_artifact_kwargs_from_data(
     check_path_in_storage = False
     if use_existing_storage_key:
         inferred_key = get_relative_path_to_directory(
-            path=filepath, directory=storage.root_as_path()
+            path=path, directory=storage.root_as_path()
         ).as_posix()
         if key is None:
             key = inferred_key
@@ -370,11 +378,11 @@ def get_artifact_kwargs_from_data(
         run=run,
         key_is_virtual=key_is_virtual,
     )
-    if not isinstance(filepath, LocalPathClasses):
+    if not isinstance(path, LocalPathClasses):
         local_filepath = None
-        cloud_filepath = filepath
+        cloud_filepath = path
     else:
-        local_filepath = filepath
+        local_filepath = path
         cloud_filepath = None
     privates = dict(
         local_filepath=local_filepath,
