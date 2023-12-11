@@ -5,10 +5,7 @@ from typing import Dict, Iterable, List, Literal, Optional, Tuple, Union
 import anndata as ad
 import pandas as pd
 from lamin_utils import logger
-from lamindb_setup._init_instance import register_storage
-from lamindb_setup.dev import StorageSettings
 from lamindb_setup.dev._docs import doc_args
-from lamindb_setup.dev._hub_utils import get_storage_region
 from lamindb_setup.dev.upath import UPath
 from lnschema_core.models import Dataset, Feature, FeatureSet
 from lnschema_core.types import AnnDataLike, DataLike, FieldAttr, VisibilityChoice
@@ -19,8 +16,8 @@ from lamindb.dev._mapped_dataset import MappedDataset
 from lamindb.dev.storage._backed_access import AnnDataAccessor, BackedAccessor
 from lamindb.dev.versioning import get_ids_from_old_version, init_uid
 
-from . import _TESTING, File, Run
-from ._file import parse_feature_sets_from_anndata
+from . import _TESTING, Artifact, Run
+from ._artifact import parse_feature_sets_from_anndata
 from ._registry import init_self_from_db
 from .dev._data import (
     add_transform_to_kwargs,
@@ -42,7 +39,7 @@ def __init__(
     # now we proceed with the user-facing constructor
     if len(args) > 1:
         raise ValueError("Only one non-keyword arg allowed: data")
-    data: Union[pd.DataFrame, ad.AnnData, File, Iterable[File]] = (
+    data: Union[pd.DataFrame, ad.AnnData, Artifact, Iterable[Artifact]] = (
         kwargs.pop("data") if len(args) == 0 else args[0]
     )
     meta: Optional[str] = kwargs.pop("meta") if "meta" in kwargs else None
@@ -96,70 +93,56 @@ def __init__(
 
     run = get_run(run)
     data_init_complete = False
-    file = None
-    files = None
-    storage = None
-    # init from directory or bucket
-    if isinstance(data, (str, Path, UPath)):
-        upath = UPath(data)
-        # below frequently times out on GCP
-        # comment this and corresponding test out
-        # if not upath.is_dir():
-        #     raise ValueError(f"Can only pass buckets or directories, not {data}")
-        upath_str = upath.as_posix().rstrip("/")
-        region = get_storage_region(upath_str)
-        storage_settings = StorageSettings(upath_str, region)
-        storage = register_storage(storage_settings)
-        hash = None
-        data_init_complete = True
+    artifact = None
+    artifacts = None
     # now handle potential metadata
     if meta is not None:
-        if not isinstance(meta, (pd.DataFrame, ad.AnnData, File)):
+        if not isinstance(meta, (pd.DataFrame, ad.AnnData, Artifact)):
             raise ValueError(
-                "meta has to be of type `(pd.DataFrame, ad.AnnData, File)`"
+                "meta has to be of type `(pd.DataFrame, ad.AnnData, Artifact)`"
             )
         data = meta
-    # init file - is either data or metadata
-    if isinstance(data, (pd.DataFrame, ad.AnnData, File)):
-        if isinstance(data, File):
-            file = data
-            if file._state.adding:
-                raise ValueError("Save file before creating dataset!")
+    # init artifact - is either data or metadata
+    if isinstance(data, (pd.DataFrame, ad.AnnData, Artifact)):
+        if isinstance(data, Artifact):
+            artifact = data
+            if artifact._state.adding:
+                raise ValueError("Save artifact before creating dataset!")
             if not feature_sets:
-                feature_sets = file.features._feature_set_by_slot
+                feature_sets = artifact.features._feature_set_by_slot
             else:
-                if len(file.features._feature_set_by_slot) > 0:
-                    logger.info("overwriting feature sets linked to file")
+                if len(artifact.features._feature_set_by_slot) > 0:
+                    logger.info("overwriting feature sets linked to artifact")
         else:
             log_hint = True if feature_sets is None else False
-            file_is_new_version_of = (
-                is_new_version_of.file if is_new_version_of is not None else None
+            artifact_is_new_version_of = (
+                is_new_version_of.artifact if is_new_version_of is not None else None
             )
-            file = File(
+            artifact = Artifact(
                 data,
                 run=run,
                 description="tmp",
                 log_hint=log_hint,
                 version=version,
-                is_new_version_of=file_is_new_version_of,
+                is_new_version_of=artifact_is_new_version_of,
             )
-            # do we really want to update the file here?
+            # do we really want to update the artifact here?
             if feature_sets:
-                file._feature_sets = feature_sets
-        hash = file.hash  # type: ignore
-        provisional_uid = file.uid  # type: ignore
-        if file.description is None or file.description == "tmp":
-            file.description = f"See dataset {provisional_uid}"  # type: ignore
+                artifact._feature_sets = feature_sets
+        hash = artifact.hash  # type: ignore
+        provisional_uid = artifact.uid  # type: ignore
+        if artifact.description is None or artifact.description == "tmp":
+            artifact.description = f"See dataset {provisional_uid}"  # type: ignore
         data_init_complete = True
     if not data_init_complete:
         if hasattr(data, "__getitem__"):
-            assert isinstance(data[0], File)  # type: ignore
-            files = data
-            hash, feature_sets = from_files(files)  # type: ignore
+            assert isinstance(data[0], Artifact)  # type: ignore
+            artifacts = data
+            hash, feature_sets = from_artifacts(artifacts)  # type: ignore
             data_init_complete = True
         else:
             raise ValueError(
-                "Only DataFrame, AnnData, folder or list of File is allowed."
+                "Only DataFrame, AnnData, Artifact or list of artifacts is allowed."
             )
     # we ignore datasets in trash containing the same hash
     if hash is not None:
@@ -183,8 +166,7 @@ def __init__(
             description=description,
             reference=reference,
             reference_type=reference_type,
-            file=file,
-            storage=storage,
+            artifact=artifact,
             hash=hash,
             run=run,
             version=version,
@@ -192,15 +174,15 @@ def __init__(
             visibility=visibility,
             **kwargs,
         )
-    dataset._files = files
+    dataset._artifacts = artifacts
     dataset._feature_sets = feature_sets
     # register provenance
     if is_new_version_of is not None:
         _track_run_input(is_new_version_of, run=run)
-    if file is not None and file.run != run:
-        _track_run_input(file, run=run)
-    elif files is not None:
-        _track_run_input(files, run=run)
+    if artifact is not None and artifact.run != run:
+        _track_run_input(artifact, run=run)
+    elif artifacts is not None:
+        _track_run_input(artifacts, run=run)
 
 
 @classmethod  # type: ignore
@@ -215,7 +197,7 @@ def from_df(
     reference: Optional[str] = None,
     reference_type: Optional[str] = None,
     version: Optional[str] = None,
-    is_new_version_of: Optional["File"] = None,
+    is_new_version_of: Optional["Artifact"] = None,
     **kwargs,
 ) -> "Dataset":
     """{}"""
@@ -250,11 +232,11 @@ def from_anndata(
     reference: Optional[str] = None,
     reference_type: Optional[str] = None,
     version: Optional[str] = None,
-    is_new_version_of: Optional["File"] = None,
+    is_new_version_of: Optional["Artifact"] = None,
     **kwargs,
 ) -> "Dataset":
     """{}"""
-    if isinstance(adata, File):
+    if isinstance(adata, Artifact):
         assert not adata._state.adding
         assert adata.accessor == "AnnData"
         adata_parse = adata.path
@@ -276,23 +258,24 @@ def from_anndata(
 
 
 # internal function, not exposed to user
-def from_files(files: Iterable[File]) -> Tuple[str, Dict[str, str]]:
-    # assert all files are already saved
+def from_artifacts(artifacts: Iterable[Artifact]) -> Tuple[str, Dict[str, str]]:
+    # assert all artifacts are already saved
     logger.debug("check not saved")
-    saved = not any([file._state.adding for file in files])
+    saved = not any([artifact._state.adding for artifact in artifacts])
     if not saved:
-        raise ValueError("Not all files are yet saved, please save them")
-    # query all feature sets of files
-    logger.debug("file ids")
-    file_ids = [file.id for file in files]
-    # query all feature sets at the same time rather than making a single query per file
-    logger.debug("feature_set_file_links")
-    feature_set_file_links = File.feature_sets.through.objects.filter(
-        file_id__in=file_ids
+        raise ValueError("Not all artifacts are yet saved, please save them")
+    # query all feature sets of artifacts
+    logger.debug("artifact ids")
+    artifact_ids = [artifact.id for artifact in artifacts]
+    # query all feature sets at the same time rather
+    # than making a single query per artifact
+    logger.debug("feature_set_artifact_links")
+    feature_set_artifact_links = Artifact.feature_sets.through.objects.filter(
+        artifact_id__in=artifact_ids
     )
     feature_sets_by_slots = defaultdict(list)
     logger.debug("slots")
-    for link in feature_set_file_links:
+    for link in feature_set_artifact_links:
         feature_sets_by_slots[link.slot].append(link.feature_set_id)
     feature_sets_union = {}
     logger.debug("union")
@@ -318,14 +301,14 @@ def from_files(files: Iterable[File]) -> Tuple[str, Dict[str, str]]:
     # validate consistency of hashes
     # we do not allow duplicate hashes
     logger.debug("hashes")
-    # file.hash is None for zarr
+    # artifact.hash is None for zarr
     # todo: more careful handling of such cases
-    hashes = [file.hash for file in files if file.hash is not None]
+    hashes = [artifact.hash for artifact in artifacts if artifact.hash is not None]
     if len(hashes) != len(set(hashes)):
         seen = set()
         non_unique = [x for x in hashes if x in seen or seen.add(x)]  # type: ignore
         raise ValueError(
-            "Please pass files with distinct hashes: these ones are non-unique"
+            "Please pass artifacts with distinct hashes: these ones are non-unique"
             f" {non_unique}"
         )
     time = logger.debug("hash")
@@ -346,14 +329,14 @@ def mapped(
 ) -> "MappedDataset":
     _track_run_input(self, is_run_input)
     path_list = []
-    for file in self.files.all():
-        if file.suffix not in {".h5ad", ".zrad", ".zarr"}:
-            logger.warning(f"Ignoring file with suffix {file.suffix}")
+    for artifact in self.artifacts.all():
+        if artifact.suffix not in {".h5ad", ".zrad", ".zarr"}:
+            logger.warning(f"Ignoring artifact with suffix {artifact.suffix}")
             continue
-        elif not stream and file.suffix == ".h5ad":
-            path_list.append(file.stage())
+        elif not stream and artifact.suffix == ".h5ad":
+            path_list.append(artifact.stage())
         else:
-            path_list.append(file.path)
+            path_list.append(artifact.path)
     return MappedDataset(path_list, label_keys, join_vars, encode_labels, parallel)
 
 
@@ -362,9 +345,9 @@ def backed(
     self, is_run_input: Optional[bool] = None
 ) -> Union["AnnDataAccessor", "BackedAccessor"]:
     _track_run_input(self, is_run_input)
-    if self.file is None:
-        raise RuntimeError("Can only call backed() for datasets with a single file")
-    return self.file.backed()
+    if self.artifact is None:
+        raise RuntimeError("Can only call backed() for datasets with a single artifact")
+    return self.artifact.backed()
 
 
 # docstring handled through attach_func_to_class_method
@@ -375,25 +358,25 @@ def load(
     **kwargs,
 ) -> DataLike:
     # cannot call _track_run_input here, see comment further down
-    if self.file is not None:
+    if self.artifact is not None:
         _track_run_input(self, is_run_input)
-        return self.file.load()
+        return self.artifact.load()
     else:
-        all_files = self.files.all()
-        suffixes = [file.suffix for file in all_files]
+        all_artifacts = self.artifacts.all()
+        suffixes = [artifact.suffix for artifact in all_artifacts]
         if len(set(suffixes)) != 1:
             raise RuntimeError(
-                "Can only load datasets where all files have the same suffix"
+                "Can only load datasets where all artifacts have the same suffix"
             )
         # because we're tracking data flow on the dataset-level, here, we don't
-        # want to track it on the file-level
-        objects = [file.load(is_run_input=False) for file in all_files]
-        file_uids = [file.uid for file in all_files]
+        # want to track it on the artifact-level
+        objects = [artifact.load(is_run_input=False) for artifact in all_artifacts]
+        artifact_uids = [artifact.uid for artifact in all_artifacts]
         if isinstance(objects[0], pd.DataFrame):
             concat_object = pd.concat(objects, join=join)
         elif isinstance(objects[0], ad.AnnData):
             concat_object = ad.concat(
-                objects, join=join, label="file_uid", keys=file_uids
+                objects, join=join, label="artifact_uid", keys=artifact_uids
             )
         # only call it here because there might be errors during concat
         _track_run_input(self, is_run_input)
@@ -409,10 +392,10 @@ def delete(
         self.visibility = VisibilityChoice.trash.value
         self.save()
         logger.warning("moved dataset to trash.")
-        if self.file is not None:
-            self.file.visibility = VisibilityChoice.trash.value
-            self.file.save()
-            logger.warning("moved dataset.file to trash.")
+        if self.artifact is not None:
+            self.artifact.visibility = VisibilityChoice.trash.value
+            self.artifact.save()
+            logger.warning("moved dataset.artifact to trash.")
         return
 
     # permanent delete
@@ -427,20 +410,20 @@ def delete(
 
     if delete_record:
         super(Dataset, self).delete()
-    if self.file is not None:
-        self.file.delete(permanent=permanent, storage=storage)
+    if self.artifact is not None:
+        self.artifact.delete(permanent=permanent, storage=storage)
 
 
 # docstring handled through attach_func_to_class_method
 def save(self, *args, **kwargs) -> None:
-    if self.file is not None:
-        self.file.save()
+    if self.artifact is not None:
+        self.artifact.save()
     # we don't need to save feature sets again
     save_feature_sets(self)
     super(Dataset, self).save()
-    if hasattr(self, "_files"):
-        if self._files is not None and len(self._files) > 0:
-            self.files.set(self._files)
+    if hasattr(self, "_artifacts"):
+        if self._artifacts is not None and len(self._artifacts) > 0:
+            self.artifacts.set(self._artifacts)
     save_feature_set_links(self)
 
 
@@ -456,9 +439,9 @@ def path(self) -> Union[Path, UPath]:
 def restore(self) -> None:
     self.visibility = VisibilityChoice.default.value
     self.save()
-    if self.file is not None:
-        self.file.visibility = VisibilityChoice.default.value
-        self.file.save()
+    if self.artifact is not None:
+        self.artifact.visibility = VisibilityChoice.default.value
+        self.artifact.save()
 
 
 METHOD_NAMES = [

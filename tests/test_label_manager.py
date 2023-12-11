@@ -10,9 +10,9 @@ def get_test_files():
         f.write("file1")
     with open("./default_storage/test-inherit2", "w") as f:
         f.write("file2")
-    file1 = ln.File("./default_storage/test-inherit1")
+    file1 = ln.Artifact("./default_storage/test-inherit1")
     file1.save()
-    file2 = ln.File("./default_storage/test-inherit2")
+    file2 = ln.Artifact("./default_storage/test-inherit2")
     file2.save()
     yield file1, file2
     file1.delete(permanent=True, storage=True)

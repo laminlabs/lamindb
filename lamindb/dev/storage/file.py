@@ -13,7 +13,7 @@ from lamindb_setup.dev.upath import (
     create_path,
     infer_filesystem,
 )
-from lnschema_core.models import File, Storage
+from lnschema_core.models import Artifact, Storage
 
 try:
     from ._zarr import read_adata_zarr
@@ -27,11 +27,11 @@ AUTO_KEY_PREFIX = ".lamindb/"
 
 
 # add type annotations back asap when re-organizing the module
-def auto_storage_key_from_file(file: File):
-    if file.key is None or file.key_is_virtual:
-        return auto_storage_key_from_id_suffix(file.uid, file.suffix)
+def auto_storage_key_from_file(artifact: Artifact):
+    if artifact.key is None or artifact.key_is_virtual:
+        return auto_storage_key_from_id_suffix(artifact.uid, artifact.suffix)
     else:
-        return file.key
+        return artifact.key
 
 
 def auto_storage_key_from_id_suffix(uid: str, suffix: str) -> str:
@@ -41,17 +41,24 @@ def auto_storage_key_from_id_suffix(uid: str, suffix: str) -> str:
     return storage_key
 
 
-def attempt_accessing_path(file: File, storage_key: str):
+def attempt_accessing_path(artifact: Artifact, storage_key: str):
     # check whether the file is in the default db and whether storage
     # matches default storage
-    if file._state.db in ("default", None) and file.storage_id == settings.storage.id:
+    if (
+        artifact._state.db in ("default", None)
+        and artifact.storage_id == settings.storage.id
+    ):
         path = settings.storage.key_to_filepath(storage_key)
     else:
-        logger.debug("file.path is slightly slower for files outside default storage")
-        if file._state.db not in ("default", None):
-            storage = Storage.using(file._state.db).filter(id=file.storage_id).one()
+        logger.debug(
+            "artifact.path is slightly slower for files outside default storage"
+        )
+        if artifact._state.db not in ("default", None):
+            storage = (
+                Storage.using(artifact._state.db).filter(id=artifact.storage_id).one()
+            )
         else:
-            storage = Storage.filter(id=file.storage_id).one()
+            storage = Storage.filter(id=artifact.storage_id).one()
         # find a better way than passing None to instance_settings in the future!
         storage_settings = StorageSettings(storage.root)
         path = storage_settings.key_to_filepath(storage_key)
@@ -59,11 +66,11 @@ def attempt_accessing_path(file: File, storage_key: str):
 
 
 # add type annotations back asap when re-organizing the module
-def filepath_from_file(file: File):
-    if hasattr(file, "_local_filepath") and file._local_filepath is not None:
-        return file._local_filepath.resolve()
-    storage_key = auto_storage_key_from_file(file)
-    path = attempt_accessing_path(file, storage_key)
+def filepath_from_artifact(artifact: Artifact):
+    if hasattr(artifact, "_local_filepath") and artifact._local_filepath is not None:
+        return artifact._local_filepath.resolve()
+    storage_key = auto_storage_key_from_file(artifact)
+    path = attempt_accessing_path(artifact, storage_key)
     return path
 
 
@@ -75,20 +82,15 @@ def read_adata_h5ad(filepath, **kwargs) -> ad.AnnData:
         return adata
 
 
-def store_object(localpath: Union[str, Path, UPath], storagekey: str) -> float:
-    """Store arbitrary file to configured storage location.
+def store_artifact(localpath: Union[str, Path, UPath], storagekey: str) -> None:
+    """Store directory or file to configured storage location.
 
     Returns size in bytes.
     """
     storagepath: UPath = settings.instance.storage.key_to_filepath(storagekey)
     localpath = Path(localpath)
-
-    if localpath.is_file():
-        size = localpath.stat().st_size
-    else:
-        size = sum(f.stat().st_size for f in localpath.rglob("*") if f.is_file())
-
     if not isinstance(storagepath, LocalPathClasses):
+        # this uploads files and directories
         storagepath.upload_from(localpath, recursive=True, print_progress=True)
     else:  # storage path is local
         storagepath.parent.mkdir(parents=True, exist_ok=True)
@@ -101,16 +103,15 @@ def store_object(localpath: Union[str, Path, UPath], storagekey: str) -> float:
             if storagepath.exists():
                 shutil.rmtree(storagepath)
             shutil.copytree(localpath, storagepath)
-    return float(size)  # because this is how we store in the db
 
 
-def delete_storage_using_key(file: File, storage_key: str):
-    filepath = attempt_accessing_path(file, storage_key)
+def delete_storage_using_key(artifact: Artifact, storage_key: str):
+    filepath = attempt_accessing_path(artifact, storage_key)
     delete_storage(filepath)
 
 
 def delete_storage(storagepath: Union[Path, UPath]):
-    """Delete arbitrary file."""
+    """Delete arbitrary artifact."""
     if storagepath.is_file():
         storagepath.unlink()
     elif storagepath.is_dir():

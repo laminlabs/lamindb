@@ -3,7 +3,7 @@ from collections import defaultdict
 from typing import Iterable
 
 from lamindb_setup import settings as setup_settings
-from lnschema_core.models import File, Storage
+from lnschema_core.models import Artifact, Storage
 
 
 def view_tree(
@@ -18,7 +18,7 @@ def view_tree(
         print("queryset")
         qs = cls
         storage_ids = qs.list("storage_id")
-    elif cls == File:
+    elif cls == Artifact:
         print("file")
         qs = cls.filter(storage_id=setup_settings.storage.id).all()
         storage_ids = Storage.filter().list("id")
@@ -30,9 +30,9 @@ def view_tree(
         storage_id: storages.get(id=storage_id).root for storage_id in storage_ids
     }
     keys = set()
-    for file in qs:
-        root = storage_roots.get(file.storage_id, "")
-        keys.add(f"{root}/{file.key}")
+    for artifact in qs:
+        root = storage_roots.get(artifact.storage_id, "")
+        keys.add(f"{root}/{artifact.key}")
 
     _view_tree(
         keys=keys,

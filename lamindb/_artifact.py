@@ -13,7 +13,7 @@ from lamindb_setup.dev import StorageSettings
 from lamindb_setup.dev._docs import doc_args
 from lamindb_setup.dev._hub_utils import get_storage_region
 from lamindb_setup.dev.upath import create_path, extract_suffix_from_path
-from lnschema_core import Feature, FeatureSet, File, Run, Storage
+from lnschema_core import Artifact, Feature, FeatureSet, Run, Storage
 from lnschema_core.models import IsTree
 from lnschema_core.types import (
     AnnDataLike,
@@ -26,7 +26,7 @@ from lnschema_core.types import (
 from lamindb._utils import attach_func_to_class_method
 from lamindb.dev._data import _track_run_input
 from lamindb.dev._settings import settings
-from lamindb.dev.hashing import b16_to_b64, hash_file
+from lamindb.dev.hashing import b16_to_b64, hash_file, hash_md5s_from_dir
 from lamindb.dev.storage import (
     LocalPathClasses,
     UPath,
@@ -40,7 +40,7 @@ from lamindb.dev.storage._backed_access import AnnDataAccessor, BackedAccessor
 from lamindb.dev.storage.file import (
     auto_storage_key_from_file,
     auto_storage_key_from_id_suffix,
-    filepath_from_file,
+    filepath_from_artifact,
 )
 from lamindb.dev.versioning import get_ids_from_old_version, init_uid
 
@@ -113,11 +113,11 @@ def process_data(
     """Serialize a data object that's provided as file or in memory."""
     # if not overwritten, data gets stored in default storage
     if isinstance(data, (str, Path, UPath)):  # PathLike, spelled out
-        filepath = create_path(data)
+        path = create_path(data)
         storage, use_existing_storage_key = process_pathlike(
-            filepath, skip_existence_check=skip_existence_check
+            path, skip_existence_check=skip_existence_check
         )
-        suffix = extract_suffix_from_path(filepath)
+        suffix = extract_suffix_from_path(path)
         memory_rep = None
     elif isinstance(data, (pd.DataFrame, AnnData)):  # DataLike, spelled out
         storage = lamindb_setup.settings.storage.record
@@ -136,157 +136,150 @@ def process_data(
                 f" be '{suffix}'."
             )
         cache_name = f"{provisional_uid}{suffix}"
-        filepath = lamindb_setup.settings.storage.cache_dir / cache_name
+        path = lamindb_setup.settings.storage.cache_dir / cache_name
         # Alex: I don't understand the line below
-        if filepath.suffixes == []:
-            filepath = filepath.with_suffix(suffix)
+        if path.suffixes == []:
+            path = path.with_suffix(suffix)
         if suffix not in {".zarr", ".zrad"}:
-            write_to_file(data, filepath)
+            write_to_file(data, path)
         use_existing_storage_key = False
     else:
         raise NotImplementedError(
-            f"Do not know how to create a file object from {data}, pass a filepath"
+            f"Do not know how to create a artifact object from {data}, pass a path"
             " instead!"
         )
-    return memory_rep, filepath, suffix, storage, use_existing_storage_key
+    return memory_rep, path, suffix, storage, use_existing_storage_key
 
 
-def get_hash(
-    filepath: UPath,
-    suffix,
-    filepath_stat=None,
+def get_stat_or_artifact(
+    path: UPath,
+    suffix: str,
+    memory_rep: Optional[Any] = None,
     check_hash: bool = True,
-) -> Union[Tuple[Optional[str], Optional[str]], File]:
-    if suffix in {".zarr", ".zrad"}:
-        return None
-    if not isinstance(filepath, LocalPathClasses):
-        stat = filepath_stat
-        if stat is not None and "ETag" in stat:
-            # small files
-            if "-" not in stat["ETag"]:
-                # only store hash for non-multipart uploads
-                # we can't rapidly validate multi-part uploaded files client-side
-                # we can add more logic later down-the-road
-                hash = b16_to_b64(stat["ETag"])
-                hash_type = "md5"
+) -> Union[Tuple[int, Optional[str], Optional[str]], Artifact]:
+    if settings.upon_file_create_skip_size_hash:
+        return None, None, None
+    if memory_rep is not None and isinstance(memory_rep, AnnData):
+        size = size_adata(memory_rep)
+        return size, None, None
+    stat = path.stat()
+    if not isinstance(path, LocalPathClasses):
+        if stat is not None:
+            if "ETag" in stat:
+                size = stat["size"]
+                # small files
+                if "-" not in stat["ETag"]:
+                    # only store hash for non-multipart uploads
+                    # we can't rapidly validate multi-part uploaded files client-side
+                    # we can add more logic later down-the-road
+                    hash = b16_to_b64(stat["ETag"])
+                    hash_type = "md5"
+                else:
+                    stripped_etag, suffix = stat["ETag"].split("-")
+                    suffix = suffix.strip('"')
+                    hash = f"{b16_to_b64(stripped_etag)}-{suffix}"
+                    hash_type = "md5-n"  # this is the S3 chunk-hashing strategy
             else:
-                stripped_etag, suffix = stat["ETag"].split("-")
-                suffix = suffix.strip('"')
-                hash = f"{b16_to_b64(stripped_etag)}-{suffix}"
-                hash_type = "md5-n"  # this is the S3 chunk-hashing strategy
+                assert path.is_dir() and path.protocol == "s3"
+                import boto3
+                from lamindb_setup.dev.upath import AWS_CREDENTIALS_PRESENT
+
+                if not AWS_CREDENTIALS_PRESENT:
+                    # passing the following param directly to Session() doesn't
+                    # work, unfortunately: botocore_session=path.fs.session
+                    from botocore import UNSIGNED
+                    from botocore.config import Config
+
+                    config = Config(signature_version=UNSIGNED)
+                    s3 = boto3.session.Session().resource("s3", config=config)
+                else:
+                    s3 = boto3.session.Session().resource("s3")
+                bucket, key, _ = path.fs.split_path(path.as_posix())
+                # assuming this here is the fastest way of querying for many objects
+                objects = s3.Bucket(bucket).objects.filter(Prefix=key)
+                size = sum([object.size for object in objects])
+                md5s = [
+                    # skip leading and trailing quotes
+                    object.e_tag[1:-1]
+                    for object in objects
+                ]
+                hash, hash_type = hash_md5s_from_dir(md5s)
         else:
-            logger.warning(f"did not add hash for {filepath}")
-            return None, None
+            logger.warning(f"did not add hash for {path}")
+            return size, None, None
     else:
-        hash, hash_type = hash_file(filepath)
+        if path.is_dir():
+            sizes = [path.stat().st_size for subpath in path.glob("*")]
+            size = sum(sizes)
+            md5s = [
+                hash_file(subpath)[0] for subpath in path.glob("*") if subpath.is_file()
+            ]
+            hash, hash_type = hash_md5s_from_dir(md5s)
+        else:
+            hash, hash_type = hash_file(path)
+            size = stat.st_size
     if not check_hash:
-        return hash, hash_type
+        return size, hash, hash_type
     # also checks hidden and trashed files
-    result = File.filter(hash=hash, visibility=None).list()
+    result = Artifact.filter(hash=hash, visibility=None).list()
     if len(result) > 0:
-        if settings.upon_file_create_if_hash_exists == "error":
-            msg = f"file with same hash exists: {result[0]}"
+        if settings.upon_artifact_create_if_hash_exists == "error":
+            msg = f"artifact with same hash exists: {result[0]}"
             hint = (
                 "💡 you can make this error a warning:\n"
-                "    ln.settings.upon_file_create_if_hash_exists"
+                "    ln.settings.upon_artifact_create_if_hash_exists"
             )
             raise RuntimeError(f"{msg}\n{hint}")
-        elif settings.upon_file_create_if_hash_exists == "warn_create_new":
+        elif settings.upon_artifact_create_if_hash_exists == "warn_create_new":
             logger.warning(
-                "creating new File object despite existing file with same hash:"
+                "creating new Artifact object despite existing artifact with same hash:"
                 f" {result[0]}"
             )
-            return hash, hash_type
+            return size, hash, hash_type
         else:
-            logger.warning(f"returning existing file with same hash: {result[0]}")
+            logger.warning(f"returning existing artifact with same hash: {result[0]}")
             if result[0].visibility < 1:
                 if result[0].visibility == -1:
                     visibility_text = "in the trash"
                 elif result[0].visibility == 0:
                     visibility_text = "hidden"
                 logger.warning(
-                    f"the existing file is {visibility_text}, restore it before use:"
-                    " `file.restore()`"
+                    f"the existing artifact is {visibility_text}, restore it before"
+                    " use: `artifact.restore()`"
                 )
             return result[0]
     else:
-        return hash, hash_type
+        return size, hash, hash_type
 
 
-def get_path_size_hash(
-    filepath: UPath,
-    memory_rep: Optional[Union[pd.DataFrame, AnnData]],
-    suffix: str,
-    check_hash: bool = True,
-):
-    cloudpath = None
-    localpath = None
-    hash_and_type: Tuple[Optional[str], Optional[str]]
-
-    if suffix in {".zarr", ".zrad"}:
-        if memory_rep is not None:
-            size = size_adata(memory_rep)
-        else:
-            if not isinstance(filepath, LocalPathClasses):
-                cloudpath = filepath
-                # todo: properly calculate size
-                size = 0
-            else:
-                localpath = filepath
-                size = sum(
-                    f.stat().st_size for f in filepath.rglob("*") if f.is_file()  # type: ignore # noqa
-                )
-        hash_and_type = None, None
-    else:
-        # to accelerate ingesting high numbers of files
-        if settings.upon_file_create_skip_size_hash:
-            size = None
-            hash_and_type = None, None
-        else:
-            filepath_stat = filepath.stat()
-            if not isinstance(filepath, LocalPathClasses):
-                size = filepath_stat["size"]
-                cloudpath = filepath
-                hash_and_type = None, None
-            else:
-                size = filepath_stat.st_size  # type: ignore
-                localpath = filepath
-            hash_and_type = get_hash(
-                filepath, suffix, filepath_stat=filepath_stat, check_hash=check_hash
-            )
-    return localpath, cloudpath, size, hash_and_type
-
-
-def check_path_in_existing_storage(
-    filepath: Union[Path, UPath]
-) -> Union[Storage, bool]:
+def check_path_in_existing_storage(path: Union[Path, UPath]) -> Union[Storage, bool]:
     for storage in Storage.filter().all():
         # if path is part of storage, return it
-        if check_path_is_child_of_root(filepath, root=create_path(storage.root)):
+        if check_path_is_child_of_root(path, root=create_path(storage.root)):
             return storage
     return False
 
 
 def check_path_is_child_of_root(
-    filepath: Union[Path, UPath], root: Optional[Union[Path, UPath]] = None
+    path: Union[Path, UPath], root: Optional[Union[Path, UPath]] = None
 ) -> bool:
     if root is None:
         root = lamindb_setup.settings.storage.root
 
-    filepath = UPath(str(filepath)) if not isinstance(filepath, UPath) else filepath
+    path = UPath(str(path)) if not isinstance(path, UPath) else path
     root = UPath(str(root)) if not isinstance(root, UPath) else root
 
     # the following comparisons can fail if types aren't comparable
-    if not isinstance(filepath, LocalPathClasses) and not isinstance(
+    if not isinstance(path, LocalPathClasses) and not isinstance(
         root, LocalPathClasses
     ):
         # the following tests equivalency of two UPath objects
         # via string representations; otherwise
         # S3Path('s3://lndb-storage/') and S3Path('s3://lamindb-ci/')
         # test as equivalent
-        return list(filepath.parents)[-1].as_posix() == root.as_posix()
-    elif isinstance(filepath, LocalPathClasses) and isinstance(root, LocalPathClasses):
-        return root.resolve() in filepath.resolve().parents
+        return list(path.parents)[-1].as_posix() == root.as_posix()
+    elif isinstance(path, LocalPathClasses) and isinstance(root, LocalPathClasses):
+        return root.resolve() in path.resolve().parents
     else:
         return False
 
@@ -297,7 +290,7 @@ def get_relative_path_to_directory(
     if isinstance(directory, UPath) and not isinstance(directory, LocalPathClasses):
         # UPath.relative_to() is not behaving as it should (2023-04-07)
         # need to lstrip otherwise inconsistent behavior across trailing slashes
-        # see test_file.py: test_get_relative_path_to_directory
+        # see test_artifact.py: test_get_relative_path_to_directory
         relpath = PurePath(
             path.as_posix().replace(directory.as_posix(), "").lstrip("/")
         )
@@ -310,7 +303,7 @@ def get_relative_path_to_directory(
     return relpath
 
 
-def get_file_kwargs_from_data(
+def get_artifact_kwargs_from_data(
     *,
     data: Union[Path, UPath, str, pd.DataFrame, AnnData],
     key: Optional[str],
@@ -320,25 +313,23 @@ def get_file_kwargs_from_data(
     skip_check_exists: bool = False,
 ):
     run = get_run(run)
-    memory_rep, filepath, suffix, storage, use_existing_storage_key = process_data(
+    memory_rep, path, suffix, storage, use_existing_storage_key = process_data(
         provisional_uid, data, format, key, skip_check_exists
     )
-    # the following will return a localpath that is not None if filepath is local
-    # it will return a cloudpath that is not None if filepath is on the cloud
-    local_filepath, cloud_filepath, size, hash_and_type = get_path_size_hash(
-        filepath,
-        memory_rep,
-        suffix,
+    stat_or_artifact = get_stat_or_artifact(
+        path=path,
+        suffix=suffix,
+        memory_rep=memory_rep,
     )
-    if isinstance(hash_and_type, File):
-        return hash_and_type, None
+    if isinstance(stat_or_artifact, Artifact):
+        return stat_or_artifact, None
     else:
-        hash, hash_type = hash_and_type
+        size, hash, hash_type = stat_or_artifact
 
     check_path_in_storage = False
     if use_existing_storage_key:
         inferred_key = get_relative_path_to_directory(
-            path=filepath, directory=storage.root_as_path()
+            path=path, directory=storage.root_as_path()
         ).as_posix()
         if key is None:
             key = inferred_key
@@ -366,7 +357,7 @@ def get_file_kwargs_from_data(
     )
 
     # do we use a virtual or an actual storage key?
-    key_is_virtual = settings.file_use_virtual_keys
+    key_is_virtual = settings.artifact_use_virtual_keys
 
     # if the file is already in storage, independent of the default
     # we use an actual storage key
@@ -387,6 +378,12 @@ def get_file_kwargs_from_data(
         run=run,
         key_is_virtual=key_is_virtual,
     )
+    if not isinstance(path, LocalPathClasses):
+        local_filepath = None
+        cloud_filepath = path
+    else:
+        local_filepath = path
+        cloud_filepath = None
     privates = dict(
         local_filepath=local_filepath,
         cloud_filepath=cloud_filepath,
@@ -415,9 +412,9 @@ def log_storage_hint(
             if check_path_is_child_of_root(root_path, Path.cwd()):
                 # only display the relative path, not the fully resolved path
                 display_root = root_path.relative_to(Path.cwd())
-        hint += f"file in storage '{display_root}'"  # type: ignore
+        hint += f"path in storage '{display_root}'"  # type: ignore
     else:
-        hint += "file will be copied to default storage upon `save()`"
+        hint += "path content will be copied to default storage upon `save()`"
     if key is None:
         storage_key = auto_storage_key_from_id_suffix(uid, suffix)
         hint += f" with key `None` ('{storage_key}')"
@@ -447,17 +444,17 @@ def data_is_mudata(data: DataLike):  # pragma: no cover
     return False
 
 
-def __init__(file: File, *args, **kwargs):
+def __init__(artifact: Artifact, *args, **kwargs):
     # Below checks for the Django-internal call in from_db()
-    # it'd be better if we could avoid this, but not being able to create a File
+    # it'd be better if we could avoid this, but not being able to create a Artifact
     # from data with the default constructor renders the central class of the API
     # essentially useless
     # The danger below is not that a user might pass as many args (12 of it), but rather
     # that at some point the Django API might change; on the other hand, this
     # condition of for calling the constructor based on kwargs should always
     # stay robust
-    if len(args) == len(file._meta.concrete_fields):
-        super(File, file).__init__(*args, **kwargs)
+    if len(args) == len(artifact._meta.concrete_fields):
+        super(Artifact, artifact).__init__(*args, **kwargs)
         return None
     # now we proceed with the user-facing constructor
     if len(args) > 1:
@@ -468,7 +465,7 @@ def __init__(file: File, *args, **kwargs):
     description: Optional[str] = (
         kwargs.pop("description") if "description" in kwargs else None
     )
-    is_new_version_of: Optional[File] = (
+    is_new_version_of: Optional[Artifact] = (
         kwargs.pop("is_new_version_of") if "is_new_version_of" in kwargs else None
     )
     initial_version_id: Optional[int] = (
@@ -495,8 +492,8 @@ def __init__(file: File, *args, **kwargs):
     if is_new_version_of is None:
         provisional_uid = init_uid(version=version, n_full_id=20)
     else:
-        if not isinstance(is_new_version_of, File):
-            raise TypeError("is_new_version_of has to be of type ln.File")
+        if not isinstance(is_new_version_of, Artifact):
+            raise TypeError("is_new_version_of has to be of type ln.Artifact")
         provisional_uid, initial_version_id, version = get_ids_from_old_version(
             is_new_version_of, version, n_full_id=20
         )
@@ -507,9 +504,9 @@ def __init__(file: File, *args, **kwargs):
         if initial_version_id is None:
             logger.info(
                 "initializing versioning for this file! create future versions of it"
-                " using ln.File(..., is_new_version_of=old_file)"
+                " using ln.Artifact(..., is_new_version_of=old_file)"
             )
-    kwargs_or_file, privates = get_file_kwargs_from_data(
+    kwargs_or_artifact, privates = get_artifact_kwargs_from_data(
         data=data,
         key=key,
         run=run,
@@ -519,14 +516,14 @@ def __init__(file: File, *args, **kwargs):
     )
 
     # an object with the same hash already exists
-    if isinstance(kwargs_or_file, File):
+    if isinstance(kwargs_or_artifact, Artifact):
         from ._registry import init_self_from_db
 
-        # kwargs_or_file is an existing file
-        init_self_from_db(file, kwargs_or_file)
+        # kwargs_or_artifact is an existing file
+        init_self_from_db(artifact, kwargs_or_artifact)
         return None
     else:
-        kwargs = kwargs_or_file
+        kwargs = kwargs_or_artifact
 
     if isinstance(data, pd.DataFrame):
         if log_hint:
@@ -551,7 +548,7 @@ def __init__(file: File, *args, **kwargs):
     kwargs["description"] = description
     kwargs["visibility"] = visibility
     # this check needs to come down here because key might be populated from an
-    # existing file path during get_file_kwargs_from_data()
+    # existing file path during get_artifact_kwargs_from_data()
     if (
         kwargs["key"] is None
         and kwargs["description"] is None
@@ -562,16 +559,16 @@ def __init__(file: File, *args, **kwargs):
     add_transform_to_kwargs(kwargs, kwargs["run"])
 
     if data is not None:
-        file._local_filepath = privates["local_filepath"]
-        file._cloud_filepath = privates["cloud_filepath"]
-        file._memory_rep = privates["memory_rep"]
-        file._to_store = not privates["check_path_in_storage"]
+        artifact._local_filepath = privates["local_filepath"]
+        artifact._cloud_filepath = privates["cloud_filepath"]
+        artifact._memory_rep = privates["memory_rep"]
+        artifact._to_store = not privates["check_path_in_storage"]
 
-    super(File, file).__init__(**kwargs)
+    super(Artifact, artifact).__init__(**kwargs)
 
 
 @classmethod  # type: ignore
-@doc_args(File.from_df.__doc__)
+@doc_args(Artifact.from_df.__doc__)
 def from_df(
     cls,
     df: "pd.DataFrame",
@@ -580,11 +577,11 @@ def from_df(
     description: Optional[str] = None,
     run: Optional[Run] = None,
     version: Optional[str] = None,
-    is_new_version_of: Optional["File"] = None,
+    is_new_version_of: Optional["Artifact"] = None,
     **kwargs,
-) -> "File":
+) -> "Artifact":
     """{}"""
-    file = File(
+    artifact = Artifact(
         data=df,
         key=key,
         run=run,
@@ -595,10 +592,10 @@ def from_df(
     )
     feature_set = FeatureSet.from_df(df, field=field, **kwargs)
     if feature_set is not None:
-        file._feature_sets = {"columns": feature_set}
+        artifact._feature_sets = {"columns": feature_set}
     else:
-        file._feature_sets = {}
-    return file
+        artifact._feature_sets = {}
+    return artifact
 
 
 def parse_feature_sets_from_anndata(
@@ -646,7 +643,7 @@ def parse_feature_sets_from_anndata(
 
 
 @classmethod  # type: ignore
-@doc_args(File.from_anndata.__doc__)
+@doc_args(Artifact.from_anndata.__doc__)
 def from_anndata(
     cls,
     adata: "AnnDataLike",
@@ -655,11 +652,11 @@ def from_anndata(
     description: Optional[str] = None,
     run: Optional[Run] = None,
     version: Optional[str] = None,
-    is_new_version_of: Optional["File"] = None,
+    is_new_version_of: Optional["Artifact"] = None,
     **kwargs,
-) -> "File":
+) -> "Artifact":
     """{}"""
-    file = File(
+    artifact = Artifact(
         data=adata,
         key=key,
         run=run,
@@ -668,20 +665,24 @@ def from_anndata(
         is_new_version_of=is_new_version_of,
         log_hint=False,
     )
-    file._feature_sets = parse_feature_sets_from_anndata(adata, field, **kwargs)
-    return file
+    artifact._feature_sets = parse_feature_sets_from_anndata(adata, field, **kwargs)
+    return artifact
 
 
 @classmethod  # type: ignore
-@doc_args(File.from_dir.__doc__)
+@doc_args(Artifact.from_dir.__doc__)
 def from_dir(
     cls,
     path: PathLike,
     key: Optional[str] = None,
     *,
     run: Optional[Run] = None,
-) -> List["File"]:
+) -> List["Artifact"]:
     """{}"""
+    logger.warning(
+        "this creates one artifact per file in the directory - you might simply call"
+        " ln.Artifact(dir) to get one artifact for the entire directory"
+    )
     folderpath: UPath = create_path(path)  # returns Path for local
     storage, use_existing_storage = process_pathlike(folderpath)
     folder_key_path: Union[PurePath, Path]
@@ -703,7 +704,7 @@ def from_dir(
     # always sanitize by stripping a trailing slash
     folder_key = folder_key_path.as_posix().rstrip("/")
 
-    # TODO: (non-local) UPath doesn't list the first level files and dirs with "*"
+    # TODO: (non-local) UPath doesn't list the first level artifacts and dirs with "*"
     pattern = "" if not isinstance(folderpath, LocalPathClasses) else "*"
 
     # silence fine-grained logging
@@ -711,51 +712,59 @@ def from_dir(
     verbosity_int = settings._verbosity_int
     if verbosity_int >= 1:
         settings.verbosity = "warning"
-    files_dict = {}
+    artifacts_dict = {}
     for filepath in folderpath.rglob(pattern):
         if filepath.is_file():
             relative_path = get_relative_path_to_directory(filepath, folderpath)
-            file_key = folder_key + "/" + relative_path.as_posix()
+            artifact_key = folder_key + "/" + relative_path.as_posix()
             # if creating from rglob, we don't need to check for existence
-            file = File(filepath, run=run, key=file_key, skip_check_exists=True)
-            files_dict[file.uid] = file
+            artifact = Artifact(
+                filepath, run=run, key=artifact_key, skip_check_exists=True
+            )
+            artifacts_dict[artifact.uid] = artifact
     settings.verbosity = verbosity
 
     # run sanity check on hashes
-    hashes = [file.hash for file in files_dict.values() if file.hash is not None]
-    uids = files_dict.keys()
+    hashes = [
+        artifact.hash
+        for artifact in artifacts_dict.values()
+        if artifact.hash is not None
+    ]
+    uids = artifacts_dict.keys()
     if len(set(hashes)) == len(hashes):
-        files = list(files_dict.values())
+        artifacts = list(artifacts_dict.values())
     else:
         # consider exact duplicates (same id, same hash)
-        # below can't happen anymore because files is a dict now
+        # below can't happen anymore because artifacts is a dict now
         # if len(set(uids)) == len(set(hashes)):
-        #     logger.warning("dropping duplicate records in list of file records")
-        #     files = list(set(uids))
+        #     logger.warning("dropping duplicate records in list of artifact records")
+        #     artifacts = list(set(uids))
         # consider false duplicates (different id, same hash)
         if not len(set(uids)) == len(set(hashes)):
             seen_hashes = set()
-            non_unique_files = {
-                hash: file
-                for hash, file in files_dict.items()
-                if file.hash in seen_hashes or seen_hashes.add(file.hash)  # type: ignore  # noqa
+            non_unique_artifacts = {
+                hash: artifact
+                for hash, artifact in artifacts_dict.items()
+                if artifact.hash in seen_hashes or seen_hashes.add(artifact.hash)  # type: ignore  # noqa
             }
-            display_non_unique = "\n    ".join(f"{file}" for file in non_unique_files)
-            logger.warning(
-                "there are multiple file uids with the same hashes, dropping"
-                f" {len(non_unique_files)} duplicates out of {len(files_dict)} files:\n"
-                f"    {display_non_unique}"
+            display_non_unique = "\n    ".join(
+                f"{artifact}" for artifact in non_unique_artifacts
             )
-            files = [
-                file
-                for file in files_dict.values()
-                if file not in non_unique_files.values()
+            logger.warning(
+                "there are multiple artifact uids with the same hashes, dropping"
+                f" {len(non_unique_artifacts)} duplicates out of"
+                f" {len(artifacts_dict)} artifacts:\n    {display_non_unique}"
+            )
+            artifacts = [
+                artifact
+                for artifact in artifacts_dict.values()
+                if artifact not in non_unique_artifacts.values()
             ]
     logger.success(
-        f"created {len(files)} files from directory using storage"
+        f"created {len(artifacts)} artifacts from directory using storage"
         f" {storage.root} and key = {folder_key}/"
     )
-    return files
+    return artifacts
 
 
 # docstring handled through attach_func_to_class_method
@@ -765,7 +774,7 @@ def replace(
     run: Optional[Run] = None,
     format: Optional[str] = None,
 ) -> None:
-    kwargs, privates = get_file_kwargs_from_data(
+    kwargs, privates = get_artifact_kwargs_from_data(
         provisional_uid=self.uid,
         data=data,
         key=self.key,
@@ -773,7 +782,7 @@ def replace(
         format=format,
     )
 
-    # this file already exists
+    # this artifact already exists
     if privates is None:
         return kwargs
 
@@ -822,8 +831,8 @@ def backed(
     suffixes = (".h5", ".hdf5", ".h5ad", ".zrad", ".zarr")
     if self.suffix not in suffixes:
         raise ValueError(
-            "File should have a zarr or h5 object as the underlying data, please use"
-            " one of the following suffixes for the object name:"
+            "Artifact should have a zarr or h5 object as the underlying data, please"
+            " use one of the following suffixes for the object name:"
             f" {', '.join(suffixes)}."
         )
 
@@ -831,7 +840,7 @@ def backed(
 
     _track_run_input(self, is_run_input)
 
-    filepath = filepath_from_file(self)
+    filepath = filepath_from_artifact(self)
     # consider the case where an object is already locally cached
     localpath = setup_settings.instance.storage.cloud_to_local_no_update(filepath)
     if localpath.exists():
@@ -847,7 +856,7 @@ def load(
     _track_run_input(self, is_run_input)
     if hasattr(self, "_memory_rep") and self._memory_rep is not None:
         return self._memory_rep
-    return load_to_memory(filepath_from_file(self), stream=stream, **kwargs)
+    return load_to_memory(filepath_from_artifact(self), stream=stream, **kwargs)
 
 
 # docstring handled through attach_func_to_class_method
@@ -856,7 +865,7 @@ def stage(self, is_run_input: Optional[bool] = None) -> Path:
         raise RuntimeError("zarr object can't be staged, please use load() or stream()")
     _track_run_input(self, is_run_input)
 
-    filepath = filepath_from_file(self)
+    filepath = filepath_from_artifact(self)
     return setup_settings.instance.storage.cloud_to_local(filepath, print_progress=True)
 
 
@@ -864,21 +873,21 @@ def stage(self, is_run_input: Optional[bool] = None) -> Path:
 def delete(
     self, permanent: Optional[bool] = None, storage: Optional[bool] = None
 ) -> None:
-    # by default, we only move files into the trash
+    # by default, we only move artifacts into the trash
     if self.visibility > VisibilityChoice.trash.value and permanent is not True:
         if storage is not None:
-            logger.warning("moving file to trash, storage arg is ignored")
+            logger.warning("moving artifact to trash, storage arg is ignored")
         # move to trash
         self.visibility = VisibilityChoice.trash.value
         self.save()
-        logger.warning("moved file to trash")
+        logger.warning("moved artifact to trash")
         return
 
-    # if the file is already in the trash
+    # if the artifact is already in the trash
     # permanent delete skips the trash
     if permanent is None:
         response = input(
-            "File record is already in trash! Are you sure you want to permanently"
+            "Artifact record is already in trash! Are you sure you want to permanently"
             " delete it? (y/n) You can't undo this action."
         )
         delete_record = response == "y"
@@ -896,7 +905,7 @@ def delete(
             if storage is not None:
                 logger.warning("storage arg is ignored if storage key is non-semantic")
         else:
-            # for files with non-virtual semantic storage keys (key is not None)
+            # for artifacts with non-virtual semantic storage keys (key is not None)
             # ask for extra-confirmation
             if storage is None:
                 response = input(
@@ -913,8 +922,8 @@ def delete(
             logger.success(f"deleted {colors.yellow(f'{filepath}')}")
 
 
-def _delete_skip_storage(file, *args, **kwargs) -> None:
-    super(File, file).delete(*args, **kwargs)
+def _delete_skip_storage(artifact, *args, **kwargs) -> None:
+    super(Artifact, artifact).delete(*args, **kwargs)
 
 
 # docstring handled through attach_func_to_class_method
@@ -933,15 +942,15 @@ def save(self, *args, **kwargs) -> None:
 
 def _save_skip_storage(file, *args, **kwargs) -> None:
     save_feature_sets(file)
-    super(File, file).save(*args, **kwargs)
+    super(Artifact, file).save(*args, **kwargs)
     save_feature_set_links(file)
 
 
 @property  # type: ignore
-@doc_args(File.path.__doc__)
+@doc_args(Artifact.path.__doc__)
 def path(self) -> Union[Path, UPath]:
     """{}"""
-    return filepath_from_file(self)
+    return filepath_from_artifact(self)
 
 
 @classmethod  # type: ignore
@@ -990,17 +999,17 @@ if _TESTING:
     from inspect import signature
 
     SIGS = {
-        name: signature(getattr(File, name))
+        name: signature(getattr(Artifact, name))
         for name in METHOD_NAMES
         if name != "__init__"
     }
 
 for name in METHOD_NAMES:
-    attach_func_to_class_method(name, File, globals())
+    attach_func_to_class_method(name, Artifact, globals())
 
 # privates currently dealt with separately
-File._delete_skip_storage = _delete_skip_storage
-File._save_skip_storage = _save_skip_storage
-setattr(File, "path", path)
+Artifact._delete_skip_storage = _delete_skip_storage
+Artifact._save_skip_storage = _save_skip_storage
+setattr(Artifact, "path", path)
 # this seems a Django-generated function
-delattr(File, "get_visibility_display")
+delattr(Artifact, "get_visibility_display")

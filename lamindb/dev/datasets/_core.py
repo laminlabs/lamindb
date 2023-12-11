@@ -12,7 +12,7 @@ from .._settings import settings
 
 
 def file_fcs() -> Path:
-    """Example FCS file."""
+    """Example FCS artifact."""
     filepath, _ = urlretrieve(
         "https://lamindb-test.s3.amazonaws.com/example.fcs", "example.fcs"
     )
@@ -93,25 +93,25 @@ def file_tsv_rnaseq_nfcore_salmon_merged_gene_counts(
 
 
 def file_fastq(in_storage_root=False) -> Path:
-    """Mini mock fastq file."""
+    """Mini mock fastq artifact."""
     basedir = Path(".") if not in_storage_root else settings.storage
     filepath = basedir / "input.fastq.gz"
     with open(filepath, "w") as f:
-        f.write("Mock fastq file.")
+        f.write("Mock fastq artifact.")
     return filepath
 
 
 def file_bam(in_storage_root=False) -> Path:  # pragma: no cover
-    """Mini mock bam file."""
+    """Mini mock bam artifact."""
     basedir = Path(".") if not in_storage_root else settings.storage
     filepath = basedir / "output.bam"
     with open(filepath, "w") as f:
-        f.write("Mock bam file.")
+        f.write("Mock bam artifact.")
     return filepath
 
 
 def file_mini_csv(in_storage_root=False) -> Path:
-    """Mini csv file."""
+    """Mini csv artifact."""
     basedir = Path(".") if not in_storage_root else settings.storage
     filepath = basedir / "mini.csv"
     df = pd.DataFrame([1, 2, 3], columns=["test"])

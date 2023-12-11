@@ -1,6 +1,6 @@
 from typing import Type
 
-from lnschema_core import Dataset, File, Registry
+from lnschema_core import Artifact, Dataset, Registry
 from lnschema_core.types import VisibilityChoice
 
 from lamindb._query_set import QuerySet
@@ -8,7 +8,7 @@ from lamindb._query_set import QuerySet
 
 def filter(Registry: Type[Registry], **expressions) -> QuerySet:
     """See :meth:`~lamindb.dev.Registry.filter`."""
-    if Registry in {File, Dataset}:
+    if Registry in {Artifact, Dataset}:
         # visibility is set to 0 unless expressions contains id or uid equality
         if not ("id" in expressions or "uid" in expressions):
             visibility = "visibility"

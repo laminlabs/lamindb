@@ -19,8 +19,8 @@ bionty    # basic biological ontologies
 # cloud backends
 aws       # AWS (s3fs, etc.)
 gcp       # Google Cloud (gcfs, etc.)
-# biological file formats
-fcs       # FCS files (flow cytometry)
+# biological artifact formats
+fcs       # FCS artifacts (flow cytometry)
 # storage backends
 zarr      # store & stream arrays with zarr
 # others

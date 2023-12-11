@@ -11,15 +11,15 @@ DOCS = Path(__file__).parents[1] / "docs/"
 
 
 def test_tutorial():
-    for filename in GROUPS["tutorial"]:
-        test.execute_notebooks(DOCS / filename, write=True)
+    for artifactname in GROUPS["tutorial"]:
+        test.execute_notebooks(DOCS / artifactname, write=True)
 
 
 def test_guide():
-    for filename in GROUPS["guide"]:
-        test.execute_notebooks(DOCS / filename, write=True)
+    for artifactname in GROUPS["guide"]:
+        test.execute_notebooks(DOCS / artifactname, write=True)
 
 
 def test_biology():
-    for filename in GROUPS["biology"]:
-        test.execute_notebooks(DOCS / filename, write=True)
+    for artifactname in GROUPS["biology"]:
+        test.execute_notebooks(DOCS / artifactname, write=True)
