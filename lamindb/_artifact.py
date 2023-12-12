@@ -156,7 +156,7 @@ def get_stat_or_artifact(
     suffix: str,
     memory_rep: Optional[Any] = None,
     check_hash: bool = True,
-) -> Union[Tuple[int, Optional[str], Optional[str]], Artifact, Optional[int]]:
+) -> Union[Tuple[int, Optional[str], Optional[str], Optional[int]], Artifact]:
     n_objects = None
     if settings.upon_file_create_skip_size_hash:
         return None, None, None, n_objects

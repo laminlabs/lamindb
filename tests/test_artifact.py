@@ -107,7 +107,14 @@ def get_test_filepaths(request):  # -> Tuple[bool, Path, Path, Path, str]
     test_filepath2.write_text(str(test_filepath2))
     # return a boolean indicating whether test filepath is in default storage
     # and the test filepath
-    yield (isin_existing_storage, root_dir, test_dir, test_filepath, suffix, hash_test_dir)
+    yield (
+        isin_existing_storage,
+        root_dir,
+        test_dir,
+        test_filepath,
+        suffix,
+        hash_test_dir,
+    )
     shutil.rmtree(test_dir)
 
 
