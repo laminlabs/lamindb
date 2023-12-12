@@ -815,7 +815,8 @@ def replace(
             )
     else:
         old_storage = auto_storage_key_from_artifact(self)
-        new_storage = auto_storage_key_from_id_suffix(self.uid, kwargs["suffix"])
+        is_dir = self.n_objects is not None
+        new_storage = auto_storage_key_from_artifact_uid(self.uid, kwargs["suffix"], is_dir)
         if old_storage != new_storage:
             self._clear_storagekey = old_storage
             if self.key is not None:
