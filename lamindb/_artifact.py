@@ -159,7 +159,11 @@ def get_stat_or_artifact(
 ) -> Union[Tuple[int, Optional[str], Optional[str]], Artifact]:
     if settings.upon_file_create_skip_size_hash:
         return None, None, None
-    if memory_rep is not None and isinstance(memory_rep, AnnData):
+    if (
+        suffix in {".zarr", ".zrad"}
+        and memory_rep is not None
+        and isinstance(memory_rep, AnnData)
+    ):
         size = size_adata(memory_rep)
         return size, None, None
     stat = path.stat()
