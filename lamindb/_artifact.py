@@ -209,11 +209,13 @@ def get_stat_or_artifact(
             return size, None, None
     else:
         if path.is_dir():
-            sizes = [path.stat().st_size for subpath in path.glob("*")]
-            size = sum(sizes)
-            md5s = [
-                hash_file(subpath)[0] for subpath in path.glob("*") if subpath.is_file()
-            ]
+            md5s = []
+            size = 0
+            for subpath in path.rglob("*"):
+                if not subpath.is_file():
+                    continue
+                size += subpath.stat().st_size
+                md5s.append(hash_file(subpath)[0])
             hash, hash_type = hash_md5s_from_dir(md5s)
         else:
             hash, hash_type = hash_file(path)
