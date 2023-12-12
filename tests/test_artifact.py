@@ -26,7 +26,7 @@ from lamindb._artifact import (
 from lamindb.dev.storage._zarr import write_adata_zarr
 from lamindb.dev.storage.file import (
     AUTO_KEY_PREFIX,
-    auto_storage_key_from_id_suffix,
+    auto_storage_key_from_artifact_uid,
     delete_storage,
     load_to_memory,
     read_fcs,
@@ -566,14 +566,14 @@ def test_extract_suffix_from_path():
 
 
 @pytest.mark.parametrize("suffix", [".txt", "", None])
-def test_auto_storage_key_from_id_suffix(suffix):
+def test_auto_storage_key_from_artifact_uid(suffix):
     test_id = "abo389f"
     if suffix is None:
         with pytest.raises(AssertionError):
-            auto_storage_key_from_id_suffix(test_id, suffix)
+            auto_storage_key_from_artifact_uid(test_id, suffix, False)
     else:
         assert AUTO_KEY_PREFIX == ".lamindb/"
-        storage_key = auto_storage_key_from_id_suffix(test_id, suffix)
+        storage_key = auto_storage_key_from_artifact_uid(test_id, suffix, False)
         storage_key == f"{AUTO_KEY_PREFIX}{test_id}{suffix}"
 
 
