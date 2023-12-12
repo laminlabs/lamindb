@@ -1,5 +1,6 @@
 # Changelog
 
+- 🐛 Fix size and hash for local folders in Artifact [PR1350](https://github.com/laminlabs/lamindb/pull/1350) [@Koncopd](https://github.com/Koncopd)
 - 🏗️ Re-architect API around `Artifact` instead of `File` [PR1345](https://github.com/laminlabs/lamindb/pull/1345) [@falexwolf](https://github.com/falexwolf)
 - ✨ Enable artifacts to consume directories [PR1348](https://github.com/laminlabs/lamindb/pull/1348) [@falexwolf](https://github.com/falexwolf)
 - 🚚 Rename `File` to `Artifact` [PR1344](https://github.com/laminlabs/lamindb/pull/1344) [@falexwolf](https://github.com/falexwolf)
