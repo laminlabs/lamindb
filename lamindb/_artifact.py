@@ -39,7 +39,7 @@ from lamindb.dev.storage import (
 from lamindb.dev.storage._backed_access import AnnDataAccessor, BackedAccessor
 from lamindb.dev.storage.file import (
     auto_storage_key_from_artifact,
-    auto_storage_key_from_id_suffix,
+    auto_storage_key_from_artifact_uid,
     filepath_from_artifact,
 )
 from lamindb.dev.versioning import get_ids_from_old_version, init_uid
@@ -363,6 +363,7 @@ def get_artifact_kwargs_from_data(
         key=key,
         uid=provisional_uid,
         suffix=suffix,
+        is_dir=n_objects is not None,
     )
 
     # do we use a virtual or an actual storage key?
@@ -411,6 +412,7 @@ def log_storage_hint(
     key: Optional[str],
     uid: str,
     suffix: str,
+    is_dir: bool,
 ) -> None:
     hint = ""
     if check_path_in_storage:
@@ -426,7 +428,7 @@ def log_storage_hint(
     else:
         hint += "path content will be copied to default storage upon `save()`"
     if key is None:
-        storage_key = auto_storage_key_from_id_suffix(uid, suffix)
+        storage_key = auto_storage_key_from_artifact_uid(uid, suffix, is_dir)
         hint += f" with key `None` ('{storage_key}')"
     else:
         hint += f" with key '{key}'"
