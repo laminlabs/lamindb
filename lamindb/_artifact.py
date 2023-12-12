@@ -38,7 +38,7 @@ from lamindb.dev.storage import (
 )
 from lamindb.dev.storage._backed_access import AnnDataAccessor, BackedAccessor
 from lamindb.dev.storage.file import (
-    auto_storage_key_from_file,
+    auto_storage_key_from_artifact,
     auto_storage_key_from_id_suffix,
     filepath_from_artifact,
 )
@@ -812,7 +812,7 @@ def replace(
                 f" and delete '{key_path}' upon `save()`"
             )
     else:
-        old_storage = auto_storage_key_from_file(self)
+        old_storage = auto_storage_key_from_artifact(self)
         new_storage = auto_storage_key_from_id_suffix(self.uid, kwargs["suffix"])
         if old_storage != new_storage:
             self._clear_storagekey = old_storage

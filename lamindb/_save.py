@@ -14,7 +14,7 @@ from lamindb_setup.dev.upath import print_hook
 from lnschema_core.models import Artifact, Registry
 
 from lamindb.dev.storage.file import (
-    auto_storage_key_from_file,
+    auto_storage_key_from_artifact,
     delete_storage_using_key,
     store_artifact,
 )
@@ -164,7 +164,7 @@ def copy_or_move_to_cache(artifact: Artifact):
         return None
 
     # maybe create something like storage.key_to_local(key) later to simplfy
-    storage_key = auto_storage_key_from_file(artifact)
+    storage_key = auto_storage_key_from_artifact(artifact)
     storage_path = lamindb_setup.settings.storage.key_to_filepath(storage_key)
     cache_path = lamindb_setup.settings.storage.cloud_to_local_no_update(storage_path)
     cache_path.parent.mkdir(parents=True, exist_ok=True)
@@ -251,9 +251,9 @@ def prepare_error_message(records, stored_artifacts, exception) -> str:
 def upload_artifact(artifact) -> None:
     """Store and add file and its linked entries."""
     # do NOT hand-craft the storage key!
-    file_storage_key = auto_storage_key_from_file(artifact)
+    artifact_storage_key = auto_storage_key_from_artifact(artifact)
     storage_path = lamindb_setup.settings.instance.storage.key_to_filepath(
-        file_storage_key
+        artifact_storage_key
     )
     msg = f"storing artifact '{artifact.uid}' at '{storage_path}'"
     if (
@@ -263,9 +263,9 @@ def upload_artifact(artifact) -> None:
     ):
         logger.save(msg)
         print_progress = partial(
-            print_hook, filepath=file_storage_key, action="uploading"
+            print_hook, filepath=artifact_storage_key, action="uploading"
         )
         write_adata_zarr(artifact._memory_rep, storage_path, callback=print_progress)
     elif hasattr(artifact, "_to_store") and artifact._to_store:
         logger.save(msg)
-        store_artifact(artifact._local_filepath, file_storage_key)
+        store_artifact(artifact._local_filepath, artifact_storage_key)
