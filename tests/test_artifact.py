@@ -71,13 +71,13 @@ def test_signatures():
 @pytest.fixture(
     scope="module",
     params=[
-        # tuple of isin_existing_storage, path, suffix
-        (True, "./default_storage/", ".csv"),
-        (True, "./default_storage/", ""),
-        (True, "./registered_storage/", ".csv"),
-        (True, "./registered_storage/", ""),
-        (False, "./nonregistered_storage/", ".csv"),
-        (False, "./nonregistered_storage/", ""),
+        # tuple of isin_existing_storage, path, suffix, hash of test_dir
+        (True, "./default_storage/", ".csv", "2r-DePq3YvQP589ob9aPPw"),
+        (True, "./default_storage/", "", "cZX08ZIfuQB8T3qv9dWaaw"),
+        (True, "./registered_storage/", ".csv", "MKap24SJaJHU_9H03iO9TQ"),
+        (True, "./registered_storage/", "", "OFb6HKhcApI51LvFXUxpAw"),
+        (False, "./nonregistered_storage/", ".csv", "34KaXgtw9CpC8kulfw7RHw"),
+        (False, "./nonregistered_storage/", "", "H5-dNaIetmY7LwjtZ4N1Dg"),
     ],
 )
 def get_test_filepaths(request):  # -> Tuple[bool, Path, Path, Path, str]
@@ -86,6 +86,7 @@ def get_test_filepaths(request):  # -> Tuple[bool, Path, Path, Path, str]
     isin_existing_storage: bool = request.param[0]
     root_dir: Path = Path(request.param[1])
     suffix: str = request.param[2]
+    hash_test_dir: str = request.param[3]
     if isin_existing_storage:
         # ensure that it's actually registered
         if ln.Storage.filter(root=root_dir.resolve().as_posix()).one_or_none() is None:
@@ -106,7 +107,7 @@ def get_test_filepaths(request):  # -> Tuple[bool, Path, Path, Path, str]
     test_filepath2.write_text(str(test_filepath2))
     # return a boolean indicating whether test filepath is in default storage
     # and the test filepath
-    yield (isin_existing_storage, root_dir, test_dir, test_filepath, suffix)
+    yield (isin_existing_storage, root_dir, test_dir, test_filepath, suffix, hash_test_dir)
     shutil.rmtree(test_dir)
 
 
@@ -339,7 +340,7 @@ def test_create_from_local_filepath(
         else artifact.description == description
     )
     assert artifact.suffix == suffix
-
+    assert artifact.n_objects is None
     artifact.save()
     assert artifact.path.exists()
 
@@ -406,9 +407,8 @@ ValueError: Currently don't support tracking folders outside one of the storage 
 
 
 @pytest.mark.parametrize("key", [None, "my_new_folder"])
-def test_from_dir(get_test_filepaths, key):
+def test_from_dir_many_artifacts(get_test_filepaths, key):
     isin_existing_storage = get_test_filepaths[0]
-    # root_dir = get_test_filepaths[1]
     test_dirpath = get_test_filepaths[2]
     # the directory contains 3 files, two of them are duplicated
     if key is not None and isin_existing_storage:
@@ -434,6 +434,36 @@ def test_from_dir(get_test_filepaths, key):
     assert len(set(hashes)) == len(hashes)
     for artifact in files:
         artifact.delete(permanent=True, storage=False)
+
+
+@pytest.mark.parametrize("key", [None, "my_new_folder"])
+def test_from_dir_single_artifact(get_test_filepaths, key):
+    isin_existing_storage = get_test_filepaths[0]
+    test_dirpath = get_test_filepaths[2]
+    hash_test_dir = get_test_filepaths[5]
+    if key is not None and isin_existing_storage:
+        with pytest.raises(ValueError) as error:
+            ln.Artifact(test_dirpath, key=key)
+        assert error.exconly().startswith(
+            "ValueError: The path"  # The path {data} is already in registered storage
+        )
+        return None
+    if key is None and not isin_existing_storage:
+        with pytest.raises(ValueError) as error:
+            ln.Artifact(test_dirpath, key=key)
+        assert error.exconly().startswith(
+            "ValueError: Pass one of key, run or description as a parameter"
+        )
+        return None
+    artifact = ln.Artifact(test_dirpath, key=key)
+    assert artifact.n_objects == 3
+    assert artifact.hash == hash_test_dir
+    assert artifact._state.adding
+    artifact.save()
+    # now run again, because now we'll have hash-based lookup!
+    artifact = ln.Artifact(test_dirpath, key=key)
+    assert not artifact._state.adding
+    artifact.delete(permanent=True, storage=False)
 
 
 def test_delete(get_test_filepaths):
@@ -732,14 +762,3 @@ def test_adata_suffix():
         error.exconly().partition(",")[0]
         == "ValueError: The suffix '' of the provided key is incorrect"
     )
-
-
-def test_artifact_from_directory():
-    dirpath = Path("./random_storage/")
-    dirpath.mkdir(exist_ok=True)
-    filepath = dirpath / "test.txt"
-    filepath.touch()
-    artifact = ln.Artifact(dirpath, description="My test dataset in folder")
-    assert artifact.path.name == "random_storage"
-    artifact.save()
-    artifact.delete(permanent=True)

@@ -156,16 +156,17 @@ def get_stat_or_artifact(
     suffix: str,
     memory_rep: Optional[Any] = None,
     check_hash: bool = True,
-) -> Union[Tuple[int, Optional[str], Optional[str]], Artifact]:
+) -> Union[Tuple[int, Optional[str], Optional[str]], Artifact, Optional[int]]:
+    n_objects = None
     if settings.upon_file_create_skip_size_hash:
-        return None, None, None
+        return None, None, None, n_objects
     if (
         suffix in {".zarr", ".zrad"}
         and memory_rep is not None
         and isinstance(memory_rep, AnnData)
     ):
         size = size_adata(memory_rep)
-        return size, None, None
+        return size, None, None, n_objects
     stat = path.stat()
     if not isinstance(path, LocalPathClasses):
         if stat is not None:
@@ -201,6 +202,7 @@ def get_stat_or_artifact(
                 bucket, key, _ = path.fs.split_path(path.as_posix())
                 # assuming this here is the fastest way of querying for many objects
                 objects = s3.Bucket(bucket).objects.filter(Prefix=key)
+                n_objects = len(objects)
                 size = sum([object.size for object in objects])
                 md5s = [
                     # skip leading and trailing quotes
@@ -210,7 +212,7 @@ def get_stat_or_artifact(
                 hash, hash_type = hash_md5s_from_dir(md5s)
         else:
             logger.warning(f"did not add hash for {path}")
-            return size, None, None
+            return size, None, None, n_objects
     else:
         if path.is_dir():
             md5s = []
@@ -221,11 +223,12 @@ def get_stat_or_artifact(
                 size += subpath.stat().st_size
                 md5s.append(hash_file(subpath)[0])
             hash, hash_type = hash_md5s_from_dir(md5s)
+            n_objects = len(md5s)
         else:
             hash, hash_type = hash_file(path)
             size = stat.st_size
     if not check_hash:
-        return size, hash, hash_type
+        return size, hash, hash_type, n_objects
     # also checks hidden and trashed files
     result = Artifact.filter(hash=hash, visibility=None).list()
     if len(result) > 0:
@@ -241,7 +244,7 @@ def get_stat_or_artifact(
                 "creating new Artifact object despite existing artifact with same hash:"
                 f" {result[0]}"
             )
-            return size, hash, hash_type
+            return size, hash, hash_type, n_objects
         else:
             logger.warning(f"returning existing artifact with same hash: {result[0]}")
             if result[0].visibility < 1:
@@ -255,7 +258,7 @@ def get_stat_or_artifact(
                 )
             return result[0]
     else:
-        return size, hash, hash_type
+        return size, hash, hash_type, n_objects
 
 
 def check_path_in_existing_storage(path: Union[Path, UPath]) -> Union[Storage, bool]:
@@ -330,7 +333,7 @@ def get_artifact_kwargs_from_data(
     if isinstance(stat_or_artifact, Artifact):
         return stat_or_artifact, None
     else:
-        size, hash, hash_type = stat_or_artifact
+        size, hash, hash_type, n_objects = stat_or_artifact
 
     check_path_in_storage = False
     if use_existing_storage_key:
@@ -380,6 +383,8 @@ def get_artifact_kwargs_from_data(
         # passing both the id and the object
         # to make them both available immediately
         # after object creation
+        n_objects=n_objects,
+        n_observations=None,  # to implement
         run_id=run.id if run is not None else None,
         run=run,
         key_is_virtual=key_is_virtual,
@@ -396,7 +401,6 @@ def get_artifact_kwargs_from_data(
         memory_rep=memory_rep,
         check_path_in_storage=check_path_in_storage,
     )
-
     return kwargs, privates
 
 
