@@ -473,6 +473,13 @@ def test_from_dir_single_artifact(get_test_filepaths, key):
     artifact.delete(permanent=True, storage=False)
 
 
+def test_from_dir_s3():
+    study0_data = ln.Artifact(f"s3://lamindb-dev-datasets/iris_studies/study0_raw_images")
+    study0_data.hash = "d8_SjrP3V5tGetN8LQZC7w"
+    study0_data.hash_type = "md5-d"
+    study0_data.n_objects = 51
+
+
 def test_delete(get_test_filepaths):
     test_filepath = get_test_filepaths[3]
     artifact = ln.Artifact(test_filepath, description="My test file to delete")

@@ -202,13 +202,13 @@ def get_stat_or_artifact(
                 bucket, key, _ = path.fs.split_path(path.as_posix())
                 # assuming this here is the fastest way of querying for many objects
                 objects = s3.Bucket(bucket).objects.filter(Prefix=key)
-                n_objects = len(objects)
                 size = sum([object.size for object in objects])
                 md5s = [
                     # skip leading and trailing quotes
                     object.e_tag[1:-1]
                     for object in objects
                 ]
+                n_objects = len(md5s)
                 hash, hash_type = hash_md5s_from_dir(md5s)
         else:
             logger.warning(f"did not add hash for {path}")
