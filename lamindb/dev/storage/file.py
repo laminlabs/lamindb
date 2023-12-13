@@ -27,17 +27,21 @@ AUTO_KEY_PREFIX = ".lamindb/"
 
 
 # add type annotations back asap when re-organizing the module
-def auto_storage_key_from_file(artifact: Artifact):
+def auto_storage_key_from_artifact(artifact: Artifact):
     if artifact.key is None or artifact.key_is_virtual:
-        return auto_storage_key_from_id_suffix(artifact.uid, artifact.suffix)
+        is_dir = artifact.n_objects is not None
+        return auto_storage_key_from_artifact_uid(artifact.uid, artifact.suffix, is_dir)
     else:
         return artifact.key
 
 
-def auto_storage_key_from_id_suffix(uid: str, suffix: str) -> str:
-    assert isinstance(uid, str)
+def auto_storage_key_from_artifact_uid(uid: str, suffix: str, is_dir: bool) -> str:
     assert isinstance(suffix, str)
-    storage_key = f"{AUTO_KEY_PREFIX}{uid}{suffix}"
+    if is_dir:
+        uid_storage = uid[:16]  # 16 chars, leave 4 chars for versioning
+    else:
+        uid_storage = uid
+    storage_key = f"{AUTO_KEY_PREFIX}{uid_storage}{suffix}"
     return storage_key
 
 
@@ -69,7 +73,7 @@ def attempt_accessing_path(artifact: Artifact, storage_key: str):
 def filepath_from_artifact(artifact: Artifact):
     if hasattr(artifact, "_local_filepath") and artifact._local_filepath is not None:
         return artifact._local_filepath.resolve()
-    storage_key = auto_storage_key_from_file(artifact)
+    storage_key = auto_storage_key_from_artifact(artifact)
     path = attempt_accessing_path(artifact, storage_key)
     return path
 

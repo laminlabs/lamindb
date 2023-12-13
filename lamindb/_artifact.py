@@ -1,5 +1,5 @@
 from pathlib import Path, PurePath, PurePosixPath
-from typing import Any, List, Optional, Tuple, Union
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 import anndata as ad
 import fsspec
@@ -38,8 +38,8 @@ from lamindb.dev.storage import (
 )
 from lamindb.dev.storage._backed_access import AnnDataAccessor, BackedAccessor
 from lamindb.dev.storage.file import (
-    auto_storage_key_from_file,
-    auto_storage_key_from_id_suffix,
+    auto_storage_key_from_artifact,
+    auto_storage_key_from_artifact_uid,
     filepath_from_artifact,
 )
 from lamindb.dev.versioning import get_ids_from_old_version, init_uid
@@ -151,66 +151,97 @@ def process_data(
     return memory_rep, path, suffix, storage, use_existing_storage_key
 
 
+def get_stat_file_cloud(stat: Dict) -> Tuple[int, str, str]:
+    size = stat["size"]
+    # small files
+    if "-" not in stat["ETag"]:
+        # only store hash for non-multipart uploads
+        # we can't rapidly validate multi-part uploaded files client-side
+        # we can add more logic later down-the-road
+        hash = b16_to_b64(stat["ETag"])
+        hash_type = "md5"
+    else:
+        stripped_etag, suffix = stat["ETag"].split("-")
+        suffix = suffix.strip('"')
+        hash = f"{b16_to_b64(stripped_etag)}-{suffix}"
+        hash_type = "md5-n"  # this is the S3 chunk-hashing strategy
+    return size, hash, hash_type
+
+
+def get_stat_dir_s3(path: UPath) -> Tuple[int, str, str, int]:
+    import boto3
+    from lamindb_setup.dev.upath import AWS_CREDENTIALS_PRESENT
+
+    if not AWS_CREDENTIALS_PRESENT:
+        # passing the following param directly to Session() doesn't
+        # work, unfortunately: botocore_session=path.fs.session
+        from botocore import UNSIGNED
+        from botocore.config import Config
+
+        config = Config(signature_version=UNSIGNED)
+        s3 = boto3.session.Session().resource("s3", config=config)
+    else:
+        s3 = boto3.session.Session().resource("s3")
+    bucket, key, _ = path.fs.split_path(path.as_posix())
+    # assuming this here is the fastest way of querying for many objects
+    objects = s3.Bucket(bucket).objects.filter(Prefix=key)
+    size = sum([object.size for object in objects])
+    md5s = [
+        # skip leading and trailing quotes
+        object.e_tag[1:-1]
+        for object in objects
+    ]
+    n_objects = len(md5s)
+    hash, hash_type = hash_md5s_from_dir(md5s)
+    return size, hash, hash_type, n_objects
+
+
+def get_stat_dir_gs(path: UPath) -> Tuple[int, str, str, int]:
+    import google.cloud.storage as gc_storage
+
+    bucket, key, _ = path.fs.split_path(path.as_posix())
+    # assuming this here is the fastest way of querying for many objects
+    client = gc_storage.Client.create_anonymous_client()
+    objects = client.Bucket(bucket).list_blobs(prefix=key)
+    sizes, md5s = [], []
+    for object in objects:
+        sizes.append(object.size)
+        md5s.append(object.md5_hash)
+    n_objects = len(md5s)
+    hash, hash_type = hash_md5s_from_dir(md5s)
+    return sum(sizes), hash, hash_type, n_objects
+
+
 def get_stat_or_artifact(
     path: UPath,
     suffix: str,
     memory_rep: Optional[Any] = None,
     check_hash: bool = True,
-) -> Union[Tuple[int, Optional[str], Optional[str]], Artifact]:
+) -> Union[Tuple[int, Optional[str], Optional[str], Optional[int]], Artifact]:
+    n_objects = None
     if settings.upon_file_create_skip_size_hash:
-        return None, None, None
+        return None, None, None, n_objects
     if (
         suffix in {".zarr", ".zrad"}
         and memory_rep is not None
         and isinstance(memory_rep, AnnData)
     ):
         size = size_adata(memory_rep)
-        return size, None, None
-    stat = path.stat()
+        return size, None, None, n_objects
+    stat = path.stat()  # one network request
     if not isinstance(path, LocalPathClasses):
         if stat is not None:
-            if "ETag" in stat:
-                size = stat["size"]
-                # small files
-                if "-" not in stat["ETag"]:
-                    # only store hash for non-multipart uploads
-                    # we can't rapidly validate multi-part uploaded files client-side
-                    # we can add more logic later down-the-road
-                    hash = b16_to_b64(stat["ETag"])
-                    hash_type = "md5"
-                else:
-                    stripped_etag, suffix = stat["ETag"].split("-")
-                    suffix = suffix.strip('"')
-                    hash = f"{b16_to_b64(stripped_etag)}-{suffix}"
-                    hash_type = "md5-n"  # this is the S3 chunk-hashing strategy
-            else:
-                assert path.is_dir() and path.protocol == "s3"
-                import boto3
-                from lamindb_setup.dev.upath import AWS_CREDENTIALS_PRESENT
-
-                if not AWS_CREDENTIALS_PRESENT:
-                    # passing the following param directly to Session() doesn't
-                    # work, unfortunately: botocore_session=path.fs.session
-                    from botocore import UNSIGNED
-                    from botocore.config import Config
-
-                    config = Config(signature_version=UNSIGNED)
-                    s3 = boto3.session.Session().resource("s3", config=config)
-                else:
-                    s3 = boto3.session.Session().resource("s3")
-                bucket, key, _ = path.fs.split_path(path.as_posix())
-                # assuming this here is the fastest way of querying for many objects
-                objects = s3.Bucket(bucket).objects.filter(Prefix=key)
-                size = sum([object.size for object in objects])
-                md5s = [
-                    # skip leading and trailing quotes
-                    object.e_tag[1:-1]
-                    for object in objects
-                ]
-                hash, hash_type = hash_md5s_from_dir(md5s)
+            if "ETag" in stat:  # is file
+                size, hash, hash_type = get_stat_file_cloud(stat)
+            else:  # is directory
+                assert path.is_dir()  # try to remove this network request
+                if path.protocol == "s3":
+                    size, hash, hash_type, n_objects = get_stat_dir_s3(path)
+                elif path.protocol == "gs":
+                    size, hash, hash_type, n_objects = get_stat_dir_gs(path)
         else:
             logger.warning(f"did not add hash for {path}")
-            return size, None, None
+            return size, None, None, n_objects
     else:
         if path.is_dir():
             md5s = []
@@ -221,11 +252,12 @@ def get_stat_or_artifact(
                 size += subpath.stat().st_size
                 md5s.append(hash_file(subpath)[0])
             hash, hash_type = hash_md5s_from_dir(md5s)
+            n_objects = len(md5s)
         else:
             hash, hash_type = hash_file(path)
             size = stat.st_size
     if not check_hash:
-        return size, hash, hash_type
+        return size, hash, hash_type, n_objects
     # also checks hidden and trashed files
     result = Artifact.filter(hash=hash, visibility=None).list()
     if len(result) > 0:
@@ -241,7 +273,7 @@ def get_stat_or_artifact(
                 "creating new Artifact object despite existing artifact with same hash:"
                 f" {result[0]}"
             )
-            return size, hash, hash_type
+            return size, hash, hash_type, n_objects
         else:
             logger.warning(f"returning existing artifact with same hash: {result[0]}")
             if result[0].visibility < 1:
@@ -255,7 +287,7 @@ def get_stat_or_artifact(
                 )
             return result[0]
     else:
-        return size, hash, hash_type
+        return size, hash, hash_type, n_objects
 
 
 def check_path_in_existing_storage(path: Union[Path, UPath]) -> Union[Storage, bool]:
@@ -330,7 +362,7 @@ def get_artifact_kwargs_from_data(
     if isinstance(stat_or_artifact, Artifact):
         return stat_or_artifact, None
     else:
-        size, hash, hash_type = stat_or_artifact
+        size, hash, hash_type, n_objects = stat_or_artifact
 
     check_path_in_storage = False
     if use_existing_storage_key:
@@ -360,6 +392,7 @@ def get_artifact_kwargs_from_data(
         key=key,
         uid=provisional_uid,
         suffix=suffix,
+        is_dir=n_objects is not None,
     )
 
     # do we use a virtual or an actual storage key?
@@ -380,6 +413,8 @@ def get_artifact_kwargs_from_data(
         # passing both the id and the object
         # to make them both available immediately
         # after object creation
+        n_objects=n_objects,
+        n_observations=None,  # to implement
         run_id=run.id if run is not None else None,
         run=run,
         key_is_virtual=key_is_virtual,
@@ -396,7 +431,6 @@ def get_artifact_kwargs_from_data(
         memory_rep=memory_rep,
         check_path_in_storage=check_path_in_storage,
     )
-
     return kwargs, privates
 
 
@@ -407,6 +441,7 @@ def log_storage_hint(
     key: Optional[str],
     uid: str,
     suffix: str,
+    is_dir: bool,
 ) -> None:
     hint = ""
     if check_path_in_storage:
@@ -422,7 +457,7 @@ def log_storage_hint(
     else:
         hint += "path content will be copied to default storage upon `save()`"
     if key is None:
-        storage_key = auto_storage_key_from_id_suffix(uid, suffix)
+        storage_key = auto_storage_key_from_artifact_uid(uid, suffix, is_dir)
         hint += f" with key `None` ('{storage_key}')"
     else:
         hint += f" with key '{key}'"
@@ -808,8 +843,11 @@ def replace(
                 f" and delete '{key_path}' upon `save()`"
             )
     else:
-        old_storage = auto_storage_key_from_file(self)
-        new_storage = auto_storage_key_from_id_suffix(self.uid, kwargs["suffix"])
+        old_storage = auto_storage_key_from_artifact(self)
+        is_dir = self.n_objects is not None
+        new_storage = auto_storage_key_from_artifact_uid(
+            self.uid, kwargs["suffix"], is_dir
+        )
         if old_storage != new_storage:
             self._clear_storagekey = old_storage
             if self.key is not None:

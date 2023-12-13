@@ -16,7 +16,7 @@ def test_compute_hash():
         ("abc", "p0EbDbQEP1wS-Tw6TuBjKS", 1, "sha1-fl"),
     ]
     for content, hash, chunk_size, hash_type in files:
-        filepath = Path("file_1.txt")
+        filepath = Path("file_1")
         filepath.write_text(content)
         computed_hash, computed_hash_type = hash_file(filepath, chunk_size=chunk_size)
         assert computed_hash == hash
