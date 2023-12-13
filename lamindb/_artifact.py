@@ -201,7 +201,9 @@ def get_stat_dir_gs(path: UPath) -> Tuple[int, str, str, int]:
 
     bucket, key, _ = path.fs.split_path(path.as_posix())
     # assuming this here is the fastest way of querying for many objects
-    client = gc_storage.Client.create_anonymous_client()
+    client = gc_storage.Client(
+        credentials=path.fs.credentials.credentials, project=path.fs.project
+    )
     objects = client.Bucket(bucket).list_blobs(prefix=key)
     sizes, md5s = [], []
     for object in objects:
@@ -230,18 +232,18 @@ def get_stat_or_artifact(
         return size, None, None, n_objects
     stat = path.stat()  # one network request
     if not isinstance(path, LocalPathClasses):
+        size, hash, hash_type = None, None, None
         if stat is not None:
             if "ETag" in stat:  # is file
                 size, hash, hash_type = get_stat_file_cloud(stat)
-            else:  # is directory
-                assert path.is_dir()  # try to remove this network request
+            elif path.is_dir():
                 if path.protocol == "s3":
                     size, hash, hash_type, n_objects = get_stat_dir_s3(path)
                 elif path.protocol == "gs":
                     size, hash, hash_type, n_objects = get_stat_dir_gs(path)
-        else:
+        if hash is None:
             logger.warning(f"did not add hash for {path}")
-            return size, None, None, n_objects
+            return size, hash, hash_type, n_objects
     else:
         if path.is_dir():
             md5s = []
