@@ -1,5 +1,6 @@
 # Changelog
 
+- 🐛 Fix hash inference for cloud non-s3 objects and use stored gcs credentials [PR1355](https://github.com/laminlabs/lamindb/pull/1355) [@Koncopd](https://github.com/Koncopd)
 ```{eval-rst}
 .. role:: small
 ```
