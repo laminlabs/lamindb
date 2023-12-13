@@ -72,12 +72,12 @@ def test_signatures():
     scope="module",
     params=[
         # tuple of isin_existing_storage, path, suffix, hash of test_dir
-        (True, "./default_storage/", ".csv", "2r-DePq3YvQP589ob9aPPw"),
-        (True, "./default_storage/", "", "cZX08ZIfuQB8T3qv9dWaaw"),
-        (True, "./registered_storage/", ".csv", "MKap24SJaJHU_9H03iO9TQ"),
-        (True, "./registered_storage/", "", "OFb6HKhcApI51LvFXUxpAw"),
-        (False, "./nonregistered_storage/", ".csv", "34KaXgtw9CpC8kulfw7RHw"),
-        (False, "./nonregistered_storage/", "", "H5-dNaIetmY7LwjtZ4N1Dg"),
+        (True, "./default_storage/", ".csv", "mLmD1dIMcv3mmApIi4IOZg"),
+        (True, "./default_storage/", "", "iGtHiFEBV3r1_TFovdQCgw"),
+        (True, "./registered_storage/", ".csv", "mLmD1dIMcv3mmApIi4IOZg"),
+        (True, "./registered_storage/", "", "iGtHiFEBV3r1_TFovdQCgw"),
+        (False, "./nonregistered_storage/", ".csv", "mLmD1dIMcv3mmApIi4IOZg"),
+        (False, "./nonregistered_storage/", "", "iGtHiFEBV3r1_TFovdQCgw"),
     ],
 )
 def get_test_filepaths(request):  # -> Tuple[bool, Path, Path, Path, str]
@@ -98,13 +98,13 @@ def get_test_filepaths(request):  # -> Tuple[bool, Path, Path, Path, str]
     test_dir = root_dir / "my_dir/"
     test_dir.mkdir(parents=True)
     test_filepath = test_dir / f"my_file{suffix}"
-    test_filepath.write_text(str(test_filepath))
+    test_filepath.write_text("0")
     # create a duplicated file
     test_filepath1 = test_dir / f"my_file1{suffix}"
-    test_filepath1.write_text(str(test_filepath))
+    test_filepath1.write_text("0")
     # create a non-duplicated file
     test_filepath2 = test_dir / f"my_file2{suffix}"
-    test_filepath2.write_text(str(test_filepath2))
+    test_filepath2.write_text("1")
     # return a boolean indicating whether test filepath is in default storage
     # and the test filepath
     yield (
