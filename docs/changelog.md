@@ -1,6 +1,6 @@
 # Changelog
 
-- 👷 Use ruff and clean up pre-commit [PR1358](https://github.com/laminlabs/lamindb/pull/1358) [@Zethson](https://github.com/Zethson)- ✅ Bring back transfer tests [PR1357](https://github.com/laminlabs/lamindb/pull/1357) [@falexwolf](https://github.com/falexwolf)
+- 🐛 Fix mypy [PR1359](https://github.com/laminlabs/lamindb/pull/1359) [@Koncopd](https://github.com/Koncopd)- 👷 Use ruff and clean up pre-commit [PR1358](https://github.com/laminlabs/lamindb/pull/1358) [@Zethson](https://github.com/Zethson)- ✅ Bring back transfer tests [PR1357](https://github.com/laminlabs/lamindb/pull/1357) [@falexwolf](https://github.com/falexwolf)
 
 ```{eval-rst}
 .. role:: small
