@@ -56,7 +56,7 @@ def view(
                 df = orm.filter().order_by("-updated_at")[:n].df()
             else:
                 # need to adjust in the future
-                df = orm.filter().df().iloc[-n:]
+                df = orm.df().iloc[-n:]
             if df.shape[0] > 0:
                 logger.print(colors.blue(colors.bold(orm.__name__)))
                 display(df)
