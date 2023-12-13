@@ -201,7 +201,9 @@ def get_stat_dir_gs(path: UPath) -> Tuple[int, str, str, int]:
 
     bucket, key, _ = path.fs.split_path(path.as_posix())
     # assuming this here is the fastest way of querying for many objects
-    client = gc_storage.Client.create_anonymous_client()
+    client = gc_storage.Client(
+        credentials=path.fs.credentials.credentials, project=path.fs.project
+    )
     objects = client.Bucket(bucket).list_blobs(prefix=key)
     sizes, md5s = [], []
     for object in objects:
