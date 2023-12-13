@@ -1,21 +1,20 @@
 # Changelog
 
-- ✅ Record number of objects, test hashes and folder properties [PR1354](https://github.com/laminlabs/lamindb/pull/1354) [@falexwolf](https://github.com/falexwolf)
-- 🐛 Only avoid hashing for in-memory zarr [PR1351](https://github.com/laminlabs/lamindb/pull/1351) [@Koncopd](https://github.com/Koncopd)
-- 🐛 Fix size and hash for local folders in Artifact [PR1350](https://github.com/laminlabs/lamindb/pull/1350) [@Koncopd](https://github.com/Koncopd)
-- 🏗️ Re-architect API around `Artifact` instead of `File` [PR1345](https://github.com/laminlabs/lamindb/pull/1345) [@falexwolf](https://github.com/falexwolf)
-- ✨ Enable artifacts to consume directories [PR1348](https://github.com/laminlabs/lamindb/pull/1348) [@falexwolf](https://github.com/falexwolf)
-- 🚚 Rename `File` to `Artifact` [PR1344](https://github.com/laminlabs/lamindb/pull/1344) [@falexwolf](https://github.com/falexwolf)
-
 ```{eval-rst}
 .. role:: small
 ```
+
+## 0.64 {small}`2023-12-13`
+
+💥 Re-architect API around `Artifact` instead of `File` to model directories and directory-like array stores [PR1345](https://github.com/laminlabs/lamindb/pull/1345) [@falexwolf](https://github.com/falexwolf).
+
+For file-based artifacts, this amounts to a mere rename from `File` to `Artifact`. You'll need to rename registry field containing the word `"file"` and replace it with `"artifact"`. Otherwise, your code will behave the same.
 
 ## 0.63
 
 ### 0.63.5 {small}`2023-12-11`
 
-- 🐛 Fix `lamin save` bug for scripts [PR1346](https://github.com/laminlabs/lamindb/pull/1346) [@sunnyosun](https://github.com/sunnyosun)
+- 🐛 Fix `lamin save` for scripts [PR1346](https://github.com/laminlabs/lamindb/pull/1346) [@sunnyosun](https://github.com/sunnyosun)
 
 ### 0.63.4 {small}`2023-12-08`
 
