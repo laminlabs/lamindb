@@ -2,9 +2,8 @@ import shutil
 from inspect import signature
 from pathlib import Path
 
-import pytest
-
 import lamindb as ln
+import pytest
 from lamindb import _registry as registry
 
 

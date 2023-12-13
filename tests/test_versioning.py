@@ -1,5 +1,4 @@
 import pytest
-
 from lamindb.dev.versioning import set_version
 
 

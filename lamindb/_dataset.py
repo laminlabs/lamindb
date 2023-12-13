@@ -1,5 +1,5 @@
 from collections import defaultdict
-from typing import Dict, Iterable, List, Literal, Optional, Tuple, Union
+from typing import TYPE_CHECKING, Dict, Iterable, List, Literal, Optional, Tuple, Union
 
 import anndata as ad
 import pandas as pd
@@ -11,7 +11,6 @@ from lnschema_core.types import AnnDataLike, DataLike, FieldAttr, VisibilityChoi
 from lamindb._utils import attach_func_to_class_method
 from lamindb.dev._data import _track_run_input
 from lamindb.dev._mapped_dataset import MappedDataset
-from lamindb.dev.storage._backed_access import AnnDataAccessor, BackedAccessor
 from lamindb.dev.versioning import get_ids_from_old_version, init_uid
 
 from . import _TESTING, Artifact, Run
@@ -24,6 +23,9 @@ from .dev._data import (
     save_feature_sets,
 )
 from .dev.hashing import hash_set
+
+if TYPE_CHECKING:
+    from lamindb.dev.storage._backed_access import AnnDataAccessor, BackedAccessor
 
 
 def __init__(
@@ -69,7 +71,7 @@ def __init__(
     )
     if not len(kwargs) == 0:
         raise ValueError(
-            f"Only data, name, run, description, reference, reference_type, visibility can be passed, you passed: {kwargs}"  # noqa
+            f"Only data, name, run, description, reference, reference_type, visibility can be passed, you passed: {kwargs}"
         )
 
     if is_new_version_of is None:
@@ -198,7 +200,7 @@ def from_df(
     is_new_version_of: Optional["Artifact"] = None,
     **kwargs,
 ) -> "Dataset":
-    """{}"""
+    """{}."""
     feature_set = FeatureSet.from_df(df, field=field, **kwargs)
     if feature_set is not None:
         feature_sets = {"columns": feature_set}
@@ -233,7 +235,7 @@ def from_anndata(
     is_new_version_of: Optional["Artifact"] = None,
     **kwargs,
 ) -> "Dataset":
-    """{}"""
+    """{}."""
     if isinstance(adata, Artifact):
         assert not adata._state.adding
         assert adata.accessor == "AnnData"
@@ -259,7 +261,7 @@ def from_anndata(
 def from_artifacts(artifacts: Iterable[Artifact]) -> Tuple[str, Dict[str, str]]:
     # assert all artifacts are already saved
     logger.debug("check not saved")
-    saved = not any([artifact._state.adding for artifact in artifacts])
+    saved = not any(artifact._state.adding for artifact in artifacts)
     if not saved:
         raise ValueError("Not all artifacts are yet saved, please save them")
     # query all feature sets of artifacts

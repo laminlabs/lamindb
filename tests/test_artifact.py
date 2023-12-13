@@ -3,20 +3,13 @@ from inspect import signature
 from pathlib import Path
 
 import anndata as ad
+import lamindb as ln
 import lamindb_setup
 import lnschema_bionty as lb
 import numpy as np
 import pandas as pd
 import pytest
 from django.db.models.deletion import ProtectedError
-from lamindb_setup.dev.upath import (
-    CloudPath,
-    LocalPathClasses,
-    UPath,
-    extract_suffix_from_path,
-)
-
-import lamindb as ln
 from lamindb import _artifact
 from lamindb._artifact import (
     check_path_is_child_of_root,
@@ -32,6 +25,12 @@ from lamindb.dev.storage.file import (
     read_fcs,
     read_tsv,
 )
+from lamindb_setup.dev.upath import (
+    CloudPath,
+    LocalPathClasses,
+    UPath,
+    extract_suffix_from_path,
+)
 
 # how do we properly abstract out the default storage variable?
 # currently, we're only mocking it through `default_storage` as
@@ -44,9 +43,9 @@ df = pd.DataFrame({"feat1": [1, 2], "feat2": [3, 4]})
 
 adata = ad.AnnData(
     X=np.array([[1, 2, 3], [4, 5, 6]]),
-    obs=dict(feat1=["A", "B"]),
+    obs={"feat1": ["A", "B"]},
     var=pd.DataFrame(index=["MYC", "TCF7", "GATA1"]),
-    obsm=dict(X_pca=np.array([[1, 2], [3, 4]])),
+    obsm={"X_pca": np.array([[1, 2], [3, 4]])},
 )
 
 
@@ -574,7 +573,7 @@ def test_auto_storage_key_from_artifact_uid(suffix):
     else:
         assert AUTO_KEY_PREFIX == ".lamindb/"
         storage_key = auto_storage_key_from_artifact_uid(test_id, suffix, False)
-        storage_key == f"{AUTO_KEY_PREFIX}{test_id}{suffix}"
+        assert storage_key == f"{AUTO_KEY_PREFIX}{test_id}{suffix}"
 
 
 def test_storage_root_upath_equivalence():
@@ -708,7 +707,7 @@ def test_file_zarr():
     assert (
         error.exconly()
         == "RuntimeError: zarr object can't be staged, please use load() or stream()"
-    )  # noqa
+    )
     artifact.save()
     artifact.delete(permanent=True, storage=False)
     UPath("test.zarr").unlink()

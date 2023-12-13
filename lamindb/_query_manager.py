@@ -59,9 +59,9 @@ class QueryManager(models.Manager):
         """
         self._track_run_input_manager()
         if field is None:
-            return [item for item in self.all()]
+            return list(self.all())
         else:
-            return [item for item in self.values_list(field, flat=True)]
+            return list(self.values_list(field, flat=True))
 
     def df(self, **kwargs):
         """Convert to DataFrame.
@@ -80,14 +80,14 @@ class QueryManager(models.Manager):
 
     @doc_args(Registry.search.__doc__)
     def search(self, string: str, **kwargs):
-        """{}"""
+        """{}."""
         from ._registry import _search
 
         return _search(cls=self.all(), string=string, **kwargs)
 
     @doc_args(Registry.lookup.__doc__)
     def lookup(self, field: Optional[StrField] = None, **kwargs) -> NamedTuple:
-        """{}"""
+        """{}."""
         from ._registry import _lookup
 
         return _lookup(cls=self.all(), field=field, **kwargs)
@@ -107,15 +107,13 @@ class QueryManager(models.Manager):
             return
 
 
-setattr(models.Manager, "list", QueryManager.list)
-setattr(models.Manager, "df", QueryManager.df)
-setattr(models.Manager, "search", QueryManager.search)
-setattr(models.Manager, "lookup", QueryManager.lookup)
-setattr(models.Manager, "__getitem__", QueryManager.__getitem__)
-setattr(
-    models.Manager, "_track_run_input_manager", QueryManager._track_run_input_manager
-)
+models.Manager.list = QueryManager.list
+models.Manager.df = QueryManager.df
+models.Manager.search = QueryManager.search
+models.Manager.lookup = QueryManager.lookup
+models.Manager.__getitem__ = QueryManager.__getitem__
+models.Manager._track_run_input_manager = QueryManager._track_run_input_manager
 # the two lines below would be easy if we could actually inherit; like this,
 # they're suboptimal
-setattr(models.Manager, "all_base_class", models.Manager.all)
-setattr(models.Manager, "all", QueryManager.all)
+models.Manager.all_base_class = models.Manager.all
+models.Manager.all = QueryManager.all

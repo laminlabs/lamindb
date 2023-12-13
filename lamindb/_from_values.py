@@ -53,7 +53,7 @@ def get_or_create_records(
                 n_nonval = colors.yellow(f"{len(unmapped_values)} non-validated")
                 logger.warning(
                     f"{colors.red('did not create')} {name} record{s} for "
-                    f"{n_nonval} {colors.italic(f'{field.field.name}{s}')}: {print_values}"  # noqa
+                    f"{n_nonval} {colors.italic(f'{field.field.name}{s}')}: {print_values}"
                 )
         if Registry.__module__.startswith("lnschema_bionty.") or Registry == ULabel:
             if isinstance(iterable, pd.Series):
@@ -74,8 +74,10 @@ def get_or_create_records(
 def get_existing_records(
     iterable_idx: pd.Index,
     field: StrField,
-    kwargs: Dict = {},
+    kwargs: Dict = None,
 ):
+    if kwargs is None:
+        kwargs = {}
     model = field.field.model
     condition: Dict = {} if len(kwargs) == 0 else kwargs.copy()
     # existing records matching is agnostic to the bionty source
@@ -194,7 +196,7 @@ def create_records_from_bionty(
         print_values = colors.purple(_print_values(names))
         msg_syn = (
             "created"
-            f" {colors.purple(f'{len(syn_mapper)} {model.__name__} record{s} from Bionty')}"  # noqa
+            f" {colors.purple(f'{len(syn_mapper)} {model.__name__} record{s} from Bionty')}"
             f" matching {colors.italic('synonyms')}: {print_values}"
         )
 
@@ -221,11 +223,9 @@ def create_records_from_bionty(
             if len(msg) > 0:
                 logger.success(msg)
             logger.success(
-                (
-                    "created"
-                    f" {colors.purple(f'{len(validated)} {model.__name__} record{s} from Bionty')}"  # noqa
-                    f" matching {colors.italic(f'{field.field.name}')}: {print_values}"  # noqa
-                )
+                "created"
+                f" {colors.purple(f'{len(validated)} {model.__name__} record{s} from Bionty')}"
+                f" matching {colors.italic(f'{field.field.name}')}: {print_values}"
             )
 
     # make sure that synonyms logging appears after the field logging

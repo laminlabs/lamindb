@@ -125,7 +125,7 @@ def __init__(orm: Registry, *args, **kwargs):
 def from_values(
     cls, values: ListLike, field: Optional[StrField] = None, **kwargs
 ) -> List["Registry"]:
-    """{}"""
+    """{}."""
     from_bionty = True if cls.__module__.startswith("lnschema_bionty.") else False
     field_str = get_default_str_field(cls, field=field)
     return get_or_create_records(
@@ -236,7 +236,7 @@ def search(
     case_sensitive: bool = False,
     synonyms_field: Optional[StrField] = "synonyms",
 ) -> Union["pd.DataFrame", "QuerySet"]:
-    """{}"""
+    """{}."""
     return _search(
         cls=cls,
         string=string,
@@ -253,7 +253,7 @@ def _lookup(
     field: Optional[StrField] = None,
     return_field: Optional[StrField] = None,
 ) -> NamedTuple:
-    """{}"""
+    """{}."""
     queryset = _queryset(cls)
     field = get_default_str_field(orm=queryset.model, field=field)
 
@@ -278,7 +278,7 @@ def lookup(
     field: Optional[StrField] = None,
     return_field: Optional[StrField] = None,
 ) -> NamedTuple:
-    """{}"""
+    """{}."""
     return _lookup(cls=cls, field=field, return_field=return_field)
 
 
@@ -323,7 +323,7 @@ def get_default_str_field(
         except AttributeError:
             raise TypeError(
                 "please pass a Registry string field, e.g., `CellType.name`!"
-            )
+            ) from None
 
     return field
 
@@ -349,7 +349,7 @@ def using(
     cls,
     instance: str,
 ) -> "QuerySet":
-    """{}"""
+    """{}."""
     owner, name = get_owner_name_from_identifier(instance)
     load_result = load_instance(owner=owner, name=name)
     if isinstance(load_result, str):
@@ -511,5 +511,5 @@ def __get_name_with_schema__(cls) -> str:
     return f"{schema_name}.{cls.__name__}"
 
 
-setattr(Registry, "__get_schema_name__", __get_schema_name__)
-setattr(Registry, "__get_name_with_schema__", __get_name_with_schema__)
+Registry.__get_schema_name__ = __get_schema_name__
+Registry.__get_name_with_schema__ = __get_name_with_schema__

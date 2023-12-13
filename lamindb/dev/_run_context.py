@@ -257,7 +257,7 @@ class run_context:
                         old_version_of,
                     ) = get_transform_kwargs_from_uid_prefix(
                         module.__lamindb_uid_prefix__,
-                        module.__version__,  # noqa type: ignore
+                        module.__version__,  # type: ignore
                     )
                     short_name = Path(module.__file__).name  # type: ignore
                     is_tracked = cls._create_or_load_transform(
@@ -293,7 +293,9 @@ class run_context:
             cls.transform = transform_exists
 
         if new_run is None:  # for notebooks, default to loading latest runs
-            new_run = False if cls.transform.type == TransformType.notebook.value else True  # type: ignore  # noqa
+            new_run = (
+                False if cls.transform.type == TransformType.notebook.value else True
+            )  # type: ignore
 
         run = None
         if not new_run:  # try loading latest run by same user
@@ -371,9 +373,9 @@ class run_context:
             try:
                 path_env = get_notebook_path(return_env=True)
             except Exception:
-                raise RuntimeError(msg_path_failed)
+                raise RuntimeError(msg_path_failed) from None
             if path_env is None:
-                raise RuntimeError(msg_path_failed)
+                raise RuntimeError(msg_path_failed) from None
             notebook_path, _env = path_env
         else:
             notebook_path, _env = notebook_path, editor
@@ -410,7 +412,7 @@ class run_context:
                     " notebook'))`\n\nPlease consider pasting error at:"
                     f" https://github.com/laminlabs/nbproject/issues/new\n\n{e}"
                 )
-                raise RuntimeError(nbproject_failed_msg)
+                raise RuntimeError(nbproject_failed_msg) from None
             try:
                 from nbproject.dev._metadata_display import DisplayMeta
                 from nbproject.dev._pypackage import infer_pypackages
@@ -418,7 +420,7 @@ class run_context:
                 dm = DisplayMeta(metadata)
                 logger.important(
                     "notebook imports:"
-                    f" {' '.join(dm.pypackage(infer_pypackages(nb, pin_versions=True)))}"  # noqa
+                    f" {' '.join(dm.pypackage(infer_pypackages(nb, pin_versions=True)))}"
                 )
             except Exception:
                 logger.debug("inferring imported packages failed")
@@ -455,11 +457,11 @@ class run_context:
                 raise NotebookNotSavedError(
                     "The notebook is not saved, please save the notebook and"
                     " rerun `ln.track()`"
-                )
+                ) from None
             if nbproject_title is None:
                 raise NoTitleError(
                     "Please add a title to your notebook in a markdown cell: # Title"
-                )
+                ) from None
         # colab parsing successful
         if colab_id is not None:
             uid = colab_id[:14]
@@ -521,7 +523,7 @@ class run_context:
             if updated:
                 raise SystemExit("You can now rerun the script.")
             else:
-                raise IOError("You did not update uid prefix or version")
+                raise OSError("You did not update uid prefix or version")
 
     @classmethod
     def _create_or_load_transform(

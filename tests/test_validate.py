@@ -1,7 +1,6 @@
+import lamindb as ln
 import lnschema_bionty as lb
 import pytest
-
-import lamindb as ln  # noqa
 
 
 # some validate tests are in test_queryset
@@ -88,7 +87,7 @@ def test_add_remove_synonym():
     tcell.add_synonym("")
     tcell.add_synonym([""])
     tcell.add_synonym([])
-    tcell.synonyms == "my cell type"
+    assert tcell.synonyms == "my cell type"
     tcell.remove_synonym("my cell type")
 
     # clean up
@@ -114,6 +113,6 @@ def test_set_abbr():
     assert (
         error.exconly()
         == "AttributeError: 'BiontySource' object has no attribute 'set_abbr'"
-    )  # noqa
+    )
 
     record.delete()

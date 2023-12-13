@@ -1,5 +1,5 @@
 import lamindb_setup as _lamindb_setup
-from lamindb_setup import *
+from lamindb_setup import *  # noqa: F403
 from lamindb_setup import settings
 
 from . import dev

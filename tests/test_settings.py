@@ -11,7 +11,7 @@ def test_settings_switch_storage():
     # root.fs contains the underlying fsspec filesystem
     # the following is set by lamindb to True for s3 by default
     assert ln.setup.settings.storage.root.fs.cache_regions
-    ln.settings.storage = "s3://lamindb-ci", dict(cache_regions=False)
+    ln.settings.storage = "s3://lamindb-ci", {"cache_regions": False}
     assert not ln.setup.settings.storage.root.fs.cache_regions
     assert ln.Storage.filter(root="s3://lamindb-ci").one_or_none() is not None
     # switch back to default storage

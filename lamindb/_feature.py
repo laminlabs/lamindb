@@ -36,7 +36,7 @@ def __init__(self, *args, **kwargs):
     # now we proceed with the user-facing constructor
     if len(args) != 0:
         raise ValueError("Only non-keyword args allowed")
-    type: Optional[Union[type, str]] = kwargs.pop("type") if "type" in kwargs else None
+    type: Optional[Union[type, str]] = kwargs.pop("type") if "type" in kwargs else None  # noqa: F823
     registries: Optional[List[Registry]] = (
         kwargs.pop("registries") if "registries" in kwargs else None
     )
@@ -87,7 +87,7 @@ def categoricals_from_df(df: "pd.DataFrame") -> Dict:
 @classmethod  # type:ignore
 @doc_args(Feature.from_df.__doc__)
 def from_df(cls, df: "pd.DataFrame") -> List["Feature"]:
-    """{}"""
+    """{}."""
     categoricals = categoricals_from_df(df)
 
     types = {}
@@ -146,7 +146,7 @@ def from_df(cls, df: "pd.DataFrame") -> List["Feature"]:
 
 @doc_args(Feature.save.__doc__)
 def save(self, *args, **kwargs) -> None:
-    """{}"""
+    """{}."""
     super(Feature, self).save(*args, **kwargs)
 
 

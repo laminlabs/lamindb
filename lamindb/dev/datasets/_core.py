@@ -8,7 +8,7 @@ import pandas as pd
 from lnschema_core import ids
 from upath import UPath
 
-from .._settings import settings
+from lamindb.dev._settings import settings
 
 
 def file_fcs() -> Path:
@@ -26,7 +26,7 @@ def file_fcs_alpert19(populate_registries: bool = False) -> Path:  # pragma: no 
         populate_registries: pre-populate metadata records to simulate existing registries  # noqa
     """
     filepath, _ = urlretrieve(
-        "https://lamindb-test.s3.amazonaws.com/Alpert19-070314-Mike-Study+15-2013-plate+1-15-004-1-13_cells_found.fcs",  # noqa
+        "https://lamindb-test.s3.amazonaws.com/Alpert19-070314-Mike-Study+15-2013-plate+1-15-004-1-13_cells_found.fcs",
         "Alpert19.fcs",
     )
     if populate_registries:
@@ -56,7 +56,7 @@ def file_jpg_paradisi05() -> Path:
     """Return jpg file example.
 
     Originally from: https://upload.wikimedia.org/wikipedia/commons/2/28/Laminopathic_nuclei.jpg
-    """  # noqa
+    """
     filepath, _ = urlretrieve(
         "https://lamindb-test.s3.amazonaws.com/Laminopathic_nuclei.jpg",
         "paradisi05_laminopathic_nuclei.jpg",
@@ -94,7 +94,7 @@ def file_tsv_rnaseq_nfcore_salmon_merged_gene_counts(
 
 def file_fastq(in_storage_root=False) -> Path:
     """Mini mock fastq artifact."""
-    basedir = Path(".") if not in_storage_root else settings.storage
+    basedir = Path() if not in_storage_root else settings.storage
     filepath = basedir / "input.fastq.gz"
     with open(filepath, "w") as f:
         f.write("Mock fastq artifact.")
@@ -103,7 +103,7 @@ def file_fastq(in_storage_root=False) -> Path:
 
 def file_bam(in_storage_root=False) -> Path:  # pragma: no cover
     """Mini mock bam artifact."""
-    basedir = Path(".") if not in_storage_root else settings.storage
+    basedir = Path() if not in_storage_root else settings.storage
     filepath = basedir / "output.bam"
     with open(filepath, "w") as f:
         f.write("Mock bam artifact.")
@@ -112,7 +112,7 @@ def file_bam(in_storage_root=False) -> Path:  # pragma: no cover
 
 def file_mini_csv(in_storage_root=False) -> Path:
     """Mini csv artifact."""
-    basedir = Path(".") if not in_storage_root else settings.storage
+    basedir = Path() if not in_storage_root else settings.storage
     filepath = basedir / "mini.csv"
     df = pd.DataFrame([1, 2, 3], columns=["test"])
     df.to_csv(filepath, index=False)
@@ -168,7 +168,7 @@ def anndata_mouse_sc_lymph_node(
         .str.replace("developmental stage", "developmental_stage")
         .str.replace("cell type", "cell_type")
         # the last one could be interesting, too
-        # .str.replace("Factor Value:Ontology Term[inferred cell_type - authors labels", "cell_type_authors")  # noqa
+        # .str.replace("Factor Value:Ontology Term[inferred cell_type - authors labels", "cell_type_authors")
     )
     # subset columns to only the ones with names
     columns = [
@@ -396,7 +396,7 @@ def mudata_papalexi21_subset():  # pragma: no cover
     import mudata as md
 
     filepath, _ = urlretrieve(
-        "https://lamindb-test.s3.amazonaws.com/papalexi21_subset_200x300_lamindb_demo_2023-07-25.h5mu",  # noqa
+        "https://lamindb-test.s3.amazonaws.com/papalexi21_subset_200x300_lamindb_demo_2023-07-25.h5mu",
         "papalexi21_subset.h5mu",
     )
 

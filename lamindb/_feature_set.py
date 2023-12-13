@@ -1,7 +1,6 @@
-from typing import Dict, Iterable, List, Optional, Type, Union
+from typing import TYPE_CHECKING, Dict, Iterable, List, Optional, Type, Union
 
 import numpy as np
-import pandas as pd
 from lamin_utils import logger
 from lamindb_setup.dev._docs import doc_args
 from lnschema_core import Feature, FeatureSet, Registry, ids
@@ -12,8 +11,12 @@ from lamindb.dev.hashing import hash_set
 
 from . import _TESTING
 from ._feature import convert_numpy_dtype_to_lamin_feature_type
-from ._query_set import QuerySet
 from ._registry import init_self_from_db
+
+if TYPE_CHECKING:
+    import pandas as pd
+
+    from ._query_set import QuerySet
 
 NUMBER_TYPE = "number"
 
@@ -75,14 +78,16 @@ def validate_features(features: List[Registry]) -> Registry:
         if len(features) == 0:
             raise ValueError("Provide list of features with at least one element")
     except TypeError:
-        raise ValueError("Please pass a ListLike of features, not a single feature")
+        raise ValueError(
+            "Please pass a ListLike of features, not a single feature"
+        ) from None
     if not hasattr(features, "__getitem__"):
         raise TypeError("features has to be list-like")
     if not isinstance(features[0], Registry):
         raise TypeError(
             "features has to store feature records! use .from_values() otherwise"
         )
-    feature_types = set([feature.__class__ for feature in features])
+    feature_types = {feature.__class__ for feature in features}
     if len(feature_types) > 1:
         raise TypeError("feature_set can only contain a single type")
     for feature in features:
@@ -130,7 +135,7 @@ def __init__(self, *args, **kwargs):
 
 @doc_args(FeatureSet.save.__doc__)
 def save(self, *args, **kwargs) -> None:
-    """{}"""
+    """{}."""
     super(FeatureSet, self).save(*args, **kwargs)
     if hasattr(self, "_features"):
         related_name, records = self._features
@@ -157,7 +162,7 @@ def from_values(
     name: Optional[str] = None,
     **kwargs,
 ) -> Optional["FeatureSet"]:
-    """{}"""
+    """{}."""
     if not isinstance(field, FieldAttr):
         raise TypeError(
             "Argument `field` must be a Registry field, e.g., `Feature.name`"
@@ -191,7 +196,7 @@ def from_df(
     name: Optional[str] = None,
     **kwargs,
 ) -> Optional["FeatureSet"]:
-    """{}"""
+    """{}."""
     registry = field.field.model
     validated = registry.validate(df.columns, field=field, **kwargs)
     if validated.sum() == 0:
@@ -219,7 +224,7 @@ def from_df(
 @property  # type: ignore
 @doc_args(FeatureSet.members.__doc__)
 def members(self) -> "QuerySet":
-    """{}"""
+    """{}."""
     if self._state.adding:
         # this should return a queryset and not a list...
         # need to fix this
@@ -255,5 +260,5 @@ if _TESTING:
 for name in METHOD_NAMES:
     attach_func_to_class_method(name, FeatureSet, globals())
 
-setattr(FeatureSet, "members", members)
-setattr(FeatureSet, "_get_related_name", _get_related_name)
+FeatureSet.members = members
+FeatureSet._get_related_name = _get_related_name

@@ -276,16 +276,16 @@ def _record_label(record: Registry, field: Optional[str] = None):
     elif isinstance(record, Run):
         name = f'{record.transform.name.replace("&", "&amp;")}'
         return (
-            rf'<{TRANSFORM_EMOJIS.get(str(record.transform.type), "💫")} {name}<BR/><FONT COLOR="GREY" POINT-SIZE="10"'  # noqa
-            rf' FACE="Monospace">uid={record.transform.uid}<BR/>type={record.transform.type},'  # noqa
-            rf" user={record.created_by.name}<BR/>run_at={format_field_value(record.run_at)}</FONT>>"  # noqa
+            rf'<{TRANSFORM_EMOJIS.get(str(record.transform.type), "💫")} {name}<BR/><FONT COLOR="GREY" POINT-SIZE="10"'
+            rf' FACE="Monospace">uid={record.transform.uid}<BR/>type={record.transform.type},'
+            rf" user={record.created_by.name}<BR/>run_at={format_field_value(record.run_at)}</FONT>>"
         )
     elif isinstance(record, Transform):
         name = f'{record.name.replace("&", "&amp;")}'
         return (
-            rf'<{TRANSFORM_EMOJIS.get(str(record.type), "💫")} {name}<BR/><FONT COLOR="GREY" POINT-SIZE="10"'  # noqa
+            rf'<{TRANSFORM_EMOJIS.get(str(record.type), "💫")} {name}<BR/><FONT COLOR="GREY" POINT-SIZE="10"'
             rf' FACE="Monospace">uid={record.uid}<BR/>type={record.type},'
-            rf" user={record.created_by.name}<BR/>updated_at={format_field_value(record.updated_at)}</FONT>>"  # noqa
+            rf" user={record.created_by.name}<BR/>updated_at={format_field_value(record.updated_at)}</FONT>>"
         )
     else:
         name = record.__getattribute__(field)

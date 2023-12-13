@@ -399,7 +399,7 @@ class _AnnDataAttrsMixin:
         indices = getattr(self, "indices", None)
         if indices is not None:
             indices = (indices[0], slice(None))
-            obj = registry.safer_read_partial(self.storage["obs"], indices=indices)  # type: ignore # noqa
+            obj = registry.safer_read_partial(self.storage["obs"], indices=indices)  # type: ignore
             return _records_to_df(obj)
         else:
             return registry.read_dataframe(self.storage["obs"])  # type: ignore
@@ -411,7 +411,7 @@ class _AnnDataAttrsMixin:
         indices = getattr(self, "indices", None)
         if indices is not None:
             indices = (indices[1], slice(None))
-            obj = registry.safer_read_partial(self.storage["var"], indices=indices)  # type: ignore # noqa
+            obj = registry.safer_read_partial(self.storage["var"], indices=indices)  # type: ignore
             return _records_to_df(obj)
         else:
             return registry.read_dataframe(self.storage["var"])  # type: ignore
@@ -588,9 +588,9 @@ class AnnDataRawAccessor(AnnDataAccessorSubset):
             else:
                 # for some reason list(var_raw.keys()) is very slow for zarr
                 # maybe also directly get keys from the underlying mapper
-                attrs_keys["var"] = [key for key in var_raw]
+                attrs_keys["var"] = list(var_raw)
             if "varm" in storage_raw:
-                varm_keys_raw = [key for key in storage_raw["varm"]]
+                varm_keys_raw = list(storage_raw["varm"])
                 if len(varm_keys_raw) > 0:
                     attrs_keys["varm"] = varm_keys_raw
 
@@ -684,7 +684,7 @@ class BackedAccessor:
 
 
 def backed_access(
-    artifact_or_filepath: Union[Artifact, Path]
+    artifact_or_filepath: Union[Artifact, Path],
 ) -> Union[AnnDataAccessor, BackedAccessor]:
     if isinstance(artifact_or_filepath, Artifact):
         filepath = filepath_from_artifact(artifact_or_filepath)

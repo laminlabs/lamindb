@@ -1,5 +1,6 @@
 import os
 from collections import defaultdict
+from pathlib import Path
 from typing import Iterable
 
 from lamindb_setup import settings as setup_settings
@@ -13,7 +14,7 @@ def view_tree(
     length_limit: int = 1000,
     max_files_per_dir_per_type: int = 7,
 ) -> None:
-    """{}"""
+    """{}."""
     if cls.__class__.__name__ == "QuerySet":
         print("queryset")
         qs = cls
@@ -68,14 +69,16 @@ def _view_tree(
             node = node[part]
             if node == {}:
                 n_files += 1
-                suffix = os.path.splitext(part)[1]
+                suffix = Path(part).suffix
                 if suffix:
                     suffixes.add(suffix)
             else:
                 n_directories += 1
 
     # Function to print the tree
-    def print_tree(node, prefix="", depth=0, count=[0], n_files_per_dir_per_type=None):
+    def print_tree(node, prefix="", depth=0, count=None, n_files_per_dir_per_type=None):
+        if count is None:
+            count = [0]
         if n_files_per_dir_per_type is None:
             n_files_per_dir_per_type = defaultdict(int)
 
@@ -86,7 +89,7 @@ def _view_tree(
                 return
             if only_dirs and child == {}:
                 continue
-            suffix = os.path.splitext(name)[1]
+            suffix = Path(name).suffix
             n_files_per_dir_per_type[suffix] += 1
             if (
                 depth > 0

@@ -17,14 +17,14 @@ from lnschema_core.models import (
 )
 from lnschema_core.types import StrField
 
-from lamindb.dev._settings import settings
-
-from .._feature_set import (
+from lamindb._feature_set import (
     dict_related_model_to_related_name,
     dict_schema_name_to_model_name,
 )
-from .._parents import view_flow
-from .._query_set import QuerySet
+from lamindb._parents import view_flow
+from lamindb._query_set import QuerySet
+from lamindb.dev._settings import settings
+
 from ._feature_manager import (
     FeatureManager,
     get_feature_set_links,
@@ -91,7 +91,7 @@ def save_feature_set_links(self: Union[Artifact, Dataset]) -> None:
 
 @doc_args(Data.describe.__doc__)
 def describe(self: Data):
-    """{}"""
+    """{}."""
     model_name = self.__class__.__name__
     msg = ""
 
@@ -106,7 +106,7 @@ def describe(self: Data):
 
     # Display Provenance
     # display line by line the foreign key fields
-    from .._parents import _transform_emoji
+    from lamindb._parents import _transform_emoji
 
     emojis = {
         "storage": "🗃️",
@@ -117,7 +117,7 @@ def describe(self: Data):
         "file": "📄",
     }
     if len(foreign_key_fields) > 0:  # always True for Artifact and Dataset
-        record_msg = f"{colors.green(model_name)}{__repr__(self, include_foreign_keys=False).lstrip(model_name)}"  # noqa
+        record_msg = f"{colors.green(model_name)}{__repr__(self, include_foreign_keys=False).lstrip(model_name)}"
         msg += f"{record_msg}\n\n"
 
         msg += f"{colors.green('Provenance')}:\n  "
@@ -134,7 +134,7 @@ def describe(self: Data):
     if self.id is not None and self.input_of.exists():
         values = [format_field_value(i.run_at) for i in self.input_of.all()]
         msg += f"⬇️ input_of ({colors.italic('core.Run')}): {values}\n    "
-    msg = msg.rstrip("    ")
+    msg = msg.removesuffix("    ")
     msg += print_features(self)
     msg += print_labels(self)
 
@@ -146,9 +146,7 @@ def validate_feature(feature: Feature, records: List[Registry]) -> None:
     if not isinstance(feature, Feature):
         raise TypeError("feature has to be of type Feature")
     if feature._state.adding:
-        registries = set(
-            [record.__class__.__get_name_with_schema__() for record in records]
-        )
+        registries = {record.__class__.__get_name_with_schema__() for record in records}
         registries_str = "|".join(registries)
         msg = (
             f"ln.Feature(name='{feature.name}', type='category',"
@@ -163,7 +161,7 @@ def get_labels(
     mute: bool = False,
     flat_names: bool = False,
 ) -> Union[QuerySet, Dict[str, QuerySet], List]:
-    """{}"""
+    """{}."""
     if not isinstance(feature, Feature):
         raise TypeError("feature has to be of type Feature")
     if feature.registries is None:
@@ -190,7 +188,7 @@ def get_labels(
             ).all()
     if flat_names:
         # returns a flat list of names
-        from .._registry import get_default_str_field
+        from lamindb._registry import get_default_str_field
 
         values = []
         for v in qs_by_registry.values():
@@ -209,7 +207,7 @@ def add_labels(
     *,
     field: Optional[StrField] = None,
 ) -> None:
-    """{}"""
+    """{}."""
     if self._state.adding:
         raise ValueError("Please save the file/dataset before adding a label!")
 
@@ -290,7 +288,7 @@ def add_labels(
             for feature_set in feature_sets
             if "core.Feature" == feature_set.registry
         }
-        for registry_name, records in records_by_registry.items():
+        for registry_name, _ in records_by_registry.items():
             msg = ""
             if feature.registries is None or registry_name not in feature.registries:
                 if len(msg) > 0:
@@ -423,7 +421,7 @@ def _track_run_input(
 @property  # type: ignore
 @doc_args(Data.features.__doc__)
 def features(self) -> "FeatureManager":
-    """{}"""
+    """{}."""
     from lamindb.dev._feature_manager import FeatureManager
 
     return FeatureManager(self)
@@ -432,13 +430,13 @@ def features(self) -> "FeatureManager":
 @property  # type: ignore
 @doc_args(Data.labels.__doc__)
 def labels(self) -> "LabelManager":
-    """{}"""
+    """{}."""
     from lamindb.dev._label_manager import LabelManager
 
     return LabelManager(self)
 
 
-setattr(Data, "features", features)
-setattr(Data, "labels", labels)
-setattr(Data, "describe", describe)
-setattr(Data, "view_flow", view_flow)
+Data.features = features
+Data.labels = labels
+Data.describe = describe
+Data.view_flow = view_flow

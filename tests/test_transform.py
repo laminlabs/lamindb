@@ -1,7 +1,6 @@
+import lamindb as ln
 import pytest
 from django.db.models.deletion import ProtectedError
-
-import lamindb as ln
 
 
 def test_is_new_version_of_versioned_transform():
@@ -17,7 +16,7 @@ def test_is_new_version_of_versioned_transform():
     #     transform = ln.Transform(name="My transform", version="0")
     # assert (
     #     error.exconly()
-    #     == "ValueError: Please choose a version != '0', as it could be interpreted as `None`"  # noqa
+    #     == "ValueError: Please choose a version != '0', as it could be interpreted as `None`"
     # )
 
     # create a versioned transform
@@ -60,7 +59,7 @@ def test_is_new_version_of_versioned_transform():
         error.exconly()
         == "ValueError: Only name, short_name, version, type, is_new_version_of can be"
         " passed, but you passed: {'x': 1}"
-    )  # noqa
+    )
 
     # test that reference transform cannot be deleted
     with pytest.raises(ProtectedError):

@@ -12,7 +12,7 @@ def filter(Registry: Type[Registry], **expressions) -> QuerySet:
         # visibility is set to 0 unless expressions contains id or uid equality
         if not ("id" in expressions or "uid" in expressions):
             visibility = "visibility"
-            if not any([e.startswith(visibility) for e in expressions]):
+            if not any(e.startswith(visibility) for e in expressions):
                 expressions[
                     visibility
                 ] = VisibilityChoice.default.value  # default visibility

@@ -1,10 +1,9 @@
 from inspect import signature
 
+import lamindb as ln
 import lnschema_bionty as lb
 import pandas as pd
 import pytest
-
-import lamindb as ln
 from lamindb import _feature_set
 from lamindb._feature_set import get_related_name, validate_features
 

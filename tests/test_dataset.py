@@ -1,30 +1,29 @@
 from inspect import signature
 
 import anndata as ad
+import lamindb as ln
 import lnschema_bionty as lb
 import numpy as np
 import pandas as pd
 import pytest
 from django.db.models.deletion import ProtectedError
-from scipy.sparse import csr_matrix
-
-import lamindb as ln
 from lamindb import _dataset
+from scipy.sparse import csr_matrix
 
 df = pd.DataFrame({"feat1": [1, 2], "feat2": [3, 4]})
 
 adata = ad.AnnData(
     X=np.array([[1, 2, 3], [4, 5, 6]]),
-    obs=dict(feat1=["A", "B"]),
+    obs={"feat1": ["A", "B"]},
     var=pd.DataFrame(index=["MYC", "TCF7", "GATA1"]),
-    obsm=dict(X_pca=np.array([[1, 2], [3, 4]])),
+    obsm={"X_pca": np.array([[1, 2], [3, 4]])},
 )
 
 adata2 = ad.AnnData(
     X=np.array([[1, 2, 5], [4, 5, 8]]),
-    obs=dict(feat1=["A", "B"]),
+    obs={"feat1": ["A", "B"]},
     var=pd.DataFrame(index=["MYC", "TCF7", "GATA1"]),
-    obsm=dict(X_pca=np.array([[1, 2], [3, 4]])),
+    obsm={"X_pca": np.array([[1, 2], [3, 4]])},
 )
 
 
@@ -185,7 +184,7 @@ def test_edge_cases():
     with pytest.raises(ValueError) as error:
         ln.Dataset(df, invalid_param=1)
     assert str(error.exconly()).startswith(
-        "ValueError: Only data, name, run, description, reference, reference_type, visibility can be passed, you passed: "  # noqa
+        "ValueError: Only data, name, run, description, reference, reference_type, visibility can be passed, you passed: "
     )
     with pytest.raises(ValueError) as error:
         ln.Dataset(1, name="Invalid")

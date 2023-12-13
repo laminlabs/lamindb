@@ -4,15 +4,15 @@ import numpy as np
 from lamin_utils import colors
 from lnschema_core.models import Artifact, Data, Dataset, Feature
 
-from .._feature_set import FeatureSet
-from .._query_set import QuerySet
-from .._registry import (
+from lamindb._feature_set import FeatureSet
+from lamindb._query_set import QuerySet
+from lamindb._registry import (
     REGISTRY_UNIQUE_FIELD,
     get_default_str_field,
     transfer_fk_to_default_db_bulk,
     transfer_to_default_db,
 )
-from .._save import save
+from lamindb._save import save
 
 
 def get_host_id_field(host: Union[Artifact, Dataset]) -> str:
@@ -76,7 +76,7 @@ def get_feature_set_links(host: Union[Artifact, Dataset]) -> QuerySet:
 
 
 def print_features(self: Data) -> str:
-    from .._from_values import _print_values
+    from lamindb._from_values import _print_values
 
     msg = ""
     features_lookup = Feature.objects.using(self._state.db).lookup().dict()
@@ -102,7 +102,7 @@ def print_features(self: Data) -> str:
                         indent = "    "
                     else:
                         labels = {row["registries"]: labels}
-                    for registry, labels in labels.items():
+                    for registry, labels in labels.items():  # noqa: B020
                         count_str = f"{len(labels)}, {colors.italic(f'{registry}')}"
                         field = get_default_str_field(labels)
                         print_values = _print_values(labels.list(field), n=10)

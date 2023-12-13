@@ -10,9 +10,9 @@ def root_as_path(self) -> UPath:
 @property  # type: ignore
 @doc_args(Storage.path.__doc__)
 def path(self) -> UPath:
-    """{}"""
+    """{}."""
     return create_path(self.root)
 
 
-setattr(Storage, "root_as_path", root_as_path)
-setattr(Storage, "path", path)
+Storage.root_as_path = root_as_path
+Storage.path = path

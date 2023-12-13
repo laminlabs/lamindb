@@ -1,7 +1,6 @@
+import lamindb as ln
 import lnschema_bionty as lb
 import pytest
-
-import lamindb as ln
 
 lb.settings.auto_save_parents = False
 

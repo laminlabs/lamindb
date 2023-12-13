@@ -1,5 +1,5 @@
 from pathlib import Path, PurePath, PurePosixPath
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple, Union
 
 import anndata as ad
 import fsspec
@@ -36,7 +36,6 @@ from lamindb.dev.storage import (
     size_adata,
     write_to_file,
 )
-from lamindb.dev.storage._backed_access import AnnDataAccessor, BackedAccessor
 from lamindb.dev.storage.file import (
     auto_storage_key_from_artifact,
     auto_storage_key_from_artifact_uid,
@@ -53,6 +52,9 @@ from .dev._data import (
     save_feature_sets,
 )
 from .dev.storage.file import AUTO_KEY_PREFIX
+
+if TYPE_CHECKING:
+    from lamindb.dev.storage._backed_access import AnnDataAccessor, BackedAccessor
 
 
 def process_pathlike(
@@ -405,34 +407,34 @@ def get_artifact_kwargs_from_data(
     if check_path_in_storage:
         key_is_virtual = False
 
-    kwargs = dict(
-        suffix=suffix,
-        hash=hash,
-        hash_type=hash_type,
-        key=key,
-        size=size,
-        storage_id=storage.id,
+    kwargs = {
+        "suffix": suffix,
+        "hash": hash,
+        "hash_type": hash_type,
+        "key": key,
+        "size": size,
+        "storage_id": storage.id,
         # passing both the id and the object
         # to make them both available immediately
         # after object creation
-        n_objects=n_objects,
-        n_observations=None,  # to implement
-        run_id=run.id if run is not None else None,
-        run=run,
-        key_is_virtual=key_is_virtual,
-    )
+        "n_objects": n_objects,
+        "n_observations": None,  # to implement
+        "run_id": run.id if run is not None else None,
+        "run": run,
+        "key_is_virtual": key_is_virtual,
+    }
     if not isinstance(path, LocalPathClasses):
         local_filepath = None
         cloud_filepath = path
     else:
         local_filepath = path
         cloud_filepath = None
-    privates = dict(
-        local_filepath=local_filepath,
-        cloud_filepath=cloud_filepath,
-        memory_rep=memory_rep,
-        check_path_in_storage=check_path_in_storage,
-    )
+    privates = {
+        "local_filepath": local_filepath,
+        "cloud_filepath": cloud_filepath,
+        "memory_rep": memory_rep,
+        "check_path_in_storage": check_path_in_storage,
+    }
     return kwargs, privates
 
 
@@ -623,7 +625,7 @@ def from_df(
     is_new_version_of: Optional["Artifact"] = None,
     **kwargs,
 ) -> "Artifact":
-    """{}"""
+    """{}."""
     artifact = Artifact(
         data=df,
         key=key,
@@ -698,7 +700,7 @@ def from_anndata(
     is_new_version_of: Optional["Artifact"] = None,
     **kwargs,
 ) -> "Artifact":
-    """{}"""
+    """{}."""
     artifact = Artifact(
         data=adata,
         key=key,
@@ -721,7 +723,7 @@ def from_dir(
     *,
     run: Optional[Run] = None,
 ) -> List["Artifact"]:
-    """{}"""
+    """{}."""
     logger.warning(
         "this creates one artifact per file in the directory - you might simply call"
         " ln.Artifact(dir) to get one artifact for the entire directory"
@@ -788,7 +790,7 @@ def from_dir(
             non_unique_artifacts = {
                 hash: artifact
                 for hash, artifact in artifacts_dict.items()
-                if artifact.hash in seen_hashes or seen_hashes.add(artifact.hash)  # type: ignore  # noqa
+                if artifact.hash in seen_hashes or seen_hashes.add(artifact.hash)  # type: ignore
             }
             display_non_unique = "\n    ".join(
                 f"{artifact}" for artifact in non_unique_artifacts
@@ -995,7 +997,7 @@ def _save_skip_storage(file, *args, **kwargs) -> None:
 @property  # type: ignore
 @doc_args(Artifact.path.__doc__)
 def path(self) -> Union[Path, UPath]:
-    """{}"""
+    """{}."""
     return filepath_from_artifact(self)
 
 
@@ -1008,7 +1010,7 @@ def view_tree(
     length_limit: int = 1000,
     max_files_per_dir_per_type: int = 7,
 ) -> None:
-    """{}"""
+    """{}."""
     from lamindb.dev._view_tree import view_tree as _view_tree
 
     _view_tree(
@@ -1056,6 +1058,6 @@ for name in METHOD_NAMES:
 # privates currently dealt with separately
 Artifact._delete_skip_storage = _delete_skip_storage
 Artifact._save_skip_storage = _save_skip_storage
-setattr(Artifact, "path", path)
+Artifact.path = path
 # this seems a Django-generated function
 delattr(Artifact, "get_visibility_display")

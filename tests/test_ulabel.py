@@ -1,6 +1,5 @@
-import pytest
-
 import lamindb as ln
+import pytest
 
 
 def test_ulabel():
@@ -8,7 +7,7 @@ def test_ulabel():
         ln.ULabel(x=1)
     assert (
         error.exconly()
-        == "ValueError: Only name, description, reference, reference_type are valid keyword arguments"  # noqa
+        == "ValueError: Only name, description, reference, reference_type are valid keyword arguments"
     )
 
     with pytest.raises(ValueError) as error:
