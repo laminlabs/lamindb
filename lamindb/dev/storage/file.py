@@ -36,6 +36,7 @@ def auto_storage_key_from_artifact(artifact: Artifact):
 
 
 def auto_storage_key_from_artifact_uid(uid: str, suffix: str, is_dir: bool) -> str:
+    assert isinstance(suffix, str)
     if is_dir:
         uid_storage = uid[:16]  # 16 chars, leave 4 chars for versioning
     else:
