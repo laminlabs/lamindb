@@ -52,7 +52,7 @@ class QuerySet(models.QuerySet, CanValidate, IsTree):
         Examples:
 
             >>> ln.save(ln.ULabel.from_values(["ULabel1", "ULabel2", "ULabel3"], field="name")) # noqa
-            >>> ln.ULabel.filter().df()
+            >>> ln.ULabel.df()
             >>> label = ln.ULabel.filter(name="ULabel1").one()
             >>> label = ln.ULabel.filter(name="benchmark").one()
             >>> label.parents.add(label)
