@@ -72,11 +72,11 @@ def test_signatures():
     scope="module",
     params=[
         # tuple of isin_existing_storage, path, suffix, hash of test_dir
-        (True, "./default_storage/", ".csv", "mLmD1dIMcv3mmApIi4IOZg"),
+        (True, "./default_storage/", ".csv", "iGtHiFEBV3r1_TFovdQCgw"),
         (True, "./default_storage/", "", "iGtHiFEBV3r1_TFovdQCgw"),
-        (True, "./registered_storage/", ".csv", "mLmD1dIMcv3mmApIi4IOZg"),
+        (True, "./registered_storage/", ".csv", "iGtHiFEBV3r1_TFovdQCgw"),
         (True, "./registered_storage/", "", "iGtHiFEBV3r1_TFovdQCgw"),
-        (False, "./nonregistered_storage/", ".csv", "mLmD1dIMcv3mmApIi4IOZg"),
+        (False, "./nonregistered_storage/", ".csv", "iGtHiFEBV3r1_TFovdQCgw"),
         (False, "./nonregistered_storage/", "", "iGtHiFEBV3r1_TFovdQCgw"),
     ],
 )
