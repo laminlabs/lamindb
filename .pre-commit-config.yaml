@@ -35,6 +35,10 @@ repos:
       - id: detect-private-key
       - id: check-ast
       - id: end-of-file-fixer
+        exclude: |
+          (?x)(
+              .github/workflows/latest-changes.jinja2
+            )
       - id: mixed-line-ending
         args: [--fix=lf]
       - id: trailing-whitespace
