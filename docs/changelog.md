@@ -1,5 +1,6 @@
 # Changelog
 
+- ✅ Record number of objects, test hashes and folder properties [PR1354](https://github.com/laminlabs/lamindb/pull/1354) [@falexwolf](https://github.com/falexwolf)
 - 🐛 Only avoid hashing for in-memory zarr [PR1351](https://github.com/laminlabs/lamindb/pull/1351) [@Koncopd](https://github.com/Koncopd)
 - 🐛 Fix size and hash for local folders in Artifact [PR1350](https://github.com/laminlabs/lamindb/pull/1350) [@Koncopd](https://github.com/Koncopd)
 - 🏗️ Re-architect API around `Artifact` instead of `File` [PR1345](https://github.com/laminlabs/lamindb/pull/1345) [@falexwolf](https://github.com/falexwolf)
