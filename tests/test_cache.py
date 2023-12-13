@@ -1,8 +1,7 @@
 from pathlib import Path
 
-import pytest
-
 import lamindb as ln
+import pytest
 from lamindb.dev.storage.file import read_adata_h5ad
 
 

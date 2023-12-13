@@ -1,4 +1,4 @@
-import os  # noqa
+import os
 import shutil
 from pathlib import Path
 

@@ -134,7 +134,7 @@ def read_fcs(*args, **kwargs):
     try:
         import readfcs
     except ImportError:  # pragma: no cover
-        raise ImportError("Please install readfcs: pip install readfcs")
+        raise ImportError("Please install readfcs: pip install readfcs") from None
     return readfcs.read(*args, **kwargs)
 
 

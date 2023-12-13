@@ -4,16 +4,16 @@ import numpy as np
 from lamin_utils import colors, logger
 from lnschema_core.models import Artifact, Data, Dataset, Feature, Registry
 
-from .._feature_set import dict_related_model_to_related_name
-from .._from_values import _print_values
-from .._query_set import QuerySet
-from .._registry import (
+from lamindb._feature_set import dict_related_model_to_related_name
+from lamindb._from_values import _print_values
+from lamindb._query_set import QuerySet
+from lamindb._registry import (
     REGISTRY_UNIQUE_FIELD,
     get_default_str_field,
     transfer_fk_to_default_db_bulk,
     transfer_to_default_db,
 )
-from .._save import save
+from lamindb._save import save
 
 
 def get_labels_as_dict(self: Data):
@@ -42,7 +42,7 @@ def print_labels(self: Data):
             n = labels.count()
             field = get_default_str_field(labels)
             print_values = _print_values(labels.list(field), n=10)
-            labels_msg += f"  🏷️ {related_name} ({n}, {colors.italic(related_model)}): {print_values}\n"  # noqa
+            labels_msg += f"  🏷️ {related_name} ({n}, {colors.italic(related_model)}): {print_values}\n"
     if len(labels_msg) > 0:
         return f"{colors.green('Labels')}:\n{labels_msg}"
     else:

@@ -27,7 +27,7 @@ def inspect(
     mute: bool = False,
     **kwargs,
 ) -> InspectResult:
-    """{}"""
+    """{}."""
     return _inspect(
         cls=cls,
         values=values,
@@ -47,7 +47,7 @@ def validate(
     mute: bool = False,
     **kwargs,
 ) -> np.ndarray:
-    """{}"""
+    """{}."""
     return _validate(cls=cls, values=values, field=field, mute=mute, **kwargs)
 
 
@@ -59,7 +59,7 @@ def _inspect(
     mute: bool = False,
     **kwargs,
 ) -> Union["pd.DataFrame", Dict[str, List[str]]]:
-    """{}"""
+    """{}."""
     from lamin_utils._inspect import inspect
 
     if isinstance(values, str):
@@ -142,7 +142,7 @@ def _validate(
     mute: bool = False,
     **kwargs,
 ) -> np.ndarray:
-    """{}"""
+    """{}."""
     from lamin_utils._inspect import validate
 
     return_str = True if isinstance(values, str) else False
@@ -191,7 +191,7 @@ def standardize(
     synonyms_field: str = "synonyms",
     **kwargs,
 ) -> Union[List[str], Dict[str, str]]:
-    """{}"""
+    """{}."""
     return _standardize(
         cls=cls,
         values=values,
@@ -253,7 +253,7 @@ def _standardize(
     synonyms_field: str = "synonyms",
     **kwargs,
 ) -> Union[List[str], Dict[str, str]]:
-    """{}"""
+    """{}."""
     from lamin_utils._standardize import standardize as map_synonyms
 
     return_str = True if isinstance(values, str) else False
@@ -283,13 +283,13 @@ def _standardize(
     except FieldDoesNotExist:
         df = pd.DataFrame()
 
-    _kwargs = dict(
-        field=field,
-        return_field=return_field,
-        case_sensitive=case_sensitive,
-        keep=keep,
-        synonyms_field=synonyms_field,
-    )
+    _kwargs = {
+        "field": field,
+        "return_field": return_field,
+        "case_sensitive": case_sensitive,
+        "keep": keep,
+        "synonyms_field": synonyms_field,
+    }
     # standardized names from the DB
     std_names_db = map_synonyms(
         df=df,
@@ -383,7 +383,7 @@ def _add_or_remove_synonyms(
     if isinstance(synonym, str):
         if len(synonym) == 0:
             return
-        syn_new_set = set([synonym])
+        syn_new_set = {synonym}
     else:
         if synonym == [""]:
             return
@@ -392,7 +392,7 @@ def _add_or_remove_synonyms(
     if len(syn_new_set) == 0:
         return
     # because we use | as the separator
-    if any(["|" in i for i in syn_new_set]):
+    if any("|" in i for i in syn_new_set):
         raise AssertionError("a synonym can't contain '|'!")
 
     # existing synonyms
@@ -429,7 +429,7 @@ def _check_synonyms_field_exist(record: Registry):
     except AttributeError:
         raise NotImplementedError(
             f"No synonyms field found in table {record.__class__.__name__}!"
-        )
+        ) from None
 
 
 def _filter_query_based_on_organism(

@@ -1,9 +1,11 @@
-from typing import Optional
+from typing import TYPE_CHECKING, Optional
 
 from lnschema_core.models import TRANSFORM_TYPE_DEFAULT, Transform
-from lnschema_core.types import TransformType
 
 from .dev.versioning import get_ids_from_old_version, init_uid
+
+if TYPE_CHECKING:
+    from lnschema_core.types import TransformType
 
 
 def __init__(transform: Transform, *args, **kwargs):

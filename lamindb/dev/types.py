@@ -9,7 +9,7 @@
    ListLike
    TransformType
 """
-from lnschema_core.types import (  # noqa
+from lnschema_core.types import (
     DataLike,
     ListLike,
     PathLike,

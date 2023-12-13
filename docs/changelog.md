@@ -1,6 +1,7 @@
 # Changelog
 
 - ✅ Bring back transfer tests [PR1357](https://github.com/laminlabs/lamindb/pull/1357) [@falexwolf](https://github.com/falexwolf)
+
 ```{eval-rst}
 .. role:: small
 ```
@@ -82,7 +83,7 @@ For artifacts that are simple files, rename `File` to `Artifact` along with the 
 
 ### 0.60.3 {small}`2023-11-13`
 
-- 🚑  Fix visibility choices, updated intro [PR1294](https://github.com/laminlabs/lamindb/pull/1294) [@sunnyosun](https://github.com/sunnyosun)
+- 🚑 Fix visibility choices, updated intro [PR1294](https://github.com/laminlabs/lamindb/pull/1294) [@sunnyosun](https://github.com/sunnyosun)
 
 ### 0.60.1 {small}`2023-11-10`
 
@@ -316,7 +317,7 @@ A dialogue guides you through the migration process.
 - ♻️ Refactor storage [PR1067](https://github.com/laminlabs/lamindb/pull/1067) [@falexwolf](https://github.com/falexwolf)
 - 🐛 Fix tree view for anonymous access [PR1065](https://github.com/laminlabs/lamindb/pull/1065) [@falexwolf](https://github.com/falexwolf)
 - 🍱 Add the Iris images dev dataset [PR1062](https://github.com/laminlabs/lamindb/pull/1062) [@falexwolf](https://github.com/falexwolf)
-- 🚚 `Dataset.from_files` replaced with default constructor  [PR1060](https://github.com/laminlabs/lamindb/pull/1060) [@falexwolf](https://github.com/falexwolf)
+- 🚚 `Dataset.from_files` replaced with default constructor [PR1060](https://github.com/laminlabs/lamindb/pull/1060) [@falexwolf](https://github.com/falexwolf)
 - 🍱 Added `populate_registries` to some datasets [PR1061](https://github.com/laminlabs/lamindb/pull/1061) [@sunnyosun](https://github.com/sunnyosun)
 - ✨ Add `get_feature_set` to `.features` accessor [PR1057](https://github.com/laminlabs/lamindb/pull/1057) [@sunnyosun](https://github.com/sunnyosun)
 - 🚸 Allow `reference` & `reference_type` params in `ln.track()` [PR1053](https://github.com/laminlabs/lamindb/pull/1053) [@falexwolf](https://github.com/falexwolf)

@@ -116,7 +116,7 @@ class MappedDataset:
             with _Connect(storage) as store:
                 var_list.append(_safer_read_index(store["var"]))
         if self.join_vars == "auto":
-            vars_eq = all([var_list[0].equals(vrs) for vrs in var_list[1:]])
+            vars_eq = all(var_list[0].equals(vrs) for vrs in var_list[1:])
             if vars_eq:
                 self.join_vars = None
                 return
@@ -159,7 +159,7 @@ class MappedDataset:
         layer_key: Optional[str] = None,
     ):
         """Get the index for the data."""
-        layer = storage["X"] if layer_key is None else storage["layers"][layer_key]  # type: ignore # noqa
+        layer = storage["X"] if layer_key is None else storage["layers"][layer_key]  # type: ignore
         if isinstance(layer, ArrayTypes):  # type: ignore
             # todo: better way to select variables
             return layer[idx] if var_idxs is None else layer[idx][var_idxs]
@@ -174,7 +174,7 @@ class MappedDataset:
             layer_idx[indices[s]] = data[s]
             return layer_idx if var_idxs is None else layer_idx[var_idxs]
 
-    def get_label_idx(self, storage: StorageType, idx: int, label_key: str):  # type: ignore # noqa
+    def get_label_idx(self, storage: StorageType, idx: int, label_key: str):  # type: ignore
         """Get the index for the label by key."""
         obs = storage["obs"]  # type: ignore
         # how backwards compatible do we want to be here actually?

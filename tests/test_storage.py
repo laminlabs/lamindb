@@ -1,12 +1,11 @@
 import shutil
 
 import h5py
+import lamindb as ln
 import numpy as np
 import pandas as pd
 import pytest
 import zarr
-
-import lamindb as ln
 from lamindb.dev.storage import delete_storage
 from lamindb.dev.storage._backed_access import backed_access
 from lamindb.dev.storage._zarr import read_adata_zarr, write_adata_zarr
@@ -101,7 +100,7 @@ def test_backed_access(adata_format):
     assert sub.obsm["X_pca"].shape == (10, 50)
 
     with pytest.raises(AttributeError):
-        sub.raw.raw
+        sub.raw.raw  # noqa: B018
 
     assert access[:, [1, 2, 5]].varp["test"].sum() == 3
 

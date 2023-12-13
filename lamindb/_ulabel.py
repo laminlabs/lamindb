@@ -29,7 +29,7 @@ def __init__(self, *args, **kwargs):
     )
     if len(kwargs) > 0:
         raise ValueError(
-            "Only name, description, reference, reference_type are valid keyword arguments"  # noqa
+            "Only name, description, reference, reference_type are valid keyword arguments"
         )
     super(ULabel, self).__init__(
         name=name,
@@ -42,7 +42,7 @@ def __init__(self, *args, **kwargs):
 @classmethod  # type:ignore
 @doc_args(ULabel.from_values.__doc__)
 def from_values(cls, values: ListLike, **kwargs) -> List["ULabel"]:
-    """{}"""
+    """{}."""
     records = get_or_create_records(
         iterable=values,
         field=ULabel.name,

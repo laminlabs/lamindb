@@ -72,7 +72,7 @@ _py_version_warning("3.8", "3.11")
 _TESTING = _lamindb_setup._TESTING
 _INSTANCE_SETUP = _check_instance_setup(from_lamindb=True)
 # allow the user to call setup
-from . import setup  # noqa
+from . import setup
 
 
 class InstanceNotSetupError(Exception):
@@ -90,7 +90,7 @@ def __getattr__(name):
 if _INSTANCE_SETUP:
     del InstanceNotSetupError
     del __getattr__  # delete so that imports work out
-    from lnschema_core import (  # noqa
+    from lnschema_core import (
         Artifact,
         Dataset,
         Feature,
@@ -104,25 +104,25 @@ if _INSTANCE_SETUP:
 
     File = Artifact  # backward compat
     from . import _artifact  # noqa
-    from . import _dataset  # noqa
-    from . import _feature  # noqa
-    from . import _feature_set  # noqa
-    from . import _parents  # noqa
-    from . import _registry  # noqa
-    from . import _run  # noqa
-    from . import _storage  # noqa
-    from . import _transform  # noqa
-    from . import _ulabel  # noqa
-    from . import _validate  # noqa
-    from . import dev  # noqa
-    from ._delete import delete  # noqa
-    from ._save import save  # noqa
-    from ._view import view  # noqa
-    from .dev._run_context import run_context  # noqa
+    from . import _dataset
+    from . import _feature
+    from . import _feature_set
+    from . import _parents
+    from . import _registry
+    from . import _run
+    from . import _storage
+    from . import _transform
+    from . import _ulabel
+    from . import _validate
+    from . import dev
+    from ._delete import delete
+    from ._save import save
+    from ._view import view
+    from .dev._run_context import run_context
     from .dev._settings import settings
 
     # schema modules
     _reload_schema_modules(_lamindb_setup.settings.instance)
 
-    track = run_context._track  # noqa
+    track = run_context._track
     settings.__doc__ = """Global :class:`~lamindb.dev.Settings`."""

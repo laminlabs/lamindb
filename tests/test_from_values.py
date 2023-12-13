@@ -1,8 +1,7 @@
+import lamindb as ln
 import lnschema_bionty as lb
 import pandas as pd
 import pytest
-
-import lamindb as ln  # noqa
 
 
 @pytest.fixture(scope="module")
@@ -99,7 +98,7 @@ def test_from_values_synonyms_aware():
     )
     assert len(records) == 2
     names = [r.name for r in records]
-    assert set(names) == set(["T cell", "B cell"])
+    assert set(names) == {"T cell", "B cell"}
     assert isinstance(records[0].bionty_source, lb.BiontySource)
     assert isinstance(records[1].bionty_source, lb.BiontySource)
     # non-validated values

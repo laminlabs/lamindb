@@ -1,6 +1,5 @@
-import pytest
-
 import lamindb as ln
+import pytest
 
 
 def test_run():

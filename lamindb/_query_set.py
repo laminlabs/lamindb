@@ -144,9 +144,9 @@ class QuerySet(models.QuerySet, CanValidate, IsTree):
             ['ULabel1', 'ULabel2', 'ULabel3']
         """
         if field is None:
-            return [item for item in self]
+            return list(self)
         else:
-            return [item for item in self.values_list(field, flat=True)]
+            return list(self.values_list(field, flat=True))
 
     def first(self) -> Optional[Registry]:
         """If non-empty, the first result in the query set, otherwise None.
@@ -195,14 +195,14 @@ class QuerySet(models.QuerySet, CanValidate, IsTree):
 
     @doc_args(Registry.search.__doc__)
     def search(self, string: str, **kwargs):
-        """{}"""
+        """{}."""
         from ._registry import _search
 
         return _search(cls=self, string=string, **kwargs)
 
     @doc_args(Registry.lookup.__doc__)
     def lookup(self, field: Optional[StrField] = None, **kwargs) -> NamedTuple:
-        """{}"""
+        """{}."""
         from ._registry import _lookup
 
         return _lookup(cls=self, field=field, **kwargs)
@@ -211,7 +211,7 @@ class QuerySet(models.QuerySet, CanValidate, IsTree):
     def validate(
         self, values: ListLike, field: Optional[Union[str, StrField]] = None, **kwargs
     ):
-        """{}"""
+        """{}."""
         from ._validate import _validate
 
         return _validate(cls=self, values=values, field=field, **kwargs)
@@ -220,7 +220,7 @@ class QuerySet(models.QuerySet, CanValidate, IsTree):
     def inspect(
         self, values: ListLike, field: Optional[Union[str, StrField]] = None, **kwargs
     ):
-        """{}"""
+        """{}."""
         from ._validate import _inspect
 
         return _inspect(cls=self, values=values, field=field, **kwargs)
@@ -229,7 +229,7 @@ class QuerySet(models.QuerySet, CanValidate, IsTree):
     def standardize(
         self, values: Iterable, field: Optional[Union[str, StrField]] = None, **kwargs
     ):
-        """{}"""
+        """{}."""
         from ._validate import _standardize
 
         return _standardize(cls=self, values=values, field=field, **kwargs)
@@ -242,7 +242,7 @@ class QuerySet(models.QuerySet, CanValidate, IsTree):
         length_limit: int = 1000,
         max_files_per_dir_per_type: int = 7,
     ) -> None:
-        """{}"""
+        """{}."""
         from .dev._view_tree import view_tree as _view_tree
 
         _view_tree(
@@ -254,13 +254,13 @@ class QuerySet(models.QuerySet, CanValidate, IsTree):
         )
 
 
-setattr(models.QuerySet, "df", QuerySet.df)
-setattr(models.QuerySet, "list", QuerySet.list)
-setattr(models.QuerySet, "first", QuerySet.first)
-setattr(models.QuerySet, "one", QuerySet.one)
-setattr(models.QuerySet, "one_or_none", QuerySet.one_or_none)
-setattr(models.QuerySet, "search", QuerySet.search)
-setattr(models.QuerySet, "lookup", QuerySet.lookup)
-setattr(models.QuerySet, "validate", QuerySet.validate)
-setattr(models.QuerySet, "inspect", QuerySet.inspect)
-setattr(models.QuerySet, "standardize", QuerySet.standardize)
+models.QuerySet.df = QuerySet.df
+models.QuerySet.list = QuerySet.list
+models.QuerySet.first = QuerySet.first
+models.QuerySet.one = QuerySet.one
+models.QuerySet.one_or_none = QuerySet.one_or_none
+models.QuerySet.search = QuerySet.search
+models.QuerySet.lookup = QuerySet.lookup
+models.QuerySet.validate = QuerySet.validate
+models.QuerySet.inspect = QuerySet.inspect
+models.QuerySet.standardize = QuerySet.standardize

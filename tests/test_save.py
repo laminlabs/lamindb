@@ -1,6 +1,5 @@
-import pytest
-
 import lamindb as ln
+import pytest
 from lamindb._save import prepare_error_message, store_artifacts
 
 
@@ -11,7 +10,7 @@ def test_prepare_error_message():
 
     error = prepare_error_message([], [artifact], exception)
     assert error.startswith(
-        "The following entries have been successfully uploaded and committed to the database"  # noqa
+        "The following entries have been successfully uploaded and committed to the database"
     )
 
     error = prepare_error_message([artifact], [], exception)

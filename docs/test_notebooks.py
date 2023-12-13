@@ -5,7 +5,7 @@ import nbproject_test as test
 
 sys.path[:0] = [str(Path(__file__).parent.parent)]
 
-from noxfile import GROUPS  # noqa
+from noxfile import GROUPS
 
 DOCS = Path(__file__).parents[1] / "docs/"
 

@@ -1,9 +1,8 @@
+import lamindb as ln
 import lnschema_bionty as lb
 import pytest
-from lnschema_core.users import current_user_id
-
-import lamindb as ln
 from lamindb._query_set import MultipleResultsFound, NoResultFound
+from lnschema_core.users import current_user_id
 
 
 def test_df():
@@ -23,7 +22,7 @@ def test_df():
     df = ln.ULabel.filter().df(include=["parents__name", "parents__created_by_id"])
     assert df.columns[1] == "parents__created_by_id"
     assert df["parents__name"].iloc[0] == [project_label.name]
-    assert set(df["parents__created_by_id"].iloc[0]) == set([current_user_id()])
+    assert set(df["parents__created_by_id"].iloc[0]) == {current_user_id()}
 
     # for other models
     feature_names = [f"Feature {i}" for i in range(3)]
@@ -43,7 +42,7 @@ def test_df():
     )
     assert df.columns[1] == "features__created_by_id"
     assert set(df["features__name"].iloc[0]) == set(feature_names)
-    assert set(df["features__created_by_id"].iloc[0]) == set([current_user_id()])
+    assert set(df["features__created_by_id"].iloc[0]) == {current_user_id()}
 
     # raise error for non many-to-many
     with pytest.raises(ValueError):

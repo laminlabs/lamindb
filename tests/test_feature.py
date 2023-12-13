@@ -1,14 +1,13 @@
 from inspect import signature
 
+import lamindb as ln
 import lnschema_bionty as lb
 import pandas as pd
 import pytest
-from lnschema_core.models import ArtifactULabel
-from pandas.api.types import is_categorical_dtype, is_string_dtype
-
-import lamindb as ln
 from lamindb import _feature
 from lamindb._feature import convert_numpy_dtype_to_lamin_feature_type
+from lnschema_core.models import ArtifactULabel
+from pandas.api.types import is_categorical_dtype, is_string_dtype
 
 df = pd.DataFrame(
     {
@@ -75,7 +74,7 @@ def test_feature_from_df():
     artifact.labels.add(labels, feature=features_lookup.feat3)
     assert set(
         ln.ULabel.filter(artifactulabel__feature__name="feat3").list("name")
-    ) == set(["cond1", "cond2"])
+    ) == {"cond1", "cond2"}
     for name in df.columns[:4]:
         queried_feature = ln.Feature.filter(name=name).one()
         if name in categoricals:
@@ -91,7 +90,7 @@ def test_feature_from_df():
     label_ids = artifactlabel_links.values_list("ulabel_id")
     assert set(
         ln.ULabel.objects.filter(id__in=label_ids).values_list("name", flat=True)
-    ) == set(["cond1", "cond2"])
+    ) == {"cond1", "cond2"}
     for feature in features:
         feature.delete()
     artifact.delete(permanent=True, storage=True)

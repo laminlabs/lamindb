@@ -1,4 +1,4 @@
-from typing import List, Union, overload  # noqa
+from typing import List, Union, overload
 
 from lamin_utils import colors, logger
 from lnschema_core import Registry

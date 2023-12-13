@@ -4,7 +4,7 @@ import traceback
 from collections import defaultdict
 from datetime import datetime
 from functools import partial
-from typing import Iterable, List, Optional, Tuple, Union, overload  # noqa
+from typing import Iterable, List, Optional, Tuple, Union, overload
 
 import lamindb_setup
 from django.db import transaction
@@ -47,6 +47,7 @@ def save(
            unique or another constraint. However, it won't inplace update the id
            fields of records. If you need records with ids, you need to query
            them from the database.
+        **kwargs: Get kwargs related to parents.
 
     Examples:
 
@@ -74,8 +75,7 @@ def save(
     # previously, this was all set based,
     # but models without primary keys aren't hashable
     # we distinguish between artifacts and non-artifacts
-    # for artifacts, we want to bulk-upload
-    # rather than upload one-by-one
+    # for artifacts, we want to bulk-upload rather than upload one-by-one
     non_artifacts, artifacts = partition(lambda r: isinstance(r, Artifact), records)
     if non_artifacts:
         # first save all records that do not yet have a primary key without

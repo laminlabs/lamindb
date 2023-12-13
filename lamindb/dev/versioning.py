@@ -12,7 +12,7 @@ def set_version(version: Optional[str] = None, previous_version: Optional[str] =
 
     Args:
         version: Version string.
-        stored_version: Mock stored version for testing purposes.
+        previous_version: Previous version string.
     """
     if version == previous_version:
         raise ValueError(f"Please increment the previous version: '{previous_version}'")
@@ -23,7 +23,7 @@ def set_version(version: Optional[str] = None, previous_version: Optional[str] =
             raise ValueError(
                 "Cannot auto-increment non-integer castable version, please provide"
                 " manually"
-            )
+            ) from None
     return version
 
 
@@ -59,7 +59,7 @@ def get_ids_from_old_version(
     version: Optional[str],
     n_full_id: int = 20,
 ) -> Tuple[str, int, str]:
-    """{}"""
+    """{}."""
     msg = ""
     if is_new_version_of.version is None:
         previous_version = "1"
