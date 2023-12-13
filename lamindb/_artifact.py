@@ -1,5 +1,5 @@
 from pathlib import Path, PurePath, PurePosixPath
-from typing import Any, List, Optional, Tuple, Union, Dict
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 import anndata as ad
 import fsspec
@@ -165,7 +165,7 @@ def get_stat_file_cloud(stat: Dict) -> Tuple[int, str, str]:
         suffix = suffix.strip('"')
         hash = f"{b16_to_b64(stripped_etag)}-{suffix}"
         hash_type = "md5-n"  # this is the S3 chunk-hashing strategy
-    return size, hash, hash_type    
+    return size, hash, hash_type
 
 
 def get_stat_dir_s3(path: UPath) -> Tuple[int, str, str, int]:
@@ -198,6 +198,7 @@ def get_stat_dir_s3(path: UPath) -> Tuple[int, str, str, int]:
 
 def get_stat_dir_gs(path: UPath) -> Tuple[int, str, str, int]:
     import google.cloud.storage as gc_storage
+
     bucket, key, _ = path.fs.split_path(path.as_posix())
     # assuming this here is the fastest way of querying for many objects
     client = gc_storage.Client.create_anonymous_client()
