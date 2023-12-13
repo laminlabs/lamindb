@@ -30,8 +30,11 @@ def hash_set(s: Set[str]) -> str:
 
 
 def hash_md5s_from_dir(etags: List[str]) -> Tuple[str, str]:
-    # need to sort below because we don't want the order of parsing the dir to affect the hash
-    digests = b"".join(hashlib.md5(etag.encode("utf-8")).digest() for etag in sorted(etags))
+    # need to sort below because we don't want the order of parsing the dir to
+    # affect the hash
+    digests = b"".join(
+        hashlib.md5(etag.encode("utf-8")).digest() for etag in sorted(etags)
+    )
     digest = hashlib.md5(digests).digest()
     return to_b64_str(digest)[:22], "md5-d"
 
