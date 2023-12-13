@@ -52,5 +52,5 @@ repos:
           ["types-pkg-resources", "types-requests", "types-attrs"]
         exclude: |
           (?x)(
-              docs/faq/test_notebooks.py|
+              docs/faq/test_notebooks.py
           )
