@@ -1,5 +1,6 @@
 import lamindb as ln
 
+
 # this test has to be refactored and sped up a lot
 def test_transfer():
     import lnschema_bionty as lb
