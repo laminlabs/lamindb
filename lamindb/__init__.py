@@ -102,6 +102,7 @@ if _INSTANCE_SETUP:
         User,
     )
 
+    File = Artifact  # backward compat
     from . import _artifact  # noqa
     from . import _dataset  # noqa
     from . import _feature  # noqa
