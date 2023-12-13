@@ -1,12 +1,17 @@
 # Changelog
 
-- 🚸 Silence the httpx logger [PR1356](https://github.com/laminlabs/lamindb/pull/1356) [@falexwolf](https://github.com/falexwolf)
-- 🐛 Fix hash inference for cloud non-s3 objects and use stored gcs credentials [PR1355](https://github.com/laminlabs/lamindb/pull/1355) [@Koncopd](https://github.com/Koncopd)
 ```{eval-rst}
 .. role:: small
 ```
 
-## 0.64 {small}`2023-12-13`
+## 0.64
+
+### 0.64.1 {small}`2023-11-24`
+
+- 🚸 Silence the httpx logger [PR1356](https://github.com/laminlabs/lamindb/pull/1356) [@falexwolf](https://github.com/falexwolf)
+- 🐛 Fix hash inference for cloud non-s3 objects and use stored gcs credentials [PR1355](https://github.com/laminlabs/lamindb/pull/1355) [@Koncopd](https://github.com/Koncopd)
+
+### 0.64.0 {small}`2023-11-24`
 
 🏗️ Replace `File` with `Artifact` to model directories and directory-like array stores [PR1345](https://github.com/laminlabs/lamindb/pull/1345) [@falexwolf](https://github.com/falexwolf).
 
