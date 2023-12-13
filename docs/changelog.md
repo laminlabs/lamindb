@@ -1,5 +1,6 @@
 # Changelog
 
+- ✅ Bring back transfer tests [PR1357](https://github.com/laminlabs/lamindb/pull/1357) [@falexwolf](https://github.com/falexwolf)
 ```{eval-rst}
 .. role:: small
 ```
