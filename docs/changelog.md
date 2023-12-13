@@ -7,9 +7,9 @@
 
 ## 0.64 {small}`2023-12-13`
 
-💥 Re-architect API around `Artifact` instead of `File` to model directories and directory-like array stores [PR1345](https://github.com/laminlabs/lamindb/pull/1345) [@falexwolf](https://github.com/falexwolf).
+🏗️ Replace `File` with `Artifact` to model directories and directory-like array stores [PR1345](https://github.com/laminlabs/lamindb/pull/1345) [@falexwolf](https://github.com/falexwolf).
 
-For file-based artifacts, this amounts to a mere rename from `File` to `Artifact`. You'll need to rename registry field containing the word `"file"` and replace it with `"artifact"`. Otherwise, your code will behave the same.
+For artifacts that are simple files, rename `File` to `Artifact` along with the word `file` to `artifact` in registry fields. Otherwise, your code will behave the same.
 
 ## 0.63
 

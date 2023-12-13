@@ -1,8 +1,7 @@
 Public demo instances to explore in the UI or load using the CLI via `lamin load owner/instance`:
 
-- [lamin.ai/laminlabs/lamindata](https://lamin.ai/laminlabs/lamindata) - Lamin's main demo instance
-- [lamin.ai/laminlabs/cellxgene](https://lamin.ai/laminlabs/cellxgene) - cellxgene ([guide](docs:cellxgene))
-- [lamin.ai/laminlabs/lamin-site-assets](https://lamin.ai/laminlabs/lamin-site-assets) - Lamin's website assets
+- [lamin.ai/laminlabs/lamindata](https://lamin.ai/laminlabs/lamindata) - A generic demo instance with various data types
+- [lamin.ai/laminlabs/cellxgene](https://lamin.ai/laminlabs/cellxgene) - An instance with CELLxGENE data ([guide](docs:cellxgene))
 
 LaminHub neither hosts data nor metadata, but connects to distributed storage locations & databases through LaminDB.
 
