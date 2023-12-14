@@ -29,7 +29,10 @@ def test_add_from(get_test_files):
     cell_lines = [lb.CellLine(name=name) for name in cell_line_names]
     ln.save(cell_lines)
 
-    file2.ulabels.add(*labels)
+    # pass a list of length 0
+    file2.labels.add([])
+    # now actually pass the labels
+    file2.labels.add(labels)
     # here test add without passing a feature
     file2.labels.add(cell_lines)
     assert file2.cell_lines.count() == len(cell_lines)

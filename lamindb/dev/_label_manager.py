@@ -1,4 +1,4 @@
-from typing import Dict, List, Optional, Union
+from typing import Dict, List, Optional, Tuple, Union
 
 import numpy as np
 from lamin_utils import colors, logger
@@ -73,7 +73,11 @@ def transfer_add_labels(labels, features_lookup_self, self, row):
 
 
 def validate_labels(labels: Union[QuerySet, List, Dict]):
-    def validate_labels_registry(labels: Union[QuerySet, List, Dict]):
+    def validate_labels_registry(
+        labels: Union[QuerySet, List, Dict],
+    ) -> Tuple[List[str], List[str]]:
+        if len(labels) == 0:
+            return [], []
         registry = labels[0].__class__
         field = REGISTRY_UNIQUE_FIELD.get(registry.__name__.lower(), "uid")
         label_uids = np.array(
