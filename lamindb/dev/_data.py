@@ -218,6 +218,8 @@ def add_labels(
     if not isinstance(records, List):  # avoids warning for pd Series
         records = list(records)
     # create records from values
+    if len(records) == 0:
+        return None
     if isinstance(records[0], str):  # type: ignore
         records_validated = []
         # feature is needed if we want to create records from values

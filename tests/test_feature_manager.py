@@ -38,6 +38,10 @@ def test_labels_add():
         " registries='core.ULabel').save()"
     )
     experiment.save()
+
+    # try to pass list of length zero
+    artifact.labels.add([], feature=experiment)
+    # now pass a single label
     artifact.labels.add(label, feature=experiment)
     # check that the feature was updated with registries = "core.ULabel"
     feature = ln.Feature.filter(name="experiment").one()
