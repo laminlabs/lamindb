@@ -31,7 +31,9 @@ GROUPS["guide"] = [
 ]
 GROUPS["biology"] = [
     "bio-registries.ipynb",
-] + [str(p) for p in Path("docs/public_ontologies").glob("*.ipynb")]
+] + [
+    str(p).removeprefix("docs/") for p in Path("docs/public_ontologies").glob("*.ipynb")
+]
 
 
 @nox.session
