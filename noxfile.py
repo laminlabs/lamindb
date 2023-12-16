@@ -30,13 +30,11 @@ GROUPS["guide"] = [
     "transfer.ipynb",
 ]
 
-GROUPS = {
-    "biology": [
-        "bio-registries.ipynb",
-        "public_ontologies/access-public-ontologies.ipynb",
-        "public_ontologies/genes.ipynb",
-    ]
-}
+GROUPS["biology"] = [
+    "bio-registries.ipynb",
+    "public_ontologies/access-public-ontologies.ipynb",
+    "public_ontologies/genes.ipynb",  # needs to be run before all others because it setups up the instance
+]
 GROUPS["biology"].extend(
     str(p).removeprefix("docs/")
     for p in Path("docs/public_ontologies").glob("*.ipynb")
