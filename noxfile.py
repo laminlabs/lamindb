@@ -31,13 +31,13 @@ GROUPS["guide"] = [
 ]
 
 GROUPS["biology"] = [
-    "bio-registries.ipynb",
-    "public_ontologies/access-public-ontologies.ipynb",
-    "public_ontologies/genes.ipynb",  # needs to be run before all others because it setups up the instance
+    "biology/bio-registries.ipynb",
+    "biology/access-public-ontologies.ipynb",
+    "biology/genes.ipynb",  # needs to be run before all others because it setups up the instance
 ]
 GROUPS["biology"].extend(
     str(p).removeprefix("docs/")
-    for p in Path("docs/public_ontologies").glob("*.ipynb")
+    for p in Path("docs/biology").glob("*.ipynb")
     if str(p).removeprefix("docs/") not in GROUPS["biology"]
 )
 
