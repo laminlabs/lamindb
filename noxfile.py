@@ -123,7 +123,7 @@ def build(session, group):
         target_dir.mkdir(exist_ok=True)
         for filename in GROUPS[group]:
             if group == "biology":
-                filename.removeprefix("biology/")
+                filename = filename.removeprefix("biology/")
             shutil.copy(Path("docs") / filename, target_dir / filename)
 
 
