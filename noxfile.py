@@ -30,9 +30,8 @@ GROUPS["guide"] = [
     "transfer.ipynb",
 ]
 GROUPS["biology"] = [
-    "public-ontologies.ipynb",
     "bio-registries.ipynb",
-]
+] + [str(p) for p in Path("docs/public_ontologies").glob("*.ipynb")]
 
 
 @nox.session
