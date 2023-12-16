@@ -118,12 +118,10 @@ def build(session, group):
     elif group == "cli":
         session.run(*f"pytest {coverage_args} ./sub/lamin-cli/tests".split())
     # move artifacts into right place
-    if group in {"tutorial", "guide", "biology"}:
+    if group in {"tutorial", "guide"}:
         target_dir = Path(f"./docs/{group}")
         target_dir.mkdir(exist_ok=True)
         for filename in GROUPS[group]:
-            if group == "biology":
-                filename = filename.removeprefix("biology/")
             shutil.copy(Path("docs") / filename, target_dir / filename)
 
 
