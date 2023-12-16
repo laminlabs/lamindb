@@ -29,28 +29,19 @@ GROUPS["guide"] = [
     "setup.ipynb",
     "transfer.ipynb",
 ]
-GROUPS["biology"] = [
-    "bio-registries.ipynb",
-    "public_ontologies/access-public-ontologies.ipynb",
-    "public_ontologies/genes.ipynb",
-    "public_ontologies/cell_line.ipynb",
-    "public_ontologies/cell_marker.ipynb",
-    "public_ontologies/cell_type.ipynb",
-    "public_ontologies/developmental_stage.ipynb",
-    "public_ontologies/disease.ipynb",
-    "public_ontologies/drug.ipynb",
-    "public_ontologies/ethnicity.ipynb",
-    "public_ontologies/experimental_factor.ipynb",
-    "public_ontologies/organism.ipynb",
-    "public_ontologies/pathway.ipynb",
-    "public_ontologies/phenotype.ipynb",
-    "public_ontologies/proteins.ipynb",
-    "public_ontologies/tissue.ipynb",
-]
 
-# + [
-#    str(p).removeprefix("docs/") for p in Path("docs/public_ontologies").glob("*.ipynb")
-# ]
+GROUPS = {
+    "biology": [
+        "bio-registries.ipynb",
+        "public_ontologies/access-public-ontologies.ipynb",
+        "public_ontologies/genes.ipynb",
+    ]
+}
+GROUPS["biology"].extend(
+    str(p).removeprefix("docs/")
+    for p in Path("docs/public_ontologies").glob("*.ipynb")
+    if str(p).removeprefix("docs/") not in GROUPS["biology"]
+)
 
 
 @nox.session
