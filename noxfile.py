@@ -31,9 +31,26 @@ GROUPS["guide"] = [
 ]
 GROUPS["biology"] = [
     "bio-registries.ipynb",
-] + [
-    str(p).removeprefix("docs/") for p in Path("docs/public_ontologies").glob("*.ipynb")
+    "access-public-ontologies.ipynb",
+    "genes.ipynb",
+    "cell_line.ipynb",
+    "cell_marker.ipynb",
+    "cell_type.ipynb",
+    "developmental_stage.ipynb",
+    "disease.ipynb",
+    "drug.ipynb",
+    "ethnicity.ipynb",
+    "experimental_factor.ipynb",
+    "organism.ipynb",
+    "pathway.ipynb",
+    "phenotype.ipynb",
+    "proteins.ipynb",
+    "tissue.ipynb",
 ]
+
+# + [
+#    str(p).removeprefix("docs/") for p in Path("docs/public_ontologies").glob("*.ipynb")
+# ]
 
 
 @nox.session
