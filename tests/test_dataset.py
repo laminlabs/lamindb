@@ -121,7 +121,7 @@ def test_create_delete_from_single_anndata():
     dataset = ln.Dataset.from_anndata(artifact, name="My dataset", field=lb.Gene.symbol)
     dataset.save()
     dataset.describe()
-    dataset.view_flow()
+    dataset.view_lineage()
     feature_sets_queried = dataset.feature_sets.all()
     features_queried = ln.Feature.filter(feature_sets__in=feature_sets_queried).all()
     assert set(features_queried.list("name")) == set(adata.obs.columns)

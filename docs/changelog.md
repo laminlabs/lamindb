@@ -101,7 +101,7 @@ For artifacts that are simple files, rename `File` to `Artifact` along with the 
 
 ### 0.59.3 {small}`2023-11-04`
 
-- 💄 Show transform uid in view_flow [PR1280](https://github.com/laminlabs/lamindb/pull/1280) [@sunnyosun](https://github.com/sunnyosun)
+- 💄 Show transform uid in view_lineage [PR1280](https://github.com/laminlabs/lamindb/pull/1280) [@sunnyosun](https://github.com/sunnyosun)
 - 🚸 Improve search [PR1279](https://github.com/laminlabs/lamindb/pull/1279) [@sunnyosun](https://github.com/sunnyosun)
 
 ### 0.59.2 {small}`2023-11-04`
@@ -204,7 +204,7 @@ A dialogue guides you through the migration process.
 
 - ✨ Add labels transfer through `labels.add_from` [PR1211](https://github.com/laminlabs/lamindb/pull/1211) [@falexwolf](https://github.com/falexwolf)
 - ♻️ Perform outer join during load [PR1212](https://github.com/laminlabs/lamindb/pull/1212) [@falexwolf](https://github.com/falexwolf)
-- 🎨 Show both file and dataset in view_flow [PR1209](https://github.com/laminlabs/lamindb/pull/1209) [@sunnyosun](https://github.com/sunnyosun)
+- 🎨 Show both file and dataset in view_lineage [PR1209](https://github.com/laminlabs/lamindb/pull/1209) [@sunnyosun](https://github.com/sunnyosun)
 
 ### 0.54.3 {small}`2023-09-27`
 
@@ -213,7 +213,7 @@ A dialogue guides you through the migration process.
 
 ### 0.54.2 {small}`2023-09-26`
 
-- 🎨 Better implementation of `dataset.view_flow` [PR1194](https://github.com/laminlabs/lamindb/pull/1194) [@sunnyosun](https://github.com/sunnyosun)
+- 🎨 Better implementation of `dataset.view_lineage` [PR1194](https://github.com/laminlabs/lamindb/pull/1194) [@sunnyosun](https://github.com/sunnyosun)
 
 ### 0.54.1 {small}`2023-09-21`
 
