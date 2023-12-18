@@ -21,7 +21,7 @@ from lamindb._feature_set import (
     dict_related_model_to_related_name,
     dict_schema_name_to_model_name,
 )
-from lamindb._parents import view_flow
+from lamindb._parents import view_lineage
 from lamindb._query_set import QuerySet
 from lamindb.dev._settings import settings
 
@@ -441,4 +441,5 @@ def labels(self) -> "LabelManager":
 Data.features = features
 Data.labels = labels
 Data.describe = describe
-Data.view_flow = view_flow
+Data.view_lineage = view_lineage
+Data.view_flow = view_lineage  # backward compat

@@ -61,15 +61,15 @@ def view_parents(
     )
 
 
-def view_flow(data: Union[Artifact, Dataset], with_children: bool = True) -> None:
+def view_lineage(data: Union[Artifact, Dataset], with_children: bool = True) -> None:
     """Graph of data flow.
 
     Notes:
         For more info, see use cases: :doc:`docs:data-flow`.
 
     Examples:
-        >>> dataset.view_flow()
-        >>> artifact.view_flow()
+        >>> dataset.view_lineage()
+        >>> artifact.view_lineage()
     """
     import graphviz
 
