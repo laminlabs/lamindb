@@ -1,19 +1,24 @@
 # Changelog
 
-- 🚚 Rename `view_flow` to `view_lineage` [PR1367](https://github.com/laminlabs/lamindb/pull/1367) [@falexwolf](https://github.com/falexwolf)- ✏️ Fix the spacing of describe [PR1365](https://github.com/laminlabs/lamindb/pull/1365) [@sunnyosun](https://github.com/sunnyosun)- 🐛 Account for length zero label lists [PR1362](https://github.com/laminlabs/lamindb/pull/1362) [@falexwolf](https://github.com/falexwolf)- 📝 Use `.df()` instead of `.filter().df()` [PR1360](https://github.com/laminlabs/lamindb/pull/1360) [@sunnyosun](https://github.com/sunnyosun)- 🐛 Fix mypy [PR1359](https://github.com/laminlabs/lamindb/pull/1359) [@Koncopd](https://github.com/Koncopd)- 👷 Use ruff and clean up pre-commit [PR1358](https://github.com/laminlabs/lamindb/pull/1358) [@Zethson](https://github.com/Zethson)- ✅ Bring back transfer tests [PR1357](https://github.com/laminlabs/lamindb/pull/1357) [@falexwolf](https://github.com/falexwolf)
-
 ```{eval-rst}
 .. role:: small
 ```
 
 ## 0.64
 
-### 0.64.1 {small}`2023-11-24`
+### 0.64.2 {small}`2023-12-18`
+
+- 🚚 Deprecate `view_flow` in favor of `view_lineage` [PR1367](https://github.com/laminlabs/lamindb/pull/1367) [@falexwolf](https://github.com/falexwolf)
+- 🐛 Account for length zero label lists [PR1362](https://github.com/laminlabs/lamindb/pull/1362) [@falexwolf](https://github.com/falexwolf)
+- 🐛 Fix mypy [PR1359](https://github.com/laminlabs/lamindb/pull/1359) [@Koncopd](https://github.com/Koncopd)
+- 👷 Use ruff and clean up pre-commit [PR1358](https://github.com/laminlabs/lamindb/pull/1358) [@Zethson](https://github.com/Zethson)
+
+### 0.64.1 {small}`2023-12-13`
 
 - 🚸 Silence the httpx logger [PR1356](https://github.com/laminlabs/lamindb/pull/1356) [@falexwolf](https://github.com/falexwolf)
 - 🐛 Fix hash inference for cloud non-s3 objects and use stored gcs credentials [PR1355](https://github.com/laminlabs/lamindb/pull/1355) [@Koncopd](https://github.com/Koncopd)
 
-### 0.64.0 {small}`2023-11-24`
+### 0.64.0 {small}`2023-12-13`
 
 🏗️ Replace `File` with `Artifact` to model directories and directory-like array stores [PR1345](https://github.com/laminlabs/lamindb/pull/1345) [@falexwolf](https://github.com/falexwolf).
 
