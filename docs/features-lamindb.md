@@ -8,7 +8,7 @@
 - Bridge artifacts and warehousing: {class}`~lamindb.Artifact`, {class}`~lamindb.Dataset`
 - Version artifacts, datasets & transforms
 
-**Track data flow across notebooks, pipelines & UI: {meth}`~lamindb.track`, {class}`~lamindb.Transform` & {class}`~lamindb.Run`.**
+**Track data lineage across notebooks, pipelines & UI: {meth}`~lamindb.track`, {class}`~lamindb.Transform` & {class}`~lamindb.Run`.**
 
 - Execution reports & source code for [notebooks & scripts](/track)
 - Integrate with workflow managers: [redun](docs:redun), [nextflow](docs:nextflow), [snakemake](docs:snakemake)
