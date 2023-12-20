@@ -156,7 +156,7 @@ def test_versioning():
     # Filter artifact by latest version
     artifact = ln.Artifact.filter(
         description="Versioned test artifact", version="latest"
-    )
+    ).one()
     assert artifact.id == artifact_2.id
 
     # Get all versions of a version family
