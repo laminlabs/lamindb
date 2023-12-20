@@ -351,7 +351,7 @@ def using(
 ) -> "QuerySet":
     """{}."""
     from lamindb_setup._load_instance import update_db_using_local
-    from .dev._settings_store import instance_settings_file
+    from lamindb_setup.dev._settings_store import instance_settings_file
 
     owner, name = get_owner_name_from_identifier(instance)
     load_result = load_instance(owner=owner, name=name)
