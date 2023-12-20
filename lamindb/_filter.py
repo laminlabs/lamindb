@@ -38,6 +38,21 @@ def filter(Registry: Type[Registry], **expressions) -> QuerySet:
         return qs
 
 
+def filter_version_family(Registry: Type[Registry]) -> QuerySet:
+    qs = QuerySet(model=Registry)
+
+    # Get records with the same initial_version_id
+    qs1 = qs.filter(initial_version_id=OuterRef("initial_version_id"))
+
+    # Get the record that has initial_version_id equal to None, but id equal to the initial_version_id of the previous records
+    qs2 = qs.filter(initial_version_id=None, id=OuterRef("initial_version_id"))
+
+    # Combine the querysets
+    final_qs = qs1.union(qs2)
+
+    return final_qs
+
+
 def _filter_query_set_by_latest_version(query_set):
     # Get records with the most recent created_at for each initial_version id
     subquery = query_set.filter(initial_version=OuterRef("initial_version")).order_by(
