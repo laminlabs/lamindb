@@ -1,6 +1,8 @@
 import lamindb as ln
 import lnschema_bionty as lb
+import pandas as pd
 import pytest
+from lamindb._filter import filter_version_family
 from lamindb._query_set import MultipleResultsFound, NoResultFound
 from lnschema_core.users import current_user_id
 
@@ -128,3 +130,39 @@ def test_validate():
 def test_map_synonyms():
     qs = ln.User.filter(handle="testuser1").all()
     assert qs.standardize(["user1", "user2"]) == ["user1", "user2"]
+
+
+def test_versioning():
+    # Create version 1 of artifact record
+    df_1 = pd.DataFrame(
+        {"CD8": [1, 2, 3], "CD45": [3, 4, 5]},
+        index=["measurement1", "measurement2", "measurement3"],
+    )
+    artifact_1 = ln.Artifact(df_1, description="Versioned test artifact")
+    artifact_1.save()
+
+    # Create version 2 of artifact record
+    df_2 = pd.DataFrame(
+        {"CD8": [4, 5, 6], "CD45": [7, 8, 9]},
+        index=["measurement1", "measurement2", "measurement3"],
+    )
+    artifact_2 = ln.Artifact(
+        df_2,
+        description="Versioned test artifact",
+        is_new_version_of=artifact_1,
+    )
+    artifact_2.save()
+
+    # Filter artifact by latest version
+    artifact = ln.Artifact.filter(
+        description="Versioned test artifact", version="latest"
+    )
+    assert artifact.id == artifact_2.id
+
+    # Get all versions of a version family
+    artifacts = artifact_2.versions()
+    assert len(artifacts) == 2
+
+    # Delete test entries
+    artifact_2.delete(permanent=True)
+    artifact_1.delete(permanent=True)
