@@ -350,6 +350,9 @@ def using(
     instance: str,
 ) -> "QuerySet":
     """{}."""
+    from lamindb_setup._load_instance import update_db_using_local
+    from lamindb_setup.dev._settings_store import instance_settings_file
+
     owner, name = get_owner_name_from_identifier(instance)
     load_result = load_instance(owner=owner, name=name)
     if isinstance(load_result, str):
@@ -357,12 +360,14 @@ def using(
             f"Fail to load instance {instance}, please check your permission!"
         )
     instance_result, storage_result = load_result
+    settings_file = instance_settings_file(name, owner)
+    db_updated = update_db_using_local(instance_result, settings_file)
     isettings = InstanceSettings(
         owner=owner,
         name=name,
         storage_root=storage_result["root"],
         storage_region=storage_result["region"],
-        db=instance_result["db"],
+        db=db_updated,
         schema=instance_result["schema_str"],
         id=UUID(instance_result["id"]),
     )
