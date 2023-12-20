@@ -1,6 +1,6 @@
 # Changelog
 
-```{eval-rst}
+- ✨ Allow transfer from private instances [PR1370](https://github.com/laminlabs/lamindb/pull/1370) [@falexwolf](https://github.com/falexwolf)```{eval-rst}
 .. role:: small
 ```
 
