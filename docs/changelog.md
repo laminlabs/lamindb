@@ -1,6 +1,6 @@
 # Changelog
 
-- ✨ Allow transfer from private instances [PR1370](https://github.com/laminlabs/lamindb/pull/1370) [@falexwolf](https://github.com/falexwolf)```{eval-rst}
+- ✨ Track run environment [PR1368](https://github.com/laminlabs/lamindb/pull/1368) [@falexwolf](https://github.com/falexwolf)- ✨ Allow transfer from private instances [PR1370](https://github.com/laminlabs/lamindb/pull/1370) [@falexwolf](https://github.com/falexwolf)```{eval-rst}
 .. role:: small
 ```
 
