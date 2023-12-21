@@ -321,6 +321,10 @@ class run_context:
             logger.important(f"saved: {run}")
         cls.run = run
 
+        from ._track_environment import track_environment
+
+        track_environment(run)
+
         # at this point, we have a transform can display its parents if there are any
         parents = cls.transform.parents.all() if cls.transform is not None else []
         if len(parents) > 0:
