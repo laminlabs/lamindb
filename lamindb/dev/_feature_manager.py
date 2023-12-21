@@ -1,3 +1,4 @@
+from itertools import compress
 from typing import Dict, Union
 
 import numpy as np
@@ -179,21 +180,34 @@ class FeatureManager:
             self._host.feature_sets.through(**kwargs).save(using=host_db)
             self._feature_set_by_slot[slot] = feature_set
 
-    def _add_from(self, data: Data):
+    def _add_from(self, data: Data, parents: bool = True):
         """Transfer features from a artifact or dataset."""
         for slot, feature_set in data.features._feature_set_by_slot.items():
             members = feature_set.members
-            if len(members) == 0:
+            if members.count() == 0:
                 continue
             registry = members[0].__class__
             # note here the features are transferred based on an unique field
             field = REGISTRY_UNIQUE_FIELD.get(registry.__name__.lower(), "uid")
-            member_uids = np.array([getattr(member, field) for member in members])
+            if hasattr(registry, "ontology_id") and parents:
+                field = "ontology_id"
+            if registry.__get_name_with_schema__() == "bionty.Organism":
+                parents = False
+            # this will be e.g. be a list of ontology_ids or uids
+            member_uids = list(members.values_list(field, flat=True))
+            # create records from ontology_id in order to populate parents
+            if field == "ontology_id" and parents:
+                records = registry.objects.using(self._host._state.db).from_values(
+                    member_uids, field=field
+                )
+                save(records, parents=parents)
             validated = registry.objects.using(self._host._state.db).validate(
                 member_uids, field=field, mute=True
             )
-            new_features = [members[int(i)] for i in np.argwhere(~validated).flatten()]
-            if len(new_features) > 0:
+            new_members_uids = list(compress(member_uids, ~validated))
+            new_features = members.filter(**{f"{field}__in": new_members_uids}).all()
+            # new_features = [members[int(i)] for i in np.argwhere(~validated).flatten()]
+            if new_features.count() > 0:
                 mute = True if len(new_features) > 10 else False
                 # transfer foreign keys needs to be run before transfer to default db
                 transfer_fk_to_default_db_bulk(new_features)
@@ -201,7 +215,10 @@ class FeatureManager:
                     # not calling save=True here as in labels, because want to
                     # bulk save below
                     transfer_to_default_db(feature, mute=mute)
-                save(new_features)
+                logger.info(
+                    f"saving {new_features.count()} new {registry.__name__} records"
+                )
+                save(new_features, parents=parents)
 
             # create a new feature set from feature values using the same uid
             feature_set_self = FeatureSet.from_values(
@@ -214,4 +231,5 @@ class FeatureManager:
                     )
                 continue
             feature_set_self.uid = feature_set.uid
+            logger.info(f"saving {slot} featureset: {feature_set_self}")
             self._host.features.add_feature_set(feature_set_self, slot)

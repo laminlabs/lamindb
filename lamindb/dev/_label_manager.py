@@ -49,13 +49,16 @@ def print_labels(self: Data):
         return ""
 
 
-def transfer_add_labels(labels, features_lookup_self, self, row):
+def transfer_add_labels(labels, features_lookup_self, self, row, parents: bool = True):
     def transfer_single_registry(validated_labels, new_labels):
         # here the new labels are transferred to the self db
         if len(new_labels) > 0:
             transfer_fk_to_default_db_bulk(new_labels)
             for label in new_labels:
                 transfer_to_default_db(label, mute=True)
+            # not saving parents for Organism during transfer
+            registry = new_labels[0].__class__
+            logger.info(f"saving {len(new_labels)} new {registry.__name__} records")
             save(new_labels)
         # link labels records from self db
         self._host.labels.add(
@@ -64,7 +67,7 @@ def transfer_add_labels(labels, features_lookup_self, self, row):
         )
 
     # validate labels on the default db
-    result = validate_labels(labels)
+    result = validate_labels(labels, parents=parents)
     if isinstance(result, Dict):
         for _, (validated_labels, new_labels) in result.items():
             transfer_single_registry(validated_labels, new_labels)
@@ -72,17 +75,25 @@ def transfer_add_labels(labels, features_lookup_self, self, row):
         transfer_single_registry(*result)
 
 
-def validate_labels(labels: Union[QuerySet, List, Dict]):
+def validate_labels(labels: Union[QuerySet, List, Dict], parents: bool = True):
     def validate_labels_registry(
-        labels: Union[QuerySet, List, Dict],
+        labels: Union[QuerySet, List, Dict], parents: bool = True
     ) -> Tuple[List[str], List[str]]:
         if len(labels) == 0:
             return [], []
         registry = labels[0].__class__
         field = REGISTRY_UNIQUE_FIELD.get(registry.__name__.lower(), "uid")
+        if hasattr(registry, "ontology_id") and parents:
+            field = "ontology_id"
+        if registry.__get_name_with_schema__() == "bionty.Organism":
+            parents = False
         label_uids = np.array(
             [getattr(label, field) for label in labels if label is not None]
         )
+        # save labels from ontology_ids so that parents are populated
+        if field == "ontology_id" and parents:
+            records = registry.from_values(label_uids, field=field)
+            save(records, parents=parents)
         validated = registry.validate(label_uids, field=field, mute=True)
         validated_uids = label_uids[validated]
         validated_labels = registry.filter(**{f"{field}__in": validated_uids}).list()
@@ -92,9 +103,11 @@ def validate_labels(labels: Union[QuerySet, List, Dict]):
     if isinstance(labels, Dict):
         result = {}
         for registry, labels_registry in labels.items():
-            result[registry] = validate_labels_registry(labels_registry)
+            result[registry] = validate_labels_registry(
+                labels_registry, parents=parents
+            )
     else:
-        return validate_labels_registry(labels)
+        return validate_labels_registry(labels, parents=parents)
 
 
 class LabelManager:
@@ -150,7 +163,7 @@ class LabelManager:
 
         return get_labels(self._host, feature=feature, mute=mute, flat_names=flat_names)
 
-    def add_from(self, data: Data):
+    def add_from(self, data: Data, parents: bool = True):
         """Transfer labels from a file or dataset.
 
         Examples:
@@ -185,12 +198,14 @@ class LabelManager:
             labels = labels.all()
             if len(labels) == 0:
                 continue
-            validated_labels, new_labels = validate_labels(labels.all())
+            validated_labels, new_labels = validate_labels(
+                labels.all(), parents=parents
+            )
             if len(new_labels) > 0:
                 transfer_fk_to_default_db_bulk(new_labels)
                 for label in new_labels:
                     transfer_to_default_db(label, mute=True)
-                save(new_labels)
+                save(new_labels, parents=parents)
             # this should not occur as file and dataset should have the same attributes
             # but this might not be true for custom schema
             labels_list = validated_labels + new_labels

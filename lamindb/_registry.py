@@ -475,10 +475,13 @@ def save(self, *args, **kwargs) -> None:
             self_on_db = copy(self)
             self_on_db._state.db = db
             self_on_db.pk = pk_on_db
+            add_from_kwargs = {
+                "parents": kwargs.get("parents") if "parents" in kwargs else True
+            }
             logger.info("transfer features")
-            self.features._add_from(self_on_db)
+            self.features._add_from(self_on_db, **add_from_kwargs)
             logger.info("transfer labels")
-            self.labels.add_from(self_on_db)
+            self.labels.add_from(self_on_db, **add_from_kwargs)
 
 
 METHOD_NAMES = [
