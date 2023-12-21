@@ -6,17 +6,18 @@ from lnschema_core.models import Run
 
 
 def track_environment(run: Run):
-    filepath_no_suffix = ln_setup.settings.storage.cache_dir / "run_env_{run.uid}"
-    # create a conda environment.yml
-    result = subprocess.run(
-        f"conda env export > {str(filepath_no_suffix)}_environment.yml", shell=True
-    )
+    filepath = ln_setup.settings.storage.cache_dir / f"run_env_pip_{run.uid}"
+    # create a requirements.txt
+    result = subprocess.run(f"pip freeze > {str(filepath)}", shell=True)
     if result.returncode == 0:
-        logger.info("tracking conda environment")
-    else:
-        # create a requirements.txt
-        result = run(
-            f"pip freeze > {str(filepath_no_suffix)}_requirements.txt", shell=True
-        )
-        if result.returncode == 0:
-            logger.info("tracking pip requirements.txt")
+        logger.info(f"tracked pip freeze > {str(filepath)}")
+    # we don't create a conda environment.yml mostly for its slowness
+    # result = subprocess.run(
+    #     f"conda env export > {str(filepath)}", shell=True
+    # )
+    # if result.returncode == 0:
+    #     with open(filepath) as f:
+    #         content = f.read()
+    #     with open(filepath, "w") as f:
+    #         f.write("environment.yml\n{content}")
+    #     logger.info("cached conda environment.yml")
