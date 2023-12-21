@@ -91,7 +91,7 @@ def validate_labels(labels: Union[QuerySet, List, Dict], parents: bool = True):
             [getattr(label, field) for label in labels if label is not None]
         )
         # save labels from ontology_ids so that parents are populated
-        if field == "ontology_id" and parents:
+        if field == "ontology_id":
             records = registry.from_values(label_uids, field=field)
             if len(records) > 0:
                 save(records, parents=parents)

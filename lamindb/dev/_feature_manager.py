@@ -196,7 +196,7 @@ class FeatureManager:
             # this will be e.g. be a list of ontology_ids or uids
             member_uids = list(members.values_list(field, flat=True))
             # create records from ontology_id in order to populate parents
-            if field == "ontology_id" and parents:
+            if field == "ontology_id":
                 records = registry.objects.using(self._host._state.db).from_values(
                     member_uids, field=field
                 )
