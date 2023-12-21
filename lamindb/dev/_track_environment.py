@@ -1,4 +1,4 @@
-from subprocess import run
+import subprocess
 
 import lamindb_setup as ln_setup
 from lamin_utils import logger
@@ -8,7 +8,7 @@ from lnschema_core.models import Run
 def track_environment(run: Run):
     filepath_no_suffix = ln_setup.settings.storage.cache_dir / "run_env_{run.uid}"
     # create a conda environment.yml
-    result = run(
+    result = subprocess.run(
         f"conda env export > {str(filepath_no_suffix)}_environment.yml", shell=True
     )
     if result.returncode == 0:
