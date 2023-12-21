@@ -200,7 +200,8 @@ class FeatureManager:
                 records = registry.objects.using(self._host._state.db).from_values(
                     member_uids, field=field
                 )
-                save(records, parents=parents)
+                if len(records) > 0:
+                    save(records, parents=parents)
             validated = registry.objects.using(self._host._state.db).validate(
                 member_uids, field=field, mute=True
             )

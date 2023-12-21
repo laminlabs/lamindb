@@ -93,7 +93,8 @@ def validate_labels(labels: Union[QuerySet, List, Dict], parents: bool = True):
         # save labels from ontology_ids so that parents are populated
         if field == "ontology_id" and parents:
             records = registry.from_values(label_uids, field=field)
-            save(records, parents=parents)
+            if len(records) > 0:
+                save(records, parents=parents)
         validated = registry.validate(label_uids, field=field, mute=True)
         validated_uids = label_uids[validated]
         validated_labels = registry.filter(**{f"{field}__in": validated_uids}).list()
