@@ -1,7 +1,7 @@
 from typing import Dict, Union
 
 import numpy as np
-from lamin_utils import colors
+from lamin_utils import colors, logger
 from lnschema_core.models import Artifact, Data, Dataset, Feature
 
 from lamindb._feature_set import FeatureSet
@@ -183,6 +183,8 @@ class FeatureManager:
         """Transfer features from a artifact or dataset."""
         for slot, feature_set in data.features._feature_set_by_slot.items():
             members = feature_set.members
+            if len(members) == 0:
+                continue
             registry = members[0].__class__
             # note here the features are transferred based on an unique field
             field = REGISTRY_UNIQUE_FIELD.get(registry.__name__.lower(), "uid")
@@ -205,5 +207,11 @@ class FeatureManager:
             feature_set_self = FeatureSet.from_values(
                 member_uids, field=getattr(registry, field)
             )
+            if feature_set_self is None:
+                if hasattr(registry, "organism"):
+                    logger.warning(
+                        f"FeatureSet is not transferred, check if organism is set correctly: {feature_set}"
+                    )
+                continue
             feature_set_self.uid = feature_set.uid
             self._host.features.add_feature_set(feature_set_self, slot)
