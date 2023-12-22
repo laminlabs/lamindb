@@ -163,7 +163,7 @@ def test_versioning():
     print("-------ARTIFACT------------")
     print(artifact)
     print("-------ARTIFACT 1------------")
-    print(artifact_1)
+    print(saved_artifact_1)
     print("-------ARTIFACT 2------------")
     print(artifact_2)
     assert len(artifact) == 1
