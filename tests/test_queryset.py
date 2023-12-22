@@ -161,7 +161,7 @@ def test_versioning():
     assert artifact.id == artifact_2.id
 
     # Get all versions of a version family
-    artifacts = artifact_2.versions()
+    artifacts = artifact_2.versions.filter().all()
     assert len(artifacts) == 2
 
     # Delete test entries
