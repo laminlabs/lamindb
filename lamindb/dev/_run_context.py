@@ -246,7 +246,7 @@ class run_context:
                     is_tracked = False
                 else:
                     name = Path(module.__file__).stem  # type: ignore
-                    if not hasattr(module, "__transform_uid_prefix__"):
+                    if not hasattr(module, "__transform_stem_uid__"):
                         raise RuntimeError(
                             "no automated tracking because no uid attached to script!\n"
                             f"please run: lamin track {module.__file__}\n"
@@ -256,7 +256,7 @@ class run_context:
                         uid,
                         version,
                     ) = get_transform_kwargs_from_stem_uid(
-                        module.__transform_uid_prefix__,
+                        module.__transform_stem_uid__,
                         module.__version__,  # type: ignore
                     )
                     short_name = Path(module.__file__).name  # type: ignore
