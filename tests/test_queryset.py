@@ -139,7 +139,7 @@ def test_versioning():
         index=["measurement1", "measurement2", "measurement3"],
     )
     artifact_1 = ln.Artifact(df_1, description="Versioned test artifact")
-    artifact_1.initial_version_id = artifact_1.id
+    artifact_1.initial_version = artifact_1
     artifact_1.save()
 
     # Create version 2 of artifact record
