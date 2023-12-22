@@ -1,6 +1,6 @@
 # Changelog
 
-- ✨ Allow transfer from private instances [PR1370](https://github.com/laminlabs/lamindb/pull/1370) [@falexwolf](https://github.com/falexwolf)```{eval-rst}
+- :sparkles: Remove public ontologies [PR1374](https://github.com/laminlabs/lamindb/pull/1374) [@Zethson](https://github.com/Zethson)- 🚚 Replace `__lamindb_uid_prefix__` with `__transform_uid_prefix__` [PR1373](https://github.com/laminlabs/lamindb/pull/1373) [@falexwolf](https://github.com/falexwolf)- 🎨 Name `.lndb` files by instance id [PR1372](https://github.com/laminlabs/lamindb/pull/1372) [@falexwolf](https://github.com/falexwolf)- ✨ Track run environment [PR1368](https://github.com/laminlabs/lamindb/pull/1368) [@falexwolf](https://github.com/falexwolf)- ✨ Allow transfer from private instances [PR1370](https://github.com/laminlabs/lamindb/pull/1370) [@falexwolf](https://github.com/falexwolf)```{eval-rst}
 .. role:: small
 ```
 
