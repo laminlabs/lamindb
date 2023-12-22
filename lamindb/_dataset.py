@@ -11,7 +11,7 @@ from lnschema_core.types import AnnDataLike, DataLike, FieldAttr, VisibilityChoi
 from lamindb._utils import attach_func_to_class_method
 from lamindb.dev._data import _track_run_input
 from lamindb.dev._mapped_dataset import MappedDataset
-from lamindb.dev.versioning import get_ids_from_old_version, init_uid
+from lamindb.dev.versioning import get_uid_from_old_version, init_uid
 
 from . import _TESTING, Artifact, Run
 from ._artifact import parse_feature_sets_from_anndata
@@ -57,9 +57,6 @@ def __init__(
     is_new_version_of: Optional[Dataset] = (
         kwargs.pop("is_new_version_of") if "is_new_version_of" in kwargs else None
     )
-    initial_version_id: Optional[int] = (
-        kwargs.pop("initial_version_id") if "initial_version_id" in kwargs else None
-    )
     version: Optional[str] = kwargs.pop("version") if "version" in kwargs else None
     visibility: Optional[int] = (
         kwargs.pop("visibility")
@@ -79,18 +76,11 @@ def __init__(
     else:
         if not isinstance(is_new_version_of, Dataset):
             raise TypeError("is_new_version_of has to be of type ln.Dataset")
-        provisional_uid, initial_version_id, version = get_ids_from_old_version(
+        provisional_uid, version = get_uid_from_old_version(
             is_new_version_of, version, n_full_id=20
         )
         if name is None:
             name = is_new_version_of.name
-    if version is not None:
-        if initial_version_id is None:
-            logger.info(
-                "initializing versioning for this dataset! create future versions of it"
-                " using ln.Dataset(..., is_new_version_of=old_dataset)"
-            )
-
     run = get_run(run)
     data_init_complete = False
     artifact = None
@@ -170,7 +160,6 @@ def __init__(
             hash=hash,
             run=run,
             version=version,
-            initial_version_id=initial_version_id,
             visibility=visibility,
             **kwargs,
         )
