@@ -142,10 +142,7 @@ def test_is_new_version_of_versioned_file():
     # create new file from old file
     artifact_v2 = ln.Artifact(adata, is_new_version_of=artifact)
     assert artifact.version == "1"
-    assert (
-        artifact.initial_version_id is None
-    )  # initial file has initial_version_id None
-    assert artifact_v2.initial_version_id == artifact.id
+    assert artifact_v2.stem_uid == artifact.stem_uid
     assert artifact_v2.version == "2"
     assert artifact_v2.key is None
     assert artifact_v2.description == "test"
@@ -156,7 +153,7 @@ def test_is_new_version_of_versioned_file():
     # create new file from newly versioned file
     df.iloc[0, 0] = 0
     file_v3 = ln.Artifact(df, description="test1", is_new_version_of=artifact_v2)
-    assert file_v3.initial_version_id == artifact.id
+    assert file_v3.stem_uid == artifact.stem_uid
     assert file_v3.version == "3"
     assert file_v3.description == "test1"
 
@@ -190,7 +187,6 @@ def test_is_new_version_of_versioned_file():
 def test_is_new_version_of_unversioned_file():
     # unversioned file
     artifact = ln.Artifact(df, description="test2")
-    assert artifact.initial_version_id is None
     assert artifact.version is None
 
     # what happens if we don't save the old file?
@@ -200,8 +196,7 @@ def test_is_new_version_of_unversioned_file():
     # create new file from old file
     new_artifact = ln.Artifact(adata, is_new_version_of=artifact)
     assert artifact.version == "1"
-    assert artifact.initial_version is None
-    assert new_artifact.initial_version_id == artifact.id
+    assert new_artifact.stem_uid == artifact.stem_uid
     assert new_artifact.version == "2"
     assert new_artifact.description == artifact.description
 
