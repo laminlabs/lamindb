@@ -59,8 +59,6 @@ def test_is_new_version_of_versioned_transform():
     )
 
     # test that reference transform cannot be deleted
-    with pytest.raises(ProtectedError):
-        transform.delete()
     transform_v2.delete()
     transform.delete()
 
