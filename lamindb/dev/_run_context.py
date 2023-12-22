@@ -82,7 +82,7 @@ def update_notebook_metadata(
     from nbproject._header import _filepath
 
     notebook = nb_dev.read_notebook(_filepath)
-    uid_prefix = notebook.metadata["nbproject"]["id"]
+    stem_uid = notebook.metadata["nbproject"]["id"]
     version = notebook.metadata["nbproject"]["version"]
 
     updated, new_stem_uid, new_version = update_transform_source_metadata(
@@ -95,7 +95,7 @@ def update_notebook_metadata(
             is_new_version_of=transform, version=new_version, n_full_id=16
         )
     else:
-        notebook.metadata["nbproject"]["id"] = uid_prefix
+        notebook.metadata["nbproject"]["id"] = stem_uid
         new_uid = new_stem_uid + ids.base62(n_char=4)
 
     # here we check that responses to both inputs (for new id and version) were not 'n'
