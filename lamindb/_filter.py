@@ -1,6 +1,6 @@
 from typing import Type
 
-from django.db.models import OuterRef, Subquery
+from django.db.models import Max, Subquery
 from lnschema_core import Artifact, Dataset, Registry
 from lnschema_core.types import VisibilityChoice
 
@@ -38,38 +38,24 @@ def filter(Registry: Type[Registry], **expressions) -> QuerySet:
         return qs
 
 
-def filter_version_family(Registry: Type[Registry]) -> QuerySet:
-    qs = QuerySet(model=Registry)
+def filter_version_family(record: Registry) -> QuerySet:
+    qs = QuerySet(model=record._meta.model)
 
     # Get records with the same initial_version_id
-    qs1 = qs.filter(initial_version_id=OuterRef("initial_version_id"))
+    qs = qs.filter(initial_version_id=record.initial_version_id)
 
-    # Get the record that has initial_version_id equal to None, but id equal to the initial_version_id of the previous records
-    qs2 = qs.filter(initial_version_id=None, id=OuterRef("initial_version_id"))
-
-    # Combine the querysets
-    final_qs = qs1.union(qs2)
-
-    return final_qs
+    return qs
 
 
 def _filter_query_set_by_latest_version(query_set):
-    # Get records with the most recent created_at for each initial_version id
-    subquery = query_set.filter(initial_version=OuterRef("initial_version")).order_by(
-        "-created_at"
-    )
-    queryset1 = query_set.filter(
-        initial_version__isnull=False,
-        created_at=Subquery(subquery.values("created_at")[:1]),
+    # First, we create a subquery that gets the latest created_at for each initial_version_id
+    latest_dates = (
+        query_set.values("initial_version_id")
+        .annotate(latest_date=Max("created_at"))
+        .values("latest_date")
     )
 
-    # Get records where initial_version is null and exclude those records whose
-    # id is an initial_version in queryset2
-    queryset2 = query_set.filter(initial_version__isnull=True).exclude(
-        id__in=queryset1.values_list("initial_version", flat=True)
-    )
+    # Then, we filter the main queryset to only include records that have a created_at that matches the latest_date
+    query_set = query_set.filter(created_at__in=Subquery(latest_dates))
 
-    # Combine the querysets
-    final_queryset = queryset2.union(queryset1)
-
-    return final_queryset
+    return query_set
