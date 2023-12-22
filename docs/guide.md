@@ -17,7 +17,6 @@ setup
 query-search
 track
 validate
-public-ontologies
 bio-registries
 annotate
 schemas
