@@ -166,4 +166,5 @@ def test_versioning():
 
     # Delete test entries
     artifact_2.delete(permanent=True)
+    artifact_1.initial_version_id = None
     artifact_1.delete(permanent=True)
