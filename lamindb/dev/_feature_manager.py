@@ -1,7 +1,6 @@
 from itertools import compress
 from typing import Dict, Union
 
-import numpy as np
 from lamin_utils import colors, logger
 from lnschema_core.models import Artifact, Data, Dataset, Feature
 
@@ -197,29 +196,25 @@ class FeatureManager:
             member_uids = list(members.values_list(field, flat=True))
             # create records from ontology_id in order to populate parents
             if field == "ontology_id":
-                records = registry.objects.using(self._host._state.db).from_values(
-                    member_uids, field=field
-                )
+                # create from bionty
+                records = registry.from_values(member_uids, field=field)
                 if len(records) > 0:
                     save(records, parents=parents)
-            validated = registry.objects.using(self._host._state.db).validate(
-                member_uids, field=field, mute=True
-            )
+            validated = registry.validate(member_uids, field=field, mute=True)
             new_members_uids = list(compress(member_uids, ~validated))
-            new_features = members.filter(**{f"{field}__in": new_members_uids}).all()
-            # new_features = [members[int(i)] for i in np.argwhere(~validated).flatten()]
-            if new_features.count() > 0:
-                mute = True if len(new_features) > 10 else False
+            new_members = members.filter(**{f"{field}__in": new_members_uids}).all()
+            if new_members.count() > 0:
+                mute = True if new_members.count() > 10 else False
                 # transfer foreign keys needs to be run before transfer to default db
-                transfer_fk_to_default_db_bulk(new_features)
-                for feature in new_features:
+                transfer_fk_to_default_db_bulk(new_members)
+                for feature in new_members:
                     # not calling save=True here as in labels, because want to
                     # bulk save below
                     transfer_to_default_db(feature, mute=mute)
                 logger.info(
-                    f"saving {new_features.count()} new {registry.__name__} records"
+                    f"saving {new_members.count()} new {registry.__name__} records"
                 )
-                save(new_features, parents=parents)
+                save(new_members, parents=parents)
 
             # create a new feature set from feature values using the same uid
             feature_set_self = FeatureSet.from_values(

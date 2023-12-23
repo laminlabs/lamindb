@@ -382,8 +382,10 @@ REGISTRY_UNIQUE_FIELD = {
 }
 
 
-def update_fk_to_default_db(records: Union[Registry, List[Registry]], fk: str):
-    record = records[0] if isinstance(records, List) else records
+def update_fk_to_default_db(
+    records: Union[Registry, List[Registry], QuerySet], fk: str
+):
+    record = records[0] if isinstance(records, (List, QuerySet)) else records
     if hasattr(record, f"{fk}_id") and getattr(record, f"{fk}_id") is not None:
         fk_record = getattr(record, fk)
         field = REGISTRY_UNIQUE_FIELD.get(fk, "uid")
@@ -395,7 +397,7 @@ def update_fk_to_default_db(records: Union[Registry, List[Registry]], fk: str):
 
             fk_record_default = copy(fk_record)
             transfer_to_default_db(fk_record_default, save=True)
-        if isinstance(records, List):
+        if isinstance(records, (List, QuerySet)):
             for r in records:
                 setattr(r, f"{fk}", None)
                 setattr(r, f"{fk}_id", fk_record_default.id)
@@ -404,7 +406,7 @@ def update_fk_to_default_db(records: Union[Registry, List[Registry]], fk: str):
             setattr(records, f"{fk}_id", fk_record_default.id)
 
 
-def transfer_fk_to_default_db_bulk(records: List):
+def transfer_fk_to_default_db_bulk(records: Union[List, QuerySet]):
     for fk in [
         "organism",
         "bionty_source",
