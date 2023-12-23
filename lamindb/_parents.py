@@ -1,6 +1,7 @@
 import builtins
 from typing import List, Optional, Set, Union
 
+import lamindb_setup as ln_setup
 from lamin_utils import logger
 from lnschema_core import Artifact, Dataset, Registry, Run, Transform
 from lnschema_core.models import HasParents, format_field_value
@@ -26,17 +27,13 @@ def _transform_emoji(transform: Transform):
 
 def _view(u):
     try:
+        tmp_filestem = ln_setup.settings.storage.cache_dir / "tmp_file"
+        tmp_filepath = u.render(tmp_filestem, format="png")
+        print(tmp_filepath)
         if is_run_from_ipython:
-            from IPython import get_ipython
-            from IPython.display import display
+            from IPython.display import Image, display
 
-            #  True if the code is running in a Jupyter Notebook or Lab environment
-            if get_ipython().__class__.__name__ == "TerminalInteractiveShell":
-                return u.view()
-            else:
-                display(u)
-        else:
-            return u
+            display(Image(filename=tmp_filepath))
     except (FileNotFoundError, RuntimeError):  # pragma: no cover
         logger.error(
             "please install the graphviz executable on your system:\n  - Ubuntu: `sudo"
