@@ -21,7 +21,7 @@ def read_adata_zarr(storepath) -> AnnData:
 
 
 def write_adata_zarr(
-    adata: AnnData, storepath, callback=None, chunks=None, **collection_kwargs
+    adata: AnnData, storepath, callback=None, chunks=None, **dataset_kwargs
 ):
     fs, storepath = infer_filesystem(storepath)
 
@@ -62,8 +62,8 @@ def write_adata_zarr(
         cumulative_val += elem_size
         callback(adata_size, cumulative_val)
 
-    def _write_elem_cb(f, k, elem, collection_kwargs):
-        write_elem(f, k, elem, collection_kwargs=collection_kwargs)
+    def _write_elem_cb(f, k, elem, dataset_kwargs):
+        write_elem(f, k, elem, dataset_kwargs=dataset_kwargs)
         _cb(k)
 
     _cb(None)
@@ -75,18 +75,18 @@ def write_adata_zarr(
                 f,
                 "X",
                 adata.X,
-                collection_kwargs=dict(chunks=chunks, **collection_kwargs),
+                dataset_kwargs=dict(chunks=chunks, **dataset_kwargs),
             )
         else:
-            _write_elem_cb(f, "X", adata.X, collection_kwargs=collection_kwargs)
+            _write_elem_cb(f, "X", adata.X, dataset_kwargs=dataset_kwargs)
         for elem in ("obs", "var"):
             _write_elem_cb(
-                f, elem, getattr(adata, elem), collection_kwargs=collection_kwargs
+                f, elem, getattr(adata, elem), dataset_kwargs=dataset_kwargs
             )
         for elem in ("obsm", "varm", "obsp", "varp", "layers", "uns"):
             _write_elem_cb(
-                f, elem, dict(getattr(adata, elem)), collection_kwargs=collection_kwargs
+                f, elem, dict(getattr(adata, elem)), dataset_kwargs=dataset_kwargs
             )
-        _write_elem_cb(f, "raw", adata.raw, collection_kwargs=collection_kwargs)
+        _write_elem_cb(f, "raw", adata.raw, dataset_kwargs=dataset_kwargs)
     # todo: fix size less than total at the end
     _cb(None)

@@ -136,9 +136,9 @@ def file_tiff_suo22():  # pragma: no cover
 def dir_iris_images() -> UPath:  # pragma: no cover
     """Directory with 3 studies of the Iris flower: 405 images & metadata.
 
-    Based on: https://github.com/laminlabs/lamindb-dev-collections/pull/2
+    Based on: https://github.com/laminlabs/lamindb-dev-datasets/pull/2
     """
-    return UPath("s3://lamindb-dev-collections/iris_studies")
+    return UPath("s3://lamindb-dev-datasets/iris_studies")
 
 
 def anndata_mouse_sc_lymph_node(
@@ -248,7 +248,7 @@ def anndata_pbmc68k_reduced() -> ad.AnnData:
         pbmc68k.write("scrnaseq_pbmc68k_tiny.h5ad")
     """
     filepath, _ = urlretrieve(
-        "https://lamindb-dev-collections.s3.amazonaws.com/scrnaseq_pbmc68k_tiny.h5ad"
+        "https://lamindb-dev-datasets.s3.amazonaws.com/scrnaseq_pbmc68k_tiny.h5ad"
     )
     return ad.read_h5ad(filepath)
 
