@@ -195,7 +195,7 @@ class FeatureManager:
             # this will be e.g. be a list of ontology_ids or uids
             member_uids = list(members.values_list(field, flat=True))
             # create records from ontology_id in order to populate parents
-            if field == "ontology_id":
+            if field == "ontology_id" and len(member_uids) > 0:
                 # create from bionty
                 records = registry.from_values(member_uids, field=field)
                 if len(records) > 0:

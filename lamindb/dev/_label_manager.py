@@ -87,14 +87,22 @@ def validate_labels(labels: Union[QuerySet, List, Dict], parents: bool = True):
             field = "ontology_id"
         if registry.__get_name_with_schema__() == "bionty.Organism":
             parents = False
+        # if the field value is None, use uid field
         label_uids = np.array(
             [getattr(label, field) for label in labels if label is not None]
         )
         # save labels from ontology_ids so that parents are populated
-        if field == "ontology_id":
-            records = registry.from_values(label_uids, field=field)
-            if len(records) > 0:
-                save(records, parents=parents)
+        if field == "ontology_id" and len(label_uids) > 0:
+            try:
+                records = registry.from_values(label_uids, field=field)
+                if len(records) > 0:
+                    save(records, parents=parents)
+            except Exception:
+                pass
+            field = "uid"
+            label_uids = np.array(
+                [getattr(label, field) for label in labels if label is not None]
+            )
         validated = registry.validate(label_uids, field=field, mute=True)
         validated_uids = label_uids[validated]
         validated_labels = registry.filter(**{f"{field}__in": validated_uids}).list()

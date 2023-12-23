@@ -27,7 +27,7 @@ def test_transfer():
     storage_remote = artifact.storage
     ulabel_remote = artifact.ulabels.get(name="Tabula Sapiens")
 
-    artifact.save()
+    artifact.save(parents=False)
 
     # check all ids are adjusted
     assert artifact.organism.get(name="human") == lb.settings.organism
@@ -46,7 +46,7 @@ def test_transfer():
         )
         .first()
     )
-    file_repeat.save()
+    file_repeat.save(parents=False)
 
     # now prepare a new test case
     ulabel = artifact.ulabels.get(name="Tabula Sapiens")
@@ -63,7 +63,7 @@ def test_transfer():
         )
         .last()
     )
-    file2.save()
+    file2.save(parents=False)
 
     assert file2.organism.get(name="human") == lb.settings.organism
     assert file2.ulabels.get(name="Tabula Sapiens").uid == "existing"
