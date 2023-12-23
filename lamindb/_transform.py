@@ -2,7 +2,7 @@ from typing import TYPE_CHECKING, Optional
 
 from lnschema_core.models import TRANSFORM_TYPE_DEFAULT, Transform
 
-from .dev.versioning import get_ids_from_old_version, init_uid
+from .dev.versioning import get_uid_from_old_version, init_uid
 
 if TYPE_CHECKING:
     from lnschema_core.types import TransformType
@@ -19,9 +19,7 @@ def __init__(transform: Transform, *args, **kwargs):
     is_new_version_of: Optional[Transform] = (
         kwargs.pop("is_new_version_of") if "is_new_version_of" in kwargs else None
     )
-    initial_version_id: Optional[int] = (
-        kwargs.pop("initial_version_id") if "initial_version_id" in kwargs else None
-    )
+    (kwargs.pop("initial_version_id") if "initial_version_id" in kwargs else None)
     version: Optional[str] = kwargs.pop("version") if "version" in kwargs else None
     type: Optional[TransformType] = (
         kwargs.pop("type") if "type" in kwargs else TRANSFORM_TYPE_DEFAULT
@@ -37,12 +35,12 @@ def __init__(transform: Transform, *args, **kwargs):
             f" but you passed: {kwargs}"
         )
     if is_new_version_of is None:
-        new_uid = init_uid(version=version, n_full_id=14)
+        new_uid = init_uid(version=version, n_full_id=Transform._len_full_uid)
     else:
         if not isinstance(is_new_version_of, Transform):
             raise TypeError("is_new_version_of has to be of type ln.Transform")
-        new_uid, initial_version_id, version = get_ids_from_old_version(
-            is_new_version_of, version, n_full_id=14
+        new_uid, version = get_uid_from_old_version(
+            is_new_version_of, version, n_full_id=Transform._len_full_uid
         )
         if name is None:
             name = is_new_version_of.name
@@ -60,7 +58,6 @@ def __init__(transform: Transform, *args, **kwargs):
         short_name=short_name,
         type=type,
         version=version,
-        initial_version_id=initial_version_id,
         reference=reference,
         _has_consciously_provided_uid=has_consciously_provided_uid,
     )

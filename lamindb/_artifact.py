@@ -41,7 +41,7 @@ from lamindb.dev.storage.file import (
     auto_storage_key_from_artifact_uid,
     filepath_from_artifact,
 )
-from lamindb.dev.versioning import get_ids_from_old_version, init_uid
+from lamindb.dev.versioning import get_uid_from_old_version, init_uid
 
 from . import _TESTING
 from ._feature import convert_numpy_dtype_to_lamin_feature_type
@@ -513,9 +513,6 @@ def __init__(artifact: Artifact, *args, **kwargs):
     is_new_version_of: Optional[Artifact] = (
         kwargs.pop("is_new_version_of") if "is_new_version_of" in kwargs else None
     )
-    initial_version_id: Optional[int] = (
-        kwargs.pop("initial_version_id") if "initial_version_id" in kwargs else None
-    )
     version: Optional[str] = kwargs.pop("version") if "version" in kwargs else None
     visibility: Optional[int] = (
         kwargs.pop("visibility")
@@ -539,18 +536,11 @@ def __init__(artifact: Artifact, *args, **kwargs):
     else:
         if not isinstance(is_new_version_of, Artifact):
             raise TypeError("is_new_version_of has to be of type ln.Artifact")
-        provisional_uid, initial_version_id, version = get_ids_from_old_version(
+        provisional_uid, version = get_uid_from_old_version(
             is_new_version_of, version, n_full_id=20
         )
         if description is None:
             description = is_new_version_of.description
-
-    if version is not None:
-        if initial_version_id is None:
-            logger.info(
-                "initializing versioning for this file! create future versions of it"
-                " using ln.Artifact(..., is_new_version_of=old_file)"
-            )
     kwargs_or_artifact, privates = get_artifact_kwargs_from_data(
         data=data,
         key=key,
@@ -588,7 +578,6 @@ def __init__(artifact: Artifact, *args, **kwargs):
         kwargs["accessor"] = "MuData"
 
     kwargs["uid"] = provisional_uid
-    kwargs["initial_version_id"] = initial_version_id
     kwargs["version"] = version
     kwargs["description"] = description
     kwargs["visibility"] = visibility
