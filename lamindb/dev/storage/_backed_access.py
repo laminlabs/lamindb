@@ -33,20 +33,20 @@ if anndata_version_parse < version.parse("0.10.0"):
             " please install anndata>=0.9.1."
         )
 
-    from anndata._core.sparse_dataset import SparseCollection
+    from anndata._core.sparse_dataset import SparseDataset
 
     # try csr for groups with no encoding_type
-    class CSRCollection(SparseCollection):
+    class CSRCollection(SparseDataset):
         @property
         def format_str(self) -> str:
             return "csr"
 
     def sparse_dataset(group):
-        return SparseCollection(group)
+        return SparseDataset(group)
 
 else:
     from anndata._core.sparse_dataset import (
-        BaseCompressedSparseCollection as SparseCollection,
+        BaseCompressedSparseDataset as SparseDataset,
     )
     from anndata._core.sparse_dataset import (  # type: ignore
         CSRCollection,
@@ -60,7 +60,7 @@ else:
 
 
 # zarr and CSRCollection have problems with full selection
-def _subset_sparse(sparse_ds: Union[CSRCollection, SparseCollection], indices):
+def _subset_sparse(sparse_ds: Union[CSRCollection, SparseDataset], indices):
     has_arrays = isinstance(indices[0], np.ndarray) or isinstance(
         indices[1], np.ndarray
     )
@@ -327,7 +327,7 @@ StorageType = Union[StorageTypes]  # type: ignore
 def _to_memory(elem):
     if isinstance(elem, ArrayTypes):
         return elem[()]
-    elif isinstance(elem, SparseCollection):
+    elif isinstance(elem, SparseDataset):
         return elem.to_memory()
     else:
         return elem
