@@ -41,7 +41,7 @@ def test_track_from_nbproject():
         nbproject_version="0",
     )
     assert transform is None
-    assert uid == "NJvdsWWbJlZSz8"
+    assert uid == "NJvdsWWbJlZS6K79"
     assert version == "0"
     ln.Transform(uid=uid, version=version, name=title).save()
     transform, uid, version = get_transform_kwargs_from_stem_uid(
