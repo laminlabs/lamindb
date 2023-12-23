@@ -2,7 +2,7 @@ from typing import Dict, Union
 
 import numpy as np
 from lamin_utils import colors
-from lnschema_core.models import Artifact, Data, Dataset, Feature
+from lnschema_core.models import Artifact, Collection, Data, Feature
 
 from lamindb._feature_set import FeatureSet
 from lamindb._query_set import QuerySet
@@ -15,15 +15,15 @@ from lamindb._registry import (
 from lamindb._save import save
 
 
-def get_host_id_field(host: Union[Artifact, Dataset]) -> str:
+def get_host_id_field(host: Union[Artifact, Collection]) -> str:
     if isinstance(host, Artifact):
         host_id_field = "artifact_id"
     else:
-        host_id_field = "dataset_id"
+        host_id_field = "collection_id"
     return host_id_field
 
 
-def get_accessor_by_orm(host: Union[Artifact, Dataset]) -> Dict:
+def get_accessor_by_orm(host: Union[Artifact, Collection]) -> Dict:
     dictionary = {
         field.related_model.__get_name_with_schema__(): field.name
         for field in host._meta.related_objects
@@ -56,7 +56,7 @@ def get_feature_set_by_slot(host) -> Dict:
 
 
 def get_label_links(
-    host: Union[Artifact, Dataset], registry: str, feature: Feature
+    host: Union[Artifact, Collection], registry: str, feature: Feature
 ) -> QuerySet:
     host_id_field = get_host_id_field(host)
     kwargs = {host_id_field: host.id, "feature_id": feature.id}
@@ -68,7 +68,7 @@ def get_label_links(
     return link_records
 
 
-def get_feature_set_links(host: Union[Artifact, Dataset]) -> QuerySet:
+def get_feature_set_links(host: Union[Artifact, Collection]) -> QuerySet:
     host_id_field = get_host_id_field(host)
     kwargs = {host_id_field: host.id}
     feature_set_links = host.feature_sets.through.objects.filter(**kwargs)
@@ -124,7 +124,7 @@ class FeatureManager:
     See :class:`~lamindb.dev.Data` for more information.
     """
 
-    def __init__(self, host: Union[Artifact, Dataset]):
+    def __init__(self, host: Union[Artifact, Collection]):
         self._host = host
         self._feature_set_by_slot = get_feature_set_by_slot(host)
         self._accessor_by_orm = get_accessor_by_orm(host)
@@ -160,7 +160,7 @@ class FeatureManager:
         """
         if self._host._state.adding:
             raise ValueError(
-                "Please save the artifact or dataset before adding a feature set!"
+                "Please save the artifact or collection before adding a feature set!"
             )
         host_db = self._host._state.db
         feature_set.save(using=host_db)
@@ -180,7 +180,7 @@ class FeatureManager:
             self._feature_set_by_slot[slot] = feature_set
 
     def _add_from(self, data: Data):
-        """Transfer features from a artifact or dataset."""
+        """Transfer features from a artifact or collection."""
         for slot, feature_set in data.features._feature_set_by_slot.items():
             members = feature_set.members
             registry = members[0].__class__

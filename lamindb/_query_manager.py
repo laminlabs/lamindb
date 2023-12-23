@@ -31,7 +31,7 @@ class QueryManager(models.Manager):
     def _track_run_input_manager(self):
         if hasattr(self, "source_field_name") and hasattr(self, "target_field_name"):
             if (
-                self.source_field_name == "dataset"
+                self.source_field_name == "collection"
                 and self.target_field_name == "artifact"
             ):
                 from lamindb.dev._data import WARNING_RUN_TRANSFORM, _track_run_input
@@ -98,7 +98,7 @@ class QueryManager(models.Manager):
             target_field_name = self.target_field_name
 
             if (
-                source_field_name in {"artifact", "dataset"}
+                source_field_name in {"artifact", "collection"}
                 and target_field_name == "feature_set"
             ):
                 return get_feature_set_by_slot(host=self.instance).get(item)

@@ -1,4 +1,4 @@
-"""Test datasets.
+"""Test collections.
 
 .. autosummary::
    :toctree: .

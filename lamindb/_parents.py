@@ -2,7 +2,7 @@ import builtins
 from typing import List, Optional, Set, Union
 
 from lamin_utils import logger
-from lnschema_core import Artifact, Dataset, Registry, Run, Transform
+from lnschema_core import Artifact, Collection, Registry, Run, Transform
 from lnschema_core.models import HasParents, format_field_value
 
 from lamindb._utils import attach_func_to_class_method
@@ -61,14 +61,14 @@ def view_parents(
     )
 
 
-def view_lineage(data: Union[Artifact, Dataset], with_children: bool = True) -> None:
+def view_lineage(data: Union[Artifact, Collection], with_children: bool = True) -> None:
     """Graph of data flow.
 
     Notes:
         For more info, see use cases: :doc:`docs:data-flow`.
 
     Examples:
-        >>> dataset.view_lineage()
+        >>> collection.view_lineage()
         >>> artifact.view_lineage()
     """
     import graphviz
@@ -81,7 +81,7 @@ def view_lineage(data: Union[Artifact, Dataset], with_children: bool = True) -> 
     data_label = _record_label(data)
 
     def add_node(
-        record: Union[Run, Artifact, Dataset],
+        record: Union[Run, Artifact, Collection],
         node_id: str,
         node_label: str,
         u: graphviz.Digraph,
@@ -267,7 +267,7 @@ def _record_label(record: Registry, field: Optional[str] = None):
             rf'<📄 {name}<BR/><FONT COLOR="GREY" POINT-SIZE="10"'
             rf' FACE="Monospace">uid={record.uid}<BR/>suffix={record.suffix}</FONT>>'
         )
-    elif isinstance(record, Dataset):
+    elif isinstance(record, Collection):
         name = record.name.replace("&", "&amp;")
         return (
             rf'<🍱 {name}<BR/><FONT COLOR="GREY" POINT-SIZE="10"'
@@ -305,8 +305,8 @@ def _add_emoji(record: Registry, label: str):
     return f"{emoji} {label}"
 
 
-def _get_all_parent_runs(data: Union[Artifact, Dataset]) -> List:
-    """Get all input file/dataset runs recursively."""
+def _get_all_parent_runs(data: Union[Artifact, Collection]) -> List:
+    """Get all input file/collection runs recursively."""
     name = data._meta.model_name
     run_inputs_outputs = []
 
@@ -318,21 +318,21 @@ def _get_all_parent_runs(data: Union[Artifact, Dataset]) -> List:
                 r.__getattribute__(f"input_{name}s").all().filter(visibility=1).list()
             )
             if name == "file":
-                inputs_run += r.input_datasets.all().filter(visibility=1).list()
+                inputs_run += r.input_collections.all().filter(visibility=1).list()
             run_inputs_outputs += [(inputs_run, r)]
             outputs_run = (
                 r.__getattribute__(f"output_{name}s").all().filter(visibility=1).list()
             )
             if name == "file":
-                outputs_run += r.output_datasets.all().filter(visibility=1).list()
+                outputs_run += r.output_collections.all().filter(visibility=1).list()
             run_inputs_outputs += [(r, outputs_run)]
             inputs += inputs_run
         runs = [f.run for f in inputs if f.run is not None]
     return run_inputs_outputs
 
 
-def _get_all_child_runs(data: Union[Artifact, Dataset]) -> List:
-    """Get all output file/dataset runs recursively."""
+def _get_all_child_runs(data: Union[Artifact, Collection]) -> List:
+    """Get all output file/collection runs recursively."""
     name = data._meta.model_name
     all_runs: Set[Run] = set()
     run_inputs_outputs = []
@@ -340,7 +340,10 @@ def _get_all_child_runs(data: Union[Artifact, Dataset]) -> List:
     runs = {f.run for f in data.run.__getattribute__(f"output_{name}s").all()}
     if name == "file":
         runs.update(
-            {f.run for f in data.run.output_datasets.all().filter(visibility=1).all()}
+            {
+                f.run
+                for f in data.run.output_collections.all().filter(visibility=1).all()
+            }
         )
     while runs.difference(all_runs):
         all_runs.update(runs)
@@ -350,13 +353,13 @@ def _get_all_child_runs(data: Union[Artifact, Dataset]) -> List:
                 r.__getattribute__(f"input_{name}s").all().filter(visibility=1).list()
             )
             if name == "file":
-                inputs_run += r.input_datasets.all().filter(visibility=1).list()
+                inputs_run += r.input_collections.all().filter(visibility=1).list()
             run_inputs_outputs += [(inputs_run, r)]
             outputs_run = (
                 r.__getattribute__(f"output_{name}s").all().filter(visibility=1).list()
             )
             if name == "file":
-                outputs_run += r.output_datasets.all().filter(visibility=1).list()
+                outputs_run += r.output_collections.all().filter(visibility=1).list()
             run_inputs_outputs += [(r, outputs_run)]
             child_runs.update(
                 Run.filter(
@@ -366,7 +369,7 @@ def _get_all_child_runs(data: Union[Artifact, Dataset]) -> List:
             if name == "file":
                 child_runs.update(
                     Run.filter(
-                        input_datasets__id__in=[i.id for i in outputs_run]
+                        input_collections__id__in=[i.id for i in outputs_run]
                     ).list()
                 )
         runs = child_runs

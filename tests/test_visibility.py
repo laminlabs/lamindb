@@ -9,27 +9,27 @@ def test_file_visibility():
     assert artifact.visibility == 1
     artifact.save()
 
-    # create a dataset from file
-    dataset = ln.Dataset(artifact, name="test-visibility")
-    dataset.save()
+    # create a collection from file
+    collection = ln.Collection(artifact, name="test-visibility")
+    collection.save()
 
-    # delete a dataset will put both dataset and linked file in trash
-    dataset.delete()
-    assert dataset.artifact.visibility == -1
-    result = ln.Dataset.filter(name="test-visibility").all()
+    # delete a collection will put both collection and linked file in trash
+    collection.delete()
+    assert collection.artifact.visibility == -1
+    result = ln.Collection.filter(name="test-visibility").all()
     assert len(result) == 0
-    result = ln.Dataset.filter(name="test-visibility", visibility=1).all()
+    result = ln.Collection.filter(name="test-visibility", visibility=1).all()
     assert len(result) == 0
-    result = ln.Dataset.filter(name="test-visibility", visibility=None).all()
+    result = ln.Collection.filter(name="test-visibility", visibility=None).all()
     assert len(result) == 1
 
     # restore
-    dataset.restore()
-    assert dataset.visibility == 1
-    assert dataset.artifact.visibility == 1
+    collection.restore()
+    assert collection.visibility == 1
+    assert collection.artifact.visibility == 1
 
     # permanent delete
-    dataset.delete(permanent=True)
+    collection.delete(permanent=True)
     result = ln.Artifact.filter(description="test-visibility", visibility=None).all()
     # also permanently deleted linked file
     assert len(result) == 0

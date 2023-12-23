@@ -144,7 +144,7 @@ def dir_iris_images() -> UPath:  # pragma: no cover
 def anndata_mouse_sc_lymph_node(
     populate_registries: bool = False,
 ) -> ad.AnnData:  # pragma: no cover
-    """Mouse lymph node scRNA-seq dataset from EBI.
+    """Mouse lymph node scRNA-seq collection from EBI.
 
     Subsampled to 10k genes.
 
@@ -226,11 +226,11 @@ def anndata_mouse_sc_lymph_node(
 
 
 def anndata_pbmc68k_reduced() -> ad.AnnData:
-    """Modified from scanpy.datasets.pbmc68k_reduced().
+    """Modified from scanpy.collections.pbmc68k_reduced().
 
     This code was run::
 
-        pbmc68k = sc.datasets.pbmc68k_reduced()
+        pbmc68k = sc.collections.pbmc68k_reduced()
         pbmc68k.obs.rename(columns={"bulk_labels": "cell_type"}, inplace=True)
         pbmc68k.obs["cell_type"] = pbmc68k.obs["cell_type"].cat.rename_categories(
             {"Dendritic": "Dendritic cells", "CD14+ Monocyte": "CD14+ Monocytes"}
@@ -254,7 +254,7 @@ def anndata_pbmc68k_reduced() -> ad.AnnData:
 
 
 def anndata_file_pbmc68k_test() -> Path:
-    """Modified from scanpy.datasets.pbmc68k_reduced().
+    """Modified from scanpy.collections.pbmc68k_reduced().
 
     Additional slots were added for testing purposes. Returns the filepath.
 
@@ -291,7 +291,7 @@ def anndata_human_immune_cells(
     """Cross-tissue immune cell analysis reveals tissue-specific features in humans.
 
     From: https://cellxgene.cziscience.com/collections/62ef75e4-cbea-454e-a0ce-998ec40223d3  # noqa
-    Dataset: Global
+    Collection: Global
 
     To reproduce the subsample::
 
@@ -404,18 +404,18 @@ def mudata_papalexi21_subset():  # pragma: no cover
 
 
 def df_iris() -> pd.DataFrame:
-    """The iris dataset as in sklearn.
+    """The iris collection as in sklearn.
 
     Original code::
 
-        sklearn.datasets.load_iris(as_frame=True).frame
+        sklearn.collections.load_iris(as_frame=True).frame
     """
     filepath, _ = urlretrieve("https://lamindb-test.s3.amazonaws.com/iris.parquet")
     return pd.read_parquet(filepath)
 
 
 def df_iris_in_meter() -> pd.DataFrame:
-    """The iris dataset with lengths in meter."""
+    """The iris collection with lengths in meter."""
     df = df_iris()
     # rename columns
     df.rename(
@@ -436,13 +436,13 @@ def df_iris_in_meter() -> pd.DataFrame:
 
 
 def df_iris_in_meter_study1() -> pd.DataFrame:
-    """The iris dataset with lengths in meter."""
+    """The iris collection with lengths in meter."""
     df_iris = df_iris_in_meter()
     return df_iris.iloc[: len(df_iris) // 2]
 
 
 def df_iris_in_meter_study2() -> pd.DataFrame:
-    """The iris dataset with lengths in meter."""
+    """The iris collection with lengths in meter."""
     df_iris = df_iris_in_meter()
     return df_iris.iloc[len(df_iris) // 2 :]
 
@@ -500,7 +500,7 @@ def dir_scrnaseq_cellranger(
 
 
 def schmidt22_crispra_gws_IFNG(basedir=".") -> Path:  # pragma: no cover
-    """CRISPRi screen dataset of Schmidt22.
+    """CRISPRi screen collection of Schmidt22.
 
     Originally from: https://zenodo.org/record/5784651
     """
@@ -512,7 +512,7 @@ def schmidt22_crispra_gws_IFNG(basedir=".") -> Path:  # pragma: no cover
 
 
 def schmidt22_perturbseq(basedir=".") -> Path:  # pragma: no cover
-    """Perturb-seq dataset of Schmidt22.
+    """Perturb-seq collection of Schmidt22.
 
     Subsampled and converted to h5ad from R file: https://zenodo.org/record/5784651
 

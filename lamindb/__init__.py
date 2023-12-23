@@ -6,7 +6,7 @@ LaminDB helps you manage data batches with two basic registries:
    :toctree: .
 
    Artifact
-   Dataset
+   Collection
 
 Four registries track provenance of data batches:
 
@@ -92,7 +92,7 @@ if _INSTANCE_SETUP:
     del __getattr__  # delete so that imports work out
     from lnschema_core import (
         Artifact,
-        Dataset,
+        Collection,
         Feature,
         FeatureSet,
         Run,
@@ -104,7 +104,7 @@ if _INSTANCE_SETUP:
 
     File = Artifact  # backward compat
     from . import _artifact  # noqa
-    from . import _dataset
+    from . import _collection
     from . import _feature
     from . import _feature_set
     from . import _parents
