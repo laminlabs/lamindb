@@ -467,7 +467,7 @@ def test_from_dir_single_artifact(get_test_filepaths, key):
 
 def test_from_dir_s3():
     study0_data = ln.Artifact(
-        "s3://lamindb-dev-datasets/iris_studies/study0_raw_images"
+        "s3://lamindb-dev-collections/iris_studies/study0_raw_images"
     )
     study0_data.hash = "d8_SjrP3V5tGetN8LQZC7w"
     study0_data.hash_type = "md5-d"
@@ -540,8 +540,8 @@ def test_create_big_file_from_remote_path():
 
 
 def test_extract_suffix_from_path():
-    # this is a dataset of path, stem, suffix tuples
-    dataset = [
+    # this is a collection of path, stem, suffix tuples
+    collection = [
         ("a", "a", ""),
         ("a.txt", "a", ".txt"),
         ("archive.tar.gz", "archive", ".tar.gz"),
@@ -552,7 +552,7 @@ def test_extract_suffix_from_path():
         ("salmon.merged.gene_counts.tsv", "salmon.merged.gene_counts", ".tsv"),
         ("salmon.merged.gene_counts.tsv.gz", "salmon.merged.gene_counts", ".tsv.gz"),
     ]
-    for path, _, suffix in dataset:
+    for path, _, suffix in collection:
         filepath = Path(path)
         assert suffix == extract_suffix_from_path(filepath)
 

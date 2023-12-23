@@ -31,7 +31,7 @@ def bad_adata_path():
                 new_dt = dt
             formats.append((name, new_dt))
         del file[field_name]
-        file.create_dataset(field_name, data=field.astype(formats))
+        file.create_collection(field_name, data=field.astype(formats))
     del file["X"].attrs["encoding-type"]
     del file["X"].attrs["encoding-version"]
     del file["obsp"]["test"].attrs["encoding-type"]

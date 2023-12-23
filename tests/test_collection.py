@@ -7,7 +7,7 @@ import numpy as np
 import pandas as pd
 import pytest
 from django.db.models.deletion import ProtectedError
-from lamindb import _dataset
+from lamindb import _collection
 from scipy.sparse import csr_matrix
 
 df = pd.DataFrame({"feat1": [1, 2], "feat2": [3, 4]})
@@ -38,40 +38,40 @@ def test_signatures():
     # class methods
     class_methods = ["from_df", "from_anndata"]
     for name in class_methods:
-        setattr(Mock, name, getattr(_dataset, name))
-        assert signature(getattr(Mock, name)) == _dataset.SIGS.pop(name)
+        setattr(Mock, name, getattr(_collection, name))
+        assert signature(getattr(Mock, name)) == _collection.SIGS.pop(name)
     # methods
-    for name, sig in _dataset.SIGS.items():
-        assert signature(getattr(_dataset, name)) == sig
+    for name, sig in _collection.SIGS.items():
+        assert signature(getattr(_collection, name)) == sig
 
 
 def test_create_delete_from_single_dataframe():
     df = ln.dev.datasets.df_iris_in_meter_study1()
 
-    dataset = ln.Dataset.from_df(df, name="Iris flower dataset1")
+    collection = ln.Collection.from_df(df, name="Iris flower collection1")
     # because features weren't registered, there is no linked feature set
-    assert dataset._feature_sets == {}
+    assert collection._feature_sets == {}
 
     # register features
     ln.save(ln.Feature.from_df(df))
 
     # won't work with features like so
-    dataset = ln.Dataset(df, name="Iris flower dataset1")
-    assert dataset._feature_sets == {}
+    collection = ln.Collection(df, name="Iris flower collection1")
+    assert collection._feature_sets == {}
 
     # will work like so
-    dataset = ln.Dataset.from_df(df, name="Iris flower dataset1")
-    assert "columns" in dataset._feature_sets
+    collection = ln.Collection.from_df(df, name="Iris flower collection1")
+    assert "columns" in collection._feature_sets
 
-    dataset.save()
+    collection.save()
 
     # basics
-    assert dataset.load().iloc[0].tolist() == df.iloc[0].tolist()
-    artifact = dataset.artifact
-    assert artifact.description == f"See dataset {dataset.uid}"
-    assert dataset.hash == artifact.hash
-    assert dataset.uid == artifact.uid
-    assert ln.Artifact.filter(uid=dataset.uid).one_or_none() is not None
+    assert collection.load().iloc[0].tolist() == df.iloc[0].tolist()
+    artifact = collection.artifact
+    assert artifact.description == f"See collection {collection.uid}"
+    assert collection.hash == artifact.hash
+    assert collection.uid == artifact.uid
+    assert ln.Artifact.filter(uid=collection.uid).one_or_none() is not None
     assert ln.Artifact.filter(uid=artifact.uid).one_or_none() is not None
 
     # features
@@ -83,34 +83,34 @@ def test_create_delete_from_single_dataframe():
         "iris_organism_name",
     ]
     assert len(ln.Feature.filter(name__in=feature_list).list()) == 5
-    feature_set = ln.FeatureSet.filter(datasets=dataset).one()
+    feature_set = ln.FeatureSet.filter(collections=collection).one()
     feature_list_queried = ln.Feature.filter(feature_sets=feature_set).list()
     feature_list_queried = [feature.name for feature in feature_list_queried]
     assert set(feature_list_queried) == set(feature_list)
     # the feature_set is also linked to the file
-    assert ln.FeatureSet.filter(artifacts=dataset.artifact).one() == feature_set
+    assert ln.FeatureSet.filter(artifacts=collection.artifact).one() == feature_set
 
     # accidental recreation (re-load based on hash)
-    dataset1 = ln.Dataset.from_df(df, name="Iris Flower data1")
-    assert dataset1.id == dataset.id
-    assert dataset1.hash == dataset.hash
+    collection1 = ln.Collection.from_df(df, name="Iris Flower data1")
+    assert collection1.id == collection.id
+    assert collection1.hash == collection.hash
 
     # now proceed to deletion
-    dataset.delete(permanent=True, storage=True)
-    assert ln.Artifact.filter(uid=dataset.uid).one_or_none() is None
+    collection.delete(permanent=True, storage=True)
+    assert ln.Artifact.filter(uid=collection.uid).one_or_none() is None
     assert ln.Artifact.filter(uid=artifact.uid).one_or_none() is None
 
 
 def test_create_delete_from_single_anndata():
     ln.track(ln.Transform(name="Test transform"))
-    dataset = ln.Dataset(adata, name="My adata")
-    dataset.save()
-    dataset.delete(permanent=True, storage=True)
-    assert ln.Artifact.filter(id=dataset.id).one_or_none() is None
-    assert ln.Artifact.filter(id=dataset.artifact.id).one_or_none() is None
+    collection = ln.Collection(adata, name="My adata")
+    collection.save()
+    collection.delete(permanent=True, storage=True)
+    assert ln.Artifact.filter(id=collection.id).one_or_none() is None
+    assert ln.Artifact.filter(id=collection.artifact.id).one_or_none() is None
     # and now with from_anndata
     lb.settings.organism = "human"
-    dataset = ln.Dataset.from_anndata(adata, name="My adata", field=lb.Gene.symbol)
+    collection = ln.Collection.from_anndata(adata, name="My adata", field=lb.Gene.symbol)
     # let's now try passing an AnnData-like file with some feature sets linked
     ln.save(ln.Feature.from_df(adata.obs))
     artifact = ln.Artifact.from_anndata(
@@ -118,11 +118,11 @@ def test_create_delete_from_single_anndata():
     )
     artifact.save()
     ln.save(lb.Gene.from_values(adata.var.index, "symbol"))
-    dataset = ln.Dataset.from_anndata(artifact, name="My dataset", field=lb.Gene.symbol)
-    dataset.save()
-    dataset.describe()
-    dataset.view_lineage()
-    feature_sets_queried = dataset.feature_sets.all()
+    collection = ln.Collection.from_anndata(artifact, name="My collection", field=lb.Gene.symbol)
+    collection.save()
+    collection.describe()
+    collection.view_lineage()
+    feature_sets_queried = collection.feature_sets.all()
     features_queried = ln.Feature.filter(feature_sets__in=feature_sets_queried).all()
     assert set(features_queried.list("name")) == set(adata.obs.columns)
     genes_queried = lb.Gene.filter(feature_sets__in=feature_sets_queried).all()
@@ -130,7 +130,7 @@ def test_create_delete_from_single_anndata():
     feature_sets_queried.delete()
     features_queried.delete()
     genes_queried.delete()
-    dataset.delete(permanent=True, storage=True)
+    collection.delete(permanent=True, storage=True)
     ln.dev.run_context.run = None
     ln.dev.run_context.transform = None
 
@@ -146,13 +146,13 @@ def test_from_single_file():
         adata, description="My adata", field=lb.Gene.symbol
     )
     with pytest.raises(ValueError) as error:
-        ln.Dataset(artifact)
+        ln.Collection(artifact)
     assert str(error.exconly()).startswith(
-        "ValueError: Save artifact before creating dataset!"
+        "ValueError: Save artifact before creating collection!"
     )
     artifact.save()
     with pytest.raises(ValueError) as error:
-        ln.Dataset(artifact, artifact)
+        ln.Collection(artifact, artifact)
     assert str(error.exconly()).startswith(
         "ValueError: Only one non-keyword arg allowed: data"
     )
@@ -160,47 +160,47 @@ def test_from_single_file():
     transform.save()
     run = ln.Run(transform)
     run.save()
-    dataset = ln.Dataset(artifact, name="My new dataset", run=run)
-    dataset.save()
+    collection = ln.Collection(artifact, name="My new collection", run=run)
+    collection.save()
     # test data flow
-    assert dataset.run.input_artifacts.get() == artifact
+    assert collection.run.input_artifacts.get() == artifact
     # test features
     assert set(artifact.feature_sets.list("id")) == set(
-        dataset.artifact.feature_sets.list("id")
+        collection.artifact.feature_sets.list("id")
     )
     assert set(artifact.features._feature_set_by_slot.keys()) == set(
-        dataset.features._feature_set_by_slot.keys()
+        collection.features._feature_set_by_slot.keys()
     )
     feature_sets_queried = artifact.feature_sets.all()
     features_queried = ln.Feature.filter(feature_sets__in=feature_sets_queried).all()
     feature_sets_queried.delete()
     features_queried.delete()
-    dataset.delete(permanent=True, storage=True)
-    assert ln.Artifact.filter(id=dataset.id).one_or_none() is None
-    assert ln.Artifact.filter(id=dataset.artifact.id).one_or_none() is None
+    collection.delete(permanent=True, storage=True)
+    assert ln.Artifact.filter(id=collection.id).one_or_none() is None
+    assert ln.Artifact.filter(id=collection.artifact.id).one_or_none() is None
 
 
 def test_edge_cases():
     with pytest.raises(ValueError) as error:
-        ln.Dataset(df, invalid_param=1)
+        ln.Collection(df, invalid_param=1)
     assert str(error.exconly()).startswith(
         "ValueError: Only data, name, run, description, reference, reference_type, visibility can be passed, you passed: "
     )
     with pytest.raises(ValueError) as error:
-        ln.Dataset(1, name="Invalid")
+        ln.Collection(1, name="Invalid")
     assert str(error.exconly()).startswith(
         "ValueError: Only DataFrame, AnnData, Artifact or list of artifacts is allowed."
     )
     artifact = ln.Artifact(df, description="Test file")
     assert artifact._state.adding
     with pytest.raises(ValueError) as error:
-        ln.Dataset([artifact])
+        ln.Collection([artifact])
     assert str(error.exconly()).startswith(
         "ValueError: Not all artifacts are yet saved, please save them"
     )
     artifact.save()
     with pytest.raises(ValueError) as error:
-        ln.Dataset([artifact, artifact])
+        ln.Collection([artifact, artifact])
     assert str(error.exconly()).startswith(
         "ValueError: Please pass artifacts with distinct hashes: these ones are"
         " non-unique"
@@ -209,8 +209,8 @@ def test_edge_cases():
 
 
 def test_backed():
-    dataset = ln.Dataset(adata, name="My test")
-    dataset.backed()
+    collection = ln.Collection(adata, name="My test")
+    collection.backed()
 
 
 def test_from_inconsistent_files():
@@ -218,22 +218,22 @@ def test_from_inconsistent_files():
     file1.save()
     file2 = ln.Artifact(adata, description="My test2")
     file2.save()
-    dataset = ln.Dataset([file1, file2], name="Inconsistent")
-    dataset.save()
+    collection = ln.Collection([file1, file2], name="Inconsistent")
+    collection.save()
     # create a run context
     ln.track(ln.Transform(name="My test transform"))
     # can iterate over them
-    artifacts = dataset.artifacts.all()  # noqa
-    assert set(ln.dev.run_context.run.input_datasets.all()) == {dataset}
+    artifacts = collection.artifacts.all()  # noqa
+    assert set(ln.dev.run_context.run.input_collections.all()) == {collection}
     # loading will throw an error here
     with pytest.raises(RuntimeError) as error:
-        dataset.load()
+        collection.load()
     assert str(error.exconly()).startswith(
-        "RuntimeError: Can only load datasets where all artifacts have the same suffix"
+        "RuntimeError: Can only load collections where all artifacts have the same suffix"
     )
     file1.delete(permanent=True, storage=True)
     file2.delete(permanent=True, storage=True)
-    dataset.delete(permanent=True)
+    collection.delete(permanent=True)
     ln.dev.run_context.run = None
     ln.dev.run_context.transform = None
 
@@ -247,23 +247,23 @@ def test_from_consistent_files():
     transform.save()
     run = ln.Run(transform)
     run.save()
-    dataset = ln.Dataset([file1, file2], name="My test", run=run)
-    dataset.save()
-    assert set(dataset.run.input_artifacts.all()) == {file1, file2}
-    adata_joined = dataset.load()
+    collection = ln.Collection([file1, file2], name="My test", run=run)
+    collection.save()
+    assert set(collection.run.input_artifacts.all()) == {file1, file2}
+    adata_joined = collection.load()
     assert "artifact_uid" in adata_joined.obs.columns
     assert file1.uid in adata_joined.obs.artifact_uid.cat.categories
     with pytest.raises(RuntimeError) as error:
-        dataset.backed()
+        collection.backed()
     assert str(error.exconly()).startswith(
-        "RuntimeError: Can only call backed() for datasets with a single artifact"
+        "RuntimeError: Can only call backed() for collections with a single artifact"
     )
     file1.delete(permanent=True, storage=True)
     file2.delete(permanent=True, storage=True)
-    dataset.delete(permanent=True)
+    collection.delete(permanent=True)
 
 
-def test_dataset_mapped():
+def test_collection_mapped():
     adata.strings_to_categoricals()
     adata.obs["feat2"] = adata.obs["feat1"]
     file1 = ln.Artifact(adata, description="Part one")
@@ -272,10 +272,10 @@ def test_dataset_mapped():
     adata2.obs["feat2"] = adata2.obs["feat1"]
     file2 = ln.Artifact(adata2, description="Part two", format="zrad")
     file2.save()
-    dataset = ln.Dataset([file1, file2], name="Gather")
-    dataset.save()
+    collection = ln.Collection([file1, file2], name="Gather")
+    collection.save()
 
-    ls_ds = dataset.mapped(label_keys="feat1")
+    ls_ds = collection.mapped(label_keys="feat1")
     assert not ls_ds.closed
 
     assert len(ls_ds) == 4
@@ -288,68 +288,68 @@ def test_dataset_mapped():
     assert ls_ds.closed
     del ls_ds
 
-    with dataset.mapped(label_keys="feat1", join_vars="inner") as ls_ds:
+    with collection.mapped(label_keys="feat1", join_vars="inner") as ls_ds:
         assert not ls_ds.closed
         assert len(ls_ds) == 4
         assert len(ls_ds[0]) == 2 and len(ls_ds[2]) == 2
     assert ls_ds.closed
 
-    ls_ds = dataset.mapped(label_keys="feat1", parallel=True)
+    ls_ds = collection.mapped(label_keys="feat1", parallel=True)
     assert len(ls_ds[0]) == 2 and len(ls_ds[2]) == 2
 
     file1.delete(permanent=True, storage=True)
     file2.delete(permanent=True, storage=True)
-    dataset.delete(permanent=True)
+    collection.delete(permanent=True)
 
 
-def test_is_new_version_of_versioned_dataset():
-    # create a versioned dataset
-    dataset = ln.Dataset(df, name="test", version="1")
-    assert dataset.version == "1"
-    dataset.save()
+def test_is_new_version_of_versioned_collection():
+    # create a versioned collection
+    collection = ln.Collection(df, name="test", version="1")
+    assert collection.version == "1"
+    collection.save()
 
     with pytest.raises(ValueError) as error:
-        dataset_v2 = ln.Dataset(adata, is_new_version_of=dataset, version="1")
+        collection_v2 = ln.Collection(adata, is_new_version_of=collection, version="1")
     assert error.exconly() == "ValueError: Please increment the previous version: '1'"
 
-    # create new dataset from old dataset
-    dataset_v2 = ln.Dataset(adata, is_new_version_of=dataset)
-    assert dataset.version == "1"
-    assert dataset_v2.stem_uid == dataset.stem_uid
-    assert dataset_v2.version == "2"
-    assert dataset_v2.name == "test"
+    # create new collection from old collection
+    collection_v2 = ln.Collection(adata, is_new_version_of=collection)
+    assert collection.version == "1"
+    assert collection_v2.stem_uid == collection.stem_uid
+    assert collection_v2.version == "2"
+    assert collection_v2.name == "test"
 
-    dataset_v2.save()
+    collection_v2.save()
 
-    # create new dataset from newly versioned dataset
+    # create new collection from newly versioned collection
     df.iloc[0, 0] = 0
-    dataset_v3 = ln.Dataset(df, name="test1", is_new_version_of=dataset_v2)
-    assert dataset_v3.stem_uid == dataset.stem_uid
-    assert dataset_v3.version == "3"
-    assert dataset_v3.name == "test1"
+    collection_v3 = ln.Collection(df, name="test1", is_new_version_of=collection_v2)
+    assert collection_v3.stem_uid == collection.stem_uid
+    assert collection_v3.version == "3"
+    assert collection_v3.name == "test1"
 
-    # test that reference dataset cannot be deleted
-    dataset_v2.delete(permanent=True, storage=True)
-    dataset.delete(permanent=True, storage=True)
+    # test that reference collection cannot be deleted
+    collection_v2.delete(permanent=True, storage=True)
+    collection.delete(permanent=True, storage=True)
 
 
-def test_is_new_version_of_unversioned_dataset():
-    # unversioned dataset
-    dataset = ln.Dataset(df, name="test2")
-    assert dataset.version is None
+def test_is_new_version_of_unversioned_collection():
+    # unversioned collection
+    collection = ln.Collection(df, name="test2")
+    assert collection.version is None
 
-    # what happens if we don't save the old dataset?
+    # what happens if we don't save the old collection?
     # add a test for it!
-    dataset.save()
+    collection.save()
 
     with pytest.raises(TypeError):
-        ln.Dataset(adata, is_new_version_of="wrong-type")
+        ln.Collection(adata, is_new_version_of="wrong-type")
 
-    # create new dataset from old dataset
-    new_dataset = ln.Dataset(adata, is_new_version_of=dataset)
-    assert dataset.version == "1"
-    assert new_dataset.stem_uid == dataset.stem_uid
-    assert new_dataset.version == "2"
-    assert new_dataset.name == dataset.name
+    # create new collection from old collection
+    new_collection = ln.Collection(adata, is_new_version_of=collection)
+    assert collection.version == "1"
+    assert new_collection.stem_uid == collection.stem_uid
+    assert new_collection.version == "2"
+    assert new_collection.name == collection.name
 
-    dataset.delete(permanent=True, storage=True)
+    collection.delete(permanent=True, storage=True)

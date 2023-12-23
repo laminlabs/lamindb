@@ -36,7 +36,7 @@ if anndata_version_parse < version.parse("0.10.0"):
     from anndata._core.sparse_dataset import SparseDataset
 
     # try csr for groups with no encoding_type
-    class CSRCollection(SparseDataset):
+    class CSRDataset(SparseDataset):
         @property
         def format_str(self) -> str:
             return "csr"
@@ -49,18 +49,18 @@ else:
         BaseCompressedSparseDataset as SparseDataset,
     )
     from anndata._core.sparse_dataset import (  # type: ignore
-        CSRCollection,
+        CSRDataset,
         sparse_dataset,
     )
 
     def _check_group_format(*args):
         pass
 
-    CSRCollection._check_group_format = _check_group_format
+    CSRDataset._check_group_format = _check_group_format
 
 
-# zarr and CSRCollection have problems with full selection
-def _subset_sparse(sparse_ds: Union[CSRCollection, SparseDataset], indices):
+# zarr and CSRDataset have problems with full selection
+def _subset_sparse(sparse_ds: Union[CSRDataset, SparseDataset], indices):
     has_arrays = isinstance(indices[0], np.ndarray) or isinstance(
         indices[1], np.ndarray
     )
@@ -175,7 +175,7 @@ def safer_read_partial(elem, indices):
                     return elem[indices[0]]
         elif isinstance(elem, h5py.Group):
             try:
-                ds = CSRCollection(elem)
+                ds = CSRDataset(elem)
                 return _subset_sparse(ds, indices)
             except Exception:
                 pass
@@ -257,7 +257,7 @@ if ZARR_INSTALLED:
                         return elem.oindex[indices[0]]
             elif isinstance(elem, zarr.Group):
                 try:
-                    ds = CSRCollection(elem)
+                    ds = CSRDataset(elem)
                     return _subset_sparse(ds, indices)
                 except Exception:
                     pass
@@ -345,7 +345,7 @@ def _try_backed_full(elem):
         if "h5sparse_format" in elem.attrs:
             return sparse_dataset(elem)
         if encoding_type == "" and "indptr" in elem:
-            return CSRCollection(elem)
+            return CSRDataset(elem)
 
     return read_elem(elem)
 
