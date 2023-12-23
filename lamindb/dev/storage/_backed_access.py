@@ -33,7 +33,7 @@ if anndata_version_parse < version.parse("0.10.0"):
             " please install anndata>=0.9.1."
         )
 
-    from anndata._core.sparse_collection import SparseCollection
+    from anndata._core.sparse_dataset import SparseCollection
 
     # try csr for groups with no encoding_type
     class CSRCollection(SparseCollection):
@@ -41,16 +41,16 @@ if anndata_version_parse < version.parse("0.10.0"):
         def format_str(self) -> str:
             return "csr"
 
-    def sparse_collection(group):
+    def sparse_dataset(group):
         return SparseCollection(group)
 
 else:
-    from anndata._core.sparse_collection import (
+    from anndata._core.sparse_dataset import (
         BaseCompressedSparseCollection as SparseCollection,
     )
-    from anndata._core.sparse_collection import (  # type: ignore
+    from anndata._core.sparse_dataset import (  # type: ignore
         CSRCollection,
-        sparse_collection,
+        sparse_dataset,
     )
 
     def _check_group_format(*args):
@@ -267,7 +267,7 @@ if ZARR_INSTALLED:
             )
         else:
             if encoding_type in ("csr_matrix", "csc_matrix"):
-                ds = sparse_collection(elem)
+                ds = sparse_dataset(elem)
                 return _subset_sparse(ds, indices)
             else:
                 return read_elem_partial(elem, indices=indices)
@@ -341,9 +341,9 @@ def _try_backed_full(elem):
     if isinstance(elem, GroupTypes):
         encoding_type = get_spec(elem).encoding_type
         if encoding_type in ("csr_matrix", "csc_matrix"):
-            return sparse_collection(elem)
+            return sparse_dataset(elem)
         if "h5sparse_format" in elem.attrs:
-            return sparse_collection(elem)
+            return sparse_dataset(elem)
         if encoding_type == "" and "indptr" in elem:
             return CSRCollection(elem)
 
