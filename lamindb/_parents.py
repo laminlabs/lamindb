@@ -28,12 +28,12 @@ def _transform_emoji(transform: Transform):
 def _view(u):
     try:
         tmp_filestem = ln_setup.settings.storage.cache_dir / "tmp_file"
-        tmp_filepath = u.render(tmp_filestem, format="png")
+        tmp_filepath = u.render(tmp_filestem, format="svg")
         print(tmp_filepath)
         if is_run_from_ipython:
-            from IPython.display import Image, display
+            from IPython.display import SVG, display
 
-            display(Image(filename=tmp_filepath))
+            display(SVG(filename=tmp_filepath))
     except (FileNotFoundError, RuntimeError):  # pragma: no cover
         logger.error(
             "please install the graphviz executable on your system:\n  - Ubuntu: `sudo"
