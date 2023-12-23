@@ -129,9 +129,10 @@ def get_transform_kwargs_from_stem_uid(
 ) -> Tuple[Optional[Transform], str, str]:
     from lamin_utils._base62 import encodebytes
 
-    # zero-pad the nbproject version such that the base62 encoding is at
-    # least 4 characters long
-    uid_ext = encodebytes(nbproject_version.zfill(4).encode())[:4]
+    # merely zero-padding the nbproject version such that the base62 encoding is at
+    # least 4 characters long does yield sufficiently diverse hashes within 4 characters
+    # it'd be nice because the uid_ext would be ordered, but it leads to collisions
+    uid_ext = encodebytes(hashlib.md5(nbproject_version.encode()).digest())[:4]
     new_uid = nbproject_id + uid_ext
     assert len(new_uid) == 16
     transform = Transform.filter(
