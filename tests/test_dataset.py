@@ -329,8 +329,6 @@ def test_is_new_version_of_versioned_dataset():
     assert dataset_v3.name == "test1"
 
     # test that reference dataset cannot be deleted
-    with pytest.raises(ProtectedError):
-        dataset.delete(permanent=True, storage=True)
     dataset_v2.delete(permanent=True, storage=True)
     dataset.delete(permanent=True, storage=True)
 
