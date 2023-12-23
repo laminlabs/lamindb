@@ -291,7 +291,7 @@ def anndata_human_immune_cells(
     """Cross-tissue immune cell analysis reveals tissue-specific features in humans.
 
     From: https://cellxgene.cziscience.com/collections/62ef75e4-cbea-454e-a0ce-998ec40223d3  # noqa
-    Dataset: Global
+    Collection: Global
 
     To reproduce the subsample::
 

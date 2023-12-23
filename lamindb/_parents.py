@@ -2,7 +2,7 @@ import builtins
 from typing import List, Optional, Set, Union
 
 from lamin_utils import logger
-from lnschema_core import Artifact, Dataset, Registry, Run, Transform
+from lnschema_core import Artifact, Collection, Registry, Run, Transform
 from lnschema_core.models import HasParents, format_field_value
 
 from lamindb._utils import attach_func_to_class_method
@@ -61,7 +61,7 @@ def view_parents(
     )
 
 
-def view_lineage(data: Union[Artifact, Dataset], with_children: bool = True) -> None:
+def view_lineage(data: Union[Artifact, Collection], with_children: bool = True) -> None:
     """Graph of data flow.
 
     Notes:
@@ -81,7 +81,7 @@ def view_lineage(data: Union[Artifact, Dataset], with_children: bool = True) -> 
     data_label = _record_label(data)
 
     def add_node(
-        record: Union[Run, Artifact, Dataset],
+        record: Union[Run, Artifact, Collection],
         node_id: str,
         node_label: str,
         u: graphviz.Digraph,
@@ -267,7 +267,7 @@ def _record_label(record: Registry, field: Optional[str] = None):
             rf'<📄 {name}<BR/><FONT COLOR="GREY" POINT-SIZE="10"'
             rf' FACE="Monospace">uid={record.uid}<BR/>suffix={record.suffix}</FONT>>'
         )
-    elif isinstance(record, Dataset):
+    elif isinstance(record, Collection):
         name = record.name.replace("&", "&amp;")
         return (
             rf'<🍱 {name}<BR/><FONT COLOR="GREY" POINT-SIZE="10"'
@@ -305,7 +305,7 @@ def _add_emoji(record: Registry, label: str):
     return f"{emoji} {label}"
 
 
-def _get_all_parent_runs(data: Union[Artifact, Dataset]) -> List:
+def _get_all_parent_runs(data: Union[Artifact, Collection]) -> List:
     """Get all input file/dataset runs recursively."""
     name = data._meta.model_name
     run_inputs_outputs = []
@@ -331,7 +331,7 @@ def _get_all_parent_runs(data: Union[Artifact, Dataset]) -> List:
     return run_inputs_outputs
 
 
-def _get_all_child_runs(data: Union[Artifact, Dataset]) -> List:
+def _get_all_child_runs(data: Union[Artifact, Collection]) -> List:
     """Get all output file/dataset runs recursively."""
     name = data._meta.model_name
     all_runs: Set[Run] = set()

@@ -40,12 +40,12 @@ class _Connect:
             self.conn.close()
 
 
-class MappedDataset:
+class MappedCollection:
     """Map-style dataset for use in data loaders.
 
     This currently only works for collections of `AnnData` objects.
 
-    For an example, see :meth:`~lamindb.Dataset.mapped`.
+    For an example, see :meth:`~lamindb.Collection.mapped`.
 
     .. note::
 

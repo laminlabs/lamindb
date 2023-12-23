@@ -2,7 +2,7 @@ from typing import Dict, List, Optional, Tuple, Union
 
 import numpy as np
 from lamin_utils import colors, logger
-from lnschema_core.models import Artifact, Data, Dataset, Feature, Registry
+from lnschema_core.models import Artifact, Data, Collection, Feature, Registry
 
 from lamindb._feature_set import dict_related_model_to_related_name
 from lamindb._from_values import _print_values
@@ -107,7 +107,7 @@ class LabelManager:
     See :class:`~lamindb.dev.Data` for more information.
     """
 
-    def __init__(self, host: Union[Artifact, Dataset]):
+    def __init__(self, host: Union[Artifact, Collection]):
         self._host = host
 
     def __repr__(self) -> str:
