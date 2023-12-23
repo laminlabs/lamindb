@@ -80,9 +80,7 @@ def write_adata_zarr(
         else:
             _write_elem_cb(f, "X", adata.X, dataset_kwargs=dataset_kwargs)
         for elem in ("obs", "var"):
-            _write_elem_cb(
-                f, elem, getattr(adata, elem), dataset_kwargs=dataset_kwargs
-            )
+            _write_elem_cb(f, elem, getattr(adata, elem), dataset_kwargs=dataset_kwargs)
         for elem in ("obsm", "varm", "obsp", "varp", "layers", "uns"):
             _write_elem_cb(
                 f, elem, dict(getattr(adata, elem)), dataset_kwargs=dataset_kwargs
