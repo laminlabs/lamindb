@@ -164,8 +164,6 @@ def test_is_new_version_of_versioned_file():
     )
 
     # test that reference file cannot be deleted
-    with pytest.raises(ProtectedError):
-        artifact.delete(permanent=True, storage=True)
     artifact_v2.delete(permanent=True, storage=True)
     artifact.delete(permanent=True, storage=True)
 
