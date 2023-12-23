@@ -10,7 +10,7 @@ from lnschema_core.types import AnnDataLike, DataLike, FieldAttr, VisibilityChoi
 
 from lamindb._utils import attach_func_to_class_method
 from lamindb.dev._data import _track_run_input
-from lamindb.dev._mapped_dataset import MappedCollection
+from lamindb.dev._mapped_collection import MappedCollection
 from lamindb.dev.versioning import get_uid_from_old_version, init_uid
 
 from . import _TESTING, Artifact, Run
@@ -29,12 +29,12 @@ if TYPE_CHECKING:
 
 
 def __init__(
-    dataset: Collection,
+    collection: Collection,
     *args,
     **kwargs,
 ):
-    if len(args) == len(dataset._meta.concrete_fields):
-        super(Collection, dataset).__init__(*args, **kwargs)
+    if len(args) == len(collection._meta.concrete_fields):
+        super(Collection, collection).__init__(*args, **kwargs)
         return None
     # now we proceed with the user-facing constructor
     if len(args) > 1:
@@ -97,7 +97,7 @@ def __init__(
         if isinstance(data, Artifact):
             artifact = data
             if artifact._state.adding:
-                raise ValueError("Save artifact before creating dataset!")
+                raise ValueError("Save artifact before creating collection!")
             if not feature_sets:
                 feature_sets = artifact.features._feature_set_by_slot
             else:
@@ -122,7 +122,7 @@ def __init__(
         hash = artifact.hash  # type: ignore
         provisional_uid = artifact.uid  # type: ignore
         if artifact.description is None or artifact.description == "tmp":
-            artifact.description = f"See dataset {provisional_uid}"  # type: ignore
+            artifact.description = f"See collection {provisional_uid}"  # type: ignore
         data_init_complete = True
     if not data_init_complete:
         if hasattr(data, "__getitem__"):
@@ -134,23 +134,25 @@ def __init__(
             raise ValueError(
                 "Only DataFrame, AnnData, Artifact or list of artifacts is allowed."
             )
-    # we ignore datasets in trash containing the same hash
+    # we ignore collections in trash containing the same hash
     if hash is not None:
-        existing_dataset = Collection.filter(hash=hash).one_or_none()
+        existing_collection = Collection.filter(hash=hash).one_or_none()
     else:
-        existing_dataset = None
-    if existing_dataset is not None:
-        logger.warning(f"returning existing dataset with same hash: {existing_dataset}")
-        init_self_from_db(dataset, existing_dataset)
-        for slot, feature_set in dataset.features._feature_set_by_slot.items():
+        existing_collection = None
+    if existing_collection is not None:
+        logger.warning(
+            f"returning existing collection with same hash: {existing_collection}"
+        )
+        init_self_from_db(collection, existing_collection)
+        for slot, feature_set in collection.features._feature_set_by_slot.items():
             if slot in feature_sets:
                 if not feature_sets[slot] == feature_set:
-                    dataset.feature_sets.remove(feature_set)
+                    collection.feature_sets.remove(feature_set)
                     logger.warning(f"removing feature set: {feature_set}")
     else:
         kwargs = {}
         add_transform_to_kwargs(kwargs, run)
-        super(Collection, dataset).__init__(
+        super(Collection, collection).__init__(
             uid=provisional_uid,
             name=name,
             description=description,
@@ -163,8 +165,8 @@ def __init__(
             visibility=visibility,
             **kwargs,
         )
-    dataset._artifacts = artifacts
-    dataset._feature_sets = feature_sets
+    collection._artifacts = artifacts
+    collection._feature_sets = feature_sets
     # register provenance
     if is_new_version_of is not None:
         _track_run_input(is_new_version_of, run=run)
@@ -195,7 +197,7 @@ def from_df(
         feature_sets = {"columns": feature_set}
     else:
         feature_sets = {}
-    dataset = Collection(
+    collection = Collection(
         data=df,
         name=name,
         run=run,
@@ -206,7 +208,7 @@ def from_df(
         version=version,
         is_new_version_of=is_new_version_of,
     )
-    return dataset
+    return collection
 
 
 @classmethod  # type: ignore
@@ -232,7 +234,7 @@ def from_anndata(
     else:
         adata_parse = adata
     feature_sets = parse_feature_sets_from_anndata(adata_parse, field, **kwargs)
-    dataset = Collection(
+    collection = Collection(
         data=adata,
         run=run,
         name=name,
@@ -243,7 +245,7 @@ def from_anndata(
         version=version,
         is_new_version_of=is_new_version_of,
     )
-    return dataset
+    return collection
 
 
 # internal function, not exposed to user
@@ -335,7 +337,9 @@ def backed(
 ) -> Union["AnnDataAccessor", "BackedAccessor"]:
     _track_run_input(self, is_run_input)
     if self.artifact is None:
-        raise RuntimeError("Can only call backed() for datasets with a single artifact")
+        raise RuntimeError(
+            "Can only call backed() for collections with a single artifact"
+        )
     return self.artifact.backed()
 
 
@@ -355,9 +359,9 @@ def load(
         suffixes = [artifact.suffix for artifact in all_artifacts]
         if len(set(suffixes)) != 1:
             raise RuntimeError(
-                "Can only load datasets where all artifacts have the same suffix"
+                "Can only load collections where all artifacts have the same suffix"
             )
-        # because we're tracking data flow on the dataset-level, here, we don't
+        # because we're tracking data flow on the collection-level, here, we don't
         # want to track it on the artifact-level
         objects = [artifact.load(is_run_input=False) for artifact in all_artifacts]
         artifact_uids = [artifact.uid for artifact in all_artifacts]
@@ -380,11 +384,11 @@ def delete(
     if self.visibility > VisibilityChoice.trash.value and permanent is not True:
         self.visibility = VisibilityChoice.trash.value
         self.save()
-        logger.warning("moved dataset to trash.")
+        logger.warning("moved collection to trash.")
         if self.artifact is not None:
             self.artifact.visibility = VisibilityChoice.trash.value
             self.artifact.save()
-            logger.warning("moved dataset.artifact to trash.")
+            logger.warning("moved collection.artifact to trash.")
         return
 
     # permanent delete

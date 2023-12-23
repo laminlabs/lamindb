@@ -40,7 +40,7 @@ Auxiliary tools:
    :toctree: .
 
    run_context
-   datasets
+   collections
    hashing
    storage
    fields
@@ -58,7 +58,7 @@ from lamindb._query_set import QuerySet
 from lamindb.dev._feature_manager import FeatureManager
 from lamindb.dev._label_manager import LabelManager
 
-from . import _data, datasets, exceptions, fields, types
-from ._mapped_dataset import MappedCollection
+from . import _data, collections, exceptions, fields, types
+from ._mapped_collection import MappedCollection
 from ._run_context import run_context
 from ._settings import Settings

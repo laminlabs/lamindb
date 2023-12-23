@@ -41,7 +41,7 @@ class _Connect:
 
 
 class MappedCollection:
-    """Map-style dataset for use in data loaders.
+    """Map-style collection for use in data loaders.
 
     This currently only works for collections of `AnnData` objects.
 

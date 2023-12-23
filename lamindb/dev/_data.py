@@ -5,8 +5,8 @@ from lamin_utils import colors, logger
 from lamindb_setup.dev._docs import doc_args
 from lnschema_core.models import (
     Artifact,
-    Data,
     Collection,
+    Data,
     Feature,
     FeatureSet,
     Registry,
@@ -209,7 +209,7 @@ def add_labels(
 ) -> None:
     """{}."""
     if self._state.adding:
-        raise ValueError("Please save the file/dataset before adding a label!")
+        raise ValueError("Please save the file/collection before adding a label!")
 
     if isinstance(records, (QuerySet, QuerySet.__base__)):  # need to have both
         records = records.list()
@@ -409,9 +409,10 @@ def _track_run_input(
                 for data_id in input_data_ids
             ]
         else:
-            LinkORM = run.input_datasets.through
+            LinkORM = run.input_collections.through
             links = [
-                LinkORM(run_id=run.id, dataset_id=data_id) for data_id in input_data_ids
+                LinkORM(run_id=run.id, collection_id=data_id)
+                for data_id in input_data_ids
             ]
         LinkORM.objects.bulk_create(links, ignore_conflicts=True)
         # generalize below for more than one data batch

@@ -6,7 +6,7 @@
 - Plug-in custom [schemas](/schemas) & manage schema migrations
 - Use array formats in memory & storage: [DataFrame](/tutorial), [AnnData](/data), [MuData](docs:multimodal), [SOMA](docs:cellxgene), ... backed by [parquet](/tutorial), [zarr](/data), [TileDB](docs:cellxgene), [HDF5](/data), [h5ad](/data), [DuckDB](docs:rxrx), ...
 - Bridge artifacts and warehousing: {class}`~lamindb.Artifact`, {class}`~lamindb.Collection`
-- Version artifacts, datasets & transforms
+- Version artifacts, collections & transforms
 
 **Track data lineage across notebooks, pipelines & UI: {meth}`~lamindb.track`, {class}`~lamindb.Transform` & {class}`~lamindb.Run`.**
 

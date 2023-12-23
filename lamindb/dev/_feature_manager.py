@@ -2,7 +2,7 @@ from typing import Dict, Union
 
 import numpy as np
 from lamin_utils import colors
-from lnschema_core.models import Artifact, Data, Collection, Feature
+from lnschema_core.models import Artifact, Collection, Data, Feature
 
 from lamindb._feature_set import FeatureSet
 from lamindb._query_set import QuerySet
@@ -19,7 +19,7 @@ def get_host_id_field(host: Union[Artifact, Collection]) -> str:
     if isinstance(host, Artifact):
         host_id_field = "artifact_id"
     else:
-        host_id_field = "dataset_id"
+        host_id_field = "collection_id"
     return host_id_field
 
 
@@ -160,7 +160,7 @@ class FeatureManager:
         """
         if self._host._state.adding:
             raise ValueError(
-                "Please save the artifact or dataset before adding a feature set!"
+                "Please save the artifact or collection before adding a feature set!"
             )
         host_db = self._host._state.db
         feature_set.save(using=host_db)
@@ -180,7 +180,7 @@ class FeatureManager:
             self._feature_set_by_slot[slot] = feature_set
 
     def _add_from(self, data: Data):
-        """Transfer features from a artifact or dataset."""
+        """Transfer features from a artifact or collection."""
         for slot, feature_set in data.features._feature_set_by_slot.items():
             members = feature_set.members
             registry = members[0].__class__

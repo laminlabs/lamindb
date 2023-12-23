@@ -2,7 +2,7 @@ from typing import Dict, List, Optional, Tuple, Union
 
 import numpy as np
 from lamin_utils import colors, logger
-from lnschema_core.models import Artifact, Data, Collection, Feature, Registry
+from lnschema_core.models import Artifact, Collection, Data, Feature, Registry
 
 from lamindb._feature_set import dict_related_model_to_related_name
 from lamindb._from_values import _print_values
@@ -25,7 +25,7 @@ def get_labels_as_dict(self: Data):
             "feature_sets",
             "files",
             "input_of",
-            "datasets",
+            "collections",
             "source_of",
             "report_of",
         }:
@@ -151,7 +151,7 @@ class LabelManager:
         return get_labels(self._host, feature=feature, mute=mute, flat_names=flat_names)
 
     def add_from(self, data: Data):
-        """Transfer labels from a file or dataset.
+        """Transfer labels from a file or collection.
 
         Examples:
             >>> file1 = ln.Artifact(pd.DataFrame(index=[0, 1]))
@@ -191,7 +191,7 @@ class LabelManager:
                 for label in new_labels:
                     transfer_to_default_db(label, mute=True)
                 save(new_labels)
-            # this should not occur as file and dataset should have the same attributes
+            # this should not occur as file and collection should have the same attributes
             # but this might not be true for custom schema
             labels_list = validated_labels + new_labels
             if hasattr(self._host, related_name):
