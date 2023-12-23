@@ -154,8 +154,8 @@ def open(filepath: Union[UPath, Path, str]):
 
 
 @registry.register("h5py")
-def read_dataframe(elem: Union[h5py.Collection, h5py.Group]):
-    if isinstance(elem, h5py.Collection):
+def read_dataframe(elem: Union[h5py.Dataset, h5py.Group]):
+    if isinstance(elem, h5py.Dataset):
         return read_dataframe_legacy_h5(elem)
     else:
         return read_elem(elem)
@@ -164,7 +164,7 @@ def read_dataframe(elem: Union[h5py.Collection, h5py.Group]):
 @registry.register("h5py")
 def safer_read_partial(elem, indices):
     if get_spec(elem).encoding_type == "":
-        if isinstance(elem, h5py.Collection):
+        if isinstance(elem, h5py.Dataset):
             dims = len(elem.shape)
             if dims == 2:
                 return elem[indices]
@@ -194,7 +194,7 @@ def keys(storage: h5py.File):
         if attr == "X":
             continue
         attr_obj = storage[attr]
-        if attr in ("obs", "var") and isinstance(attr_obj, h5py.Collection):
+        if attr in ("obs", "var") and isinstance(attr_obj, h5py.Dataset):
             keys = list(attr_obj.dtype.fields.keys())
         else:
             keys = list(attr_obj.keys())
@@ -203,7 +203,7 @@ def keys(storage: h5py.File):
     return attrs_keys
 
 
-ArrayTypes = [h5py.Collection]
+ArrayTypes = [h5py.Dataset]
 GroupTypes = [h5py.Group]
 StorageTypes = [h5py.File]
 
