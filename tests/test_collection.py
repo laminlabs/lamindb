@@ -110,7 +110,9 @@ def test_create_delete_from_single_anndata():
     assert ln.Artifact.filter(id=collection.artifact.id).one_or_none() is None
     # and now with from_anndata
     lb.settings.organism = "human"
-    collection = ln.Collection.from_anndata(adata, name="My adata", field=lb.Gene.symbol)
+    collection = ln.Collection.from_anndata(
+        adata, name="My adata", field=lb.Gene.symbol
+    )
     # let's now try passing an AnnData-like file with some feature sets linked
     ln.save(ln.Feature.from_df(adata.obs))
     artifact = ln.Artifact.from_anndata(
@@ -118,7 +120,9 @@ def test_create_delete_from_single_anndata():
     )
     artifact.save()
     ln.save(lb.Gene.from_values(adata.var.index, "symbol"))
-    collection = ln.Collection.from_anndata(artifact, name="My collection", field=lb.Gene.symbol)
+    collection = ln.Collection.from_anndata(
+        artifact, name="My collection", field=lb.Gene.symbol
+    )
     collection.save()
     collection.describe()
     collection.view_lineage()
