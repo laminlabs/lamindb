@@ -24,6 +24,7 @@ def _transform_emoji(transform: Transform):
         return TRANSFORM_EMOJIS["pipeline"]
 
 
+# should be typed with graphviz.Digraph but can't import at module level
 def _view(u):
     try:
         if is_run_from_ipython:
@@ -36,7 +37,7 @@ def _view(u):
             else:
                 display(u)
         else:
-            return u
+            return u.view()
     except (FileNotFoundError, RuntimeError):  # pragma: no cover
         logger.error(
             "please install the graphviz executable on your system:\n  - Ubuntu: `sudo"
