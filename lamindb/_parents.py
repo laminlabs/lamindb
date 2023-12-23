@@ -27,17 +27,7 @@ def _transform_emoji(transform: Transform):
 # should be typed with graphviz.Digraph but can't import at module level
 def _view(u):
     try:
-        if is_run_from_ipython:
-            from IPython import get_ipython
-            from IPython.display import display
-
-            #  True if the code is running in a Jupyter Notebook or Lab environment
-            if get_ipython().__class__.__name__ == "TerminalInteractiveShell":
-                return u.view()
-            else:
-                display(u)
-        else:
-            return u.view()
+        return u.view()
     except (FileNotFoundError, RuntimeError):  # pragma: no cover
         logger.error(
             "please install the graphviz executable on your system:\n  - Ubuntu: `sudo"
