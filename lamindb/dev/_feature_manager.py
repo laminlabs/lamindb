@@ -1,7 +1,7 @@
+from itertools import compress
 from typing import Dict, Union
 
-import numpy as np
-from lamin_utils import colors
+from lamin_utils import colors, logger
 from lnschema_core.models import Artifact, Collection, Data, Feature
 
 from lamindb._feature_set import FeatureSet
@@ -179,31 +179,53 @@ class FeatureManager:
             self._host.feature_sets.through(**kwargs).save(using=host_db)
             self._feature_set_by_slot[slot] = feature_set
 
-    def _add_from(self, data: Data):
+    def _add_from(self, data: Data, parents: bool = True):
         """Transfer features from a artifact or collection."""
         for slot, feature_set in data.features._feature_set_by_slot.items():
             members = feature_set.members
+            if members.count() == 0:
+                continue
             registry = members[0].__class__
             # note here the features are transferred based on an unique field
             field = REGISTRY_UNIQUE_FIELD.get(registry.__name__.lower(), "uid")
-            member_uids = np.array([getattr(member, field) for member in members])
-            validated = registry.objects.using(self._host._state.db).validate(
-                member_uids, field=field, mute=True
-            )
-            new_features = [members[int(i)] for i in np.argwhere(~validated).flatten()]
-            if len(new_features) > 0:
-                mute = True if len(new_features) > 10 else False
+            if hasattr(registry, "ontology_id") and parents:
+                field = "ontology_id"
+            if registry.__get_name_with_schema__() == "bionty.Organism":
+                parents = False
+            # this will be e.g. be a list of ontology_ids or uids
+            member_uids = list(members.values_list(field, flat=True))
+            # create records from ontology_id in order to populate parents
+            if field == "ontology_id" and len(member_uids) > 0:
+                # create from bionty
+                records = registry.from_values(member_uids, field=field)
+                if len(records) > 0:
+                    save(records, parents=parents)
+            validated = registry.validate(member_uids, field=field, mute=True)
+            new_members_uids = list(compress(member_uids, ~validated))
+            new_members = members.filter(**{f"{field}__in": new_members_uids}).all()
+            if new_members.count() > 0:
+                mute = True if new_members.count() > 10 else False
                 # transfer foreign keys needs to be run before transfer to default db
-                transfer_fk_to_default_db_bulk(new_features)
-                for feature in new_features:
+                transfer_fk_to_default_db_bulk(new_members)
+                for feature in new_members:
                     # not calling save=True here as in labels, because want to
                     # bulk save below
                     transfer_to_default_db(feature, mute=mute)
-                save(new_features)
+                logger.info(
+                    f"saving {new_members.count()} new {registry.__name__} records"
+                )
+                save(new_members, parents=parents)
 
             # create a new feature set from feature values using the same uid
             feature_set_self = FeatureSet.from_values(
                 member_uids, field=getattr(registry, field)
             )
+            if feature_set_self is None:
+                if hasattr(registry, "organism"):
+                    logger.warning(
+                        f"FeatureSet is not transferred, check if organism is set correctly: {feature_set}"
+                    )
+                continue
             feature_set_self.uid = feature_set.uid
+            logger.info(f"saving {slot} featureset: {feature_set_self}")
             self._host.features.add_feature_set(feature_set_self, slot)
