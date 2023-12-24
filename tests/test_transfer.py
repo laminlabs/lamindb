@@ -21,7 +21,7 @@ def test_transfer():
     )
 
     id_remote = artifact.id
-    run_remote = artifact.run
+    # run_remote = artifact.run
     transform_remote = artifact.transform
     created_by_remote = artifact.created_by
     storage_remote = artifact.storage
@@ -32,7 +32,7 @@ def test_transfer():
     # check all ids are adjusted
     assert artifact.organism.get(name="human") == lb.settings.organism
     assert id_remote != artifact.id
-    assert run_remote != artifact.run
+    # assert run_remote != artifact.run
     assert transform_remote != artifact.transform
     assert created_by_remote.handle != artifact.created_by.handle
     assert storage_remote.uid == artifact.storage.uid

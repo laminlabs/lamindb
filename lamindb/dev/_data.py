@@ -5,8 +5,8 @@ from lamin_utils import colors, logger
 from lamindb_setup.dev._docs import doc_args
 from lnschema_core.models import (
     Artifact,
+    Collection,
     Data,
-    Dataset,
     Feature,
     FeatureSet,
     Registry,
@@ -54,7 +54,7 @@ def add_transform_to_kwargs(kwargs: Dict[str, Any], run: Run):
         kwargs["transform"] = run.transform
 
 
-def save_feature_sets(self: Union[Artifact, Dataset]) -> None:
+def save_feature_sets(self: Union[Artifact, Collection]) -> None:
     if hasattr(self, "_feature_sets"):
         saved_feature_sets = {}
         for key, feature_set in self._feature_sets.items():
@@ -72,7 +72,7 @@ def save_feature_sets(self: Union[Artifact, Dataset]) -> None:
             )
 
 
-def save_feature_set_links(self: Union[Artifact, Dataset]) -> None:
+def save_feature_set_links(self: Union[Artifact, Collection]) -> None:
     from lamindb._save import bulk_create
 
     Data = self.__class__
@@ -116,7 +116,7 @@ def describe(self: Data):
         "initial_version": "🔖",
         "file": "📄",
     }
-    if len(foreign_key_fields) > 0:  # always True for Artifact and Dataset
+    if len(foreign_key_fields) > 0:  # always True for Artifact and Collection
         record_msg = f"{colors.green(model_name)}{__repr__(self, include_foreign_keys=False).lstrip(model_name)}"
         msg += f"{record_msg}\n\n"
 
@@ -209,7 +209,7 @@ def add_labels(
 ) -> None:
     """{}."""
     if self._state.adding:
-        raise ValueError("Please save the file/dataset before adding a label!")
+        raise ValueError("Please save the file/collection before adding a label!")
 
     if isinstance(records, (QuerySet, QuerySet.__base__)):  # need to have both
         records = records.list()
@@ -409,9 +409,10 @@ def _track_run_input(
                 for data_id in input_data_ids
             ]
         else:
-            LinkORM = run.input_datasets.through
+            LinkORM = run.input_collections.through
             links = [
-                LinkORM(run_id=run.id, dataset_id=data_id) for data_id in input_data_ids
+                LinkORM(run_id=run.id, collection_id=data_id)
+                for data_id in input_data_ids
             ]
         LinkORM.objects.bulk_create(links, ignore_conflicts=True)
         # generalize below for more than one data batch

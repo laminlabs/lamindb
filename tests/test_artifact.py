@@ -142,10 +142,7 @@ def test_is_new_version_of_versioned_file():
     # create new file from old file
     artifact_v2 = ln.Artifact(adata, is_new_version_of=artifact)
     assert artifact.version == "1"
-    assert (
-        artifact.initial_version_id is None
-    )  # initial file has initial_version_id None
-    assert artifact_v2.initial_version_id == artifact.id
+    assert artifact_v2.stem_uid == artifact.stem_uid
     assert artifact_v2.version == "2"
     assert artifact_v2.key is None
     assert artifact_v2.description == "test"
@@ -156,7 +153,7 @@ def test_is_new_version_of_versioned_file():
     # create new file from newly versioned file
     df.iloc[0, 0] = 0
     file_v3 = ln.Artifact(df, description="test1", is_new_version_of=artifact_v2)
-    assert file_v3.initial_version_id == artifact.id
+    assert file_v3.stem_uid == artifact.stem_uid
     assert file_v3.version == "3"
     assert file_v3.description == "test1"
 
@@ -167,8 +164,6 @@ def test_is_new_version_of_versioned_file():
     )
 
     # test that reference file cannot be deleted
-    with pytest.raises(ProtectedError):
-        artifact.delete(permanent=True, storage=True)
     artifact_v2.delete(permanent=True, storage=True)
     artifact.delete(permanent=True, storage=True)
 
@@ -190,7 +185,6 @@ def test_is_new_version_of_versioned_file():
 def test_is_new_version_of_unversioned_file():
     # unversioned file
     artifact = ln.Artifact(df, description="test2")
-    assert artifact.initial_version_id is None
     assert artifact.version is None
 
     # what happens if we don't save the old file?
@@ -200,8 +194,7 @@ def test_is_new_version_of_unversioned_file():
     # create new file from old file
     new_artifact = ln.Artifact(adata, is_new_version_of=artifact)
     assert artifact.version == "1"
-    assert artifact.initial_version is None
-    assert new_artifact.initial_version_id == artifact.id
+    assert new_artifact.stem_uid == artifact.stem_uid
     assert new_artifact.version == "2"
     assert new_artifact.description == artifact.description
 
@@ -547,8 +540,8 @@ def test_create_big_file_from_remote_path():
 
 
 def test_extract_suffix_from_path():
-    # this is a dataset of path, stem, suffix tuples
-    dataset = [
+    # this is a collection of path, stem, suffix tuples
+    collection = [
         ("a", "a", ""),
         ("a.txt", "a", ".txt"),
         ("archive.tar.gz", "archive", ".tar.gz"),
@@ -559,7 +552,7 @@ def test_extract_suffix_from_path():
         ("salmon.merged.gene_counts.tsv", "salmon.merged.gene_counts", ".tsv"),
         ("salmon.merged.gene_counts.tsv.gz", "salmon.merged.gene_counts", ".tsv.gz"),
     ]
-    for path, _, suffix in dataset:
+    for path, _, suffix in collection:
         filepath = Path(path)
         assert suffix == extract_suffix_from_path(filepath)
 

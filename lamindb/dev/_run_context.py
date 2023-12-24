@@ -13,7 +13,7 @@ from lnschema_core import Run, Transform, ids
 from lnschema_core.types import TransformType
 from lnschema_core.users import current_user_id
 
-from lamindb.dev.versioning import get_ids_from_old_version
+from lamindb.dev.versioning import get_uid_from_old_version
 
 from .hashing import to_b64_str
 
@@ -82,21 +82,21 @@ def update_notebook_metadata(
     from nbproject._header import _filepath
 
     notebook = nb_dev.read_notebook(_filepath)
-    uid_prefix = notebook.metadata["nbproject"]["id"]
+    stem_uid = notebook.metadata["nbproject"]["id"]
     version = notebook.metadata["nbproject"]["version"]
 
-    updated, new_uid_prefix, new_version = update_transform_source_metadata(
+    updated, new_stem_uid, new_version = update_transform_source_metadata(
         notebook, _filepath, bump_version=bump_version, run_from_cli=False
     )
 
     if version != new_version:
         notebook.metadata["nbproject"]["version"] = new_version
-        new_uid, _, _ = get_ids_from_old_version(
-            is_new_version_of=transform, version=new_version, n_full_id=14
+        new_uid, _ = get_uid_from_old_version(
+            is_new_version_of=transform, version=new_version, n_full_id=16
         )
     else:
-        notebook.metadata["nbproject"]["id"] = uid_prefix
-        new_uid = new_uid_prefix + ids.base62(n_char=2)
+        notebook.metadata["nbproject"]["id"] = stem_uid
+        new_uid = new_stem_uid + ids.base62(n_char=4)
 
     # here we check that responses to both inputs (for new id and version) were not 'n'
     if updated:
@@ -123,20 +123,22 @@ def get_notebook_name_colab() -> str:
     return name.rstrip(".ipynb")
 
 
-def get_transform_kwargs_from_uid_prefix(
+def get_transform_kwargs_from_stem_uid(
     nbproject_id: str,
     nbproject_version: str,
-) -> Tuple[Optional[Transform], str, str, Optional[Transform]]:
-    id_ext = to_b64_str(hashlib.md5(nbproject_version.encode()).digest())[:2]
-    uid = nbproject_id + id_ext
-    version = nbproject_version
+) -> Tuple[Optional[Transform], str, str]:
+    from lamin_utils._base62 import encodebytes
+
+    # merely zero-padding the nbproject version such that the base62 encoding is at
+    # least 4 characters long does yield sufficiently diverse hashes within 4 characters
+    # it'd be nice because the uid_ext would be ordered, but it leads to collisions
+    uid_ext = encodebytes(hashlib.md5(nbproject_version.encode()).digest())[:4]
+    new_uid = nbproject_id + uid_ext
+    assert len(new_uid) == 16
     transform = Transform.filter(
-        uid__startswith=nbproject_id, version=version
+        uid__startswith=nbproject_id, version=nbproject_version
     ).one_or_none()
-    old_version_of = None
-    if transform is None:
-        old_version_of = Transform.filter(uid__startswith=nbproject_id).first()
-    return transform, uid, version, old_version_of
+    return transform, new_uid, nbproject_version
 
 
 class run_context:
@@ -245,7 +247,7 @@ class run_context:
                     is_tracked = False
                 else:
                     name = Path(module.__file__).stem  # type: ignore
-                    if not hasattr(module, "__lamindb_uid_prefix__"):
+                    if not hasattr(module, "__transform_stem_uid__"):
                         raise RuntimeError(
                             "no automated tracking because no uid attached to script!\n"
                             f"please run: lamin track {module.__file__}\n"
@@ -254,9 +256,8 @@ class run_context:
                         transform,
                         uid,
                         version,
-                        old_version_of,
-                    ) = get_transform_kwargs_from_uid_prefix(
-                        module.__lamindb_uid_prefix__,
+                    ) = get_transform_kwargs_from_stem_uid(
+                        module.__transform_stem_uid__,
                         module.__version__,  # type: ignore
                     )
                     short_name = Path(module.__file__).name  # type: ignore
@@ -265,7 +266,6 @@ class run_context:
                         version=version,
                         name=name,
                         reference=reference,
-                        is_new_version_of=old_version_of,
                         transform_type=TransformType.pipeline,
                         short_name=short_name,
                         is_interactive=False,
@@ -320,6 +320,10 @@ class run_context:
             run.save()
             logger.important(f"saved: {run}")
         cls.run = run
+
+        from ._track_environment import track_environment
+
+        track_environment(run)
 
         # at this point, we have a transform can display its parents if there are any
         parents = cls.transform.parents.all() if cls.transform is not None else []
@@ -468,7 +472,6 @@ class run_context:
             transform = Transform.filter(uid=uid).one_or_none()
             name = filestem
             short_name = None
-            old_version_of = None
         # nbproject parsing successful
         elif nbproject_id is not None:
             name = nbproject_title
@@ -476,21 +479,18 @@ class run_context:
                 transform,
                 uid,
                 version,
-                old_version_of,
-            ) = get_transform_kwargs_from_uid_prefix(nbproject_id, nbproject_version)
+            ) = get_transform_kwargs_from_stem_uid(nbproject_id, nbproject_version)
             short_name = filestem
         cls._create_or_load_transform(
             uid=uid,
             version=version,
             name=name,
             reference=reference,
-            is_new_version_of=old_version_of,
             transform_type=TransformType.notebook,
             short_name=short_name,
             is_interactive=is_interactive,
             filepath=notebook_path,
             transform=transform,
-            metadata=metadata,
         )
 
     @classmethod
@@ -533,13 +533,11 @@ class run_context:
         version: Optional[str],
         name: str,
         reference: Optional[str],
-        is_new_version_of: Optional[Transform],
         short_name: Optional[str],
         transform_type: TransformType,
         is_interactive: bool,
         filepath: str,
         transform: Optional[Transform] = None,
-        metadata: Optional[Dict] = None,
     ) -> bool:
         # make a new transform record
         if transform is None:
@@ -549,7 +547,6 @@ class run_context:
                 name=name,
                 short_name=short_name,
                 reference=reference,
-                is_new_version_of=is_new_version_of,
                 type=transform_type,
             )
             transform.save()

@@ -72,7 +72,10 @@ def write_adata_zarr(
 
         if chunks is not None and not isinstance(adata.X, sparse.spmatrix):
             _write_elem_cb(
-                f, "X", adata.X, dataset_kwargs=dict(chunks=chunks, **dataset_kwargs)
+                f,
+                "X",
+                adata.X,
+                dataset_kwargs=dict(chunks=chunks, **dataset_kwargs),
             )
         else:
             _write_elem_cb(f, "X", adata.X, dataset_kwargs=dataset_kwargs)

@@ -87,23 +87,23 @@ def test_labels_add():
     assert artifact.feature_sets.get() == feature_set_n2
 
     # test add_from
-    dataset = ln.Dataset(artifact, name="My dataset")
-    dataset.save()
-    dataset.labels.add_from(artifact)
-    experiments = dataset.labels.get(experiment)
+    collection = ln.Collection(artifact, name="My collection")
+    collection.save()
+    collection.labels.add_from(artifact)
+    experiments = collection.labels.get(experiment)
     assert experiments.get().name == "Experiment 2"
 
     # test features._add_from
     # first, remove all feature sets
-    feature_sets = dataset.feature_sets.all()
+    feature_sets = collection.feature_sets.all()
     for feature_set in feature_sets:
-        dataset.feature_sets.remove(feature_set)
-    assert len(dataset.feature_sets.all()) == 0
+        collection.feature_sets.remove(feature_set)
+    assert len(collection.feature_sets.all()) == 0
     # second,
-    dataset.features._add_from(artifact)
-    assert set(dataset.feature_sets.all()) == set(feature_sets)
+    collection.features._add_from(artifact)
+    assert set(collection.feature_sets.all()) == set(feature_sets)
 
-    dataset.delete(permanent=True, storage=True)
+    collection.delete(permanent=True, storage=True)
     ln.Feature.filter().all().delete()
     ln.ULabel.filter().all().delete()
     ln.FeatureSet.filter().all().delete()
@@ -150,7 +150,7 @@ def test_add_labels_using_anndata():
         artifact.features.add_feature_set(feature_set, slot="random")
     assert (
         error.exconly()
-        == "ValueError: Please save the artifact or dataset before adding a feature"
+        == "ValueError: Please save the artifact or collection before adding a feature"
         " set!"
     )
 
@@ -170,7 +170,7 @@ def test_add_labels_using_anndata():
         artifact.labels.add(organism, feature=features.organism)
     assert (
         error.exconly()
-        == "ValueError: Please save the file/dataset before adding a label!"
+        == "ValueError: Please save the file/collection before adding a label!"
     )
     artifact.save()
 

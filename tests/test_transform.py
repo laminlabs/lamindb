@@ -28,17 +28,14 @@ def test_is_new_version_of_versioned_transform():
     # create new transform from old transform
     transform_v2 = ln.Transform(name="My 2nd transform", is_new_version_of=transform)
     assert transform.version == "1"
-    assert (
-        transform.initial_version_id is None
-    )  # initial transform has initial_version_id None
-    assert transform_v2.initial_version_id == transform.id
+    assert transform_v2.stem_uid == transform.stem_uid
     assert transform_v2.version == "2"
 
     transform_v2.save()
 
     # create new transform from newly versioned transform
     transform_v3 = ln.Transform(name="My transform", is_new_version_of=transform_v2)
-    assert transform_v3.initial_version_id == transform.id
+    assert transform_v3.stem_uid == transform.stem_uid
     assert transform_v3.version == "3"
 
     # default name
@@ -62,8 +59,6 @@ def test_is_new_version_of_versioned_transform():
     )
 
     # test that reference transform cannot be deleted
-    with pytest.raises(ProtectedError):
-        transform.delete()
     transform_v2.delete()
     transform.delete()
 
@@ -71,7 +66,6 @@ def test_is_new_version_of_versioned_transform():
 def test_is_new_version_of_unversioned_transform():
     # unversioned transform
     transform = ln.Transform(name="My transform")
-    assert transform.initial_version_id is None
     assert transform.version is None
 
     # what happens if we don't save the old transform?
@@ -81,8 +75,7 @@ def test_is_new_version_of_unversioned_transform():
     # create new transform from old transform
     new_transform = ln.Transform(name="My new transform", is_new_version_of=transform)
     assert transform.version == "1"
-    assert transform.initial_version is None
-    assert new_transform.initial_version_id == transform.id
+    assert new_transform.stem_uid == transform.stem_uid
     assert new_transform.version == "2"
 
     transform.delete()

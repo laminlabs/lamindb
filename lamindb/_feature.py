@@ -96,7 +96,7 @@ def from_df(cls, df: "pd.DataFrame") -> List["Feature"]:
         if name in categoricals:
             types[name] = "category"
             # below is a harder feature to write, now, because it requires to
-            # query the link tables between the label Registry and file or dataset
+            # query the link tables between the label Registry and file or collection
             # the original implementation fell short
             # categorical = categoricals[name]
             # if hasattr(

@@ -48,7 +48,10 @@ else:
     from anndata._core.sparse_dataset import (
         BaseCompressedSparseDataset as SparseDataset,
     )
-    from anndata._core.sparse_dataset import CSRDataset, sparse_dataset  # type: ignore
+    from anndata._core.sparse_dataset import (  # type: ignore
+        CSRDataset,
+        sparse_dataset,
+    )
 
     def _check_group_format(*args):
         pass

@@ -414,7 +414,7 @@ def transfer_fk_to_default_db_bulk(records: Union[List, QuerySet]):
         "latest_report",  # Transform
         "source_code",  # Transform
         "report",  # Run
-        "file",  # Dataset
+        "file",  # Collection
     ]:
         update_fk_to_default_db(records, fk)
 
