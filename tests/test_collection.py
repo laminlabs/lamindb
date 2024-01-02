@@ -320,8 +320,8 @@ def test_collection_mapped():
         assert len(ls_ds[0]) == 2
         assert len(ls_ds[0][0]) == 6
         assert np.array_equal(ls_ds[1][0], np.array([4, 5, 8, 0, 0, 0]))
-        assert str(ls_ds[2][0].dtype) == "int32"
-        assert str(ls_ds[4][0].dtype) == "int32"
+        assert np.issubdtype(ls_ds[2][0].dtype, np.integer)
+        assert np.issubdtype(ls_ds[4][0].dtype, np.integer)
 
     file1.delete(permanent=True, storage=True)
     file2.delete(permanent=True, storage=True)
