@@ -120,7 +120,8 @@ class MappedCollection:
             for storage in self.storages:
                 with _Connect(storage) as store:
                     cats = self.get_categories(store, label)
-                    cats = decode(cats) if isinstance(cats[0], bytes) else cats[...]
+                    if cats is not None:
+                        cats = decode(cats) if isinstance(cats[0], bytes) else cats[...]
                     self._cache_cats[label].append(cats)
 
     def _make_encoders(self, label_keys: list):
