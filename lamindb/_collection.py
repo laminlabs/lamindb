@@ -316,6 +316,7 @@ def mapped(
     encode_labels: bool = True,
     cache_categories: bool = True,
     parallel: bool = False,
+    dtype: Optional[str] = None,
     stream: bool = False,
     is_run_input: Optional[bool] = None,
 ) -> "MappedCollection":
@@ -330,7 +331,13 @@ def mapped(
         else:
             path_list.append(artifact.path)
     return MappedCollection(
-        path_list, label_keys, join_vars, encode_labels, cache_categories, parallel
+        path_list,
+        label_keys,
+        join_vars,
+        encode_labels,
+        cache_categories,
+        parallel,
+        dtype,
     )
 
 

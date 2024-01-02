@@ -300,21 +300,25 @@ def test_collection_mapped():
     assert ls_ds.closed
     del ls_ds
 
-    with collection.mapped(label_keys="feat1", join_vars="inner") as ls_ds:
+    with collection.mapped(
+        label_keys="feat1", join_vars="inner", dtype="float32"
+    ) as ls_ds:
         assert not ls_ds.closed
         assert len(ls_ds) == 4
         assert len(ls_ds[0]) == 2 and len(ls_ds[2]) == 2
+        assert str(ls_ds[0][0].dtype) == "float32"
     assert ls_ds.closed
 
     ls_ds = collection.mapped(label_keys="feat1", parallel=True)
     assert len(ls_ds[0]) == 2 and len(ls_ds[2]) == 2
 
+    # adata3 goes first here
     with collection_outer.mapped(label_keys="feat1", join_vars="auto") as ls_ds:
         assert ls_ds.join_vars == "outer"
         assert len(ls_ds.var_joint) == 6
         assert len(ls_ds[0]) == 2
         assert len(ls_ds[0][0]) == 6
-        assert np.array_equal(ls_ds[1][0], np.array([0, 0, 0, 6, 4, 5]))
+        assert np.array_equal(ls_ds[1][0], np.array([4, 5, 8, 0, 0, 0]))
 
     file1.delete(permanent=True, storage=True)
     file2.delete(permanent=True, storage=True)

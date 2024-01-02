@@ -61,6 +61,7 @@ class MappedCollection:
         encode_labels: bool = True,
         cache_categories: bool = True,
         parallel: bool = False,
+        dtype: Optional[str] = None,
     ):
         assert join_vars in {None, "auto", "inner", "outer"}
 
@@ -96,6 +97,8 @@ class MappedCollection:
                 self._cache_cats: dict = {}
             if self.encode_labels:
                 self._make_encoders(self.label_keys)
+
+        self._dtype = dtype
 
         self._closed = False
 
@@ -201,11 +204,16 @@ class MappedCollection:
             layer_idx = layer[idx]
             if self.join_vars is None:
                 result = layer_idx
+                if self._dtype is not None:
+                    result = result.astype(self._dtype, copy=False)
             elif self.join_vars == "outer":
-                result = np.zeros(len(self.var_joint), dtype=layer_idx.dtype)
+                dtype = layer_idx.dtype if self._dtype is None else self._dtype
+                result = np.zeros(len(self.var_joint), dtype=dtype)
                 result[var_idxs_join] = layer_idx
             else:  # inner join
                 result = layer_idx[var_idxs_join]
+                if self._dtype is not None:
+                    result = result.astype(self._dtype, copy=False)
             return result
         else:  # assume csr_matrix here
             data = layer["data"]
@@ -213,11 +221,12 @@ class MappedCollection:
             indptr = layer["indptr"]
             s = slice(*(indptr[idx : idx + 2]))
             data_s = data[s]
+            dtype = data_s.dtype if self._dtype is None else self._dtype
             if self.join_vars == "outer":
-                layer_idx = np.zeros(len(self.var_joint), dtype=data_s.dtype)
+                layer_idx = np.zeros(len(self.var_joint), dtype=dtype)
                 layer_idx[var_idxs_join[indices[s]]] = data_s
             else:
-                layer_idx = np.zeros(layer.attrs["shape"][1], dtype=data_s.dtype)
+                layer_idx = np.zeros(layer.attrs["shape"][1], dtype=dtype)
                 layer_idx[indices[s]] = data_s
                 if self.join_vars == "inner":
                     layer_idx = layer_idx[var_idxs_join]
