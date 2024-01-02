@@ -469,7 +469,11 @@ def save(self, *args, **kwargs) -> None:
     if result is not None:
         init_self_from_db(self, result)
     else:
-        super(Registry, self).save(*args, **kwargs)
+        # here, we can't use the parents argument
+        save_kwargs = kwargs.copy()
+        if "parents" in save_kwargs:
+            save_kwargs.pop("parents")
+        super(Registry, self).save(*args, **save_kwargs)
     if db is not None and db != "default":
         if hasattr(self, "labels"):
             from copy import copy
