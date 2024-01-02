@@ -1,6 +1,6 @@
 # Changelog
 
-
+- ♻️ Except memory error [PR1382](https://github.com/laminlabs/lamindb/pull/1382) [@falexwolf](https://github.com/falexwolf)
 ```{eval-rst}
 .. role:: small
 ```
