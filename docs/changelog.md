@@ -5,16 +5,16 @@
 .. role:: small
 ```
 
-### 0.65
+## 0.65
 
-### 0.65.0 {small}`2024-01-01`
+### 0.65.0 {small}`2024-01-02`
 
-- 🚸 Speed up transfer and enable transfer parents [PR1371](https://github.com/laminlabs/lamindb/pull/1371) [@sunnyosun](https://github.com/sunnyosun)
 - 🚚 Rename `Dataset` to `Collection` [PR1377](https://github.com/laminlabs/lamindb/pull/1377) [@falexwolf](https://github.com/falexwolf)
-- 🎨 Version based on `stem_uid` instead of `initial_version_id` and replace `__lamindb_uid_prefix__` with `__transform_stem_uid__` [PR1375](https://github.com/laminlabs/lamindb/pull/1375) [PR1373](https://github.com/laminlabs/lamindb/pull/1373) [@falexwolf](https://github.com/falexwolf)
-- 🎨 Name `.lndb` files by instance id [PR1372](https://github.com/laminlabs/lamindb/pull/1372) [@falexwolf](https://github.com/falexwolf)
 - ✨ Track run environment [PR1368](https://github.com/laminlabs/lamindb/pull/1368) [@falexwolf](https://github.com/falexwolf)
 - ✨ Allow transfer from private instances [PR1370](https://github.com/laminlabs/lamindb/pull/1370) [@falexwolf](https://github.com/falexwolf)
+- 🚸 Speed up transfer and enable transfer parents [PR1371](https://github.com/laminlabs/lamindb/pull/1371) [@sunnyosun](https://github.com/sunnyosun)
+- 🎨 Version based on `stem_uid` instead of `initial_version_id` and replace `__lamindb_uid_prefix__` with `__transform_stem_uid__` [PR1369](https://github.com/laminlabs/lamindb/pull/1369) [PR1375](https://github.com/laminlabs/lamindb/pull/1375) [PR1373](https://github.com/laminlabs/lamindb/pull/1373) [@bpenteado](https://github.com/bpenteado) [@falexwolf](https://github.com/falexwolf)
+- 🎨 Name `.lndb` files by instance id [PR1372](https://github.com/laminlabs/lamindb/pull/1372) [@falexwolf](https://github.com/falexwolf)
 
 ## 0.64
 
