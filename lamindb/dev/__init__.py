@@ -24,6 +24,7 @@ Functionality of data registries:
    FeatureManager
    LabelManager
    IsTree
+   IsVersioned
 
 Functionality of metadata registries:
 
@@ -51,7 +52,14 @@ Auxiliary tools:
 """
 
 from lamin_utils._inspect import InspectResult
-from lnschema_core.models import CanValidate, Data, HasParents, IsTree, Registry
+from lnschema_core.models import (
+    CanValidate,
+    Data,
+    HasParents,
+    IsTree,
+    IsVersioned,
+    Registry,
+)
 
 from lamindb._query_manager import QueryManager
 from lamindb._query_set import QuerySet
