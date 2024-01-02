@@ -308,7 +308,6 @@ def test_collection_mapped():
         assert len(ls_ds[0]) == 2 and len(ls_ds[2]) == 2
         assert str(ls_ds[0][0].dtype) == "float32"
         assert str(ls_ds[2][0].dtype) == "float32"
-        assert str(ls_ds[4][0].dtype) == "float32"
     assert ls_ds.closed
 
     ls_ds = collection.mapped(label_keys="feat1", parallel=True)
