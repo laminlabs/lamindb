@@ -6,7 +6,7 @@ from lnschema_core.models import Run
 
 
 def track_environment(run: Run) -> None:
-    filepath = ln_setup.settings.storage.cache_dir / f"run_env_pip_{run.uid}"
+    filepath = ln_setup.settings.storage.cache_dir / f"run_env_pip_{run.uid}.txt"
     # create a requirements.txt
     # we don't create a conda environment.yml mostly for its slowness
     try:
