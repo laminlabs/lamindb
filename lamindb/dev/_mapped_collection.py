@@ -202,7 +202,7 @@ class MappedCollection:
             if self.join_vars is None:
                 result = layer_idx
             elif self.join_vars == "outer":
-                result = np.zeros(len(self.var_joint))
+                result = np.zeros(len(self.var_joint), dtype=layer_idx.dtype)
                 result[var_idxs_join] = layer_idx
             else:  # inner join
                 result = layer_idx[var_idxs_join]
@@ -214,10 +214,10 @@ class MappedCollection:
             s = slice(*(indptr[idx : idx + 2]))
             data_s = data[s]
             if self.join_vars == "outer":
-                layer_idx = np.zeros(len(self.var_joint))
+                layer_idx = np.zeros(len(self.var_joint), dtype=data_s.dtype)
                 layer_idx[var_idxs_join[indices[s]]] = data_s
             else:
-                layer_idx = np.zeros(layer.attrs["shape"][1])
+                layer_idx = np.zeros(layer.attrs["shape"][1], dtype=data_s.dtype)
                 layer_idx[indices[s]] = data_s
                 if self.join_vars == "inner":
                     layer_idx = layer_idx[var_idxs_join]

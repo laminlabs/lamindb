@@ -291,6 +291,7 @@ def test_collection_mapped():
     assert len(ls_ds) == 4
     assert len(ls_ds[0]) == 2 and len(ls_ds[2]) == 2
     assert len(ls_ds[0][0]) == 3
+    assert np.array_equal(ls_ds[2][0], np.array([1, 2, 5]))
     weights = ls_ds.get_label_weights("feat1")
     assert all(weights[1:] == weights[0])
     weights = ls_ds.get_label_weights(["feat1", "feat2"])
@@ -313,6 +314,7 @@ def test_collection_mapped():
         assert len(ls_ds.var_joint) == 6
         assert len(ls_ds[0]) == 2
         assert len(ls_ds[0][0]) == 6
+        assert np.array_equal(ls_ds[1][0], np.array([0, 0, 0, 6, 4, 5]))
 
     file1.delete(permanent=True, storage=True)
     file2.delete(permanent=True, storage=True)
