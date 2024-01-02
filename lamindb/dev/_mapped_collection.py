@@ -57,10 +57,12 @@ class MappedCollection:
         self,
         path_list: List[Union[str, PathLike]],
         label_keys: Optional[Union[str, List[str]]] = None,
-        join_vars: Optional[Literal["auto", "inner"]] = "auto",
+        join_vars: Optional[Literal["auto", "inner", "outer"]] = "auto",
         encode_labels: bool = True,
         parallel: bool = False,
     ):
+        assert join_vars in {None, "auto", "inner", "outer"}
+
         self.storages = []  # type: ignore
         self.conns = []  # type: ignore
         self.parallel = parallel
@@ -115,20 +117,31 @@ class MappedCollection:
         for storage in self.storages:
             with _Connect(storage) as store:
                 var_list.append(_safer_read_index(store["var"]))
+
+        self.var_joint = None
         if self.join_vars == "auto":
             vars_eq = all(var_list[0].equals(vrs) for vrs in var_list[1:])
             if vars_eq:
                 self.join_vars = None
                 return
             else:
-                self.join_vars = "inner"
+                self.var_joint = reduce(pd.Index.intersection, var_list)
+                if len(self.var_joint) > 0:
+                    self.join_vars = "inner"
+                else:
+                    self.join_vars = "outer"
+
         if self.join_vars == "inner":
-            self.var_joint = reduce(pd.Index.intersection, var_list)
-            if len(self.var_joint) == 0:
-                raise ValueError(
-                    "The provided AnnData objects don't have shared varibales."
-                )
+            if self.var_joint is None:
+                self.var_joint = reduce(pd.Index.intersection, var_list)
+                if len(self.var_joint) == 0:
+                    raise ValueError(
+                        "The provided AnnData objects don't have shared varibales."
+                    )
             self.var_indices = [vrs.get_indexer(self.var_joint) for vrs in var_list]
+        elif self.join_vars == "outer":
+            self.var_joint = reduce(pd.Index.union, var_list)
+            self.var_indices = [self.var_joint.get_indexer(vrs) for vrs in var_list]
 
     def __len__(self):
         return self.n_obs
@@ -137,12 +150,12 @@ class MappedCollection:
         obs_idx = self.indices[idx]
         storage_idx = self.storage_idx[idx]
         if self.var_indices is not None:
-            var_idxs = self.var_indices[storage_idx]
+            var_idxs_join = self.var_indices[storage_idx]
         else:
-            var_idxs = None
+            var_idxs_join = None
 
         with _Connect(self.storages[storage_idx]) as store:
-            out = [self.get_data_idx(store, obs_idx, var_idxs)]
+            out = [self.get_data_idx(store, obs_idx, var_idxs_join)]
             if self.label_keys is not None:
                 for i, label in enumerate(self.label_keys):
                     label_idx = self.get_label_idx(store, obs_idx, label)
@@ -155,24 +168,36 @@ class MappedCollection:
         self,
         storage: StorageType,  # type: ignore
         idx: int,
-        var_idxs: Optional[list] = None,
+        var_idxs_join: Optional[list] = None,
         layer_key: Optional[str] = None,
     ):
         """Get the index for the data."""
         layer = storage["X"] if layer_key is None else storage["layers"][layer_key]  # type: ignore
         if isinstance(layer, ArrayTypes):  # type: ignore
-            # todo: better way to select variables
-            return layer[idx] if var_idxs is None else layer[idx][var_idxs]
+            layer_idx = layer[idx]
+            if self.join_vars is None:
+                result = layer_idx
+            elif self.join_vars == "outer":
+                result = np.zeros(len(self.var_joint))
+                result[var_idxs_join] = layer_idx
+            else:  # inner join
+                result = layer_idx[var_idxs_join]
+            return result
         else:  # assume csr_matrix here
             data = layer["data"]
             indices = layer["indices"]
             indptr = layer["indptr"]
             s = slice(*(indptr[idx : idx + 2]))
-            # this requires more memory than csr_matrix when var_idxs is not None
-            # but it is faster
-            layer_idx = np.zeros(layer.attrs["shape"][1])
-            layer_idx[indices[s]] = data[s]
-            return layer_idx if var_idxs is None else layer_idx[var_idxs]
+            data_s = data[s]
+            if self.join_vars == "outer":
+                layer_idx = np.zeros(len(self.var_joint))
+                layer_idx[var_idxs_join[indices[s]]] = data_s
+            else:
+                layer_idx = np.zeros(layer.attrs["shape"][1])
+                layer_idx[indices[s]] = data_s
+                if self.join_vars == "inner":
+                    layer_idx = layer_idx[var_idxs_join]
+            return layer_idx
 
     def get_label_idx(self, storage: StorageType, idx: int, label_key: str):  # type: ignore
         """Get the index for the label by key."""
