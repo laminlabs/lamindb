@@ -1,6 +1,6 @@
 # Changelog
 
-- ♻️ Except memory error [PR1382](https://github.com/laminlabs/lamindb/pull/1382) [@falexwolf](https://github.com/falexwolf)
+- ✨ Add outer join and categories caching to Collection.mapped [PR1380](https://github.com/laminlabs/lamindb/pull/1380) [@Koncopd](https://github.com/Koncopd)- ♻️ Except memory error [PR1382](https://github.com/laminlabs/lamindb/pull/1382) [@falexwolf](https://github.com/falexwolf)
 ```{eval-rst}
 .. role:: small
 ```
