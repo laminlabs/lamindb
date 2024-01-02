@@ -59,6 +59,7 @@ class MappedCollection:
         label_keys: Optional[Union[str, List[str]]] = None,
         join_vars: Optional[Literal["auto", "inner", "outer"]] = "auto",
         encode_labels: bool = True,
+        cache_categories: bool = True,
         parallel: bool = False,
     ):
         assert join_vars in {None, "auto", "inner", "outer"}
@@ -88,8 +89,13 @@ class MappedCollection:
 
         self.encode_labels = encode_labels
         self.label_keys = [label_keys] if isinstance(label_keys, str) else label_keys
-        if self.label_keys is not None and self.encode_labels:
-            self._make_encoders(self.label_keys)
+        if self.label_keys is not None:
+            if cache_categories:
+                self._cache_categories(self.label_keys)
+            else:
+                self._cache_cats: dict = {}
+            if self.encode_labels:
+                self._make_encoders(self.label_keys)
 
         self._closed = False
 
@@ -105,6 +111,17 @@ class MappedCollection:
                 conn, storage = registry.open("zarr", path)
             self.conns.append(conn)
             self.storages.append(storage)
+
+    def _cache_categories(self, label_keys: list):
+        self._cache_cats = {}
+        decode = np.frompyfunc(lambda x: x.decode("utf-8"), 1, 1)
+        for label in label_keys:
+            self._cache_cats[label] = []
+            for storage in self.storages:
+                with _Connect(storage) as store:
+                    cats = self.get_categories(store, label)
+                    cats = decode(cats) if isinstance(cats[0], bytes) else cats[...]
+                    self._cache_cats[label].append(cats)
 
     def _make_encoders(self, label_keys: list):
         self.encoders = []
@@ -158,7 +175,13 @@ class MappedCollection:
             out = [self.get_data_idx(store, obs_idx, var_idxs_join)]
             if self.label_keys is not None:
                 for i, label in enumerate(self.label_keys):
-                    label_idx = self.get_label_idx(store, obs_idx, label)
+                    if label in self._cache_cats:
+                        cats = self._cache_cats[label][storage_idx]
+                        if cats is None:
+                            cats = []
+                    else:
+                        cats = None
+                    label_idx = self.get_label_idx(store, obs_idx, label, cats)
                     if self.encode_labels:
                         label_idx = self.encoders[i][label_idx]
                     out.append(label_idx)
@@ -199,7 +222,13 @@ class MappedCollection:
                     layer_idx = layer_idx[var_idxs_join]
             return layer_idx
 
-    def get_label_idx(self, storage: StorageType, idx: int, label_key: str):  # type: ignore
+    def get_label_idx(
+        self,
+        storage: StorageType,
+        idx: int,
+        label_key: str,
+        categories: Optional[list] = None,
+    ):
         """Get the index for the label by key."""
         obs = storage["obs"]  # type: ignore
         # how backwards compatible do we want to be here actually?
@@ -211,9 +240,11 @@ class MappedCollection:
                 label = labels[idx]
             else:
                 label = labels["codes"][idx]
-
-        cats = self.get_categories(storage, label_key)
-        if cats is not None:
+        if categories is not None:
+            cats = categories
+        else:
+            cats = self.get_categories(storage, label_key)
+        if cats is not None and len(cats) > 0:
             label = cats[label]
         if isinstance(label, bytes):
             label = label.decode("utf-8")
@@ -240,11 +271,14 @@ class MappedCollection:
         """Get merged labels."""
         labels_merge = []
         decode = np.frompyfunc(lambda x: x.decode("utf-8"), 1, 1)
-        for storage in self.storages:
+        for i, storage in enumerate(self.storages):
             with _Connect(storage) as store:
                 codes = self.get_codes(store, label_key)
                 labels = decode(codes) if isinstance(codes[0], bytes) else codes
-                cats = self.get_categories(store, label_key)
+                if label_key in self._cache_cats:
+                    cats = self._cache_cats[label_key][i]
+                else:
+                    cats = self.get_categories(store, label_key)
                 if cats is not None:
                     cats = decode(cats) if isinstance(cats[0], bytes) else cats
                     labels = cats[labels]
@@ -255,9 +289,12 @@ class MappedCollection:
         """Get merged categories."""
         cats_merge = set()
         decode = np.frompyfunc(lambda x: x.decode("utf-8"), 1, 1)
-        for storage in self.storages:
+        for i, storage in enumerate(self.storages):
             with _Connect(storage) as store:
-                cats = self.get_categories(store, label_key)
+                if label_key in self._cache_cats:
+                    cats = self._cache_cats[label_key][i]
+                else:
+                    cats = self.get_categories(store, label_key)
                 if cats is not None:
                     cats = decode(cats) if isinstance(cats[0], bytes) else cats
                     cats_merge.update(cats)
