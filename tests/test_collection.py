@@ -276,14 +276,22 @@ def test_collection_mapped():
     adata2.obs["feat2"] = adata2.obs["feat1"]
     file2 = ln.Artifact(adata2, description="Part two", format="zrad")
     file2.save()
+    adata3 = adata2.copy()
+    adata3.var_names = ["A", "B", "C"]
+    file3 = ln.Artifact(adata3, description="Other vars")
+    file3.save()
     collection = ln.Collection([file1, file2], name="Gather")
     collection.save()
+    collection_outer = ln.Collection([file1, file2, file3], name="Gather outer")
+    collection_outer.save()
 
     ls_ds = collection.mapped(label_keys="feat1")
     assert not ls_ds.closed
 
     assert len(ls_ds) == 4
     assert len(ls_ds[0]) == 2 and len(ls_ds[2]) == 2
+    assert len(ls_ds[0][0]) == 3
+    assert np.array_equal(ls_ds[2][0], np.array([1, 2, 5]))
     weights = ls_ds.get_label_weights("feat1")
     assert all(weights[1:] == weights[0])
     weights = ls_ds.get_label_weights(["feat1", "feat2"])
@@ -292,18 +300,34 @@ def test_collection_mapped():
     assert ls_ds.closed
     del ls_ds
 
-    with collection.mapped(label_keys="feat1", join_vars="inner") as ls_ds:
+    with collection.mapped(
+        label_keys="feat1", join_vars="inner", dtype="float32"
+    ) as ls_ds:
         assert not ls_ds.closed
         assert len(ls_ds) == 4
         assert len(ls_ds[0]) == 2 and len(ls_ds[2]) == 2
+        assert str(ls_ds[0][0].dtype) == "float32"
+        assert str(ls_ds[2][0].dtype) == "float32"
     assert ls_ds.closed
 
     ls_ds = collection.mapped(label_keys="feat1", parallel=True)
     assert len(ls_ds[0]) == 2 and len(ls_ds[2]) == 2
 
+    # adata3 goes first here
+    with collection_outer.mapped(label_keys="feat1", join_vars="auto") as ls_ds:
+        assert ls_ds.join_vars == "outer"
+        assert len(ls_ds.var_joint) == 6
+        assert len(ls_ds[0]) == 2
+        assert len(ls_ds[0][0]) == 6
+        assert np.array_equal(ls_ds[1][0], np.array([4, 5, 8, 0, 0, 0]))
+        assert np.issubdtype(ls_ds[2][0].dtype, np.integer)
+        assert np.issubdtype(ls_ds[4][0].dtype, np.integer)
+
     file1.delete(permanent=True, storage=True)
     file2.delete(permanent=True, storage=True)
+    file3.delete(permanent=True, storage=True)
     collection.delete(permanent=True)
+    collection_outer.delete(permanent=True)
 
 
 def test_is_new_version_of_versioned_collection():

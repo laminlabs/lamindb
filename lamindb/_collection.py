@@ -314,7 +314,9 @@ def mapped(
     label_keys: Optional[Union[str, List[str]]] = None,
     join_vars: Optional[Literal["auto", "inner"]] = "auto",
     encode_labels: bool = True,
+    cache_categories: bool = True,
     parallel: bool = False,
+    dtype: Optional[str] = None,
     stream: bool = False,
     is_run_input: Optional[bool] = None,
 ) -> "MappedCollection":
@@ -328,7 +330,15 @@ def mapped(
             path_list.append(artifact.stage())
         else:
             path_list.append(artifact.path)
-    return MappedCollection(path_list, label_keys, join_vars, encode_labels, parallel)
+    return MappedCollection(
+        path_list,
+        label_keys,
+        join_vars,
+        encode_labels,
+        cache_categories,
+        parallel,
+        dtype,
+    )
 
 
 # docstring handled through attach_func_to_class_method
