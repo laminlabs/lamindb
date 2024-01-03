@@ -170,7 +170,7 @@ def test_add_labels_using_anndata():
         artifact.labels.add(organism, feature=features.organism)
     assert (
         error.exconly()
-        == "ValueError: Please save the file/collection before adding a label!"
+        == "ValueError: Please save the artifact/collection before adding a label!"
     )
     artifact.save()
 
