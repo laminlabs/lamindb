@@ -23,11 +23,12 @@ def get_labels_as_dict(self: Data):
     ).items():
         if related_name in {
             "feature_sets",
-            "files",
+            "artifacts",
             "input_of",
             "collections",
             "source_of",
             "report_of",
+            "environment_of",
         }:
             continue
         if self.id is not None:

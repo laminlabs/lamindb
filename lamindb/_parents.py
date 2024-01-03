@@ -317,13 +317,13 @@ def _get_all_parent_runs(data: Union[Artifact, Collection]) -> List:
             inputs_run = (
                 r.__getattribute__(f"input_{name}s").all().filter(visibility=1).list()
             )
-            if name == "file":
+            if name == "artifact":
                 inputs_run += r.input_collections.all().filter(visibility=1).list()
             run_inputs_outputs += [(inputs_run, r)]
             outputs_run = (
                 r.__getattribute__(f"output_{name}s").all().filter(visibility=1).list()
             )
-            if name == "file":
+            if name == "artifact":
                 outputs_run += r.output_collections.all().filter(visibility=1).list()
             run_inputs_outputs += [(r, outputs_run)]
             inputs += inputs_run
@@ -337,8 +337,11 @@ def _get_all_child_runs(data: Union[Artifact, Collection]) -> List:
     all_runs: Set[Run] = set()
     run_inputs_outputs = []
 
-    runs = {f.run for f in data.run.__getattribute__(f"output_{name}s").all()}
-    if name == "file":
+    if data.run is not None:
+        runs = {f.run for f in data.run.__getattribute__(f"output_{name}s").all()}
+    else:
+        runs = set()
+    if name == "artifact" and data.run is not None:
         runs.update(
             {
                 f.run
@@ -352,13 +355,13 @@ def _get_all_child_runs(data: Union[Artifact, Collection]) -> List:
             inputs_run = (
                 r.__getattribute__(f"input_{name}s").all().filter(visibility=1).list()
             )
-            if name == "file":
+            if name == "artifact":
                 inputs_run += r.input_collections.all().filter(visibility=1).list()
             run_inputs_outputs += [(inputs_run, r)]
             outputs_run = (
                 r.__getattribute__(f"output_{name}s").all().filter(visibility=1).list()
             )
-            if name == "file":
+            if name == "artifact":
                 outputs_run += r.output_collections.all().filter(visibility=1).list()
             run_inputs_outputs += [(r, outputs_run)]
             child_runs.update(
@@ -366,7 +369,7 @@ def _get_all_child_runs(data: Union[Artifact, Collection]) -> List:
                     **{f"input_{name}s__id__in": [i.id for i in outputs_run]}
                 ).list()
             )
-            if name == "file":
+            if name == "artifact":
                 child_runs.update(
                     Run.filter(
                         input_collections__id__in=[i.id for i in outputs_run]

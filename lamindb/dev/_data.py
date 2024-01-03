@@ -113,8 +113,7 @@ def describe(self: Data):
         "created_by": "👤",
         "transform": _transform_emoji(self.transform),
         "run": "👣",
-        "initial_version": "🔖",
-        "file": "📄",
+        "artifact": "📄",
     }
     if len(foreign_key_fields) > 0:  # always True for Artifact and Collection
         record_msg = f"{colors.green(model_name)}{__repr__(self, include_foreign_keys=False).lstrip(model_name)}"
@@ -209,7 +208,7 @@ def add_labels(
 ) -> None:
     """{}."""
     if self._state.adding:
-        raise ValueError("Please save the file/collection before adding a label!")
+        raise ValueError("Please save the artifact/collection before adding a label!")
 
     if isinstance(records, (QuerySet, QuerySet.__base__)):  # need to have both
         records = records.list()
@@ -331,7 +330,7 @@ def add_labels(
                             id=old_feature_set_link.feature_set_id
                         ).one()
                         logger.info(
-                            "no file links to it anymore, deleting feature set"
+                            "nothing links to it anymore, deleting feature set"
                             f" {old_feature_set}"
                         )
                         old_feature_set.delete()
@@ -368,7 +367,7 @@ def _track_run_input(
         if run is None:
             if settings.track_run_inputs:
                 logger.hint(
-                    "you can auto-track this file as a run input by calling"
+                    "you can auto-track these data as a run input by calling"
                     " `ln.track()`"
                 )
         # assume we have a run record
@@ -390,7 +389,7 @@ def _track_run_input(
                     track_run_input = True
                 else:
                     logger.hint(
-                        "track this file as a run input by passing `is_run_input=True`"
+                        "track these data as a run input by passing `is_run_input=True`"
                     )
     else:
         track_run_input = is_run_input

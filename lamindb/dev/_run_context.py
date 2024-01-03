@@ -33,7 +33,9 @@ msg_manual_init = (
 )
 
 
-class UpdateNbWithNonInteractiveEditorError(Exception):
+# we don't want a real error here, as this is so frequent
+# in VSCode
+class UpdateNbWithNonInteractiveEditor(SystemExit):
     pass
 
 
@@ -230,7 +232,7 @@ class run_context:
                             "it looks like you are running ln.track() from a "
                             "notebook!\nplease install nbproject: pip install nbproject"
                         )
-                    elif isinstance(e, UpdateNbWithNonInteractiveEditorError):
+                    elif isinstance(e, UpdateNbWithNonInteractiveEditor):
                         raise e
                     elif isinstance(e, (NotebookNotSavedError, NoTitleError)):
                         raise e
@@ -435,7 +437,7 @@ class run_context:
                 cls._notebook_meta = metadata  # type: ignore
             else:
                 msg = msg_manual_init.format(notebook_path=notebook_path_str)
-                raise UpdateNbWithNonInteractiveEditorError(msg)
+                raise UpdateNbWithNonInteractiveEditor(msg)
 
         if _env in ("lab", "notebook"):
             # save the notebook in case that title was updated
@@ -450,7 +452,7 @@ class run_context:
             is_interactive = _seconds_modified(_filepath) < 1.5  # should be ~1 sec
             if not is_interactive and needs_init:
                 msg = msg_manual_init.format(notebook_path=_filepath)
-                raise UpdateNbWithNonInteractiveEditorError(msg)
+                raise UpdateNbWithNonInteractiveEditor(msg)
 
             nbproject_id = metadata["id"]
             nbproject_version = metadata["version"]
@@ -509,7 +511,7 @@ class run_context:
                 cls._notebook_meta = metadata  # type: ignore
             else:
                 msg = msg_manual_init.format(notebook_path=filepath)
-                raise UpdateNbWithNonInteractiveEditorError(msg)
+                raise UpdateNbWithNonInteractiveEditor(msg)
         else:
             from lamin_cli._transform import update_transform_source_metadata
 
