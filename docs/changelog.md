@@ -1,6 +1,6 @@
 # Changelog
 
-- 🩹 Track suffix of requirements.txt [PR1383](https://github.com/laminlabs/lamindb/pull/1383) [@falexwolf](https://github.com/falexwolf)- ✨ Add outer join and categories caching to Collection.mapped [PR1380](https://github.com/laminlabs/lamindb/pull/1380) [@Koncopd](https://github.com/Koncopd)- ♻️ Except memory error [PR1382](https://github.com/laminlabs/lamindb/pull/1382) [@falexwolf](https://github.com/falexwolf)
+- 🚸 Various improvements [PR1384](https://github.com/laminlabs/lamindb/pull/1384) [@falexwolf](https://github.com/falexwolf)- 🩹 Track suffix of requirements.txt [PR1383](https://github.com/laminlabs/lamindb/pull/1383) [@falexwolf](https://github.com/falexwolf)- ✨ Add outer join and categories caching to Collection.mapped [PR1380](https://github.com/laminlabs/lamindb/pull/1380) [@Koncopd](https://github.com/Koncopd)- ♻️ Except memory error [PR1382](https://github.com/laminlabs/lamindb/pull/1382) [@falexwolf](https://github.com/falexwolf)
 ```{eval-rst}
 .. role:: small
 ```
