@@ -92,6 +92,7 @@ def build(session, group):
     if group == "unit":
         session.run(*f"pytest {coverage_args} ./tests".split())
     elif group == "tutorial":
+        session.run(*"lamin logout".split())
         session.run(
             *f"pytest -s {coverage_args} ./docs/test_notebooks.py::test_{group}".split()
         )

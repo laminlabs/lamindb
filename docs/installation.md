@@ -1,7 +1,7 @@
 ![pyversions](https://img.shields.io/pypi/pyversions/lamindb)
 
 ```shell
-pip install lamindb  # basic data management
+pip install lamindb
 ```
 
 You can configure the installation using `extras`, e.g.,

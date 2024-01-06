@@ -1,8 +1,12 @@
-Why do I have to sign up? → Data flow needs a user identity to answer questions like: Who modified which data when? Who shares this with me?
-
-An account is free & [signing up](https://lamin.ai/signup) takes 1 min.
+1. [Sign up](https://lamin.ai/signup) for a free account (see more [info](https://lamin.ai/docs/setup)) and copy the API key.
+2. Log in on the command line:
+   ```shell
+   lamin login <email> --key <API-key>
+   ```
 
 ```{note}
+
+An account is free & [signing up](https://lamin.ai/signup) takes 1 min.
 
 Lamin does _not_ store or see any of your data, but only _basic_ metadata about you (email address, etc.).
 
@@ -23,4 +27,10 @@ If you don't have a cached API-key in your environment, you need to copy it from
 
 ```
 lamin login <email> --key <API-key>
+```
+
+Log out:
+
+```
+lamin lgout
 ```
