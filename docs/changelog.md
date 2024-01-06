@@ -1,6 +1,6 @@
 # Changelog
 
-```{eval-rst}
+- 🚸 Add anonymous access (now works without login) [PR1386](https://github.com/laminlabs/lamindb/pull/1386) [@falexwolf](https://github.com/falexwolf)```{eval-rst}
 .. role:: small
 ```
 
