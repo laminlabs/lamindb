@@ -95,7 +95,7 @@ class QuerySet(models.QuerySet, CanValidate, IsTree):
             >>> label.parents.add(label)
             >>> ln.ULabel.filter().df(include=["labels__name", "labels__created_by_id"])
         """
-        data = self.values()
+        data = self.distinct().values()
         keys = get_keys_from_df(data, self.model)
         df = pd.DataFrame(self.values(), columns=keys)
         # if len(df) > 0 and "updated_at" in df:
@@ -166,7 +166,7 @@ class QuerySet(models.QuerySet, CanValidate, IsTree):
         if field is None:
             return list(self)
         else:
-            return list(self.values_list(field, flat=True))
+            return list(self.distinct().values_list(field, flat=True))
 
     def first(self) -> Optional[Registry]:
         """If non-empty, the first result in the query set, otherwise None.
@@ -189,6 +189,7 @@ class QuerySet(models.QuerySet, CanValidate, IsTree):
             >>> ln.ULabel.filter(name="benchmark").one()
             ULabel(id=gznl0GZk, name=benchmark, updated_at=2023-07-19 19:39:01, created_by_id=DzTjkKse) # noqa
         """
+        self = self.distinct()
         if len(self) == 0:
             raise NoResultFound
         elif len(self) > 1:

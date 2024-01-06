@@ -14,6 +14,7 @@ Queries of registries:
 
    QuerySet
    QueryManager
+   RecordsList
 
 Functionality of data registries:
 
@@ -62,7 +63,7 @@ from lnschema_core.models import (
 )
 
 from lamindb._query_manager import QueryManager
-from lamindb._query_set import QuerySet
+from lamindb._query_set import QuerySet, RecordsList
 from lamindb.dev._feature_manager import FeatureManager
 from lamindb.dev._label_manager import LabelManager
 
