@@ -9,6 +9,7 @@ from lamindb._utils import attach_func_to_class_method
 from lamindb.dev._settings import settings
 
 from . import _TESTING
+from ._query_set import RecordsList
 
 FEATURE_TYPES = {
     "int": "number",
@@ -86,7 +87,7 @@ def categoricals_from_df(df: "pd.DataFrame") -> Dict:
 
 @classmethod  # type:ignore
 @doc_args(Feature.from_df.__doc__)
-def from_df(cls, df: "pd.DataFrame") -> List["Feature"]:
+def from_df(cls, df: "pd.DataFrame") -> "RecordsList":
     """{}."""
     categoricals = categoricals_from_df(df)
 
@@ -141,7 +142,7 @@ def from_df(cls, df: "pd.DataFrame") -> List["Feature"]:
     #         f" {colors.yellow('unmapped categories')}:\n     "
     #         f" {categoricals_with_unmapped_categories_formatted}"
     #     )
-    return features
+    return RecordsList(features)
 
 
 @doc_args(Feature.save.__doc__)

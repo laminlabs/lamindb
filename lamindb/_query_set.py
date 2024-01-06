@@ -1,4 +1,5 @@
-from typing import Iterable, List, NamedTuple, Optional, Union
+from collections import UserList
+from typing import Dict, Iterable, List, NamedTuple, Optional, Union
 
 import pandas as pd
 from django.db import models
@@ -19,6 +20,42 @@ class MultipleResultsFound(Exception):
 #     tzinfo = datetime.now().astimezone().tzinfo
 #     timedelta = tzinfo.utcoffset(datetime.now())  # type: ignore
 #     return (series + timedelta).dt.strftime("%Y-%m-%d %H:%M:%S %Z")
+
+
+def get_keys_from_df(data: List, registry: Registry) -> List[str]:
+    if len(data) > 0:
+        if isinstance(data[0], dict):
+            keys = list(data[0].keys())
+        else:
+            keys = list(data[0].__dict__.keys())
+            if "_state" in keys:
+                keys.remove("_state")
+        if "created_at" in keys:
+            keys.remove("created_at")
+    else:
+        keys = [
+            field.name
+            for field in registry._meta.fields
+            if (not isinstance(field, models.ForeignKey) and field.name != "created_at")
+        ]
+        keys += [
+            f"{field.name}_id"
+            for field in registry._meta.fields
+            if isinstance(field, models.ForeignKey)
+        ]
+    return keys
+
+
+class RecordsList(UserList):
+    """Is ordered, can't be queried, but has `.df()`."""
+
+    def __init__(self, records: List[Registry]):
+        super().__init__(record for record in records)
+
+    def df(self) -> pd.DataFrame:
+        keys = get_keys_from_df(self.data, self.data[0].__class__)
+        values = [record.__dict__ for record in self.data]
+        return pd.DataFrame(values, columns=keys)
 
 
 class QuerySet(models.QuerySet, CanValidate, IsTree):
@@ -59,24 +96,7 @@ class QuerySet(models.QuerySet, CanValidate, IsTree):
             >>> ln.ULabel.filter().df(include=["labels__name", "labels__created_by_id"])
         """
         data = self.values()
-        if len(data) > 0:
-            keys = list(data[0].keys())
-            if "created_at" in keys:
-                keys.remove("created_at")
-        else:
-            keys = [
-                field.name
-                for field in self.model._meta.fields
-                if (
-                    not isinstance(field, models.ForeignKey)
-                    and field.name != "created_at"
-                )
-            ]
-            keys += [
-                f"{field.name}_id"
-                for field in self.model._meta.fields
-                if isinstance(field, models.ForeignKey)
-            ]
+        keys = get_keys_from_df(data, self.model)
         df = pd.DataFrame(self.values(), columns=keys)
         # if len(df) > 0 and "updated_at" in df:
         #     df.updated_at = format_and_convert_to_local_time(df.updated_at)
