@@ -87,7 +87,7 @@ def categoricals_from_df(df: "pd.DataFrame") -> Dict:
 
 @classmethod  # type:ignore
 @doc_args(Feature.from_df.__doc__)
-def from_df(cls, df: "pd.DataFrame") -> RecordsList:
+def from_df(cls, df: "pd.DataFrame") -> "RecordsList":
     """{}."""
     categoricals = categoricals_from_df(df)
 
