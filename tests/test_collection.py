@@ -87,7 +87,7 @@ def test_create_delete_from_single_dataframe():
     feature_list_queried = ln.Feature.filter(feature_sets=feature_set).list()
     feature_list_queried = [feature.name for feature in feature_list_queried]
     assert set(feature_list_queried) == set(feature_list)
-    # the feature_set is also linked to the file
+    # the feature_set is also linked to the artifact
     assert ln.FeatureSet.filter(artifacts=collection.artifact).one() == feature_set
 
     # accidental recreation (re-load based on hash)
@@ -113,7 +113,7 @@ def test_create_delete_from_single_anndata():
     collection = ln.Collection.from_anndata(
         adata, name="My adata", field=lb.Gene.symbol
     )
-    # let's now try passing an AnnData-like file with some feature sets linked
+    # let's now try passing an AnnData-like artifact with some feature sets linked
     ln.save(ln.Feature.from_df(adata.obs))
     artifact = ln.Artifact.from_anndata(
         adata, description="my adata", field=lb.Gene.symbol
@@ -139,7 +139,7 @@ def test_create_delete_from_single_anndata():
     ln.dev.run_context.transform = None
 
 
-def test_from_single_file():
+def test_from_single_artifact():
     lb.settings.organism = "human"
     features = ln.Feature.from_df(adata.obs)
     validated = ln.Feature.validate(
@@ -195,7 +195,7 @@ def test_edge_cases():
     assert str(error.exconly()).startswith(
         "ValueError: Only DataFrame, AnnData, Artifact or list of artifacts is allowed."
     )
-    artifact = ln.Artifact(df, description="Test file")
+    artifact = ln.Artifact(df, description="Test artifact")
     assert artifact._state.adding
     with pytest.raises(ValueError) as error:
         ln.Collection([artifact])
@@ -217,12 +217,12 @@ def test_backed():
     collection.backed()
 
 
-def test_from_inconsistent_files():
-    file1 = ln.Artifact(df, description="My test")
-    file1.save()
-    file2 = ln.Artifact(adata, description="My test2")
-    file2.save()
-    collection = ln.Collection([file1, file2], name="Inconsistent")
+def test_from_inconsistent_artifacts():
+    artifact1 = ln.Artifact(df, description="My test")
+    artifact1.save()
+    artifact2 = ln.Artifact(adata, description="My test2")
+    artifact2.save()
+    collection = ln.Collection([artifact1, artifact2], name="Inconsistent")
     collection.save()
     # create a run context
     ln.track(ln.Transform(name="My test transform"))
@@ -235,54 +235,59 @@ def test_from_inconsistent_files():
     assert str(error.exconly()).startswith(
         "RuntimeError: Can only load collections where all artifacts have the same suffix"
     )
-    file1.delete(permanent=True, storage=True)
-    file2.delete(permanent=True, storage=True)
+    artifact1.delete(permanent=True, storage=True)
+    artifact2.delete(permanent=True, storage=True)
     collection.delete(permanent=True)
     ln.dev.run_context.run = None
     ln.dev.run_context.transform = None
 
 
-def test_from_consistent_files():
-    file1 = ln.Artifact(adata, description="My test")
-    file1.save()
-    file2 = ln.Artifact(adata2, description="My test2")
-    file2.save()
+def test_from_consistent_artifacts():
+    artifact1 = ln.Artifact(adata, description="My test")
+    artifact1.save()
+    artifact2 = ln.Artifact(adata2, description="My test2")
+    artifact2.save()
     transform = ln.Transform(name="My test transform")
     transform.save()
     run = ln.Run(transform)
     run.save()
-    collection = ln.Collection([file1, file2], name="My test", run=run)
+    collection = ln.Collection([artifact1, artifact2], name="My test", run=run)
     collection.save()
-    assert set(collection.run.input_artifacts.all()) == {file1, file2}
+    assert set(collection.run.input_artifacts.all()) == {artifact1, artifact2}
     adata_joined = collection.load()
     assert "artifact_uid" in adata_joined.obs.columns
-    assert file1.uid in adata_joined.obs.artifact_uid.cat.categories
+    assert artifact1.uid in adata_joined.obs.artifact_uid.cat.categories
     with pytest.raises(RuntimeError) as error:
         collection.backed()
     assert str(error.exconly()).startswith(
         "RuntimeError: Can only call backed() for collections with a single artifact"
     )
-    file1.delete(permanent=True, storage=True)
-    file2.delete(permanent=True, storage=True)
+    artifact1.delete(permanent=True, storage=True)
+    artifact2.delete(permanent=True, storage=True)
     collection.delete(permanent=True)
 
 
 def test_collection_mapped():
     adata.strings_to_categoricals()
     adata.obs["feat2"] = adata.obs["feat1"]
-    file1 = ln.Artifact(adata, description="Part one")
-    file1.save()
+    artifact1 = ln.Artifact(adata, description="Part one")
+    artifact1.save()
     adata2.X = csr_matrix(adata2.X)
     adata2.obs["feat2"] = adata2.obs["feat1"]
-    file2 = ln.Artifact(adata2, description="Part two", format="zrad")
-    file2.save()
+    artifact2 = ln.Artifact(adata2, description="Part two", format="zrad")
+    artifact2.save()
     adata3 = adata2.copy()
     adata3.var_names = ["A", "B", "C"]
-    file3 = ln.Artifact(adata3, description="Other vars")
-    file3.save()
-    collection = ln.Collection([file1, file2], name="Gather")
+    artifact3 = ln.Artifact(adata3, description="Other vars")
+    artifact3.save()
+    collection = ln.Collection([artifact1, artifact2], name="Gather")
     collection.save()
-    collection_outer = ln.Collection([file1, file2, file3], name="Gather outer")
+    print(artifact1.load().to_df())
+    print(artifact2.load().to_df())
+    print(artifact3.load().to_df())
+    collection_outer = ln.Collection(
+        [artifact1, artifact2, artifact3], name="Gather outer"
+    )
     collection_outer.save()
 
     ls_ds = collection.mapped(label_keys="feat1")
@@ -300,9 +305,7 @@ def test_collection_mapped():
     assert ls_ds.closed
     del ls_ds
 
-    with collection.mapped(
-        label_keys="feat1", join_vars="inner", dtype="float32"
-    ) as ls_ds:
+    with collection.mapped(label_keys="feat1", join="inner", dtype="float32") as ls_ds:
         assert not ls_ds.closed
         assert len(ls_ds) == 4
         assert len(ls_ds[0]) == 2 and len(ls_ds[2]) == 2
@@ -314,18 +317,29 @@ def test_collection_mapped():
     assert len(ls_ds[0]) == 2 and len(ls_ds[2]) == 2
 
     # adata3 goes first here
-    with collection_outer.mapped(label_keys="feat1", join_vars="auto") as ls_ds:
+    with collection_outer.mapped(label_keys="feat1", join="outer") as ls_ds:
         assert ls_ds.join_vars == "outer"
         assert len(ls_ds.var_joint) == 6
         assert len(ls_ds[0]) == 2
         assert len(ls_ds[0][0]) == 6
-        assert np.array_equal(ls_ds[1][0], np.array([4, 5, 8, 0, 0, 0]))
+        print(ls_ds[0][0])
+        print(ls_ds[1][0])
+        print(ls_ds[2][0])
+        print(ls_ds[3][0])
+        print(ls_ds[4][0])
+        print(ls_ds[5][0])
+        assert np.array_equal(ls_ds[0][0], np.array([0, 0, 0, 3, 1, 2]))
+        assert np.array_equal(ls_ds[1][0], np.array([0, 0, 0, 6, 4, 5]))
+        assert np.array_equal(ls_ds[2][0], np.array([0, 0, 0, 5, 1, 2]))
+        assert np.array_equal(ls_ds[3][0], np.array([0, 0, 0, 8, 4, 5]))
+        assert np.array_equal(ls_ds[4][0], np.array([1, 2, 5, 0, 0, 0]))
+        assert np.array_equal(ls_ds[5][0], np.array([4, 5, 8, 0, 0, 0]))
         assert np.issubdtype(ls_ds[2][0].dtype, np.integer)
         assert np.issubdtype(ls_ds[4][0].dtype, np.integer)
 
-    file1.delete(permanent=True, storage=True)
-    file2.delete(permanent=True, storage=True)
-    file3.delete(permanent=True, storage=True)
+    artifact1.delete(permanent=True, storage=True)
+    artifact2.delete(permanent=True, storage=True)
+    artifact3.delete(permanent=True, storage=True)
     collection.delete(permanent=True)
     collection_outer.delete(permanent=True)
 

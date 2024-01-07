@@ -5,7 +5,7 @@ import anndata as ad
 import pandas as pd
 from lamin_utils import logger
 from lamindb_setup.dev._docs import doc_args
-from lnschema_core.models import Collection, Feature, FeatureSet
+from lnschema_core.models import Collection, CollectionArtifact, Feature, FeatureSet
 from lnschema_core.types import AnnDataLike, DataLike, FieldAttr, VisibilityChoice
 
 from lamindb._utils import attach_func_to_class_method
@@ -15,6 +15,7 @@ from lamindb.dev.versioning import get_uid_from_old_version, init_uid
 
 from . import _TESTING, Artifact, Run
 from ._artifact import parse_feature_sets_from_anndata
+from ._query_set import QuerySet
 from ._registry import init_self_from_db
 from .dev._data import (
     add_transform_to_kwargs,
@@ -312,7 +313,7 @@ def from_artifacts(artifacts: Iterable[Artifact]) -> Tuple[str, Dict[str, str]]:
 def mapped(
     self,
     label_keys: Optional[Union[str, List[str]]] = None,
-    join_vars: Optional[Literal["auto", "inner", "outer"]] = "auto",
+    join: Optional[Literal["inner", "outer"]] = "inner",
     encode_labels: bool = True,
     cache_categories: bool = True,
     parallel: bool = False,
@@ -333,7 +334,7 @@ def mapped(
     return MappedCollection(
         path_list,
         label_keys,
-        join_vars,
+        join,
         encode_labels,
         cache_categories,
         parallel,
@@ -426,7 +427,14 @@ def save(self, *args, **kwargs) -> None:
     super(Collection, self).save()
     if hasattr(self, "_artifacts"):
         if self._artifacts is not None and len(self._artifacts) > 0:
-            self.artifacts.set(self._artifacts)
+            links = [
+                CollectionArtifact(collection_id=self.id, artifact_id=artifact.id)
+                for artifact in self._artifacts
+            ]
+            # the below seems to preserve the order of the list in the
+            # auto-incrementing integer primary
+            # merely using .unordered_artifacts.set(*...) doesn't achieve this
+            CollectionArtifact.objects.bulk_create(links)
     save_feature_set_links(self)
 
 
@@ -437,6 +445,14 @@ def restore(self) -> None:
     if self.artifact is not None:
         self.artifact.visibility = VisibilityChoice.default.value
         self.artifact.save()
+
+
+@property  # type: ignore
+@doc_args(Collection.artifacts.__doc__)
+def artifacts(self) -> QuerySet:
+    """{}."""
+    _track_run_input(self)
+    return self.unordered_artifacts.order_by("collectionartifact__id")
 
 
 METHOD_NAMES = [
@@ -465,3 +481,4 @@ for name in METHOD_NAMES:
 
 # this seems a Django-generated function
 delattr(Collection, "get_visibility_display")
+Collection.artifacts = artifacts
