@@ -58,13 +58,13 @@ class MappedCollection:
         self,
         path_list: List[Union[str, PathLike]],
         label_keys: Optional[Union[str, List[str]]] = None,
-        join_vars: Optional[Literal["auto", "inner", "outer"]] = "auto",
+        join: Optional[Literal["inner", "outer"]] = "outer",
         encode_labels: bool = True,
         cache_categories: bool = True,
         parallel: bool = False,
         dtype: Optional[str] = None,
     ):
-        assert join_vars in {None, "auto", "inner", "outer"}
+        assert join in {None, "inner", "outer"}
 
         self.storages = []  # type: ignore
         self.conns = []  # type: ignore
@@ -84,7 +84,7 @@ class MappedCollection:
         self.indices = np.hstack([np.arange(n_obs) for n_obs in self.n_obs_list])
         self.storage_idx = np.repeat(np.arange(len(self.storages)), self.n_obs_list)
 
-        self.join_vars = join_vars if len(path_list) > 1 else None
+        self.join_vars = join if len(path_list) > 1 else None
         self.var_indices = None
         if self.join_vars is not None:
             self._make_join_vars()
@@ -100,7 +100,6 @@ class MappedCollection:
                 self._make_encoders(self.label_keys)
 
         self._dtype = dtype
-
         self._closed = False
 
     def _make_connections(self, path_list: list, parallel: bool):

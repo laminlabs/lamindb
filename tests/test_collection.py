@@ -300,9 +300,7 @@ def test_collection_mapped():
     assert ls_ds.closed
     del ls_ds
 
-    with collection.mapped(
-        label_keys="feat1", join_vars="inner", dtype="float32"
-    ) as ls_ds:
+    with collection.mapped(label_keys="feat1", join="inner", dtype="float32") as ls_ds:
         assert not ls_ds.closed
         assert len(ls_ds) == 4
         assert len(ls_ds[0]) == 2 and len(ls_ds[2]) == 2
@@ -314,8 +312,8 @@ def test_collection_mapped():
     assert len(ls_ds[0]) == 2 and len(ls_ds[2]) == 2
 
     # adata3 goes first here
-    with collection_outer.mapped(label_keys="feat1", join_vars="auto") as ls_ds:
-        assert ls_ds.join_vars == "outer"
+    with collection_outer.mapped(label_keys="feat1", join="inner") as ls_ds:
+        assert ls_ds.join_vars == "inner"
         assert len(ls_ds.var_joint) == 6
         assert len(ls_ds[0]) == 2
         assert len(ls_ds[0][0]) == 6

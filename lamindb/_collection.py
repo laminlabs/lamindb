@@ -312,7 +312,7 @@ def from_artifacts(artifacts: Iterable[Artifact]) -> Tuple[str, Dict[str, str]]:
 def mapped(
     self,
     label_keys: Optional[Union[str, List[str]]] = None,
-    join_vars: Optional[Literal["auto", "inner", "outer"]] = "auto",
+    join: Optional[Literal["inner", "outer"]] = "outer",
     encode_labels: bool = True,
     cache_categories: bool = True,
     parallel: bool = False,
@@ -333,7 +333,7 @@ def mapped(
     return MappedCollection(
         path_list,
         label_keys,
-        join_vars,
+        join,
         encode_labels,
         cache_categories,
         parallel,
