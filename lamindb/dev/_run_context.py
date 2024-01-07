@@ -250,9 +250,9 @@ class run_context:
                 else:
                     name = Path(module.__file__).stem  # type: ignore
                     if not hasattr(module, "__transform_stem_uid__"):
-                        raise RuntimeError(
+                        raise SystemExit(
                             "no automated tracking because no uid attached to script!\n"
-                            f"please run: lamin track {module.__file__}\n"
+                            f"please run: lamin track {module.__file__}"
                         )
                     (
                         transform,
