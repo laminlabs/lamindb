@@ -5,6 +5,7 @@ from typing import List, Literal, Optional, Union
 
 import numpy as np
 import pandas as pd
+from lamin_utils import logger
 from lamindb_setup.dev.upath import UPath
 
 from .storage._backed_access import (
@@ -144,13 +145,20 @@ class MappedCollection:
             vars_eq = all(var_list[0].equals(vrs) for vrs in var_list[1:])
             if vars_eq:
                 self.join_vars = None
+                logger.info("The variables are same, no virtual join is performed.")
                 return
             else:
                 self.var_joint = reduce(pd.Index.intersection, var_list)
                 if len(self.var_joint) > 0:
                     self.join_vars = "inner"
+                    logger.info(
+                        "The intersection of variables is not empty, using virtual inner join."
+                    )
                 else:
                     self.join_vars = "outer"
+                    logger.info(
+                        "The intersection of variables is empty, using virtual outer join."
+                    )
 
         if self.join_vars == "inner":
             if self.var_joint is None:
