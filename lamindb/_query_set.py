@@ -30,13 +30,11 @@ def get_keys_from_df(data: List, registry: Registry) -> List[str]:
             keys = list(data[0].__dict__.keys())
             if "_state" in keys:
                 keys.remove("_state")
-        if "created_at" in keys:
-            keys.remove("created_at")
     else:
         keys = [
             field.name
             for field in registry._meta.fields
-            if (not isinstance(field, models.ForeignKey) and field.name != "created_at")
+            if not isinstance(field, models.ForeignKey)
         ]
         keys += [
             f"{field.name}_id"
