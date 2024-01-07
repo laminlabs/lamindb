@@ -1,6 +1,6 @@
 # Changelog
 
-- 🔊 Log joins in Collection.mapped [PR1389](https://github.com/laminlabs/lamindb/pull/1389) [@Koncopd](https://github.com/Koncopd)- 📝 Not set organism globally [PR1388](https://github.com/laminlabs/lamindb/pull/1388) [@sunnyosun](https://github.com/sunnyosun)- 📝 Re-write quickstart [PR1387](https://github.com/laminlabs/lamindb/pull/1387) [@falexwolf](https://github.com/falexwolf)- 🚸 Add anonymous access (now works without login) [PR1386](https://github.com/laminlabs/lamindb/pull/1386) [@falexwolf](https://github.com/falexwolf)```{eval-rst}
+- 🎨 Introduce ordered collections and simplify `.mapped()` [PR1390](https://github.com/laminlabs/lamindb/pull/1390) [@falexwolf](https://github.com/falexwolf)- 🔊 Log joins in Collection.mapped [PR1389](https://github.com/laminlabs/lamindb/pull/1389) [@Koncopd](https://github.com/Koncopd)- 📝 Not set organism globally [PR1388](https://github.com/laminlabs/lamindb/pull/1388) [@sunnyosun](https://github.com/sunnyosun)- 📝 Re-write quickstart [PR1387](https://github.com/laminlabs/lamindb/pull/1387) [@falexwolf](https://github.com/falexwolf)- 🚸 Add anonymous access (now works without login) [PR1386](https://github.com/laminlabs/lamindb/pull/1386) [@falexwolf](https://github.com/falexwolf)```{eval-rst}
 .. role:: small
 ```
 
