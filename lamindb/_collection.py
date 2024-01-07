@@ -5,7 +5,7 @@ import anndata as ad
 import pandas as pd
 from lamin_utils import logger
 from lamindb_setup.dev._docs import doc_args
-from lnschema_core.models import Collection, Feature, FeatureSet
+from lnschema_core.models import Collection, CollectionArtifact, Feature, FeatureSet
 from lnschema_core.types import AnnDataLike, DataLike, FieldAttr, VisibilityChoice
 
 from lamindb._utils import attach_func_to_class_method
@@ -427,7 +427,12 @@ def save(self, *args, **kwargs) -> None:
     super(Collection, self).save()
     if hasattr(self, "_artifacts"):
         if self._artifacts is not None and len(self._artifacts) > 0:
-            self.unordered_artifacts.set(self._artifacts)
+            links = [
+                CollectionArtifact(collection_id=self.id, artifact_id=artifact.id)
+                for artifact in self._artifacts
+            ]
+            # does the below preserve the order when creating primary keys?
+            CollectionArtifact.objects.bulk_create(links)
     save_feature_set_links(self)
 
 
