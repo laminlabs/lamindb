@@ -431,7 +431,9 @@ def save(self, *args, **kwargs) -> None:
                 CollectionArtifact(collection_id=self.id, artifact_id=artifact.id)
                 for artifact in self._artifacts
             ]
-            # does the below preserve the order when creating primary keys?
+            # the below seems to preserve the order of the list in the
+            # auto-incrementing integer primary
+            # merely using .unordered_artifacts.set(*...) doesn't achieve this
             CollectionArtifact.objects.bulk_create(links)
     save_feature_set_links(self)
 
