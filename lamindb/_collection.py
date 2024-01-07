@@ -15,6 +15,7 @@ from lamindb.dev.versioning import get_uid_from_old_version, init_uid
 
 from . import _TESTING, Artifact, Run
 from ._artifact import parse_feature_sets_from_anndata
+from ._query_set import QuerySet
 from ._registry import init_self_from_db
 from .dev._data import (
     add_transform_to_kwargs,
@@ -312,7 +313,7 @@ def from_artifacts(artifacts: Iterable[Artifact]) -> Tuple[str, Dict[str, str]]:
 def mapped(
     self,
     label_keys: Optional[Union[str, List[str]]] = None,
-    join: Optional[Literal["inner", "outer"]] = "outer",
+    join: Optional[Literal["inner", "outer"]] = "inner",
     encode_labels: bool = True,
     cache_categories: bool = True,
     parallel: bool = False,
@@ -426,7 +427,7 @@ def save(self, *args, **kwargs) -> None:
     super(Collection, self).save()
     if hasattr(self, "_artifacts"):
         if self._artifacts is not None and len(self._artifacts) > 0:
-            self.artifacts.set(self._artifacts)
+            self.unordered_artifacts.set(self._artifacts)
     save_feature_set_links(self)
 
 
@@ -437,6 +438,14 @@ def restore(self) -> None:
     if self.artifact is not None:
         self.artifact.visibility = VisibilityChoice.default.value
         self.artifact.save()
+
+
+@property  # type: ignore
+@doc_args(Collection.artifacts.__doc__)
+def artifacts(self) -> QuerySet:
+    """{}."""
+    _track_run_input(self)
+    return self.unordered_artifacts.order_by("collectionartifact__id")
 
 
 METHOD_NAMES = [
@@ -465,3 +474,4 @@ for name in METHOD_NAMES:
 
 # this seems a Django-generated function
 delattr(Collection, "get_visibility_display")
+Collection.artifacts = artifacts
