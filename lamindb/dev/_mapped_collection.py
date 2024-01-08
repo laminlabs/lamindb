@@ -58,7 +58,7 @@ class MappedCollection:
         self,
         path_list: List[Union[str, PathLike]],
         label_keys: Optional[Union[str, List[str]]] = None,
-        join: Optional[Literal["inner", "outer"]] = "outer",
+        join: Optional[Literal["inner", "outer"]] = "inner",
         encode_labels: bool = True,
         cache_categories: bool = True,
         parallel: bool = False,
@@ -84,7 +84,7 @@ class MappedCollection:
         self.indices = np.hstack([np.arange(n_obs) for n_obs in self.n_obs_list])
         self.storage_idx = np.repeat(np.arange(len(self.storages)), self.n_obs_list)
 
-        self.join_vars = join if len(path_list) > 1 else None
+        self.join_vars = join
         self.var_indices = None
         if self.join_vars is not None:
             self._make_join_vars()
@@ -140,32 +140,19 @@ class MappedCollection:
                 var_list.append(_safer_read_index(store["var"]))
 
         self.var_joint = None
-        if self.join_vars == "auto":
-            vars_eq = all(var_list[0].equals(vrs) for vrs in var_list[1:])
-            if vars_eq:
-                self.join_vars = None
-                logger.info("The variables are same, no virtual join is performed.")
-                return
-            else:
-                self.var_joint = reduce(pd.Index.intersection, var_list)
-                if len(self.var_joint) > 0:
-                    self.join_vars = "inner"
-                    logger.info(
-                        "The intersection of variables is not empty, using virtual inner join."
-                    )
-                else:
-                    self.join_vars = "outer"
-                    logger.info(
-                        "The intersection of variables is empty, using virtual outer join."
-                    )
+        vars_eq = all(var_list[0].equals(vrs) for vrs in var_list[1:])
+        if vars_eq:
+            self.join_vars = None
+            self.var_joint = var_list[0]
+            return
 
         if self.join_vars == "inner":
-            if self.var_joint is None:
-                self.var_joint = reduce(pd.Index.intersection, var_list)
-                if len(self.var_joint) == 0:
-                    raise ValueError(
-                        "The provided AnnData objects don't have shared varibales."
-                    )
+            self.var_joint = reduce(pd.Index.intersection, var_list)
+            if len(self.var_joint) == 0:
+                raise ValueError(
+                    "The provided AnnData objects don't have shared varibales.\n"
+                    "Use join='outer'."
+                )
             self.var_indices = [vrs.get_indexer(self.var_joint) for vrs in var_list]
         elif self.join_vars == "outer":
             self.var_joint = reduce(pd.Index.union, var_list)
