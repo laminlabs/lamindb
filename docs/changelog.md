@@ -1,5 +1,6 @@
 # Changelog
 
+- ♻️ Incorporate edge cases into inner and outer join in Collection.mapped [PR1392](https://github.com/laminlabs/lamindb/pull/1392) [@Koncopd](https://github.com/Koncopd)
 - 🎨 Not create organism records when calling `.bionty()` [PR1391](https://github.com/laminlabs/lamindb/pull/1391) [@sunnyosun](https://github.com/sunnyosun)
 ```{eval-rst}
 .. role:: small
