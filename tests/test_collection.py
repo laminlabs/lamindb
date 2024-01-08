@@ -316,7 +316,10 @@ def test_collection_mapped():
     ls_ds = collection.mapped(label_keys="feat1", parallel=True)
     assert len(ls_ds[0]) == 2 and len(ls_ds[2]) == 2
 
-    # adata3 goes first here
+    with pytest.raises(ValueError):
+        with collection_outer.mapped(label_keys="feat1", join="inner"):
+            pass
+
     with collection_outer.mapped(label_keys="feat1", join="outer") as ls_ds:
         assert ls_ds.join_vars == "outer"
         assert len(ls_ds.var_joint) == 6
