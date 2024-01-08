@@ -1,5 +1,6 @@
 # Changelog
 
+- 🎨 Not create organism records when calling `.bionty()` [PR1391](https://github.com/laminlabs/lamindb/pull/1391) [@sunnyosun](https://github.com/sunnyosun)
 ```{eval-rst}
 .. role:: small
 ```
