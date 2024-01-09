@@ -225,22 +225,22 @@ def _df_edges_from_parents(
         record=record, field=field, distance=distance, children=children
     )
     all = record.__class__.objects
-    records = parents | all.filter(uid=record.uid)
-    df = records.distinct().df(include=[f"{key}__uid"])
-    if f"{key}__uid" not in df.columns:
+    records = parents | all.filter(id=record.id)
+    df = records.distinct().df(include=[f"{key}__id"])
+    if f"{key}__id" not in df.columns:
         return None
-    df_edges = df[[f"{key}__uid"]]
-    df_edges = df_edges.explode(f"{key}__uid")
+    df_edges = df[[f"{key}__id"]]
+    df_edges = df_edges.explode(f"{key}__id")
     df_edges.index.name = "target"
     df_edges = df_edges.reset_index()
     df_edges.dropna(axis=0, inplace=True)
-    df_edges.rename(columns={f"{key}__uid": "source"}, inplace=True)
+    df_edges.rename(columns={f"{key}__id": "source"}, inplace=True)
     df_edges = df_edges.drop_duplicates()
 
     # colons messes with the node formatting:
     # https://graphviz.readthedocs.io/en/stable/node_ports.html
-    df_edges["source_record"] = df_edges["source"].apply(lambda x: all.get(uid=x))
-    df_edges["target_record"] = df_edges["target"].apply(lambda x: all.get(uid=x))
+    df_edges["source_record"] = df_edges["source"].apply(lambda x: all.get(id=x))
+    df_edges["target_record"] = df_edges["target"].apply(lambda x: all.get(id=x))
     if record.__class__.__name__ == "Transform":
         df_edges["source_label"] = df_edges["source_record"].apply(_record_label)
         df_edges["target_label"] = df_edges["target_record"].apply(_record_label)
