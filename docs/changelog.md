@@ -1,14 +1,18 @@
 # Changelog
 
-- 🐛 Fix id matching in view_lineage [PR1395](https://github.com/laminlabs/lamindb/pull/1395) [@sunnyosun](https://github.com/sunnyosun)
-- ✏️ Display df with warning [PR1393](https://github.com/laminlabs/lamindb/pull/1393) [@sunnyosun](https://github.com/sunnyosun)
-- ♻️ Incorporate edge cases into inner and outer join in Collection.mapped [PR1392](https://github.com/laminlabs/lamindb/pull/1392) [@Koncopd](https://github.com/Koncopd)
-- 🎨 Not create organism records when calling `.bionty()` [PR1391](https://github.com/laminlabs/lamindb/pull/1391) [@sunnyosun](https://github.com/sunnyosun)
+
 ```{eval-rst}
 .. role:: small
 ```
 
 ## 0.66
+
+### 0.66.1 {small}`2024-01-09`
+
+- 🐛 Fix id matching in view_lineage [PR](https://github.com/laminlabs/lamindb/pull/1395) [@sunnyosun](https://github.com/sunnyosun)
+- ♻️ Fix connection time outs [PR](https://github.com/laminlabs/lamindb-setup/pull/611) [@Koncopd](https://github.com/Koncopd)
+- ♻️ Incorporate edge cases in `inner` and `outer` join in `Collection.mapped` [PR](https://github.com/laminlabs/lamindb/pull/1392) [@Koncopd](https://github.com/Koncopd)
+- 🎨 Not create organism records when calling `.bionty()` [PR](https://github.com/laminlabs/lamindb/pull/1391) [@sunnyosun](https://github.com/sunnyosun)
 
 ### 0.66.0 {small}`2024-01-07`
 
