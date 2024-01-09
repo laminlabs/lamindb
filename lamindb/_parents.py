@@ -363,21 +363,24 @@ def _get_all_child_runs(data: Union[Artifact, Collection]) -> List:
             if name == "artifact":
                 inputs_run += r.input_collections.all().filter(visibility=1).list()
             run_inputs_outputs += [(inputs_run, r)]
+
             outputs_run = (
                 r.__getattribute__(f"output_{name}s").all().filter(visibility=1).list()
             )
             if name == "artifact":
                 outputs_run += r.output_collections.all().filter(visibility=1).list()
             run_inputs_outputs += [(r, outputs_run)]
+
             child_runs.update(
                 Run.filter(
-                    **{f"input_{name}s__id__in": [i.id for i in outputs_run]}
+                    **{f"input_{name}s__uid__in": [i.uid for i in outputs_run]}
                 ).list()
             )
+            # for artifacts, also include collections in the lineage
             if name == "artifact":
                 child_runs.update(
                     Run.filter(
-                        input_collections__id__in=[i.id for i in outputs_run]
+                        input_collections__uid__in=[i.uid for i in outputs_run]
                     ).list()
                 )
         runs = child_runs
