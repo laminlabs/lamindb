@@ -38,10 +38,10 @@ def file_fcs_alpert19(populate_registries: bool = False) -> Path:  # pragma: no 
         verbosity = ln.settings.verbosity
         ln.settings.verbosity = "error"
         adata = readfcs.read(filepath)
-        std = lb.CellMarker.bionty().standardize(adata.var.index)
+        std = lb.CellMarker.public().standardize(adata.var.index)
         ln.save(
             lb.CellMarker.from_values(
-                lb.CellMarker.bionty().inspect(std, "name").validated, "name"
+                lb.CellMarker.public().inspect(std, "name").validated, "name"
             )
         )
         ln.Feature(
@@ -86,7 +86,7 @@ def file_tsv_rnaseq_nfcore_salmon_merged_gene_counts(
             name="assay", type="category", registries=[lb.ExperimentalFactor]
         ).save()
         ln.Feature(name="organism", type="category", registries=[lb.Organism]).save()
-        lb.ExperimentalFactor.from_bionty(ontology_id="EFO:0008896").save()
+        lb.ExperimentalFactor.from_public(ontology_id="EFO:0008896").save()
         ln.settings.verbosity = verbosity
 
     return Path(filepath)
@@ -191,20 +191,20 @@ def anndata_mouse_sc_lymph_node(
         auto_save_parents = lb.settings.auto_save_parents
         lb.settings.auto_save_parents = False
         # strain
-        lb.ExperimentalFactor.from_bionty(ontology_id="EFO:0004472").save()
+        lb.ExperimentalFactor.from_public(ontology_id="EFO:0004472").save()
         # developmental stage
-        lb.ExperimentalFactor.from_bionty(ontology_id="EFO:0001272").save()
+        lb.ExperimentalFactor.from_public(ontology_id="EFO:0001272").save()
         # tissue
-        lb.Tissue.from_bionty(ontology_id="UBERON:0001542").save()
+        lb.Tissue.from_public(ontology_id="UBERON:0001542").save()
         # cell types
         ln.save(lb.CellType.from_values(["CL:0000115", "CL:0000738"], "ontology_id"))
         # assays
         ln.Feature(
             name="assay", type="category", registries=[lb.ExperimentalFactor]
         ).save()
-        lb.ExperimentalFactor.from_bionty(ontology_id="EFO:0008913").save()
+        lb.ExperimentalFactor.from_public(ontology_id="EFO:0008913").save()
         # genes
-        validated = lb.Gene.bionty(organism="mouse").validate(
+        validated = lb.Gene.public(organism="mouse").validate(
             adata.var.index, field="ensembl_gene_id"
         )
         ln.save(
@@ -335,7 +335,7 @@ def anndata_human_immune_cells(
         ln.Feature(name="tissue", type="category", registries=[lb.Tissue]).save()
         ln.Feature(name="organism", type="category", registries=[lb.Organism]).save()
         ln.Feature(name="donor", type="category", registries=[ln.ULabel]).save()
-        lb.ExperimentalFactor.from_bionty(ontology_id="EFO:0008913").save()
+        lb.ExperimentalFactor.from_public(ontology_id="EFO:0008913").save()
         ln.save([ln.ULabel(name=name) for name in adata.obs.donor.unique()])
         ln.settings.verbosity = verbosity
         lb.settings.auto_save_parents = auto_save_parents

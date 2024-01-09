@@ -70,7 +70,7 @@ def test_one_first():
     qs = ln.User.filter(handle="test")
     with pytest.raises(NoResultFound):
         qs.one()
-    qs = lb.BiontySource.filter().all()
+    qs = lb.PublicSource.filter().all()
     with pytest.raises(MultipleResultsFound):
         qs.one()
     with pytest.raises(MultipleResultsFound):

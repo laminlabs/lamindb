@@ -14,7 +14,7 @@ def get_or_create_records(
     iterable: ListLike,
     field: StrField,
     *,
-    from_bionty: bool = False,
+    from_public: bool = False,
     **kwargs,
 ) -> List[Registry]:
     """Get or create records from iterables."""
@@ -32,14 +32,14 @@ def get_or_create_records(
 
         # new records to be created based on new values
         if len(nonexist_values) > 0:
-            if from_bionty:
-                records_bionty, unmapped_values = create_records_from_bionty(
+            if from_public:
+                records_bionty, unmapped_values = create_records_from_public(
                     iterable_idx=nonexist_values, field=field, msg=msg, **kwargs
                 )
                 if len(records_bionty) > 0:
                     msg = ""
                 for record in records_bionty:
-                    record._from_bionty = True
+                    record._from_public = True
                 records += records_bionty
             else:
                 unmapped_values = nonexist_values
@@ -81,8 +81,8 @@ def get_existing_records(
     model = field.field.model
     condition: Dict = {} if len(kwargs) == 0 else kwargs.copy()
     # existing records matching is agnostic to the bionty source
-    if "bionty_source" in condition:
-        condition.pop("bionty_source")
+    if "public_source" in condition:
+        condition.pop("public_source")
 
     if _has_organism_field(model):
         from lnschema_bionty._bionty import create_or_get_organism_record
@@ -160,7 +160,7 @@ def get_existing_records(
     return records, nonexist_values, msg
 
 
-def create_records_from_bionty(
+def create_records_from_public(
     iterable_idx: pd.Index,
     field: StrField,
     msg: str = "",
@@ -169,18 +169,18 @@ def create_records_from_bionty(
     model = field.field.model
     records: List = []
     # populate additional fields from bionty
-    from lnschema_bionty._bionty import get_bionty_source_record
+    from lnschema_bionty._bionty import get_public_source_record
 
     # create the corresponding bionty object from model
     try:
-        bionty_object = model.bionty(
-            organism=kwargs.get("organism"), bionty_source=kwargs.get("bionty_source")
+        bionty_object = model.public(
+            organism=kwargs.get("organism"), public_source=kwargs.get("public_source")
         )
     except Exception:
         # for custom records that are not created from bionty sources
         return records, iterable_idx
-    # add bionty_source record to the kwargs
-    kwargs.update({"bionty_source": get_bionty_source_record(bionty_object)})
+    # add public_source record to the kwargs
+    kwargs.update({"public_source": get_public_source_record(bionty_object)})
 
     # filter the columns in bionty df based on fields
     bionty_df = _filter_bionty_df_columns(model=model, bionty_object=bionty_object)

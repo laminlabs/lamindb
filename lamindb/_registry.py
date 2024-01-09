@@ -129,12 +129,12 @@ def from_values(
     cls, values: ListLike, field: Optional[StrField] = None, **kwargs
 ) -> List["Registry"]:
     """{}."""
-    from_bionty = True if cls.__module__.startswith("lnschema_bionty.") else False
+    from_public = True if cls.__module__.startswith("lnschema_bionty.") else False
     field_str = get_default_str_field(cls, field=field)
     return get_or_create_records(
         iterable=values,
         field=getattr(cls, field_str),
-        from_bionty=from_bionty,
+        from_public=from_public,
         **kwargs,
     )
 
@@ -412,7 +412,7 @@ def update_fk_to_default_db(
 def transfer_fk_to_default_db_bulk(records: Union[List, QuerySet]):
     for fk in [
         "organism",
-        "bionty_source",
+        "public_source",
         "initial_version",
         "latest_report",  # Transform
         "source_code",  # Transform

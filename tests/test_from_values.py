@@ -24,7 +24,7 @@ def test_from_values_name(df):
     ids = [i.ontology_id for i in result]
     assert len(result) == 2
     assert set(ids) == {"CL:0000084", "CL:0000182"}
-    assert result[0].bionty_source.entity == "CellType"
+    assert result[0].public_source.entity == "CellType"
 
     # wrong field type
     with pytest.raises(TypeError):
@@ -37,7 +37,7 @@ def test_from_values_ontology_id(df):
     names = {i.name for i in result}
     assert len(result) == 2
     assert names == {"T cell", "hepatocyte"}
-    assert result[0].bionty_source.entity == "CellType"
+    assert result[0].public_source.entity == "CellType"
 
 
 def test_from_values_multiple_match():
@@ -55,13 +55,13 @@ def test_from_values_organism():
 
     settings.organism = "human"
     values = ["ABC1"]
-    curated_values = Gene.bionty().standardize(values)
+    curated_values = Gene.public().standardize(values)
     records = Gene.from_values(curated_values, Gene.symbol)
     assert records[0].ensembl_gene_id == "ENSG00000068097"
 
     settings.organism = "mouse"
     values = ["ABC1"]
-    curated_values = Gene.bionty().standardize(values)
+    curated_values = Gene.public().standardize(values)
     records = Gene.from_values(curated_values, Gene.symbol)
     assert records[0].ensembl_gene_id == "ENSMUSG00000015243"
 
@@ -76,22 +76,22 @@ def test_get_or_create_records():
 
 
 def test_from_values_synonyms_aware():
-    lb.CellType.from_bionty(name="T cell").save(parents=False)
+    lb.CellType.from_public(name="T cell").save(parents=False)
     # existing validated values
     records = lb.CellType.from_values(["T cell"], "name")
     assert len(records) == 1
     assert records[0].name == "T cell"
-    assert isinstance(records[0].bionty_source, lb.BiontySource)
+    assert isinstance(records[0].public_source, lb.PublicSource)
     # existing validated values and synonyms
     records = lb.CellType.from_values(["T cell", "T-cell"], "name")
     assert len(records) == 1
     assert records[0].name == "T cell"
-    assert isinstance(records[0].bionty_source, lb.BiontySource)
+    assert isinstance(records[0].public_source, lb.PublicSource)
     # bionty values and synonyms
     records = lb.CellType.from_values(["B-cell", "B cell"], "name")
     assert len(records) == 1
     assert records[0].name == "B cell"
-    assert isinstance(records[0].bionty_source, lb.BiontySource)
+    assert isinstance(records[0].public_source, lb.PublicSource)
     # all possibilities of validated values
     records = lb.CellType.from_values(
         ["T cell", "T-cell", "t cell", "B cell", "B-cell"], "name"
@@ -99,12 +99,12 @@ def test_from_values_synonyms_aware():
     assert len(records) == 2
     names = [r.name for r in records]
     assert set(names) == {"T cell", "B cell"}
-    assert isinstance(records[0].bionty_source, lb.BiontySource)
-    assert isinstance(records[1].bionty_source, lb.BiontySource)
+    assert isinstance(records[0].public_source, lb.PublicSource)
+    assert isinstance(records[1].public_source, lb.PublicSource)
     # non-validated values
     records = lb.CellType.from_values(["T cell", "mycell"], "name")
     assert len(records) == 1
     assert records[0].name == "T cell"
-    assert isinstance(records[0].bionty_source, lb.BiontySource)
+    assert isinstance(records[0].public_source, lb.PublicSource)
     assert records[0].ontology_id == "CL:0000084"
     lb.CellType.filter().all().delete()
