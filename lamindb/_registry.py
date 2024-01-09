@@ -76,8 +76,11 @@ def suggest_objects_with_same_name(orm: Registry, kwargs) -> Optional[str]:
                 if IPYTHON:
                     from IPython.display import display
 
+                    from .dev._settings import settings
+
                     logger.warning(f"{msg}")
-                    display(results)
+                    if settings._verbosity_int >= 1:
+                        display(results)
                 else:
                     logger.warning(f"{msg}\n{results}")
     return None
