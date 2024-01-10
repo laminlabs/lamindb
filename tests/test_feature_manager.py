@@ -110,7 +110,7 @@ def test_labels_add():
 
 
 def test_add_labels_using_anndata():
-    organism = lb.Organism.from_bionty(name="mouse")
+    organism = lb.Organism.from_public(name="mouse")
     cell_types = [lb.CellType(name=name) for name in adata.obs["cell_type"].unique()]
     ln.save(cell_types)
     inspector = lb.CellType.inspect(adata.obs["cell_type_from_expert"].unique())

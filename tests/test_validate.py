@@ -10,7 +10,7 @@ def test_inspect():
     result = lb.Gene.inspect("TCF7", "symbol")
     assert result.validated == []
 
-    lb.Gene.from_bionty(symbol="TCF7").save()
+    lb.Gene.from_public(symbol="TCF7").save()
     result = lb.Gene.inspect("TCF7")
     assert lb.Gene.validate("TCF7", organism="human")
     result = lb.Gene.inspect(["TCF7", "ABC1"], "symbol")
@@ -34,7 +34,7 @@ def test_standardize():
     assert mapper == {"ABC1": "HEATR6"}
 
     # synonym already in the database
-    lb.Gene.from_bionty(symbol="LMNA").save()
+    lb.Gene.from_public(symbol="LMNA").save()
     mapper = lb.Gene.standardize(["ABC1", "LMN1"], return_mapper=True)
     assert mapper == {"LMN1": "LMNA", "ABC1": "HEATR6"}
     assert lb.Gene.standardize(["LMNA"]) == ["LMNA"]
@@ -42,17 +42,17 @@ def test_standardize():
     assert lb.Gene.standardize(["LMN1"], return_mapper=True) == {"LMN1": "LMNA"}
 
 
-def test_standardize_bionty_aware():
-    result = lb.Gene.standardize(["ABC1", "PDCD1"], bionty_aware=False)
+def test_standardize_public_aware():
+    result = lb.Gene.standardize(["ABC1", "PDCD1"], public_aware=False)
     assert result == ["ABC1", "PDCD1"]
 
 
 def test_add_remove_synonym():
     lb.CellType.filter().all().delete()
     # a registry that cannot validate
-    bionty_source = lb.BiontySource.filter(organism="human").first()
+    public_source = lb.PublicSource.filter(organism="human").first()
     with pytest.raises(AttributeError):
-        bionty_source.add_synonym("syn")
+        public_source.add_synonym("syn")
 
     # a registry that doesn't have a synonyms column
     user = ln.User.filter(handle="testuser1").one()
@@ -107,12 +107,12 @@ def test_set_abbr():
     assert record.abbr == "myct"
     assert "myct" in record.synonyms
 
-    bionty_source = lb.BiontySource.filter(organism="human").first()
+    public_source = lb.PublicSource.filter(organism="human").first()
     with pytest.raises(AttributeError) as error:
-        bionty_source.set_abbr("abbr")
+        public_source.set_abbr("abbr")
     assert (
         error.exconly()
-        == "AttributeError: 'BiontySource' object has no attribute 'set_abbr'"
+        == "AttributeError: 'PublicSource' object has no attribute 'set_abbr'"
     )
 
     record.delete()

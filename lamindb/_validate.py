@@ -84,7 +84,7 @@ def _inspect(
 
     if len(nonval) > 0 and orm.__get_schema_name__() == "bionty":
         try:
-            bionty_result = orm.bionty(organism=kwargs.get("organism")).inspect(
+            bionty_result = orm.public(organism=kwargs.get("organism")).inspect(
                 values=nonval, field=field, mute=True, **kwargs
             )
             bionty_validated = bionty_result.validated
@@ -186,7 +186,7 @@ def standardize(
     return_mapper: bool = False,
     case_sensitive: bool = False,
     mute: bool = False,
-    bionty_aware: bool = True,
+    public_aware: bool = True,
     keep: Literal["first", "last", False] = "first",
     synonyms_field: str = "synonyms",
     **kwargs,
@@ -200,7 +200,7 @@ def standardize(
         return_mapper=return_mapper,
         case_sensitive=case_sensitive,
         mute=mute,
-        bionty_aware=bionty_aware,
+        public_aware=public_aware,
         keep=keep,
         synonyms_field=synonyms_field,
         **kwargs,
@@ -248,7 +248,7 @@ def _standardize(
     return_mapper: bool = False,
     case_sensitive: bool = False,
     mute: bool = False,
-    bionty_aware: bool = True,
+    public_aware: bool = True,
     keep: Literal["first", "last", False] = "first",
     synonyms_field: str = "synonyms",
     **kwargs,
@@ -308,7 +308,7 @@ def _standardize(
             return result
 
     # map synonyms in Bionty
-    if orm.__get_schema_name__() == "bionty" and bionty_aware:
+    if orm.__get_schema_name__() == "bionty" and public_aware:
         mapper = {}
         if return_mapper:
             mapper = std_names_db
@@ -321,7 +321,7 @@ def _standardize(
             return _return(result=std_names_db, mapper=mapper)
 
         nonval = np.array(std_names_db)[~val_res]
-        std_names_bt_mapper = orm.bionty(organism=organism).standardize(
+        std_names_bt_mapper = orm.public(organism=organism).standardize(
             nonval, return_mapper=True, mute=True, **_kwargs
         )
 
