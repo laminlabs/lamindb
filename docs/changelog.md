@@ -1,5 +1,6 @@
 # Changelog
 
+- 🚚 Rename `.bionty` to `.public`, `.from_bionty` to `.from_public` [PR](https://github.com/laminlabs/lamindb/pull/1394) [@sunnyosun](https://github.com/sunnyosun)
 
 ```{eval-rst}
 .. role:: small
