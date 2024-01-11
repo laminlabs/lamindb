@@ -102,20 +102,20 @@ if _INSTANCE_SETUP:
         User,
     )
 
-    File = Artifact  # backward compat
-    from . import _artifact  # noqa
-    from . import _collection
-    from . import _feature
-    from . import _feature_set
-    from . import _parents
-    from . import _registry
-    from . import _run
-    from . import _storage
-    from . import _transform
-    from . import _ulabel
-    from . import _validate
-    from . import dev
-    from ._delete import delete
+    from . import (
+        _artifact,
+        _collection,
+        _feature,
+        _feature_set,
+        _parents,
+        _registry,
+        _run,
+        _storage,
+        _transform,
+        _ulabel,
+        _validate,
+        dev,
+    )
     from ._save import save
     from ._view import view
     from .dev._run_context import run_context
