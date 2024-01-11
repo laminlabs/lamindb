@@ -65,9 +65,11 @@ def __init__(transform: Transform, *args, **kwargs):
 
 def delete(self) -> None:
     # set latest_report to None, it's tracked through the latest run
+    latest_report = None
     if self.latest_report is not None:
         latest_report = self.latest_report
         self.latest_report = None
+    source_code = None
     if self.source_code is not None:
         source_code = self.source_code
         self.source_code = None
