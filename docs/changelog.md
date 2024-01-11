@@ -1,5 +1,6 @@
 # Changelog
 
+- ✨ Load json and html files [PR](https://github.com/laminlabs/lamindb/pull/1396) [@falexwolf](https://github.com/falexwolf)
 
 ```{eval-rst}
 .. role:: small
