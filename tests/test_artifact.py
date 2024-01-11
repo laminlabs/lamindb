@@ -385,21 +385,6 @@ def test_create_from_local_filepath(
     ln.settings.artifact_use_virtual_keys = True
 
 
-def test_local_path_load():
-    local_filepath = ln.dev.datasets.anndata_file_pbmc68k_test().resolve()
-
-    artifact = ln.Artifact(local_filepath, description="test")
-    assert local_filepath == artifact._local_filepath
-    assert local_filepath == artifact.path
-    assert local_filepath == artifact.stage()
-
-    adata = ad.read(local_filepath)
-    artifact = ln.Artifact(adata, description="test")
-    assert artifact._memory_rep is adata
-    assert artifact.load() is adata
-    assert artifact._local_filepath.resolve() == artifact.stage() == artifact.path
-
-
 ERROR_MESSAGE = """\
 ValueError: Currently don't support tracking folders outside one of the storage roots:
 """

@@ -1,6 +1,8 @@
+import builtins
+import re
 import shutil
 from pathlib import Path
-from typing import Union
+from typing import Optional, Union
 
 import anndata as ad
 import pandas as pd
@@ -24,6 +26,7 @@ except ImportError:
 
 
 AUTO_KEY_PREFIX = ".lamindb/"
+is_run_from_ipython = getattr(builtins, "__IPYTHON__", False)
 
 
 # add type annotations back asap when re-organizing the module
@@ -143,6 +146,25 @@ def read_tsv(path: Union[str, Path, UPath]) -> pd.DataFrame:
     return pd.read_csv(path_sanitized, sep="\t")
 
 
+def load_html(path: Union[str, Path, UPath]):
+    if is_run_from_ipython:
+        with open(path, encoding="utf-8") as f:
+            html_content = f.read()
+        # Extract the body content using regular expressions
+        body_content = re.findall(
+            r"<body(?:.*?)>(?:.*?)</body>", html_content, re.DOTALL
+        )
+        # Remove any empty body tags
+        if body_content:
+            body_content = body_content[0]
+            body_content = body_content.strip()  # type: ignore
+        from IPython.display import HTML, display
+
+        display(HTML(data=body_content))
+    else:
+        return path
+
+
 def load_to_memory(filepath: Union[str, Path, UPath], stream: bool = False, **kwargs):
     """Load a file into memory.
 
@@ -170,6 +192,7 @@ def load_to_memory(filepath: Union[str, Path, UPath], stream: bool = False, **kw
         ".fcs": read_fcs,
         ".zarr": read_adata_zarr,
         ".zrad": read_adata_zarr,
+        ".html": load_html,
     }
 
     reader = READER_FUNCS.get(filepath.suffix)
