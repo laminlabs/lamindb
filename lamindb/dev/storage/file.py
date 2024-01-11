@@ -165,6 +165,14 @@ def load_html(path: Union[str, Path, UPath]):
         return path
 
 
+def load_json(path: Union[str, Path, UPath]):
+    import json
+
+    with open(path) as f:
+        data = json.load(f)
+    return data
+
+
 def load_to_memory(filepath: Union[str, Path, UPath], stream: bool = False, **kwargs):
     """Load a file into memory.
 
@@ -193,6 +201,7 @@ def load_to_memory(filepath: Union[str, Path, UPath], stream: bool = False, **kw
         ".zarr": read_adata_zarr,
         ".zrad": read_adata_zarr,
         ".html": load_html,
+        ".json": load_json,
     }
 
     reader = READER_FUNCS.get(filepath.suffix)

@@ -27,3 +27,13 @@ def test_load_html():
     artifact = ln.Artifact(filepath, key=str(filepath))
     artifact.load()
     filepath.unlink()
+
+
+def test_load_json():
+    filepath = Path("./tmp.json")
+    with open(filepath, "w") as f:
+        f.write('{"a": 1}')
+    artifact = ln.Artifact(filepath, key=str(filepath))
+    dictionary = artifact.load()
+    assert dictionary["a"] == 1
+    filepath.unlink()
