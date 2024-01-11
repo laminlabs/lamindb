@@ -154,12 +154,12 @@ class QuerySet(models.QuerySet, CanValidate, IsTree):
                 df.rename(columns={values_expression: expression}, inplace=True)
         return df
 
-    def delete(self):
-        if isinstance(self.model, (Artifact, Collection, Transform)):
+    def delete(self, *args, **kwargs):
+        if self.model in {Artifact, Collection, Transform}:
             for record in self:
-                record.delete()
+                record.delete(*args, **kwargs)
         else:
-            self._delete_base_class()
+            self._delete_base_class(*args, **kwargs)
 
     def list(self, field: Optional[str] = None) -> List[Registry]:
         """Populate a list with the results.

@@ -911,13 +911,13 @@ def delete(
     self, permanent: Optional[bool] = None, storage: Optional[bool] = None
 ) -> None:
     # by default, we only move artifacts into the trash
-    if self.visibility > VisibilityChoice.trash.value and permanent is not True:
+    if self.visibility > -1 and permanent is not True:
         if storage is not None:
             logger.warning("moving artifact to trash, storage arg is ignored")
         # move to trash
-        self.visibility = VisibilityChoice.trash.value
+        self.visibility = -1
         self.save()
-        logger.warning("moved artifact to trash")
+        logger.warning("moved artifact to trash (visibility = -1)")
         return
 
     # if the artifact is already in the trash
@@ -929,6 +929,7 @@ def delete(
         )
         delete_record = response == "y"
     else:
+        # this second option doesn't feel very intuitive
         delete_record = permanent
 
     if delete_record:
