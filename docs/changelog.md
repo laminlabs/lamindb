@@ -1,5 +1,6 @@
 # Changelog
 
+- 🚸 Init transform versions at 1 [PR](https://github.com/laminlabs/lamindb/pull/1397) [@falexwolf](https://github.com/falexwolf)
 - ✨ Load json and html files [PR](https://github.com/laminlabs/lamindb/pull/1396) [@falexwolf](https://github.com/falexwolf)
 
 ```{eval-rst}
