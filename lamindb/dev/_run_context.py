@@ -27,9 +27,9 @@ msg_path_failed = (
 
 msg_manual_init = (
     "\n(1) save your notebook!"
-    "\n(2) attach metadata to the notebook by running the CLI:\n"
+    "\n(2) add stem_uid & version to your notebook file by running the CLI:\n"
     "lamin track {notebook_path}"
-    "\n(3) reload or re-open your notebook"
+    "\n(3) reload your notebook from disk"
 )
 
 
