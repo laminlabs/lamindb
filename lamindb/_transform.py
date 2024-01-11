@@ -2,6 +2,7 @@ from typing import TYPE_CHECKING, Optional
 
 from lnschema_core.models import TRANSFORM_TYPE_DEFAULT, Artifact, Run, Transform
 
+from ._run import delete_run_artifacts
 from .dev.versioning import get_uid_from_old_version, init_uid
 
 if TYPE_CHECKING:
@@ -80,20 +81,7 @@ def delete(self) -> None:
     # query all runs and delete their artifacts
     runs = Run.filter(transform=self)
     for run in runs:
-        environment = None
-        if run.environment is not None:
-            environment = run.environment
-            run.environment = None
-        report = None
-        if run.report is not None:
-            report = run.report
-            run.report = None
-        if environment is not None or report is not None:
-            run.save()
-        if environment is not None:
-            environment.delete(permanent=True)
-        if report is not None:
-            report.delete(permanent=True)
+        delete_run_artifacts(run)
     # at this point, all artifacts have been taken care of
     # we can now leverage CASCADE delete
     super(Transform, self).delete()
