@@ -30,4 +30,27 @@ def __init__(run: Run, *args, **kwargs):
     )
 
 
+def delete_run_artifacts(run: Run) -> None:
+    environment = None
+    if run.environment is not None:
+        environment = run.environment
+        run.environment = None
+    report = None
+    if run.report is not None:
+        report = run.report
+        run.report = None
+    if environment is not None or report is not None:
+        run.save()
+    if environment is not None:
+        environment.delete(permanent=True)
+    if report is not None:
+        report.delete(permanent=True)
+
+
+def delete(self) -> None:
+    delete_run_artifacts(self)
+    super(Run, self).delete()
+
+
 Run.__init__ = __init__
+Run.delete = delete
