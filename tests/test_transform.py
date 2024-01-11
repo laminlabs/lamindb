@@ -1,3 +1,5 @@
+from pathlib import Path
+
 import lamindb as ln
 import pytest
 from django.db.models.deletion import ProtectedError
@@ -12,12 +14,6 @@ def test_is_new_version_of_versioned_transform():
         == "ValueError: `version` parameter must be `None` or `str`, e.g., '0.1', '1',"
         " '2', etc."
     )
-    # with pytest.raises(ValueError) as error:
-    #     transform = ln.Transform(name="My transform", version="0")
-    # assert (
-    #     error.exconly()
-    #     == "ValueError: Please choose a version != '0', as it could be interpreted as `None`"
-    # )
 
     # create a versioned transform
     transform = ln.Transform(name="My transform", version="1")
@@ -79,3 +75,54 @@ def test_is_new_version_of_unversioned_transform():
     assert new_transform.version == "2"
 
     transform.delete()
+
+
+def test_delete():
+    # prepare the creation of a transform with its artifacts
+    transform = ln.Transform(name="My transform")
+    transform.save()
+    run = ln.Run(transform)
+    report_path = Path("report.html")
+    with open(report_path, "w") as f:
+        f.write("a")
+    source_code_path = Path("code.py")
+    with open(source_code_path, "w") as f:
+        f.write("b")
+    environment_path = Path("environment.txt")
+    with open(environment_path, "w") as f:
+        f.write("c")
+    report = ln.Artifact(report_path, description=f"Report of {run.uid}")
+    report.save()
+    report_path.unlink()
+    report_path = report.path
+    source_code = ln.Artifact(
+        source_code_path, description=f"Source of {transform.uid}"
+    )
+    source_code.save()
+    source_code_path.unlink()
+    source_code_path = source_code.path
+    environment = ln.Artifact(environment_path, description="requirement.txt")
+    environment.save()
+    environment_path.unlink()
+    environment_path = environment.path
+    transform.latest_report = report
+    transform.source_code = source_code
+    transform.save()
+    run.report = report
+    run.environment = environment
+    run.save()
+    assert report_path.exists()
+    assert source_code_path.exists()
+    assert environment_path.exists()
+    # now delete everything
+    transform.delete()
+    assert not report_path.exists()
+    assert not source_code_path.exists()
+    assert not environment_path.exists()
+    assert (
+        len(
+            ln.Artifact.filter(id__in=[report.id, source_code.id, environment.id]).all()
+        )
+        == 0
+    )
+    assert len(ln.Run.filter(id=run.id).all()) == 0

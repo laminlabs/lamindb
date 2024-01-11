@@ -4,7 +4,14 @@ from typing import Dict, Iterable, List, NamedTuple, Optional, Union
 import pandas as pd
 from django.db import models
 from lamindb_setup.dev._docs import doc_args
-from lnschema_core.models import CanValidate, IsTree, Registry
+from lnschema_core.models import (
+    Artifact,
+    CanValidate,
+    Collection,
+    IsTree,
+    Registry,
+    Transform,
+)
 from lnschema_core.types import ListLike, StrField
 
 
@@ -147,6 +154,13 @@ class QuerySet(models.QuerySet, CanValidate, IsTree):
                 df.rename(columns={values_expression: expression}, inplace=True)
         return df
 
+    def delete(self, *args, **kwargs):
+        if self.model in {Artifact, Collection, Transform}:
+            for record in self:
+                record.delete(*args, **kwargs)
+        else:
+            self._delete_base_class(*args, **kwargs)
+
     def list(self, field: Optional[str] = None) -> List[Registry]:
         """Populate a list with the results.
 
@@ -282,3 +296,5 @@ models.QuerySet.lookup = QuerySet.lookup
 models.QuerySet.validate = QuerySet.validate
 models.QuerySet.inspect = QuerySet.inspect
 models.QuerySet.standardize = QuerySet.standardize
+models.QuerySet._delete_base_class = models.QuerySet.delete
+models.QuerySet.delete = QuerySet.delete

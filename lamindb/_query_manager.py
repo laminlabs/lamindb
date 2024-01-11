@@ -46,14 +46,11 @@ class QueryManager(models.Manager):
 
         Examples:
             >>> ln.save(ln.ULabel.from_values(["ULabel1", "ULabel2", "ULabel3"], field="name"))
-            >>> labels = ln.ULabel.filter(name__icontains = "label").all()
+            >>> labels = ln.ULabel.filter(name__icontains="label").all()
             >>> ln.ULabel(name="ULabel1").save()
             >>> label = ln.ULabel.filter(name="ULabel1").one()
             >>> label.parents.set(labels)
             >>> label.parents.list()
-            [ULabel(id=sFMcPepC, name=ULabel1, updated_at=2023-07-19 19:45:17, created_by_id=DzTjkKse), # noqa
-            ULabel(id=2SscQvsM, name=ULabel2, updated_at=2023-07-19 19:45:17, created_by_id=DzTjkKse), # noqa
-            ULabel(id=lecV87vi, name=ULabel3, updated_at=2023-07-19 19:45:17, created_by_id=DzTjkKse)] # noqa
             >>> label.parents.list("name")
             ['ULabel1', 'ULabel2', 'ULabel3']
         """
@@ -76,7 +73,7 @@ class QueryManager(models.Manager):
         For `**kwargs`, see :meth:`lamindb.dev.QuerySet.df`.
         """
         self._track_run_input_manager()
-        return self.all_base_class()
+        return self._all_base_class()
 
     @doc_args(Registry.search.__doc__)
     def search(self, string: str, **kwargs):
@@ -115,5 +112,5 @@ models.Manager.__getitem__ = QueryManager.__getitem__
 models.Manager._track_run_input_manager = QueryManager._track_run_input_manager
 # the two lines below would be easy if we could actually inherit; like this,
 # they're suboptimal
-models.Manager.all_base_class = models.Manager.all
+models.Manager._all_base_class = models.Manager.all
 models.Manager.all = QueryManager.all

@@ -755,3 +755,64 @@ def test_adata_suffix():
         error.exconly().partition(",")[0]
         == "ValueError: The suffix '' of the provided key is incorrect"
     )
+
+
+def test_bulk_delete():
+    report_path = Path("report.html")
+    with open(report_path, "w") as f:
+        f.write("a")
+    source_code_path = Path("code.py")
+    with open(source_code_path, "w") as f:
+        f.write("b")
+    environment_path = Path("environment.txt")
+    with open(environment_path, "w") as f:
+        f.write("c")
+    report = ln.Artifact(report_path, description="Report")
+    report.save()
+    report_path.unlink()
+    report_path = report.path
+    source_code = ln.Artifact(source_code_path, description="Source")
+    source_code.save()
+    source_code_path.unlink()
+    source_code_path = source_code.path
+    environment = ln.Artifact(environment_path, description="requirement.txt")
+    environment.save()
+    environment_path.unlink()
+    environment_path = environment.path
+
+    ln.Artifact.filter(id__in=[source_code.id, environment.id, report.id]).delete()
+
+    assert (
+        len(
+            ln.Artifact.filter(id__in=[source_code.id, environment.id, report.id]).all()
+        )
+        == 0
+    )
+    assert (
+        len(
+            ln.Artifact.filter(
+                id__in=[source_code.id, environment.id, report.id], visibility=-1
+            )
+            .distinct()
+            .all()
+        )
+        == 3
+    )
+
+    ln.Artifact.filter(
+        id__in=[source_code.id, environment.id, report.id], visibility=-1
+    ).delete(permanent=True)
+    assert (
+        len(
+            ln.Artifact.filter(
+                id__in=[source_code.id, environment.id, report.id], visibility=None
+            )
+            .distinct()
+            .all()
+        )
+        == 0
+    )
+
+    assert not report_path.exists()
+    assert not source_code_path.exists()
+    assert not environment_path.exists()

@@ -1,6 +1,6 @@
 from typing import TYPE_CHECKING, Optional
 
-from lnschema_core.models import TRANSFORM_TYPE_DEFAULT, Transform
+from lnschema_core.models import TRANSFORM_TYPE_DEFAULT, Artifact, Run, Transform
 
 from .dev.versioning import get_uid_from_old_version, init_uid
 
@@ -63,4 +63,41 @@ def __init__(transform: Transform, *args, **kwargs):
     )
 
 
+def delete(self) -> None:
+    # set latest_report to None, it's tracked through the latest run
+    latest_report = None
+    if self.latest_report is not None:
+        latest_report = self.latest_report
+        self.latest_report = None
+    source_code = None
+    if self.source_code is not None:
+        source_code = self.source_code
+        self.source_code = None
+    if latest_report is not None or source_code is not None:
+        self.save()
+    if source_code is not None:
+        source_code.delete(permanent=True)
+    # query all runs and delete their artifacts
+    runs = Run.filter(transform=self)
+    for run in runs:
+        environment = None
+        if run.environment is not None:
+            environment = run.environment
+            run.environment = None
+        report = None
+        if run.report is not None:
+            report = run.report
+            run.report = None
+        if environment is not None or report is not None:
+            run.save()
+        if environment is not None:
+            environment.delete(permanent=True)
+        if report is not None:
+            report.delete(permanent=True)
+    # at this point, all artifacts have been taken care of
+    # we can now leverage CASCADE delete
+    super(Transform, self).delete()
+
+
 Transform.__init__ = __init__
+Transform.delete = delete
