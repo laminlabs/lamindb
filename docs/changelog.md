@@ -1,5 +1,6 @@
 # Changelog
 
+- ✏️ Fix lnschema-bionty uid encoding [PR](https://github.com/laminlabs/lamindb/pull/1400) [@sunnyosun](https://github.com/sunnyosun)
 - 🩹 Also amend run [PR](https://github.com/laminlabs/lamindb/pull/1399) [@falexwolf](https://github.com/falexwolf)
 - 🚸 Disallow bulk-delete for Artifact, Transform & Collection [PR](https://github.com/laminlabs/lamindb/pull/1398) [@falexwolf](https://github.com/falexwolf)
 - 🚸 Init transform versions at 1 [PR](https://github.com/laminlabs/lamindb/pull/1397) [@falexwolf](https://github.com/falexwolf)
