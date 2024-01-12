@@ -37,7 +37,7 @@ Home = "https://github.com/laminlabs/lamindb"
 
 [project.optional-dependencies]
 bionty = [
-    "lnschema_bionty==0.38.3",
+    "lnschema_bionty==0.38.4",
 ]
 aws = [
     "botocore==1.31.17",  # for aiobotocore inside s3fs, to fix deps resolution
