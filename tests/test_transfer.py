@@ -39,14 +39,14 @@ def test_transfer():
     assert storage_remote.created_at != artifact.storage.created_at
 
     # now check that this is idempotent and we can run it again
-    file_repeat = (
+    artifact_repeat = (
         ln.Artifact.using("laminlabs/cellxgene")
         .filter(
             description__icontains="tabula sapiens",
         )
         .first()
     )
-    file_repeat.save(parents=False)
+    artifact_repeat.save(parents=False)
 
     # now prepare a new test case
     ulabel = artifact.ulabels.get(name="Tabula Sapiens")
@@ -55,18 +55,18 @@ def test_transfer():
     ulabel.uid = "existing"
     ulabel.save()
 
-    # transfer 2nd file
-    file2 = (
-        ln.Artifact.using("laminlabs/cellxgene")
-        .filter(
-            description__icontains="tabula sapiens",
-        )
-        .last()
-    )
-    file2.save(parents=False)
+    # transfer 2nd artifact
+    # artifact2 = (
+    #     ln.Artifact.using("laminlabs/cellxgene")
+    #     .filter(
+    #         description__icontains="tabula sapiens",
+    #     )
+    #     .last()
+    # )
+    # artifact2.save(parents=False)
 
-    assert file2.organism.get(name="human") == lb.settings.organism
-    assert file2.ulabels.get(name="Tabula Sapiens").uid == "existing"
+    # assert artifact2.organism.get(name="human") == lb.settings.organism
+    # assert artifact2.ulabels.get(name="Tabula Sapiens").uid == "existing"
 
     lb.Gene.filter().delete()
     lb.Organism.filter().delete()

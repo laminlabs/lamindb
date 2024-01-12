@@ -224,6 +224,8 @@ def test_from_inconsistent_artifacts():
     artifact2.save()
     collection = ln.Collection([artifact1, artifact2], name="Inconsistent")
     collection.save()
+    # test idempotency of .save()
+    collection.save()
     # create a run context
     ln.track(ln.Transform(name="My test transform"))
     # can iterate over them
@@ -282,9 +284,6 @@ def test_collection_mapped():
     artifact3.save()
     collection = ln.Collection([artifact1, artifact2], name="Gather")
     collection.save()
-    print(artifact1.load().to_df())
-    print(artifact2.load().to_df())
-    print(artifact3.load().to_df())
     collection_outer = ln.Collection(
         [artifact1, artifact2, artifact3], name="Gather outer"
     )
@@ -325,12 +324,6 @@ def test_collection_mapped():
         assert len(ls_ds.var_joint) == 6
         assert len(ls_ds[0]) == 2
         assert len(ls_ds[0][0]) == 6
-        print(ls_ds[0][0])
-        print(ls_ds[1][0])
-        print(ls_ds[2][0])
-        print(ls_ds[3][0])
-        print(ls_ds[4][0])
-        print(ls_ds[5][0])
         assert np.array_equal(ls_ds[0][0], np.array([0, 0, 0, 3, 1, 2]))
         assert np.array_equal(ls_ds[1][0], np.array([0, 0, 0, 6, 4, 5]))
         assert np.array_equal(ls_ds[2][0], np.array([0, 0, 0, 5, 1, 2]))

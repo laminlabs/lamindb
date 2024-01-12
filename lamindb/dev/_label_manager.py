@@ -23,7 +23,7 @@ def get_labels_as_dict(self: Data):
     ).items():
         if related_name in {
             "feature_sets",
-            "artifacts",
+            "unordered_artifacts",
             "input_of",
             "collections",
             "source_of",
