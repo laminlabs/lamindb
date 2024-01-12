@@ -1,5 +1,6 @@
 # Changelog
 
+- 🚚 Rename Bionty to PublicOntology [PR](https://github.com/laminlabs/lamindb/pull/1402) [@sunnyosun](https://github.com/sunnyosun)
 - 🐛 Fix idempotency of `collection.save()` [PR](https://github.com/laminlabs/lamindb/pull/1401) [@falexwolf](https://github.com/falexwolf)
 - ✏️ Fix lnschema-bionty uid encoding [PR](https://github.com/laminlabs/lamindb/pull/1400) [@sunnyosun](https://github.com/sunnyosun)
 - 🩹 Also amend run [PR](https://github.com/laminlabs/lamindb/pull/1399) [@falexwolf](https://github.com/falexwolf)
