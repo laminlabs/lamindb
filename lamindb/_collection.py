@@ -425,7 +425,10 @@ def save(self, *args, **kwargs) -> None:
     # we don't need to save feature sets again
     save_feature_sets(self)
     super(Collection, self).save()
-    if hasattr(self, "_artifacts"):
+    # we don't allow updating the collection of artifacts
+    # if users want to update the set of artifacts, they
+    # have to create a new collection
+    if self._state.adding and hasattr(self, "_artifacts"):
         if self._artifacts is not None and len(self._artifacts) > 0:
             links = [
                 CollectionArtifact(collection_id=self.id, artifact_id=artifact.id)
