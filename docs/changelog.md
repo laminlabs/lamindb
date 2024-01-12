@@ -10,7 +10,6 @@
 ### 0.67.1 {small}`2024-01-12`
 
 - 🐛 Fix idempotency of `collection.save()` [PR](https://github.com/laminlabs/lamindb/pull/1401) [@falexwolf](https://github.com/falexwolf)
-- 🩹 Also amend run [PR](https://github.com/laminlabs/lamindb/pull/1399) [@falexwolf](https://github.com/falexwolf)
 - 🚸 Disallow bulk-delete for Artifact, Transform & Collection [PR](https://github.com/laminlabs/lamindb/pull/1398) [@falexwolf](https://github.com/falexwolf)
 - 🚸 Init transform versions at 1 [PR](https://github.com/laminlabs/lamindb/pull/1397) [@falexwolf](https://github.com/falexwolf)
 - ✨ Load json and html files [PR](https://github.com/laminlabs/lamindb/pull/1396) [@falexwolf](https://github.com/falexwolf)
