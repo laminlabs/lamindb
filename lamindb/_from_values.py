@@ -173,20 +173,20 @@ def create_records_from_public(
 
     # create the corresponding bionty object from model
     try:
-        bionty_object = model.public(
+        public_ontology = model.public(
             organism=kwargs.get("organism"), public_source=kwargs.get("public_source")
         )
     except Exception:
         # for custom records that are not created from bionty sources
         return records, iterable_idx
     # add public_source record to the kwargs
-    kwargs.update({"public_source": get_public_source_record(bionty_object)})
+    kwargs.update({"public_source": get_public_source_record(public_ontology)})
 
     # filter the columns in bionty df based on fields
-    bionty_df = _filter_bionty_df_columns(model=model, bionty_object=bionty_object)
+    bionty_df = _filter_bionty_df_columns(model=model, public_ontology=public_ontology)
 
     # standardize in the bionty reference
-    result = bionty_object.inspect(iterable_idx, field=field.field.name, mute=True)
+    result = public_ontology.inspect(iterable_idx, field=field.field.name, mute=True)
     syn_mapper = result.synonyms_mapper
 
     msg_syn: str = ""
@@ -254,13 +254,13 @@ def _print_values(names: List, n: int = 20) -> str:
     return print_values
 
 
-def _filter_bionty_df_columns(model: Registry, bionty_object: Any) -> pd.DataFrame:
+def _filter_bionty_df_columns(model: Registry, public_ontology: Any) -> pd.DataFrame:
     bionty_df = pd.DataFrame()
-    if bionty_object is not None:
+    if public_ontology is not None:
         model_field_names = {i.name for i in model._meta.fields}
         # parents needs to be added here as relationships aren't in fields
         model_field_names.add("parents")
-        bionty_df = bionty_object.df().reset_index()
+        bionty_df = public_ontology.df().reset_index()
         if model.__name__ == "Gene":
             # groupby ensembl_gene_id and concat ncbi_gene_ids
             groupby_id_col = (
