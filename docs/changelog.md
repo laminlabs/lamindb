@@ -1,5 +1,6 @@
 # Changelog
 
+- ✨ Enable staging notebooks & code using the CLI [PR](https://github.com/laminlabs/lamindb/pull/1403) [@falexwolf](https://github.com/falexwolf)
 
 ```{eval-rst}
 .. role:: small
