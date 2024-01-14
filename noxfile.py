@@ -130,37 +130,41 @@ def docs(session):
         if group in {"tutorial", "guide", "biology"}:
             for path in Path(f"./docs/{group}").glob("*"):
                 path.rename(f"./docs/{path.name}")
-    login_testuser1(session)
     session.run(*"lamin init --storage ./docsbuild --schema bionty".split())
 
     def generate_cli_docs(main_parser):
         page = "# `lamin`\n\nFor a guide, see: {doc}`/setup`.\n\n"
-        commands = [
-            "login",
-            "init",
-            "load",
-            "close",
-            "delete",
-            "track",
-            "info",
-            "migrate",
-            "save",
-            "set",
-            "schema",
-        ]
+        command_groups = {
+            "General": ["login", "info"],
+            "Instances": [
+                "init",
+                "load",
+                "close",
+                "delete",
+                "migrate",
+                "set",
+                "schema",
+            ],
+            "Transforms": ["track", "save", "stage"],
+        }
         for action_group in main_parser._action_groups:
             for group_action in action_group._group_actions:
                 if type(group_action).__name__ == "_SubParsersAction":
-                    for command in commands:
-                        subparser = group_action.choices[command]
-                        # replace the "nox" command with the "lamin" command
-                        help_string = subparser.format_help().replace("nox", "lamin")
-                        page += f"## `lamin {command}`\n\n```\n{help_string}```\n\n"
+                    for command_group, commands in command_groups.items():
+                        page += f"## {command_group}\n\n"
+                        for command in commands:
+                            subparser = group_action.choices[command]
+                            # replace the "nox" command with the "lamin" command
+                            help_string = subparser.format_help().replace(
+                                "nox", "lamin"
+                            )
+                            page += (
+                                f"### `lamin {command}`\n\n```\n{help_string}```\n\n"
+                            )
         Path("./docs/cli.md").write_text(page)
 
     from lamin_cli import __main__
 
     generate_cli_docs(__main__.parser)
-
     build_docs(session, strip_prefix=True, strict=True)
     upload_docs_artifact(aws=True)
