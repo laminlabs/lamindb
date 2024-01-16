@@ -469,12 +469,10 @@ def transfer_to_default_db(
 def save(self, *args, **kwargs) -> None:
     db = self._state.db
     pk_on_db = self.pk
-    artifacts = []
-    if self.__class__.__name__ == "Collection":
-        try:
-            artifacts = self.artifacts.list()
-        except Exception:
-            artifacts = []
+    artifacts: List = []
+    if self.__class__.__name__ == "Collection" and self.id is not None:
+        # when creating a new collection without being able to access artifacts
+        artifacts = self.artifacts.list()
     result = transfer_to_default_db(self)
     if result is not None:
         init_self_from_db(self, result)
