@@ -457,6 +457,7 @@ def transfer_to_default_db(
             else:
                 record.transform_id = None
         update_fk_to_default_db(record, "storage")
+        update_fk_to_default_db(record, "artifact")
         record.id = None
         record._state.db = "default"
         if save:
