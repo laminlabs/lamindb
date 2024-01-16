@@ -354,8 +354,15 @@ def _track_run_input(
     input_data = []
     if run is not None:
         # avoid cycles: data can't be both input and output
-        input_data = [data for data in data_iter if data.run_id != run.id]
-        input_data_ids = [data.id for data in data_iter if data.run_id != run.id]
+        def is_valid_input(data: Data):
+            return (
+                data.run_id != run.id
+                and not data._state.adding
+                and data._state.db in {"default", None}
+            )
+
+        input_data = [data for data in data_iter if is_valid_input(data)]
+        input_data_ids = [data.id for data in input_data]
     if input_data:
         data_class_name = input_data[0].__class__.__name__.lower()
     # let us first look at the case in which the user does not
