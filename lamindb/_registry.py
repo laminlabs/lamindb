@@ -471,7 +471,10 @@ def save(self, *args, **kwargs) -> None:
     pk_on_db = self.pk
     artifacts = []
     if self.__class__.__name__ == "Collection":
-        artifacts = self.artifacts.list()
+        try:
+            artifacts = self.artifacts.list()
+        except Exception:
+            artifacts = []
     result = transfer_to_default_db(self)
     if result is not None:
         init_self_from_db(self, result)
