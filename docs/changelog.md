@@ -1,5 +1,6 @@
 # Changelog
 
+- 🚸 Account for run not yet being saved [PR](https://github.com/laminlabs/lamindb/pull/1404) [@falexwolf](https://github.com/falexwolf)
 - 🎨 Transfer collection.artifacts [PR](https://github.com/laminlabs/lamindb/pull/1405) [@sunnyosun](https://github.com/sunnyosun)
 
 ```{eval-rst}
