@@ -457,6 +457,7 @@ def transfer_to_default_db(
             else:
                 record.transform_id = None
         update_fk_to_default_db(record, "storage")
+        update_fk_to_default_db(record, "artifact")
         record.id = None
         record._state.db = "default"
         if save:
@@ -468,6 +469,10 @@ def transfer_to_default_db(
 def save(self, *args, **kwargs) -> None:
     db = self._state.db
     pk_on_db = self.pk
+    artifacts: List = []
+    if self.__class__.__name__ == "Collection" and self.id is not None:
+        # when creating a new collection without being able to access artifacts
+        artifacts = self.artifacts.list()
     result = transfer_to_default_db(self)
     if result is not None:
         init_self_from_db(self, result)
@@ -478,6 +483,12 @@ def save(self, *args, **kwargs) -> None:
             save_kwargs.pop("parents")
         super(Registry, self).save(*args, **save_kwargs)
     if db is not None and db != "default":
+        if self.__class__.__name__ == "Collection":
+            if len(artifacts) > 0:
+                logger.info("transfer artifacts")
+                for artifact in artifacts:
+                    artifact.save()
+                self.unordered_artifacts.add(*artifacts)
         if hasattr(self, "labels"):
             from copy import copy
 
