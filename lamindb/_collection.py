@@ -77,9 +77,7 @@ def __init__(
     else:
         if not isinstance(is_new_version_of, Collection):
             raise TypeError("is_new_version_of has to be of type ln.Collection")
-        provisional_uid, version = get_uid_from_old_version(
-            is_new_version_of, version, n_full_id=20
-        )
+        provisional_uid, version = get_uid_from_old_version(is_new_version_of, version)
         if name is None:
             name = is_new_version_of.name
     run = get_run(run)

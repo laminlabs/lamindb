@@ -536,9 +536,7 @@ def __init__(artifact: Artifact, *args, **kwargs):
     else:
         if not isinstance(is_new_version_of, Artifact):
             raise TypeError("is_new_version_of has to be of type ln.Artifact")
-        provisional_uid, version = get_uid_from_old_version(
-            is_new_version_of, version, n_full_id=20
-        )
+        provisional_uid, version = get_uid_from_old_version(is_new_version_of, version)
         if description is None:
             description = is_new_version_of.description
     kwargs_or_artifact, privates = get_artifact_kwargs_from_data(
