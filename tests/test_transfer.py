@@ -21,22 +21,24 @@ def test_transfer():
     )
 
     id_remote = artifact.id
-    # run_remote = artifact.run
+    run_remote = artifact.run
     transform_remote = artifact.transform
     created_by_remote = artifact.created_by
     storage_remote = artifact.storage
-    ulabel_remote = artifact.ulabels.get(name="Tabula Sapiens")
+    organism_remote = artifact.organism.get(name="human")
 
     artifact.save(parents=False)
 
     # check all ids are adjusted
     assert artifact.organism.get(name="human") == lb.settings.organism
     assert id_remote != artifact.id
-    # assert run_remote != artifact.run
+    assert run_remote != artifact.run
     assert transform_remote != artifact.transform
     assert created_by_remote.handle != artifact.created_by.handle
     assert storage_remote.uid == artifact.storage.uid
     assert storage_remote.created_at != artifact.storage.created_at
+    organism = artifact.organism.get(name="human")
+    assert organism != organism_remote
 
     # now check that this is idempotent and we can run it again
     artifact_repeat = (
@@ -49,24 +51,23 @@ def test_transfer():
     artifact_repeat.save(parents=False)
 
     # now prepare a new test case
-    ulabel = artifact.ulabels.get(name="Tabula Sapiens")
-    assert ulabel != ulabel_remote
-    # mimic we have an existing ulabel with a different uid but same name
-    ulabel.uid = "existing"
-    ulabel.save()
+    # mimic we have an existing feature with a different uid but same name
+    feature = ln.Feature.filter(name="organism").one()
+    feature.uid = "existing"
+    feature.save()
 
     # transfer 2nd artifact
-    # artifact2 = (
-    #     ln.Artifact.using("laminlabs/cellxgene")
-    #     .filter(
-    #         description__icontains="tabula sapiens",
-    #     )
-    #     .last()
-    # )
-    # artifact2.save(parents=False)
+    artifact2 = (
+        ln.Artifact.using("laminlabs/cellxgene")
+        .filter(
+            description__icontains="tabula sapiens",
+        )
+        .last()
+    )
+    artifact2.save(parents=False)
 
-    # assert artifact2.organism.get(name="human") == lb.settings.organism
-    # assert artifact2.ulabels.get(name="Tabula Sapiens").uid == "existing"
+    assert artifact2.organism.get(name="human") == lb.settings.organism
+    assert artifact.features["obs"].get(name="organism").uid == "existing"
 
     lb.Gene.filter().delete()
     lb.Organism.filter().delete()
