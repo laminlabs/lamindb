@@ -96,7 +96,8 @@ def test_create_delete_from_single_dataframe():
     assert collection1.hash == collection.hash
 
     # now proceed to deletion
-    collection.delete(permanent=True, storage=True)
+    collection.delete(permanent=True)
+    collection.artifact.delete(permanent=True, storage=True)
     assert ln.Artifact.filter(uid=collection.uid).one_or_none() is None
     assert ln.Artifact.filter(uid=artifact.uid).one_or_none() is None
 
@@ -105,7 +106,8 @@ def test_create_delete_from_single_anndata():
     ln.track(ln.Transform(name="Test transform"))
     collection = ln.Collection(adata, name="My adata")
     collection.save()
-    collection.delete(permanent=True, storage=True)
+    collection.delete(permanent=True)
+    collection.artifact.delete(permanent=True, storage=True)
     assert ln.Artifact.filter(id=collection.id).one_or_none() is None
     assert ln.Artifact.filter(id=collection.artifact.id).one_or_none() is None
     # and now with from_anndata
@@ -134,7 +136,8 @@ def test_create_delete_from_single_anndata():
     feature_sets_queried.delete()
     features_queried.delete()
     genes_queried.delete()
-    collection.delete(permanent=True, storage=True)
+    collection.delete(permanent=True)
+    collection.artifact.delete(permanent=True, storage=True)
     ln.dev.run_context.run = None
     ln.dev.run_context.transform = None
 
@@ -179,7 +182,8 @@ def test_from_single_artifact():
     features_queried = ln.Feature.filter(feature_sets__in=feature_sets_queried).all()
     feature_sets_queried.delete()
     features_queried.delete()
-    collection.delete(permanent=True, storage=True)
+    collection.delete(permanent=True)
+    collection.artifact.delete(permanent=True, storage=True)
     assert ln.Artifact.filter(id=collection.id).one_or_none() is None
     assert ln.Artifact.filter(id=collection.artifact.id).one_or_none() is None
 
@@ -367,8 +371,10 @@ def test_is_new_version_of_versioned_collection():
     assert collection_v3.name == "test1"
 
     # test that reference collection cannot be deleted
-    collection_v2.delete(permanent=True, storage=True)
-    collection.delete(permanent=True, storage=True)
+    collection_v2.delete(permanent=True)
+    collection_v2.artifact.delete(permanent=True, storage=True)
+    collection.delete(permanent=True)
+    collection.artifact.delete(permanent=True, storage=True)
 
 
 def test_is_new_version_of_unversioned_collection():
@@ -390,4 +396,5 @@ def test_is_new_version_of_unversioned_collection():
     assert new_collection.version == "2"
     assert new_collection.name == collection.name
 
-    collection.delete(permanent=True, storage=True)
+    collection.delete(permanent=True)
+    collection.artifact.delete(permanent=True, storage=True)
