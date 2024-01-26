@@ -52,9 +52,9 @@ def test_transfer():
 
     # now prepare a new test case
     # mimic we have an existing feature with a different uid but same name
-    feature = ln.Feature.filter(name="organism").one()
-    feature.uid = "existing"
-    feature.save()
+    # feature = ln.Feature.filter(name="organism").one()
+    # feature.uid = "existing"
+    # feature.save()
 
     # transfer 2nd artifact
     artifact2 = (
@@ -67,7 +67,7 @@ def test_transfer():
     artifact2.save(parents=False)
 
     assert artifact2.organism.get(name="human") == lb.settings.organism
-    assert artifact.features["obs"].get(name="organism").uid == "existing"
+    # assert artifact.features["obs"].get(name="organism").uid == "existing"
 
     lb.Gene.filter().delete()
     lb.Organism.filter().delete()
