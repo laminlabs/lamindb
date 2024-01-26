@@ -392,10 +392,6 @@ def delete(self, permanent: Optional[bool] = None) -> None:
         self.visibility = VisibilityChoice.trash.value
         self.save()
         logger.warning("moved collection to trash.")
-        if self.artifact is not None:
-            self.artifact.visibility = VisibilityChoice.trash.value
-            self.artifact.save()
-            logger.warning("moved collection.artifact to trash.")
         return
 
     # permanent delete
