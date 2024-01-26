@@ -1,4 +1,4 @@
-from typing import Optional, Tuple, Union
+from typing import Optional, Tuple
 
 from lnschema_core import ids
 from lnschema_core.models import IsVersioned
@@ -51,7 +51,7 @@ def init_uid(
 
 
 def get_uid_from_old_version(
-    is_new_version_of: IsVersioned, version: Optional[str]
+    is_new_version_of: IsVersioned, version: Optional[str] = None
 ) -> Tuple[str, str]:
     """{}."""
     msg = ""
