@@ -226,6 +226,7 @@ class FeatureManager:
                         f"FeatureSet is not transferred, check if organism is set correctly: {feature_set}"
                     )
                 continue
-            feature_set_self.uid = feature_set.uid
+            # TODO: make sure the uid matches if featureset is composed of same features
+            # feature_set_self.uid = feature_set.uid
             logger.info(f"saving {slot} featureset: {feature_set_self}")
             self._host.features.add_feature_set(feature_set_self, slot)
