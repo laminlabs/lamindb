@@ -44,7 +44,7 @@ def test_get_new_path_from_uid():
     # test cloud path as it has different behavior than local path
     with open("test_new_path.txt", "w") as f:
         f.write("test_new_path")
-    old_path = UPath("s3://lamindata/.lamindb/test.txt")
+    old_path = UPath("s3://lamindata/.lamindb/test_new_path.txt")
     old_path.upload_from("./test_new_path.txt")
     assert old_path.exists()
     new_path = get_new_path_from_uid(
