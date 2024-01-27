@@ -19,6 +19,7 @@ from lnschema_core import Registry
 from lnschema_core.types import ListLike, StrField
 
 from lamindb._utils import attach_func_to_class_method
+from lamindb.dev._settings_storage import StorageSettings
 
 from . import _TESTING
 from ._from_values import get_or_create_records
@@ -365,11 +366,15 @@ def using(
     instance_result, storage_result = load_result
     settings_file = instance_settings_file(name, owner)
     db_updated = update_db_using_local(instance_result, settings_file)
+    ssettings = StorageSettings(
+        root=storage_result["root"],
+        region=storage_result["region"],
+        uid=storage_result["lnid"],
+    )
     isettings = InstanceSettings(
         owner=owner,
         name=name,
-        storage_root=storage_result["root"],
-        storage_region=storage_result["region"],
+        storage=ssettings,
         db=db_updated,
         schema=instance_result["schema_str"],
         id=UUID(instance_result["id"]),
