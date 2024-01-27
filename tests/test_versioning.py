@@ -58,3 +58,4 @@ def test_get_new_path_from_uid():
     assert str(new_path) == "s3://lamindata/.lamindb/test2.txt"
     assert not old_path.exists()
     new_path.unlink()
+    UPath("./test.txt").unlink()
