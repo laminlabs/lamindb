@@ -1,5 +1,6 @@
 # Changelog
 
+- ♻️ Refactor storage settings [PR](https://github.com/laminlabs/lamindb/pull/1414) [@falexwolf](https://github.com/falexwolf)
 - ♻️ Use folders instead of buckets for default storages [PR](https://github.com/laminlabs/lamindb/pull/1413) [@falexwolf](https://github.com/falexwolf)
 - 🚸 Account for run not yet being saved [PR](https://github.com/laminlabs/lamindb/pull/1404) [@falexwolf](https://github.com/falexwolf)
 - 🎨 Transfer collection.artifacts [PR](https://github.com/laminlabs/lamindb/pull/1405) [@sunnyosun](https://github.com/sunnyosun)
