@@ -42,20 +42,20 @@ def test_add_to_version_family():
 
 def test_get_new_path_from_uid():
     # test cloud path as it has different behavior than local path
-    with open("test.txt", "w") as f:
-        f.write("test")
+    with open("test_new_path.txt", "w") as f:
+        f.write("test_new_path")
     old_path = UPath("s3://lamindata/.lamindb/test.txt")
-    old_path.upload_from("./test.txt")
+    old_path.upload_from("./test_new_path.txt")
     assert old_path.exists()
     new_path = get_new_path_from_uid(
         old_path=old_path,
-        old_uid="test",
-        new_uid="test2",
+        old_uid="test_new_path",
+        new_uid="test_new_path2",
     )
-    assert new_path == "test2.txt"
+    assert new_path == "test_new_path2.txt"
     new_path = old_path.rename(new_path)
     assert new_path.exists()
-    assert str(new_path) == "s3://lamindata/.lamindb/test2.txt"
+    assert str(new_path) == "s3://lamindata/.lamindb/test_new_path2.txt"
     assert not old_path.exists()
     new_path.unlink()
-    UPath("./test.txt").unlink()
+    UPath("./test_new_path.txt").unlink()
