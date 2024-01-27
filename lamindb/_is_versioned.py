@@ -1,13 +1,13 @@
 from typing import Optional
 
 from lamin_utils import logger
-from lamindb_setup.dev.upath import LocalPathClasses, UPath
+from lamindb_setup.dev.upath import UPath
 from lnschema_core.models import IsVersioned
 
 from lamindb._utils import attach_func_to_class_method
 
 from . import _TESTING
-from .dev.versioning import get_uid_from_old_version
+from .dev.versioning import get_new_path_from_uid, get_uid_from_old_version
 
 
 # docstring handled through attach_func_to_class_method
@@ -18,12 +18,9 @@ def add_to_version_family(
     new_uid, version = get_uid_from_old_version(is_new_version_of, version)
     if self.__class__.__name__ == "Artifact" and self.key_is_virtual:
         old_path = self.path
-        if isinstance(old_path, LocalPathClasses):
-            # for local path, the rename target must be full path
-            new_path = old_path.as_posix().replace(old_uid, new_uid)
-        else:
-            # for cloud path, the rename target must be the last part of the path
-            new_path = old_path.name.replace(old_uid, new_uid)
+        new_path = get_new_path_from_uid(
+            old_path=old_path, old_uid=old_uid, new_uid=new_uid
+        )
         new_path = UPath(old_path).rename(new_path)
         logger.success(f"updated path from {old_path} to {new_path}!")
     self.uid = new_uid
@@ -39,11 +36,7 @@ METHOD_NAMES = [
 if _TESTING:  # type: ignore
     from inspect import signature
 
-    SIGS = {
-        name: signature(getattr(IsVersioned, name))
-        for name in METHOD_NAMES
-        if not name.startswith("__")
-    }
+    SIGS = {name: signature(getattr(IsVersioned, name)) for name in METHOD_NAMES}
 
 for name in METHOD_NAMES:
     attach_func_to_class_method(name, IsVersioned, globals())

@@ -1,5 +1,6 @@
 from typing import Optional, Tuple
 
+from lamindb_setup.dev.upath import LocalPathClasses, UPath
 from lnschema_core import ids
 from lnschema_core.models import IsVersioned
 
@@ -73,3 +74,13 @@ def get_uid_from_old_version(
         if msg != "":
             msg += f"& new version to '{version}'"
     return new_uid, version
+
+
+def get_new_path_from_uid(old_path: UPath, old_uid: str, new_uid: str):
+    if isinstance(old_path, LocalPathClasses):
+        # for local path, the rename target must be full path
+        new_path = old_path.as_posix().replace(old_uid, new_uid)
+    else:
+        # for cloud path, the rename target must be the last part of the path
+        new_path = old_path.name.replace(old_uid, new_uid)
+    return new_path
