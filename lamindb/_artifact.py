@@ -11,7 +11,6 @@ from lamindb_setup import settings as setup_settings
 from lamindb_setup._init_instance import register_storage
 from lamindb_setup.dev import StorageSettings
 from lamindb_setup.dev._docs import doc_args
-from lamindb_setup.dev._hub_utils import get_storage_region
 from lamindb_setup.dev.upath import create_path, extract_suffix_from_path
 from lnschema_core import Artifact, Feature, FeatureSet, Run, Storage
 from lnschema_core.models import IsTree
@@ -85,10 +84,11 @@ def process_pathlike(
             # for the storage root: the bucket
             if not isinstance(filepath, LocalPathClasses):
                 # for a cloud path, new_root is always the bucket name
+                # we should check this assumption
                 new_root = list(filepath.parents)[-1]
+                logger.warning(f"generating a new storage location at {new_root}")
                 new_root_str = new_root.as_posix().rstrip("/")
-                region = get_storage_region(new_root_str)
-                storage_settings = StorageSettings(new_root_str, region)
+                storage_settings = StorageSettings(new_root_str)
                 storage_record = register_storage(storage_settings)
                 use_existing_storage_key = True
                 return storage_record, use_existing_storage_key

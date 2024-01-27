@@ -15,6 +15,7 @@ from lamindb_setup._init_instance import InstanceSettings
 from lamindb_setup._load_instance import get_owner_name_from_identifier
 from lamindb_setup.dev._docs import doc_args
 from lamindb_setup.dev._hub_core import load_instance
+from lamindb_setup.dev._settings_storage import StorageSettings
 from lnschema_core import Registry
 from lnschema_core.types import ListLike, StrField
 
@@ -365,11 +366,15 @@ def using(
     instance_result, storage_result = load_result
     settings_file = instance_settings_file(name, owner)
     db_updated = update_db_using_local(instance_result, settings_file)
+    ssettings = StorageSettings(
+        root=storage_result["root"],
+        region=storage_result["region"],
+        uid=storage_result["lnid"],
+    )
     isettings = InstanceSettings(
         owner=owner,
         name=name,
-        storage_root=storage_result["root"],
-        storage_region=storage_result["region"],
+        storage=ssettings,
         db=db_updated,
         schema=instance_result["schema_str"],
         id=UUID(instance_result["id"]),
