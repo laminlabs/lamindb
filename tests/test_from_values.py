@@ -1,5 +1,5 @@
+import bionty as bt
 import lamindb as ln
-import lnschema_bionty as lb
 import pandas as pd
 import pytest
 
@@ -17,10 +17,10 @@ def df():
 
 
 def test_from_values_name(df):
-    lb.CellType.filter().delete()
+    bt.CellType.filter().delete()
     assert df["cell_type"].tolist() == ["T cell", "hepatocyte", "my new cell type"]
     # create records from bionty
-    result = lb.CellType.from_values(df.cell_type, "name")
+    result = bt.CellType.from_values(df.cell_type, "name")
     ids = [i.ontology_id for i in result]
     assert len(result) == 2
     assert set(ids) == {"CL:0000084", "CL:0000182"}
@@ -28,12 +28,12 @@ def test_from_values_name(df):
 
     # wrong field type
     with pytest.raises(TypeError):
-        result = lb.CellType.from_values(df.cell_type, field=lb.CellType)
+        result = bt.CellType.from_values(df.cell_type, field=bt.CellType)
 
 
 def test_from_values_ontology_id(df):
     assert df["cell_type_id"].tolist() == ["CL:0000084", "CL:0000182", ""]
-    result = lb.CellType.from_values(df.cell_type_id, "ontology_id")
+    result = bt.CellType.from_values(df.cell_type_id, "ontology_id")
     names = {i.name for i in result}
     assert len(result) == 2
     assert names == {"T cell", "hepatocyte"}
@@ -41,12 +41,12 @@ def test_from_values_ontology_id(df):
 
 
 def test_from_values_multiple_match():
-    records = lb.Gene.from_values(["ABC1", "PDCD1"], lb.Gene.symbol, organism="human")
+    records = bt.Gene.from_values(["ABC1", "PDCD1"], bt.Gene.symbol, organism="human")
     assert len(records) == 3
 
 
 def test_from_values_organism():
-    from lnschema_bionty import Gene, settings
+    from bionty import Gene, settings
 
     settings._organism = None
 
@@ -76,35 +76,35 @@ def test_get_or_create_records():
 
 
 def test_from_values_synonyms_aware():
-    lb.CellType.from_public(name="T cell").save(parents=False)
+    bt.CellType.from_public(name="T cell").save(parents=False)
     # existing validated values
-    records = lb.CellType.from_values(["T cell"], "name")
+    records = bt.CellType.from_values(["T cell"], "name")
     assert len(records) == 1
     assert records[0].name == "T cell"
-    assert isinstance(records[0].public_source, lb.PublicSource)
+    assert isinstance(records[0].public_source, bt.PublicSource)
     # existing validated values and synonyms
-    records = lb.CellType.from_values(["T cell", "T-cell"], "name")
+    records = bt.CellType.from_values(["T cell", "T-cell"], "name")
     assert len(records) == 1
     assert records[0].name == "T cell"
-    assert isinstance(records[0].public_source, lb.PublicSource)
+    assert isinstance(records[0].public_source, bt.PublicSource)
     # bionty values and synonyms
-    records = lb.CellType.from_values(["B-cell", "B cell"], "name")
+    records = bt.CellType.from_values(["B-cell", "B cell"], "name")
     assert len(records) == 1
     assert records[0].name == "B cell"
-    assert isinstance(records[0].public_source, lb.PublicSource)
+    assert isinstance(records[0].public_source, bt.PublicSource)
     # all possibilities of validated values
-    records = lb.CellType.from_values(
+    records = bt.CellType.from_values(
         ["T cell", "T-cell", "t cell", "B cell", "B-cell"], "name"
     )
     assert len(records) == 2
     names = [r.name for r in records]
     assert set(names) == {"T cell", "B cell"}
-    assert isinstance(records[0].public_source, lb.PublicSource)
-    assert isinstance(records[1].public_source, lb.PublicSource)
+    assert isinstance(records[0].public_source, bt.PublicSource)
+    assert isinstance(records[1].public_source, bt.PublicSource)
     # non-validated values
-    records = lb.CellType.from_values(["T cell", "mycell"], "name")
+    records = bt.CellType.from_values(["T cell", "mycell"], "name")
     assert len(records) == 1
     assert records[0].name == "T cell"
-    assert isinstance(records[0].public_source, lb.PublicSource)
+    assert isinstance(records[0].public_source, bt.PublicSource)
     assert records[0].ontology_id == "CL:0000084"
-    lb.CellType.filter().all().delete()
+    bt.CellType.filter().all().delete()
