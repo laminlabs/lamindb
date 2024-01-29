@@ -86,8 +86,8 @@ def process_pathlike(
                 # for a cloud path, new_root is always the bucket name
                 # we should check this assumption
                 new_root = list(filepath.parents)[-1]
-                logger.warning(f"generating a new storage location at {new_root}")
                 new_root_str = new_root.as_posix().rstrip("/")
+                logger.warning(f"generating a new storage location at {new_root_str}")
                 storage_settings = StorageSettings(new_root_str)
                 storage_record = register_storage(storage_settings)
                 use_existing_storage_key = True
