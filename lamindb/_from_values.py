@@ -85,7 +85,7 @@ def get_existing_records(
         condition.pop("public_source")
 
     if _has_organism_field(model):
-        from bionty._bionty import create_or_get_organism_record
+        from lnschema_bionty._bionty import create_or_get_organism_record
 
         organism_record = create_or_get_organism_record(
             organism=kwargs.get("organism"), orm=model
@@ -169,7 +169,7 @@ def create_records_from_public(
     model = field.field.model
     records: List = []
     # populate additional fields from bionty
-    from bionty._bionty import get_public_source_record
+    from lnschema_bionty._bionty import get_public_source_record
 
     # create the corresponding bionty object from model
     try:

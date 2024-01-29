@@ -270,7 +270,7 @@ def _standardize(
     organism = kwargs.get("organism")
     if _has_organism_field(orm):
         # here, we can safely import lnschema_bionty
-        from bionty._bionty import create_or_get_organism_record
+        from lnschema_bionty._bionty import create_or_get_organism_record
 
         organism_record = create_or_get_organism_record(organism=organism, orm=orm)
         organism = (
@@ -444,7 +444,7 @@ def _filter_query_based_on_organism(
 
     if _has_organism_field(orm):
         # here, we can safely import lnschema_bionty
-        from bionty._bionty import create_or_get_organism_record
+        from lnschema_bionty._bionty import create_or_get_organism_record
 
         organism_record = create_or_get_organism_record(organism=organism, orm=orm)
         if organism_record is not None:
