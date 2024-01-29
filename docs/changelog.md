@@ -1,5 +1,6 @@
 # Changelog
 
+- ✨ Add `add_to_version_family` [PR](https://github.com/laminlabs/lamindb/pull/1408) [@sunnyosun](https://github.com/sunnyosun)
 - ♻️ Refactor storage settings [PR](https://github.com/laminlabs/lamindb/pull/1414) [@falexwolf](https://github.com/falexwolf)
 - ♻️ Use folders instead of buckets for default storages [PR](https://github.com/laminlabs/lamindb/pull/1413) [@falexwolf](https://github.com/falexwolf)
 - 🚸 Account for run not yet being saved [PR](https://github.com/laminlabs/lamindb/pull/1404) [@falexwolf](https://github.com/falexwolf)
