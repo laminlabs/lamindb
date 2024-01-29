@@ -201,7 +201,9 @@ class LabelManager:
                         labels = data.labels.get(
                             getattr(features_lookup_data, row["name"]), mute=True
                         )
-                        transfer_add_labels(labels, features_lookup_self, self, row)
+                        transfer_add_labels(
+                            labels, features_lookup_self, self, row, parents=parents
+                        )
 
         # for now, have this be duplicated, need to disentangle above
         for related_name, (_, labels) in get_labels_as_dict(data).items():

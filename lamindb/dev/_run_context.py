@@ -94,7 +94,7 @@ def update_notebook_metadata(
     if version != new_version:
         notebook.metadata["nbproject"]["version"] = new_version
         new_uid, _ = get_uid_from_old_version(
-            is_new_version_of=transform, version=new_version, n_full_id=16
+            is_new_version_of=transform, version=new_version
         )
     else:
         notebook.metadata["nbproject"]["id"] = stem_uid

@@ -107,6 +107,7 @@ if _INSTANCE_SETUP:
         _collection,
         _feature,
         _feature_set,
+        _is_versioned,
         _parents,
         _registry,
         _run,
