@@ -492,7 +492,7 @@ def save(self, *args, **kwargs) -> None:
         if "parents" in save_kwargs:
             save_kwargs.pop("parents")
         super(Registry, self).save(*args, **save_kwargs)
-    if db is not None and db != "default":
+    if db is not None and db != "default" and settings._using_key is None:
         if self.__class__.__name__ == "Collection":
             if len(artifacts) > 0:
                 logger.info("transfer artifacts")
