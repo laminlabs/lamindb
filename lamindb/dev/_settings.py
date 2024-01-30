@@ -67,8 +67,17 @@ class Settings:
     If `True`, the `key` is **not** used to construct file paths, but file paths are
     based on the `uid` of artifact.
     """
-    _using_key: Optional[str] = None
-    """Key for Django database settings."""
+    __using_key: Optional[str] = None
+
+    @property
+    def _using_key(self) -> Optional[str]:
+        """Key for Django database settings."""
+        return self.__using_key
+
+    @_using_key.setter
+    def _using_key(self, value: Optional[str]):
+        ln_setup.settings._using_key = value
+        self.__using_key = value
 
     @property
     def storage(self) -> Union[Path, UPath]:

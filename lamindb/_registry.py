@@ -19,6 +19,7 @@ from lamindb_setup.dev._settings_storage import StorageSettings
 from lnschema_core import Registry
 from lnschema_core.types import ListLike, StrField
 
+from lamindb import settings
 from lamindb._utils import attach_func_to_class_method
 
 from . import _TESTING
@@ -431,7 +432,7 @@ def transfer_to_default_db(
     record: Registry, save: bool = False, mute: bool = False
 ) -> Optional[Registry]:
     db = record._state.db
-    if db is not None and db != "default":
+    if db is not None and db != "default" and settings._using_key is None:
         registry = record.__class__
         record_on_default = registry.objects.filter(uid=record.uid).one_or_none()
         if record_on_default is not None:
