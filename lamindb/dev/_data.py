@@ -449,4 +449,3 @@ Data.features = features
 Data.labels = labels
 Data.describe = describe
 Data.view_lineage = view_lineage
-Data.view_flow = view_lineage  # backward compat
