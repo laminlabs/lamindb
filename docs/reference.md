@@ -23,7 +23,7 @@ lamindb
 :caption: Plug-ins
 :hidden:
 
-lnschema-bionty
+bionty
 ```
 
 ```{toctree}
@@ -32,7 +32,6 @@ lnschema-bionty
 :hidden:
 
 readfcs
-bionty
 nbproject
 lamin-utils
 ```

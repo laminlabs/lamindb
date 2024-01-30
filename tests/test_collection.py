@@ -1,8 +1,8 @@
 from inspect import signature
 
 import anndata as ad
+import bionty as bt
 import lamindb as ln
-import lnschema_bionty as lb
 import numpy as np
 import pandas as pd
 import pytest
@@ -111,19 +111,19 @@ def test_create_delete_from_single_anndata():
     assert ln.Artifact.filter(id=collection.id).one_or_none() is None
     assert ln.Artifact.filter(id=collection.artifact.id).one_or_none() is None
     # and now with from_anndata
-    lb.settings.organism = "human"
+    bt.settings.organism = "human"
     collection = ln.Collection.from_anndata(
-        adata, name="My adata", field=lb.Gene.symbol
+        adata, name="My adata", field=bt.Gene.symbol
     )
     # let's now try passing an AnnData-like artifact with some feature sets linked
     ln.save(ln.Feature.from_df(adata.obs))
     artifact = ln.Artifact.from_anndata(
-        adata, description="my adata", field=lb.Gene.symbol
+        adata, description="my adata", field=bt.Gene.symbol
     )
     artifact.save()
-    ln.save(lb.Gene.from_values(adata.var.index, "symbol"))
+    ln.save(bt.Gene.from_values(adata.var.index, "symbol"))
     collection = ln.Collection.from_anndata(
-        artifact, name="My collection", field=lb.Gene.symbol
+        artifact, name="My collection", field=bt.Gene.symbol
     )
     collection.save()
     collection.describe()
@@ -131,7 +131,7 @@ def test_create_delete_from_single_anndata():
     feature_sets_queried = collection.feature_sets.all()
     features_queried = ln.Feature.filter(feature_sets__in=feature_sets_queried).all()
     assert set(features_queried.list("name")) == set(adata.obs.columns)
-    genes_queried = lb.Gene.filter(feature_sets__in=feature_sets_queried).all()
+    genes_queried = bt.Gene.filter(feature_sets__in=feature_sets_queried).all()
     assert set(genes_queried.list("symbol")) == set(adata.var.index)
     feature_sets_queried.delete()
     features_queried.delete()
@@ -143,14 +143,14 @@ def test_create_delete_from_single_anndata():
 
 
 def test_from_single_artifact():
-    lb.settings.organism = "human"
+    bt.settings.organism = "human"
     features = ln.Feature.from_df(adata.obs)
     validated = ln.Feature.validate(
         [feature.name for feature in features], field="name"
     )
     ln.save([feature for (feature, valid) in zip(features, validated) if valid])
     artifact = ln.Artifact.from_anndata(
-        adata, description="My adata", field=lb.Gene.symbol
+        adata, description="My adata", field=bt.Gene.symbol
     )
     with pytest.raises(ValueError) as error:
         ln.Collection(artifact)
