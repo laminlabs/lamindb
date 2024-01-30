@@ -1,5 +1,6 @@
 # Changelog
 
+- ✨ Enable to change the default database [PR](https://github.com/laminlabs/lamindb/pull/1419) [@falexwolf](https://github.com/falexwolf)
 - 🚸 Also show hidden artifacts in data lineage [PR](https://github.com/laminlabs/lamindb/pull/1418) [@falexwolf](https://github.com/falexwolf)
 - 🏗️ Run lamindb in multi-instance mode [PR](https://github.com/laminlabs/lamindb/pull/1417) [@falexwolf](https://github.com/falexwolf)
 - 🚚 Import `bionty` instead of `lnschema-bionty` [PR](https://github.com/laminlabs/lamindb/pull/1415) [@sunnyosun](https://github.com/sunnyosun)
