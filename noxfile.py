@@ -78,7 +78,7 @@ def install(session, group):
         if "bionty" in extras:
             session.run(*"pip install --no-deps ./sub/bionty".split())
             session.run(*"pip install --no-deps ./sub/lnschema-bionty".split())
-            session.run(*"pip install --no-deps ./sub/bionty-base".split())
+            session.run(*"pip install --no-deps bionty-base".split())
     session.run(*f"pip install -e .[dev,{extras}]".split())
 
 
