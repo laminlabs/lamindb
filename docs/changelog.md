@@ -1,5 +1,6 @@
 # Changelog
 
+- 🏗️ Run lamindb in multi-instance mode [PR](https://github.com/laminlabs/lamindb/pull/1417) [@falexwolf](https://github.com/falexwolf)
 - 🚚 Import `bionty` instead of `lnschema-bionty` [PR](https://github.com/laminlabs/lamindb/pull/1415) [@sunnyosun](https://github.com/sunnyosun)
 - ✨ Enable to use hosted storage on S3 [PR](https://github.com/laminlabs/lamindb/pull/1416) [@falexwolf](https://github.com/falexwolf)
 - ✨ Add `add_to_version_family` [PR](https://github.com/laminlabs/lamindb/pull/1408) [@sunnyosun](https://github.com/sunnyosun)
