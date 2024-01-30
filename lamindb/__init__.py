@@ -70,10 +70,7 @@ from lamindb_setup.dev.upath import UPath
 _py_version_warning("3.8", "3.11")
 
 _TESTING = _lamindb_setup._TESTING
-if _os.environ.get("LAMINDB_MULTI_INSTANCE") == "true":
-    _INSTANCE_SETUP = True
-else:
-    _INSTANCE_SETUP = _check_instance_setup(from_lamindb=True)
+_INSTANCE_SETUP = _check_instance_setup(from_lamindb=True)
 
 # allow the user to call setup
 from . import setup
