@@ -32,7 +32,6 @@ bionty
 :hidden:
 
 readfcs
-bionty-base
 nbproject
 lamin-utils
 ```
