@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import Dict, Literal, Mapping, Tuple, Union
+from typing import Dict, Literal, Mapping, Optional, Tuple, Union
 
 import lamindb_setup as ln_setup
 from lamin_utils import logger
@@ -67,6 +67,8 @@ class Settings:
     If `True`, the `key` is **not** used to construct file paths, but file paths are
     based on the `uid` of artifact.
     """
+    _using_key: Optional[str] = "default"
+    """Key for Django database settings."""
 
     @property
     def storage(self) -> Union[Path, UPath]:
