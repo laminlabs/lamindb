@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import Dict, Literal, Mapping, Tuple, Union
+from typing import Dict, Literal, Mapping, Optional, Tuple, Union
 
 import lamindb_setup as ln_setup
 from lamin_utils import logger
@@ -67,6 +67,26 @@ class Settings:
     If `True`, the `key` is **not** used to construct file paths, but file paths are
     based on the `uid` of artifact.
     """
+    __using_key: Optional[str] = None
+    _using_storage: Optional[str] = None
+
+    @property
+    def _using_key(self) -> Optional[str]:
+        """Key for Django database settings."""
+        return self.__using_key
+
+    @_using_key.setter
+    def _using_key(self, value: Optional[str]):
+        ln_setup.settings._using_key = value
+        self.__using_key = value
+
+    @property
+    def _storage_settings(self) -> ln_setup.dev.StorageSettings:
+        if self._using_storage is None:
+            storage_settings = ln_setup.settings.storage
+        else:
+            storage_settings = ln_setup.dev.StorageSettings(root=self._using_storage)
+        return storage_settings
 
     @property
     def storage(self) -> Union[Path, UPath]:
@@ -86,7 +106,7 @@ class Settings:
         >>> )
         >>> ln.settings.storage = "s3://some-bucket", kwargs
         """
-        return ln_setup.settings.storage.root
+        return self._storage_settings.root
 
     @storage.setter
     def storage(

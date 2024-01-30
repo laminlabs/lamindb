@@ -20,6 +20,7 @@ from lnschema_core import Registry
 from lnschema_core.types import ListLike, StrField
 
 from lamindb._utils import attach_func_to_class_method
+from lamindb.dev._settings import settings
 
 from . import _TESTING
 from ._from_values import get_or_create_records
@@ -333,7 +334,11 @@ def get_default_str_field(
 
 
 def _queryset(cls: Union[Registry, QuerySet, Manager]) -> QuerySet:
-    queryset = cls.all() if isinstance(cls, QuerySet) else cls.objects.all()
+    queryset = (
+        cls.all()
+        if isinstance(cls, QuerySet)
+        else cls.objects.using(settings._using_key).all()
+    )
     return queryset
 
 
@@ -431,7 +436,7 @@ def transfer_to_default_db(
     record: Registry, save: bool = False, mute: bool = False
 ) -> Optional[Registry]:
     db = record._state.db
-    if db is not None and db != "default":
+    if db is not None and db != "default" and settings._using_key is None:
         registry = record.__class__
         record_on_default = registry.objects.filter(uid=record.uid).one_or_none()
         if record_on_default is not None:
@@ -487,7 +492,7 @@ def save(self, *args, **kwargs) -> None:
         if "parents" in save_kwargs:
             save_kwargs.pop("parents")
         super(Registry, self).save(*args, **save_kwargs)
-    if db is not None and db != "default":
+    if db is not None and db != "default" and settings._using_key is None:
         if self.__class__.__name__ == "Collection":
             if len(artifacts) > 0:
                 logger.info("transfer artifacts")
