@@ -19,7 +19,7 @@ from lamindb_setup.dev._settings_storage import StorageSettings
 from lnschema_core import Registry
 from lnschema_core.types import ListLike, StrField
 
-from lamindb import settings
+from lamindb._settings import settings
 from lamindb._utils import attach_func_to_class_method
 
 from . import _TESTING
