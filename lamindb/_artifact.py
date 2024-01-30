@@ -263,11 +263,7 @@ def get_stat_or_artifact(
     if not check_hash:
         return size, hash, hash_type, n_objects
     # also checks hidden and trashed files
-    result = (
-        Artifact.objects.using(settings._using_key)
-        .filter(hash=hash, visibility=None)
-        .all()
-    )
+    result = Artifact.filter(hash=hash, visibility=None).all()
     if len(result) > 0:
         if settings.upon_artifact_create_if_hash_exists == "error":
             msg = f"artifact with same hash exists: {result[0]}"

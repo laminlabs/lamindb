@@ -3,6 +3,7 @@ from typing import Type
 from lnschema_core import Artifact, Collection, Registry
 from lnschema_core.types import VisibilityChoice
 
+from lamindb import settings
 from lamindb._query_set import QuerySet
 
 
@@ -21,7 +22,7 @@ def filter(Registry: Type[Registry], **expressions) -> QuerySet:
             # sense for a non-NULLABLE column
             elif visibility in expressions and expressions[visibility] is None:
                 expressions.pop(visibility)
-    qs = QuerySet(model=Registry)
+    qs = QuerySet(model=Registry, using=settings._using_key)
     if len(expressions) > 0:
         return qs.filter(**expressions)
     else:
