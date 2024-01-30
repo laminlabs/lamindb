@@ -23,7 +23,7 @@ lamindb
 :caption: Plug-ins
 :hidden:
 
-bionty
+lnschema-bionty
 ```
 
 ```{toctree}
