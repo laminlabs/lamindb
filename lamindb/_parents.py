@@ -320,16 +320,26 @@ def _get_all_parent_runs(data: Union[Artifact, Collection]) -> List:
         inputs = []
         for r in runs:
             inputs_run = (
-                r.__getattribute__(f"input_{name}s").all().filter(visibility=1).list()
+                r.__getattribute__(f"input_{name}s")
+                .all()
+                .filter(visibility__in=[0, 1])
+                .list()
             )
             if name == "artifact":
-                inputs_run += r.input_collections.all().filter(visibility=1).list()
+                inputs_run += (
+                    r.input_collections.all().filter(visibility__in=[0, 1]).list()
+                )
             run_inputs_outputs += [(inputs_run, r)]
             outputs_run = (
-                r.__getattribute__(f"output_{name}s").all().filter(visibility=1).list()
+                r.__getattribute__(f"output_{name}s")
+                .all()
+                .filter(visibility__in=[0, 1])
+                .list()
             )
             if name == "artifact":
-                outputs_run += r.output_collections.all().filter(visibility=1).list()
+                outputs_run += (
+                    r.output_collections.all().filter(visibility__in=[0, 1]).list()
+                )
             run_inputs_outputs += [(r, outputs_run)]
             inputs += inputs_run
         runs = [f.run for f in inputs if f.run is not None]
@@ -350,7 +360,9 @@ def _get_all_child_runs(data: Union[Artifact, Collection]) -> List:
         runs.update(
             {
                 f.run
-                for f in data.run.output_collections.all().filter(visibility=1).all()
+                for f in data.run.output_collections.all()
+                .filter(visibility__in=[0, 1])
+                .all()
             }
         )
     while runs.difference(all_runs):
@@ -358,17 +370,27 @@ def _get_all_child_runs(data: Union[Artifact, Collection]) -> List:
         child_runs: Set[Run] = set()
         for r in runs:
             inputs_run = (
-                r.__getattribute__(f"input_{name}s").all().filter(visibility=1).list()
+                r.__getattribute__(f"input_{name}s")
+                .all()
+                .filter(visibility__in=[0, 1])
+                .list()
             )
             if name == "artifact":
-                inputs_run += r.input_collections.all().filter(visibility=1).list()
+                inputs_run += (
+                    r.input_collections.all().filter(visibility__in=[0, 1]).list()
+                )
             run_inputs_outputs += [(inputs_run, r)]
 
             outputs_run = (
-                r.__getattribute__(f"output_{name}s").all().filter(visibility=1).list()
+                r.__getattribute__(f"output_{name}s")
+                .all()
+                .filter(visibility__in=[0, 1])
+                .list()
             )
             if name == "artifact":
-                outputs_run += r.output_collections.all().filter(visibility=1).list()
+                outputs_run += (
+                    r.output_collections.all().filter(visibility__in=[0, 1]).list()
+                )
             run_inputs_outputs += [(r, outputs_run)]
 
             child_runs.update(
