@@ -60,15 +60,10 @@ def attempt_accessing_path(artifact: Artifact, storage_key: str):
         logger.debug(
             "artifact.path is slightly slower for files outside default storage"
         )
-        if artifact._state.db not in ("default", None):
-            if settings._using_key is None:
-                storage = (
-                    Storage.using(artifact._state.db)
-                    .filter(id=artifact.storage_id)
-                    .one()
-                )
-            else:
-                storage = Storage.filter(id=artifact.storage_id).one()
+        if artifact._state.db not in ("default", None) and settings._using_key is None:
+            storage = (
+                Storage.using(artifact._state.db).filter(id=artifact.storage_id).one()
+            )
         else:
             storage = Storage.filter(id=artifact.storage_id).one()
         # find a better way than passing None to instance_settings in the future!
