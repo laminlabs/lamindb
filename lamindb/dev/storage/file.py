@@ -7,7 +7,7 @@ from typing import Optional, Union
 import anndata as ad
 import pandas as pd
 from lamin_utils import logger
-from lamindb_setup import settings
+from lamindb_setup import settings as setup_settings
 from lamindb_setup.dev import StorageSettings
 from lamindb_setup.dev.upath import (
     LocalPathClasses,
@@ -16,6 +16,8 @@ from lamindb_setup.dev.upath import (
     infer_filesystem,
 )
 from lnschema_core.models import Artifact, Storage
+
+from lamindb.dev._settings import settings
 
 try:
     from ._zarr import read_adata_zarr
@@ -94,7 +96,7 @@ def store_artifact(localpath: Union[str, Path, UPath], storagekey: str) -> None:
 
     Returns size in bytes.
     """
-    storagepath: UPath = settings.instance.storage.key_to_filepath(storagekey)
+    storagepath: UPath = settings._storage_settings.key_to_filepath(storagekey)
     localpath = Path(localpath)
     if not isinstance(storagepath, LocalPathClasses):
         # this uploads files and directories
@@ -188,7 +190,7 @@ def load_to_memory(filepath: Union[str, Path, UPath], stream: bool = False, **kw
     if not stream:
         # caching happens here if filename is a UPath
         # todo: make it safe when filepath is just Path
-        filepath = settings.instance.storage.cloud_to_local(
+        filepath = settings._storage_settings.cloud_to_local(
             filepath, print_progress=True
         )
 
