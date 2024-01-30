@@ -53,9 +53,9 @@ def attempt_accessing_path(artifact: Artifact, storage_key: str):
     # matches default storage
     if (
         artifact._state.db in ("default", None)
-        and artifact.storage_id == settings.storage.id
+        and artifact.storage_id == settings._storage_settings.id
     ):
-        path = settings.storage.key_to_filepath(storage_key)
+        path = settings._storage_settings.key_to_filepath(storage_key)
     else:
         logger.debug(
             "artifact.path is slightly slower for files outside default storage"
