@@ -68,6 +68,7 @@ class Settings:
     based on the `uid` of artifact.
     """
     __using_key: Optional[str] = None
+    _using_storage: Optional[str] = None
 
     @property
     def _using_key(self) -> Optional[str]:
@@ -78,6 +79,14 @@ class Settings:
     def _using_key(self, value: Optional[str]):
         ln_setup.settings._using_key = value
         self.__using_key = value
+
+    @property
+    def _storage_settings(self) -> ln_setup.dev.StorageSettings:
+        if self._using_storage is None:
+            storage_settings = ln_setup.settings.storage
+        else:
+            storage_settings = ln_setup.dev.StorageSettings(root=self._using_storage)
+        return storage_settings
 
     @property
     def storage(self) -> Union[Path, UPath]:
