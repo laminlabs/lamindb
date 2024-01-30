@@ -3,9 +3,9 @@ from inspect import signature
 from pathlib import Path
 
 import anndata as ad
+import bionty as bt
 import lamindb as ln
 import lamindb_setup
-import lnschema_bionty as lb
 import numpy as np
 import pandas as pd
 import pytest
@@ -37,7 +37,7 @@ from lamindb_setup.dev.upath import (
 # set in conftest.py
 
 ln.settings.verbosity = "success"
-lb.settings.organism = "human"
+bt.settings.organism = "human"
 
 df = pd.DataFrame({"feat1": [1, 2], "feat2": [3, 4]})
 
@@ -251,9 +251,9 @@ def test_create_from_dataframe_using_from_df():
 
 
 def test_create_from_anndata_in_memory():
-    ln.save(lb.Gene.from_values(adata.var.index, "symbol"))
+    ln.save(bt.Gene.from_values(adata.var.index, "symbol"))
     ln.save(ln.Feature.from_df(adata.obs))
-    artifact = ln.Artifact.from_anndata(adata, description="test", field=lb.Gene.symbol)
+    artifact = ln.Artifact.from_anndata(adata, description="test", field=bt.Gene.symbol)
     assert artifact.accessor == "AnnData"
     assert hasattr(artifact, "_local_filepath")
     artifact.save()
@@ -262,7 +262,7 @@ def test_create_from_anndata_in_memory():
     feature_sets_queried = artifact.feature_sets.all()
     features_queried = ln.Feature.filter(feature_sets__in=feature_sets_queried).all()
     assert set(features_queried.list("name")) == set(adata.obs.columns)
-    genes_queried = lb.Gene.filter(feature_sets__in=feature_sets_queried).all()
+    genes_queried = bt.Gene.filter(feature_sets__in=feature_sets_queried).all()
     assert set(genes_queried.list("symbol")) == set(adata.var.index)
     feature_sets_queried.delete()
     features_queried.delete()
@@ -281,7 +281,7 @@ def test_create_from_anndata_in_storage(data):
         previous_storage = ln.setup.settings.storage.root_as_str
         ln.settings.storage = "s3://lamindb-test"
         filepath = data
-    artifact = ln.Artifact.from_anndata(filepath, field=lb.Gene.symbol)
+    artifact = ln.Artifact.from_anndata(filepath, field=bt.Gene.symbol)
     assert artifact.accessor == "AnnData"
     assert hasattr(artifact, "_local_filepath")
     artifact.save()

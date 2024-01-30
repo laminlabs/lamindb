@@ -1,5 +1,5 @@
+import bionty as bt
 import lamindb as ln
-import lnschema_bionty as lb
 import pytest
 
 
@@ -26,7 +26,7 @@ def test_add_from(get_test_files):
     ln.save(labels)
 
     cell_line_names = [f"Cell line {i}" for i in range(3)]
-    cell_lines = [lb.CellLine(name=name) for name in cell_line_names]
+    cell_lines = [bt.CellLine(name=name) for name in cell_line_names]
     ln.save(cell_lines)
 
     # pass a list of length 0

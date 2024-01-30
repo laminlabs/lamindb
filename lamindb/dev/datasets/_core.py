@@ -30,7 +30,7 @@ def file_fcs_alpert19(populate_registries: bool = False) -> Path:  # pragma: no 
         "Alpert19.fcs",
     )
     if populate_registries:
-        import lnschema_bionty as lb
+        import bionty as bt
         import readfcs
 
         import lamindb as ln
@@ -38,16 +38,16 @@ def file_fcs_alpert19(populate_registries: bool = False) -> Path:  # pragma: no 
         verbosity = ln.settings.verbosity
         ln.settings.verbosity = "error"
         adata = readfcs.read(filepath)
-        std = lb.CellMarker.public().standardize(adata.var.index)
+        std = bt.CellMarker.public().standardize(adata.var.index)
         ln.save(
-            lb.CellMarker.from_values(
-                lb.CellMarker.public().inspect(std, "name").validated, "name"
+            bt.CellMarker.from_values(
+                bt.CellMarker.public().inspect(std, "name").validated, "name"
             )
         )
         ln.Feature(
-            name="assay", type="category", registries=[lb.ExperimentalFactor]
+            name="assay", type="category", registries=[bt.ExperimentalFactor]
         ).save()
-        ln.Feature(name="organism", type="category", registries=[lb.Organism]).save()
+        ln.Feature(name="organism", type="category", registries=[bt.Organism]).save()
         ln.settings.verbosity = verbosity
     return Path(filepath)
 
@@ -76,17 +76,17 @@ def file_tsv_rnaseq_nfcore_salmon_merged_gene_counts(
         "salmon.merged.gene_counts.tsv",
     )
     if populate_registries:
-        import lnschema_bionty as lb
+        import bionty as bt
 
         import lamindb as ln
 
         verbosity = ln.settings.verbosity
         ln.settings.verbosity = "error"
         ln.Feature(
-            name="assay", type="category", registries=[lb.ExperimentalFactor]
+            name="assay", type="category", registries=[bt.ExperimentalFactor]
         ).save()
-        ln.Feature(name="organism", type="category", registries=[lb.Organism]).save()
-        lb.ExperimentalFactor.from_public(ontology_id="EFO:0008896").save()
+        ln.Feature(name="organism", type="category", registries=[bt.Organism]).save()
+        bt.ExperimentalFactor.from_public(ontology_id="EFO:0008896").save()
         ln.settings.verbosity = verbosity
 
     return Path(filepath)
@@ -182,33 +182,33 @@ def anndata_mouse_sc_lymph_node(
 
     # pre-populate registries
     if populate_registries:
-        import lnschema_bionty as lb
+        import bionty as bt
 
         import lamindb as ln
 
         verbosity = ln.settings.verbosity
         ln.settings.verbosity = "error"
-        auto_save_parents = lb.settings.auto_save_parents
-        lb.settings.auto_save_parents = False
+        auto_save_parents = bt.settings.auto_save_parents
+        bt.settings.auto_save_parents = False
         # strain
-        lb.ExperimentalFactor.from_public(ontology_id="EFO:0004472").save()
+        bt.ExperimentalFactor.from_public(ontology_id="EFO:0004472").save()
         # developmental stage
-        lb.ExperimentalFactor.from_public(ontology_id="EFO:0001272").save()
+        bt.ExperimentalFactor.from_public(ontology_id="EFO:0001272").save()
         # tissue
-        lb.Tissue.from_public(ontology_id="UBERON:0001542").save()
+        bt.Tissue.from_public(ontology_id="UBERON:0001542").save()
         # cell types
-        ln.save(lb.CellType.from_values(["CL:0000115", "CL:0000738"], "ontology_id"))
+        ln.save(bt.CellType.from_values(["CL:0000115", "CL:0000738"], "ontology_id"))
         # assays
         ln.Feature(
-            name="assay", type="category", registries=[lb.ExperimentalFactor]
+            name="assay", type="category", registries=[bt.ExperimentalFactor]
         ).save()
-        lb.ExperimentalFactor.from_public(ontology_id="EFO:0008913").save()
+        bt.ExperimentalFactor.from_public(ontology_id="EFO:0008913").save()
         # genes
-        validated = lb.Gene.public(organism="mouse").validate(
+        validated = bt.Gene.public(organism="mouse").validate(
             adata.var.index, field="ensembl_gene_id"
         )
         ln.save(
-            lb.Gene.from_values(
+            bt.Gene.from_values(
                 adata.var.index[validated][:-19],
                 field="ensembl_gene_id",
                 organism="mouse",
@@ -220,7 +220,7 @@ def anndata_mouse_sc_lymph_node(
             labels += [ln.ULabel(name=name) for name in adata.obs[col]]
         ln.save(labels)
         ln.settings.verbosity = verbosity
-        lb.settings.auto_save_parents = auto_save_parents
+        bt.settings.auto_save_parents = auto_save_parents
 
     return adata
 
@@ -312,40 +312,40 @@ def anndata_human_immune_cells(
     columns = [col for col in adata.obs.columns if "ontology_term" not in col]
     adata.obs = adata.obs[columns]
     if populate_registries:
-        import lnschema_bionty as lb
+        import bionty as bt
 
         import lamindb as ln
 
         verbosity = ln.settings.verbosity
         ln.settings.verbosity = "error"
-        auto_save_parents = lb.settings.auto_save_parents
-        lb.settings.auto_save_parents = False
+        auto_save_parents = bt.settings.auto_save_parents
+        bt.settings.auto_save_parents = False
         ln.save(
-            lb.Gene.from_values(
+            bt.Gene.from_values(
                 adata.var.index, field="ensembl_gene_id", organism="human"
             )
         )
-        ln.save(lb.CellType.from_values(adata.obs.cell_type, field="name"))
-        ln.save(lb.ExperimentalFactor.from_values(adata.obs.assay, field="name"))
-        ln.save(lb.Tissue.from_values(adata.obs.tissue, field="name"))
-        ln.Feature(name="cell_type", type="category", registries=[lb.CellType]).save()
+        ln.save(bt.CellType.from_values(adata.obs.cell_type, field="name"))
+        ln.save(bt.ExperimentalFactor.from_values(adata.obs.assay, field="name"))
+        ln.save(bt.Tissue.from_values(adata.obs.tissue, field="name"))
+        ln.Feature(name="cell_type", type="category", registries=[bt.CellType]).save()
         ln.Feature(
-            name="assay", type="category", registries=[lb.ExperimentalFactor]
+            name="assay", type="category", registries=[bt.ExperimentalFactor]
         ).save()
-        ln.Feature(name="tissue", type="category", registries=[lb.Tissue]).save()
-        ln.Feature(name="organism", type="category", registries=[lb.Organism]).save()
+        ln.Feature(name="tissue", type="category", registries=[bt.Tissue]).save()
+        ln.Feature(name="organism", type="category", registries=[bt.Organism]).save()
         ln.Feature(name="donor", type="category", registries=[ln.ULabel]).save()
-        lb.ExperimentalFactor.from_public(ontology_id="EFO:0008913").save()
+        bt.ExperimentalFactor.from_public(ontology_id="EFO:0008913").save()
         ln.save([ln.ULabel(name=name) for name in adata.obs.donor.unique()])
         ln.settings.verbosity = verbosity
-        lb.settings.auto_save_parents = auto_save_parents
+        bt.settings.auto_save_parents = auto_save_parents
     return adata
 
 
 def anndata_with_obs() -> ad.AnnData:
     """Create a mini anndata with cell_type, disease and tissue."""
     import anndata as ad
-    import bionty as bt
+    import bionty_base
 
     celltypes = ["T cell", "hematopoietic stem cell", "hepatocyte", "my new cell type"]
     celltype_ids = ["CL:0000084", "CL:0000037", "CL:0000182", ""]
@@ -364,7 +364,7 @@ def anndata_with_obs() -> ad.AnnData:
     df.index = "obs" + df.index.astype(str)
 
     adata = ad.AnnData(X=np.zeros(shape=(40, 100), dtype=np.float32), obs=df)
-    adata.var.index = bt.Gene().df().head(100)["ensembl_gene_id"].values
+    adata.var.index = bionty_base.Gene().df().head(100)["ensembl_gene_id"].values
 
     return adata
 

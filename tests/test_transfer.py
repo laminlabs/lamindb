@@ -3,13 +3,13 @@ import lamindb as ln
 
 # this test has to be refactored and sped up a lot
 def test_transfer():
-    import lnschema_bionty as lb
+    import bionty as bt
 
-    lb.Gene.filter().delete()
-    lb.Organism.filter().delete()
+    bt.Gene.filter().delete()
+    bt.Organism.filter().delete()
     ln.ULabel.filter().delete()
 
-    lb.settings.organism = "human"
+    bt.settings.organism = "human"
 
     # transfer 1st artifact
     artifact = (
@@ -30,7 +30,7 @@ def test_transfer():
     artifact.save(parents=False)
 
     # check all ids are adjusted
-    assert artifact.organism.get(name="human") == lb.settings.organism
+    assert artifact.organism.get(name="human") == bt.settings.organism
     assert id_remote != artifact.id
     assert run_remote != artifact.run
     assert transform_remote != artifact.transform
@@ -66,20 +66,20 @@ def test_transfer():
     )
     artifact2.save(parents=False)
 
-    assert artifact2.organism.get(name="human") == lb.settings.organism
+    assert artifact2.organism.get(name="human") == bt.settings.organism
     assert artifact.features["obs"].get(name="organism").uid == "existing"
 
-    lb.Gene.filter().delete()
-    lb.Organism.filter().delete()
+    bt.Gene.filter().delete()
+    bt.Organism.filter().delete()
     ln.ULabel.filter().delete()
-    lb.Disease.filter().delete()
-    lb.CellLine.filter().delete()
-    lb.CellType.filter().delete()
-    lb.Phenotype.filter().delete()
-    lb.Ethnicity.filter().delete()
-    lb.ExperimentalFactor.filter().delete()
-    lb.DevelopmentalStage.filter().delete()
-    lb.Tissue.filter().delete()
+    bt.Disease.filter().delete()
+    bt.CellLine.filter().delete()
+    bt.CellType.filter().delete()
+    bt.Phenotype.filter().delete()
+    bt.Ethnicity.filter().delete()
+    bt.ExperimentalFactor.filter().delete()
+    bt.DevelopmentalStage.filter().delete()
+    bt.Tissue.filter().delete()
     ln.Feature.filter().delete()
     ln.FeatureSet.filter().delete()
     ln.Run.filter().delete()

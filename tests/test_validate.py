@@ -1,56 +1,56 @@
+import bionty as bt
 import lamindb as ln
-import lnschema_bionty as lb
 import pytest
 
 
 # some validate tests are in test_queryset
 def test_inspect():
-    lb.Gene.filter().all().delete()
-    lb.settings.organism = "human"
-    result = lb.Gene.inspect("TCF7", "symbol")
+    bt.Gene.filter().all().delete()
+    bt.settings.organism = "human"
+    result = bt.Gene.inspect("TCF7", "symbol")
     assert result.validated == []
 
-    lb.Gene.from_public(symbol="TCF7").save()
-    result = lb.Gene.inspect("TCF7")
-    assert lb.Gene.validate("TCF7", organism="human")
-    result = lb.Gene.inspect(["TCF7", "ABC1"], "symbol")
+    bt.Gene.from_public(symbol="TCF7").save()
+    result = bt.Gene.inspect("TCF7")
+    assert bt.Gene.validate("TCF7", organism="human")
+    result = bt.Gene.inspect(["TCF7", "ABC1"], "symbol")
     assert result.validated == ["TCF7"]
 
     # clean up
-    lb.Gene.filter().all().delete()
+    bt.Gene.filter().all().delete()
 
 
 def test_standardize():
-    lb.settings.organism = "human"
+    bt.settings.organism = "human"
 
     # synonym not in the database
-    result = lb.Gene.standardize(["ABC1", "PDCD1"])
+    result = bt.Gene.standardize(["ABC1", "PDCD1"])
     assert result == ["HEATR6", "PDCD1"]
 
-    result = lb.Gene.standardize(["ABC1", "PDCD1"], field=lb.Gene.symbol)
+    result = bt.Gene.standardize(["ABC1", "PDCD1"], field=bt.Gene.symbol)
     assert result == ["HEATR6", "PDCD1"]
 
-    mapper = lb.Gene.standardize(["ABC1", "PDCD1"], return_mapper=True)
+    mapper = bt.Gene.standardize(["ABC1", "PDCD1"], return_mapper=True)
     assert mapper == {"ABC1": "HEATR6"}
 
     # synonym already in the database
-    lb.Gene.from_public(symbol="LMNA").save()
-    mapper = lb.Gene.standardize(["ABC1", "LMN1"], return_mapper=True)
+    bt.Gene.from_public(symbol="LMNA").save()
+    mapper = bt.Gene.standardize(["ABC1", "LMN1"], return_mapper=True)
     assert mapper == {"LMN1": "LMNA", "ABC1": "HEATR6"}
-    assert lb.Gene.standardize(["LMNA"]) == ["LMNA"]
-    assert lb.Gene.standardize("LMNA") == "LMNA"
-    assert lb.Gene.standardize(["LMN1"], return_mapper=True) == {"LMN1": "LMNA"}
+    assert bt.Gene.standardize(["LMNA"]) == ["LMNA"]
+    assert bt.Gene.standardize("LMNA") == "LMNA"
+    assert bt.Gene.standardize(["LMN1"], return_mapper=True) == {"LMN1": "LMNA"}
 
 
 def test_standardize_public_aware():
-    result = lb.Gene.standardize(["ABC1", "PDCD1"], public_aware=False)
+    result = bt.Gene.standardize(["ABC1", "PDCD1"], public_aware=False)
     assert result == ["ABC1", "PDCD1"]
 
 
 def test_add_remove_synonym():
-    lb.CellType.filter().all().delete()
+    bt.CellType.filter().all().delete()
     # a registry that cannot validate
-    public_source = lb.PublicSource.filter(organism="human").first()
+    public_source = bt.PublicSource.filter(organism="human").first()
     with pytest.raises(AttributeError):
         public_source.add_synonym("syn")
 
@@ -59,10 +59,10 @@ def test_add_remove_synonym():
     with pytest.raises(NotImplementedError):
         user.add_synonym("syn")
 
-    cell_types = lb.CellType.from_values(["T cell", "B cell"], "name")
+    cell_types = bt.CellType.from_values(["T cell", "B cell"], "name")
     ln.save(cell_types, parents=False)
-    tcell = lb.CellType.filter(name="T cell").one()
-    bcell = lb.CellType.filter(name="B cell").one()
+    tcell = bt.CellType.filter(name="T cell").one()
+    bcell = bt.CellType.filter(name="B cell").one()
     tcell.add_synonym(["my cell type"])
     tcell.add_synonym("")
     tcell.add_synonym([])
@@ -91,13 +91,13 @@ def test_add_remove_synonym():
     tcell.remove_synonym("my cell type")
 
     # clean up
-    lb.CellType.filter().all().delete()
+    bt.CellType.filter().all().delete()
 
 
 def test_set_abbr():
-    lb.CellType.filter().all().delete()
-    lb.CellType(name="my cell type").save(parents=False)
-    record = lb.CellType.filter(name="my cell type").one()
+    bt.CellType.filter().all().delete()
+    bt.CellType(name="my cell type").save(parents=False)
+    record = bt.CellType.filter(name="my cell type").one()
     # if abbr is name, do not add to synonyms
     record.set_abbr("my cell type")
     assert record.abbr == "my cell type"
@@ -107,7 +107,7 @@ def test_set_abbr():
     assert record.abbr == "myct"
     assert "myct" in record.synonyms
 
-    public_source = lb.PublicSource.filter(organism="human").first()
+    public_source = bt.PublicSource.filter(organism="human").first()
     with pytest.raises(AttributeError) as error:
         public_source.set_abbr("abbr")
     assert (

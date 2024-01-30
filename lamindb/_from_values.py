@@ -177,7 +177,7 @@ def create_records_from_public(
             organism=kwargs.get("organism"), public_source=kwargs.get("public_source")
         )
     except Exception:
-        # for custom records that are not created from bionty sources
+        # for custom records that are not created from public sources
         return records, iterable_idx
     # add public_source record to the kwargs
     kwargs.update({"public_source": get_public_source_record(public_ontology)})

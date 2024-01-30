@@ -1,5 +1,5 @@
+import bionty as bt
 import lamindb as ln
-import lnschema_bionty as lb
 import pytest
 from lamindb._query_set import MultipleResultsFound, NoResultFound
 from lnschema_core.users import current_user_id
@@ -70,7 +70,7 @@ def test_one_first():
     qs = ln.User.filter(handle="test")
     with pytest.raises(NoResultFound):
         qs.one()
-    qs = lb.PublicSource.filter().all()
+    qs = bt.PublicSource.filter().all()
     with pytest.raises(MultipleResultsFound):
         qs.one()
     with pytest.raises(MultipleResultsFound):

@@ -89,10 +89,10 @@ def save(
         if len(non_artifacts_with_parents) > 0 and kwargs.get("parents") is not False:
             # this can only happen within lnschema_bionty right now!!
             # we might extend to core lamindb later
-            import lnschema_bionty as lb
+            import bionty as bt
 
             if kwargs.get("parents") or (
-                kwargs.get("parents") is None and lb.settings.auto_save_parents
+                kwargs.get("parents") is None and bt.settings.auto_save_parents
             ):
                 mute = False if kwargs.get("mute") is None else kwargs.get("mute")
                 if not mute:
@@ -102,7 +102,7 @@ def save(
                         "this only happens once, but is much slower than bulk saving"
                     )
                     logger.hint(
-                        "you can switch this off via: lb.settings.auto_save_parents ="
+                        "you can switch this off via: bt.settings.auto_save_parents ="
                         " False"
                     )
                 for record in non_artifacts_with_parents:
