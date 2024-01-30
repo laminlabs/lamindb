@@ -67,7 +67,7 @@ class Settings:
     If `True`, the `key` is **not** used to construct file paths, but file paths are
     based on the `uid` of artifact.
     """
-    _using_key: Optional[str] = "default"
+    _using_key: Optional[str] = None
     """Key for Django database settings."""
 
     @property
