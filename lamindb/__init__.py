@@ -70,7 +70,11 @@ from lamindb_setup.dev.upath import UPath
 _py_version_warning("3.8", "3.11")
 
 _TESTING = _lamindb_setup._TESTING
-_INSTANCE_SETUP = _check_instance_setup(from_lamindb=True)
+if _os.environ.get("LAMINDB_MULTI_INSTANCE") == "true":
+    _INSTANCE_SETUP = True
+else:
+    _INSTANCE_SETUP = _check_instance_setup(from_lamindb=True)
+
 # allow the user to call setup
 from . import setup
 
@@ -90,7 +94,7 @@ def __getattr__(name):
 if _INSTANCE_SETUP:
     del InstanceNotSetupError
     del __getattr__  # delete so that imports work out
-    from lnschema_core import (
+    from lnschema_core.models import (
         Artifact,
         Collection,
         Feature,
