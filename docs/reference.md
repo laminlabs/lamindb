@@ -31,6 +31,7 @@ bionty
 :caption: Utilities
 :hidden:
 
+bionty-base
 readfcs
 nbproject
 lamin-utils
