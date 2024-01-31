@@ -1,5 +1,6 @@
 # Changelog
 
+- 📝 Fix docs [PR](https://github.com/laminlabs/lamindb/pull/1422) [@sunnyosun](https://github.com/sunnyosun)
 - ⬆️ Release submodules [PR](https://github.com/laminlabs/lamindb/pull/1421) [@sunnyosun](https://github.com/sunnyosun)
 - ✨ Enable to change the default database [PR](https://github.com/laminlabs/lamindb/pull/1419) [@falexwolf](https://github.com/falexwolf)
 - 🚸 Also show hidden artifacts in data lineage [PR](https://github.com/laminlabs/lamindb/pull/1418) [@falexwolf](https://github.com/falexwolf)
