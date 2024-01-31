@@ -124,7 +124,7 @@ class LabelManager:
     """Label manager (:attr:`~lamindb.dev.Data.labels`).
 
     This allows to manage untyped labels :class:`~lamindb.ULabel` and arbitrary
-    typed labels (e.g., :class:`~lnschema_bionty.CellLine`) and associate labels
+    typed labels (e.g., :class:`~bionty.CellLine`) and associate labels
     with features.
 
     See :class:`~lamindb.dev.Data` for more information.
