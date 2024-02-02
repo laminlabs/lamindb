@@ -1,5 +1,6 @@
-from typing import Optional, Tuple, Union
+from typing import Optional, Tuple
 
+from lamindb_setup.dev.upath import LocalPathClasses, UPath
 from lnschema_core import ids
 from lnschema_core.models import IsVersioned
 
@@ -51,9 +52,7 @@ def init_uid(
 
 
 def get_uid_from_old_version(
-    is_new_version_of: IsVersioned,
-    version: Optional[str],
-    n_full_id: int = 20,
+    is_new_version_of: IsVersioned, version: Optional[str] = None
 ) -> Tuple[str, str]:
     """{}."""
     msg = ""
@@ -65,7 +64,7 @@ def get_uid_from_old_version(
     version = set_version(version, previous_version)
     new_uid = init_uid(
         version=version,
-        n_full_id=n_full_id,
+        n_full_id=is_new_version_of._len_full_uid,
         is_new_version_of=is_new_version_of,
     )
     # the following covers the edge case where the old file was unversioned
@@ -75,3 +74,13 @@ def get_uid_from_old_version(
         if msg != "":
             msg += f"& new version to '{version}'"
     return new_uid, version
+
+
+def get_new_path_from_uid(old_path: UPath, old_uid: str, new_uid: str):
+    if isinstance(old_path, LocalPathClasses):
+        # for local path, the rename target must be full path
+        new_path = old_path.as_posix().replace(old_uid, new_uid)
+    else:
+        # for cloud path, the rename target must be the last part of the path
+        new_path = old_path.name.replace(old_uid, new_uid)
+    return new_path

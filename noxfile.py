@@ -76,6 +76,7 @@ def install(session, group):
         extras += "jupyter,aws"
     if os.getenv("GITHUB_EVENT_NAME") != "push":
         if "bionty" in extras:
+            session.run(*"pip install --no-deps ./sub/bionty".split())
             session.run(*"pip install --no-deps ./sub/lnschema-bionty".split())
     session.run(*f"pip install -e .[dev,{extras}]".split())
 

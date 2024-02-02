@@ -15,9 +15,9 @@
 
 **Manage registries for experimental metadata & in-house ontologies, import public ontologies.**
 
-- Use >20 public ontologies with plug-in {mod}`lnschema_bionty`
-- {class}`~lnschema_bionty.Gene`, {class}`~lnschema_bionty.Protein`, {class}`~lnschema_bionty.CellMarker`
-- {class}`~lnschema_bionty.ExperimentalFactor`, {class}`~lnschema_bionty.CellType`, {class}`~lnschema_bionty.CellLine`, {class}`~lnschema_bionty.Tissue`, ...
+- Use >20 public ontologies with plug-in {mod}`bionty`
+- {class}`~bionty.Gene`, {class}`~bionty.Protein`, {class}`~bionty.CellMarker`
+- {class}`~bionty.ExperimentalFactor`, {class}`~bionty.CellType`, {class}`~bionty.CellLine`, {class}`~bionty.Tissue`, ...
 - Safeguards against typos & duplications
 
 **Validate, standardize & annotate data using registries: {class}`~lamindb.dev.CanValidate.validate` & {class}`~lamindb.dev.CanValidate.standardize`.**

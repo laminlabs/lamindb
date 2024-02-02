@@ -77,9 +77,7 @@ def __init__(
     else:
         if not isinstance(is_new_version_of, Collection):
             raise TypeError("is_new_version_of has to be of type ln.Collection")
-        provisional_uid, version = get_uid_from_old_version(
-            is_new_version_of, version, n_full_id=20
-        )
+        provisional_uid, version = get_uid_from_old_version(is_new_version_of, version)
         if name is None:
             name = is_new_version_of.name
     run = get_run(run)
@@ -388,18 +386,12 @@ def load(
 
 
 # docstring handled through attach_func_to_class_method
-def delete(
-    self, permanent: Optional[bool] = None, storage: Optional[bool] = None
-) -> None:
+def delete(self, permanent: Optional[bool] = None) -> None:
     # change visibility to trash
     if self.visibility > VisibilityChoice.trash.value and permanent is not True:
         self.visibility = VisibilityChoice.trash.value
         self.save()
         logger.warning("moved collection to trash.")
-        if self.artifact is not None:
-            self.artifact.visibility = VisibilityChoice.trash.value
-            self.artifact.save()
-            logger.warning("moved collection.artifact to trash.")
         return
 
     # permanent delete
@@ -414,8 +406,6 @@ def delete(
 
     if delete_record:
         super(Collection, self).delete()
-    if self.artifact is not None:
-        self.artifact.delete(permanent=permanent, storage=storage)
 
 
 # docstring handled through attach_func_to_class_method

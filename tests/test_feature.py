@@ -1,7 +1,7 @@
 from inspect import signature
 
+import bionty as bt
 import lamindb as ln
-import lnschema_bionty as lb
 import pandas as pd
 import pytest
 from lamindb import _feature
@@ -116,5 +116,5 @@ def test_feature_init():
     feat1 = ln.Feature.filter(name="feat1").one_or_none()
     if feat1 is not None:
         feat1.delete()
-    feature = ln.Feature(name="feat1", type="category", registries=[ln.ULabel, lb.Gene])
+    feature = ln.Feature(name="feat1", type="category", registries=[ln.ULabel, bt.Gene])
     assert feature.registries == "core.ULabel|bionty.Gene"

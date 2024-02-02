@@ -11,7 +11,6 @@ from lamindb_setup import settings as setup_settings
 from lamindb_setup._init_instance import register_storage
 from lamindb_setup.dev import StorageSettings
 from lamindb_setup.dev._docs import doc_args
-from lamindb_setup.dev._hub_utils import get_storage_region
 from lamindb_setup.dev.upath import create_path, extract_suffix_from_path
 from lnschema_core import Artifact, Feature, FeatureSet, Run, Storage
 from lnschema_core.models import IsTree
@@ -69,7 +68,7 @@ def process_pathlike(
     if isinstance(filepath, LocalPathClasses):
         filepath = filepath.resolve()
     # check whether the path is in default storage
-    default_storage = lamindb_setup.settings.storage.record
+    default_storage = settings._storage_settings.record
     if check_path_is_child_of_root(filepath, default_storage.root_as_path()):
         use_existing_storage_key = True
         return default_storage, use_existing_storage_key
@@ -85,10 +84,11 @@ def process_pathlike(
             # for the storage root: the bucket
             if not isinstance(filepath, LocalPathClasses):
                 # for a cloud path, new_root is always the bucket name
+                # we should check this assumption
                 new_root = list(filepath.parents)[-1]
                 new_root_str = new_root.as_posix().rstrip("/")
-                region = get_storage_region(new_root_str)
-                storage_settings = StorageSettings(new_root_str, region)
+                logger.warning(f"generating a new storage location at {new_root_str}")
+                storage_settings = StorageSettings(new_root_str)
                 storage_record = register_storage(storage_settings)
                 use_existing_storage_key = True
                 return storage_record, use_existing_storage_key
@@ -97,7 +97,7 @@ def process_pathlike(
                 use_existing_storage_key = False
                 # if the default storage is local we'll throw an error if the user
                 # doesn't provide a key
-                if not lamindb_setup.settings.storage.is_cloud:
+                if not settings._storage_settings.is_cloud:
                     return default_storage, use_existing_storage_key
                 # if the default storage is in the cloud (the file is going to
                 # be uploaded upon saving it), we treat the filepath as a cache
@@ -122,7 +122,7 @@ def process_data(
         suffix = extract_suffix_from_path(path)
         memory_rep = None
     elif isinstance(data, (pd.DataFrame, AnnData)):  # DataLike, spelled out
-        storage = lamindb_setup.settings.storage.record
+        storage = settings._storage_settings.record
         memory_rep = data
         if key is not None:
             key_suffix = extract_suffix_from_path(PurePosixPath(key), arg_name="key")
@@ -138,7 +138,7 @@ def process_data(
                 f" be '{suffix}'."
             )
         cache_name = f"{provisional_uid}{suffix}"
-        path = lamindb_setup.settings.storage.cache_dir / cache_name
+        path = settings._storage_settings.cache_dir / cache_name
         # Alex: I don't understand the line below
         if path.suffixes == []:
             path = path.with_suffix(suffix)
@@ -263,7 +263,7 @@ def get_stat_or_artifact(
     if not check_hash:
         return size, hash, hash_type, n_objects
     # also checks hidden and trashed files
-    result = Artifact.filter(hash=hash, visibility=None).list()
+    result = Artifact.filter(hash=hash, visibility=None).all()
     if len(result) > 0:
         if settings.upon_artifact_create_if_hash_exists == "error":
             msg = f"artifact with same hash exists: {result[0]}"
@@ -306,7 +306,7 @@ def check_path_is_child_of_root(
     path: Union[Path, UPath], root: Optional[Union[Path, UPath]] = None
 ) -> bool:
     if root is None:
-        root = lamindb_setup.settings.storage.root
+        root = settings._storage_settings.root
 
     path = UPath(str(path)) if not isinstance(path, UPath) else path
     root = UPath(str(root)) if not isinstance(root, UPath) else root
@@ -385,7 +385,7 @@ def get_artifact_kwargs_from_data(
                 )
         check_path_in_storage = True
     else:
-        storage = lamindb_setup.settings.storage.record
+        storage = settings._storage_settings.record
 
     if key is not None and key.startswith(AUTO_KEY_PREFIX):
         raise ValueError(f"Key cannot start with {AUTO_KEY_PREFIX}")
@@ -536,9 +536,7 @@ def __init__(artifact: Artifact, *args, **kwargs):
     else:
         if not isinstance(is_new_version_of, Artifact):
             raise TypeError("is_new_version_of has to be of type ln.Artifact")
-        provisional_uid, version = get_uid_from_old_version(
-            is_new_version_of, version, n_full_id=20
-        )
+        provisional_uid, version = get_uid_from_old_version(is_new_version_of, version)
         if description is None:
             description = is_new_version_of.description
     kwargs_or_artifact, privates = get_artifact_kwargs_from_data(

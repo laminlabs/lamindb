@@ -40,9 +40,7 @@ def __init__(transform: Transform, *args, **kwargs):
     else:
         if not isinstance(is_new_version_of, Transform):
             raise TypeError("is_new_version_of has to be of type ln.Transform")
-        new_uid, version = get_uid_from_old_version(
-            is_new_version_of, version, n_full_id=Transform._len_full_uid
-        )
+        new_uid, version = get_uid_from_old_version(is_new_version_of, version)
         if name is None:
             name = is_new_version_of.name
 

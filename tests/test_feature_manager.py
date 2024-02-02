@@ -1,8 +1,8 @@
+import bionty as bt
 import lamindb as ln
-import lnschema_bionty as lb
 import pytest
 
-lb.settings.auto_save_parents = False
+bt.settings.auto_save_parents = False
 
 
 adata = ln.dev.datasets.anndata_with_obs()
@@ -103,28 +103,29 @@ def test_labels_add():
     collection.features._add_from(artifact)
     assert set(collection.feature_sets.all()) == set(feature_sets)
 
-    collection.delete(permanent=True, storage=True)
+    collection.delete(permanent=True)
+    collection.artifact.delete(permanent=True, storage=True)
     ln.Feature.filter().all().delete()
     ln.ULabel.filter().all().delete()
     ln.FeatureSet.filter().all().delete()
 
 
 def test_add_labels_using_anndata():
-    organism = lb.Organism.from_public(name="mouse")
-    cell_types = [lb.CellType(name=name) for name in adata.obs["cell_type"].unique()]
+    organism = bt.Organism.from_public(name="mouse")
+    cell_types = [bt.CellType(name=name) for name in adata.obs["cell_type"].unique()]
     ln.save(cell_types)
-    inspector = lb.CellType.inspect(adata.obs["cell_type_from_expert"].unique())
-    ln.save([lb.CellType(name=name) for name in inspector.non_validated])
-    cell_types_from_expert = lb.CellType.from_values(
+    inspector = bt.CellType.inspect(adata.obs["cell_type_from_expert"].unique())
+    ln.save([bt.CellType(name=name) for name in inspector.non_validated])
+    cell_types_from_expert = bt.CellType.from_values(
         adata.obs["cell_type_from_expert"].unique()
     )
-    actual_tissues = [lb.Tissue(name=name) for name in adata.obs["tissue"].unique()]
+    actual_tissues = [bt.Tissue(name=name) for name in adata.obs["tissue"].unique()]
     organoid = ln.ULabel(name="organoid")
     tissues = actual_tissues + [organoid]
     ln.save(tissues)
 
-    lb.settings.organism = "human"
-    lb.settings.auto_save_parents = False
+    bt.settings.organism = "human"
+    bt.settings.auto_save_parents = False
 
     # clean up DB state
     organism_feature = ln.Feature.filter(name="organism").one_or_none()
@@ -137,7 +138,7 @@ def test_add_labels_using_anndata():
 
     # try to construct without registering metadata features
     artifact = ln.Artifact.from_anndata(
-        adata, description="Mini adata", field=lb.Gene.ensembl_gene_id
+        adata, description="Mini adata", field=bt.Gene.ensembl_gene_id
     )
     assert "obs" not in artifact._feature_sets
     # add feature set without saving file
@@ -162,7 +163,7 @@ def test_add_labels_using_anndata():
         )
     )
     artifact = ln.Artifact.from_anndata(
-        adata, description="Mini adata", field=lb.Gene.ensembl_gene_id
+        adata, description="Mini adata", field=bt.Gene.ensembl_gene_id
     )
     ln.Feature(name="organism", type="category", registries="bionty.Organism").save()
     features = ln.Feature.lookup()
@@ -301,9 +302,9 @@ def test_add_labels_using_anndata():
     )
     ln.FeatureSet.filter().all().delete()
     feature_name_feature.delete()
-    lb.CellType.filter().all().delete()
-    lb.Tissue.filter().all().delete()
-    lb.Disease.filter().all().delete()
+    bt.CellType.filter().all().delete()
+    bt.Tissue.filter().all().delete()
+    bt.Disease.filter().all().delete()
     ln.ULabel.filter().all().delete()
 
 

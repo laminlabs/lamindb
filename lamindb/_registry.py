@@ -15,10 +15,12 @@ from lamindb_setup._init_instance import InstanceSettings
 from lamindb_setup._load_instance import get_owner_name_from_identifier
 from lamindb_setup.dev._docs import doc_args
 from lamindb_setup.dev._hub_core import load_instance
+from lamindb_setup.dev._settings_storage import StorageSettings
 from lnschema_core import Registry
 from lnschema_core.types import ListLike, StrField
 
 from lamindb._utils import attach_func_to_class_method
+from lamindb.dev._settings import settings
 
 from . import _TESTING
 from ._from_values import get_or_create_records
@@ -332,7 +334,11 @@ def get_default_str_field(
 
 
 def _queryset(cls: Union[Registry, QuerySet, Manager]) -> QuerySet:
-    queryset = cls.all() if isinstance(cls, QuerySet) else cls.objects.all()
+    queryset = (
+        cls.all()
+        if isinstance(cls, QuerySet)
+        else cls.objects.using(settings._using_key).all()
+    )
     return queryset
 
 
@@ -365,11 +371,15 @@ def using(
     instance_result, storage_result = load_result
     settings_file = instance_settings_file(name, owner)
     db_updated = update_db_using_local(instance_result, settings_file)
+    ssettings = StorageSettings(
+        root=storage_result["root"],
+        region=storage_result["region"],
+        uid=storage_result["lnid"],
+    )
     isettings = InstanceSettings(
         owner=owner,
         name=name,
-        storage_root=storage_result["root"],
-        storage_region=storage_result["region"],
+        storage=ssettings,
         db=db_updated,
         schema=instance_result["schema_str"],
         id=UUID(instance_result["id"]),
@@ -426,7 +436,7 @@ def transfer_to_default_db(
     record: Registry, save: bool = False, mute: bool = False
 ) -> Optional[Registry]:
     db = record._state.db
-    if db is not None and db != "default":
+    if db is not None and db != "default" and settings._using_key is None:
         registry = record.__class__
         record_on_default = registry.objects.filter(uid=record.uid).one_or_none()
         if record_on_default is not None:
@@ -482,7 +492,7 @@ def save(self, *args, **kwargs) -> None:
         if "parents" in save_kwargs:
             save_kwargs.pop("parents")
         super(Registry, self).save(*args, **save_kwargs)
-    if db is not None and db != "default":
+    if db is not None and db != "default" and settings._using_key is None:
         if self.__class__.__name__ == "Collection":
             if len(artifacts) > 0:
                 logger.info("transfer artifacts")
@@ -495,9 +505,7 @@ def save(self, *args, **kwargs) -> None:
             self_on_db = copy(self)
             self_on_db._state.db = db
             self_on_db.pk = pk_on_db
-            add_from_kwargs = {
-                "parents": kwargs.get("parents") if "parents" in kwargs else True
-            }
+            add_from_kwargs = {"parents": kwargs.get("parents", True)}
             logger.info("transfer features")
             self.features._add_from(self_on_db, **add_from_kwargs)
             logger.info("transfer labels")

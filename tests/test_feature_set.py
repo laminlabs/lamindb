@@ -1,7 +1,7 @@
 from inspect import signature
 
+import bionty as bt
 import lamindb as ln
-import lnschema_bionty as lb
 import pandas as pd
 import pytest
 from lamindb import _feature_set
@@ -37,16 +37,16 @@ def test_signatures():
 
 def test_feature_set_from_values():
     gene_symbols = ["TCF7", "MYC"]
-    lb.settings.organism = "human"
-    lb.Gene.filter(symbol__in=gene_symbols).all().delete()
-    feature_set = ln.FeatureSet.from_values(gene_symbols, lb.Gene.symbol, type=int)
+    bt.settings.organism = "human"
+    bt.Gene.filter(symbol__in=gene_symbols).all().delete()
+    feature_set = ln.FeatureSet.from_values(gene_symbols, bt.Gene.symbol, type=int)
     assert feature_set is None
-    ln.save(lb.Gene.from_values(gene_symbols, "symbol"))
-    feature_set = ln.FeatureSet.from_values(gene_symbols, lb.Gene.symbol)
+    ln.save(bt.Gene.from_values(gene_symbols, "symbol"))
+    feature_set = ln.FeatureSet.from_values(gene_symbols, bt.Gene.symbol)
     # below should be a queryset and not a list
-    assert set(feature_set.members) == set(lb.Gene.from_values(gene_symbols, "symbol"))
+    assert set(feature_set.members) == set(bt.Gene.from_values(gene_symbols, "symbol"))
     assert feature_set.type == "number"  # this is NUMBER_TYPE
-    feature_set = ln.FeatureSet.from_values(gene_symbols, lb.Gene.symbol, type=int)
+    feature_set = ln.FeatureSet.from_values(gene_symbols, bt.Gene.symbol, type=int)
     assert feature_set._state.adding
     assert feature_set.type == "number"
     assert feature_set.registry == "bionty.Gene"
@@ -55,7 +55,7 @@ def test_feature_set_from_values():
     id = feature_set.id
     # test that the feature_set is retrieved from the database
     # in case it already exists
-    feature_set = ln.FeatureSet.from_values(gene_symbols, lb.Gene.symbol, type=int)
+    feature_set = ln.FeatureSet.from_values(gene_symbols, bt.Gene.symbol, type=int)
     assert not feature_set._state.adding
     assert id == feature_set.id
     feature_set.delete()
@@ -110,13 +110,13 @@ def test_feature_set_from_records():
 
 def test_feature_set_from_df():
     # test using type
-    lb.settings.organism = "human"
-    genes = [lb.Gene(symbol=name) for name in df.columns]
+    bt.settings.organism = "human"
+    genes = [bt.Gene(symbol=name) for name in df.columns]
     ln.save(genes)
     with pytest.raises(ValueError) as error:
-        ln.FeatureSet.from_df(df, field=lb.Gene.symbol)
+        ln.FeatureSet.from_df(df, field=bt.Gene.symbol)
     assert error.exconly().startswith("ValueError: data types are heterogeneous:")
-    feature_set = ln.FeatureSet.from_df(df[["feat1", "feat2"]], field=lb.Gene.symbol)
+    feature_set = ln.FeatureSet.from_df(df[["feat1", "feat2"]], field=bt.Gene.symbol)
     for gene in genes:
         gene.delete()
 
