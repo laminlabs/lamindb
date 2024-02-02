@@ -135,17 +135,24 @@ def docs(session):
 
     def generate_cli_docs():
         os.environ["NO_RICH"] = "1"
-        from lamin_cli import _generate_help
+        from lamin_cli.__main__ import _generate_help
 
         page = "# `lamin`\n\nFor a guide, see: {doc}`/setup`.\n\n"
         helps = _generate_help()
 
         for name, help_string in helps.items():
+            print(name, help_string)
             names = name.split(" ")
-            page += f"{'#' * len(names)} {' '.join(('lamin', *names[1:]))}\n\n```\n{help_string}```\n\n"
+            section = ""
+            if len(names) != 1:
+                section = (
+                    "```\n\n" + "#" * len(names) + " " + " ".join(("lamin", *names[1:]))
+                )
+            page += f"{section}\n\n```\n{help_string}```\n\n"
 
         Path("./docs/cli.md").write_text(page)
 
-    build_docs(session, strip_prefix=True, strict=True)
     generate_cli_docs()
+    # build_docs(session, strip_prefix=True, strict=True)
+    session.run("lndocs", "--show")
     upload_docs_artifact(aws=True)
