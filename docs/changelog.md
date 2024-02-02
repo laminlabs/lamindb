@@ -1,5 +1,6 @@
 # Changelog
 
+- ♻️ Use Click for CLI [PR](https://github.com/laminlabs/lamindb/pull/1420) [@falexwolf](https://github.com/falexwolf)
 - 🎨 Make `Collection.save()` ACID [PR](https://github.com/laminlabs/lamindb/pull/1410) [@falexwolf](https://github.com/falexwolf)
 - 📝 Fix docs [PR](https://github.com/laminlabs/lamindb/pull/1422) [@sunnyosun](https://github.com/sunnyosun)
 - ⬆️ Release submodules [PR](https://github.com/laminlabs/lamindb/pull/1421) [@sunnyosun](https://github.com/sunnyosun)
