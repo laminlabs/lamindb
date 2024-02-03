@@ -57,7 +57,9 @@ if TYPE_CHECKING:
 
 
 def process_pathlike(
-    filepath: UPath, skip_existence_check: bool = False
+    filepath: UPath,
+    default_storage: Storage,
+    skip_existence_check: bool = False,
 ) -> Tuple[Storage, bool]:
     if not skip_existence_check:
         try:  # check if file exists
@@ -67,8 +69,6 @@ def process_pathlike(
             pass
     if isinstance(filepath, LocalPathClasses):
         filepath = filepath.resolve()
-    # check whether the path is in default storage
-    default_storage = settings._storage_settings.record
     if check_path_is_child_of_root(filepath, default_storage.root_as_path()):
         use_existing_storage_key = True
         return default_storage, use_existing_storage_key
@@ -97,7 +97,7 @@ def process_pathlike(
                 use_existing_storage_key = False
                 # if the default storage is local we'll throw an error if the user
                 # doesn't provide a key
-                if not settings._storage_settings.is_cloud:
+                if default_storage.type == "local":
                     return default_storage, use_existing_storage_key
                 # if the default storage is in the cloud (the file is going to
                 # be uploaded upon saving it), we treat the filepath as a cache
@@ -110,6 +110,7 @@ def process_data(
     data: Union[PathLike, DataLike],
     format: Optional[str],
     key: Optional[str],
+    default_storage: Storage,
     skip_existence_check: bool = False,
 ) -> Tuple[Any, Union[Path, UPath], str, Storage, bool]:
     """Serialize a data object that's provided as file or in memory."""
@@ -117,12 +118,14 @@ def process_data(
     if isinstance(data, (str, Path, UPath)):  # PathLike, spelled out
         path = create_path(data)
         storage, use_existing_storage_key = process_pathlike(
-            path, skip_existence_check=skip_existence_check
+            path,
+            default_storage=default_storage,
+            skip_existence_check=skip_existence_check,
         )
         suffix = extract_suffix_from_path(path)
         memory_rep = None
     elif isinstance(data, (pd.DataFrame, AnnData)):  # DataLike, spelled out
-        storage = settings._storage_settings.record
+        storage = default_storage
         memory_rep = data
         if key is not None:
             key_suffix = extract_suffix_from_path(PurePosixPath(key), arg_name="key")
@@ -303,11 +306,8 @@ def check_path_in_existing_storage(path: Union[Path, UPath]) -> Union[Storage, b
 
 
 def check_path_is_child_of_root(
-    path: Union[Path, UPath], root: Optional[Union[Path, UPath]] = None
+    path: Union[Path, UPath], root: Optional[Union[Path, UPath]]
 ) -> bool:
-    if root is None:
-        root = settings._storage_settings.root
-
     path = UPath(str(path)) if not isinstance(path, UPath) else path
     root = UPath(str(root)) if not isinstance(root, UPath) else root
 
@@ -352,11 +352,12 @@ def get_artifact_kwargs_from_data(
     run: Optional[Run],
     format: Optional[str],
     provisional_uid: str,
+    default_storage: Storage,
     skip_check_exists: bool = False,
 ):
     run = get_run(run)
     memory_rep, path, suffix, storage, use_existing_storage_key = process_data(
-        provisional_uid, data, format, key, skip_check_exists
+        provisional_uid, data, format, key, default_storage, skip_check_exists
     )
     stat_or_artifact = get_stat_or_artifact(
         path=path,
@@ -385,7 +386,7 @@ def get_artifact_kwargs_from_data(
                 )
         check_path_in_storage = True
     else:
-        storage = settings._storage_settings.record
+        storage = default_storage
 
     if key is not None and key.startswith(AUTO_KEY_PREFIX):
         raise ValueError(f"Key cannot start with {AUTO_KEY_PREFIX}")
@@ -524,7 +525,11 @@ def __init__(artifact: Artifact, *args, **kwargs):
     skip_check_exists = (
         kwargs.pop("skip_check_exists") if "skip_check_exists" in kwargs else False
     )
-
+    default_storage = (
+        kwargs.pop("default_storage")
+        if "default_storage" in kwargs
+        else settings._storage_settings.record
+    )
     if not len(kwargs) == 0:
         raise ValueError(
             "Only data, key, run, description, version, is_new_version_of, visibility"
@@ -545,6 +550,7 @@ def __init__(artifact: Artifact, *args, **kwargs):
         run=run,
         format=format,
         provisional_uid=provisional_uid,
+        default_storage=default_storage,
         skip_check_exists=skip_check_exists,
     )
 
@@ -716,7 +722,8 @@ def from_dir(
         " ln.Artifact(dir) to get one artifact for the entire directory"
     )
     folderpath: UPath = create_path(path)  # returns Path for local
-    storage, use_existing_storage = process_pathlike(folderpath)
+    default_storage = settings._storage_settings.record
+    storage, use_existing_storage = process_pathlike(folderpath, default_storage)
     folder_key_path: Union[PurePath, Path]
     if key is None:
         if not use_existing_storage:
@@ -806,12 +813,14 @@ def replace(
     run: Optional[Run] = None,
     format: Optional[str] = None,
 ) -> None:
+    default_storage = settings._storage_settings.record
     kwargs, privates = get_artifact_kwargs_from_data(
         provisional_uid=self.uid,
         data=data,
         key=self.key,
         run=run,
         format=format,
+        default_storage=default_storage,
     )
 
     # this artifact already exists
