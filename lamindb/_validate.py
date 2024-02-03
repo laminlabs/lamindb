@@ -57,6 +57,7 @@ def _inspect(
     field: Optional[Union[str, StrField]] = None,
     *,
     mute: bool = False,
+    using_key: Optional[str] = None,
     **kwargs,
 ) -> Union["pd.DataFrame", Dict[str, List[str]]]:
     """{}."""
@@ -66,7 +67,7 @@ def _inspect(
         values = [values]
 
     field = get_default_str_field(cls, field=field)
-    queryset = _queryset(cls)
+    queryset = _queryset(cls, using_key)
     orm = queryset.model
     model_name = orm._meta.model.__name__
 
@@ -140,6 +141,7 @@ def _validate(
     field: Optional[Union[str, StrField]] = None,
     *,
     mute: bool = False,
+    using_key: Optional[str] = None,
     **kwargs,
 ) -> np.ndarray:
     """{}."""
@@ -151,7 +153,7 @@ def _validate(
 
     field = get_default_str_field(cls, field=field)
 
-    queryset = _queryset(cls)
+    queryset = _queryset(cls, using_key)
     field_values = pd.Series(
         _filter_query_based_on_organism(
             queryset=queryset,
@@ -251,6 +253,7 @@ def _standardize(
     public_aware: bool = True,
     keep: Literal["first", "last", False] = "first",
     synonyms_field: str = "synonyms",
+    using_key: Optional[str] = None,
     **kwargs,
 ) -> Union[List[str], Dict[str, str]]:
     """{}."""
@@ -264,7 +267,7 @@ def _standardize(
     return_field = get_default_str_field(
         cls, field=field if return_field is None else return_field
     )
-    queryset = _queryset(cls)
+    queryset = _queryset(cls, using_key)
     orm = queryset.model
 
     organism = kwargs.get("organism")

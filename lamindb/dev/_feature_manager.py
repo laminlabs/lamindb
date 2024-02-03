@@ -1,5 +1,5 @@
 from itertools import compress
-from typing import Dict, Union
+from typing import Dict, Optional, Union
 
 from lamin_utils import colors, logger
 from lnschema_core.models import Artifact, Collection, Data, Feature
@@ -13,6 +13,8 @@ from lamindb._registry import (
     transfer_to_default_db,
 )
 from lamindb._save import save
+
+from ._settings import settings
 
 
 def get_host_id_field(host: Union[Artifact, Collection]) -> str:
@@ -181,6 +183,7 @@ class FeatureManager:
 
     def _add_from(self, data: Data, parents: bool = True):
         """Transfer features from a artifact or collection."""
+        using_key = settings._using_key
         for slot, feature_set in data.features._feature_set_by_slot.items():
             members = feature_set.members
             if members.count() == 0:
@@ -206,11 +209,11 @@ class FeatureManager:
             if new_members.count() > 0:
                 mute = True if new_members.count() > 10 else False
                 # transfer foreign keys needs to be run before transfer to default db
-                transfer_fk_to_default_db_bulk(new_members)
+                transfer_fk_to_default_db_bulk(new_members, using_key)
                 for feature in new_members:
                     # not calling save=True here as in labels, because want to
                     # bulk save below
-                    transfer_to_default_db(feature, mute=mute)
+                    transfer_to_default_db(feature, using_key, mute=mute)
                 logger.info(
                     f"saving {new_members.count()} new {registry.__name__} records"
                 )

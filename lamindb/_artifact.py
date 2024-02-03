@@ -57,7 +57,10 @@ if TYPE_CHECKING:
 
 
 def process_pathlike(
-    filepath: UPath, skip_existence_check: bool = False
+    filepath: UPath,
+    default_storage: Storage,
+    using_key: Optional[str],
+    skip_existence_check: bool = False,
 ) -> Tuple[Storage, bool]:
     if not skip_existence_check:
         try:  # check if file exists
@@ -67,15 +70,13 @@ def process_pathlike(
             pass
     if isinstance(filepath, LocalPathClasses):
         filepath = filepath.resolve()
-    # check whether the path is in default storage
-    default_storage = settings._storage_settings.record
     if check_path_is_child_of_root(filepath, default_storage.root_as_path()):
         use_existing_storage_key = True
         return default_storage, use_existing_storage_key
     else:
         # check whether the path is part of one of the existing
         # already-registered storage locations
-        result = check_path_in_existing_storage(filepath)
+        result = check_path_in_existing_storage(filepath, using_key)
         if isinstance(result, Storage):
             use_existing_storage_key = True
             return result, use_existing_storage_key
@@ -97,7 +98,7 @@ def process_pathlike(
                 use_existing_storage_key = False
                 # if the default storage is local we'll throw an error if the user
                 # doesn't provide a key
-                if not settings._storage_settings.is_cloud:
+                if default_storage.type == "local":
                     return default_storage, use_existing_storage_key
                 # if the default storage is in the cloud (the file is going to
                 # be uploaded upon saving it), we treat the filepath as a cache
@@ -110,6 +111,8 @@ def process_data(
     data: Union[PathLike, DataLike],
     format: Optional[str],
     key: Optional[str],
+    default_storage: Storage,
+    using_key: Optional[str],
     skip_existence_check: bool = False,
 ) -> Tuple[Any, Union[Path, UPath], str, Storage, bool]:
     """Serialize a data object that's provided as file or in memory."""
@@ -117,12 +120,15 @@ def process_data(
     if isinstance(data, (str, Path, UPath)):  # PathLike, spelled out
         path = create_path(data)
         storage, use_existing_storage_key = process_pathlike(
-            path, skip_existence_check=skip_existence_check
+            path,
+            default_storage=default_storage,
+            using_key=using_key,
+            skip_existence_check=skip_existence_check,
         )
         suffix = extract_suffix_from_path(path)
         memory_rep = None
     elif isinstance(data, (pd.DataFrame, AnnData)):  # DataLike, spelled out
-        storage = settings._storage_settings.record
+        storage = default_storage
         memory_rep = data
         if key is not None:
             key_suffix = extract_suffix_from_path(PurePosixPath(key), arg_name="key")
@@ -221,6 +227,7 @@ def get_stat_or_artifact(
     suffix: str,
     memory_rep: Optional[Any] = None,
     check_hash: bool = True,
+    using_key: Optional[str] = None,
 ) -> Union[Tuple[int, Optional[str], Optional[str], Optional[int]], Artifact]:
     n_objects = None
     if settings.upon_file_create_skip_size_hash:
@@ -263,7 +270,14 @@ def get_stat_or_artifact(
     if not check_hash:
         return size, hash, hash_type, n_objects
     # also checks hidden and trashed files
-    result = Artifact.filter(hash=hash, visibility=None).all()
+    # in Alex's mind the following two lines should be equivalent
+    # but they aren't according to pytest tests/test_artifact.py::test_from_dir_single_artifact
+    if using_key is None:
+        result = Artifact.filter(hash=hash, visibility=None).all()
+    else:
+        result = (
+            Artifact.objects.using(using_key).filter(hash=hash, visibility=None).all()
+        )
     if len(result) > 0:
         if settings.upon_artifact_create_if_hash_exists == "error":
             msg = f"artifact with same hash exists: {result[0]}"
@@ -294,8 +308,10 @@ def get_stat_or_artifact(
         return size, hash, hash_type, n_objects
 
 
-def check_path_in_existing_storage(path: Union[Path, UPath]) -> Union[Storage, bool]:
-    for storage in Storage.filter().all():
+def check_path_in_existing_storage(
+    path: Union[Path, UPath], using_key: Optional[str]
+) -> Union[Storage, bool]:
+    for storage in Storage.objects.using(using_key).filter().all():
         # if path is part of storage, return it
         if check_path_is_child_of_root(path, root=create_path(storage.root)):
             return storage
@@ -303,11 +319,8 @@ def check_path_in_existing_storage(path: Union[Path, UPath]) -> Union[Storage, b
 
 
 def check_path_is_child_of_root(
-    path: Union[Path, UPath], root: Optional[Union[Path, UPath]] = None
+    path: Union[Path, UPath], root: Optional[Union[Path, UPath]]
 ) -> bool:
-    if root is None:
-        root = settings._storage_settings.root
-
     path = UPath(str(path)) if not isinstance(path, UPath) else path
     root = UPath(str(root)) if not isinstance(root, UPath) else root
 
@@ -352,16 +365,25 @@ def get_artifact_kwargs_from_data(
     run: Optional[Run],
     format: Optional[str],
     provisional_uid: str,
+    default_storage: Storage,
+    using_key: Optional[str] = None,
     skip_check_exists: bool = False,
 ):
     run = get_run(run)
     memory_rep, path, suffix, storage, use_existing_storage_key = process_data(
-        provisional_uid, data, format, key, skip_check_exists
+        provisional_uid,
+        data,
+        format,
+        key,
+        default_storage,
+        using_key,
+        skip_check_exists,
     )
     stat_or_artifact = get_stat_or_artifact(
         path=path,
         suffix=suffix,
         memory_rep=memory_rep,
+        using_key=using_key,
     )
     if isinstance(stat_or_artifact, Artifact):
         return stat_or_artifact, None
@@ -385,7 +407,7 @@ def get_artifact_kwargs_from_data(
                 )
         check_path_in_storage = True
     else:
-        storage = settings._storage_settings.record
+        storage = default_storage
 
     if key is not None and key.startswith(AUTO_KEY_PREFIX):
         raise ValueError(f"Key cannot start with {AUTO_KEY_PREFIX}")
@@ -524,7 +546,14 @@ def __init__(artifact: Artifact, *args, **kwargs):
     skip_check_exists = (
         kwargs.pop("skip_check_exists") if "skip_check_exists" in kwargs else False
     )
-
+    default_storage = (
+        kwargs.pop("default_storage")
+        if "default_storage" in kwargs
+        else settings._storage_settings.record
+    )
+    using_key = (
+        kwargs.pop("using_key") if "using_key" in kwargs else settings._using_key
+    )
     if not len(kwargs) == 0:
         raise ValueError(
             "Only data, key, run, description, version, is_new_version_of, visibility"
@@ -536,7 +565,9 @@ def __init__(artifact: Artifact, *args, **kwargs):
     else:
         if not isinstance(is_new_version_of, Artifact):
             raise TypeError("is_new_version_of has to be of type ln.Artifact")
-        provisional_uid, version = get_uid_from_old_version(is_new_version_of, version)
+        provisional_uid, version = get_uid_from_old_version(
+            is_new_version_of, version, using_key
+        )
         if description is None:
             description = is_new_version_of.description
     kwargs_or_artifact, privates = get_artifact_kwargs_from_data(
@@ -545,6 +576,8 @@ def __init__(artifact: Artifact, *args, **kwargs):
         run=run,
         format=format,
         provisional_uid=provisional_uid,
+        default_storage=default_storage,
+        using_key=using_key,
         skip_check_exists=skip_check_exists,
     )
 
@@ -641,7 +674,8 @@ def parse_feature_sets_from_anndata(
         if not isinstance(filepath, LocalPathClasses):
             from lamindb.dev.storage._backed_access import backed_access
 
-            data_parse = backed_access(filepath)
+            using_key = settings._using_key
+            data_parse = backed_access(filepath, using_key)
         else:
             data_parse = ad.read(filepath, backed="r")
         type = "float"
@@ -716,7 +750,11 @@ def from_dir(
         " ln.Artifact(dir) to get one artifact for the entire directory"
     )
     folderpath: UPath = create_path(path)  # returns Path for local
-    storage, use_existing_storage = process_pathlike(folderpath)
+    default_storage = settings._storage_settings.record
+    using_key = settings._using_key
+    storage, use_existing_storage = process_pathlike(
+        folderpath, default_storage, using_key
+    )
     folder_key_path: Union[PurePath, Path]
     if key is None:
         if not use_existing_storage:
@@ -806,12 +844,14 @@ def replace(
     run: Optional[Run] = None,
     format: Optional[str] = None,
 ) -> None:
+    default_storage = settings._storage_settings.record
     kwargs, privates = get_artifact_kwargs_from_data(
         provisional_uid=self.uid,
         data=data,
         key=self.key,
         run=run,
         format=format,
+        default_storage=default_storage,
     )
 
     # this artifact already exists
@@ -874,14 +914,14 @@ def backed(
     from lamindb.dev.storage._backed_access import backed_access
 
     _track_run_input(self, is_run_input)
-
-    filepath = filepath_from_artifact(self)
+    using_key = settings._using_key
+    filepath = filepath_from_artifact(self, using_key=using_key)
     # consider the case where an object is already locally cached
     localpath = setup_settings.instance.storage.cloud_to_local_no_update(filepath)
     if localpath.exists():
-        return backed_access(localpath)
+        return backed_access(localpath, using_key)
     else:
-        return backed_access(filepath)
+        return backed_access(filepath, using_key)
 
 
 # docstring handled through attach_func_to_class_method
@@ -891,7 +931,10 @@ def load(
     _track_run_input(self, is_run_input)
     if hasattr(self, "_memory_rep") and self._memory_rep is not None:
         return self._memory_rep
-    return load_to_memory(filepath_from_artifact(self), stream=stream, **kwargs)
+    using_key = settings._using_key
+    return load_to_memory(
+        filepath_from_artifact(self, using_key=using_key), stream=stream, **kwargs
+    )
 
 
 # docstring handled through attach_func_to_class_method
@@ -900,13 +943,17 @@ def stage(self, is_run_input: Optional[bool] = None) -> Path:
         raise RuntimeError("zarr object can't be staged, please use load() or stream()")
     _track_run_input(self, is_run_input)
 
-    filepath = filepath_from_artifact(self)
+    using_key = settings._using_key
+    filepath = filepath_from_artifact(self, using_key=using_key)
     return setup_settings.instance.storage.cloud_to_local(filepath, print_progress=True)
 
 
 # docstring handled through attach_func_to_class_method
 def delete(
-    self, permanent: Optional[bool] = None, storage: Optional[bool] = None
+    self,
+    permanent: Optional[bool] = None,
+    storage: Optional[bool] = None,
+    using_key: Optional[str] = None,
 ) -> None:
     # by default, we only move artifacts into the trash
     if self.visibility > -1 and permanent is not True:
@@ -932,7 +979,7 @@ def delete(
 
     if delete_record:
         # need to grab file path before deletion
-        filepath = self.path
+        filepath = filepath_from_artifact(self, using_key)
         # only delete in storage if DB delete is successful
         # DB delete might error because of a foreign key constraint violated etc.
         self._delete_skip_storage()
@@ -967,11 +1014,14 @@ def save(self, *args, **kwargs) -> None:
     self._save_skip_storage(*args, **kwargs)
     from lamindb._save import check_and_attempt_clearing, check_and_attempt_upload
 
-    exception = check_and_attempt_upload(self)
+    using_key = None
+    if "using" in kwargs:
+        using_key = kwargs["using"]
+    exception = check_and_attempt_upload(self, using_key)
     if exception is not None:
         self._delete_skip_storage()
         raise RuntimeError(exception)
-    exception = check_and_attempt_clearing(self)
+    exception = check_and_attempt_clearing(self, using_key)
     if exception is not None:
         raise RuntimeError(exception)
 
@@ -986,7 +1036,8 @@ def _save_skip_storage(file, *args, **kwargs) -> None:
 @doc_args(Artifact.path.__doc__)
 def path(self) -> Union[Path, UPath]:
     """{}."""
-    return filepath_from_artifact(self)
+    using_key = settings._using_key
+    return filepath_from_artifact(self, using_key)
 
 
 @classmethod  # type: ignore

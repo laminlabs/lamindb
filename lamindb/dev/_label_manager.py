@@ -15,6 +15,8 @@ from lamindb._registry import (
 )
 from lamindb._save import save
 
+from ._settings import settings
+
 
 def get_labels_as_dict(self: Data):
     labels = {}
@@ -54,9 +56,9 @@ def transfer_add_labels(labels, features_lookup_self, self, row, parents: bool =
     def transfer_single_registry(validated_labels, new_labels):
         # here the new labels are transferred to the self db
         if len(new_labels) > 0:
-            transfer_fk_to_default_db_bulk(new_labels)
+            transfer_fk_to_default_db_bulk(new_labels, using_key=None)
             for label in new_labels:
-                transfer_to_default_db(label, mute=True)
+                transfer_to_default_db(label, using_key=None, mute=True)
             # not saving parents for Organism during transfer
             registry = new_labels[0].__class__
             logger.info(f"saving {len(new_labels)} new {registry.__name__} records")
@@ -206,6 +208,7 @@ class LabelManager:
                         )
 
         # for now, have this be duplicated, need to disentangle above
+        using_key = settings._using_key
         for related_name, (_, labels) in get_labels_as_dict(data).items():
             labels = labels.all()
             if len(labels) == 0:
@@ -214,9 +217,9 @@ class LabelManager:
                 labels.all(), parents=parents
             )
             if len(new_labels) > 0:
-                transfer_fk_to_default_db_bulk(new_labels)
+                transfer_fk_to_default_db_bulk(new_labels, using_key)
                 for label in new_labels:
-                    transfer_to_default_db(label, mute=True)
+                    transfer_to_default_db(label, using_key, mute=True)
                 save(new_labels, parents=parents)
             # this should not occur as file and collection should have the same attributes
             # but this might not be true for custom schema

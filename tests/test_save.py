@@ -35,7 +35,7 @@ def test_store_artifacts_acid():
     artifact._clear_storagekey = "test.csv"
 
     with pytest.raises(RuntimeError) as error:
-        store_artifacts([artifact])
+        store_artifacts([artifact], using_key=None)
 
     assert str(error.exconly()).startswith(
         "RuntimeError: No entries were uploaded or committed to the database."
