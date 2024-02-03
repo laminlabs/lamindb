@@ -58,7 +58,7 @@ def transfer_add_labels(labels, features_lookup_self, self, row, parents: bool =
         if len(new_labels) > 0:
             transfer_fk_to_default_db_bulk(new_labels, using_key=None)
             for label in new_labels:
-                transfer_to_default_db(label, mute=True)
+                transfer_to_default_db(label, using_key=None, mute=True)
             # not saving parents for Organism during transfer
             registry = new_labels[0].__class__
             logger.info(f"saving {len(new_labels)} new {registry.__name__} records")

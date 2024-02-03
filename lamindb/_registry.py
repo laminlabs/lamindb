@@ -435,7 +435,7 @@ def transfer_fk_to_default_db_bulk(
 
 def transfer_to_default_db(
     record: Registry,
-    using_key: str,
+    using_key: Optional[str],
     save: bool = False,
     mute: bool = False,
 ) -> Optional[Registry]:
