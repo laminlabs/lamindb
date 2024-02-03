@@ -545,9 +545,7 @@ def __init__(artifact: Artifact, *args, **kwargs):
         else settings._storage_settings.record
     )
     using_key = (
-        kwargs.pop("using_key")
-        if "using_key" in kwargs
-        else settings._storage_settings.record
+        kwargs.pop("using_key") if "using_key" in kwargs else settings._using_key
     )
     if not len(kwargs) == 0:
         raise ValueError(

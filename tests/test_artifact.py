@@ -16,6 +16,7 @@ from lamindb._artifact import (
     get_relative_path_to_directory,
     process_data,
 )
+from lamindb.dev._settings import settings
 from lamindb.dev.storage._zarr import write_adata_zarr
 from lamindb.dev.storage.file import (
     AUTO_KEY_PREFIX,
@@ -618,21 +619,30 @@ def test_serialize_paths():
     up_str = "s3://lamindb-ci/test-data/test.csv"
     up_upath = UPath(up_str)
 
+    default_storage = settings._storage_settings.record
+    using_key = None
+
     _, filepath, _, _, _ = process_data(
-        "id", fp_str, None, None, skip_existence_check=True
+        "id", fp_str, None, None, default_storage, using_key, skip_existence_check=True
     )
     assert isinstance(filepath, LocalPathClasses)
     _, filepath, _, _, _ = process_data(
-        "id", fp_path, None, None, skip_existence_check=True
+        "id", fp_path, None, None, default_storage, using_key, skip_existence_check=True
     )
     assert isinstance(filepath, LocalPathClasses)
 
     _, filepath, _, _, _ = process_data(
-        "id", up_str, None, None, skip_existence_check=True
+        "id", up_str, None, None, default_storage, using_key, skip_existence_check=True
     )
     assert isinstance(filepath, CloudPath)
     _, filepath, _, _, _ = process_data(
-        "id", up_upath, None, None, skip_existence_check=True
+        "id",
+        up_upath,
+        None,
+        None,
+        default_storage,
+        using_key,
+        skip_existence_check=True,
     )
     assert isinstance(filepath, CloudPath)
 
