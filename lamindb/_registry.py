@@ -481,8 +481,9 @@ def transfer_to_default_db(
 
 # docstring handled through attach_func_to_class_method
 def save(self, *args, **kwargs) -> None:
-    if "using_key" in kwargs:
-        using_key = kwargs.pop("using_key")
+    using_key = None
+    if "using" in kwargs:
+        using_key = kwargs["using"]
     db = self._state.db
     pk_on_db = self.pk
     artifacts: List = []

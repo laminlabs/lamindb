@@ -15,6 +15,7 @@ from lnschema_core.models import Artifact, Registry
 
 from lamindb.dev._settings import settings
 from lamindb.dev.storage.file import (
+    attempt_accessing_path,
     auto_storage_key_from_artifact,
     delete_storage_using_key,
     store_artifact,
@@ -131,12 +132,14 @@ def bulk_create(records: Iterable[Registry], ignore_conflicts: Optional[bool] = 
 
 
 # This is also used within Artifact.save()
-def check_and_attempt_upload(artifact: Artifact) -> Optional[Exception]:
+def check_and_attempt_upload(
+    artifact: Artifact, using_key: Optional[str]
+) -> Optional[Exception]:
     # if Artifact object is either newly instantiated or replace() was called on
     # a local env it will have a _local_filepath and needs to be uploaded
     if hasattr(artifact, "_local_filepath"):
         try:
-            upload_artifact(artifact)
+            upload_artifact(artifact, using_key)
         except Exception as exception:
             logger.warning(f"could not upload artifact: {artifact}")
             return exception
@@ -214,7 +217,7 @@ def store_artifacts(artifacts: Iterable[Artifact], using_key: str) -> None:
 
     # upload new local artifacts
     for artifact in artifacts:
-        exception = check_and_attempt_upload(artifact)
+        exception = check_and_attempt_upload(artifact, using_key)
         if exception is not None:
             break
         stored_artifacts += [artifact]
@@ -254,13 +257,11 @@ def prepare_error_message(records, stored_artifacts, exception) -> str:
     return error_message
 
 
-def upload_artifact(artifact) -> None:
+def upload_artifact(artifact, using_key: Optional[str]) -> None:
     """Store and add file and its linked entries."""
-    # do NOT hand-craft the storage key!
-    artifact_storage_key = auto_storage_key_from_artifact(artifact)
-    storage_path = lamindb_setup.settings.instance.storage.key_to_filepath(
-        artifact_storage_key
-    )
+    # can't currently use  filepath_from_artifact here because it resolves to ._local_filepath
+    storage_key = auto_storage_key_from_artifact(artifact)
+    storage_path = attempt_accessing_path(artifact, storage_key, using_key=using_key)
     msg = f"storing artifact '{artifact.uid}' at '{storage_path}'"
     if (
         artifact.suffix in {".zarr", ".zrad"}
@@ -268,10 +269,8 @@ def upload_artifact(artifact) -> None:
         and artifact._memory_rep is not None
     ):
         logger.save(msg)
-        print_progress = partial(
-            print_hook, filepath=artifact_storage_key, action="uploading"
-        )
+        print_progress = partial(print_hook, filepath=storage_path, action="uploading")
         write_adata_zarr(artifact._memory_rep, storage_path, callback=print_progress)
     elif hasattr(artifact, "_to_store") and artifact._to_store:
         logger.save(msg)
-        store_artifact(artifact._local_filepath, artifact_storage_key)
+        store_artifact(artifact._local_filepath, storage_path)

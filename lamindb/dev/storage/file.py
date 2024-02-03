@@ -69,7 +69,9 @@ def attempt_accessing_path(
                 Storage.using(artifact._state.db).filter(id=artifact.storage_id).one()
             )
         else:
-            storage = Storage.filter(id=artifact.storage_id, using_key=using_key).one()
+            storage = (
+                Storage.objects.using(using_key).filter(id=artifact.storage_id).one()
+            )
         # find a better way than passing None to instance_settings in the future!
         storage_settings = StorageSettings(storage.root)
         path = storage_settings.key_to_filepath(storage_key)

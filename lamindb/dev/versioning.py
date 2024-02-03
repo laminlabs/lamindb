@@ -52,7 +52,9 @@ def init_uid(
 
 
 def get_uid_from_old_version(
-    is_new_version_of: IsVersioned, version: Optional[str] = None
+    is_new_version_of: IsVersioned,
+    version: Optional[str] = None,
+    using_key: Optional[str] = None,
 ) -> Tuple[str, str]:
     """{}."""
     msg = ""
@@ -70,7 +72,7 @@ def get_uid_from_old_version(
     # the following covers the edge case where the old file was unversioned
     if is_new_version_of.version is None:
         is_new_version_of.version = previous_version
-        is_new_version_of.save()
+        is_new_version_of.save(using=using_key)
         if msg != "":
             msg += f"& new version to '{version}'"
     return new_uid, version
