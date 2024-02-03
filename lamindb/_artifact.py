@@ -659,7 +659,6 @@ def from_df(
 def parse_feature_sets_from_anndata(
     adata: AnnDataLike,
     field: Optional[FieldAttr],
-    using_key: Optional[str],
     **kwargs,
 ):
     data_parse = adata
@@ -668,6 +667,7 @@ def parse_feature_sets_from_anndata(
         if not isinstance(filepath, LocalPathClasses):
             from lamindb.dev.storage._backed_access import backed_access
 
+            using_key = settings._using_key
             data_parse = backed_access(filepath, using_key)
         else:
             data_parse = ad.read(filepath, backed="r")
