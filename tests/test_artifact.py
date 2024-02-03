@@ -407,20 +407,22 @@ def test_from_dir_many_artifacts(get_test_filepaths, key):
         )
         return None
     else:
-        files = ln.Artifact.from_dir(test_dirpath, key=key)
+        artifacts = ln.Artifact.from_dir(test_dirpath, key=key)
     # we only return the duplicated ones
-    hashes = [artifact.hash for artifact in files if artifact.hash is not None]
+    hashes = [artifact.hash for artifact in artifacts if artifact.hash is not None]
+    uids = [artifact.uid for artifact in artifacts]
     assert len(set(hashes)) == len(hashes)
     ln.UPath(test_dirpath).view_tree()
     # now save
-    ln.save(files)
+    ln.save(artifacts)
     ln.Artifact.view_tree()
     ln.Artifact.filter().all().view_tree()
     # now run again, because now we'll have hash-based lookup!
-    files = ln.Artifact.from_dir(test_dirpath, key=key)
-    assert len(files) == 2
-    assert len(set(hashes)) == len(hashes)
-    for artifact in files:
+    artifacts = ln.Artifact.from_dir(test_dirpath, key=key)
+    assert len(artifacts) == 2
+    assert len(set(artifacts)) == len(hashes)
+    queried_artifacts = ln.Artifact.filter(uid__in=uids).all()
+    for artifact in queried_artifacts:
         artifact.delete(permanent=True, storage=False)
 
 

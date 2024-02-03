@@ -205,7 +205,7 @@ def check_and_attempt_clearing(
     return None
 
 
-def store_artifacts(artifacts: Iterable[Artifact], using_key: str) -> None:
+def store_artifacts(artifacts: Iterable[Artifact], using_key: Optional[str]) -> None:
     """Upload artifacts in a list of database-committed artifacts to storage.
 
     If any upload fails, subsequent artifacts are cleaned up from the DB.

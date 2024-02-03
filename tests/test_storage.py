@@ -79,9 +79,9 @@ def test_backed_access(adata_format):
         del store
 
     with pytest.raises(ValueError):
-        access = backed_access(fp.with_suffix(".invalid_suffix"))
+        access = backed_access(fp.with_suffix(".invalid_suffix"), using_key=None)
 
-    access = backed_access(fp)
+    access = backed_access(fp, using_key=None)
     assert not access.closed
 
     assert isinstance(access.obs_names, pd.Index)
@@ -125,7 +125,7 @@ def test_backed_access(adata_format):
     assert access.closed
     del access
 
-    with backed_access(fp) as access:
+    with backed_access(fp, using_key=None) as access:
         assert not access.closed
         sub = access[:10]
         assert sub[:5].shape == (5, 200)
@@ -154,7 +154,7 @@ def test_write_to_file():
 
 
 def test_backed_bad_format(bad_adata_path):
-    access = backed_access(bad_adata_path)
+    access = backed_access(bad_adata_path, using_key=None)
 
     assert access.obsp["test"].to_memory().sum() == 30
 

@@ -270,7 +270,14 @@ def get_stat_or_artifact(
     if not check_hash:
         return size, hash, hash_type, n_objects
     # also checks hidden and trashed files
-    result = Artifact.objects.using(using_key).filter(hash=hash, visibility=None).all()
+    # in Alex's mind the following two lines should be equivalent
+    # but they aren't according to pytest tests/test_artifact.py::test_from_dir_single_artifact
+    if using_key is None:
+        result = Artifact.filter(hash=hash, visibility=None).all()
+    else:
+        result = (
+            Artifact.objects.using(using_key).filter(hash=hash, visibility=None).all()
+        )
     if len(result) > 0:
         if settings.upon_artifact_create_if_hash_exists == "error":
             msg = f"artifact with same hash exists: {result[0]}"
