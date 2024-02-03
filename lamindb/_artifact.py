@@ -639,6 +639,7 @@ def from_df(
 def parse_feature_sets_from_anndata(
     adata: AnnDataLike,
     field: Optional[FieldAttr],
+    using_key: Optional[str],
     **kwargs,
 ):
     data_parse = adata
@@ -647,7 +648,7 @@ def parse_feature_sets_from_anndata(
         if not isinstance(filepath, LocalPathClasses):
             from lamindb.dev.storage._backed_access import backed_access
 
-            data_parse = backed_access(filepath)
+            data_parse = backed_access(filepath, using_key)
         else:
             data_parse = ad.read(filepath, backed="r")
         type = "float"
@@ -883,14 +884,14 @@ def backed(
     from lamindb.dev.storage._backed_access import backed_access
 
     _track_run_input(self, is_run_input)
-
-    filepath = filepath_from_artifact(self)
+    using_key = settings._using_key
+    filepath = filepath_from_artifact(self, using_key=using_key)
     # consider the case where an object is already locally cached
     localpath = setup_settings.instance.storage.cloud_to_local_no_update(filepath)
     if localpath.exists():
-        return backed_access(localpath)
+        return backed_access(localpath, using_key)
     else:
-        return backed_access(filepath)
+        return backed_access(filepath, using_key)
 
 
 # docstring handled through attach_func_to_class_method
@@ -900,7 +901,10 @@ def load(
     _track_run_input(self, is_run_input)
     if hasattr(self, "_memory_rep") and self._memory_rep is not None:
         return self._memory_rep
-    return load_to_memory(filepath_from_artifact(self), stream=stream, **kwargs)
+    using_key = settings._using_key
+    return load_to_memory(
+        filepath_from_artifact(self, using_key=using_key), stream=stream, **kwargs
+    )
 
 
 # docstring handled through attach_func_to_class_method
@@ -909,7 +913,8 @@ def stage(self, is_run_input: Optional[bool] = None) -> Path:
         raise RuntimeError("zarr object can't be staged, please use load() or stream()")
     _track_run_input(self, is_run_input)
 
-    filepath = filepath_from_artifact(self)
+    using_key = settings._using_key
+    filepath = filepath_from_artifact(self, using_key=using_key)
     return setup_settings.instance.storage.cloud_to_local(filepath, print_progress=True)
 
 
@@ -976,11 +981,13 @@ def save(self, *args, **kwargs) -> None:
     self._save_skip_storage(*args, **kwargs)
     from lamindb._save import check_and_attempt_clearing, check_and_attempt_upload
 
+    if "using_key" in kwargs:
+        using_key = kwargs["using_key"]
     exception = check_and_attempt_upload(self)
     if exception is not None:
         self._delete_skip_storage()
         raise RuntimeError(exception)
-    exception = check_and_attempt_clearing(self)
+    exception = check_and_attempt_clearing(self, using_key)
     if exception is not None:
         raise RuntimeError(exception)
 
@@ -995,7 +1002,8 @@ def _save_skip_storage(file, *args, **kwargs) -> None:
 @doc_args(Artifact.path.__doc__)
 def path(self) -> Union[Path, UPath]:
     """{}."""
-    return filepath_from_artifact(self)
+    using_key = settings._using_key
+    return filepath_from_artifact(self, using_key)
 
 
 @classmethod  # type: ignore

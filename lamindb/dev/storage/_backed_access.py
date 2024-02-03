@@ -3,7 +3,7 @@ from dataclasses import dataclass
 from functools import cached_property
 from itertools import chain
 from pathlib import Path
-from typing import Callable, Dict, Mapping, Union
+from typing import Callable, Dict, Mapping, Optional, Union
 
 import h5py
 import numpy as np
@@ -687,10 +687,10 @@ class BackedAccessor:
 
 
 def backed_access(
-    artifact_or_filepath: Union[Artifact, Path],
+    artifact_or_filepath: Union[Artifact, Path], using_key: Optional[str]
 ) -> Union[AnnDataAccessor, BackedAccessor]:
     if isinstance(artifact_or_filepath, Artifact):
-        filepath = filepath_from_artifact(artifact_or_filepath)
+        filepath = filepath_from_artifact(artifact_or_filepath, using_key=using_key)
     else:
         filepath = artifact_or_filepath
     name = filepath.name

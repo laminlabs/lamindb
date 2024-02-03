@@ -50,7 +50,9 @@ def auto_storage_key_from_artifact_uid(uid: str, suffix: str, is_dir: bool) -> s
     return storage_key
 
 
-def attempt_accessing_path(artifact: Artifact, storage_key: str):
+def attempt_accessing_path(
+    artifact: Artifact, storage_key: str, using_key: Optional[str]
+):
     # check whether the file is in the default db and whether storage
     # matches default storage
     if (
@@ -62,12 +64,12 @@ def attempt_accessing_path(artifact: Artifact, storage_key: str):
         logger.debug(
             "artifact.path is slightly slower for files outside default storage"
         )
-        if artifact._state.db not in ("default", None) and settings._using_key is None:
+        if artifact._state.db not in ("default", None) and using_key is None:
             storage = (
                 Storage.using(artifact._state.db).filter(id=artifact.storage_id).one()
             )
         else:
-            storage = Storage.filter(id=artifact.storage_id).one()
+            storage = Storage.filter(id=artifact.storage_id, using_key=using_key).one()
         # find a better way than passing None to instance_settings in the future!
         storage_settings = StorageSettings(storage.root)
         path = storage_settings.key_to_filepath(storage_key)
@@ -75,11 +77,11 @@ def attempt_accessing_path(artifact: Artifact, storage_key: str):
 
 
 # add type annotations back asap when re-organizing the module
-def filepath_from_artifact(artifact: Artifact):
+def filepath_from_artifact(artifact: Artifact, using_key: Optional[str]):
     if hasattr(artifact, "_local_filepath") and artifact._local_filepath is not None:
         return artifact._local_filepath.resolve()
     storage_key = auto_storage_key_from_artifact(artifact)
-    path = attempt_accessing_path(artifact, storage_key)
+    path = attempt_accessing_path(artifact, storage_key, using_key=using_key)
     return path
 
 
@@ -114,8 +116,10 @@ def store_artifact(localpath: Union[str, Path, UPath], storagekey: str) -> None:
             shutil.copytree(localpath, storagepath)
 
 
-def delete_storage_using_key(artifact: Artifact, storage_key: str):
-    filepath = attempt_accessing_path(artifact, storage_key)
+def delete_storage_using_key(
+    artifact: Artifact, storage_key: str, using_key: Optional[str]
+):
+    filepath = attempt_accessing_path(artifact, storage_key, using_key=using_key)
     delete_storage(filepath)
 
 

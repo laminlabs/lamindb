@@ -78,8 +78,6 @@ def suggest_objects_with_same_name(orm: Registry, kwargs) -> Optional[str]:
                 if IPYTHON:
                     from IPython.display import display
 
-                    from .dev._settings import settings
-
                     logger.warning(f"{msg}")
                     if settings._verbosity_int >= 1:
                         display(results)
@@ -91,7 +89,6 @@ def suggest_objects_with_same_name(orm: Registry, kwargs) -> Optional[str]:
 def __init__(orm: Registry, *args, **kwargs):
     if not args:
         validate_required_fields(orm, kwargs)
-        from .dev._settings import settings
 
         # do not search for names if an id is passed; this is important
         # e.g. when synching ids from the notebook store to lamindb
@@ -158,8 +155,9 @@ def _search(
     return_queryset: bool = False,
     case_sensitive: bool = False,
     synonyms_field: Optional[StrField] = "synonyms",
+    using_key: Optional[str] = None,
 ) -> Union["pd.DataFrame", "QuerySet"]:
-    queryset = _queryset(cls)
+    queryset = _queryset(cls, using_key=using_key)
     orm = queryset.model
 
     def _search_single_field(
@@ -257,9 +255,10 @@ def _lookup(
     cls,
     field: Optional[StrField] = None,
     return_field: Optional[StrField] = None,
+    using_key: Optional[str] = None,
 ) -> NamedTuple:
     """{}."""
-    queryset = _queryset(cls)
+    queryset = _queryset(cls, using_key=using_key)
     field = get_default_str_field(orm=queryset.model, field=field)
 
     return Lookup(
@@ -333,11 +332,9 @@ def get_default_str_field(
     return field
 
 
-def _queryset(cls: Union[Registry, QuerySet, Manager]) -> QuerySet:
+def _queryset(cls: Union[Registry, QuerySet, Manager], using_key: str) -> QuerySet:
     queryset = (
-        cls.all()
-        if isinstance(cls, QuerySet)
-        else cls.objects.using(settings._using_key).all()
+        cls.all() if isinstance(cls, QuerySet) else cls.objects.using(using_key).all()
     )
     return queryset
 
@@ -396,7 +393,9 @@ REGISTRY_UNIQUE_FIELD = {
 
 
 def update_fk_to_default_db(
-    records: Union[Registry, List[Registry], QuerySet], fk: str
+    records: Union[Registry, List[Registry], QuerySet],
+    fk: str,
+    using_key: Optional[str],
 ):
     record = records[0] if isinstance(records, (List, QuerySet)) else records
     if hasattr(record, f"{fk}_id") and getattr(record, f"{fk}_id") is not None:
@@ -409,7 +408,7 @@ def update_fk_to_default_db(
             from copy import copy
 
             fk_record_default = copy(fk_record)
-            transfer_to_default_db(fk_record_default, save=True)
+            transfer_to_default_db(fk_record_default, using_key, save=True)
         if isinstance(records, (List, QuerySet)):
             for r in records:
                 setattr(r, f"{fk}", None)
@@ -419,7 +418,9 @@ def update_fk_to_default_db(
             setattr(records, f"{fk}_id", fk_record_default.id)
 
 
-def transfer_fk_to_default_db_bulk(records: Union[List, QuerySet]):
+def transfer_fk_to_default_db_bulk(
+    records: Union[List, QuerySet], using_key: Optional[str]
+):
     for fk in [
         "organism",
         "public_source",
@@ -429,14 +430,17 @@ def transfer_fk_to_default_db_bulk(records: Union[List, QuerySet]):
         "report",  # Run
         "file",  # Collection
     ]:
-        update_fk_to_default_db(records, fk)
+        update_fk_to_default_db(records, fk, using_key)
 
 
 def transfer_to_default_db(
-    record: Registry, save: bool = False, mute: bool = False
+    record: Registry,
+    using_key: str,
+    save: bool = False,
+    mute: bool = False,
 ) -> Optional[Registry]:
     db = record._state.db
-    if db is not None and db != "default" and settings._using_key is None:
+    if db is not None and db != "default" and using_key is None:
         registry = record.__class__
         record_on_default = registry.objects.filter(uid=record.uid).one_or_none()
         if record_on_default is not None:
@@ -466,8 +470,8 @@ def transfer_to_default_db(
                 record.transform_id = run_context.transform.id
             else:
                 record.transform_id = None
-        update_fk_to_default_db(record, "storage")
-        update_fk_to_default_db(record, "artifact")
+        update_fk_to_default_db(record, "storage", using_key)
+        update_fk_to_default_db(record, "artifact", using_key)
         record.id = None
         record._state.db = "default"
         if save:
@@ -477,13 +481,15 @@ def transfer_to_default_db(
 
 # docstring handled through attach_func_to_class_method
 def save(self, *args, **kwargs) -> None:
+    if "using_key" in kwargs:
+        using_key = kwargs.pop("using_key")
     db = self._state.db
     pk_on_db = self.pk
     artifacts: List = []
     if self.__class__.__name__ == "Collection" and self.id is not None:
         # when creating a new collection without being able to access artifacts
         artifacts = self.artifacts.list()
-    result = transfer_to_default_db(self)
+    result = transfer_to_default_db(self, using_key)
     if result is not None:
         init_self_from_db(self, result)
     else:
@@ -492,7 +498,7 @@ def save(self, *args, **kwargs) -> None:
         if "parents" in save_kwargs:
             save_kwargs.pop("parents")
         super(Registry, self).save(*args, **save_kwargs)
-    if db is not None and db != "default" and settings._using_key is None:
+    if db is not None and db != "default" and using_key is None:
         if self.__class__.__name__ == "Collection":
             if len(artifacts) > 0:
                 logger.info("transfer artifacts")

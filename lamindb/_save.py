@@ -13,6 +13,7 @@ from lamin_utils import logger
 from lamindb_setup.dev.upath import print_hook
 from lnschema_core.models import Artifact, Registry
 
+from lamindb.dev._settings import settings
 from lamindb.dev.storage.file import (
     auto_storage_key_from_artifact,
     delete_storage_using_key,
@@ -112,7 +113,8 @@ def save(
         with transaction.atomic():
             for record in artifacts:
                 record._save_skip_storage()
-        store_artifacts(artifacts)
+        using_key = settings._using_key
+        store_artifacts(artifacts, using_key=using_key)
 
     # this function returns None as potentially 10k records might be saved
     # refreshing all of them from the DB would mean a severe performance penalty
@@ -179,13 +181,17 @@ def copy_or_move_to_cache(artifact: Artifact):
 
 
 # This is also used within Artifact.save()
-def check_and_attempt_clearing(artifact: Artifact) -> Optional[Exception]:
+def check_and_attempt_clearing(
+    artifact: Artifact, using_key: str
+) -> Optional[Exception]:
     # this is a clean-up operation after replace() was called
     # this will only evaluate to True if replace() was called
     if hasattr(artifact, "_clear_storagekey"):
         try:
             if artifact._clear_storagekey is not None:
-                delete_storage_using_key(artifact, artifact._clear_storagekey)
+                delete_storage_using_key(
+                    artifact, artifact._clear_storagekey, using_key=using_key
+                )
                 logger.success(
                     f"deleted stale object at storage key {artifact._clear_storagekey}"
                 )
@@ -196,7 +202,7 @@ def check_and_attempt_clearing(artifact: Artifact) -> Optional[Exception]:
     return None
 
 
-def store_artifacts(artifacts: Iterable[Artifact]) -> None:
+def store_artifacts(artifacts: Iterable[Artifact], using_key: str) -> None:
     """Upload artifacts in a list of database-committed artifacts to storage.
 
     If any upload fails, subsequent artifacts are cleaned up from the DB.
@@ -212,7 +218,7 @@ def store_artifacts(artifacts: Iterable[Artifact]) -> None:
         if exception is not None:
             break
         stored_artifacts += [artifact]
-        exception = check_and_attempt_clearing(artifact)
+        exception = check_and_attempt_clearing(artifact, using_key)
         if exception is not None:
             logger.warning(f"clean up of {artifact._clear_storagekey} failed")
             break
