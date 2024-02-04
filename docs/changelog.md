@@ -1,5 +1,6 @@
 # Changelog
 
+- ⬆️ Upgrade anndata [PR](https://github.com/laminlabs/lamindb/pull/1427) [@Koncopd](https://github.com/Koncopd)
 - 📌 Pin nbstripout for now [PR](https://github.com/laminlabs/lamindb/pull/1429) [@Koncopd](https://github.com/Koncopd)
 - ♻️ Thread-safe multi-instance mode [PR](https://github.com/laminlabs/lamindb/pull/1424) [@falexwolf](https://github.com/falexwolf)
 ```{eval-rst}
