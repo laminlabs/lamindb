@@ -95,12 +95,11 @@ def read_adata_h5ad(filepath, **kwargs) -> ad.AnnData:
         return adata
 
 
-def store_artifact(localpath: Union[str, Path, UPath], storagekey: str) -> None:
+def store_artifact(localpath: Union[str, Path, UPath], storagepath: UPath) -> None:
     """Store directory or file to configured storage location.
 
     Returns size in bytes.
     """
-    storagepath: UPath = settings._storage_settings.key_to_filepath(storagekey)
     localpath = Path(localpath)
     if not isinstance(storagepath, LocalPathClasses):
         # this uploads files and directories
