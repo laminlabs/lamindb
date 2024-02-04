@@ -41,7 +41,7 @@ bionty = [
 ]
 aws = [
     "urllib3<2", # for botocore, todo: check that really required
-    "aiobotocore[boto3]>=2.5.4,<3.0.0"
+    "aiobotocore[boto3]>=2.5.4,<3.0.0",
     "fsspec[s3]==2023.12.2",
 ]
 gcp = [
