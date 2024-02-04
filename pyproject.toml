@@ -52,7 +52,7 @@ gcp = [
 ]
 jupyter = [
     "nbproject==0.10.0",  # keep pinning
-    "nbstripout",
+    "nbstripout==0.6.1", # 0.7.0 seems to be broken, 0.6.2 incompatible with orjson
     "nbconvert",
 ]
 zarr = [
