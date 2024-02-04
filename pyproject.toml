@@ -40,15 +40,12 @@ bionty = [
     "bionty==0.40.3",
 ]
 aws = [
-    "botocore==1.31.17",  # for aiobotocore inside s3fs, to fix deps resolution
-    "urllib3<2", # for botocore
-    "boto3==1.28.17", # to avoid conflicts arising due to the pin on botocore
-    "aiobotocore==2.5.4",
-    "fsspec[s3]==2023.9.0",
-    "s3fs>=2023.9.0",  # very old versions of s3fs don't work
+    "urllib3<2", # for botocore, todo: check that really required
+    "aiobotocore[boto3]>=2.5.4,<3.0.0"
+    "fsspec[s3]==2023.12.2",
 ]
 gcp = [
-    "fsspec[gs]==2023.9.0"
+    "fsspec[gs]==2023.12.2"
 ]
 jupyter = [
     "nbproject==0.10.0",  # keep pinning
