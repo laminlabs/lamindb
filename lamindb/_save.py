@@ -144,7 +144,8 @@ def check_and_attempt_upload(
             logger.warning(f"could not upload artifact: {artifact}")
             return exception
         # copies (if on-disk) or moves the temporary file (if in-memory) to the cache
-        copy_or_move_to_cache(artifact)
+        if os.getenv("LAMINDB_MULTI_INSTANCE") is None:
+            copy_or_move_to_cache(artifact)
         # after successful upload, we should remove the attribute so that another call
         # call to save won't upload again, the user should call replace() then
         del artifact._local_filepath
