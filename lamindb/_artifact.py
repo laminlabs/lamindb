@@ -368,6 +368,9 @@ def get_artifact_kwargs_from_data(
     else:
         size, hash, hash_type, n_objects = stat_or_artifact
 
+    if size == 0:
+        raise ValueError("Passed data is empty. Please pass non-empty data.")
+
     check_path_in_storage = False
     if use_existing_storage_key:
         inferred_key = get_relative_path_to_directory(
