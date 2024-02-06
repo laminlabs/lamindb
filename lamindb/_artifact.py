@@ -526,7 +526,7 @@ def __init__(artifact: Artifact, *args, **kwargs):
     # now we proceed with the user-facing constructor
     if len(args) > 1:
         raise ValueError("Only one non-keyword arg allowed: data")
-    data: Union[PathLike, DataLike] = kwargs.pop("data") if len(args) == 0 else args[0]
+    data: PathLike = kwargs.pop("data") if len(args) == 0 else args[0]
     key: Optional[str] = kwargs.pop("key") if "key" in kwargs else None
     run: Optional[Run] = kwargs.pop("run") if "run" in kwargs else None
     description: Optional[str] = (
@@ -542,7 +542,6 @@ def __init__(artifact: Artifact, *args, **kwargs):
         else VisibilityChoice.default.value
     )
     format = kwargs.pop("format") if "format" in kwargs else None
-    log_hint = kwargs.pop("log_hint") if "log_hint" in kwargs else True
     skip_check_exists = (
         kwargs.pop("skip_check_exists") if "skip_check_exists" in kwargs else False
     )
@@ -559,6 +558,18 @@ def __init__(artifact: Artifact, *args, **kwargs):
             "Only data, key, run, description, version, is_new_version_of, visibility"
             f" can be passed, you passed: {kwargs}"
         )
+
+    # check data type
+    if not isinstance(data, (str, Path, UPath)):
+        if isinstance(data, pd.DataFrame):
+            raise TypeError("data is a dataframe, please use .from_df()")
+        elif data_is_anndata(data):
+            raise TypeError("data is an AnnData, please use .from_anndata()")
+        elif data_is_mudata(data):
+            # TODO: add from_mudata
+            kwargs["accessor"] = "MuData"
+        else:
+            raise TypeError("data has to be a string, Path, UPath")
 
     if is_new_version_of is None:
         provisional_uid = init_uid(version=version, n_full_id=20)
@@ -590,23 +601,6 @@ def __init__(artifact: Artifact, *args, **kwargs):
         return None
     else:
         kwargs = kwargs_or_artifact
-
-    if isinstance(data, pd.DataFrame):
-        if log_hint:
-            logger.hint(
-                "data is a dataframe, consider using .from_df() to link column"
-                " names as features"
-            )
-        kwargs["accessor"] = "DataFrame"
-    elif data_is_anndata(data):
-        if log_hint:
-            logger.hint(
-                "data is AnnDataLike, consider using .from_anndata() to link"
-                " var_names and obs.columns as features"
-            )
-        kwargs["accessor"] = "AnnData"
-    elif data_is_mudata(data):
-        kwargs["accessor"] = "MuData"
 
     kwargs["uid"] = provisional_uid
     kwargs["version"] = version
