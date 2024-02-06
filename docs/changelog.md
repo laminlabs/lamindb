@@ -1,5 +1,6 @@
 # Changelog
 
+- 📝 Updated bionty landing page [PR](https://github.com/laminlabs/lamindb/pull/1433) [@sunnyosun](https://github.com/sunnyosun)
 - 🐛 Fix upload [PR](https://github.com/laminlabs/lamindb/pull/1430) [@falexwolf](https://github.com/falexwolf)
 - ⬆️ Upgrade fsspec[s3,gs] [PR](https://github.com/laminlabs/lamindb/pull/1426) [@Koncopd](https://github.com/Koncopd)
 - ⬆️ Upgrade anndata [PR](https://github.com/laminlabs/lamindb/pull/1427) [@Koncopd](https://github.com/Koncopd)
