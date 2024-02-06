@@ -3,7 +3,6 @@ from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple, Union
 
 import anndata as ad
 import fsspec
-import lamindb_setup
 import pandas as pd
 from anndata import AnnData
 from lamin_utils import colors, logger
@@ -526,7 +525,7 @@ def __init__(artifact: Artifact, *args, **kwargs):
     # now we proceed with the user-facing constructor
     if len(args) > 1:
         raise ValueError("Only one non-keyword arg allowed: data")
-    data: PathLike = kwargs.pop("data") if len(args) == 0 else args[0]
+    data: Union[str, Path] = kwargs.pop("data") if len(args) == 0 else args[0]
     key: Optional[str] = kwargs.pop("key") if "key" in kwargs else None
     run: Optional[Run] = kwargs.pop("run") if "run" in kwargs else None
     description: Optional[str] = (
@@ -631,13 +630,11 @@ def __init__(artifact: Artifact, *args, **kwargs):
 def from_df(
     cls,
     df: "pd.DataFrame",
-    field: FieldAttr = Feature.name,
     key: Optional[str] = None,
     description: Optional[str] = None,
     run: Optional[Run] = None,
     version: Optional[str] = None,
     is_new_version_of: Optional["Artifact"] = None,
-    **kwargs,
 ) -> "Artifact":
     """{}."""
     artifact = Artifact(
@@ -647,13 +644,13 @@ def from_df(
         description=description,
         version=version,
         is_new_version_of=is_new_version_of,
-        log_hint=False,
+        accessor="DataFrame",
     )
-    feature_set = FeatureSet.from_df(df, field=field, **kwargs)
-    if feature_set is not None:
-        artifact._feature_sets = {"columns": feature_set}
-    else:
-        artifact._feature_sets = {}
+    # feature_set = FeatureSet.from_df(df, field=field, **kwargs)
+    # if feature_set is not None:
+    #     artifact._feature_sets = {"columns": feature_set}
+    # else:
+    #     artifact._feature_sets = {}
     return artifact
 
 
@@ -706,14 +703,12 @@ def parse_feature_sets_from_anndata(
 @doc_args(Artifact.from_anndata.__doc__)
 def from_anndata(
     cls,
-    adata: "AnnDataLike",
-    field: Optional[FieldAttr],
+    adata: "AnnData",
     key: Optional[str] = None,
     description: Optional[str] = None,
     run: Optional[Run] = None,
     version: Optional[str] = None,
     is_new_version_of: Optional["Artifact"] = None,
-    **kwargs,
 ) -> "Artifact":
     """{}."""
     artifact = Artifact(
@@ -723,9 +718,9 @@ def from_anndata(
         description=description,
         version=version,
         is_new_version_of=is_new_version_of,
-        log_hint=False,
+        accessor="AnnData",
     )
-    artifact._feature_sets = parse_feature_sets_from_anndata(adata, field, **kwargs)
+    # artifact._feature_sets = parse_feature_sets_from_anndata(adata, field, **kwargs)
     return artifact
 
 
