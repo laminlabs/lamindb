@@ -339,9 +339,9 @@ def _queryset(cls: Union[Registry, QuerySet, Manager], using_key: str) -> QueryS
     return queryset
 
 
-def add_db_connection(isettings: InstanceSettings, using: str):
+def add_db_connection(db: str, using: str):
     db_config = dj_database_url.config(
-        default=isettings.db, conn_max_age=600, conn_health_checks=True
+        default=db, conn_max_age=600, conn_health_checks=True
     )
     db_config["TIME_ZONE"] = "UTC"
     db_config["OPTIONS"] = {}
@@ -356,32 +356,27 @@ def using(
     instance: str,
 ) -> "QuerySet":
     """{}."""
-    from lamindb_setup._load_instance import update_db_using_local
+    from lamindb_setup._load_instance import (
+        load_instance_settings,
+        update_db_using_local,
+    )
     from lamindb_setup.dev._settings_store import instance_settings_file
 
     owner, name = get_owner_name_from_identifier(instance)
-    load_result = load_instance(owner=owner, name=name)
-    if isinstance(load_result, str):
-        raise RuntimeError(
-            f"Fail to load instance {instance}, please check your permission!"
-        )
-    instance_result, storage_result = load_result
     settings_file = instance_settings_file(name, owner)
-    db_updated = update_db_using_local(instance_result, settings_file)
-    ssettings = StorageSettings(
-        root=storage_result["root"],
-        region=storage_result["region"],
-        uid=storage_result["lnid"],
-    )
-    isettings = InstanceSettings(
-        owner=owner,
-        name=name,
-        storage=ssettings,
-        db=db_updated,
-        schema=instance_result["schema_str"],
-        id=UUID(instance_result["id"]),
-    )
-    add_db_connection(isettings, instance)
+    if not settings_file.exists():
+        load_result = load_instance(owner=owner, name=name)
+        if isinstance(load_result, str):
+            raise RuntimeError(
+                f"Failed to load instance {instance}, please check your permission!"
+            )
+        instance_result, _ = load_result
+        settings_file = instance_settings_file(name, owner)
+        db = update_db_using_local(instance_result, settings_file)
+    else:
+        isettings = load_instance_settings(settings_file)
+        db = isettings.db
+    add_db_connection(db, instance)
     return QuerySet(model=cls, using=instance)
 
 
