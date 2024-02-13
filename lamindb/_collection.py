@@ -14,7 +14,6 @@ from lamindb.dev._mapped_collection import MappedCollection
 from lamindb.dev.versioning import get_uid_from_old_version, init_uid
 
 from . import _TESTING, Artifact, Run
-from ._artifact import parse_feature_sets_from_anndata
 from ._query_set import QuerySet
 from ._registry import init_self_from_db
 from .dev._data import (
@@ -23,6 +22,7 @@ from .dev._data import (
     save_feature_set_links,
     save_feature_sets,
 )
+from .dev._feature_manager import parse_feature_sets_from_anndata
 from .dev.hashing import hash_set
 
 if TYPE_CHECKING:

@@ -1,7 +1,6 @@
 from pathlib import Path, PurePath, PurePosixPath
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple, Union
 
-import anndata as ad
 import fsspec
 import pandas as pd
 from anndata import AnnData
@@ -11,12 +10,10 @@ from lamindb_setup._init_instance import register_storage
 from lamindb_setup.dev import StorageSettings
 from lamindb_setup.dev._docs import doc_args
 from lamindb_setup.dev.upath import create_path, extract_suffix_from_path
-from lnschema_core import Artifact, Feature, FeatureSet, Run, Storage
+from lnschema_core import Artifact, Run, Storage
 from lnschema_core.models import IsTree
 from lnschema_core.types import (
-    AnnDataLike,
     DataLike,
-    FieldAttr,
     PathLike,
     VisibilityChoice,
 )
@@ -42,7 +39,6 @@ from lamindb.dev.storage.file import (
 from lamindb.dev.versioning import get_uid_from_old_version, init_uid
 
 from . import _TESTING
-from ._feature import convert_numpy_dtype_to_lamin_feature_type
 from .dev._data import (
     add_transform_to_kwargs,
     get_run,
@@ -652,51 +648,6 @@ def from_df(
     # else:
     #     artifact._feature_sets = {}
     return artifact
-
-
-def parse_feature_sets_from_anndata(
-    adata: AnnDataLike,
-    field: Optional[FieldAttr],
-    **kwargs,
-):
-    data_parse = adata
-    if not isinstance(adata, AnnData):  # is a path
-        filepath = create_path(adata)  # returns Path for local
-        if not isinstance(filepath, LocalPathClasses):
-            from lamindb.dev.storage._backed_access import backed_access
-
-            using_key = settings._using_key
-            data_parse = backed_access(filepath, using_key)
-        else:
-            data_parse = ad.read(filepath, backed="r")
-        type = "float"
-    else:
-        type = convert_numpy_dtype_to_lamin_feature_type(adata.X.dtype)
-    feature_sets = {}
-    logger.info("parsing feature names of X stored in slot 'var'")
-    logger.indent = "   "
-    feature_set_var = FeatureSet.from_values(
-        data_parse.var.index,
-        field,
-        type=type,
-        **kwargs,
-    )
-    if feature_set_var is not None:
-        feature_sets["var"] = feature_set_var
-        logger.save(f"linked: {feature_set_var}")
-    logger.indent = ""
-    if len(data_parse.obs.columns) > 0:
-        logger.info("parsing feature names of slot 'obs'")
-        logger.indent = "   "
-        feature_set_obs = FeatureSet.from_df(
-            data_parse.obs,
-            **kwargs,
-        )
-        if feature_set_obs is not None:
-            feature_sets["obs"] = feature_set_obs
-            logger.save(f"linked: {feature_set_obs}")
-        logger.indent = ""
-    return feature_sets
 
 
 @classmethod  # type: ignore

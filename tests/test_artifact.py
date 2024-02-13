@@ -9,7 +9,6 @@ import lamindb_setup
 import numpy as np
 import pandas as pd
 import pytest
-from django.db.models.deletion import ProtectedError
 from lamindb import _artifact
 from lamindb._artifact import (
     check_path_is_child_of_root,
@@ -279,15 +278,15 @@ def test_create_from_anndata_in_memory():
 )
 def test_create_from_anndata_in_storage(data):
     if isinstance(data, ad.AnnData):
-        filepath = Path("./default_storage/test_adata.h5ad")
-        data.write(filepath)
+        artifact = ln.Artifact.from_anndata(data)
+        assert artifact.accessor == "AnnData"
+        assert hasattr(artifact, "_local_filepath")
     else:
         previous_storage = ln.setup.settings.storage.root_as_str
         ln.settings.storage = "s3://lamindb-test"
         filepath = data
-    artifact = ln.Artifact.from_anndata(filepath)
-    assert artifact.accessor == "AnnData"
-    assert hasattr(artifact, "_local_filepath")
+        # TODO: automatically add accessor based on file suffix
+        artifact = ln.Artifact(filepath)
     artifact.save()
     # check that the local filepath has been cleared
     assert not hasattr(artifact, "_local_filepath")
@@ -669,13 +668,9 @@ def test_load_to_memory():
     UPath("test.zrad").unlink()
     UPath("test.zip").unlink()
 
-    with pytest.raises(NotImplementedError) as error:
+    with pytest.raises(TypeError) as error:
         ln.Artifact(True)
-    assert (
-        error.exconly()
-        == "NotImplementedError: Do not know how to create a artifact object from True,"
-        " pass a path instead!"
-    )
+    assert error.exconly() == "TypeError: data has to be a string, Path, UPath"
 
 
 def test_delete_storage():
@@ -725,11 +720,11 @@ def test_zarr_folder_upload():
 
 
 def test_df_suffix():
-    artifact = ln.Artifact(df, key="test_.parquet")
+    artifact = ln.Artifact.from_df(df, key="test_.parquet")
     assert artifact.suffix == ".parquet"
 
     with pytest.raises(ValueError) as error:
-        artifact = ln.Artifact(df, key="test_.def")
+        artifact = ln.Artifact.from_df(df, key="test_.def")
     assert (
         error.exconly().partition(",")[0]
         == "ValueError: The suffix '.def' of the provided key is incorrect"
