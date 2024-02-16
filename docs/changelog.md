@@ -1,5 +1,6 @@
 # Changelog
 
+- :pencil2: Fix a few minor doc issues [PR](https://github.com/laminlabs/lamindb/pull/1436) [@Zethson](https://github.com/Zethson)
 - ♻️ Simplify transfer [PR](https://github.com/laminlabs/lamindb/pull/1425) [@falexwolf](https://github.com/falexwolf)
 - 📝 Updated bionty landing page [PR](https://github.com/laminlabs/lamindb/pull/1433) [@sunnyosun](https://github.com/sunnyosun)
 - 🐛 Fix upload [PR](https://github.com/laminlabs/lamindb/pull/1430) [@falexwolf](https://github.com/falexwolf)
