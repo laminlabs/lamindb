@@ -11,7 +11,6 @@ from lamindb.dev._settings import settings
 
 from . import _TESTING
 from ._query_set import RecordsList
-from .dev._feature_manager import parse_feature_sets_from_anndata
 
 if TYPE_CHECKING:
     from anndata import AnnData
@@ -174,6 +173,8 @@ def from_df(
 @classmethod  # type:ignore
 @doc_args(Feature.from_anndata.__doc__)
 def from_anndata(cls, adata: "AnnData", field=Optional[FieldAttr], **kwargs):
+    from .dev._feature_manager import parse_feature_sets_from_anndata
+
     feature_sets = parse_feature_sets_from_anndata(adata, field, **kwargs)
     return feature_sets
 
