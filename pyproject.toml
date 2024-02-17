@@ -79,8 +79,6 @@ dev = [
     "lamin_vault",
 ]
 
-
-
 [tool.ruff]
 src = ["src"]
 line-length = 88
