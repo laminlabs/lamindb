@@ -337,7 +337,7 @@ def _standardize(
             )
             warn_msg += (
                 f"\n   please add corresponding {orm._meta.model.__name__} records via"
-                f" `.from_values({list(std_names_bt_mapper.values())})`"
+                f" `.from_values({list(set(std_names_bt_mapper.values()))})`"
             )
             logger.warning(warn_msg)
 
