@@ -1,5 +1,6 @@
 # Changelog
 
+- :art: Remove discussion points from key FAQ [PR](https://github.com/laminlabs/lamindb/pull/1441) [@Zethson](https://github.com/Zethson)
 - :sparkles: Unique validation values [PR](https://github.com/laminlabs/lamindb/pull/1440) [@Zethson](https://github.com/Zethson)
 - A few doc improvements [PR](https://github.com/laminlabs/lamindb/pull/1438) [@Zethson](https://github.com/Zethson)
 - :pencil2: Fix a few minor doc issues [PR](https://github.com/laminlabs/lamindb/pull/1436) [@Zethson](https://github.com/Zethson)
