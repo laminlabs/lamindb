@@ -207,26 +207,12 @@ class FeatureManager:
         else:
             return getattr(feature_set, self._accessor_by_orm[orm_name]).all()
 
-    def from_df(
-        self,
-        df: "pd.DataFrame",
-        field: Optional[FieldAttr] = Feature.name,
-        **kwargs,
-    ) -> Dict:
-        feature_set = FeatureSet.from_df(df, field=field, **kwargs)
-        if feature_set is not None:
-            feature_sets = {"columns": feature_set}
-        else:
-            feature_sets = {}
-        return feature_sets
-
-    def from_anndata(self, adata: "AnnData", field=Optional[FieldAttr], **kwargs):
-        feature_sets = parse_feature_sets_from_anndata(adata, field, **kwargs)
-        return feature_sets
-
-    def add(self, feature_sets: Dict):
+    def add(self, feature_sets):
         # TODO: check hash of the artifact
-        self._host._feature_sets = feature_sets
+        if not isinstance(feature_sets, Dict):
+            self._host._feature_sets = {"columns": feature_sets}
+        else:
+            self._host._feature_sets = feature_sets
         self._host.save()
 
     def add_feature_set(self, feature_set: FeatureSet, slot: str):

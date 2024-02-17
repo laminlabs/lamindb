@@ -137,10 +137,9 @@ def test_add_labels_using_anndata():
     ln.FeatureSet.filter().all().delete()
 
     # try to construct without registering metadata features
-    artifact = ln.Artifact.from_anndata(
-        adata, description="Mini adata", field=bt.Gene.ensembl_gene_id
-    )
-    assert "obs" not in artifact._feature_sets
+    artifact = ln.Artifact.from_anndata(adata, description="Mini adata")
+    feature_sets = ln.Feature.from_anndata(adata, field=bt.Gene.ensembl_gene_id)
+    assert "obs" not in feature_sets
     # add feature set without saving file
     feature_name_feature = ln.Feature(
         name="feature name", type="category", registries="core.ULabel"
@@ -162,9 +161,7 @@ def test_add_labels_using_anndata():
             adata.obs[["cell_type", "tissue", "cell_type_from_expert", "disease"]]
         )
     )
-    artifact = ln.Artifact.from_anndata(
-        adata, description="Mini adata", field=bt.Gene.ensembl_gene_id
-    )
+    artifact = ln.Artifact.from_anndata(adata, description="Mini adata")
     ln.Feature(name="organism", type="category", registries="bionty.Organism").save()
     features = ln.Feature.lookup()
     with pytest.raises(ValueError) as error:

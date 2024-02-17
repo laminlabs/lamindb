@@ -1,8 +1,9 @@
-from typing import Dict, List, Optional, Union
+from typing import TYPE_CHECKING, Dict, List, Optional, Union
 
 import pandas as pd
 from lamindb_setup.dev._docs import doc_args
 from lnschema_core.models import Feature, Registry
+from lnschema_core.types import FieldAttr
 from pandas.api.types import CategoricalDtype, is_string_dtype
 
 from lamindb._utils import attach_func_to_class_method
@@ -10,6 +11,10 @@ from lamindb.dev._settings import settings
 
 from . import _TESTING
 from ._query_set import RecordsList
+from .dev._feature_manager import parse_feature_sets_from_anndata
+
+if TYPE_CHECKING:
+    from anndata import AnnData
 
 FEATURE_TYPES = {
     "int": "number",
@@ -37,7 +42,9 @@ def __init__(self, *args, **kwargs):
     # now we proceed with the user-facing constructor
     if len(args) != 0:
         raise ValueError("Only non-keyword args allowed")
-    type: Optional[Union[type, str]] = kwargs.pop("type") if "type" in kwargs else None  # noqa: F823
+    type: Optional[Union[type, str]] = (  # noqa
+        kwargs.pop("type") if "type" in kwargs else None
+    )
     registries: Optional[List[Registry]] = (
         kwargs.pop("registries") if "registries" in kwargs else None
     )
@@ -87,7 +94,12 @@ def categoricals_from_df(df: "pd.DataFrame") -> Dict:
 
 @classmethod  # type:ignore
 @doc_args(Feature.from_df.__doc__)
-def from_df(cls, df: "pd.DataFrame") -> "RecordsList":
+def from_df(
+    cls,
+    df: "pd.DataFrame",
+    field: Optional[FieldAttr] = Feature.name,
+    **kwargs,
+) -> "RecordsList":
     """{}."""
     categoricals = categoricals_from_df(df)
 
@@ -145,6 +157,27 @@ def from_df(cls, df: "pd.DataFrame") -> "RecordsList":
     return RecordsList(features)
 
 
+# def from_df(
+#     self,
+#     df: "pd.DataFrame",
+#     field: Optional[FieldAttr] = Feature.name,
+#     **kwargs,
+# ) -> Dict:
+#     feature_set = FeatureSet.from_df(df, field=field, **kwargs)
+#     if feature_set is not None:
+#         feature_sets = {"columns": feature_set}
+#     else:
+#         feature_sets = {}
+#     return feature_sets
+
+
+@classmethod  # type:ignore
+@doc_args(Feature.from_anndata.__doc__)
+def from_anndata(cls, adata: "AnnData", field=Optional[FieldAttr], **kwargs):
+    feature_sets = parse_feature_sets_from_anndata(adata, field, **kwargs)
+    return feature_sets
+
+
 @doc_args(Feature.save.__doc__)
 def save(self, *args, **kwargs) -> None:
     """{}."""
@@ -154,6 +187,7 @@ def save(self, *args, **kwargs) -> None:
 METHOD_NAMES = [
     "__init__",
     "from_df",
+    "from_anndata",
     "save",
 ]
 
