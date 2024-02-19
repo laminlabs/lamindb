@@ -293,6 +293,22 @@ def test_collection_mapped():
     )
     collection_outer.save()
 
+    # test encoders
+    with pytest.raises(ValueError):
+        ls_ds = collection.mapped(
+            label_keys="feat1", unknown_label={"feat3": "Unknown"}
+        )
+    with pytest.raises(ValueError):
+        ls_ds = collection.mapped(unknown_label={"feat3": "Unknown"})
+    for unknown_label in ("A", {"feat1": "A"}):
+        with collection.mapped(
+            label_keys="feat1", unknown_label=unknown_label, dtype="float32"
+        ) as ls_ds:
+            assert ls_ds.encoders[0]["A"] == -1
+            assert ls_ds.encoders[0]["B"] == 0
+            assert ls_ds[0]["feat1"] == -1
+            assert ls_ds[1]["feat1"] == 0
+
     ls_ds = collection.mapped(label_keys="feat1")
     assert not ls_ds.closed
 

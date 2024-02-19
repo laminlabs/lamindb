@@ -1,7 +1,7 @@
 from collections import Counter
 from functools import reduce
 from os import PathLike
-from typing import List, Literal, Optional, Union
+from typing import Dict, List, Literal, Optional, Union
 
 import numpy as np
 import pandas as pd
@@ -60,11 +60,25 @@ class MappedCollection:
         label_keys: Optional[Union[str, List[str]]] = None,
         join: Optional[Literal["inner", "outer"]] = "inner",
         encode_labels: bool = True,
+        unknown_label: Optional[Union[str, Dict[str, str]]] = None,
         cache_categories: bool = True,
         parallel: bool = False,
         dtype: Optional[str] = None,
     ):
         assert join in {None, "inner", "outer"}
+
+        label_keys = [label_keys] if isinstance(label_keys, str) else label_keys
+        if isinstance(unknown_label, dict):
+            wrong_keys = ValueError(
+                "All keys of `unknown_label` should be in `encode_labels`."
+            )
+            if label_keys is None:
+                if len(unknown_label) > 0:
+                    raise wrong_keys
+            else:
+                if not all(unkey in label_keys for unkey in unknown_label):
+                    raise wrong_keys
+        self.unknown_label = unknown_label
 
         self.storages = []  # type: ignore
         self.conns = []  # type: ignore
@@ -90,7 +104,7 @@ class MappedCollection:
             self._make_join_vars()
 
         self.encode_labels = encode_labels
-        self.label_keys = [label_keys] if isinstance(label_keys, str) else label_keys
+        self.label_keys = label_keys
         if self.label_keys is not None:
             if cache_categories:
                 self._cache_categories(self.label_keys)
@@ -131,7 +145,16 @@ class MappedCollection:
         self.encoders = []
         for label in label_keys:
             cats = self.get_merged_categories(label)
-            self.encoders.append({cat: i for i, cat in enumerate(cats)})
+            encoder = {}
+            if isinstance(self.unknown_label, dict):
+                unknown_label = self.unknown_label.get(label, None)
+            else:
+                unknown_label = self.unknown_label
+            if unknown_label is not None and unknown_label in cats:
+                cats.remove(unknown_label)
+                encoder[unknown_label] = -1
+            encoder.update({cat: i for i, cat in enumerate(cats)})
+            self.encoders.append(encoder)
 
     def _make_join_vars(self):
         var_list = []
