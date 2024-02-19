@@ -312,7 +312,7 @@ def mapped(
     self,
     label_keys: Optional[Union[str, List[str]]] = None,
     join: Optional[Literal["inner", "outer"]] = "inner",
-    encode_labels: bool = True,
+    encode_labels: Union[bool, List[str]] = True,
     unknown_label: Optional[Union[str, Dict[str, str]]] = None,
     cache_categories: bool = True,
     parallel: bool = False,

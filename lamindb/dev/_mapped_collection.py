@@ -59,7 +59,7 @@ class MappedCollection:
         path_list: List[Union[str, PathLike]],
         label_keys: Optional[Union[str, List[str]]] = None,
         join: Optional[Literal["inner", "outer"]] = "inner",
-        encode_labels: bool = True,
+        encode_labels: Union[bool, List[str]] = True,
         unknown_label: Optional[Union[str, Dict[str, str]]] = None,
         cache_categories: bool = True,
         parallel: bool = False,
@@ -68,16 +68,27 @@ class MappedCollection:
         assert join in {None, "inner", "outer"}
 
         label_keys = [label_keys] if isinstance(label_keys, str) else label_keys
+        self.label_keys = label_keys
+
+        if isinstance(encode_labels, list):
+            if len(encode_labels) == 0:
+                encode_labels = False
+            elif label_keys is None or not all(
+                enc_label in label_keys for enc_label in encode_labels
+            ):
+                raise ValueError(
+                    "All elements of `encode_labels` should be in `label_keys`."
+                )
+        else:
+            if encode_labels:
+                encode_labels = label_keys if label_keys is not None else False
+        self.encode_labels = encode_labels
+
         if encode_labels and isinstance(unknown_label, dict):
-            wrong_keys = ValueError(
-                "All keys of `unknown_label` should be in `encode_labels`."
-            )
-            if label_keys is None:
-                if len(unknown_label) > 0:
-                    raise wrong_keys
-            else:
-                if not all(unkey in label_keys for unkey in unknown_label):
-                    raise wrong_keys
+            if not all(unkey in encode_labels for unkey in unknown_label):  # type: ignore
+                raise ValueError(
+                    "All keys of `unknown_label` should be in `encode_labels` and `label_keys`."
+                )
         self.unknown_label = unknown_label
 
         self.storages = []  # type: ignore
@@ -103,15 +114,14 @@ class MappedCollection:
         if self.join_vars is not None:
             self._make_join_vars()
 
-        self.encode_labels = encode_labels
-        self.label_keys = label_keys
         if self.label_keys is not None:
             if cache_categories:
                 self._cache_categories(self.label_keys)
             else:
                 self._cache_cats: dict = {}
+            self.encoders: dict = {}
             if self.encode_labels:
-                self._make_encoders(self.label_keys)
+                self._make_encoders(self.encode_labels)  # type: ignore
 
         self._dtype = dtype
         self._closed = False
@@ -141,9 +151,8 @@ class MappedCollection:
                         cats = decode(cats) if isinstance(cats[0], bytes) else cats[...]
                     self._cache_cats[label].append(cats)
 
-    def _make_encoders(self, label_keys: list):
-        self.encoders = []
-        for label in label_keys:
+    def _make_encoders(self, encode_labels: list):
+        for label in encode_labels:
             cats = self.get_merged_categories(label)
             encoder = {}
             if isinstance(self.unknown_label, dict):
@@ -154,7 +163,7 @@ class MappedCollection:
                 cats.remove(unknown_label)
                 encoder[unknown_label] = -1
             encoder.update({cat: i for i, cat in enumerate(cats)})
-            self.encoders.append(encoder)
+            self.encoders[label] = encoder
 
     def _make_join_vars(self):
         var_list = []
@@ -195,7 +204,7 @@ class MappedCollection:
         with _Connect(self.storages[storage_idx]) as store:
             out = {"x": self.get_data_idx(store, obs_idx, var_idxs_join)}
             if self.label_keys is not None:
-                for i, label in enumerate(self.label_keys):
+                for label in self.label_keys:
                     if label in self._cache_cats:
                         cats = self._cache_cats[label][storage_idx]
                         if cats is None:
@@ -203,8 +212,8 @@ class MappedCollection:
                     else:
                         cats = None
                     label_idx = self.get_label_idx(store, obs_idx, label, cats)
-                    if self.encode_labels:
-                        label_idx = self.encoders[i][label_idx]
+                    if label in self.encoders:
+                        label_idx = self.encoders[label][label_idx]
                     out[label] = label_idx
         return out
 

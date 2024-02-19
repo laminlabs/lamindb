@@ -1,4 +1,5 @@
 from inspect import signature
+from itertools import product
 
 import anndata as ad
 import bionty as bt
@@ -295,19 +296,45 @@ def test_collection_mapped():
 
     # test encoders
     with pytest.raises(ValueError):
+        ls_ds = collection.mapped(encode_labels=["feat1"])
+    with pytest.raises(ValueError):
+        ls_ds = collection.mapped(label_keys="feat1", encode_labels=["feat3"])
+    with pytest.raises(ValueError):
+        ls_ds = collection.mapped(unknown_label={"feat3": "Unknown"})
+    with pytest.raises(ValueError):
         ls_ds = collection.mapped(
             label_keys="feat1", unknown_label={"feat3": "Unknown"}
         )
-    with pytest.raises(ValueError):
-        ls_ds = collection.mapped(unknown_label={"feat3": "Unknown"})
-    for unknown_label in ("A", {"feat1": "A"}):
-        with collection.mapped(
-            label_keys="feat1", unknown_label=unknown_label, dtype="float32"
-        ) as ls_ds:
-            assert ls_ds.encoders[0]["A"] == -1
-            assert ls_ds.encoders[0]["B"] == 0
-            assert ls_ds[0]["feat1"] == -1
-            assert ls_ds[1]["feat1"] == 0
+    with collection.mapped(label_keys=["feat1", "feat2"], unknown_label="A") as ls_ds:
+        assert ls_ds.encoders["feat1"]["A"] == -1
+        assert ls_ds.encoders["feat1"]["B"] == 0
+        assert ls_ds.encoders["feat2"]["A"] == -1
+        assert ls_ds.encoders["feat2"]["B"] == 0
+        assert ls_ds[0]["feat1"] == -1
+        assert ls_ds[1]["feat1"] == 0
+        assert ls_ds[0]["feat2"] == -1
+        assert ls_ds[1]["feat2"] == 0
+    with collection.mapped(
+        label_keys=["feat1", "feat2"], unknown_label={"feat1": "A"}
+    ) as ls_ds:
+        assert ls_ds.encoders["feat1"]["A"] == -1
+        assert ls_ds.encoders["feat1"]["B"] == 0
+        assert ls_ds.encoders["feat2"]["A"] == 0
+        assert ls_ds.encoders["feat2"]["B"] == 1
+        assert ls_ds[0]["feat1"] == -1
+        assert ls_ds[1]["feat1"] == 0
+        assert ls_ds[0]["feat2"] == 0
+        assert ls_ds[1]["feat2"] == 1
+    with collection.mapped(
+        label_keys=["feat1", "feat2"], unknown_label="A", encode_labels=["feat1"]
+    ) as ls_ds:
+        assert ls_ds.encoders["feat1"]["A"] == -1
+        assert ls_ds.encoders["feat1"]["B"] == 0
+        assert "feat2" not in ls_ds.encoders
+        assert ls_ds[0]["feat1"] == -1
+        assert ls_ds[1]["feat1"] == 0
+        assert ls_ds[0]["feat2"] == "A"
+        assert ls_ds[1]["feat2"] == "B"
 
     ls_ds = collection.mapped(label_keys="feat1")
     assert not ls_ds.closed
