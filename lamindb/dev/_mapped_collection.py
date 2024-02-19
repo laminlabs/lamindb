@@ -68,7 +68,7 @@ class MappedCollection:
         assert join in {None, "inner", "outer"}
 
         label_keys = [label_keys] if isinstance(label_keys, str) else label_keys
-        if isinstance(unknown_label, dict):
+        if encode_labels and isinstance(unknown_label, dict):
             wrong_keys = ValueError(
                 "All keys of `unknown_label` should be in `encode_labels`."
             )
