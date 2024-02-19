@@ -18,7 +18,7 @@ from anndata.compat import _read_attr
 from fsspec.core import OpenFile
 from fsspec.implementations.local import LocalFileSystem
 from lamin_utils import logger
-from lamindb_setup.dev.upath import UPath, infer_filesystem
+from lamindb_setup.dev.upath import UPath, create_mapper, infer_filesystem
 from lnschema_core import Artifact
 from packaging import version
 
@@ -231,7 +231,7 @@ if ZARR_INSTALLED:
             # this is faster than through an fsspec mapper for local
             open_obj = file_path_str
         else:
-            open_obj = fs.get_mapper(file_path_str, check=True)
+            open_obj = create_mapper(fs, file_path_str, check=True)
         storage = zarr.open(open_obj, mode="r")
         return conn, storage
 
