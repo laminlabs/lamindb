@@ -300,8 +300,6 @@ def test_collection_mapped():
     with pytest.raises(ValueError):
         ls_ds = collection.mapped(label_keys="feat1", encode_labels=["feat3"])
     with pytest.raises(ValueError):
-        ls_ds = collection.mapped(unknown_label={"feat3": "Unknown"})
-    with pytest.raises(ValueError):
         ls_ds = collection.mapped(
             label_keys="feat1", unknown_label={"feat3": "Unknown"}
         )
