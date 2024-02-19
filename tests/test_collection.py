@@ -298,8 +298,8 @@ def test_collection_mapped():
 
     assert len(ls_ds) == 4
     assert len(ls_ds[0]) == 2 and len(ls_ds[2]) == 2
-    assert len(ls_ds[0][0]) == 3
-    assert np.array_equal(ls_ds[2][0], np.array([1, 2, 5]))
+    assert len(ls_ds[0]["x"]) == 3
+    assert np.array_equal(ls_ds[2]["x"], np.array([1, 2, 5]))
     weights = ls_ds.get_label_weights("feat1")
     assert all(weights[1:] == weights[0])
     weights = ls_ds.get_label_weights(["feat1", "feat2"])
@@ -312,8 +312,8 @@ def test_collection_mapped():
         assert not ls_ds.closed
         assert len(ls_ds) == 4
         assert len(ls_ds[0]) == 2 and len(ls_ds[2]) == 2
-        assert str(ls_ds[0][0].dtype) == "float32"
-        assert str(ls_ds[2][0].dtype) == "float32"
+        assert str(ls_ds[0]["x"].dtype) == "float32"
+        assert str(ls_ds[2]["x"].dtype) == "float32"
     assert ls_ds.closed
 
     ls_ds = collection.mapped(label_keys="feat1", parallel=True)
@@ -327,15 +327,15 @@ def test_collection_mapped():
         assert ls_ds.join_vars == "outer"
         assert len(ls_ds.var_joint) == 6
         assert len(ls_ds[0]) == 2
-        assert len(ls_ds[0][0]) == 6
-        assert np.array_equal(ls_ds[0][0], np.array([0, 0, 0, 3, 1, 2]))
-        assert np.array_equal(ls_ds[1][0], np.array([0, 0, 0, 6, 4, 5]))
-        assert np.array_equal(ls_ds[2][0], np.array([0, 0, 0, 5, 1, 2]))
-        assert np.array_equal(ls_ds[3][0], np.array([0, 0, 0, 8, 4, 5]))
-        assert np.array_equal(ls_ds[4][0], np.array([1, 2, 5, 0, 0, 0]))
-        assert np.array_equal(ls_ds[5][0], np.array([4, 5, 8, 0, 0, 0]))
-        assert np.issubdtype(ls_ds[2][0].dtype, np.integer)
-        assert np.issubdtype(ls_ds[4][0].dtype, np.integer)
+        assert len(ls_ds[0]["x"]) == 6
+        assert np.array_equal(ls_ds[0]["x"], np.array([0, 0, 0, 3, 1, 2]))
+        assert np.array_equal(ls_ds[1]["x"], np.array([0, 0, 0, 6, 4, 5]))
+        assert np.array_equal(ls_ds[2]["x"], np.array([0, 0, 0, 5, 1, 2]))
+        assert np.array_equal(ls_ds[3]["x"], np.array([0, 0, 0, 8, 4, 5]))
+        assert np.array_equal(ls_ds[4]["x"], np.array([1, 2, 5, 0, 0, 0]))
+        assert np.array_equal(ls_ds[5]["x"], np.array([4, 5, 8, 0, 0, 0]))
+        assert np.issubdtype(ls_ds[2]["x"].dtype, np.integer)
+        assert np.issubdtype(ls_ds[4]["x"].dtype, np.integer)
 
     artifact1.delete(permanent=True, storage=True)
     artifact2.delete(permanent=True, storage=True)

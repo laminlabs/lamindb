@@ -170,7 +170,7 @@ class MappedCollection:
             var_idxs_join = None
 
         with _Connect(self.storages[storage_idx]) as store:
-            out = [self.get_data_idx(store, obs_idx, var_idxs_join)]
+            out = {"x": self.get_data_idx(store, obs_idx, var_idxs_join)}
             if self.label_keys is not None:
                 for i, label in enumerate(self.label_keys):
                     if label in self._cache_cats:
@@ -182,7 +182,7 @@ class MappedCollection:
                     label_idx = self.get_label_idx(store, obs_idx, label, cats)
                     if self.encode_labels:
                         label_idx = self.encoders[i][label_idx]
-                    out.append(label_idx)
+                    out[label] = label_idx
         return out
 
     def get_data_idx(
