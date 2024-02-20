@@ -173,6 +173,7 @@ def from_df(
 @classmethod  # type:ignore
 @doc_args(Feature.from_anndata.__doc__)
 def from_anndata(cls, adata: "AnnData", field=FieldAttr, **kwargs):
+    """{}."""
     from .dev._feature_manager import parse_feature_sets_from_anndata
 
     feature_sets = parse_feature_sets_from_anndata(adata, field, **kwargs)
