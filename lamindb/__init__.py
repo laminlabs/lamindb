@@ -122,6 +122,7 @@ if _INSTANCE_SETUP:
     from ._view import view
     from .dev._run_context import run_context
     from .dev._settings import settings
+    from .dev._transform_settings import transform
 
     # schema modules
     if not _os.environ.get("LAMINDB_MULTI_INSTANCE") == "true":

@@ -143,6 +143,21 @@ def get_transform_kwargs_from_stem_uid(
     return transform, new_uid, nbproject_version
 
 
+MESSAGE = """Please add the following two global variables to your notebook:
+
+ln.settings.stem_uid = {stem_uid}
+ln.settings.version = {version}
+"""
+
+
+def print_set_transform_message() -> None:
+    from lnschema_core.ids import base62_12
+
+    stem_uid = base62_12()
+    version = "1"
+    print(MESSAGE.format(stem_uid=stem_uid, version=version))
+
+
 class run_context:
     """Global run context."""
 
@@ -213,6 +228,9 @@ class run_context:
         if transform is None:
             is_tracked = False
 
+            if ln.transform.stem_uid is None or ln.transform.version is None:
+                print_set_transform_message()
+
             if is_run_from_ipython:
                 try:
                     cls._track_notebook(
@@ -233,7 +251,12 @@ class run_context:
                             "notebook!\nplease install nbproject: pip install nbproject"
                         )
                     elif isinstance(e, UpdateNbWithNonInteractiveEditor):
-                        raise e
+                        if (
+                            ln.transform.stem_uid is None
+                            or ln.transform.version is None
+                        ):
+                            print_set_transform_message()
+                            is_tracked = False
                     elif isinstance(e, (NotebookNotSavedError, NoTitleError)):
                         raise e
                     else:
