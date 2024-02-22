@@ -521,6 +521,7 @@ def __init__(artifact: Artifact, *args, **kwargs):
     # now we proceed with the user-facing constructor
     if len(args) > 1:
         raise ValueError("Only one non-keyword arg allowed: data")
+
     data: Union[str, Path] = kwargs.pop("data") if len(args) == 0 else args[0]
     key: Optional[str] = kwargs.pop("key") if "key" in kwargs else None
     run: Optional[Run] = kwargs.pop("run") if "run" in kwargs else None
@@ -548,23 +549,19 @@ def __init__(artifact: Artifact, *args, **kwargs):
     using_key = (
         kwargs.pop("using_key") if "using_key" in kwargs else settings._using_key
     )
+    accessor = kwargs.pop("accessor") if "accessor" in kwargs else None
+    if accessor is None and not isinstance(data, (str, Path, UPath)):
+        if isinstance(data, pd.DataFrame):
+            raise TypeError("data is a dataframe, please use .from_df()")
+        elif data_is_anndata(data):
+            raise TypeError("data is an AnnData, please use .from_anndata()")
+        else:
+            raise TypeError("data has to be a string, Path, UPath")
     if not len(kwargs) == 0:
         raise ValueError(
             "Only data, key, run, description, version, is_new_version_of, visibility"
             f" can be passed, you passed: {kwargs}"
         )
-
-    # check data type
-    if not isinstance(data, (str, Path, UPath)):
-        if isinstance(data, pd.DataFrame):
-            raise TypeError("data is a dataframe, please use .from_df()")
-        elif data_is_anndata(data):
-            raise TypeError("data is an AnnData, please use .from_anndata()")
-        elif data_is_mudata(data):
-            # TODO: add from_mudata
-            kwargs["accessor"] = "MuData"
-        else:
-            raise TypeError("data has to be a string, Path, UPath")
 
     if is_new_version_of is None:
         provisional_uid = init_uid(version=version, n_full_id=20)
@@ -601,6 +598,7 @@ def __init__(artifact: Artifact, *args, **kwargs):
     kwargs["version"] = version
     kwargs["description"] = description
     kwargs["visibility"] = visibility
+    kwargs["accessor"] = accessor
     # this check needs to come down here because key might be populated from an
     # existing file path during get_artifact_kwargs_from_data()
     if (
@@ -640,8 +638,8 @@ def from_df(
         description=description,
         version=version,
         is_new_version_of=is_new_version_of,
+        accessor="DataFrame",
     )
-    artifact.accessor = "DataFrame"
     # feature_set = FeatureSet.from_df(df, field=field, **kwargs)
     # if feature_set is not None:
     #     artifact._feature_sets = {"columns": feature_set}
@@ -669,8 +667,8 @@ def from_anndata(
         description=description,
         version=version,
         is_new_version_of=is_new_version_of,
+        accessor="AnnData",
     )
-    artifact.accessor = "AnnData"
     # artifact._feature_sets = parse_feature_sets_from_anndata(adata, field, **kwargs)
     return artifact
 
