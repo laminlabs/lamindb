@@ -378,6 +378,8 @@ class MappedCollection:
 
         mapped = get_worker_info().dataset
         mapped.parallel = False
+        mapped.storages = []
+        mapped.conns = []
         mapped._make_connections(
             mapped._path_list, parallel=False, skip_instance_cache=True
         )
