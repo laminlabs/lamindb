@@ -1,11 +1,11 @@
 from itertools import compress
-from typing import TYPE_CHECKING, Dict, Optional, Union
+from typing import TYPE_CHECKING, Dict, List, Optional, Union
 
 import anndata as ad
 from anndata import AnnData
 from lamin_utils import colors, logger
 from lamindb_setup.dev.upath import create_path
-from lnschema_core.models import Artifact, Collection, Data, Feature
+from lnschema_core.models import Artifact, Collection, Data, Feature, Registry
 from lnschema_core.types import AnnDataLike, FieldAttr
 
 from lamindb._feature import convert_numpy_dtype_to_lamin_feature_type
@@ -207,12 +207,16 @@ class FeatureManager:
         else:
             return getattr(feature_set, self._accessor_by_orm[orm_name]).all()
 
-    def add(self, feature_sets):
+    def add(self, features: Union[List[Registry], Dict]):
         # TODO: check hash of the artifact
-        if not isinstance(feature_sets, Dict):
-            self._host._feature_sets = {"columns": feature_sets}
+        if isinstance(features, Dict):
+            feature_sets = features
         else:
-            self._host._feature_sets = feature_sets
+            if self._host.accessor == "DataFrame":
+                feature_set = FeatureSet(features=features)
+                feature_sets = {"columns": feature_set}
+
+        self._host._feature_sets = feature_sets
         self._host.save()
 
     def add_feature_set(self, feature_set: FeatureSet, slot: str):
