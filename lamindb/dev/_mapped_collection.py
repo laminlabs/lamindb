@@ -103,11 +103,9 @@ class MappedCollection:
         self._dtype = dtype
         self._closed = False
 
-    def _make_connections(
-        self, path_list: list, parallel: bool, skip_instance_cache: bool = False
-    ):
+    def _make_connections(self, path_list: list, parallel: bool):
         for path in path_list:
-            path = UPath(path, skip_instance_cache=skip_instance_cache)
+            path = UPath(path)
             if path.exists() and path.is_file():  # type: ignore
                 if parallel:
                     conn, storage = None, path
@@ -380,6 +378,4 @@ class MappedCollection:
         mapped.parallel = False
         mapped.storages = []
         mapped.conns = []
-        mapped._make_connections(
-            mapped._path_list, parallel=False, skip_instance_cache=True
-        )
+        mapped._make_connections(mapped._path_list, parallel=False)
