@@ -640,8 +640,8 @@ def from_df(
         description=description,
         version=version,
         is_new_version_of=is_new_version_of,
-        accessor="DataFrame",
     )
+    artifact.accessor = "DataFrame"
     # feature_set = FeatureSet.from_df(df, field=field, **kwargs)
     # if feature_set is not None:
     #     artifact._feature_sets = {"columns": feature_set}
@@ -669,8 +669,8 @@ def from_anndata(
         description=description,
         version=version,
         is_new_version_of=is_new_version_of,
-        accessor="AnnData",
     )
+    artifact.accessor = "AnnData"
     # artifact._feature_sets = parse_feature_sets_from_anndata(adata, field, **kwargs)
     return artifact
 
