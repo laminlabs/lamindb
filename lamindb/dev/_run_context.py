@@ -186,6 +186,7 @@ class run_context:
         notebook_path: Optional[str] = None,
         pypackage: Optional[Union[str, List[str]]] = None,
         editor: Optional[str] = None,
+        using_key: Optional[str] = None,
     ) -> None:
         """Track global `Transform` & `Run` for a notebook or pipeline.
 
@@ -290,6 +291,7 @@ class run_context:
                     is_interactive=False,  # this needs to go away
                     filepath=notebook_path,  # type: ignore
                     transform=transform,
+                    using_key=using_key,
                 )
             else:
                 is_tracked = False
@@ -299,6 +301,7 @@ class run_context:
                             pypackage=pypackage,
                             notebook_path=notebook_path,
                             editor=editor,
+                            using_key=using_key,
                         )
                         # the following will only occur if there is an early
                         # return in track_notebook(), when it is not save to
@@ -355,6 +358,7 @@ class run_context:
                             is_interactive=False,
                             filepath=module.__file__,  # type: ignore
                             transform=transform,
+                            using_key=using_key,
                         )
 
             if not is_tracked:
@@ -366,7 +370,7 @@ class run_context:
                 # transform has an id but unclear whether already saved
                 transform_exists = Transform.filter(id=transform.id).first()
             if transform_exists is None:
-                transform.save()
+                transform.save(using=using_key)
                 logger.important(f"saved: {transform}")
                 transform_exists = transform
             else:
@@ -429,6 +433,7 @@ class run_context:
         notebook_path: Optional[str] = None,
         pypackage: Optional[Union[str, List[str]]] = None,
         editor: Optional[str] = None,
+        using_key: Optional[str] = None,
     ):
         """Infer Jupyter notebook metadata and create `Transform` record.
 
@@ -576,6 +581,7 @@ class run_context:
             is_interactive=is_interactive,
             filepath=notebook_path,
             transform=transform,
+            using_key=using_key,
         )
 
     @classmethod
@@ -623,6 +629,7 @@ class run_context:
         is_interactive: bool,
         filepath: str,
         transform: Optional[Transform] = None,
+        using_key: Optional[str] = None,
     ) -> bool:
         # make a new transform record
         if transform is None:
@@ -634,7 +641,7 @@ class run_context:
                 reference=reference,
                 type=transform_type,
             )
-            transform.save()
+            transform.save(using=using_key)
             logger.important(f"saved: {transform}")
         else:
             # check whether there was an update
@@ -668,7 +675,7 @@ class run_context:
                     cls._update_transform_source(is_interactive, transform, filepath)
                 transform.name = name
                 transform.short_name = short_name
-                transform.save()
+                transform.save(using=using_key)
                 if response == "y":
                     logger.important(f"saved: {transform}")
                 else:

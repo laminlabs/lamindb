@@ -153,6 +153,8 @@ ignore = [
     "D409",
     # No blank lines allowed between a section header and its content ("{name}")
     "D412",
+    # Missing documented parameter
+    "D417",
     # Missing blank line after last section ("{name}")
     "D413",
     # Imports unused
