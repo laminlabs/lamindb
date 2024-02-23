@@ -69,6 +69,7 @@ class MappedCollection:
         self.storages = []  # type: ignore
         self.conns = []  # type: ignore
         self.parallel = parallel
+        self._path_list = path_list
         self._make_connections(path_list, parallel)
 
         self.n_obs_list = []
@@ -368,3 +369,13 @@ class MappedCollection:
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         self.close()
+
+    @staticmethod
+    def torch_worker_init_fn(worker_id):
+        from torch.utils.data import get_worker_info
+
+        mapped = get_worker_info().dataset
+        mapped.parallel = False
+        mapped.storages = []
+        mapped.conns = []
+        mapped._make_connections(mapped._path_list, parallel=False)
