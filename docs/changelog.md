@@ -1,5 +1,6 @@
 # Changelog
 
+- ♻️ Draft transform settings [PR](https://github.com/laminlabs/lamindb/pull/1449) [@falexwolf](https://github.com/falexwolf)
 - 🐛 Fix zarr saving for hosted instances [PR](https://github.com/laminlabs/lamindb/pull/1445) [@Koncopd](https://github.com/Koncopd)
 - :art: Remove discussion points from key FAQ [PR](https://github.com/laminlabs/lamindb/pull/1441) [@Zethson](https://github.com/Zethson)
 - :sparkles: Unique validation values [PR](https://github.com/laminlabs/lamindb/pull/1440) [@Zethson](https://github.com/Zethson)
