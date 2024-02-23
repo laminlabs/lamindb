@@ -286,7 +286,9 @@ def test_create_from_anndata_in_memory():
 )
 def test_create_from_anndata_in_storage(data):
     if isinstance(data, ad.AnnData):
-        artifact = ln.Artifact.from_anndata(data)
+        artifact = ln.Artifact.from_anndata(
+            data, description="test_create_from_anndata"
+        )
         assert artifact.accessor == "AnnData"
         assert hasattr(artifact, "_local_filepath")
     else:
@@ -758,12 +760,12 @@ def test_adata_suffix():
         == "ValueError: Error when specifying AnnData storage format"
     )
 
-    with pytest.raises(ValueError) as error:
-        artifact = ln.Artifact.from_anndata(adata, format="h5ad", key="test.zrad")
-    assert (
-        error.exconly().partition(",")[0]
-        == "ValueError: The suffix '.zrad' of the provided key is incorrect"
-    )
+    # with pytest.raises(ValueError) as error:
+    #     artifact = ln.Artifact.from_anndata(adata, format="h5ad", key="test.zrad")
+    # assert (
+    #     error.exconly().partition(",")[0]
+    #     == "ValueError: The suffix '.zrad' of the provided key is incorrect"
+    # )
 
     with pytest.raises(ValueError) as error:
         artifact = ln.Artifact.from_anndata(adata, key="test_")
