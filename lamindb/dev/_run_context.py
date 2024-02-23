@@ -278,7 +278,7 @@ class run_context:
                     frame = inspect.stack()[1]
                     module = inspect.getmodule(frame[0])
                     name = Path(module.__file__).name  # type: ignore
-                    short_name = None
+                    short_name = name
                 is_tracked = cls._create_or_load_transform(
                     uid=uid,
                     version=version,
