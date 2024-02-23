@@ -272,6 +272,7 @@ class run_context:
                         raise NoTitleError(
                             "Please add a title to your notebook in a markdown cell: # Title"
                         ) from None
+                    name = nbproject_title
                 else:
                     import inspect
 
@@ -287,7 +288,7 @@ class run_context:
                     transform_type=TransformType.pipeline,
                     short_name=short_name,
                     is_interactive=False,  # this needs to go away
-                    filepath=module.__file__,  # type: ignore
+                    filepath=notebook_path,  # type: ignore
                     transform=transform,
                 )
             else:
