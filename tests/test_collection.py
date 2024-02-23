@@ -199,7 +199,7 @@ def test_edge_cases():
     assert str(error.exconly()).startswith(
         "ValueError: Only DataFrame, AnnData, Artifact or list of artifacts is allowed."
     )
-    artifact = ln.Artifact(df, description="Test artifact")
+    artifact = ln.Artifact.from_df(df, description="Test artifact")
     assert artifact._state.adding
     with pytest.raises(ValueError) as error:
         ln.Collection([artifact])
@@ -222,9 +222,9 @@ def test_backed():
 
 
 def test_from_inconsistent_artifacts():
-    artifact1 = ln.Artifact(df, description="My test")
+    artifact1 = ln.Artifact.from_df(df, description="My test")
     artifact1.save()
-    artifact2 = ln.Artifact(adata, description="My test2")
+    artifact2 = ln.Artifact.from_anndata(adata, description="My test2")
     artifact2.save()
     collection = ln.Collection([artifact1, artifact2], name="Inconsistent")
     collection.save()
@@ -249,9 +249,9 @@ def test_from_inconsistent_artifacts():
 
 
 def test_from_consistent_artifacts():
-    artifact1 = ln.Artifact(adata, description="My test")
+    artifact1 = ln.Artifact.from_anndata(adata, description="My test")
     artifact1.save()
-    artifact2 = ln.Artifact(adata2, description="My test2")
+    artifact2 = ln.Artifact.from_anndata(adata2, description="My test2")
     artifact2.save()
     transform = ln.Transform(name="My test transform")
     transform.save()
@@ -276,15 +276,15 @@ def test_from_consistent_artifacts():
 def test_collection_mapped():
     adata.strings_to_categoricals()
     adata.obs["feat2"] = adata.obs["feat1"]
-    artifact1 = ln.Artifact(adata, description="Part one")
+    artifact1 = ln.Artifact.from_anndata(adata, description="Part one")
     artifact1.save()
     adata2.X = csr_matrix(adata2.X)
     adata2.obs["feat2"] = adata2.obs["feat1"]
-    artifact2 = ln.Artifact(adata2, description="Part two", format="zrad")
+    artifact2 = ln.Artifact.from_anndata(adata2, description="Part two", format="zrad")
     artifact2.save()
     adata3 = adata2.copy()
     adata3.var_names = ["A", "B", "C"]
-    artifact3 = ln.Artifact(adata3, description="Other vars")
+    artifact3 = ln.Artifact.from_anndata(adata3, description="Other vars")
     artifact3.save()
     collection = ln.Collection([artifact1, artifact2], name="Gather")
     collection.save()

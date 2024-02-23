@@ -46,11 +46,13 @@ def test_feature_from_df():
     artifact = ln.Artifact.from_df(df, description="test")
     assert artifact._feature_sets == {}
     # now, register all 4 features
-    ln.save(ln.Feature.from_df(df.iloc[:, :4]))
+    features = ln.Feature.from_df(df.iloc[:, :4])
+    ln.save(features)
     # try again
     artifact = ln.Artifact.from_df(df, description="test")
-    assert "columns" in artifact._feature_sets
     artifact.save()
+    # link features
+    artifact.features.add(features)
     feature_set = artifact._feature_sets["columns"]
     features = feature_set.features.all()
     assert len(features) == len(df.columns[:4])

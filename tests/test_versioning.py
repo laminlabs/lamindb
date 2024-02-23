@@ -19,9 +19,9 @@ def test_set_version():
 
 
 def test_add_to_version_family():
-    artifact1 = ln.Artifact(df1, description="test1")
+    artifact1 = ln.Artifact.from_df(df1, description="test1")
     artifact1.save()
-    artifact2 = ln.Artifact(df2, description="test2")
+    artifact2 = ln.Artifact.from_df(df2, description="test2")
     artifact2.save()
     assert (
         artifact1.uid[: artifact1._len_stem_uid]

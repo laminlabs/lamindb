@@ -13,7 +13,7 @@ adata.obs.loc["obs0", "cell_type_from_expert"] = "B cell"
 
 def test_labels_add():
     label = ln.ULabel(name="Experiment 1")
-    artifact = ln.Artifact(adata, description="test")
+    artifact = ln.Artifact.from_anndata(adata, description="test")
     artifact.save()
     experiment = ln.Feature(name="experiment", type="category")
     with pytest.raises(ValueError) as error:
@@ -171,6 +171,10 @@ def test_add_labels_using_anndata():
         == "ValueError: Please save the artifact/collection before adding a label!"
     )
     artifact.save()
+
+    # link features
+    features = ln.Feature.from_anndata(adata)
+    artifact.features.add(features)
 
     # check the basic construction of the feature set based on obs
     feature_set_obs = artifact.feature_sets.filter(

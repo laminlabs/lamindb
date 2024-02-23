@@ -232,11 +232,15 @@ def test_create_from_dataframe_using_from_df():
     assert artifact._feature_sets == {}
     with pytest.raises(ValueError):
         artifact.features["columns"]
-    ln.save(ln.Feature.from_df(df))
+    # register features from df columns
+    features = ln.Feature.from_df(df)
+    ln.save(features)
     artifact = ln.Artifact.from_df(df, description=description)
     artifact = ln.Artifact.from_df(
         df, key="folder/hello.parquet", description=description
     )
+    # link features
+    artifact.features.add(features)
     # mere access test right now
     artifact.features["columns"]
     assert artifact.description == description
