@@ -146,8 +146,8 @@ def get_transform_kwargs_from_stem_uid(
 
 MESSAGE = """To track this {transform_type}, set the following two global variables:
 
-ln.settings.stem_uid = "{stem_uid}"
-ln.settings.version = "{version}"
+ln.transform.stem_uid = "{stem_uid}"
+ln.transform.version = "{version}"
 """
 
 
@@ -499,6 +499,15 @@ class run_context:
                     f" https://github.com/laminlabs/nbproject/issues/new\n\n{e}"
                 )
                 raise RuntimeError(nbproject_failed_msg) from None
+
+        if needs_init:
+            if _env in ("lab", "notebook"):
+                cls._notebook_meta = metadata  # type: ignore
+            else:
+                msg = msg_manual_init.format(notebook_path=notebook_path_str)
+                raise UpdateNbWithNonInteractiveEditor(msg)
+
+        if not notebook_path_str.startswith("/fileId="):
             try:
                 from nbproject.dev._metadata_display import DisplayMeta
                 from nbproject.dev._pypackage import infer_pypackages
@@ -511,13 +520,6 @@ class run_context:
             except Exception:
                 logger.debug("inferring imported packages failed")
                 pass
-
-        if needs_init:
-            if _env in ("lab", "notebook"):
-                cls._notebook_meta = metadata  # type: ignore
-            else:
-                msg = msg_manual_init.format(notebook_path=notebook_path_str)
-                raise UpdateNbWithNonInteractiveEditor(msg)
 
         if _env in ("lab", "notebook"):
             # save the notebook in case that title was updated
