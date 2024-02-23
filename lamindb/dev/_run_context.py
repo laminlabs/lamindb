@@ -13,6 +13,7 @@ from lnschema_core import Run, Transform, ids
 from lnschema_core.types import TransformType
 from lnschema_core.users import current_user_id
 
+from lamindb.dev._transform_settings import transform_settings
 from lamindb.dev.versioning import get_uid_from_old_version
 
 from .hashing import to_b64_str
@@ -143,19 +144,24 @@ def get_transform_kwargs_from_stem_uid(
     return transform, new_uid, nbproject_version
 
 
-MESSAGE = """Please add the following two global variables to your notebook:
+MESSAGE = """To track this {transform_type}, set the following two global variables:
 
-ln.settings.stem_uid = {stem_uid}
-ln.settings.version = {version}
+ln.settings.stem_uid = "{stem_uid}"
+ln.settings.version = "{version}"
 """
 
 
-def print_set_transform_message() -> None:
+def print_transform_settings_message() -> None:
     from lnschema_core.ids import base62_12
 
+    transform_type = "notebook" if is_run_from_ipython else "script"
     stem_uid = base62_12()
     version = "1"
-    print(MESSAGE.format(stem_uid=stem_uid, version=version))
+    logger.warning(
+        MESSAGE.format(
+            transform_type=transform_type, stem_uid=stem_uid, version=version
+        )
+    )
 
 
 class run_context:
@@ -223,86 +229,135 @@ class run_context:
             >>> ln.track(transform)
         """
         cls.instance = settings.instance
-        import lamindb as ln
-
+        transform_settings_are_set = (
+            transform_settings.stem_uid is not None
+            and transform_settings.version is not None
+        )
         if transform is None:
-            is_tracked = False
-
-            if ln.transform.stem_uid is None or ln.transform.version is None:
-                print_set_transform_message()
-
-            if is_run_from_ipython:
-                try:
-                    cls._track_notebook(
-                        pypackage=pypackage,
-                        notebook_path=notebook_path,
-                        editor=editor,
+            if transform_settings_are_set:
+                (
+                    transform,
+                    uid,
+                    version,
+                ) = get_transform_kwargs_from_stem_uid(
+                    transform_settings.stem_uid,
+                    transform_settings.version,
+                )
+                if is_run_from_ipython:
+                    import nbproject
+                    from nbproject.dev._jupyter_communicate import (
+                        notebook_path as get_notebook_path,
                     )
-                    # the following will only occur if there is an early
-                    # return in track_notebook(), when it is not save to
-                    # to create a new tracking context
-                    if cls.transform is None:
-                        return None
-                    is_tracked = True
-                except Exception as e:
-                    if isinstance(e, ImportError):
-                        logger.warning(
-                            "it looks like you are running ln.track() from a "
-                            "notebook!\nplease install nbproject: pip install nbproject"
-                        )
-                    elif isinstance(e, UpdateNbWithNonInteractiveEditor):
-                        if (
-                            ln.transform.stem_uid is None
-                            or ln.transform.version is None
-                        ):
-                            print_set_transform_message()
-                            is_tracked = False
-                    elif isinstance(e, (NotebookNotSavedError, NoTitleError)):
-                        raise e
+
+                    if notebook_path is None:
+                        path_env = None
+                        try:
+                            path_env = get_notebook_path(return_env=True)
+                        except Exception:
+                            raise RuntimeError(msg_path_failed) from None
+                        if path_env is None:
+                            raise RuntimeError(msg_path_failed) from None
+                        notebook_path, _ = path_env
                     else:
-                        logger.warning(f"automatic tracking of notebook failed: {e}")
-                        raise e
-                    is_tracked = False
-            else:
-                import inspect
-
-                frame = inspect.stack()[1]
-                module = inspect.getmodule(frame[0])
-                if module is None:
-                    is_tracked = False
+                        notebook_path, _ = notebook_path, editor
+                    short_name = Path(notebook_path).stem
+                    try:
+                        nbproject_title = nbproject.meta.live.title
+                    except IndexError:
+                        raise NotebookNotSavedError(
+                            "The notebook is not saved, please save the notebook and"
+                            " rerun `ln.track()`"
+                        ) from None
+                    if nbproject_title is None:
+                        raise NoTitleError(
+                            "Please add a title to your notebook in a markdown cell: # Title"
+                        ) from None
                 else:
-                    name = Path(module.__file__).stem  # type: ignore
-                    if not hasattr(module, "__transform_stem_uid__"):
-                        raise SystemExit(
-                            "no automated tracking because no uid attached to script!\n"
-                            f"please run: lamin track {module.__file__}"
+                    import inspect
+
+                    frame = inspect.stack()[1]
+                    module = inspect.getmodule(frame[0])
+                    name = Path(module.__file__).name  # type: ignore
+                    short_name = None
+                is_tracked = cls._create_or_load_transform(
+                    uid=uid,
+                    version=version,
+                    name=name,
+                    reference=reference,
+                    transform_type=TransformType.pipeline,
+                    short_name=short_name,
+                    is_interactive=False,  # this needs to go away
+                    filepath=module.__file__,  # type: ignore
+                    transform=transform,
+                )
+            else:
+                is_tracked = False
+                if is_run_from_ipython:
+                    try:
+                        cls._track_notebook(
+                            pypackage=pypackage,
+                            notebook_path=notebook_path,
+                            editor=editor,
                         )
-                    (
-                        transform,
-                        uid,
-                        version,
-                    ) = get_transform_kwargs_from_stem_uid(
-                        module.__transform_stem_uid__,
-                        module.__version__,  # type: ignore
-                    )
-                    short_name = Path(module.__file__).name  # type: ignore
-                    is_tracked = cls._create_or_load_transform(
-                        uid=uid,
-                        version=version,
-                        name=name,
-                        reference=reference,
-                        transform_type=TransformType.pipeline,
-                        short_name=short_name,
-                        is_interactive=False,
-                        filepath=module.__file__,  # type: ignore
-                        transform=transform,
-                    )
+                        # the following will only occur if there is an early
+                        # return in track_notebook(), when it is not save to
+                        # to create a new tracking context
+                        if cls.transform is None:
+                            return None
+                        is_tracked = True
+                    except BaseException as e:
+                        if isinstance(e, ImportError):
+                            logger.warning(
+                                "it looks like you are running ln.track() from a "
+                                "notebook!\nplease install nbproject: pip install nbproject"
+                            )
+                        elif isinstance(e, UpdateNbWithNonInteractiveEditor):
+                            is_tracked = False
+                        elif isinstance(e, (NotebookNotSavedError, NoTitleError)):
+                            raise e
+                        else:
+                            logger.warning(
+                                f"automatic tracking of notebook failed: {e}"
+                            )
+                            raise e
+                        is_tracked = False
+                else:
+                    import inspect
+
+                    frame = inspect.stack()[1]
+                    module = inspect.getmodule(frame[0])
+                    if module is None:
+                        is_tracked = False
+                    else:
+                        name = Path(module.__file__).stem  # type: ignore
+                        if not hasattr(module, "__transform_stem_uid__"):
+                            raise SystemExit(
+                                "no automated tracking because no uid attached to script!\n"
+                                f"please run: lamin track {module.__file__}"
+                            )
+                        (
+                            transform,
+                            uid,
+                            version,
+                        ) = get_transform_kwargs_from_stem_uid(
+                            module.__transform_stem_uid__,
+                            module.__version__,  # type: ignore
+                        )
+                        short_name = Path(module.__file__).name  # type: ignore
+                        is_tracked = cls._create_or_load_transform(
+                            uid=uid,
+                            version=version,
+                            name=name,
+                            reference=reference,
+                            transform_type=TransformType.pipeline,
+                            short_name=short_name,
+                            is_interactive=False,
+                            filepath=module.__file__,  # type: ignore
+                            transform=transform,
+                        )
 
             if not is_tracked:
-                logger.warning(
-                    "no automated tracking (consider manually passing a Transform"
-                    " record)"
-                )
+                print_transform_settings_message()
                 return None
         else:
             transform_exists = None
@@ -323,9 +378,11 @@ class run_context:
             )  # type: ignore
 
         run = None
+        from lamindb._run import Run
+
         if not new_run:  # try loading latest run by same user
             run = (
-                ln.Run.filter(transform=cls.transform, created_by_id=current_user_id())
+                Run.filter(transform=cls.transform, created_by_id=current_user_id())
                 .order_by("-created_at")
                 .first()
             )
@@ -337,7 +394,7 @@ class run_context:
                 logger.important(f"loaded: {run}")
 
         if run is None:  # create new run
-            run = ln.Run(
+            run = Run(
                 transform=cls.transform,
                 reference=reference,
                 reference_type=reference_type,
