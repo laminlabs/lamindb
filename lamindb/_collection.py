@@ -6,8 +6,8 @@ import pandas as pd
 from anndata import AnnData
 from lamin_utils import logger
 from lamindb_setup.dev._docs import doc_args
-from lnschema_core.models import Collection, CollectionArtifact, Feature, FeatureSet
-from lnschema_core.types import AnnDataLike, DataLike, FieldAttr, VisibilityChoice
+from lnschema_core.models import Collection, CollectionArtifact, FeatureSet
+from lnschema_core.types import DataLike, VisibilityChoice
 
 from lamindb._utils import attach_func_to_class_method
 from lamindb.dev._data import _track_run_input
@@ -24,7 +24,6 @@ from .dev._data import (
     save_feature_set_links,
     save_feature_sets,
 )
-from .dev._feature_manager import parse_feature_sets_from_anndata
 from .dev.hashing import hash_set
 
 if TYPE_CHECKING:
