@@ -108,7 +108,6 @@ def __init__(
                 if len(artifact.features._feature_set_by_slot) > 0:
                     logger.info("overwriting feature sets linked to artifact")
         else:
-            log_hint = True if feature_sets is None else False
             artifact_is_new_version_of = (
                 is_new_version_of.artifact if is_new_version_of is not None else None
             )
@@ -116,7 +115,6 @@ def __init__(
                 data,
                 run=run,
                 description="tmp",
-                log_hint=log_hint,
                 version=version,
                 is_new_version_of=artifact_is_new_version_of,
                 accessor=accessor,
