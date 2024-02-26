@@ -1,5 +1,6 @@
 # Changelog
 
+- ⬆️ Update core submodule [PR](https://github.com/laminlabs/lamindb/pull/1453) [@sunnyosun](https://github.com/sunnyosun)
 - 🎨 Decouple features from Artifact construction [PR](https://github.com/laminlabs/lamindb/pull/1434) [@sunnyosun](https://github.com/sunnyosun)
 - ⚡️ A way to improve parallel sampling for Collection.mapped [PR](https://github.com/laminlabs/lamindb/pull/1448) [@Koncopd](https://github.com/Koncopd)
 - ♻️ Draft transform settings [PR](https://github.com/laminlabs/lamindb/pull/1449) [@falexwolf](https://github.com/falexwolf)
