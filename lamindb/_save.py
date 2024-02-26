@@ -133,13 +133,15 @@ def bulk_create(records: Iterable[Registry], ignore_conflicts: Optional[bool] = 
 
 # This is also used within Artifact.save()
 def check_and_attempt_upload(
-    artifact: Artifact, using_key: Optional[str]
+    artifact: Artifact,
+    using_key: Optional[str] = None,
+    access_token: Optional[str] = None,
 ) -> Optional[Exception]:
     # if Artifact object is either newly instantiated or replace() was called on
     # a local env it will have a _local_filepath and needs to be uploaded
     if hasattr(artifact, "_local_filepath"):
         try:
-            upload_artifact(artifact, using_key)
+            upload_artifact(artifact, using_key, access_token=access_token)
         except Exception as exception:
             logger.warning(f"could not upload artifact: {artifact}")
             return exception
@@ -186,7 +188,7 @@ def copy_or_move_to_cache(artifact: Artifact):
 
 # This is also used within Artifact.save()
 def check_and_attempt_clearing(
-    artifact: Artifact, using_key: str
+    artifact: Artifact, using_key: Optional[str] = None
 ) -> Optional[Exception]:
     # this is a clean-up operation after replace() was called
     # this will only evaluate to True if replace() was called
@@ -206,7 +208,9 @@ def check_and_attempt_clearing(
     return None
 
 
-def store_artifacts(artifacts: Iterable[Artifact], using_key: Optional[str]) -> None:
+def store_artifacts(
+    artifacts: Iterable[Artifact], using_key: Optional[str] = None
+) -> None:
     """Upload artifacts in a list of database-committed artifacts to storage.
 
     If any upload fails, subsequent artifacts are cleaned up from the DB.
@@ -258,11 +262,15 @@ def prepare_error_message(records, stored_artifacts, exception) -> str:
     return error_message
 
 
-def upload_artifact(artifact, using_key: Optional[str]) -> None:
+def upload_artifact(
+    artifact, using_key: Optional[str] = None, access_token: Optional[str] = None
+) -> None:
     """Store and add file and its linked entries."""
     # can't currently use  filepath_from_artifact here because it resolves to ._local_filepath
     storage_key = auto_storage_key_from_artifact(artifact)
-    storage_path = attempt_accessing_path(artifact, storage_key, using_key=using_key)
+    storage_path = attempt_accessing_path(
+        artifact, storage_key, using_key=using_key, access_token=access_token
+    )
     msg = f"storing artifact '{artifact.uid}' at '{storage_path}'"
     if (
         artifact.suffix in {".zarr", ".zrad"}

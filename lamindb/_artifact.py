@@ -957,13 +957,16 @@ def _delete_skip_storage(artifact, *args, **kwargs) -> None:
 
 # docstring handled through attach_func_to_class_method
 def save(self, *args, **kwargs) -> None:
+    access_token = kwargs.pop("access_token", None)
+
     self._save_skip_storage(*args, **kwargs)
+
     from lamindb._save import check_and_attempt_clearing, check_and_attempt_upload
 
     using_key = None
     if "using" in kwargs:
         using_key = kwargs["using"]
-    exception = check_and_attempt_upload(self, using_key)
+    exception = check_and_attempt_upload(self, using_key, access_token=access_token)
     if exception is not None:
         self._delete_skip_storage()
         raise RuntimeError(exception)

@@ -51,7 +51,10 @@ def auto_storage_key_from_artifact_uid(uid: str, suffix: str, is_dir: bool) -> s
 
 
 def attempt_accessing_path(
-    artifact: Artifact, storage_key: str, using_key: Optional[str]
+    artifact: Artifact,
+    storage_key: str,
+    using_key: Optional[str] = None,
+    access_token: Optional[str] = None,
 ):
     # check whether the file is in the default db and whether storage
     # matches default storage
@@ -59,7 +62,12 @@ def attempt_accessing_path(
         artifact._state.db in ("default", None)
         and artifact.storage_id == settings._storage_settings.id
     ):
-        path = settings._storage_settings.key_to_filepath(storage_key)
+        if access_token is None:
+            storage_settings = settings._storage_settings
+        else:
+            storage_settings = StorageSettings(
+                settings.storage, access_token=access_token
+            )
     else:
         logger.debug(
             "artifact.path is slightly slower for files outside default storage"
@@ -73,13 +81,13 @@ def attempt_accessing_path(
                 Storage.objects.using(using_key).filter(id=artifact.storage_id).one()
             )
         # find a better way than passing None to instance_settings in the future!
-        storage_settings = StorageSettings(storage.root)
-        path = storage_settings.key_to_filepath(storage_key)
+        storage_settings = StorageSettings(storage.root, access_token=access_token)
+    path = storage_settings.key_to_filepath(storage_key)
     return path
 
 
 # add type annotations back asap when re-organizing the module
-def filepath_from_artifact(artifact: Artifact, using_key: Optional[str]):
+def filepath_from_artifact(artifact: Artifact, using_key: Optional[str] = None):
     if hasattr(artifact, "_local_filepath") and artifact._local_filepath is not None:
         return artifact._local_filepath.resolve()
     storage_key = auto_storage_key_from_artifact(artifact)
