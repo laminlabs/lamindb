@@ -49,20 +49,15 @@ def test_create_delete_from_single_dataframe():
     df = ln.dev.datasets.df_iris_in_meter_study1()
 
     collection = ln.Collection.from_df(df, name="Iris flower collection1")
+    collection.save()
 
     # register features
     ln.save(ln.Feature.from_df(df))
 
-    # won't work with features like so
-    collection = ln.Collection.from_df(df, name="Iris flower collection1")
-
-    # will work like so
-    collection = ln.Collection.from_df(df, name="Iris flower collection1")
+    # link features to collection
     features = ln.Feature.from_df(df)
     collection.features.add(features)
-    assert "columns" in collection._feature_sets
-
-    collection.save()
+    assert collection.features["columns"] is not None
 
     # basics
     assert collection.load().iloc[0].tolist() == df.iloc[0].tolist()
@@ -121,8 +116,7 @@ def test_create_delete_from_single_anndata():
     collection.save()
     collection.describe()
     collection.view_lineage()
-    features = ln.Feature.from_anndata(adata, field=bt.Gene.symbol)
-    collection.features.add(features)
+    collection.features.add_from_anndata(field=bt.Gene.symbol)
     feature_sets_queried = collection.feature_sets.all()
     features_queried = ln.Feature.filter(feature_sets__in=feature_sets_queried).all()
     assert set(features_queried.list("name")) == set(adata.obs.columns)
@@ -165,9 +159,8 @@ def test_from_single_artifact():
     # test data flow
     assert collection.run.input_artifacts.get() == artifact
     # test features
-    features = ln.Feature.from_anndata(adata, field=bt.Gene.symbol)
-    artifact.features.add(features)
-    collection.features.add(features)
+    artifact.features.add_from_anndata(field=bt.Gene.symbol)
+    collection.features.add_from_anndata(field=bt.Gene.symbol)
     assert set(artifact.feature_sets.list("id")) == set(
         collection.artifact.feature_sets.list("id")
     )

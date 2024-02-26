@@ -1,5 +1,5 @@
 from itertools import compress
-from typing import TYPE_CHECKING, Dict, List, Optional, Union
+from typing import TYPE_CHECKING, Dict, Iterable, List, Optional, Union
 
 import anndata as ad
 from anndata import AnnData
@@ -207,24 +207,51 @@ class FeatureManager:
         else:
             return getattr(feature_set, self._accessor_by_orm[orm_name]).all()
 
-    def add(self, features: Union[List[Registry], Dict]):
-        # TODO: check hash of the artifact
-        if isinstance(features, Dict):
-            feature_sets = features
-        else:
-            if (
-                hasattr(self._host, "accessor") and self._host.accessor == "DataFrame"
-            ) or (
-                hasattr(self._host, "artifact")
-                and self._host.artifact.accessor == "DataFrame"
-            ):
-                feature_set = FeatureSet(features=features)
-                feature_sets = {"columns": feature_set}
+    def add(self, features: Iterable[Registry], slot: Optional[str] = None):
+        """Add features stratified by slot."""
+        if (hasattr(self._host, "accessor") and self._host.accessor == "DataFrame") or (
+            hasattr(self._host, "artifact")
+            and self._host.artifact.accessor == "DataFrame"
+        ):
+            slot = "columns" if slot is None else slot
+        self._add_feature_set(feature_set=FeatureSet(features=features), slot=slot)
 
+    def add_from_df(self):
+        """Add features from DataFrame."""
+        if isinstance(self._host, Artifact):
+            assert self._host.accessor == "DataFrame"
+        else:
+            # Collection
+            assert self._host.artifact.accessor == "DataFrame"
+
+        # parse and register features
+        df = self._host.load()
+        features = Feature.from_df(df)
+        save(features)
+
+        # create and link feature sets
+        feature_set = FeatureSet(features=features)
+        feature_sets = {"columns": feature_set}
         self._host._feature_sets = feature_sets
         self._host.save()
 
-    def add_feature_set(self, feature_set: FeatureSet, slot: str):
+    def add_from_anndata(self, field=FieldAttr, **kwargs):
+        """Add features from AnnData."""
+        if isinstance(self._host, Artifact):
+            assert self._host.accessor == "AnnData"
+        else:
+            # Collection
+            assert self._host.artifact.accessor == "AnnData"
+
+        # parse and register features
+        adata = self._host.load()
+        feature_sets = parse_feature_sets_from_anndata(adata, field, **kwargs)
+
+        # link feature sets
+        self._host._feature_sets = feature_sets
+        self._host.save()
+
+    def _add_feature_set(self, feature_set: FeatureSet, slot: str):
         """Add new feature set to a slot.
 
         Args:
@@ -303,4 +330,4 @@ class FeatureManager:
             # TODO: make sure the uid matches if featureset is composed of same features
             # feature_set_self.uid = feature_set.uid
             logger.info(f"saving {slot} featureset: {feature_set_self}")
-            self._host.features.add_feature_set(feature_set_self, slot)
+            self._host.features._add_feature_set(feature_set_self, slot)

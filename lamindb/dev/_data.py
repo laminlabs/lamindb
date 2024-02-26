@@ -334,7 +334,7 @@ def add_labels(
                             f" {old_feature_set}"
                         )
                         old_feature_set.delete()
-                self.features.add_feature_set(feature_set, slot="external")
+                self.features._add_feature_set(feature_set, slot="external")
                 logger.save(
                     f"linked new feature '{feature.name}' together with new feature set"
                     f" {feature_set}"

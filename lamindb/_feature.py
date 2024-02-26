@@ -1,9 +1,8 @@
-from typing import TYPE_CHECKING, Dict, List, Optional, Union
+from typing import Dict, List, Optional, Union
 
 import pandas as pd
 from lamindb_setup.dev._docs import doc_args
 from lnschema_core.models import Feature, Registry
-from lnschema_core.types import FieldAttr
 from pandas.api.types import CategoricalDtype, is_string_dtype
 
 from lamindb._utils import attach_func_to_class_method
@@ -11,9 +10,6 @@ from lamindb.dev._settings import settings
 
 from . import _TESTING
 from ._query_set import RecordsList
-
-if TYPE_CHECKING:
-    from anndata import AnnData
 
 FEATURE_TYPES = {
     "int": "number",
@@ -170,16 +166,6 @@ def from_df(
 #     return feature_sets
 
 
-@classmethod  # type:ignore
-@doc_args(Feature.from_anndata.__doc__)
-def from_anndata(cls, adata: "AnnData", field=FieldAttr, **kwargs):
-    """{}."""
-    from .dev._feature_manager import parse_feature_sets_from_anndata
-
-    feature_sets = parse_feature_sets_from_anndata(adata, field, **kwargs)
-    return feature_sets
-
-
 @doc_args(Feature.save.__doc__)
 def save(self, *args, **kwargs) -> None:
     """{}."""
@@ -189,7 +175,6 @@ def save(self, *args, **kwargs) -> None:
 METHOD_NAMES = [
     "__init__",
     "from_df",
-    "from_anndata",
     "save",
 ]
 
