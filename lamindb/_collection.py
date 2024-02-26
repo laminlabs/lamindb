@@ -1,5 +1,15 @@
 from collections import defaultdict
-from typing import TYPE_CHECKING, Dict, Iterable, List, Literal, Optional, Tuple, Union
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    Dict,
+    Iterable,
+    List,
+    Literal,
+    Optional,
+    Tuple,
+    Union,
+)
 
 import anndata as ad
 import pandas as pd
@@ -15,7 +25,7 @@ from lamindb.dev._mapped_collection import MappedCollection
 from lamindb.dev.versioning import get_uid_from_old_version, init_uid
 
 from . import _TESTING, Artifact, Run
-from ._artifact import _check_accessor
+from ._artifact import data_is_anndata
 from ._query_set import QuerySet
 from ._registry import init_self_from_db
 from .dev._data import (
@@ -28,6 +38,14 @@ from .dev.hashing import hash_set
 
 if TYPE_CHECKING:
     from lamindb.dev.storage._backed_access import AnnDataAccessor, BackedAccessor
+
+
+def _check_accessor_collection(data: Any, accessor: Optional[str] = None):
+    if accessor is None and isinstance(data, (AnnData, pd.DataFrame)):
+        if isinstance(data, pd.DataFrame):
+            raise TypeError("data is a dataframe, please use .from_df()")
+        elif data_is_anndata(data):
+            raise TypeError("data is an AnnData, please use .from_anndata()")
 
 
 def __init__(
@@ -70,7 +88,7 @@ def __init__(
     )
     accessor = kwargs.pop("accessor") if "accessor" in kwargs else None
     if not isinstance(data, (Artifact, Iterable)):
-        _check_accessor(data=data, accessor=accessor)
+        _check_accessor_collection(data=data, accessor=accessor)
     if not len(kwargs) == 0:
         raise ValueError(
             f"Only data, name, run, description, reference, reference_type, visibility can be passed, you passed: {kwargs}"

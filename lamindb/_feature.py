@@ -96,8 +96,8 @@ def categoricals_from_df(df: "pd.DataFrame") -> Dict:
 def from_df(
     cls,
     df: "pd.DataFrame",
-    field: Optional[FieldAttr] = Feature.name,
-    **kwargs,
+    # field: Optional[FieldAttr] = Feature.name,
+    # **kwargs,
 ) -> "RecordsList":
     """{}."""
     categoricals = categoricals_from_df(df)

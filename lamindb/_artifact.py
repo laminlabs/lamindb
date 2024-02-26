@@ -506,7 +506,7 @@ def data_is_mudata(data: DataLike):  # pragma: no cover
     return False
 
 
-def _check_accessor(data: Any, accessor: Optional[str] = None):
+def _check_accessor_artifact(data: Any, accessor: Optional[str] = None):
     if accessor is None and not isinstance(data, (str, Path, UPath)):
         if isinstance(data, pd.DataFrame):
             raise TypeError("data is a dataframe, please use .from_df()")
@@ -560,7 +560,7 @@ def __init__(artifact: Artifact, *args, **kwargs):
         kwargs.pop("using_key") if "using_key" in kwargs else settings._using_key
     )
     accessor = kwargs.pop("accessor") if "accessor" in kwargs else None
-    _check_accessor(data=data, accessor=accessor)
+    _check_accessor_artifact(data=data, accessor=accessor)
     if not len(kwargs) == 0:
         raise ValueError(
             "Only data, key, run, description, version, is_new_version_of, visibility"

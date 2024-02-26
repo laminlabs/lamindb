@@ -173,7 +173,7 @@ def test_add_labels_using_anndata():
     artifact.save()
 
     # link features
-    features = ln.Feature.from_anndata(adata)
+    features = ln.Feature.from_anndata(adata, field=bt.Gene.ensembl_gene_id)
     artifact.features.add(features)
 
     # check the basic construction of the feature set based on obs
@@ -184,6 +184,7 @@ def test_add_labels_using_anndata():
     assert "organism" not in feature_set_obs.features.list("name")
 
     # now, we add organism and run checks
+    features = ln.Feature.lookup()
     with pytest.raises(ln.dev.exceptions.ValidationError):
         artifact.labels.add(organism, feature=features.organism)
     organism.save()

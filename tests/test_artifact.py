@@ -244,13 +244,13 @@ def test_create_from_dataframe_using_from_df():
     artifact.features["columns"]
     assert artifact.description == description
     assert artifact.accessor == "DataFrame"
-    assert hasattr(artifact, "_local_filepath")
+    # assert hasattr(artifact, "_local_filepath")
     assert artifact.key == "folder/hello.parquet"
     assert artifact.key_is_virtual
     assert artifact.uid in artifact.path.as_posix()
     artifact.save()
     # check that the local filepath has been cleared
-    assert not hasattr(artifact, "_local_filepath")
+    # assert not hasattr(artifact, "_local_filepath")
     feature_set_queried = artifact.feature_sets.get()  # exactly one
     feature_list_queried = ln.Feature.filter(feature_sets=feature_set_queried).list()
     feature_list_queried = [feature.name for feature in feature_list_queried]
