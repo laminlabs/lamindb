@@ -506,6 +506,16 @@ def data_is_mudata(data: DataLike):  # pragma: no cover
     return False
 
 
+def _check_accessor(data: Any, accessor: Optional[str] = None):
+    if accessor is None and not isinstance(data, (str, Path, UPath)):
+        if isinstance(data, pd.DataFrame):
+            raise TypeError("data is a dataframe, please use .from_df()")
+        elif data_is_anndata(data):
+            raise TypeError("data is an AnnData, please use .from_anndata()")
+        else:
+            raise TypeError("data has to be a string, Path, UPath")
+
+
 def __init__(artifact: Artifact, *args, **kwargs):
     # Below checks for the Django-internal call in from_db()
     # it'd be better if we could avoid this, but not being able to create a Artifact
@@ -550,13 +560,7 @@ def __init__(artifact: Artifact, *args, **kwargs):
         kwargs.pop("using_key") if "using_key" in kwargs else settings._using_key
     )
     accessor = kwargs.pop("accessor") if "accessor" in kwargs else None
-    if accessor is None and not isinstance(data, (str, Path, UPath)):
-        if isinstance(data, pd.DataFrame):
-            raise TypeError("data is a dataframe, please use .from_df()")
-        elif data_is_anndata(data):
-            raise TypeError("data is an AnnData, please use .from_anndata()")
-        else:
-            raise TypeError("data has to be a string, Path, UPath")
+    _check_accessor(data=data, accessor=accessor)
     if not len(kwargs) == 0:
         raise ValueError(
             "Only data, key, run, description, version, is_new_version_of, visibility"

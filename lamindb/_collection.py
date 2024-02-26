@@ -3,6 +3,7 @@ from typing import TYPE_CHECKING, Dict, Iterable, List, Literal, Optional, Tuple
 
 import anndata as ad
 import pandas as pd
+from anndata import AnnData
 from lamin_utils import logger
 from lamindb_setup.dev._docs import doc_args
 from lnschema_core.models import Collection, CollectionArtifact, Feature, FeatureSet
@@ -14,6 +15,7 @@ from lamindb.dev._mapped_collection import MappedCollection
 from lamindb.dev.versioning import get_uid_from_old_version, init_uid
 
 from . import _TESTING, Artifact, Run
+from ._artifact import _check_accessor
 from ._query_set import QuerySet
 from ._registry import init_self_from_db
 from .dev._data import (
@@ -67,6 +69,8 @@ def __init__(
     feature_sets: Dict[str, FeatureSet] = (
         kwargs.pop("feature_sets") if "feature_sets" in kwargs else {}
     )
+    accessor = kwargs.pop("accessor") if "accessor" in kwargs else None
+    _check_accessor(data=data, accessor=accessor)
     if not len(kwargs) == 0:
         raise ValueError(
             f"Only data, name, run, description, reference, reference_type, visibility can be passed, you passed: {kwargs}"
@@ -114,6 +118,7 @@ def __init__(
                 log_hint=log_hint,
                 version=version,
                 is_new_version_of=artifact_is_new_version_of,
+                accessor=accessor,
             )
             # do we really want to update the artifact here?
             if feature_sets:
@@ -180,7 +185,7 @@ def __init__(
 def from_df(
     cls,
     df: "pd.DataFrame",
-    field: FieldAttr = Feature.name,
+    # field: FieldAttr = Feature.name,
     name: Optional[str] = None,
     description: Optional[str] = None,
     run: Optional[Run] = None,
@@ -191,21 +196,26 @@ def from_df(
     **kwargs,
 ) -> "Collection":
     """{}."""
-    feature_set = FeatureSet.from_df(df, field=field, **kwargs)
-    if feature_set is not None:
-        feature_sets = {"columns": feature_set}
-    else:
-        feature_sets = {}
+    # feature_set = FeatureSet.from_df(df, field=field, **kwargs)
+    # if feature_set is not None:
+    #     feature_sets = {"columns": feature_set}
+    # else:
+    #     feature_sets = {}
+    if isinstance(df, Artifact):
+        assert not df._state.adding
+        assert df.accessor == "DataFrame"
     collection = Collection(
         data=df,
         name=name,
         run=run,
         description=description,
-        feature_sets=feature_sets,
+        # feature_sets=feature_sets,
         reference=reference,
         reference_type=reference_type,
         version=version,
         is_new_version_of=is_new_version_of,
+        accessor="DataFrame",
+        **kwargs,
     )
     return collection
 
@@ -214,8 +224,8 @@ def from_df(
 @doc_args(Collection.from_anndata.__doc__)
 def from_anndata(
     cls,
-    adata: "AnnDataLike",
-    field: Optional[FieldAttr],
+    adata: "AnnData",
+    # field: Optional[FieldAttr],
     name: Optional[str] = None,
     description: Optional[str] = None,
     run: Optional[Run] = None,
@@ -229,20 +239,22 @@ def from_anndata(
     if isinstance(adata, Artifact):
         assert not adata._state.adding
         assert adata.accessor == "AnnData"
-        adata_parse = adata.path
-    else:
-        adata_parse = adata
-    feature_sets = parse_feature_sets_from_anndata(adata_parse, field, **kwargs)
+    #     adata_parse = adata.path
+    # else:
+    #     adata_parse = adata
+    # feature_sets = parse_feature_sets_from_anndata(adata_parse, field, **kwargs)
     collection = Collection(
         data=adata,
         run=run,
         name=name,
         description=description,
-        feature_sets=feature_sets,
+        # feature_sets=feature_sets,
         reference=reference,
         reference_type=reference_type,
         version=version,
         is_new_version_of=is_new_version_of,
+        accessor="AnnData",
+        **kwargs,
     )
     return collection
 
