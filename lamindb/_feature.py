@@ -1,9 +1,8 @@
-from typing import TYPE_CHECKING, Dict, List, Optional, Union
+from typing import Dict, List, Optional, Union
 
 import pandas as pd
 from lamindb_setup.dev._docs import doc_args
 from lnschema_core.models import Feature, Registry
-from lnschema_core.types import FieldAttr
 from pandas.api.types import CategoricalDtype, is_string_dtype
 
 from lamindb._utils import attach_func_to_class_method
@@ -11,9 +10,6 @@ from lamindb.dev._settings import settings
 
 from . import _TESTING
 from ._query_set import RecordsList
-
-if TYPE_CHECKING:
-    from anndata import AnnData
 
 FEATURE_TYPES = {
     "int": "number",

@@ -29,7 +29,7 @@ def test_signatures():
         pass
 
     # class methods
-    class_methods = ["from_df", "from_anndata"]
+    class_methods = ["from_df"]
     for name in class_methods:
         setattr(Mock, name, getattr(_feature, name))
         assert signature(getattr(Mock, name)) == _feature.SIGS.pop(name)
@@ -53,8 +53,7 @@ def test_feature_from_df():
     artifact.save()
     # link features
     artifact.features.add(features)
-    feature_set = artifact._feature_sets["columns"]
-    features = feature_set.features.all()
+    features = artifact.features["columns"]
     assert len(features) == len(df.columns[:4])
     string_cols = [col for col in df.columns if is_string_dtype(df[col])]
     categoricals = {col: df[col] for col in df.columns if is_categorical_dtype(df[col])}
