@@ -26,7 +26,7 @@ def test_local_cache():
     test_file = ln.dev.datasets.anndata_file_pbmc68k_test()
     adata = read_adata_h5ad(test_file)
 
-    artifact = ln.Artifact(adata, key="test_cache.h5ad")
+    artifact = ln.Artifact.from_anndata(adata, key="test_cache.h5ad")
     temp_path = artifact._local_filepath.resolve()
     assert temp_path.exists()
     assert ln.setup.settings.storage.cache_dir in temp_path.parents
@@ -50,7 +50,7 @@ def test_cloud_cache(switch_storage):
     # test cache for saving an in-memory object
     adata = read_adata_h5ad(test_file)
 
-    artifact = ln.Artifact(adata, key="test_cache.h5ad")
+    artifact = ln.Artifact.from_anndata(adata, key="test_cache.h5ad")
     temp_path = artifact._local_filepath.resolve()
     assert cache_dir in temp_path.parents
     artifact.save()

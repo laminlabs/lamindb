@@ -29,7 +29,7 @@ def test_signatures():
         pass
 
     # class methods
-    class_methods = ["from_df"]
+    class_methods = ["from_df", "from_anndata"]
     for name in class_methods:
         setattr(Mock, name, getattr(_feature, name))
         assert signature(getattr(Mock, name)) == _feature.SIGS.pop(name)
@@ -44,13 +44,15 @@ def test_feature_from_df():
     if feat1 is not None:
         feat1.delete()
     artifact = ln.Artifact.from_df(df, description="test")
-    assert artifact._feature_sets == {}
+
     # now, register all 4 features
-    ln.save(ln.Feature.from_df(df.iloc[:, :4]))
+    features = ln.Feature.from_df(df.iloc[:, :4])
+    ln.save(features)
     # try again
     artifact = ln.Artifact.from_df(df, description="test")
-    assert "columns" in artifact._feature_sets
     artifact.save()
+    # link features
+    artifact.features.add(features)
     feature_set = artifact._feature_sets["columns"]
     features = feature_set.features.all()
     assert len(features) == len(df.columns[:4])

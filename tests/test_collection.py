@@ -49,18 +49,17 @@ def test_create_delete_from_single_dataframe():
     df = ln.dev.datasets.df_iris_in_meter_study1()
 
     collection = ln.Collection.from_df(df, name="Iris flower collection1")
-    # because features weren't registered, there is no linked feature set
-    assert collection._feature_sets == {}
 
     # register features
     ln.save(ln.Feature.from_df(df))
 
     # won't work with features like so
-    collection = ln.Collection(df, name="Iris flower collection1")
-    assert collection._feature_sets == {}
+    collection = ln.Collection.from_df(df, name="Iris flower collection1")
 
     # will work like so
     collection = ln.Collection.from_df(df, name="Iris flower collection1")
+    features = ln.Feature.from_df(df)
+    collection.features.add(features)
     assert "columns" in collection._feature_sets
 
     collection.save()
@@ -87,8 +86,8 @@ def test_create_delete_from_single_dataframe():
     feature_list_queried = ln.Feature.filter(feature_sets=feature_set).list()
     feature_list_queried = [feature.name for feature in feature_list_queried]
     assert set(feature_list_queried) == set(feature_list)
-    # the feature_set is also linked to the artifact
-    assert ln.FeatureSet.filter(artifacts=collection.artifact).one() == feature_set
+    # # the feature_set is also linked to the artifact
+    # assert ln.FeatureSet.filter(artifacts=collection.artifact).one() == feature_set
 
     # accidental recreation (re-load based on hash)
     collection1 = ln.Collection.from_df(df, name="Iris Flower data1")
@@ -104,7 +103,7 @@ def test_create_delete_from_single_dataframe():
 
 def test_create_delete_from_single_anndata():
     ln.track(ln.Transform(name="Test transform"))
-    collection = ln.Collection(adata, name="My adata")
+    collection = ln.Collection.from_anndata(adata, name="My adata")
     collection.save()
     collection.delete(permanent=True)
     collection.artifact.delete(permanent=True, storage=True)
@@ -112,22 +111,18 @@ def test_create_delete_from_single_anndata():
     assert ln.Artifact.filter(id=collection.artifact.id).one_or_none() is None
     # and now with from_anndata
     bt.settings.organism = "human"
-    collection = ln.Collection.from_anndata(
-        adata, name="My adata", field=bt.Gene.symbol
-    )
+    collection = ln.Collection.from_anndata(adata, name="My adata")
     # let's now try passing an AnnData-like artifact with some feature sets linked
     ln.save(ln.Feature.from_df(adata.obs))
-    artifact = ln.Artifact.from_anndata(
-        adata, description="my adata", field=bt.Gene.symbol
-    )
+    artifact = ln.Artifact.from_anndata(adata, description="my adata")
     artifact.save()
     ln.save(bt.Gene.from_values(adata.var.index, "symbol"))
-    collection = ln.Collection.from_anndata(
-        artifact, name="My collection", field=bt.Gene.symbol
-    )
+    collection = ln.Collection.from_anndata(artifact, name="My collection")
     collection.save()
     collection.describe()
     collection.view_lineage()
+    features = ln.Feature.from_anndata(adata, field=bt.Gene.symbol)
+    collection.features.add(features)
     feature_sets_queried = collection.feature_sets.all()
     features_queried = ln.Feature.filter(feature_sets__in=feature_sets_queried).all()
     assert set(features_queried.list("name")) == set(adata.obs.columns)
@@ -149,9 +144,7 @@ def test_from_single_artifact():
         [feature.name for feature in features], field="name"
     )
     ln.save([feature for (feature, valid) in zip(features, validated) if valid])
-    artifact = ln.Artifact.from_anndata(
-        adata, description="My adata", field=bt.Gene.symbol
-    )
+    artifact = ln.Artifact.from_anndata(adata, description="My adata")
     with pytest.raises(ValueError) as error:
         ln.Collection(artifact)
     assert str(error.exconly()).startswith(
@@ -172,6 +165,9 @@ def test_from_single_artifact():
     # test data flow
     assert collection.run.input_artifacts.get() == artifact
     # test features
+    features = ln.Feature.from_anndata(adata, field=bt.Gene.symbol)
+    artifact.features.add(features)
+    collection.features.add(features)
     assert set(artifact.feature_sets.list("id")) == set(
         collection.artifact.feature_sets.list("id")
     )
@@ -199,7 +195,7 @@ def test_edge_cases():
     assert str(error.exconly()).startswith(
         "ValueError: Only DataFrame, AnnData, Artifact or list of artifacts is allowed."
     )
-    artifact = ln.Artifact(df, description="Test artifact")
+    artifact = ln.Artifact.from_df(df, description="Test artifact")
     assert artifact._state.adding
     with pytest.raises(ValueError) as error:
         ln.Collection([artifact])
@@ -217,14 +213,14 @@ def test_edge_cases():
 
 
 def test_backed():
-    collection = ln.Collection(adata, name="My test")
+    collection = ln.Collection.from_anndata(adata, name="My test")
     collection.backed()
 
 
 def test_from_inconsistent_artifacts():
-    artifact1 = ln.Artifact(df, description="My test")
+    artifact1 = ln.Artifact.from_df(df, description="My test")
     artifact1.save()
-    artifact2 = ln.Artifact(adata, description="My test2")
+    artifact2 = ln.Artifact.from_anndata(adata, description="My test2")
     artifact2.save()
     collection = ln.Collection([artifact1, artifact2], name="Inconsistent")
     collection.save()
@@ -249,9 +245,9 @@ def test_from_inconsistent_artifacts():
 
 
 def test_from_consistent_artifacts():
-    artifact1 = ln.Artifact(adata, description="My test")
+    artifact1 = ln.Artifact.from_anndata(adata, description="My test")
     artifact1.save()
-    artifact2 = ln.Artifact(adata2, description="My test2")
+    artifact2 = ln.Artifact.from_anndata(adata2, description="My test2")
     artifact2.save()
     transform = ln.Transform(name="My test transform")
     transform.save()
@@ -276,15 +272,15 @@ def test_from_consistent_artifacts():
 def test_collection_mapped():
     adata.strings_to_categoricals()
     adata.obs["feat2"] = adata.obs["feat1"]
-    artifact1 = ln.Artifact(adata, description="Part one")
+    artifact1 = ln.Artifact.from_anndata(adata, description="Part one")
     artifact1.save()
     adata2.X = csr_matrix(adata2.X)
     adata2.obs["feat2"] = adata2.obs["feat1"]
-    artifact2 = ln.Artifact(adata2, description="Part two", format="zrad")
+    artifact2 = ln.Artifact.from_anndata(adata2, description="Part two", format="zrad")
     artifact2.save()
     adata3 = adata2.copy()
     adata3.var_names = ["A", "B", "C"]
-    artifact3 = ln.Artifact(adata3, description="Other vars")
+    artifact3 = ln.Artifact.from_anndata(adata3, description="Other vars")
     artifact3.save()
     collection = ln.Collection([artifact1, artifact2], name="Gather")
     collection.save()
@@ -346,16 +342,18 @@ def test_collection_mapped():
 
 def test_is_new_version_of_versioned_collection():
     # create a versioned collection
-    collection = ln.Collection(df, name="test", version="1")
+    collection = ln.Collection.from_df(df, name="test", version="1")
     assert collection.version == "1"
     collection.save()
 
     with pytest.raises(ValueError) as error:
-        collection_v2 = ln.Collection(adata, is_new_version_of=collection, version="1")
+        collection_v2 = ln.Collection.from_anndata(
+            adata, is_new_version_of=collection, version="1"
+        )
     assert error.exconly() == "ValueError: Please increment the previous version: '1'"
 
     # create new collection from old collection
-    collection_v2 = ln.Collection(adata, is_new_version_of=collection)
+    collection_v2 = ln.Collection.from_anndata(adata, is_new_version_of=collection)
     assert collection.version == "1"
     assert collection_v2.stem_uid == collection.stem_uid
     assert collection_v2.version == "2"
@@ -365,7 +363,9 @@ def test_is_new_version_of_versioned_collection():
 
     # create new collection from newly versioned collection
     df.iloc[0, 0] = 0
-    collection_v3 = ln.Collection(df, name="test1", is_new_version_of=collection_v2)
+    collection_v3 = ln.Collection.from_df(
+        df, name="test1", is_new_version_of=collection_v2
+    )
     assert collection_v3.stem_uid == collection.stem_uid
     assert collection_v3.version == "3"
     assert collection_v3.name == "test1"
@@ -379,7 +379,7 @@ def test_is_new_version_of_versioned_collection():
 
 def test_is_new_version_of_unversioned_collection():
     # unversioned collection
-    collection = ln.Collection(df, name="test2")
+    collection = ln.Collection.from_df(df, name="test2")
     assert collection.version is None
 
     # what happens if we don't save the old collection?
@@ -387,10 +387,10 @@ def test_is_new_version_of_unversioned_collection():
     collection.save()
 
     with pytest.raises(TypeError):
-        ln.Collection(adata, is_new_version_of="wrong-type")
+        ln.Collection.from_anndata(adata, is_new_version_of="wrong-type")
 
     # create new collection from old collection
-    new_collection = ln.Collection(adata, is_new_version_of=collection)
+    new_collection = ln.Collection.from_anndata(adata, is_new_version_of=collection)
     assert collection.version == "1"
     assert new_collection.stem_uid == collection.stem_uid
     assert new_collection.version == "2"

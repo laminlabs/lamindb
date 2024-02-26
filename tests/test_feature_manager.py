@@ -13,7 +13,7 @@ adata.obs.loc["obs0", "cell_type_from_expert"] = "B cell"
 
 def test_labels_add():
     label = ln.ULabel(name="Experiment 1")
-    artifact = ln.Artifact(adata, description="test")
+    artifact = ln.Artifact.from_anndata(adata, description="test")
     artifact.save()
     experiment = ln.Feature(name="experiment", type="category")
     with pytest.raises(ValueError) as error:
@@ -137,10 +137,9 @@ def test_add_labels_using_anndata():
     ln.FeatureSet.filter().all().delete()
 
     # try to construct without registering metadata features
-    artifact = ln.Artifact.from_anndata(
-        adata, description="Mini adata", field=bt.Gene.ensembl_gene_id
-    )
-    assert "obs" not in artifact._feature_sets
+    artifact = ln.Artifact.from_anndata(adata, description="Mini adata")
+    feature_sets = ln.Feature.from_anndata(adata, field=bt.Gene.ensembl_gene_id)
+    assert "obs" not in feature_sets
     # add feature set without saving file
     feature_name_feature = ln.Feature(
         name="feature name", type="category", registries="core.ULabel"
@@ -162,9 +161,7 @@ def test_add_labels_using_anndata():
             adata.obs[["cell_type", "tissue", "cell_type_from_expert", "disease"]]
         )
     )
-    artifact = ln.Artifact.from_anndata(
-        adata, description="Mini adata", field=bt.Gene.ensembl_gene_id
-    )
+    artifact = ln.Artifact.from_anndata(adata, description="Mini adata")
     ln.Feature(name="organism", type="category", registries="bionty.Organism").save()
     features = ln.Feature.lookup()
     with pytest.raises(ValueError) as error:
@@ -175,6 +172,10 @@ def test_add_labels_using_anndata():
     )
     artifact.save()
 
+    # link features
+    features = ln.Feature.from_anndata(adata, field=bt.Gene.ensembl_gene_id)
+    artifact.features.add(features)
+
     # check the basic construction of the feature set based on obs
     feature_set_obs = artifact.feature_sets.filter(
         registry="core.Feature", artifactfeatureset__slot="obs"
@@ -183,6 +184,7 @@ def test_add_labels_using_anndata():
     assert "organism" not in feature_set_obs.features.list("name")
 
     # now, we add organism and run checks
+    features = ln.Feature.lookup()
     with pytest.raises(ln.dev.exceptions.ValidationError):
         artifact.labels.add(organism, feature=features.organism)
     organism.save()

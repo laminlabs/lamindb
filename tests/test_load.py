@@ -14,7 +14,7 @@ def test_load_anndata():
     assert local_filepath == artifact.stage()
 
     adata = ad.read(local_filepath)
-    artifact = ln.Artifact(adata, description="test")
+    artifact = ln.Artifact.from_anndata(adata, description="test")
     assert artifact._memory_rep is adata
     assert artifact.load() is adata
     assert artifact._local_filepath.resolve() == artifact.stage() == artifact.path

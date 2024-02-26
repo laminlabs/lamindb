@@ -1,9 +1,7 @@
 from pathlib import Path, PurePath, PurePosixPath
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple, Union
 
-import anndata as ad
 import fsspec
-import lamindb_setup
 import pandas as pd
 from anndata import AnnData
 from lamin_utils import colors, logger
@@ -12,12 +10,10 @@ from lamindb_setup._init_instance import register_storage
 from lamindb_setup.dev import StorageSettings
 from lamindb_setup.dev._docs import doc_args
 from lamindb_setup.dev.upath import create_path, extract_suffix_from_path
-from lnschema_core import Artifact, Feature, FeatureSet, Run, Storage
+from lnschema_core import Artifact, Run, Storage
 from lnschema_core.models import IsTree
 from lnschema_core.types import (
-    AnnDataLike,
     DataLike,
-    FieldAttr,
     PathLike,
     VisibilityChoice,
 )
@@ -43,7 +39,6 @@ from lamindb.dev.storage.file import (
 from lamindb.dev.versioning import get_uid_from_old_version, init_uid
 
 from . import _TESTING
-from ._feature import convert_numpy_dtype_to_lamin_feature_type
 from .dev._data import (
     add_transform_to_kwargs,
     get_run,
@@ -511,6 +506,16 @@ def data_is_mudata(data: DataLike):  # pragma: no cover
     return False
 
 
+def _check_accessor_artifact(data: Any, accessor: Optional[str] = None):
+    if accessor is None and not isinstance(data, (str, Path, UPath)):
+        if isinstance(data, pd.DataFrame):
+            raise TypeError("data is a dataframe, please use .from_df()")
+        elif data_is_anndata(data):
+            raise TypeError("data is an AnnData, please use .from_anndata()")
+        else:
+            raise TypeError("data has to be a string, Path, UPath")
+
+
 def __init__(artifact: Artifact, *args, **kwargs):
     # Below checks for the Django-internal call in from_db()
     # it'd be better if we could avoid this, but not being able to create a Artifact
@@ -526,7 +531,8 @@ def __init__(artifact: Artifact, *args, **kwargs):
     # now we proceed with the user-facing constructor
     if len(args) > 1:
         raise ValueError("Only one non-keyword arg allowed: data")
-    data: Union[PathLike, DataLike] = kwargs.pop("data") if len(args) == 0 else args[0]
+
+    data: Union[str, Path] = kwargs.pop("data") if len(args) == 0 else args[0]
     key: Optional[str] = kwargs.pop("key") if "key" in kwargs else None
     run: Optional[Run] = kwargs.pop("run") if "run" in kwargs else None
     description: Optional[str] = (
@@ -542,7 +548,6 @@ def __init__(artifact: Artifact, *args, **kwargs):
         else VisibilityChoice.default.value
     )
     format = kwargs.pop("format") if "format" in kwargs else None
-    log_hint = kwargs.pop("log_hint") if "log_hint" in kwargs else True
     skip_check_exists = (
         kwargs.pop("skip_check_exists") if "skip_check_exists" in kwargs else False
     )
@@ -554,6 +559,8 @@ def __init__(artifact: Artifact, *args, **kwargs):
     using_key = (
         kwargs.pop("using_key") if "using_key" in kwargs else settings._using_key
     )
+    accessor = kwargs.pop("accessor") if "accessor" in kwargs else None
+    _check_accessor_artifact(data=data, accessor=accessor)
     if not len(kwargs) == 0:
         raise ValueError(
             "Only data, key, run, description, version, is_new_version_of, visibility"
@@ -591,27 +598,11 @@ def __init__(artifact: Artifact, *args, **kwargs):
     else:
         kwargs = kwargs_or_artifact
 
-    if isinstance(data, pd.DataFrame):
-        if log_hint:
-            logger.hint(
-                "data is a dataframe, consider using .from_df() to link column"
-                " names as features"
-            )
-        kwargs["accessor"] = "DataFrame"
-    elif data_is_anndata(data):
-        if log_hint:
-            logger.hint(
-                "data is AnnDataLike, consider using .from_anndata() to link"
-                " var_names and obs.columns as features"
-            )
-        kwargs["accessor"] = "AnnData"
-    elif data_is_mudata(data):
-        kwargs["accessor"] = "MuData"
-
     kwargs["uid"] = provisional_uid
     kwargs["version"] = version
     kwargs["description"] = description
     kwargs["visibility"] = visibility
+    kwargs["accessor"] = accessor
     # this check needs to come down here because key might be populated from an
     # existing file path during get_artifact_kwargs_from_data()
     if (
@@ -637,7 +628,6 @@ def __init__(artifact: Artifact, *args, **kwargs):
 def from_df(
     cls,
     df: "pd.DataFrame",
-    field: FieldAttr = Feature.name,
     key: Optional[str] = None,
     description: Optional[str] = None,
     run: Optional[Run] = None,
@@ -653,67 +643,22 @@ def from_df(
         description=description,
         version=version,
         is_new_version_of=is_new_version_of,
-        log_hint=False,
-    )
-    feature_set = FeatureSet.from_df(df, field=field, **kwargs)
-    if feature_set is not None:
-        artifact._feature_sets = {"columns": feature_set}
-    else:
-        artifact._feature_sets = {}
-    return artifact
-
-
-def parse_feature_sets_from_anndata(
-    adata: AnnDataLike,
-    field: Optional[FieldAttr],
-    **kwargs,
-):
-    data_parse = adata
-    if not isinstance(adata, AnnData):  # is a path
-        filepath = create_path(adata)  # returns Path for local
-        if not isinstance(filepath, LocalPathClasses):
-            from lamindb.dev.storage._backed_access import backed_access
-
-            using_key = settings._using_key
-            data_parse = backed_access(filepath, using_key)
-        else:
-            data_parse = ad.read(filepath, backed="r")
-        type = "float"
-    else:
-        type = convert_numpy_dtype_to_lamin_feature_type(adata.X.dtype)
-    feature_sets = {}
-    logger.info("parsing feature names of X stored in slot 'var'")
-    logger.indent = "   "
-    feature_set_var = FeatureSet.from_values(
-        data_parse.var.index,
-        field,
-        type=type,
+        accessor="DataFrame",
         **kwargs,
     )
-    if feature_set_var is not None:
-        feature_sets["var"] = feature_set_var
-        logger.save(f"linked: {feature_set_var}")
-    logger.indent = ""
-    if len(data_parse.obs.columns) > 0:
-        logger.info("parsing feature names of slot 'obs'")
-        logger.indent = "   "
-        feature_set_obs = FeatureSet.from_df(
-            data_parse.obs,
-            **kwargs,
-        )
-        if feature_set_obs is not None:
-            feature_sets["obs"] = feature_set_obs
-            logger.save(f"linked: {feature_set_obs}")
-        logger.indent = ""
-    return feature_sets
+    # feature_set = FeatureSet.from_df(df, field=field, **kwargs)
+    # if feature_set is not None:
+    #     artifact._feature_sets = {"columns": feature_set}
+    # else:
+    #     artifact._feature_sets = {}
+    return artifact
 
 
 @classmethod  # type: ignore
 @doc_args(Artifact.from_anndata.__doc__)
 def from_anndata(
     cls,
-    adata: "AnnDataLike",
-    field: Optional[FieldAttr],
+    adata: "AnnData",
     key: Optional[str] = None,
     description: Optional[str] = None,
     run: Optional[Run] = None,
@@ -729,9 +674,10 @@ def from_anndata(
         description=description,
         version=version,
         is_new_version_of=is_new_version_of,
-        log_hint=False,
+        accessor="AnnData",
+        **kwargs,
     )
-    artifact._feature_sets = parse_feature_sets_from_anndata(adata, field, **kwargs)
+    # artifact._feature_sets = parse_feature_sets_from_anndata(adata, field, **kwargs)
     return artifact
 
 
