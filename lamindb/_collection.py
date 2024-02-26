@@ -70,7 +70,8 @@ def __init__(
         kwargs.pop("feature_sets") if "feature_sets" in kwargs else {}
     )
     accessor = kwargs.pop("accessor") if "accessor" in kwargs else None
-    _check_accessor(data=data, accessor=accessor)
+    if not isinstance(data, (Artifact, Iterable)):
+        _check_accessor(data=data, accessor=accessor)
     if not len(kwargs) == 0:
         raise ValueError(
             f"Only data, name, run, description, reference, reference_type, visibility can be passed, you passed: {kwargs}"
