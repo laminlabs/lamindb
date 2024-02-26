@@ -57,7 +57,7 @@ def test_create_delete_from_single_dataframe():
     # link features to collection
     features = ln.Feature.from_df(df)
     collection.features.add(features)
-    assert "columns" in collection._feature_sets
+    assert collection.features["columns"] is not None
 
     # basics
     assert collection.load().iloc[0].tolist() == df.iloc[0].tolist()
