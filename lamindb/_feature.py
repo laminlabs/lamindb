@@ -170,16 +170,6 @@ def from_df(
 #     return feature_sets
 
 
-@classmethod  # type:ignore
-@doc_args(Feature.from_anndata.__doc__)
-def from_anndata(cls, adata: "AnnData", field=FieldAttr, **kwargs):
-    """{}."""
-    from .dev._feature_manager import parse_feature_sets_from_anndata
-
-    feature_sets = parse_feature_sets_from_anndata(adata, field, **kwargs)
-    return feature_sets
-
-
 @doc_args(Feature.save.__doc__)
 def save(self, *args, **kwargs) -> None:
     """{}."""
@@ -189,7 +179,6 @@ def save(self, *args, **kwargs) -> None:
 METHOD_NAMES = [
     "__init__",
     "from_df",
-    "from_anndata",
     "save",
 ]
 
