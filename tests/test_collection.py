@@ -53,10 +53,7 @@ def test_create_delete_from_single_dataframe():
     # register features
     ln.save(ln.Feature.from_df(df))
 
-    # won't work with features like so
-    collection = ln.Collection.from_df(df, name="Iris flower collection1")
-
-    # will work like so
+    # link features to collection
     collection = ln.Collection.from_df(df, name="Iris flower collection1")
     features = ln.Feature.from_df(df)
     collection.features.add(features)
