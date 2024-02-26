@@ -633,6 +633,7 @@ def from_df(
     run: Optional[Run] = None,
     version: Optional[str] = None,
     is_new_version_of: Optional["Artifact"] = None,
+    **kwargs,
 ) -> "Artifact":
     """{}."""
     artifact = Artifact(
@@ -643,6 +644,7 @@ def from_df(
         version=version,
         is_new_version_of=is_new_version_of,
         accessor="DataFrame",
+        **kwargs,
     )
     # feature_set = FeatureSet.from_df(df, field=field, **kwargs)
     # if feature_set is not None:
@@ -662,6 +664,7 @@ def from_anndata(
     run: Optional[Run] = None,
     version: Optional[str] = None,
     is_new_version_of: Optional["Artifact"] = None,
+    **kwargs,
 ) -> "Artifact":
     """{}."""
     artifact = Artifact(
@@ -672,6 +675,7 @@ def from_anndata(
         version=version,
         is_new_version_of=is_new_version_of,
         accessor="AnnData",
+        **kwargs,
     )
     # artifact._feature_sets = parse_feature_sets_from_anndata(adata, field, **kwargs)
     return artifact
