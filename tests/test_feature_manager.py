@@ -138,8 +138,6 @@ def test_add_labels_using_anndata():
 
     # try to construct without registering metadata features
     artifact = ln.Artifact.from_anndata(adata, description="Mini adata")
-    feature_sets = ln.Feature.from_anndata(adata, field=bt.Gene.ensembl_gene_id)
-    assert "obs" not in feature_sets
     # add feature set without saving file
     feature_name_feature = ln.Feature(
         name="feature name", type="category", registries="core.ULabel"
@@ -147,7 +145,7 @@ def test_add_labels_using_anndata():
     feature_name_feature.save()
     feature_set = ln.FeatureSet(features=[feature_name_feature])
     with pytest.raises(ValueError) as error:
-        artifact.features.add_feature_set(feature_set, slot="random")
+        artifact.features._add_feature_set(feature_set, slot="random")
     assert (
         error.exconly()
         == "ValueError: Please save the artifact or collection before adding a feature"
@@ -173,8 +171,7 @@ def test_add_labels_using_anndata():
     artifact.save()
 
     # link features
-    features = ln.Feature.from_anndata(adata, field=bt.Gene.ensembl_gene_id)
-    artifact.features.add(features)
+    artifact.features.add_from_anndata(field=bt.Gene.ensembl_gene_id)
 
     # check the basic construction of the feature set based on obs
     feature_set_obs = artifact.feature_sets.filter(
@@ -323,7 +320,7 @@ def test_labels_get():
     feature_set.save()
     artifact.save()
     assert str(artifact.features) == "no linked features"
-    artifact.features.add_feature_set(feature_set, slot="random")
+    artifact.features._add_feature_set(feature_set, slot="random")
     assert artifact.feature_sets["random"] == feature_set
     artifact.delete(permanent=True, storage=True)
     feature_set.delete()
