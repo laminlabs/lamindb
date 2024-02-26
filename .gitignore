@@ -24,6 +24,7 @@ lamin_sphinx
 docs/conf.py
 *.db
 *.lndb
+*.jpg
 *.zarr/
 lamindb/setup/.env
 _secrets.py

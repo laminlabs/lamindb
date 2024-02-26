@@ -212,7 +212,12 @@ class FeatureManager:
         if isinstance(features, Dict):
             feature_sets = features
         else:
-            if self._host.accessor == "DataFrame":
+            if (
+                hasattr(self._host, "accessor") and self._host.accessor == "DataFrame"
+            ) or (
+                hasattr(self._host, "artifact")
+                and self._host.artifact.accessor == "DataFrame"
+            ):
                 feature_set = FeatureSet(features=features)
                 feature_sets = {"columns": feature_set}
 
