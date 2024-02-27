@@ -3,6 +3,7 @@ from typing import Dict, List, Optional, Union
 import pandas as pd
 from lamindb_setup.dev._docs import doc_args
 from lnschema_core.models import Feature, Registry
+from lnschema_core.types import FieldAttr
 from pandas.api.types import CategoricalDtype, is_string_dtype
 
 from lamindb._utils import attach_func_to_class_method
@@ -90,12 +91,10 @@ def categoricals_from_df(df: "pd.DataFrame") -> Dict:
 @classmethod  # type:ignore
 @doc_args(Feature.from_df.__doc__)
 def from_df(
-    cls,
-    df: "pd.DataFrame",
-    # field: Optional[FieldAttr] = Feature.name,
-    # **kwargs,
+    cls, df: "pd.DataFrame", field: Optional[FieldAttr] = None
 ) -> "RecordsList":
     """{}."""
+    field = Feature.name if field is None else field
     categoricals = categoricals_from_df(df)
 
     types = {}
@@ -121,6 +120,9 @@ def from_df(
     # silence the info "loaded record with exact same name "
     verbosity = settings.verbosity
     settings.verbosity = "warning"
+
+    registry = field.field.model
+    assert registry == Feature
     # create records for all features including non-validated
     features = [Feature(name=name, type=type) for name, type in types.items()]
     settings.verbosity = verbosity

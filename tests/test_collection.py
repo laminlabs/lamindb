@@ -116,7 +116,7 @@ def test_create_delete_from_single_anndata():
     collection.save()
     collection.describe()
     collection.view_lineage()
-    collection.features.add_from_anndata(field=bt.Gene.symbol)
+    collection.features.add_from_anndata(var_field=bt.Gene.symbol)
     feature_sets_queried = collection.feature_sets.all()
     features_queried = ln.Feature.filter(feature_sets__in=feature_sets_queried).all()
     assert set(features_queried.list("name")) == set(adata.obs.columns)
@@ -159,8 +159,8 @@ def test_from_single_artifact():
     # test data flow
     assert collection.run.input_artifacts.get() == artifact
     # test features
-    artifact.features.add_from_anndata(field=bt.Gene.symbol)
-    collection.features.add_from_anndata(field=bt.Gene.symbol)
+    artifact.features.add_from_anndata(var_field=bt.Gene.symbol)
+    collection.features.add_from_anndata(var_field=bt.Gene.symbol)
     assert set(artifact.feature_sets.list("id")) == set(
         collection.artifact.feature_sets.list("id")
     )
