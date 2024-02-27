@@ -38,6 +38,28 @@ class NoTitleError(Exception):
     pass
 
 
+def get_uid_ext(version: str) -> str:
+    from lamin_utils._base62 import encodebytes
+
+    # merely zero-padding the nbproject version such that the base62 encoding is
+    # at least 4 characters long doesn't yields sufficiently diverse hashes and
+    # leads to collisions; it'd be nice because the uid_ext would be ordered
+    return encodebytes(hashlib.md5(version.encode()).digest())[:4]
+
+
+def get_transform_kwargs_from_stem_uid(
+    stem_uid: str,
+    version: str,
+) -> Tuple[Optional[Transform], str, str]:
+    uid_ext = get_uid_ext(version)
+    new_uid = stem_uid + uid_ext
+    assert len(new_uid) == 16
+    transform = Transform.filter(
+        uid__startswith=stem_uid, version=version
+    ).one_or_none()
+    return transform, new_uid, version
+
+
 def get_stem_uid_and_version_from_file(file_path: str) -> Tuple[str, str]:
     with open(file_path) as file:
         content = file.read()
@@ -66,14 +88,8 @@ def update_transform_source(
     bump_version: bool = False,
 ) -> (bool, str, str):  # type:ignore
     stem_uid, version = get_stem_uid_and_version_from_file(filepath)
-    import hashlib
 
-    from lamin_utils._base62 import encodebytes
-
-    # the following line is duplicated with get_transform_kwargs_from_stem_uid
-    # in lamindb - we should move it, e.g., to lamin-utils
-    # it also occurs a few lines below
-    uid_ext = encodebytes(hashlib.md5(version.encode()).digest())[:4]
+    uid_ext = get_uid_ext(version)
     # it simply looks better here to not use the logger because we won't have an
     # emoji also for the subsequent input question
     print(
@@ -111,11 +127,6 @@ def update_transform_source(
             new_version = response
         updated = new_version != version
     if updated:
-        display_info = (
-            f"version='{new_version}'" if bump_version else f"stem_uid='{new_stem_uid}'"
-        )
-        new_uid_ext = encodebytes(hashlib.md5(new_version.encode()).digest())[:4]
-        display_info += f" (uid='{new_stem_uid}{new_uid_ext}')"
         new_metadata = (
             f'ln.transform.stem_uid = "{new_stem_uid}"\nln.transform.version ='
             f' "{new_version}"\n'
@@ -156,24 +167,6 @@ def get_notebook_name_colab() -> str:
         )
         name = "Notebook.ipynb"
     return name.rstrip(".ipynb")
-
-
-def get_transform_kwargs_from_stem_uid(
-    nbproject_id: str,
-    nbproject_version: str,
-) -> Tuple[Optional[Transform], str, str]:
-    from lamin_utils._base62 import encodebytes
-
-    # merely zero-padding the nbproject version such that the base62 encoding is at
-    # least 4 characters long does yield sufficiently diverse hashes within 4 characters
-    # it'd be nice because the uid_ext would be ordered, but it leads to collisions
-    uid_ext = encodebytes(hashlib.md5(nbproject_version.encode()).digest())[:4]
-    new_uid = nbproject_id + uid_ext
-    assert len(new_uid) == 16
-    transform = Transform.filter(
-        uid__startswith=nbproject_id, version=nbproject_version
-    ).one_or_none()
-    return transform, new_uid, nbproject_version
 
 
 MESSAGE = """To track this {transform_type}, set the following two global variables:

@@ -30,7 +30,7 @@ def test_track_notebook_colab():
     notebook_path = "/fileId=1KskciVXleoTeS_OGoJasXZJreDU9La_l"
     # pretend we're running from ipython
     ln.dev._run_context.is_run_from_ipython = True
-    ln.dev.run_context._track(notebook_path=notebook_path)
+    ln.dev.run_context._track(path=notebook_path)
     ln.dev._run_context.is_run_from_ipython = False
 
 
