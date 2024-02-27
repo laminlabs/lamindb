@@ -91,9 +91,10 @@ def categoricals_from_df(df: "pd.DataFrame") -> Dict:
 @classmethod  # type:ignore
 @doc_args(Feature.from_df.__doc__)
 def from_df(
-    cls, df: "pd.DataFrame", field: FieldAttr = "Feature.name"
+    cls, df: "pd.DataFrame", field: Optional[FieldAttr] = None
 ) -> "RecordsList":
     """{}."""
+    field = Feature.name if field is None else field
     categoricals = categoricals_from_df(df)
 
     types = {}
