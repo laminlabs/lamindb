@@ -183,7 +183,7 @@ def raise_transform_settings_error() -> None:
     stem_uid = base62_12()
     version = "1"
 
-    # overwrite with nbproject_id from legacy notebooks
+    # backward compat: use the nbproject_id
     if is_run_from_ipython:
         from nbproject.dev import (
             MetaContainer,
