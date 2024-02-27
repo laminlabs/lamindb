@@ -1,5 +1,6 @@
 # Changelog
 
+- ♻️ Refactor features [PR](https://github.com/laminlabs/lamindb/pull/1463) [@sunnyosun](https://github.com/sunnyosun)
 - ✨ Rework Collection.mapped [PR](https://github.com/laminlabs/lamindb/pull/1460) [@Koncopd](https://github.com/Koncopd)
 - 🔊 Raise warning instead of error for artifact construction from df an… [PR](https://github.com/laminlabs/lamindb/pull/1461) [@sunnyosun](https://github.com/sunnyosun)
 - 🎨 Use `var_field` for `AnnData` [PR](https://github.com/laminlabs/lamindb/pull/1458) [@sunnyosun](https://github.com/sunnyosun)
