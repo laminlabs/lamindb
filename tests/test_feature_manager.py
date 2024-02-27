@@ -171,7 +171,7 @@ def test_add_labels_using_anndata():
     artifact.save()
 
     # link features
-    artifact.features.add_from_anndata(field=bt.Gene.ensembl_gene_id)
+    artifact.features.add_from_anndata(var_field=bt.Gene.ensembl_gene_id)
 
     # check the basic construction of the feature set based on obs
     feature_set_obs = artifact.feature_sets.filter(

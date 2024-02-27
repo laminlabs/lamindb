@@ -90,12 +90,7 @@ def categoricals_from_df(df: "pd.DataFrame") -> Dict:
 
 @classmethod  # type:ignore
 @doc_args(Feature.from_df.__doc__)
-def from_df(
-    cls,
-    df: "pd.DataFrame",
-    # field: FieldAttr = Feature.name,
-    # **kwargs,
-) -> "RecordsList":
+def from_df(cls, df: "pd.DataFrame", field: FieldAttr = Feature.name) -> "RecordsList":
     """{}."""
     categoricals = categoricals_from_df(df)
 
@@ -123,6 +118,8 @@ def from_df(
     verbosity = settings.verbosity
     settings.verbosity = "warning"
 
+    registry = field.field.model
+    assert registry == Feature
     # create records for all features including non-validated
     features = [Feature(name=name, type=type) for name, type in types.items()]
     settings.verbosity = verbosity
