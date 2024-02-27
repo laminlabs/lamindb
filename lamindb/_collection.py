@@ -43,9 +43,12 @@ if TYPE_CHECKING:
 def _check_accessor_collection(data: Any, accessor: Optional[str] = None):
     if accessor is None and isinstance(data, (AnnData, pd.DataFrame)):
         if isinstance(data, pd.DataFrame):
-            raise TypeError("data is a dataframe, please use .from_df()")
+            logger.warning("data is a DataFrame, please use .from_df()")
+            accessor = "DataFrame"
         elif data_is_anndata(data):
-            raise TypeError("data is an AnnData, please use .from_anndata()")
+            logger.warning("data is an AnnData, please use .from_anndata()")
+            accessor = "AnnData"
+    return accessor
 
 
 def __init__(
@@ -88,7 +91,7 @@ def __init__(
     )
     accessor = kwargs.pop("accessor") if "accessor" in kwargs else None
     if not isinstance(data, (Artifact, Iterable)):
-        _check_accessor_collection(data=data, accessor=accessor)
+        accessor = _check_accessor_collection(data=data, accessor=accessor)
     if not len(kwargs) == 0:
         raise ValueError(
             f"Only data, name, run, description, reference, reference_type, visibility can be passed, you passed: {kwargs}"
