@@ -1,5 +1,6 @@
 # Changelog
 
+- 🔊 Raise warning instead of error for artifact construction from df an… [PR](https://github.com/laminlabs/lamindb/pull/1461) [@sunnyosun](https://github.com/sunnyosun)
 - 🎨 Use `var_field` for `AnnData` [PR](https://github.com/laminlabs/lamindb/pull/1458) [@sunnyosun](https://github.com/sunnyosun)
 - ⬆️ Update core submodule [PR](https://github.com/laminlabs/lamindb/pull/1459) [@sunnyosun](https://github.com/sunnyosun)
 - 🚸 Simplify features linking [PR](https://github.com/laminlabs/lamindb/pull/1455) [@sunnyosun](https://github.com/sunnyosun)
