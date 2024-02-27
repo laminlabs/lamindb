@@ -224,33 +224,29 @@ def test_create_from_dataframe():
     artifact.delete(permanent=True, storage=True)
 
 
-def test_create_from_dataframe_using_from_df():
+def test_create_from_dataframe_using_from_df_and_link_features():
     description = "my description"
     artifact = ln.Artifact.from_df(
         df, key="folder/hello.parquet", description=description
     )
     with pytest.raises(ValueError):
         artifact.features["columns"]
-    # register features from df columns
-    features = ln.Feature.from_df(df)
-    ln.save(features)
     artifact = ln.Artifact.from_df(df, description=description)
-    artifact = ln.Artifact.from_df(
-        df, key="folder/hello.parquet", description=description
-    )
+    # backward compatibility for ln.Artifact to take a DataFrame
+    artifact = ln.Artifact(df, key="folder/hello.parquet", description=description)
     assert artifact.description == description
     assert artifact.accessor == "DataFrame"
-    # assert hasattr(artifact, "_local_filepath")
     assert artifact.key == "folder/hello.parquet"
     assert artifact.key_is_virtual
     assert artifact.uid in artifact.path.as_posix()
     artifact.save()
+    # register features from df columns
+    features = ln.Feature.from_df(df)
+    ln.save(features)
     # link features
-    artifact.features.add(features)
+    artifact.features.add_from_df()
     # mere access test right now
     artifact.features["columns"]
-    # check that the local filepath has been cleared
-    # assert not hasattr(artifact, "_local_filepath")
     feature_set_queried = artifact.feature_sets.get()  # exactly one
     feature_list_queried = ln.Feature.filter(feature_sets=feature_set_queried).list()
     feature_list_queried = [feature.name for feature in feature_list_queried]
@@ -260,8 +256,8 @@ def test_create_from_dataframe_using_from_df():
     ln.Feature.filter(name__in=["feat1", "feat2"]).delete()
 
 
-def test_create_from_anndata_in_memory():
-    # ln.save(bt.Gene.from_values(adata.var.index, "symbol"))
+def test_create_from_anndata_in_memory_and_link_features():
+    ln.save(bt.Gene.from_values(adata.var.index, field="symbol", organism="human"))
     ln.save(ln.Feature.from_df(adata.obs))
     artifact = ln.Artifact.from_anndata(adata, description="test")
     assert artifact.accessor == "AnnData"
@@ -269,14 +265,16 @@ def test_create_from_anndata_in_memory():
     artifact.save()
     # check that the local filepath has been cleared
     assert not hasattr(artifact, "_local_filepath")
-    # feature_sets_queried = artifact.feature_sets.all()
-    # features_queried = ln.Feature.filter(feature_sets__in=feature_sets_queried).all()
-    # assert set(features_queried.list("name")) == set(adata.obs.columns)
-    # genes_queried = bt.Gene.filter(feature_sets__in=feature_sets_queried).all()
-    # assert set(genes_queried.list("symbol")) == set(adata.var.index)
-    # feature_sets_queried.delete()
-    # features_queried.delete()
-    # genes_queried.delete()
+    # link features
+    artifact.features.add_from_anndata(var_field="symbol", organism="human")
+    feature_sets_queried = artifact.feature_sets.all()
+    features_queried = ln.Feature.filter(feature_sets__in=feature_sets_queried).all()
+    assert set(features_queried.list("name")) == set(adata.obs.columns)
+    genes_queried = bt.Gene.filter(feature_sets__in=feature_sets_queried).all()
+    assert set(genes_queried.list("symbol")) == set(adata.var.index)
+    feature_sets_queried.delete()
+    features_queried.delete()
+    genes_queried.delete()
     artifact.delete(permanent=True, storage=True)
 
 
