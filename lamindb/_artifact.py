@@ -649,11 +649,6 @@ def from_df(
         accessor="DataFrame",
         **kwargs,
     )
-    # feature_set = FeatureSet.from_df(df, field=field, **kwargs)
-    # if feature_set is not None:
-    #     artifact._feature_sets = {"columns": feature_set}
-    # else:
-    #     artifact._feature_sets = {}
     return artifact
 
 
@@ -680,7 +675,6 @@ def from_anndata(
         accessor="AnnData",
         **kwargs,
     )
-    # artifact._feature_sets = parse_feature_sets_from_anndata(adata, field, **kwargs)
     return artifact
 
 

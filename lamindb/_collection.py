@@ -204,7 +204,6 @@ def __init__(
 def from_df(
     cls,
     df: "pd.DataFrame",
-    # field: FieldAttr = Feature.name,
     name: Optional[str] = None,
     description: Optional[str] = None,
     run: Optional[Run] = None,
@@ -215,11 +214,6 @@ def from_df(
     **kwargs,
 ) -> "Collection":
     """{}."""
-    # feature_set = FeatureSet.from_df(df, field=field, **kwargs)
-    # if feature_set is not None:
-    #     feature_sets = {"columns": feature_set}
-    # else:
-    #     feature_sets = {}
     if isinstance(df, Artifact):
         assert not df._state.adding
         assert df.accessor == "DataFrame"
@@ -228,7 +222,6 @@ def from_df(
         name=name,
         run=run,
         description=description,
-        # feature_sets=feature_sets,
         reference=reference,
         reference_type=reference_type,
         version=version,
@@ -244,7 +237,6 @@ def from_df(
 def from_anndata(
     cls,
     adata: "AnnData",
-    # field: Optional[FieldAttr],
     name: Optional[str] = None,
     description: Optional[str] = None,
     run: Optional[Run] = None,
@@ -258,16 +250,11 @@ def from_anndata(
     if isinstance(adata, Artifact):
         assert not adata._state.adding
         assert adata.accessor == "AnnData"
-    #     adata_parse = adata.path
-    # else:
-    #     adata_parse = adata
-    # feature_sets = parse_feature_sets_from_anndata(adata_parse, field, **kwargs)
     collection = Collection(
         data=adata,
         run=run,
         name=name,
         description=description,
-        # feature_sets=feature_sets,
         reference=reference,
         reference_type=reference_type,
         version=version,

@@ -175,7 +175,8 @@ def from_values(
         logger.debug("setting feature set to 'number'")
     validated = registry.validate(values, field=field, organism=kwargs.get("organism"))
     if validated.sum() == 0:
-        logger.warning("no validated features, skip creating feature set")
+        if kwargs.get("mute") is True:
+            logger.warning("no validated features, skip creating feature set")
         return None
     validated_values = np.array(values)[validated]
     validated_features = registry.from_values(validated_values, field=field, **kwargs)
@@ -200,7 +201,8 @@ def from_df(
     registry = field.field.model
     validated = registry.validate(df.columns, field=field, **kwargs)
     if validated.sum() == 0:
-        logger.warning("no validated features, skip creating feature set")
+        if kwargs.get("mute") is True:
+            logger.warning("no validated features, skip creating feature set")
         return None
     if registry == Feature:
         validated_features = Feature.from_df(df.loc[:, validated])
