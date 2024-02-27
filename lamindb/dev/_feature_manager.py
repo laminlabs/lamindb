@@ -1,5 +1,5 @@
 from itertools import compress
-from typing import TYPE_CHECKING, Dict, Iterable, List, Optional, Union
+from typing import Dict, Iterable, Optional, Union
 
 import anndata as ad
 from anndata import AnnData
@@ -21,9 +21,6 @@ from lamindb._save import save
 from lamindb.dev.storage import LocalPathClasses
 
 from ._settings import settings
-
-if TYPE_CHECKING:
-    import pandas as pd
 
 
 def get_host_id_field(host: Union[Artifact, Collection]) -> str:
@@ -131,7 +128,8 @@ def print_features(self: Data) -> str:
 
 def parse_feature_sets_from_anndata(
     adata: AnnDataLike,
-    field: Optional[FieldAttr],
+    var_field: FieldAttr,
+    obs_field: FieldAttr = Feature.name,
     **kwargs,
 ) -> Dict:
     data_parse = adata
@@ -152,7 +150,7 @@ def parse_feature_sets_from_anndata(
     logger.indent = "   "
     feature_set_var = FeatureSet.from_values(
         data_parse.var.index,
-        field,
+        var_field,
         type=type,
         **kwargs,
     )
@@ -164,7 +162,8 @@ def parse_feature_sets_from_anndata(
         logger.info("parsing feature names of slot 'obs'")
         logger.indent = "   "
         feature_set_obs = FeatureSet.from_df(
-            data_parse.obs,
+            df=data_parse.obs,
+            field=obs_field,
             **kwargs,
         )
         if feature_set_obs is not None:
@@ -235,7 +234,12 @@ class FeatureManager:
         self._host._feature_sets = feature_sets
         self._host.save()
 
-    def add_from_anndata(self, field=FieldAttr, **kwargs):
+    def add_from_anndata(
+        self,
+        var_field: FieldAttr,
+        obs_field: Optional[FieldAttr] = Feature.name,
+        **kwargs,
+    ):
         """Add features from AnnData."""
         if isinstance(self._host, Artifact):
             assert self._host.accessor == "AnnData"
@@ -245,7 +249,9 @@ class FeatureManager:
 
         # parse and register features
         adata = self._host.load()
-        feature_sets = parse_feature_sets_from_anndata(adata, field, **kwargs)
+        feature_sets = parse_feature_sets_from_anndata(
+            adata, var_field=var_field, obs_field=obs_field, **kwargs
+        )
 
         # link feature sets
         self._host._feature_sets = feature_sets
