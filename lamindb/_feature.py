@@ -122,7 +122,8 @@ def from_df(
     settings.verbosity = "warning"
 
     registry = field.field.model
-    assert registry == Feature
+    if registry != Feature:
+        raise ValueError("field must be a Feature FieldAttr!")
     # create records for all features including non-validated
     features = [Feature(name=name, type=type) for name, type in types.items()]
     settings.verbosity = verbosity

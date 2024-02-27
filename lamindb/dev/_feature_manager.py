@@ -158,6 +158,8 @@ def parse_feature_sets_from_anndata(
         feature_sets["var"] = feature_set_var
         logger.save(f"linked: {feature_set_var}")
     logger.indent = ""
+    if feature_set_var is None:
+        logger.warning("skip linking features to artifact in slot 'var'")
     if len(data_parse.obs.columns) > 0:
         logger.info("parsing feature names of slot 'obs'")
         logger.indent = "   "
@@ -170,6 +172,8 @@ def parse_feature_sets_from_anndata(
             feature_sets["obs"] = feature_set_obs
             logger.save(f"linked: {feature_set_obs}")
         logger.indent = ""
+        if feature_set_obs is None:
+            logger.warning("skip linking features to artifact in slot 'obs'")
     return feature_sets
 
 
@@ -225,8 +229,12 @@ class FeatureManager:
 
         # parse and register features
         df = self._host.load()
-        features = Feature.from_df(df)
-        save(features)
+        features = Feature.from_values(df.columns)
+        if len(features) == 0:
+            logger.error(
+                "no validated features found in DataFrame! please register features first:\n   → features = Feature.from_df(df)\n   → ln.save(features)"
+            )
+            return
 
         # create and link feature sets
         feature_set = FeatureSet(features=features)
