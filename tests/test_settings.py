@@ -4,10 +4,7 @@ import lamindb as ln
 
 
 def test_settings_switch_storage():
-    assert (
-        ln.settings.storage.resolve().as_posix()
-        == Path("./default_storage").resolve().as_posix()
-    )
+    assert ln.settings.storage.resolve() == Path("./default_storage").resolve()
     ln.settings.storage = "s3://lamindb-ci"
     assert ln.setup.settings.storage.is_cloud
     assert ln.setup.settings.storage.root_as_str == "s3://lamindb-ci"
