@@ -2,6 +2,7 @@ import builtins
 import hashlib
 import os
 import re
+import sys
 from datetime import datetime, timezone
 from pathlib import Path, PurePath
 from typing import Any, Dict, List, Optional, Tuple, Union
@@ -61,11 +62,24 @@ def get_transform_kwargs_from_stem_uid(
 
 
 def get_stem_uid_and_version_from_file(file_path: str) -> Tuple[str, str]:
+    # line-by-line matching might be faster, but let's go with this for now
     with open(file_path) as file:
         content = file.read()
 
-    stem_uid_pattern = re.compile(r'.transform.stem_uid\s*=\s*["\']([^"\']+)["\']')
-    version_pattern = re.compile(r'.transform.version\s*=\s*["\']([^"\']+)["\']')
+    if file_path.endswith(".py"):
+        stem_uid_pattern = re.compile(
+            r'\.transform\.stem_uid\s*=\s*["\']([^"\']+)["\']'
+        )
+        version_pattern = re.compile(r'\.transform\.version\s*=\s*["\']([^"\']+)["\']')
+    elif file_path.endswith(".ipynb"):
+        stem_uid_pattern = re.compile(
+            r'\.transform\.stem_uid\s*=\s*\\["\']([^"\']+)\\["\']'
+        )
+        version_pattern = re.compile(
+            r'\.transform\.version\s*=\s*\\["\']([^"\']+)\\["\']'
+        )
+    else:
+        raise ValueError("Only .py and .ipynb files are supported.")
 
     # Search for matches in the entire file content
     stem_uid_match = stem_uid_pattern.search(content)
@@ -75,10 +89,16 @@ def get_stem_uid_and_version_from_file(file_path: str) -> Tuple[str, str]:
     stem_uid = stem_uid_match.group(1) if stem_uid_match else None
     version = version_match.group(1) if version_match else None
 
+    print(stem_uid_match)
+    print(stem_uid)
+
     if stem_uid is None or version is None:
-        raise ValueError(
-            f"Did not find ln.transform.stem_uid and ln.transform.version in file {file_path}"
+        logger.error(
+            f"ln.transform.stem_uid and ln.transform.version aren't set in {file_path}\n"
+            "Call ln.track() and copy/paste the output into the notebook"
         )
+        # we're not using `raise SystemExit` here to have the right return code on the CLI
+        sys.exit(1)
     return stem_uid, version
 
 
