@@ -89,9 +89,6 @@ def get_stem_uid_and_version_from_file(file_path: str) -> Tuple[str, str]:
     stem_uid = stem_uid_match.group(1) if stem_uid_match else None
     version = version_match.group(1) if version_match else None
 
-    print(stem_uid_match)
-    print(stem_uid)
-
     if stem_uid is None or version is None:
         logger.error(
             f"ln.transform.stem_uid and ln.transform.version aren't set in {file_path}\n"
@@ -154,6 +151,7 @@ def update_transform_source(
         logger.important(
             f"Please update your transform settings as follows:\n{new_metadata}"
         )
+        sys.exit(1)
     return updated, new_stem_uid, new_version
 
 
