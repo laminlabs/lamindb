@@ -28,30 +28,27 @@ def test_track_with_reference():
 
 def test_track_notebook_colab():
     notebook_path = "/fileId=1KskciVXleoTeS_OGoJasXZJreDU9La_l"
-    # pretend we're running from ipython
-    ln.dev._run_context.is_run_from_ipython = True
-    ln.dev.run_context._track(path=notebook_path)
-    ln.dev._run_context.is_run_from_ipython = False
+    ln.dev.run_context._track_notebook(path=notebook_path)
 
 
-def test_track_from_nbproject():
-    title = "nbproject title"
+def test_get_transform_kwargs_from_stem_uid():
+    title = "title"
     transform, uid, version = get_transform_kwargs_from_stem_uid(
-        nbproject_id="NJvdsWWbJlZS",
-        nbproject_version="0",
+        stem_uid="NJvdsWWbJlZS",
+        version="0",
     )
     assert transform is None
     assert uid == "NJvdsWWbJlZS6K79"
     assert version == "0"
     ln.Transform(uid=uid, version=version, name=title).save()
     transform, uid, version = get_transform_kwargs_from_stem_uid(
-        nbproject_id="NJvdsWWbJlZS",
-        nbproject_version="0",
+        stem_uid="NJvdsWWbJlZS",
+        version="0",
     )
     assert transform is not None
     transform, uid, version = get_transform_kwargs_from_stem_uid(
-        nbproject_id="NJvdsWWbJlZS",
-        nbproject_version="1",
+        stem_uid="NJvdsWWbJlZS",
+        version="1",
     )
     assert transform is None
     assert uid.startswith("NJvdsWWbJlZS")

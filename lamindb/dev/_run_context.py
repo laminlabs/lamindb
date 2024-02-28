@@ -163,9 +163,9 @@ def get_notebook_name_colab() -> str:
         name = get(f"http://{ip}:9000/api/sessions").json()[0]["name"]
     except Exception:
         logger.warning(
-            "could not get notebook name from Google Colab, using: Notebook.ipynb"
+            "could not get notebook name from Google Colab, using: notebook.ipynb"
         )
-        name = "Notebook.ipynb"
+        name = "notebook.ipynb"
     return name.rstrip(".ipynb")
 
 
@@ -380,6 +380,7 @@ class run_context:
             raise RuntimeError("Please rename your notebook before tracking it")
         if path_str.startswith("/fileId="):
             short_name = get_notebook_name_colab()
+            name = short_name
         else:
             import nbproject
 
