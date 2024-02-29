@@ -118,6 +118,8 @@ if _INSTANCE_SETUP:
         _validate,
         core,
     )
+
+    dev = core  # backward compat
     from ._save import save
     from ._view import view
     from .core._run_context import run_context
