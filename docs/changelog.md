@@ -1,5 +1,6 @@
 # Changelog
 
+- 📝 Simplify intro [PR](https://github.com/laminlabs/lamindb/pull/1466) [@sunnyosun](https://github.com/sunnyosun)
 - 🔈 Better logging for update version dialogue [PR](https://github.com/laminlabs/lamindb/pull/1465) [@falexwolf](https://github.com/falexwolf)
 - 🚚 Rename `.dev` to `.core` [PR](https://github.com/laminlabs/lamindb/pull/1464) [@falexwolf](https://github.com/falexwolf)
 - 🔥 Remove `lamin track` [PR](https://github.com/laminlabs/lamindb/pull/1462) [@falexwolf](https://github.com/falexwolf)
