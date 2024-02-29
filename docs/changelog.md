@@ -1,5 +1,6 @@
 # Changelog
 
+- 🐛 Fix `lamin stage` [PR](https://github.com/laminlabs/lamindb/pull/1467) [@falexwolf](https://github.com/falexwolf)
 - 📝 Simplify intro [PR](https://github.com/laminlabs/lamindb/pull/1466) [@sunnyosun](https://github.com/sunnyosun)
 - 🔈 Better logging for update version dialogue [PR](https://github.com/laminlabs/lamindb/pull/1465) [@falexwolf](https://github.com/falexwolf)
 - 🚚 Rename `.dev` to `.core` [PR](https://github.com/laminlabs/lamindb/pull/1464) [@falexwolf](https://github.com/falexwolf)
