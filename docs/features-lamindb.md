@@ -1,6 +1,6 @@
 **Access data & metadata across storage (files, arrays) & database (SQL) backends.**
 
-- Query & search: {class}`~lamindb.dev.Registry.filter`, {class}`~lamindb.dev.Registry.search`
+- Query & search: {class}`~lamindb.core.Registry.filter`, {class}`~lamindb.core.Registry.search`
 - Stage, load or stream artifacts: {class}`~lamindb.Artifact.stage`, {class}`~lamindb.Artifact.load`, {class}`~lamindb.Artifact.backed`
 - Model data using {class}`~lamindb.Feature`, {class}`~lamindb.FeatureSet`, {class}`~lamindb.ULabel`
 - Plug-in custom [schemas](/schemas) & manage schema migrations
@@ -20,10 +20,10 @@
 - {class}`~bionty.ExperimentalFactor`, {class}`~bionty.CellType`, {class}`~bionty.CellLine`, {class}`~bionty.Tissue`, ...
 - Safeguards against typos & duplications
 
-**Validate, standardize & annotate data using registries: {class}`~lamindb.dev.CanValidate.validate` & {class}`~lamindb.dev.CanValidate.standardize`.**
+**Validate, standardize & annotate data using registries: {class}`~lamindb.core.CanValidate.validate` & {class}`~lamindb.core.CanValidate.standardize`.**
 
-- Inspect validation failures: {class}`~lamindb.dev.CanValidate.inspect`
-- Annotate with untyped or typed labels: {class}`~lamindb.dev.LabelManager.add`
+- Inspect validation failures: {class}`~lamindb.core.CanValidate.inspect`
+- Annotate with untyped or typed labels: {class}`~lamindb.core.LabelManager.add`
 - Save data & metadata ACID: {class}`~lamindb.Artifact.save`
 
 **Organize and share data across a mesh of LaminDB instances.**

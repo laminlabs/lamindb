@@ -46,7 +46,7 @@ def test_signatures():
 
 
 def test_create_delete_from_single_dataframe():
-    df = ln.dev.datasets.df_iris_in_meter_study1()
+    df = ln.core.datasets.df_iris_in_meter_study1()
 
     collection = ln.Collection.from_df(df, name="Iris flower collection1")
     collection.save()
@@ -127,8 +127,8 @@ def test_create_delete_from_single_anndata():
     genes_queried.delete()
     collection.delete(permanent=True)
     collection.artifact.delete(permanent=True, storage=True)
-    ln.dev.run_context.run = None
-    ln.dev.run_context.transform = None
+    ln.core.run_context.run = None
+    ln.core.run_context.transform = None
 
 
 def test_from_single_artifact():
@@ -223,7 +223,7 @@ def test_from_inconsistent_artifacts():
     ln.track(ln.Transform(name="My test transform"))
     # can iterate over them
     artifacts = collection.artifacts.all()  # noqa
-    assert set(ln.dev.run_context.run.input_collections.all()) == {collection}
+    assert set(ln.core.run_context.run.input_collections.all()) == {collection}
     # loading will throw an error here
     with pytest.raises(RuntimeError) as error:
         collection.load()
@@ -233,8 +233,8 @@ def test_from_inconsistent_artifacts():
     artifact1.delete(permanent=True, storage=True)
     artifact2.delete(permanent=True, storage=True)
     collection.delete(permanent=True)
-    ln.dev.run_context.run = None
-    ln.dev.run_context.transform = None
+    ln.core.run_context.run = None
+    ln.core.run_context.transform = None
 
 
 def test_from_consistent_artifacts():

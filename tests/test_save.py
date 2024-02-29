@@ -4,7 +4,7 @@ from lamindb._save import prepare_error_message, store_artifacts
 
 
 def test_prepare_error_message():
-    ln.dev.datasets.file_mini_csv()
+    ln.core.datasets.file_mini_csv()
     artifact = ln.Artifact("mini.csv", description="test")
     exception = Exception("exception")
 
@@ -20,7 +20,7 @@ def test_prepare_error_message():
 def test_zarr_upload_data_object():
     import anndata as ad
 
-    ln.dev.datasets.file_mini_csv()
+    ln.core.datasets.file_mini_csv()
     artifact = ln.Artifact("mini.csv", description="test")
 
     artifact.suffix = ".zarr"
@@ -30,7 +30,7 @@ def test_zarr_upload_data_object():
 
 
 def test_store_artifacts_acid():
-    ln.dev.datasets.file_mini_csv()
+    ln.core.datasets.file_mini_csv()
     artifact = ln.Artifact("mini.csv", description="test")
     artifact._clear_storagekey = "test.csv"
 

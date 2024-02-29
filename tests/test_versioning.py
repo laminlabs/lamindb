@@ -2,7 +2,7 @@ import lamindb as ln
 import pandas as pd
 import pytest
 from lamindb import UPath
-from lamindb.dev.versioning import get_new_path_from_uid, set_version
+from lamindb.core.versioning import get_new_path_from_uid, set_version
 
 df1 = pd.DataFrame({"feat1": [1, 2]})
 df2 = pd.DataFrame({"feat1": [2, 3]})

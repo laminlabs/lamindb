@@ -1,7 +1,7 @@
 import base64
 from pathlib import Path
 
-from lamindb.dev.hashing import b16_to_b64, hash_file, to_b64_str
+from lamindb.core.hashing import b16_to_b64, hash_file, to_b64_str
 
 
 def test_compute_hash():

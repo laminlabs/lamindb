@@ -19,10 +19,10 @@ from lnschema_core.types import (
 )
 
 from lamindb._utils import attach_func_to_class_method
-from lamindb.dev._data import _track_run_input
-from lamindb.dev._settings import settings
-from lamindb.dev.hashing import b16_to_b64, hash_file, hash_md5s_from_dir
-from lamindb.dev.storage import (
+from lamindb.core._data import _track_run_input
+from lamindb.core._settings import settings
+from lamindb.core.hashing import b16_to_b64, hash_file, hash_md5s_from_dir
+from lamindb.core.storage import (
     LocalPathClasses,
     UPath,
     delete_storage,
@@ -31,24 +31,24 @@ from lamindb.dev.storage import (
     size_adata,
     write_to_file,
 )
-from lamindb.dev.storage.file import (
+from lamindb.core.storage.file import (
     auto_storage_key_from_artifact,
     auto_storage_key_from_artifact_uid,
     filepath_from_artifact,
 )
-from lamindb.dev.versioning import get_uid_from_old_version, init_uid
+from lamindb.core.versioning import get_uid_from_old_version, init_uid
 
 from . import _TESTING
-from .dev._data import (
+from .core._data import (
     add_transform_to_kwargs,
     get_run,
     save_feature_set_links,
     save_feature_sets,
 )
-from .dev.storage.file import AUTO_KEY_PREFIX
+from .core.storage.file import AUTO_KEY_PREFIX
 
 if TYPE_CHECKING:
-    from lamindb.dev.storage._backed_access import AnnDataAccessor, BackedAccessor
+    from lamindb.core.storage._backed_access import AnnDataAccessor, BackedAccessor
 
 
 def process_pathlike(
@@ -854,7 +854,7 @@ def backed(
             f" {', '.join(suffixes)}."
         )
 
-    from lamindb.dev.storage._backed_access import backed_access
+    from lamindb.core.storage._backed_access import backed_access
 
     _track_run_input(self, is_run_input)
     using_key = settings._using_key
@@ -993,7 +993,7 @@ def view_tree(
     max_files_per_dir_per_type: int = 7,
 ) -> None:
     """{}."""
-    from lamindb.dev._view_tree import view_tree as _view_tree
+    from lamindb.core._view_tree import view_tree as _view_tree
 
     _view_tree(
         cls=cls,

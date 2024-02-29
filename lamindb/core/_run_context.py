@@ -14,7 +14,7 @@ from lnschema_core import Run, Transform, ids
 from lnschema_core.types import TransformType
 from lnschema_core.users import current_user_id
 
-from lamindb.dev._transform_settings import transform_settings
+from lamindb.core._transform_settings import transform_settings
 
 is_run_from_ipython = getattr(builtins, "__IPYTHON__", False)
 
@@ -99,7 +99,7 @@ def get_stem_uid_and_version_from_file(file_path: str) -> Tuple[str, str]:
     return stem_uid, version
 
 
-# also see lamindb.dev._run_context.reinitialize_notebook for related code
+# also see lamindb.core._run_context.reinitialize_notebook for related code
 def update_transform_source(
     filepath: str,
     bump_version: bool = False,
@@ -250,7 +250,7 @@ class run_context:
         """Track global `Transform` & `Run` for a notebook or pipeline.
 
         Creates or loads a :class:`~lamindb.Run` record and sets a global
-        :class:`~lamindb.dev.run_context`.
+        :class:`~lamindb.core.run_context`.
 
         In a Jupyter notebook, call without any argument (metadata is parsed).
         If the notebook has no associated metadata ("is not initialized"),
@@ -259,7 +259,7 @@ class run_context:
 
         Args:
             transform: Can be of type `"pipeline"` or `"notebook"`
-                (:class:`~lamindb.dev.types.TransformType`).
+                (:class:`~lamindb.core.types.TransformType`).
             new_run: If `False`, loads latest run of transform
                 (default notebook), if True, creates new run (default pipeline).
             reference: Reference to pass to :class:`~lamindb.Run` record.

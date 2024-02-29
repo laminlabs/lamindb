@@ -18,7 +18,7 @@ from lamindb._registry import (
     transfer_to_default_db,
 )
 from lamindb._save import save
-from lamindb.dev.storage import LocalPathClasses
+from lamindb.core.storage import LocalPathClasses
 
 from ._settings import settings
 
@@ -136,7 +136,7 @@ def parse_feature_sets_from_anndata(
     if not isinstance(adata, AnnData):  # is a path
         filepath = create_path(adata)  # returns Path for local
         if not isinstance(filepath, LocalPathClasses):
-            from lamindb.dev.storage._backed_access import backed_access
+            from lamindb.core.storage._backed_access import backed_access
 
             using_key = settings._using_key
             data_parse = backed_access(filepath, using_key)
@@ -178,9 +178,9 @@ def parse_feature_sets_from_anndata(
 
 
 class FeatureManager:
-    """Feature manager (:attr:`~lamindb.dev.Data.features`).
+    """Feature manager (:attr:`~lamindb.core.Data.features`).
 
-    See :class:`~lamindb.dev.Data` for more information.
+    See :class:`~lamindb.core.Data` for more information.
     """
 
     def __init__(self, host: Union[Artifact, Collection]):

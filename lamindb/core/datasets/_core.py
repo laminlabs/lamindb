@@ -8,7 +8,7 @@ import pandas as pd
 from lnschema_core import ids
 from upath import UPath
 
-from lamindb.dev._settings import settings
+from lamindb.core._settings import settings
 
 
 def file_fcs() -> Path:
@@ -260,7 +260,7 @@ def anndata_file_pbmc68k_test() -> Path:
 
     To reproduce::
 
-        pbmc68k = ln.dev.datasets.anndata_pbmc68k_reduced()
+        pbmc68k = ln.core.datasets.anndata_pbmc68k_reduced()
         pbmc68k_test = pbmc68k[:30, :200].copy()
         pbmc68k_test.raw = pbmc68k_test[:, :100]
         pbmc68k_test.obsp["test"] = sparse.eye(pbmc68k_test.shape[0], format="csr")

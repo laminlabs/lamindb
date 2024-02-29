@@ -20,24 +20,24 @@ from lnschema_core.models import Collection, CollectionArtifact, FeatureSet
 from lnschema_core.types import DataLike, VisibilityChoice
 
 from lamindb._utils import attach_func_to_class_method
-from lamindb.dev._data import _track_run_input
-from lamindb.dev._mapped_collection import MappedCollection
-from lamindb.dev.versioning import get_uid_from_old_version, init_uid
+from lamindb.core._data import _track_run_input
+from lamindb.core._mapped_collection import MappedCollection
+from lamindb.core.versioning import get_uid_from_old_version, init_uid
 
 from . import _TESTING, Artifact, Run
 from ._artifact import data_is_anndata
 from ._query_set import QuerySet
 from ._registry import init_self_from_db
-from .dev._data import (
+from .core._data import (
     add_transform_to_kwargs,
     get_run,
     save_feature_set_links,
     save_feature_sets,
 )
-from .dev.hashing import hash_set
+from .core.hashing import hash_set
 
 if TYPE_CHECKING:
-    from lamindb.dev.storage._backed_access import AnnDataAccessor, BackedAccessor
+    from lamindb.core.storage._backed_access import AnnDataAccessor, BackedAccessor
 
 
 def _check_accessor_collection(data: Any, accessor: Optional[str] = None):

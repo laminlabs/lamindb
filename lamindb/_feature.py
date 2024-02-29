@@ -7,7 +7,7 @@ from lnschema_core.types import FieldAttr
 from pandas.api.types import CategoricalDtype, is_string_dtype
 
 from lamindb._utils import attach_func_to_class_method
-from lamindb.dev._settings import settings
+from lamindb.core._settings import settings
 
 from . import _TESTING
 from ._query_set import RecordsList

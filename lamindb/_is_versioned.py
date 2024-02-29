@@ -7,7 +7,7 @@ from lnschema_core.models import IsVersioned
 from lamindb._utils import attach_func_to_class_method
 
 from . import _TESTING
-from .dev.versioning import get_new_path_from_uid, get_uid_from_old_version
+from .core.versioning import get_new_path_from_uid, get_uid_from_old_version
 
 
 # docstring handled through attach_func_to_class_method

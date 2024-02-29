@@ -13,8 +13,8 @@ from lamin_utils import logger
 from lamindb_setup.dev.upath import print_hook
 from lnschema_core.models import Artifact, Registry
 
-from lamindb.dev._settings import settings
-from lamindb.dev.storage.file import (
+from lamindb.core._settings import settings
+from lamindb.core.storage.file import (
     attempt_accessing_path,
     auto_storage_key_from_artifact,
     delete_storage_using_key,
@@ -22,7 +22,7 @@ from lamindb.dev.storage.file import (
 )
 
 try:
-    from lamindb.dev.storage._zarr import write_adata_zarr
+    from lamindb.core.storage._zarr import write_adata_zarr
 except ImportError:
 
     def write_adata_zarr(filepath):  # type: ignore
@@ -44,7 +44,7 @@ def save(
         existing records! Use ``record.save()`` for these use cases.
 
     Args:
-        records: Multiple :class:`~lamindb.dev.Registry` objects.
+        records: Multiple :class:`~lamindb.core.Registry` objects.
         ignore_conflicts: If ``True``, do not error if some records violate a
            unique or another constraint. However, it won't inplace update the id
            fields of records. If you need records with ids, you need to query

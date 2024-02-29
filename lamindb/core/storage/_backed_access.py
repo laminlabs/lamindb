@@ -22,7 +22,7 @@ from lamindb_setup.dev.upath import UPath, create_mapper, infer_filesystem
 from lnschema_core import Artifact
 from packaging import version
 
-from lamindb.dev.storage.file import filepath_from_artifact
+from lamindb.core.storage.file import filepath_from_artifact
 
 anndata_version_parse = version.parse(anndata_version)
 

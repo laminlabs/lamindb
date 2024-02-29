@@ -6,7 +6,7 @@ import lamindb as ln
 def test_load_anndata():
     import anndata as ad
 
-    local_filepath = ln.dev.datasets.anndata_file_pbmc68k_test().resolve()
+    local_filepath = ln.core.datasets.anndata_file_pbmc68k_test().resolve()
 
     artifact = ln.Artifact(local_filepath, description="test")
     assert local_filepath == artifact._local_filepath
