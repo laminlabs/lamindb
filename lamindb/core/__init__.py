@@ -1,4 +1,4 @@
-"""Developer API.
+"""Core library.
 
 The registry base class:
 
