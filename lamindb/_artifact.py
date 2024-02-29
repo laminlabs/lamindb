@@ -113,7 +113,12 @@ def process_data(
     """Serialize a data object that's provided as file or in memory."""
     # if not overwritten, data gets stored in default storage
     if isinstance(data, (str, Path, UPath)):  # PathLike, spelled out
-        path = create_path(data)
+        access_token = (
+            default_storage._access_token
+            if hasattr(default_storage, "_access_token")
+            else None
+        )
+        path = create_path(data, access_token=access_token)
         storage, use_existing_storage_key = process_pathlike(
             path,
             default_storage=default_storage,
