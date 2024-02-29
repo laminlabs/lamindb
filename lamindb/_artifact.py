@@ -71,7 +71,10 @@ def process_pathlike(
     else:
         # check whether the path is part of one of the existing
         # already-registered storage locations
-        result = check_path_in_existing_storage(filepath, using_key)
+        result = False
+        # within the hub, we don't want to perform check_path_in_existing_storage
+        if using_key is None:
+            result = check_path_in_existing_storage(filepath, using_key)
         if isinstance(result, Storage):
             use_existing_storage_key = True
             return result, use_existing_storage_key
