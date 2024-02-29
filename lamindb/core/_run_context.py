@@ -107,16 +107,16 @@ def update_transform_source(
     stem_uid, version = get_stem_uid_and_version_from_file(filepath)
 
     uid_ext = get_uid_ext(version)
-    # it simply looks better here to not use the logger because we won't have an
-    # emoji also for the subsequent input question
-    print(
-        f"Transform is tracked with stem_uid='{stem_uid}' & version='{version}'"
-        f" (uid='{stem_uid}{uid_ext}')"
-    )
     updated = False
     # ask for generating a new stem uid
     response = "bump"
     if not bump_version:
+        # it simply looks better here to not use the logger because we won't have an
+        # emoji also for the subsequent input question
+        print(
+            f"Transform is tracked with stem_uid='{stem_uid}' & version='{version}'"
+            f" (uid='{stem_uid}{uid_ext}')"
+        )
         if os.getenv("LAMIN_TESTING") is None:
             response = input(
                 "To create a new stem uid, type 'new'. To bump the version, type 'bump'"
@@ -148,10 +148,9 @@ def update_transform_source(
             f'ln.transform.stem_uid = "{new_stem_uid}"\nln.transform.version ='
             f' "{new_version}"\n'
         )
-        logger.important(
+        raise SystemExit(
             f"Please update your transform settings as follows:\n{new_metadata}"
         )
-        sys.exit(1)
     return updated, new_stem_uid, new_version
 
 
