@@ -1,5 +1,6 @@
 # Changelog
 
+- ♻️ Add ability to pass through access_token [PR](https://github.com/laminlabs/lamindb/pull/1468) [@falexwolf](https://github.com/falexwolf)
 - ♻️  Pass `access_token` in `artifact.save` [PR](https://github.com/laminlabs/lamindb/pull/1454) [@Koncopd](https://github.com/Koncopd)
 - 🐛 Fix `lamin stage` [PR](https://github.com/laminlabs/lamindb/pull/1467) [@falexwolf](https://github.com/falexwolf)
 - 📝 Simplify intro [PR](https://github.com/laminlabs/lamindb/pull/1466) [@sunnyosun](https://github.com/sunnyosun)
