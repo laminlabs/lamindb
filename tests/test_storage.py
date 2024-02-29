@@ -15,7 +15,7 @@ from lamindb.core.storage.object import infer_suffix, write_to_file
 
 @pytest.fixture
 def bad_adata_path():
-    fp = ln.dev.datasets.anndata_file_pbmc68k_test()
+    fp = ln.core.datasets.anndata_file_pbmc68k_test()
     adata = read_adata_h5ad(fp)
     to = fp.with_name("pbmc68k_bad.h5ad")
     shutil.copy(fp, to)
@@ -41,7 +41,7 @@ def bad_adata_path():
 
 
 def test_anndata_io():
-    test_file = ln.dev.datasets.anndata_file_pbmc68k_test()
+    test_file = ln.core.datasets.anndata_file_pbmc68k_test()
 
     adata = read_adata_h5ad(test_file)
 
@@ -60,7 +60,7 @@ def test_anndata_io():
 
 @pytest.mark.parametrize("adata_format", ["h5ad", "zarr"])
 def test_backed_access(adata_format):
-    fp = ln.dev.datasets.anndata_file_pbmc68k_test()
+    fp = ln.core.datasets.anndata_file_pbmc68k_test()
     if adata_format == "zarr":
         adata = read_adata_h5ad(fp)
 

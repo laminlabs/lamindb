@@ -624,7 +624,7 @@ def test_check_path_is_child_of_root():
 
 
 def test_serialize_paths():
-    fp_str = ln.dev.datasets.anndata_file_pbmc68k_test().as_posix()
+    fp_str = ln.core.datasets.anndata_file_pbmc68k_test().as_posix()
     fp_path = Path(fp_str)
 
     up_str = "s3://lamindb-ci/test-data/test.csv"
@@ -664,7 +664,7 @@ def test_load_to_memory():
     df = read_tsv("test.tsv")
     assert isinstance(df, pd.DataFrame)
     # fcs
-    adata = read_fcs(ln.dev.datasets.file_fcs())
+    adata = read_fcs(ln.core.datasets.file_fcs())
     assert isinstance(adata, ad.AnnData)
     # other
     pd.DataFrame([1, 2]).to_csv("test.zrad", sep="\t")
@@ -688,7 +688,7 @@ def test_delete_storage():
 
 
 def test_describe():
-    ln.dev.datasets.file_mini_csv()
+    ln.core.datasets.file_mini_csv()
     artifact = ln.Artifact("mini.csv", description="test")
     artifact.describe()
 

@@ -12,23 +12,23 @@ def test_track_with_multi_parents():
     child.parents.set([parent1, parent2])
     ln.track(child, reference="my address", reference_type="url")
     # unset to remove side effects
-    ln.dev.run_context.run = None
-    ln.dev.run_context.transform = None
+    ln.core.run_context.run = None
+    ln.core.run_context.transform = None
 
 
 def test_track_with_reference():
     transform = ln.Transform(name="test")
     ln.track(transform, reference="my address", reference_type="url")
-    assert ln.dev.run_context.run.reference == "my address"
-    assert ln.dev.run_context.run.reference_type == "url"
+    assert ln.core.run_context.run.reference == "my address"
+    assert ln.core.run_context.run.reference_type == "url"
     # unset to remove side effects
-    ln.dev.run_context.run = None
-    ln.dev.run_context.transform = None
+    ln.core.run_context.run = None
+    ln.core.run_context.transform = None
 
 
 def test_track_notebook_colab():
     notebook_path = "/fileId=1KskciVXleoTeS_OGoJasXZJreDU9La_l"
-    ln.dev.run_context._track_notebook(path=notebook_path)
+    ln.core.run_context._track_notebook(path=notebook_path)
 
 
 def test_get_transform_kwargs_from_stem_uid():
