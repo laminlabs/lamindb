@@ -8,7 +8,7 @@ import pandas as pd
 from lnschema_core import ids
 from upath import UPath
 
-from lamindb.dev._settings import settings
+from lamindb.core._settings import settings
 
 
 def file_fcs() -> Path:

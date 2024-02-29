@@ -2,7 +2,7 @@ from pathlib import Path
 
 import lamindb as ln
 import pytest
-from lamindb.dev.storage.file import read_adata_h5ad
+from lamindb.core.storage.file import read_adata_h5ad
 
 
 # https://stackoverflow.com/questions/22627659/run-code-before-and-after-each-test-in-py-test

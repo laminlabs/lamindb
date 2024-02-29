@@ -120,13 +120,13 @@ if _INSTANCE_SETUP:
     )
     from ._save import save
     from ._view import view
-    from .dev._run_context import run_context
-    from .dev._settings import settings
-    from .dev._transform_settings import transform_settings as transform
+    from .core._run_context import run_context
+    from .core._settings import settings
+    from .core._transform_settings import transform_settings as transform
 
     # schema modules
     if not _os.environ.get("LAMINDB_MULTI_INSTANCE") == "true":
         _reload_schema_modules(_lamindb_setup.settings.instance)
 
     track = run_context._track
-    settings.__doc__ = """Global :class:`~lamindb.dev.Settings`."""
+    settings.__doc__ = """Global :class:`~lamindb.core.Settings`."""

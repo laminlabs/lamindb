@@ -1,5 +1,5 @@
 import lamindb as ln
-from lamindb.dev._run_context import get_transform_kwargs_from_stem_uid
+from lamindb.core._run_context import get_transform_kwargs_from_stem_uid
 
 
 def test_track_with_multi_parents():

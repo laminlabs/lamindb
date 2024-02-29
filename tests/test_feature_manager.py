@@ -33,7 +33,7 @@ def test_labels_add():
         artifact.labels.add(label, feature=experiment)
     assert (
         error.exconly()
-        == "lamindb.dev.exceptions.ValidationError: Feature not validated. If it looks"
+        == "lamindb.core.exceptions.ValidationError: Feature not validated. If it looks"
         " correct: ln.Feature(name='experiment', type='category',"
         " registries='core.ULabel').save()"
     )

@@ -15,9 +15,9 @@ from lamindb._artifact import (
     get_relative_path_to_directory,
     process_data,
 )
-from lamindb.dev._settings import settings
-from lamindb.dev.storage._zarr import write_adata_zarr
-from lamindb.dev.storage.file import (
+from lamindb.core._settings import settings
+from lamindb.core.storage._zarr import write_adata_zarr
+from lamindb.core.storage.file import (
     AUTO_KEY_PREFIX,
     auto_storage_key_from_artifact_uid,
     delete_storage,
