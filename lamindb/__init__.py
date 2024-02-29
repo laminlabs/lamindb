@@ -50,7 +50,7 @@ Modules & settings:
 
    settings
    setup
-   dev
+   core
 
 """
 
@@ -116,7 +116,7 @@ if _INSTANCE_SETUP:
         _transform,
         _ulabel,
         _validate,
-        dev,
+        core,
     )
     from ._save import save
     from ._view import view
