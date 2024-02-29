@@ -2,7 +2,7 @@ from pathlib import Path
 
 import lamindb as ln
 import pytest
-from lamindb.dev.storage.file import read_adata_h5ad
+from lamindb.core.storage.file import read_adata_h5ad
 
 
 # https://stackoverflow.com/questions/22627659/run-code-before-and-after-each-test-in-py-test
@@ -23,7 +23,7 @@ def test_local_cache():
     local_storage = Path("./default_storage").resolve().as_posix()
     assert ln.setup.settings.storage.root_as_str == local_storage
 
-    test_file = ln.dev.datasets.anndata_file_pbmc68k_test()
+    test_file = ln.core.datasets.anndata_file_pbmc68k_test()
     adata = read_adata_h5ad(test_file)
 
     artifact = ln.Artifact.from_anndata(adata, key="test_cache.h5ad")
@@ -45,7 +45,7 @@ def test_cloud_cache(switch_storage):
     cache_dir = ln.setup.settings.storage.cache_dir
     assert cache_dir is not None
 
-    test_file = ln.dev.datasets.anndata_file_pbmc68k_test()
+    test_file = ln.core.datasets.anndata_file_pbmc68k_test()
 
     # test cache for saving an in-memory object
     adata = read_adata_h5ad(test_file)

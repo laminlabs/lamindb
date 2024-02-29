@@ -123,13 +123,13 @@ def validate_labels(labels: Union[QuerySet, List, Dict], parents: bool = True):
 
 
 class LabelManager:
-    """Label manager (:attr:`~lamindb.dev.Data.labels`).
+    """Label manager (:attr:`~lamindb.core.Data.labels`).
 
     This allows to manage untyped labels :class:`~lamindb.ULabel` and arbitrary
     typed labels (e.g., :class:`~bionty.CellLine`) and associate labels
     with features.
 
-    See :class:`~lamindb.dev.Data` for more information.
+    See :class:`~lamindb.core.Data` for more information.
     """
 
     def __init__(self, host: Union[Artifact, Collection]):

@@ -19,10 +19,10 @@ from lnschema_core.types import (
 )
 
 from lamindb._utils import attach_func_to_class_method
-from lamindb.dev._data import _track_run_input
-from lamindb.dev._settings import settings
-from lamindb.dev.hashing import b16_to_b64, hash_file, hash_md5s_from_dir
-from lamindb.dev.storage import (
+from lamindb.core._data import _track_run_input
+from lamindb.core._settings import settings
+from lamindb.core.hashing import b16_to_b64, hash_file, hash_md5s_from_dir
+from lamindb.core.storage import (
     LocalPathClasses,
     UPath,
     delete_storage,
@@ -31,24 +31,24 @@ from lamindb.dev.storage import (
     size_adata,
     write_to_file,
 )
-from lamindb.dev.storage.file import (
+from lamindb.core.storage.file import (
     auto_storage_key_from_artifact,
     auto_storage_key_from_artifact_uid,
     filepath_from_artifact,
 )
-from lamindb.dev.versioning import get_uid_from_old_version, init_uid
+from lamindb.core.versioning import get_uid_from_old_version, init_uid
 
 from . import _TESTING
-from .dev._data import (
+from .core._data import (
     add_transform_to_kwargs,
     get_run,
     save_feature_set_links,
     save_feature_sets,
 )
-from .dev.storage.file import AUTO_KEY_PREFIX
+from .core.storage.file import AUTO_KEY_PREFIX
 
 if TYPE_CHECKING:
-    from lamindb.dev.storage._backed_access import AnnDataAccessor, BackedAccessor
+    from lamindb.core.storage._backed_access import AnnDataAccessor, BackedAccessor
 
 
 def process_pathlike(
@@ -509,11 +509,14 @@ def data_is_mudata(data: DataLike):  # pragma: no cover
 def _check_accessor_artifact(data: Any, accessor: Optional[str] = None):
     if accessor is None and not isinstance(data, (str, Path, UPath)):
         if isinstance(data, pd.DataFrame):
-            raise TypeError("data is a dataframe, please use .from_df()")
+            logger.warning("data is a DataFrame, please use .from_df()")
+            accessor = "DataFrame"
         elif data_is_anndata(data):
-            raise TypeError("data is an AnnData, please use .from_anndata()")
+            logger.warning("data is an AnnData, please use .from_anndata()")
+            accessor = "AnnData"
         else:
             raise TypeError("data has to be a string, Path, UPath")
+    return accessor
 
 
 def __init__(artifact: Artifact, *args, **kwargs):
@@ -560,7 +563,7 @@ def __init__(artifact: Artifact, *args, **kwargs):
         kwargs.pop("using_key") if "using_key" in kwargs else settings._using_key
     )
     accessor = kwargs.pop("accessor") if "accessor" in kwargs else None
-    _check_accessor_artifact(data=data, accessor=accessor)
+    accessor = _check_accessor_artifact(data=data, accessor=accessor)
     if not len(kwargs) == 0:
         raise ValueError(
             "Only data, key, run, description, version, is_new_version_of, visibility"
@@ -646,11 +649,6 @@ def from_df(
         accessor="DataFrame",
         **kwargs,
     )
-    # feature_set = FeatureSet.from_df(df, field=field, **kwargs)
-    # if feature_set is not None:
-    #     artifact._feature_sets = {"columns": feature_set}
-    # else:
-    #     artifact._feature_sets = {}
     return artifact
 
 
@@ -677,7 +675,6 @@ def from_anndata(
         accessor="AnnData",
         **kwargs,
     )
-    # artifact._feature_sets = parse_feature_sets_from_anndata(adata, field, **kwargs)
     return artifact
 
 
@@ -857,7 +854,7 @@ def backed(
             f" {', '.join(suffixes)}."
         )
 
-    from lamindb.dev.storage._backed_access import backed_access
+    from lamindb.core.storage._backed_access import backed_access
 
     _track_run_input(self, is_run_input)
     using_key = settings._using_key
@@ -999,7 +996,7 @@ def view_tree(
     max_files_per_dir_per_type: int = 7,
 ) -> None:
     """{}."""
-    from lamindb.dev._view_tree import view_tree as _view_tree
+    from lamindb.core._view_tree import view_tree as _view_tree
 
     _view_tree(
         cls=cls,

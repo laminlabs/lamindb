@@ -23,7 +23,7 @@ from lamindb._feature_set import (
 )
 from lamindb._parents import view_lineage
 from lamindb._query_set import QuerySet
-from lamindb.dev._settings import settings
+from lamindb.core._settings import settings
 
 from ._feature_manager import (
     FeatureManager,
@@ -334,7 +334,7 @@ def add_labels(
                             f" {old_feature_set}"
                         )
                         old_feature_set.delete()
-                self.features.add_feature_set(feature_set, slot="external")
+                self.features._add_feature_set(feature_set, slot="external")
                 logger.save(
                     f"linked new feature '{feature.name}' together with new feature set"
                     f" {feature_set}"
@@ -431,7 +431,7 @@ def _track_run_input(
 @doc_args(Data.features.__doc__)
 def features(self) -> "FeatureManager":
     """{}."""
-    from lamindb.dev._feature_manager import FeatureManager
+    from lamindb.core._feature_manager import FeatureManager
 
     return FeatureManager(self)
 
@@ -440,7 +440,7 @@ def features(self) -> "FeatureManager":
 @doc_args(Data.labels.__doc__)
 def labels(self) -> "LabelManager":
     """{}."""
-    from lamindb.dev._label_manager import LabelManager
+    from lamindb.core._label_manager import LabelManager
 
     return LabelManager(self)
 

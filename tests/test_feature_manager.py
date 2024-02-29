@@ -5,7 +5,7 @@ import pytest
 bt.settings.auto_save_parents = False
 
 
-adata = ln.dev.datasets.anndata_with_obs()
+adata = ln.core.datasets.anndata_with_obs()
 # add another column
 adata.obs["cell_type_from_expert"] = adata.obs["cell_type"]
 adata.obs.loc["obs0", "cell_type_from_expert"] = "B cell"
@@ -23,17 +23,17 @@ def test_labels_add():
         == "ValueError: Please pass a record (a `Registry` object), not a string, e.g.,"
         " via: label = ln.ULabel(name='experiment_1')"
     )
-    with pytest.raises(ln.dev.exceptions.ValidationError) as error:
+    with pytest.raises(ln.core.exceptions.ValidationError) as error:
         artifact.labels.add(label, experiment)
     assert "not validated. If it looks correct: record.save()" in error.exconly()
     label.save()
     with pytest.raises(TypeError) as error:
         artifact.labels.add(label, "experiment 1")
-    with pytest.raises(ln.dev.exceptions.ValidationError) as error:
+    with pytest.raises(ln.core.exceptions.ValidationError) as error:
         artifact.labels.add(label, feature=experiment)
     assert (
         error.exconly()
-        == "lamindb.dev.exceptions.ValidationError: Feature not validated. If it looks"
+        == "lamindb.core.exceptions.ValidationError: Feature not validated. If it looks"
         " correct: ln.Feature(name='experiment', type='category',"
         " registries='core.ULabel').save()"
     )
@@ -138,8 +138,6 @@ def test_add_labels_using_anndata():
 
     # try to construct without registering metadata features
     artifact = ln.Artifact.from_anndata(adata, description="Mini adata")
-    feature_sets = ln.Feature.from_anndata(adata, field=bt.Gene.ensembl_gene_id)
-    assert "obs" not in feature_sets
     # add feature set without saving file
     feature_name_feature = ln.Feature(
         name="feature name", type="category", registries="core.ULabel"
@@ -147,7 +145,7 @@ def test_add_labels_using_anndata():
     feature_name_feature.save()
     feature_set = ln.FeatureSet(features=[feature_name_feature])
     with pytest.raises(ValueError) as error:
-        artifact.features.add_feature_set(feature_set, slot="random")
+        artifact.features._add_feature_set(feature_set, slot="random")
     assert (
         error.exconly()
         == "ValueError: Please save the artifact or collection before adding a feature"
@@ -173,8 +171,7 @@ def test_add_labels_using_anndata():
     artifact.save()
 
     # link features
-    features = ln.Feature.from_anndata(adata, field=bt.Gene.ensembl_gene_id)
-    artifact.features.add(features)
+    artifact.features.add_from_anndata(var_field=bt.Gene.ensembl_gene_id)
 
     # check the basic construction of the feature set based on obs
     feature_set_obs = artifact.feature_sets.filter(
@@ -185,7 +182,7 @@ def test_add_labels_using_anndata():
 
     # now, we add organism and run checks
     features = ln.Feature.lookup()
-    with pytest.raises(ln.dev.exceptions.ValidationError):
+    with pytest.raises(ln.core.exceptions.ValidationError):
         artifact.labels.add(organism, feature=features.organism)
     organism.save()
     artifact.labels.add(organism, feature=features.organism)
@@ -311,7 +308,7 @@ def test_add_labels_using_anndata():
 
 
 def test_labels_get():
-    ln.dev.datasets.file_mini_csv()
+    ln.core.datasets.file_mini_csv()
     artifact = ln.Artifact("mini.csv", description="test")
     # feature doesn't exist
     with pytest.raises(TypeError):
@@ -323,7 +320,7 @@ def test_labels_get():
     feature_set.save()
     artifact.save()
     assert str(artifact.features) == "no linked features"
-    artifact.features.add_feature_set(feature_set, slot="random")
+    artifact.features._add_feature_set(feature_set, slot="random")
     assert artifact.feature_sets["random"] == feature_set
     artifact.delete(permanent=True, storage=True)
     feature_set.delete()

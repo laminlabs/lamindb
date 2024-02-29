@@ -6,7 +6,7 @@ from lamindb_setup.dev._docs import doc_args
 from lnschema_core.models import Registry
 from lnschema_core.types import StrField
 
-from .dev._feature_manager import get_feature_set_by_slot
+from .core._feature_manager import get_feature_set_by_slot
 
 
 class QueryManager(models.Manager):
@@ -14,7 +14,7 @@ class QueryManager(models.Manager):
 
     See Also:
 
-        :class:`lamindb.dev.QuerySet`
+        :class:`lamindb.core.QuerySet`
         `django Manager <https://docs.djangoproject.com/en/4.2/topics/db/managers/>`__
 
     Examples:
@@ -34,8 +34,8 @@ class QueryManager(models.Manager):
                 self.source_field_name == "collection"
                 and self.target_field_name == "artifact"
             ):
-                from lamindb.dev._data import WARNING_RUN_TRANSFORM, _track_run_input
-                from lamindb.dev._run_context import run_context
+                from lamindb.core._data import WARNING_RUN_TRANSFORM, _track_run_input
+                from lamindb.core._run_context import run_context
 
                 if run_context.run is None:
                     logger.warning(WARNING_RUN_TRANSFORM)
@@ -63,14 +63,14 @@ class QueryManager(models.Manager):
     def df(self, **kwargs):
         """Convert to DataFrame.
 
-        For `**kwargs`, see :meth:`lamindb.dev.QuerySet.df`.
+        For `**kwargs`, see :meth:`lamindb.core.QuerySet.df`.
         """
         return self.all().df(**kwargs)
 
     def all(self):
         """Return QuerySet of all.
 
-        For `**kwargs`, see :meth:`lamindb.dev.QuerySet.df`.
+        For `**kwargs`, see :meth:`lamindb.core.QuerySet.df`.
         """
         self._track_run_input_manager()
         return self._all_base_class()

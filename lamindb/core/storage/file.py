@@ -17,7 +17,7 @@ from lamindb_setup.dev.upath import (
 )
 from lnschema_core.models import Artifact, Storage
 
-from lamindb.dev._settings import settings
+from lamindb.core._settings import settings
 
 try:
     from ._zarr import read_adata_zarr

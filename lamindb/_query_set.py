@@ -275,7 +275,7 @@ class QuerySet(models.QuerySet, CanValidate, IsTree):
         max_files_per_dir_per_type: int = 7,
     ) -> None:
         """{}."""
-        from .dev._view_tree import view_tree as _view_tree
+        from .core._view_tree import view_tree as _view_tree
 
         _view_tree(
             cls=self,

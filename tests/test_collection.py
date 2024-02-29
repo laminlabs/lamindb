@@ -46,23 +46,18 @@ def test_signatures():
 
 
 def test_create_delete_from_single_dataframe():
-    df = ln.dev.datasets.df_iris_in_meter_study1()
+    df = ln.core.datasets.df_iris_in_meter_study1()
 
     collection = ln.Collection.from_df(df, name="Iris flower collection1")
+    collection.save()
 
     # register features
     ln.save(ln.Feature.from_df(df))
 
-    # won't work with features like so
-    collection = ln.Collection.from_df(df, name="Iris flower collection1")
-
-    # will work like so
-    collection = ln.Collection.from_df(df, name="Iris flower collection1")
+    # link features to collection
     features = ln.Feature.from_df(df)
     collection.features.add(features)
-    assert "columns" in collection._feature_sets
-
-    collection.save()
+    assert collection.features["columns"] is not None
 
     # basics
     assert collection.load().iloc[0].tolist() == df.iloc[0].tolist()
@@ -121,8 +116,7 @@ def test_create_delete_from_single_anndata():
     collection.save()
     collection.describe()
     collection.view_lineage()
-    features = ln.Feature.from_anndata(adata, field=bt.Gene.symbol)
-    collection.features.add(features)
+    collection.features.add_from_anndata(var_field=bt.Gene.symbol)
     feature_sets_queried = collection.feature_sets.all()
     features_queried = ln.Feature.filter(feature_sets__in=feature_sets_queried).all()
     assert set(features_queried.list("name")) == set(adata.obs.columns)
@@ -133,8 +127,8 @@ def test_create_delete_from_single_anndata():
     genes_queried.delete()
     collection.delete(permanent=True)
     collection.artifact.delete(permanent=True, storage=True)
-    ln.dev.run_context.run = None
-    ln.dev.run_context.transform = None
+    ln.core.run_context.run = None
+    ln.core.run_context.transform = None
 
 
 def test_from_single_artifact():
@@ -165,9 +159,8 @@ def test_from_single_artifact():
     # test data flow
     assert collection.run.input_artifacts.get() == artifact
     # test features
-    features = ln.Feature.from_anndata(adata, field=bt.Gene.symbol)
-    artifact.features.add(features)
-    collection.features.add(features)
+    artifact.features.add_from_anndata(var_field=bt.Gene.symbol)
+    collection.features.add_from_anndata(var_field=bt.Gene.symbol)
     assert set(artifact.feature_sets.list("id")) == set(
         collection.artifact.feature_sets.list("id")
     )
@@ -230,7 +223,7 @@ def test_from_inconsistent_artifacts():
     ln.track(ln.Transform(name="My test transform"))
     # can iterate over them
     artifacts = collection.artifacts.all()  # noqa
-    assert set(ln.dev.run_context.run.input_collections.all()) == {collection}
+    assert set(ln.core.run_context.run.input_collections.all()) == {collection}
     # loading will throw an error here
     with pytest.raises(RuntimeError) as error:
         collection.load()
@@ -240,8 +233,8 @@ def test_from_inconsistent_artifacts():
     artifact1.delete(permanent=True, storage=True)
     artifact2.delete(permanent=True, storage=True)
     collection.delete(permanent=True)
-    ln.dev.run_context.run = None
-    ln.dev.run_context.transform = None
+    ln.core.run_context.run = None
+    ln.core.run_context.transform = None
 
 
 def test_from_consistent_artifacts():
@@ -289,13 +282,57 @@ def test_collection_mapped():
     )
     collection_outer.save()
 
+    # test encoders
+    with pytest.raises(ValueError):
+        ls_ds = collection.mapped(encode_labels=["feat1"])
+    with pytest.raises(ValueError):
+        ls_ds = collection.mapped(label_keys="feat1", encode_labels=["feat3"])
+    with pytest.raises(ValueError):
+        ls_ds = collection.mapped(
+            label_keys="feat1", unknown_label={"feat3": "Unknown"}
+        )
+    with collection.mapped(label_keys=["feat1", "feat2"], unknown_label="A") as ls_ds:
+        assert ls_ds.encoders["feat1"]["A"] == -1
+        assert ls_ds.encoders["feat1"]["B"] == 0
+        assert ls_ds.encoders["feat2"]["A"] == -1
+        assert ls_ds.encoders["feat2"]["B"] == 0
+        assert ls_ds[0]["feat1"] == -1
+        assert ls_ds[1]["feat1"] == 0
+        assert ls_ds[0]["feat2"] == -1
+        assert ls_ds[1]["feat2"] == 0
+    with collection.mapped(
+        label_keys=["feat1", "feat2"], unknown_label={"feat1": "A"}
+    ) as ls_ds:
+        assert ls_ds.encoders["feat1"]["A"] == -1
+        assert ls_ds.encoders["feat1"]["B"] == 0
+        # can't predict order of elements in set
+        A_enc = ls_ds.encoders["feat2"]["A"]
+        B_enc = ls_ds.encoders["feat2"]["B"]
+        assert A_enc in (0, 1)
+        assert B_enc in (0, 1)
+        assert A_enc != B_enc
+        assert ls_ds[0]["feat1"] == -1
+        assert ls_ds[1]["feat1"] == 0
+        assert ls_ds[0]["feat2"] == A_enc
+        assert ls_ds[1]["feat2"] == B_enc
+    with collection.mapped(
+        label_keys=["feat1", "feat2"], unknown_label="A", encode_labels=["feat1"]
+    ) as ls_ds:
+        assert ls_ds.encoders["feat1"]["A"] == -1
+        assert ls_ds.encoders["feat1"]["B"] == 0
+        assert "feat2" not in ls_ds.encoders
+        assert ls_ds[0]["feat1"] == -1
+        assert ls_ds[1]["feat1"] == 0
+        assert ls_ds[0]["feat2"] == "A"
+        assert ls_ds[1]["feat2"] == "B"
+
     ls_ds = collection.mapped(label_keys="feat1")
     assert not ls_ds.closed
 
     assert len(ls_ds) == 4
     assert len(ls_ds[0]) == 2 and len(ls_ds[2]) == 2
-    assert len(ls_ds[0][0]) == 3
-    assert np.array_equal(ls_ds[2][0], np.array([1, 2, 5]))
+    assert len(ls_ds[0]["x"]) == 3
+    assert np.array_equal(ls_ds[2]["x"], np.array([1, 2, 5]))
     weights = ls_ds.get_label_weights("feat1")
     assert all(weights[1:] == weights[0])
     weights = ls_ds.get_label_weights(["feat1", "feat2"])
@@ -308,8 +345,8 @@ def test_collection_mapped():
         assert not ls_ds.closed
         assert len(ls_ds) == 4
         assert len(ls_ds[0]) == 2 and len(ls_ds[2]) == 2
-        assert str(ls_ds[0][0].dtype) == "float32"
-        assert str(ls_ds[2][0].dtype) == "float32"
+        assert str(ls_ds[0]["x"].dtype) == "float32"
+        assert str(ls_ds[2]["x"].dtype) == "float32"
     assert ls_ds.closed
 
     ls_ds = collection.mapped(label_keys="feat1", parallel=True)
@@ -323,15 +360,15 @@ def test_collection_mapped():
         assert ls_ds.join_vars == "outer"
         assert len(ls_ds.var_joint) == 6
         assert len(ls_ds[0]) == 2
-        assert len(ls_ds[0][0]) == 6
-        assert np.array_equal(ls_ds[0][0], np.array([0, 0, 0, 3, 1, 2]))
-        assert np.array_equal(ls_ds[1][0], np.array([0, 0, 0, 6, 4, 5]))
-        assert np.array_equal(ls_ds[2][0], np.array([0, 0, 0, 5, 1, 2]))
-        assert np.array_equal(ls_ds[3][0], np.array([0, 0, 0, 8, 4, 5]))
-        assert np.array_equal(ls_ds[4][0], np.array([1, 2, 5, 0, 0, 0]))
-        assert np.array_equal(ls_ds[5][0], np.array([4, 5, 8, 0, 0, 0]))
-        assert np.issubdtype(ls_ds[2][0].dtype, np.integer)
-        assert np.issubdtype(ls_ds[4][0].dtype, np.integer)
+        assert len(ls_ds[0]["x"]) == 6
+        assert np.array_equal(ls_ds[0]["x"], np.array([0, 0, 0, 3, 1, 2]))
+        assert np.array_equal(ls_ds[1]["x"], np.array([0, 0, 0, 6, 4, 5]))
+        assert np.array_equal(ls_ds[2]["x"], np.array([0, 0, 0, 5, 1, 2]))
+        assert np.array_equal(ls_ds[3]["x"], np.array([0, 0, 0, 8, 4, 5]))
+        assert np.array_equal(ls_ds[4]["x"], np.array([1, 2, 5, 0, 0, 0]))
+        assert np.array_equal(ls_ds[5]["x"], np.array([4, 5, 8, 0, 0, 0]))
+        assert np.issubdtype(ls_ds[2]["x"].dtype, np.integer)
+        assert np.issubdtype(ls_ds[4]["x"].dtype, np.integer)
 
     artifact1.delete(permanent=True, storage=True)
     artifact2.delete(permanent=True, storage=True)

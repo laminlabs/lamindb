@@ -8,7 +8,7 @@ from lamindb._query_set import QuerySet
 
 
 def filter(Registry: Type[Registry], **expressions) -> QuerySet:
-    """See :meth:`~lamindb.dev.Registry.filter`."""
+    """See :meth:`~lamindb.core.Registry.filter`."""
     _using_key = None
     if "_using_key" in expressions:
         _using_key = expressions.pop("_using_key")

@@ -6,7 +6,7 @@ from lamin_utils import colors, logger
 from lnschema_core.models import Feature, Registry, ULabel
 from lnschema_core.types import ListLike, StrField
 
-from .dev._settings import settings
+from .core._settings import settings
 
 
 # The base function for `from_values`

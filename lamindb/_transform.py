@@ -3,7 +3,7 @@ from typing import TYPE_CHECKING, Optional
 from lnschema_core.models import TRANSFORM_TYPE_DEFAULT, Artifact, Run, Transform
 
 from ._run import delete_run_artifacts
-from .dev.versioning import get_uid_from_old_version, init_uid
+from .core.versioning import get_uid_from_old_version, init_uid
 
 if TYPE_CHECKING:
     from lnschema_core.types import TransformType

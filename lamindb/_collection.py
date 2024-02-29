@@ -20,32 +20,35 @@ from lnschema_core.models import Collection, CollectionArtifact, FeatureSet
 from lnschema_core.types import DataLike, VisibilityChoice
 
 from lamindb._utils import attach_func_to_class_method
-from lamindb.dev._data import _track_run_input
-from lamindb.dev._mapped_collection import MappedCollection
-from lamindb.dev.versioning import get_uid_from_old_version, init_uid
+from lamindb.core._data import _track_run_input
+from lamindb.core._mapped_collection import MappedCollection
+from lamindb.core.versioning import get_uid_from_old_version, init_uid
 
 from . import _TESTING, Artifact, Run
 from ._artifact import data_is_anndata
 from ._query_set import QuerySet
 from ._registry import init_self_from_db
-from .dev._data import (
+from .core._data import (
     add_transform_to_kwargs,
     get_run,
     save_feature_set_links,
     save_feature_sets,
 )
-from .dev.hashing import hash_set
+from .core.hashing import hash_set
 
 if TYPE_CHECKING:
-    from lamindb.dev.storage._backed_access import AnnDataAccessor, BackedAccessor
+    from lamindb.core.storage._backed_access import AnnDataAccessor, BackedAccessor
 
 
 def _check_accessor_collection(data: Any, accessor: Optional[str] = None):
     if accessor is None and isinstance(data, (AnnData, pd.DataFrame)):
         if isinstance(data, pd.DataFrame):
-            raise TypeError("data is a dataframe, please use .from_df()")
+            logger.warning("data is a DataFrame, please use .from_df()")
+            accessor = "DataFrame"
         elif data_is_anndata(data):
-            raise TypeError("data is an AnnData, please use .from_anndata()")
+            logger.warning("data is an AnnData, please use .from_anndata()")
+            accessor = "AnnData"
+    return accessor
 
 
 def __init__(
@@ -88,7 +91,7 @@ def __init__(
     )
     accessor = kwargs.pop("accessor") if "accessor" in kwargs else None
     if not isinstance(data, (Artifact, Iterable)):
-        _check_accessor_collection(data=data, accessor=accessor)
+        accessor = _check_accessor_collection(data=data, accessor=accessor)
     if not len(kwargs) == 0:
         raise ValueError(
             f"Only data, name, run, description, reference, reference_type, visibility can be passed, you passed: {kwargs}"
@@ -201,7 +204,6 @@ def __init__(
 def from_df(
     cls,
     df: "pd.DataFrame",
-    # field: FieldAttr = Feature.name,
     name: Optional[str] = None,
     description: Optional[str] = None,
     run: Optional[Run] = None,
@@ -212,11 +214,6 @@ def from_df(
     **kwargs,
 ) -> "Collection":
     """{}."""
-    # feature_set = FeatureSet.from_df(df, field=field, **kwargs)
-    # if feature_set is not None:
-    #     feature_sets = {"columns": feature_set}
-    # else:
-    #     feature_sets = {}
     if isinstance(df, Artifact):
         assert not df._state.adding
         assert df.accessor == "DataFrame"
@@ -225,7 +222,6 @@ def from_df(
         name=name,
         run=run,
         description=description,
-        # feature_sets=feature_sets,
         reference=reference,
         reference_type=reference_type,
         version=version,
@@ -241,7 +237,6 @@ def from_df(
 def from_anndata(
     cls,
     adata: "AnnData",
-    # field: Optional[FieldAttr],
     name: Optional[str] = None,
     description: Optional[str] = None,
     run: Optional[Run] = None,
@@ -255,16 +250,11 @@ def from_anndata(
     if isinstance(adata, Artifact):
         assert not adata._state.adding
         assert adata.accessor == "AnnData"
-    #     adata_parse = adata.path
-    # else:
-    #     adata_parse = adata
-    # feature_sets = parse_feature_sets_from_anndata(adata_parse, field, **kwargs)
     collection = Collection(
         data=adata,
         run=run,
         name=name,
         description=description,
-        # feature_sets=feature_sets,
         reference=reference,
         reference_type=reference_type,
         version=version,
@@ -340,7 +330,8 @@ def mapped(
     self,
     label_keys: Optional[Union[str, List[str]]] = None,
     join: Optional[Literal["inner", "outer"]] = "inner",
-    encode_labels: bool = True,
+    encode_labels: Union[bool, List[str]] = True,
+    unknown_label: Optional[Union[str, Dict[str, str]]] = None,
     cache_categories: bool = True,
     parallel: bool = False,
     dtype: Optional[str] = None,
@@ -362,6 +353,7 @@ def mapped(
         label_keys,
         join,
         encode_labels,
+        unknown_label,
         cache_categories,
         parallel,
         dtype,

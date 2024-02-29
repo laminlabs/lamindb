@@ -1,5 +1,5 @@
 from itertools import compress
-from typing import TYPE_CHECKING, Dict, List, Optional, Union
+from typing import Dict, Iterable, Optional, Union
 
 import anndata as ad
 from anndata import AnnData
@@ -18,12 +18,9 @@ from lamindb._registry import (
     transfer_to_default_db,
 )
 from lamindb._save import save
-from lamindb.dev.storage import LocalPathClasses
+from lamindb.core.storage import LocalPathClasses
 
 from ._settings import settings
-
-if TYPE_CHECKING:
-    import pandas as pd
 
 
 def get_host_id_field(host: Union[Artifact, Collection]) -> str:
@@ -131,14 +128,15 @@ def print_features(self: Data) -> str:
 
 def parse_feature_sets_from_anndata(
     adata: AnnDataLike,
-    field: Optional[FieldAttr],
+    var_field: FieldAttr,
+    obs_field: FieldAttr = Feature.name,
     **kwargs,
 ) -> Dict:
     data_parse = adata
     if not isinstance(adata, AnnData):  # is a path
         filepath = create_path(adata)  # returns Path for local
         if not isinstance(filepath, LocalPathClasses):
-            from lamindb.dev.storage._backed_access import backed_access
+            from lamindb.core.storage._backed_access import backed_access
 
             using_key = settings._using_key
             data_parse = backed_access(filepath, using_key)
@@ -152,7 +150,7 @@ def parse_feature_sets_from_anndata(
     logger.indent = "   "
     feature_set_var = FeatureSet.from_values(
         data_parse.var.index,
-        field,
+        var_field,
         type=type,
         **kwargs,
     )
@@ -160,24 +158,29 @@ def parse_feature_sets_from_anndata(
         feature_sets["var"] = feature_set_var
         logger.save(f"linked: {feature_set_var}")
     logger.indent = ""
+    if feature_set_var is None:
+        logger.warning("skip linking features to artifact in slot 'var'")
     if len(data_parse.obs.columns) > 0:
         logger.info("parsing feature names of slot 'obs'")
         logger.indent = "   "
         feature_set_obs = FeatureSet.from_df(
-            data_parse.obs,
+            df=data_parse.obs,
+            field=obs_field,
             **kwargs,
         )
         if feature_set_obs is not None:
             feature_sets["obs"] = feature_set_obs
             logger.save(f"linked: {feature_set_obs}")
         logger.indent = ""
+        if feature_set_obs is None:
+            logger.warning("skip linking features to artifact in slot 'obs'")
     return feature_sets
 
 
 class FeatureManager:
-    """Feature manager (:attr:`~lamindb.dev.Data.features`).
+    """Feature manager (:attr:`~lamindb.core.Data.features`).
 
-    See :class:`~lamindb.dev.Data` for more information.
+    See :class:`~lamindb.core.Data` for more information.
     """
 
     def __init__(self, host: Union[Artifact, Collection]):
@@ -207,24 +210,62 @@ class FeatureManager:
         else:
             return getattr(feature_set, self._accessor_by_orm[orm_name]).all()
 
-    def add(self, features: Union[List[Registry], Dict]):
-        # TODO: check hash of the artifact
-        if isinstance(features, Dict):
-            feature_sets = features
-        else:
-            if (
-                hasattr(self._host, "accessor") and self._host.accessor == "DataFrame"
-            ) or (
-                hasattr(self._host, "artifact")
-                and self._host.artifact.accessor == "DataFrame"
-            ):
-                feature_set = FeatureSet(features=features)
-                feature_sets = {"columns": feature_set}
+    def add(self, features: Iterable[Registry], slot: Optional[str] = None):
+        """Add features stratified by slot."""
+        if (hasattr(self._host, "accessor") and self._host.accessor == "DataFrame") or (
+            hasattr(self._host, "artifact")
+            and self._host.artifact.accessor == "DataFrame"
+        ):
+            slot = "columns" if slot is None else slot
+        self._add_feature_set(feature_set=FeatureSet(features=features), slot=slot)
 
+    def add_from_df(self):
+        """Add features from DataFrame."""
+        if isinstance(self._host, Artifact):
+            assert self._host.accessor == "DataFrame"
+        else:
+            # Collection
+            assert self._host.artifact.accessor == "DataFrame"
+
+        # parse and register features
+        df = self._host.load()
+        features = Feature.from_values(df.columns)
+        if len(features) == 0:
+            logger.error(
+                "no validated features found in DataFrame! please register features first:\n   → features = Feature.from_df(df)\n   → ln.save(features)"
+            )
+            return
+
+        # create and link feature sets
+        feature_set = FeatureSet(features=features)
+        feature_sets = {"columns": feature_set}
         self._host._feature_sets = feature_sets
         self._host.save()
 
-    def add_feature_set(self, feature_set: FeatureSet, slot: str):
+    def add_from_anndata(
+        self,
+        var_field: FieldAttr,
+        obs_field: Optional[FieldAttr] = Feature.name,
+        **kwargs,
+    ):
+        """Add features from AnnData."""
+        if isinstance(self._host, Artifact):
+            assert self._host.accessor == "AnnData"
+        else:
+            # Collection
+            assert self._host.artifact.accessor == "AnnData"
+
+        # parse and register features
+        adata = self._host.load()
+        feature_sets = parse_feature_sets_from_anndata(
+            adata, var_field=var_field, obs_field=obs_field, **kwargs
+        )
+
+        # link feature sets
+        self._host._feature_sets = feature_sets
+        self._host.save()
+
+    def _add_feature_set(self, feature_set: FeatureSet, slot: str):
         """Add new feature set to a slot.
 
         Args:
@@ -303,4 +344,4 @@ class FeatureManager:
             # TODO: make sure the uid matches if featureset is composed of same features
             # feature_set_self.uid = feature_set.uid
             logger.info(f"saving {slot} featureset: {feature_set_self}")
-            self._host.features.add_feature_set(feature_set_self, slot)
+            self._host.features._add_feature_set(feature_set_self, slot)

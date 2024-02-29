@@ -1,5 +1,16 @@
 # Changelog
 
+- 🐛 Fix `lamin stage` [PR](https://github.com/laminlabs/lamindb/pull/1467) [@falexwolf](https://github.com/falexwolf)
+- 📝 Simplify intro [PR](https://github.com/laminlabs/lamindb/pull/1466) [@sunnyosun](https://github.com/sunnyosun)
+- 🔈 Better logging for update version dialogue [PR](https://github.com/laminlabs/lamindb/pull/1465) [@falexwolf](https://github.com/falexwolf)
+- 🚚 Rename `.dev` to `.core` [PR](https://github.com/laminlabs/lamindb/pull/1464) [@falexwolf](https://github.com/falexwolf)
+- 🔥 Remove `lamin track` [PR](https://github.com/laminlabs/lamindb/pull/1462) [@falexwolf](https://github.com/falexwolf)
+- ♻️ Refactor features [PR](https://github.com/laminlabs/lamindb/pull/1463) [@sunnyosun](https://github.com/sunnyosun)
+- ✨ Rework Collection.mapped [PR](https://github.com/laminlabs/lamindb/pull/1460) [@Koncopd](https://github.com/Koncopd)
+- 🔊 Raise warning instead of error for artifact construction from df an… [PR](https://github.com/laminlabs/lamindb/pull/1461) [@sunnyosun](https://github.com/sunnyosun)
+- 🎨 Use `var_field` for `AnnData` [PR](https://github.com/laminlabs/lamindb/pull/1458) [@sunnyosun](https://github.com/sunnyosun)
+- ⬆️ Update core submodule [PR](https://github.com/laminlabs/lamindb/pull/1459) [@sunnyosun](https://github.com/sunnyosun)
+- 🚸 Simplify features linking [PR](https://github.com/laminlabs/lamindb/pull/1455) [@sunnyosun](https://github.com/sunnyosun)
 - ⬆️ Update core submodule [PR](https://github.com/laminlabs/lamindb/pull/1453) [@sunnyosun](https://github.com/sunnyosun)
 - 🎨 Decouple features from Artifact construction [PR](https://github.com/laminlabs/lamindb/pull/1434) [@sunnyosun](https://github.com/sunnyosun)
 - ⚡️ A way to improve parallel sampling for Collection.mapped [PR](https://github.com/laminlabs/lamindb/pull/1448) [@Koncopd](https://github.com/Koncopd)

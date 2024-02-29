@@ -20,7 +20,7 @@ from lnschema_core import Registry
 from lnschema_core.types import ListLike, StrField
 
 from lamindb._utils import attach_func_to_class_method
-from lamindb.dev._settings import settings
+from lamindb.core._settings import settings
 
 from . import _TESTING
 from ._from_values import get_or_create_records
@@ -445,8 +445,8 @@ def transfer_to_default_db(
             return record_on_default
         if not mute:
             logger.hint(f"saving from instance {db} to default instance: {record}")
-        from lamindb.dev._data import WARNING_RUN_TRANSFORM
-        from lamindb.dev._run_context import run_context
+        from lamindb.core._data import WARNING_RUN_TRANSFORM
+        from lamindb.core._run_context import run_context
 
         if hasattr(record, "created_by_id"):
             # this line is needed to point created_by to default db

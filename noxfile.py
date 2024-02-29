@@ -58,7 +58,7 @@ def install(session, group):
         session.run(*f"pip install --no-deps {submodules}".split())
     extras = ""
     if group == "unit":
-        extras += "bionty,aws,zarr,postgres,fcs"
+        extras += "bionty,aws,zarr,postgres,fcs,jupyter"
     elif group == "tutorial":
         extras += "aws,jupyter,bionty"  # despite no AWS credentials, we need s3fs
     elif group == "guide":
