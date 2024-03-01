@@ -6,7 +6,7 @@
 
 ## 0.68
 
-## 0.68.0 {small}`2024-03-01`
+### 0.68.0 {small}`2024-03-01`
 
 🚸 Decouple features linking from Artifact construction [PR 1](https://github.com/laminlabs/lamindb/pull/1434) [2](https://github.com/laminlabs/lamindb/pull/1455) [3](https://github.com/laminlabs/lamindb/pull/1458) [@sunnyosun](https://github.com/sunnyosun).
 
@@ -43,7 +43,7 @@ artifact.labels.add(labels)
 
 ## 0.67
 
-## 0.67.3 {small}`2024-02-02`
+### 0.67.3 {small}`2024-02-02`
 
 - 🚸 Can now import `bionty` instead of `lnschema-bionty` [PR](https://github.com/laminlabs/lamindb/pull/1415) [@sunnyosun](https://github.com/sunnyosun)
 - ♻️ Use Click for CLI [PR](https://github.com/laminlabs/lamindb/pull/1420) [@chaichontat](https://github.com/chaichontat)
