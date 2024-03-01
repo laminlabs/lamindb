@@ -1,5 +1,6 @@
 # Changelog
 
+- ⬆️ Update cli pinning [PR](https://github.com/laminlabs/lamindb/pull/1470) [@sunnyosun](https://github.com/sunnyosun)
 - ⬆️ Released sub modules [PR](https://github.com/laminlabs/lamindb/pull/1469) [@sunnyosun](https://github.com/sunnyosun)
 - ♻️ Add ability to pass through access_token [PR](https://github.com/laminlabs/lamindb/pull/1468) [@falexwolf](https://github.com/falexwolf)
 - ♻️  Pass `access_token` in `artifact.save` [PR](https://github.com/laminlabs/lamindb/pull/1454) [@Koncopd](https://github.com/Koncopd)
