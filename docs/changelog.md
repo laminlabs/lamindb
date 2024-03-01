@@ -1,39 +1,45 @@
 # Changelog
 
-- ⬆️ Update cli pinning [PR](https://github.com/laminlabs/lamindb/pull/1470) [@sunnyosun](https://github.com/sunnyosun)
-- ⬆️ Released sub modules [PR](https://github.com/laminlabs/lamindb/pull/1469) [@sunnyosun](https://github.com/sunnyosun)
-- ♻️ Add ability to pass through access_token [PR](https://github.com/laminlabs/lamindb/pull/1468) [@falexwolf](https://github.com/falexwolf)
-- ♻️  Pass `access_token` in `artifact.save` [PR](https://github.com/laminlabs/lamindb/pull/1454) [@Koncopd](https://github.com/Koncopd)
-- 🐛 Fix `lamin stage` [PR](https://github.com/laminlabs/lamindb/pull/1467) [@falexwolf](https://github.com/falexwolf)
-- 📝 Simplify intro [PR](https://github.com/laminlabs/lamindb/pull/1466) [@sunnyosun](https://github.com/sunnyosun)
-- 🔈 Better logging for update version dialogue [PR](https://github.com/laminlabs/lamindb/pull/1465) [@falexwolf](https://github.com/falexwolf)
-- 🚚 Rename `.dev` to `.core` [PR](https://github.com/laminlabs/lamindb/pull/1464) [@falexwolf](https://github.com/falexwolf)
-- 🔥 Remove `lamin track` [PR](https://github.com/laminlabs/lamindb/pull/1462) [@falexwolf](https://github.com/falexwolf)
-- ♻️ Refactor features [PR](https://github.com/laminlabs/lamindb/pull/1463) [@sunnyosun](https://github.com/sunnyosun)
-- ✨ Rework Collection.mapped [PR](https://github.com/laminlabs/lamindb/pull/1460) [@Koncopd](https://github.com/Koncopd)
-- 🔊 Raise warning instead of error for artifact construction from df an… [PR](https://github.com/laminlabs/lamindb/pull/1461) [@sunnyosun](https://github.com/sunnyosun)
-- 🎨 Use `var_field` for `AnnData` [PR](https://github.com/laminlabs/lamindb/pull/1458) [@sunnyosun](https://github.com/sunnyosun)
-- ⬆️ Update core submodule [PR](https://github.com/laminlabs/lamindb/pull/1459) [@sunnyosun](https://github.com/sunnyosun)
-- 🚸 Simplify features linking [PR](https://github.com/laminlabs/lamindb/pull/1455) [@sunnyosun](https://github.com/sunnyosun)
-- ⬆️ Update core submodule [PR](https://github.com/laminlabs/lamindb/pull/1453) [@sunnyosun](https://github.com/sunnyosun)
-- 🎨 Decouple features from Artifact construction [PR](https://github.com/laminlabs/lamindb/pull/1434) [@sunnyosun](https://github.com/sunnyosun)
-- ⚡️ A way to improve parallel sampling for Collection.mapped [PR](https://github.com/laminlabs/lamindb/pull/1448) [@Koncopd](https://github.com/Koncopd)
-- ♻️ Draft transform settings [PR](https://github.com/laminlabs/lamindb/pull/1449) [@falexwolf](https://github.com/falexwolf)
-- 🐛 Fix zarr saving for hosted instances [PR](https://github.com/laminlabs/lamindb/pull/1445) [@Koncopd](https://github.com/Koncopd)
-- :art: Remove discussion points from key FAQ [PR](https://github.com/laminlabs/lamindb/pull/1441) [@Zethson](https://github.com/Zethson)
-- :sparkles: Unique validation values [PR](https://github.com/laminlabs/lamindb/pull/1440) [@Zethson](https://github.com/Zethson)
-- A few doc improvements [PR](https://github.com/laminlabs/lamindb/pull/1438) [@Zethson](https://github.com/Zethson)
-- :pencil2: Fix a few minor doc issues [PR](https://github.com/laminlabs/lamindb/pull/1436) [@Zethson](https://github.com/Zethson)
-- ♻️ Simplify transfer [PR](https://github.com/laminlabs/lamindb/pull/1425) [@falexwolf](https://github.com/falexwolf)
-- 📝 Updated bionty landing page [PR](https://github.com/laminlabs/lamindb/pull/1433) [@sunnyosun](https://github.com/sunnyosun)
-- 🐛 Fix upload [PR](https://github.com/laminlabs/lamindb/pull/1430) [@falexwolf](https://github.com/falexwolf)
-- ⬆️ Upgrade fsspec[s3,gs] [PR](https://github.com/laminlabs/lamindb/pull/1426) [@Koncopd](https://github.com/Koncopd)
-- ⬆️ Upgrade anndata [PR](https://github.com/laminlabs/lamindb/pull/1427) [@Koncopd](https://github.com/Koncopd)
-- 📌 Pin nbstripout for now [PR](https://github.com/laminlabs/lamindb/pull/1429) [@Koncopd](https://github.com/Koncopd)
-- ♻️ Thread-safe multi-instance mode [PR](https://github.com/laminlabs/lamindb/pull/1424) [@falexwolf](https://github.com/falexwolf)
 ```{eval-rst}
 .. role:: small
 ```
+
+## 0.68
+
+## 0.68.0 {small}`2024-03-01`
+
+🚸 Decouple features linking from Artifact construction [PR 1](https://github.com/laminlabs/lamindb/pull/1434) [2](https://github.com/laminlabs/lamindb/pull/1455) [3](https://github.com/laminlabs/lamindb/pull/1458) [@sunnyosun](https://github.com/sunnyosun).
+
+```python
+# default constructor for PathLike
+artifact = ln.Artifact("mysc.h5ad", description="raw data")
+# from_ constructors for other types
+artifact = ln.Artifact.from_anndata(mysc_adata, description="raw data")  # no longer links features
+artifact = artifact.save()
+
+# high-level feature linking
+artifact.features.add_from_anndata(var_field=bt.Gene.ensembl_gene_id)
+artifact.features.add_from_df()
+
+# low-level feature linking
+meta = ln.Feature.from_values(mysc_adata.obs.columns, field="name")
+genes = bt.Gene.from_values(mysc_adata.var.ensembl_gene_id, field="ensembl_gene_id")
+artifact.features.add(genes, slot="obs")
+artifact.features.add(genes, slot="var")
+
+# labels linking (no change)
+labels = ln.ULabel.from_values(adata.obs.donor, field=...)
+ln.save(labels)
+artifact.labels.add(labels)
+```
+
+<br>
+
+- 🚸 Can now use `ln.track()` without `lamin track` [PR](https://github.com/laminlabs/lamindb/pull/1462) [@falexwolf](https://github.com/falexwolf)
+- 🐛 `lamin stage` respects new URL design [PR](https://github.com/laminlabs/lamindb/pull/1467) [@falexwolf](https://github.com/falexwolf)
+- 🚚 Rename `.dev` to `.core` [PR](https://github.com/laminlabs/lamindb/pull/1464) [@falexwolf](https://github.com/falexwolf)
+- ♻️ Improved `MappedCollection` [PR](https://github.com/laminlabs/lamindb/pull/1460) [PR](https://github.com/laminlabs/lamindb/pull/1448) [@Koncopd](https://github.com/Koncopd)
+
 
 ## 0.67
 
