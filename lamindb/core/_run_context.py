@@ -283,7 +283,7 @@ class run_context:
                     uid__startswith=stem_uid, version=version
                 ).one_or_none()
                 if is_run_from_ipython:
-                    short_name, name, filepath = cls._track_notebook(path=path)
+                    short_name, name, _ = cls._track_notebook(path=path)
                 else:
                     import inspect
 
@@ -291,7 +291,6 @@ class run_context:
                     module = inspect.getmodule(frame[0])
                     name = Path(module.__file__).name  # type: ignore
                     short_name = name
-                    filepath = module.__file__
                 transform_type = (
                     TransformType.notebook
                     if is_run_from_ipython
@@ -304,7 +303,6 @@ class run_context:
                     reference=reference,
                     transform_type=transform_type,
                     short_name=short_name,
-                    filepath=filepath,
                     transform=transform,
                 )
             if not is_tracked:
@@ -426,10 +424,9 @@ class run_context:
         stem_uid: str,
         version: Optional[str],
         name: str,
-        reference: Optional[str],
-        short_name: Optional[str],
-        transform_type: TransformType,
-        filepath: str,
+        reference: Optional[str] = None,
+        short_name: Optional[str] = None,
+        transform_type: TransformType = None,
         transform: Optional[Transform] = None,
     ) -> bool:
         # make a new transform record

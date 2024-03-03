@@ -1,5 +1,5 @@
 import lamindb as ln
-from lamindb.core._run_context import get_transform_kwargs_from_stem_uid
+from lamindb.core._run_context import get_uid_ext, run_context
 
 
 def test_track_with_multi_parents():
@@ -31,25 +31,25 @@ def test_track_notebook_colab():
     ln.core.run_context._track_notebook(path=notebook_path)
 
 
-def test_get_transform_kwargs_from_stem_uid():
+def test_create_or_load_transform():
     title = "title"
-    transform, uid, version = get_transform_kwargs_from_stem_uid(
-        stem_uid="NJvdsWWbJlZS",
-        version="0",
+    stem_uid = "NJvdsWWbJlZS"
+    version = "0"
+    uid = "NJvdsWWbJlZS6K79"
+    assert uid == f"{stem_uid}{get_uid_ext(version)}"
+    run_context._create_or_load_transform(
+        stem_uid=stem_uid,
+        version=version,
+        name=title,
+        transform_type="notebook",
     )
-    assert transform is None
-    assert uid == "NJvdsWWbJlZS6K79"
-    assert version == "0"
-    ln.Transform(uid=uid, version=version, name=title).save()
-    transform, uid, version = get_transform_kwargs_from_stem_uid(
-        stem_uid="NJvdsWWbJlZS",
-        version="0",
+    assert run_context.transform.uid == uid
+    assert run_context.transform.version == version
+    run_context._create_or_load_transform(
+        transform=run_context.transform,
+        stem_uid=stem_uid,
+        version=version,
+        name=title,
     )
-    assert transform is not None
-    transform, uid, version = get_transform_kwargs_from_stem_uid(
-        stem_uid="NJvdsWWbJlZS",
-        version="1",
-    )
-    assert transform is None
-    assert uid.startswith("NJvdsWWbJlZS")
-    assert version == "1"
+    assert run_context.transform.uid == uid
+    assert run_context.transform.version == version
