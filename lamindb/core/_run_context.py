@@ -292,7 +292,7 @@ class run_context:
                     if is_run_from_ipython
                     else TransformType.pipeline
                 )
-                is_tracked = cls._create_or_load_transform(
+                cls._create_or_load_transform(
                     stem_uid=stem_uid,
                     version=version,
                     name=name,
@@ -301,6 +301,8 @@ class run_context:
                     short_name=short_name,
                     transform=transform,
                 )
+                # if no error is raised, the transform is tracked
+                is_tracked = True
             if not is_tracked:
                 raise_transform_settings_error()
         else:
@@ -424,7 +426,7 @@ class run_context:
         short_name: Optional[str] = None,
         transform_type: TransformType = None,
         transform: Optional[Transform] = None,
-    ) -> bool:
+    ):
         # make a new transform record
         if transform is None:
             uid = f"{stem_uid}{get_uid_ext(version)}"
@@ -472,12 +474,8 @@ class run_context:
                 if response == "y":
                     update_stem_uid_or_version(stem_uid, version, bump_version=True)
                 else:
-                    logger.warning(
-                        "not tracking this transform, either increase version or delete"
-                        " the saved transform.source_code and transform.latest_report"
-                    )
-                    return False
+                    # we want a new stem_uid in this case, hence raise the error
+                    raise_transform_settings_error()
             else:
                 logger.important(f"loaded: {transform}")
         cls.transform = transform
-        return True
