@@ -56,8 +56,11 @@ def test_create_or_load_transform(monkeypatch):
     assert run_context.transform.uid == uid
     assert run_context.transform.version == version
     assert run_context.transform.name == title
-    # monkeypatch the "input" function, so that it returns "y"
-    # this simulates the user entering "y" in the terminal
+
+    # now, test an updated transform name (updated notebook title)
+
+    # monkeypatch the "input" function, so that it returns "n"
+    # this simulates the user entering "n" in the terminal
     monkeypatch.setattr("builtins.input", lambda _: "n")
     run_context._create_or_load_transform(
         transform=run_context.transform,
@@ -68,6 +71,8 @@ def test_create_or_load_transform(monkeypatch):
     assert run_context.transform.uid == uid
     assert run_context.transform.version == version
     assert run_context.transform.name == "updated title"
+
+    # test the user responding with "y"
     monkeypatch.setattr("builtins.input", lambda _: "y")
     with pytest.raises(SystemExit) as error:
         run_context._create_or_load_transform(
