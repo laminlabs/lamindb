@@ -48,19 +48,6 @@ def get_uid_ext(version: str) -> str:
     return encodebytes(hashlib.md5(version.encode()).digest())[:4]
 
 
-def get_transform_kwargs_from_stem_uid(
-    stem_uid: str,
-    version: str,
-) -> Tuple[Optional[Transform], str, str]:
-    uid_ext = get_uid_ext(version)
-    new_uid = stem_uid + uid_ext
-    assert len(new_uid) == 16
-    transform = Transform.filter(
-        uid__startswith=stem_uid, version=version
-    ).one_or_none()
-    return transform, new_uid, version
-
-
 def get_stem_uid_and_version_from_file(file_path: str) -> Tuple[str, str]:
     # line-by-line matching might be faster, but let's go with this for now
     with open(file_path) as file:
@@ -90,33 +77,26 @@ def get_stem_uid_and_version_from_file(file_path: str) -> Tuple[str, str]:
     version = version_match.group(1) if version_match else None
 
     if stem_uid is None or version is None:
-        logger.error(
+        raise SystemExit(
             f"ln.transform.stem_uid and ln.transform.version aren't set in {file_path}\n"
             "Call ln.track() and copy/paste the output into the notebook"
         )
-        # we're not using `raise SystemExit` here to have the right return code on the CLI
-        sys.exit(1)
     return stem_uid, version
 
 
-# also see lamindb.core._run_context.reinitialize_notebook for related code
-def update_transform_source(
-    filepath: str,
+def update_stem_uid_or_version(
+    stem_uid: str,
+    version: str,
     bump_version: bool = False,
 ) -> (bool, str, str):  # type:ignore
-    stem_uid, version = get_stem_uid_and_version_from_file(filepath)
-
-    uid_ext = get_uid_ext(version)
+    get_uid_ext(version)
     updated = False
-    # ask for generating a new stem uid
-    response = "bump"
-    if not bump_version:
+    if bump_version:
+        response = "bump"
+    else:
+        # ask for generating a new stem uid
         # it simply looks better here to not use the logger because we won't have an
         # emoji also for the subsequent input question
-        print(
-            f"Transform is tracked with stem_uid='{stem_uid}' & version='{version}'"
-            f" (uid='{stem_uid}{uid_ext}')"
-        )
         if os.getenv("LAMIN_TESTING") is None:
             response = input(
                 "To create a new stem uid, type 'new'. To bump the version, type 'bump'"
@@ -291,16 +271,15 @@ class run_context:
                 and transform_settings.version is not None
             )
             if transform_settings_are_set:
-                (
-                    transform,
-                    uid,
-                    version,
-                ) = get_transform_kwargs_from_stem_uid(
+                stem_uid, version = (
                     transform_settings.stem_uid,
                     transform_settings.version,
                 )
+                transform = Transform.filter(
+                    uid__startswith=stem_uid, version=version
+                ).one_or_none()
                 if is_run_from_ipython:
-                    short_name, name, filepath = cls._track_notebook(path=path)
+                    short_name, name, _ = cls._track_notebook(path=path)
                 else:
                     import inspect
 
@@ -308,19 +287,22 @@ class run_context:
                     module = inspect.getmodule(frame[0])
                     name = Path(module.__file__).name  # type: ignore
                     short_name = name
-                    filepath = module.__file__
-                is_tracked = cls._create_or_load_transform(
-                    uid=uid,
+                transform_type = (
+                    TransformType.notebook
+                    if is_run_from_ipython
+                    else TransformType.pipeline
+                )
+                cls._create_or_load_transform(
+                    stem_uid=stem_uid,
                     version=version,
                     name=name,
                     reference=reference,
-                    transform_type=TransformType.notebook
-                    if is_run_from_ipython
-                    else TransformType.pipeline,
+                    transform_type=transform_type,
                     short_name=short_name,
-                    filepath=filepath,
                     transform=transform,
                 )
+                # if no error is raised, the transform is tracked
+                is_tracked = True
             if not is_tracked:
                 raise_transform_settings_error()
         else:
@@ -437,17 +419,17 @@ class run_context:
     def _create_or_load_transform(
         cls,
         *,
-        uid: str,
+        stem_uid: str,
         version: Optional[str],
         name: str,
-        reference: Optional[str],
-        short_name: Optional[str],
-        transform_type: TransformType,
-        filepath: str,
+        reference: Optional[str] = None,
+        short_name: Optional[str] = None,
+        transform_type: TransformType = None,
         transform: Optional[Transform] = None,
-    ) -> bool:
+    ):
         # make a new transform record
         if transform is None:
+            uid = f"{stem_uid}{get_uid_ext(version)}"
             transform = Transform(
                 uid=uid,
                 version=version,
@@ -459,7 +441,25 @@ class run_context:
             transform.save()
             logger.important(f"saved: {transform}")
         else:
-            # check whether there was an update
+            # check whether there was an update to the transform, like
+            # renaming the file or updating the title
+            if transform.name != name or transform.short_name != short_name:
+                if os.getenv("LAMIN_TESTING") is None:
+                    response = input(
+                        "Updated transform filename and/or title: Do you want to assign a"
+                        " new stem_uid or version? (y/n)"
+                    )
+                else:
+                    response = "y"
+                if response == "y":
+                    # will raise SystemExit
+                    update_stem_uid_or_version(stem_uid, version)
+                else:
+                    transform.name = name
+                    transform.short_name = short_name
+                    transform.save()
+                    logger.important(f"updated: {transform}")
+            # check whether the transform artifacts were already saved
             if (
                 transform.source_code_id is not None
                 or transform.latest_report_id is not None
@@ -472,28 +472,10 @@ class run_context:
                 else:
                     response = "y"
                 if response == "y":
-                    update_transform_source(filepath, bump_version=True)
+                    update_stem_uid_or_version(stem_uid, version, bump_version=True)
                 else:
-                    logger.warning(
-                        "not tracking this transform, either increase version or delete"
-                        " the saved transform.source_code and transform.latest_report"
-                    )
-                    return False
-            if transform.name != name or transform.short_name != short_name:
-                response = input(
-                    "Updated notebook name and/or title: Do you want to assign a"
-                    " new uid prefix or version? (y/n)"
-                )
-                if response == "y":
-                    update_transform_source(filepath)
-                transform.name = name
-                transform.short_name = short_name
-                transform.save()
-                if response == "y":
-                    logger.important(f"saved: {transform}")
-                else:
-                    logger.important(f"updated: {transform}")
+                    # we want a new stem_uid in this case, hence raise the error
+                    raise_transform_settings_error()
             else:
                 logger.important(f"loaded: {transform}")
         cls.transform = transform
-        return True
