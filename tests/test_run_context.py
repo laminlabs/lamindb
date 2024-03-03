@@ -1,4 +1,5 @@
 import lamindb as ln
+import pytest
 from lamindb.core._run_context import get_uid_ext, run_context
 
 
@@ -31,7 +32,7 @@ def test_track_notebook_colab():
     ln.core.run_context._track_notebook(path=notebook_path)
 
 
-def test_create_or_load_transform():
+def test_create_or_load_transform(monkeypatch):
     title = "title"
     stem_uid = "NJvdsWWbJlZS"
     version = "0"
@@ -45,6 +46,7 @@ def test_create_or_load_transform():
     )
     assert run_context.transform.uid == uid
     assert run_context.transform.version == version
+    assert run_context.transform.name == title
     run_context._create_or_load_transform(
         transform=run_context.transform,
         stem_uid=stem_uid,
@@ -53,3 +55,28 @@ def test_create_or_load_transform():
     )
     assert run_context.transform.uid == uid
     assert run_context.transform.version == version
+    assert run_context.transform.name == title
+    # monkeypatch the "input" function, so that it returns "y"
+    # this simulates the user entering "y" in the terminal
+    monkeypatch.setattr("builtins.input", lambda _: "n")
+    run_context._create_or_load_transform(
+        transform=run_context.transform,
+        stem_uid=stem_uid,
+        version=version,
+        name="updated title",
+    )
+    assert run_context.transform.uid == uid
+    assert run_context.transform.version == version
+    assert run_context.transform.name == "updated title"
+    monkeypatch.setattr("builtins.input", lambda _: "y")
+    with pytest.raises(SystemExit) as error:
+        run_context._create_or_load_transform(
+            transform=run_context.transform,
+            stem_uid=stem_uid,
+            version=version,
+            name="updated title again",
+        )
+    assert (
+        "SystemExit: Please update your transform settings as follows"
+        in error.exconly()
+    )
