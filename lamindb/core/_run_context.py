@@ -89,7 +89,7 @@ def update_stem_uid_or_version(
     version: str,
     bump_version: bool = False,
 ) -> (bool, str, str):  # type:ignore
-    uid_ext = get_uid_ext(version)
+    get_uid_ext(version)
     updated = False
     if bump_version:
         response = "bump"
@@ -97,10 +97,6 @@ def update_stem_uid_or_version(
         # ask for generating a new stem uid
         # it simply looks better here to not use the logger because we won't have an
         # emoji also for the subsequent input question
-        print(
-            f"Transform is tracked with stem_uid='{stem_uid}' & version='{version}'"
-            f" (uid='{stem_uid}{uid_ext}')"
-        )
         if os.getenv("LAMIN_TESTING") is None:
             response = input(
                 "To create a new stem uid, type 'new'. To bump the version, type 'bump'"
@@ -443,7 +439,25 @@ class run_context:
             transform.save()
             logger.important(f"saved: {transform}")
         else:
-            # check whether there was an update
+            # check whether there was an update to the transform, like
+            # renaming the file or updating the title
+            if transform.name != name or transform.short_name != short_name:
+                if os.getenv("LAMIN_TESTING") is None:
+                    response = input(
+                        "Updated transform filename and/or title: Do you want to assign a"
+                        " new stem_uid or version? (y/n)"
+                    )
+                else:
+                    response = "y"
+                if response == "y":
+                    # will raise SystemExit
+                    update_stem_uid_or_version(stem_uid, version)
+                else:
+                    transform.name = name
+                    transform.short_name = short_name
+                    transform.save()
+                    logger.important(f"updated: {transform}")
+            # check whether the transform artifacts were already saved
             if (
                 transform.source_code_id is not None
                 or transform.latest_report_id is not None
@@ -463,20 +477,6 @@ class run_context:
                         " the saved transform.source_code and transform.latest_report"
                     )
                     return False
-            if transform.name != name or transform.short_name != short_name:
-                response = input(
-                    "Updated notebook name and/or title: Do you want to assign a"
-                    " new stem_uid or version? (y/n)"
-                )
-                if response == "y":
-                    update_stem_uid_or_version(stem_uid, version)
-                transform.name = name
-                transform.short_name = short_name
-                transform.save()
-                if response == "y":
-                    logger.important(f"saved: {transform}")
-                else:
-                    logger.important(f"updated: {transform}")
             else:
                 logger.important(f"loaded: {transform}")
         cls.transform = transform
