@@ -466,7 +466,7 @@ class run_context:
             if transform.name != name or transform.short_name != short_name:
                 response = input(
                     "Updated notebook name and/or title: Do you want to assign a"
-                    " new uid prefix or version? (y/n)"
+                    " new stem_uid or version? (y/n)"
                 )
                 if response == "y":
                     update_stem_uid_or_version(stem_uid, version)
