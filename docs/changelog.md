@@ -1,5 +1,6 @@
 # Changelog
 
+- ♻️ Refactor transform update dialogue, more tests [PR](https://github.com/laminlabs/lamindb/pull/1471) [@falexwolf](https://github.com/falexwolf)
 ```{eval-rst}
 .. role:: small
 ```
