@@ -183,7 +183,17 @@ def get_stat_dir_s3(path: UPath) -> Tuple[int, str, str, int]:
     import boto3
     from lamindb_setup.dev.upath import AWS_CREDENTIALS_PRESENT
 
-    if not AWS_CREDENTIALS_PRESENT:
+    if (
+        path.fs.key is not None
+        and path.fs.secret is not None
+        and path.fs.token is not None
+    ):
+        s3 = boto3.session.Session(
+            aws_access_key_id=path.fs.key,
+            aws_secret_access_key=path.fs.secret,
+            aws_session_token=path.fs.token,
+        ).resource("s3")
+    elif not AWS_CREDENTIALS_PRESENT:
         # passing the following param directly to Session() doesn't
         # work, unfortunately: botocore_session=path.fs.session
         from botocore import UNSIGNED
