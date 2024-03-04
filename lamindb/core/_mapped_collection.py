@@ -1,6 +1,6 @@
 from collections import Counter
 from functools import reduce
-from os import PathLike
+from pathlib import Path
 from typing import Dict, List, Literal, Optional, Union
 
 import numpy as np
@@ -71,7 +71,7 @@ class MappedCollection:
 
     def __init__(
         self,
-        path_list: List[Union[str, PathLike]],
+        path_list: List[Union[str, Path, UPath]],
         label_keys: Optional[Union[str, List[str]]] = None,
         join: Optional[Literal["inner", "outer"]] = "inner",
         encode_labels: Union[bool, List[str]] = True,
