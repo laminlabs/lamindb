@@ -52,6 +52,21 @@ class MappedCollection:
 
         A similar data loader exists `here
         <https://github.com/Genentech/scimilarity>`__.
+
+    Args:
+        path_list: A list of paths to `AnnData` objects stored in `h5ad` or `zrad` formats.
+        label_keys: Columns of the ``.obs`` slot - the names of the metadata
+            features storing labels.
+        join: `"inner"` or `"outer"` virtual joins. If ``None`` is passed,
+            does not join.
+        encode_labels: Encode labels into integers.
+            Can be a list with elements from ``label_keys```.
+        unknown_label: Encode this label to -1.
+            Can be a dictionary with keys from ``label_keys`` if ``encode_labels=True```
+            or from ``encode_labels`` if it is a list.
+        cache_categories: Enable caching categories of ``label_keys`` for faster access.
+        parallel: Enable sampling with multiple processes.
+        dtype: Convert numpy arrays from ``.X`` to this dtype on selection.
     """
 
     def __init__(
@@ -404,6 +419,10 @@ class MappedCollection:
 
     @staticmethod
     def torch_worker_init_fn(worker_id):
+        """`worker_init_fn` for `torch.utils.data.DataLoader`.
+
+        Improves performance for `num_workers > 1`.
+        """
         from torch.utils.data import get_worker_info
 
         mapped = get_worker_info().dataset
