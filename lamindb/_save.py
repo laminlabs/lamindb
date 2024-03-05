@@ -10,7 +10,7 @@ import lamindb_setup
 from django.db import transaction
 from django.utils.functional import partition
 from lamin_utils import logger
-from lamindb_setup.dev.upath import print_hook
+from lamindb_setup.core.upath import print_hook
 from lnschema_core.models import Artifact, Registry
 
 from lamindb.core._settings import settings

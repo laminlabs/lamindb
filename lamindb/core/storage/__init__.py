@@ -6,7 +6,7 @@
    AnnDataAccessor
    BackedAccessor
 """
-from lamindb_setup.dev.upath import LocalPathClasses, UPath, infer_filesystem
+from lamindb_setup.core.upath import LocalPathClasses, UPath, infer_filesystem
 
 from ._anndata_sizes import size_adata
 from ._backed_access import AnnDataAccessor, BackedAccessor

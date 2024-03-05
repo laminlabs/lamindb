@@ -1,7 +1,7 @@
 from typing import Optional
 
 from lamin_utils import logger
-from lamindb_setup.dev.upath import UPath
+from lamindb_setup.core.upath import UPath
 from lnschema_core.models import IsVersioned
 
 from lamindb._utils import attach_func_to_class_method

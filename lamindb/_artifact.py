@@ -7,14 +7,14 @@ from anndata import AnnData
 from lamin_utils import colors, logger
 from lamindb_setup import settings as setup_settings
 from lamindb_setup._init_instance import register_storage
-from lamindb_setup.dev import StorageSettings
-from lamindb_setup.dev._docs import doc_args
-from lamindb_setup.dev.upath import create_path, extract_suffix_from_path
+from lamindb_setup.core import StorageSettings
+from lamindb_setup.core._docs import doc_args
+from lamindb_setup.core.types import UPathStr
+from lamindb_setup.core.upath import create_path, extract_suffix_from_path
 from lnschema_core import Artifact, Run, Storage
 from lnschema_core.models import IsTree
 from lnschema_core.types import (
     DataLike,
-    PathLike,
     VisibilityChoice,
 )
 
@@ -106,7 +106,7 @@ def process_pathlike(
 
 def process_data(
     provisional_uid: str,
-    data: Union[PathLike, DataLike],
+    data: Union[UPathStr, DataLike],
     format: Optional[str],
     key: Optional[str],
     default_storage: Storage,
@@ -115,7 +115,7 @@ def process_data(
 ) -> Tuple[Any, Union[Path, UPath], str, Storage, bool]:
     """Serialize a data object that's provided as file or in memory."""
     # if not overwritten, data gets stored in default storage
-    if isinstance(data, (str, Path, UPath)):  # PathLike, spelled out
+    if isinstance(data, (str, Path, UPath)):  # UPathStr, spelled out
         access_token = (
             default_storage._access_token
             if hasattr(default_storage, "_access_token")
@@ -181,7 +181,7 @@ def get_stat_file_cloud(stat: Dict) -> Tuple[int, str, str]:
 
 def get_stat_dir_s3(path: UPath) -> Tuple[int, str, str, int]:
     import boto3
-    from lamindb_setup.dev.upath import AWS_CREDENTIALS_PRESENT
+    from lamindb_setup.core.upath import AWS_CREDENTIALS_PRESENT
 
     if not AWS_CREDENTIALS_PRESENT:
         # passing the following param directly to Session() doesn't
@@ -690,7 +690,7 @@ def from_anndata(
 @doc_args(Artifact.from_dir.__doc__)
 def from_dir(
     cls,
-    path: PathLike,
+    path: UPathStr,
     key: Optional[str] = None,
     *,
     run: Optional[Run] = None,
@@ -791,7 +791,7 @@ def from_dir(
 # docstring handled through attach_func_to_class_method
 def replace(
     self,
-    data: Union[PathLike, DataLike],
+    data: Union[UPathStr, DataLike],
     run: Optional[Run] = None,
     format: Optional[str] = None,
 ) -> None:

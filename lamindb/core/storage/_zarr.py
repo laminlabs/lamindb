@@ -6,7 +6,7 @@ import zarr
 from anndata import AnnData
 from anndata._io import read_zarr
 from anndata._io.specs import write_elem
-from lamindb_setup.dev.upath import create_mapper, infer_filesystem
+from lamindb_setup.core.upath import create_mapper, infer_filesystem
 
 from ._anndata_sizes import _size_elem, _size_raw, size_adata
 

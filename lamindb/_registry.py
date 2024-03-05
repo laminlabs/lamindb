@@ -13,9 +13,9 @@ from lamin_utils._lookup import Lookup
 from lamin_utils._search import search as base_search
 from lamindb_setup._init_instance import InstanceSettings
 from lamindb_setup._load_instance import get_owner_name_from_identifier
-from lamindb_setup.dev._docs import doc_args
-from lamindb_setup.dev._hub_core import load_instance
-from lamindb_setup.dev._settings_storage import StorageSettings
+from lamindb_setup.core._docs import doc_args
+from lamindb_setup.core._hub_core import load_instance
+from lamindb_setup.core._settings_storage import StorageSettings
 from lnschema_core import Registry
 from lnschema_core.types import ListLike, StrField
 
@@ -360,7 +360,7 @@ def using(
         load_instance_settings,
         update_db_using_local,
     )
-    from lamindb_setup.dev._settings_store import instance_settings_file
+    from lamindb_setup.core._settings_store import instance_settings_file
 
     owner, name = get_owner_name_from_identifier(instance)
     settings_file = instance_settings_file(name, owner)

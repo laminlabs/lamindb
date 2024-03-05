@@ -9,7 +9,7 @@ from typing import Any, Dict, List, Optional, Tuple, Union
 
 from lamin_utils import logger
 from lamindb_setup import settings
-from lamindb_setup.dev import InstanceSettings
+from lamindb_setup.core import InstanceSettings
 from lnschema_core import Run, Transform, ids
 from lnschema_core.types import TransformType
 from lnschema_core.users import current_user_id

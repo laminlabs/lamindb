@@ -6,7 +6,7 @@ from django.core.exceptions import FieldDoesNotExist
 from django.db.models import QuerySet
 from lamin_utils import colors, logger
 from lamin_utils._inspect import InspectResult
-from lamindb_setup.dev._docs import doc_args
+from lamindb_setup.core._docs import doc_args
 from lnschema_core import CanValidate, Registry
 from lnschema_core.types import ListLike, StrField
 

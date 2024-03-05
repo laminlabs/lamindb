@@ -2,7 +2,7 @@ from typing import TYPE_CHECKING, Dict, Iterable, List, Optional, Type, Union
 
 import numpy as np
 from lamin_utils import logger
-from lamindb_setup.dev._docs import doc_args
+from lamindb_setup.core._docs import doc_args
 from lnschema_core import Feature, FeatureSet, Registry, ids
 from lnschema_core.types import FieldAttr, ListLike
 

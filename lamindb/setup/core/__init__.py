@@ -1,6 +1,4 @@
-"""Setup developer API.
-
-Settings:
+"""Core setup library.
 
 .. autosummary::
    :toctree:
@@ -10,7 +8,7 @@ Settings:
    StorageSettings
 
 """
-from lamindb_setup.dev import (  # pragma: no cover
+from lamindb_setup.core import (  # pragma: no cover
     InstanceSettings,
     StorageSettings,
     UserSettings,
