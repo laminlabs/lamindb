@@ -11,7 +11,13 @@ from lamindb_setup.core import StorageSettings
 from lamindb_setup.core._docs import doc_args
 from lamindb_setup.core.hashing import b16_to_b64, hash_file, hash_md5s_from_dir
 from lamindb_setup.core.types import UPathStr
-from lamindb_setup.core.upath import create_path, extract_suffix_from_path
+from lamindb_setup.core.upath import (
+    create_path,
+    extract_suffix_from_path,
+    get_stat_dir_gs,
+    get_stat_dir_s3,
+    get_stat_file_cloud,
+)
 from lnschema_core import Artifact, Run, Storage
 from lnschema_core.models import IsTree
 from lnschema_core.types import (
@@ -160,69 +166,6 @@ def process_data(
             " instead!"
         )
     return memory_rep, path, suffix, storage, use_existing_storage_key
-
-
-def get_stat_file_cloud(stat: Dict) -> Tuple[int, str, str]:
-    size = stat["size"]
-    # small files
-    if "-" not in stat["ETag"]:
-        # only store hash for non-multipart uploads
-        # we can't rapidly validate multi-part uploaded files client-side
-        # we can add more logic later down-the-road
-        hash = b16_to_b64(stat["ETag"])
-        hash_type = "md5"
-    else:
-        stripped_etag, suffix = stat["ETag"].split("-")
-        suffix = suffix.strip('"')
-        hash = f"{b16_to_b64(stripped_etag)}-{suffix}"
-        hash_type = "md5-n"  # this is the S3 chunk-hashing strategy
-    return size, hash, hash_type
-
-
-def get_stat_dir_s3(path: UPath) -> Tuple[int, str, str, int]:
-    import boto3
-    from lamindb_setup.core.upath import AWS_CREDENTIALS_PRESENT
-
-    if not AWS_CREDENTIALS_PRESENT:
-        # passing the following param directly to Session() doesn't
-        # work, unfortunately: botocore_session=path.fs.session
-        from botocore import UNSIGNED
-        from botocore.config import Config
-
-        config = Config(signature_version=UNSIGNED)
-        s3 = boto3.session.Session().resource("s3", config=config)
-    else:
-        s3 = boto3.session.Session().resource("s3")
-    bucket, key, _ = path.fs.split_path(path.as_posix())
-    # assuming this here is the fastest way of querying for many objects
-    objects = s3.Bucket(bucket).objects.filter(Prefix=key)
-    size = sum([object.size for object in objects])
-    md5s = [
-        # skip leading and trailing quotes
-        object.e_tag[1:-1]
-        for object in objects
-    ]
-    n_objects = len(md5s)
-    hash, hash_type = hash_md5s_from_dir(md5s)
-    return size, hash, hash_type, n_objects
-
-
-def get_stat_dir_gs(path: UPath) -> Tuple[int, str, str, int]:
-    import google.cloud.storage as gc_storage
-
-    bucket, key, _ = path.fs.split_path(path.as_posix())
-    # assuming this here is the fastest way of querying for many objects
-    client = gc_storage.Client(
-        credentials=path.fs.credentials.credentials, project=path.fs.project
-    )
-    objects = client.Bucket(bucket).list_blobs(prefix=key)
-    sizes, md5s = [], []
-    for object in objects:
-        sizes.append(object.size)
-        md5s.append(object.md5_hash)
-    n_objects = len(md5s)
-    hash, hash_type = hash_md5s_from_dir(md5s)
-    return sum(sizes), hash, hash_type, n_objects
 
 
 def get_stat_or_artifact(
