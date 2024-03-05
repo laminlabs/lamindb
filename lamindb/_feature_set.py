@@ -3,11 +3,11 @@ from typing import TYPE_CHECKING, Dict, Iterable, List, Optional, Type, Union
 import numpy as np
 from lamin_utils import logger
 from lamindb_setup.core._docs import doc_args
+from lamindb_setup.core.hashing import hash_set
 from lnschema_core import Feature, FeatureSet, Registry, ids
 from lnschema_core.types import FieldAttr, ListLike
 
 from lamindb._utils import attach_func_to_class_method
-from lamindb.core.hashing import hash_set
 
 from . import _TESTING
 from ._feature import convert_numpy_dtype_to_lamin_feature_type

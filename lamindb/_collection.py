@@ -16,6 +16,7 @@ import pandas as pd
 from anndata import AnnData
 from lamin_utils import logger
 from lamindb_setup.core._docs import doc_args
+from lamindb_setup.core.hashing import hash_set
 from lnschema_core.models import Collection, CollectionArtifact, FeatureSet
 from lnschema_core.types import DataLike, VisibilityChoice
 
@@ -34,7 +35,6 @@ from .core._data import (
     save_feature_set_links,
     save_feature_sets,
 )
-from .core.hashing import hash_set
 
 if TYPE_CHECKING:
     from lamindb.core.storage._backed_access import AnnDataAccessor, BackedAccessor

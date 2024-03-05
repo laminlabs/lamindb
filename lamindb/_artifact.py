@@ -9,6 +9,7 @@ from lamindb_setup import settings as setup_settings
 from lamindb_setup._init_instance import register_storage
 from lamindb_setup.core import StorageSettings
 from lamindb_setup.core._docs import doc_args
+from lamindb_setup.core.hashing import b16_to_b64, hash_file, hash_md5s_from_dir
 from lamindb_setup.core.types import UPathStr
 from lamindb_setup.core.upath import create_path, extract_suffix_from_path
 from lnschema_core import Artifact, Run, Storage
@@ -21,7 +22,6 @@ from lnschema_core.types import (
 from lamindb._utils import attach_func_to_class_method
 from lamindb.core._data import _track_run_input
 from lamindb.core._settings import settings
-from lamindb.core.hashing import b16_to_b64, hash_file, hash_md5s_from_dir
 from lamindb.core.storage import (
     LocalPathClasses,
     UPath,
