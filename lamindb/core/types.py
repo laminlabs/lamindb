@@ -3,16 +3,16 @@
 .. autosummary::
    :toctree: .
 
-   PathLike
+   UPathStr
    DataLike
    StrField
    ListLike
    TransformType
 """
+from lamindb_setup.types import UPathStr
 from lnschema_core.types import (
     DataLike,
     ListLike,
-    PathLike,
     StrField,
     TransformType,
 )
