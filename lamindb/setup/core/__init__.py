@@ -1,6 +1,4 @@
-"""Setup developer API.
-
-Settings:
+"""Core setup library.
 
 .. autosummary::
    :toctree:
