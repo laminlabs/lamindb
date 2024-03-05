@@ -6,6 +6,7 @@ from typing import Dict, List, Literal, Optional, Union
 import numpy as np
 import pandas as pd
 from lamin_utils import logger
+from lamindb_setup.core.types import UPathStr
 from lamindb_setup.core.upath import UPath
 
 from .storage._backed_access import (
@@ -71,7 +72,7 @@ class MappedCollection:
 
     def __init__(
         self,
-        path_list: List[Union[str, Path, UPath]],
+        path_list: List[UPathStr],
         label_keys: Optional[Union[str, List[str]]] = None,
         join: Optional[Literal["inner", "outer"]] = "inner",
         encode_labels: Union[bool, List[str]] = True,

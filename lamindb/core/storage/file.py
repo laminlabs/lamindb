@@ -9,6 +9,7 @@ import pandas as pd
 from lamin_utils import logger
 from lamindb_setup import settings as setup_settings
 from lamindb_setup.core import StorageSettings
+from lamindb_setup.core.types import UPathStr
 from lamindb_setup.core.upath import (
     LocalPathClasses,
     UPath,
@@ -103,7 +104,7 @@ def read_adata_h5ad(filepath, **kwargs) -> ad.AnnData:
         return adata
 
 
-def store_artifact(localpath: Union[str, Path, UPath], storagepath: UPath) -> None:
+def store_artifact(localpath: UPathStr, storagepath: UPath) -> None:
     """Store directory or file to configured storage location.
 
     Returns size in bytes.
@@ -132,7 +133,7 @@ def delete_storage_using_key(
     delete_storage(filepath)
 
 
-def delete_storage(storagepath: Union[Path, UPath]):
+def delete_storage(storagepath: Path):
     """Delete arbitrary artifact."""
     if storagepath.is_file():
         storagepath.unlink()
@@ -156,12 +157,12 @@ def read_fcs(*args, **kwargs):
     return readfcs.read(*args, **kwargs)
 
 
-def read_tsv(path: Union[str, Path, UPath]) -> pd.DataFrame:
+def read_tsv(path: UPathStr) -> pd.DataFrame:
     path_sanitized = Path(path)
     return pd.read_csv(path_sanitized, sep="\t")
 
 
-def load_html(path: Union[str, Path, UPath]):
+def load_html(path: UPathStr):
     if is_run_from_ipython:
         with open(path, encoding="utf-8") as f:
             html_content = f.read()
@@ -180,7 +181,7 @@ def load_html(path: Union[str, Path, UPath]):
         return path
 
 
-def load_json(path: Union[str, Path, UPath]):
+def load_json(path: UPathStr):
     import json
 
     with open(path) as f:
@@ -188,7 +189,7 @@ def load_json(path: Union[str, Path, UPath]):
     return data
 
 
-def load_to_memory(filepath: Union[str, Path, UPath], stream: bool = False, **kwargs):
+def load_to_memory(filepath: UPathStr, stream: bool = False, **kwargs):
     """Load a file into memory.
 
     Returns the filepath if no in-memory form is found.
