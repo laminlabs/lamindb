@@ -65,7 +65,7 @@ from lamin_utils import py_version_warning as _py_version_warning
 from lamindb_setup import _check_instance_setup
 from lamindb_setup._check_instance_setup import _INSTANCE_NOT_SETUP_WARNING
 from lamindb_setup._init_instance import reload_schema_modules as _reload_schema_modules
-from lamindb_setup.dev.upath import UPath
+from lamindb_setup.core.upath import UPath
 
 _py_version_warning("3.8", "3.11")
 

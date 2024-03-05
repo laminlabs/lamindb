@@ -1,5 +1,5 @@
-from lamindb_setup.dev._docs import doc_args
-from lamindb_setup.dev.upath import UPath, create_path
+from lamindb_setup.core._docs import doc_args
+from lamindb_setup.core.upath import UPath, create_path
 from lnschema_core import Storage
 
 

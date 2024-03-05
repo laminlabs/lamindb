@@ -3,7 +3,7 @@ from typing import Dict, Iterable, List, NamedTuple, Optional, Union
 
 import pandas as pd
 from django.db import models
-from lamindb_setup.dev._docs import doc_args
+from lamindb_setup.core._docs import doc_args
 from lnschema_core.models import (
     Artifact,
     CanValidate,

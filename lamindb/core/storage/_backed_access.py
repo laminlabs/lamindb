@@ -18,7 +18,7 @@ from anndata.compat import _read_attr
 from fsspec.core import OpenFile
 from fsspec.implementations.local import LocalFileSystem
 from lamin_utils import logger
-from lamindb_setup.dev.upath import UPath, create_mapper, infer_filesystem
+from lamindb_setup.core.upath import UPath, create_mapper, infer_filesystem
 from lnschema_core import Artifact
 from packaging import version
 

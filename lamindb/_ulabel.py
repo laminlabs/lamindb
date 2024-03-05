@@ -1,6 +1,6 @@
 from typing import List, Optional
 
-from lamindb_setup.dev._docs import doc_args
+from lamindb_setup.core._docs import doc_args
 from lnschema_core import ULabel
 from lnschema_core.types import ListLike
 

@@ -8,8 +8,8 @@ import anndata as ad
 import pandas as pd
 from lamin_utils import logger
 from lamindb_setup import settings as setup_settings
-from lamindb_setup.dev import StorageSettings
-from lamindb_setup.dev.upath import (
+from lamindb_setup.core import StorageSettings
+from lamindb_setup.core.upath import (
     LocalPathClasses,
     UPath,
     create_path,

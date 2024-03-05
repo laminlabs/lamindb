@@ -25,7 +25,7 @@ from lamindb.core.storage.file import (
     read_fcs,
     read_tsv,
 )
-from lamindb_setup.dev.upath import (
+from lamindb_setup.core.upath import (
     CloudPath,
     LocalPathClasses,
     UPath,

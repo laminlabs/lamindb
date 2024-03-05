@@ -1,6 +1,6 @@
 from typing import Optional, Tuple
 
-from lamindb_setup.dev.upath import LocalPathClasses, UPath
+from lamindb_setup.core.upath import LocalPathClasses, UPath
 from lnschema_core import ids
 from lnschema_core.models import IsVersioned
 

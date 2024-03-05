@@ -2,7 +2,7 @@ from pathlib import Path
 from typing import Optional, Union
 
 from anndata import AnnData
-from lamindb_setup.dev.upath import UPath
+from lamindb_setup.core.upath import UPath
 from pandas import DataFrame
 
 

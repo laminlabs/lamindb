@@ -1,7 +1,7 @@
 from typing import Dict, List, Optional, Union
 
 import pandas as pd
-from lamindb_setup.dev._docs import doc_args
+from lamindb_setup.core._docs import doc_args
 from lnschema_core.models import Feature, Registry
 from lnschema_core.types import FieldAttr
 from pandas.api.types import CategoricalDtype, is_string_dtype

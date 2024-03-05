@@ -2,7 +2,7 @@ from typing import NamedTuple, Optional
 
 from django.db import models
 from lamin_utils import logger
-from lamindb_setup.dev._docs import doc_args
+from lamindb_setup.core._docs import doc_args
 from lnschema_core.models import Registry
 from lnschema_core.types import StrField
 

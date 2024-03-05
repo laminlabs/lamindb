@@ -4,7 +4,7 @@ from typing import Dict, Iterable, Optional, Union
 import anndata as ad
 from anndata import AnnData
 from lamin_utils import colors, logger
-from lamindb_setup.dev.upath import create_path
+from lamindb_setup.core.upath import create_path
 from lnschema_core.models import Artifact, Collection, Data, Feature, Registry
 from lnschema_core.types import AnnDataLike, FieldAttr
 

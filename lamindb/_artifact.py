@@ -7,10 +7,10 @@ from anndata import AnnData
 from lamin_utils import colors, logger
 from lamindb_setup import settings as setup_settings
 from lamindb_setup._init_instance import register_storage
+from lamindb_setup.core import StorageSettings
+from lamindb_setup.core._docs import doc_args
 from lamindb_setup.core.types import UPathStr
-from lamindb_setup.dev import StorageSettings
-from lamindb_setup.dev._docs import doc_args
-from lamindb_setup.dev.upath import create_path, extract_suffix_from_path
+from lamindb_setup.core.upath import create_path, extract_suffix_from_path
 from lnschema_core import Artifact, Run, Storage
 from lnschema_core.models import IsTree
 from lnschema_core.types import (
@@ -181,7 +181,7 @@ def get_stat_file_cloud(stat: Dict) -> Tuple[int, str, str]:
 
 def get_stat_dir_s3(path: UPath) -> Tuple[int, str, str, int]:
     import boto3
-    from lamindb_setup.dev.upath import AWS_CREDENTIALS_PRESENT
+    from lamindb_setup.core.upath import AWS_CREDENTIALS_PRESENT
 
     if not AWS_CREDENTIALS_PRESENT:
         # passing the following param directly to Session() doesn't

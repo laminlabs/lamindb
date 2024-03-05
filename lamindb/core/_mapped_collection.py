@@ -6,7 +6,7 @@ from typing import Dict, List, Literal, Optional, Union
 import numpy as np
 import pandas as pd
 from lamin_utils import logger
-from lamindb_setup.dev.upath import UPath
+from lamindb_setup.core.upath import UPath
 
 from .storage._backed_access import (
     ArrayTypes,

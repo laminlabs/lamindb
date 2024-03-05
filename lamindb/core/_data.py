@@ -2,7 +2,7 @@ from collections import defaultdict
 from typing import Any, Dict, Iterable, List, Optional, Union
 
 from lamin_utils import colors, logger
-from lamindb_setup.dev._docs import doc_args
+from lamindb_setup.core._docs import doc_args
 from lnschema_core.models import (
     Artifact,
     Collection,
