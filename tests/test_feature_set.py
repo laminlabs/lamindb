@@ -7,14 +7,17 @@ import pytest
 from lamindb import _feature_set
 from lamindb._feature_set import get_related_name, validate_features
 
-df = pd.DataFrame(
-    {
-        "feat1": [1, 2, 3],
-        "feat2": [3, 4, 5],
-        "feat3": ["cond1", "cond2", "cond2"],
-        "feat4": ["id1", "id2", "id3"],
-    }
-)
+
+@pytest.fixture(scope="module")
+def df():
+    return pd.DataFrame(
+        {
+            "feat1": [1, 2, 3],
+            "feat2": [3, 4, 5],
+            "feat3": ["cond1", "cond2", "cond2"],
+            "feat4": ["id1", "id2", "id3"],
+        }
+    )
 
 
 def test_signatures():
@@ -79,7 +82,7 @@ def test_feature_set_from_values():
     )
 
 
-def test_feature_set_from_records():
+def test_feature_set_from_records(df):
     features = ln.Feature.from_df(df)
     with pytest.raises(ValueError) as error:
         feature_set = ln.FeatureSet(features)
@@ -108,7 +111,7 @@ def test_feature_set_from_records():
         ln.FeatureSet(features, positional_arg)
 
 
-def test_feature_set_from_df():
+def test_feature_set_from_df(df):
     # test using type
     bt.settings.organism = "human"
     genes = [bt.Gene(symbol=name) for name in df.columns]

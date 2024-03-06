@@ -39,14 +39,49 @@ from lamindb_setup.core.upath import (
 ln.settings.verbosity = "success"
 bt.settings.organism = "human"
 
-df = pd.DataFrame({"feat1": [1, 2], "feat2": [3, 4]})
 
-adata = ad.AnnData(
-    X=np.array([[1, 2, 3], [4, 5, 6]]),
-    obs={"feat1": ["A", "B"]},
-    var=pd.DataFrame(index=["MYC", "TCF7", "GATA1"]),
-    obsm={"X_pca": np.array([[1, 2], [3, 4]])},
-)
+@pytest.fixture(scope="module")
+def df():
+    return pd.DataFrame({"feat1": [1, 2], "feat2": [3, 4]})
+
+
+@pytest.fixture(scope="module")
+def adata():
+    return ad.AnnData(
+        X=np.array([[1, 2, 3], [4, 5, 6]]),
+        obs={"feat1": ["A", "B"]},
+        var=pd.DataFrame(index=["MYC", "TCF7", "GATA1"]),
+        obsm={"X_pca": np.array([[1, 2], [3, 4]])},
+    )
+
+
+@pytest.fixture(scope="module")
+def tsv_file():
+    filepath = Path("test.tsv")
+    pd.DataFrame([1, 2]).to_csv(filepath, sep="\t")
+    yield filepath
+    filepath.unlink()
+
+
+@pytest.fixture(scope="module")
+def zrad_file():
+    filepath = Path("test.zrad")
+    pd.DataFrame([1, 2]).to_csv(filepath, sep="\t")
+    yield filepath
+    filepath.unlink()
+
+
+@pytest.fixture(scope="module")
+def zip_file():
+    filepath = Path("test.zip")
+    pd.DataFrame([1, 2]).to_csv(filepath, sep="\t")
+    yield filepath
+    filepath.unlink()
+
+
+@pytest.fixture(scope="module")
+def fcs_file():
+    return ln.core.datasets.file_fcs()
 
 
 def test_signatures():
@@ -120,7 +155,7 @@ def get_test_filepaths(request):  # -> Tuple[bool, Path, Path, Path, str]
     shutil.rmtree(test_dir)
 
 
-def test_is_new_version_of_versioned_file():
+def test_is_new_version_of_versioned_file(df, adata):
     # attempt to create a file with an invalid version
     with pytest.raises(ValueError) as error:
         artifact = ln.Artifact.from_df(df, description="test", version=0)
@@ -189,7 +224,7 @@ def test_is_new_version_of_versioned_file():
     assert error.exconly() == "ValueError: Key cannot start with .lamindb/"
 
 
-def test_is_new_version_of_unversioned_file():
+def test_is_new_version_of_unversioned_file(df, adata):
     # unversioned file
     artifact = ln.Artifact.from_df(df, description="test2")
     assert artifact.version is None
@@ -209,7 +244,7 @@ def test_is_new_version_of_unversioned_file():
 
 
 # also test legacy name parameter (got removed by description)
-def test_create_from_dataframe():
+def test_create_from_dataframe(df):
     artifact = ln.Artifact.from_df(df, description="test1")
     assert artifact.description == "test1"
     assert artifact.key is None
@@ -224,7 +259,7 @@ def test_create_from_dataframe():
     artifact.delete(permanent=True, storage=True)
 
 
-def test_create_from_dataframe_using_from_df_and_link_features():
+def test_create_from_dataframe_using_from_df_and_link_features(df):
     description = "my description"
     artifact = ln.Artifact.from_df(
         df, key="folder/hello.parquet", description=description
@@ -256,7 +291,7 @@ def test_create_from_dataframe_using_from_df_and_link_features():
     ln.Feature.filter(name__in=["feat1", "feat2"]).delete()
 
 
-def test_create_from_anndata_in_memory_and_link_features():
+def test_create_from_anndata_in_memory_and_link_features(adata):
     ln.save(
         bt.Gene.from_values(adata.var.index, field=bt.Gene.symbol, organism="human")
     )
@@ -658,24 +693,18 @@ def test_serialize_paths():
     assert isinstance(filepath, CloudPath)
 
 
-def test_load_to_memory():
+def test_load_to_memory(tsv_file, zrad_file, zip_file, fcs_file):
     # tsv
-    pd.DataFrame([1, 2]).to_csv("test.tsv", sep="\t")
-    df = read_tsv("test.tsv")
+    df = read_tsv(tsv_file)
     assert isinstance(df, pd.DataFrame)
     # fcs
-    adata = read_fcs(ln.core.datasets.file_fcs())
+    adata = read_fcs(fcs_file)
     assert isinstance(adata, ad.AnnData)
     # other
-    pd.DataFrame([1, 2]).to_csv("test.zrad", sep="\t")
     with pytest.raises(NotADirectoryError):
-        load_to_memory("test.zrad")
+        load_to_memory(zrad_file)
     # none
-    pd.DataFrame([1, 2]).to_csv("test.zip", sep="\t")
-    load_to_memory("test.zip")
-    UPath("test.tsv").unlink()
-    UPath("test.zrad").unlink()
-    UPath("test.zip").unlink()
+    load_to_memory(zip_file)
 
     with pytest.raises(TypeError) as error:
         ln.Artifact(True)
@@ -708,7 +737,7 @@ def test_file_zarr():
     UPath("test.zarr").unlink()
 
 
-def test_zarr_folder_upload():
+def test_zarr_folder_upload(adata):
     previous_storage = ln.setup.settings.storage.root_as_str
     ln.settings.storage = "s3://lamindb-test"
 
@@ -728,7 +757,7 @@ def test_zarr_folder_upload():
     ln.settings.storage = previous_storage
 
 
-def test_df_suffix():
+def test_df_suffix(df):
     artifact = ln.Artifact.from_df(df, key="test_.parquet")
     assert artifact.suffix == ".parquet"
 
@@ -740,7 +769,7 @@ def test_df_suffix():
     )
 
 
-def test_adata_suffix():
+def test_adata_suffix(adata):
     artifact = ln.Artifact.from_anndata(adata, key="test_.h5ad")
     assert artifact.suffix == ".h5ad"
     artifact = ln.Artifact.from_anndata(adata, format="h5ad", key="test_.h5ad")

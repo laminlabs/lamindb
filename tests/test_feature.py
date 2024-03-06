@@ -9,15 +9,18 @@ from lamindb._feature import convert_numpy_dtype_to_lamin_feature_type
 from lnschema_core.models import ArtifactULabel
 from pandas.api.types import is_categorical_dtype, is_string_dtype
 
-df = pd.DataFrame(
-    {
-        "feat1": [1, 2, 3],
-        "feat2": [3.1, 4.2, 5.3],
-        "feat3": ["cond1", "cond2", "cond2"],
-        "feat4": ["id1", "id2", "id3"],
-        "rando_feature": ["rando1", "rando2", "rando3"],
-    }
-)
+
+@pytest.fixture(scope="module")
+def df():
+    return pd.DataFrame(
+        {
+            "feat1": [1, 2, 3],
+            "feat2": [3.1, 4.2, 5.3],
+            "feat3": ["cond1", "cond2", "cond2"],
+            "feat4": ["id1", "id2", "id3"],
+            "rando_feature": ["rando1", "rando2", "rando3"],
+        }
+    )
 
 
 def test_signatures():
@@ -38,7 +41,7 @@ def test_signatures():
         assert signature(getattr(_feature, name)) == sig
 
 
-def test_feature_from_df():
+def test_feature_from_df(df):
     # try to generate the file without validated features
     feat1 = ln.Feature.filter(name="feat1").one_or_none()
     if feat1 is not None:

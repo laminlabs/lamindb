@@ -5,13 +5,16 @@ import pytest
 bt.settings.auto_save_parents = False
 
 
-adata = ln.core.datasets.anndata_with_obs()
-# add another column
-adata.obs["cell_type_from_expert"] = adata.obs["cell_type"]
-adata.obs.loc["obs0", "cell_type_from_expert"] = "B cell"
+@pytest.fixture(scope="module")
+def adata():
+    adata = ln.core.datasets.anndata_with_obs()
+    # add another column
+    adata.obs["cell_type_from_expert"] = adata.obs["cell_type"]
+    adata.obs.loc["obs0", "cell_type_from_expert"] = "B cell"
+    return adata
 
 
-def test_labels_add():
+def test_labels_add(adata):
     label = ln.ULabel(name="Experiment 1")
     artifact = ln.Artifact.from_anndata(adata, description="test")
     artifact.save()
@@ -110,7 +113,7 @@ def test_labels_add():
     ln.FeatureSet.filter().all().delete()
 
 
-def test_add_labels_using_anndata():
+def test_add_labels_using_anndata(adata):
     organism = bt.Organism.from_public(name="mouse")
     cell_types = [bt.CellType(name=name) for name in adata.obs["cell_type"].unique()]
     ln.save(cell_types)
