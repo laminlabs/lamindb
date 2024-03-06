@@ -55,6 +55,14 @@ def adata():
     )
 
 
+@pytest.fixture
+def data(request):
+    if request.param == "adata":
+        return request.getfixturevalue("adata")
+    else:
+        return request.param
+
+
 @pytest.fixture(scope="module")
 def tsv_file():
     filepath = Path("test.tsv")
@@ -316,7 +324,7 @@ def test_create_from_anndata_in_memory_and_link_features(adata):
 
 
 @pytest.mark.parametrize(
-    "data", [adata, "s3://lamindb-test/scrnaseq_pbmc68k_tiny.h5ad"]
+    "data", ["adata", "s3://lamindb-test/scrnaseq_pbmc68k_tiny.h5ad"], indirect=True
 )
 def test_create_from_anndata_in_storage(data):
     if isinstance(data, ad.AnnData):
