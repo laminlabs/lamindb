@@ -43,7 +43,6 @@ Auxiliary tools:
 
    run_context
    datasets
-   hashing
    storage
    fields
    Settings
