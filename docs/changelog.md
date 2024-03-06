@@ -1,5 +1,6 @@
 # Changelog
 
+- ♻️ Refactor tests [PR](https://github.com/laminlabs/lamindb/pull/1477) [@sunnyosun](https://github.com/sunnyosun)
 - ♻️ Type UPathStr & move .dev to .core in lamindb-setup [PR](https://github.com/laminlabs/lamindb/pull/1475) [@falexwolf](https://github.com/falexwolf)
 - 📝 Improve docs and make some methods private for MappedCollection [PR](https://github.com/laminlabs/lamindb/pull/1473) [@Koncopd](https://github.com/Koncopd)
 - 🩹 Pin s3fs [PR](https://github.com/laminlabs/lamindb/pull/1472) [@Koncopd](https://github.com/Koncopd)
