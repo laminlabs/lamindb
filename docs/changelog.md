@@ -1,5 +1,6 @@
 # Changelog
 
+- 🚚 Replace `instance.identifier` with `instance.slug` [PR](https://github.com/laminlabs/lamindb/pull/1478) [@falexwolf](https://github.com/falexwolf)
 - ♻️ Move generic hashing and storage utilities into `lamindb-setup` [PR](https://github.com/laminlabs/lamindb/pull/1476) [@bpenteado](https://github.com/bpenteado)
 - ♻️ Refactor tests [PR](https://github.com/laminlabs/lamindb/pull/1477) [@sunnyosun](https://github.com/sunnyosun)
 - ♻️ Type UPathStr & move .dev to .core in lamindb-setup [PR](https://github.com/laminlabs/lamindb/pull/1475) [@falexwolf](https://github.com/falexwolf)
