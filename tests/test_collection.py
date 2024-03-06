@@ -10,21 +10,30 @@ from django.db.models.deletion import ProtectedError
 from lamindb import _collection
 from scipy.sparse import csr_matrix
 
-df = pd.DataFrame({"feat1": [1, 2], "feat2": [3, 4]})
 
-adata = ad.AnnData(
-    X=np.array([[1, 2, 3], [4, 5, 6]]),
-    obs={"feat1": ["A", "B"]},
-    var=pd.DataFrame(index=["MYC", "TCF7", "GATA1"]),
-    obsm={"X_pca": np.array([[1, 2], [3, 4]])},
-)
+@pytest.fixture(scope="module")
+def df():
+    return pd.DataFrame({"feat1": [1, 2], "feat2": [3, 4]})
 
-adata2 = ad.AnnData(
-    X=np.array([[1, 2, 5], [4, 5, 8]]),
-    obs={"feat1": ["A", "B"]},
-    var=pd.DataFrame(index=["MYC", "TCF7", "GATA1"]),
-    obsm={"X_pca": np.array([[1, 2], [3, 4]])},
-)
+
+@pytest.fixture(scope="module")
+def adata():
+    return ad.AnnData(
+        X=np.array([[1, 2, 3], [4, 5, 6]]),
+        obs={"feat1": ["A", "B"]},
+        var=pd.DataFrame(index=["MYC", "TCF7", "GATA1"]),
+        obsm={"X_pca": np.array([[1, 2], [3, 4]])},
+    )
+
+
+@pytest.fixture(scope="module")
+def adata2():
+    return ad.AnnData(
+        X=np.array([[1, 2, 5], [4, 5, 8]]),
+        obs={"feat1": ["A", "B"]},
+        var=pd.DataFrame(index=["MYC", "TCF7", "GATA1"]),
+        obsm={"X_pca": np.array([[1, 2], [3, 4]])},
+    )
 
 
 def test_signatures():
@@ -45,7 +54,7 @@ def test_signatures():
         assert signature(getattr(_collection, name)) == sig
 
 
-def test_create_delete_from_single_dataframe():
+def test_create_delete_from_single_dataframe(df):
     df = ln.core.datasets.df_iris_in_meter_study1()
 
     collection = ln.Collection.from_df(df, name="Iris flower collection1")
@@ -96,7 +105,7 @@ def test_create_delete_from_single_dataframe():
     assert ln.Artifact.filter(uid=artifact.uid).one_or_none() is None
 
 
-def test_create_delete_from_single_anndata():
+def test_create_delete_from_single_anndata(adata):
     ln.track(ln.Transform(name="Test transform"))
     collection = ln.Collection.from_anndata(adata, name="My adata")
     collection.save()
@@ -131,7 +140,7 @@ def test_create_delete_from_single_anndata():
     ln.core.run_context.transform = None
 
 
-def test_from_single_artifact():
+def test_from_single_artifact(adata):
     bt.settings.organism = "human"
     features = ln.Feature.from_df(adata.obs)
     validated = ln.Feature.validate(
@@ -177,7 +186,7 @@ def test_from_single_artifact():
     assert ln.Artifact.filter(id=collection.artifact.id).one_or_none() is None
 
 
-def test_edge_cases():
+def test_edge_cases(df):
     with pytest.raises(ValueError) as error:
         ln.Collection(df, invalid_param=1)
     assert str(error.exconly()).startswith(
@@ -205,12 +214,12 @@ def test_edge_cases():
     artifact.delete(permanent=True, storage=True)
 
 
-def test_backed():
+def test_backed(adata):
     collection = ln.Collection.from_anndata(adata, name="My test")
     collection.backed()
 
 
-def test_from_inconsistent_artifacts():
+def test_from_inconsistent_artifacts(df, adata):
     artifact1 = ln.Artifact.from_df(df, description="My test")
     artifact1.save()
     artifact2 = ln.Artifact.from_anndata(adata, description="My test2")
@@ -237,7 +246,7 @@ def test_from_inconsistent_artifacts():
     ln.core.run_context.transform = None
 
 
-def test_from_consistent_artifacts():
+def test_from_consistent_artifacts(adata, adata2):
     artifact1 = ln.Artifact.from_anndata(adata, description="My test")
     artifact1.save()
     artifact2 = ln.Artifact.from_anndata(adata2, description="My test2")
@@ -262,7 +271,7 @@ def test_from_consistent_artifacts():
     collection.delete(permanent=True)
 
 
-def test_collection_mapped():
+def test_collection_mapped(adata, adata2):
     adata.strings_to_categoricals()
     adata.obs["feat2"] = adata.obs["feat1"]
     artifact1 = ln.Artifact.from_anndata(adata, description="Part one")
@@ -377,7 +386,7 @@ def test_collection_mapped():
     collection_outer.delete(permanent=True)
 
 
-def test_is_new_version_of_versioned_collection():
+def test_is_new_version_of_versioned_collection(df, adata):
     # create a versioned collection
     collection = ln.Collection.from_df(df, name="test", version="1")
     assert collection.version == "1"
@@ -414,7 +423,7 @@ def test_is_new_version_of_versioned_collection():
     collection.artifact.delete(permanent=True, storage=True)
 
 
-def test_is_new_version_of_unversioned_collection():
+def test_is_new_version_of_unversioned_collection(df, adata):
     # unversioned collection
     collection = ln.Collection.from_df(df, name="test2")
     assert collection.version is None

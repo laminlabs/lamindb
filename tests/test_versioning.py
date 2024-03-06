@@ -4,8 +4,15 @@ import pytest
 from lamindb import UPath
 from lamindb.core.versioning import get_new_path_from_uid, set_version
 
-df1 = pd.DataFrame({"feat1": [1, 2]})
-df2 = pd.DataFrame({"feat1": [2, 3]})
+
+@pytest.fixture(scope="module")
+def df1():
+    return pd.DataFrame({"feat1": [1, 2]})
+
+
+@pytest.fixture(scope="module")
+def df2():
+    return pd.DataFrame({"feat1": [2, 3]})
 
 
 def test_set_version():
@@ -18,7 +25,7 @@ def test_set_version():
     assert set_version("1.2.3") == "1.2.3"
 
 
-def test_add_to_version_family():
+def test_add_to_version_family(df1, df2):
     artifact1 = ln.Artifact.from_df(df1, description="test1")
     artifact1.save()
     artifact2 = ln.Artifact.from_df(df2, description="test2")

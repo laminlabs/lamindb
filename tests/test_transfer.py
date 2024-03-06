@@ -1,8 +1,15 @@
 import lamindb as ln
 
 
+def test_transfer_from_local_to_remote():
+    """Test transfer from local to remote instance."""
+    # prepare a local artifact with features and labels
+    pass
+
+
 # this test has to be refactored and sped up a lot
-def test_transfer():
+def test_transfer_from_remote_to_local():
+    """Test transfer from remote to local instance."""
     import bionty as bt
 
     bt.Gene.filter().delete()
