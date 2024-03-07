@@ -22,7 +22,6 @@ from lnschema_core.types import ListLike, StrField
 from lamindb._utils import attach_func_to_class_method
 from lamindb.core._settings import settings
 
-from . import _TESTING
 from ._from_values import get_or_create_records
 
 IPYTHON = getattr(builtins, "__IPYTHON__", False)
@@ -523,7 +522,7 @@ METHOD_NAMES = [
     "using",
 ]
 
-if _TESTING:  # type: ignore
+if ln_setup._TESTING:  # type: ignore
     from inspect import signature
 
     SIGS = {

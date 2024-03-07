@@ -26,7 +26,7 @@ from lamindb.core._data import _track_run_input
 from lamindb.core._mapped_collection import MappedCollection
 from lamindb.core.versioning import get_uid_from_old_version, init_uid
 
-from . import _TESTING, Artifact, Run
+from . import Artifact, Run
 from ._artifact import data_is_anndata
 from ._query_set import QuerySet
 from ._registry import init_self_from_db
