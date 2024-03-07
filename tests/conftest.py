@@ -2,12 +2,14 @@ import shutil
 from subprocess import DEVNULL, run
 
 import lamindb as ln
+import lamindb_setup as ln_setup
 import pytest
 from lamin_utils import logger
 from laminci.db import setup_local_test_postgres
 
 
 def pytest_sessionstart(session: pytest.Session):
+    ln_setup._TESTING = True
     pgurl = setup_local_test_postgres()
     ln.setup.init(
         storage="./default_storage",
@@ -15,7 +17,6 @@ def pytest_sessionstart(session: pytest.Session):
         name="lamindb-unit-tests",
         db=pgurl,
     )
-    ln.setup._TESTING = True
 
 
 def pytest_sessionfinish(session: pytest.Session):
