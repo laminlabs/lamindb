@@ -325,6 +325,8 @@ class FeatureManager:
                 for feature in new_members:
                     # not calling save=True here as in labels, because want to
                     # bulk save below
+                    # transfer_fk is set to False because they are already transferred
+                    # in the previous step transfer_fk_to_default_db_bulk
                     transfer_to_default_db(
                         feature, using_key, mute=mute, transfer_fk=False
                     )

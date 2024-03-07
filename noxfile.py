@@ -78,7 +78,7 @@ def install(session, group):
         if "bionty" in extras:
             session.run(*"pip install --no-deps ./sub/bionty".split())
             session.run(*"pip install --no-deps ./sub/lnschema-bionty".split())
-        if "group" == "storage":
+        if group == "storage":
             session.run(
                 *"pip install --no-deps lnschema_lamin1@git+https://github.com/laminlabs/lnschema-lamin1".split()
             )
