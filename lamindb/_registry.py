@@ -433,6 +433,7 @@ def transfer_to_default_db(
     using_key: Optional[str],
     save: bool = False,
     mute: bool = False,
+    transfer_fk: bool = True,
 ) -> Optional[Registry]:
     db = record._state.db
     if db is not None and db != "default" and using_key is None:
@@ -465,15 +466,16 @@ def transfer_to_default_db(
                 record.transform_id = run_context.transform.id
             else:
                 record.transform_id = None
-        # transfer other foreign key fields
-        fk_fields = [
-            i.name
-            for i in record._meta.fields
-            if i.get_internal_type() == "ForeignKey"
-            if i.name not in {"created_by", "run", "transform"}
-        ]
-        for fk in fk_fields:
-            update_fk_to_default_db(record, fk, using_key)
+        if transfer_fk:
+            # transfer other foreign key fields
+            fk_fields = [
+                i.name
+                for i in record._meta.fields
+                if i.get_internal_type() == "ForeignKey"
+                if i.name not in {"created_by", "run", "transform"}
+            ]
+            for fk in fk_fields:
+                update_fk_to_default_db(record, fk, using_key)
         record.id = None
         record._state.db = "default"
         if save:
