@@ -459,7 +459,7 @@ def transfer_to_default_db(
             else:
                 logger.warning(WARNING_RUN_TRANSFORM)
                 record.run_id = None
-        if hasattr(record, "transform_id"):
+        if hasattr(record, "transform_id") and record._meta.model_name != "run":
             record.transform = None
             if run_context.transform is not None:
                 record.transform_id = run_context.transform.id
