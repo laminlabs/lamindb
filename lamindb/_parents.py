@@ -1,13 +1,13 @@
 import builtins
 from typing import List, Optional, Set, Union
 
+import lamindb_setup as ln_setup
 from lamin_utils import logger
 from lnschema_core import Artifact, Collection, Registry, Run, Transform
 from lnschema_core.models import HasParents, format_field_value
 
 from lamindb._utils import attach_func_to_class_method
 
-from . import _TESTING
 from ._registry import StrField, get_default_str_field
 
 LAMIN_GREEN_LIGHTER = "#10b981"
@@ -427,7 +427,7 @@ METHOD_NAMES = [
     "view_parents",
 ]
 
-if _TESTING:  # type: ignore
+if ln_setup._TESTING:  # type: ignore
     from inspect import signature
 
     SIGS = {

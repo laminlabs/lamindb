@@ -1,12 +1,12 @@
 from typing import Optional
 
+import lamindb_setup as ln_setup
 from lamin_utils import logger
 from lamindb_setup.core.upath import UPath
 from lnschema_core.models import IsVersioned
 
 from lamindb._utils import attach_func_to_class_method
 
-from . import _TESTING
 from .core.versioning import get_new_path_from_uid, get_uid_from_old_version
 
 
@@ -33,7 +33,7 @@ METHOD_NAMES = [
     "add_to_version_family",
 ]
 
-if _TESTING:  # type: ignore
+if ln_setup._TESTING:  # type: ignore
     from inspect import signature
 
     SIGS = {name: signature(getattr(IsVersioned, name)) for name in METHOD_NAMES}

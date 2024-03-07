@@ -2,6 +2,7 @@ from pathlib import Path, PurePath, PurePosixPath
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple, Union
 
 import fsspec
+import lamindb_setup as ln_setup
 import pandas as pd
 from anndata import AnnData
 from lamin_utils import colors, logger
@@ -44,7 +45,6 @@ from lamindb.core.storage.file import (
 )
 from lamindb.core.versioning import get_uid_from_old_version, init_uid
 
-from . import _TESTING
 from .core._data import (
     add_transform_to_kwargs,
     get_run,
@@ -979,7 +979,7 @@ METHOD_NAMES = [
     "view_tree",
 ]
 
-if _TESTING:
+if ln_setup._TESTING:
     from inspect import signature
 
     SIGS = {
