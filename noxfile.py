@@ -139,7 +139,7 @@ def docs(session):
         if group in {"tutorial", "guide", "biology"}:
             for path in Path(f"./docs/{group}").glob("*"):
                 path.rename(f"./docs/{path.name}")
-    session.run(*"lamin set --auto-connect true")
+    session.run(*"lamin set --auto-connect true".split())
     session.run(*"lamin init --storage ./docsbuild --schema bionty".split())
 
     def generate_cli_docs():
