@@ -70,7 +70,7 @@ from lamindb_setup.core.upath import UPath
 _py_version_warning("3.8", "3.12")
 
 _TESTING = _lamindb_setup._TESTING
-_INSTANCE_SETUP = _check_instance_setup(from_lamindb=True)
+_CONNECTED_TO = None
 
 # allow the user to call setup
 from . import setup
@@ -88,7 +88,7 @@ def __getattr__(name):
 
 
 # only import all other functionality if setup was successful
-if _INSTANCE_SETUP:
+if _CONNECTED_TO is None:
     del InstanceNotSetupError
     del __getattr__  # delete so that imports work out
     from lnschema_core.models import (
