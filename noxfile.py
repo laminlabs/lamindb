@@ -109,6 +109,7 @@ def build(session, group):
             *f"pytest -s {coverage_args} ./docs/test_notebooks.py::test_{group}".split()
         )
     elif group == "faq":
+        ln.setup.settings.auto_connect = True
         session.run(*f"pytest -s {coverage_args} ./docs/faq".split())
     elif group == "storage":
         session.run(*f"pytest -s {coverage_args} ./docs/storage".split())
