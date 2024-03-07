@@ -465,8 +465,12 @@ def transfer_to_default_db(
                 record.transform_id = run_context.transform.id
             else:
                 record.transform_id = None
-        update_fk_to_default_db(record, "storage", using_key)
-        update_fk_to_default_db(record, "artifact", using_key)
+        # transfer foreign key fields
+        fk_fields = [
+            i.name for i in record._meta.fields if i.get_internal_type() == "ForeignKey"
+        ]
+        for fk in fk_fields:
+            update_fk_to_default_db(record, fk, using_key)
         record.id = None
         record._state.db = "default"
         if save:
@@ -485,15 +489,19 @@ def save(self, *args, **kwargs) -> None:
     if self.__class__.__name__ == "Collection" and self.id is not None:
         # when creating a new collection without being able to access artifacts
         artifacts = self.artifacts.list()
+    # transfer of the record to the default db with fk fields
     result = transfer_to_default_db(self, using_key)
     if result is not None:
         init_self_from_db(self, result)
     else:
         # here, we can't use the parents argument
+        # parents are not saved for the self record
         save_kwargs = kwargs.copy()
         if "parents" in save_kwargs:
             save_kwargs.pop("parents")
         super(Registry, self).save(*args, **save_kwargs)
+    # perform transfer of many-to-many fields
+    # only supported for Artifact and Collection records
     if db is not None and db != "default" and using_key is None:
         if self.__class__.__name__ == "Collection":
             if len(artifacts) > 0:
@@ -507,6 +515,7 @@ def save(self, *args, **kwargs) -> None:
             self_on_db = copy(self)
             self_on_db._state.db = db
             self_on_db.pk = pk_on_db
+            # by default, transfer parents of the labels to maintain ontological hierarchy
             add_from_kwargs = {"parents": kwargs.get("parents", True)}
             logger.info("transfer features")
             self.features._add_from(self_on_db, **add_from_kwargs)
