@@ -356,7 +356,7 @@ def using(
 ) -> "QuerySet":
     """{}."""
     from lamindb_setup._connect_instance import (
-        connect_instance_settings,
+        load_instance_settings,
         update_db_using_local,
     )
     from lamindb_setup.core._settings_store import instance_settings_file
@@ -373,7 +373,7 @@ def using(
         settings_file = instance_settings_file(name, owner)
         db = update_db_using_local(instance_result, settings_file)
     else:
-        isettings = connect_instance_settings(settings_file)
+        isettings = load_instance_settings(settings_file)
         db = isettings.db
     add_db_connection(db, instance)
     return QuerySet(model=cls, using=instance)
