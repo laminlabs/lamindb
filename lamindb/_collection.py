@@ -12,6 +12,7 @@ from typing import (
 )
 
 import anndata as ad
+import lamindb_setup as ln_setup
 import pandas as pd
 from anndata import AnnData
 from lamin_utils import logger
@@ -481,7 +482,7 @@ METHOD_NAMES = [
     "restore",
 ]
 
-if _TESTING:
+if ln_setup._TESTING:
     from inspect import signature
 
     SIGS = {
