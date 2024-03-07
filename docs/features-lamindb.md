@@ -1,16 +1,17 @@
 **Access data & metadata across storage (files, arrays) & database (SQL) backends.**
 
 - Query & search: {class}`~lamindb.core.Registry.filter`, {class}`~lamindb.core.Registry.search`
-- Stage, load or stream artifacts: {class}`~lamindb.Artifact.stage`, {class}`~lamindb.Artifact.load`, {class}`~lamindb.Artifact.backed`
-- Model data using {class}`~lamindb.Feature`, {class}`~lamindb.FeatureSet`, {class}`~lamindb.ULabel`
+- Stage, load & stream artifacts: {class}`~lamindb.Artifact.stage`, {class}`~lamindb.Artifact.load`, {class}`~lamindb.Artifact.backed`
+- Manage {class}`~lamindb.Feature`, {class}`~lamindb.FeatureSet`, {class}`~lamindb.ULabel`
 - Plug-in custom [schemas](/schemas) & manage schema migrations
 - Use array formats in memory & storage: [DataFrame](/tutorial), [AnnData](/data), [MuData](docs:multimodal), [SOMA](docs:cellxgene), ... backed by [parquet](/tutorial), [zarr](/data), [TileDB](docs:cellxgene), [HDF5](/data), [h5ad](/data), [DuckDB](docs:rxrx), ...
 - Bridge artifacts and warehousing: {class}`~lamindb.Artifact`, {class}`~lamindb.Collection`
+- Leverage out-of-the-box PyTorch data loaders: {meth}`~lamindb.Collection.mapped`
 - Version artifacts, collections & transforms
 
 **Track data lineage across notebooks, pipelines & UI: {meth}`~lamindb.track`, {class}`~lamindb.Transform` & {class}`~lamindb.Run`.**
 
-- Execution reports & source code for [notebooks & scripts](/track)
+- Execution reports, source code and Python environments for [notebooks & scripts](/track)
 - Integrate with workflow managers: [redun](docs:redun), [nextflow](docs:nextflow), [snakemake](docs:snakemake)
 
 **Manage registries for experimental metadata & in-house ontologies, import public ontologies.**
@@ -20,7 +21,7 @@
 - {class}`~bionty.ExperimentalFactor`, {class}`~bionty.CellType`, {class}`~bionty.CellLine`, {class}`~bionty.Tissue`, ...
 - Safeguards against typos & duplications
 
-**Validate, standardize & annotate data using registries: {class}`~lamindb.core.CanValidate.validate` & {class}`~lamindb.core.CanValidate.standardize`.**
+**Validate, standardize & annotate based on registries: {class}`~lamindb.core.CanValidate.validate` & {class}`~lamindb.core.CanValidate.standardize`.**
 
 - Inspect validation failures: {class}`~lamindb.core.CanValidate.inspect`
 - Annotate with untyped or typed labels: {class}`~lamindb.core.LabelManager.add`

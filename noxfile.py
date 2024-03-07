@@ -69,7 +69,7 @@ def install(session, group):
     elif group == "faq":
         extras += "aws,postgres,bionty,jupyter"
     elif group == "storage":
-        extras += "aws,zarr"
+        extras += "aws,zarr,bionty,jupyter,postgres"
     elif group == "docs":
         extras += "bionty"
     elif group == "cli":
@@ -78,6 +78,10 @@ def install(session, group):
         if "bionty" in extras:
             session.run(*"pip install --no-deps ./sub/bionty".split())
             session.run(*"pip install --no-deps ./sub/lnschema-bionty".split())
+        if group == "storage":
+            session.run(
+                *"pip install --no-deps lnschema_lamin1@git+https://github.com/laminlabs/lnschema-lamin1".split()
+            )
     session.run(*f"pip install -e .[dev,{extras}]".split())
 
 
@@ -135,6 +139,7 @@ def docs(session):
         if group in {"tutorial", "guide", "biology"}:
             for path in Path(f"./docs/{group}").glob("*"):
                 path.rename(f"./docs/{path.name}")
+    session.run(*"lamin set --auto-connect true".split())
     session.run(*"lamin init --storage ./docsbuild --schema bionty".split())
 
     def generate_cli_docs():

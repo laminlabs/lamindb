@@ -412,18 +412,21 @@ def update_fk_to_default_db(
             setattr(records, f"{fk}_id", fk_record_default.id)
 
 
+FKBULK = [
+    "organism",
+    "public_source",
+    "initial_version",
+    "latest_report",  # Transform
+    "source_code",  # Transform
+    "report",  # Run
+    "file",  # Collection
+]
+
+
 def transfer_fk_to_default_db_bulk(
     records: Union[List, QuerySet], using_key: Optional[str]
 ):
-    for fk in [
-        "organism",
-        "public_source",
-        "initial_version",
-        "latest_report",  # Transform
-        "source_code",  # Transform
-        "report",  # Run
-        "file",  # Collection
-    ]:
+    for fk in FKBULK:
         update_fk_to_default_db(records, fk, using_key)
 
 
@@ -432,6 +435,7 @@ def transfer_to_default_db(
     using_key: Optional[str],
     save: bool = False,
     mute: bool = False,
+    transfer_fk: bool = True,
 ) -> Optional[Registry]:
     db = record._state.db
     if db is not None and db != "default" and using_key is None:
@@ -458,14 +462,24 @@ def transfer_to_default_db(
             else:
                 logger.warning(WARNING_RUN_TRANSFORM)
                 record.run_id = None
-        if hasattr(record, "transform_id"):
+        if hasattr(record, "transform_id") and record._meta.model_name != "run":
             record.transform = None
             if run_context.transform is not None:
                 record.transform_id = run_context.transform.id
             else:
                 record.transform_id = None
-        update_fk_to_default_db(record, "storage", using_key)
-        update_fk_to_default_db(record, "artifact", using_key)
+        # transfer other foreign key fields
+        fk_fields = [
+            i.name
+            for i in record._meta.fields
+            if i.get_internal_type() == "ForeignKey"
+            if i.name not in {"created_by", "run", "transform"}
+        ]
+        if not transfer_fk:
+            # don't transfer fk fields that are already bulk transferred
+            fk_fields = [fk for fk in fk_fields if fk not in FKBULK]
+        for fk in fk_fields:
+            update_fk_to_default_db(record, fk, using_key)
         record.id = None
         record._state.db = "default"
         if save:
@@ -484,15 +498,19 @@ def save(self, *args, **kwargs) -> None:
     if self.__class__.__name__ == "Collection" and self.id is not None:
         # when creating a new collection without being able to access artifacts
         artifacts = self.artifacts.list()
+    # transfer of the record to the default db with fk fields
     result = transfer_to_default_db(self, using_key)
     if result is not None:
         init_self_from_db(self, result)
     else:
         # here, we can't use the parents argument
+        # parents are not saved for the self record
         save_kwargs = kwargs.copy()
         if "parents" in save_kwargs:
             save_kwargs.pop("parents")
         super(Registry, self).save(*args, **save_kwargs)
+    # perform transfer of many-to-many fields
+    # only supported for Artifact and Collection records
     if db is not None and db != "default" and using_key is None:
         if self.__class__.__name__ == "Collection":
             if len(artifacts) > 0:
@@ -506,6 +524,7 @@ def save(self, *args, **kwargs) -> None:
             self_on_db = copy(self)
             self_on_db._state.db = db
             self_on_db.pk = pk_on_db
+            # by default, transfer parents of the labels to maintain ontological hierarchy
             add_from_kwargs = {"parents": kwargs.get("parents", True)}
             logger.info("transfer features")
             self.features._add_from(self_on_db, **add_from_kwargs)
