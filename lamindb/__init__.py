@@ -81,7 +81,13 @@ def __getattr__(name):
     )
 
 
-if _check_setup._LAMINDB_CONNECTED_TO is not None:
+if _lamindb_setup.settings.auto_connect:
+    INSTANCE_SETUP = _check_instance_setup()
+else:
+    INSTANCE_SETUP = _check_setup._LAMINDB_CONNECTED_TO is not None
+
+
+if INSTANCE_SETUP:
     del InstanceNotSetupError
     del __getattr__  # delete so that imports work out
     from lnschema_core.models import (

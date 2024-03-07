@@ -108,16 +108,6 @@ class Settings:
         """
         return self._storage_settings.root
 
-    @storage.setter
-    def storage(
-        self, path_kwargs: Union[str, Path, UPath, Tuple[Union[str, UPath], Mapping]]
-    ):
-        if isinstance(path_kwargs, tuple):
-            path, kwargs = path_kwargs
-        else:
-            path, kwargs = path_kwargs, {}
-        ln_setup.set.storage(path, **kwargs)
-
     @property
     def verbosity(self) -> str:
         """Logger verbosity (default 'warning').
