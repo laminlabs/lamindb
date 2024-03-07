@@ -3,6 +3,7 @@ from typing import Dict, Literal, Mapping, Optional, Tuple, Union
 
 import lamindb_setup as ln_setup
 from lamin_utils import logger
+from lamindb_setup._add_remote_storage import switch_default_storage
 from upath import UPath
 
 VERBOSITY_TO_INT = {
@@ -107,6 +108,19 @@ class Settings:
         >>> ln.settings.storage = "s3://some-bucket", kwargs
         """
         return self._storage_settings.root
+
+    @storage.setter
+    def storage(
+        self, path_kwargs: Union[str, Path, UPath, Tuple[Union[str, UPath], Mapping]]
+    ):
+        logger.warning(
+            "you'll no longer be able to set arbitrary storage locations soon"
+        )
+        if isinstance(path_kwargs, tuple):
+            path, kwargs = path_kwargs
+        else:
+            path, kwargs = path_kwargs, {}
+        switch_default_storage(path, **kwargs)
 
     @property
     def verbosity(self) -> str:

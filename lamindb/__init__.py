@@ -62,6 +62,7 @@ import lamindb_setup as _lamindb_setup
 from lamin_utils import py_version_warning as _py_version_warning
 from lamindb_setup import _check_instance_setup, _check_setup
 from lamindb_setup._check_setup import _INSTANCE_NOT_SETUP_WARNING
+from lamindb_setup._connect_instance import connect
 from lamindb_setup._init_instance import reload_schema_modules as _reload_schema_modules
 from lamindb_setup.core.upath import UPath
 
