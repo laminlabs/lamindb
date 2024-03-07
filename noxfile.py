@@ -69,7 +69,7 @@ def install(session, group):
     elif group == "faq":
         extras += "aws,postgres,bionty,jupyter"
     elif group == "storage":
-        extras += "aws,zarr,bionty,juptyer,postgres"
+        extras += "aws,zarr,bionty,jupyter,postgres"
     elif group == "docs":
         extras += "bionty"
     elif group == "cli":
