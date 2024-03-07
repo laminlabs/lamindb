@@ -69,7 +69,7 @@ def install(session, group):
     elif group == "faq":
         extras += "aws,postgres,bionty,jupyter"
     elif group == "storage":
-        extras += "aws,zarr"
+        extras += "aws,zarr,bionty,juptyer,postgres"
     elif group == "docs":
         extras += "bionty"
     elif group == "cli":
@@ -78,6 +78,10 @@ def install(session, group):
         if "bionty" in extras:
             session.run(*"pip install --no-deps ./sub/bionty".split())
             session.run(*"pip install --no-deps ./sub/lnschema-bionty".split())
+        if "group" == "storage":
+            session.run(
+                *"pip install --no-deps lnschema_lamin1@git+https://github.com/laminlabs/lnschema-lamin1".split()
+            )
     session.run(*f"pip install -e .[dev,{extras}]".split())
 
 
