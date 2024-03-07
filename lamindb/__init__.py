@@ -62,17 +62,15 @@ import lamindb_setup as _lamindb_setup
 
 # prints warning of python versions
 from lamin_utils import py_version_warning as _py_version_warning
-from lamindb_setup import _check_instance_setup
-from lamindb_setup._check_instance_setup import _INSTANCE_NOT_SETUP_WARNING
+from lamindb_setup import _check_instance_setup, _check_setup
+from lamindb_setup._check_setup import _INSTANCE_NOT_SETUP_WARNING
 from lamindb_setup._init_instance import reload_schema_modules as _reload_schema_modules
 from lamindb_setup.core.upath import UPath
 
 _py_version_warning("3.8", "3.12")
 
 _TESTING = _lamindb_setup._TESTING
-_CONNECTED_TO = None
 
-# allow the user to call setup
 from . import setup
 
 
@@ -87,8 +85,7 @@ def __getattr__(name):
     )
 
 
-# only import all other functionality if setup was successful
-if _CONNECTED_TO is None:
+if _check_setup._LAMINDB_CONNECTED_TO is not None:
     del InstanceNotSetupError
     del __getattr__  # delete so that imports work out
     from lnschema_core.models import (
