@@ -1,5 +1,6 @@
 # Changelog
 
+- 🚸 Enable transfer artifacts from local instance to remote instance [PR](https://github.com/laminlabs/lamindb/pull/1479) [@sunnyosun](https://github.com/sunnyosun)
 - 🚸 Deprecate `lamin load` in favor of `lamin connect`, require `ln.connect()` unless `auto_connect` is enabled [PR](https://github.com/laminlabs/lamindb/pull/1480) [@falexwolf](https://github.com/falexwolf)
 - 🚚 Replace `instance.identifier` with `instance.slug` [PR](https://github.com/laminlabs/lamindb/pull/1478) [@falexwolf](https://github.com/falexwolf)
 - ♻️ Move generic hashing and storage utilities into `lamindb-setup` [PR](https://github.com/laminlabs/lamindb/pull/1476) [@bpenteado](https://github.com/bpenteado)
