@@ -1,5 +1,6 @@
 from typing import Dict, Iterable, List, Literal, Optional, Set, Union
 
+import lamindb_setup as ln_setup
 import numpy as np
 import pandas as pd
 from django.core.exceptions import FieldDoesNotExist
@@ -12,7 +13,6 @@ from lnschema_core.types import ListLike, StrField
 
 from lamindb._utils import attach_func_to_class_method
 
-from . import _TESTING
 from ._from_values import _has_organism_field, _print_values
 from ._registry import _queryset, get_default_str_field
 
@@ -468,7 +468,7 @@ METHOD_NAMES = [
     "set_abbr",
 ]
 
-if _TESTING:  # type: ignore
+if ln_setup._TESTING:  # type: ignore
     from inspect import signature
 
     SIGS = {

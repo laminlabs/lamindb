@@ -59,21 +59,22 @@ __version__ = "0.68.0"  # denote a release candidate for 0.1.0 with 0.1rc1
 import os as _os
 
 import lamindb_setup as _lamindb_setup
-
-# prints warning of python versions
 from lamin_utils import py_version_warning as _py_version_warning
-from lamindb_setup import _check_instance_setup
-from lamindb_setup._check_instance_setup import _INSTANCE_NOT_SETUP_WARNING
+from lamindb_setup import _check_instance_setup, _check_setup
+from lamindb_setup._check_setup import _INSTANCE_NOT_SETUP_WARNING
+from lamindb_setup._connect_instance import connect
 from lamindb_setup._init_instance import reload_schema_modules as _reload_schema_modules
 from lamindb_setup.core.upath import UPath
 
+from . import setup
+
 _py_version_warning("3.8", "3.12")
 
-_TESTING = _lamindb_setup._TESTING
-_INSTANCE_SETUP = _check_instance_setup(from_lamindb=True)
 
-# allow the user to call setup
-from . import setup
+if _lamindb_setup.settings.auto_connect:
+    _INSTANCE_SETUP = _check_instance_setup(from_lamindb=True)
+else:
+    _INSTANCE_SETUP = _check_setup._LAMINDB_CONNECTED_TO is not None
 
 
 class InstanceNotSetupError(Exception):
@@ -87,7 +88,6 @@ def __getattr__(name):
     )
 
 
-# only import all other functionality if setup was successful
 if _INSTANCE_SETUP:
     del InstanceNotSetupError
     del __getattr__  # delete so that imports work out

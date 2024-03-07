@@ -11,10 +11,10 @@ from django.db.models import Manager, QuerySet
 from lamin_utils import logger
 from lamin_utils._lookup import Lookup
 from lamin_utils._search import search as base_search
+from lamindb_setup._connect_instance import get_owner_name_from_identifier
 from lamindb_setup._init_instance import InstanceSettings
-from lamindb_setup._load_instance import get_owner_name_from_identifier
 from lamindb_setup.core._docs import doc_args
-from lamindb_setup.core._hub_core import load_instance
+from lamindb_setup.core._hub_core import connect_instance
 from lamindb_setup.core._settings_storage import StorageSettings
 from lnschema_core import Registry
 from lnschema_core.types import ListLike, StrField
@@ -22,7 +22,6 @@ from lnschema_core.types import ListLike, StrField
 from lamindb._utils import attach_func_to_class_method
 from lamindb.core._settings import settings
 
-from . import _TESTING
 from ._from_values import get_or_create_records
 
 IPYTHON = getattr(builtins, "__IPYTHON__", False)
@@ -356,7 +355,7 @@ def using(
     instance: str,
 ) -> "QuerySet":
     """{}."""
-    from lamindb_setup._load_instance import (
+    from lamindb_setup._connect_instance import (
         load_instance_settings,
         update_db_using_local,
     )
@@ -365,7 +364,7 @@ def using(
     owner, name = get_owner_name_from_identifier(instance)
     settings_file = instance_settings_file(name, owner)
     if not settings_file.exists():
-        load_result = load_instance(owner=owner, name=name)
+        load_result = connect_instance(owner=owner, name=name)
         if isinstance(load_result, str):
             raise RuntimeError(
                 f"Failed to load instance {instance}, please check your permission!"
@@ -542,7 +541,7 @@ METHOD_NAMES = [
     "using",
 ]
 
-if _TESTING:  # type: ignore
+if ln_setup._TESTING:  # type: ignore
     from inspect import signature
 
     SIGS = {

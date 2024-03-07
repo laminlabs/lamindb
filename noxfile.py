@@ -91,6 +91,8 @@ def install(session, group):
     ["unit", "tutorial", "guide", "biology", "faq", "storage", "cli"],
 )
 def build(session, group):
+    import lamindb as ln
+
     login_testuser2(session)
     login_testuser1(session)
     coverage_args = "--cov=lamindb --cov-append --cov-report=term-missing"
@@ -102,6 +104,7 @@ def build(session, group):
             *f"pytest -s {coverage_args} ./docs/test_notebooks.py::test_{group}".split()
         )
     elif group == "guide":
+        ln.setup.settings.auto_connect = True
         session.run(
             *f"pytest -s {coverage_args} ./docs/test_notebooks.py::test_{group}".split()
         )
@@ -110,6 +113,7 @@ def build(session, group):
             *f"pytest -s {coverage_args} ./docs/test_notebooks.py::test_{group}".split()
         )
     elif group == "faq":
+        ln.setup.settings.auto_connect = True
         session.run(*f"pytest -s {coverage_args} ./docs/faq".split())
     elif group == "storage":
         session.run(*f"pytest -s {coverage_args} ./docs/storage".split())

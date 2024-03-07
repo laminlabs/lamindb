@@ -1,5 +1,6 @@
 from typing import Dict, List, Optional, Union
 
+import lamindb_setup as ln_setup
 import pandas as pd
 from lamindb_setup.core._docs import doc_args
 from lnschema_core.models import Feature, Registry
@@ -9,7 +10,6 @@ from pandas.api.types import CategoricalDtype, is_string_dtype
 from lamindb._utils import attach_func_to_class_method
 from lamindb.core._settings import settings
 
-from . import _TESTING
 from ._query_set import RecordsList
 
 FEATURE_TYPES = {
@@ -181,7 +181,7 @@ METHOD_NAMES = [
     "save",
 ]
 
-if _TESTING:
+if ln_setup._TESTING:
     from inspect import signature
 
     SIGS = {
