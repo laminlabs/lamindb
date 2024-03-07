@@ -413,18 +413,21 @@ def update_fk_to_default_db(
             setattr(records, f"{fk}_id", fk_record_default.id)
 
 
+FKBULK = [
+    "organism",
+    "public_source",
+    "initial_version",
+    "latest_report",  # Transform
+    "source_code",  # Transform
+    "report",  # Run
+    "file",  # Collection
+]
+
+
 def transfer_fk_to_default_db_bulk(
     records: Union[List, QuerySet], using_key: Optional[str]
 ):
-    for fk in [
-        "organism",
-        "public_source",
-        "initial_version",
-        "latest_report",  # Transform
-        "source_code",  # Transform
-        "report",  # Run
-        "file",  # Collection
-    ]:
+    for fk in FKBULK:
         update_fk_to_default_db(records, fk, using_key)
 
 
@@ -466,16 +469,18 @@ def transfer_to_default_db(
                 record.transform_id = run_context.transform.id
             else:
                 record.transform_id = None
-        if transfer_fk:
-            # transfer other foreign key fields
-            fk_fields = [
-                i.name
-                for i in record._meta.fields
-                if i.get_internal_type() == "ForeignKey"
-                if i.name not in {"created_by", "run", "transform"}
-            ]
-            for fk in fk_fields:
-                update_fk_to_default_db(record, fk, using_key)
+        # transfer other foreign key fields
+        fk_fields = [
+            i.name
+            for i in record._meta.fields
+            if i.get_internal_type() == "ForeignKey"
+            if i.name not in {"created_by", "run", "transform"}
+        ]
+        if not transfer_fk:
+            # don't transfer fk fields that are already bulk transferred
+            fk_fields = [fk for fk in fk_fields if fk not in FKBULK]
+        for fk in fk_fields:
+            update_fk_to_default_db(record, fk, using_key)
         record.id = None
         record._state.db = "default"
         if save:
