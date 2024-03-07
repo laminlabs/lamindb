@@ -70,6 +70,12 @@ from . import setup
 _py_version_warning("3.8", "3.12")
 
 
+if _lamindb_setup.settings.auto_connect:
+    _INSTANCE_SETUP = _check_instance_setup(from_lamindb=True)
+else:
+    _INSTANCE_SETUP = _check_setup._LAMINDB_CONNECTED_TO is not None
+
+
 class InstanceNotSetupError(Exception):
     pass
 
@@ -81,13 +87,7 @@ def __getattr__(name):
     )
 
 
-if _lamindb_setup.settings.auto_connect:
-    INSTANCE_SETUP = _check_instance_setup()
-else:
-    INSTANCE_SETUP = _check_setup._LAMINDB_CONNECTED_TO is not None
-
-
-if INSTANCE_SETUP:
+if _INSTANCE_SETUP:
     del InstanceNotSetupError
     del __getattr__  # delete so that imports work out
     from lnschema_core.models import (

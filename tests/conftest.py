@@ -17,6 +17,7 @@ def pytest_sessionstart(session: pytest.Session):
         name="lamindb-unit-tests",
         db=pgurl,
     )
+    ln.setup.settings.auto_connect = True
 
 
 def pytest_sessionfinish(session: pytest.Session):
@@ -25,3 +26,4 @@ def pytest_sessionfinish(session: pytest.Session):
     shutil.rmtree("./default_storage")
     # shutil.rmtree("./outside_storage")
     run("docker stop pgtest && docker rm pgtest", shell=True, stdout=DEVNULL)
+    ln.setup.settings.auto_connect = False
