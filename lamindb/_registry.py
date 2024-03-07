@@ -465,9 +465,12 @@ def transfer_to_default_db(
                 record.transform_id = run_context.transform.id
             else:
                 record.transform_id = None
-        # transfer foreign key fields
+        # transfer other foreign key fields
         fk_fields = [
-            i.name for i in record._meta.fields if i.get_internal_type() == "ForeignKey"
+            i.name
+            for i in record._meta.fields
+            if i.get_internal_type() == "ForeignKey"
+            if i.name not in {"created_by", "run", "transform"}
         ]
         for fk in fk_fields:
             update_fk_to_default_db(record, fk, using_key)
