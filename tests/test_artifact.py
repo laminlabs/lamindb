@@ -529,8 +529,8 @@ def test_delete_artifact(get_test_filepaths):
         description="My test file to delete", visibility=-1
     ).first()
     # permanent delete
-    artifact.delete(permanent=True)
     assert artifact.key_is_virtual
+    artifact.delete(permanent=True)
     assert (
         ln.Artifact.filter(
             description="My test file to delete", visibility=None
@@ -545,6 +545,7 @@ def test_delete_artifact(get_test_filepaths):
         description="My test file to delete from non-default storage",
     )
     artifact.save()
+    assert not artifact.key_is_virtual
     filepath = artifact.path
     artifact.delete(permanent=True, storage=True)
     assert (
@@ -555,6 +556,11 @@ def test_delete_artifact(get_test_filepaths):
         is None
     )
     assert filepath.exists()  # file is not deleted from non-default storage
+
+
+def test_delete_storage():
+    with pytest.raises(FileNotFoundError):
+        delete_storage(ln.settings.storage / "test-delete-storage")
 
 
 # why does this run so long? in particular the first time?
@@ -748,11 +754,6 @@ def test_load_to_memory(tsv_file, zrad_file, zip_file, fcs_file):
     with pytest.raises(TypeError) as error:
         ln.Artifact(True)
     assert error.exconly() == "TypeError: data has to be a string, Path, UPath"
-
-
-def test_delete_storage():
-    with pytest.raises(FileNotFoundError):
-        delete_storage(UPath("test"))
 
 
 def test_describe():
