@@ -16,10 +16,10 @@ classifiers = [
 ]
 dependencies = [
     # Lamin PINNED packages
-    "lnschema_core==0.62.0",
-    "lamindb_setup==0.66.0",
+    "lnschema_core==0.62.1",
+    "lamindb_setup==0.66.1",
     "lamin_utils==0.13.0",
-    "lamin_cli==0.9.0",
+    "lamin_cli==0.9.1",
     # others
     "rapidfuzz",
     "pyarrow",
@@ -37,7 +37,7 @@ Home = "https://github.com/laminlabs/lamindb"
 
 [project.optional-dependencies]
 bionty = [
-    "bionty==0.41.1",
+    "bionty==0.42.0",
 ]
 aws = [
     "urllib3<2", # for botocore, todo: check that really required
