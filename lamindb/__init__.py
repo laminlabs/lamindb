@@ -62,7 +62,7 @@ import os as _os
 import lamindb_setup as _lamindb_setup
 from lamin_utils import py_version_warning as _py_version_warning
 from lamindb_setup import _check_instance_setup, _check_setup
-from lamindb_setup._check_setup import _INSTANCE_NOT_SETUP_WARNING
+from lamindb_setup._check_setup import InstanceNotSetupError
 from lamindb_setup._connect_instance import connect
 from lamindb_setup._init_instance import reload_schema_modules as _reload_schema_modules
 from lamindb_setup.core.upath import UPath
@@ -71,22 +71,11 @@ from . import setup
 
 _py_version_warning("3.8", "3.12")
 
-
-if _lamindb_setup.settings.auto_connect:
-    _INSTANCE_SETUP = _check_instance_setup(from_lamindb=True)
-else:
-    _INSTANCE_SETUP = _check_setup._LAMINDB_CONNECTED_TO is not None
-
-
-class InstanceNotSetupError(Exception):
-    pass
+_INSTANCE_SETUP = _check_instance_setup(from_lamindb=True)
 
 
 def __getattr__(name):
-    raise InstanceNotSetupError(
-        f"{_INSTANCE_NOT_SETUP_WARNING}If you used the CLI to init or load an instance,"
-        " please RESTART the python session (in a notebook, restart kernel)"
-    )
+    raise InstanceNotSetupError()
 
 
 if _INSTANCE_SETUP:
