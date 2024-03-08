@@ -60,25 +60,18 @@ __version__ = "0.68.0"  # denote a release candidate for 0.1.0 with 0.1rc1
 import os as _os
 
 import lamindb_setup as _lamindb_setup
-from lamin_utils import py_version_warning as _py_version_warning
-from lamindb_setup import _check_instance_setup, _check_setup
-from lamindb_setup._check_setup import InstanceNotSetupError
+from lamindb_setup._check_setup import InstanceNotSetupError, _check_instance_setup
 from lamindb_setup._connect_instance import connect
-from lamindb_setup._init_instance import reload_schema_modules as _reload_schema_modules
 from lamindb_setup.core.upath import UPath
 
 from . import setup
-
-_py_version_warning("3.8", "3.12")
-
-_INSTANCE_SETUP = _check_instance_setup(from_lamindb=True)
 
 
 def __getattr__(name):
     raise InstanceNotSetupError()
 
 
-if _INSTANCE_SETUP:
+if _check_instance_setup(from_lamindb=True):
     del InstanceNotSetupError
     del __getattr__  # delete so that imports work out
     from lnschema_core.models import (
@@ -118,6 +111,10 @@ if _INSTANCE_SETUP:
 
     # schema modules
     if not _os.environ.get("LAMINDB_MULTI_INSTANCE") == "true":
+        from lamindb_setup._init_instance import (
+            reload_schema_modules as _reload_schema_modules,
+        )
+
         _reload_schema_modules(_lamindb_setup.settings.instance)
 
     track = run_context._track
