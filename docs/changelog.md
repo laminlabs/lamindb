@@ -1,5 +1,6 @@
 # Changelog
 
+- Fix old style URLs [PR](https://github.com/laminlabs/lamindb/pull/1485) [@Zethson](https://github.com/Zethson)
 - 🚸 Restore `auto_connect=True` on `lamin init` [PR](https://github.com/laminlabs/lamindb/pull/1483) [@falexwolf](https://github.com/falexwolf)
 ```{eval-rst}
 .. role:: small
