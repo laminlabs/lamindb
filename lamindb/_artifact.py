@@ -849,19 +849,21 @@ def delete(
     storage: Optional[bool] = None,
     using_key: Optional[str] = None,
 ) -> None:
-    # by default, we only move artifacts into the trash
-    if self.visibility > -1 and permanent is not True:
+    # by default, we only move artifacts into the trash (visibility = -1)
+    trash_visibility = VisibilityChoice.trash.value
+    if self.visibility > trash_visibility and permanent is not True:
         if storage is not None:
             logger.warning("moving artifact to trash, storage arg is ignored")
         # move to trash
-        self.visibility = -1
+        self.visibility = trash_visibility
         self.save()
-        logger.warning("moved artifact to trash (visibility = -1)")
+        logger.warning(f"moved artifact to trash (visibility = {trash_visibility})")
         return
 
     # if the artifact is already in the trash
     # permanent delete skips the trash
     if permanent is None:
+        # ask for confirmation of permanent delete
         response = input(
             "Artifact record is already in trash! Are you sure you want to permanently"
             " delete it? (y/n) You can't undo this action."
@@ -871,13 +873,14 @@ def delete(
         # this second option doesn't feel very intuitive
         delete_record = permanent
 
-    if delete_record:
+    if delete_record is True:
         # need to grab file path before deletion
         filepath = filepath_from_artifact(self, using_key)
         # only delete in storage if DB delete is successful
         # DB delete might error because of a foreign key constraint violated etc.
         self._delete_skip_storage()
         if self.key is None or self.key_is_virtual:
+            # always delete in storage if the key is virtual
             delete_in_storage = True
             if storage is not None:
                 logger.warning("storage arg is ignored if storage key is non-semantic")
@@ -894,9 +897,10 @@ def delete(
                 delete_in_storage = storage
         # we don't yet have logic to bring back the deleted metadata record
         # in case storage deletion fails - this is important for ACID down the road
-        if delete_in_storage:
-            delete_storage(filepath)
-            logger.success(f"deleted {colors.yellow(f'{filepath}')}")
+        if delete_in_storage is True:
+            delete_msg = delete_storage(filepath)
+            if delete_msg != "did-not-delete":
+                logger.success(f"deleted {colors.yellow(f'{filepath}')}")
 
 
 def _delete_skip_storage(artifact, *args, **kwargs) -> None:

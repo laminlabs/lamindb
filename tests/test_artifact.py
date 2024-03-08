@@ -516,14 +516,53 @@ def test_from_dir_s3():
     study0_data.n_objects = 51
 
 
-def test_delete(get_test_filepaths):
-    test_filepath = get_test_filepaths[3]
-    artifact = ln.Artifact(test_filepath, description="My test file to delete")
+def test_delete_artifact(df):
+    artifact = ln.Artifact.from_df(df, description="My test file to delete")
     artifact.save()
+    assert artifact.visibility == 1
+    assert artifact.key is None or artifact.key_is_virtual
     storage_path = artifact.path
-    artifact.delete(permanent=True, storage=True)
+    # trash behavior
+    artifact.delete()
+    assert storage_path.exists()
     assert ln.Artifact.filter(description="My test file to delete").first() is None
-    assert not Path(storage_path).exists()
+    assert ln.Artifact.filter(
+        description="My test file to delete", visibility=-1
+    ).first()
+    # permanent delete
+    artifact.delete(permanent=True)
+    assert (
+        ln.Artifact.filter(
+            description="My test file to delete", visibility=None
+        ).first()
+        is None
+    )
+    assert not storage_path.exists()  # deletes from storage is key_is_virtual
+
+    # test deleting artifact from non-default storage
+    artifact = ln.Artifact(
+        "s3://lamindb-dev-datasets/file-to-test-for-delete.csv",
+        description="My test file to delete from non-default storage",
+    )
+    artifact.save()
+    assert artifact.key is not None
+    artifact.restore()
+    assert artifact.visibility == 1
+    filepath = artifact.path
+    artifact.delete(permanent=True, storage=True)
+    assert (
+        ln.Artifact.filter(
+            description="My test file to delete from non-default storage",
+            visibility=None,
+        ).first()
+        is None
+    )
+    assert filepath.exists()  # file is not deleted from non-default storage
+
+
+def test_delete_storage():
+    with pytest.raises(FileNotFoundError):
+        delete_storage(ln.settings.storage / "test-delete-storage")
 
 
 # why does this run so long? in particular the first time?
@@ -717,11 +756,6 @@ def test_load_to_memory(tsv_file, zrad_file, zip_file, fcs_file):
     with pytest.raises(TypeError) as error:
         ln.Artifact(True)
     assert error.exconly() == "TypeError: data has to be a string, Path, UPath"
-
-
-def test_delete_storage():
-    with pytest.raises(FileNotFoundError):
-        delete_storage(UPath("test"))
 
 
 def test_describe():

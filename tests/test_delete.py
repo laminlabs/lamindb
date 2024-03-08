@@ -1,7 +1,7 @@
 import lamindb as ln
 
 
-def test_delete():
+def test_delete_record():
     names = ["label1", "label2", "label3"]
     labels = [ln.ULabel(name=name) for name in names]
     ln.save(labels)
