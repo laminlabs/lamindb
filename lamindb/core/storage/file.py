@@ -135,6 +135,10 @@ def delete_storage_using_key(
 
 def delete_storage(storagepath: Path):
     """Delete arbitrary artifact."""
+    if storagepath.is_relative_to(setup_settings.storage):
+        logger.warning("couldn't delete files outside of default storage")
+        return
+    # only delete files in the default storage
     if storagepath.is_file():
         storagepath.unlink()
     elif storagepath.is_dir():

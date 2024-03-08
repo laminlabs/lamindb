@@ -516,14 +516,45 @@ def test_from_dir_s3():
     study0_data.n_objects = 51
 
 
-def test_delete(get_test_filepaths):
+def test_delete_artifact(get_test_filepaths):
     test_filepath = get_test_filepaths[3]
     artifact = ln.Artifact(test_filepath, description="My test file to delete")
     artifact.save()
     storage_path = artifact.path
-    artifact.delete(permanent=True, storage=True)
+    # trash behavior
+    artifact.delete()
+    assert storage_path.exists()
     assert ln.Artifact.filter(description="My test file to delete").first() is None
-    assert not Path(storage_path).exists()
+    assert ln.Artifact.filter(
+        description="My test file to delete", visibility=-1
+    ).first()
+    # permanent delete
+    artifact.delete(permanent=True)
+    assert artifact.key_is_virtual
+    assert (
+        ln.Artifact.filter(
+            description="My test file to delete", visibility=None
+        ).first()
+        is None
+    )
+    assert not storage_path.exists()  # deletes from storage is key_is_virtual
+
+    # test deleting artifact from non-default storage
+    artifact = ln.Artifact(
+        "s3://lamindb-dev-datasets/file-to-test-for-delete.csv",
+        description="My test file to delete from non-default storage",
+    )
+    artifact.save()
+    filepath = artifact.path
+    artifact.delete(permanent=True, storage=True)
+    assert (
+        ln.Artifact.filter(
+            description="My test file to delete from non-default storage",
+            visibility=None,
+        ).first()
+        is None
+    )
+    assert filepath.exists()  # file is not deleted from non-default storage
 
 
 # why does this run so long? in particular the first time?
