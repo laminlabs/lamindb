@@ -70,18 +70,16 @@ def install(session, group):
         extras += "aws,postgres,bionty,jupyter"
     elif group == "storage":
         extras += "aws,zarr,bionty,jupyter,postgres"
+        session.run(
+            *"pip install --no-deps lnschema_lamin1@git+https://github.com/laminlabs/lnschema-lamin1".split()
+        )
     elif group == "docs":
         extras += "bionty"
     elif group == "cli":
         extras += "jupyter,aws"
-    if os.getenv("GITHUB_EVENT_NAME") != "push":
-        if "bionty" in extras:
-            session.run(*"pip install --no-deps ./sub/bionty".split())
-            session.run(*"pip install --no-deps ./sub/lnschema-bionty".split())
-        if group == "storage":
-            session.run(
-                *"pip install --no-deps lnschema_lamin1@git+https://github.com/laminlabs/lnschema-lamin1".split()
-            )
+    if os.getenv("GITHUB_EVENT_NAME") != "push" and "bionty" in extras:
+        session.run(*"pip install --no-deps ./sub/bionty".split())
+        session.run(*"pip install --no-deps ./sub/lnschema-bionty".split())
     session.run(*f"pip install -e .[dev,{extras}]".split())
 
 
