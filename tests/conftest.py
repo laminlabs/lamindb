@@ -8,7 +8,7 @@ from lamin_utils import logger
 from laminci.db import setup_local_test_postgres
 
 
-def pytest_sessionstart(session: pytest.Session):
+def pytest_sessionstart():
     ln_setup._TESTING = True
     pgurl = setup_local_test_postgres()
     ln.setup.init(
