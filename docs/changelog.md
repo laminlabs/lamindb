@@ -1,19 +1,17 @@
 # Changelog
 
-- 🚸 Disable delete data from non-default storage [PR](https://github.com/laminlabs/lamindb/pull/1484) [@sunnyosun](https://github.com/sunnyosun)
-- 📝 Refactor intro [PR](https://github.com/laminlabs/lamindb/pull/1482) [@falexwolf](https://github.com/falexwolf)
-- 🚸 Enable transfer artifacts from local instance to remote instance [PR](https://github.com/laminlabs/lamindb/pull/1479) [@sunnyosun](https://github.com/sunnyosun)
-- 🚸 Deprecate `lamin load` in favor of `lamin connect`, require `ln.connect()` unless `auto_connect` is enabled [PR](https://github.com/laminlabs/lamindb/pull/1480) [@falexwolf](https://github.com/falexwolf)
-- 🚚 Replace `instance.identifier` with `instance.slug` [PR](https://github.com/laminlabs/lamindb/pull/1478) [@falexwolf](https://github.com/falexwolf)
-- ♻️ Move generic hashing and storage utilities into `lamindb-setup` [PR](https://github.com/laminlabs/lamindb/pull/1476) [@bpenteado](https://github.com/bpenteado)
-- ♻️ Refactor tests [PR](https://github.com/laminlabs/lamindb/pull/1477) [@sunnyosun](https://github.com/sunnyosun)
-- ♻️ Type UPathStr & move .dev to .core in lamindb-setup [PR](https://github.com/laminlabs/lamindb/pull/1475) [@falexwolf](https://github.com/falexwolf)
-- 📝 Improve docs and make some methods private for MappedCollection [PR](https://github.com/laminlabs/lamindb/pull/1473) [@Koncopd](https://github.com/Koncopd)
-- 🩹 Pin s3fs [PR](https://github.com/laminlabs/lamindb/pull/1472) [@Koncopd](https://github.com/Koncopd)
-- ♻️ Refactor transform update dialogue, more tests [PR](https://github.com/laminlabs/lamindb/pull/1471) [@falexwolf](https://github.com/falexwolf)
 ```{eval-rst}
 .. role:: small
 ```
+
+## 0.69
+
+### 0.69.0 {small}`2024-03-08`
+
+- 🚸 Deprecate `lamin load` in favor of `lamin connect`, require `ln.connect()` unless `auto_connect` is enabled [PR](https://github.com/laminlabs/lamindb/pull/1480) [@falexwolf](https://github.com/falexwolf)
+- 🚸 Disable delete data from non-default storage [PR](https://github.com/laminlabs/lamindb/pull/1484) [@sunnyosun](https://github.com/sunnyosun)
+- 🚸 Enable transfer artifacts from local instance to remote instance [PR](https://github.com/laminlabs/lamindb/pull/1479) [@sunnyosun](https://github.com/sunnyosun)
+- 🚚 Replace `instance.identifier` with `instance.slug` [PR](https://github.com/laminlabs/lamindb/pull/1478) [@falexwolf](https://github.com/falexwolf)
 
 ## 0.68
 
