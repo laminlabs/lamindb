@@ -516,10 +516,11 @@ def test_from_dir_s3():
     study0_data.n_objects = 51
 
 
-def test_delete_artifact(get_test_filepaths):
-    test_filepath = get_test_filepaths[3]
-    artifact = ln.Artifact(test_filepath, description="My test file to delete")
+def test_delete_artifact(df):
+    artifact = ln.Artifact.from_df(df, description="My test file to delete")
     artifact.save()
+    assert artifact.visibility == 1
+    assert artifact.key is None or artifact.key_is_virtual
     storage_path = artifact.path
     # trash behavior
     artifact.delete()
@@ -529,7 +530,6 @@ def test_delete_artifact(get_test_filepaths):
         description="My test file to delete", visibility=-1
     ).first()
     # permanent delete
-    assert artifact.key_is_virtual
     artifact.delete(permanent=True)
     assert (
         ln.Artifact.filter(
@@ -545,7 +545,9 @@ def test_delete_artifact(get_test_filepaths):
         description="My test file to delete from non-default storage",
     )
     artifact.save()
-    assert not artifact.key_is_virtual
+    assert artifact.key is not None
+    artifact.restore()
+    assert artifact.visibility == 1
     filepath = artifact.path
     artifact.delete(permanent=True, storage=True)
     assert (

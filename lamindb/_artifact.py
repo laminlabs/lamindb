@@ -898,8 +898,9 @@ def delete(
         # we don't yet have logic to bring back the deleted metadata record
         # in case storage deletion fails - this is important for ACID down the road
         if delete_in_storage is True:
-            delete_storage(filepath)
-            logger.success(f"deleted {colors.yellow(f'{filepath}')}")
+            delete_msg = delete_storage(filepath)
+            if delete_msg != "did-not-delete":
+                logger.success(f"deleted {colors.yellow(f'{filepath}')}")
 
 
 def _delete_skip_storage(artifact, *args, **kwargs) -> None:
