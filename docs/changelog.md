@@ -5,16 +5,13 @@
 .. role:: small
 ```
 
-## 0.69
-
-### 0.69.0 {small}`2024-03-08`
-
-- 🚸 Deprecate `lamin load` in favor of `lamin connect`, require `ln.connect()` unless `auto_connect` is enabled [PR](https://github.com/laminlabs/lamindb/pull/1480) [@falexwolf](https://github.com/falexwolf)
-- 🚸 Disable delete data from non-default storage [PR](https://github.com/laminlabs/lamindb/pull/1484) [@sunnyosun](https://github.com/sunnyosun)
-- 🚸 Enable transfer artifacts from local instance to remote instance [PR](https://github.com/laminlabs/lamindb/pull/1479) [@sunnyosun](https://github.com/sunnyosun)
-- 🚚 Replace `instance.identifier` with `instance.slug` [PR](https://github.com/laminlabs/lamindb/pull/1478) [@falexwolf](https://github.com/falexwolf)
-
 ## 0.68
+
+### 0.68.1 {small}`2024-03-08`
+
+- 🚸 You can now use `ln.connect()` to connect to a LaminDB instance [PR](https://github.com/laminlabs/lamindb/pull/1480) [@falexwolf](https://github.com/falexwolf)
+- 🚸 You can no longer delete data from non-default storage locations, as these might be tracked in other instances [PR](https://github.com/laminlabs/lamindb/pull/1484) [@sunnyosun](https://github.com/sunnyosun)
+- 🚸 Enable transferring data from local instances to remote instances [PR](https://github.com/laminlabs/lamindb/pull/1479) [@sunnyosun](https://github.com/sunnyosun)
 
 ### 0.68.0 {small}`2024-03-01`
 
