@@ -1,5 +1,6 @@
 # Changelog
 
+- 🚸 Restore `auto_connect=True` on `lamin init` [PR](https://github.com/laminlabs/lamindb/pull/1483) [@falexwolf](https://github.com/falexwolf)
 ```{eval-rst}
 .. role:: small
 ```
