@@ -39,6 +39,7 @@ Functions:
 .. autosummary::
    :toctree: .
 
+   connect
    track
    view
    save
