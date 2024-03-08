@@ -850,13 +850,14 @@ def delete(
     using_key: Optional[str] = None,
 ) -> None:
     # by default, we only move artifacts into the trash (visibility = -1)
-    if self.visibility > -1 and permanent is not True:
+    trash_visibility = VisibilityChoice.trash.value
+    if self.visibility > trash_visibility and permanent is not True:
         if storage is not None:
             logger.warning("moving artifact to trash, storage arg is ignored")
         # move to trash
-        self.visibility = -1
+        self.visibility = trash_visibility
         self.save()
-        logger.warning("moved artifact to trash (visibility = -1)")
+        logger.warning(f"moved artifact to trash (visibility = {trash_visibility})")
         return
 
     # if the artifact is already in the trash

@@ -409,10 +409,11 @@ def load(
 # docstring handled through attach_func_to_class_method
 def delete(self, permanent: Optional[bool] = None) -> None:
     # change visibility to trash
-    if self.visibility > VisibilityChoice.trash.value and permanent is not True:
-        self.visibility = VisibilityChoice.trash.value
+    trash_visibility = VisibilityChoice.trash.value
+    if self.visibility > trash_visibility and permanent is not True:
+        self.visibility = trash_visibility
         self.save()
-        logger.warning("moved collection to trash.")
+        logger.warning(f"moved collection to trash (visibility = {trash_visibility})")
         return
 
     # permanent delete
