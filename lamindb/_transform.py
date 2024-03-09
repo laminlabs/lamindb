@@ -1,12 +1,10 @@
-from typing import TYPE_CHECKING, Optional
+from typing import Optional
 
-from lnschema_core.models import TRANSFORM_TYPE_DEFAULT, Artifact, Run, Transform
+from lnschema_core.models import Artifact, Run, Transform
+from lnschema_core.types import TransformType
 
 from ._run import delete_run_artifacts
 from .core.versioning import get_uid_from_old_version, init_uid
-
-if TYPE_CHECKING:
-    from lnschema_core.types import TransformType
 
 
 def __init__(transform: Transform, *args, **kwargs):
@@ -23,7 +21,7 @@ def __init__(transform: Transform, *args, **kwargs):
     (kwargs.pop("initial_version_id") if "initial_version_id" in kwargs else None)
     version: Optional[str] = kwargs.pop("version") if "version" in kwargs else None
     type: Optional[TransformType] = (
-        kwargs.pop("type") if "type" in kwargs else TRANSFORM_TYPE_DEFAULT
+        kwargs.pop("type") if "type" in kwargs else TransformType.pipeline
     )
     reference: Optional[str] = (
         kwargs.pop("reference") if "reference" in kwargs else None

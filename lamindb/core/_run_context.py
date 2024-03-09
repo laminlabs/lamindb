@@ -25,12 +25,6 @@ msg_path_failed = (
 )
 
 
-# we don't want a real error here, as this is so frequent
-# in VSCode
-class UpdateNbWithNonInteractiveEditor(SystemExit):
-    pass
-
-
 class NotebookNotSavedError(Exception):
     pass
 
@@ -290,7 +284,7 @@ class run_context:
                 transform_type = (
                     TransformType.notebook
                     if is_run_from_ipython
-                    else TransformType.pipeline
+                    else TransformType.script
                 )
                 cls._create_or_load_transform(
                     stem_uid=stem_uid,
