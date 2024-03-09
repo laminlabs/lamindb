@@ -71,7 +71,7 @@ def install(session, group):
     elif group == "storage":
         extras += "aws,zarr,bionty,jupyter,postgres"
         session.run(
-            *"pip install --no-deps wetlab@git+https://github.com/laminlabs/lnschema-lamin1".split()
+            *"pip install --no-deps wetlab@git+https://github.com/laminlabs/wetlab".split()
         )
     elif group == "docs":
         extras += "bionty"
