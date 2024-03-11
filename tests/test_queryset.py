@@ -128,3 +128,19 @@ def test_validate():
 def test_map_synonyms():
     qs = ln.User.filter(handle="testuser1").all()
     assert qs.standardize(["user1", "user2"]) == ["user1", "user2"]
+
+
+def test_latest_version():
+    transform = ln.Transform(name="Introduction")
+    transform.save()
+    transform = ln.Transform(name="Introduction", is_new_version_of=transform)
+    transform.save()
+    transform = ln.Transform(name="Introduction", is_new_version_of=transform)
+    transform.save()
+    assert len(ln.Transform.filter(name="Introduction").all()) == 3
+    assert len(ln.Transform.filter(name="Introduction").latest_version()) == 1
+    with pytest.raises(MultipleResultsFound):
+        ln.Transform.filter(name="Introduction").one()
+    ln.Transform.filter(
+        name="Introduction"
+    ).latest_version().one()  # this doesn't throw an error

@@ -9,6 +9,7 @@ from lnschema_core.models import (
     CanValidate,
     Collection,
     IsTree,
+    IsVersioned,
     Registry,
     Transform,
 )
@@ -51,10 +52,34 @@ def get_keys_from_df(data: List, registry: Registry) -> List[str]:
     return keys
 
 
+def one(self) -> Registry:
+    """Exactly one result. Throws error if there are more or none.
+
+    Examples:
+        >>> ln.ULabel(name="benchmark").save()
+        >>> ln.ULabel.filter(name="benchmark").one()
+    """
+    if len(self) == 0:
+        raise NoResultFound
+    elif len(self) > 1:
+        raise MultipleResultsFound(self)
+    else:
+        return self[0]
+
+
+def one_helper(self):
+    if len(self) == 0:
+        raise NoResultFound
+    elif len(self) > 1:
+        raise MultipleResultsFound(self)
+    else:
+        return self[0]
+
+
 class RecordsList(UserList):
     """Is ordered, can't be queried, but has `.df()`."""
 
-    def __init__(self, records: List[Registry]):
+    def __init__(self, records: Iterable[Registry]):
         super().__init__(record for record in records)
 
     def df(self) -> pd.DataFrame:
@@ -62,9 +87,13 @@ class RecordsList(UserList):
         values = [record.__dict__ for record in self.data]
         return pd.DataFrame(values, columns=keys)
 
+    def one(self) -> Registry:
+        """Exactly one result. Throws error if there are more or none."""
+        return one_helper(self)
+
 
 class QuerySet(models.QuerySet, CanValidate, IsTree):
-    """Lazily loaded queried records returned by queries.
+    """Sets of records returned by queries.
 
     See Also:
 
@@ -75,7 +104,6 @@ class QuerySet(models.QuerySet, CanValidate, IsTree):
         >>> ln.ULabel(name="my label").save()
         >>> queryset = ln.ULabel.filter(name="my label")
         >>> queryset
-        <QuerySet [ULabel(id=MIeZISeF, name=my label, updated_at=2023-07-19 19:53:34, created_by_id=DzTjkKse)]> # noqa
     """
 
     def df(self, include: Optional[List[str]] = None) -> pd.DataFrame:
@@ -165,15 +193,10 @@ class QuerySet(models.QuerySet, CanValidate, IsTree):
         """Populate a list with the results.
 
         Examples:
-
             >>> ln.save(ln.ULabel.from_values(["ULabel1", "ULabel2", "ULabel3"], field="name")) # noqa
             >>> queryset = ln.ULabel.filter(name__icontains = "project")
-            >>> queryset.list()
-            [ULabel(id=NAgTZxoo, name=ULabel1, updated_at=2023-07-19 19:25:48, created_by_id=DzTjkKse), # noqa
-            ULabel(id=bnsAgKRC, name=ULabel2, updated_at=2023-07-19 19:25:48, created_by_id=DzTjkKse), # noqa
-            ULabel(id=R8xhAJNE, name=ULabel3, updated_at=2023-07-19 19:25:48, created_by_id=DzTjkKse)] # noqa
-            >>> queryset.list("name")
-            ['ULabel1', 'ULabel2', 'ULabel3']
+            >>> queryset.list()  # list of records
+            >>> queryset.list("name")  # list of values
         """
         if field is None:
             return list(self)
@@ -184,10 +207,10 @@ class QuerySet(models.QuerySet, CanValidate, IsTree):
         """If non-empty, the first result in the query set, otherwise None.
 
         Examples:
-            >>> ln.save(ln.ULabel.from_values(["ULabel1", "ULabel2", "ULabel3"], field="name")) # noqa
-            >>> queryset = ln.ULabel.filter(name__icontains = "project")
+            >>> labels = ln.ULabel.from_values(["ULabel1", "ULabel2", "ULabel3"], field="name")
+            >>> ln.save(labels)
+            >>> queryset = ln.ULabel.filter(name__icontains="project")
             >>> queryset.first()
-            ULabel(id=NAgTZxoo, name=ULabel1, updated_at=2023-07-19 19:25:48, created_by_id=DzTjkKse) # noqa
         """
         if len(self) == 0:
             return None
@@ -199,14 +222,8 @@ class QuerySet(models.QuerySet, CanValidate, IsTree):
         Examples:
             >>> ln.ULabel(name="benchmark").save()
             >>> ln.ULabel.filter(name="benchmark").one()
-            ULabel(id=gznl0GZk, name=benchmark, updated_at=2023-07-19 19:39:01, created_by_id=DzTjkKse) # noqa
         """
-        if len(self) == 0:
-            raise NoResultFound
-        elif len(self) > 1:
-            raise MultipleResultsFound
-        else:
-            return self[0]
+        return one_helper(self)
 
     def one_or_none(self) -> Optional[Registry]:
         """At most one result. Returns it if there is one, otherwise returns None.
@@ -223,7 +240,14 @@ class QuerySet(models.QuerySet, CanValidate, IsTree):
         elif len(self) == 1:
             return self[0]
         else:
-            raise MultipleResultsFound
+            raise MultipleResultsFound(self.all())
+
+    def latest_version(self) -> RecordsList:
+        """Filter every version family by latest version."""
+        if issubclass(self.model, IsVersioned):
+            return filter_query_set_by_latest_version(self)
+        else:
+            raise ValueError("Registry isn't subclass of `lamindb.core.IsVersioned`")
 
     @doc_args(Registry.search.__doc__)
     def search(self, string: str, **kwargs):
@@ -286,11 +310,33 @@ class QuerySet(models.QuerySet, CanValidate, IsTree):
         )
 
 
+def filter_query_set_by_latest_version(ordered_query_set: QuerySet) -> RecordsList:
+    if len(ordered_query_set) == 0:
+        return ordered_query_set
+    first_record = ordered_query_set[0]
+    records_in_view = {}
+    records_in_view[first_record.stem_uid] = first_record
+    for record in ordered_query_set:
+        # this overwrites user-provided ordering (relevant records ordered by a
+        # certain field will not show if they are not the latest version)
+        if record.stem_uid not in records_in_view:
+            records_in_view[record.stem_uid] = record
+        else:
+            if record.created_at > records_in_view[record.stem_uid].created_at:
+                # deleting the entry is needed to preserve the integrity of
+                # user-provided ordering
+                del records_in_view[record.stem_uid]
+                records_in_view[record.stem_uid] = record
+    list_records_in_view = RecordsList(records_in_view.values())
+    return list_records_in_view
+
+
 models.QuerySet.df = QuerySet.df
 models.QuerySet.list = QuerySet.list
 models.QuerySet.first = QuerySet.first
-models.QuerySet.one = QuerySet.one
+models.QuerySet.one = one
 models.QuerySet.one_or_none = QuerySet.one_or_none
+models.QuerySet.latest_version = QuerySet.latest_version
 models.QuerySet.search = QuerySet.search
 models.QuerySet.lookup = QuerySet.lookup
 models.QuerySet.validate = QuerySet.validate
