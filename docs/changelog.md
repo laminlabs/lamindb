@@ -1,5 +1,6 @@
 # Changelog
 
+- 🚚 Move transform & run artifacts into cache before uploading [PR](https://github.com/laminlabs/lamindb/pull/1488) [@falexwolf](https://github.com/falexwolf)
 - 🚸 More sensible transform types [PR](https://github.com/laminlabs/lamindb/pull/1486) [@falexwolf](https://github.com/falexwolf)
 - 🚚 Rename `lnschema_lamin1` to `wetlab` [PR](https://github.com/laminlabs/lamindb/pull/1487) [@falexwolf](https://github.com/falexwolf)
 - Fix old style URLs [PR](https://github.com/laminlabs/lamindb/pull/1485) [@Zethson](https://github.com/Zethson)
