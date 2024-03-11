@@ -16,10 +16,10 @@ classifiers = [
 ]
 dependencies = [
     # Lamin PINNED packages
-    "lnschema_core==0.62.1",
+    "lnschema_core==0.63.0",
     "lamindb_setup==0.66.1",
     "lamin_utils==0.13.0",
-    "lamin_cli==0.9.1",
+    "lamin_cli==0.9.2",
     # others
     "rapidfuzz",
     "pyarrow",
