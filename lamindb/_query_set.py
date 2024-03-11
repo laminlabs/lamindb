@@ -52,21 +52,6 @@ def get_keys_from_df(data: List, registry: Registry) -> List[str]:
     return keys
 
 
-def one(self) -> Registry:
-    """Exactly one result. Throws error if there are more or none.
-
-    Examples:
-        >>> ln.ULabel(name="benchmark").save()
-        >>> ln.ULabel.filter(name="benchmark").one()
-    """
-    if len(self) == 0:
-        raise NoResultFound
-    elif len(self) > 1:
-        raise MultipleResultsFound(self)
-    else:
-        return self[0]
-
-
 def one_helper(self):
     if len(self) == 0:
         raise NoResultFound
@@ -334,7 +319,7 @@ def filter_query_set_by_latest_version(ordered_query_set: QuerySet) -> RecordsLi
 models.QuerySet.df = QuerySet.df
 models.QuerySet.list = QuerySet.list
 models.QuerySet.first = QuerySet.first
-models.QuerySet.one = one
+models.QuerySet.one = QuerySet.one
 models.QuerySet.one_or_none = QuerySet.one_or_none
 models.QuerySet.latest_version = QuerySet.latest_version
 models.QuerySet.search = QuerySet.search
