@@ -106,9 +106,10 @@ def __init__(orm: Registry, *args, **kwargs):
                     version_comment = ""
                     existing_record = orm.filter(name=kwargs["name"]).one()
                 if existing_record is not None:
-                    logger.success(
-                        f"loaded {orm.__class__.__name__} record with exact same"
-                        f" name{version_comment}: '{kwargs['name']}'"
+                    logger.warning(
+                        f"loaded {orm.__class__.__name__} record with same"
+                        f" name{version_comment}: '{kwargs['name']}' "
+                        "(disable via ln.settings.upon_create_search_names)"
                     )
                     init_self_from_db(orm, existing_record)
                     return None
