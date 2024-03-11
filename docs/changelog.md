@@ -1,5 +1,6 @@
 # Changelog
 
+- ✨ Add `latest_version` filter for `QuerySet` [PR](https://github.com/laminlabs/lamindb/pull/1489) [@falexwolf](https://github.com/falexwolf)
 ```{eval-rst}
 .. role:: small
 ```
