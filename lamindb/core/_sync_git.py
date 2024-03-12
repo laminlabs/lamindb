@@ -9,8 +9,9 @@ from ._settings import settings
 
 
 def clone_git_repo(git_url: str) -> None:
-    if Path(dir_from_repo_url(git_url)).exists():
-        logger.warning("git repo already exists")
+    repo_dir = dir_from_repo_url(git_url)
+    if Path(repo_dir).exists():
+        logger.warning(f"git repo {repo_dir} already exists locally")
         return None
     if not git_url.endswith(".git"):
         git_url += ".git"
@@ -20,7 +21,7 @@ def clone_git_repo(git_url: str) -> None:
         shell=True,
         capture_output=True,
     )
-    if result.returncode != 0:
+    if result.returncode != 0 or not Path(repo_dir).exists():
         raise RuntimeError(result.stderr.decode())
 
 
@@ -67,6 +68,7 @@ def get_transform_reference_from_git_repo(path: Path):
     cd_repo = None
     result = get_git_commit_hash(blob_hash, cd_repo=None)
     commit_hash = result.stdout.decode()
+    print(commit_hash)
     if commit_hash == "" or result.returncode == 1:
         cd_repo = dir_from_repo_url(settings.sync_git_repo)
         clone_git_repo(settings.sync_git_repo)
