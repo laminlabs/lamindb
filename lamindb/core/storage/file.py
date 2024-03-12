@@ -161,9 +161,9 @@ def read_fcs(*args, **kwargs):
     return readfcs.read(*args, **kwargs)
 
 
-def read_tsv(path: UPathStr) -> pd.DataFrame:
+def read_tsv(path: UPathStr, **kwargs) -> pd.DataFrame:
     path_sanitized = Path(path)
-    return pd.read_csv(path_sanitized, sep="\t")
+    return pd.read_csv(path_sanitized, sep="\t", **kwargs)
 
 
 def load_html(path: UPathStr):
