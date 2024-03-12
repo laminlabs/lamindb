@@ -9,6 +9,9 @@ from ._settings import settings
 
 
 def clone_git_repo(git_url: str) -> None:
+    if Path(git_url).exists():
+        logger.warning("git repo already exists")
+        return None
     if not git_url.endswith(".git"):
         git_url += ".git"
     logger.important(f"cloning {git_url}")
@@ -23,8 +26,8 @@ def clone_git_repo(git_url: str) -> None:
 
 def dir_from_repo_url(repo_url: Optional[str]) -> Optional[str]:
     if repo_url is not None:
-        cd_repo = repo_url.split("/")[-1].replace(".git", "")
-    return cd_repo
+        repo_dir = repo_url.split("/")[-1].replace(".git", "")
+    return repo_dir
 
 
 def get_git_commit_hash(
