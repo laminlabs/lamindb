@@ -27,8 +27,9 @@ def clone_git_repo(git_url: str) -> None:
 
 def dir_from_repo_url(repo_url: Optional[str]) -> Optional[str]:
     if repo_url is not None:
-        repo_dir = repo_url.split("/")[-1].replace(".git", "")
-    return repo_dir
+        return repo_url.split("/")[-1].replace(".git", "")
+    else:
+        return repo_url
 
 
 def get_git_commit_hash(
@@ -66,7 +67,7 @@ def get_filepath_within_git_repo(
 def get_transform_reference_from_git_repo(path: Path):
     blob_hash = hash_code(path).hexdigest()
     cd_repo = None
-    result = get_git_commit_hash(blob_hash, cd_repo=None)
+    result = get_git_commit_hash(blob_hash, cd_repo=cd_repo)
     commit_hash = result.stdout.decode()
     print(commit_hash)
     if commit_hash == "" or result.returncode == 1:
