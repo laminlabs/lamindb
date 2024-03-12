@@ -9,7 +9,7 @@ from ._settings import settings
 
 
 def clone_git_repo(git_url: str) -> None:
-    if Path(git_url).exists():
+    if Path(dir_from_repo_url(git_url)).exists():
         logger.warning("git repo already exists")
         return None
     if not git_url.endswith(".git"):
