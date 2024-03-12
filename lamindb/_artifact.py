@@ -877,7 +877,7 @@ def delete(
         # need to grab file path before deletion
         try:
             filepath = filepath_from_artifact(self, using_key)
-        except (FileNotFoundError, OSError):
+        except OSError:
             storage = False
         # only delete in storage if DB delete is successful
         # DB delete might error because of a foreign key constraint violated etc.
