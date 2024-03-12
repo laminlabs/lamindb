@@ -44,19 +44,20 @@ def get_git_commit_hash(
 def get_filepath_within_git_repo(
     commit_hash: str, blob_hash: str, cd_repo: Optional[str]
 ) -> str:
+    command = f"git ls-tree -r {commit_hash} | grep -E {blob_hash}"
     result = subprocess.run(
-        f"git ls-tree -r {commit_hash} | grep -E {blob_hash}",
+        command,
         shell=True,
         capture_output=True,
         cwd=cd_repo,
     )
     if result.returncode != 0 and result.stderr.decode() != "":
-        raise RuntimeError(
-            f"git ls-tree -r {commit_hash} | grep -E {blob_hash}\n"
-            + result.stderr.decode()
-        )
+        raise RuntimeError(f"{command}\n{result.stderr.decode()}")
     if len(result.stdout.decode()) == 0:
-        raise RuntimeError("Could not find filepath within git repo.")
+        raise RuntimeError(
+            f"Could not find filepath within git repo running:\n{command}"
+            f"\nin repo: {cd_repo}"
+        )
     filepath = result.stdout.decode().split()[-1]
     return filepath
 
