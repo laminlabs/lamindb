@@ -4,9 +4,9 @@
 
 # LaminDB - A data framework for biology
 
-- Access storage & databases with a unified Python API.
+- Manage storage & databases with a unified Python API ("lakehouse").
 - Track data lineage across notebooks & pipelines.
-- Manage registries for experimental metadata & in-house ontologies.
+- Integrate registries for experimental metadata & in-house ontologies.
 - Validate, standardize & annotate.
 - Collaborate across a mesh of distributed LaminDB instances.
 
