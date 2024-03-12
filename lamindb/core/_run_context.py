@@ -2,19 +2,24 @@ import builtins
 import hashlib
 import os
 import re
+import subprocess
 import sys
 from datetime import datetime, timezone
 from pathlib import Path, PurePath
 from typing import Any, Dict, List, Optional, Tuple, Union
 
 from lamin_utils import logger
-from lamindb_setup import settings
+from lamindb_setup import settings as setup_settings
 from lamindb_setup.core import InstanceSettings
+from lamindb_setup.core.hashing import hash_code
+from lamindb_setup.core.types import UPathStr
 from lnschema_core import Run, Transform, ids
 from lnschema_core.types import TransformType
 from lnschema_core.users import current_user_id
 
 from lamindb.core._transform_settings import transform_settings
+
+from ._settings import settings
 
 is_run_from_ipython = getattr(builtins, "__IPYTHON__", False)
 
@@ -199,6 +204,56 @@ def raise_transform_settings_error() -> None:
     )
 
 
+def clone_git_repo(git_url: str) -> None:
+    if not git_url.endswith(".git"):
+        git_url += ".git"
+    logger.important(f"cloning {git_url}")
+    result = subprocess.run(
+        f"git clone --depth 10 {git_url}",
+        shell=True,
+        capture_output=True,
+    )
+    if result.returncode != 0:
+        raise RuntimeError(result.stderr.decode())
+
+
+def dir_from_repo_url(repo_url: Optional[str]) -> Optional[str]:
+    if repo_url is not None:
+        cd_repo = repo_url.split("/")[-1].replace(".git", "")
+    return cd_repo
+
+
+def get_git_commit_hash(
+    blob_hash: str, cd_repo: Optional[str]
+) -> subprocess.CompletedProcess:
+    return subprocess.run(
+        f"git log --find-object={blob_hash} --pretty=format:%H",
+        shell=True,
+        capture_output=True,
+        cwd=cd_repo,
+    )
+
+
+def get_filepath_within_git_repo(
+    commit_hash: str, blob_hash: str, cd_repo: Optional[str]
+) -> str:
+    result = subprocess.run(
+        f"git ls-tree -r {commit_hash} | grep -E {blob_hash}",
+        shell=True,
+        capture_output=True,
+        cwd=cd_repo,
+    )
+    if result.returncode != 0:
+        raise RuntimeError(
+            f"git ls-tree -r {commit_hash} | grep -E {blob_hash}\n"
+            + result.stderr.decode()
+        )
+    if len(result.stdout.decode()) == 0:
+        raise RuntimeError("Could not find filepath within git repo.")
+    filepath = result.stdout.decode().split()[-1]
+    return filepath
+
+
 class run_context:
     """Global run context."""
 
@@ -219,7 +274,7 @@ class run_context:
         reference: Optional[str] = None,
         reference_type: Optional[str] = None,
         path: Optional[str] = None,
-    ) -> Run:
+    ) -> None:
         """Track global `Transform` & `Run` for a notebook or pipeline.
 
         Creates or loads a :class:`~lamindb.Run` record and sets a global
@@ -257,7 +312,7 @@ class run_context:
             >>> transform = ln.Transform.filter(name="Cell Ranger", version="2").one()
             >>> ln.track(transform)
         """
-        cls.instance = settings.instance
+        cls.instance = setup_settings.instance
         if transform is None:
             is_tracked = False
             transform_settings_are_set = (
@@ -274,23 +329,21 @@ class run_context:
                 ).one_or_none()
                 if is_run_from_ipython:
                     short_name, name, _ = cls._track_notebook(path=path)
+                    transform_type = TransformType.notebook
                 else:
-                    import inspect
-
-                    frame = inspect.stack()[1]
-                    module = inspect.getmodule(frame[0])
-                    name = Path(module.__file__).name  # type: ignore
-                    short_name = name
-                transform_type = (
-                    TransformType.notebook
-                    if is_run_from_ipython
-                    else TransformType.script
-                )
+                    (
+                        name,
+                        short_name,
+                        transform_ref,
+                        transform_ref_type,
+                    ) = cls._track_script(path=path)
+                    transform_type = TransformType.script
                 cls._create_or_load_transform(
                     stem_uid=stem_uid,
                     version=version,
                     name=name,
-                    reference=reference,
+                    transform_ref=transform_ref,
+                    transform_ref_type=transform_ref_type,
                     transform_type=transform_type,
                     short_name=short_name,
                     transform=transform,
@@ -347,7 +400,42 @@ class run_context:
 
         track_environment(run)
 
-        return run
+        return None
+
+    @classmethod
+    def _track_script(
+        cls,
+        *,
+        path: Optional[UPathStr],
+    ) -> Tuple[str, str, str, str]:
+        if path is None:
+            import inspect
+
+            frame = inspect.stack()[2]
+            module = inspect.getmodule(frame[0])
+            path = Path(module.__file__)
+        name = path.name
+        short_name = name
+        reference = None
+        reference_type = None
+        if settings.sync_git_repo is not None:
+            blob_hash = hash_code(path).hexdigest()
+            cd_repo = None
+            result = get_git_commit_hash(blob_hash, cd_repo=None)
+            commit_hash = result.stdout.decode()
+            if commit_hash == "" or result.returncode == 1:
+                cd_repo = dir_from_repo_url(settings.sync_git_repo)
+                clone_git_repo(settings.sync_git_repo)
+                result = get_git_commit_hash(blob_hash, cd_repo=cd_repo)
+                commit_hash = result.stdout.decode()
+                if commit_hash == "" or result.returncode == 1:
+                    raise RuntimeError(
+                        f"Did not find file in git repo\n{result.stderr.decode()}"
+                    )
+            gitpath = get_filepath_within_git_repo(commit_hash, blob_hash, cd_repo)
+            reference = f"{settings.sync_git_repo}/blob/{commit_hash}/{gitpath}"
+            reference_type = "url"
+        return name, short_name, reference, reference_type
 
     @classmethod
     def _track_notebook(
@@ -409,7 +497,8 @@ class run_context:
         stem_uid: str,
         version: Optional[str],
         name: str,
-        reference: Optional[str] = None,
+        transform_ref: Optional[str] = None,
+        transform_ref_type: Optional[str] = None,
         short_name: Optional[str] = None,
         transform_type: TransformType = None,
         transform: Optional[Transform] = None,
@@ -422,7 +511,8 @@ class run_context:
                 version=version,
                 name=name,
                 short_name=short_name,
-                reference=reference,
+                reference=transform_ref,
+                reference_type=transform_ref_type,
                 type=transform_type,
             )
             transform.save()

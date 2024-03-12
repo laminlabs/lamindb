@@ -30,6 +30,11 @@ class Settings:
         self._verbosity_int: int = 1  # warning-level logging
         logger.set_verbosity(self._verbosity_int)
 
+    sync_git_repo: Optional[str] = None
+    """Sync transforms with scripts in git repository.
+
+    Provide the full git repo URL.
+    """
     upon_artifact_create_if_hash_exists: Literal[
         "warn_return_existing", "error", "warn_create_new"
     ] = "warn_return_existing"

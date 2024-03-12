@@ -1,3 +1,5 @@
+import subprocess
+
 import lamindb as ln
 import pytest
 from lamindb.core._run_context import get_uid_ext, run_context
@@ -85,3 +87,22 @@ def test_create_or_load_transform(monkeypatch):
         "SystemExit: Please update your transform settings as follows"
         in error.exconly()
     )
+
+
+def test_sync_git_repo():
+    ln.setup.settings.auto_connect = False
+    script_path = "sub/lamin-cli/tests/scripts/initialized.py"
+    result = subprocess.run(
+        f"python {script_path}",
+        shell=True,
+        capture_output=True,
+    )
+    assert result.returncode == 0
+    assert "saved: Transform" in result.stdout.decode()
+    assert "saved: Run" in result.stdout.decode()
+    transform = ln.Transform.filter(name="initialized.py").one()
+    assert (
+        transform.reference_type
+        == "https://github.com/laminlabs/lamin-cli/blob/39fb29b1b3ccc891a025b5a631d6294413b6ee45/tests/scripts/initialized.py"
+    )
+    assert transform.reference_type == "url"
