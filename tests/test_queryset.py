@@ -128,3 +128,25 @@ def test_validate():
 def test_map_synonyms():
     qs = ln.User.filter(handle="testuser1").all()
     assert qs.standardize(["user1", "user2"]) == ["user1", "user2"]
+
+
+def test_latest_version():
+    # build one version family
+    transform = ln.Transform(name="Introduction")
+    transform.save()
+    transform = ln.Transform(name="Introduction", is_new_version_of=transform)
+    transform.save()
+    transform = ln.Transform(name="Introduction", is_new_version_of=transform)
+    transform.save()
+    transform = ln.Transform(name="Introduction")
+    transform.save()
+    # add another transform with the same name that's not part of this family
+    # but will also be a hit for the query
+    assert len(ln.Transform.filter(name="Introduction").all()) == 4
+    assert len(ln.Transform.filter(name="Introduction").latest_version()) == 2
+    transform.delete()
+    with pytest.raises(MultipleResultsFound):
+        ln.Transform.filter(name="Introduction").one()
+    ln.Transform.filter(
+        name="Introduction"
+    ).latest_version().one()  # this doesn't throw an error
