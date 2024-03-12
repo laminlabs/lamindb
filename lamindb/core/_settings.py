@@ -27,7 +27,7 @@ class Settings:
     """
 
     def __init__(self):
-        self._verbosity_int: int = 1  # success-level logging
+        self._verbosity_int: int = 1  # warning-level logging
         logger.set_verbosity(self._verbosity_int)
 
     upon_artifact_create_if_hash_exists: Literal[

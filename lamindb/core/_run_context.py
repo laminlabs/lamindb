@@ -219,7 +219,7 @@ class run_context:
         reference: Optional[str] = None,
         reference_type: Optional[str] = None,
         path: Optional[str] = None,
-    ) -> None:
+    ) -> Run:
         """Track global `Transform` & `Run` for a notebook or pipeline.
 
         Creates or loads a :class:`~lamindb.Run` record and sets a global
@@ -347,14 +347,7 @@ class run_context:
 
         track_environment(run)
 
-        # at this point, we have a transform can display its parents if there are any
-        parents = cls.transform.parents.all() if cls.transform is not None else []
-        if len(parents) > 0:
-            if len(parents) == 1:
-                logger.info(f"  parent transform: {parents[0]}")
-            else:
-                parents_formatted = "\n   - ".join([f"{parent}" for parent in parents])
-                logger.info(f"  parent transforms:\n   - {parents_formatted}")
+        return run
 
     @classmethod
     def _track_notebook(
