@@ -330,6 +330,8 @@ class run_context:
                 if is_run_from_ipython:
                     short_name, name, _ = cls._track_notebook(path=path)
                     transform_type = TransformType.notebook
+                    transform_ref = None
+                    transform_ref_type = None
                 else:
                     (
                         name,
