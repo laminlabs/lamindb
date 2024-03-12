@@ -254,6 +254,26 @@ def get_filepath_within_git_repo(
     return filepath
 
 
+def get_transform_reference_from_git_repo(path: Path):
+    blob_hash = hash_code(path).hexdigest()
+    cd_repo = None
+    result = get_git_commit_hash(blob_hash, cd_repo=None)
+    commit_hash = result.stdout.decode()
+    if commit_hash == "" or result.returncode == 1:
+        cd_repo = dir_from_repo_url(settings.sync_git_repo)
+        clone_git_repo(settings.sync_git_repo)
+        result = get_git_commit_hash(blob_hash, cd_repo=cd_repo)
+        commit_hash = result.stdout.decode()
+        if commit_hash == "" or result.returncode == 1:
+            raise RuntimeError(
+                f"Did not find file in git repo\n{result.stderr.decode()}"
+            )
+    gitpath = get_filepath_within_git_repo(commit_hash, blob_hash, cd_repo)
+    reference = f"{settings.sync_git_repo}/blob/{commit_hash}/{gitpath}"
+    reference_type = "url"
+    return reference, reference_type
+
+
 class run_context:
     """Global run context."""
 
@@ -421,22 +441,7 @@ class run_context:
         reference = None
         reference_type = None
         if settings.sync_git_repo is not None:
-            blob_hash = hash_code(path).hexdigest()
-            cd_repo = None
-            result = get_git_commit_hash(blob_hash, cd_repo=None)
-            commit_hash = result.stdout.decode()
-            if commit_hash == "" or result.returncode == 1:
-                cd_repo = dir_from_repo_url(settings.sync_git_repo)
-                clone_git_repo(settings.sync_git_repo)
-                result = get_git_commit_hash(blob_hash, cd_repo=cd_repo)
-                commit_hash = result.stdout.decode()
-                if commit_hash == "" or result.returncode == 1:
-                    raise RuntimeError(
-                        f"Did not find file in git repo\n{result.stderr.decode()}"
-                    )
-            gitpath = get_filepath_within_git_repo(commit_hash, blob_hash, cd_repo)
-            reference = f"{settings.sync_git_repo}/blob/{commit_hash}/{gitpath}"
-            reference_type = "url"
+            reference, reference_type = get_transform_reference_from_git_repo(path)
         return name, short_name, reference, reference_type
 
     @classmethod
