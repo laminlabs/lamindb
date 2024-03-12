@@ -50,7 +50,7 @@ def get_filepath_within_git_repo(
         capture_output=True,
         cwd=cd_repo,
     )
-    if result.returncode != 0:
+    if result.returncode != 0 and result.stderr.decode() != "":
         raise RuntimeError(
             f"git ls-tree -r {commit_hash} | grep -E {blob_hash}\n"
             + result.stderr.decode()
