@@ -14,7 +14,7 @@ def get_git_repo_from_remote() -> Path:
     repo_dir = setup_settings.storage.cache_dir / repo_url.split("/")[-1]
     if repo_dir.exists():
         logger.warning(f"git repo {repo_dir} already exists locally")
-        return None
+        return repo_dir
     logger.important(f"cloning {repo_url} into {repo_dir}")
     result = subprocess.run(
         f"git clone --depth 10 {repo_url}.git",
@@ -101,7 +101,7 @@ def get_transform_reference_from_git_repo(path: Path) -> str:
         commit_hash = get_git_commit_hash(blob_hash, repo_dir=repo_dir)
         if commit_hash is None:
             raise RuntimeError(
-                f"Did not find file hash for {path} in git repo {repo_dir}"
+                f"Did not find blob hash {blob_hash} of {path} in git repo {repo_dir}"
             )
     gitpath = get_filepath_within_git_repo(commit_hash, blob_hash, repo_dir)
     reference = f"{settings.sync_git_repo}/blob/{commit_hash}/{gitpath}"
