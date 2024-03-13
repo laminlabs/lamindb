@@ -19,6 +19,10 @@ VERBOSITY_TO_STR: Dict[int, str] = dict(
 )
 
 
+def sanitize_git_repo_url(repo_url: str) -> str:
+    return repo_url.replace(".git", "")
+
+
 class Settings:
     """Settings.
 

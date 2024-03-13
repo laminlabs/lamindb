@@ -371,7 +371,8 @@ class run_context:
         reference = None
         reference_type = None
         if settings.sync_git_repo is not None:
-            reference, reference_type = get_transform_reference_from_git_repo(path)
+            reference = get_transform_reference_from_git_repo(path)
+            reference_type = "url"
         return name, short_name, reference, reference_type
 
     @classmethod
