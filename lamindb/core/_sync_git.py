@@ -3,15 +3,16 @@ from pathlib import Path
 from typing import Optional
 
 from lamin_utils import logger
+from lamindb_setup import settings as setup_settings
 from lamindb_setup.core.hashing import hash_code
 
 from ._settings import sanitize_git_repo_url, settings
 
 
-def get_git_repo_from_remote() -> str:
+def get_git_repo_from_remote() -> Path:
     repo_url = settings.sync_git_repo
-    repo_dir = repo_url.split("/")[-1]
-    if Path(repo_dir).exists():
+    repo_dir = setup_settings.storage.cache_dir / repo_url.split("/")[-1]
+    if repo_dir.exists():
         logger.warning(f"git repo {repo_dir} already exists locally")
         return None
     logger.important(f"cloning {repo_url}")
@@ -19,9 +20,11 @@ def get_git_repo_from_remote() -> str:
         f"git clone --depth 10 {repo_url}.git",
         shell=True,
         capture_output=True,
+        cwd=setup_settings.storage.cache_dir,
     )
-    if result.returncode != 0 or not Path(repo_dir).exists():
+    if result.returncode != 0 or not repo_dir.exists():
         raise RuntimeError(result.stderr.decode())
+    print(repo_dir.exists(), repo_dir)
     return repo_dir
 
 
@@ -32,19 +35,44 @@ def check_remote_git_url_matches_setting():
         capture_output=True,
     )
     remote_url = sanitize_git_repo_url(result.stdout.decode())
+    print(remote_url, settings.sync_git_repo)
     assert remote_url == settings.sync_git_repo
 
 
 def get_git_commit_hash(
-    blob_hash: str, repo_dir: Optional[str] = None
+    blob_hash: str, repo_dir: Optional[Path] = None
 ) -> Optional[str]:
+    if repo_dir is not None:
+        print(repo_dir.exists(), repo_dir)
+        repo_root = (
+            subprocess.run(
+                "git rev-parse --show-toplevel",
+                shell=True,
+                capture_output=True,
+                cwd=repo_dir,
+            )
+            .stdout.decode()
+            .strip()
+        )
+        print(repo_root, "repo root")
+        command = "git ls-tree -r HEAD"
+        print(
+            subprocess.run(
+                command,
+                shell=True,
+                capture_output=True,
+                cwd=repo_dir,
+            ).stdout.decode()
+        )
+    command = f"git log --find-object={blob_hash} --pretty=format:%H"
     result = subprocess.run(
-        f"git log --find-object={blob_hash} --pretty=format:%H",
+        command,
         shell=True,
         capture_output=True,
         cwd=repo_dir,
     )
     commit_hash = result.stdout.decode()
+    print(commit_hash)
     if commit_hash == "" or result.returncode == 1:
         return None
     else:
@@ -53,7 +81,7 @@ def get_git_commit_hash(
 
 
 def get_filepath_within_git_repo(
-    commit_hash: str, blob_hash: str, repo_dir: Optional[str]
+    commit_hash: str, blob_hash: str, repo_dir: Optional[Path]
 ) -> str:
     # cd_repo might not point to the root of the
     # the git repository because git log --find-object works
@@ -97,7 +125,9 @@ def get_transform_reference_from_git_repo(path: Path) -> str:
         repo_dir = get_git_repo_from_remote()
         commit_hash = get_git_commit_hash(blob_hash, repo_dir=repo_dir)
         if commit_hash is None:
-            raise RuntimeError(f"Did not find file {path} in git repo")
+            raise RuntimeError(
+                f"Did not find file hash for {path} in git repo {repo_dir}"
+            )
     gitpath = get_filepath_within_git_repo(commit_hash, blob_hash, repo_dir)
     reference = f"{settings.sync_git_repo}/blob/{commit_hash}/{gitpath}"
     return reference
