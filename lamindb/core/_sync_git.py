@@ -15,7 +15,7 @@ def get_git_repo_from_remote() -> Path:
     if repo_dir.exists():
         logger.warning(f"git repo {repo_dir} already exists locally")
         return None
-    logger.important(f"cloning {repo_url}")
+    logger.important(f"cloning {repo_url} into {repo_dir}")
     result = subprocess.run(
         f"git clone --depth 10 {repo_url}.git",
         shell=True,
@@ -24,7 +24,6 @@ def get_git_repo_from_remote() -> Path:
     )
     if result.returncode != 0 or not repo_dir.exists():
         raise RuntimeError(result.stderr.decode())
-    print(repo_dir.exists(), repo_dir)
     return repo_dir
 
 
@@ -34,36 +33,13 @@ def check_remote_git_url_matches_setting():
         shell=True,
         capture_output=True,
     )
-    remote_url = sanitize_git_repo_url(result.stdout.decode())
-    print(remote_url, settings.sync_git_repo)
+    remote_url = sanitize_git_repo_url(result.stdout.decode().strip())
     assert remote_url == settings.sync_git_repo
 
 
 def get_git_commit_hash(
     blob_hash: str, repo_dir: Optional[Path] = None
 ) -> Optional[str]:
-    if repo_dir is not None:
-        print(repo_dir.exists(), repo_dir)
-        repo_root = (
-            subprocess.run(
-                "git rev-parse --show-toplevel",
-                shell=True,
-                capture_output=True,
-                cwd=repo_dir,
-            )
-            .stdout.decode()
-            .strip()
-        )
-        print(repo_root, "repo root")
-        command = "git ls-tree -r HEAD"
-        print(
-            subprocess.run(
-                command,
-                shell=True,
-                capture_output=True,
-                cwd=repo_dir,
-            ).stdout.decode()
-        )
     command = f"git log --find-object={blob_hash} --pretty=format:%H"
     result = subprocess.run(
         command,
@@ -72,7 +48,6 @@ def get_git_commit_hash(
         cwd=repo_dir,
     )
     commit_hash = result.stdout.decode()
-    print(commit_hash)
     if commit_hash == "" or result.returncode == 1:
         return None
     else:
@@ -83,7 +58,7 @@ def get_git_commit_hash(
 def get_filepath_within_git_repo(
     commit_hash: str, blob_hash: str, repo_dir: Optional[Path]
 ) -> str:
-    # cd_repo might not point to the root of the
+    # repo_dir might not point to the root of the
     # the git repository because git log --find-object works
     # from anywhere in the repo, hence, let's get the root
     repo_root = (
