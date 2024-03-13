@@ -67,8 +67,17 @@ def get_filepath_within_git_repo(
 def get_transform_reference_from_git_repo(path: Path):
     blob_hash = hash_code(path).hexdigest()
     cd_repo = None
+    print(Path.cwd())
     result = get_git_commit_hash(blob_hash, cd_repo=cd_repo)
     commit_hash = result.stdout.decode()
+    print(Path.cwd())
+    result = subprocess.run(
+        "git ls-tree HEAD",
+        shell=True,
+        capture_output=True,
+        cwd=cd_repo,
+    )
+    print(result.stdout.decode())
     print(commit_hash, cd_repo, result.returncode)
     if commit_hash == "" or result.returncode == 1:
         cd_repo = dir_from_repo_url(settings.sync_git_repo)
