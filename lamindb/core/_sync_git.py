@@ -46,6 +46,14 @@ def get_git_commit_hash(
 def get_filepath_within_git_repo(
     commit_hash: str, blob_hash: str, cd_repo: Optional[str]
 ) -> str:
+    print("from within git_filepath")
+    result = subprocess.run(
+        "git ls-tree -r {commit_hash}",
+        shell=True,
+        capture_output=True,
+        cwd=cd_repo,
+    )
+    print(result.stdout.decode())
     command = f"git ls-tree -r {commit_hash} | grep -E {blob_hash}"
     result = subprocess.run(
         command,
@@ -53,6 +61,8 @@ def get_filepath_within_git_repo(
         capture_output=True,
         cwd=cd_repo,
     )
+    print("actual call")
+    print(result.stdout.decode())
     if result.returncode != 0 and result.stderr.decode() != "":
         raise RuntimeError(f"{command}\n{result.stderr.decode()}")
     if len(result.stdout.decode()) == 0:
@@ -71,8 +81,17 @@ def get_transform_reference_from_git_repo(path: Path):
     result = get_git_commit_hash(blob_hash, cd_repo=cd_repo)
     commit_hash = result.stdout.decode()
     print(Path.cwd())
+    print("with HEAD")
     result = subprocess.run(
-        "git ls-tree HEAD",
+        "git ls-tree -r HEAD",
+        shell=True,
+        capture_output=True,
+        cwd=cd_repo,
+    )
+    print(result.stdout.decode())
+    print("with commit hash")
+    result = subprocess.run(
+        f"git ls-tree -r {commit_hash}",
         shell=True,
         capture_output=True,
         cwd=cd_repo,
