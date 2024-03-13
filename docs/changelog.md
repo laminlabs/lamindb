@@ -1,5 +1,6 @@
 # Changelog
 
+- ✨ Integrate lamindb with git [PR](https://github.com/laminlabs/lamindb/pull/1493) [@falexwolf](https://github.com/falexwolf)
 - ⬆️ Make get_stat_dir_s3 compatible with canonical storage policy (s3:ListBucket conditional on prefix/) [PR](https://github.com/laminlabs/lamindb/pull/1490) [@bpenteado](https://github.com/bpenteado)
 - ✨ Add `latest_version` filter for `QuerySet` [PR](https://github.com/laminlabs/lamindb/pull/1489) [@falexwolf](https://github.com/falexwolf)
 ```{eval-rst}
