@@ -82,8 +82,8 @@ def get_filepath_within_git_repo(
         raise RuntimeError(f"{command}\n{result.stderr.decode()}")
     if len(result.stdout.decode()) == 0:
         raise RuntimeError(
-            f"Could not find filepath within git repo running:\n{command}"
-            f"\nin repo: {repo_root}"
+            f"Could not find path in git repo {settings.sync_git_repo} running:\n{command}"
+            f"\nin local clone: {repo_root}"
         )
     filepath = result.stdout.decode().split()[-1]
     return filepath
