@@ -49,12 +49,16 @@ def get_filepath_within_git_repo(
     # cd_repo might not point to the root of the
     # the git repository because git log --find-object works
     # from anywhere in the repo, hence, let's get the root
-    git_root = subprocess.run(
-        "git rev-parse --show-toplevel",
-        shell=True,
-        capture_output=True,
-        cwd=cd_repo,
-    ).stdout.decode()
+    git_root = (
+        subprocess.run(
+            "git rev-parse --show-toplevel",
+            shell=True,
+            capture_output=True,
+            cwd=cd_repo,
+        )
+        .stdout.decode()
+        .strip()
+    )
     command = f"git ls-tree -r {commit_hash} | grep -E {blob_hash}"
     result = subprocess.run(
         command,
