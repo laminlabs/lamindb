@@ -26,12 +26,15 @@ def __init__(transform: Transform, *args, **kwargs):
     reference: Optional[str] = (
         kwargs.pop("reference") if "reference" in kwargs else None
     )
+    reference_type: Optional[str] = (
+        kwargs.pop("reference_type") if "reference_type" in kwargs else None
+    )
     # below is internal use that we'll hopefully be able to eliminate
     uid: Optional[str] = kwargs.pop("uid") if "uid" in kwargs else None
     if not len(kwargs) == 0:
         raise ValueError(
-            "Only name, short_name, version, type, is_new_version_of can be passed,"
-            f" but you passed: {kwargs}"
+            "Only name, short_name, version, type, is_new_version_of, reference, "
+            f"reference_type can be passed, but you passed: {kwargs}"
         )
     if is_new_version_of is None:
         new_uid = init_uid(version=version, n_full_id=Transform._len_full_uid)
@@ -56,6 +59,7 @@ def __init__(transform: Transform, *args, **kwargs):
         type=type,
         version=version,
         reference=reference,
+        reference_type=reference_type,
         _has_consciously_provided_uid=has_consciously_provided_uid,
     )
 

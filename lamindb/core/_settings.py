@@ -19,16 +19,20 @@ VERBOSITY_TO_STR: Dict[int, str] = dict(
 )
 
 
+def sanitize_git_repo_url(repo_url: str) -> str:
+    return repo_url.replace(".git", "")
+
+
 class Settings:
     """Settings.
 
-    Directly use instance `lamindb.settings` rather than instantiating this
-    class yourself.
+    Use ``lamindb.settings`` instead of instantiating this class yourself.
     """
 
     def __init__(self):
-        self._verbosity_int: int = 1  # success-level logging
+        self._verbosity_int: int = 1  # warning-level logging
         logger.set_verbosity(self._verbosity_int)
+        self._sync_git_repo: Optional[str] = None
 
     upon_artifact_create_if_hash_exists: Literal[
         "warn_return_existing", "error", "warn_create_new"
@@ -88,6 +92,23 @@ class Settings:
         else:
             storage_settings = ln_setup.dev.StorageSettings(root=self._using_storage)
         return storage_settings
+
+    @property
+    def sync_git_repo(self) -> Optional[str]:
+        """Sync transforms with scripts in git repository.
+
+        Provide the full git repo URL.
+        """
+        return self._sync_git_repo
+
+    @sync_git_repo.setter
+    def sync_git_repo(self, value) -> None:
+        """Sync transforms with scripts in git repository.
+
+        Provide the full git repo URL.
+        """
+        self._sync_git_repo = sanitize_git_repo_url(value)
+        assert self._sync_git_repo.startswith("https://")
 
     @property
     def storage(self) -> Union[Path, UPath]:
