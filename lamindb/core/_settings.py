@@ -4,7 +4,7 @@ from typing import Dict, Literal, Mapping, Optional, Tuple, Union
 import lamindb_setup as ln_setup
 from lamin_utils import logger
 from lamindb_setup._add_remote_storage import switch_default_storage
-from lamindb_setup._settings import settings
+from lamindb_setup.core._settings import settings as setup_settings
 from lamindb_setup.core._settings_instance import sanitize_git_repo_url
 from upath import UPath
 
@@ -166,4 +166,4 @@ class Settings:
         logger.set_verbosity(verbosity_int)
 
 
-settings = Settings(git_repo=settings.instance.git_repo)
+settings = Settings(git_repo=setup_settings.instance.git_repo)
