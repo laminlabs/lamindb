@@ -875,7 +875,11 @@ def delete(
 
     if delete_record is True:
         # need to grab file path before deletion
-        filepath = filepath_from_artifact(self, using_key)
+        try:
+            filepath = filepath_from_artifact(self, using_key)
+        except OSError:
+            # we can still delete the record
+            storage = False
         # only delete in storage if DB delete is successful
         # DB delete might error because of a foreign key constraint violated etc.
         self._delete_skip_storage()
