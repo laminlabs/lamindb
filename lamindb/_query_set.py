@@ -3,6 +3,7 @@ from typing import Dict, Iterable, List, NamedTuple, Optional, Union
 
 import pandas as pd
 from django.db import models
+from django.db.models import F
 from lamindb_setup.core._docs import doc_args
 from lnschema_core.models import (
     Artifact,
@@ -91,28 +92,9 @@ class QuerySet(models.QuerySet, CanValidate, IsTree):
         >>> queryset
     """
 
-    def df(self, include: Optional[List[str]] = None) -> pd.DataFrame:
-        """Convert to ``pd.DataFrame``.
-
-        By default, shows all fields that aren't many-to-many fields, except
-        ``created_at``.
-
-        If you'd like to include many-to-many fields, use parameter ``include``.
-
-        Args:
-            include: ``Optional[List[str]] = None`` Additional (many-to-many)
-                fields to include. Takes expressions like ``"labels__name"``
-                ``"cell_types__name"``.
-
-        Examples:
-
-            >>> ln.save(ln.ULabel.from_values(["ULabel1", "ULabel2", "ULabel3"], field="name")) # noqa
-            >>> ln.ULabel.df()
-            >>> label = ln.ULabel.filter(name="ULabel1").one()
-            >>> label = ln.ULabel.filter(name="benchmark").one()
-            >>> label.parents.add(label)
-            >>> ln.ULabel.filter().df(include=["labels__name", "labels__created_by_id"])
-        """
+    @doc_args(Registry.df.__doc__)
+    def df(self, include: Optional[Union[str, List[str]]] = None) -> pd.DataFrame:
+        """{}."""
         data = self.values()
         keys = get_keys_from_df(data, self.model)
         df = pd.DataFrame(self.values(), columns=keys)
@@ -140,34 +122,49 @@ class QuerySet(models.QuerySet, CanValidate, IsTree):
                     lookup_str = "id"
                 Registry = self.model
                 field = getattr(Registry, field_name)
-                if not isinstance(field.field, models.ManyToManyField):
-                    raise ValueError("Only many-to-many fields are allowed here.")
-                related_ORM = (
-                    field.field.model
-                    if field.field.model != Registry
-                    else field.field.related_model
-                )
-                if Registry == related_ORM:
-                    left_side_link_model = f"from_{Registry.__name__.lower()}"
-                    values_expression = f"to_{Registry.__name__.lower()}__{lookup_str}"
-                else:
-                    left_side_link_model = f"{Registry.__name__.lower()}"
-                    values_expression = f"{related_ORM.__name__.lower()}__{lookup_str}"
-                link_df = pd.DataFrame(
-                    field.through.objects.values(
-                        left_side_link_model, values_expression
+                if isinstance(field.field, models.ManyToManyField):
+                    related_ORM = (
+                        field.field.model
+                        if field.field.model != Registry
+                        else field.field.related_model
                     )
-                )
-                if link_df.shape[0] == 0:
-                    return df
-                link_groupby = link_df.groupby(left_side_link_model)[
-                    values_expression
-                ].apply(list)
-                df = pd.concat((link_groupby, df), axis=1, join="inner")
-                df.rename(columns={values_expression: expression}, inplace=True)
+                    if Registry == related_ORM:
+                        left_side_link_model = f"from_{Registry.__name__.lower()}"
+                        values_expression = (
+                            f"to_{Registry.__name__.lower()}__{lookup_str}"
+                        )
+                    else:
+                        left_side_link_model = f"{Registry.__name__.lower()}"
+                        values_expression = (
+                            f"{related_ORM.__name__.lower()}__{lookup_str}"
+                        )
+                    link_df = pd.DataFrame(
+                        field.through.objects.values(
+                            left_side_link_model, values_expression
+                        )
+                    )
+                    if link_df.shape[0] == 0:
+                        return df
+                    link_groupby = link_df.groupby(left_side_link_model)[
+                        values_expression
+                    ].apply(list)
+                    df = pd.concat((link_groupby, df), axis=1, join="inner")
+                    df.rename(columns={values_expression: expression}, inplace=True)
+                else:
+                    # the F() based implementation could also work for many-to-many,
+                    # would need to test what is faster
+                    df_anno = pd.DataFrame(
+                        self.annotate(expression=F(expression)).values(
+                            pk_column_name, "expression"
+                        )
+                    )
+                    df_anno = df_anno.set_index(pk_column_name)
+                    df_anno.rename(columns={"expression": expression}, inplace=True)
+                    df = pd.concat((df_anno, df), axis=1, join="inner")
         return df
 
     def delete(self, *args, **kwargs):
+        """Delete all records in the query set."""
         if self.model in {Artifact, Collection, Transform}:
             for record in self:
                 record.delete(*args, **kwargs)
@@ -178,8 +175,6 @@ class QuerySet(models.QuerySet, CanValidate, IsTree):
         """Populate a list with the results.
 
         Examples:
-            >>> ln.save(ln.ULabel.from_values(["ULabel1", "ULabel2", "ULabel3"], field="name")) # noqa
-            >>> queryset = ln.ULabel.filter(name__icontains = "project")
             >>> queryset.list()  # list of records
             >>> queryset.list("name")  # list of values
         """
@@ -189,12 +184,9 @@ class QuerySet(models.QuerySet, CanValidate, IsTree):
             return list(self.values_list(field, flat=True))
 
     def first(self) -> Optional[Registry]:
-        """If non-empty, the first result in the query set, otherwise None.
+        """If non-empty, the first result in the query set, otherwise ``None``.
 
         Examples:
-            >>> labels = ln.ULabel.from_values(["ULabel1", "ULabel2", "ULabel3"], field="name")
-            >>> ln.save(labels)
-            >>> queryset = ln.ULabel.filter(name__icontains="project")
             >>> queryset.first()
         """
         if len(self) == 0:
@@ -202,23 +194,19 @@ class QuerySet(models.QuerySet, CanValidate, IsTree):
         return self[0]
 
     def one(self) -> Registry:
-        """Exactly one result. Throws error if there are more or none.
+        """Exactly one result. Raises error if there are more or none.
 
         Examples:
-            >>> ln.ULabel(name="benchmark").save()
             >>> ln.ULabel.filter(name="benchmark").one()
         """
         return one_helper(self)
 
     def one_or_none(self) -> Optional[Registry]:
-        """At most one result. Returns it if there is one, otherwise returns None.
+        """At most one result. Returns it if there is one, otherwise returns ``None``.
 
         Examples:
-            >>> ln.ULabel(name="benchmark").save()
             >>> ln.ULabel.filter(name="benchmark").one_or_none()
-            ULabel(id=gznl0GZk, name=benchmark, updated_at=2023-07-19 19:39:01, created_by_id=DzTjkKse) # noqa
             >>> ln.ULabel.filter(name="non existing label").one_or_none()
-            None
         """
         if len(self) == 0:
             return None
