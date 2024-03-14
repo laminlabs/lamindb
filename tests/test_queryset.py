@@ -45,10 +45,8 @@ def test_df():
     assert set(df["features__created_by_id"].iloc[0]) == {current_user_id()}
 
     # raise error for non many-to-many
-    df = ln.ULabel.filter().df(include="created_by__name")
-    print()
-    print(df)
-    assert df.loc[1, "created_by__name"] == "Test User1"
+    df = ln.ULabel.filter(name="Project 0").df(include="created_by__name")
+    assert df["created_by__name"].iloc[0] == "Test User1"
 
     # clean up
     project_label.delete()
