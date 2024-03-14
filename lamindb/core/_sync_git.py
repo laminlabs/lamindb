@@ -9,6 +9,10 @@ from lamindb_setup.core.hashing import hash_code
 from ._settings import sanitize_git_repo_url, settings
 
 
+class BlobHashNotFound(SystemExit):
+    pass
+
+
 def get_git_repo_from_remote() -> Path:
     repo_url = settings.sync_git_repo
     repo_dir = setup_settings.storage.cache_dir / repo_url.split("/")[-1]
@@ -27,14 +31,25 @@ def get_git_repo_from_remote() -> Path:
     return repo_dir
 
 
-def check_remote_git_url_matches_setting():
+def check_local_git_repo() -> bool:
     result = subprocess.run(
         "git config --get remote.origin.url",
         shell=True,
         capture_output=True,
     )
-    remote_url = sanitize_git_repo_url(result.stdout.decode().strip())
-    assert remote_url == settings.sync_git_repo
+    result_str = result.stdout.decode().strip()
+    if result_str == "":
+        # running-not-in-a-git-repo
+        return False
+    else:
+        remote_url = sanitize_git_repo_url(result_str)
+        if remote_url == settings.sync_git_repo:
+            # running-in-correct-git-repo
+            return True
+        else:
+            # running-in-wrong-git-repo
+            logger.warning("running in wrong git repo")
+            return False
 
 
 def get_git_commit_hash(
@@ -91,18 +106,19 @@ def get_filepath_within_git_repo(
 
 def get_transform_reference_from_git_repo(path: Path) -> str:
     blob_hash = hash_code(path).hexdigest()
-    commit_hash = get_git_commit_hash(blob_hash)
-    if commit_hash is not None:
-        logger.warning("found script in local repository")
-        check_remote_git_url_matches_setting()
+    commit_hash = None
+    if check_local_git_repo():
         repo_dir = None
     else:
         repo_dir = get_git_repo_from_remote()
-        commit_hash = get_git_commit_hash(blob_hash, repo_dir=repo_dir)
-        if commit_hash is None:
-            raise RuntimeError(
-                f"Did not find blob hash {blob_hash} of {path} in git repo {repo_dir}"
-            )
+    commit_hash = get_git_commit_hash(blob_hash, repo_dir=repo_dir)
+    if commit_hash is None:
+        if repo_dir is None:
+            repo_dir = Path.cwd()
+        raise BlobHashNotFound(
+            f"❌ Did not find blob hash {blob_hash} in git repo ({settings.sync_git_repo}) {repo_dir}\n"
+            f"Did you commit the script? -> {path}"
+        )
     gitpath = get_filepath_within_git_repo(commit_hash, blob_hash, repo_dir)
     reference = f"{settings.sync_git_repo}/blob/{commit_hash}/{gitpath}"
     return reference
