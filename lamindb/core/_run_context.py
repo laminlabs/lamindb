@@ -47,17 +47,17 @@ def get_uid_ext(version: str) -> str:
     return encodebytes(hashlib.md5(version.encode()).digest())[:4]
 
 
-def get_stem_uid_and_version_from_file(file_path: str) -> Tuple[str, str]:
+def get_stem_uid_and_version_from_file(file_path: Path) -> Tuple[str, str]:
     # line-by-line matching might be faster, but let's go with this for now
     with open(file_path) as file:
         content = file.read()
 
-    if file_path.endswith(".py"):
+    if file_path.suffix == ".py":
         stem_uid_pattern = re.compile(
             r'\.transform\.stem_uid\s*=\s*["\']([^"\']+)["\']'
         )
         version_pattern = re.compile(r'\.transform\.version\s*=\s*["\']([^"\']+)["\']')
-    elif file_path.endswith(".ipynb"):
+    elif file_path.suffix == ".ipynb":
         stem_uid_pattern = re.compile(
             r'\.transform\.stem_uid\s*=\s*\\["\']([^"\']+)\\["\']'
         )
@@ -352,6 +352,11 @@ class run_context:
 
         track_environment(run)
 
+        if not is_run_from_ipython:
+            # upload run source code & environment
+            from lamin_cli._save import save
+
+            save(path)
         return None
 
     @classmethod
