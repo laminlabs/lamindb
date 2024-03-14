@@ -1,5 +1,6 @@
 # Changelog
 
+- 🚚 Move transform settings into settings [PR](https://github.com/laminlabs/lamindb/pull/1498) [@falexwolf](https://github.com/falexwolf)
 - 🚸 Sync default git repo from hub [PR](https://github.com/laminlabs/lamindb/pull/1497) [@falexwolf](https://github.com/falexwolf)
 - ⬆️ Update bionty [PR](https://github.com/laminlabs/lamindb/pull/1496) [@sunnyosun](https://github.com/sunnyosun)
 - 🩹 Handle OSError during delete [PR](https://github.com/laminlabs/lamindb/pull/1492) [@sunnyosun](https://github.com/sunnyosun)
