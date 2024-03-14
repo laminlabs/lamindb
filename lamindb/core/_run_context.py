@@ -284,6 +284,7 @@ class run_context:
                     transform_ref_type = None
                 else:
                     (
+                        path_,
                         name,
                         short_name,
                         transform_ref,
@@ -356,7 +357,7 @@ class run_context:
             # upload run source code & environment
             from lamin_cli._save import save
 
-            save(path)
+            save(path_)
         return None
 
     @classmethod
@@ -364,21 +365,23 @@ class run_context:
         cls,
         *,
         path: Optional[UPathStr],
-    ) -> Tuple[str, str, str, str]:
+    ) -> Tuple[Path, str, str, str, str]:
         if path is None:
             import inspect
 
             frame = inspect.stack()[2]
             module = inspect.getmodule(frame[0])
-            path = Path(module.__file__)
-        name = path.name
+            path_ = Path(module.__file__)
+        else:
+            path_ = Path(path)
+        name = path_.name
         short_name = name
         reference = None
         reference_type = None
         if settings.sync_git_repo is not None:
-            reference = get_transform_reference_from_git_repo(path)
+            reference = get_transform_reference_from_git_repo(path_)
             reference_type = "url"
-        return name, short_name, reference, reference_type
+        return path_, name, short_name, reference, reference_type
 
     @classmethod
     def _track_notebook(
