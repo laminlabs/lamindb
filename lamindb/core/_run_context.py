@@ -2,19 +2,24 @@ import builtins
 import hashlib
 import os
 import re
+import subprocess
 import sys
 from datetime import datetime, timezone
 from pathlib import Path, PurePath
 from typing import Any, Dict, List, Optional, Tuple, Union
 
 from lamin_utils import logger
-from lamindb_setup import settings
+from lamindb_setup import settings as setup_settings
 from lamindb_setup.core import InstanceSettings
+from lamindb_setup.core.types import UPathStr
 from lnschema_core import Run, Transform, ids
 from lnschema_core.types import TransformType
 from lnschema_core.users import current_user_id
 
 from lamindb.core._transform_settings import transform_settings
+
+from ._settings import settings
+from ._sync_git import get_transform_reference_from_git_repo
 
 is_run_from_ipython = getattr(builtins, "__IPYTHON__", False)
 
@@ -257,7 +262,7 @@ class run_context:
             >>> transform = ln.Transform.filter(name="Cell Ranger", version="2").one()
             >>> ln.track(transform)
         """
-        cls.instance = settings.instance
+        cls.instance = setup_settings.instance
         if transform is None:
             is_tracked = False
             transform_settings_are_set = (
@@ -274,23 +279,23 @@ class run_context:
                 ).one_or_none()
                 if is_run_from_ipython:
                     short_name, name, _ = cls._track_notebook(path=path)
+                    transform_type = TransformType.notebook
+                    transform_ref = None
+                    transform_ref_type = None
                 else:
-                    import inspect
-
-                    frame = inspect.stack()[1]
-                    module = inspect.getmodule(frame[0])
-                    name = Path(module.__file__).name  # type: ignore
-                    short_name = name
-                transform_type = (
-                    TransformType.notebook
-                    if is_run_from_ipython
-                    else TransformType.script
-                )
+                    (
+                        name,
+                        short_name,
+                        transform_ref,
+                        transform_ref_type,
+                    ) = cls._track_script(path=path)
+                    transform_type = TransformType.script
                 cls._create_or_load_transform(
                     stem_uid=stem_uid,
                     version=version,
                     name=name,
-                    reference=reference,
+                    transform_ref=transform_ref,
+                    transform_ref_type=transform_ref_type,
                     transform_type=transform_type,
                     short_name=short_name,
                     transform=transform,
@@ -347,14 +352,28 @@ class run_context:
 
         track_environment(run)
 
-        # at this point, we have a transform can display its parents if there are any
-        parents = cls.transform.parents.all() if cls.transform is not None else []
-        if len(parents) > 0:
-            if len(parents) == 1:
-                logger.info(f"  parent transform: {parents[0]}")
-            else:
-                parents_formatted = "\n   - ".join([f"{parent}" for parent in parents])
-                logger.info(f"  parent transforms:\n   - {parents_formatted}")
+        return None
+
+    @classmethod
+    def _track_script(
+        cls,
+        *,
+        path: Optional[UPathStr],
+    ) -> Tuple[str, str, str, str]:
+        if path is None:
+            import inspect
+
+            frame = inspect.stack()[2]
+            module = inspect.getmodule(frame[0])
+            path = Path(module.__file__)
+        name = path.name
+        short_name = name
+        reference = None
+        reference_type = None
+        if settings.sync_git_repo is not None:
+            reference = get_transform_reference_from_git_repo(path)
+            reference_type = "url"
+        return name, short_name, reference, reference_type
 
     @classmethod
     def _track_notebook(
@@ -416,7 +435,8 @@ class run_context:
         stem_uid: str,
         version: Optional[str],
         name: str,
-        reference: Optional[str] = None,
+        transform_ref: Optional[str] = None,
+        transform_ref_type: Optional[str] = None,
         short_name: Optional[str] = None,
         transform_type: TransformType = None,
         transform: Optional[Transform] = None,
@@ -429,7 +449,8 @@ class run_context:
                 version=version,
                 name=name,
                 short_name=short_name,
-                reference=reference,
+                reference=transform_ref,
+                reference_type=transform_ref_type,
                 type=transform_type,
             )
             transform.save()
