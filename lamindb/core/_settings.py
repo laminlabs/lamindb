@@ -4,6 +4,8 @@ from typing import Dict, Literal, Mapping, Optional, Tuple, Union
 import lamindb_setup as ln_setup
 from lamin_utils import logger
 from lamindb_setup._add_remote_storage import switch_default_storage
+from lamindb_setup.core._settings import settings as setup_settings
+from lamindb_setup.core._settings_instance import sanitize_git_repo_url
 from upath import UPath
 
 VERBOSITY_TO_INT = {
@@ -19,20 +21,16 @@ VERBOSITY_TO_STR: Dict[int, str] = dict(
 )
 
 
-def sanitize_git_repo_url(repo_url: str) -> str:
-    return repo_url.replace(".git", "")
-
-
 class Settings:
     """Settings.
 
     Use ``lamindb.settings`` instead of instantiating this class yourself.
     """
 
-    def __init__(self):
+    def __init__(self, git_repo: Optional[str]):
         self._verbosity_int: int = 1  # warning-level logging
         logger.set_verbosity(self._verbosity_int)
-        self._sync_git_repo: Optional[str] = None
+        self._sync_git_repo: Optional[str] = git_repo
 
     upon_artifact_create_if_hash_exists: Literal[
         "warn_return_existing", "error", "warn_create_new"
@@ -168,4 +166,4 @@ class Settings:
         logger.set_verbosity(verbosity_int)
 
 
-settings = Settings()
+settings = Settings(git_repo=setup_settings.instance.git_repo)
