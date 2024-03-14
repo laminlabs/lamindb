@@ -107,7 +107,7 @@ if _check_instance_setup(from_lamindb=True):
     from ._view import view
     from .core._run_context import run_context
     from .core._settings import settings
-    from .core._transform_settings import transform_settings as transform
+    from .core._transform_settings import transform  # backward compat
 
     # schema modules
     if not _os.environ.get("LAMINDB_MULTI_INSTANCE") == "true":
