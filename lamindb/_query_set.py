@@ -3,6 +3,7 @@ from typing import Dict, Iterable, List, NamedTuple, Optional, Union
 
 import pandas as pd
 from django.db import models
+from django.db.models import F
 from lamindb_setup.core._docs import doc_args
 from lnschema_core.models import (
     Artifact,
@@ -140,31 +141,45 @@ class QuerySet(models.QuerySet, CanValidate, IsTree):
                     lookup_str = "id"
                 Registry = self.model
                 field = getattr(Registry, field_name)
-                if not isinstance(field.field, models.ManyToManyField):
-                    raise ValueError("Only many-to-many fields are allowed here.")
-                related_ORM = (
-                    field.field.model
-                    if field.field.model != Registry
-                    else field.field.related_model
-                )
-                if Registry == related_ORM:
-                    left_side_link_model = f"from_{Registry.__name__.lower()}"
-                    values_expression = f"to_{Registry.__name__.lower()}__{lookup_str}"
-                else:
-                    left_side_link_model = f"{Registry.__name__.lower()}"
-                    values_expression = f"{related_ORM.__name__.lower()}__{lookup_str}"
-                link_df = pd.DataFrame(
-                    field.through.objects.values(
-                        left_side_link_model, values_expression
+                if isinstance(field.field, models.ManyToManyField):
+                    related_ORM = (
+                        field.field.model
+                        if field.field.model != Registry
+                        else field.field.related_model
                     )
-                )
-                if link_df.shape[0] == 0:
-                    return df
-                link_groupby = link_df.groupby(left_side_link_model)[
-                    values_expression
-                ].apply(list)
-                df = pd.concat((link_groupby, df), axis=1, join="inner")
-                df.rename(columns={values_expression: expression}, inplace=True)
+                    if Registry == related_ORM:
+                        left_side_link_model = f"from_{Registry.__name__.lower()}"
+                        values_expression = (
+                            f"to_{Registry.__name__.lower()}__{lookup_str}"
+                        )
+                    else:
+                        left_side_link_model = f"{Registry.__name__.lower()}"
+                        values_expression = (
+                            f"{related_ORM.__name__.lower()}__{lookup_str}"
+                        )
+                    link_df = pd.DataFrame(
+                        field.through.objects.values(
+                            left_side_link_model, values_expression
+                        )
+                    )
+                    if link_df.shape[0] == 0:
+                        return df
+                    link_groupby = link_df.groupby(left_side_link_model)[
+                        values_expression
+                    ].apply(list)
+                    df = pd.concat((link_groupby, df), axis=1, join="inner")
+                    df.rename(columns={values_expression: expression}, inplace=True)
+                else:
+                    # the F() based implementation could also work for many-to-many,
+                    # would need to test what is faster
+                    df_anno = pd.DataFrame(
+                        self.annotate(expression=F(expression)).values(
+                            pk_column_name, "expression"
+                        )
+                    )
+                    df_anno = df_anno.set_index(pk_column_name)
+                    df_anno.rename(columns={"expression": expression}, inplace=True)
+                    df = pd.concat((df_anno, df), axis=1, join="inner")
         return df
 
     def delete(self, *args, **kwargs):
