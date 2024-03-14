@@ -8,6 +8,8 @@ from lamindb_setup.core._settings import settings as setup_settings
 from lamindb_setup.core._settings_instance import sanitize_git_repo_url
 from upath import UPath
 
+from ._transform_settings import TransformSettings, transform
+
 VERBOSITY_TO_INT = {
     "error": 0,  # 40
     "warning": 1,  # 30
@@ -90,6 +92,11 @@ class Settings:
         else:
             storage_settings = ln_setup.dev.StorageSettings(root=self._using_storage)
         return storage_settings
+
+    @property
+    def transform(self) -> TransformSettings:
+        """Transform settings."""
+        return transform
 
     @property
     def sync_git_repo(self) -> Optional[str]:

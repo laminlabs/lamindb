@@ -16,7 +16,7 @@ from lnschema_core import Run, Transform, ids
 from lnschema_core.types import TransformType
 from lnschema_core.users import current_user_id
 
-from lamindb.core._transform_settings import transform_settings
+from lamindb.core._transform_settings import transform as transform_settings
 
 from ._settings import settings
 from ._sync_git import get_transform_reference_from_git_repo
@@ -77,7 +77,7 @@ def get_stem_uid_and_version_from_file(file_path: str) -> Tuple[str, str]:
 
     if stem_uid is None or version is None:
         raise SystemExit(
-            f"ln.transform.stem_uid and ln.transform.version aren't set in {file_path}\n"
+            f"ln.settings.transform.stem_uid and ln.settings.transform.version aren't set in {file_path}\n"
             "Call ln.track() and copy/paste the output into the notebook"
         )
     return stem_uid, version
@@ -124,7 +124,7 @@ def update_stem_uid_or_version(
         updated = new_version != version
     if updated:
         new_metadata = (
-            f'ln.transform.stem_uid = "{new_stem_uid}"\nln.transform.version ='
+            f'ln.settings.transform.stem_uid = "{new_stem_uid}"\nln.settings.transform.version ='
             f' "{new_version}"\n'
         )
         raise SystemExit(
@@ -167,8 +167,8 @@ def get_notebook_name_colab() -> str:
 
 MESSAGE = """To track this {transform_type}, set the following two global variables:
 
-ln.transform.stem_uid = "{stem_uid}"
-ln.transform.version = "{version}"
+ln.settings.transform.stem_uid = "{stem_uid}"
+ln.settings.transform.version = "{version}"
 """
 
 
