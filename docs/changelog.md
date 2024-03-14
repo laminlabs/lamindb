@@ -1,5 +1,6 @@
 # Changelog
 
+- ⬆️ Update bionty [PR](https://github.com/laminlabs/lamindb/pull/1496) [@sunnyosun](https://github.com/sunnyosun)
 - 🩹 Handle OSError during delete [PR](https://github.com/laminlabs/lamindb/pull/1492) [@sunnyosun](https://github.com/sunnyosun)
 - ✨ Allow including simple related fields in `.df()` [PR](https://github.com/laminlabs/lamindb/pull/1495) [@falexwolf](https://github.com/falexwolf)
 - ✨ Integrate lamindb with git [PR](https://github.com/laminlabs/lamindb/pull/1493) [@falexwolf](https://github.com/falexwolf)
