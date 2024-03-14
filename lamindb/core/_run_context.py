@@ -263,6 +263,7 @@ class run_context:
             >>> ln.track(transform)
         """
         cls.instance = setup_settings.instance
+        path_ = None
         if transform is None:
             is_tracked = False
             transform_settings_are_set = (
@@ -353,7 +354,7 @@ class run_context:
 
         track_environment(run)
 
-        if not is_run_from_ipython:
+        if not is_run_from_ipython and path_ is not None:
             # upload run source code & environment
             from lamin_cli._save import save
 
