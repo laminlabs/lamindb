@@ -47,17 +47,17 @@ def get_uid_ext(version: str) -> str:
     return encodebytes(hashlib.md5(version.encode()).digest())[:4]
 
 
-def get_stem_uid_and_version_from_file(file_path: str) -> Tuple[str, str]:
+def get_stem_uid_and_version_from_file(file_path: Path) -> Tuple[str, str]:
     # line-by-line matching might be faster, but let's go with this for now
     with open(file_path) as file:
         content = file.read()
 
-    if file_path.endswith(".py"):
+    if file_path.suffix == ".py":
         stem_uid_pattern = re.compile(
             r'\.transform\.stem_uid\s*=\s*["\']([^"\']+)["\']'
         )
         version_pattern = re.compile(r'\.transform\.version\s*=\s*["\']([^"\']+)["\']')
-    elif file_path.endswith(".ipynb"):
+    elif file_path.suffix == ".ipynb":
         stem_uid_pattern = re.compile(
             r'\.transform\.stem_uid\s*=\s*\\["\']([^"\']+)\\["\']'
         )
@@ -263,6 +263,7 @@ class run_context:
             >>> ln.track(transform)
         """
         cls.instance = setup_settings.instance
+        path_ = None
         if transform is None:
             is_tracked = False
             transform_settings_are_set = (
@@ -284,6 +285,7 @@ class run_context:
                     transform_ref_type = None
                 else:
                     (
+                        path_,
                         name,
                         short_name,
                         transform_ref,
@@ -352,6 +354,11 @@ class run_context:
 
         track_environment(run)
 
+        if not is_run_from_ipython and path_ is not None:
+            # upload run source code & environment
+            from lamin_cli._save import save
+
+            save(path_)
         return None
 
     @classmethod
@@ -359,21 +366,23 @@ class run_context:
         cls,
         *,
         path: Optional[UPathStr],
-    ) -> Tuple[str, str, str, str]:
+    ) -> Tuple[Path, str, str, str, str]:
         if path is None:
             import inspect
 
             frame = inspect.stack()[2]
             module = inspect.getmodule(frame[0])
-            path = Path(module.__file__)
-        name = path.name
+            path_ = Path(module.__file__)
+        else:
+            path_ = Path(path)
+        name = path_.name
         short_name = name
         reference = None
         reference_type = None
         if settings.sync_git_repo is not None:
-            reference = get_transform_reference_from_git_repo(path)
+            reference = get_transform_reference_from_git_repo(path_)
             reference_type = "url"
-        return name, short_name, reference, reference_type
+        return path_, name, short_name, reference, reference_type
 
     @classmethod
     def _track_notebook(
