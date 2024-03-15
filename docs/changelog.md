@@ -1,5 +1,6 @@
 # Changelog
 
+- 🚚 Rename `transform.short_name` to `transform.key` [PR](https://github.com/laminlabs/lamindb/pull/1500) [@falexwolf](https://github.com/falexwolf)
 - 🚸 Upload script source code and environment during `ln.track()` [PR](https://github.com/laminlabs/lamindb/pull/1499) [@falexwolf](https://github.com/falexwolf)
 - 🚚 Move transform settings into settings [PR](https://github.com/laminlabs/lamindb/pull/1498) [@falexwolf](https://github.com/falexwolf)
 - 🚸 Sync default git repo from hub [PR](https://github.com/laminlabs/lamindb/pull/1497) [@falexwolf](https://github.com/falexwolf)
