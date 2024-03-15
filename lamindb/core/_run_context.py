@@ -225,21 +225,16 @@ class run_context:
         reference_type: Optional[str] = None,
         path: Optional[str] = None,
     ) -> None:
-        """Track global `Transform` & `Run` for a notebook or pipeline.
+        """Track notebook or script run.
 
         Creates or loads a :class:`~lamindb.Run` record and sets a global
         :class:`~lamindb.core.run_context`.
-
-        In a Jupyter notebook, call without any argument (metadata is parsed).
-        If the notebook has no associated metadata ("is not initialized"),
-        attempts to write metadata to disk. If it fails to so interactively, it
-        will ask you to leverage the CLI.
 
         Args:
             transform: Can be of type `"pipeline"` or `"notebook"`
                 (:class:`~lamindb.core.types.TransformType`).
             new_run: If `False`, loads latest run of transform
-                (default notebook), if True, creates new run (default pipeline).
+                (default notebook), if `True`, creates new run (default pipeline).
             reference: Reference to pass to :class:`~lamindb.Run` record.
             reference_type: Reference type to pass to :class:`~lamindb.Run`
                 record (e.g. "url").

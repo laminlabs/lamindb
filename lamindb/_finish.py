@@ -9,11 +9,15 @@ from .core._run_context import is_run_from_ipython, run_context
 
 
 def finish(i_saved_the_notebook: bool = False):
-    """Mark the transform run as finished, upload notebook."""
+    """Mark the tracked run as finished.
+
+    Save the run report, source code, and compute environment to your default
+    storage location.
+    """
     from lamin_cli._save import save
 
     if is_run_from_ipython:
-        if not i_saved_the_notebook and not ln_setup.TESTING:
+        if not i_saved_the_notebook and not ln_setup._TESTING:
             logger.error(
                 "Save the notebook in your editor before finishing and pass `i_saved_the_notebook=True`"
             )
