@@ -334,7 +334,7 @@ class run_context:
                 .first()
             )
             if run is not None:  # loaded latest run
-                run.run_at = datetime.now(timezone.utc)  # update run time
+                run.started_at = datetime.now(timezone.utc)  # update run time
                 run.reference = reference
                 run.reference_type = reference_type
                 run.save()
