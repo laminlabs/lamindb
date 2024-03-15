@@ -79,6 +79,7 @@ class MappedCollection:
         unknown_label: Optional[Union[str, Dict[str, str]]] = None,
         cache_categories: bool = True,
         parallel: bool = False,
+        add_dataset_id: bool = False,
         dtype: Optional[str] = None,
     ):
         assert join in {None, "inner", "outer"}
@@ -110,6 +111,7 @@ class MappedCollection:
         self.storages = []  # type: ignore
         self.conns = []  # type: ignore
         self.parallel = parallel
+        self.add_dataset_id = add_dataset_id
         self._path_list = path_list
         self._make_connections(path_list, parallel)
 
@@ -232,6 +234,8 @@ class MappedCollection:
                     if label in self.encoders:
                         label_idx = self.encoders[label][label_idx]
                     out[label] = label_idx
+            if self.add_dataset_id:
+                out['dataset'] = storage_idx
         return out
 
     def _get_data_idx(
