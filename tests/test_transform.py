@@ -50,7 +50,7 @@ def test_is_new_version_of_versioned_transform():
         ln.Transform(x=1)
     assert (
         error.exconly()
-        == "ValueError: Only name, short_name, version, type, is_new_version_of,"
+        == "ValueError: Only name, key, version, type, is_new_version_of,"
         " reference, reference_type can be passed, but you passed: {'x': 1}"
     )
 

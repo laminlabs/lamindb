@@ -279,7 +279,7 @@ class run_context:
                     uid__startswith=stem_uid, version=version
                 ).one_or_none()
                 if is_run_from_ipython:
-                    short_name, name, _ = cls._track_notebook(path=path)
+                    key, name, _ = cls._track_notebook(path=path)
                     transform_type = TransformType.notebook
                     transform_ref = None
                     transform_ref_type = None
@@ -287,7 +287,7 @@ class run_context:
                     (
                         path_,
                         name,
-                        short_name,
+                        key,
                         transform_ref,
                         transform_ref_type,
                     ) = cls._track_script(path=path)
@@ -299,7 +299,7 @@ class run_context:
                     transform_ref=transform_ref,
                     transform_ref_type=transform_ref_type,
                     transform_type=transform_type,
-                    short_name=short_name,
+                    key=key,
                     transform=transform,
                 )
                 # if no error is raised, the transform is tracked
@@ -376,13 +376,13 @@ class run_context:
         else:
             path_ = Path(path)
         name = path_.name
-        short_name = name
+        key = name
         reference = None
         reference_type = None
         if settings.sync_git_repo is not None:
             reference = get_transform_reference_from_git_repo(path_)
             reference_type = "url"
-        return path_, name, short_name, reference, reference_type
+        return path_, name, key, reference, reference_type
 
     @classmethod
     def _track_notebook(
@@ -392,7 +392,7 @@ class run_context:
     ):
         if path is None:
             path = get_notebook_path()
-        short_name = Path(path).stem
+        key = Path(path).stem
         if isinstance(path, (Path, PurePath)):
             path_str = path.as_posix()  # type: ignore
         else:
@@ -400,8 +400,8 @@ class run_context:
         if path_str.endswith("Untitled.ipynb"):
             raise RuntimeError("Please rename your notebook before tracking it")
         if path_str.startswith("/fileId="):
-            short_name = get_notebook_name_colab()
-            name = short_name
+            key = get_notebook_name_colab()
+            name = key
         else:
             import nbproject
 
@@ -435,7 +435,7 @@ class run_context:
             except Exception:
                 logger.debug("inferring imported packages failed")
                 pass
-        return short_name, name, path_str
+        return key, name, path_str
 
     @classmethod
     def _create_or_load_transform(
@@ -446,7 +446,7 @@ class run_context:
         name: str,
         transform_ref: Optional[str] = None,
         transform_ref_type: Optional[str] = None,
-        short_name: Optional[str] = None,
+        key: Optional[str] = None,
         transform_type: TransformType = None,
         transform: Optional[Transform] = None,
     ):
@@ -457,7 +457,7 @@ class run_context:
                 uid=uid,
                 version=version,
                 name=name,
-                short_name=short_name,
+                key=key,
                 reference=transform_ref,
                 reference_type=transform_ref_type,
                 type=transform_type,
@@ -467,7 +467,7 @@ class run_context:
         else:
             # check whether there was an update to the transform, like
             # renaming the file or updating the title
-            if transform.name != name or transform.short_name != short_name:
+            if transform.name != name or transform.key != key:
                 if os.getenv("LAMIN_TESTING") is None:
                     response = input(
                         "Updated transform filename and/or title: Do you want to assign a"
@@ -480,7 +480,7 @@ class run_context:
                     update_stem_uid_or_version(stem_uid, version)
                 else:
                     transform.name = name
-                    transform.short_name = short_name
+                    transform.key = key
                     transform.save()
                     logger.important(f"updated: {transform}")
             # check whether the transform artifacts were already saved

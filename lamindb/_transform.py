@@ -12,9 +12,7 @@ def __init__(transform: Transform, *args, **kwargs):
         super(Transform, transform).__init__(*args, **kwargs)
         return None
     name: Optional[str] = kwargs.pop("name") if "name" in kwargs else None
-    short_name: Optional[str] = (
-        kwargs.pop("short_name") if "short_name" in kwargs else None
-    )
+    key: Optional[str] = kwargs.pop("key") if "key" in kwargs else None
     is_new_version_of: Optional[Transform] = (
         kwargs.pop("is_new_version_of") if "is_new_version_of" in kwargs else None
     )
@@ -33,7 +31,7 @@ def __init__(transform: Transform, *args, **kwargs):
     uid: Optional[str] = kwargs.pop("uid") if "uid" in kwargs else None
     if not len(kwargs) == 0:
         raise ValueError(
-            "Only name, short_name, version, type, is_new_version_of, reference, "
+            "Only name, key, version, type, is_new_version_of, reference, "
             f"reference_type can be passed, but you passed: {kwargs}"
         )
     if is_new_version_of is None:
@@ -55,7 +53,7 @@ def __init__(transform: Transform, *args, **kwargs):
     super(Transform, transform).__init__(
         uid=uid,
         name=name,
-        short_name=short_name,
+        key=key,
         type=type,
         version=version,
         reference=reference,
