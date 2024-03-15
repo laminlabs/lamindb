@@ -214,30 +214,26 @@ class run_context:
     path: Optional[Path] = None
     """A local path to the script that's running."""
 
-    # exposed to user as ln.track()
     @classmethod
     def _track(
         cls,
-        transform: Optional[Transform] = None,
         *,
+        transform: Optional[Transform] = None,
         new_run: Optional[bool] = None,
-        reference: Optional[str] = None,
-        reference_type: Optional[str] = None,
         path: Optional[str] = None,
     ) -> None:
         """Track notebook or script run.
 
-        Creates or loads a :class:`~lamindb.Run` record and sets a global
-        :class:`~lamindb.core.run_context`.
+        Creates or loads a global :class:`~lamindb.Run` that enables data
+        lineage tracking.
+
+        You can find it in :class:`~lamindb.core.run_context`.
 
         Args:
             transform: Can be of type `"pipeline"` or `"notebook"`
                 (:class:`~lamindb.core.types.TransformType`).
             new_run: If `False`, loads latest run of transform
                 (default notebook), if `True`, creates new run (default pipeline).
-            reference: Reference to pass to :class:`~lamindb.Run` record.
-            reference_type: Reference type to pass to :class:`~lamindb.Run`
-                record (e.g. "url").
             path: Filepath of notebook or script. Only needed if it can't be
                 automatically detected.
 
@@ -247,15 +243,13 @@ class run_context:
 
             >>> import lamindb as ln
             >>> ln.track()
-            # if global transform settings are not yet defined, this will ask you to set them
-            # if they are defined, this will log the transform and its run
 
-            If you'd like to track a pipeline run, pass a
-            :class:`~lamindb.Transform` object of `type` `"pipeline"`:
+            If you'd like to track an abstract pipeline run, pass a
+            :class:`~lamindb.Transform` object of ``type`` ``"pipeline"``:
 
             >>> ln.Transform(name="Cell Ranger", version="2", type="pipeline").save()
             >>> transform = ln.Transform.filter(name="Cell Ranger", version="2").one()
-            >>> ln.track(transform)
+            >>> ln.track(transform=transform)
         """
         cls.path = None
         if transform is None:
@@ -325,16 +319,12 @@ class run_context:
             )
             if run is not None:  # loaded latest run
                 run.started_at = datetime.now(timezone.utc)  # update run time
-                run.reference = reference
-                run.reference_type = reference_type
                 run.save()
                 logger.important(f"loaded: {run}")
 
         if run is None:  # create new run
             run = Run(
                 transform=cls.transform,
-                reference=reference,
-                reference_type=reference_type,
             )
             run.save()
             logger.important(f"saved: {run}")
