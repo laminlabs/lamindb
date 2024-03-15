@@ -41,6 +41,7 @@ Functions:
 
    connect
    track
+   finish
    view
    save
 
@@ -103,9 +104,10 @@ if _check_instance_setup(from_lamindb=True):
     )
 
     dev = core  # backward compat
+    from ._finish import finish
     from ._save import save
     from ._view import view
-    from .core._run_context import run_context
+    from .core._run_context import run_context as _run_context
     from .core._settings import settings
     from .core._transform_settings import transform  # backward compat
 
@@ -117,5 +119,5 @@ if _check_instance_setup(from_lamindb=True):
 
         _reload_schema_modules(_lamindb_setup.settings.instance)
 
-    track = run_context._track
+    track = _run_context._track
     settings.__doc__ = """Global :class:`~lamindb.core.Settings`."""
