@@ -25,7 +25,7 @@ is_run_from_ipython = getattr(builtins, "__IPYTHON__", False)
 
 msg_path_failed = (
     "failed to infer notebook path.\nfix: either track manually via"
-    " `ln.track(ln.Transform(name='My notebook'))` or pass"
+    " `ln.track(transform=ln.Transform(name='My notebook'))` or pass"
     " `path` to ln.track()"
 )
 

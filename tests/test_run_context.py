@@ -21,7 +21,7 @@ def test_track_with_multi_parents():
 
 def test_track_with_reference():
     transform = ln.Transform(name="test")
-    ln.track(transform, reference="my address", reference_type="url")
+    ln.track(transform=transform, reference="my address", reference_type="url")
     assert ln.core.run_context.run.reference == "my address"
     assert ln.core.run_context.run.reference_type == "url"
     # unset to remove side effects

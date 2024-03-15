@@ -106,7 +106,7 @@ def test_create_delete_from_single_dataframe(df):
 
 
 def test_create_delete_from_single_anndata(adata):
-    ln.track(ln.Transform(name="Test transform"))
+    ln.track(transform=ln.Transform(name="Test transform"))
     collection = ln.Collection.from_anndata(adata, name="My adata")
     collection.save()
     collection.delete(permanent=True)
@@ -229,7 +229,7 @@ def test_from_inconsistent_artifacts(df, adata):
     # test idempotency of .save()
     collection.save()
     # create a run context
-    ln.track(ln.Transform(name="My test transform"))
+    ln.track(transform=ln.Transform(name="My test transform"))
     # can iterate over them
     artifacts = collection.artifacts.all()  # noqa
     assert set(ln.core.run_context.run.input_collections.all()) == {collection}
