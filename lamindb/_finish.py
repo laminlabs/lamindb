@@ -11,8 +11,7 @@ from .core._run_context import is_run_from_ipython, run_context
 def finish(i_saved_the_notebook: bool = False):
     """Mark the tracked run as finished.
 
-    Save the run report, source code, and compute environment to your default
-    storage location.
+    Save the run report to your default storage location.
     """
     from lamin_cli._save import save
 
@@ -26,7 +25,9 @@ def finish(i_saved_the_notebook: bool = False):
         if not check_last_cell(nb, "i_saved_the_notebook"):
             logger.error("Can only finish() from the last code cell of the notebook.")
             return None
+        # scripts are already saved during `ln.track()`
+        # TODO: make this more symmetric
+        save(run_context.path)
 
-    save(run_context.path)
     run_context.run.finished_at = datetime.now(timezone.utc)  # update run time
     run_context.run.save()

@@ -225,9 +225,12 @@ class run_context:
         """Track notebook or script run.
 
         Creates or loads a global :class:`~lamindb.Run` that enables data
-        lineage tracking.
+        lineage tracking. You can find it in :class:`~lamindb.core.run_context`.
 
-        You can find it in :class:`~lamindb.core.run_context`.
+        Saves source code and compute environment.
+
+        If :attr:`~lamindb.Settings.sync_git_repo` is set, will first check
+        whether the script exists in the git repository and add a link.
 
         Args:
             transform: Can be of type `"pipeline"` or `"notebook"`
