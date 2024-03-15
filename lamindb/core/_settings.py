@@ -1,3 +1,4 @@
+import os
 from pathlib import Path
 from typing import Dict, Literal, Mapping, Optional, Tuple, Union
 
@@ -173,4 +174,9 @@ class Settings:
         logger.set_verbosity(verbosity_int)
 
 
-settings = Settings(git_repo=setup_settings.instance.git_repo)
+if os.environ.get("LAMINDB_MULTI_INSTANCE") == "true":
+    git_repo = None
+else:
+    git_repo = setup_settings.instance.git_repo
+
+settings = Settings(git_repo=git_repo)
