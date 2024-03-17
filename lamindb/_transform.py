@@ -87,7 +87,7 @@ def delete(self) -> None:
 
 @property  # type: ignore
 def latest_run(self) -> Run:
-    return self.runs.order_by("-run_at").first()
+    return self.runs.order_by("-started_at").first()
 
 
 Transform.__init__ = __init__

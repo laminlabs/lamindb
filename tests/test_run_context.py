@@ -13,17 +13,7 @@ def test_track_with_multi_parents():
     child = ln.Transform(name="Child")
     child.save()
     child.parents.set([parent1, parent2])
-    ln.track(child, reference="my address", reference_type="url")
-    # unset to remove side effects
-    ln.core.run_context.run = None
-    ln.core.run_context.transform = None
-
-
-def test_track_with_reference():
-    transform = ln.Transform(name="test")
-    ln.track(transform, reference="my address", reference_type="url")
-    assert ln.core.run_context.run.reference == "my address"
-    assert ln.core.run_context.run.reference_type == "url"
+    ln.track(transform=child)
     # unset to remove side effects
     ln.core.run_context.run = None
     ln.core.run_context.transform = None

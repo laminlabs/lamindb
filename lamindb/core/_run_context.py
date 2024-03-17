@@ -25,7 +25,7 @@ is_run_from_ipython = getattr(builtins, "__IPYTHON__", False)
 
 msg_path_failed = (
     "failed to infer notebook path.\nfix: either track manually via"
-    " `ln.track(ln.Transform(name='My notebook'))` or pass"
+    " `ln.track(transform=ln.Transform(name='My notebook'))` or pass"
     " `path` to ln.track()"
 )
 
@@ -35,6 +35,10 @@ class NotebookNotSavedError(Exception):
 
 
 class NoTitleError(Exception):
+    pass
+
+
+class MissingTransformSettings(SystemExit):
     pass
 
 
@@ -165,7 +169,7 @@ def get_notebook_name_colab() -> str:
     return name.rstrip(".ipynb")
 
 
-MESSAGE = """To track this {transform_type}, set the following two global variables:
+MESSAGE = """To track this {transform_type}, set
 
 ln.settings.transform.stem_uid = "{stem_uid}"
 ln.settings.transform.version = "{version}"
@@ -197,7 +201,7 @@ def raise_transform_settings_error() -> None:
             meta_container = MetaContainer(**nb_meta["nbproject"])
             meta_store = MetaStore(meta_container, filepath)
             stem_uid, version = meta_store.id, meta_store.version
-    raise SystemExit(
+    raise MissingTransformSettings(
         MESSAGE.format(
             transform_type=transform_type, stem_uid=stem_uid, version=version
         )
@@ -207,42 +211,36 @@ def raise_transform_settings_error() -> None:
 class run_context:
     """Global run context."""
 
-    instance: Optional[InstanceSettings] = None
-    """Current instance."""
     transform: Optional[Transform] = None
     """Current transform."""
     run: Optional[Run] = None
     """Current run."""
+    path: Optional[Path] = None
+    """A local path to the script that's running."""
 
-    # exposed to user as ln.track()
     @classmethod
     def _track(
         cls,
-        transform: Optional[Transform] = None,
         *,
+        transform: Optional[Transform] = None,
         new_run: Optional[bool] = None,
-        reference: Optional[str] = None,
-        reference_type: Optional[str] = None,
         path: Optional[str] = None,
     ) -> None:
-        """Track global `Transform` & `Run` for a notebook or pipeline.
+        """Track notebook or script run.
 
-        Creates or loads a :class:`~lamindb.Run` record and sets a global
-        :class:`~lamindb.core.run_context`.
+        Creates or loads a global :class:`~lamindb.Run` that enables data
+        lineage tracking. You can find it in :class:`~lamindb.core.run_context`.
 
-        In a Jupyter notebook, call without any argument (metadata is parsed).
-        If the notebook has no associated metadata ("is not initialized"),
-        attempts to write metadata to disk. If it fails to so interactively, it
-        will ask you to leverage the CLI.
+        Saves source code and compute environment.
+
+        If :attr:`~lamindb.Settings.sync_git_repo` is set, will first check
+        whether the script exists in the git repository and add a link.
 
         Args:
             transform: Can be of type `"pipeline"` or `"notebook"`
                 (:class:`~lamindb.core.types.TransformType`).
             new_run: If `False`, loads latest run of transform
-                (default notebook), if True, creates new run (default pipeline).
-            reference: Reference to pass to :class:`~lamindb.Run` record.
-            reference_type: Reference type to pass to :class:`~lamindb.Run`
-                record (e.g. "url").
+                (default notebook), if `True`, creates new run (default pipeline).
             path: Filepath of notebook or script. Only needed if it can't be
                 automatically detected.
 
@@ -252,18 +250,15 @@ class run_context:
 
             >>> import lamindb as ln
             >>> ln.track()
-            # if global transform settings are not yet defined, this will ask you to set them
-            # if they are defined, this will log the transform and its run
 
-            If you'd like to track a pipeline run, pass a
-            :class:`~lamindb.Transform` object of `type` `"pipeline"`:
+            If you'd like to track an abstract pipeline run, pass a
+            :class:`~lamindb.Transform` object of ``type`` ``"pipeline"``:
 
             >>> ln.Transform(name="Cell Ranger", version="2", type="pipeline").save()
             >>> transform = ln.Transform.filter(name="Cell Ranger", version="2").one()
-            >>> ln.track(transform)
+            >>> ln.track(transform=transform)
         """
-        cls.instance = setup_settings.instance
-        path_ = None
+        cls.path = None
         if transform is None:
             is_tracked = False
             transform_settings_are_set = (
@@ -279,18 +274,14 @@ class run_context:
                     uid__startswith=stem_uid, version=version
                 ).one_or_none()
                 if is_run_from_ipython:
-                    key, name, _ = cls._track_notebook(path=path)
+                    key, name = cls._track_notebook(path=path)
                     transform_type = TransformType.notebook
                     transform_ref = None
                     transform_ref_type = None
                 else:
-                    (
-                        path_,
-                        name,
-                        key,
-                        transform_ref,
-                        transform_ref_type,
-                    ) = cls._track_script(path=path)
+                    (name, key, transform_ref, transform_ref_type) = cls._track_script(
+                        path=path
+                    )
                     transform_type = TransformType.script
                 cls._create_or_load_transform(
                     stem_uid=stem_uid,
@@ -334,17 +325,13 @@ class run_context:
                 .first()
             )
             if run is not None:  # loaded latest run
-                run.run_at = datetime.now(timezone.utc)  # update run time
-                run.reference = reference
-                run.reference_type = reference_type
+                run.started_at = datetime.now(timezone.utc)  # update run time
                 run.save()
                 logger.important(f"loaded: {run}")
 
         if run is None:  # create new run
             run = Run(
                 transform=cls.transform,
-                reference=reference,
-                reference_type=reference_type,
             )
             run.save()
             logger.important(f"saved: {run}")
@@ -354,11 +341,11 @@ class run_context:
 
         track_environment(run)
 
-        if not is_run_from_ipython and path_ is not None:
+        if not is_run_from_ipython and cls.path is not None:
             # upload run source code & environment
             from lamin_cli._save import save
 
-            save(path_)
+            save(cls.path)
         return None
 
     @classmethod
@@ -366,23 +353,23 @@ class run_context:
         cls,
         *,
         path: Optional[UPathStr],
-    ) -> Tuple[Path, str, str, str, str]:
+    ) -> Tuple[str, str, str, str]:
         if path is None:
             import inspect
 
             frame = inspect.stack()[2]
             module = inspect.getmodule(frame[0])
-            path_ = Path(module.__file__)
+            cls.path = Path(module.__file__)
         else:
-            path_ = Path(path)
-        name = path_.name
+            cls.path = Path(path)
+        name = cls.path.name
         key = name
         reference = None
         reference_type = None
         if settings.sync_git_repo is not None:
-            reference = get_transform_reference_from_git_repo(path_)
+            reference = get_transform_reference_from_git_repo(cls.path)
             reference_type = "url"
-        return path_, name, key, reference, reference_type
+        return name, key, reference, reference_type
 
     @classmethod
     def _track_notebook(
@@ -435,7 +422,8 @@ class run_context:
             except Exception:
                 logger.debug("inferring imported packages failed")
                 pass
-        return key, name, path_str
+        cls.path = Path(path_str)
+        return key, name
 
     @classmethod
     def _create_or_load_transform(

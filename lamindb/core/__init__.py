@@ -1,54 +1,43 @@
 """Core library.
 
-The registry base class:
+Registries:
 
 .. autosummary::
    :toctree: .
 
    Registry
-
-Queries of registries:
-
-.. autosummary::
-   :toctree: .
-
    QuerySet
    QueryManager
    RecordsList
-
-Functionality of data registries:
-
-.. autosummary::
-   :toctree: .
-
    Data
    FeatureManager
    LabelManager
    IsTree
    IsVersioned
-
-Functionality of metadata registries:
-
-.. autosummary::
-   :toctree: .
-
    CanValidate
    HasParents
    InspectResult
+   fields
 
-Auxiliary tools:
+Classes:
 
 .. autosummary::
    :toctree: .
 
+   Settings
+   MappedCollection
    run_context
+
+Modules:
+
+.. autosummary::
+   :toctree: .
+
    datasets
    storage
-   fields
-   Settings
    types
    exceptions
-   MappedCollection
+
 """
 
 from lamin_utils._inspect import InspectResult

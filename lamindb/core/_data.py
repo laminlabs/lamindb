@@ -131,7 +131,7 @@ def describe(self: Data):
     # input of
     # can only access many-to-many once record is saved
     if self.id is not None and self.input_of.exists():
-        values = [format_field_value(i.run_at) for i in self.input_of.all()]
+        values = [format_field_value(i.started_at) for i in self.input_of.all()]
         msg += f"⬇️ input_of ({colors.italic('core.Run')}): {values}\n    "
     msg = msg.rstrip(" ")  # do not use removesuffix as we need to remove 2 or 4 spaces
     msg += print_features(self)
