@@ -339,7 +339,7 @@ def test_collection_mapped(adata, adata2):
     assert not ls_ds.closed
 
     assert len(ls_ds) == 4
-    assert len(ls_ds[0]) == 2 and len(ls_ds[2]) == 2
+    assert len(ls_ds[0]) == 3 and len(ls_ds[2]) == 3
     assert len(ls_ds[0]["x"]) == 3
     assert np.array_equal(ls_ds[2]["x"], np.array([1, 2, 5]))
     weights = ls_ds.get_label_weights("feat1")
@@ -353,13 +353,15 @@ def test_collection_mapped(adata, adata2):
     with collection.mapped(label_keys="feat1", join="inner", dtype="float32") as ls_ds:
         assert not ls_ds.closed
         assert len(ls_ds) == 4
-        assert len(ls_ds[0]) == 2 and len(ls_ds[2]) == 2
+        assert len(ls_ds[0]) == 3 and len(ls_ds[2]) == 3
         assert str(ls_ds[0]["x"].dtype) == "float32"
         assert str(ls_ds[2]["x"].dtype) == "float32"
     assert ls_ds.closed
 
     ls_ds = collection.mapped(label_keys="feat1", parallel=True)
-    assert len(ls_ds[0]) == 2 and len(ls_ds[2]) == 2
+    assert len(ls_ds[0]) == 3 and len(ls_ds[2]) == 3
+    assert ls_ds[0]["_storage_idx"] == 0
+    assert ls_ds[2]["_storage_idx"] == 1
 
     with pytest.raises(ValueError):
         with collection_outer.mapped(label_keys="feat1", join="inner"):
@@ -368,7 +370,7 @@ def test_collection_mapped(adata, adata2):
     with collection_outer.mapped(label_keys="feat1", join="outer") as ls_ds:
         assert ls_ds.join_vars == "outer"
         assert len(ls_ds.var_joint) == 6
-        assert len(ls_ds[0]) == 2
+        assert len(ls_ds[0]) == 3
         assert len(ls_ds[0]["x"]) == 6
         assert np.array_equal(ls_ds[0]["x"], np.array([0, 0, 0, 3, 1, 2]))
         assert np.array_equal(ls_ds[1]["x"], np.array([0, 0, 0, 6, 4, 5]))
