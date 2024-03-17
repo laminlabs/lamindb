@@ -2,8 +2,6 @@ from datetime import datetime, timezone
 
 import lamindb_setup as ln_setup
 from lamin_utils import logger
-from nbproject.dev import read_notebook
-from nbproject.dev._check_last_cell import check_last_cell
 
 from .core._run_context import is_run_from_ipython, run_context
 
@@ -20,6 +18,9 @@ def finish(i_saved_the_notebook: bool = False):
     from lamin_cli._save import save
 
     if is_run_from_ipython:
+        from nbproject.dev import read_notebook
+        from nbproject.dev._check_last_cell import check_last_cell
+
         if not i_saved_the_notebook and not ln_setup._TESTING:
             logger.error(
                 "Save the notebook, pass `i_saved_the_notebook=True`, and re-run this cell."
