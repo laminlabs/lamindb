@@ -471,15 +471,12 @@ class run_context:
                     transform.key = key
                     transform.save()
                     logger.important(f"updated: {transform}")
-            # check whether the transform artifacts were already saved
-            if (
-                transform.source_code_id is not None
-                or transform.latest_report_id is not None
-            ):
+            # check whether the notebook source code was already saved
+            if is_run_from_ipython and transform.source_code_id:
                 if os.getenv("LAMIN_TESTING") is None:
                     response = input(
-                        "You already saved a source file for this transform."
-                        " Do you want to bump the version? (y/n)"
+                        "You already saved source code for this notebook."
+                        " Bump the version before a new run? (y/n)"
                     )
                 else:
                     response = "y"
