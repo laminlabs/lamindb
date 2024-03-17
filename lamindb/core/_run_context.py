@@ -38,6 +38,10 @@ class NoTitleError(Exception):
     pass
 
 
+class MissingTransformSettings(SystemExit):
+    pass
+
+
 def get_uid_ext(version: str) -> str:
     from lamin_utils._base62 import encodebytes
 
@@ -165,7 +169,7 @@ def get_notebook_name_colab() -> str:
     return name.rstrip(".ipynb")
 
 
-MESSAGE = """To track this {transform_type}, set the following two global variables:
+MESSAGE = """To track this {transform_type}, set
 
 ln.settings.transform.stem_uid = "{stem_uid}"
 ln.settings.transform.version = "{version}"
@@ -197,7 +201,7 @@ def raise_transform_settings_error() -> None:
             meta_container = MetaContainer(**nb_meta["nbproject"])
             meta_store = MetaStore(meta_container, filepath)
             stem_uid, version = meta_store.id, meta_store.version
-    raise SystemExit(
+    raise MissingTransformSettings(
         MESSAGE.format(
             transform_type=transform_type, stem_uid=stem_uid, version=version
         )
