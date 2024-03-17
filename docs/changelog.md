@@ -13,10 +13,7 @@
 Main new features:
 
 - ✨ Integrate lamindb with git [PR](https://github.com/laminlabs/lamindb/pull/1493) [PR](https://github.com/laminlabs/lamindb/pull/1497) [@falexwolf](https://github.com/falexwolf)
-
-Calling `lamin save` on the command line is no longer needed:
-
-- ✨ Introduce `ln.finish()`, track run finish times as `run.finished_at`, rename `run.run_at` to `run.started_at`, sync notebooks from within API [PR](https://github.com/laminlabs/lamindb/pull/1501) [@falexwolf](https://github.com/falexwolf)
+- ✨ Introduce `ln.finish()`, track run finish times as `run.finished_at`, rename `run.run_at` to `run.started_at`, upload notebooks during `ln.finish()` [PR](https://github.com/laminlabs/lamindb/pull/1501) [@falexwolf](https://github.com/falexwolf)
 - 🚸 Upload script source code and environment during `ln.track()` [PR](https://github.com/laminlabs/lamindb/pull/1499) [@falexwolf](https://github.com/falexwolf)
 
 Other changes:

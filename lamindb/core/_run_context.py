@@ -233,7 +233,7 @@ class run_context:
 
         Saves source code and compute environment.
 
-        If :attr:`~lamindb.Settings.sync_git_repo` is set, will first check
+        If :attr:`~lamindb.core.Settings.sync_git_repo` is set, will first check
         whether the script exists in the git repository and add a link.
 
         Args:
