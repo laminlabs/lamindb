@@ -220,6 +220,7 @@ class MappedCollection:
 
         with _Connect(self.storages[storage_idx]) as store:
             out = {"x": self._get_data_idx(store, obs_idx, var_idxs_join)}
+            out["_storage_idx"] = storage_idx
             if self.label_keys is not None:
                 for label in self.label_keys:
                     if label in self._cache_cats:
