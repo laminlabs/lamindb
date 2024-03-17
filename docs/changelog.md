@@ -1,5 +1,6 @@
 # Changelog
 
+- ♻️ Add a json field to `Run` [PR](https://github.com/laminlabs/lamindb/pull/1505) [@falexwolf](https://github.com/falexwolf)
 - ✨ Introduce `ln.finish()`, track run finish times, sync notebooks from within API [PR](https://github.com/laminlabs/lamindb/pull/1501) [@falexwolf](https://github.com/falexwolf)
 - ✨ Return storage_idx in MappedCollection [PR](https://github.com/laminlabs/lamindb/pull/1504) [@Koncopd](https://github.com/Koncopd)
 - 🚚 Rename `transform.short_name` to `transform.key` [PR](https://github.com/laminlabs/lamindb/pull/1500) [@falexwolf](https://github.com/falexwolf)
