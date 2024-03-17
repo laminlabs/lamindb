@@ -1,21 +1,32 @@
 # Changelog
 
-- ♻️ Add a json field to `Run` [PR](https://github.com/laminlabs/lamindb/pull/1505) [@falexwolf](https://github.com/falexwolf)
-- ✨ Introduce `ln.finish()`, track run finish times, sync notebooks from within API [PR](https://github.com/laminlabs/lamindb/pull/1501) [@falexwolf](https://github.com/falexwolf)
-- ✨ Return storage_idx in MappedCollection [PR](https://github.com/laminlabs/lamindb/pull/1504) [@Koncopd](https://github.com/Koncopd)
-- 🚚 Rename `transform.short_name` to `transform.key` [PR](https://github.com/laminlabs/lamindb/pull/1500) [@falexwolf](https://github.com/falexwolf)
-- 🚸 Upload script source code and environment during `ln.track()` [PR](https://github.com/laminlabs/lamindb/pull/1499) [@falexwolf](https://github.com/falexwolf)
-- 🚚 Move transform settings into settings [PR](https://github.com/laminlabs/lamindb/pull/1498) [@falexwolf](https://github.com/falexwolf)
-- 🚸 Sync default git repo from hub [PR](https://github.com/laminlabs/lamindb/pull/1497) [@falexwolf](https://github.com/falexwolf)
-- ⬆️ Update bionty [PR](https://github.com/laminlabs/lamindb/pull/1496) [@sunnyosun](https://github.com/sunnyosun)
-- 🩹 Handle OSError during delete [PR](https://github.com/laminlabs/lamindb/pull/1492) [@sunnyosun](https://github.com/sunnyosun)
-- ✨ Allow including simple related fields in `.df()` [PR](https://github.com/laminlabs/lamindb/pull/1495) [@falexwolf](https://github.com/falexwolf)
-- ✨ Integrate lamindb with git [PR](https://github.com/laminlabs/lamindb/pull/1493) [@falexwolf](https://github.com/falexwolf)
-- ⬆️ Make get_stat_dir_s3 compatible with canonical storage policy (s3:ListBucket conditional on prefix/) [PR](https://github.com/laminlabs/lamindb/pull/1490) [@bpenteado](https://github.com/bpenteado)
-- ✨ Add `latest_version` filter for `QuerySet` [PR](https://github.com/laminlabs/lamindb/pull/1489) [@falexwolf](https://github.com/falexwolf)
+
 ```{eval-rst}
 .. role:: small
 ```
+
+
+## 0.69
+
+### 0.69.0 {small}`2024-03-17`
+
+Main new features:
+
+- ✨ Integrate lamindb with git [PR](https://github.com/laminlabs/lamindb/pull/1493) [PR](https://github.com/laminlabs/lamindb/pull/1497) [@falexwolf](https://github.com/falexwolf)
+
+Calling `lamin save` on the command line is no longer needed:
+
+- ✨ Introduce `ln.finish()`, track run finish times as `run.finished_at`, rename `run.run_at` to `run.started_at`, sync notebooks from within API [PR](https://github.com/laminlabs/lamindb/pull/1501) [@falexwolf](https://github.com/falexwolf)
+- 🚸 Upload script source code and environment during `ln.track()` [PR](https://github.com/laminlabs/lamindb/pull/1499) [@falexwolf](https://github.com/falexwolf)
+
+Other changes:
+
+- ✨ Allow including simple related fields in `.df()` [PR](https://github.com/laminlabs/lamindb/pull/1495) [@falexwolf](https://github.com/falexwolf)
+- 🚚 Move transform settings into settings [PR](https://github.com/laminlabs/lamindb/pull/1498) [@falexwolf](https://github.com/falexwolf)
+- ✨ Add `latest_version` filter for `QuerySet` [PR](https://github.com/laminlabs/lamindb/pull/1489) [@falexwolf](https://github.com/falexwolf)
+- 🚚 Rename `transform.short_name` to `transform.key` [PR](https://github.com/laminlabs/lamindb/pull/1500) [@falexwolf](https://github.com/falexwolf)
+- 🚸 Return `storage_idx` in `MappedCollection` [PR](https://github.com/laminlabs/lamindb/pull/1504) [@Koncopd](https://github.com/Koncopd)
+- ♻️ Add a JSON field to `Run` [PR](https://github.com/laminlabs/lamindb/pull/1505) [@falexwolf](https://github.com/falexwolf)
 
 ## 0.68
 
