@@ -1,5 +1,6 @@
 # Changelog
 
+- 🔥 Remove validator from faq [PR](https://github.com/laminlabs/lamindb/pull/1507) [@sunnyosun](https://github.com/sunnyosun)
 
 ```{eval-rst}
 .. role:: small
