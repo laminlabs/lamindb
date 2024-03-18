@@ -1,7 +1,5 @@
 # Changelog
 
-- ✨ Add `Validator` and `AnnDataValidator` [PR](https://github.com/laminlabs/lamindb/pull/1508) [@sunnyosun](https://github.com/sunnyosun)
-- 🔥 Remove validator from faq [PR](https://github.com/laminlabs/lamindb/pull/1507) [@sunnyosun](https://github.com/sunnyosun)
 
 ```{eval-rst}
 .. role:: small
@@ -9,6 +7,10 @@
 
 
 ## 0.69
+
+### 0.69.1 {small}`2024-03-18`
+
+✨ Add `lamindb.validation` with the `Validator` class [PR](https://github.com/laminlabs/lamindb/pull/1508) [@sunnyosun](https://github.com/sunnyosun)
 
 ### 0.69.0 {small}`2024-03-17`
 
