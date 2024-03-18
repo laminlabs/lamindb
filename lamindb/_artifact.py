@@ -239,16 +239,8 @@ def get_stat_or_artifact(
             )
             return size, hash, hash_type, n_objects
         else:
-            logger.warning(f"returning existing artifact with same hash: {result[0]}")
-            if result[0].visibility < 1:
-                if result[0].visibility == -1:
-                    visibility_text = "in the trash"
-                elif result[0].visibility == 0:
-                    visibility_text = "hidden"
-                logger.warning(
-                    f"the existing artifact is {visibility_text}, restore it before"
-                    " use: `artifact.restore()`"
-                )
+            from_trash = "(from trash)" if result[0].visibility == -1 else ""
+            logger.warning(f"returning existing artifact with same hash{from_trash}: {result[0]}")
             return result[0]
     else:
         return size, hash, hash_type, n_objects
