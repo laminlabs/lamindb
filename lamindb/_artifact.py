@@ -240,7 +240,9 @@ def get_stat_or_artifact(
             return size, hash, hash_type, n_objects
         else:
             from_trash = "(from trash)" if result[0].visibility == -1 else ""
-            logger.warning(f"returning existing artifact with same hash{from_trash}: {result[0]}")
+            logger.warning(
+                f"returning existing artifact with same hash{from_trash}: {result[0]}"
+            )
             return result[0]
     else:
         return size, hash, hash_type, n_objects
