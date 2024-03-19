@@ -74,7 +74,7 @@ def test_create_or_load_transform(monkeypatch):
             name="updated title again",
         )
     assert (
-        "SystemExit: Please update your transform settings as follows"
+        "UpdateTransformSettings: Please update your transform settings as follows"
         in error.exconly()
     )
 

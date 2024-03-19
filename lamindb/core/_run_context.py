@@ -42,6 +42,10 @@ class MissingTransformSettings(SystemExit):
     pass
 
 
+class UpdateTransformSettings(SystemExit):
+    pass
+
+
 def get_uid_ext(version: str) -> str:
     from lamin_utils._base62 import encodebytes
 
@@ -131,7 +135,7 @@ def update_stem_uid_or_version(
             f'ln.settings.transform.stem_uid = "{new_stem_uid}"\nln.settings.transform.version ='
             f' "{new_version}"\n'
         )
-        raise SystemExit(
+        raise UpdateTransformSettings(
             f"Please update your transform settings as follows:\n{new_metadata}"
         )
     return updated, new_stem_uid, new_version
@@ -326,15 +330,18 @@ class run_context:
             )
             if run is not None:  # loaded latest run
                 run.started_at = datetime.now(timezone.utc)  # update run time
-                run.save()
                 logger.important(f"loaded: {run}")
 
         if run is None:  # create new run
             run = Run(
                 transform=cls.transform,
             )
-            run.save()
             logger.important(f"saved: {run}")
+        # can only determine at ln.finish() if run was consecutive in
+        # interactive session, otherwise, is consecutive
+        run.is_consecutive = True if is_run_from_ipython else None
+        # need to save in all cases
+        run.save()
         cls.run = run
 
         from ._track_environment import track_environment
