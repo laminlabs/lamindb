@@ -122,7 +122,7 @@ class AnnDataValidator(Validator):
         self._artifact = register_artifact(
             self._adata,
             description=description,
-            var_field=self.var_field,
+            feature_field=self.var_field,
             fields=self.obs_fields,
             **self._kwargs,
         )

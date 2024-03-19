@@ -14,7 +14,7 @@ def register_artifact(
     data: Union[pd.DataFrame, ad.AnnData],
     description: str,
     fields: Dict[str, FieldAttr],
-    var_field: Optional[FieldAttr] = None,
+    feature_field: FieldAttr,
     **kwargs,
 ):
     """Registers all metadata with an Artifact.
@@ -23,7 +23,7 @@ def register_artifact(
         data: The DataFrame or AnnData object to register.
         description: A description of the artifact.
         fields: A dictionary mapping obs_column to registry_field.
-        var_field: The registry field to validate variables index against.
+        feature_field: The registry field to validate variables index against.
         kwargs: Additional keyword arguments to pass to the registry model.
     """
     if isinstance(data, ad.AnnData):
@@ -36,11 +36,14 @@ def register_artifact(
     artifact.save()
 
     organism = kwargs.pop("organism", None)
+    feature_kwargs: Dict = {}
+    if check_if_registry_needs_organism(feature_field.field.model, organism):
+        feature_kwargs["organism"] = organism
 
     if isinstance(data, ad.AnnData):
-        artifact.features.add_from_anndata(var_field=var_field, organism=organism)
+        artifact.features.add_from_anndata(var_field=feature_field, **feature_kwargs)
     else:
-        artifact.features.add_from_df()
+        artifact.features.add_from_df(field=feature_field, **feature_kwargs)
 
     # link validated obs metadata
     features = ln.Feature.lookup().dict()
@@ -54,11 +57,10 @@ def register_artifact(
         labels = registry.from_values(df[feature_name], field=field, **filter_kwargs)
         artifact.labels.add(labels, feature)
 
-    logger.print("\n\n🎉 registered artifact in LaminDB!\n")
+    slug = ln.setup.settings.instance.slug
+    logger.success(f"registered artifact in {slug}!")
     if ln.setup.settings.instance.is_remote:
-        logger.print(
-            f"🔗 https://lamin.ai/{ln.setup.settings.instance.slug}/artifact/{artifact.uid}"
-        )
+        logger.info(f"🔗 https://lamin.ai/{slug}/artifact/{artifact.uid}")
 
     return artifact
 
@@ -141,26 +143,33 @@ def register_labels(
     finally:
         ln.settings.verbosity = verbosity
     log_registered_labels(
-        labels_registered, feature_name=feature_name, validated_only=validated_only
+        labels_registered,
+        feature_name=feature_name,
+        model_field=f"{registry.__name__}.{field.field.name}",
+        validated_only=validated_only,
     )
 
 
 def log_registered_labels(
-    labels_registered: Dict, feature_name: str, validated_only: bool = True
+    labels_registered: Dict,
+    feature_name: str,
+    model_field: str,
+    validated_only: bool = True,
 ):
     """Log the registered labels."""
+    labels = "features" if feature_name == "feature" else "labels"
     for key, labels in labels_registered.items():
         if len(labels) > 0:
             if key == "without reference" and validated_only:
                 msg = (
-                    f"{len(labels)} non-validated labels are not registered: {labels}!\n"
+                    f"{len(labels)} non-validated {labels} are not registered with {model_field}: {labels}!\n"
                     "      → to lookup categories, use `.lookup().{feature_name}`\n"
                     "      → to register, set `validated_only=False`"
                 )
                 logger.warning(colors.yellow(msg))
                 continue
             logger.success(
-                f"registered {len(labels)} records {colors.green(key)}: {labels}"
+                f"registered {len(labels)} {labels} {colors.green(key)} with {model_field}: {labels}"
             )
 
 
