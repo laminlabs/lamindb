@@ -15,9 +15,9 @@ class Lookup:
         self, fields: Dict[str, FieldAttr], using: Optional[str] = None
     ) -> None:
         self._fields = fields
-        self._using = using
+        self._using = None if using == "default" else using
         self._using_name = using or ln.setup.settings.instance.slug
-        logger.print(f"Lookup objects from the {colors.green(self._using_name)}")
+        logger.debug(f"Lookup objects from the {colors.italic(self._using_name)}")
 
     def __getitem__(self, name):
         if name in self._fields:
@@ -33,6 +33,10 @@ class Lookup:
     def __repr__(self) -> str:
         if len(self._fields) > 0:
             fields = "\n ".join([str([key]) for key in self._fields.keys()])
-            return f"Lookup objects from the {colors.green(self._using_name)}:\n {colors.green(fields)}\n\nExample:\n    → categories = validator.lookup().cell_type\n    → categories.alveolar_type_1_fibroblast_cell"
+            return (
+                f"Lookup objects from the {colors.italic(self._using_name)}:\n {colors.green(fields)}\n\n"
+                "Example:\n    → categories = validator.lookup().['cell_type']\n"
+                "    → categories.alveolar_type_1_fibroblast_cell"
+            )
         else:
             return colors.warning("No fields are found!")

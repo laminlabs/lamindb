@@ -9,7 +9,7 @@ import lamindb as ln
 from ._lookup import Lookup
 from ._register import register_artifact, register_labels
 from ._validate import validate_anndata
-from ._validator import Validator
+from ._validator import ValidationError, Validator
 
 
 class AnnDataValidator(Validator):
@@ -34,6 +34,7 @@ class AnnDataValidator(Validator):
         **kwargs,
     ) -> None:
         self._adata = adata
+        self._var_field = var_field
         super().__init__(
             df=self._adata.obs,
             fields=obs_fields,
@@ -42,7 +43,6 @@ class AnnDataValidator(Validator):
             **kwargs,
         )
         self._obs_fields = obs_fields
-        self._var_field = var_field
         self._fields = {"variables": var_field, **obs_fields}
 
     @property
@@ -75,19 +75,8 @@ class AnnDataValidator(Validator):
             kwargs=self._kwargs,
         )
 
-    def register_labels(self, feature: str, validated_only: bool = True, **kwargs):
-        """Register labels for the given feature.
-
-        Args:
-            feature: The feature to register labels for.
-                if "variables", register variables.
-            validated_only: If True, only register validated labels.
-            **kwargs: Additional metadata needed.
-        """
-        if feature == "variables":
-            self._register_variables(validated_only=validated_only, **kwargs)
-        else:
-            super().register_labels(feature, validated_only, **kwargs)
+    def register_features(self, validated_only: bool = True, **kwargs) -> None:
+        self._register_variables(validated_only=validated_only, **kwargs)
 
     def validate(self, **kwargs) -> bool:
         """Validate variables and categorical observations."""
@@ -117,7 +106,7 @@ class AnnDataValidator(Validator):
         """
         self._add_kwargs(**kwargs)
         if not self._validated:
-            raise ValueError("please run `validate()` first!")
+            raise ValidationError("please run `validate()` first!")
 
         self._artifact = register_artifact(
             self._adata,

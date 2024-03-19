@@ -58,7 +58,7 @@ def register_artifact(
         artifact.labels.add(labels, feature)
 
     slug = ln.setup.settings.instance.slug
-    logger.success(f"registered artifact in {slug}!")
+    logger.success(f"registered artifact in {colors.italic(slug)}")
     if ln.setup.settings.instance.is_remote:
         logger.info(f"🔗 https://lamin.ai/{slug}/artifact/{artifact.uid}")
 
@@ -72,6 +72,7 @@ def register_labels(
     using: Optional[str] = None,
     validated_only: bool = True,
     kwargs: Dict = None,
+    df: Optional[pd.DataFrame] = None,
 ):
     """Register features or labels records in the default instance from the using instance.
 
@@ -82,10 +83,13 @@ def register_labels(
         using: The name of the instance from which to transfer labels (if applicable).
         validated_only: If True, only register validated labels.
         kwargs: Additional keyword arguments to pass to the registry model.
+        df: A DataFrame to register labels from.
     """
     if kwargs is None:
         kwargs = {}
     registry = field.field.model
+    if not hasattr(registry, "public"):
+        validated_only = False
 
     check_if_registry_needs_organism(registry, kwargs.get("organism"))
     verbosity = ln.settings.verbosity
@@ -128,18 +132,28 @@ def register_labels(
             i for i in non_validated_labels if i not in labels_registered["from public"]
         ]
         if not validated_only:
-            non_validated_records = []
-            for value in labels_registered["without reference"]:
-                kwargs[field.field.name] = value
-                if registry.__name__ == "Feature":
-                    kwargs["type"] = "category"
-                # register non-validated labels
-                non_validated_records.append(registry(**kwargs))
+            if df is not None and registry == ln.Feature:
+                non_validated_records = ln.Feature.from_df(df)
+                labels_registered["without reference"] = [
+                    col
+                    for col in df.columns
+                    if col not in labels_registered["from public"]
+                    and col not in labels_registered[f"from {using}"]
+                ]
+
+            else:
+                non_validated_records = []
+                for value in labels_registered["without reference"]:
+                    kwargs[field.field.name] = value
+                    if registry == ln.Feature:
+                        kwargs["type"] = "category"
+                    # register non-validated labels
+                    non_validated_records.append(registry(**kwargs))
             ln.save(non_validated_records)
 
         # for ulabels, also register a parent label: is_{feature_name}
         if registry == ln.ULabel and field.field.name == "name":
-            register_ulabels_with_parent(values, field)
+            register_ulabels_with_parent(values, field=field, feature_name=feature_name)
     finally:
         ln.settings.verbosity = verbosity
     log_registered_labels(
@@ -157,30 +171,39 @@ def log_registered_labels(
     validated_only: bool = True,
 ):
     """Log the registered labels."""
-    labels = "features" if feature_name == "feature" else "labels"
+    labels_type = "features" if feature_name == "feature" else "labels"
+    model_field = colors.italic(model_field)
     for key, labels in labels_registered.items():
         if len(labels) > 0:
             if key == "without reference" and validated_only:
-                msg = (
-                    f"{len(labels)} non-validated {labels} are not registered with {model_field}: {labels}!\n"
-                    "      → to lookup categories, use `.lookup().{feature_name}`\n"
-                    "      → to register, set `validated_only=False`"
+                msg = colors.yellow(
+                    f"{len(labels)} non-validated {labels_type} are not registered with {model_field}: {labels}!"
                 )
-                logger.warning(colors.yellow(msg))
+                lookup_print = f".lookup().['{feature_name}']"
+                msg += f"\n      → to lookup categories, use {lookup_print}"
+                msg += (
+                    f"\n      → to register, run {colors.yellow('register_features(validated_only=False)')}"
+                    if labels_type == "features"
+                    else f"\n      → to register, set {colors.yellow('validated_only=False')}"
+                )
+                logger.warning(msg)
                 continue
+            key = "" if key == "without reference" else f"{colors.green(key)} "
             logger.success(
-                f"registered {len(labels)} {labels} {colors.green(key)} with {model_field}: {labels}"
+                f"registered {len(labels)} {labels_type} {key}with {model_field}: {labels}"
             )
 
 
-def register_ulabels_with_parent(values: List[str], field: FieldAttr):
+def register_ulabels_with_parent(
+    values: List[str], field: FieldAttr, feature_name: str
+):
     """Register a parent label for the given labels."""
     registry = field.field.model
     assert registry == ln.ULabel
     all_records = registry.from_values(values, field=field)
-    is_feature = registry.filter(name=f"is_{field.field.name}").one_or_none()
+    is_feature = registry.filter(name=f"is_{feature_name}").one_or_none()
     if is_feature is None:
-        is_feature = registry(name=f"is_{field.field.name}")
+        is_feature = registry(name=f"is_{feature_name}")
         is_feature.save()
     # link all labels to the parent label
     is_feature.children.add(*all_records)

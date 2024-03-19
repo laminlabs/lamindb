@@ -1,7 +1,7 @@
 from typing import Dict, Iterable, Optional
 
 import pandas as pd
-from lamin_utils import logger
+from lamin_utils import colors, logger
 from lnschema_core.types import FieldAttr
 
 import lamindb as ln
@@ -9,6 +9,12 @@ import lamindb as ln
 from ._lookup import Lookup
 from ._register import register_artifact, register_labels
 from ._validate import validate_categories_in_df
+
+
+class ValidationError(ValueError):
+    """Validation error."""
+
+    pass
 
 
 class Validator:
@@ -75,6 +81,7 @@ class Validator:
 
     def register_features(self, validated_only: bool = True) -> None:
         """Register features records."""
+        # always register features specified as the fields keys
         missing_columns = [i for i in self.fields.keys() if i not in self._df]
         if len(missing_columns) > 0:
             raise ValueError(
@@ -85,8 +92,24 @@ class Validator:
             field=self._feature_field,
             feature_name="feature",
             using=self._using,
-            validated_only=validated_only,
+            validated_only=False,
+            df=self._df,
+            kwargs=self._kwargs,
         )
+        # register the rest of the columns based on validated_only
+        additional_columns = [
+            i for i in self._df.columns if i not in self.fields.keys()
+        ]
+        if len(additional_columns) > 0:
+            register_labels(
+                values=additional_columns,
+                field=self._feature_field,
+                feature_name="feature",
+                using=self._using,
+                validated_only=validated_only,
+                df=self._df,
+                kwargs=self._kwargs,
+            )
 
     def register_labels(self, feature: str, validated_only: bool = True, **kwargs):
         """Register labels records.
@@ -145,7 +168,9 @@ class Validator:
         """
         self._add_kwargs(**kwargs)
         if not self._validated:
-            raise ValueError("please run `validate()` first!")
+            raise ValidationError(
+                f"data object is not validated, please run {colors.yellow('validate()')}!"
+            )
 
         # make sure all labels are registered in the current instance
         verbosity = ln.settings.verbosity
@@ -157,6 +182,7 @@ class Validator:
                 self._df,
                 description=description,
                 fields=self.fields,
+                feature_field=self._feature_field,
                 **self._kwargs,
             )
         finally:
@@ -191,10 +217,10 @@ class Validator:
         slug = ln.setup.settings.instance.slug
         if collection._state.adding:
             collection.save()
-            logger.success(f"registered collection in {slug}!")
+            logger.success(f"registered collection in {colors.italic(slug)}")
         else:
             collection.save()
-            logger.warning("collection already exists in LaminDB!")
+            logger.warning(f"collection already exists in {colors.italic(slug)}!")
         if ln.setup.settings.instance.is_remote:
             logger.print(f"🔗 https://lamin.ai/{slug}/collection/{collection.uid}")
         self._collection = collection
