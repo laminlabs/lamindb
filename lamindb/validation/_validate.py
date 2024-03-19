@@ -71,11 +71,11 @@ def validate_categories(
     else:
         are = "are" if n_non_validated > 1 else "is"
         print_values = _print_values(non_validated)
-        feature_name_print = f"`.register_labels('{feature_name}')`"
+        feature_name_print = f".register_labels('{feature_name}')"
         warning_message = (
             f"{colors.yellow(f'{n_non_validated} terms')} {are} not validated: "
             f"{colors.yellow(print_values)}\n      → register terms via "
-            f"{colors.red(feature_name_print)}"
+            f"{colors.yellow(feature_name_print)}"
         )
         logger.warning(warning_message)
         validated = False
@@ -113,7 +113,9 @@ def validate_anndata(
 ) -> bool:
     """Inspect metadata in an AnnData object using LaminDB registries."""
     if using is not None and using != "default":
-        logger.important(f"validating metadata using registries of instance `{using}`")
+        logger.important(
+            f"validating metadata using registries of instance {colors.italic(using)}"
+        )
 
     validated_var = validate_categories(
         adata.var.index,

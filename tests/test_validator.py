@@ -75,11 +75,8 @@ def test_anndata_validator(adata, fields):
         adata,
         obs_fields=fields,
         var_field=bt.Gene.symbol,  # specify the field for the var
+        organism="human",
     )
-    validated = validator.validate(organism="human")
-    assert validated is False
-
-    validator.register_labels("variables")
     validated = validator.validate()
     assert validated is True
 
