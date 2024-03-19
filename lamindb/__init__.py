@@ -1,38 +1,19 @@
 """A data framework for biology.
 
-LaminDB helps you manage data batches with two basic registries:
+Registries track artifacts & metadata across provenance, features & labels.
 
 .. autosummary::
    :toctree: .
 
    Artifact
    Collection
-
-Four registries track provenance of data batches:
-
-.. autosummary::
-   :toctree: .
-
    Transform
    Run
    User
    Storage
-
-Three registries validate & contextualize:
-
-.. autosummary::
-   :toctree: .
-
    ULabel
    Feature
    FeatureSet
-
-You can also access data directly via paths:
-
-.. autosummary::
-   :toctree: .
-
-   UPath
 
 Functions:
 
@@ -50,13 +31,15 @@ Modules & settings:
 .. autosummary::
    :toctree: .
 
+   validation
    settings
    setup
+   UPath
    core
 
 """
 
-__version__ = "0.69.0"  # denote a release candidate for 0.1.0 with 0.1rc1
+__version__ = "0.69.1"  # denote a release candidate for 0.1.0 with 0.1rc1
 
 import os as _os
 
