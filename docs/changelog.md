@@ -1,5 +1,6 @@
 # Changelog
 
+- 🏷️ Type the exception for udpate transform settings [PR](https://github.com/laminlabs/lamindb/pull/1509) [@falexwolf](https://github.com/falexwolf)
 
 ```{eval-rst}
 .. role:: small
