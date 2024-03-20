@@ -37,7 +37,8 @@ def register_artifact(
 
     organism = kwargs.pop("organism", None)
     feature_kwargs: Dict = {}
-    if check_if_registry_needs_organism(feature_field.field.model, organism):
+    organism = check_if_registry_needs_organism(feature_field.field.model, organism)
+    if organism is not None:
         feature_kwargs["organism"] = organism
 
     if isinstance(data, ad.AnnData):
@@ -51,7 +52,8 @@ def register_artifact(
         feature = features.get(feature_name)
         registry = field.field.model
         filter_kwargs = kwargs.copy()
-        if check_if_registry_needs_organism(registry, organism):
+        organism = check_if_registry_needs_organism(registry, organism)
+        if organism is not None:
             filter_kwargs["organism"] = organism
         df = data.obs if isinstance(data, ad.AnnData) else data
         labels = registry.from_values(df[feature_name], field=field, **filter_kwargs)
@@ -91,9 +93,9 @@ def register_labels(
         validated_only = False
 
     organism = filter_kwargs.pop("organism", None)
-    require_organism = check_if_registry_needs_organism(registry, organism)
+    organism = check_if_registry_needs_organism(registry, organism)
     # TODO: use organism record here
-    if organism is not None and require_organism:
+    if organism is not None:
         filter_kwargs["organism"] = organism
 
     verbosity = ln.settings.verbosity
