@@ -76,7 +76,7 @@ class Validator:
                 if None (default), the lookup is performed on the instance specified in "using" parameter of the Validator.
                 if "public", the lookup is performed on the public reference.
         """
-        fields = {**{"feature": ln.Feature.name}, **self.fields}
+        fields = {**{"feature": self._feature_field}, **self.fields}
         return Lookup(fields=fields, using=using or self._using)
 
     def register_features(self, validated_only: bool = True) -> None:
@@ -112,7 +112,7 @@ class Validator:
             )
 
     def register_labels(self, feature: str, validated_only: bool = True, **kwargs):
-        """Register labels records.
+        """Register labels for a feature.
 
         Args:
             feature: The name of the feature to register.
@@ -121,6 +121,8 @@ class Validator:
         """
         if feature == "all":
             self._register_labels_all(validated_only=validated_only, **kwargs)
+        elif feature == "feature":
+            self.register_features(validated_only=validated_only)
         else:
             if feature not in self.fields:
                 raise ValueError(f"feature {feature} is not part of the fields!")

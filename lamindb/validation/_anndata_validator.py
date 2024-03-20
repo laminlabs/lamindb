@@ -1,6 +1,7 @@
 from typing import Dict, Optional
 
 import anndata as ad
+from lamin_utils import logger
 from lnschema_core.types import FieldAttr
 from pandas.core.api import DataFrame as DataFrame
 
@@ -43,7 +44,6 @@ class AnnDataValidator(Validator):
             **kwargs,
         )
         self._obs_fields = obs_fields
-        self._fields = {"variables": var_field, **obs_fields}
 
     @property
     def var_field(self) -> FieldAttr:
@@ -75,9 +75,6 @@ class AnnDataValidator(Validator):
             kwargs=self._kwargs,
         )
 
-    def register_features(self, validated_only: bool = True, **kwargs) -> None:
-        self._register_variables(validated_only=validated_only, **kwargs)
-
     def validate(self, **kwargs) -> bool:
         """Validate variables and categorical observations."""
         self._add_kwargs(**kwargs)
@@ -89,6 +86,13 @@ class AnnDataValidator(Validator):
         )
 
         return self._validated
+
+    def register_labels(self, feature: str, validated_only: bool = True, **kwargs):
+        """Register labels for a feature."""
+        if feature == "variables":
+            self._register_variables(validated_only=validated_only, **kwargs)
+        else:
+            super().register_labels(feature, validated_only, **kwargs)
 
     def register_artifact(
         self,
