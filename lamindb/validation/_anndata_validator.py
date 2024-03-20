@@ -44,6 +44,7 @@ class AnnDataValidator(Validator):
             **kwargs,
         )
         self._obs_fields = obs_fields
+        self._register_variables()
 
     @property
     def var_field(self) -> FieldAttr:
