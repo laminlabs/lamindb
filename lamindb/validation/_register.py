@@ -7,7 +7,11 @@ from lnschema_core.types import FieldAttr
 
 import lamindb as ln
 
-from ._validate import _registry_using, check_if_registry_needs_organism
+from ._validate import (
+    _registry_using,
+    _standardize_and_inspect,
+    check_if_registry_needs_organism,
+)
 
 
 def register_artifact(
@@ -103,8 +107,8 @@ def register_labels(
         ln.settings.verbosity = "error"
         # for labels that are registered in the using instance, transfer them to the current instance
         # first inspect the current instance
-        inspect_result_current = registry.inspect(
-            values, field=field, mute=True, **kwargs
+        inspect_result_current = _standardize_and_inspect(
+            values=values, field=field, registry=registry, **filter_kwargs
         )
         if len(inspect_result_current.non_validated) == 0:
             # everything is validated in the current instance, no need to register
@@ -125,20 +129,23 @@ def register_labels(
         )
 
         # for labels that are not registered in the using instance, register them in the current instance
-        from_values_records = (
+        # here from_values should return only public records
+        public_records = (
             registry.from_values(non_validated_labels, field=field, **filter_kwargs)
             if len(non_validated_labels) > 0
             else []
         )
-        ln.save(from_values_records)
+        ln.save(public_records)
         labels_registered["from public"] = [
-            getattr(r, field.field.name) for r in from_values_records
+            getattr(r, field.field.name) for r in public_records
         ]
         labels_registered["without reference"] = [
             i for i in non_validated_labels if i not in labels_registered["from public"]
         ]
         if not validated_only:
+            # register non-validated labels
             if df is not None and registry == ln.Feature:
+                # register features from DataFrame to populate type
                 non_validated_records = ln.Feature.from_df(df)
                 labels_registered["without reference"] = [
                     col
@@ -238,9 +245,9 @@ def register_labels_from_using_instance(
     if using is not None and using != "default":
         registry = field.field.model
         registry_using = _registry_using(registry, using)
-        # then inspect the using instance
-        inspect_result_using = registry_using.inspect(
-            values, field=field, mute=True, **kwargs
+        # inspect the using instance
+        inspect_result_using = _standardize_and_inspect(
+            values=values, field=field, registry=registry_using, **kwargs
         )
         # register the labels that are validated in the using instance
         # TODO: filter kwargs
@@ -261,5 +268,10 @@ def _register_organism(name: str):
     organism = bt.Organism.filter(name=name).one_or_none()
     if organism is None:
         organism = bt.Organism.from_public(name=name)
+        if organism is None:
+            raise ValueError(
+                f"organism '{name}' not found\n"
+                f"      → please register it: bt.Organism(name='{name}').save()"
+            )
         organism.save()
     return organism

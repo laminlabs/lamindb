@@ -16,6 +16,14 @@ def _registry_using(registry: Registry, using: Optional[str] = None) -> Registry
     )
 
 
+def _standardize_and_inspect(
+    values: Iterable[str], field: FieldAttr, registry: Registry, **kwargs
+):
+    if hasattr(registry, "standardize"):
+        values = registry.standardize(values, field=field, **kwargs)
+    return registry.inspect(values, field=field, mute=True, **kwargs)
+
+
 def check_if_registry_needs_organism(
     registry: Registry, organism: Optional[str] = None
 ):
@@ -29,7 +37,7 @@ def check_if_registry_needs_organism(
                 "      → please pass an organism name via organism="
             )
         else:
-            return organism or bt.settings.organism
+            return organism or bt.settings.organism.name
 
 
 def validate_categories(
@@ -54,13 +62,16 @@ def validate_categories(
     if organism is not None:
         filter_kwargs["organism"] = organism
     # inspect the default instance
-    inspect_result = registry.inspect(values, field=field, mute=True, **filter_kwargs)
+    inspect_result = _standardize_and_inspect(
+        values=values, field=field, registry=registry, **filter_kwargs
+    )
+
     non_validated = inspect_result.non_validated
     if using is not None and using != "default" and len(non_validated) > 0:
         registry = _registry_using(registry, using)
         # inspect the using instance
-        inspect_result = registry.inspect(
-            non_validated, field=field, mute=True, **filter_kwargs
+        inspect_result = _standardize_and_inspect(
+            values=non_validated, field=field, registry=registry, **filter_kwargs
         )
         non_validated = inspect_result.non_validated
 
