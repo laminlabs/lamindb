@@ -37,7 +37,8 @@ def register_artifact(
 
     organism = kwargs.pop("organism", None)
     feature_kwargs: Dict = {}
-    if check_if_registry_needs_organism(feature_field.field.model, organism):
+    organism = check_if_registry_needs_organism(feature_field.field.model, organism)
+    if organism is not None:
         feature_kwargs["organism"] = organism
 
     if isinstance(data, ad.AnnData):
@@ -51,7 +52,8 @@ def register_artifact(
         feature = features.get(feature_name)
         registry = field.field.model
         filter_kwargs = kwargs.copy()
-        if check_if_registry_needs_organism(registry, organism):
+        organism = check_if_registry_needs_organism(registry, organism)
+        if organism is not None:
             filter_kwargs["organism"] = organism
         df = data.obs if isinstance(data, ad.AnnData) else data
         labels = registry.from_values(df[feature_name], field=field, **filter_kwargs)
@@ -85,13 +87,17 @@ def register_labels(
         kwargs: Additional keyword arguments to pass to the registry model.
         df: A DataFrame to register labels from.
     """
-    if kwargs is None:
-        kwargs = {}
+    filter_kwargs = {} if kwargs is None else kwargs.copy()
     registry = field.field.model
     if not hasattr(registry, "public"):
         validated_only = False
 
-    check_if_registry_needs_organism(registry, kwargs.get("organism"))
+    organism = filter_kwargs.pop("organism", None)
+    organism = check_if_registry_needs_organism(registry, organism)
+    # TODO: use organism record here
+    if organism is not None:
+        filter_kwargs["organism"] = organism
+
     verbosity = ln.settings.verbosity
     try:
         ln.settings.verbosity = "error"
@@ -115,12 +121,12 @@ def register_labels(
             inspect_result_current.non_validated,
             field=field,
             using=using,
-            kwargs=kwargs,
+            kwargs=filter_kwargs,
         )
 
         # for labels that are not registered in the using instance, register them in the current instance
         from_values_records = (
-            registry.from_values(non_validated_labels, field=field, **kwargs)
+            registry.from_values(non_validated_labels, field=field, **filter_kwargs)
             if len(non_validated_labels) > 0
             else []
         )
@@ -143,12 +149,14 @@ def register_labels(
 
             else:
                 non_validated_records = []
+                if "organism" in filter_kwargs:
+                    filter_kwargs["organism"] = _register_organism(name=organism)
                 for value in labels_registered["without reference"]:
-                    kwargs[field.field.name] = value
+                    filter_kwargs[field.field.name] = value
                     if registry == ln.Feature:
-                        kwargs["type"] = "category"
+                        filter_kwargs["type"] = "category"
                     # register non-validated labels
-                    non_validated_records.append(registry(**kwargs))
+                    non_validated_records.append(registry(**filter_kwargs))
             ln.save(non_validated_records)
 
         # for ulabels, also register a parent label: is_{feature_name}
@@ -244,3 +252,14 @@ def register_labels_from_using_instance(
             labels_registered.append(getattr(label_using, field.field.name))
         not_registered = inspect_result_using.non_validated
     return labels_registered, not_registered
+
+
+def _register_organism(name: str):
+    """Register an organism record."""
+    import bionty as bt
+
+    organism = bt.Organism.filter(name=name).one_or_none()
+    if organism is None:
+        organism = bt.Organism.from_public(name=name)
+        organism.save()
+    return organism

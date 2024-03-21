@@ -21,15 +21,15 @@ def check_if_registry_needs_organism(
 ):
     """Check if a registry needs an organism."""
     if hasattr(registry, "organism_id"):
-        if organism is None:
+        import bionty as bt
+
+        if organism is None and bt.settings.organism is None:
             raise ValueError(
                 f"{registry.__name__} registry requires an organism!\n"
                 "      → please pass an organism name via organism="
             )
         else:
-            return True
-    else:
-        return False
+            return organism or bt.settings.organism
 
 
 def validate_categories(
@@ -50,7 +50,8 @@ def validate_categories(
     registry = field.field.model
     filter_kwargs = {}  # type: Dict[str, str]
     organism = kwargs.get("organism")
-    if check_if_registry_needs_organism(registry, organism):
+    organism = check_if_registry_needs_organism(registry, organism)
+    if organism is not None:
         filter_kwargs["organism"] = organism
     # inspect the default instance
     inspect_result = registry.inspect(values, field=field, mute=True, **filter_kwargs)
