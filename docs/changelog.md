@@ -1,5 +1,6 @@
 # Changelog
 
+- 🎨 Add standardization to validator [PR](https://github.com/laminlabs/lamindb/pull/1515) [@sunnyosun](https://github.com/sunnyosun)
 - 🎨 Fix validator [PR](https://github.com/laminlabs/lamindb/pull/1513) [@sunnyosun](https://github.com/sunnyosun)
 - 🔥 Remove unnecessary track code [PR](https://github.com/laminlabs/lamindb/pull/1512) [@sunnyosun](https://github.com/sunnyosun)
 - 📝 Refactor introduction [PR](https://github.com/laminlabs/lamindb/pull/1510) [@sunnyosun](https://github.com/sunnyosun)
