@@ -1,7 +1,6 @@
 from typing import Dict, Optional
 
 import anndata as ad
-from lamin_utils import logger
 from lnschema_core.types import FieldAttr
 from pandas.core.api import DataFrame as DataFrame
 
@@ -66,7 +65,7 @@ class AnnDataValidator(Validator):
 
     def _register_variables(self, validated_only: bool = True, **kwargs):
         """Register variable records."""
-        self._add_kwargs(**kwargs)
+        self._kwargs.update(kwargs)
         register_labels(
             values=self._adata.var_names,
             field=self.var_field,
@@ -78,14 +77,13 @@ class AnnDataValidator(Validator):
 
     def validate(self, **kwargs) -> bool:
         """Validate variables and categorical observations."""
-        self._add_kwargs(**kwargs)
+        self._kwargs.update(kwargs)
         self._validated = validate_anndata(
             self._adata,
             var_field=self.var_field,
             obs_fields=self.obs_fields,
             **self._kwargs,
         )
-
         return self._validated
 
     def register_labels(self, feature: str, validated_only: bool = True, **kwargs):
@@ -95,23 +93,19 @@ class AnnDataValidator(Validator):
         else:
             super().register_labels(feature, validated_only, **kwargs)
 
-    def register_artifact(
-        self,
-        description: str,
-        **kwargs,
-    ) -> ln.Artifact:
+    def register_artifact(self, description: str, **kwargs) -> ln.Artifact:
         """Register the validated AnnData and metadata.
 
         Args:
-            description: description of the AnnData object
-            **kwargs: object level metadata
+            description: Description of the AnnData object.
+            **kwargs: Object level metadata.
 
         Returns:
-            a registered artifact record
+            A registered artifact record.
         """
-        self._add_kwargs(**kwargs)
+        self._kwargs.update(kwargs)
         if not self._validated:
-            raise ValidationError("please run `validate()` first!")
+            raise ValidationError("Please run `validate()` first!")
 
         self._artifact = register_artifact(
             self._adata,
@@ -120,5 +114,4 @@ class AnnDataValidator(Validator):
             fields=self.obs_fields,
             **self._kwargs,
         )
-
         return self._artifact
