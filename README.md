@@ -7,8 +7,8 @@
 - Manage storage & databases with a unified Python API ("lakehouse").
 - Track data lineage across notebooks & pipelines.
 - Integrate registries for experimental metadata & in-house ontologies.
-- Validate, standardize & annotate.
-- Collaborate across a mesh of distributed LaminDB instances.
+- Validate, standardize & annotate metadata.
+- Collaborate across distributed LaminDB instances.
 
 ## Documentation
 
