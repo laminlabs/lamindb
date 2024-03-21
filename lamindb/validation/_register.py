@@ -94,6 +94,9 @@ def register_labels(
     """
     filter_kwargs = {} if kwargs is None else kwargs.copy()
     registry = field.field.model
+    if registry == ln.ULabel:
+        # always register new ULabels
+        validated_only = False
     organism = check_if_registry_needs_organism(
         registry, filter_kwargs.pop("organism", None)
     )
@@ -126,7 +129,6 @@ def register_labels(
             using=using,
             kwargs=filter_kwargs,
         )
-
         # for labels that are not registered in the using instance, register them in the current instance
         # here from_values should return only public records
         public_records = (
@@ -141,19 +143,11 @@ def register_labels(
         labels_registered["without reference"] = [
             i for i in non_validated_labels if i not in labels_registered["from public"]
         ]
-
         if not validated_only:
             # register non-validated labels
             if df is not None and registry == ln.Feature:
                 # register features from DataFrame to populate type
                 non_validated_records = ln.Feature.from_df(df)
-                labels_registered["without reference"] = [
-                    col
-                    for col in df.columns
-                    if col not in labels_registered["from public"]
-                    and col not in labels_registered[f"from {using}"]
-                ]
-
             else:
                 non_validated_records = []
                 if "organism" in filter_kwargs:
@@ -165,7 +159,6 @@ def register_labels(
                     # register non-validated labels
                     non_validated_records.append(registry(**filter_kwargs))
             ln.save(non_validated_records)
-
         # for ulabels, also register a parent label: is_{feature_name}
         if registry == ln.ULabel and field.field.name == "name":
             register_ulabels_with_parent(values, field=field, feature_name=feature_name)
