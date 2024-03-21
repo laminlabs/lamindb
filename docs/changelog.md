@@ -1,5 +1,6 @@
 # Changelog
 
+- 🎨 Fix validator [PR](https://github.com/laminlabs/lamindb/pull/1513) [@sunnyosun](https://github.com/sunnyosun)
 - 🔥 Remove unnecessary track code [PR](https://github.com/laminlabs/lamindb/pull/1512) [@sunnyosun](https://github.com/sunnyosun)
 - 📝 Refactor introduction [PR](https://github.com/laminlabs/lamindb/pull/1510) [@sunnyosun](https://github.com/sunnyosun)
 - 🏷️ Type the exception for udpate transform settings [PR](https://github.com/laminlabs/lamindb/pull/1509) [@falexwolf](https://github.com/falexwolf)
