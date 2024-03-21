@@ -39,9 +39,10 @@ def register_artifact(
         raise ValueError("data must be a DataFrame or AnnData object")
     artifact.save()
 
-    organism = kwargs.pop("organism", None)
     feature_kwargs: Dict = {}
-    organism = check_if_registry_needs_organism(feature_field.field.model, organism)
+    organism = check_if_registry_needs_organism(
+        feature_field.field.model, kwargs.pop("organism", None)
+    )
     if organism is not None:
         feature_kwargs["organism"] = organism
 
@@ -93,11 +94,9 @@ def register_labels(
     """
     filter_kwargs = {} if kwargs is None else kwargs.copy()
     registry = field.field.model
-    if not hasattr(registry, "public"):
-        validated_only = False
-
-    organism = filter_kwargs.pop("organism", None)
-    organism = check_if_registry_needs_organism(registry, organism)
+    organism = check_if_registry_needs_organism(
+        registry, filter_kwargs.pop("organism", None)
+    )
     # TODO: use organism record here
     if organism is not None:
         filter_kwargs["organism"] = organism
@@ -142,6 +141,7 @@ def register_labels(
         labels_registered["without reference"] = [
             i for i in non_validated_labels if i not in labels_registered["from public"]
         ]
+
         if not validated_only:
             # register non-validated labels
             if df is not None and registry == ln.Feature:

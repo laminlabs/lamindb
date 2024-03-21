@@ -20,7 +20,7 @@ def _standardize_and_inspect(
     values: Iterable[str], field: FieldAttr, registry: Registry, **kwargs
 ):
     if hasattr(registry, "standardize"):
-        values = registry.standardize(values, field=field, **kwargs)
+        values = registry.standardize(values, field=field, mute=True, **kwargs)
     return registry.inspect(values, field=field, mute=True, **kwargs)
 
 

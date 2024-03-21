@@ -81,19 +81,18 @@ class Validator:
 
     def register_features(self, validated_only: bool = True) -> None:
         """Register features records."""
-        # always register features specified as the fields keys
-        missing_columns = [i for i in self.fields.keys() if i not in self._df]
+        missing_columns = [i for i in self.fields.keys() if i not in self._df.columns]
         if len(missing_columns) > 0:
             raise ValueError(
                 f"columns {missing_columns} are not found in the data object!"
             )
+        # always register features specified as the fields keys
         register_labels(
             values=list(self.fields.keys()),
             field=self._feature_field,
             feature_name="feature",
             using=self._using,
             validated_only=False,
-            df=self._df,
             kwargs=self._kwargs,
         )
         # register the rest of the columns based on validated_only
@@ -107,7 +106,7 @@ class Validator:
                 feature_name="feature",
                 using=self._using,
                 validated_only=validated_only,
-                df=self._df,
+                df=self._df,  # get the Feature type from df
                 kwargs=self._kwargs,
             )
 
