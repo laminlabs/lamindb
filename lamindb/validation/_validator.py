@@ -25,6 +25,7 @@ class Validator:
         fields: A dictionary mapping column to registry_field.
             For example:
             {"cell_type_ontology_id": bt.CellType.ontology_id, "donor_id": ln.ULabel.name}
+        feature_field: The field attribute for the feature column.
         using: The reference instance containing registries to validate against.
         verbosity: The verbosity level.
     """
@@ -32,41 +33,28 @@ class Validator:
     def __init__(
         self,
         df: pd.DataFrame,
-        fields: Dict[str, FieldAttr] = None,
+        fields: Optional[Dict[str, FieldAttr]] = None,
         feature_field: FieldAttr = ln.Feature.name,
-        using: str = None,
+        using: Optional[str] = None,
         verbosity: str = "hint",
         **kwargs,
     ) -> None:
-        """Validate an AnnData object."""
-        if fields is None:
-            fields = {}
+        """Initialize the Validator."""
         self._df = df
-        self._fields = fields
+        self._fields = fields or {}
         self._feature_field = feature_field
         self._using = using
         ln.settings.verbosity = verbosity
         self._artifact = None
         self._collection = None
         self._validated = False
-        self._kwargs: Dict = {}
-        self._add_kwargs(**kwargs)
+        self._kwargs: Dict = kwargs
         self.register_features()
 
     @property
     def fields(self) -> Dict:
         """Return the columns fields to validate against."""
         return self._fields
-
-    def _add_kwargs(self, **kwargs):
-        for k, v in kwargs.items():
-            self._kwargs[k] = v
-
-    def _register_labels_all(self, validated_only: bool = True, **kwargs):
-        """Register labels for all features."""
-        for name in self.fields.keys():
-            logger.info(f"registering labels for '{name}'")
-            self.register_labels(feature=name, validated_only=validated_only, **kwargs)
 
     def lookup(self, using: Optional[str] = None) -> Lookup:
         """Lookup features and labels.
@@ -81,12 +69,13 @@ class Validator:
 
     def register_features(self, validated_only: bool = True) -> None:
         """Register features records."""
-        missing_columns = [i for i in self.fields.keys() if i not in self._df.columns]
-        if len(missing_columns) > 0:
+        missing_columns = set(self.fields.keys()) - set(self._df.columns)
+        if missing_columns:
             raise ValueError(
-                f"columns {missing_columns} are not found in the data object!"
+                f"Columns {missing_columns} are not found in the data object!"
             )
-        # always register features specified as the fields keys
+
+        # Always register features specified as the fields keys
         register_labels(
             values=list(self.fields.keys()),
             field=self._feature_field,
@@ -95,18 +84,17 @@ class Validator:
             validated_only=False,
             kwargs=self._kwargs,
         )
-        # register the rest of the columns based on validated_only
-        additional_columns = [
-            i for i in self._df.columns if i not in self.fields.keys()
-        ]
-        if len(additional_columns) > 0:
+
+        # Register the rest of the columns based on validated_only
+        additional_columns = set(self._df.columns) - set(self.fields.keys())
+        if additional_columns:
             register_labels(
-                values=additional_columns,
+                values=list(additional_columns),
                 field=self._feature_field,
                 feature_name="feature",
                 using=self._using,
                 validated_only=validated_only,
-                df=self._df,  # get the Feature type from df
+                df=self._df,  # Get the Feature type from df
                 kwargs=self._kwargs,
             )
 
@@ -124,56 +112,54 @@ class Validator:
             self.register_features(validated_only=validated_only)
         else:
             if feature not in self.fields:
-                raise ValueError(f"feature {feature} is not part of the fields!")
+                raise ValueError(f"Feature {feature} is not part of the fields!")
             register_labels(
                 values=self._df[feature].unique().tolist(),
-                field=self.fields.get(feature),
+                field=self.fields[feature],
                 feature_name=feature,
                 using=self._using,
                 validated_only=validated_only,
                 kwargs=kwargs,
             )
 
-    def validate(
-        self,
-        **kwargs,
-    ) -> bool:
+    def _register_labels_all(self, validated_only: bool = True, **kwargs):
+        """Register labels for all features."""
+        for name in self.fields.keys():
+            logger.info(f"registering labels for '{name}'")
+            self.register_labels(feature=name, validated_only=validated_only, **kwargs)
+
+    def validate(self, **kwargs) -> bool:
         """Validate variables and categorical observations.
 
         Returns:
-            whether the AnnData object is validated
+            Whether the DataFrame is validated.
         """
-        self._add_kwargs(**kwargs)
+        self._kwargs.update(kwargs)
         self._validated = validate_categories_in_df(
             self._df,
             fields=self.fields,
             using=self._using,
             **self._kwargs,
         )
-
         return self._validated
 
-    def register_artifact(
-        self,
-        description: str,
-        **kwargs,
-    ) -> ln.Artifact:
-        """Register the validated AnnData and metadata.
+    def register_artifact(self, description: str, **kwargs) -> ln.Artifact:
+        """Register the validated DataFrame and metadata.
 
         Args:
-            description: description of the AnnData object
-            **kwargs: object level metadata
+            description: Description of the DataFrame object.
+            **kwargs: Object level metadata.
 
         Returns:
-            a registered artifact record
+            A registered artifact record.
         """
-        self._add_kwargs(**kwargs)
+        self._kwargs.update(kwargs)
         if not self._validated:
             raise ValidationError(
-                f"data object is not validated, please run {colors.yellow('validate()')}!"
+                f"Data object is not validated, please run {colors.yellow('validate()')}!"
             )
 
-        # make sure all labels are registered in the current instance
+        # Make sure all labels are registered in the current instance
         verbosity = ln.settings.verbosity
         try:
             ln.settings.verbosity = "warning"
@@ -202,11 +188,11 @@ class Validator:
         """Register a collection from artifact/artifacts.
 
         Args:
-            artifact: one or several registered Artifacts
-            name: title of the publication
-            description: description of the publication
-            reference: accession number (e.g. GSE#, E-MTAB#, etc.)
-            reference_type: source type (e.g. GEO, ArrayExpress, SRA, etc.)
+            artifact: One or several registered Artifacts.
+            name: Title of the publication.
+            description: Description of the publication.
+            reference: Accession number (e.g. GSE#, E-MTAB#, etc.).
+            reference_type: Source type (e.g. GEO, ArrayExpress, SRA, etc.).
         """
         collection = ln.Collection(
             artifact,

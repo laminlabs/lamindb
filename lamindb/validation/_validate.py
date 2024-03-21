@@ -9,25 +9,26 @@ from lnschema_core.types import FieldAttr
 from lamindb._from_values import _print_values
 
 
-def _registry_using(registry: Registry, using: Optional[str] = None) -> Registry:
+def get_registry_instance(registry: Registry, using: Optional[str] = None) -> Registry:
     """Get a registry instance using a specific instance."""
-    return (
-        registry.using(using) if using is not None and using != "default" else registry
-    )
+    if using is not None and using != "default":
+        return registry.using(using)
+    return registry
 
 
-def _standardize_and_inspect(
+def standardize_and_inspect(
     values: Iterable[str], field: FieldAttr, registry: Registry, **kwargs
 ):
+    """Standardize and inspect values using a registry."""
     if hasattr(registry, "standardize"):
         values = registry.standardize(values, field=field, mute=True, **kwargs)
     return registry.inspect(values, field=field, mute=True, **kwargs)
 
 
-def check_if_registry_needs_organism(
+def check_registry_organism(
     registry: Registry, organism: Optional[str] = None
-):
-    """Check if a registry needs an organism."""
+) -> Optional[str]:
+    """Check if a registry needs an organism and return the organism name."""
     if hasattr(registry, "organism_id"):
         import bionty as bt
 
@@ -36,8 +37,8 @@ def check_if_registry_needs_organism(
                 f"{registry.__name__} registry requires an organism!\n"
                 "      → please pass an organism name via organism="
             )
-        else:
-            return organism or bt.settings.organism.name
+        return organism or bt.settings.organism.name
+    return None
 
 
 def validate_categories(
@@ -46,7 +47,7 @@ def validate_categories(
     feature_name: str,
     using: Optional[str] = None,
     **kwargs,
-):
+) -> bool:
     """Validate ontology terms in a pandas series using LaminDB registries."""
     model_field = f"{field.field.model.__name__}.{field.field.name}"
     logger.indent = ""
@@ -56,30 +57,29 @@ def validate_categories(
     logger.indent = "   "
 
     registry = field.field.model
-    filter_kwargs = {}  # type: Dict[str, str]
-    organism = kwargs.get("organism")
-    organism = check_if_registry_needs_organism(registry, organism)
+    filter_kwargs = {}
+    organism = check_registry_organism(registry, kwargs.get("organism"))
     if organism is not None:
         filter_kwargs["organism"] = organism
-    # inspect the default instance
-    inspect_result = _standardize_and_inspect(
+
+    # Inspect the default instance
+    inspect_result = standardize_and_inspect(
         values=values, field=field, registry=registry, **filter_kwargs
     )
-
     non_validated = inspect_result.non_validated
-    if using is not None and using != "default" and len(non_validated) > 0:
-        registry = _registry_using(registry, using)
-        # inspect the using instance
-        inspect_result = _standardize_and_inspect(
+
+    if using is not None and using != "default" and non_validated:
+        registry = get_registry_instance(registry, using)
+        # Inspect the using instance
+        inspect_result = standardize_and_inspect(
             values=non_validated, field=field, registry=registry, **filter_kwargs
         )
         non_validated = inspect_result.non_validated
 
-    # if all terms are validated
     n_non_validated = len(non_validated)
     if n_non_validated == 0:
-        validated = True
         logger.success(f"all {feature_name}s are validated")
+        return True
     else:
         are = "are" if n_non_validated > 1 else "is"
         print_values = _print_values(non_validated)
@@ -90,10 +90,8 @@ def validate_categories(
             f"{colors.yellow(feature_name_print)}"
         )
         logger.warning(warning_message)
-        validated = False
-    logger.indent = ""
-
-    return validated
+        logger.indent = ""
+        return False
 
 
 def validate_categories_in_df(
@@ -101,9 +99,8 @@ def validate_categories_in_df(
     fields: Dict[str, FieldAttr],
     using: Optional[str] = None,
     **kwargs,
-):
+) -> bool:
     """Validate categories in DataFrame columns using LaminDB registries."""
-    # start validation
     validated = True
     for feature_name, field in fields.items():
         validated &= validate_categories(
@@ -137,9 +134,6 @@ def validate_anndata(
         **kwargs,
     )
     validated_obs = validate_categories_in_df(
-        adata.obs,
-        fields=obs_fields,
-        using=using,
-        **kwargs,
+        adata.obs, fields=obs_fields, using=using, **kwargs
     )
-    return validated_var & validated_obs
+    return validated_var and validated_obs
