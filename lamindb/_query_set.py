@@ -12,6 +12,7 @@ from lnschema_core.models import (
     IsTree,
     IsVersioned,
     Registry,
+    Run,
     Transform,
 )
 from lnschema_core.types import ListLike, StrField
@@ -165,7 +166,8 @@ class QuerySet(models.QuerySet, CanValidate, IsTree):
 
     def delete(self, *args, **kwargs):
         """Delete all records in the query set."""
-        if self.model in {Artifact, Collection, Transform}:
+        # both Transform & Run might reference artifacts
+        if self.model in {Artifact, Collection, Transform, Run}:
             for record in self:
                 record.delete(*args, **kwargs)
         else:
