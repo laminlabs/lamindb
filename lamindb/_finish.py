@@ -15,7 +15,7 @@ def finish(i_saved_the_notebook: bool = False):
 
     Save the run report to your default storage location.
     """
-    from lamin_cli._save import save_run_context_and_finish
+    from lamin_cli._save import save_run_context_core
 
     if is_run_from_ipython:
         # notebooks
@@ -32,7 +32,7 @@ def finish(i_saved_the_notebook: bool = False):
             raise CallFinishInLastCell(
                 "Can only finish() from the last code cell of the notebook."
             )
-        save_run_context_and_finish(
+        save_run_context_core(
             run=run_context.run,
             transform=run_context.transform,
             filepath=run_context.path,
