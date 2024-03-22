@@ -15,9 +15,10 @@ def finish(i_saved_the_notebook: bool = False):
 
     Save the run report to your default storage location.
     """
-    from lamin_cli._save import save
+    from lamin_cli._save import save_run_context_and_finish
 
     if is_run_from_ipython:
+        # notebooks
         from nbproject.dev import read_notebook
         from nbproject.dev._check_last_cell import check_last_cell
 
@@ -26,14 +27,19 @@ def finish(i_saved_the_notebook: bool = False):
                 "Save the notebook, pass `i_saved_the_notebook=True`, and re-run this cell."
             )
             return None
-        nb = read_notebook(run_context.path)  # type: ignore
-        if not check_last_cell(nb, "i_saved_the_notebook"):
+        notebook_content = read_notebook(run_context.path)  # type: ignore
+        if not check_last_cell(notebook_content, "i_saved_the_notebook"):
             raise CallFinishInLastCell(
                 "Can only finish() from the last code cell of the notebook."
             )
-        # scripts are already saved during `ln.track()`
-        # TODO: make this more symmetric
-        save(run_context.path)
-
-    run_context.run.finished_at = datetime.now(timezone.utc)  # update run time
-    run_context.run.save()
+        save_run_context_and_finish(
+            run=run_context.run,
+            transform=run_context.transform,
+            filepath=run_context.path,
+            notebook_content=notebook_content,
+            finished_at=True,
+        )
+    else:
+        # scripts
+        run_context.run.finished_at = datetime.now(timezone.utc)  # update run time
+        run_context.run.save()
