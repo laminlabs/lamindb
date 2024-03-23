@@ -350,7 +350,7 @@ class run_context:
 
         if not is_run_from_ipython and cls.path is not None:
             # upload run source code & environment
-            from lamin_cli._save import save_run_context_core
+            from lamindb._finish import save_run_context_core
 
             save_run_context_core(
                 run=cls.run,
