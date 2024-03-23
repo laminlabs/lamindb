@@ -1,6 +1,6 @@
 """A data framework for biology.
 
-Registries track artifacts & metadata across provenance, features & labels.
+Registries:
 
 .. autosummary::
    :toctree: .
