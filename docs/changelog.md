@@ -1,5 +1,6 @@
 # Changelog
 
+- ♻️ Refactor `ln.finish` for notebooks [PR](https://github.com/laminlabs/lamindb/pull/1516) [@falexwolf](https://github.com/falexwolf)
 - 🎨 Add standardization to validator [PR](https://github.com/laminlabs/lamindb/pull/1515) [@sunnyosun](https://github.com/sunnyosun)
 - 🎨 Fix validator [PR](https://github.com/laminlabs/lamindb/pull/1513) [@sunnyosun](https://github.com/sunnyosun)
 - 🔥 Remove unnecessary track code [PR](https://github.com/laminlabs/lamindb/pull/1512) [@sunnyosun](https://github.com/sunnyosun)
