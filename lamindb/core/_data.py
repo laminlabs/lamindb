@@ -46,6 +46,9 @@ def get_run(run: Optional[Run]) -> Optional[Run]:
         run = run_context.run
         if run is None and not settings.silence_file_run_transform_warning:
             logger.warning(WARNING_RUN_TRANSFORM)
+    # suppress run by passing False
+    elif not run:
+        run = None
     return run
 
 
