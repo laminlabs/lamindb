@@ -18,9 +18,13 @@ class CallFinishInLastCell(SystemExit):
 
 
 def finish(i_saved_the_notebook: bool = False):
-    """Mark the tracked run as finished.
+    """Mark a tracked run as finished.
 
-    Save the run report to your default storage location.
+    When run in notebooks, save the run report to your default storage location.
+
+    Args:
+        i_saved_the_notebook: Indicate that you saved the notebook in your
+            editor (JupyterLab, VSCode, etc.).
     """
     if is_run_from_ipython:
         # notebooks
