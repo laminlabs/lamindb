@@ -70,9 +70,7 @@ def install(session, group):
         extras += "aws,postgres,bionty,jupyter"
     elif group == "storage":
         extras += "aws,zarr,bionty,jupyter,postgres"
-        session.run(
-            *"uv pip install --system --no-deps wetlab".split()
-        )
+        session.run(*"uv pip install --system --no-deps wetlab".split())
     elif group == "docs":
         extras += "bionty"
     elif group == "cli":
