@@ -50,7 +50,9 @@ jobs:
       - name: cache postgres use
         if: ${{ steps.cache-postgres.outputs.cache-hit == 'true' && matrix.group == 'faq' || matrix.group == 'unit' }}
         run: docker image load --input ~/postgres.tar
-      - run: python -m pip install -U uv laminci
+      - run: |
+            python -m pip install -U uv
+            uv pip install --system laminci
       - name: install postgres
         if: ${{ matrix.group == 'faq' }}
         run: sudo apt-get install libpq-dev
@@ -101,7 +103,9 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
-      - run: python -m pip install -U uv laminci
+      - run: |
+            python -m pip install -U uv
+            uv pip install --system laminci
       - run: nox -s "install(group='docs')"
       - uses: actions/download-artifact@v2
       - run: nox -s docs
@@ -124,7 +128,7 @@ jobs:
         with:
           python-version: "3.11"
       - run: |
-          python -m pip install -U pip uv
+          python -m pip install -U uv
           uv pip install --system coverage[toml]
           uv pip install --system --no-deps .
       - uses: actions/download-artifact@v2
