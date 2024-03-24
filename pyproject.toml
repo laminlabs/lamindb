@@ -63,7 +63,7 @@ erdiagram = [
     "django-schema-graph",
 ]
 dev = [
-    # suppress warning
+    # suppress anndata warnings when building docs
     "pandas<2",
     # basic test
     "pre-commit",
