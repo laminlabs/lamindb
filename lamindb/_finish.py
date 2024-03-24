@@ -108,7 +108,8 @@ def save_run_context_core(
         # location
         filepath_html = filepath.with_suffix(".html")  # current location
         shutil.move(
-            filepath_html, ln_setup.settings.storage.cache_dir / filepath_html.name
+            filepath_html,  # type: ignore
+            ln_setup.settings.storage.cache_dir / filepath_html.name,
         )  # move; don't use Path.rename here because of cross-device link error
         # see https://laminlabs.slack.com/archives/C04A0RMA0SC/p1710259102686969
         filepath_html = (

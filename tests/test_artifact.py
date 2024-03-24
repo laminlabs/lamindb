@@ -764,21 +764,6 @@ def test_describe():
     artifact.describe()
 
 
-def test_file_zarr():
-    with open("test.zarr", "w") as f:
-        f.write("zarr")
-    artifact = ln.Artifact("test.zarr", description="test-zarr")
-    with pytest.raises(RuntimeError) as error:
-        artifact.stage()
-    assert (
-        error.exconly()
-        == "RuntimeError: zarr object can't be staged, please use load() or stream()"
-    )
-    artifact.save()
-    artifact.delete(permanent=True, storage=False)
-    UPath("test.zarr").unlink()
-
-
 def test_zarr_folder_upload(adata):
     previous_storage = ln.setup.settings.storage.root_as_str
     ln.settings.storage = "s3://lamindb-test"
@@ -793,6 +778,10 @@ def test_zarr_folder_upload(adata):
     artifact.save()
 
     assert isinstance(artifact.path, CloudPath) and artifact.path.exists()
+
+    cache_path = artifact.stage()
+
+    assert cache_path.is_dir()
 
     artifact.delete(permanent=True, storage=True)
     delete_storage(zarr_path)
