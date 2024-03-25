@@ -1,5 +1,6 @@
 # Changelog
 
+- ♻️ Simplify nox build [PR](https://github.com/laminlabs/lamindb/pull/1519) [@Zethson](https://github.com/Zethson)
 - 👷 Switch to uv for CI [PR](https://github.com/laminlabs/lamindb/pull/1518) [@Zethson](https://github.com/Zethson)
 - ♻️ Refactor `ln.finish` for notebooks [PR](https://github.com/laminlabs/lamindb/pull/1516) [@falexwolf](https://github.com/falexwolf)
 - 🎨 Add standardization to validator [PR](https://github.com/laminlabs/lamindb/pull/1515) [@sunnyosun](https://github.com/sunnyosun)
