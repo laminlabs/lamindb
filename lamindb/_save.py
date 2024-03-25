@@ -10,7 +10,7 @@ import lamindb_setup
 from django.db import transaction
 from django.utils.functional import partition
 from lamin_utils import logger
-from lamindb_setup.core.upath import print_hook
+from lamindb_setup.core.upath import UPath, print_hook
 from lnschema_core.models import Artifact, Registry
 
 from lamindb.core._settings import settings
@@ -141,13 +141,15 @@ def check_and_attempt_upload(
     # a local env it will have a _local_filepath and needs to be uploaded
     if hasattr(artifact, "_local_filepath"):
         try:
-            upload_artifact(artifact, using_key, access_token=access_token)
+            storage_path = upload_artifact(
+                artifact, using_key, access_token=access_token
+            )
         except Exception as exception:
             logger.warning(f"could not upload artifact: {artifact}")
             return exception
         # copies (if on-disk) or moves the temporary file (if in-memory) to the cache
         if os.getenv("LAMINDB_MULTI_INSTANCE") is None:
-            copy_or_move_to_cache(artifact)
+            copy_or_move_to_cache(artifact, storage_path)
         # after successful upload, we should remove the attribute so that another call
         # call to save won't upload again, the user should call replace() then
         del artifact._local_filepath
@@ -155,7 +157,7 @@ def check_and_attempt_upload(
     return None
 
 
-def copy_or_move_to_cache(artifact: Artifact):
+def copy_or_move_to_cache(artifact: Artifact, storage_path: UPath):
     local_path = artifact._local_filepath
 
     # in-memory zarr or on-disk zarr
@@ -163,24 +165,17 @@ def copy_or_move_to_cache(artifact: Artifact):
         return None
 
     local_path = local_path.resolve()
-    cache_dir = lamindb_setup.settings.storage.cache_dir
+    cache_dir = settings._storage_settings.cache_dir
+    cache_path = settings._storage_settings.cloud_to_local_no_update(storage_path)
 
-    # local instance, just delete the cached file
-    if not lamindb_setup.settings.storage.is_cloud:
-        if cache_dir in local_path.parents:
-            local_path.unlink()
-        return None
-
-    # maybe create something like storage.key_to_local(key) later to simplfy
-    storage_key = auto_storage_key_from_artifact(artifact)
-    storage_path = lamindb_setup.settings.storage.key_to_filepath(storage_key)
-    cache_path = lamindb_setup.settings.storage.cloud_to_local_no_update(storage_path)
-    cache_path.parent.mkdir(parents=True, exist_ok=True)
-
-    if cache_dir in local_path.parents:
-        local_path.replace(cache_path)
-    else:
-        shutil.copy(local_path, cache_path)
+    if local_path != cache_path:
+        if not lamindb_setup.settings.storage.is_cloud:
+            if cache_dir in local_path.parents:
+                local_path.unlink()
+        elif cache_dir in local_path.parents:
+            local_path.replace(cache_path)
+        else:
+            shutil.copy(local_path, cache_path)
     # make sure that the cached version is older than the cloud one
     mts = datetime.now().timestamp() + 1.0
     os.utime(cache_path, times=(mts, mts))
@@ -264,7 +259,7 @@ def prepare_error_message(records, stored_artifacts, exception) -> str:
 
 def upload_artifact(
     artifact, using_key: Optional[str] = None, access_token: Optional[str] = None
-) -> None:
+) -> UPath:
     """Store and add file and its linked entries."""
     # can't currently use  filepath_from_artifact here because it resolves to ._local_filepath
     storage_key = auto_storage_key_from_artifact(artifact)
@@ -283,3 +278,5 @@ def upload_artifact(
     elif hasattr(artifact, "_to_store") and artifact._to_store:
         logger.save(msg)
         store_artifact(artifact._local_filepath, storage_path)
+
+    return storage_path
