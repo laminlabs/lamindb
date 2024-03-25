@@ -160,20 +160,25 @@ def check_and_attempt_upload(
 def copy_or_move_to_cache(artifact: Artifact, storage_path: UPath):
     local_path = artifact._local_filepath
 
-    # in-memory zarr or on-disk zarr
-    if local_path is None or not local_path.is_file():
+    # in-memory zarr
+    if local_path is None:
         return None
 
     local_path = local_path.resolve()
+    is_dir = local_path.is_dir()
     cache_dir = settings._storage_settings.cache_dir
-    cache_path = settings._storage_settings.cloud_to_local_no_update(storage_path)
 
-    if local_path != cache_path:
-        if not lamindb_setup.settings.storage.is_cloud:
-            if cache_dir in local_path.parents:
+    # just delete from the cache dir if a local instance
+    if not lamindb_setup.settings.storage.is_cloud:
+        if cache_dir in local_path.parents:
+            if is_dir:
+                shutil.rmtree(local_path)
+            else:
                 local_path.unlink()
-            return None
+        return None
 
+    cache_path = settings._storage_settings.cloud_to_local_no_update(storage_path)
+    if local_path != cache_path:
         cache_path.parent.mkdir(parents=True, exist_ok=True)
         if cache_dir in local_path.parents:
             local_path.replace(cache_path)
@@ -181,7 +186,12 @@ def copy_or_move_to_cache(artifact: Artifact, storage_path: UPath):
             shutil.copy(local_path, cache_path)
     # make sure that the cached version is older than the cloud one
     mts = datetime.now().timestamp() + 1.0
-    os.utime(cache_path, times=(mts, mts))
+    if is_dir:
+        files = (file for file in cache_path.rglob("*") if file.is_file())
+        for file in files:
+            os.utime(file, times=(mts, mts))
+    else:
+        os.utime(cache_path, times=(mts, mts))
 
 
 # This is also used within Artifact.save()

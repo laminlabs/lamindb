@@ -1,3 +1,4 @@
+import shutil
 from pathlib import Path
 
 import lamindb as ln
@@ -72,4 +73,16 @@ def test_cloud_cache(switch_storage):
     assert test_file.stat().st_mtime < cache_path.stat().st_mtime
     assert cloud_path.modified.timestamp() < cache_path.stat().st_mtime
 
+    artifact.delete(permanent=True, storage=True)
+
+    # test cache for a directory on-disk object
+    adata_zarr_pth = Path("test_adata.zrad")
+    adata.write_zarr(adata_zarr_pth)
+    artifact = ln.Artifact(adata_zarr_pth, key="test_cache.zrad")
+    artifact.save()
+    assert adata_zarr_pth.is_dir()
+    cache_path = ln.setup.settings.storage.cloud_to_local_no_update(artifact.path)
+    assert cache_path.is_dir()
+
+    shutil.rmtree(adata_zarr_pth)
     artifact.delete(permanent=True, storage=True)
