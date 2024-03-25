@@ -163,28 +163,65 @@ def read_dataframe(elem: Union[h5py.Dataset, h5py.Group]):
 
 @registry.register("h5py")
 def safer_read_partial(elem, indices):
-    if get_spec(elem).encoding_type == "":
-        if isinstance(elem, h5py.Dataset):
+    is_dataset = isinstance(elem, h5py.Dataset)
+    indices_inverse: Optional[list] = None
+    encoding_type = get_spec(elem).encoding_type
+    # h5py selection for datasets requires sorted indices
+    if is_dataset or encoding_type == "dataframe":
+        indices_increasing = []
+        indices_inverse = []
+        for indices_dim in indices:
+            if isinstance(indices_dim, np.ndarray) and not np.all(
+                np.diff(indices_dim) > 0
+            ):
+                idx_unique, idx_inverse = np.unique(indices_dim, return_inverse=True)
+                indices_increasing.append(idx_unique)
+                indices_inverse.append(idx_inverse)
+            else:
+                indices_increasing.append(indices_dim)
+                indices_inverse.append(None)
+        indices = tuple(indices_increasing)
+        if all(idx is None for idx in indices_inverse):
+            indices_inverse = None
+    result = None
+    if encoding_type == "":
+        if is_dataset:
             dims = len(elem.shape)
             if dims == 2:
-                return elem[indices]
+                result = elem[indices]
             elif dims == 1:
                 if indices[0] == slice(None):
-                    return elem[indices[1]]
+                    result = elem[indices[1]]
                 elif indices[1] == slice(None):
-                    return elem[indices[0]]
+                    result = elem[indices[0]]
         elif isinstance(elem, h5py.Group):
             try:
                 ds = CSRDataset(elem)
-                return _subset_sparse(ds, indices)
+                result = _subset_sparse(ds, indices)
             except Exception:
                 pass
-        raise ValueError(
-            "Can not get a subset of the element of type"
-            f" {type(elem).__name__} with an empty spec."
-        )
+        if result is None:
+            raise ValueError(
+                "Can not get a subset of the element of type"
+                f" {type(elem).__name__} with an empty spec."
+            )
     else:
-        return read_elem_partial(elem, indices=indices)
+        result = read_elem_partial(elem, indices=indices)
+    if indices_inverse is None:
+        return result
+    else:
+        if indices_inverse[0] is None:
+            if len(result.shape) == 2:
+                return result[:, indices_inverse[1]]
+            else:
+                return result[indices_inverse[1]]
+        elif indices_inverse[1] is None:
+            if isinstance(result, pd.DataFrame):
+                return result.iloc[indices_inverse[0]]
+            else:
+                return result[indices_inverse[0]]
+        else:
+            return result[tuple(indices_inverse)]
 
 
 @registry.register("h5py")
