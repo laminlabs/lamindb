@@ -6,7 +6,6 @@ import numpy as np
 import pandas as pd
 import pytest
 import zarr
-from lamindb.core.storage import delete_storage
 from lamindb.core.storage._backed_access import backed_access
 from lamindb.core.storage._zarr import read_adata_zarr, write_adata_zarr
 from lamindb.core.storage.file import read_adata_h5ad
@@ -55,7 +54,7 @@ def test_anndata_io():
 
     assert adata.shape == (30, 200)
 
-    delete_storage(zarr_path)
+    shutil.rmtree(zarr_path)
 
 
 @pytest.mark.parametrize("adata_format", ["h5ad", "zarr"])
@@ -134,7 +133,7 @@ def test_backed_access(adata_format):
 
     if adata_format == "zarr":
         assert fp.suffix == ".zarr"
-        delete_storage(fp)
+        shutil.rmtree(fp)
 
 
 def test_infer_suffix():
@@ -171,4 +170,4 @@ def test_backed_bad_format(bad_adata_path):
     assert sub.to_memory().shape == (10, 200)
 
     access.close()
-    delete_storage(bad_adata_path)
+    bad_adata_path.unlink()

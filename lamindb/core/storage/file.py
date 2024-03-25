@@ -200,9 +200,7 @@ def load_to_memory(filepath: UPathStr, stream: bool = False, **kwargs):
     """
     filepath = create_path(filepath)
 
-    if filepath.suffix in (".zarr", ".zrad"):
-        stream = True
-    elif filepath.suffix != ".h5ad":
+    if filepath.suffix not in {".h5ad", ".zarr", ".zrad"}:
         stream = False
 
     if not stream:

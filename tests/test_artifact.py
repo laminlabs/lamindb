@@ -764,7 +764,7 @@ def test_describe():
     artifact.describe()
 
 
-def test_zarr_folder_upload(adata):
+def test_folder_upload_download(adata):
     previous_storage = ln.setup.settings.storage.root_as_str
     ln.settings.storage = "s3://lamindb-test"
 
@@ -779,12 +779,17 @@ def test_zarr_folder_upload(adata):
 
     assert isinstance(artifact.path, CloudPath) and artifact.path.exists()
 
-    cache_path = artifact.stage()
+    cache_path = settings._storage_settings.cloud_to_local_no_update(artifact.path)
+    assert isinstance(artifact.load(), ad.AnnData)
+    assert cache_path.is_dir()
 
+    shutil.rmtree(cache_path)
+    assert not cache_path.exists()
+    artifact.stage()
     assert cache_path.is_dir()
 
     artifact.delete(permanent=True, storage=True)
-    delete_storage(zarr_path)
+    shutil.rmtree(zarr_path)
     ln.settings.storage = previous_storage
 
 
