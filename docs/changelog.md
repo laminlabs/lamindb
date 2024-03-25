@@ -1,5 +1,6 @@
 # Changelog
 
+- ✨ Improved functionality for directory artifacts [PR](https://github.com/laminlabs/lamindb/pull/1517) [@Koncopd](https://github.com/Koncopd)
 - Revamp the introduction page [PR](https://github.com/laminlabs/lamindb/pull/1514) [@Zethson](https://github.com/Zethson)
 - ♻️ Simplify nox build [PR](https://github.com/laminlabs/lamindb/pull/1519) [@Zethson](https://github.com/Zethson)
 - 👷 Switch to uv for CI [PR](https://github.com/laminlabs/lamindb/pull/1518) [@Zethson](https://github.com/Zethson)
