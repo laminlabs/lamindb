@@ -40,7 +40,7 @@ bionty = [
     "bionty==0.42.2",
 ]
 aws = [
-    "urllib3<2", # for botocore, todo: check that really required
+    "urllib3<2", # for botocore, TODO: check that really required
     "aiobotocore[boto3]>=2.5.4,<3.0.0",
     "s3fs==2023.12.2",
     "fsspec[s3]==2023.12.2",
@@ -63,7 +63,7 @@ erdiagram = [
     "django-schema-graph",
 ]
 dev = [
-    # suppress warning
+    # suppress anndata warnings when building docs
     "pandas<2",
     # basic test
     "pre-commit",

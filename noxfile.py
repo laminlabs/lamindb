@@ -4,7 +4,7 @@ from pathlib import Path
 
 import nox
 from laminci import upload_docs_artifact
-from laminci.nox import build_docs, login_testuser1, login_testuser2, run_pre_commit
+from laminci.nox import login_testuser1, login_testuser2, run_pre_commit
 
 # we'd like to aggregate coverage information across sessions
 # and for this the code needs to be located in the same
@@ -55,7 +55,7 @@ def install(session, group):
                 "./sub/lamin-cli",
             ]
         )
-        session.run(*f"pip install --no-deps {submodules}".split())
+        session.run(*f"uv pip install --system --no-deps {submodules}".split())
     extras = ""
     if group == "unit":
         extras += "bionty,aws,zarr,postgres,fcs,jupyter"
@@ -63,24 +63,22 @@ def install(session, group):
         extras += "aws,jupyter,bionty"  # despite no AWS credentials, we need s3fs
     elif group == "guide":
         extras += "aws,bionty,zarr,jupyter,erdiagram,postgres"
-        session.run(*"pip install scanpy".split())
+        session.run(*"uv pip install --system scanpy".split())
     elif group == "biology":
         extras += "bionty,fcs,jupyter"
     elif group == "faq":
         extras += "aws,postgres,bionty,jupyter"
     elif group == "storage":
         extras += "aws,zarr,bionty,jupyter,postgres"
-        session.run(
-            *"pip install --no-deps wetlab@git+https://github.com/laminlabs/wetlab".split()
-        )
+        session.run(*"uv pip install --system --no-deps wetlab".split())
     elif group == "docs":
         extras += "bionty"
     elif group == "cli":
         extras += "jupyter,aws"
     if os.getenv("GITHUB_EVENT_NAME") != "push" and "bionty" in extras:
-        session.run(*"pip install --no-deps ./sub/bionty".split())
-        session.run(*"pip install --no-deps ./sub/lnschema-bionty".split())
-    session.run(*f"pip install -e .[dev,{extras}]".split())
+        session.run(*"uv pip install --system --no-deps ./sub/bionty".split())
+        session.run(*"uv pip install --system --no-deps ./sub/lnschema-bionty".split())
+    session.run(*f"uv pip install --system -e .[dev,{extras}]".split())
 
 
 @nox.session
@@ -123,6 +121,18 @@ def build(session, group):
         target_dir.mkdir(exist_ok=True)
         for filename in GROUPS[group]:
             shutil.copy(Path("docs") / filename, target_dir / filename)
+
+
+def build_docs(session, strict: bool = False, strip_prefix: bool = False):
+    prefix = "." if Path("./lndocs").exists() else ".."
+    session.run(*f"uv pip install --system {prefix}/lndocs".split())
+    # do not simply add instance creation here
+    args = ["lndocs"]
+    if strict:
+        args.append("--strict")
+    if strip_prefix:
+        args.append("--strip-prefix")
+    session.run(*args)
 
 
 @nox.session
