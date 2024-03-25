@@ -105,10 +105,7 @@ def read_adata_h5ad(filepath, **kwargs) -> ad.AnnData:
 
 
 def store_artifact(localpath: UPathStr, storagepath: UPath) -> None:
-    """Store directory or file to configured storage location.
-
-    Returns size in bytes.
-    """
+    """Store directory or file to configured storage location."""
     localpath = Path(localpath)
     if not isinstance(storagepath, LocalPathClasses):
         # this uploads files and directories
@@ -200,9 +197,7 @@ def load_to_memory(filepath: UPathStr, stream: bool = False, **kwargs):
     """
     filepath = create_path(filepath)
 
-    if filepath.suffix in (".zarr", ".zrad"):
-        stream = True
-    elif filepath.suffix != ".h5ad":
+    if filepath.suffix not in {".h5ad", ".zarr", ".zrad"}:
         stream = False
 
     if not stream:

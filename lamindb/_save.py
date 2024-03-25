@@ -10,7 +10,7 @@ import lamindb_setup
 from django.db import transaction
 from django.utils.functional import partition
 from lamin_utils import logger
-from lamindb_setup.core.upath import print_hook
+from lamindb_setup.core.upath import UPath, print_hook
 from lnschema_core.models import Artifact, Registry
 
 from lamindb.core._settings import settings
@@ -141,13 +141,15 @@ def check_and_attempt_upload(
     # a local env it will have a _local_filepath and needs to be uploaded
     if hasattr(artifact, "_local_filepath"):
         try:
-            upload_artifact(artifact, using_key, access_token=access_token)
+            storage_path = upload_artifact(
+                artifact, using_key, access_token=access_token
+            )
         except Exception as exception:
             logger.warning(f"could not upload artifact: {artifact}")
             return exception
         # copies (if on-disk) or moves the temporary file (if in-memory) to the cache
         if os.getenv("LAMINDB_MULTI_INSTANCE") is None:
-            copy_or_move_to_cache(artifact)
+            copy_or_move_to_cache(artifact, storage_path)
         # after successful upload, we should remove the attribute so that another call
         # call to save won't upload again, the user should call replace() then
         del artifact._local_filepath
@@ -155,35 +157,44 @@ def check_and_attempt_upload(
     return None
 
 
-def copy_or_move_to_cache(artifact: Artifact):
+def copy_or_move_to_cache(artifact: Artifact, storage_path: UPath):
     local_path = artifact._local_filepath
 
-    # in-memory zarr or on-disk zarr
-    if local_path is None or not local_path.is_file():
+    # some in-memory cases (zarr for now)
+    if local_path is None or not local_path.exists():
         return None
 
     local_path = local_path.resolve()
-    cache_dir = lamindb_setup.settings.storage.cache_dir
+    is_dir = local_path.is_dir()
+    cache_dir = settings._storage_settings.cache_dir
 
-    # local instance, just delete the cached file
+    # just delete from the cache dir if a local instance
     if not lamindb_setup.settings.storage.is_cloud:
         if cache_dir in local_path.parents:
-            local_path.unlink()
+            if is_dir:
+                shutil.rmtree(local_path)
+            else:
+                local_path.unlink()
         return None
 
-    # maybe create something like storage.key_to_local(key) later to simplfy
-    storage_key = auto_storage_key_from_artifact(artifact)
-    storage_path = lamindb_setup.settings.storage.key_to_filepath(storage_key)
-    cache_path = lamindb_setup.settings.storage.cloud_to_local_no_update(storage_path)
-    cache_path.parent.mkdir(parents=True, exist_ok=True)
-
-    if cache_dir in local_path.parents:
-        local_path.replace(cache_path)
-    else:
-        shutil.copy(local_path, cache_path)
+    cache_path = settings._storage_settings.cloud_to_local_no_update(storage_path)
+    if local_path != cache_path:
+        cache_path.parent.mkdir(parents=True, exist_ok=True)
+        if cache_dir in local_path.parents:
+            local_path.replace(cache_path)
+        else:
+            if is_dir:
+                shutil.copytree(local_path, cache_path)
+            else:
+                shutil.copy(local_path, cache_path)
     # make sure that the cached version is older than the cloud one
     mts = datetime.now().timestamp() + 1.0
-    os.utime(cache_path, times=(mts, mts))
+    if is_dir:
+        files = (file for file in cache_path.rglob("*") if file.is_file())
+        for file in files:
+            os.utime(file, times=(mts, mts))
+    else:
+        os.utime(cache_path, times=(mts, mts))
 
 
 # This is also used within Artifact.save()
@@ -264,7 +275,7 @@ def prepare_error_message(records, stored_artifacts, exception) -> str:
 
 def upload_artifact(
     artifact, using_key: Optional[str] = None, access_token: Optional[str] = None
-) -> None:
+) -> UPath:
     """Store and add file and its linked entries."""
     # can't currently use  filepath_from_artifact here because it resolves to ._local_filepath
     storage_key = auto_storage_key_from_artifact(artifact)
@@ -283,3 +294,5 @@ def upload_artifact(
     elif hasattr(artifact, "_to_store") and artifact._to_store:
         logger.save(msg)
         store_artifact(artifact._local_filepath, storage_path)
+
+    return storage_path

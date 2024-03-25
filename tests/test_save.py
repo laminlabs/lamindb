@@ -17,15 +17,13 @@ def test_prepare_error_message():
     assert error.startswith("No entries were uploaded or committed to the database")
 
 
-def test_zarr_upload_data_object():
+def test_save_data_object():
     import anndata as ad
 
     ln.core.datasets.file_mini_csv()
     artifact = ln.Artifact("mini.csv", description="test")
-
-    artifact.suffix = ".zarr"
-    artifact._memory_rep = ad.AnnData()
     artifact.save()
+    assert artifact.path.exists()
     artifact.delete(permanent=True, storage=True)
 
 

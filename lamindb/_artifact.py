@@ -827,8 +827,6 @@ def load(
 
 # docstring handled through attach_func_to_class_method
 def stage(self, is_run_input: Optional[bool] = None) -> Path:
-    if self.suffix in {".zrad", ".zarr"}:
-        raise RuntimeError("zarr object can't be staged, please use load() or stream()")
     _track_run_input(self, is_run_input)
 
     using_key = settings._using_key
