@@ -131,6 +131,10 @@ def test_backed_access(adata_format):
         assert sub.layers["test"].shape == sub.shape
     assert access.closed
 
+    with backed_access(fp, using_key=None) as access:
+        var_idx = np.array([3, 1, 2])
+        assert access[:, var_idx].to_memory().shape == (30, 3)
+
     if adata_format == "zarr":
         assert fp.suffix == ".zarr"
         shutil.rmtree(fp)
