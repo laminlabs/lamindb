@@ -24,6 +24,7 @@ from lnschema_core.types import DataLike, VisibilityChoice
 from lamindb._utils import attach_func_to_class_method
 from lamindb.core._data import _track_run_input
 from lamindb.core._mapped_collection import MappedCollection
+from lamindb.core.storage import UPath
 from lamindb.core.versioning import get_uid_from_old_version, init_uid
 
 from . import Artifact, Run
@@ -363,7 +364,8 @@ def mapped(
     return ds
 
 
-def stage(self, is_run_input: Optional[bool] = None):
+# docstring handled through attach_func_to_class_method
+def stage(self, is_run_input: Optional[bool] = None) -> List[UPath]:
     _track_run_input(self, is_run_input)
     path_list = []
     for artifact in self.artifacts.all():
@@ -486,6 +488,7 @@ METHOD_NAMES = [
     "from_df",
     "mapped",
     "backed",
+    "stage",
     "load",
     "delete",
     "save",
