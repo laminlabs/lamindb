@@ -216,7 +216,10 @@ def safer_read_partial(elem, indices):
             else:
                 return result[indices_inverse[1]]
         elif indices_inverse[1] is None:
-            return result[indices_inverse[0]]
+            if isinstance(result, pd.DataFrame):
+                return result.iloc[indices_inverse[0]]
+            else:
+                return result[indices_inverse[0]]
         else:
             return result[tuple(indices_inverse)]
 
