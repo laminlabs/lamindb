@@ -183,7 +183,10 @@ def copy_or_move_to_cache(artifact: Artifact, storage_path: UPath):
         if cache_dir in local_path.parents:
             local_path.replace(cache_path)
         else:
-            shutil.copy(local_path, cache_path)
+            if is_dir:
+                shutil.copytree(local_path, cache_path)
+            else:
+                shutil.copy(local_path, cache_path)
     # make sure that the cached version is older than the cloud one
     mts = datetime.now().timestamp() + 1.0
     if is_dir:
