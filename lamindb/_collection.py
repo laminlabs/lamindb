@@ -345,7 +345,7 @@ def mapped(
         if artifact.suffix not in {".h5ad", ".zrad", ".zarr"}:
             logger.warning(f"Ignoring artifact with suffix {artifact.suffix}")
             continue
-        elif not stream and artifact.suffix == ".h5ad":
+        elif not stream:
             path_list.append(artifact.stage())
         else:
             path_list.append(artifact.path)
