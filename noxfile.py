@@ -125,7 +125,7 @@ def build(session, group):
 
 def build_docs(session, strict: bool = False, strip_prefix: bool = False):
     prefix = "." if Path("./lndocs").exists() else ".."
-    session.run(*f"uv pip install {prefix}/lndocs".split())
+    session.run(*f"uv pip install --system {prefix}/lndocs".split())
     # do not simply add instance creation here
     args = ["lndocs"]
     if strict:
