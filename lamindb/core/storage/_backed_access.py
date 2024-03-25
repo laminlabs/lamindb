@@ -165,8 +165,9 @@ def read_dataframe(elem: Union[h5py.Dataset, h5py.Group]):
 def safer_read_partial(elem, indices):
     is_dataset = isinstance(elem, h5py.Dataset)
     indices_inverse: Optional[list] = None
+    encoding_type = get_spec(elem).encoding_type
     # h5py selection for datasets requires sorted indices
-    if is_dataset:
+    if is_dataset or encoding_type == "dataframe":
         indices_increasing = []
         indices_inverse = []
         for indices_dim in indices:
@@ -183,7 +184,7 @@ def safer_read_partial(elem, indices):
         if all(idx is None for idx in indices_inverse):
             indices_inverse = None
     result = None
-    if get_spec(elem).encoding_type == "":
+    if encoding_type == "":
         if is_dataset:
             dims = len(elem.shape)
             if dims == 2:
