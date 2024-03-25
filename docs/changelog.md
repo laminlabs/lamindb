@@ -1,5 +1,6 @@
 # Changelog
 
+- ✨ Collection stage [PR](https://github.com/laminlabs/lamindb/pull/1521) [@Koncopd](https://github.com/Koncopd)
 - 🐛 Fix backed for non-increasing indices [PR](https://github.com/laminlabs/lamindb/pull/1520) [@Koncopd](https://github.com/Koncopd)
 - ✨ Improved functionality for directory artifacts [PR](https://github.com/laminlabs/lamindb/pull/1517) [@Koncopd](https://github.com/Koncopd)
 - Revamp the introduction page [PR](https://github.com/laminlabs/lamindb/pull/1514) [@Zethson](https://github.com/Zethson)
