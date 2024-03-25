@@ -210,7 +210,10 @@ def safer_read_partial(elem, indices):
         return result
     else:
         if indices_inverse[0] is None:
-            return result[:, indices_inverse[1]]
+            if len(result.shape) == 2:
+                return result[:, indices_inverse[1]]
+            else:
+                return result[indices_inverse[1]]
         elif indices_inverse[1] is None:
             return result[indices_inverse[0]]
         else:
