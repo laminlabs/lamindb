@@ -4,7 +4,7 @@ from pathlib import Path
 
 import nox
 from laminci import upload_docs_artifact
-from laminci.nox import build_docs, login_testuser1, login_testuser2, run_pre_commit
+from laminci.nox import login_testuser1, login_testuser2, run_pre_commit
 
 # we'd like to aggregate coverage information across sessions
 # and for this the code needs to be located in the same
@@ -121,6 +121,18 @@ def build(session, group):
         target_dir.mkdir(exist_ok=True)
         for filename in GROUPS[group]:
             shutil.copy(Path("docs") / filename, target_dir / filename)
+
+
+def build_docs(session, strict: bool = False, strip_prefix: bool = False):
+    prefix = "." if Path("./lndocs").exists() else ".."
+    session.run(*f"uv pip install {prefix}/lndocs".split())
+    # do not simply add instance creation here
+    args = ["lndocs"]
+    if strict:
+        args.append("--strict")
+    if strip_prefix:
+        args.append("--strip-prefix")
+    session.run(*args)
 
 
 @nox.session
