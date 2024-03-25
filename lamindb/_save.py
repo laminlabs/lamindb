@@ -160,8 +160,8 @@ def check_and_attempt_upload(
 def copy_or_move_to_cache(artifact: Artifact, storage_path: UPath):
     local_path = artifact._local_filepath
 
-    # in-memory zarr
-    if local_path is None:
+    # some in-memory cases (zarr for now)
+    if local_path is None or not local_path.exists():
         return None
 
     local_path = local_path.resolve()

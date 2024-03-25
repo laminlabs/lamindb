@@ -39,6 +39,33 @@ def test_local_cache():
 
     artifact.delete(permanent=True, storage=True)
 
+    # check directories
+    adata_zarr_pth = Path("test_adata.zrad")
+    adata.write_zarr(adata_zarr_pth)
+    assert adata_zarr_pth.exists()
+
+    artifact = ln.Artifact(adata_zarr_pth, key="test_cache.zrad")
+    artifact.save()
+    assert adata_zarr_pth.exists()
+    assert artifact.path.exists()
+
+    shutil.rmtree(adata_zarr_pth)
+    artifact.delete(permanent=True, storage=True)
+
+    # check directories in cache
+    cache_dir = ln.setup.settings.storage.cache_dir
+    adata_zarr_pth = cache_dir / "test_adata.zrad"
+    adata.write_zarr(adata_zarr_pth)
+
+    artifact = ln.Artifact(adata_zarr_pth, key="test_cache.zrad")
+    assert adata_zarr_pth.exists()
+    artifact.save()
+
+    assert not adata_zarr_pth.exists()
+    assert artifact.path.exists()
+
+    artifact.delete(permanent=True, storage=True)
+
 
 def test_cloud_cache(switch_storage):
     # check that we have cloud storage
@@ -65,7 +92,7 @@ def test_cloud_cache(switch_storage):
     artifact.delete(permanent=True, storage=True)
 
     # test cache for saving an on-disk object
-    artifact = ln.Artifact(test_file, key="test_cache.h5ad")
+    artifact = ln.Artifact.from_anndata(test_file, key="test_cache.h5ad")
     artifact.save()
     cloud_path = artifact.path
     cache_path = ln.setup.settings.storage.cloud_to_local_no_update(cloud_path)
@@ -75,7 +102,7 @@ def test_cloud_cache(switch_storage):
 
     artifact.delete(permanent=True, storage=True)
 
-    # test cache for a directory on-disk object
+    # test cache for a directory on-disk object outside the cache dir
     adata_zarr_pth = Path("test_adata.zrad")
     adata.write_zarr(adata_zarr_pth)
     artifact = ln.Artifact(adata_zarr_pth, key="test_cache.zrad")
@@ -85,4 +112,16 @@ def test_cloud_cache(switch_storage):
     assert cache_path.is_dir()
 
     shutil.rmtree(adata_zarr_pth)
+    artifact.delete(permanent=True, storage=True)
+
+    # inside the cache dir
+    adata_zarr_pth = cache_dir / "test_adata.zrad"
+    adata.write_zarr(adata_zarr_pth)
+    artifact = ln.Artifact(adata_zarr_pth, key="test_cache.zrad")
+    assert adata_zarr_pth.exists()
+    artifact.save()
+    assert not adata_zarr_pth.exists()
+    cache_path = ln.setup.settings.storage.cloud_to_local_no_update(artifact.path)
+    assert cache_path.is_dir()
+
     artifact.delete(permanent=True, storage=True)
