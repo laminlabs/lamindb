@@ -24,6 +24,7 @@ from lnschema_core.types import DataLike, VisibilityChoice
 from lamindb._utils import attach_func_to_class_method
 from lamindb.core._data import _track_run_input
 from lamindb.core._mapped_collection import MappedCollection
+from lamindb.core.storage import UPath
 from lamindb.core.versioning import get_uid_from_old_version, init_uid
 
 from . import Artifact, Run
@@ -339,17 +340,16 @@ def mapped(
     stream: bool = False,
     is_run_input: Optional[bool] = None,
 ) -> "MappedCollection":
-    _track_run_input(self, is_run_input)
     path_list = []
     for artifact in self.artifacts.all():
         if artifact.suffix not in {".h5ad", ".zrad", ".zarr"}:
             logger.warning(f"Ignoring artifact with suffix {artifact.suffix}")
             continue
-        elif not stream and artifact.suffix == ".h5ad":
+        elif not stream:
             path_list.append(artifact.stage())
         else:
             path_list.append(artifact.path)
-    return MappedCollection(
+    ds = MappedCollection(
         path_list,
         label_keys,
         join,
@@ -359,6 +359,18 @@ def mapped(
         parallel,
         dtype,
     )
+    # track only if successful
+    _track_run_input(self, is_run_input)
+    return ds
+
+
+# docstring handled through attach_func_to_class_method
+def stage(self, is_run_input: Optional[bool] = None) -> List[UPath]:
+    _track_run_input(self, is_run_input)
+    path_list = []
+    for artifact in self.artifacts.all():
+        path_list.append(artifact.stage())
+    return path_list
 
 
 # docstring handled through attach_func_to_class_method
@@ -467,7 +479,6 @@ def restore(self) -> None:
 @doc_args(Collection.artifacts.__doc__)
 def artifacts(self) -> QuerySet:
     """{}."""
-    _track_run_input(self)
     return self.unordered_artifacts.order_by("collectionartifact__id")
 
 
@@ -476,6 +487,7 @@ METHOD_NAMES = [
     "from_anndata",
     "from_df",
     "mapped",
+    "stage",
     "backed",
     "load",
     "delete",
