@@ -363,6 +363,9 @@ def test_collection_mapped(adata, adata2):
     assert ls_ds[0]["_storage_idx"] == 0
     assert ls_ds[2]["_storage_idx"] == 1
 
+    with collection.mapped(label_keys="feat1", stream=True) as ls_ds:
+        assert len(ls_ds[0]) == 3 and len(ls_ds[2]) == 3
+
     with pytest.raises(ValueError):
         with collection_outer.mapped(label_keys="feat1", join="inner"):
             pass

@@ -339,7 +339,6 @@ def mapped(
     stream: bool = False,
     is_run_input: Optional[bool] = None,
 ) -> "MappedCollection":
-    _track_run_input(self, is_run_input)
     path_list = []
     for artifact in self.artifacts.all():
         if artifact.suffix not in {".h5ad", ".zrad", ".zarr"}:
@@ -349,7 +348,7 @@ def mapped(
             path_list.append(artifact.stage())
         else:
             path_list.append(artifact.path)
-    return MappedCollection(
+    ds = MappedCollection(
         path_list,
         label_keys,
         join,
@@ -359,6 +358,17 @@ def mapped(
         parallel,
         dtype,
     )
+    # track only if successful
+    _track_run_input(self, is_run_input)
+    return ds
+
+
+def stage(self, is_run_input: Optional[bool] = None):
+    _track_run_input(self, is_run_input)
+    path_list = []
+    for artifact in self.artifacts.all():
+        path_list.append(artifact.stage())
+    return path_list
 
 
 # docstring handled through attach_func_to_class_method
@@ -467,7 +477,6 @@ def restore(self) -> None:
 @doc_args(Collection.artifacts.__doc__)
 def artifacts(self) -> QuerySet:
     """{}."""
-    _track_run_input(self)
     return self.unordered_artifacts.order_by("collectionartifact__id")
 
 
