@@ -5,7 +5,7 @@ from lnschema_core.types import FieldAttr
 
 import lamindb as ln
 
-from ._validate import _registry_using
+from ._validate import get_registry_instance
 
 
 class Lookup:
@@ -25,7 +25,7 @@ class Lookup:
             if self._using == "public":
                 return registry.public().lookup()
             else:
-                return _registry_using(registry, self._using).lookup()
+                return get_registry_instance(registry, self._using).lookup()
         raise AttributeError(
             f"'{self.__class__.__name__}' object has no attribute '{name}'"
         )

@@ -117,16 +117,18 @@ def from_df(
         else:
             types[name] = convert_numpy_dtype_to_lamin_feature_type(col.dtype)
 
-    # silence the info "loaded record with exact same name "
+    # silence the warning "loaded record with exact same name "
     verbosity = settings.verbosity
-    settings.verbosity = "warning"
+    try:
+        settings.verbosity = "error"
 
-    registry = field.field.model
-    if registry != Feature:
-        raise ValueError("field must be a Feature FieldAttr!")
-    # create records for all features including non-validated
-    features = [Feature(name=name, type=type) for name, type in types.items()]
-    settings.verbosity = verbosity
+        registry = field.field.model
+        if registry != Feature:
+            raise ValueError("field must be a Feature FieldAttr!")
+        # create records for all features including non-validated
+        features = [Feature(name=name, type=type) for name, type in types.items()]
+    finally:
+        settings.verbosity = verbosity
 
     assert len(features) == len(df.columns)
 

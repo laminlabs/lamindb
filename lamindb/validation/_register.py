@@ -1,4 +1,4 @@
-from typing import Dict, List, Optional, Union
+from typing import Dict, List, Optional, Tuple, Union
 
 import anndata as ad
 import pandas as pd
@@ -7,7 +7,11 @@ from lnschema_core.types import FieldAttr
 
 import lamindb as ln
 
-from ._validate import _registry_using, check_if_registry_needs_organism
+from ._validate import (
+    check_registry_organism,
+    get_registry_instance,
+    standardize_and_inspect,
+)
 
 
 def register_artifact(
@@ -16,8 +20,8 @@ def register_artifact(
     fields: Dict[str, FieldAttr],
     feature_field: FieldAttr,
     **kwargs,
-):
-    """Registers all metadata with an Artifact.
+) -> ln.Artifact:
+    """Register all metadata with an Artifact.
 
     Args:
         data: The DataFrame or AnnData object to register.
@@ -25,6 +29,9 @@ def register_artifact(
         fields: A dictionary mapping obs_column to registry_field.
         feature_field: The registry field to validate variables index against.
         kwargs: Additional keyword arguments to pass to the registry model.
+
+    Returns:
+        The registered Artifact.
     """
     if isinstance(data, ad.AnnData):
         artifact = ln.Artifact.from_anndata(data, description=description)
@@ -35,9 +42,10 @@ def register_artifact(
         raise ValueError("data must be a DataFrame or AnnData object")
     artifact.save()
 
-    organism = kwargs.pop("organism", None)
     feature_kwargs: Dict = {}
-    organism = check_if_registry_needs_organism(feature_field.field.model, organism)
+    organism = check_registry_organism(
+        feature_field.field.model, kwargs.pop("organism", None)
+    )
     if organism is not None:
         feature_kwargs["organism"] = organism
 
@@ -46,13 +54,12 @@ def register_artifact(
     else:
         artifact.features.add_from_df(field=feature_field, **feature_kwargs)
 
-    # link validated obs metadata
     features = ln.Feature.lookup().dict()
     for feature_name, field in fields.items():
         feature = features.get(feature_name)
         registry = field.field.model
         filter_kwargs = kwargs.copy()
-        organism = check_if_registry_needs_organism(registry, organism)
+        organism = check_registry_organism(registry, organism)
         if organism is not None:
             filter_kwargs["organism"] = organism
         df = data.obs if isinstance(data, ad.AnnData) else data
@@ -73,9 +80,9 @@ def register_labels(
     feature_name: str,
     using: Optional[str] = None,
     validated_only: bool = True,
-    kwargs: Dict = None,
+    kwargs: Optional[Dict] = None,
     df: Optional[pd.DataFrame] = None,
-):
+) -> None:
     """Register features or labels records in the default instance from the using instance.
 
     Args:
@@ -89,31 +96,25 @@ def register_labels(
     """
     filter_kwargs = {} if kwargs is None else kwargs.copy()
     registry = field.field.model
-    if not hasattr(registry, "public"):
+    if registry == ln.ULabel:
         validated_only = False
 
-    organism = filter_kwargs.pop("organism", None)
-    organism = check_if_registry_needs_organism(registry, organism)
-    # TODO: use organism record here
+    organism = check_registry_organism(registry, filter_kwargs.pop("organism", None))
     if organism is not None:
         filter_kwargs["organism"] = organism
 
     verbosity = ln.settings.verbosity
     try:
         ln.settings.verbosity = "error"
-        # for labels that are registered in the using instance, transfer them to the current instance
-        # first inspect the current instance
-        inspect_result_current = registry.inspect(
-            values, field=field, mute=True, **kwargs
+        inspect_result_current = standardize_and_inspect(
+            values=values, field=field, registry=registry, **filter_kwargs
         )
-        if len(inspect_result_current.non_validated) == 0:
-            # everything is validated in the current instance, no need to register
+        if not inspect_result_current.non_validated:
             ln.settings.verbosity = verbosity
             return
 
         labels_registered: Dict = {"from public": [], "without reference": []}
 
-        # register labels from the using instance
         (
             labels_registered[f"from {using}"],
             non_validated_labels,
@@ -124,46 +125,38 @@ def register_labels(
             kwargs=filter_kwargs,
         )
 
-        # for labels that are not registered in the using instance, register them in the current instance
-        from_values_records = (
+        public_records = (
             registry.from_values(non_validated_labels, field=field, **filter_kwargs)
-            if len(non_validated_labels) > 0
+            if non_validated_labels
             else []
         )
-        ln.save(from_values_records)
+        ln.save(public_records)
         labels_registered["from public"] = [
-            getattr(r, field.field.name) for r in from_values_records
+            getattr(r, field.field.name) for r in public_records
         ]
         labels_registered["without reference"] = [
             i for i in non_validated_labels if i not in labels_registered["from public"]
         ]
+
         if not validated_only:
+            non_validated_records = []
             if df is not None and registry == ln.Feature:
                 non_validated_records = ln.Feature.from_df(df)
-                labels_registered["without reference"] = [
-                    col
-                    for col in df.columns
-                    if col not in labels_registered["from public"]
-                    and col not in labels_registered[f"from {using}"]
-                ]
-
             else:
-                non_validated_records = []
                 if "organism" in filter_kwargs:
                     filter_kwargs["organism"] = _register_organism(name=organism)
                 for value in labels_registered["without reference"]:
                     filter_kwargs[field.field.name] = value
                     if registry == ln.Feature:
                         filter_kwargs["type"] = "category"
-                    # register non-validated labels
                     non_validated_records.append(registry(**filter_kwargs))
             ln.save(non_validated_records)
 
-        # for ulabels, also register a parent label: is_{feature_name}
         if registry == ln.ULabel and field.field.name == "name":
             register_ulabels_with_parent(values, field=field, feature_name=feature_name)
     finally:
         ln.settings.verbosity = verbosity
+
     log_registered_labels(
         labels_registered,
         feature_name=feature_name,
@@ -177,25 +170,27 @@ def log_registered_labels(
     feature_name: str,
     model_field: str,
     validated_only: bool = True,
-):
+) -> None:
     """Log the registered labels."""
     labels_type = "features" if feature_name == "feature" else "labels"
     model_field = colors.italic(model_field)
     for key, labels in labels_registered.items():
-        if len(labels) > 0:
-            if key == "without reference" and validated_only:
-                msg = colors.yellow(
-                    f"{len(labels)} non-validated {labels_type} are not registered with {model_field}: {labels}!"
-                )
-                lookup_print = f".lookup().['{feature_name}']"
-                msg += f"\n      → to lookup categories, use {lookup_print}"
-                msg += (
-                    f"\n      → to register, run {colors.yellow('register_features(validated_only=False)')}"
-                    if labels_type == "features"
-                    else f"\n      → to register, set {colors.yellow('validated_only=False')}"
-                )
-                logger.warning(msg)
-                continue
+        if not labels:
+            continue
+
+        if key == "without reference" and validated_only:
+            msg = colors.yellow(
+                f"{len(labels)} non-validated {labels_type} are not registered with {model_field}: {labels}!"
+            )
+            lookup_print = f".lookup().['{feature_name}']"
+            msg += f"\n      → to lookup categories, use {lookup_print}"
+            msg += (
+                f"\n      → to register, run {colors.yellow('register_features(validated_only=False)')}"
+                if labels_type == "features"
+                else f"\n      → to register, set {colors.yellow('validated_only=False')}"
+            )
+            logger.warning(msg)
+        else:
             key = "" if key == "without reference" else f"{colors.green(key)} "
             logger.success(
                 f"registered {len(labels)} {labels_type} {key}with {model_field}: {labels}"
@@ -204,7 +199,7 @@ def log_registered_labels(
 
 def register_ulabels_with_parent(
     values: List[str], field: FieldAttr, feature_name: str
-):
+) -> None:
     """Register a parent label for the given labels."""
     registry = field.field.model
     assert registry == ln.ULabel
@@ -213,7 +208,6 @@ def register_ulabels_with_parent(
     if is_feature is None:
         is_feature = registry(name=f"is_{feature_name}")
         is_feature.save()
-    # link all labels to the parent label
     is_feature.children.add(*all_records)
 
 
@@ -221,8 +215,8 @@ def register_labels_from_using_instance(
     values: List[str],
     field: FieldAttr,
     using: Optional[str] = None,
-    kwargs: Dict = None,
-):
+    kwargs: Optional[Dict] = None,
+) -> Tuple[List[str], List[str]]:
     """Register features or labels records from the using instance.
 
     Args:
@@ -230,20 +224,20 @@ def register_labels_from_using_instance(
         field: The FieldAttr object representing the field for which labels are being registered.
         using: The name of the instance from which to transfer labels (if applicable).
         kwargs: Additional keyword arguments to pass to the registry model.
+
+    Returns:
+        A tuple containing the list of registered labels and the list of non-registered labels.
     """
-    if kwargs is None:
-        kwargs = {}
+    kwargs = kwargs or {}
     labels_registered = []
     not_registered = values
+
     if using is not None and using != "default":
         registry = field.field.model
-        registry_using = _registry_using(registry, using)
-        # then inspect the using instance
-        inspect_result_using = registry_using.inspect(
-            values, field=field, mute=True, **kwargs
+        registry_using = get_registry_instance(registry, using)
+        inspect_result_using = standardize_and_inspect(
+            values=values, field=field, registry=registry_using, **kwargs
         )
-        # register the labels that are validated in the using instance
-        # TODO: filter kwargs
         labels_using = registry_using.filter(
             **{f"{field.field.name}__in": inspect_result_using.validated}
         ).all()
@@ -251,6 +245,7 @@ def register_labels_from_using_instance(
             label_using.save()
             labels_registered.append(getattr(label_using, field.field.name))
         not_registered = inspect_result_using.non_validated
+
     return labels_registered, not_registered
 
 
@@ -261,5 +256,10 @@ def _register_organism(name: str):
     organism = bt.Organism.filter(name=name).one_or_none()
     if organism is None:
         organism = bt.Organism.from_public(name=name)
+        if organism is None:
+            raise ValueError(
+                f"Organism '{name}' not found\n"
+                f"      → please register it: bt.Organism(name='{name}').save()"
+            )
         organism.save()
     return organism
