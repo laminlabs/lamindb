@@ -172,7 +172,10 @@ def copy_or_move_to_cache(artifact: Artifact, storage_path: UPath):
         if not lamindb_setup.settings.storage.is_cloud:
             if cache_dir in local_path.parents:
                 local_path.unlink()
-        elif cache_dir in local_path.parents:
+            return None
+
+        cache_path.parent.mkdir(parents=True, exist_ok=True)
+        if cache_dir in local_path.parents:
             local_path.replace(cache_path)
         else:
             shutil.copy(local_path, cache_path)
