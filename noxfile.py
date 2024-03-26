@@ -58,18 +58,18 @@ def install(session, group):
         session.run(*f"uv pip install --system --no-deps {submodules}".split())
     extras = ""
     if group == "unit":
-        extras += "bionty,aws,zarr,postgres,fcs,jupyter"
+        extras += "bionty,aws,zarr,fcs,jupyter"
     elif group == "tutorial":
         extras += "aws,jupyter,bionty"  # despite no AWS credentials, we need s3fs
     elif group == "guide":
-        extras += "aws,bionty,zarr,jupyter,erdiagram,postgres"
+        extras += "aws,bionty,zarr,jupyter,erdiagram"
         session.run(*"uv pip install --system scanpy".split())
     elif group == "biology":
         extras += "bionty,fcs,jupyter"
     elif group == "faq":
-        extras += "aws,postgres,bionty,jupyter"
+        extras += "aws,bionty,jupyter"
     elif group == "storage":
-        extras += "aws,zarr,bionty,jupyter,postgres"
+        extras += "aws,zarr,bionty,jupyter"
         session.run(*"uv pip install --system --no-deps wetlab".split())
     elif group == "docs":
         extras += "bionty"
