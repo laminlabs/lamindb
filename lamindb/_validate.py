@@ -111,7 +111,7 @@ class DataFrameValidator:
             )
 
         # Always register features specified as the fields keys
-        register_labels(
+        update_registry(
             values=list(self.fields.keys()),
             field=self._feature_field,
             feature_name="feature",
@@ -123,7 +123,7 @@ class DataFrameValidator:
         # Register the rest of the columns based on validated_only
         additional_columns = set(self._df.columns) - set(self.fields.keys())
         if additional_columns:
-            register_labels(
+            update_registry(
                 values=list(additional_columns),
                 field=self._feature_field,
                 feature_name="feature",
@@ -133,7 +133,7 @@ class DataFrameValidator:
                 kwargs=self._kwargs,
             )
 
-    def register_labels(self, feature: str, validated_only: bool = True, **kwargs):
+    def update_registry(self, feature: str, validated_only: bool = True, **kwargs):
         """Register labels for a feature.
 
         Args:
@@ -142,13 +142,13 @@ class DataFrameValidator:
             **kwargs: Additional keyword arguments.
         """
         if feature == "all":
-            self._register_labels_all(validated_only=validated_only, **kwargs)
+            self._update_registry_all(validated_only=validated_only, **kwargs)
         elif feature == "feature":
             self.register_features(validated_only=validated_only)
         else:
             if feature not in self.fields:
                 raise ValueError(f"Feature {feature} is not part of the fields!")
-            register_labels(
+            update_registry(
                 values=self._df[feature].unique().tolist(),
                 field=self.fields[feature],
                 feature_name=feature,
@@ -157,11 +157,11 @@ class DataFrameValidator:
                 kwargs=kwargs,
             )
 
-    def _register_labels_all(self, validated_only: bool = True, **kwargs):
+    def _update_registry_all(self, validated_only: bool = True, **kwargs):
         """Register labels for all features."""
         for name in self.fields.keys():
             logger.info(f"registering labels for '{name}'")
-            self.register_labels(feature=name, validated_only=validated_only, **kwargs)
+            self.update_registry(feature=name, validated_only=validated_only, **kwargs)
 
     def validate(self, **kwargs) -> bool:
         """Validate variables and categorical observations.
@@ -198,7 +198,7 @@ class DataFrameValidator:
         verbosity = settings.verbosity
         try:
             settings.verbosity = "warning"
-            self.register_labels("all")
+            self.update_registry("all")
 
             self._artifact = register_artifact(
                 self._df,
@@ -310,7 +310,7 @@ class AnnDataValidator(DataFrameValidator):
     def _register_variables(self, validated_only: bool = True, **kwargs):
         """Register variable records."""
         self._kwargs.update(kwargs)
-        register_labels(
+        update_registry(
             values=self._adata.var_names,
             field=self.var_field,
             feature_name="variables",
@@ -330,12 +330,12 @@ class AnnDataValidator(DataFrameValidator):
         )
         return self._validated
 
-    def register_labels(self, feature: str, validated_only: bool = True, **kwargs):
+    def update_registry(self, feature: str, validated_only: bool = True, **kwargs):
         """Register labels for a feature."""
         if feature == "variables":
             self._register_variables(validated_only=validated_only, **kwargs)
         else:
-            super().register_labels(feature, validated_only, **kwargs)
+            super().update_registry(feature, validated_only, **kwargs)
 
     def register_artifact(self, description: str, **kwargs) -> Artifact:
         """Register the validated AnnData and metadata.
@@ -477,7 +477,7 @@ def validate_categories(
     else:
         are = "are" if n_non_validated > 1 else "is"
         print_values = _print_values(non_validated)
-        feature_name_print = f".register_labels('{feature_name}')"
+        feature_name_print = f".update_registry('{feature_name}')"
         warning_message = (
             f"{colors.yellow(f'{n_non_validated} terms')} {are} not validated: "
             f"{colors.yellow(print_values)}\n      → register terms via "
@@ -593,7 +593,7 @@ def register_artifact(
     return artifact
 
 
-def register_labels(
+def update_registry(
     values: List[str],
     field: FieldAttr,
     feature_name: str,
@@ -637,7 +637,7 @@ def register_labels(
         (
             labels_registered[f"from {using}"],
             non_validated_labels,
-        ) = register_labels_from_using_instance(
+        ) = update_registry_from_using_instance(
             inspect_result_current.non_validated,
             field=field,
             using=using,
@@ -730,7 +730,7 @@ def register_ulabels_with_parent(
     is_feature.children.add(*all_records)
 
 
-def register_labels_from_using_instance(
+def update_registry_from_using_instance(
     values: List[str],
     field: FieldAttr,
     using: Optional[str] = None,
