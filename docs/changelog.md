@@ -1,5 +1,6 @@
 # Changelog
 
+- 🚚 Rename `validation.Validator` to `Validate.from_df` [PR](https://github.com/laminlabs/lamindb/pull/1524) [@sunnyosun](https://github.com/sunnyosun)
 
 
 ```{eval-rst}
