@@ -16,6 +16,7 @@ Registries:
    IsVersioned
    DataFrameValidator
    AnnDataValidator
+   ValidatorLookup
    CanValidate
    HasParents
    InspectResult
@@ -54,7 +55,7 @@ from lnschema_core.models import (
 
 from lamindb._query_manager import QueryManager
 from lamindb._query_set import QuerySet, RecordsList
-from lamindb._validate import AnnDataValidator, DataFrameValidator
+from lamindb._validate import AnnDataValidator, DataFrameValidator, ValidatorLookup
 from lamindb.core._feature_manager import FeatureManager
 from lamindb.core._label_manager import LabelManager
 

@@ -19,7 +19,7 @@ class ValidationError(ValueError):
     pass
 
 
-class Lookup:
+class ValidatorLookup:
     """Lookup features and labels from the reference instance."""
 
     def __init__(
@@ -91,7 +91,7 @@ class DataFrameValidator:
         """Return the columns fields to validate against."""
         return self._fields
 
-    def lookup(self, using: Optional[str] = None) -> Lookup:
+    def lookup(self, using: Optional[str] = None) -> ValidatorLookup:
         """Lookup features and labels.
 
         Args:
@@ -100,7 +100,7 @@ class DataFrameValidator:
                 if "public", the lookup is performed on the public reference.
         """
         fields = {**{"feature": self._feature_field}, **self.fields}
-        return Lookup(fields=fields, using=using or self._using)
+        return ValidatorLookup(fields=fields, using=using or self._using)
 
     def register_features(self, validated_only: bool = True) -> None:
         """Register features records."""
@@ -299,13 +299,13 @@ class AnnDataValidator(DataFrameValidator):
         """Return the obs fields to validate against."""
         return self._obs_fields
 
-    def lookup(self, using: Optional[str] = None) -> Lookup:
+    def lookup(self, using: Optional[str] = None) -> ValidatorLookup:
         """Lookup features and labels."""
         fields = {
             **{"feature": Feature.name, "variables": self.var_field},
             **self.obs_fields,
         }
-        return Lookup(fields=fields, using=using or self._using)
+        return ValidatorLookup(fields=fields, using=using or self._using)
 
     def _register_variables(self, validated_only: bool = True, **kwargs):
         """Register variable records."""
