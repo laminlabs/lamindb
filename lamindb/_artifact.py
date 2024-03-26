@@ -15,8 +15,7 @@ from lamindb_setup.core.types import UPathStr
 from lamindb_setup.core.upath import (
     create_path,
     extract_suffix_from_path,
-    get_stat_dir_gs,
-    get_stat_dir_s3,
+    get_stat_dir_cloud,
     get_stat_file_cloud,
 )
 from lnschema_core import Artifact, Run, Storage
@@ -192,10 +191,7 @@ def get_stat_or_artifact(
             if "ETag" in stat:  # is file
                 size, hash, hash_type = get_stat_file_cloud(stat)
             elif path.is_dir():
-                if path.protocol == "s3":
-                    size, hash, hash_type, n_objects = get_stat_dir_s3(path)
-                elif path.protocol == "gs":
-                    size, hash, hash_type, n_objects = get_stat_dir_gs(path)
+                size, hash, hash_type, n_objects = get_stat_dir_cloud(path)
         if hash is None:
             logger.warning(f"did not add hash for {path}")
             return size, hash, hash_type, n_objects
