@@ -53,48 +53,6 @@ class Lookup:
             return colors.warning("No fields are found!")
 
 
-class Validate:
-    """Validation flow."""
-
-    @classmethod
-    def from_df(
-        cls,
-        df: pd.DataFrame,
-        fields: Optional[Dict[str, FieldAttr]] = None,
-        feature_field: FieldAttr = Feature.name,
-        using: Optional[str] = None,
-        verbosity: str = "hint",
-        **kwargs,
-    ):
-        DataFrameValidator(
-            df=df,
-            fields=fields,
-            feature_field=feature_field,
-            using=using,
-            verbosity=verbosity,
-            **kwargs,
-        )
-
-    @classmethod
-    def from_anndata(
-        cls,
-        adata: ad.AnnData,
-        var_field: FieldAttr,
-        obs_fields: Dict[str, FieldAttr],
-        using: str = "default",
-        verbosity: str = "hint",
-        **kwargs,
-    ):
-        AnnDataValidator(
-            adata=adata,
-            var_field=var_field,
-            obs_fields=obs_fields,
-            using=using,
-            verbosity=verbosity,
-            **kwargs,
-        )
-
-
 class DataFrameValidator:
     """Validation flow for a DataFrame object.
 
@@ -401,6 +359,48 @@ class AnnDataValidator(DataFrameValidator):
             **self._kwargs,
         )
         return self._artifact
+
+
+class Validate:
+    """Validation flow."""
+
+    @classmethod
+    def from_df(
+        cls,
+        df: pd.DataFrame,
+        fields: Optional[Dict[str, FieldAttr]] = None,
+        feature_field: FieldAttr = Feature.name,
+        using: Optional[str] = None,
+        verbosity: str = "hint",
+        **kwargs,
+    ) -> DataFrameValidator:
+        return DataFrameValidator(
+            df=df,
+            fields=fields,
+            feature_field=feature_field,
+            using=using,
+            verbosity=verbosity,
+            **kwargs,
+        )
+
+    @classmethod
+    def from_anndata(
+        cls,
+        adata: ad.AnnData,
+        var_field: FieldAttr,
+        obs_fields: Dict[str, FieldAttr],
+        using: str = "default",
+        verbosity: str = "hint",
+        **kwargs,
+    ) -> AnnDataValidator:
+        return AnnDataValidator(
+            adata=adata,
+            var_field=var_field,
+            obs_fields=obs_fields,
+            using=using,
+            verbosity=verbosity,
+            **kwargs,
+        )
 
 
 def get_registry_instance(registry: Registry, using: Optional[str] = None) -> Registry:
