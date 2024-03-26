@@ -3,7 +3,6 @@ import bionty as bt
 import lamindb as ln
 import pandas as pd
 import pytest
-from lamindb.validation import AnnDataValidator, Validator
 
 
 @pytest.fixture(scope="module")
@@ -56,7 +55,7 @@ def fields():
 
 
 def test_validator(df, fields):
-    validator = Validator(df, fields=fields)
+    validator = ln.Validate.from_df(df, fields=fields)
     validated = validator.validate()
     assert validated is False
 
@@ -71,7 +70,7 @@ def test_validator(df, fields):
 
 
 def test_anndata_validator(adata, fields):
-    validator = AnnDataValidator(
+    validator = ln.Validate.from_anndata(
         adata,
         obs_fields=fields,
         var_field=bt.Gene.symbol,  # specify the field for the var

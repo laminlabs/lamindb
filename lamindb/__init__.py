@@ -31,7 +31,7 @@ Modules & settings:
 .. autosummary::
    :toctree: .
 
-   validation
+   Validate
    settings
    setup
    UPath
@@ -39,7 +39,7 @@ Modules & settings:
 
 """
 
-__version__ = "0.69.1"  # denote a release candidate for 0.1.0 with 0.1rc1
+__version__ = "0.69.2"  # denote a release candidate for 0.1.0 with 0.1rc1
 
 import os as _os
 
@@ -72,6 +72,7 @@ if _check_instance_setup(from_lamindb=True):
 
     from . import (
         _artifact,
+        _can_validate,
         _collection,
         _feature,
         _feature_set,
@@ -89,6 +90,7 @@ if _check_instance_setup(from_lamindb=True):
     dev = core  # backward compat
     from ._finish import finish
     from ._save import save
+    from ._validate import Validate
     from ._view import view
     from .core._run_context import run_context as _run_context
     from .core._settings import settings

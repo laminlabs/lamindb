@@ -1,17 +1,7 @@
 # Changelog
 
-- ✨ Collection stage [PR](https://github.com/laminlabs/lamindb/pull/1521) [@Koncopd](https://github.com/Koncopd)
-- 🐛 Fix backed for non-increasing indices [PR](https://github.com/laminlabs/lamindb/pull/1520) [@Koncopd](https://github.com/Koncopd)
-- ✨ Improved functionality for directory artifacts [PR](https://github.com/laminlabs/lamindb/pull/1517) [@Koncopd](https://github.com/Koncopd)
-- Revamp the introduction page [PR](https://github.com/laminlabs/lamindb/pull/1514) [@Zethson](https://github.com/Zethson)
-- ♻️ Simplify nox build [PR](https://github.com/laminlabs/lamindb/pull/1519) [@Zethson](https://github.com/Zethson)
-- 👷 Switch to uv for CI [PR](https://github.com/laminlabs/lamindb/pull/1518) [@Zethson](https://github.com/Zethson)
-- ♻️ Refactor `ln.finish` for notebooks [PR](https://github.com/laminlabs/lamindb/pull/1516) [@falexwolf](https://github.com/falexwolf)
-- 🎨 Add standardization to validator [PR](https://github.com/laminlabs/lamindb/pull/1515) [@sunnyosun](https://github.com/sunnyosun)
-- 🎨 Fix validator [PR](https://github.com/laminlabs/lamindb/pull/1513) [@sunnyosun](https://github.com/sunnyosun)
-- 🔥 Remove unnecessary track code [PR](https://github.com/laminlabs/lamindb/pull/1512) [@sunnyosun](https://github.com/sunnyosun)
-- 📝 Refactor introduction [PR](https://github.com/laminlabs/lamindb/pull/1510) [@sunnyosun](https://github.com/sunnyosun)
-- 🏷️ Type the exception for udpate transform settings [PR](https://github.com/laminlabs/lamindb/pull/1509) [@falexwolf](https://github.com/falexwolf)
+- 🚚 Rename `validation.Validator` to `Validate.from_df` [PR](https://github.com/laminlabs/lamindb/pull/1524) [@sunnyosun](https://github.com/sunnyosun)
+
 
 ```{eval-rst}
 .. role:: small
@@ -20,9 +10,15 @@
 
 ## 0.69
 
+### 0.69.2 {small}`2024-03-26`
+
+- ✨ Stage collections [PR](https://github.com/laminlabs/lamindb/pull/1521) [@Koncopd](https://github.com/Koncopd)
+- ✨ Improve functionality for folder-like artifacts [PR](https://github.com/laminlabs/lamindb/pull/1517) [@Koncopd](https://github.com/Koncopd)
+- 📝 Improve the introduction page [PR](https://github.com/laminlabs/lamindb/pull/1510) [PR](https://github.com/laminlabs/lamindb/pull/1514) [@sunnyosun](https://github.com/sunnyosun) [@Zethson](https://github.com/Zethson)
+
 ### 0.69.1 {small}`2024-03-18`
 
-✨ Add `lamindb.validation` with the `Validator` class [PR](https://github.com/laminlabs/lamindb/pull/1508) [@sunnyosun](https://github.com/sunnyosun)
+✨ To try out, add `lamindb.validation` with the `Validator` class [PR](https://github.com/laminlabs/lamindb/pull/1508) [@sunnyosun](https://github.com/sunnyosun)
 
 ### 0.69.0 {small}`2024-03-17`
 

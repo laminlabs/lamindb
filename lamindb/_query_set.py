@@ -243,7 +243,7 @@ class QuerySet(models.QuerySet, CanValidate, IsTree):
         self, values: ListLike, field: Optional[Union[str, StrField]] = None, **kwargs
     ):
         """{}."""
-        from ._validate import _validate
+        from ._can_validate import _validate
 
         return _validate(cls=self, values=values, field=field, **kwargs)
 
@@ -252,7 +252,7 @@ class QuerySet(models.QuerySet, CanValidate, IsTree):
         self, values: ListLike, field: Optional[Union[str, StrField]] = None, **kwargs
     ):
         """{}."""
-        from ._validate import _inspect
+        from ._can_validate import _inspect
 
         return _inspect(cls=self, values=values, field=field, **kwargs)
 
@@ -261,7 +261,7 @@ class QuerySet(models.QuerySet, CanValidate, IsTree):
         self, values: Iterable, field: Optional[Union[str, StrField]] = None, **kwargs
     ):
         """{}."""
-        from ._validate import _standardize
+        from ._can_validate import _standardize
 
         return _standardize(cls=self, values=values, field=field, **kwargs)
 

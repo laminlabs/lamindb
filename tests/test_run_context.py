@@ -93,6 +93,6 @@ def test_sync_git_repo():
     transform = ln.Transform.filter(name="initialized.py").one()
     assert (
         transform.reference
-        == "https://github.com/laminlabs/lamin-cli/blob/e8d3055d46feeaad2a7c7b9bcc1a988a969ec2f5/tests/scripts/initialized.py"
+        == "https://github.com/laminlabs/lamin-cli/blob/4cdc95be949b64164683f586a7fa4ef56e7266be/tests/scripts/initialized.py"
     )
     assert transform.reference_type == "url"
