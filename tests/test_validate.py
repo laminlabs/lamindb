@@ -63,8 +63,8 @@ def test_validator(df, fields):
     df["cell_type"] = df["cell_type"].replace(
         {"cerebral pyramidal neuron": cell_types.cerebral_cortex_pyramidal_neuron.name}
     )
-    validator.register_labels("all")
-    validator.register_labels("donor", validated_only=False)
+    validator.update_registry("all")
+    validator.update_registry("donor", validated_only=False)
     validated = validator.validate()
     assert validated is True
 

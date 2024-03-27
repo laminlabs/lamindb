@@ -37,7 +37,7 @@ Home = "https://github.com/laminlabs/lamindb"
 
 [project.optional-dependencies]
 bionty = [
-    "bionty==0.42.3",
+    "bionty==0.42.4",
 ]
 aws = [
     "urllib3<2", # for botocore, TODO: check that really required
