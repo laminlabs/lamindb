@@ -1,5 +1,6 @@
 # Changelog
 
+- ♻️ Refactor google storage support [PR](https://github.com/laminlabs/lamindb/pull/1525) [@falexwolf](https://github.com/falexwolf)
 - 🚚 Rename register_labels to update_registry [PR](https://github.com/laminlabs/lamindb/pull/1526) [@sunnyosun](https://github.com/sunnyosun)
 - :sparkles: Remove a few linebreaks [PR](https://github.com/laminlabs/lamindb/pull/1522) [@Zethson](https://github.com/Zethson)
 - 🚚 Rename `validation.Validator` to `Validate.from_df` [PR](https://github.com/laminlabs/lamindb/pull/1524) [@sunnyosun](https://github.com/sunnyosun)
