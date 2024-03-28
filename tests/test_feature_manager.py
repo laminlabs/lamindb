@@ -106,8 +106,8 @@ def test_labels_add(adata):
     collection.features._add_from(artifact)
     assert set(collection.feature_sets.all()) == set(feature_sets)
 
-    collection.delete(permanent=True)
     collection.artifacts[0].delete(permanent=True, storage=True)
+    collection.delete(permanent=True)
     ln.Feature.filter().all().delete()
     ln.ULabel.filter().all().delete()
     ln.FeatureSet.filter().all().delete()
