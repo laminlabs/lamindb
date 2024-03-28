@@ -9,8 +9,6 @@ from lnschema_core.types import FieldAttr
 
 from lamindb._from_values import _print_values
 from lamindb._save import save as ln_save
-from lamindb.core._run_context import run_context
-from lamindb.core._settings import settings
 
 
 class ValidationError(ValueError):
@@ -75,6 +73,8 @@ class DataFrameAnnotator:
         verbosity: str = "hint",
         **kwargs,
     ) -> None:
+        from lamindb.core._settings import settings
+
         self._df = df
         self._fields = fields or {}
         self._feature_field = feature_field
@@ -188,6 +188,8 @@ class DataFrameAnnotator:
         Returns:
             A registered artifact record.
         """
+        from lamindb.core._settings import settings
+
         self._kwargs.update(kwargs)
         if not self._validated:
             raise ValidationError(
@@ -250,6 +252,8 @@ class DataFrameAnnotator:
 
     def clean_up_failed_runs(self):
         """Clean up previous failed runs that don't register any outputs."""
+        from lamindb.core._run_context import run_context
+
         if run_context.transform is not None:
             Run.filter(transform=run_context.transform, output_artifacts=None).exclude(
                 uid=run_context.run.uid
@@ -613,6 +617,8 @@ def update_registry(
         kwargs: Additional keyword arguments to pass to the registry model.
         df: A DataFrame to register labels from.
     """
+    from lamindb.core._settings import settings
+
     filter_kwargs = {} if kwargs is None else kwargs.copy()
     registry = field.field.model
     if registry == ULabel:
