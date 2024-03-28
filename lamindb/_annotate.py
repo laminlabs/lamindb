@@ -213,7 +213,7 @@ class DataFrameAnnotator:
 
     def register_collection(
         self,
-        artifact: Artifact | Iterable[Artifact],
+        artifact: Union[Artifact, Iterable[Artifact]],
         name: str,
         description: Optional[str] = None,
         reference: Optional[str] = None,
