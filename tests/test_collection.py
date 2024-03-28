@@ -62,7 +62,7 @@ def test_from_single_artifact(adata):
     )
     ln.save([feature for (feature, valid) in zip(features, validated) if valid])
     artifact = ln.Artifact.from_anndata(adata, description="My adata")
-    if artifact._state.adding:
+    if not artifact._state.adding:
         artifact.delete(permanent=True)  # make sure we get a fresh one
         artifact = ln.Artifact.from_anndata(adata, description="My adata")
     with pytest.raises(ValueError) as error:
