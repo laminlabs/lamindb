@@ -18,11 +18,11 @@ GROUPS["tutorial"] = [
     "introduction.ipynb",
     "tutorial.ipynb",
     "tutorial2.ipynb",
-]
-GROUPS["guide"] = [
     "data.ipynb",
     "meta.ipynb",
     "track.ipynb",
+]
+GROUPS["guide"] = [
     "annotate.ipynb",
     "can-validate.ipynb",
     "annotate-for-developers.ipynb",
