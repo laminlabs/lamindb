@@ -253,8 +253,7 @@ class FeatureManager:
         if isinstance(self._host, Artifact):
             assert self._host.accessor == "AnnData"
         else:
-            # Collection
-            assert self._host.artifact.accessor == "AnnData"
+            raise NotImplementedError()
 
         # parse and register features
         adata = self._host.load()
