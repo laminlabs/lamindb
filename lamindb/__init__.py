@@ -15,7 +15,7 @@ Registries:
    Feature
    FeatureSet
 
-Functions:
+Key functionality:
 
 .. autosummary::
    :toctree: .
@@ -23,6 +23,7 @@ Functions:
    connect
    track
    finish
+   Annotate
    view
    save
 
@@ -31,7 +32,7 @@ Modules & settings:
 .. autosummary::
    :toctree: .
 
-   Annotate
+   integrations
    settings
    setup
    UPath
