@@ -1,18 +1,14 @@
 # Changelog
 
-- 🚚 Rename Validate to Annotate [PR](https://github.com/laminlabs/lamindb/pull/1528) [@sunnyosun](https://github.com/sunnyosun)
-- ♻️ Refactor google storage support [PR](https://github.com/laminlabs/lamindb/pull/1525) [@falexwolf](https://github.com/falexwolf)
-- 🚚 Rename register_labels to update_registry [PR](https://github.com/laminlabs/lamindb/pull/1526) [@sunnyosun](https://github.com/sunnyosun)
-- :sparkles: Remove a few linebreaks [PR](https://github.com/laminlabs/lamindb/pull/1522) [@Zethson](https://github.com/Zethson)
-- 🚚 Rename `validation.Validator` to `Validate.from_df` [PR](https://github.com/laminlabs/lamindb/pull/1524) [@sunnyosun](https://github.com/sunnyosun)
-
-
 ```{eval-rst}
 .. role:: small
 ```
 
-
 ## 0.69
+
+### 0.69.3 {small}`2024-03-28`
+
+- ✨ Introduce annotation flow via `Annotate.from_df` and `Annotate.from_anndata` [PR 1](https://github.com/laminlabs/lamindb/pull/1524) [2](https://github.com/laminlabs/lamindb/pull/1526) [3](https://github.com/laminlabs/lamindb/pull/1528) [@sunnyosun](https://github.com/sunnyosun)
 
 ### 0.69.2 {small}`2024-03-26`
 
