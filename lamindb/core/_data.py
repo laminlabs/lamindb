@@ -36,9 +36,7 @@ from ._label_manager import LabelManager, print_labels
 from ._run_context import run_context
 from .exceptions import ValidationError
 
-WARNING_RUN_TRANSFORM = (
-    "no run & transform get linked, consider passing a `run` or calling ln.track()"
-)
+WARNING_RUN_TRANSFORM = "no run & transform get linked, consider calling ln.track()"
 
 
 def get_run(run: Optional[Run]) -> Optional[Run]:

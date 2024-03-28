@@ -88,6 +88,7 @@ if _check_instance_setup(from_lamindb=True):
     )
 
     dev = core  # backward compat
+    from . import integrations
     from ._annotate import Annotate
     from ._finish import finish
     from ._save import save
