@@ -19,7 +19,7 @@ class ValidationError(ValueError):
     pass
 
 
-class ValidatorLookup:
+class AnnotateLookup:
     """Lookup features and labels from the reference instance."""
 
     def __init__(
@@ -53,11 +53,11 @@ class ValidatorLookup:
             return colors.warning("No fields are found!")
 
 
-class DataFrameValidator:
-    """Validation flow for a DataFrame object.
+class DataFrameAnnotator:
+    """Annotation flow for a DataFrame object.
 
     Args:
-        df: The DataFrame object to validate.
+        df: The DataFrame object to annotate.
         fields: A dictionary mapping column to registry_field.
             For example:
             {"cell_type_ontology_id": bt.CellType.ontology_id, "donor_id": ln.ULabel.name}
@@ -91,7 +91,7 @@ class DataFrameValidator:
         """Return the columns fields to validate against."""
         return self._fields
 
-    def lookup(self, using: Optional[str] = None) -> ValidatorLookup:
+    def lookup(self, using: Optional[str] = None) -> AnnotateLookup:
         """Lookup features and labels.
 
         Args:
@@ -100,7 +100,7 @@ class DataFrameValidator:
                 if "public", the lookup is performed on the public reference.
         """
         fields = {**{"feature": self._feature_field}, **self.fields}
-        return ValidatorLookup(fields=fields, using=using or self._using)
+        return AnnotateLookup(fields=fields, using=using or self._using)
 
     def register_features(self, validated_only: bool = True) -> None:
         """Register features records."""
@@ -256,11 +256,11 @@ class DataFrameValidator:
             ).delete()
 
 
-class AnnDataValidator(DataFrameValidator):
-    """Lamin AnnData validator.
+class AnnDataAnnotator(DataFrameAnnotator):
+    """Annotation flow for an AnnData object.
 
     Args:
-        adata: The AnnData object to validate.
+        adata: The AnnData object to annotate.
         var_field: The registry field to validate variables index against.
         obs_fields: A dictionary mapping obs_column to registry_field.
             For example:
@@ -299,13 +299,13 @@ class AnnDataValidator(DataFrameValidator):
         """Return the obs fields to validate against."""
         return self._obs_fields
 
-    def lookup(self, using: Optional[str] = None) -> ValidatorLookup:
+    def lookup(self, using: Optional[str] = None) -> AnnotateLookup:
         """Lookup features and labels."""
         fields = {
             **{"feature": Feature.name, "variables": self.var_field},
             **self.obs_fields,
         }
-        return ValidatorLookup(fields=fields, using=using or self._using)
+        return AnnotateLookup(fields=fields, using=using or self._using)
 
     def _register_variables(self, validated_only: bool = True, **kwargs):
         """Register variable records."""
@@ -361,8 +361,8 @@ class AnnDataValidator(DataFrameValidator):
         return self._artifact
 
 
-class Validate:
-    """Validation flow."""
+class Annotate:
+    """Annotation flow."""
 
     @classmethod
     def from_df(
@@ -373,8 +373,8 @@ class Validate:
         using: Optional[str] = None,
         verbosity: str = "hint",
         **kwargs,
-    ) -> DataFrameValidator:
-        return DataFrameValidator(
+    ) -> DataFrameAnnotator:
+        return DataFrameAnnotator(
             df=df,
             fields=fields,
             feature_field=feature_field,
@@ -392,8 +392,8 @@ class Validate:
         using: str = "default",
         verbosity: str = "hint",
         **kwargs,
-    ) -> AnnDataValidator:
-        return AnnDataValidator(
+    ) -> AnnDataAnnotator:
+        return AnnDataAnnotator(
             adata=adata,
             var_field=var_field,
             obs_fields=obs_fields,
