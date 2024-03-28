@@ -108,8 +108,6 @@ def __init__(
         if name is None:
             name = is_new_version_of.name
     run = get_run(run)
-    artifact = None
-    artifacts = None
     if isinstance(data, Artifact):
         data = [data]
     else:
@@ -159,15 +157,12 @@ def __init__(
             visibility=visibility,
             **kwargs,
         )
-    collection._artifacts = artifacts
+    collection._artifacts = data
     collection._feature_sets = feature_sets
     # register provenance
     if is_new_version_of is not None:
         _track_run_input(is_new_version_of, run=run)
-    if artifact is not None and artifact.run != run:
-        _track_run_input(artifact, run=run)
-    elif artifacts is not None:
-        _track_run_input(artifacts, run=run)
+    _track_run_input(data, run=run)
 
 
 # internal function, not exposed to user
@@ -277,18 +272,6 @@ def stage(self, is_run_input: Optional[bool] = None) -> List[UPath]:
 
 
 # docstring handled through attach_func_to_class_method
-def backed(
-    self, is_run_input: Optional[bool] = None
-) -> Union["AnnDataAccessor", "BackedAccessor"]:
-    _track_run_input(self, is_run_input)
-    if self.artifact is None:
-        raise RuntimeError(
-            "Can only call backed() for collections with a single artifact"
-        )
-    return self.artifact.backed()
-
-
-# docstring handled through attach_func_to_class_method
 def load(
     self,
     join: Literal["inner", "outer"] = "outer",
@@ -296,29 +279,25 @@ def load(
     **kwargs,
 ) -> DataLike:
     # cannot call _track_run_input here, see comment further down
-    if self.artifact is not None:
-        _track_run_input(self, is_run_input)
-        return self.artifact.load()
-    else:
-        all_artifacts = self.artifacts.all()
-        suffixes = [artifact.suffix for artifact in all_artifacts]
-        if len(set(suffixes)) != 1:
-            raise RuntimeError(
-                "Can only load collections where all artifacts have the same suffix"
-            )
-        # because we're tracking data flow on the collection-level, here, we don't
-        # want to track it on the artifact-level
-        objects = [artifact.load(is_run_input=False) for artifact in all_artifacts]
-        artifact_uids = [artifact.uid for artifact in all_artifacts]
-        if isinstance(objects[0], pd.DataFrame):
-            concat_object = pd.concat(objects, join=join)
-        elif isinstance(objects[0], ad.AnnData):
-            concat_object = ad.concat(
-                objects, join=join, label="artifact_uid", keys=artifact_uids
-            )
-        # only call it here because there might be errors during concat
-        _track_run_input(self, is_run_input)
-        return concat_object
+    all_artifacts = self.artifacts.all()
+    suffixes = [artifact.suffix for artifact in all_artifacts]
+    if len(set(suffixes)) != 1:
+        raise RuntimeError(
+            "Can only load collections where all artifacts have the same suffix"
+        )
+    # because we're tracking data flow on the collection-level, here, we don't
+    # want to track it on the artifact-level
+    objects = [artifact.load(is_run_input=False) for artifact in all_artifacts]
+    artifact_uids = [artifact.uid for artifact in all_artifacts]
+    if isinstance(objects[0], pd.DataFrame):
+        concat_object = pd.concat(objects, join=join)
+    elif isinstance(objects[0], ad.AnnData):
+        concat_object = ad.concat(
+            objects, join=join, label="artifact_uid", keys=artifact_uids
+        )
+    # only call it here because there might be errors during concat
+    _track_run_input(self, is_run_input)
+    return concat_object
 
 
 # docstring handled through attach_func_to_class_method
@@ -389,7 +368,6 @@ METHOD_NAMES = [
     "__init__",
     "mapped",
     "stage",
-    "backed",
     "load",
     "delete",
     "save",

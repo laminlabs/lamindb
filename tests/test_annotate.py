@@ -87,4 +87,4 @@ def test_anndata_annotator(adata, fields):
         reference="E-MTAB-xxxxx",
         reference_type="ArrayExpress",
     )
-    assert collection.artifact == artifact
+    assert collection.artifacts[0] == artifact
