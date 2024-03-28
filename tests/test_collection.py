@@ -62,6 +62,8 @@ def test_from_single_artifact(adata):
     )
     ln.save([feature for (feature, valid) in zip(features, validated) if valid])
     artifact = ln.Artifact.from_anndata(adata, description="My adata")
+    artifact.delete(permanent=True)  # make sure we get a fresh one
+    artifact = ln.Artifact.from_anndata(adata, description="My adata")
     with pytest.raises(ValueError) as error:
         ln.Collection(artifact, name="Test")
     assert str(error.exconly()).startswith(
