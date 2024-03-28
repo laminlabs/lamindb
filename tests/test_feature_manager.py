@@ -141,8 +141,9 @@ def test_add_labels_using_anndata(adata):
 
     # try to construct without registering metadata features
     artifact = ln.Artifact.from_anndata(adata, description="Mini adata")
-    artifact.delete(permanent=True)  # make sure we get a fresh one
-    artifact = ln.Artifact.from_anndata(adata, description="Mini adata")
+    if artifact._state.adding:
+        artifact.delete(permanent=True)  # make sure we get a fresh one
+        artifact = ln.Artifact.from_anndata(adata, description="Mini adata")
     # add feature set without saving file
     feature_name_feature = ln.Feature(
         name="feature name", type="category", registries="core.ULabel"
