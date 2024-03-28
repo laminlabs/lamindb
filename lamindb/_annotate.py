@@ -7,7 +7,6 @@ from lamin_utils import colors, logger
 from lnschema_core import Artifact, Collection, Feature, Registry, Run, ULabel
 from lnschema_core.types import FieldAttr
 
-from lamindb._from_values import _print_values
 from lamindb._save import save as ln_save
 
 
@@ -447,6 +446,8 @@ def validate_categories(
     **kwargs,
 ) -> bool:
     """Validate ontology terms in a pandas series using LaminDB registries."""
+    from lamindb._from_values import _print_values
+
     model_field = f"{field.field.model.__name__}.{field.field.name}"
     logger.indent = ""
     logger.info(
