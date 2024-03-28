@@ -1,5 +1,6 @@
 # Changelog
 
+- ♻️ Refactor collections [PR](https://github.com/laminlabs/lamindb/pull/1531) [@falexwolf](https://github.com/falexwolf)
 ```{eval-rst}
 .. role:: small
 ```
