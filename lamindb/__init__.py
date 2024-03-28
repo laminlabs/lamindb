@@ -31,7 +31,7 @@ Modules & settings:
 .. autosummary::
    :toctree: .
 
-   Validate
+   Annotate
    settings
    setup
    UPath
@@ -71,6 +71,7 @@ if _check_instance_setup(from_lamindb=True):
     )
 
     from . import (
+        _annotate,
         _artifact,
         _can_validate,
         _collection,
@@ -83,14 +84,13 @@ if _check_instance_setup(from_lamindb=True):
         _storage,
         _transform,
         _ulabel,
-        _validate,
         core,
     )
 
     dev = core  # backward compat
+    from ._annotate import Annotate
     from ._finish import finish
     from ._save import save
-    from ._validate import Validate
     from ._view import view
     from .core._run_context import run_context as _run_context
     from .core._settings import settings
