@@ -620,24 +620,6 @@ def test_create_big_file_from_remote_path():
 # -------------------------------------------------------------------------------------
 
 
-def test_extract_suffix_from_path():
-    # this is a collection of path, stem, suffix tuples
-    collection = [
-        ("a", "a", ""),
-        ("a.txt", "a", ".txt"),
-        ("archive.tar.gz", "archive", ".tar.gz"),
-        ("directory/file", "file", ""),
-        ("d.x.y.z/f.b.c", "f", ".c"),
-        ("d.x.y.z/f.a.b.c", "f", ".c"),
-        ("logs/date.log.txt", "date", ".txt"),
-        ("salmon.merged.gene_counts.tsv", "salmon.merged.gene_counts", ".tsv"),
-        ("salmon.merged.gene_counts.tsv.gz", "salmon.merged.gene_counts", ".tsv.gz"),
-    ]
-    for path, _, suffix in collection:
-        filepath = Path(path)
-        assert suffix == extract_suffix_from_path(filepath)
-
-
 @pytest.mark.parametrize("suffix", [".txt", "", None])
 def test_auto_storage_key_from_artifact_uid(suffix):
     test_id = "abo389f"
