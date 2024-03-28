@@ -16,9 +16,10 @@ tutorial2
 setup
 query-search
 track
-can-validate
-bio-registries
 annotate
+can-validate
+annotate-for-developers
+bio-registries
 schemas
 transfer
 ```

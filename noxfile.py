@@ -18,16 +18,17 @@ GROUPS["tutorial"] = [
     "introduction.ipynb",
     "tutorial.ipynb",
     "tutorial2.ipynb",
+    "transfer.ipynb",
 ]
 GROUPS["guide"] = [
     "data.ipynb",
     "meta.ipynb",
     "track.ipynb",
-    "can-validate.ipynb",
     "annotate.ipynb",
+    "can-validate.ipynb",
+    "annotate-for-developers.ipynb",
     "schemas.ipynb",
     "setup.ipynb",
-    "transfer.ipynb",
 ]
 GROUPS["biology"] = [
     "bio-registries.ipynb",
