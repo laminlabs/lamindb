@@ -7,8 +7,6 @@ from lamin_utils import colors, logger
 from lnschema_core import Artifact, Collection, Feature, Registry, Run, ULabel
 from lnschema_core.types import FieldAttr
 
-from lamindb._save import save as ln_save
-
 
 class ValidationError(ValueError):
     """Validation error."""
@@ -618,6 +616,7 @@ def update_registry(
         kwargs: Additional keyword arguments to pass to the registry model.
         df: A DataFrame to register labels from.
     """
+    from lamindb._save import save as ln_save
     from lamindb.core._settings import settings
 
     filter_kwargs = {} if kwargs is None else kwargs.copy()
