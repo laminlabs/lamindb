@@ -54,33 +54,33 @@ def fields():
     }
 
 
-def test_validator(df, fields):
-    validator = ln.Validate.from_df(df, fields=fields)
-    validated = validator.validate()
+def test_annotator(df, fields):
+    annotate = ln.Annotate.from_df(df, fields=fields)
+    validated = annotate.validate()
     assert validated is False
 
-    cell_types = validator.lookup("public")["cell_type"]
+    cell_types = annotate.lookup("public")["cell_type"]
     df["cell_type"] = df["cell_type"].replace(
         {"cerebral pyramidal neuron": cell_types.cerebral_cortex_pyramidal_neuron.name}
     )
-    validator.update_registry("all")
-    validator.update_registry("donor", validated_only=False)
-    validated = validator.validate()
+    annotate.update_registry("all")
+    annotate.update_registry("donor", validated_only=False)
+    validated = annotate.validate()
     assert validated is True
 
 
-def test_anndata_validator(adata, fields):
-    validator = ln.Validate.from_anndata(
+def test_anndata_annotator(adata, fields):
+    annotate = ln.Annotate.from_anndata(
         adata,
         obs_fields=fields,
         var_field=bt.Gene.symbol,  # specify the field for the var
         organism="human",
     )
-    validated = validator.validate()
+    validated = annotate.validate()
     assert validated is True
 
-    artifact = validator.register_artifact(description="test AnnData")
-    collection = validator.register_collection(
+    artifact = annotate.register_artifact(description="test AnnData")
+    collection = annotate.register_collection(
         artifact,
         name="Experiment X in brain",
         description="10.1126/science.xxxxx",
