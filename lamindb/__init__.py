@@ -31,7 +31,7 @@ Modules & settings:
 .. autosummary::
    :toctree: .
 
-   Validate
+   Annotate
    settings
    setup
    UPath
