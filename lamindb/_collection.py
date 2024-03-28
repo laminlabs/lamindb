@@ -64,7 +64,7 @@ def __init__(
     # now we proceed with the user-facing constructor
     if len(args) > 1:
         raise ValueError("Only one non-keyword arg allowed: data")
-    data: Union[pd.DataFrame, ad.AnnData, Artifact, Iterable[Artifact]] = (
+    data: Union[Artifact, Iterable[Artifact]] = (
         kwargs.pop("data") if len(args) == 0 else args[0]
     )
     meta: Optional[str] = kwargs.pop("meta") if "meta" in kwargs else None
@@ -108,57 +108,26 @@ def __init__(
         if name is None:
             name = is_new_version_of.name
     run = get_run(run)
-    data_init_complete = False
     artifact = None
     artifacts = None
-    # now handle potential metadata
+    if isinstance(data, Artifact):
+        data = [data]
+    else:
+        if not hasattr(data, "__getitem__"):
+            raise ValueError("Artifact or List[Artifact] is allowed.")
+        assert isinstance(data[0], Artifact)  # type: ignore
+    hash, feature_sets = from_artifacts(data)  # type: ignore
     if meta is not None:
-        if not isinstance(meta, (pd.DataFrame, ad.AnnData, Artifact)):
-            raise ValueError(
-                "meta has to be of type `(pd.DataFrame, ad.AnnData, Artifact)`"
-            )
-        data = meta
-    # init artifact - is either data or metadata
-    if isinstance(data, (pd.DataFrame, ad.AnnData, Artifact)):
-        if isinstance(data, Artifact):
-            artifact = data
-            if artifact._state.adding:
-                raise ValueError("Save artifact before creating collection!")
+        if not isinstance(meta, Artifact):
+            raise ValueError("meta has to be an Artifact")
+        if isinstance(meta, Artifact):
+            if meta._state.adding:
+                raise ValueError("Save meta artifact before creating collection!")
             if not feature_sets:
-                feature_sets = artifact.features._feature_set_by_slot
+                feature_sets = meta.features._feature_set_by_slot
             else:
-                if len(artifact.features._feature_set_by_slot) > 0:
+                if len(meta.features._feature_set_by_slot) > 0:
                     logger.info("overwriting feature sets linked to artifact")
-        else:
-            artifact_is_new_version_of = (
-                is_new_version_of.artifact if is_new_version_of is not None else None
-            )
-            artifact = Artifact(
-                data,
-                run=run,
-                description="tmp",
-                version=version,
-                is_new_version_of=artifact_is_new_version_of,
-                accessor=accessor,
-            )
-            # do we really want to update the artifact here?
-            if feature_sets:
-                artifact._feature_sets = feature_sets
-        hash = artifact.hash  # type: ignore
-        provisional_uid = artifact.uid  # type: ignore
-        if artifact.description is None or artifact.description == "tmp":
-            artifact.description = f"See collection {provisional_uid}"  # type: ignore
-        data_init_complete = True
-    if not data_init_complete:
-        if hasattr(data, "__getitem__"):
-            assert isinstance(data[0], Artifact)  # type: ignore
-            artifacts = data
-            hash, feature_sets = from_artifacts(artifacts)  # type: ignore
-            data_init_complete = True
-        else:
-            raise ValueError(
-                "Only DataFrame, AnnData, Artifact or list of artifacts is allowed."
-            )
     # we ignore collections in trash containing the same hash
     if hash is not None:
         existing_collection = Collection.filter(hash=hash).one_or_none()
@@ -183,7 +152,7 @@ def __init__(
             description=description,
             reference=reference,
             reference_type=reference_type,
-            artifact=artifact,
+            artifact=meta,
             hash=hash,
             run=run,
             version=version,
@@ -199,72 +168,6 @@ def __init__(
         _track_run_input(artifact, run=run)
     elif artifacts is not None:
         _track_run_input(artifacts, run=run)
-
-
-@classmethod  # type: ignore
-@doc_args(Collection.from_df.__doc__)
-def from_df(
-    cls,
-    df: "pd.DataFrame",
-    name: Optional[str] = None,
-    description: Optional[str] = None,
-    run: Optional[Run] = None,
-    reference: Optional[str] = None,
-    reference_type: Optional[str] = None,
-    version: Optional[str] = None,
-    is_new_version_of: Optional["Artifact"] = None,
-    **kwargs,
-) -> "Collection":
-    """{}."""
-    if isinstance(df, Artifact):
-        assert not df._state.adding
-        assert df.accessor == "DataFrame"
-    collection = Collection(
-        data=df,
-        name=name,
-        run=run,
-        description=description,
-        reference=reference,
-        reference_type=reference_type,
-        version=version,
-        is_new_version_of=is_new_version_of,
-        accessor="DataFrame",
-        **kwargs,
-    )
-    return collection
-
-
-@classmethod  # type: ignore
-@doc_args(Collection.from_anndata.__doc__)
-def from_anndata(
-    cls,
-    adata: "AnnData",
-    name: Optional[str] = None,
-    description: Optional[str] = None,
-    run: Optional[Run] = None,
-    reference: Optional[str] = None,
-    reference_type: Optional[str] = None,
-    version: Optional[str] = None,
-    is_new_version_of: Optional["Artifact"] = None,
-    **kwargs,
-) -> "Collection":
-    """{}."""
-    if isinstance(adata, Artifact):
-        assert not adata._state.adding
-        assert adata.accessor == "AnnData"
-    collection = Collection(
-        data=adata,
-        run=run,
-        name=name,
-        description=description,
-        reference=reference,
-        reference_type=reference_type,
-        version=version,
-        is_new_version_of=is_new_version_of,
-        accessor="AnnData",
-        **kwargs,
-    )
-    return collection
 
 
 # internal function, not exposed to user
