@@ -387,8 +387,6 @@ def artifacts(self) -> QuerySet:
 
 METHOD_NAMES = [
     "__init__",
-    "from_anndata",
-    "from_df",
     "mapped",
     "stage",
     "backed",
