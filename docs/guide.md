@@ -16,6 +16,7 @@ tutorial2
 setup
 query-search
 track
+annotate
 can-validate
 annotate-for-developers
 bio-registries
