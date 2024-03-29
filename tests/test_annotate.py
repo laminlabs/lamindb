@@ -79,8 +79,8 @@ def test_anndata_annotator(adata, fields):
     validated = annotate.validate()
     assert validated is True
 
-    artifact = annotate.register_artifact(description="test AnnData")
-    collection = annotate.register_collection(
+    artifact = annotate.save_artifact(description="test AnnData")
+    collection = annotate.save_collection(
         artifact,
         name="Experiment X in brain",
         description="10.1126/science.xxxxx",

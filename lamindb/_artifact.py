@@ -7,7 +7,7 @@ import pandas as pd
 from anndata import AnnData
 from lamin_utils import colors, logger
 from lamindb_setup import settings as setup_settings
-from lamindb_setup._init_instance import register_storage
+from lamindb_setup._init_instance import save_storage
 from lamindb_setup.core import StorageSettings
 from lamindb_setup.core._docs import doc_args
 from lamindb_setup.core.hashing import b16_to_b64, hash_file, hash_md5s_from_dir
@@ -93,7 +93,7 @@ def process_pathlike(
                 new_root_str = new_root.as_posix().rstrip("/")
                 logger.warning(f"generating a new storage location at {new_root_str}")
                 storage_settings = StorageSettings(new_root_str)
-                storage_record = register_storage(storage_settings)
+                storage_record = save_storage(storage_settings)
                 use_existing_storage_key = True
                 return storage_record, use_existing_storage_key
             # if the filepath is local
