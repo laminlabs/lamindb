@@ -9,7 +9,7 @@ from lamindb._artifact import Artifact
 
 # tested in lamin-spatial
 # can't type vitessce_config because can't assume it's installed
-def register_vitessce_config(vitessce_config, description: str) -> Artifact:
+def save_vitessce_config(vitessce_config, description: str) -> Artifact:
     """Takes a ``VitessceConfig`` object and saves it as an artifact.
 
     Args:
