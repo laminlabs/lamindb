@@ -81,7 +81,7 @@ class DataFrameAnnotator:
         self._collection = None
         self._validated = False
         self._kwargs: Dict = kwargs
-        self.register_features()
+        self.save_features()
 
     @property
     def fields(self) -> Dict:
@@ -99,7 +99,7 @@ class DataFrameAnnotator:
         fields = {**{"feature": self._feature_field}, **self.fields}
         return AnnotateLookup(fields=fields, using=using or self._using)
 
-    def register_features(self, validated_only: bool = True) -> None:
+    def save_features(self, validated_only: bool = True) -> None:
         """Register features records."""
         missing_columns = set(self.fields.keys()) - set(self._df.columns)
         if missing_columns:
@@ -141,7 +141,7 @@ class DataFrameAnnotator:
         if feature == "all":
             self._update_registry_all(validated_only=validated_only, **kwargs)
         elif feature == "feature":
-            self.register_features(validated_only=validated_only)
+            self.save_features(validated_only=validated_only)
         else:
             if feature not in self.fields:
                 raise ValueError(f"Feature {feature} is not part of the fields!")
@@ -175,7 +175,7 @@ class DataFrameAnnotator:
         )
         return self._validated
 
-    def register_artifact(self, description: str, **kwargs) -> Artifact:
+    def save_artifact(self, description: str, **kwargs) -> Artifact:
         """Register the validated DataFrame and metadata.
 
         Args:
@@ -199,7 +199,7 @@ class DataFrameAnnotator:
             settings.verbosity = "warning"
             self.update_registry("all")
 
-            self._artifact = register_artifact(
+            self._artifact = save_artifact(
                 self._df,
                 description=description,
                 fields=self.fields,
@@ -211,7 +211,7 @@ class DataFrameAnnotator:
 
         return self._artifact
 
-    def register_collection(
+    def save_collection(
         self,
         artifact: Union[Artifact, Iterable[Artifact]],
         name: str,
@@ -288,7 +288,7 @@ class AnnDataAnnotator(DataFrameAnnotator):
             **kwargs,
         )
         self._obs_fields = obs_fields
-        self._register_variables()
+        self._save_variables()
 
     @property
     def var_field(self) -> FieldAttr:
@@ -308,7 +308,7 @@ class AnnDataAnnotator(DataFrameAnnotator):
         }
         return AnnotateLookup(fields=fields, using=using or self._using)
 
-    def _register_variables(self, validated_only: bool = True, **kwargs):
+    def _save_variables(self, validated_only: bool = True, **kwargs):
         """Register variable records."""
         self._kwargs.update(kwargs)
         update_registry(
@@ -334,11 +334,11 @@ class AnnDataAnnotator(DataFrameAnnotator):
     def update_registry(self, feature: str, validated_only: bool = True, **kwargs):
         """Register labels for a feature."""
         if feature == "variables":
-            self._register_variables(validated_only=validated_only, **kwargs)
+            self._save_variables(validated_only=validated_only, **kwargs)
         else:
             super().update_registry(feature, validated_only, **kwargs)
 
-    def register_artifact(self, description: str, **kwargs) -> Artifact:
+    def save_artifact(self, description: str, **kwargs) -> Artifact:
         """Register the validated AnnData and metadata.
 
         Args:
@@ -352,7 +352,7 @@ class AnnDataAnnotator(DataFrameAnnotator):
         if not self._validated:
             raise ValidationError("Please run `validate()` first!")
 
-        self._artifact = register_artifact(
+        self._artifact = save_artifact(
             self._adata,
             description=description,
             feature_field=self.var_field,
@@ -536,7 +536,7 @@ def validate_anndata(
     return validated_var and validated_obs
 
 
-def register_artifact(
+def save_artifact(
     data: Union[pd.DataFrame, ad.AnnData],
     description: str,
     fields: Dict[str, FieldAttr],
@@ -669,7 +669,7 @@ def update_registry(
                 non_validated_records = Feature.from_df(df)
             else:
                 if "organism" in filter_kwargs:
-                    filter_kwargs["organism"] = _register_organism(name=organism)
+                    filter_kwargs["organism"] = _save_organism(name=organism)
                 for value in labels_registered["without reference"]:
                     filter_kwargs[field.field.name] = value
                     if registry == Feature:
@@ -678,7 +678,7 @@ def update_registry(
             ln_save(non_validated_records)
 
         if registry == ULabel and field.field.name == "name":
-            register_ulabels_with_parent(values, field=field, feature_name=feature_name)
+            save_ulabels_with_parent(values, field=field, feature_name=feature_name)
     finally:
         settings.verbosity = verbosity
 
@@ -710,7 +710,7 @@ def log_registered_labels(
             lookup_print = f".lookup().['{feature_name}']"
             msg += f"\n      → to lookup categories, use {lookup_print}"
             msg += (
-                f"\n      → to register, run {colors.yellow('register_features(validated_only=False)')}"
+                f"\n      → to register, run {colors.yellow('save_features(validated_only=False)')}"
                 if labels_type == "features"
                 else f"\n      → to register, set {colors.yellow('validated_only=False')}"
             )
@@ -722,7 +722,7 @@ def log_registered_labels(
             )
 
 
-def register_ulabels_with_parent(
+def save_ulabels_with_parent(
     values: List[str], field: FieldAttr, feature_name: str
 ) -> None:
     """Register a parent label for the given labels."""
@@ -774,7 +774,7 @@ def update_registry_from_using_instance(
     return labels_registered, not_registered
 
 
-def _register_organism(name: str):
+def _save_organism(name: str):
     """Register an organism record."""
     import bionty as bt
 
