@@ -1,5 +1,6 @@
 # Changelog
 
+- ♻️ Add vitessce integration [PR](https://github.com/laminlabs/lamindb/pull/1532) [@falexwolf](https://github.com/falexwolf)
 - ♻️ Refactor collections [PR](https://github.com/laminlabs/lamindb/pull/1531) [@falexwolf](https://github.com/falexwolf)
 ```{eval-rst}
 .. role:: small
