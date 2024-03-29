@@ -15,7 +15,7 @@ Registries:
    Feature
    FeatureSet
 
-Functions:
+Key functionality:
 
 .. autosummary::
    :toctree: .
@@ -23,6 +23,7 @@ Functions:
    connect
    track
    finish
+   Annotate
    view
    save
 
@@ -31,7 +32,7 @@ Modules & settings:
 .. autosummary::
    :toctree: .
 
-   Annotate
+   integrations
    settings
    setup
    UPath
@@ -88,6 +89,7 @@ if _check_instance_setup(from_lamindb=True):
     )
 
     dev = core  # backward compat
+    from . import integrations
     from ._annotate import Annotate
     from ._finish import finish
     from ._save import save
