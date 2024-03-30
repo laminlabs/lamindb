@@ -258,15 +258,15 @@ class DataFrameAnnotator:
 
 
 class AnnDataAnnotator(DataFrameAnnotator):
-    """Annotation flow for an AnnData object.
+    """Annotation flow for an ``AnnData`` object.
 
     Args:
         adata: The AnnData object to annotate.
-        var_field: The registry field to validate variables index against.
-        obs_fields: A dictionary mapping obs_column to registry_field.
+        var_field: The registry field for mapping the ``.var`` index.
+        obs_fields: A dictionary mapping ``.obs.columns`` to a registry field.
             For example:
-            {"cell_type_ontology_id": bt.CellType.ontology_id, "donor_id": ln.ULabel.name}
-        using: The reference instance containing registries to validate against.
+            ``{"cell_type_ontology_id": bt.CellType.ontology_id, "donor_id": ln.ULabel.name}``
+        using: A reference LaminDB instance.
     """
 
     def __init__(
@@ -321,7 +321,7 @@ class AnnDataAnnotator(DataFrameAnnotator):
         )
 
     def validate(self, **kwargs) -> bool:
-        """Validate variables and categorical observations."""
+        """Validate categories."""
         self._kwargs.update(kwargs)
         self._validated = validate_anndata(
             self._adata,
@@ -332,7 +332,7 @@ class AnnDataAnnotator(DataFrameAnnotator):
         return self._validated
 
     def update_registry(self, feature: str, validated_only: bool = True, **kwargs):
-        """Register labels for a feature."""
+        """Save labels for a feature."""
         if feature == "variables":
             self._save_variables(validated_only=validated_only, **kwargs)
         else:
@@ -475,7 +475,7 @@ def validate_categories(
 
     n_non_validated = len(non_validated)
     if n_non_validated == 0:
-        logger.success(f"all {feature_name}s are validated")
+        logger.success(f"{feature_name} validated")
         return True
     else:
         are = "are" if n_non_validated > 1 else "is"
