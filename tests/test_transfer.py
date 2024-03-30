@@ -84,5 +84,5 @@ def test_transfer_from_remote_to_local():
     ln.Feature.filter().delete()
     ln.FeatureSet.filter().delete()
     ln.Run.filter().delete()
-    # ln.Transform.filter().delete()
+    ln.Transform.filter().delete()
     ln.Artifact.filter().delete()
