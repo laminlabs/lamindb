@@ -1,5 +1,6 @@
 # Changelog
 
+- ♻️ Language in the validate, standardize, annotate flow [PR](https://github.com/laminlabs/lamindb/pull/1535) [@falexwolf](https://github.com/falexwolf)
 ```{eval-rst}
 .. role:: small
 ```
