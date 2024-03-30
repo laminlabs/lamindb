@@ -100,7 +100,7 @@ class DataFrameAnnotator:
         return AnnotateLookup(fields=fields, using=using or self._using)
 
     def save_features(self, validated_only: bool = True) -> None:
-        """Register features records."""
+        """Save features records."""
         missing_columns = set(self.fields.keys()) - set(self._df.columns)
         if missing_columns:
             raise ValueError(
@@ -117,7 +117,7 @@ class DataFrameAnnotator:
             kwargs=self._kwargs,
         )
 
-        # Register the rest of the columns based on validated_only
+        # Save the rest of the columns based on validated_only
         additional_columns = set(self._df.columns) - set(self.fields.keys())
         if additional_columns:
             update_registry(
@@ -131,7 +131,7 @@ class DataFrameAnnotator:
             )
 
     def update_registry(self, feature: str, validated_only: bool = True, **kwargs):
-        """Register labels for a feature.
+        """Save labels for a feature.
 
         Args:
             feature: The name of the feature to save.
@@ -155,7 +155,7 @@ class DataFrameAnnotator:
             )
 
     def _update_registry_all(self, validated_only: bool = True, **kwargs):
-        """Register labels for all features."""
+        """Save labels for all features."""
         for name in self.fields.keys():
             logger.info(f"saving labels for '{name}'")
             self.update_registry(feature=name, validated_only=validated_only, **kwargs)
@@ -176,7 +176,7 @@ class DataFrameAnnotator:
         return self._validated
 
     def save_artifact(self, description: str, **kwargs) -> Artifact:
-        """Register the validated DataFrame and metadata.
+        """Save the validated DataFrame and metadata.
 
         Args:
             description: Description of the DataFrame object.
@@ -219,7 +219,7 @@ class DataFrameAnnotator:
         reference: Optional[str] = None,
         reference_type: Optional[str] = None,
     ) -> Collection:
-        """Register a collection from artifact/artifacts.
+        """Save a collection from artifact/artifacts.
 
         Args:
             artifact: One or several saved Artifacts.
@@ -309,7 +309,7 @@ class AnnDataAnnotator(DataFrameAnnotator):
         return AnnotateLookup(fields=fields, using=using or self._using)
 
     def _save_variables(self, validated_only: bool = True, **kwargs):
-        """Register variable records."""
+        """Save variable records."""
         self._kwargs.update(kwargs)
         update_registry(
             values=self._adata.var_names,
@@ -332,14 +332,14 @@ class AnnDataAnnotator(DataFrameAnnotator):
         return self._validated
 
     def update_registry(self, feature: str, validated_only: bool = True, **kwargs):
-        """Save labels for a feature."""
+        """Save categories."""
         if feature == "variables":
             self._save_variables(validated_only=validated_only, **kwargs)
         else:
             super().update_registry(feature, validated_only, **kwargs)
 
     def save_artifact(self, description: str, **kwargs) -> Artifact:
-        """Register the validated AnnData and metadata.
+        """Save the validated AnnData and metadata.
 
         Args:
             description: Description of the AnnData object.
@@ -543,7 +543,7 @@ def save_artifact(
     feature_field: FieldAttr,
     **kwargs,
 ) -> Artifact:
-    """Register all metadata with an Artifact.
+    """Save all metadata with an Artifact.
 
     Args:
         data: The DataFrame or AnnData object to save.
@@ -591,7 +591,7 @@ def save_artifact(
     slug = ln_setup.settings.instance.slug
     logger.success(f"saved artifact in {colors.italic(slug)}")
     if ln_setup.settings.instance.is_remote:
-        logger.info(f"🔗 https://lamin.ai/{slug}/artifact/{artifact.uid}")
+        logger.info(f"go to https://lamin.ai/{slug}/artifact/{artifact.uid}")
 
     return artifact
 
@@ -605,7 +605,7 @@ def update_registry(
     kwargs: Optional[Dict] = None,
     df: Optional[pd.DataFrame] = None,
 ) -> None:
-    """Register features or labels records in the default instance from the using instance.
+    """Save features or labels records in the default instance from the using instance.
 
     Args:
         values: A list of values to be saved as labels.
@@ -717,15 +717,17 @@ def log_saved_labels(
             logger.warning(msg)
         else:
             key = "" if key == "without reference" else f"{colors.green(key)} "
+            # the term "transferred" stresses that this is always in the context of transferring
+            # labels from a public ontology or a different instance to the present instance
             logger.success(
-                f"saved {len(labels)} {labels_type} {key}with {model_field}: {labels}"
+                f"transferred {len(labels)} {labels_type} {key}with {model_field}: {labels}"
             )
 
 
 def save_ulabels_with_parent(
     values: List[str], field: FieldAttr, feature_name: str
 ) -> None:
-    """Register a parent label for the given labels."""
+    """Save a parent label for the given labels."""
     registry = field.field.model
     assert registry == ULabel
     all_records = registry.from_values(values, field=field)
@@ -742,7 +744,7 @@ def update_registry_from_using_instance(
     using: Optional[str] = None,
     kwargs: Optional[Dict] = None,
 ) -> Tuple[List[str], List[str]]:
-    """Register features or labels records from the using instance.
+    """Save features or labels records from the using instance.
 
     Args:
         values: A list of values to be saved as labels.
@@ -775,7 +777,7 @@ def update_registry_from_using_instance(
 
 
 def _save_organism(name: str):
-    """Register an organism record."""
+    """Save an organism record."""
     import bionty as bt
 
     organism = bt.Organism.filter(name=name).one_or_none()
