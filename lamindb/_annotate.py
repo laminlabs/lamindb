@@ -41,7 +41,7 @@ class AnnotateLookup:
             fields = "\n ".join([str([key]) for key in self._fields.keys()])
             return (
                 f"Lookup objects from the {colors.italic(self._using_name)}:\n {colors.green(fields)}\n\n"
-                "Example:\n    → categories = validator.lookup().['cell_type']\n"
+                "Example:\n    → categories = validator.lookup()['cell_type']\n"
                 "    → categories.alveolar_type_1_fibroblast_cell"
             )
         else:
@@ -449,7 +449,7 @@ def validate_categories(
     model_field = f"{field.field.model.__name__}.{field.field.name}"
     logger.indent = ""
     logger.info(
-        f"inspecting '{colors.bold(feature_name)}' by {colors.italic(model_field)}"
+        f"mapping '{colors.bold(feature_name)}' on {colors.italic(model_field)}"
     )
     logger.indent = "   "
 
@@ -589,10 +589,8 @@ def save_artifact(
         artifact.labels.add(labels, feature)
 
     slug = ln_setup.settings.instance.slug
-    logger.success(f"saved artifact in {colors.italic(slug)}")
     if ln_setup.settings.instance.is_remote:
-        logger.info(f"go to https://lamin.ai/{slug}/artifact/{artifact.uid}")
-
+        logger.important(f"go to https://lamin.ai/{slug}/artifact/{artifact.uid}")
     return artifact
 
 
