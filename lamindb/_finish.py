@@ -8,6 +8,7 @@ from typing import Optional
 import lamindb_setup as ln_setup
 from lamin_utils import logger
 from lnschema_core import Run, Transform
+from lnschema_core.types import TransformType
 
 from ._query_set import QuerySet
 from .core._run_context import is_run_from_ipython, run_context
@@ -69,7 +70,7 @@ def save_run_context_core(
 
     ln.settings.verbosity = "success"
 
-    if transform.type == "notebook":
+    if transform.type == TransformType.notebook:
         try:
             import nbstripout
             from nbproject.dev import (
@@ -187,7 +188,7 @@ def save_run_context_core(
         run.environment = artifact
         logger.success(f"saved run.environment: {run.environment}")
     # save report file
-    if not transform.type == "notebook":
+    if not transform.type == TransformType.notebook:
         run.save()
     else:
         if run.report_id is not None:
@@ -212,7 +213,7 @@ def save_run_context_core(
         run.save()
         transform.latest_report = run.report
     transform.save()
-    if transform.type == "notebook":
+    if transform.type == TransformType.notebook:
         logger.success(f"saved transform.latest_report: {transform.latest_report}")
     identifier = ln_setup.settings.instance.slug
     logger.success(f"go to: https://lamin.ai/{identifier}/transform/{transform.uid}")
