@@ -107,7 +107,7 @@ class DataFrameAnnotator:
                 f"Columns {missing_columns} are not found in the data object!"
             )
 
-        # Always register features specified as the fields keys
+        # Always save features specified as the fields keys
         update_registry(
             values=list(self.fields.keys()),
             field=self._feature_field,
@@ -134,8 +134,8 @@ class DataFrameAnnotator:
         """Register labels for a feature.
 
         Args:
-            feature: The name of the feature to register.
-            validated_only: Whether to register only validated labels.
+            feature: The name of the feature to save.
+            validated_only: Whether to save only validated labels.
             **kwargs: Additional keyword arguments.
         """
         if feature == "all":
@@ -157,7 +157,7 @@ class DataFrameAnnotator:
     def _update_registry_all(self, validated_only: bool = True, **kwargs):
         """Register labels for all features."""
         for name in self.fields.keys():
-            logger.info(f"registering labels for '{name}'")
+            logger.info(f"saving labels for '{name}'")
             self.update_registry(feature=name, validated_only=validated_only, **kwargs)
 
     def validate(self, **kwargs) -> bool:
@@ -183,7 +183,7 @@ class DataFrameAnnotator:
             **kwargs: Object level metadata.
 
         Returns:
-            A registered artifact record.
+            A saved artifact record.
         """
         from lamindb.core._settings import settings
 
@@ -193,7 +193,7 @@ class DataFrameAnnotator:
                 f"Data object is not validated, please run {colors.yellow('validate()')}!"
             )
 
-        # Make sure all labels are registered in the current instance
+        # Make sure all labels are saved in the current instance
         verbosity = settings.verbosity
         try:
             settings.verbosity = "warning"
@@ -222,7 +222,7 @@ class DataFrameAnnotator:
         """Register a collection from artifact/artifacts.
 
         Args:
-            artifact: One or several registered Artifacts.
+            artifact: One or several saved Artifacts.
             name: Title of the publication.
             description: Description of the publication.
             reference: Accession number (e.g. GSE#, E-MTAB#, etc.).
@@ -238,7 +238,7 @@ class DataFrameAnnotator:
         slug = ln_setup.settings.instance.slug
         if collection._state.adding:
             collection.save()
-            logger.success(f"registered collection in {colors.italic(slug)}")
+            logger.success(f"saved collection in {colors.italic(slug)}")
         else:
             collection.save()
             logger.warning(f"collection already exists in {colors.italic(slug)}!")
@@ -248,7 +248,7 @@ class DataFrameAnnotator:
         return collection
 
     def clean_up_failed_runs(self):
-        """Clean up previous failed runs that don't register any outputs."""
+        """Clean up previous failed runs that don't save any outputs."""
         from lamindb.core._run_context import run_context
 
         if run_context.transform is not None:
@@ -346,7 +346,7 @@ class AnnDataAnnotator(DataFrameAnnotator):
             **kwargs: Object level metadata.
 
         Returns:
-            A registered artifact record.
+            A saved artifact record.
         """
         self._kwargs.update(kwargs)
         if not self._validated:
@@ -483,7 +483,7 @@ def validate_categories(
         feature_name_print = f".update_registry('{feature_name}')"
         warning_message = (
             f"{colors.yellow(f'{n_non_validated} terms')} {are} not validated: "
-            f"{colors.yellow(print_values)}\n      → register terms via "
+            f"{colors.yellow(print_values)}\n      → save terms via "
             f"{colors.yellow(feature_name_print)}"
         )
         logger.warning(warning_message)
@@ -546,14 +546,14 @@ def save_artifact(
     """Register all metadata with an Artifact.
 
     Args:
-        data: The DataFrame or AnnData object to register.
+        data: The DataFrame or AnnData object to save.
         description: A description of the artifact.
         fields: A dictionary mapping obs_column to registry_field.
         feature_field: The registry field to validate variables index against.
         kwargs: Additional keyword arguments to pass to the registry model.
 
     Returns:
-        The registered Artifact.
+        The saved Artifact.
     """
     if isinstance(data, ad.AnnData):
         artifact = Artifact.from_anndata(data, description=description)
@@ -589,7 +589,7 @@ def save_artifact(
         artifact.labels.add(labels, feature)
 
     slug = ln_setup.settings.instance.slug
-    logger.success(f"registered artifact in {colors.italic(slug)}")
+    logger.success(f"saved artifact in {colors.italic(slug)}")
     if ln_setup.settings.instance.is_remote:
         logger.info(f"🔗 https://lamin.ai/{slug}/artifact/{artifact.uid}")
 
@@ -608,13 +608,13 @@ def update_registry(
     """Register features or labels records in the default instance from the using instance.
 
     Args:
-        values: A list of values to be registered as labels.
-        field: The FieldAttr object representing the field for which labels are being registered.
-        feature_name: The name of the feature to register.
+        values: A list of values to be saved as labels.
+        field: The FieldAttr object representing the field for which labels are being saved.
+        feature_name: The name of the feature to save.
         using: The name of the instance from which to transfer labels (if applicable).
-        validated_only: If True, only register validated labels.
+        validated_only: If True, only save validated labels.
         kwargs: Additional keyword arguments to pass to the registry model.
-        df: A DataFrame to register labels from.
+        df: A DataFrame to save labels from.
     """
     from lamindb._save import save as ln_save
     from lamindb.core._settings import settings
@@ -638,10 +638,10 @@ def update_registry(
             settings.verbosity = verbosity
             return
 
-        labels_registered: Dict = {"from public": [], "without reference": []}
+        labels_saved: Dict = {"from public": [], "without reference": []}
 
         (
-            labels_registered[f"from {using}"],
+            labels_saved[f"from {using}"],
             non_validated_labels,
         ) = update_registry_from_using_instance(
             inspect_result_current.non_validated,
@@ -656,11 +656,11 @@ def update_registry(
             else []
         )
         ln_save(public_records)
-        labels_registered["from public"] = [
+        labels_saved["from public"] = [
             getattr(r, field.field.name) for r in public_records
         ]
-        labels_registered["without reference"] = [
-            i for i in non_validated_labels if i not in labels_registered["from public"]
+        labels_saved["without reference"] = [
+            i for i in non_validated_labels if i not in labels_saved["from public"]
         ]
 
         if not validated_only:
@@ -670,7 +670,7 @@ def update_registry(
             else:
                 if "organism" in filter_kwargs:
                     filter_kwargs["organism"] = _save_organism(name=organism)
-                for value in labels_registered["without reference"]:
+                for value in labels_saved["without reference"]:
                     filter_kwargs[field.field.name] = value
                     if registry == Feature:
                         filter_kwargs["type"] = "category"
@@ -682,43 +682,43 @@ def update_registry(
     finally:
         settings.verbosity = verbosity
 
-    log_registered_labels(
-        labels_registered,
+    log_saved_labels(
+        labels_saved,
         feature_name=feature_name,
         model_field=f"{registry.__name__}.{field.field.name}",
         validated_only=validated_only,
     )
 
 
-def log_registered_labels(
-    labels_registered: Dict,
+def log_saved_labels(
+    labels_saved: Dict,
     feature_name: str,
     model_field: str,
     validated_only: bool = True,
 ) -> None:
-    """Log the registered labels."""
+    """Log the saved labels."""
     labels_type = "features" if feature_name == "feature" else "labels"
     model_field = colors.italic(model_field)
-    for key, labels in labels_registered.items():
+    for key, labels in labels_saved.items():
         if not labels:
             continue
 
         if key == "without reference" and validated_only:
             msg = colors.yellow(
-                f"{len(labels)} non-validated {labels_type} are not registered with {model_field}: {labels}!"
+                f"{len(labels)} non-validated categories are not saved in {model_field}: {labels}!"
             )
             lookup_print = f".lookup().['{feature_name}']"
             msg += f"\n      → to lookup categories, use {lookup_print}"
             msg += (
-                f"\n      → to register, run {colors.yellow('save_features(validated_only=False)')}"
+                f"\n      → to save, run {colors.yellow('save_features(validated_only=False)')}"
                 if labels_type == "features"
-                else f"\n      → to register, set {colors.yellow('validated_only=False')}"
+                else f"\n      → to save, set {colors.yellow('validated_only=False')}"
             )
             logger.warning(msg)
         else:
             key = "" if key == "without reference" else f"{colors.green(key)} "
             logger.success(
-                f"registered {len(labels)} {labels_type} {key}with {model_field}: {labels}"
+                f"saved {len(labels)} {labels_type} {key}with {model_field}: {labels}"
             )
 
 
@@ -745,17 +745,17 @@ def update_registry_from_using_instance(
     """Register features or labels records from the using instance.
 
     Args:
-        values: A list of values to be registered as labels.
-        field: The FieldAttr object representing the field for which labels are being registered.
+        values: A list of values to be saved as labels.
+        field: The FieldAttr object representing the field for which labels are being saved.
         using: The name of the instance from which to transfer labels (if applicable).
         kwargs: Additional keyword arguments to pass to the registry model.
 
     Returns:
-        A tuple containing the list of registered labels and the list of non-registered labels.
+        A tuple containing the list of saved labels and the list of non-saved labels.
     """
     kwargs = kwargs or {}
-    labels_registered = []
-    not_registered = values
+    labels_saved = []
+    not_saved = values
 
     if using is not None and using != "default":
         registry = field.field.model
@@ -768,10 +768,10 @@ def update_registry_from_using_instance(
         ).all()
         for label_using in labels_using:
             label_using.save()
-            labels_registered.append(getattr(label_using, field.field.name))
-        not_registered = inspect_result_using.non_validated
+            labels_saved.append(getattr(label_using, field.field.name))
+        not_saved = inspect_result_using.non_validated
 
-    return labels_registered, not_registered
+    return labels_saved, not_saved
 
 
 def _save_organism(name: str):
@@ -784,7 +784,7 @@ def _save_organism(name: str):
         if organism is None:
             raise ValueError(
                 f"Organism '{name}' not found\n"
-                f"      → please register it: bt.Organism(name='{name}').save()"
+                f"      → please save it: bt.Organism(name='{name}').save()"
             )
         organism.save()
     return organism
