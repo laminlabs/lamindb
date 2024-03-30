@@ -1,13 +1,15 @@
 # Changelog
 
-- 🚚 Rename `register_` to `save_` [PR](https://github.com/laminlabs/lamindb/pull/1534) [@falexwolf](https://github.com/falexwolf)
-- ♻️ Add vitessce integration [PR](https://github.com/laminlabs/lamindb/pull/1532) [@falexwolf](https://github.com/falexwolf)
-- ♻️ Refactor collections [PR](https://github.com/laminlabs/lamindb/pull/1531) [@falexwolf](https://github.com/falexwolf)
 ```{eval-rst}
 .. role:: small
 ```
 
 ## 0.69
+
+### 0.69.4 {small}`2024-03-30`
+
+- ♻️ Add Vitessce integration [PR](https://github.com/laminlabs/lamindb/pull/1532) [@falexwolf](https://github.com/falexwolf)
+- ♻️ Refactor collections [PR](https://github.com/laminlabs/lamindb/pull/1531) [@falexwolf](https://github.com/falexwolf)
 
 ### 0.69.3 {small}`2024-03-28`
 
