@@ -55,14 +55,14 @@ def test_from_values_organism():
 
     settings.organism = "human"
     values = ["ABC1"]
-    curated_values = Gene.public().standardize(values)
-    records = Gene.from_values(curated_values, Gene.symbol)
+    standardized_values = Gene.public().standardize(values)
+    records = Gene.from_values(standardized_values, Gene.symbol)
     assert records[0].ensembl_gene_id == "ENSG00000068097"
 
     settings.organism = "mouse"
     values = ["ABC1"]
-    curated_values = Gene.public().standardize(values)
-    records = Gene.from_values(curated_values, Gene.symbol)
+    standardized_values = Gene.public().standardize(values)
+    records = Gene.from_values(standardized_values, Gene.symbol)
     assert records[0].ensembl_gene_id == "ENSMUSG00000015243"
 
 
