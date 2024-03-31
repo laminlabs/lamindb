@@ -15,15 +15,33 @@ class ValidationError(ValueError):
 
 
 class AnnotateLookup:
-    """Lookup features and labels from the reference instance."""
+    """Lookup categories from the reference instance."""
 
     def __init__(
-        self, fields: Dict[str, FieldAttr], using: Optional[str] = None
+        self,
+        categorials: Dict[str, FieldAttr],
+        slots: Dict[str, FieldAttr] = None,
+        using: Optional[str] = None,
     ) -> None:
-        self._fields = fields
+        if slots is None:
+            slots = {}
+        self._fields = categorials
+        self._slots = slots
         self._using = None if using == "default" else using
-        self._using_name = using or ln_setup.settings.instance.slug
-        logger.debug(f"Lookup objects from the {colors.italic(self._using_name)}")
+        self._using_name = self._using or ln_setup.settings.instance.slug
+        debug_message = f"Lookup objects from the " f"{colors.italic(self._using_name)}"
+        logger.debug(debug_message)
+
+    def __getattr__(self, name):
+        if name in self._slots:
+            registry = self._slots[name].field.model
+            if self._using == "public":
+                return registry.public().lookup()
+            else:
+                return get_registry_instance(registry, self._using).lookup()
+        raise AttributeError(
+            f"'{self.__class__.__name__}' object has no attribute '{name}'"
+        )
 
     def __getitem__(self, name):
         if name in self._fields:
@@ -38,9 +56,12 @@ class AnnotateLookup:
 
     def __repr__(self) -> str:
         if len(self._fields) > 0:
-            fields = "\n ".join([str([key]) for key in self._fields.keys()])
+            fields_print = "\n ".join([str([key]) for key in self._fields.keys()])
+            slots_print = "\n ".join([f".{key}" for key in self._slots.keys()])
             return (
-                f"Lookup objects from the {colors.italic(self._using_name)}:\n {colors.green(fields)}\n\n"
+                f"Lookup objects from the {colors.italic(self._using_name)}:\n "
+                f"{colors.green(slots_print)}\n "
+                f"{colors.green(fields_print)}\n\n"
                 "Example:\n    → categories = validator.lookup()['cell_type']\n"
                 "    → categories.alveolar_type_1_fibroblast_cell"
             )
@@ -96,8 +117,11 @@ class DataFrameAnnotator:
                 if None (default), the lookup is performed on the instance specified in "using" parameter of the validator.
                 if "public", the lookup is performed on the public reference.
         """
-        fields = {**{"feature": self._columns_field}, **self.fields}
-        return AnnotateLookup(fields=fields, using=using or self._using)
+        return AnnotateLookup(
+            categorials=self._columns_field,
+            slots={"columns": self._columns_field},
+            using=using or self._using,
+        )
 
     def _save_columns(self, validated_only: bool = True) -> None:
         """Save column name records."""
@@ -319,11 +343,11 @@ class AnnDataAnnotator(DataFrameAnnotator):
 
     def lookup(self, using: Optional[str] = None) -> AnnotateLookup:
         """Lookup features and labels."""
-        fields = {
-            **{"feature": Feature.name, "variables": self.var_index},
-            **self.categoricals,
-        }
-        return AnnotateLookup(fields=fields, using=using or self._using)
+        return AnnotateLookup(
+            categorials=self._obs_fields,
+            slots={"columns": self._columns_field, "var_index": self._var_field},
+            using=using or self._using,
+        )
 
     def _save_from_var_index(self, validated_only: bool = True, **kwargs):
         """Save variable records."""
@@ -506,7 +530,7 @@ def validate_categories(
     if n_validated > 0:
         logger.warning(
             f"found {colors.yellow(f'{n_validated} terms')} validated terms: "
-            f"{colors.yellow(n_validated)}\n      → save terms via "
+            f"{colors.yellow(values_validated)}\n      → save terms via "
             f"{colors.yellow(validated_hint_print)}"
         )
 
