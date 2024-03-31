@@ -130,14 +130,25 @@ class DataFrameAnnotator:
                 kwargs=self._kwargs,
             )
 
-    def update_registry(self, categorical: str, validated_only: bool = True, **kwargs):
-        """Update a registry with categories.
+    def add_validated(self, key: str, **kwargs):
+        """Add validated categories.
 
         Args:
-            categorical: The name of the feature to save.
-            validated_only: Whether to save only validated labels.
+            key: The key referencing the slot in the DataFrame.
             **kwargs: Additional keyword arguments.
         """
+        self._update_registry(key, validated_only=True, **kwargs)
+
+    def add_new(self, key: str, **kwargs):
+        """Add validated & new categories.
+
+        Args:
+            key: The key referencing the slot in the DataFrame.
+            **kwargs: Additional keyword arguments.
+        """
+        self._update_registry(key, validated_only=False, **kwargs)
+
+    def _update_registry(self, categorical: str, validated_only: bool = True, **kwargs):
         if categorical == "all":
             self._update_registry_all(validated_only=validated_only, **kwargs)
         elif categorical == "columns":
@@ -158,7 +169,7 @@ class DataFrameAnnotator:
         """Save labels for all features."""
         for name in self.fields.keys():
             logger.info(f"saving labels for '{name}'")
-            self.update_registry(feature=name, validated_only=validated_only, **kwargs)
+            self._update_registry(feature=name, validated_only=validated_only, **kwargs)
 
     def validate(self, **kwargs) -> bool:
         """Validate variables and categorical observations.
@@ -197,7 +208,7 @@ class DataFrameAnnotator:
         verbosity = settings.verbosity
         try:
             settings.verbosity = "warning"
-            self.update_registry("all")
+            self._update_registry("all")
 
             self._artifact = save_artifact(
                 self._df,
@@ -261,8 +272,8 @@ class AnnDataAnnotator(DataFrameAnnotator):
 
     Args:
         adata: The AnnData object to annotate.
-        var_field: The registry field for mapping the ``.var`` index.
-        obs_fields: A dictionary mapping ``.obs.columns`` to a registry field.
+        var_index: The registry field for mapping the ``.var`` index.
+        categoricals: A dictionary mapping ``.obs.columns`` to a registry field.
             For example:
             ``{"cell_type_ontology_id": bt.CellType.ontology_id, "donor_id": ln.ULabel.name}``
         using: A reference LaminDB instance.
@@ -271,39 +282,39 @@ class AnnDataAnnotator(DataFrameAnnotator):
     def __init__(
         self,
         adata: ad.AnnData,
-        var_field: FieldAttr,
-        obs_fields: Dict[str, FieldAttr],
+        var_index: FieldAttr,
+        categoricals: Dict[str, FieldAttr],
         using: str = "default",
         verbosity: str = "hint",
         **kwargs,
     ) -> None:
         self._adata = adata
-        self._var_field = var_field
+        self._var_field = var_index
         super().__init__(
             df=self._adata.obs,
-            fields=obs_fields,
+            categoricals=categoricals,
             using=using,
             verbosity=verbosity,
             **kwargs,
         )
-        self._obs_fields = obs_fields
+        self._obs_fields = categoricals
         self._save_variables()
 
     @property
-    def var_field(self) -> FieldAttr:
+    def var_index(self) -> FieldAttr:
         """Return the registry field to validate variables index against."""
         return self._var_field
 
     @property
-    def obs_fields(self) -> Dict:
+    def categoricals(self) -> Dict:
         """Return the obs fields to validate against."""
         return self._obs_fields
 
     def lookup(self, using: Optional[str] = None) -> AnnotateLookup:
         """Lookup features and labels."""
         fields = {
-            **{"feature": Feature.name, "variables": self.var_field},
-            **self.obs_fields,
+            **{"feature": Feature.name, "variables": self.var_index},
+            **self.categoricals,
         }
         return AnnotateLookup(fields=fields, using=using or self._using)
 
@@ -311,8 +322,8 @@ class AnnDataAnnotator(DataFrameAnnotator):
         """Save variable records."""
         self._kwargs.update(kwargs)
         update_registry(
-            values=self._adata.var_names,
-            field=self.var_field,
+            values=self._adata.var.index,
+            field=self.var_index,
             feature_name="variables",
             using=self._using,
             validated_only=validated_only,
@@ -324,18 +335,36 @@ class AnnDataAnnotator(DataFrameAnnotator):
         self._kwargs.update(kwargs)
         self._validated = validate_anndata(
             self._adata,
-            var_field=self.var_field,
-            obs_fields=self.obs_fields,
+            var_field=self.var_index,
+            obs_fields=self.categoricals,
             **self._kwargs,
         )
         return self._validated
 
-    def update_registry(self, categorical: str, validated_only: bool = True, **kwargs):
+    def add_validated(self, key: str, **kwargs):
+        """Add validated categories.
+
+        Args:
+            key: The key referencing the slot in the DataFrame.
+            **kwargs: Additional keyword arguments.
+        """
+        self._update_registry(key, validated_only=True, **kwargs)
+
+    def add_new(self, key: str, **kwargs):
+        """Add validated & new categories.
+
+        Args:
+            key: The key referencing the slot in the DataFrame.
+            **kwargs: Additional keyword arguments.
+        """
+        self._update_registry(key, validated_only=False, **kwargs)
+
+    def _update_registry(self, categorical: str, validated_only: bool = True, **kwargs):
         """Save categories."""
         if categorical == "variables":
             self._save_variables(validated_only=validated_only, **kwargs)
         else:
-            super().update_registry(categorical, validated_only, **kwargs)
+            super()._update_registry(categorical, validated_only, **kwargs)
 
     def save_artifact(self, description: str, **kwargs) -> Artifact:
         """Save the validated AnnData and metadata.
@@ -354,8 +383,8 @@ class AnnDataAnnotator(DataFrameAnnotator):
         self._artifact = save_artifact(
             self._adata,
             description=description,
-            columns_field=self.var_field,
-            fields=self.obs_fields,
+            columns_field=self.var_index,
+            fields=self.categoricals,
             **self._kwargs,
         )
         return self._artifact
