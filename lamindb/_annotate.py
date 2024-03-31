@@ -25,6 +25,8 @@ class AnnotateLookup:
     ) -> None:
         if slots is None:
             slots = {}
+        if slots is None:
+            slots = {}
         self._fields = {**categorials, **slots}
         self._using = None if using == "default" else using
         self._using_name = self._using or ln_setup.settings.instance.slug
@@ -121,7 +123,7 @@ class DataFrameAnnotator:
                 if "public", the lookup is performed on the public reference.
         """
         return AnnotateLookup(
-            categorials=self._columns_field,
+            categorials=self._fields,
             slots={"columns": self._columns_field},
             using=using or self._using,
         )
