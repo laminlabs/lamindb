@@ -397,16 +397,16 @@ class Annotate:
     def from_df(
         cls,
         df: pd.DataFrame,
-        fields: Optional[Dict[str, FieldAttr]] = None,
-        columns_field: FieldAttr = Feature.name,
+        categoricals: Optional[Dict[str, FieldAttr]] = None,
+        columns: FieldAttr = Feature.name,
         using: Optional[str] = None,
         verbosity: str = "hint",
         **kwargs,
     ) -> DataFrameAnnotator:
         return DataFrameAnnotator(
             df=df,
-            fields=fields,
-            columns_field=columns_field,
+            categoricals=categoricals,
+            columns=columns,
             using=using,
             verbosity=verbosity,
             **kwargs,
@@ -416,16 +416,16 @@ class Annotate:
     def from_anndata(
         cls,
         adata: ad.AnnData,
-        var_field: FieldAttr,
-        obs_fields: Dict[str, FieldAttr],
+        var_index: FieldAttr,
+        categoricals: Dict[str, FieldAttr],
         using: str = "default",
         verbosity: str = "hint",
         **kwargs,
     ) -> AnnDataAnnotator:
         return AnnDataAnnotator(
             adata=adata,
-            var_field=var_field,
-            obs_fields=obs_fields,
+            var_index=var_index,
+            categoricals=categoricals,
             using=using,
             verbosity=verbosity,
             **kwargs,
