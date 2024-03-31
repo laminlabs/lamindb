@@ -53,10 +53,10 @@ class DataFrameAnnotator:
 
     Args:
         df: The DataFrame object to annotate.
+        columns_field: The field attribute for the feature column.
         fields: A dictionary mapping column to registry_field.
             For example:
             {"cell_type_ontology_id": bt.CellType.ontology_id, "donor_id": ln.ULabel.name}
-        feature_field: The field attribute for the feature column.
         using: The reference instance containing registries to validate against.
         verbosity: The verbosity level.
     """
@@ -64,8 +64,8 @@ class DataFrameAnnotator:
     def __init__(
         self,
         df: pd.DataFrame,
+        columns_field: FieldAttr = Feature.name,
         fields: Optional[Dict[str, FieldAttr]] = None,
-        feature_field: FieldAttr = Feature.name,
         using: Optional[str] = None,
         verbosity: str = "hint",
         **kwargs,
@@ -74,7 +74,7 @@ class DataFrameAnnotator:
 
         self._df = df
         self._fields = fields or {}
-        self._feature_field = feature_field
+        self._columns_field = columns_field
         self._using = using
         settings.verbosity = verbosity
         self._artifact = None
@@ -96,7 +96,7 @@ class DataFrameAnnotator:
                 if None (default), the lookup is performed on the instance specified in "using" parameter of the validator.
                 if "public", the lookup is performed on the public reference.
         """
-        fields = {**{"feature": self._feature_field}, **self.fields}
+        fields = {**{"feature": self._columns_field}, **self.fields}
         return AnnotateLookup(fields=fields, using=using or self._using)
 
     def save_features(self, validated_only: bool = True) -> None:
@@ -110,7 +110,7 @@ class DataFrameAnnotator:
         # Always save features specified as the fields keys
         update_registry(
             values=list(self.fields.keys()),
-            field=self._feature_field,
+            field=self._columns_field,
             feature_name="feature",
             using=self._using,
             validated_only=False,
@@ -122,7 +122,7 @@ class DataFrameAnnotator:
         if additional_columns:
             update_registry(
                 values=list(additional_columns),
-                field=self._feature_field,
+                field=self._columns_field,
                 feature_name="feature",
                 using=self._using,
                 validated_only=validated_only,
@@ -203,7 +203,7 @@ class DataFrameAnnotator:
                 self._df,
                 description=description,
                 fields=self.fields,
-                feature_field=self._feature_field,
+                columns_field=self._columns_field,
                 **self._kwargs,
             )
         finally:
@@ -354,7 +354,7 @@ class AnnDataAnnotator(DataFrameAnnotator):
         self._artifact = save_artifact(
             self._adata,
             description=description,
-            feature_field=self.var_field,
+            columns_field=self.var_field,
             fields=self.obs_fields,
             **self._kwargs,
         )
@@ -369,7 +369,7 @@ class Annotate:
         cls,
         df: pd.DataFrame,
         fields: Optional[Dict[str, FieldAttr]] = None,
-        feature_field: FieldAttr = Feature.name,
+        columns_field: FieldAttr = Feature.name,
         using: Optional[str] = None,
         verbosity: str = "hint",
         **kwargs,
@@ -377,7 +377,7 @@ class Annotate:
         return DataFrameAnnotator(
             df=df,
             fields=fields,
-            feature_field=feature_field,
+            columns_field=columns_field,
             using=using,
             verbosity=verbosity,
             **kwargs,
@@ -539,7 +539,7 @@ def save_artifact(
     data: Union[pd.DataFrame, ad.AnnData],
     description: str,
     fields: Dict[str, FieldAttr],
-    feature_field: FieldAttr,
+    columns_field: FieldAttr,
     **kwargs,
 ) -> Artifact:
     """Save all metadata with an Artifact.
@@ -548,7 +548,7 @@ def save_artifact(
         data: The DataFrame or AnnData object to save.
         description: A description of the artifact.
         fields: A dictionary mapping obs_column to registry_field.
-        feature_field: The registry field to validate variables index against.
+        columns_field: The registry field to validate variables index against.
         kwargs: Additional keyword arguments to pass to the registry model.
 
     Returns:
@@ -565,15 +565,15 @@ def save_artifact(
 
     feature_kwargs: Dict = {}
     organism = check_registry_organism(
-        feature_field.field.model, kwargs.pop("organism", None)
+        columns_field.field.model, kwargs.pop("organism", None)
     )
     if organism is not None:
         feature_kwargs["organism"] = organism
 
     if isinstance(data, ad.AnnData):
-        artifact.features.add_from_anndata(var_field=feature_field, **feature_kwargs)
+        artifact.features.add_from_anndata(var_field=columns_field, **feature_kwargs)
     else:
-        artifact.features.add_from_df(field=feature_field, **feature_kwargs)
+        artifact.features.add_from_df(field=columns_field, **feature_kwargs)
 
     features = Feature.lookup().dict()
     for feature_name, field in fields.items():
