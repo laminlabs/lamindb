@@ -169,7 +169,7 @@ class DataFrameAnnotator:
         """Save labels for all features."""
         for name in self.fields.keys():
             logger.info(f"saving labels for '{name}'")
-            self._update_registry(feature=name, validated_only=validated_only, **kwargs)
+            self._update_registry(name, validated_only=validated_only, **kwargs)
 
     def validate(self, **kwargs) -> bool:
         """Validate variables and categorical observations.
@@ -746,7 +746,7 @@ def log_saved_labels(
             # the term "transferred" stresses that this is always in the context of transferring
             # labels from a public ontology or a different instance to the present instance
             logger.success(
-                f"transferred {len(labels)} {labels_type} {key}with {model_field}: {labels}"
+                f"added {len(labels)} {labels_type} {key}with {model_field}: {labels}"
             )
 
 
