@@ -715,7 +715,7 @@ def log_saved_labels(
             msg = colors.yellow(
                 f"{len(labels)} non-validated categories are not saved in {model_field}: {labels}!"
             )
-            lookup_print = f".lookup().['{feature_name}']"
+            lookup_print = f".lookup()['{feature_name}']"
             msg += f"\n      → to lookup categories, use {lookup_print}"
             msg += (
                 f"\n      → to save, run {colors.yellow('add_new()')}"
