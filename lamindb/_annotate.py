@@ -25,16 +25,15 @@ class AnnotateLookup:
     ) -> None:
         if slots is None:
             slots = {}
-        self._fields = categorials
-        self._slots = slots
+        self._fields = {**categorials, **slots}
         self._using = None if using == "default" else using
         self._using_name = self._using or ln_setup.settings.instance.slug
         debug_message = f"Lookup objects from the " f"{colors.italic(self._using_name)}"
         logger.debug(debug_message)
 
     def __getattr__(self, name):
-        if name in self._slots:
-            registry = self._slots[name].field.model
+        if name in self._fields:
+            registry = self._fields[name].field.model
             if self._using == "public":
                 return registry.public().lookup()
             else:
@@ -56,13 +55,17 @@ class AnnotateLookup:
 
     def __repr__(self) -> str:
         if len(self._fields) > 0:
-            fields_print = "\n ".join([str([key]) for key in self._fields.keys()])
-            slots_print = "\n ".join([f".{key}" for key in self._slots.keys()])
+            getattr_keys = "\n ".join(
+                [f".{key}" for key in self._fields if key.isidentifier()]
+            )
+            getitem_keys = "\n ".join(
+                [str([key]) for key in self._fields if not key.isidentifier()]
+            )
             return (
                 f"Lookup objects from the {colors.italic(self._using_name)}:\n "
-                f"{colors.green(slots_print)}\n "
-                f"{colors.green(fields_print)}\n\n"
-                "Example:\n    → categories = validator.lookup()['cell_type']\n"
+                f"{colors.green(getattr_keys)}\n "
+                f"{colors.green(getitem_keys)}\n\n"
+                "Example:\n    → categories = validator.lookup().cell_type\n"
                 "    → categories.alveolar_type_1_fibroblast_cell"
             )
         else:
@@ -768,7 +771,9 @@ def log_saved_labels(
             msg = colors.yellow(
                 f"{len(labels)} non-validated categories are not saved in {model_field}: {labels}!"
             )
-            lookup_print = f".lookup()['{key}']"
+            lookup_print = (
+                f"lookup().{key}" if key.isidentifier() else f".lookup()['{key}']"
+            )
 
             hint = f".add_new_from('{key}')"
             msg += f"\n      → to lookup categories, use {lookup_print}"
