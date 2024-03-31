@@ -59,12 +59,12 @@ def test_annotator(df, categoricals):
     validated = annotate.validate()
     assert validated is False
 
-    cell_types = annotate.lookup("public")["cell_type"]
+    cell_types = annotate.lookup("public").cell_type
     df["cell_type"] = df["cell_type"].replace(
         {"cerebral pyramidal neuron": cell_types.cerebral_cortex_pyramidal_neuron.name}
     )
-    annotate.add_validated("all")
-    annotate.add_new("donor")
+    annotate.add_validated_from("all")
+    annotate.add_new_from("donor")
     validated = annotate.validate()
     assert validated is True
 
