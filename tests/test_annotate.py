@@ -72,12 +72,12 @@ def test_annotator(df, fields):
 def test_anndata_annotator(adata, fields):
     annotate = ln.Annotate.from_anndata(
         adata,
-        obs_fields=fields,
-        var_field=bt.Gene.symbol,  # specify the field for the var
+        categoricals=fields,
+        var_index=bt.Gene.symbol,  # specify the field for the var
         organism="human",
     )
     validated = annotate.validate()
-    assert validated is True
+    assert validated
 
     artifact = annotate.save_artifact(description="test AnnData")
     collection = annotate.save_collection(

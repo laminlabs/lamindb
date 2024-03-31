@@ -341,24 +341,6 @@ class AnnDataAnnotator(DataFrameAnnotator):
         )
         return self._validated
 
-    def add_validated(self, key: str, **kwargs):
-        """Add validated categories.
-
-        Args:
-            key: The key referencing the slot in the DataFrame.
-            **kwargs: Additional keyword arguments.
-        """
-        self._update_registry(key, validated_only=True, **kwargs)
-
-    def add_new(self, key: str, **kwargs):
-        """Add validated & new categories.
-
-        Args:
-            key: The key referencing the slot in the DataFrame.
-            **kwargs: Additional keyword arguments.
-        """
-        self._update_registry(key, validated_only=False, **kwargs)
-
     def _update_registry(self, categorical: str, validated_only: bool = True, **kwargs):
         """Save categories."""
         if categorical == "variables":
