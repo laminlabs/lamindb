@@ -1,16 +1,15 @@
 # Changelog
 
-- ♻️ Improve Annotate API [PR](https://github.com/laminlabs/lamindb/pull/1542) [@sunnyosun](https://github.com/sunnyosun)
-- ♻️ Refactor Annotator [PR](https://github.com/laminlabs/lamindb/pull/1539) [@falexwolf](https://github.com/falexwolf)
-- ✨ Introduce `Registry.get()` and `lamin get` (replaces `lamin stage`) [PR](https://github.com/laminlabs/lamindb/pull/1538) [@falexwolf](https://github.com/falexwolf)
-- ✅ Add test for `StrEnum` behavior of transform types [PR](https://github.com/laminlabs/lamindb/pull/1537) [@falexwolf](https://github.com/falexwolf)
-- 🚚 Curate -> standardize [PR](https://github.com/laminlabs/lamindb/pull/1536) [@falexwolf](https://github.com/falexwolf)
-- ♻️ Language in the validate, standardize, annotate flow [PR](https://github.com/laminlabs/lamindb/pull/1535) [@falexwolf](https://github.com/falexwolf)
 ```{eval-rst}
 .. role:: small
 ```
 
 ## 0.69
+
+### 0.69.5 {small}`2024-03-30`
+
+- ♻️ Improve Annotate API [PR](https://github.com/laminlabs/lamindb/pull/1542) [PR](https://github.com/laminlabs/lamindb/pull/1539)  [@sunnyosun](https://github.com/sunnyosun) [@falexwolf](https://github.com/falexwolf)
+- ✨ Introduce `Registry.get()` and `lamin get` (replaces `lamin stage`) [PR](https://github.com/laminlabs/lamindb/pull/1538) [@falexwolf](https://github.com/falexwolf)
 
 ### 0.69.4 {small}`2024-03-30`
 
