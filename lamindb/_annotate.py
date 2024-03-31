@@ -81,7 +81,7 @@ class DataFrameAnnotator:
         self._collection = None
         self._validated = False
         self._kwargs: Dict = kwargs
-        self._update_feature_reqistry()
+        self._save_columns()
 
     @property
     def fields(self) -> Dict:
@@ -99,8 +99,8 @@ class DataFrameAnnotator:
         fields = {**{"feature": self._columns_field}, **self.fields}
         return AnnotateLookup(fields=fields, using=using or self._using)
 
-    def _update_feature_reqistry(self, validated_only: bool = True) -> None:
-        """Save features records."""
+    def _save_columns(self, validated_only: bool = True) -> None:
+        """Save column name records."""
         missing_columns = set(self.fields.keys()) - set(self._df.columns)
         if missing_columns:
             raise ValueError(
@@ -111,7 +111,8 @@ class DataFrameAnnotator:
         update_registry(
             values=list(self.fields.keys()),
             field=self._columns_field,
-            feature_name="feature",
+            key="columns",
+            save_function="add_new_from_columns",
             using=self._using,
             validated_only=False,
             kwargs=self._kwargs,
@@ -123,14 +124,15 @@ class DataFrameAnnotator:
             update_registry(
                 values=list(additional_columns),
                 field=self._columns_field,
-                feature_name="feature",
+                key="columns",
+                save_function="add_new_from_columns",
                 using=self._using,
                 validated_only=validated_only,
                 df=self._df,  # Get the Feature type from df
                 kwargs=self._kwargs,
             )
 
-    def add_validated(self, key: str, **kwargs):
+    def add_validated_from(self, key: str, **kwargs):
         """Add validated categories.
 
         Args:
@@ -139,27 +141,31 @@ class DataFrameAnnotator:
         """
         self._update_registry(key, validated_only=True, **kwargs)
 
-    def add_new(self, key: str, **kwargs):
+    def add_new_from(self, key: str, **kwargs):
         """Add validated & new categories.
 
         Args:
-            key: The key referencing the slot in the DataFrame.
+            key: The key referencing the slot in the DataFrame from which to draw terms.
             **kwargs: Additional keyword arguments.
         """
         self._update_registry(key, validated_only=False, **kwargs)
+
+    def add_new_from_columns(self, **kwargs):
+        """Add validated & new column names to its registry."""
+        self._save_columns(validated_only=False, **kwargs)
 
     def _update_registry(self, categorical: str, validated_only: bool = True, **kwargs):
         if categorical == "all":
             self._update_registry_all(validated_only=validated_only, **kwargs)
         elif categorical == "columns":
-            self._update_feature_reqistry(validated_only=validated_only)
+            self._save_columns(validated_only=validated_only)
         else:
             if categorical not in self.fields:
                 raise ValueError(f"Feature {categorical} is not part of the fields!")
             update_registry(
                 values=self._df[categorical].unique().tolist(),
                 field=self.fields[categorical],
-                feature_name=categorical,
+                key=categorical,
                 using=self._using,
                 validated_only=validated_only,
                 kwargs=kwargs,
@@ -208,7 +214,8 @@ class DataFrameAnnotator:
         verbosity = settings.verbosity
         try:
             settings.verbosity = "warning"
-            self._update_registry("all")
+            # save all validated records to the current instance
+            self.add_validated_from("all")
 
             self._artifact = save_artifact(
                 self._df,
@@ -298,7 +305,7 @@ class AnnDataAnnotator(DataFrameAnnotator):
             **kwargs,
         )
         self._obs_fields = categoricals
-        self._save_variables()
+        self._save_from_var_index()
 
     @property
     def var_index(self) -> FieldAttr:
@@ -318,17 +325,22 @@ class AnnDataAnnotator(DataFrameAnnotator):
         }
         return AnnotateLookup(fields=fields, using=using or self._using)
 
-    def _save_variables(self, validated_only: bool = True, **kwargs):
+    def _save_from_var_index(self, validated_only: bool = True, **kwargs):
         """Save variable records."""
         self._kwargs.update(kwargs)
         update_registry(
             values=self._adata.var.index,
             field=self.var_index,
-            feature_name="variables",
+            key="var_index",
+            save_function="add_new_from_var_index",
             using=self._using,
             validated_only=validated_only,
             kwargs=self._kwargs,
         )
+
+    def add_new_from_var_index(self, **kwargs):
+        """Update variable records."""
+        self._save_from_var_index(validated_only=False, **kwargs)
 
     def validate(self, **kwargs) -> bool:
         """Validate categories."""
@@ -340,13 +352,6 @@ class AnnDataAnnotator(DataFrameAnnotator):
             **self._kwargs,
         )
         return self._validated
-
-    def _update_registry(self, categorical: str, validated_only: bool = True, **kwargs):
-        """Save categories."""
-        if categorical == "variables":
-            self._save_variables(validated_only=validated_only, **kwargs)
-        else:
-            super()._update_registry(categorical, validated_only, **kwargs)
 
     def save_artifact(self, description: str, **kwargs) -> Artifact:
         """Save the validated AnnData and metadata.
@@ -449,18 +454,17 @@ def check_registry_organism(
 def validate_categories(
     values: Iterable[str],
     field: FieldAttr,
-    feature_name: str,
+    key: str,
     using: Optional[str] = None,
     **kwargs,
 ) -> bool:
     """Validate ontology terms in a pandas series using LaminDB registries."""
     from lamindb._from_values import _print_values
+    from lamindb.core._settings import settings
 
     model_field = f"{field.field.model.__name__}.{field.field.name}"
     logger.indent = ""
-    logger.info(
-        f"mapping '{colors.bold(feature_name)}' on {colors.italic(model_field)}"
-    )
+    logger.info(f"mapping {colors.italic(key)} on {colors.italic(model_field)}")
     logger.indent = "   "
 
     registry = field.field.model
@@ -475,6 +479,7 @@ def validate_categories(
     )
     non_validated = inspect_result.non_validated
 
+    values_validated = []
     if using is not None and using != "default" and non_validated:
         registry = get_registry_instance(registry, using)
         # Inspect the using instance
@@ -482,19 +487,42 @@ def validate_categories(
             values=non_validated, field=field, registry=registry, **filter_kwargs
         )
         non_validated = inspect_result.non_validated
+        values_validated += inspect_result.validated
 
+    # Inspect from public (bionty only)
+    if hasattr(registry, "public"):
+        verbosity = settings.verbosity
+        try:
+            settings.verbosity = "error"
+            public_records = registry.from_values(
+                non_validated, field=field, **filter_kwargs
+            )
+            values_validated += [getattr(r, field.field.name) for r in public_records]
+        finally:
+            settings.verbosity = verbosity
+
+    validated_hint_print = f".add_validated_from('{key}')"
+    n_validated = len(values_validated)
+    if n_validated > 0:
+        logger.warning(
+            f"found {colors.yellow(f'{n_validated} terms')} validated terms: "
+            f"{colors.yellow(n_validated)}\n      → save terms via "
+            f"{colors.yellow(validated_hint_print)}"
+        )
+
+    non_validated_hint_print = f".add_new_from('{key}')"
+    non_validated = [i for i in non_validated if i not in values_validated]
     n_non_validated = len(non_validated)
     if n_non_validated == 0:
-        logger.success(f"{feature_name} validated")
+        logger.success(f"{key} validated")
         return True
     else:
         are = "are" if n_non_validated > 1 else "is"
         print_values = _print_values(non_validated)
-        feature_name_print = f".update_registry('{feature_name}')"
         warning_message = (
             f"{colors.yellow(f'{n_non_validated} terms')} {are} not validated: "
             f"{colors.yellow(print_values)}\n      → save terms via "
-            f"{colors.yellow(feature_name_print)}"
+            f"{colors.yellow(non_validated_hint_print)}"
         )
         logger.warning(warning_message)
         logger.indent = ""
@@ -509,11 +537,11 @@ def validate_categories_in_df(
 ) -> bool:
     """Validate categories in DataFrame columns using LaminDB registries."""
     validated = True
-    for feature_name, field in fields.items():
+    for key, field in fields.items():
         validated &= validate_categories(
-            df[feature_name],
+            df[key],
             field=field,
-            feature_name=feature_name,
+            key=key,
             using=using,
             **kwargs,
         )
@@ -536,7 +564,7 @@ def validate_anndata(
     validated_var = validate_categories(
         adata.var.index,
         field=var_field,
-        feature_name="variables",
+        key="var_index",
         using=using,
         **kwargs,
     )
@@ -587,15 +615,15 @@ def save_artifact(
         artifact.features.add_from_df(field=columns_field, **feature_kwargs)
 
     features = Feature.lookup().dict()
-    for feature_name, field in fields.items():
-        feature = features.get(feature_name)
+    for key, field in fields.items():
+        feature = features.get(key)
         registry = field.field.model
         filter_kwargs = kwargs.copy()
         organism = check_registry_organism(registry, organism)
         if organism is not None:
             filter_kwargs["organism"] = organism
         df = data.obs if isinstance(data, ad.AnnData) else data
-        labels = registry.from_values(df[feature_name], field=field, **filter_kwargs)
+        labels = registry.from_values(df[key], field=field, **filter_kwargs)
         artifact.labels.add(labels, feature)
 
     slug = ln_setup.settings.instance.slug
@@ -607,7 +635,8 @@ def save_artifact(
 def update_registry(
     values: List[str],
     field: FieldAttr,
-    feature_name: str,
+    key: str,
+    save_function: str = "add_new_from",
     using: Optional[str] = None,
     validated_only: bool = True,
     kwargs: Optional[Dict] = None,
@@ -618,7 +647,8 @@ def update_registry(
     Args:
         values: A list of values to be saved as labels.
         field: The FieldAttr object representing the field for which labels are being saved.
-        feature_name: The name of the feature to save.
+        key: The name of the feature to save.
+        save_function: The name of the function to save the labels.
         using: The name of the instance from which to transfer labels (if applicable).
         validated_only: If True, only save validated labels.
         kwargs: Additional keyword arguments to pass to the registry model.
@@ -629,8 +659,6 @@ def update_registry(
 
     filter_kwargs = {} if kwargs is None else kwargs.copy()
     registry = field.field.model
-    if registry == ULabel:
-        validated_only = False
 
     organism = check_registry_organism(registry, filter_kwargs.pop("organism", None))
     if organism is not None:
@@ -686,13 +714,14 @@ def update_registry(
             ln_save(non_validated_records)
 
         if registry == ULabel and field.field.name == "name":
-            save_ulabels_with_parent(values, field=field, feature_name=feature_name)
+            save_ulabels_with_parent(values, field=field, key=key)
     finally:
         settings.verbosity = verbosity
 
     log_saved_labels(
         labels_saved,
-        feature_name=feature_name,
+        key=key,
+        save_function=save_function,
         model_field=f"{registry.__name__}.{field.field.name}",
         validated_only=validated_only,
     )
@@ -700,48 +729,49 @@ def update_registry(
 
 def log_saved_labels(
     labels_saved: Dict,
-    feature_name: str,
+    key: str,
+    save_function: str,
     model_field: str,
     validated_only: bool = True,
 ) -> None:
     """Log the saved labels."""
-    labels_type = "features" if feature_name == "feature" else "labels"
     model_field = colors.italic(model_field)
-    for key, labels in labels_saved.items():
+    for k, labels in labels_saved.items():
         if not labels:
             continue
 
-        if key == "without reference" and validated_only:
+        if k == "without reference" and validated_only:
             msg = colors.yellow(
                 f"{len(labels)} non-validated categories are not saved in {model_field}: {labels}!"
             )
-            lookup_print = f".lookup().['{feature_name}']"
+            lookup_print = f".lookup()['{key}']"
+
+            hint = f".add_new_from('{key}')"
             msg += f"\n      → to lookup categories, use {lookup_print}"
             msg += (
-                f"\n      → to save, run {colors.yellow('update_registry(validated_only=False)')}"
-                if labels_type == "features"
-                else f"\n      → to save, set {colors.yellow('validated_only=False')}"
+                f"\n      → to save, run {colors.yellow(hint)}"
+                if save_function == "add_new_from"
+                else f"\n      → to save, run {colors.yellow(save_function)}"
             )
             logger.warning(msg)
         else:
-            key = "" if key == "without reference" else f"{colors.green(key)} "
+            k = "" if k == "without reference" else f"{colors.green(k)} "
             # the term "transferred" stresses that this is always in the context of transferring
             # labels from a public ontology or a different instance to the present instance
+            s = "s" if len(labels) > 1 else ""
             logger.success(
-                f"added {len(labels)} {labels_type} {key}with {model_field}: {labels}"
+                f"added {len(labels)} record{s} {k}with {model_field} for {colors.italic(key)}: {labels}"
             )
 
 
-def save_ulabels_with_parent(
-    values: List[str], field: FieldAttr, feature_name: str
-) -> None:
+def save_ulabels_with_parent(values: List[str], field: FieldAttr, key: str) -> None:
     """Save a parent label for the given labels."""
     registry = field.field.model
     assert registry == ULabel
     all_records = registry.from_values(values, field=field)
-    is_feature = registry.filter(name=f"is_{feature_name}").one_or_none()
+    is_feature = registry.filter(name=f"is_{key}").one_or_none()
     if is_feature is None:
-        is_feature = registry(name=f"is_{feature_name}")
+        is_feature = registry(name=f"is_{key}")
         is_feature.save()
     is_feature.children.add(*all_records)
 
