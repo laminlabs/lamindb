@@ -46,7 +46,7 @@ def adata():
 
 
 @pytest.fixture(scope="module")
-def fields():
+def categoricals():
     return {
         "cell_type": bt.CellType.name,
         "assay_ontology_id": bt.ExperimentalFactor.ontology_id,
@@ -54,8 +54,8 @@ def fields():
     }
 
 
-def test_annotator(df, fields):
-    annotate = ln.Annotate.from_df(df, fields=fields)
+def test_annotator(df, categoricals):
+    annotate = ln.Annotate.from_df(df, categoricals=categoricals)
     validated = annotate.validate()
     assert validated is False
 
@@ -63,21 +63,21 @@ def test_annotator(df, fields):
     df["cell_type"] = df["cell_type"].replace(
         {"cerebral pyramidal neuron": cell_types.cerebral_cortex_pyramidal_neuron.name}
     )
-    annotate.update_registry("all")
-    annotate.update_registry("donor", validated_only=False)
+    annotate.add_validated("all")
+    annotate.add_new("donor")
     validated = annotate.validate()
     assert validated is True
 
 
-def test_anndata_annotator(adata, fields):
+def test_anndata_annotator(adata, categoricals):
     annotate = ln.Annotate.from_anndata(
         adata,
-        obs_fields=fields,
-        var_field=bt.Gene.symbol,  # specify the field for the var
+        categoricals=categoricals,
+        var_index=bt.Gene.symbol,  # specify the field for the var
         organism="human",
     )
     validated = annotate.validate()
-    assert validated is True
+    assert validated
 
     artifact = annotate.save_artifact(description="test AnnData")
     collection = annotate.save_collection(
