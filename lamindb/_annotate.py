@@ -490,7 +490,7 @@ def validate_categories(
     else:
         are = "are" if n_non_validated > 1 else "is"
         print_values = _print_values(non_validated)
-        feature_name_print = f".update_registry('{feature_name}')"
+        feature_name_print = f".add_validated('{feature_name}')"
         warning_message = (
             f"{colors.yellow(f'{n_non_validated} terms')} {are} not validated: "
             f"{colors.yellow(print_values)}\n      → save terms via "
@@ -718,9 +718,9 @@ def log_saved_labels(
             lookup_print = f".lookup().['{feature_name}']"
             msg += f"\n      → to lookup categories, use {lookup_print}"
             msg += (
-                f"\n      → to save, run {colors.yellow('update_registry(validated_only=False)')}"
+                f"\n      → to save, run {colors.yellow('add_new()')}"
                 if labels_type == "features"
-                else f"\n      → to save, set {colors.yellow('validated_only=False')}"
+                else f"\n      → to save, set {colors.yellow('add_new()')}"
             )
             logger.warning(msg)
         else:
