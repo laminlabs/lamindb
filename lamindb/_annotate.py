@@ -53,8 +53,8 @@ class DataFrameAnnotator:
 
     Args:
         df: The DataFrame object to annotate.
-        columns_field: The field attribute for the feature column.
-        fields: A dictionary mapping column to registry_field.
+        columns: The field attribute for the feature column.
+        categoricals: A dictionary mapping column to registry_field.
             For example:
             {"cell_type_ontology_id": bt.CellType.ontology_id, "donor_id": ln.ULabel.name}
         using: The reference instance containing registries to validate against.
@@ -64,8 +64,8 @@ class DataFrameAnnotator:
     def __init__(
         self,
         df: pd.DataFrame,
-        columns_field: FieldAttr = Feature.name,
-        fields: Optional[Dict[str, FieldAttr]] = None,
+        columns: FieldAttr = Feature.name,
+        categoricals: Optional[Dict[str, FieldAttr]] = None,
         using: Optional[str] = None,
         verbosity: str = "hint",
         **kwargs,
@@ -73,15 +73,15 @@ class DataFrameAnnotator:
         from lamindb.core._settings import settings
 
         self._df = df
-        self._fields = fields or {}
-        self._columns_field = columns_field
+        self._fields = categoricals or {}
+        self._columns_field = columns
         self._using = using
         settings.verbosity = verbosity
         self._artifact = None
         self._collection = None
         self._validated = False
         self._kwargs: Dict = kwargs
-        self.save_features()
+        self._update_feature_reqistry()
 
     @property
     def fields(self) -> Dict:
@@ -99,7 +99,7 @@ class DataFrameAnnotator:
         fields = {**{"feature": self._columns_field}, **self.fields}
         return AnnotateLookup(fields=fields, using=using or self._using)
 
-    def save_features(self, validated_only: bool = True) -> None:
+    def _update_feature_reqistry(self, validated_only: bool = True) -> None:
         """Save features records."""
         missing_columns = set(self.fields.keys()) - set(self._df.columns)
         if missing_columns:
@@ -130,25 +130,25 @@ class DataFrameAnnotator:
                 kwargs=self._kwargs,
             )
 
-    def update_registry(self, feature: str, validated_only: bool = True, **kwargs):
-        """Save labels for a feature.
+    def update_registry(self, categorical: str, validated_only: bool = True, **kwargs):
+        """Update a registry with categories.
 
         Args:
-            feature: The name of the feature to save.
+            categorical: The name of the feature to save.
             validated_only: Whether to save only validated labels.
             **kwargs: Additional keyword arguments.
         """
-        if feature == "all":
+        if categorical == "all":
             self._update_registry_all(validated_only=validated_only, **kwargs)
-        elif feature == "feature":
-            self.save_features(validated_only=validated_only)
+        elif categorical == "columns":
+            self._update_feature_reqistry(validated_only=validated_only)
         else:
-            if feature not in self.fields:
-                raise ValueError(f"Feature {feature} is not part of the fields!")
+            if categorical not in self.fields:
+                raise ValueError(f"Feature {categorical} is not part of the fields!")
             update_registry(
-                values=self._df[feature].unique().tolist(),
-                field=self.fields[feature],
-                feature_name=feature,
+                values=self._df[categorical].unique().tolist(),
+                field=self.fields[categorical],
+                feature_name=categorical,
                 using=self._using,
                 validated_only=validated_only,
                 kwargs=kwargs,
@@ -330,12 +330,12 @@ class AnnDataAnnotator(DataFrameAnnotator):
         )
         return self._validated
 
-    def update_registry(self, feature: str, validated_only: bool = True, **kwargs):
+    def update_registry(self, categorical: str, validated_only: bool = True, **kwargs):
         """Save categories."""
-        if feature == "variables":
+        if categorical == "variables":
             self._save_variables(validated_only=validated_only, **kwargs)
         else:
-            super().update_registry(feature, validated_only, **kwargs)
+            super().update_registry(categorical, validated_only, **kwargs)
 
     def save_artifact(self, description: str, **kwargs) -> Artifact:
         """Save the validated AnnData and metadata.
@@ -707,7 +707,7 @@ def log_saved_labels(
             lookup_print = f".lookup().['{feature_name}']"
             msg += f"\n      → to lookup categories, use {lookup_print}"
             msg += (
-                f"\n      → to save, run {colors.yellow('save_features(validated_only=False)')}"
+                f"\n      → to save, run {colors.yellow('update_registry(validated_only=False)')}"
                 if labels_type == "features"
                 else f"\n      → to save, set {colors.yellow('validated_only=False')}"
             )
