@@ -54,9 +54,9 @@ class DataFrameAnnotator:
     Args:
         df: The DataFrame object to annotate.
         columns: The field attribute for the feature column.
-        categoricals: A dictionary mapping column to registry_field.
+        categoricals: A dictionary mapping column names to registry_field.
             For example:
-            {"cell_type_ontology_id": bt.CellType.ontology_id, "donor_id": ln.ULabel.name}
+            ``{"cell_type_ontology_id": bt.CellType.ontology_id, "donor_id": ln.ULabel.name}``.
         using: The reference instance containing registries to validate against.
         verbosity: The verbosity level.
     """
