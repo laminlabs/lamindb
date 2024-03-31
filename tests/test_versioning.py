@@ -2,6 +2,7 @@ import lamindb as ln
 import pandas as pd
 import pytest
 from lamindb import UPath
+from lamindb._query_set import MultipleResultsFound
 from lamindb.core.versioning import get_new_path_from_uid, set_version
 
 
@@ -66,3 +67,28 @@ def test_get_new_path_from_uid():
     assert not old_path.exists()
     new_path.unlink()
     UPath("./test_new_path.txt").unlink()
+
+
+def test_latest_version_and_get():
+    # build one version family
+    transform_v1 = ln.Transform(name="Introduction")
+    transform_v1.save()
+    transform_v2 = ln.Transform(name="Introduction", is_new_version_of=transform_v1)
+    transform_v2.save()
+    transform_v3 = ln.Transform(name="Introduction", is_new_version_of=transform_v2)
+    transform_v3.save()
+    transform_v4 = ln.Transform(name="Introduction")
+    transform_v4.save()
+    # add another transform with the same name that's not part of this family
+    # but will also be a hit for the query
+    assert len(ln.Transform.filter(name="Introduction").all()) == 4
+    assert len(ln.Transform.filter(name="Introduction").latest_version()) == 2
+    transform_v4.delete()
+    with pytest.raises(MultipleResultsFound):
+        ln.Transform.filter(name="Introduction").one()
+    assert (
+        ln.Transform.filter(name="Introduction").latest_version().one() == transform_v3
+    )
+    assert ln.Transform.get(transform_v3.uid) == transform_v3
+    assert ln.Transform.get(transform_v3.id) == transform_v3
+    assert ln.Transform.get(transform_v3.uid[:4]) == transform_v3

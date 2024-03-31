@@ -26,11 +26,14 @@ def save_vitessce_config(vitessce_config, description: str) -> Artifact:
     artifact = Artifact(vitesse_export, description=description)
     artifact.save()
     config_dict = vitessce_config.to_dict(base_url=artifact.path.to_url())
+    logger.important(f"base url: {artifact.path.to_url()}")
     config_filename = "vitessce_config.json"
     config_file_local_path = f"{vitesse_export}/{config_filename}"
     with open(config_file_local_path, "w") as file:
         json.dump(config_dict, file)
-    (artifact.path / config_filename).upload_from(config_file_local_path)
+    config_file_path = artifact.path / config_filename
+    config_file_path.upload_from(config_file_local_path)
+    logger.important(f"config url: {config_file_path.to_url()}")
     slug = ln_setup.settings.instance.slug
     logger.important(f"go to: https://lamin.ai/{slug}/artifact/{artifact.uid}")
     return artifact
