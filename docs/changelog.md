@@ -1,5 +1,6 @@
 # Changelog
 
+- 📝 Add proper docstrings for `MappedCollection` [PR](https://github.com/laminlabs/lamindb/pull/1544) [@falexwolf](https://github.com/falexwolf)
 ```{eval-rst}
 .. role:: small
 ```
