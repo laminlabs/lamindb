@@ -45,19 +45,28 @@ class _Connect:
 class MappedCollection:
     """Map-style collection for use in data loaders.
 
-    This currently only works for collections of `AnnData` objects.
+    This class virtually concatenates `AnnData` arrays as a `pytorch map-style dataset
+    <https://pytorch.org/docs/stable/data.html#map-style-datasets>`__.
 
-    For an example, see :meth:`~lamindb.Collection.mapped`.
+    If your `AnnData` collection is in the cloud, move them into a local cache
+    first for faster access.
 
     .. note::
 
-        A similar data loader exists `here
-        <https://github.com/Genentech/scimilarity>`__.
+        For a guide, see :doc:`docs:scrna5`.
+
+        For more convenient use within :class:`~lamindb.core.MappedCollection`,
+        see :meth:`~lamindb.Collection.mapped`.
+
+        This currently only works for collections of `AnnData` objects.
+
+        The implementation was influenced by the `SCimilarity
+        <https://github.com/Genentech/scimilarity>`__ data loader.
+
 
     Args:
-        path_list: A list of paths to `AnnData` objects stored in `h5ad` or `zrad` formats.
-        label_keys: Columns of the ``.obs`` slot - the names of the metadata
-            features storing labels.
+        path_list: A list of paths to `AnnData` objects stored in `.h5ad` or `.zarr` formats.
+        label_keys: Columns of the ``.obs`` slot that store labels.
         join: `"inner"` or `"outer"` virtual joins. If ``None`` is passed,
             does not join.
         encode_labels: Encode labels into integers.
