@@ -1,5 +1,6 @@
 # Changelog
 
+- 🚑️ Temp fix region for non-hosted buckets [PR](https://github.com/laminlabs/lamindb/pull/1543) [@sunnyosun](https://github.com/sunnyosun)
 ```{eval-rst}
 .. role:: small
 ```
