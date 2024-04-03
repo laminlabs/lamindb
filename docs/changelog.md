@@ -1,12 +1,16 @@
 # Changelog
 
-- ✨ Add ability to upload arbitrary files or folders from CLI [PR](https://github.com/laminlabs/lamindb/pull/1545) [@falexwolf](https://github.com/falexwolf)
-- 📝 Add proper docstrings for `MappedCollection` [PR](https://github.com/laminlabs/lamindb/pull/1544) [@falexwolf](https://github.com/falexwolf)
+
 ```{eval-rst}
 .. role:: small
 ```
 
 ## 0.69
+
+### 0.69.7 {small}`2024-04-03`
+
+- ✨ Add ability to upload arbitrary files or folders from CLI [PR](https://github.com/laminlabs/lamindb/pull/1545) [@falexwolf](https://github.com/falexwolf)
+- 🐛 Fix anndata backed mode incompatibility with scipy 1.13.0 f
 
 ### 0.69.6 {small}`2024-04-02`
 
