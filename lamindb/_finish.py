@@ -34,7 +34,7 @@ def finish(i_saved_the_notebook: bool = False):
 
         if not i_saved_the_notebook and not ln_setup._TESTING:
             logger.error(
-                "Save the notebook, pass `i_saved_the_notebook=True`, and re-run this cell."
+                "Please save the notebook, pass `i_saved_the_notebook=True`, and re-run this cell."
             )
             return None
         notebook_content = read_notebook(run_context.path)  # type: ignore
