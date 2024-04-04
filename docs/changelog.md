@@ -1,12 +1,15 @@
 # Changelog
 
-- :sparkles: Use future annotations [PR](https://github.com/laminlabs/lamindb/pull/1549) [@Zethson](https://github.com/Zethson)
-
 ```{eval-rst}
 .. role:: small
 ```
 
 ## 0.69
+
+### 0.69.8 {small}`2024-04-04`
+
+- 🐛 Avoid an error due to deleting the same file by multiple processes [PR](https://github.com/laminlabs/lamindb-setup/pull/703) [@Koncopd](https://github.com/Koncopd)
+- ♻️ Use future annotations [PR](https://github.com/laminlabs/lamindb/pull/1549) [@Zethson](https://github.com/Zethson)
 
 ### 0.69.7 {small}`2024-04-03`
 
