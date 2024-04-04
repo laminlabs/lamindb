@@ -1,5 +1,6 @@
 # Changelog
 
+- :sparkles: Use future annotations [PR](https://github.com/laminlabs/lamindb/pull/1549) [@Zethson](https://github.com/Zethson)
 
 ```{eval-rst}
 .. role:: small
