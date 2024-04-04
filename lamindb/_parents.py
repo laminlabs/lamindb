@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import builtins
-from typing import TYPE_CHECKING, List, Set
+from typing import TYPE_CHECKING
 
 import lamindb_setup as ln_setup
 from lamin_utils import logger

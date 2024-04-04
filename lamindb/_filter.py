@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-from typing import Type
-
 from lnschema_core import Artifact, Collection, Registry
 from lnschema_core.types import VisibilityChoice
 

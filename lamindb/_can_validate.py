@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Dict, Iterable, List, Literal, Optional, Set, Union
+from typing import TYPE_CHECKING, Iterable, Literal
 
 import lamindb_setup as ln_setup
 import numpy as np

@@ -4,13 +4,8 @@ from collections import defaultdict
 from typing import (
     TYPE_CHECKING,
     Any,
-    Dict,
     Iterable,
-    List,
     Literal,
-    Optional,
-    Tuple,
-    Union,
 )
 
 import anndata as ad

@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 from lamindb_setup.core._docs import doc_args
 from lamindb_setup.core.upath import UPath, create_path
 from lnschema_core import Storage

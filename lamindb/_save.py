@@ -6,7 +6,7 @@ import traceback
 from collections import defaultdict
 from datetime import datetime
 from functools import partial
-from typing import Iterable, List, Optional, Tuple, Union, overload
+from typing import Iterable, overload
 
 import lamindb_setup
 from django.db import transaction

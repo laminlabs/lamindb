@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import builtins
-from typing import TYPE_CHECKING, Iterable, List, NamedTuple, Optional, Union
+from typing import TYPE_CHECKING, Iterable, List, NamedTuple
 from uuid import UUID
 
 import dj_database_url

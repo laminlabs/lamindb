@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Union
 from urllib.request import urlretrieve
 
 import anndata as ad

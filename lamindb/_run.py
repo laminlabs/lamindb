@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-from typing import Optional
-
 from lnschema_core.models import Run, Transform
 
 

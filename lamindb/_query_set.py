@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from collections import UserList
-from typing import TYPE_CHECKING, Dict, Iterable, List, NamedTuple, Optional, Union
+from typing import TYPE_CHECKING, Iterable, NamedTuple
 
 import pandas as pd
 from django.db import models

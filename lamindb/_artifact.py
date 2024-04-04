@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path, PurePath, PurePosixPath
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple, Union
+from typing import TYPE_CHECKING, Any
 
 import fsspec
 import lamindb_setup as ln_setup

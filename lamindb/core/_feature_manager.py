@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from itertools import compress
-from typing import TYPE_CHECKING, Dict, Iterable, Optional, Union
+from typing import TYPE_CHECKING, Iterable
 
 import anndata as ad
 from anndata import AnnData

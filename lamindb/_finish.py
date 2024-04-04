@@ -4,7 +4,7 @@ import os
 import shutil
 import subprocess
 from datetime import datetime, timezone
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING
 
 import lamindb_setup as ln_setup
 from lamin_utils import logger

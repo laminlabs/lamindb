@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-from typing import Optional
-
 import lamindb_setup as ln_setup
 from lamin_utils import logger
 from lamindb_setup.core.upath import UPath

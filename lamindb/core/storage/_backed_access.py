@@ -4,7 +4,7 @@ import inspect
 from dataclasses import dataclass
 from functools import cached_property
 from itertools import chain
-from typing import TYPE_CHECKING, Callable, Dict, Mapping, Optional, Union
+from typing import TYPE_CHECKING, Callable, Mapping, Union
 
 import h5py
 import numpy as np

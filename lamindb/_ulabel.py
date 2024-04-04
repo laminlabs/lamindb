@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, List, Optional
+from typing import TYPE_CHECKING
 
 import lamindb_setup as ln_setup
 from lamindb_setup.core._docs import doc_args

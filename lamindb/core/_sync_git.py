@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import subprocess
 from pathlib import Path
-from typing import Optional
 
 from lamin_utils import logger
 from lamindb_setup import settings as setup_settings

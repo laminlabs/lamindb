@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-from typing import Optional
-
 from lnschema_core.models import Artifact, Run, Transform
 from lnschema_core.types import TransformType
 

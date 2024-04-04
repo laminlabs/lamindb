@@ -4,7 +4,7 @@ import builtins
 import re
 import shutil
 from pathlib import Path
-from typing import TYPE_CHECKING, Optional, Union
+from typing import TYPE_CHECKING
 
 import anndata as ad
 import pandas as pd

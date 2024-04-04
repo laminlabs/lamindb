@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import importlib
 import inspect
-from typing import List, Optional
 
 from IPython.display import display
 from lamin_utils import colors, logger
