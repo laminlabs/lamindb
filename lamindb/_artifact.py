@@ -238,10 +238,12 @@ def get_stat_or_artifact(
             )
             return size, hash, hash_type, n_objects
         else:
-            from_trash = "(from trash)" if result[0].visibility == -1 else ""
-            logger.warning(
-                f"returning existing artifact with same hash{from_trash}: {result[0]}"
-            )
+            if result[0].visibility == -1:
+                raise RuntimeError(
+                    f"You're trying to re-create this artifact in trash: {result[0]}"
+                    "Either permanently delete it with `artifact.delete(permanent=True)` or restore it with `artifact.restore()`"
+                )
+            logger.warning(f"returning existing artifact with same hash: {result[0]}")
             return result[0]
     else:
         return size, hash, hash_type, n_objects
