@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import builtins
-from typing import List, Optional, Set, Union
+from typing import TYPE_CHECKING, List, Set
 
 import lamindb_setup as ln_setup
 from lamin_utils import logger
@@ -10,7 +10,10 @@ from lnschema_core.models import HasParents, format_field_value
 
 from lamindb._utils import attach_func_to_class_method
 
-from ._registry import StrField, get_default_str_field
+from ._registry import get_default_str_field
+
+if TYPE_CHECKING:
+    from lnschema_core.types import StrField
 
 LAMIN_GREEN_LIGHTER = "#10b981"
 LAMIN_GREEN_DARKER = "#065f46"
