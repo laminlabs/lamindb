@@ -22,7 +22,6 @@ from lamindb_setup.core.upath import (
 from lnschema_core import Artifact, Run, Storage
 from lnschema_core.models import IsTree
 from lnschema_core.types import (
-    DataLike,
     VisibilityChoice,
 )
 
@@ -114,7 +113,7 @@ def process_pathlike(
 
 def process_data(
     provisional_uid: str,
-    data: UPathStr | DataLike,
+    data: UPathStr | pd.DataFrame | AnnData,
     format: str | None,
     key: str | None,
     default_storage: Storage,
@@ -138,7 +137,7 @@ def process_data(
         )
         suffix = extract_suffix_from_path(path)
         memory_rep = None
-    elif isinstance(data, (pd.DataFrame, AnnData)):  # DataLike, spelled out
+    elif isinstance(data, (pd.DataFrame, AnnData)):
         storage = default_storage
         memory_rep = data
         if key is not None:
@@ -427,7 +426,7 @@ def log_storage_hint(
     logger.hint(hint)
 
 
-def data_is_anndata(data: DataLike):
+def data_is_anndata(data: AnnData | UPathStr):
     if isinstance(data, AnnData):
         return True
     if isinstance(data, (str, Path, UPath)):
@@ -435,7 +434,7 @@ def data_is_anndata(data: DataLike):
     return False  # pragma: no cover
 
 
-def data_is_mudata(data: DataLike):  # pragma: no cover
+def data_is_mudata(data: Any | UPathStr):  # pragma: no cover
     try:
         from mudata import MuData
     except ModuleNotFoundError:
@@ -725,7 +724,7 @@ def from_dir(
 # docstring handled through attach_func_to_class_method
 def replace(
     self,
-    data: UPathStr | DataLike,
+    data: UPathStr,
     run: Run | None = None,
     format: str | None = None,
 ) -> None:
@@ -808,9 +807,7 @@ def backed(self, is_run_input: bool | None = None) -> AnnDataAccessor | BackedAc
 
 
 # docstring handled through attach_func_to_class_method
-def load(
-    self, is_run_input: bool | None = None, stream: bool = False, **kwargs
-) -> DataLike:
+def load(self, is_run_input: bool | None = None, stream: bool = False, **kwargs) -> Any:
     _track_run_input(self, is_run_input)
     if hasattr(self, "_memory_rep") and self._memory_rep is not None:
         return self._memory_rep

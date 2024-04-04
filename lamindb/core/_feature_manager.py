@@ -23,7 +23,7 @@ from lamindb.core.storage import LocalPathClasses
 from ._settings import settings
 
 if TYPE_CHECKING:
-    from lnschema_core.types import AnnDataLike, FieldAttr
+    from lnschema_core.types import FieldAttr
 
     from lamindb._query_set import QuerySet
 
@@ -132,7 +132,7 @@ def print_features(self: Data) -> str:
 
 
 def parse_feature_sets_from_anndata(
-    adata: AnnDataLike,
+    adata: AnnData,
     var_field: FieldAttr,
     obs_field: FieldAttr = Feature.name,
     **kwargs,
