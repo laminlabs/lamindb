@@ -106,7 +106,7 @@ def __init__(self, *args, **kwargs):
     if len(args) > 1:
         raise ValueError("Only one non-keyword arg allowed: features")
     features: Iterable[Registry] = kwargs.pop("features") if len(args) == 0 else args[0]
-    type: type | str | None = kwargs.pop("type") if "type" in kwargs else None
+    type: str | None = kwargs.pop("type") if "type" in kwargs else None
     name: str | None = kwargs.pop("name") if "name" in kwargs else None
     if len(kwargs) > 0:
         raise ValueError("Only features, type, name are valid keyword arguments")
@@ -144,9 +144,9 @@ def save(self, *args, **kwargs) -> None:
         getattr(self, related_name).set(records)
 
 
-def get_type_str(type: type | str | None) -> str | None:
+def get_type_str(type: str | None) -> str | None:
     if type is not None:
-        type_str = type.__name__ if not isinstance(type, str) else type
+        type_str = type.__name__ if not isinstance(type, str) else type  # type: ignore
     else:
         type_str = None
     if type == "int" or type == "float":
@@ -160,7 +160,7 @@ def from_values(
     cls,
     values: ListLike,
     field: FieldAttr = Feature.name,
-    type: type | str | None = None,
+    type: str | None = None,
     name: str | None = None,
     **kwargs,
 ) -> FeatureSet | None:
