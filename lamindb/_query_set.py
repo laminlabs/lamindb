@@ -1,5 +1,7 @@
+from __future__ import annotations
+
 from collections import UserList
-from typing import Dict, Iterable, List, NamedTuple, Optional, Union
+from typing import TYPE_CHECKING, Dict, Iterable, List, NamedTuple, Optional, Union
 
 import pandas as pd
 from django.db import models
@@ -15,7 +17,9 @@ from lnschema_core.models import (
     Run,
     Transform,
 )
-from lnschema_core.types import ListLike, StrField
+
+if TYPE_CHECKING:
+    from lnschema_core.types import ListLike, StrField
 
 
 class NoResultFound(Exception):
@@ -32,7 +36,7 @@ class MultipleResultsFound(Exception):
 #     return (series + timedelta).dt.strftime("%Y-%m-%d %H:%M:%S %Z")
 
 
-def get_keys_from_df(data: List, registry: Registry) -> List[str]:
+def get_keys_from_df(data: list, registry: Registry) -> list[str]:
     if len(data) > 0:
         if isinstance(data[0], dict):
             keys = list(data[0].keys())
@@ -94,7 +98,7 @@ class QuerySet(models.QuerySet, CanValidate, IsTree):
     """
 
     @doc_args(Registry.df.__doc__)
-    def df(self, include: Optional[Union[str, List[str]]] = None) -> pd.DataFrame:
+    def df(self, include: str | list[str] | None = None) -> pd.DataFrame:
         """{}."""
         data = self.values()
         keys = get_keys_from_df(data, self.model)
@@ -173,7 +177,7 @@ class QuerySet(models.QuerySet, CanValidate, IsTree):
         else:
             self._delete_base_class(*args, **kwargs)
 
-    def list(self, field: Optional[str] = None) -> List[Registry]:
+    def list(self, field: str | None = None) -> list[Registry]:
         """Populate a list with the results.
 
         Examples:
@@ -185,7 +189,7 @@ class QuerySet(models.QuerySet, CanValidate, IsTree):
         else:
             return list(self.values_list(field, flat=True))
 
-    def first(self) -> Optional[Registry]:
+    def first(self) -> Registry | None:
         """If non-empty, the first result in the query set, otherwise ``None``.
 
         Examples:
@@ -203,7 +207,7 @@ class QuerySet(models.QuerySet, CanValidate, IsTree):
         """
         return one_helper(self)
 
-    def one_or_none(self) -> Optional[Registry]:
+    def one_or_none(self) -> Registry | None:
         """At most one result. Returns it if there is one, otherwise returns ``None``.
 
         Examples:
@@ -232,25 +236,21 @@ class QuerySet(models.QuerySet, CanValidate, IsTree):
         return _search(cls=self, string=string, **kwargs)
 
     @doc_args(Registry.lookup.__doc__)
-    def lookup(self, field: Optional[StrField] = None, **kwargs) -> NamedTuple:
+    def lookup(self, field: StrField | None = None, **kwargs) -> NamedTuple:
         """{}."""
         from ._registry import _lookup
 
         return _lookup(cls=self, field=field, **kwargs)
 
     @doc_args(CanValidate.validate.__doc__)
-    def validate(
-        self, values: ListLike, field: Optional[Union[str, StrField]] = None, **kwargs
-    ):
+    def validate(self, values: ListLike, field: str | StrField | None = None, **kwargs):
         """{}."""
         from ._can_validate import _validate
 
         return _validate(cls=self, values=values, field=field, **kwargs)
 
     @doc_args(CanValidate.inspect.__doc__)
-    def inspect(
-        self, values: ListLike, field: Optional[Union[str, StrField]] = None, **kwargs
-    ):
+    def inspect(self, values: ListLike, field: str | StrField | None = None, **kwargs):
         """{}."""
         from ._can_validate import _inspect
 
@@ -258,7 +258,7 @@ class QuerySet(models.QuerySet, CanValidate, IsTree):
 
     @doc_args(CanValidate.standardize.__doc__)
     def standardize(
-        self, values: Iterable, field: Optional[Union[str, StrField]] = None, **kwargs
+        self, values: Iterable, field: str | StrField | None = None, **kwargs
     ):
         """{}."""
         from ._can_validate import _standardize

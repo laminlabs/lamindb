@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from collections import defaultdict
 from typing import (
     TYPE_CHECKING,
@@ -24,12 +26,10 @@ from lnschema_core.types import DataLike, VisibilityChoice
 from lamindb._utils import attach_func_to_class_method
 from lamindb.core._data import _track_run_input
 from lamindb.core._mapped_collection import MappedCollection
-from lamindb.core.storage import UPath
 from lamindb.core.versioning import get_uid_from_old_version, init_uid
 
 from . import Artifact, Run
 from ._artifact import data_is_anndata
-from ._query_set import QuerySet
 from ._registry import init_self_from_db
 from .core._data import (
     add_transform_to_kwargs,
@@ -39,10 +39,13 @@ from .core._data import (
 )
 
 if TYPE_CHECKING:
+    from lamindb.core.storage import UPath
     from lamindb.core.storage._backed_access import AnnDataAccessor, BackedAccessor
 
+    from ._query_set import QuerySet
 
-def _check_accessor_collection(data: Any, accessor: Optional[str] = None):
+
+def _check_accessor_collection(data: Any, accessor: str | None = None):
     if accessor is None and isinstance(data, (AnnData, pd.DataFrame)):
         if isinstance(data, pd.DataFrame):
             logger.warning("data is a DataFrame, please use .from_df()")
@@ -64,31 +67,29 @@ def __init__(
     # now we proceed with the user-facing constructor
     if len(args) > 1:
         raise ValueError("Only one non-keyword arg allowed: data")
-    data: Union[Artifact, Iterable[Artifact]] = (
+    data: Artifact | Iterable[Artifact] = (
         kwargs.pop("data") if len(args) == 0 else args[0]
     )
-    meta: Optional[str] = kwargs.pop("meta") if "meta" in kwargs else None
-    name: Optional[str] = kwargs.pop("name") if "name" in kwargs else None
-    description: Optional[str] = (
+    meta: str | None = kwargs.pop("meta") if "meta" in kwargs else None
+    name: str | None = kwargs.pop("name") if "name" in kwargs else None
+    description: str | None = (
         kwargs.pop("description") if "description" in kwargs else None
     )
-    reference: Optional[str] = (
-        kwargs.pop("reference") if "reference" in kwargs else None
-    )
-    reference_type: Optional[str] = (
+    reference: str | None = kwargs.pop("reference") if "reference" in kwargs else None
+    reference_type: str | None = (
         kwargs.pop("reference_type") if "reference_type" in kwargs else None
     )
-    run: Optional[Run] = kwargs.pop("run") if "run" in kwargs else None
-    is_new_version_of: Optional[Collection] = (
+    run: Run | None = kwargs.pop("run") if "run" in kwargs else None
+    is_new_version_of: Collection | None = (
         kwargs.pop("is_new_version_of") if "is_new_version_of" in kwargs else None
     )
-    version: Optional[str] = kwargs.pop("version") if "version" in kwargs else None
-    visibility: Optional[int] = (
+    version: str | None = kwargs.pop("version") if "version" in kwargs else None
+    visibility: int | None = (
         kwargs.pop("visibility")
         if "visibility" in kwargs
         else VisibilityChoice.default.value
     )
-    feature_sets: Dict[str, FeatureSet] = (
+    feature_sets: dict[str, FeatureSet] = (
         kwargs.pop("feature_sets") if "feature_sets" in kwargs else {}
     )
     accessor = kwargs.pop("accessor") if "accessor" in kwargs else None
@@ -166,7 +167,7 @@ def __init__(
 
 
 # internal function, not exposed to user
-def from_artifacts(artifacts: Iterable[Artifact]) -> Tuple[str, Dict[str, str]]:
+def from_artifacts(artifacts: Iterable[Artifact]) -> tuple[str, dict[str, str]]:
     # assert all artifacts are already saved
     logger.debug("check not saved")
     saved = not any(artifact._state.adding for artifact in artifacts)
@@ -228,16 +229,16 @@ def from_artifacts(artifacts: Iterable[Artifact]) -> Tuple[str, Dict[str, str]]:
 # docstring handled through attach_func_to_class_method
 def mapped(
     self,
-    label_keys: Optional[Union[str, List[str]]] = None,
-    join: Optional[Literal["inner", "outer"]] = "inner",
-    encode_labels: Union[bool, List[str]] = True,
-    unknown_label: Optional[Union[str, Dict[str, str]]] = None,
+    label_keys: str | list[str] | None = None,
+    join: Literal["inner", "outer"] | None = "inner",
+    encode_labels: bool | list[str] = True,
+    unknown_label: str | dict[str, str] | None = None,
     cache_categories: bool = True,
     parallel: bool = False,
-    dtype: Optional[str] = None,
+    dtype: str | None = None,
     stream: bool = False,
-    is_run_input: Optional[bool] = None,
-) -> "MappedCollection":
+    is_run_input: bool | None = None,
+) -> MappedCollection:
     path_list = []
     for artifact in self.artifacts.all():
         if artifact.suffix not in {".h5ad", ".zrad", ".zarr"}:
@@ -263,7 +264,7 @@ def mapped(
 
 
 # docstring handled through attach_func_to_class_method
-def stage(self, is_run_input: Optional[bool] = None) -> List[UPath]:
+def stage(self, is_run_input: bool | None = None) -> list[UPath]:
     _track_run_input(self, is_run_input)
     path_list = []
     for artifact in self.artifacts.all():
@@ -275,7 +276,7 @@ def stage(self, is_run_input: Optional[bool] = None) -> List[UPath]:
 def load(
     self,
     join: Literal["inner", "outer"] = "outer",
-    is_run_input: Optional[bool] = None,
+    is_run_input: bool | None = None,
     **kwargs,
 ) -> DataLike:
     # cannot call _track_run_input here, see comment further down
@@ -301,7 +302,7 @@ def load(
 
 
 # docstring handled through attach_func_to_class_method
-def delete(self, permanent: Optional[bool] = None) -> None:
+def delete(self, permanent: bool | None = None) -> None:
     # change visibility to trash
     trash_visibility = VisibilityChoice.trash.value
     if self.visibility > trash_visibility and permanent is not True:

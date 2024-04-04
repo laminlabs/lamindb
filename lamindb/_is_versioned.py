@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from typing import Optional
 
 import lamindb_setup as ln_setup
@@ -12,7 +14,7 @@ from .core.versioning import get_new_path_from_uid, get_uid_from_old_version
 
 # docstring handled through attach_func_to_class_method
 def add_to_version_family(
-    self, is_new_version_of: IsVersioned, version: Optional[str] = None
+    self, is_new_version_of: IsVersioned, version: str | None = None
 ):
     old_uid = self.uid
     new_uid, version = get_uid_from_old_version(is_new_version_of, version)

@@ -1,5 +1,7 @@
+from __future__ import annotations
+
 from collections import defaultdict
-from typing import Any, Dict, Iterable, List, Optional, Union
+from typing import TYPE_CHECKING, Any, Dict, Iterable, List, Optional, Union
 
 from lamin_utils import colors, logger
 from lamindb_setup.core._docs import doc_args
@@ -15,7 +17,6 @@ from lnschema_core.models import (
     __repr__,
     format_field_value,
 )
-from lnschema_core.types import StrField
 
 from lamindb._feature_set import (
     dict_related_model_to_related_name,
@@ -36,10 +37,13 @@ from ._label_manager import LabelManager, print_labels
 from ._run_context import run_context
 from .exceptions import ValidationError
 
+if TYPE_CHECKING:
+    from lnschema_core.types import StrField
+
 WARNING_RUN_TRANSFORM = "no run & transform get linked, consider calling ln.track()"
 
 
-def get_run(run: Optional[Run]) -> Optional[Run]:
+def get_run(run: Run | None) -> Run | None:
     if run is None:
         run = run_context.run
         if run is None and not settings.silence_file_run_transform_warning:
@@ -50,12 +54,12 @@ def get_run(run: Optional[Run]) -> Optional[Run]:
     return run
 
 
-def add_transform_to_kwargs(kwargs: Dict[str, Any], run: Run):
+def add_transform_to_kwargs(kwargs: dict[str, Any], run: Run):
     if run is not None:
         kwargs["transform"] = run.transform
 
 
-def save_feature_sets(self: Union[Artifact, Collection]) -> None:
+def save_feature_sets(self: Artifact | Collection) -> None:
     if hasattr(self, "_feature_sets"):
         saved_feature_sets = {}
         for key, feature_set in self._feature_sets.items():
@@ -73,7 +77,7 @@ def save_feature_sets(self: Union[Artifact, Collection]) -> None:
             )
 
 
-def save_feature_set_links(self: Union[Artifact, Collection]) -> None:
+def save_feature_set_links(self: Artifact | Collection) -> None:
     from lamindb._save import bulk_create
 
     Data = self.__class__
@@ -141,7 +145,7 @@ def describe(self: Data):
     logger.print(msg)
 
 
-def validate_feature(feature: Feature, records: List[Registry]) -> None:
+def validate_feature(feature: Feature, records: list[Registry]) -> None:
     """Validate feature record, set feature.registries based on labels records."""
     if not isinstance(feature, Feature):
         raise TypeError("feature has to be of type Feature")
@@ -160,7 +164,7 @@ def get_labels(
     feature: Feature,
     mute: bool = False,
     flat_names: bool = False,
-) -> Union[QuerySet, Dict[str, QuerySet], List]:
+) -> QuerySet | dict[str, QuerySet] | list:
     """{}."""
     if not isinstance(feature, Feature):
         raise TypeError("feature has to be of type Feature")
@@ -202,10 +206,10 @@ def get_labels(
 
 def add_labels(
     self,
-    records: Union[Registry, List[Registry], QuerySet, Iterable],
-    feature: Optional[Feature] = None,
+    records: Registry | list[Registry] | QuerySet | Iterable,
+    feature: Feature | None = None,
     *,
-    field: Optional[StrField] = None,
+    field: StrField | None = None,
 ) -> None:
     """{}."""
     if self._state.adding:
@@ -253,7 +257,7 @@ def add_labels(
     if feature is None:
         d = dict_related_model_to_related_name(self.__class__)
         # strategy: group records by registry to reduce number of transactions
-        records_by_related_name: Dict = {}
+        records_by_related_name: dict = {}
         for record in records:
             related_name = d.get(record.__class__.__get_name_with_schema__())
             if related_name is None:
@@ -343,9 +347,9 @@ def add_labels(
 
 
 def _track_run_input(
-    data: Union[Data, Iterable[Data]],
-    is_run_input: Optional[bool] = None,
-    run: Optional[Run] = None,
+    data: Data | Iterable[Data],
+    is_run_input: bool | None = None,
+    run: Run | None = None,
 ):
     if run is None:
         run = run_context.run
@@ -430,7 +434,7 @@ def _track_run_input(
 
 @property  # type: ignore
 @doc_args(Data.features.__doc__)
-def features(self) -> "FeatureManager":
+def features(self) -> FeatureManager:
     """{}."""
     from lamindb.core._feature_manager import FeatureManager
 
@@ -439,7 +443,7 @@ def features(self) -> "FeatureManager":
 
 @property  # type: ignore
 @doc_args(Data.labels.__doc__)
-def labels(self) -> "LabelManager":
+def labels(self) -> LabelManager:
     """{}."""
     from lamindb.core._label_manager import LabelManager
 

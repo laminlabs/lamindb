@@ -1,5 +1,7 @@
+from __future__ import annotations
+
 import builtins
-from typing import Iterable, List, NamedTuple, Optional, Union
+from typing import TYPE_CHECKING, Iterable, List, NamedTuple, Optional, Union
 from uuid import UUID
 
 import dj_database_url
@@ -17,12 +19,14 @@ from lamindb_setup.core._docs import doc_args
 from lamindb_setup.core._hub_core import connect_instance
 from lamindb_setup.core._settings_storage import StorageSettings
 from lnschema_core import Registry
-from lnschema_core.types import ListLike, StrField
 
 from lamindb._utils import attach_func_to_class_method
 from lamindb.core._settings import settings
 
 from ._from_values import get_or_create_records
+
+if TYPE_CHECKING:
+    from lnschema_core.types import ListLike, StrField
 
 IPYTHON = getattr(builtins, "__IPYTHON__", False)
 
@@ -53,7 +57,7 @@ def validate_required_fields(orm: Registry, kwargs):
         raise TypeError(f"{missing_fields} are required.")
 
 
-def suggest_objects_with_same_name(orm: Registry, kwargs) -> Optional[str]:
+def suggest_objects_with_same_name(orm: Registry, kwargs) -> str | None:
     if kwargs.get("name") is None:
         return None
     else:
@@ -125,8 +129,8 @@ def __init__(orm: Registry, *args, **kwargs):
 @classmethod  # type:ignore
 @doc_args(Registry.from_values.__doc__)
 def from_values(
-    cls, values: ListLike, field: Optional[StrField] = None, **kwargs
-) -> List["Registry"]:
+    cls, values: ListLike, field: StrField | None = None, **kwargs
+) -> list[Registry]:
     """{}."""
     from_public = True if cls.__module__.startswith("lnschema_bionty.") else False
     field_str = get_default_str_field(cls, field=field)
@@ -150,21 +154,21 @@ def _search(
     cls,
     string: str,
     *,
-    field: Optional[Union[StrField, List[StrField]]] = None,
-    limit: Optional[int] = 10,
+    field: StrField | list[StrField] | None = None,
+    limit: int | None = 10,
     return_queryset: bool = False,
     case_sensitive: bool = False,
-    synonyms_field: Optional[StrField] = "synonyms",
-    using_key: Optional[str] = None,
-) -> Union["pd.DataFrame", "QuerySet"]:
+    synonyms_field: StrField | None = "synonyms",
+    using_key: str | None = None,
+) -> pd.DataFrame | QuerySet:
     queryset = _queryset(cls, using_key=using_key)
     orm = queryset.model
 
     def _search_single_field(
         string: str,
-        field: Optional[StrField],
-        synonyms_field: Optional[StrField] = "synonyms",
-    ) -> "pd.DataFrame":
+        field: StrField | None,
+        synonyms_field: StrField | None = "synonyms",
+    ) -> pd.DataFrame:
         field = get_default_str_field(orm=orm, field=field)
 
         try:
@@ -233,12 +237,12 @@ def search(
     cls,
     string: str,
     *,
-    field: Optional[StrField] = None,
-    limit: Optional[int] = 20,
+    field: StrField | None = None,
+    limit: int | None = 20,
     return_queryset: bool = False,
     case_sensitive: bool = False,
-    synonyms_field: Optional[StrField] = "synonyms",
-) -> Union["pd.DataFrame", "QuerySet"]:
+    synonyms_field: StrField | None = "synonyms",
+) -> pd.DataFrame | QuerySet:
     """{}."""
     return _search(
         cls=cls,
@@ -253,9 +257,9 @@ def search(
 
 def _lookup(
     cls,
-    field: Optional[StrField] = None,
-    return_field: Optional[StrField] = None,
-    using_key: Optional[str] = None,
+    field: StrField | None = None,
+    return_field: StrField | None = None,
+    using_key: str | None = None,
 ) -> NamedTuple:
     """{}."""
     queryset = _queryset(cls, using_key=using_key)
@@ -279,17 +283,17 @@ def _lookup(
 @doc_args(Registry.lookup.__doc__)
 def lookup(
     cls,
-    field: Optional[StrField] = None,
-    return_field: Optional[StrField] = None,
+    field: StrField | None = None,
+    return_field: StrField | None = None,
 ) -> NamedTuple:
     """{}."""
     return _lookup(cls=cls, field=field, return_field=return_field)
 
 
 def get_default_str_field(
-    orm: Union[Registry, QuerySet, Manager],
+    orm: Registry | QuerySet | Manager,
     *,
-    field: Optional[Union[str, StrField]] = None,
+    field: str | StrField | None = None,
 ) -> str:
     """Get the 1st char or text field from the orm."""
     if isinstance(orm, (QuerySet, Manager)):
@@ -332,7 +336,7 @@ def get_default_str_field(
     return field
 
 
-def _queryset(cls: Union[Registry, QuerySet, Manager], using_key: str) -> QuerySet:
+def _queryset(cls: Registry | QuerySet | Manager, using_key: str) -> QuerySet:
     queryset = (
         cls.all() if isinstance(cls, QuerySet) else cls.objects.using(using_key).all()
     )
@@ -354,7 +358,7 @@ def add_db_connection(db: str, using: str):
 def using(
     cls,
     instance: str,
-) -> "QuerySet":
+) -> QuerySet:
     """{}."""
     from lamindb_setup._connect_instance import (
         load_instance_settings,
@@ -388,9 +392,9 @@ REGISTRY_UNIQUE_FIELD = {
 
 
 def update_fk_to_default_db(
-    records: Union[Registry, List[Registry], QuerySet],
+    records: Registry | list[Registry] | QuerySet,
     fk: str,
-    using_key: Optional[str],
+    using_key: str | None,
 ):
     record = records[0] if isinstance(records, (List, QuerySet)) else records
     if hasattr(record, f"{fk}_id") and getattr(record, f"{fk}_id") is not None:
@@ -424,20 +428,18 @@ FKBULK = [
 ]
 
 
-def transfer_fk_to_default_db_bulk(
-    records: Union[List, QuerySet], using_key: Optional[str]
-):
+def transfer_fk_to_default_db_bulk(records: list | QuerySet, using_key: str | None):
     for fk in FKBULK:
         update_fk_to_default_db(records, fk, using_key)
 
 
 def transfer_to_default_db(
     record: Registry,
-    using_key: Optional[str],
+    using_key: str | None,
     save: bool = False,
     mute: bool = False,
     transfer_fk: bool = True,
-) -> Optional[Registry]:
+) -> Registry | None:
     db = record._state.db
     if db is not None and db != "default" and using_key is None:
         registry = record.__class__
@@ -495,7 +497,7 @@ def save(self, *args, **kwargs) -> None:
         using_key = kwargs["using"]
     db = self._state.db
     pk_on_db = self.pk
-    artifacts: List = []
+    artifacts: list = []
     if self.__class__.__name__ == "Collection" and self.id is not None:
         # when creating a new collection without being able to access artifacts
         artifacts = self.artifacts.list()

@@ -1,17 +1,23 @@
+from __future__ import annotations
+
 import os
 import shutil
 import subprocess
 from datetime import datetime, timezone
-from pathlib import Path
-from typing import Optional
+from typing import TYPE_CHECKING, Optional
 
 import lamindb_setup as ln_setup
 from lamin_utils import logger
-from lnschema_core import Run, Transform
 from lnschema_core.types import TransformType
 
-from ._query_set import QuerySet
 from .core._run_context import is_run_from_ipython, run_context
+
+if TYPE_CHECKING:
+    from pathlib import Path
+
+    from lnschema_core import Run, Transform
+
+    from ._query_set import QuerySet
 
 
 class CallFinishInLastCell(SystemExit):
@@ -61,11 +67,11 @@ def save_run_context_core(
     run: Run,
     transform: Transform,
     filepath: Path,
-    transform_family: Optional[QuerySet] = None,
+    transform_family: QuerySet | None = None,
     is_consecutive: bool = True,
     finished_at: bool = False,
     notebook_content=None,  # nbproject.Notebook
-) -> Optional[str]:
+) -> str | None:
     import lamindb as ln
 
     ln.settings.verbosity = "success"

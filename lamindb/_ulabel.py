@@ -1,13 +1,17 @@
-from typing import List, Optional
+from __future__ import annotations
+
+from typing import TYPE_CHECKING, List, Optional
 
 import lamindb_setup as ln_setup
 from lamindb_setup.core._docs import doc_args
 from lnschema_core import ULabel
-from lnschema_core.types import ListLike
 
 from lamindb._utils import attach_func_to_class_method
 
 from ._from_values import get_or_create_records
+
+if TYPE_CHECKING:
+    from lnschema_core.types import ListLike
 
 
 def __init__(self, *args, **kwargs):
@@ -17,14 +21,12 @@ def __init__(self, *args, **kwargs):
     # now we proceed with the user-facing constructor
     if len(args) > 0:
         raise ValueError("Only one non-keyword arg allowed")
-    name: Optional[str] = kwargs.pop("name") if "name" in kwargs else None
-    description: Optional[str] = (
+    name: str | None = kwargs.pop("name") if "name" in kwargs else None
+    description: str | None = (
         kwargs.pop("description") if "description" in kwargs else None
     )
-    reference: Optional[str] = (
-        kwargs.pop("reference") if "reference" in kwargs else None
-    )
-    reference_type: Optional[str] = (
+    reference: str | None = kwargs.pop("reference") if "reference" in kwargs else None
+    reference_type: str | None = (
         kwargs.pop("reference_type") if "reference_type" in kwargs else None
     )
     if len(kwargs) > 0:
@@ -41,7 +43,7 @@ def __init__(self, *args, **kwargs):
 
 @classmethod  # type:ignore
 @doc_args(ULabel.from_values.__doc__)
-def from_values(cls, values: ListLike, **kwargs) -> List["ULabel"]:
+def from_values(cls, values: ListLike, **kwargs) -> list[ULabel]:
     """{}."""
     records = get_or_create_records(
         iterable=values,

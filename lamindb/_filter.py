@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from typing import Type
 
 from lnschema_core import Artifact, Collection, Registry
@@ -7,7 +9,7 @@ from lamindb import settings
 from lamindb._query_set import QuerySet
 
 
-def filter(Registry: Type[Registry], **expressions) -> QuerySet:
+def filter(Registry: type[Registry], **expressions) -> QuerySet:
     """See :meth:`~lamindb.core.Registry.filter`."""
     _using_key = None
     if "_using_key" in expressions:

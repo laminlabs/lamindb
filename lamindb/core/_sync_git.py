@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import subprocess
 from pathlib import Path
 from typing import Optional
@@ -52,9 +54,7 @@ def check_local_git_repo() -> bool:
             return False
 
 
-def get_git_commit_hash(
-    blob_hash: str, repo_dir: Optional[Path] = None
-) -> Optional[str]:
+def get_git_commit_hash(blob_hash: str, repo_dir: Path | None = None) -> str | None:
     command = f"git log --find-object={blob_hash} --pretty=format:%H"
     result = subprocess.run(
         command,
@@ -71,7 +71,7 @@ def get_git_commit_hash(
 
 
 def get_filepath_within_git_repo(
-    commit_hash: str, blob_hash: str, repo_dir: Optional[Path]
+    commit_hash: str, blob_hash: str, repo_dir: Path | None
 ) -> str:
     # repo_dir might not point to the root of the
     # the git repository because git log --find-object works

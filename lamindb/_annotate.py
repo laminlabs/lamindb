@@ -1,11 +1,15 @@
-from typing import Dict, Iterable, List, Optional, Tuple, Union
+from __future__ import annotations
+
+from typing import TYPE_CHECKING, Dict, Iterable, List, Optional, Tuple, Union
 
 import anndata as ad
 import lamindb_setup as ln_setup
 import pandas as pd
 from lamin_utils import colors, logger
 from lnschema_core import Artifact, Collection, Feature, Registry, Run, ULabel
-from lnschema_core.types import FieldAttr
+
+if TYPE_CHECKING:
+    from lnschema_core.types import FieldAttr
 
 
 class ValidationError(ValueError):
@@ -19,9 +23,9 @@ class AnnotateLookup:
 
     def __init__(
         self,
-        categorials: Dict[str, FieldAttr],
-        slots: Dict[str, FieldAttr] = None,
-        using: Optional[str] = None,
+        categorials: dict[str, FieldAttr],
+        slots: dict[str, FieldAttr] = None,
+        using: str | None = None,
     ) -> None:
         if slots is None:
             slots = {}
@@ -91,8 +95,8 @@ class DataFrameAnnotator:
         self,
         df: pd.DataFrame,
         columns: FieldAttr = Feature.name,
-        categoricals: Optional[Dict[str, FieldAttr]] = None,
-        using: Optional[str] = None,
+        categoricals: dict[str, FieldAttr] | None = None,
+        using: str | None = None,
         verbosity: str = "hint",
         **kwargs,
     ) -> None:
@@ -106,15 +110,15 @@ class DataFrameAnnotator:
         self._artifact = None
         self._collection = None
         self._validated = False
-        self._kwargs: Dict = kwargs
+        self._kwargs: dict = kwargs
         self._save_columns()
 
     @property
-    def fields(self) -> Dict:
+    def fields(self) -> dict:
         """Return the columns fields to validate against."""
         return self._fields
 
-    def lookup(self, using: Optional[str] = None) -> AnnotateLookup:
+    def lookup(self, using: str | None = None) -> AnnotateLookup:
         """Lookup features and labels.
 
         Args:
@@ -260,11 +264,11 @@ class DataFrameAnnotator:
 
     def save_collection(
         self,
-        artifact: Union[Artifact, Iterable[Artifact]],
+        artifact: Artifact | Iterable[Artifact],
         name: str,
-        description: Optional[str] = None,
-        reference: Optional[str] = None,
-        reference_type: Optional[str] = None,
+        description: str | None = None,
+        reference: str | None = None,
+        reference_type: str | None = None,
     ) -> Collection:
         """Save a collection from artifact/artifacts.
 
@@ -319,7 +323,7 @@ class AnnDataAnnotator(DataFrameAnnotator):
         self,
         adata: ad.AnnData,
         var_index: FieldAttr,
-        categoricals: Dict[str, FieldAttr],
+        categoricals: dict[str, FieldAttr],
         using: str = "default",
         verbosity: str = "hint",
         **kwargs,
@@ -342,11 +346,11 @@ class AnnDataAnnotator(DataFrameAnnotator):
         return self._var_field
 
     @property
-    def categoricals(self) -> Dict:
+    def categoricals(self) -> dict:
         """Return the obs fields to validate against."""
         return self._obs_fields
 
-    def lookup(self, using: Optional[str] = None) -> AnnotateLookup:
+    def lookup(self, using: str | None = None) -> AnnotateLookup:
         """Lookup features and labels."""
         return AnnotateLookup(
             categorials=self._obs_fields,
@@ -413,9 +417,9 @@ class Annotate:
     def from_df(
         cls,
         df: pd.DataFrame,
-        categoricals: Optional[Dict[str, FieldAttr]] = None,
+        categoricals: dict[str, FieldAttr] | None = None,
         columns: FieldAttr = Feature.name,
-        using: Optional[str] = None,
+        using: str | None = None,
         verbosity: str = "hint",
         **kwargs,
     ) -> DataFrameAnnotator:
@@ -433,7 +437,7 @@ class Annotate:
         cls,
         adata: ad.AnnData,
         var_index: FieldAttr,
-        categoricals: Dict[str, FieldAttr],
+        categoricals: dict[str, FieldAttr],
         using: str = "default",
         verbosity: str = "hint",
         **kwargs,
@@ -448,7 +452,7 @@ class Annotate:
         )
 
 
-def get_registry_instance(registry: Registry, using: Optional[str] = None) -> Registry:
+def get_registry_instance(registry: Registry, using: str | None = None) -> Registry:
     """Get a registry instance using a specific instance."""
     if using is not None and using != "default":
         return registry.using(using)
@@ -465,8 +469,8 @@ def standardize_and_inspect(
 
 
 def check_registry_organism(
-    registry: Registry, organism: Optional[str] = None
-) -> Optional[str]:
+    registry: Registry, organism: str | None = None
+) -> str | None:
     """Check if a registry needs an organism and return the organism name."""
     if hasattr(registry, "organism_id"):
         import bionty as bt
@@ -484,7 +488,7 @@ def validate_categories(
     values: Iterable[str],
     field: FieldAttr,
     key: str,
-    using: Optional[str] = None,
+    using: str | None = None,
     **kwargs,
 ) -> bool:
     """Validate ontology terms in a pandas series using LaminDB registries."""
@@ -560,8 +564,8 @@ def validate_categories(
 
 def validate_categories_in_df(
     df: pd.DataFrame,
-    fields: Dict[str, FieldAttr],
-    using: Optional[str] = None,
+    fields: dict[str, FieldAttr],
+    using: str | None = None,
     **kwargs,
 ) -> bool:
     """Validate categories in DataFrame columns using LaminDB registries."""
@@ -580,8 +584,8 @@ def validate_categories_in_df(
 def validate_anndata(
     adata: ad.AnnData,
     var_field: FieldAttr,
-    obs_fields: Dict[str, FieldAttr],
-    using: Optional[str] = None,
+    obs_fields: dict[str, FieldAttr],
+    using: str | None = None,
     **kwargs,
 ) -> bool:
     """Inspect metadata in an AnnData object using LaminDB registries."""
@@ -604,9 +608,9 @@ def validate_anndata(
 
 
 def save_artifact(
-    data: Union[pd.DataFrame, ad.AnnData],
+    data: pd.DataFrame | ad.AnnData,
     description: str,
-    fields: Dict[str, FieldAttr],
+    fields: dict[str, FieldAttr],
     columns_field: FieldAttr,
     **kwargs,
 ) -> Artifact:
@@ -631,7 +635,7 @@ def save_artifact(
         raise ValueError("data must be a DataFrame or AnnData object")
     artifact.save()
 
-    feature_kwargs: Dict = {}
+    feature_kwargs: dict = {}
     organism = check_registry_organism(
         columns_field.field.model, kwargs.pop("organism", None)
     )
@@ -662,14 +666,14 @@ def save_artifact(
 
 
 def update_registry(
-    values: List[str],
+    values: list[str],
     field: FieldAttr,
     key: str,
     save_function: str = "add_new_from",
-    using: Optional[str] = None,
+    using: str | None = None,
     validated_only: bool = True,
-    kwargs: Optional[Dict] = None,
-    df: Optional[pd.DataFrame] = None,
+    kwargs: dict | None = None,
+    df: pd.DataFrame | None = None,
 ) -> None:
     """Save features or labels records in the default instance from the using instance.
 
@@ -703,7 +707,7 @@ def update_registry(
             settings.verbosity = verbosity
             return
 
-        labels_saved: Dict = {"from public": [], "without reference": []}
+        labels_saved: dict = {"from public": [], "without reference": []}
 
         (
             labels_saved[f"from {using}"],
@@ -757,7 +761,7 @@ def update_registry(
 
 
 def log_saved_labels(
-    labels_saved: Dict,
+    labels_saved: dict,
     key: str,
     save_function: str,
     model_field: str,
@@ -795,7 +799,7 @@ def log_saved_labels(
             )
 
 
-def save_ulabels_with_parent(values: List[str], field: FieldAttr, key: str) -> None:
+def save_ulabels_with_parent(values: list[str], field: FieldAttr, key: str) -> None:
     """Save a parent label for the given labels."""
     registry = field.field.model
     assert registry == ULabel
@@ -808,11 +812,11 @@ def save_ulabels_with_parent(values: List[str], field: FieldAttr, key: str) -> N
 
 
 def update_registry_from_using_instance(
-    values: List[str],
+    values: list[str],
     field: FieldAttr,
-    using: Optional[str] = None,
-    kwargs: Optional[Dict] = None,
-) -> Tuple[List[str], List[str]]:
+    using: str | None = None,
+    kwargs: dict | None = None,
+) -> tuple[list[str], list[str]]:
     """Save features or labels records from the using instance.
 
     Args:

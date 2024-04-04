@@ -1,12 +1,16 @@
-from typing import Any, Dict, Iterable, List, Tuple, Union
+from __future__ import annotations
+
+from typing import TYPE_CHECKING, Any, Dict, Iterable, List, Tuple, Union
 
 import pandas as pd
 from django.core.exceptions import FieldDoesNotExist
 from lamin_utils import colors, logger
 from lnschema_core.models import Feature, Registry, ULabel
-from lnschema_core.types import ListLike, StrField
 
 from .core._settings import settings
+
+if TYPE_CHECKING:
+    from lnschema_core.types import ListLike, StrField
 
 
 # The base function for `from_values`
@@ -16,7 +20,7 @@ def get_or_create_records(
     *,
     from_public: bool = False,
     **kwargs,
-) -> List[Registry]:
+) -> list[Registry]:
     """Get or create records from iterables."""
     upon_create_search_names = settings.upon_create_search_names
     settings.upon_create_search_names = False
@@ -74,12 +78,12 @@ def get_or_create_records(
 def get_existing_records(
     iterable_idx: pd.Index,
     field: StrField,
-    kwargs: Dict = None,
+    kwargs: dict = None,
 ):
     if kwargs is None:
         kwargs = {}
     model = field.field.model
-    condition: Dict = {} if len(kwargs) == 0 else kwargs.copy()
+    condition: dict = {} if len(kwargs) == 0 else kwargs.copy()
     # existing records matching is agnostic to the bionty source
     if "public_source" in condition:
         condition.pop("public_source")
@@ -167,7 +171,7 @@ def create_records_from_public(
     **kwargs,
 ):
     model = field.field.model
-    records: List = []
+    records: list = []
     # populate additional fields from bionty
     from lnschema_bionty._bionty import get_public_source_record
 
@@ -247,7 +251,7 @@ def index_iterable(iterable: Iterable) -> pd.Index:
     return idx[(idx != "") & (~idx.isnull())]
 
 
-def _print_values(names: List, n: int = 20) -> str:
+def _print_values(names: list, n: int = 20) -> str:
     print_values = ", ".join([f"'{name}'" for name in names[:n]])
     if len(names) > n:
         print_values += ", ..."
@@ -292,8 +296,8 @@ def _filter_bionty_df_columns(model: Registry, public_ontology: Any) -> pd.DataF
 
 
 def _bulk_create_dicts_from_df(
-    keys: Union[set, List], column_name: str, df: pd.DataFrame
-) -> Tuple[Dict, str]:
+    keys: set | list, column_name: str, df: pd.DataFrame
+) -> tuple[dict, str]:
     """Get fields from a DataFrame for many rows."""
     multi_msg = ""
     if df.index.name != column_name:

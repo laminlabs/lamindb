@@ -1,4 +1,6 @@
-from typing import Dict, List, Optional, Tuple, Union
+from __future__ import annotations
+
+from typing import TYPE_CHECKING, Dict, List, Optional, Tuple, Union
 
 import numpy as np
 from lamin_utils import colors, logger
@@ -6,7 +8,6 @@ from lnschema_core.models import Artifact, Collection, Data, Feature, Registry
 
 from lamindb._feature_set import dict_related_model_to_related_name
 from lamindb._from_values import _print_values
-from lamindb._query_set import QuerySet
 from lamindb._registry import (
     REGISTRY_UNIQUE_FIELD,
     get_default_str_field,
@@ -16,6 +17,9 @@ from lamindb._registry import (
 from lamindb._save import save
 
 from ._settings import settings
+
+if TYPE_CHECKING:
+    from lamindb._query_set import QuerySet
 
 
 def get_labels_as_dict(self: Data):
@@ -80,10 +84,10 @@ def transfer_add_labels(labels, features_lookup_self, self, row, parents: bool =
         transfer_single_registry(*result)
 
 
-def validate_labels(labels: Union[QuerySet, List, Dict], parents: bool = True):
+def validate_labels(labels: QuerySet | list | dict, parents: bool = True):
     def validate_labels_registry(
-        labels: Union[QuerySet, List, Dict], parents: bool = True
-    ) -> Tuple[List[str], List[str]]:
+        labels: QuerySet | list | dict, parents: bool = True
+    ) -> tuple[list[str], list[str]]:
         if len(labels) == 0:
             return [], []
         registry = labels[0].__class__
@@ -134,7 +138,7 @@ class LabelManager:
     See :class:`~lamindb.core.Data` for more information.
     """
 
-    def __init__(self, host: Union[Artifact, Collection]):
+    def __init__(self, host: Artifact | Collection):
         self._host = host
 
     def __repr__(self) -> str:
@@ -146,8 +150,8 @@ class LabelManager:
 
     def add(
         self,
-        records: Union[Registry, List[Registry], QuerySet],
-        feature: Optional[Feature] = None,
+        records: Registry | list[Registry] | QuerySet,
+        feature: Feature | None = None,
     ) -> None:
         """Add one or several labels and associate them with a feature.
 
@@ -165,7 +169,7 @@ class LabelManager:
         feature: Feature,
         mute: bool = False,
         flat_names: bool = False,
-    ) -> Union[QuerySet, Dict[str, QuerySet], List]:
+    ) -> QuerySet | dict[str, QuerySet] | list:
         """Get labels given a feature.
 
         Args:

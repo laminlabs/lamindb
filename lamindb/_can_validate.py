@@ -1,20 +1,24 @@
-from typing import Dict, Iterable, List, Literal, Optional, Set, Union
+from __future__ import annotations
+
+from typing import TYPE_CHECKING, Dict, Iterable, List, Literal, Optional, Set, Union
 
 import lamindb_setup as ln_setup
 import numpy as np
 import pandas as pd
 from django.core.exceptions import FieldDoesNotExist
-from django.db.models import QuerySet
 from lamin_utils import colors, logger
-from lamin_utils._inspect import InspectResult
 from lamindb_setup.core._docs import doc_args
 from lnschema_core import CanValidate, Registry
-from lnschema_core.types import ListLike, StrField
 
 from lamindb._utils import attach_func_to_class_method
 
 from ._from_values import _has_organism_field, _print_values
 from ._registry import _queryset, get_default_str_field
+
+if TYPE_CHECKING:
+    from django.db.models import QuerySet
+    from lamin_utils._inspect import InspectResult
+    from lnschema_core.types import ListLike, StrField
 
 
 @classmethod  # type: ignore
@@ -22,7 +26,7 @@ from ._registry import _queryset, get_default_str_field
 def inspect(
     cls,
     values: ListLike,
-    field: Optional[Union[str, StrField]] = None,
+    field: str | StrField | None = None,
     *,
     mute: bool = False,
     **kwargs,
@@ -42,7 +46,7 @@ def inspect(
 def validate(
     cls,
     values: ListLike,
-    field: Optional[Union[str, StrField]] = None,
+    field: str | StrField | None = None,
     *,
     mute: bool = False,
     **kwargs,
@@ -54,12 +58,12 @@ def validate(
 def _inspect(
     cls,
     values: ListLike,
-    field: Optional[Union[str, StrField]] = None,
+    field: str | StrField | None = None,
     *,
     mute: bool = False,
-    using_key: Optional[str] = None,
+    using_key: str | None = None,
     **kwargs,
-) -> Union["pd.DataFrame", Dict[str, List[str]]]:
+) -> pd.DataFrame | dict[str, list[str]]:
     """{}."""
     from lamin_utils._inspect import inspect
 
@@ -138,10 +142,10 @@ def _inspect(
 def _validate(
     cls,
     values: ListLike,
-    field: Optional[Union[str, StrField]] = None,
+    field: str | StrField | None = None,
     *,
     mute: bool = False,
-    using_key: Optional[str] = None,
+    using_key: str | None = None,
     **kwargs,
 ) -> np.ndarray:
     """{}."""
@@ -182,7 +186,7 @@ def _validate(
 def standardize(
     cls,
     values: Iterable,
-    field: Optional[Union[str, StrField]] = None,
+    field: str | StrField | None = None,
     *,
     return_field: str = None,
     return_mapper: bool = False,
@@ -192,7 +196,7 @@ def standardize(
     keep: Literal["first", "last", False] = "first",
     synonyms_field: str = "synonyms",
     **kwargs,
-) -> Union[List[str], Dict[str, str]]:
+) -> list[str] | dict[str, str]:
     """{}."""
     return _standardize(
         cls=cls,
@@ -226,9 +230,9 @@ def set_abbr(self, value: str):
 
 def add_synonym(
     self,
-    synonym: Union[str, ListLike],
+    synonym: str | ListLike,
     force: bool = False,
-    save: Optional[bool] = None,
+    save: bool | None = None,
 ):
     _check_synonyms_field_exist(self)
     _add_or_remove_synonyms(
@@ -236,7 +240,7 @@ def add_synonym(
     )
 
 
-def remove_synonym(self, synonym: Union[str, ListLike]):
+def remove_synonym(self, synonym: str | ListLike):
     _check_synonyms_field_exist(self)
     _add_or_remove_synonyms(synonym=synonym, record=self, action="remove")
 
@@ -244,7 +248,7 @@ def remove_synonym(self, synonym: Union[str, ListLike]):
 def _standardize(
     cls,
     values: Iterable,
-    field: Optional[Union[str, StrField]] = None,
+    field: str | StrField | None = None,
     *,
     return_field: str = None,
     return_mapper: bool = False,
@@ -253,9 +257,9 @@ def _standardize(
     public_aware: bool = True,
     keep: Literal["first", "last", False] = "first",
     synonyms_field: str = "synonyms",
-    using_key: Optional[str] = None,
+    using_key: str | None = None,
     **kwargs,
-) -> Union[List[str], Dict[str, str]]:
+) -> list[str] | dict[str, str]:
     """{}."""
     from lamin_utils._standardize import standardize as map_synonyms
 
@@ -302,7 +306,7 @@ def _standardize(
         **_kwargs,
     )
 
-    def _return(result: List, mapper: Dict):
+    def _return(result: list, mapper: dict):
         if return_mapper:
             return mapper
         else:
@@ -350,15 +354,15 @@ def _standardize(
 
 
 def _add_or_remove_synonyms(
-    synonym: Union[str, Iterable],
+    synonym: str | Iterable,
     record: Registry,
     action: Literal["add", "remove"],
     force: bool = False,
-    save: Optional[bool] = None,
+    save: bool | None = None,
 ):
     """Add or remove synonyms."""
 
-    def check_synonyms_in_all_records(synonyms: Set[str], record: Registry):
+    def check_synonyms_in_all_records(synonyms: set[str], record: Registry):
         """Errors if input synonym is associated with other records in the DB."""
         import pandas as pd
         from IPython.display import display
@@ -437,8 +441,8 @@ def _check_synonyms_field_exist(record: Registry):
 
 def _filter_query_based_on_organism(
     queryset: QuerySet,
-    organism: Optional[Union[str, Registry]] = None,
-    values_list_field: Optional[str] = None,
+    organism: str | Registry | None = None,
+    values_list_field: str | None = None,
 ):
     """Filter a queryset based on organism."""
     import pandas as pd

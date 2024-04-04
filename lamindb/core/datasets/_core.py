@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from pathlib import Path
 from typing import Union
 from urllib.request import urlretrieve
@@ -448,7 +450,7 @@ def df_iris_in_meter_study2() -> pd.DataFrame:
 
 
 def dir_scrnaseq_cellranger(
-    sample_name: str, basedir: Union[str, Path] = "./", output_only: bool = True
+    sample_name: str, basedir: str | Path = "./", output_only: bool = True
 ):  # pragma: no cover
     """Generate mock cell ranger outputs.
 
