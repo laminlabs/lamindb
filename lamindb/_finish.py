@@ -34,13 +34,13 @@ def finish(i_saved_the_notebook: bool = False):
 
         if not i_saved_the_notebook and not ln_setup._TESTING:
             logger.error(
-                "Please save the notebook, pass `i_saved_the_notebook=True`, and re-run this cell."
+                "Please pass `i_saved_the_notebook=True` to `ln.finish()`, save the notebook, and re-run this cell."
             )
             return None
         notebook_content = read_notebook(run_context.path)  # type: ignore
         if not check_last_cell(notebook_content, "i_saved_the_notebook"):
             raise CallFinishInLastCell(
-                "Can only finish() from the last code cell of the notebook."
+                "Can only run `ln.finish(i_saved_the_notebook=True)` from the last code cell of the notebook."
             )
         save_run_context_core(
             run=run_context.run,
