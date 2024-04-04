@@ -1,8 +1,13 @@
+from __future__ import annotations
+
 import subprocess
+from typing import TYPE_CHECKING
 
 import lamindb_setup as ln_setup
 from lamin_utils import logger
-from lnschema_core.models import Run
+
+if TYPE_CHECKING:
+    from lnschema_core.models import Run
 
 
 def track_environment(run: Run) -> None:

@@ -1,10 +1,12 @@
+from __future__ import annotations
+
 import os
 import shutil
 import traceback
 from collections import defaultdict
 from datetime import datetime
 from functools import partial
-from typing import Iterable, List, Optional, Tuple, Union, overload
+from typing import Iterable, overload
 
 import lamindb_setup
 from django.db import transaction
@@ -30,7 +32,7 @@ except ImportError:
 
 
 def save(
-    records: Iterable[Registry], ignore_conflicts: Optional[bool] = False, **kwargs
+    records: Iterable[Registry], ignore_conflicts: bool | None = False, **kwargs
 ) -> None:
     """Bulk save to registries & storage.
 
@@ -123,7 +125,7 @@ def save(
     return None
 
 
-def bulk_create(records: Iterable[Registry], ignore_conflicts: Optional[bool] = False):
+def bulk_create(records: Iterable[Registry], ignore_conflicts: bool | None = False):
     records_by_orm = defaultdict(list)
     for record in records:
         records_by_orm[record.__class__].append(record)
@@ -134,9 +136,9 @@ def bulk_create(records: Iterable[Registry], ignore_conflicts: Optional[bool] = 
 # This is also used within Artifact.save()
 def check_and_attempt_upload(
     artifact: Artifact,
-    using_key: Optional[str] = None,
-    access_token: Optional[str] = None,
-) -> Optional[Exception]:
+    using_key: str | None = None,
+    access_token: str | None = None,
+) -> Exception | None:
     # if Artifact object is either newly instantiated or replace() was called on
     # a local env it will have a _local_filepath and needs to be uploaded
     if hasattr(artifact, "_local_filepath"):
@@ -199,8 +201,8 @@ def copy_or_move_to_cache(artifact: Artifact, storage_path: UPath):
 
 # This is also used within Artifact.save()
 def check_and_attempt_clearing(
-    artifact: Artifact, using_key: Optional[str] = None
-) -> Optional[Exception]:
+    artifact: Artifact, using_key: str | None = None
+) -> Exception | None:
     # this is a clean-up operation after replace() was called
     # this will only evaluate to True if replace() was called
     if hasattr(artifact, "_clear_storagekey"):
@@ -220,13 +222,13 @@ def check_and_attempt_clearing(
 
 
 def store_artifacts(
-    artifacts: Iterable[Artifact], using_key: Optional[str] = None
+    artifacts: Iterable[Artifact], using_key: str | None = None
 ) -> None:
     """Upload artifacts in a list of database-committed artifacts to storage.
 
     If any upload fails, subsequent artifacts are cleaned up from the DB.
     """
-    exception: Optional[Exception] = None
+    exception: Exception | None = None
     # because uploads might fail, we need to maintain a new list
     # of the succeeded uploads
     stored_artifacts = []
@@ -274,7 +276,7 @@ def prepare_error_message(records, stored_artifacts, exception) -> str:
 
 
 def upload_artifact(
-    artifact, using_key: Optional[str] = None, access_token: Optional[str] = None
+    artifact, using_key: str | None = None, access_token: str | None = None
 ) -> UPath:
     """Store and add file and its linked entries."""
     # can't currently use  filepath_from_artifact here because it resolves to ._local_filepath

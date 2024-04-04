@@ -1,4 +1,4 @@
-from typing import Optional
+from __future__ import annotations
 
 from lnschema_core.models import Artifact, Run, Transform
 from lnschema_core.types import TransformType
@@ -11,24 +11,22 @@ def __init__(transform: Transform, *args, **kwargs):
     if len(args) == len(transform._meta.concrete_fields):
         super(Transform, transform).__init__(*args, **kwargs)
         return None
-    name: Optional[str] = kwargs.pop("name") if "name" in kwargs else None
-    key: Optional[str] = kwargs.pop("key") if "key" in kwargs else None
-    is_new_version_of: Optional[Transform] = (
+    name: str | None = kwargs.pop("name") if "name" in kwargs else None
+    key: str | None = kwargs.pop("key") if "key" in kwargs else None
+    is_new_version_of: Transform | None = (
         kwargs.pop("is_new_version_of") if "is_new_version_of" in kwargs else None
     )
     (kwargs.pop("initial_version_id") if "initial_version_id" in kwargs else None)
-    version: Optional[str] = kwargs.pop("version") if "version" in kwargs else None
-    type: Optional[TransformType] = (
+    version: str | None = kwargs.pop("version") if "version" in kwargs else None
+    type: TransformType | None = (
         kwargs.pop("type") if "type" in kwargs else TransformType.pipeline
     )
-    reference: Optional[str] = (
-        kwargs.pop("reference") if "reference" in kwargs else None
-    )
-    reference_type: Optional[str] = (
+    reference: str | None = kwargs.pop("reference") if "reference" in kwargs else None
+    reference_type: str | None = (
         kwargs.pop("reference_type") if "reference_type" in kwargs else None
     )
     # below is internal use that we'll hopefully be able to eliminate
-    uid: Optional[str] = kwargs.pop("uid") if "uid" in kwargs else None
+    uid: str | None = kwargs.pop("uid") if "uid" in kwargs else None
     if not len(kwargs) == 0:
         raise ValueError(
             "Only name, key, version, type, is_new_version_of, reference, "

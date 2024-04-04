@@ -1,15 +1,20 @@
+from __future__ import annotations
+
 import os
-from pathlib import Path
-from typing import Dict, Literal, Mapping, Optional, Tuple, Union
+from typing import TYPE_CHECKING, Literal, Mapping
 
 import lamindb_setup as ln_setup
 from lamin_utils import logger
 from lamindb_setup._add_remote_storage import switch_default_storage
 from lamindb_setup.core._settings import settings as setup_settings
 from lamindb_setup.core._settings_instance import sanitize_git_repo_url
-from upath import UPath
 
 from ._transform_settings import TransformSettings, transform
+
+if TYPE_CHECKING:
+    from pathlib import Path
+
+    from upath import UPath
 
 VERBOSITY_TO_INT = {
     "error": 0,  # 40
@@ -19,7 +24,7 @@ VERBOSITY_TO_INT = {
     "hint": 4,  # 15
     "debug": 5,  # 10
 }
-VERBOSITY_TO_STR: Dict[int, str] = dict(
+VERBOSITY_TO_STR: dict[int, str] = dict(
     [reversed(i) for i in VERBOSITY_TO_INT.items()]  # type: ignore
 )
 
@@ -30,10 +35,10 @@ class Settings:
     Use ``lamindb.settings`` instead of instantiating this class yourself.
     """
 
-    def __init__(self, git_repo: Optional[str]):
+    def __init__(self, git_repo: str | None):
         self._verbosity_int: int = 1  # warning-level logging
         logger.set_verbosity(self._verbosity_int)
-        self._sync_git_repo: Optional[str] = git_repo
+        self._sync_git_repo: str | None = git_repo
 
     upon_artifact_create_if_hash_exists: Literal[
         "warn_return_existing", "error", "warn_create_new"
@@ -73,16 +78,16 @@ class Settings:
     If `True`, the `key` is **not** used to construct file paths, but file paths are
     based on the `uid` of artifact.
     """
-    __using_key: Optional[str] = None
-    _using_storage: Optional[str] = None
+    __using_key: str | None = None
+    _using_storage: str | None = None
 
     @property
-    def _using_key(self) -> Optional[str]:
+    def _using_key(self) -> str | None:
         """Key for Django database settings."""
         return self.__using_key
 
     @_using_key.setter
-    def _using_key(self, value: Optional[str]):
+    def _using_key(self, value: str | None):
         ln_setup.settings._using_key = value
         self.__using_key = value
 
@@ -100,7 +105,7 @@ class Settings:
         return transform
 
     @property
-    def sync_git_repo(self) -> Optional[str]:
+    def sync_git_repo(self) -> str | None:
         """Sync transforms with scripts in git repository.
 
         Provide the full git repo URL.
@@ -117,7 +122,7 @@ class Settings:
         assert self._sync_git_repo.startswith("https://")
 
     @property
-    def storage(self) -> Union[Path, UPath]:
+    def storage(self) -> Path | UPath:
         """Default storage location (a path to its root).
 
         Examples:
@@ -137,9 +142,7 @@ class Settings:
         return self._storage_settings.root
 
     @storage.setter
-    def storage(
-        self, path_kwargs: Union[str, Path, UPath, Tuple[Union[str, UPath], Mapping]]
-    ):
+    def storage(self, path_kwargs: str | Path | UPath | tuple[str | UPath, Mapping]):
         logger.warning(
             "you'll no longer be able to set arbitrary storage locations soon"
         )
@@ -165,7 +168,7 @@ class Settings:
         return VERBOSITY_TO_STR[self._verbosity_int]
 
     @verbosity.setter
-    def verbosity(self, verbosity: Union[str, int]):
+    def verbosity(self, verbosity: str | int):
         if isinstance(verbosity, str):
             verbosity_int = VERBOSITY_TO_INT[verbosity]
         else:

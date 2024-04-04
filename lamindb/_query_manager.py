@@ -1,12 +1,16 @@
-from typing import NamedTuple, Optional
+from __future__ import annotations
+
+from typing import TYPE_CHECKING, NamedTuple
 
 from django.db import models
 from lamin_utils import logger
 from lamindb_setup.core._docs import doc_args
 from lnschema_core.models import Registry
-from lnschema_core.types import StrField
 
 from .core._feature_manager import get_feature_set_by_slot
+
+if TYPE_CHECKING:
+    from lnschema_core.types import StrField
 
 
 class QueryManager(models.Manager):
@@ -41,7 +45,7 @@ class QueryManager(models.Manager):
                     logger.warning(WARNING_RUN_TRANSFORM)
                 _track_run_input(self.instance)
 
-    def list(self, field: Optional[str] = None):
+    def list(self, field: str | None = None):
         """Populate a list with the results.
 
         Examples:
@@ -83,7 +87,7 @@ class QueryManager(models.Manager):
         return _search(cls=self.all(), string=string, **kwargs)
 
     @doc_args(Registry.lookup.__doc__)
-    def lookup(self, field: Optional[StrField] = None, **kwargs) -> NamedTuple:
+    def lookup(self, field: StrField | None = None, **kwargs) -> NamedTuple:
         """{}."""
         from ._registry import _lookup
 

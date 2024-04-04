@@ -1,9 +1,10 @@
+from __future__ import annotations
+
 import inspect
 from dataclasses import dataclass
 from functools import cached_property
 from itertools import chain
-from pathlib import Path
-from typing import Callable, Dict, Mapping, Optional, Union
+from typing import TYPE_CHECKING, Callable, Mapping, Union
 
 import h5py
 import numpy as np
@@ -15,7 +16,6 @@ from anndata._core.views import _resolve_idx
 from anndata._io.h5ad import read_dataframe_legacy as read_dataframe_legacy_h5
 from anndata._io.specs.registry import get_spec, read_elem, read_elem_partial
 from anndata.compat import _read_attr
-from fsspec.core import OpenFile
 from fsspec.implementations.local import LocalFileSystem
 from lamin_utils import logger
 from lamindb_setup.core.upath import UPath, create_mapper, infer_filesystem
@@ -23,6 +23,11 @@ from lnschema_core import Artifact
 from packaging import version
 
 from lamindb.core.storage.file import filepath_from_artifact
+
+if TYPE_CHECKING:
+    from pathlib import Path
+
+    from fsspec.core import OpenFile
 
 anndata_version_parse = version.parse(anndata_version)
 
@@ -60,7 +65,7 @@ else:
 
 
 # zarr and CSRDataset have problems with full selection
-def _subset_sparse(sparse_ds: Union[CSRDataset, SparseDataset], indices):
+def _subset_sparse(sparse_ds: CSRDataset | SparseDataset, indices):
     has_arrays = isinstance(indices[0], np.ndarray) or isinstance(
         indices[1], np.ndarray
     )
@@ -140,7 +145,7 @@ registry = Registry()
 
 
 @registry.register_open("h5py")
-def open(filepath: Union[UPath, Path, str]):
+def open(filepath: UPath | Path | str):
     fs, file_path_str = infer_filesystem(filepath)
     if isinstance(fs, LocalFileSystem):
         return None, h5py.File(file_path_str, mode="r")
@@ -154,7 +159,7 @@ def open(filepath: Union[UPath, Path, str]):
 
 
 @registry.register("h5py")
-def read_dataframe(elem: Union[h5py.Dataset, h5py.Group]):
+def read_dataframe(elem: h5py.Dataset | h5py.Group):
     if isinstance(elem, h5py.Dataset):
         return read_dataframe_legacy_h5(elem)
     else:
@@ -164,7 +169,7 @@ def read_dataframe(elem: Union[h5py.Dataset, h5py.Group]):
 @registry.register("h5py")
 def safer_read_partial(elem, indices):
     is_dataset = isinstance(elem, h5py.Dataset)
-    indices_inverse: Optional[list] = None
+    indices_inverse: list | None = None
     encoding_type = get_spec(elem).encoding_type
     # h5py selection for datasets requires sorted indices
     if is_dataset or encoding_type == "dataframe":
@@ -226,7 +231,7 @@ def safer_read_partial(elem, indices):
 
 @registry.register("h5py")
 def keys(storage: h5py.File):
-    attrs_keys: Dict[str, list] = {}
+    attrs_keys: dict[str, list] = {}
     for attr in storage.keys():
         if attr == "X":
             continue
@@ -314,7 +319,7 @@ if ZARR_INSTALLED:
     def keys(storage: zarr.Group):  # noqa
         paths = storage._store.keys()
 
-        attrs_keys: Dict[str, list] = {}
+        attrs_keys: dict[str, list] = {}
         obs_var_arrays = []
 
         for path in paths:
@@ -648,7 +653,7 @@ class AnnDataAccessor(_AnnDataAttrsMixin):
 
     def __init__(
         self,
-        connection: Union[OpenFile, None],
+        connection: OpenFile | None,
         storage: StorageType,
         filename: str,
     ):
@@ -724,8 +729,8 @@ class BackedAccessor:
 
 
 def backed_access(
-    artifact_or_filepath: Union[Artifact, Path], using_key: Optional[str]
-) -> Union[AnnDataAccessor, BackedAccessor]:
+    artifact_or_filepath: Artifact | Path, using_key: str | None
+) -> AnnDataAccessor | BackedAccessor:
     if isinstance(artifact_or_filepath, Artifact):
         filepath = filepath_from_artifact(artifact_or_filepath, using_key=using_key)
     else:

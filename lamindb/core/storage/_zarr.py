@@ -1,14 +1,18 @@
+from __future__ import annotations
+
 import warnings
-from typing import Optional
+from typing import TYPE_CHECKING
 
 import scipy.sparse as sparse
 import zarr
-from anndata import AnnData
 from anndata._io import read_zarr
 from anndata._io.specs import write_elem
 from lamindb_setup.core.upath import create_mapper, infer_filesystem
 
 from ._anndata_sizes import _size_elem, _size_raw, size_adata
+
+if TYPE_CHECKING:
+    from anndata import AnnData
 
 
 def read_adata_zarr(storepath) -> AnnData:
@@ -38,7 +42,7 @@ def write_adata_zarr(
     adata_size = None
     cumulative_val = 0
 
-    def _cb(key_write: Optional[str] = None):
+    def _cb(key_write: str | None = None):
         nonlocal adata_size
         nonlocal cumulative_val
 

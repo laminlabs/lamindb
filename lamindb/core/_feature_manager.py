@@ -1,16 +1,16 @@
+from __future__ import annotations
+
 from itertools import compress
-from typing import Dict, Iterable, Optional, Union
+from typing import TYPE_CHECKING, Iterable
 
 import anndata as ad
 from anndata import AnnData
 from lamin_utils import colors, logger
 from lamindb_setup.core.upath import create_path
 from lnschema_core.models import Artifact, Collection, Data, Feature, Registry
-from lnschema_core.types import AnnDataLike, FieldAttr
 
 from lamindb._feature import convert_numpy_dtype_to_lamin_feature_type
 from lamindb._feature_set import FeatureSet
-from lamindb._query_set import QuerySet
 from lamindb._registry import (
     REGISTRY_UNIQUE_FIELD,
     get_default_str_field,
@@ -22,8 +22,13 @@ from lamindb.core.storage import LocalPathClasses
 
 from ._settings import settings
 
+if TYPE_CHECKING:
+    from lnschema_core.types import AnnDataLike, FieldAttr
 
-def get_host_id_field(host: Union[Artifact, Collection]) -> str:
+    from lamindb._query_set import QuerySet
+
+
+def get_host_id_field(host: Artifact | Collection) -> str:
     if isinstance(host, Artifact):
         host_id_field = "artifact_id"
     else:
@@ -31,7 +36,7 @@ def get_host_id_field(host: Union[Artifact, Collection]) -> str:
     return host_id_field
 
 
-def get_accessor_by_orm(host: Union[Artifact, Collection]) -> Dict:
+def get_accessor_by_orm(host: Artifact | Collection) -> dict:
     dictionary = {
         field.related_model.__get_name_with_schema__(): field.name
         for field in host._meta.related_objects
@@ -41,7 +46,7 @@ def get_accessor_by_orm(host: Union[Artifact, Collection]) -> Dict:
     return dictionary
 
 
-def get_feature_set_by_slot(host) -> Dict:
+def get_feature_set_by_slot(host) -> dict:
     # if the host is not yet saved
     if host._state.adding:
         if hasattr(host, "_feature_sets"):
@@ -64,7 +69,7 @@ def get_feature_set_by_slot(host) -> Dict:
 
 
 def get_label_links(
-    host: Union[Artifact, Collection], registry: str, feature: Feature
+    host: Artifact | Collection, registry: str, feature: Feature
 ) -> QuerySet:
     host_id_field = get_host_id_field(host)
     kwargs = {host_id_field: host.id, "feature_id": feature.id}
@@ -76,7 +81,7 @@ def get_label_links(
     return link_records
 
 
-def get_feature_set_links(host: Union[Artifact, Collection]) -> QuerySet:
+def get_feature_set_links(host: Artifact | Collection) -> QuerySet:
     host_id_field = get_host_id_field(host)
     kwargs = {host_id_field: host.id}
     feature_set_links = host.feature_sets.through.objects.filter(**kwargs)
@@ -131,7 +136,7 @@ def parse_feature_sets_from_anndata(
     var_field: FieldAttr,
     obs_field: FieldAttr = Feature.name,
     **kwargs,
-) -> Dict:
+) -> dict:
     data_parse = adata
     if not isinstance(adata, AnnData):  # is a path
         filepath = create_path(adata)  # returns Path for local
@@ -183,7 +188,7 @@ class FeatureManager:
     See :class:`~lamindb.core.Data` for more information.
     """
 
-    def __init__(self, host: Union[Artifact, Collection]):
+    def __init__(self, host: Artifact | Collection):
         self._host = host
         self._feature_set_by_slot = get_feature_set_by_slot(host)
         self._accessor_by_orm = get_accessor_by_orm(host)
@@ -210,7 +215,7 @@ class FeatureManager:
         else:
             return getattr(feature_set, self._accessor_by_orm[orm_name]).all()
 
-    def add(self, features: Iterable[Registry], slot: Optional[str] = None):
+    def add(self, features: Iterable[Registry], slot: str | None = None):
         """Add features stratified by slot."""
         if (hasattr(self._host, "accessor") and self._host.accessor == "DataFrame") or (
             hasattr(self._host, "artifact")
@@ -246,7 +251,7 @@ class FeatureManager:
     def add_from_anndata(
         self,
         var_field: FieldAttr,
-        obs_field: Optional[FieldAttr] = Feature.name,
+        obs_field: FieldAttr | None = Feature.name,
         **kwargs,
     ):
         """Add features from AnnData."""

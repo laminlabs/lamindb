@@ -1,7 +1,7 @@
-from typing import List
+from __future__ import annotations
 
 
-def fake_bio_notebook_titles(n=100) -> List[str]:
+def fake_bio_notebook_titles(n=100) -> list[str]:
     """A fake collection of study titles."""
     from faker import Faker
 

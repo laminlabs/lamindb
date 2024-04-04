@@ -1,4 +1,6 @@
-from typing import TYPE_CHECKING, Dict, Iterable, List, Optional, Type, Union
+from __future__ import annotations
+
+from typing import TYPE_CHECKING, Iterable
 
 import lamindb_setup as ln_setup
 import numpy as np
@@ -22,7 +24,7 @@ NUMBER_TYPE = "number"
 
 
 def dict_related_model_to_related_name(orm):
-    d: Dict = {
+    d: dict = {
         i.related_model.__get_name_with_schema__(): i.related_name
         for i in orm._meta.related_objects
         if i.related_name is not None
@@ -39,7 +41,7 @@ def dict_related_model_to_related_name(orm):
 
 
 def dict_schema_name_to_model_name(orm):
-    d: Dict = {
+    d: dict = {
         i.related_model.__get_name_with_schema__(): i.related_model
         for i in orm._meta.related_objects
         if i.related_name is not None
@@ -72,7 +74,7 @@ def get_related_name(features_type: Registry):
     return candidates[0]
 
 
-def validate_features(features: List[Registry]) -> Registry:
+def validate_features(features: list[Registry]) -> Registry:
     """Validate and return feature type."""
     try:
         if len(features) == 0:
@@ -104,8 +106,8 @@ def __init__(self, *args, **kwargs):
     if len(args) > 1:
         raise ValueError("Only one non-keyword arg allowed: features")
     features: Iterable[Registry] = kwargs.pop("features") if len(args) == 0 else args[0]
-    type: Optional[Union[type, str]] = kwargs.pop("type") if "type" in kwargs else None
-    name: Optional[str] = kwargs.pop("name") if "name" in kwargs else None
+    type: str | None = kwargs.pop("type") if "type" in kwargs else None
+    name: str | None = kwargs.pop("name") if "name" in kwargs else None
     if len(kwargs) > 0:
         raise ValueError("Only features, type, name are valid keyword arguments")
     # now code
@@ -142,9 +144,9 @@ def save(self, *args, **kwargs) -> None:
         getattr(self, related_name).set(records)
 
 
-def get_type_str(type: Optional[Union[Type, str]]) -> Optional[str]:
+def get_type_str(type: str | None) -> str | None:
     if type is not None:
-        type_str = type.__name__ if not isinstance(type, str) else type
+        type_str = type.__name__ if not isinstance(type, str) else type  # type: ignore
     else:
         type_str = None
     if type == "int" or type == "float":
@@ -158,10 +160,10 @@ def from_values(
     cls,
     values: ListLike,
     field: FieldAttr = Feature.name,
-    type: Optional[Union[Type, str]] = None,
-    name: Optional[str] = None,
+    type: str | None = None,
+    name: str | None = None,
     **kwargs,
-) -> Optional["FeatureSet"]:
+) -> FeatureSet | None:
     """{}."""
     if not isinstance(field, FieldAttr):
         raise TypeError(
@@ -192,11 +194,11 @@ def from_values(
 @doc_args(FeatureSet.from_df.__doc__)
 def from_df(
     cls,
-    df: "pd.DataFrame",
+    df: pd.DataFrame,
     field: FieldAttr = Feature.name,
-    name: Optional[str] = None,
+    name: str | None = None,
     **kwargs,
-) -> Optional["FeatureSet"]:
+) -> FeatureSet | None:
     """{}."""
     registry = field.field.model
     validated = registry.validate(df.columns, field=field, **kwargs)
@@ -225,7 +227,7 @@ def from_df(
 
 @property  # type: ignore
 @doc_args(FeatureSet.members.__doc__)
-def members(self) -> "QuerySet":
+def members(self) -> QuerySet:
     """{}."""
     if self._state.adding:
         # this should return a queryset and not a list...

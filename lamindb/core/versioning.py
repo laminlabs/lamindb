@@ -1,11 +1,15 @@
-from typing import Optional, Tuple
+from __future__ import annotations
+
+from typing import TYPE_CHECKING, Optional, Tuple
 
 from lamindb_setup.core.upath import LocalPathClasses, UPath
 from lnschema_core import ids
-from lnschema_core.models import IsVersioned
+
+if TYPE_CHECKING:
+    from lnschema_core.models import IsVersioned
 
 
-def set_version(version: Optional[str] = None, previous_version: Optional[str] = None):
+def set_version(version: str | None = None, previous_version: str | None = None):
     """(Auto-) set version.
 
     If `version` is `None`, returns the stored version.
@@ -31,9 +35,9 @@ def set_version(version: Optional[str] = None, previous_version: Optional[str] =
 # uses `initial_version_id` to extract a stem_id that's part of id
 def init_uid(
     *,
-    version: Optional[str] = None,
+    version: str | None = None,
     n_full_id: int = 20,
-    is_new_version_of: Optional[IsVersioned] = None,
+    is_new_version_of: IsVersioned | None = None,
 ) -> str:
     if is_new_version_of is not None:
         stem_uid = is_new_version_of.stem_uid
@@ -53,9 +57,9 @@ def init_uid(
 
 def get_uid_from_old_version(
     is_new_version_of: IsVersioned,
-    version: Optional[str] = None,
-    using_key: Optional[str] = None,
-) -> Tuple[str, str]:
+    version: str | None = None,
+    using_key: str | None = None,
+) -> tuple[str, str]:
     """{}."""
     msg = ""
     if is_new_version_of.version is None:

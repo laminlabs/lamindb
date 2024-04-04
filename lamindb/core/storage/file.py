@@ -1,15 +1,16 @@
+from __future__ import annotations
+
 import builtins
 import re
 import shutil
 from pathlib import Path
-from typing import Optional, Union
+from typing import TYPE_CHECKING
 
 import anndata as ad
 import pandas as pd
 from lamin_utils import logger
 from lamindb_setup import settings as setup_settings
 from lamindb_setup.core import StorageSettings
-from lamindb_setup.core.types import UPathStr
 from lamindb_setup.core.upath import (
     LocalPathClasses,
     UPath,
@@ -19,6 +20,9 @@ from lamindb_setup.core.upath import (
 from lnschema_core.models import Artifact, Storage
 
 from lamindb.core._settings import settings
+
+if TYPE_CHECKING:
+    from lamindb_setup.core.types import UPathStr
 
 try:
     from ._zarr import read_adata_zarr
@@ -54,8 +58,8 @@ def auto_storage_key_from_artifact_uid(uid: str, suffix: str, is_dir: bool) -> s
 def attempt_accessing_path(
     artifact: Artifact,
     storage_key: str,
-    using_key: Optional[str] = None,
-    access_token: Optional[str] = None,
+    using_key: str | None = None,
+    access_token: str | None = None,
 ):
     # check whether the file is in the default db and whether storage
     # matches default storage
@@ -88,7 +92,7 @@ def attempt_accessing_path(
 
 
 # add type annotations back asap when re-organizing the module
-def filepath_from_artifact(artifact: Artifact, using_key: Optional[str] = None):
+def filepath_from_artifact(artifact: Artifact, using_key: str | None = None):
     if hasattr(artifact, "_local_filepath") and artifact._local_filepath is not None:
         return artifact._local_filepath.resolve()
     storage_key = auto_storage_key_from_artifact(artifact)
@@ -124,7 +128,7 @@ def store_artifact(localpath: UPathStr, storagepath: UPath) -> None:
 
 
 def delete_storage_using_key(
-    artifact: Artifact, storage_key: str, using_key: Optional[str]
+    artifact: Artifact, storage_key: str, using_key: str | None
 ):
     filepath = attempt_accessing_path(artifact, storage_key, using_key=using_key)
     delete_storage(filepath)

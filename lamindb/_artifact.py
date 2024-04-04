@@ -1,5 +1,7 @@
+from __future__ import annotations
+
 from pathlib import Path, PurePath, PurePosixPath
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple, Union
+from typing import TYPE_CHECKING, Any
 
 import fsspec
 import lamindb_setup as ln_setup
@@ -11,7 +13,6 @@ from lamindb_setup._init_instance import register_storage
 from lamindb_setup.core import StorageSettings
 from lamindb_setup.core._docs import doc_args
 from lamindb_setup.core.hashing import b16_to_b64, hash_file, hash_md5s_from_dir
-from lamindb_setup.core.types import UPathStr
 from lamindb_setup.core.upath import (
     create_path,
     extract_suffix_from_path,
@@ -53,15 +54,17 @@ from .core._data import (
 from .core.storage.file import AUTO_KEY_PREFIX
 
 if TYPE_CHECKING:
+    from lamindb_setup.core.types import UPathStr
+
     from lamindb.core.storage._backed_access import AnnDataAccessor, BackedAccessor
 
 
 def process_pathlike(
     filepath: UPath,
     default_storage: Storage,
-    using_key: Optional[str],
+    using_key: str | None,
     skip_existence_check: bool = False,
-) -> Tuple[Storage, bool]:
+) -> tuple[Storage, bool]:
     if not skip_existence_check:
         try:  # check if file exists
             if not filepath.exists():
@@ -111,13 +114,13 @@ def process_pathlike(
 
 def process_data(
     provisional_uid: str,
-    data: Union[UPathStr, DataLike],
-    format: Optional[str],
-    key: Optional[str],
+    data: UPathStr | DataLike,
+    format: str | None,
+    key: str | None,
     default_storage: Storage,
-    using_key: Optional[str],
+    using_key: str | None,
     skip_existence_check: bool = False,
-) -> Tuple[Any, Union[Path, UPath], str, Storage, bool]:
+) -> tuple[Any, Path | UPath, str, Storage, bool]:
     """Serialize a data object that's provided as file or in memory."""
     # if not overwritten, data gets stored in default storage
     if isinstance(data, (str, Path, UPath)):  # UPathStr, spelled out
@@ -170,10 +173,10 @@ def process_data(
 def get_stat_or_artifact(
     path: UPath,
     suffix: str,
-    memory_rep: Optional[Any] = None,
+    memory_rep: Any | None = None,
     check_hash: bool = True,
-    using_key: Optional[str] = None,
-) -> Union[Tuple[int, Optional[str], Optional[str], Optional[int]], Artifact]:
+    using_key: str | None = None,
+) -> tuple[int, str | None, str | None, int | None] | Artifact:
     n_objects = None
     if settings.upon_file_create_skip_size_hash:
         return None, None, None, n_objects
@@ -245,8 +248,8 @@ def get_stat_or_artifact(
 
 
 def check_path_in_existing_storage(
-    path: Union[Path, UPath], using_key: Optional[str]
-) -> Union[Storage, bool]:
+    path: Path | UPath, using_key: str | None
+) -> Storage | bool:
     for storage in Storage.objects.using(using_key).filter().all():
         # if path is part of storage, return it
         if check_path_is_child_of_root(path, root=create_path(storage.root)):
@@ -254,9 +257,7 @@ def check_path_in_existing_storage(
     return False
 
 
-def check_path_is_child_of_root(
-    path: Union[Path, UPath], root: Optional[Union[Path, UPath]]
-) -> bool:
+def check_path_is_child_of_root(path: Path | UPath, root: Path | UPath | None) -> bool:
     path = UPath(str(path)) if not isinstance(path, UPath) else path
     root = UPath(str(root)) if not isinstance(root, UPath) else root
 
@@ -276,8 +277,8 @@ def check_path_is_child_of_root(
 
 
 def get_relative_path_to_directory(
-    path: Union[PurePath, Path, UPath], directory: Union[PurePath, Path, UPath]
-) -> Union[PurePath, Path]:
+    path: PurePath | Path | UPath, directory: PurePath | Path | UPath
+) -> PurePath | Path:
     if isinstance(directory, UPath) and not isinstance(directory, LocalPathClasses):
         # UPath.relative_to() is not behaving as it should (2023-04-07)
         # need to lstrip otherwise inconsistent behavior across trailing slashes
@@ -296,13 +297,13 @@ def get_relative_path_to_directory(
 
 def get_artifact_kwargs_from_data(
     *,
-    data: Union[Path, UPath, str, pd.DataFrame, AnnData],
-    key: Optional[str],
-    run: Optional[Run],
-    format: Optional[str],
+    data: Path | UPath | str | pd.DataFrame | AnnData,
+    key: str | None,
+    run: Run | None,
+    format: str | None,
     provisional_uid: str,
     default_storage: Storage,
-    using_key: Optional[str] = None,
+    using_key: str | None = None,
     skip_check_exists: bool = False,
 ):
     run = get_run(run)
@@ -399,8 +400,8 @@ def get_artifact_kwargs_from_data(
 def log_storage_hint(
     *,
     check_path_in_storage: bool,
-    storage: Optional[Storage],
-    key: Optional[str],
+    storage: Storage | None,
+    key: str | None,
     uid: str,
     suffix: str,
     is_dir: bool,
@@ -447,7 +448,7 @@ def data_is_mudata(data: DataLike):  # pragma: no cover
     return False
 
 
-def _check_accessor_artifact(data: Any, accessor: Optional[str] = None):
+def _check_accessor_artifact(data: Any, accessor: str | None = None):
     if accessor is None and not isinstance(data, (str, Path, UPath)):
         if isinstance(data, pd.DataFrame):
             logger.warning("data is a DataFrame, please use .from_df()")
@@ -476,17 +477,17 @@ def __init__(artifact: Artifact, *args, **kwargs):
     if len(args) > 1:
         raise ValueError("Only one non-keyword arg allowed: data")
 
-    data: Union[str, Path] = kwargs.pop("data") if len(args) == 0 else args[0]
-    key: Optional[str] = kwargs.pop("key") if "key" in kwargs else None
-    run: Optional[Run] = kwargs.pop("run") if "run" in kwargs else None
-    description: Optional[str] = (
+    data: str | Path = kwargs.pop("data") if len(args) == 0 else args[0]
+    key: str | None = kwargs.pop("key") if "key" in kwargs else None
+    run: Run | None = kwargs.pop("run") if "run" in kwargs else None
+    description: str | None = (
         kwargs.pop("description") if "description" in kwargs else None
     )
-    is_new_version_of: Optional[Artifact] = (
+    is_new_version_of: Artifact | None = (
         kwargs.pop("is_new_version_of") if "is_new_version_of" in kwargs else None
     )
-    version: Optional[str] = kwargs.pop("version") if "version" in kwargs else None
-    visibility: Optional[int] = (
+    version: str | None = kwargs.pop("version") if "version" in kwargs else None
+    visibility: int | None = (
         kwargs.pop("visibility")
         if "visibility" in kwargs
         else VisibilityChoice.default.value
@@ -571,14 +572,14 @@ def __init__(artifact: Artifact, *args, **kwargs):
 @doc_args(Artifact.from_df.__doc__)
 def from_df(
     cls,
-    df: "pd.DataFrame",
-    key: Optional[str] = None,
-    description: Optional[str] = None,
-    run: Optional[Run] = None,
-    version: Optional[str] = None,
-    is_new_version_of: Optional["Artifact"] = None,
+    df: pd.DataFrame,
+    key: str | None = None,
+    description: str | None = None,
+    run: Run | None = None,
+    version: str | None = None,
+    is_new_version_of: Artifact | None = None,
     **kwargs,
-) -> "Artifact":
+) -> Artifact:
     """{}."""
     artifact = Artifact(
         data=df,
@@ -597,14 +598,14 @@ def from_df(
 @doc_args(Artifact.from_anndata.__doc__)
 def from_anndata(
     cls,
-    adata: "AnnData",
-    key: Optional[str] = None,
-    description: Optional[str] = None,
-    run: Optional[Run] = None,
-    version: Optional[str] = None,
-    is_new_version_of: Optional["Artifact"] = None,
+    adata: AnnData,
+    key: str | None = None,
+    description: str | None = None,
+    run: Run | None = None,
+    version: str | None = None,
+    is_new_version_of: Artifact | None = None,
     **kwargs,
-) -> "Artifact":
+) -> Artifact:
     """{}."""
     artifact = Artifact(
         data=adata,
@@ -624,10 +625,10 @@ def from_anndata(
 def from_dir(
     cls,
     path: UPathStr,
-    key: Optional[str] = None,
+    key: str | None = None,
     *,
-    run: Optional[Run] = None,
-) -> List["Artifact"]:
+    run: Run | None = None,
+) -> list[Artifact]:
     """{}."""
     logger.warning(
         "this creates one artifact per file in the directory - you might simply call"
@@ -639,7 +640,7 @@ def from_dir(
     storage, use_existing_storage = process_pathlike(
         folderpath, default_storage, using_key
     )
-    folder_key_path: Union[PurePath, Path]
+    folder_key_path: PurePath | Path
     if key is None:
         if not use_existing_storage:
             logger.warning(
@@ -724,9 +725,9 @@ def from_dir(
 # docstring handled through attach_func_to_class_method
 def replace(
     self,
-    data: Union[UPathStr, DataLike],
-    run: Optional[Run] = None,
-    format: Optional[str] = None,
+    data: UPathStr | DataLike,
+    run: Run | None = None,
+    format: str | None = None,
 ) -> None:
     default_storage = settings._storage_settings.record
     kwargs, privates = get_artifact_kwargs_from_data(
@@ -784,9 +785,7 @@ def replace(
 
 
 # docstring handled through attach_func_to_class_method
-def backed(
-    self, is_run_input: Optional[bool] = None
-) -> Union["AnnDataAccessor", "BackedAccessor"]:
+def backed(self, is_run_input: bool | None = None) -> AnnDataAccessor | BackedAccessor:
     suffixes = (".h5", ".hdf5", ".h5ad", ".zrad", ".zarr")
     if self.suffix not in suffixes:
         raise ValueError(
@@ -810,7 +809,7 @@ def backed(
 
 # docstring handled through attach_func_to_class_method
 def load(
-    self, is_run_input: Optional[bool] = None, stream: bool = False, **kwargs
+    self, is_run_input: bool | None = None, stream: bool = False, **kwargs
 ) -> DataLike:
     _track_run_input(self, is_run_input)
     if hasattr(self, "_memory_rep") and self._memory_rep is not None:
@@ -822,7 +821,7 @@ def load(
 
 
 # docstring handled through attach_func_to_class_method
-def stage(self, is_run_input: Optional[bool] = None) -> Path:
+def stage(self, is_run_input: bool | None = None) -> Path:
     _track_run_input(self, is_run_input)
 
     using_key = settings._using_key
@@ -833,9 +832,9 @@ def stage(self, is_run_input: Optional[bool] = None) -> Path:
 # docstring handled through attach_func_to_class_method
 def delete(
     self,
-    permanent: Optional[bool] = None,
-    storage: Optional[bool] = None,
-    using_key: Optional[str] = None,
+    permanent: bool | None = None,
+    storage: bool | None = None,
+    using_key: str | None = None,
 ) -> None:
     # by default, we only move artifacts into the trash (visibility = -1)
     trash_visibility = VisibilityChoice.trash.value
@@ -927,7 +926,7 @@ def _save_skip_storage(file, *args, **kwargs) -> None:
 
 @property  # type: ignore
 @doc_args(Artifact.path.__doc__)
-def path(self) -> Union[Path, UPath]:
+def path(self) -> Path | UPath:
     """{}."""
     using_key = settings._using_key
     return filepath_from_artifact(self, using_key)

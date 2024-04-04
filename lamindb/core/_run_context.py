@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import builtins
 import hashlib
 import os
@@ -6,12 +8,11 @@ import subprocess
 import sys
 from datetime import datetime, timezone
 from pathlib import Path, PurePath
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import TYPE_CHECKING, Any
 
 from lamin_utils import logger
 from lamindb_setup import settings as setup_settings
 from lamindb_setup.core import InstanceSettings
-from lamindb_setup.core.types import UPathStr
 from lnschema_core import Run, Transform, ids
 from lnschema_core.types import TransformType
 from lnschema_core.users import current_user_id
@@ -20,6 +21,9 @@ from lamindb.core._transform_settings import transform as transform_settings
 
 from ._settings import settings
 from ._sync_git import get_transform_reference_from_git_repo
+
+if TYPE_CHECKING:
+    from lamindb_setup.core.types import UPathStr
 
 is_run_from_ipython = getattr(builtins, "__IPYTHON__", False)
 
@@ -55,7 +59,7 @@ def get_uid_ext(version: str) -> str:
     return encodebytes(hashlib.md5(version.encode()).digest())[:4]
 
 
-def get_stem_uid_and_version_from_file(file_path: Path) -> Tuple[str, str]:
+def get_stem_uid_and_version_from_file(file_path: Path) -> tuple[str, str]:
     # line-by-line matching might be faster, but let's go with this for now
     with open(file_path) as file:
         content = file.read()
@@ -215,20 +219,20 @@ def raise_transform_settings_error() -> None:
 class run_context:
     """Global run context."""
 
-    transform: Optional[Transform] = None
+    transform: Transform | None = None
     """Current transform."""
-    run: Optional[Run] = None
+    run: Run | None = None
     """Current run."""
-    path: Optional[Path] = None
+    path: Path | None = None
     """A local path to the script that's running."""
 
     @classmethod
     def _track(
         cls,
         *,
-        transform: Optional[Transform] = None,
-        new_run: Optional[bool] = None,
-        path: Optional[str] = None,
+        transform: Transform | None = None,
+        new_run: bool | None = None,
+        path: str | None = None,
     ) -> None:
         """Track notebook or script run.
 
@@ -364,8 +368,8 @@ class run_context:
     def _track_script(
         cls,
         *,
-        path: Optional[UPathStr],
-    ) -> Tuple[str, str, str, str]:
+        path: UPathStr | None,
+    ) -> tuple[str, str, str, str]:
         if path is None:
             import inspect
 
@@ -387,7 +391,7 @@ class run_context:
     def _track_notebook(
         cls,
         *,
-        path: Optional[str],
+        path: str | None,
     ):
         if path is None:
             path = get_notebook_path()
@@ -442,13 +446,13 @@ class run_context:
         cls,
         *,
         stem_uid: str,
-        version: Optional[str],
+        version: str | None,
         name: str,
-        transform_ref: Optional[str] = None,
-        transform_ref_type: Optional[str] = None,
-        key: Optional[str] = None,
+        transform_ref: str | None = None,
+        transform_ref_type: str | None = None,
+        key: str | None = None,
         transform_type: TransformType = None,
-        transform: Optional[Transform] = None,
+        transform: Transform | None = None,
     ):
         # make a new transform record
         if transform is None:

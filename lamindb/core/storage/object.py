@@ -1,11 +1,15 @@
-from typing import Optional
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
 
 from anndata import AnnData
-from lamindb_setup.core.types import UPathStr
 from pandas import DataFrame
 
+if TYPE_CHECKING:
+    from lamindb_setup.core.types import UPathStr
 
-def infer_suffix(dmem, adata_format: Optional[str] = None):
+
+def infer_suffix(dmem, adata_format: str | None = None):
     """Infer LaminDB storage file suffix from a data object."""
     if isinstance(dmem, AnnData):
         if adata_format is not None:

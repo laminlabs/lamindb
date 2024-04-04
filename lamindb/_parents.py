@@ -1,5 +1,7 @@
+from __future__ import annotations
+
 import builtins
-from typing import List, Optional, Set, Union
+from typing import TYPE_CHECKING
 
 import lamindb_setup as ln_setup
 from lamin_utils import logger
@@ -8,7 +10,10 @@ from lnschema_core.models import HasParents, format_field_value
 
 from lamindb._utils import attach_func_to_class_method
 
-from ._registry import StrField, get_default_str_field
+from ._registry import get_default_str_field
+
+if TYPE_CHECKING:
+    from lnschema_core.types import StrField
 
 LAMIN_GREEN_LIGHTER = "#10b981"
 LAMIN_GREEN_DARKER = "#065f46"
@@ -47,7 +52,7 @@ def _view(u):
 
 def view_parents(
     self,
-    field: Optional[StrField] = None,
+    field: StrField | None = None,
     with_children: bool = False,
     distance: int = 5,
 ):
@@ -61,7 +66,7 @@ def view_parents(
     )
 
 
-def view_lineage(data: Union[Artifact, Collection], with_children: bool = True) -> None:
+def view_lineage(data: Artifact | Collection, with_children: bool = True) -> None:
     """Graph of data flow.
 
     Notes:
@@ -81,7 +86,7 @@ def view_lineage(data: Union[Artifact, Collection], with_children: bool = True) 
     data_label = _record_label(data)
 
     def add_node(
-        record: Union[Run, Artifact, Collection],
+        record: Run | Artifact | Collection,
         node_id: str,
         node_label: str,
         u: graphviz.Digraph,
@@ -256,7 +261,7 @@ def _df_edges_from_parents(
     return df_edges
 
 
-def _record_label(record: Registry, field: Optional[str] = None):
+def _record_label(record: Registry, field: str | None = None):
     if isinstance(record, Artifact):
         if record.description is None:
             name = record.key
@@ -310,7 +315,7 @@ def _add_emoji(record: Registry, label: str):
     return f"{emoji} {label}"
 
 
-def _get_all_parent_runs(data: Union[Artifact, Collection]) -> List:
+def _get_all_parent_runs(data: Artifact | Collection) -> list:
     """Get all input file/collection runs recursively."""
     name = data._meta.model_name
     run_inputs_outputs = []
@@ -346,10 +351,10 @@ def _get_all_parent_runs(data: Union[Artifact, Collection]) -> List:
     return run_inputs_outputs
 
 
-def _get_all_child_runs(data: Union[Artifact, Collection]) -> List:
+def _get_all_child_runs(data: Artifact | Collection) -> list:
     """Get all output file/collection runs recursively."""
     name = data._meta.model_name
-    all_runs: Set[Run] = set()
+    all_runs: set[Run] = set()
     run_inputs_outputs = []
 
     if data.run is not None:
@@ -367,7 +372,7 @@ def _get_all_child_runs(data: Union[Artifact, Collection]) -> List:
         )
     while runs.difference(all_runs):
         all_runs.update(runs)
-        child_runs: Set[Run] = set()
+        child_runs: set[Run] = set()
         for r in runs:
             inputs_run = (
                 r.__getattribute__(f"input_{name}s")
@@ -409,7 +414,7 @@ def _get_all_child_runs(data: Union[Artifact, Collection]) -> List:
     return run_inputs_outputs
 
 
-def _df_edges_from_runs(df_values: List):
+def _df_edges_from_runs(df_values: list):
     import pandas as pd
 
     df = pd.DataFrame(df_values, columns=["source_record", "target_record"])

@@ -1,12 +1,13 @@
+from __future__ import annotations
+
 from collections import Counter
 from functools import reduce
 from pathlib import Path
-from typing import Dict, List, Literal, Optional, Union
+from typing import TYPE_CHECKING, Dict, List, Literal, Optional, Union
 
 import numpy as np
 import pandas as pd
 from lamin_utils import logger
-from lamindb_setup.core.types import UPathStr
 from lamindb_setup.core.upath import UPath
 
 from .storage._backed_access import (
@@ -16,6 +17,9 @@ from .storage._backed_access import (
     _safer_read_index,
     registry,
 )
+
+if TYPE_CHECKING:
+    from lamindb_setup.core.types import UPathStr
 
 
 class _Connect:
@@ -81,14 +85,14 @@ class MappedCollection:
 
     def __init__(
         self,
-        path_list: List[UPathStr],
-        label_keys: Optional[Union[str, List[str]]] = None,
-        join: Optional[Literal["inner", "outer"]] = "inner",
-        encode_labels: Union[bool, List[str]] = True,
-        unknown_label: Optional[Union[str, Dict[str, str]]] = None,
+        path_list: list[UPathStr],
+        label_keys: str | list[str] | None = None,
+        join: Literal["inner", "outer"] | None = "inner",
+        encode_labels: bool | list[str] = True,
+        unknown_label: str | dict[str, str] | None = None,
         cache_categories: bool = True,
         parallel: bool = False,
-        dtype: Optional[str] = None,
+        dtype: str | None = None,
     ):
         assert join in {None, "inner", "outer"}
 
@@ -248,8 +252,8 @@ class MappedCollection:
         self,
         storage: StorageType,  # type: ignore
         idx: int,
-        var_idxs_join: Optional[list] = None,
-        layer_key: Optional[str] = None,
+        var_idxs_join: list | None = None,
+        layer_key: str | None = None,
     ):
         """Get the index for the data."""
         layer = storage["X"] if layer_key is None else storage["layers"][layer_key]  # type: ignore
@@ -290,7 +294,7 @@ class MappedCollection:
         storage: StorageType,
         idx: int,
         label_key: str,
-        categories: Optional[list] = None,
+        categories: list | None = None,
     ):
         """Get the index for the label by key."""
         obs = storage["obs"]  # type: ignore
@@ -313,7 +317,7 @@ class MappedCollection:
             label = label.decode("utf-8")
         return label
 
-    def get_label_weights(self, label_keys: Union[str, List[str]]):
+    def get_label_weights(self, label_keys: str | list[str]):
         """Get all weights for the given label keys."""
         if isinstance(label_keys, str):
             label_keys = [label_keys]

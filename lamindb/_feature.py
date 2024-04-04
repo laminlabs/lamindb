@@ -1,16 +1,20 @@
-from typing import Dict, List, Optional, Union
+from __future__ import annotations
+
+from typing import TYPE_CHECKING, List
 
 import lamindb_setup as ln_setup
 import pandas as pd
 from lamindb_setup.core._docs import doc_args
 from lnschema_core.models import Feature, Registry
-from lnschema_core.types import FieldAttr
 from pandas.api.types import CategoricalDtype, is_string_dtype
 
 from lamindb._utils import attach_func_to_class_method
 from lamindb.core._settings import settings
 
 from ._query_set import RecordsList
+
+if TYPE_CHECKING:
+    from lnschema_core.types import FieldAttr
 
 FEATURE_TYPES = {
     "int": "number",
@@ -41,7 +45,7 @@ def __init__(self, *args, **kwargs):
     type: Optional[Union[type, str]] = (  # noqa
         kwargs.pop("type") if "type" in kwargs else None
     )
-    registries: Optional[List[Registry]] = (
+    registries: list[Registry] | None = (
         kwargs.pop("registries") if "registries" in kwargs else None
     )
     # cast type
@@ -55,7 +59,7 @@ def __init__(self, *args, **kwargs):
         raise ValueError("type has to be one of 'number', 'category', 'bool'!")
     kwargs["type"] = type_str
     # cast registries
-    registries_str: Optional[str] = None
+    registries_str: str | None = None
     if registries is not None:
         if isinstance(registries, str):
             # TODO: add more validation
@@ -73,7 +77,7 @@ def __init__(self, *args, **kwargs):
     super(Feature, self).__init__(*args, **kwargs)
 
 
-def categoricals_from_df(df: "pd.DataFrame") -> Dict:
+def categoricals_from_df(df: pd.DataFrame) -> dict:
     """Returns categorical columns."""
     string_cols = [col for col in df.columns if is_string_dtype(df[col])]
     categoricals = {
@@ -90,9 +94,7 @@ def categoricals_from_df(df: "pd.DataFrame") -> Dict:
 
 @classmethod  # type:ignore
 @doc_args(Feature.from_df.__doc__)
-def from_df(
-    cls, df: "pd.DataFrame", field: Optional[FieldAttr] = None
-) -> "RecordsList":
+def from_df(cls, df: pd.DataFrame, field: FieldAttr | None = None) -> RecordsList:
     """{}."""
     field = Feature.name if field is None else field
     categoricals = categoricals_from_df(df)

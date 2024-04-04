@@ -1,6 +1,7 @@
+from __future__ import annotations
+
 import importlib
 import inspect
-from typing import List, Optional
 
 from IPython.display import display
 from lamin_utils import colors, logger
@@ -10,7 +11,7 @@ from lnschema_core import Registry
 
 
 def view(
-    n: int = 7, schema: Optional[str] = None, registries: Optional[List[str]] = None
+    n: int = 7, schema: str | None = None, registries: list[str] | None = None
 ) -> None:
     """View latest metadata state.
 
