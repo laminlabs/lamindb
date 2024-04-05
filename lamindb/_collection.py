@@ -16,7 +16,7 @@ from lamin_utils import logger
 from lamindb_setup.core._docs import doc_args
 from lamindb_setup.core.hashing import hash_set
 from lnschema_core.models import Collection, CollectionArtifact, FeatureSet
-from lnschema_core.types import DataLike, VisibilityChoice
+from lnschema_core.types import VisibilityChoice
 
 from lamindb._utils import attach_func_to_class_method
 from lamindb.core._data import _track_run_input
@@ -65,7 +65,7 @@ def __init__(
     data: Artifact | Iterable[Artifact] = (
         kwargs.pop("data") if len(args) == 0 else args[0]
     )
-    meta: str | None = kwargs.pop("meta") if "meta" in kwargs else None
+    meta: Artifact | None = kwargs.pop("meta") if "meta" in kwargs else None
     name: str | None = kwargs.pop("name") if "name" in kwargs else None
     description: str | None = (
         kwargs.pop("description") if "description" in kwargs else None
@@ -273,7 +273,7 @@ def load(
     join: Literal["inner", "outer"] = "outer",
     is_run_input: bool | None = None,
     **kwargs,
-) -> DataLike:
+) -> Any:
     # cannot call _track_run_input here, see comment further down
     all_artifacts = self.artifacts.all()
     suffixes = [artifact.suffix for artifact in all_artifacts]
