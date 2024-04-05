@@ -1,5 +1,6 @@
 # Changelog
 
+- 🏷️ Fix more typing issues, also test on python 3.9 [PR](https://github.com/laminlabs/lamindb/pull/1552) [@falexwolf](https://github.com/falexwolf)
 ```{eval-rst}
 .. role:: small
 ```
