@@ -100,7 +100,7 @@ jobs:
           aws-region: us-east-1
       - uses: actions/setup-python@v5
         with:
-          python-version: "3.8" # this is our test for that lamindb import with python 3.8
+          python-version: "3.11"
       - run: pip install -U laminci
       - run: nox -s "install(group='docs')"
       - uses: actions/download-artifact@v2
