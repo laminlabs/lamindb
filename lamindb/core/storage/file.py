@@ -136,7 +136,10 @@ def delete_storage_using_key(
 
 def delete_storage(storagepath: Path):
     """Delete arbitrary artifact."""
-    if not storagepath.is_relative_to(settings.storage):  # type: ignore
+    from lamindb._artifact import check_path_is_child_of_root
+
+    # is_relative_to is not available in 3.8 and deprecated since 3.12
+    if not check_path_is_child_of_root(storagepath, settings.storage):
         logger.warning("couldn't delete files outside of default storage")
         return "did-not-delete"
     # only delete files in the default storage
