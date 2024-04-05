@@ -6,6 +6,7 @@
    UserSettings
    InstanceSettings
    StorageSettings
+   UPathStr
 
 """
 from lamindb_setup.core import (  # pragma: no cover
@@ -13,3 +14,4 @@ from lamindb_setup.core import (  # pragma: no cover
     StorageSettings,
     UserSettings,
 )
+from lamindb_setup.core.types import UPathStr

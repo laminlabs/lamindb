@@ -65,7 +65,7 @@ def __init__(
     data: Artifact | Iterable[Artifact] = (
         kwargs.pop("data") if len(args) == 0 else args[0]
     )
-    meta: str | None = kwargs.pop("meta") if "meta" in kwargs else None
+    meta: Artifact | None = kwargs.pop("meta") if "meta" in kwargs else None
     name: str | None = kwargs.pop("name") if "name" in kwargs else None
     description: str | None = (
         kwargs.pop("description") if "description" in kwargs else None
