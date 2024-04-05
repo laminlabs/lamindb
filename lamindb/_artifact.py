@@ -230,7 +230,7 @@ def get_stat_or_artifact(
                 "💡 you can make this error a warning:\n"
                 "    ln.settings.upon_artifact_create_if_hash_exists"
             )
-            raise RuntimeError(f"{msg}\n{hint}")
+            raise FileExistsError(f"{msg}\n{hint}")
         elif settings.upon_artifact_create_if_hash_exists == "warn_create_new":
             logger.warning(
                 "creating new Artifact object despite existing artifact with same hash:"
@@ -239,7 +239,7 @@ def get_stat_or_artifact(
             return size, hash, hash_type, n_objects
         else:
             if result[0].visibility == -1:
-                raise RuntimeError(
+                raise FileExistsError(
                     f"You're trying to re-create this artifact in trash: {result[0]}"
                     "Either permanently delete it with `artifact.delete(permanent=True)` or restore it with `artifact.restore()`"
                 )
