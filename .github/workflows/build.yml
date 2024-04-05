@@ -30,6 +30,11 @@ jobs:
           submodules: recursive
           fetch-depth: 0
       - uses: actions/setup-python@v5
+        if: ${{ matrix.group == 'storage' }}
+        with:
+          python-version: "3.8" # run just one job with a different python version
+      - uses: actions/setup-python@v5
+        if: ${{ matrix.group != 'storage' }}
         with:
           python-version: "3.11"
       - name: cache pre-commit
