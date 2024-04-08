@@ -17,7 +17,7 @@ classifiers = [
 dependencies = [
     # Lamin PINNED packages
     "lnschema_core==0.64.5",
-    "lamindb_setup==0.68.5",
+    "lamindb_setup==0.69.0",
     "lamin_utils==0.13.1",
     "lamin_cli==0.12.0",
     # others
