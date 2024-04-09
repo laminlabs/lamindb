@@ -90,7 +90,7 @@ def test_backed_access(adata_format):
     assert access.varp["test"].to_memory().sum() == 200
     assert access.layers["test"][0].sum() == 200
 
-    mask = [False] * access.shape[0]
+    mask = np.full(access.shape[0], False, dtype=bool)
     mask[:5] = True
     assert access[mask].X.shape == (5, 200)
 
