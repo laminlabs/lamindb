@@ -177,7 +177,7 @@ def safer_read_partial(elem, indices):
         indices_inverse = []
         for indices_dim in indices:
             # should be integer or bool
-            # ignore bool
+            # ignore bool or increasing unique integers
             if (
                 isinstance(indices_dim, np.ndarray)
                 and indices_dim.dtype != "bool"
