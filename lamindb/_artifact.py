@@ -51,6 +51,7 @@ from .core._data import (
     save_feature_sets,
 )
 from .core.storage.file import AUTO_KEY_PREFIX
+from .core.storage.object import _mudata_is_installed
 
 if TYPE_CHECKING:
     from lamindb_setup.core.types import UPathStr
@@ -123,11 +124,11 @@ def process_data(
 ) -> tuple[Any, Path | UPath, str, Storage, bool]:
     """Serialize a data object that's provided as file or in memory."""
     # if not overwritten, data gets stored in default storage
-    try:
+    if _mudata_is_installed():
         from mudata import MuData
 
         data_types = (pd.DataFrame, AnnData, MuData)
-    except ImportError:
+    else:
         data_types = (pd.DataFrame, AnnData)  # type:ignore
 
     if isinstance(data, (str, Path, UPath)):  # UPathStr, spelled out
@@ -443,10 +444,11 @@ def data_is_anndata(data: AnnData | UPathStr):
 
 
 def data_is_mudata(data: MuData | UPathStr):
-    from mudata import MuData
+    if _mudata_is_installed():
+        from mudata import MuData
 
-    if isinstance(data, MuData):
-        return True
+        if isinstance(data, MuData):
+            return True
     if isinstance(data, (str, Path, UPath)):
         return Path(data).suffix in {".h5mu"}
     return False
