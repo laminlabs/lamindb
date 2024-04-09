@@ -90,6 +90,10 @@ def test_backed_access(adata_format):
     assert access.varp["test"].to_memory().sum() == 200
     assert access.layers["test"][0].sum() == 200
 
+    mask = [False] * access.shape[0]
+    mask[:5] = True
+    assert access[mask].X.shape == (5, 200)
+
     sub = access[:10]
     assert sub[:5].shape == (5, 200)
     assert sub.layers["test"].shape == sub.shape
