@@ -25,6 +25,13 @@ def infer_suffix(dmem, adata_format: str | None = None):
     elif isinstance(dmem, DataFrame):
         return ".parquet"
     else:
+        try:
+            from mudata import MuData
+
+            if isinstance(dmem, MuData):
+                return ".h5mu"
+        except ImportError:
+            pass
         raise NotImplementedError
 
 
@@ -34,4 +41,12 @@ def write_to_file(dmem, filepath: UPathStr):
     elif isinstance(dmem, DataFrame):
         dmem.to_parquet(filepath)
     else:
+        try:
+            from mudata import MuData
+
+            if isinstance(dmem, MuData):
+                dmem.write(filepath)
+                return
+        except ImportError:
+            pass
         raise NotImplementedError

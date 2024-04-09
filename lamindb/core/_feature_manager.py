@@ -270,6 +270,37 @@ class FeatureManager:
         self._host._feature_sets = feature_sets
         self._host.save()
 
+    def add_from_mudata(
+        self,
+        var_fields: dict[str, FieldAttr],
+        obs_fields: dict[str, FieldAttr] = None,
+        **kwargs,
+    ):
+        """Add features from MuData."""
+        if obs_fields is None:
+            obs_fields = {}
+        if isinstance(self._host, Artifact):
+            assert self._host.accessor == "MuData"
+        else:
+            raise NotImplementedError()
+
+        # parse and register features
+        mdata = self._host.load()
+        feature_sets = {}
+        for modality, field in var_fields.items():
+            modality_fs = parse_feature_sets_from_anndata(
+                mdata[modality],
+                var_field=field,
+                obs_field=obs_fields.get(modality, Feature.name),
+                **kwargs,
+            )
+            for k, v in modality_fs.items():
+                feature_sets[f"{modality}_{k}"] = v
+
+        # link feature sets
+        self._host._feature_sets = feature_sets
+        self._host.save()
+
     def _add_feature_set(self, feature_set: FeatureSet, slot: str):
         """Add new feature set to a slot.
 
