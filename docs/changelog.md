@@ -1,15 +1,17 @@
 # Changelog
 
-- 🏷️ Fix more typing issues, also test on python 3.9 [PR](https://github.com/laminlabs/lamindb/pull/1552) [@falexwolf](https://github.com/falexwolf)
 ```{eval-rst}
 .. role:: small
 ```
 
 ## 0.69
 
+### 0.69.9 {small}`2024-04-04`
+
+- 🐛 Fix clashes for multiple processes [PR](https://github.com/laminlabs/lamindb/pull/1553) [@falexwolf](https://github.com/falexwolf)
+
 ### 0.69.8 {small}`2024-04-04`
 
-- 🐛 Avoid an error due to deleting the same file by multiple processes [PR](https://github.com/laminlabs/lamindb-setup/pull/703) [@Koncopd](https://github.com/Koncopd)
 - ♻️ Use future annotations [PR](https://github.com/laminlabs/lamindb/pull/1549) [@Zethson](https://github.com/Zethson)
 
 ### 0.69.7 {small}`2024-04-03`
