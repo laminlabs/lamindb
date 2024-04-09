@@ -388,10 +388,10 @@ class AnnDataAnnotator(DataFrameAnnotator):
             field=self._var_field,
             key="var_index",
             using=self._using,
-            **kwargs,
+            **self._kwargs,
         )
         validated_obs = validate_categories_in_df(
-            self._adata.obs, fields=self.categoricals, using=self._using, **kwargs
+            self._adata.obs, fields=self.categoricals, using=self._using, **self._kwargs
         )
         self._validated = validated_var and validated_obs
         return self._validated
@@ -685,6 +685,7 @@ def validate_categories(
 
     registry = field.field.model
     filter_kwargs = {}
+    print(kwargs)
     organism = check_registry_organism(registry, kwargs.get("organism"))
     if organism is not None:
         filter_kwargs["organism"] = organism
@@ -819,7 +820,6 @@ def save_artifact(
     elif artifact.accessor == "AnnData":
         artifact.features.add_from_anndata(var_field=columns_field, **feature_kwargs)
     elif artifact.accessor == "MuData":
-        print(artifact.features)
         artifact.features.add_from_mudata(var_fields=columns_field, **feature_kwargs)
     else:
         raise NotImplementedError
