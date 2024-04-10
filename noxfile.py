@@ -79,6 +79,7 @@ def install(session, group):
     if os.getenv("GITHUB_EVENT_NAME") != "push" and "bionty" in extras:
         session.run(*"uv pip install --system --no-deps ./sub/bionty".split())
         session.run(*"uv pip install --system --no-deps ./sub/lnschema-bionty".split())
+        session.run(*"uv pip install mudata".split())
     session.run(*f"uv pip install --system -e .[dev,{extras}]".split())
 
 
