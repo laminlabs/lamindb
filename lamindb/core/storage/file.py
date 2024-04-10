@@ -22,6 +22,7 @@ from lnschema_core.models import Artifact, Storage
 from lamindb.core._settings import settings
 
 if TYPE_CHECKING:
+    import mudata as md
     from lamindb_setup.core.types import UPathStr
 
 try:
@@ -170,6 +171,13 @@ def read_tsv(path: UPathStr, **kwargs) -> pd.DataFrame:
     return pd.read_csv(path_sanitized, sep="\t", **kwargs)
 
 
+def read_mdata_h5mu(filepath: UPathStr, **kwargs) -> md.MuData:
+    import mudata as md
+
+    path_sanitized = Path(filepath)
+    return md.read_h5mu(path_sanitized, **kwargs)
+
+
 def load_html(path: UPathStr):
     if is_run_from_ipython:
         with open(path, encoding="utf-8") as f:
@@ -224,6 +232,7 @@ def load_to_memory(filepath: UPathStr, stream: bool = False, **kwargs):
         ".zrad": read_adata_zarr,
         ".html": load_html,
         ".json": load_json,
+        ".h5mu": read_mdata_h5mu,
     }
 
     reader = READER_FUNCS.get(filepath.suffix)

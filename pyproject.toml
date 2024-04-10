@@ -19,7 +19,7 @@ dependencies = [
     "lnschema_core==0.64.6",
     "lamindb_setup==0.69.0",
     "lamin_utils==0.13.1",
-    "lamin_cli==0.12.1",
+    "lamin_cli==0.12.2",
     # others
     "rapidfuzz",
     "pyarrow",
@@ -38,7 +38,7 @@ Home = "https://github.com/laminlabs/lamindb"
 
 [project.optional-dependencies]
 bionty = [
-    "bionty==0.42.5",
+    "bionty==0.42.7",
 ]
 aws = [
     "urllib3<2", # for botocore, TODO: check that really required

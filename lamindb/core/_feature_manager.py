@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from itertools import compress
-from typing import TYPE_CHECKING, Iterable
+from typing import TYPE_CHECKING, Iterable, Optional
 
 import anndata as ad
 from anndata import AnnData
@@ -133,7 +133,7 @@ def print_features(self: Data) -> str:
 
 def parse_feature_sets_from_anndata(
     adata: AnnData,
-    var_field: FieldAttr,
+    var_field: FieldAttr | None = None,
     obs_field: FieldAttr = Feature.name,
     **kwargs,
 ) -> dict:
@@ -149,22 +149,27 @@ def parse_feature_sets_from_anndata(
             data_parse = ad.read(filepath, backed="r")
         type = "float"
     else:
-        type = convert_numpy_dtype_to_lamin_feature_type(adata.X.dtype)
+        type = (
+            "float"
+            if adata.X is None
+            else convert_numpy_dtype_to_lamin_feature_type(adata.X.dtype)
+        )
     feature_sets = {}
-    logger.info("parsing feature names of X stored in slot 'var'")
-    logger.indent = "   "
-    feature_set_var = FeatureSet.from_values(
-        data_parse.var.index,
-        var_field,
-        type=type,
-        **kwargs,
-    )
-    if feature_set_var is not None:
-        feature_sets["var"] = feature_set_var
-        logger.save(f"linked: {feature_set_var}")
-    logger.indent = ""
-    if feature_set_var is None:
-        logger.warning("skip linking features to artifact in slot 'var'")
+    if var_field is not None:
+        logger.info("parsing feature names of X stored in slot 'var'")
+        logger.indent = "   "
+        feature_set_var = FeatureSet.from_values(
+            data_parse.var.index,
+            var_field,
+            type=type,
+            **kwargs,
+        )
+        if feature_set_var is not None:
+            feature_sets["var"] = feature_set_var
+            logger.save(f"linked: {feature_set_var}")
+        logger.indent = ""
+        if feature_set_var is None:
+            logger.warning("skip linking features to artifact in slot 'var'")
     if len(data_parse.obs.columns) > 0:
         logger.info("parsing feature names of slot 'obs'")
         logger.indent = "   "
@@ -265,6 +270,40 @@ class FeatureManager:
         feature_sets = parse_feature_sets_from_anndata(
             adata, var_field=var_field, obs_field=obs_field, **kwargs
         )
+
+        # link feature sets
+        self._host._feature_sets = feature_sets
+        self._host.save()
+
+    def add_from_mudata(
+        self,
+        var_fields: dict[str, FieldAttr],
+        obs_fields: dict[str, FieldAttr] = None,
+        **kwargs,
+    ):
+        """Add features from MuData."""
+        if obs_fields is None:
+            obs_fields = {}
+        if isinstance(self._host, Artifact):
+            assert self._host.accessor == "MuData"
+        else:
+            raise NotImplementedError()
+
+        # parse and register features
+        mdata = self._host.load()
+        feature_sets = {}
+        obs_features = features = Feature.from_values(mdata.obs.columns)
+        if len(obs_features) > 0:
+            feature_sets["obs"] = FeatureSet(features=features)
+        for modality, field in var_fields.items():
+            modality_fs = parse_feature_sets_from_anndata(
+                mdata[modality],
+                var_field=field,
+                obs_field=obs_fields.get(modality, Feature.name),
+                **kwargs,
+            )
+            for k, v in modality_fs.items():
+                feature_sets[f"['{modality}'].{k}"] = v
 
         # link feature sets
         self._host._feature_sets = feature_sets

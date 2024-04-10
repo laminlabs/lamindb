@@ -175,13 +175,18 @@ def from_values(
     if registry != Feature and type is None:
         type = NUMBER_TYPE
         logger.debug("setting feature set to 'number'")
-    validated = registry.validate(values, field=field, organism=kwargs.get("organism"))
+    validate_kwargs = kwargs.copy()
+    if not hasattr(registry, "organism_id"):
+        validate_kwargs.pop("organism", None)
+    validated = registry.validate(values, field=field, **validate_kwargs)
     if validated.sum() == 0:
         if kwargs.get("mute") is True:
             logger.warning("no validated features, skip creating feature set")
         return None
     validated_values = np.array(values)[validated]
-    validated_features = registry.from_values(validated_values, field=field, **kwargs)
+    validated_features = registry.from_values(
+        validated_values, field=field, **validate_kwargs
+    )
     feature_set = FeatureSet(
         features=validated_features,
         name=name,

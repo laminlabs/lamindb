@@ -74,6 +74,7 @@ def install(session, group):
         session.run(*"uv pip install --system --no-deps wetlab".split())
     elif group == "docs":
         extras += "bionty"
+        session.run(*"uv pip install --system mudata".split())
     elif group == "cli":
         extras += "jupyter,aws,bionty"
     if os.getenv("GITHUB_EVENT_NAME") != "push" and "bionty" in extras:
