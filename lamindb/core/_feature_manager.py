@@ -137,14 +137,8 @@ def parse_feature_sets_from_anndata(
     obs_field: FieldAttr = Feature.name,
     **kwargs,
 ) -> dict:
-    try:
-        from mudata import MuData
-
-        data_types = (AnnData, MuData)
-    except ImportError:
-        data_types = AnnData
     data_parse = adata
-    if not isinstance(adata, data_types):  # is a path
+    if not isinstance(adata, AnnData):  # is a path
         filepath = create_path(adata)  # returns Path for local
         if not isinstance(filepath, LocalPathClasses):
             from lamindb.core.storage._backed_access import backed_access
@@ -153,9 +147,13 @@ def parse_feature_sets_from_anndata(
             data_parse = backed_access(filepath, using_key)
         else:
             data_parse = ad.read(filepath, backed="r")
-        # type = "float"
-    # else:
-    # type = convert_numpy_dtype_to_lamin_feature_type(adata.X.dtype)
+        type = "float"
+    else:
+        type = (
+            "float"
+            if adata.X is None
+            else convert_numpy_dtype_to_lamin_feature_type(adata.X.dtype)
+        )
     feature_sets = {}
     if var_field is not None:
         logger.info("parsing feature names of X stored in slot 'var'")
@@ -294,11 +292,9 @@ class FeatureManager:
         # parse and register features
         mdata = self._host.load()
         feature_sets = {}
-        obs_fs = parse_feature_sets_from_anndata(
-            mdata, var_field=None, obs_field=Feature.name, **kwargs
-        )
-        if "obs" in obs_fs:
-            feature_sets["obs"] = obs_fs["obs"]
+        obs_features = features = Feature.from_values(mdata.obs.columns)
+        if len(obs_features) > 0:
+            feature_sets["obs"] = FeatureSet(features=features)
         for modality, field in var_fields.items():
             modality_fs = parse_feature_sets_from_anndata(
                 mdata[modality],
@@ -307,7 +303,7 @@ class FeatureManager:
                 **kwargs,
             )
             for k, v in modality_fs.items():
-                feature_sets[f"{modality}_{k}"] = v
+                feature_sets[f"['{modality}'].{k}"] = v
 
         # link feature sets
         self._host._feature_sets = feature_sets

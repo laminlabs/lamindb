@@ -430,10 +430,15 @@ def mudata_papalexi21_subset():  # pragma: no cover
         "G2M.Score",
         "Phase",
         "gene_target",
+        "guide_ID",
+        "HTO_classification",
     ]:
         del mdata.obs[col]
+        mdata.update()
 
-    mdata["hto"].obs["HTO_classification"] = mdata.obs.pop("HTO_classification")
+    mdata["rna"].obs["percent.mito"] = mdata.obs.pop("percent.mito")
+    mdata["hto"].obs["technique"] = "cell hashing"
+    mdata.update()
 
     return mdata
 

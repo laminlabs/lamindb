@@ -538,6 +538,7 @@ class MuDataAnnotator:
             using=self._using,
             validated_only=False,
             kwargs=self._kwargs,
+            df=self._mdata[modality].obs,
         )
 
     def add_new_from_var_index(self, modality: str, **kwargs):
