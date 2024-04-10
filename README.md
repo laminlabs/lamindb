@@ -8,7 +8,7 @@
 - Track data lineage across notebooks & pipelines.
 - Integrate registries for experimental metadata & in-house ontologies.
 - Validate, standardize & annotate.
-- Collaborate across distributed LaminDB instances.
+- Collaborate across distributed databases.
 
 ## Documentation
 
