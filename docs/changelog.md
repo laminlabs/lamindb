@@ -1,5 +1,6 @@
 # Changelog
 
+- ✨ Support MuData [PR](https://github.com/laminlabs/lamindb/pull/1554) [@sunnyosun](https://github.com/sunnyosun)
 - 📝 Improve introduction [PR](https://github.com/laminlabs/lamindb/pull/1556) [@falexwolf](https://github.com/falexwolf)
 - ⬆️ Upgrade anndata dependency [PR](https://github.com/laminlabs/lamindb/pull/1555) [@Koncopd](https://github.com/Koncopd)
 ```{eval-rst}
