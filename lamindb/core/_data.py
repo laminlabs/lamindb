@@ -109,17 +109,7 @@ def describe(self: Data):
         else:
             direct_fields.append(f.name)
 
-    # Display Provenance
-    # display line by line the foreign key fields
-    from lamindb._parents import _transform_emoji
-
-    emojis = {
-        "storage": "🗃️",
-        "created_by": "👤",
-        "transform": _transform_emoji(self.transform),
-        "run": "👣",
-        "artifact": "📄",
-    }
+    # provenance
     if len(foreign_key_fields) > 0:  # always True for Artifact and Collection
         record_msg = f"{colors.green(model_name)}{__repr__(self, include_foreign_keys=False).lstrip(model_name)}"
         msg += f"{record_msg}\n\n"
@@ -127,17 +117,16 @@ def describe(self: Data):
         msg += f"{colors.green('Provenance')}:\n  "
         related_msg = "".join(
             [
-                f"{emojis.get(i, '📎')} {i}: {self.__getattribute__(i)}\n  "
-                for i in foreign_key_fields
-                if self.__getattribute__(i) is not None
+                f"📎 {field}: {self.__getattribute__(field)}\n  "
+                for field in foreign_key_fields
+                if self.__getattribute__(field) is not None
             ]
         )
         msg += related_msg
     # input of
-    # can only access many-to-many once record is saved
     if self.id is not None and self.input_of.exists():
         values = [format_field_value(i.started_at) for i in self.input_of.all()]
-        msg += f"⬇️ input_of ({colors.italic('core.Run')}): {values}\n    "
+        msg += f"📎 input_of ({colors.italic('core.Run')}): {values}\n    "
     msg = msg.rstrip(" ")  # do not use removesuffix as we need to remove 2 or 4 spaces
     msg += print_features(self)
     msg += print_labels(self)
