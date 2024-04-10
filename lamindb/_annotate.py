@@ -550,17 +550,19 @@ class MuDataAnnotator:
 
     def add_validated_from(self, key: str, modality: str | None = None, **kwargs):
         """Add validated categories."""
+        self._kwargs.update(kwargs)
         modality = modality or "obs"
         if modality in self._df_annotators:
             df_annotator = self._df_annotators[modality]
-            df_annotator.add_validated_from(key=key, **kwargs)
+            df_annotator.add_validated_from(key=key, **self._kwargs)
 
     def add_new_from(self, key: str, modality: str | None = None, **kwargs):
         """Add validated & new categories."""
+        self._kwargs.update(kwargs)
         modality = modality or "obs"
         if modality in self._df_annotators:
             df_annotator = self._df_annotators[modality]
-            df_annotator.add_new_from(key=key, **kwargs)
+            df_annotator.add_new_from(key=key, **self._kwargs)
 
     def validate(self, **kwargs) -> bool:
         """Validate categories."""
@@ -576,7 +578,7 @@ class MuDataAnnotator:
                 field=var_field,
                 key=f"{modality}_var_index",
                 using=self._using,
-                **kwargs,
+                **self._kwargs,
             )
         validated_obs = True
         for modality, fields in self._obs_fields.items():
@@ -585,7 +587,7 @@ class MuDataAnnotator:
             else:
                 obs = self._mdata[modality].obs
             validated_obs &= validate_categories_in_df(
-                obs, fields=fields, using=self._using, **kwargs
+                obs, fields=fields, using=self._using, **self._kwargs
             )
         self._validated = validated_var and validated_obs
         return self._validated
