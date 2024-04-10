@@ -14,13 +14,20 @@ Registries:
    LabelManager
    IsTree
    IsVersioned
-   DataFrameAnnotator
-   AnnDataAnnotator
-   AnnotateLookup
    CanValidate
    HasParents
    InspectResult
    fields
+
+Annotators:
+
+.. autosummary::
+   :toctree: .
+
+   DataFrameAnnotator
+   AnnDataAnnotator
+   MuDataAnnotator
+   AnnotateLookup
 
 Classes:
 
@@ -53,7 +60,12 @@ from lnschema_core.models import (
     Registry,
 )
 
-from lamindb._annotate import AnnDataAnnotator, AnnotateLookup, DataFrameAnnotator
+from lamindb._annotate import (
+    AnnDataAnnotator,
+    AnnotateLookup,
+    DataFrameAnnotator,
+    MuDataAnnotator,
+)
 from lamindb._query_manager import QueryManager
 from lamindb._query_set import QuerySet, RecordsList
 from lamindb.core._feature_manager import FeatureManager
