@@ -438,28 +438,28 @@ class MuDataAnnotator:
         self,
         mdata: MuData,
         var_index: dict[str, dict[str, FieldAttr]],
-        categoricals: dict[str, dict[str, FieldAttr]],
+        categoricals: dict[str, FieldAttr],
         using: str = "default",
         verbosity: str = "hint",
         **kwargs,
     ) -> None:
         self._mdata = mdata
         self._kwargs = kwargs
-        self._modalities = set(var_index.keys()) | set(categoricals.keys())
-        self._verify_modality(self._modalities)
         self._var_fields = var_index
-        self._obs_fields = categoricals
+        self._verify_modality(self._var_fields.keys())
+        self._obs_fields = self._parse_categoricals(categoricals)
+        self._modalities = set(self._var_fields.keys()) | set(self._obs_fields.keys())
         self._using = using
         self._verbosity = verbosity
         self._df_annotators = {
             modality: DataFrameAnnotator(
-                df=mdata[modality].obs,
-                categoricals=categoricals.get(modality, {}),
+                df=mdata[modality].obs if modality != "obs" else mdata.obs,
+                categoricals=self._obs_fields.get(modality, {}),
                 using=using,
                 verbosity=verbosity,
                 **kwargs,
             )
-            for modality in var_index.keys()
+            for modality in self._modalities
         }
         for modality in self._var_fields.keys():
             self._save_from_var_index_modality(
@@ -497,15 +497,47 @@ class MuDataAnnotator:
             kwargs=self._kwargs,
         )
 
+    def _parse_categoricals(self, categoricals: dict[str, FieldAttr]) -> dict:
+        """Parse the categorical fields."""
+        prefixes = {f"{k}:" for k in self._mdata.mod.keys()}
+        obs_fields: dict[str, dict[str, FieldAttr]] = {}
+        for k, v in categoricals.items():
+            if k not in self._mdata.obs.columns:
+                raise ValueError(f"column '{k}' does not exist in mdata.obs!")
+            if any(k.startswith(prefix) for prefix in prefixes):
+                modality, col = k.split(":")[0], k.split(":")[1]
+                if modality not in obs_fields.keys():
+                    obs_fields[modality] = {}
+                obs_fields[modality][col] = v
+            else:
+                if "obs" not in obs_fields.keys():
+                    obs_fields["obs"] = {}
+                obs_fields["obs"][k] = v
+        return obs_fields
+
     def lookup(self, using: str | None = None) -> AnnotateLookup:
         """Lookup features and labels."""
         return AnnotateLookup(
             categorials=self._obs_fields,
             slots={
-                **{f"{k}_columns": v for k, v in self._obs_fields.items()},
+                **self._obs_fields,
                 **{f"{k}_var_index": v for k, v in self._var_fields.items()},
             },
             using=using or self._using,
+        )
+
+    def add_new_from_columns(
+        self, modality: str, column_names: list[str] | None = None, **kwargs
+    ):
+        """Update columns records."""
+        self._kwargs.update(kwargs)
+        update_registry(
+            values=column_names or self._mdata[modality].obs.columns,
+            field=Feature.name,
+            key=f"{modality} obs columns",
+            using=self._using,
+            validated_only=False,
+            kwargs=self._kwargs,
         )
 
     def add_new_from_var_index(self, modality: str, **kwargs):
@@ -514,14 +546,16 @@ class MuDataAnnotator:
             modality=modality, validated_only=False, **kwargs
         )
 
-    def add_validated_from(self, modality: str, key: str, **kwargs):
+    def add_validated_from(self, key: str, modality: str | None = None, **kwargs):
         """Add validated categories."""
+        modality = modality or "obs"
         if modality in self._df_annotators:
             df_annotator = self._df_annotators[modality]
             df_annotator.add_validated_from(key=key, **kwargs)
 
-    def add_new_from(self, modality: str, key: str, **kwargs):
+    def add_new_from(self, key: str, modality: str | None = None, **kwargs):
         """Add validated & new categories."""
+        modality = modality or "obs"
         if modality in self._df_annotators:
             df_annotator = self._df_annotators[modality]
             df_annotator.add_new_from(key=key, **kwargs)
@@ -544,8 +578,12 @@ class MuDataAnnotator:
             )
         validated_obs = True
         for modality, fields in self._obs_fields.items():
+            if modality == "obs":
+                obs = self._mdata.obs
+            else:
+                obs = self._mdata[modality].obs
             validated_obs &= validate_categories_in_df(
-                self._mdata[modality].obs, fields=fields, using=self._using, **kwargs
+                obs, fields=fields, using=self._using, **kwargs
             )
         self._validated = validated_var and validated_obs
         return self._validated
@@ -685,7 +723,6 @@ def validate_categories(
 
     registry = field.field.model
     filter_kwargs = {}
-    print(kwargs)
     organism = check_registry_organism(registry, kwargs.get("organism"))
     if organism is not None:
         filter_kwargs["organism"] = organism
@@ -766,7 +803,7 @@ def validate_categories_in_df(
 
 
 def save_artifact(
-    data: pd.DataFrame | ad.AnnData,
+    data: pd.DataFrame | ad.AnnData | MuData,
     description: str,
     fields: dict[str, FieldAttr] | dict[str, dict[str, FieldAttr]],
     columns_field: FieldAttr | dict[str, FieldAttr],
@@ -835,13 +872,18 @@ def save_artifact(
             organism = check_registry_organism(registry, organism)
             if organism is not None:
                 filter_kwargs["organism"] = organism
-            df = data.obs if isinstance(data, ad.AnnData) else data
+            df = data if isinstance(data, pd.DataFrame) else data.obs
             labels = registry.from_values(df[key], field=field, **filter_kwargs)
             artifact.labels.add(labels, feature)
 
     if artifact.accessor == "MuData":
         for modality, modality_fields in fields.items():
-            _add_labels(data[modality], artifact, modality_fields, organism, **kwargs)
+            if modality == "obs":
+                _add_labels(data, artifact, modality_fields, organism, **kwargs)
+            else:
+                _add_labels(
+                    data[modality], artifact, modality_fields, organism, **kwargs
+                )
     else:
         _add_labels(data, artifact, fields, organism, **kwargs)
 

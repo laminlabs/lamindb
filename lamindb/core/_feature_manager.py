@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from itertools import compress
-from typing import TYPE_CHECKING, Iterable
+from typing import TYPE_CHECKING, Iterable, Optional
 
 import anndata as ad
 from anndata import AnnData
@@ -133,12 +133,18 @@ def print_features(self: Data) -> str:
 
 def parse_feature_sets_from_anndata(
     adata: AnnData,
-    var_field: FieldAttr,
+    var_field: FieldAttr | None = None,
     obs_field: FieldAttr = Feature.name,
     **kwargs,
 ) -> dict:
+    try:
+        from mudata import MuData
+
+        data_types = (AnnData, MuData)
+    except ImportError:
+        data_types = AnnData
     data_parse = adata
-    if not isinstance(adata, AnnData):  # is a path
+    if not isinstance(adata, data_types):  # is a path
         filepath = create_path(adata)  # returns Path for local
         if not isinstance(filepath, LocalPathClasses):
             from lamindb.core.storage._backed_access import backed_access
@@ -147,24 +153,25 @@ def parse_feature_sets_from_anndata(
             data_parse = backed_access(filepath, using_key)
         else:
             data_parse = ad.read(filepath, backed="r")
-        type = "float"
-    else:
-        type = convert_numpy_dtype_to_lamin_feature_type(adata.X.dtype)
+        # type = "float"
+    # else:
+    # type = convert_numpy_dtype_to_lamin_feature_type(adata.X.dtype)
     feature_sets = {}
-    logger.info("parsing feature names of X stored in slot 'var'")
-    logger.indent = "   "
-    feature_set_var = FeatureSet.from_values(
-        data_parse.var.index,
-        var_field,
-        type=type,
-        **kwargs,
-    )
-    if feature_set_var is not None:
-        feature_sets["var"] = feature_set_var
-        logger.save(f"linked: {feature_set_var}")
-    logger.indent = ""
-    if feature_set_var is None:
-        logger.warning("skip linking features to artifact in slot 'var'")
+    if var_field is not None:
+        logger.info("parsing feature names of X stored in slot 'var'")
+        logger.indent = "   "
+        feature_set_var = FeatureSet.from_values(
+            data_parse.var.index,
+            var_field,
+            type=type,
+            **kwargs,
+        )
+        if feature_set_var is not None:
+            feature_sets["var"] = feature_set_var
+            logger.save(f"linked: {feature_set_var}")
+        logger.indent = ""
+        if feature_set_var is None:
+            logger.warning("skip linking features to artifact in slot 'var'")
     if len(data_parse.obs.columns) > 0:
         logger.info("parsing feature names of slot 'obs'")
         logger.indent = "   "
@@ -287,6 +294,11 @@ class FeatureManager:
         # parse and register features
         mdata = self._host.load()
         feature_sets = {}
+        obs_fs = parse_feature_sets_from_anndata(
+            mdata, var_field=None, obs_field=Feature.name, **kwargs
+        )
+        if "obs" in obs_fs:
+            feature_sets["obs"] = obs_fs["obs"]
         for modality, field in var_fields.items():
             modality_fs = parse_feature_sets_from_anndata(
                 mdata[modality],

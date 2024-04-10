@@ -401,7 +401,41 @@ def mudata_papalexi21_subset():  # pragma: no cover
         "papalexi21_subset.h5mu",
     )
 
-    return md.read_h5mu(filepath)
+    mdata = md.read_h5mu(filepath)
+    for mod in ["rna", "adt", "hto", "gdo"]:
+        mdata[mod].obs.drop(
+            mdata[mod].obs.columns, axis=1, inplace=True
+        )  # Drop all columns
+    for col in mdata.obs.columns:
+        for mod in ["rna", "adt", "hto", "gdo"]:
+            if col.endswith(f"_{mod.upper()}"):
+                new_col = col.replace(f"{mod}:", "")
+                if new_col != col:
+                    mdata[mod].obs[new_col] = mdata.obs.pop(col)
+            else:
+                new_col = col.replace(f"{mod}:", "")
+                if new_col not in mdata.obs.columns and col in mdata.obs.columns:
+                    mdata.obs[new_col] = mdata.obs.pop(col)
+
+    for col in mdata.obs.columns:
+        for mod in ["rna", "adt", "hto", "gdo"]:
+            if col.endswith(f"_{mod.upper()}"):
+                del mdata.obs[col]
+
+    for col in [
+        "orig.ident",
+        "MULTI_ID",
+        "NT",
+        "S.Score",
+        "G2M.Score",
+        "Phase",
+        "gene_target",
+    ]:
+        del mdata.obs[col]
+
+    mdata["hto"].obs["HTO_classification"] = mdata.obs.pop("HTO_classification")
+
+    return mdata
 
 
 def df_iris() -> pd.DataFrame:
