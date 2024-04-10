@@ -49,7 +49,7 @@ def print_labels(self: Data):
             n = labels.count()
             field = get_default_str_field(labels)
             print_values = _print_values(labels.list(field), n=10)
-            labels_msg += f"  🏷️ {related_name} ({n}, {colors.italic(related_model)}): {print_values}\n"
+            labels_msg += f"  📎 {related_name} ({n}, {colors.italic(related_model)}): {print_values}\n"
     if len(labels_msg) > 0:
         return f"{colors.green('Labels')}:\n{labels_msg}"
     else:
