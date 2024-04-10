@@ -6,6 +6,7 @@ import anndata as ad
 import lamindb_setup as ln_setup
 import pandas as pd
 from lamin_utils import colors, logger
+from lamindb_setup.core._docs import doc_args
 from lnschema_core import Artifact, Collection, Feature, Registry, Run, ULabel
 
 if TYPE_CHECKING:
@@ -617,6 +618,7 @@ class Annotate:
     """Annotation flow."""
 
     @classmethod
+    @doc_args(DataFrameAnnotator.__doc__)
     def from_df(
         cls,
         df: pd.DataFrame,
@@ -626,6 +628,7 @@ class Annotate:
         verbosity: str = "hint",
         **kwargs,
     ) -> DataFrameAnnotator:
+        """{}."""
         return DataFrameAnnotator(
             df=df,
             categoricals=categoricals,
@@ -636,6 +639,7 @@ class Annotate:
         )
 
     @classmethod
+    @doc_args(AnnDataAnnotator.__doc__)
     def from_anndata(
         cls,
         adata: ad.AnnData,
@@ -645,6 +649,7 @@ class Annotate:
         verbosity: str = "hint",
         **kwargs,
     ) -> AnnDataAnnotator:
+        """{}."""
         return AnnDataAnnotator(
             adata=adata,
             var_index=var_index,
@@ -655,6 +660,7 @@ class Annotate:
         )
 
     @classmethod
+    @doc_args(MuDataAnnotator.__doc__)
     def from_mudata(
         cls,
         mdata: MuData,
@@ -664,6 +670,7 @@ class Annotate:
         verbosity: str = "hint",
         **kwargs,
     ) -> MuDataAnnotator:
+        """{}."""
         return MuDataAnnotator(
             mdata=mdata,
             var_index=var_index,
@@ -718,9 +725,11 @@ def validate_categories(
     from lamindb.core._settings import settings
 
     model_field = f"{field.field.model.__name__}.{field.field.name}"
-    logger.indent = ""
-    logger.info(f"mapping {colors.italic(key)} on {colors.italic(model_field)}")
-    logger.indent = "   "
+
+    def _log_mapping_info():
+        logger.indent = ""
+        logger.info(f"mapping {colors.italic(key)} on {colors.italic(model_field)}")
+        logger.indent = "   "
 
     registry = field.field.model
     filter_kwargs = {}
@@ -759,6 +768,7 @@ def validate_categories(
     validated_hint_print = f".add_validated_from('{key}')"
     n_validated = len(values_validated)
     if n_validated > 0:
+        _log_mapping_info()
         logger.warning(
             f"found {colors.yellow(f'{n_validated} terms')} validated terms: "
             f"{colors.yellow(values_validated)}\n      → save terms via "
@@ -769,7 +779,8 @@ def validate_categories(
     non_validated = [i for i in non_validated if i not in values_validated]
     n_non_validated = len(non_validated)
     if n_non_validated == 0:
-        logger.success(f"{key} validated")
+        logger.indent = ""
+        logger.success(f"{key} is validated against {colors.italic(model_field)}")
         return True
     else:
         are = "are" if n_non_validated > 1 else "is"
@@ -779,6 +790,8 @@ def validate_categories(
             f"{colors.yellow(print_values)}\n      → save terms via "
             f"{colors.yellow(non_validated_hint_print)}"
         )
+        if logger.indent == "":
+            _log_mapping_info()
         logger.warning(warning_message)
         logger.indent = ""
         return False
