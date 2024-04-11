@@ -138,7 +138,7 @@ def docs(session):
         if group in {"tutorial", "guide", "biology"}:
             for path in Path(f"./docs/{group}").glob("*"):
                 path.rename(f"./docs/{path.name}")
-    session.run(*"lamin init --storage ./docsbuild --schema bionty".split())
+    session.run(*"lamin init --storage ./docsbuild --schema bionty,wetlab".split())
 
     def generate_cli_docs():
         os.environ["NO_RICH"] = "1"
