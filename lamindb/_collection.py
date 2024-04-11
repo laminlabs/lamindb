@@ -321,7 +321,7 @@ def delete(self, permanent: bool | None = None) -> None:
 
 
 # docstring handled through attach_func_to_class_method
-def save(self, *args, **kwargs) -> None:
+def save(self, transfer_labels: bool = False) -> None:
     if self.artifact is not None:
         self.artifact.save()
     # we don't need to save feature sets again
