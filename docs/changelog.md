@@ -1,5 +1,6 @@
 # Changelog
 
+- 📝 Add wetlab schema to docs [PR](https://github.com/laminlabs/lamindb/pull/1560) [@falexwolf](https://github.com/falexwolf)
 - ♻️ Enable simple transfer of labels from artifacts to collections [PR](https://github.com/laminlabs/lamindb/pull/1559) [@falexwolf](https://github.com/falexwolf)
 - 🐛 Fix passing organism to Annotate [PR](https://github.com/laminlabs/lamindb/pull/1557) [@sunnyosun](https://github.com/sunnyosun)
 - ✨ Support MuData [PR](https://github.com/laminlabs/lamindb/pull/1554) [@sunnyosun](https://github.com/sunnyosun)
