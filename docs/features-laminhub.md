@@ -1,11 +1,12 @@
 Public demo instances to explore in the UI or load using the CLI via `lamin load owner/instance`:
 
+- [lamin.ai/laminlabs/arrayloader-benchmarks](https://lamin.ai/laminlabs/arrayloader-benchmarks) - A instance showing work with ML models & benchmarks
+- [lamin.ai/laminlabs/cellxgene](https://lamin.ai/laminlabs/cellxgene) - An instance with the CELLxGENE data ([guide](docs:cellxgene))
 - [lamin.ai/laminlabs/lamindata](https://lamin.ai/laminlabs/lamindata) - A generic demo instance with various data types
-- [lamin.ai/laminlabs/cellxgene](https://lamin.ai/laminlabs/cellxgene) - An instance with CELLxGENE data ([guide](docs:cellxgene))
 
-LaminHub neither hosts data nor metadata, but connects to distributed storage locations & databases through LaminDB.
+LaminHub neither hosts data nor metadata, but connects to distributed storage locations & databases.
 
-<p style="font-weight: bolder; margin-top: 1rem; margin-bottom: 0.5rem; background: transparent">See validated data artifacts in context of ontologies & experimental metadata.</p>
+<p style="font-weight: bolder; margin-top: 1rem; margin-bottom: 0.5rem; background: transparent">See validated datasets in context of ontologies & experimental metadata.</p>
 
 <img src="https://lamin-site-assets.s3.amazonaws.com/.lamindb/DjVOPEBiAcGlt3Gq7Qc1.png" width="700px">
 
