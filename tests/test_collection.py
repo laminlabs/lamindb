@@ -74,7 +74,7 @@ def test_from_single_artifact(adata):
     with pytest.raises(ValueError) as error:
         ln.Collection(artifact, artifact)
     assert str(error.exconly()).startswith(
-        "ValueError: Only one non-keyword arg allowed: data"
+        "ValueError: Only one non-keyword arg allowed: artifacts"
     )
     transform = ln.Transform(name="My test transform")
     transform.save()
@@ -95,7 +95,7 @@ def test_edge_cases(df):
     with pytest.raises(ValueError) as error:
         ln.Collection(df, invalid_param=1)
     assert str(error.exconly()).startswith(
-        "ValueError: Only data, name, run, description, reference, reference_type, visibility can be passed, you passed: "
+        "ValueError: Only artifacts, name, run, description, reference, reference_type, visibility can be passed, you passed: "
     )
     with pytest.raises(ValueError) as error:
         ln.Collection(1, name="Invalid")
