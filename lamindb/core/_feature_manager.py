@@ -135,7 +135,8 @@ def parse_feature_sets_from_anndata(
     adata: AnnData,
     var_field: FieldAttr | None = None,
     obs_field: FieldAttr = Feature.name,
-    **kwargs,
+    mute: bool = False,
+    organism: str | Registry | None = None,
 ) -> dict:
     data_parse = adata
     if not isinstance(adata, AnnData):  # is a path
@@ -162,7 +163,8 @@ def parse_feature_sets_from_anndata(
             data_parse.var.index,
             var_field,
             type=type,
-            **kwargs,
+            mute=mute,
+            organism=organism,
         )
         if feature_set_var is not None:
             feature_sets["var"] = feature_set_var
@@ -176,7 +178,8 @@ def parse_feature_sets_from_anndata(
         feature_set_obs = FeatureSet.from_df(
             df=data_parse.obs,
             field=obs_field,
-            **kwargs,
+            mute=mute,
+            organism=organism,
         )
         if feature_set_obs is not None:
             feature_sets["obs"] = feature_set_obs
@@ -229,7 +232,7 @@ class FeatureManager:
             slot = "columns" if slot is None else slot
         self._add_feature_set(feature_set=FeatureSet(features=features), slot=slot)
 
-    def add_from_df(self, field: FieldAttr = Feature.name, **kwargs):
+    def add_from_df(self, field: FieldAttr = Feature.name, organism: str | None = None):
         """Add features from DataFrame."""
         if isinstance(self._host, Artifact):
             assert self._host.accessor == "DataFrame"
@@ -240,7 +243,7 @@ class FeatureManager:
         # parse and register features
         registry = field.field.model
         df = self._host.load()
-        features = registry.from_values(df.columns, field=field, **kwargs)
+        features = registry.from_values(df.columns, field=field, organism=organism)
         if len(features) == 0:
             logger.error(
                 "no validated features found in DataFrame! please register features first!"
@@ -257,7 +260,8 @@ class FeatureManager:
         self,
         var_field: FieldAttr,
         obs_field: FieldAttr | None = Feature.name,
-        **kwargs,
+        mute: bool = False,
+        organism: str | Registry | None = None,
     ):
         """Add features from AnnData."""
         if isinstance(self._host, Artifact):
@@ -268,7 +272,11 @@ class FeatureManager:
         # parse and register features
         adata = self._host.load()
         feature_sets = parse_feature_sets_from_anndata(
-            adata, var_field=var_field, obs_field=obs_field, **kwargs
+            adata,
+            var_field=var_field,
+            obs_field=obs_field,
+            mute=mute,
+            organism=organism,
         )
 
         # link feature sets
@@ -279,7 +287,8 @@ class FeatureManager:
         self,
         var_fields: dict[str, FieldAttr],
         obs_fields: dict[str, FieldAttr] = None,
-        **kwargs,
+        mute: bool = False,
+        organism: str | Registry | None = None,
     ):
         """Add features from MuData."""
         if obs_fields is None:
@@ -300,7 +309,8 @@ class FeatureManager:
                 mdata[modality],
                 var_field=field,
                 obs_field=obs_fields.get(modality, Feature.name),
-                **kwargs,
+                mute=mute,
+                organism=organism,
             )
             for k, v in modality_fs.items():
                 feature_sets[f"['{modality}'].{k}"] = v
