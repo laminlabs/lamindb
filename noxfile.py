@@ -71,11 +71,15 @@ def install(session, group):
         extras += "aws,bionty,jupyter"
     elif group == "storage":
         extras += "aws,zarr,bionty,jupyter"
-        session.run(*"uv pip install --system --no-deps wetlab".split())
+        session.run(
+            *"uv pip install --system --no-deps git+https://github.com/laminlabs/wetlab".split()
+        )
     elif group == "docs":
         extras += "bionty"
         session.run(*"uv pip install --system mudata".split())
-        session.run(*"uv pip install --system --no-deps wetlab".split())
+        session.run(
+            *"uv pip install --system --no-deps git+https://github.com/laminlabs/wetlab".split()
+        )
     elif group == "cli":
         extras += "jupyter,aws,bionty"
     if os.getenv("GITHUB_EVENT_NAME") != "push" and "bionty" in extras:
