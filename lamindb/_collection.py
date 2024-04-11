@@ -209,7 +209,9 @@ def from_artifacts(artifacts: Iterable[Artifact]) -> tuple[str, dict[str, str]]:
 # docstring handled through attach_func_to_class_method
 def mapped(
     self,
-    label_keys: str | list[str] | None = None,
+    layers_keys: str | list[str] | None = None,
+    obs_keys: str | list[str] | None = None,
+    obsm_keys: str | list[str] | None = None,
     join: Literal["inner", "outer"] | None = "inner",
     encode_labels: bool | list[str] = True,
     unknown_label: str | dict[str, str] | None = None,
@@ -230,7 +232,9 @@ def mapped(
             path_list.append(artifact.path)
     ds = MappedCollection(
         path_list,
-        label_keys,
+        layers_keys,
+        obs_keys,
+        obsm_keys,
         join,
         encode_labels,
         unknown_label,

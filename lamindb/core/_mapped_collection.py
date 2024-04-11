@@ -11,7 +11,9 @@ from lamin_utils import logger
 from lamindb_setup.core.upath import UPath
 
 from .storage._backed_access import (
+    ArrayType,
     ArrayTypes,
+    GroupType,
     GroupTypes,
     StorageType,
     _safer_read_index,
@@ -70,23 +72,29 @@ class MappedCollection:
 
     Args:
         path_list: A list of paths to `AnnData` objects stored in `.h5ad` or `.zarr` formats.
-        label_keys: Columns of the ``.obs`` slot that store labels.
+        layers_keys: Keys from the ``.layers`` slot. ``layers_keys=None`` or ``"X"`` in the list
+            retrieves ``.X``.
+        obsm_keys: Keys from the ``.obsm`` slots.
+        obs_keys: Keys from the ``.obs`` slots.
         join: `"inner"` or `"outer"` virtual joins. If ``None`` is passed,
             does not join.
         encode_labels: Encode labels into integers.
-            Can be a list with elements from ``label_keys```.
+            Can be a list with elements from ``obs_keys```.
         unknown_label: Encode this label to -1.
-            Can be a dictionary with keys from ``label_keys`` if ``encode_labels=True```
+            Can be a dictionary with keys from ``obs_keys`` if ``encode_labels=True```
             or from ``encode_labels`` if it is a list.
-        cache_categories: Enable caching categories of ``label_keys`` for faster access.
+        cache_categories: Enable caching categories of ``obs_keys`` for faster access.
         parallel: Enable sampling with multiple processes.
-        dtype: Convert numpy arrays from ``.X`` to this dtype on selection.
+        dtype: Convert numpy arrays from ``.X``, ``.layers`` and ``.obsm``
+            to this dtype on selection.
     """
 
     def __init__(
         self,
         path_list: list[UPathStr],
-        label_keys: str | list[str] | None = None,
+        layers_keys: str | list[str] | None = None,
+        obs_keys: str | list[str] | None = None,
+        obsm_keys: str | list[str] | None = None,
         join: Literal["inner", "outer"] | None = "inner",
         encode_labels: bool | list[str] = True,
         unknown_label: str | dict[str, str] | None = None,
@@ -96,27 +104,37 @@ class MappedCollection:
     ):
         assert join in {None, "inner", "outer"}
 
-        label_keys = [label_keys] if isinstance(label_keys, str) else label_keys
-        self.label_keys = label_keys
+        if layers_keys is None:
+            self.layers_keys = ["X"]
+        else:
+            self.layers_keys = (
+                [layers_keys] if isinstance(layers_keys, str) else layers_keys
+            )
+
+        obsm_keys = [obsm_keys] if isinstance(obsm_keys, str) else obsm_keys
+        self.obsm_keys = obsm_keys
+
+        obs_keys = [obs_keys] if isinstance(obs_keys, str) else obs_keys
+        self.obs_keys = obs_keys
 
         if isinstance(encode_labels, list):
             if len(encode_labels) == 0:
                 encode_labels = False
-            elif label_keys is None or not all(
-                enc_label in label_keys for enc_label in encode_labels
+            elif obs_keys is None or not all(
+                enc_label in obs_keys for enc_label in encode_labels
             ):
                 raise ValueError(
-                    "All elements of `encode_labels` should be in `label_keys`."
+                    "All elements of `encode_labels` should be in `obs_keys`."
                 )
         else:
             if encode_labels:
-                encode_labels = label_keys if label_keys is not None else False
+                encode_labels = obs_keys if obs_keys is not None else False
         self.encode_labels = encode_labels
 
         if encode_labels and isinstance(unknown_label, dict):
             if not all(unkey in encode_labels for unkey in unknown_label):  # type: ignore
                 raise ValueError(
-                    "All keys of `unknown_label` should be in `encode_labels` and `label_keys`."
+                    "All keys of `unknown_label` should be in `encode_labels` and `obs_keys`."
                 )
         self.unknown_label = unknown_label
 
@@ -141,12 +159,16 @@ class MappedCollection:
 
         self.join_vars = join
         self.var_indices = None
+        self.var_joint = None
+        self.n_vars_list = None
+        self.n_vars = None
         if self.join_vars is not None:
             self._make_join_vars()
+            self.n_vars = len(self.var_joint)
 
-        if self.label_keys is not None:
+        if self.obs_keys is not None:
             if cache_categories:
-                self._cache_categories(self.label_keys)
+                self._cache_categories(self.obs_keys)
             else:
                 self._cache_cats: dict = {}
             self.encoders: dict = {}
@@ -169,10 +191,10 @@ class MappedCollection:
             self.conns.append(conn)
             self.storages.append(storage)
 
-    def _cache_categories(self, label_keys: list):
+    def _cache_categories(self, obs_keys: list):
         self._cache_cats = {}
         decode = np.frompyfunc(lambda x: x.decode("utf-8"), 1, 1)
-        for label in label_keys:
+        for label in obs_keys:
             self._cache_cats[label] = []
             for storage in self.storages:
                 with _Connect(storage) as store:
@@ -197,11 +219,13 @@ class MappedCollection:
 
     def _make_join_vars(self):
         var_list = []
+        self.n_vars_list = []
         for storage in self.storages:
             with _Connect(storage) as store:
-                var_list.append(_safer_read_index(store["var"]))
+                vars = _safer_read_index(store["var"])
+                var_list.append(vars)
+                self.n_vars_list.append(len(vars))
 
-        self.var_joint = None
         vars_eq = all(var_list[0].equals(vrs) for vrs in var_list[1:])
         if vars_eq:
             self.join_vars = None
@@ -223,6 +247,18 @@ class MappedCollection:
     def __len__(self):
         return self.n_obs
 
+    @property
+    def shape(self):
+        return (self.n_obs, self.n_vars)
+
+    @property
+    def original_shapes(self):
+        if self.n_vars_list is None:
+            n_vars_list = [None] * len(self.n_obs_list)
+        else:
+            n_vars_list = self.n_vars_list
+        return list(zip(self.n_obs_list, n_vars_list))
+
     def __getitem__(self, idx: int):
         obs_idx = self.indices[idx]
         storage_idx = self.storage_idx[idx]
@@ -232,10 +268,21 @@ class MappedCollection:
             var_idxs_join = None
 
         with _Connect(self.storages[storage_idx]) as store:
-            out = {"x": self._get_data_idx(store, obs_idx, var_idxs_join)}
-            out["_storage_idx"] = storage_idx
-            if self.label_keys is not None:
-                for label in self.label_keys:
+            out = {}
+            for layers_key in self.layers_keys:
+                lazy_data = (
+                    store["X"] if layers_key == "X" else store["layers"][layers_key]
+                )
+                out[layers_key] = self._get_data_idx(
+                    lazy_data, obs_idx, self.join_vars, var_idxs_join, self.n_vars
+                )
+            if self.obsm_keys is not None:
+                for obsm_key in self.obsm_keys:
+                    lazy_data = store["obsm"][obsm_key]
+                    out[f"obsm_{obsm_key}"] = self._get_data_idx(lazy_data, obs_idx)
+            out["_store_idx"] = storage_idx
+            if self.obs_keys is not None:
+                for label in self.obs_keys:
                     if label in self._cache_cats:
                         cats = self._cache_cats[label][storage_idx]
                         if cats is None:
@@ -250,44 +297,44 @@ class MappedCollection:
 
     def _get_data_idx(
         self,
-        storage: StorageType,  # type: ignore
+        lazy_data: ArrayType | GroupType,  # type: ignore
         idx: int,
+        join_vars: Literal["inner", "outer"] | None = None,
         var_idxs_join: list | None = None,
-        layer_key: str | None = None,
+        n_vars_out: int | None = None,
     ):
         """Get the index for the data."""
-        layer = storage["X"] if layer_key is None else storage["layers"][layer_key]  # type: ignore
-        if isinstance(layer, ArrayTypes):  # type: ignore
-            layer_idx = layer[idx]
-            if self.join_vars is None:
-                result = layer_idx
+        if isinstance(lazy_data, ArrayTypes):  # type: ignore
+            lazy_data_idx = lazy_data[idx]  # type: ignore
+            if join_vars is None:
+                result = lazy_data_idx
                 if self._dtype is not None:
                     result = result.astype(self._dtype, copy=False)
-            elif self.join_vars == "outer":
-                dtype = layer_idx.dtype if self._dtype is None else self._dtype
-                result = np.zeros(len(self.var_joint), dtype=dtype)
-                result[var_idxs_join] = layer_idx
+            elif join_vars == "outer":
+                dtype = lazy_data_idx.dtype if self._dtype is None else self._dtype
+                result = np.zeros(n_vars_out, dtype=dtype)
+                result[var_idxs_join] = lazy_data_idx
             else:  # inner join
-                result = layer_idx[var_idxs_join]
+                result = lazy_data_idx[var_idxs_join]
                 if self._dtype is not None:
                     result = result.astype(self._dtype, copy=False)
             return result
         else:  # assume csr_matrix here
-            data = layer["data"]
-            indices = layer["indices"]
-            indptr = layer["indptr"]
+            data = lazy_data["data"]  # type: ignore
+            indices = lazy_data["indices"]  # type: ignore
+            indptr = lazy_data["indptr"]  # type: ignore
             s = slice(*(indptr[idx : idx + 2]))
             data_s = data[s]
             dtype = data_s.dtype if self._dtype is None else self._dtype
-            if self.join_vars == "outer":
-                layer_idx = np.zeros(len(self.var_joint), dtype=dtype)
-                layer_idx[var_idxs_join[indices[s]]] = data_s
+            if join_vars == "outer":
+                lazy_data_idx = np.zeros(n_vars_out, dtype=dtype)
+                lazy_data_idx[var_idxs_join[indices[s]]] = data_s
             else:
-                layer_idx = np.zeros(layer.attrs["shape"][1], dtype=dtype)
-                layer_idx[indices[s]] = data_s
-                if self.join_vars == "inner":
-                    layer_idx = layer_idx[var_idxs_join]
-            return layer_idx
+                lazy_data_idx = np.zeros(lazy_data.attrs["shape"][1], dtype=dtype)  # type: ignore
+                lazy_data_idx[indices[s]] = data_s
+                if join_vars == "inner":
+                    lazy_data_idx = lazy_data_idx[var_idxs_join]
+            return lazy_data_idx
 
     def _get_label_idx(
         self,
@@ -317,12 +364,12 @@ class MappedCollection:
             label = label.decode("utf-8")
         return label
 
-    def get_label_weights(self, label_keys: str | list[str]):
+    def get_label_weights(self, obs_keys: str | list[str]):
         """Get all weights for the given label keys."""
-        if isinstance(label_keys, str):
-            label_keys = [label_keys]
+        if isinstance(obs_keys, str):
+            obs_keys = [obs_keys]
         labels_list = []
-        for label_key in label_keys:
+        for label_key in obs_keys:
             labels_to_str = self.get_merged_labels(label_key).astype(str).astype("O")
             labels_list.append(labels_to_str)
         if len(labels_list) > 1:

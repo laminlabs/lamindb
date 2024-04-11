@@ -190,12 +190,10 @@ def test_collection_mapped(adata, adata2):
     with pytest.raises(ValueError):
         ls_ds = collection.mapped(encode_labels=["feat1"])
     with pytest.raises(ValueError):
-        ls_ds = collection.mapped(label_keys="feat1", encode_labels=["feat3"])
+        ls_ds = collection.mapped(obs_keys="feat1", encode_labels=["feat3"])
     with pytest.raises(ValueError):
-        ls_ds = collection.mapped(
-            label_keys="feat1", unknown_label={"feat3": "Unknown"}
-        )
-    with collection.mapped(label_keys=["feat1", "feat2"], unknown_label="A") as ls_ds:
+        ls_ds = collection.mapped(obs_keys="feat1", unknown_label={"feat3": "Unknown"})
+    with collection.mapped(obs_keys=["feat1", "feat2"], unknown_label="A") as ls_ds:
         assert ls_ds.encoders["feat1"]["A"] == -1
         assert ls_ds.encoders["feat1"]["B"] == 0
         assert ls_ds.encoders["feat2"]["A"] == -1
@@ -205,7 +203,7 @@ def test_collection_mapped(adata, adata2):
         assert ls_ds[0]["feat2"] == -1
         assert ls_ds[1]["feat2"] == 0
     with collection.mapped(
-        label_keys=["feat1", "feat2"], unknown_label={"feat1": "A"}
+        obs_keys=["feat1", "feat2"], unknown_label={"feat1": "A"}
     ) as ls_ds:
         assert ls_ds.encoders["feat1"]["A"] == -1
         assert ls_ds.encoders["feat1"]["B"] == 0
@@ -220,7 +218,7 @@ def test_collection_mapped(adata, adata2):
         assert ls_ds[0]["feat2"] == A_enc
         assert ls_ds[1]["feat2"] == B_enc
     with collection.mapped(
-        label_keys=["feat1", "feat2"], unknown_label="A", encode_labels=["feat1"]
+        obs_keys=["feat1", "feat2"], unknown_label="A", encode_labels=["feat1"]
     ) as ls_ds:
         assert ls_ds.encoders["feat1"]["A"] == -1
         assert ls_ds.encoders["feat1"]["B"] == 0
@@ -230,13 +228,13 @@ def test_collection_mapped(adata, adata2):
         assert ls_ds[0]["feat2"] == "A"
         assert ls_ds[1]["feat2"] == "B"
 
-    ls_ds = collection.mapped(label_keys="feat1")
+    ls_ds = collection.mapped(obs_keys="feat1")
     assert not ls_ds.closed
 
     assert len(ls_ds) == 4
     assert len(ls_ds[0]) == 3 and len(ls_ds[2]) == 3
-    assert len(ls_ds[0]["x"]) == 3
-    assert np.array_equal(ls_ds[2]["x"], np.array([1, 2, 5]))
+    assert len(ls_ds[0]["X"]) == 3
+    assert np.array_equal(ls_ds[2]["X"], np.array([1, 2, 5]))
     weights = ls_ds.get_label_weights("feat1")
     assert all(weights[1:] == weights[0])
     weights = ls_ds.get_label_weights(["feat1", "feat2"])
@@ -245,39 +243,39 @@ def test_collection_mapped(adata, adata2):
     assert ls_ds.closed
     del ls_ds
 
-    with collection.mapped(label_keys="feat1", join="inner", dtype="float32") as ls_ds:
+    with collection.mapped(obs_keys="feat1", join="inner", dtype="float32") as ls_ds:
         assert not ls_ds.closed
         assert len(ls_ds) == 4
         assert len(ls_ds[0]) == 3 and len(ls_ds[2]) == 3
-        assert str(ls_ds[0]["x"].dtype) == "float32"
-        assert str(ls_ds[2]["x"].dtype) == "float32"
+        assert str(ls_ds[0]["X"].dtype) == "float32"
+        assert str(ls_ds[2]["X"].dtype) == "float32"
     assert ls_ds.closed
 
-    ls_ds = collection.mapped(label_keys="feat1", parallel=True)
+    ls_ds = collection.mapped(obs_keys="feat1", parallel=True)
     assert len(ls_ds[0]) == 3 and len(ls_ds[2]) == 3
-    assert ls_ds[0]["_storage_idx"] == 0
-    assert ls_ds[2]["_storage_idx"] == 1
+    assert ls_ds[0]["_store_idx"] == 0
+    assert ls_ds[2]["_store_idx"] == 1
 
-    with collection.mapped(label_keys="feat1", stream=True) as ls_ds:
+    with collection.mapped(obs_keys="feat1", stream=True) as ls_ds:
         assert len(ls_ds[0]) == 3 and len(ls_ds[2]) == 3
 
     with pytest.raises(ValueError):
-        with collection_outer.mapped(label_keys="feat1", join="inner"):
+        with collection_outer.mapped(obs_keys="feat1", join="inner"):
             pass
 
-    with collection_outer.mapped(label_keys="feat1", join="outer") as ls_ds:
+    with collection_outer.mapped(obs_keys="feat1", join="outer") as ls_ds:
         assert ls_ds.join_vars == "outer"
         assert len(ls_ds.var_joint) == 6
         assert len(ls_ds[0]) == 3
-        assert len(ls_ds[0]["x"]) == 6
-        assert np.array_equal(ls_ds[0]["x"], np.array([0, 0, 0, 3, 1, 2]))
-        assert np.array_equal(ls_ds[1]["x"], np.array([0, 0, 0, 6, 4, 5]))
-        assert np.array_equal(ls_ds[2]["x"], np.array([0, 0, 0, 5, 1, 2]))
-        assert np.array_equal(ls_ds[3]["x"], np.array([0, 0, 0, 8, 4, 5]))
-        assert np.array_equal(ls_ds[4]["x"], np.array([1, 2, 5, 0, 0, 0]))
-        assert np.array_equal(ls_ds[5]["x"], np.array([4, 5, 8, 0, 0, 0]))
-        assert np.issubdtype(ls_ds[2]["x"].dtype, np.integer)
-        assert np.issubdtype(ls_ds[4]["x"].dtype, np.integer)
+        assert len(ls_ds[0]["X"]) == 6
+        assert np.array_equal(ls_ds[0]["X"], np.array([0, 0, 0, 3, 1, 2]))
+        assert np.array_equal(ls_ds[1]["X"], np.array([0, 0, 0, 6, 4, 5]))
+        assert np.array_equal(ls_ds[2]["X"], np.array([0, 0, 0, 5, 1, 2]))
+        assert np.array_equal(ls_ds[3]["X"], np.array([0, 0, 0, 8, 4, 5]))
+        assert np.array_equal(ls_ds[4]["X"], np.array([1, 2, 5, 0, 0, 0]))
+        assert np.array_equal(ls_ds[5]["X"], np.array([4, 5, 8, 0, 0, 0]))
+        assert np.issubdtype(ls_ds[2]["X"].dtype, np.integer)
+        assert np.issubdtype(ls_ds[4]["X"].dtype, np.integer)
 
     artifact1.delete(permanent=True, storage=True)
     artifact2.delete(permanent=True, storage=True)
