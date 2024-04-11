@@ -71,10 +71,15 @@ def install(session, group):
         extras += "aws,bionty,jupyter"
     elif group == "storage":
         extras += "aws,zarr,bionty,jupyter"
-        session.run(*"uv pip install --system --no-deps wetlab".split())
+        session.run(
+            *"uv pip install --system --no-deps git+https://github.com/laminlabs/wetlab".split()
+        )
     elif group == "docs":
         extras += "bionty"
         session.run(*"uv pip install --system mudata".split())
+        session.run(
+            *"uv pip install --system --no-deps git+https://github.com/laminlabs/wetlab".split()
+        )
     elif group == "cli":
         extras += "jupyter,aws,bionty"
     if os.getenv("GITHUB_EVENT_NAME") != "push" and "bionty" in extras:
@@ -137,7 +142,7 @@ def docs(session):
         if group in {"tutorial", "guide", "biology"}:
             for path in Path(f"./docs/{group}").glob("*"):
                 path.rename(f"./docs/{path.name}")
-    session.run(*"lamin init --storage ./docsbuild --schema bionty".split())
+    session.run(*"lamin init --storage ./docsbuild --schema bionty,wetlab".split())
 
     def generate_cli_docs():
         os.environ["NO_RICH"] = "1"
