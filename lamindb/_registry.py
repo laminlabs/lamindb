@@ -129,7 +129,11 @@ def __init__(orm: Registry, *args, **kwargs):
 @classmethod  # type:ignore
 @doc_args(Registry.from_values.__doc__)
 def from_values(
-    cls, values: ListLike, field: StrField | None = None, **kwargs
+    cls,
+    values: ListLike,
+    field: StrField | None = None,
+    organism: Registry | str | None = None,
+    public_source: Registry | None = None,
 ) -> list[Registry]:
     """{}."""
     from_public = True if cls.__module__.startswith("lnschema_bionty.") else False
@@ -138,7 +142,8 @@ def from_values(
         iterable=values,
         field=getattr(cls, field_str),
         from_public=from_public,
-        **kwargs,
+        organism=organism,
+        public_source=public_source,
     )
 
 

@@ -19,19 +19,25 @@ def get_or_create_records(
     field: StrField,
     *,
     from_public: bool = False,
-    **kwargs,
+    organism: Registry | str | None = None,
+    public_source: Registry | None = None,
 ) -> list[Registry]:
     """Get or create records from iterables."""
     upon_create_search_names = settings.upon_create_search_names
     settings.upon_create_search_names = False
     feature: Feature = None
+    kwargs: dict = {}
+    if organism is not None:
+        kwargs["organism"] = organism
+    if public_source is not None:
+        kwargs["public_source"] = public_source
     try:
         Registry = field.field.model
         iterable_idx = index_iterable(iterable)
 
         # returns existing records & non-existing values
         records, nonexist_values, msg = get_existing_records(
-            iterable_idx=iterable_idx, field=field, kwargs=kwargs
+            iterable_idx=iterable_idx, field=field, **kwargs
         )
 
         # new records to be created based on new values
@@ -78,10 +84,8 @@ def get_or_create_records(
 def get_existing_records(
     iterable_idx: pd.Index,
     field: StrField,
-    kwargs: dict = None,
+    **kwargs,
 ):
-    if kwargs is None:
-        kwargs = {}
     model = field.field.model
     condition: dict = {} if len(kwargs) == 0 else kwargs.copy()
     # existing records matching is agnostic to the bionty source
