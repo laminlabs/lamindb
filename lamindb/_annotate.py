@@ -346,7 +346,7 @@ class AnnDataAnnotator(DataFrameAnnotator):
             organism=organism,
         )
         self._obs_fields = categoricals
-        self._save_from_var_index()
+        self._save_from_var_index(validated_only=True, **self._kwargs)
 
     @property
     def var_index(self) -> FieldAttr:

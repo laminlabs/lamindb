@@ -229,7 +229,7 @@ class FeatureManager:
             slot = "columns" if slot is None else slot
         self._add_feature_set(feature_set=FeatureSet(features=features), slot=slot)
 
-    def add_from_df(self, field: FieldAttr = Feature.name, **kwargs):
+    def add_from_df(self, field: FieldAttr = Feature.name, organism: str | None = None):
         """Add features from DataFrame."""
         if isinstance(self._host, Artifact):
             assert self._host.accessor == "DataFrame"
@@ -240,7 +240,7 @@ class FeatureManager:
         # parse and register features
         registry = field.field.model
         df = self._host.load()
-        features = registry.from_values(df.columns, field=field, **kwargs)
+        features = registry.from_values(df.columns, field=field, organism=organism)
         if len(features) == 0:
             logger.error(
                 "no validated features found in DataFrame! please register features first!"
