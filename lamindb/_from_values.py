@@ -28,7 +28,7 @@ def get_or_create_records(
     feature: Feature = None
     kwargs: dict = {}
     if organism is not None:
-        kwargs["organism"] = organism
+        kwargs["organism"] = _get_organism_record(field, organism)
     if public_source is not None:
         kwargs["public_source"] = public_source
     try:
@@ -91,16 +91,6 @@ def get_existing_records(
     # existing records matching is agnostic to the bionty source
     if "public_source" in condition:
         condition.pop("public_source")
-
-    if _has_organism_field(model):
-        from lnschema_bionty._bionty import create_or_get_organism_record
-
-        organism_record = create_or_get_organism_record(
-            organism=kwargs.get("organism"), orm=model
-        )
-        if organism_record is not None:
-            kwargs.update({"organism": organism_record})
-            condition.update({"organism": organism_record})
 
     # standardize based on the DB reference
     # log synonyms mapped terms
@@ -326,3 +316,13 @@ def _has_organism_field(orm: Registry) -> bool:
         return True
     except FieldDoesNotExist:
         return False
+
+
+def _get_organism_record(field: StrField, organism: str | Registry) -> Registry:
+    model = field.field.model
+    if _has_organism_field(model):
+        from lnschema_bionty._bionty import create_or_get_organism_record
+
+        organism_record = create_or_get_organism_record(organism=organism, orm=model)
+        if organism_record is not None:
+            return organism_record
