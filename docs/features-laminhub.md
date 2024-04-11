@@ -1,10 +1,20 @@
-Public demo instances to explore in the UI or load using the CLI via `lamin load owner/instance`:
+**Secure & intuitive access management.**
 
-- [lamin.ai/laminlabs/arrayloader-benchmarks](https://lamin.ai/laminlabs/arrayloader-benchmarks) - A instance showing work with ML models & benchmarks
+LaminHub provides a layer for AWS & GCP that makes access management more secure & intuitive.
+
+Rather than configuring storage & database permissions directly on AWS or GCP, LaminHub allows you to manage collaborators for databases & storages as intuitively as you manage access to git repositories on GitHub.
+
+In contrast to a closed SaaS product like GitHub, LaminHub leaves you in full control of your data with direct API access to storage & databases at your cloud provider.
+
+How does it work? Based on an identity provider (Google, GitHub, SSO, OIDC) and a role-based permission system, LaminDB users automatically receive federated access tokens for resources on AWS or GCP.
+
+**A UI to work with LaminDB instances.**
+
+Explore in the hub UI or `lamin load owner/instance` via the CLI:
+
+- [lamin.ai/laminlabs/arrayloader-benchmarks](https://lamin.ai/laminlabs/arrayloader-benchmarks) - Work with ML models & benchmarks
 - [lamin.ai/laminlabs/cellxgene](https://lamin.ai/laminlabs/cellxgene) - An instance with the CELLxGENE data ([guide](docs:cellxgene))
 - [lamin.ai/laminlabs/lamindata](https://lamin.ai/laminlabs/lamindata) - A generic demo instance with various data types
-
-LaminHub neither hosts data nor metadata, but connects to distributed storage locations & databases.
 
 <p style="font-weight: bolder; margin-top: 1rem; margin-bottom: 0.5rem; background: transparent">See validated datasets in context of ontologies & experimental metadata.</p>
 
