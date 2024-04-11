@@ -240,7 +240,10 @@ class FeatureManager:
         # parse and register features
         registry = field.field.model
         df = self._host.load()
-        features = registry.from_values(df.columns, field=field, organism=organism)
+        kwargs = {}
+        if hasattr(registry, "organism_id") and organism is not None:
+            kwargs = {"organism": organism}
+        features = registry.from_values(df.columns, field=field, **kwargs)
         if len(features) == 0:
             logger.error(
                 "no validated features found in DataFrame! please register features first!"
