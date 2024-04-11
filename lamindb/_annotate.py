@@ -91,6 +91,7 @@ class DataFrameAnnotator:
             ``{"cell_type_ontology_id": bt.CellType.ontology_id, "donor_id": ln.ULabel.name}``.
         using: The reference instance containing registries to validate against.
         verbosity: The verbosity level.
+        organism: The organism name.
     """
 
     def __init__(
@@ -100,7 +101,7 @@ class DataFrameAnnotator:
         categoricals: dict[str, FieldAttr] | None = None,
         using: str | None = None,
         verbosity: str = "hint",
-        **kwargs,
+        organism: str | None = None,
     ) -> None:
         from lamindb.core._settings import settings
 
@@ -112,7 +113,7 @@ class DataFrameAnnotator:
         self._artifact = None
         self._collection = None
         self._validated = False
-        self._kwargs: dict = kwargs
+        self._kwargs = {} if organism is None else {"organism": organism}
         self._save_columns()
 
     @property
@@ -134,7 +135,7 @@ class DataFrameAnnotator:
             using=using or self._using,
         )
 
-    def _save_columns(self, validated_only: bool = True) -> None:
+    def _save_columns(self, validated_only: bool = True, **kwargs) -> None:
         """Save column name records."""
         missing_columns = set(self.fields.keys()) - set(self._df.columns)
         if missing_columns:
@@ -150,7 +151,7 @@ class DataFrameAnnotator:
             save_function="add_new_from_columns",
             using=self._using,
             validated_only=False,
-            kwargs=self._kwargs,
+            **kwargs,
         )
 
         # Save the rest of the columns based on validated_only
@@ -164,36 +165,39 @@ class DataFrameAnnotator:
                 using=self._using,
                 validated_only=validated_only,
                 df=self._df,  # Get the Feature type from df
-                kwargs=self._kwargs,
+                **kwargs,
             )
 
-    def add_validated_from(self, key: str, **kwargs):
+    def add_validated_from(self, key: str, organism: str | None = None):
         """Add validated categories.
 
         Args:
             key: The key referencing the slot in the DataFrame.
-            **kwargs: Additional keyword arguments.
+            organism: The organism name.
         """
-        self._update_registry(key, validated_only=True, **kwargs)
+        self._kwargs.update({"organism": organism} if organism else {})
+        self._update_registry(key, validated_only=True, **self._kwargs)
 
-    def add_new_from(self, key: str, **kwargs):
+    def add_new_from(self, key: str, organism: str | None = None):
         """Add validated & new categories.
 
         Args:
             key: The key referencing the slot in the DataFrame from which to draw terms.
-            **kwargs: Additional keyword arguments.
+            organism: The organism name.
         """
-        self._update_registry(key, validated_only=False, **kwargs)
+        self._kwargs.update({"organism": organism} if organism else {})
+        self._update_registry(key, validated_only=False, **self._kwargs)
 
-    def add_new_from_columns(self, **kwargs):
+    def add_new_from_columns(self, organism: str | None = None):
         """Add validated & new column names to its registry."""
-        self._save_columns(validated_only=False, **kwargs)
+        self._kwargs.update({"organism": organism} if organism else {})
+        self._save_columns(validated_only=False, **self._kwargs)
 
     def _update_registry(self, categorical: str, validated_only: bool = True, **kwargs):
         if categorical == "all":
             self._update_registry_all(validated_only=validated_only, **kwargs)
         elif categorical == "columns":
-            self._save_columns(validated_only=validated_only)
+            self._save_columns(validated_only=validated_only, **kwargs)
         else:
             if categorical not in self.fields:
                 raise ValueError(f"Feature {categorical} is not part of the fields!")
@@ -203,7 +207,7 @@ class DataFrameAnnotator:
                 key=categorical,
                 using=self._using,
                 validated_only=validated_only,
-                kwargs=kwargs,
+                **kwargs,
             )
 
     def _update_registry_all(self, validated_only: bool = True, **kwargs):
@@ -212,13 +216,13 @@ class DataFrameAnnotator:
             logger.info(f"saving labels for '{name}'")
             self._update_registry(name, validated_only=validated_only, **kwargs)
 
-    def validate(self, **kwargs) -> bool:
+    def validate(self, organism: str | None = None) -> bool:
         """Validate variables and categorical observations.
 
         Returns:
             Whether the DataFrame is validated.
         """
-        self._kwargs.update(kwargs)
+        self._kwargs.update({"organism": organism} if organism else {})
         self._validated = validate_categories_in_df(
             self._df,
             fields=self.fields,
@@ -239,7 +243,6 @@ class DataFrameAnnotator:
         """
         from lamindb.core._settings import settings
 
-        self._kwargs.update(kwargs)
         if not self._validated:
             raise ValidationError(
                 f"Data object is not validated, please run {colors.yellow('validate()')}!"
@@ -257,6 +260,7 @@ class DataFrameAnnotator:
                 description=description,
                 fields=self.fields,
                 columns_field=self._columns_field,
+                **kwargs,
                 **self._kwargs,
             )
         finally:
@@ -319,6 +323,8 @@ class AnnDataAnnotator(DataFrameAnnotator):
             For example:
             ``{"cell_type_ontology_id": bt.CellType.ontology_id, "donor_id": ln.ULabel.name}``
         using: A reference LaminDB instance.
+        verbosity: The verbosity level.
+        organism: The organism name.
     """
 
     def __init__(
@@ -328,7 +334,7 @@ class AnnDataAnnotator(DataFrameAnnotator):
         categoricals: dict[str, FieldAttr],
         using: str = "default",
         verbosity: str = "hint",
-        **kwargs,
+        organism: str | None = None,
     ) -> None:
         self._adata = adata
         self._var_field = var_index
@@ -337,7 +343,7 @@ class AnnDataAnnotator(DataFrameAnnotator):
             categoricals=categoricals,
             using=using,
             verbosity=verbosity,
-            **kwargs,
+            organism=organism,
         )
         self._obs_fields = categoricals
         self._save_from_var_index()
@@ -360,9 +366,10 @@ class AnnDataAnnotator(DataFrameAnnotator):
             using=using or self._using,
         )
 
-    def _save_from_var_index(self, validated_only: bool = True, **kwargs):
+    def _save_from_var_index(
+        self, validated_only: bool = True, organism: str | None = None
+    ):
         """Save variable records."""
-        self._kwargs.update(kwargs)
         update_registry(
             values=self._adata.var.index,
             field=self.var_index,
@@ -370,16 +377,17 @@ class AnnDataAnnotator(DataFrameAnnotator):
             save_function="add_new_from_var_index",
             using=self._using,
             validated_only=validated_only,
-            kwargs=self._kwargs,
+            organism=organism,
         )
 
-    def add_new_from_var_index(self, **kwargs):
+    def add_new_from_var_index(self, organism: str | None = None):
         """Update variable records."""
-        self._save_from_var_index(validated_only=False, **kwargs)
+        self._kwargs.update({"organism": organism} if organism else {})
+        self._save_from_var_index(validated_only=False, **self._kwargs)
 
-    def validate(self, **kwargs) -> bool:
+    def validate(self, organism: str | None = None) -> bool:
         """Validate categories."""
-        self._kwargs.update(kwargs)
+        self._kwargs.update({"organism": organism} if organism else {})
         if self._using is not None and self._using != "default":
             logger.important(
                 f"validating metadata using registries of instance {colors.italic(self._using)}"
@@ -407,7 +415,6 @@ class AnnDataAnnotator(DataFrameAnnotator):
         Returns:
             A saved artifact record.
         """
-        self._kwargs.update(kwargs)
         if not self._validated:
             raise ValidationError("Please run `validate()` first!")
 
@@ -417,6 +424,7 @@ class AnnDataAnnotator(DataFrameAnnotator):
             columns_field=self.var_index,
             fields=self.categoricals,
             **self._kwargs,
+            **kwargs,
         )
         return self._artifact
 
@@ -433,6 +441,8 @@ class MuDataAnnotator:
             For example:
             ``{"cell_type_ontology_id": bt.CellType.ontology_id, "donor_id": ln.ULabel.name}``
         using: A reference LaminDB instance.
+        verbosity: The verbosity level.
+        organism: The organism name.
     """
 
     def __init__(
@@ -442,10 +452,10 @@ class MuDataAnnotator:
         categoricals: dict[str, FieldAttr],
         using: str = "default",
         verbosity: str = "hint",
-        **kwargs,
+        organism: str | None = None,
     ) -> None:
         self._mdata = mdata
-        self._kwargs = kwargs
+        self._kwargs = {organism: organism} if organism else {}
         self._var_fields = var_index
         self._verify_modality(self._var_fields.keys())
         self._obs_fields = self._parse_categoricals(categoricals)
@@ -458,13 +468,13 @@ class MuDataAnnotator:
                 categoricals=self._obs_fields.get(modality, {}),
                 using=using,
                 verbosity=verbosity,
-                **kwargs,
+                **self._kwargs,
             )
             for modality in self._modalities
         }
         for modality in self._var_fields.keys():
             self._save_from_var_index_modality(
-                modality=modality, validated_only=True, **kwargs
+                modality=modality, validated_only=True, **self._kwargs
             )
 
     @property
@@ -487,7 +497,6 @@ class MuDataAnnotator:
         self, modality: str, validated_only: bool = True, **kwargs
     ):
         """Save variable records."""
-        self._kwargs.update(kwargs)
         update_registry(
             values=self._mdata[modality].var.index,
             field=self._var_fields[modality],
@@ -495,7 +504,7 @@ class MuDataAnnotator:
             save_function="add_new_from_var_index",
             using=self._using,
             validated_only=validated_only,
-            kwargs=self._kwargs,
+            **kwargs,
         )
 
     def _parse_categoricals(self, categoricals: dict[str, FieldAttr]) -> dict:
@@ -528,45 +537,53 @@ class MuDataAnnotator:
         )
 
     def add_new_from_columns(
-        self, modality: str, column_names: list[str] | None = None, **kwargs
+        self,
+        modality: str,
+        column_names: list[str] | None = None,
+        organism: str | None = None,
     ):
         """Update columns records."""
-        self._kwargs.update(kwargs)
+        self._kwargs.update({"organism": organism} if organism else {})
         update_registry(
             values=column_names or self._mdata[modality].obs.columns,
             field=Feature.name,
             key=f"{modality} obs columns",
             using=self._using,
             validated_only=False,
-            kwargs=self._kwargs,
             df=self._mdata[modality].obs,
+            **self._kwargs,
         )
 
-    def add_new_from_var_index(self, modality: str, **kwargs):
+    def add_new_from_var_index(self, modality: str, organism: str | None = None):
         """Update variable records."""
+        self._kwargs.update({"organism": organism} if organism else {})
         self._save_from_var_index_modality(
-            modality=modality, validated_only=False, **kwargs
+            modality=modality, validated_only=False, **self._kwargs
         )
 
-    def add_validated_from(self, key: str, modality: str | None = None, **kwargs):
+    def add_validated_from(
+        self, key: str, modality: str | None = None, organism: str | None = None
+    ):
         """Add validated categories."""
-        self._kwargs.update(kwargs)
+        self._kwargs.update({"organism": organism} if organism else {})
         modality = modality or "obs"
         if modality in self._df_annotators:
             df_annotator = self._df_annotators[modality]
             df_annotator.add_validated_from(key=key, **self._kwargs)
 
-    def add_new_from(self, key: str, modality: str | None = None, **kwargs):
+    def add_new_from(
+        self, key: str, modality: str | None = None, organism: str | None = None
+    ):
         """Add validated & new categories."""
-        self._kwargs.update(kwargs)
+        self._kwargs.update({"organism": organism} if organism else {})
         modality = modality or "obs"
         if modality in self._df_annotators:
             df_annotator = self._df_annotators[modality]
             df_annotator.add_new_from(key=key, **self._kwargs)
 
-    def validate(self, **kwargs) -> bool:
+    def validate(self, organism: str | None = None) -> bool:
         """Validate categories."""
-        self._kwargs.update(kwargs)
+        self._kwargs.update({"organism": organism} if organism else {})
         if self._using is not None and self._using != "default":
             logger.important(
                 f"validating metadata using registries of instance {colors.italic(self._using)}"
@@ -602,7 +619,6 @@ class MuDataAnnotator:
         Returns:
             A saved artifact record.
         """
-        self._kwargs.update(kwargs)
         if not self._validated:
             raise ValidationError("Please run `validate()` first!")
 
@@ -612,6 +628,7 @@ class MuDataAnnotator:
             columns_field=self.var_index,
             fields=self.categoricals,
             **self._kwargs,
+            **kwargs,
         )
         return self._artifact
 
@@ -628,7 +645,7 @@ class Annotate:
         columns: FieldAttr = Feature.name,
         using: str | None = None,
         verbosity: str = "hint",
-        **kwargs,
+        organism: str | None = None,
     ) -> DataFrameAnnotator:
         """{}."""
         return DataFrameAnnotator(
@@ -637,7 +654,7 @@ class Annotate:
             columns=columns,
             using=using,
             verbosity=verbosity,
-            **kwargs,
+            organism=organism,
         )
 
     @classmethod
@@ -649,7 +666,7 @@ class Annotate:
         categoricals: dict[str, FieldAttr],
         using: str = "default",
         verbosity: str = "hint",
-        **kwargs,
+        organism: str | None = None,
     ) -> AnnDataAnnotator:
         """{}."""
         return AnnDataAnnotator(
@@ -658,7 +675,7 @@ class Annotate:
             categoricals=categoricals,
             using=using,
             verbosity=verbosity,
-            **kwargs,
+            organism=organism,
         )
 
     @classmethod
@@ -670,7 +687,7 @@ class Annotate:
         categoricals: dict[str, dict[str, FieldAttr]],
         using: str = "default",
         verbosity: str = "hint",
-        **kwargs,
+        organism: str | None = None,
     ) -> MuDataAnnotator:
         """{}."""
         return MuDataAnnotator(
@@ -679,7 +696,7 @@ class Annotate:
             categoricals=categoricals,
             using=using,
             verbosity=verbosity,
-            **kwargs,
+            organism=organism,
         )
 
 
@@ -699,9 +716,7 @@ def standardize_and_inspect(
     return registry.inspect(values, field=field, mute=True, **kwargs)
 
 
-def check_registry_organism(
-    registry: Registry, organism: str | None = None
-) -> str | None:
+def check_registry_organism(registry: Registry, organism: str | None = None) -> dict:
     """Check if a registry needs an organism and return the organism name."""
     if hasattr(registry, "organism_id"):
         import bionty as bt
@@ -711,8 +726,8 @@ def check_registry_organism(
                 f"{registry.__name__} registry requires an organism!\n"
                 "      → please pass an organism name via organism="
             )
-        return organism or bt.settings.organism.name
-    return None
+        return {"organism": organism or bt.settings.organism.name}
+    return {}
 
 
 def validate_categories(
@@ -720,7 +735,7 @@ def validate_categories(
     field: FieldAttr,
     key: str,
     using: str | None = None,
-    **kwargs,
+    organism: str | None = None,
 ) -> bool:
     """Validate ontology terms in a pandas series using LaminDB registries."""
     from lamindb._from_values import _print_values
@@ -734,10 +749,7 @@ def validate_categories(
         logger.indent = "   "
 
     registry = field.field.model
-    filter_kwargs = {}
-    organism = check_registry_organism(registry, kwargs.get("organism"))
-    if organism is not None:
-        filter_kwargs["organism"] = organism
+    filter_kwargs = check_registry_organism(registry, organism)
 
     # Inspect the default instance
     inspect_result = standardize_and_inspect(
@@ -823,6 +835,7 @@ def save_artifact(
     description: str,
     fields: dict[str, FieldAttr] | dict[str, dict[str, FieldAttr]],
     columns_field: FieldAttr | dict[str, FieldAttr],
+    organism: str | None = None,
     **kwargs,
 ) -> Artifact:
     """Save all metadata with an Artifact.
@@ -832,6 +845,7 @@ def save_artifact(
         description: A description of the artifact.
         fields: A dictionary mapping obs_column to registry_field.
         columns_field: The registry field to validate variables index against.
+        organism: The organism name.
         kwargs: Additional keyword arguments to pass to the registry model.
 
     Returns:
@@ -839,16 +853,16 @@ def save_artifact(
     """
     artifact = None
     if isinstance(data, ad.AnnData):
-        artifact = Artifact.from_anndata(data, description=description)
+        artifact = Artifact.from_anndata(data, description=description, **kwargs)
         artifact.n_observations = data.n_obs
     elif isinstance(data, pd.DataFrame):
-        artifact = Artifact.from_df(data, description=description)
+        artifact = Artifact.from_df(data, description=description, **kwargs)
     else:
         try:
             from mudata import MuData
 
             if isinstance(data, MuData):
-                artifact = Artifact.from_mudata(data, description=description)
+                artifact = Artifact.from_mudata(data, description=description, **kwargs)
                 artifact.n_observations = data.n_obs
         except ImportError:
             pass
@@ -856,17 +870,14 @@ def save_artifact(
         raise ValueError("data must be a DataFrame, AnnData or MuData object")
     artifact.save()
 
-    feature_kwargs: dict = {}
-    organism = check_registry_organism(
+    feature_kwargs = check_registry_organism(
         (
             list(columns_field.values())[0].field.model
             if isinstance(columns_field, dict)
             else columns_field.field.model
         ),
-        kwargs.pop("organism", None),
+        organism,
     )
-    if organism is not None:
-        feature_kwargs["organism"] = organism
 
     if artifact.accessor == "DataFrame":
         artifact.features.add_from_df(field=columns_field, **feature_kwargs)
@@ -877,17 +888,12 @@ def save_artifact(
     else:
         raise NotImplementedError
 
-    def _add_labels(
-        data, artifact: Artifact, fields: dict[str, FieldAttr], organism, **kwargs
-    ):
+    def _add_labels(data, artifact: Artifact, fields: dict[str, FieldAttr]):
         features = Feature.lookup().dict()
         for key, field in fields.items():
             feature = features.get(key)
             registry = field.field.model
-            filter_kwargs = kwargs.copy()
-            organism = check_registry_organism(registry, organism)
-            if organism is not None:
-                filter_kwargs["organism"] = organism
+            filter_kwargs = check_registry_organism(registry, organism)
             df = data if isinstance(data, pd.DataFrame) else data.obs
             labels = registry.from_values(df[key], field=field, **filter_kwargs)
             artifact.labels.add(labels, feature)
@@ -895,13 +901,11 @@ def save_artifact(
     if artifact.accessor == "MuData":
         for modality, modality_fields in fields.items():
             if modality == "obs":
-                _add_labels(data, artifact, modality_fields, organism, **kwargs)
+                _add_labels(data, artifact, modality_fields)
             else:
-                _add_labels(
-                    data[modality], artifact, modality_fields, organism, **kwargs
-                )
+                _add_labels(data[modality], artifact, modality_fields)
     else:
-        _add_labels(data, artifact, fields, organism, **kwargs)
+        _add_labels(data, artifact, fields)
 
     slug = ln_setup.settings.instance.slug
     if ln_setup.settings.instance.is_remote:
@@ -916,8 +920,8 @@ def update_registry(
     save_function: str = "add_new_from",
     using: str | None = None,
     validated_only: bool = True,
-    kwargs: dict | None = None,
     df: pd.DataFrame | None = None,
+    organism: str | None = None,
 ) -> None:
     """Save features or labels records in the default instance from the using instance.
 
@@ -928,18 +932,14 @@ def update_registry(
         save_function: The name of the function to save the labels.
         using: The name of the instance from which to transfer labels (if applicable).
         validated_only: If True, only save validated labels.
-        kwargs: Additional keyword arguments to pass to the registry model.
         df: A DataFrame to save labels from.
+        organism: The organism name.
     """
     from lamindb._save import save as ln_save
     from lamindb.core._settings import settings
 
-    filter_kwargs = {} if kwargs is None else kwargs.copy()
     registry = field.field.model
-
-    organism = check_registry_organism(registry, filter_kwargs.pop("organism", None))
-    if organism is not None:
-        filter_kwargs["organism"] = organism
+    filter_kwargs = check_registry_organism(registry, organism)
 
     verbosity = settings.verbosity
     try:
@@ -960,7 +960,7 @@ def update_registry(
             inspect_result_current.non_validated,
             field=field,
             using=using,
-            kwargs=filter_kwargs,
+            **filter_kwargs,
         )
 
         public_records = (
@@ -1059,7 +1059,7 @@ def update_registry_from_using_instance(
     values: list[str],
     field: FieldAttr,
     using: str | None = None,
-    kwargs: dict | None = None,
+    **kwargs,
 ) -> tuple[list[str], list[str]]:
     """Save features or labels records from the using instance.
 
@@ -1072,7 +1072,6 @@ def update_registry_from_using_instance(
     Returns:
         A tuple containing the list of saved labels and the list of non-saved labels.
     """
-    kwargs = kwargs or {}
     labels_saved = []
     not_saved = values
 
