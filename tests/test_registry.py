@@ -114,6 +114,7 @@ def test_pass_version():
     transform = ln.Transform(name="mytransform", version="1")
     transform.save()
     assert ln.Transform(name="mytransform", version="1") == transform
+    transform.delete()
 
 
 def test_get_default_str_field():
