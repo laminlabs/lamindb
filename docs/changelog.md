@@ -1,5 +1,6 @@
 # Changelog
 
+- 🚑️ Fix annotate var index type [PR](https://github.com/laminlabs/lamindb/pull/1567) [@sunnyosun](https://github.com/sunnyosun)
 - 🎨 Polish from_values [PR](https://github.com/laminlabs/lamindb/pull/1566) [@sunnyosun](https://github.com/sunnyosun)
 - 🚸 Allow passing additional fields to add_new_from [PR](https://github.com/laminlabs/lamindb/pull/1565) [@sunnyosun](https://github.com/sunnyosun)
 - ⬆️ Upgrade submodules [PR](https://github.com/laminlabs/lamindb/pull/1564) [@sunnyosun](https://github.com/sunnyosun)
