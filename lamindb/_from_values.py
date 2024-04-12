@@ -24,13 +24,14 @@ def get_or_create_records(
 ) -> list[Registry]:
     """Get or create records from iterables."""
     upon_create_search_names = settings.upon_create_search_names
-    settings.upon_create_search_names = False
     feature: Feature = None
+    organism = _get_organism_record(field, organism)
     kwargs: dict = {}
     if organism is not None:
-        kwargs["organism"] = _get_organism_record(field, organism)
+        kwargs["organism"] = organism
     if public_source is not None:
         kwargs["public_source"] = public_source
+    settings.upon_create_search_names = False
     try:
         Registry = field.field.model
         iterable_idx = index_iterable(iterable)
