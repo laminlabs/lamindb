@@ -1,5 +1,6 @@
 # Changelog
 
+- 🎨 Polish from_values [PR](https://github.com/laminlabs/lamindb/pull/1566) [@sunnyosun](https://github.com/sunnyosun)
 - 🚸 Allow passing additional fields to add_new_from [PR](https://github.com/laminlabs/lamindb/pull/1565) [@sunnyosun](https://github.com/sunnyosun)
 - ⬆️ Upgrade submodules [PR](https://github.com/laminlabs/lamindb/pull/1564) [@sunnyosun](https://github.com/sunnyosun)
 - 🚸 Eliminate kwargs [PR](https://github.com/laminlabs/lamindb/pull/1561) [@sunnyosun](https://github.com/sunnyosun)
