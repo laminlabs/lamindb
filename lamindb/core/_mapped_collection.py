@@ -57,6 +57,12 @@ class MappedCollection:
     If your `AnnData` collection is in the cloud, move them into a local cache
     first for faster access.
 
+    `__getitem__` of the `MappedCollection` object takes a single integer index
+    and returns a dictionary with the observation data sample for this index from
+    the `AnnData` objects in `path_list`. The dictionary has keys for `layers_keys`
+    (`.X` is in `"X"`), `obs_keys`, `obsm_keys` (under `f"obsm_{key}"`) and also `"_store_idx"`
+    for the index of the `AnnData` object containing this observation sample.
+
     .. note::
 
         For a guide, see :doc:`docs:scrna5`.
