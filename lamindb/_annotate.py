@@ -87,11 +87,16 @@ class DataFrameAnnotator:
         df: The DataFrame object to annotate.
         columns: The field attribute for the feature column.
         categoricals: A dictionary mapping column names to registry_field.
-            For example:
-            ``{"cell_type_ontology_id": bt.CellType.ontology_id, "donor_id": ln.ULabel.name}``.
         using: The reference instance containing registries to validate against.
         verbosity: The verbosity level.
         organism: The organism name.
+
+    Examples:
+        >>> import bionty as bt
+        >>> annotate = ln.Annotate.from_df(
+                df,
+                categoricals={"cell_type_ontology_id": bt.CellType.ontology_id, "donor_id": ln.ULabel.name}
+            )
     """
 
     def __init__(
@@ -122,7 +127,7 @@ class DataFrameAnnotator:
         return self._fields
 
     def lookup(self, using: str | None = None) -> AnnotateLookup:
-        """Lookup features and labels.
+        """Lookup categories.
 
         Args:
             using: The instance where the lookup is performed.
@@ -178,20 +183,28 @@ class DataFrameAnnotator:
         self._kwargs.update({"organism": organism} if organism else {})
         self._update_registry(key, validated_only=True, **self._kwargs)
 
-    def add_new_from(self, key: str, organism: str | None = None):
+    def add_new_from(self, key: str, organism: str | None = None, **kwargs):
         """Add validated & new categories.
 
         Args:
             key: The key referencing the slot in the DataFrame from which to draw terms.
             organism: The organism name.
+            **kwargs: Additional keyword arguments to pass to the registry model.
+        """
+        if len(kwargs) > 0 and key == "all":
+            raise ValueError("Cannot pass additional arguments to 'all' key!")
+        self._kwargs.update({"organism": organism} if organism else {})
+        self._update_registry(key, validated_only=False, **self._kwargs, **kwargs)
+
+    def add_new_from_columns(self, organism: str | None = None, **kwargs):
+        """Add validated & new column names to its registry.
+
+        Args:
+            organism: The organism name.
+            **kwargs: Additional keyword arguments to pass to the registry model.
         """
         self._kwargs.update({"organism": organism} if organism else {})
-        self._update_registry(key, validated_only=False, **self._kwargs)
-
-    def add_new_from_columns(self, organism: str | None = None):
-        """Add validated & new column names to its registry."""
-        self._kwargs.update({"organism": organism} if organism else {})
-        self._save_columns(validated_only=False, **self._kwargs)
+        self._save_columns(validated_only=False, **self._kwargs, **kwargs)
 
     def _update_registry(self, categorical: str, validated_only: bool = True, **kwargs):
         if categorical == "all":
@@ -320,11 +333,18 @@ class AnnDataAnnotator(DataFrameAnnotator):
         adata: The AnnData object to annotate.
         var_index: The registry field for mapping the ``.var`` index.
         categoricals: A dictionary mapping ``.obs.columns`` to a registry field.
-            For example:
-            ``{"cell_type_ontology_id": bt.CellType.ontology_id, "donor_id": ln.ULabel.name}``
         using: A reference LaminDB instance.
         verbosity: The verbosity level.
         organism: The organism name.
+
+    Examples:
+        >>> import bionty as bt
+        >>> annotate = ln.Annotate.from_anndata(
+                adata,
+                var_index=bt.Gene.ensembl_gene_id,
+                categoricals={"cell_type_ontology_id": bt.CellType.ontology_id, "donor_id": ln.ULabel.name},
+                organism="human",
+            )
     """
 
     def __init__(
@@ -359,7 +379,13 @@ class AnnDataAnnotator(DataFrameAnnotator):
         return self._obs_fields
 
     def lookup(self, using: str | None = None) -> AnnotateLookup:
-        """Lookup features and labels."""
+        """Lookup categories.
+
+        Args:
+            using: The instance where the lookup is performed.
+                if None (default), the lookup is performed on the instance specified in "using" parameter of the validator.
+                if "public", the lookup is performed on the public reference.
+        """
         return AnnotateLookup(
             categorials=self._obs_fields,
             slots={"columns": self._columns_field, "var_index": self._var_field},
@@ -380,13 +406,25 @@ class AnnDataAnnotator(DataFrameAnnotator):
             organism=organism,
         )
 
-    def add_new_from_var_index(self, organism: str | None = None):
-        """Update variable records."""
+    def add_new_from_var_index(self, organism: str | None = None, **kwargs):
+        """Update variable records.
+
+        Args:
+            organism: The organism name.
+            **kwargs: Additional keyword arguments to pass to the registry model.
+        """
         self._kwargs.update({"organism": organism} if organism else {})
-        self._save_from_var_index(validated_only=False, **self._kwargs)
+        self._save_from_var_index(validated_only=False, **self._kwargs, **kwargs)
 
     def validate(self, organism: str | None = None) -> bool:
-        """Validate categories."""
+        """Validate categories.
+
+        Args:
+            organism: The organism name.
+
+        Returns:
+            Whether the AnnData object is validated.
+        """
         self._kwargs.update({"organism": organism} if organism else {})
         if self._using is not None and self._using != "default":
             logger.important(
@@ -438,11 +476,18 @@ class MuDataAnnotator:
             For example:
             ``{"modality_1": bt.Gene.ensembl_gene_id, "modality_2": ln.CellMarker.name}``
         categoricals: A dictionary mapping ``.obs.columns`` to a registry field.
-            For example:
-            ``{"cell_type_ontology_id": bt.CellType.ontology_id, "donor_id": ln.ULabel.name}``
         using: A reference LaminDB instance.
         verbosity: The verbosity level.
         organism: The organism name.
+
+    Examples:
+        >>> import bionty as bt
+        >>> annotate = ln.Annotate.from_mudata(
+                mdata,
+                var_index={"rna": bt.Gene.ensembl_gene_id, "adt": ln.CellMarker.name},
+                categoricals={"cell_type_ontology_id": bt.CellType.ontology_id, "donor_id": ln.ULabel.name},
+                organism="human",
+            )
     """
 
     def __init__(
@@ -526,7 +571,13 @@ class MuDataAnnotator:
         return obs_fields
 
     def lookup(self, using: str | None = None) -> AnnotateLookup:
-        """Lookup features and labels."""
+        """Lookup categories.
+
+        Args:
+            using: The instance where the lookup is performed.
+                if None (default), the lookup is performed on the instance specified in "using" parameter of the validator.
+                if "public", the lookup is performed on the public reference.
+        """
         return AnnotateLookup(
             categorials=self._obs_fields,
             slots={
@@ -541,8 +592,16 @@ class MuDataAnnotator:
         modality: str,
         column_names: list[str] | None = None,
         organism: str | None = None,
+        **kwargs,
     ):
-        """Update columns records."""
+        """Update columns records.
+
+        Args:
+            modality: The modality name.
+            column_names: The column names to save.
+            organism: The organism name.
+            **kwargs: Additional keyword arguments to pass to the registry model.
+        """
         self._kwargs.update({"organism": organism} if organism else {})
         update_registry(
             values=column_names or self._mdata[modality].obs.columns,
@@ -552,19 +611,34 @@ class MuDataAnnotator:
             validated_only=False,
             df=self._mdata[modality].obs,
             **self._kwargs,
+            **kwargs,
         )
 
-    def add_new_from_var_index(self, modality: str, organism: str | None = None):
-        """Update variable records."""
+    def add_new_from_var_index(
+        self, modality: str, organism: str | None = None, **kwargs
+    ):
+        """Update variable records.
+
+        Args:
+            modality: The modality name.
+            organism: The organism name.
+            **kwargs: Additional keyword arguments to pass to the registry model.
+        """
         self._kwargs.update({"organism": organism} if organism else {})
         self._save_from_var_index_modality(
-            modality=modality, validated_only=False, **self._kwargs
+            modality=modality, validated_only=False, **self._kwargs, **kwargs
         )
 
     def add_validated_from(
         self, key: str, modality: str | None = None, organism: str | None = None
     ):
-        """Add validated categories."""
+        """Add validated categories.
+
+        Args:
+            key: The key referencing the slot in the DataFrame.
+            modality: The modality name.
+            organism: The organism name.
+        """
         self._kwargs.update({"organism": organism} if organism else {})
         modality = modality or "obs"
         if modality in self._df_annotators:
@@ -572,14 +646,27 @@ class MuDataAnnotator:
             df_annotator.add_validated_from(key=key, **self._kwargs)
 
     def add_new_from(
-        self, key: str, modality: str | None = None, organism: str | None = None
+        self,
+        key: str,
+        modality: str | None = None,
+        organism: str | None = None,
+        **kwargs,
     ):
-        """Add validated & new categories."""
+        """Add validated & new categories.
+
+        Args:
+            key: The key referencing the slot in the DataFrame.
+            modality: The modality name.
+            organism: The organism name.
+            **kwargs: Additional keyword arguments to pass to the registry model.
+        """
+        if len(kwargs) > 0 and key == "all":
+            raise ValueError("Cannot pass additional arguments to 'all' key!")
         self._kwargs.update({"organism": organism} if organism else {})
         modality = modality or "obs"
         if modality in self._df_annotators:
             df_annotator = self._df_annotators[modality]
-            df_annotator.add_new_from(key=key, **self._kwargs)
+            df_annotator.add_new_from(key=key, **self._kwargs, **kwargs)
 
     def validate(self, organism: str | None = None) -> bool:
         """Validate categories."""
@@ -922,6 +1009,7 @@ def update_registry(
     validated_only: bool = True,
     df: pd.DataFrame | None = None,
     organism: str | None = None,
+    **kwargs,
 ) -> None:
     """Save features or labels records in the default instance from the using instance.
 
@@ -934,6 +1022,7 @@ def update_registry(
         validated_only: If True, only save validated labels.
         df: A DataFrame to save labels from.
         organism: The organism name.
+        kwargs: Additional keyword arguments to pass to the registry model to create new records.
     """
     from lamindb._save import save as ln_save
     from lamindb.core._settings import settings
@@ -987,7 +1076,7 @@ def update_registry(
                     filter_kwargs[field.field.name] = value
                     if registry == Feature:
                         filter_kwargs["type"] = "category"
-                    non_validated_records.append(registry(**filter_kwargs))
+                    non_validated_records.append(registry(**filter_kwargs, **kwargs))
             ln_save(non_validated_records)
 
         if registry == ULabel and field.field.name == "name":
