@@ -262,8 +262,8 @@ def test_collection_mapped(adata, adata2):
     ls_ds = collection.mapped(
         layers_keys=["layer1"], obsm_keys=["X_pca"], obs_keys="feat1"
     )
-    assert np.array_equal(ls_ds[0]["X"], np.array([0, 2, 3]))
-    assert np.array_equal(ls_ds[2]["X"], np.array([1, 2, 5]))
+    assert np.array_equal(ls_ds[0]["layer1"], np.array([0, 2, 3]))
+    assert np.array_equal(ls_ds[2]["layer1"], np.array([1, 2, 5]))
     assert np.array_equal(ls_ds[2]["obsm_X_pca"], np.array([1, 2]))
     assert np.array_equal(ls_ds[3]["obsm_X_pca"], np.array([3, 4]))
     assert ls_ds.shape == (4, 3)
@@ -297,7 +297,7 @@ def test_collection_mapped(adata, adata2):
 
     with collection_outer.mapped(layers_keys="layer1") as ls_ds:
         assert np.array_equal(ls_ds[0]["layer1"], np.array([0, 0, 0, 3, 0, 2]))
-        assert np.array_equal(ls_ds[4]["X"], np.array([1, 2, 5, 0, 0, 0]))
+        assert np.array_equal(ls_ds[4]["layer1"], np.array([1, 2, 5, 0, 0, 0]))
 
     artifact1.delete(permanent=True, storage=True)
     artifact2.delete(permanent=True, storage=True)
