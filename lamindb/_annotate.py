@@ -118,7 +118,7 @@ class DataFrameAnnotator:
         self._artifact = None
         self._collection = None
         self._validated = False
-        self._kwargs = {} if organism is None else {"organism": organism}
+        self._kwargs = {"organism": organism} if organism else {}
         self._save_columns()
 
     @property
@@ -500,7 +500,7 @@ class MuDataAnnotator:
         organism: str | None = None,
     ) -> None:
         self._mdata = mdata
-        self._kwargs = {organism: organism} if organism else {}
+        self._kwargs = {"organism": organism} if organism else {}
         self._var_fields = var_index
         self._verify_modality(self._var_fields.keys())
         self._obs_fields = self._parse_categoricals(categoricals)
@@ -549,6 +549,7 @@ class MuDataAnnotator:
             save_function="add_new_from_var_index",
             using=self._using,
             validated_only=validated_only,
+            type="number",
             **kwargs,
         )
 
@@ -1009,6 +1010,7 @@ def update_registry(
     validated_only: bool = True,
     df: pd.DataFrame | None = None,
     organism: str | None = None,
+    type: str | None = None,
     **kwargs,
 ) -> None:
     """Save features or labels records in the default instance from the using instance.
@@ -1022,6 +1024,7 @@ def update_registry(
         validated_only: If True, only save validated labels.
         df: A DataFrame to save labels from.
         organism: The organism name.
+        type: The type of the feature.
         kwargs: Additional keyword arguments to pass to the registry model to create new records.
     """
     from lamindb._save import save as ln_save
@@ -1075,7 +1078,7 @@ def update_registry(
                 for value in labels_saved["without reference"]:
                     filter_kwargs[field.field.name] = value
                     if registry == Feature:
-                        filter_kwargs["type"] = "category"
+                        filter_kwargs["type"] = "category" if type is None else type
                     non_validated_records.append(registry(**filter_kwargs, **kwargs))
             ln_save(non_validated_records)
 
