@@ -169,9 +169,12 @@ def test_from_consistent_artifacts(adata, adata2):
 def test_collection_mapped(adata, adata2):
     adata.strings_to_categoricals()
     adata.obs["feat2"] = adata.obs["feat1"]
+    adata.layers["layer1"] = adata.X.copy()
+    adata.layers["layer1"][0, 0] = 0
     artifact1 = ln.Artifact.from_anndata(adata, description="Part one")
     artifact1.save()
     adata2.X = csr_matrix(adata2.X)
+    adata2.layers["layer1"] = adata2.X.copy()
     adata2.obs["feat2"] = adata2.obs["feat1"]
     artifact2 = ln.Artifact.from_anndata(adata2, description="Part two", format="zrad")
     artifact2.save()
@@ -256,6 +259,17 @@ def test_collection_mapped(adata, adata2):
     assert ls_ds[0]["_store_idx"] == 0
     assert ls_ds[2]["_store_idx"] == 1
 
+    ls_ds = collection.mapped(
+        layers_keys=["layer1"], obsm_keys=["X_pca"], obs_keys="feat1"
+    )
+    assert np.array_equal(ls_ds[0]["X"], np.array([0, 2, 3]))
+    assert np.array_equal(ls_ds[2]["X"], np.array([1, 2, 5]))
+    assert np.array_equal(ls_ds[2]["obsm_X_pca"], np.array([1, 2]))
+    assert np.array_equal(ls_ds[3]["obsm_X_pca"], np.array([3, 4]))
+    assert ls_ds.shape == (4, 3)
+    assert ls_ds.original_shapes[0] == (2, 3) and ls_ds.original_shapes[1] == (2, 3)
+    ls_ds.close()
+
     with collection.mapped(obs_keys="feat1", stream=True) as ls_ds:
         assert len(ls_ds[0]) == 3 and len(ls_ds[2]) == 3
 
@@ -263,7 +277,10 @@ def test_collection_mapped(adata, adata2):
         with collection_outer.mapped(obs_keys="feat1", join="inner"):
             pass
 
-    with collection_outer.mapped(obs_keys="feat1", join="outer") as ls_ds:
+    with collection_outer.mapped(
+        layers_keys="X", obsm_keys="X_pca", obs_keys="feat1", join="outer"
+    ) as ls_ds:
+        assert ls_ds.shape == (4, 6)
         assert ls_ds.join_vars == "outer"
         assert len(ls_ds.var_joint) == 6
         assert len(ls_ds[0]) == 3
@@ -276,6 +293,11 @@ def test_collection_mapped(adata, adata2):
         assert np.array_equal(ls_ds[5]["X"], np.array([4, 5, 8, 0, 0, 0]))
         assert np.issubdtype(ls_ds[2]["X"].dtype, np.integer)
         assert np.issubdtype(ls_ds[4]["X"].dtype, np.integer)
+        assert np.array_equal(ls_ds[3]["obsm_X_pca"], np.array([3, 4]))
+
+    with collection_outer.mapped(layers_keys="layer1") as ls_ds:
+        assert np.array_equal(ls_ds[0]["layer1"], np.array([0, 0, 0, 3, 0, 2]))
+        assert np.array_equal(ls_ds[4]["X"], np.array([1, 2, 5, 0, 0, 0]))
 
     artifact1.delete(permanent=True, storage=True)
     artifact2.delete(permanent=True, storage=True)
