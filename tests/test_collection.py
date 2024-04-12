@@ -283,7 +283,7 @@ def test_collection_mapped(adata, adata2):
         assert ls_ds.shape == (6, 6)
         assert ls_ds.join_vars == "outer"
         assert len(ls_ds.var_joint) == 6
-        assert len(ls_ds[0]) == 3
+        assert len(ls_ds[0]) == 4
         assert len(ls_ds[0]["X"]) == 6
         assert np.array_equal(ls_ds[0]["X"], np.array([0, 0, 0, 3, 1, 2]))
         assert np.array_equal(ls_ds[1]["X"], np.array([0, 0, 0, 6, 4, 5]))
@@ -295,7 +295,7 @@ def test_collection_mapped(adata, adata2):
         assert np.issubdtype(ls_ds[4]["X"].dtype, np.integer)
         assert np.array_equal(ls_ds[3]["obsm_X_pca"], np.array([3, 4]))
 
-    with collection_outer.mapped(layers_keys="layer1") as ls_ds:
+    with collection_outer.mapped(layers_keys="layer1", join="outer") as ls_ds:
         assert np.array_equal(ls_ds[0]["layer1"], np.array([0, 0, 0, 3, 0, 2]))
         assert np.array_equal(ls_ds[4]["layer1"], np.array([1, 2, 5, 0, 0, 0]))
 
