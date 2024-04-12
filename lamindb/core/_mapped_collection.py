@@ -296,7 +296,7 @@ class MappedCollection:
                             cats = []
                     else:
                         cats = None
-                    label_idx = self._get_label_idx(store, obs_idx, label, cats)
+                    label_idx = self._get_obs_idx(store, obs_idx, label, cats)
                     if label in self.encoders:
                         label_idx = self.encoders[label][label_idx]
                     out[label] = label_idx
@@ -343,7 +343,7 @@ class MappedCollection:
                     lazy_data_idx = lazy_data_idx[var_idxs_join]
             return lazy_data_idx
 
-    def _get_label_idx(
+    def _get_obs_idx(
         self,
         storage: StorageType,
         idx: int,
