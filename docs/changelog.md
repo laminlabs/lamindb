@@ -1,24 +1,18 @@
 # Changelog
 
-- ✨ Add `.obsm` and  `.layers` to `MappedCollection` [PR](https://github.com/laminlabs/lamindb/pull/1562) [@Koncopd](https://github.com/Koncopd)
-- 🚑️ Fix annotate var index type [PR](https://github.com/laminlabs/lamindb/pull/1567) [@sunnyosun](https://github.com/sunnyosun)
-- 🎨 Polish from_values [PR](https://github.com/laminlabs/lamindb/pull/1566) [@sunnyosun](https://github.com/sunnyosun)
-- 🚸 Allow passing additional fields to add_new_from [PR](https://github.com/laminlabs/lamindb/pull/1565) [@sunnyosun](https://github.com/sunnyosun)
-- ⬆️ Upgrade submodules [PR](https://github.com/laminlabs/lamindb/pull/1564) [@sunnyosun](https://github.com/sunnyosun)
-- 🚸 Eliminate kwargs [PR](https://github.com/laminlabs/lamindb/pull/1561) [@sunnyosun](https://github.com/sunnyosun)
-- 📝 Add wetlab schema to docs [PR](https://github.com/laminlabs/lamindb/pull/1560) [@falexwolf](https://github.com/falexwolf)
-- ♻️ Enable simple transfer of labels from artifacts to collections [PR](https://github.com/laminlabs/lamindb/pull/1559) [@falexwolf](https://github.com/falexwolf)
-- 🐛 Fix passing organism to Annotate [PR](https://github.com/laminlabs/lamindb/pull/1557) [@sunnyosun](https://github.com/sunnyosun)
-- ✨ Support MuData [PR](https://github.com/laminlabs/lamindb/pull/1554) [@sunnyosun](https://github.com/sunnyosun)
-- 📝 Improve introduction [PR](https://github.com/laminlabs/lamindb/pull/1556) [@falexwolf](https://github.com/falexwolf)
-- ⬆️ Upgrade anndata dependency [PR](https://github.com/laminlabs/lamindb/pull/1555) [@Koncopd](https://github.com/Koncopd)
 ```{eval-rst}
 .. role:: small
 ```
 
 ## 0.69
 
-### 0.69.9 {small}`2024-04-04`
+### 0.69.10 {small}`2024-04-12`
+
+- ✨ Add `.obsm` and  `.layers` to `MappedCollection` [PR](https://github.com/laminlabs/lamindb/pull/1562) [@Koncopd](https://github.com/Koncopd)
+- 🚸 Eliminate kwargs [PR](https://github.com/laminlabs/lamindb/pull/1561) [@sunnyosun](https://github.com/sunnyosun)
+- ✨ Introduce `Annotate.from_mudata` [PR](https://github.com/laminlabs/lamindb/pull/1554) [@sunnyosun](https://github.com/sunnyosun)
+
+### 0.69.9 {small}`2024-04-08`
 
 - 🐛 Fix clashes for multiple processes [PR](https://github.com/laminlabs/lamindb/pull/1553) [@falexwolf](https://github.com/falexwolf)
 
