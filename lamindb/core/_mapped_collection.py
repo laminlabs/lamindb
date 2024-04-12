@@ -79,14 +79,13 @@ class MappedCollection:
         join: `"inner"` or `"outer"` virtual joins. If ``None`` is passed,
             does not join.
         encode_labels: Encode labels into integers.
-            Can be a list with elements from ``obs_keys```.
+            Can be a list with elements from ``obs_keys``.
         unknown_label: Encode this label to -1.
-            Can be a dictionary with keys from ``obs_keys`` if ``encode_labels=True```
+            Can be a dictionary with keys from ``obs_keys`` if ``encode_labels=True``
             or from ``encode_labels`` if it is a list.
         cache_categories: Enable caching categories of ``obs_keys`` for faster access.
         parallel: Enable sampling with multiple processes.
         dtype: Convert numpy arrays from ``.X``, ``.layers`` and ``.obsm``
-            to this dtype on selection.
     """
 
     def __init__(
@@ -249,10 +248,12 @@ class MappedCollection:
 
     @property
     def shape(self):
+        """Shape of the (virtually aligned) dataset."""
         return (self.n_obs, self.n_vars)
 
     @property
     def original_shapes(self):
+        """Shapes of the underlying AnnData objects."""
         if self.n_vars_list is None:
             n_vars_list = [None] * len(self.n_obs_list)
         else:
