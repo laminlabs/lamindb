@@ -1,5 +1,13 @@
 # Changelog
 
+:::{note}
+
+When upgrading your LaminDB installation to a new `minor` version in `major.minor.patch`, you need to migrate your database by calling `lamin migrate deploy` (migration-centered as opposed to semantic versioning).
+
+This is because LaminDB persists _core metadata_ based on its [slowly migrating core SQL schema](https://github.com/laminlabs/lnschema-core/tree/main/lnschema_core/migrations).
+
+:::
+
 ```{eval-rst}
 .. role:: small
 ```
@@ -8,7 +16,7 @@
 
 ### 0.69.10 {small}`2024-04-12`
 
-- ✨ Add `.obsm` and  `.layers` to `MappedCollection` [PR](https://github.com/laminlabs/lamindb/pull/1562) [@Koncopd](https://github.com/Koncopd)
+- ✨ Add `.obsm` and  `.layers` to `MappedCollection` and rename `label_keys` to `obs_keys` [PR](https://github.com/laminlabs/lamindb/pull/1562) [@Koncopd](https://github.com/Koncopd)
 - 🚸 Eliminate kwargs [PR](https://github.com/laminlabs/lamindb/pull/1561) [@sunnyosun](https://github.com/sunnyosun)
 - ✨ Introduce `Annotate.from_mudata` [PR](https://github.com/laminlabs/lamindb/pull/1554) [@sunnyosun](https://github.com/sunnyosun)
 
