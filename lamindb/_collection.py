@@ -118,7 +118,8 @@ def __init__(
         )
         # update the run of the existing artifact
         existing_collection.run = run
-        existing_collection.transform = run.transform
+        if run is not None:
+            existing_collection.transform = run.transform
         init_self_from_db(collection, existing_collection)
         for slot, feature_set in collection.features._feature_set_by_slot.items():
             if slot in feature_sets:
