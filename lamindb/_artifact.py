@@ -943,10 +943,10 @@ def _delete_skip_storage(artifact, *args, **kwargs) -> None:
 
 
 # docstring handled through attach_func_to_class_method
-def save(self, *args, **kwargs) -> None:
+def save(self, upload: bool | None = None, **kwargs) -> None:
     access_token = kwargs.pop("access_token", None)
 
-    self._save_skip_storage(*args, **kwargs)
+    self._save_skip_storage(**kwargs)
 
     from lamindb._save import check_and_attempt_clearing, check_and_attempt_upload
 
@@ -962,9 +962,9 @@ def save(self, *args, **kwargs) -> None:
         raise RuntimeError(exception)
 
 
-def _save_skip_storage(file, *args, **kwargs) -> None:
+def _save_skip_storage(file, **kwargs) -> None:
     save_feature_sets(file)
-    super(Artifact, file).save(*args, **kwargs)
+    super(Artifact, file).save(**kwargs)
     save_feature_set_links(file)
 
 
