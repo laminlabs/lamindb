@@ -162,7 +162,9 @@ def from_values(
     field: FieldAttr = Feature.name,
     type: str | None = None,
     name: str | None = None,
-    **kwargs,
+    mute: bool = False,
+    organism: Registry | str | None = None,
+    public_source: Registry | None = None,
 ) -> FeatureSet | None:
     """{}."""
     if not isinstance(field, FieldAttr):
@@ -175,13 +177,18 @@ def from_values(
     if registry != Feature and type is None:
         type = NUMBER_TYPE
         logger.debug("setting feature set to 'number'")
-    validated = registry.validate(values, field=field, organism=kwargs.get("organism"))
+    validated = registry.validate(values, field=field, mute=mute, organism=organism)
     if validated.sum() == 0:
-        if kwargs.get("mute") is True:
+        if mute is True:
             logger.warning("no validated features, skip creating feature set")
         return None
     validated_values = np.array(values)[validated]
-    validated_features = registry.from_values(validated_values, field=field, **kwargs)
+    validated_features = registry.from_values(
+        validated_values,
+        field=field,
+        organism=organism,
+        public_source=public_source,
+    )
     feature_set = FeatureSet(
         features=validated_features,
         name=name,
@@ -197,13 +204,15 @@ def from_df(
     df: pd.DataFrame,
     field: FieldAttr = Feature.name,
     name: str | None = None,
-    **kwargs,
+    mute: bool = False,
+    organism: Registry | str | None = None,
+    public_source: Registry | None = None,
 ) -> FeatureSet | None:
     """{}."""
     registry = field.field.model
-    validated = registry.validate(df.columns, field=field, **kwargs)
+    validated = registry.validate(df.columns, field=field, mute=mute, organism=organism)
     if validated.sum() == 0:
-        if kwargs.get("mute") is True:
+        if mute is True:
             logger.warning("no validated features, skip creating feature set")
         return None
     if registry == Feature:
@@ -215,7 +224,10 @@ def from_df(
             raise ValueError(f"data types are heterogeneous: {set(dtypes)}")
         type = convert_numpy_dtype_to_lamin_feature_type(dtypes[0])
         validated_features = registry.from_values(
-            df.columns[validated], field=field, **kwargs
+            df.columns[validated],
+            field=field,
+            organism=organism,
+            public_source=public_source,
         )
         feature_set = FeatureSet(
             features=validated_features,

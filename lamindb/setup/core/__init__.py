@@ -1,15 +1,4 @@
-"""Core setup library.
+import lamindb_setup as _lamindb_setup
+from lamindb_setup.core import *  # noqa: F403
 
-.. autosummary::
-   :toctree:
-
-   UserSettings
-   InstanceSettings
-   StorageSettings
-
-"""
-from lamindb_setup.core import (  # pragma: no cover
-    InstanceSettings,
-    StorageSettings,
-    UserSettings,
-)
+__doc__ = _lamindb_setup.core.__doc__.replace("lamindb_setup", "lamindb.setup")

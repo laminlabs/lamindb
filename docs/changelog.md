@@ -1,12 +1,33 @@
 # Changelog
 
-- :sparkles: Use future annotations [PR](https://github.com/laminlabs/lamindb/pull/1549) [@Zethson](https://github.com/Zethson)
+- 📝 Simplify describe fields [PR](https://github.com/laminlabs/lamindb/pull/1569) [@sunnyosun](https://github.com/sunnyosun)
+:::{note}
+
+When upgrading your LaminDB installation to a new `minor` version in `major.minor.patch`, you need to migrate your database by calling `lamin migrate deploy` (migration-centered as opposed to semantic versioning).
+
+This is because LaminDB persists _core metadata_ based on its [slowly migrating core SQL schema](https://github.com/laminlabs/lnschema-core/tree/main/lnschema_core/migrations).
+
+:::
 
 ```{eval-rst}
 .. role:: small
 ```
 
 ## 0.69
+
+### 0.69.10 {small}`2024-04-12`
+
+- ✨ Add `.obsm` and  `.layers` to `MappedCollection` and rename `label_keys` to `obs_keys` [PR](https://github.com/laminlabs/lamindb/pull/1562) [@Koncopd](https://github.com/Koncopd)
+- 🚸 Eliminate kwargs [PR](https://github.com/laminlabs/lamindb/pull/1561) [@sunnyosun](https://github.com/sunnyosun)
+- ✨ Introduce `Annotate.from_mudata` [PR](https://github.com/laminlabs/lamindb/pull/1554) [@sunnyosun](https://github.com/sunnyosun)
+
+### 0.69.9 {small}`2024-04-08`
+
+- 🐛 Fix clashes for multiple processes [PR](https://github.com/laminlabs/lamindb/pull/1553) [@falexwolf](https://github.com/falexwolf)
+
+### 0.69.8 {small}`2024-04-04`
+
+- ♻️ Use future annotations [PR](https://github.com/laminlabs/lamindb/pull/1549) [@Zethson](https://github.com/Zethson)
 
 ### 0.69.7 {small}`2024-04-03`
 

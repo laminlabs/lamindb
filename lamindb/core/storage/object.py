@@ -9,6 +9,14 @@ if TYPE_CHECKING:
     from lamindb_setup.core.types import UPathStr
 
 
+def _mudata_is_installed():
+    try:
+        import mudata
+    except ImportError:
+        return False
+    return True
+
+
 def infer_suffix(dmem, adata_format: str | None = None):
     """Infer LaminDB storage file suffix from a data object."""
     if isinstance(dmem, AnnData):
@@ -25,6 +33,11 @@ def infer_suffix(dmem, adata_format: str | None = None):
     elif isinstance(dmem, DataFrame):
         return ".parquet"
     else:
+        if _mudata_is_installed():
+            from mudata import MuData
+
+            if isinstance(dmem, MuData):
+                return ".h5mu"
         raise NotImplementedError
 
 
@@ -34,4 +47,10 @@ def write_to_file(dmem, filepath: UPathStr):
     elif isinstance(dmem, DataFrame):
         dmem.to_parquet(filepath)
     else:
+        if _mudata_is_installed():
+            from mudata import MuData
+
+            if isinstance(dmem, MuData):
+                dmem.write(filepath)
+                return
         raise NotImplementedError

@@ -24,6 +24,7 @@ lamindb
 :hidden:
 
 bionty
+wetlab
 ```
 
 ```{toctree}

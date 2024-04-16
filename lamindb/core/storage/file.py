@@ -22,6 +22,7 @@ from lnschema_core.models import Artifact, Storage
 from lamindb.core._settings import settings
 
 if TYPE_CHECKING:
+    import mudata as md
     from lamindb_setup.core.types import UPathStr
 
 try:
@@ -136,6 +137,9 @@ def delete_storage_using_key(
 
 def delete_storage(storagepath: Path):
     """Delete arbitrary artifact."""
+    # TODO is_relative_to is not available in 3.8 and deprecated since 3.12
+    # replace with check_path_is_child_of_root but this needs to first be debugged
+    # if not check_path_is_child_of_root(storagepath, settings.storage):
     if not storagepath.is_relative_to(settings.storage):  # type: ignore
         logger.warning("couldn't delete files outside of default storage")
         return "did-not-delete"
@@ -165,6 +169,13 @@ def read_fcs(*args, **kwargs):
 def read_tsv(path: UPathStr, **kwargs) -> pd.DataFrame:
     path_sanitized = Path(path)
     return pd.read_csv(path_sanitized, sep="\t", **kwargs)
+
+
+def read_mdata_h5mu(filepath: UPathStr, **kwargs) -> md.MuData:
+    import mudata as md
+
+    path_sanitized = Path(filepath)
+    return md.read_h5mu(path_sanitized, **kwargs)
 
 
 def load_html(path: UPathStr):
@@ -221,6 +232,7 @@ def load_to_memory(filepath: UPathStr, stream: bool = False, **kwargs):
         ".zrad": read_adata_zarr,
         ".html": load_html,
         ".json": load_json,
+        ".h5mu": read_mdata_h5mu,
     }
 
     reader = READER_FUNCS.get(filepath.suffix)

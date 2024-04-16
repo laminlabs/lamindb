@@ -16,7 +16,7 @@ from lamin_utils import logger
 from lamindb_setup.core._docs import doc_args
 from lamindb_setup.core.hashing import hash_set
 from lnschema_core.models import Collection, CollectionArtifact, FeatureSet
-from lnschema_core.types import DataLike, VisibilityChoice
+from lnschema_core.types import VisibilityChoice
 
 from lamindb._utils import attach_func_to_class_method
 from lamindb.core._data import _track_run_input
@@ -40,17 +40,6 @@ if TYPE_CHECKING:
     from ._query_set import QuerySet
 
 
-def _check_accessor_collection(data: Any, accessor: str | None = None):
-    if accessor is None and isinstance(data, (AnnData, pd.DataFrame)):
-        if isinstance(data, pd.DataFrame):
-            logger.warning("data is a DataFrame, please use .from_df()")
-            accessor = "DataFrame"
-        elif data_is_anndata(data):
-            logger.warning("data is an AnnData, please use .from_anndata()")
-            accessor = "AnnData"
-    return accessor
-
-
 def __init__(
     collection: Collection,
     *args,
@@ -61,11 +50,11 @@ def __init__(
         return None
     # now we proceed with the user-facing constructor
     if len(args) > 1:
-        raise ValueError("Only one non-keyword arg allowed: data")
-    data: Artifact | Iterable[Artifact] = (
-        kwargs.pop("data") if len(args) == 0 else args[0]
+        raise ValueError("Only one non-keyword arg allowed: artifacts")
+    artifacts: Artifact | Iterable[Artifact] = (
+        kwargs.pop("artifacts") if len(args) == 0 else args[0]
     )
-    meta: str | None = kwargs.pop("meta") if "meta" in kwargs else None
+    meta: Artifact | None = kwargs.pop("meta") if "meta" in kwargs else None
     name: str | None = kwargs.pop("name") if "name" in kwargs else None
     description: str | None = (
         kwargs.pop("description") if "description" in kwargs else None
@@ -87,14 +76,10 @@ def __init__(
     feature_sets: dict[str, FeatureSet] = (
         kwargs.pop("feature_sets") if "feature_sets" in kwargs else {}
     )
-    accessor = kwargs.pop("accessor") if "accessor" in kwargs else None
-    if not isinstance(data, (Artifact, Iterable)):
-        accessor = _check_accessor_collection(data=data, accessor=accessor)
     if not len(kwargs) == 0:
         raise ValueError(
-            f"Only data, name, run, description, reference, reference_type, visibility can be passed, you passed: {kwargs}"
+            f"Only artifacts, name, run, description, reference, reference_type, visibility can be passed, you passed: {kwargs}"
         )
-
     if is_new_version_of is None:
         provisional_uid = init_uid(version=version, n_full_id=20)
     else:
@@ -104,13 +89,13 @@ def __init__(
         if name is None:
             name = is_new_version_of.name
     run = get_run(run)
-    if isinstance(data, Artifact):
-        data = [data]
+    if isinstance(artifacts, Artifact):
+        artifacts = [artifacts]
     else:
-        if not hasattr(data, "__getitem__"):
+        if not hasattr(artifacts, "__getitem__"):
             raise ValueError("Artifact or List[Artifact] is allowed.")
-        assert isinstance(data[0], Artifact)  # type: ignore
-    hash, feature_sets = from_artifacts(data)  # type: ignore
+        assert isinstance(artifacts[0], Artifact)  # type: ignore
+    hash, feature_sets = from_artifacts(artifacts)  # type: ignore
     if meta is not None:
         if not isinstance(meta, Artifact):
             raise ValueError("meta has to be an Artifact")
@@ -153,12 +138,12 @@ def __init__(
             visibility=visibility,
             **kwargs,
         )
-    collection._artifacts = data
+    collection._artifacts = artifacts
     collection._feature_sets = feature_sets
     # register provenance
     if is_new_version_of is not None:
         _track_run_input(is_new_version_of, run=run)
-    _track_run_input(data, run=run)
+    _track_run_input(artifacts, run=run)
 
 
 # internal function, not exposed to user
@@ -224,7 +209,9 @@ def from_artifacts(artifacts: Iterable[Artifact]) -> tuple[str, dict[str, str]]:
 # docstring handled through attach_func_to_class_method
 def mapped(
     self,
-    label_keys: str | list[str] | None = None,
+    layers_keys: str | list[str] | None = None,
+    obs_keys: str | list[str] | None = None,
+    obsm_keys: str | list[str] | None = None,
     join: Literal["inner", "outer"] | None = "inner",
     encode_labels: bool | list[str] = True,
     unknown_label: str | dict[str, str] | None = None,
@@ -245,7 +232,9 @@ def mapped(
             path_list.append(artifact.path)
     ds = MappedCollection(
         path_list,
-        label_keys,
+        layers_keys,
+        obs_keys,
+        obsm_keys,
         join,
         encode_labels,
         unknown_label,
@@ -273,7 +262,7 @@ def load(
     join: Literal["inner", "outer"] = "outer",
     is_run_input: bool | None = None,
     **kwargs,
-) -> DataLike:
+) -> Any:
     # cannot call _track_run_input here, see comment further down
     all_artifacts = self.artifacts.all()
     suffixes = [artifact.suffix for artifact in all_artifacts]
@@ -321,7 +310,7 @@ def delete(self, permanent: bool | None = None) -> None:
 
 
 # docstring handled through attach_func_to_class_method
-def save(self, *args, **kwargs) -> None:
+def save(self, transfer_labels: bool = False, using: str | None = None) -> None:
     if self.artifact is not None:
         self.artifact.save()
     # we don't need to save feature sets again
@@ -330,18 +319,21 @@ def save(self, *args, **kwargs) -> None:
     # we don't allow updating the collection of artifacts
     # if users want to update the set of artifacts, they
     # have to create a new collection
-    if hasattr(self, "_artifacts"):
-        if self._artifacts is not None and len(self._artifacts) > 0:
-            links = [
-                CollectionArtifact(collection_id=self.id, artifact_id=artifact.id)
-                for artifact in self._artifacts
-            ]
-            # the below seems to preserve the order of the list in the
-            # auto-incrementing integer primary
-            # merely using .unordered_artifacts.set(*...) doesn't achieve this
-            # we need ignore_conflicts=True so that this won't error if links already exist
-            CollectionArtifact.objects.bulk_create(links, ignore_conflicts=True)
+    links = [
+        CollectionArtifact(collection_id=self.id, artifact_id=artifact.id)
+        for artifact in self._artifacts
+    ]
+    # the below seems to preserve the order of the list in the
+    # auto-incrementing integer primary
+    # merely using .unordered_artifacts.set(*...) doesn't achieve this
+    # we need ignore_conflicts=True so that this won't error if links already exist
+    CollectionArtifact.objects.bulk_create(links, ignore_conflicts=True)
     save_feature_set_links(self)
+    if using is not None:
+        logger.warning("using argument is ignored")
+    if transfer_labels:
+        for artifact in self._artifacts:
+            self.labels.add_from(artifact)
 
 
 # docstring handled through attach_func_to_class_method

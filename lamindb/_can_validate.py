@@ -29,7 +29,7 @@ def inspect(
     field: str | StrField | None = None,
     *,
     mute: bool = False,
-    **kwargs,
+    organism: str | Registry | None = None,
 ) -> InspectResult:
     """{}."""
     return _inspect(
@@ -37,7 +37,7 @@ def inspect(
         values=values,
         field=field,
         mute=mute,
-        **kwargs,
+        organism=organism,
     )
 
 
@@ -49,10 +49,10 @@ def validate(
     field: str | StrField | None = None,
     *,
     mute: bool = False,
-    **kwargs,
+    organism: str | Registry | None = None,
 ) -> np.ndarray:
     """{}."""
-    return _validate(cls=cls, values=values, field=field, mute=mute, **kwargs)
+    return _validate(cls=cls, values=values, field=field, mute=mute, organism=organism)
 
 
 def _inspect(
@@ -62,7 +62,7 @@ def _inspect(
     *,
     mute: bool = False,
     using_key: str | None = None,
-    **kwargs,
+    organism: str | Registry | None = None,
 ) -> pd.DataFrame | dict[str, list[str]]:
     """{}."""
     from lamin_utils._inspect import inspect
@@ -77,20 +77,17 @@ def _inspect(
 
     # inspect in the DB
     result_db = inspect(
-        df=_filter_query_based_on_organism(
-            queryset=queryset, organism=kwargs.get("organism")
-        ),
+        df=_filter_query_based_on_organism(queryset=queryset, organism=organism),
         identifiers=values,
         field=field,
         mute=mute,
-        **kwargs,
     )
     nonval = set(result_db.non_validated).difference(result_db.synonyms_mapper.keys())
 
     if len(nonval) > 0 and orm.__get_schema_name__() == "bionty":
         try:
-            bionty_result = orm.public(organism=kwargs.get("organism")).inspect(
-                values=nonval, field=field, mute=True, **kwargs
+            bionty_result = orm.public(organism=organism).inspect(
+                values=nonval, field=field, mute=True
             )
             bionty_validated = bionty_result.validated
             bionty_mapper = bionty_result.synonyms_mapper
@@ -146,7 +143,7 @@ def _validate(
     *,
     mute: bool = False,
     using_key: str | None = None,
-    **kwargs,
+    organism: str | Registry | None = None,
 ) -> np.ndarray:
     """{}."""
     from lamin_utils._inspect import validate
@@ -161,7 +158,7 @@ def _validate(
     field_values = pd.Series(
         _filter_query_based_on_organism(
             queryset=queryset,
-            organism=kwargs.get("organism"),
+            organism=organism,
             values_list_field=field,
         ),
         dtype="object",
@@ -173,7 +170,6 @@ def _validate(
         case_sensitive=True,
         mute=mute,
         field=field,
-        **kwargs,
     )
     if return_str and len(result) == 1:
         return result[0]
@@ -195,7 +191,7 @@ def standardize(
     public_aware: bool = True,
     keep: Literal["first", "last", False] = "first",
     synonyms_field: str = "synonyms",
-    **kwargs,
+    organism: str | Registry | None = None,
 ) -> list[str] | dict[str, str]:
     """{}."""
     return _standardize(
@@ -209,7 +205,7 @@ def standardize(
         public_aware=public_aware,
         keep=keep,
         synonyms_field=synonyms_field,
-        **kwargs,
+        organism=organism,
     )
 
 
@@ -258,7 +254,7 @@ def _standardize(
     keep: Literal["first", "last", False] = "first",
     synonyms_field: str = "synonyms",
     using_key: str | None = None,
-    **kwargs,
+    organism: str | Registry | None = None,
 ) -> list[str] | dict[str, str]:
     """{}."""
     from lamin_utils._standardize import standardize as map_synonyms
@@ -274,7 +270,6 @@ def _standardize(
     queryset = _queryset(cls, using_key)
     orm = queryset.model
 
-    organism = kwargs.get("organism")
     if _has_organism_field(orm):
         # here, we can safely import lnschema_bionty
         from lnschema_bionty._bionty import create_or_get_organism_record

@@ -22,7 +22,6 @@ from lamindb_setup.core.upath import (
 from lnschema_core import Artifact, Run, Storage
 from lnschema_core.models import IsTree
 from lnschema_core.types import (
-    DataLike,
     VisibilityChoice,
 )
 
@@ -52,9 +51,11 @@ from .core._data import (
     save_feature_sets,
 )
 from .core.storage.file import AUTO_KEY_PREFIX
+from .core.storage.object import _mudata_is_installed
 
 if TYPE_CHECKING:
     from lamindb_setup.core.types import UPathStr
+    from mudata import MuData
 
     from lamindb.core.storage._backed_access import AnnDataAccessor, BackedAccessor
 
@@ -114,7 +115,7 @@ def process_pathlike(
 
 def process_data(
     provisional_uid: str,
-    data: UPathStr | DataLike,
+    data: UPathStr | pd.DataFrame | AnnData,
     format: str | None,
     key: str | None,
     default_storage: Storage,
@@ -123,6 +124,13 @@ def process_data(
 ) -> tuple[Any, Path | UPath, str, Storage, bool]:
     """Serialize a data object that's provided as file or in memory."""
     # if not overwritten, data gets stored in default storage
+    if _mudata_is_installed():
+        from mudata import MuData
+
+        data_types = (pd.DataFrame, AnnData, MuData)
+    else:
+        data_types = (pd.DataFrame, AnnData)  # type:ignore
+
     if isinstance(data, (str, Path, UPath)):  # UPathStr, spelled out
         access_token = (
             default_storage._access_token
@@ -138,7 +146,7 @@ def process_data(
         )
         suffix = extract_suffix_from_path(path)
         memory_rep = None
-    elif isinstance(data, (pd.DataFrame, AnnData)):  # DataLike, spelled out
+    elif isinstance(data, data_types):
         storage = default_storage
         memory_rep = data
         if key is not None:
@@ -299,7 +307,7 @@ def get_relative_path_to_directory(
 
 def get_artifact_kwargs_from_data(
     *,
-    data: Path | UPath | str | pd.DataFrame | AnnData,
+    data: Path | UPath | str | pd.DataFrame | AnnData | MuData,
     key: str | None,
     run: Run | None,
     format: str | None,
@@ -429,22 +437,20 @@ def log_storage_hint(
     logger.hint(hint)
 
 
-def data_is_anndata(data: DataLike):
+def data_is_anndata(data: AnnData | UPathStr):
     if isinstance(data, AnnData):
         return True
     if isinstance(data, (str, Path, UPath)):
         return Path(data).suffix in {".h5ad", ".zrad"}
-    return False  # pragma: no cover
+    return False
 
 
-def data_is_mudata(data: DataLike):  # pragma: no cover
-    try:
+def data_is_mudata(data: MuData | UPathStr):
+    if _mudata_is_installed():
         from mudata import MuData
-    except ModuleNotFoundError:
-        return False
 
-    if isinstance(data, MuData):
-        return True
+        if isinstance(data, MuData):
+            return True
     if isinstance(data, (str, Path, UPath)):
         return Path(data).suffix in {".h5mu"}
     return False
@@ -458,6 +464,9 @@ def _check_accessor_artifact(data: Any, accessor: str | None = None):
         elif data_is_anndata(data):
             logger.warning("data is an AnnData, please use .from_anndata()")
             accessor = "AnnData"
+        elif data_is_mudata(data):
+            logger.warning("data is a MuData, please use .from_mudata()")
+            accessor = "MuData"
         else:
             raise TypeError("data has to be a string, Path, UPath")
     return accessor
@@ -623,6 +632,32 @@ def from_anndata(
 
 
 @classmethod  # type: ignore
+@doc_args(Artifact.from_mudata.__doc__)
+def from_mudata(
+    cls,
+    mdata: MuData,
+    key: str | None = None,
+    description: str | None = None,
+    run: Run | None = None,
+    version: str | None = None,
+    is_new_version_of: Artifact | None = None,
+    **kwargs,
+) -> Artifact:
+    """{}."""
+    artifact = Artifact(
+        data=mdata,
+        key=key,
+        run=run,
+        description=description,
+        version=version,
+        is_new_version_of=is_new_version_of,
+        accessor="MuData",
+        **kwargs,
+    )
+    return artifact
+
+
+@classmethod  # type: ignore
 @doc_args(Artifact.from_dir.__doc__)
 def from_dir(
     cls,
@@ -727,7 +762,7 @@ def from_dir(
 # docstring handled through attach_func_to_class_method
 def replace(
     self,
-    data: UPathStr | DataLike,
+    data: UPathStr,
     run: Run | None = None,
     format: str | None = None,
 ) -> None:
@@ -810,9 +845,7 @@ def backed(self, is_run_input: bool | None = None) -> AnnDataAccessor | BackedAc
 
 
 # docstring handled through attach_func_to_class_method
-def load(
-    self, is_run_input: bool | None = None, stream: bool = False, **kwargs
-) -> DataLike:
+def load(self, is_run_input: bool | None = None, stream: bool = False, **kwargs) -> Any:
     _track_run_input(self, is_run_input)
     if hasattr(self, "_memory_rep") and self._memory_rep is not None:
         return self._memory_rep
@@ -965,6 +998,7 @@ METHOD_NAMES = [
     "__init__",
     "from_anndata",
     "from_df",
+    "from_mudata",
     "backed",
     "stage",
     "load",

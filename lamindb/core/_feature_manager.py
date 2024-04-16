@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from itertools import compress
-from typing import TYPE_CHECKING, Iterable
+from typing import TYPE_CHECKING, Iterable, Optional
 
 import anndata as ad
 from anndata import AnnData
@@ -23,7 +23,7 @@ from lamindb.core.storage import LocalPathClasses
 from ._settings import settings
 
 if TYPE_CHECKING:
-    from lnschema_core.types import AnnDataLike, FieldAttr
+    from lnschema_core.types import FieldAttr
 
     from lamindb._query_set import QuerySet
 
@@ -91,6 +91,8 @@ def get_feature_set_links(host: Artifact | Collection) -> QuerySet:
 def print_features(self: Data) -> str:
     from lamindb._from_values import _print_values
 
+    from ._data import format_repr
+
     msg = ""
     features_lookup = Feature.objects.using(self._state.db).lookup().dict()
     for slot, feature_set in self.features._feature_set_by_slot.items():
@@ -98,12 +100,16 @@ def print_features(self: Data) -> str:
             features = feature_set.members
             name_field = get_default_str_field(features[0])
             feature_names = [getattr(feature, name_field) for feature in features]
-            msg += f"  {colors.bold(slot)}: {feature_set}\n"
+            msg += (
+                f"  {colors.bold(slot)}: {format_repr(feature_set, exclude='hash')}\n"
+            )
             print_values = _print_values(feature_names, n=20)
             msg += f"    {print_values}\n"
         else:
             df_slot = feature_set.features.df()
-            msg += f"  {colors.bold(slot)}: {feature_set}\n"
+            msg += (
+                f"  {colors.bold(slot)}: {format_repr(feature_set, exclude='hash')}\n"
+            )
             for _, row in df_slot.iterrows():
                 if row["type"] == "category" and row["registries"] is not None:
                     labels = self.labels.get(
@@ -132,10 +138,11 @@ def print_features(self: Data) -> str:
 
 
 def parse_feature_sets_from_anndata(
-    adata: AnnDataLike,
-    var_field: FieldAttr,
+    adata: AnnData,
+    var_field: FieldAttr | None = None,
     obs_field: FieldAttr = Feature.name,
-    **kwargs,
+    mute: bool = False,
+    organism: str | Registry | None = None,
 ) -> dict:
     data_parse = adata
     if not isinstance(adata, AnnData):  # is a path
@@ -149,29 +156,36 @@ def parse_feature_sets_from_anndata(
             data_parse = ad.read(filepath, backed="r")
         type = "float"
     else:
-        type = convert_numpy_dtype_to_lamin_feature_type(adata.X.dtype)
+        type = (
+            "float"
+            if adata.X is None
+            else convert_numpy_dtype_to_lamin_feature_type(adata.X.dtype)
+        )
     feature_sets = {}
-    logger.info("parsing feature names of X stored in slot 'var'")
-    logger.indent = "   "
-    feature_set_var = FeatureSet.from_values(
-        data_parse.var.index,
-        var_field,
-        type=type,
-        **kwargs,
-    )
-    if feature_set_var is not None:
-        feature_sets["var"] = feature_set_var
-        logger.save(f"linked: {feature_set_var}")
-    logger.indent = ""
-    if feature_set_var is None:
-        logger.warning("skip linking features to artifact in slot 'var'")
+    if var_field is not None:
+        logger.info("parsing feature names of X stored in slot 'var'")
+        logger.indent = "   "
+        feature_set_var = FeatureSet.from_values(
+            data_parse.var.index,
+            var_field,
+            type=type,
+            mute=mute,
+            organism=organism,
+        )
+        if feature_set_var is not None:
+            feature_sets["var"] = feature_set_var
+            logger.save(f"linked: {feature_set_var}")
+        logger.indent = ""
+        if feature_set_var is None:
+            logger.warning("skip linking features to artifact in slot 'var'")
     if len(data_parse.obs.columns) > 0:
         logger.info("parsing feature names of slot 'obs'")
         logger.indent = "   "
         feature_set_obs = FeatureSet.from_df(
             df=data_parse.obs,
             field=obs_field,
-            **kwargs,
+            mute=mute,
+            organism=organism,
         )
         if feature_set_obs is not None:
             feature_sets["obs"] = feature_set_obs
@@ -224,7 +238,7 @@ class FeatureManager:
             slot = "columns" if slot is None else slot
         self._add_feature_set(feature_set=FeatureSet(features=features), slot=slot)
 
-    def add_from_df(self, field: FieldAttr = Feature.name, **kwargs):
+    def add_from_df(self, field: FieldAttr = Feature.name, organism: str | None = None):
         """Add features from DataFrame."""
         if isinstance(self._host, Artifact):
             assert self._host.accessor == "DataFrame"
@@ -235,7 +249,7 @@ class FeatureManager:
         # parse and register features
         registry = field.field.model
         df = self._host.load()
-        features = registry.from_values(df.columns, field=field, **kwargs)
+        features = registry.from_values(df.columns, field=field, organism=organism)
         if len(features) == 0:
             logger.error(
                 "no validated features found in DataFrame! please register features first!"
@@ -252,7 +266,8 @@ class FeatureManager:
         self,
         var_field: FieldAttr,
         obs_field: FieldAttr | None = Feature.name,
-        **kwargs,
+        mute: bool = False,
+        organism: str | Registry | None = None,
     ):
         """Add features from AnnData."""
         if isinstance(self._host, Artifact):
@@ -263,8 +278,48 @@ class FeatureManager:
         # parse and register features
         adata = self._host.load()
         feature_sets = parse_feature_sets_from_anndata(
-            adata, var_field=var_field, obs_field=obs_field, **kwargs
+            adata,
+            var_field=var_field,
+            obs_field=obs_field,
+            mute=mute,
+            organism=organism,
         )
+
+        # link feature sets
+        self._host._feature_sets = feature_sets
+        self._host.save()
+
+    def add_from_mudata(
+        self,
+        var_fields: dict[str, FieldAttr],
+        obs_fields: dict[str, FieldAttr] = None,
+        mute: bool = False,
+        organism: str | Registry | None = None,
+    ):
+        """Add features from MuData."""
+        if obs_fields is None:
+            obs_fields = {}
+        if isinstance(self._host, Artifact):
+            assert self._host.accessor == "MuData"
+        else:
+            raise NotImplementedError()
+
+        # parse and register features
+        mdata = self._host.load()
+        feature_sets = {}
+        obs_features = features = Feature.from_values(mdata.obs.columns)
+        if len(obs_features) > 0:
+            feature_sets["obs"] = FeatureSet(features=features)
+        for modality, field in var_fields.items():
+            modality_fs = parse_feature_sets_from_anndata(
+                mdata[modality],
+                var_field=field,
+                obs_field=obs_fields.get(modality, Feature.name),
+                mute=mute,
+                organism=organism,
+            )
+            for k, v in modality_fs.items():
+                feature_sets[f"['{modality}'].{k}"] = v
 
         # link feature sets
         self._host._feature_sets = feature_sets

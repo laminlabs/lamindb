@@ -100,7 +100,7 @@ def _records_to_df(obj):
         return obj
 
 
-class Registry:
+class AccessRegistry:
     def __init__(self):
         self._registry = {}
         self._openers = {}
@@ -141,7 +141,7 @@ class Registry:
 
 
 # storage specific functions should be registered and called through the registry
-registry = Registry()
+registry = AccessRegistry()
 
 
 @registry.register_open("h5py")
@@ -176,8 +176,12 @@ def safer_read_partial(elem, indices):
         indices_increasing = []
         indices_inverse = []
         for indices_dim in indices:
-            if isinstance(indices_dim, np.ndarray) and not np.all(
-                np.diff(indices_dim) > 0
+            # should be integer or bool
+            # ignore bool or increasing unique integers
+            if (
+                isinstance(indices_dim, np.ndarray)
+                and indices_dim.dtype != "bool"
+                and not np.all(np.diff(indices_dim) > 0)
             ):
                 idx_unique, idx_inverse = np.unique(indices_dim, return_inverse=True)
                 indices_increasing.append(idx_unique)

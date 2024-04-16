@@ -40,7 +40,7 @@ Modules & settings:
 
 """
 
-__version__ = "0.69.7"  # denote a release candidate for 0.1.0 with 0.1rc1
+__version__ = "0.69.10"  # denote a release candidate for 0.1.0 with 0.1rc1
 
 import os as _os
 
