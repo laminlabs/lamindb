@@ -236,7 +236,7 @@ def mapped(
             logger.warning(f"Ignoring artifact with suffix {artifact.suffix}")
             continue
         elif not stream:
-            path_list.append(artifact.stage())
+            path_list.append(artifact.cache())
         else:
             path_list.append(artifact.path)
     ds = MappedCollection(
@@ -257,11 +257,11 @@ def mapped(
 
 
 # docstring handled through attach_func_to_class_method
-def stage(self, is_run_input: bool | None = None) -> list[UPath]:
+def cache(self, is_run_input: bool | None = None) -> list[UPath]:
     _track_run_input(self, is_run_input)
     path_list = []
     for artifact in self.artifacts.all():
-        path_list.append(artifact.stage())
+        path_list.append(artifact.cache())
     return path_list
 
 
@@ -364,7 +364,7 @@ def artifacts(self) -> QuerySet:
 METHOD_NAMES = [
     "__init__",
     "mapped",
-    "stage",
+    "cache",
     "load",
     "delete",
     "save",
@@ -386,3 +386,4 @@ for name in METHOD_NAMES:
 # this seems a Django-generated function
 delattr(Collection, "get_visibility_display")
 Collection.artifacts = artifacts
+Collection.stage = cache

@@ -865,7 +865,7 @@ def load(self, is_run_input: bool | None = None, stream: bool = False, **kwargs)
 
 
 # docstring handled through attach_func_to_class_method
-def stage(self, is_run_input: bool | None = None) -> Path:
+def cache(self, is_run_input: bool | None = None) -> Path:
     _track_run_input(self, is_run_input)
 
     using_key = settings._using_key
@@ -943,10 +943,10 @@ def _delete_skip_storage(artifact, *args, **kwargs) -> None:
 
 
 # docstring handled through attach_func_to_class_method
-def save(self, *args, **kwargs) -> None:
+def save(self, upload: bool | None = None, **kwargs) -> None:
     access_token = kwargs.pop("access_token", None)
 
-    self._save_skip_storage(*args, **kwargs)
+    self._save_skip_storage(**kwargs)
 
     from lamindb._save import check_and_attempt_clearing, check_and_attempt_upload
 
@@ -962,9 +962,9 @@ def save(self, *args, **kwargs) -> None:
         raise RuntimeError(exception)
 
 
-def _save_skip_storage(file, *args, **kwargs) -> None:
+def _save_skip_storage(file, **kwargs) -> None:
     save_feature_sets(file)
-    super(Artifact, file).save(*args, **kwargs)
+    super(Artifact, file).save(**kwargs)
     save_feature_set_links(file)
 
 
@@ -1009,7 +1009,7 @@ METHOD_NAMES = [
     "from_df",
     "from_mudata",
     "backed",
-    "stage",
+    "cache",
     "load",
     "delete",
     "save",
@@ -1035,5 +1035,6 @@ for name in METHOD_NAMES:
 Artifact._delete_skip_storage = _delete_skip_storage
 Artifact._save_skip_storage = _save_skip_storage
 Artifact.path = path
+Artifact.stage = cache
 # this seems a Django-generated function
 delattr(Artifact, "get_visibility_display")
