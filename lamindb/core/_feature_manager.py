@@ -91,6 +91,8 @@ def get_feature_set_links(host: Artifact | Collection) -> QuerySet:
 def print_features(self: Data) -> str:
     from lamindb._from_values import _print_values
 
+    from ._data import format_repr
+
     msg = ""
     features_lookup = Feature.objects.using(self._state.db).lookup().dict()
     for slot, feature_set in self.features._feature_set_by_slot.items():
@@ -98,12 +100,16 @@ def print_features(self: Data) -> str:
             features = feature_set.members
             name_field = get_default_str_field(features[0])
             feature_names = [getattr(feature, name_field) for feature in features]
-            msg += f"  {colors.bold(slot)}: {feature_set}\n"
+            msg += (
+                f"  {colors.bold(slot)}: {format_repr(feature_set, exclude='hash')}\n"
+            )
             print_values = _print_values(feature_names, n=20)
             msg += f"    {print_values}\n"
         else:
             df_slot = feature_set.features.df()
-            msg += f"  {colors.bold(slot)}: {feature_set}\n"
+            msg += (
+                f"  {colors.bold(slot)}: {format_repr(feature_set, exclude='hash')}\n"
+            )
             for _, row in df_slot.iterrows():
                 if row["type"] == "category" and row["registries"] is not None:
                     labels = self.labels.get(
