@@ -377,3 +377,4 @@ for name in METHOD_NAMES:
 # this seems a Django-generated function
 delattr(Collection, "get_visibility_display")
 Collection.artifacts = artifacts
+Collection.stage = cache
