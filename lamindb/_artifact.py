@@ -333,6 +333,15 @@ def get_artifact_kwargs_from_data(
         using_key=using_key,
     )
     if isinstance(stat_or_artifact, Artifact):
+        # update the run of the existing artifact
+        if run is not None:
+            # save the information that this artifact was previously
+            # produced by another run
+            if stat_or_artifact.run is not None:
+                stat_or_artifact.run.replicated_outputs.add(stat_or_artifact)
+            # update the run of the artifact with the latest run
+            stat_or_artifact.run = run
+            stat_or_artifact.transform = run.transform
         return stat_or_artifact, None
     else:
         size, hash, hash_type, n_objects = stat_or_artifact
