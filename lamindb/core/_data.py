@@ -94,6 +94,23 @@ def save_feature_set_links(self: Artifact | Collection) -> None:
         bulk_create(links, ignore_conflicts=True)
 
 
+def format_repr(value: Registry, exclude: list[str] | str | None = None) -> str:
+    if isinstance(exclude, str):
+        exclude = [exclude]
+    exclude_fields = set() if exclude is None else set(exclude)
+    exclude_fields.update(["created_at", "updated_at"])
+
+    fields = [
+        f
+        for f in value.__repr__(include_foreign_keys=False).split(", ")
+        if not any(f"{excluded_field}=" in f for excluded_field in exclude_fields)
+    ]
+    repr = ", ".join(fields)
+    if not repr.endswith(")"):
+        repr += ")"
+    return repr
+
+
 @doc_args(Data.describe.__doc__)
 def describe(self: Data):
     """{}."""
@@ -117,7 +134,7 @@ def describe(self: Data):
         msg += f"{colors.green('Provenance')}:\n  "
         related_msg = "".join(
             [
-                f"📎 {field}: {self.__getattribute__(field)}\n  "
+                f"📎 {field}: {format_repr(self.__getattribute__(field))}\n  "
                 for field in foreign_key_fields
                 if self.__getattribute__(field) is not None
             ]
