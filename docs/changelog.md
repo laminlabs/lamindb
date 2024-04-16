@@ -1,5 +1,6 @@
 # Changelog
 
+- 🚸 Update data lineage information in case transform is re-run [PR](https://github.com/laminlabs/lamindb/pull/1571) [@falexwolf](https://github.com/falexwolf)
 - 📝 Simplify describe fields [PR](https://github.com/laminlabs/lamindb/pull/1569) [@sunnyosun](https://github.com/sunnyosun)
 :::{note}
 
