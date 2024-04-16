@@ -1,5 +1,6 @@
 # Changelog
 
+- 📝 Simplify describe fields [PR](https://github.com/laminlabs/lamindb/pull/1569) [@sunnyosun](https://github.com/sunnyosun)
 :::{note}
 
 When upgrading your LaminDB installation to a new `minor` version in `major.minor.patch`, you need to migrate your database by calling `lamin migrate deploy` (migration-centered as opposed to semantic versioning).
