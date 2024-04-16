@@ -854,7 +854,7 @@ def load(self, is_run_input: bool | None = None, stream: bool = False, **kwargs)
 
 
 # docstring handled through attach_func_to_class_method
-def stage(self, is_run_input: bool | None = None) -> Path:
+def download(self, is_run_input: bool | None = None) -> Path:
     _track_run_input(self, is_run_input)
 
     using_key = settings._using_key
@@ -998,7 +998,7 @@ METHOD_NAMES = [
     "from_df",
     "from_mudata",
     "backed",
-    "stage",
+    "download",
     "load",
     "delete",
     "save",

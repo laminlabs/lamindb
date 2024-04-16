@@ -131,7 +131,7 @@ def test_from_inconsistent_artifacts(df, adata):
     # create a run context
     ln.track(transform=ln.Transform(name="My test transform"))
     # can iterate over them
-    collection.stage()
+    collection.download()
     assert set(ln.core.run_context.run.input_collections.all()) == {collection}
     # loading will throw an error here
     with pytest.raises(RuntimeError) as error:
