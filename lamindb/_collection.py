@@ -117,8 +117,12 @@ def __init__(
             f"returning existing collection with same hash: {existing_collection}"
         )
         # update the run of the existing artifact
-        existing_collection.run = run
         if run is not None:
+            # save the information that this artifact was previously
+            # produced by another run
+            existing_collection.run.replicated_outputs.add(existing_collection)
+            # update the run of the artifact with the latest run
+            existing_collection.run = run
             existing_collection.transform = run.transform
         init_self_from_db(collection, existing_collection)
         for slot, feature_set in collection.features._feature_set_by_slot.items():
