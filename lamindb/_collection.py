@@ -120,7 +120,8 @@ def __init__(
         if run is not None:
             # save the information that this artifact was previously
             # produced by another run
-            existing_collection.run.replicated_outputs.add(existing_collection)
+            if existing_collection.run is not None:
+                existing_collection.run.replicated_outputs.add(existing_collection)
             # update the run of the artifact with the latest run
             existing_collection.run = run
             existing_collection.transform = run.transform
