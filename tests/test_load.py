@@ -37,12 +37,12 @@ def test_load_anndata(local_filepath, adata):
     artifact = ln.Artifact(local_filepath, description="test")
     assert local_filepath == artifact._local_filepath
     assert local_filepath == artifact.path
-    assert local_filepath == artifact.download()
+    assert local_filepath == artifact.cache()
 
     artifact = ln.Artifact.from_anndata(adata, description="test")
     assert artifact._memory_rep is adata
     assert artifact.load() is adata
-    assert artifact._local_filepath.resolve() == artifact.download() == artifact.path
+    assert artifact._local_filepath.resolve() == artifact.cache() == artifact.path
 
 
 def test_load_html(html_filepath):

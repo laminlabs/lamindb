@@ -581,8 +581,8 @@ def test_create_small_file_from_remote_path(
         skip_check_exists=skip_check_exists,
     )
     artifact.save()
-    # test download()
-    file_from_local = ln.Artifact(artifact.download(), description="test")
+    # test cache()
+    file_from_local = ln.Artifact(artifact.cache(), description="test")
     # test hash equivalency when computed on local machine
     if not skip_size_and_hash:
         assert file_from_local.hash == artifact.hash
@@ -746,7 +746,7 @@ def test_describe():
     artifact.describe()
 
 
-def test_folder_upload_download(adata):
+def test_folder_upload_cache(adata):
     previous_storage = ln.setup.settings.storage.root_as_str
     ln.settings.storage = "s3://lamindb-test"
 
@@ -767,7 +767,7 @@ def test_folder_upload_download(adata):
 
     shutil.rmtree(cache_path)
     assert not cache_path.exists()
-    artifact.download()
+    artifact.cache()
     assert cache_path.is_dir()
 
     artifact.delete(permanent=True, storage=True)

@@ -166,7 +166,7 @@ def anndata_mouse_sc_lymph_node(
         .str.strip("[]")
         .str.replace("organism part", "tissue")
         .str.replace("organism", "organism")
-        .str.replace("developmental download", "developmental_download")
+        .str.replace("developmental stage", "developmental_stage")
         .str.replace("cell type", "cell_type")
         # the last one could be interesting, too
         # .str.replace("Factor Value:Ontology Term[inferred cell_type - authors labels", "cell_type_authors")
@@ -193,7 +193,7 @@ def anndata_mouse_sc_lymph_node(
         bt.settings.auto_save_parents = False
         # strain
         bt.ExperimentalFactor.from_public(ontology_id="EFO:0004472").save()
-        # developmental download
+        # developmental stage
         bt.ExperimentalFactor.from_public(ontology_id="EFO:0001272").save()
         # tissue
         bt.Tissue.from_public(ontology_id="UBERON:0001542").save()
@@ -299,7 +299,7 @@ def anndata_human_immune_cells(
         adata = sc.read('Global.h5ad')
         adata.obs = adata.obs[['donor_id', 'tissue', 'cell_type', 'assay', 'tissue_ontology_term_id', 'cell_type_ontology_term_id', 'assay_ontology_term_id']].copy()
         sc.pp.subsample(adata, fraction=0.005)
-        del adata.uns["development_download_ontology_term_id_colors"]
+        del adata.uns["development_cache_ontology_term_id_colors"]
         del adata.uns["sex_ontology_term_id_colors"]
         adata.write('human_immune.h5ad')
     """
