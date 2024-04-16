@@ -1,5 +1,6 @@
 # Changelog
 
+- 🚚 Deprecate `stage()` in favor of `cache()` [PR](https://github.com/laminlabs/lamindb/pull/1572) [@falexwolf](https://github.com/falexwolf)
 - 🚸 Error if the exact same artifact is returned from trash [PR](https://github.com/laminlabs/lamindb/pull/1550) [@falexwolf](https://github.com/falexwolf)
 - 🚸 Update data lineage information in case transform is re-run [PR](https://github.com/laminlabs/lamindb/pull/1571) [@falexwolf](https://github.com/falexwolf)
 - 📝 Simplify describe fields [PR](https://github.com/laminlabs/lamindb/pull/1569) [@sunnyosun](https://github.com/sunnyosun)
