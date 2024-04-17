@@ -43,39 +43,35 @@ def finish(i_saved_the_notebook: bool = False):
                 "Please pass `i_saved_the_notebook=True` to `ln.finish()`, save the notebook, and re-run this cell."
             )
             return None
-        notebook_content = read_notebook(run_context.path)  # type: ignore
-        if not check_last_cell(notebook_content, "i_saved_the_notebook"):
-            raise CallFinishInLastCell(
-                "Can only run `ln.finish(i_saved_the_notebook=True)` from the last code cell of the notebook."
-            )
         save_run_context_core(
             run=run_context.run,
             transform=run_context.transform,
             filepath=run_context.path,
             finished_at=True,
-            notebook_content=notebook_content,
         )
     else:
         # scripts
+        # save_run_context_core was already called during ln.track()
         run_context.run.finished_at = datetime.now(timezone.utc)  # update run time
         run_context.run.save()
 
 
-# do not type because we need to be aware of lnschema_core import order
 def save_run_context_core(
     *,
     run: Run,
     transform: Transform,
     filepath: Path,
     transform_family: QuerySet | None = None,
-    is_consecutive: bool = True,
     finished_at: bool = False,
-    notebook_content=None,  # nbproject.Notebook
 ) -> str | None:
     import lamindb as ln
 
     ln.settings.verbosity = "success"
 
+    # for scripts, things are easy
+    is_consecutive = True
+    source_code_path = filepath
+    # for notebooks, we need more work
     if transform.type == TransformType.notebook:
         try:
             import nbstripout
@@ -88,62 +84,52 @@ def save_run_context_core(
                 "install nbproject & nbstripout: pip install nbproject nbstripout"
             )
             return None
-        if notebook_content is None:
-            notebook_content = read_notebook(filepath)  # type: ignore
+        notebook_content = read_notebook(filepath)  # type: ignore
         is_consecutive = check_consecutiveness(notebook_content)
         if not is_consecutive:
+            msg = "   Do you still want to proceed with finishing? (y/n) "
             if os.getenv("LAMIN_TESTING") is None:
-                decide = input(
-                    "   Do you still want to proceed with publishing? (y/n) "
-                )
+                response = input(msg)
             else:
-                decide = "n"
-            if decide != "y":
-                logger.error("Aborted (non-consecutive)!")
+                response = "n"
+            if response != "y":
                 return "aborted-non-consecutive"
-
         # convert the notebook file to html
         # log_level is set to 40 to silence the nbconvert logging
-        result = subprocess.run(
+        subprocess.run(
             "jupyter nbconvert --to html"
             f" {filepath.as_posix()} --Application.log_level=40",
             shell=True,
+            check=True,
         )
         # move the temporary file into the cache dir in case it's accidentally
         # in an existing storage location -> we want to move associated
         # artifacts into default storage and not register them in an existing
         # location
-        filepath_html = filepath.with_suffix(".html")  # current location
+        filepath_html_orig = filepath.with_suffix(".html")  # current location
+        filepath_html = ln_setup.settings.storage.cache_dir / filepath_html_orig.name
+        # don't use Path.rename here because of cross-device link error
+        # https://laminlabs.slack.com/archives/C04A0RMA0SC/p1710259102686969
         shutil.move(
-            filepath_html,  # type: ignore
-            ln_setup.settings.storage.cache_dir / filepath_html.name,
-        )  # move; don't use Path.rename here because of cross-device link error
-        # see https://laminlabs.slack.com/archives/C04A0RMA0SC/p1710259102686969
-        filepath_html = (
-            ln_setup.settings.storage.cache_dir / filepath_html.name
-        )  # adjust location
-        assert result.returncode == 0
-        # copy the notebook file to a temporary file
+            filepath_html_orig,  # type: ignore
+            filepath_html,
+        )
+        # strip the output from the notebook to create the source code file
+        # first, copy the notebook file to a temporary file in the cache
         source_code_path = ln_setup.settings.storage.cache_dir / filepath.name
         shutil.copy2(filepath, source_code_path)  # copy
-        result = subprocess.run(f"nbstripout {source_code_path}", shell=True)
-        assert result.returncode == 0
-    else:
-        source_code_path = filepath
+        subprocess.run(f"nbstripout {source_code_path}", shell=True, check=True)
     # find initial versions of source codes and html reports
-    initial_report = None
-    initial_source = None
+    prev_report = None
+    prev_source = None
     if transform_family is None:
         transform_family = transform.versions
     if len(transform_family) > 0:
         for prev_transform in transform_family.order_by("-created_at"):
-            # check for id to avoid query
             if prev_transform.latest_report_id is not None:
-                # any previous latest report of this transform is OK!
-                initial_report = prev_transform.latest_report
+                prev_report = prev_transform.latest_report
             if prev_transform.source_code_id is not None:
-                # any previous source code id is OK!
-                initial_source = prev_transform.source_code
+                prev_source = prev_transform.source_code
     ln.settings.silence_file_run_transform_warning = True
     # register the source code
     if transform.source_code is not None:
@@ -173,7 +159,7 @@ def save_run_context_core(
             source_code_path,
             description=f"Source of transform {transform.uid}",
             version=transform.version,
-            is_new_version_of=initial_source,
+            is_new_version_of=prev_source,
             visibility=0,  # hidden file
             run=False,
         )
@@ -207,7 +193,7 @@ def save_run_context_core(
             report_file = ln.Artifact(
                 filepath_html,
                 description=f"Report of run {run.uid}",
-                is_new_version_of=initial_report,
+                is_new_version_of=prev_report,
                 visibility=0,  # hidden file
                 run=False,
             )

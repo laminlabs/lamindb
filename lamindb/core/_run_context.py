@@ -360,7 +360,6 @@ class run_context:
                 run=cls.run,
                 transform=cls.transform,
                 filepath=cls.path,
-                is_consecutive=True,
             )
         return None
 

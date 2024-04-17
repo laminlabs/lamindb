@@ -91,8 +91,10 @@ def test_sync_git_repo():
     assert "saved: Transform" in result.stdout.decode()
     assert "saved: Run" in result.stdout.decode()
     transform = ln.Transform.filter(name="initialized.py").one()
-    assert (
-        transform.reference
-        == "https://github.com/laminlabs/lamin-cli/blob/343ce05f3eb272c9296fcc808624fed2eee8d881/tests/scripts/initialized.py"
+    # the algorithm currently picks different commits dependening on the state of the repo
+    # any of these commits are valid
+    assert transform.reference.endswith("/tests/scripts/initialized.py")
+    assert transform.reference.startswith(
+        "https://github.com/laminlabs/lamin-cli/blob/"
     )
     assert transform.reference_type == "url"
