@@ -51,6 +51,7 @@ def finish(i_saved_the_notebook: bool = False):
         )
     else:
         # scripts
+        # save_run_context_core was already called during ln.track()
         run_context.run.finished_at = datetime.now(timezone.utc)  # update run time
         run_context.run.save()
 
