@@ -61,13 +61,16 @@ def save_run_context_core(
     transform: Transform,
     filepath: Path,
     transform_family: QuerySet | None = None,
-    is_consecutive: bool = True,
     finished_at: bool = False,
 ) -> str | None:
     import lamindb as ln
 
     ln.settings.verbosity = "success"
 
+    # for scripts, things are easy
+    is_consecutive = True
+    source_code_path = filepath
+    # for notebooks, we need more work
     if transform.type == TransformType.notebook:
         try:
             import nbstripout
@@ -115,8 +118,6 @@ def save_run_context_core(
         source_code_path = ln_setup.settings.storage.cache_dir / filepath.name
         shutil.copy2(filepath, source_code_path)  # copy
         subprocess.run(f"nbstripout {source_code_path}", shell=True, check=True)
-    else:
-        source_code_path = filepath
     # find initial versions of source codes and html reports
     prev_report = None
     prev_source = None
