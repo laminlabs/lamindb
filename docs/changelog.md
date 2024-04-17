@@ -1,22 +1,24 @@
 # Changelog
 
-- ♻️ Prettify Vitessce integration [PR](https://github.com/laminlabs/lamindb/pull/1574) [@falexwolf](https://github.com/falexwolf)
-- ♻️ Simplify `ln.finish()` [PR](https://github.com/laminlabs/lamindb/pull/1573) [@falexwolf](https://github.com/falexwolf)
-- 🚚 Deprecate `stage()` in favor of `cache()` [PR](https://github.com/laminlabs/lamindb/pull/1572) [@falexwolf](https://github.com/falexwolf)
-- 🚸 Error if the exact same artifact is returned from trash [PR](https://github.com/laminlabs/lamindb/pull/1550) [@falexwolf](https://github.com/falexwolf)
-- 🚸 Update data lineage information in case transform is re-run [PR](https://github.com/laminlabs/lamindb/pull/1571) [@falexwolf](https://github.com/falexwolf)
-- 📝 Simplify describe fields [PR](https://github.com/laminlabs/lamindb/pull/1569) [@sunnyosun](https://github.com/sunnyosun)
 :::{note}
 
-When upgrading your LaminDB installation to a new `minor` version in `major.minor.patch`, you need to migrate your database by calling `lamin migrate deploy` (migration-centered as opposed to semantic versioning).
+LaminDB implements "migration-based versioning".
 
-This is because LaminDB persists _core metadata_ based on its [slowly migrating core SQL schema](https://github.com/laminlabs/lnschema-core/tree/main/lnschema_core/migrations).
+When upgrading your LaminDB installation to a new `minor` version in `major.minor.patch`, you also migrate your database by calling `lamin migrate deploy`.
 
 :::
 
 ```{eval-rst}
 .. role:: small
 ```
+
+## 0.70
+
+### 0.70.0 {small}`2024-04-17`
+
+- 🚸 Update data source in case transform is re-run [PR](https://github.com/laminlabs/lamindb/pull/1571) [@falexwolf](https://github.com/falexwolf)
+- 🚸 Enable to label transforms via `transform.ulabels` [PR](https://github.com/laminlabs/lnschema-core/pull/370) [@falexwolf](https://github.com/falexwolf)
+- 🚚 Deprecate `stage()` in favor of `cache()` [PR](https://github.com/laminlabs/lamindb/pull/1572) [@falexwolf](https://github.com/falexwolf)
 
 ## 0.69
 
