@@ -1,5 +1,6 @@
 # Changelog
 
+- 🐛 Distinguish replicated output collections from artifacts [PR](https://github.com/laminlabs/lamindb/pull/1575) [@falexwolf](https://github.com/falexwolf)
 - ♻️ Prettify Vitessce integration [PR](https://github.com/laminlabs/lamindb/pull/1574) [@falexwolf](https://github.com/falexwolf)
 - ♻️ Simplify `ln.finish()` [PR](https://github.com/laminlabs/lamindb/pull/1573) [@falexwolf](https://github.com/falexwolf)
 - 🚚 Deprecate `stage()` in favor of `cache()` [PR](https://github.com/laminlabs/lamindb/pull/1572) [@falexwolf](https://github.com/falexwolf)
