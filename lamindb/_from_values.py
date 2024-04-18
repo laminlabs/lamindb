@@ -21,6 +21,7 @@ def get_or_create_records(
     from_public: bool = False,
     organism: Registry | str | None = None,
     public_source: Registry | None = None,
+    mute: bool = False,
 ) -> list[Registry]:
     """Get or create records from iterables."""
     upon_create_search_names = settings.upon_create_search_names
@@ -38,14 +39,18 @@ def get_or_create_records(
 
         # returns existing records & non-existing values
         records, nonexist_values, msg = get_existing_records(
-            iterable_idx=iterable_idx, field=field, **kwargs
+            iterable_idx=iterable_idx, field=field, mute=mute, **kwargs
         )
 
         # new records to be created based on new values
         if len(nonexist_values) > 0:
             if from_public:
                 records_bionty, unmapped_values = create_records_from_public(
-                    iterable_idx=nonexist_values, field=field, msg=msg, **kwargs
+                    iterable_idx=nonexist_values,
+                    field=field,
+                    msg=msg,
+                    mute=mute,
+                    **kwargs,
                 )
                 if len(records_bionty) > 0:
                     msg = ""
@@ -56,16 +61,17 @@ def get_or_create_records(
                 unmapped_values = nonexist_values
             # unmapped new_ids will NOT create records
             if len(unmapped_values) > 0:
-                if len(msg) > 0:
+                if len(msg) > 0 and not mute:
                     logger.success(msg)
                 s = "" if len(unmapped_values) == 1 else "s"
                 print_values = colors.yellow(_print_values(unmapped_values))
                 name = Registry.__name__
                 n_nonval = colors.yellow(f"{len(unmapped_values)} non-validated")
-                logger.warning(
-                    f"{colors.red('did not create')} {name} record{s} for "
-                    f"{n_nonval} {colors.italic(f'{field.field.name}{s}')}: {print_values}"
-                )
+                if not mute:
+                    logger.warning(
+                        f"{colors.red('did not create')} {name} record{s} for "
+                        f"{n_nonval} {colors.italic(f'{field.field.name}{s}')}: {print_values}"
+                    )
         if Registry.__module__.startswith("lnschema_bionty.") or Registry == ULabel:
             if isinstance(iterable, pd.Series):
                 feature = iterable.name
@@ -85,6 +91,7 @@ def get_or_create_records(
 def get_existing_records(
     iterable_idx: pd.Index,
     field: StrField,
+    mute: bool = False,
     **kwargs,
 ):
     model = field.field.model
@@ -96,7 +103,11 @@ def get_existing_records(
     # standardize based on the DB reference
     # log synonyms mapped terms
     result = model.inspect(
-        iterable_idx, field=field, organism=kwargs.get("organism"), mute=True
+        iterable_idx,
+        field=field,
+        organism=kwargs.get("organism"),
+        public_source=kwargs.get("public_source"),
+        mute=True,
     )
     syn_mapper = result.synonyms_mapper
 
@@ -146,9 +157,10 @@ def get_existing_records(
     # no logging if all values are validated
     # logs if there are synonyms
     if len(syn_msg) > 0:
-        if len(msg) > 0:
+        if len(msg) > 0 and not mute:
             logger.success(msg)
-        logger.success(syn_msg)
+        if not mute:
+            logger.success(syn_msg)
         msg = ""
 
     existing_values = iterable_idx.intersection(
@@ -163,6 +175,7 @@ def create_records_from_public(
     iterable_idx: pd.Index,
     field: StrField,
     msg: str = "",
+    mute: bool = False,
     **kwargs,
 ):
     model = field.field.model
@@ -219,19 +232,20 @@ def create_records_from_public(
             s = "" if len(validated) == 1 else "s"
             print_values = colors.purple(_print_values(validated))
             # this is the success msg for existing records in the DB
-            if len(msg) > 0:
+            if len(msg) > 0 and not mute:
                 logger.success(msg)
-            logger.success(
-                "created"
-                f" {colors.purple(f'{len(validated)} {model.__name__} record{s} from Bionty')}"
-                f" matching {colors.italic(f'{field.field.name}')}: {print_values}"
-            )
+            if not mute:
+                logger.success(
+                    "created"
+                    f" {colors.purple(f'{len(validated)} {model.__name__} record{s} from Bionty')}"
+                    f" matching {colors.italic(f'{field.field.name}')}: {print_values}"
+                )
 
     # make sure that synonyms logging appears after the field logging
-    if len(msg_syn) > 0:
+    if len(msg_syn) > 0 and not mute:
         logger.success(msg_syn)
     # warning about multi matches
-    if len(multi_msg) > 0:
+    if len(multi_msg) > 0 and not mute:
         logger.warning(multi_msg)
 
     # return the values that are not found in the bionty reference
