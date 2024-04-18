@@ -1,7 +1,5 @@
 # Changelog
 
-- 🚑️ Fix public_source in inspect [PR](https://github.com/laminlabs/lamindb/pull/1578) [@sunnyosun](https://github.com/sunnyosun)
-- 🚚 Rename resources in `core.storage` & eliminate `.zrad` from code base [PR](https://github.com/laminlabs/lamindb/pull/1577) [@falexwolf](https://github.com/falexwolf)
 :::{note}
 
 LaminDB implements "migration-based versioning".
@@ -15,6 +13,10 @@ When upgrading your LaminDB installation to a new `minor` version in `major.mino
 ```
 
 ## 0.70
+
+### 0.70.1 {small}`2024-04-18`
+
+- 🚑️ Fix public_source in inspect [PR](https://github.com/laminlabs/lamindb/pull/1578) [@sunnyosun](https://github.com/sunnyosun)
 
 ### 0.70.0 {small}`2024-04-17`
 
