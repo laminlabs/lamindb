@@ -212,7 +212,7 @@ def load_to_memory(filepath: UPathStr, stream: bool = False, **kwargs):
     """
     filepath = create_path(filepath)
 
-    if filepath.suffix not in {".h5ad", ".zarr", ".zrad"}:
+    if filepath.suffix not in {".h5ad", ".zarr"}:
         stream = False
 
     if not stream:
@@ -229,7 +229,6 @@ def load_to_memory(filepath: UPathStr, stream: bool = False, **kwargs):
         ".parquet": pd.read_parquet,
         ".fcs": read_fcs,
         ".zarr": read_adata_zarr,
-        ".zrad": read_adata_zarr,
         ".html": load_html,
         ".json": load_json,
         ".h5mu": read_mdata_h5mu,

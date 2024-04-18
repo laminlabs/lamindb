@@ -743,15 +743,15 @@ def backed_access(
 
     if filepath.suffix in (".h5", ".hdf5", ".h5ad"):
         conn, storage = registry.open("h5py", filepath)
-    elif filepath.suffix in (".zarr", ".zrad"):
+    elif filepath.suffix == ".zarr":
         conn, storage = registry.open("zarr", filepath)
     else:
         raise ValueError(
-            "file should have .h5, .hdf5, .h5ad, .zarr or .zrad suffix, not"
+            "file should have .h5, .hdf5, .h5ad, .zarr suffix, not"
             f" {filepath.suffix}."
         )
 
-    if filepath.suffix in (".h5ad", ".zrad"):
+    if filepath.suffix in (".h5ad", ".zarr"):
         return AnnDataAccessor(conn, storage, name)
     else:
         if get_spec(storage).encoding_type == "anndata":

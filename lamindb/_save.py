@@ -286,7 +286,7 @@ def upload_artifact(
     )
     msg = f"storing artifact '{artifact.uid}' at '{storage_path}'"
     if (
-        artifact.suffix in {".zarr", ".zrad"}
+        artifact.suffix == ".zarr"
         and hasattr(artifact, "_memory_rep")
         and artifact._memory_rep is not None
     ):
