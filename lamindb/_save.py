@@ -16,11 +16,11 @@ from lamindb_setup.core.upath import UPath, print_hook
 from lnschema_core.models import Artifact, Registry
 
 from lamindb.core._settings import settings
-from lamindb.core.storage.file import (
+from lamindb.core.storage.paths import (
     attempt_accessing_path,
     auto_storage_key_from_artifact,
     delete_storage_using_key,
-    store_artifact,
+    store_file_or_folder,
 )
 
 try:
@@ -295,6 +295,5 @@ def upload_artifact(
         write_adata_zarr(artifact._memory_rep, storage_path, callback=print_progress)
     elif hasattr(artifact, "_to_store") and artifact._to_store:
         logger.save(msg)
-        store_artifact(artifact._local_filepath, storage_path)
-
+        store_file_or_folder(artifact._local_filepath, storage_path)
     return storage_path
