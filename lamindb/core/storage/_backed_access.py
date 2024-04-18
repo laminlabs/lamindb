@@ -733,7 +733,7 @@ class BackedAccessor:
 
 
 def backed_access(
-    artifact_or_filepath: Artifact | Path, using_key: str | None
+    artifact_or_filepath: Artifact | Path, using_key: str | None = None
 ) -> AnnDataAccessor | BackedAccessor:
     if isinstance(artifact_or_filepath, Artifact):
         filepath = filepath_from_artifact(artifact_or_filepath, using_key=using_key)
@@ -747,7 +747,7 @@ def backed_access(
         conn, storage = registry.open("zarr", filepath)
     else:
         raise ValueError(
-            "file should have .h5, .hdf5, .h5ad, .zarr suffix, not"
+            "object should have .h5, .hdf5, .h5ad, .zarr suffix, not"
             f" {filepath.suffix}."
         )
 
