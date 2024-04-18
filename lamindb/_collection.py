@@ -234,7 +234,7 @@ def mapped(
 ) -> MappedCollection:
     path_list = []
     for artifact in self.artifacts.all():
-        if artifact.suffix not in {".h5ad", ".zrad", ".zarr"}:
+        if artifact.suffix not in {".h5ad", ".zarr"}:
             logger.warning(f"Ignoring artifact with suffix {artifact.suffix}")
             continue
         elif not stream:

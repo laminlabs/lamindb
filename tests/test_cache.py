@@ -3,7 +3,7 @@ from pathlib import Path
 
 import lamindb as ln
 import pytest
-from lamindb.core.storage.file import read_adata_h5ad
+from lamindb.core.storage.paths import read_adata_h5ad
 from lamindb_setup._add_remote_storage import switch_default_storage
 
 
@@ -40,11 +40,11 @@ def test_local_cache():
     artifact.delete(permanent=True, storage=True)
 
     # check directories
-    adata_zarr_pth = Path("test_adata.zrad")
+    adata_zarr_pth = Path("test_adata.zarr")
     adata.write_zarr(adata_zarr_pth)
     assert adata_zarr_pth.exists()
 
-    artifact = ln.Artifact(adata_zarr_pth, key="test_cache.zrad")
+    artifact = ln.Artifact(adata_zarr_pth, key="test_cache.zarr")
     artifact.save()
     assert adata_zarr_pth.exists()
     assert artifact.path.exists()
@@ -54,10 +54,10 @@ def test_local_cache():
 
     # check directories in cache
     cache_dir = ln.setup.settings.storage.cache_dir
-    adata_zarr_pth = cache_dir / "test_adata.zrad"
+    adata_zarr_pth = cache_dir / "test_adata.zarr"
     adata.write_zarr(adata_zarr_pth)
 
-    artifact = ln.Artifact(adata_zarr_pth, key="test_cache.zrad")
+    artifact = ln.Artifact(adata_zarr_pth, key="test_cache.zarr")
     assert adata_zarr_pth.exists()
     artifact.save()
 
@@ -103,9 +103,9 @@ def test_cloud_cache(switch_storage):
     artifact.delete(permanent=True, storage=True)
 
     # test cache for a directory on-disk object outside the cache dir
-    adata_zarr_pth = Path("test_adata.zrad")
+    adata_zarr_pth = Path("test_adata.zarr")
     adata.write_zarr(adata_zarr_pth)
-    artifact = ln.Artifact(adata_zarr_pth, key="test_cache.zrad")
+    artifact = ln.Artifact(adata_zarr_pth, key="test_cache.zarr")
     artifact.save()
     assert adata_zarr_pth.is_dir()
     cache_path = ln.setup.settings.storage.cloud_to_local_no_update(artifact.path)
@@ -115,9 +115,9 @@ def test_cloud_cache(switch_storage):
     artifact.delete(permanent=True, storage=True)
 
     # inside the cache dir
-    adata_zarr_pth = cache_dir / "test_adata.zrad"
+    adata_zarr_pth = cache_dir / "test_adata.zarr"
     adata.write_zarr(adata_zarr_pth)
-    artifact = ln.Artifact(adata_zarr_pth, key="test_cache.zrad")
+    artifact = ln.Artifact(adata_zarr_pth, key="test_cache.zarr")
     assert adata_zarr_pth.exists()
     artifact.save()
     assert not adata_zarr_pth.exists()

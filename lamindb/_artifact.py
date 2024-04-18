@@ -37,7 +37,7 @@ from lamindb.core.storage import (
     size_adata,
     write_to_file,
 )
-from lamindb.core.storage.file import (
+from lamindb.core.storage.paths import (
     auto_storage_key_from_artifact,
     auto_storage_key_from_artifact_uid,
     filepath_from_artifact,
@@ -50,8 +50,8 @@ from .core._data import (
     save_feature_set_links,
     save_feature_sets,
 )
-from .core.storage.file import AUTO_KEY_PREFIX
-from .core.storage.object import _mudata_is_installed
+from .core.storage.objects import _mudata_is_installed
+from .core.storage.paths import AUTO_KEY_PREFIX
 
 if TYPE_CHECKING:
     from lamindb_setup.core.types import UPathStr
@@ -167,7 +167,7 @@ def process_data(
         # Alex: I don't understand the line below
         if path.suffixes == []:
             path = path.with_suffix(suffix)
-        if suffix not in {".zarr", ".zrad"}:
+        if suffix != ".zarr":
             write_to_file(data, path)
         use_existing_storage_key = False
     else:
@@ -188,11 +188,7 @@ def get_stat_or_artifact(
     n_objects = None
     if settings.upon_file_create_skip_size_hash:
         return None, None, None, n_objects
-    if (
-        suffix in {".zarr", ".zrad"}
-        and memory_rep is not None
-        and isinstance(memory_rep, AnnData)
-    ):
+    if suffix == ".zarr" and memory_rep is not None and isinstance(memory_rep, AnnData):
         size = size_adata(memory_rep)
         return size, None, None, n_objects
     stat = path.stat()  # one network request
@@ -450,7 +446,12 @@ def data_is_anndata(data: AnnData | UPathStr):
     if isinstance(data, AnnData):
         return True
     if isinstance(data, (str, Path, UPath)):
-        return Path(data).suffix in {".h5ad", ".zrad"}
+        if Path(data).suffix == ".h5ad":
+            return True
+        elif Path(data).suffix == ".zarr":
+            raise NotImplementedError(
+                "auto-detecting AnnData from Zarr is not yet supported"
+            )
     return False
 
 
@@ -832,7 +833,7 @@ def replace(
 
 # docstring handled through attach_func_to_class_method
 def backed(self, is_run_input: bool | None = None) -> AnnDataAccessor | BackedAccessor:
-    suffixes = (".h5", ".hdf5", ".h5ad", ".zrad", ".zarr")
+    suffixes = (".h5", ".hdf5", ".h5ad", ".zarr")
     if self.suffix not in suffixes:
         raise ValueError(
             "Artifact should have a zarr or h5 object as the underlying data, please"

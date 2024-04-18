@@ -109,23 +109,23 @@ def read_adata_h5ad(filepath, **kwargs) -> ad.AnnData:
         return adata
 
 
-def store_artifact(localpath: UPathStr, storagepath: UPath) -> None:
-    """Store directory or file to configured storage location."""
-    localpath = Path(localpath)
-    if not isinstance(storagepath, LocalPathClasses):
+def store_file_or_folder(local_path: UPathStr, storage_path: UPath) -> None:
+    """Store file or folder (localpath) at storagepath."""
+    local_path = Path(local_path)
+    if not isinstance(storage_path, LocalPathClasses):
         # this uploads files and directories
-        storagepath.upload_from(localpath, recursive=True, print_progress=True)
+        storage_path.upload_from(local_path, recursive=True, print_progress=True)
     else:  # storage path is local
-        storagepath.parent.mkdir(parents=True, exist_ok=True)
-        if localpath.is_file():
+        storage_path.parent.mkdir(parents=True, exist_ok=True)
+        if local_path.is_file():
             try:
-                shutil.copyfile(localpath, storagepath)
+                shutil.copyfile(local_path, storage_path)
             except shutil.SameFileError:
                 pass
         else:
-            if storagepath.exists():
-                shutil.rmtree(storagepath)
-            shutil.copytree(localpath, storagepath)
+            if storage_path.exists():
+                shutil.rmtree(storage_path)
+            shutil.copytree(local_path, storage_path)
 
 
 def delete_storage_using_key(
@@ -212,7 +212,7 @@ def load_to_memory(filepath: UPathStr, stream: bool = False, **kwargs):
     """
     filepath = create_path(filepath)
 
-    if filepath.suffix not in {".h5ad", ".zarr", ".zrad"}:
+    if filepath.suffix not in {".h5ad", ".zarr"}:
         stream = False
 
     if not stream:
@@ -229,7 +229,6 @@ def load_to_memory(filepath: UPathStr, stream: bool = False, **kwargs):
         ".parquet": pd.read_parquet,
         ".fcs": read_fcs,
         ".zarr": read_adata_zarr,
-        ".zrad": read_adata_zarr,
         ".html": load_html,
         ".json": load_json,
         ".h5mu": read_mdata_h5mu,
