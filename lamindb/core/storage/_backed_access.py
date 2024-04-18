@@ -751,7 +751,7 @@ def backed_access(
             f" {filepath.suffix}."
         )
 
-    if filepath.suffix in (".h5ad", ".zarr"):
+    if filepath.suffix == ".h5ad":
         return AnnDataAccessor(conn, storage, name)
     else:
         if get_spec(storage).encoding_type == "anndata":

@@ -1,4 +1,5 @@
 import shutil
+from pathlib import Path
 
 import h5py
 import lamindb as ln
@@ -6,7 +7,7 @@ import numpy as np
 import pandas as pd
 import pytest
 import zarr
-from lamindb.core.storage._backed_access import backed_access
+from lamindb.core.storage._backed_access import BackedAccessor, backed_access
 from lamindb.core.storage._zarr import read_adata_zarr, write_adata_zarr
 from lamindb.core.storage.objects import infer_suffix, write_to_file
 from lamindb.core.storage.paths import read_adata_h5ad
@@ -180,3 +181,16 @@ def test_backed_bad_format(bad_adata_path):
 
     access.close()
     bad_adata_path.unlink()
+
+
+def test_backed_zarr_not_adata():
+    zarr_pth = Path("./not_adata.zarr")
+    store = zarr.open(zarr_pth, mode="w")
+    store["test"] = "test"
+
+    access = backed_access(zarr_pth)
+
+    assert isinstance(access, BackedAccessor)
+    assert access.storage["test"] == "test"
+
+    shutil.rmtree(zarr_pth)
