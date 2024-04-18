@@ -134,6 +134,7 @@ def from_values(
     field: StrField | None = None,
     organism: Registry | str | None = None,
     public_source: Registry | None = None,
+    mute: bool = False,
 ) -> list[Registry]:
     """{}."""
     from_public = True if cls.__module__.startswith("lnschema_bionty.") else False
@@ -144,6 +145,7 @@ def from_values(
         from_public=from_public,
         organism=organism,
         public_source=public_source,
+        mute=mute,
     )
 
 
