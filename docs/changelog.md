@@ -1,5 +1,6 @@
 # Changelog
 
+- 🚚 Rename resources in `core.storage` & eliminate `.zrad` from code base [PR](https://github.com/laminlabs/lamindb/pull/1577) [@falexwolf](https://github.com/falexwolf)
 :::{note}
 
 LaminDB implements "migration-based versioning".
