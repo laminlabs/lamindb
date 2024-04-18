@@ -37,7 +37,7 @@ from lamindb.core.storage import (
     size_adata,
     write_to_file,
 )
-from lamindb.core.storage.file import (
+from lamindb.core.storage.paths import (
     auto_storage_key_from_artifact,
     auto_storage_key_from_artifact_uid,
     filepath_from_artifact,
@@ -50,8 +50,8 @@ from .core._data import (
     save_feature_set_links,
     save_feature_sets,
 )
-from .core.storage.file import AUTO_KEY_PREFIX
-from .core.storage.object import _mudata_is_installed
+from .core.storage.objects import _mudata_is_installed
+from .core.storage.paths import AUTO_KEY_PREFIX
 
 if TYPE_CHECKING:
     from lamindb_setup.core.types import UPathStr

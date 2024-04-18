@@ -22,7 +22,7 @@ from lamindb_setup.core.upath import UPath, create_mapper, infer_filesystem
 from lnschema_core import Artifact
 from packaging import version
 
-from lamindb.core.storage.file import filepath_from_artifact
+from lamindb.core.storage.paths import filepath_from_artifact
 
 if TYPE_CHECKING:
     from pathlib import Path

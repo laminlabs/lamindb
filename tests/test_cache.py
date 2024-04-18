@@ -3,7 +3,7 @@ from pathlib import Path
 
 import lamindb as ln
 import pytest
-from lamindb.core.storage.file import read_adata_h5ad
+from lamindb.core.storage.paths import read_adata_h5ad
 from lamindb_setup._add_remote_storage import switch_default_storage
 
 
