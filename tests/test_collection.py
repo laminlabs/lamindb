@@ -176,7 +176,7 @@ def test_collection_mapped(adata, adata2):
     adata2.X = csr_matrix(adata2.X)
     adata2.layers["layer1"] = adata2.X.copy()
     adata2.obs["feat2"] = adata2.obs["feat1"]
-    artifact2 = ln.Artifact.from_anndata(adata2, description="Part two", format="zrad")
+    artifact2 = ln.Artifact.from_anndata(adata2, description="Part two", format="zarr")
     artifact2.save()
     adata3 = adata2.copy()
     adata3.var_names = ["A", "B", "C"]

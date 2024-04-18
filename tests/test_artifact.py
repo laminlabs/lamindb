@@ -72,14 +72,6 @@ def tsv_file():
 
 
 @pytest.fixture(scope="module")
-def zrad_file():
-    filepath = Path("test.zrad")
-    pd.DataFrame([1, 2]).to_csv(filepath, sep="\t")
-    yield filepath
-    filepath.unlink()
-
-
-@pytest.fixture(scope="module")
 def zip_file():
     filepath = Path("test.zip")
     pd.DataFrame([1, 2]).to_csv(filepath, sep="\t")
@@ -722,16 +714,13 @@ def test_serialize_paths():
     assert isinstance(filepath, CloudPath)
 
 
-def test_load_to_memory(tsv_file, zrad_file, zip_file, fcs_file):
+def test_load_to_memory(tsv_file, zip_file, fcs_file):
     # tsv
     df = read_tsv(tsv_file)
     assert isinstance(df, pd.DataFrame)
     # fcs
     adata = read_fcs(fcs_file)
     assert isinstance(adata, ad.AnnData)
-    # other
-    with pytest.raises(NotADirectoryError):
-        load_to_memory(zrad_file)
     # none
     load_to_memory(zip_file)
 
@@ -753,10 +742,10 @@ def test_folder_upload_cache(adata):
     def callback(*args, **kwargs):
         pass
 
-    zarr_path = Path("./test_adata.zrad")
+    zarr_path = Path("./test_adata.zarr")
     write_adata_zarr(adata, zarr_path, callback)
 
-    artifact = ln.Artifact(zarr_path, key="test_adata.zrad")
+    artifact = ln.Artifact(zarr_path, key="test_adata.zarr")
     artifact.save()
 
     assert isinstance(artifact.path, CloudPath) and artifact.path.exists()
@@ -794,10 +783,6 @@ def test_adata_suffix(adata):
     assert artifact.suffix == ".h5ad"
     artifact = ln.Artifact.from_anndata(adata, key="test_.zarr")
     assert artifact.suffix == ".zarr"
-    artifact = ln.Artifact.from_anndata(adata, key="test_.zrad")
-    assert artifact.suffix == ".zrad"
-    artifact = ln.Artifact.from_anndata(adata, format="zrad", key="test_.zrad")
-    assert artifact.suffix == ".zrad"
 
     with pytest.raises(ValueError) as error:
         artifact = ln.Artifact.from_anndata(adata, key="test_.def")
@@ -805,13 +790,6 @@ def test_adata_suffix(adata):
         error.exconly().partition(",")[0]
         == "ValueError: Error when specifying AnnData storage format"
     )
-
-    # with pytest.raises(ValueError) as error:
-    #     artifact = ln.Artifact.from_anndata(adata, format="h5ad", key="test.zrad")
-    # assert (
-    #     error.exconly().partition(",")[0]
-    #     == "ValueError: The suffix '.zrad' of the provided key is incorrect"
-    # )
 
     with pytest.raises(ValueError) as error:
         artifact = ln.Artifact.from_anndata(adata, key="test_")
