@@ -191,6 +191,6 @@ def test_backed_zarr_not_adata():
     access = backed_access(zarr_pth)
 
     assert isinstance(access, BackedAccessor)
-    assert access.storage["test"] == "test"
+    assert access.storage["test"][...] == "test"
 
     shutil.rmtree(zarr_pth)
