@@ -1,5 +1,6 @@
 # Changelog
 
+- 🐛 Fix backed for non-adata zarr [PR](https://github.com/laminlabs/lamindb/pull/1579) [@Koncopd](https://github.com/Koncopd)
 :::{note}
 
 LaminDB implements "migration-based versioning".
