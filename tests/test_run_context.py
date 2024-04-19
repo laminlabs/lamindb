@@ -98,3 +98,13 @@ def test_sync_git_repo():
         "https://github.com/laminlabs/lamin-cli/blob/"
     )
     assert transform.reference_type == "url"
+
+
+def track_notebook_manually():
+    transform = ln.Transform(name="My notebook", type="notebook")
+    with pytest.raises(ValueError) as error:
+        ln.track(transform=transform)
+    assert (
+        error.exconly()
+        == "Use ln.track() without passing transform in a notebook - metadata is automatically parsed"
+    )
