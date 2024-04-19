@@ -10,3 +10,4 @@ def test_all_notebooks():
     env = os.environ
     env["LAMIN_TESTING"] = "true"
     nbproject_test.execute_notebooks(notebook_dir)
+    del env["LAMIN_TESTING"]
