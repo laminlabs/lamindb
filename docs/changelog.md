@@ -1,5 +1,6 @@
 # Changelog
 
+- ♻️ Separate `VitessceConfig` from its referenced datasets [PR](https://github.com/laminlabs/lamindb/pull/1582) [@falexwolf](https://github.com/falexwolf)
 - 💚 Fix notebook tests [PR](https://github.com/laminlabs/lamindb/pull/1583) [@falexwolf](https://github.com/falexwolf)
 - 🚸 Replace `i_saved_the_notebook` with timestamp comparison [PR](https://github.com/laminlabs/lamindb/pull/1581) [@falexwolf](https://github.com/falexwolf)
 - 🐛 Fix backed for non-adata zarr [PR](https://github.com/laminlabs/lamindb/pull/1579) [@Koncopd](https://github.com/Koncopd)
