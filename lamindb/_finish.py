@@ -4,6 +4,7 @@ import os
 import shutil
 import subprocess
 from datetime import datetime, timezone
+from pathlib import Path
 from typing import TYPE_CHECKING
 
 import lamindb_setup as ln_setup
@@ -13,8 +14,6 @@ from lnschema_core.types import TransformType
 from .core._run_context import is_run_from_ipython, run_context
 
 if TYPE_CHECKING:
-    from pathlib import Path
-
     from lnschema_core import Run, Transform
 
     from ._query_set import QuerySet
@@ -24,23 +23,19 @@ class CallFinishInLastCell(SystemExit):
     pass
 
 
-def finish(i_saved_the_notebook: bool = False):
+def get_seconds_since_modified(filepath) -> float:
+    return datetime.now().timestamp() - Path(filepath).stat().st_mtime
+
+
+def finish():
     """Mark a tracked run as finished.
 
-    When run in notebooks, save the run report to your default storage location.
-
-    Args:
-        i_saved_the_notebook: Indicate that you saved the notebook in your
-            editor (JupyterLab, VSCode, etc.).
+    If run in a notebook, it saves the run report & source code to your default storage location.
     """
-    if is_run_from_ipython:
-        # notebooks
-        from nbproject.dev import read_notebook
-        from nbproject.dev._check_last_cell import check_last_cell
-
-        if not i_saved_the_notebook and not ln_setup._TESTING:
+    if is_run_from_ipython:  # notebooks
+        if get_seconds_since_modified(run_context.path) > 3 and not ln_setup._TESTING:
             logger.error(
-                "Please pass `i_saved_the_notebook=True` to `ln.finish()`, save the notebook, and re-run this cell."
+                "Please save the notebook in your editor right before running `ln.finish()`"
             )
             return None
         save_run_context_core(
@@ -49,8 +44,7 @@ def finish(i_saved_the_notebook: bool = False):
             filepath=run_context.path,
             finished_at=True,
         )
-    else:
-        # scripts
+    else:  # scripts
         # save_run_context_core was already called during ln.track()
         run_context.run.finished_at = datetime.now(timezone.utc)  # update run time
         run_context.run.save()
