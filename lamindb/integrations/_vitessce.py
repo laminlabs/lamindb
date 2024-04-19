@@ -51,6 +51,7 @@ def save_vitessce_config(vitessce_config: VitessceConfig, description: str) -> A
     # link inputs
     with logger.mute():
         transform = Transform(name="vitessce_export", type="function", version="1")
+        transform.save()
     run = Run(transform=transform)
     run.save()
     run.input_artifacts.set(input_artifacts)
