@@ -1,9 +1,5 @@
 # Changelog
 
-- ♻️ Separate `VitessceConfig` from its referenced datasets [PR](https://github.com/laminlabs/lamindb/pull/1582) [@falexwolf](https://github.com/falexwolf)
-- 💚 Fix notebook tests [PR](https://github.com/laminlabs/lamindb/pull/1583) [@falexwolf](https://github.com/falexwolf)
-- 🚸 Replace `i_saved_the_notebook` with timestamp comparison [PR](https://github.com/laminlabs/lamindb/pull/1581) [@falexwolf](https://github.com/falexwolf)
-- 🐛 Fix backed for non-adata zarr [PR](https://github.com/laminlabs/lamindb/pull/1579) [@Koncopd](https://github.com/Koncopd)
 :::{note}
 
 LaminDB implements "migration-based versioning".
@@ -18,9 +14,14 @@ When upgrading your LaminDB installation to a new `minor` version in `major.mino
 
 ## 0.70
 
+### 0.70.2 {small}`2024-04-19`
+
+- ♻️ In Vitessce integration, separate `VitessceConfig` from its referenced artifacts [PR](https://github.com/laminlabs/lamindb/pull/1582) [@falexwolf](https://github.com/falexwolf)
+- 🚸 In `ln.finish()`, remove flag `i_saved_the_notebook` [PR](https://github.com/laminlabs/lamindb/pull/1581) [@falexwolf](https://github.com/falexwolf)
+
 ### 0.70.1 {small}`2024-04-18`
 
-- 🚑️ Fix public_source in inspect [PR](https://github.com/laminlabs/lamindb/pull/1578) [@sunnyosun](https://github.com/sunnyosun)
+- 🐛 Fix `public_source` in inspect [PR](https://github.com/laminlabs/lamindb/pull/1578) [@sunnyosun](https://github.com/sunnyosun)
 
 ### 0.70.0 {small}`2024-04-17`
 
