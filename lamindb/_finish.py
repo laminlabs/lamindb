@@ -20,37 +20,37 @@ if TYPE_CHECKING:
     from ._query_set import QuerySet
 
 
-class CallFinishInLastCell(SystemExit):
+class TrackNotCalled(SystemExit):
     pass
 
 
-def finish(i_saved_the_notebook: bool = False):
+class NotebookNotSaved(SystemExit):
+    pass
+
+
+def get_seconds_since_modified(filepath) -> float:
+    return datetime.now().timestamp() - filepath.stat().st_mtime
+
+
+def finish():
     """Mark a tracked run as finished.
 
-    When run in notebooks, save the run report to your default storage location.
-
-    Args:
-        i_saved_the_notebook: Indicate that you saved the notebook in your
-            editor (JupyterLab, VSCode, etc.).
+    If run in a notebook, it saves the run report & source code to your default storage location.
     """
-    if is_run_from_ipython:
-        # notebooks
-        from nbproject.dev import read_notebook
-        from nbproject.dev._check_last_cell import check_last_cell
-
-        if not i_saved_the_notebook and not ln_setup._TESTING:
-            logger.error(
-                "Please pass `i_saved_the_notebook=True` to `ln.finish()`, save the notebook, and re-run this cell."
+    if run_context.path is None:
+        raise TrackNotCalled("Please run `ln.track()` before `ln.finish()`")
+    if is_run_from_ipython:  # notebooks
+        if get_seconds_since_modified(run_context.path) > 3 and not ln_setup._TESTING:
+            raise NotebookNotSaved(
+                "Please save the notebook in your editor right before running `ln.finish()`"
             )
-            return None
         save_run_context_core(
             run=run_context.run,
             transform=run_context.transform,
             filepath=run_context.path,
             finished_at=True,
         )
-    else:
-        # scripts
+    else:  # scripts
         # save_run_context_core was already called during ln.track()
         run_context.run.finished_at = datetime.now(timezone.utc)  # update run time
         run_context.run.save()
@@ -98,7 +98,7 @@ def save_run_context_core(
         # log_level is set to 40 to silence the nbconvert logging
         subprocess.run(
             "jupyter nbconvert --to html"
-            f" {filepath.as_posix()} --Application.log_level=40",
+            f" '{filepath.as_posix()}' --Application.log_level=40",
             shell=True,
             check=True,
         )
@@ -118,7 +118,7 @@ def save_run_context_core(
         # first, copy the notebook file to a temporary file in the cache
         source_code_path = ln_setup.settings.storage.cache_dir / filepath.name
         shutil.copy2(filepath, source_code_path)  # copy
-        subprocess.run(f"nbstripout {source_code_path}", shell=True, check=True)
+        subprocess.run(f"nbstripout '{source_code_path}'", shell=True, check=True)
     # find initial versions of source codes and html reports
     prev_report = None
     prev_source = None
@@ -139,9 +139,8 @@ def save_run_context_core(
             if os.getenv("LAMIN_TESTING") is None:
                 # in test, auto-confirm overwrite
                 response = input(
-                    "You try to save a new notebook source code with the same version"
-                    f" '{transform.version}'; do you want to replace the content of the"
-                    f" existing source code {transform.source_code}? (y/n)"
+                    f"You are about to overwrite existing source code (hash {transform.source_code.hash}) for transform version"
+                    f" '{transform.version}'. Proceed? (y/n)"
                 )
             else:
                 response = "y"
@@ -149,10 +148,7 @@ def save_run_context_core(
                 transform.source_code.replace(source_code_path)
                 transform.source_code.save()
             else:
-                logger.warning(
-                    "Please create a new version of the notebook via `lamin track"
-                    " <filepath>` and re-run the notebook"
-                )
+                logger.warning("Please re-run `ln.track()` to make a new version")
                 return "rerun-the-notebook"
     else:
         source_code = ln.Artifact(
@@ -207,8 +203,11 @@ def save_run_context_core(
     transform.save()
     if transform.type == TransformType.notebook:
         logger.success(f"saved transform.latest_report: {transform.latest_report}")
-    identifier = ln_setup.settings.instance.slug
-    logger.success(f"go to: https://lamin.ai/{identifier}/transform/{transform.uid}")
+    if ln_setup.settings.instance.is_remote:
+        identifier = ln_setup.settings.instance.slug
+        logger.success(
+            f"go to: https://lamin.ai/{identifier}/transform/{transform.uid}"
+        )
     # because run & transform changed, update the global run_context
     run_context.run = run
     run_context.transform = transform
