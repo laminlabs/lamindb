@@ -4,7 +4,6 @@ import os
 import shutil
 import subprocess
 from datetime import datetime, timezone
-from pathlib import Path
 from typing import TYPE_CHECKING
 
 import lamindb_setup as ln_setup
@@ -14,17 +13,23 @@ from lnschema_core.types import TransformType
 from .core._run_context import is_run_from_ipython, run_context
 
 if TYPE_CHECKING:
+    from pathlib import Path
+
     from lnschema_core import Run, Transform
 
     from ._query_set import QuerySet
 
 
-class CallFinishInLastCell(SystemExit):
+class TrackNotCalled(SystemExit):
+    pass
+
+
+class NotebookNotSaved(SystemExit):
     pass
 
 
 def get_seconds_since_modified(filepath) -> float:
-    return datetime.now().timestamp() - Path(filepath).stat().st_mtime
+    return datetime.now().timestamp() - filepath.stat().st_mtime
 
 
 def finish():
@@ -32,12 +37,13 @@ def finish():
 
     If run in a notebook, it saves the run report & source code to your default storage location.
     """
+    if run_context.path is None:
+        raise TrackNotCalled("Please run `ln.track()` before `ln.finish()`")
     if is_run_from_ipython:  # notebooks
         if get_seconds_since_modified(run_context.path) > 3 and not ln_setup._TESTING:
-            logger.error(
+            raise NotebookNotSaved(
                 "Please save the notebook in your editor right before running `ln.finish()`"
             )
-            return None
         save_run_context_core(
             run=run_context.run,
             transform=run_context.transform,
@@ -135,7 +141,7 @@ def save_run_context_core(
                 response = input(
                     "You try to save a new notebook source code with the same version"
                     f" '{transform.version}'; do you want to replace the content of the"
-                    f" existing source code {transform.source_code}? (y/n)"
+                    f" existing source code (hash {transform.source_code.hash})? (y/n)"
                 )
             else:
                 response = "y"
@@ -143,10 +149,7 @@ def save_run_context_core(
                 transform.source_code.replace(source_code_path)
                 transform.source_code.save()
             else:
-                logger.warning(
-                    "Please create a new version of the notebook via `lamin track"
-                    " <filepath>` and re-run the notebook"
-                )
+                logger.warning("Please re-run `ln.track()` to make a new version")
                 return "rerun-the-notebook"
     else:
         source_code = ln.Artifact(
@@ -201,8 +204,11 @@ def save_run_context_core(
     transform.save()
     if transform.type == TransformType.notebook:
         logger.success(f"saved transform.latest_report: {transform.latest_report}")
-    identifier = ln_setup.settings.instance.slug
-    logger.success(f"go to: https://lamin.ai/{identifier}/transform/{transform.uid}")
+    if ln_setup.settings.instance.is_remote:
+        identifier = ln_setup.settings.instance.slug
+        logger.success(
+            f"go to: https://lamin.ai/{identifier}/transform/{transform.uid}"
+        )
     # because run & transform changed, update the global run_context
     run_context.run = run
     run_context.transform = transform
