@@ -139,9 +139,8 @@ def save_run_context_core(
             if os.getenv("LAMIN_TESTING") is None:
                 # in test, auto-confirm overwrite
                 response = input(
-                    "You try to save a new notebook source code with the same version"
-                    f" '{transform.version}'; do you want to replace the content of the"
-                    f" existing source code (hash {transform.source_code.hash})? (y/n)"
+                    f"You are about to overwrite existing source code (hash {transform.source_code.hash}) for transform version"
+                    f" '{transform.version}'. Proceed? (y/n)"
                 )
             else:
                 response = "y"
