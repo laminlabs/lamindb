@@ -19,6 +19,8 @@ if TYPE_CHECKING:
 def save_vitessce_config(vitessce_config: VitessceConfig, description: str) -> Artifact:
     """Validates and saves a ``VitessceConfig`` object.
 
+    Example: :doc:`docs:vitessce`.
+
     Args:
         vitessce_config (``VitessceConfig``): A VitessceConfig object.
         description: A description for the artifact.
