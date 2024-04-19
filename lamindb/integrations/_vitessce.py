@@ -8,6 +8,8 @@ import lamindb_setup as ln_setup
 from lamin_utils import logger
 
 from lamindb._artifact import Artifact
+from lamindb._run import Run
+from lamindb._transform import Transform
 
 if TYPE_CHECKING:
     from vitessce import VitessceConfig
@@ -15,36 +17,54 @@ if TYPE_CHECKING:
 
 # tested & context in https://github.com/laminlabs/lamin-spatial
 def save_vitessce_config(vitessce_config: VitessceConfig, description: str) -> Artifact:
-    """Takes a ``VitessceConfig`` object and saves it as an artifact.
+    """Validates and saves a ``VitessceConfig`` object.
+
+    Example: :doc:`docs:vitessce`.
 
     Args:
         vitessce_config (``VitessceConfig``): A VitessceConfig object.
         description: A description for the artifact.
-    """
-    # can't assume vitessce is installed
-    from vitessce import VitessceConfig
 
-    # create a local _data export_ in a folder
-    timestamp = datetime.now(timezone.utc).isoformat().split(".")[0]
-    vitesse_export_folder = f"./vitessce_export_{timestamp}.vitessce"
-    vitessce_config.export(to="files", base_url="", out_dir=vitesse_export_folder)
-    logger.important(f"local export: {vitesse_export_folder}")
-    # create an artifact and store the local export in th cloud
-    artifact = Artifact(vitesse_export_folder, description=description)
-    artifact.save()
-    # create a JSON export that points to the data in the cloud
-    config_dict = vitessce_config.to_dict(base_url=artifact.path.to_url())
-    logger.important(f"base url: {artifact.path.to_url()}")
-    # manually place that JSON export into the local data export folder
-    config_filename = "vitessce_config.json"
-    config_file_local_path = f"{vitesse_export_folder}/{config_filename}"
+    .. versionchanged:: 0.70.2
+        This function no longer saves the dataset. It only saves the VitessceConfig object.
+    """
+    vc_dict = vitessce_config.to_dict()
+    # validate
+    datasets = vc_dict["datasets"]
+    input_artifacts = []
+    for dataset in datasets:
+        if "files" not in dataset:
+            raise ValueError("Each dataset must have a 'files' key.")
+        for file in dataset["files"]:
+            if "url" not in file:
+                raise ValueError("Each file must have a 'url' key.")
+            filename = file["url"].split("/")[-1]
+            assert filename.endswith((".anndata.zarr", ".spatialdata.zarr", ".zarr"))
+            filestem = (
+                filename.replace(".anndata.zarr", "")
+                .replace(".spatialdata.zarr", "")
+                .replace(".zarr", "")
+            )
+            artifact = Artifact.filter(uid__startswith=filestem).one_or_none()
+            if artifact is None:
+                logger.warning(f"could not find dataset in lamindb: {dataset}")
+            else:
+                input_artifacts.append(artifact)
+    # link inputs
+    with logger.mute():
+        transform = Transform(name="save_vitessce_config", type="function", version="1")
+        transform.save()
+    run = Run(transform=transform)
+    run.save()
+    run.input_artifacts.set(input_artifacts)
+    # create a JSON export
+    config_file_local_path = (
+        ln_setup.settings.storage.cache_dir / "config.vitessce.json"
+    )
     with open(config_file_local_path, "w") as file:
-        json.dump(config_dict, file)
-    # manually place that JSON export into the previously registered artifact folder
-    config_file_path = artifact.path / config_filename
-    config_file_path.upload_from(config_file_local_path)
-    # log the the URLs
-    logger.important(f"config url: {config_file_path.to_url()}")
+        json.dump(vc_dict, file)
+    artifact = Artifact(config_file_local_path, description=description, run=run)
+    artifact.save()
     slug = ln_setup.settings.instance.slug
     logger.important(f"go to: https://lamin.ai/{slug}/artifact/{artifact.uid}")
     return artifact
