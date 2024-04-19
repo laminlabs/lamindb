@@ -1,5 +1,6 @@
 # Changelog
 
+- 🚸 Raise error if transforms of type notebook or script are passed manually [PR](https://github.com/laminlabs/lamindb/pull/1584) [@falexwolf](https://github.com/falexwolf)
 :::{note}
 
 LaminDB implements "migration-based versioning".
