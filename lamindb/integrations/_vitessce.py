@@ -45,12 +45,12 @@ def save_vitessce_config(vitessce_config: VitessceConfig, description: str) -> A
             )
             artifact = Artifact.filter(uid__startswith=filestem).one_or_none()
             if artifact is None:
-                logger.warning(f"could not find dataset: {dataset} in lamindb")
+                logger.warning(f"could not find dataset in lamindb: {dataset}")
             else:
                 input_artifacts.append(artifact)
     # link inputs
     with logger.mute():
-        transform = Transform(name="vitessce_export", type="function", version="1")
+        transform = Transform(name="save_vitessce_config", type="function", version="1")
         transform.save()
     run = Run(transform=transform)
     run.save()
