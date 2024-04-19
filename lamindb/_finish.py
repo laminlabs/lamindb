@@ -40,7 +40,10 @@ def finish():
     if run_context.path is None:
         raise TrackNotCalled("Please run `ln.track()` before `ln.finish()`")
     if is_run_from_ipython:  # notebooks
-        if get_seconds_since_modified(run_context.path) > 3 and not ln_setup._TESTING:
+        if (
+            get_seconds_since_modified(run_context.path) > 3
+            and os.getenv("LAMIN_TESTING") is None
+        ):
             raise NotebookNotSaved(
                 "Please save the notebook in your editor right before running `ln.finish()`"
             )
