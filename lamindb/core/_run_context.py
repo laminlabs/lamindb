@@ -306,9 +306,10 @@ class run_context:
             if not is_tracked:
                 raise_transform_settings_error()
         else:
-            if transform.type == "notebook":
+            if transform.type in {"notebook", "script"}:
                 raise ValueError(
-                    "Use ln.track() without passing transform in a notebook - metadata is automatically parsed"
+                    "Use ln.track() without passing transform in a notebook or script"
+                    " - metadata is automatically parsed"
                 )
             transform_exists = None
             if transform.id is not None:
