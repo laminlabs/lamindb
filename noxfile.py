@@ -74,6 +74,7 @@ def install(session, group):
         session.run(
             *"uv pip install --system --no-deps git+https://github.com/laminlabs/wetlab".split()
         )
+        session.run(*"uv pip install --system vitessce".split())
     elif group == "docs":
         extras += "bionty"
         session.run(*"uv pip install --system mudata".split())
