@@ -17,7 +17,7 @@ from lamindb._artifact import (
     process_data,
 )
 from lamindb.core._settings import settings
-from lamindb.core.storage._zarr import write_adata_zarr
+from lamindb.core.storage._zarr import write_adata_zarr, zarr_is_adata
 from lamindb.core.storage.paths import (
     AUTO_KEY_PREFIX,
     auto_storage_key_from_artifact_uid,
@@ -758,6 +758,7 @@ def test_folder_upload_cache(adata):
     artifact.save()
 
     assert isinstance(artifact.path, CloudPath) and artifact.path.exists()
+    assert zarr_is_adata(artifact.path)
 
     cache_path = settings._storage_settings.cloud_to_local_no_update(artifact.path)
     assert isinstance(artifact.load(), ad.AnnData)
