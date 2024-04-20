@@ -458,6 +458,8 @@ def data_is_anndata(data: AnnData | UPathStr):
         if data_path.suffix == ".h5ad":
             return True
         elif data_path.suffix == ".zarr":
+            if ".anndata" in data_path.suffixes:
+                return True
             # check only for local, expensive for cloud
             if fsspec.utils.get_protocol(data_path) == "file":
                 return zarr_is_adata(data_path)

@@ -158,6 +158,8 @@ def get_test_filepaths(request):  # -> Tuple[bool, Path, Path, Path, str]
 
 def test_data_is_anndata_paths():
     assert data_is_anndata("something.h5ad")
+    assert data_is_anndata("something.anndata.zarr")
+    assert data_is_anndata("s3://somewhere/something.anndata.zarr")
     assert not data_is_anndata("s3://somewhere/something.zarr")
 
 
