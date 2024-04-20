@@ -473,7 +473,7 @@ def data_is_mudata(data: MuData | UPathStr):
 
         if isinstance(data, MuData):
             return True
-    if isinstance(data, (str, Path, UPath)):
+    if isinstance(data, (str, Path)):
         return UPath(data).suffix in {".h5mu"}
     return False
 
@@ -483,12 +483,19 @@ def _check_accessor_artifact(data: Any, accessor: str | None = None):
         if isinstance(data, pd.DataFrame):
             logger.warning("data is a DataFrame, please use .from_df()")
             accessor = "DataFrame"
-        elif data_is_anndata(data):
-            logger.warning("data is an AnnData, please use .from_anndata()")
+            return accessor
+
+        data_is_path = isinstance(data, (str, Path))
+        if data_is_anndata(data):
+            if not data_is_path:
+                logger.warning("data is an AnnData, please use .from_anndata()")
             accessor = "AnnData"
         elif data_is_mudata(data):
-            logger.warning("data is a MuData, please use .from_mudata()")
+            if not data_is_path:
+                logger.warning("data is a MuData, please use .from_mudata()")
             accessor = "MuData"
+        elif not data_is_path:  # UPath is a subclass of Path
+            raise TypeError("data has to be a string, Path, UPath")
     return accessor
 
 
