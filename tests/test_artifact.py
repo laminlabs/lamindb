@@ -12,11 +12,12 @@ import pytest
 from lamindb import _artifact
 from lamindb._artifact import (
     check_path_is_child_of_root,
+    data_is_anndata,
     get_relative_path_to_directory,
     process_data,
 )
 from lamindb.core._settings import settings
-from lamindb.core.storage._zarr import write_adata_zarr
+from lamindb.core.storage._zarr import write_adata_zarr, zarr_is_adata
 from lamindb.core.storage.paths import (
     AUTO_KEY_PREFIX,
     auto_storage_key_from_artifact_uid,
@@ -153,6 +154,13 @@ def get_test_filepaths(request):  # -> Tuple[bool, Path, Path, Path, str]
         hash_test_dir,
     )
     shutil.rmtree(test_dir)
+
+
+def test_data_is_anndata_paths():
+    assert data_is_anndata("something.h5ad")
+    assert data_is_anndata("something.anndata.zarr")
+    assert data_is_anndata("s3://somewhere/something.anndata.zarr")
+    assert not data_is_anndata("s3://somewhere/something.zarr")
 
 
 def test_is_new_version_of_versioned_file(df, adata):
@@ -746,9 +754,13 @@ def test_folder_upload_cache(adata):
     write_adata_zarr(adata, zarr_path, callback)
 
     artifact = ln.Artifact(zarr_path, key="test_adata.zarr")
+    assert artifact.accessor == "AnnData"
     artifact.save()
 
     assert isinstance(artifact.path, CloudPath) and artifact.path.exists()
+    assert zarr_is_adata(artifact.path)
+
+    shutil.rmtree(artifact.cache())
 
     cache_path = settings._storage_settings.cloud_to_local_no_update(artifact.path)
     assert isinstance(artifact.load(), ad.AnnData)

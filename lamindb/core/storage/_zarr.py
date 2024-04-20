@@ -7,28 +7,44 @@ import scipy.sparse as sparse
 import zarr
 from anndata._io import read_zarr
 from anndata._io.specs import write_elem
+from anndata._io.specs.registry import get_spec
+from fsspec.implementations.local import LocalFileSystem
 from lamindb_setup.core.upath import create_mapper, infer_filesystem
 
 from ._anndata_sizes import _size_elem, _size_raw, size_adata
 
 if TYPE_CHECKING:
     from anndata import AnnData
+    from lamindb_setup.core.types import UPathStr
 
 
-def read_adata_zarr(storepath) -> AnnData:
-    fs, storepath = infer_filesystem(storepath)
-    store = create_mapper(fs, storepath, check=True)
+def zarr_is_adata(storepath: UPathStr) -> bool:
+    fs, storepath_str = infer_filesystem(storepath)
+    if isinstance(fs, LocalFileSystem):
+        # this is faster than through an fsspec mapper for local
+        open_obj = storepath_str
+    else:
+        open_obj = create_mapper(fs, storepath_str, check=True)
+    storage = zarr.open(open_obj, mode="r")
+    return get_spec(storage).encoding_type == "anndata"
 
-    adata = read_zarr(store)
 
+def read_adata_zarr(storepath: UPathStr) -> AnnData:
+    fs, storepath_str = infer_filesystem(storepath)
+    if isinstance(fs, LocalFileSystem):
+        # this is faster than through an fsspec mapper for local
+        open_obj = storepath_str
+    else:
+        open_obj = create_mapper(fs, storepath_str, check=True)
+    adata = read_zarr(open_obj)
     return adata
 
 
 def write_adata_zarr(
-    adata: AnnData, storepath, callback=None, chunks=None, **dataset_kwargs
+    adata: AnnData, storepath: UPathStr, callback=None, chunks=None, **dataset_kwargs
 ):
-    fs, storepath = infer_filesystem(storepath)
-    store = create_mapper(fs, storepath, create=True)
+    fs, storepath_str = infer_filesystem(storepath)
+    store = create_mapper(fs, storepath_str, create=True)
 
     f = zarr.open(store, mode="w")
 
