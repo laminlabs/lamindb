@@ -1,5 +1,6 @@
 # Changelog
 
+- 🐛 Fix detecton of AnnData in zarr and h5ad, fix directory upload paths [PR](https://github.com/laminlabs/lamindb/pull/1587) [@Koncopd](https://github.com/Koncopd)
 - 🚸 Raise error if transforms of type notebook or script are passed manually [PR](https://github.com/laminlabs/lamindb/pull/1584) [@falexwolf](https://github.com/falexwolf)
 :::{note}
 
