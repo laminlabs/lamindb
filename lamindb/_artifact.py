@@ -53,6 +53,14 @@ from .core._data import (
 from .core.storage.objects import _mudata_is_installed
 from .core.storage.paths import AUTO_KEY_PREFIX
 
+try:
+    from .core.storage._zarr import zarr_is_adata
+except ImportError:
+
+    def zarr_is_adata(storepath):  # type: ignore
+        raise ImportError("Please install zarr: pip install zarr")
+
+
 if TYPE_CHECKING:
     from lamindb_setup.core.types import UPathStr
     from mudata import MuData
@@ -446,12 +454,16 @@ def data_is_anndata(data: AnnData | UPathStr):
     if isinstance(data, AnnData):
         return True
     if isinstance(data, (str, Path, UPath)):
-        if Path(data).suffix == ".h5ad":
+        data_path = UPath(data)
+        if data_path.suffix == ".h5ad":
             return True
-        elif Path(data).suffix == ".zarr":
-            raise NotImplementedError(
-                "auto-detecting AnnData from Zarr is not yet supported"
-            )
+        elif data_path.suffix == ".zarr":
+            # check only for local, expensive for cloud
+            if fsspec.utils.get_protocol(data_path) == "file":
+                return zarr_is_adata(data_path)
+            else:
+                logger.warning("We do not check if cloud zarr is AnnData or not.")
+                return False
     return False
 
 
@@ -462,12 +474,12 @@ def data_is_mudata(data: MuData | UPathStr):
         if isinstance(data, MuData):
             return True
     if isinstance(data, (str, Path, UPath)):
-        return Path(data).suffix in {".h5mu"}
+        return UPath(data).suffix in {".h5mu"}
     return False
 
 
 def _check_accessor_artifact(data: Any, accessor: str | None = None):
-    if accessor is None and not isinstance(data, (str, Path, UPath)):
+    if accessor is None:
         if isinstance(data, pd.DataFrame):
             logger.warning("data is a DataFrame, please use .from_df()")
             accessor = "DataFrame"
@@ -477,8 +489,6 @@ def _check_accessor_artifact(data: Any, accessor: str | None = None):
         elif data_is_mudata(data):
             logger.warning("data is a MuData, please use .from_mudata()")
             accessor = "MuData"
-        else:
-            raise TypeError("data has to be a string, Path, UPath")
     return accessor
 
 

@@ -12,6 +12,7 @@ import pytest
 from lamindb import _artifact
 from lamindb._artifact import (
     check_path_is_child_of_root,
+    data_is_anndata,
     get_relative_path_to_directory,
     process_data,
 )
@@ -153,6 +154,11 @@ def get_test_filepaths(request):  # -> Tuple[bool, Path, Path, Path, str]
         hash_test_dir,
     )
     shutil.rmtree(test_dir)
+
+
+def test_data_is_anndata_paths():
+    assert data_is_anndata("something.h5ad")
+    assert not data_is_anndata("s3://somewhere/something.zarr")
 
 
 def test_is_new_version_of_versioned_file(df, adata):
@@ -746,6 +752,7 @@ def test_folder_upload_cache(adata):
     write_adata_zarr(adata, zarr_path, callback)
 
     artifact = ln.Artifact(zarr_path, key="test_adata.zarr")
+    assert artifact.accessor == "AnnData"
     artifact.save()
 
     assert isinstance(artifact.path, CloudPath) and artifact.path.exists()

@@ -29,7 +29,7 @@ try:
     from ._zarr import read_adata_zarr
 except ImportError:
 
-    def read_adata_zarr(filepath):  # type: ignore
+    def read_adata_zarr(storepath):  # type: ignore
         raise ImportError("Please install zarr: pip install zarr")
 
 
