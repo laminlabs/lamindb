@@ -760,6 +760,8 @@ def test_folder_upload_cache(adata):
     assert isinstance(artifact.path, CloudPath) and artifact.path.exists()
     assert zarr_is_adata(artifact.path)
 
+    shutil.rmtree(artifact.cache())
+
     cache_path = settings._storage_settings.cloud_to_local_no_update(artifact.path)
     assert isinstance(artifact.load(), ad.AnnData)
     assert cache_path.is_dir()
