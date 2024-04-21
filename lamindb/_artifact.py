@@ -337,16 +337,17 @@ def get_artifact_kwargs_from_data(
         using_key=using_key,
     )
     if isinstance(stat_or_artifact, Artifact):
+        artifact = stat_or_artifact
         # update the run of the existing artifact
         if run is not None:
             # save the information that this artifact was previously
             # produced by another run
-            if stat_or_artifact.run is not None:
-                stat_or_artifact.run.replicated_output_artifacts.add(stat_or_artifact)
+            if artifact.run is not None:
+                artifact.run.replicated_output_artifacts.add(artifact)
             # update the run of the artifact with the latest run
             stat_or_artifact.run = run
             stat_or_artifact.transform = run.transform
-        return stat_or_artifact, None
+        return artifact, None
     else:
         size, hash, hash_type, n_objects = stat_or_artifact
 
@@ -458,6 +459,7 @@ def data_is_anndata(data: AnnData | UPathStr):
         if data_path.suffix == ".h5ad":
             return True
         elif data_path.suffix == ".zarr":
+            # ".anndata.zarr" is a valid suffix (core.storage._valid_suffixes)
             if ".anndata" in data_path.suffixes:
                 return True
             # check only for local, expensive for cloud
@@ -577,8 +579,15 @@ def __init__(artifact: Artifact, *args, **kwargs):
     if isinstance(kwargs_or_artifact, Artifact):
         from ._registry import init_self_from_db
 
-        # kwargs_or_artifact is an existing file
         init_self_from_db(artifact, kwargs_or_artifact)
+        if artifact.description != description:
+            logger.warning(
+                f"updated description from {artifact.description} to {description}"
+            )
+            artifact.description = description
+        if artifact.key != key:
+            logger.warning(f"updated key from {artifact.key} to {key}")
+            artifact.key = key
         return None
     else:
         kwargs = kwargs_or_artifact
