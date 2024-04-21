@@ -156,11 +156,19 @@ def test_from_consistent_artifacts(adata, adata2):
     run = ln.Run(transform)
     run.save()
     collection = ln.Collection([artifact1, artifact2], name="My test", run=run)
+    assert collection._state.adding
     collection.save()
     assert set(collection.run.input_artifacts.all()) == {artifact1, artifact2}
     adata_joined = collection.load()
     assert "artifact_uid" in adata_joined.obs.columns
     assert artifact1.uid in adata_joined.obs.artifact_uid.cat.categories
+
+    # re-run with hash-based lookup
+    collection2 = ln.Collection([artifact1, artifact2], name="My test 1", run=run)
+    assert not collection2._state.adding
+    assert collection2.id == collection.id
+    assert collection2.name == "My test 1"
+
     artifact1.delete(permanent=True, storage=True)
     artifact2.delete(permanent=True, storage=True)
     collection.delete(permanent=True)

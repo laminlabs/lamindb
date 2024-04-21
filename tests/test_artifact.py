@@ -501,12 +501,17 @@ def test_from_dir_single_artifact(get_test_filepaths, key):
     assert artifact.hash == hash_test_dir
     assert artifact._state.adding
     assert artifact.description is None
+    assert artifact.path.exists()
     artifact.save()
     # now run again, because now we'll have hash-based lookup!
-    artifact = ln.Artifact(test_dirpath, key=key)  # description="something")
-    assert not artifact._state.adding
-    # assert artifact.description == "something"
-    artifact.delete(permanent=True, storage=False)
+    artifact2 = ln.Artifact(test_dirpath, key=key, description="something")
+    assert not artifact2._state.adding
+    assert artifact.id == artifact2.id
+    assert artifact.uid == artifact2.uid
+    assert artifact.storage == artifact2.storage
+    assert artifact2.path.exists()
+    assert artifact2.description == "something"
+    artifact2.delete(permanent=True, storage=False)
 
 
 def test_from_dir_s3():

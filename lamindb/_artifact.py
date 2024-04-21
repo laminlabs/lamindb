@@ -587,7 +587,12 @@ def __init__(artifact: Artifact, *args, **kwargs):
         from ._registry import init_self_from_db
 
         init_self_from_db(artifact, kwargs_or_artifact)
-        update_attributes(artifact, {"description": description, "key": key})
+        # adding "key" here is dangerous because key might be auto-populated
+        update_attributes(artifact, {"description": description})
+        if artifact.key != key:
+            logger.warning(
+                f"key {artifact.key} on existing artifact differs from passed key {key}"
+            )
         return None
     else:
         kwargs = kwargs_or_artifact
