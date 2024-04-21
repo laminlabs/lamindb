@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path, PurePath, PurePosixPath
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Mapping
 
 import fsspec
 import lamindb_setup as ln_setup
@@ -26,7 +26,7 @@ from lnschema_core.types import (
 )
 
 from lamindb._utils import attach_func_to_class_method
-from lamindb.core._data import _track_run_input
+from lamindb.core._data import Data, _track_run_input
 from lamindb.core._settings import settings
 from lamindb.core.storage import (
     LocalPathClasses,
@@ -337,16 +337,17 @@ def get_artifact_kwargs_from_data(
         using_key=using_key,
     )
     if isinstance(stat_or_artifact, Artifact):
+        artifact = stat_or_artifact
         # update the run of the existing artifact
         if run is not None:
             # save the information that this artifact was previously
             # produced by another run
-            if stat_or_artifact.run is not None:
-                stat_or_artifact.run.replicated_output_artifacts.add(stat_or_artifact)
+            if artifact.run is not None:
+                artifact.run.replicated_output_artifacts.add(artifact)
             # update the run of the artifact with the latest run
             stat_or_artifact.run = run
             stat_or_artifact.transform = run.transform
-        return stat_or_artifact, None
+        return artifact, None
     else:
         size, hash, hash_type, n_objects = stat_or_artifact
 
@@ -458,6 +459,7 @@ def data_is_anndata(data: AnnData | UPathStr):
         if data_path.suffix == ".h5ad":
             return True
         elif data_path.suffix == ".zarr":
+            # ".anndata.zarr" is a valid suffix (core.storage._valid_suffixes)
             if ".anndata" in data_path.suffixes:
                 return True
             # check only for local, expensive for cloud
@@ -499,6 +501,13 @@ def _check_accessor_artifact(data: Any, accessor: str | None = None):
         elif not data_is_path:  # UPath is a subclass of Path
             raise TypeError("data has to be a string, Path, UPath")
     return accessor
+
+
+def update_attributes(data: Data, attributes: Mapping[str, str]):
+    for key, value in attributes.items():
+        if getattr(data, key) != value:
+            logger.warning(f"updated {key} from {getattr(data, key)} to {value}")
+            setattr(data, key, value)
 
 
 def __init__(artifact: Artifact, *args, **kwargs):
@@ -577,8 +586,13 @@ def __init__(artifact: Artifact, *args, **kwargs):
     if isinstance(kwargs_or_artifact, Artifact):
         from ._registry import init_self_from_db
 
-        # kwargs_or_artifact is an existing file
         init_self_from_db(artifact, kwargs_or_artifact)
+        # adding "key" here is dangerous because key might be auto-populated
+        update_attributes(artifact, {"description": description})
+        if artifact.key != key:
+            logger.warning(
+                f"key {artifact.key} on existing artifact differs from passed key {key}"
+            )
         return None
     else:
         kwargs = kwargs_or_artifact
