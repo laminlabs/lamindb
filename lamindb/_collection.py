@@ -18,6 +18,7 @@ from lamindb_setup.core.hashing import hash_set
 from lnschema_core.models import Collection, CollectionArtifact, FeatureSet
 from lnschema_core.types import VisibilityChoice
 
+from lamindb._artifact import update_attributes
 from lamindb._utils import attach_func_to_class_method
 from lamindb.core._data import _track_run_input
 from lamindb.core._mapped_collection import MappedCollection
@@ -127,6 +128,7 @@ def __init__(
             existing_collection.run = run
             existing_collection.transform = run.transform
         init_self_from_db(collection, existing_collection)
+        update_attributes(collection, {"description": description, "name": name})
         for slot, feature_set in collection.features._feature_set_by_slot.items():
             if slot in feature_sets:
                 if not feature_sets[slot] == feature_set:

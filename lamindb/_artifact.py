@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path, PurePath, PurePosixPath
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Mapping
 
 import fsspec
 import lamindb_setup as ln_setup
@@ -26,7 +26,7 @@ from lnschema_core.types import (
 )
 
 from lamindb._utils import attach_func_to_class_method
-from lamindb.core._data import _track_run_input
+from lamindb.core._data import Data, _track_run_input
 from lamindb.core._settings import settings
 from lamindb.core.storage import (
     LocalPathClasses,
@@ -503,6 +503,13 @@ def _check_accessor_artifact(data: Any, accessor: str | None = None):
     return accessor
 
 
+def update_attributes(data: Data, attributes: Mapping[str, str]):
+    for key, value in attributes.items():
+        if getattr(data, key) != value:
+            logger.warning(f"updated {key} from {getattr(data, key)} to {value}")
+            setattr(data, key, value)
+
+
 def __init__(artifact: Artifact, *args, **kwargs):
     # Below checks for the Django-internal call in from_db()
     # it'd be better if we could avoid this, but not being able to create a Artifact
@@ -580,14 +587,7 @@ def __init__(artifact: Artifact, *args, **kwargs):
         from ._registry import init_self_from_db
 
         init_self_from_db(artifact, kwargs_or_artifact)
-        if artifact.description != description:
-            logger.warning(
-                f"updated description from {artifact.description} to {description}"
-            )
-            artifact.description = description
-        if artifact.key != key:
-            logger.warning(f"updated key from {artifact.key} to {key}")
-            artifact.key = key
+        update_attributes(artifact, {"description": description, "key": key})
         return None
     else:
         kwargs = kwargs_or_artifact
