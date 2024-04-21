@@ -500,10 +500,12 @@ def test_from_dir_single_artifact(get_test_filepaths, key):
     assert artifact.n_objects == 3
     assert artifact.hash == hash_test_dir
     assert artifact._state.adding
+    assert artifact.description is None
     artifact.save()
     # now run again, because now we'll have hash-based lookup!
-    artifact = ln.Artifact(test_dirpath, key=key)
+    artifact = ln.Artifact(test_dirpath, key=key, description="something")
     assert not artifact._state.adding
+    assert artifact.description == "something"
     artifact.delete(permanent=True, storage=False)
 
 
