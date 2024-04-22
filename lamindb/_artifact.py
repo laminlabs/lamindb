@@ -599,7 +599,11 @@ def __init__(artifact: Artifact, *args, **kwargs):
 
     # in case we have a new version of a folder with a different hash, print a
     # warning that the old version can't be recovered
-    if is_new_version_of is not None and is_new_version_of.n_objects > 1:
+    if (
+        is_new_version_of is not None
+        and is_new_version_of.n_objects is not None
+        and is_new_version_of.n_objects > 1
+    ):
         logger.warning(
             f"artifact version {version} will _update_ the state of folder {is_new_version_of.path} - "
             "to _retain_ the old state by duplicating the entire folder, do _not_ pass `is_new_version_of`"
