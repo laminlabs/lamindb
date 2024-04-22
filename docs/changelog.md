@@ -1,5 +1,6 @@
 # Changelog
 
+- 🚸 In `.setup.delete()`, check for data deletion & delete from hub [PR](https://github.com/laminlabs/lamindb/pull/1595) [@falexwolf](https://github.com/falexwolf)
 - ⚡️ Speed up `latest_version` [PR](https://github.com/laminlabs/lamindb/pull/1594) [@falexwolf](https://github.com/falexwolf)
 - ♻️ Better user feedback on folder-like artifacts [PR](https://github.com/laminlabs/lamindb/pull/1589) [@falexwolf](https://github.com/falexwolf)
 :::{note}
