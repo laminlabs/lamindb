@@ -4,17 +4,17 @@ import pytest
 
 @pytest.mark.parametrize("key", [None, "my_new_folder"])
 def test_folder_like_artifact(get_test_filepaths, key):
-    isin_existing_storage = get_test_filepaths[0]
+    is_in_registered_storage = get_test_filepaths[0]
     test_dirpath = get_test_filepaths[2]
     hash_test_dir = get_test_filepaths[5]
-    if key is not None and isin_existing_storage:
+    if key is not None and is_in_registered_storage:
         with pytest.raises(ValueError) as error:
             ln.Artifact(test_dirpath, key=key)
         assert error.exconly().startswith(
             "ValueError: The path"  # The path {data} is already in registered storage
         )
         return None
-    if key is None and not isin_existing_storage:
+    if key is None and not is_in_registered_storage:
         with pytest.raises(ValueError) as error:
             ln.Artifact(test_dirpath, key=key)
         assert error.exconly().startswith(

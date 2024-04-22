@@ -33,7 +33,7 @@ def pytest_sessionfinish(session: pytest.Session):
 @pytest.fixture(
     scope="module",
     params=[
-        # tuple of isin_existing_storage, path, suffix, hash of test_dir
+        # tuple of is_in_registered_storage, path, suffix, hash of test_dir
         (True, "./default_storage/", ".csv", "iGtHiFEBV3r1_TFovdQCgw"),
         (True, "./default_storage/", "", "iGtHiFEBV3r1_TFovdQCgw"),
         (True, "./registered_storage/", ".csv", "iGtHiFEBV3r1_TFovdQCgw"),
@@ -45,11 +45,11 @@ def pytest_sessionfinish(session: pytest.Session):
 def get_test_filepaths(request):  # -> Tuple[bool, Path, Path, Path, str]
     import lamindb as ln
 
-    isin_existing_storage: bool = request.param[0]
+    is_in_registered_storage: bool = request.param[0]
     root_dir: Path = Path(request.param[1])
     suffix: str = request.param[2]
     hash_test_dir: str = request.param[3]
-    if isin_existing_storage:
+    if is_in_registered_storage:
         # ensure that it's actually registered
         if ln.Storage.filter(root=root_dir.resolve().as_posix()).one_or_none() is None:
             ln.Storage(root=root_dir.resolve().as_posix(), type="local").save()
@@ -70,7 +70,7 @@ def get_test_filepaths(request):  # -> Tuple[bool, Path, Path, Path, str]
     # return a boolean indicating whether test filepath is in default storage
     # and the test filepath
     yield (
-        isin_existing_storage,
+        is_in_registered_storage,
         root_dir,
         test_dir,
         test_filepath,

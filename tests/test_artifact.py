@@ -311,12 +311,12 @@ def test_create_from_local_filepath(
     get_test_filepaths, key_is_virtual, key, description
 ):
     ln.settings.artifact_use_virtual_keys = key_is_virtual
-    isin_existing_storage = get_test_filepaths[0]
+    is_in_registered_storage = get_test_filepaths[0]
     root_dir = get_test_filepaths[1]
     test_filepath = get_test_filepaths[3]
     suffix = get_test_filepaths[4]
     # this tests if insufficient information is being provided
-    if key is None and not isin_existing_storage and description is None:
+    if key is None and not is_in_registered_storage and description is None:
         # this can fail because ln.track() might set a global run context
         # in that case, the File would have a run that's not None and the
         # error below wouldn't be thrown
@@ -327,7 +327,7 @@ def test_create_from_local_filepath(
             == "ValueError: Pass one of key, run or description as a parameter"
         )
         return None
-    elif key is not None and isin_existing_storage:
+    elif key is not None and is_in_registered_storage:
         inferred_key = get_relative_path_to_directory(
             path=test_filepath, directory=root_dir
         ).as_posix()
@@ -358,10 +358,10 @@ def test_create_from_local_filepath(
     if key is None:
         assert (
             artifact.key == f"my_dir/my_file{suffix}"
-            if isin_existing_storage
+            if is_in_registered_storage
             else artifact.key is None
         )
-        if isin_existing_storage:
+        if is_in_registered_storage:
             assert artifact.storage.root == root_dir.resolve().as_posix()
             assert artifact.path == test_filepath.resolve()
         else:
@@ -374,7 +374,7 @@ def test_create_from_local_filepath(
     else:
         assert artifact.key == key
         assert artifact.key_is_virtual == key_is_virtual
-        if isin_existing_storage:
+        if is_in_registered_storage:
             # this would only hit if the key matches the correct key
             assert artifact.storage.root == root_dir.resolve().as_posix()
             assert (
@@ -404,10 +404,10 @@ ValueError: Currently don't support tracking folders outside one of the storage 
 
 @pytest.mark.parametrize("key", [None, "my_new_folder"])
 def test_from_dir_many_artifacts(get_test_filepaths, key):
-    isin_existing_storage = get_test_filepaths[0]
+    is_in_registered_storage = get_test_filepaths[0]
     test_dirpath = get_test_filepaths[2]
     # the directory contains 3 files, two of them are duplicated
-    if key is not None and isin_existing_storage:
+    if key is not None and is_in_registered_storage:
         with pytest.raises(ValueError) as error:
             ln.Artifact.from_dir(test_dirpath, key=key)
         assert error.exconly().startswith(
