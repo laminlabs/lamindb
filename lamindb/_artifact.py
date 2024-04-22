@@ -956,12 +956,14 @@ def delete(
             path = filepath_from_artifact(self, using_key)
         except OSError:
             # we can still delete the record
+            logger.warning("Could not get path")
             storage = False
         # only delete in storage if DB delete is successful
         # DB delete might error because of a foreign key constraint violated etc.
         self._delete_skip_storage()
         if self.key is None or self.key_is_virtual:
-            delete_in_storage = storage
+            # do not ask for confirmation also if storage is None
+            delete_in_storage = storage is None or storage
         else:
             # for artifacts with non-virtual semantic storage keys (key is not None)
             # ask for extra-confirmation
