@@ -357,7 +357,12 @@ def _track_run_input(
     is_run_input: bool | None = None,
     run: Run | None = None,
 ):
-    if run is None:
+    # this is an internal hack right now for project-flow, but we can allow this
+    # for the user in the future
+    if isinstance(is_run_input, Run):
+        run = is_run_input
+        is_run_input = True
+    elif run is None:
         run = run_context.run
     # consider that data is an iterable of Data
     data_iter: Iterable[Data] = [data] if isinstance(data, Data) else data
