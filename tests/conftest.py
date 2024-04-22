@@ -57,25 +57,25 @@ def get_test_filepaths(request):  # -> Tuple[bool, Path, Path, Path, str]
         assert (
             ln.Storage.filter(root=root_dir.resolve().as_posix()).one_or_none() is None
         )
-    test_dir = root_dir / "my_dir/"
-    test_dir.mkdir(parents=True)
+    test_dirpath = root_dir / "my_dir/"
+    test_dirpath.mkdir(parents=True)
     # create a first file
-    test_filepath0 = test_dir / f"my_file{suffix}"
+    test_filepath0 = test_dirpath / f"my_file{suffix}"
     test_filepath0.write_text("0")
     # create a second, duplicated file
-    test_filepath1 = test_dir / f"my_file1{suffix}"
+    test_filepath1 = test_dirpath / f"my_file1{suffix}"
     test_filepath1.write_text("0")
     # create a non-duplicated file
-    test_filepath2 = test_dir / f"my_file2{suffix}"
+    test_filepath2 = test_dirpath / f"my_file2{suffix}"
     test_filepath2.write_text("1")
     # return a boolean indicating whether test filepath is in default storage
     # and the test filepath
     yield (
         is_in_registered_storage,
         root_dir,
-        test_dir,
+        test_dirpath,
         test_filepath0,
         suffix,
         hash_test_dir,
     )
-    shutil.rmtree(test_dir)
+    shutil.rmtree(test_dirpath)
