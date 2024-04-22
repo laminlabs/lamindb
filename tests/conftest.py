@@ -23,8 +23,8 @@ def pytest_sessionstart():
 
 def pytest_sessionfinish(session: pytest.Session):
     logger.set_verbosity(1)
-    ln.setup.delete("lamindb-unit-tests", force=True)
     shutil.rmtree("./default_storage")
+    ln.setup.delete("lamindb-unit-tests", force=True)
     # shutil.rmtree("./outside_storage")
     run("docker stop pgtest && docker rm pgtest", shell=True, stdout=DEVNULL)
     ln.setup.settings.auto_connect = False
