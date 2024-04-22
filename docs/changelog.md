@@ -1,8 +1,5 @@
 # Changelog
 
-- 🚸 Update metadata like description upon re-running [PR](https://github.com/laminlabs/lamindb/pull/1588) [@falexwolf](https://github.com/falexwolf)
-- 🐛 Fix detecton of AnnData in zarr and h5ad, fix directory upload paths [PR](https://github.com/laminlabs/lamindb/pull/1587) [@Koncopd](https://github.com/Koncopd)
-- 🚸 Raise error if transforms of type notebook or script are passed manually [PR](https://github.com/laminlabs/lamindb/pull/1584) [@falexwolf](https://github.com/falexwolf)
 :::{note}
 
 LaminDB implements "migration-based versioning".
@@ -16,6 +13,12 @@ When upgrading your LaminDB installation to a new `minor` version in `major.mino
 ```
 
 ## 0.70
+
+### 0.70.3 {small}`2024-04-22`
+
+- 🚸 Update metadata like description upon re-running [PR](https://github.com/laminlabs/lamindb/pull/1588) [@falexwolf](https://github.com/falexwolf)
+- 🐛 Fix detection of AnnData in zarr and h5ad, refactor directory upload [PR](https://github.com/laminlabs/lamindb/pull/1587) [@Koncopd](https://github.com/Koncopd)
+- 🚸 Raise error if transforms of type notebook or script are passed manually [PR](https://github.com/laminlabs/lamindb/pull/1584) [@falexwolf](https://github.com/falexwolf)
 
 ### 0.70.2 {small}`2024-04-19`
 
