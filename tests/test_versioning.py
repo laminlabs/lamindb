@@ -92,3 +92,9 @@ def test_latest_version_and_get():
     assert ln.Transform.get(transform_v3.uid) == transform_v3
     assert ln.Transform.get(transform_v3.id) == transform_v3
     assert ln.Transform.get(transform_v3.uid[:4]) == transform_v3
+
+    # test empty QuerySet
+    assert (
+        ln.Transform.filter(name="IntroductionNotExists").latest_version().one_or_none()
+        is None
+    )

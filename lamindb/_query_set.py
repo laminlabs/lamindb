@@ -286,9 +286,11 @@ class QuerySet(models.QuerySet, CanValidate, IsTree):
 
 
 def filter_query_set_by_latest_version(ordered_query_set: QuerySet) -> RecordsList:
-    if len(ordered_query_set) == 0:
+    # evaluating length can be very costly, hence, the try-except block
+    try:
+        first_record = ordered_query_set[0]
+    except IndexError:
         return ordered_query_set
-    first_record = ordered_query_set[0]
     records_in_view = {}
     records_in_view[first_record.stem_uid] = first_record
     for record in ordered_query_set:
