@@ -286,6 +286,7 @@ class QuerySet(models.QuerySet, CanValidate, IsTree):
 
 
 def filter_query_set_by_latest_version(ordered_query_set: QuerySet) -> RecordsList:
+    # evaluating length can be very costly, hence, the try-except block
     try:
         first_record = ordered_query_set[0]
     except IndexError:
