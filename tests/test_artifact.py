@@ -675,7 +675,8 @@ def test_folder_upload_cache(adata):
     assert artifact.accessor == "AnnData"
     artifact.save()
 
-    assert isinstance(artifact.path, CloudPath) and artifact.path.exists()
+    assert isinstance(artifact.path, CloudPath)
+    assert artifact.path.exists()
     assert zarr_is_adata(artifact.path)
 
     shutil.rmtree(artifact.cache())

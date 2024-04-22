@@ -463,7 +463,7 @@ def data_is_anndata(data: AnnData | UPathStr):
             if ".anndata" in data_path.suffixes:
                 return True
             # check only for local, expensive for cloud
-            if fsspec.utils.get_protocol(data_path) == "file":
+            if fsspec.utils.get_protocol(data_path.as_posix()) == "file":
                 return zarr_is_adata(data_path)
             else:
                 logger.warning("We do not check if cloud zarr is AnnData or not.")
