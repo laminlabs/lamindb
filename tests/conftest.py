@@ -59,9 +59,10 @@ def get_test_filepaths(request):  # -> Tuple[bool, Path, Path, Path, str]
         )
     test_dir = root_dir / "my_dir/"
     test_dir.mkdir(parents=True)
-    test_filepath = test_dir / f"my_file{suffix}"
-    test_filepath.write_text("0")
-    # create a duplicated file
+    # create a first file
+    test_filepath0 = test_dir / f"my_file{suffix}"
+    test_filepath0.write_text("0")
+    # create a second, duplicated file
     test_filepath1 = test_dir / f"my_file1{suffix}"
     test_filepath1.write_text("0")
     # create a non-duplicated file
@@ -73,7 +74,7 @@ def get_test_filepaths(request):  # -> Tuple[bool, Path, Path, Path, str]
         is_in_registered_storage,
         root_dir,
         test_dir,
-        test_filepath,
+        test_filepath0,
         suffix,
         hash_test_dir,
     )
