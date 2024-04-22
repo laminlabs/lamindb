@@ -463,7 +463,7 @@ def data_is_anndata(data: AnnData | UPathStr):
             if ".anndata" in data_path.suffixes:
                 return True
             # check only for local, expensive for cloud
-            if fsspec.utils.get_protocol(data_path) == "file":
+            if fsspec.utils.get_protocol(data_path.as_posix()) == "file":
                 return zarr_is_adata(data_path)
             else:
                 logger.warning("We do not check if cloud zarr is AnnData or not.")
@@ -596,6 +596,18 @@ def __init__(artifact: Artifact, *args, **kwargs):
         return None
     else:
         kwargs = kwargs_or_artifact
+
+    # in case we have a new version of a folder with a different hash, print a
+    # warning that the old version can't be recovered
+    if (
+        is_new_version_of is not None
+        and is_new_version_of.n_objects is not None
+        and is_new_version_of.n_objects > 1
+    ):
+        logger.warning(
+            f"artifact version {version} will _update_ the state of folder {is_new_version_of.path} - "
+            "to _retain_ the old state by duplicating the entire folder, do _not_ pass `is_new_version_of`"
+        )
 
     kwargs["uid"] = provisional_uid
     kwargs["version"] = version
@@ -916,7 +928,7 @@ def delete(
 ) -> None:
     # by default, we only move artifacts into the trash (visibility = -1)
     trash_visibility = VisibilityChoice.trash.value
-    if self.visibility > trash_visibility and permanent is not True:
+    if self.visibility > trash_visibility and not permanent:
         if storage is not None:
             logger.warning("moving artifact to trash, storage arg is ignored")
         # move to trash
@@ -935,41 +947,44 @@ def delete(
         )
         delete_record = response == "y"
     else:
-        # this second option doesn't feel very intuitive
-        delete_record = permanent
+        assert permanent
+        delete_record = True
 
-    if delete_record is True:
+    if delete_record:
         # need to grab file path before deletion
         try:
-            filepath = filepath_from_artifact(self, using_key)
+            path = filepath_from_artifact(self, using_key)
         except OSError:
             # we can still delete the record
+            logger.warning("Could not get path")
             storage = False
         # only delete in storage if DB delete is successful
         # DB delete might error because of a foreign key constraint violated etc.
         self._delete_skip_storage()
         if self.key is None or self.key_is_virtual:
-            # always delete in storage if the key is virtual
-            delete_in_storage = True
-            if storage is not None:
-                logger.warning("storage arg is ignored if storage key is non-semantic")
+            # do not ask for confirmation also if storage is None
+            delete_in_storage = storage is None or storage
         else:
             # for artifacts with non-virtual semantic storage keys (key is not None)
             # ask for extra-confirmation
             if storage is None:
                 response = input(
-                    f"Are you sure to want to delete {filepath}? (y/n)  You can't undo"
+                    f"Are you sure to want to delete {path}? (y/n)  You can't undo"
                     " this action."
                 )
                 delete_in_storage = response == "y"
             else:
                 delete_in_storage = storage
+        if not storage:
+            logger.warning(
+                f"you will retain a dangling store here: {path}, not referenced via an artifact"
+            )
         # we don't yet have logic to bring back the deleted metadata record
         # in case storage deletion fails - this is important for ACID down the road
-        if delete_in_storage is True:
-            delete_msg = delete_storage(filepath)
+        if delete_in_storage:
+            delete_msg = delete_storage(path)
             if delete_msg != "did-not-delete":
-                logger.success(f"deleted {colors.yellow(f'{filepath}')}")
+                logger.success(f"deleted {colors.yellow(f'{path}')}")
 
 
 def _delete_skip_storage(artifact, *args, **kwargs) -> None:
