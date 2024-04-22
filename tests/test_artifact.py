@@ -1,3 +1,10 @@
+"""Artifact tests.
+
+Also see `test_artifact_folders.py` for tests of folder-like artifacts.
+
+"""
+
+
 import shutil
 from inspect import signature
 from pathlib import Path
@@ -104,56 +111,6 @@ def test_signatures():
             # have a temporary fix in delete regarding "using_key"
             continue
         assert signature(getattr(_artifact, name)) == sig
-
-
-@pytest.fixture(
-    scope="module",
-    params=[
-        # tuple of isin_existing_storage, path, suffix, hash of test_dir
-        (True, "./default_storage/", ".csv", "iGtHiFEBV3r1_TFovdQCgw"),
-        (True, "./default_storage/", "", "iGtHiFEBV3r1_TFovdQCgw"),
-        (True, "./registered_storage/", ".csv", "iGtHiFEBV3r1_TFovdQCgw"),
-        (True, "./registered_storage/", "", "iGtHiFEBV3r1_TFovdQCgw"),
-        (False, "./nonregistered_storage/", ".csv", "iGtHiFEBV3r1_TFovdQCgw"),
-        (False, "./nonregistered_storage/", "", "iGtHiFEBV3r1_TFovdQCgw"),
-    ],
-)
-def get_test_filepaths(request):  # -> Tuple[bool, Path, Path, Path, str]
-    import lamindb as ln
-
-    isin_existing_storage: bool = request.param[0]
-    root_dir: Path = Path(request.param[1])
-    suffix: str = request.param[2]
-    hash_test_dir: str = request.param[3]
-    if isin_existing_storage:
-        # ensure that it's actually registered
-        if ln.Storage.filter(root=root_dir.resolve().as_posix()).one_or_none() is None:
-            ln.Storage(root=root_dir.resolve().as_posix(), type="local").save()
-    else:
-        assert (
-            ln.Storage.filter(root=root_dir.resolve().as_posix()).one_or_none() is None
-        )
-    test_dir = root_dir / "my_dir/"
-    test_dir.mkdir(parents=True)
-    test_filepath = test_dir / f"my_file{suffix}"
-    test_filepath.write_text("0")
-    # create a duplicated file
-    test_filepath1 = test_dir / f"my_file1{suffix}"
-    test_filepath1.write_text("0")
-    # create a non-duplicated file
-    test_filepath2 = test_dir / f"my_file2{suffix}"
-    test_filepath2.write_text("1")
-    # return a boolean indicating whether test filepath is in default storage
-    # and the test filepath
-    yield (
-        isin_existing_storage,
-        root_dir,
-        test_dir,
-        test_filepath,
-        suffix,
-        hash_test_dir,
-    )
-    shutil.rmtree(test_dir)
 
 
 def test_data_is_anndata_paths():
@@ -475,52 +432,6 @@ def test_from_dir_many_artifacts(get_test_filepaths, key):
     queried_artifacts = ln.Artifact.filter(uid__in=uids).all()
     for artifact in queried_artifacts:
         artifact.delete(permanent=True, storage=False)
-
-
-@pytest.mark.parametrize("key", [None, "my_new_folder"])
-def test_from_dir_single_artifact(get_test_filepaths, key):
-    isin_existing_storage = get_test_filepaths[0]
-    test_dirpath = get_test_filepaths[2]
-    hash_test_dir = get_test_filepaths[5]
-    if key is not None and isin_existing_storage:
-        with pytest.raises(ValueError) as error:
-            ln.Artifact(test_dirpath, key=key)
-        assert error.exconly().startswith(
-            "ValueError: The path"  # The path {data} is already in registered storage
-        )
-        return None
-    if key is None and not isin_existing_storage:
-        with pytest.raises(ValueError) as error:
-            ln.Artifact(test_dirpath, key=key)
-        assert error.exconly().startswith(
-            "ValueError: Pass one of key, run or description as a parameter"
-        )
-        return None
-    artifact = ln.Artifact(test_dirpath, key=key)
-    assert artifact.n_objects == 3
-    assert artifact.hash == hash_test_dir
-    assert artifact._state.adding
-    assert artifact.description is None
-    assert artifact.path.exists()
-    artifact.save()
-    # now run again, because now we'll have hash-based lookup!
-    artifact2 = ln.Artifact(test_dirpath, key=key, description="something")
-    assert not artifact2._state.adding
-    assert artifact.id == artifact2.id
-    assert artifact.uid == artifact2.uid
-    assert artifact.storage == artifact2.storage
-    assert artifact2.path.exists()
-    assert artifact2.description == "something"
-    artifact2.delete(permanent=True, storage=False)
-
-
-def test_from_dir_s3():
-    study0_data = ln.Artifact(
-        "s3://lamindb-dev-datasets/iris_studies/study0_raw_images"
-    )
-    study0_data.hash = "d8_SjrP3V5tGetN8LQZC7w"
-    study0_data.hash_type = "md5-d"
-    study0_data.n_objects = 51
 
 
 def test_delete_artifact(df):
