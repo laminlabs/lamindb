@@ -105,6 +105,8 @@ def test_run_script():
     assert transform.latest_run.output_artifacts.count() == 0
     assert transform.runs.count() == 1
     assert transform.source_code.hash == "w3rdRv9m16iF_bC8KfJ9Sw"
+    assert transform.source_code.transform is None
+    assert transform.source_code.run is None
 
 
 @pytest.mark.parametrize("type", ["notebook", "script"])
