@@ -16,7 +16,7 @@ classifiers = [
 ]
 dependencies = [
     # Lamin PINNED packages
-    "lnschema_core==0.65.1",
+    "lnschema_core==0.65.2",
     "lamindb_setup==0.69.5",
     "lamin_utils==0.13.2",
     "lamin_cli==0.12.3",
@@ -58,7 +58,7 @@ zarr = [
     "zarr>=2.16.0",
 ]
 fcs = [
-    "readfcs>=1.1.7",
+    "readfcs>=1.1.8",
 ]
 erdiagram = [
     "django-schema-graph",
