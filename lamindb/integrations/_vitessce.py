@@ -39,15 +39,15 @@ def save_vitessce_config(vitessce_config: VitessceConfig, description: str) -> A
             if "url" not in file:
                 raise ValueError("Each file must have a 'url' key.")
             filename = file["url"].split("/")[-1]
-            assert filename.endswith((".anndata.zarr", ".spatialdata.zarr", ".zarr"))
-            filestem = (
-                filename.replace(".anndata.zarr", "")
-                .replace(".spatialdata.zarr", "")
-                .replace(".zarr", "")
+            assert filename.endswith((".anndata.zarr", ".spatialdata.zarr"))
+            filestem = filename.replace(".anndata.zarr", "").replace(
+                ".spatialdata.zarr", ""
             )
             artifact = Artifact.filter(uid__startswith=filestem).one_or_none()
             if artifact is None:
-                logger.warning(f"could not find dataset in lamindb: {dataset}")
+                logger.warning(
+                    f"could not find dataset '{filestem}' in lamindb: {dataset}"
+                )
             else:
                 input_artifacts.append(artifact)
     # link inputs
