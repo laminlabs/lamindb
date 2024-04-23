@@ -664,7 +664,7 @@ def from_df(
 @doc_args(Artifact.from_anndata.__doc__)
 def from_anndata(
     cls,
-    adata: AnnData,
+    adata: AnnData | UPathStr,
     key: str | None = None,
     description: str | None = None,
     run: Run | None = None,
