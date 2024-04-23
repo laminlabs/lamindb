@@ -1,5 +1,6 @@
 # Changelog
 
+- ✏️ Fix suffix checking for vitessce [PR](https://github.com/laminlabs/lamindb/pull/1598) [@sunnyosun](https://github.com/sunnyosun)
 - 🚚 Rename `StorageSettings.is_cloud` to `StorageSettings.type_is_cloud` [PR](https://github.com/laminlabs/lamindb/pull/1596) [@falexwolf](https://github.com/falexwolf)
 - 🚸 In `.setup.delete()`, check for data deletion & delete from hub [PR](https://github.com/laminlabs/lamindb/pull/1595) [@falexwolf](https://github.com/falexwolf)
 - ⚡️ Speed up `latest_version` [PR](https://github.com/laminlabs/lamindb/pull/1594) [@falexwolf](https://github.com/falexwolf)
