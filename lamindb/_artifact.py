@@ -975,7 +975,7 @@ def delete(
                 delete_in_storage = response == "y"
             else:
                 delete_in_storage = storage
-        if not storage:
+        if not delete_in_storage:
             logger.warning(
                 f"you will retain a dangling store here: {path}, not referenced via an artifact"
             )
