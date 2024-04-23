@@ -673,6 +673,8 @@ def from_anndata(
     **kwargs,
 ) -> Artifact:
     """{}."""
+    if not data_is_anndata(adata):
+        raise ValueError("data has to be an AnnData object or a path to AnnData-like")
     artifact = Artifact(
         data=adata,
         key=key,

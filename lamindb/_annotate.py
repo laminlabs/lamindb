@@ -357,18 +357,20 @@ class AnnDataAnnotator(DataFrameAnnotator):
         verbosity: str = "hint",
         organism: str | None = None,
     ) -> None:
-        from lamindb.core.storage import UPath
+        from lamindb_setup.core import upath
 
         from ._artifact import data_is_anndata
 
         if not data_is_anndata(data):
-            raise TypeError
+            raise ValueError(
+                "data has to be an AnnData object or a path to AnnData-like"
+            )
         if isinstance(data, ad.AnnData):
             self._adata = data
         else:
             from lamindb.core.storage._backed_access import backed_access
 
-            self._adata = backed_access(UPath(data))
+            self._adata = backed_access(upath.create_path(data))
 
         self._data = data
         self._var_field = var_index
