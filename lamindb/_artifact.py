@@ -664,7 +664,7 @@ def from_df(
 @doc_args(Artifact.from_anndata.__doc__)
 def from_anndata(
     cls,
-    adata: AnnData,
+    adata: AnnData | UPathStr,
     key: str | None = None,
     description: str | None = None,
     run: Run | None = None,
@@ -673,6 +673,8 @@ def from_anndata(
     **kwargs,
 ) -> Artifact:
     """{}."""
+    if not data_is_anndata(adata):
+        raise ValueError("data has to be an AnnData object or a path to AnnData-like")
     artifact = Artifact(
         data=adata,
         key=key,
