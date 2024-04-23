@@ -79,7 +79,7 @@ def test_create_or_load_transform(monkeypatch):
     )
 
 
-def test_sync_git_repo():
+def test_run_script():
     ln.setup.settings.auto_connect = False
     script_path = "sub/lamin-cli/tests/scripts/initialized.py"
     result = subprocess.run(
@@ -87,17 +87,26 @@ def test_sync_git_repo():
         shell=True,
         capture_output=True,
     )
+    print(result.stdout.decode())
+    print(result.stderr.decode())
     assert result.returncode == 0
     assert "saved: Transform" in result.stdout.decode()
     assert "saved: Run" in result.stdout.decode()
     transform = ln.Transform.filter(name="initialized.py").one()
-    # the algorithm currently picks different commits dependening on the state of the repo
+    # the algorithm currently picks different commits depending on the state of the repo
     # any of these commits are valid
+    assert transform.uid == "m5uCHTTpJnjQ5zKv"
     assert transform.reference.endswith("/tests/scripts/initialized.py")
     assert transform.reference.startswith(
         "https://github.com/laminlabs/lamin-cli/blob/"
     )
     assert transform.reference_type == "url"
+    # ensure that the source code is not saved as an output artifact
+    assert transform.latest_run.output_artifacts.count() == 0
+    assert transform.runs.count() == 1
+    assert transform.source_code.hash == "w3rdRv9m16iF_bC8KfJ9Sw"
+    assert transform.source_code.transform is None
+    assert transform.source_code.run is None
 
 
 @pytest.mark.parametrize("type", ["notebook", "script"])
