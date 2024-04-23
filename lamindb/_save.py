@@ -171,7 +171,7 @@ def copy_or_move_to_cache(artifact: Artifact, storage_path: UPath):
     cache_dir = settings._storage_settings.cache_dir
 
     # just delete from the cache dir if a local instance
-    if not lamindb_setup.settings.storage.is_cloud:
+    if not lamindb_setup.settings.storage.type_is_cloud:
         if cache_dir in local_path.parents:
             if is_dir:
                 shutil.rmtree(local_path)

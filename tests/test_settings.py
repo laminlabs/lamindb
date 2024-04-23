@@ -6,7 +6,7 @@ import lamindb as ln
 def test_settings_switch_storage():
     assert ln.settings.storage.resolve() == Path("./default_storage").resolve()
     ln.settings.storage = "s3://lamindb-ci"
-    assert ln.setup.settings.storage.is_cloud
+    assert ln.setup.settings.storage.type_is_cloud
     assert ln.setup.settings.storage.root_as_str == "s3://lamindb-ci"
     # root.fs contains the underlying fsspec filesystem
     # the following is set by lamindb to True for s3 by default
