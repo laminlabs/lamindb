@@ -4,7 +4,6 @@ Also see `test_artifact_folders.py` for tests of folder-like artifacts.
 
 """
 
-
 import shutil
 from inspect import signature
 from pathlib import Path
@@ -61,6 +60,20 @@ def adata():
         var=pd.DataFrame(index=["MYC", "TCF7", "GATA1"]),
         obsm={"X_pca": np.array([[1, 2], [3, 4]])},
     )
+
+
+@pytest.fixture(scope="module")
+def adata_file():
+    adata = ad.AnnData(
+        X=np.array([[1, 2, 3], [4, 5, 6]]),
+        obs={"feat1": ["A", "B"]},
+        var=pd.DataFrame(index=["MYC", "TCF7", "GATA1"]),
+        obsm={"X_pca": np.array([[1, 2], [3, 4]])},
+    )
+    filepath = Path("adata_file.h5ad")
+    adata.write(filepath)
+    yield "adata_file.h5ad"
+    filepath.unlink()
 
 
 @pytest.fixture
@@ -277,6 +290,13 @@ def test_create_from_anndata_in_memory_and_link_features(adata):
     feature_sets_queried.delete()
     features_queried.delete()
     genes_queried.delete()
+    artifact.delete(permanent=True, storage=True)
+
+
+def test_create_from_anndata_strpath(adata_file):
+    artifact = ln.Artifact.from_anndata(adata_file, description="test adata file")
+    artifact.save()
+    assert artifact.accessor == "AnnData"
     artifact.delete(permanent=True, storage=True)
 
 

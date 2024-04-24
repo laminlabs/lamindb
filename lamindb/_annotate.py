@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Iterable, Optional
+from typing import TYPE_CHECKING, Iterable
 
 import anndata as ad
 import lamindb_setup as ln_setup
@@ -10,6 +10,7 @@ from lamindb_setup.core._docs import doc_args
 from lnschema_core import Artifact, Collection, Feature, Registry, Run, ULabel
 
 if TYPE_CHECKING:
+    from lamindb_setup.core.types import UPathStr
     from lnschema_core.types import FieldAttr
     from mudata import MuData
 
@@ -244,7 +245,7 @@ class DataFrameAnnotator:
         )
         return self._validated
 
-    def save_artifact(self, description: str, **kwargs) -> Artifact:
+    def save_artifact(self, description: str | None = None, **kwargs) -> Artifact:
         """Save the validated DataFrame and metadata.
 
         Args:
@@ -327,10 +328,10 @@ class DataFrameAnnotator:
 
 
 class AnnDataAnnotator(DataFrameAnnotator):
-    """Annotation flow for an ``AnnData`` object.
+    """Annotation flow for ``AnnData``.
 
     Args:
-        adata: The AnnData object to annotate.
+        data: The AnnData object or an AnnData-like path.
         var_index: The registry field for mapping the ``.var`` index.
         categoricals: A dictionary mapping ``.obs.columns`` to a registry field.
         using: A reference LaminDB instance.
@@ -349,14 +350,29 @@ class AnnDataAnnotator(DataFrameAnnotator):
 
     def __init__(
         self,
-        adata: ad.AnnData,
+        data: ad.AnnData | UPathStr,
         var_index: FieldAttr,
         categoricals: dict[str, FieldAttr] | None = None,
         using: str = "default",
         verbosity: str = "hint",
         organism: str | None = None,
     ) -> None:
-        self._adata = adata
+        from lamindb_setup.core import upath
+
+        from ._artifact import data_is_anndata
+
+        if not data_is_anndata(data):
+            raise ValueError(
+                "data has to be an AnnData object or a path to AnnData-like"
+            )
+        if isinstance(data, ad.AnnData):
+            self._adata = data
+        else:
+            from lamindb.core.storage._backed_access import backed_access
+
+            self._adata = backed_access(upath.create_path(data))
+
+        self._data = data
         self._var_field = var_index
         super().__init__(
             df=self._adata.obs,
@@ -443,7 +459,7 @@ class AnnDataAnnotator(DataFrameAnnotator):
         self._validated = validated_var and validated_obs
         return self._validated
 
-    def save_artifact(self, description: str, **kwargs) -> Artifact:
+    def save_artifact(self, description: str | None = None, **kwargs) -> Artifact:
         """Save the validated ``AnnData`` and metadata.
 
         Args:
@@ -457,7 +473,8 @@ class AnnDataAnnotator(DataFrameAnnotator):
             raise ValidationError("Please run `validate()` first!")
 
         self._artifact = save_artifact(
-            self._adata,
+            self._data,
+            adata=self._adata,
             description=description,
             columns_field=self.var_index,
             fields=self.categoricals,
@@ -697,7 +714,7 @@ class MuDataAnnotator:
         self._validated = validated_var and validated_obs
         return self._validated
 
-    def save_artifact(self, description: str, **kwargs) -> Artifact:
+    def save_artifact(self, description: str | None = None, **kwargs) -> Artifact:
         """Save the validated ``MuData`` and metadata.
 
         Args:
@@ -749,7 +766,7 @@ class Annotate:
     @doc_args(AnnDataAnnotator.__doc__)
     def from_anndata(
         cls,
-        adata: ad.AnnData,
+        data: ad.AnnData | UPathStr,
         var_index: FieldAttr,
         categoricals: dict[str, FieldAttr] | None = None,
         using: str = "default",
@@ -758,7 +775,7 @@ class Annotate:
     ) -> AnnDataAnnotator:
         """{}."""
         return AnnDataAnnotator(
-            adata=adata,
+            data=data,
             var_index=var_index,
             categoricals=categoricals,
             using=using,
@@ -920,10 +937,11 @@ def validate_categories_in_df(
 
 def save_artifact(
     data: pd.DataFrame | ad.AnnData | MuData,
-    description: str,
     fields: dict[str, FieldAttr] | dict[str, dict[str, FieldAttr]],
     columns_field: FieldAttr | dict[str, FieldAttr],
+    description: str | None = None,
     organism: str | None = None,
+    adata: ad.AnnData | None = None,
     **kwargs,
 ) -> Artifact:
     """Save all metadata with an Artifact.
@@ -934,15 +952,21 @@ def save_artifact(
         fields: A dictionary mapping obs_column to registry_field.
         columns_field: The registry field to validate variables index against.
         organism: The organism name.
+        adata: The AnnData object to save, must be provided if data is a path.
         kwargs: Additional keyword arguments to pass to the registry model.
 
     Returns:
         The saved Artifact.
     """
+    from ._artifact import data_is_anndata
+
     artifact = None
-    if isinstance(data, ad.AnnData):
+    if data_is_anndata(data):
+        assert adata is not None
         artifact = Artifact.from_anndata(data, description=description, **kwargs)
-        artifact.n_observations = data.n_obs
+        artifact.n_observations = adata.shape[0]
+        data = adata
+
     elif isinstance(data, pd.DataFrame):
         artifact = Artifact.from_df(data, description=description, **kwargs)
     else:
