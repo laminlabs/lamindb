@@ -1,5 +1,6 @@
 # Changelog
 
+- ✏️ Fix guide query [PR](https://github.com/laminlabs/lamindb/pull/1601) [@sunnyosun](https://github.com/sunnyosun)
 - ✨ Allow passing path to `.from_anndata` [PR](https://github.com/laminlabs/lamindb/pull/1600) [@sunnyosun](https://github.com/sunnyosun)
 - ✅ More tests for running scripts [PR](https://github.com/laminlabs/lamindb/pull/1599) [@falexwolf](https://github.com/falexwolf)
 - ✏️ Fix suffix checking for vitessce [PR](https://github.com/laminlabs/lamindb/pull/1598) [@sunnyosun](https://github.com/sunnyosun)
