@@ -46,8 +46,9 @@ def lint(session: nox.Session) -> None:
     ["unit", "tutorial", "guide", "biology", "faq", "storage", "docs", "cli"],
 )
 def install(session, group):
-    # run with pypi install on main
-    if os.getenv("GITHUB_EVENT_NAME") != "push":
+    # on the release branch, do not use submodules but run with pypi install
+    # only exception is the docs group
+    if os.getenv("GITHUB_EVENT_NAME") != "push" or group == "docs":
         # run with submodule install on a PR
         submodules = " ".join(
             [
@@ -160,6 +161,7 @@ def docs(session):
                 section = (
                     "```\n\n" + "#" * len(names) + " " + " ".join(("lamin", *names[1:]))
                 )
+            help_string = help_string.replace("Usage: main", "Usage: lamin")
             page += f"{section}\n\n```\n{help_string}```\n\n"
 
         Path("./docs/cli.md").write_text(page)
