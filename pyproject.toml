@@ -41,10 +41,10 @@ bionty = [
     "bionty==0.42.9",
 ]
 aws = [
-    "lamindb_setup[aws]"
+    "lamindb_setup[aws]",
 ]
 gcp = [
-    "fsspec[gs]==2023.12.2"
+    "lamindb_setup[gcp]",
 ]
 jupyter = [
     "nbproject==0.10.0",  # keep pinning
