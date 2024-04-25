@@ -1,5 +1,6 @@
 # Changelog
 
+- ♻️ Refactor noxfile and move `aws` and `gcp` extras to `lamindb-setup` [PR](https://github.com/laminlabs/lamindb/pull/1604) [@falexwolf](https://github.com/falexwolf)
 :::{note}
 
 LaminDB implements "migration-based versioning".
