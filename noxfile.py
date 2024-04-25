@@ -115,12 +115,12 @@ def build(session, group):
         ln.setup.settings.auto_connect = True
         run(
             session,
-            *f"pytest -s {coverage_args} ./docs/test_notebooks.py::test_{group}",
+            f"pytest -s {coverage_args} ./docs/test_notebooks.py::test_{group}",
         )
     elif group == "biology":
         run(
             session,
-            *f"pytest -s {coverage_args} ./docs/test_notebooks.py::test_{group}",
+            f"pytest -s {coverage_args} ./docs/test_notebooks.py::test_{group}",
         )
     elif group == "faq":
         ln.setup.settings.auto_connect = True
