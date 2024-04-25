@@ -41,13 +41,10 @@ bionty = [
     "bionty==0.42.9",
 ]
 aws = [
-    "urllib3<2", # for botocore, TODO: check that really required
-    "aiobotocore[boto3]>=2.5.4,<3.0.0",
-    "s3fs==2023.12.2",
-    "fsspec[s3]==2023.12.2",
+    "lamindb_setup[aws]",
 ]
 gcp = [
-    "fsspec[gs]==2023.12.2"
+    "lamindb_setup[gcp]",
 ]
 jupyter = [
     "nbproject==0.10.0",  # keep pinning

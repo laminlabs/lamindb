@@ -4,13 +4,21 @@ from pathlib import Path
 
 import nox
 from laminci import upload_docs_artifact
-from laminci.nox import build_docs, login_testuser1, login_testuser2, run_pre_commit
+from laminci.nox import (
+    build_docs,
+    login_testuser1,
+    login_testuser2,
+    run,
+    run_pre_commit,
+)
 
 # we'd like to aggregate coverage information across sessions
 # and for this the code needs to be located in the same
 # directory in every github action runner
 # this also allows to break out an installation section
 nox.options.default_venv_backend = "none"
+
+IS_PR = os.getenv("GITHUB_EVENT_NAME") != "push"
 
 
 GROUPS = {}
@@ -48,46 +56,41 @@ def lint(session: nox.Session) -> None:
 def install(session, group):
     # on the release branch, do not use submodules but run with pypi install
     # only exception is the docs group
-    if os.getenv("GITHUB_EVENT_NAME") != "push" or group == "docs":
-        # run with submodule install on a PR
-        submodules = " ".join(
-            [
-                "./sub/lamindb-setup",
-                "./sub/lnschema-core",
-                "./sub/lamin-cli",
-            ]
-        )
-        session.run(*f"uv pip install --system --no-deps {submodules}".split())
+    if IS_PR or group == "docs":
+        cmd = "uv pip install --system --no-deps ./sub/lamindb-setup ./sub/lnschema-core ./sub/lamin-cli"
+        run(session, cmd)
     extras = ""
     if group == "unit":
         extras += "bionty,aws,zarr,fcs,jupyter"
     elif group == "tutorial":
-        extras += "aws,jupyter,bionty"  # despite no AWS credentials, we need s3fs
+        extras += "aws,jupyter,bionty"
     elif group == "guide":
         extras += "aws,bionty,zarr,jupyter,erdiagram"
-        session.run(*"uv pip install --system scanpy".split())
+        run(session, "uv pip install --system scanpy")
     elif group == "biology":
         extras += "bionty,fcs,jupyter"
     elif group == "faq":
         extras += "aws,bionty,jupyter"
     elif group == "storage":
         extras += "aws,zarr,bionty,jupyter"
-        session.run(
-            *"uv pip install --system --no-deps git+https://github.com/laminlabs/wetlab".split()
+        run(
+            session,
+            "uv pip install --system --no-deps git+https://github.com/laminlabs/wetlab",
         )
-        session.run(*"uv pip install --system vitessce".split())
+        run(session, "uv pip install --system vitessce")
     elif group == "docs":
         extras += "bionty"
-        session.run(*"uv pip install --system mudata".split())
-        session.run(
-            *"uv pip install --system --no-deps git+https://github.com/laminlabs/wetlab".split()
+        run(session, "uv pip install --system mudata")
+        run(
+            session,
+            "uv pip install --system --no-deps git+https://github.com/laminlabs/wetlab",
         )
     elif group == "cli":
         extras += "jupyter,aws,bionty"
-    if os.getenv("GITHUB_EVENT_NAME") != "push" and "bionty" in extras:
-        session.run(*"uv pip install --system --no-deps ./sub/bionty".split())
-        session.run(*"uv pip install --system --no-deps ./sub/lnschema-bionty".split())
-    session.run(*f"uv pip install --system -e .[dev,{extras}]".split())
+    if IS_PR and "bionty" in extras:
+        run(session, "uv pip install --system --no-deps ./sub/bionty")
+        run(session, "uv pip install --system --no-deps ./sub/lnschema-bionty")
+    run(session, f"uv pip install --system -e .[dev,{extras}]")
 
 
 @nox.session
@@ -102,28 +105,30 @@ def build(session, group):
     login_testuser1(session)
     coverage_args = "--cov=lamindb --cov-append --cov-report=term-missing"
     if group == "unit":
-        session.run(*f"pytest {coverage_args} ./tests".split())
+        run(session, f"pytest {coverage_args} ./tests")
     elif group == "tutorial":
-        session.run(*"lamin logout".split())
-        session.run(
-            *f"pytest -s {coverage_args} ./docs/test_notebooks.py::test_{group}".split()
+        run(session, "lamin logout")
+        run(
+            session, f"pytest -s {coverage_args} ./docs/test_notebooks.py::test_{group}"
         )
     elif group == "guide":
         ln.setup.settings.auto_connect = True
-        session.run(
-            *f"pytest -s {coverage_args} ./docs/test_notebooks.py::test_{group}".split()
+        run(
+            session,
+            f"pytest -s {coverage_args} ./docs/test_notebooks.py::test_{group}",
         )
     elif group == "biology":
-        session.run(
-            *f"pytest -s {coverage_args} ./docs/test_notebooks.py::test_{group}".split()
+        run(
+            session,
+            f"pytest -s {coverage_args} ./docs/test_notebooks.py::test_{group}",
         )
     elif group == "faq":
         ln.setup.settings.auto_connect = True
-        session.run(*f"pytest -s {coverage_args} ./docs/faq".split())
+        run(session, f"pytest -s {coverage_args} ./docs/faq")
     elif group == "storage":
-        session.run(*f"pytest -s {coverage_args} ./docs/storage".split())
+        run(session, f"pytest -s {coverage_args} ./docs/storage")
     elif group == "cli":
-        session.run(*f"pytest {coverage_args} ./sub/lamin-cli/tests".split())
+        run(session, f"pytest {coverage_args} ./sub/lamin-cli/tests")
     # move artifacts into right place
     if group in {"tutorial", "guide", "biology"}:
         target_dir = Path(f"./docs/{group}")
@@ -144,7 +149,7 @@ def docs(session):
         if group in {"tutorial", "guide", "biology"}:
             for path in Path(f"./docs/{group}").glob("*"):
                 path.rename(f"./docs/{path.name}")
-    session.run(*"lamin init --storage ./docsbuild --schema bionty,wetlab".split())
+    run(session, "lamin init --storage ./docsbuild --schema bionty,wetlab")
 
     def generate_cli_docs():
         os.environ["NO_RICH"] = "1"
@@ -152,9 +157,7 @@ def docs(session):
 
         page = "# `lamin`\n\nFor a guide, see: {doc}`/setup`.\n\n"
         helps = _generate_help()
-
         for name, help_string in helps.items():
-            print(name, help_string)
             names = name.split(" ")
             section = ""
             if len(names) != 1:
@@ -163,7 +166,6 @@ def docs(session):
                 )
             help_string = help_string.replace("Usage: main", "Usage: lamin")
             page += f"{section}\n\n```\n{help_string}```\n\n"
-
         Path("./docs/cli.md").write_text(page)
 
     generate_cli_docs()
