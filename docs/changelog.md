@@ -1,5 +1,6 @@
 # Changelog
 
+- ♻️ Make save return self [PR](https://github.com/laminlabs/lamindb/pull/1606) [@falexwolf](https://github.com/falexwolf)
 - ♻️ Refactor noxfile and move `aws` and `gcp` extras to `lamindb-setup` [PR](https://github.com/laminlabs/lamindb/pull/1604) [@falexwolf](https://github.com/falexwolf)
 :::{note}
 
