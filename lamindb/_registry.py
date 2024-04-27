@@ -113,7 +113,7 @@ def __init__(orm: Registry, *args, **kwargs):
                     logger.warning(
                         f"loaded {orm.__class__.__name__} record with same"
                         f" name{version_comment}: '{kwargs['name']}' "
-                        "(disable via ln.settings.upon_create_search_names)"
+                        "(disable via `ln.settings.upon_create_search_names`)"
                     )
                     init_self_from_db(orm, existing_record)
                     return None
@@ -498,7 +498,7 @@ def transfer_to_default_db(
 
 
 # docstring handled through attach_func_to_class_method
-def save(self, *args, **kwargs) -> None:
+def save(self, *args, **kwargs) -> Registry:
     using_key = None
     if "using" in kwargs:
         using_key = kwargs["using"]
@@ -540,6 +540,7 @@ def save(self, *args, **kwargs) -> None:
             self.features._add_from(self_on_db, **add_from_kwargs)
             logger.info("transfer labels")
             self.labels.add_from(self_on_db, **add_from_kwargs)
+    return self
 
 
 METHOD_NAMES = [
