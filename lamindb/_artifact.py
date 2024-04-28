@@ -9,8 +9,8 @@ import pandas as pd
 from anndata import AnnData
 from lamin_utils import colors, logger
 from lamindb_setup import settings as setup_settings
-from lamindb_setup._init_instance import register_storage
-from lamindb_setup.core import StorageSettings
+from lamindb_setup._init_instance import register_storage_in_instance
+from lamindb_setup.core import init_storage as init_storage_hub
 from lamindb_setup.core._docs import doc_args
 from lamindb_setup.core.hashing import b16_to_b64, hash_file, hash_md5s_from_dir
 from lamindb_setup.core.upath import (
@@ -100,12 +100,9 @@ def process_pathlike(
             # for the storage root: the bucket
             if not isinstance(filepath, LocalPathClasses):
                 # for a cloud path, new_root is always the bucket name
-                # we should check this assumption
-                new_root = list(filepath.parents)[-1]
-                new_root_str = new_root.as_posix().rstrip("/")
-                logger.warning(f"generating a new storage location at {new_root_str}")
-                storage_settings = StorageSettings(new_root_str)
-                storage_record = register_storage(storage_settings)
+                new_root = filepath._url.netloc
+                storage_settings = init_storage_hub(new_root)
+                storage_record = register_storage_in_instance(storage_settings)
                 use_existing_storage_key = True
                 return storage_record, use_existing_storage_key
             # if the filepath is local
