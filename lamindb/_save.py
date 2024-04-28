@@ -291,7 +291,9 @@ def upload_artifact(
         and artifact._memory_rep is not None
     ):
         logger.save(msg)
-        print_progress = partial(print_hook, filepath=storage_path, action="uploading")
+        print_progress = partial(
+            print_hook, objectname=storage_path.name, action="uploading"
+        )
         write_adata_zarr(artifact._memory_rep, storage_path, callback=print_progress)
     elif hasattr(artifact, "_to_store") and artifact._to_store:
         logger.save(msg)
