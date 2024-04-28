@@ -100,7 +100,7 @@ def process_pathlike(
             # for the storage root: the bucket
             if not isinstance(filepath, LocalPathClasses):
                 # for a cloud path, new_root is always the bucket name
-                new_root = filepath._url.netloc
+                new_root = list(filepath.parents)[-1]
                 storage_settings = init_storage(new_root)
                 storage_record = register_storage_in_instance(storage_settings)
                 use_existing_storage_key = True
