@@ -1,5 +1,6 @@
 # Changelog
 
+- ✨ Proper progress bars for upload and download [PR](https://github.com/laminlabs/lamindb/pull/1610) [@Koncopd](https://github.com/Koncopd)
 - ♻️ Refactor storage management [PR](https://github.com/laminlabs/lamindb/pull/1605) [@falexwolf](https://github.com/falexwolf)
 - ⬆️ Upgrade fsspec [PR](https://github.com/laminlabs/lamindb/pull/1608) [@Koncopd](https://github.com/Koncopd)
 - ♻️ Make save return self [PR](https://github.com/laminlabs/lamindb/pull/1606) [@falexwolf](https://github.com/falexwolf)
