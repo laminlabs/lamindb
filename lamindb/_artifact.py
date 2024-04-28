@@ -11,7 +11,7 @@ from lamin_utils import colors, logger
 from lamindb_setup import settings as setup_settings
 from lamindb_setup._init_instance import register_storage_in_instance
 from lamindb_setup.core._docs import doc_args
-from lamindb_setup.core._hub_core import init_storage as init_storage_hub
+from lamindb_setup.core._settings_storage import init_storage
 from lamindb_setup.core.hashing import b16_to_b64, hash_file, hash_md5s_from_dir
 from lamindb_setup.core.upath import (
     create_path,
@@ -101,7 +101,7 @@ def process_pathlike(
             if not isinstance(filepath, LocalPathClasses):
                 # for a cloud path, new_root is always the bucket name
                 new_root = filepath._url.netloc
-                storage_settings = init_storage_hub(new_root)
+                storage_settings = init_storage(new_root)
                 storage_record = register_storage_in_instance(storage_settings)
                 use_existing_storage_key = True
                 return storage_record, use_existing_storage_key
