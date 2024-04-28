@@ -10,8 +10,8 @@ from anndata import AnnData
 from lamin_utils import colors, logger
 from lamindb_setup import settings as setup_settings
 from lamindb_setup._init_instance import register_storage_in_instance
-from lamindb_setup.core import init_storage as init_storage_hub
 from lamindb_setup.core._docs import doc_args
+from lamindb_setup.core._hub_core import init_storage as init_storage_hub
 from lamindb_setup.core.hashing import b16_to_b64, hash_file, hash_md5s_from_dir
 from lamindb_setup.core.upath import (
     create_path,
@@ -542,11 +542,13 @@ def __init__(artifact: Artifact, *args, **kwargs):
     skip_check_exists = (
         kwargs.pop("skip_check_exists") if "skip_check_exists" in kwargs else False
     )
-    default_storage = (
-        kwargs.pop("default_storage")
-        if "default_storage" in kwargs
-        else settings._storage_settings.record
-    )
+    if "default_storage" in kwargs:
+        default_storage = kwargs.pop("default_storage")
+    else:
+        if setup_settings.instance.keep_artifacts_local:
+            default_storage = setup_settings.instance.local_storage
+        else:
+            default_storage = setup_settings.instance.storage
     using_key = (
         kwargs.pop("using_key") if "using_key" in kwargs else settings._using_key
     )
