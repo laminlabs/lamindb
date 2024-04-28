@@ -149,7 +149,7 @@ def save_run_context_core(
                 response = "y"
             if response == "y":
                 transform.source_code.replace(source_code_path)
-                transform.source_code.save()
+                transform.source_code.save(upload=True)
             else:
                 logger.warning("Please re-run `ln.track()` to make a new version")
                 return "rerun-the-notebook"
@@ -162,7 +162,7 @@ def save_run_context_core(
             visibility=0,  # hidden file
             run=False,
         )
-        source_code.save()
+        source_code.save(upload=True)
         transform.source_code = source_code
         logger.success(f"saved transform.source_code: {transform.source_code}")
     # track environment
@@ -175,7 +175,7 @@ def save_run_context_core(
             run=False,
         )
         if artifact._state.adding:
-            artifact.save()
+            artifact.save(upload=True)
         run.environment = artifact
         logger.success(f"saved run.environment: {run.environment}")
     # save report file
@@ -187,7 +187,7 @@ def save_run_context_core(
                 "there is already an existing report for this run, replacing it"
             )
             run.report.replace(filepath_html)
-            run.report.save()
+            run.report.save(upload=True)
         else:
             report_file = ln.Artifact(
                 filepath_html,
@@ -196,7 +196,7 @@ def save_run_context_core(
                 visibility=0,  # hidden file
                 run=False,
             )
-            report_file.save()
+            report_file.save(upload=True)
             run.report = report_file
         run.is_consecutive = is_consecutive
         if finished_at:

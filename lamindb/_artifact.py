@@ -995,6 +995,8 @@ def _delete_skip_storage(artifact, *args, **kwargs) -> None:
 # docstring handled through attach_func_to_class_method
 def save(self, upload: bool | None = None, **kwargs) -> None:
     access_token = kwargs.pop("access_token", None)
+    if upload and setup_settings.instance.keep_artifacts_local:
+        self.storage_id = setup_settings.instance.storage.id
 
     self._save_skip_storage(**kwargs)
 

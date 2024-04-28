@@ -12,4 +12,5 @@ faq/reference-field
 faq/key
 faq/visibility
 faq/delete
+faq/keep-artifacts-local
 ```
