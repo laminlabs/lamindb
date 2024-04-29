@@ -4,7 +4,7 @@ from pathlib import Path
 import lamindb as ln
 import pytest
 from lamindb.core.storage.paths import read_adata_h5ad
-from lamindb_setup._add_remote_storage import switch_default_storage
+from lamindb_setup._add_remote_storage import add_managed_storage
 
 
 # https://stackoverflow.com/questions/22627659/run-code-before-and-after-each-test-in-py-test
@@ -13,11 +13,11 @@ from lamindb_setup._add_remote_storage import switch_default_storage
 def switch_storage():
     cloud_storage = "s3://lamindb-ci"
 
-    switch_default_storage(cloud_storage)
+    add_managed_storage(cloud_storage)
 
     yield cloud_storage
 
-    switch_default_storage("./default_storage")
+    add_managed_storage("./default_storage")
 
 
 def test_local_cache():

@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING, Literal, Mapping
 
 import lamindb_setup as ln_setup
 from lamin_utils import logger
-from lamindb_setup._add_remote_storage import switch_default_storage
+from lamindb_setup._add_remote_storage import add_managed_storage
 from lamindb_setup.core._settings import settings as setup_settings
 from lamindb_setup.core._settings_instance import sanitize_git_repo_url
 
@@ -150,7 +150,7 @@ class Settings:
             path, kwargs = path_kwargs
         else:
             path, kwargs = path_kwargs, {}
-        switch_default_storage(path, **kwargs)
+        add_managed_storage(path, **kwargs)
 
     @property
     def verbosity(self) -> str:
