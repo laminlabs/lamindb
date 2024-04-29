@@ -11,6 +11,7 @@ from lamindb_setup._add_remote_storage import add_managed_storage
 # switch to cloud storage and back
 @pytest.fixture
 def switch_storage():
+    ln.setup.register()  # temporarily
     cloud_storage = "s3://lamindb-ci/lamindb-unit-tests-cloud"
     add_managed_storage(cloud_storage)
     yield cloud_storage
