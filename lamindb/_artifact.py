@@ -547,7 +547,7 @@ def __init__(artifact: Artifact, *args, **kwargs):
         default_storage = kwargs.pop("default_storage")
     else:
         if setup_settings.instance.keep_artifacts_local:
-            default_storage = setup_settings.instance.local_storage.record
+            default_storage = setup_settings.instance.storage_local.record
         else:
             default_storage = setup_settings.instance.storage.record
     using_key = (

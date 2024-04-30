@@ -141,7 +141,7 @@ def delete_storage(storagepath: Path):
         allow_delete = False
         if setup_settings.instance.keep_artifacts_local:
             allow_delete = storagepath.is_relative_to(
-                setup_settings.instance.local_storage.root
+                setup_settings.instance.storage_local.root
             )
         if not allow_delete:
             logger.warning("couldn't delete files outside of default storage")
