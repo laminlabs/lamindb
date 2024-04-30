@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import shutil
 from pathlib import Path, PurePath, PurePosixPath
 from typing import TYPE_CHECKING, Any, Mapping
 
@@ -994,9 +995,14 @@ def _delete_skip_storage(artifact, *args, **kwargs) -> None:
 
 # docstring handled through attach_func_to_class_method
 def save(self, upload: bool | None = None, **kwargs) -> None:
+    state_was_adding = self._state.adding
     access_token = kwargs.pop("access_token", None)
+    local_path = None
     if upload and setup_settings.instance.keep_artifacts_local:
+        # switch local storage location to cloud
+        local_path = self.path
         self.storage_id = setup_settings.instance.storage.id
+        self._local_filepath = local_path
 
     self._save_skip_storage(**kwargs)
 
@@ -1012,6 +1018,17 @@ def save(self, upload: bool | None = None, **kwargs) -> None:
     exception = check_and_attempt_clearing(self, using_key)
     if exception is not None:
         raise RuntimeError(exception)
+    if local_path is not None and not state_was_adding:
+        # only move the local artifact to cache if it was not newly created
+        local_path_cache = ln_setup.settings.storage.cache_dir / local_path.name
+        # don't use Path.rename here because of cross-device link error
+        # https://laminlabs.slack.com/archives/C04A0RMA0SC/p1710259102686969
+        shutil.move(
+            local_path,  # type: ignore
+            local_path_cache,
+        )
+        logger.important(f"moved local artifact to cache: {local_path_cache}")
+    return self
 
 
 def _save_skip_storage(file, **kwargs) -> None:
