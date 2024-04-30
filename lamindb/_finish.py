@@ -121,7 +121,11 @@ def save_run_context_core(
         # first, copy the notebook file to a temporary file in the cache
         source_code_path = ln_setup.settings.storage.cache_dir / filepath.name
         shutil.copy2(filepath, source_code_path)  # copy
-        subprocess.run(f"nbstripout '{source_code_path}'", shell=True, check=True)
+        subprocess.run(
+            f"nbstripout '{source_code_path}' --extra-keys='metadata.version metadata.kernelspec metadata.language_info metadata.pygments_lexer metadata.name metadata.file_extension'",
+            shell=True,
+            check=True,
+        )
     # find initial versions of source codes and html reports
     prev_report = None
     prev_source = None
