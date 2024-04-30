@@ -8,6 +8,8 @@ import pytest
 from lamin_utils import logger
 from laminci.db import setup_local_test_postgres
 
+AUTO_CONNECT = ln.setup.settings.auto_connect
+
 
 def pytest_sessionstart():
     ln_setup._TESTING = True
@@ -28,7 +30,7 @@ def pytest_sessionfinish(session: pytest.Session):
     ln.setup.delete("lamindb-unit-tests", force=True)
     # shutil.rmtree("./outside_storage")
     run("docker stop pgtest && docker rm pgtest", shell=True, stdout=DEVNULL)
-    ln.setup.settings.auto_connect = False
+    ln.setup.settings.auto_connect = AUTO_CONNECT
 
 
 @pytest.fixture(
