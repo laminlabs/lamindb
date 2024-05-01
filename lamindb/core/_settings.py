@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING, Literal, Mapping
 
 import lamindb_setup as ln_setup
 from lamin_utils import logger
-from lamindb_setup._add_remote_storage import switch_default_storage
+from lamindb_setup._add_remote_storage import add_managed_storage
 from lamindb_setup.core._settings import settings as setup_settings
 from lamindb_setup.core._settings_instance import sanitize_git_repo_url
 
@@ -92,11 +92,11 @@ class Settings:
         self.__using_key = value
 
     @property
-    def _storage_settings(self) -> ln_setup.dev.StorageSettings:
+    def _storage_settings(self) -> ln_setup.core.StorageSettings:
         if self._using_storage is None:
             storage_settings = ln_setup.settings.storage
         else:
-            storage_settings = ln_setup.dev.StorageSettings(root=self._using_storage)
+            storage_settings = ln_setup.core.StorageSettings(root=self._using_storage)
         return storage_settings
 
     @property
@@ -127,7 +127,7 @@ class Settings:
 
         Examples:
 
-        You can set the root via:
+        You can switch to another managed storage location via:
 
         >>> ln.settings.storage = "s3://some-bucket"
 
@@ -143,14 +143,27 @@ class Settings:
 
     @storage.setter
     def storage(self, path_kwargs: str | Path | UPath | tuple[str | UPath, Mapping]):
-        logger.warning(
-            "you'll no longer be able to set arbitrary storage locations soon"
-        )
         if isinstance(path_kwargs, tuple):
             path, kwargs = path_kwargs
         else:
             path, kwargs = path_kwargs, {}
-        switch_default_storage(path, **kwargs)
+        add_managed_storage(path, **kwargs)
+
+    @property
+    def storage_local(self) -> Path:
+        """An additional local default storage (a path to its root).
+
+        Is only available if :attr:`~lamindb.setup.core.InstanceSettings.keep_artifacts_local` is enabled.
+
+        Guide: :doc:`faq/keep-artifacts-local`
+
+        Shortcut for: `ln.setup.settings.instance.storage_local.root`
+        """
+        return ln_setup.settings.instance.storage_local.root
+
+    @storage_local.setter
+    def storage_local(self, local_root: Path):
+        ln_setup.settings.instance.storage_local = local_root
 
     @property
     def verbosity(self) -> str:
@@ -162,8 +175,6 @@ class Settings:
         - 'info': 💡 also show info messages
         - 'hint': 💡 also show hint messages
         - 'debug': 🐛 also show detailed debug messages
-
-        This is based on Scanpy's and Django's verbosity setting.
         """
         return VERBOSITY_TO_STR[self._verbosity_int]
 
