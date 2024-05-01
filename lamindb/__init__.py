@@ -40,9 +40,8 @@ Modules & settings:
 
 """
 
-__version__ = (
-    "0.71a1"  # denote a release candidate for 0.1.0 with 0.1rc1, 0.1a1, 0.1b1, etc.
-)
+# denote a release candidate for 0.1.0 with 0.1rc1, 0.1a1, 0.1b1, etc.
+__version__ = "0.71a1"
 
 import os as _os
 
