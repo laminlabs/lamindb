@@ -1,5 +1,6 @@
 # Changelog
 
+-  🐛Escape \ properly for anndata_mouse_sc_lymph_node dataloader [PR](https://github.com/laminlabs/lamindb/pull/1613) [@Zethson](https://github.com/Zethson)
 :::{note}
 
 LaminDB implements "migration-based versioning".
