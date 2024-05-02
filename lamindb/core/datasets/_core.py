@@ -161,8 +161,8 @@ def anndata_mouse_sc_lymph_node(
     adata.obs.columns = (
         adata.obs.columns.str.replace("Sample Characteristic", "")
         .str.replace("Factor Value ", "Factor Value:", regex=True)
-        .str.replace("Factor Value\[", "Factor Value:", regex=True)  # noqa
-        .str.replace(" Ontology Term\[", "ontology_id:", regex=True)  # noqa
+        .str.replace("Factor Value\\[", "Factor Value:", regex=True)
+        .str.replace(" Ontology Term\\[", "ontology_id:", regex=True)
         .str.strip("[]")
         .str.replace("organism part", "tissue")
         .str.replace("organism", "organism")
