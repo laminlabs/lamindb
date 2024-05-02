@@ -75,9 +75,6 @@ def attempt_accessing_path(
                 settings.storage, access_token=access_token
             )
     else:
-        logger.debug(
-            "artifact.path is slightly slower for files outside default storage"
-        )
         if artifact._state.db not in ("default", None) and using_key is None:
             storage = (
                 Storage.using(artifact._state.db).filter(id=artifact.storage_id).one()
@@ -141,8 +138,14 @@ def delete_storage(storagepath: Path):
     # replace with check_path_is_child_of_root but this needs to first be debugged
     # if not check_path_is_child_of_root(storagepath, settings.storage):
     if not storagepath.is_relative_to(settings.storage):  # type: ignore
-        logger.warning("couldn't delete files outside of default storage")
-        return "did-not-delete"
+        allow_delete = False
+        if setup_settings.instance.keep_artifacts_local:
+            allow_delete = storagepath.is_relative_to(
+                setup_settings.instance.storage_local.root
+            )
+        if not allow_delete:
+            logger.warning("couldn't delete files outside of default storage")
+            return "did-not-delete"
     # only delete files in the default storage
     if storagepath.is_file():
         storagepath.unlink()

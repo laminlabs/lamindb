@@ -88,8 +88,10 @@ def install(session, group):
     elif group == "cli":
         extras += "jupyter,aws,bionty"
     if IS_PR and "bionty" in extras:
-        run(session, "uv pip install --system --no-deps ./sub/bionty")
-        run(session, "uv pip install --system --no-deps ./sub/lnschema-bionty")
+        run(
+            session,
+            "uv pip install --system --no-deps ./sub/bionty ./sub/lnschema-bionty",
+        )
     run(session, f"uv pip install --system -e .[dev,{extras}]")
 
 

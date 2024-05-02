@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import shutil
 from pathlib import Path, PurePath, PurePosixPath
 from typing import TYPE_CHECKING, Any, Mapping
 
@@ -9,9 +10,9 @@ import pandas as pd
 from anndata import AnnData
 from lamin_utils import colors, logger
 from lamindb_setup import settings as setup_settings
-from lamindb_setup._init_instance import register_storage
-from lamindb_setup.core import StorageSettings
+from lamindb_setup._init_instance import register_storage_in_instance
 from lamindb_setup.core._docs import doc_args
+from lamindb_setup.core._settings_storage import init_storage
 from lamindb_setup.core.hashing import b16_to_b64, hash_file, hash_md5s_from_dir
 from lamindb_setup.core.upath import (
     create_path,
@@ -100,12 +101,9 @@ def process_pathlike(
             # for the storage root: the bucket
             if not isinstance(filepath, LocalPathClasses):
                 # for a cloud path, new_root is always the bucket name
-                # we should check this assumption
                 new_root = list(filepath.parents)[-1]
-                new_root_str = new_root.as_posix().rstrip("/")
-                logger.warning(f"generating a new storage location at {new_root_str}")
-                storage_settings = StorageSettings(new_root_str)
-                storage_record = register_storage(storage_settings)
+                storage_settings = init_storage(new_root)
+                storage_record = register_storage_in_instance(storage_settings)
                 use_existing_storage_key = True
                 return storage_record, use_existing_storage_key
             # if the filepath is local
@@ -545,11 +543,13 @@ def __init__(artifact: Artifact, *args, **kwargs):
     skip_check_exists = (
         kwargs.pop("skip_check_exists") if "skip_check_exists" in kwargs else False
     )
-    default_storage = (
-        kwargs.pop("default_storage")
-        if "default_storage" in kwargs
-        else settings._storage_settings.record
-    )
+    if "default_storage" in kwargs:
+        default_storage = kwargs.pop("default_storage")
+    else:
+        if setup_settings.instance.keep_artifacts_local:
+            default_storage = setup_settings.instance.storage_local.record
+        else:
+            default_storage = setup_settings.instance.storage.record
     using_key = (
         kwargs.pop("using_key") if "using_key" in kwargs else settings._using_key
     )
@@ -995,7 +995,14 @@ def _delete_skip_storage(artifact, *args, **kwargs) -> None:
 
 # docstring handled through attach_func_to_class_method
 def save(self, upload: bool | None = None, **kwargs) -> None:
+    state_was_adding = self._state.adding
     access_token = kwargs.pop("access_token", None)
+    local_path = None
+    if upload and setup_settings.instance.keep_artifacts_local:
+        # switch local storage location to cloud
+        local_path = self.path
+        self.storage_id = setup_settings.instance.storage.id
+        self._local_filepath = local_path
 
     self._save_skip_storage(**kwargs)
 
@@ -1011,6 +1018,17 @@ def save(self, upload: bool | None = None, **kwargs) -> None:
     exception = check_and_attempt_clearing(self, using_key)
     if exception is not None:
         raise RuntimeError(exception)
+    if local_path is not None and not state_was_adding:
+        # only move the local artifact to cache if it was not newly created
+        local_path_cache = ln_setup.settings.storage.cache_dir / local_path.name
+        # don't use Path.rename here because of cross-device link error
+        # https://laminlabs.slack.com/archives/C04A0RMA0SC/p1710259102686969
+        shutil.move(
+            local_path,  # type: ignore
+            local_path_cache,
+        )
+        logger.important(f"moved local artifact to cache: {local_path_cache}")
+    return self
 
 
 def _save_skip_storage(file, **kwargs) -> None:

@@ -1,10 +1,5 @@
 # Changelog
 
-- ✨ Proper progress bars for upload and download [PR](https://github.com/laminlabs/lamindb/pull/1610) [@Koncopd](https://github.com/Koncopd)
-- ♻️ Refactor storage management [PR](https://github.com/laminlabs/lamindb/pull/1605) [@falexwolf](https://github.com/falexwolf)
-- ⬆️ Upgrade fsspec [PR](https://github.com/laminlabs/lamindb/pull/1608) [@Koncopd](https://github.com/Koncopd)
-- ♻️ Make save return self [PR](https://github.com/laminlabs/lamindb/pull/1606) [@falexwolf](https://github.com/falexwolf)
-- ♻️ Refactor noxfile and move `aws` and `gcp` extras to `lamindb-setup` [PR](https://github.com/laminlabs/lamindb/pull/1604) [@falexwolf](https://github.com/falexwolf)
 :::{note}
 
 LaminDB implements "migration-based versioning".
@@ -16,6 +11,13 @@ When upgrading your LaminDB installation to a new `minor` version in `major.mino
 ```{eval-rst}
 .. role:: small
 ```
+
+## 0.71
+
+- ✨ Manage multiple storage locations with integrity [PR](https://github.com/laminlabs/lamindb/pull/1611) [@falexwolf](https://github.com/falexwolf)
+- 🚚 Add an `instance_uid` field to `Storage` | [374](https://github.com/laminlabs/lnschema-core/pull/374) [falexwolf](https://github.com/falexwolf)
+- 🚸 Proper progress bars for upload and download [PR](https://github.com/laminlabs/lamindb/pull/1610) [@Koncopd](https://github.com/Koncopd)
+- 🚸 Make save return self [PR](https://github.com/laminlabs/lamindb/pull/1606) [@falexwolf](https://github.com/falexwolf)
 
 ## 0.70
 

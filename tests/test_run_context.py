@@ -80,7 +80,6 @@ def test_create_or_load_transform(monkeypatch):
 
 
 def test_run_script():
-    ln.setup.settings.auto_connect = False
     script_path = "sub/lamin-cli/tests/scripts/initialized.py"
     result = subprocess.run(
         f"python {script_path}",
@@ -104,7 +103,7 @@ def test_run_script():
     # ensure that the source code is not saved as an output artifact
     assert transform.latest_run.output_artifacts.count() == 0
     assert transform.runs.count() == 1
-    assert transform.source_code.hash == "w3rdRv9m16iF_bC8KfJ9Sw"
+    assert transform.source_code.hash == "-QN2dVdC8T3xWG8vBl-wew"
     assert transform.source_code.transform is None
     assert transform.source_code.run is None
 
