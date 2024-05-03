@@ -5,14 +5,15 @@ import lamindb as ln
 
 def test_settings_switch_storage():
     assert ln.settings.storage.resolve() == Path("./default_storage").resolve()
-    ln.settings.storage = "s3://lamindb-ci"
+    new_storage_location = "s3://lamindb-ci/test-settings-switch-storage"
+    ln.settings.storage = new_storage_location
     assert ln.setup.settings.storage.type_is_cloud
-    assert ln.setup.settings.storage.root_as_str == "s3://lamindb-ci"
+    assert ln.setup.settings.storage.root_as_str == new_storage_location
     # root.fs contains the underlying fsspec filesystem
     # the following is set by lamindb to True for s3 by default
     assert ln.setup.settings.storage.root.fs.cache_regions
-    ln.settings.storage = "s3://lamindb-ci", {"cache_regions": False}
+    ln.settings.storage = new_storage_location, {"cache_regions": False}
     assert not ln.setup.settings.storage.root.fs.cache_regions
-    assert ln.Storage.filter(root="s3://lamindb-ci").one_or_none() is not None
+    assert ln.Storage.filter(root=new_storage_location).one_or_none() is not None
     # switch back to default storage
     ln.settings.storage = "./default_storage"
