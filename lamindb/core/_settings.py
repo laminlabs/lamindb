@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING, Literal, Mapping
 
 import lamindb_setup as ln_setup
 from lamin_utils import logger
-from lamindb_setup._add_remote_storage import add_managed_storage
+from lamindb_setup._set_managed_storage import set_managed_storage
 from lamindb_setup.core._settings import settings as setup_settings
 from lamindb_setup.core._settings_instance import sanitize_git_repo_url
 
@@ -147,7 +147,7 @@ class Settings:
             path, kwargs = path_kwargs
         else:
             path, kwargs = path_kwargs, {}
-        add_managed_storage(path, **kwargs)
+        set_managed_storage(path, **kwargs)
 
     @property
     def storage_local(self) -> Path:
