@@ -1,5 +1,6 @@
 # Changelog
 
+- ♻️ Extend valid suffixes to composite suffixes [PR](https://github.com/laminlabs/lamindb/pull/1619) [@falexwolf](https://github.com/falexwolf)
 - ♻️ Consistent naming of `set_managed_storage` [PR](https://github.com/laminlabs/lamindb/pull/1615) [@falexwolf](https://github.com/falexwolf)
 -  🐛Escape \ properly for anndata_mouse_sc_lymph_node dataloader [PR](https://github.com/laminlabs/lamindb/pull/1613) [@Zethson](https://github.com/Zethson)
 :::{note}
