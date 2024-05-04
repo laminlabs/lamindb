@@ -911,11 +911,25 @@ def load(self, is_run_input: bool | None = None, stream: bool = False, **kwargs)
 
 # docstring handled through attach_func_to_class_method
 def cache(self, is_run_input: bool | None = None) -> Path:
-    _track_run_input(self, is_run_input)
-
     using_key = settings._using_key
     filepath = filepath_from_artifact(self, using_key=using_key)
-    return setup_settings.instance.storage.cloud_to_local(filepath, print_progress=True)
+    try:
+        cache_path = setup_settings.instance.storage.cloud_to_local(
+            filepath, print_progress=True
+        )
+    except Exception as e:
+        if not isinstance(filepath, LocalPathClasses):
+            cache_path = setup_settings.instance.storage.cloud_to_local_no_update(
+                filepath
+            )
+            if cache_path.is_file():
+                cache_path.unlink(missing_ok=True)
+            elif cache_path.is_dir():
+                shutil.rmtree(cache_path)
+        raise e
+    # only call if sync is successfull
+    _track_run_input(self, is_run_input)
+    return cache_path
 
 
 # docstring handled through attach_func_to_class_method
