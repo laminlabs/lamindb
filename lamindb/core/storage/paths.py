@@ -140,7 +140,7 @@ def delete_storage(storagepath: Path):
     if not storagepath.is_relative_to(settings.storage):  # type: ignore
         allow_delete = False
         if setup_settings.instance.keep_artifacts_local:
-            allow_delete = storagepath.is_relative_to(
+            allow_delete = storagepath.is_relative_to(  # type: ignore
                 setup_settings.instance.storage_local.root
             )
         if not allow_delete:

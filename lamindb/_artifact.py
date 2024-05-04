@@ -35,8 +35,7 @@ from lamindb.core.storage import (
     delete_storage,
     infer_suffix,
     load_to_memory,
-    size_adata,
-    write_to_file,
+    write_to_disk,
 )
 from lamindb.core.storage.paths import (
     auto_storage_key_from_artifact,
@@ -173,8 +172,7 @@ def process_data(
         # Alex: I don't understand the line below
         if path.suffixes == []:
             path = path.with_suffix(suffix)
-        if suffix != ".zarr":
-            write_to_file(data, path)
+        write_to_disk(data, path)
         use_existing_storage_key = False
     else:
         raise NotImplementedError(
@@ -194,16 +192,13 @@ def get_stat_or_artifact(
     n_objects = None
     if settings.upon_file_create_skip_size_hash:
         return None, None, None, n_objects
-    if suffix == ".zarr" and memory_rep is not None and isinstance(memory_rep, AnnData):
-        size = size_adata(memory_rep)
-        return size, None, None, n_objects
     stat = path.stat()  # one network request
     if not isinstance(path, LocalPathClasses):
         size, hash, hash_type = None, None, None
         if stat is not None:
             if "ETag" in stat:  # is file
                 size, hash, hash_type = get_stat_file_cloud(stat)
-            elif path.is_dir():
+            elif stat["type"] == "directory":
                 size, hash, hash_type, n_objects = get_stat_dir_cloud(path)
         if hash is None:
             logger.warning(f"did not add hash for {path}")
@@ -222,6 +217,8 @@ def get_stat_or_artifact(
         else:
             hash, hash_type = hash_file(path)
             size = stat.st_size
+    if suffix.endswith(".zarr"):
+        n_objects = 1
     if not check_hash:
         return size, hash, hash_type, n_objects
     # also checks hidden and trashed files

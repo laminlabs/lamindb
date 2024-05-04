@@ -9,7 +9,7 @@ import pytest
 import zarr
 from lamindb.core.storage._backed_access import BackedAccessor, backed_access
 from lamindb.core.storage._zarr import read_adata_zarr, write_adata_zarr
-from lamindb.core.storage.objects import infer_suffix, write_to_file
+from lamindb.core.storage.objects import infer_suffix, write_to_disk
 from lamindb.core.storage.paths import read_adata_h5ad
 
 
@@ -157,9 +157,9 @@ def test_infer_suffix():
         infer_suffix(ln.Artifact)
 
 
-def test_write_to_file():
+def test_write_to_disk():
     with pytest.raises(NotImplementedError):
-        write_to_file(ln.Artifact, "path")
+        write_to_disk(ln.Artifact, "path")
 
 
 def test_backed_bad_format(bad_adata_path):
