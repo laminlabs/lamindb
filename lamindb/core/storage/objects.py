@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from pathlib import PurePosixPath
 from typing import TYPE_CHECKING
 
 from anndata import AnnData
@@ -21,7 +22,7 @@ def infer_suffix(dmem, adata_format: str | None = None):
     """Infer LaminDB storage file suffix from a data object."""
     if isinstance(dmem, AnnData):
         if adata_format is not None:
-            if adata_format not in ("h5ad", "zarr"):
+            if adata_format not in {"h5ad", "zarr", "anndata.zarr"}:
                 raise ValueError(
                     "Error when specifying AnnData storage format, it should be"
                     f" 'h5ad', 'zarr', not '{adata_format}'. Check 'format'"
@@ -40,9 +41,15 @@ def infer_suffix(dmem, adata_format: str | None = None):
         raise NotImplementedError
 
 
-def write_to_file(dmem, filepath: UPathStr):
+def write_to_disk(dmem, filepath: UPathStr):
     if isinstance(dmem, AnnData):
-        dmem.write(filepath)
+        suffix = PurePosixPath(filepath).suffix
+        if suffix == ".h5ad":
+            dmem.write_h5ad(filepath)
+        elif suffix == ".zarr":
+            dmem.write_zarr(filepath)
+        else:
+            raise NotImplementedError
     elif isinstance(dmem, DataFrame):
         dmem.to_parquet(filepath)
     else:

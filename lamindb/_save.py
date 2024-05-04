@@ -6,13 +6,13 @@ import traceback
 from collections import defaultdict
 from datetime import datetime
 from functools import partial
-from typing import Iterable, overload
+from typing import TYPE_CHECKING, Iterable, overload
 
 import lamindb_setup
 from django.db import transaction
 from django.utils.functional import partition
 from lamin_utils import logger
-from lamindb_setup.core.upath import UPath, print_hook
+from lamindb_setup.core.upath import print_hook
 from lnschema_core.models import Artifact, Registry
 
 from lamindb.core._settings import settings
@@ -23,12 +23,8 @@ from lamindb.core.storage.paths import (
     store_file_or_folder,
 )
 
-try:
-    from lamindb.core.storage._zarr import write_adata_zarr
-except ImportError:
-
-    def write_adata_zarr(filepath):  # type: ignore
-        raise ImportError("Please install zarr: pip install zarr")
+if TYPE_CHECKING:
+    from lamindb_setup.core.upath import UPath
 
 
 def save(
@@ -162,7 +158,7 @@ def check_and_attempt_upload(
 def copy_or_move_to_cache(artifact: Artifact, storage_path: UPath):
     local_path = artifact._local_filepath
 
-    # some in-memory cases (zarr for now)
+    # in-memory cases
     if local_path is None or not local_path.exists():
         return None
 
@@ -284,18 +280,7 @@ def upload_artifact(
     storage_path = attempt_accessing_path(
         artifact, storage_key, using_key=using_key, access_token=access_token
     )
-    msg = f"storing artifact '{artifact.uid}' at '{storage_path}'"
-    if (
-        artifact.suffix == ".zarr"
-        and hasattr(artifact, "_memory_rep")
-        and artifact._memory_rep is not None
-    ):
-        logger.save(msg)
-        print_progress = partial(
-            print_hook, objectname=storage_path.name, action="uploading"
-        )
-        write_adata_zarr(artifact._memory_rep, storage_path, callback=print_progress)
-    elif hasattr(artifact, "_to_store") and artifact._to_store:
-        logger.save(msg)
+    if hasattr(artifact, "_to_store") and artifact._to_store:
+        logger.save(f"storing artifact '{artifact.uid}' at '{storage_path}'")
         store_file_or_folder(artifact._local_filepath, storage_path)
     return storage_path
