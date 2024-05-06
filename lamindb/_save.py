@@ -138,7 +138,6 @@ def check_and_attempt_upload(
     # if Artifact object is either newly instantiated or replace() was called on
     # a local env it will have a _local_filepath and needs to be uploaded
     if hasattr(artifact, "_local_filepath"):
-        print(artifact._local_filepath)
         try:
             storage_path = upload_artifact(
                 artifact, using_key, access_token=access_token
