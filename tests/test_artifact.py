@@ -114,7 +114,7 @@ def test_signatures():
         pass
 
     # class methods
-    class_methods = ["view_tree", "from_dir", "from_df", "from_anndata", "from_mudata"]
+    class_methods = ["from_dir", "from_df", "from_anndata", "from_mudata"]
     for name in class_methods:
         setattr(Mock, name, getattr(_artifact, name))
         assert signature(getattr(Mock, name)) == _artifact.SIGS.pop(name)
@@ -443,8 +443,6 @@ def test_from_dir_many_artifacts(get_test_filepaths, key):
     ln.UPath(test_dirpath).view_tree()
     # now save
     ln.save(artifacts)
-    ln.Artifact.view_tree()
-    ln.Artifact.filter().all().view_tree()
     # now run again, because now we'll have hash-based lookup!
     artifacts = ln.Artifact.from_dir(test_dirpath, key=key)
     assert len(artifacts) == 2

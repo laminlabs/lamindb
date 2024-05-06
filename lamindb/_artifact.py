@@ -1059,27 +1059,6 @@ def path(self) -> Path | UPath:
     return filepath_from_artifact(self, using_key)
 
 
-@classmethod  # type: ignore
-@doc_args(IsTree.view_tree.__doc__)
-def view_tree(
-    cls,
-    level: int = -1,
-    limit_to_directories: bool = False,
-    length_limit: int = 1000,
-    max_files_per_dir_per_type: int = 7,
-) -> None:
-    """{}."""
-    from lamindb.core._view_tree import view_tree as _view_tree
-
-    _view_tree(
-        cls=cls,
-        level=level,
-        limit_to_directories=limit_to_directories,
-        length_limit=length_limit,
-        max_files_per_dir_per_type=max_files_per_dir_per_type,
-    )
-
-
 # docstring handled through attach_func_to_class_method
 def restore(self) -> None:
     self.visibility = VisibilityChoice.default.value
