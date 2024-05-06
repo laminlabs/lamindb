@@ -146,7 +146,7 @@ def save_run_context_core(
                 # in test, auto-confirm overwrite
                 response = input(
                     f"You are about to replace (overwrite) existing source code (hash '{transform.source_code.hash}') for transform version"
-                    f" '{transform.version}'. Likely, you modified the notebook since you last saved it. Proceed? (y/n)"
+                    f" '{transform.version}'. Proceed? (y/n)"
                 )
             else:
                 response = "y"
