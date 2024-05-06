@@ -1,5 +1,6 @@
 # Changelog
 
+- ♻️ Upon upload switch to virtual key [PR](https://github.com/laminlabs/lamindb/pull/1622) [@falexwolf](https://github.com/falexwolf)
 - ⚡️ Zarr and cache improvements [PR](https://github.com/laminlabs/lamindb/pull/1620) [@Koncopd](https://github.com/Koncopd)
 - ♻️ Extend valid suffixes to composite suffixes [PR](https://github.com/laminlabs/lamindb/pull/1619) [@falexwolf](https://github.com/falexwolf)
 - ♻️ Consistent naming of `set_managed_storage` [PR](https://github.com/laminlabs/lamindb/pull/1615) [@falexwolf](https://github.com/falexwolf)
