@@ -584,7 +584,7 @@ def __init__(artifact: Artifact, *args, **kwargs):
         init_self_from_db(artifact, kwargs_or_artifact)
         # adding "key" here is dangerous because key might be auto-populated
         update_attributes(artifact, {"description": description})
-        if artifact.key != key:
+        if artifact.key != key and key is not None:
             logger.warning(
                 f"key {artifact.key} on existing artifact differs from passed key {key}"
             )
@@ -1012,6 +1012,11 @@ def save(self, upload: bool | None = None, **kwargs) -> None:
         local_path = self.path
         self.storage_id = setup_settings.instance.storage.id
         self._local_filepath = local_path
+        # switch to virtual storage key upon upload
+        # the local filepath is already cached at that point
+        self.key_is_virtual = True
+        # ensure that the artifact is uploaded
+        self._to_store = True
 
     self._save_skip_storage(**kwargs)
 

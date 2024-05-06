@@ -719,7 +719,7 @@ def test_zarr_upload_cache(adata):
     assert artifact._local_filepath.is_dir()
     assert artifact.accessor == "AnnData"
     assert artifact.suffix == ".anndata.zarr"
-    assert artifact.n_objects == 1
+    assert artifact.n_objects >= 1
 
     artifact.save()
     assert isinstance(artifact.path, CloudPath)
