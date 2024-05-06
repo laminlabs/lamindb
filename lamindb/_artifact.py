@@ -217,8 +217,6 @@ def get_stat_or_artifact(
         else:
             hash, hash_type = hash_file(path)
             size = stat.st_size
-    if suffix.endswith(".zarr"):
-        n_objects = 1
     if not check_hash:
         return size, hash, hash_type, n_objects
     # also checks hidden and trashed files

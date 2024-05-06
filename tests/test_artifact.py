@@ -693,7 +693,7 @@ def test_zarr_upload_cache(adata):
 
     artifact = ln.Artifact(zarr_path, key="test_adata.zarr")
     assert artifact.accessor == "AnnData"
-    assert artifact.n_objects == 1
+    assert artifact.n_objects >= 1
     artifact.save()
 
     assert isinstance(artifact.path, CloudPath)
