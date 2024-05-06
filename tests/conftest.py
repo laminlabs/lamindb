@@ -28,7 +28,8 @@ def pytest_sessionfinish(session: pytest.Session):
     logger.set_verbosity(1)
     shutil.rmtree("./default_storage")
     # handle below better in the future
-    ln.UPath("s3://lamindb-test/.lamindb").rmdir()
+    if ln.UPath("s3://lamindb-test/.lamindb").exists():
+        ln.UPath("s3://lamindb-test/.lamindb").rmdir()
     ln.setup.delete("lamindb-unit-tests", force=True)
     # shutil.rmtree("./outside_storage")
     run("docker stop pgtest && docker rm pgtest", shell=True, stdout=DEVNULL)

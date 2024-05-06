@@ -8,6 +8,7 @@ from pathlib import Path, PurePath
 from typing import TYPE_CHECKING
 
 from lamin_utils import logger
+from lamindb_setup.core.hashing import hash_file
 from lnschema_core import Run, Transform, ids
 from lnschema_core.types import TransformType
 from lnschema_core.users import current_user_id
@@ -315,16 +316,6 @@ class run_context:
         from ._track_environment import track_environment
 
         track_environment(run)
-
-        if not is_run_from_ipython and cls.path is not None:
-            # upload run source code & environment
-            from lamindb._finish import save_run_context_core
-
-            save_run_context_core(
-                run=cls.run,
-                transform=cls.transform,
-                filepath=cls.path,
-            )
         return None
 
     @classmethod
@@ -451,19 +442,36 @@ class run_context:
                     transform.save()
                     logger.important(f"updated: {transform}")
             # check whether the notebook source code was already saved
-            if is_run_from_ipython and transform.source_code_id:
-                if os.getenv("LAMIN_TESTING") is None:
-                    response = input(
-                        "You already saved source code for this notebook."
-                        " Bump the version before a new run? (y/n)"
-                    )
+            if transform.source_code_id is not None:
+                response = None
+                if is_run_from_ipython:
+                    if os.getenv("LAMIN_TESTING") is None:
+                        response = input(
+                            "You already saved source code for this notebook."
+                            " Bump the version before a new run? (y/n)"
+                        )
+                    else:
+                        response = "y"
                 else:
-                    response = "y"
-                if response == "y":
-                    update_stem_uid_or_version(stem_uid, version, bump_version=True)
-                else:
-                    # we want a new stem_uid in this case, hence raise the error
-                    raise_transform_settings_error()
+                    hash, _ = hash_file(cls.path)  # ignore hash_type for now
+                    if hash != transform.source_code.hash:
+                        # only if hashes don't match, we need user input
+                        if os.getenv("LAMIN_TESTING") is None:
+                            response = input(
+                                "You already saved source code for this script and meanwhile modified it without bumping a version."
+                                " Bump the version before a new run? (y/n)"
+                            )
+                        else:
+                            response = "y"
+                    else:
+                        logger.important(f"loaded: {transform}")
+                if response is not None:
+                    # if a script is re-run and hashes match, we don't need user input
+                    if response == "y":
+                        update_stem_uid_or_version(stem_uid, version, bump_version=True)
+                    else:
+                        # we want a new stem_uid in this case, hence raise the error
+                        raise_transform_settings_error()
             else:
                 logger.important(f"loaded: {transform}")
         cls.transform = transform
