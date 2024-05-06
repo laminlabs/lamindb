@@ -1077,7 +1077,6 @@ METHOD_NAMES = [
     "replace",
     "from_dir",
     "restore",
-    "view_tree",
 ]
 
 if ln_setup._TESTING:
