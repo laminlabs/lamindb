@@ -1,5 +1,6 @@
 # Changelog
 
+- ♻️ Refactor nbproject usage & tutorials [PR](https://github.com/laminlabs/lamindb/pull/1629) [@falexwolf](https://github.com/falexwolf)
 - ♻️ Better treatment of `current_user_id` [PR](https://github.com/laminlabs/lamindb/pull/1628) [@falexwolf](https://github.com/falexwolf)
 - 🔥 Remove `artifact.view_tree()` [PR](https://github.com/laminlabs/lamindb/pull/1627) [@falexwolf](https://github.com/falexwolf)
 - 🎨 Make features.add_feature_set user level [PR](https://github.com/laminlabs/lamindb/pull/1626) [@sunnyosun](https://github.com/sunnyosun)
