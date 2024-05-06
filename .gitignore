@@ -1,4 +1,5 @@
 # LaminDB
+docsbuild/
 docs/lamin.md
 docs/guide/data-validation.ipynb
 docs/guide/knowledge.ipynb
@@ -58,6 +59,7 @@ test-search2
 test-search3
 test-search4
 test-search5
+
 # General
 .DS_Store
 

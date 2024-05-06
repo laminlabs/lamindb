@@ -176,6 +176,17 @@ def raise_transform_settings_error() -> None:
     )
 
 
+def pretty_pypackages(dependencies: dict) -> str:
+    deps_list = []
+    for pkg, ver in dependencies.items():
+        if ver != "":
+            deps_list.append(pkg + f"=={ver}")
+        else:
+            deps_list.append(pkg)
+    deps_list.sort()
+    return " ".join(deps_list)
+
+
 class run_context:
     """Global run context."""
 
@@ -377,17 +388,12 @@ class run_context:
         # log imported python packages
         if not path_str.startswith("/fileId="):
             try:
-                from nbproject.dev._metadata_display import DisplayMeta
                 from nbproject.dev._pypackage import infer_pypackages
 
-                metadata, _, nb = nbproject.header(
-                    filepath=path_str,
-                    metadata_only=True,
-                )
-                dm = DisplayMeta(metadata)
+                nb = nbproject.dev.read_notebook(path_str)
                 logger.important(
                     "notebook imports:"
-                    f" {' '.join(dm.pypackage(infer_pypackages(nb, pin_versions=True)))}"
+                    f" {pretty_pypackages(infer_pypackages(nb, pin_versions=True))}"
                 )
             except Exception:
                 logger.debug("inferring imported packages failed")
