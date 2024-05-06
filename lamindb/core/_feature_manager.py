@@ -236,7 +236,7 @@ class FeatureManager:
             and self._host.artifact.accessor == "DataFrame"
         ):
             slot = "columns" if slot is None else slot
-        self._add_feature_set(feature_set=FeatureSet(features=features), slot=slot)
+        self.add_feature_set(feature_set=FeatureSet(features=features), slot=slot)
 
     def add_from_df(self, field: FieldAttr = Feature.name, organism: str | None = None):
         """Add features from DataFrame."""
@@ -325,7 +325,7 @@ class FeatureManager:
         self._host._feature_sets = feature_sets
         self._host.save()
 
-    def _add_feature_set(self, feature_set: FeatureSet, slot: str):
+    def add_feature_set(self, feature_set: FeatureSet, slot: str):
         """Add new feature set to a slot.
 
         Args:
@@ -409,4 +409,4 @@ class FeatureManager:
             if feature_set_self.hash == feature_set.hash:
                 feature_set_self.uid = feature_set.uid
             logger.info(f"saving {slot} featureset: {feature_set_self}")
-            self._host.features._add_feature_set(feature_set_self, slot)
+            self._host.features.add_feature_set(feature_set_self, slot)
