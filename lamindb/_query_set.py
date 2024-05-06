@@ -11,7 +11,6 @@ from lnschema_core.models import (
     Artifact,
     CanValidate,
     Collection,
-    IsTree,
     IsVersioned,
     Registry,
     Run,
@@ -83,7 +82,7 @@ class RecordsList(UserList):
         return one_helper(self)
 
 
-class QuerySet(models.QuerySet, CanValidate, IsTree):
+class QuerySet(models.QuerySet, CanValidate):
     """Sets of records returned by queries.
 
     See Also:
@@ -264,25 +263,6 @@ class QuerySet(models.QuerySet, CanValidate, IsTree):
         from ._can_validate import _standardize
 
         return _standardize(cls=self, values=values, field=field, **kwargs)
-
-    @doc_args(IsTree.view_tree.__doc__)
-    def view_tree(
-        self,
-        level: int = -1,
-        limit_to_directories: bool = False,
-        length_limit: int = 1000,
-        max_files_per_dir_per_type: int = 7,
-    ) -> None:
-        """{}."""
-        from .core._view_tree import view_tree as _view_tree
-
-        _view_tree(
-            cls=self,
-            level=level,
-            limit_to_directories=limit_to_directories,
-            length_limit=length_limit,
-            max_files_per_dir_per_type=max_files_per_dir_per_type,
-        )
 
 
 def filter_query_set_by_latest_version(ordered_query_set: QuerySet) -> RecordsList:
