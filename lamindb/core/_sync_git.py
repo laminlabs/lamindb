@@ -61,11 +61,15 @@ def get_git_commit_hash(blob_hash: str, repo_dir: Path | None = None) -> str | N
         capture_output=True,
         cwd=repo_dir,
     )
-    commit_hash = result.stdout.decode()
+    # we just care to find one commit
+    # hence, we split by new line ("\n") and use the first one
+    commit_hash = result.stdout.decode().split("\n")[0]
     if commit_hash == "" or result.returncode == 1:
         return None
     else:
-        assert len(commit_hash) == 40
+        assert (
+            len(commit_hash) == 40
+        ), f"commit hash |{commit_hash}| is not 40 characters long"
         return commit_hash
 
 
