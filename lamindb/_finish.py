@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING
 
 import lamindb_setup as ln_setup
 from lamin_utils import logger
+from lamindb_setup.core.hashing import hash_file
 from lnschema_core.types import TransformType
 
 from .core._run_context import is_run_from_ipython, run_context
@@ -134,20 +135,18 @@ def save_run_context_core(
             if prev_transform.source_code_id is not None:
                 prev_source = prev_transform.source_code
     ln.settings.silence_file_run_transform_warning = True
-    # register the source code
-    description_for_source_code = f"Source of transform {transform.uid}"
+
+    # track source code
     if transform.source_code_id is not None:
         # check if the hash of the transform source code matches
-        # (for scripts, we already run similar logic in track() - we could deduplicate this)
-        check_source_code = ln.Artifact(
-            source_code_path, description=description_for_source_code
-        )
-        if check_source_code._state.adding:
+        # (for scripts, we already run the same logic in track() - we can deduplicate the call at some point)
+        hash, _ = hash_file(source_code_path)  # ignore hash_type for now
+        if hash != transform.source_code.hash:
             if os.getenv("LAMIN_TESTING") is None:
                 # in test, auto-confirm overwrite
                 response = input(
-                    f"You are about to replace existing source code (hash '{transform.source_code.hash}') for transform version"
-                    f" '{transform.version}'. This may introduce errors. Proceed? (y/n)"
+                    f"You are about to replace (overwrite) existing source code (hash '{transform.source_code.hash}') for transform version"
+                    f" '{transform.version}'. Likely, you modified the notebook since you last saved it. Proceed? (y/n)"
                 )
             else:
                 response = "y"
@@ -163,7 +162,7 @@ def save_run_context_core(
     else:
         source_code = ln.Artifact(
             source_code_path,
-            description=description_for_source_code,
+            description=f"Source of transform {transform.uid}",
             version=transform.version,
             is_new_version_of=prev_source,
             visibility=0,  # hidden file
@@ -172,21 +171,32 @@ def save_run_context_core(
         source_code.save(upload=True)
         transform.source_code = source_code
         logger.success(f"saved transform.source_code: {transform.source_code}")
+
     # track environment
     filepath_env = ln_setup.settings.storage.cache_dir / f"run_env_pip_{run.uid}.txt"
     if filepath_env.exists():
-        artifact = ln.Artifact(
-            filepath_env,
-            description="requirements.txt",
-            visibility=0,
-            run=False,
-        )
-        if artifact._state.adding:
+        hash, _ = hash_file(filepath_env)
+        artifact = ln.Artifact.filter(hash=hash, visibility=0).one_or_none()
+        new_env_artifact = artifact is None
+        if new_env_artifact:
+            artifact = ln.Artifact(
+                filepath_env,
+                description="requirements.txt",
+                visibility=0,
+                run=False,
+            )
             artifact.save(upload=True)
         run.environment = artifact
-        logger.success(f"saved run.environment: {run.environment}")
-    # save report file
+        if new_env_artifact:
+            logger.success(f"saved run.environment: {run.environment}")
+
+    # set finished_at
+    if finished_at:
+        run.finished_at = datetime.now(timezone.utc)
+
+    # track report and set is_consecutive
     if not transform.type == TransformType.notebook:
+        run.is_consecutive = True
         run.save()
     else:
         if run.report_id is not None:
@@ -206,16 +216,15 @@ def save_run_context_core(
             report_file.save(upload=True)
             run.report = report_file
         run.is_consecutive = is_consecutive
-        if finished_at:
-            run.finished_at = datetime.now(timezone.utc)
         run.save()
         transform.latest_report = run.report
-    transform.save()
-    if transform.type == TransformType.notebook:
         logger.success(f"saved transform.latest_report: {transform.latest_report}")
-    if ln_setup.settings.instance.is_remote:
+    transform.save()
+
+    # finalize
+    if ln_setup.settings.instance.is_on_hub:
         identifier = ln_setup.settings.instance.slug
-        logger.success(
+        logger.important(
             f"go to: https://lamin.ai/{identifier}/transform/{transform.uid}"
         )
     # because run & transform changed, update the global run_context
