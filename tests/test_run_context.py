@@ -80,7 +80,7 @@ def test_create_or_load_transform(monkeypatch):
 
 
 def test_run_script():
-    script_path = "sub/lamin-cli/tests/scripts/initialized.py"
+    script_path = "sub/lamin-cli/tests/scripts/run-track-and-finish-sync-git.py"
     result = subprocess.run(
         f"python {script_path}",
         shell=True,
@@ -91,11 +91,13 @@ def test_run_script():
     assert result.returncode == 0
     assert "saved: Transform" in result.stdout.decode()
     assert "saved: Run" in result.stdout.decode()
-    transform = ln.Transform.filter(name="initialized.py").one()
+    transform = ln.Transform.filter(name="run-track-and-finish-sync-git.py").one()
     # the algorithm currently picks different commits depending on the state of the repo
     # any of these commits are valid
     assert transform.uid == "m5uCHTTpJnjQ5zKv"
-    assert transform.reference.endswith("/tests/scripts/initialized.py")
+    assert transform.reference.endswith(
+        "/tests/scripts/run-track-and-finish-sync-git.py"
+    )
     assert transform.reference.startswith(
         "https://github.com/laminlabs/lamin-cli/blob/"
     )
