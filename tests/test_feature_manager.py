@@ -151,7 +151,7 @@ def test_add_labels_using_anndata(adata):
     feature_name_feature.save()
     feature_set = ln.FeatureSet(features=[feature_name_feature])
     with pytest.raises(ValueError) as error:
-        artifact.features._add_feature_set(feature_set, slot="random")
+        artifact.features.add_feature_set(feature_set, slot="random")
     assert (
         error.exconly()
         == "ValueError: Please save the artifact or collection before adding a feature"
@@ -326,7 +326,7 @@ def test_labels_get():
     feature_set.save()
     artifact.save()
     assert str(artifact.features) == "no linked features"
-    artifact.features._add_feature_set(feature_set, slot="random")
+    artifact.features.add_feature_set(feature_set, slot="random")
     assert artifact.feature_sets["random"] == feature_set
     artifact.delete(permanent=True, storage=True)
     feature_set.delete()
