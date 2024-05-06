@@ -315,16 +315,6 @@ class run_context:
         from ._track_environment import track_environment
 
         track_environment(run)
-
-        if not is_run_from_ipython and cls.path is not None:
-            # upload run source code & environment
-            from lamindb._finish import save_run_context_core
-
-            save_run_context_core(
-                run=cls.run,
-                transform=cls.transform,
-                filepath=cls.path,
-            )
         return None
 
     @classmethod
@@ -451,14 +441,27 @@ class run_context:
                     transform.save()
                     logger.important(f"updated: {transform}")
             # check whether the notebook source code was already saved
-            if is_run_from_ipython and transform.source_code_id:
-                if os.getenv("LAMIN_TESTING") is None:
-                    response = input(
-                        "You already saved source code for this notebook."
-                        " Bump the version before a new run? (y/n)"
-                    )
+            if transform.source_code_id is not None:
+                if is_run_from_ipython:
+                    if os.getenv("LAMIN_TESTING") is None:
+                        response = input(
+                            "You already saved source code for this notebook."
+                            " Bump the version before a new run? (y/n)"
+                        )
+                    else:
+                        response = "y"
                 else:
-                    response = "y"
+                    from lamindb_setup.core.hashing import hash_file
+
+                    hash = hash_file(cls.path)
+                    if hash != transform.source_code.hash:
+                        if os.getenv("LAMIN_TESTING") is None:
+                            response = input(
+                                "You already saved source code for this script and meanwhile modified it without bumping a version."
+                                " Bump the version before a new run? (y/n)"
+                            )
+                        else:
+                            response = "y"
                 if response == "y":
                     update_stem_uid_or_version(stem_uid, version, bump_version=True)
                 else:

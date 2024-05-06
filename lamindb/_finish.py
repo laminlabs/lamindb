@@ -35,7 +35,7 @@ def get_seconds_since_modified(filepath) -> float:
 def finish():
     """Mark a tracked run as finished.
 
-    If run in a notebook, it saves the run report & source code to your default storage location.
+    Saves source code and, for notebooks, a run report to your default storage location.
     """
     if run_context.path is None:
         raise TrackNotCalled("Please run `ln.track()` before `ln.finish()`")
@@ -47,16 +47,12 @@ def finish():
             raise NotebookNotSaved(
                 "Please save the notebook in your editor right before running `ln.finish()`"
             )
-        save_run_context_core(
-            run=run_context.run,
-            transform=run_context.transform,
-            filepath=run_context.path,
-            finished_at=True,
-        )
-    else:  # scripts
-        # save_run_context_core was already called during ln.track()
-        run_context.run.finished_at = datetime.now(timezone.utc)  # update run time
-        run_context.run.save()
+    save_run_context_core(
+        run=run_context.run,
+        transform=run_context.transform,
+        filepath=run_context.path,
+        finished_at=True,
+    )
 
 
 def save_run_context_core(
@@ -139,28 +135,35 @@ def save_run_context_core(
                 prev_source = prev_transform.source_code
     ln.settings.silence_file_run_transform_warning = True
     # register the source code
-    if transform.source_code is not None:
-        # check if the hash of the notebook source code matches
-        check_source_code = ln.Artifact(source_code_path, key="dummy")
+    description_for_source_code = f"Source of transform {transform.uid}"
+    if transform.source_code_id is not None:
+        # check if the hash of the transform source code matches
+        # (for scripts, we already run similar logic in track() - we could deduplicate this)
+        check_source_code = ln.Artifact(
+            source_code_path, description=description_for_source_code
+        )
         if check_source_code._state.adding:
             if os.getenv("LAMIN_TESTING") is None:
                 # in test, auto-confirm overwrite
                 response = input(
-                    f"You are about to overwrite existing source code (hash {transform.source_code.hash}) for transform version"
-                    f" '{transform.version}'. Proceed? (y/n)"
+                    f"You are about to replace existing source code (hash '{transform.source_code.hash}') for transform version"
+                    f" '{transform.version}'. This may introduce errors. Proceed? (y/n)"
                 )
             else:
                 response = "y"
             if response == "y":
                 transform.source_code.replace(source_code_path)
                 transform.source_code.save(upload=True)
+                logger.success(
+                    f"replaced transform.source_code: {transform.source_code}"
+                )
             else:
                 logger.warning("Please re-run `ln.track()` to make a new version")
                 return "rerun-the-notebook"
     else:
         source_code = ln.Artifact(
             source_code_path,
-            description=f"Source of transform {transform.uid}",
+            description=description_for_source_code,
             version=transform.version,
             is_new_version_of=prev_source,
             visibility=0,  # hidden file
