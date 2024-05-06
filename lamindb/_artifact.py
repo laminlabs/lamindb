@@ -21,7 +21,6 @@ from lamindb_setup.core.upath import (
     get_stat_file_cloud,
 )
 from lnschema_core import Artifact, Run, Storage
-from lnschema_core.models import IsTree
 from lnschema_core.types import (
     VisibilityChoice,
 )

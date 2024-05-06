@@ -12,7 +12,6 @@ Registries:
    Data
    FeatureManager
    LabelManager
-   IsTree
    IsVersioned
    CanValidate
    HasParents
@@ -55,7 +54,6 @@ from lnschema_core.models import (
     CanValidate,
     Data,
     HasParents,
-    IsTree,
     IsVersioned,
     Registry,
 )
