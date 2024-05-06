@@ -1,5 +1,6 @@
 # Changelog
 
+- 🚸  Upload source code of scripts upon `ln.finish()` [PR](https://github.com/laminlabs/lamindb/pull/1624) [@falexwolf](https://github.com/falexwolf)
 - 🎨 Use the same uid for same feature set in transfer [PR](https://github.com/laminlabs/lamindb/pull/1621) [@sunnyosun](https://github.com/sunnyosun)
 - ♻️ Upon upload switch to virtual key [PR](https://github.com/laminlabs/lamindb/pull/1622) [@falexwolf](https://github.com/falexwolf)
 - ⚡️ Zarr and cache improvements [PR](https://github.com/laminlabs/lamindb/pull/1620) [@Koncopd](https://github.com/Koncopd)
