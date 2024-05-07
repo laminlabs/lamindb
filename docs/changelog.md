@@ -1,5 +1,6 @@
 # Changelog
 
+- Add links to tutorials of bionty registries [PR](https://github.com/laminlabs/lamindb/pull/1632) [@Zethson](https://github.com/Zethson)
 :::{note}
 
 If using LaminHub, please use the latest version of lamindb.
