@@ -1,7 +1,5 @@
 # Changelog
 
-- ✨ Enable to add parameters to `ln.track()` [PR](https://github.com/laminlabs/lamindb/pull/1637) [@falexwolf](https://github.com/falexwolf)
-- Add links to tutorials of bionty registries [PR](https://github.com/laminlabs/lamindb/pull/1632) [@Zethson](https://github.com/Zethson)
 :::{note}
 
 If using LaminHub, please use the latest version of lamindb.
@@ -15,6 +13,10 @@ LaminDB implements "migration-based versioning". When upgrading your LaminDB ins
 ```
 
 ## 0.71
+
+### 0.71.2 {small}`2024-05-07`
+
+- ✨ Enable passing parameters to `ln.track()` [PR](https://github.com/laminlabs/lamindb/pull/1637) [@falexwolf](https://github.com/falexwolf)
 
 ### 0.71.1 {small}`2024-05-07`
 
