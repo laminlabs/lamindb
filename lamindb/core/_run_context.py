@@ -201,6 +201,7 @@ class run_context:
     def _track(
         cls,
         *,
+        params: dict | None = None,
         transform: Transform | None = None,
         new_run: bool | None = None,
         path: str | None = None,
@@ -216,6 +217,7 @@ class run_context:
         whether the script exists in the git repository and add a link.
 
         Args:
+            params: A dictionary of parameters to track for the run.
             transform: Can be of type `"pipeline"` or `"notebook"`
                 (:class:`~lamindb.core.types.TransformType`).
             new_run: If `False`, loads latest run of transform
@@ -310,11 +312,13 @@ class run_context:
             )
             if run is not None:  # loaded latest run
                 run.started_at = datetime.now(timezone.utc)  # update run time
+                run.json = params  # update run params
                 logger.important(f"loaded: {run}")
 
         if run is None:  # create new run
             run = Run(
                 transform=cls.transform,
+                params=params,
             )
             logger.important(f"saved: {run}")
         # can only determine at ln.finish() if run was consecutive in
