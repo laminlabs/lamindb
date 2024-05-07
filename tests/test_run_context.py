@@ -13,7 +13,10 @@ def test_track_with_multi_parents():
     child = ln.Transform(name="Child")
     child.save()
     child.parents.set([parent1, parent2])
-    ln.track(transform=child)
+    params = {"param1": 1, "param2": "my-string", "param3": 3.14}
+    ln.track(transform=child, params=params)
+
+    assert ln.core.run_context.run.json == params
     # unset to remove side effects
     ln.core.run_context.run = None
     ln.core.run_context.transform = None

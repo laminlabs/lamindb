@@ -42,10 +42,7 @@ def init_uid(
     if is_new_version_of is not None:
         stem_uid = is_new_version_of.stem_uid
     else:
-        if n_full_id == 20:
-            stem_uid = ids.base62_16()
-        elif n_full_id == 16:
-            stem_uid = ids.base62_12()
+        stem_uid = ids.base62(n_full_id - 4)
     if version is not None:
         if not isinstance(version, str):
             raise ValueError(
@@ -90,3 +87,20 @@ def get_new_path_from_uid(old_path: UPath, old_uid: str, new_uid: str):
         # for cloud path, the rename target must be the last part of the path
         new_path = old_path.name.replace(old_uid, new_uid)
     return new_path
+
+
+def process_is_new_version_of(
+    is_new_version_of: IsVersioned,
+    version: str | None,
+    name: str | None,
+    type: type[IsVersioned],
+) -> tuple[str, str, str]:
+    if is_new_version_of is not None and not isinstance(is_new_version_of, type):
+        raise TypeError(f"is_new_version_of has to be of type {type}")
+    if is_new_version_of is None:
+        uid = init_uid(version=version, n_full_id=type._len_stem_uid)
+    else:
+        uid, version = get_uid_from_old_version(is_new_version_of, version)
+        if name is None:
+            name = is_new_version_of.name
+    return uid, version, name

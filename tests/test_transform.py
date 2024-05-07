@@ -41,9 +41,7 @@ def test_is_new_version_of_versioned_transform():
     # wrong transform type
     with pytest.raises(TypeError) as error:
         ln.Transform(is_new_version_of=ln.ULabel(name="x"))
-    assert (
-        error.exconly() == "TypeError: is_new_version_of has to be of type ln.Transform"
-    )
+    assert error.exconly().startswith("TypeError: is_new_version_of has to be of type")
 
     # wrong kwargs
     with pytest.raises(ValueError) as error:
