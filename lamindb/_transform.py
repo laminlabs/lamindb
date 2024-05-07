@@ -32,9 +32,8 @@ def __init__(transform: Transform, *args, **kwargs):
             "Only name, key, version, type, is_new_version_of, reference, "
             f"reference_type can be passed, but you passed: {kwargs}"
         )
-    assert isinstance(is_new_version_of, Transform)
     new_uid, version, name = process_is_new_version_of(
-        is_new_version_of, version, name, Transform._len_full_uid
+        is_new_version_of, version, name, Transform
     )
     # this is only because the user-facing constructor allows passing an id
     # most others don't

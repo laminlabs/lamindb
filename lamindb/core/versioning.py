@@ -93,10 +93,12 @@ def process_is_new_version_of(
     is_new_version_of: IsVersioned,
     version: str | None,
     name: str | None,
-    n_full_id: int,
+    type: type[IsVersioned],
 ) -> tuple[str, str, str]:
+    if is_new_version_of is not None and not isinstance(is_new_version_of, type):
+        raise TypeError(f"is_new_version_of has to be of type {type}")
     if is_new_version_of is None:
-        uid = init_uid(version=version, n_full_id=n_full_id)
+        uid = init_uid(version=version, n_full_id=type._len_stem_uid)
     else:
         uid, version = get_uid_from_old_version(is_new_version_of, version)
         if name is None:
