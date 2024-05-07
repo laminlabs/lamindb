@@ -1,5 +1,6 @@
 # Changelog
 
+- ✨ Enable to add parameters to `ln.track()` [PR](https://github.com/laminlabs/lamindb/pull/1637) [@falexwolf](https://github.com/falexwolf)
 - Add links to tutorials of bionty registries [PR](https://github.com/laminlabs/lamindb/pull/1632) [@Zethson](https://github.com/Zethson)
 :::{note}
 
