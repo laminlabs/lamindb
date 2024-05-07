@@ -90,3 +90,18 @@ def get_new_path_from_uid(old_path: UPath, old_uid: str, new_uid: str):
         # for cloud path, the rename target must be the last part of the path
         new_path = old_path.name.replace(old_uid, new_uid)
     return new_path
+
+
+def process_is_new_version_of(
+    is_new_version_of: IsVersioned,
+    version: str | None,
+    name: str | None,
+    n_full_id: int,
+) -> tuple[str, str, str]:
+    if is_new_version_of is None:
+        uid = init_uid(version=version, n_full_id=n_full_id)
+    else:
+        uid, version = get_uid_from_old_version(is_new_version_of, version)
+        if name is None:
+            name = is_new_version_of.name
+    return uid, version, name

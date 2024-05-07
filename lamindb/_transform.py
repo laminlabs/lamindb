@@ -1,10 +1,10 @@
 from __future__ import annotations
 
-from lnschema_core.models import Artifact, Run, Transform
+from lnschema_core.models import Run, Transform
 from lnschema_core.types import TransformType
 
 from ._run import delete_run_artifacts
-from .core.versioning import get_uid_from_old_version, init_uid
+from .core.versioning import process_is_new_version_of
 
 
 def __init__(transform: Transform, *args, **kwargs):
@@ -32,15 +32,10 @@ def __init__(transform: Transform, *args, **kwargs):
             "Only name, key, version, type, is_new_version_of, reference, "
             f"reference_type can be passed, but you passed: {kwargs}"
         )
-    if is_new_version_of is None:
-        new_uid = init_uid(version=version, n_full_id=Transform._len_full_uid)
-    else:
-        if not isinstance(is_new_version_of, Transform):
-            raise TypeError("is_new_version_of has to be of type ln.Transform")
-        new_uid, version = get_uid_from_old_version(is_new_version_of, version)
-        if name is None:
-            name = is_new_version_of.name
 
+    new_uid, version, name = process_is_new_version_of(
+        is_new_version_of, version, name, Transform._len_full_uid
+    )
     # this is only because the user-facing constructor allows passing an id
     # most others don't
     if uid is None:
