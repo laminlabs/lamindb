@@ -1,21 +1,10 @@
 # Changelog
 
-- ♻️ Refactor nbproject usage & tutorials [PR](https://github.com/laminlabs/lamindb/pull/1629) [@falexwolf](https://github.com/falexwolf)
-- ♻️ Better treatment of `current_user_id` [PR](https://github.com/laminlabs/lamindb/pull/1628) [@falexwolf](https://github.com/falexwolf)
-- 🔥 Remove `artifact.view_tree()` [PR](https://github.com/laminlabs/lamindb/pull/1627) [@falexwolf](https://github.com/falexwolf)
-- 🎨 Make features.add_feature_set user level [PR](https://github.com/laminlabs/lamindb/pull/1626) [@sunnyosun](https://github.com/sunnyosun)
-- 🚸  Upload source code of scripts upon `ln.finish()` [PR](https://github.com/laminlabs/lamindb/pull/1624) [@falexwolf](https://github.com/falexwolf)
-- 🎨 Use the same uid for same feature set in transfer [PR](https://github.com/laminlabs/lamindb/pull/1621) [@sunnyosun](https://github.com/sunnyosun)
-- ♻️ Upon upload switch to virtual key [PR](https://github.com/laminlabs/lamindb/pull/1622) [@falexwolf](https://github.com/falexwolf)
-- ⚡️ Zarr and cache improvements [PR](https://github.com/laminlabs/lamindb/pull/1620) [@Koncopd](https://github.com/Koncopd)
-- ♻️ Extend valid suffixes to composite suffixes [PR](https://github.com/laminlabs/lamindb/pull/1619) [@falexwolf](https://github.com/falexwolf)
-- ♻️ Consistent naming of `set_managed_storage` [PR](https://github.com/laminlabs/lamindb/pull/1615) [@falexwolf](https://github.com/falexwolf)
--  🐛Escape \ properly for anndata_mouse_sc_lymph_node dataloader [PR](https://github.com/laminlabs/lamindb/pull/1613) [@Zethson](https://github.com/Zethson)
 :::{note}
 
-LaminDB implements "migration-based versioning".
+If using LaminHub, please use the latest version of lamindb.
 
-When upgrading your LaminDB installation to a new `minor` version in `major.minor.patch`, you also migrate your database by calling `lamin migrate deploy`.
+LaminDB implements "migration-based versioning". When upgrading your LaminDB installation to a new `minor` version in `major.minor.patch`, you also migrate your database by calling `lamin migrate deploy`.
 
 :::
 
@@ -24,6 +13,18 @@ When upgrading your LaminDB installation to a new `minor` version in `major.mino
 ```
 
 ## 0.71
+
+### 0.71.1 {small}`2024-05-07`
+
+- 🚸  Upload source code of scripts upon `ln.finish()` and no longer upon `ln.track()` [PR](https://github.com/laminlabs/lamindb/pull/1624) [@falexwolf](https://github.com/falexwolf)
+- 🎨 Make `features.add_feature_set` public [PR](https://github.com/laminlabs/lamindb/pull/1626) [@sunnyosun](https://github.com/sunnyosun)
+- 🎨 Use the same `uid` for the same feature set in transfer [PR](https://github.com/laminlabs/lamindb/pull/1621) [@sunnyosun](https://github.com/sunnyosun)
+- 🎨 Upon upload switch to virtual key [PR](https://github.com/laminlabs/lamindb/pull/1622) [@falexwolf](https://github.com/falexwolf)
+- ⚡️ Zarr and cache improvements [PR](https://github.com/laminlabs/lamindb/pull/1620) [@Koncopd](https://github.com/Koncopd)
+- ♻️ Extend valid suffixes to composite suffixes [PR](https://github.com/laminlabs/lamindb/pull/1619) [@falexwolf](https://github.com/falexwolf)
+- 🔥 Remove little-used `artifact.view_tree()` [PR](https://github.com/laminlabs/lamindb/pull/1627) [@falexwolf](https://github.com/falexwolf)
+
+### 0.71.0 {small}`2024-05-01`
 
 - ✨ Manage multiple storage locations with integrity [PR](https://github.com/laminlabs/lamindb/pull/1611) [@falexwolf](https://github.com/falexwolf)
 - 🚚 Add an `instance_uid` field to `Storage` | [374](https://github.com/laminlabs/lnschema-core/pull/374) [falexwolf](https://github.com/falexwolf)
