@@ -42,10 +42,7 @@ def init_uid(
     if is_new_version_of is not None:
         stem_uid = is_new_version_of.stem_uid
     else:
-        if n_full_id == 20:
-            stem_uid = ids.base62_16()
-        elif n_full_id == 16:
-            stem_uid = ids.base62_12()
+        stem_uid = ids.base62(n_full_id - 4)
     if version is not None:
         if not isinstance(version, str):
             raise ValueError(
