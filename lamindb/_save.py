@@ -9,10 +9,9 @@ from functools import partial
 from typing import TYPE_CHECKING, Iterable, overload
 
 import lamindb_setup
-from django.db import transaction
+from django.db import IntegrityError, transaction
 from django.utils.functional import partition
 from lamin_utils import logger
-from lamindb_setup.core.upath import print_hook
 from lnschema_core.models import Artifact, Registry
 
 from lamindb.core._settings import settings
@@ -80,8 +79,21 @@ def save(
     if non_artifacts:
         # first save all records that do not yet have a primary key without
         # recursing parents
-        _, non_artifacts_without_pk = partition(lambda r: r.pk is None, non_artifacts)
+        non_artifacts_with_pk, non_artifacts_without_pk = partition(
+            lambda r: r.pk is None, non_artifacts
+        )
         bulk_create(non_artifacts_without_pk, ignore_conflicts=ignore_conflicts)
+        # now attempt those with a primary key; they might not be saved yet
+        if non_artifacts_with_pk:
+            try:
+                bulk_create(non_artifacts_with_pk, ignore_conflicts=ignore_conflicts)
+            except IntegrityError as error:
+                if ignore_conflicts:
+                    logger.warning(
+                        "records that violate primary key constraint are not saved again"
+                    )
+                else:
+                    raise error
         non_artifacts_with_parents = [
             r for r in non_artifacts_without_pk if hasattr(r, "_parents")
         ]
