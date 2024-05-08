@@ -56,6 +56,7 @@ def test_transfer_from_remote_to_local():
     feature.save()
 
     # transfer 2nd artifact
+    bt.settings.auto_save_parents = False
     artifact2 = (
         ln.Artifact.using("laminlabs/cellxgene")
         .filter(
@@ -63,7 +64,7 @@ def test_transfer_from_remote_to_local():
         )
         .last()
     )
-    artifact2.save(parents=False)
+    artifact2.save()
 
     assert artifact2.organism.get(name="human") == bt.settings.organism
     assert artifact.features["obs"].get(name="organism").uid == "existing"
