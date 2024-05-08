@@ -336,7 +336,7 @@ def _has_organism_field(orm: Registry) -> bool:
 
 def _get_organism_record(field: StrField, organism: str | Registry) -> Registry:
     model = field.field.model
-    if _has_organism_field(model):
+    if _has_organism_field(model) and not field.field.name.endswith("id"):
         from lnschema_bionty._bionty import create_or_get_organism_record
 
         organism_record = create_or_get_organism_record(organism=organism, orm=model)

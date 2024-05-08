@@ -363,8 +363,14 @@ class FeatureManager:
             registry = members[0].__class__
             # note here the features are transferred based on an unique field
             field = REGISTRY_UNIQUE_FIELD.get(registry.__name__.lower(), "uid")
+            # TODO: get a default ID field for the registry
             if hasattr(registry, "ontology_id") and parents:
                 field = "ontology_id"
+            elif hasattr(registry, "ensembl_gene_id"):
+                field = "ensembl_gene_id"
+            elif hasattr(registry, "uniprotkb_id"):
+                field = "uniprotkb_id"
+
             if registry.__get_name_with_schema__() == "bionty.Organism":
                 parents = False
             # this will be e.g. be a list of ontology_ids or uids

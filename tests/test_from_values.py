@@ -49,9 +49,10 @@ def test_from_values_organism():
     from lnschema_bionty import Gene, settings
 
     settings._organism = None
-
     with pytest.raises(AssertionError):
         Gene.from_values(["ABC1"], Gene.symbol)
+    # no organism is needed if the values are ensembl gene ids
+    Gene.from_values(["ENSG00000068097"], Gene.ensembl_gene_id)
 
     settings.organism = "human"
     values = ["ABC1"]
@@ -59,10 +60,9 @@ def test_from_values_organism():
     records = Gene.from_values(standardized_values, Gene.symbol)
     assert records[0].ensembl_gene_id == "ENSG00000068097"
 
-    settings.organism = "mouse"
-    values = ["ABC1"]
-    standardized_values = Gene.public().standardize(values)
-    records = Gene.from_values(standardized_values, Gene.symbol)
+    # TODO: Gene.public() should raise error if organism is not provided
+    standardized_values = Gene.public(organism="mouse").standardize(values)
+    records = Gene.from_values(standardized_values, Gene.symbol, organism="mouse")
     assert records[0].ensembl_gene_id == "ENSMUSG00000015243"
 
 

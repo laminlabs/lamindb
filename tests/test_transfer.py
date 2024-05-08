@@ -10,8 +10,6 @@ def test_transfer_from_remote_to_local():
     bt.Organism.filter().delete()
     ln.ULabel.filter().delete()
 
-    bt.settings.organism = "human"
-
     # transfer 1st artifact
     artifact = (
         ln.Artifact.using("laminlabs/cellxgene")
