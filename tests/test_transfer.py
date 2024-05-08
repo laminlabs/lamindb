@@ -29,7 +29,6 @@ def test_transfer_from_remote_to_local():
     artifact.save(parents=False)
 
     # check all ids are adjusted
-    assert artifact.organism.get(name="human") == bt.settings.organism
     assert id_remote != artifact.id
     assert run_remote != artifact.run
     assert transform_remote != artifact.transform
@@ -67,6 +66,8 @@ def test_transfer_from_remote_to_local():
     artifact2.save()
 
     # check the feature name
+    bt.settings.organism = "human"
+    assert artifact2.organism.get(name="human") == bt.settings.organism
     assert artifact.features["obs"].get(name="organism").uid == "existing"
 
     bt.Gene.filter().delete()
