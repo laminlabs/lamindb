@@ -535,7 +535,13 @@ def save(self, *args, **kwargs) -> Registry:
             self_on_db._state.db = db
             self_on_db.pk = pk_on_db
             # by default, transfer parents of the labels to maintain ontological hierarchy
-            add_from_kwargs = {"parents": kwargs.get("parents", True)}
+            try:
+                import bionty as bt
+
+                parents = kwargs.get("parents", bt.settings.auto_save_parents)
+            except ImportError:
+                parents = kwargs.get("parents", True)
+            add_from_kwargs = {"parents": parents}
             logger.info("transfer features")
             self.features._add_from(self_on_db, **add_from_kwargs)
             logger.info("transfer labels")
