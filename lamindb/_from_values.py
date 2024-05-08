@@ -223,8 +223,15 @@ def create_records_from_public(
         bionty_kwargs, multi_msg = _bulk_create_dicts_from_df(
             keys=mapped_values, column_name=field.field.name, df=bionty_df
         )
+        organism_kwargs = {}
+        if "organism" not in kwargs:
+            organism_record = _get_organism_record(
+                field, public_ontology.organism, force=True
+            )
+            if organism_record is not None:
+                organism_kwargs["organism"] = organism_record
         for bk in bionty_kwargs:
-            records.append(model(**bk, **kwargs))
+            records.append(model(**bk, **kwargs, **organism_kwargs))
 
         # number of records that matches field (not synonyms)
         validated = result.validated
@@ -334,9 +341,13 @@ def _has_organism_field(orm: Registry) -> bool:
         return False
 
 
-def _get_organism_record(field: StrField, organism: str | Registry) -> Registry:
+def _get_organism_record(
+    field: StrField, organism: str | Registry, force: bool = False
+) -> Registry:
     model = field.field.model
-    if _has_organism_field(model) and not field.field.name.endswith("id"):
+    check = True if force else not field.field.name.endswith("id")
+
+    if _has_organism_field(model) and check:
         from lnschema_bionty._bionty import create_or_get_organism_record
 
         organism_record = create_or_get_organism_record(organism=organism, orm=model)
