@@ -1,5 +1,6 @@
 # Changelog
 
+- ⬆️ Upgrade nbproject [PR](https://github.com/laminlabs/lamindb/pull/1641) [@Koncopd](https://github.com/Koncopd)
 - 🚸 No need to pass organism if validating on ids [PR](https://github.com/laminlabs/lamindb/pull/1639) [@sunnyosun](https://github.com/sunnyosun)
 - Fix registry links in docs [PR](https://github.com/laminlabs/lamindb/pull/1638) [@Zethson](https://github.com/Zethson)
 :::{note}
