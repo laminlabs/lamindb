@@ -78,7 +78,7 @@ def save(
     non_artifacts, artifacts = partition(lambda r: isinstance(r, Artifact), records)
     if non_artifacts:
         non_artifacts_old, non_artifacts_new = partition(
-            lambda r: r._state.adding, non_artifacts
+            lambda r: r._state.adding or r.pk is None, non_artifacts
         )
         bulk_create(non_artifacts_new, ignore_conflicts=ignore_conflicts)
         if non_artifacts_old:
