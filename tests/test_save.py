@@ -3,6 +3,19 @@ import pytest
 from lamindb._save import prepare_error_message, store_artifacts
 
 
+def test_bulk_save_and_update():
+    label_names = [f"ULabel {i} new" for i in range(3)]
+    labels = [ln.ULabel(name=name) for name in label_names]
+    # test bulk creation of new records
+    ln.save(labels)
+    assert len(ln.ULabel.filter(name__in=label_names).distinct().all()) == 3
+    labels[0].name = "ULabel 0 updated"
+    # test bulk update of existing records
+    ln.save(labels)
+    assert len(ln.ULabel.filter(name__in=label_names).distinct().all()) == 2
+    assert ln.ULabel.filter(name="ULabel 0 updated").one()
+
+
 def test_prepare_error_message():
     ln.core.datasets.file_mini_csv()
     artifact = ln.Artifact("mini.csv", description="test")

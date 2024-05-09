@@ -77,27 +77,15 @@ def save(
     # for artifacts, we want to bulk-upload rather than upload one-by-one
     non_artifacts, artifacts = partition(lambda r: isinstance(r, Artifact), records)
     if non_artifacts:
-        # first save all records that do not yet have a primary key without
-        # recursing parents
-        non_artifacts_with_pk, non_artifacts_without_pk = partition(
-            lambda r: r.pk is None, non_artifacts
+        non_artifacts_old, non_artifacts_new = partition(
+            lambda r: r._state.adding, non_artifacts
         )
-        bulk_create(non_artifacts_without_pk, ignore_conflicts=ignore_conflicts)
-        # now attempt those with a primary key; they might not be saved yet
-        if non_artifacts_with_pk:
-            try:
-                bulk_create(non_artifacts_with_pk, ignore_conflicts=ignore_conflicts)
-            except IntegrityError as error:
-                if ignore_conflicts:
-                    logger.warning(
-                        "records that violate primary key constraint are not saved again"
-                    )
-                else:
-                    raise error
+        bulk_create(non_artifacts_new, ignore_conflicts=ignore_conflicts)
+        if non_artifacts_old:
+            bulk_update(non_artifacts_old)
         non_artifacts_with_parents = [
-            r for r in non_artifacts_without_pk if hasattr(r, "_parents")
+            r for r in non_artifacts_new if hasattr(r, "_parents")
         ]
-
         if len(non_artifacts_with_parents) > 0 and kwargs.get("parents") is not False:
             # this can only happen within lnschema_bionty right now!!
             # we might extend to core lamindb later
@@ -139,6 +127,19 @@ def bulk_create(records: Iterable[Registry], ignore_conflicts: bool | None = Fal
         records_by_orm[record.__class__].append(record)
     for orm, records in records_by_orm.items():
         orm.objects.bulk_create(records, ignore_conflicts=ignore_conflicts)
+
+
+def bulk_update(records: Iterable[Registry], ignore_conflicts: bool | None = False):
+    records_by_orm = defaultdict(list)
+    for record in records:
+        records_by_orm[record.__class__].append(record)
+    for orm, records in records_by_orm.items():
+        field_names = [
+            field.name
+            for field in orm._meta.fields
+            if (field.name != "created_at" and field.name != "id")
+        ]
+        orm.objects.bulk_update(records, field_names)
 
 
 # This is also used within Artifact.save()
