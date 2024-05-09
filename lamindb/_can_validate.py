@@ -80,7 +80,9 @@ def _inspect(
 
     # inspect in the DB
     result_db = inspect(
-        df=_filter_query_based_on_organism(queryset=queryset, organism=organism),
+        df=_filter_query_based_on_organism(
+            queryset=queryset, field=field, organism=organism
+        ),
         identifiers=values,
         field=field,
         mute=mute,
@@ -161,6 +163,7 @@ def _validate(
     field_values = pd.Series(
         _filter_query_based_on_organism(
             queryset=queryset,
+            field=field,
             organism=organism,
             values_list_field=field,
         ),
@@ -284,7 +287,9 @@ def _standardize(
 
     try:
         orm._meta.get_field(synonyms_field)
-        df = _filter_query_based_on_organism(queryset=queryset, organism=organism)
+        df = _filter_query_based_on_organism(
+            queryset=queryset, field=field, organism=organism
+        )
     except FieldDoesNotExist:
         df = pd.DataFrame()
 
@@ -439,6 +444,7 @@ def _check_synonyms_field_exist(record: Registry):
 
 def _filter_query_based_on_organism(
     queryset: QuerySet,
+    field: str,
     organism: str | Registry | None = None,
     values_list_field: str | None = None,
 ):
@@ -447,7 +453,7 @@ def _filter_query_based_on_organism(
 
     orm = queryset.model
 
-    if _has_organism_field(orm):
+    if _has_organism_field(orm) and not field.endswith("id"):
         # here, we can safely import lnschema_bionty
         from lnschema_bionty._bionty import create_or_get_organism_record
 

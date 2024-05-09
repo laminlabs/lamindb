@@ -10,8 +10,6 @@ def test_transfer_from_remote_to_local():
     bt.Organism.filter().delete()
     ln.ULabel.filter().delete()
 
-    bt.settings.organism = "human"
-
     # transfer 1st artifact
     artifact = (
         ln.Artifact.using("laminlabs/cellxgene")
@@ -31,7 +29,6 @@ def test_transfer_from_remote_to_local():
     artifact.save(parents=False)
 
     # check all ids are adjusted
-    assert artifact.organism.get(name="human") == bt.settings.organism
     assert id_remote != artifact.id
     assert run_remote != artifact.run
     assert transform_remote != artifact.transform
@@ -58,6 +55,7 @@ def test_transfer_from_remote_to_local():
     feature.save()
 
     # transfer 2nd artifact
+    bt.settings.auto_save_parents = False
     artifact2 = (
         ln.Artifact.using("laminlabs/cellxgene")
         .filter(
@@ -65,8 +63,10 @@ def test_transfer_from_remote_to_local():
         )
         .last()
     )
-    artifact2.save(parents=False)
+    artifact2.save()
 
+    # check the feature name
+    bt.settings.organism = "human"
     assert artifact2.organism.get(name="human") == bt.settings.organism
     assert artifact.features["obs"].get(name="organism").uid == "existing"
 
