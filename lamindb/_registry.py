@@ -63,10 +63,6 @@ def suggest_objects_with_same_name(orm: Registry, kwargs) -> str | None:
         results = orm.search(kwargs["name"])
         if results.shape[0] == 0:
             return None
-
-        # subset results to those with at least 0.90 levensteihn distance
-        results = results.loc[results.score >= 90]
-
         # test for exact match
         if len(results) > 0:
             if results.index[0] == kwargs["name"]:
