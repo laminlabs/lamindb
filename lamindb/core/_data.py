@@ -114,6 +114,11 @@ def format_repr(value: Registry, exclude: list[str] | str | None = None) -> str:
 @doc_args(Data.describe.__doc__)
 def describe(self: Data):
     """{}."""
+    # prefetch many-to-many relationships
+    self = self.__class__.objects.prefetch_related(
+        *[f.name for f in self.__class__._meta.get_fields() if f.many_to_many]
+    ).get(id=self.id)
+
     model_name = self.__class__.__name__
     msg = ""
 
@@ -194,7 +199,7 @@ def get_labels(
             )
         else:
             qs_by_registry[registry] = getattr(
-                self, self.features._accessor_by_orm[registry]
+                self, self.features.accessor_by_orm[registry]
             ).all()
     if flat_names:
         # returns a flat list of names
@@ -282,7 +287,7 @@ def add_labels(
             )
         for registry_name, records in records_by_registry.items():
             labels_accessor = getattr(
-                self, self.features._accessor_by_orm[registry_name]
+                self, self.features.accessor_by_orm[registry_name]
             )
             # remove labels that are already linked as add doesn't perform update
             linked_labels = [r for r in records if r in labels_accessor.filter()]
@@ -321,7 +326,7 @@ def add_labels(
                     found_feature = True
             if not found_feature:
                 if "external" in linked_features_by_slot:
-                    feature_set = self.features._feature_set_by_slot["external"]
+                    feature_set = self.features.feature_set_by_slot["external"]
                     features_list = feature_set.features.list()
                 else:
                     features_list = []

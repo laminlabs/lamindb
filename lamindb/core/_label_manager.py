@@ -45,10 +45,12 @@ def get_labels_as_dict(self: Data):
 def print_labels(self: Data):
     labels_msg = ""
     for related_name, (related_model, labels) in get_labels_as_dict(self).items():
-        if labels.exists():
-            n = labels.count()
+        n = labels.count()
+        if n > 0:
             field = get_default_str_field(labels)
-            print_values = _print_values(labels.list(field), n=10)
+            print_values = _print_values(
+                list(labels.values_list(field, flat=True)[:20]), n=10
+            )
             labels_msg += f"  📎 {related_name} ({n}, {colors.italic(related_model)}): {print_values}\n"
     if len(labels_msg) > 0:
         return f"{colors.green('Labels')}:\n{labels_msg}"
