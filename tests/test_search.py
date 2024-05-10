@@ -1,0 +1,62 @@
+import bionty as bt
+import lamindb as ln
+import pandas as pd
+import pytest
+
+
+@pytest.fixture(scope="module")
+def prepare_cell_type_registry():
+    bt.CellType.filter().all().delete()
+    records = [
+        {
+            "ontology_id": "CL:0000084",
+            "name": "T cell",
+            "synonyms": "T-cell|T-lymphocyte|T lymphocyte",
+            "children": ["CL:0000798", "CL:0002420", "CL:0002419", "CL:0000789"],
+        },
+        {
+            "ontology_id": "CL:0000236",
+            "name": "B cell",
+            "synonyms": "B-lymphocyte|B lymphocyte|B-cell",
+            "children": ["CL:0009114", "CL:0001201"],
+        },
+        {
+            "ontology_id": "CL:0000696",
+            "name": "PP cell",
+            "synonyms": "type F enteroendocrine cell",
+            "children": ["CL:0002680"],
+        },
+        {
+            "ontology_id": "CL:0002072",
+            "name": "nodal myocyte",
+            "synonyms": "P cell|myocytus nodalis|cardiac pacemaker cell",
+            "children": ["CL:1000409", "CL:1000410"],
+        },
+    ]
+    public_records = []
+    for ref_record in records:
+        record = bt.CellType.from_public(ontology_id=ref_record["ontology_id"])
+        assert record.name == ref_record["name"]
+        assert record.synonyms == ref_record["synonyms"]
+        public_records.append(record)
+    ln.save(public_records, parents=False)
+    yield "prepared"
+    bt.CellType.filter().all().delete()
+
+
+def test_search_synonyms(prepare_cell_type_registry):
+    result = bt.CellType.search("P cell")
+    assert set(result.name) == {"nodal myocyte", "PP cell"}
+
+
+def test_search_limit(prepare_cell_type_registry):
+    result = bt.CellType.search("P cell", limit=1)
+    assert len(result) == 1
+
+
+def test_search_case_sensitive(prepare_cell_type_registry):
+    result = bt.CellType.search("b cell", case_sensitive=True)
+    assert len(result) == 0
+
+    result = bt.CellType.search("b cell", case_sensitive=False)
+    assert len(result) == 1
