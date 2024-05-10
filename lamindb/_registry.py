@@ -2,14 +2,12 @@ from __future__ import annotations
 
 import builtins
 from typing import TYPE_CHECKING, Iterable, List, NamedTuple
-from uuid import UUID
 
 import dj_database_url
 import lamindb_setup as ln_setup
-import pandas as pd
 from django.core.exceptions import FieldDoesNotExist
 from django.db import connections
-from django.db.models import Manager, QuerySet
+from django.db.models import Manager, Q, QuerySet
 from lamin_utils import logger
 from lamin_utils._lookup import Lookup
 from lamin_utils._search import search as base_search
@@ -26,6 +24,7 @@ from lamindb.core._settings import settings
 from ._from_values import get_or_create_records
 
 if TYPE_CHECKING:
+    import pandas as pd
     from lnschema_core.types import ListLike, StrField
 
 IPYTHON = getattr(builtins, "__IPYTHON__", False)
@@ -162,80 +161,29 @@ def _search(
     string: str,
     *,
     field: StrField | list[StrField] | None = None,
-    limit: int | None = 10,
+    limit: int | None = 20,
     return_queryset: bool = False,
     case_sensitive: bool = False,
-    synonyms_field: StrField | None = "synonyms",
     using_key: str | None = None,
 ) -> pd.DataFrame | QuerySet:
-    queryset = _queryset(cls, using_key=using_key)
-    orm = queryset.model
-
-    def _search_single_field(
-        string: str,
-        field: StrField | None,
-        synonyms_field: StrField | None = "synonyms",
-    ) -> pd.DataFrame:
-        field = get_default_str_field(orm=orm, field=field)
-
-        try:
-            orm._meta.get_field(synonyms_field)
-            synonyms_field_exists = True
-        except FieldDoesNotExist:
-            synonyms_field_exists = False
-
-        if synonyms_field is not None and synonyms_field_exists:
-            df = pd.DataFrame(queryset.values("uid", field, synonyms_field))
-        else:
-            df = pd.DataFrame(queryset.values("uid", field))
-
-        return base_search(
-            df=df,
-            string=string,
-            field=field,
-            limit=limit,
-            synonyms_field=str(synonyms_field),
-            case_sensitive=case_sensitive,
-        )
-
-    # search in both key and description fields for Artifact
-    if orm._meta.model.__name__ == "Artifact" and field is None:
-        field = ["key", "description"]
-
-    if not isinstance(field, List):
-        field = [field]
-
-    results = []
-    for fd in field:
-        result_field = _search_single_field(
-            string=string, field=fd, synonyms_field=synonyms_field
-        )
-        results.append(result_field)
-        # turn off synonyms search after the 1st field
-        synonyms_field = None
-
-    if len(results) > 1:
-        result = (
-            pd.concat([r.reset_index() for r in results], join="outer")
-            .drop(columns=["index"], errors="ignore")
-            .set_index("uid")
-        )
-    else:
-        result = results[0]
-
-    # remove results that have __ratio__ 0
-    if "__ratio__" in result.columns:
-        result = result[result["__ratio__"] > 0].sort_values(
-            "__ratio__", ascending=False
-        )
-        # restrict to 1 decimal
-        # move the score to be the last column
-        result["score"] = result.pop("__ratio__").round(1)
-
+    input_queryset = _queryset(cls, using_key=using_key)
+    orm = input_queryset.model
+    fields = [
+        field.name
+        for field in orm._meta.fields
+        if field.get_internal_type() in {"CharField", "TextField"}
+    ]
+    expression = Q()
+    case_sensitive_i = "" if case_sensitive else "i"
+    for field in fields:
+        # Construct the keyword for the Q object dynamically
+        query = {f"{field}__{case_sensitive_i}contains": string}
+        expression |= Q(**query)  # Unpack the dictionary into Q()
+    output_queryset = input_queryset.filter(expression)[:limit]
     if return_queryset:
-        return _order_queryset_by_ids(queryset, result.reset_index()["uid"])
+        return output_queryset
     else:
-        return result.fillna("")
+        return output_queryset.df()
 
 
 @classmethod  # type: ignore
@@ -258,7 +206,6 @@ def search(
         return_queryset=return_queryset,
         limit=limit,
         case_sensitive=case_sensitive,
-        synonyms_field=synonyms_field,
     )
 
 
