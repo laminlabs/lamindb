@@ -60,7 +60,7 @@ def suggest_objects_with_same_name(orm: Registry, kwargs) -> str | None:
     if kwargs.get("name") is None:
         return None
     else:
-        queryset = orm.search(kwargs["name"], return_queryset=True)
+        queryset = orm.search(kwargs["name"])
         if not queryset.exists():  # empty queryset
             return None
         else:
@@ -157,10 +157,9 @@ def _search(
     *,
     field: StrField | list[StrField] | None = None,
     limit: int | None = 20,
-    return_queryset: bool = False,
     case_sensitive: bool = False,
     using_key: str | None = None,
-) -> pd.DataFrame | QuerySet:
+) -> QuerySet:
     input_queryset = _queryset(cls, using_key=using_key)
     orm = input_queryset.model
     if field is None:
@@ -192,10 +191,7 @@ def _search(
         query = {f"{field}__{case_sensitive_i}contains": string}
         expression |= Q(**query)  # Unpack the dictionary into Q()
     output_queryset = input_queryset.filter(expression)[:limit]
-    if return_queryset:
-        return output_queryset
-    else:
-        return output_queryset.df()
+    return output_queryset
 
 
 @classmethod  # type: ignore
@@ -206,16 +202,13 @@ def search(
     *,
     field: StrField | None = None,
     limit: int | None = 20,
-    return_queryset: bool = False,
     case_sensitive: bool = False,
-    synonyms_field: StrField | None = "synonyms",
-) -> pd.DataFrame | QuerySet:
+) -> QuerySet:
     """{}."""
     return _search(
         cls=cls,
         string=string,
         field=field,
-        return_queryset=return_queryset,
         limit=limit,
         case_sensitive=case_sensitive,
     )
