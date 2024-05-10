@@ -60,16 +60,16 @@ def suggest_objects_with_same_name(orm: Registry, kwargs) -> str | None:
     if kwargs.get("name") is None:
         return None
     else:
-        results = orm.search(kwargs["name"])
-        if results.shape[0] == 0:
+        records = orm.search(kwargs["name"], return_queryset=True)
+        if len(records) == 0:
             return None
-        # test for exact match
-        if len(results) > 0:
-            if results.index[0] == kwargs["name"]:
-                return "object-with-same-name-exists"
+        else:
+            for record in records:
+                if record.name == kwargs["name"]:
+                    return "object-with-same-name-exists"
             else:
-                s = "" if results.shape[0] == 1 else "s"
-                it = "it" if results.shape[0] == 1 else "one of them"
+                s = "" if len(records) == 1 else "s"
+                it = "it" if len(records) == 1 else "one of them"
                 msg = (
                     f"record{s} with similar name{s} exist! did you mean to load {it}?"
                 )
@@ -78,9 +78,9 @@ def suggest_objects_with_same_name(orm: Registry, kwargs) -> str | None:
 
                     logger.warning(f"{msg}")
                     if settings._verbosity_int >= 1:
-                        display(results)
+                        display(records.df())
                 else:
-                    logger.warning(f"{msg}\n{results}")
+                    logger.warning(f"{msg}\n{records}")
     return None
 
 
