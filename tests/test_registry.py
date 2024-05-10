@@ -94,7 +94,7 @@ def test_search_artifact(get_search_test_filepaths):
     res_q = ln.Artifact.search("search5", return_queryset=True)
     assert res_q[0].key == "test-search5"
     # queryset returns the same order of results
-    assert res.index.tolist() == [i.uid for i in res_q]
+    assert res.uid.tolist() == [i.uid for i in res_q]
 
     f = ln.Artifact.filter(key="test-search5").one()
     f.suffix = ".txt"

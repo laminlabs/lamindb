@@ -163,11 +163,28 @@ def _search(
 ) -> pd.DataFrame | QuerySet:
     input_queryset = _queryset(cls, using_key=using_key)
     orm = input_queryset.model
-    fields = [
-        field.name
-        for field in orm._meta.fields
-        if field.get_internal_type() in {"CharField", "TextField"}
-    ]
+    if field is None:
+        fields = [
+            field.name
+            for field in orm._meta.fields
+            if field.get_internal_type() in {"CharField", "TextField"}
+        ]
+    else:
+        if not isinstance(field, list):
+            fields_input = [field]
+        else:
+            fields_input = field
+        fields = []
+        for field in fields_input:
+            if not isinstance(field, str):
+                try:
+                    fields.append(field.field.name)
+                except AttributeError as error:
+                    raise TypeError(
+                        "Please pass a Registry string field, e.g., `CellType.name`!"
+                    ) from error
+            else:
+                fields.append(field)
     expression = Q()
     case_sensitive_i = "" if case_sensitive else "i"
     for field in fields:
