@@ -1,5 +1,6 @@
 # Changelog
 
+- ⚡️ Speed-up file hash [PR](https://github.com/laminlabs/lamindb/pull/1651) [@Koncopd](https://github.com/Koncopd)
 - ♻️ Refactor search [PR](https://github.com/laminlabs/lamindb/pull/1646) [@falexwolf](https://github.com/falexwolf)
 - ✨ Introduce bulk update [PR](https://github.com/laminlabs/lamindb/pull/1640) [@falexwolf](https://github.com/falexwolf)
 - ⬆️ Upgrade nbproject [PR](https://github.com/laminlabs/lamindb/pull/1641) [@Koncopd](https://github.com/Koncopd)
