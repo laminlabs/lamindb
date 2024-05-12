@@ -1,12 +1,14 @@
 from __future__ import annotations
 
 import shutil
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path, PurePath, PurePosixPath
 from typing import TYPE_CHECKING, Any, Mapping
 
 import fsspec
 import lamindb_setup as ln_setup
 import pandas as pd
+import psutil
 from anndata import AnnData
 from lamin_utils import colors, logger
 from lamindb_setup import settings as setup_settings
@@ -204,15 +206,23 @@ def get_stat_or_artifact(
             return size, hash, hash_type, n_objects
     else:
         if path.is_dir():
-            md5s = []
-            size = 0
             files = (subpath for subpath in path.rglob("*") if subpath.is_file())
-            for file in files:
+
+            def hash_size(file):
                 file_size = file.stat().st_size
-                size += file_size
-                md5s.append(hash_file(file, file_size)[0])
-            hash, hash_type = hash_md5s_from_dir(md5s)
-            n_objects = len(md5s)
+                return hash_file(file, file_size)[0], file_size
+
+            n_workers = len(psutil.Process().cpu_affinity())
+            if n_workers > 1:
+                with ThreadPoolExecutor(n_workers) as pool:
+                    hashes_sizes = pool.map(hash_size, files)
+            else:
+                hashes_sizes = map(hash_size, files)
+            hashes, sizes = zip(*hashes_sizes)
+
+            hash, hash_type = hash_md5s_from_dir(hashes)
+            n_objects = len(hashes)
+            size = sum(sizes)
         else:
             hash, hash_type = hash_file(path)
             size = stat.st_size
