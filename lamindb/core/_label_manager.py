@@ -42,16 +42,17 @@ def get_labels_as_dict(self: Data):
     return labels
 
 
-def print_labels(self: Data):
+def print_labels(self: Data, field: str = "name"):
     labels_msg = ""
     for related_name, (related_model, labels) in get_labels_as_dict(self).items():
-        n = labels.count()
-        if n > 0:
-            field = get_default_str_field(labels)
-            print_values = _print_values(
-                list(labels.values_list(field, flat=True)[:20]), n=10
-            )
-            labels_msg += f"  📎 {related_name} ({n}, {colors.italic(related_model)}): {print_values}\n"
+        try:
+            labels_list = list(labels.values_list(field, flat=True))
+            if len(labels_list) > 0:
+                get_default_str_field(labels)
+                print_values = _print_values(labels_list[:20], n=10)
+                labels_msg += f"  📎 {related_name} ({len(labels_list)}, {colors.italic(related_model)}): {print_values}\n"
+        except Exception:
+            continue
     if len(labels_msg) > 0:
         return f"{colors.green('Labels')}:\n{labels_msg}"
     else:

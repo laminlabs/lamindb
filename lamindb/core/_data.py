@@ -114,10 +114,15 @@ def format_repr(value: Registry, exclude: list[str] | str | None = None) -> str:
 @doc_args(Data.describe.__doc__)
 def describe(self: Data):
     """{}."""
-    # prefetch many-to-many relationships
-    self = self.__class__.objects.prefetch_related(
-        *[f.name for f in self.__class__._meta.get_fields() if f.many_to_many]
-    ).get(id=self.id)
+    # prefetch all many-to-many relationships
+    # doesn't work for describing using artifact
+    # self = (
+    #     self.__class__.objects.using(self._state.db)
+    #     .prefetch_related(
+    #         *[f.name for f in self.__class__._meta.get_fields() if f.many_to_many]
+    #     )
+    #     .get(id=self.id)
+    # )
 
     model_name = self.__class__.__name__
     msg = ""
@@ -130,6 +135,18 @@ def describe(self: Data):
             foreign_key_fields.append(f.name)
         else:
             direct_fields.append(f.name)
+    # prefetch foreign key relationships
+    self = (
+        self.__class__.objects.using(self._state.db)
+        .select_related(*foreign_key_fields)
+        .get(id=self.id)
+    )
+    # prefetch m-2-m relationships
+    self = (
+        self.__class__.objects.using(self._state.db)
+        .prefetch_related("feature_sets", "input_of")
+        .get(id=self.id)
+    )
 
     # provenance
     if len(foreign_key_fields) > 0:  # always True for Artifact and Collection
