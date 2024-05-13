@@ -103,9 +103,9 @@ def __init__(
             if meta._state.adding:
                 raise ValueError("Save meta artifact before creating collection!")
             if not feature_sets:
-                feature_sets = meta.features._feature_set_by_slot
+                feature_sets = meta.features.feature_set_by_slot
             else:
-                if len(meta.features._feature_set_by_slot) > 0:
+                if len(meta.features.feature_set_by_slot) > 0:
                     logger.info("overwriting feature sets linked to artifact")
     # we ignore collections in trash containing the same hash
     if hash is not None:
@@ -129,7 +129,7 @@ def __init__(
             existing_collection.transform = run.transform
         init_self_from_db(collection, existing_collection)
         update_attributes(collection, {"description": description, "name": name})
-        for slot, feature_set in collection.features._feature_set_by_slot.items():
+        for slot, feature_set in collection.features.feature_set_by_slot.items():
             if slot in feature_sets:
                 if not feature_sets[slot] == feature_set:
                     collection.feature_sets.remove(feature_set)
