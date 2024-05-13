@@ -135,18 +135,19 @@ def describe(self: Data):
             foreign_key_fields.append(f.name)
         else:
             direct_fields.append(f.name)
-    # prefetch foreign key relationships
-    self = (
-        self.__class__.objects.using(self._state.db)
-        .select_related(*foreign_key_fields)
-        .get(id=self.id)
-    )
-    # prefetch m-2-m relationships
-    self = (
-        self.__class__.objects.using(self._state.db)
-        .prefetch_related("feature_sets", "input_of")
-        .get(id=self.id)
-    )
+    if not self._state.adding:
+        # prefetch foreign key relationships
+        self = (
+            self.__class__.objects.using(self._state.db)
+            .select_related(*foreign_key_fields)
+            .get(id=self.id)
+        )
+        # prefetch m-2-m relationships
+        self = (
+            self.__class__.objects.using(self._state.db)
+            .prefetch_related("feature_sets", "input_of")
+            .get(id=self.id)
+        )
 
     # provenance
     if len(foreign_key_fields) > 0:  # always True for Artifact and Collection
