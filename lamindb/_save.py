@@ -180,7 +180,7 @@ def copy_or_move_to_cache(artifact: Artifact, storage_path: UPath):
     is_dir = local_path.is_dir()
     cache_dir = settings._storage_settings.cache_dir
 
-    # just delete from the cache dir if a local instance
+    # just delete from the cache dir if storage_path is local
     if isinstance(storage_path, LocalPathClasses):
         if (
             local_path.as_posix() != storage_path.as_posix()
