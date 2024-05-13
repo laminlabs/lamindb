@@ -200,7 +200,7 @@ class LabelManager:
         """
         features_lookup_self = Feature.lookup()
         features_lookup_data = Feature.objects.using(data._state.db).lookup()
-        for _, feature_set in data.features._feature_set_by_slot.items():
+        for _, feature_set in data.features.feature_set_by_slot.items():
             # add labels stratified by feature
             if feature_set.registry == "core.Feature":
                 # df_slot is the Feature table with type and registries
