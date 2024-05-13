@@ -83,9 +83,9 @@ def test_search():
     label_names = [f"ULabel {i}" for i in range(3)]
     labels = [ln.ULabel(name=name) for name in label_names]
     ln.save(labels)
-    qs = ln.ULabel.filter(name="ULabel 2").all()
-    assert qs.search("ULabel 1").iloc[0].name == "ULabel 2"
-    assert qs.search("ULabel 1", field=ln.ULabel.name).iloc[0].name == "ULabel 2"
+    qs = ln.ULabel.filter(name__startswith="ULabel").all()
+    assert qs.search("ULabel 1")[0].name == "ULabel 1"
+    assert qs.search("ULabel 1", field=ln.ULabel.name)[0].name == "ULabel 1"
     for label in labels:
         label.delete()
 

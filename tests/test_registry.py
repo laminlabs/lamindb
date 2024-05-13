@@ -78,7 +78,7 @@ def test_search_artifact(get_search_test_filepaths):
     )
     artifact4.save()
 
-    result = ln.Artifact.search("search3")
+    result = ln.Artifact.search("search3").df()
     assert result.iloc[0].description == "test-search3"
     assert result.iloc[1].description == "test-search3"
 
@@ -88,19 +88,19 @@ def test_search_artifact(get_search_test_filepaths):
 
     artifact5 = ln.Artifact("./unregistered_storage/test-search5", key="test-search5")
     artifact5.save()
-    res = ln.Artifact.search("search5")
+    res = ln.Artifact.search("search5").df()
     assert res.iloc[0].key == "test-search5"
 
-    res_q = ln.Artifact.search("search5", return_queryset=True)
+    res_q = ln.Artifact.search("search5")
     assert res_q[0].key == "test-search5"
     # queryset returns the same order of results
-    assert res.index.tolist() == [i.uid for i in res_q]
+    assert res.uid.tolist() == [i.uid for i in res_q]
 
     f = ln.Artifact.filter(key="test-search5").one()
     f.suffix = ".txt"
     f.save()
     # multi-field search
-    res = ln.Artifact.search("txt", field=["key", "description", "suffix"])
+    res = ln.Artifact.search("txt", field=["key", "description", "suffix"]).df()
     assert res.iloc[0].suffix == ".txt"
     artifact0.delete(permanent=True, storage=True)
     artifact1.delete(permanent=True, storage=True)

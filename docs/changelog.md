@@ -1,5 +1,9 @@
 # Changelog
 
+- ⚡️ Parallel hashing of directories [PR](https://github.com/laminlabs/lamindb/pull/1652) [@Koncopd](https://github.com/Koncopd)
+- ⚡️ Speed-up file hash [PR](https://github.com/laminlabs/lamindb/pull/1651) [@Koncopd](https://github.com/Koncopd)
+- ♻️ Refactor search [PR](https://github.com/laminlabs/lamindb/pull/1646) [@falexwolf](https://github.com/falexwolf)
+- ✨ Introduce bulk update [PR](https://github.com/laminlabs/lamindb/pull/1640) [@falexwolf](https://github.com/falexwolf)
 - ⬆️ Upgrade nbproject [PR](https://github.com/laminlabs/lamindb/pull/1641) [@Koncopd](https://github.com/Koncopd)
 - 🚸 No need to pass organism if validating on ids [PR](https://github.com/laminlabs/lamindb/pull/1639) [@sunnyosun](https://github.com/sunnyosun)
 - Fix registry links in docs [PR](https://github.com/laminlabs/lamindb/pull/1638) [@Zethson](https://github.com/Zethson)
