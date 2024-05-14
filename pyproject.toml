@@ -19,7 +19,7 @@ dependencies = [
     "lnschema_core==0.66.4",
     "lamindb_setup==0.71.3",
     "lamin_utils==0.13.2",
-    "lamin_cli==0.13.1",
+    "lamin_cli==0.13.2",
     # others
     "rapidfuzz",
     "pyarrow",
