@@ -1,5 +1,6 @@
 # Changelog
 
+- ⬆️ Release core [PR](https://github.com/laminlabs/lamindb/pull/1658) [@sunnyosun](https://github.com/sunnyosun)
 - 🐛 Fix from_values [PR](https://github.com/laminlabs/lamindb/pull/1657) [@sunnyosun](https://github.com/sunnyosun)
 - ⬆️ Release lamindb-setup [PR](https://github.com/laminlabs/lamindb/pull/1656) [@sunnyosun](https://github.com/sunnyosun)
 - 🎨 Enable transfer when schema don't match [PR](https://github.com/laminlabs/lamindb/pull/1654) [@sunnyosun](https://github.com/sunnyosun)
