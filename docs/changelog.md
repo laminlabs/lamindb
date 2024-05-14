@@ -1,19 +1,5 @@
 # Changelog
 
-- ⬆️ Release core [PR](https://github.com/laminlabs/lamindb/pull/1658) [@sunnyosun](https://github.com/sunnyosun)
-- 🐛 Fix from_values [PR](https://github.com/laminlabs/lamindb/pull/1657) [@sunnyosun](https://github.com/sunnyosun)
-- ⬆️ Release lamindb-setup [PR](https://github.com/laminlabs/lamindb/pull/1656) [@sunnyosun](https://github.com/sunnyosun)
-- 🎨 Enable transfer when schema don't match [PR](https://github.com/laminlabs/lamindb/pull/1654) [@sunnyosun](https://github.com/sunnyosun)
-- ✨ Get artifacts through the CLI [PR](https://github.com/laminlabs/lamindb/pull/1642) [@falexwolf](https://github.com/falexwolf)
-- 🐛 Fix copy_or_move_to_cache for local storage_path [PR](https://github.com/laminlabs/lamindb/pull/1653) [@Koncopd](https://github.com/Koncopd)
-- ⚡️ Improve the speed of describe [PR](https://github.com/laminlabs/lamindb/pull/1645) [@sunnyosun](https://github.com/sunnyosun)
-- ⚡️ Parallel hashing of directories [PR](https://github.com/laminlabs/lamindb/pull/1652) [@Koncopd](https://github.com/Koncopd)
-- ⚡️ Speed-up file hash [PR](https://github.com/laminlabs/lamindb/pull/1651) [@Koncopd](https://github.com/Koncopd)
-- ♻️ Refactor search [PR](https://github.com/laminlabs/lamindb/pull/1646) [@falexwolf](https://github.com/falexwolf)
-- ✨ Introduce bulk update [PR](https://github.com/laminlabs/lamindb/pull/1640) [@falexwolf](https://github.com/falexwolf)
-- ⬆️ Upgrade nbproject [PR](https://github.com/laminlabs/lamindb/pull/1641) [@Koncopd](https://github.com/Koncopd)
-- 🚸 No need to pass organism if validating on ids [PR](https://github.com/laminlabs/lamindb/pull/1639) [@sunnyosun](https://github.com/sunnyosun)
-- Fix registry links in docs [PR](https://github.com/laminlabs/lamindb/pull/1638) [@Zethson](https://github.com/Zethson)
 :::{note}
 
 If using LaminHub, please use the latest version of lamindb.
@@ -27,6 +13,17 @@ LaminDB implements "migration-based versioning". When upgrading your LaminDB ins
 ```
 
 ## 0.71
+
+### 0.71.3 {small}`2024-05-14`
+
+- 🎨 Enable transfer when schema don't match [PR](https://github.com/laminlabs/lamindb/pull/1654) [@sunnyosun](https://github.com/sunnyosun)
+- ✨ Get artifacts through the CLI [PR](https://github.com/laminlabs/lamindb/pull/1642) [@falexwolf](https://github.com/falexwolf)
+- ⚡️ Improve the speed of describe [PR](https://github.com/laminlabs/lamindb/pull/1645) [@sunnyosun](https://github.com/sunnyosun)
+- ⚡️ Parallel hashing of directories [PR](https://github.com/laminlabs/lamindb/pull/1652) [@Koncopd](https://github.com/Koncopd)
+- ⚡️ Speed-up file hash [PR](https://github.com/laminlabs/lamindb/pull/1651) [@Koncopd](https://github.com/Koncopd)
+- ♻️ Refactor search [PR](https://github.com/laminlabs/lamindb/pull/1646) [@falexwolf](https://github.com/falexwolf)
+- ✨ Introduce bulk update [PR](https://github.com/laminlabs/lamindb/pull/1640) [@falexwolf](https://github.com/falexwolf)
+- 🚸 No need to pass organism if validating on ids [PR](https://github.com/laminlabs/lamindb/pull/1639) [@sunnyosun](https://github.com/sunnyosun)
 
 ### 0.71.2 {small}`2024-05-07`
 
