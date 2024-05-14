@@ -20,6 +20,7 @@ from lnschema_core import Registry
 
 from lamindb._utils import attach_func_to_class_method
 from lamindb.core._settings import settings
+from lamindb.core.exceptions import ValidationError
 
 from ._from_values import get_or_create_records
 
@@ -28,10 +29,6 @@ if TYPE_CHECKING:
     from lnschema_core.types import ListLike, StrField
 
 IPYTHON = getattr(builtins, "__IPYTHON__", False)
-
-
-class ValidationError(Exception):
-    pass
 
 
 def init_self_from_db(self: Registry, existing_record: Registry):
