@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from itertools import compress
-from typing import TYPE_CHECKING, Iterable, Optional
+from typing import TYPE_CHECKING, Iterable
 
 import anndata as ad
 from anndata import AnnData
@@ -374,8 +374,9 @@ class FeatureManager:
         """Transfer features from a artifact or collection."""
         using_key = settings._using_key
         for slot, feature_set in data.features.feature_set_by_slot.items():
+            print(slot)
             members = feature_set.members
-            if members.count() == 0:
+            if len(members) == 0:
                 continue
             registry = members[0].__class__
             # note here the features are transferred based on an unique field
@@ -393,7 +394,7 @@ class FeatureManager:
             # this will be e.g. be a list of ontology_ids or uids
             member_uids = list(members.values_list(field, flat=True))
             # create records from ontology_id in order to populate parents
-            if field == "ontology_id" and len(member_uids) > 0:
+            if field == "ontology_id" and len(member_uids) > 0 and parents:
                 # create from bionty
                 records = registry.from_values(member_uids, field=field)
                 if len(records) > 0:
@@ -401,8 +402,9 @@ class FeatureManager:
             validated = registry.validate(member_uids, field=field, mute=True)
             new_members_uids = list(compress(member_uids, ~validated))
             new_members = members.filter(**{f"{field}__in": new_members_uids}).all()
-            if new_members.count() > 0:
-                mute = True if new_members.count() > 10 else False
+            n_new_members = len(new_members)
+            if n_new_members > 0:
+                mute = True if n_new_members > 10 else False
                 # transfer foreign keys needs to be run before transfer to default db
                 transfer_fk_to_default_db_bulk(new_members, using_key)
                 for feature in new_members:
@@ -413,9 +415,7 @@ class FeatureManager:
                     transfer_to_default_db(
                         feature, using_key, mute=mute, transfer_fk=False
                     )
-                logger.info(
-                    f"saving {new_members.count()} new {registry.__name__} records"
-                )
+                logger.info(f"saving {n_new_members} new {registry.__name__} records")
                 save(new_members, parents=parents)
 
             # create a new feature set from feature values using the same uid

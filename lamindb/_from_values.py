@@ -185,8 +185,15 @@ def create_records_from_public(
 
     # create the corresponding bionty object from model
     try:
+        # TODO: more generic
+        organism = kwargs.get("organism")
+        if field.field.name == "ensembl_gene_id":
+            if iterable_idx[0].startswith("ENSG"):
+                organism = "human"
+            elif iterable_idx[0].startswith("ENSMUSG"):
+                organism = "mouse"
         public_ontology = model.public(
-            organism=kwargs.get("organism"), public_source=kwargs.get("public_source")
+            organism=organism, public_source=kwargs.get("public_source")
         )
     except Exception:
         # for custom records that are not created from public sources
