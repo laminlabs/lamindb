@@ -12,7 +12,7 @@ Lamin does _not_ store or see any of your data, but only _basic_ metadata about 
 
 If you register a LaminDB instance on LaminHub, Lamin only stores the storage location (AWS S3 or GCP bucket names, directory names).
 
-For more, see {doc}`docs:access`, [the source code](https://github.com/laminlabs/lamindb-setup), or the [privacy policy](https://lamin.ai/legal/privacy-policy).
+For more, see [doc](inv:docs#access), [the source code](https://github.com/laminlabs/lamindb-setup), or the [privacy policy](https://lamin.ai/legal/privacy-policy).
 
 ```
 
