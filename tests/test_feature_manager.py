@@ -23,9 +23,28 @@ def test_features_add(adata):
     artifact.save()
     experiment = ln.Feature(name="experiment", type="category")
     with pytest.raises(ValidationError):
-        artifact.features.add({"experiment": "experiment 1"})
+        artifact.features.add({"experiment": "Experiment 1"})
     experiment.save()
-    artifact.features.add({"experiment": "experiment 1"})
+    with pytest.raises(ValidationError) as error:
+        artifact.features.add({"experiment": "Experiment 1"})
+    assert (
+        error.exconly()
+        == "lamindb.core.exceptions.ValidationError: Label 'Experiment 1' not found in ln.ULabel"
+    )
+    ln.ULabel(name="Experiment 1").save()
+    artifact.features.add({"experiment": "Experiment 1"})
+    assert artifact.artifactulabel_set.first().ulabel.name == "Experiment 1"
+    temperature = ln.Feature(name="temperature", type="category").save()
+    with pytest.raises(TypeError) as error:
+        artifact.features.add({"temperature": 27.2})
+    assert (
+        error.exconly()
+        == "TypeError: Value for feature 'temperature' with type category must be a string or registry"
+    )
+    temperature.type = "number"
+    temperature.save()
+    artifact.features.add({"temperature": 27.2})
+    assert artifact.artifactfeaturevalue_set.first().feature_value.value == 27.2
 
     # delete everything we created
     artifact.delete(permanent=True)

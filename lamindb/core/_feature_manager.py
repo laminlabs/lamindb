@@ -7,7 +7,15 @@ import anndata as ad
 from anndata import AnnData
 from lamin_utils import colors, logger
 from lamindb_setup.core.upath import create_path
-from lnschema_core.models import Artifact, Collection, Data, Feature, Registry
+from lnschema_core.models import (
+    Artifact,
+    Collection,
+    Data,
+    Feature,
+    FeatureValue,
+    Registry,
+    ULabel,
+)
 
 from lamindb._feature import convert_numpy_dtype_to_lamin_feature_type
 from lamindb._feature_set import FeatureSet
@@ -18,6 +26,7 @@ from lamindb._registry import (
     transfer_to_default_db,
 )
 from lamindb._save import save
+from lamindb.core.exceptions import ValidationError
 from lamindb.core.storage import LocalPathClasses
 
 from ._settings import settings
@@ -262,12 +271,61 @@ class FeatureManager:
         """
         if slot is None:
             slot = "external"
-        feature_identifiers = features_values.keys()
+        keys = features_values.keys()
+        features_values.values()
         # what if the feature is already part of a linked feature set?
         # what if artifact annotation by features through link tables and through feature sets
         # differs?
-        feature_set = FeatureSet.from_values(feature_identifiers, field=feature_field)
+        feature_set = FeatureSet.from_values(keys, field=feature_field)
         self._host.features.add_feature_set(feature_set, slot)
+        # now figure out which of the values go where
+        features_labels = []
+        feature_values = []
+        for key, value in features_values.items():
+            # TODO: use proper field in .get() below
+            feature = feature_set.features.get(name=key)
+            if feature.type == "number":
+                if not (isinstance(value, int) or isinstance(value, float)):
+                    raise TypeError(
+                        f"Value for feature '{key}' with type {feature.type} must be a number"
+                    )
+            elif feature.type == "category":
+                if not (isinstance(value, str) or isinstance(value, Registry)):
+                    raise TypeError(
+                        f"Value for feature '{key}' with type {feature.type} must be a string or registry"
+                    )
+            elif feature.type == "bool":
+                assert isinstance(value, bool)
+            if feature.type == "category":
+                if isinstance(value, Registry):
+                    assert not value._state.adding
+                    label_record = value
+                    assert isinstance(label_record, ULabel)
+                else:
+                    label_record = ULabel.filter(name=value).one_or_none()
+                    if label_record is None:
+                        raise ValidationError(f"Label '{value}' not found in ln.ULabel")
+                features_labels.append((feature, label_record))
+            else:
+                feature_values.append(FeatureValue(feature=feature, value=value))
+        # bulk add all links to ArtifactULabel
+        if features_labels:
+            LinkORM = self._host.ulabels.through
+            links = [
+                LinkORM(
+                    artifact_id=self._host.id, feature_id=feature.id, ulabel_id=label.id
+                )
+                for (feature, label) in features_labels
+            ]
+            LinkORM.objects.bulk_create(links, ignore_conflicts=True)
+        if feature_values:
+            save(feature_values)
+            LinkORM = self._host.feature_values.through
+            links = [
+                LinkORM(artifact_id=self._host.id, feature_value_id=feature_value.id)
+                for feature_value in feature_values
+            ]
+            LinkORM.objects.bulk_create(links)
 
     def add_from_df(self, field: FieldAttr = Feature.name, organism: str | None = None):
         """Add features from DataFrame."""
