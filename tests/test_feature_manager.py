@@ -1,6 +1,7 @@
 import bionty as bt
 import lamindb as ln
 import pytest
+from lamindb.core.exceptions import ValidationError
 
 bt.settings.auto_save_parents = False
 
@@ -12,6 +13,19 @@ def adata():
     adata.obs["cell_type_from_expert"] = adata.obs["cell_type"]
     adata.obs.loc["obs0", "cell_type_from_expert"] = "B cell"
     return adata
+
+
+# below is the main new test for the main way of annotating with
+# features
+def test_features_add(adata):
+    ln.ULabel(name="Experiment 1")
+    artifact = ln.Artifact.from_anndata(adata, description="test")
+    artifact.save()
+    experiment = ln.Feature(name="experiment", type="category")
+    with pytest.raises(ValidationError):
+        artifact.features.add({"experiment": "experiment 1"})
+    experiment.save()
+    artifact.features.add({"experiment": "experiment 1"})
 
 
 def test_labels_add(adata):

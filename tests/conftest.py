@@ -20,7 +20,7 @@ def pytest_sessionstart():
         name="lamindb-unit-tests",
         db=pgurl,
     )
-    ln.setup.register()  # temporarily
+    # ln.setup.register()  # temporarily
     ln.setup.settings.auto_connect = True
 
 

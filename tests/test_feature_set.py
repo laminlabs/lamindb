@@ -6,6 +6,7 @@ import pandas as pd
 import pytest
 from lamindb import _feature_set
 from lamindb._feature_set import get_related_name, validate_features
+from lamindb.core.exceptions import ValidationError
 
 
 @pytest.fixture(scope="module")
@@ -42,8 +43,11 @@ def test_feature_set_from_values():
     gene_symbols = ["TCF7", "MYC"]
     bt.settings.organism = "human"
     bt.Gene.filter(symbol__in=gene_symbols).all().delete()
-    feature_set = ln.FeatureSet.from_values(gene_symbols, bt.Gene.symbol, type=int)
-    assert feature_set is None
+    with pytest.raises(ValidationError) as error:
+        feature_set = ln.FeatureSet.from_values(gene_symbols, bt.Gene.symbol, type=int)
+    assert error.exconly().startswith(
+        "lamindb.core.exceptions.ValidationError: These values could not be validated:"
+    )
     ln.save(bt.Gene.from_values(gene_symbols, "symbol"))
     feature_set = ln.FeatureSet.from_values(gene_symbols, bt.Gene.symbol)
     # below should be a queryset and not a list
@@ -69,17 +73,16 @@ def test_feature_set_from_values():
 
     with pytest.raises(TypeError):
         ln.FeatureSet.from_values(["a"], field="name")
-    feature_set = ln.FeatureSet.from_values(
-        ["weird_name"], field=ln.Feature.name, type="float"
-    )
-    assert feature_set is None
+    with pytest.raises(ValidationError):
+        feature_set = ln.FeatureSet.from_values(
+            ["weird_name"], field=ln.Feature.name, type="float"
+        )
     with pytest.raises(TypeError):
         ln.FeatureSet.from_values([1], field=ln.ULabel.name, type="float")
 
     # return none if no validated features
-    assert (
-        ln.FeatureSet.from_values(["name"], field=ln.ULabel.name, type="float") is None
-    )
+    with pytest.raises(ValidationError):
+        ln.FeatureSet.from_values(["name"], field=ln.ULabel.name, type="float")
 
 
 def test_feature_set_from_records(df):

@@ -247,6 +247,7 @@ class FeatureManager:
         self,
         features_values: dict[str, str | int | float | bool],
         slot: str | None = None,
+        feature_field: FieldAttr = Feature.name,
     ):
         """Add features stratified by slot.
 
@@ -256,10 +257,15 @@ class FeatureManager:
             slot: The access slot of the feature sets in the artifact. For
               instance, `.columns` for `DataFrame` or `.var` or `.obs` for
               `AnnData`.
+            feature_field: The field of a reference registry to map values.
         """
         if slot is None:
             slot = "external"
-        feature_set = FeatureSet.from_values(features_values)
+        feature_identifiers = features_values.keys()
+        # what if the feature is already part of a linked feature set?
+        # what if artifact annotation by features through link tables and through feature sets
+        # differs?
+        feature_set = FeatureSet.from_values(feature_identifiers, field=feature_field)
         self._host.features.add_feature_set(feature_set, slot)
 
     def add_from_df(self, field: FieldAttr = Feature.name, organism: str | None = None):
