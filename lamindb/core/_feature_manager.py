@@ -243,14 +243,24 @@ class FeatureManager:
             self._accessor_by_orm = get_accessor_by_orm(self._host)
         return self._accessor_by_orm
 
-    def add(self, features: Iterable[Registry], slot: str | None = None):
-        """Add features stratified by slot."""
-        if (hasattr(self._host, "accessor") and self._host.accessor == "DataFrame") or (
-            hasattr(self._host, "artifact")
-            and self._host.artifact.accessor == "DataFrame"
-        ):
-            slot = "columns" if slot is None else slot
-        self.add_feature_set(feature_set=FeatureSet(features=features), slot=slot)
+    def add(
+        self,
+        features_values: dict[str, str | int | float | bool],
+        slot: str | None = None,
+    ):
+        """Add features stratified by slot.
+
+        Args:
+            features_values: A dictionary of features & values. You can also
+              pass `{feature_identifier: None}` to skip annotation by values.
+            slot: The access slot of the feature sets in the artifact. For
+              instance, `.columns` for `DataFrame` or `.var` or `.obs` for
+              `AnnData`.
+        """
+        if slot is None:
+            slot = "external"
+        feature_set = FeatureSet.from_values(features_values)
+        self._host.features.add_feature_set(feature_set, slot)
 
     def add_from_df(self, field: FieldAttr = Feature.name, organism: str | None = None):
         """Add features from DataFrame."""
