@@ -52,7 +52,16 @@ def test_from_values_organism():
     with pytest.raises(AssertionError):
         Gene.from_values(["ABC1"], Gene.symbol)
     # no organism is needed if the values are ensembl gene ids
-    Gene.from_values(["ENSG00000068097"], Gene.ensembl_gene_id)
+    result = Gene.from_values(["ENSG00000068097"], Gene.ensembl_gene_id)
+    assert len(result) == 1
+    result = Gene.from_values(
+        ["ENSMUSG00000102862", "ENSMUSG00000084826"], field=Gene.ensembl_gene_id
+    )
+    assert len(result) == 2
+    result = Gene.from_values(
+        ["HRA1", "ETS1-1"], field=Gene.stable_id, organism="saccharomyces cerevisiae"
+    )
+    assert len(result) == 2
 
     settings.organism = "human"
     values = ["ABC1"]

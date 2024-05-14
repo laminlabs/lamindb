@@ -102,6 +102,9 @@ def get_existing_records(
 
     # standardize based on the DB reference
     # log synonyms mapped terms
+    print("field", field)
+    print("organism", kwargs.get("organism"))
+    print("public_source", kwargs.get("public_source"))
     result = model.inspect(
         iterable_idx,
         field=field,
@@ -185,8 +188,15 @@ def create_records_from_public(
 
     # create the corresponding bionty object from model
     try:
+        # TODO: more generic
+        organism = kwargs.get("organism")
+        if field.field.name == "ensembl_gene_id":
+            if iterable_idx[0].startswith("ENSG"):
+                organism = "human"
+            elif iterable_idx[0].startswith("ENSMUSG"):
+                organism = "mouse"
         public_ontology = model.public(
-            organism=kwargs.get("organism"), public_source=kwargs.get("public_source")
+            organism=organism, public_source=kwargs.get("public_source")
         )
     except Exception:
         # for custom records that are not created from public sources
@@ -346,7 +356,7 @@ def _get_organism_record(
     field: StrField, organism: str | Registry, force: bool = False
 ) -> Registry:
     model = field.field.model
-    check = True if force else not field.field.name.endswith("id")
+    check = True if force else field.field.name != "ensembl_gene_id"
 
     if _has_organism_field(model) and check:
         from lnschema_bionty._bionty import create_or_get_organism_record
