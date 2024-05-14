@@ -75,7 +75,7 @@ def transfer_add_labels(labels, features_lookup_self, self, row, parents: bool =
         # link labels records from self db
         self._host.labels.add(
             validated_labels + new_labels,
-            feature=getattr(features_lookup_self, row["name"]),
+            feature=features_lookup_self.get(row["name"]),
         )
 
     # validate labels on the default db
@@ -97,6 +97,10 @@ def validate_labels(labels: QuerySet | list | dict, parents: bool = True):
         field = REGISTRY_UNIQUE_FIELD.get(registry.__name__.lower(), "uid")
         if hasattr(registry, "ontology_id") and parents:
             field = "ontology_id"
+        elif hasattr(registry, "ensembl_gene_id"):
+            field = "ensembl_gene_id"
+        elif hasattr(registry, "uniprotkb_id"):
+            field = "uniprotkb_id"
         if registry.__get_name_with_schema__() == "bionty.Organism":
             parents = False
         # if the field value is None, use uid field
@@ -198,8 +202,12 @@ class LabelManager:
             >>> file1.ulabels.set(labels)
             >>> file2.labels.add_from(file1)
         """
-        features_lookup_self = Feature.lookup()
-        features_lookup_data = Feature.objects.using(data._state.db).lookup()
+        from django.db.utils import ProgrammingError
+
+        features_lookup_self = {f.name: f for f in Feature.objects.filter().all()}
+        features_lookup_data = {
+            f.name: f for f in Feature.objects.using(data._state.db).filter().all()
+        }
         for _, feature_set in data.features.feature_set_by_slot.items():
             # add labels stratified by feature
             if feature_set.registry == "core.Feature":
@@ -210,30 +218,31 @@ class LabelManager:
                         logger.info(f"transferring {row['name']}")
                         # labels records from data db
                         labels = data.labels.get(
-                            getattr(features_lookup_data, row["name"]), mute=True
+                            features_lookup_data.get(row["name"]), mute=True
                         )
                         transfer_add_labels(
                             labels, features_lookup_self, self, row, parents=parents
                         )
-
-        # for now, have this be duplicated, need to disentangle above
+        # TODO: for now, has to be duplicated
         using_key = settings._using_key
         for related_name, (_, labels) in get_labels_as_dict(data).items():
             labels = labels.all()
-            if len(labels) == 0:
+            try:
+                if len(labels) == 0:
+                    continue
+                validated_labels, new_labels = validate_labels(labels, parents=parents)
+                if len(new_labels) > 0:
+                    transfer_fk_to_default_db_bulk(new_labels, using_key)
+                    for label in new_labels:
+                        transfer_to_default_db(
+                            label, using_key, mute=True, transfer_fk=False
+                        )
+                    save(new_labels, parents=parents)
+                # this should not occur as file and collection should have the same attributes
+                # but this might not be true for custom schema
+                labels_list = validated_labels + new_labels
+                if hasattr(self._host, related_name):
+                    getattr(self._host, related_name).add(*labels_list)
+            # ProgrammingError is raised when schemas don't match between source and target instances
+            except ProgrammingError:
                 continue
-            validated_labels, new_labels = validate_labels(
-                labels.all(), parents=parents
-            )
-            if len(new_labels) > 0:
-                transfer_fk_to_default_db_bulk(new_labels, using_key)
-                for label in new_labels:
-                    transfer_to_default_db(
-                        label, using_key, mute=True, transfer_fk=False
-                    )
-                save(new_labels, parents=parents)
-            # this should not occur as file and collection should have the same attributes
-            # but this might not be true for custom schema
-            labels_list = validated_labels + new_labels
-            if hasattr(self._host, related_name):
-                getattr(self._host, related_name).add(*labels_list)
