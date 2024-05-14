@@ -171,6 +171,7 @@ def parse_feature_sets_from_anndata(
             type=type,
             mute=mute,
             organism=organism,
+            raise_validation_error=False,
         )
         if feature_set_var is not None:
             feature_sets["var"] = feature_set_var

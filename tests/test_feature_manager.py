@@ -27,6 +27,12 @@ def test_features_add(adata):
     experiment.save()
     artifact.features.add({"experiment": "experiment 1"})
 
+    # delete everything we created
+    artifact.delete(permanent=True)
+    ln.Feature.filter().all().delete()
+    ln.ULabel.filter().all().delete()
+    ln.FeatureSet.filter().all().delete()
+
 
 def test_labels_add(adata):
     label = ln.ULabel(name="Experiment 1")
@@ -40,13 +46,13 @@ def test_labels_add(adata):
         == "ValueError: Please pass a record (a `Registry` object), not a string, e.g.,"
         " via: label = ln.ULabel(name='experiment_1')"
     )
-    with pytest.raises(ln.core.exceptions.ValidationError) as error:
+    with pytest.raises(ValidationError) as error:
         artifact.labels.add(label, experiment)
     assert "not validated. If it looks correct: record.save()" in error.exconly()
     label.save()
     with pytest.raises(TypeError) as error:
         artifact.labels.add(label, "experiment 1")
-    with pytest.raises(ln.core.exceptions.ValidationError) as error:
+    with pytest.raises(ValidationError) as error:
         artifact.labels.add(label, feature=experiment)
     assert (
         error.exconly()

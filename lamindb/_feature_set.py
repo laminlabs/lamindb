@@ -167,6 +167,7 @@ def from_values(
     mute: bool = False,
     organism: Registry | str | None = None,
     public_source: Registry | None = None,
+    raise_validation_error: bool = True,
 ) -> FeatureSet:
     """{}."""
     if not isinstance(field, FieldAttr):
@@ -183,13 +184,17 @@ def from_values(
         logger.debug("setting feature set to 'number'")
     validated = registry.validate(values, field=field, mute=mute, organism=organism)
     values_array = np.array(values)
+    validated_values = values_array[validated]
     if validated.sum() != len(values):
         not_validated_values = values_array[~validated]
-        raise ValidationError(
+        msg = (
             f"These values could not be validated: {not_validated_values.tolist()}\n"
             f"If there are no typos, add them to their registry: {registry}"
         )
-    validated_values = values_array[validated]
+        if raise_validation_error:
+            raise ValidationError(msg)
+        elif len(validated_values) == 0:
+            return None  # temporarily return None here
     validated_features = registry.from_values(
         validated_values,
         field=field,
