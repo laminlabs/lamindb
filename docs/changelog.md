@@ -1,5 +1,6 @@
 # Changelog
 
+- ⬆️ Release lamindb-setup [PR](https://github.com/laminlabs/lamindb/pull/1656) [@sunnyosun](https://github.com/sunnyosun)
 - 🎨 Enable transfer when schema don't match [PR](https://github.com/laminlabs/lamindb/pull/1654) [@sunnyosun](https://github.com/sunnyosun)
 - ✨ Get artifacts through the CLI [PR](https://github.com/laminlabs/lamindb/pull/1642) [@falexwolf](https://github.com/falexwolf)
 - 🐛 Fix copy_or_move_to_cache for local storage_path [PR](https://github.com/laminlabs/lamindb/pull/1653) [@Koncopd](https://github.com/Koncopd)
