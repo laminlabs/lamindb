@@ -102,6 +102,9 @@ def get_existing_records(
 
     # standardize based on the DB reference
     # log synonyms mapped terms
+    print("field", field)
+    print("organism", kwargs.get("organism"))
+    print("public_source", kwargs.get("public_source"))
     result = model.inspect(
         iterable_idx,
         field=field,
@@ -353,7 +356,7 @@ def _get_organism_record(
     field: StrField, organism: str | Registry, force: bool = False
 ) -> Registry:
     model = field.field.model
-    check = True if force else not field.field.name.endswith("id")
+    check = True if force else field.field.name != "ensembl_gene_id"
 
     if _has_organism_field(model) and check:
         from lnschema_bionty._bionty import create_or_get_organism_record

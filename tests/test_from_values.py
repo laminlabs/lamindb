@@ -58,6 +58,10 @@ def test_from_values_organism():
         ["ENSMUSG00000102862", "ENSMUSG00000084826"], field=Gene.ensembl_gene_id
     )
     assert len(result) == 2
+    result = Gene.from_values(
+        ["HRA1", "ETS1-1"], field=Gene.stable_id, organism="saccharomyces cerevisiae"
+    )
+    assert len(result) == 2
 
     settings.organism = "human"
     values = ["ABC1"]
