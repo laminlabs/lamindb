@@ -12,6 +12,7 @@ import lamindb_setup
 from django.db import IntegrityError, transaction
 from django.utils.functional import partition
 from lamin_utils import logger
+from lamindb_setup.core.upath import LocalPathClasses
 from lnschema_core.models import Artifact, Registry
 
 from lamindb.core._settings import settings
@@ -179,9 +180,12 @@ def copy_or_move_to_cache(artifact: Artifact, storage_path: UPath):
     is_dir = local_path.is_dir()
     cache_dir = settings._storage_settings.cache_dir
 
-    # just delete from the cache dir if a local instance
-    if not lamindb_setup.settings.storage.type_is_cloud:
-        if cache_dir in local_path.parents:
+    # just delete from the cache dir if storage_path is local
+    if isinstance(storage_path, LocalPathClasses):
+        if (
+            local_path.as_posix() != storage_path.as_posix()
+            and cache_dir in local_path.parents
+        ):
             if is_dir:
                 shutil.rmtree(local_path)
             else:

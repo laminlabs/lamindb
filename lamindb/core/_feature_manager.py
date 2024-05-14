@@ -57,15 +57,13 @@ def get_feature_set_by_slot(host) -> dict:
     host_id_field = get_host_id_field(host)
     kwargs = {host_id_field: host.id}
     # otherwise, we need a query
-    feature_set_links = host.feature_sets.through.objects.using(host_db).filter(
-        **kwargs
+    feature_set_links = (
+        host.feature_sets.through.objects.using(host_db)
+        .filter(**kwargs)
+        .select_related("feature_set")
     )
-    return {
-        feature_set_link.slot: FeatureSet.objects.using(host_db).get(
-            id=feature_set_link.feature_set_id
-        )
-        for feature_set_link in feature_set_links
-    }
+
+    return {fsl.slot: fsl.feature_set for fsl in feature_set_links}
 
 
 def get_label_links(
@@ -74,7 +72,7 @@ def get_label_links(
     host_id_field = get_host_id_field(host)
     kwargs = {host_id_field: host.id, "feature_id": feature.id}
     link_records = (
-        getattr(host, host.features._accessor_by_orm[registry])
+        getattr(host, host.features.accessor_by_orm[registry])
         .through.objects.using(host._state.db)
         .filter(**kwargs)
     )
@@ -93,48 +91,50 @@ def print_features(self: Data) -> str:
 
     from ._data import format_repr
 
-    msg = ""
-    features_lookup = Feature.objects.using(self._state.db).lookup().dict()
-    for slot, feature_set in self.features._feature_set_by_slot.items():
+    messages = []
+    for slot, feature_set in get_feature_set_by_slot(self).items():
         if feature_set.registry != "core.Feature":
             features = feature_set.members
+            # features.first() is a lot slower than features[0] here
             name_field = get_default_str_field(features[0])
-            feature_names = [getattr(feature, name_field) for feature in features]
-            msg += (
+            feature_names = list(features.values_list(name_field, flat=True)[:30])
+            messages.append(
                 f"  {colors.bold(slot)}: {format_repr(feature_set, exclude='hash')}\n"
             )
             print_values = _print_values(feature_names, n=20)
-            msg += f"    {print_values}\n"
+            messages.append(f"    {print_values}\n")
         else:
-            df_slot = feature_set.features.df()
-            msg += (
+            features_lookup = {
+                f.name: f for f in Feature.objects.using(self._state.db).filter().all()
+            }
+            messages.append(
                 f"  {colors.bold(slot)}: {format_repr(feature_set, exclude='hash')}\n"
             )
-            for _, row in df_slot.iterrows():
-                if row["type"] == "category" and row["registries"] is not None:
-                    labels = self.labels.get(
-                        features_lookup.get(row["name"]), mute=True
-                    )
+            for name, row_type, registries in feature_set.features.values_list(
+                "name", "type", "registries"
+            ):
+                if row_type == "category" and registries is not None:
+                    labels = self.labels.get(features_lookup.get(name), mute=True)
                     indent = ""
                     if isinstance(labels, dict):
-                        msg += f"    🔗 {row['name']} ({row.registries})\n"
+                        messages.append(f"    🔗 {name} ({registries})\n")
                         indent = "    "
                     else:
-                        labels = {row["registries"]: labels}
-                    for registry, labels in labels.items():  # noqa: B020
-                        count_str = f"{len(labels)}, {colors.italic(f'{registry}')}"
-                        field = get_default_str_field(labels)
-                        print_values = _print_values(labels.list(field), n=10)
+                        labels = {registries: labels}
+                    for registry, registry_labels in labels.items():
+                        field = get_default_str_field(registry_labels)
+                        values_list = registry_labels.values_list(field, flat=True)
+                        count_str = f"{feature_set.n}, {colors.italic(f'{registry}')}"
+                        print_values = _print_values(values_list[:20], n=10)
                         msg_objects = (
-                            f"{indent}    🔗 {row['name']} ({count_str}):"
-                            f" {print_values}\n"
+                            f"{indent}    🔗 {name} ({count_str}):" f" {print_values}\n"
                         )
-                        msg += msg_objects
+                        messages.append(msg_objects)
                 else:
-                    msg += f"    {row['name']} ({row['type']})\n"
-    if msg != "":
-        msg = f"{colors.green('Features')}:\n" + msg
-    return msg
+                    messages.append(f"    {name} ({row_type})\n")
+    if messages:
+        messages.insert(0, f"{colors.green('Features')}:\n")
+    return "".join(messages)
 
 
 def parse_feature_sets_from_anndata(
@@ -204,30 +204,44 @@ class FeatureManager:
 
     def __init__(self, host: Artifact | Collection):
         self._host = host
-        self._feature_set_by_slot = get_feature_set_by_slot(host)
-        self._accessor_by_orm = get_accessor_by_orm(host)
+        self._feature_set_by_slot = None
+        self._accessor_by_orm = None
 
     def __repr__(self) -> str:
-        if len(self._feature_set_by_slot) > 0:
+        if len(self.feature_set_by_slot) > 0:
             return print_features(self._host)
         else:
             return "no linked features"
 
     def __getitem__(self, slot) -> QuerySet:
-        if slot not in self._feature_set_by_slot:
+        if slot not in self.feature_set_by_slot:
             raise ValueError(
                 f"No linked feature set for slot: {slot}\nDid you get validation"
                 " warnings? Only features that match registered features get validated"
                 " and linked."
             )
-        feature_set = self._feature_set_by_slot[slot]
+        feature_set = self.feature_set_by_slot[slot]
         orm_name = feature_set.registry
         if hasattr(feature_set, "_features"):
             # feature set is not yet saved
             # need to think about turning this into a queryset
             return feature_set._features
         else:
-            return getattr(feature_set, self._accessor_by_orm[orm_name]).all()
+            return getattr(feature_set, self.accessor_by_orm[orm_name]).all()
+
+    @property
+    def feature_set_by_slot(self):
+        """Feature sets by slot."""
+        if self._feature_set_by_slot is None:
+            self._feature_set_by_slot = get_feature_set_by_slot(self._host)
+        return self._feature_set_by_slot
+
+    @property
+    def accessor_by_orm(self):
+        """Accessor by ORM."""
+        if self._accessor_by_orm is None:
+            self._accessor_by_orm = get_accessor_by_orm(self._host)
+        return self._accessor_by_orm
 
     def add(self, features: Iterable[Registry], slot: str | None = None):
         """Add features stratified by slot."""
@@ -351,12 +365,15 @@ class FeatureManager:
         )
         if link_record is None:
             self._host.feature_sets.through(**kwargs).save(using=host_db)
-            self._feature_set_by_slot[slot] = feature_set
+            if slot in self.feature_set_by_slot:
+                logger.warning(f"replaced existing {slot} featureset")
+            # this _feature_set_by_slot here is private
+            self._feature_set_by_slot[slot] = feature_set  # type: ignore
 
     def _add_from(self, data: Data, parents: bool = True):
         """Transfer features from a artifact or collection."""
         using_key = settings._using_key
-        for slot, feature_set in data.features._feature_set_by_slot.items():
+        for slot, feature_set in data.features.feature_set_by_slot.items():
             members = feature_set.members
             if members.count() == 0:
                 continue

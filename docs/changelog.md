@@ -1,5 +1,7 @@
 # Changelog
 
+- 🐛 Fix copy_or_move_to_cache for local storage_path [PR](https://github.com/laminlabs/lamindb/pull/1653) [@Koncopd](https://github.com/Koncopd)
+- ⚡️ Improve the speed of describe [PR](https://github.com/laminlabs/lamindb/pull/1645) [@sunnyosun](https://github.com/sunnyosun)
 - ⚡️ Parallel hashing of directories [PR](https://github.com/laminlabs/lamindb/pull/1652) [@Koncopd](https://github.com/Koncopd)
 - ⚡️ Speed-up file hash [PR](https://github.com/laminlabs/lamindb/pull/1651) [@Koncopd](https://github.com/Koncopd)
 - ♻️ Refactor search [PR](https://github.com/laminlabs/lamindb/pull/1646) [@falexwolf](https://github.com/falexwolf)
