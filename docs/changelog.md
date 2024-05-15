@@ -1,5 +1,6 @@
 # Changelog
 
+- 🚸 Better annotation flow: support non-categorical data, dictionary annotation & dictionary access (I) [PR](https://github.com/laminlabs/lamindb/pull/1655) [@falexwolf](https://github.com/falexwolf)
 - :bug: Remove debugging print statements [PR](https://github.com/laminlabs/lamindb/pull/1660) [@Zethson](https://github.com/Zethson)
 :::{note}
 
