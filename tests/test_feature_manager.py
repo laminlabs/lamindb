@@ -1,6 +1,7 @@
 import bionty as bt
 import lamindb as ln
 import pytest
+from lamindb.core.exceptions import ValidationError
 
 bt.settings.auto_save_parents = False
 
@@ -12,6 +13,44 @@ def adata():
     adata.obs["cell_type_from_expert"] = adata.obs["cell_type"]
     adata.obs.loc["obs0", "cell_type_from_expert"] = "B cell"
     return adata
+
+
+# below is the main new test for the main way of annotating with
+# features
+def test_features_add(adata):
+    ln.ULabel(name="Experiment 1")
+    artifact = ln.Artifact.from_anndata(adata, description="test")
+    artifact.save()
+    experiment = ln.Feature(name="experiment", type="category")
+    with pytest.raises(ValidationError):
+        artifact.features.add({"experiment": "Experiment 1"})
+    experiment.save()
+    with pytest.raises(ValidationError) as error:
+        artifact.features.add({"experiment": "Experiment 1"})
+    assert (
+        error.exconly()
+        == "lamindb.core.exceptions.ValidationError: Label 'Experiment 1' not found in ln.ULabel"
+    )
+    ln.ULabel(name="Experiment 1").save()
+    artifact.features.add({"experiment": "Experiment 1"})
+    assert artifact.artifactulabel_set.first().ulabel.name == "Experiment 1"
+    temperature = ln.Feature(name="temperature", type="category").save()
+    with pytest.raises(TypeError) as error:
+        artifact.features.add({"temperature": 27.2})
+    assert (
+        error.exconly()
+        == "TypeError: Value for feature 'temperature' with type category must be a string or registry"
+    )
+    temperature.type = "number"
+    temperature.save()
+    artifact.features.add({"temperature": 27.2})
+    assert artifact.artifactfeaturevalue_set.first().feature_value.value == 27.2
+
+    # delete everything we created
+    artifact.delete(permanent=True)
+    ln.Feature.filter().all().delete()
+    ln.ULabel.filter().all().delete()
+    ln.FeatureSet.filter().all().delete()
 
 
 def test_labels_add(adata):
@@ -26,13 +65,13 @@ def test_labels_add(adata):
         == "ValueError: Please pass a record (a `Registry` object), not a string, e.g.,"
         " via: label = ln.ULabel(name='experiment_1')"
     )
-    with pytest.raises(ln.core.exceptions.ValidationError) as error:
+    with pytest.raises(ValidationError) as error:
         artifact.labels.add(label, experiment)
     assert "not validated. If it looks correct: record.save()" in error.exconly()
     label.save()
     with pytest.raises(TypeError) as error:
         artifact.labels.add(label, "experiment 1")
-    with pytest.raises(ln.core.exceptions.ValidationError) as error:
+    with pytest.raises(ValidationError) as error:
         artifact.labels.add(label, feature=experiment)
     assert (
         error.exconly()

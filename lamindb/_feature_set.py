@@ -14,6 +14,7 @@ from lamindb._utils import attach_func_to_class_method
 
 from ._feature import convert_numpy_dtype_to_lamin_feature_type
 from ._registry import init_self_from_db
+from .core.exceptions import ValidationError
 
 if TYPE_CHECKING:
     import pandas as pd
@@ -21,6 +22,7 @@ if TYPE_CHECKING:
     from ._query_set import QuerySet
 
 NUMBER_TYPE = "number"
+DICT_KEYS_TYPE = type({}.keys())  # type: ignore
 
 
 def dict_related_model_to_related_name(orm):
@@ -165,7 +167,8 @@ def from_values(
     mute: bool = False,
     organism: Registry | str | None = None,
     public_source: Registry | None = None,
-) -> FeatureSet | None:
+    raise_validation_error: bool = True,
+) -> FeatureSet:
     """{}."""
     if not isinstance(field, FieldAttr):
         raise TypeError(
@@ -173,16 +176,25 @@ def from_values(
         )
     if len(values) == 0:
         raise ValueError("Provide a list of at least one value")
+    if isinstance(values, DICT_KEYS_TYPE):
+        values = list(values)
     registry = field.field.model
     if registry != Feature and type is None:
         type = NUMBER_TYPE
         logger.debug("setting feature set to 'number'")
     validated = registry.validate(values, field=field, mute=mute, organism=organism)
-    if validated.sum() == 0:
-        if mute is True:
-            logger.warning("no validated features, skip creating feature set")
-        return None
-    validated_values = np.array(values)[validated]
+    values_array = np.array(values)
+    validated_values = values_array[validated]
+    if validated.sum() != len(values):
+        not_validated_values = values_array[~validated]
+        msg = (
+            f"These values could not be validated: {not_validated_values.tolist()}\n"
+            f"If there are no typos, add them to their registry: {registry}"
+        )
+        if raise_validation_error:
+            raise ValidationError(msg)
+        elif len(validated_values) == 0:
+            return None  # temporarily return None here
     validated_features = registry.from_values(
         validated_values,
         field=field,

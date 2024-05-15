@@ -9,16 +9,12 @@ from lamin_utils import colors, logger
 from lamindb_setup.core._docs import doc_args
 from lnschema_core import Artifact, Collection, Feature, Registry, Run, ULabel
 
+from .core.exceptions import ValidationError
+
 if TYPE_CHECKING:
     from lamindb_setup.core.types import UPathStr
     from lnschema_core.types import FieldAttr
     from mudata import MuData
-
-
-class ValidationError(ValueError):
-    """Validation error."""
-
-    pass
 
 
 class AnnotateLookup:

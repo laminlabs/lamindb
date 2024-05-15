@@ -55,7 +55,7 @@ def test_feature_from_df(df):
     artifact = ln.Artifact.from_df(df, description="test")
     artifact.save()
     # link features
-    artifact.features.add(features)
+    artifact.features.add_feature_set(ln.FeatureSet(features), slot="columns")
     features = artifact.features["columns"]
     assert len(features) == len(df.columns[:4])
     string_cols = [col for col in df.columns if is_string_dtype(df[col])]

@@ -72,6 +72,7 @@ if _check_instance_setup(from_lamindb=True):
         User,
     )
 
+    from . import core  # isort: split
     from . import (
         _annotate,
         _artifact,
@@ -86,7 +87,6 @@ if _check_instance_setup(from_lamindb=True):
         _storage,
         _transform,
         _ulabel,
-        core,
     )
 
     dev = core  # backward compat

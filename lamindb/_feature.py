@@ -174,9 +174,10 @@ def from_df(cls, df: pd.DataFrame, field: FieldAttr | None = None) -> RecordsLis
 
 
 @doc_args(Feature.save.__doc__)
-def save(self, *args, **kwargs) -> None:
+def save(self, *args, **kwargs) -> Feature:
     """{}."""
     super(Feature, self).save(*args, **kwargs)
+    return self
 
 
 METHOD_NAMES = [
