@@ -1,5 +1,6 @@
 # Changelog
 
+- :bug: Remove debugging print statements [PR](https://github.com/laminlabs/lamindb/pull/1660) [@Zethson](https://github.com/Zethson)
 :::{note}
 
 If using LaminHub, please use the latest version of lamindb.
