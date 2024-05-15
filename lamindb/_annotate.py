@@ -9,7 +9,7 @@ from lamin_utils import colors, logger
 from lamindb_setup.core._docs import doc_args
 from lnschema_core import Artifact, Collection, Feature, Registry, Run, ULabel
 
-from lamindb.core.exceptions import ValidationError
+from .core.exceptions import ValidationError
 
 if TYPE_CHECKING:
     from lamindb_setup.core.types import UPathStr
