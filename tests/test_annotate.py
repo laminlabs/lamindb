@@ -68,6 +68,10 @@ def test_annotator(df, categoricals):
     validated = annotate.validate()
     assert validated is True
 
+    # clean up
+    bt.ExperimentalFactor.filter().all().delete()
+    bt.CellType.filter().all().delete()
+
 
 def test_anndata_annotator(adata, categoricals):
     annotate = ln.Annotate.from_anndata(
@@ -76,6 +80,8 @@ def test_anndata_annotator(adata, categoricals):
         var_index=bt.Gene.symbol,  # specify the field for the var
         organism="human",
     )
+    annotate.add_validated_from("all")
+    annotate.add_new_from("donor")
     validated = annotate.validate()
     assert validated
 
@@ -88,3 +94,7 @@ def test_anndata_annotator(adata, categoricals):
         reference_type="ArrayExpress",
     )
     assert collection.artifacts[0] == artifact
+
+    # clean up
+    bt.ExperimentalFactor.filter().all().delete()
+    bt.CellType.filter().all().delete()
