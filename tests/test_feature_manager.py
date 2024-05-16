@@ -48,8 +48,8 @@ def test_features_add(adata):
 
     # delete everything we created
     artifact.delete(permanent=True)
-    ln.Feature.filter().all().delete()
     ln.ULabel.filter().all().delete()
+    ln.Feature.filter().all().delete()
     ln.FeatureSet.filter().all().delete()
 
 
@@ -231,6 +231,9 @@ def test_add_labels_using_anndata(adata):
         artifact.labels.add(organism, feature=features.organism)
     organism.save()
     artifact.labels.add(organism, feature=features.organism)
+    organism_link = artifact.artifactorganism_set.first()
+    assert organism_link.organism.name == "mouse"
+    assert organism_link.feature.name == "organism"
     feature = ln.Feature.filter(name="organism").one()
     assert feature.type == "category"
     assert feature.registries == "bionty.Organism"
@@ -340,6 +343,8 @@ def test_add_labels_using_anndata(adata):
     artifact.describe()
 
     # clean up
+    bt.Gene.filter().all().delete()
+    bt.Organism.filter().all().delete()
     ln.Feature.filter(name="organism").one().delete()
     ln.Artifact.filter(description="Mini adata").one().delete(
         permanent=True, storage=True

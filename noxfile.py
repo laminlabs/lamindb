@@ -75,7 +75,7 @@ def install(session, group):
         extras += "aws,zarr,bionty,jupyter"
         run(
             session,
-            "uv pip install --system --no-deps git+https://github.com/laminlabs/wetlab",
+            "uv pip install --system --no-deps ./sub/wetlab",
         )
         run(session, "uv pip install --system vitessce")
     elif group == "docs":
@@ -83,7 +83,7 @@ def install(session, group):
         run(session, "uv pip install --system mudata")
         run(
             session,
-            "uv pip install --system --no-deps git+https://github.com/laminlabs/wetlab",
+            "uv pip install --system --no-deps ./sub/wetlab",
         )
     elif group == "cli":
         extras += "jupyter,aws,bionty"

@@ -13,3 +13,6 @@
 [submodule "sub/bionty"]
 	path = sub/bionty
 	url = https://github.com/laminlabs/bionty
+[submodule "sub/wetlab"]
+	path = sub/wetlab
+	url = https://github.com/laminlabs/wetlab

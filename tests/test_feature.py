@@ -95,6 +95,9 @@ def test_feature_from_df(df):
     assert set(
         ln.ULabel.objects.filter(id__in=label_ids).values_list("name", flat=True)
     ) == {"cond1", "cond2"}
+
+    # clean up
+    ln.ULabel.filter().all().delete()
     for feature in features:
         feature.delete()
     artifact.delete(permanent=True, storage=True)
