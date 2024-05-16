@@ -24,7 +24,7 @@ def test_transfer_from_remote_to_local():
     transform_remote = artifact.transform
     created_by_remote = artifact.created_by
     storage_remote = artifact.storage
-    organism_remote = artifact.organism.get(name="human")
+    organism_remote = artifact.organisms.get(name="human")
 
     artifact.save(parents=False)
 
@@ -35,7 +35,7 @@ def test_transfer_from_remote_to_local():
     assert created_by_remote.handle != artifact.created_by.handle
     assert storage_remote.uid == artifact.storage.uid
     assert storage_remote.created_at != artifact.storage.created_at
-    organism = artifact.organism.get(name="human")
+    organism = artifact.organisms.get(name="human")
     assert organism != organism_remote
 
     # now check that this is idempotent and we can run it again
