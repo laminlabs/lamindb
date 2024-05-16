@@ -343,6 +343,7 @@ def test_add_labels_using_anndata(adata):
     artifact.describe()
 
     # clean up
+    bt.Gene.filter().all().delete()
     bt.Organism.filter().all().delete()
     ln.Feature.filter(name="organism").one().delete()
     ln.Artifact.filter(description="Mini adata").one().delete(
