@@ -48,8 +48,8 @@ def test_features_add(adata):
 
     # delete everything we created
     artifact.delete(permanent=True)
-    ln.Feature.filter().all().delete()
     ln.ULabel.filter().all().delete()
+    ln.Feature.filter().all().delete()
     ln.FeatureSet.filter().all().delete()
 
 

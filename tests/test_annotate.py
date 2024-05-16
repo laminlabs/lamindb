@@ -69,6 +69,7 @@ def test_annotator(df, categoricals):
     assert validated is True
 
     # clean up
+    ln.ULabel.filter().all().delete()
     bt.ExperimentalFactor.filter().all().delete()
     bt.CellType.filter().all().delete()
 
@@ -96,5 +97,6 @@ def test_anndata_annotator(adata, categoricals):
     assert collection.artifacts[0] == artifact
 
     # clean up
+    ln.ULabel.filter().all().delete()
     bt.ExperimentalFactor.filter().all().delete()
     bt.CellType.filter().all().delete()
