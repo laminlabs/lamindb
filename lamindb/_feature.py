@@ -69,7 +69,7 @@ def __init__(self, *args, **kwargs):
                 raise ValueError(
                     "type has to be one of 'number', 'cat', 'bool', 'cat[...]'!"
                 )
-            if type_str.startswith("cat"):
+            if type_str != "cat" and type_str.startswith("cat"):
                 registries_str = type_str.replace("cat[", "").rstrip("]")
                 if registries_str != "":
                     registry_str_list = registries_str.split("|")
