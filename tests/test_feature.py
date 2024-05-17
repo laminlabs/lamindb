@@ -112,15 +112,15 @@ def test_feature_init():
         ln.Feature(name="feat")
     # wrong type
     with pytest.raises(ValueError):
-        ln.Feature(name="feat", type="x")
+        ln.Feature(name="feat", dtype="x")
     # type has to be a list of Registry types
     with pytest.raises(ValueError):
-        ln.Feature(name="feat", type="cat[1]")
+        ln.Feature(name="feat", dtype="cat[1]")
     feat1 = ln.Feature.filter(name="feat1").one_or_none()
     if feat1 is not None:
         feat1.delete()
     # check that this works
-    feature = ln.Feature(name="feat1", type="cat[core.ULabel|bionty.Gene]")
+    feature = ln.Feature(name="feat1", dtype="cat[core.ULabel|bionty.Gene]")
     # check that it also works via objects
-    feature = ln.Feature(name="feat1", type=[ln.ULabel, bt.Gene])
+    feature = ln.Feature(name="feat1", dtype=[ln.ULabel, bt.Gene])
     assert feature.dtype == "cat[core.ULabel|bionty.Gene]"
