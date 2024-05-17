@@ -213,10 +213,8 @@ def members(self) -> QuerySet:
 
 
 def _get_related_name(self: FeatureSet) -> str:
-    key_split = self.registry.split(".")
-    orm_name_with_schema = f"{key_split[0]}.{key_split[1]}"
     feature_sets_related_models = dict_related_model_to_related_name(self)
-    related_name = feature_sets_related_models.get(orm_name_with_schema)
+    related_name = feature_sets_related_models.get(self.registry)
     return related_name
 
 
