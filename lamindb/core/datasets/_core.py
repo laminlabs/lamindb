@@ -45,10 +45,8 @@ def file_fcs_alpert19(populate_registries: bool = False) -> Path:  # pragma: no 
                 bt.CellMarker.public().inspect(std, "name").validated, "name"
             )
         )
-        ln.Feature(
-            name="assay", type="category", registries=[bt.ExperimentalFactor]
-        ).save()
-        ln.Feature(name="organism", type="category", registries=[bt.Organism]).save()
+        ln.Feature(name="assay", type="cat", registries=[bt.ExperimentalFactor]).save()
+        ln.Feature(name="organism", type="cat", registries=[bt.Organism]).save()
         ln.settings.verbosity = verbosity
     return Path(filepath)
 
@@ -83,10 +81,8 @@ def file_tsv_rnaseq_nfcore_salmon_merged_gene_counts(
 
         verbosity = ln.settings.verbosity
         ln.settings.verbosity = "error"
-        ln.Feature(
-            name="assay", type="category", registries=[bt.ExperimentalFactor]
-        ).save()
-        ln.Feature(name="organism", type="category", registries=[bt.Organism]).save()
+        ln.Feature(name="assay", type="cat", registries=[bt.ExperimentalFactor]).save()
+        ln.Feature(name="organism", type="cat", registries=[bt.Organism]).save()
         bt.ExperimentalFactor.from_public(ontology_id="EFO:0008896").save()
         ln.settings.verbosity = verbosity
 
@@ -200,9 +196,7 @@ def anndata_mouse_sc_lymph_node(
         # cell types
         ln.save(bt.CellType.from_values(["CL:0000115", "CL:0000738"], "ontology_id"))
         # assays
-        ln.Feature(
-            name="assay", type="category", registries=[bt.ExperimentalFactor]
-        ).save()
+        ln.Feature(name="assay", type="cat", registries=[bt.ExperimentalFactor]).save()
         bt.ExperimentalFactor.from_public(ontology_id="EFO:0008913").save()
         # genes
         validated = bt.Gene.public(organism="mouse").validate(
@@ -329,13 +323,11 @@ def anndata_human_immune_cells(
         ln.save(bt.CellType.from_values(adata.obs.cell_type, field="name"))
         ln.save(bt.ExperimentalFactor.from_values(adata.obs.assay, field="name"))
         ln.save(bt.Tissue.from_values(adata.obs.tissue, field="name"))
-        ln.Feature(name="cell_type", type="category", registries=[bt.CellType]).save()
-        ln.Feature(
-            name="assay", type="category", registries=[bt.ExperimentalFactor]
-        ).save()
-        ln.Feature(name="tissue", type="category", registries=[bt.Tissue]).save()
-        ln.Feature(name="organism", type="category", registries=[bt.Organism]).save()
-        ln.Feature(name="donor", type="category", registries=[ln.ULabel]).save()
+        ln.Feature(name="cell_type", type="cat", registries=[bt.CellType]).save()
+        ln.Feature(name="assay", type="cat", registries=[bt.ExperimentalFactor]).save()
+        ln.Feature(name="tissue", type="cat", registries=[bt.Tissue]).save()
+        ln.Feature(name="organism", type="cat", registries=[bt.Organism]).save()
+        ln.Feature(name="donor", type="cat", registries=[ln.ULabel]).save()
         bt.ExperimentalFactor.from_public(ontology_id="EFO:0008913").save()
         ln.save([ln.ULabel(name=name) for name in adata.obs.donor.unique()])
         ln.settings.verbosity = verbosity

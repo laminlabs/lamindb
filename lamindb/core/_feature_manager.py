@@ -122,7 +122,7 @@ def print_features(self: Data) -> str:
             for name, row_type, registries in feature_set.features.values_list(
                 "name", "type", "registries"
             ):
-                if row_type == "category" and registries is not None:
+                if row_type == "cat" and registries is not None:
                     labels = self.labels.get(features_lookup.get(name), mute=True)
                     indent = ""
                     if isinstance(labels, dict):
@@ -289,14 +289,14 @@ class FeatureManager:
                     raise TypeError(
                         f"Value for feature '{key}' with type {feature.type} must be a number"
                     )
-            elif feature.type == "category":
+            elif feature.type == "cat":
                 if not (isinstance(value, str) or isinstance(value, Registry)):
                     raise TypeError(
                         f"Value for feature '{key}' with type {feature.type} must be a string or registry"
                     )
             elif feature.type == "bool":
                 assert isinstance(value, bool)
-            if feature.type == "category":
+            if feature.type == "cat":
                 if isinstance(value, Registry):
                     assert not value._state.adding
                     label_record = value

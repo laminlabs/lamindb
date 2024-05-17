@@ -214,7 +214,7 @@ class LabelManager:
                 # df_slot is the Feature table with type and registries
                 df_slot = feature_set.features.df()
                 for _, row in df_slot.iterrows():
-                    if row["type"] == "category" and row["registries"] is not None:
+                    if row["type"] == "cat" and row["registries"] is not None:
                         logger.info(f"transferring {row['name']}")
                         # labels records from data db
                         labels = data.labels.get(

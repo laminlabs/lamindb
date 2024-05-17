@@ -108,7 +108,7 @@ def from_df(cls, df: pd.DataFrame, field: FieldAttr | None = None) -> RecordsLis
     # categoricals_with_unmapped_categories = {}  # type: ignore
     for name, col in df.items():
         if name in categoricals:
-            types[name] = "category"
+            types[name] = "cat"
             # below is a harder feature to write, now, because it requires to
             # query the link tables between the label Registry and file or collection
             # the original implementation fell short
