@@ -28,7 +28,7 @@ def test_df():
 
     # for other models
     feature_names = [f"Feature {i}" for i in range(3)]
-    features = [ln.Feature(name=name, type=int) for name in feature_names]
+    features = [ln.Feature(name=name, dtype=int) for name in feature_names]
     ln.save(features)
     feature_set = ln.FeatureSet(features, name="my feature_set")
     feature_set.save()
