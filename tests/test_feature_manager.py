@@ -41,7 +41,7 @@ def test_features_add(adata):
         error.exconly()
         == "TypeError: Value for feature 'temperature' with type 'cat' must be a string or record."
     )
-    temperature.type = "number"
+    temperature.dtype = "number"
     temperature.save()
     artifact.features.add({"temperature": 27.2})
     assert artifact.artifactfeaturevalue_set.first().feature_value.value == 27.2
@@ -181,7 +181,7 @@ def test_add_labels_using_anndata(adata):
         artifact.delete(permanent=True)  # make sure we get a fresh one
         artifact = ln.Artifact.from_anndata(adata, description="Mini adata")
     # add feature set without saving file
-    feature_name_feature = ln.Feature(name="feature name", type="cat[core.ULabel]")
+    feature_name_feature = ln.Feature(name="feature name", dtype="cat[core.ULabel]")
     feature_name_feature.save()
     feature_set = ln.FeatureSet(features=[feature_name_feature])
     with pytest.raises(ValueError) as error:
