@@ -253,7 +253,7 @@ def test_add_labels_using_anndata(adata):
     feature = ln.Feature.filter(name="cell_type_from_expert").one()
     assert feature.dtype == "cat[bionty.CellType]"
     feature = ln.Feature.filter(name="tissue").one()
-    assert feature.dtype == "cat[bionty.Tissue|core.ULabel]"
+    assert feature.dtype == "cat[bionty.Tissue|ULabel]"
     diseases = [ln.ULabel(name=name) for name in adata.obs["disease"].unique()]
     ln.save(diseases)
     artifact.labels.add(diseases, feature=features.disease)
@@ -267,7 +267,7 @@ def test_add_labels_using_anndata(adata):
     assert set(df["dtype"]) == {
         "cat[bionty.CellType]",
         "cat[ULabel]",
-        "cat[bionty.Tissue|core.ULabel]",
+        "cat[bionty.Tissue|ULabel]",
     }
 
     # now, let's add another feature to ext
