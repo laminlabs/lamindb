@@ -562,7 +562,7 @@ class MuDataAnnotator:
             save_function="add_new_from_var_index",
             using=self._using,
             validated_only=validated_only,
-            type="number",
+            dtype="number",
             **kwargs,
         )
 
@@ -1030,7 +1030,7 @@ def update_registry(
     validated_only: bool = True,
     df: pd.DataFrame | None = None,
     organism: str | None = None,
-    type: str | None = None,
+    dtype: str | None = None,
     **kwargs,
 ) -> None:
     """Save features or labels records in the default instance from the using instance.
@@ -1044,7 +1044,7 @@ def update_registry(
         validated_only: If True, only save validated labels.
         df: A DataFrame to save labels from.
         organism: The organism name.
-        type: The type of the feature.
+        dtype: The type of the feature.
         kwargs: Additional keyword arguments to pass to the registry model to create new records.
     """
     from lamindb._save import save as ln_save
@@ -1098,7 +1098,7 @@ def update_registry(
                 for value in labels_saved["without reference"]:
                     filter_kwargs[field.field.name] = value
                     if registry == Feature:
-                        filter_kwargs["dtype"] = "cat" if type is None else type
+                        filter_kwargs["dtype"] = "cat" if dtype is None else dtype
                     non_validated_records.append(registry(**filter_kwargs, **kwargs))
             ln_save(non_validated_records)
 
