@@ -210,11 +210,11 @@ class LabelManager:
         }
         for _, feature_set in data.features.feature_set_by_slot.items():
             # add labels stratified by feature
-            if feature_set.registry == "core.Feature":
-                # df_slot is the Feature table with type and registries
+            if feature_set.registry == "Feature":
+                # df_slot is the Feature table with type
                 df_slot = feature_set.features.df()
                 for _, row in df_slot.iterrows():
-                    if row["type"] == "category" and row["registries"] is not None:
+                    if row["dtype"].startswith("cat["):
                         logger.info(f"transferring {row['name']}")
                         # labels records from data db
                         labels = data.labels.get(

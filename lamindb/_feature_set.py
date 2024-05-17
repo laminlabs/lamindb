@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Iterable
+from typing import TYPE_CHECKING, Iterable, Type
 
 import lamindb_setup as ln_setup
 import numpy as np
@@ -15,6 +15,10 @@ from lamindb._utils import attach_func_to_class_method
 from ._feature import convert_numpy_dtype_to_lamin_feature_type
 from ._registry import init_self_from_db
 from .core.exceptions import ValidationError
+from .core.schema import (
+    dict_related_model_to_related_name,
+    get_related_name,
+)
 
 if TYPE_CHECKING:
     import pandas as pd
@@ -23,57 +27,6 @@ if TYPE_CHECKING:
 
 NUMBER_TYPE = "number"
 DICT_KEYS_TYPE = type({}.keys())  # type: ignore
-
-
-def dict_related_model_to_related_name(orm):
-    d: dict = {
-        i.related_model.__get_name_with_schema__(): i.related_name
-        for i in orm._meta.related_objects
-        if i.related_name is not None
-    }
-    d.update(
-        {
-            i.related_model.__get_name_with_schema__(): i.name
-            for i in orm._meta.many_to_many
-            if i.name is not None
-        }
-    )
-
-    return d
-
-
-def dict_schema_name_to_model_name(orm):
-    d: dict = {
-        i.related_model.__get_name_with_schema__(): i.related_model
-        for i in orm._meta.related_objects
-        if i.related_name is not None
-    }
-    d.update(
-        {
-            i.related_model.__get_name_with_schema__(): i.related_model
-            for i in orm._meta.many_to_many
-            if i.name is not None
-        }
-    )
-
-    return d
-
-
-def get_related_name(features_type: Registry):
-    candidates = [
-        field.related_name
-        for field in FeatureSet._meta.related_objects
-        if field.related_model == features_type
-    ]
-    if not candidates:
-        raise ValueError(
-            f"Can't create feature sets from {features_type.__name__} because it's not"
-            " related to it!\nYou need to create a link model between FeatureSet and"
-            " your Registry in your custom schema.\nTo do so, add a"
-            " line:\nfeature_sets = models.ManyToMany(FeatureSet,"
-            " related_name='mythings')\n"
-        )
-    return candidates[0]
 
 
 def validate_features(features: list[Registry]) -> Registry:
@@ -108,14 +61,14 @@ def __init__(self, *args, **kwargs):
     if len(args) > 1:
         raise ValueError("Only one non-keyword arg allowed: features")
     features: Iterable[Registry] = kwargs.pop("features") if len(args) == 0 else args[0]
-    type: str | None = kwargs.pop("type") if "type" in kwargs else None
+    dtype: str | None = kwargs.pop("dtype") if "dtype" in kwargs else None
     name: str | None = kwargs.pop("name") if "name" in kwargs else None
     if len(kwargs) > 0:
         raise ValueError("Only features, type, name are valid keyword arguments")
     # now code
     features_registry = validate_features(features)
-    if type is None:
-        type = None if features_registry == Feature else NUMBER_TYPE
+    if dtype is None:
+        dtype = None if features_registry == Feature else NUMBER_TYPE
     n_features = len(features)
     features_hash = hash_set({feature.uid for feature in features})
     feature_set = FeatureSet.filter(hash=features_hash).one_or_none()
@@ -130,7 +83,7 @@ def __init__(self, *args, **kwargs):
     super(FeatureSet, self).__init__(
         uid=ids.base62_20(),
         name=name,
-        type=get_type_str(type),
+        dtype=get_type_str(dtype),
         n=n_features,
         registry=features_registry.__get_name_with_schema__(),
         hash=hash,
@@ -146,13 +99,11 @@ def save(self, *args, **kwargs) -> None:
         getattr(self, related_name).set(records)
 
 
-def get_type_str(type: str | None) -> str | None:
-    if type is not None:
-        type_str = type.__name__ if not isinstance(type, str) else type  # type: ignore
+def get_type_str(dtype: str | None) -> str | None:
+    if dtype is not None:
+        type_str = dtype.__name__ if not isinstance(dtype, str) else dtype  # type: ignore
     else:
         type_str = None
-    if type == "int" or type == "float":
-        type_str = NUMBER_TYPE
     return type_str
 
 
@@ -204,7 +155,7 @@ def from_values(
     feature_set = FeatureSet(
         features=validated_features,
         name=name,
-        type=get_type_str(type),
+        dtype=get_type_str(type),
     )
     return feature_set
 
@@ -229,12 +180,12 @@ def from_df(
         return None
     if registry == Feature:
         validated_features = Feature.from_df(df.loc[:, validated])
-        feature_set = FeatureSet(validated_features, name=name, type=None)
+        feature_set = FeatureSet(validated_features, name=name, dtype=None)
     else:
         dtypes = [col.dtype for (_, col) in df.loc[:, validated].items()]
         if len(set(dtypes)) != 1:
             raise ValueError(f"data types are heterogeneous: {set(dtypes)}")
-        type = convert_numpy_dtype_to_lamin_feature_type(dtypes[0])
+        dtype = convert_numpy_dtype_to_lamin_feature_type(dtypes[0])
         validated_features = registry.from_values(
             df.columns[validated],
             field=field,
@@ -244,7 +195,7 @@ def from_df(
         feature_set = FeatureSet(
             features=validated_features,
             name=name,
-            type=get_type_str(type),
+            dtype=get_type_str(dtype),
         )
     return feature_set
 
@@ -262,10 +213,8 @@ def members(self) -> QuerySet:
 
 
 def _get_related_name(self: FeatureSet) -> str:
-    key_split = self.registry.split(".")
-    orm_name_with_schema = f"{key_split[0]}.{key_split[1]}"
     feature_sets_related_models = dict_related_model_to_related_name(self)
-    related_name = feature_sets_related_models.get(orm_name_with_schema)
+    related_name = feature_sets_related_models.get(self.registry)
     return related_name
 
 

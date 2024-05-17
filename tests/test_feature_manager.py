@@ -21,7 +21,7 @@ def test_features_add(adata):
     ln.ULabel(name="Experiment 1")
     artifact = ln.Artifact.from_anndata(adata, description="test")
     artifact.save()
-    experiment = ln.Feature(name="experiment", type="category")
+    experiment = ln.Feature(name="experiment", dtype="cat")
     with pytest.raises(ValidationError):
         artifact.features.add({"experiment": "Experiment 1"})
     experiment.save()
@@ -34,14 +34,14 @@ def test_features_add(adata):
     ln.ULabel(name="Experiment 1").save()
     artifact.features.add({"experiment": "Experiment 1"})
     assert artifact.artifactulabel_set.first().ulabel.name == "Experiment 1"
-    temperature = ln.Feature(name="temperature", type="category").save()
+    temperature = ln.Feature(name="temperature", dtype="cat").save()
     with pytest.raises(TypeError) as error:
         artifact.features.add({"temperature": 27.2})
     assert (
         error.exconly()
-        == "TypeError: Value for feature 'temperature' with type category must be a string or registry"
+        == "TypeError: Value for feature 'temperature' with type 'cat' must be a string or record."
     )
-    temperature.type = "number"
+    temperature.dtype = "number"
     temperature.save()
     artifact.features.add({"temperature": 27.2})
     assert artifact.artifactfeaturevalue_set.first().feature_value.value == 27.2
@@ -57,7 +57,7 @@ def test_labels_add(adata):
     label = ln.ULabel(name="Experiment 1")
     artifact = ln.Artifact.from_anndata(adata, description="test")
     artifact.save()
-    experiment = ln.Feature(name="experiment", type="category")
+    experiment = ln.Feature(name="experiment", dtype="cat")
     with pytest.raises(ValueError) as error:
         artifact.labels.add("experiment_1", experiment)
     assert (
@@ -76,8 +76,7 @@ def test_labels_add(adata):
     assert (
         error.exconly()
         == "lamindb.core.exceptions.ValidationError: Feature not validated. If it looks"
-        " correct: ln.Feature(name='experiment', type='category',"
-        " registries='core.ULabel').save()"
+        " correct: ln.Feature(name='experiment', type='cat[ULabel]').save()"
     )
     experiment.save()
 
@@ -85,9 +84,9 @@ def test_labels_add(adata):
     artifact.labels.add([], feature=experiment)
     # now pass a single label
     artifact.labels.add(label, feature=experiment)
-    # check that the feature was updated with registries = "core.ULabel"
+    # check that the feature was updated with type = "ULabel"
     feature = ln.Feature.filter(name="experiment").one()
-    assert feature.registries == "core.ULabel"
+    assert feature.dtype == "cat[ULabel]"
     with pytest.raises(TypeError):
         experiments = artifact.labels.get("experiment")
     # check that the label is there, it's exactly one label with name "Experiment 1"
@@ -103,9 +102,7 @@ def test_labels_add(adata):
     feature_set_n1 = ln.FeatureSet.filter(features__name="experiment").one()
 
     # running from_values to load validated label records under the hood
-    experiment = ln.Feature(
-        name="experiment_with_reg", type="category", registries=[ln.ULabel]
-    )
+    experiment = ln.Feature(name="experiment_with_reg", dtype="cat[ULabel]")
     experiment.save()
     ln.ULabel(name="Experiment 2").save()
     artifact.labels.add("Experiment 2", experiment)
@@ -115,7 +112,7 @@ def test_labels_add(adata):
     # now, try adding a new label for a new feature, extending the feature set
     project = ln.ULabel(name="project 1")
     project.save()
-    ln.Feature(name="project", type="category").save()
+    ln.Feature(name="project", dtype="cat").save()
     features = ln.Feature.lookup()
     artifact.labels.add(project, feature=features.project)
     # check that the label is there, it's exactly one label with name "Experiment 1"
@@ -184,9 +181,7 @@ def test_add_labels_using_anndata(adata):
         artifact.delete(permanent=True)  # make sure we get a fresh one
         artifact = ln.Artifact.from_anndata(adata, description="Mini adata")
     # add feature set without saving file
-    feature_name_feature = ln.Feature(
-        name="feature name", type="category", registries="core.ULabel"
-    )
+    feature_name_feature = ln.Feature(name="feature name", dtype="cat[ULabel]")
     feature_name_feature.save()
     feature_set = ln.FeatureSet(features=[feature_name_feature])
     with pytest.raises(ValueError) as error:
@@ -205,7 +200,7 @@ def test_add_labels_using_anndata(adata):
         )
     )
     artifact = ln.Artifact.from_anndata(adata, description="Mini adata")
-    ln.Feature(name="organism", type="category", registries="bionty.Organism").save()
+    ln.Feature(name="organism", dtype="cat[bionty.Organism]").save()
     features = ln.Feature.lookup()
     with pytest.raises(ValueError) as error:
         artifact.labels.add(organism, feature=features.organism)
@@ -220,7 +215,7 @@ def test_add_labels_using_anndata(adata):
 
     # check the basic construction of the feature set based on obs
     feature_set_obs = artifact.feature_sets.filter(
-        registry="core.Feature", artifactfeatureset__slot="obs"
+        registry="Feature", artifactfeatureset__slot="obs"
     ).one()
     assert feature_set_obs.n == 4
     assert "organism" not in feature_set_obs.features.list("name")
@@ -235,31 +230,30 @@ def test_add_labels_using_anndata(adata):
     assert organism_link.organism.name == "mouse"
     assert organism_link.feature.name == "organism"
     feature = ln.Feature.filter(name="organism").one()
-    assert feature.type == "category"
-    assert feature.registries == "bionty.Organism"
+    assert feature.dtype == "cat[bionty.Organism]"
     feature_set_obs = artifact.feature_sets.filter(
-        registry="core.Feature", artifactfeatureset__slot="obs"
+        registry="Feature", artifactfeatureset__slot="obs"
     ).one()
     assert feature_set_obs.n == 4
     feature_set_ext = artifact.feature_sets.filter(
-        registry="core.Feature", artifactfeatureset__slot="external"
+        registry="Feature", artifactfeatureset__slot="external"
     ).one()
     assert feature_set_ext.n == 1
     assert "organism" in feature_set_ext.features.list("name")
 
     # now we add cell types & tissues and run checks
-    ln.Feature(name="cell_type", type="category").save()
-    ln.Feature(name="cell_type_from_expert", type="category").save()
-    ln.Feature(name="tissue", type="category").save()
+    ln.Feature(name="cell_type", dtype="cat").save()
+    ln.Feature(name="cell_type_from_expert", dtype="cat").save()
+    ln.Feature(name="tissue", dtype="cat").save()
     artifact.labels.add(cell_types, feature=features.cell_type)
     artifact.labels.add(cell_types_from_expert, feature=features.cell_type_from_expert)
     artifact.labels.add(tissues, feature=features.tissue)
     feature = ln.Feature.filter(name="cell_type").one()
-    assert feature.registries == "bionty.CellType"
+    assert feature.dtype == "cat[bionty.CellType]"
     feature = ln.Feature.filter(name="cell_type_from_expert").one()
-    assert feature.registries == "bionty.CellType"
+    assert feature.dtype == "cat[bionty.CellType]"
     feature = ln.Feature.filter(name="tissue").one()
-    assert feature.registries == "bionty.Tissue|core.ULabel"
+    assert feature.dtype == "cat[bionty.Tissue|ULabel]"
     diseases = [ln.ULabel(name=name) for name in adata.obs["disease"].unique()]
     ln.save(diseases)
     artifact.labels.add(diseases, feature=features.disease)
@@ -270,19 +264,16 @@ def test_add_labels_using_anndata(adata):
         "tissue",
         "cell_type_from_expert",
     }
-    assert set(df["type"]) == {
-        "category",
-    }
-    assert set(df["registries"]) == {
-        "bionty.CellType",
-        "core.ULabel",
-        "bionty.Tissue|core.ULabel",
+    assert set(df["dtype"]) == {
+        "cat[bionty.CellType]",
+        "cat[ULabel]",
+        "cat[bionty.Tissue|ULabel]",
     }
 
     # now, let's add another feature to ext
     experiment_1 = ln.ULabel(name="experiment_1")
     experiment_1.save()
-    ln.Feature(name="experiment", type="category").save()
+    ln.Feature(name="experiment", dtype="cat").save()
     features = ln.Feature.lookup()
     artifact.labels.add(experiment_1, feature=features.experiment)
     df = artifact.features["external"].df()
@@ -290,9 +281,7 @@ def test_add_labels_using_anndata(adata):
         "organism",
         "experiment",
     }
-    assert set(df["type"]) == {
-        "category",
-    }
+    assert set(df["dtype"]) == {"cat[bionty.Organism]", "cat[ULabel]"}
 
     assert set(artifact.labels.get(features.experiment).list("name")) == {
         "experiment_1"
@@ -310,7 +299,7 @@ def test_add_labels_using_anndata(adata):
         "kidney",
         "brain",
     }
-    assert set(artifact.labels.get(features.tissue)["core.ULabel"].list("name")) == {
+    assert set(artifact.labels.get(features.tissue)["ULabel"].list("name")) == {
         "organoid",
     }
     # currently, we can't stratify the two cases below
@@ -336,7 +325,7 @@ def test_add_labels_using_anndata(adata):
         "B cell",
     }
 
-    assert set(df["registries"]) == {"bionty.Organism", "core.ULabel"}
+    assert set(df["dtype"]) == {"cat[bionty.Organism]", "cat[ULabel]"}
     assert experiment_1 in artifact.ulabels.all()
 
     # call describe
@@ -364,7 +353,7 @@ def test_labels_get():
     with pytest.raises(TypeError):
         artifact.labels.get("x")
     # no linked labels
-    feature_name_feature = ln.Feature(name="feature name", type="category")
+    feature_name_feature = ln.Feature(name="feature name", dtype="cat")
     feature_name_feature.save()
     feature_set = ln.FeatureSet(features=[feature_name_feature])
     feature_set.save()

@@ -197,7 +197,7 @@ def from_artifacts(artifacts: Iterable[Artifact]) -> tuple[str, dict[str, str]]:
         )
         start_time = logger.debug("done, start evaluate", time=start_time)
         features = features_registry.filter(id__in=feature_ids)
-        feature_sets_union[slot] = FeatureSet(features, type=feature_set_1.type)
+        feature_sets_union[slot] = FeatureSet(features, dtype=feature_set_1.dtype)
         start_time = logger.debug("done", time=start_time)
     # validate consistency of hashes
     # we do not allow duplicate hashes

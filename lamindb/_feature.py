@@ -1,26 +1,28 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, List
+from typing import TYPE_CHECKING
 
 import lamindb_setup as ln_setup
 import pandas as pd
 from lamindb_setup.core._docs import doc_args
-from lnschema_core.models import Feature, Registry
+from lnschema_core.models import Artifact, Feature
 from pandas.api.types import CategoricalDtype, is_string_dtype
 
 from lamindb._utils import attach_func_to_class_method
 from lamindb.core._settings import settings
 
 from ._query_set import RecordsList
+from .core.schema import dict_schema_name_to_model_name
 
 if TYPE_CHECKING:
     from lnschema_core.types import FieldAttr
 
 FEATURE_TYPES = {
-    "int": "number",
-    "float": "number",
-    "str": "category",
-    "object": "category",
+    "int": "int",
+    "float": "float",
+    "bool": "bool",
+    "str": "cat",
+    "object": "cat",
 }
 
 
@@ -28,10 +30,8 @@ def convert_numpy_dtype_to_lamin_feature_type(dtype) -> str:
     orig_type = dtype.name
     # strip precision qualifiers
     type = "".join(i for i in orig_type if not i.isdigit())
-    if type == "int" or type == "float":
-        type = "number"
-    elif type == "object" or type == "str":
-        type = "category"
+    if type == "object" or type == "str":
+        type = "cat"
     return type
 
 
@@ -42,38 +42,44 @@ def __init__(self, *args, **kwargs):
     # now we proceed with the user-facing constructor
     if len(args) != 0:
         raise ValueError("Only non-keyword args allowed")
-    type: Optional[Union[type, str]] = (  # noqa
-        kwargs.pop("type") if "type" in kwargs else None
-    )
-    registries: list[Registry] | None = (
-        kwargs.pop("registries") if "registries" in kwargs else None
-    )
+    dtype: type | str = kwargs.pop("dtype") if "dtype" in kwargs else None
     # cast type
-    type_str = None
-    if type is not None:
-        type_str = type.__name__ if not isinstance(type, str) else type
-    if type_str is None:
-        raise ValueError("Please specify a type!")
-    type_str = FEATURE_TYPES.get(type_str, type_str)
-    if type_str not in {"number", "category", "bool"}:
-        raise ValueError("type has to be one of 'number', 'category', 'bool'!")
-    kwargs["type"] = type_str
-    # cast registries
-    registries_str: str | None = None
-    if registries is not None:
-        if isinstance(registries, str):
-            # TODO: add more validation
-            registries_str = registries
+    if dtype is None:
+        raise ValueError("Please pass a type!")
+    elif dtype is not None:
+        if not isinstance(dtype, str):
+            if not isinstance(dtype, list) and dtype.__name__ in FEATURE_TYPES:
+                dtype_str = FEATURE_TYPES[dtype.__name__]
+            else:
+                if not isinstance(dtype, list):
+                    raise ValueError("dtype has to be a list of Registry types")
+                registries_str = ""
+                for cls in dtype:
+                    if not hasattr(cls, "__get_name_with_schema__"):
+                        raise ValueError(
+                            "each element of the list has to be a Registry"
+                        )
+                    registries_str += cls.__get_name_with_schema__() + "|"
+                dtype_str = f'cat[{registries_str.rstrip("|")}]'
         else:
-            if not isinstance(registries, List):
-                raise ValueError("registries has to be a list of Registry types")
-            registries_str = ""
-            for cls in registries:
-                if not hasattr(cls, "__get_name_with_schema__"):
-                    raise ValueError("each element of the list has to be a Registry")
-                registries_str += cls.__get_name_with_schema__() + "|"
-            registries_str = registries_str.rstrip("|")
-    kwargs["registries"] = registries_str
+            dtype_str = dtype
+            # add validation that a registry actually exists
+            if dtype_str not in FEATURE_TYPES.values() and not dtype_str.startswith(
+                "cat"
+            ):
+                raise ValueError(
+                    "dtype has to be one of 'number', 'cat', 'bool', 'cat[...]'!"
+                )
+            if dtype_str != "cat" and dtype_str.startswith("cat"):
+                registries_str = dtype_str.replace("cat[", "").rstrip("]")
+                if registries_str != "":
+                    registry_str_list = registries_str.split("|")
+                    for registry_str in registry_str_list:
+                        if registry_str not in dict_schema_name_to_model_name(Artifact):
+                            raise ValueError(
+                                f"'{registry_str}' is an invalid dtype, pass, e.g. `[ln.ULabel, bt.CellType]` or similar"
+                            )
+    kwargs["dtype"] = dtype_str
     super(Feature, self).__init__(*args, **kwargs)
 
 
@@ -99,11 +105,11 @@ def from_df(cls, df: pd.DataFrame, field: FieldAttr | None = None) -> RecordsLis
     field = Feature.name if field is None else field
     categoricals = categoricals_from_df(df)
 
-    types = {}
+    dtypes = {}
     # categoricals_with_unmapped_categories = {}  # type: ignore
     for name, col in df.items():
         if name in categoricals:
-            types[name] = "category"
+            dtypes[name] = "cat"
             # below is a harder feature to write, now, because it requires to
             # query the link tables between the label Registry and file or collection
             # the original implementation fell short
@@ -117,7 +123,7 @@ def from_df(cls, df: pd.DataFrame, field: FieldAttr | None = None) -> RecordsLis
             #     feature=name
             # ).inspect(categories, "name", logging=False)["not_mapped"]
         else:
-            types[name] = convert_numpy_dtype_to_lamin_feature_type(col.dtype)
+            dtypes[name] = convert_numpy_dtype_to_lamin_feature_type(col.dtype)
 
     # silence the warning "loaded record with exact same name "
     verbosity = settings.verbosity
@@ -128,7 +134,7 @@ def from_df(cls, df: pd.DataFrame, field: FieldAttr | None = None) -> RecordsLis
         if registry != Feature:
             raise ValueError("field must be a Feature FieldAttr!")
         # create records for all features including non-validated
-        features = [Feature(name=name, type=type) for name, type in types.items()]
+        features = [Feature(name=name, dtype=dtype) for name, dtype in dtypes.items()]
     finally:
         settings.verbosity = verbosity
 

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 import shutil
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path, PurePath, PurePosixPath
@@ -212,7 +213,10 @@ def get_stat_or_artifact(
                 file_size = file.stat().st_size
                 return hash_file(file, file_size)[0], file_size
 
-            n_workers = len(psutil.Process().cpu_affinity())
+            try:
+                n_workers = len(psutil.Process().cpu_affinity())
+            except AttributeError:
+                n_workers = psutil.cpu_count()
             if n_workers > 1:
                 with ThreadPoolExecutor(n_workers) as pool:
                     hashes_sizes = pool.map(hash_size, files)

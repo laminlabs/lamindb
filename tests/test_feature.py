@@ -66,10 +66,10 @@ def test_feature_from_df(df):
             categoricals[key] = c
     for feature in features:
         if feature.name in categoricals:
-            assert feature.type == "category"
+            assert feature.dtype == "cat"
         else:
             orig_type = df[feature.name].dtype
-            assert feature.type == convert_numpy_dtype_to_lamin_feature_type(orig_type)
+            assert feature.dtype == convert_numpy_dtype_to_lamin_feature_type(orig_type)
     for feature in features:
         feature.save()
     labels = [ln.ULabel(name=name) for name in df["feat3"].unique()]
@@ -82,10 +82,10 @@ def test_feature_from_df(df):
     for name in df.columns[:4]:
         queried_feature = ln.Feature.filter(name=name).one()
         if name in categoricals:
-            assert queried_feature.type == "category"
+            assert queried_feature.dtype == "cat[ULabel]"
         else:
             orig_type = df[name].dtype
-            assert queried_feature.type == convert_numpy_dtype_to_lamin_feature_type(
+            assert queried_feature.dtype == convert_numpy_dtype_to_lamin_feature_type(
                 orig_type
             )
     artifactlabel_links = ArtifactULabel.objects.filter(
@@ -112,16 +112,15 @@ def test_feature_init():
         ln.Feature(name="feat")
     # wrong type
     with pytest.raises(ValueError):
-        ln.Feature(name="feat", type="x")
-    # registries has to be a list of Registry types
+        ln.Feature(name="feat", dtype="x")
+    # type has to be a list of Registry types
     with pytest.raises(ValueError):
-        ln.Feature(name="feat", type="category", registries=1)
-    # each element of the list has to be a Registry
-    with pytest.raises(ValueError):
-        ln.Feature(name="feat", type="category", registries=[1])
-    # registries_str
+        ln.Feature(name="feat", dtype="cat[1]")
     feat1 = ln.Feature.filter(name="feat1").one_or_none()
     if feat1 is not None:
         feat1.delete()
-    feature = ln.Feature(name="feat1", type="category", registries=[ln.ULabel, bt.Gene])
-    assert feature.registries == "core.ULabel|bionty.Gene"
+    # check that this works
+    feature = ln.Feature(name="feat1", dtype="cat[ULabel|bionty.Gene]")
+    # check that it also works via objects
+    feature = ln.Feature(name="feat1", dtype=[ln.ULabel, bt.Gene])
+    assert feature.dtype == "cat[ULabel|bionty.Gene]"
