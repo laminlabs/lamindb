@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Iterable
+from typing import TYPE_CHECKING, Iterable, Type
 
 import lamindb_setup as ln_setup
 import numpy as np
@@ -15,6 +15,11 @@ from lamindb._utils import attach_func_to_class_method
 from ._feature import convert_numpy_dtype_to_lamin_feature_type
 from ._registry import init_self_from_db
 from .core.exceptions import ValidationError
+from .core.schema import (
+    dict_related_model_to_related_name,
+    dict_schema_name_to_model_name,
+    get_related_name,
+)
 
 if TYPE_CHECKING:
     import pandas as pd
@@ -23,57 +28,6 @@ if TYPE_CHECKING:
 
 NUMBER_TYPE = "number"
 DICT_KEYS_TYPE = type({}.keys())  # type: ignore
-
-
-def dict_related_model_to_related_name(orm):
-    d: dict = {
-        i.related_model.__get_name_with_schema__(): i.related_name
-        for i in orm._meta.related_objects
-        if i.related_name is not None
-    }
-    d.update(
-        {
-            i.related_model.__get_name_with_schema__(): i.name
-            for i in orm._meta.many_to_many
-            if i.name is not None
-        }
-    )
-
-    return d
-
-
-def dict_schema_name_to_model_name(orm):
-    d: dict = {
-        i.related_model.__get_name_with_schema__(): i.related_model
-        for i in orm._meta.related_objects
-        if i.related_name is not None
-    }
-    d.update(
-        {
-            i.related_model.__get_name_with_schema__(): i.related_model
-            for i in orm._meta.many_to_many
-            if i.name is not None
-        }
-    )
-
-    return d
-
-
-def get_related_name(features_type: Registry):
-    candidates = [
-        field.related_name
-        for field in FeatureSet._meta.related_objects
-        if field.related_model == features_type
-    ]
-    if not candidates:
-        raise ValueError(
-            f"Can't create feature sets from {features_type.__name__} because it's not"
-            " related to it!\nYou need to create a link model between FeatureSet and"
-            " your Registry in your custom schema.\nTo do so, add a"
-            " line:\nfeature_sets = models.ManyToMany(FeatureSet,"
-            " related_name='mythings')\n"
-        )
-    return candidates[0]
 
 
 def validate_features(features: list[Registry]) -> Registry:

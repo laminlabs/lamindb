@@ -5,13 +5,14 @@ from typing import TYPE_CHECKING, List
 import lamindb_setup as ln_setup
 import pandas as pd
 from lamindb_setup.core._docs import doc_args
-from lnschema_core.models import Feature, Registry
+from lnschema_core.models import Artifact, Feature
 from pandas.api.types import CategoricalDtype, is_string_dtype
 
 from lamindb._utils import attach_func_to_class_method
 from lamindb.core._settings import settings
 
 from ._query_set import RecordsList
+from .core.schema import dict_schema_name_to_model_name
 
 if TYPE_CHECKING:
     from lnschema_core.types import FieldAttr
@@ -48,7 +49,7 @@ def __init__(self, *args, **kwargs):
         raise ValueError("Please pass a type!")
     elif type is not None:
         if not isinstance(type, str):
-            if type.__name__ in FEATURE_TYPES:
+            if not isinstance(type, list) and type.__name__ in FEATURE_TYPES:
                 type_str = FEATURE_TYPES[type.__name__]
             else:
                 if not isinstance(type, list):
@@ -60,7 +61,7 @@ def __init__(self, *args, **kwargs):
                             "each element of the list has to be a Registry"
                         )
                     registries_str += cls.__get_name_with_schema__() + "|"
-                type_str = f'cat[{registries_str.rstrip("|")}'
+                type_str = f'cat[{registries_str.rstrip("|")}]'
         else:
             type_str = type
             # add validation that a registry actually exists
@@ -68,6 +69,15 @@ def __init__(self, *args, **kwargs):
                 raise ValueError(
                     "type has to be one of 'number', 'cat', 'bool', 'cat[...]'!"
                 )
+            if type_str.startswith("cat"):
+                registries_str = type_str.replace("cat[", "").rstrip("]")
+                if registries_str != "":
+                    registry_str_list = registries_str.split("|")
+                    for registry_str in registry_str_list:
+                        if registry_str not in dict_schema_name_to_model_name(Artifact):
+                            raise ValueError(
+                                f"{registry_str} has to be the name of a registry in the form 'schema_name.RegistryName'"
+                            )
     kwargs["type"] = type_str
     super(Feature, self).__init__(*args, **kwargs)
 
