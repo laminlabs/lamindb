@@ -292,7 +292,7 @@ class FeatureManager:
             elif feature.type == "cat":
                 if not (isinstance(value, str) or isinstance(value, Registry)):
                     raise TypeError(
-                        f"Value for feature '{key}' with type {feature.type} must be a string or registry"
+                        f"Value for feature '{key}' with type '{feature.type}' must be a string or record."
                     )
             elif feature.type == "bool":
                 assert isinstance(value, bool)

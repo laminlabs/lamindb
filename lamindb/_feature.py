@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, List
+from typing import TYPE_CHECKING
 
 import lamindb_setup as ln_setup
 import pandas as pd
@@ -18,8 +18,9 @@ if TYPE_CHECKING:
     from lnschema_core.types import FieldAttr
 
 FEATURE_TYPES = {
-    "int": "number",
-    "float": "number",
+    "int": "int",
+    "float": "float",
+    "bool": "bool",
     "str": "cat",
     "object": "cat",
 }
@@ -29,9 +30,7 @@ def convert_numpy_dtype_to_lamin_feature_type(dtype) -> str:
     orig_type = dtype.name
     # strip precision qualifiers
     type = "".join(i for i in orig_type if not i.isdigit())
-    if type == "int" or type == "float":
-        type = "number"
-    elif type == "object" or type == "str":
+    if type == "object" or type == "str":
         type = "cat"
     return type
 
@@ -65,7 +64,9 @@ def __init__(self, *args, **kwargs):
         else:
             type_str = type
             # add validation that a registry actually exists
-            if type_str not in {"number", "bool"} and not type_str.startswith("cat"):
+            if type_str not in FEATURE_TYPES.values() and not type_str.startswith(
+                "cat"
+            ):
                 raise ValueError(
                     "type has to be one of 'number', 'cat', 'bool', 'cat[...]'!"
                 )

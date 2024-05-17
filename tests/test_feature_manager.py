@@ -39,7 +39,7 @@ def test_features_add(adata):
         artifact.features.add({"temperature": 27.2})
     assert (
         error.exconly()
-        == "TypeError: Value for feature 'temperature' with type category must be a string or registry"
+        == "TypeError: Value for feature 'temperature' with type cat must be a string or record."
     )
     temperature.type = "number"
     temperature.save()
@@ -281,9 +281,7 @@ def test_add_labels_using_anndata(adata):
         "organism",
         "experiment",
     }
-    assert set(df["type"]) == {
-        "category",
-    }
+    assert set(df["type"]) == {"cat[bionty.Organism]", "cat[core.ULabel]"}
 
     assert set(artifact.labels.get(features.experiment).list("name")) == {
         "experiment_1"
