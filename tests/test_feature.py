@@ -113,15 +113,11 @@ def test_feature_init():
     # wrong type
     with pytest.raises(ValueError):
         ln.Feature(name="feat", type="x")
-    # registries has to be a list of Registry types
+    # type has to be a list of Registry types
     with pytest.raises(ValueError):
-        ln.Feature(name="feat", type="category", registries=1)
-    # each element of the list has to be a Registry
-    with pytest.raises(ValueError):
-        ln.Feature(name="feat", type="category", registries=[1])
-    # registries_str
+        ln.Feature(name="feat", type="cat[1]")
     feat1 = ln.Feature.filter(name="feat1").one_or_none()
     if feat1 is not None:
         feat1.delete()
-    feature = ln.Feature(name="feat1", type="category", registries=[ln.ULabel, bt.Gene])
-    assert feature.registries == "core.ULabel|bionty.Gene"
+    feature = ln.Feature(name="feat1", type=[ln.ULabel, bt.Gene])
+    assert feature.type == "cat[core.ULabel|bionty.Gene]"

@@ -175,16 +175,13 @@ def describe(self: Data):
 
 
 def validate_feature(feature: Feature, records: list[Registry]) -> None:
-    """Validate feature record, set feature.registries based on labels records."""
+    """Validate feature record, adjust feature.type based on labels records."""
     if not isinstance(feature, Feature):
         raise TypeError("feature has to be of type Feature")
     if feature._state.adding:
         registries = {record.__class__.__get_name_with_schema__() for record in records}
         registries_str = "|".join(registries)
-        msg = (
-            f"ln.Feature(name='{feature.name}', type='category',"
-            f" registries='{registries_str}').save()"
-        )
+        msg = f"ln.Feature(name='{feature.name}', type='cat[{registries_str}]').save()"
         raise ValidationError(f"Feature not validated. If it looks correct: {msg}")
 
 
@@ -197,9 +194,9 @@ def get_labels(
     """{}."""
     if not isinstance(feature, Feature):
         raise TypeError("feature has to be of type Feature")
-    if feature.registries is None:
+    if feature.type is None or not feature.type.startswith("cat["):
         raise ValueError("feature does not have linked labels")
-    registries_to_check = feature.registries.split("|")
+    registries_to_check = feature.type.replace("cat[", "").rstrip("]").split("|")
     if len(registries_to_check) > 1 and not mute:
         logger.warning("labels come from multiple registries!")
     # return an empty query set if self.id is still None
@@ -261,9 +258,9 @@ def add_labels(
                 "Please pass a feature, e.g., via: label = ln.ULabel(name='my_label',"
                 " feature=ln.Feature(name='my_feature'))"
             )
-        if feature.registries is not None:
+        if feature.type.startswith("cat["):
             orm_dict = dict_schema_name_to_model_name(Artifact)
-            for reg in feature.registries.split("|"):
+            for reg in feature.type.replace("cat[", "").rstrip("]").split("|"):
                 orm = orm_dict.get(reg)
                 records_validated += orm.from_values(records, field=field)
 
@@ -325,14 +322,14 @@ def add_labels(
         }
         for registry_name, _ in records_by_registry.items():
             msg = ""
-            if feature.registries is None or registry_name not in feature.registries:
+            if not feature.type.startswith("cat[") or registry_name not in feature.type:
                 if len(msg) > 0:
                     msg += ", "
                 msg += f"linked feature '{feature.name}' to registry '{registry_name}'"
-                if feature.registries is None:
-                    feature.registries = registry_name
-                elif registry_name not in feature.registries:
-                    feature.registries += f"|{registry_name}"
+                if not feature.type.startswith("cat["):
+                    feature.type = f"cat[{registry_name}]"
+                elif registry_name not in feature.type:
+                    feature.type = feature.type.rstrip("]") + f"|{registry_name}]"
                 feature.save()
             if len(msg) > 0:
                 logger.save(msg)

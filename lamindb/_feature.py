@@ -19,8 +19,8 @@ if TYPE_CHECKING:
 FEATURE_TYPES = {
     "int": "number",
     "float": "number",
-    "str": "category",
-    "object": "category",
+    "str": "cat",
+    "object": "cat",
 }
 
 
@@ -31,7 +31,7 @@ def convert_numpy_dtype_to_lamin_feature_type(dtype) -> str:
     if type == "int" or type == "float":
         type = "number"
     elif type == "object" or type == "str":
-        type = "category"
+        type = "cat"
     return type
 
 
@@ -42,38 +42,33 @@ def __init__(self, *args, **kwargs):
     # now we proceed with the user-facing constructor
     if len(args) != 0:
         raise ValueError("Only non-keyword args allowed")
-    type: Optional[Union[type, str]] = (  # noqa
-        kwargs.pop("type") if "type" in kwargs else None
-    )
-    registries: list[Registry] | None = (
-        kwargs.pop("registries") if "registries" in kwargs else None
-    )
+    type: type | str = kwargs.pop("type") if "type" in kwargs else None
     # cast type
-    type_str = None
-    if type is not None:
-        type_str = type.__name__ if not isinstance(type, str) else type
-    if type_str is None:
-        raise ValueError("Please specify a type!")
-    type_str = FEATURE_TYPES.get(type_str, type_str)
-    if type_str not in {"number", "category", "bool"}:
-        raise ValueError("type has to be one of 'number', 'category', 'bool'!")
-    kwargs["type"] = type_str
-    # cast registries
-    registries_str: str | None = None
-    if registries is not None:
-        if isinstance(registries, str):
-            # TODO: add more validation
-            registries_str = registries
+    if type is None:
+        raise ValueError("Please pass a type!")
+    elif type is not None:
+        if not isinstance(type, str):
+            if type.__name__ in FEATURE_TYPES:
+                type_str = FEATURE_TYPES[type.__name__]
+            else:
+                if not isinstance(type, list):
+                    raise ValueError("type has to be a list of Registry types")
+                registries_str = ""
+                for cls in type:
+                    if not hasattr(cls, "__get_name_with_schema__"):
+                        raise ValueError(
+                            "each element of the list has to be a Registry"
+                        )
+                    registries_str += cls.__get_name_with_schema__() + "|"
+                type_str = f'cat[{registries_str.rstrip("|")}'
         else:
-            if not isinstance(registries, List):
-                raise ValueError("registries has to be a list of Registry types")
-            registries_str = ""
-            for cls in registries:
-                if not hasattr(cls, "__get_name_with_schema__"):
-                    raise ValueError("each element of the list has to be a Registry")
-                registries_str += cls.__get_name_with_schema__() + "|"
-            registries_str = registries_str.rstrip("|")
-    kwargs["registries"] = registries_str
+            type_str = type
+            # add validation that a registry actually exists
+            if type_str not in {"number", "bool"} and not type_str.startswith("cat"):
+                raise ValueError(
+                    "type has to be one of 'number', 'cat', 'bool', 'cat[...]'!"
+                )
+    kwargs["type"] = type_str
     super(Feature, self).__init__(*args, **kwargs)
 
 
