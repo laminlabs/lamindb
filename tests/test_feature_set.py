@@ -164,7 +164,7 @@ def test_kwargs():
 
 
 def test_edge_cases():
-    feature = ln.Feature(name="rna", type="float")
+    feature = ln.Feature(name="rna", dtype="float")
     ln.save([feature])
     with pytest.raises(ValueError) as error:
         ln.FeatureSet(feature)

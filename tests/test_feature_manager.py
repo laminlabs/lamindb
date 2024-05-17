@@ -264,7 +264,7 @@ def test_add_labels_using_anndata(adata):
         "tissue",
         "cell_type_from_expert",
     }
-    assert set(df["type"]) == {
+    assert set(df["dtype"]) == {
         "cat[bionty.CellType]",
         "cat[core.ULabel]",
         "cat[bionty.Tissue|core.ULabel]",
@@ -281,7 +281,7 @@ def test_add_labels_using_anndata(adata):
         "organism",
         "experiment",
     }
-    assert set(df["type"]) == {"cat[bionty.Organism]", "cat[core.ULabel]"}
+    assert set(df["dtype"]) == {"cat[bionty.Organism]", "cat[core.ULabel]"}
 
     assert set(artifact.labels.get(features.experiment).list("name")) == {
         "experiment_1"
@@ -325,7 +325,7 @@ def test_add_labels_using_anndata(adata):
         "B cell",
     }
 
-    assert set(df["type"]) == {"cat[bionty.Organism]", "cat[core.ULabel]"}
+    assert set(df["dtype"]) == {"cat[bionty.Organism]", "cat[core.ULabel]"}
     assert experiment_1 in artifact.ulabels.all()
 
     # call describe
