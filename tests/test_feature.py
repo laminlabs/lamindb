@@ -66,7 +66,7 @@ def test_feature_from_df(df):
             categoricals[key] = c
     for feature in features:
         if feature.name in categoricals:
-            assert feature.type == "category"
+            assert feature.type == "cat"
         else:
             orig_type = df[feature.name].dtype
             assert feature.type == convert_numpy_dtype_to_lamin_feature_type(orig_type)

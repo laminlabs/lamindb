@@ -21,7 +21,7 @@ def test_features_add(adata):
     ln.ULabel(name="Experiment 1")
     artifact = ln.Artifact.from_anndata(adata, description="test")
     artifact.save()
-    experiment = ln.Feature(name="experiment", type="category")
+    experiment = ln.Feature(name="experiment", type="cat")
     with pytest.raises(ValidationError):
         artifact.features.add({"experiment": "Experiment 1"})
     experiment.save()
@@ -34,7 +34,7 @@ def test_features_add(adata):
     ln.ULabel(name="Experiment 1").save()
     artifact.features.add({"experiment": "Experiment 1"})
     assert artifact.artifactulabel_set.first().ulabel.name == "Experiment 1"
-    temperature = ln.Feature(name="temperature", type="category").save()
+    temperature = ln.Feature(name="temperature", type="cat").save()
     with pytest.raises(TypeError) as error:
         artifact.features.add({"temperature": 27.2})
     assert (
@@ -57,7 +57,7 @@ def test_labels_add(adata):
     label = ln.ULabel(name="Experiment 1")
     artifact = ln.Artifact.from_anndata(adata, description="test")
     artifact.save()
-    experiment = ln.Feature(name="experiment", type="category")
+    experiment = ln.Feature(name="experiment", type="cat")
     with pytest.raises(ValueError) as error:
         artifact.labels.add("experiment_1", experiment)
     assert (
@@ -112,7 +112,7 @@ def test_labels_add(adata):
     # now, try adding a new label for a new feature, extending the feature set
     project = ln.ULabel(name="project 1")
     project.save()
-    ln.Feature(name="project", type="category").save()
+    ln.Feature(name="project", type="cat").save()
     features = ln.Feature.lookup()
     artifact.labels.add(project, feature=features.project)
     # check that the label is there, it's exactly one label with name "Experiment 1"
@@ -242,9 +242,9 @@ def test_add_labels_using_anndata(adata):
     assert "organism" in feature_set_ext.features.list("name")
 
     # now we add cell types & tissues and run checks
-    ln.Feature(name="cell_type", type="category").save()
-    ln.Feature(name="cell_type_from_expert", type="category").save()
-    ln.Feature(name="tissue", type="category").save()
+    ln.Feature(name="cell_type", type="cat").save()
+    ln.Feature(name="cell_type_from_expert", type="cat").save()
+    ln.Feature(name="tissue", type="cat").save()
     artifact.labels.add(cell_types, feature=features.cell_type)
     artifact.labels.add(cell_types_from_expert, feature=features.cell_type_from_expert)
     artifact.labels.add(tissues, feature=features.tissue)
@@ -273,7 +273,7 @@ def test_add_labels_using_anndata(adata):
     # now, let's add another feature to ext
     experiment_1 = ln.ULabel(name="experiment_1")
     experiment_1.save()
-    ln.Feature(name="experiment", type="category").save()
+    ln.Feature(name="experiment", type="cat").save()
     features = ln.Feature.lookup()
     artifact.labels.add(experiment_1, feature=features.experiment)
     df = artifact.features["external"].df()
@@ -355,7 +355,7 @@ def test_labels_get():
     with pytest.raises(TypeError):
         artifact.labels.get("x")
     # no linked labels
-    feature_name_feature = ln.Feature(name="feature name", type="category")
+    feature_name_feature = ln.Feature(name="feature name", type="cat")
     feature_name_feature.save()
     feature_set = ln.FeatureSet(features=[feature_name_feature])
     feature_set.save()

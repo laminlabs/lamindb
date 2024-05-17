@@ -76,7 +76,7 @@ def __init__(self, *args, **kwargs):
                     for registry_str in registry_str_list:
                         if registry_str not in dict_schema_name_to_model_name(Artifact):
                             raise ValueError(
-                                f"{registry_str} has to be the name of a registry in the form 'schema_name.RegistryName'"
+                                f"'{registry_str}' is an invalid type, pass, e.g. `[ln.ULabel, bt.CellType]` or similar"
                             )
     kwargs["type"] = type_str
     super(Feature, self).__init__(*args, **kwargs)
