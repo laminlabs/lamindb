@@ -102,7 +102,7 @@ def test_labels_add(adata):
     feature_set_n1 = ln.FeatureSet.filter(features__name="experiment").one()
 
     # running from_values to load validated label records under the hood
-    experiment = ln.Feature(name="experiment_with_reg", type="cat[core.ULabel]")
+    experiment = ln.Feature(name="experiment_with_reg", dtype="cat[core.ULabel]")
     experiment.save()
     ln.ULabel(name="Experiment 2").save()
     artifact.labels.add("Experiment 2", experiment)
@@ -200,7 +200,7 @@ def test_add_labels_using_anndata(adata):
         )
     )
     artifact = ln.Artifact.from_anndata(adata, description="Mini adata")
-    ln.Feature(name="organism", type="cat[bionty.Organism]").save()
+    ln.Feature(name="organism", dtype="cat[bionty.Organism]").save()
     features = ln.Feature.lookup()
     with pytest.raises(ValueError) as error:
         artifact.labels.add(organism, feature=features.organism)
