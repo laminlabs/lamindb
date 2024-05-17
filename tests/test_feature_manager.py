@@ -39,7 +39,7 @@ def test_features_add(adata):
         artifact.features.add({"temperature": 27.2})
     assert (
         error.exconly()
-        == "TypeError: Value for feature 'temperature' with type cat must be a string or record."
+        == "TypeError: Value for feature 'temperature' with type 'cat' must be a string or record."
     )
     temperature.type = "number"
     temperature.save()
