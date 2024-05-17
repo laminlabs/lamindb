@@ -52,10 +52,10 @@ def test_feature_set_from_values():
     feature_set = ln.FeatureSet.from_values(gene_symbols, bt.Gene.symbol)
     # below should be a queryset and not a list
     assert set(feature_set.members) == set(bt.Gene.from_values(gene_symbols, "symbol"))
-    assert feature_set.type == "number"  # this is NUMBER_TYPE
+    assert feature_set.dtype == "number"  # this is NUMBER_TYPE
     feature_set = ln.FeatureSet.from_values(gene_symbols, bt.Gene.symbol, type=int)
     assert feature_set._state.adding
-    assert feature_set.type == "number"
+    assert feature_set.dtype == "number"
     assert feature_set.registry == "bionty.Gene"
     feature_set.save()
     assert set(feature_set.members) == set(feature_set.genes.all())
@@ -98,7 +98,7 @@ def test_feature_set_from_records(df):
     feature_set = ln.FeatureSet(features)
     assert feature_set.id is None
     assert feature_set._state.adding
-    assert feature_set.type is None
+    assert feature_set.dtype is None
     assert feature_set.registry == "core.Feature"
     feature_set.save()
     # test that the feature_set is retrieved from the database
@@ -131,7 +131,7 @@ def test_feature_set_from_df(df):
     ln.save(features)
     feature_set = ln.FeatureSet.from_df(df)
     feature_set.save()
-    assert feature_set.type is None
+    assert feature_set.dtype is None
     for feature in feature_set.features.all():
         feature.delete()
     feature_set.delete()

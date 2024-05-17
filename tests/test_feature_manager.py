@@ -86,7 +86,7 @@ def test_labels_add(adata):
     artifact.labels.add(label, feature=experiment)
     # check that the feature was updated with type = "core.ULabel"
     feature = ln.Feature.filter(name="experiment").one()
-    assert feature.type == "cat[core.ULabel]"
+    assert feature.dtype == "cat[core.ULabel]"
     with pytest.raises(TypeError):
         experiments = artifact.labels.get("experiment")
     # check that the label is there, it's exactly one label with name "Experiment 1"
@@ -230,7 +230,7 @@ def test_add_labels_using_anndata(adata):
     assert organism_link.organism.name == "mouse"
     assert organism_link.feature.name == "organism"
     feature = ln.Feature.filter(name="organism").one()
-    assert feature.type == "cat[bionty.Organism]"
+    assert feature.dtype == "cat[bionty.Organism]"
     feature_set_obs = artifact.feature_sets.filter(
         registry="core.Feature", artifactfeatureset__slot="obs"
     ).one()
@@ -249,11 +249,11 @@ def test_add_labels_using_anndata(adata):
     artifact.labels.add(cell_types_from_expert, feature=features.cell_type_from_expert)
     artifact.labels.add(tissues, feature=features.tissue)
     feature = ln.Feature.filter(name="cell_type").one()
-    assert feature.type == "cat[bionty.CellType]"
+    assert feature.dtype == "cat[bionty.CellType]"
     feature = ln.Feature.filter(name="cell_type_from_expert").one()
-    assert feature.type == "cat[bionty.CellType]"
+    assert feature.dtype == "cat[bionty.CellType]"
     feature = ln.Feature.filter(name="tissue").one()
-    assert feature.type == "cat[bionty.Tissue|core.ULabel]"
+    assert feature.dtype == "cat[bionty.Tissue|core.ULabel]"
     diseases = [ln.ULabel(name=name) for name in adata.obs["disease"].unique()]
     ln.save(diseases)
     artifact.labels.add(diseases, feature=features.disease)

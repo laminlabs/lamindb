@@ -180,12 +180,12 @@ def from_df(
         return None
     if registry == Feature:
         validated_features = Feature.from_df(df.loc[:, validated])
-        feature_set = FeatureSet(validated_features, name=name, type=None)
+        feature_set = FeatureSet(validated_features, name=name, dtype=None)
     else:
         dtypes = [col.dtype for (_, col) in df.loc[:, validated].items()]
         if len(set(dtypes)) != 1:
             raise ValueError(f"data types are heterogeneous: {set(dtypes)}")
-        type = convert_numpy_dtype_to_lamin_feature_type(dtypes[0])
+        dtype = convert_numpy_dtype_to_lamin_feature_type(dtypes[0])
         validated_features = registry.from_values(
             df.columns[validated],
             field=field,
@@ -195,7 +195,7 @@ def from_df(
         feature_set = FeatureSet(
             features=validated_features,
             name=name,
-            type=get_type_str(type),
+            dtype=get_type_str(dtype),
         )
     return feature_set
 

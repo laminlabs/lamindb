@@ -66,10 +66,10 @@ def test_feature_from_df(df):
             categoricals[key] = c
     for feature in features:
         if feature.name in categoricals:
-            assert feature.type == "cat"
+            assert feature.dtype == "cat"
         else:
             orig_type = df[feature.name].dtype
-            assert feature.type == convert_numpy_dtype_to_lamin_feature_type(orig_type)
+            assert feature.dtype == convert_numpy_dtype_to_lamin_feature_type(orig_type)
     for feature in features:
         feature.save()
     labels = [ln.ULabel(name=name) for name in df["feat3"].unique()]
@@ -82,10 +82,10 @@ def test_feature_from_df(df):
     for name in df.columns[:4]:
         queried_feature = ln.Feature.filter(name=name).one()
         if name in categoricals:
-            assert queried_feature.type == "cat[core.ULabel]"
+            assert queried_feature.dtype == "cat[core.ULabel]"
         else:
             orig_type = df[name].dtype
-            assert queried_feature.type == convert_numpy_dtype_to_lamin_feature_type(
+            assert queried_feature.dtype == convert_numpy_dtype_to_lamin_feature_type(
                 orig_type
             )
     artifactlabel_links = ArtifactULabel.objects.filter(
@@ -123,4 +123,4 @@ def test_feature_init():
     feature = ln.Feature(name="feat1", type="cat[core.ULabel|bionty.Gene]")
     # check that it also works via objects
     feature = ln.Feature(name="feat1", type=[ln.ULabel, bt.Gene])
-    assert feature.type == "cat[core.ULabel|bionty.Gene]"
+    assert feature.dtype == "cat[core.ULabel|bionty.Gene]"
