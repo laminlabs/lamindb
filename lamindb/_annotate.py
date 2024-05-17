@@ -1098,7 +1098,7 @@ def update_registry(
                 for value in labels_saved["without reference"]:
                     filter_kwargs[field.field.name] = value
                     if registry == Feature:
-                        filter_kwargs["type"] = "cat" if type is None else type
+                        filter_kwargs["dtype"] = "cat" if type is None else type
                     non_validated_records.append(registry(**filter_kwargs, **kwargs))
             ln_save(non_validated_records)
 

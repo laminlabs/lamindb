@@ -18,10 +18,6 @@ from lnschema_core.models import (
     format_field_value,
 )
 
-from lamindb._feature_set import (
-    dict_related_model_to_related_name,
-    dict_schema_name_to_model_name,
-)
 from lamindb._parents import view_lineage
 from lamindb._query_set import QuerySet
 from lamindb.core._settings import settings
@@ -36,6 +32,10 @@ from ._feature_manager import (
 from ._label_manager import LabelManager, print_labels
 from ._run_context import run_context
 from .exceptions import ValidationError
+from .schema import (
+    dict_related_model_to_related_name,
+    dict_schema_name_to_model_name,
+)
 
 if TYPE_CHECKING:
     from lnschema_core.types import StrField
@@ -175,7 +175,7 @@ def describe(self: Data):
 
 
 def validate_feature(feature: Feature, records: list[Registry]) -> None:
-    """Validate feature record, adjust feature.type based on labels records."""
+    """Validate feature record, adjust feature.dtype based on labels records."""
     if not isinstance(feature, Feature):
         raise TypeError("feature has to be of type Feature")
     if feature._state.adding:
@@ -194,9 +194,9 @@ def get_labels(
     """{}."""
     if not isinstance(feature, Feature):
         raise TypeError("feature has to be of type Feature")
-    if feature.type is None or not feature.type.startswith("cat["):
+    if feature.dtype is None or not feature.dtype.startswith("cat["):
         raise ValueError("feature does not have linked labels")
-    registries_to_check = feature.type.replace("cat[", "").rstrip("]").split("|")
+    registries_to_check = feature.dtype.replace("cat[", "").rstrip("]").split("|")
     if len(registries_to_check) > 1 and not mute:
         logger.warning("labels come from multiple registries!")
     # return an empty query set if self.id is still None
@@ -258,9 +258,9 @@ def add_labels(
                 "Please pass a feature, e.g., via: label = ln.ULabel(name='my_label',"
                 " feature=ln.Feature(name='my_feature'))"
             )
-        if feature.type.startswith("cat["):
+        if feature.dtype.startswith("cat["):
             orm_dict = dict_schema_name_to_model_name(Artifact)
-            for reg in feature.type.replace("cat[", "").rstrip("]").split("|"):
+            for reg in feature.dtype.replace("cat[", "").rstrip("]").split("|"):
                 orm = orm_dict.get(reg)
                 records_validated += orm.from_values(records, field=field)
 
@@ -322,14 +322,17 @@ def add_labels(
         }
         for registry_name, _ in records_by_registry.items():
             msg = ""
-            if not feature.type.startswith("cat[") or registry_name not in feature.type:
+            if (
+                not feature.dtype.startswith("cat[")
+                or registry_name not in feature.dtype
+            ):
                 if len(msg) > 0:
                     msg += ", "
                 msg += f"linked feature '{feature.name}' to registry '{registry_name}'"
-                if not feature.type.startswith("cat["):
-                    feature.type = f"cat[{registry_name}]"
-                elif registry_name not in feature.type:
-                    feature.type = feature.type.rstrip("]") + f"|{registry_name}]"
+                if not feature.dtype.startswith("cat["):
+                    feature.dtype = f"cat[{registry_name}]"
+                elif registry_name not in feature.dtype:
+                    feature.dtype = feature.dtype.rstrip("]") + f"|{registry_name}]"
                 feature.save()
             if len(msg) > 0:
                 logger.save(msg)

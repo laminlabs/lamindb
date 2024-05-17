@@ -17,7 +17,6 @@ from ._registry import init_self_from_db
 from .core.exceptions import ValidationError
 from .core.schema import (
     dict_related_model_to_related_name,
-    dict_schema_name_to_model_name,
     get_related_name,
 )
 
@@ -62,14 +61,14 @@ def __init__(self, *args, **kwargs):
     if len(args) > 1:
         raise ValueError("Only one non-keyword arg allowed: features")
     features: Iterable[Registry] = kwargs.pop("features") if len(args) == 0 else args[0]
-    type: str | None = kwargs.pop("type") if "type" in kwargs else None
+    dtype: str | None = kwargs.pop("dtype") if "dtype" in kwargs else None
     name: str | None = kwargs.pop("name") if "name" in kwargs else None
     if len(kwargs) > 0:
         raise ValueError("Only features, type, name are valid keyword arguments")
     # now code
     features_registry = validate_features(features)
-    if type is None:
-        type = None if features_registry == Feature else NUMBER_TYPE
+    if dtype is None:
+        dtype = None if features_registry == Feature else NUMBER_TYPE
     n_features = len(features)
     features_hash = hash_set({feature.uid for feature in features})
     feature_set = FeatureSet.filter(hash=features_hash).one_or_none()
@@ -84,7 +83,7 @@ def __init__(self, *args, **kwargs):
     super(FeatureSet, self).__init__(
         uid=ids.base62_20(),
         name=name,
-        type=get_type_str(type),
+        dtype=get_type_str(dtype),
         n=n_features,
         registry=features_registry.__get_name_with_schema__(),
         hash=hash,
@@ -100,13 +99,11 @@ def save(self, *args, **kwargs) -> None:
         getattr(self, related_name).set(records)
 
 
-def get_type_str(type: str | None) -> str | None:
-    if type is not None:
-        type_str = type.__name__ if not isinstance(type, str) else type  # type: ignore
+def get_type_str(dtype: str | None) -> str | None:
+    if dtype is not None:
+        type_str = dtype.__name__ if not isinstance(dtype, str) else dtype  # type: ignore
     else:
         type_str = None
-    if type == "int" or type == "float":
-        type_str = NUMBER_TYPE
     return type_str
 
 
@@ -158,7 +155,7 @@ def from_values(
     feature_set = FeatureSet(
         features=validated_features,
         name=name,
-        type=get_type_str(type),
+        dtype=get_type_str(type),
     )
     return feature_set
 
