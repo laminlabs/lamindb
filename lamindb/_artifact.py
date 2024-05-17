@@ -216,8 +216,7 @@ def get_stat_or_artifact(
             try:
                 n_workers = len(psutil.Process().cpu_affinity())
             except AttributeError:
-                # Fallback method
-                n_workers = os.cpu_count()
+                n_workers = psutil.cpu_count()
             if n_workers > 1:
                 with ThreadPoolExecutor(n_workers) as pool:
                     hashes_sizes = pool.map(hash_size, files)
