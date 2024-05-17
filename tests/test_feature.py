@@ -82,7 +82,7 @@ def test_feature_from_df(df):
     for name in df.columns[:4]:
         queried_feature = ln.Feature.filter(name=name).one()
         if name in categoricals:
-            assert queried_feature.dtype == "cat[core.ULabel]"
+            assert queried_feature.dtype == "cat[ULabel]"
         else:
             orig_type = df[name].dtype
             assert queried_feature.dtype == convert_numpy_dtype_to_lamin_feature_type(
@@ -120,7 +120,7 @@ def test_feature_init():
     if feat1 is not None:
         feat1.delete()
     # check that this works
-    feature = ln.Feature(name="feat1", dtype="cat[core.ULabel|bionty.Gene]")
+    feature = ln.Feature(name="feat1", dtype="cat[ULabel|bionty.Gene]")
     # check that it also works via objects
     feature = ln.Feature(name="feat1", dtype=[ln.ULabel, bt.Gene])
-    assert feature.dtype == "cat[core.ULabel|bionty.Gene]"
+    assert feature.dtype == "cat[ULabel|bionty.Gene]"
