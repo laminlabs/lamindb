@@ -530,7 +530,11 @@ def __get_schema_name__(cls) -> str:
 @classmethod  # type: ignore
 def __get_name_with_schema__(cls) -> str:
     schema_name = cls.__get_schema_name__()
-    return f"{schema_name}.{cls.__name__}"
+    if schema_name == "core":
+        schema_prefix = ""
+    else:
+        schema_prefix = f"{schema_name}."
+    return f"{schema_prefix}{cls.__name__}"
 
 
 Registry.__get_schema_name__ = __get_schema_name__
