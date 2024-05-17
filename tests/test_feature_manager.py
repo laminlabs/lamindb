@@ -84,7 +84,7 @@ def test_labels_add(adata):
     artifact.labels.add([], feature=experiment)
     # now pass a single label
     artifact.labels.add(label, feature=experiment)
-    # check that the feature was updated with type = "core.ULabel"
+    # check that the feature was updated with type = "ULabel"
     feature = ln.Feature.filter(name="experiment").one()
     assert feature.dtype == "cat[core.ULabel]"
     with pytest.raises(TypeError):
@@ -215,7 +215,7 @@ def test_add_labels_using_anndata(adata):
 
     # check the basic construction of the feature set based on obs
     feature_set_obs = artifact.feature_sets.filter(
-        registry="core.Feature", artifactfeatureset__slot="obs"
+        registry="Feature", artifactfeatureset__slot="obs"
     ).one()
     assert feature_set_obs.n == 4
     assert "organism" not in feature_set_obs.features.list("name")
@@ -232,11 +232,11 @@ def test_add_labels_using_anndata(adata):
     feature = ln.Feature.filter(name="organism").one()
     assert feature.dtype == "cat[bionty.Organism]"
     feature_set_obs = artifact.feature_sets.filter(
-        registry="core.Feature", artifactfeatureset__slot="obs"
+        registry="Feature", artifactfeatureset__slot="obs"
     ).one()
     assert feature_set_obs.n == 4
     feature_set_ext = artifact.feature_sets.filter(
-        registry="core.Feature", artifactfeatureset__slot="external"
+        registry="Feature", artifactfeatureset__slot="external"
     ).one()
     assert feature_set_ext.n == 1
     assert "organism" in feature_set_ext.features.list("name")
@@ -299,7 +299,7 @@ def test_add_labels_using_anndata(adata):
         "kidney",
         "brain",
     }
-    assert set(artifact.labels.get(features.tissue)["core.ULabel"].list("name")) == {
+    assert set(artifact.labels.get(features.tissue)["ULabel"].list("name")) == {
         "organoid",
     }
     # currently, we can't stratify the two cases below

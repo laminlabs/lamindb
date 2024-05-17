@@ -206,7 +206,7 @@ def get_labels(
     for registry in registries_to_check:
         # currently need to distinguish between ULabel and non-ULabel, because
         # we only have the feature information for Label
-        if registry == "core.ULabel":
+        if registry == "ULabel":
             links_to_labels = get_label_links(self, registry, feature)
             label_ids = [link.ulabel_id for link in links_to_labels]
             qs_by_registry[registry] = ULabel.objects.using(self._state.db).filter(
@@ -318,7 +318,7 @@ def add_labels(
             .one()
             .slot: feature_set.features.all()
             for feature_set in feature_sets
-            if "core.Feature" == feature_set.registry
+            if "Feature" == feature_set.registry
         }
         for registry_name, _ in records_by_registry.items():
             msg = ""

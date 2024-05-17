@@ -210,7 +210,7 @@ class LabelManager:
         }
         for _, feature_set in data.features.feature_set_by_slot.items():
             # add labels stratified by feature
-            if feature_set.registry == "core.Feature":
+            if feature_set.registry == "Feature":
                 # df_slot is the Feature table with type
                 df_slot = feature_set.features.df()
                 for _, row in df_slot.iterrows():

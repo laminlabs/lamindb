@@ -99,7 +99,7 @@ def test_feature_set_from_records(df):
     assert feature_set.id is None
     assert feature_set._state.adding
     assert feature_set.dtype is None
-    assert feature_set.registry == "core.Feature"
+    assert feature_set.registry == "Feature"
     feature_set.save()
     # test that the feature_set is retrieved from the database
     # in case it already exists

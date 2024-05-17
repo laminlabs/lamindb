@@ -50,8 +50,8 @@ def get_accessor_by_orm(host: Artifact | Collection) -> dict:
         field.related_model.__get_name_with_schema__(): field.name
         for field in host._meta.related_objects
     }
-    dictionary["core.Feature"] = "features"
-    dictionary["core.ULabel"] = "ulabels"
+    dictionary["Feature"] = "features"
+    dictionary["ULabel"] = "ulabels"
     return dictionary
 
 
@@ -102,7 +102,7 @@ def print_features(self: Data) -> str:
 
     messages = []
     for slot, feature_set in get_feature_set_by_slot(self).items():
-        if feature_set.registry != "core.Feature":
+        if feature_set.registry != "Feature":
             features = feature_set.members
             # features.first() is a lot slower than features[0] here
             name_field = get_default_str_field(features[0])
@@ -119,17 +119,15 @@ def print_features(self: Data) -> str:
             messages.append(
                 f"  {colors.bold(slot)}: {format_repr(feature_set, exclude='hash')}\n"
             )
-            for name, row_type, registries in feature_set.features.values_list(
-                "name", "dtype", "registries"
-            ):
-                if row_type == "cat" and registries is not None:
+            for name, dtype in feature_set.features.values_list("name", "dtype"):
+                if dtype.startswith("cat["):
                     labels = self.labels.get(features_lookup.get(name), mute=True)
                     indent = ""
                     if isinstance(labels, dict):
-                        messages.append(f"    🔗 {name} ({registries})\n")
+                        messages.append(f"    🔗 {name} ({dtype})\n")
                         indent = "    "
                     else:
-                        labels = {registries: labels}
+                        labels = {dtype: labels}
                     for registry, registry_labels in labels.items():
                         field = get_default_str_field(registry_labels)
                         values_list = registry_labels.values_list(field, flat=True)
@@ -140,7 +138,7 @@ def print_features(self: Data) -> str:
                         )
                         messages.append(msg_objects)
                 else:
-                    messages.append(f"    {name} ({row_type})\n")
+                    messages.append(f"    {name} ({dtype})\n")
     if messages:
         messages.insert(0, f"{colors.green('Features')}:\n")
     return "".join(messages)
