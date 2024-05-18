@@ -1,5 +1,6 @@
 # Changelog
 
+- 🏗️ Protect deletion in link tables, better names for link tables, maintain integrity upon label & feature renames [PR](https://github.com/laminlabs/lamindb/pull/1666) [@falexwolf](https://github.com/falexwolf)
 - ♻️ Rename `.type` to `.dtype` in `Feature` and `FeatureSet` & refactor feature types [PR](https://github.com/laminlabs/lamindb/pull/1663) [@falexwolf](https://github.com/falexwolf)
 - 🏗️ Re-design link tables between `Bionty` & `Artifact` to account for `Feature` [PR](https://github.com/laminlabs/lamindb/pull/1661) [@falexwolf](https://github.com/falexwolf)
 - 🚸 Better annotation flow: support non-categorical data, dictionary annotation & dictionary access (I) [PR](https://github.com/laminlabs/lamindb/pull/1655) [@falexwolf](https://github.com/falexwolf)
