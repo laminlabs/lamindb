@@ -4,7 +4,7 @@ from typing import TYPE_CHECKING, Dict
 
 import numpy as np
 from lamin_utils import colors, logger
-from lnschema_core.models import Artifact, Collection, Data, Feature, Registry
+from lnschema_core.models import Artifact, Collection, Data, Feature, LinkORM, Registry
 
 from lamindb._from_values import _print_values
 from lamindb._registry import (
@@ -38,6 +38,8 @@ def get_labels_as_dict(self: Data):
             "report_of",
             "environment_of",
         }:
+            continue
+        if isinstance(related_model, LinkORM):
             continue
         labels[related_name] = (related_model, self.__getattribute__(related_name))
     return labels
