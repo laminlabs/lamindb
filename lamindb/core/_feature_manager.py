@@ -69,10 +69,9 @@ def get_feature_set_by_slot(host) -> dict:
     feature_set_links = (
         host.feature_sets.through.objects.using(host_db)
         .filter(**kwargs)
-        .select_related("feature_set")
+        .select_related("featureset")
     )
-
-    return {fsl.slot: fsl.feature_set for fsl in feature_set_links}
+    return {fsl.slot: fsl.featureset for fsl in feature_set_links}
 
 
 def get_label_links(
