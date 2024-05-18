@@ -49,8 +49,8 @@ def test_features_add(adata):
     # delete everything we created
     artifact.delete(permanent=True)
     ln.ULabel.filter().all().delete()
-    ln.Feature.filter().all().delete()
     ln.FeatureSet.filter().all().delete()
+    ln.Feature.filter().all().delete()
 
 
 def test_labels_add(adata):
@@ -144,9 +144,9 @@ def test_labels_add(adata):
 
     collection.delete(permanent=True)
     artifact.delete(permanent=True)
+    ln.FeatureSet.filter().all().delete()
     ln.Feature.filter().all().delete()
     ln.ULabel.filter().all().delete()
-    ln.FeatureSet.filter().all().delete()
 
 
 def test_add_labels_using_anndata(adata):
