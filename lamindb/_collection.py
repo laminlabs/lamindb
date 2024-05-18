@@ -190,7 +190,7 @@ def from_artifacts(artifacts: Iterable[Artifact]) -> tuple[str, dict[str, str]]:
         # 60k genes
         feature_ids = (
             features_registry.feature_sets.through.objects.filter(
-                featureset_id__in=feature_set_ids_slot
+                feature_set_id__in=feature_set_ids_slot
             )
             .values(f"{features_registry.__name__.lower()}_id")
             .distinct()

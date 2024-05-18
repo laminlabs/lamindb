@@ -37,8 +37,6 @@ def dict_related_model_to_related_name(orm: Type[Registry]) -> dict[str, str]:
 
 
 def get_related_name(features_type: type[Registry]) -> str:
-    if features_type == Feature:
-        return "features"
     candidates = [
         field.related_name
         for field in FeatureSet._meta.related_objects
