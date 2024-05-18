@@ -82,13 +82,10 @@ def test_from_single_artifact(adata):
     run.save()
     collection = ln.Collection(artifact, name="My new collection", run=run)
     collection.save()
-    # test data flow
     assert collection.run.input_artifacts.get() == artifact
-    artifact_uid = collection.artifacts[0].uid
-    collection.artifacts[0].delete(permanent=True, storage=True)
     collection.delete(permanent=True)
-    assert ln.Artifact.filter(id=collection.id).one_or_none() is None
-    assert ln.Artifact.filter(uid=artifact_uid).one_or_none() is None
+    artifact.delete(permanent=True)
+    assert ln.Artifact.filter(id=artifact.id).one_or_none() is None
 
 
 def test_edge_cases(df):
@@ -139,9 +136,9 @@ def test_from_inconsistent_artifacts(df, adata):
     assert str(error.exconly()).startswith(
         "RuntimeError: Can only load collections where all artifacts have the same suffix"
     )
-    artifact1.delete(permanent=True, storage=True)
-    artifact2.delete(permanent=True, storage=True)
     collection.delete(permanent=True)
+    artifact1.delete(permanent=True)
+    artifact2.delete(permanent=True)
     ln.core.run_context.run = None
     ln.core.run_context.transform = None
 
@@ -169,9 +166,9 @@ def test_from_consistent_artifacts(adata, adata2):
     assert collection2.id == collection.id
     assert collection2.name == "My test 1"
 
-    artifact1.delete(permanent=True, storage=True)
-    artifact2.delete(permanent=True, storage=True)
     collection.delete(permanent=True)
+    artifact1.delete(permanent=True)
+    artifact2.delete(permanent=True)
 
 
 def test_collection_mapped(adata, adata2):
@@ -307,11 +304,11 @@ def test_collection_mapped(adata, adata2):
         assert np.array_equal(ls_ds[0]["layer1"], np.array([0, 0, 0, 3, 0, 2]))
         assert np.array_equal(ls_ds[4]["layer1"], np.array([1, 2, 5, 0, 0, 0]))
 
-    artifact1.delete(permanent=True, storage=True)
-    artifact2.delete(permanent=True, storage=True)
-    artifact3.delete(permanent=True, storage=True)
     collection.delete(permanent=True)
     collection_outer.delete(permanent=True)
+    artifact1.delete(permanent=True)
+    artifact2.delete(permanent=True)
+    artifact3.delete(permanent=True)
 
 
 def test_is_new_version_of_versioned_collection(df, adata):
@@ -351,10 +348,12 @@ def test_is_new_version_of_versioned_collection(df, adata):
     assert collection_v3.version == "3"
     assert collection_v3.name == "test1"
 
-    collection_v2.artifacts.delete(permanent=True, storage=True)
+    artifacts_v2 = collection_v2.artifacts.all()
     collection_v2.delete(permanent=True)
-    collection.artifacts.delete(permanent=True, storage=True)
+    artifacts_v2.delete(permanent=True)
+    artifacts = collection.artifacts.all()
     collection.delete(permanent=True)
+    artifacts.delete(permanent=True)
 
 
 def test_is_new_version_of_unversioned_collection(df, adata):
@@ -371,15 +370,16 @@ def test_is_new_version_of_unversioned_collection(df, adata):
     with pytest.raises(TypeError):
         ln.Collection(adata, is_new_version_of="wrong-type")
 
-    artifact = ln.Artifact.from_anndata(adata, description="test")
-    artifact.save()
+    artifact2 = ln.Artifact.from_anndata(adata, description="test")
+    artifact2.save()
 
     # create new collection from old collection
-    new_collection = ln.Collection(artifact, is_new_version_of=collection)
+    new_collection = ln.Collection(artifact2, is_new_version_of=collection)
     assert collection.version == "1"
     assert new_collection.stem_uid == collection.stem_uid
     assert new_collection.version == "2"
     assert new_collection.name == collection.name
 
-    collection.artifacts[0].delete(permanent=True, storage=True)
     collection.delete(permanent=True)
+    artifact2.delete(permanent=True)
+    artifact.delete(permanent=True)
