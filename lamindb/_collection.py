@@ -361,7 +361,7 @@ def restore(self) -> None:
 @doc_args(Collection.artifacts.__doc__)
 def artifacts(self) -> QuerySet:
     """{}."""
-    return self.unordered_artifacts.order_by("artifact_links__id")
+    return self.unordered_artifacts.order_by("collection_links__id")
 
 
 METHOD_NAMES = [
