@@ -44,7 +44,7 @@ def test_features_add(adata):
     temperature.dtype = "number"
     temperature.save()
     artifact.features.add({"temperature": 27.2})
-    assert artifact.artifactfeaturevalue_set.first().feature_value.value == 27.2
+    assert artifact.feature_values.first().value == 27.2
 
     # delete everything we created
     artifact.delete(permanent=True)
@@ -332,14 +332,11 @@ def test_add_labels_using_anndata(adata):
     artifact.describe()
 
     # clean up
+    artifact.delete(permanent=True)
     bt.Gene.filter().all().delete()
     bt.Organism.filter().all().delete()
-    ln.Feature.filter(name="organism").one().delete()
-    ln.Artifact.filter(description="Mini adata").one().delete(
-        permanent=True, storage=True
-    )
     ln.FeatureSet.filter().all().delete()
-    feature_name_feature.delete()
+    ln.Feature.all().delete()
     bt.CellType.filter().all().delete()
     bt.Tissue.filter().all().delete()
     bt.Disease.filter().all().delete()

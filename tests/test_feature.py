@@ -97,10 +97,10 @@ def test_feature_from_df(df):
     ) == {"cond1", "cond2"}
 
     # clean up
+    artifact.delete(permanent=True)
     ln.ULabel.filter().all().delete()
     for feature in features:
         feature.delete()
-    artifact.delete(permanent=True, storage=True)
 
 
 def test_feature_init():
