@@ -23,7 +23,7 @@ def dict_related_model_to_related_name(orm: Type[Registry]) -> dict[str, str]:
     d: dict = {
         i.related_model.__get_name_with_schema__(): i.related_name
         for i in orm._meta.related_objects
-        if i.related_name is not None
+        if (i.name is not None and not issubclass(i.related_model, LinkORM))
     }
     d.update(
         {
