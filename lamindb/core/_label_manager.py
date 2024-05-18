@@ -26,7 +26,7 @@ def get_labels_as_dict(self: Data):
     labels = {}  # type: ignore
     if self.id is None:
         return labels
-    for related_model, related_name in dict_related_model_to_related_name(
+    for related_model_name, related_name in dict_related_model_to_related_name(
         self.__class__
     ).items():
         if related_name in {
@@ -39,9 +39,7 @@ def get_labels_as_dict(self: Data):
             "environment_of",
         }:
             continue
-        if isinstance(related_model, LinkORM):
-            continue
-        labels[related_name] = (related_model, self.__getattribute__(related_name))
+        labels[related_name] = (related_model_name, self.__getattribute__(related_name))
     return labels
 
 

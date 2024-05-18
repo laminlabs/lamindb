@@ -1,6 +1,6 @@
 from typing import Type
 
-from lnschema_core.models import FeatureSet, Registry
+from lnschema_core.models import FeatureSet, LinkORM, Registry
 
 
 def dict_schema_name_to_model_name(orm: Type[Registry]) -> dict[str, Registry]:
@@ -29,7 +29,7 @@ def dict_related_model_to_related_name(orm: Type[Registry]) -> dict[str, str]:
         {
             i.related_model.__get_name_with_schema__(): i.name
             for i in orm._meta.many_to_many
-            if i.name is not None
+            if (i.name is not None and not issubclass(i.related_model, LinkORM))
         }
     )
 
