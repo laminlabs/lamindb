@@ -97,6 +97,7 @@ def test_anndata_annotator(adata, categoricals):
     assert collection.artifacts[0] == artifact
 
     # clean up
+    artifact.delete(permanent=True)
     ln.ULabel.filter().all().delete()
     bt.ExperimentalFactor.filter().all().delete()
     bt.CellType.filter().all().delete()
