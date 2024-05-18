@@ -439,7 +439,7 @@ class FeatureManager:
         if link_record is None:
             self._host.feature_sets.through(**kwargs).save(using=host_db)
             if slot in self.feature_set_by_slot:
-                logger.warning(f"replaced existing {slot} featureset")
+                logger.debug(f"replaced existing {slot} featureset")
             # this _feature_set_by_slot here is private
             self._feature_set_by_slot[slot] = feature_set  # type: ignore
 
