@@ -98,9 +98,9 @@ def test_feature_from_df(df):
 
     # clean up
     artifact.delete(permanent=True)
+    ln.FeatureSet.filter().all().delete()
     ln.ULabel.filter().all().delete()
-    for feature in features:
-        feature.delete()
+    ln.Feature.filter().all().delete()
 
 
 def test_feature_init():

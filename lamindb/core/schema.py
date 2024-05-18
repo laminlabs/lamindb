@@ -1,6 +1,6 @@
 from typing import Type
 
-from lnschema_core.models import FeatureSet, LinkORM, Registry
+from lnschema_core.models import Feature, FeatureSet, LinkORM, Registry
 
 
 def dict_schema_name_to_model_name(orm: Type[Registry]) -> dict[str, Registry]:
@@ -36,7 +36,9 @@ def dict_related_model_to_related_name(orm: Type[Registry]) -> dict[str, str]:
     return d
 
 
-def get_related_name(features_type: Registry) -> str:
+def get_related_name(features_type: type[Registry]) -> str:
+    if features_type == Feature:
+        return "features"
     candidates = [
         field.related_name
         for field in FeatureSet._meta.related_objects
