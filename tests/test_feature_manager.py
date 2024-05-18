@@ -357,7 +357,7 @@ def test_labels_get():
     artifact.save()
     assert str(artifact.features) == "no linked features"
     artifact.features.add_feature_set(feature_set, slot="random")
-    assert artifact.feature_sets["random"] == feature_set
+    assert artifact.features["random"] == feature_set
     artifact.delete(permanent=True, storage=True)
     feature_set.delete()
     feature_name_feature.delete()
