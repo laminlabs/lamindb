@@ -177,7 +177,7 @@ def from_artifacts(artifacts: Iterable[Artifact]) -> tuple[str, dict[str, str]]:
     feature_sets_by_slots = defaultdict(list)
     logger.debug("slots")
     for link in feature_set_artifact_links:
-        feature_sets_by_slots[link.slot].append(link.feature_set_id)
+        feature_sets_by_slots[link.slot].append(link.featureset_id)
     feature_sets_union = {}
     logger.debug("union")
     for slot, feature_set_ids_slot in feature_sets_by_slots.items():
@@ -190,7 +190,7 @@ def from_artifacts(artifacts: Iterable[Artifact]) -> tuple[str, dict[str, str]]:
         # 60k genes
         feature_ids = (
             features_registry.feature_sets.through.objects.filter(
-                feature_set_id__in=feature_set_ids_slot
+                featureset_id__in=feature_set_ids_slot
             )
             .values(f"{features_registry.__name__.lower()}_id")
             .distinct()
