@@ -427,7 +427,7 @@ class FeatureManager:
         host_id_field = get_host_id_field(self._host)
         kwargs = {
             host_id_field: self._host.id,
-            "feature_set": feature_set,
+            "featureset": feature_set,
             "slot": slot,
         }
         link_record = (
@@ -438,7 +438,7 @@ class FeatureManager:
         if link_record is None:
             self._host.feature_sets.through(**kwargs).save(using=host_db)
             if slot in self.feature_set_by_slot:
-                logger.debug(f"replaced existing {slot} featureset")
+                logger.debug(f"replaced existing {slot} feature set")
             # this _feature_set_by_slot here is private
             self._feature_set_by_slot[slot] = feature_set  # type: ignore
 
