@@ -59,6 +59,7 @@ test-search2
 test-search3
 test-search4
 test-search5
+default_storage
 
 # General
 .DS_Store
@@ -211,12 +212,3 @@ _build
 
 # VSCode
 .vscode
-
-# fred files
-docs/guide/insert-some-data-into-frederic-hub.ipynb
-docs/guide/insert-data-in-test-user-1-profile.ipynb
-
-# key guide
-docs/faq/complex_biological_project
-key-eval
-sample_001

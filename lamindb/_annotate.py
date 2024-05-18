@@ -306,7 +306,7 @@ class DataFrameAnnotator:
         else:
             collection.save()
             logger.warning(f"collection already exists in {colors.italic(slug)}!")
-        if ln_setup.settings.instance.is_remote:
+        if ln_setup.settings.instance.is_remote:  # pragma: no cover
             logger.print(f"go to https://lamin.ai/{slug}/collection/{collection.uid}")
         self._collection = collection
         return collection
