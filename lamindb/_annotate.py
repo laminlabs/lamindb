@@ -11,7 +11,7 @@ from lnschema_core import Artifact, Collection, Feature, Registry, Run, ULabel
 
 from .core.exceptions import ValidationError
 
-if TYPE_CHECKING:  # pragma: no cover
+if TYPE_CHECKING:
     from lamindb_setup.core.types import UPathStr
     from lnschema_core.types import FieldAttr
     from mudata import MuData
