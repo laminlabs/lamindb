@@ -77,7 +77,7 @@ def test_feature_from_df(df):
     features_lookup = ln.Feature.lookup()
     artifact.labels.add(labels, feature=features_lookup.feat3)
     assert set(
-        ln.ULabel.filter(artifactulabel__feature__name="feat3").list("name")
+        ln.ULabel.filter(artifact_links__feature__name="feat3").list("name")
     ) == {"cond1", "cond2"}
     for name in df.columns[:4]:
         queried_feature = ln.Feature.filter(name=name).one()

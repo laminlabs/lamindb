@@ -33,7 +33,7 @@ def test_features_add(adata):
     )
     ln.ULabel(name="Experiment 1").save()
     artifact.features.add({"experiment": "Experiment 1"})
-    assert artifact.artifactulabel_set.first().ulabel.name == "Experiment 1"
+    assert artifact.ulabel_links.first().ulabel.name == "Experiment 1"
     temperature = ln.Feature(name="temperature", dtype="cat").save()
     with pytest.raises(TypeError) as error:
         artifact.features.add({"temperature": 27.2})
@@ -142,8 +142,8 @@ def test_labels_add(adata):
     collection.features._add_from(artifact)
     assert set(collection.feature_sets.all()) == set(feature_sets)
 
-    collection.artifacts[0].delete(permanent=True, storage=True)
     collection.delete(permanent=True)
+    artifact.delete(permanent=True)
     ln.Feature.filter().all().delete()
     ln.ULabel.filter().all().delete()
     ln.FeatureSet.filter().all().delete()
