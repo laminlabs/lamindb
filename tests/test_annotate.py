@@ -1,8 +1,11 @@
+from unittest.mock import Mock
+
 import anndata as ad
 import bionty as bt
 import lamindb as ln
 import pandas as pd
 import pytest
+from lamindb._annotate import AnnotateLookup
 
 
 @pytest.fixture(scope="module")
@@ -54,6 +57,18 @@ def categoricals():
     }
 
 
+@pytest.fixture
+def annotate_lookup(categoricals):
+    return AnnotateLookup(categoricals=categoricals, using="undefined")
+
+
+@pytest.fixture
+def mock_registry():
+    registry = Mock()
+    registry.lookup = Mock(return_value="mocked lookup")
+    return registry
+
+
 def test_annotator(df, categoricals):
     annotate = ln.Annotate.from_df(df, categoricals=categoricals)
     validated = annotate.validate()
@@ -100,3 +115,17 @@ def test_anndata_annotator(adata, categoricals):
     ln.ULabel.filter().all().delete()
     bt.ExperimentalFactor.filter().all().delete()
     bt.CellType.filter().all().delete()
+
+
+def test_custom_using_invalid_field_lookup(annotate_lookup):
+    with pytest.raises(AttributeError) as excinfo:
+        _ = annotate_lookup["invalid_field"]
+    assert "'AnnotateLookup' object has no attribute 'invalid_field'" in str(
+        excinfo.value
+    )
+
+
+def test_init_with_default_using():
+    categorials = {"field1": Mock(field=Mock(model=Mock()))}
+    lookup = AnnotateLookup(categoricals=categorials, using="default")
+    assert lookup._using is None

@@ -22,15 +22,13 @@ class AnnotateLookup:
 
     def __init__(
         self,
-        categorials: dict[str, FieldAttr],
+        categoricals: dict[str, FieldAttr],
         slots: dict[str, FieldAttr] = None,
         using: str | None = None,
     ) -> None:
         if slots is None:
             slots = {}
-        if slots is None:
-            slots = {}
-        self._fields = {**categorials, **slots}
+        self._fields = {**categoricals, **slots}
         self._using = None if using == "default" else using
         self._using_name = self._using or ln_setup.settings.instance.slug
         debug_message = f"Lookup objects from the " f"{colors.italic(self._using_name)}"
@@ -73,7 +71,7 @@ class AnnotateLookup:
                 "Example:\n    → categories = validator.lookup().cell_type\n"
                 "    → categories.alveolar_type_1_fibroblast_cell"
             )
-        else:
+        else:  # pragma: no cover
             return colors.warning("No fields are found!")
 
 
@@ -132,7 +130,7 @@ class DataFrameAnnotator:
                 if "public", the lookup is performed on the public reference.
         """
         return AnnotateLookup(
-            categorials=self._fields,
+            categoricals=self._fields,
             slots={"columns": self._columns_field},
             using=using or self._using,
         )
@@ -399,7 +397,7 @@ class AnnDataAnnotator(DataFrameAnnotator):
                 if "public", the lookup is performed on the public reference.
         """
         return AnnotateLookup(
-            categorials=self._obs_fields,
+            categoricals=self._obs_fields,
             slots={"columns": self._columns_field, "var_index": self._var_field},
             using=using or self._using,
         )
@@ -593,7 +591,7 @@ class MuDataAnnotator:
                 if "public", the lookup is performed on the public reference.
         """
         return AnnotateLookup(
-            categorials=self._obs_fields,
+            categoricals=self._obs_fields,
             slots={
                 **self._obs_fields,
                 **{f"{k}_var_index": v for k, v in self._var_fields.items()},
