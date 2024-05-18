@@ -177,7 +177,7 @@ def from_artifacts(artifacts: Iterable[Artifact]) -> tuple[str, dict[str, str]]:
     feature_sets_by_slots = defaultdict(list)
     logger.debug("slots")
     for link in feature_set_artifact_links:
-        feature_sets_by_slots[link.slot].append(link.feature_set_id)
+        feature_sets_by_slots[link.slot].append(link.featureset_id)
     feature_sets_union = {}
     logger.debug("union")
     for slot, feature_set_ids_slot in feature_sets_by_slots.items():
@@ -361,7 +361,7 @@ def restore(self) -> None:
 @doc_args(Collection.artifacts.__doc__)
 def artifacts(self) -> QuerySet:
     """{}."""
-    return self.unordered_artifacts.order_by("collectionartifact__id")
+    return self.unordered_artifacts.order_by("collection_links__id")
 
 
 METHOD_NAMES = [

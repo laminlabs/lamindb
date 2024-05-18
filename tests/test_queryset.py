@@ -55,6 +55,7 @@ def test_df():
     for label in labels:
         label.delete()
 
+    feature_set.delete()
     for feature in features:
         feature.delete()
 

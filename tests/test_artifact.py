@@ -264,8 +264,8 @@ def test_create_from_dataframe_using_from_df_and_link_features(df):
     feature_list_queried = ln.Feature.filter(feature_sets=feature_set_queried).list()
     feature_list_queried = [feature.name for feature in feature_list_queried]
     assert set(feature_list_queried) == set(df.columns)
-    feature_set_queried.delete()
     artifact.delete(permanent=True, storage=True)
+    feature_set_queried.delete()
     ln.Feature.filter(name__in=["feat1", "feat2"]).delete()
 
 
@@ -287,10 +287,10 @@ def test_create_from_anndata_in_memory_and_link_features(adata):
     assert set(features_queried.list("name")) == set(adata.obs.columns)
     genes_queried = bt.Gene.filter(feature_sets__in=feature_sets_queried).all()
     assert set(genes_queried.list("symbol")) == set(adata.var.index)
+    artifact.delete(permanent=True, storage=True)
     feature_sets_queried.delete()
     features_queried.delete()
     genes_queried.delete()
-    artifact.delete(permanent=True, storage=True)
 
 
 def test_create_from_anndata_strpath(adata_file):

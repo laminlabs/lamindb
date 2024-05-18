@@ -132,9 +132,8 @@ def test_feature_set_from_df(df):
     feature_set = ln.FeatureSet.from_df(df)
     feature_set.save()
     assert feature_set.dtype is None
-    for feature in feature_set.features.all():
-        feature.delete()
-    feature_set.delete()
+    ln.FeatureSet.filter().all().delete()
+    ln.Feature.filter().all().delete()
 
 
 def test_get_related_name():

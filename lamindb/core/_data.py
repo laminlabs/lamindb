@@ -87,7 +87,7 @@ def save_feature_set_links(self: Artifact | Collection) -> None:
         for slot, feature_set in self._feature_sets.items():
             kwargs = {
                 host_id_field: self.id,
-                "feature_set_id": feature_set.id,
+                "featureset_id": feature_set.id,
                 "slot": slot,
             }
             links.append(Data.feature_sets.through(**kwargs))
@@ -310,11 +310,11 @@ def add_labels(
                 labels_accessor.remove(*linked_labels)
             labels_accessor.add(*records, through_defaults={"feature_id": feature.id})
         feature_set_links = get_feature_set_links(self)
-        feature_set_ids = [link.feature_set_id for link in feature_set_links.all()]
+        feature_set_ids = [link.featureset_id for link in feature_set_links.all()]
         # get all linked features of type Feature
         feature_sets = FeatureSet.filter(id__in=feature_set_ids).all()
         linked_features_by_slot = {
-            feature_set_links.filter(feature_set_id=feature_set.id)
+            feature_set_links.filter(featureset_id=feature_set.id)
             .one()
             .slot: feature_set.features.all()
             for feature_set in feature_sets
@@ -357,11 +357,11 @@ def add_labels(
                     ).one()
                     old_feature_set_link.delete()
                     remaining_links = self.feature_sets.through.objects.filter(
-                        feature_set_id=feature_set.id
+                        featureset_id=feature_set.id
                     ).all()
                     if len(remaining_links) == 0:
                         old_feature_set = FeatureSet.filter(
-                            id=old_feature_set_link.feature_set_id
+                            id=old_feature_set_link.featureset_id
                         ).one()
                         logger.info(
                             "nothing links to it anymore, deleting feature set"
