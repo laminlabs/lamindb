@@ -50,10 +50,10 @@ jobs:
           path: ~/postgres.tar
           key: cache-postgres-0
       - name: cache postgres miss
-        if: ${{ steps.cache-postgres.outputs.cache-hit != 'true' && matrix.group == 'faq' || matrix.group == 'unit' }}
+        if: ${{ steps.cache-postgres.outputs.cache-hit != 'true' }}
         run: docker pull postgres:latest && docker image save postgres:latest --output ~/postgres.tar
       - name: cache postgres use
-        if: ${{ steps.cache-postgres.outputs.cache-hit == 'true' && matrix.group == 'faq' || matrix.group == 'unit' }}
+        if: ${{ steps.cache-postgres.outputs.cache-hit == 'true' }}
         run: docker image load --input ~/postgres.tar
       - run: pip install -U laminci
       - name: install postgres
