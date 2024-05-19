@@ -1,5 +1,6 @@
 # Changelog
 
+- ✨ Extend managed access for AWS S3 to arbitrary paths [PR](https://github.com/laminlabs/lamindb/pull/1668) [@falexwolf](https://github.com/falexwolf)
 - ♻️ Reformulate data lineage, remove json field from run [PR](https://github.com/laminlabs/lamindb/pull/1667) [@falexwolf](https://github.com/falexwolf)
 - 🏗️ Protect deletion in link tables, better names for link tables, maintain integrity upon label & feature renames [PR](https://github.com/laminlabs/lamindb/pull/1666) [@falexwolf](https://github.com/falexwolf)
 - ♻️ Rename `.type` to `.dtype` in `Feature` and `FeatureSet` & refactor feature types [PR](https://github.com/laminlabs/lamindb/pull/1663) [@falexwolf](https://github.com/falexwolf)
