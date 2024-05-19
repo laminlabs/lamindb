@@ -7,6 +7,8 @@ from lamin_utils import logger
 from lamindb_setup.core._docs import doc_args
 from lnschema_core.models import Registry
 
+from lamindb.core._settings import settings
+
 from .core._feature_manager import get_feature_set_by_slot
 
 if TYPE_CHECKING:
@@ -41,7 +43,10 @@ class QueryManager(models.Manager):
                 from lamindb.core._data import WARNING_RUN_TRANSFORM, _track_run_input
                 from lamindb.core._run_context import run_context
 
-                if run_context.run is None:
+                if (
+                    run_context.run is None
+                    and not settings.silence_file_run_transform_warning
+                ):
                     logger.warning(WARNING_RUN_TRANSFORM)
                 _track_run_input(self.instance)
 
