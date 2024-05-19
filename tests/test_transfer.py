@@ -67,7 +67,7 @@ def test_transfer_from_remote_to_local():
 
     # check the feature name
     bt.settings.organism = "human"
-    assert artifact2.organism.get(name="human") == bt.settings.organism
+    assert artifact2.organisms.get(name="human") == bt.settings.organism
     assert artifact.features["obs"].get(name="organism").uid == "existing"
 
     bt.Gene.filter().delete()

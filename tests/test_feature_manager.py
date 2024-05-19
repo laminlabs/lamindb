@@ -227,7 +227,7 @@ def test_add_labels_using_anndata(adata):
     organism.save()
     artifact.labels.add(organism, feature=features.organism)
     organism_link = artifact.organism_links.first()
-    assert organism_link.organism.name == "mouse"
+    assert organism_link.organisms.name == "mouse"
     assert organism_link.feature.name == "organism"
     feature = ln.Feature.filter(name="organism").one()
     assert feature.dtype == "cat[bionty.Organism]"
