@@ -209,6 +209,8 @@ def members(self) -> QuerySet:
         # need to fix this
         return self._features[1]
     related_name = self._get_related_name()
+    if related_name is None:
+        related_name = "features"
     return self.__getattribute__(related_name).all()
 
 

@@ -22,6 +22,7 @@ def pytest_sessionstart():
     )
     ln.setup.register()  # temporarily
     ln.setup.settings.auto_connect = True
+    ln.settings.silence_file_run_transform_warning = True
 
 
 def pytest_sessionfinish(session: pytest.Session):
