@@ -224,7 +224,7 @@ def get_labels(
         for v in qs_by_registry.values():
             values += v.list(get_default_str_field(v))
         return values
-    if len(registries_to_check) == 1:
+    if len(registries_to_check) == 1 and registry in qs_by_registry:
         return qs_by_registry[registry]
     else:
         return qs_by_registry
