@@ -212,7 +212,7 @@ def get_labels(
             qs_by_registry[registry] = ULabel.objects.using(self._state.db).filter(
                 id__in=label_ids
             )
-        else:
+        elif registry in self.features.accessor_by_orm:
             qs_by_registry[registry] = getattr(
                 self, self.features.accessor_by_orm[registry]
             ).all()
