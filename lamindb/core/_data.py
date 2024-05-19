@@ -301,6 +301,9 @@ def add_labels(
                 record
             )
         for registry_name, records in records_by_registry.items():
+            if registry_name not in self.features.accessor_by_orm:
+                logger.warning(f"skipping {registry_name}")
+                continue
             labels_accessor = getattr(
                 self, self.features.accessor_by_orm[registry_name]
             )
