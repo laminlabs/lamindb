@@ -194,14 +194,14 @@ def parse_and_link_params(run: Run, params: dict) -> None:
     for key, value in params.items():
         param = Param.filter(name=key).one_or_none()
         if param is None:
-            dtype = str(type(value))
+            dtype = type(value).__name__
             logger.warning(
-                f"param '{key}' does not yet exist, creating it with dtype {dtype}"
+                f"param '{key}' does not yet exist, creating it with dtype '{dtype}'"
             )
-            Param(name=key, dtype=dtype).save()
-        param_values.append(ParamValue(param=param, value=value))
+            param = Param(name=key, dtype=dtype).save()
+        param_value, _ = ParamValue.objects.get_or_create(param=param, value=value)
+        param_values.append(param_value)
     if param_values:
-        save(param_values)
         links = [
             RunParamValue(run_id=run.id, paramvalue_id=param_value.id)
             for param_value in param_values
