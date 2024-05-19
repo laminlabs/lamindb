@@ -196,10 +196,10 @@ def parse_and_link_params(run: Run, params: dict) -> None:
         if param is None:
             dtype = str(type(value))
             logger.warning(
-                f"param {param} does not yet exist, creating it with dtype {dtype}"
+                f"param '{key}' does not yet exist, creating it with dtype {dtype}"
             )
             Param(name=key, dtype=dtype).save()
-        param_values.append(ParamValue(param, value=value))
+        param_values.append(ParamValue(param=param, value=value))
     if param_values:
         save(param_values)
         links = [
@@ -334,7 +334,6 @@ class run_context:
             )
             if run is not None:  # loaded latest run
                 run.started_at = datetime.now(timezone.utc)  # update run time
-                run.json = params  # update run params
                 logger.important(f"loaded: {run}")
 
         if run is None:  # create new run
@@ -348,6 +347,8 @@ class run_context:
         run.is_consecutive = True if is_run_from_ipython else None
         # need to save in all cases
         run.save()
+        if params is not None:
+            parse_and_link_params(run, params)
         cls.run = run
 
         from ._track_environment import track_environment
