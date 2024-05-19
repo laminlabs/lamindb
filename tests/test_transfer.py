@@ -70,8 +70,8 @@ def test_transfer_from_remote_to_local():
     assert artifact2.organisms.get(name="human") == bt.settings.organism
     assert artifact.features["obs"].get(name="organism").uid == "existing"
 
-    artifact.delete(permanent=True)
-    artifact2.delete(permanent=True)
+    artifact.delete(permanent=True, storage=False)
+    artifact2.delete(permanent=True, storage=False)
     ln.FeatureSet.filter().delete()
     bt.Gene.filter().delete()
     bt.Organism.filter().delete()
