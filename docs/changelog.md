@@ -1,13 +1,5 @@
 # Changelog
 
-- 📝 Fix docs [PR](https://github.com/laminlabs/lamindb/pull/1669) [@falexwolf](https://github.com/falexwolf)
-- ✨ Extend managed access for AWS S3 to arbitrary paths [PR](https://github.com/laminlabs/lamindb/pull/1668) [@falexwolf](https://github.com/falexwolf)
-- ♻️ Reformulate data lineage, remove json field from run [PR](https://github.com/laminlabs/lamindb/pull/1667) [@falexwolf](https://github.com/falexwolf)
-- 🏗️ Protect deletion in link tables, better names for link tables, maintain integrity upon label & feature renames [PR](https://github.com/laminlabs/lamindb/pull/1666) [@falexwolf](https://github.com/falexwolf)
-- ♻️ Rename `.type` to `.dtype` in `Feature` and `FeatureSet` & refactor feature types [PR](https://github.com/laminlabs/lamindb/pull/1663) [@falexwolf](https://github.com/falexwolf)
-- 🏗️ Re-design link tables between `Bionty` & `Artifact` to account for `Feature` [PR](https://github.com/laminlabs/lamindb/pull/1661) [@falexwolf](https://github.com/falexwolf)
-- 🚸 Better annotation flow: support non-categorical data, dictionary annotation & dictionary access (I) [PR](https://github.com/laminlabs/lamindb/pull/1655) [@falexwolf](https://github.com/falexwolf)
-- :bug: Remove debugging print statements [PR](https://github.com/laminlabs/lamindb/pull/1660) [@Zethson](https://github.com/Zethson)
 :::{note}
 
 If using LaminHub, please use the latest version of lamindb.
@@ -19,6 +11,26 @@ LaminDB implements "migration-based versioning". When upgrading your LaminDB ins
 ```{eval-rst}
 .. role:: small
 ```
+
+## 0.72
+
+### 0.72.0 {small}`2024-05-19`
+
+- ✨ Extend managed access for AWS S3 to arbitrary paths [PR](https://github.com/laminlabs/lamindb/pull/1668) [@Koncopd](https://github.com/Koncopd) [@fredericenard](https://github.com/fredericenard)
+- ✨ Extended data lineage tracking [PR](https://github.com/laminlabs/lamindb/pull/1667) [@falexwolf](https://github.com/falexwolf)
+    - Now store all _creating_ runs and all _updating_ runs for any entity, not just for `Artifact` & `Collection`, e.g., runs can now have `CellType` record outputs
+    - Code is simpler through inheritance from two new base classes: `TracksRun` and `TracksUpdates`
+- ♻️ Briefer and richer syntax for denoting feature types, renamed `Feature.type` to `Feature.dtype`, e.g., for categorical features, a valid type can be: `cat[ULabel|bionty.Drug]` [PR](https://github.com/laminlabs/lamindb/pull/1663) [@falexwolf](https://github.com/falexwolf)
+- ✨ Support non-categorical metadata [PR](https://github.com/laminlabs/lnschema-core/pull/379) [@falexwolf](https://github.com/falexwolf)
+    - Track non-categorical features: `int`, `float`, `bool`, `datetime`, lists & dictionaries stored in a `FeatureValue` registry
+    - Track arbitrary typed parameters for runs through a `Param` registry analogous to the `Feature` registry: this replaces the hard-to-validate, hard-to-migrate, and hard-to-query `json` field of `Run`
+- 🏗️ Refactor link models [PR](https://github.com/laminlabs/lamindb/pull/1666) [PR](https://github.com/laminlabs/lamindb/pull/1661) [@falexwolf](https://github.com/falexwolf)
+    - All annotation-related links are now stratified by `Feature`: what held for `ULabel` now also holds `CellType` and all other `Bionty` registries
+    - Indicate whether semantic keys were used during validation to enable warnings upon renames
+    - Protect artifact annotations rather than cascade delete them
+    - More consistent naming of link models, e.g., `ulabels.artifact_links` instead of `ulabels.artifactulabel_set`
+    - Dropped linking `Bionty` entities directly against `Collection`
+    - Pruned & squashed migrations for faster instance creation
 
 ## 0.71
 
