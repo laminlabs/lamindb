@@ -319,7 +319,7 @@ class FeatureManager:
             save(feature_values)
             LinkORM = self._host.feature_values.through
             links = [
-                LinkORM(artifact_id=self._host.id, feature_value_id=feature_value.id)
+                LinkORM(artifact_id=self._host.id, featurevalue_id=feature_value.id)
                 for feature_value in feature_values
             ]
             LinkORM.objects.bulk_create(links)

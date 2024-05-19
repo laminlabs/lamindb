@@ -10,9 +10,11 @@ from typing import TYPE_CHECKING
 from lamin_utils import logger
 from lamindb_setup.core.hashing import hash_file
 from lnschema_core import Run, Transform, ids
+from lnschema_core.models import Param, ParamValue, RunParamValue
 from lnschema_core.types import TransformType
 from lnschema_core.users import current_user_id
 
+from lamindb._save import save
 from lamindb.core._transform_settings import transform as transform_settings
 
 from ._settings import settings
@@ -185,6 +187,26 @@ def pretty_pypackages(dependencies: dict) -> str:
             deps_list.append(pkg)
     deps_list.sort()
     return " ".join(deps_list)
+
+
+def parse_and_link_params(run: Run, params: dict) -> None:
+    param_values = []
+    for key, value in params.items():
+        param = Param.filter(name=key).one_or_none()
+        if param is None:
+            dtype = str(type(value))
+            logger.warning(
+                f"param {param} does not yet exist, creating it with dtype {dtype}"
+            )
+            Param(name=key, dtype=dtype).save()
+        param_values.append(ParamValue(param, value=value))
+    if param_values:
+        save(param_values)
+        links = [
+            RunParamValue(run_id=run.id, paramvalue_id=param_value.id)
+            for param_value in param_values
+        ]
+        RunParamValue.objects.bulk_create(links)
 
 
 class run_context:

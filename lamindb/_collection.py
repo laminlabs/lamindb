@@ -121,7 +121,7 @@ def __init__(
             # save the information that this artifact was previously
             # produced by another run
             if existing_collection.run is not None:
-                existing_collection.run.replicated_output_collections.add(
+                existing_collection.run.output_collections_with_later_updates.add(
                     existing_collection
                 )
             # update the run of the artifact with the latest run
