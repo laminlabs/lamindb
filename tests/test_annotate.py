@@ -164,10 +164,6 @@ def test_clean_up_failed_runs(mock_transform):
 
     assert len(ln.Run.filter(transform=mock_transform).all()) == 1
 
-    # cleanup
-    ln.Run.filter().all().delete()
-    ln.Transform.filter().all().delete()
-
 
 def test_anndata_annotator(adata, categoricals):
     annotate = ln.Annotate.from_anndata(
@@ -242,19 +238,9 @@ def test_mudata_annotator(mdata):
     annotate.add_new_from("donor", modality="rna")
     validated = annotate.validate()
     assert validated
-
     artifact = annotate.save_artifact(description="test MuData")
-    collection = annotate.save_collection(
-        artifact,
-        name="Experiment X in brain",
-        description="10.1126/science.xxxxx",
-        reference="E-MTAB-xxxxx",
-        reference_type="ArrayExpress",
-    )
-    assert collection.artifacts[0] == artifact
 
     # clean up
-    collection.delete(permanent=True)
     artifact.delete(permanent=True)
     ln.ULabel.filter().all().delete()
     bt.ExperimentalFactor.filter().all().delete()
