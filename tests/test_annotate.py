@@ -143,7 +143,7 @@ def test_unvalidated_data_object(df, categoricals):
     assert "Data object is not validated" in str(error.value)
 
 
-def test_clean_up_failed_runs(mock_transform):
+def test_clean_up_failed_runs():
     mock_transform = ln.Transform()
     mock_transform.save()
     mock_run = ln.Run(mock_transform)
@@ -154,6 +154,9 @@ def test_clean_up_failed_runs(mock_transform):
     # Set the default currently used transform and mock run -> these should not be cleaned up
     from lamindb.core._run_context import run_context
 
+    previous_transform = run_context.transform
+    previous_run = run_context.run
+
     run_context.transform = mock_transform
     run_context.run = mock_run
 
@@ -163,6 +166,10 @@ def test_clean_up_failed_runs(mock_transform):
     annotate.clean_up_failed_runs()
 
     assert len(ln.Run.filter(transform=mock_transform).all()) == 1
+
+    # Revert to old run context to not infer with tests that need the run context
+    run_context.transform = previous_transform
+    run_context.run = previous_run
 
 
 def test_anndata_annotator(adata, categoricals):
