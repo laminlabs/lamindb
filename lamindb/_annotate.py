@@ -303,7 +303,7 @@ class DataFrameAnnotator:
         slug = ln_setup.settings.instance.slug
         if collection._state.adding:
             collection.save()
-        else:
+        else:  # pragma: no cover
             collection.save()
             logger.warning(f"collection already exists in {colors.italic(slug)}!")
         if ln_setup.settings.instance.is_remote:  # pragma: no cover

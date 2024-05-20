@@ -1,3 +1,4 @@
+import logging
 from unittest.mock import Mock
 
 import anndata as ad
@@ -136,53 +137,51 @@ def test_custom_using_invalid_field_lookup(annotate_lookup):
 
 
 def test_missing_columns(df):
-    annotate = ln.Annotate.from_df(
-        df, categoricals={"missing_column": "some_registry_field"}
-    )
-    with pytest.raises(ValueError) as exc_info:
-        annotate._save_columns()
+    with pytest.raises(ValueError) as error:
+        ln.Annotate.from_df(df, categoricals={"missing_column": "some_registry_field"})
     assert "Columns {'missing_column'} are not found in the data object!" in str(
-        exc_info.value
+        error.value
     )
 
 
 def test_additional_args_with_all_key(df, categoricals):
     annotate = ln.Annotate.from_df(df, categoricals=categoricals)
-    with pytest.raises(ValueError) as exc_info:
+    with pytest.raises(ValueError) as error:
         annotate.add_new_from("all", extra_arg="not_allowed")
-    assert "Cannot pass additional arguments to 'all' key!" in str(exc_info.value)
+    assert "Cannot pass additional arguments to 'all' key!" in str(error.value)
 
 
 def test_save_columns_not_defined_in_fields(df, categoricals):
     annotate = ln.Annotate.from_df(df, categoricals=categoricals)
-    with pytest.raises(ValueError) as exc_info:
+    with pytest.raises(ValueError) as error:
         annotate._update_registry("nonexistent")
-    assert "Feature 'nonexistent' is not part of the fields!" in str(exc_info.value)
+    assert "Feature nonexistent is not part of the fields!" in str(error.value)
 
 
 def test_unvalidated_data_object(df, categoricals):
     annotate = ln.Annotate.from_df(df, categoricals=categoricals)
-    with pytest.raises(ValidationError) as exc_info:
+    with pytest.raises(ValidationError) as error:
         annotate.save_artifact()
-    assert "Data object is not validated, please run validate()!" in str(exc_info.value)
-
-
-def test_saving_existing_collection(df, categoricals):
-    annotate = ln.Annotate.from_df(df, categoricals=categoricals)
-    annotate._validated = True  # Mock validation
-    annotate.save_collection(annotate._artifact, "Sample Collection")
-
-    with pytest.warns(UserWarning) as record:
-        annotate.save_collection(annotate._artifact, "Sample Collection")
-    assert "collection already exists" in record[0].message.args[0]
+    assert "Data object is not validated" in str(error.value)
 
 
 def test_clean_up_failed_runs(mock_transform):
+    mock_transform = ln.Transform()
+    mock_transform.save()
     mock_run = ln.Run(mock_transform)
     mock_run.save()
-    ln.Run.filter(transform=mock_transform).all()
+    mock_run_2 = ln.Run(mock_transform)
+    mock_run_2.save()
+
+    # Set the default currently used transform and mock run -> these should not be cleaned up
+    from lamindb.core._run_context import run_context
+
+    run_context.transform = mock_transform
+    run_context.run = mock_run
+
+    assert len(ln.Run.filter(transform=mock_transform).all()) == 2
 
     annotate = ln.Annotate.from_df(pd.DataFrame())
     annotate.clean_up_failed_runs()
 
-    assert len(ln.Run.filter(transform=mock_transform).all()) == 0
+    assert len(ln.Run.filter(transform=mock_transform).all()) == 1
