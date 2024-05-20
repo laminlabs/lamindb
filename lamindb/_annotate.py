@@ -489,6 +489,7 @@ class MuDataAnnotator:
             For example:
             ``{"modality_1": bt.Gene.ensembl_gene_id, "modality_2": ln.CellMarker.name}``
         categoricals: A dictionary mapping ``.obs.columns`` to a registry field.
+            Use modality keys to specify categoricals for MuData slots such as `"rna:cell_type": bt.CellType.name"`.
         using: A reference LaminDB instance.
         verbosity: The verbosity level.
         organism: The organism name.
@@ -1016,7 +1017,7 @@ def save_artifact(
         _add_labels(data, artifact, fields)
 
     slug = ln_setup.settings.instance.slug
-    if ln_setup.settings.instance.is_remote:
+    if ln_setup.settings.instance.is_remote:  # pragma: no cover
         logger.important(f"go to https://lamin.ai/{slug}/artifact/{artifact.uid}")
     return artifact
 
@@ -1204,7 +1205,7 @@ def update_registry_from_using_instance(
     return labels_saved, not_saved
 
 
-def _save_organism(name: str):
+def _save_organism(name: str):  # pragma: no cover
     """Save an organism record."""
     import bionty as bt
 
