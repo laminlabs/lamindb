@@ -4,6 +4,7 @@ from unittest.mock import Mock
 import anndata as ad
 import bionty as bt
 import lamindb as ln
+import mudata as md
 import pandas as pd
 import pytest
 from lamindb._annotate import AnnotateLookup
@@ -51,6 +52,13 @@ def adata():
 
 
 @pytest.fixture(scope="module")
+def mdata(adata):
+    mdata = md.MuData({"rna": adata, "rna_2": adata})
+
+    return mdata
+
+
+@pytest.fixture(scope="module")
 def categoricals():
     return {
         "cell_type": bt.CellType.name,
@@ -93,36 +101,6 @@ def test_df_annotator(df, categoricals):
     assert validated is True
 
     # clean up
-    ln.ULabel.filter().all().delete()
-    bt.ExperimentalFactor.filter().all().delete()
-    bt.CellType.filter().all().delete()
-
-
-def test_anndata_annotator(adata, categoricals):
-    annotate = ln.Annotate.from_anndata(
-        adata,
-        categoricals=categoricals,
-        var_index=bt.Gene.symbol,  # specify the field for the var
-        organism="human",
-    )
-    annotate.add_validated_from("all")
-    annotate.add_new_from("donor")
-    validated = annotate.validate()
-    assert validated
-
-    artifact = annotate.save_artifact(description="test AnnData")
-    collection = annotate.save_collection(
-        artifact,
-        name="Experiment X in brain",
-        description="10.1126/science.xxxxx",
-        reference="E-MTAB-xxxxx",
-        reference_type="ArrayExpress",
-    )
-    assert collection.artifacts[0] == artifact
-
-    # clean up
-    collection.delete(permanent=True)
-    artifact.delete(permanent=True)
     ln.ULabel.filter().all().delete()
     bt.ExperimentalFactor.filter().all().delete()
     bt.CellType.filter().all().delete()
@@ -191,12 +169,42 @@ def test_clean_up_failed_runs(mock_transform):
     ln.Transform.filter().all().delete()
 
 
+def test_anndata_annotator(adata, categoricals):
+    annotate = ln.Annotate.from_anndata(
+        adata,
+        categoricals=categoricals,
+        var_index=bt.Gene.symbol,
+        organism="human",
+    )
+    annotate.add_validated_from("all")
+    annotate.add_new_from("donor")
+    validated = annotate.validate()
+    assert validated
+
+    artifact = annotate.save_artifact(description="test AnnData")
+    collection = annotate.save_collection(
+        artifact,
+        name="Experiment X in brain",
+        description="10.1126/science.xxxxx",
+        reference="E-MTAB-xxxxx",
+        reference_type="ArrayExpress",
+    )
+    assert collection.artifacts[0] == artifact
+
+    # clean up
+    collection.delete(permanent=True)
+    artifact.delete(permanent=True)
+    ln.ULabel.filter().all().delete()
+    bt.ExperimentalFactor.filter().all().delete()
+    bt.CellType.filter().all().delete()
+
+
 def test_anndata_annotator_wrong_type(df, categoricals):
     with pytest.raises(ValueError) as error:
         ln.Annotate.from_anndata(
             df,
             categoricals=categoricals,
-            var_index=bt.Gene.symbol,  # specify the field for the var
+            var_index=bt.Gene.symbol,
             organism="human",
         )
     assert "data has to be an AnnData object" in str(error.value)
@@ -206,9 +214,48 @@ def test_unvalidated_adata_object(adata, categoricals):
     annotate = ln.Annotate.from_anndata(
         adata,
         categoricals=categoricals,
-        var_index=bt.Gene.symbol,  # specify the field for the var
+        var_index=bt.Gene.symbol,
         organism="human",
     )
     with pytest.raises(ValidationError) as error:
         annotate.save_artifact()
     assert "Data object is not validated" in str(error.value)
+
+
+def test_mudata_annotator(mdata):
+    categoricals = {
+        "rna:cell_type": bt.CellType.name,
+        "rna:assay_ontology_id": bt.ExperimentalFactor.ontology_id,
+        "rna:donor": ln.ULabel.name,
+        "rna_2:cell_type": bt.CellType.name,
+        "rna_2:assay_ontology_id": bt.ExperimentalFactor.ontology_id,
+        "rna_2:donor": ln.ULabel.name,
+    }
+
+    annotate = ln.Annotate.from_mudata(
+        mdata,
+        categoricals=categoricals,
+        var_index={"rna": bt.Gene.symbol, "rna_2": bt.Gene.symbol},
+        organism="human",
+    )
+    annotate.add_validated_from("all", modality="rna")
+    annotate.add_new_from("donor", modality="rna")
+    validated = annotate.validate()
+    assert validated
+
+    artifact = annotate.save_artifact(description="test MuData")
+    collection = annotate.save_collection(
+        artifact,
+        name="Experiment X in brain",
+        description="10.1126/science.xxxxx",
+        reference="E-MTAB-xxxxx",
+        reference_type="ArrayExpress",
+    )
+    assert collection.artifacts[0] == artifact
+
+    # clean up
+    collection.delete(permanent=True)
+    artifact.delete(permanent=True)
+    ln.ULabel.filter().all().delete()
+    bt.ExperimentalFactor.filter().all().delete()
+    bt.CellType.filter().all().delete()
