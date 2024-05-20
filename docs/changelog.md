@@ -1,5 +1,6 @@
 # Changelog
 
+- 📝 Update intro [PR](https://github.com/laminlabs/lamindb/pull/1670) [@sunnyosun](https://github.com/sunnyosun)
 :::{note}
 
 If using LaminHub, please use the latest version of lamindb.
