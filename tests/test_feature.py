@@ -77,7 +77,7 @@ def test_feature_from_df(df):
     features_lookup = ln.Feature.lookup()
     artifact.labels.add(labels, feature=features_lookup.feat3)
     assert set(
-        ln.ULabel.filter(artifactulabel__feature__name="feat3").list("name")
+        ln.ULabel.filter(artifact_links__feature__name="feat3").list("name")
     ) == {"cond1", "cond2"}
     for name in df.columns[:4]:
         queried_feature = ln.Feature.filter(name=name).one()
@@ -97,10 +97,10 @@ def test_feature_from_df(df):
     ) == {"cond1", "cond2"}
 
     # clean up
+    artifact.delete(permanent=True)
+    ln.FeatureSet.filter().all().delete()
     ln.ULabel.filter().all().delete()
-    for feature in features:
-        feature.delete()
-    artifact.delete(permanent=True, storage=True)
+    ln.Feature.filter().all().delete()
 
 
 def test_feature_init():

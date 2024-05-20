@@ -5,6 +5,7 @@ import pytest
 
 # some validate tests are in test_queryset
 def test_inspect():
+    ln.FeatureSet.filter().all().delete()
     bt.Gene.filter().all().delete()
     bt.settings.organism = "human"
     result = bt.Gene.inspect("TCF7", "symbol")

@@ -419,7 +419,8 @@ def transfer_to_default_db(
             if run_context.run is not None:
                 record.run_id = run_context.run.id
             else:
-                logger.warning(WARNING_RUN_TRANSFORM)
+                if not settings.silence_file_run_transform_warning:
+                    logger.warning(WARNING_RUN_TRANSFORM)
                 record.run_id = None
         if hasattr(record, "transform_id") and record._meta.model_name != "run":
             record.transform = None

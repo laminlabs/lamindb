@@ -69,10 +69,9 @@ def get_feature_set_by_slot(host) -> dict:
     feature_set_links = (
         host.feature_sets.through.objects.using(host_db)
         .filter(**kwargs)
-        .select_related("feature_set")
+        .select_related("featureset")
     )
-
-    return {fsl.slot: fsl.feature_set for fsl in feature_set_links}
+    return {fsl.slot: fsl.featureset for fsl in feature_set_links}
 
 
 def get_label_links(
@@ -320,7 +319,7 @@ class FeatureManager:
             save(feature_values)
             LinkORM = self._host.feature_values.through
             links = [
-                LinkORM(artifact_id=self._host.id, feature_value_id=feature_value.id)
+                LinkORM(artifact_id=self._host.id, featurevalue_id=feature_value.id)
                 for feature_value in feature_values
             ]
             LinkORM.objects.bulk_create(links)
@@ -428,7 +427,7 @@ class FeatureManager:
         host_id_field = get_host_id_field(self._host)
         kwargs = {
             host_id_field: self._host.id,
-            "feature_set": feature_set,
+            "featureset": feature_set,
             "slot": slot,
         }
         link_record = (
@@ -439,7 +438,7 @@ class FeatureManager:
         if link_record is None:
             self._host.feature_sets.through(**kwargs).save(using=host_db)
             if slot in self.feature_set_by_slot:
-                logger.warning(f"replaced existing {slot} featureset")
+                logger.debug(f"replaced existing {slot} feature set")
             # this _feature_set_by_slot here is private
             self._feature_set_by_slot[slot] = feature_set  # type: ignore
 

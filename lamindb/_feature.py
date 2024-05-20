@@ -18,6 +18,7 @@ if TYPE_CHECKING:
     from lnschema_core.types import FieldAttr
 
 FEATURE_TYPES = {
+    "number": "number",
     "int": "int",
     "float": "float",
     "bool": "bool",
@@ -68,7 +69,7 @@ def __init__(self, *args, **kwargs):
                 "cat"
             ):
                 raise ValueError(
-                    "dtype has to be one of 'number', 'cat', 'bool', 'cat[...]'!"
+                    f"dtype is {dtype_str} but has to be one of 'number', 'int', 'float', 'cat', 'bool', 'cat[...]'!"
                 )
             if dtype_str != "cat" and dtype_str.startswith("cat"):
                 registries_str = dtype_str.replace("cat[", "").rstrip("]")

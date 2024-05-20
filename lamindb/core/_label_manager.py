@@ -4,9 +4,8 @@ from typing import TYPE_CHECKING, Dict
 
 import numpy as np
 from lamin_utils import colors, logger
-from lnschema_core.models import Artifact, Collection, Data, Feature, Registry
+from lnschema_core.models import Artifact, Collection, Data, Feature, LinkORM, Registry
 
-from lamindb._feature_set import dict_related_model_to_related_name
 from lamindb._from_values import _print_values
 from lamindb._registry import (
     REGISTRY_UNIQUE_FIELD,
@@ -17,14 +16,17 @@ from lamindb._registry import (
 from lamindb._save import save
 
 from ._settings import settings
+from .schema import dict_related_model_to_related_name
 
 if TYPE_CHECKING:
     from lamindb._query_set import QuerySet
 
 
 def get_labels_as_dict(self: Data):
-    labels = {}
-    for related_model, related_name in dict_related_model_to_related_name(
+    labels = {}  # type: ignore
+    if self.id is None:
+        return labels
+    for related_model_name, related_name in dict_related_model_to_related_name(
         self.__class__
     ).items():
         if related_name in {
@@ -37,12 +39,13 @@ def get_labels_as_dict(self: Data):
             "environment_of",
         }:
             continue
-        if self.id is not None:
-            labels[related_name] = (related_model, self.__getattribute__(related_name))
+        labels[related_name] = (related_model_name, self.__getattribute__(related_name))
     return labels
 
 
-def print_labels(self: Data, field: str = "name"):
+def print_labels(
+    self: Data, field: str = "name", ignore_labels_with_feature: bool = True
+):
     labels_msg = ""
     for related_name, (related_model, labels) in get_labels_as_dict(self).items():
         try:

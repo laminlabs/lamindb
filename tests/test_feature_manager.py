@@ -33,7 +33,7 @@ def test_features_add(adata):
     )
     ln.ULabel(name="Experiment 1").save()
     artifact.features.add({"experiment": "Experiment 1"})
-    assert artifact.artifactulabel_set.first().ulabel.name == "Experiment 1"
+    assert artifact.ulabel_links.first().ulabel.name == "Experiment 1"
     temperature = ln.Feature(name="temperature", dtype="cat").save()
     with pytest.raises(TypeError) as error:
         artifact.features.add({"temperature": 27.2})
@@ -44,13 +44,13 @@ def test_features_add(adata):
     temperature.dtype = "number"
     temperature.save()
     artifact.features.add({"temperature": 27.2})
-    assert artifact.artifactfeaturevalue_set.first().feature_value.value == 27.2
+    assert artifact.feature_values.first().value == 27.2
 
     # delete everything we created
     artifact.delete(permanent=True)
     ln.ULabel.filter().all().delete()
-    ln.Feature.filter().all().delete()
     ln.FeatureSet.filter().all().delete()
+    ln.Feature.filter().all().delete()
 
 
 def test_labels_add(adata):
@@ -142,11 +142,11 @@ def test_labels_add(adata):
     collection.features._add_from(artifact)
     assert set(collection.feature_sets.all()) == set(feature_sets)
 
-    collection.artifacts[0].delete(permanent=True, storage=True)
     collection.delete(permanent=True)
+    artifact.delete(permanent=True)
+    ln.FeatureSet.filter().all().delete()
     ln.Feature.filter().all().delete()
     ln.ULabel.filter().all().delete()
-    ln.FeatureSet.filter().all().delete()
 
 
 def test_add_labels_using_anndata(adata):
@@ -215,7 +215,7 @@ def test_add_labels_using_anndata(adata):
 
     # check the basic construction of the feature set based on obs
     feature_set_obs = artifact.feature_sets.filter(
-        registry="Feature", artifactfeatureset__slot="obs"
+        registry="Feature", artifact_links__slot="obs"
     ).one()
     assert feature_set_obs.n == 4
     assert "organism" not in feature_set_obs.features.list("name")
@@ -226,17 +226,17 @@ def test_add_labels_using_anndata(adata):
         artifact.labels.add(organism, feature=features.organism)
     organism.save()
     artifact.labels.add(organism, feature=features.organism)
-    organism_link = artifact.artifactorganism_set.first()
+    organism_link = artifact.organism_links.first()
     assert organism_link.organism.name == "mouse"
     assert organism_link.feature.name == "organism"
     feature = ln.Feature.filter(name="organism").one()
     assert feature.dtype == "cat[bionty.Organism]"
     feature_set_obs = artifact.feature_sets.filter(
-        registry="Feature", artifactfeatureset__slot="obs"
+        registry="Feature", artifact_links__slot="obs"
     ).one()
     assert feature_set_obs.n == 4
     feature_set_ext = artifact.feature_sets.filter(
-        registry="Feature", artifactfeatureset__slot="external"
+        registry="Feature", artifact_links__slot="external"
     ).one()
     assert feature_set_ext.n == 1
     assert "organism" in feature_set_ext.features.list("name")
@@ -332,14 +332,11 @@ def test_add_labels_using_anndata(adata):
     artifact.describe()
 
     # clean up
+    artifact.delete(permanent=True)
     bt.Gene.filter().all().delete()
     bt.Organism.filter().all().delete()
-    ln.Feature.filter(name="organism").one().delete()
-    ln.Artifact.filter(description="Mini adata").one().delete(
-        permanent=True, storage=True
-    )
     ln.FeatureSet.filter().all().delete()
-    feature_name_feature.delete()
+    ln.Feature.filter().all().delete()
     bt.CellType.filter().all().delete()
     bt.Tissue.filter().all().delete()
     bt.Disease.filter().all().delete()
@@ -360,7 +357,7 @@ def test_labels_get():
     artifact.save()
     assert str(artifact.features) == "no linked features"
     artifact.features.add_feature_set(feature_set, slot="random")
-    assert artifact.feature_sets["random"] == feature_set
+    assert artifact.feature_sets.first() == feature_set
     artifact.delete(permanent=True, storage=True)
     feature_set.delete()
     feature_name_feature.delete()
