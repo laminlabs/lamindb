@@ -15,6 +15,8 @@ Registries:
    IsVersioned
    CanValidate
    HasParents
+   TracksRun
+   TracksUpdates
    InspectResult
    fields
 
@@ -56,6 +58,8 @@ from lnschema_core.models import (
     HasParents,
     IsVersioned,
     Registry,
+    TracksRun,
+    TracksUpdates,
 )
 
 from lamindb._annotate import (

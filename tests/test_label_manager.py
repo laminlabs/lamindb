@@ -4,45 +4,50 @@ import pytest
 
 
 @pytest.fixture
-def get_test_files():
+def get_test_artifacts():
     with open("./default_storage/test-inherit1", "w") as f:
-        f.write("file1")
+        f.write("artifact1")
     with open("./default_storage/test-inherit2", "w") as f:
-        f.write("file2")
-    file1 = ln.Artifact("./default_storage/test-inherit1")
-    file1.save()
-    file2 = ln.Artifact("./default_storage/test-inherit2")
-    file2.save()
-    yield file1, file2
-    file1.delete(permanent=True, storage=True)
-    file2.delete(permanent=True, storage=True)
+        f.write("artifact2")
+    artifact1 = ln.Artifact("./default_storage/test-inherit1")
+    artifact1.save()
+    artifact2 = ln.Artifact("./default_storage/test-inherit2")
+    artifact2.save()
+    yield artifact1, artifact2
+    artifact1.delete(permanent=True, storage=True)
+    artifact2.delete(permanent=True, storage=True)
 
 
 # also see test_feature_manager!
-def test_add_from(get_test_files):
-    file1, file2 = get_test_files
+def test_add_from(get_test_artifacts):
+    artifact1, artifact2 = get_test_artifacts
     label_names = [f"Project {i}" for i in range(3)]
-    labels = [ln.ULabel(name=label_name) for label_name in label_names]
-    ln.save(labels)
+    ulabels = [ln.ULabel(name=label_name) for label_name in label_names]
+    ln.save(ulabels)
 
     cell_line_names = [f"Cell line {i}" for i in range(3)]
     cell_lines = [bt.CellLine(name=name) for name in cell_line_names]
     ln.save(cell_lines)
 
     # pass a list of length 0
-    file2.labels.add([])
+    artifact2.labels.add([])
     # now actually pass the labels
-    file2.labels.add(labels)
+    artifact2.labels.add(ulabels)
     # here test add without passing a feature
-    file2.labels.add(cell_lines)
-    assert file2.cell_lines.count() == len(cell_lines)
+    artifact2.labels.add(cell_lines)
+    assert artifact2.cell_lines.count() == len(cell_lines)
 
-    assert file1.ulabels.exists() is False
-    file1.labels.add_from(file2)
-    assert file1.ulabels.count() == file2.ulabels.count()
-    assert file1.cell_lines.count() == file2.cell_lines.count()
+    assert artifact1.ulabels.exists() is False
+    artifact1.labels.add_from(artifact2)
+    assert artifact1.ulabels.count() == artifact2.ulabels.count()
+    assert artifact1.cell_lines.count() == artifact2.cell_lines.count()
 
-    for label in labels:
-        label.delete()
+    artifact2.cell_lines.remove(*cell_lines)
+    artifact1.cell_lines.remove(*cell_lines)
+    artifact2.ulabels.remove(*ulabels)
+    artifact1.ulabels.remove(*ulabels)
+
+    for ulabel in ulabels:
+        ulabel.delete()
     for cell_line in cell_lines:
         cell_line.delete()
