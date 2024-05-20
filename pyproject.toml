@@ -71,6 +71,7 @@ dev = [
     "pytest>=6.0",
     "coverage",
     "pytest-cov",
+    "mudata",
     # others
     "nbproject_test>=0.5.1",
     # biology
