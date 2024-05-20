@@ -185,3 +185,30 @@ def test_clean_up_failed_runs(mock_transform):
     annotate.clean_up_failed_runs()
 
     assert len(ln.Run.filter(transform=mock_transform).all()) == 1
+
+    # cleanup
+    ln.Run.filter().all().delete()
+    ln.Transform.filter().all().delete()
+
+
+def test_anndata_annotator_wrong_type(df, categoricals):
+    with pytest.raises(ValueError) as error:
+        ln.Annotate.from_anndata(
+            df,
+            categoricals=categoricals,
+            var_index=bt.Gene.symbol,  # specify the field for the var
+            organism="human",
+        )
+    assert "data has to be an AnnData object" in str(error.value)
+
+
+def test_unvalidated_adata_object(adata, categoricals):
+    annotate = ln.Annotate.from_anndata(
+        adata,
+        categoricals=categoricals,
+        var_index=bt.Gene.symbol,  # specify the field for the var
+        organism="human",
+    )
+    with pytest.raises(ValidationError) as error:
+        annotate.save_artifact()
+    assert "Data object is not validated" in str(error.value)

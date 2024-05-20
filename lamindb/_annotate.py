@@ -361,7 +361,7 @@ class AnnDataAnnotator(DataFrameAnnotator):
             )
         if isinstance(data, ad.AnnData):
             self._adata = data
-        else:
+        else:  # pragma: no cover
             from lamindb.core.storage._backed_access import backed_access
 
             self._adata = backed_access(upath.create_path(data))
@@ -464,7 +464,9 @@ class AnnDataAnnotator(DataFrameAnnotator):
             A saved artifact record.
         """
         if not self._validated:
-            raise ValidationError("Please run `validate()` first!")
+            raise ValidationError(
+                f"Data object is not validated, please run {colors.yellow('validate()')}!"
+            )
 
         self._artifact = save_artifact(
             self._data,
