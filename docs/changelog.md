@@ -1,5 +1,6 @@
 # Changelog
 
+- ⬆️ Update bionty [PR](https://github.com/laminlabs/lamindb/pull/1671) [@sunnyosun](https://github.com/sunnyosun)
 - 📝 Update intro [PR](https://github.com/laminlabs/lamindb/pull/1670) [@sunnyosun](https://github.com/sunnyosun)
 :::{note}
 
