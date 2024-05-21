@@ -1,7 +1,6 @@
 # Changelog
 
-- ⬆️ Update bionty [PR](https://github.com/laminlabs/lamindb/pull/1671) [@sunnyosun](https://github.com/sunnyosun)
-- 📝 Update intro [PR](https://github.com/laminlabs/lamindb/pull/1670) [@sunnyosun](https://github.com/sunnyosun)
+
 :::{note}
 
 If using LaminHub, please use the latest version of lamindb.
@@ -15,6 +14,11 @@ LaminDB implements "migration-based versioning". When upgrading your LaminDB ins
 ```
 
 ## 0.72
+
+### 0.72.1 {small}`2024-05-19`
+
+- ⬆️ Update bionty [PR](https://github.com/laminlabs/lamindb/pull/1671) [@sunnyosun](https://github.com/sunnyosun)
+- 🐛 Deal with migration errors when keep-artifacts-local is true [PR](https://github.com/laminlabs/lamindb-setup/pull/767) [@falexwolf](https://github.com/falexwolf)
 
 ### 0.72.0 {small}`2024-05-19`
 
