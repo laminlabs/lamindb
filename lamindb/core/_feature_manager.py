@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections import defaultdict
 from itertools import compress
 from typing import TYPE_CHECKING, Iterable
 
@@ -29,6 +30,7 @@ from lamindb._save import save
 from lamindb.core.exceptions import ValidationError
 from lamindb.core.storage import LocalPathClasses
 
+from ._label_manager import get_labels_as_dict
 from ._settings import settings
 
 if TYPE_CHECKING:
@@ -100,6 +102,21 @@ def print_features(self: Data) -> str:
     from ._data import format_repr
 
     messages = []
+    # link tables
+    labels_msg = ""
+    field = "name"
+    labels_by_feature = defaultdict(list)
+    for _, (_, links) in get_labels_as_dict(self, links=True).items():
+        for link in links:
+            if link.feature_id is not None:
+                labels_by_feature[link.feature_id].append(
+                    self.ulabels.get(id=link.ulabel_id).name
+                )
+    for feature_id, labels_str in labels_by_feature.items():
+        feature = Feature.objects.get(id=feature_id)
+        labels_msg += f"  {feature.name}: {feature.dtype} = {labels_str}\n"
+    messages.append(labels_msg)
+    # feature sets
     for slot, feature_set in get_feature_set_by_slot(self).items():
         if feature_set.registry != "Feature":
             features = feature_set.members
@@ -107,7 +124,7 @@ def print_features(self: Data) -> str:
             name_field = get_default_str_field(features[0])
             feature_names = list(features.values_list(name_field, flat=True)[:30])
             messages.append(
-                f"  {colors.bold(slot)}: {format_repr(feature_set, exclude='hash')}\n"
+                f"  {colors.bold(slot)}: {format_repr(feature_set, exclude_field_names='hash')}\n"
             )
             print_values = _print_values(feature_names, n=20)
             messages.append(f"    {print_values}\n")
@@ -116,24 +133,24 @@ def print_features(self: Data) -> str:
                 f.name: f for f in Feature.objects.using(self._state.db).filter().all()
             }
             messages.append(
-                f"  {colors.bold(slot)}: {format_repr(feature_set, exclude='hash')}\n"
+                f"  {colors.bold(slot)}: {format_repr(feature_set, exclude_field_names='hash')}\n"
             )
             for name, dtype in feature_set.features.values_list("name", "dtype"):
                 if dtype.startswith("cat["):
                     labels = self.labels.get(features_lookup.get(name), mute=True)
                     indent = ""
                     if isinstance(labels, dict):
-                        messages.append(f"    🔗 {name} ({dtype})\n")
+                        messages.append(f"    {name} ({dtype})\n")
                         indent = "    "
                     else:
                         labels = {dtype: labels}
                     for registry, registry_labels in labels.items():
                         field = get_default_str_field(registry_labels)
                         values_list = registry_labels.values_list(field, flat=True)
-                        count_str = f"{feature_set.n}, {colors.italic(f'{registry}')}"
+                        count_str = f"{f'{registry}'}"
                         print_values = _print_values(values_list[:20], n=10)
                         msg_objects = (
-                            f"{indent}    🔗 {name} ({count_str}):" f" {print_values}\n"
+                            f"{indent}    {name} ({count_str}):" f" {print_values}\n"
                         )
                         messages.append(msg_objects)
                 else:

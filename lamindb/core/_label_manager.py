@@ -22,24 +22,31 @@ if TYPE_CHECKING:
     from lamindb._query_set import QuerySet
 
 
-def get_labels_as_dict(self: Data):
+def get_labels_as_dict(self: Data, links: bool = False):
+    exclude_set = {
+        "feature_sets",
+        "unordered_artifacts",
+        "input_of",
+        "collections",
+        "source_code_of",
+        "report_of",
+        "environment_of",
+        "collection_links",
+        "feature_set_links",
+        "previous_runs",
+        "feature_values",
+    }
     labels = {}  # type: ignore
     if self.id is None:
         return labels
     for related_model_name, related_name in dict_related_model_to_related_name(
-        self.__class__
+        self.__class__, links=links
     ).items():
-        if related_name in {
-            "feature_sets",
-            "unordered_artifacts",
-            "input_of",
-            "collections",
-            "source_of",
-            "report_of",
-            "environment_of",
-        }:
-            continue
-        labels[related_name] = (related_model_name, self.__getattribute__(related_name))
+        if related_name not in exclude_set:
+            labels[related_name] = (
+                related_model_name,
+                getattr(self, related_name).all(),
+            )
     return labels
 
 
@@ -48,18 +55,17 @@ def print_labels(
 ):
     labels_msg = ""
     for related_name, (related_model, labels) in get_labels_as_dict(self).items():
+        # there is a try except block here to deal with schema inconsistencies
+        # during transfer between instances
         try:
             labels_list = list(labels.values_list(field, flat=True))
             if len(labels_list) > 0:
                 get_default_str_field(labels)
-                print_values = _print_values(labels_list[:20], n=10)
-                labels_msg += f"  📎 {related_name} ({len(labels_list)}, {colors.italic(related_model)}): {print_values}\n"
+                print_values = _print_values(labels_list, n=10)
+                labels_msg += f"  {related_name}: {related_model} = {print_values}\n"
         except Exception:
             continue
-    if len(labels_msg) > 0:
-        return f"{colors.green('Labels')}:\n{labels_msg}"
-    else:
-        return ""
+    return labels_msg
 
 
 def transfer_add_labels(labels, features_lookup_self, self, row, parents: bool = True):
@@ -168,11 +174,16 @@ class LabelManager:
         Args:
             records: Label records to add.
             feature: Feature under which to group the labels.
-            field: Field to parse iterable with from_values.
         """
         from ._data import add_labels
 
         return add_labels(self._host, records=records, feature=feature)
+
+    def remove(self, record: Registry):
+        """Remove a label."""
+        d = dict_related_model_to_related_name(self._host.__class__)
+        related_name = d[record.__class__]
+        getattr(self._host, related_name).remove(record)
 
     def get(
         self,
