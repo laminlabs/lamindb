@@ -30,6 +30,11 @@ def test_track_with_multi_parents():
         assert param_value.value == params[param_value.param.name]
         del params[param_value.param.name]
     assert len(params) == 0
+
+    # test that run populates things like ULabels etc.
+    ulabel = ln.ULabel(name="my-label-in-track")
+    assert ulabel.run == ln.core.run_context.run
+
     # unset to remove side effects
     ln.core.run_context.run = None
     ln.core.run_context.transform = None
