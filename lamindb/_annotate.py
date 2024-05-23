@@ -1124,6 +1124,8 @@ def log_saved_labels(
     validated_only: bool = True,
 ) -> None:
     """Log the saved labels."""
+    from ._from_values import _print_values
+
     model_field = colors.italic(model_field)
     for k, labels in labels_saved.items():
         if not labels:
@@ -1151,7 +1153,7 @@ def log_saved_labels(
             # labels from a public ontology or a different instance to the present instance
             s = "s" if len(labels) > 1 else ""
             logger.success(
-                f"added {len(labels)} record{s} {k}with {model_field} for {colors.italic(key)}: {labels}"
+                f"added {len(labels)} record{s} {k}with {model_field} for {colors.italic(key)}: {_print_values(labels)}"
             )
 
 
