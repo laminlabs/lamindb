@@ -14,11 +14,11 @@ from lnschema_core.models import Param, ParamValue, RunParamValue
 from lnschema_core.types import TransformType
 from lnschema_core.users import current_user_id
 
-from lamindb._save import save
 from lamindb.core._transform_settings import transform as transform_settings
 
 from ._settings import settings
 from ._sync_git import get_transform_reference_from_git_repo
+from .versioning import bump_version as bump_version_function
 
 if TYPE_CHECKING:
     from lamindb_setup.core.types import UPathStr
@@ -86,13 +86,7 @@ def update_stem_uid_or_version(
     if bump_version:
         new_stem_uid = stem_uid
         if response == "bump":
-            try:
-                new_version = str(int(version) + 1)
-            except ValueError:
-                new_version = input(
-                    f"The current version is '{version}' - please type the new"
-                    " version: "
-                )
+            new_version = bump_version_function(version, behavior="prompt")
         else:
             new_version = response
         updated = new_version != version
@@ -144,6 +138,44 @@ MESSAGE = """To track this {transform_type}, set
 ln.settings.transform.stem_uid = "{stem_uid}"
 ln.settings.transform.version = "{version}"
 """
+
+MESSAGE_UPDATE = """You updated your {transform_type}.
+
+If this is a minor update, bump your version from {old_version} to:
+
+ln.settings.transform.version = "{new_version_minor_bump}"
+
+If this is a major update, bump it to:
+
+ln.settings.transform.version = "{new_version_major_bump}"
+
+If this is a new {transform_type}, set:
+
+ln.settings.transform.stem_uid = "{new_stem_uid}"
+ln.settings.transform.version = "1"
+
+"""
+
+
+def raise_transform_settings_error_needs_update(old_version: str) -> None:
+    from lnschema_core.ids import base62_12
+
+    transform_type = "notebook" if is_run_from_ipython else "script"
+    new_stem_uid = base62_12()
+
+    raise UpdateTransformSettings(
+        MESSAGE_UPDATE.format(
+            transform_type=transform_type,
+            new_stem_uid=new_stem_uid,
+            old_version=old_version,
+            new_version_major_bump=bump_version_function(
+                old_version, bump_type="major", behavior="ignore"
+            ),
+            new_version_minor_bump=bump_version_function(
+                old_version, bump_type="minor", behavior="ignore"
+            ),
+        )
+    )
 
 
 def raise_transform_settings_error() -> None:
@@ -474,14 +506,14 @@ class run_context:
                     transform.key = key
                     transform.save()
                     logger.important(f"updated: {transform}")
-            # check whether the notebook source code was already saved
+            # check whether transform source code was already saved
             if transform.source_code_id is not None:
                 response = None
                 if is_run_from_ipython:
                     if os.getenv("LAMIN_TESTING") is None:
                         response = input(
                             "You already saved source code for this notebook."
-                            " Bump the version before a new run? (y/n)"
+                            " Auto-bump the version before a new run? (y/n)"
                         )
                     else:
                         response = "y"
@@ -492,7 +524,7 @@ class run_context:
                         if os.getenv("LAMIN_TESTING") is None:
                             response = input(
                                 "You already saved source code for this script and meanwhile modified it without bumping a version."
-                                " Bump the version before a new run? (y/n)"
+                                " Auto-bump the version before a new run? (y/n)"
                             )
                         else:
                             response = "y"
@@ -503,8 +535,10 @@ class run_context:
                     if response == "y":
                         update_stem_uid_or_version(stem_uid, version, bump_version=True)
                     else:
-                        # we want a new stem_uid in this case, hence raise the error
-                        raise_transform_settings_error()
+                        # the user didn't agree to auto-bump, hence treat manually
+                        raise_transform_settings_error_needs_update(
+                            old_version=transform.version
+                        )
             else:
                 logger.important(f"loaded: {transform}")
         cls.transform = transform

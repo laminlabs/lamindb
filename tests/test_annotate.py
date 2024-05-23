@@ -1,8 +1,14 @@
+import logging
+from unittest.mock import Mock
+
 import anndata as ad
 import bionty as bt
 import lamindb as ln
+import mudata as md
 import pandas as pd
 import pytest
+from lamindb._annotate import AnnotateLookup
+from lamindb.core.exceptions import ValidationError
 
 
 @pytest.fixture(scope="module")
@@ -46,6 +52,13 @@ def adata():
 
 
 @pytest.fixture(scope="module")
+def mdata(adata):
+    mdata = md.MuData({"rna": adata, "rna_2": adata})
+
+    return mdata
+
+
+@pytest.fixture(scope="module")
 def categoricals():
     return {
         "cell_type": bt.CellType.name,
@@ -54,7 +67,26 @@ def categoricals():
     }
 
 
-def test_annotator(df, categoricals):
+@pytest.fixture
+def annotate_lookup(categoricals):
+    return AnnotateLookup(categoricals=categoricals, using="undefined")
+
+
+@pytest.fixture
+def mock_registry():
+    registry = Mock()
+    registry.lookup = Mock(return_value="mocked lookup")
+    return registry
+
+
+@pytest.fixture
+def mock_transform():
+    mock_transform = ln.Transform(name="mock", version="0.0.0", type="notebook")
+    mock_transform.save()
+    return mock_transform
+
+
+def test_df_annotator(df, categoricals):
     annotate = ln.Annotate.from_df(df, categoricals=categoricals)
     validated = annotate.validate()
     assert validated is False
@@ -74,11 +106,77 @@ def test_annotator(df, categoricals):
     bt.CellType.filter().all().delete()
 
 
+def test_custom_using_invalid_field_lookup(annotate_lookup):
+    with pytest.raises(AttributeError) as excinfo:
+        _ = annotate_lookup["invalid_field"]
+    assert "'AnnotateLookup' object has no attribute 'invalid_field'" in str(
+        excinfo.value
+    )
+
+
+def test_missing_columns(df):
+    with pytest.raises(ValueError) as error:
+        ln.Annotate.from_df(df, categoricals={"missing_column": "some_registry_field"})
+    assert "Columns {'missing_column'} are not found in the data object!" in str(
+        error.value
+    )
+
+
+def test_additional_args_with_all_key(df, categoricals):
+    annotate = ln.Annotate.from_df(df, categoricals=categoricals)
+    with pytest.raises(ValueError) as error:
+        annotate.add_new_from("all", extra_arg="not_allowed")
+    assert "Cannot pass additional arguments to 'all' key!" in str(error.value)
+
+
+def test_save_columns_not_defined_in_fields(df, categoricals):
+    annotate = ln.Annotate.from_df(df, categoricals=categoricals)
+    with pytest.raises(ValueError) as error:
+        annotate._update_registry("nonexistent")
+    assert "Feature nonexistent is not part of the fields!" in str(error.value)
+
+
+def test_unvalidated_data_object(df, categoricals):
+    annotate = ln.Annotate.from_df(df, categoricals=categoricals)
+    with pytest.raises(ValidationError) as error:
+        annotate.save_artifact()
+    assert "Data object is not validated" in str(error.value)
+
+
+def test_clean_up_failed_runs():
+    mock_transform = ln.Transform()
+    mock_transform.save()
+    mock_run = ln.Run(mock_transform)
+    mock_run.save()
+    mock_run_2 = ln.Run(mock_transform)
+    mock_run_2.save()
+
+    # Set the default currently used transform and mock run -> these should not be cleaned up
+    from lamindb.core._run_context import run_context
+
+    previous_transform = run_context.transform
+    previous_run = run_context.run
+
+    run_context.transform = mock_transform
+    run_context.run = mock_run
+
+    assert len(ln.Run.filter(transform=mock_transform).all()) == 2
+
+    annotate = ln.Annotate.from_df(pd.DataFrame())
+    annotate.clean_up_failed_runs()
+
+    assert len(ln.Run.filter(transform=mock_transform).all()) == 1
+
+    # Revert to old run context to not infer with tests that need the run context
+    run_context.transform = previous_transform
+    run_context.run = previous_run
+
+
 def test_anndata_annotator(adata, categoricals):
     annotate = ln.Annotate.from_anndata(
         adata,
         categoricals=categoricals,
-        var_index=bt.Gene.symbol,  # specify the field for the var
+        var_index=bt.Gene.symbol,
         organism="human",
     )
     annotate.add_validated_from("all")
@@ -98,6 +196,58 @@ def test_anndata_annotator(adata, categoricals):
 
     # clean up
     collection.delete(permanent=True)
+    artifact.delete(permanent=True)
+    ln.ULabel.filter().all().delete()
+    bt.ExperimentalFactor.filter().all().delete()
+    bt.CellType.filter().all().delete()
+
+
+def test_anndata_annotator_wrong_type(df, categoricals):
+    with pytest.raises(ValueError) as error:
+        ln.Annotate.from_anndata(
+            df,
+            categoricals=categoricals,
+            var_index=bt.Gene.symbol,
+            organism="human",
+        )
+    assert "data has to be an AnnData object" in str(error.value)
+
+
+def test_unvalidated_adata_object(adata, categoricals):
+    annotate = ln.Annotate.from_anndata(
+        adata,
+        categoricals=categoricals,
+        var_index=bt.Gene.symbol,
+        organism="human",
+    )
+    with pytest.raises(ValidationError) as error:
+        annotate.save_artifact()
+    assert "Data object is not validated" in str(error.value)
+
+
+def test_mudata_annotator(mdata):
+    categoricals = {
+        "rna:cell_type": bt.CellType.name,
+        "rna:assay_ontology_id": bt.ExperimentalFactor.ontology_id,
+        "rna:donor": ln.ULabel.name,
+        "rna_2:cell_type": bt.CellType.name,
+        "rna_2:assay_ontology_id": bt.ExperimentalFactor.ontology_id,
+        "rna_2:donor": ln.ULabel.name,
+    }
+
+    annotate = ln.Annotate.from_mudata(
+        mdata,
+        categoricals=categoricals,
+        var_index={"rna": bt.Gene.symbol, "rna_2": bt.Gene.symbol},
+        organism="human",
+    )
+    annotate.add_validated_from("all", modality="rna")
+    annotate.add_new_from("donor", modality="rna")
+    validated = annotate.validate()
+    assert validated
+    artifact = annotate.save_artifact(description="test MuData")
+
+    # clean up
     artifact.delete(permanent=True)
     ln.ULabel.filter().all().delete()
     bt.ExperimentalFactor.filter().all().delete()

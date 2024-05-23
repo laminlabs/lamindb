@@ -22,15 +22,13 @@ class AnnotateLookup:
 
     def __init__(
         self,
-        categorials: dict[str, FieldAttr],
+        categoricals: dict[str, FieldAttr],
         slots: dict[str, FieldAttr] = None,
         using: str | None = None,
     ) -> None:
         if slots is None:
             slots = {}
-        if slots is None:
-            slots = {}
-        self._fields = {**categorials, **slots}
+        self._fields = {**categoricals, **slots}
         self._using = None if using == "default" else using
         self._using_name = self._using or ln_setup.settings.instance.slug
         debug_message = f"Lookup objects from the " f"{colors.italic(self._using_name)}"
@@ -73,7 +71,7 @@ class AnnotateLookup:
                 "Example:\n    → categories = validator.lookup().cell_type\n"
                 "    → categories.alveolar_type_1_fibroblast_cell"
             )
-        else:
+        else:  # pragma: no cover
             return colors.warning("No fields are found!")
 
 
@@ -132,7 +130,7 @@ class DataFrameAnnotator:
                 if "public", the lookup is performed on the public reference.
         """
         return AnnotateLookup(
-            categorials=self._fields,
+            categoricals=self._fields,
             slots={"columns": self._columns_field},
             using=using or self._using,
         )
@@ -305,10 +303,10 @@ class DataFrameAnnotator:
         slug = ln_setup.settings.instance.slug
         if collection._state.adding:
             collection.save()
-        else:
+        else:  # pragma: no cover
             collection.save()
             logger.warning(f"collection already exists in {colors.italic(slug)}!")
-        if ln_setup.settings.instance.is_remote:
+        if ln_setup.settings.instance.is_remote:  # pragma: no cover
             logger.print(f"go to https://lamin.ai/{slug}/collection/{collection.uid}")
         self._collection = collection
         return collection
@@ -363,7 +361,7 @@ class AnnDataAnnotator(DataFrameAnnotator):
             )
         if isinstance(data, ad.AnnData):
             self._adata = data
-        else:
+        else:  # pragma: no cover
             from lamindb.core.storage._backed_access import backed_access
 
             self._adata = backed_access(upath.create_path(data))
@@ -399,7 +397,7 @@ class AnnDataAnnotator(DataFrameAnnotator):
                 if "public", the lookup is performed on the public reference.
         """
         return AnnotateLookup(
-            categorials=self._obs_fields,
+            categoricals=self._obs_fields,
             slots={"columns": self._columns_field, "var_index": self._var_field},
             using=using or self._using,
         )
@@ -466,7 +464,9 @@ class AnnDataAnnotator(DataFrameAnnotator):
             A saved artifact record.
         """
         if not self._validated:
-            raise ValidationError("Please run `validate()` first!")
+            raise ValidationError(
+                f"Data object is not validated, please run {colors.yellow('validate()')}!"
+            )
 
         self._artifact = save_artifact(
             self._data,
@@ -489,6 +489,7 @@ class MuDataAnnotator:
             For example:
             ``{"modality_1": bt.Gene.ensembl_gene_id, "modality_2": ln.CellMarker.name}``
         categoricals: A dictionary mapping ``.obs.columns`` to a registry field.
+            Use modality keys to specify categoricals for MuData slots such as `"rna:cell_type": bt.CellType.name"`.
         using: A reference LaminDB instance.
         verbosity: The verbosity level.
         organism: The organism name.
@@ -593,7 +594,7 @@ class MuDataAnnotator:
                 if "public", the lookup is performed on the public reference.
         """
         return AnnotateLookup(
-            categorials=self._obs_fields,
+            categoricals=self._obs_fields,
             slots={
                 **self._obs_fields,
                 **{f"{k}_var_index": v for k, v in self._var_fields.items()},
@@ -1016,7 +1017,7 @@ def save_artifact(
         _add_labels(data, artifact, fields)
 
     slug = ln_setup.settings.instance.slug
-    if ln_setup.settings.instance.is_remote:
+    if ln_setup.settings.instance.is_remote:  # pragma: no cover
         logger.important(f"go to https://lamin.ai/{slug}/artifact/{artifact.uid}")
     return artifact
 
@@ -1124,6 +1125,8 @@ def log_saved_labels(
     validated_only: bool = True,
 ) -> None:
     """Log the saved labels."""
+    from ._from_values import _print_values
+
     model_field = colors.italic(model_field)
     for k, labels in labels_saved.items():
         if not labels:
@@ -1151,7 +1154,7 @@ def log_saved_labels(
             # labels from a public ontology or a different instance to the present instance
             s = "s" if len(labels) > 1 else ""
             logger.success(
-                f"added {len(labels)} record{s} {k}with {model_field} for {colors.italic(key)}: {labels}"
+                f"added {len(labels)} record{s} {k}with {model_field} for {colors.italic(key)}: {_print_values(labels)}"
             )
 
 
@@ -1204,7 +1207,7 @@ def update_registry_from_using_instance(
     return labels_saved, not_saved
 
 
-def _save_organism(name: str):
+def _save_organism(name: str):  # pragma: no cover
     """Save an organism record."""
     import bionty as bt
 
