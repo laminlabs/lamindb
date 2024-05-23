@@ -111,7 +111,7 @@ def store_file_or_folder(local_path: UPathStr, storage_path: UPath) -> None:
     local_path = Path(local_path)
     if not isinstance(storage_path, LocalPathClasses):
         # this uploads files and directories
-        storage_path.upload_from(local_path, dir_inplace=True, print_progress=True)
+        storage_path.upload_from(local_path, create_folder=False)
     else:  # storage path is local
         storage_path.parent.mkdir(parents=True, exist_ok=True)
         if local_path.is_file():
