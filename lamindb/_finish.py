@@ -70,9 +70,10 @@ def save_run_context_core(
 
     # for scripts, things are easy
     is_consecutive = True
+    is_notebook = transform.type == TransformType.notebook
     source_code_path = filepath
     # for notebooks, we need more work
-    if transform.type == TransformType.notebook:
+    if is_notebook:
         try:
             import nbstripout
             from nbproject.dev import (
@@ -168,9 +169,9 @@ def save_run_context_core(
             visibility=0,  # hidden file
             run=False,
         )
-        source_code.save(upload=True)
+        source_code.save(upload=True, print_progress=False)
         transform.source_code = source_code
-        logger.success(f"saved transform.source_code: {transform.source_code}")
+        logger.debug(f"saved transform.source_code: {transform.source_code}")
 
     # track environment
     filepath_env = ln_setup.settings.storage.cache_dir / f"run_env_pip_{run.uid}.txt"
@@ -185,17 +186,17 @@ def save_run_context_core(
                 visibility=0,
                 run=False,
             )
-            artifact.save(upload=True)
+            artifact.save(upload=True, print_progress=False)
         run.environment = artifact
         if new_env_artifact:
-            logger.success(f"saved run.environment: {run.environment}")
+            logger.debug(f"saved run.environment: {run.environment}")
 
     # set finished_at
     if finished_at:
         run.finished_at = datetime.now(timezone.utc)
 
     # track report and set is_consecutive
-    if not transform.type == TransformType.notebook:
+    if not is_notebook:
         run.is_consecutive = True
         run.save()
     else:
@@ -213,12 +214,12 @@ def save_run_context_core(
                 visibility=0,  # hidden file
                 run=False,
             )
-            report_file.save(upload=True)
+            report_file.save(upload=True, print_progress=False)
             run.report = report_file
         run.is_consecutive = is_consecutive
         run.save()
         transform.latest_report = run.report
-        logger.success(f"saved transform.latest_report: {transform.latest_report}")
+        logger.debug(f"saved transform.latest_report: {transform.latest_report}")
     transform.save()
 
     # finalize
@@ -226,6 +227,12 @@ def save_run_context_core(
         identifier = ln_setup.settings.instance.slug
         logger.important(
             f"go to: https://lamin.ai/{identifier}/transform/{transform.uid}"
+        )
+        thing, name = (
+            ("notebook", "notebook.ipynb") if is_notebook else ("script", "script.py")
+        )
+        logger.important(
+            f"if you want to update your {thing} without re-running it, use `lamin save {name}`"
         )
     # because run & transform changed, update the global run_context
     run_context.run = run
