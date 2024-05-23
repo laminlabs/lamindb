@@ -106,13 +106,17 @@ def read_adata_h5ad(filepath, **kwargs) -> ad.AnnData:
         return adata
 
 
-def store_file_or_folder(local_path: UPathStr, storage_path: UPath) -> None:
+def store_file_or_folder(
+    local_path: UPathStr, storage_path: UPath, print_progress: bool = True
+) -> None:
     """Store file or folder (localpath) at storagepath."""
     local_path = Path(local_path)
     if not isinstance(storage_path, LocalPathClasses):
         # this uploads files and directories
         create_folder = False if local_path.is_dir() else None
-        storage_path.upload_from(local_path, create_folder=create_folder)
+        storage_path.upload_from(
+            local_path, create_folder=create_folder, print_progress=print_progress
+        )
     else:  # storage path is local
         storage_path.parent.mkdir(parents=True, exist_ok=True)
         if local_path.is_file():
@@ -133,7 +137,9 @@ def delete_storage_using_key(
     delete_storage(filepath)
 
 
-def delete_storage(storagepath: Path):
+def delete_storage(
+    storagepath: Path, raise_file_not_found_error: bool = True
+) -> None | str:
     """Delete arbitrary artifact."""
     # TODO is_relative_to is not available in 3.8 and deprecated since 3.12
     # replace with check_path_is_child_of_root but this needs to first be debugged
@@ -157,8 +163,11 @@ def delete_storage(storagepath: Path):
             shutil.rmtree(storagepath)
         else:
             storagepath.rmdir()
-    else:
+    elif raise_file_not_found_error:
         raise FileNotFoundError(f"{storagepath} is not an existing path!")
+    else:
+        logger.warning(f"{storagepath} is not an existing path!")
+    return None
 
 
 # tested in lamin-usecases

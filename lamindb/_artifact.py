@@ -1006,7 +1006,7 @@ def delete(
         # we don't yet have logic to bring back the deleted metadata record
         # in case storage deletion fails - this is important for ACID down the road
         if delete_in_storage:
-            delete_msg = delete_storage(path)
+            delete_msg = delete_storage(path, raise_file_not_found_error=False)
             if delete_msg != "did-not-delete":
                 logger.success(f"deleted {colors.yellow(f'{path}')}")
 
@@ -1018,6 +1018,7 @@ def _delete_skip_storage(artifact, *args, **kwargs) -> None:
 # docstring handled through attach_func_to_class_method
 def save(self, upload: bool | None = None, **kwargs) -> None:
     state_was_adding = self._state.adding
+    print_progress = kwargs.pop("print_progress", True)
     access_token = kwargs.pop("access_token", None)
     local_path = None
     if upload and setup_settings.instance.keep_artifacts_local:
@@ -1038,7 +1039,9 @@ def save(self, upload: bool | None = None, **kwargs) -> None:
     using_key = None
     if "using" in kwargs:
         using_key = kwargs["using"]
-    exception = check_and_attempt_upload(self, using_key, access_token=access_token)
+    exception = check_and_attempt_upload(
+        self, using_key, access_token=access_token, print_progress=print_progress
+    )
     if exception is not None:
         self._delete_skip_storage()
         raise RuntimeError(exception)
