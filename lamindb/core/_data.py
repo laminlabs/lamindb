@@ -153,7 +153,7 @@ def describe(self: Data):
         fields_values = [(field, getattr(self, field)) for field in foreign_key_fields]
         related_msg = "".join(
             [
-                f"  {field_name}: {attr.__class__.__get_name_with_schema__()} = '{getattr(attr, get_default_str_field(attr))}'\n"
+                f"  {field_name}: {attr.__class__.__get_name_with_schema__()} = {format_field_value(getattr(attr, get_default_str_field(attr)))}\n"
                 for (field_name, attr) in fields_values
                 if attr is not None
             ]
