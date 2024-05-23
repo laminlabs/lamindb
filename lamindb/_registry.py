@@ -99,8 +99,7 @@ def __init__(orm: Registry, *args, **kwargs):
                 if existing_record is not None:
                     logger.important(
                         f"returning existing {orm.__class__.__name__} record with same"
-                        f" name{version_comment}: '{kwargs['name']}' "
-                        "(disable via setting upon_create_search_names)"
+                        f" name{version_comment}: '{kwargs['name']}'"
                     )
                     init_self_from_db(orm, existing_record)
                     return None
@@ -121,11 +120,14 @@ def from_values(
     field: StrField | None = None,
     organism: Registry | str | None = None,
     public_source: Registry | None = None,
+    create: bool = False,
     mute: bool = False,
 ) -> list[Registry]:
     """{}."""
     from_public = True if cls.__module__.startswith("lnschema_bionty.") else False
     field_str = get_default_str_field(cls, field=field)
+    if create:
+        return [cls(**{field_str: value}) for value in values]
     return get_or_create_records(
         iterable=values,
         field=getattr(cls, field_str),

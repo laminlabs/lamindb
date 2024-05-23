@@ -10,7 +10,7 @@ The registry base class:
 """
 
 
-class ValidationError(Exception):
+class ValidationError(SystemExit):
     """Validation error: not mapped in registry."""
 
     pass
