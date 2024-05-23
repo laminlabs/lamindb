@@ -1,5 +1,6 @@
 # Changelog
 
+- :sparkles: Improve coverage of annotate [PR](https://github.com/laminlabs/lamindb/pull/1665) [@Zethson](https://github.com/Zethson)
 - 🔊 Fix annotate logging [PR](https://github.com/laminlabs/lamindb/pull/1675) [@sunnyosun](https://github.com/sunnyosun)
 - 🐛 Actually add tracking run for entities beyond Artifact & Collection [PR](https://github.com/laminlabs/lamindb/pull/1673) [@falexwolf](https://github.com/falexwolf)
 
