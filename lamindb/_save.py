@@ -153,16 +153,16 @@ def check_and_attempt_upload(
     # if Artifact object is either newly instantiated or replace() was called on
     # a local env it will have a _local_filepath and needs to be uploaded
     if hasattr(artifact, "_local_filepath"):
-        # try:
-        storage_path = upload_artifact(
-            artifact,
-            using_key,
-            access_token=access_token,
-            print_progress=print_progress,
-        )
-        # except Exception as exception:
-        #     logger.warning(f"could not upload artifact: {artifact}")
-        #     return exception
+        try:
+            storage_path = upload_artifact(
+                artifact,
+                using_key,
+                access_token=access_token,
+                print_progress=print_progress,
+            )
+        except Exception as exception:
+            logger.warning(f"could not upload artifact: {artifact}")
+            return exception
         # copies (if on-disk) or moves the temporary file (if in-memory) to the cache
         if os.getenv("LAMINDB_MULTI_INSTANCE") is None:
             copy_or_move_to_cache(artifact, storage_path)
@@ -268,6 +268,8 @@ def store_artifacts(
                 if artifact not in stored_artifacts:
                     artifact._delete_skip_storage()
         error_message = prepare_error_message(artifacts, stored_artifacts, exception)
+        # this is bad because we're losing the original traceback
+        # needs to be refactored - also, the orginal error should be raised
         raise RuntimeError(error_message)
     return None
 
