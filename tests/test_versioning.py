@@ -3,7 +3,7 @@ import pandas as pd
 import pytest
 from lamindb import UPath
 from lamindb._query_set import MultipleResultsFound
-from lamindb.core.versioning import get_new_path_from_uid, set_version
+from lamindb.core.versioning import bump_version, get_new_path_from_uid, set_version
 
 
 @pytest.fixture(scope="module")
@@ -19,11 +19,25 @@ def df2():
 def test_set_version():
     # all remaining lines are covered in notebooks
     with pytest.raises(ValueError):
-        set_version(None, "1.2")
+        set_version(None, "weird-version")
+    assert set_version(None, "1.2") == "2"
     assert set_version(None, "0") == "1"
     assert set_version(None, "1") == "2"
     assert set_version("1.2.3", "0") == "1.2.3"
     assert set_version("1.2.3") == "1.2.3"
+
+
+def test_bump_version():
+    current_version_major_only = "2"
+    current_version_major_minor = "2.1"
+    weird_version = "weird-version"
+    with pytest.raises(ValueError):
+        bump_version(weird_version)
+    assert bump_version(weird_version, behavior="ignore") == "?"
+    assert bump_version(current_version_major_only, bump_type="major") == "3"
+    assert bump_version(current_version_major_only, bump_type="minor") == "2.1"
+    assert bump_version(current_version_major_minor, bump_type="major") == "3"
+    assert bump_version(current_version_major_minor, bump_type="minor") == "2.2"
 
 
 def test_add_to_version_family(df1, df2):
