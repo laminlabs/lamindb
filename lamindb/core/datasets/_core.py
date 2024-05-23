@@ -135,7 +135,7 @@ def dir_iris_images() -> UPath:  # pragma: no cover
 
     Based on: https://github.com/laminlabs/lamindb-dev-datasets/pull/2
     """
-    return UPath("s3://lamindb-dev-datasets/iris_studies")
+    return UPath("s3://lamindata/iris_studies")
 
 
 def anndata_mouse_sc_lymph_node(
