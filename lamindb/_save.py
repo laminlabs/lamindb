@@ -148,13 +148,17 @@ def check_and_attempt_upload(
     artifact: Artifact,
     using_key: str | None = None,
     access_token: str | None = None,
+    print_progress: bool = True,
 ) -> Exception | None:
     # if Artifact object is either newly instantiated or replace() was called on
     # a local env it will have a _local_filepath and needs to be uploaded
     if hasattr(artifact, "_local_filepath"):
         try:
             storage_path = upload_artifact(
-                artifact, using_key, access_token=access_token
+                artifact,
+                using_key,
+                access_token=access_token,
+                print_progress=print_progress,
             )
         except Exception as exception:
             logger.warning(f"could not upload artifact: {artifact}")
@@ -264,6 +268,8 @@ def store_artifacts(
                 if artifact not in stored_artifacts:
                     artifact._delete_skip_storage()
         error_message = prepare_error_message(artifacts, stored_artifacts, exception)
+        # this is bad because we're losing the original traceback
+        # needs to be refactored - also, the orginal error should be raised
         raise RuntimeError(error_message)
     return None
 
@@ -289,7 +295,10 @@ def prepare_error_message(records, stored_artifacts, exception) -> str:
 
 
 def upload_artifact(
-    artifact, using_key: str | None = None, access_token: str | None = None
+    artifact,
+    using_key: str | None = None,
+    access_token: str | None = None,
+    print_progress: bool = True,
 ) -> UPath:
     """Store and add file and its linked entries."""
     # can't currently use  filepath_from_artifact here because it resolves to ._local_filepath
@@ -299,5 +308,7 @@ def upload_artifact(
     )
     if hasattr(artifact, "_to_store") and artifact._to_store:
         logger.save(f"storing artifact '{artifact.uid}' at '{storage_path}'")
-        store_file_or_folder(artifact._local_filepath, storage_path)
+        store_file_or_folder(
+            artifact._local_filepath, storage_path, print_progress=print_progress
+        )
     return storage_path
