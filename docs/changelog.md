@@ -1,5 +1,6 @@
 # Changelog
 
+- 🚸 Make `upload_from()`, `download_to()`, and `view_tree()` more user friendly [PR](https://github.com/laminlabs/lamindb/pull/1677) [@falexwolf](https://github.com/falexwolf)
 - 🚸 More intuitive version updating dialogue [PR](https://github.com/laminlabs/lamindb/pull/1676) [@falexwolf](https://github.com/falexwolf)
 - :sparkles: Improve coverage of annotate [PR](https://github.com/laminlabs/lamindb/pull/1665) [@Zethson](https://github.com/Zethson)
 - 🔊 Fix annotate logging [PR](https://github.com/laminlabs/lamindb/pull/1675) [@sunnyosun](https://github.com/sunnyosun)
