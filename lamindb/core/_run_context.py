@@ -169,10 +169,10 @@ def raise_transform_settings_error_needs_update(old_version: str) -> None:
             new_stem_uid=new_stem_uid,
             old_version=old_version,
             new_version_major_bump=bump_version_function(
-                old_version, bump_type="major"
+                old_version, bump_type="major", behavior="ignore"
             ),
             new_version_minor_bump=bump_version_function(
-                old_version, bump_type="minor"
+                old_version, bump_type="minor", behavior="ignore"
             ),
         )
     )

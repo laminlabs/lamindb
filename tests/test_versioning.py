@@ -33,10 +33,11 @@ def test_bump_version():
     weird_version = "weird-version"
     with pytest.raises(ValueError):
         bump_version(weird_version)
-    assert bump_version(current_version_major_only, "major") == "3"
-    assert bump_version(current_version_major_only, "minor") == "2.1"
-    assert bump_version(current_version_major_minor, "major") == "3"
-    assert bump_version(current_version_major_minor, "minor") == "2.2"
+    assert bump_version(weird_version, behavior="ignore") == "?"
+    assert bump_version(current_version_major_only, bump_type="major") == "3"
+    assert bump_version(current_version_major_only, bump_type="minor") == "2.1"
+    assert bump_version(current_version_major_minor, bump_type="major") == "3"
+    assert bump_version(current_version_major_minor, bump_type="minor") == "2.2"
 
 
 def test_add_to_version_family(df1, df2):
