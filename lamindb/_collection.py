@@ -331,21 +331,23 @@ def save(self, transfer_labels: bool = False, using: str | None = None) -> None:
     # we don't allow updating the collection of artifacts
     # if users want to update the set of artifacts, they
     # have to create a new collection
-    links = [
-        CollectionArtifact(collection_id=self.id, artifact_id=artifact.id)
-        for artifact in self._artifacts
-    ]
-    # the below seems to preserve the order of the list in the
-    # auto-incrementing integer primary
-    # merely using .unordered_artifacts.set(*...) doesn't achieve this
-    # we need ignore_conflicts=True so that this won't error if links already exist
-    CollectionArtifact.objects.bulk_create(links, ignore_conflicts=True)
+    if hasattr(self, "_artifacts"):
+        links = [
+            CollectionArtifact(collection_id=self.id, artifact_id=artifact.id)
+            for artifact in self._artifacts
+        ]
+        # the below seems to preserve the order of the list in the
+        # auto-incrementing integer primary
+        # merely using .unordered_artifacts.set(*...) doesn't achieve this
+        # we need ignore_conflicts=True so that this won't error if links already exist
+        CollectionArtifact.objects.bulk_create(links, ignore_conflicts=True)
     save_feature_set_links(self)
     if using is not None:
         logger.warning("using argument is ignored")
     if transfer_labels:
-        for artifact in self._artifacts:
-            self.labels.add_from(artifact)
+        if hasattr(self, "_artifacts"):
+            for artifact in self._artifacts:
+                self.labels.add_from(artifact)
 
 
 # docstring handled through attach_func_to_class_method
