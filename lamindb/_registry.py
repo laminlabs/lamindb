@@ -47,31 +47,33 @@ def validate_required_fields(orm: Registry, kwargs):
         raise TypeError(f"{missing_fields} are required.")
 
 
-def suggest_objects_with_same_name(orm: Registry, kwargs) -> str | None:
-    if kwargs.get("name") is None:
-        return None
-    else:
-        queryset = _search(orm, kwargs["name"], truncate_words=True, limit=5)
-        if not queryset.exists():  # empty queryset
-            return None
-        else:
-            for record in queryset:
-                if record.name == kwargs["name"]:
-                    return "object-with-same-name-exists"
-            else:
-                s, it, nots = (
-                    ("", "it", "s") if len(queryset) == 1 else ("s", "one of them", "")
-                )
-                msg = f"record{s} with similar name{s} exist{nots}! did you mean to load {it}?"
-                if IPYTHON:
-                    from IPython.display import display
+def suggest_records_with_similar_names(record: Registry, kwargs) -> bool:
+    """Returns True if found exact match, otherwise False.
 
-                    logger.warning(f"{msg}")
-                    if settings._verbosity_int >= 1:
-                        display(queryset.df())
-                else:
-                    logger.warning(f"{msg}\n{queryset}")
-    return None
+    Logs similar matches if found.
+    """
+    if kwargs.get("name") is None:
+        return False
+    queryset = _search(record.__class__, kwargs["name"], truncate_words=True, limit=5)
+    if not queryset.exists():  # empty queryset
+        return False
+    for alternative_record in queryset:
+        if alternative_record.name == kwargs["name"]:
+            return True
+        else:
+            s, it, nots = (
+                ("", "it", "s") if len(queryset) == 1 else ("s", "one of them", "")
+            )
+            msg = f"record{s} with similar name{s} exist{nots}! did you mean to load {it}?"
+            if IPYTHON:
+                from IPython.display import display
+
+                logger.warning(f"{msg}")
+                if settings._verbosity_int >= 1:
+                    display(queryset.df())
+            else:
+                logger.warning(f"{msg}\n{queryset}")
+    return False
 
 
 def __init__(orm: Registry, *args, **kwargs):
@@ -84,8 +86,8 @@ def __init__(orm: Registry, *args, **kwargs):
         if "_has_consciously_provided_uid" in kwargs:
             has_consciously_provided_uid = kwargs.pop("_has_consciously_provided_uid")
         if settings.upon_create_search_names and not has_consciously_provided_uid:
-            result = suggest_objects_with_same_name(orm, kwargs)
-            if result == "object-with-same-name-exists":
+            match = suggest_records_with_similar_names(orm, kwargs)
+            if match:
                 if "version" in kwargs:
                     version_comment = " and version"
                     existing_record = orm.filter(
@@ -95,10 +97,10 @@ def __init__(orm: Registry, *args, **kwargs):
                     version_comment = ""
                     existing_record = orm.filter(name=kwargs["name"]).one()
                 if existing_record is not None:
-                    logger.warning(
-                        f"loaded {orm.__class__.__name__} record with same"
+                    logger.important(
+                        f"returning existing {orm.__class__.__name__} record with same"
                         f" name{version_comment}: '{kwargs['name']}' "
-                        "(disable via `ln.settings.upon_create_search_names`)"
+                        "(disable via setting upon_create_search_names)"
                     )
                     init_self_from_db(orm, existing_record)
                     return None
