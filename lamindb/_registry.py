@@ -5,27 +5,21 @@ from typing import TYPE_CHECKING, Iterable, List, NamedTuple
 
 import dj_database_url
 import lamindb_setup as ln_setup
-from django.core.exceptions import FieldDoesNotExist
 from django.db import connections
 from django.db.models import Manager, Q, QuerySet
 from lamin_utils import logger
 from lamin_utils._lookup import Lookup
-from lamin_utils._search import search as base_search
 from lamindb_setup._connect_instance import get_owner_name_from_identifier
-from lamindb_setup._init_instance import InstanceSettings
 from lamindb_setup.core._docs import doc_args
 from lamindb_setup.core._hub_core import connect_instance
-from lamindb_setup.core._settings_storage import StorageSettings
 from lnschema_core import Registry
 
 from lamindb._utils import attach_func_to_class_method
 from lamindb.core._settings import settings
-from lamindb.core.exceptions import ValidationError
 
 from ._from_values import get_or_create_records
 
 if TYPE_CHECKING:
-    import pandas as pd
     from lnschema_core.types import ListLike, StrField
 
 IPYTHON = getattr(builtins, "__IPYTHON__", False)
@@ -57,7 +51,7 @@ def suggest_objects_with_same_name(orm: Registry, kwargs) -> str | None:
     if kwargs.get("name") is None:
         return None
     else:
-        queryset = orm.search(kwargs["name"])
+        queryset = _search(orm, kwargs["name"], truncate_words=True, limit=5)
         if not queryset.exists():  # empty queryset
             return None
         else:
@@ -65,10 +59,10 @@ def suggest_objects_with_same_name(orm: Registry, kwargs) -> str | None:
                 if record.name == kwargs["name"]:
                     return "object-with-same-name-exists"
             else:
-                s, it = ("", "it") if len(queryset) == 1 else ("s", "one of them")
-                msg = (
-                    f"record{s} with similar name{s} exist! did you mean to load {it}?"
+                s, it, nots = (
+                    ("", "it", "s") if len(queryset) == 1 else ("s", "one of them", "")
                 )
+                msg = f"record{s} with similar name{s} exist{nots}! did you mean to load {it}?"
                 if IPYTHON:
                     from IPython.display import display
 
@@ -156,6 +150,7 @@ def _search(
     limit: int | None = 20,
     case_sensitive: bool = False,
     using_key: str | None = None,
+    truncate_words: bool = False,
 ) -> QuerySet:
     input_queryset = _queryset(cls, using_key=using_key)
     orm = input_queryset.model
@@ -181,12 +176,28 @@ def _search(
                     ) from error
             else:
                 fields.append(field)
+
+    # decompose search string
+    def truncate_word(word) -> str:
+        if len(word) > 5:
+            n_80_pct = int(len(word) * 0.8)
+            return word[:n_80_pct]
+        elif len(word) > 3:
+            return word[:3]
+        else:
+            return word
+
+    decomposed_string = string.split()
+    if truncate_words:
+        decomposed_string = [truncate_word(word) for word in decomposed_string]
+    # construct the query
     expression = Q()
     case_sensitive_i = "" if case_sensitive else "i"
     for field in fields:
-        # Construct the keyword for the Q object dynamically
-        query = {f"{field}__{case_sensitive_i}contains": string}
-        expression |= Q(**query)  # Unpack the dictionary into Q()
+        for word in decomposed_string:
+            # Construct the keyword for the Q object dynamically
+            query = {f"{field}__{case_sensitive_i}contains": word}
+            expression |= Q(**query)  # Unpack the dictionary into Q()
     output_queryset = input_queryset.filter(expression)[:limit]
     return output_queryset
 

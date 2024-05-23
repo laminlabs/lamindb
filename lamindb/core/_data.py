@@ -319,21 +319,15 @@ def add_labels(
             if "Feature" == feature_set.registry
         }
         for registry_name, _ in records_by_registry.items():
-            msg = ""
-            if (
-                not feature.dtype.startswith("cat[")
-                or registry_name not in feature.dtype
-            ):
-                if len(msg) > 0:
-                    msg += ", "
-                msg += f"linked feature '{feature.name}' to registry '{registry_name}'"
+            if registry_name not in feature.dtype:
+                logger.debug(
+                    f"updated categorical feature '{feature.name}' type with registry '{registry_name}'"
+                )
                 if not feature.dtype.startswith("cat["):
                     feature.dtype = f"cat[{registry_name}]"
                 elif registry_name not in feature.dtype:
                     feature.dtype = feature.dtype.rstrip("]") + f"|{registry_name}]"
                 feature.save()
-            if len(msg) > 0:
-                logger.save(msg)
 
 
 def _track_run_input(
