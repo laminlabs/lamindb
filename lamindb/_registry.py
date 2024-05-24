@@ -126,6 +126,7 @@ def from_values(
     return get_or_create_records(
         iterable=values,
         field=getattr(cls, field_str),
+        create=create,
         from_public=from_public,
         organism=organism,
         public_source=public_source,
@@ -187,9 +188,11 @@ def _search(
             return word
 
     decomposed_string = string.split()
+    # add the entire string back
+    decomposed_string += string
     for word in decomposed_string:
-        # will not search against words with 2 or fewer characters
-        if len(word) <= 2:
+        # will not search against words with 3 or fewer characters
+        if len(word) <= 3:
             decomposed_string.remove(word)
     if truncate_words:
         decomposed_string = [truncate_word(word) for word in decomposed_string]

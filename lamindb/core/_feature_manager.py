@@ -367,7 +367,7 @@ class FeatureManager:
                     if validated.sum() != len(values):
                         not_validated_keys = values_array[~validated]
                         hint = (
-                            f"  ulabels = ln.ULabel.from_values({not_validated_keys}, create=True)"
+                            f"  ulabels = ln.ULabel.from_values({not_validated_keys}, create=True)\n"
                             f"  ln.save(ulabels)"
                         )
                         msg = (
