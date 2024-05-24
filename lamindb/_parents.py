@@ -30,6 +30,8 @@ def _transform_emoji(transform: Transform):
 
 
 def _view(u):
+    from graphviz.backend import ExecutableNotFound
+
     try:
         if is_run_from_ipython:
             from IPython import get_ipython
@@ -42,7 +44,7 @@ def _view(u):
                 display(u)
         else:
             return u
-    except (FileNotFoundError, RuntimeError):  # pragma: no cover
+    except (FileNotFoundError, RuntimeError, ExecutableNotFound):  # pragma: no cover
         logger.error(
             "please install the graphviz executable on your system:\n  - Ubuntu: `sudo"
             " apt-get install graphviz`\n  - Windows:"
@@ -177,9 +179,11 @@ def _view_parents(
     )
     u.node(
         record.uid,
-        label=_record_label(record)
-        if record.__class__.__name__ == "Transform"
-        else _add_emoji(record, record_label),
+        label=(
+            _record_label(record)
+            if record.__class__.__name__ == "Transform"
+            else _add_emoji(record, record_label)
+        ),
         fillcolor=LAMIN_GREEN_LIGHTER,
     )
     if df_edges is not None:
