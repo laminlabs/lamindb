@@ -1,10 +1,11 @@
 from __future__ import annotations
 
+from collections import defaultdict
 from typing import TYPE_CHECKING, Dict
 
 import numpy as np
 from lamin_utils import colors, logger
-from lnschema_core.models import Artifact, Collection, Data, Feature, LinkORM, Registry
+from lnschema_core.models import LinkORM
 
 from lamindb._from_values import _print_values
 from lamindb._registry import (
@@ -19,6 +20,8 @@ from ._settings import settings
 from .schema import dict_related_model_to_related_name
 
 if TYPE_CHECKING:
+    from lnschema_core.models import Artifact, Collection, Data, Feature, Registry
+
     from lamindb._query_set import QuerySet
 
 
@@ -72,7 +75,9 @@ def print_labels(self: Data, field: str = "name", print_types: bool = False):
     return msg
 
 
-def transfer_add_labels(labels, features_lookup_self, self, row, parents: bool = True):
+def transfer_add_labels(
+    labels, features_lookup_self, self, feature_name, parents: bool = True
+):
     def transfer_single_registry(validated_labels, new_labels):
         # here the new labels are transferred to the self db
         if len(new_labels) > 0:
@@ -88,7 +93,7 @@ def transfer_add_labels(labels, features_lookup_self, self, row, parents: bool =
         # link labels records from self db
         self._host.labels.add(
             validated_labels + new_labels,
-            feature=features_lookup_self.get(row["name"]),
+            feature=features_lookup_self.get(feature_name),
         )
 
     # validate labels on the default db
@@ -206,8 +211,8 @@ class LabelManager:
 
         return get_labels(self._host, feature=feature, mute=mute, flat_names=flat_names)
 
-    def add_from(self, data: Data, parents: bool = True):
-        """Transfer labels from a file or collection.
+    def add_from(self, data: Data, parents: bool = True) -> None:
+        """Add labels from an artifact or collection to another artifact or collection.
 
         Examples:
             >>> file1 = ln.Artifact(pd.DataFrame(index=[0, 1]))
@@ -222,32 +227,13 @@ class LabelManager:
         """
         from django.db.utils import ProgrammingError
 
-        features_lookup_self = {f.name: f for f in Feature.objects.filter().all()}
-        features_lookup_data = {
-            f.name: f for f in Feature.objects.using(data._state.db).filter().all()
-        }
-        for _, feature_set in data.features.feature_set_by_slot.items():
-            # add labels stratified by feature
-            if feature_set.registry == "Feature":
-                # df_slot is the Feature table with type
-                df_slot = feature_set.features.df()
-                for _, row in df_slot.iterrows():
-                    if row["dtype"].startswith("cat["):
-                        logger.info(f"transferring {row['name']}")
-                        # labels records from data db
-                        labels = data.labels.get(
-                            features_lookup_data.get(row["name"]), mute=True
-                        )
-                        transfer_add_labels(
-                            labels, features_lookup_self, self, row, parents=parents
-                        )
-        # TODO: for now, has to be duplicated
         using_key = settings._using_key
         for related_name, (_, labels) in get_labels_as_dict(data).items():
             labels = labels.all()
             try:
-                if len(labels) == 0:
+                if not labels.exists():
                     continue
+                print(related_name, labels)
                 validated_labels, new_labels = validate_labels(labels, parents=parents)
                 if len(new_labels) > 0:
                     transfer_fk_to_default_db_bulk(new_labels, using_key)
@@ -259,8 +245,21 @@ class LabelManager:
                 # this should not occur as file and collection should have the same attributes
                 # but this might not be true for custom schema
                 labels_list = validated_labels + new_labels
+                data_name_lower = data.__class__.__name__.lower()
+                labels_by_features = defaultdict(list)
+                for label in labels_list:
+                    feature_id = (
+                        getattr(label, f"{data_name_lower}_links")
+                        .get(**{f"{data_name_lower}_id": data.id})
+                        .feature_id
+                    )
+                    labels_by_features[feature_id].append(label)
                 if hasattr(self._host, related_name):
-                    getattr(self._host, related_name).add(*labels_list)
+                    for feature_id, labels in labels_by_features.items():
+                        print(feature_id)
+                        getattr(self._host, related_name).add(
+                            *labels, through_defaults={"feature_id": feature_id}
+                        )
             # ProgrammingError is raised when schemas don't match between source and target instances
             except ProgrammingError:
                 continue
