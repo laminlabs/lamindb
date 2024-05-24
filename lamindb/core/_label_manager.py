@@ -233,7 +233,6 @@ class LabelManager:
             try:
                 if not labels.exists():
                     continue
-                print(related_name, labels)
                 validated_labels, new_labels = validate_labels(labels, parents=parents)
                 if len(new_labels) > 0:
                     transfer_fk_to_default_db_bulk(new_labels, using_key)
@@ -247,16 +246,20 @@ class LabelManager:
                 labels_list = validated_labels + new_labels
                 data_name_lower = data.__class__.__name__.lower()
                 labels_by_features = defaultdict(list)
+                # look for features
                 for label in labels_list:
-                    feature_id = (
-                        getattr(label, f"{data_name_lower}_links")
-                        .get(**{f"{data_name_lower}_id": data.id})
-                        .feature_id
-                    )
+                    # if the link table doesn't follow this convention, we'll ignore it
+                    if not hasattr(label, f"{data_name_lower}_links"):
+                        feature_id = None
+                    else:
+                        feature_id = (
+                            getattr(label, f"{data_name_lower}_links")
+                            .get(**{f"{data_name_lower}_id": data.id})
+                            .feature_id
+                        )
                     labels_by_features[feature_id].append(label)
                 if hasattr(self._host, related_name):
                     for feature_id, labels in labels_by_features.items():
-                        print(feature_id)
                         getattr(self._host, related_name).add(
                             *labels, through_defaults={"feature_id": feature_id}
                         )

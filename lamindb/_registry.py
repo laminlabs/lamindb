@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING, Iterable, List, NamedTuple
 import dj_database_url
 import lamindb_setup as ln_setup
 from django.db import connections
-from django.db.models import Manager, Q, QuerySet
+from django.db.models import IntegerField, Manager, Q, QuerySet, Value
 from lamin_utils import logger
 from lamin_utils._lookup import Lookup
 from lamindb_setup._connect_instance import get_owner_name_from_identifier
@@ -201,11 +201,24 @@ def _search(
     case_sensitive_i = "" if case_sensitive else "i"
     for field in fields:
         for word in decomposed_string:
-            # Construct the keyword for the Q object dynamically
             query = {f"{field}__{case_sensitive_i}contains": word}
-            expression |= Q(**query)  # Unpack the dictionary into Q()
-    output_queryset = input_queryset.filter(expression)[:limit]
-    return output_queryset
+            expression |= Q(**query)
+    output_queryset = input_queryset.filter(expression)
+    # ensure exact matches are at the top
+    narrow_expression = Q()
+    for field in fields:
+        query = {f"{field}__{case_sensitive_i}contains": string}
+        narrow_expression |= Q(**query)
+    refined_output_queryset = output_queryset.filter(narrow_expression).annotate(
+        ordering=Value(1, output_field=IntegerField())
+    )
+    remaining_output_queryset = output_queryset.exclude(narrow_expression).annotate(
+        ordering=Value(2, output_field=IntegerField())
+    )
+    combined_queryset = refined_output_queryset.union(
+        remaining_output_queryset
+    ).order_by("ordering")[:limit]
+    return combined_queryset
 
 
 @classmethod  # type: ignore

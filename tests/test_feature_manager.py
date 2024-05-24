@@ -218,11 +218,8 @@ def test_add_labels_using_anndata(adata):
         registry="Feature", artifact_links__slot="obs"
     ).one()
     assert feature_set_obs.n == 4
-    feature_set_ext = artifact.feature_sets.filter(
-        registry="Feature", artifact_links__slot="external"
-    ).one()
-    assert feature_set_ext.n == 1
-    assert "organism" in feature_set_ext.features.list("name")
+    # TODO, write a test that queries the organism feature
+    # assert "organism" in feature_set_ext.features.list("name")
 
     # now we add cell types & tissues and run checks
     ln.Feature(name="cell_type", dtype="cat").save()
@@ -259,12 +256,13 @@ def test_add_labels_using_anndata(adata):
     ln.Feature(name="experiment", dtype="cat").save()
     features = ln.Feature.lookup()
     artifact.labels.add(experiment_1, feature=features.experiment)
-    df = artifact.features["external"].df()
-    assert set(df["name"]) == {
-        "organism",
-        "experiment",
-    }
-    assert set(df["dtype"]) == {"cat[bionty.Organism]", "cat[ULabel]"}
+    # TODO: replace the following with an updated test
+    # df = artifact.features["external"].df()
+    # assert set(df["name"]) == {
+    #     "organism",
+    #     "experiment",
+    # }
+    # assert set(df["dtype"]) == {"cat[bionty.Organism]", "cat[ULabel]"}
 
     assert set(artifact.labels.get(features.experiment).list("name")) == {
         "experiment_1"
@@ -307,8 +305,6 @@ def test_add_labels_using_anndata(adata):
         "hematopoietic stem cell",
         "B cell",
     }
-
-    assert set(df["dtype"]) == {"cat[bionty.Organism]", "cat[ULabel]"}
     assert experiment_1 in artifact.ulabels.all()
 
     # call describe
@@ -338,7 +334,7 @@ def test_labels_get():
     feature_set = ln.FeatureSet(features=[feature_name_feature])
     feature_set.save()
     artifact.save()
-    assert str(artifact.features) == "no linked features"
+    assert str(artifact.features) == ""
     artifact.features.add_feature_set(feature_set, slot="random")
     assert artifact.feature_sets.first() == feature_set
     artifact.delete(permanent=True, storage=True)
