@@ -391,7 +391,7 @@ def _track_run_input(
                                 f" {input_data[0].transform.id}"
                             )
                     logger.info(
-                        f"adding {data_class_name} {input_data_ids} as input for run"
+                        f"adding {data_class_name} ids {input_data_ids} as inputs for run"
                         f" {run.id}{transform_note}"
                     )
                     track_run_input = True

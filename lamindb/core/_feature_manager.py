@@ -205,32 +205,32 @@ def parse_feature_sets_from_anndata(
     return feature_sets
 
 
-def infer_feature_type(value: Any, mute: bool = False) -> str:
+def infer_feature_type_convert_json(value: Any, mute: bool = False) -> tuple[str, Any]:
     if isinstance(value, bool):
-        return FEATURE_TYPES["bool"]
+        return FEATURE_TYPES["bool"], value
     elif isinstance(value, int):
-        return FEATURE_TYPES["int"]
+        return FEATURE_TYPES["int"], value
     elif isinstance(value, float):
-        return FEATURE_TYPES["float"]
+        return FEATURE_TYPES["float"], value
     elif isinstance(value, str):
-        return FEATURE_TYPES["str"] + "[ULabel]"
+        return FEATURE_TYPES["str"] + "[ULabel]", value
     elif isinstance(value, Iterable) and not isinstance(value, (str, bytes)):
         if isinstance(value, (pd.Series, np.ndarray)):
-            return convert_numpy_dtype_to_lamin_feature_type(value.dtype)
+            return convert_numpy_dtype_to_lamin_feature_type(value.dtype), list(value)
         if len(value) > 0:  # type: ignore
             first_element_type = type(next(iter(value)))
             if all(isinstance(elem, first_element_type) for elem in value):
                 if first_element_type == bool:
-                    return FEATURE_TYPES["bool"]
+                    return FEATURE_TYPES["bool"], value
                 elif first_element_type == int:
-                    return FEATURE_TYPES["int"]
+                    return FEATURE_TYPES["int"], value
                 elif first_element_type == float:
-                    return FEATURE_TYPES["float"]
+                    return FEATURE_TYPES["float"], value
                 elif first_element_type == str:
-                    return FEATURE_TYPES["str"] + "[ULabel]"
+                    return FEATURE_TYPES["str"] + "[ULabel]", value
     if not mute:
         logger.warning(f"cannot infer feature type of: {value}, returning '?")
-    return "?"
+    return ("?", value)
 
 
 class FeatureManager:
@@ -245,10 +245,7 @@ class FeatureManager:
         self._accessor_by_orm = None
 
     def __repr__(self) -> str:
-        if len(self.feature_set_by_slot) > 0:
-            return print_features(self._host)
-        else:
-            return "no linked features"
+        return print_features(self._host)
 
     def __getitem__(self, slot) -> QuerySet:
         if slot not in self.feature_set_by_slot:
@@ -316,7 +313,7 @@ class FeatureManager:
             not_validated_keys = values_array[~validated]
             hint = "\n".join(
                 [
-                    f"  ln.Feature(name='{key}', dtype='{infer_feature_type(features_values[key])}').save()"
+                    f"  ln.Feature(name='{key}', dtype='{infer_feature_type_convert_json(features_values[key])}').save()"
                     for key in not_validated_keys
                 ]
             )
@@ -332,25 +329,28 @@ class FeatureManager:
         # figure out which of the values go where
         features_labels = []
         feature_values = []
-        for _ikey, (key, value) in enumerate(features_values.items()):
-            # TODO: use proper field in .get() below
-            feature = Feature.objects.get(name=key)
+        for key, value in features_values.items():
+            feature = Feature.filter(name=key).one()
+            inferred_type, converted_value = infer_feature_type_convert_json(
+                value, mute=True
+            )
             if feature.dtype == "number":
-                if infer_feature_type(value, mute=True) not in {"int", "float"}:
+                if inferred_type not in {"int", "float"}:
                     raise TypeError(
                         f"Value for feature '{key}' with type {feature.dtype} must be a number"
                     )
             elif feature.dtype == "cat":
-                if not (
-                    infer_feature_type(value, mute=True).startswith("cat")
-                    or isinstance(value, Registry)
-                ):
+                if not (inferred_type.startswith("cat") or isinstance(value, Registry)):
                     raise TypeError(
                         f"Value for feature '{key}' with type '{feature.dtype}' must be a string or record."
                     )
             elif feature.dtype == "bool":
                 assert isinstance(value, bool)
-            if feature.dtype == "cat":
+            if not feature.dtype.startswith("cat"):
+                feature_values.append(
+                    FeatureValue(feature=feature, value=converted_value)
+                )
+            else:
                 if isinstance(value, Registry):
                     assert not value._state.adding
                     label_record = value
@@ -379,8 +379,6 @@ class FeatureManager:
                     features_labels += [
                         (feature, label_record) for label_record in label_records
                     ]
-            else:
-                feature_values.append(FeatureValue(feature=feature, value=value))
         # bulk add all links to ArtifactULabel
         if features_labels:
             LinkORM = self._host.ulabels.through

@@ -60,19 +60,16 @@ def suggest_records_with_similar_names(record: Registry, kwargs) -> bool:
     for alternative_record in queryset:
         if alternative_record.name == kwargs["name"]:
             return True
-        else:
-            s, it, nots = (
-                ("", "it", "s") if len(queryset) == 1 else ("s", "one of them", "")
-            )
-            msg = f"record{s} with similar name{s} exist{nots}! did you mean to load {it}?"
-            if IPYTHON:
-                from IPython.display import display
+    s, it, nots = ("", "it", "s") if len(queryset) == 1 else ("s", "one of them", "")
+    msg = f"record{s} with similar name{s} exist{nots}! did you mean to load {it}?"
+    if IPYTHON:
+        from IPython.display import display
 
-                logger.warning(f"{msg}")
-                if settings._verbosity_int >= 1:
-                    display(queryset.df())
-            else:
-                logger.warning(f"{msg}\n{queryset}")
+        logger.warning(f"{msg}")
+        if settings._verbosity_int >= 1:
+            display(queryset.df())
+    else:
+        logger.warning(f"{msg}\n{queryset}")
     return False
 
 
@@ -126,8 +123,6 @@ def from_values(
     """{}."""
     from_public = True if cls.__module__.startswith("lnschema_bionty.") else False
     field_str = get_default_str_field(cls, field=field)
-    if create:
-        return [cls(**{field_str: value}) for value in values]
     return get_or_create_records(
         iterable=values,
         field=getattr(cls, field_str),
@@ -192,6 +187,10 @@ def _search(
             return word
 
     decomposed_string = string.split()
+    for word in decomposed_string:
+        # will not search against words with 2 or fewer characters
+        if len(word) <= 2:
+            decomposed_string.remove(word)
     if truncate_words:
         decomposed_string = [truncate_word(word) for word in decomposed_string]
     # construct the query

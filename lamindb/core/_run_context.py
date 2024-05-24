@@ -259,7 +259,7 @@ class run_context:
         transform: Transform | None = None,
         new_run: bool | None = None,
         path: str | None = None,
-    ) -> None:
+    ) -> Run:
         """Track notebook or script run.
 
         Creates or loads a global :class:`~lamindb.Run` that enables data
@@ -386,7 +386,7 @@ class run_context:
         from ._track_environment import track_environment
 
         track_environment(run)
-        return None
+        return run
 
     @classmethod
     def _track_script(

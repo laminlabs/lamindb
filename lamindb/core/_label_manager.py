@@ -32,6 +32,7 @@ def get_labels_as_dict(self: Data, links: bool = False):
         "report_of",
         "environment_of",
         "collection_links",
+        "artifact_links",
         "feature_set_links",
         "previous_runs",
         "feature_values",
