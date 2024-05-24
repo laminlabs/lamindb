@@ -189,7 +189,7 @@ def _search(
 
     decomposed_string = string.split()
     # add the entire string back
-    decomposed_string += string
+    decomposed_string += [string]
     for word in decomposed_string:
         # will not search against words with 3 or fewer characters
         if len(word) <= 3:
