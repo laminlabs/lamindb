@@ -41,7 +41,9 @@ def _view(u):
             if get_ipython().__class__.__name__ == "TerminalInteractiveShell":
                 return u.view()
             else:
-                display(u)
+                # call u._repr_mimebundle_() manually that exception gets raised properly and not just printed by
+                # call to display()
+                display(u._repr_mimebundle_(), raw=True)
         else:
             return u
     except (FileNotFoundError, RuntimeError, ExecutableNotFound):  # pragma: no cover
