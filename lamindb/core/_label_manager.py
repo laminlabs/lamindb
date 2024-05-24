@@ -50,9 +50,7 @@ def get_labels_as_dict(self: Data, links: bool = False):
     return labels
 
 
-def print_labels(
-    self: Data, field: str = "name", ignore_labels_with_feature: bool = True
-):
+def print_labels(self: Data, field: str = "name", print_types: bool = False):
     labels_msg = ""
     for related_name, (related_model, labels) in get_labels_as_dict(self).items():
         # there is a try except block here to deal with schema inconsistencies
@@ -62,10 +60,15 @@ def print_labels(
             if len(labels_list) > 0:
                 get_default_str_field(labels)
                 print_values = _print_values(labels_list, n=10)
-                labels_msg += f"  {related_name}: {related_model} = {print_values}\n"
+                type_str = f": {related_model}" if print_types else ""
+                labels_msg += f"    .{related_name}{type_str} = {print_values}\n"
         except Exception:
             continue
-    return labels_msg
+    msg = ""
+    if labels_msg:
+        msg += f"  {colors.italic('Labels')}\n"
+        msg += labels_msg
+    return msg
 
 
 def transfer_add_labels(labels, features_lookup_self, self, row, parents: bool = True):

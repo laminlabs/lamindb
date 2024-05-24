@@ -109,7 +109,7 @@ def format_repr(
 
 
 @doc_args(Data.describe.__doc__)
-def describe(self: Data):
+def describe(self: Data, print_types: bool = False):
     """{}."""
     # prefetch all many-to-many relationships
     # doesn't work for describing using artifact
@@ -122,7 +122,8 @@ def describe(self: Data):
     # )
 
     model_name = self.__class__.__name__
-    msg = ""
+    msg = f"{colors.green(model_name)}{__repr__(self, include_foreign_keys=False).lstrip(model_name)}\n"
+    prov_msg = ""
 
     fields = self._meta.fields
     direct_fields = []
@@ -148,24 +149,30 @@ def describe(self: Data):
 
     # provenance
     if len(foreign_key_fields) > 0:  # always True for Artifact and Collection
-        record_msg = f"{colors.green(model_name)}{__repr__(self, include_foreign_keys=False).lstrip(model_name)}"
-        msg += f"{record_msg}\n"
         fields_values = [(field, getattr(self, field)) for field in foreign_key_fields]
+        type_str = (
+            lambda attr: f": {attr.__class__.__get_name_with_schema__()}"
+            if print_types
+            else ""
+        )
         related_msg = "".join(
             [
-                f"  {field_name}: {attr.__class__.__get_name_with_schema__()} = {format_field_value(getattr(attr, get_default_str_field(attr)))}\n"
+                f"    .{field_name}{type_str(attr)} = {format_field_value(getattr(attr, get_default_str_field(attr)))}\n"
                 for (field_name, attr) in fields_values
                 if attr is not None
             ]
         )
-        msg += related_msg
+        prov_msg += related_msg
     # input of
     if self.id is not None and self.input_of.exists():
         values = [format_field_value(i.started_at) for i in self.input_of.all()]
-        msg += f"  input_of: Run = {values}\n"
-    msg = msg.rstrip(" ")  # do not use removesuffix as we need to remove 2 or 4 spaces
-    msg += print_labels(self)
-    msg += print_features(self)
+        type_str = ": Run" if print_types else ""  # type: ignore
+        prov_msg += f"    .input_of{type_str} = {values}\n"
+    if prov_msg:
+        msg += f"  {colors.italic('Provenance')}\n"
+        msg += prov_msg
+    msg += print_labels(self, print_types=print_types)
+    msg += print_features(self, print_types=print_types)
     logger.print(msg)
 
 

@@ -186,8 +186,6 @@ def process_data(
 
 def get_stat_or_artifact(
     path: UPath,
-    suffix: str,
-    memory_rep: Any | None = None,
     check_hash: bool = True,
     using_key: str | None = None,
 ) -> tuple[int, str | None, str | None, int | None] | Artifact:
@@ -338,8 +336,6 @@ def get_artifact_kwargs_from_data(
     )
     stat_or_artifact = get_stat_or_artifact(
         path=path,
-        suffix=suffix,
-        memory_rep=memory_rep,
         using_key=using_key,
     )
     if isinstance(stat_or_artifact, Artifact):

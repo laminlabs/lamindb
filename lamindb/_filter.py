@@ -14,7 +14,11 @@ def filter(Registry: type[Registry], **expressions) -> QuerySet:
         _using_key = expressions.pop("_using_key")
     if Registry in {Artifact, Collection}:
         # visibility is set to 0 unless expressions contains id or uid equality
-        if not ("id" in expressions or "uid" in expressions):
+        if not (
+            "id" in expressions
+            or "uid" in expressions
+            or "uid__startswith" in expressions
+        ):
             visibility = "visibility"
             if not any(e.startswith(visibility) for e in expressions):
                 expressions[

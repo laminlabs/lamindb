@@ -73,7 +73,7 @@ def __init__(self, *args, **kwargs):
     features_hash = hash_set({feature.uid for feature in features})
     feature_set = FeatureSet.filter(hash=features_hash).one_or_none()
     if feature_set is not None:
-        logger.success(f"loaded: {feature_set}")
+        logger.debug(f"loaded: {feature_set}")
         init_self_from_db(self, feature_set)
         return None
     else:

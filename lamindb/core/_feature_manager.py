@@ -17,6 +17,7 @@ from lnschema_core.models import (
     Data,
     Feature,
     FeatureValue,
+    LinkORM,
     Registry,
     ULabel,
 )
@@ -99,68 +100,49 @@ def get_feature_set_links(host: Artifact | Collection) -> QuerySet:
     return feature_set_links
 
 
-def print_features(self: Data) -> str:
+def get_link_attr(link: LinkORM, data: Data) -> str:
+    link_model_name = link.__class__.__name__
+    link_attr = link_model_name.replace(data.__class__.__name__, "")
+    if link_attr == "ExperimentalFactor":
+        link_attr = "experimental_factor"
+    else:
+        link_attr = link_attr.lower()
+    return link_attr
+
+
+def print_features(self: Data, print_types: bool = False) -> str:
     from lamindb._from_values import _print_values
 
-    from ._data import format_repr
-
-    messages = []
-    # link tables
+    msg = ""
+    # feature values
     labels_msg = ""
-    field = "name"
     labels_by_feature = defaultdict(list)
     for _, (_, links) in get_labels_as_dict(self, links=True).items():
         for link in links:
             if link.feature_id is not None:
-                labels_by_feature[link.feature_id].append(
-                    self.ulabels.get(id=link.ulabel_id).name
-                )
-    for feature_id, labels_str in labels_by_feature.items():
+                link_attr = get_link_attr(link, self)
+                labels_by_feature[link.feature_id].append(getattr(link, link_attr).name)
+    for feature_id, labels_list in labels_by_feature.items():
         feature = Feature.objects.get(id=feature_id)
-        labels_msg += f"  {feature.name}: {feature.dtype} = {labels_str}\n"
-    messages.append(labels_msg)
+        print_values = _print_values(labels_list, n=10)
+        type_str = f": {feature.dtype}" if print_types else ""
+        labels_msg += f"    '{feature.name}'{type_str} = {print_values}\n"
+    if labels_msg:
+        msg += f"  {colors.italic('Features')}\n"
+        msg += labels_msg
     # feature sets
+    feature_set_msg = ""
     for slot, feature_set in get_feature_set_by_slot(self).items():
-        if feature_set.registry != "Feature":
-            features = feature_set.members
-            # features.first() is a lot slower than features[0] here
-            name_field = get_default_str_field(features[0])
-            feature_names = list(features.values_list(name_field, flat=True)[:30])
-            messages.append(
-                f"  {colors.bold(slot)}: {format_repr(feature_set, exclude_field_names='hash')}\n"
-            )
-            print_values = _print_values(feature_names, n=20)
-            messages.append(f"    {print_values}\n")
-        else:
-            features_lookup = {
-                f.name: f for f in Feature.objects.using(self._state.db).filter().all()
-            }
-            messages.append(
-                f"  {colors.bold(slot)}: {format_repr(feature_set, exclude_field_names='hash')}\n"
-            )
-            for name, dtype in feature_set.features.values_list("name", "dtype"):
-                if dtype.startswith("cat["):
-                    labels = self.labels.get(features_lookup.get(name), mute=True)
-                    indent = ""
-                    if isinstance(labels, dict):
-                        messages.append(f"    {name} ({dtype})\n")
-                        indent = "    "
-                    else:
-                        labels = {dtype: labels}
-                    for registry, registry_labels in labels.items():
-                        field = get_default_str_field(registry_labels)
-                        values_list = registry_labels.values_list(field, flat=True)
-                        count_str = f"{f'{registry}'}"
-                        print_values = _print_values(values_list[:20], n=10)
-                        msg_objects = (
-                            f"{indent}    {name} ({count_str}):" f" {print_values}\n"
-                        )
-                        messages.append(msg_objects)
-                else:
-                    messages.append(f"    {name} ({dtype})\n")
-    if messages:
-        messages.insert(0, f"{colors.green('Features')}:\n")
-    return "".join(messages)
+        features = feature_set.members
+        # features.first() is a lot slower than features[0] here
+        name_field = get_default_str_field(features[0])
+        feature_names = list(features.values_list(name_field, flat=True)[:20])
+        type_str = f": {feature_set.registry}" if print_types else ""
+        feature_set_msg += f"    '{slot}'{type_str} = {_print_values(feature_names)}\n"
+    if labels_msg:
+        msg += f"  {colors.italic('Feature sets')}\n"
+        msg += feature_set_msg
+    return msg
 
 
 def parse_feature_sets_from_anndata(
