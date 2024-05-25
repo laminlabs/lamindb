@@ -95,19 +95,6 @@ def save_feature_set_links(self: Artifact | Collection) -> None:
         bulk_create(links, ignore_conflicts=True)
 
 
-def format_repr(
-    record: Registry, exclude_field_names: str | list[str] | None = None
-) -> str:
-    if isinstance(exclude_field_names, str):
-        exclude_field_names = [exclude_field_names]
-    exclude_field_names_init = ["id", "created_at", "updated_at"]
-    if exclude_field_names is not None:
-        exclude_field_names_init += exclude_field_names
-    return record.__repr__(
-        include_foreign_keys=False, exclude_field_names=exclude_field_names_init
-    )
-
-
 @doc_args(Data.describe.__doc__)
 def describe(self: Data, print_types: bool = False):
     """{}."""

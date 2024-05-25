@@ -322,7 +322,7 @@ def delete(self, permanent: bool | None = None) -> None:
 
 
 # docstring handled through attach_func_to_class_method
-def save(self, transfer_labels: bool = False, using: str | None = None) -> None:
+def save(self, using: str | None = None) -> None:
     if self.artifact is not None:
         self.artifact.save()
     # we don't need to save feature sets again
@@ -344,10 +344,6 @@ def save(self, transfer_labels: bool = False, using: str | None = None) -> None:
     save_feature_set_links(self)
     if using is not None:
         logger.warning("using argument is ignored")
-    if transfer_labels:
-        if hasattr(self, "_artifacts"):
-            for artifact in self._artifacts:
-                self.labels.add_from(artifact)
 
 
 # docstring handled through attach_func_to_class_method
