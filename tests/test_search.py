@@ -46,7 +46,7 @@ def prepare_cell_type_registry():
 
 def test_search_synonyms(prepare_cell_type_registry):
     result = bt.CellType.search("P cell").df()
-    assert set(result.name[:2]) == {"nodal myocyte", "PP cell"}
+    assert set(result.name.iloc[:2]) == {"nodal myocyte", "PP cell"}
 
 
 def test_search_limit(prepare_cell_type_registry):
@@ -56,5 +56,4 @@ def test_search_limit(prepare_cell_type_registry):
 
 def test_search_case_sensitive(prepare_cell_type_registry):
     result = bt.CellType.search("b cell", case_sensitive=False).df()
-    print(result.name)
-    assert result.name[0] == "B cell"
+    assert result.name.iloc[0] == "B cell"

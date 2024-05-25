@@ -406,11 +406,9 @@ def update_fk_to_default_db(
 FKBULK = [
     "organism",
     "public_source",
-    "initial_version",
     "latest_report",  # Transform
     "source_code",  # Transform
     "report",  # Run
-    "file",  # Collection
 ]
 
 
@@ -431,8 +429,8 @@ def transfer_to_default_db(
         registry = record.__class__
         record_on_default = registry.objects.filter(uid=record.uid).one_or_none()
         if record_on_default is not None:
-            logger.warning(
-                f"record with {record.uid} already exists on default database: {record}"
+            logger.important(
+                f"returning existing {record.__class__.__name__} with uid='{record.uid}' on default database"
             )
             return record_on_default
         if not mute:
@@ -522,9 +520,9 @@ def save(self, *args, **kwargs) -> Registry:
             except ImportError:
                 parents = kwargs.get("parents", True)
             add_from_kwargs = {"parents": parents}
-            logger.info("transfer features")
+            logger.debug("transfer features")
             self.features._add_from(self_on_db, **add_from_kwargs)
-            logger.info("transfer labels")
+            logger.debug("transfer labels")
             self.labels.add_from(self_on_db, **add_from_kwargs)
     return self
 

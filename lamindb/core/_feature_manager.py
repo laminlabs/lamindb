@@ -518,9 +518,9 @@ class FeatureManager:
 
     def _add_from(self, data: Data, parents: bool = True):
         """Transfer features from a artifact or collection."""
+        # This only covers feature sets, though.
         using_key = settings._using_key
         for slot, feature_set in data.features.feature_set_by_slot.items():
-            print(slot)
             members = feature_set.members
             if len(members) == 0:
                 continue

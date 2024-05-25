@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING, Dict
 
 import numpy as np
 from lamin_utils import colors, logger
-from lnschema_core.models import LinkORM
+from lnschema_core.models import Feature
 
 from lamindb._from_values import _print_values
 from lamindb._registry import (
@@ -20,7 +20,7 @@ from ._settings import settings
 from .schema import dict_related_model_to_related_name
 
 if TYPE_CHECKING:
-    from lnschema_core.models import Artifact, Collection, Data, Feature, Registry
+    from lnschema_core.models import Artifact, Collection, Data, Registry
 
     from lamindb._query_set import QuerySet
 
@@ -105,6 +105,7 @@ def transfer_add_labels(
         transfer_single_registry(*result)
 
 
+# Alex: is this a label transfer function?
 def validate_labels(labels: QuerySet | list | dict, parents: bool = True):
     def validate_labels_registry(
         labels: QuerySet | list | dict, parents: bool = True
@@ -233,33 +234,46 @@ class LabelManager:
             try:
                 if not labels.exists():
                     continue
-                validated_labels, new_labels = validate_labels(labels, parents=parents)
-                if len(new_labels) > 0:
-                    transfer_fk_to_default_db_bulk(new_labels, using_key)
-                    for label in new_labels:
-                        transfer_to_default_db(
-                            label, using_key, mute=True, transfer_fk=False
-                        )
-                    save(new_labels, parents=parents)
-                # this should not occur as file and collection should have the same attributes
-                # but this might not be true for custom schema
-                labels_list = validated_labels + new_labels
+                # look for features
                 data_name_lower = data.__class__.__name__.lower()
                 labels_by_features = defaultdict(list)
-                # look for features
-                for label in labels_list:
+                features = []
+                _, new_labels = validate_labels(labels, parents=parents)
+                if len(new_labels) > 0:
+                    transfer_fk_to_default_db_bulk(new_labels, using_key)
+                for label in labels:
                     # if the link table doesn't follow this convention, we'll ignore it
                     if not hasattr(label, f"{data_name_lower}_links"):
-                        feature_id = None
+                        key = None
                     else:
-                        feature_id = (
-                            getattr(label, f"{data_name_lower}_links")
-                            .get(**{f"{data_name_lower}_id": data.id})
-                            .feature_id
+                        link = getattr(label, f"{data_name_lower}_links").get(
+                            **{f"{data_name_lower}_id": data.id}
                         )
-                    labels_by_features[feature_id].append(label)
+                        if link.feature is not None:
+                            features.append(link.feature)
+                            key = link.feature.name
+                        else:
+                            key = None
+                    transfered_label = transfer_to_default_db(
+                        label, using_key, mute=True, transfer_fk=False
+                    )
+                    labels_by_features[key].append(transfered_label)
+                # treat features
+                save(new_labels, parents=parents)
+                _, new_features = validate_labels(features)
+                if len(new_features) > 0:
+                    transfer_fk_to_default_db_bulk(new_features, using_key)
+                    for feature in new_features:
+                        transfer_to_default_db(
+                            feature, using_key, mute=True, transfer_fk=False
+                        )
+                    save(new_features, parents=parents)
                 if hasattr(self._host, related_name):
-                    for feature_id, labels in labels_by_features.items():
+                    for feature_name, labels in labels_by_features.items():
+                        if feature_name is not None:
+                            feature_id = Feature.filter(name=feature_name).one().id
+                        else:
+                            feature_id = None
                         getattr(self._host, related_name).add(
                             *labels, through_defaults={"feature_id": feature_id}
                         )
