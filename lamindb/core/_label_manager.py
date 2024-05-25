@@ -255,11 +255,14 @@ class LabelManager:
                         else:
                             key = None
                     transfered_label = transfer_to_default_db(
-                        label, using_key, mute=True, transfer_fk=False
+                        label,
+                        using_key,
+                        mute=True,
+                        transfer_fk=False,
+                        save=True,
                     )
                     labels_by_features[key].append(transfered_label)
                 # treat features
-                save(new_labels, parents=parents)
                 _, new_features = validate_labels(features)
                 if len(new_features) > 0:
                     transfer_fk_to_default_db_bulk(new_features, using_key)
