@@ -254,14 +254,15 @@ class LabelManager:
                             key = link.feature.name
                         else:
                             key = None
-                    transfered_label = transfer_to_default_db(
+                    transfer_to_default_db(
                         label,
                         using_key,
                         mute=True,
                         transfer_fk=False,
                         save=True,
                     )
-                    labels_by_features[key].append(transfered_label)
+                    assert label.id is not None
+                    labels_by_features[key].append(label)
                 # treat features
                 _, new_features = validate_labels(features)
                 if len(new_features) > 0:
