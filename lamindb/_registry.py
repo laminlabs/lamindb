@@ -5,27 +5,21 @@ from typing import TYPE_CHECKING, Iterable, List, NamedTuple
 
 import dj_database_url
 import lamindb_setup as ln_setup
-from django.core.exceptions import FieldDoesNotExist
 from django.db import connections
-from django.db.models import Manager, Q, QuerySet
+from django.db.models import IntegerField, Manager, Q, QuerySet, Value
 from lamin_utils import logger
 from lamin_utils._lookup import Lookup
-from lamin_utils._search import search as base_search
 from lamindb_setup._connect_instance import get_owner_name_from_identifier
-from lamindb_setup._init_instance import InstanceSettings
 from lamindb_setup.core._docs import doc_args
 from lamindb_setup.core._hub_core import connect_instance
-from lamindb_setup.core._settings_storage import StorageSettings
 from lnschema_core import Registry
 
 from lamindb._utils import attach_func_to_class_method
 from lamindb.core._settings import settings
-from lamindb.core.exceptions import ValidationError
 
 from ._from_values import get_or_create_records
 
 if TYPE_CHECKING:
-    import pandas as pd
     from lnschema_core.types import ListLike, StrField
 
 IPYTHON = getattr(builtins, "__IPYTHON__", False)
@@ -53,31 +47,30 @@ def validate_required_fields(orm: Registry, kwargs):
         raise TypeError(f"{missing_fields} are required.")
 
 
-def suggest_objects_with_same_name(orm: Registry, kwargs) -> str | None:
-    if kwargs.get("name") is None:
-        return None
-    else:
-        queryset = orm.search(kwargs["name"])
-        if not queryset.exists():  # empty queryset
-            return None
-        else:
-            for record in queryset:
-                if record.name == kwargs["name"]:
-                    return "object-with-same-name-exists"
-            else:
-                s, it = ("", "it") if len(queryset) == 1 else ("s", "one of them")
-                msg = (
-                    f"record{s} with similar name{s} exist! did you mean to load {it}?"
-                )
-                if IPYTHON:
-                    from IPython.display import display
+def suggest_records_with_similar_names(record: Registry, kwargs) -> bool:
+    """Returns True if found exact match, otherwise False.
 
-                    logger.warning(f"{msg}")
-                    if settings._verbosity_int >= 1:
-                        display(queryset.df())
-                else:
-                    logger.warning(f"{msg}\n{queryset}")
-    return None
+    Logs similar matches if found.
+    """
+    if kwargs.get("name") is None:
+        return False
+    queryset = _search(record.__class__, kwargs["name"], truncate_words=True, limit=5)
+    if not queryset.exists():  # empty queryset
+        return False
+    for alternative_record in queryset:
+        if alternative_record.name == kwargs["name"]:
+            return True
+    s, it, nots = ("", "it", "s") if len(queryset) == 1 else ("s", "one of them", "")
+    msg = f"record{s} with similar name{s} exist{nots}! did you mean to load {it}?"
+    if IPYTHON:
+        from IPython.display import display
+
+        logger.warning(f"{msg}")
+        if settings._verbosity_int >= 1:
+            display(queryset.df())
+    else:
+        logger.warning(f"{msg}\n{queryset}")
+    return False
 
 
 def __init__(orm: Registry, *args, **kwargs):
@@ -90,8 +83,8 @@ def __init__(orm: Registry, *args, **kwargs):
         if "_has_consciously_provided_uid" in kwargs:
             has_consciously_provided_uid = kwargs.pop("_has_consciously_provided_uid")
         if settings.upon_create_search_names and not has_consciously_provided_uid:
-            result = suggest_objects_with_same_name(orm, kwargs)
-            if result == "object-with-same-name-exists":
+            match = suggest_records_with_similar_names(orm, kwargs)
+            if match:
                 if "version" in kwargs:
                     version_comment = " and version"
                     existing_record = orm.filter(
@@ -101,10 +94,9 @@ def __init__(orm: Registry, *args, **kwargs):
                     version_comment = ""
                     existing_record = orm.filter(name=kwargs["name"]).one()
                 if existing_record is not None:
-                    logger.warning(
-                        f"loaded {orm.__class__.__name__} record with same"
-                        f" name{version_comment}: '{kwargs['name']}' "
-                        "(disable via `ln.settings.upon_create_search_names`)"
+                    logger.important(
+                        f"returning existing {orm.__class__.__name__} record with same"
+                        f" name{version_comment}: '{kwargs['name']}'"
                     )
                     init_self_from_db(orm, existing_record)
                     return None
@@ -123,6 +115,7 @@ def from_values(
     cls,
     values: ListLike,
     field: StrField | None = None,
+    create: bool = False,
     organism: Registry | str | None = None,
     public_source: Registry | None = None,
     mute: bool = False,
@@ -133,6 +126,7 @@ def from_values(
     return get_or_create_records(
         iterable=values,
         field=getattr(cls, field_str),
+        create=create,
         from_public=from_public,
         organism=organism,
         public_source=public_source,
@@ -156,6 +150,7 @@ def _search(
     limit: int | None = 20,
     case_sensitive: bool = False,
     using_key: str | None = None,
+    truncate_words: bool = False,
 ) -> QuerySet:
     input_queryset = _queryset(cls, using_key=using_key)
     orm = input_queryset.model
@@ -181,14 +176,49 @@ def _search(
                     ) from error
             else:
                 fields.append(field)
+
+    # decompose search string
+    def truncate_word(word) -> str:
+        if len(word) > 5:
+            n_80_pct = int(len(word) * 0.8)
+            return word[:n_80_pct]
+        elif len(word) > 3:
+            return word[:3]
+        else:
+            return word
+
+    decomposed_string = string.split()
+    # add the entire string back
+    decomposed_string += [string]
+    for word in decomposed_string:
+        # will not search against words with 3 or fewer characters
+        if len(word) <= 3:
+            decomposed_string.remove(word)
+    if truncate_words:
+        decomposed_string = [truncate_word(word) for word in decomposed_string]
+    # construct the query
     expression = Q()
     case_sensitive_i = "" if case_sensitive else "i"
     for field in fields:
-        # Construct the keyword for the Q object dynamically
+        for word in decomposed_string:
+            query = {f"{field}__{case_sensitive_i}contains": word}
+            expression |= Q(**query)
+    output_queryset = input_queryset.filter(expression)
+    # ensure exact matches are at the top
+    narrow_expression = Q()
+    for field in fields:
         query = {f"{field}__{case_sensitive_i}contains": string}
-        expression |= Q(**query)  # Unpack the dictionary into Q()
-    output_queryset = input_queryset.filter(expression)[:limit]
-    return output_queryset
+        narrow_expression |= Q(**query)
+    refined_output_queryset = output_queryset.filter(narrow_expression).annotate(
+        ordering=Value(1, output_field=IntegerField())
+    )
+    remaining_output_queryset = output_queryset.exclude(narrow_expression).annotate(
+        ordering=Value(2, output_field=IntegerField())
+    )
+    combined_queryset = refined_output_queryset.union(
+        remaining_output_queryset
+    ).order_by("ordering")[:limit]
+    return combined_queryset
 
 
 @classmethod  # type: ignore
@@ -376,11 +406,9 @@ def update_fk_to_default_db(
 FKBULK = [
     "organism",
     "public_source",
-    "initial_version",
     "latest_report",  # Transform
     "source_code",  # Transform
     "report",  # Run
-    "file",  # Collection
 ]
 
 
@@ -401,8 +429,8 @@ def transfer_to_default_db(
         registry = record.__class__
         record_on_default = registry.objects.filter(uid=record.uid).one_or_none()
         if record_on_default is not None:
-            logger.warning(
-                f"record with {record.uid} already exists on default database: {record}"
+            logger.important(
+                f"returning existing {record.__class__.__name__}(uid='{record.uid}') on default database"
             )
             return record_on_default
         if not mute:
@@ -492,9 +520,9 @@ def save(self, *args, **kwargs) -> Registry:
             except ImportError:
                 parents = kwargs.get("parents", True)
             add_from_kwargs = {"parents": parents}
-            logger.info("transfer features")
+            logger.debug("transfer features")
             self.features._add_from(self_on_db, **add_from_kwargs)
-            logger.info("transfer labels")
+            logger.debug("transfer labels")
             self.labels.add_from(self_on_db, **add_from_kwargs)
     return self
 

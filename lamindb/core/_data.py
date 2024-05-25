@@ -20,6 +20,7 @@ from lnschema_core.models import (
 
 from lamindb._parents import view_lineage
 from lamindb._query_set import QuerySet
+from lamindb._registry import get_default_str_field
 from lamindb.core._settings import settings
 
 from ._feature_manager import (
@@ -94,25 +95,8 @@ def save_feature_set_links(self: Artifact | Collection) -> None:
         bulk_create(links, ignore_conflicts=True)
 
 
-def format_repr(value: Registry, exclude: list[str] | str | None = None) -> str:
-    if isinstance(exclude, str):
-        exclude = [exclude]
-    exclude_fields = set() if exclude is None else set(exclude)
-    exclude_fields.update(["created_at", "updated_at"])
-
-    fields = [
-        f
-        for f in value.__repr__(include_foreign_keys=False).split(", ")
-        if not any(f"{excluded_field}=" in f for excluded_field in exclude_fields)
-    ]
-    repr = ", ".join(fields)
-    if not repr.endswith(")"):
-        repr += ")"
-    return repr
-
-
 @doc_args(Data.describe.__doc__)
-def describe(self: Data):
+def describe(self: Data, print_types: bool = False):
     """{}."""
     # prefetch all many-to-many relationships
     # doesn't work for describing using artifact
@@ -125,7 +109,8 @@ def describe(self: Data):
     # )
 
     model_name = self.__class__.__name__
-    msg = ""
+    msg = f"{colors.green(model_name)}{__repr__(self, include_foreign_keys=False).lstrip(model_name)}\n"
+    prov_msg = ""
 
     fields = self._meta.fields
     direct_fields = []
@@ -151,26 +136,30 @@ def describe(self: Data):
 
     # provenance
     if len(foreign_key_fields) > 0:  # always True for Artifact and Collection
-        record_msg = f"{colors.green(model_name)}{__repr__(self, include_foreign_keys=False).lstrip(model_name)}"
-        msg += f"{record_msg}\n\n"
-
-        msg += f"{colors.green('Provenance')}:\n  "
+        fields_values = [(field, getattr(self, field)) for field in foreign_key_fields]
+        type_str = (
+            lambda attr: f": {attr.__class__.__get_name_with_schema__()}"
+            if print_types
+            else ""
+        )
         related_msg = "".join(
             [
-                f"📎 {field}: {format_repr(self.__getattribute__(field))}\n  "
-                for field in foreign_key_fields
-                if self.__getattribute__(field) is not None
+                f"    .{field_name}{type_str(attr)} = {format_field_value(getattr(attr, get_default_str_field(attr)))}\n"
+                for (field_name, attr) in fields_values
+                if attr is not None
             ]
         )
-        msg += related_msg
+        prov_msg += related_msg
     # input of
     if self.id is not None and self.input_of.exists():
         values = [format_field_value(i.started_at) for i in self.input_of.all()]
-        msg += f"📎 input_of ({colors.italic('core.Run')}): {values}\n    "
-    msg = msg.rstrip(" ")  # do not use removesuffix as we need to remove 2 or 4 spaces
-    msg += print_features(self)
-    msg += print_labels(self)
-
+        type_str = ": Run" if print_types else ""  # type: ignore
+        prov_msg += f"    .input_of{type_str} = {values}\n"
+    if prov_msg:
+        msg += f"  {colors.italic('Provenance')}\n"
+        msg += prov_msg
+    msg += print_labels(self, print_types=print_types)
+    msg += print_features(self, print_types=print_types)
     logger.print(msg)
 
 
@@ -316,7 +305,7 @@ def add_labels(
         feature_set_ids = [link.featureset_id for link in feature_set_links.all()]
         # get all linked features of type Feature
         feature_sets = FeatureSet.filter(id__in=feature_set_ids).all()
-        linked_features_by_slot = {
+        {
             feature_set_links.filter(featureset_id=feature_set.id)
             .one()
             .slot: feature_set.features.all()
@@ -324,58 +313,15 @@ def add_labels(
             if "Feature" == feature_set.registry
         }
         for registry_name, _ in records_by_registry.items():
-            msg = ""
-            if (
-                not feature.dtype.startswith("cat[")
-                or registry_name not in feature.dtype
-            ):
-                if len(msg) > 0:
-                    msg += ", "
-                msg += f"linked feature '{feature.name}' to registry '{registry_name}'"
+            if registry_name not in feature.dtype:
+                logger.debug(
+                    f"updated categorical feature '{feature.name}' type with registry '{registry_name}'"
+                )
                 if not feature.dtype.startswith("cat["):
                     feature.dtype = f"cat[{registry_name}]"
                 elif registry_name not in feature.dtype:
                     feature.dtype = feature.dtype.rstrip("]") + f"|{registry_name}]"
                 feature.save()
-            if len(msg) > 0:
-                logger.save(msg)
-            # check whether we have to update the feature set that manages labels
-            # (Feature) to account for a new feature
-            found_feature = False
-            for _, linked_features in linked_features_by_slot.items():
-                if feature in linked_features:
-                    found_feature = True
-            if not found_feature:
-                if "external" in linked_features_by_slot:
-                    feature_set = self.features.feature_set_by_slot["external"]
-                    features_list = feature_set.features.list()
-                else:
-                    features_list = []
-                features_list.append(feature)
-                feature_set = FeatureSet(features_list)
-                feature_set.save()
-                if "external" in linked_features_by_slot:
-                    old_feature_set_link = feature_set_links.filter(
-                        slot="external"
-                    ).one()
-                    old_feature_set_link.delete()
-                    remaining_links = self.feature_sets.through.objects.filter(
-                        featureset_id=feature_set.id
-                    ).all()
-                    if len(remaining_links) == 0:
-                        old_feature_set = FeatureSet.filter(
-                            id=old_feature_set_link.featureset_id
-                        ).one()
-                        logger.info(
-                            "nothing links to it anymore, deleting feature set"
-                            f" {old_feature_set}"
-                        )
-                        old_feature_set.delete()
-                self.features.add_feature_set(feature_set, slot="external")
-                logger.save(
-                    f"linked new feature '{feature.name}' together with new feature set"
-                    f" {feature_set}"
-                )
 
 
 def _track_run_input(
@@ -432,7 +378,7 @@ def _track_run_input(
                                 f" {input_data[0].transform.id}"
                             )
                     logger.info(
-                        f"adding {data_class_name} {input_data_ids} as input for run"
+                        f"adding {data_class_name} ids {input_data_ids} as inputs for run"
                         f" {run.id}{transform_note}"
                     )
                     track_run_input = True

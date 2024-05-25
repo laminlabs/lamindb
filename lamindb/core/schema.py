@@ -1,5 +1,6 @@
 from typing import Type
 
+from django.db.models import ManyToManyField
 from lnschema_core.models import Feature, FeatureSet, LinkORM, Registry
 
 
@@ -19,20 +20,22 @@ def dict_schema_name_to_model_name(orm: Type[Registry]) -> dict[str, Registry]:
     return d
 
 
-def dict_related_model_to_related_name(orm: Type[Registry]) -> dict[str, str]:
-    d: dict = {
-        i.related_model.__get_name_with_schema__(): i.related_name
-        for i in orm._meta.related_objects
-        if (i.name is not None and not issubclass(i.related_model, LinkORM))
-    }
-    d.update(
-        {
-            i.related_model.__get_name_with_schema__(): i.name
-            for i in orm._meta.many_to_many
-            if (i.name is not None and not issubclass(i.related_model, LinkORM))
-        }
-    )
+def dict_related_model_to_related_name(
+    orm: Type[Registry], links: bool = False
+) -> dict[str, str]:
+    def include(model: Registry):
+        return not links != issubclass(model, LinkORM)
 
+    related_objects = orm._meta.related_objects + orm._meta.many_to_many
+    d: dict = {
+        record.related_model.__get_name_with_schema__(): (
+            record.related_name
+            if not isinstance(record, ManyToManyField)
+            else record.name
+        )
+        for record in related_objects
+        if (record.name is not None and include(record.related_model))
+    }
     return d
 
 

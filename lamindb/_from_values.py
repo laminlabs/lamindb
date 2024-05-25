@@ -18,12 +18,16 @@ def get_or_create_records(
     iterable: ListLike,
     field: StrField,
     *,
+    create: bool = False,
     from_public: bool = False,
     organism: Registry | str | None = None,
     public_source: Registry | None = None,
     mute: bool = False,
 ) -> list[Registry]:
     """Get or create records from iterables."""
+    Registry = field.field.model
+    if create:
+        return [Registry(**{field.field.name: value}) for value in iterable]
     upon_create_search_names = settings.upon_create_search_names
     feature: Feature = None
     organism = _get_organism_record(field, organism)
@@ -34,7 +38,6 @@ def get_or_create_records(
         kwargs["public_source"] = public_source
     settings.upon_create_search_names = False
     try:
-        Registry = field.field.model
         iterable_idx = index_iterable(iterable)
 
         # returns existing records & non-existing values

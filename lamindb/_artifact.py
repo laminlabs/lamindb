@@ -186,8 +186,6 @@ def process_data(
 
 def get_stat_or_artifact(
     path: UPath,
-    suffix: str,
-    memory_rep: Any | None = None,
     check_hash: bool = True,
     using_key: str | None = None,
 ) -> tuple[int, str | None, str | None, int | None] | Artifact:
@@ -261,7 +259,7 @@ def get_stat_or_artifact(
                     f"You're trying to re-create this artifact in trash: {result[0]}"
                     "Either permanently delete it with `artifact.delete(permanent=True)` or restore it with `artifact.restore()`"
                 )
-            logger.warning(f"returning existing artifact with same hash: {result[0]}")
+            logger.important(f"returning existing artifact with same hash: {result[0]}")
             return result[0]
     else:
         return size, hash, hash_type, n_objects
@@ -338,8 +336,6 @@ def get_artifact_kwargs_from_data(
     )
     stat_or_artifact = get_stat_or_artifact(
         path=path,
-        suffix=suffix,
-        memory_rep=memory_rep,
         using_key=using_key,
     )
     if isinstance(stat_or_artifact, Artifact):
