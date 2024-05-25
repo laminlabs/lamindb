@@ -254,14 +254,16 @@ class LabelManager:
                             key = link.feature.name
                         else:
                             key = None
-                    transfer_to_default_db(
+                    label_returned = transfer_to_default_db(
                         label,
                         using_key,
                         mute=True,
                         transfer_fk=False,
                         save=True,
                     )
-                    assert label.id is not None
+                    # TODO: refactor return value of transfer to default db
+                    if label_returned is not None:
+                        label = label_returned
                     labels_by_features[key].append(label)
                 # treat features
                 _, new_features = validate_labels(features)

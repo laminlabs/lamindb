@@ -430,7 +430,7 @@ def transfer_to_default_db(
         record_on_default = registry.objects.filter(uid=record.uid).one_or_none()
         if record_on_default is not None:
             logger.important(
-                f"returning existing {record.__class__.__name__} with uid='{record.uid}' on default database"
+                f"returning existing {record.__class__.__name__}(uid='{record.uid}') on default database"
             )
             return record_on_default
         if not mute:
