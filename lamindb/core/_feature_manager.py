@@ -51,7 +51,7 @@ def get_host_id_field(host: Artifact | Collection) -> str:
     return host_id_field
 
 
-def get_accessor_by_orm(host: Artifact | Collection) -> dict:
+def get_accessor_by_registry_(host: Artifact | Collection) -> dict:
     dictionary = {
         field.related_model.__get_name_with_schema__(): field.name
         for field in host._meta.related_objects
@@ -61,7 +61,7 @@ def get_accessor_by_orm(host: Artifact | Collection) -> dict:
     return dictionary
 
 
-def get_feature_set_by_slot(host) -> dict:
+def get_feature_set_by_slot_(host) -> dict:
     # if the host is not yet saved
     if host._state.adding:
         if hasattr(host, "_feature_sets"):
@@ -86,7 +86,7 @@ def get_label_links(
     host_id_field = get_host_id_field(host)
     kwargs = {host_id_field: host.id, "feature_id": feature.id}
     link_records = (
-        getattr(host, host.features.accessor_by_orm[registry])
+        getattr(host, host.features._accessor_by_registry[registry])
         .through.objects.using(host._state.db)
         .filter(**kwargs)
     )
@@ -132,7 +132,7 @@ def print_features(self: Data, print_types: bool = False) -> str:
         msg += labels_msg
     # feature sets
     feature_set_msg = ""
-    for slot, feature_set in get_feature_set_by_slot(self).items():
+    for slot, feature_set in get_feature_set_by_slot_(self).items():
         features = feature_set.members
         # features.first() is a lot slower than features[0] here
         name_field = get_default_str_field(features[0])
@@ -241,48 +241,48 @@ class FeatureManager:
 
     def __init__(self, host: Artifact | Collection):
         self._host = host
-        self._feature_set_by_slot = None
-        self._accessor_by_orm = None
+        self._feature_set_by_slot_ = None
+        self._accessor_by_registry_ = None
 
     def __repr__(self) -> str:
         return print_features(self._host)
 
     def __getitem__(self, slot) -> QuerySet:
-        if slot not in self.feature_set_by_slot:
+        if slot not in self._feature_set_by_slot:
             raise ValueError(
                 f"No linked feature set for slot: {slot}\nDid you get validation"
                 " warnings? Only features that match registered features get validated"
                 " and linked."
             )
-        feature_set = self.feature_set_by_slot[slot]
+        feature_set = self._feature_set_by_slot[slot]
         orm_name = feature_set.registry
         if hasattr(feature_set, "_features"):
             # feature set is not yet saved
             # need to think about turning this into a queryset
             return feature_set._features
         else:
-            return getattr(feature_set, self.accessor_by_orm[orm_name]).all()
+            return getattr(feature_set, self._accessor_by_registry[orm_name]).all()
 
     @property
-    def feature_set_by_slot(self):
+    def _feature_set_by_slot(self):
         """Feature sets by slot."""
-        if self._feature_set_by_slot is None:
-            self._feature_set_by_slot = get_feature_set_by_slot(self._host)
-        return self._feature_set_by_slot
+        if self._feature_set_by_slot_ is None:
+            self._feature_set_by_slot_ = get_feature_set_by_slot_(self._host)
+        return self._feature_set_by_slot_
 
     @property
-    def accessor_by_orm(self):
+    def _accessor_by_registry(self):
         """Accessor by ORM."""
-        if self._accessor_by_orm is None:
-            self._accessor_by_orm = get_accessor_by_orm(self._host)
-        return self._accessor_by_orm
+        if self._accessor_by_registry_ is None:
+            self._accessor_by_registry_ = get_accessor_by_registry_(self._host)
+        return self._accessor_by_registry_
 
-    def add(
+    def add_values(
         self,
         values: dict[str, str | int | float | bool],
         feature_field: FieldAttr = Feature.name,
-    ):
-        """Add features with values.
+    ) -> None:
+        """Annotate artifact with features & values.
 
         Args:
             values: A dictionary of keys (features) & values (labels, numbers, booleans).
@@ -393,8 +393,41 @@ class FeatureManager:
             ]
             save(links)
 
-    def add_from_df(self, field: FieldAttr = Feature.name, organism: str | None = None):
-        """Add features from DataFrame."""
+    def add_feature_set(self, feature_set: FeatureSet, slot: str) -> None:
+        """Annotate artifact with a feature set.
+
+        Args:
+            feature_set: `FeatureSet` A feature set record.
+            slot: `str` The slot that marks where the feature set is stored in
+                the artifact.
+        """
+        if self._host._state.adding:
+            raise ValueError(
+                "Please save the artifact or collection before adding a feature set!"
+            )
+        host_db = self._host._state.db
+        feature_set.save(using=host_db)
+        host_id_field = get_host_id_field(self._host)
+        kwargs = {
+            host_id_field: self._host.id,
+            "featureset": feature_set,
+            "slot": slot,
+        }
+        link_record = (
+            self._host.feature_sets.through.objects.using(host_db)
+            .filter(**kwargs)
+            .one_or_none()
+        )
+        if link_record is None:
+            self._host.feature_sets.through(**kwargs).save(using=host_db)
+            if slot in self._feature_set_by_slot:
+                logger.debug(f"replaced existing {slot} feature set")
+            self._feature_set_by_slot_[slot] = feature_set  # type: ignore
+
+    def _add_set_from_df(
+        self, field: FieldAttr = Feature.name, organism: str | None = None
+    ):
+        """Add feature set corresponding to column names of DataFrame."""
         if isinstance(self._host, Artifact):
             assert self._host.accessor == "DataFrame"
         else:
@@ -417,7 +450,7 @@ class FeatureManager:
         self._host._feature_sets = feature_sets
         self._host.save()
 
-    def add_from_anndata(
+    def _add_set_from_anndata(
         self,
         var_field: FieldAttr,
         obs_field: FieldAttr | None = Feature.name,
@@ -444,7 +477,7 @@ class FeatureManager:
         self._host._feature_sets = feature_sets
         self._host.save()
 
-    def add_from_mudata(
+    def _add_set_from_mudata(
         self,
         var_fields: dict[str, FieldAttr],
         obs_fields: dict[str, FieldAttr] = None,
@@ -480,42 +513,11 @@ class FeatureManager:
         self._host._feature_sets = feature_sets
         self._host.save()
 
-    def add_feature_set(self, feature_set: FeatureSet, slot: str):
-        """Add new feature set to a slot.
-
-        Args:
-            feature_set: `FeatureSet` A feature set object.
-            slot: `str` The access slot.
-        """
-        if self._host._state.adding:
-            raise ValueError(
-                "Please save the artifact or collection before adding a feature set!"
-            )
-        host_db = self._host._state.db
-        feature_set.save(using=host_db)
-        host_id_field = get_host_id_field(self._host)
-        kwargs = {
-            host_id_field: self._host.id,
-            "featureset": feature_set,
-            "slot": slot,
-        }
-        link_record = (
-            self._host.feature_sets.through.objects.using(host_db)
-            .filter(**kwargs)
-            .one_or_none()
-        )
-        if link_record is None:
-            self._host.feature_sets.through(**kwargs).save(using=host_db)
-            if slot in self.feature_set_by_slot:
-                logger.debug(f"replaced existing {slot} feature set")
-            # this _feature_set_by_slot here is private
-            self._feature_set_by_slot[slot] = feature_set  # type: ignore
-
     def _add_from(self, data: Data, parents: bool = True):
         """Transfer features from a artifact or collection."""
         # This only covers feature sets, though.
         using_key = settings._using_key
-        for slot, feature_set in data.features.feature_set_by_slot.items():
+        for slot, feature_set in data.features._feature_set_by_slot.items():
             members = feature_set.members
             if len(members) == 0:
                 continue

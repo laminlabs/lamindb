@@ -201,9 +201,9 @@ def get_labels(
             qs_by_registry[registry] = ULabel.objects.using(self._state.db).filter(
                 id__in=label_ids
             )
-        elif registry in self.features.accessor_by_orm:
+        elif registry in self.features._accessor_by_registry:
             qs_by_registry[registry] = getattr(
-                self, self.features.accessor_by_orm[registry]
+                self, self.features._accessor_by_registry[registry]
             ).all()
     if flat_names:
         # returns a flat list of names
@@ -290,11 +290,11 @@ def add_labels(
                 record
             )
         for registry_name, records in records_by_registry.items():
-            if registry_name not in self.features.accessor_by_orm:
+            if registry_name not in self.features._accessor_by_registry:
                 logger.warning(f"skipping {registry_name}")
                 continue
             labels_accessor = getattr(
-                self, self.features.accessor_by_orm[registry_name]
+                self, self.features._accessor_by_registry[registry_name]
             )
             # remove labels that are already linked as add doesn't perform update
             linked_labels = [r for r in records if r in labels_accessor.filter()]

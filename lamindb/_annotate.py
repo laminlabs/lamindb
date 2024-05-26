@@ -989,11 +989,15 @@ def save_artifact(
     )
 
     if artifact.accessor == "DataFrame":
-        artifact.features.add_from_df(field=columns_field, **feature_kwargs)
+        artifact.features._add_set_from_df(field=columns_field, **feature_kwargs)
     elif artifact.accessor == "AnnData":
-        artifact.features.add_from_anndata(var_field=columns_field, **feature_kwargs)
+        artifact.features._add_set_from_anndata(
+            var_field=columns_field, **feature_kwargs
+        )
     elif artifact.accessor == "MuData":
-        artifact.features.add_from_mudata(var_fields=columns_field, **feature_kwargs)
+        artifact.features._add_set_from_mudata(
+            var_fields=columns_field, **feature_kwargs
+        )
     else:
         raise NotImplementedError
 

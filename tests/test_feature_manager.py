@@ -23,35 +23,35 @@ def test_features_add(adata):
     artifact = ln.Artifact.from_anndata(adata, description="test")
     artifact.save()
     with pytest.raises(ValidationError) as error:
-        artifact.features.add({"experiment": "Experiment 1"})
+        artifact.features.add_values({"experiment": "Experiment 1"})
     assert error.exconly().startswith(
         "lamindb.core.exceptions.ValidationError: These keys could not be validated:"
     )
     experiment = ln.Feature(name="experiment", dtype="cat")
     experiment.save()
     with pytest.raises(ValidationError) as error:
-        artifact.features.add({"experiment": "Experiment 1"})
+        artifact.features.add_values({"experiment": "Experiment 1"})
     assert error.exconly().startswith(
         "lamindb.core.exceptions.ValidationError: These values could not be validated: ['Experiment 1']"
     )
     ln.ULabel(name="Experiment 1").save()
-    artifact.features.add({"experiment": "Experiment 1"})
+    artifact.features.add_values({"experiment": "Experiment 1"})
     assert artifact.ulabel_links.get().ulabel.name == "Experiment 1"
     # repeat
-    artifact.features.add({"experiment": "Experiment 1"})
+    artifact.features.add_values({"experiment": "Experiment 1"})
     assert artifact.ulabel_links.get().ulabel.name == "Experiment 1"
 
     # numerical feature
     temperature = ln.Feature(name="temperature", dtype="cat").save()
     with pytest.raises(TypeError) as error:
-        artifact.features.add({"temperature": 27.2})
+        artifact.features.add_values({"temperature": 27.2})
     assert (
         error.exconly()
         == "TypeError: Value for feature 'temperature' with type 'cat' must be a string or record."
     )
     temperature.dtype = "number"
     temperature.save()
-    artifact.features.add({"temperature": 27.2})
+    artifact.features.add_values({"temperature": 27.2})
     assert artifact.feature_values.first().value == 27.2
 
     features = {
@@ -63,7 +63,7 @@ def test_features_add(adata):
         "donor": "U0123",
     }
     with pytest.raises(ValidationError) as error:
-        artifact.features.add(features)
+        artifact.features.add_values(features)
     print(error.exconly())
     assert (
         error.exconly()
@@ -83,7 +83,7 @@ If there are no typos, create features for them:
     ln.Feature(name="donor", dtype="cat[ULabel]").save()
 
     with pytest.raises(ValidationError) as error:
-        artifact.features.add(features)
+        artifact.features.add_values(features)
     print(error.exconly())
     assert (
         error.exconly()
@@ -100,7 +100,7 @@ If there are no typos, create ulabels for them:
     )
     ln.save(ulabels)
 
-    artifact.features.add(features)
+    artifact.features.add_values(features)
     print(artifact.feature_values.df())
     assert set(artifact.feature_values.all().values_list("value", flat=True)) == {
         27.2,
@@ -118,7 +118,7 @@ If there are no typos, create ulabels for them:
     assert artifact.features.__repr__().endswith(msg)
 
     # repeat
-    artifact.features.add(features)
+    artifact.features.add_values(features)
     assert set(artifact.feature_values.all().values_list("value", flat=True)) == {
         27.2,
         True,
@@ -275,7 +275,7 @@ def test_add_labels_using_anndata(adata):
     artifact.save()
 
     # link features
-    artifact.features.add_from_anndata(var_field=bt.Gene.ensembl_gene_id)
+    artifact.features._add_set_from_anndata(var_field=bt.Gene.ensembl_gene_id)
 
     # check the basic construction of the feature set based on obs
     feature_set_obs = artifact.feature_sets.filter(
