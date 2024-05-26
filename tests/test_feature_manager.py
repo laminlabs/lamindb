@@ -107,6 +107,9 @@ If there are no typos, create ulabels for them:
         True,
         100.0,
     }
+
+    assert ln.Artifact.filter(feature_values__value=27.2).one()
+
     print(artifact.features.__repr__())
     # hard to test because of italic formatting
     msg = """\

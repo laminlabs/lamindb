@@ -415,13 +415,13 @@ def _track_run_input(
                 run.transform.parents.add(input_data[0].transform)
 
 
-@property  # type: ignore
-@doc_args(Data.features.__doc__)
-def features(self) -> FeatureManager:
-    """{}."""
-    from lamindb.core._feature_manager import FeatureManager
+# @property  # type: ignore
+# @doc_args(Data.features.__doc__)
+# def features(self) -> FeatureManager:
+#     """{}."""
+#     from lamindb.core._feature_manager import FeatureManager
 
-    return FeatureManager(self)
+#     return FeatureManager(self)
 
 
 @property  # type: ignore
@@ -433,7 +433,6 @@ def labels(self) -> LabelManager:
     return LabelManager(self)
 
 
-Data.features = features
-Data.labels = labels
+# Data.labels = labels
 Data.describe = describe
 Data.view_lineage = view_lineage
