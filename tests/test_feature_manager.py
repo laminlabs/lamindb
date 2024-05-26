@@ -2,6 +2,7 @@ import bionty as bt
 import lamindb as ln
 import pytest
 from lamindb.core.exceptions import ValidationError
+from lnschema_core.models import FeatureValue
 
 bt.settings.auto_save_parents = False
 
@@ -21,9 +22,12 @@ def test_features_add(adata):
     ln.ULabel(name="Experiment 1")
     artifact = ln.Artifact.from_anndata(adata, description="test")
     artifact.save()
-    experiment = ln.Feature(name="experiment", dtype="cat")
-    with pytest.raises(ValidationError):
+    with pytest.raises(ValidationError) as error:
         artifact.features.add({"experiment": "Experiment 1"})
+    assert error.exconly().startswith(
+        "lamindb.core.exceptions.ValidationError: These keys could not be validated:"
+    )
+    experiment = ln.Feature(name="experiment", dtype="cat")
     experiment.save()
     with pytest.raises(ValidationError) as error:
         artifact.features.add({"experiment": "Experiment 1"})
@@ -32,7 +36,12 @@ def test_features_add(adata):
     )
     ln.ULabel(name="Experiment 1").save()
     artifact.features.add({"experiment": "Experiment 1"})
-    assert artifact.ulabel_links.first().ulabel.name == "Experiment 1"
+    assert artifact.ulabel_links.get().ulabel.name == "Experiment 1"
+    # repeat
+    artifact.features.add({"experiment": "Experiment 1"})
+    assert artifact.ulabel_links.get().ulabel.name == "Experiment 1"
+
+    # numerical feature
     temperature = ln.Feature(name="temperature", dtype="cat").save()
     with pytest.raises(TypeError) as error:
         artifact.features.add({"temperature": 27.2})
@@ -44,6 +53,78 @@ def test_features_add(adata):
     temperature.save()
     artifact.features.add({"temperature": 27.2})
     assert artifact.feature_values.first().value == 27.2
+
+    features = {
+        "experiment": "Experiment 2",
+        "project": "project_1",
+        "is_validated": True,
+        "cell_type_by_expert": "T Cell",
+        "temperature": 100.0,
+        "donor": "U0123",
+    }
+    with pytest.raises(ValidationError) as error:
+        artifact.features.add(features)
+    print(error.exconly())
+    assert (
+        error.exconly()
+        == """\
+lamindb.core.exceptions.ValidationError: These keys could not be validated: ['project', 'is_validated', 'cell_type_by_expert', 'donor']
+If there are no typos, create features for them:
+
+  ln.Feature(name='project', dtype='cat[ULabel]').save()
+  ln.Feature(name='is_validated', dtype='bool').save()
+  ln.Feature(name='cell_type_by_expert', dtype='cat[ULabel]').save()
+  ln.Feature(name='donor', dtype='cat[ULabel]').save()"""
+    )
+
+    ln.Feature(name="project", dtype="cat[ULabel]").save()
+    ln.Feature(name="is_validated", dtype="bool").save()
+    ln.Feature(name="cell_type_by_expert", dtype="cat[ULabel]").save()
+    ln.Feature(name="donor", dtype="cat[ULabel]").save()
+
+    with pytest.raises(ValidationError) as error:
+        artifact.features.add(features)
+    print(error.exconly())
+    assert (
+        error.exconly()
+        == """\
+lamindb.core.exceptions.ValidationError: These values could not be validated: ['Experiment 2', 'project_1', 'T Cell', 'U0123']
+If there are no typos, create ulabels for them:
+
+  ulabels = ln.ULabel.from_values(['Experiment 2', 'project_1', 'T Cell', 'U0123'], create=True)
+  ln.save(ulabels)"""
+    )
+
+    ulabels = ln.ULabel.from_values(
+        ["Experiment 2", "project_1", "T Cell", "U0123"], create=True
+    )
+    ln.save(ulabels)
+
+    artifact.features.add(features)
+    print(artifact.feature_values.df())
+    assert set(artifact.feature_values.all().values_list("value", flat=True)) == {
+        27.2,
+        True,
+        100.0,
+    }
+    print(artifact.features.__repr__())
+    # hard to test because of italic formatting
+    msg = """\
+    'experiment' = 'Experiment 1', 'Experiment 2'
+    'project' = 'project_1'
+    'cell_type_by_expert' = 'T Cell'
+    'donor' = 'U0123'
+"""
+    assert artifact.features.__repr__().endswith(msg)
+
+    # repeat
+    artifact.features.add(features)
+    assert set(artifact.feature_values.all().values_list("value", flat=True)) == {
+        27.2,
+        True,
+        100.0,
+    }
+    assert artifact.features.__repr__().endswith(msg)
 
     # delete everything we created
     artifact.delete(permanent=True)

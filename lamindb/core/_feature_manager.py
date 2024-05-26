@@ -139,7 +139,7 @@ def print_features(self: Data, print_types: bool = False) -> str:
         feature_names = list(features.values_list(name_field, flat=True)[:20])
         type_str = f": {feature_set.registry}" if print_types else ""
         feature_set_msg += f"    '{slot}'{type_str} = {_print_values(feature_names)}\n"
-    if labels_msg:
+    if feature_set_msg:
         msg += f"  {colors.italic('Feature sets')}\n"
         msg += feature_set_msg
     return msg
@@ -279,41 +279,32 @@ class FeatureManager:
 
     def add(
         self,
-        features_values: dict[str, str | int | float | bool],
-        slot: str | None = None,
+        values: dict[str, str | int | float | bool],
         feature_field: FieldAttr = Feature.name,
     ):
-        """Add features stratified by slot.
+        """Add features with values.
 
         Args:
-            features_values: A dictionary of features & values. You can also
-              pass `{feature_identifier: None}` to skip annotation by values.
-            slot: The access slot of the feature sets in the artifact. For
-              instance, `.columns` for `DataFrame` or `.var` or `.obs` for
-              `AnnData`.
-            feature_field: The field of a reference registry to map values.
+            values: A dictionary of keys (features) & values (labels, numbers, booleans).
+            feature_field: The field of a reference registry to map keys of the
+                dictionary.
         """
-        if slot is None:
-            slot = "external"
+        # rename to distinguish from the values inside the dict
+        features_values = values
         keys = features_values.keys()
-        features_values.values()
-        # what if the feature is already part of a linked feature set?
-        # what if artifact annotation by features through link tables and through feature sets
-        # differs?
-        # create and link feature set
         if isinstance(keys, DICT_KEYS_TYPE):
             keys = list(keys)  # type: ignore
         # deal with other cases later
         assert all(isinstance(key, str) for key in keys)
         registry = feature_field.field.model
         validated = registry.validate(keys, field=feature_field, mute=True)
-        values_array = np.array(keys)
-        validated_keys = values_array[validated]
+        keys_array = np.array(keys)
+        validated_keys = keys_array[validated]
         if validated.sum() != len(keys):
-            not_validated_keys = values_array[~validated]
+            not_validated_keys = keys_array[~validated]
             hint = "\n".join(
                 [
-                    f"  ln.Feature(name='{key}', dtype='{infer_feature_type_convert_json(features_values[key])}').save()"
+                    f"  ln.Feature(name='{key}', dtype='{infer_feature_type_convert_json(features_values[key])[0]}').save()"
                     for key in not_validated_keys
                 ]
             )
@@ -329,6 +320,7 @@ class FeatureManager:
         # figure out which of the values go where
         features_labels = []
         feature_values = []
+        not_validated_values = []
         for key, value in features_values.items():
             feature = Feature.filter(name=key).one()
             inferred_type, converted_value = infer_feature_type_convert_json(
@@ -358,27 +350,28 @@ class FeatureManager:
                     features_labels.append((feature, label_record))
                 else:
                     if isinstance(value, str):
-                        values = [value]
+                        values = [value]  # type: ignore
                     else:
                         values = value  # type: ignore
                     validated = ULabel.validate(values, field="name", mute=True)
                     values_array = np.array(values)
                     validated_values = values_array[validated]
                     if validated.sum() != len(values):
-                        not_validated_keys = values_array[~validated]
-                        hint = (
-                            f"  ulabels = ln.ULabel.from_values({not_validated_keys}, create=True)\n"
-                            f"  ln.save(ulabels)"
-                        )
-                        msg = (
-                            f"These values could not be validated: {not_validated_keys.tolist()}\n"
-                            f"If there are no typos, create ulabels for them:\n\n{hint}"
-                        )
-                        raise ValidationError(msg)
+                        not_validated_values += values_array[~validated].tolist()
                     label_records = ULabel.from_values(validated_values, field="name")
                     features_labels += [
                         (feature, label_record) for label_record in label_records
                     ]
+        if not_validated_values:
+            hint = (
+                f"  ulabels = ln.ULabel.from_values({not_validated_values}, create=True)\n"
+                f"  ln.save(ulabels)"
+            )
+            msg = (
+                f"These values could not be validated: {not_validated_values}\n"
+                f"If there are no typos, create ulabels for them:\n\n{hint}"
+            )
+            raise ValidationError(msg)
         # bulk add all links to ArtifactULabel
         if features_labels:
             LinkORM = self._host.ulabels.through
@@ -388,7 +381,9 @@ class FeatureManager:
                 )
                 for (feature, label) in features_labels
             ]
-            LinkORM.objects.bulk_create(links, ignore_conflicts=True)
+            # a link might already exist, to avoid raising a unique constraint
+            # error, ignore_conflicts
+            save(links, ignore_conflicts=True)
         if feature_values:
             save(feature_values)
             LinkORM = self._host.feature_values.through
@@ -396,7 +391,7 @@ class FeatureManager:
                 LinkORM(artifact_id=self._host.id, featurevalue_id=feature_value.id)
                 for feature_value in feature_values
             ]
-            LinkORM.objects.bulk_create(links)
+            save(links)
 
     def add_from_df(self, field: FieldAttr = Feature.name, organism: str | None = None):
         """Add features from DataFrame."""
