@@ -101,13 +101,13 @@ If there are no typos, create ulabels for them:
     ln.save(ulabels)
 
     artifact.features.add_values(features)
-    print(artifact.feature_values.df())
     assert set(artifact.feature_values.all().values_list("value", flat=True)) == {
         27.2,
         True,
         100.0,
     }
 
+    print("right before", FeatureValue.df())
     assert ln.Artifact.filter(feature_values__value=27.2).one()
 
     print(artifact.features.__repr__())
@@ -128,6 +128,12 @@ If there are no typos, create ulabels for them:
         100.0,
     }
     assert artifact.features.__repr__().endswith(msg)
+
+    ln.Artifact.features.filter(temperature=100.0).one()
+    ln.Artifact.features.filter(project="project_1").one()
+    ln.Artifact.features.filter(
+        temperature=100.0, project="project_1", donor="U0123"
+    ).one()
 
     # delete everything we created
     artifact.delete(permanent=True)

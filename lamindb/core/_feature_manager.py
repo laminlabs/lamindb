@@ -17,6 +17,8 @@ from lnschema_core.models import (
     Data,
     Feature,
     FeatureManager,
+    FeatureManagerArtifact,
+    FeatureManagerCollection,
     FeatureValue,
     LinkORM,
     Registry,
@@ -256,10 +258,32 @@ def __getitem__(self, slot) -> QuerySet:
     return getattr(feature_set, self._accessor_by_registry[orm_name]).all()
 
 
-@classmethod  # type:ignore
-def filter(cls) -> QuerySet:
+@classmethod  # type: ignore
+def filter(cls, **expression) -> QuerySet:
     """Filter features."""
-    print("cls.__name__", cls.__name__)
+    keys_normalized = {key.split("__")[0] for key in expression}
+    features = Feature.filter(name__in=keys_normalized).all().distinct()
+    if len(features) != len(keys_normalized):
+        raise ValueError(
+            f"Some keys in the filter expression are not registered as features, I don't which of: {keys_normalized}"
+        )
+    new_expression = {}
+    for key, value in expression.items():
+        normalized_key = key.split("__")[0]
+        feature = features.get(name=normalized_key)
+        if not feature.dtype.startswith("cat"):
+            feature_value = FeatureValue.filter(feature=feature, value=value).one()
+            new_expression["feature_values"] = feature_value
+        else:
+            if isinstance(value, str):
+                label = ULabel.filter(name=value).one()
+                new_expression["ulabels"] = label
+            else:
+                raise NotImplementedError
+    if cls == FeatureManagerArtifact:
+        return Artifact.filter(**new_expression)
+    else:
+        return Collection.filter(**new_expression)
 
 
 @property  # type: ignore
@@ -340,7 +364,13 @@ def add_values(
         elif feature.dtype == "bool":
             assert isinstance(value, bool)
         if not feature.dtype.startswith("cat"):
-            feature_values.append(FeatureValue(feature=feature, value=converted_value))
+            # can remove the query once we have the unique constraint
+            feature_value = FeatureValue.filter(
+                feature=feature, value=converted_value
+            ).one_or_none()
+            if feature_value is None:
+                feature_value = FeatureValue(feature=feature, value=converted_value)
+            feature_values.append(feature_value)
         else:
             if isinstance(value, Registry):
                 assert not value._state.adding
@@ -390,7 +420,9 @@ def add_values(
             LinkORM(artifact_id=self._host.id, featurevalue_id=feature_value.id)
             for feature_value in feature_values
         ]
-        save(links)
+        # a link might already exist, to avoid raising a unique constraint
+        # error, ignore_conflicts
+        save(links, ignore_conflicts=True)
 
 
 def add_feature_set(self, feature_set: FeatureSet, slot: str) -> None:
