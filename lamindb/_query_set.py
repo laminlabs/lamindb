@@ -99,9 +99,30 @@ class QuerySet(models.QuerySet, CanValidate):
     @doc_args(Registry.df.__doc__)
     def df(self, include: str | list[str] | None = None) -> pd.DataFrame:
         """{}."""
-        data = self.values()
-        keys = get_keys_from_df(data, self.model)
-        df = pd.DataFrame(self.values(), columns=keys)
+        # re-order the columns
+        exclude_field_names = ["created_at"]
+        field_names = [
+            field.name
+            for field in self.model._meta.fields
+            if (
+                not isinstance(field, models.ForeignKey)
+                and field.name not in exclude_field_names
+            )
+        ]
+        field_names += [
+            f"{field.name}_id"
+            for field in self.model._meta.fields
+            if isinstance(field, models.ForeignKey)
+        ]
+        for field_name in ["run_id", "created_at", "created_by_id", "updated_at"]:
+            if field_name in field_names:
+                field_names.remove(field_name)
+                field_names.append(field_name)
+        if field_names[0] != "uid" and "uid" in field_names:
+            field_names.remove("uid")
+            field_names.insert(0, "uid")
+        # create the dataframe
+        df = pd.DataFrame(self.values(), columns=field_names)
         # if len(df) > 0 and "updated_at" in df:
         #     df.updated_at = format_and_convert_to_local_time(df.updated_at)
         # if len(df) > 0 and "started_at" in df:

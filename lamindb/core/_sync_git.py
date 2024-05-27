@@ -20,7 +20,9 @@ def get_git_repo_from_remote() -> Path:
     if repo_dir.exists():
         logger.warning(f"git repo {repo_dir} already exists locally")
         return repo_dir
-    logger.important(f"cloning {repo_url} into {repo_dir}")
+    logger.important(
+        f"running outside of synched git repo, cloning {repo_url} into {repo_dir}"
+    )
     result = subprocess.run(
         f"git clone --depth 10 {repo_url}.git",
         shell=True,
@@ -48,8 +50,7 @@ def check_local_git_repo() -> bool:
             # running-in-correct-git-repo
             return True
         else:
-            # running-in-wrong-git-repo
-            logger.warning("running in wrong git repo")
+            # running-outside-of-correct-git-repo
             return False
 
 

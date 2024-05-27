@@ -63,6 +63,7 @@ def save_run_context_core(
     filepath: Path,
     transform_family: QuerySet | None = None,
     finished_at: bool = False,
+    from_cli: bool = False,
 ) -> str | None:
     import lamindb as ln
 
@@ -86,7 +87,9 @@ def save_run_context_core(
             )
             return None
         notebook_content = read_notebook(filepath)  # type: ignore
-        is_consecutive = check_consecutiveness(notebook_content)
+        is_consecutive = check_consecutiveness(
+            notebook_content, calling_statement="ln.finish()"
+        )
         if not is_consecutive:
             msg = "   Do you still want to proceed with finishing? (y/n) "
             if os.getenv("LAMIN_TESTING") is None:
@@ -107,13 +110,13 @@ def save_run_context_core(
         # in an existing storage location -> we want to move associated
         # artifacts into default storage and not register them in an existing
         # location
-        filepath_html_orig = filepath.with_suffix(".html")  # current location
-        filepath_html = ln_setup.settings.storage.cache_dir / filepath_html_orig.name
+        report_path_orig = filepath.with_suffix(".html")  # current location
+        report_path = ln_setup.settings.storage.cache_dir / report_path_orig.name
         # don't use Path.rename here because of cross-device link error
         # https://laminlabs.slack.com/archives/C04A0RMA0SC/p1710259102686969
         shutil.move(
-            filepath_html_orig,  # type: ignore
-            filepath_html,
+            report_path_orig,  # type: ignore
+            report_path,
         )
         # strip the output from the notebook to create the source code file
         # first, copy the notebook file to a temporary file in the cache
@@ -160,6 +163,8 @@ def save_run_context_core(
             else:
                 logger.warning("Please re-run `ln.track()` to make a new version")
                 return "rerun-the-notebook"
+        else:
+            logger.important("source code is already saved")
     else:
         source_code = ln.Artifact(
             source_code_path,
@@ -174,22 +179,27 @@ def save_run_context_core(
         logger.debug(f"saved transform.source_code: {transform.source_code}")
 
     # track environment
-    filepath_env = ln_setup.settings.storage.cache_dir / f"run_env_pip_{run.uid}.txt"
-    if filepath_env.exists():
-        hash, _ = hash_file(filepath_env)
-        artifact = ln.Artifact.filter(hash=hash, visibility=0).one_or_none()
-        new_env_artifact = artifact is None
-        if new_env_artifact:
-            artifact = ln.Artifact(
-                filepath_env,
-                description="requirements.txt",
-                visibility=0,
-                run=False,
-            )
-            artifact.save(upload=True, print_progress=False)
-        run.environment = artifact
-        if new_env_artifact:
-            logger.debug(f"saved run.environment: {run.environment}")
+    env_path = ln_setup.settings.storage.cache_dir / f"run_env_pip_{run.uid}.txt"
+    if env_path.exists():
+        overwrite_env = True
+        if run.environment_id is not None and from_cli:
+            logger.important("run.environment is already saved")
+            overwrite_env = False
+        if overwrite_env:
+            hash, _ = hash_file(env_path)
+            artifact = ln.Artifact.filter(hash=hash, visibility=0).one_or_none()
+            new_env_artifact = artifact is None
+            if new_env_artifact:
+                artifact = ln.Artifact(
+                    env_path,
+                    description="requirements.txt",
+                    visibility=0,
+                    run=False,
+                )
+                artifact.save(upload=True, print_progress=False)
+            run.environment = artifact
+            if new_env_artifact:
+                logger.debug(f"saved run.environment: {run.environment}")
 
     # set finished_at
     if finished_at:
@@ -201,14 +211,25 @@ def save_run_context_core(
         run.save()
     else:
         if run.report_id is not None:
-            logger.warning(
-                "there is already an existing report for this run, replacing it"
-            )
-            run.report.replace(filepath_html)
-            run.report.save(upload=True)
+            hash, _ = hash_file(report_path)  # ignore hash_type for now
+            if hash != run.report.hash:
+                if os.getenv("LAMIN_TESTING") is None:
+                    # in test, auto-confirm overwrite
+                    response = input(
+                        f"You are about to replace (overwrite) an existing run report (hash '{run.report.hash}'). Proceed? (y/n)"
+                    )
+                else:
+                    response = "y"
+                if response == "y":
+                    run.report.replace(report_path)
+                    run.report.save(upload=True)
+                else:
+                    logger.important("keeping old report")
+            else:
+                logger.important("report is already saved")
         else:
             report_file = ln.Artifact(
-                filepath_html,
+                report_path,
                 description=f"Report of run {run.uid}",
                 is_new_version_of=prev_report,
                 visibility=0,  # hidden file
@@ -228,12 +249,15 @@ def save_run_context_core(
         logger.important(
             f"go to: https://lamin.ai/{identifier}/transform/{transform.uid}"
         )
-        thing, name = (
-            ("notebook", "notebook.ipynb") if is_notebook else ("script", "script.py")
-        )
-        logger.important(
-            f"if you want to update your {thing} without re-running it, use `lamin save {name}`"
-        )
+        if not from_cli:
+            thing, name = (
+                ("notebook", "notebook.ipynb")
+                if is_notebook
+                else ("script", "script.py")
+            )
+            logger.important(
+                f"if you want to update your {thing} without re-running it, use `lamin save {name}`"
+            )
     # because run & transform changed, update the global run_context
     run_context.run = run
     run_context.transform = transform

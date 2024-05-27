@@ -1,5 +1,6 @@
 # Changelog
 
+- 🚸 `ln.track()` returns `run`, better duplicate detection and search, prettier `.describe()`, and more [PR](https://github.com/laminlabs/lamindb/pull/1674) [@falexwolf](https://github.com/falexwolf)
 - 🐛 Fix trailing slash in upload_from source [PR](https://github.com/laminlabs/lamindb/pull/1678) [@Koncopd](https://github.com/Koncopd)
 - 🚸 Make `upload_from()`, `download_to()`, and `view_tree()` more user friendly [PR](https://github.com/laminlabs/lamindb/pull/1677) [@falexwolf](https://github.com/falexwolf)
 - 🚸 More intuitive version updating dialogue [PR](https://github.com/laminlabs/lamindb/pull/1676) [@falexwolf](https://github.com/falexwolf)

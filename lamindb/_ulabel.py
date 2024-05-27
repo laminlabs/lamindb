@@ -8,8 +8,6 @@ from lnschema_core import ULabel
 
 from lamindb._utils import attach_func_to_class_method
 
-from ._from_values import get_or_create_records
-
 if TYPE_CHECKING:
     from lnschema_core.types import ListLike
 
@@ -41,20 +39,8 @@ def __init__(self, *args, **kwargs):
     )
 
 
-@classmethod  # type:ignore
-@doc_args(ULabel.from_values.__doc__)
-def from_values(cls, values: ListLike, **kwargs) -> list[ULabel]:
-    """{}."""
-    records = get_or_create_records(
-        iterable=values,
-        field=ULabel.name,
-    )
-    return records
-
-
 METHOD_NAMES = [
     "__init__",
-    "from_values",
 ]
 
 if ln_setup._TESTING:

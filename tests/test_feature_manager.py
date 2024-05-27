@@ -27,9 +27,8 @@ def test_features_add(adata):
     experiment.save()
     with pytest.raises(ValidationError) as error:
         artifact.features.add({"experiment": "Experiment 1"})
-    assert (
-        error.exconly()
-        == "lamindb.core.exceptions.ValidationError: Label 'Experiment 1' not found in ln.ULabel"
+    assert error.exconly().startswith(
+        "lamindb.core.exceptions.ValidationError: These values could not be validated: ['Experiment 1']"
     )
     ln.ULabel(name="Experiment 1").save()
     artifact.features.add({"experiment": "Experiment 1"})
@@ -99,8 +98,6 @@ def test_labels_add(adata):
     experiments = artifact.labels.get(experiment)
     assert experiments.get().name == "Experiment 1"
 
-    feature_set_n1 = ln.FeatureSet.filter(features__name="experiment").one()
-
     # running from_values to load validated label records under the hood
     experiment = ln.Feature(name="experiment_with_reg", dtype="cat[ULabel]")
     experiment.save()
@@ -119,28 +116,14 @@ def test_labels_add(adata):
     projects = artifact.labels.get(features.project)
     assert projects.get().name == "project 1"
 
-    # here, we test that feature_set_n1 was removed because it was no longer
-    # linked to any file
-    feature_set_n2 = ln.FeatureSet.filter(features__name="experiment").one()
-    assert feature_set_n1.id != feature_set_n2.id
-    assert artifact.feature_sets.get() == feature_set_n2
-
     # test add_from
     collection = ln.Collection(artifact, name="My collection")
     collection.save()
+    from lamindb.core._label_manager import get_labels_as_dict
+
     collection.labels.add_from(artifact)
     experiments = collection.labels.get(experiment)
     assert experiments.get().name == "Experiment 2"
-
-    # test features._add_from
-    # first, remove all feature sets
-    feature_sets = collection.feature_sets.all()
-    for feature_set in feature_sets:
-        collection.feature_sets.remove(feature_set)
-    assert len(collection.feature_sets.all()) == 0
-    # second,
-    collection.features._add_from(artifact)
-    assert set(collection.feature_sets.all()) == set(feature_sets)
 
     collection.delete(permanent=True)
     artifact.delete(permanent=True)
@@ -235,11 +218,8 @@ def test_add_labels_using_anndata(adata):
         registry="Feature", artifact_links__slot="obs"
     ).one()
     assert feature_set_obs.n == 4
-    feature_set_ext = artifact.feature_sets.filter(
-        registry="Feature", artifact_links__slot="external"
-    ).one()
-    assert feature_set_ext.n == 1
-    assert "organism" in feature_set_ext.features.list("name")
+    # TODO, write a test that queries the organism feature
+    # assert "organism" in feature_set_ext.features.list("name")
 
     # now we add cell types & tissues and run checks
     ln.Feature(name="cell_type", dtype="cat").save()
@@ -276,12 +256,13 @@ def test_add_labels_using_anndata(adata):
     ln.Feature(name="experiment", dtype="cat").save()
     features = ln.Feature.lookup()
     artifact.labels.add(experiment_1, feature=features.experiment)
-    df = artifact.features["external"].df()
-    assert set(df["name"]) == {
-        "organism",
-        "experiment",
-    }
-    assert set(df["dtype"]) == {"cat[bionty.Organism]", "cat[ULabel]"}
+    # TODO: replace the following with an updated test
+    # df = artifact.features["external"].df()
+    # assert set(df["name"]) == {
+    #     "organism",
+    #     "experiment",
+    # }
+    # assert set(df["dtype"]) == {"cat[bionty.Organism]", "cat[ULabel]"}
 
     assert set(artifact.labels.get(features.experiment).list("name")) == {
         "experiment_1"
@@ -324,8 +305,6 @@ def test_add_labels_using_anndata(adata):
         "hematopoietic stem cell",
         "B cell",
     }
-
-    assert set(df["dtype"]) == {"cat[bionty.Organism]", "cat[ULabel]"}
     assert experiment_1 in artifact.ulabels.all()
 
     # call describe
@@ -355,7 +334,7 @@ def test_labels_get():
     feature_set = ln.FeatureSet(features=[feature_name_feature])
     feature_set.save()
     artifact.save()
-    assert str(artifact.features) == "no linked features"
+    assert str(artifact.features) == ""
     artifact.features.add_feature_set(feature_set, slot="random")
     assert artifact.feature_sets.first() == feature_set
     artifact.delete(permanent=True, storage=True)

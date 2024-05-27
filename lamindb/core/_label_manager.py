@@ -1,10 +1,11 @@
 from __future__ import annotations
 
+from collections import defaultdict
 from typing import TYPE_CHECKING, Dict
 
 import numpy as np
 from lamin_utils import colors, logger
-from lnschema_core.models import Artifact, Collection, Data, Feature, LinkORM, Registry
+from lnschema_core.models import Feature
 
 from lamindb._from_values import _print_values
 from lamindb._registry import (
@@ -19,50 +20,64 @@ from ._settings import settings
 from .schema import dict_related_model_to_related_name
 
 if TYPE_CHECKING:
+    from lnschema_core.models import Artifact, Collection, Data, Registry
+
     from lamindb._query_set import QuerySet
 
 
-def get_labels_as_dict(self: Data):
+def get_labels_as_dict(self: Data, links: bool = False):
+    exclude_set = {
+        "feature_sets",
+        "unordered_artifacts",
+        "input_of",
+        "collections",
+        "source_code_of",
+        "report_of",
+        "environment_of",
+        "collection_links",
+        "artifact_links",
+        "feature_set_links",
+        "previous_runs",
+        "feature_values",
+    }
     labels = {}  # type: ignore
     if self.id is None:
         return labels
     for related_model_name, related_name in dict_related_model_to_related_name(
-        self.__class__
+        self.__class__, links=links
     ).items():
-        if related_name in {
-            "feature_sets",
-            "unordered_artifacts",
-            "input_of",
-            "collections",
-            "source_of",
-            "report_of",
-            "environment_of",
-        }:
-            continue
-        labels[related_name] = (related_model_name, self.__getattribute__(related_name))
+        if related_name not in exclude_set:
+            labels[related_name] = (
+                related_model_name,
+                getattr(self, related_name).all(),
+            )
     return labels
 
 
-def print_labels(
-    self: Data, field: str = "name", ignore_labels_with_feature: bool = True
-):
+def print_labels(self: Data, field: str = "name", print_types: bool = False):
     labels_msg = ""
     for related_name, (related_model, labels) in get_labels_as_dict(self).items():
+        # there is a try except block here to deal with schema inconsistencies
+        # during transfer between instances
         try:
             labels_list = list(labels.values_list(field, flat=True))
             if len(labels_list) > 0:
                 get_default_str_field(labels)
-                print_values = _print_values(labels_list[:20], n=10)
-                labels_msg += f"  📎 {related_name} ({len(labels_list)}, {colors.italic(related_model)}): {print_values}\n"
+                print_values = _print_values(labels_list, n=10)
+                type_str = f": {related_model}" if print_types else ""
+                labels_msg += f"    .{related_name}{type_str} = {print_values}\n"
         except Exception:
             continue
-    if len(labels_msg) > 0:
-        return f"{colors.green('Labels')}:\n{labels_msg}"
-    else:
-        return ""
+    msg = ""
+    if labels_msg:
+        msg += f"  {colors.italic('Labels')}\n"
+        msg += labels_msg
+    return msg
 
 
-def transfer_add_labels(labels, features_lookup_self, self, row, parents: bool = True):
+def transfer_add_labels(
+    labels, features_lookup_self, self, feature_name, parents: bool = True
+):
     def transfer_single_registry(validated_labels, new_labels):
         # here the new labels are transferred to the self db
         if len(new_labels) > 0:
@@ -78,7 +93,7 @@ def transfer_add_labels(labels, features_lookup_self, self, row, parents: bool =
         # link labels records from self db
         self._host.labels.add(
             validated_labels + new_labels,
-            feature=features_lookup_self.get(row["name"]),
+            feature=features_lookup_self.get(feature_name),
         )
 
     # validate labels on the default db
@@ -90,6 +105,7 @@ def transfer_add_labels(labels, features_lookup_self, self, row, parents: bool =
         transfer_single_registry(*result)
 
 
+# Alex: is this a label transfer function?
 def validate_labels(labels: QuerySet | list | dict, parents: bool = True):
     def validate_labels_registry(
         labels: QuerySet | list | dict, parents: bool = True
@@ -168,11 +184,16 @@ class LabelManager:
         Args:
             records: Label records to add.
             feature: Feature under which to group the labels.
-            field: Field to parse iterable with from_values.
         """
         from ._data import add_labels
 
         return add_labels(self._host, records=records, feature=feature)
+
+    def remove(self, record: Registry):
+        """Remove a label."""
+        d = dict_related_model_to_related_name(self._host.__class__)
+        related_name = d[record.__class__]
+        getattr(self._host, related_name).remove(record)
 
     def get(
         self,
@@ -191,8 +212,8 @@ class LabelManager:
 
         return get_labels(self._host, feature=feature, mute=mute, flat_names=flat_names)
 
-    def add_from(self, data: Data, parents: bool = True):
-        """Transfer labels from a file or collection.
+    def add_from(self, data: Data, parents: bool = True) -> None:
+        """Add labels from an artifact or collection to another artifact or collection.
 
         Examples:
             >>> file1 = ln.Artifact(pd.DataFrame(index=[0, 1]))
@@ -207,45 +228,61 @@ class LabelManager:
         """
         from django.db.utils import ProgrammingError
 
-        features_lookup_self = {f.name: f for f in Feature.objects.filter().all()}
-        features_lookup_data = {
-            f.name: f for f in Feature.objects.using(data._state.db).filter().all()
-        }
-        for _, feature_set in data.features.feature_set_by_slot.items():
-            # add labels stratified by feature
-            if feature_set.registry == "Feature":
-                # df_slot is the Feature table with type
-                df_slot = feature_set.features.df()
-                for _, row in df_slot.iterrows():
-                    if row["dtype"].startswith("cat["):
-                        logger.info(f"transferring {row['name']}")
-                        # labels records from data db
-                        labels = data.labels.get(
-                            features_lookup_data.get(row["name"]), mute=True
-                        )
-                        transfer_add_labels(
-                            labels, features_lookup_self, self, row, parents=parents
-                        )
-        # TODO: for now, has to be duplicated
         using_key = settings._using_key
         for related_name, (_, labels) in get_labels_as_dict(data).items():
             labels = labels.all()
             try:
-                if len(labels) == 0:
+                if not labels.exists():
                     continue
-                validated_labels, new_labels = validate_labels(labels, parents=parents)
+                # look for features
+                data_name_lower = data.__class__.__name__.lower()
+                labels_by_features = defaultdict(list)
+                features = []
+                _, new_labels = validate_labels(labels, parents=parents)
                 if len(new_labels) > 0:
                     transfer_fk_to_default_db_bulk(new_labels, using_key)
-                    for label in new_labels:
-                        transfer_to_default_db(
-                            label, using_key, mute=True, transfer_fk=False
+                for label in labels:
+                    # if the link table doesn't follow this convention, we'll ignore it
+                    if not hasattr(label, f"{data_name_lower}_links"):
+                        key = None
+                    else:
+                        link = getattr(label, f"{data_name_lower}_links").get(
+                            **{f"{data_name_lower}_id": data.id}
                         )
-                    save(new_labels, parents=parents)
-                # this should not occur as file and collection should have the same attributes
-                # but this might not be true for custom schema
-                labels_list = validated_labels + new_labels
+                        if link.feature is not None:
+                            features.append(link.feature)
+                            key = link.feature.name
+                        else:
+                            key = None
+                    label_returned = transfer_to_default_db(
+                        label,
+                        using_key,
+                        mute=True,
+                        transfer_fk=False,
+                        save=True,
+                    )
+                    # TODO: refactor return value of transfer to default db
+                    if label_returned is not None:
+                        label = label_returned
+                    labels_by_features[key].append(label)
+                # treat features
+                _, new_features = validate_labels(features)
+                if len(new_features) > 0:
+                    transfer_fk_to_default_db_bulk(new_features, using_key)
+                    for feature in new_features:
+                        transfer_to_default_db(
+                            feature, using_key, mute=True, transfer_fk=False
+                        )
+                    save(new_features, parents=parents)
                 if hasattr(self._host, related_name):
-                    getattr(self._host, related_name).add(*labels_list)
+                    for feature_name, labels in labels_by_features.items():
+                        if feature_name is not None:
+                            feature_id = Feature.filter(name=feature_name).one().id
+                        else:
+                            feature_id = None
+                        getattr(self._host, related_name).add(
+                            *labels, through_defaults={"feature_id": feature_id}
+                        )
             # ProgrammingError is raised when schemas don't match between source and target instances
             except ProgrammingError:
                 continue
