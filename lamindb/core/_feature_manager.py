@@ -256,7 +256,7 @@ def __getitem__(self, slot) -> QuerySet:
     if hasattr(feature_set, "_features"):
         # feature set is not yet saved
         # need to think about turning this into a queryset
-        return feature_set._features
+        return feature_set._features[1]
     else:
         return getattr(feature_set, self._accessor_by_registry[orm_name]).all()
 
