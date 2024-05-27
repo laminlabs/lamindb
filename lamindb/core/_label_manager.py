@@ -237,7 +237,7 @@ class LabelManager:
                 # look for features
                 data_name_lower = data.__class__.__name__.lower()
                 labels_by_features = defaultdict(list)
-                features = []
+                features = set()
                 _, new_labels = validate_labels(labels, parents=parents)
                 if len(new_labels) > 0:
                     transfer_fk_to_default_db_bulk(new_labels, using_key)
@@ -250,7 +250,7 @@ class LabelManager:
                             **{f"{data_name_lower}_id": data.id}
                         )
                         if link.feature is not None:
-                            features.append(link.feature)
+                            features.add(link.feature)
                             key = link.feature.name
                         else:
                             key = None
@@ -266,7 +266,7 @@ class LabelManager:
                         label = label_returned
                     labels_by_features[key].append(label)
                 # treat features
-                _, new_features = validate_labels(features)
+                _, new_features = validate_labels(list(features))
                 if len(new_features) > 0:
                     transfer_fk_to_default_db_bulk(new_features, using_key)
                     for feature in new_features:

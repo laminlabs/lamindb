@@ -509,9 +509,13 @@ def save(self, *args, **kwargs) -> Registry:
         if hasattr(self, "labels"):
             from copy import copy
 
+            from lnschema_core.models import FeatureManager
+
+            # here we go back to original record on the source database
             self_on_db = copy(self)
             self_on_db._state.db = db
-            self_on_db.pk = pk_on_db
+            self_on_db.pk = pk_on_db  # manually set the primary key
+            self_on_db.features = FeatureManager(self_on_db)
             # by default, transfer parents of the labels to maintain ontological hierarchy
             try:
                 import bionty as bt
@@ -520,9 +524,7 @@ def save(self, *args, **kwargs) -> Registry:
             except ImportError:
                 parents = kwargs.get("parents", True)
             add_from_kwargs = {"parents": parents}
-            logger.debug("transfer features")
             self.features._add_from(self_on_db, **add_from_kwargs)
-            logger.debug("transfer labels")
             self.labels.add_from(self_on_db, **add_from_kwargs)
     return self
 

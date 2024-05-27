@@ -124,7 +124,7 @@ def print_features(self: Data, print_types: bool = False) -> str:
                 link_attr = get_link_attr(link, self)
                 labels_by_feature[link.feature_id].append(getattr(link, link_attr).name)
     for feature_id, labels_list in labels_by_feature.items():
-        feature = Feature.objects.get(id=feature_id)
+        feature = Feature.objects.using(self._state.db).get(id=feature_id)
         print_values = _print_values(labels_list, n=10)
         type_str = f": {feature.dtype}" if print_types else ""
         labels_msg += f"    '{feature.name}'{type_str} = {print_values}\n"
