@@ -15,7 +15,12 @@ from anndata import AnnData
 from lamin_utils import logger
 from lamindb_setup.core._docs import doc_args
 from lamindb_setup.core.hashing import hash_set
-from lnschema_core.models import Collection, CollectionArtifact, FeatureSet
+from lnschema_core.models import (
+    Collection,
+    CollectionArtifact,
+    FeatureManager,
+    FeatureSet,
+)
 from lnschema_core.types import VisibilityChoice
 
 from lamindb._artifact import update_attributes
@@ -45,6 +50,7 @@ def __init__(
     *args,
     **kwargs,
 ):
+    collection.features = FeatureManager(collection)
     if len(args) == len(collection._meta.concrete_fields):
         super(Collection, collection).__init__(*args, **kwargs)
         return None

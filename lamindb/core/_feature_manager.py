@@ -264,7 +264,7 @@ def __getitem__(self, slot) -> QuerySet:
 @classmethod  # type:ignore
 def filter(cls) -> QuerySet:
     """Filter features."""
-    print("hello")
+    print("cls.__name__", cls.__name__)
 
 
 @property  # type: ignore
