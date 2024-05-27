@@ -9,7 +9,7 @@ Registries:
    QuerySet
    QueryManager
    RecordsList
-   Data
+   HasFeatures
    FeatureManager
    LabelManager
    IsVersioned
@@ -54,7 +54,7 @@ Modules:
 from lamin_utils._inspect import InspectResult
 from lnschema_core.models import (
     CanValidate,
-    Data,
+    HasFeatures,
     HasParents,
     IsVersioned,
     Registry,
