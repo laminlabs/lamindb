@@ -8,9 +8,9 @@ from lamindb_setup.core._docs import doc_args
 from lnschema_core.models import (
     Artifact,
     Collection,
-    Data,
     Feature,
     FeatureSet,
+    HasFeatures,
     Registry,
     Run,
     ULabel,
@@ -95,8 +95,8 @@ def save_feature_set_links(self: Artifact | Collection) -> None:
         bulk_create(links, ignore_conflicts=True)
 
 
-@doc_args(Data.describe.__doc__)
-def describe(self: Data, print_types: bool = False):
+@doc_args(HasFeatures.describe.__doc__)
+def describe(self: HasFeatures, print_types: bool = False):
     """{}."""
     # prefetch all many-to-many relationships
     # doesn't work for describing using artifact
@@ -325,7 +325,7 @@ def add_labels(
 
 
 def _track_run_input(
-    data: Data | Iterable[Data],
+    data: HasFeatures | Iterable[HasFeatures],
     is_run_input: bool | None = None,
     run: Run | None = None,
 ):
@@ -337,12 +337,12 @@ def _track_run_input(
     elif run is None:
         run = run_context.run
     # consider that data is an iterable of Data
-    data_iter: Iterable[Data] = [data] if isinstance(data, Data) else data
+    data_iter: Iterable[HasFeatures] = [data] if isinstance(data, HasFeatures) else data
     track_run_input = False
     input_data = []
     if run is not None:
         # avoid cycles: data can't be both input and output
-        def is_valid_input(data: Data):
+        def is_valid_input(data: HasFeatures):
             return (
                 data.run_id != run.id
                 and not data._state.adding
@@ -415,5 +415,5 @@ def _track_run_input(
                 run.transform.parents.add(input_data[0].transform)
 
 
-Data.describe = describe
-Data.view_lineage = view_lineage
+HasFeatures.describe = describe
+HasFeatures.view_lineage = view_lineage

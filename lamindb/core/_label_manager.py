@@ -20,12 +20,12 @@ from ._settings import settings
 from .schema import dict_related_model_to_related_name
 
 if TYPE_CHECKING:
-    from lnschema_core.models import Artifact, Collection, Data, Registry
+    from lnschema_core.models import Artifact, Collection, HasFeatures, Registry
 
     from lamindb._query_set import QuerySet
 
 
-def get_labels_as_dict(self: Data, links: bool = False):
+def get_labels_as_dict(self: HasFeatures, links: bool = False):
     exclude_set = {
         "feature_sets",
         "unordered_artifacts",
@@ -54,7 +54,7 @@ def get_labels_as_dict(self: Data, links: bool = False):
     return labels
 
 
-def print_labels(self: Data, field: str = "name", print_types: bool = False):
+def print_labels(self: HasFeatures, field: str = "name", print_types: bool = False):
     labels_msg = ""
     for related_name, (related_model, labels) in get_labels_as_dict(self).items():
         # there is a try except block here to deal with schema inconsistencies
@@ -212,7 +212,7 @@ class LabelManager:
 
         return get_labels(self._host, feature=feature, mute=mute, flat_names=flat_names)
 
-    def add_from(self, data: Data, parents: bool = True) -> None:
+    def add_from(self, data: HasFeatures, parents: bool = True) -> None:
         """Add labels from an artifact or collection to another artifact or collection.
 
         Examples:

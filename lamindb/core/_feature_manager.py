@@ -14,12 +14,12 @@ from lamindb_setup.core.upath import create_path
 from lnschema_core.models import (
     Artifact,
     Collection,
-    Data,
     Feature,
     FeatureManager,
     FeatureManagerArtifact,
     FeatureManagerCollection,
     FeatureValue,
+    HasFeatures,
     LinkORM,
     Registry,
     ULabel,
@@ -103,7 +103,7 @@ def get_feature_set_links(host: Artifact | Collection) -> QuerySet:
     return feature_set_links
 
 
-def get_link_attr(link: LinkORM, data: Data) -> str:
+def get_link_attr(link: LinkORM, data: HasFeatures) -> str:
     link_model_name = link.__class__.__name__
     link_attr = link_model_name.replace(data.__class__.__name__, "")
     if link_attr == "ExperimentalFactor":
@@ -113,7 +113,7 @@ def get_link_attr(link: LinkORM, data: Data) -> str:
     return link_attr
 
 
-def print_features(self: Data, print_types: bool = False) -> str:
+def print_features(self: HasFeatures, print_types: bool = False) -> str:
     from lamindb._from_values import _print_values
 
     msg = ""
@@ -549,7 +549,7 @@ def _add_set_from_mudata(
     self._host.save()
 
 
-def _add_from(self, data: Data, parents: bool = True):
+def _add_from(self, data: HasFeatures, parents: bool = True):
     """Transfer features from a artifact or collection."""
     # This only covers feature sets, though.
     using_key = settings._using_key

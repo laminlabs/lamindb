@@ -29,7 +29,7 @@ from lnschema_core.types import (
 )
 
 from lamindb._utils import attach_func_to_class_method
-from lamindb.core._data import Data, _track_run_input
+from lamindb.core._data import HasFeatures, _track_run_input
 from lamindb.core._settings import settings
 from lamindb.core.storage import (
     LocalPathClasses,
@@ -505,7 +505,7 @@ def _check_accessor_artifact(data: Any, accessor: str | None = None):
     return accessor
 
 
-def update_attributes(data: Data, attributes: Mapping[str, str]):
+def update_attributes(data: HasFeatures, attributes: Mapping[str, str]):
     for key, value in attributes.items():
         if getattr(data, key) != value:
             logger.warning(f"updated {key} from {getattr(data, key)} to {value}")
