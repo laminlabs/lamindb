@@ -131,6 +131,7 @@ If there are no typos, create ulabels for them:
 
     ln.Artifact.features.filter(temperature=100.0).one()
     ln.Artifact.features.filter(project="project_1").one()
+    ln.Artifact.features.filter(is_validated=True).one()
     ln.Artifact.features.filter(
         temperature=100.0, project="project_1", donor="U0123"
     ).one()
