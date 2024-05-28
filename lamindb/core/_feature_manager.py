@@ -148,10 +148,6 @@ def print_features(
     labels_by_feature = defaultdict(list)
     for _, (_, links) in get_labels_as_dict(self, links=True).items():
         for link in links:
-            print(
-                link.ulabel.name,
-                link.feature.name if link.feature is not None else None,
-            )
             if link.feature_id is not None:
                 link_attr = get_link_attr(link, self)
                 labels_by_feature[link.feature_id].append(getattr(link, link_attr).name)
