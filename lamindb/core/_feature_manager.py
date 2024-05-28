@@ -156,7 +156,9 @@ def print_features(
         print_values = _print_values(labels_list, n=10)
         type_str = f": {feature.dtype}" if print_types else ""
         if to_dict:
-            dictionary[feature.name] = labels_list
+            dictionary[feature.name] = (
+                labels_list if len(labels_list) > 1 else labels_list[0]
+            )
         labels_msg += f"    '{feature.name}'{type_str} = {print_values}\n"
     if labels_msg:
         msg += f"  {colors.italic('Features')}\n"
@@ -173,8 +175,8 @@ def print_features(
                 feature_name = fv["feature__name"]
                 values = fv["values"]
                 if to_dict:
-                    dictionary[feature_name] = values
-                non_labels_msg += f"    '{feature_name}' = {values}\n"
+                    dictionary[feature_name] = values if len(values) > 1 else values[0]
+                non_labels_msg += f"    '{feature_name}' = {_print_values(values, n=10, quotes=False)}\n"
             msg += non_labels_msg
 
     # feature sets

@@ -107,9 +107,9 @@ If there are no typos, create ulabels for them:
         100.0,
     }
 
-    print("right before", FeatureValue.df())
     assert ln.Artifact.filter(feature_values__value=27.2).one()
 
+    print(artifact.features.get_values())
     print(artifact.features.__repr__())
     # hard to test because of italic formatting
     msg = """\
@@ -117,8 +117,18 @@ If there are no typos, create ulabels for them:
     'project' = 'project_1'
     'cell_type_by_expert' = 'T Cell'
     'donor' = 'U0123'
+    'is_validated' = True
+    'temperature' = 27.2, 100.0
 """
     assert artifact.features.__repr__().endswith(msg)
+    assert artifact.features.get_values() == {
+        "experiment": ["Experiment 1", "Experiment 2"],
+        "project": "project_1",
+        "cell_type_by_expert": "T Cell",
+        "donor": "U0123",
+        "is_validated": True,
+        "temperature": [27.2, 100.0],
+    }
 
     # repeat
     artifact.features.add_values(features)

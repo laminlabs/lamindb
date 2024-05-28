@@ -277,10 +277,13 @@ def index_iterable(iterable: Iterable) -> pd.Index:
     return idx[(idx != "") & (~idx.isnull())]
 
 
-def _print_values(names: Iterable, n: int = 20) -> str:
+def _print_values(names: Iterable, n: int = 20, quotes: bool = True) -> str:
     names = (name for name in names if name != "None")
     unique_names = list(dict.fromkeys(names))[:n]
-    print_values = ", ".join(f"'{name}'" for name in unique_names)
+    if quotes:
+        print_values = ", ".join(f"'{name}'" for name in unique_names)
+    else:
+        print_values = ", ".join(f"{name}" for name in unique_names)
     if len(unique_names) > n:
         print_values += ", ..."
     return print_values
