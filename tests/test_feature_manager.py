@@ -129,6 +129,14 @@ If there are no typos, create ulabels for them:
     }
     assert artifact.features.__repr__().endswith(msg)
 
+    with pytest.raises(ValidationError) as error:
+        ln.Artifact.features.filter(
+            temperature_with_typo=100.0, project="project_1"
+        ).one()
+    assert error.exconly().startswith(
+        "lamindb.core.exceptions.ValidationError: Some keys in the filter expression are not registered as features:"
+    )
+
     ln.Artifact.features.filter(temperature=100.0).one()
     ln.Artifact.features.filter(project="project_1").one()
     ln.Artifact.features.filter(is_validated=True).one()

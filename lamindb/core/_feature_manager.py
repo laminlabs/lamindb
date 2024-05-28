@@ -261,13 +261,14 @@ def __getitem__(self, slot) -> QuerySet:
 @classmethod  # type: ignore
 def filter(cls, **expression) -> QuerySet:
     """Filter features."""
-    keys_normalized = {key.split("__")[0] for key in expression}
-    features = Feature.filter(name__in=keys_normalized).all().distinct()
-    if len(features) != len(keys_normalized):
-        raise ValueError(
-            f"Some keys in the filter expression are not registered as features, I don't which of: {keys_normalized}"
+    keys_normalized = [key.split("__")[0] for key in expression]
+    validated = Feature.validate(keys_normalized, field="name", mute=True)
+    if sum(validated) != len(keys_normalized):
+        raise ValidationError(
+            f"Some keys in the filter expression are not registered as features: {np.array(keys_normalized)[~validated]}"
         )
     new_expression = {}
+    features = Feature.filter(name__in=keys_normalized).all().distinct()
     for key, value in expression.items():
         normalized_key = key.split("__")[0]
         feature = features.get(name=normalized_key)

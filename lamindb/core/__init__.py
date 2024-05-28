@@ -36,6 +36,7 @@ Classes:
    :toctree: .
 
    Settings
+   TransformSettings
    MappedCollection
    run_context
 
@@ -77,3 +78,4 @@ from . import _data, datasets, exceptions, fields, types
 from ._mapped_collection import MappedCollection
 from ._run_context import run_context
 from ._settings import Settings
+from ._transform_settings import TransformSettings
