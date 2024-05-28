@@ -163,18 +163,19 @@ def print_features(
         msg += labels_msg
     # non-categorical feature values
 
-    feature_values = self.feature_values.values("feature__name").annotate(
-        values=custom_aggregate("value")
-    )
     non_labels_msg = ""
-    if len(feature_values) > 0:
-        for fv in feature_values:
-            feature_name = fv["feature__name"]
-            values = fv["values"]
-            if to_dict:
-                dictionary[feature_name] = values
-            non_labels_msg += f"    '{feature_name}' = {values}\n"
-        msg += non_labels_msg
+    if self.id is not None:
+        feature_values = self.feature_values.values("feature__name").annotate(
+            values=custom_aggregate("value")
+        )
+        if len(feature_values) > 0:
+            for fv in feature_values:
+                feature_name = fv["feature__name"]
+                values = fv["values"]
+                if to_dict:
+                    dictionary[feature_name] = values
+                non_labels_msg += f"    '{feature_name}' = {values}\n"
+            msg += non_labels_msg
 
     # feature sets
     feature_set_msg = ""
