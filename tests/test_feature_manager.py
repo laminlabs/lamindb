@@ -34,9 +34,16 @@ def test_features_add(adata):
     assert error.exconly().startswith(
         "lamindb.core.exceptions.ValidationError: These values could not be validated: ['Experiment 1']"
     )
-    ln.ULabel(name="Experiment 1").save()
+    experiment_label = ln.ULabel(name="Experiment 1").save()
+    # add the label without the feature first
+    artifact.ulabels.add(experiment_label)
+    assert artifact.ulabel_links.get().ulabel.name == "Experiment 1"
+    assert artifact.ulabel_links.get().feature is None
+
+    # now add the label with the feature and make sure that it has the feature annotation
     artifact.features.add_values({"experiment": "Experiment 1"})
     assert artifact.ulabel_links.get().ulabel.name == "Experiment 1"
+    assert artifact.ulabel_links.get().feature.name == "experiment"
     # repeat
     artifact.features.add_values({"experiment": "Experiment 1"})
     assert artifact.ulabel_links.get().ulabel.name == "Experiment 1"

@@ -148,6 +148,10 @@ def print_features(
     labels_by_feature = defaultdict(list)
     for _, (_, links) in get_labels_as_dict(self, links=True).items():
         for link in links:
+            print(
+                link.ulabel.name,
+                link.feature.name if link.feature is not None else None,
+            )
             if link.feature_id is not None:
                 link_attr = get_link_attr(link, self)
                 labels_by_feature[link.feature_id].append(getattr(link, link_attr).name)
@@ -468,9 +472,23 @@ def add_values(
             )
             for (feature, label) in features_labels
         ]
-        # a link might already exist, to avoid raising a unique constraint
-        # error, ignore_conflicts
-        save(links, ignore_conflicts=True)
+        # a link might already exist
+        try:
+            save(links, ignore_conflicts=False)
+        except Exception:
+            save(links, ignore_conflicts=True)
+            # now deal with links that were previously saved without a feature_id
+            saved_links = LinkORM.filter(
+                artifact_id=self._host.id,
+                ulabel_id__in=[l.id for _, l in features_labels],
+            )
+            for link in saved_links.all():
+                # TODO: also check for inconsistent features
+                if link.feature_id is None:
+                    link.feature_id = [
+                        f.id for f, l in features_labels if l.id == link.ulabel_id
+                    ][0]
+                    link.save()
     if feature_values:
         save(feature_values)
         LinkORM = self._host.feature_values.through
