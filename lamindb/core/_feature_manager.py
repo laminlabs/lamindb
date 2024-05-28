@@ -174,6 +174,9 @@ def print_features(
             for fv in feature_values:
                 feature_name = fv["feature__name"]
                 values = fv["values"]
+                # TODO: understand why the below is necessary
+                if not isinstance(values, list):
+                    values = [values]
                 if to_dict:
                     dictionary[feature_name] = values if len(values) > 1 else values[0]
                 non_labels_msg += f"    '{feature_name}' = {_print_values(values, n=10, quotes=False)}\n"
