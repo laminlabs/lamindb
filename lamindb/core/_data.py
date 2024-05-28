@@ -159,7 +159,7 @@ def describe(self: HasFeatures, print_types: bool = False):
         msg += f"  {colors.italic('Provenance')}\n"
         msg += prov_msg
     msg += print_labels(self, print_types=print_types)
-    msg += print_features(self, print_types=print_types)
+    msg += print_features(self, print_types=print_types)  # type: ignore
     logger.print(msg)
 
 

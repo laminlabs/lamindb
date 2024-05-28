@@ -9,6 +9,10 @@ import anndata as ad
 import numpy as np
 import pandas as pd
 from anndata import AnnData
+from django.contrib.postgres.aggregates import ArrayAgg
+from django.db import connection, models
+from django.db.models import Aggregate, CharField, F, Value
+from django.db.models.functions import Concat
 from lamin_utils import colors, logger
 from lamindb_setup.core.upath import create_path
 from lnschema_core.models import (
@@ -113,11 +117,33 @@ def get_link_attr(link: LinkORM, data: HasFeatures) -> str:
     return link_attr
 
 
-def print_features(self: HasFeatures, print_types: bool = False) -> str:
+# Custom annotation for SQLite
+class GroupConcat(Aggregate):
+    function = "GROUP_CONCAT"
+    template = '%(function)s(%(expressions)s, ", ")'
+
+
+# Determine if we are using PostgreSQL
+def is_postgresql():
+    return connection.vendor == "postgresql"
+
+
+# Custom aggregation function based on the database
+def custom_aggregate(field):
+    if is_postgresql():
+        return ArrayAgg(field)
+    else:
+        return GroupConcat(field)
+
+
+def print_features(
+    self: HasFeatures, print_types: bool = False, to_dict: bool = False
+) -> str | dict[str, Any]:
     from lamindb._from_values import _print_values
 
     msg = ""
-    # feature values
+    dictionary = {}
+    # categorical feature values
     labels_msg = ""
     labels_by_feature = defaultdict(list)
     for _, (_, links) in get_labels_as_dict(self, links=True).items():
@@ -129,10 +155,27 @@ def print_features(self: HasFeatures, print_types: bool = False) -> str:
         feature = Feature.objects.using(self._state.db).get(id=feature_id)
         print_values = _print_values(labels_list, n=10)
         type_str = f": {feature.dtype}" if print_types else ""
+        if to_dict:
+            dictionary[feature.name] = labels_list
         labels_msg += f"    '{feature.name}'{type_str} = {print_values}\n"
     if labels_msg:
         msg += f"  {colors.italic('Features')}\n"
         msg += labels_msg
+    # non-categorical feature values
+
+    feature_values = self.feature_values.values("feature__name").annotate(
+        values=custom_aggregate("value")
+    )
+    non_labels_msg = ""
+    if len(feature_values) > 0:
+        for fv in feature_values:
+            feature_name = fv["feature__name"]
+            values = fv["values"]
+            if to_dict:
+                dictionary[feature_name] = values
+            non_labels_msg += f"    '{feature_name}' = {values}\n"
+        msg += non_labels_msg
+
     # feature sets
     feature_set_msg = ""
     for slot, feature_set in get_feature_set_by_slot_(self).items():
@@ -145,7 +188,10 @@ def print_features(self: HasFeatures, print_types: bool = False) -> str:
     if feature_set_msg:
         msg += f"  {colors.italic('Feature sets')}\n"
         msg += feature_set_msg
-    return msg
+    if to_dict:
+        return dictionary
+    else:
+        return msg
 
 
 def parse_feature_sets_from_anndata(
@@ -243,7 +289,12 @@ def __init__(self, host: Artifact | Collection):
 
 
 def __repr__(self) -> str:
-    return print_features(self._host)
+    return print_features(self._host)  # type: ignore
+
+
+def get_values(self) -> dict[str, Any]:
+    """Get feature values as a dictionary."""
+    return print_features(self._host, to_dict=True)  # type: ignore
 
 
 def __getitem__(self, slot) -> QuerySet:
@@ -616,6 +667,7 @@ def _add_from(self, data: HasFeatures, parents: bool = True):
 FeatureManager.__init__ = __init__
 FeatureManager.__repr__ = __repr__
 FeatureManager.__getitem__ = __getitem__
+FeatureManager.get_values = get_values
 FeatureManager._feature_set_by_slot = _feature_set_by_slot
 FeatureManager._accessor_by_registry = _accessor_by_registry
 FeatureManager.add_values = add_values
