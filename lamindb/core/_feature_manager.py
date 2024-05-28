@@ -163,10 +163,10 @@ def print_features(
     if labels_msg:
         msg += f"  {colors.italic('Features')}\n"
         msg += labels_msg
-    # non-categorical feature values
 
+    # non-categorical feature values
     non_labels_msg = ""
-    if self.id is not None:
+    if self.id is not None and self.__class__ == Artifact:
         feature_values = self.feature_values.values("feature__name").annotate(
             values=custom_aggregate("value")
         )
