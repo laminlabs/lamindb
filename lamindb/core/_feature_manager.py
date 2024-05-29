@@ -10,7 +10,7 @@ import numpy as np
 import pandas as pd
 from anndata import AnnData
 from django.contrib.postgres.aggregates import ArrayAgg
-from django.db import connection, models
+from django.db import connections, models
 from django.db.models import Aggregate, CharField, F, Value
 from django.db.models.functions import Concat
 from lamin_utils import colors, logger
@@ -117,20 +117,14 @@ def get_link_attr(link: LinkORM, data: HasFeatures) -> str:
     return link_attr
 
 
-# Custom annotation for SQLite
+# Custom aggregation for SQLite
 class GroupConcat(Aggregate):
     function = "GROUP_CONCAT"
     template = '%(function)s(%(expressions)s, ", ")'
 
 
-# Determine if we are using PostgreSQL
-def is_postgresql():
-    return connection.vendor == "postgresql"
-
-
-# Custom aggregation function based on the database
-def custom_aggregate(field):
-    if is_postgresql():
+def custom_aggregate(field, using: str):
+    if connections[using].vendor == "postgresql":
         return ArrayAgg(field)
     else:
         return GroupConcat(field)
@@ -168,7 +162,7 @@ def print_features(
     non_labels_msg = ""
     if self.id is not None and self.__class__ == Artifact:
         feature_values = self.feature_values.values("feature__name").annotate(
-            values=custom_aggregate("value")
+            values=custom_aggregate("value", self._state.db)
         )
         if len(feature_values) > 0:
             for fv in feature_values:
