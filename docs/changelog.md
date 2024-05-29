@@ -2,7 +2,7 @@
 
 :::{note}
 
-If using LaminHub, please use the latest version of lamindb.
+If using LaminHub, please use the latest version of LaminDB.
 
 LaminDB implements "migration-based versioning". When upgrading your LaminDB installation to a new `minor` version in `major.minor.patch`, you also migrate your database by calling `lamin migrate deploy`.
 
