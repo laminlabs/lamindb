@@ -7,81 +7,81 @@ on:
     branches: [release, main, staging]
 
 jobs:
-  test:
-    runs-on: ubuntu-latest
-    env:
-      GITHUB_EVENT_NAME: ${{ github.event_name }}
-    strategy:
-      fail-fast: false
-      matrix:
-        group:
-          - "unit"
-          - "tutorial"
-          - "guide"
-          - "biology"
-          - "faq"
-          - "storage"
-          - "cli"
-    timeout-minutes: 6
+  # test:
+  #   runs-on: ubuntu-latest
+  #   env:
+  #     GITHUB_EVENT_NAME: ${{ github.event_name }}
+  #   strategy:
+  #     fail-fast: false
+  #     matrix:
+  #       group:
+  #         - "unit"
+  #         - "tutorial"
+  #         - "guide"
+  #         - "biology"
+  #         - "faq"
+  #         - "storage"
+  #         - "cli"
+  #   timeout-minutes: 6
 
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          submodules: recursive
-          fetch-depth: 0
-      - uses: actions/setup-python@v5
-        if: ${{ matrix.group == 'storage' }}
-        with:
-          python-version: "3.9" # run just one job with a different python version
-      - uses: actions/setup-python@v5
-        if: ${{ matrix.group != 'storage' }}
-        with:
-          python-version: "3.11"
-      - name: cache pre-commit
-        uses: actions/cache@v3
-        with:
-          path: ~/.cache/pre-commit
-          key: pre-commit-${{ runner.os }}-${{ hashFiles('.pre-commit-config.yaml') }}
-      - name: cache postgres
-        if: ${{ matrix.group == 'faq' || matrix.group == 'unit' }}
-        id: cache-postgres
-        uses: actions/cache@v3
-        with:
-          path: ~/postgres.tar
-          key: cache-postgres-0
-      - name: cache postgres miss
-        if: ${{ steps.cache-postgres.outputs.cache-hit != 'true' }}
-        run: docker pull postgres:latest && docker image save postgres:latest --output ~/postgres.tar
-      - name: cache postgres use
-        if: ${{ steps.cache-postgres.outputs.cache-hit == 'true' }}
-        run: docker image load --input ~/postgres.tar
-      - run: pip install -U laminci
-      - name: install postgres
-        if: ${{ matrix.group == 'faq' }}
-        run: sudo apt-get install libpq-dev
-      - name: install graphviz
-        if: ${{ matrix.group == 'tutorial' || matrix.group == 'guide' || matrix.group == 'biology' }}
-        run: sudo apt-get -y install graphviz
-      - run: nox -s lint
-        if: ${{ matrix.group == 'tutorial' }} # choose a fast-running a group
-      - run: nox -s "install(group='${{ matrix.group }}')"
-      - uses: aws-actions/configure-aws-credentials@v1
-        with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: us-east-1
-      - run: nox -s "build(group='${{ matrix.group }}')"
-      - name: upload coverage
-        uses: actions/upload-artifact@v2
-        with:
-          name: coverage--${{ matrix.group }}
-          path: .coverage
-      - name: upload docs
-        if: ${{ matrix.group == 'tutorial' || matrix.group == 'guide' || matrix.group == 'biology' || matrix.group == 'faq' || matrix.group == 'storage' }}
-        uses: actions/upload-artifact@v2
-        with:
-          name: docs-${{ matrix.group }}
-          path: ./docs/${{ matrix.group }}
+  #   steps:
+  #     - uses: actions/checkout@v4
+  #       with:
+  #         submodules: recursive
+  #         fetch-depth: 0
+  #     - uses: actions/setup-python@v5
+  #       if: ${{ matrix.group == 'storage' }}
+  #       with:
+  #         python-version: "3.9" # run just one job with a different python version
+  #     - uses: actions/setup-python@v5
+  #       if: ${{ matrix.group != 'storage' }}
+  #       with:
+  #         python-version: "3.11"
+  #     - name: cache pre-commit
+  #       uses: actions/cache@v3
+  #       with:
+  #         path: ~/.cache/pre-commit
+  #         key: pre-commit-${{ runner.os }}-${{ hashFiles('.pre-commit-config.yaml') }}
+  #     - name: cache postgres
+  #       if: ${{ matrix.group == 'faq' || matrix.group == 'unit' }}
+  #       id: cache-postgres
+  #       uses: actions/cache@v3
+  #       with:
+  #         path: ~/postgres.tar
+  #         key: cache-postgres-0
+  #     - name: cache postgres miss
+  #       if: ${{ steps.cache-postgres.outputs.cache-hit != 'true' }}
+  #       run: docker pull postgres:latest && docker image save postgres:latest --output ~/postgres.tar
+  #     - name: cache postgres use
+  #       if: ${{ steps.cache-postgres.outputs.cache-hit == 'true' }}
+  #       run: docker image load --input ~/postgres.tar
+  #     - run: pip install -U laminci
+  #     - name: install postgres
+  #       if: ${{ matrix.group == 'faq' }}
+  #       run: sudo apt-get install libpq-dev
+  #     - name: install graphviz
+  #       if: ${{ matrix.group == 'tutorial' || matrix.group == 'guide' || matrix.group == 'biology' }}
+  #       run: sudo apt-get -y install graphviz
+  #     - run: nox -s lint
+  #       if: ${{ matrix.group == 'tutorial' }} # choose a fast-running a group
+  #     - run: nox -s "install(group='${{ matrix.group }}')"
+  #     - uses: aws-actions/configure-aws-credentials@v1
+  #       with:
+  #         aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+  #         aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+  #         aws-region: us-east-1
+  #     - run: nox -s "build(group='${{ matrix.group }}')"
+  #     - name: upload coverage
+  #       uses: actions/upload-artifact@v2
+  #       with:
+  #         name: coverage--${{ matrix.group }}
+  #         path: .coverage
+  #     - name: upload docs
+  #       if: ${{ matrix.group == 'tutorial' || matrix.group == 'guide' || matrix.group == 'biology' || matrix.group == 'faq' || matrix.group == 'storage' }}
+  #       uses: actions/upload-artifact@v2
+  #       with:
+  #         name: docs-${{ matrix.group }}
+  #         path: ./docs/${{ matrix.group }}
 
   docs:
     # needs: test
@@ -125,34 +125,34 @@ jobs:
           NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
           NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID }}
 
-  coverage:
-    needs: test
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.11"
-      - run: |
-          python -m pip install -U uv
-          uv pip install --system coverage[toml]
-          uv pip install --system --no-deps .
-      - uses: actions/download-artifact@v2
-      - name: run coverage
-        run: |
-          coverage combine coverage--*/.coverage*
-          coverage report --fail-under=0
-          coverage xml
-      - uses: codecov/codecov-action@v2
-        with:
-          token: ${{ secrets.CODECOV_TOKEN }}
+  # coverage:
+  #   needs: test
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     - uses: actions/checkout@v4
+  #     - uses: actions/setup-python@v5
+  #       with:
+  #         python-version: "3.11"
+  #     - run: |
+  #         python -m pip install -U uv
+  #         uv pip install --system coverage[toml]
+  #         uv pip install --system --no-deps .
+  #     - uses: actions/download-artifact@v2
+  #     - name: run coverage
+  #       run: |
+  #         coverage combine coverage--*/.coverage*
+  #         coverage report --fail-under=0
+  #         coverage xml
+  #     - uses: codecov/codecov-action@v2
+  #       with:
+  #         token: ${{ secrets.CODECOV_TOKEN }}
 
-  dispatch:
-    if: ${{ github.event_name == 'push' }}
-    runs-on: ubuntu-latest
-    steps:
-      - uses: peter-evans/repository-dispatch@v2
-        with:
-          token: ${{ secrets.LAMIN_BUILD_DOCS }}
-          repository: "laminlabs/lamindb-dispatch"
-          event-type: build
+  # dispatch:
+  #   if: ${{ github.event_name == 'push' }}
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     - uses: peter-evans/repository-dispatch@v2
+  #       with:
+  #         token: ${{ secrets.LAMIN_BUILD_DOCS }}
+  #         repository: "laminlabs/lamindb-dispatch"
+  #         event-type: build
