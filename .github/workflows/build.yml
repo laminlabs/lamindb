@@ -84,7 +84,7 @@ jobs:
           path: ./docs/${{ matrix.group }}
 
   docs:
-    needs: test
+    # needs: test
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -110,6 +110,11 @@ jobs:
       - run: nox -s "install(group='docs')"
       - uses: actions/download-artifact@v2
       - run: nox -s docs
+      - name: upload docs artifact
+        uses: actions/upload-artifact@v2
+        with:
+          name: docs
+          path: _build/html
       - uses: nwtgck/actions-netlify@v1.2
         with:
           publish-dir: "_build/html"
