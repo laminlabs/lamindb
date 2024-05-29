@@ -159,12 +159,6 @@ class LabelManager:
 
         return add_labels(self._host, records=records, feature=feature)
 
-    def remove(self, record: Registry):
-        """Remove a label."""
-        d = dict_related_model_to_related_name(self._host.__class__)
-        related_name = d[record.__class__]
-        getattr(self._host, related_name).remove(record)
-
     def get(
         self,
         feature: Feature,
