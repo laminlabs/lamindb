@@ -75,36 +75,6 @@ def print_labels(self: HasFeatures, field: str = "name", print_types: bool = Fal
     return msg
 
 
-def transfer_add_labels(
-    labels, features_lookup_self, self, feature_name, parents: bool = True
-):
-    def transfer_single_registry(validated_labels, new_labels):
-        # here the new labels are transferred to the self db
-        if len(new_labels) > 0:
-            transfer_fk_to_default_db_bulk(new_labels, using_key=None)
-            for label in new_labels:
-                transfer_to_default_db(
-                    label, using_key=None, mute=True, transfer_fk=False
-                )
-            # not saving parents for Organism during transfer
-            registry = new_labels[0].__class__
-            logger.info(f"saving {len(new_labels)} new {registry.__name__} records")
-            save(new_labels)
-        # link labels records from self db
-        self._host.labels.add(
-            validated_labels + new_labels,
-            feature=features_lookup_self.get(feature_name),
-        )
-
-    # validate labels on the default db
-    result = validate_labels(labels, parents=parents)
-    if isinstance(result, Dict):
-        for _, (validated_labels, new_labels) in result.items():
-            transfer_single_registry(validated_labels, new_labels)
-    else:
-        transfer_single_registry(*result)
-
-
 # Alex: is this a label transfer function?
 def validate_labels(labels: QuerySet | list | dict, parents: bool = True):
     def validate_labels_registry(
