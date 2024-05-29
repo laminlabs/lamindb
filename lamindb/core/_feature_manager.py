@@ -155,26 +155,31 @@ def print_features(
             )
         labels_msg += f"    '{feature.name}'{type_str} = {print_values}\n"
     if labels_msg:
-        msg += f"  {colors.italic('Features')}\n"
         msg += labels_msg
 
     # non-categorical feature values
     non_labels_msg = ""
     if self.id is not None and self.__class__ == Artifact:
-        feature_values = self.feature_values.values("feature__name").annotate(
-            values=custom_aggregate("value", self._state.db)
-        )
+        feature_values = self.feature_values.values(
+            "feature__name", "feature__dtype"
+        ).annotate(values=custom_aggregate("value", self._state.db))
         if len(feature_values) > 0:
             for fv in feature_values:
                 feature_name = fv["feature__name"]
+                feature_dtype = fv["feature__dtype"]
                 values = fv["values"]
                 # TODO: understand why the below is necessary
                 if not isinstance(values, list):
                     values = [values]
                 if to_dict:
                     dictionary[feature_name] = values if len(values) > 1 else values[0]
-                non_labels_msg += f"    '{feature_name}' = {_print_values(values, n=10, quotes=False)}\n"
+                if print_types:
+                    type_str = f": {feature_dtype}" if print_types else ""
+                non_labels_msg += f"    '{feature_name}'{type_str} = {_print_values(values, n=10, quotes=False)}\n"
             msg += non_labels_msg
+
+    if msg != "":
+        msg = f"  {colors.italic('Features')}\n" + msg
 
     # feature sets
     feature_set_msg = ""
@@ -434,6 +439,9 @@ def add_values(
                     values = [value]  # type: ignore
                 else:
                     values = value  # type: ignore
+                if "ULabel" not in feature.dtype:
+                    feature.dtype += "[ULabel]"
+                    feature.save()
                 validated = ULabel.validate(values, field="name", mute=True)
                 values_array = np.array(values)
                 validated_values = values_array[validated]
