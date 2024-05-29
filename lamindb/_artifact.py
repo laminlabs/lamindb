@@ -1109,6 +1109,5 @@ for name in METHOD_NAMES:
 Artifact._delete_skip_storage = _delete_skip_storage
 Artifact._save_skip_storage = _save_skip_storage
 Artifact.path = path
-Artifact.stage = cache
 # this seems a Django-generated function
 delattr(Artifact, "get_visibility_display")
