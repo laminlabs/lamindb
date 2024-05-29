@@ -15,7 +15,12 @@ from anndata import AnnData
 from lamin_utils import logger
 from lamindb_setup.core._docs import doc_args
 from lamindb_setup.core.hashing import hash_set
-from lnschema_core.models import Collection, CollectionArtifact, FeatureSet
+from lnschema_core.models import (
+    Collection,
+    CollectionArtifact,
+    FeatureManager,
+    FeatureSet,
+)
 from lnschema_core.types import VisibilityChoice
 
 from lamindb._artifact import update_attributes
@@ -45,6 +50,7 @@ def __init__(
     *args,
     **kwargs,
 ):
+    collection.features = FeatureManager(collection)
     if len(args) == len(collection._meta.concrete_fields):
         super(Collection, collection).__init__(*args, **kwargs)
         return None
@@ -103,9 +109,9 @@ def __init__(
             if meta._state.adding:
                 raise ValueError("Save meta artifact before creating collection!")
             if not feature_sets:
-                feature_sets = meta.features.feature_set_by_slot
+                feature_sets = meta.features._feature_set_by_slot
             else:
-                if len(meta.features.feature_set_by_slot) > 0:
+                if len(meta.features._feature_set_by_slot) > 0:
                     logger.info("overwriting feature sets linked to artifact")
     # we ignore collections in trash containing the same hash
     if hash is not None:
@@ -129,7 +135,7 @@ def __init__(
             existing_collection.transform = run.transform
         init_self_from_db(collection, existing_collection)
         update_attributes(collection, {"description": description, "name": name})
-        for slot, feature_set in collection.features.feature_set_by_slot.items():
+        for slot, feature_set in collection.features._feature_set_by_slot.items():
             if slot in feature_sets:
                 if not feature_sets[slot] == feature_set:
                     collection.feature_sets.remove(feature_set)

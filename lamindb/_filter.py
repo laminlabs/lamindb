@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from lnschema_core import Artifact, Collection, Registry
+from lnschema_core import Artifact, Collection, Feature, Registry
 from lnschema_core.types import VisibilityChoice
 
 from lamindb import settings

@@ -20,12 +20,12 @@ from ._settings import settings
 from .schema import dict_related_model_to_related_name
 
 if TYPE_CHECKING:
-    from lnschema_core.models import Artifact, Collection, Data, Registry
+    from lnschema_core.models import Artifact, Collection, HasFeatures, Registry
 
     from lamindb._query_set import QuerySet
 
 
-def get_labels_as_dict(self: Data, links: bool = False):
+def get_labels_as_dict(self: HasFeatures, links: bool = False):
     exclude_set = {
         "feature_sets",
         "unordered_artifacts",
@@ -54,7 +54,7 @@ def get_labels_as_dict(self: Data, links: bool = False):
     return labels
 
 
-def print_labels(self: Data, field: str = "name", print_types: bool = False):
+def print_labels(self: HasFeatures, field: str = "name", print_types: bool = False):
     labels_msg = ""
     for related_name, (related_model, labels) in get_labels_as_dict(self).items():
         # there is a try except block here to deal with schema inconsistencies
@@ -73,36 +73,6 @@ def print_labels(self: Data, field: str = "name", print_types: bool = False):
         msg += f"  {colors.italic('Labels')}\n"
         msg += labels_msg
     return msg
-
-
-def transfer_add_labels(
-    labels, features_lookup_self, self, feature_name, parents: bool = True
-):
-    def transfer_single_registry(validated_labels, new_labels):
-        # here the new labels are transferred to the self db
-        if len(new_labels) > 0:
-            transfer_fk_to_default_db_bulk(new_labels, using_key=None)
-            for label in new_labels:
-                transfer_to_default_db(
-                    label, using_key=None, mute=True, transfer_fk=False
-                )
-            # not saving parents for Organism during transfer
-            registry = new_labels[0].__class__
-            logger.info(f"saving {len(new_labels)} new {registry.__name__} records")
-            save(new_labels)
-        # link labels records from self db
-        self._host.labels.add(
-            validated_labels + new_labels,
-            feature=features_lookup_self.get(feature_name),
-        )
-
-    # validate labels on the default db
-    result = validate_labels(labels, parents=parents)
-    if isinstance(result, Dict):
-        for _, (validated_labels, new_labels) in result.items():
-            transfer_single_registry(validated_labels, new_labels)
-    else:
-        transfer_single_registry(*result)
 
 
 # Alex: is this a label transfer function?
@@ -189,12 +159,6 @@ class LabelManager:
 
         return add_labels(self._host, records=records, feature=feature)
 
-    def remove(self, record: Registry):
-        """Remove a label."""
-        d = dict_related_model_to_related_name(self._host.__class__)
-        related_name = d[record.__class__]
-        getattr(self._host, related_name).remove(record)
-
     def get(
         self,
         feature: Feature,
@@ -212,7 +176,7 @@ class LabelManager:
 
         return get_labels(self._host, feature=feature, mute=mute, flat_names=flat_names)
 
-    def add_from(self, data: Data, parents: bool = True) -> None:
+    def add_from(self, data: HasFeatures, parents: bool = True) -> None:
         """Add labels from an artifact or collection to another artifact or collection.
 
         Examples:
@@ -237,7 +201,7 @@ class LabelManager:
                 # look for features
                 data_name_lower = data.__class__.__name__.lower()
                 labels_by_features = defaultdict(list)
-                features = []
+                features = set()
                 _, new_labels = validate_labels(labels, parents=parents)
                 if len(new_labels) > 0:
                     transfer_fk_to_default_db_bulk(new_labels, using_key)
@@ -250,7 +214,7 @@ class LabelManager:
                             **{f"{data_name_lower}_id": data.id}
                         )
                         if link.feature is not None:
-                            features.append(link.feature)
+                            features.add(link.feature)
                             key = link.feature.name
                         else:
                             key = None
@@ -266,7 +230,7 @@ class LabelManager:
                         label = label_returned
                     labels_by_features[key].append(label)
                 # treat features
-                _, new_features = validate_labels(features)
+                _, new_features = validate_labels(list(features))
                 if len(new_features) > 0:
                     transfer_fk_to_default_db_bulk(new_features, using_key)
                     for feature in new_features:

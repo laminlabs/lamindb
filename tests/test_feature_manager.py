@@ -2,6 +2,7 @@ import bionty as bt
 import lamindb as ln
 import pytest
 from lamindb.core.exceptions import ValidationError
+from lnschema_core.models import FeatureValue
 
 bt.settings.auto_save_parents = False
 
@@ -21,29 +22,144 @@ def test_features_add(adata):
     ln.ULabel(name="Experiment 1")
     artifact = ln.Artifact.from_anndata(adata, description="test")
     artifact.save()
+    with pytest.raises(ValidationError) as error:
+        artifact.features.add_values({"experiment": "Experiment 1"})
+    assert error.exconly().startswith(
+        "lamindb.core.exceptions.ValidationError: These keys could not be validated:"
+    )
     experiment = ln.Feature(name="experiment", dtype="cat")
-    with pytest.raises(ValidationError):
-        artifact.features.add({"experiment": "Experiment 1"})
     experiment.save()
     with pytest.raises(ValidationError) as error:
-        artifact.features.add({"experiment": "Experiment 1"})
+        artifact.features.add_values({"experiment": "Experiment 1"})
     assert error.exconly().startswith(
         "lamindb.core.exceptions.ValidationError: These values could not be validated: ['Experiment 1']"
     )
-    ln.ULabel(name="Experiment 1").save()
-    artifact.features.add({"experiment": "Experiment 1"})
-    assert artifact.ulabel_links.first().ulabel.name == "Experiment 1"
+    experiment_label = ln.ULabel(name="Experiment 1").save()
+    # add the label without the feature first
+    artifact.ulabels.add(experiment_label)
+    assert artifact.ulabel_links.get().ulabel.name == "Experiment 1"
+    assert artifact.ulabel_links.get().feature is None
+
+    # now add the label with the feature and make sure that it has the feature annotation
+    artifact.features.add_values({"experiment": "Experiment 1"})
+    assert artifact.ulabel_links.get().ulabel.name == "Experiment 1"
+    assert artifact.ulabel_links.get().feature.name == "experiment"
+    # repeat
+    artifact.features.add_values({"experiment": "Experiment 1"})
+    assert artifact.ulabel_links.get().ulabel.name == "Experiment 1"
+
+    # numerical feature
     temperature = ln.Feature(name="temperature", dtype="cat").save()
     with pytest.raises(TypeError) as error:
-        artifact.features.add({"temperature": 27.2})
+        artifact.features.add_values({"temperature": 27.2})
     assert (
         error.exconly()
         == "TypeError: Value for feature 'temperature' with type 'cat' must be a string or record."
     )
     temperature.dtype = "number"
     temperature.save()
-    artifact.features.add({"temperature": 27.2})
+    artifact.features.add_values({"temperature": 27.2})
     assert artifact.feature_values.first().value == 27.2
+
+    features = {
+        "experiment": "Experiment 2",
+        "project": "project_1",
+        "is_validated": True,
+        "cell_type_by_expert": "T Cell",
+        "temperature": 100.0,
+        "donor": "U0123",
+    }
+    with pytest.raises(ValidationError) as error:
+        artifact.features.add_values(features)
+    print(error.exconly())
+    assert (
+        error.exconly()
+        == """\
+lamindb.core.exceptions.ValidationError: These keys could not be validated: ['project', 'is_validated', 'cell_type_by_expert', 'donor']
+If there are no typos, create features for them:
+
+  ln.Feature(name='project', dtype='cat[ULabel]').save()
+  ln.Feature(name='is_validated', dtype='bool').save()
+  ln.Feature(name='cell_type_by_expert', dtype='cat[ULabel]').save()
+  ln.Feature(name='donor', dtype='cat[ULabel]').save()"""
+    )
+
+    ln.Feature(name="project", dtype="cat[ULabel]").save()
+    ln.Feature(name="is_validated", dtype="bool").save()
+    ln.Feature(name="cell_type_by_expert", dtype="cat[ULabel]").save()
+    ln.Feature(name="donor", dtype="cat[ULabel]").save()
+
+    with pytest.raises(ValidationError) as error:
+        artifact.features.add_values(features)
+    print(error.exconly())
+    assert (
+        error.exconly()
+        == """\
+lamindb.core.exceptions.ValidationError: These values could not be validated: ['Experiment 2', 'project_1', 'T Cell', 'U0123']
+If there are no typos, create ulabels for them:
+
+  ulabels = ln.ULabel.from_values(['Experiment 2', 'project_1', 'T Cell', 'U0123'], create=True)
+  ln.save(ulabels)"""
+    )
+
+    ulabels = ln.ULabel.from_values(
+        ["Experiment 2", "project_1", "T Cell", "U0123"], create=True
+    )
+    ln.save(ulabels)
+
+    artifact.features.add_values(features)
+    assert set(artifact.feature_values.all().values_list("value", flat=True)) == {
+        27.2,
+        True,
+        100.0,
+    }
+
+    assert ln.Artifact.filter(feature_values__value=27.2).one()
+
+    print(artifact.features.get_values())
+    print(artifact.features.__repr__())
+    # hard to test because of italic formatting
+    msg = """\
+    'experiment' = 'Experiment 1', 'Experiment 2'
+    'project' = 'project_1'
+    'cell_type_by_expert' = 'T Cell'
+    'donor' = 'U0123'
+    'is_validated' = True
+    'temperature' = 27.2, 100.0
+"""
+    assert artifact.features.__repr__().endswith(msg)
+    assert artifact.features.get_values() == {
+        "experiment": ["Experiment 1", "Experiment 2"],
+        "project": "project_1",
+        "cell_type_by_expert": "T Cell",
+        "donor": "U0123",
+        "is_validated": True,
+        "temperature": [27.2, 100.0],
+    }
+
+    # repeat
+    artifact.features.add_values(features)
+    assert set(artifact.feature_values.all().values_list("value", flat=True)) == {
+        27.2,
+        True,
+        100.0,
+    }
+    assert artifact.features.__repr__().endswith(msg)
+
+    with pytest.raises(ValidationError) as error:
+        ln.Artifact.features.filter(
+            temperature_with_typo=100.0, project="project_1"
+        ).one()
+    assert error.exconly().startswith(
+        "lamindb.core.exceptions.ValidationError: Some keys in the filter expression are not registered as features:"
+    )
+
+    ln.Artifact.features.filter(temperature=100.0).one()
+    ln.Artifact.features.filter(project="project_1").one()
+    ln.Artifact.features.filter(is_validated=True).one()
+    ln.Artifact.features.filter(
+        temperature=100.0, project="project_1", donor="U0123"
+    ).one()
 
     # delete everything we created
     artifact.delete(permanent=True)
@@ -194,7 +310,7 @@ def test_add_labels_using_anndata(adata):
     artifact.save()
 
     # link features
-    artifact.features.add_from_anndata(var_field=bt.Gene.ensembl_gene_id)
+    artifact.features._add_set_from_anndata(var_field=bt.Gene.ensembl_gene_id)
 
     # check the basic construction of the feature set based on obs
     feature_set_obs = artifact.feature_sets.filter(

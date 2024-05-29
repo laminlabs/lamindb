@@ -257,7 +257,7 @@ def test_create_from_dataframe_using_from_df_and_link_features(df):
     features = ln.Feature.from_df(df)
     ln.save(features)
     # link features
-    artifact.features.add_from_df()
+    artifact.features._add_set_from_df()
     # mere access test right now
     artifact.features["columns"]
     feature_set_queried = artifact.feature_sets.get()  # exactly one
@@ -281,7 +281,7 @@ def test_create_from_anndata_in_memory_and_link_features(adata):
     # check that the local filepath has been cleared
     assert not hasattr(artifact, "_local_filepath")
     # link features
-    artifact.features.add_from_anndata(var_field=bt.Gene.symbol, organism="human")
+    artifact.features._add_set_from_anndata(var_field=bt.Gene.symbol, organism="human")
     feature_sets_queried = artifact.feature_sets.all()
     features_queried = ln.Feature.filter(feature_sets__in=feature_sets_queried).all()
     assert set(features_queried.list("name")) == set(adata.obs.columns)

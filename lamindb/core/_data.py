@@ -8,9 +8,9 @@ from lamindb_setup.core._docs import doc_args
 from lnschema_core.models import (
     Artifact,
     Collection,
-    Data,
     Feature,
     FeatureSet,
+    HasFeatures,
     Registry,
     Run,
     ULabel,
@@ -95,8 +95,8 @@ def save_feature_set_links(self: Artifact | Collection) -> None:
         bulk_create(links, ignore_conflicts=True)
 
 
-@doc_args(Data.describe.__doc__)
-def describe(self: Data, print_types: bool = False):
+@doc_args(HasFeatures.describe.__doc__)
+def describe(self: HasFeatures, print_types: bool = False):
     """{}."""
     # prefetch all many-to-many relationships
     # doesn't work for describing using artifact
@@ -159,7 +159,7 @@ def describe(self: Data, print_types: bool = False):
         msg += f"  {colors.italic('Provenance')}\n"
         msg += prov_msg
     msg += print_labels(self, print_types=print_types)
-    msg += print_features(self, print_types=print_types)
+    msg += print_features(self, print_types=print_types)  # type: ignore
     logger.print(msg)
 
 
@@ -201,9 +201,9 @@ def get_labels(
             qs_by_registry[registry] = ULabel.objects.using(self._state.db).filter(
                 id__in=label_ids
             )
-        elif registry in self.features.accessor_by_orm:
+        elif registry in self.features._accessor_by_registry:
             qs_by_registry[registry] = getattr(
-                self, self.features.accessor_by_orm[registry]
+                self, self.features._accessor_by_registry[registry]
             ).all()
     if flat_names:
         # returns a flat list of names
@@ -290,11 +290,11 @@ def add_labels(
                 record
             )
         for registry_name, records in records_by_registry.items():
-            if registry_name not in self.features.accessor_by_orm:
+            if registry_name not in self.features._accessor_by_registry:
                 logger.warning(f"skipping {registry_name}")
                 continue
             labels_accessor = getattr(
-                self, self.features.accessor_by_orm[registry_name]
+                self, self.features._accessor_by_registry[registry_name]
             )
             # remove labels that are already linked as add doesn't perform update
             linked_labels = [r for r in records if r in labels_accessor.filter()]
@@ -325,7 +325,7 @@ def add_labels(
 
 
 def _track_run_input(
-    data: Data | Iterable[Data],
+    data: HasFeatures | Iterable[HasFeatures],
     is_run_input: bool | None = None,
     run: Run | None = None,
 ):
@@ -337,12 +337,12 @@ def _track_run_input(
     elif run is None:
         run = run_context.run
     # consider that data is an iterable of Data
-    data_iter: Iterable[Data] = [data] if isinstance(data, Data) else data
+    data_iter: Iterable[HasFeatures] = [data] if isinstance(data, HasFeatures) else data
     track_run_input = False
     input_data = []
     if run is not None:
         # avoid cycles: data can't be both input and output
-        def is_valid_input(data: Data):
+        def is_valid_input(data: HasFeatures):
             return (
                 data.run_id != run.id
                 and not data._state.adding
@@ -415,25 +415,5 @@ def _track_run_input(
                 run.transform.parents.add(input_data[0].transform)
 
 
-@property  # type: ignore
-@doc_args(Data.features.__doc__)
-def features(self) -> FeatureManager:
-    """{}."""
-    from lamindb.core._feature_manager import FeatureManager
-
-    return FeatureManager(self)
-
-
-@property  # type: ignore
-@doc_args(Data.labels.__doc__)
-def labels(self) -> LabelManager:
-    """{}."""
-    from lamindb.core._label_manager import LabelManager
-
-    return LabelManager(self)
-
-
-Data.features = features
-Data.labels = labels
-Data.describe = describe
-Data.view_lineage = view_lineage
+HasFeatures.describe = describe
+HasFeatures.view_lineage = view_lineage

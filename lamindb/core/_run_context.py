@@ -18,6 +18,12 @@ from lamindb.core._transform_settings import transform as transform_settings
 
 from ._settings import settings
 from ._sync_git import get_transform_reference_from_git_repo
+from .exceptions import (
+    MissingTransformSettings,
+    NotebookNotSavedError,
+    NoTitleError,
+    UpdateTransformSettings,
+)
 from .versioning import bump_version as bump_version_function
 
 if TYPE_CHECKING:
@@ -30,22 +36,6 @@ msg_path_failed = (
     " `ln.track(transform=ln.Transform(name='My notebook'))` or pass"
     " `path` to ln.track()"
 )
-
-
-class NotebookNotSavedError(Exception):
-    pass
-
-
-class NoTitleError(Exception):
-    pass
-
-
-class MissingTransformSettings(SystemExit):
-    pass
-
-
-class UpdateTransformSettings(SystemExit):
-    pass
 
 
 def get_uid_ext(version: str) -> str:

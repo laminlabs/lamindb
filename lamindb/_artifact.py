@@ -23,13 +23,13 @@ from lamindb_setup.core.upath import (
     get_stat_dir_cloud,
     get_stat_file_cloud,
 )
-from lnschema_core import Artifact, Run, Storage
+from lnschema_core.models import Artifact, FeatureManager, Run, Storage
 from lnschema_core.types import (
     VisibilityChoice,
 )
 
 from lamindb._utils import attach_func_to_class_method
-from lamindb.core._data import Data, _track_run_input
+from lamindb.core._data import HasFeatures, _track_run_input
 from lamindb.core._settings import settings
 from lamindb.core.storage import (
     LocalPathClasses,
@@ -505,7 +505,7 @@ def _check_accessor_artifact(data: Any, accessor: str | None = None):
     return accessor
 
 
-def update_attributes(data: Data, attributes: Mapping[str, str]):
+def update_attributes(data: HasFeatures, attributes: Mapping[str, str]):
     for key, value in attributes.items():
         if getattr(data, key) != value:
             logger.warning(f"updated {key} from {getattr(data, key)} to {value}")
@@ -513,6 +513,7 @@ def update_attributes(data: Data, attributes: Mapping[str, str]):
 
 
 def __init__(artifact: Artifact, *args, **kwargs):
+    artifact.features = FeatureManager(artifact)
     # Below checks for the Django-internal call in from_db()
     # it'd be better if we could avoid this, but not being able to create a Artifact
     # from data with the default constructor renders the central class of the API

@@ -9,7 +9,7 @@ from lnschema_core.models import Registry
 
 from lamindb.core._settings import settings
 
-from .core._feature_manager import get_feature_set_by_slot
+from .core._feature_manager import get_feature_set_by_slot_
 
 if TYPE_CHECKING:
     from lnschema_core.types import StrField
@@ -107,7 +107,7 @@ class QueryManager(models.Manager):
                 source_field_name in {"artifact", "collection"}
                 and target_field_name == "feature_set"
             ):
-                return get_feature_set_by_slot(host=self.instance).get(item)
+                return get_feature_set_by_slot_(host=self.instance).get(item)
 
         except Exception:  # pragma: no cover
             return

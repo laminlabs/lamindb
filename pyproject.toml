@@ -154,6 +154,8 @@ ignore = [
     "D412",
     # Missing blank line after last section ("{name}")
     "D413",
+    # Missing argument description in the docstring
+    "D417",
     # Imports unused
     "F401",
     # camcelcase imported as lowercase

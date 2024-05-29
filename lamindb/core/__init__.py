@@ -9,7 +9,7 @@ Registries:
    QuerySet
    QueryManager
    RecordsList
-   Data
+   HasFeatures
    FeatureManager
    LabelManager
    IsVersioned
@@ -36,6 +36,7 @@ Classes:
    :toctree: .
 
    Settings
+   TransformSettings
    MappedCollection
    run_context
 
@@ -54,7 +55,7 @@ Modules:
 from lamin_utils._inspect import InspectResult
 from lnschema_core.models import (
     CanValidate,
-    Data,
+    HasFeatures,
     HasParents,
     IsVersioned,
     Registry,
@@ -77,3 +78,4 @@ from . import _data, datasets, exceptions, fields, types
 from ._mapped_collection import MappedCollection
 from ._run_context import run_context
 from ._settings import Settings
+from ._transform_settings import TransformSettings
