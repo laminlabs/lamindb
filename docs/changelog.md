@@ -1,5 +1,6 @@
 # Changelog
 
+- ✨ Enable to query by features via `Artifact.features.filter(key=value)` [PR](https://github.com/laminlabs/lamindb/pull/1680) [@falexwolf](https://github.com/falexwolf)
 - 🔊 Better catching exceptions for graphviz install [PR](https://github.com/laminlabs/lamindb/pull/1679) [@sunnyosun](https://github.com/sunnyosun)
 - 🚸 `ln.track()` returns `run`, better duplicate detection and search, prettier `.describe()`, and more [PR](https://github.com/laminlabs/lamindb/pull/1674) [@falexwolf](https://github.com/falexwolf)
 - 🐛 Fix trailing slash in upload_from source [PR](https://github.com/laminlabs/lamindb/pull/1678) [@Koncopd](https://github.com/Koncopd)
