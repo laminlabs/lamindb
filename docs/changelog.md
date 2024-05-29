@@ -1,16 +1,5 @@
 # Changelog
 
-- ♻️ Simple schema fixes [PR](https://github.com/laminlabs/lamindb/pull/1681) [@falexwolf](https://github.com/falexwolf)
-- ✨ Enable to query by features via `Artifact.features.filter(key=value)` [PR](https://github.com/laminlabs/lamindb/pull/1680) [@falexwolf](https://github.com/falexwolf)
-- 🔊 Better catching exceptions for graphviz install [PR](https://github.com/laminlabs/lamindb/pull/1679) [@sunnyosun](https://github.com/sunnyosun)
-- 🚸 `ln.track()` returns `run`, better duplicate detection and search, prettier `.describe()`, and more [PR](https://github.com/laminlabs/lamindb/pull/1674) [@falexwolf](https://github.com/falexwolf)
-- 🐛 Fix trailing slash in upload_from source [PR](https://github.com/laminlabs/lamindb/pull/1678) [@Koncopd](https://github.com/Koncopd)
-- 🚸 Make `upload_from()`, `download_to()`, and `view_tree()` more user friendly [PR](https://github.com/laminlabs/lamindb/pull/1677) [@falexwolf](https://github.com/falexwolf)
-- 🚸 More intuitive version updating dialogue [PR](https://github.com/laminlabs/lamindb/pull/1676) [@falexwolf](https://github.com/falexwolf)
-- :sparkles: Improve coverage of annotate [PR](https://github.com/laminlabs/lamindb/pull/1665) [@Zethson](https://github.com/Zethson)
-- 🔊 Fix annotate logging [PR](https://github.com/laminlabs/lamindb/pull/1675) [@sunnyosun](https://github.com/sunnyosun)
-- 🐛 Actually add tracking run for entities beyond Artifact & Collection [PR](https://github.com/laminlabs/lamindb/pull/1673) [@falexwolf](https://github.com/falexwolf)
-
 :::{note}
 
 If using LaminHub, please use the latest version of lamindb.
@@ -22,6 +11,50 @@ LaminDB implements "migration-based versioning". When upgrading your LaminDB ins
 ```{eval-rst}
 .. role:: small
 ```
+
+## 0.73
+
+### 0.73.0 {small}`2024-05-29`
+
+Annotating & querying by features improved:
+- ✨ Support non-categorical feature values [PR](https://github.com/laminlabs/lamindb/pull/1674) [@falexwolf](https://github.com/falexwolf)
+- ✨ Annotate dict-style with features & values [PR](https://github.com/laminlabs/lamindb/pull/1674) [@falexwolf](https://github.com/falexwolf)
+- ✨ Query by features via `.features.filter(key=value)` [PR](https://github.com/laminlabs/lamindb/pull/1680) [@falexwolf](https://github.com/falexwolf)
+- 🏗️ Feature values decoupled from feature sets [PR](https://github.com/laminlabs/lamindb/pull/1674) [@falexwolf](https://github.com/falexwolf)
+
+Example:
+
+```python
+# annotate dict-style (feature & category names get validated)
+artifact.features.add_values({
+    "species": "setosa",
+    "scientist": ["Barabara McClintock", "Edgar Anderson"],
+    "instrument": "Leica IIIc Camera",
+    "temperature": 27.6,
+    "study": "Study 0: initial plant gathering",
+    "is_awesome": True
+})
+
+# get the dict back
+artifact.features.get_values()
+
+# query by feature
+ln.Artifact.features.filter(is_awesome=True)
+```
+
+Various improvements:
+- 🚚 Additional non-breaking constraints in the core schema [PR](https://github.com/laminlabs/lamindb/pull/1681) [@falexwolf](https://github.com/falexwolf)
+- 🚸 Make `.upload_from()`, `.download_to()`, and `.view_tree()` more user friendly [PR](https://github.com/laminlabs/lamindb/pull/1677) [@falexwolf](https://github.com/falexwolf) [PR](https://github.com/laminlabs/lamindb/pull/1678) [@Koncopd](https://github.com/Koncopd)
+- 🚸 More intuitive version updating dialogue [PR](https://github.com/laminlabs/lamindb/pull/1676) [@falexwolf](https://github.com/falexwolf)
+- 🐛 Actually add tracking run for entities beyond Artifact & Collection [PR](https://github.com/laminlabs/lamindb/pull/1673) [@falexwolf](https://github.com/falexwolf)
+- 🚸 `ln.track()` returns `run` [PR](https://github.com/laminlabs/lamindb/pull/1674) [@falexwolf](https://github.com/falexwolf)
+- 🚸 Better duplicate detection and search [PR](https://github.com/laminlabs/lamindb/pull/1674) [@falexwolf](https://github.com/falexwolf)
+- 🚸 Prettier `.describe()` [PR](https://github.com/laminlabs/lamindb/pull/1674) [@falexwolf](https://github.com/falexwolf)
+- 🚸 More interactivity in `lamin save` [PR](https://github.com/laminlabs/lamindb/pull/1674) [@falexwolf](https://github.com/falexwolf)
+- 🚸 `create` flag in `.from_values()` [PR](https://github.com/laminlabs/lamindb/pull/1674) [@falexwolf](https://github.com/falexwolf)
+- 🚸 Better ordering of fields in dataframe & record representations [PR](https://github.com/laminlabs/lamindb/pull/1674) [@falexwolf](https://github.com/falexwolf)
+- 📝 Improved API reference: docs now show relationship attributes [PR](https://github.com/laminlabs/lamindb/pull/1680) [@falexwolf](https://github.com/falexwolf)
+
 
 ## 0.72
 
