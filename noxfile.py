@@ -153,23 +153,23 @@ def docs(session):
     #             path.rename(f"./docs/{path.name}")
     run(session, "lamin init --storage ./docsbuild --schema bionty,wetlab")
 
-    def generate_cli_docs():
-        os.environ["NO_RICH"] = "1"
-        from lamin_cli.__main__ import _generate_help
+    # def generate_cli_docs():
+    #     os.environ["NO_RICH"] = "1"
+    #     from lamin_cli.__main__ import _generate_help
 
-        page = "# `lamin`\n\nFor a guide, see: {doc}`/setup`.\n\n"
-        helps = _generate_help()
-        for name, help_string in helps.items():
-            names = name.split(" ")
-            section = ""
-            if len(names) != 1:
-                section = (
-                    "```\n\n" + "#" * len(names) + " " + " ".join(("lamin", *names[1:]))
-                )
-            help_string = help_string.replace("Usage: main", "Usage: lamin")
-            page += f"{section}\n\n```\n{help_string}```\n\n"
-        Path("./docs/cli.md").write_text(page)
+    #     page = "# `lamin`\n\nFor a guide, see: {doc}`/setup`.\n\n"
+    #     helps = _generate_help()
+    #     for name, help_string in helps.items():
+    #         names = name.split(" ")
+    #         section = ""
+    #         if len(names) != 1:
+    #             section = (
+    #                 "```\n\n" + "#" * len(names) + " " + " ".join(("lamin", *names[1:]))
+    #             )
+    #         help_string = help_string.replace("Usage: main", "Usage: lamin")
+    #         page += f"{section}\n\n```\n{help_string}```\n\n"
+    #     Path("./docs/cli.md").write_text(page)
 
-    generate_cli_docs()
-    build_docs(session, strip_prefix=True, strict=True)
+    # generate_cli_docs()
+    build_docs(session, strip_prefix=False, strict=False)
     upload_docs_artifact(aws=True)
