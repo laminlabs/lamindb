@@ -18,6 +18,8 @@ def test_is_new_version_of_versioned_transform():
     # create a versioned transform
     transform = ln.Transform(name="My transform", version="1")
     assert transform.version == "1"
+    assert len(transform.uid) == ln.Transform._len_full_uid == 16
+    assert len(transform.stem_uid) == ln.Transform._len_stem_uid == 12
 
     transform.save()
 
