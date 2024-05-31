@@ -1,5 +1,6 @@
 # Changelog
 
+- 🐛 Fix generation of uid for default Transform constructor [PR](https://github.com/laminlabs/lamindb/pull/1684) [@falexwolf](https://github.com/falexwolf)
 :::{note}
 
 If using LaminHub, please use the latest version of LaminDB.
