@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-from typing import Type
-
 from django.db.models import ManyToManyField
 from lnschema_core.models import Feature, FeatureSet, LinkORM, Registry
 
