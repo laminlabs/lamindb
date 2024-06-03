@@ -813,7 +813,7 @@ def standardize_and_inspect(
     values: Iterable[str], field: FieldAttr, registry: Registry, **kwargs
 ):
     """Standardize and inspect values using a registry."""
-    if hasattr(registry, "standardize"):
+    if hasattr(registry, "standardize") and hasattr(registry, "synonyms"):
         values = registry.standardize(values, field=field, mute=True, **kwargs)
     return registry.inspect(values, field=field, mute=True, **kwargs)
 
