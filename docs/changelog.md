@@ -1,5 +1,6 @@
 # Changelog
 
+- :sparkles: Only standardize if synonyms column is present [PR](https://github.com/laminlabs/lamindb/pull/1688) [@Zethson](https://github.com/Zethson)
 - ⬆️ Migrate to upath 0.2.2 [PR](https://github.com/laminlabs/lamindb/pull/1687) [@Koncopd](https://github.com/Koncopd)
 - 🐛 Fix generation of uid for default Transform constructor [PR](https://github.com/laminlabs/lamindb/pull/1684) [@falexwolf](https://github.com/falexwolf)
 :::{note}
