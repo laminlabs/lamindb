@@ -979,7 +979,7 @@ def save_artifact(
         except ImportError:
             pass
     if artifact is None:
-        raise ValueError("data must be a DataFrame, AnnData or MuData object")
+        raise ValueError("data must be a DataFrame, AnnData or MuData object.")
     artifact.save()
 
     feature_kwargs = check_registry_organism(
