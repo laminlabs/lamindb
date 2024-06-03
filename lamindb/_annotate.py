@@ -813,7 +813,9 @@ def standardize_and_inspect(
     values: Iterable[str], field: FieldAttr, registry: Registry, **kwargs
 ):
     """Standardize and inspect values using a registry."""
-    if hasattr(registry, "standardize") and hasattr(registry, "synonyms"):
+    if hasattr(registry, "standardize") and hasattr(
+        registry, "synonyms"
+    ):  # https://github.com/laminlabs/lamindb/issues/1685
         values = registry.standardize(values, field=field, mute=True, **kwargs)
     return registry.inspect(values, field=field, mute=True, **kwargs)
 
