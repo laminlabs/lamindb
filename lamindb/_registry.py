@@ -549,24 +549,3 @@ if ln_setup._TESTING:  # type: ignore
 
 for name in METHOD_NAMES:
     attach_func_to_class_method(name, Registry, globals())
-
-
-@classmethod  # type: ignore
-def __get_schema_name__(cls) -> str:
-    schema_module_name = cls.__module__.split(".")[0]
-    schema_name = schema_module_name.replace("lnschema_", "")
-    return schema_name
-
-
-@classmethod  # type: ignore
-def __get_name_with_schema__(cls) -> str:
-    schema_name = cls.__get_schema_name__()
-    if schema_name == "core":
-        schema_prefix = ""
-    else:
-        schema_prefix = f"{schema_name}."
-    return f"{schema_prefix}{cls.__name__}"
-
-
-Registry.__get_schema_name__ = __get_schema_name__
-Registry.__get_name_with_schema__ = __get_name_with_schema__
