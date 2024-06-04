@@ -46,7 +46,8 @@ __version__ = "0.73.0"
 import os as _os
 
 import lamindb_setup as _lamindb_setup
-from lamindb_setup._check_setup import InstanceNotSetupError, _check_instance_setup
+from lamindb_setup._check_setup import InstanceNotSetupError as _InstanceNotSetupError
+from lamindb_setup._check_setup import _check_instance_setup
 from lamindb_setup._connect_instance import connect
 from lamindb_setup.core.upath import UPath
 
@@ -54,11 +55,11 @@ from . import setup
 
 
 def __getattr__(name):
-    raise InstanceNotSetupError()
+    raise _InstanceNotSetupError()
 
 
 if _check_instance_setup(from_lamindb=True):
-    del InstanceNotSetupError
+    del _InstanceNotSetupError
     del __getattr__  # delete so that imports work out
     from lnschema_core.models import (
         Artifact,
