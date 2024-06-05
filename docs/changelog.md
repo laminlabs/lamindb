@@ -1,11 +1,5 @@
 # Changelog
 
-- ⬆️ Relase sub modules [PR](https://github.com/laminlabs/lamindb/pull/1692) [@sunnyosun](https://github.com/sunnyosun)
-- ✨ Add .ome.zarr as composite suffix [PR](https://github.com/laminlabs/lamindb/pull/1691) [@sunnyosun](https://github.com/sunnyosun)
-- 🏗️ Instantly synchronize instance schema with the hub [PR](https://github.com/laminlabs/lamindb/pull/1689) [@falexwolf](https://github.com/falexwolf)
-- :sparkles: Only standardize if synonyms column is present [PR](https://github.com/laminlabs/lamindb/pull/1688) [@Zethson](https://github.com/Zethson)
-- ⬆️ Migrate to upath 0.2.2 [PR](https://github.com/laminlabs/lamindb/pull/1687) [@Koncopd](https://github.com/Koncopd)
-- 🐛 Fix generation of uid for default Transform constructor [PR](https://github.com/laminlabs/lamindb/pull/1684) [@falexwolf](https://github.com/falexwolf)
 :::{note}
 
 If using LaminHub, please use the latest version of LaminDB.
@@ -19,6 +13,12 @@ LaminDB implements "migration-based versioning". When upgrading your LaminDB ins
 ```
 
 ## 0.73
+
+### 0.73.1 {small}`2024-06-05`
+
+- 🏗️ Instantly synchronize instance schema with the hub [PR](https://github.com/laminlabs/lamindb/pull/1689) [@falexwolf](https://github.com/falexwolf)
+- ⬆️ Migrate to upath 0.2.2 [PR](https://github.com/laminlabs/lamindb/pull/1687) [@Koncopd](https://github.com/Koncopd)
+- 🐛 Fix generation of uid for default Transform constructor [PR](https://github.com/laminlabs/lamindb/pull/1684) [@falexwolf](https://github.com/falexwolf)
 
 ### 0.73.0 {small}`2024-05-29`
 
@@ -34,7 +34,7 @@ Example:
 # annotate dict-style (feature & category names get validated)
 artifact.features.add_values({
     "species": "setosa",
-    "scientist": ["Barabara McClintock", "Edgar Anderson"],
+    "scientist": ["Barbara McClintock", "Edgar Anderson"],
     "instrument": "Leica IIIc Camera",
     "temperature": 27.6,
     "study": "Study 0: initial plant gathering",
