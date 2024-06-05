@@ -1,5 +1,6 @@
 # Changelog
 
+- ⬆️ Relase sub modules [PR](https://github.com/laminlabs/lamindb/pull/1692) [@sunnyosun](https://github.com/sunnyosun)
 - ✨ Add .ome.zarr as composite suffix [PR](https://github.com/laminlabs/lamindb/pull/1691) [@sunnyosun](https://github.com/sunnyosun)
 - 🏗️ Instantly synchronize instance schema with the hub [PR](https://github.com/laminlabs/lamindb/pull/1689) [@falexwolf](https://github.com/falexwolf)
 - :sparkles: Only standardize if synonyms column is present [PR](https://github.com/laminlabs/lamindb/pull/1688) [@Zethson](https://github.com/Zethson)
