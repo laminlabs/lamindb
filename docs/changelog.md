@@ -16,9 +16,10 @@ LaminDB implements "migration-based versioning". When upgrading your LaminDB ins
 
 ### 0.73.1 {small}`2024-06-05`
 
-- 🏗️ Instantly synchronize instance schema with the hub [PR](https://github.com/laminlabs/lamindb/pull/1689) [@falexwolf](https://github.com/falexwolf)
-- ⬆️ Migrate to upath 0.2.2 [PR](https://github.com/laminlabs/lamindb/pull/1687) [@Koncopd](https://github.com/Koncopd)
-- 🐛 Fix generation of uid for default Transform constructor [PR](https://github.com/laminlabs/lamindb/pull/1684) [@falexwolf](https://github.com/falexwolf)
+- 🏗️ Instantly synchronize instance schema with the hub [PR](https://github.com/laminlabs/lamindb/pull/1689) [@fredericenard](https://github.com/fredericenard)
+- ⬆️ Upgrade `universal_pathlib` to 0.2.2 [PR](https://github.com/laminlabs/lamindb/pull/1687) [@Koncopd](https://github.com/Koncopd)
+- 🐛 Fix generation of `uid` for manual Transform constructor [PR](https://github.com/laminlabs/lamindb/pull/1684) [@falexwolf](https://github.com/falexwolf)
+- 🔥 Deleting `artifact.stage()` in favor of `artifact.cache()` (was deprecated in 0.70.0)
 
 ### 0.73.0 {small}`2024-05-29`
 
