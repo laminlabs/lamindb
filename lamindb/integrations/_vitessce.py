@@ -39,9 +39,13 @@ def save_vitessce_config(vitessce_config: VitessceConfig, description: str) -> A
             if "url" not in file:
                 raise ValueError("Each file must have a 'url' key.")
             filename = file["url"].split("/")[-1]
-            assert filename.endswith((".anndata.zarr", ".spatialdata.zarr"))
-            filestem = filename.replace(".anndata.zarr", "").replace(
-                ".spatialdata.zarr", ""
+            assert filename.endswith(
+                (".anndata.zarr", ".spatialdata.zarr", ".ome.zarr")
+            )
+            filestem = (
+                filename.replace(".anndata.zarr", "")
+                .replace(".spatialdata.zarr", "")
+                .replace(".ome.zarr", "")
             )
             artifact = Artifact.filter(uid__startswith=filestem).one_or_none()
             if artifact is None:
