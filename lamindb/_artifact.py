@@ -196,6 +196,8 @@ def get_stat_or_artifact(
     if not isinstance(path, LocalPathClasses):
         size, hash, hash_type = None, None, None
         if stat is not None:
+            # convert UPathStatResult to fsspec info dict
+            stat = stat.as_info()
             if "ETag" in stat:  # is file
                 size, hash, hash_type = get_stat_file_cloud(stat)
             elif stat["type"] == "directory":

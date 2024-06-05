@@ -1,10 +1,10 @@
-from typing import Type
+from __future__ import annotations
 
 from django.db.models import ManyToManyField
 from lnschema_core.models import Feature, FeatureSet, LinkORM, Registry
 
 
-def dict_schema_name_to_model_name(orm: Type[Registry]) -> dict[str, Registry]:
+def dict_schema_name_to_model_name(orm: type[Registry]) -> dict[str, Registry]:
     d: dict = {
         i.related_model.__get_name_with_schema__(): i.related_model
         for i in orm._meta.related_objects
@@ -21,7 +21,7 @@ def dict_schema_name_to_model_name(orm: Type[Registry]) -> dict[str, Registry]:
 
 
 def dict_related_model_to_related_name(
-    orm: Type[Registry], links: bool = False
+    orm: type[Registry], links: bool = False
 ) -> dict[str, str]:
     def include(model: Registry):
         return not links != issubclass(model, LinkORM)
