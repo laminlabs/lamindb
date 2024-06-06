@@ -120,8 +120,13 @@ jobs:
           NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
           NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID }}
       - uses: peter-evans/repository-dispatch@v2
+<<<<<<< HEAD
         if: ${{ github.event_name == 'push' }}
         with:
+=======
+        with:
+          if: ${{ github.event_name == 'push' }}
+>>>>>>> 1b5d675a (♻️ Dispatch to lamin-docs)
           token: ${{ secrets.LAMIN_BUILD_DOCS }}
           repository: "laminlabs/lamin-docs"
           event-type: build
