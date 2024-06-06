@@ -76,7 +76,7 @@ def test_features_add(adata):
         error.exconly()
         == """\
 lamindb.core.exceptions.ValidationError: These keys could not be validated: ['project', 'is_validated', 'cell_type_by_expert', 'donor']
-If there are no typos, create features for them:
+Here is how to create a feature:
 
   ln.Feature(name='project', dtype='cat[ULabel]').save()
   ln.Feature(name='is_validated', dtype='bool').save()

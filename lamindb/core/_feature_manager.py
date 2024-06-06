@@ -391,7 +391,7 @@ def add_values(
         )
         msg = (
             f"These keys could not be validated: {not_validated_keys.tolist()}\n"
-            f"If there are no typos, create features for them:\n\n{hint}"
+            f"Here is how to create a feature:\n\n{hint}"
         )
         raise ValidationError(msg)
     registry.from_values(
@@ -457,7 +457,7 @@ def add_values(
         )
         msg = (
             f"These values could not be validated: {not_validated_values}\n"
-            f"If there are no typos, create ulabels for them:\n\n{hint}"
+            f"Here is how to create ulabels for them:\n\n{hint}"
         )
         raise ValidationError(msg)
     # bulk add all links to ArtifactULabel
