@@ -96,7 +96,7 @@ Here is how to create a feature:
         error.exconly()
         == """\
 lamindb.core.exceptions.ValidationError: These values could not be validated: ['Experiment 2', 'project_1', 'T Cell', 'U0123']
-If there are no typos, create ulabels for them:
+Here is how to create ulabels for them:
 
   ulabels = ln.ULabel.from_values(['Experiment 2', 'project_1', 'T Cell', 'U0123'], create=True)
   ln.save(ulabels)"""
