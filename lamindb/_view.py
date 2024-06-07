@@ -28,7 +28,9 @@ def view(
         >>> ln.view()
     """
     if is_run_from_ipython:
-        from IPython.display import display
+        from IPython.display import display as show
+    else:
+        show = logger.print
 
     if schema is not None:
         schema_names = [schema]
@@ -65,7 +67,4 @@ def view(
                 df = orm.df().iloc[-n:]
             if df.shape[0] > 0:
                 logger.print(colors.blue(colors.bold(orm.__name__)))
-                if is_run_from_ipython:
-                    display(df)
-                else:
-                    logger.print(df)
+                show(df)
