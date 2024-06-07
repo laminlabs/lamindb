@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import builtins
 import importlib
 import inspect
 
@@ -7,6 +8,8 @@ from lamin_utils import colors, logger
 from lamindb_setup import settings
 from lamindb_setup._init_instance import get_schema_module_name
 from lnschema_core import Registry
+
+is_run_from_ipython = getattr(builtins, "__IPYTHON__", False)
 
 
 def view(
@@ -24,7 +27,8 @@ def view(
     Examples:
         >>> ln.view()
     """
-    from IPython.display import display
+    if is_run_from_ipython:
+        from IPython.display import display
 
     if schema is not None:
         schema_names = [schema]
@@ -61,4 +65,7 @@ def view(
                 df = orm.df().iloc[-n:]
             if df.shape[0] > 0:
                 logger.print(colors.blue(colors.bold(orm.__name__)))
-                display(df)
+                if is_run_from_ipython:
+                    display(df)
+                else:
+                    logger.print(df)
