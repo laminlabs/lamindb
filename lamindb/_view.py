@@ -3,7 +3,6 @@ from __future__ import annotations
 import importlib
 import inspect
 
-from IPython.display import display
 from lamin_utils import colors, logger
 from lamindb_setup import settings
 from lamindb_setup._init_instance import get_schema_module_name
@@ -25,6 +24,8 @@ def view(
     Examples:
         >>> ln.view()
     """
+    from IPython.display import display
+
     if schema is not None:
         schema_names = [schema]
     else:
