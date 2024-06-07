@@ -1,5 +1,6 @@
 # Changelog
 
+- 🐛 Import IPython inside view [PR](https://github.com/laminlabs/lamindb/pull/1696) [@Koncopd](https://github.com/Koncopd)
 :::{note}
 
 If using LaminHub, please use the latest version of LaminDB.
