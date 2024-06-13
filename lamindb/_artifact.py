@@ -84,7 +84,7 @@ def process_pathlike(
             pass
     if isinstance(filepath, LocalPathClasses):
         filepath = filepath.resolve()
-    if check_path_is_child_of_root(filepath, default_storage.root_as_path()):
+    if check_path_is_child_of_root(filepath, default_storage.root):
         use_existing_storage_key = True
         return default_storage, use_existing_storage_key
     else:
@@ -272,28 +272,15 @@ def check_path_in_existing_storage(
 ) -> Storage | bool:
     for storage in Storage.objects.using(using_key).filter().all():
         # if path is part of storage, return it
-        if check_path_is_child_of_root(path, root=create_path(storage.root)):
+        if check_path_is_child_of_root(path, root=storage.root):
             return storage
     return False
 
 
 def check_path_is_child_of_root(path: Path | UPath, root: Path | UPath | None) -> bool:
-    path = UPath(str(path)) if not isinstance(path, UPath) else path
-    root = UPath(str(root)) if not isinstance(root, UPath) else root
-
-    # the following comparisons can fail if types aren't comparable
-    if not isinstance(path, LocalPathClasses) and not isinstance(
-        root, LocalPathClasses
-    ):
-        # the following tests equivalency of two UPath objects
-        # via string representations; otherwise
-        # S3Path('s3://lndb-storage/') and S3Path('s3://lamindb-ci/')
-        # test as equivalent
-        return list(path.parents)[-1].as_posix() == root.as_posix()
-    elif isinstance(path, LocalPathClasses) and isinstance(root, LocalPathClasses):
-        return root.resolve() in path.resolve().parents
-    else:
-        return False
+    path = UPath(path)
+    root = UPath(root)
+    return root.resolve() in path.resolve().parents
 
 
 def get_relative_path_to_directory(
@@ -358,7 +345,7 @@ def get_artifact_kwargs_from_data(
     check_path_in_storage = False
     if use_existing_storage_key:
         inferred_key = get_relative_path_to_directory(
-            path=path, directory=storage.root_as_path()
+            path=path, directory=UPath(storage.root)
         ).as_posix()
         if key is None:
             key = inferred_key
@@ -752,7 +739,7 @@ def from_dir(
         else:
             # maintain the hierachy within an existing storage location
             folder_key_path = get_relative_path_to_directory(
-                folderpath, storage.root_as_path()
+                folderpath, UPath(storage.root)
             )
     else:
         folder_key_path = Path(key)
