@@ -1,7 +1,5 @@
 # Changelog
 
-- 🐛 Fix clashing reverse accessors between `.previous_runs` and `.run` [PR](https://github.com/laminlabs/lamindb/pull/1698) [@falexwolf](https://github.com/falexwolf)
-- 🐛 Import IPython inside view [PR](https://github.com/laminlabs/lamindb/pull/1696) [@Koncopd](https://github.com/Koncopd)
 :::{note}
 
 If using LaminHub, please use the latest version of LaminDB.
@@ -15,6 +13,11 @@ LaminDB implements "migration-based versioning". When upgrading your LaminDB ins
 ```
 
 ## 0.73
+
+### 0.73.2 {small}`2024-06-13`
+
+- 🐛 Fix clashing reverse accessors for `.previous_runs` and `.run` [PR](https://github.com/laminlabs/lamindb/pull/1698) [@falexwolf](https://github.com/falexwolf)
+- 🐛 Import IPython inside view [PR](https://github.com/laminlabs/lamindb/pull/1696) [@Koncopd](https://github.com/Koncopd)
 
 ### 0.73.1 {small}`2024-06-05`
 
