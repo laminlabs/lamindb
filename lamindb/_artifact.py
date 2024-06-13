@@ -345,7 +345,7 @@ def get_artifact_kwargs_from_data(
     check_path_in_storage = False
     if use_existing_storage_key:
         inferred_key = get_relative_path_to_directory(
-            path=path, directory=storage.root
+            path=path, directory=UPath(storage.root)
         ).as_posix()
         if key is None:
             key = inferred_key
@@ -738,7 +738,9 @@ def from_dir(
             folder_key_path = Path(folderpath.name)
         else:
             # maintain the hierachy within an existing storage location
-            folder_key_path = get_relative_path_to_directory(folderpath, storage.root)
+            folder_key_path = get_relative_path_to_directory(
+                folderpath, UPath(storage.root)
+            )
     else:
         folder_key_path = Path(key)
 
