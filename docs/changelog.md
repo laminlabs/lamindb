@@ -1,5 +1,6 @@
 # Changelog
 
+- 🐛 Fix clashing reverse accessors between `.previous_runs` and `.run` [PR](https://github.com/laminlabs/lamindb/pull/1698) [@falexwolf](https://github.com/falexwolf)
 - 🐛 Import IPython inside view [PR](https://github.com/laminlabs/lamindb/pull/1696) [@Koncopd](https://github.com/Koncopd)
 :::{note}
 
