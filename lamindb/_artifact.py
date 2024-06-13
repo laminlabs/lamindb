@@ -278,8 +278,10 @@ def check_path_in_existing_storage(
 
 
 def check_path_is_child_of_root(path: Path | UPath, root: Path | UPath | None) -> bool:
-    path = UPath(path)
-    root = UPath(root)
+    # str is needed to eliminate UPath storage_options
+    # from the equality checks below
+    path = UPath(str(path))
+    root = UPath(str(root))
     return root.resolve() in path.resolve().parents
 
 
