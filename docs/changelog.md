@@ -1,5 +1,6 @@
 # Changelog
 
+- 🐛 Fix check_path_is_child_of_root for upaths with different storage_options [PR](https://github.com/laminlabs/lamindb/pull/1700) [@Koncopd](https://github.com/Koncopd)
 - ♻️ Refactor after upath upgrade [PR](https://github.com/laminlabs/lamindb/pull/1699) [@Koncopd](https://github.com/Koncopd)
 :::{note}
 
