@@ -1,5 +1,6 @@
 # Changelog
 
+- ♻️ Refactor after upath upgrade [PR](https://github.com/laminlabs/lamindb/pull/1699) [@Koncopd](https://github.com/Koncopd)
 :::{note}
 
 If using LaminHub, please use the latest version of LaminDB.
