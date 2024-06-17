@@ -181,5 +181,5 @@ exclude_lines = [
 
 [tool.coverage.run]
 omit = [
-    "lamindb/core/datasets/*",  # Datasets don't perform any logic
+    "**/core/datasets/*",  # Datasets don't perform any logic
 ]
