@@ -178,3 +178,8 @@ convention = "google"
 exclude_lines = [
     "if TYPE_CHECKING:",
 ]
+
+[tool.coverage.run]
+omit = [
+    "**/core/datasets/*",  # Datasets don't perform any logic
+]
