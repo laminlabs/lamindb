@@ -10,9 +10,8 @@ import numpy as np
 import pandas as pd
 from anndata import AnnData
 from django.contrib.postgres.aggregates import ArrayAgg
-from django.db import connections, models
-from django.db.models import Aggregate, CharField, F, Value
-from django.db.models.functions import Concat
+from django.db import connections
+from django.db.models import Aggregate
 from lamin_utils import colors, logger
 from lamindb_setup.core.upath import create_path
 from lnschema_core.models import (
@@ -25,7 +24,12 @@ from lnschema_core.models import (
     FeatureValue,
     HasFeatures,
     LinkORM,
+    Param,
+    ParamManagerArtifact,
+    ParamManagerRun,
+    ParamValue,
     Registry,
+    Run,
     ULabel,
 )
 
@@ -316,19 +320,25 @@ def __getitem__(self, slot) -> QuerySet:
 @classmethod  # type: ignore
 def filter(cls, **expression) -> QuerySet:
     """Filter features."""
+    if cls in {FeatureManagerArtifact, FeatureManagerCollection}:
+        model = Feature
+        value_model = FeatureValue
+    else:
+        model = Param
+        value_model = ParamValue
     keys_normalized = [key.split("__")[0] for key in expression]
-    validated = Feature.validate(keys_normalized, field="name", mute=True)
+    validated = model.validate(keys_normalized, field="name", mute=True)
     if sum(validated) != len(keys_normalized):
         raise ValidationError(
             f"Some keys in the filter expression are not registered as features: {np.array(keys_normalized)[~validated]}"
         )
     new_expression = {}
-    features = Feature.filter(name__in=keys_normalized).all().distinct()
+    features = model.filter(name__in=keys_normalized).all().distinct()
     for key, value in expression.items():
         normalized_key = key.split("__")[0]
         feature = features.get(name=normalized_key)
         if not feature.dtype.startswith("cat"):
-            feature_value = FeatureValue.filter(feature=feature, value=value).one()
+            feature_value = value_model.filter(feature=feature, value=value).one()
             new_expression["feature_values"] = feature_value
         else:
             if isinstance(value, str):
@@ -336,10 +346,12 @@ def filter(cls, **expression) -> QuerySet:
                 new_expression["ulabels"] = label
             else:
                 raise NotImplementedError
-    if cls == FeatureManagerArtifact:
+    if cls == FeatureManagerArtifact or cls == ParamManagerArtifact:
         return Artifact.filter(**new_expression)
-    else:
+    elif cls == FeatureManagerCollection:
         return Collection.filter(**new_expression)
+    elif cls == ParamManagerRun:
+        return Run.filter(**new_expression)
 
 
 @property  # type: ignore
@@ -358,16 +370,16 @@ def _accessor_by_registry(self):
     return self._accessor_by_registry_
 
 
-def add_values(
+def _add_values(
     self,
     values: dict[str, str | int | float | bool],
-    feature_field: FieldAttr = Feature.name,
+    feature_param_field: FieldAttr,
 ) -> None:
     """Annotate artifact with features & values.
 
     Args:
         values: A dictionary of keys (features) & values (labels, numbers, booleans).
-        feature_field: The field of a reference registry to map keys of the
+        feature_param_field: The field of a reference registry to map keys of the
             dictionary.
     """
     # rename to distinguish from the values inside the dict
@@ -377,15 +389,19 @@ def add_values(
         keys = list(keys)  # type: ignore
     # deal with other cases later
     assert all(isinstance(key, str) for key in keys)
-    registry = feature_field.field.model
-    validated = registry.validate(keys, field=feature_field, mute=True)
+    registry = feature_param_field.field.model
+    is_param = registry == Param
+    model = Param if is_param else Feature
+    value_model = ParamValue if is_param else FeatureValue
+    validated = registry.validate(keys, field=feature_param_field, mute=True)
     keys_array = np.array(keys)
     validated_keys = keys_array[validated]
     if validated.sum() != len(keys):
         not_validated_keys = keys_array[~validated]
+        model_name = "Param" if is_param else "Feature"
         hint = "\n".join(
             [
-                f"  ln.Feature(name='{key}', dtype='{infer_feature_type_convert_json(features_values[key])[0]}').save()"
+                f"  ln.{model_name}(name='{key}', dtype='{infer_feature_type_convert_json(features_values[key])[0]}').save()"
                 for key in not_validated_keys
             ]
         )
@@ -396,14 +412,14 @@ def add_values(
         raise ValidationError(msg)
     registry.from_values(
         validated_keys,
-        field=feature_field,
+        field=feature_param_field,
     )
     # figure out which of the values go where
     features_labels = []
     feature_values = []
     not_validated_values = []
     for key, value in features_values.items():
-        feature = Feature.filter(name=key).one()
+        feature = model.filter(name=key).one()
         inferred_type, converted_value = infer_feature_type_convert_json(
             value, mute=True
         )
@@ -421,11 +437,11 @@ def add_values(
             assert isinstance(value, bool)
         if not feature.dtype.startswith("cat"):
             # can remove the query once we have the unique constraint
-            feature_value = FeatureValue.filter(
+            feature_value = value_model.filter(
                 feature=feature, value=converted_value
             ).one_or_none()
             if feature_value is None:
-                feature_value = FeatureValue(feature=feature, value=converted_value)
+                feature_value = value_model(feature=feature, value=converted_value)
             feature_values.append(feature_value)
         else:
             if isinstance(value, Registry):
@@ -488,7 +504,10 @@ def add_values(
                     link.save()
     if feature_values:
         save(feature_values)
-        LinkORM = self._host.feature_values.through
+        if is_param:
+            LinkORM = self._host.param_values.through
+        else:
+            LinkORM = self._host.feature_values.through
         links = [
             LinkORM(artifact_id=self._host.id, featurevalue_id=feature_value.id)
             for feature_value in feature_values
@@ -496,6 +515,33 @@ def add_values(
         # a link might already exist, to avoid raising a unique constraint
         # error, ignore_conflicts
         save(links, ignore_conflicts=True)
+
+
+def add_values_features(
+    self,
+    values: dict[str, str | int | float | bool],
+    feature_field: FieldAttr = Feature.name,
+) -> None:
+    """Annotate artifact with features & values.
+
+    Args:
+        values: A dictionary of keys (features) & values (labels, numbers, booleans).
+        feature_field: The field of a reference registry to map keys of the
+            dictionary.
+    """
+    _add_values(self, values, feature_field)
+
+
+def add_values_params(
+    self,
+    values: dict[str, str | int | float | bool],
+) -> None:
+    """Annotate artifact with features & values.
+
+    Args:
+        values: A dictionary of keys (features) & values (labels, numbers, booleans).
+    """
+    _add_values(self, values, Param.name)
 
 
 def add_feature_set(self, feature_set: FeatureSet, slot: str) -> None:
@@ -691,7 +737,7 @@ FeatureManager.__getitem__ = __getitem__
 FeatureManager.get_values = get_values
 FeatureManager._feature_set_by_slot = _feature_set_by_slot
 FeatureManager._accessor_by_registry = _accessor_by_registry
-FeatureManager.add_values = add_values
+FeatureManager.add_values = add_values_features
 FeatureManager.add_feature_set = add_feature_set
 FeatureManager._add_set_from_df = _add_set_from_df
 FeatureManager._add_set_from_anndata = _add_set_from_anndata
