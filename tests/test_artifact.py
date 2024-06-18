@@ -621,6 +621,16 @@ def test_check_path_is_child_of_root():
     root = UPath("s3://lamindb-ci")
     path = Path("/lamindb-ci/test-data/test.csv")
     assert not check_path_is_child_of_root(path, root=root)
+    # different storage_options
+    upath = UPath("s3://lamindb-ci/test-data/test.csv", cache_regions=True)
+    assert upath.storage_options != root.storage_options
+    assert check_path_is_child_of_root(upath, root=root)
+    # the second level
+    root = UPath("s3://lamindb-ci/test-data/")
+    upath = UPath("s3://lamindb-ci/test-data/test/test.csv")
+    assert check_path_is_child_of_root(upath, root=root)
+    upath2 = UPath("s3://lamindb-ci/test-data-1/test/test.csv")
+    assert not check_path_is_child_of_root(upath2, root=root)
 
 
 def test_serialize_paths():
