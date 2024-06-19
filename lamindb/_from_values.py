@@ -278,16 +278,26 @@ def index_iterable(iterable: Iterable) -> pd.Index:
 
 
 def _print_values(names: Iterable, n: int = 20, quotes: bool = True) -> str:
-    if isinstance(names, list):
-        return str(names)
-    names = (name for name in names if name != "None")
-    unique_names = list(dict.fromkeys(names))[:n]
-    if quotes:
-        print_values = ", ".join(f"'{name}'" for name in unique_names)
+    if isinstance(names, dict):
+        items = {
+            f"{key}: {value}": None
+            for key, value in names.items()
+            if key != "None" and value != "None"
+        }
     else:
-        print_values = ", ".join(f"{name}" for name in unique_names)
-    if len(unique_names) > n:
+        # Use a dictionary instead of a list to have unique values and preserve order
+        items = {str(name): None for name in names if name != "None"}
+
+    unique_items = list(items.keys())
+
+    if quotes:
+        unique_items = [f"'{item}'" for item in unique_items]
+
+    print_values = ", ".join(unique_items[:n])
+
+    if len(unique_items) > n:
         print_values += ", ..."
+
     return print_values
 
 
