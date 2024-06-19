@@ -278,6 +278,8 @@ def index_iterable(iterable: Iterable) -> pd.Index:
 
 
 def _print_values(names: Iterable, n: int = 20, quotes: bool = True) -> str:
+    if isinstance(names, list):
+        return str(names)
     names = (name for name in names if name != "None")
     unique_names = list(dict.fromkeys(names))[:n]
     if quotes:
