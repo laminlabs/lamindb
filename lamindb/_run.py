@@ -1,9 +1,10 @@
 from __future__ import annotations
 
-from lnschema_core.models import Run, Transform
+from lnschema_core.models import ParamManager, Run, Transform
 
 
 def __init__(run: Run, *args, **kwargs):
+    run.params = ParamManager(run)
     if len(args) == len(run._meta.concrete_fields):
         super(Run, run).__init__(*args, **kwargs)
         return None

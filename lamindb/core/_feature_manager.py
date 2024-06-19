@@ -10,9 +10,8 @@ import numpy as np
 import pandas as pd
 from anndata import AnnData
 from django.contrib.postgres.aggregates import ArrayAgg
-from django.db import connections, models
-from django.db.models import Aggregate, CharField, F, Value
-from django.db.models.functions import Concat
+from django.db import connections
+from django.db.models import Aggregate
 from lamin_utils import colors, logger
 from lamindb_setup.core.upath import create_path
 from lnschema_core.models import (
@@ -24,8 +23,15 @@ from lnschema_core.models import (
     FeatureManagerCollection,
     FeatureValue,
     HasFeatures,
+    HasParams,
     LinkORM,
+    Param,
+    ParamManager,
+    ParamManagerArtifact,
+    ParamManagerRun,
+    ParamValue,
     Registry,
+    Run,
     ULabel,
 )
 
@@ -43,6 +49,9 @@ from lamindb.core.storage import LocalPathClasses
 
 from ._label_manager import get_labels_as_dict
 from ._settings import settings
+from .schema import (
+    dict_related_model_to_related_name,
+)
 
 if TYPE_CHECKING:
     from lnschema_core.types import FieldAttr
@@ -107,8 +116,10 @@ def get_feature_set_links(host: Artifact | Collection) -> QuerySet:
     return feature_set_links
 
 
-def get_link_attr(link: LinkORM, data: HasFeatures) -> str:
+def get_link_attr(link: LinkORM | type[LinkORM], data: HasFeatures) -> str:
     link_model_name = link.__class__.__name__
+    if link_model_name == "ModelBase":  # we passed the type of the link
+        link_model_name = link.__name__
     link_attr = link_model_name.replace(data.__class__.__name__, "")
     if link_attr == "ExperimentalFactor":
         link_attr = "experimental_factor"
@@ -131,42 +142,51 @@ def custom_aggregate(field, using: str):
 
 
 def print_features(
-    self: HasFeatures, print_types: bool = False, to_dict: bool = False
+    self: HasFeatures | HasParams,
+    print_types: bool = False,
+    to_dict: bool = False,
+    print_params: bool = False,
 ) -> str | dict[str, Any]:
     from lamindb._from_values import _print_values
 
     msg = ""
     dictionary = {}
     # categorical feature values
-    labels_msg = ""
-    labels_by_feature = defaultdict(list)
-    for _, (_, links) in get_labels_as_dict(self, links=True).items():
-        for link in links:
-            if link.feature_id is not None:
-                link_attr = get_link_attr(link, self)
-                labels_by_feature[link.feature_id].append(getattr(link, link_attr).name)
-    for feature_id, labels_list in labels_by_feature.items():
-        feature = Feature.objects.using(self._state.db).get(id=feature_id)
-        print_values = _print_values(labels_list, n=10)
-        type_str = f": {feature.dtype}" if print_types else ""
-        if to_dict:
-            dictionary[feature.name] = (
-                labels_list if len(labels_list) > 1 else labels_list[0]
-            )
-        labels_msg += f"    '{feature.name}'{type_str} = {print_values}\n"
-    if labels_msg:
-        msg += labels_msg
+    if not print_params:
+        labels_msg = ""
+        labels_by_feature = defaultdict(list)
+        for _, (_, links) in get_labels_as_dict(self, links=True).items():
+            for link in links:
+                if link.feature_id is not None:
+                    link_attr = get_link_attr(link, self)
+                    labels_by_feature[link.feature_id].append(
+                        getattr(link, link_attr).name
+                    )
+        for feature_id, labels_list in labels_by_feature.items():
+            feature = Feature.objects.using(self._state.db).get(id=feature_id)
+            print_values = _print_values(labels_list, n=10)
+            type_str = f": {feature.dtype}" if print_types else ""
+            if to_dict:
+                dictionary[feature.name] = (
+                    labels_list if len(labels_list) > 1 else labels_list[0]
+                )
+            labels_msg += f"    '{feature.name}'{type_str} = {print_values}\n"
+        if labels_msg:
+            msg += labels_msg
 
     # non-categorical feature values
     non_labels_msg = ""
-    if self.id is not None and self.__class__ == Artifact:
-        feature_values = self.feature_values.values(
-            "feature__name", "feature__dtype"
-        ).annotate(values=custom_aggregate("value", self._state.db))
+    if self.id is not None and self.__class__ == Artifact or self.__class__ == Run:
+        attr_name = "param" if print_params else "feature"
+        feature_values = (
+            getattr(self, f"{attr_name}_values")
+            .values(f"{attr_name}__name", f"{attr_name}__dtype")
+            .annotate(values=custom_aggregate("value", self._state.db))
+        )
         if len(feature_values) > 0:
             for fv in feature_values:
-                feature_name = fv["feature__name"]
-                feature_dtype = fv["feature__dtype"]
+                feature_name = fv[f"{attr_name}__name"]
+                feature_dtype = fv[f"{attr_name}__dtype"]
                 values = fv["values"]
                 # TODO: understand why the below is necessary
                 if not isinstance(values, list):
@@ -174,24 +194,33 @@ def print_features(
                 if to_dict:
                     dictionary[feature_name] = values if len(values) > 1 else values[0]
                 type_str = f": {feature_dtype}" if print_types else ""
-                non_labels_msg += f"    '{feature_name}'{type_str} = {_print_values(values, n=10, quotes=False)}\n"
+                printed_values = (
+                    _print_values(values, n=10, quotes=False)
+                    if not feature_dtype.startswith("list")
+                    else values
+                )
+                non_labels_msg += f"    '{feature_name}'{type_str} = {printed_values}\n"
             msg += non_labels_msg
 
     if msg != "":
-        msg = f"  {colors.italic('Features')}\n" + msg
+        header = "Features" if not print_params else "Params"
+        msg = f"  {colors.italic(header)}\n" + msg
 
     # feature sets
-    feature_set_msg = ""
-    for slot, feature_set in get_feature_set_by_slot_(self).items():
-        features = feature_set.members
-        # features.first() is a lot slower than features[0] here
-        name_field = get_default_str_field(features[0])
-        feature_names = list(features.values_list(name_field, flat=True)[:20])
-        type_str = f": {feature_set.registry}" if print_types else ""
-        feature_set_msg += f"    '{slot}'{type_str} = {_print_values(feature_names)}\n"
-    if feature_set_msg:
-        msg += f"  {colors.italic('Feature sets')}\n"
-        msg += feature_set_msg
+    if not print_params:
+        feature_set_msg = ""
+        for slot, feature_set in get_feature_set_by_slot_(self).items():
+            features = feature_set.members
+            # features.first() is a lot slower than features[0] here
+            name_field = get_default_str_field(features[0])
+            feature_names = list(features.values_list(name_field, flat=True)[:20])
+            type_str = f": {feature_set.registry}" if print_types else ""
+            feature_set_msg += (
+                f"    '{slot}'{type_str} = {_print_values(feature_names)}\n"
+            )
+        if feature_set_msg:
+            msg += f"  {colors.italic('Feature sets')}\n"
+            msg += feature_set_msg
     if to_dict:
         return dictionary
     else:
@@ -258,7 +287,9 @@ def parse_feature_sets_from_anndata(
     return feature_sets
 
 
-def infer_feature_type_convert_json(value: Any, mute: bool = False) -> tuple[str, Any]:
+def infer_feature_type_convert_json(
+    value: Any, mute: bool = False, str_as_ulabel: bool = True
+) -> tuple[str, Any]:
     if isinstance(value, bool):
         return FEATURE_TYPES["bool"], value
     elif isinstance(value, int):
@@ -266,39 +297,51 @@ def infer_feature_type_convert_json(value: Any, mute: bool = False) -> tuple[str
     elif isinstance(value, float):
         return FEATURE_TYPES["float"], value
     elif isinstance(value, str):
-        return FEATURE_TYPES["str"] + "[ULabel]", value
+        if str_as_ulabel:
+            return FEATURE_TYPES["str"] + "[ULabel]", value
+        else:
+            return "str", value
     elif isinstance(value, Iterable) and not isinstance(value, (str, bytes)):
         if isinstance(value, (pd.Series, np.ndarray)):
-            return convert_numpy_dtype_to_lamin_feature_type(value.dtype), list(value)
+            return convert_numpy_dtype_to_lamin_feature_type(
+                value.dtype, str_as_cat=str_as_ulabel
+            ), list(value)
         if len(value) > 0:  # type: ignore
             first_element_type = type(next(iter(value)))
             if all(isinstance(elem, first_element_type) for elem in value):
                 if first_element_type == bool:
-                    return FEATURE_TYPES["bool"], value
+                    return f"list[{FEATURE_TYPES['bool']}]", value
                 elif first_element_type == int:
-                    return FEATURE_TYPES["int"], value
+                    return f"list[{FEATURE_TYPES['int']}]", value
                 elif first_element_type == float:
-                    return FEATURE_TYPES["float"], value
+                    return f"list[{FEATURE_TYPES['float']}]", value
                 elif first_element_type == str:
-                    return FEATURE_TYPES["str"] + "[ULabel]", value
+                    if str_as_ulabel:
+                        return FEATURE_TYPES["str"] + "[ULabel]", value
+                    else:
+                        return "list[str]", value
+    elif isinstance(value, Registry):
+        return (f"cat[{value.__class__.__get_name_with_schema__()}]", value)
     if not mute:
         logger.warning(f"cannot infer feature type of: {value}, returning '?")
     return ("?", value)
 
 
-def __init__(self, host: Artifact | Collection):
+def __init__(self, host: Artifact | Collection | Run):
     self._host = host
     self._feature_set_by_slot_ = None
     self._accessor_by_registry_ = None
 
 
 def __repr__(self) -> str:
-    return print_features(self._host)  # type: ignore
+    return print_features(self._host, print_params=(self.__class__ == ParamManager))  # type: ignore
 
 
 def get_values(self) -> dict[str, Any]:
     """Get feature values as a dictionary."""
-    return print_features(self._host, to_dict=True)  # type: ignore
+    return print_features(
+        self._host, to_dict=True, print_params=(self.__class__ == ParamManager)
+    )  # type: ignore
 
 
 def __getitem__(self, slot) -> QuerySet:
@@ -316,19 +359,25 @@ def __getitem__(self, slot) -> QuerySet:
 @classmethod  # type: ignore
 def filter(cls, **expression) -> QuerySet:
     """Filter features."""
+    if cls in {FeatureManagerArtifact, FeatureManagerCollection}:
+        model = Feature
+        value_model = FeatureValue
+    else:
+        model = Param
+        value_model = ParamValue
     keys_normalized = [key.split("__")[0] for key in expression]
-    validated = Feature.validate(keys_normalized, field="name", mute=True)
+    validated = model.validate(keys_normalized, field="name", mute=True)
     if sum(validated) != len(keys_normalized):
         raise ValidationError(
             f"Some keys in the filter expression are not registered as features: {np.array(keys_normalized)[~validated]}"
         )
     new_expression = {}
-    features = Feature.filter(name__in=keys_normalized).all().distinct()
+    features = model.filter(name__in=keys_normalized).all().distinct()
     for key, value in expression.items():
         normalized_key = key.split("__")[0]
         feature = features.get(name=normalized_key)
         if not feature.dtype.startswith("cat"):
-            feature_value = FeatureValue.filter(feature=feature, value=value).one()
+            feature_value = value_model.filter(feature=feature, value=value).one()
             new_expression["feature_values"] = feature_value
         else:
             if isinstance(value, str):
@@ -336,10 +385,12 @@ def filter(cls, **expression) -> QuerySet:
                 new_expression["ulabels"] = label
             else:
                 raise NotImplementedError
-    if cls == FeatureManagerArtifact:
+    if cls == FeatureManagerArtifact or cls == ParamManagerArtifact:
         return Artifact.filter(**new_expression)
-    else:
+    elif cls == FeatureManagerCollection:
         return Collection.filter(**new_expression)
+    elif cls == ParamManagerRun:
+        return Run.filter(**new_expression)
 
 
 @property  # type: ignore
@@ -358,16 +409,17 @@ def _accessor_by_registry(self):
     return self._accessor_by_registry_
 
 
-def add_values(
+def _add_values(
     self,
     values: dict[str, str | int | float | bool],
-    feature_field: FieldAttr = Feature.name,
+    feature_param_field: FieldAttr,
+    str_as_ulabel: bool = True,
 ) -> None:
     """Annotate artifact with features & values.
 
     Args:
         values: A dictionary of keys (features) & values (labels, numbers, booleans).
-        feature_field: The field of a reference registry to map keys of the
+        feature_param_field: The field of a reference registry to map keys of the
             dictionary.
     """
     # rename to distinguish from the values inside the dict
@@ -377,62 +429,83 @@ def add_values(
         keys = list(keys)  # type: ignore
     # deal with other cases later
     assert all(isinstance(key, str) for key in keys)
-    registry = feature_field.field.model
-    validated = registry.validate(keys, field=feature_field, mute=True)
+    registry = feature_param_field.field.model
+    is_param = registry == Param
+    model = Param if is_param else Feature
+    value_model = ParamValue if is_param else FeatureValue
+    model_name = "Param" if is_param else "Feature"
+    if is_param:
+        if self._host.__class__ == Artifact:
+            if self._host.type != "model":
+                raise ValidationError("Can only set params for model-like artifacts.")
+    else:
+        if self._host.__class__ == Artifact:
+            if self._host.type != "dataset" and self._host.type is not None:
+                raise ValidationError(
+                    "Can only set features for dataset-like artifacts."
+                )
+    validated = registry.validate(keys, field=feature_param_field, mute=True)
     keys_array = np.array(keys)
     validated_keys = keys_array[validated]
     if validated.sum() != len(keys):
         not_validated_keys = keys_array[~validated]
         hint = "\n".join(
             [
-                f"  ln.Feature(name='{key}', dtype='{infer_feature_type_convert_json(features_values[key])[0]}').save()"
+                f"  ln.{model_name}(name='{key}', dtype='{infer_feature_type_convert_json(features_values[key], str_as_ulabel=str_as_ulabel)[0]}').save()"
                 for key in not_validated_keys
             ]
         )
         msg = (
             f"These keys could not be validated: {not_validated_keys.tolist()}\n"
-            f"If there are no typos, create features for them:\n\n{hint}"
+            f"Here is how to create a {model_name.lower()}:\n\n{hint}"
         )
         raise ValidationError(msg)
     registry.from_values(
         validated_keys,
-        field=feature_field,
+        field=feature_param_field,
     )
     # figure out which of the values go where
-    features_labels = []
+    features_labels = defaultdict(list)
     feature_values = []
     not_validated_values = []
     for key, value in features_values.items():
-        feature = Feature.filter(name=key).one()
+        feature = model.filter(name=key).one()
         inferred_type, converted_value = infer_feature_type_convert_json(
-            value, mute=True
+            value,
+            mute=True,
+            str_as_ulabel=str_as_ulabel,
         )
         if feature.dtype == "number":
             if inferred_type not in {"int", "float"}:
                 raise TypeError(
                     f"Value for feature '{key}' with type {feature.dtype} must be a number"
                 )
-        elif feature.dtype == "cat":
+        elif feature.dtype.startswith("cat"):
             if not (inferred_type.startswith("cat") or isinstance(value, Registry)):
                 raise TypeError(
                     f"Value for feature '{key}' with type '{feature.dtype}' must be a string or record."
                 )
-        elif feature.dtype == "bool":
-            assert isinstance(value, bool)
+        elif not inferred_type == feature.dtype:
+            raise ValidationError(
+                f"Expected dtype for '{key}' is '{feature.dtype}', got '{inferred_type}'"
+            )
         if not feature.dtype.startswith("cat"):
             # can remove the query once we have the unique constraint
-            feature_value = FeatureValue.filter(
-                feature=feature, value=converted_value
-            ).one_or_none()
+            filter_kwargs = {model_name.lower(): feature, "value": converted_value}
+            feature_value = value_model.filter(**filter_kwargs).one_or_none()
             if feature_value is None:
-                feature_value = FeatureValue(feature=feature, value=converted_value)
+                feature_value = value_model(**filter_kwargs)
             feature_values.append(feature_value)
         else:
             if isinstance(value, Registry):
-                assert not value._state.adding
+                if value._state.adding:
+                    raise ValidationError(
+                        "Please save your label record before annotation."
+                    )
                 label_record = value
-                assert isinstance(label_record, ULabel)
-                features_labels.append((feature, label_record))
+                features_labels[
+                    label_record.__class__.__get_name_with_schema__()
+                ].append((feature, label_record))
             else:
                 if isinstance(value, str):
                     values = [value]  # type: ignore
@@ -447,7 +520,7 @@ def add_values(
                 if validated.sum() != len(values):
                     not_validated_values += values_array[~validated].tolist()
                 label_records = ULabel.from_values(validated_values, field="name")
-                features_labels += [
+                features_labels["ULabel"] += [
                     (feature, label_record) for label_record in label_records
                 ]
     if not_validated_values:
@@ -457,45 +530,101 @@ def add_values(
         )
         msg = (
             f"These values could not be validated: {not_validated_values}\n"
-            f"If there are no typos, create ulabels for them:\n\n{hint}"
+            f"Here is how to create ulabels for them:\n\n{hint}"
         )
         raise ValidationError(msg)
     # bulk add all links to ArtifactULabel
     if features_labels:
-        LinkORM = self._host.ulabels.through
-        links = [
-            LinkORM(
-                artifact_id=self._host.id, feature_id=feature.id, ulabel_id=label.id
-            )
-            for (feature, label) in features_labels
-        ]
-        # a link might already exist
-        try:
-            save(links, ignore_conflicts=False)
-        except Exception:
-            save(links, ignore_conflicts=True)
-            # now deal with links that were previously saved without a feature_id
-            saved_links = LinkORM.filter(
-                artifact_id=self._host.id,
-                ulabel_id__in=[l.id for _, l in features_labels],
-            )
-            for link in saved_links.all():
-                # TODO: also check for inconsistent features
-                if link.feature_id is None:
-                    link.feature_id = [
-                        f.id for f, l in features_labels if l.id == link.ulabel_id
-                    ][0]
-                    link.save()
+        if list(features_labels.keys()) != ["ULabel"]:
+            related_names = dict_related_model_to_related_name(self._host.__class__)
+        else:
+            related_names = {"ULabel": "ulabels"}
+        for class_name, registry_features_labels in features_labels.items():
+            related_name = related_names[class_name]  # e.g., "ulabels"
+            LinkORM = getattr(self._host, related_name).through
+            field_name = f"{get_link_attr(LinkORM, self._host)}_id"  # e.g., ulabel_id
+            links = [
+                LinkORM(
+                    **{
+                        "artifact_id": self._host.id,
+                        "feature_id": feature.id,
+                        field_name: label.id,
+                    }
+                )
+                for (feature, label) in registry_features_labels
+            ]
+            # a link might already exist
+            try:
+                save(links, ignore_conflicts=False)
+            except Exception:
+                save(links, ignore_conflicts=True)
+                # now deal with links that were previously saved without a feature_id
+                saved_links = LinkORM.filter(
+                    **{
+                        "artifact_id": self._host.id,
+                        f"{field_name}__in": [
+                            l.id for _, l in registry_features_labels
+                        ],
+                    }
+                )
+                for link in saved_links.all():
+                    # TODO: also check for inconsistent features
+                    if link.feature_id is None:
+                        link.feature_id = [
+                            f.id
+                            for f, l in registry_features_labels
+                            if l.id == getattr(link, field_name)
+                        ][0]
+                        link.save()
     if feature_values:
         save(feature_values)
-        LinkORM = self._host.feature_values.through
+        if is_param:
+            LinkORM = self._host.param_values.through
+            valuefield_id = "paramvalue_id"
+        else:
+            LinkORM = self._host.feature_values.through
+            valuefield_id = "featurevalue_id"
         links = [
-            LinkORM(artifact_id=self._host.id, featurevalue_id=feature_value.id)
+            LinkORM(
+                **{
+                    f"{self._host.__get_name_with_schema__().lower()}_id": self._host.id,
+                    valuefield_id: feature_value.id,
+                }
+            )
             for feature_value in feature_values
         ]
         # a link might already exist, to avoid raising a unique constraint
         # error, ignore_conflicts
         save(links, ignore_conflicts=True)
+
+
+def add_values_features(
+    self,
+    values: dict[str, str | int | float | bool],
+    feature_field: FieldAttr = Feature.name,
+    str_as_ulabel: bool = True,
+) -> None:
+    """Annotate artifact with features & values.
+
+    Args:
+        values: A dictionary of keys (features) & values (labels, numbers, booleans).
+        feature_field: The field of a reference registry to map keys of the
+            dictionary.
+        str_as_ulabel: Whether to interpret string values as ulabels.
+    """
+    _add_values(self, values, feature_field, str_as_ulabel=str_as_ulabel)
+
+
+def add_values_params(
+    self,
+    values: dict[str, str | int | float | bool],
+) -> None:
+    """Annotate artifact with features & values.
+
+    Args:
+        values: A dictionary of keys (features) & values (labels, numbers, booleans).
+    """
+    _add_values(self, values, Param.name, str_as_ulabel=False)
 
 
 def add_feature_set(self, feature_set: FeatureSet, slot: str) -> None:
@@ -686,15 +815,19 @@ def _add_from(self, data: HasFeatures, parents: bool = True):
 
 
 FeatureManager.__init__ = __init__
+ParamManager.__init__ = __init__
 FeatureManager.__repr__ = __repr__
+ParamManager.__repr__ = __repr__
 FeatureManager.__getitem__ = __getitem__
 FeatureManager.get_values = get_values
 FeatureManager._feature_set_by_slot = _feature_set_by_slot
 FeatureManager._accessor_by_registry = _accessor_by_registry
-FeatureManager.add_values = add_values
+FeatureManager.add_values = add_values_features
 FeatureManager.add_feature_set = add_feature_set
 FeatureManager._add_set_from_df = _add_set_from_df
 FeatureManager._add_set_from_anndata = _add_set_from_anndata
 FeatureManager._add_set_from_mudata = _add_set_from_mudata
 FeatureManager._add_from = _add_from
 FeatureManager.filter = filter
+ParamManager.add_values = add_values_params
+ParamManager.get_values = get_values

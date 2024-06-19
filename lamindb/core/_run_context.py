@@ -211,26 +211,6 @@ def pretty_pypackages(dependencies: dict) -> str:
     return " ".join(deps_list)
 
 
-def parse_and_link_params(run: Run, params: dict) -> None:
-    param_values = []
-    for key, value in params.items():
-        param = Param.filter(name=key).one_or_none()
-        if param is None:
-            dtype = type(value).__name__
-            logger.warning(
-                f"param '{key}' does not yet exist, creating it with dtype '{dtype}'"
-            )
-            param = Param(name=key, dtype=dtype).save()
-        param_value, _ = ParamValue.objects.get_or_create(param=param, value=value)
-        param_values.append(param_value)
-    if param_values:
-        links = [
-            RunParamValue(run_id=run.id, paramvalue_id=param_value.id)
-            for param_value in param_values
-        ]
-        RunParamValue.objects.bulk_create(links)
-
-
 class run_context:
     """Global run context."""
 
@@ -370,7 +350,7 @@ class run_context:
         # need to save in all cases
         run.save()
         if params is not None:
-            parse_and_link_params(run, params)
+            run.params.add_values(params)
         cls.run = run
 
         from ._track_environment import track_environment

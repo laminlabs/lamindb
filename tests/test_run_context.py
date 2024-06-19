@@ -3,6 +3,7 @@ import subprocess
 import lamindb as ln
 import pytest
 from lamindb.core._run_context import get_uid_ext, run_context
+from lamindb.core.exceptions import ValidationError
 
 
 def test_track_with_multi_parents():
@@ -16,24 +17,46 @@ def test_track_with_multi_parents():
 
     # first invocation
     params = {"param1": 1, "param2": "my-string", "param3": 3.14}
+    with pytest.raises(ValidationError) as error:
+        ln.track(transform=child, params=params)
+    assert (
+        error.exconly()
+        == """lamindb.core.exceptions.ValidationError: These keys could not be validated: ['param1', 'param2', 'param3']
+Here is how to create a param:
+
+  ln.Param(name='param1', dtype='int').save()
+  ln.Param(name='param2', dtype='str').save()
+  ln.Param(name='param3', dtype='float').save()"""
+    )
+    ln.Param(name="param1", dtype="int").save()
+    ln.Param(name="param2", dtype="str").save()
+    ln.Param(name="param3", dtype="float").save()
     ln.track(transform=child, params=params)
-    for param_value in ln.core.run_context.run.param_values.all():
-        assert param_value.param.name in params
-        assert param_value.value == params[param_value.param.name]
-        del params[param_value.param.name]
-    assert len(params) == 0
+    assert ln.core.run_context.run.params.get_values() == params
     # second invocation
     params = {"param1": 1, "param2": "my-string", "param3": 3.14, "param4": [1, 2]}
+    param4 = ln.Param(name="param4", dtype="int").save()
+    with pytest.raises(ValidationError) as error:
+        ln.track(transform=child, params=params)
+    assert (
+        error.exconly()
+        == """lamindb.core.exceptions.ValidationError: Expected dtype for 'param4' is 'int', got 'list[int]'"""
+    )
+    # fix param4 dtype
+    param4.dtype = "list[int]"
+    param4.save()
+    # re-run
     ln.track(transform=child, params=params)
-    for param_value in ln.core.run_context.run.param_values.all():
-        assert param_value.param.name in params
-        assert param_value.value == params[param_value.param.name]
-        del params[param_value.param.name]
-    assert len(params) == 0
+    assert ln.core.run_context.run.params.get_values() == params
 
     # test that run populates things like ULabels etc.
     ulabel = ln.ULabel(name="my-label-in-track")
     assert ulabel.run == ln.core.run_context.run
+
+    # test that we can call ln.finish() also for pipeline-like transforms
+    assert ln.core.run_context.run.finished_at is None
+    ln.finish()
+    assert ln.core.run_context.run.finished_at is not None
 
     # unset to remove side effects
     ln.core.run_context.run = None

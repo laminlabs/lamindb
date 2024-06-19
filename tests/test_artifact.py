@@ -227,6 +227,7 @@ def test_create_from_dataframe(df):
     assert artifact.description == "test1"
     assert artifact.key is None
     assert artifact.accessor == "DataFrame"
+    assert artifact.type == "dataset"
     assert hasattr(artifact, "_local_filepath")
     artifact.save()
     # can't do backed

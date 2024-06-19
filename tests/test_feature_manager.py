@@ -1,3 +1,5 @@
+from pathlib import Path
+
 import bionty as bt
 import lamindb as ln
 import pytest
@@ -16,12 +18,18 @@ def adata():
     return adata
 
 
-# below is the main new test for the main way of annotating with
+# below the test for the main way of annotating with
 # features
 def test_features_add(adata):
     ln.ULabel(name="Experiment 1")
     artifact = ln.Artifact.from_anndata(adata, description="test")
     artifact.save()
+    with pytest.raises(ValidationError) as error:
+        artifact.params.add_values({"learning_rate": 0.01})
+    assert (
+        error.exconly()
+        == "lamindb.core.exceptions.ValidationError: Can only set params for model-like artifacts."
+    )
     with pytest.raises(ValidationError) as error:
         artifact.features.add_values({"experiment": "Experiment 1"})
     assert error.exconly().startswith(
@@ -61,6 +69,28 @@ def test_features_add(adata):
     artifact.features.add_values({"temperature": 27.2})
     assert artifact.feature_values.first().value == 27.2
 
+    # bionty feature
+    mouse = bt.Organism.from_public(name="mouse")
+    with pytest.raises(ValidationError) as error:
+        artifact.features.add_values({"organism": mouse})
+    assert (
+        error.exconly()
+        == """lamindb.core.exceptions.ValidationError: These keys could not be validated: ['organism']
+Here is how to create a feature:
+
+  ln.Feature(name='organism', dtype='cat[bionty.Organism]').save()"""
+    )
+    ln.Feature(name="organism", dtype="cat[bionty.Organism]").save()
+    with pytest.raises(ValidationError) as error:
+        artifact.features.add_values({"organism": mouse})
+    assert (
+        error.exconly()
+        == "lamindb.core.exceptions.ValidationError: Please save your label record before annotation."
+    )
+    mouse.save()
+    artifact.features.add_values({"organism": mouse})
+    assert artifact.organisms.get().name == "mouse"
+
     features = {
         "experiment": "Experiment 2",
         "project": "project_1",
@@ -76,7 +106,7 @@ def test_features_add(adata):
         error.exconly()
         == """\
 lamindb.core.exceptions.ValidationError: These keys could not be validated: ['project', 'is_validated', 'cell_type_by_expert', 'donor']
-If there are no typos, create features for them:
+Here is how to create a feature:
 
   ln.Feature(name='project', dtype='cat[ULabel]').save()
   ln.Feature(name='is_validated', dtype='bool').save()
@@ -96,7 +126,7 @@ If there are no typos, create features for them:
         error.exconly()
         == """\
 lamindb.core.exceptions.ValidationError: These values could not be validated: ['Experiment 2', 'project_1', 'T Cell', 'U0123']
-If there are no typos, create ulabels for them:
+Here is how to create ulabels for them:
 
   ulabels = ln.ULabel.from_values(['Experiment 2', 'project_1', 'T Cell', 'U0123'], create=True)
   ln.save(ulabels)"""
@@ -124,6 +154,7 @@ If there are no typos, create ulabels for them:
     'project' = 'project_1'
     'cell_type_by_expert' = 'T Cell'
     'donor' = 'U0123'
+    'organism' = 'mouse'
     'is_validated' = True
     'temperature' = 27.2, 100.0
 """
@@ -133,6 +164,7 @@ If there are no typos, create ulabels for them:
         "project": "project_1",
         "cell_type_by_expert": "T Cell",
         "donor": "U0123",
+        "organism": "mouse",
         "is_validated": True,
         "temperature": [27.2, 100.0],
     }
@@ -166,6 +198,33 @@ If there are no typos, create ulabels for them:
     ln.ULabel.filter().all().delete()
     ln.FeatureSet.filter().all().delete()
     ln.Feature.filter().all().delete()
+    bt.Gene.filter().all().delete()
+    bt.Organism.filter().all().delete()
+
+
+# most underlying logic here is comprehensively tested in test_run_context
+def test_params_add():
+    path = Path("mymodel.pt")
+    path.touch()
+    artifact = ln.Artifact("mymodel.pt", type="model", description="hello").save()
+    with pytest.raises(ValidationError) as error:
+        artifact.features.add_values({"temperature": 27})
+    assert (
+        error.exconly()
+        == "lamindb.core.exceptions.ValidationError: Can only set features for dataset-like artifacts."
+    )
+    ln.Param(name="learning_rate", dtype="float").save()
+    artifact.params.add_values({"learning_rate": 0.01})
+    assert artifact.params.get_values() == {"learning_rate": 0.01}
+    # hard to test because of italic formatting
+    msg = """
+    'learning_rate' = 0.01
+"""
+    print(artifact.params.__repr__())
+    assert artifact.params.__repr__().endswith(msg)
+    artifact.describe()
+    artifact.delete(permanent=True)
+    path.unlink()
 
 
 def test_labels_add(adata):
