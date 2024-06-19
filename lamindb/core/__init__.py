@@ -10,7 +10,9 @@ Registries:
    QueryManager
    RecordsList
    HasFeatures
+   HasParams
    FeatureManager
+   ParamManager
    LabelManager
    IsVersioned
    CanValidate
@@ -56,6 +58,7 @@ from lamin_utils._inspect import InspectResult
 from lnschema_core.models import (
     CanValidate,
     HasFeatures,
+    HasParams,
     HasParents,
     IsVersioned,
     Registry,
@@ -71,7 +74,7 @@ from lamindb._annotate import (
 )
 from lamindb._query_manager import QueryManager
 from lamindb._query_set import QuerySet, RecordsList
-from lamindb.core._feature_manager import FeatureManager
+from lamindb.core._feature_manager import FeatureManager, ParamManager
 from lamindb.core._label_manager import LabelManager
 
 from . import _data, datasets, exceptions, fields, types
