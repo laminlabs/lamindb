@@ -1,5 +1,6 @@
 # Changelog
 
+- :sparkles: Support dict in add_values [PR](https://github.com/laminlabs/lamindb/pull/1705) [@Zethson](https://github.com/Zethson)
 :::{note}
 
 If using LaminHub, please use the latest version of LaminDB.
