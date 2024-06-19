@@ -189,7 +189,7 @@ def print_features(
                 if to_dict:
                     dictionary[feature_name] = values if len(values) > 1 else values[0]
                 type_str = f": {feature_dtype}" if print_types else ""
-                non_labels_msg += f"    '{feature_name}'{type_str} = {_print_values(values, n=10, quotes=False)}\n"
+                non_labels_msg += f"    '{feature_name}'{type_str} = {values}\n"
             msg += non_labels_msg
 
     if msg != "":

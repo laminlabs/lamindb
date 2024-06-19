@@ -32,11 +32,7 @@ Here is how to create a param:
     ln.Param(name="param2", dtype="str").save()
     ln.Param(name="param3", dtype="float").save()
     ln.track(transform=child, params=params)
-    for param_value in ln.core.run_context.run.param_values.all():
-        assert param_value.param.name in params
-        assert param_value.value == params[param_value.param.name]
-        del params[param_value.param.name]
-    assert len(params) == 0
+    assert ln.core.run_context.run.params.get_values() == params
     # second invocation
     params = {"param1": 1, "param2": "my-string", "param3": 3.14, "param4": [1, 2]}
     param4 = ln.Param(name="param4", dtype="int").save()
@@ -51,11 +47,7 @@ Here is how to create a param:
     param4.save()
     # re-run
     ln.track(transform=child, params=params)
-    for param_value in ln.core.run_context.run.param_values.all():
-        assert param_value.param.name in params
-        assert param_value.value == params[param_value.param.name]
-        del params[param_value.param.name]
-    assert len(params) == 0
+    assert ln.core.run_context.run.params.get_values() == params
 
     # test that run populates things like ULabels etc.
     ulabel = ln.ULabel(name="my-label-in-track")
