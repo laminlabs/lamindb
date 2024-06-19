@@ -33,13 +33,19 @@ def get_seconds_since_modified(filepath) -> float:
     return datetime.now().timestamp() - filepath.stat().st_mtime
 
 
-def finish():
+def finish() -> None:
     """Mark a tracked run as finished.
 
     Saves source code and, for notebooks, a run report to your default storage location.
     """
-    if run_context.path is None:
+    if run_context.run is None:
         raise TrackNotCalled("Please run `ln.track()` before `ln.finish()`")
+    if run_context.path is None:
+        assert run_context.transform.type not in {"script", "notebook"}
+        run_context.run.finished_at = datetime.now(timezone.utc)
+        run_context.run.save()
+        # nothing else to do
+        return None
     if is_run_from_ipython:  # notebooks
         if (
             get_seconds_since_modified(run_context.path) > 3
