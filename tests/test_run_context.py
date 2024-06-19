@@ -53,6 +53,11 @@ Here is how to create a param:
     ulabel = ln.ULabel(name="my-label-in-track")
     assert ulabel.run == ln.core.run_context.run
 
+    # test that we can call ln.finish() also for pipeline-like transforms
+    assert ln.core.run_context.run.finished_at is None
+    ln.finish()
+    assert ln.core.run_context.run.finished_at is not None
+
     # unset to remove side effects
     ln.core.run_context.run = None
     ln.core.run_context.transform = None
