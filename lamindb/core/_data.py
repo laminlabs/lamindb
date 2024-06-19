@@ -24,13 +24,12 @@ from lamindb._registry import get_default_str_field
 from lamindb.core._settings import settings
 
 from ._feature_manager import (
-    FeatureManager,
     get_feature_set_links,
     get_host_id_field,
     get_label_links,
     print_features,
 )
-from ._label_manager import LabelManager, print_labels
+from ._label_manager import print_labels
 from ._run_context import run_context
 from .exceptions import ValidationError
 from .schema import (
@@ -162,7 +161,7 @@ def describe(self: HasFeatures, print_types: bool = False):
     msg += print_features(  # type: ignore
         self,
         print_types=print_types,
-        print_params=self.type == "model",
+        print_params=hasattr(self, "type") and self.type == "model",
     )
     logger.print(msg)
 
