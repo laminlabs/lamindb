@@ -69,6 +69,28 @@ def test_features_add(adata):
     artifact.features.add_values({"temperature": 27.2})
     assert artifact.feature_values.first().value == 27.2
 
+    # bionty feature
+    mouse = bt.Organism.from_public(name="mouse")
+    with pytest.raises(ValidationError) as error:
+        artifact.features.add_values({"organism": mouse})
+    assert (
+        error.exconly()
+        == """lamindb.core.exceptions.ValidationError: These keys could not be validated: ['organism']
+Here is how to create a feature:
+
+  ln.Feature(name='organism', dtype='cat[bionty.Organism]').save()"""
+    )
+    ln.Feature(name="organism", dtype="cat[bionty.Organism]").save()
+    with pytest.raises(ValidationError) as error:
+        artifact.features.add_values({"organism": mouse})
+    assert (
+        error.exconly()
+        == "lamindb.core.exceptions.ValidationError: Please save your label record before annotation."
+    )
+    mouse.save()
+    artifact.features.add_values({"organism": mouse})
+    assert artifact.organisms.get().name == "mouse"
+
     features = {
         "experiment": "Experiment 2",
         "project": "project_1",
@@ -132,8 +154,9 @@ Here is how to create ulabels for them:
     'project' = 'project_1'
     'cell_type_by_expert' = 'T Cell'
     'donor' = 'U0123'
-    'is_validated' = True
-    'temperature' = 27.2, 100.0
+    'organism' = 'mouse'
+    'is_validated' = [True]
+    'temperature' = [27.2, 100.0]
 """
     assert artifact.features.__repr__().endswith(msg)
     assert artifact.features.get_values() == {
@@ -141,6 +164,7 @@ Here is how to create ulabels for them:
         "project": "project_1",
         "cell_type_by_expert": "T Cell",
         "donor": "U0123",
+        "organism": "mouse",
         "is_validated": True,
         "temperature": [27.2, 100.0],
     }

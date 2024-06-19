@@ -49,6 +49,9 @@ from lamindb.core.storage import LocalPathClasses
 
 from ._label_manager import get_labels_as_dict
 from ._settings import settings
+from .schema import (
+    dict_related_model_to_related_name,
+)
 
 if TYPE_CHECKING:
     from lnschema_core.types import FieldAttr
@@ -113,8 +116,10 @@ def get_feature_set_links(host: Artifact | Collection) -> QuerySet:
     return feature_set_links
 
 
-def get_link_attr(link: LinkORM, data: HasFeatures) -> str:
+def get_link_attr(link: LinkORM | type[LinkORM], data: HasFeatures) -> str:
     link_model_name = link.__class__.__name__
+    if link_model_name == "ModelBase":  # we passed the type of the link
+        link_model_name = link.__name__
     link_attr = link_model_name.replace(data.__class__.__name__, "")
     if link_attr == "ExperimentalFactor":
         link_attr = "experimental_factor"
@@ -310,6 +315,8 @@ def infer_feature_type_convert_json(
                         return FEATURE_TYPES["str"] + "[ULabel]", value
                     else:
                         return "list[str]", value
+    elif isinstance(value, Registry):
+        return (f"cat[{value.__class__.__get_name_with_schema__()}]", value)
     if not mute:
         logger.warning(f"cannot infer feature type of: {value}, returning '?")
     return ("?", value)
@@ -453,7 +460,7 @@ def _add_values(
         field=feature_param_field,
     )
     # figure out which of the values go where
-    features_labels = []
+    features_labels = defaultdict(list)
     feature_values = []
     not_validated_values = []
     for key, value in features_values.items():
@@ -486,10 +493,14 @@ def _add_values(
             feature_values.append(feature_value)
         else:
             if isinstance(value, Registry):
-                assert not value._state.adding
+                if value._state.adding:
+                    raise ValidationError(
+                        "Please save your label record before annotation."
+                    )
                 label_record = value
-                assert isinstance(label_record, ULabel)
-                features_labels.append((feature, label_record))
+                features_labels[
+                    label_record.__class__.__get_name_with_schema__()
+                ].append((feature, label_record))
             else:
                 if isinstance(value, str):
                     values = [value]  # type: ignore
@@ -504,7 +515,7 @@ def _add_values(
                 if validated.sum() != len(values):
                     not_validated_values += values_array[~validated].tolist()
                 label_records = ULabel.from_values(validated_values, field="name")
-                features_labels += [
+                features_labels["ULabel"] += [
                     (feature, label_record) for label_record in label_records
                 ]
     if not_validated_values:
@@ -519,30 +530,47 @@ def _add_values(
         raise ValidationError(msg)
     # bulk add all links to ArtifactULabel
     if features_labels:
-        LinkORM = self._host.ulabels.through
-        links = [
-            LinkORM(
-                artifact_id=self._host.id, feature_id=feature.id, ulabel_id=label.id
-            )
-            for (feature, label) in features_labels
-        ]
-        # a link might already exist
-        try:
-            save(links, ignore_conflicts=False)
-        except Exception:
-            save(links, ignore_conflicts=True)
-            # now deal with links that were previously saved without a feature_id
-            saved_links = LinkORM.filter(
-                artifact_id=self._host.id,
-                ulabel_id__in=[l.id for _, l in features_labels],
-            )
-            for link in saved_links.all():
-                # TODO: also check for inconsistent features
-                if link.feature_id is None:
-                    link.feature_id = [
-                        f.id for f, l in features_labels if l.id == link.ulabel_id
-                    ][0]
-                    link.save()
+        if list(features_labels.keys()) != ["ULabel"]:
+            related_names = dict_related_model_to_related_name(self._host.__class__)
+        else:
+            related_names = {"ULabel": "ulabels"}
+        for class_name, registry_features_labels in features_labels.items():
+            related_name = related_names[class_name]  # e.g., "ulabels"
+            LinkORM = getattr(self._host, related_name).through
+            field_name = f"{get_link_attr(LinkORM, self._host)}_id"  # e.g., ulabel_id
+            links = [
+                LinkORM(
+                    **{
+                        "artifact_id": self._host.id,
+                        "feature_id": feature.id,
+                        field_name: label.id,
+                    }
+                )
+                for (feature, label) in registry_features_labels
+            ]
+            # a link might already exist
+            try:
+                save(links, ignore_conflicts=False)
+            except Exception:
+                save(links, ignore_conflicts=True)
+                # now deal with links that were previously saved without a feature_id
+                saved_links = LinkORM.filter(
+                    **{
+                        "artifact_id": self._host.id,
+                        f"{field_name}__in": [
+                            l.id for _, l in registry_features_labels
+                        ],
+                    }
+                )
+                for link in saved_links.all():
+                    # TODO: also check for inconsistent features
+                    if link.feature_id is None:
+                        link.feature_id = [
+                            f.id
+                            for f, l in registry_features_labels
+                            if l.id == getattr(link, field_name)
+                        ][0]
+                        link.save()
     if feature_values:
         save(feature_values)
         if is_param:
