@@ -14,6 +14,7 @@ Registries:
    ULabel
    Feature
    FeatureSet
+   Param
 
 Key functionality:
 
@@ -66,6 +67,7 @@ if _check_instance_setup(from_lamindb=True):
         Collection,
         Feature,
         FeatureSet,
+        Param,
         Run,
         Storage,
         Transform,

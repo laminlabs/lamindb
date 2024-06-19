@@ -27,12 +27,12 @@ FEATURE_TYPES = {
 }
 
 
-def convert_numpy_dtype_to_lamin_feature_type(dtype) -> str:
+def convert_numpy_dtype_to_lamin_feature_type(dtype, str_as_cat: bool = True) -> str:
     orig_type = dtype.name
     # strip precision qualifiers
     type = "".join(i for i in orig_type if not i.isdigit())
     if type == "object" or type == "str":
-        type = "cat"
+        type = "cat" if str_as_cat else "str"
     return type
 
 
