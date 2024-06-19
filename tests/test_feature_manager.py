@@ -198,6 +198,7 @@ Here is how to create ulabels for them:
     ln.ULabel.filter().all().delete()
     ln.FeatureSet.filter().all().delete()
     ln.Feature.filter().all().delete()
+    ln.Organism.filter().all().delete()
 
 
 # most underlying logic here is comprehensively tested in test_run_context
