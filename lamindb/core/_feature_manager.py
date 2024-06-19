@@ -306,6 +306,8 @@ def infer_feature_type_convert_json(
             return convert_numpy_dtype_to_lamin_feature_type(
                 value.dtype, str_as_cat=str_as_ulabel
             ), list(value)
+        if isinstance(value, dict):
+            return "dict", value
         if len(value) > 0:  # type: ignore
             first_element_type = type(next(iter(value)))
             if all(isinstance(elem, first_element_type) for elem in value):
