@@ -194,7 +194,12 @@ def print_features(
                 if to_dict:
                     dictionary[feature_name] = values if len(values) > 1 else values[0]
                 type_str = f": {feature_dtype}" if print_types else ""
-                non_labels_msg += f"    '{feature_name}'{type_str} = {values}\n"
+                printed_values = (
+                    _print_values(values, n=10, quotes=False)
+                    if not feature_dtype.startswith("list")
+                    else values
+                )
+                non_labels_msg += f"    '{feature_name}'{type_str} = {printed_values}\n"
             msg += non_labels_msg
 
     if msg != "":
@@ -329,7 +334,7 @@ def __init__(self, host: Artifact | Collection | Run):
 
 
 def __repr__(self) -> str:
-    return print_features(self._host)  # type: ignore
+    return print_features(self._host, print_params=(self.__class__ == ParamManager))  # type: ignore
 
 
 def get_values(self) -> dict[str, Any]:
@@ -812,6 +817,7 @@ def _add_from(self, data: HasFeatures, parents: bool = True):
 FeatureManager.__init__ = __init__
 ParamManager.__init__ = __init__
 FeatureManager.__repr__ = __repr__
+ParamManager.__repr__ = __repr__
 FeatureManager.__getitem__ = __getitem__
 FeatureManager.get_values = get_values
 FeatureManager._feature_set_by_slot = _feature_set_by_slot

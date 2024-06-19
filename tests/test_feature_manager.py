@@ -155,8 +155,8 @@ Here is how to create ulabels for them:
     'cell_type_by_expert' = 'T Cell'
     'donor' = 'U0123'
     'organism' = 'mouse'
-    'is_validated' = [True]
-    'temperature' = [27.2, 100.0]
+    'is_validated' = True
+    'temperature' = 27.2, 100.0
 """
     assert artifact.features.__repr__().endswith(msg)
     assert artifact.features.get_values() == {
@@ -214,6 +214,13 @@ def test_params_add():
     ln.Param(name="learning_rate", dtype="float").save()
     artifact.params.add_values({"learning_rate": 0.01})
     assert artifact.params.get_values() == {"learning_rate": 0.01}
+    # hard to test because of italic formatting
+    msg = """
+    'learning_rate' = 0.01
+"""
+    print(artifact.params.__repr__())
+    assert artifact.params.__repr__().endswith(msg)
+    artifact.describe()
     artifact.delete(permanent=True)
     path.unlink()
 
