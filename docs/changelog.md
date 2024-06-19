@@ -1,5 +1,6 @@
 # Changelog
 
+- 🏗️ Add `type` field to `Artifact`, allow linking model-like artifacts against params, validate params like features, enable features-based annotation with non-ulabels [PR](https://github.com/laminlabs/lamindb/pull/1690) [@falexwolf](https://github.com/falexwolf)
 - :sparkles: Ignore datasets in code coverage [PR](https://github.com/laminlabs/lamindb/pull/1701) [@Zethson](https://github.com/Zethson)
 - 🐛 Fix check_path_is_child_of_root for upaths with different storage_options [PR](https://github.com/laminlabs/lamindb/pull/1700) [@Koncopd](https://github.com/Koncopd)
 - ♻️ Refactor after upath upgrade [PR](https://github.com/laminlabs/lamindb/pull/1699) [@Koncopd](https://github.com/Koncopd)
