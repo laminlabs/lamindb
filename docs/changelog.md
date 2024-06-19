@@ -1,6 +1,5 @@
 # Changelog
 
-- :sparkles: Support dict in add_values [PR](https://github.com/laminlabs/lamindb/pull/1705) [@Zethson](https://github.com/Zethson)
 :::{note}
 
 If using LaminHub, please use the latest version of LaminDB.
@@ -22,8 +21,8 @@ You can now distinguish model-like and dataset-like artifacts via a `type` field
 Leverage `artifact.params.add_values()` to annotate model-like artifacts like you leverage `artifact.features.add_values()` to annotate dataset-like artifacts.
 
 - 🏗️ Add `type` field to `Artifact`, allow linking model-like artifacts against params, validate params akin to validating features, enable features-based annotation with non-ulabels [PR](https://github.com/laminlabs/lamindb/pull/1690) [@falexwolf](https://github.com/falexwolf)
+- 🚸 Support dict in add_values [PR](https://github.com/laminlabs/lamindb/pull/1705) [@Zethson](https://github.com/Zethson)
 - ♻️ Refactor after upath upgrade [PR](https://github.com/laminlabs/lamindb/pull/1699) [PR](https://github.com/laminlabs/lamindb/pull/1700) [@Koncopd](https://github.com/Koncopd)
-
 
 ## 0.73
 
