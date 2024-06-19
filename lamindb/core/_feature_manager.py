@@ -23,6 +23,7 @@ from lnschema_core.models import (
     FeatureManagerCollection,
     FeatureValue,
     HasFeatures,
+    HasParams,
     LinkORM,
     Param,
     ParamManager,
@@ -136,42 +137,51 @@ def custom_aggregate(field, using: str):
 
 
 def print_features(
-    self: HasFeatures, print_types: bool = False, to_dict: bool = False
+    self: HasFeatures | HasParams,
+    print_types: bool = False,
+    to_dict: bool = False,
+    print_params: bool = False,
 ) -> str | dict[str, Any]:
     from lamindb._from_values import _print_values
 
     msg = ""
     dictionary = {}
     # categorical feature values
-    labels_msg = ""
-    labels_by_feature = defaultdict(list)
-    for _, (_, links) in get_labels_as_dict(self, links=True).items():
-        for link in links:
-            if link.feature_id is not None:
-                link_attr = get_link_attr(link, self)
-                labels_by_feature[link.feature_id].append(getattr(link, link_attr).name)
-    for feature_id, labels_list in labels_by_feature.items():
-        feature = Feature.objects.using(self._state.db).get(id=feature_id)
-        print_values = _print_values(labels_list, n=10)
-        type_str = f": {feature.dtype}" if print_types else ""
-        if to_dict:
-            dictionary[feature.name] = (
-                labels_list if len(labels_list) > 1 else labels_list[0]
-            )
-        labels_msg += f"    '{feature.name}'{type_str} = {print_values}\n"
-    if labels_msg:
-        msg += labels_msg
+    if not print_params:
+        labels_msg = ""
+        labels_by_feature = defaultdict(list)
+        for _, (_, links) in get_labels_as_dict(self, links=True).items():
+            for link in links:
+                if link.feature_id is not None:
+                    link_attr = get_link_attr(link, self)
+                    labels_by_feature[link.feature_id].append(
+                        getattr(link, link_attr).name
+                    )
+        for feature_id, labels_list in labels_by_feature.items():
+            feature = Feature.objects.using(self._state.db).get(id=feature_id)
+            print_values = _print_values(labels_list, n=10)
+            type_str = f": {feature.dtype}" if print_types else ""
+            if to_dict:
+                dictionary[feature.name] = (
+                    labels_list if len(labels_list) > 1 else labels_list[0]
+                )
+            labels_msg += f"    '{feature.name}'{type_str} = {print_values}\n"
+        if labels_msg:
+            msg += labels_msg
 
     # non-categorical feature values
     non_labels_msg = ""
-    if self.id is not None and self.__class__ == Artifact:
-        feature_values = self.feature_values.values(
-            "feature__name", "feature__dtype"
-        ).annotate(values=custom_aggregate("value", self._state.db))
+    if self.id is not None and self.__class__ == Artifact or self.__class__ == Run:
+        attr_name = "param" if print_params else "feature"
+        feature_values = (
+            getattr(self, f"{attr_name}_values")
+            .values(f"{attr_name}__name", f"{attr_name}__dtype")
+            .annotate(values=custom_aggregate("value", self._state.db))
+        )
         if len(feature_values) > 0:
             for fv in feature_values:
-                feature_name = fv["feature__name"]
-                feature_dtype = fv["feature__dtype"]
+                feature_name = fv[f"{attr_name}__name"]
+                feature_dtype = fv[f"{attr_name}__dtype"]
                 values = fv["values"]
                 # TODO: understand why the below is necessary
                 if not isinstance(values, list):
@@ -183,20 +193,24 @@ def print_features(
             msg += non_labels_msg
 
     if msg != "":
-        msg = f"  {colors.italic('Features')}\n" + msg
+        header = "Features" if not print_params else "Params"
+        msg = f"  {colors.italic(header)}\n" + msg
 
     # feature sets
-    feature_set_msg = ""
-    for slot, feature_set in get_feature_set_by_slot_(self).items():
-        features = feature_set.members
-        # features.first() is a lot slower than features[0] here
-        name_field = get_default_str_field(features[0])
-        feature_names = list(features.values_list(name_field, flat=True)[:20])
-        type_str = f": {feature_set.registry}" if print_types else ""
-        feature_set_msg += f"    '{slot}'{type_str} = {_print_values(feature_names)}\n"
-    if feature_set_msg:
-        msg += f"  {colors.italic('Feature sets')}\n"
-        msg += feature_set_msg
+    if not print_params:
+        feature_set_msg = ""
+        for slot, feature_set in get_feature_set_by_slot_(self).items():
+            features = feature_set.members
+            # features.first() is a lot slower than features[0] here
+            name_field = get_default_str_field(features[0])
+            feature_names = list(features.values_list(name_field, flat=True)[:20])
+            type_str = f": {feature_set.registry}" if print_types else ""
+            feature_set_msg += (
+                f"    '{slot}'{type_str} = {_print_values(feature_names)}\n"
+            )
+        if feature_set_msg:
+            msg += f"  {colors.italic('Feature sets')}\n"
+            msg += feature_set_msg
     if to_dict:
         return dictionary
     else:
@@ -313,7 +327,9 @@ def __repr__(self) -> str:
 
 def get_values(self) -> dict[str, Any]:
     """Get feature values as a dictionary."""
-    return print_features(self._host, to_dict=True)  # type: ignore
+    return print_features(
+        self._host, to_dict=True, print_params=(self.__class__ == ParamManager)
+    )  # type: ignore
 
 
 def __getitem__(self, slot) -> QuerySet:
@@ -406,6 +422,16 @@ def _add_values(
     model = Param if is_param else Feature
     value_model = ParamValue if is_param else FeatureValue
     model_name = "Param" if is_param else "Feature"
+    if is_param:
+        if self._host.__class__ == Artifact:
+            if self._host.type != "model":
+                raise ValidationError("Can only set params for model-like artifacts.")
+    else:
+        if self._host.__class__ == Artifact:
+            if self._host.type != "dataset" and self._host.type is not None:
+                raise ValidationError(
+                    "Can only set features for dataset-like artifacts."
+                )
     validated = registry.validate(keys, field=feature_param_field, mute=True)
     keys_array = np.array(keys)
     validated_keys = keys_array[validated]
@@ -770,3 +796,4 @@ FeatureManager._add_set_from_mudata = _add_set_from_mudata
 FeatureManager._add_from = _add_from
 FeatureManager.filter = filter
 ParamManager.add_values = add_values_params
+ParamManager.get_values = get_values

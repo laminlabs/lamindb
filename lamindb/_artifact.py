@@ -522,6 +522,7 @@ def __init__(artifact: Artifact, *args, **kwargs):
         raise ValueError("Only one non-keyword arg allowed: data")
 
     data: str | Path = kwargs.pop("data") if len(args) == 0 else args[0]
+    type: str = kwargs.pop("type") if "type" in kwargs else "dataset"
     key: str | None = kwargs.pop("key") if "key" in kwargs else None
     run: Run | None = kwargs.pop("run") if "run" in kwargs else None
     description: str | None = (
@@ -606,6 +607,7 @@ def __init__(artifact: Artifact, *args, **kwargs):
             "to _retain_ the old state by duplicating the entire folder, do _not_ pass `is_new_version_of`"
         )
 
+    kwargs["type"] = type
     kwargs["uid"] = provisional_uid
     kwargs["version"] = version
     kwargs["description"] = description
@@ -652,6 +654,7 @@ def from_df(
         version=version,
         is_new_version_of=is_new_version_of,
         accessor="DataFrame",
+        type="dataset",
         **kwargs,
     )
     return artifact
@@ -680,6 +683,7 @@ def from_anndata(
         version=version,
         is_new_version_of=is_new_version_of,
         accessor="AnnData",
+        type="dataset",
         **kwargs,
     )
     return artifact
@@ -706,6 +710,7 @@ def from_mudata(
         version=version,
         is_new_version_of=is_new_version_of,
         accessor="MuData",
+        type="dataset",
         **kwargs,
     )
     return artifact

@@ -1,3 +1,5 @@
+from pathlib import Path
+
 import bionty as bt
 import lamindb as ln
 import pytest
@@ -16,12 +18,18 @@ def adata():
     return adata
 
 
-# below is the main new test for the main way of annotating with
+# below the test for the main way of annotating with
 # features
 def test_features_add(adata):
     ln.ULabel(name="Experiment 1")
     artifact = ln.Artifact.from_anndata(adata, description="test")
     artifact.save()
+    with pytest.raises(ValidationError) as error:
+        artifact.params.add_values({"learning_rate": 0.01})
+    assert (
+        error.exconly()
+        == "lamindb.core.exceptions.ValidationError: Can only set params for model-like artifacts."
+    )
     with pytest.raises(ValidationError) as error:
         artifact.features.add_values({"experiment": "Experiment 1"})
     assert error.exconly().startswith(
@@ -166,6 +174,24 @@ Here is how to create ulabels for them:
     ln.ULabel.filter().all().delete()
     ln.FeatureSet.filter().all().delete()
     ln.Feature.filter().all().delete()
+
+
+# most underlying logic here is comprehensively tested in test_run_context
+def test_params_add():
+    path = Path("mymodel.pt")
+    path.touch()
+    artifact = ln.Artifact("mymodel.pt", type="model", description="hello").save()
+    with pytest.raises(ValidationError) as error:
+        artifact.features.add_values({"temperature": 27})
+    assert (
+        error.exconly()
+        == "lamindb.core.exceptions.ValidationError: Can only set features for dataset-like artifacts."
+    )
+    ln.Param(name="learning_rate", dtype="float").save()
+    artifact.params.add_values({"learning_rate": 0.01})
+    assert artifact.params.get_values() == {"learning_rate": 0.01}
+    artifact.delete(permanent=True)
+    path.unlink()
 
 
 def test_labels_add(adata):
