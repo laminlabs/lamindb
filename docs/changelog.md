@@ -1,9 +1,5 @@
 # Changelog
 
-- 🏗️ Add `type` field to `Artifact`, allow linking model-like artifacts against params, validate params like features, enable features-based annotation with non-ulabels [PR](https://github.com/laminlabs/lamindb/pull/1690) [@falexwolf](https://github.com/falexwolf)
-- :sparkles: Ignore datasets in code coverage [PR](https://github.com/laminlabs/lamindb/pull/1701) [@Zethson](https://github.com/Zethson)
-- 🐛 Fix check_path_is_child_of_root for upaths with different storage_options [PR](https://github.com/laminlabs/lamindb/pull/1700) [@Koncopd](https://github.com/Koncopd)
-- ♻️ Refactor after upath upgrade [PR](https://github.com/laminlabs/lamindb/pull/1699) [@Koncopd](https://github.com/Koncopd)
 :::{note}
 
 If using LaminHub, please use the latest version of LaminDB.
@@ -15,6 +11,18 @@ LaminDB implements "migration-based versioning". When upgrading your LaminDB ins
 ```{eval-rst}
 .. role:: small
 ```
+
+## 0.74
+
+### 0.74.0 {small}`2024-06-19`
+
+You can now distinguish model-like and dataset-like artifacts via a `type` field in the `Artifact` registry.
+
+Leverage `artifact.params.add_values()` to annotate model-like artifacts like you leverage `artifact.features.add_values()` to annotate dataset-like artifacts.
+
+- 🏗️ Add `type` field to `Artifact`, allow linking model-like artifacts against params, validate params akin to validating features, enable features-based annotation with non-ulabels [PR](https://github.com/laminlabs/lamindb/pull/1690) [@falexwolf](https://github.com/falexwolf)
+- ♻️ Refactor after upath upgrade [PR](https://github.com/laminlabs/lamindb/pull/1699) [PR](https://github.com/laminlabs/lamindb/pull/1700) [@Koncopd](https://github.com/Koncopd)
+
 
 ## 0.73
 
