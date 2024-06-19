@@ -36,7 +36,7 @@ def test_transfer_from_remote_to_local():
     assert storage_remote.uid == artifact.storage.uid
     assert storage_remote.created_at != artifact.storage.created_at
     organism = artifact.organisms.get(name="human")
-    assert organism != organism_remote
+    assert organism.created_at != organism_remote.created_at
 
     # now check that this is idempotent and we can run it again
     artifact_repeat = (
