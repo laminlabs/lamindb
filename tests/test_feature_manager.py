@@ -234,6 +234,7 @@ def test_params_add():
     # hard to test because of italic formatting
     msg = """
     'learning_rate' = 0.01
+    'quantification' = {'name': 'mcquant', 'container': 'labsyspharm/quantification'}
 """
     print(artifact.params.__repr__())
     assert artifact.params.__repr__().endswith(msg)
