@@ -214,6 +214,7 @@ def test_params_add():
         == "lamindb.core.exceptions.ValidationError: Can only set features for dataset-like artifacts."
     )
     ln.Param(name="learning_rate", dtype="float").save()
+    ln.Param(name="quantification", dtype="dict").save()
     artifact.params.add_values({"learning_rate": 0.01})
     artifact.params.add_values(
         {
