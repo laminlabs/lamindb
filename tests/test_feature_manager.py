@@ -215,7 +215,21 @@ def test_params_add():
     )
     ln.Param(name="learning_rate", dtype="float").save()
     artifact.params.add_values({"learning_rate": 0.01})
-    assert artifact.params.get_values() == {"learning_rate": 0.01}
+    artifact.params.add_values(
+        {
+            "quantification": {
+                "name": "mcquant",
+                "container": "labsyspharm/quantification",
+            }
+        }
+    )
+    assert artifact.params.get_values() == {
+        "learning_rate": 0.01,
+        "quantification": {
+            "name": "mcquant",
+            "container": "labsyspharm/quantification",
+        },
+    }
     # hard to test because of italic formatting
     msg = """
     'learning_rate' = 0.01
