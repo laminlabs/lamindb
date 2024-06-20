@@ -214,11 +214,27 @@ def test_params_add():
         == "lamindb.core.exceptions.ValidationError: Can only set features for dataset-like artifacts."
     )
     ln.Param(name="learning_rate", dtype="float").save()
+    ln.Param(name="quantification", dtype="dict").save()
     artifact.params.add_values({"learning_rate": 0.01})
-    assert artifact.params.get_values() == {"learning_rate": 0.01}
+    artifact.params.add_values(
+        {
+            "quantification": {
+                "name": "mcquant",
+                "container": "labsyspharm/quantification",
+            }
+        }
+    )
+    assert artifact.params.get_values() == {
+        "learning_rate": 0.01,
+        "quantification": {
+            "name": "mcquant",
+            "container": "labsyspharm/quantification",
+        },
+    }
     # hard to test because of italic formatting
     msg = """
     'learning_rate' = 0.01
+    'quantification' = {'name': 'mcquant', 'container': 'labsyspharm/quantification'}
 """
     print(artifact.params.__repr__())
     assert artifact.params.__repr__().endswith(msg)

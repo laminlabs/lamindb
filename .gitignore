@@ -60,6 +60,7 @@ test-search3
 test-search4
 test-search5
 default_storage
+test.ipynb
 
 # General
 .DS_Store
@@ -206,6 +207,7 @@ _build
 *.parquet
 *.bam
 *.fastq.gz
+*.pt
 
 # Pycharm
 .idea
