@@ -97,7 +97,7 @@ class QuerySet(models.QuerySet, CanValidate):
     """
 
     @doc_args(Registry.df.__doc__)
-    def df(self, include: str | list[str] | None = None) -> pd.DataFrame:
+    def df(self, include: str | list[str] | None = None, join: str = "inner") -> pd.DataFrame:
         """{}."""
         # re-order the columns
         exclude_field_names = ["created_at"]
@@ -173,7 +173,7 @@ class QuerySet(models.QuerySet, CanValidate):
                     link_groupby = link_df.groupby(left_side_link_model)[
                         values_expression
                     ].apply(list)
-                    df = pd.concat((link_groupby, df), axis=1, join="inner")
+                    df = pd.concat((link_groupby, df), axis=1, join=join)
                     df.rename(columns={values_expression: expression}, inplace=True)
                 else:
                     # the F() based implementation could also work for many-to-many,
@@ -185,7 +185,7 @@ class QuerySet(models.QuerySet, CanValidate):
                     )
                     df_anno = df_anno.set_index(pk_column_name)
                     df_anno.rename(columns={"expression": expression}, inplace=True)
-                    df = pd.concat((df_anno, df), axis=1, join="inner")
+                    df = pd.concat((df_anno, df), axis=1, join=join)
         return df
 
     def delete(self, *args, **kwargs):
