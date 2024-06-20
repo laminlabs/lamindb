@@ -1,5 +1,6 @@
 # Changelog
 
+- ✅ Add add_values test for dicts [PR](https://github.com/laminlabs/lamindb/pull/1706) [@Zethson](https://github.com/Zethson)
 :::{note}
 
 If using LaminHub, please use the latest version of LaminDB.
