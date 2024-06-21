@@ -97,7 +97,9 @@ class QuerySet(models.QuerySet, CanValidate):
     """
 
     @doc_args(Registry.df.__doc__)
-    def df(self, include: str | list[str] | None = None, join: str = "inner") -> pd.DataFrame:
+    def df(
+        self, include: str | list[str] | None = None, join: str = "inner"
+    ) -> pd.DataFrame:
         """{}."""
         # re-order the columns
         exclude_field_names = ["created_at"]
