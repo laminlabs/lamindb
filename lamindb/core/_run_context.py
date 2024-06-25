@@ -14,8 +14,6 @@ from lnschema_core.models import Param, ParamValue, RunParamValue
 from lnschema_core.types import TransformType
 from lnschema_core.users import current_user_id
 
-from lamindb.core._transform_settings import transform as transform_settings
-
 from ._settings import settings
 from ._sync_git import get_transform_reference_from_git_repo
 from .exceptions import (
@@ -24,6 +22,7 @@ from .exceptions import (
     NoTitleError,
     UpdateTransformSettings,
 )
+from .subsettings._transform_settings import transform as transform_settings
 from .versioning import bump_version as bump_version_function
 
 if TYPE_CHECKING:
