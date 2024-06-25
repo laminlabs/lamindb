@@ -43,7 +43,11 @@ class Settings:
 
     @property
     def creation(self) -> CreationSettings:
-        """Create settings."""
+        """Record creation settings.
+
+        For example, `ln.settings.creation.search_names = False` will disable
+        searching for records with similar names during creation.
+        """
         return creation_settings
 
     track_run_inputs: bool = True
@@ -53,8 +57,6 @@ class Settings:
 
     FAQ: :doc:`/faq/track-run-inputs`
     """
-    silence_file_run_transform_warning: bool = False
-    """Silence warning about missing run & transform during file creation."""
     _artifact_use_virtual_keys: bool = True
     """Treat `key` parameter in :class:`~lamindb.Artifact` as virtual.
 

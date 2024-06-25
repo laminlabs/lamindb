@@ -45,7 +45,7 @@ class QueryManager(models.Manager):
 
                 if (
                     run_context.run is None
-                    and not settings.silence_file_run_transform_warning
+                    and not settings.creation.artifact_silence_missing_run_warning
                 ):
                     logger.warning(WARNING_RUN_TRANSFORM)
                 _track_run_input(self.instance)

@@ -144,7 +144,7 @@ def save_run_context_core(
                 prev_report = prev_transform.latest_report
             if prev_transform.source_code_id is not None:
                 prev_source = prev_transform.source_code
-    ln.settings.silence_file_run_transform_warning = True
+    ln.settings.creation.artifact_silence_missing_run_warning = True
 
     # track source code
     if transform.source_code_id is not None:

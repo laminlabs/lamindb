@@ -19,12 +19,14 @@ class CreationSettings:
     It speeds up file creation by about a factor 100.
     """
     search_names: bool = True
-    """To speed up creating Registry objects (default `True`).
+    """To speed up creating records (default `True`).
 
     If `True`, search for alternative names.
 
     FAQ: :doc:`/faq/idempotency`
     """
+    artifact_silence_missing_run_warning: bool = False
+    """Silence warning about missing run & transform during artifact creation."""
 
 
 creation_settings = CreationSettings()
