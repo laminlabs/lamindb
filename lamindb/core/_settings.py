@@ -9,7 +9,7 @@ from lamindb_setup._set_managed_storage import set_managed_storage
 from lamindb_setup.core._settings import settings as setup_settings
 from lamindb_setup.core._settings_instance import sanitize_git_repo_url
 
-from .subsettings._create_settings import CreateSettings, create_settings
+from .subsettings._creation_settings import CreationSettings, creation_settings
 from .subsettings._transform_settings import TransformSettings, transform_settings
 
 if TYPE_CHECKING:
@@ -42,9 +42,9 @@ class Settings:
         self._sync_git_repo: str | None = git_repo
 
     @property
-    def creation(self) -> CreateSettings:
+    def creation(self) -> CreationSettings:
         """Create settings."""
-        return create_settings
+        return creation_settings
 
     track_run_inputs: bool = True
     """Track files as input upon `.load()`, `.cache()` and `.backed()`.

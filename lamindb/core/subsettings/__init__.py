@@ -4,9 +4,9 @@
    :toctree: .
 
    TransformSettings
-   CreateSettings
+   CreationSettings
 
 """
 
-from ._create_settings import CreateSettings
+from ._creation_settings import CreationSettings
 from ._transform_settings import TransformSettings

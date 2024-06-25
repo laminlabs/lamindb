@@ -1,7 +1,7 @@
 from typing import Literal
 
 
-class CreateSettings:
+class CreationSettings:
     artifact_if_hash_exists: Literal[
         "warn_return_existing", "error", "warn_create_new"
     ] = "warn_return_existing"
@@ -27,4 +27,4 @@ class CreateSettings:
     """
 
 
-create_settings = CreateSettings()
+creation_settings = CreationSettings()
