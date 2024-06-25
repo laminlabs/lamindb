@@ -72,7 +72,7 @@ class Settings:
     """
     silence_file_run_transform_warning: bool = False
     """Silence warning about missing run & transform during file creation."""
-    artifact_use_virtual_keys: bool = True
+    _artifact_use_virtual_keys: bool = True
     """Treat `key` parameter in :class:`~lamindb.Artifact` as virtual.
 
     If `True`, the `key` is **not** used to construct file paths, but file paths are

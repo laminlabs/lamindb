@@ -331,7 +331,7 @@ def test_create_from_anndata_in_storage(data):
 def test_create_from_local_filepath(
     get_test_filepaths, key_is_virtual, key, description
 ):
-    ln.settings.artifact_use_virtual_keys = key_is_virtual
+    ln.settings._artifact_use_virtual_keys = key_is_virtual
     is_in_registered_storage = get_test_filepaths[0]
     root_dir = get_test_filepaths[1]
     test_filepath = get_test_filepaths[3]
@@ -415,7 +415,7 @@ def test_create_from_local_filepath(
     # only delete from storage if a file copy took place
     delete_from_storage = str(test_filepath.resolve()) != str(artifact.path)
     artifact.delete(permanent=True, storage=delete_from_storage)
-    ln.settings.artifact_use_virtual_keys = True
+    ln.settings._artifact_use_virtual_keys = True
 
 
 ERROR_MESSAGE = """\

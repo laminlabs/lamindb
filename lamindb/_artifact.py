@@ -376,7 +376,7 @@ def get_artifact_kwargs_from_data(
     )
 
     # do we use a virtual or an actual storage key?
-    key_is_virtual = settings.artifact_use_virtual_keys
+    key_is_virtual = settings._artifact_use_virtual_keys
 
     # if the file is already in storage, independent of the default
     # we use an actual storage key
