@@ -144,7 +144,7 @@ def delete_storage(
     # TODO is_relative_to is not available in 3.8 and deprecated since 3.12
     # replace with check_path_is_child_of_root but this needs to first be debugged
     # if not check_path_is_child_of_root(storagepath, settings.storage):
-    if not storagepath.is_relative_to(settings.storage):  # type: ignore
+    if not storagepath.is_relative_to(settings.storage.root):  # type: ignore
         allow_delete = False
         if setup_settings.instance.keep_artifacts_local:
             allow_delete = storagepath.is_relative_to(  # type: ignore
