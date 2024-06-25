@@ -146,6 +146,7 @@ def test_run_script():
         "https://github.com/laminlabs/lamin-cli/blob/"
     )
     assert transform.reference_type == "url"
+    assert transform.name == "My good script"
     # ensure that the source code is not saved as an output artifact
     assert transform.latest_run.output_artifacts.count() == 0
     assert transform.runs.count() == 1

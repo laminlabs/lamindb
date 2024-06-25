@@ -287,6 +287,9 @@ class run_context:
                         path=path
                     )
                     transform_type = TransformType.script
+                # overwrite whatever is auto-detected in the notebook or script
+                if transform_settings.name is not None:
+                    name = transform_settings.name
                 cls._create_or_load_transform(
                     stem_uid=stem_uid,
                     version=version,
