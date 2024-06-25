@@ -512,7 +512,7 @@ def test_delete_storage():
 def test_create_small_file_from_remote_path(
     filepath_str, skip_check_exists, skip_size_and_hash
 ):
-    ln.settings.upon_file_create_skip_size_hash = skip_size_and_hash
+    ln.settings.creation.artifact_skip_size_hash = skip_size_and_hash
     artifact = ln.Artifact(
         filepath_str,
         skip_check_exists=skip_check_exists,
@@ -538,7 +538,7 @@ def test_create_small_file_from_remote_path(
         "-",
     ]
     artifact.delete(permanent=True, storage=False)
-    ln.settings.upon_file_create_skip_size_hash = False
+    ln.settings.creation.artifact_skip_size_hash = False
 
 
 def test_create_big_file_from_remote_path():

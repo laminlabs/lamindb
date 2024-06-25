@@ -9,7 +9,8 @@ from lamindb_setup._set_managed_storage import set_managed_storage
 from lamindb_setup.core._settings import settings as setup_settings
 from lamindb_setup.core._settings_instance import sanitize_git_repo_url
 
-from .subsettings._transform_settings import TransformSettings, transform
+from .subsettings._create_settings import CreateSettings, create_settings
+from .subsettings._transform_settings import TransformSettings, transform_settings
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -40,29 +41,11 @@ class Settings:
         logger.set_verbosity(self._verbosity_int)
         self._sync_git_repo: str | None = git_repo
 
-    upon_artifact_create_if_hash_exists: Literal[
-        "warn_return_existing", "error", "warn_create_new"
-    ] = "warn_return_existing"
-    """Behavior if file hash exists (default `"warn_return_existing"`).
+    @property
+    def creation(self) -> CreateSettings:
+        """Create settings."""
+        return create_settings
 
-    One of `["warn_return_existing", "error", "warn_create_new"]`.
-
-    FAQ: :doc:`/faq/idempotency`
-    """
-    upon_file_create_skip_size_hash: bool = False
-    """To speed up registering high numbers of files (default `False`).
-
-    This bypasses queries for size and hash to AWS & GCP.
-
-    It speeds up file creation by about a factor 100.
-    """
-    upon_create_search_names: bool = True
-    """To speed up creating Registry objects (default `True`).
-
-    If `True`, search for alternative names.
-
-    FAQ: :doc:`/faq/idempotency`
-    """
     track_run_inputs: bool = True
     """Track files as input upon `.load()`, `.cache()` and `.backed()`.
 
@@ -102,7 +85,7 @@ class Settings:
     @property
     def transform(self) -> TransformSettings:
         """Transform settings."""
-        return transform
+        return transform_settings
 
     @property
     def sync_git_repo(self) -> str | None:

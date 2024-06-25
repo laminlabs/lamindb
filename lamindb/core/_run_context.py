@@ -22,7 +22,7 @@ from .exceptions import (
     NoTitleError,
     UpdateTransformSettings,
 )
-from .subsettings._transform_settings import transform as transform_settings
+from .subsettings._transform_settings import transform_settings
 from .versioning import bump_version as bump_version_function
 
 if TYPE_CHECKING:

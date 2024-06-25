@@ -82,7 +82,7 @@ def __init__(orm: Registry, *args, **kwargs):
         has_consciously_provided_uid = False
         if "_has_consciously_provided_uid" in kwargs:
             has_consciously_provided_uid = kwargs.pop("_has_consciously_provided_uid")
-        if settings.upon_create_search_names and not has_consciously_provided_uid:
+        if settings.creation.search_names and not has_consciously_provided_uid:
             match = suggest_records_with_similar_names(orm, kwargs)
             if match:
                 if "version" in kwargs:

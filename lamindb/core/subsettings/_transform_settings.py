@@ -6,4 +6,4 @@ class TransformSettings:
     version: None | None = None
 
 
-transform = TransformSettings()
+transform_settings = TransformSettings()

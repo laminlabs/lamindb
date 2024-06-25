@@ -190,7 +190,7 @@ def get_stat_or_artifact(
     using_key: str | None = None,
 ) -> tuple[int, str | None, str | None, int | None] | Artifact:
     n_objects = None
-    if settings.upon_file_create_skip_size_hash:
+    if settings.creation.artifact_skip_size_hash:
         return None, None, None, n_objects
     stat = path.stat()  # one network request
     if not isinstance(path, LocalPathClasses):
@@ -242,14 +242,14 @@ def get_stat_or_artifact(
             Artifact.objects.using(using_key).filter(hash=hash, visibility=None).all()
         )
     if len(result) > 0:
-        if settings.upon_artifact_create_if_hash_exists == "error":
+        if settings.creation.artifact_if_hash_exists == "error":
             msg = f"artifact with same hash exists: {result[0]}"
             hint = (
                 "💡 you can make this error a warning:\n"
-                "    ln.settings.upon_artifact_create_if_hash_exists"
+                "    ln.settings.creation.artifact_if_hash_exists"
             )
             raise FileExistsError(f"{msg}\n{hint}")
-        elif settings.upon_artifact_create_if_hash_exists == "warn_create_new":
+        elif settings.creation.artifact_if_hash_exists == "warn_create_new":
             logger.warning(
                 "creating new Artifact object despite existing artifact with same hash:"
                 f" {result[0]}"
