@@ -135,7 +135,7 @@ class Settings:
         >>> )
         >>> ln.settings.storage = "s3://some-bucket", kwargs
         """
-        return self._storage_settings.root
+        return self._storage_settings
 
     @storage.setter
     def storage(self, path_kwargs: str | Path | UPath | tuple[str | UPath, Mapping]):
