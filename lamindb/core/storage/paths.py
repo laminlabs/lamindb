@@ -72,7 +72,7 @@ def attempt_accessing_path(
             storage_settings = settings._storage_settings
         else:
             storage_settings = StorageSettings(
-                settings.storage, access_token=access_token
+                settings.storage.root, access_token=access_token
             )
     else:
         if artifact._state.db not in ("default", None) and using_key is None:
@@ -143,7 +143,7 @@ def delete_storage(
     """Delete arbitrary artifact."""
     # TODO is_relative_to is not available in 3.8 and deprecated since 3.12
     # replace with check_path_is_child_of_root but this needs to first be debugged
-    # if not check_path_is_child_of_root(storagepath, settings.storage):
+    # if not check_path_is_child_of_root(storagepath, settings.storage.root):
     if not storagepath.is_relative_to(settings.storage.root):  # type: ignore
         allow_delete = False
         if setup_settings.instance.keep_artifacts_local:
