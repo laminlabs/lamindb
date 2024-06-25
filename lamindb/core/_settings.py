@@ -15,6 +15,7 @@ from .subsettings._transform_settings import TransformSettings, transform_settin
 if TYPE_CHECKING:
     from pathlib import Path
 
+    from lamindb_setup.core._settings_storage import StorageSettings
     from upath import UPath
 
 VERBOSITY_TO_INT = {
@@ -101,12 +102,19 @@ class Settings:
         assert self._sync_git_repo.startswith("https://")
 
     @property
-    def storage(self) -> Path | UPath:
-        """Default storage location (a path to its root).
+    def storage(self) -> StorageSettings:
+        """Default storage location.
 
         Examples:
 
-        You can switch to another managed storage location via:
+        >>> ln.settings.storage
+        StorageSettings(root='s3://my-bucket', uid='j7MaPxtLxPeE')
+
+        >>> ln.settings.storage.root
+        UPath('s3://my-bucket')
+
+        You can switch the default storage location to another managed storage
+        location by passing a string:
 
         >>> ln.settings.storage = "s3://some-bucket"
 
@@ -129,16 +137,14 @@ class Settings:
         set_managed_storage(path, **kwargs)
 
     @property
-    def storage_local(self) -> Path:
+    def storage_local(self) -> StorageSettings:
         """An additional local default storage (a path to its root).
 
         Is only available if :attr:`~lamindb.setup.core.InstanceSettings.keep_artifacts_local` is enabled.
 
         Guide: :doc:`faq/keep-artifacts-local`
-
-        Shortcut for: `ln.setup.settings.instance.storage_local.root`
         """
-        return ln_setup.settings.instance.storage_local.root
+        return ln_setup.settings.instance.storage_local
 
     @storage_local.setter
     def storage_local(self, local_root: Path):
