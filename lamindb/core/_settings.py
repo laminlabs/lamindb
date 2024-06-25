@@ -57,12 +57,6 @@ class Settings:
 
     FAQ: :doc:`/faq/track-run-inputs`
     """
-    _artifact_use_virtual_keys: bool = True
-    """Treat `key` parameter in :class:`~lamindb.Artifact` as virtual.
-
-    If `True`, the `key` is **not** used to construct file paths, but file paths are
-    based on the `uid` of artifact.
-    """
     __using_key: str | None = None
     _using_storage: str | None = None
 

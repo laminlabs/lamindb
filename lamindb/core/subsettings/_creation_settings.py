@@ -27,6 +27,12 @@ class CreationSettings:
     """
     artifact_silence_missing_run_warning: bool = False
     """Silence warning about missing run & transform during artifact creation."""
+    _artifact_use_virtual_keys: bool = True
+    """Treat `key` parameter in :class:`~lamindb.Artifact` as virtual.
+
+    If `True`, the `key` is **not** used to construct file paths, but file paths are
+    based on the `uid` of artifact.
+    """
 
 
 creation_settings = CreationSettings()
