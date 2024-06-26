@@ -91,7 +91,7 @@ def file_tsv_rnaseq_nfcore_salmon_merged_gene_counts(
 
 def file_fastq(in_storage_root=False) -> Path:
     """Mini mock fastq artifact."""
-    basedir = Path() if not in_storage_root else settings.storage
+    basedir = Path() if not in_storage_root else settings.storage.root
     filepath = basedir / "input.fastq.gz"
     with open(filepath, "w") as f:
         f.write("Mock fastq artifact.")
@@ -100,7 +100,7 @@ def file_fastq(in_storage_root=False) -> Path:
 
 def file_bam(in_storage_root=False) -> Path:  # pragma: no cover
     """Mini mock bam artifact."""
-    basedir = Path() if not in_storage_root else settings.storage
+    basedir = Path() if not in_storage_root else settings.storage.root
     filepath = basedir / "output.bam"
     with open(filepath, "w") as f:
         f.write("Mock bam artifact.")
@@ -109,7 +109,7 @@ def file_bam(in_storage_root=False) -> Path:  # pragma: no cover
 
 def file_mini_csv(in_storage_root=False) -> Path:
     """Mini csv artifact."""
-    basedir = Path() if not in_storage_root else settings.storage
+    basedir = Path() if not in_storage_root else settings.storage.root
     filepath = basedir / "mini.csv"
     df = pd.DataFrame([1, 2, 3], columns=["test"])
     df.to_csv(filepath, index=False)

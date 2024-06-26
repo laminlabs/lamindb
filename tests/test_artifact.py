@@ -331,7 +331,7 @@ def test_create_from_anndata_in_storage(data):
 def test_create_from_local_filepath(
     get_test_filepaths, key_is_virtual, key, description
 ):
-    ln.settings.artifact_use_virtual_keys = key_is_virtual
+    ln.settings.creation._artifact_use_virtual_keys = key_is_virtual
     is_in_registered_storage = get_test_filepaths[0]
     root_dir = get_test_filepaths[1]
     test_filepath = get_test_filepaths[3]
@@ -415,7 +415,7 @@ def test_create_from_local_filepath(
     # only delete from storage if a file copy took place
     delete_from_storage = str(test_filepath.resolve()) != str(artifact.path)
     artifact.delete(permanent=True, storage=delete_from_storage)
-    ln.settings.artifact_use_virtual_keys = True
+    ln.settings.creation._artifact_use_virtual_keys = True
 
 
 ERROR_MESSAGE = """\
@@ -499,7 +499,7 @@ def test_delete_artifact(df):
 
 def test_delete_storage():
     with pytest.raises(FileNotFoundError):
-        delete_storage(ln.settings.storage / "test-delete-storage")
+        delete_storage(ln.settings.storage.root / "test-delete-storage")
 
 
 # why does this run so long? in particular the first time?
@@ -512,7 +512,7 @@ def test_delete_storage():
 def test_create_small_file_from_remote_path(
     filepath_str, skip_check_exists, skip_size_and_hash
 ):
-    ln.settings.upon_file_create_skip_size_hash = skip_size_and_hash
+    ln.settings.creation.artifact_skip_size_hash = skip_size_and_hash
     artifact = ln.Artifact(
         filepath_str,
         skip_check_exists=skip_check_exists,
@@ -538,7 +538,7 @@ def test_create_small_file_from_remote_path(
         "-",
     ]
     artifact.delete(permanent=True, storage=False)
-    ln.settings.upon_file_create_skip_size_hash = False
+    ln.settings.creation.artifact_skip_size_hash = False
 
 
 def test_create_big_file_from_remote_path():
