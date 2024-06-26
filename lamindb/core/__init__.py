@@ -32,13 +32,12 @@ Annotators:
    MuDataAnnotator
    AnnotateLookup
 
-Classes:
+Other:
 
 .. autosummary::
    :toctree: .
 
    Settings
-   TransformSettings
    MappedCollection
    run_context
 
@@ -51,6 +50,7 @@ Modules:
    storage
    types
    exceptions
+   subsettings
 
 """
 
@@ -77,8 +77,7 @@ from lamindb._query_set import QuerySet, RecordsList
 from lamindb.core._feature_manager import FeatureManager, ParamManager
 from lamindb.core._label_manager import LabelManager
 
-from . import _data, datasets, exceptions, fields, types
+from . import _data, datasets, exceptions, fields, subsettings, types
 from ._mapped_collection import MappedCollection
 from ._run_context import run_context
 from ._settings import Settings
-from ._transform_settings import TransformSettings

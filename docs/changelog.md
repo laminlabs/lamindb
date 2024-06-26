@@ -1,5 +1,6 @@
 # Changelog
 
+- ♻️ Refactor `ln.settings` [PR](https://github.com/laminlabs/lamindb/pull/1711) [@falexwolf](https://github.com/falexwolf)
 - 📝 Add pip install for guides [PR](https://github.com/laminlabs/lamindb/pull/1712) [@sunnyosun](https://github.com/sunnyosun)
 - ⬆️ Upgrade anndata to 0.10.8 [PR](https://github.com/laminlabs/lamindb/pull/1707) [@Koncopd](https://github.com/Koncopd)
 - ✅ Add add_values test for dicts [PR](https://github.com/laminlabs/lamindb/pull/1706) [@Zethson](https://github.com/Zethson)

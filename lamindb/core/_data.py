@@ -46,7 +46,7 @@ WARNING_RUN_TRANSFORM = "no run & transform get linked, consider calling ln.trac
 def get_run(run: Run | None) -> Run | None:
     if run is None:
         run = run_context.run
-        if run is None and not settings.silence_file_run_transform_warning:
+        if run is None and not settings.creation.artifact_silence_missing_run_warning:
             logger.warning(WARNING_RUN_TRANSFORM)
     # suppress run by passing False
     elif not run:

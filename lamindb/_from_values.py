@@ -28,7 +28,7 @@ def get_or_create_records(
     Registry = field.field.model
     if create:
         return [Registry(**{field.field.name: value}) for value in iterable]
-    upon_create_search_names = settings.upon_create_search_names
+    creation_search_names = settings.creation.search_names
     feature: Feature = None
     organism = _get_organism_record(field, organism)
     kwargs: dict = {}
@@ -36,7 +36,7 @@ def get_or_create_records(
         kwargs["organism"] = organism
     if public_source is not None:
         kwargs["public_source"] = public_source
-    settings.upon_create_search_names = False
+    settings.creation.search_names = False
     try:
         iterable_idx = index_iterable(iterable)
 
@@ -88,7 +88,7 @@ def get_or_create_records(
                 logger.debug(f"added default feature '{feature_name}'")
         return records
     finally:
-        settings.upon_create_search_names = upon_create_search_names
+        settings.creation.search_names = creation_search_names
 
 
 def get_existing_records(
