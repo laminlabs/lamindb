@@ -243,7 +243,7 @@ def parse_feature_sets_from_anndata(
             using_key = settings._using_key
             data_parse = backed_access(filepath, using_key)
         else:
-            data_parse = ad.read(filepath, backed="r")
+            data_parse = ad.read_h5ad(filepath, backed="r")
         type = "float"
     else:
         type = (
