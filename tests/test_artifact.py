@@ -499,7 +499,7 @@ def test_delete_artifact(df):
 
 def test_delete_storage():
     with pytest.raises(FileNotFoundError):
-        delete_storage(ln.settings.storage / "test-delete-storage")
+        delete_storage(ln.settings.storage.root / "test-delete-storage")
 
 
 # why does this run so long? in particular the first time?
