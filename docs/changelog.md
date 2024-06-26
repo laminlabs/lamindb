@@ -1,11 +1,5 @@
 # Changelog
 
-- ✨ Added support for different join types in `QuerySet.df()` [PR](https://github.com/laminlabs/lamindb/pull/1709) [@insavchuk](https://github.com/insavchuk)
-- 📝 Update hub screenshots [PR](https://github.com/laminlabs/lamindb/pull/1714) [@sunnyosun](https://github.com/sunnyosun)
-- ♻️ Refactor `ln.settings` [PR](https://github.com/laminlabs/lamindb/pull/1711) [@falexwolf](https://github.com/falexwolf)
-- 📝 Add pip install for guides [PR](https://github.com/laminlabs/lamindb/pull/1712) [@sunnyosun](https://github.com/sunnyosun)
-- ⬆️ Upgrade anndata to 0.10.8 [PR](https://github.com/laminlabs/lamindb/pull/1707) [@Koncopd](https://github.com/Koncopd)
-- ✅ Add add_values test for dicts [PR](https://github.com/laminlabs/lamindb/pull/1706) [@Zethson](https://github.com/Zethson)
 :::{note}
 
 If using LaminHub, please use the latest version of LaminDB.
@@ -20,14 +14,22 @@ LaminDB implements "migration-based versioning". When upgrading your LaminDB ins
 
 ## 0.74
 
+### 0.74.1 {small}`2024-06-19`
+
+- ♻️ Refactor `ln.settings` [PR](https://github.com/laminlabs/lamindb/pull/1711) [@falexwolf](https://github.com/falexwolf)
+    - ✨ you can now pass custom names for scripts via `ln.settings.transform.name = "My script"`
+    - ⚠️ `ln.settings.storage` now returns a `StorageSettings` object (root via `ln.settings.storage.root`)
+- ✨ Support different join types in `QuerySet.df()` [PR](https://github.com/laminlabs/lamindb/pull/1709) [@insavchuk](https://github.com/insavchuk)
+- 📝 New [tiledbsoma guide](https://lamin.ai/docs/scrna6) [PR](https://github.com/laminlabs/lamin-usecases/pull/130) [Koncopd](https://github.com/Koncopd)
+- 📝 Update hub screenshots [PR](https://github.com/laminlabs/lamindb/pull/1714) [@sunnyosun](https://github.com/sunnyosun)
+
 ### 0.74.0 {small}`2024-06-19`
 
-You can now distinguish model-like and dataset-like artifacts via a `type` field in the `Artifact` registry.
-
-Leverage `artifact.params.add_values()` to annotate model-like artifacts like you leverage `artifact.features.add_values()` to annotate dataset-like artifacts.
-
-- 🏗️ Add `type` field to `Artifact`, allow linking model-like artifacts against params, validate params akin to validating features, enable features-based annotation with non-ulabels [PR](https://github.com/laminlabs/lamindb/pull/1690) [@falexwolf](https://github.com/falexwolf)
-- 🚸 Support dict in add_values [PR](https://github.com/laminlabs/lamindb/pull/1705) [@Zethson](https://github.com/Zethson)
+- ✨ You can now distinguish model-like and dataset-like artifacts via a `type` field in the `Artifact` registry
+    - 🚸 Leverage `artifact.params.add_values()` to annotate model-like artifacts like you leverage `artifact.features.add_values()` to annotate dataset-like artifacts
+    - 🏗️ Add `type` field to `Artifact`, allow linking model-like artifacts against params, validate params akin to validating features, enable features-based annotation with non-ulabels [PR](https://github.com/laminlabs/lamindb/pull/1690) [@falexwolf](https://github.com/falexwolf)
+    - 🚸 Support dict in `add_values` [PR](https://github.com/laminlabs/lamindb/pull/1705) [@Zethson](https://github.com/Zethson)
+- 📝 New [wandb guide](https://docs.lamin.ai/wandb) [PR](https://github.com/laminlabs/lamin-mlops/pull/2) [felix0097](https://github.com/felix0097)
 - ♻️ Refactor after upath upgrade [PR](https://github.com/laminlabs/lamindb/pull/1699) [PR](https://github.com/laminlabs/lamindb/pull/1700) [@Koncopd](https://github.com/Koncopd)
 
 ## 0.73
