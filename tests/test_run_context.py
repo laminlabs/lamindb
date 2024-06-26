@@ -135,7 +135,7 @@ def test_run_script():
     assert result.returncode == 0
     assert "saved: Transform" in result.stdout.decode()
     assert "saved: Run" in result.stdout.decode()
-    transform = ln.Transform.filter(name="run-track-and-finish-sync-git.py").one()
+    transform = ln.Transform.filter(key="run-track-and-finish-sync-git.py").one()
     # the algorithm currently picks different commits depending on the state of the repo
     # any of these commits are valid
     assert transform.uid == "m5uCHTTpJnjQ5zKv"
@@ -146,10 +146,11 @@ def test_run_script():
         "https://github.com/laminlabs/lamin-cli/blob/"
     )
     assert transform.reference_type == "url"
+    assert transform.name == "My good script"
     # ensure that the source code is not saved as an output artifact
     assert transform.latest_run.output_artifacts.count() == 0
     assert transform.runs.count() == 1
-    assert transform.source_code.hash == "-QN2dVdC8T3xWG8vBl-wew"
+    assert transform.source_code.hash == "T1zmmTJyeEpBxjaHcHcZdg"
     assert transform.source_code.transform is None
     assert transform.source_code.run is None
 

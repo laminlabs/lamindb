@@ -82,7 +82,7 @@ def __init__(orm: Registry, *args, **kwargs):
         has_consciously_provided_uid = False
         if "_has_consciously_provided_uid" in kwargs:
             has_consciously_provided_uid = kwargs.pop("_has_consciously_provided_uid")
-        if settings.upon_create_search_names and not has_consciously_provided_uid:
+        if settings.creation.search_names and not has_consciously_provided_uid:
             match = suggest_records_with_similar_names(orm, kwargs)
             if match:
                 if "version" in kwargs:
@@ -447,7 +447,7 @@ def transfer_to_default_db(
             if run_context.run is not None:
                 record.run_id = run_context.run.id
             else:
-                if not settings.silence_file_run_transform_warning:
+                if not settings.creation.artifact_silence_missing_run_warning:
                     logger.warning(WARNING_RUN_TRANSFORM)
                 record.run_id = None
         if hasattr(record, "transform_id") and record._meta.model_name != "run":
