@@ -46,6 +46,23 @@ def test_df():
     assert set(df["features__name"].iloc[0]) == set(feature_names)
     assert set(df["features__created_by_id"].iloc[0]) == {current_user_id()}
 
+    # inner join parents on features
+    df = ln.FeatureSet.filter().df(
+        include=["features__name", "features__created_by_id"], join="inner"
+    )
+    print(df)
+    assert set(df["features__name"].iloc[0]) == set(feature_names)
+    assert set(df["features__created_by_id"].iloc[0]) == {current_user_id()}
+
+    # outer join parents on features (this test should be expanded to make it
+    # actually relevant)
+    df = ln.FeatureSet.filter().df(
+        include=["features__name", "features__created_by_id"], join="outer"
+    )
+    print(df)
+    assert set(df["features__name"].iloc[0]) == set(feature_names)
+    assert set(df["features__created_by_id"].iloc[0]) == {current_user_id()}
+
     # raise error for non many-to-many
     df = ln.ULabel.filter(name="Project 0").df(include="created_by__name")
     assert df["created_by__name"].iloc[0] == "Test User1"
