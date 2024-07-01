@@ -55,7 +55,8 @@ def lint(session: nox.Session) -> None:
 )
 def install(session, group):
     # on the release branch, do not use submodules but run with pypi install
-    # only exception is the docs group
+    # only exception is the docs group which should always use the submodule
+    # to push docs fixes fast
     if IS_PR or group == "docs":
         cmd = "uv pip install --system --no-deps ./sub/lamindb-setup ./sub/lnschema-core ./sub/lamin-cli"
         run(session, cmd)
