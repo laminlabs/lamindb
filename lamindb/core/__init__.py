@@ -19,6 +19,8 @@ Registries:
    HasParents
    TracksRun
    TracksUpdates
+   ParamValue
+   FeatureValue
    InspectResult
    fields
 
@@ -57,10 +59,12 @@ Modules:
 from lamin_utils._inspect import InspectResult
 from lnschema_core.models import (
     CanValidate,
+    FeatureValue,
     HasFeatures,
     HasParams,
     HasParents,
     IsVersioned,
+    ParamValue,
     Registry,
     TracksRun,
     TracksUpdates,
