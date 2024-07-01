@@ -1,5 +1,6 @@
 # Changelog
 
+- 🏷️ Add types to core fields [PR](https://github.com/laminlabs/lamindb/pull/1716) [@falexwolf](https://github.com/falexwolf)
 :::{note}
 
 If using LaminHub, please use the latest version of LaminDB.
