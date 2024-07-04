@@ -12,11 +12,9 @@ def test_transfer_from_remote_to_local():
 
     # transfer 1st artifact
     artifact = (
-        ln.Artifact.using("laminlabs/cellxgene")
-        .filter(
-            description__icontains="tabula sapiens",
-        )
-        .first()
+        ln.Artifact.using("laminlabs/lamin-dev")
+        .filter(uid="livFRRpMaOgb3y8U2mK2")
+        .one()
     )
 
     id_remote = artifact.id
@@ -40,11 +38,9 @@ def test_transfer_from_remote_to_local():
 
     # now check that this is idempotent and we can run it again
     artifact_repeat = (
-        ln.Artifact.using("laminlabs/cellxgene")
-        .filter(
-            description__icontains="tabula sapiens",
-        )
-        .first()
+        ln.Artifact.using("laminlabs/lamin-dev")
+        .filter(uid="livFRRpMaOgb3y8U2mK2")
+        .one()
     )
     artifact_repeat.save(parents=False)
 
@@ -57,17 +53,15 @@ def test_transfer_from_remote_to_local():
     # transfer 2nd artifact
     bt.settings.auto_save_parents = False
     artifact2 = (
-        ln.Artifact.using("laminlabs/cellxgene")
-        .filter(
-            description__icontains="tabula sapiens",
-        )
-        .last()
+        ln.Artifact.using("laminlabs/lamin-dev")
+        .filter(uid="qz35YaRk09XtYAyLvjyZ")
+        .one()
     )
     artifact2.save()
 
     # check the feature name
-    bt.settings.organism = "human"
-    assert artifact2.organisms.get(name="human") == bt.settings.organism
+    bt.settings.organism = "mouse"
+    assert artifact2.organisms.get(name="mouse") == bt.settings.organism
     assert artifact.features["obs"].get(name="organism").uid == "existing"
 
     artifact.delete(permanent=True, storage=False)
