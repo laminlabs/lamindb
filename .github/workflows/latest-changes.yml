@@ -1,26 +1,27 @@
 name: latest-changes
 
 on:
-  pull_request_target:
+  pull_request:
     branches:
       - main
-      - staging
     types:
-      - closed
-  workflow_dispatch:
-    inputs:
-      number:
-        description: PR number
-        required: true
+      - opened
 
 jobs:
   latest-changes:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
-      - uses: docker://tiangolo/latest-changes:0.0.3
+      - uses: actions/checkout@v4
         with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          latest_changes_file: docs/changelog.md
-          latest_changes_header: '# Changelog\n\n'
-          template_file: ./.github/workflows/latest-changes.jinja2
+          ref: ${{ github.event.pull_request.head.ref }}
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: pip install -U PyGithub "pydantic>=2.0.0" pydantic-settings "httpx>=0.15.5,<0.26.0" email-validator Jinja2
+      - run: python ./.github/workflows/latest-changes.py
+        env:
+          input_token: ${{ secrets.GITHUB_TOKEN }}
+          input_branch_name: ${{ github.event.pull_request.head.ref }}
+          input_latest_changes_file: docs/changelog.md
+          input_latest_changes_header: '# Changelog\n\n'
+          input_template_file: ./.github/workflows/latest-changes.jinja2
