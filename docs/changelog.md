@@ -1,5 +1,7 @@
 # Changelog
 
+- 👷 Run latest-changes within PR on feature branch, not on main [PR](https://github.com/laminlabs/lamindb/pull/1720) [@falexwolf](https://github.com/falexwolf)
+
 - 👷 Use lamin-dev for transfer unit test [PR](https://github.com/laminlabs/lamindb/pull/1719) [@sunnyosun](https://github.com/sunnyosun)
 - 🏷️ Add types to core fields [PR](https://github.com/laminlabs/lamindb/pull/1716) [@falexwolf](https://github.com/falexwolf)
 :::{note}
