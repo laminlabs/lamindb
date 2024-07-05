@@ -238,7 +238,7 @@ def main() -> None:
         subprocess.run(
             ["git", "add", str(settings.input_latest_changes_file)], check=True
         )
-        subprocess.run(["git", "commit", "-m", "📝 Update release notes"], check=True)
+        subprocess.run(["git", "commit", "-m", "📝 Update changelog"], check=True)
         logging.info(f"Pushing changes: {settings.input_latest_changes_file}")
         subprocess.run(
             ["git", "push", "origin", f"HEAD:{settings.input_branch_name}"], check=True
