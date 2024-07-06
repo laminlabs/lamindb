@@ -1,3 +1,26 @@
+# MIT License
+
+# Copyright (c) 2020 Sebastián Ramírez
+
+# Permission is hereby granted, free of charge, to any person obtaining a copy
+# of this software and associated documentation files (the "Software"), to deal
+# in the Software without restriction, including without limitation the rights
+# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+# copies of the Software, and to permit persons to whom the Software is
+# furnished to do so, subject to the following conditions:
+
+# The above copyright notice and this permission notice shall be included in all
+# copies or substantial portions of the Software.
+
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+# SOFTWARE.
+
+
 import logging
 import re
 import subprocess
@@ -211,6 +234,13 @@ def main() -> None:
         )
         sys.exit(1)
     pr = repo.get_pull(number)
+    if not pr.merged:
+        logging.info("The PR was not merged, nothing else to do.")
+        sys.exit(0)
+    # clone lamin-docs
+    subprocess.run(
+        ["git", "clone", "--depth=1", "https://github.com/laminlabs/lamin-docs"]
+    )
     if not settings.input_latest_changes_file.is_file():
         logging.error(
             f"The latest changes files doesn't seem to exist: {settings.input_latest_changes_file}"
@@ -236,13 +266,19 @@ def main() -> None:
         settings.input_latest_changes_file.write_text(new_content)
         logging.info(f"Committing changes to: {settings.input_latest_changes_file}")
         subprocess.run(
-            ["git", "add", str(settings.input_latest_changes_file)], check=True
+            [
+                "git",
+                "add",
+                str(settings.input_latest_changes_file).replace("lamin-docs/", ""),
+            ],
+            check=True,
+            cwd="lamin-docs",
         )
-        subprocess.run(["git", "commit", "-m", "📝 Update changelog"], check=True)
-        logging.info(f"Pushing changes: {settings.input_latest_changes_file}")
         subprocess.run(
-            ["git", "push", "origin", f"HEAD:{settings.input_branch_name}"], check=True
+            ["git", "commit", "-m", "📝 Update changelog"], check=True, cwd="lamin-docs"
         )
+        logging.info(f"Pushing changes: {settings.input_latest_changes_file}")
+        subprocess.run(["git", "push"], check=True, cwd="lamin-docs")
         break
     logging.info("Finished")
 
