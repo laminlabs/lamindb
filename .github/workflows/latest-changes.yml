@@ -1,27 +1,22 @@
 name: latest-changes
 
 on:
-  pull_request:
+  pull_request_target:
     branches:
       - main
     types:
-      - opened
+      - closed
 
 jobs:
   latest-changes:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-        with:
-          ref: ${{ github.event.pull_request.head.ref }}
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
-      - run: pip install -U PyGithub "pydantic>=2.0.0" pydantic-settings "httpx>=0.15.5,<0.26.0" email-validator Jinja2
-      - run: python ./.github/workflows/latest-changes.py
+      - run: pip install "laminci[doc-changes]@git+https://x-access-token:${{ secrets.LAMIN_BUILD_DOCS }}@github.com/laminlabs/laminci"
+      - run: laminci doc-changes
         env:
-          input_token: ${{ secrets.GITHUB_TOKEN }}
-          input_branch_name: ${{ github.event.pull_request.head.ref }}
-          input_latest_changes_file: docs/changelog.md
-          input_latest_changes_header: '# Changelog\n\n'
-          input_template_file: ./.github/workflows/latest-changes.jinja2
+          input_token: ${{ secrets.LAMIN_BUILD_DOCS }}
+          input_latest_changes_file: lamin-docs/docs/changelog/soon/lamindb.md
