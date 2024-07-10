@@ -119,7 +119,7 @@ def test_pass_version():
 def test_get_name_field():
     transform = ln.Transform(name="test")
     transform.save()
-    assert registry.get_name_field(ln.Run(transform)) == "created_at"
+    assert registry.get_name_field(ln.Run(transform)) == "started_at"
     with pytest.raises(ValueError):
         registry.get_name_field(ln.Artifact.ulabels.through())
     transform.delete()
