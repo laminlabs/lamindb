@@ -13,7 +13,7 @@ from lnschema_core import CanValidate, Registry
 from lamindb._utils import attach_func_to_class_method
 
 from ._from_values import _has_organism_field, _print_values
-from ._registry import _queryset, get_default_str_field
+from ._registry import _queryset, get_name_field
 
 if TYPE_CHECKING:
     from django.db.models import QuerySet
@@ -73,7 +73,7 @@ def _inspect(
     if isinstance(values, str):
         values = [values]
 
-    field = get_default_str_field(cls, field=field)
+    field = get_name_field(cls, field=field)
     queryset = _queryset(cls, using_key)
     orm = queryset.model
     model_name = orm._meta.model.__name__
@@ -157,7 +157,7 @@ def _validate(
     if isinstance(values, str):
         values = [values]
 
-    field = get_default_str_field(cls, field=field)
+    field = get_name_field(cls, field=field)
 
     queryset = _queryset(cls, using_key)
     field_values = pd.Series(
@@ -269,8 +269,8 @@ def _standardize(
     if isinstance(values, str):
         values = [values]
 
-    field = get_default_str_field(cls, field=field)
-    return_field = get_default_str_field(
+    field = get_name_field(cls, field=field)
+    return_field = get_name_field(
         cls, field=field if return_field is None else return_field
     )
     queryset = _queryset(cls, using_key)

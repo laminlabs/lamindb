@@ -39,7 +39,7 @@ from lamindb._feature import FEATURE_TYPES, convert_numpy_dtype_to_lamin_feature
 from lamindb._feature_set import DICT_KEYS_TYPE, FeatureSet
 from lamindb._registry import (
     REGISTRY_UNIQUE_FIELD,
-    get_default_str_field,
+    get_name_field,
     transfer_fk_to_default_db_bulk,
     transfer_to_default_db,
 )
@@ -212,7 +212,7 @@ def print_features(
         for slot, feature_set in get_feature_set_by_slot_(self).items():
             features = feature_set.members
             # features.first() is a lot slower than features[0] here
-            name_field = get_default_str_field(features[0])
+            name_field = get_name_field(features[0])
             feature_names = list(features.values_list(name_field, flat=True)[:20])
             type_str = f": {feature_set.registry}" if print_types else ""
             feature_set_msg += (
@@ -551,6 +551,10 @@ def _add_values(
                         "artifact_id": self._host.id,
                         "feature_id": feature.id,
                         field_name: label.id,
+                        "feature_ref_is_name": (
+                            True if feature_param_field == Feature.name else None
+                        ),
+                        "label_ref_is_name": True,
                     }
                 )
                 for (feature, label) in registry_features_labels
@@ -577,6 +581,9 @@ def _add_values(
                             for f, l in registry_features_labels
                             if l.id == getattr(link, field_name)
                         ][0]
+                        link.feature_ref_is_name = (
+                            True if feature_param_field == Feature.name else None
+                        )
                         link.save()
     if feature_values:
         save(feature_values)

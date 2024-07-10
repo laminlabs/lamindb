@@ -122,7 +122,7 @@ def from_values(
 ) -> list[Registry]:
     """{}."""
     from_public = True if cls.__module__.startswith("lnschema_bionty.") else False
-    field_str = get_default_str_field(cls, field=field)
+    field_str = get_name_field(cls, field=field)
     return get_or_create_records(
         iterable=values,
         field=getattr(cls, field_str),
@@ -249,7 +249,7 @@ def _lookup(
 ) -> NamedTuple:
     """{}."""
     queryset = _queryset(cls, using_key=using_key)
-    field = get_default_str_field(orm=queryset.model, field=field)
+    field = get_name_field(orm=queryset.model, field=field)
 
     return Lookup(
         records=queryset,
@@ -258,7 +258,7 @@ def _lookup(
         prefix="ln",
     ).lookup(
         return_field=(
-            get_default_str_field(orm=queryset.model, field=return_field)
+            get_name_field(orm=queryset.model, field=return_field)
             if return_field is not None
             else None
         )
@@ -276,7 +276,7 @@ def lookup(
     return _lookup(cls=cls, field=field, return_field=return_field)
 
 
-def get_default_str_field(
+def get_name_field(
     orm: Registry | QuerySet | Manager,
     *,
     field: str | StrField | None = None,
@@ -284,15 +284,13 @@ def get_default_str_field(
     """Get the 1st char or text field from the orm."""
     if isinstance(orm, (QuerySet, Manager)):
         orm = orm.model
-    model_field_names = [i.name for i in orm._meta.fields]
 
-    # set default field
+    # find name field
     if field is None:
-        if orm._meta.model.__name__ == "Run":
-            field = orm._meta.get_field("created_at")
-        elif orm._meta.model.__name__ == "User":
-            field = orm._meta.get_field("handle")
-        elif "name" in model_field_names:
+        if hasattr(orm, "_name_field"):
+            return orm._name_field
+        model_field_names = [i.name for i in orm._meta.fields]
+        if "name" in model_field_names:
             # by default use the name field
             field = orm._meta.get_field("name")
         else:

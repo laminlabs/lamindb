@@ -20,7 +20,7 @@ from lnschema_core.models import (
 
 from lamindb._parents import view_lineage
 from lamindb._query_set import QuerySet
-from lamindb._registry import get_default_str_field
+from lamindb._registry import get_name_field
 from lamindb.core._settings import settings
 
 from ._feature_manager import (
@@ -136,14 +136,12 @@ def describe(self: HasFeatures, print_types: bool = False):
     # provenance
     if len(foreign_key_fields) > 0:  # always True for Artifact and Collection
         fields_values = [(field, getattr(self, field)) for field in foreign_key_fields]
-        type_str = (
-            lambda attr: f": {attr.__class__.__get_name_with_schema__()}"
-            if print_types
-            else ""
+        type_str = lambda attr: (
+            f": {attr.__class__.__get_name_with_schema__()}" if print_types else ""
         )
         related_msg = "".join(
             [
-                f"    .{field_name}{type_str(attr)} = {format_field_value(getattr(attr, get_default_str_field(attr)))}\n"
+                f"    .{field_name}{type_str(attr)} = {format_field_value(getattr(attr, get_name_field(attr)))}\n"
                 for (field_name, attr) in fields_values
                 if attr is not None
             ]
@@ -210,11 +208,11 @@ def get_labels(
             ).all()
     if flat_names:
         # returns a flat list of names
-        from lamindb._registry import get_default_str_field
+        from lamindb._registry import get_name_field
 
         values = []
         for v in qs_by_registry.values():
-            values += v.list(get_default_str_field(v))
+            values += v.list(get_name_field(v))
         return values
     if len(registries_to_check) == 1 and registry in qs_by_registry:
         return qs_by_registry[registry]
