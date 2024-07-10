@@ -118,7 +118,9 @@ def get_feature_set_links(host: Artifact | Collection) -> QuerySet:
 
 def get_link_attr(link: LinkORM | type[LinkORM], data: HasFeatures) -> str:
     link_model_name = link.__class__.__name__
-    if link_model_name == "ModelBase":  # we passed the type of the link
+    if (
+        link_model_name == "ModelBase" or link_model_name == "RegistryMeta"
+    ):  # we passed the type of the link
         link_model_name = link.__name__
     link_attr = link_model_name.replace(data.__class__.__name__, "")
     if link_attr == "ExperimentalFactor":
