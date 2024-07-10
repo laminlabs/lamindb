@@ -589,7 +589,7 @@ def _add_values(
         links = [
             LinkORM(
                 **{
-                    f"{self._host.__get_name_with_schema__().lower()}_id": self._host.id,
+                    f"{self._host.__class__.__get_name_with_schema__().lower()}_id": self._host.id,
                     valuefield_id: feature_value.id,
                 }
             )
