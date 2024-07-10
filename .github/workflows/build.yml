@@ -22,7 +22,7 @@ jobs:
           - "faq"
           - "storage"
           - "cli"
-    timeout-minutes: 6
+    timeout-minutes: 5
 
     steps:
       - uses: actions/checkout@v4
