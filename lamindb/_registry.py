@@ -187,7 +187,7 @@ def _search(
         else:
             return word
 
-    decomposed_string = string.split()
+    decomposed_string = str(string).split()
     # add the entire string back
     decomposed_string += [string]
     for word in decomposed_string:
