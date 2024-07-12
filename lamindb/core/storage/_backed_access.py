@@ -765,13 +765,15 @@ def backed_access(
             if "token" in storage_options:
                 tiledb_config["vfs.s3.aws_session_token"] = storage_options["token"]
             ctx = soma.SOMATileDBContext(tiledb_config=tiledb_config)
+        else:
+            ctx = None
 
-            soma_objects = [obj.name for obj in filepath.iterdir()]
-            if "obs" in soma_objects and "ms" in soma_objects:
-                SOMAType = soma.Experiment
-            else:
-                SOMAType = soma.Collection
-            return SOMAType.open(filepath_str, context=ctx)
+        soma_objects = [obj.name for obj in filepath.iterdir()]
+        if "obs" in soma_objects and "ms" in soma_objects:
+            SOMAType = soma.Experiment
+        else:
+            SOMAType = soma.Collection
+        return SOMAType.open(filepath_str, context=ctx)
     elif suffix in {".h5", ".hdf5", ".h5ad"}:
         conn, storage = registry.open("h5py", filepath)
     elif suffix == ".zarr":
