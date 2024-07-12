@@ -1,13 +1,21 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Iterable
+from typing import TYPE_CHECKING, Dict, Iterable, List
 
 import anndata as ad
 import lamindb_setup as ln_setup
 import pandas as pd
 from lamin_utils import colors, logger
 from lamindb_setup.core._docs import doc_args
-from lnschema_core import Artifact, Collection, Feature, Registry, Run, ULabel
+from lnschema_core import (
+    Artifact,
+    Collection,
+    Feature,
+    FeatureSet,
+    Registry,
+    Run,
+    ULabel,
+)
 
 from .core.exceptions import ValidationError
 
@@ -73,6 +81,91 @@ class AnnotateLookup:
             )
         else:  # pragma: no cover
             return colors.warning("No fields are found!")
+
+
+class BaseAnnotator:
+    """Base annotation flow."""
+
+    def __init__(
+        self,
+        using: str | None = None,
+        verbosity: str = "hint",
+        organism: str | None = None,
+    ) -> None:
+        from lamindb.core._settings import settings
+
+        self._using = using
+        settings.verbosity = verbosity
+        self._artifact = None
+        self._validated = False
+        self._kwargs: dict = {"organism": organism} if organism else {}
+        self._features: dict = {}
+        self._labels: dict = {}
+
+    @property
+    def labels(self) -> dict:
+        """Return the labels fields to validate against."""
+        return self._labels
+
+    @property
+    def features(self) -> Iterable[str]:
+        """Return the features to validate."""
+        return self._features
+
+    def save_features(
+        self,
+        values: Iterable[str],
+        slot: str,
+        field: FieldAttr = Feature.name,
+        validated_only: bool = True,
+        **kwargs,
+    ) -> None:
+        """Save feature records."""
+        features = update_registry(
+            values=list(values),
+            field=field,
+            key=kwargs.get("key") or "features",
+            save_function=kwargs.get("save_function") or "validated_only=False",
+            using=self._using,
+            validated_only=validated_only,
+            **kwargs,
+        )
+        if len(features) == 0:
+            logger.warning("Didn't create featureset as no features are validated!")
+        else:
+            feature_set = FeatureSet(features=features).save()
+            self._features.update({slot: feature_set})
+
+    def save_labels(
+        self,
+        values: Iterable[str],
+        field: FieldAttr,
+        feature: str | Feature | None,
+        validated_only: bool = True,
+        **kwargs,
+    ) -> None:
+        """Save label records."""
+        labels = update_registry(
+            values=list(values),
+            field=field,
+            key=kwargs.get("key") or "labels",
+            save_function=kwargs.get("save_function") or "validated_only=False",
+            using=self._using,
+            validated_only=validated_only,
+            **kwargs,
+        )
+        self._labels.update({feature: labels})
+
+    def save_artifact(
+        self, data: UPathStr, description: str | None = None, **kwargs
+    ) -> Artifact:
+        """Save the artifact."""
+        artifact = Artifact(data, description=description, **kwargs).save()
+        for slot, featureset in self._features.items():
+            artifact.features.add_feature_set(featureset=featureset, slot=slot)
+        for feature, labels in self._labels.items():
+            artifact.labels.add_labels(labels=labels, feature=feature)
+        return artifact
 
 
 class DataFrameAnnotator:
@@ -1040,7 +1133,7 @@ def update_registry(
     organism: str | None = None,
     dtype: str | None = None,
     **kwargs,
-) -> None:
+) -> list[Registry]:
     """Save features or labels records in the default instance from the using instance.
 
     Args:
@@ -1067,9 +1160,13 @@ def update_registry(
         inspect_result_current = standardize_and_inspect(
             values=values, field=field, registry=registry, **filter_kwargs
         )
+
         if not inspect_result_current.non_validated:
+            all_labels = registry.from_values(
+                inspect_result_current.validated, field=field, **filter_kwargs
+            )
             settings.verbosity = verbosity
-            return
+            return all_labels
 
         labels_saved: dict = {"from public": [], "without reference": []}
 
@@ -1112,6 +1209,13 @@ def update_registry(
 
         if registry == ULabel and field.field.name == "name":
             save_ulabels_with_parent(values, field=field, key=key)
+
+        # get all records
+        all_labels = registry.from_values(
+            inspect_result_current.validated + inspect_result_current.non_validated,
+            field=field,
+            **filter_kwargs,
+        )
     finally:
         settings.verbosity = verbosity
 
@@ -1122,6 +1226,7 @@ def update_registry(
         model_field=f"{registry.__name__}.{field.field.name}",
         validated_only=validated_only,
     )
+    return all_labels
 
 
 def log_saved_labels(
