@@ -106,6 +106,7 @@ def build(session, group):
 
     login_testuser2(session)
     login_testuser1(session)
+    run("lamin set prune-django-api")
     coverage_args = "--cov=lamindb --cov-config=pyproject.toml --cov-append --cov-report=term-missing"
     if group == "unit":
         run(session, f"pytest {coverage_args} ./tests")
