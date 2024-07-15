@@ -210,6 +210,12 @@ def test_backed_tiledbsoma(storage):
     artifact_soma = ln.Artifact("test.tiledbsoma", description="test tiledbsoma")
     artifact_soma.save()
 
+    # otherwise backed will use the cached object for connection
+    if storage is not None:
+        cache_path = artifact_soma.cache()
+        shutil.rmtree(cache_path)
+        assert not cache_path.exists()
+
     experiment = artifact_soma.backed()
     assert isinstance(experiment, tiledbsoma.Experiment)
     experiment.close()
