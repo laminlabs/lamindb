@@ -63,7 +63,8 @@ except ImportError:
 if TYPE_CHECKING:
     from lamindb_setup.core.types import UPathStr
     from mudata import MuData
-    from tiledbsoma import Collection, Experiment
+    from tiledbsoma import Collection as SOMACollection
+    from tiledbsoma import Experiment as SOMAExperiment
 
     from lamindb.core.storage._backed_access import AnnDataAccessor, BackedAccessor
 
@@ -862,7 +863,7 @@ def replace(
 # docstring handled through attach_func_to_class_method
 def backed(
     self, is_run_input: bool | None = None
-) -> AnnDataAccessor | BackedAccessor | Collection | Experiment:
+) -> AnnDataAccessor | BackedAccessor | SOMACollection | SOMAExperiment:
     # ignore empty suffix for now
     suffixes = (".h5", ".hdf5", ".h5ad", ".zarr", ".tiledbsoma", "")
     if self.suffix not in suffixes:
