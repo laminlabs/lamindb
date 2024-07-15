@@ -323,10 +323,13 @@ def get_default_str_field(
 
 
 def _queryset(cls: Registry | QuerySet | Manager, using_key: str) -> QuerySet:
-    queryset = (
-        cls.all() if isinstance(cls, QuerySet) else cls.objects.using(using_key).all()
-    )
-    return queryset
+    if isinstance(cls, (QuerySet, Manager)):
+        return cls.all()
+    elif using_key is None:
+        return cls.objects.all()
+    else:
+        # using must be called on cls, otherwise the connection isn't found
+        return cls.using(using_key).all()
 
 
 def add_db_connection(db: str, using: str):
