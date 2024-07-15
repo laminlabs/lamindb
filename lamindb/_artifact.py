@@ -444,7 +444,7 @@ def log_storage_hint(
     logger.hint(hint)
 
 
-def data_is_anndata(data: AnnData | UPathStr):
+def data_is_anndata(data: AnnData | UPathStr) -> bool:
     if isinstance(data, AnnData):
         return True
     if isinstance(data, (str, Path, UPath)):
@@ -464,7 +464,7 @@ def data_is_anndata(data: AnnData | UPathStr):
     return False
 
 
-def data_is_mudata(data: MuData | UPathStr):
+def data_is_mudata(data: MuData | UPathStr) -> bool:
     if _mudata_is_installed():
         from mudata import MuData
 
@@ -965,7 +965,10 @@ def delete(
         )
         delete_record = response == "y"
     else:
-        assert permanent
+        if not permanent:
+            raise ValueError(
+                "Attempting to delete a record but permanent is not set to True."
+            )
         delete_record = True
 
     if delete_record:

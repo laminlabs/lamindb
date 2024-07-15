@@ -41,7 +41,10 @@ def finish() -> None:
     if run_context.run is None:
         raise TrackNotCalled("Please run `ln.track()` before `ln.finish()`")
     if run_context.path is None:
-        assert run_context.transform.type not in {"script", "notebook"}
+        if run_context.transform.type in {"script", "notebook"}:
+            raise ValueError(
+                f"Transform type must be 'script' or 'notebook' but is {run_context.transform.type}."
+            )
         run_context.run.finished_at = datetime.now(timezone.utc)
         run_context.run.save()
         # nothing else to do
@@ -107,9 +110,14 @@ def save_run_context_core(
         # convert the notebook file to html
         # log_level is set to 40 to silence the nbconvert logging
         subprocess.run(
-            "jupyter nbconvert --to html"
-            f" '{filepath.as_posix()}' --Application.log_level=40",
-            shell=True,
+            [  # noqa: S607
+                "jupyter",
+                "nbconvert",
+                "--to",
+                "html",
+                filepath.as_posix(),
+                "--Application.log_level=40",
+            ],
             check=True,
         )
         # move the temporary file into the cache dir in case it's accidentally
@@ -129,8 +137,12 @@ def save_run_context_core(
         source_code_path = ln_setup.settings.storage.cache_dir / filepath.name
         shutil.copy2(filepath, source_code_path)  # copy
         subprocess.run(
-            f"nbstripout '{source_code_path}' --extra-keys='metadata.version metadata.kernelspec metadata.language_info metadata.pygments_lexer metadata.name metadata.file_extension'",
-            shell=True,
+            [  # noqa: S607
+                "nbstripout",
+                source_code_path,
+                "--extra-keys",
+                "metadata.version metadata.kernelspec metadata.language_info metadata.pygments_lexer metadata.name metadata.file_extension",
+            ],
             check=True,
         )
     # find initial versions of source codes and html reports
