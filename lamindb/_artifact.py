@@ -863,12 +863,13 @@ def replace(
 def backed(
     self, is_run_input: bool | None = None
 ) -> AnnDataAccessor | BackedAccessor | Collection | Experiment:
-    suffixes = (".h5", ".hdf5", ".h5ad", ".zarr")
+    # ignore empty suffix for now
+    suffixes = (".h5", ".hdf5", ".h5ad", ".zarr", ".tiledbsoma", "")
     if self.suffix not in suffixes:
         raise ValueError(
-            "Artifact should have a zarr or h5 object as the underlying data, please"
+            "Artifact should have a zarr, h5 or tiledbsoma object as the underlying data, please"
             " use one of the following suffixes for the object name:"
-            f" {', '.join(suffixes)}."
+            f" {', '.join(suffixes[:-1])}."
         )
 
     from lamindb.core.storage._backed_access import backed_access
