@@ -766,11 +766,15 @@ def backed_access(
             if "token" in storage_options:
                 tiledb_config["vfs.s3.aws_session_token"] = storage_options["token"]
             ctx = soma.SOMATileDBContext(tiledb_config=tiledb_config)
+            # this is a strange bug
+            # for some reason iterdir futher gives incorrect results
+            # if cache is not invalidated
+            # instead of obs and ms it gives ms and ms in the list of names
+            filepath.fs.invalidate_cache()
         else:
             ctx = None
 
         soma_objects = [obj.name for obj in filepath.iterdir()]
-        print(soma_objects)
         if "obs" in soma_objects and "ms" in soma_objects:
             SOMAType = soma.Experiment
         else:
