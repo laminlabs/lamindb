@@ -1171,7 +1171,7 @@ def log_saved_labels(
 def save_ulabels_with_parent(values: list[str], field: FieldAttr, key: str) -> None:
     """Save a parent label for the given labels."""
     registry = field.field.model
-    if not isinstance(registry, ULabel):
+    if not registry == ULabel:
         raise TypeError("Field must be of type ULabel.")
     all_records = registry.from_values(values, field=field)
     is_feature = registry.filter(name=f"is_{key}").one_or_none()
