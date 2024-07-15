@@ -7,6 +7,7 @@ import numpy as np
 import pandas as pd
 import pytest
 import tiledbsoma
+import tiledbsoma.io
 import zarr
 from lamindb.core.storage._backed_access import BackedAccessor, backed_access
 from lamindb.core.storage._zarr import read_adata_zarr, write_adata_zarr
