@@ -166,7 +166,9 @@ ignore = [
     # open()` should be replaced by `Path.open()
     "PTH123",
     # subprocess` call: check for execution of untrusted input - https://github.com/PyCQA/bandit/issues/333
-    "S603"
+    "S603",
+    # Starting a process with a partial executable path
+    "S607"
 ]
 
 [tool.ruff.pydocstyle]

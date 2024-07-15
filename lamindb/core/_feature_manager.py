@@ -430,7 +430,8 @@ def _add_values(
     if isinstance(keys, DICT_KEYS_TYPE):
         keys = list(keys)  # type: ignore
     # deal with other cases later
-    assert all(isinstance(key, str) for key in keys)
+    if not all(isinstance(key, str) for key in keys):
+        raise TypeError("Not all values keys were strings.")
     registry = feature_param_field.field.model
     is_param = registry == Param
     model = Param if is_param else Feature
@@ -666,10 +667,12 @@ def _add_set_from_df(
 ):
     """Add feature set corresponding to column names of DataFrame."""
     if isinstance(self._host, Artifact):
-        assert self._host.accessor == "DataFrame"
+        if not self._host.accessor == "DataFrame":
+            raise TypeError(f"Accessor is not DataFrame but {self._host.accessor}.")
     else:
         # Collection
-        assert self._host.artifact.accessor == "DataFrame"
+        if not self._host.artifact.accessor == "DataFrame":
+            raise TypeError(f"Accessor is not DataFrame but {self._host.accessor}.")
 
     # parse and register features
     registry = field.field.model
@@ -697,7 +700,10 @@ def _add_set_from_anndata(
 ):
     """Add features from AnnData."""
     if isinstance(self._host, Artifact):
-        assert self._host.accessor == "AnnData"
+        if not self._host.accessor == "AnnData":
+            raise TypeError(
+                f"Accessor is not AnnData object but {self._host.accessor}."
+            )
     else:
         raise NotImplementedError()
 
@@ -727,7 +733,10 @@ def _add_set_from_mudata(
     if obs_fields is None:
         obs_fields = {}
     if isinstance(self._host, Artifact):
-        assert self._host.accessor == "MuData"
+        if not self._host.accessor == "MuData":
+            raise TypeError(
+                f"Accessor is not a MuData object but {self._host.accessor}."
+            )
     else:
         raise NotImplementedError()
 

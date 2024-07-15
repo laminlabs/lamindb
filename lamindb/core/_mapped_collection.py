@@ -107,7 +107,10 @@ class MappedCollection:
         parallel: bool = False,
         dtype: str | None = None,
     ):
-        assert join in {None, "inner", "outer"}
+        if join not in {None, "inner", "outer"}:
+            raise ValueError(
+                f"join must be one of None, 'inner, or 'outer' but was {type(join)}"
+            )
 
         if layers_keys is None:
             self.layers_keys = ["X"]

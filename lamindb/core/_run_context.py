@@ -43,7 +43,7 @@ def get_uid_ext(version: str) -> str:
     # merely zero-padding the nbproject version such that the base62 encoding is
     # at least 4 characters long doesn't yields sufficiently diverse hashes and
     # leads to collisions; it'd be nice because the uid_ext would be ordered
-    return encodebytes(hashlib.md5(version.encode()).digest())[:4]
+    return encodebytes(hashlib.md5(version.encode()).digest())[:4]  # noqa: S324
 
 
 def update_stem_uid_or_version(
@@ -113,7 +113,7 @@ def get_notebook_name_colab() -> str:
 
     ip = gethostbyname(gethostname())  # 172.28.0.12
     try:
-        name = get(f"http://{ip}:9000/api/sessions").json()[0]["name"]
+        name = get(f"http://{ip}:9000/api/sessions").json()[0]["name"]  # noqa: S113
     except Exception:
         logger.warning(
             "could not get notebook name from Google Colab, using: notebook.ipynb"

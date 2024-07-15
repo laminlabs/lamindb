@@ -110,7 +110,7 @@ def save_run_context_core(
         # convert the notebook file to html
         # log_level is set to 40 to silence the nbconvert logging
         subprocess.run(
-            [  # noqa: S607
+            [
                 "jupyter",
                 "nbconvert",
                 "--to",
@@ -137,7 +137,7 @@ def save_run_context_core(
         source_code_path = ln_setup.settings.storage.cache_dir / filepath.name
         shutil.copy2(filepath, source_code_path)  # copy
         subprocess.run(
-            [  # noqa: S607
+            [
                 "nbstripout",
                 source_code_path,
                 "--extra-keys",

@@ -33,7 +33,7 @@ def pytest_sessionfinish(session: pytest.Session):
         ln.UPath("s3://lamindb-test/.lamindb").rmdir()
     ln.setup.delete("lamindb-unit-tests", force=True)
     # shutil.rmtree("./outside_storage")
-    run("docker stop pgtest && docker rm pgtest", shell=True, stdout=DEVNULL)
+    run("docker stop pgtest && docker rm pgtest", shell=True, stdout=DEVNULL)  # noqa: S602
     ln.setup.settings.auto_connect = AUTO_CONNECT
 
 

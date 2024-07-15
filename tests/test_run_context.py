@@ -127,7 +127,7 @@ def test_run_script():
     script_path = "sub/lamin-cli/tests/scripts/run-track-and-finish-sync-git.py"
     result = subprocess.run(
         f"python {script_path}",
-        shell=True,
+        shell=True,  # noqa: S602
         capture_output=True,
     )
     print(result.stdout.decode())

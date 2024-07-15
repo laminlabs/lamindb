@@ -208,7 +208,9 @@ def safer_read_partial(elem, indices):
                 ds = CSRDataset(elem)
                 result = _subset_sparse(ds, indices)
             except Exception:
-                pass
+                logger.debug(
+                    "Encountered an exception while attempting to subset a sparse dataset by indices."
+                )
         if result is None:
             raise ValueError(
                 "Can not get a subset of the element of type"
@@ -306,7 +308,9 @@ if ZARR_INSTALLED:
                     ds = CSRDataset(elem)
                     return _subset_sparse(ds, indices)
                 except Exception:
-                    pass
+                    logger.debug(
+                        "Encountered an exception while attempting to subset a sparse dataset by indices."
+                    )
             raise ValueError(
                 "Can not get a subset of the element of type"
                 f" {type(elem).__name__} with an empty spec."
