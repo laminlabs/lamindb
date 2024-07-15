@@ -6,6 +6,7 @@ import lamindb as ln
 import numpy as np
 import pandas as pd
 import pytest
+import tiledbsoma
 import zarr
 from lamindb.core.storage._backed_access import BackedAccessor, backed_access
 from lamindb.core.storage._zarr import read_adata_zarr, write_adata_zarr
@@ -194,3 +195,18 @@ def test_backed_zarr_not_adata():
     assert access.storage["test"][...] == "test"
 
     shutil.rmtree(zarr_pth)
+
+
+def test_backed_tiledbsoma_local():
+    test_file = ln.core.datasets.anndata_file_pbmc68k_test()
+    tiledbsoma.io.from_h5ad("test.tiledbsoma", test_file, "RNA")
+
+    artifact_soma = ln.Artifact(test_file, description="test tiledbsoma")
+    artifact_soma.save()
+
+    experiment = artifact_soma.backed()
+    assert isinstance(experiment, tiledbsoma.Experiment)
+    experiment.close()
+
+    artifact_soma.delete(permanent=True, storage=True)
+    shutil.rmtree("test.tiledbsoma")
