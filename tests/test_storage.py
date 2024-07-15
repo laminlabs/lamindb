@@ -202,7 +202,7 @@ def test_backed_tiledbsoma_local():
     test_file = ln.core.datasets.anndata_file_pbmc68k_test()
     tiledbsoma.io.from_h5ad("test.tiledbsoma", test_file, "RNA")
 
-    artifact_soma = ln.Artifact(test_file, description="test tiledbsoma")
+    artifact_soma = ln.Artifact("test.tiledbsoma", description="test tiledbsoma")
     artifact_soma.save()
 
     experiment = artifact_soma.backed()
