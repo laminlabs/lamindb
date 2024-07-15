@@ -87,12 +87,12 @@ def __init__(orm: Registry, *args, **kwargs):
             if match:
                 if "version" in kwargs:
                     version_comment = " and version"
-                    existing_record = orm.filter(
+                    existing_record = orm.__class__.filter(
                         name=kwargs["name"], version=kwargs["version"]
                     ).one_or_none()
                 else:
                     version_comment = ""
-                    existing_record = orm.filter(name=kwargs["name"]).one()
+                    existing_record = orm.__class__.filter(name=kwargs["name"]).one()
                 if existing_record is not None:
                     logger.important(
                         f"returning existing {orm.__class__.__name__} record with same"

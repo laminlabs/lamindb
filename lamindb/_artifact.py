@@ -1,22 +1,19 @@
 from __future__ import annotations
 
-import os
 import shutil
-from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path, PurePath, PurePosixPath
 from typing import TYPE_CHECKING, Any, Mapping
 
 import fsspec
 import lamindb_setup as ln_setup
 import pandas as pd
-import psutil
 from anndata import AnnData
 from lamin_utils import colors, logger
 from lamindb_setup import settings as setup_settings
 from lamindb_setup._init_instance import register_storage_in_instance
 from lamindb_setup.core._docs import doc_args
 from lamindb_setup.core._settings_storage import init_storage
-from lamindb_setup.core.hashing import b16_to_b64, hash_file, hash_md5s_from_dir
+from lamindb_setup.core.hashing import hash_dir, hash_file
 from lamindb_setup.core.upath import (
     create_path,
     extract_suffix_from_path,
@@ -207,26 +204,7 @@ def get_stat_or_artifact(
             return size, hash, hash_type, n_objects
     else:
         if path.is_dir():
-            files = (subpath for subpath in path.rglob("*") if subpath.is_file())
-
-            def hash_size(file):
-                file_size = file.stat().st_size
-                return hash_file(file, file_size)[0], file_size
-
-            try:
-                n_workers = len(psutil.Process().cpu_affinity())
-            except AttributeError:
-                n_workers = psutil.cpu_count()
-            if n_workers > 1:
-                with ThreadPoolExecutor(n_workers) as pool:
-                    hashes_sizes = pool.map(hash_size, files)
-            else:
-                hashes_sizes = map(hash_size, files)
-            hashes, sizes = zip(*hashes_sizes)
-
-            hash, hash_type = hash_md5s_from_dir(hashes)
-            n_objects = len(hashes)
-            size = sum(sizes)
+            size, hash, hash_type, n_objects = hash_dir(path)
         else:
             hash, hash_type = hash_file(path)
             size = stat.st_size
@@ -1106,5 +1084,3 @@ for name in METHOD_NAMES:
 Artifact._delete_skip_storage = _delete_skip_storage
 Artifact._save_skip_storage = _save_skip_storage
 Artifact.path = path
-# this seems a Django-generated function
-delattr(Artifact, "get_visibility_display")

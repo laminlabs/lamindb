@@ -40,7 +40,7 @@ def test_bump_version():
     assert bump_version(current_version_major_minor, bump_type="minor") == "2.2"
 
 
-def test_add_to_version_family(df1, df2):
+def test__add_to_version_family(df1, df2):
     artifact1 = ln.Artifact.from_df(df1, description="test1")
     artifact1.save()
     artifact2 = ln.Artifact.from_df(df2, description="test2")
@@ -49,7 +49,7 @@ def test_add_to_version_family(df1, df2):
         artifact1.uid[: artifact1._len_stem_uid]
         != artifact2.uid[: artifact2._len_stem_uid]
     )
-    artifact2.add_to_version_family(artifact1)
+    artifact2._add_to_version_family(artifact1)
     assert (
         artifact1.uid[: artifact1._len_stem_uid]
         == artifact2.uid[: artifact2._len_stem_uid]
