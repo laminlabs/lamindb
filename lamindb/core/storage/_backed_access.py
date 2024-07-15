@@ -28,6 +28,7 @@ if TYPE_CHECKING:
     from pathlib import Path
 
     from fsspec.core import OpenFile
+    from tiledbsoma import Collection, Experiment
 
 anndata_version_parse = version.parse(anndata_version)
 
@@ -734,7 +735,7 @@ class BackedAccessor:
 
 def backed_access(
     artifact_or_filepath: Artifact | Path, using_key: str | None = None
-) -> AnnDataAccessor | BackedAccessor:
+) -> AnnDataAccessor | BackedAccessor | Collection | Experiment:
     if isinstance(artifact_or_filepath, Artifact):
         filepath = filepath_from_artifact(artifact_or_filepath, using_key=using_key)
     else:
