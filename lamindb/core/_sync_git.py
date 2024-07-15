@@ -105,7 +105,7 @@ def get_filepath_within_git_repo(
     git_process.stdout.close()
     git_process.wait()
 
-    command = f"git ls-tree -r {commit_hash} | grep -E {blob_hash}"
+    command = " ".join(git_command) + " | " + " ".join(grep_command)
     if result.returncode != 0 and result.stderr.decode() != "":
         raise RuntimeError(f"{command}\n{result.stderr.decode()}")
     if len(result.stdout.decode()) == 0:
