@@ -198,7 +198,12 @@ def test_backed_zarr_not_adata():
     shutil.rmtree(zarr_pth)
 
 
-def test_backed_tiledbsoma_local():
+@pytest.mark.parametrize("storage", [None, "s3://lamindb-test"])
+def test_backed_tiledbsoma(storage):
+    if storage is not None:
+        previous_storage = ln.setup.settings.storage.root_as_str
+        ln.settings.storage = "s3://lamindb-test"
+
     test_file = ln.core.datasets.anndata_file_pbmc68k_test()
     tiledbsoma.io.from_h5ad("test.tiledbsoma", test_file, "RNA")
 
@@ -211,3 +216,6 @@ def test_backed_tiledbsoma_local():
 
     artifact_soma.delete(permanent=True, storage=True)
     shutil.rmtree("test.tiledbsoma")
+
+    if storage is not None:
+        ln.settings.storage = previous_storage
