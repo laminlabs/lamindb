@@ -770,6 +770,7 @@ def backed_access(
             ctx = None
 
         soma_objects = [obj.name for obj in filepath.iterdir()]
+        print(soma_objects)
         if "obs" in soma_objects and "ms" in soma_objects:
             SOMAType = soma.Experiment
         else:
