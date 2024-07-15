@@ -750,10 +750,10 @@ def backed_access(
             raise ImportError(
                 "Please install tiledbsoma: pip install tiledbsoma"
             ) from e
+        filepath_str = filepath.as_posix()
         if filepath.protocol == "s3":
             from lamindb_setup.core._settings_storage import get_storage_region
 
-            filepath_str = filepath.as_posix()
             region = get_storage_region(filepath_str)
             tiledb_config = {"vfs.s3.region": region}
             storage_options = filepath.storage_options
