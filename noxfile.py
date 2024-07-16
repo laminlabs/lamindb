@@ -160,7 +160,7 @@ def docs(session):
         os.environ["NO_RICH"] = "1"
         from lamin_cli.__main__ import _generate_help
 
-        page = "# `lamin`\n\nFor a guide, see: {doc}`/setup`.\n\n"
+        page = "# `lamin`\n\nFor a guide, see: {doc}`/setup`.\n"
         helps = _generate_help()
         for name, help_string in helps.items():
             names = name.split(" ")
@@ -169,8 +169,11 @@ def docs(session):
                 section = (
                     "```\n\n" + "#" * len(names) + " " + " ".join(("lamin", *names[1:]))
                 )
+                if names[1] == "register":
+                    # ignore deprecated 'register' command
+                    continue
             help_string = help_string.replace("Usage: main", "Usage: lamin")
-            page += f"{section}\n\n```\n{help_string}```\n\n"
+            page += f"{section}\n\n```\n{help_string}\n\n"
         Path("./docs/cli.md").write_text(page)
 
     generate_cli_docs()
