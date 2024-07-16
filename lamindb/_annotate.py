@@ -16,11 +16,11 @@ from lnschema_core import (
     Run,
     ULabel,
 )
-from mudata import MuData
 
 from .core.exceptions import ValidationError
 
 if TYPE_CHECKING:
+    from mudata import MuData
     from lamindb_setup.core.types import UPathStr
     from lnschema_core.types import FieldAttr
 
