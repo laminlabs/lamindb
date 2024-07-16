@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Iterable, List
+from typing import TYPE_CHECKING, Any, Iterable
 
 import anndata as ad
 import lamindb_setup as ln_setup
@@ -16,13 +16,13 @@ from lnschema_core import (
     Run,
     ULabel,
 )
+from mudata import MuData
 
 from .core.exceptions import ValidationError
 
 if TYPE_CHECKING:
     from lamindb_setup.core.types import UPathStr
     from lnschema_core.types import FieldAttr
-    from mudata import MuData
 
 
 class AnnotateLookup:
@@ -81,94 +81,6 @@ class AnnotateLookup:
             )
         else:  # pragma: no cover
             return colors.warning("No fields are found!")
-
-
-class Annotator:
-    """Annotation flow."""
-
-    def __init__(
-        self,
-        using: str | None = None,
-        verbosity: str = "hint",
-        organism: str | None = None,
-    ) -> None:
-        from lamindb.core._settings import settings
-
-        self._using = using
-        settings.verbosity = verbosity
-        self._artifact = None
-        self._validated = False
-        self._kwargs: dict = {"organism": organism} if organism else {}
-        self._features: dict = {}
-        self._labels: list = []
-
-    @property
-    def labels(self) -> list:
-        """Return the labels fields to validate against."""
-        return self._labels
-
-    @property
-    def features(self) -> Iterable[str]:
-        """Return the features to validate."""
-        return self._features
-
-    def save_features(
-        self,
-        values: Iterable[str],
-        slot: str,
-        field: FieldAttr = Feature.name,
-        validated_only: bool = True,
-        **kwargs,
-    ) -> None:
-        """Save feature records."""
-        features = update_registry(
-            values=list(values),
-            field=field,
-            key=kwargs.get("key") or "features",
-            save_function=kwargs.get("save_function") or "validated_only=False",
-            using=self._using,
-            validated_only=validated_only,
-            **kwargs,
-        )
-        if len(features) == 0:
-            logger.warning("Didn't create featureset as no features are validated!")
-        else:
-            feature_set = FeatureSet(features=features)
-            feature_set.save()
-            self._features.update({slot: feature_set})
-
-    def save_labels(
-        self,
-        values: Iterable[str],
-        field: FieldAttr,
-        feature: str | Feature | None,
-        validated_only: bool = True,
-        **kwargs,
-    ) -> None:
-        """Save label records."""
-        labels = update_registry(
-            values=list(values),
-            field=field,
-            key=kwargs.get("key") or "labels",
-            save_function=kwargs.get("save_function") or "validated_only=False",
-            using=self._using,
-            validated_only=validated_only,
-            **kwargs,
-        )
-        if isinstance(feature, str):
-            feature = Feature.filter(name=feature).one()
-        self._labels.append((feature, labels))
-
-    def save_artifact(
-        self, data: UPathStr, description: str | None = None, **kwargs
-    ) -> Artifact:
-        """Save the artifact."""
-        artifact = Artifact(data, description=description, **kwargs).save()
-        for slot, featureset in self._features.items():
-            artifact.features.add_feature_set(featureset, slot=slot)
-        for feature, labels in self._labels:
-            artifact.labels.add(labels, feature=feature)
-        return artifact
 
 
 class DataFrameAnnotator:
@@ -833,6 +745,117 @@ class MuDataAnnotator:
 
 class Annotate:
     """Annotation flow."""
+
+    def __init__(
+        self,
+        data: UPathStr | None = None,
+        using: str | None = None,
+        verbosity: str = "hint",
+        organism: str | None = None,
+    ) -> None:
+        from lamindb.core._settings import settings
+
+        if isinstance(data, pd.DataFrame):
+            raise TypeError("Please use Annotate.from_df() instead!")
+        elif isinstance(data, ad.AnnData):
+            raise TypeError("Please use Annotate.from_anndata() instead!")
+        elif isinstance(data, MuData):
+            raise TypeError("Please use Annotate.from_mudata() instead!")
+        self._data = data
+        self._using = using
+        settings.verbosity = verbosity
+        self._artifact = None
+        self._validated = False
+        self._kwargs: dict = {"organism": organism} if organism else {}
+        self._features: dict = {}
+        self._labels: list = []
+        self._fields: dict = {}
+
+    @property
+    def labels(self) -> list:
+        """Return the labels fields to validate against."""
+        return self._labels
+
+    @property
+    def features(self) -> Iterable[str]:
+        """Return the features to validate."""
+        return self._features
+
+    def lookup(self, using: str | None = None) -> AnnotateLookup:
+        """Lookup categories.
+
+        Args:
+            using: The instance where the lookup is performed.
+                if None (default), the lookup is performed on the instance specified in "using" parameter of the validator.
+                if "public", the lookup is performed on the public reference.
+        """
+        return AnnotateLookup(
+            categoricals=self._fields,
+            using=using or self._using,
+        )
+
+    def save_features(
+        self,
+        values: Iterable[str],
+        slot: str,
+        field: FieldAttr = Feature.name,
+        validated_only: bool = True,
+        **kwargs,
+    ) -> None:
+        """Save feature records."""
+        features = update_registry(
+            values=list(values),
+            field=field,
+            key=kwargs.get("key") or "features",
+            save_function=kwargs.get("save_function") or "validated_only=False",
+            using=self._using,
+            validated_only=validated_only,
+            **kwargs,
+        )
+        if len(features) == 0:
+            logger.warning("Didn't create featureset as no features are validated!")
+        else:
+            feature_set = FeatureSet(features=features)
+            feature_set.save()
+            self._features.update({slot: feature_set})
+            self._fields.update({slot: field})
+
+    def save_labels(
+        self,
+        values: Iterable[str],
+        field: FieldAttr,
+        feature: str | Feature | None,
+        validated_only: bool = True,
+        **kwargs,
+    ) -> None:
+        """Save label records."""
+        labels = update_registry(
+            values=list(values),
+            field=field,
+            key=kwargs.get("key") or "labels",
+            save_function=kwargs.get("save_function") or "validated_only=False",
+            using=self._using,
+            validated_only=validated_only,
+            **kwargs,
+        )
+        if isinstance(feature, str):
+            feature = Feature.filter(name=feature).one()
+        self._labels.append((feature, labels))
+        if feature is not None:
+            self._fields.update({feature.name: field})
+
+    def save_artifact(
+        self, data: UPathStr | None = None, description: str | None = None, **kwargs
+    ) -> Artifact:
+        """Save the artifact."""
+        artifact = Artifact(
+            self._data or data, description=description, **kwargs
+        ).save()
+        for slot, featureset in self._features.items():
+            artifact.features.add_feature_set(featureset, slot=slot)
+        for feature, labels in self._labels:
+            artifact.labels.add(labels, feature=feature)
+        return artifact
 
     @classmethod
     @doc_args(DataFrameAnnotator.__doc__)

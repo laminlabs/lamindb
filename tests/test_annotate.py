@@ -1,4 +1,3 @@
-import logging
 from unittest.mock import Mock
 
 import anndata as ad
@@ -7,7 +6,7 @@ import lamindb as ln
 import mudata as md
 import pandas as pd
 import pytest
-from lamindb._annotate import AnnotateLookup, Annotator
+from lamindb._annotate import AnnotateLookup
 from lamindb.core.exceptions import ValidationError
 
 
@@ -254,8 +253,8 @@ def test_mudata_annotator(mdata):
     bt.CellType.filter().all().delete()
 
 
-def test_annotator(df):
-    annotator = Annotator()
+def test_annotate(df):
+    annotator = ln.Annotate()
     annotator.save_features(df.columns, slot="columns")
     annotator.save_features(df.columns, slot="columns", validated_only=False)
 
@@ -268,7 +267,7 @@ def test_annotator(df):
         feature="assay_ontology_id",
     )
     annotator.save_labels(df.cell_type, field=bt.CellType.name, feature="cell_type")
-    artifact = annotator.save_artifact(df, description="test df")
+    artifact = annotator.save_artifact(data=df, description="test df")
 
     # clean up
     artifact.delete(permanent=True)
