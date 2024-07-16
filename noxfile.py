@@ -63,6 +63,7 @@ def install(session, group):
     extras = ""
     if group == "unit":
         extras += "bionty,aws,zarr,fcs,jupyter"
+        run(session, "uv pip install --system tiledbsoma")
     elif group == "tutorial":
         extras += "aws,jupyter,bionty"
     elif group == "guide":
