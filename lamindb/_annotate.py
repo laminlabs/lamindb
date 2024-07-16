@@ -83,8 +83,8 @@ class AnnotateLookup:
             return colors.warning("No fields are found!")
 
 
-class BaseAnnotator:
-    """Base annotation flow."""
+class Annotator:
+    """Annotation flow."""
 
     def __init__(
         self,
@@ -100,10 +100,10 @@ class BaseAnnotator:
         self._validated = False
         self._kwargs: dict = {"organism": organism} if organism else {}
         self._features: dict = {}
-        self._labels: dict = {}
+        self._labels: list = []
 
     @property
-    def labels(self) -> dict:
+    def labels(self) -> list:
         """Return the labels fields to validate against."""
         return self._labels
 
@@ -133,7 +133,8 @@ class BaseAnnotator:
         if len(features) == 0:
             logger.warning("Didn't create featureset as no features are validated!")
         else:
-            feature_set = FeatureSet(features=features).save()
+            feature_set = FeatureSet(features=features)
+            feature_set.save()
             self._features.update({slot: feature_set})
 
     def save_labels(
@@ -154,7 +155,9 @@ class BaseAnnotator:
             validated_only=validated_only,
             **kwargs,
         )
-        self._labels.update({feature: labels})
+        if isinstance(feature, str):
+            feature = Feature.filter(name=feature).one()
+        self._labels.append((feature, labels))
 
     def save_artifact(
         self, data: UPathStr, description: str | None = None, **kwargs
@@ -162,9 +165,9 @@ class BaseAnnotator:
         """Save the artifact."""
         artifact = Artifact(data, description=description, **kwargs).save()
         for slot, featureset in self._features.items():
-            artifact.features.add_feature_set(featureset=featureset, slot=slot)
-        for feature, labels in self._labels.items():
-            artifact.labels.add_labels(labels=labels, feature=feature)
+            artifact.features.add_feature_set(featureset, slot=slot)
+        for feature, labels in self._labels:
+            artifact.labels.add(labels, feature=feature)
         return artifact
 
 
@@ -1200,11 +1203,14 @@ def update_registry(
             else:
                 if "organism" in filter_kwargs:
                     filter_kwargs["organism"] = _save_organism(name=organism)
+                init_kwargs = {}
                 for value in labels_saved["without reference"]:
-                    filter_kwargs[field.field.name] = value
+                    init_kwargs[field.field.name] = value
                     if registry == Feature:
-                        filter_kwargs["dtype"] = "cat" if dtype is None else dtype
-                    non_validated_records.append(registry(**filter_kwargs, **kwargs))
+                        init_kwargs["dtype"] = "cat" if dtype is None else dtype
+                    non_validated_records.append(
+                        registry(**init_kwargs, **filter_kwargs, **kwargs)
+                    )
             ln_save(non_validated_records)
 
         if registry == ULabel and field.field.name == "name":
