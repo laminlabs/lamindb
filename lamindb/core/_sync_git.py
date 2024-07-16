@@ -65,8 +65,6 @@ def get_git_commit_hash(blob_hash: str, repo_dir: Path | None = None) -> str | N
     if commit_hash == "" or result.returncode == 1:
         return None
     else:
-        if not len(commit_hash) == 40:
-            raise ValueError(f"commit hash |{commit_hash}| is not 40 characters long")
         return commit_hash
 
 

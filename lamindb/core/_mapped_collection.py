@@ -107,7 +107,7 @@ class MappedCollection:
         parallel: bool = False,
         dtype: str | None = None,
     ):
-        if join not in {None, "inner", "outer"}:
+        if join not in {None, "inner", "outer"}:  # pragma: nocover
             raise ValueError(
                 f"join must be one of None, 'inner, or 'outer' but was {type(join)}"
             )

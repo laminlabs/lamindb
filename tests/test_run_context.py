@@ -155,12 +155,15 @@ def test_run_script():
     assert transform.source_code.run is None
 
 
-@pytest.mark.parametrize("type", ["notebook", "script"])
+@pytest.mark.parametrize("type", ["notebook", "script", "invalid_type"])
 def test_track_notebook_or_script_manually(type):
     transform = ln.Transform(name="My notebook", type=type)
     with pytest.raises(ValueError) as error:
         ln.track(transform=transform)
-    assert (
-        error.exconly()
-        == "ValueError: Use ln.track() without passing transform in a notebook or script - metadata is automatically parsed"
-    )
+    if type not in ["notebook", "script"]:
+        assert "Transform type must be 'script' or 'notebook'" in str(error.value)
+    else:
+        assert (
+            error.exconly()
+            == "ValueError: Use ln.track() without passing transform in a notebook or script - metadata is automatically parsed"
+        )

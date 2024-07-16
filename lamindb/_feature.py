@@ -139,10 +139,7 @@ def from_df(cls, df: pd.DataFrame, field: FieldAttr | None = None) -> RecordsLis
     finally:
         settings.verbosity = verbosity
 
-    if len(features) != len(df.columns):
-        raise ValueError(
-            f"The number of features ({len(features)}) and columns ({len(df.columns)}) of the DataFrame do not match."
-        )
+    assert len(features) == len(df.columns)  # noqa: S101
 
     # if len(categoricals_with_unmapped_categories) > 0:
     #     n_max = 20

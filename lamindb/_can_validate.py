@@ -223,8 +223,10 @@ def set_abbr(self, value: str):
     else:
         try:
             self.add_synonym(value, save=False)
-        except Exception:  # pragma: no cover
-            logger.debug("Encountered an Exception while attempting to add synonyms.")
+        except Exception as e:  # pragma: no cover
+            logger.debug(
+                f"Encountered an Exception while attempting to add synonyms.\n{e}"
+            )
 
     if not self._state.adding:
         self.save()

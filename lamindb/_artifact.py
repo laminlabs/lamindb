@@ -965,10 +965,7 @@ def delete(
         )
         delete_record = response == "y"
     else:
-        if not permanent:
-            raise ValueError(
-                "Attempting to delete a record but permanent is not set to True."
-            )
+        assert permanent  # noqa: S101
         delete_record = True
 
     if delete_record:

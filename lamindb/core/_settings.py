@@ -108,8 +108,8 @@ class Settings:
         For example: `ln.sync_git_repo = https://github.com/laminlabs/redun-lamin`
         """
         self._sync_git_repo = sanitize_git_repo_url(value)
-        if not self._sync_git_repo.startswith("https://"):
-            raise ValueError("Github repository URL must start with 'https://'.")
+        if not self._sync_git_repo.startswith("https://"):  # pragma: nocover
+            raise ValueError("git repository URL must start with 'https://'.")
 
     @property
     def storage(self) -> StorageSettings:

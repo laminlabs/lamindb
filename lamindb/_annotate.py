@@ -962,10 +962,7 @@ def save_artifact(
 
     artifact = None
     if data_is_anndata(data):
-        if adata is None:
-            raise ValueError(
-                "Argument `adata` cannot be None if the passed `data` is of type AnnData."
-            )
+        assert adata is not None  # noqa: S101
         artifact = Artifact.from_anndata(data, description=description, **kwargs)
         artifact.n_observations = adata.shape[0]
         data = adata
@@ -1171,7 +1168,8 @@ def log_saved_labels(
 def save_ulabels_with_parent(values: list[str], field: FieldAttr, key: str) -> None:
     """Save a parent label for the given labels."""
     registry = field.field.model
-    if registry != ULabel:
+    assert registry == ULabel  # noqa: S101
+    if registry != ULabel:  # pragma: nocover
         raise TypeError("Field must be of type ULabel.")
     all_records = registry.from_values(values, field=field)
     is_feature = registry.filter(name=f"is_{key}").one_or_none()
