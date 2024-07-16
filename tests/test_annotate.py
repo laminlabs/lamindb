@@ -7,7 +7,7 @@ import lamindb as ln
 import mudata as md
 import pandas as pd
 import pytest
-from lamindb._annotate import AnnotateLookup
+from lamindb._annotate import AnnotateLookup, Annotator
 from lamindb.core.exceptions import ValidationError
 
 
@@ -252,3 +252,20 @@ def test_mudata_annotator(mdata):
     ln.ULabel.filter().all().delete()
     bt.ExperimentalFactor.filter().all().delete()
     bt.CellType.filter().all().delete()
+
+
+def test_annotator(df):
+    annotator = Annotator()
+    annotator.save_features(df.columns, slot="columns")
+    annotator.save_features(df.columns, slot="columns", validated_only=False)
+
+    annotator.save_labels(
+        df.donor, field=ln.ULabel.name, feature="donor", validated_only=False
+    )
+    annotator.save_labels(
+        df.assay_ontology_id,
+        field=bt.ExperimentalFactor.ontology_id,
+        feature="assay_ontology_id",
+    )
+    annotator.save_labels(df.cell_type, field=bt.CellType.name, feature="cell_type")
+    annotator.save_artifact(df, description="test df")
