@@ -6,6 +6,8 @@ import lamindb as ln
 import numpy as np
 import pandas as pd
 import pytest
+import tiledbsoma
+import tiledbsoma.io
 import zarr
 from lamindb.core.storage._backed_access import BackedAccessor, backed_access
 from lamindb.core.storage._zarr import read_adata_zarr, write_adata_zarr
@@ -194,3 +196,32 @@ def test_backed_zarr_not_adata():
     assert access.storage["test"][...] == "test"
 
     shutil.rmtree(zarr_pth)
+
+
+@pytest.mark.parametrize("storage", [None, "s3://lamindb-test"])
+def test_backed_tiledbsoma(storage):
+    if storage is not None:
+        previous_storage = ln.setup.settings.storage.root_as_str
+        ln.settings.storage = "s3://lamindb-test"
+
+    test_file = ln.core.datasets.anndata_file_pbmc68k_test()
+    tiledbsoma.io.from_h5ad("test.tiledbsoma", test_file, "RNA")
+
+    artifact_soma = ln.Artifact("test.tiledbsoma", description="test tiledbsoma")
+    artifact_soma.save()
+
+    # otherwise backed will use the cached object for connection
+    if storage is not None:
+        cache_path = artifact_soma.cache()
+        shutil.rmtree(cache_path)
+        assert not cache_path.exists()
+
+    experiment = artifact_soma.backed()
+    assert isinstance(experiment, tiledbsoma.Experiment)
+    experiment.close()
+
+    artifact_soma.delete(permanent=True, storage=True)
+    shutil.rmtree("test.tiledbsoma")
+
+    if storage is not None:
+        ln.settings.storage = previous_storage
