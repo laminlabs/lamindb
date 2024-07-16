@@ -561,7 +561,7 @@ def test_create_big_file_from_remote_path():
 def test_auto_storage_key_from_artifact_uid(suffix):
     test_id = "abo389f"
     if suffix is None:
-        with pytest.raises(TypeError):
+        with pytest.raises(AssertionError):
             auto_storage_key_from_artifact_uid(test_id, suffix, False)
     else:
         assert AUTO_KEY_PREFIX == ".lamindb/"
