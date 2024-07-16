@@ -162,7 +162,7 @@ def docs(session):
 
         page = "# `lamin`\n\nFor a guide, see: {doc}`/setup`.\n"
         helps = _generate_help()
-        for name, help_string in helps.items():
+        for name, help_dict in helps.items():
             names = name.split(" ")
             section = ""
             if len(names) != 1:
@@ -172,8 +172,10 @@ def docs(session):
                 if names[1] == "register":
                     # ignore deprecated 'register' command
                     continue
-            help_string = help_string.replace("Usage: main", "Usage: lamin")
-            page += f"{section}\n\n```\n{help_string}\n\n"
+
+            help_string = help_dict["help"].replace("Usage: main", "Usage: lamin")
+            help_docstring = help_dict["docstring"]
+            page += f"{section}\n\n{help_docstring}\n\n```text\n{help_string}\n\n"
         Path("./docs/cli.md").write_text(page)
 
     generate_cli_docs()
