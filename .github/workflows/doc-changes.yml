@@ -1,0 +1,23 @@
+name: doc-changes
+
+on:
+  pull_request_target:
+    branches:
+      - main
+    types:
+      - closed
+
+jobs:
+  doc-changes:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: pip install "laminci[doc-changes]@git+https://x-access-token:${{ secrets.LAMIN_BUILD_DOCS }}@github.com/laminlabs/laminci"
+      - run: laminci doc-changes
+        env:
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          docs_token: ${{ secrets.LAMIN_BUILD_DOCS }}
+          changelog_file: lamin-docs/docs/changelog/soon/lamindb.md
