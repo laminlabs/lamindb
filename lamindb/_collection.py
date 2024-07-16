@@ -390,7 +390,5 @@ if ln_setup._TESTING:
 for name in METHOD_NAMES:
     attach_func_to_class_method(name, Collection, globals())
 
-# this seems a Django-generated function
-delattr(Collection, "get_visibility_display")
 Collection.artifacts = artifacts
 Collection.stage = cache

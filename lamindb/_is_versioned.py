@@ -11,7 +11,7 @@ from .core.versioning import get_new_path_from_uid, get_uid_from_old_version
 
 
 # docstring handled through attach_func_to_class_method
-def add_to_version_family(
+def _add_to_version_family(
     self, is_new_version_of: IsVersioned, version: str | None = None
 ):
     old_uid = self.uid
@@ -30,7 +30,7 @@ def add_to_version_family(
 
 
 METHOD_NAMES = [
-    "add_to_version_family",
+    "_add_to_version_family",
 ]
 
 if ln_setup._TESTING:  # type: ignore

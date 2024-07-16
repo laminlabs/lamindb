@@ -64,7 +64,7 @@ def __init__(self, *args, **kwargs):
     dtype: str | None = kwargs.pop("dtype") if "dtype" in kwargs else None
     name: str | None = kwargs.pop("name") if "name" in kwargs else None
     if len(kwargs) > 0:
-        raise ValueError("Only features, type, name are valid keyword arguments")
+        raise ValueError("Only features, dtype, name are valid keyword arguments")
     # now code
     features_registry = validate_features(features)
     if dtype is None:

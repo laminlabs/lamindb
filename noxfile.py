@@ -63,6 +63,7 @@ def install(session, group):
     extras = ""
     if group == "unit":
         extras += "bionty,aws,zarr,fcs,jupyter"
+        run(session, "uv pip install --system tiledbsoma")
     elif group == "tutorial":
         extras += "aws,jupyter,bionty"
     elif group == "guide":
@@ -106,6 +107,7 @@ def build(session, group):
 
     login_testuser2(session)
     login_testuser1(session)
+    run(session, "lamin set private-django-api true")
     coverage_args = "--cov=lamindb --cov-config=pyproject.toml --cov-append --cov-report=term-missing"
     if group == "unit":
         run(session, f"pytest {coverage_args} ./tests")
