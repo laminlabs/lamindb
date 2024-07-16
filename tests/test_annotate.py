@@ -268,4 +268,10 @@ def test_annotator(df):
         feature="assay_ontology_id",
     )
     annotator.save_labels(df.cell_type, field=bt.CellType.name, feature="cell_type")
-    annotator.save_artifact(df, description="test df")
+    artifact = annotator.save_artifact(df, description="test df")
+
+    # clean up
+    artifact.delete(permanent=True)
+    ln.ULabel.filter().all().delete()
+    bt.ExperimentalFactor.filter().all().delete()
+    bt.CellType.filter().all().delete()
