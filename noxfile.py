@@ -82,7 +82,7 @@ def install(session, group):
         run(session, "uv pip install --system vitessce")
     elif group == "docs":
         extras += "bionty"
-        run(session, "uv pip install --system mudata tiledbsoma")
+        run(session, "uv pip install --system mudata")
         run(
             session,
             "uv pip install --system --no-deps ./sub/wetlab",
