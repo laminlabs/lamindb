@@ -557,7 +557,8 @@ def _add_values(
                         "feature_ref_is_name": (
                             True if feature_param_field == Feature.name else None
                         ),
-                        "label_ref_is_name": True,
+                        # TODO: uncomment this
+                        # "label_ref_is_name": True,
                     }
                 )
                 for (feature, label) in registry_features_labels
