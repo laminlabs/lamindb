@@ -1169,8 +1169,6 @@ def save_ulabels_with_parent(values: list[str], field: FieldAttr, key: str) -> N
     """Save a parent label for the given labels."""
     registry = field.field.model
     assert registry == ULabel  # noqa: S101
-    if registry != ULabel:  # pragma: nocover
-        raise TypeError("Field must be of type ULabel.")
     all_records = registry.from_values(values, field=field)
     is_feature = registry.filter(name=f"is_{key}").one_or_none()
     if is_feature is None:
