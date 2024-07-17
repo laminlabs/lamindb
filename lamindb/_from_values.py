@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING, Any, Iterable
 import pandas as pd
 from django.core.exceptions import FieldDoesNotExist
 from lamin_utils import colors, logger
-from lnschema_core.models import Feature, Registry, ULabel
+from lnschema_core.models import Feature, Record, ULabel
 
 from .core._settings import settings
 
@@ -20,14 +20,14 @@ def get_or_create_records(
     *,
     create: bool = False,
     from_public: bool = False,
-    organism: Registry | str | None = None,
-    public_source: Registry | None = None,
+    organism: Record | str | None = None,
+    public_source: Record | None = None,
     mute: bool = False,
-) -> list[Registry]:
+) -> list[Record]:
     """Get or create records from iterables."""
-    Registry = field.field.model
+    Record = field.field.model
     if create:
-        return [Registry(**{field.field.name: value}) for value in iterable]
+        return [Record(**{field.field.name: value}) for value in iterable]
     creation_search_names = settings.creation.search_names
     feature: Feature = None
     organism = _get_organism_record(field, organism)
@@ -68,14 +68,14 @@ def get_or_create_records(
                     logger.success(msg)
                 s = "" if len(unmapped_values) == 1 else "s"
                 print_values = colors.yellow(_print_values(unmapped_values))
-                name = Registry.__name__
+                name = Record.__name__
                 n_nonval = colors.yellow(f"{len(unmapped_values)} non-validated")
                 if not mute:
                     logger.warning(
                         f"{colors.red('did not create')} {name} record{s} for "
                         f"{n_nonval} {colors.italic(f'{field.field.name}{s}')}: {print_values}"
                     )
-        if Registry.__module__.startswith("lnschema_bionty.") or Registry == ULabel:
+        if Record.__module__.startswith("lnschema_bionty.") or Record == ULabel:
             if isinstance(iterable, pd.Series):
                 feature = iterable.name
             feature_name = None
@@ -301,7 +301,7 @@ def _print_values(names: Iterable, n: int = 20, quotes: bool = True) -> str:
     return print_values
 
 
-def _filter_bionty_df_columns(model: Registry, public_ontology: Any) -> pd.DataFrame:
+def _filter_bionty_df_columns(model: Record, public_ontology: Any) -> pd.DataFrame:
     bionty_df = pd.DataFrame()
     if public_ontology is not None:
         model_field_names = {i.name for i in model._meta.fields}
@@ -359,7 +359,7 @@ def _bulk_create_dicts_from_df(
     return df.reset_index().to_dict(orient="records"), multi_msg
 
 
-def _has_organism_field(orm: Registry) -> bool:
+def _has_organism_field(orm: Record) -> bool:
     try:
         orm._meta.get_field("organism")
         return True
@@ -368,8 +368,8 @@ def _has_organism_field(orm: Registry) -> bool:
 
 
 def _get_organism_record(
-    field: StrField, organism: str | Registry, force: bool = False
-) -> Registry:
+    field: StrField, organism: str | Record, force: bool = False
+) -> Record:
     model = field.field.model
     check = True if force else field.field.name != "ensembl_gene_id"
 

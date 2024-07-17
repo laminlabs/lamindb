@@ -1,6 +1,6 @@
 """Fields.
 
-The field accessor of a :class:`~lamindb.core.Registry`:
+The field accessor of a :class:`~lamindb.core.Record`:
 
 .. autosummary::
    :toctree: .

@@ -5,7 +5,7 @@ Registries:
 .. autosummary::
    :toctree: .
 
-   Registry
+   Record
    QuerySet
    QueryManager
    RecordsList
@@ -65,7 +65,7 @@ from lnschema_core.models import (
     HasParents,
     IsVersioned,
     ParamValue,
-    Registry,
+    Record,
     TracksRun,
     TracksUpdates,
 )

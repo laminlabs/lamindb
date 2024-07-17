@@ -13,7 +13,7 @@ from django.db import IntegrityError, transaction
 from django.utils.functional import partition
 from lamin_utils import logger
 from lamindb_setup.core.upath import LocalPathClasses
-from lnschema_core.models import Artifact, Registry
+from lnschema_core.models import Artifact, Record
 
 from lamindb.core._settings import settings
 from lamindb.core.storage.paths import (
@@ -28,7 +28,7 @@ if TYPE_CHECKING:
 
 
 def save(
-    records: Iterable[Registry], ignore_conflicts: bool | None = False, **kwargs
+    records: Iterable[Record], ignore_conflicts: bool | None = False, **kwargs
 ) -> None:
     """Bulk save to registries & storage.
 
@@ -42,7 +42,7 @@ def save(
         existing records! Use ``record.save()`` for these use cases.
 
     Args:
-        records: Multiple :class:`~lamindb.core.Registry` objects.
+        records: Multiple :class:`~lamindb.core.Record` objects.
         ignore_conflicts: If ``True``, do not error if some records violate a
            unique or another constraint. However, it won't inplace update the id
            fields of records. If you need records with ids, you need to query
@@ -69,7 +69,7 @@ def save(
         >>> transform.save()
 
     """
-    if isinstance(records, Registry):
+    if isinstance(records, Record):
         raise ValueError("Please use record.save() if saving a single record.")
 
     # previously, this was all set based,
@@ -122,7 +122,7 @@ def save(
     return None
 
 
-def bulk_create(records: Iterable[Registry], ignore_conflicts: bool | None = False):
+def bulk_create(records: Iterable[Record], ignore_conflicts: bool | None = False):
     records_by_orm = defaultdict(list)
     for record in records:
         records_by_orm[record.__class__].append(record)
@@ -130,7 +130,7 @@ def bulk_create(records: Iterable[Registry], ignore_conflicts: bool | None = Fal
         orm.objects.bulk_create(records, ignore_conflicts=ignore_conflicts)
 
 
-def bulk_update(records: Iterable[Registry], ignore_conflicts: bool | None = False):
+def bulk_update(records: Iterable[Record], ignore_conflicts: bool | None = False):
     records_by_orm = defaultdict(list)
     for record in records:
         records_by_orm[record.__class__].append(record)

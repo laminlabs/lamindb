@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import builtins
-from typing import TYPE_CHECKING, Iterable, List, NamedTuple
+from typing import TYPE_CHECKING, List, NamedTuple
 
 import dj_database_url
 import lamindb_setup as ln_setup
@@ -12,7 +12,7 @@ from lamin_utils._lookup import Lookup
 from lamindb_setup._connect_instance import get_owner_name_from_identifier
 from lamindb_setup.core._docs import doc_args
 from lamindb_setup.core._hub_core import connect_instance
-from lnschema_core import Registry
+from lnschema_core.models import IsVersioned, Record
 
 from lamindb._utils import attach_func_to_class_method
 from lamindb.core._settings import settings
@@ -20,12 +20,14 @@ from lamindb.core._settings import settings
 from ._from_values import get_or_create_records
 
 if TYPE_CHECKING:
+    import pandas as pd
     from lnschema_core.types import ListLike, StrField
+
 
 IPYTHON = getattr(builtins, "__IPYTHON__", False)
 
 
-def init_self_from_db(self: Registry, existing_record: Registry):
+def init_self_from_db(self: Record, existing_record: Record):
     new_args = [
         getattr(existing_record, field.attname) for field in self._meta.concrete_fields
     ]
@@ -34,7 +36,7 @@ def init_self_from_db(self: Registry, existing_record: Registry):
     self._state.db = "default"
 
 
-def validate_required_fields(orm: Registry, kwargs):
+def validate_required_fields(orm: Record, kwargs):
     required_fields = {
         k.name for k in orm._meta.fields if not k.null and k.default is None
     }
@@ -47,7 +49,7 @@ def validate_required_fields(orm: Registry, kwargs):
         raise TypeError(f"{missing_fields} are required.")
 
 
-def suggest_records_with_similar_names(record: Registry, kwargs) -> bool:
+def suggest_records_with_similar_names(record: Record, kwargs) -> bool:
     """Returns True if found exact match, otherwise False.
 
     Logs similar matches if found.
@@ -73,7 +75,7 @@ def suggest_records_with_similar_names(record: Registry, kwargs) -> bool:
     return False
 
 
-def __init__(orm: Registry, *args, **kwargs):
+def __init__(orm: Record, *args, **kwargs):
     if not args:
         validate_required_fields(orm, kwargs)
 
@@ -100,27 +102,66 @@ def __init__(orm: Registry, *args, **kwargs):
                     )
                     init_self_from_db(orm, existing_record)
                     return None
-        super(Registry, orm).__init__(**kwargs)
+        super(Record, orm).__init__(**kwargs)
     elif len(args) != len(orm._meta.concrete_fields):
         raise ValueError("please provide keyword arguments, not plain arguments")
     else:
         # object is loaded from DB (**kwargs could be omitted below, I believe)
-        super(Registry, orm).__init__(*args, **kwargs)
+        super(Record, orm).__init__(*args, **kwargs)
+
+
+@classmethod  # type:ignore
+@doc_args(Record.filter.__doc__)
+def filter(cls, **expressions) -> QuerySet:
+    """{}"""  # noqa: D415
+    from lamindb._filter import filter
+
+    return filter(cls, **expressions)
+
+
+@classmethod  # type:ignore
+@doc_args(Record.get.__doc__)
+def get(cls, idlike: int | str) -> Record:
+    """{}"""  # noqa: D415
+    from lamindb._filter import filter
+
+    if isinstance(idlike, int):
+        return filter(cls, id=idlike).one()
+    else:
+        qs = filter(cls, uid__startswith=idlike)
+        if issubclass(cls, IsVersioned):
+            return qs.latest_version().one()
+        else:
+            return qs.one()
+
+
+@classmethod  # type:ignore
+@doc_args(Record.df.__doc__)
+def df(
+    cls, include: str | list[str] | None = None, join: str = "inner"
+) -> pd.DataFrame:
+    """{}"""  # noqa: D415
+    from lamindb._filter import filter
+
+    query_set = filter(cls)
+    if hasattr(cls, "updated_at"):
+        query_set = query_set.order_by("-updated_at")
+    return query_set.df(include=include, join=join)
 
 
 # from_values doesn't apply for QuerySet or Manager
 @classmethod  # type:ignore
-@doc_args(Registry.from_values.__doc__)
+@doc_args(Record.from_values.__doc__)
 def from_values(
     cls,
     values: ListLike,
     field: StrField | None = None,
     create: bool = False,
-    organism: Registry | str | None = None,
-    public_source: Registry | None = None,
+    organism: Record | str | None = None,
+    public_source: Record | None = None,
     mute: bool = False,
-) -> list[Registry]:
-    """{}."""
+) -> list[Record]:
+    """{}"""  # noqa: D415
     from_public = True if cls.__module__.startswith("lnschema_bionty.") else False
     field_str = get_default_str_field(cls, field=field)
     return get_or_create_records(
@@ -132,14 +173,6 @@ def from_values(
         public_source=public_source,
         mute=mute,
     )
-
-
-# From: https://stackoverflow.com/a/37648265
-def _order_queryset_by_ids(queryset: QuerySet, ids: Iterable):
-    from django.db.models import Case, When
-
-    preserved = Case(*[When(uid=pk, then=pos) for pos, pk in enumerate(ids)])
-    return queryset.filter(uid__in=ids).order_by(preserved)
 
 
 def _search(
@@ -172,7 +205,7 @@ def _search(
                     fields.append(field.field.name)
                 except AttributeError as error:
                     raise TypeError(
-                        "Please pass a Registry string field, e.g., `CellType.name`!"
+                        "Please pass a Record string field, e.g., `CellType.name`!"
                     ) from error
             else:
                 fields.append(field)
@@ -222,7 +255,7 @@ def _search(
 
 
 @classmethod  # type: ignore
-@doc_args(Registry.search.__doc__)
+@doc_args(Record.search.__doc__)
 def search(
     cls,
     string: str,
@@ -231,7 +264,7 @@ def search(
     limit: int | None = 20,
     case_sensitive: bool = False,
 ) -> QuerySet:
-    """{}."""
+    """{}"""  # noqa: D415
     return _search(
         cls=cls,
         string=string,
@@ -247,7 +280,7 @@ def _lookup(
     return_field: StrField | None = None,
     using_key: str | None = None,
 ) -> NamedTuple:
-    """{}."""
+    """{}"""  # noqa: D415
     queryset = _queryset(cls, using_key=using_key)
     field = get_default_str_field(orm=queryset.model, field=field)
 
@@ -266,18 +299,18 @@ def _lookup(
 
 
 @classmethod  # type: ignore
-@doc_args(Registry.lookup.__doc__)
+@doc_args(Record.lookup.__doc__)
 def lookup(
     cls,
     field: StrField | None = None,
     return_field: StrField | None = None,
 ) -> NamedTuple:
-    """{}."""
+    """{}"""  # noqa: D415
     return _lookup(cls=cls, field=field, return_field=return_field)
 
 
 def get_default_str_field(
-    orm: Registry | QuerySet | Manager,
+    orm: Record | QuerySet | Manager,
     *,
     field: str | StrField | None = None,
 ) -> str:
@@ -307,7 +340,7 @@ def get_default_str_field(
         # no default field can be found
         if field is None:
             raise ValueError(
-                "please pass a Registry string field, e.g., `CellType.name`!"
+                "please pass a Record string field, e.g., `CellType.name`!"
             )
         else:
             field = field.name  # type:ignore
@@ -316,13 +349,13 @@ def get_default_str_field(
             field = field.field.name
         except AttributeError:
             raise TypeError(
-                "please pass a Registry string field, e.g., `CellType.name`!"
+                "please pass a Record string field, e.g., `CellType.name`!"
             ) from None
 
     return field
 
 
-def _queryset(cls: Registry | QuerySet | Manager, using_key: str) -> QuerySet:
+def _queryset(cls: Record | QuerySet | Manager, using_key: str) -> QuerySet:
     if isinstance(cls, (QuerySet, Manager)):
         return cls.all()
     elif using_key is None:
@@ -343,12 +376,12 @@ def add_db_connection(db: str, using: str):
 
 
 @classmethod  # type: ignore
-@doc_args(Registry.using.__doc__)
+@doc_args(Record.using.__doc__)
 def using(
     cls,
     instance: str,
 ) -> QuerySet:
-    """{}."""
+    """{}"""  # noqa: D415
     from lamindb_setup._connect_instance import (
         load_instance_settings,
         update_db_using_local,
@@ -381,7 +414,7 @@ REGISTRY_UNIQUE_FIELD = {
 
 
 def update_fk_to_default_db(
-    records: Registry | list[Registry] | QuerySet,
+    records: Record | list[Record] | QuerySet,
     fk: str,
     using_key: str | None,
 ):
@@ -421,12 +454,12 @@ def transfer_fk_to_default_db_bulk(records: list | QuerySet, using_key: str | No
 
 
 def transfer_to_default_db(
-    record: Registry,
+    record: Record,
     using_key: str | None,
     save: bool = False,
     mute: bool = False,
     transfer_fk: bool = True,
-) -> Registry | None:
+) -> Record | None:
     db = record._state.db
     if db is not None and db != "default" and using_key is None:
         registry = record.__class__
@@ -479,7 +512,7 @@ def transfer_to_default_db(
 
 
 # docstring handled through attach_func_to_class_method
-def save(self, *args, **kwargs) -> Registry:
+def save(self, *args, **kwargs) -> Record:
     using_key = None
     if "using" in kwargs:
         using_key = kwargs["using"]
@@ -499,7 +532,7 @@ def save(self, *args, **kwargs) -> Registry:
         save_kwargs = kwargs.copy()
         if "parents" in save_kwargs:
             save_kwargs.pop("parents")
-        super(Registry, self).save(*args, **save_kwargs)
+        super(Record, self).save(*args, **save_kwargs)
     # perform transfer of many-to-many fields
     # only supported for Artifact and Collection records
     if db is not None and db != "default" and using_key is None:
@@ -534,6 +567,9 @@ def save(self, *args, **kwargs) -> Registry:
 
 METHOD_NAMES = [
     "__init__",
+    "filter",
+    "get",
+    "df",
     "search",
     "lookup",
     "save",
@@ -545,10 +581,10 @@ if ln_setup._TESTING:  # type: ignore
     from inspect import signature
 
     SIGS = {
-        name: signature(getattr(Registry, name))
+        name: signature(getattr(Record, name))
         for name in METHOD_NAMES
         if not name.startswith("__")
     }
 
 for name in METHOD_NAMES:
-    attach_func_to_class_method(name, Registry, globals())
+    attach_func_to_class_method(name, Record, globals())
