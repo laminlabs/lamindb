@@ -75,7 +75,7 @@ def test_invalid_transform_type():
     ln.core.run_context.transform_type = "script"
     with pytest.raises(ValueError) as error:
         ln.finish()
-        assert "Transform type is not allowed to be" in error.exconly()
+    assert "Transform type is not allowed to be" in error.exconly()
 
     # unset to remove side effects
     ln.core.run_context.run = None
