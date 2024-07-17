@@ -100,7 +100,7 @@ def __init__(
     else:
         if not hasattr(artifacts, "__getitem__"):
             raise ValueError("Artifact or List[Artifact] is allowed.")
-        assert isinstance(artifacts[0], Artifact)  # type: ignore
+        assert isinstance(artifacts[0], Artifact)  # type: ignore  # noqa: S101
     hash, feature_sets = from_artifacts(artifacts)  # type: ignore
     if meta is not None:
         if not isinstance(meta, Artifact):

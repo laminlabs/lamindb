@@ -66,7 +66,7 @@ def print_labels(self: HasFeatures, field: str = "name", print_types: bool = Fal
                 print_values = _print_values(labels_list, n=10)
                 type_str = f": {related_model}" if print_types else ""
                 labels_msg += f"    .{related_name}{type_str} = {print_values}\n"
-        except Exception:
+        except Exception:  # noqa: S112
             continue
     msg = ""
     if labels_msg:
@@ -102,7 +102,7 @@ def validate_labels(labels: QuerySet | list | dict, parents: bool = True):
                 records = registry.from_values(label_uids, field=field)
                 if len(records) > 0:
                     save(records, parents=parents)
-            except Exception:
+            except Exception:  # noqa S110
                 pass
             field = "uid"
             label_uids = np.array(

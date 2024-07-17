@@ -39,9 +39,12 @@ def save_vitessce_config(vitessce_config: VitessceConfig, description: str) -> A
             if "url" not in file:
                 raise ValueError("Each file must have a 'url' key.")
             filename = file["url"].split("/")[-1]
-            assert filename.endswith(
+            if not filename.endswith(
                 (".anndata.zarr", ".spatialdata.zarr", ".ome.zarr")
-            )
+            ):
+                raise ValueError(
+                    "filename must end with '.anndata.zarr', '.spatialdata.zarr', or '.ome.zarr'."
+                )
             filestem = (
                 filename.replace(".anndata.zarr", "")
                 .replace(".spatialdata.zarr", "")
