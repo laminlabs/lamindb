@@ -278,7 +278,7 @@ def test_annotate(df, adata, mdata):
     bt.ExperimentalFactor.filter().all().delete()
     bt.CellType.filter().all().delete()
 
-    with pytest.raises(ValueError):
+    with pytest.raises(TypeError):
         ln.Annotate(df)
     with pytest.raises(TypeError):
         ln.Annotate(adata)
