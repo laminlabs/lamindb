@@ -100,7 +100,7 @@ class QuerySet(models.QuerySet, CanValidate):
     def df(
         self, include: str | list[str] | None = None, join: str = "inner"
     ) -> pd.DataFrame:
-        """{}."""
+        """{}"""  # noqa: D415
         # re-order the columns
         exclude_field_names = ["created_at"]
         field_names = [
@@ -252,28 +252,28 @@ class QuerySet(models.QuerySet, CanValidate):
 
     @doc_args(Record.search.__doc__)
     def search(self, string: str, **kwargs):
-        """{}."""
+        """{}"""  # noqa: D415
         from ._registry import _search
 
         return _search(cls=self, string=string, **kwargs)
 
     @doc_args(Record.lookup.__doc__)
     def lookup(self, field: StrField | None = None, **kwargs) -> NamedTuple:
-        """{}."""
+        """{}"""  # noqa: D415
         from ._registry import _lookup
 
         return _lookup(cls=self, field=field, **kwargs)
 
     @doc_args(CanValidate.validate.__doc__)
     def validate(self, values: ListLike, field: str | StrField | None = None, **kwargs):
-        """{}."""
+        """{}"""  # noqa: D415
         from ._can_validate import _validate
 
         return _validate(cls=self, values=values, field=field, **kwargs)
 
     @doc_args(CanValidate.inspect.__doc__)
     def inspect(self, values: ListLike, field: str | StrField | None = None, **kwargs):
-        """{}."""
+        """{}"""  # noqa: D415
         from ._can_validate import _inspect
 
         return _inspect(cls=self, values=values, field=field, **kwargs)
@@ -282,7 +282,7 @@ class QuerySet(models.QuerySet, CanValidate):
     def standardize(
         self, values: Iterable, field: str | StrField | None = None, **kwargs
     ):
-        """{}."""
+        """{}"""  # noqa: D415
         from ._can_validate import _standardize
 
         return _standardize(cls=self, values=values, field=field, **kwargs)

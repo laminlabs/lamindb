@@ -32,7 +32,7 @@ def inspect(
     organism: str | Record | None = None,
     public_source: Record | None = None,
 ) -> InspectResult:
-    """{}."""
+    """{}"""  # noqa: D415
     return _inspect(
         cls=cls,
         values=values,
@@ -53,7 +53,7 @@ def validate(
     mute: bool = False,
     organism: str | Record | None = None,
 ) -> np.ndarray:
-    """{}."""
+    """{}"""  # noqa: D415
     return _validate(cls=cls, values=values, field=field, mute=mute, organism=organism)
 
 
@@ -67,7 +67,7 @@ def _inspect(
     organism: str | Record | None = None,
     public_source: Record | None = None,
 ) -> pd.DataFrame | dict[str, list[str]]:
-    """{}."""
+    """{}"""  # noqa: D415
     from lamin_utils._inspect import inspect
 
     if isinstance(values, str):
@@ -150,7 +150,7 @@ def _validate(
     using_key: str | None = None,
     organism: str | Record | None = None,
 ) -> np.ndarray:
-    """{}."""
+    """{}"""  # noqa: D415
     from lamin_utils._inspect import validate
 
     return_str = True if isinstance(values, str) else False
@@ -199,7 +199,7 @@ def standardize(
     synonyms_field: str = "synonyms",
     organism: str | Record | None = None,
 ) -> list[str] | dict[str, str]:
-    """{}."""
+    """{}"""  # noqa: D415
     return _standardize(
         cls=cls,
         values=values,
@@ -264,7 +264,7 @@ def _standardize(
     using_key: str | None = None,
     organism: str | Record | None = None,
 ) -> list[str] | dict[str, str]:
-    """{}."""
+    """{}"""  # noqa: D415
     from lamin_utils._standardize import standardize as map_synonyms
 
     return_str = True if isinstance(values, str) else False

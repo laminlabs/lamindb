@@ -96,7 +96,7 @@ def save_feature_set_links(self: Artifact | Collection) -> None:
 
 @doc_args(HasFeatures.describe.__doc__)
 def describe(self: HasFeatures, print_types: bool = False):
-    """{}."""
+    """{}"""  # noqa: D415
     # prefetch all many-to-many relationships
     # doesn't work for describing using artifact
     # self = (
@@ -183,7 +183,7 @@ def get_labels(
     mute: bool = False,
     flat_names: bool = False,
 ) -> QuerySet | dict[str, QuerySet] | list:
-    """{}."""
+    """{}"""  # noqa: D415
     if not isinstance(feature, Feature):
         raise TypeError("feature has to be of type Feature")
     if feature.dtype is None or not feature.dtype.startswith("cat["):
@@ -229,7 +229,7 @@ def add_labels(
     *,
     field: StrField | None = None,
 ) -> None:
-    """{}."""
+    """{}"""  # noqa: D415
     if self._state.adding:
         raise ValueError("Please save the artifact/collection before adding a label!")
 

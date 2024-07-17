@@ -120,7 +120,7 @@ def from_values(
     public_source: Record | None = None,
     mute: bool = False,
 ) -> list[Record]:
-    """{}."""
+    """{}"""  # noqa: D415
     from_public = True if cls.__module__.startswith("lnschema_bionty.") else False
     field_str = get_default_str_field(cls, field=field)
     return get_or_create_records(
@@ -223,7 +223,7 @@ def search(
     limit: int | None = 20,
     case_sensitive: bool = False,
 ) -> QuerySet:
-    """{}."""
+    """{}"""  # noqa: D415
     return _search(
         cls=cls,
         string=string,
@@ -239,7 +239,7 @@ def _lookup(
     return_field: StrField | None = None,
     using_key: str | None = None,
 ) -> NamedTuple:
-    """{}."""
+    """{}"""  # noqa: D415
     queryset = _queryset(cls, using_key=using_key)
     field = get_default_str_field(orm=queryset.model, field=field)
 
@@ -264,7 +264,7 @@ def lookup(
     field: StrField | None = None,
     return_field: StrField | None = None,
 ) -> NamedTuple:
-    """{}."""
+    """{}"""  # noqa: D415
     return _lookup(cls=cls, field=field, return_field=return_field)
 
 
@@ -340,7 +340,7 @@ def using(
     cls,
     instance: str,
 ) -> QuerySet:
-    """{}."""
+    """{}"""  # noqa: D415
     from lamindb_setup._connect_instance import (
         load_instance_settings,
         update_db_using_local,

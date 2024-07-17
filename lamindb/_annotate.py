@@ -872,7 +872,7 @@ class Annotate:
         verbosity: str = "hint",
         organism: str | None = None,
     ) -> DataFrameAnnotator:
-        """{}."""
+        """{}"""  # noqa: D415
         return DataFrameAnnotator(
             df=df,
             categoricals=categoricals,
@@ -893,7 +893,7 @@ class Annotate:
         verbosity: str = "hint",
         organism: str | None = None,
     ) -> AnnDataAnnotator:
-        """{}."""
+        """{}"""  # noqa: D415
         return AnnDataAnnotator(
             data=data,
             var_index=var_index,
@@ -914,7 +914,7 @@ class Annotate:
         verbosity: str = "hint",
         organism: str | None = None,
     ) -> MuDataAnnotator:
-        """{}."""
+        """{}"""  # noqa: D415
         return MuDataAnnotator(
             mdata=mdata,
             var_index=var_index,

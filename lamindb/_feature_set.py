@@ -92,7 +92,7 @@ def __init__(self, *args, **kwargs):
 
 @doc_args(FeatureSet.save.__doc__)
 def save(self, *args, **kwargs) -> None:
-    """{}."""
+    """{}"""  # noqa: D415
     super(FeatureSet, self).save(*args, **kwargs)
     if hasattr(self, "_features"):
         related_name, records = self._features
@@ -120,7 +120,7 @@ def from_values(
     public_source: Record | None = None,
     raise_validation_error: bool = True,
 ) -> FeatureSet:
-    """{}."""
+    """{}"""  # noqa: D415
     if not isinstance(field, FieldAttr):
         raise TypeError("Argument `field` must be a Record field, e.g., `Feature.name`")
     if len(values) == 0:
@@ -169,7 +169,7 @@ def from_df(
     organism: Record | str | None = None,
     public_source: Record | None = None,
 ) -> FeatureSet | None:
-    """{}."""
+    """{}"""  # noqa: D415
     registry = field.field.model
     validated = registry.validate(df.columns, field=field, mute=mute, organism=organism)
     if validated.sum() == 0:
@@ -201,7 +201,7 @@ def from_df(
 @property  # type: ignore
 @doc_args(FeatureSet.members.__doc__)
 def members(self) -> QuerySet:
-    """{}."""
+    """{}"""  # noqa: D415
     if self._state.adding:
         # this should return a queryset and not a list...
         # need to fix this

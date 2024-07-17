@@ -364,7 +364,7 @@ def restore(self) -> None:
 @property  # type: ignore
 @doc_args(Collection.artifacts.__doc__)
 def artifacts(self) -> QuerySet:
-    """{}."""
+    """{}"""  # noqa: D415
     return self.unordered_artifacts.order_by("collection_links__id")
 
 

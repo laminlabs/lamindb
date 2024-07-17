@@ -100,7 +100,7 @@ def categoricals_from_df(df: pd.DataFrame) -> dict:
 @classmethod  # type:ignore
 @doc_args(Feature.from_df.__doc__)
 def from_df(cls, df: pd.DataFrame, field: FieldAttr | None = None) -> RecordsList:
-    """{}."""
+    """{}"""  # noqa: D415
     field = Feature.name if field is None else field
     categoricals = categoricals_from_df(df)
 
@@ -180,7 +180,7 @@ def from_df(cls, df: pd.DataFrame, field: FieldAttr | None = None) -> RecordsLis
 
 @doc_args(Feature.save.__doc__)
 def save(self, *args, **kwargs) -> Feature:
-    """{}."""
+    """{}"""  # noqa: D415
     super(Feature, self).save(*args, **kwargs)
     return self
 
