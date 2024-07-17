@@ -4,7 +4,7 @@ from pathlib import Path
 
 import lamindb as ln
 import pytest
-from lamindb import _registry as registry
+from lamindb import _record as registry
 
 
 def test_signatures():
