@@ -15,7 +15,11 @@ def track_environment(run: Run) -> None:
     # create a requirements.txt
     # we don't create a conda environment.yml mostly for its slowness
     try:
-        result = subprocess.run(f"pip freeze > {str(filepath)}", shell=True)
+        with open(filepath, "w") as f:
+            result = subprocess.run(
+                ["pip", "freeze"],
+                stdout=f,
+            )
     except OSError as e:
         result = None
         logger.warning(f"could not run pip freeze with error {e}")

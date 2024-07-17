@@ -95,7 +95,8 @@ select = [
     "RUF100",  # Report unused noqa directives
     "TCH",  # Typing imports
     "NPY",  # Numpy specific rules
-    "PTH"  # Use pathlib
+    "PTH",  # Use pathlib
+    "S"  # Security
 ]
 ignore = [
     # Do not catch blind exception: `Exception`
@@ -164,6 +165,10 @@ ignore = [
     "E402",
     # open()` should be replaced by `Path.open()
     "PTH123",
+    # subprocess` call: check for execution of untrusted input - https://github.com/PyCQA/bandit/issues/333
+    "S603",
+    # Starting a process with a partial executable path
+    "S607"
 ]
 
 [tool.ruff.pydocstyle]
@@ -171,8 +176,16 @@ convention = "google"
 
 [tool.ruff.per-file-ignores]
 "docs/*" = ["I"]
-"tests/*" = ["D"]
+"tests/**/*.py" = [
+    "D",  # docstrings are allowed to look a bit off
+    "S101", # asserts allowed in tests...
+    "ARG", # Unused function args -> fixtures nevertheless are functionally relevant...
+    "FBT", # Don't care about booleans as positional arguments in tests, e.g. via @pytest.mark.parametrize()
+    "PLR2004", # Magic value used in comparison, ...
+    "S311", # Standard pseudo-random generators are not suitable for cryptographic purposes
+]
 "*/__init__.py" = ["F401"]
+
 
 [tool.coverage.report]
 exclude_lines = [

@@ -139,7 +139,7 @@ def from_df(cls, df: pd.DataFrame, field: FieldAttr | None = None) -> RecordsLis
     finally:
         settings.verbosity = verbosity
 
-    assert len(features) == len(df.columns)
+    assert len(features) == len(df.columns)  # noqa: S101
 
     # if len(categoricals_with_unmapped_categories) > 0:
     #     n_max = 20
