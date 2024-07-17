@@ -1,4 +1,4 @@
-name: latest-changes
+name: doc-changes
 
 on:
   pull_request_target:
@@ -8,7 +8,7 @@ on:
       - closed
 
 jobs:
-  latest-changes:
+  doc-changes:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -18,5 +18,6 @@ jobs:
       - run: pip install "laminci[doc-changes]@git+https://x-access-token:${{ secrets.LAMIN_BUILD_DOCS }}@github.com/laminlabs/laminci"
       - run: laminci doc-changes
         env:
-          input_token: ${{ secrets.LAMIN_BUILD_DOCS }}
-          input_latest_changes_file: lamin-docs/docs/changelog/soon/lamindb.md
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          docs_token: ${{ secrets.LAMIN_BUILD_DOCS }}
+          changelog_file: lamin-docs/docs/changelog/soon/lamindb.md
