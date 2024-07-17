@@ -68,6 +68,20 @@ def test_track_notebook_colab():
     ln.core.run_context._track_notebook(path=notebook_path)
 
 
+def test_invalid_transform_type():
+    transform = ln.Transform(name="test transform")
+    ln.track(transform=transform)
+    ln.core.run_context.path = None
+    ln.core.run_context.transform_type = "script"
+    with pytest.raises(ValueError) as error:
+        ln.finish()
+        assert "Transform type is not allowed to be" in error.exconly()
+
+    # unset to remove side effects
+    ln.core.run_context.run = None
+    ln.core.run_context.transform = None
+
+
 def test_create_or_load_transform(monkeypatch):
     title = "title"
     stem_uid = "NJvdsWWbJlZS"
