@@ -18,11 +18,12 @@ from lnschema_core import (
 )
 
 from .core.exceptions import ValidationError
+from .core.storage.objects import _mudata_is_installed
 
 if TYPE_CHECKING:
-    from mudata import MuData
     from lamindb_setup.core.types import UPathStr
     from lnschema_core.types import FieldAttr
+    from mudata import MuData
 
 
 class AnnotateLookup:
@@ -759,8 +760,11 @@ class Annotate:
             raise TypeError("Please use Annotate.from_df() instead!")
         elif isinstance(data, ad.AnnData):
             raise TypeError("Please use Annotate.from_anndata() instead!")
-        elif isinstance(data, MuData):
-            raise TypeError("Please use Annotate.from_mudata() instead!")
+        elif _mudata_is_installed():
+            from mudata import MuData
+
+            if isinstance(data, MuData):
+                raise TypeError("Please use Annotate.from_mudata() instead!")
         self._data = data
         self._using = using
         settings.verbosity = verbosity
