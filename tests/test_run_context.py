@@ -72,7 +72,7 @@ def test_invalid_transform_type():
     transform = ln.Transform(name="test transform")
     ln.track(transform=transform)
     ln.core.run_context.path = None
-    ln.core.run_context.transform_type = "script"
+    ln.core.run_context.transform.type = "script"
     with pytest.raises(ValueError) as error:
         ln.finish()
     assert "Transform type is not allowed to be" in error.exconly()
