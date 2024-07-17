@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import builtins
-from typing import TYPE_CHECKING, Iterable, List, NamedTuple
+from typing import TYPE_CHECKING, List, NamedTuple
 
 import dj_database_url
 import lamindb_setup as ln_setup
@@ -12,7 +12,7 @@ from lamin_utils._lookup import Lookup
 from lamindb_setup._connect_instance import get_owner_name_from_identifier
 from lamindb_setup.core._docs import doc_args
 from lamindb_setup.core._hub_core import connect_instance
-from lnschema_core import Record
+from lnschema_core.models import IsVersioned, Record
 
 from lamindb._utils import attach_func_to_class_method
 from lamindb.core._settings import settings
@@ -20,7 +20,9 @@ from lamindb.core._settings import settings
 from ._from_values import get_or_create_records
 
 if TYPE_CHECKING:
+    import pandas as pd
     from lnschema_core.types import ListLike, StrField
+
 
 IPYTHON = getattr(builtins, "__IPYTHON__", False)
 
@@ -106,6 +108,45 @@ def __init__(orm: Record, *args, **kwargs):
     else:
         # object is loaded from DB (**kwargs could be omitted below, I believe)
         super(Record, orm).__init__(*args, **kwargs)
+
+
+@classmethod  # type:ignore
+@doc_args(Record.filter.__doc__)
+def filter(cls, **expressions) -> QuerySet:
+    """{}"""  # noqa: D415
+    from lamindb._filter import filter
+
+    return filter(cls, **expressions)
+
+
+@classmethod  # type:ignore
+@doc_args(Record.get.__doc__)
+def get(cls, idlike: int | str) -> Record:
+    """{}"""  # noqa: D415
+    from lamindb._filter import filter
+
+    if isinstance(idlike, int):
+        return filter(cls, id=idlike).one()
+    else:
+        qs = filter(cls, uid__startswith=idlike)
+        if issubclass(cls, IsVersioned):
+            return qs.latest_version().one()
+        else:
+            return qs.one()
+
+
+@classmethod  # type:ignore
+@doc_args(Record.df.__doc__)
+def df(
+    cls, include: str | list[str] | None = None, join: str = "inner"
+) -> pd.DataFrame:
+    """{}"""  # noqa: D415
+    from lamindb._filter import filter
+
+    query_set = filter(cls)
+    if hasattr(cls, "updated_at"):
+        query_set = query_set.order_by("-updated_at")
+    return query_set.df(include=include, join=join)
 
 
 # from_values doesn't apply for QuerySet or Manager
