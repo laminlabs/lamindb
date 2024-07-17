@@ -567,6 +567,9 @@ def save(self, *args, **kwargs) -> Record:
 
 METHOD_NAMES = [
     "__init__",
+    "filter",
+    "get",
+    "df",
     "search",
     "lookup",
     "save",
