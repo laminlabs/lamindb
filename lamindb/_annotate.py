@@ -777,12 +777,12 @@ class Annotate:
 
     @property
     def labels(self) -> list:
-        """Return the labels fields to validate against."""
+        """Return the validated labels to annotate."""
         return self._labels
 
     @property
-    def features(self) -> Iterable[str]:
-        """Return the features to validate."""
+    def features(self) -> dict:
+        """Return the validated features to annotate."""
         return self._features
 
     def lookup(self, using: str | None = None) -> AnnotateLookup:
