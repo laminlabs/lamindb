@@ -562,7 +562,7 @@ def __init__(artifact: Artifact, *args, **kwargs):
 
     # an object with the same hash already exists
     if isinstance(kwargs_or_artifact, Artifact):
-        from ._registry import init_self_from_db
+        from ._record import init_self_from_db
 
         init_self_from_db(artifact, kwargs_or_artifact)
         # adding "key" here is dangerous because key might be auto-populated
@@ -625,7 +625,7 @@ def from_df(
     is_new_version_of: Artifact | None = None,
     **kwargs,
 ) -> Artifact:
-    """{}."""
+    """{}"""  # noqa: D415
     artifact = Artifact(
         data=df,
         key=key,
@@ -652,7 +652,7 @@ def from_anndata(
     is_new_version_of: Artifact | None = None,
     **kwargs,
 ) -> Artifact:
-    """{}."""
+    """{}"""  # noqa: D415
     if not data_is_anndata(adata):
         raise ValueError("data has to be an AnnData object or a path to AnnData-like")
     artifact = Artifact(
@@ -681,7 +681,7 @@ def from_mudata(
     is_new_version_of: Artifact | None = None,
     **kwargs,
 ) -> Artifact:
-    """{}."""
+    """{}"""  # noqa: D415
     artifact = Artifact(
         data=mdata,
         key=key,
@@ -705,7 +705,7 @@ def from_dir(
     *,
     run: Run | None = None,
 ) -> list[Artifact]:
-    """{}."""
+    """{}"""  # noqa: D415
     logger.warning(
         "this creates one artifact per file in the directory - you might simply call"
         " ln.Artifact(dir) to get one artifact for the entire directory"
@@ -1047,7 +1047,7 @@ def _save_skip_storage(file, **kwargs) -> None:
 @property  # type: ignore
 @doc_args(Artifact.path.__doc__)
 def path(self) -> Path | UPath:
-    """{}."""
+    """{}"""  # noqa: D415
     using_key = settings._using_key
     return filepath_from_artifact(self, using_key)
 

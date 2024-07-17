@@ -135,8 +135,6 @@ ignore = [
     "D213",
     # Section underline is over-indented ("{name}")
     "D215",
-    # First line should end with a period
-    "D400",
     # First line should be in imperative mood; try rephrasing
     "D401",
     # First word of the first line should be capitalized: {} -> {}

@@ -8,12 +8,12 @@ import pandas as pd
 from django.core.exceptions import FieldDoesNotExist
 from lamin_utils import colors, logger
 from lamindb_setup.core._docs import doc_args
-from lnschema_core import CanValidate, Registry
+from lnschema_core import CanValidate, Record
 
 from lamindb._utils import attach_func_to_class_method
 
 from ._from_values import _has_organism_field, _print_values
-from ._registry import _queryset, get_default_str_field
+from ._record import _queryset, get_default_str_field
 
 if TYPE_CHECKING:
     from django.db.models import QuerySet
@@ -29,10 +29,10 @@ def inspect(
     field: str | StrField | None = None,
     *,
     mute: bool = False,
-    organism: str | Registry | None = None,
-    public_source: Registry | None = None,
+    organism: str | Record | None = None,
+    public_source: Record | None = None,
 ) -> InspectResult:
-    """{}."""
+    """{}"""  # noqa: D415
     return _inspect(
         cls=cls,
         values=values,
@@ -51,9 +51,9 @@ def validate(
     field: str | StrField | None = None,
     *,
     mute: bool = False,
-    organism: str | Registry | None = None,
+    organism: str | Record | None = None,
 ) -> np.ndarray:
-    """{}."""
+    """{}"""  # noqa: D415
     return _validate(cls=cls, values=values, field=field, mute=mute, organism=organism)
 
 
@@ -64,10 +64,10 @@ def _inspect(
     *,
     mute: bool = False,
     using_key: str | None = None,
-    organism: str | Registry | None = None,
-    public_source: Registry | None = None,
+    organism: str | Record | None = None,
+    public_source: Record | None = None,
 ) -> pd.DataFrame | dict[str, list[str]]:
-    """{}."""
+    """{}"""  # noqa: D415
     from lamin_utils._inspect import inspect
 
     if isinstance(values, str):
@@ -148,9 +148,9 @@ def _validate(
     *,
     mute: bool = False,
     using_key: str | None = None,
-    organism: str | Registry | None = None,
+    organism: str | Record | None = None,
 ) -> np.ndarray:
-    """{}."""
+    """{}"""  # noqa: D415
     from lamin_utils._inspect import validate
 
     return_str = True if isinstance(values, str) else False
@@ -197,9 +197,9 @@ def standardize(
     public_aware: bool = True,
     keep: Literal["first", "last", False] = "first",
     synonyms_field: str = "synonyms",
-    organism: str | Registry | None = None,
+    organism: str | Record | None = None,
 ) -> list[str] | dict[str, str]:
-    """{}."""
+    """{}"""  # noqa: D415
     return _standardize(
         cls=cls,
         values=values,
@@ -262,9 +262,9 @@ def _standardize(
     keep: Literal["first", "last", False] = "first",
     synonyms_field: str = "synonyms",
     using_key: str | None = None,
-    organism: str | Registry | None = None,
+    organism: str | Record | None = None,
 ) -> list[str] | dict[str, str]:
-    """{}."""
+    """{}"""  # noqa: D415
     from lamin_utils._standardize import standardize as map_synonyms
 
     return_str = True if isinstance(values, str) else False
@@ -360,14 +360,14 @@ def _standardize(
 
 def _add_or_remove_synonyms(
     synonym: str | Iterable,
-    record: Registry,
+    record: Record,
     action: Literal["add", "remove"],
     force: bool = False,
     save: bool | None = None,
 ):
     """Add or remove synonyms."""
 
-    def check_synonyms_in_all_records(synonyms: set[str], record: Registry):
+    def check_synonyms_in_all_records(synonyms: set[str], record: Record):
         """Errors if input synonym is associated with other records in the DB."""
         import pandas as pd
         from IPython.display import display
@@ -435,7 +435,7 @@ def _add_or_remove_synonyms(
         record.save()
 
 
-def _check_synonyms_field_exist(record: Registry):
+def _check_synonyms_field_exist(record: Record):
     try:
         record.__getattribute__("synonyms")
     except AttributeError:
@@ -447,7 +447,7 @@ def _check_synonyms_field_exist(record: Registry):
 def _filter_query_based_on_organism(
     queryset: QuerySet,
     field: str,
-    organism: str | Registry | None = None,
+    organism: str | Record | None = None,
     values_list_field: str | None = None,
 ):
     """Filter a queryset based on organism."""

@@ -97,7 +97,7 @@ def get_uid_from_old_version(
     version: str | None = None,
     using_key: str | None = None,
 ) -> tuple[str, str]:
-    """{}."""
+    """{}"""  # noqa: D415
     msg = ""
     if is_new_version_of.version is None:
         previous_version = "1"

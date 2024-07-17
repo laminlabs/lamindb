@@ -8,7 +8,7 @@ from lamin_utils import colors, logger
 from lnschema_core.models import Feature
 
 from lamindb._from_values import _print_values
-from lamindb._registry import (
+from lamindb._record import (
     REGISTRY_UNIQUE_FIELD,
     get_default_str_field,
     transfer_fk_to_default_db_bulk,
@@ -20,7 +20,7 @@ from ._settings import settings
 from .schema import dict_related_model_to_related_name
 
 if TYPE_CHECKING:
-    from lnschema_core.models import Artifact, Collection, HasFeatures, Registry
+    from lnschema_core.models import Artifact, Collection, HasFeatures, Record
 
     from lamindb._query_set import QuerySet
 
@@ -146,7 +146,7 @@ class LabelManager:
 
     def add(
         self,
-        records: Registry | list[Registry] | QuerySet,
+        records: Record | list[Record] | QuerySet,
         feature: Feature | None = None,
     ) -> None:
         """Add one or several labels and associate them with a feature.

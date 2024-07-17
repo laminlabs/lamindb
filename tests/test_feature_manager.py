@@ -252,7 +252,7 @@ def test_labels_add(adata):
         artifact.labels.add("experiment_1", experiment)
     assert (
         error.exconly()
-        == "ValueError: Please pass a record (a `Registry` object), not a string, e.g.,"
+        == "ValueError: Please pass a record (a `Record` object), not a string, e.g.,"
         " via: label = ln.ULabel(name='experiment_1')"
     )
     with pytest.raises(ValidationError) as error:
