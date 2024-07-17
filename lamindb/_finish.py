@@ -43,7 +43,7 @@ def finish() -> None:
     if run_context.path is None:
         if run_context.transform.type in {"script", "notebook"}:
             raise ValueError(
-                f"Transform type must be 'script' or 'notebook' but is {run_context.transform.type}."
+                f"Transform type is not allowed to be 'script' or 'notebook' but is {run_context.transform.type}."
             )
         run_context.run.finished_at = datetime.now(timezone.utc)
         run_context.run.save()
