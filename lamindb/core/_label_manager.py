@@ -8,7 +8,7 @@ from lamin_utils import colors, logger
 from lnschema_core.models import Feature
 
 from lamindb._from_values import _print_values
-from lamindb._registry import (
+from lamindb._record import (
     REGISTRY_UNIQUE_FIELD,
     get_default_str_field,
     transfer_fk_to_default_db_bulk,

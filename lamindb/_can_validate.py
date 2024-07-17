@@ -13,7 +13,7 @@ from lnschema_core import CanValidate, Record
 from lamindb._utils import attach_func_to_class_method
 
 from ._from_values import _has_organism_field, _print_values
-from ._registry import _queryset, get_default_str_field
+from ._record import _queryset, get_default_str_field
 
 if TYPE_CHECKING:
     from django.db.models import QuerySet

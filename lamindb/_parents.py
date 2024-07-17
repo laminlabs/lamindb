@@ -10,7 +10,7 @@ from lnschema_core.models import HasParents, format_field_value
 
 from lamindb._utils import attach_func_to_class_method
 
-from ._registry import get_default_str_field
+from ._record import get_default_str_field
 
 if TYPE_CHECKING:
     from lnschema_core.types import StrField

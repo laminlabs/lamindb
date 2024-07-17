@@ -37,7 +37,7 @@ from lnschema_core.models import (
 
 from lamindb._feature import FEATURE_TYPES, convert_numpy_dtype_to_lamin_feature_type
 from lamindb._feature_set import DICT_KEYS_TYPE, FeatureSet
-from lamindb._registry import (
+from lamindb._record import (
     REGISTRY_UNIQUE_FIELD,
     get_default_str_field,
     transfer_fk_to_default_db_bulk,

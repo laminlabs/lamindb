@@ -562,7 +562,7 @@ def __init__(artifact: Artifact, *args, **kwargs):
 
     # an object with the same hash already exists
     if isinstance(kwargs_or_artifact, Artifact):
-        from ._registry import init_self_from_db
+        from ._record import init_self_from_db
 
         init_self_from_db(artifact, kwargs_or_artifact)
         # adding "key" here is dangerous because key might be auto-populated

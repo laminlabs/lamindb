@@ -20,7 +20,7 @@ from lnschema_core.models import (
 
 from lamindb._parents import view_lineage
 from lamindb._query_set import QuerySet
-from lamindb._registry import get_default_str_field
+from lamindb._record import get_default_str_field
 from lamindb.core._settings import settings
 
 from ._feature_manager import (
@@ -210,7 +210,7 @@ def get_labels(
             ).all()
     if flat_names:
         # returns a flat list of names
-        from lamindb._registry import get_default_str_field
+        from lamindb._record import get_default_str_field
 
         values = []
         for v in qs_by_registry.values():

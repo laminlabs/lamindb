@@ -30,7 +30,7 @@ from lamindb.core._mapped_collection import MappedCollection
 from lamindb.core.versioning import get_uid_from_old_version, init_uid
 
 from . import Artifact, Run
-from ._registry import init_self_from_db
+from ._record import init_self_from_db
 from .core._data import (
     add_transform_to_kwargs,
     get_run,
