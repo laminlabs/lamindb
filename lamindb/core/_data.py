@@ -11,7 +11,7 @@ from lnschema_core.models import (
     Feature,
     FeatureSet,
     HasFeatures,
-    Registry,
+    Record,
     Run,
     ULabel,
     __repr__,
@@ -166,7 +166,7 @@ def describe(self: HasFeatures, print_types: bool = False):
     logger.print(msg)
 
 
-def validate_feature(feature: Feature, records: list[Registry]) -> None:
+def validate_feature(feature: Feature, records: list[Record]) -> None:
     """Validate feature record, adjust feature.dtype based on labels records."""
     if not isinstance(feature, Feature):
         raise TypeError("feature has to be of type Feature")
@@ -224,7 +224,7 @@ def get_labels(
 
 def add_labels(
     self,
-    records: Registry | list[Registry] | QuerySet | Iterable,
+    records: Record | list[Record] | QuerySet | Iterable,
     feature: Feature | None = None,
     *,
     field: StrField | None = None,
@@ -235,7 +235,7 @@ def add_labels(
 
     if isinstance(records, (QuerySet, QuerySet.__base__)):  # need to have both
         records = records.list()
-    if isinstance(records, (str, Registry)):
+    if isinstance(records, (str, Record)):
         records = [records]
     if not isinstance(records, List):  # avoids warning for pd Series
         records = list(records)
@@ -260,7 +260,7 @@ def add_labels(
         # ask users to pass records
         if len(records_validated) == 0:
             raise ValueError(
-                "Please pass a record (a `Registry` object), not a string, e.g., via:"
+                "Please pass a record (a `Record` object), not a string, e.g., via:"
                 " label"
                 f" = ln.ULabel(name='{records[0]}')"  # type: ignore
             )

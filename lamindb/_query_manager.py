@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING, NamedTuple
 from django.db import models
 from lamin_utils import logger
 from lamindb_setup.core._docs import doc_args
-from lnschema_core.models import Registry
+from lnschema_core.models import Record
 
 from lamindb.core._settings import settings
 
@@ -84,14 +84,14 @@ class QueryManager(models.Manager):
         self._track_run_input_manager()
         return self._all_base_class()
 
-    @doc_args(Registry.search.__doc__)
+    @doc_args(Record.search.__doc__)
     def search(self, string: str, **kwargs):
         """{}."""
         from ._registry import _search
 
         return _search(cls=self.all(), string=string, **kwargs)
 
-    @doc_args(Registry.lookup.__doc__)
+    @doc_args(Record.lookup.__doc__)
     def lookup(self, field: StrField | None = None, **kwargs) -> NamedTuple:
         """{}."""
         from ._registry import _lookup

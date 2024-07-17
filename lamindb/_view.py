@@ -7,7 +7,7 @@ import inspect
 from lamin_utils import colors, logger
 from lamindb_setup import settings
 from lamindb_setup._init_instance import get_schema_module_name
-from lnschema_core import Registry
+from lnschema_core import Record
 
 is_run_from_ipython = getattr(builtins, "__IPYTHON__", False)
 
@@ -21,7 +21,7 @@ def view(
         n: Display the last `n` rows of a registry.
         schema: Schema module to view. Default's to
             `None` and displays all schema modules.
-        registries: List of Registry names. Defaults to
+        registries: List of Record names. Defaults to
             `None` and lists all registries.
 
     Examples:
@@ -44,8 +44,8 @@ def view(
             orm
             for orm in schema_module.__dict__.values()
             if inspect.isclass(orm)
-            and issubclass(orm, Registry)
-            and orm.__name__ != "Registry"
+            and issubclass(orm, Record)
+            and orm.__name__ != "Record"
         }
         if registries is not None:
             filtered_registries = {

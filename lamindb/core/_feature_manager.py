@@ -30,7 +30,7 @@ from lnschema_core.models import (
     ParamManagerArtifact,
     ParamManagerRun,
     ParamValue,
-    Registry,
+    Record,
     Run,
     ULabel,
 )
@@ -119,7 +119,7 @@ def get_feature_set_links(host: Artifact | Collection) -> QuerySet:
 def get_link_attr(link: LinkORM | type[LinkORM], data: HasFeatures) -> str:
     link_model_name = link.__class__.__name__
     if (
-        link_model_name == "ModelBase" or link_model_name == "RegistryMeta"
+        link_model_name == "ModelBase" or link_model_name == "RecordMeta"
     ):  # we passed the type of the link
         link_model_name = link.__name__
     link_attr = link_model_name.replace(data.__class__.__name__, "")
@@ -234,7 +234,7 @@ def parse_feature_sets_from_anndata(
     var_field: FieldAttr | None = None,
     obs_field: FieldAttr = Feature.name,
     mute: bool = False,
-    organism: str | Registry | None = None,
+    organism: str | Record | None = None,
 ) -> dict:
     data_parse = adata
     if not isinstance(adata, AnnData):  # is a path
@@ -324,7 +324,7 @@ def infer_feature_type_convert_json(
                         return FEATURE_TYPES["str"] + "[ULabel]", value
                     else:
                         return "list[str]", value
-    elif isinstance(value, Registry):
+    elif isinstance(value, Record):
         return (f"cat[{value.__class__.__get_name_with_schema__()}]", value)
     if not mute:
         logger.warning(f"cannot infer feature type of: {value}, returning '?")
@@ -485,7 +485,7 @@ def _add_values(
                     f"Value for feature '{key}' with type {feature.dtype} must be a number"
                 )
         elif feature.dtype.startswith("cat"):
-            if not (inferred_type.startswith("cat") or isinstance(value, Registry)):
+            if not (inferred_type.startswith("cat") or isinstance(value, Record)):
                 raise TypeError(
                     f"Value for feature '{key}' with type '{feature.dtype}' must be a string or record."
                 )
@@ -501,7 +501,7 @@ def _add_values(
                 feature_value = value_model(**filter_kwargs)
             feature_values.append(feature_value)
         else:
-            if isinstance(value, Registry):
+            if isinstance(value, Record):
                 if value._state.adding:
                     raise ValidationError(
                         "Please save your label record before annotation."
@@ -695,7 +695,7 @@ def _add_set_from_anndata(
     var_field: FieldAttr,
     obs_field: FieldAttr | None = Feature.name,
     mute: bool = False,
-    organism: str | Registry | None = None,
+    organism: str | Record | None = None,
 ):
     """Add features from AnnData."""
     if isinstance(self._host, Artifact):
@@ -723,7 +723,7 @@ def _add_set_from_mudata(
     var_fields: dict[str, FieldAttr],
     obs_fields: dict[str, FieldAttr] = None,
     mute: bool = False,
-    organism: str | Registry | None = None,
+    organism: str | Record | None = None,
 ):
     """Add features from MuData."""
     if obs_fields is None:

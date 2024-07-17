@@ -7,7 +7,7 @@ import numpy as np
 from lamin_utils import logger
 from lamindb_setup.core._docs import doc_args
 from lamindb_setup.core.hashing import hash_set
-from lnschema_core import Feature, FeatureSet, Registry, ids
+from lnschema_core import Feature, FeatureSet, Record, ids
 from lnschema_core.types import FieldAttr, ListLike
 
 from lamindb._utils import attach_func_to_class_method
@@ -29,7 +29,7 @@ NUMBER_TYPE = "number"
 DICT_KEYS_TYPE = type({}.keys())  # type: ignore
 
 
-def validate_features(features: list[Registry]) -> Registry:
+def validate_features(features: list[Record]) -> Record:
     """Validate and return feature type."""
     try:
         if len(features) == 0:
@@ -40,7 +40,7 @@ def validate_features(features: list[Registry]) -> Registry:
         ) from None
     if not hasattr(features, "__getitem__"):
         raise TypeError("features has to be list-like")
-    if not isinstance(features[0], Registry):
+    if not isinstance(features[0], Record):
         raise TypeError(
             "features has to store feature records! use .from_values() otherwise"
         )
@@ -60,7 +60,7 @@ def __init__(self, *args, **kwargs):
     # now we proceed with the user-facing constructor
     if len(args) > 1:
         raise ValueError("Only one non-keyword arg allowed: features")
-    features: Iterable[Registry] = kwargs.pop("features") if len(args) == 0 else args[0]
+    features: Iterable[Record] = kwargs.pop("features") if len(args) == 0 else args[0]
     dtype: str | None = kwargs.pop("dtype") if "dtype" in kwargs else None
     name: str | None = kwargs.pop("name") if "name" in kwargs else None
     if len(kwargs) > 0:
@@ -116,15 +116,13 @@ def from_values(
     type: str | None = None,
     name: str | None = None,
     mute: bool = False,
-    organism: Registry | str | None = None,
-    public_source: Registry | None = None,
+    organism: Record | str | None = None,
+    public_source: Record | None = None,
     raise_validation_error: bool = True,
 ) -> FeatureSet:
     """{}."""
     if not isinstance(field, FieldAttr):
-        raise TypeError(
-            "Argument `field` must be a Registry field, e.g., `Feature.name`"
-        )
+        raise TypeError("Argument `field` must be a Record field, e.g., `Feature.name`")
     if len(values) == 0:
         raise ValueError("Provide a list of at least one value")
     if isinstance(values, DICT_KEYS_TYPE):
@@ -168,8 +166,8 @@ def from_df(
     field: FieldAttr = Feature.name,
     name: str | None = None,
     mute: bool = False,
-    organism: Registry | str | None = None,
-    public_source: Registry | None = None,
+    organism: Record | str | None = None,
+    public_source: Record | None = None,
 ) -> FeatureSet | None:
     """{}."""
     registry = field.field.model

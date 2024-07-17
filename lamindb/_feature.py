@@ -53,13 +53,11 @@ def __init__(self, *args, **kwargs):
                 dtype_str = FEATURE_TYPES[dtype.__name__]
             else:
                 if not isinstance(dtype, list):
-                    raise ValueError("dtype has to be a list of Registry types")
+                    raise ValueError("dtype has to be a list of Record types")
                 registries_str = ""
                 for cls in dtype:
                     if not hasattr(cls, "__get_name_with_schema__"):
-                        raise ValueError(
-                            "each element of the list has to be a Registry"
-                        )
+                        raise ValueError("each element of the list has to be a Record")
                     registries_str += cls.__get_name_with_schema__() + "|"
                 dtype_str = f'cat[{registries_str.rstrip("|")}]'
         else:
@@ -112,7 +110,7 @@ def from_df(cls, df: pd.DataFrame, field: FieldAttr | None = None) -> RecordsLis
         if name in categoricals:
             dtypes[name] = "cat"
             # below is a harder feature to write, now, because it requires to
-            # query the link tables between the label Registry and file or collection
+            # query the link tables between the label Record and file or collection
             # the original implementation fell short
             # categorical = categoricals[name]
             # if hasattr(

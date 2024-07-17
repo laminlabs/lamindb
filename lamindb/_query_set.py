@@ -12,7 +12,7 @@ from lnschema_core.models import (
     CanValidate,
     Collection,
     IsVersioned,
-    Registry,
+    Record,
     Run,
     Transform,
 )
@@ -35,7 +35,7 @@ class MultipleResultsFound(Exception):
 #     return (series + timedelta).dt.strftime("%Y-%m-%d %H:%M:%S %Z")
 
 
-def get_keys_from_df(data: list, registry: Registry) -> list[str]:
+def get_keys_from_df(data: list, registry: Record) -> list[str]:
     if len(data) > 0:
         if isinstance(data[0], dict):
             keys = list(data[0].keys())
@@ -69,7 +69,7 @@ def one_helper(self):
 class RecordsList(UserList):
     """Is ordered, can't be queried, but has `.df()`."""
 
-    def __init__(self, records: Iterable[Registry]):
+    def __init__(self, records: Iterable[Record]):
         super().__init__(record for record in records)
 
     def df(self) -> pd.DataFrame:
@@ -77,7 +77,7 @@ class RecordsList(UserList):
         values = [record.__dict__ for record in self.data]
         return pd.DataFrame(values, columns=keys)
 
-    def one(self) -> Registry:
+    def one(self) -> Record:
         """Exactly one result. Throws error if there are more or none."""
         return one_helper(self)
 
@@ -96,7 +96,7 @@ class QuerySet(models.QuerySet, CanValidate):
         >>> queryset
     """
 
-    @doc_args(Registry.df.__doc__)
+    @doc_args(Record.df.__doc__)
     def df(
         self, include: str | list[str] | None = None, join: str = "inner"
     ) -> pd.DataFrame:
@@ -147,21 +147,21 @@ class QuerySet(models.QuerySet, CanValidate):
                     lookup_str = "__".join(split[1:])
                 else:
                     lookup_str = "id"
-                Registry = self.model
-                field = getattr(Registry, field_name)
+                Record = self.model
+                field = getattr(Record, field_name)
                 if isinstance(field.field, models.ManyToManyField):
                     related_ORM = (
                         field.field.model
-                        if field.field.model != Registry
+                        if field.field.model != Record
                         else field.field.related_model
                     )
-                    if Registry == related_ORM:
-                        left_side_link_model = f"from_{Registry.__name__.lower()}"
+                    if Record == related_ORM:
+                        left_side_link_model = f"from_{Record.__name__.lower()}"
                         values_expression = (
-                            f"to_{Registry.__name__.lower()}__{lookup_str}"
+                            f"to_{Record.__name__.lower()}__{lookup_str}"
                         )
                     else:
-                        left_side_link_model = f"{Registry.__name__.lower()}"
+                        left_side_link_model = f"{Record.__name__.lower()}"
                         values_expression = (
                             f"{related_ORM.__name__.lower()}__{lookup_str}"
                         )
@@ -199,7 +199,7 @@ class QuerySet(models.QuerySet, CanValidate):
         else:
             self._delete_base_class(*args, **kwargs)
 
-    def list(self, field: str | None = None) -> list[Registry]:
+    def list(self, field: str | None = None) -> list[Record]:
         """Populate a list with the results.
 
         Examples:
@@ -211,7 +211,7 @@ class QuerySet(models.QuerySet, CanValidate):
         else:
             return list(self.values_list(field, flat=True))
 
-    def first(self) -> Registry | None:
+    def first(self) -> Record | None:
         """If non-empty, the first result in the query set, otherwise ``None``.
 
         Examples:
@@ -221,7 +221,7 @@ class QuerySet(models.QuerySet, CanValidate):
             return None
         return self[0]
 
-    def one(self) -> Registry:
+    def one(self) -> Record:
         """Exactly one result. Raises error if there are more or none.
 
         Examples:
@@ -229,7 +229,7 @@ class QuerySet(models.QuerySet, CanValidate):
         """
         return one_helper(self)
 
-    def one_or_none(self) -> Registry | None:
+    def one_or_none(self) -> Record | None:
         """At most one result. Returns it if there is one, otherwise returns ``None``.
 
         Examples:
@@ -248,16 +248,16 @@ class QuerySet(models.QuerySet, CanValidate):
         if issubclass(self.model, IsVersioned):
             return filter_query_set_by_latest_version(self)
         else:
-            raise ValueError("Registry isn't subclass of `lamindb.core.IsVersioned`")
+            raise ValueError("Record isn't subclass of `lamindb.core.IsVersioned`")
 
-    @doc_args(Registry.search.__doc__)
+    @doc_args(Record.search.__doc__)
     def search(self, string: str, **kwargs):
         """{}."""
         from ._registry import _search
 
         return _search(cls=self, string=string, **kwargs)
 
-    @doc_args(Registry.lookup.__doc__)
+    @doc_args(Record.lookup.__doc__)
     def lookup(self, field: StrField | None = None, **kwargs) -> NamedTuple:
         """{}."""
         from ._registry import _lookup

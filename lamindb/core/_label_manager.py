@@ -20,7 +20,7 @@ from ._settings import settings
 from .schema import dict_related_model_to_related_name
 
 if TYPE_CHECKING:
-    from lnschema_core.models import Artifact, Collection, HasFeatures, Registry
+    from lnschema_core.models import Artifact, Collection, HasFeatures, Record
 
     from lamindb._query_set import QuerySet
 
@@ -146,7 +146,7 @@ class LabelManager:
 
     def add(
         self,
-        records: Registry | list[Registry] | QuerySet,
+        records: Record | list[Record] | QuerySet,
         feature: Feature | None = None,
     ) -> None:
         """Add one or several labels and associate them with a feature.
