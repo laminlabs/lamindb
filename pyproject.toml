@@ -39,7 +39,7 @@ Home = "https://github.com/laminlabs/lamindb"
 
 [project.optional-dependencies]
 bionty = [
-    "bionty==0.44.0",
+    "bionty==0.44.1",
 ]
 aws = [
     "lamindb_setup[aws]",
