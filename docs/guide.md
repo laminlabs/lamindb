@@ -17,8 +17,6 @@ setup
 query-search
 track
 annotate
-can-validate
-annotate-for-developers
 bio-registries
 schemas
 transfer

@@ -4,7 +4,7 @@ import bionty as bt
 import lamindb as ln
 import pytest
 from lamindb.core.exceptions import ValidationError
-from lnschema_core.models import FeatureValue
+from lnschema_core.models import FeatureValue, Record
 
 bt.settings.auto_save_parents = False
 
@@ -84,13 +84,25 @@ Here is how to create a feature:
     with pytest.raises(ValidationError) as error:
         artifact.features.add_values({"organism": mouse})
     assert (
-        error.exconly()
-        == "lamindb.core.exceptions.ValidationError: Please save your label record before annotation."
+        # ensure the label is saved
+        error.exconly().startswith(
+            "lamindb.core.exceptions.ValidationError: Please save"
+        )
     )
     mouse.save()
     artifact.features.add_values({"organism": mouse})
     assert artifact.organisms.get().name == "mouse"
 
+    # lists of records
+    diseases = bt.Disease.from_values(
+        ["MONDO:0004975", "MONDO:0004980"], field=bt.Disease.ontology_id
+    )
+    ln.save(diseases)
+    ln.Feature(name="disease", dtype="cat[bionty.Disease]").save()
+    artifact.features.add_values({"disease": diseases})
+    assert len(artifact.diseases.filter().all()) == 2
+
+    # big dictionary of everything
     features = {
         "experiment": "Experiment 2",
         "project": "project_1",
@@ -150,16 +162,18 @@ Here is how to create ulabels for them:
     print(artifact.features.__repr__())
     # hard to test because of italic formatting
     msg = """\
-    'experiment' = 'Experiment 1', 'Experiment 2'
-    'project' = 'project_1'
     'cell_type_by_expert' = 'T Cell'
+    'disease' = 'Alzheimer disease', 'atopic eczema'
     'donor' = 'U0123'
+    'experiment' = 'Experiment 1', 'Experiment 2'
     'organism' = 'mouse'
+    'project' = 'project_1'
     'is_validated' = True
     'temperature' = 27.2, 100.0
 """
     assert artifact.features.__repr__().endswith(msg)
     assert artifact.features.get_values() == {
+        "disease": ["Alzheimer disease", "atopic eczema"],
         "experiment": ["Experiment 1", "Experiment 2"],
         "project": "project_1",
         "cell_type_by_expert": "T Cell",
@@ -200,6 +214,7 @@ Here is how to create ulabels for them:
     ln.Feature.filter().all().delete()
     bt.Gene.filter().all().delete()
     bt.Organism.filter().all().delete()
+    bt.Disease.filter().all().delete()
 
 
 # most underlying logic here is comprehensively tested in test_run_context
