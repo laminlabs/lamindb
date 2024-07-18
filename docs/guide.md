@@ -17,7 +17,6 @@ setup
 query-search
 track
 annotate
-can-validate
 annotate-flexible
 bio-registries
 schemas
