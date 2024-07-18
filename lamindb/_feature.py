@@ -46,7 +46,7 @@ def __init__(self, *args, **kwargs):
     dtype: type | str = kwargs.pop("dtype") if "dtype" in kwargs else None
     # cast type
     if dtype is None:
-        raise ValueError("Please pass a type!")
+        raise ValueError("Please pass dtype!")
     elif dtype is not None:
         if not isinstance(dtype, str):
             if not isinstance(dtype, list) and dtype.__name__ in FEATURE_TYPES:

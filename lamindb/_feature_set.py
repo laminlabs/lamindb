@@ -91,12 +91,13 @@ def __init__(self, *args, **kwargs):
 
 
 @doc_args(FeatureSet.save.__doc__)
-def save(self, *args, **kwargs) -> None:
+def save(self, *args, **kwargs) -> FeatureSet:
     """{}"""  # noqa: D415
     super(FeatureSet, self).save(*args, **kwargs)
     if hasattr(self, "_features"):
         related_name, records = self._features
         getattr(self, related_name).set(records)
+    return self
 
 
 def get_type_str(dtype: str | None) -> str | None:

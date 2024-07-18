@@ -993,7 +993,7 @@ def _delete_skip_storage(artifact, *args, **kwargs) -> None:
 
 
 # docstring handled through attach_func_to_class_method
-def save(self, upload: bool | None = None, **kwargs) -> None:
+def save(self, upload: bool | None = None, **kwargs) -> Artifact:
     state_was_adding = self._state.adding
     print_progress = kwargs.pop("print_progress", True)
     access_token = kwargs.pop("access_token", None)
