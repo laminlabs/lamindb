@@ -328,7 +328,7 @@ def delete(self, permanent: bool | None = None) -> None:
 
 
 # docstring handled through attach_func_to_class_method
-def save(self, using: str | None = None) -> None:
+def save(self, using: str | None = None) -> Collection:
     if self.artifact is not None:
         self.artifact.save()
     # we don't need to save feature sets again
@@ -350,6 +350,7 @@ def save(self, using: str | None = None) -> None:
     save_feature_set_links(self)
     if using is not None:
         logger.warning("using argument is ignored")
+    return self
 
 
 # docstring handled through attach_func_to_class_method
