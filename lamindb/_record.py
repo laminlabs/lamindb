@@ -56,7 +56,9 @@ def suggest_records_with_similar_names(record: Record, kwargs) -> bool:
     """
     if kwargs.get("name") is None:
         return False
-    queryset = _search(record.__class__, kwargs["name"], truncate_words=True, limit=20)
+    queryset = _search(
+        record.__class__, kwargs["name"], field="name", truncate_words=True, limit=20
+    )
     if not queryset.exists():  # empty queryset
         return False
     for alternative_record in queryset:
