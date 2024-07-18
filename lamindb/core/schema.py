@@ -1,10 +1,10 @@
 from __future__ import annotations
 
 from django.db.models import ManyToManyField
-from lnschema_core.models import Feature, FeatureSet, LinkORM, Registry
+from lnschema_core.models import Feature, FeatureSet, LinkORM, Record
 
 
-def dict_schema_name_to_model_name(orm: type[Registry]) -> dict[str, Registry]:
+def dict_schema_name_to_model_name(orm: type[Record]) -> dict[str, Record]:
     d: dict = {
         i.related_model.__get_name_with_schema__(): i.related_model
         for i in orm._meta.related_objects
@@ -21,9 +21,9 @@ def dict_schema_name_to_model_name(orm: type[Registry]) -> dict[str, Registry]:
 
 
 def dict_related_model_to_related_name(
-    orm: type[Registry], links: bool = False
+    orm: type[Record], links: bool = False
 ) -> dict[str, str]:
-    def include(model: Registry):
+    def include(model: Record):
         return not links != issubclass(model, LinkORM)
 
     related_objects = orm._meta.related_objects + orm._meta.many_to_many
@@ -39,7 +39,7 @@ def dict_related_model_to_related_name(
     return d
 
 
-def get_related_name(features_type: type[Registry]) -> str:
+def get_related_name(features_type: type[Record]) -> str:
     candidates = [
         field.related_name
         for field in FeatureSet._meta.related_objects
@@ -49,7 +49,7 @@ def get_related_name(features_type: type[Registry]) -> str:
         raise ValueError(
             f"Can't create feature sets from {features_type.__name__} because it's not"
             " related to it!\nYou need to create a link model between FeatureSet and"
-            " your Registry in your custom schema.\nTo do so, add a"
+            " your Record in your custom schema.\nTo do so, add a"
             " line:\nfeature_sets = models.ManyToMany(FeatureSet,"
             " related_name='mythings')\n"
         )

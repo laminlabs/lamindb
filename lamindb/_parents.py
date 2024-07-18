@@ -5,12 +5,12 @@ from typing import TYPE_CHECKING
 
 import lamindb_setup as ln_setup
 from lamin_utils import logger
-from lnschema_core import Artifact, Collection, Registry, Run, Transform
+from lnschema_core import Artifact, Collection, Record, Run, Transform
 from lnschema_core.models import HasParents, format_field_value
 
 from lamindb._utils import attach_func_to_class_method
 
-from ._registry import get_default_str_field
+from ._record import get_default_str_field
 
 if TYPE_CHECKING:
     from lnschema_core.types import StrField
@@ -137,7 +137,7 @@ def view_lineage(data: Artifact | Collection, with_children: bool = True) -> Non
 
 
 def _view_parents(
-    record: Registry, field: str, with_children: bool = False, distance: int = 100
+    record: Record, field: str, with_children: bool = False, distance: int = 100
 ):
     """Graph of parents."""
     if not hasattr(record, "parents"):
@@ -197,7 +197,7 @@ def _view_parents(
     _view(u)
 
 
-def _get_parents(record: Registry, field: str, distance: int, children: bool = False):
+def _get_parents(record: Record, field: str, distance: int, children: bool = False):
     """Recursively get parent records within a distance."""
     if children:
         key = "parents"
@@ -228,7 +228,7 @@ def _get_parents(record: Registry, field: str, distance: int, children: bool = F
 
 
 def _df_edges_from_parents(
-    record: Registry, field: str, distance: int, children: bool = False
+    record: Record, field: str, distance: int, children: bool = False
 ):
     """Construct a DataFrame of edges as the input of graphviz.Digraph."""
     key = "children" if children else "parents"
@@ -267,7 +267,7 @@ def _df_edges_from_parents(
     return df_edges
 
 
-def _record_label(record: Registry, field: str | None = None):
+def _record_label(record: Record, field: str | None = None):
     if isinstance(record, Artifact):
         if record.description is None:
             name = record.key
@@ -311,7 +311,7 @@ def _record_label(record: Registry, field: str | None = None):
         )
 
 
-def _add_emoji(record: Registry, label: str):
+def _add_emoji(record: Record, label: str):
     if record.__class__.__name__ == "Transform":
         emoji = TRANSFORM_EMOJIS.get(record.type, "💫")
     elif record.__class__.__name__ == "Run":

@@ -2,6 +2,7 @@ import subprocess
 
 import lamindb as ln
 import pytest
+from lamindb._finish import TrackNotCalled
 from lamindb.core._run_context import get_uid_ext, run_context
 from lamindb.core.exceptions import ValidationError
 
@@ -66,6 +67,27 @@ Here is how to create a param:
 def test_track_notebook_colab():
     notebook_path = "/fileId=1KskciVXleoTeS_OGoJasXZJreDU9La_l"
     ln.core.run_context._track_notebook(path=notebook_path)
+
+
+def test_finish_before_track():
+    ln.core.run_context.run = None
+    with pytest.raises(TrackNotCalled) as error:
+        ln.finish()
+    assert "Please run `ln.track()` before `ln.finish()" in error.exconly()
+
+
+def test_invalid_transform_type():
+    transform = ln.Transform(name="test transform")
+    ln.track(transform=transform)
+    ln.core.run_context.path = None
+    ln.core.run_context.transform.type = "script"
+    with pytest.raises(ValueError) as error:
+        ln.finish()
+    assert "Transform type is not allowed to be" in error.exconly()
+
+    # unset to remove side effects
+    ln.core.run_context.run = None
+    ln.core.run_context.transform = None
 
 
 def test_create_or_load_transform(monkeypatch):

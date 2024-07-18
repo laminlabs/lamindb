@@ -46,20 +46,18 @@ def __init__(self, *args, **kwargs):
     dtype: type | str = kwargs.pop("dtype") if "dtype" in kwargs else None
     # cast type
     if dtype is None:
-        raise ValueError("Please pass a type!")
+        raise ValueError("Please pass dtype!")
     elif dtype is not None:
         if not isinstance(dtype, str):
             if not isinstance(dtype, list) and dtype.__name__ in FEATURE_TYPES:
                 dtype_str = FEATURE_TYPES[dtype.__name__]
             else:
                 if not isinstance(dtype, list):
-                    raise ValueError("dtype has to be a list of Registry types")
+                    raise ValueError("dtype has to be a list of Record types")
                 registries_str = ""
                 for cls in dtype:
                     if not hasattr(cls, "__get_name_with_schema__"):
-                        raise ValueError(
-                            "each element of the list has to be a Registry"
-                        )
+                        raise ValueError("each element of the list has to be a Record")
                     registries_str += cls.__get_name_with_schema__() + "|"
                 dtype_str = f'cat[{registries_str.rstrip("|")}]'
         else:
@@ -102,7 +100,7 @@ def categoricals_from_df(df: pd.DataFrame) -> dict:
 @classmethod  # type:ignore
 @doc_args(Feature.from_df.__doc__)
 def from_df(cls, df: pd.DataFrame, field: FieldAttr | None = None) -> RecordsList:
-    """{}."""
+    """{}"""  # noqa: D415
     field = Feature.name if field is None else field
     categoricals = categoricals_from_df(df)
 
@@ -112,7 +110,7 @@ def from_df(cls, df: pd.DataFrame, field: FieldAttr | None = None) -> RecordsLis
         if name in categoricals:
             dtypes[name] = "cat"
             # below is a harder feature to write, now, because it requires to
-            # query the link tables between the label Registry and file or collection
+            # query the link tables between the label Record and file or collection
             # the original implementation fell short
             # categorical = categoricals[name]
             # if hasattr(
@@ -182,7 +180,7 @@ def from_df(cls, df: pd.DataFrame, field: FieldAttr | None = None) -> RecordsLis
 
 @doc_args(Feature.save.__doc__)
 def save(self, *args, **kwargs) -> Feature:
-    """{}."""
+    """{}"""  # noqa: D415
     super(Feature, self).save(*args, **kwargs)
     return self
 

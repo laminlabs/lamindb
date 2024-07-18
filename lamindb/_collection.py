@@ -30,7 +30,7 @@ from lamindb.core._mapped_collection import MappedCollection
 from lamindb.core.versioning import get_uid_from_old_version, init_uid
 
 from . import Artifact, Run
-from ._registry import init_self_from_db
+from ._record import init_self_from_db
 from .core._data import (
     add_transform_to_kwargs,
     get_run,
@@ -328,7 +328,7 @@ def delete(self, permanent: bool | None = None) -> None:
 
 
 # docstring handled through attach_func_to_class_method
-def save(self, using: str | None = None) -> None:
+def save(self, using: str | None = None) -> Collection:
     if self.artifact is not None:
         self.artifact.save()
     # we don't need to save feature sets again
@@ -350,6 +350,7 @@ def save(self, using: str | None = None) -> None:
     save_feature_set_links(self)
     if using is not None:
         logger.warning("using argument is ignored")
+    return self
 
 
 # docstring handled through attach_func_to_class_method
@@ -364,7 +365,7 @@ def restore(self) -> None:
 @property  # type: ignore
 @doc_args(Collection.artifacts.__doc__)
 def artifacts(self) -> QuerySet:
-    """{}."""
+    """{}"""  # noqa: D415
     return self.unordered_artifacts.order_by("collection_links__id")
 
 

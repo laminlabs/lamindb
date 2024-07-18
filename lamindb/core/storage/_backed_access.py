@@ -102,7 +102,7 @@ def _records_to_df(obj):
         return obj
 
 
-class AccessRegistry:
+class AccessRecord:
     def __init__(self):
         self._registry = {}
         self._openers = {}
@@ -143,7 +143,7 @@ class AccessRegistry:
 
 
 # storage specific functions should be registered and called through the registry
-registry = AccessRegistry()
+registry = AccessRecord()
 
 
 @registry.register_open("h5py")

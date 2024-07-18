@@ -11,7 +11,7 @@ from lnschema_core.models import (
     Feature,
     FeatureSet,
     HasFeatures,
-    Registry,
+    Record,
     Run,
     ULabel,
     __repr__,
@@ -20,7 +20,7 @@ from lnschema_core.models import (
 
 from lamindb._parents import view_lineage
 from lamindb._query_set import QuerySet
-from lamindb._registry import get_default_str_field
+from lamindb._record import get_default_str_field
 from lamindb.core._settings import settings
 
 from ._feature_manager import (
@@ -96,7 +96,7 @@ def save_feature_set_links(self: Artifact | Collection) -> None:
 
 @doc_args(HasFeatures.describe.__doc__)
 def describe(self: HasFeatures, print_types: bool = False):
-    """{}."""
+    """{}"""  # noqa: D415
     # prefetch all many-to-many relationships
     # doesn't work for describing using artifact
     # self = (
@@ -166,7 +166,7 @@ def describe(self: HasFeatures, print_types: bool = False):
     logger.print(msg)
 
 
-def validate_feature(feature: Feature, records: list[Registry]) -> None:
+def validate_feature(feature: Feature, records: list[Record]) -> None:
     """Validate feature record, adjust feature.dtype based on labels records."""
     if not isinstance(feature, Feature):
         raise TypeError("feature has to be of type Feature")
@@ -183,7 +183,7 @@ def get_labels(
     mute: bool = False,
     flat_names: bool = False,
 ) -> QuerySet | dict[str, QuerySet] | list:
-    """{}."""
+    """{}"""  # noqa: D415
     if not isinstance(feature, Feature):
         raise TypeError("feature has to be of type Feature")
     if feature.dtype is None or not feature.dtype.startswith("cat["):
@@ -210,7 +210,7 @@ def get_labels(
             ).all()
     if flat_names:
         # returns a flat list of names
-        from lamindb._registry import get_default_str_field
+        from lamindb._record import get_default_str_field
 
         values = []
         for v in qs_by_registry.values():
@@ -224,18 +224,18 @@ def get_labels(
 
 def add_labels(
     self,
-    records: Registry | list[Registry] | QuerySet | Iterable,
+    records: Record | list[Record] | QuerySet | Iterable,
     feature: Feature | None = None,
     *,
     field: StrField | None = None,
 ) -> None:
-    """{}."""
+    """{}"""  # noqa: D415
     if self._state.adding:
         raise ValueError("Please save the artifact/collection before adding a label!")
 
     if isinstance(records, (QuerySet, QuerySet.__base__)):  # need to have both
         records = records.list()
-    if isinstance(records, (str, Registry)):
+    if isinstance(records, (str, Record)):
         records = [records]
     if not isinstance(records, List):  # avoids warning for pd Series
         records = list(records)
@@ -260,7 +260,7 @@ def add_labels(
         # ask users to pass records
         if len(records_validated) == 0:
             raise ValueError(
-                "Please pass a record (a `Registry` object), not a string, e.g., via:"
+                "Please pass a record (a `Record` object), not a string, e.g., via:"
                 " label"
                 f" = ln.ULabel(name='{records[0]}')"  # type: ignore
             )

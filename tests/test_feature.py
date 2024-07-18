@@ -113,7 +113,7 @@ def test_feature_init():
     # wrong type
     with pytest.raises(ValueError):
         ln.Feature(name="feat", dtype="x")
-    # type has to be a list of Registry types
+    # type has to be a list of Record types
     with pytest.raises(ValueError):
         ln.Feature(name="feat", dtype="cat[1]")
     feat1 = ln.Feature.filter(name="feat1").one_or_none()

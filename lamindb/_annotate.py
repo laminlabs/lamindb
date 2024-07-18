@@ -11,7 +11,7 @@ from lnschema_core import (
     Artifact,
     Collection,
     Feature,
-    Registry,
+    Record,
     Run,
     ULabel,
 )
@@ -756,7 +756,7 @@ class Annotate:
         verbosity: str = "hint",
         organism: str | None = None,
     ) -> DataFrameAnnotator:
-        """{}."""
+        """{}"""  # noqa: D415
         return DataFrameAnnotator(
             df=df,
             categoricals=categoricals,
@@ -777,7 +777,7 @@ class Annotate:
         verbosity: str = "hint",
         organism: str | None = None,
     ) -> AnnDataAnnotator:
-        """{}."""
+        """{}"""  # noqa: D415
         return AnnDataAnnotator(
             data=data,
             var_index=var_index,
@@ -798,7 +798,7 @@ class Annotate:
         verbosity: str = "hint",
         organism: str | None = None,
     ) -> MuDataAnnotator:
-        """{}."""
+        """{}"""  # noqa: D415
         return MuDataAnnotator(
             mdata=mdata,
             var_index=var_index,
@@ -809,7 +809,7 @@ class Annotate:
         )
 
 
-def get_registry_instance(registry: Registry, using: str | None = None) -> Registry:
+def get_registry_instance(registry: Record, using: str | None = None) -> Record:
     """Get a registry instance using a specific instance."""
     if using is not None and using != "default":
         return registry.using(using)
@@ -817,7 +817,7 @@ def get_registry_instance(registry: Registry, using: str | None = None) -> Regis
 
 
 def standardize_and_inspect(
-    values: Iterable[str], field: FieldAttr, registry: Registry, **kwargs
+    values: Iterable[str], field: FieldAttr, registry: Record, **kwargs
 ):
     """Standardize and inspect values using a registry."""
     if hasattr(registry, "standardize") and hasattr(
@@ -828,7 +828,7 @@ def standardize_and_inspect(
     return registry.inspect(values, field=field, mute=True, **kwargs)
 
 
-def check_registry_organism(registry: Registry, organism: str | None = None) -> dict:
+def check_registry_organism(registry: Record, organism: str | None = None) -> dict:
     """Check if a registry needs an organism and return the organism name."""
     if hasattr(registry, "organism_id"):
         import bionty as bt
@@ -1047,7 +1047,7 @@ def update_registry(
     organism: str | None = None,
     dtype: str | None = None,
     **kwargs,
-) -> list[Registry]:
+) -> list[Record]:
     """Save features or labels records in the default instance from the using instance.
 
     Args:

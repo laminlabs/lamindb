@@ -85,7 +85,7 @@ if _check_instance_setup(from_lamindb=True):
         _feature_set,
         _is_versioned,
         _parents,
-        _registry,
+        _record,
         _run,
         _storage,
         _transform,
