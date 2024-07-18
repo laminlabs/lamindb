@@ -164,6 +164,7 @@ def print_features(
                     labels_by_feature[link.feature_id].append(
                         getattr(link, link_attr).name
                     )
+        labels_msgs = []
         for feature_id, labels_list in labels_by_feature.items():
             feature = Feature.objects.using(self._state.db).get(id=feature_id)
             print_values = _print_values(labels_list, n=10)
@@ -172,8 +173,9 @@ def print_features(
                 dictionary[feature.name] = (
                     labels_list if len(labels_list) > 1 else labels_list[0]
                 )
-            labels_msg += f"    '{feature.name}'{type_str} = {print_values}\n"
-        if labels_msg:
+            labels_msgs.append(f"    '{feature.name}'{type_str} = {print_values}")
+        if len(labels_msgs) > 0:
+            labels_msg = "\n".join(sorted(labels_msgs)) + "\n"
             msg += labels_msg
 
     # non-categorical feature values
@@ -184,6 +186,7 @@ def print_features(
             getattr(self, f"{attr_name}_values")
             .values(f"{attr_name}__name", f"{attr_name}__dtype")
             .annotate(values=custom_aggregate("value", self._state.db))
+            .order_by(f"{attr_name}__name")
         )
         if len(feature_values) > 0:
             for fv in feature_values:
@@ -324,6 +327,11 @@ def infer_feature_type_convert_json(
                         return FEATURE_TYPES["str"] + "[ULabel]", value
                     else:
                         return "list[str]", value
+                elif first_element_type == Record:
+                    return (
+                        f"cat[{first_element_type.__get_name_with_schema__()}]",
+                        value,
+                    )
     elif isinstance(value, Record):
         return (f"cat[{value.__class__.__get_name_with_schema__()}]", value)
     if not mute:
@@ -502,15 +510,21 @@ def _add_values(
                 feature_value = value_model(**filter_kwargs)
             feature_values.append(feature_value)
         else:
-            if isinstance(value, Record):
-                if value._state.adding:
-                    raise ValidationError(
-                        "Please save your label record before annotation."
+            if isinstance(value, Record) or (
+                isinstance(value, Iterable) and isinstance(next(iter(value)), Record)
+            ):
+                if isinstance(value, Record):
+                    label_records = [value]
+                else:
+                    label_records = value  # type: ignore
+                for record in label_records:
+                    if record._state.adding:
+                        raise ValidationError(
+                            f"Please save {record} before annotation."
+                        )
+                    features_labels[record.__class__.__get_name_with_schema__()].append(
+                        (feature, record)
                     )
-                label_record = value
-                features_labels[
-                    label_record.__class__.__get_name_with_schema__()
-                ].append((feature, label_record))
             else:
                 if isinstance(value, str):
                     values = [value]  # type: ignore
