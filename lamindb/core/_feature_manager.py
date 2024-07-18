@@ -174,8 +174,8 @@ def print_features(
                     labels_list if len(labels_list) > 1 else labels_list[0]
                 )
             labels_msgs.append(f"    '{feature.name}'{type_str} = {print_values}")
-        labels_msg = "\n".join(sorted(labels_msgs)) + "\n"
-        if labels_msg:
+        if len(labels_msgs) > 0:
+            labels_msg = "\n".join(sorted(labels_msgs)) + "\n"
             msg += labels_msg
 
     # non-categorical feature values
