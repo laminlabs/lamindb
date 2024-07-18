@@ -17,7 +17,6 @@ setup
 query-search
 track
 annotate
-annotate-flexible
 bio-registries
 schemas
 transfer
