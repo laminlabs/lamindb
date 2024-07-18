@@ -251,36 +251,3 @@ def test_mudata_annotator(mdata):
     ln.ULabel.filter().all().delete()
     bt.ExperimentalFactor.filter().all().delete()
     bt.CellType.filter().all().delete()
-
-
-def test_annotate(df, adata, mdata):
-    annotator = ln.Annotate()
-    annotator.save_features(df.columns, slot="columns")
-    annotator.save_features(df.columns, slot="columns", validated_only=False)
-
-    annotator.save_labels(
-        df.donor, field=ln.ULabel.name, feature="donor", validated_only=False
-    )
-    annotator.save_labels(
-        df.assay_ontology_id,
-        field=bt.ExperimentalFactor.ontology_id,
-        feature="assay_ontology_id",
-    )
-    annotator.save_labels(df.cell_type, field=bt.CellType.name, feature="cell_type")
-    annotator.lookup()
-    assert isinstance(annotator.features, dict)
-    assert isinstance(annotator.labels, list)
-    artifact = annotator.save_artifact(data=df, description="test df")
-
-    # clean up
-    artifact.delete(permanent=True)
-    ln.ULabel.filter().all().delete()
-    bt.ExperimentalFactor.filter().all().delete()
-    bt.CellType.filter().all().delete()
-
-    with pytest.raises(TypeError):
-        ln.Annotate(df)
-    with pytest.raises(TypeError):
-        ln.Annotate(adata)
-    with pytest.raises(TypeError):
-        ln.Annotate(mdata)

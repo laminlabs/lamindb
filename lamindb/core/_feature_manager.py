@@ -485,10 +485,11 @@ def _add_values(
                     f"Value for feature '{key}' with type {feature.dtype} must be a number"
                 )
         elif feature.dtype.startswith("cat"):
-            if not (inferred_type.startswith("cat") or isinstance(value, Registry)):
-                raise TypeError(
-                    f"Value for feature '{key}' with type '{feature.dtype}' must be a string or record."
-                )
+            if inferred_type != "?":
+                if not (inferred_type.startswith("cat") or isinstance(value, Registry)):
+                    raise TypeError(
+                        f"Value for feature '{key}' with type '{feature.dtype}' must be a string or record."
+                    )
         elif not inferred_type == feature.dtype:
             raise ValidationError(
                 f"Expected dtype for '{key}' is '{feature.dtype}', got '{inferred_type}'"

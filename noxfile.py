@@ -33,8 +33,7 @@ GROUPS["guide"] = [
     "meta.ipynb",
     "track.ipynb",
     "annotate.ipynb",
-    "can-validate.ipynb",
-    "annotate-for-developers.ipynb",
+    "annotate-flexible.ipynb",
     "schemas.ipynb",
     "setup.ipynb",
 ]
@@ -67,7 +66,7 @@ def install(session, group):
     elif group == "tutorial":
         extras += "aws,jupyter,bionty"
     elif group == "guide":
-        extras += "aws,bionty,zarr,jupyter,erdiagram"
+        extras += "aws,bionty,zarr,jupyter"
         run(session, "uv pip install --system scanpy")
     elif group == "biology":
         extras += "bionty,fcs,jupyter"

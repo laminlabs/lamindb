@@ -19,6 +19,7 @@ bfx-output/
 scrnaseq-cellranger/
 scrnaseq-cellranger-schmidt22/
 cellranger_run_001
+docs/test-annotate-flexible/
 __MACOSX/
 docs/lamindb.*
 lamin_sphinx
