@@ -31,7 +31,6 @@ dependencies = [
     "pandas",
     "graphviz",
     "psycopg2-binary",
-    "psutil"
 ]
 
 [project.urls]
