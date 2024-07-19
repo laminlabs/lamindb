@@ -232,7 +232,7 @@ def test_create_from_dataframe(df):
     artifact.save()
     # can't do backed
     with pytest.raises(ValueError):
-        artifact.backed()
+        artifact.open()
     # check that the local filepath has been cleared
     assert not hasattr(artifact, "_local_filepath")
     artifact.delete(permanent=True, storage=True)
