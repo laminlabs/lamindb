@@ -220,6 +220,10 @@ def test_backed_tiledbsoma(storage):
     assert isinstance(experiment, tiledbsoma.Experiment)
     experiment.close()
 
+    # run deprecated backed
+    with artifact_soma.backed():
+        pass
+
     artifact_soma.delete(permanent=True, storage=True)
     shutil.rmtree("test.tiledbsoma")
 
