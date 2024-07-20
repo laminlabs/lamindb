@@ -4,6 +4,6 @@
 :maxdepth: 1
 :hidden:
 
-curate-df-anndata
+curate-df
 curate-any
 ```
