@@ -24,7 +24,7 @@ if TYPE_CHECKING:
     from mudata import MuData
 
 
-class AnnotateLookup:
+class CurateLookup:
     """Lookup categories from the reference instance."""
 
     def __init__(
@@ -82,11 +82,11 @@ class AnnotateLookup:
             return colors.warning("No fields are found!")
 
 
-class DataFrameAnnotator:
+class DataFrameCurator:
     """Annotation flow for a DataFrame object.
 
     Args:
-        df: The DataFrame object to annotate.
+        df: The DataFrame object to curate.
         columns: The field attribute for the feature column.
         categoricals: A dictionary mapping column names to registry_field.
         using: The reference instance containing registries to validate against.
@@ -95,7 +95,7 @@ class DataFrameAnnotator:
 
     Examples:
         >>> import bionty as bt
-        >>> annotate = ln.Annotate.from_df(
+        >>> curate = ln.Curate.from_df(
                 df,
                 categoricals={"cell_type_ontology_id": bt.CellType.ontology_id, "donor_id": ln.ULabel.name}
             )
@@ -128,7 +128,7 @@ class DataFrameAnnotator:
         """Return the columns fields to validate against."""
         return self._fields
 
-    def lookup(self, using: str | None = None) -> AnnotateLookup:
+    def lookup(self, using: str | None = None) -> CurateLookup:
         """Lookup categories.
 
         Args:
@@ -136,7 +136,7 @@ class DataFrameAnnotator:
                 if None (default), the lookup is performed on the instance specified in "using" parameter of the validator.
                 if "public", the lookup is performed on the public reference.
         """
-        return AnnotateLookup(
+        return CurateLookup(
             categoricals=self._fields,
             slots={"columns": self._columns_field},
             using=using or self._using,
@@ -328,7 +328,7 @@ class DataFrameAnnotator:
             ).delete()
 
 
-class AnnDataAnnotator(DataFrameAnnotator):
+class AnnDataCurator(DataFrameCurator):
     """Annotation flow for ``AnnData``.
 
     Args:
@@ -341,7 +341,7 @@ class AnnDataAnnotator(DataFrameAnnotator):
 
     Examples:
         >>> import bionty as bt
-        >>> annotate = ln.Annotate.from_anndata(
+        >>> curate = ln.Curate.from_anndata(
                 adata,
                 var_index=bt.Gene.ensembl_gene_id,
                 categoricals={"cell_type_ontology_id": bt.CellType.ontology_id, "donor_id": ln.ULabel.name},
@@ -395,7 +395,7 @@ class AnnDataAnnotator(DataFrameAnnotator):
         """Return the obs fields to validate against."""
         return self._obs_fields
 
-    def lookup(self, using: str | None = None) -> AnnotateLookup:
+    def lookup(self, using: str | None = None) -> CurateLookup:
         """Lookup categories.
 
         Args:
@@ -403,7 +403,7 @@ class AnnDataAnnotator(DataFrameAnnotator):
                 if None (default), the lookup is performed on the instance specified in "using" parameter of the validator.
                 if "public", the lookup is performed on the public reference.
         """
-        return AnnotateLookup(
+        return CurateLookup(
             categoricals=self._obs_fields,
             slots={"columns": self._columns_field, "var_index": self._var_field},
             using=using or self._using,
@@ -487,11 +487,11 @@ class AnnDataAnnotator(DataFrameAnnotator):
         return self._artifact
 
 
-class MuDataAnnotator:
+class MuDataCurator:
     """Annotation flow for a ``MuData`` object.
 
     Args:
-        mdata: The MuData object to annotate.
+        mdata: The MuData object to curate.
         var_index: The registry field for mapping the ``.var`` index for each modality.
             For example:
             ``{"modality_1": bt.Gene.ensembl_gene_id, "modality_2": ln.CellMarker.name}``
@@ -503,7 +503,7 @@ class MuDataAnnotator:
 
     Examples:
         >>> import bionty as bt
-        >>> annotate = ln.Annotate.from_mudata(
+        >>> curate = ln.Curate.from_mudata(
                 mdata,
                 var_index={"rna": bt.Gene.ensembl_gene_id, "adt": ln.CellMarker.name},
                 categoricals={"cell_type_ontology_id": bt.CellType.ontology_id, "donor_id": ln.ULabel.name},
@@ -529,7 +529,7 @@ class MuDataAnnotator:
         self._using = using
         self._verbosity = verbosity
         self._df_annotators = {
-            modality: DataFrameAnnotator(
+            modality: DataFrameCurator(
                 df=mdata[modality].obs if modality != "obs" else mdata.obs,
                 categoricals=self._obs_fields.get(modality, {}),
                 using=using,
@@ -592,7 +592,7 @@ class MuDataAnnotator:
                 obs_fields["obs"][k] = v
         return obs_fields
 
-    def lookup(self, using: str | None = None) -> AnnotateLookup:
+    def lookup(self, using: str | None = None) -> CurateLookup:
         """Lookup categories.
 
         Args:
@@ -600,7 +600,7 @@ class MuDataAnnotator:
                 if None (default), the lookup is performed on the instance specified in "using" parameter of the validator.
                 if "public", the lookup is performed on the public reference.
         """
-        return AnnotateLookup(
+        return CurateLookup(
             categoricals=self._obs_fields,
             slots={
                 **self._obs_fields,
@@ -742,11 +742,11 @@ class MuDataAnnotator:
         return self._artifact
 
 
-class Annotate:
+class Curate:
     """Annotation flow."""
 
     @classmethod
-    @doc_args(DataFrameAnnotator.__doc__)
+    @doc_args(DataFrameCurator.__doc__)
     def from_df(
         cls,
         df: pd.DataFrame,
@@ -755,9 +755,9 @@ class Annotate:
         using: str | None = None,
         verbosity: str = "hint",
         organism: str | None = None,
-    ) -> DataFrameAnnotator:
+    ) -> DataFrameCurator:
         """{}"""  # noqa: D415
-        return DataFrameAnnotator(
+        return DataFrameCurator(
             df=df,
             categoricals=categoricals,
             columns=columns,
@@ -767,7 +767,7 @@ class Annotate:
         )
 
     @classmethod
-    @doc_args(AnnDataAnnotator.__doc__)
+    @doc_args(AnnDataCurator.__doc__)
     def from_anndata(
         cls,
         data: ad.AnnData | UPathStr,
@@ -776,9 +776,9 @@ class Annotate:
         using: str = "default",
         verbosity: str = "hint",
         organism: str | None = None,
-    ) -> AnnDataAnnotator:
+    ) -> AnnDataCurator:
         """{}"""  # noqa: D415
-        return AnnDataAnnotator(
+        return AnnDataCurator(
             data=data,
             var_index=var_index,
             categoricals=categoricals,
@@ -788,7 +788,7 @@ class Annotate:
         )
 
     @classmethod
-    @doc_args(MuDataAnnotator.__doc__)
+    @doc_args(MuDataCurator.__doc__)
     def from_mudata(
         cls,
         mdata: MuData,
@@ -797,9 +797,9 @@ class Annotate:
         using: str = "default",
         verbosity: str = "hint",
         organism: str | None = None,
-    ) -> MuDataAnnotator:
+    ) -> MuDataCurator:
         """{}"""  # noqa: D415
-        return MuDataAnnotator(
+        return MuDataCurator(
             mdata=mdata,
             var_index=var_index,
             categoricals=categoricals,

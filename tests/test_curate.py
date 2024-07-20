@@ -6,7 +6,7 @@ import lamindb as ln
 import mudata as md
 import pandas as pd
 import pytest
-from lamindb._annotate import AnnotateLookup
+from lamindb._curate import CurateLookup
 from lamindb.core.exceptions import ValidationError
 
 
@@ -67,8 +67,8 @@ def categoricals():
 
 
 @pytest.fixture
-def annotate_lookup(categoricals):
-    return AnnotateLookup(categoricals=categoricals, using="undefined")
+def curate_lookup(categoricals):
+    return CurateLookup(categoricals=categoricals, using="undefined")
 
 
 @pytest.fixture
@@ -86,17 +86,17 @@ def mock_transform():
 
 
 def test_df_annotator(df, categoricals):
-    annotate = ln.Annotate.from_df(df, categoricals=categoricals)
-    validated = annotate.validate()
+    curate = ln.Curate.from_df(df, categoricals=categoricals)
+    validated = curate.validate()
     assert validated is False
 
-    cell_types = annotate.lookup("public").cell_type
+    cell_types = curate.lookup("public").cell_type
     df["cell_type"] = df["cell_type"].replace(
         {"cerebral pyramidal neuron": cell_types.cerebral_cortex_pyramidal_neuron.name}
     )
-    annotate.add_validated_from("all")
-    annotate.add_new_from("donor")
-    validated = annotate.validate()
+    curate.add_validated_from("all")
+    curate.add_new_from("donor")
+    validated = curate.validate()
     assert validated is True
 
     # clean up
@@ -105,40 +105,40 @@ def test_df_annotator(df, categoricals):
     bt.CellType.filter().all().delete()
 
 
-def test_custom_using_invalid_field_lookup(annotate_lookup):
+def test_custom_using_invalid_field_lookup(curate_lookup):
     with pytest.raises(AttributeError) as excinfo:
-        _ = annotate_lookup["invalid_field"]
-    assert "'AnnotateLookup' object has no attribute 'invalid_field'" in str(
+        _ = curate_lookup["invalid_field"]
+    assert "'CurateLookup' object has no attribute 'invalid_field'" in str(
         excinfo.value
     )
 
 
 def test_missing_columns(df):
     with pytest.raises(ValueError) as error:
-        ln.Annotate.from_df(df, categoricals={"missing_column": "some_registry_field"})
+        ln.Curate.from_df(df, categoricals={"missing_column": "some_registry_field"})
     assert "Columns {'missing_column'} are not found in the data object!" in str(
         error.value
     )
 
 
 def test_additional_args_with_all_key(df, categoricals):
-    annotate = ln.Annotate.from_df(df, categoricals=categoricals)
+    curate = ln.Curate.from_df(df, categoricals=categoricals)
     with pytest.raises(ValueError) as error:
-        annotate.add_new_from("all", extra_arg="not_allowed")
+        curate.add_new_from("all", extra_arg="not_allowed")
     assert "Cannot pass additional arguments to 'all' key!" in str(error.value)
 
 
 def test_save_columns_not_defined_in_fields(df, categoricals):
-    annotate = ln.Annotate.from_df(df, categoricals=categoricals)
+    curate = ln.Curate.from_df(df, categoricals=categoricals)
     with pytest.raises(ValueError) as error:
-        annotate._update_registry("nonexistent")
+        curate._update_registry("nonexistent")
     assert "Feature nonexistent is not part of the fields!" in str(error.value)
 
 
 def test_unvalidated_data_object(df, categoricals):
-    annotate = ln.Annotate.from_df(df, categoricals=categoricals)
+    curate = ln.Curate.from_df(df, categoricals=categoricals)
     with pytest.raises(ValidationError) as error:
-        annotate.save_artifact()
+        curate.save_artifact()
     assert "Data object is not validated" in str(error.value)
 
 
@@ -161,8 +161,8 @@ def test_clean_up_failed_runs():
 
     assert len(ln.Run.filter(transform=mock_transform).all()) == 2
 
-    annotate = ln.Annotate.from_df(pd.DataFrame())
-    annotate.clean_up_failed_runs()
+    curate = ln.Curate.from_df(pd.DataFrame())
+    curate.clean_up_failed_runs()
 
     assert len(ln.Run.filter(transform=mock_transform).all()) == 1
 
@@ -172,19 +172,19 @@ def test_clean_up_failed_runs():
 
 
 def test_anndata_annotator(adata, categoricals):
-    annotate = ln.Annotate.from_anndata(
+    curate = ln.Curate.from_anndata(
         adata,
         categoricals=categoricals,
         var_index=bt.Gene.symbol,
         organism="human",
     )
-    annotate.add_validated_from("all")
-    annotate.add_new_from("donor")
-    validated = annotate.validate()
+    curate.add_validated_from("all")
+    curate.add_new_from("donor")
+    validated = curate.validate()
     assert validated
 
-    artifact = annotate.save_artifact(description="test AnnData")
-    collection = annotate.save_collection(
+    artifact = curate.save_artifact(description="test AnnData")
+    collection = curate.save_collection(
         artifact,
         name="Experiment X in brain",
         description="10.1126/science.xxxxx",
@@ -203,7 +203,7 @@ def test_anndata_annotator(adata, categoricals):
 
 def test_anndata_annotator_wrong_type(df, categoricals):
     with pytest.raises(ValueError) as error:
-        ln.Annotate.from_anndata(
+        ln.Curate.from_anndata(
             df,
             categoricals=categoricals,
             var_index=bt.Gene.symbol,
@@ -213,14 +213,14 @@ def test_anndata_annotator_wrong_type(df, categoricals):
 
 
 def test_unvalidated_adata_object(adata, categoricals):
-    annotate = ln.Annotate.from_anndata(
+    curate = ln.Curate.from_anndata(
         adata,
         categoricals=categoricals,
         var_index=bt.Gene.symbol,
         organism="human",
     )
     with pytest.raises(ValidationError) as error:
-        annotate.save_artifact()
+        curate.save_artifact()
     assert "Data object is not validated" in str(error.value)
 
 
@@ -234,17 +234,17 @@ def test_mudata_annotator(mdata):
         "rna_2:donor": ln.ULabel.name,
     }
 
-    annotate = ln.Annotate.from_mudata(
+    curate = ln.Curate.from_mudata(
         mdata,
         categoricals=categoricals,
         var_index={"rna": bt.Gene.symbol, "rna_2": bt.Gene.symbol},
         organism="human",
     )
-    annotate.add_validated_from("all", modality="rna")
-    annotate.add_new_from("donor", modality="rna")
-    validated = annotate.validate()
+    curate.add_validated_from("all", modality="rna")
+    curate.add_new_from("donor", modality="rna")
+    validated = curate.validate()
     assert validated
-    artifact = annotate.save_artifact(description="test MuData")
+    artifact = curate.save_artifact(description="test MuData")
 
     # clean up
     artifact.delete(permanent=True)

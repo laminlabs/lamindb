@@ -16,7 +16,7 @@ tutorial2
 setup
 query-search
 track
-annotate
+curate
 bio-registries
 schemas
 transfer
