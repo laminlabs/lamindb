@@ -32,8 +32,8 @@ GROUPS["guide"] = [
     "arrays.ipynb",
     "records.ipynb",
     "track.ipynb",
-    "curate.ipynb",
-    "curate-flexible.ipynb",
+    "curate-df.ipynb",
+    "curate-any.ipynb",
     "schemas.ipynb",
     "setup.ipynb",
 ]
