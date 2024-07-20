@@ -82,7 +82,7 @@ class AnnotateLookup:
             return colors.warning("No fields are found!")
 
 
-class DataFrameAnnotator:
+class DataFrameCurator:
     """Annotation flow for a DataFrame object.
 
     Args:
@@ -328,7 +328,7 @@ class DataFrameAnnotator:
             ).delete()
 
 
-class AnnDataAnnotator(DataFrameAnnotator):
+class AnnDataCurator(DataFrameCurator):
     """Annotation flow for ``AnnData``.
 
     Args:
@@ -487,7 +487,7 @@ class AnnDataAnnotator(DataFrameAnnotator):
         return self._artifact
 
 
-class MuDataAnnotator:
+class MuDataCurator:
     """Annotation flow for a ``MuData`` object.
 
     Args:
@@ -529,7 +529,7 @@ class MuDataAnnotator:
         self._using = using
         self._verbosity = verbosity
         self._df_annotators = {
-            modality: DataFrameAnnotator(
+            modality: DataFrameCurator(
                 df=mdata[modality].obs if modality != "obs" else mdata.obs,
                 categoricals=self._obs_fields.get(modality, {}),
                 using=using,
@@ -746,7 +746,7 @@ class Annotate:
     """Annotation flow."""
 
     @classmethod
-    @doc_args(DataFrameAnnotator.__doc__)
+    @doc_args(DataFrameCurator.__doc__)
     def from_df(
         cls,
         df: pd.DataFrame,
@@ -755,9 +755,9 @@ class Annotate:
         using: str | None = None,
         verbosity: str = "hint",
         organism: str | None = None,
-    ) -> DataFrameAnnotator:
+    ) -> DataFrameCurator:
         """{}"""  # noqa: D415
-        return DataFrameAnnotator(
+        return DataFrameCurator(
             df=df,
             categoricals=categoricals,
             columns=columns,
@@ -767,7 +767,7 @@ class Annotate:
         )
 
     @classmethod
-    @doc_args(AnnDataAnnotator.__doc__)
+    @doc_args(AnnDataCurator.__doc__)
     def from_anndata(
         cls,
         data: ad.AnnData | UPathStr,
@@ -776,9 +776,9 @@ class Annotate:
         using: str = "default",
         verbosity: str = "hint",
         organism: str | None = None,
-    ) -> AnnDataAnnotator:
+    ) -> AnnDataCurator:
         """{}"""  # noqa: D415
-        return AnnDataAnnotator(
+        return AnnDataCurator(
             data=data,
             var_index=var_index,
             categoricals=categoricals,
@@ -788,7 +788,7 @@ class Annotate:
         )
 
     @classmethod
-    @doc_args(MuDataAnnotator.__doc__)
+    @doc_args(MuDataCurator.__doc__)
     def from_mudata(
         cls,
         mdata: MuData,
@@ -797,9 +797,9 @@ class Annotate:
         using: str = "default",
         verbosity: str = "hint",
         organism: str | None = None,
-    ) -> MuDataAnnotator:
+    ) -> MuDataCurator:
         """{}"""  # noqa: D415
-        return MuDataAnnotator(
+        return MuDataCurator(
             mdata=mdata,
             var_index=var_index,
             categoricals=categoricals,
