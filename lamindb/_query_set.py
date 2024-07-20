@@ -181,7 +181,7 @@ class QuerySet(models.QuerySet, CanValidate):
                     # the F() based implementation could also work for many-to-many,
                     # would need to test what is faster
                     df_anno = pd.DataFrame(
-                        self.curate(expression=F(expression)).values(
+                        self.annotate(expression=F(expression)).values(
                             pk_column_name, "expression"
                         )
                     )

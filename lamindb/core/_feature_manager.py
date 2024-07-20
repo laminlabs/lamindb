@@ -185,7 +185,7 @@ def print_features(
         feature_values = (
             getattr(self, f"{attr_name}_values")
             .values(f"{attr_name}__name", f"{attr_name}__dtype")
-            .curate(values=custom_aggregate("value", self._state.db))
+            .annotate(values=custom_aggregate("value", self._state.db))
             .order_by(f"{attr_name}__name")
         )
         if len(feature_values) > 0:

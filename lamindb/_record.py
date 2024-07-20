@@ -244,10 +244,10 @@ def _search(
     for field in fields:
         query = {f"{field}__{case_sensitive_i}contains": string}
         narrow_expression |= Q(**query)
-    refined_output_queryset = output_queryset.filter(narrow_expression).curate(
+    refined_output_queryset = output_queryset.filter(narrow_expression).annotate(
         ordering=Value(1, output_field=IntegerField())
     )
-    remaining_output_queryset = output_queryset.exclude(narrow_expression).curate(
+    remaining_output_queryset = output_queryset.exclude(narrow_expression).annotate(
         ordering=Value(2, output_field=IntegerField())
     )
     combined_queryset = refined_output_queryset.union(
