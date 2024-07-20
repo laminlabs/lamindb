@@ -29,8 +29,8 @@ GROUPS["tutorial"] = [
     "transfer.ipynb",
 ]
 GROUPS["guide"] = [
-    "data.ipynb",
-    "meta.ipynb",
+    "arrays.ipynb",
+    "records.ipynb",
     "track.ipynb",
     "annotate.ipynb",
     "annotate-flexible.ipynb",

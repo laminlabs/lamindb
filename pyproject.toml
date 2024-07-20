@@ -16,8 +16,8 @@ classifiers = [
 ]
 dependencies = [
     # Lamin PINNED packages
-    "lnschema_core==0.70.2",
-    "lamindb_setup==0.74.0",
+    "lnschema_core==0.70.4",
+    "lamindb_setup==0.74.1",
     "lamin_utils==0.13.2",
     "lamin_cli==0.15.0",
     # others
@@ -38,7 +38,7 @@ Home = "https://github.com/laminlabs/lamindb"
 
 [project.optional-dependencies]
 bionty = [
-    "bionty==0.44.1",
+    "bionty==0.44.2",
 ]
 aws = [
     "lamindb_setup[aws]",

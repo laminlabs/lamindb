@@ -109,3 +109,4 @@ if _check_instance_setup(from_lamindb=True):
 
     track = _run_context._track
     settings.__doc__ = """Global :class:`~lamindb.core.Settings`."""
+    from django.db.models import Q
