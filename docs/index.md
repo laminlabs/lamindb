@@ -10,6 +10,6 @@
 :hidden:
 
 guide
-reference
+api
 changelog
 ```

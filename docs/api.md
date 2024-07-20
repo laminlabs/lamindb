@@ -1,4 +1,4 @@
-# Reference
+# API
 
 <meta http-equiv="Refresh" content="0; url=./lamindb.html" />
 
