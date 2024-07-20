@@ -70,7 +70,7 @@ from lnschema_core.models import (
     TracksUpdates,
 )
 
-from lamindb._annotate import (
+from lamindb._curate import (
     AnnDataCurator,
     CurateLookup,
     DataFrameCurator,

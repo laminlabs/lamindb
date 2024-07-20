@@ -77,10 +77,10 @@ if _check_instance_setup(from_lamindb=True):
 
     from . import core  # isort: split
     from . import (
-        _annotate,
         _artifact,
         _can_validate,
         _collection,
+        _curate,
         _feature,
         _feature_set,
         _is_versioned,
@@ -92,7 +92,7 @@ if _check_instance_setup(from_lamindb=True):
         _ulabel,
         integrations,
     )
-    from ._annotate import Curate
+    from ._curate import Curate
     from ._finish import finish
     from ._save import save
     from ._view import view

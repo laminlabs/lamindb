@@ -86,7 +86,7 @@ class DataFrameCurator:
     """Annotation flow for a DataFrame object.
 
     Args:
-        df: The DataFrame object to annotate.
+        df: The DataFrame object to curate.
         columns: The field attribute for the feature column.
         categoricals: A dictionary mapping column names to registry_field.
         using: The reference instance containing registries to validate against.
@@ -95,7 +95,7 @@ class DataFrameCurator:
 
     Examples:
         >>> import bionty as bt
-        >>> annotate = ln.Curate.from_df(
+        >>> curate = ln.Curate.from_df(
                 df,
                 categoricals={"cell_type_ontology_id": bt.CellType.ontology_id, "donor_id": ln.ULabel.name}
             )
@@ -341,7 +341,7 @@ class AnnDataCurator(DataFrameCurator):
 
     Examples:
         >>> import bionty as bt
-        >>> annotate = ln.Curate.from_anndata(
+        >>> curate = ln.Curate.from_anndata(
                 adata,
                 var_index=bt.Gene.ensembl_gene_id,
                 categoricals={"cell_type_ontology_id": bt.CellType.ontology_id, "donor_id": ln.ULabel.name},
@@ -491,7 +491,7 @@ class MuDataCurator:
     """Annotation flow for a ``MuData`` object.
 
     Args:
-        mdata: The MuData object to annotate.
+        mdata: The MuData object to curate.
         var_index: The registry field for mapping the ``.var`` index for each modality.
             For example:
             ``{"modality_1": bt.Gene.ensembl_gene_id, "modality_2": ln.CellMarker.name}``
@@ -503,7 +503,7 @@ class MuDataCurator:
 
     Examples:
         >>> import bionty as bt
-        >>> annotate = ln.Curate.from_mudata(
+        >>> curate = ln.Curate.from_mudata(
                 mdata,
                 var_index={"rna": bt.Gene.ensembl_gene_id, "adt": ln.CellMarker.name},
                 categoricals={"cell_type_ontology_id": bt.CellType.ontology_id, "donor_id": ln.ULabel.name},
