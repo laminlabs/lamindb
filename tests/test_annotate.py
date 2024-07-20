@@ -6,7 +6,7 @@ import lamindb as ln
 import mudata as md
 import pandas as pd
 import pytest
-from lamindb._annotate import AnnotateLookup
+from lamindb._annotate import CurateLookup
 from lamindb.core.exceptions import ValidationError
 
 
@@ -68,7 +68,7 @@ def categoricals():
 
 @pytest.fixture
 def annotate_lookup(categoricals):
-    return AnnotateLookup(categoricals=categoricals, using="undefined")
+    return CurateLookup(categoricals=categoricals, using="undefined")
 
 
 @pytest.fixture
@@ -86,7 +86,7 @@ def mock_transform():
 
 
 def test_df_annotator(df, categoricals):
-    annotate = ln.Annotate.from_df(df, categoricals=categoricals)
+    annotate = ln.Curate.from_df(df, categoricals=categoricals)
     validated = annotate.validate()
     assert validated is False
 
@@ -108,35 +108,35 @@ def test_df_annotator(df, categoricals):
 def test_custom_using_invalid_field_lookup(annotate_lookup):
     with pytest.raises(AttributeError) as excinfo:
         _ = annotate_lookup["invalid_field"]
-    assert "'AnnotateLookup' object has no attribute 'invalid_field'" in str(
+    assert "'CurateLookup' object has no attribute 'invalid_field'" in str(
         excinfo.value
     )
 
 
 def test_missing_columns(df):
     with pytest.raises(ValueError) as error:
-        ln.Annotate.from_df(df, categoricals={"missing_column": "some_registry_field"})
+        ln.Curate.from_df(df, categoricals={"missing_column": "some_registry_field"})
     assert "Columns {'missing_column'} are not found in the data object!" in str(
         error.value
     )
 
 
 def test_additional_args_with_all_key(df, categoricals):
-    annotate = ln.Annotate.from_df(df, categoricals=categoricals)
+    annotate = ln.Curate.from_df(df, categoricals=categoricals)
     with pytest.raises(ValueError) as error:
         annotate.add_new_from("all", extra_arg="not_allowed")
     assert "Cannot pass additional arguments to 'all' key!" in str(error.value)
 
 
 def test_save_columns_not_defined_in_fields(df, categoricals):
-    annotate = ln.Annotate.from_df(df, categoricals=categoricals)
+    annotate = ln.Curate.from_df(df, categoricals=categoricals)
     with pytest.raises(ValueError) as error:
         annotate._update_registry("nonexistent")
     assert "Feature nonexistent is not part of the fields!" in str(error.value)
 
 
 def test_unvalidated_data_object(df, categoricals):
-    annotate = ln.Annotate.from_df(df, categoricals=categoricals)
+    annotate = ln.Curate.from_df(df, categoricals=categoricals)
     with pytest.raises(ValidationError) as error:
         annotate.save_artifact()
     assert "Data object is not validated" in str(error.value)
@@ -161,7 +161,7 @@ def test_clean_up_failed_runs():
 
     assert len(ln.Run.filter(transform=mock_transform).all()) == 2
 
-    annotate = ln.Annotate.from_df(pd.DataFrame())
+    annotate = ln.Curate.from_df(pd.DataFrame())
     annotate.clean_up_failed_runs()
 
     assert len(ln.Run.filter(transform=mock_transform).all()) == 1
@@ -172,7 +172,7 @@ def test_clean_up_failed_runs():
 
 
 def test_anndata_annotator(adata, categoricals):
-    annotate = ln.Annotate.from_anndata(
+    annotate = ln.Curate.from_anndata(
         adata,
         categoricals=categoricals,
         var_index=bt.Gene.symbol,
@@ -203,7 +203,7 @@ def test_anndata_annotator(adata, categoricals):
 
 def test_anndata_annotator_wrong_type(df, categoricals):
     with pytest.raises(ValueError) as error:
-        ln.Annotate.from_anndata(
+        ln.Curate.from_anndata(
             df,
             categoricals=categoricals,
             var_index=bt.Gene.symbol,
@@ -213,7 +213,7 @@ def test_anndata_annotator_wrong_type(df, categoricals):
 
 
 def test_unvalidated_adata_object(adata, categoricals):
-    annotate = ln.Annotate.from_anndata(
+    annotate = ln.Curate.from_anndata(
         adata,
         categoricals=categoricals,
         var_index=bt.Gene.symbol,
@@ -234,7 +234,7 @@ def test_mudata_annotator(mdata):
         "rna_2:donor": ln.ULabel.name,
     }
 
-    annotate = ln.Annotate.from_mudata(
+    annotate = ln.Curate.from_mudata(
         mdata,
         categoricals=categoricals,
         var_index={"rna": bt.Gene.symbol, "rna_2": bt.Gene.symbol},

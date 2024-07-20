@@ -427,7 +427,7 @@ def _add_values(
     feature_param_field: FieldAttr,
     str_as_ulabel: bool = True,
 ) -> None:
-    """Annotate artifact with features & values.
+    """Curate artifact with features & values.
 
     Args:
         values: A dictionary of keys (features) & values (labels, numbers, booleans).
@@ -623,7 +623,7 @@ def add_values_features(
     feature_field: FieldAttr = Feature.name,
     str_as_ulabel: bool = True,
 ) -> None:
-    """Annotate artifact with features & values.
+    """Curate artifact with features & values.
 
     Args:
         values: A dictionary of keys (features) & values (labels, numbers, booleans).
@@ -638,7 +638,7 @@ def add_values_params(
     self,
     values: dict[str, str | int | float | bool],
 ) -> None:
-    """Annotate artifact with features & values.
+    """Curate artifact with features & values.
 
     Args:
         values: A dictionary of keys (features) & values (labels, numbers, booleans).
@@ -647,7 +647,7 @@ def add_values_params(
 
 
 def add_feature_set(self, feature_set: FeatureSet, slot: str) -> None:
-    """Annotate artifact with a feature set.
+    """Curate artifact with a feature set.
 
     Args:
         feature_set: `FeatureSet` A feature set record.

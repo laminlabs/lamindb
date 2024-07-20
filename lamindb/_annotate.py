@@ -24,7 +24,7 @@ if TYPE_CHECKING:
     from mudata import MuData
 
 
-class AnnotateLookup:
+class CurateLookup:
     """Lookup categories from the reference instance."""
 
     def __init__(
@@ -95,7 +95,7 @@ class DataFrameCurator:
 
     Examples:
         >>> import bionty as bt
-        >>> annotate = ln.Annotate.from_df(
+        >>> annotate = ln.Curate.from_df(
                 df,
                 categoricals={"cell_type_ontology_id": bt.CellType.ontology_id, "donor_id": ln.ULabel.name}
             )
@@ -128,7 +128,7 @@ class DataFrameCurator:
         """Return the columns fields to validate against."""
         return self._fields
 
-    def lookup(self, using: str | None = None) -> AnnotateLookup:
+    def lookup(self, using: str | None = None) -> CurateLookup:
         """Lookup categories.
 
         Args:
@@ -136,7 +136,7 @@ class DataFrameCurator:
                 if None (default), the lookup is performed on the instance specified in "using" parameter of the validator.
                 if "public", the lookup is performed on the public reference.
         """
-        return AnnotateLookup(
+        return CurateLookup(
             categoricals=self._fields,
             slots={"columns": self._columns_field},
             using=using or self._using,
@@ -341,7 +341,7 @@ class AnnDataCurator(DataFrameCurator):
 
     Examples:
         >>> import bionty as bt
-        >>> annotate = ln.Annotate.from_anndata(
+        >>> annotate = ln.Curate.from_anndata(
                 adata,
                 var_index=bt.Gene.ensembl_gene_id,
                 categoricals={"cell_type_ontology_id": bt.CellType.ontology_id, "donor_id": ln.ULabel.name},
@@ -395,7 +395,7 @@ class AnnDataCurator(DataFrameCurator):
         """Return the obs fields to validate against."""
         return self._obs_fields
 
-    def lookup(self, using: str | None = None) -> AnnotateLookup:
+    def lookup(self, using: str | None = None) -> CurateLookup:
         """Lookup categories.
 
         Args:
@@ -403,7 +403,7 @@ class AnnDataCurator(DataFrameCurator):
                 if None (default), the lookup is performed on the instance specified in "using" parameter of the validator.
                 if "public", the lookup is performed on the public reference.
         """
-        return AnnotateLookup(
+        return CurateLookup(
             categoricals=self._obs_fields,
             slots={"columns": self._columns_field, "var_index": self._var_field},
             using=using or self._using,
@@ -503,7 +503,7 @@ class MuDataCurator:
 
     Examples:
         >>> import bionty as bt
-        >>> annotate = ln.Annotate.from_mudata(
+        >>> annotate = ln.Curate.from_mudata(
                 mdata,
                 var_index={"rna": bt.Gene.ensembl_gene_id, "adt": ln.CellMarker.name},
                 categoricals={"cell_type_ontology_id": bt.CellType.ontology_id, "donor_id": ln.ULabel.name},
@@ -592,7 +592,7 @@ class MuDataCurator:
                 obs_fields["obs"][k] = v
         return obs_fields
 
-    def lookup(self, using: str | None = None) -> AnnotateLookup:
+    def lookup(self, using: str | None = None) -> CurateLookup:
         """Lookup categories.
 
         Args:
@@ -600,7 +600,7 @@ class MuDataCurator:
                 if None (default), the lookup is performed on the instance specified in "using" parameter of the validator.
                 if "public", the lookup is performed on the public reference.
         """
-        return AnnotateLookup(
+        return CurateLookup(
             categoricals=self._obs_fields,
             slots={
                 **self._obs_fields,
@@ -742,7 +742,7 @@ class MuDataCurator:
         return self._artifact
 
 
-class Annotate:
+class Curate:
     """Annotation flow."""
 
     @classmethod

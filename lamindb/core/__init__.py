@@ -32,7 +32,7 @@ Curators:
    DataFrameCurator
    AnnDataCurator
    MuDataCurator
-   AnnotateLookup
+   CurateLookup
 
 Other:
 
@@ -72,7 +72,7 @@ from lnschema_core.models import (
 
 from lamindb._annotate import (
     AnnDataCurator,
-    AnnotateLookup,
+    CurateLookup,
     DataFrameCurator,
     MuDataCurator,
 )
