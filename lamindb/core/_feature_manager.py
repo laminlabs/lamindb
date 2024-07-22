@@ -793,9 +793,7 @@ def _add_from(self, data: HasFeatures):
         # create records from ontology_id
         if field == "ontology_id" and len(member_uids) > 0:
             # create from bionty
-            records = registry.from_values(member_uids, field=field)
-            if len(records) > 0:
-                save(records)
+            save(registry.from_values(member_uids, field=field))
         validated = registry.validate(member_uids, field=field, mute=True)
         new_members_uids = list(compress(member_uids, ~validated))
         new_members = members.filter(**{f"{field}__in": new_members_uids}).all()
