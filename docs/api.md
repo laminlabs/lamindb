@@ -34,6 +34,4 @@ wetlab
 
 bionty-base
 readfcs
-nbproject
-lamin-utils
 ```
