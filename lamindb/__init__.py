@@ -24,7 +24,7 @@ Key functionality:
    connect
    track
    finish
-   Annotate
+   Curate
    view
    save
 
@@ -42,7 +42,7 @@ Modules & settings:
 """
 
 # denote a release candidate for 0.1.0 with 0.1rc1, 0.1a1, 0.1b1, etc.
-__version__ = "0.74.1"
+__version__ = "0.74.2"
 
 import os as _os
 
@@ -77,10 +77,10 @@ if _check_instance_setup(from_lamindb=True):
 
     from . import core  # isort: split
     from . import (
-        _annotate,
         _artifact,
         _can_validate,
         _collection,
+        _curate,
         _feature,
         _feature_set,
         _is_versioned,
@@ -92,7 +92,7 @@ if _check_instance_setup(from_lamindb=True):
         _ulabel,
         integrations,
     )
-    from ._annotate import Annotate
+    from ._curate import Curate
     from ._finish import finish
     from ._save import save
     from ._view import view
@@ -109,3 +109,6 @@ if _check_instance_setup(from_lamindb=True):
 
     track = _run_context._track
     settings.__doc__ = """Global :class:`~lamindb.core.Settings`."""
+    from django.db.models import Q
+
+    Annotate = Curate  # backward compat

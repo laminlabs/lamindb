@@ -29,11 +29,11 @@ GROUPS["tutorial"] = [
     "transfer.ipynb",
 ]
 GROUPS["guide"] = [
-    "data.ipynb",
-    "meta.ipynb",
+    "arrays.ipynb",
+    "records.ipynb",
     "track.ipynb",
-    "annotate.ipynb",
-    "annotate-flexible.ipynb",
+    "curate-df.ipynb",
+    "curate-any.ipynb",
     "schemas.ipynb",
     "setup.ipynb",
 ]

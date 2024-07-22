@@ -24,15 +24,15 @@ Registries:
    InspectResult
    fields
 
-Annotators:
+Curators:
 
 .. autosummary::
    :toctree: .
 
-   DataFrameAnnotator
-   AnnDataAnnotator
-   MuDataAnnotator
-   AnnotateLookup
+   DataFrameCurator
+   AnnDataCurator
+   MuDataCurator
+   CurateLookup
 
 Other:
 
@@ -70,11 +70,11 @@ from lnschema_core.models import (
     TracksUpdates,
 )
 
-from lamindb._annotate import (
-    AnnDataAnnotator,
-    AnnotateLookup,
-    DataFrameAnnotator,
-    MuDataAnnotator,
+from lamindb._curate import (
+    AnnDataCurator,
+    CurateLookup,
+    DataFrameCurator,
+    MuDataCurator,
 )
 from lamindb._query_manager import QueryManager
 from lamindb._query_set import QuerySet, RecordsList
