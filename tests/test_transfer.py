@@ -9,6 +9,7 @@ def test_transfer_from_remote_to_local():
     bt.Gene.filter().delete()
     bt.Organism.filter().delete()
     ln.ULabel.filter().delete()
+    bt.CellType.filter().delete()
 
     # transfer 1st artifact
     artifact = (
