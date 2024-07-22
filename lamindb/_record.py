@@ -529,12 +529,7 @@ def save(self, *args, **kwargs) -> Record:
     if result is not None:
         init_self_from_db(self, result)
     else:
-        # here, we can't use the parents argument
-        # parents are not saved for the self record
-        save_kwargs = kwargs.copy()
-        if "parents" in save_kwargs:
-            save_kwargs.pop("parents")
-        super(Record, self).save(*args, **save_kwargs)
+        super(Record, self).save(*args, **kwargs)
     # perform transfer of many-to-many fields
     # only supported for Artifact and Collection records
     if db is not None and db != "default" and using_key is None:
@@ -554,16 +549,8 @@ def save(self, *args, **kwargs) -> Record:
             self_on_db._state.db = db
             self_on_db.pk = pk_on_db  # manually set the primary key
             self_on_db.features = FeatureManager(self_on_db)
-            # by default, transfer parents of the labels to maintain ontological hierarchy
-            try:
-                import bionty as bt
-
-                parents = kwargs.get("parents", bt.settings.auto_save_parents)
-            except ImportError:
-                parents = kwargs.get("parents", True)
-            add_from_kwargs = {"parents": parents}
-            self.features._add_from(self_on_db, **add_from_kwargs)
-            self.labels.add_from(self_on_db, **add_from_kwargs)
+            self.features._add_from(self_on_db)
+            self.labels.add_from(self_on_db)
     return self
 
 

@@ -9,6 +9,7 @@ def test_transfer_from_remote_to_local():
     bt.Gene.filter().delete()
     bt.Organism.filter().delete()
     ln.ULabel.filter().delete()
+    bt.CellType.filter().delete()
 
     # transfer 1st artifact
     artifact = (
@@ -24,7 +25,7 @@ def test_transfer_from_remote_to_local():
     storage_remote = artifact.storage
     organism_remote = artifact.organisms.get(name="human")
 
-    artifact.save(parents=False)
+    artifact.save()
 
     # check all ids are adjusted
     assert id_remote != artifact.id
@@ -42,7 +43,7 @@ def test_transfer_from_remote_to_local():
         .filter(uid="livFRRpMaOgb3y8U2mK2")
         .one()
     )
-    artifact_repeat.save(parents=False)
+    artifact_repeat.save()
 
     # now prepare a new test case
     # mimic we have an existing feature with a different uid but same name
@@ -51,7 +52,6 @@ def test_transfer_from_remote_to_local():
     feature.save()
 
     # transfer 2nd artifact
-    bt.settings.auto_save_parents = False
     artifact2 = (
         ln.Artifact.using("laminlabs/lamin-dev")
         .filter(uid="qz35YaRk09XtYAyLvjyZ")
