@@ -1,6 +1,5 @@
 import bionty as bt
 import lamindb as ln
-import pandas as pd
 import pytest
 
 
@@ -39,7 +38,7 @@ def prepare_cell_type_registry():
         assert record.name == ref_record["name"]
         assert set(record.synonyms.split("|")) == set(ref_record["synonyms"].split("|"))
         public_records.append(record)
-    ln.save(public_records, parents=False)
+    ln.save(public_records)
     yield "prepared"
     bt.CellType.filter().all().delete()
 

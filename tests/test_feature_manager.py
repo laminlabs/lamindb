@@ -4,9 +4,6 @@ import bionty as bt
 import lamindb as ln
 import pytest
 from lamindb.core.exceptions import ValidationError
-from lnschema_core.models import FeatureValue, Record
-
-bt.settings.auto_save_parents = False
 
 
 @pytest.fixture(scope="module")
@@ -353,7 +350,6 @@ def test_add_labels_using_anndata(adata):
     ln.save(tissues)
 
     bt.settings.organism = "human"
-    bt.settings.auto_save_parents = False
 
     # clean up DB state
     organism_feature = ln.Feature.filter(name="organism").one_or_none()

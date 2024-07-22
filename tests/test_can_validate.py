@@ -61,7 +61,7 @@ def test_add_remove_synonym():
         user.add_synonym("syn")
 
     cell_types = bt.CellType.from_values(["T cell", "B cell"], "name")
-    ln.save(cell_types, parents=False)
+    ln.save(cell_types)
     tcell = bt.CellType.filter(name="T cell").one()
     bcell = bt.CellType.filter(name="B cell").one()
     tcell.add_synonym(["my cell type"])
@@ -97,7 +97,7 @@ def test_add_remove_synonym():
 
 def test_set_abbr():
     bt.CellType.filter().all().delete()
-    bt.CellType(name="my cell type").save(parents=False)
+    bt.CellType(name="my cell type").save()
     record = bt.CellType.filter(name="my cell type").one()
     # if abbr is name, do not add to synonyms
     record.set_abbr("my cell type")

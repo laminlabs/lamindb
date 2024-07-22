@@ -27,9 +27,7 @@ if TYPE_CHECKING:
     from lamindb_setup.core.upath import UPath
 
 
-def save(
-    records: Iterable[Record], ignore_conflicts: bool | None = False, **kwargs
-) -> None:
+def save(records: Iterable[Record], ignore_conflicts: bool | None = False) -> None:
     """Bulk save to registries & storage.
 
     Note:
@@ -47,7 +45,6 @@ def save(
            unique or another constraint. However, it won't inplace update the id
            fields of records. If you need records with ids, you need to query
            them from the database.
-        **kwargs: Get kwargs related to parents.
 
     Examples:
 
@@ -87,27 +84,12 @@ def save(
         non_artifacts_with_parents = [
             r for r in non_artifacts_new if hasattr(r, "_parents")
         ]
-        if len(non_artifacts_with_parents) > 0 and kwargs.get("parents") is not False:
+        if len(non_artifacts_with_parents) > 0:
             # this can only happen within lnschema_bionty right now!!
             # we might extend to core lamindb later
-            import bionty as bt
+            from lnschema_bionty.core import add_ontology
 
-            if kwargs.get("parents") or (
-                kwargs.get("parents") is None and bt.settings.auto_save_parents
-            ):
-                mute = False if kwargs.get("mute") is None else kwargs.get("mute")
-                if not mute:
-                    # save the record with parents one by one
-                    logger.warning(
-                        "now recursing through parents: "
-                        "this only happens once, but is much slower than bulk saving"
-                    )
-                    logger.hint(
-                        "you can switch this off via: bt.settings.auto_save_parents ="
-                        " False"
-                    )
-                for record in non_artifacts_with_parents:
-                    record._save_ontology_parents(mute=True)
+            add_ontology(non_artifacts_with_parents)
 
     if artifacts:
         with transaction.atomic():

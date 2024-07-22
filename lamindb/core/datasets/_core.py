@@ -185,8 +185,6 @@ def anndata_mouse_sc_lymph_node(
 
         verbosity = ln.settings.verbosity
         ln.settings.verbosity = "error"
-        auto_save_parents = bt.settings.auto_save_parents
-        bt.settings.auto_save_parents = False
         # strain
         bt.ExperimentalFactor.from_public(ontology_id="EFO:0004472").save()
         # developmental stage
@@ -215,7 +213,6 @@ def anndata_mouse_sc_lymph_node(
             labels += [ln.ULabel(name=name) for name in adata.obs[col]]
         ln.save(labels)
         ln.settings.verbosity = verbosity
-        bt.settings.auto_save_parents = auto_save_parents
 
     return adata
 
@@ -313,8 +310,6 @@ def anndata_human_immune_cells(
 
         verbosity = ln.settings.verbosity
         ln.settings.verbosity = "error"
-        auto_save_parents = bt.settings.auto_save_parents
-        bt.settings.auto_save_parents = False
         ln.save(
             bt.Gene.from_values(
                 adata.var.index, field="ensembl_gene_id", organism="human"
@@ -331,7 +326,6 @@ def anndata_human_immune_cells(
         bt.ExperimentalFactor.from_public(ontology_id="EFO:0008913").save()
         ln.save([ln.ULabel(name=name) for name in adata.obs.donor.unique()])
         ln.settings.verbosity = verbosity
-        bt.settings.auto_save_parents = auto_save_parents
     return adata
 
 

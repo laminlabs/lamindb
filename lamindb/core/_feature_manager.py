@@ -770,7 +770,7 @@ def _add_set_from_mudata(
     self._host.save()
 
 
-def _add_from(self, data: HasFeatures, parents: bool = True):
+def _add_from(self, data: HasFeatures):
     """Transfer features from a artifact or collection."""
     # This only covers feature sets, though.
     using_key = settings._using_key
@@ -782,23 +782,20 @@ def _add_from(self, data: HasFeatures, parents: bool = True):
         # note here the features are transferred based on an unique field
         field = REGISTRY_UNIQUE_FIELD.get(registry.__name__.lower(), "uid")
         # TODO: get a default ID field for the registry
-        if hasattr(registry, "ontology_id") and parents:
+        if hasattr(registry, "ontology_id"):
             field = "ontology_id"
         elif hasattr(registry, "ensembl_gene_id"):
             field = "ensembl_gene_id"
         elif hasattr(registry, "uniprotkb_id"):
             field = "uniprotkb_id"
-
-        if registry.__get_name_with_schema__() == "bionty.Organism":
-            parents = False
         # this will be e.g. be a list of ontology_ids or uids
         member_uids = list(members.values_list(field, flat=True))
-        # create records from ontology_id in order to populate parents
-        if field == "ontology_id" and len(member_uids) > 0 and parents:
+        # create records from ontology_id
+        if field == "ontology_id" and len(member_uids) > 0:
             # create from bionty
             records = registry.from_values(member_uids, field=field)
             if len(records) > 0:
-                save(records, parents=parents)
+                save(records)
         validated = registry.validate(member_uids, field=field, mute=True)
         new_members_uids = list(compress(member_uids, ~validated))
         new_members = members.filter(**{f"{field}__in": new_members_uids}).all()
@@ -814,7 +811,7 @@ def _add_from(self, data: HasFeatures, parents: bool = True):
                 # in the previous step transfer_fk_to_default_db_bulk
                 transfer_to_default_db(feature, using_key, mute=mute, transfer_fk=False)
             logger.info(f"saving {n_new_members} new {registry.__name__} records")
-            save(new_members, parents=parents)
+            save(new_members)
 
         # create a new feature set from feature values using the same uid
         feature_set_self = FeatureSet.from_values(

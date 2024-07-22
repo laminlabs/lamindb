@@ -76,32 +76,30 @@ def print_labels(self: HasFeatures, field: str = "name", print_types: bool = Fal
 
 
 # Alex: is this a label transfer function?
-def validate_labels(labels: QuerySet | list | dict, parents: bool = True):
+def validate_labels(labels: QuerySet | list | dict):
     def validate_labels_registry(
-        labels: QuerySet | list | dict, parents: bool = True
+        labels: QuerySet | list | dict,
     ) -> tuple[list[str], list[str]]:
         if len(labels) == 0:
             return [], []
         registry = labels[0].__class__
         field = REGISTRY_UNIQUE_FIELD.get(registry.__name__.lower(), "uid")
-        if hasattr(registry, "ontology_id") and parents:
+        if hasattr(registry, "ontology_id"):
             field = "ontology_id"
         elif hasattr(registry, "ensembl_gene_id"):
             field = "ensembl_gene_id"
         elif hasattr(registry, "uniprotkb_id"):
             field = "uniprotkb_id"
-        if registry.__get_name_with_schema__() == "bionty.Organism":
-            parents = False
         # if the field value is None, use uid field
         label_uids = np.array(
             [getattr(label, field) for label in labels if label is not None]
         )
-        # save labels from ontology_ids so that parents are populated
+        # save labels from ontology_ids
         if field == "ontology_id" and len(label_uids) > 0:
             try:
                 records = registry.from_values(label_uids, field=field)
                 if len(records) > 0:
-                    save(records, parents=parents)
+                    save(records)
             except Exception:  # noqa S110
                 pass
             field = "uid"
@@ -117,11 +115,9 @@ def validate_labels(labels: QuerySet | list | dict, parents: bool = True):
     if isinstance(labels, Dict):
         result = {}
         for registry, labels_registry in labels.items():
-            result[registry] = validate_labels_registry(
-                labels_registry, parents=parents
-            )
+            result[registry] = validate_labels_registry(labels_registry)
     else:
-        return validate_labels_registry(labels, parents=parents)
+        return validate_labels_registry(labels)
 
 
 class LabelManager:
@@ -176,7 +172,7 @@ class LabelManager:
 
         return get_labels(self._host, feature=feature, mute=mute, flat_names=flat_names)
 
-    def add_from(self, data: HasFeatures, parents: bool = True) -> None:
+    def add_from(self, data: HasFeatures) -> None:
         """Add labels from an artifact or collection to another artifact or collection.
 
         Examples:
@@ -202,7 +198,7 @@ class LabelManager:
                 data_name_lower = data.__class__.__name__.lower()
                 labels_by_features = defaultdict(list)
                 features = set()
-                _, new_labels = validate_labels(labels, parents=parents)
+                _, new_labels = validate_labels(labels)
                 if len(new_labels) > 0:
                     transfer_fk_to_default_db_bulk(new_labels, using_key)
                 for label in labels:
@@ -237,7 +233,7 @@ class LabelManager:
                         transfer_to_default_db(
                             feature, using_key, mute=True, transfer_fk=False
                         )
-                    save(new_features, parents=parents)
+                    save(new_features)
                 if hasattr(self._host, related_name):
                     for feature_name, labels in labels_by_features.items():
                         if feature_name is not None:
