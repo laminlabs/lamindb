@@ -160,7 +160,7 @@ def from_values(
     field: StrField | None = None,
     create: bool = False,
     organism: Record | str | None = None,
-    public_source: Record | None = None,
+    source: Record | None = None,
     mute: bool = False,
 ) -> list[Record]:
     """{}"""  # noqa: D415
@@ -172,7 +172,7 @@ def from_values(
         create=create,
         from_public=from_public,
         organism=organism,
-        public_source=public_source,
+        source=source,
         mute=mute,
     )
 
@@ -443,7 +443,7 @@ def update_fk_to_default_db(
 
 FKBULK = [
     "organism",
-    "public_source",
+    "source",
     "latest_report",  # Transform
     "source_code",  # Transform
     "report",  # Run

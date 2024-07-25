@@ -51,9 +51,9 @@ def test_standardize_public_aware():
 def test_add_remove_synonym():
     bt.CellType.filter().all().delete()
     # a registry that cannot validate
-    public_source = bt.PublicSource.filter(organism="human").first()
+    source = bt.Source.filter(organism="human").first()
     with pytest.raises(AttributeError):
-        public_source.add_synonym("syn")
+        source.add_synonym("syn")
 
     # a registry that doesn't have a synonyms column
     user = ln.User.filter(handle="testuser1").one()
@@ -108,12 +108,11 @@ def test_set_abbr():
     assert record.abbr == "myct"
     assert "myct" in record.synonyms
 
-    public_source = bt.PublicSource.filter(organism="human").first()
+    source = bt.Source.filter(organism="human").first()
     with pytest.raises(AttributeError) as error:
-        public_source.set_abbr("abbr")
+        source.set_abbr("abbr")
     assert (
-        error.exconly()
-        == "AttributeError: 'PublicSource' object has no attribute 'set_abbr'"
+        error.exconly() == "AttributeError: 'Source' object has no attribute 'set_abbr'"
     )
 
     record.delete()

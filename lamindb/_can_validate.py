@@ -30,7 +30,7 @@ def inspect(
     *,
     mute: bool = False,
     organism: str | Record | None = None,
-    public_source: Record | None = None,
+    source: Record | None = None,
 ) -> InspectResult:
     """{}"""  # noqa: D415
     return _inspect(
@@ -39,7 +39,7 @@ def inspect(
         field=field,
         mute=mute,
         organism=organism,
-        public_source=public_source,
+        source=source,
     )
 
 
@@ -65,7 +65,7 @@ def _inspect(
     mute: bool = False,
     using_key: str | None = None,
     organism: str | Record | None = None,
-    public_source: Record | None = None,
+    source: Record | None = None,
 ) -> pd.DataFrame | dict[str, list[str]]:
     """{}"""  # noqa: D415
     from lamin_utils._inspect import inspect
@@ -91,9 +91,9 @@ def _inspect(
 
     if len(nonval) > 0 and orm.__get_schema_name__() == "bionty":
         try:
-            bionty_result = orm.public(
-                organism=organism, public_source=public_source
-            ).inspect(values=nonval, field=field, mute=True)
+            bionty_result = orm.public(organism=organism, source=source).inspect(
+                values=nonval, field=field, mute=True
+            )
             bionty_validated = bionty_result.validated
             bionty_mapper = bionty_result.synonyms_mapper
             hint = False
