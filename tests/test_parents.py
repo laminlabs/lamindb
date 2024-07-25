@@ -21,3 +21,12 @@ def test_add_emoji():
     record = ln.Run(transform=transform)
     assert _add_emoji(record, label="run") == "🖥️ run"
     transform.delete()
+
+
+def test_add_ontology_from_df():
+    import bionty as bt
+
+    bt.Ethnicity.filter().delete()
+    bt.Ethnicity.save_from_df()
+    record = bt.Ethnicity.get("7RNCY3yC")
+    assert record.parents.all().one().name == "South East Asian"
