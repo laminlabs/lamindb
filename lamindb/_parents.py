@@ -10,7 +10,7 @@ from lnschema_core.models import HasParents, format_field_value
 
 from lamindb._utils import attach_func_to_class_method
 
-from ._record import get_default_str_field
+from ._record import get_name_field
 
 if TYPE_CHECKING:
     from lnschema_core.types import StrField
@@ -61,7 +61,7 @@ def view_parents(
     distance: int = 5,
 ):
     if field is None:
-        field = get_default_str_field(self)
+        field = get_name_field(self)
     if not isinstance(field, str):
         field = field.field.name
 

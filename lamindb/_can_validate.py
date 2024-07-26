@@ -13,7 +13,7 @@ from lnschema_core import CanValidate, Record
 from lamindb._utils import attach_func_to_class_method
 
 from ._from_values import _has_organism_field, _print_values
-from ._record import _queryset, get_default_str_field
+from ._record import _queryset, get_name_field
 
 if TYPE_CHECKING:
     from django.db.models import QuerySet
@@ -30,7 +30,7 @@ def inspect(
     *,
     mute: bool = False,
     organism: str | Record | None = None,
-    public_source: Record | None = None,
+    source: Record | None = None,
 ) -> InspectResult:
     """{}"""  # noqa: D415
     return _inspect(
@@ -39,7 +39,7 @@ def inspect(
         field=field,
         mute=mute,
         organism=organism,
-        public_source=public_source,
+        source=source,
     )
 
 
@@ -65,7 +65,7 @@ def _inspect(
     mute: bool = False,
     using_key: str | None = None,
     organism: str | Record | None = None,
-    public_source: Record | None = None,
+    source: Record | None = None,
 ) -> pd.DataFrame | dict[str, list[str]]:
     """{}"""  # noqa: D415
     from lamin_utils._inspect import inspect
@@ -73,7 +73,7 @@ def _inspect(
     if isinstance(values, str):
         values = [values]
 
-    field = get_default_str_field(cls, field=field)
+    field = get_name_field(cls, field=field)
     queryset = _queryset(cls, using_key)
     orm = queryset.model
     model_name = orm._meta.model.__name__
@@ -91,9 +91,9 @@ def _inspect(
 
     if len(nonval) > 0 and orm.__get_schema_name__() == "bionty":
         try:
-            bionty_result = orm.public(
-                organism=organism, public_source=public_source
-            ).inspect(values=nonval, field=field, mute=True)
+            bionty_result = orm.public(organism=organism, source=source).inspect(
+                values=nonval, field=field, mute=True
+            )
             bionty_validated = bionty_result.validated
             bionty_mapper = bionty_result.synonyms_mapper
             hint = False
@@ -157,7 +157,7 @@ def _validate(
     if isinstance(values, str):
         values = [values]
 
-    field = get_default_str_field(cls, field=field)
+    field = get_name_field(cls, field=field)
 
     queryset = _queryset(cls, using_key)
     field_values = pd.Series(
@@ -271,8 +271,8 @@ def _standardize(
     if isinstance(values, str):
         values = [values]
 
-    field = get_default_str_field(cls, field=field)
-    return_field = get_default_str_field(
+    field = get_name_field(cls, field=field)
+    return_field = get_name_field(
         cls, field=field if return_field is None else return_field
     )
     queryset = _queryset(cls, using_key)

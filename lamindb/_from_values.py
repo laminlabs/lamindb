@@ -21,7 +21,7 @@ def get_or_create_records(
     create: bool = False,
     from_public: bool = False,
     organism: Record | str | None = None,
-    public_source: Record | None = None,
+    source: Record | None = None,
     mute: bool = False,
 ) -> list[Record]:
     """Get or create records from iterables."""
@@ -34,8 +34,8 @@ def get_or_create_records(
     kwargs: dict = {}
     if organism is not None:
         kwargs["organism"] = organism
-    if public_source is not None:
-        kwargs["public_source"] = public_source
+    if source is not None:
+        kwargs["source"] = source
     settings.creation.search_names = False
     try:
         iterable_idx = index_iterable(iterable)
@@ -100,8 +100,8 @@ def get_existing_records(
     model = field.field.model
     condition: dict = {} if len(kwargs) == 0 else kwargs.copy()
     # existing records matching is agnostic to the bionty source
-    if "public_source" in condition:
-        condition.pop("public_source")
+    if "source" in condition:
+        condition.pop("source")
 
     # standardize based on the DB reference
     # log synonyms mapped terms
@@ -109,7 +109,7 @@ def get_existing_records(
         iterable_idx,
         field=field,
         organism=kwargs.get("organism"),
-        public_source=kwargs.get("public_source"),
+        source=kwargs.get("source"),
         mute=True,
     )
     syn_mapper = result.synonyms_mapper
@@ -184,7 +184,7 @@ def create_records_from_public(
     model = field.field.model
     records: list = []
     # populate additional fields from bionty
-    from lnschema_bionty._bionty import get_public_source_record
+    from lnschema_bionty._bionty import get_source_record
 
     # create the corresponding bionty object from model
     try:
@@ -195,14 +195,12 @@ def create_records_from_public(
                 organism = "human"
             elif iterable_idx[0].startswith("ENSMUSG"):
                 organism = "mouse"
-        public_ontology = model.public(
-            organism=organism, public_source=kwargs.get("public_source")
-        )
+        public_ontology = model.public(organism=organism, source=kwargs.get("source"))
     except Exception:
         # for custom records that are not created from public sources
         return records, iterable_idx
-    # add public_source record to the kwargs
-    kwargs.update({"public_source": get_public_source_record(public_ontology)})
+    # add source record to the kwargs
+    kwargs.update({"source": get_source_record(public_ontology)})
 
     # filter the columns in bionty df based on fields
     bionty_df = _filter_bionty_df_columns(model=model, public_ontology=public_ontology)

@@ -10,7 +10,7 @@ from lnschema_core.models import Feature
 from lamindb._from_values import _print_values
 from lamindb._record import (
     REGISTRY_UNIQUE_FIELD,
-    get_default_str_field,
+    get_name_field,
     transfer_fk_to_default_db_bulk,
     transfer_to_default_db,
 )
@@ -62,7 +62,7 @@ def print_labels(self: HasFeatures, field: str = "name", print_types: bool = Fal
         try:
             labels_list = list(labels.values_list(field, flat=True))
             if len(labels_list) > 0:
-                get_default_str_field(labels)
+                get_name_field(labels)
                 print_values = _print_values(labels_list, n=10)
                 type_str = f": {related_model}" if print_types else ""
                 labels_msg += f"    .{related_name}{type_str} = {print_values}\n"

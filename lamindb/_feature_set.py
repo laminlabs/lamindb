@@ -118,7 +118,7 @@ def from_values(
     name: str | None = None,
     mute: bool = False,
     organism: Record | str | None = None,
-    public_source: Record | None = None,
+    source: Record | None = None,
     raise_validation_error: bool = True,
 ) -> FeatureSet:
     """{}"""  # noqa: D415
@@ -149,7 +149,7 @@ def from_values(
         validated_values,
         field=field,
         organism=organism,
-        public_source=public_source,
+        source=source,
     )
     feature_set = FeatureSet(
         features=validated_features,
@@ -168,7 +168,7 @@ def from_df(
     name: str | None = None,
     mute: bool = False,
     organism: Record | str | None = None,
-    public_source: Record | None = None,
+    source: Record | None = None,
 ) -> FeatureSet | None:
     """{}"""  # noqa: D415
     registry = field.field.model
@@ -189,7 +189,7 @@ def from_df(
             df.columns[validated],
             field=field,
             organism=organism,
-            public_source=public_source,
+            source=source,
         )
         feature_set = FeatureSet(
             features=validated_features,

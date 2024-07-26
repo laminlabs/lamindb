@@ -24,7 +24,7 @@ def test_from_values_name(df):
     ids = [i.ontology_id for i in result]
     assert len(result) == 2
     assert set(ids) == {"CL:0000084", "CL:0000182"}
-    assert result[0].public_source.entity == "CellType"
+    assert result[0].source.entity == "CellType"
 
     # wrong field type
     with pytest.raises(TypeError):
@@ -37,7 +37,7 @@ def test_from_values_ontology_id(df):
     names = {i.name for i in result}
     assert len(result) == 2
     assert names == {"T cell", "hepatocyte"}
-    assert result[0].public_source.entity == "CellType"
+    assert result[0].source.entity == "CellType"
 
 
 def test_from_values_multiple_match():
@@ -90,17 +90,17 @@ def test_from_values_synonyms_aware():
     records = bt.CellType.from_values(["T cell"], "name")
     assert len(records) == 1
     assert records[0].name == "T cell"
-    assert isinstance(records[0].public_source, bt.PublicSource)
+    assert isinstance(records[0].source, bt.Source)
     # existing validated values and synonyms
     records = bt.CellType.from_values(["T cell", "T-cell"], "name")
     assert len(records) == 1
     assert records[0].name == "T cell"
-    assert isinstance(records[0].public_source, bt.PublicSource)
+    assert isinstance(records[0].source, bt.Source)
     # bionty values and synonyms
     records = bt.CellType.from_values(["B-cell", "B cell"], "name")
     assert len(records) == 1
     assert records[0].name == "B cell"
-    assert isinstance(records[0].public_source, bt.PublicSource)
+    assert isinstance(records[0].source, bt.Source)
     # all possibilities of validated values
     records = bt.CellType.from_values(
         ["T cell", "T-cell", "t cell", "B cell", "B-cell"], "name"
@@ -108,12 +108,12 @@ def test_from_values_synonyms_aware():
     assert len(records) == 2
     names = [r.name for r in records]
     assert set(names) == {"T cell", "B cell"}
-    assert isinstance(records[0].public_source, bt.PublicSource)
-    assert isinstance(records[1].public_source, bt.PublicSource)
+    assert isinstance(records[0].source, bt.Source)
+    assert isinstance(records[1].source, bt.Source)
     # non-validated values
     records = bt.CellType.from_values(["T cell", "mycell"], "name")
     assert len(records) == 1
     assert records[0].name == "T cell"
-    assert isinstance(records[0].public_source, bt.PublicSource)
+    assert isinstance(records[0].source, bt.Source)
     assert records[0].ontology_id == "CL:0000084"
     bt.CellType.filter().all().delete()

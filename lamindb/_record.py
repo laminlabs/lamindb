@@ -160,19 +160,19 @@ def from_values(
     field: StrField | None = None,
     create: bool = False,
     organism: Record | str | None = None,
-    public_source: Record | None = None,
+    source: Record | None = None,
     mute: bool = False,
 ) -> list[Record]:
     """{}"""  # noqa: D415
     from_public = True if cls.__module__.startswith("lnschema_bionty.") else False
-    field_str = get_default_str_field(cls, field=field)
+    field_str = get_name_field(cls, field=field)
     return get_or_create_records(
         iterable=values,
         field=getattr(cls, field_str),
         create=create,
         from_public=from_public,
         organism=organism,
-        public_source=public_source,
+        source=source,
         mute=mute,
     )
 
@@ -284,7 +284,7 @@ def _lookup(
 ) -> NamedTuple:
     """{}"""  # noqa: D415
     queryset = _queryset(cls, using_key=using_key)
-    field = get_default_str_field(orm=queryset.model, field=field)
+    field = get_name_field(orm=queryset.model, field=field)
 
     return Lookup(
         records=queryset,
@@ -293,7 +293,7 @@ def _lookup(
         prefix="ln",
     ).lookup(
         return_field=(
-            get_default_str_field(orm=queryset.model, field=return_field)
+            get_name_field(orm=queryset.model, field=return_field)
             if return_field is not None
             else None
         )
@@ -311,7 +311,7 @@ def lookup(
     return _lookup(cls=cls, field=field, return_field=return_field)
 
 
-def get_default_str_field(
+def get_name_field(
     orm: Record | QuerySet | Manager,
     *,
     field: str | StrField | None = None,
@@ -321,14 +321,11 @@ def get_default_str_field(
         orm = orm.model
     model_field_names = [i.name for i in orm._meta.fields]
 
-    # set default field
+    # set to default name field
     if field is None:
-        if orm._meta.model.__name__ == "Run":
-            field = orm._meta.get_field("created_at")
-        elif orm._meta.model.__name__ == "User":
-            field = orm._meta.get_field("handle")
+        if hasattr(orm, "_name_field"):
+            field = orm._meta.get_field(orm._name_field)
         elif "name" in model_field_names:
-            # by default use the name field
             field = orm._meta.get_field("name")
         else:
             # first char or text field that doesn't contain "id"
@@ -339,7 +336,7 @@ def get_default_str_field(
                     field = i
                     break
 
-        # no default field can be found
+        # no default name field can be found
         if field is None:
             raise ValueError(
                 "please pass a Record string field, e.g., `CellType.name`!"
@@ -443,7 +440,7 @@ def update_fk_to_default_db(
 
 FKBULK = [
     "organism",
-    "public_source",
+    "source",
     "latest_report",  # Transform
     "source_code",  # Transform
     "report",  # Run

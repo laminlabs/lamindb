@@ -39,7 +39,7 @@ from lamindb._feature import FEATURE_TYPES, convert_numpy_dtype_to_lamin_feature
 from lamindb._feature_set import DICT_KEYS_TYPE, FeatureSet
 from lamindb._record import (
     REGISTRY_UNIQUE_FIELD,
-    get_default_str_field,
+    get_name_field,
     transfer_fk_to_default_db_bulk,
     transfer_to_default_db,
 )
@@ -122,12 +122,7 @@ def get_link_attr(link: LinkORM | type[LinkORM], data: HasFeatures) -> str:
         link_model_name == "ModelBase" or link_model_name == "RecordMeta"
     ):  # we passed the type of the link
         link_model_name = link.__name__
-    link_attr = link_model_name.replace(data.__class__.__name__, "")
-    if link_attr == "ExperimentalFactor":
-        link_attr = "experimental_factor"
-    else:
-        link_attr = link_attr.lower()
-    return link_attr
+    return link_model_name.replace(data.__class__.__name__, "").lower()
 
 
 # Custom aggregation for SQLite
@@ -217,7 +212,7 @@ def print_features(
         for slot, feature_set in get_feature_set_by_slot_(self).items():
             features = feature_set.members
             # features.first() is a lot slower than features[0] here
-            name_field = get_default_str_field(features[0])
+            name_field = get_name_field(features[0])
             feature_names = list(features.values_list(name_field, flat=True)[:20])
             type_str = f": {feature_set.registry}" if print_types else ""
             feature_set_msg += (
