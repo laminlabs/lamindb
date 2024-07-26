@@ -46,7 +46,7 @@ def test_from_values_multiple_match():
 
 
 def test_from_values_organism():
-    from lnschema_bionty import Gene, settings
+    from bionty import Gene, settings
 
     settings._organism = None
     with pytest.raises(AssertionError):
