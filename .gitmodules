@@ -4,9 +4,6 @@
 [submodule "sub/lamindb-setup"]
 	path = sub/lamindb-setup
 	url = https://github.com/laminlabs/lamindb-setup
-[submodule "sub/lnschema-bionty"]
-	path = sub/lnschema-bionty
-	url = https://github.com/laminlabs/lnschema-bionty
 [submodule "sub/lamin-cli"]
 	path = sub/lamin-cli
 	url = https://github.com/laminlabs/lamin-cli
