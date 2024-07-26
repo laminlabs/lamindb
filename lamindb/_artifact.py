@@ -861,10 +861,10 @@ def replace(
 
 # deprecated
 def backed(
-    self, is_run_input: bool | None = None
+    self, mode: str = "r", is_run_input: bool | None = None
 ) -> AnnDataAccessor | BackedAccessor | SOMACollection | SOMAExperiment:
     logger.warning("`.backed()` is deprecated, use `.open()`!'")
-    return self.open(is_run_input)
+    return self.open(mode, is_run_input)
 
 
 # docstring handled through attach_func_to_class_method
