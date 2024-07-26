@@ -91,7 +91,7 @@ def install(session, group):
     if IS_PR and "bionty" in extras:
         run(
             session,
-            "uv pip install --system --no-deps ./sub/bionty ./sub/lnschema-bionty",
+            "uv pip install --system --no-deps ./sub/bionty",
         )
     run(session, f"uv pip install --system -e .[dev,{extras}]")
 
