@@ -3,7 +3,7 @@ from __future__ import annotations
 import inspect
 from functools import cached_property
 from itertools import chain
-from typing import TYPE_CHECKING, Callable, Mapping, Union
+from typing import TYPE_CHECKING, Callable, Literal, Mapping, Union
 
 import h5py
 import numpy as np
@@ -24,6 +24,7 @@ if TYPE_CHECKING:
     from pathlib import Path
 
     from fsspec.core import OpenFile
+    from lamindb_setup.core.types import UPathStr
 
 
 anndata_version_parse = version.parse(anndata_version)
@@ -142,13 +143,22 @@ registry = AccessRegistry()
 
 
 @registry.register_open("h5py")
-def open(filepath: UPath | Path | str):
+def open(filepath: UPathStr, mode: str = "r"):
     fs, file_path_str = infer_filesystem(filepath)
     if isinstance(fs, LocalFileSystem):
-        return None, h5py.File(file_path_str, mode="r")
-    conn = fs.open(file_path_str, mode="rb")
+        assert mode in {"r", "r+", "a", "w", "w-"}, f"Unknown mode {mode}!"  #  noqa: S101
+        return None, h5py.File(file_path_str, mode=mode)
+    if mode == "r":
+        conn_mode = "rb"
+    elif mode == "w":
+        conn_mode = "wb"
+    elif mode == "a":
+        conn_mode = "ab"
+    else:
+        raise ValueError(f"Unknown mode {mode}! Should be 'r', 'w' or 'a'.")
+    conn = fs.open(file_path_str, mode=conn_mode)
     try:
-        storage = h5py.File(conn, mode="r")
+        storage = h5py.File(conn, mode=mode)
     except Exception as e:
         conn.close()
         raise e
@@ -269,7 +279,9 @@ if ZARR_INSTALLED:
     StorageTypes.append(zarr.Group)
 
     @registry.register_open("zarr")
-    def open(filepath: Union[UPath, Path, str]):  # noqa
+    def open(filepath: UPathStr, mode: Literal["r", "r+", "a", "w", "w-"] = "r"):  # noqa
+        assert mode in {"r", "r+", "a", "w", "w-"}, f"Unknown mode {mode}!"  #  noqa: S101
+
         fs, file_path_str = infer_filesystem(filepath)
         conn = None
         if isinstance(fs, LocalFileSystem):
@@ -277,7 +289,7 @@ if ZARR_INSTALLED:
             open_obj = file_path_str
         else:
             open_obj = create_mapper(fs, file_path_str, check=True)
-        storage = zarr.open(open_obj, mode="r")
+        storage = zarr.open(open_obj, mode=mode)
         return conn, storage
 
     @registry.register("zarr")

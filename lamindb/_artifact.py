@@ -869,7 +869,7 @@ def backed(
 
 # docstring handled through attach_func_to_class_method
 def open(
-    self, is_run_input: bool | None = None
+    self, mode: str = "r", is_run_input: bool | None = None
 ) -> AnnDataAccessor | BackedAccessor | SOMACollection | SOMAExperiment:
     # ignore empty suffix for now
     suffixes = (".h5", ".hdf5", ".h5ad", ".zarr", ".tiledbsoma", "")
@@ -888,9 +888,9 @@ def open(
     # consider the case where an object is already locally cached
     localpath = setup_settings.instance.storage.cloud_to_local_no_update(filepath)
     if localpath.exists():
-        return backed_access(localpath, using_key)
+        return backed_access(localpath, mode, using_key)
     else:
-        return backed_access(filepath, using_key)
+        return backed_access(filepath, mode, using_key)
 
 
 # docstring handled through attach_func_to_class_method

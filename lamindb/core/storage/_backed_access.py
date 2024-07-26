@@ -28,7 +28,7 @@ class BackedAccessor:
 
 
 def backed_access(
-    artifact_or_filepath: Artifact | Path, using_key: str | None = None
+    artifact_or_filepath: Artifact | Path, mode: str = "r", using_key: str | None = None
 ) -> AnnDataAccessor | BackedAccessor | SOMACollection | SOMAExperiment:
     if isinstance(artifact_or_filepath, Artifact):
         filepath = filepath_from_artifact(artifact_or_filepath, using_key=using_key)
@@ -73,11 +73,11 @@ def backed_access(
             SOMAType = soma.Experiment
         else:
             SOMAType = soma.Collection
-        return SOMAType.open(filepath_str, context=ctx)
+        return SOMAType.open(filepath_str, mode=mode, context=ctx)
     elif suffix in {".h5", ".hdf5", ".h5ad"}:
-        conn, storage = registry.open("h5py", filepath)
+        conn, storage = registry.open("h5py", filepath, mode=mode)
     elif suffix == ".zarr":
-        conn, storage = registry.open("zarr", filepath)
+        conn, storage = registry.open("zarr", filepath, mode=mode)
     else:
         raise ValueError(
             "object should have .h5, .hdf5, .h5ad, .zarr, .tiledbsoma suffix, not"
