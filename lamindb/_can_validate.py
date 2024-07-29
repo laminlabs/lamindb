@@ -388,7 +388,10 @@ def _add_or_remove_synonyms(
                 " with the following records:\n"
             )
             display(records_df)
-            raise SystemExit(AssertionError)
+            raise ValueError(
+                "cannot assigned a synonym that is already associated with a record to a different record.\n"
+                "Consider removing the synonym from existing records or using a different synonym."
+            )
 
     # passed synonyms
     # nothing happens when passing an empty string or list
