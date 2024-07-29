@@ -19,6 +19,7 @@ from laminci.nox import (
 nox.options.default_venv_backend = "none"
 
 IS_PR = os.getenv("GITHUB_EVENT_NAME") != "push"
+CI = os.environ.get("CI")
 
 
 GROUPS = {}
@@ -48,11 +49,32 @@ def lint(session: nox.Session) -> None:
 
 
 @nox.session
+def install(session):
+    base_deps = [
+        "./sub/lnschema-core",
+        "./sub/lnschema-bionty",
+        "./sub/lamin-cli",
+        "./sub/lamindb-setup",
+        "./sub/bionty",
+    ]
+    top_deps = [
+        "./sub/lamindb[aws,bionty,jupyter]",
+    ]
+    cmds = [
+        f"uv pip install {'--system' if CI else ''} --no-cache-dir {' '.join(base_deps)}",
+    ] + [
+        f"uv pip install {'--system' if CI else ''} --no-cache-dir -e {dep}"
+        for dep in top_deps
+    ]
+    [run(session, line) for line in cmds]
+
+
+@nox.session
 @nox.parametrize(
     "group",
     ["unit", "tutorial", "guide", "biology", "faq", "storage", "docs", "cli"],
 )
-def install(session, group):
+def install_ci(session, group):
     # on the release branch, do not use submodules but run with pypi install
     # only exception is the docs group which should always use the submodule
     # to push docs fixes fast
