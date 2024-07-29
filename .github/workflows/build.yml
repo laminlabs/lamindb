@@ -63,7 +63,7 @@ jobs:
         run: sudo apt-get -y install graphviz
       - run: nox -s lint
         if: ${{ matrix.group == 'tutorial' }} # choose a fast-running a group
-      - run: nox -s "install(group='${{ matrix.group }}')"
+      - run: nox -s "install_ci(group='${{ matrix.group }}')"
       - uses: aws-actions/configure-aws-credentials@v1
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
