@@ -1,7 +1,7 @@
 import bionty as bt
 import lamindb as ln
 import pytest
-from lnschema_bionty._bionty import encode_uid
+from bionty._bionty import encode_uid
 
 
 def test_lb_encode_uid():
