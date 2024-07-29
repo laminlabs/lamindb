@@ -76,6 +76,8 @@ def backed_access(
     suffix = filepath.suffix
 
     if name == "soma" or suffix == ".tiledbsoma":
+        if mode not in {"r", "w"}:
+            raise ValueError("`mode` should be either 'r' or 'w' for tiledbsoma.")
         return _open_tiledbsoma(filepath, mode=mode)  # type: ignore
     elif suffix in {".h5", ".hdf5", ".h5ad"}:
         conn, storage = registry.open("h5py", filepath, mode=mode)
@@ -89,6 +91,8 @@ def backed_access(
 
     is_anndata = suffix == ".h5ad" or get_spec(storage).encoding_type == "anndata"
     if is_anndata:
+        if mode != "r":
+            raise ValueError("Can only access `AnnData` with mode='r'.")
         return AnnDataAccessor(conn, storage, name)
     else:
         return BackedAccessor(conn, storage)

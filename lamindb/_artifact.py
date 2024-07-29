@@ -882,26 +882,31 @@ def open(
 
     from lamindb.core.storage._backed_access import backed_access
 
-    _track_run_input(self, is_run_input)
     using_key = settings._using_key
     filepath = filepath_from_artifact(self, using_key=using_key)
     # consider the case where an object is already locally cached
     localpath = setup_settings.instance.storage.cloud_to_local_no_update(filepath)
     if localpath.exists():
-        return backed_access(localpath, mode, using_key)
+        access = backed_access(localpath, mode, using_key)
     else:
-        return backed_access(filepath, mode, using_key)
+        access = backed_access(filepath, mode, using_key)
+    # only call if open is successfull
+    _track_run_input(self, is_run_input)
+    return access
 
 
 # docstring handled through attach_func_to_class_method
 def load(self, is_run_input: bool | None = None, stream: bool = False, **kwargs) -> Any:
-    _track_run_input(self, is_run_input)
     if hasattr(self, "_memory_rep") and self._memory_rep is not None:
-        return self._memory_rep
-    using_key = settings._using_key
-    return load_to_memory(
-        filepath_from_artifact(self, using_key=using_key), stream=stream, **kwargs
-    )
+        access_memory = self._memory_rep
+    else:
+        using_key = settings._using_key
+        access_memory = load_to_memory(
+            filepath_from_artifact(self, using_key=using_key), stream=stream, **kwargs
+        )
+    # only call if load is successfull
+    _track_run_input(self, is_run_input)
+    return access_memory
 
 
 # docstring handled through attach_func_to_class_method

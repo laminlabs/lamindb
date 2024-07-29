@@ -271,10 +271,10 @@ def mapped(
 
 # docstring handled through attach_func_to_class_method
 def cache(self, is_run_input: bool | None = None) -> list[UPath]:
-    _track_run_input(self, is_run_input)
     path_list = []
     for artifact in self.ordered_artifacts.all():
         path_list.append(artifact.cache())
+    _track_run_input(self, is_run_input)
     return path_list
 
 
