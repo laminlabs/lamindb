@@ -39,6 +39,7 @@ from lamindb.core.storage import (
 from lamindb.core.storage.paths import (
     auto_storage_key_from_artifact,
     auto_storage_key_from_artifact_uid,
+    check_path_is_child_of_root,
     filepath_from_artifact,
 )
 from lamindb.core.versioning import get_uid_from_old_version, init_uid
@@ -255,14 +256,6 @@ def check_path_in_existing_storage(
         if check_path_is_child_of_root(path, root=storage.root):
             return storage
     return False
-
-
-def check_path_is_child_of_root(path: Path | UPath, root: Path | UPath | None) -> bool:
-    # str is needed to eliminate UPath storage_options
-    # from the equality checks below
-    path = UPath(str(path))
-    root = UPath(str(root))
-    return root.resolve() in path.resolve().parents
 
 
 def get_relative_path_to_directory(
