@@ -147,9 +147,9 @@ def test_create_or_load_transform(monkeypatch):
 
 def test_run_script():
     script_path = "sub/lamin-cli/tests/scripts/run-track-and-finish-sync-git.py"
-    result = subprocess.run(
+    result = subprocess.run(  # noqa: S602
         f"python {script_path}",
-        shell=True,  # noqa: S602
+        shell=True,
         capture_output=True,
     )
     print(result.stdout.decode())

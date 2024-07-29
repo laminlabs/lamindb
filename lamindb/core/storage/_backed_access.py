@@ -293,7 +293,7 @@ if ZARR_INSTALLED:
             return read_elem(elem)
 
     @registry.register("zarr")
-    def safer_read_partial(elem, indices):  # noqa
+    def safer_read_partial(elem, indices):
         encoding_type = get_spec(elem).encoding_type
         if encoding_type == "":
             if isinstance(elem, zarr.Array):
@@ -326,7 +326,7 @@ if ZARR_INSTALLED:
 
     # this is needed because accessing zarr.Group.keys() directly is very slow
     @registry.register("zarr")
-    def keys(storage: zarr.Group):  # noqa
+    def keys(storage: zarr.Group):
         paths = storage._store.keys()
 
         attrs_keys: dict[str, list] = {}
