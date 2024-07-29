@@ -332,7 +332,7 @@ def anndata_human_immune_cells(
 def anndata_with_obs() -> ad.AnnData:
     """Create a mini anndata with cell_type, disease and tissue."""
     import anndata as ad
-    import bionty_base
+    import bionty.base as bionty_base
 
     celltypes = ["T cell", "hematopoietic stem cell", "hepatocyte", "my new cell type"]
     celltype_ids = ["CL:0000084", "CL:0000037", "CL:0000182", ""]

@@ -85,9 +85,9 @@ def save(records: Iterable[Record], ignore_conflicts: bool | None = False) -> No
             r for r in non_artifacts_new if hasattr(r, "_parents")
         ]
         if len(non_artifacts_with_parents) > 0:
-            # this can only happen within lnschema_bionty right now!!
+            # this can only happen within bionty right now!!
             # we might extend to core lamindb later
-            from lnschema_bionty.core import add_ontology
+            from bionty.core import add_ontology
 
             add_ontology(non_artifacts_with_parents)
 

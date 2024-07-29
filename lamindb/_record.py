@@ -164,7 +164,7 @@ def from_values(
     mute: bool = False,
 ) -> list[Record]:
     """{}"""  # noqa: D415
-    from_public = True if cls.__module__.startswith("lnschema_bionty.") else False
+    from_public = True if cls.__module__.startswith("bionty.") else False
     field_str = get_name_field(cls, field=field)
     return get_or_create_records(
         iterable=values,
