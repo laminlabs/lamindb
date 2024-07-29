@@ -27,4 +27,6 @@ zarr      # store & stream arrays with zarr
 erdiagram # display schema graphs
 ```
 
+If you'd like to install from GitHub, see [here](https://github.com/laminlabs/lamindb/blob/main/README.md).
+
 If you'd like a docker container, here is a way: [github.com/laminlabs/lamindb-docker](https://github.com/laminlabs/lamindb-docker).
