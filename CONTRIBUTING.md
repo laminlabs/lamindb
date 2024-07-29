@@ -19,3 +19,10 @@ Running tests requires the Docker daemon up, then run at the root of the reposit
 ```
 pytest
 ```
+
+We use `pre-commit` and `gitmoji`. At the root of your repo, please call
+
+```
+gitmoji -i
+pre-commit install
+```
