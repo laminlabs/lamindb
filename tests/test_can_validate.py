@@ -71,7 +71,7 @@ def test_add_remove_synonym():
     with pytest.raises(SystemExit) as excinfo:
         bcell.add_synonym("my cell type")
     assert excinfo.value.code == AssertionError
-    with pytest.raises(AssertionError):
+    with pytest.raises(ValueError):
         tcell.add_synonym("my|celltype")
 
     tcell.remove_synonym("my cell type")
