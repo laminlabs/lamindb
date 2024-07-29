@@ -52,7 +52,6 @@ def lint(session: nox.Session) -> None:
 def install(session):
     base_deps = [
         "./sub/lnschema-core",
-        "./sub/lnschema-bionty",
         "./sub/lamin-cli",
         "./sub/lamindb-setup",
         "./sub/bionty",
