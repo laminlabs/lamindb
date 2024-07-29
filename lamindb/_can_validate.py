@@ -408,7 +408,7 @@ def _add_or_remove_synonyms(
         return
     # because we use | as the separator
     if any("|" in i for i in syn_new_set):
-        raise AssertionError("a synonym can't contain '|'!")
+        raise ValueError("a synonym can't contain '|'!")
 
     # existing synonyms
     syns_exist = record.synonyms
