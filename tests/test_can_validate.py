@@ -68,9 +68,8 @@ def test_add_remove_synonym():
     tcell.add_synonym("")
     tcell.add_synonym([])
     assert "my cell type" in tcell.synonyms
-    with pytest.raises(SystemExit) as excinfo:
+    with pytest.raises(ValueError):
         bcell.add_synonym("my cell type")
-    assert excinfo.value.code == AssertionError
     with pytest.raises(ValueError):
         tcell.add_synonym("my|celltype")
 
