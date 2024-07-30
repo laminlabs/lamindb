@@ -80,8 +80,8 @@ gitmoji -i
 
 ## Documentation
 
-We built our documentation with an internal tool termed `lndocs`.
-We have not made it public yet and therefore you need to rely on the Github Actions `docs` job to build the documentation for you.
+We build our documentation with an internal tool called `lndocs`.
+We have not made it public yet and therefore external contributors need to rely on the Github Actions `docs` job to build the documentation.
 If the `docs` job succeeds, a preview URL will be posted automatically as a comment to your pull request.
 
 ## Releases
