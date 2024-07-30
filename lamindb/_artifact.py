@@ -932,10 +932,12 @@ def delete(
     # this first check means an invalid delete fails fast rather than cascading through
     # database and storage permission errors
     isettings = setup_settings.instance
-    if Storage.get(self.storage.id).instance_uid != isettings.uid:
+    if self.storage.instance_uid != isettings.uid and (storage or storage is None):
         raise IntegrityError(
-            "Cannot delete artifacts outside of instance's managed storage location, please load another lamindb instance."
-            f"These are all managed storage locations of this instance:\n{Storage.filter(instance_uid=isettings.uid).df()}"
+            "Cannot simply delete artifacts outside of instance's managed storage location."
+            "\n(1) If you only want to delete the metadata record in this instance, pass `storage=False`"
+            f"\n(2) If you want to delete the artifact in storage, please load the managing lamindb instance (uid={self.storage.instance_uid})."
+            f"\nThese are all managed storage locations of this instance:\n{Storage.filter(instance_uid=isettings.uid).df()}"
         )
     # by default, we only move artifacts into the trash (visibility = -1)
     trash_visibility = VisibilityChoice.trash.value
@@ -945,7 +947,7 @@ def delete(
         # move to trash
         self.visibility = trash_visibility
         self.save()
-        logger.warning(f"moved artifact to trash (visibility = {trash_visibility})")
+        logger.important(f"moved artifact to trash (visibility = {trash_visibility})")
         return
 
     # if the artifact is already in the trash
