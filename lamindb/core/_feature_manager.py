@@ -88,15 +88,15 @@ def get_feature_set_by_slot_(host) -> dict:
     host_id_field = get_host_id_field(host)
     kwargs = {host_id_field: host.id}
     # otherwise, we need a query
-    feature_set_links = (
+    links_feature_set = (
         host.feature_sets.through.objects.using(host_db)
         .filter(**kwargs)
         .select_related("featureset")
     )
-    return {fsl.slot: fsl.featureset for fsl in feature_set_links}
+    return {fsl.slot: fsl.featureset for fsl in links_feature_set}
 
 
-def get_label_links(
+def links_get_label(
     host: Artifact | Collection, registry: str, feature: Feature
 ) -> QuerySet:
     host_id_field = get_host_id_field(host)
@@ -109,11 +109,11 @@ def get_label_links(
     return link_records
 
 
-def get_feature_set_links(host: Artifact | Collection) -> QuerySet:
+def links_get_feature_set(host: Artifact | Collection) -> QuerySet:
     host_id_field = get_host_id_field(host)
     kwargs = {host_id_field: host.id}
-    feature_set_links = host.feature_sets.through.objects.filter(**kwargs)
-    return feature_set_links
+    links_feature_set = host.feature_sets.through.objects.filter(**kwargs)
+    return links_feature_set
 
 
 def get_link_attr(link: LinkORM | type[LinkORM], data: HasFeatures) -> str:
@@ -573,7 +573,7 @@ def _add_values(
             except Exception:
                 save(links, ignore_conflicts=True)
                 # now deal with links that were previously saved without a feature_id
-                saved_links = LinkORM.filter(
+                links_saved = LinkORM.filter(
                     **{
                         "artifact_id": self._host.id,
                         f"{field_name}__in": [
@@ -581,7 +581,7 @@ def _add_values(
                         ],
                     }
                 )
-                for link in saved_links.all():
+                for link in links_saved.all():
                     # TODO: also check for inconsistent features
                     if link.feature_id is None:
                         link.feature_id = [

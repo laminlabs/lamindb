@@ -42,16 +42,16 @@ def test_features_add(adata):
     experiment_label = ln.ULabel(name="Experiment 1").save()
     # add the label without the feature first
     artifact.ulabels.add(experiment_label)
-    assert artifact.ulabel_links.get().ulabel.name == "Experiment 1"
-    assert artifact.ulabel_links.get().feature is None
+    assert artifact.links_ulabel.get().ulabel.name == "Experiment 1"
+    assert artifact.links_ulabel.get().feature is None
 
     # now add the label with the feature and make sure that it has the feature annotation
     artifact.features.add_values({"experiment": "Experiment 1"})
-    assert artifact.ulabel_links.get().ulabel.name == "Experiment 1"
-    assert artifact.ulabel_links.get().feature.name == "experiment"
+    assert artifact.links_ulabel.get().ulabel.name == "Experiment 1"
+    assert artifact.links_ulabel.get().feature.name == "experiment"
     # repeat
     artifact.features.add_values({"experiment": "Experiment 1"})
-    assert artifact.ulabel_links.get().ulabel.name == "Experiment 1"
+    assert artifact.links_ulabel.get().ulabel.name == "Experiment 1"
 
     # numerical feature
     temperature = ln.Feature(name="temperature", dtype="cat").save()
@@ -411,7 +411,7 @@ def test_add_labels_using_anndata(adata):
         artifact.labels.add(organism, feature=features.organism)
     organism.save()
     artifact.labels.add(organism, feature=features.organism)
-    organism_link = artifact.organism_links.first()
+    organism_link = artifact.links_organism.first()
     assert organism_link.organism.name == "mouse"
     assert organism_link.feature.name == "organism"
     feature = ln.Feature.filter(name="organism").one()

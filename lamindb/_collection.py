@@ -176,13 +176,13 @@ def from_artifacts(artifacts: Iterable[Artifact]) -> tuple[str, dict[str, str]]:
     artifact_ids = [artifact.id for artifact in artifacts]
     # query all feature sets at the same time rather
     # than making a single query per artifact
-    logger.debug("feature_set_artifact_links")
-    feature_set_artifact_links = Artifact.feature_sets.through.objects.filter(
+    logger.debug("links_feature_set_artifact")
+    links_feature_set_artifact = Artifact.feature_sets.through.objects.filter(
         artifact_id__in=artifact_ids
     )
     feature_sets_by_slots = defaultdict(list)
     logger.debug("slots")
-    for link in feature_set_artifact_links:
+    for link in links_feature_set_artifact:
         feature_sets_by_slots[link.slot].append(link.featureset_id)
     feature_sets_union = {}
     logger.debug("union")
