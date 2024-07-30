@@ -32,6 +32,5 @@ wetlab
 :caption: Utilities
 :hidden:
 
-bionty-base
 readfcs
 ```
