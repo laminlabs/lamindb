@@ -993,9 +993,7 @@ def delete(
             else:
                 delete_in_storage = storage
         if not delete_in_storage:
-            logger.warning(
-                f"you will retain a dangling store here: {path}, not referenced via an artifact"
-            )
+            logger.important(f"a file/folder remains here: {path}")
         # we don't yet have logic to bring back the deleted metadata record
         # in case storage deletion fails - this is important for ACID down the road
         if delete_in_storage:
