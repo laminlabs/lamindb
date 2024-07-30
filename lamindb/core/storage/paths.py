@@ -56,6 +56,14 @@ def auto_storage_key_from_artifact_uid(uid: str, suffix: str, is_dir: bool) -> s
     return storage_key
 
 
+def check_path_is_child_of_root(path: Path | UPath, root: Path | UPath | None) -> bool:
+    # str is needed to eliminate UPath storage_options
+    # from the equality checks below
+    path = UPath(str(path))
+    root = UPath(str(root))
+    return root.resolve() in path.resolve().parents
+
+
 def attempt_accessing_path(
     artifact: Artifact,
     storage_key: str,
@@ -141,19 +149,6 @@ def delete_storage(
     storagepath: Path, raise_file_not_found_error: bool = True
 ) -> None | str:
     """Delete arbitrary artifact."""
-    # TODO is_relative_to is not available in 3.8 and deprecated since 3.12
-    # replace with check_path_is_child_of_root but this needs to first be debugged
-    # if not check_path_is_child_of_root(storagepath, settings.storage.root):
-    if not storagepath.is_relative_to(settings.storage.root):  # type: ignore
-        allow_delete = False
-        if setup_settings.instance.keep_artifacts_local:
-            allow_delete = storagepath.is_relative_to(  # type: ignore
-                setup_settings.instance.storage_local.root
-            )
-        if not allow_delete:
-            logger.warning("couldn't delete files outside of default storage")
-            return "did-not-delete"
-    # only delete files in the default storage
     if storagepath.is_file():
         storagepath.unlink()
     elif storagepath.is_dir():

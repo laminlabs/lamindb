@@ -23,6 +23,7 @@ from lamindb._artifact import (
     process_data,
 )
 from lamindb.core._settings import settings
+from lamindb.core.exceptions import IntegrityError
 from lamindb.core.storage._zarr import write_adata_zarr, zarr_is_adata
 from lamindb.core.storage.paths import (
     AUTO_KEY_PREFIX,
@@ -476,17 +477,21 @@ def test_delete_artifact(df):
     )
     assert not storage_path.exists()  # deletes from storage is key_is_virtual
 
-    # test deleting artifact from non-default storage
+    # test deleting artifact from non-managed storage
     artifact = ln.Artifact(
         "s3://lamindb-dev-datasets/file-to-test-for-delete.csv",
         description="My test file to delete from non-default storage",
     )
     artifact.save()
+    assert artifact.storage.instance_uid != ln.setup.settings.instance.uid
     assert artifact.key is not None
-    artifact.restore()
-    assert artifact.visibility == 1
     filepath = artifact.path
-    artifact.delete(permanent=True, storage=True)
+    with pytest.raises(IntegrityError) as e:
+        artifact.delete()
+    assert e.exconly().startswith(
+        "lamindb.core.exceptions.IntegrityError: Cannot simply delete artifacts"
+    )
+    artifact.delete(storage=False, permanent=True)
     assert (
         ln.Artifact.filter(
             description="My test file to delete from non-default storage",
@@ -494,7 +499,7 @@ def test_delete_artifact(df):
         ).first()
         is None
     )
-    assert filepath.exists()  # file is not deleted from non-default storage
+    assert filepath.exists()
 
 
 def test_delete_storage():
