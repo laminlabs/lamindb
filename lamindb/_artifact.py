@@ -28,6 +28,7 @@ from lnschema_core.types import (
 from lamindb._utils import attach_func_to_class_method
 from lamindb.core._data import HasFeatures, _track_run_input
 from lamindb.core._settings import settings
+from lamindb.core.exceptions import IntegrityError
 from lamindb.core.storage import (
     LocalPathClasses,
     UPath,
@@ -39,6 +40,7 @@ from lamindb.core.storage import (
 from lamindb.core.storage.paths import (
     auto_storage_key_from_artifact,
     auto_storage_key_from_artifact_uid,
+    check_path_is_child_of_root,
     filepath_from_artifact,
 )
 from lamindb.core.versioning import get_uid_from_old_version, init_uid
@@ -102,7 +104,11 @@ def process_pathlike(
             if not isinstance(filepath, LocalPathClasses):
                 # for a cloud path, new_root is always the bucket name
                 new_root = list(filepath.parents)[-1]
-                storage_settings = init_storage(new_root)
+                # do not register remote storage locations on hub if the current instance
+                # is not managed on the hub
+                storage_settings = init_storage(
+                    new_root, prevent_register_hub=not setup_settings.instance.is_on_hub
+                )
                 storage_record = register_storage_in_instance(storage_settings)
                 use_existing_storage_key = True
                 return storage_record, use_existing_storage_key
@@ -255,14 +261,6 @@ def check_path_in_existing_storage(
         if check_path_is_child_of_root(path, root=storage.root):
             return storage
     return False
-
-
-def check_path_is_child_of_root(path: Path | UPath, root: Path | UPath | None) -> bool:
-    # str is needed to eliminate UPath storage_options
-    # from the equality checks below
-    path = UPath(str(path))
-    root = UPath(str(root))
-    return root.resolve() in path.resolve().parents
 
 
 def get_relative_path_to_directory(
@@ -935,6 +933,16 @@ def delete(
     storage: bool | None = None,
     using_key: str | None = None,
 ) -> None:
+    # this first check means an invalid delete fails fast rather than cascading through
+    # database and storage permission errors
+    isettings = setup_settings.instance
+    if self.storage.instance_uid != isettings.uid and (storage or storage is None):
+        raise IntegrityError(
+            "Cannot simply delete artifacts outside of this instance's managed storage locations."
+            "\n(1) If you only want to delete the metadata record in this instance, pass `storage=False`"
+            f"\n(2) If you want to delete the artifact in storage, please load the managing lamindb instance (uid={self.storage.instance_uid})."
+            f"\nThese are all managed storage locations of this instance:\n{Storage.filter(instance_uid=isettings.uid).df()}"
+        )
     # by default, we only move artifacts into the trash (visibility = -1)
     trash_visibility = VisibilityChoice.trash.value
     if self.visibility > trash_visibility and not permanent:
@@ -943,7 +951,7 @@ def delete(
         # move to trash
         self.visibility = trash_visibility
         self.save()
-        logger.warning(f"moved artifact to trash (visibility = {trash_visibility})")
+        logger.important(f"moved artifact to trash (visibility = {trash_visibility})")
         return
 
     # if the artifact is already in the trash
@@ -985,9 +993,7 @@ def delete(
             else:
                 delete_in_storage = storage
         if not delete_in_storage:
-            logger.warning(
-                f"you will retain a dangling store here: {path}, not referenced via an artifact"
-            )
+            logger.important(f"a file/folder remains here: {path}")
         # we don't yet have logic to bring back the deleted metadata record
         # in case storage deletion fails - this is important for ACID down the road
         if delete_in_storage:

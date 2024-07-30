@@ -10,6 +10,7 @@ The registry base class:
    NoTitleError
    MissingTransformSettings
    UpdateTransformSettings
+   IntegrityError
 
 """
 
@@ -23,6 +24,16 @@ class ValidationError(SystemExit):
 # -------------------------------------------------------------------------------------
 # ln.track() AKA run_context
 # -------------------------------------------------------------------------------------
+
+
+class IntegrityError(Exception):
+    """Integrity error.
+
+    For instance, it's not allowed to delete artifacts outside managed storage
+    locations.
+    """
+
+    pass
 
 
 class NotebookNotSavedError(Exception):
