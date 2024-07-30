@@ -201,10 +201,10 @@ class LabelManager:
                     transfer_fk_to_default_db_bulk(new_labels, using_key)
                 for label in labels:
                     # if the link table doesn't follow this convention, we'll ignore it
-                    if not hasattr(label, f"{data_name_lower}_links"):
+                    if not hasattr(label, f"links_{data_name_lower}"):
                         key = None
                     else:
-                        link = getattr(label, f"{data_name_lower}_links").get(
+                        link = getattr(label, f"links_{data_name_lower}").get(
                             **{f"{data_name_lower}_id": data.id}
                         )
                         if link.feature is not None:
