@@ -51,3 +51,12 @@ def test_store_artifacts_acid():
     assert str(error.exconly()).startswith(
         "RuntimeError: No entries were uploaded or committed to the database."
     )
+
+
+def test_save_parents():
+    import bionty as bt
+
+    records = bt.CellLine.from_values(["HEPG2", "HUVEC"])
+    ln.save(records)
+    assert bt.CellLine.get("4ea731nb").parents.df().shape[0] == 1
+    bt.CellLine.filter().delete()
