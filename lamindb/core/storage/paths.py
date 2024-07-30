@@ -149,16 +149,6 @@ def delete_storage(
     storagepath: Path, raise_file_not_found_error: bool = True
 ) -> None | str:
     """Delete arbitrary artifact."""
-    if not check_path_is_child_of_root(storagepath, settings.storage.root):
-        allow_delete = False
-        if setup_settings.instance.keep_artifacts_local:
-            allow_delete = check_path_is_child_of_root(
-                storagepath, settings.storage_local.root
-            )
-        if not allow_delete:
-            logger.warning("couldn't delete files outside of default storage")
-            return "did-not-delete"
-    # only delete files in the default storage
     if storagepath.is_file():
         storagepath.unlink()
     elif storagepath.is_dir():

@@ -28,6 +28,7 @@ from lnschema_core.types import (
 from lamindb._utils import attach_func_to_class_method
 from lamindb.core._data import HasFeatures, _track_run_input
 from lamindb.core._settings import settings
+from lamindb.core.exceptions import IntegrityError
 from lamindb.core.storage import (
     LocalPathClasses,
     UPath,
@@ -928,6 +929,14 @@ def delete(
     storage: bool | None = None,
     using_key: str | None = None,
 ) -> None:
+    # this first check means an invalid delete fails fast rather than cascading through
+    # database and storage permission errors
+    isettings = setup_settings.instance
+    if Storage.get(self.storage.id).instance_uid != isettings.uid:
+        raise IntegrityError(
+            "Cannot delete artifacts outside of instance's managed storage location, please load another lamindb instance."
+            f"These are all managed storage locations of this instance:\n{Storage.filter(instance_uid=isettings.uid).df()}"
+        )
     # by default, we only move artifacts into the trash (visibility = -1)
     trash_visibility = VisibilityChoice.trash.value
     if self.visibility > trash_visibility and not permanent:
