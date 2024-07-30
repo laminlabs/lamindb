@@ -96,7 +96,7 @@ def get_feature_set_by_slot_(host) -> dict:
     return {fsl.slot: fsl.featureset for fsl in links_feature_set}
 
 
-def links_get_label(
+def get_label_links(
     host: Artifact | Collection, registry: str, feature: Feature
 ) -> QuerySet:
     host_id_field = get_host_id_field(host)
@@ -109,7 +109,7 @@ def links_get_label(
     return link_records
 
 
-def links_get_feature_set(host: Artifact | Collection) -> QuerySet:
+def get_feature_set_links(host: Artifact | Collection) -> QuerySet:
     host_id_field = get_host_id_field(host)
     kwargs = {host_id_field: host.id}
     links_feature_set = host.feature_sets.through.objects.filter(**kwargs)

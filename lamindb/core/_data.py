@@ -24,9 +24,9 @@ from lamindb._record import get_name_field
 from lamindb.core._settings import settings
 
 from ._feature_manager import (
+    get_feature_set_links,
     get_host_id_field,
-    links_get_feature_set,
-    links_get_label,
+    get_label_links,
     print_features,
 )
 from ._label_manager import print_labels
@@ -197,7 +197,7 @@ def get_labels(
         # currently need to distinguish between ULabel and non-ULabel, because
         # we only have the feature information for Label
         if registry == "ULabel":
-            links_to_labels = links_get_label(self, registry, feature)
+            links_to_labels = get_label_links(self, registry, feature)
             label_ids = [link.ulabel_id for link in links_to_labels]
             qs_by_registry[registry] = ULabel.objects.using(self._state.db).filter(
                 id__in=label_ids
@@ -302,7 +302,7 @@ def add_labels(
             if len(linked_labels) > 0:
                 labels_accessor.remove(*linked_labels)
             labels_accessor.add(*records, through_defaults={"feature_id": feature.id})
-        links_feature_set = links_get_feature_set(self)
+        links_feature_set = get_feature_set_links(self)
         feature_set_ids = [link.featureset_id for link in links_feature_set.all()]
         # get all linked features of type Feature
         feature_sets = FeatureSet.filter(id__in=feature_set_ids).all()
