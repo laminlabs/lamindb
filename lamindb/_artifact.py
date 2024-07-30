@@ -104,7 +104,11 @@ def process_pathlike(
             if not isinstance(filepath, LocalPathClasses):
                 # for a cloud path, new_root is always the bucket name
                 new_root = list(filepath.parents)[-1]
-                storage_settings = init_storage(new_root)
+                # do not register remote storage locations on hub if the current instance
+                # is not managed on the hub
+                storage_settings = init_storage(
+                    new_root, prevent_register_hub=not setup_settings.instance.is_on_hub
+                )
                 storage_record = register_storage_in_instance(storage_settings)
                 use_existing_storage_key = True
                 return storage_record, use_existing_storage_key
