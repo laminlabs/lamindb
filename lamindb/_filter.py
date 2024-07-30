@@ -21,9 +21,9 @@ def filter(Record: type[Record], **expressions) -> QuerySet:
         ):
             visibility = "visibility"
             if not any(e.startswith(visibility) for e in expressions):
-                expressions[
-                    visibility
-                ] = VisibilityChoice.default.value  # default visibility
+                expressions[visibility] = (
+                    VisibilityChoice.default.value
+                )  # default visibility
             # if visibility is None, do not apply a filter
             # otherwise, it would mean filtering for NULL values, which doesn't make
             # sense for a non-NULLABLE column

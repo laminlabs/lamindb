@@ -75,7 +75,7 @@ def get_or_create_records(
                         f"{colors.red('did not create')} {name} record{s} for "
                         f"{n_nonval} {colors.italic(f'{field.field.name}{s}')}: {print_values}"
                     )
-        if Record.__module__.startswith("lnschema_bionty.") or Record == ULabel:
+        if Record.__module__.startswith("bionty.") or Record == ULabel:
             if isinstance(iterable, pd.Series):
                 feature = iterable.name
             feature_name = None
@@ -184,7 +184,7 @@ def create_records_from_public(
     model = field.field.model
     records: list = []
     # populate additional fields from bionty
-    from lnschema_bionty._bionty import get_source_record
+    from bionty._bionty import get_source_record
 
     # create the corresponding bionty object from model
     try:
@@ -330,7 +330,7 @@ def _filter_bionty_df_columns(model: Record, public_ontology: Any) -> pd.DataFra
                 .reset_index()
             )
             bionty_df.rename(columns={"ncbi_gene_id": "ncbi_gene_ids"}, inplace=True)
-        # rename definition to description for the lnschema_bionty
+        # rename definition to description for the bionty registry in db
         bionty_df.rename(columns={"definition": "description"}, inplace=True)
         bionty_df = bionty_df.loc[:, bionty_df.columns.isin(model_field_names)]
     return bionty_df
@@ -372,7 +372,7 @@ def _get_organism_record(
     check = True if force else field.field.name != "ensembl_gene_id"
 
     if _has_organism_field(model) and check:
-        from lnschema_bionty._bionty import create_or_get_organism_record
+        from bionty._bionty import create_or_get_organism_record
 
         organism_record = create_or_get_organism_record(organism=organism, orm=model)
         if organism_record is not None:

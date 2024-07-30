@@ -52,7 +52,6 @@ def lint(session: nox.Session) -> None:
 def install(session):
     base_deps = [
         "./sub/lnschema-core",
-        "./sub/lnschema-bionty",
         "./sub/lamin-cli",
         "./sub/lamindb-setup",
         "./sub/bionty",
@@ -113,7 +112,7 @@ def install_ci(session, group):
     if IS_PR and "bionty" in extras:
         run(
             session,
-            "uv pip install --system --no-deps ./sub/bionty ./sub/lnschema-bionty",
+            "uv pip install --system --no-deps ./sub/bionty",
         )
     run(session, f"uv pip install --system -e .[dev,{extras}]")
 

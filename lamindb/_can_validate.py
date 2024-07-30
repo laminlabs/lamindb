@@ -279,8 +279,8 @@ def _standardize(
     orm = queryset.model
 
     if _has_organism_field(orm):
-        # here, we can safely import lnschema_bionty
-        from lnschema_bionty._bionty import create_or_get_organism_record
+        # here, we can safely import bionty
+        from bionty._bionty import create_or_get_organism_record
 
         organism_record = create_or_get_organism_record(organism=organism, orm=orm)
         organism = (
@@ -459,8 +459,8 @@ def _filter_query_based_on_organism(
     orm = queryset.model
 
     if _has_organism_field(orm) and not field.endswith("id"):
-        # here, we can safely import lnschema_bionty
-        from lnschema_bionty._bionty import create_or_get_organism_record
+        # here, we can safely import bionty
+        from bionty._bionty import create_or_get_organism_record
 
         organism_record = create_or_get_organism_record(organism=organism, orm=orm)
         if organism_record is not None:

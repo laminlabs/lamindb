@@ -311,13 +311,13 @@ def infer_feature_type_convert_json(
         if len(value) > 0:  # type: ignore
             first_element_type = type(next(iter(value)))
             if all(isinstance(elem, first_element_type) for elem in value):
-                if first_element_type == bool:
+                if first_element_type is bool:
                     return f"list[{FEATURE_TYPES['bool']}]", value
-                elif first_element_type == int:
+                elif first_element_type is int:
                     return f"list[{FEATURE_TYPES['int']}]", value
-                elif first_element_type == float:
+                elif first_element_type is float:
                     return f"list[{FEATURE_TYPES['float']}]", value
-                elif first_element_type == str:
+                elif first_element_type is str:
                     if str_as_ulabel:
                         return FEATURE_TYPES["str"] + "[ULabel]", value
                     else:
