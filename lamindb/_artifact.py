@@ -880,16 +880,32 @@ def open(
             f" {', '.join(suffixes[:-1])}."
         )
 
-    from lamindb.core.storage._backed_access import backed_access
+    from lamindb.core.storage._backed_access import _track_writes_factory, backed_access
 
     using_key = settings._using_key
     filepath = filepath_from_artifact(self, using_key=using_key)
+    is_tiledbsoma = filepath.name == "soma" or filepath.suffix == ".tiledbsoma"
     # consider the case where an object is already locally cached
     localpath = setup_settings.instance.storage.cloud_to_local_no_update(filepath)
-    if localpath.exists():
+    if not is_tiledbsoma and localpath.exists():
         access = backed_access(localpath, mode, using_key)
     else:
         access = backed_access(filepath, mode, using_key)
+        if is_tiledbsoma and mode == "w":
+            if access.__class__.__name__ not in {"Collection", "Experiment"}:
+                raise ValueError(
+                    "The store seems to be tiledbsoma but it is neither `Collection` nor `Experiment`."
+                )
+
+            def finalize():
+                nonlocal self, filepath
+                _, hash, _, _ = get_stat_dir_cloud(filepath)
+                if self.hash != hash:
+                    logger.warning(
+                        "The hash of the tiledbsoma store has changed, consider updating this artifact."
+                    )
+
+            access = _track_writes_factory(access, finalize)
     # only call if open is successfull
     _track_run_input(self, is_run_input)
     return access

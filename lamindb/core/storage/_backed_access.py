@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Literal
+from typing import TYPE_CHECKING, Any, Callable, Literal
 
 from anndata._io.specs.registry import get_spec
 from lnschema_core import Artifact
@@ -14,6 +14,39 @@ if TYPE_CHECKING:
     from tiledbsoma import Collection as SOMACollection
     from tiledbsoma import Experiment as SOMAExperiment
     from upath import UPath
+
+
+def _track_writes_factory(obj: Any, finalize: Callable):
+    closed: bool = False
+
+    tracked_class = obj.__class__
+    type_dict = {"__doc__": tracked_class.__doc__}
+    if hasattr(tracked_class, "__slots__"):
+        type_dict["__slots__"] = ()
+    if hasattr(tracked_class, "__exit__"):
+
+        def __exit__(self, exc_type, exc_val, exc_tb):
+            nonlocal closed
+            tracked_class.__exit__(self, exc_type, exc_val, exc_tb)
+            if not closed:
+                finalize()
+                closed = True
+
+        type_dict["__exit__"] = __exit__
+    if hasattr(tracked_class, "close"):
+
+        def close(self, *args, **kwargs):
+            nonlocal closed
+            tracked_class.close(self, *args, **kwargs)
+            if not closed:
+                finalize()
+                closed = True
+
+        type_dict["close"] = close
+
+    Track = type(tracked_class.__name__ + "Track", (tracked_class,), type_dict)
+    obj.__class__ = Track
+    return obj
 
 
 def _open_tiledbsoma(
