@@ -488,7 +488,9 @@ def test_delete_artifact(df):
     filepath = artifact.path
     with pytest.raises(IntegrityError) as e:
         artifact.delete()
-    assert e.exconly().startswith("IntegrityError: Cannot simply delete artifacts")
+    assert e.exconly().startswith(
+        "lamindb.core.exceptions.IntegrityError: Cannot simply delete artifacts"
+    )
     artifact.delete(storage=False, permanent=True)
     assert (
         ln.Artifact.filter(
