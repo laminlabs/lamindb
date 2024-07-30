@@ -400,7 +400,7 @@ def test_add_labels_using_anndata(adata):
 
     # check the basic construction of the feature set based on obs
     feature_set_obs = artifact.feature_sets.filter(
-        registry="Feature", artifact_links__slot="obs"
+        registry="Feature", links_artifact__slot="obs"
     ).one()
     assert feature_set_obs.n == 4
     assert "organism" not in feature_set_obs.features.list("name")
@@ -417,7 +417,7 @@ def test_add_labels_using_anndata(adata):
     feature = ln.Feature.filter(name="organism").one()
     assert feature.dtype == "cat[bionty.Organism]"
     feature_set_obs = artifact.feature_sets.filter(
-        registry="Feature", artifact_links__slot="obs"
+        registry="Feature", links_artifact__slot="obs"
     ).one()
     assert feature_set_obs.n == 4
     # TODO, write a test that queries the organism feature
