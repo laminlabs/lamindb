@@ -488,9 +488,8 @@ def test_delete_artifact(df):
     filepath = artifact.path
     with pytest.raises(IntegrityError) as e:
         artifact.delete()
-    print(e.exconly())
-    assert e.exconly() == "bla"
-    artifact.delete(storage=False)
+    assert e.exconly() == "IntegrityError: Cannot simply delete artifacts"
+    artifact.delete(storage=False, permanent=True)
     assert (
         ln.Artifact.filter(
             description="My test file to delete from non-default storage",
@@ -498,7 +497,7 @@ def test_delete_artifact(df):
         ).first()
         is None
     )
-    assert filepath.exists()  # file is not deleted from non-managed storage
+    assert filepath.exists()
 
 
 def test_delete_storage():

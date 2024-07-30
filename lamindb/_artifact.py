@@ -934,7 +934,7 @@ def delete(
     isettings = setup_settings.instance
     if self.storage.instance_uid != isettings.uid and (storage or storage is None):
         raise IntegrityError(
-            "Cannot simply delete artifacts outside of instance's managed storage location."
+            "Cannot simply delete artifacts outside of this instance's managed storage locations."
             "\n(1) If you only want to delete the metadata record in this instance, pass `storage=False`"
             f"\n(2) If you want to delete the artifact in storage, please load the managing lamindb instance (uid={self.storage.instance_uid})."
             f"\nThese are all managed storage locations of this instance:\n{Storage.filter(instance_uid=isettings.uid).df()}"
