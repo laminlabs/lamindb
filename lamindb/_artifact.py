@@ -901,12 +901,16 @@ def open(
 
             def finalize():
                 nonlocal self, filepath, localpath
-                _, hash, _, _ = get_stat_dir_cloud(filepath)
+                if not isinstance(filepath, LocalPathClasses):
+                    _, hash, _, _ = get_stat_dir_cloud(filepath)
+                else:
+                    # this can be very slow
+                    _, hash, _, _ = hash_dir(filepath)
                 if self.hash != hash:
                     logger.warning(
                         "The hash of the tiledbsoma store has changed, consider updating this artifact."
                     )
-                    if localpath.exists():
+                    if localpath.exists() and localpath != filepath:
                         shutil.rmtree(localpath)
 
             access = _track_writes_factory(access, finalize)
