@@ -106,7 +106,7 @@ def test_delete():
     environment.save()
     environment_path.unlink()
     environment_path = environment.path
-    transform.latest_report = report
+    transform.latest_run.report = report
     transform.source_code = source_code
     transform.save()
     run.report = report

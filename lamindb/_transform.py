@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from lamindb_setup.core._docs import doc_args
 from lnschema_core.models import Run, Transform
 from lnschema_core.types import TransformType
 
@@ -55,16 +56,10 @@ def __init__(transform: Transform, *args, **kwargs):
 
 
 def delete(self) -> None:
-    # set latest_report to None, it's tracked through the latest run
-    latest_report = None
-    if self.latest_report is not None:
-        latest_report = self.latest_report
-        self.latest_report = None
     source_code = None
     if self.source_code is not None:
         source_code = self.source_code
         self.source_code = None
-    if latest_report is not None or source_code is not None:
         self.save()
     if source_code is not None:
         source_code.delete(permanent=True)
@@ -78,7 +73,9 @@ def delete(self) -> None:
 
 
 @property  # type: ignore
+@doc_args(Transform.latest_run.__doc__)
 def latest_run(self) -> Run:
+    """{}"""  # noqa: D415
     return self.runs.order_by("-started_at").first()
 
 

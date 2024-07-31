@@ -152,8 +152,11 @@ def save_run_context_core(
         transform_family = transform.versions
     if len(transform_family) > 0:
         for prev_transform in transform_family.order_by("-created_at"):
-            if prev_transform.latest_report_id is not None:
-                prev_report = prev_transform.latest_report
+            if (
+                prev_transform.latest_run is not None
+                and prev_transform.latest_run.report_id is not None
+            ):
+                prev_report = prev_transform.latest_run.report
             if prev_transform.source_code_id is not None:
                 prev_source = prev_transform.source_code
     ln.settings.creation.artifact_silence_missing_run_warning = True
@@ -257,8 +260,9 @@ def save_run_context_core(
             run.report = report_file
         run.is_consecutive = is_consecutive
         run.save()
-        transform.latest_report = run.report
-        logger.debug(f"saved transform.latest_report: {transform.latest_report}")
+        logger.debug(
+            f"saved transform.latest_run.report: {transform.latest_run.report}"
+        )
     transform.save()
 
     # finalize

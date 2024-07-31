@@ -441,7 +441,6 @@ def update_fk_to_default_db(
 FKBULK = [
     "organism",
     "source",
-    "latest_report",  # Transform
     "source_code",  # Transform
     "report",  # Run
 ]
