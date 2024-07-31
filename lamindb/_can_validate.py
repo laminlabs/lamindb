@@ -171,9 +171,12 @@ def _validate(
     )
     if field_values.empty:
         if not mute:
-            logger.warning(
+            msg = (
                 f"Your {cls.__name__} registry is empty, consider populating it first!"
             )
+            if hasattr(cls, "source_id"):
+                msg += "\n   → use `.import_from_source()` to import records from a source, e.g. a public ontology"
+            logger.warning(msg)
         return np.array([False] * len(values))
 
     result = validate(
