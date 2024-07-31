@@ -240,7 +240,7 @@ def mapped(
     is_run_input: bool | None = None,
 ) -> MappedCollection:
     path_list = []
-    for artifact in self.artifacts.all():
+    for artifact in self.ordered_artifacts.all():
         if artifact.suffix not in {".h5ad", ".zarr"}:
             logger.warning(f"Ignoring artifact with suffix {artifact.suffix}")
             continue
@@ -269,7 +269,7 @@ def mapped(
 def cache(self, is_run_input: bool | None = None) -> list[UPath]:
     _track_run_input(self, is_run_input)
     path_list = []
-    for artifact in self.artifacts.all():
+    for artifact in self.ordered_artifacts.all():
         path_list.append(artifact.cache())
     return path_list
 
@@ -282,7 +282,7 @@ def load(
     **kwargs,
 ) -> Any:
     # cannot call _track_run_input here, see comment further down
-    all_artifacts = self.artifacts.all()
+    all_artifacts = self.ordered_artifacts.all()
     suffixes = [artifact.suffix for artifact in all_artifacts]
     if len(set(suffixes)) != 1:
         raise RuntimeError(
@@ -363,7 +363,7 @@ def restore(self) -> None:
 
 
 @property  # type: ignore
-@doc_args(Collection.artifacts.__doc__)
+@doc_args(Collection.ordered_artifacts.__doc__)
 def artifacts(self) -> QuerySet:
     """{}"""  # noqa: D415
     return self.unordered_artifacts.order_by("links_collection__id")
@@ -391,5 +391,5 @@ if ln_setup._TESTING:
 for name in METHOD_NAMES:
     attach_func_to_class_method(name, Collection, globals())
 
-Collection.artifacts = artifacts
+Collection.ordered_artifacts = artifacts
 Collection.stage = cache

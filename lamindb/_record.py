@@ -519,7 +519,7 @@ def save(self, *args, **kwargs) -> Record:
     artifacts: list = []
     if self.__class__.__name__ == "Collection" and self.id is not None:
         # when creating a new collection without being able to access artifacts
-        artifacts = self.artifacts.list()
+        artifacts = self.ordered_artifacts.list()
     # transfer of the record to the default db with fk fields
     result = transfer_to_default_db(self, using_key)
     if result is not None:
