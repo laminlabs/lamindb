@@ -364,7 +364,7 @@ def restore(self) -> None:
 
 @property  # type: ignore
 @doc_args(Collection.ordered_artifacts.__doc__)
-def artifacts(self) -> QuerySet:
+def ordered_artifacts(self) -> QuerySet:
     """{}"""  # noqa: D415
     return self.artifacts.order_by("links_collection__id")
 
@@ -391,5 +391,5 @@ if ln_setup._TESTING:
 for name in METHOD_NAMES:
     attach_func_to_class_method(name, Collection, globals())
 
-Collection.ordered_artifacts = artifacts
+Collection.ordered_artifacts = ordered_artifacts
 Collection.stage = cache
