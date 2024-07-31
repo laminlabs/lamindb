@@ -500,7 +500,7 @@ def __init__(artifact: Artifact, *args, **kwargs):
         raise ValueError("Only one non-keyword arg allowed: data")
 
     data: str | Path = kwargs.pop("data") if len(args) == 0 else args[0]
-    type: str = kwargs.pop("type") if "type" in kwargs else "dataset"
+    type: str = kwargs.pop("type") if "type" in kwargs else None
     key: str | None = kwargs.pop("key") if "key" in kwargs else None
     run: Run | None = kwargs.pop("run") if "run" in kwargs else None
     description: str | None = (
