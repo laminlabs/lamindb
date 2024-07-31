@@ -47,6 +47,8 @@ def get_or_create_records(
 
         # new records to be created based on new values
         if len(nonexist_values) > 0:
+            if records and records[0].source_id and records[0].source.in_db:
+                from_public = False
             if from_public:
                 records_bionty, unmapped_values = create_records_from_public(
                     iterable_idx=nonexist_values,
@@ -200,7 +202,12 @@ def create_records_from_public(
         # for custom records that are not created from public sources
         return records, iterable_idx
     # add source record to the kwargs
-    kwargs.update({"source": get_source_record(public_ontology)})
+    source_record = get_source_record(public_ontology)
+    if source_record is not None and source_record.in_db:
+        # skips the creation of records from public if the source is already in the db
+        return records, iterable_idx
+
+    kwargs.update({"source": source_record})
 
     # filter the columns in bionty df based on fields
     bionty_df = _filter_bionty_df_columns(model=model, public_ontology=public_ontology)
