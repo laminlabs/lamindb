@@ -129,7 +129,7 @@ def describe(self: HasFeatures, print_types: bool = False):
         # prefetch m-2-m relationships
         self = (
             self.__class__.objects.using(self._state.db)
-            .prefetch_related("feature_sets", "input_of")
+            .prefetch_related("feature_sets", "input_of_runs")
             .get(id=self.id)
         )
 
@@ -148,10 +148,10 @@ def describe(self: HasFeatures, print_types: bool = False):
         )
         prov_msg += related_msg
     # input of
-    if self.id is not None and self.input_of.exists():
-        values = [format_field_value(i.started_at) for i in self.input_of.all()]
+    if self.id is not None and self.input_of_runs.exists():
+        values = [format_field_value(i.started_at) for i in self.input_of_runs.all()]
         type_str = ": Run" if print_types else ""  # type: ignore
-        prov_msg += f"    .input_of{type_str} = {values}\n"
+        prov_msg += f"    .input_of_runs{type_str} = {values}\n"
     if prov_msg:
         msg += f"  {colors.italic('Provenance')}\n"
         msg += prov_msg
