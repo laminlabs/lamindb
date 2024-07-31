@@ -705,8 +705,8 @@ def from_dir(
 ) -> list[Artifact]:
     """{}"""  # noqa: D415
     logger.warning(
-        "this creates one artifact per file in the directory - you might simply call"
-        " ln.Artifact(dir) to get one artifact for the entire directory"
+        "this creates one artifact per file in the directory - consider"
+        " ln.Artifact(dir_path) to get one artifact for the entire directory"
     )
     folderpath: UPath = create_path(path)  # returns Path for local
     default_storage = settings._storage_settings.record
