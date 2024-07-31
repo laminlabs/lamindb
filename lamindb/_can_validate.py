@@ -170,9 +170,10 @@ def _validate(
         dtype="object",
     )
     if field_values.empty:
-        logger.warning(
-            f"Your {cls.__name__} registry is empty, consider populating it first!"
-        )
+        if not mute:
+            logger.warning(
+                f"Your {cls.__name__} registry is empty, consider populating it first!"
+            )
         return np.array([False] * len(values))
 
     result = validate(

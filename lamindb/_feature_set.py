@@ -139,7 +139,7 @@ def from_values(
         not_validated_values = values_array[~validated]
         msg = (
             f"These values could not be validated: {not_validated_values.tolist()}\n"
-            f"If there are no typos, add them to their registry: {registry}"
+            f"If there are no typos, add them to their registry: {registry.__name__}"
         )
         if raise_validation_error:
             raise ValidationError(msg)
