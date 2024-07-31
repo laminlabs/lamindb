@@ -169,6 +169,12 @@ def _validate(
         ),
         dtype="object",
     )
+    if field_values.empty:
+        if not mute:
+            logger.warning(
+                f"Your {cls.__name__} registry is empty, consider populating it first!"
+            )
+        return np.array([False] * len(values))
 
     result = validate(
         identifiers=values,
@@ -458,7 +464,7 @@ def _filter_query_based_on_organism(
 
     orm = queryset.model
 
-    if _has_organism_field(orm) and not field.endswith("id"):
+    if _has_organism_field(orm) and not _field_is_id(field, orm):
         # here, we can safely import bionty
         from bionty._bionty import create_or_get_organism_record
 
@@ -470,6 +476,16 @@ def _filter_query_based_on_organism(
         return pd.DataFrame.from_records(queryset.values())
     else:
         return queryset.values_list(values_list_field, flat=True)
+
+
+def _field_is_id(field: str, orm: type[Record]) -> bool:
+    """Check if the field is an ontology ID."""
+    if hasattr(orm, "_ontology_id_field"):
+        if field == orm._ontology_id_field:
+            return True
+    if field.endswith("id"):
+        return True
+    return False
 
 
 METHOD_NAMES = [
