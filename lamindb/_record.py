@@ -534,7 +534,7 @@ def save(self, *args, **kwargs) -> Record:
                 logger.info("transfer artifacts")
                 for artifact in artifacts:
                     artifact.save()
-                self.unordered_artifacts.add(*artifacts)
+                self.artifacts.add(*artifacts)
         if hasattr(self, "labels"):
             from copy import copy
 

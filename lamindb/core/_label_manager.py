@@ -28,7 +28,7 @@ if TYPE_CHECKING:
 def get_labels_as_dict(self: HasFeatures, links: bool = False):
     exclude_set = {
         "feature_sets",
-        "unordered_artifacts",
+        "artifacts",
         "input_of_runs",
         "collections",
         "source_code_of",

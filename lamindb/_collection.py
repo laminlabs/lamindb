@@ -344,7 +344,7 @@ def save(self, using: str | None = None) -> Collection:
         ]
         # the below seems to preserve the order of the list in the
         # auto-incrementing integer primary
-        # merely using .unordered_artifacts.set(*...) doesn't achieve this
+        # merely using .artifacts.set(*...) doesn't achieve this
         # we need ignore_conflicts=True so that this won't error if links already exist
         CollectionArtifact.objects.bulk_create(links, ignore_conflicts=True)
     save_feature_set_links(self)
@@ -366,7 +366,7 @@ def restore(self) -> None:
 @doc_args(Collection.ordered_artifacts.__doc__)
 def artifacts(self) -> QuerySet:
     """{}"""  # noqa: D415
-    return self.unordered_artifacts.order_by("links_collection__id")
+    return self.artifacts.order_by("links_collection__id")
 
 
 METHOD_NAMES = [
