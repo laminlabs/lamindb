@@ -776,17 +776,12 @@ def _add_from(self, data: HasFeatures):
         registry = members[0].__class__
         # note here the features are transferred based on an unique field
         field = REGISTRY_UNIQUE_FIELD.get(registry.__name__.lower(), "uid")
-        # TODO: get a default ID field for the registry
-        if hasattr(registry, "ontology_id"):
-            field = "ontology_id"
-        elif hasattr(registry, "ensembl_gene_id"):
-            field = "ensembl_gene_id"
-        elif hasattr(registry, "uniprotkb_id"):
-            field = "uniprotkb_id"
+        if hasattr(registry, "_ontology_id_field"):
+            field = registry._ontology_id_field
         # this will be e.g. be a list of ontology_ids or uids
         member_uids = list(members.values_list(field, flat=True))
         # create records from ontology_id
-        if field == "ontology_id" and len(member_uids) > 0:
+        if hasattr(registry, "_ontology_id_field") and len(member_uids) > 0:
             # create from bionty
             save(registry.from_values(member_uids, field=field))
         validated = registry.validate(member_uids, field=field, mute=True)
@@ -811,7 +806,7 @@ def _add_from(self, data: HasFeatures):
             member_uids, field=getattr(registry, field)
         )
         if feature_set_self is None:
-            if hasattr(registry, "organism"):
+            if hasattr(registry, "organism_id"):
                 logger.warning(
                     f"FeatureSet is not transferred, check if organism is set correctly: {feature_set}"
                 )
