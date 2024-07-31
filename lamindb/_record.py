@@ -165,6 +165,9 @@ def from_values(
 ) -> list[Record]:
     """{}"""  # noqa: D415
     from_public = True if cls.__module__.startswith("bionty.") else False
+    # if records from source is already saved in db, skip from_public
+    if isinstance(source, Record) and source.in_db:
+        from_public = False
     field_str = get_name_field(cls, field=field)
     return get_or_create_records(
         iterable=values,

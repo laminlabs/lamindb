@@ -27,6 +27,6 @@ def test_add_ontology_from_df():
     import bionty as bt
 
     bt.Ethnicity.filter().delete()
-    bt.Ethnicity.save_from_df()
+    bt.Ethnicity.import_from_source()
     record = bt.Ethnicity.get("7RNCY3yC")
     assert record.parents.all().one().name == "South East Asian"

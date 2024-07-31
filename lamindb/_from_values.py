@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, Iterable
+from typing import TYPE_CHECKING, Iterable
 
 import pandas as pd
 from django.core.exceptions import FieldDoesNotExist
@@ -187,6 +187,7 @@ def create_records_from_public(
     records: list = []
     # populate additional fields from bionty
     from bionty._bionty import get_source_record
+    from bionty.core._bionty import filter_bionty_df_columns
 
     # create the corresponding bionty object from model
     try:
@@ -210,7 +211,7 @@ def create_records_from_public(
     kwargs.update({"source": source_record})
 
     # filter the columns in bionty df based on fields
-    bionty_df = _filter_bionty_df_columns(model=model, public_ontology=public_ontology)
+    bionty_df = filter_bionty_df_columns(model=model, public_ontology=public_ontology)
 
     # standardize in the bionty reference
     result = public_ontology.inspect(iterable_idx, field=field.field.name, mute=True)
@@ -306,43 +307,6 @@ def _print_values(names: Iterable, n: int = 20, quotes: bool = True) -> str:
     return print_values
 
 
-def _filter_bionty_df_columns(model: Record, public_ontology: Any) -> pd.DataFrame:
-    bionty_df = pd.DataFrame()
-    if public_ontology is not None:
-        model_field_names = {i.name for i in model._meta.fields}
-        # parents needs to be added here as relationships aren't in fields
-        model_field_names.add("parents")
-        bionty_df = public_ontology.df().reset_index()
-        if model.__name__ == "Gene":
-            # groupby ensembl_gene_id and concat ncbi_gene_ids
-            groupby_id_col = (
-                "ensembl_gene_id" if "ensembl_gene_id" in bionty_df else "stable_id"
-            )
-            bionty_df.drop(
-                columns=["hgnc_id", "mgi_id", "index"], errors="ignore", inplace=True
-            )
-            bionty_df.drop_duplicates([groupby_id_col, "ncbi_gene_id"], inplace=True)
-            bionty_df["ncbi_gene_id"] = bionty_df["ncbi_gene_id"].fillna("")
-            bionty_df = (
-                bionty_df.groupby(groupby_id_col)
-                .agg(
-                    {
-                        "symbol": "first",
-                        "ncbi_gene_id": "|".join,
-                        "biotype": "first",
-                        "description": "first",
-                        "synonyms": "first",
-                    }
-                )
-                .reset_index()
-            )
-            bionty_df.rename(columns={"ncbi_gene_id": "ncbi_gene_ids"}, inplace=True)
-        # rename definition to description for the bionty registry in db
-        bionty_df.rename(columns={"definition": "description"}, inplace=True)
-        bionty_df = bionty_df.loc[:, bionty_df.columns.isin(model_field_names)]
-    return bionty_df
-
-
 def _bulk_create_dicts_from_df(
     keys: set | list, column_name: str, df: pd.DataFrame
 ) -> tuple[dict, str]:
@@ -364,7 +328,7 @@ def _bulk_create_dicts_from_df(
     return df.reset_index().to_dict(orient="records"), multi_msg
 
 
-def _has_organism_field(orm: Record) -> bool:
+def _has_organism_field(orm: type[Record]) -> bool:
     try:
         orm._meta.get_field("organism")
         return True
@@ -376,7 +340,12 @@ def _get_organism_record(
     field: StrField, organism: str | Record, force: bool = False
 ) -> Record:
     model = field.field.model
-    check = True if force else field.field.name != "ensembl_gene_id"
+    check = True
+    if not force and hasattr(model, "_ontology_id_field"):
+        check = field.field.name != model._ontology_id_field
+        # e.g. bionty.CellMarker has "name" as _ontology_id_field
+        if not model._ontology_id_field.endswith("id"):
+            check = True
 
     if _has_organism_field(model) and check:
         from bionty._bionty import create_or_get_organism_record

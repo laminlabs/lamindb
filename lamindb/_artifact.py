@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 import shutil
 from pathlib import Path, PurePath, PurePosixPath
 from typing import TYPE_CHECKING, Any, Mapping
@@ -935,14 +936,15 @@ def delete(
 ) -> None:
     # this first check means an invalid delete fails fast rather than cascading through
     # database and storage permission errors
-    isettings = setup_settings.instance
-    if self.storage.instance_uid != isettings.uid and (storage or storage is None):
-        raise IntegrityError(
-            "Cannot simply delete artifacts outside of this instance's managed storage locations."
-            "\n(1) If you only want to delete the metadata record in this instance, pass `storage=False`"
-            f"\n(2) If you want to delete the artifact in storage, please load the managing lamindb instance (uid={self.storage.instance_uid})."
-            f"\nThese are all managed storage locations of this instance:\n{Storage.filter(instance_uid=isettings.uid).df()}"
-        )
+    if os.getenv("LAMINDB_MULTI_INSTANCE") is None:
+        isettings = setup_settings.instance
+        if self.storage.instance_uid != isettings.uid and (storage or storage is None):
+            raise IntegrityError(
+                "Cannot simply delete artifacts outside of this instance's managed storage locations."
+                "\n(1) If you only want to delete the metadata record in this instance, pass `storage=False`"
+                f"\n(2) If you want to delete the artifact in storage, please load the managing lamindb instance (uid={self.storage.instance_uid})."
+                f"\nThese are all managed storage locations of this instance:\n{Storage.filter(instance_uid=isettings.uid).df()}"
+            )
     # by default, we only move artifacts into the trash (visibility = -1)
     trash_visibility = VisibilityChoice.trash.value
     if self.visibility > trash_visibility and not permanent:

@@ -4,7 +4,7 @@ from collections import defaultdict
 from typing import TYPE_CHECKING, Dict
 
 import numpy as np
-from lamin_utils import colors, logger
+from lamin_utils import colors
 from lnschema_core.models import Feature
 
 from lamindb._from_values import _print_values
@@ -84,18 +84,14 @@ def validate_labels(labels: QuerySet | list | dict):
             return [], []
         registry = labels[0].__class__
         field = REGISTRY_UNIQUE_FIELD.get(registry.__name__.lower(), "uid")
-        if hasattr(registry, "ontology_id"):
-            field = "ontology_id"
-        elif hasattr(registry, "ensembl_gene_id"):
-            field = "ensembl_gene_id"
-        elif hasattr(registry, "uniprotkb_id"):
-            field = "uniprotkb_id"
+        if hasattr(registry, "_ontology_id_field"):
+            field = registry._ontology_id_field
         # if the field value is None, use uid field
         label_uids = np.array(
             [getattr(label, field) for label in labels if label is not None]
         )
         # save labels from ontology_ids
-        if field == "ontology_id" and len(label_uids) > 0:
+        if hasattr(registry, "_ontology_id_field") and len(label_uids) > 0:
             try:
                 save(registry.from_values(label_uids, field=field))
             except Exception:  # noqa S110
