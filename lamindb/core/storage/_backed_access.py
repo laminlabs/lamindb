@@ -16,6 +16,9 @@ if TYPE_CHECKING:
     from upath import UPath
 
 
+# this dynamically creates a subclass of a context manager class
+# and reassigns it to an instance of the superclass
+# so that the instance calls finalize on close or exit
 def _track_writes_factory(obj: Any, finalize: Callable):
     closed: bool = False
 

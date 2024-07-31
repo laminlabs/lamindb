@@ -879,6 +879,8 @@ def open(
             " use one of the following suffixes for the object name:"
             f" {', '.join(suffixes[:-1])}."
         )
+    if self.suffix != ".tiledbsoma" and self.key != "soma" and mode != "r":
+        raise ValueError("Only a tiledbsoma store can be openened with `mode!='r'`.")
 
     from lamindb.core.storage._backed_access import _track_writes_factory, backed_access
 
