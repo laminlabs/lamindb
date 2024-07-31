@@ -590,7 +590,7 @@ def __init__(artifact: Artifact, *args, **kwargs):
     kwargs["version"] = version
     kwargs["description"] = description
     kwargs["visibility"] = visibility
-    kwargs["accessor"] = accessor
+    kwargs["_accessor"] = accessor
     # this check needs to come down here because key might be populated from an
     # existing file path during get_artifact_kwargs_from_data()
     if (
@@ -631,7 +631,7 @@ def from_df(
         description=description,
         version=version,
         is_new_version_of=is_new_version_of,
-        accessor="DataFrame",
+        _accessor="DataFrame",
         type="dataset",
         **kwargs,
     )
@@ -660,7 +660,7 @@ def from_anndata(
         description=description,
         version=version,
         is_new_version_of=is_new_version_of,
-        accessor="AnnData",
+        _accessor="AnnData",
         type="dataset",
         **kwargs,
     )
@@ -687,7 +687,7 @@ def from_mudata(
         description=description,
         version=version,
         is_new_version_of=is_new_version_of,
-        accessor="MuData",
+        _accessor="MuData",
         type="dataset",
         **kwargs,
     )

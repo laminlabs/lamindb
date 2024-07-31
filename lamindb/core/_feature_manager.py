@@ -678,10 +678,10 @@ def _add_set_from_df(
 ):
     """Add feature set corresponding to column names of DataFrame."""
     if isinstance(self._host, Artifact):
-        assert self._host.accessor == "DataFrame"  # noqa: S101
+        assert self._host._accessor == "DataFrame"  # noqa: S101
     else:
         # Collection
-        assert self._host.artifact.accessor == "DataFrame"  # noqa: S101
+        assert self._host.artifact._accessor == "DataFrame"  # noqa: S101
 
     # parse and register features
     registry = field.field.model
@@ -709,7 +709,7 @@ def _add_set_from_anndata(
 ):
     """Add features from AnnData."""
     if isinstance(self._host, Artifact):
-        assert self._host.accessor == "AnnData"  # noqa: S101
+        assert self._host._accessor == "AnnData"  # noqa: S101
     else:
         raise NotImplementedError()
 
@@ -739,7 +739,7 @@ def _add_set_from_mudata(
     if obs_fields is None:
         obs_fields = {}
     if isinstance(self._host, Artifact):
-        assert self._host.accessor == "MuData"  # noqa: S101
+        assert self._host._accessor == "MuData"  # noqa: S101
     else:
         raise NotImplementedError()
 
