@@ -191,7 +191,7 @@ def test_anndata_annotator(adata, categoricals):
         reference="E-MTAB-xxxxx",
         reference_type="ArrayExpress",
     )
-    assert collection.artifacts[0] == artifact
+    assert collection.ordered_artifacts[0] == artifact
 
     # clean up
     collection.delete(permanent=True)
