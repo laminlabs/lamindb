@@ -333,8 +333,8 @@ def delete(self, permanent: bool | None = None) -> None:
 
 # docstring handled through attach_func_to_class_method
 def save(self, using: str | None = None) -> Collection:
-    if self.artifact is not None:
-        self.artifact.save()
+    if self.meta_artifact is not None:
+        self.meta_artifact.save()
     # we don't need to save feature sets again
     save_feature_sets(self)
     super(Collection, self).save()
@@ -361,9 +361,6 @@ def save(self, using: str | None = None) -> Collection:
 def restore(self) -> None:
     self.visibility = VisibilityChoice.default.value
     self.save()
-    if self.artifact is not None:
-        self.artifact.visibility = VisibilityChoice.default.value
-        self.artifact.save()
 
 
 @property  # type: ignore
