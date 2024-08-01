@@ -80,7 +80,7 @@ def save_run_context_core(
 
     # for scripts, things are easy
     is_consecutive = True
-    is_notebook = transform.type == TransformType.notebook
+    is_notebook = transform.type == "notebook"
     _source_code_artifact_path = filepath
     # for notebooks, we need more work
     if is_notebook:

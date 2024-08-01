@@ -1,11 +1,15 @@
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 from lamindb_setup.core._docs import doc_args
 from lnschema_core.models import Run, Transform
-from lnschema_core.types import TransformType
 
 from ._run import delete_run_artifacts
 from .core.versioning import process_is_new_version_of
+
+if TYPE_CHECKING:
+    from lnschema_core.types import TransformType
 
 
 def __init__(transform: Transform, *args, **kwargs):
@@ -19,9 +23,7 @@ def __init__(transform: Transform, *args, **kwargs):
     )
     (kwargs.pop("initial_version_id") if "initial_version_id" in kwargs else None)
     version: str | None = kwargs.pop("version") if "version" in kwargs else None
-    type: TransformType | None = (
-        kwargs.pop("type") if "type" in kwargs else TransformType.pipeline
-    )
+    type: TransformType | None = kwargs.pop("type") if "type" in kwargs else "pipeline"
     reference: str | None = kwargs.pop("reference") if "reference" in kwargs else None
     reference_type: str | None = (
         kwargs.pop("reference_type") if "reference_type" in kwargs else None

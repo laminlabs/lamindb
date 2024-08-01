@@ -11,7 +11,6 @@ from lamin_utils import logger
 from lamindb_setup.core.hashing import hash_file
 from lnschema_core import Run, Transform, ids
 from lnschema_core.models import Param, ParamValue, RunParamValue
-from lnschema_core.types import TransformType
 from lnschema_core.users import current_user_id
 
 from ._settings import settings
@@ -27,6 +26,7 @@ from .versioning import bump_version as bump_version_function
 
 if TYPE_CHECKING:
     from lamindb_setup.core.types import UPathStr
+    from lnschema_core.types import TransformType
 
 is_run_from_ipython = getattr(builtins, "__IPYTHON__", False)
 
@@ -279,14 +279,14 @@ class run_context:
                 ).one_or_none()
                 if is_run_from_ipython:
                     key, name = cls._track_notebook(path=path)
-                    transform_type = TransformType.notebook
+                    transform_type = "notebook"
                     transform_ref = None
                     transform_ref_type = None
                 else:
                     (name, key, transform_ref, transform_ref_type) = cls._track_script(
                         path=path
                     )
-                    transform_type = TransformType.script
+                    transform_type = "script"
                 # overwrite whatever is auto-detected in the notebook or script
                 if transform_settings.name is not None:
                     name = transform_settings.name
@@ -323,9 +323,7 @@ class run_context:
             cls.transform = transform_exists
 
         if new_run is None:  # for notebooks, default to loading latest runs
-            new_run = (
-                False if cls.transform.type == TransformType.notebook.value else True
-            )  # type: ignore
+            new_run = False if cls.transform.type == "notebook".value else True  # type: ignore
 
         run = None
         from lamindb._run import Run
