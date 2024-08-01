@@ -178,7 +178,7 @@ def print_features(
     if self.id is not None and self.__class__ == Artifact or self.__class__ == Run:
         attr_name = "param" if print_params else "feature"
         _feature_values = (
-            getattr(self, f"{attr_name}_values")
+            getattr(self, f"_{attr_name}_values")
             .values(f"{attr_name}__name", f"{attr_name}__dtype")
             .annotate(values=custom_aggregate("value", self._state.db))
             .order_by(f"{attr_name}__name")
