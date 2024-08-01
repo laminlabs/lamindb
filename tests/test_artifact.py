@@ -227,7 +227,7 @@ def test_create_from_dataframe(df):
     artifact = ln.Artifact.from_df(df, description="test1")
     assert artifact.description == "test1"
     assert artifact.key is None
-    assert artifact.accessor == "DataFrame"
+    assert artifact._accessor == "DataFrame"
     assert artifact.type == "dataset"
     assert hasattr(artifact, "_local_filepath")
     artifact.save()
@@ -250,7 +250,7 @@ def test_create_from_dataframe_using_from_df_and_link_features(df):
     # backward compatibility for ln.Artifact to take a DataFrame
     artifact = ln.Artifact(df, key="folder/hello.parquet", description=description)
     assert artifact.description == description
-    assert artifact.accessor == "DataFrame"
+    assert artifact._accessor == "DataFrame"
     assert artifact.key == "folder/hello.parquet"
     assert artifact.key_is_virtual
     assert artifact.uid in artifact.path.as_posix()
@@ -277,7 +277,7 @@ def test_create_from_anndata_in_memory_and_link_features(adata):
     )
     ln.save(ln.Feature.from_df(adata.obs))
     artifact = ln.Artifact.from_anndata(adata, description="test")
-    assert artifact.accessor == "AnnData"
+    assert artifact._accessor == "AnnData"
     assert hasattr(artifact, "_local_filepath")
     artifact.save()
     # check that the local filepath has been cleared
@@ -298,7 +298,7 @@ def test_create_from_anndata_in_memory_and_link_features(adata):
 def test_create_from_anndata_strpath(adata_file):
     artifact = ln.Artifact.from_anndata(adata_file, description="test adata file")
     artifact.save()
-    assert artifact.accessor == "AnnData"
+    assert artifact._accessor == "AnnData"
     artifact.delete(permanent=True, storage=True)
 
 
@@ -310,7 +310,7 @@ def test_create_from_anndata_in_storage(data):
         artifact = ln.Artifact.from_anndata(
             data, description="test_create_from_anndata"
         )
-        assert artifact.accessor == "AnnData"
+        assert artifact._accessor == "AnnData"
         assert hasattr(artifact, "_local_filepath")
     else:
         previous_storage = ln.setup.settings.storage.root_as_str
@@ -706,7 +706,7 @@ def test_zarr_upload_cache(adata):
     write_adata_zarr(adata, zarr_path, callback)
 
     artifact = ln.Artifact(zarr_path, key="test_adata.zarr")
-    assert artifact.accessor == "AnnData"
+    assert artifact._accessor == "AnnData"
     assert artifact.n_objects >= 1
     artifact.save()
 
@@ -731,7 +731,7 @@ def test_zarr_upload_cache(adata):
     # test zarr from memory
     artifact = ln.Artifact(adata, key="test_adata.anndata.zarr")
     assert artifact._local_filepath.is_dir()
-    assert artifact.accessor == "AnnData"
+    assert artifact._accessor == "AnnData"
     assert artifact.suffix == ".anndata.zarr"
     assert artifact.n_objects >= 1
 
