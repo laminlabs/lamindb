@@ -530,7 +530,7 @@ def __init__(artifact: Artifact, *args, **kwargs):
     using_key = (
         kwargs.pop("using_key") if "using_key" in kwargs else settings._using_key
     )
-    accessor = kwargs.pop("accessor") if "accessor" in kwargs else None
+    accessor = kwargs.pop("_accessor") if "_accessor" in kwargs else None
     accessor = _check_accessor_artifact(data=data, accessor=accessor)
     if not len(kwargs) == 0:
         raise ValueError(
