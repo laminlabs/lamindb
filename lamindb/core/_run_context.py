@@ -323,7 +323,7 @@ class run_context:
             cls.transform = transform_exists
 
         if new_run is None:  # for notebooks, default to loading latest runs
-            new_run = False if cls.transform.type == "notebook".value else True  # type: ignore
+            new_run = False if cls.transform.type == "notebook" else True  # type: ignore
 
         run = None
         from lamindb._run import Run
