@@ -24,7 +24,7 @@ def test_from_values_name(df):
     ids = [i.ontology_id for i in result]
     assert len(result) == 2
     assert set(ids) == {"CL:0000084", "CL:0000182"}
-    assert result[0].source.entity == "CellType"
+    assert result[0].source.entity == "bionty.CellType"
 
     # wrong field type
     with pytest.raises(TypeError):
@@ -37,7 +37,7 @@ def test_from_values_ontology_id(df):
     names = {i.name for i in result}
     assert len(result) == 2
     assert names == {"T cell", "hepatocyte"}
-    assert result[0].source.entity == "CellType"
+    assert result[0].source.entity == "bionty.CellType"
 
 
 def test_from_values_multiple_match():
