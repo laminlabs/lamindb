@@ -479,7 +479,7 @@ class run_context:
                     transform.save()
                     logger.important(f"updated: {transform}")
             # check whether transform source code was already saved
-            if transform.source_code_id is not None:
+            if transform._source_code_artifact_id is not None:
                 response = None
                 if is_run_from_ipython:
                     if os.getenv("LAMIN_TESTING") is None:
@@ -491,7 +491,7 @@ class run_context:
                         response = "y"
                 else:
                     hash, _ = hash_file(cls.path)  # ignore hash_type for now
-                    if hash != transform.source_code.hash:
+                    if hash != transform._source_code_artifact.hash:
                         # only if hashes don't match, we need user input
                         if os.getenv("LAMIN_TESTING") is None:
                             response = input(

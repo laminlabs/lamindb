@@ -793,8 +793,8 @@ def test_bulk_delete():
     report_path = Path("report.html")
     with open(report_path, "w") as f:
         f.write("a")
-    source_code_path = Path("code.py")
-    with open(source_code_path, "w") as f:
+    _source_code_artifact_path = Path("code.py")
+    with open(_source_code_artifact_path, "w") as f:
         f.write("b")
     environment_path = Path("environment.txt")
     with open(environment_path, "w") as f:
@@ -803,27 +803,34 @@ def test_bulk_delete():
     report.save()
     report_path.unlink()
     report_path = report.path
-    source_code = ln.Artifact(source_code_path, description="Source")
-    source_code.save()
-    source_code_path.unlink()
-    source_code_path = source_code.path
+    _source_code_artifact = ln.Artifact(
+        _source_code_artifact_path, description="Source"
+    )
+    _source_code_artifact.save()
+    _source_code_artifact_path.unlink()
+    _source_code_artifact_path = _source_code_artifact.path
     environment = ln.Artifact(environment_path, description="requirement.txt")
     environment.save()
     environment_path.unlink()
     environment_path = environment.path
 
-    ln.Artifact.filter(id__in=[source_code.id, environment.id, report.id]).delete()
+    ln.Artifact.filter(
+        id__in=[_source_code_artifact.id, environment.id, report.id]
+    ).delete()
 
     assert (
         len(
-            ln.Artifact.filter(id__in=[source_code.id, environment.id, report.id]).all()
+            ln.Artifact.filter(
+                id__in=[_source_code_artifact.id, environment.id, report.id]
+            ).all()
         )
         == 0
     )
     assert (
         len(
             ln.Artifact.filter(
-                id__in=[source_code.id, environment.id, report.id], visibility=-1
+                id__in=[_source_code_artifact.id, environment.id, report.id],
+                visibility=-1,
             )
             .distinct()
             .all()
@@ -832,12 +839,13 @@ def test_bulk_delete():
     )
 
     ln.Artifact.filter(
-        id__in=[source_code.id, environment.id, report.id], visibility=-1
+        id__in=[_source_code_artifact.id, environment.id, report.id], visibility=-1
     ).delete(permanent=True)
     assert (
         len(
             ln.Artifact.filter(
-                id__in=[source_code.id, environment.id, report.id], visibility=None
+                id__in=[_source_code_artifact.id, environment.id, report.id],
+                visibility=None,
             )
             .distinct()
             .all()
@@ -846,5 +854,5 @@ def test_bulk_delete():
     )
 
     assert not report_path.exists()
-    assert not source_code_path.exists()
+    assert not _source_code_artifact_path.exists()
     assert not environment_path.exists()

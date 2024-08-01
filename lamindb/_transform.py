@@ -56,13 +56,13 @@ def __init__(transform: Transform, *args, **kwargs):
 
 
 def delete(self) -> None:
-    source_code = None
-    if self.source_code is not None:
-        source_code = self.source_code
-        self.source_code = None
+    _source_code_artifact = None
+    if self._source_code_artifact is not None:
+        _source_code_artifact = self._source_code_artifact
+        self._source_code_artifact = None
         self.save()
-    if source_code is not None:
-        source_code.delete(permanent=True)
+    if _source_code_artifact is not None:
+        _source_code_artifact.delete(permanent=True)
     # query all runs and delete their artifacts
     runs = Run.filter(transform=self)
     for run in runs:

@@ -31,7 +31,7 @@ def get_labels_as_dict(self: HasFeatures, links: bool = False):
         "artifacts",
         "input_of_runs",
         "collections",
-        "source_code_of",
+        "_source_code_artifact_of",
         "report_of",
         "environment_of",
         "links_collection",
