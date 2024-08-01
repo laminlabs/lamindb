@@ -370,6 +370,13 @@ def ordered_artifacts(self) -> QuerySet:
     return self.artifacts.order_by("links_collection__id")
 
 
+@property  # type: ignore
+@doc_args(Collection.data_artifact.__doc__)
+def data_artifact(self) -> Artifact | None:
+    """{}"""  # noqa: D415
+    return self.artifacts.first()
+
+
 METHOD_NAMES = [
     "__init__",
     "mapped",
@@ -393,4 +400,4 @@ for name in METHOD_NAMES:
     attach_func_to_class_method(name, Collection, globals())
 
 Collection.ordered_artifacts = ordered_artifacts
-Collection.stage = cache
+Collection.data_artifact = data_artifact
