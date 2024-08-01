@@ -34,7 +34,7 @@ def prepare_cell_type_registry():
     ]
     public_records = []
     for ref_record in records:
-        record = bt.CellType.from_public(ontology_id=ref_record["ontology_id"])
+        record = bt.CellType.from_source(ontology_id=ref_record["ontology_id"])
         assert record.name == ref_record["name"]
         assert set(record.synonyms.split("|")) == set(ref_record["synonyms"].split("|"))
         public_records.append(record)

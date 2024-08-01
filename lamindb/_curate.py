@@ -1242,7 +1242,7 @@ def _save_organism(name: str):  # pragma: no cover
 
     organism = bt.Organism.filter(name=name).one_or_none()
     if organism is None:
-        organism = bt.Organism.from_public(name=name)
+        organism = bt.Organism.from_source(name=name)
         if organism is None:
             raise ValueError(
                 f"Organism '{name}' not found\n"

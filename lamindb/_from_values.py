@@ -19,7 +19,7 @@ def get_or_create_records(
     field: StrField,
     *,
     create: bool = False,
-    from_public: bool = False,
+    from_source: bool = False,
     organism: Record | str | None = None,
     source: Record | None = None,
     mute: bool = False,
@@ -48,9 +48,9 @@ def get_or_create_records(
         # new records to be created based on new values
         if len(nonexist_values) > 0:
             if records and records[0].source_id and records[0].source.in_db:
-                from_public = False
-            if from_public:
-                records_bionty, unmapped_values = create_records_from_public(
+                from_source = False
+            if from_source:
+                records_bionty, unmapped_values = create_records_from_source(
                     iterable_idx=nonexist_values,
                     field=field,
                     msg=msg,
@@ -60,7 +60,7 @@ def get_or_create_records(
                 if len(records_bionty) > 0:
                     msg = ""
                 for record in records_bionty:
-                    record._from_public = True
+                    record._from_source = True
                 records += records_bionty
             else:
                 unmapped_values = nonexist_values
@@ -176,7 +176,7 @@ def get_existing_records(
     return records, nonexist_values, msg
 
 
-def create_records_from_public(
+def create_records_from_source(
     iterable_idx: pd.Index,
     field: StrField,
     msg: str = "",
