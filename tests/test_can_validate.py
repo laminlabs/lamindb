@@ -11,7 +11,7 @@ def test_inspect():
     result = bt.Gene.inspect("TCF7", "symbol")
     assert result.validated == []
 
-    bt.Gene.from_public(symbol="TCF7").save()
+    bt.Gene.from_source(symbol="TCF7").save()
     result = bt.Gene.inspect("TCF7")
     assert bt.Gene.validate("TCF7", organism="human")
     result = bt.Gene.inspect(["TCF7", "ABC1"], "symbol")
@@ -35,7 +35,7 @@ def test_standardize():
     assert mapper == {"ABC1": "HEATR6"}
 
     # synonym already in the database
-    bt.Gene.from_public(symbol="LMNA").save()
+    bt.Gene.from_source(symbol="LMNA").save()
     mapper = bt.Gene.standardize(["ABC1", "LMN1"], return_mapper=True)
     assert mapper == {"LMN1": "LMNA", "ABC1": "HEATR6"}
     assert bt.Gene.standardize(["LMNA"]) == ["LMNA"]

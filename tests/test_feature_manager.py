@@ -67,7 +67,7 @@ def test_features_add(adata):
     assert artifact.feature_values.first().value == 27.2
 
     # bionty feature
-    mouse = bt.Organism.from_public(name="mouse")
+    mouse = bt.Organism.from_source(name="mouse")
     with pytest.raises(ValidationError) as error:
         artifact.features.add_values({"organism": mouse})
     assert (
@@ -336,7 +336,7 @@ def test_labels_add(adata):
 
 
 def test_add_labels_using_anndata(adata):
-    organism = bt.Organism.from_public(name="mouse")
+    organism = bt.Organism.from_source(name="mouse")
     cell_types = [bt.CellType(name=name) for name in adata.obs["cell_type"].unique()]
     ln.save(cell_types)
     inspector = bt.CellType.inspect(adata.obs["cell_type_from_expert"].unique())

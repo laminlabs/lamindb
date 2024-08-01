@@ -85,7 +85,7 @@ def test_get_or_create_records():
 
 
 def test_from_values_synonyms_aware():
-    bt.CellType.from_public(name="T cell").save()
+    bt.CellType.from_source(name="T cell").save()
     # existing validated values
     records = bt.CellType.from_values(["T cell"], "name")
     assert len(records) == 1
