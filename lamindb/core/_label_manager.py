@@ -38,7 +38,7 @@ def get_labels_as_dict(self: HasFeatures, links: bool = False):
         "links_artifact",
         "links_feature_set",
         "previous_runs",
-        "feature_values",
+        "_feature_values",
     }
     labels = {}  # type: ignore
     if self.id is None:

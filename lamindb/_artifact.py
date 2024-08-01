@@ -365,7 +365,7 @@ def get_artifact_kwargs_from_data(
     kwargs = {
         "suffix": suffix,
         "hash": hash,
-        "hash_type": hash_type,
+        "_hash_type": hash_type,
         "key": key,
         "size": size,
         "storage_id": storage.id,
@@ -376,7 +376,7 @@ def get_artifact_kwargs_from_data(
         "n_observations": None,  # to implement
         "run_id": run.id if run is not None else None,
         "run": run,
-        "key_is_virtual": key_is_virtual,
+        "_key_is_virtual": key_is_virtual,
     }
     if not isinstance(path, LocalPathClasses):
         local_filepath = None
@@ -822,7 +822,7 @@ def replace(
     if check_path_in_storage:
         raise ValueError("Can only replace with a local file not in any Storage.")
 
-    if self.key is not None and not self.key_is_virtual:
+    if self.key is not None and not self._key_is_virtual:
         key_path = PurePosixPath(self.key)
         new_filename = f"{key_path.stem}{kwargs['suffix']}"
         # the following will only be true if the suffix changes!
@@ -848,7 +848,7 @@ def replace(
     self.suffix = kwargs["suffix"]
     self.size = kwargs["size"]
     self.hash = kwargs["hash"]
-    self.hash_type = kwargs["hash_type"]
+    self._hash_type = kwargs["_hash_type"]
     self.run_id = kwargs["run_id"]
     self.run = kwargs["run"]
 
@@ -980,7 +980,7 @@ def delete(
         # only delete in storage if DB delete is successful
         # DB delete might error because of a foreign key constraint violated etc.
         self._delete_skip_storage()
-        if self.key is None or self.key_is_virtual:
+        if self.key is None or self._key_is_virtual:
             # do not ask for confirmation also if storage is None
             delete_in_storage = storage is None or storage
         else:
@@ -1021,7 +1021,7 @@ def save(self, upload: bool | None = None, **kwargs) -> Artifact:
         self._local_filepath = local_path
         # switch to virtual storage key upon upload
         # the local filepath is already cached at that point
-        self.key_is_virtual = True
+        self._key_is_virtual = True
         # ensure that the artifact is uploaded
         self._to_store = True
 

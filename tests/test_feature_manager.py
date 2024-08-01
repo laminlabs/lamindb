@@ -64,7 +64,7 @@ def test_features_add(adata):
     temperature.dtype = "number"
     temperature.save()
     artifact.features.add_values({"temperature": 27.2})
-    assert artifact.feature_values.first().value == 27.2
+    assert artifact._feature_values.first().value == 27.2
 
     # bionty feature
     mouse = bt.Organism.from_source(name="mouse")
@@ -147,13 +147,13 @@ Here is how to create ulabels for them:
     ln.save(ulabels)
 
     artifact.features.add_values(features)
-    assert set(artifact.feature_values.all().values_list("value", flat=True)) == {
+    assert set(artifact._feature_values.all().values_list("value", flat=True)) == {
         27.2,
         True,
         100.0,
     }
 
-    assert ln.Artifact.filter(feature_values__value=27.2).one()
+    assert ln.Artifact.filter(_feature_values__value=27.2).one()
 
     print(artifact.features.get_values())
     print(artifact.features.__repr__())
@@ -182,7 +182,7 @@ Here is how to create ulabels for them:
 
     # repeat
     artifact.features.add_values(features)
-    assert set(artifact.feature_values.all().values_list("value", flat=True)) == {
+    assert set(artifact._feature_values.all().values_list("value", flat=True)) == {
         27.2,
         True,
         100.0,

@@ -252,7 +252,7 @@ def test_create_from_dataframe_using_from_df_and_link_features(df):
     assert artifact.description == description
     assert artifact._accessor == "DataFrame"
     assert artifact.key == "folder/hello.parquet"
-    assert artifact.key_is_virtual
+    assert artifact._key_is_virtual
     assert artifact.uid in artifact.path.as_posix()
     artifact.save()
     # register features from df columns
@@ -395,7 +395,7 @@ def test_create_from_local_filepath(
             )
     else:
         assert artifact.key == key
-        assert artifact.key_is_virtual == key_is_virtual
+        assert artifact._key_is_virtual == key_is_virtual
         if is_in_registered_storage:
             # this would only hit if the key matches the correct key
             assert artifact.storage.root == root_dir.resolve().as_posix()
@@ -458,7 +458,7 @@ def test_delete_artifact(df):
     artifact = ln.Artifact.from_df(df, description="My test file to delete")
     artifact.save()
     assert artifact.visibility == 1
-    assert artifact.key is None or artifact.key_is_virtual
+    assert artifact.key is None or artifact._key_is_virtual
     storage_path = artifact.path
     # trash behavior
     artifact.delete()
@@ -528,8 +528,8 @@ def test_create_small_file_from_remote_path(
     # test hash equivalency when computed on local machine
     if not skip_size_and_hash:
         assert file_from_local.hash == artifact.hash
-        assert file_from_local.hash_type == "md5"
-        assert artifact.hash_type == "md5"
+        assert file_from_local._hash_type == "md5"
+        assert artifact._hash_type == "md5"
     assert artifact.path.as_posix() == filepath_str
     assert artifact.load().iloc[0].tolist() == [
         0,
@@ -553,7 +553,7 @@ def test_create_big_file_from_remote_path():
     artifact = ln.Artifact(filepath_str)
     assert artifact.key == "human_immune.h5ad"
     assert artifact.hash.endswith("-2")
-    assert artifact.hash_type == "md5-n"
+    assert artifact._hash_type == "md5-n"
     ln.settings.storage = previous_storage
 
 

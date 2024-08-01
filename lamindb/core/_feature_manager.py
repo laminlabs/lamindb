@@ -177,14 +177,14 @@ def print_features(
     non_labels_msg = ""
     if self.id is not None and self.__class__ == Artifact or self.__class__ == Run:
         attr_name = "param" if print_params else "feature"
-        feature_values = (
+        _feature_values = (
             getattr(self, f"{attr_name}_values")
             .values(f"{attr_name}__name", f"{attr_name}__dtype")
             .annotate(values=custom_aggregate("value", self._state.db))
             .order_by(f"{attr_name}__name")
         )
-        if len(feature_values) > 0:
-            for fv in feature_values:
+        if len(_feature_values) > 0:
+            for fv in _feature_values:
                 feature_name = fv[f"{attr_name}__name"]
                 feature_dtype = fv[f"{attr_name}__dtype"]
                 values = fv["values"]
@@ -385,7 +385,7 @@ def filter(cls, **expression) -> QuerySet:
         feature = features.get(name=normalized_key)
         if not feature.dtype.startswith("cat"):
             feature_value = value_model.filter(feature=feature, value=value).one()
-            new_expression["feature_values"] = feature_value
+            new_expression["_feature_values"] = feature_value
         else:
             if isinstance(value, str):
                 label = ULabel.filter(name=value).one()
@@ -473,7 +473,7 @@ def _add_values(
     )
     # figure out which of the values go where
     features_labels = defaultdict(list)
-    feature_values = []
+    _feature_values = []
     not_validated_values = []
     for key, value in features_values.items():
         feature = model.filter(name=key).one()
@@ -503,7 +503,7 @@ def _add_values(
             feature_value = value_model.filter(**filter_kwargs).one_or_none()
             if feature_value is None:
                 feature_value = value_model(**filter_kwargs)
-            feature_values.append(feature_value)
+            _feature_values.append(feature_value)
         else:
             if isinstance(value, Record) or (
                 isinstance(value, Iterable) and isinstance(next(iter(value)), Record)
@@ -590,13 +590,13 @@ def _add_values(
                             if l.id == getattr(link, field_name)
                         ][0]
                         link.save()
-    if feature_values:
-        save(feature_values)
+    if _feature_values:
+        save(_feature_values)
         if is_param:
-            LinkORM = self._host.param_values.through
+            LinkORM = self._host._param_values.through
             valuefield_id = "paramvalue_id"
         else:
-            LinkORM = self._host.feature_values.through
+            LinkORM = self._host._feature_values.through
             valuefield_id = "featurevalue_id"
         links = [
             LinkORM(
@@ -605,7 +605,7 @@ def _add_values(
                     valuefield_id: feature_value.id,
                 }
             )
-            for feature_value in feature_values
+            for feature_value in _feature_values
         ]
         # a link might already exist, to avoid raising a unique constraint
         # error, ignore_conflicts
