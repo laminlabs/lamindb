@@ -135,7 +135,7 @@ def _inspect(
         logger.print(f"   couldn't validate {labels}: {colors.red(print_values)}")
         logger.print(
             f"→  if you are sure, create new record{s} via"
-            f" {colors.italic(f'ln.{orm.__name__}()')} and save to your registry"
+            f" {colors.italic(f'{orm.__name__}()')} and save to your registry"
         )
 
     return result_db
