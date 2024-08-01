@@ -83,7 +83,7 @@ def file_tsv_rnaseq_nfcore_salmon_merged_gene_counts(
         ln.settings.verbosity = "error"
         ln.Feature(name="assay", dtype=[bt.ExperimentalFactor]).save()
         ln.Feature(name="organism", dtype=[bt.Organism]).save()
-        bt.ExperimentalFactor.from_public(ontology_id="EFO:0008896").save()
+        bt.ExperimentalFactor.from_source(ontology_id="EFO:0008896").save()
         ln.settings.verbosity = verbosity
 
     return Path(filepath)
@@ -186,16 +186,16 @@ def anndata_mouse_sc_lymph_node(
         verbosity = ln.settings.verbosity
         ln.settings.verbosity = "error"
         # strain
-        bt.ExperimentalFactor.from_public(ontology_id="EFO:0004472").save()
+        bt.ExperimentalFactor.from_source(ontology_id="EFO:0004472").save()
         # developmental stage
-        bt.ExperimentalFactor.from_public(ontology_id="EFO:0001272").save()
+        bt.ExperimentalFactor.from_source(ontology_id="EFO:0001272").save()
         # tissue
-        bt.Tissue.from_public(ontology_id="UBERON:0001542").save()
+        bt.Tissue.from_source(ontology_id="UBERON:0001542").save()
         # cell types
         ln.save(bt.CellType.from_values(["CL:0000115", "CL:0000738"], "ontology_id"))
         # assays
         ln.Feature(name="assay", dtype=[bt.ExperimentalFactor]).save()
-        bt.ExperimentalFactor.from_public(ontology_id="EFO:0008913").save()
+        bt.ExperimentalFactor.from_source(ontology_id="EFO:0008913").save()
         # genes
         validated = bt.Gene.public(organism="mouse").validate(
             adata.var.index, field="ensembl_gene_id"
@@ -323,7 +323,7 @@ def anndata_human_immune_cells(
         ln.Feature(name="tissue", dtype=[bt.Tissue]).save()
         ln.Feature(name="organism", dtype=[bt.Organism]).save()
         ln.Feature(name="donor", dtype=[ln.ULabel]).save()
-        bt.ExperimentalFactor.from_public(ontology_id="EFO:0008913").save()
+        bt.ExperimentalFactor.from_source(ontology_id="EFO:0008913").save()
         ln.save([ln.ULabel(name=name) for name in adata.obs.donor.unique()])
         ln.settings.verbosity = verbosity
     return adata
