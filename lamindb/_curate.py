@@ -223,6 +223,7 @@ class DataFrameCurator:
                 key=categorical,
                 using=self._using,
                 validated_only=validated_only,
+                sources=self._sources.get(categorical),
                 **kwargs,
             )
 
@@ -1036,6 +1037,7 @@ def update_registry(
     df: pd.DataFrame | None = None,
     organism: str | None = None,
     dtype: str | None = None,
+    source: Record | None = None,
     **kwargs,
 ) -> list[Record]:
     """Save features or labels records in the default instance from the using instance.
@@ -1057,6 +1059,7 @@ def update_registry(
 
     registry = field.field.model
     filter_kwargs = check_registry_organism(registry, organism)
+    filter_kwargs.update({"source": source} if source else {})
 
     verbosity = settings.verbosity
     try:
@@ -1109,7 +1112,11 @@ def update_registry(
                     if registry == Feature:
                         init_kwargs["dtype"] = "cat" if dtype is None else dtype
                     non_validated_records.append(
-                        registry(**init_kwargs, **filter_kwargs, **kwargs)
+                        registry(
+                            **init_kwargs,
+                            **{k: v for k, v in filter_kwargs.items() if k != "source"},
+                            **kwargs,
+                        )
                     )
             ln_save(non_validated_records)
 
