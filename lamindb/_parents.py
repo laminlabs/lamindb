@@ -153,13 +153,17 @@ def _view_parents(
 
     df_edges = None
     df_edges_parents = _df_edges_from_parents(
-        record=record, field=field, distance=distance
+        record=record, field=field, distance=distance, attr_name=attr_name
     )
     if df_edges_parents is not None:
         df_edges = df_edges_parents
     if with_children:
         df_edges_children = _df_edges_from_parents(
-            record=record, field=field, distance=distance, children=True
+            record=record,
+            field=field,
+            distance=distance,
+            children=True,
+            attr_name=attr_name,
         )
         if df_edges_children is not None:
             if df_edges is not None:
