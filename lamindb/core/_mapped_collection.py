@@ -10,7 +10,7 @@ import pandas as pd
 from lamin_utils import logger
 from lamindb_setup.core.upath import UPath
 
-from .storage._backed_access import (
+from .storage._anndata_accessor import (
     ArrayType,
     ArrayTypes,
     GroupType,
