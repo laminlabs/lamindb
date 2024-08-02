@@ -9,7 +9,11 @@ import pytest
 import tiledbsoma
 import tiledbsoma.io
 import zarr
-from lamindb.core.storage._backed_access import BackedAccessor, backed_access
+from lamindb.core.storage._backed_access import (
+    AnnDataAccessor,
+    BackedAccessor,
+    backed_access,
+)
 from lamindb.core.storage._zarr import read_adata_zarr, write_adata_zarr
 from lamindb.core.storage.objects import infer_suffix, write_to_disk
 from lamindb.core.storage.paths import read_adata_h5ad
@@ -82,6 +86,10 @@ def test_backed_access(adata_format):
 
     with pytest.raises(ValueError):
         access = backed_access(fp.with_suffix(".invalid_suffix"), using_key=None)
+
+    # can't open anndata in write mode
+    with pytest.raises(ValueError):
+        access = backed_access(fp, mode="a", using_key=None)
 
     access = backed_access(fp, using_key=None)
     assert not access.closed
@@ -198,6 +206,20 @@ def test_backed_zarr_not_adata():
     shutil.rmtree(zarr_pth)
 
 
+def test_anndata_open_mode():
+    fp = ln.core.datasets.anndata_file_pbmc68k_test()
+    artifact = ln.Artifact(fp, key="test_adata.h5ad")
+    artifact.save()
+
+    with artifact.open(mode="r") as access:
+        assert isinstance(access, AnnDataAccessor)
+    # can't open in write mode if not tiledbsoma
+    with pytest.raises(ValueError):
+        artifact.open(mode="w")
+
+    artifact.delete(permanent=True, storage=True)
+
+
 @pytest.mark.parametrize("storage", [None, "s3://lamindb-test"])
 def test_backed_tiledbsoma(storage):
     if storage is not None:
@@ -210,21 +232,36 @@ def test_backed_tiledbsoma(storage):
     artifact_soma = ln.Artifact("test.tiledbsoma", description="test tiledbsoma")
     artifact_soma.save()
 
-    # otherwise backed (.open) will use the cached object for connection
-    if storage is not None:
-        cache_path = artifact_soma.cache()
-        shutil.rmtree(cache_path)
-        assert not cache_path.exists()
+    # copied to cache on .save()
+    cache_path = artifact_soma.cache()
 
-    experiment = artifact_soma.open()
+    hash_on_disk = artifact_soma.hash
+    with artifact_soma.open(mode="w") as store:
+        assert store.__class__.__name__ == "ExperimentTrack"
+    if storage is not None:
+        # hash in the cloud will be different from hash on disk
+        # therefore the artifact will be updated
+        assert artifact_soma.hash != hash_on_disk
+        # delete the cached store on hash change
+        assert not cache_path.exists()
+    else:
+        # hash stays the same
+        assert artifact_soma.hash == hash_on_disk
+        assert artifact_soma.path == cache_path
+
+    experiment = artifact_soma.open()  # mode="r" by default
     assert isinstance(experiment, tiledbsoma.Experiment)
     experiment.close()
+
+    # wrong mode, should be either r or w for tiledbsoma
+    with pytest.raises(ValueError):
+        artifact_soma.open(mode="p")
 
     # run deprecated backed
     with artifact_soma.backed():
         pass
 
-    artifact_soma.delete(permanent=True, storage=True)
+    artifact_soma.versions.delete(permanent=True, storage=True)
     shutil.rmtree("test.tiledbsoma")
 
     if storage is not None:

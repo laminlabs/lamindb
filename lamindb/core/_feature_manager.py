@@ -241,7 +241,7 @@ def parse_feature_sets_from_anndata(
             from lamindb.core.storage._backed_access import backed_access
 
             using_key = settings._using_key
-            data_parse = backed_access(filepath, using_key)
+            data_parse = backed_access(filepath, using_key=using_key)
         else:
             data_parse = ad.read_h5ad(filepath, backed="r")
         type = "float"
