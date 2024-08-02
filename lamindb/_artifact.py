@@ -342,8 +342,10 @@ def get_artifact_kwargs_from_data(
     else:
         storage = default_storage
 
-    if key is not None and key.startswith(AUTO_KEY_PREFIX):
-        raise ValueError(f"Key cannot start with {AUTO_KEY_PREFIX}")
+    # for now comment out this error to allow creating new versions of stores
+    # in the default folder (.lamindb)
+    #    if key is not None and key.startswith(AUTO_KEY_PREFIX):
+    #        raise ValueError(f"Key cannot start with {AUTO_KEY_PREFIX}")
 
     log_storage_hint(
         check_path_in_storage=check_path_in_storage,
@@ -910,9 +912,7 @@ def open(
                     logger.warning(
                         "The hash of the tiledbsoma store has changed, creating a new version of the artifact."
                     )
-                    new_version = Artifact(
-                        filepath, key=None, is_new_version_of=self
-                    ).save()
+                    new_version = Artifact(filepath, is_new_version_of=self).save()
                     init_self_from_db(self, new_version)
 
                     if localpath != filepath and localpath.exists():
