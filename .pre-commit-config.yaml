@@ -48,8 +48,7 @@ repos:
     hooks:
       - id: mypy
         args: [--no-strict-optional, --ignore-missing-imports]
-        additional_dependencies:
-          ["types-pkg-resources", "types-requests", "types-attrs"]
+        additional_dependencies: ["types-requests", "types-attrs"]
         exclude: |
           (?x)(
               test_notebooks.py
