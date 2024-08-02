@@ -14,7 +14,7 @@ def test_track_with_multi_parents():
     parent2.save()
     child = ln.Transform(name="Child")
     child.save()
-    child.parents.set([parent1, parent2])
+    child.predecessors.set([parent1, parent2])
 
     # first invocation
     params = {"param1": 1, "param2": "my-string", "param3": 3.14}

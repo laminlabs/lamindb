@@ -413,7 +413,7 @@ def _track_run_input(
         # generalize below for more than one data batch
         if len(input_data) == 1:
             if input_data[0].transform is not None:
-                run.transform.parents.add(input_data[0].transform)
+                run.transform.predecessors.add(input_data[0].transform)
 
 
 HasFeatures.describe = describe
