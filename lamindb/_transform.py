@@ -1,10 +1,16 @@
 from __future__ import annotations
 
-from lnschema_core.models import Run, Transform
-from lnschema_core.types import TransformType
+from typing import TYPE_CHECKING
 
+from lamindb_setup.core._docs import doc_args
+from lnschema_core.models import Run, Transform
+
+from ._parents import _view_parents
 from ._run import delete_run_artifacts
 from .core.versioning import process_is_new_version_of
+
+if TYPE_CHECKING:
+    from lnschema_core.types import TransformType
 
 
 def __init__(transform: Transform, *args, **kwargs):
@@ -18,9 +24,7 @@ def __init__(transform: Transform, *args, **kwargs):
     )
     (kwargs.pop("initial_version_id") if "initial_version_id" in kwargs else None)
     version: str | None = kwargs.pop("version") if "version" in kwargs else None
-    type: TransformType | None = (
-        kwargs.pop("type") if "type" in kwargs else TransformType.pipeline
-    )
+    type: TransformType | None = kwargs.pop("type") if "type" in kwargs else "pipeline"
     reference: str | None = kwargs.pop("reference") if "reference" in kwargs else None
     reference_type: str | None = (
         kwargs.pop("reference_type") if "reference_type" in kwargs else None
@@ -55,19 +59,13 @@ def __init__(transform: Transform, *args, **kwargs):
 
 
 def delete(self) -> None:
-    # set latest_report to None, it's tracked through the latest run
-    latest_report = None
-    if self.latest_report is not None:
-        latest_report = self.latest_report
-        self.latest_report = None
-    source_code = None
-    if self.source_code is not None:
-        source_code = self.source_code
-        self.source_code = None
-    if latest_report is not None or source_code is not None:
+    _source_code_artifact = None
+    if self._source_code_artifact is not None:
+        _source_code_artifact = self._source_code_artifact
+        self._source_code_artifact = None
         self.save()
-    if source_code is not None:
-        source_code.delete(permanent=True)
+    if _source_code_artifact is not None:
+        _source_code_artifact.delete(permanent=True)
     # query all runs and delete their artifacts
     runs = Run.filter(transform=self)
     for run in runs:
@@ -78,10 +76,23 @@ def delete(self) -> None:
 
 
 @property  # type: ignore
+@doc_args(Transform.latest_run.__doc__)
 def latest_run(self) -> Run:
+    """{}"""  # noqa: D415
     return self.runs.order_by("-started_at").first()
+
+
+def view_lineage(self, with_successors: bool = False, distance: int = 5):
+    return _view_parents(
+        record=self,
+        field=None,
+        with_children=with_successors,
+        distance=distance,
+        attr_name="predecessors",
+    )
 
 
 Transform.__init__ = __init__
 Transform.delete = delete
 Transform.latest_run = latest_run
+Transform.view_lineage = view_lineage

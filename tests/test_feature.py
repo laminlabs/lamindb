@@ -77,7 +77,7 @@ def test_feature_from_df(df):
     features_lookup = ln.Feature.lookup()
     artifact.labels.add(labels, feature=features_lookup.feat3)
     assert set(
-        ln.ULabel.filter(artifact_links__feature__name="feat3").list("name")
+        ln.ULabel.filter(links_artifact__feature__name="feat3").list("name")
     ) == {"cond1", "cond2"}
     for name in df.columns[:4]:
         queried_feature = ln.Feature.filter(name=name).one()
@@ -88,10 +88,10 @@ def test_feature_from_df(df):
             assert queried_feature.dtype == convert_numpy_dtype_to_lamin_feature_type(
                 orig_type
             )
-    artifactlabel_links = ArtifactULabel.objects.filter(
+    links_artifactlabel = ArtifactULabel.objects.filter(
         artifact_id=artifact.id, feature__name="feat3"
     )
-    label_ids = artifactlabel_links.values_list("ulabel_id")
+    label_ids = links_artifactlabel.values_list("ulabel_id")
     assert set(
         ln.ULabel.objects.filter(id__in=label_ids).values_list("name", flat=True)
     ) == {"cond1", "cond2"}

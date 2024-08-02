@@ -15,7 +15,7 @@ def test_file_visibility():
 
     # delete a collection will put both collection but not linked artifact in trash
     collection.delete()
-    assert collection.artifacts[0].visibility == 1
+    assert collection.ordered_artifacts[0].visibility == 1
     result = ln.Collection.filter(name="test-visibility").all()
     assert len(result) == 0
     result = ln.Collection.filter(name="test-visibility", visibility=1).all()
@@ -26,7 +26,7 @@ def test_file_visibility():
     # restore
     collection.restore()
     assert collection.visibility == 1
-    assert collection.artifacts[0].visibility == 1
+    assert collection.ordered_artifacts[0].visibility == 1
 
     # permanent delete
     collection.delete(permanent=True)

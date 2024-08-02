@@ -60,7 +60,9 @@ def __init__(
     artifacts: Artifact | Iterable[Artifact] = (
         kwargs.pop("artifacts") if len(args) == 0 else args[0]
     )
-    meta: Artifact | None = kwargs.pop("meta") if "meta" in kwargs else None
+    meta_artifact: Artifact | None = (
+        kwargs.pop("meta_artifact") if "meta_artifact" in kwargs else None
+    )
     name: str | None = kwargs.pop("name") if "name" in kwargs else None
     description: str | None = (
         kwargs.pop("description") if "description" in kwargs else None
@@ -102,16 +104,18 @@ def __init__(
             raise ValueError("Artifact or List[Artifact] is allowed.")
         assert isinstance(artifacts[0], Artifact)  # type: ignore  # noqa: S101
     hash, feature_sets = from_artifacts(artifacts)  # type: ignore
-    if meta is not None:
-        if not isinstance(meta, Artifact):
-            raise ValueError("meta has to be an Artifact")
-        if isinstance(meta, Artifact):
-            if meta._state.adding:
-                raise ValueError("Save meta artifact before creating collection!")
+    if meta_artifact is not None:
+        if not isinstance(meta_artifact, Artifact):
+            raise ValueError("meta_artifact has to be an Artifact")
+        if isinstance(meta_artifact, Artifact):
+            if meta_artifact._state.adding:
+                raise ValueError(
+                    "Save meta_artifact artifact before creating collection!"
+                )
             if not feature_sets:
-                feature_sets = meta.features._feature_set_by_slot
+                feature_sets = meta_artifact.features._feature_set_by_slot
             else:
-                if len(meta.features._feature_set_by_slot) > 0:
+                if len(meta_artifact.features._feature_set_by_slot) > 0:
                     logger.info("overwriting feature sets linked to artifact")
     # we ignore collections in trash containing the same hash
     if hash is not None:
@@ -149,7 +153,7 @@ def __init__(
             description=description,
             reference=reference,
             reference_type=reference_type,
-            artifact=meta,
+            meta_artifact=meta_artifact,
             hash=hash,
             run=run,
             version=version,
@@ -176,13 +180,13 @@ def from_artifacts(artifacts: Iterable[Artifact]) -> tuple[str, dict[str, str]]:
     artifact_ids = [artifact.id for artifact in artifacts]
     # query all feature sets at the same time rather
     # than making a single query per artifact
-    logger.debug("feature_set_artifact_links")
-    feature_set_artifact_links = Artifact.feature_sets.through.objects.filter(
+    logger.debug("links_feature_set_artifact")
+    links_feature_set_artifact = Artifact.feature_sets.through.objects.filter(
         artifact_id__in=artifact_ids
     )
     feature_sets_by_slots = defaultdict(list)
     logger.debug("slots")
-    for link in feature_set_artifact_links:
+    for link in links_feature_set_artifact:
         feature_sets_by_slots[link.slot].append(link.featureset_id)
     feature_sets_union = {}
     logger.debug("union")
@@ -240,7 +244,7 @@ def mapped(
     is_run_input: bool | None = None,
 ) -> MappedCollection:
     path_list = []
-    for artifact in self.artifacts.all():
+    for artifact in self.ordered_artifacts.all():
         if artifact.suffix not in {".h5ad", ".zarr"}:
             logger.warning(f"Ignoring artifact with suffix {artifact.suffix}")
             continue
@@ -269,7 +273,7 @@ def mapped(
 def cache(self, is_run_input: bool | None = None) -> list[UPath]:
     _track_run_input(self, is_run_input)
     path_list = []
-    for artifact in self.artifacts.all():
+    for artifact in self.ordered_artifacts.all():
         path_list.append(artifact.cache())
     return path_list
 
@@ -282,7 +286,7 @@ def load(
     **kwargs,
 ) -> Any:
     # cannot call _track_run_input here, see comment further down
-    all_artifacts = self.artifacts.all()
+    all_artifacts = self.ordered_artifacts.all()
     suffixes = [artifact.suffix for artifact in all_artifacts]
     if len(set(suffixes)) != 1:
         raise RuntimeError(
@@ -329,8 +333,8 @@ def delete(self, permanent: bool | None = None) -> None:
 
 # docstring handled through attach_func_to_class_method
 def save(self, using: str | None = None) -> Collection:
-    if self.artifact is not None:
-        self.artifact.save()
+    if self.meta_artifact is not None:
+        self.meta_artifact.save()
     # we don't need to save feature sets again
     save_feature_sets(self)
     super(Collection, self).save()
@@ -344,7 +348,7 @@ def save(self, using: str | None = None) -> Collection:
         ]
         # the below seems to preserve the order of the list in the
         # auto-incrementing integer primary
-        # merely using .unordered_artifacts.set(*...) doesn't achieve this
+        # merely using .artifacts.set(*...) doesn't achieve this
         # we need ignore_conflicts=True so that this won't error if links already exist
         CollectionArtifact.objects.bulk_create(links, ignore_conflicts=True)
     save_feature_set_links(self)
@@ -357,16 +361,20 @@ def save(self, using: str | None = None) -> Collection:
 def restore(self) -> None:
     self.visibility = VisibilityChoice.default.value
     self.save()
-    if self.artifact is not None:
-        self.artifact.visibility = VisibilityChoice.default.value
-        self.artifact.save()
 
 
 @property  # type: ignore
-@doc_args(Collection.artifacts.__doc__)
-def artifacts(self) -> QuerySet:
+@doc_args(Collection.ordered_artifacts.__doc__)
+def ordered_artifacts(self) -> QuerySet:
     """{}"""  # noqa: D415
-    return self.unordered_artifacts.order_by("collection_links__id")
+    return self.artifacts.order_by("links_collection__id")
+
+
+@property  # type: ignore
+@doc_args(Collection.data_artifact.__doc__)
+def data_artifact(self) -> Artifact | None:
+    """{}"""  # noqa: D415
+    return self.artifacts.first()
 
 
 METHOD_NAMES = [
@@ -391,5 +399,5 @@ if ln_setup._TESTING:
 for name in METHOD_NAMES:
     attach_func_to_class_method(name, Collection, globals())
 
-Collection.artifacts = artifacts
-Collection.stage = cache
+Collection.ordered_artifacts = ordered_artifacts
+Collection.data_artifact = data_artifact

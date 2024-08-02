@@ -28,17 +28,17 @@ if TYPE_CHECKING:
 def get_labels_as_dict(self: HasFeatures, links: bool = False):
     exclude_set = {
         "feature_sets",
-        "unordered_artifacts",
-        "input_of",
+        "artifacts",
+        "input_of_runs",
         "collections",
-        "source_code_of",
+        "_source_code_artifact_of",
         "report_of",
         "environment_of",
-        "collection_links",
-        "artifact_links",
-        "feature_set_links",
+        "links_collection",
+        "links_artifact",
+        "links_feature_set",
         "previous_runs",
-        "feature_values",
+        "_feature_values",
     }
     labels = {}  # type: ignore
     if self.id is None:
@@ -197,10 +197,10 @@ class LabelManager:
                     transfer_fk_to_default_db_bulk(new_labels, using_key)
                 for label in labels:
                     # if the link table doesn't follow this convention, we'll ignore it
-                    if not hasattr(label, f"{data_name_lower}_links"):
+                    if not hasattr(label, f"links_{data_name_lower}"):
                         key = None
                     else:
-                        link = getattr(label, f"{data_name_lower}_links").get(
+                        link = getattr(label, f"links_{data_name_lower}").get(
                             **{f"{data_name_lower}_id": data.id}
                         )
                         if link.feature is not None:

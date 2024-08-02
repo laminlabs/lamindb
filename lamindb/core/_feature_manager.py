@@ -88,12 +88,12 @@ def get_feature_set_by_slot_(host) -> dict:
     host_id_field = get_host_id_field(host)
     kwargs = {host_id_field: host.id}
     # otherwise, we need a query
-    feature_set_links = (
+    links_feature_set = (
         host.feature_sets.through.objects.using(host_db)
         .filter(**kwargs)
         .select_related("featureset")
     )
-    return {fsl.slot: fsl.featureset for fsl in feature_set_links}
+    return {fsl.slot: fsl.featureset for fsl in links_feature_set}
 
 
 def get_label_links(
@@ -112,8 +112,8 @@ def get_label_links(
 def get_feature_set_links(host: Artifact | Collection) -> QuerySet:
     host_id_field = get_host_id_field(host)
     kwargs = {host_id_field: host.id}
-    feature_set_links = host.feature_sets.through.objects.filter(**kwargs)
-    return feature_set_links
+    links_feature_set = host.feature_sets.through.objects.filter(**kwargs)
+    return links_feature_set
 
 
 def get_link_attr(link: LinkORM | type[LinkORM], data: HasFeatures) -> str:
@@ -177,14 +177,14 @@ def print_features(
     non_labels_msg = ""
     if self.id is not None and self.__class__ == Artifact or self.__class__ == Run:
         attr_name = "param" if print_params else "feature"
-        feature_values = (
-            getattr(self, f"{attr_name}_values")
+        _feature_values = (
+            getattr(self, f"_{attr_name}_values")
             .values(f"{attr_name}__name", f"{attr_name}__dtype")
             .annotate(values=custom_aggregate("value", self._state.db))
             .order_by(f"{attr_name}__name")
         )
-        if len(feature_values) > 0:
-            for fv in feature_values:
+        if len(_feature_values) > 0:
+            for fv in _feature_values:
                 feature_name = fv[f"{attr_name}__name"]
                 feature_dtype = fv[f"{attr_name}__dtype"]
                 values = fv["values"]
@@ -385,7 +385,7 @@ def filter(cls, **expression) -> QuerySet:
         feature = features.get(name=normalized_key)
         if not feature.dtype.startswith("cat"):
             feature_value = value_model.filter(feature=feature, value=value).one()
-            new_expression["feature_values"] = feature_value
+            new_expression["_feature_values"] = feature_value
         else:
             if isinstance(value, str):
                 label = ULabel.filter(name=value).one()
@@ -473,7 +473,7 @@ def _add_values(
     )
     # figure out which of the values go where
     features_labels = defaultdict(list)
-    feature_values = []
+    _feature_values = []
     not_validated_values = []
     for key, value in features_values.items():
         feature = model.filter(name=key).one()
@@ -503,7 +503,7 @@ def _add_values(
             feature_value = value_model.filter(**filter_kwargs).one_or_none()
             if feature_value is None:
                 feature_value = value_model(**filter_kwargs)
-            feature_values.append(feature_value)
+            _feature_values.append(feature_value)
         else:
             if isinstance(value, Record) or (
                 isinstance(value, Iterable) and isinstance(next(iter(value)), Record)
@@ -573,7 +573,7 @@ def _add_values(
             except Exception:
                 save(links, ignore_conflicts=True)
                 # now deal with links that were previously saved without a feature_id
-                saved_links = LinkORM.filter(
+                links_saved = LinkORM.filter(
                     **{
                         "artifact_id": self._host.id,
                         f"{field_name}__in": [
@@ -581,7 +581,7 @@ def _add_values(
                         ],
                     }
                 )
-                for link in saved_links.all():
+                for link in links_saved.all():
                     # TODO: also check for inconsistent features
                     if link.feature_id is None:
                         link.feature_id = [
@@ -590,13 +590,13 @@ def _add_values(
                             if l.id == getattr(link, field_name)
                         ][0]
                         link.save()
-    if feature_values:
-        save(feature_values)
+    if _feature_values:
+        save(_feature_values)
         if is_param:
-            LinkORM = self._host.param_values.through
+            LinkORM = self._host._param_values.through
             valuefield_id = "paramvalue_id"
         else:
-            LinkORM = self._host.feature_values.through
+            LinkORM = self._host._feature_values.through
             valuefield_id = "featurevalue_id"
         links = [
             LinkORM(
@@ -605,7 +605,7 @@ def _add_values(
                     valuefield_id: feature_value.id,
                 }
             )
-            for feature_value in feature_values
+            for feature_value in _feature_values
         ]
         # a link might already exist, to avoid raising a unique constraint
         # error, ignore_conflicts
@@ -678,10 +678,10 @@ def _add_set_from_df(
 ):
     """Add feature set corresponding to column names of DataFrame."""
     if isinstance(self._host, Artifact):
-        assert self._host.accessor == "DataFrame"  # noqa: S101
+        assert self._host._accessor == "DataFrame"  # noqa: S101
     else:
         # Collection
-        assert self._host.artifact.accessor == "DataFrame"  # noqa: S101
+        assert self._host.artifact._accessor == "DataFrame"  # noqa: S101
 
     # parse and register features
     registry = field.field.model
@@ -709,7 +709,7 @@ def _add_set_from_anndata(
 ):
     """Add features from AnnData."""
     if isinstance(self._host, Artifact):
-        assert self._host.accessor == "AnnData"  # noqa: S101
+        assert self._host._accessor == "AnnData"  # noqa: S101
     else:
         raise NotImplementedError()
 
@@ -739,7 +739,7 @@ def _add_set_from_mudata(
     if obs_fields is None:
         obs_fields = {}
     if isinstance(self._host, Artifact):
-        assert self._host.accessor == "MuData"  # noqa: S101
+        assert self._host._accessor == "MuData"  # noqa: S101
     else:
         raise NotImplementedError()
 

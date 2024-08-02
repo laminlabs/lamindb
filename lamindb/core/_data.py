@@ -129,7 +129,7 @@ def describe(self: HasFeatures, print_types: bool = False):
         # prefetch m-2-m relationships
         self = (
             self.__class__.objects.using(self._state.db)
-            .prefetch_related("feature_sets", "input_of")
+            .prefetch_related("feature_sets", "input_of_runs")
             .get(id=self.id)
         )
 
@@ -148,10 +148,10 @@ def describe(self: HasFeatures, print_types: bool = False):
         )
         prov_msg += related_msg
     # input of
-    if self.id is not None and self.input_of.exists():
-        values = [format_field_value(i.started_at) for i in self.input_of.all()]
+    if self.id is not None and self.input_of_runs.exists():
+        values = [format_field_value(i.started_at) for i in self.input_of_runs.all()]
         type_str = ": Run" if print_types else ""  # type: ignore
-        prov_msg += f"    .input_of{type_str} = {values}\n"
+        prov_msg += f"    .input_of_runs{type_str} = {values}\n"
     if prov_msg:
         msg += f"  {colors.italic('Provenance')}\n"
         msg += prov_msg
@@ -302,12 +302,12 @@ def add_labels(
             if len(linked_labels) > 0:
                 labels_accessor.remove(*linked_labels)
             labels_accessor.add(*records, through_defaults={"feature_id": feature.id})
-        feature_set_links = get_feature_set_links(self)
-        feature_set_ids = [link.featureset_id for link in feature_set_links.all()]
+        links_feature_set = get_feature_set_links(self)
+        feature_set_ids = [link.featureset_id for link in links_feature_set.all()]
         # get all linked features of type Feature
         feature_sets = FeatureSet.filter(id__in=feature_set_ids).all()
         {
-            feature_set_links.filter(featureset_id=feature_set.id)
+            links_feature_set.filter(featureset_id=feature_set.id)
             .one()
             .slot: feature_set.features.all()
             for feature_set in feature_sets
@@ -413,7 +413,7 @@ def _track_run_input(
         # generalize below for more than one data batch
         if len(input_data) == 1:
             if input_data[0].transform is not None:
-                run.transform.parents.add(input_data[0].transform)
+                run.transform.predecessors.add(input_data[0].transform)
 
 
 HasFeatures.describe = describe

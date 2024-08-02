@@ -444,8 +444,7 @@ def update_fk_to_default_db(
 FKBULK = [
     "organism",
     "source",
-    "latest_report",  # Transform
-    "source_code",  # Transform
+    "_source_code_artifact",  # Transform
     "report",  # Run
 ]
 
@@ -523,7 +522,7 @@ def save(self, *args, **kwargs) -> Record:
     artifacts: list = []
     if self.__class__.__name__ == "Collection" and self.id is not None:
         # when creating a new collection without being able to access artifacts
-        artifacts = self.artifacts.list()
+        artifacts = self.ordered_artifacts.list()
     # transfer of the record to the default db with fk fields
     result = transfer_to_default_db(self, using_key)
     if result is not None:
@@ -538,7 +537,7 @@ def save(self, *args, **kwargs) -> Record:
                 logger.info("transfer artifacts")
                 for artifact in artifacts:
                     artifact.save()
-                self.unordered_artifacts.add(*artifacts)
+                self.artifacts.add(*artifacts)
         if hasattr(self, "labels"):
             from copy import copy
 

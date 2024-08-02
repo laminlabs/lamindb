@@ -998,13 +998,13 @@ def save_artifact(
         organism,
     )
 
-    if artifact.accessor == "DataFrame":
+    if artifact._accessor == "DataFrame":
         artifact.features._add_set_from_df(field=columns_field, **feature_kwargs)
-    elif artifact.accessor == "AnnData":
+    elif artifact._accessor == "AnnData":
         artifact.features._add_set_from_anndata(
             var_field=columns_field, **feature_kwargs
         )
-    elif artifact.accessor == "MuData":
+    elif artifact._accessor == "MuData":
         artifact.features._add_set_from_mudata(
             var_fields=columns_field, **feature_kwargs
         )
@@ -1021,7 +1021,7 @@ def save_artifact(
             labels = registry.from_values(df[key], field=field, **filter_kwargs)
             artifact.labels.add(labels, feature)
 
-    if artifact.accessor == "MuData":
+    if artifact._accessor == "MuData":
         for modality, modality_fields in fields.items():
             if modality == "obs":
                 _add_labels(data, artifact, modality_fields)

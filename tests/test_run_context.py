@@ -14,7 +14,7 @@ def test_track_with_multi_parents():
     parent2.save()
     child = ln.Transform(name="Child")
     child.save()
-    child.parents.set([parent1, parent2])
+    child.predecessors.set([parent1, parent2])
 
     # first invocation
     params = {"param1": 1, "param2": "my-string", "param3": 3.14}
@@ -172,9 +172,9 @@ def test_run_script():
     # ensure that the source code is not saved as an output artifact
     assert transform.latest_run.output_artifacts.count() == 0
     assert transform.runs.count() == 1
-    assert transform.source_code.hash == "T1zmmTJyeEpBxjaHcHcZdg"
-    assert transform.source_code.transform is None
-    assert transform.source_code.run is None
+    assert transform._source_code_artifact.hash == "T1zmmTJyeEpBxjaHcHcZdg"
+    assert transform._source_code_artifact.transform is None
+    assert transform._source_code_artifact.run is None
 
 
 @pytest.mark.parametrize("type", ["notebook", "script"])

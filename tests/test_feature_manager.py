@@ -42,16 +42,16 @@ def test_features_add(adata):
     experiment_label = ln.ULabel(name="Experiment 1").save()
     # add the label without the feature first
     artifact.ulabels.add(experiment_label)
-    assert artifact.ulabel_links.get().ulabel.name == "Experiment 1"
-    assert artifact.ulabel_links.get().feature is None
+    assert artifact.links_ulabel.get().ulabel.name == "Experiment 1"
+    assert artifact.links_ulabel.get().feature is None
 
     # now add the label with the feature and make sure that it has the feature annotation
     artifact.features.add_values({"experiment": "Experiment 1"})
-    assert artifact.ulabel_links.get().ulabel.name == "Experiment 1"
-    assert artifact.ulabel_links.get().feature.name == "experiment"
+    assert artifact.links_ulabel.get().ulabel.name == "Experiment 1"
+    assert artifact.links_ulabel.get().feature.name == "experiment"
     # repeat
     artifact.features.add_values({"experiment": "Experiment 1"})
-    assert artifact.ulabel_links.get().ulabel.name == "Experiment 1"
+    assert artifact.links_ulabel.get().ulabel.name == "Experiment 1"
 
     # numerical feature
     temperature = ln.Feature(name="temperature", dtype="cat").save()
@@ -64,7 +64,7 @@ def test_features_add(adata):
     temperature.dtype = "number"
     temperature.save()
     artifact.features.add_values({"temperature": 27.2})
-    assert artifact.feature_values.first().value == 27.2
+    assert artifact._feature_values.first().value == 27.2
 
     # bionty feature
     mouse = bt.Organism.from_source(name="mouse")
@@ -147,13 +147,13 @@ Here is how to create ulabels for them:
     ln.save(ulabels)
 
     artifact.features.add_values(features)
-    assert set(artifact.feature_values.all().values_list("value", flat=True)) == {
+    assert set(artifact._feature_values.all().values_list("value", flat=True)) == {
         27.2,
         True,
         100.0,
     }
 
-    assert ln.Artifact.filter(feature_values__value=27.2).one()
+    assert ln.Artifact.filter(_feature_values__value=27.2).one()
 
     print(artifact.features.get_values())
     print(artifact.features.__repr__())
@@ -182,7 +182,7 @@ Here is how to create ulabels for them:
 
     # repeat
     artifact.features.add_values(features)
-    assert set(artifact.feature_values.all().values_list("value", flat=True)) == {
+    assert set(artifact._feature_values.all().values_list("value", flat=True)) == {
         27.2,
         True,
         100.0,
@@ -400,7 +400,7 @@ def test_add_labels_using_anndata(adata):
 
     # check the basic construction of the feature set based on obs
     feature_set_obs = artifact.feature_sets.filter(
-        registry="Feature", artifact_links__slot="obs"
+        registry="Feature", links_artifact__slot="obs"
     ).one()
     assert feature_set_obs.n == 4
     assert "organism" not in feature_set_obs.features.list("name")
@@ -411,13 +411,13 @@ def test_add_labels_using_anndata(adata):
         artifact.labels.add(organism, feature=features.organism)
     organism.save()
     artifact.labels.add(organism, feature=features.organism)
-    organism_link = artifact.organism_links.first()
+    organism_link = artifact.links_organism.first()
     assert organism_link.organism.name == "mouse"
     assert organism_link.feature.name == "organism"
     feature = ln.Feature.filter(name="organism").one()
     assert feature.dtype == "cat[bionty.Organism]"
     feature_set_obs = artifact.feature_sets.filter(
-        registry="Feature", artifact_links__slot="obs"
+        registry="Feature", links_artifact__slot="obs"
     ).one()
     assert feature_set_obs.n == 4
     # TODO, write a test that queries the organism feature

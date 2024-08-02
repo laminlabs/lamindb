@@ -365,7 +365,7 @@ def get_artifact_kwargs_from_data(
     kwargs = {
         "suffix": suffix,
         "hash": hash,
-        "hash_type": hash_type,
+        "_hash_type": hash_type,
         "key": key,
         "size": size,
         "storage_id": storage.id,
@@ -376,7 +376,7 @@ def get_artifact_kwargs_from_data(
         "n_observations": None,  # to implement
         "run_id": run.id if run is not None else None,
         "run": run,
-        "key_is_virtual": key_is_virtual,
+        "_key_is_virtual": key_is_virtual,
     }
     if not isinstance(path, LocalPathClasses):
         local_filepath = None
@@ -501,7 +501,7 @@ def __init__(artifact: Artifact, *args, **kwargs):
         raise ValueError("Only one non-keyword arg allowed: data")
 
     data: str | Path = kwargs.pop("data") if len(args) == 0 else args[0]
-    type: str = kwargs.pop("type") if "type" in kwargs else "dataset"
+    type: str = kwargs.pop("type") if "type" in kwargs else None
     key: str | None = kwargs.pop("key") if "key" in kwargs else None
     run: Run | None = kwargs.pop("run") if "run" in kwargs else None
     description: str | None = (
@@ -530,7 +530,7 @@ def __init__(artifact: Artifact, *args, **kwargs):
     using_key = (
         kwargs.pop("using_key") if "using_key" in kwargs else settings._using_key
     )
-    accessor = kwargs.pop("accessor") if "accessor" in kwargs else None
+    accessor = kwargs.pop("_accessor") if "_accessor" in kwargs else None
     accessor = _check_accessor_artifact(data=data, accessor=accessor)
     if not len(kwargs) == 0:
         raise ValueError(
@@ -591,7 +591,7 @@ def __init__(artifact: Artifact, *args, **kwargs):
     kwargs["version"] = version
     kwargs["description"] = description
     kwargs["visibility"] = visibility
-    kwargs["accessor"] = accessor
+    kwargs["_accessor"] = accessor
     # this check needs to come down here because key might be populated from an
     # existing file path during get_artifact_kwargs_from_data()
     if (
@@ -632,7 +632,7 @@ def from_df(
         description=description,
         version=version,
         is_new_version_of=is_new_version_of,
-        accessor="DataFrame",
+        _accessor="DataFrame",
         type="dataset",
         **kwargs,
     )
@@ -661,7 +661,7 @@ def from_anndata(
         description=description,
         version=version,
         is_new_version_of=is_new_version_of,
-        accessor="AnnData",
+        _accessor="AnnData",
         type="dataset",
         **kwargs,
     )
@@ -688,7 +688,7 @@ def from_mudata(
         description=description,
         version=version,
         is_new_version_of=is_new_version_of,
-        accessor="MuData",
+        _accessor="MuData",
         type="dataset",
         **kwargs,
     )
@@ -706,8 +706,8 @@ def from_dir(
 ) -> list[Artifact]:
     """{}"""  # noqa: D415
     logger.warning(
-        "this creates one artifact per file in the directory - you might simply call"
-        " ln.Artifact(dir) to get one artifact for the entire directory"
+        "this creates one artifact per file in the directory - consider"
+        " ln.Artifact(dir_path) to get one artifact for the entire directory"
     )
     folderpath: UPath = create_path(path)  # returns Path for local
     default_storage = settings._storage_settings.record
@@ -822,7 +822,7 @@ def replace(
     if check_path_in_storage:
         raise ValueError("Can only replace with a local file not in any Storage.")
 
-    if self.key is not None and not self.key_is_virtual:
+    if self.key is not None and not self._key_is_virtual:
         key_path = PurePosixPath(self.key)
         new_filename = f"{key_path.stem}{kwargs['suffix']}"
         # the following will only be true if the suffix changes!
@@ -848,7 +848,7 @@ def replace(
     self.suffix = kwargs["suffix"]
     self.size = kwargs["size"]
     self.hash = kwargs["hash"]
-    self.hash_type = kwargs["hash_type"]
+    self._hash_type = kwargs["_hash_type"]
     self.run_id = kwargs["run_id"]
     self.run = kwargs["run"]
 
@@ -980,7 +980,7 @@ def delete(
         # only delete in storage if DB delete is successful
         # DB delete might error because of a foreign key constraint violated etc.
         self._delete_skip_storage()
-        if self.key is None or self.key_is_virtual:
+        if self.key is None or self._key_is_virtual:
             # do not ask for confirmation also if storage is None
             delete_in_storage = storage is None or storage
         else:
@@ -1021,7 +1021,7 @@ def save(self, upload: bool | None = None, **kwargs) -> Artifact:
         self._local_filepath = local_path
         # switch to virtual storage key upon upload
         # the local filepath is already cached at that point
-        self.key_is_virtual = True
+        self._key_is_virtual = True
         # ensure that the artifact is uploaded
         self._to_store = True
 

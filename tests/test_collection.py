@@ -383,3 +383,20 @@ def test_is_new_version_of_unversioned_collection(df, adata):
     collection.delete(permanent=True)
     artifact2.delete(permanent=True)
     artifact.delete(permanent=True)
+
+
+def test_with_metadata(df, adata):
+    meta_artifact = ln.Artifact.from_df(df, description="test")
+    meta_artifact.save()
+    data_artifact = ln.Artifact.from_anndata(adata, description="test adata")
+    data_artifact.save()
+    collection = ln.Collection(
+        data_artifact, name="test collection", meta_artifact=meta_artifact
+    )
+    collection.save()
+
+    assert collection.meta_artifact == meta_artifact
+    assert collection.data_artifact == data_artifact
+    collection.delete(permanent=True)
+    data_artifact.delete(permanent=True)
+    meta_artifact.delete(permanent=True)

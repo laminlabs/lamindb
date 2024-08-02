@@ -39,7 +39,7 @@ is_run_from_ipython = getattr(builtins, "__IPYTHON__", False)
 
 # add type annotations back asap when re-organizing the module
 def auto_storage_key_from_artifact(artifact: Artifact):
-    if artifact.key is None or artifact.key_is_virtual:
+    if artifact.key is None or artifact._key_is_virtual:
         is_dir = artifact.n_objects is not None
         return auto_storage_key_from_artifact_uid(artifact.uid, artifact.suffix, is_dir)
     else:

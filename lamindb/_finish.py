@@ -80,8 +80,8 @@ def save_run_context_core(
 
     # for scripts, things are easy
     is_consecutive = True
-    is_notebook = transform.type == TransformType.notebook
-    source_code_path = filepath
+    is_notebook = transform.type == "notebook"
+    _source_code_artifact_path = filepath
     # for notebooks, we need more work
     if is_notebook:
         try:
@@ -134,12 +134,12 @@ def save_run_context_core(
         )
         # strip the output from the notebook to create the source code file
         # first, copy the notebook file to a temporary file in the cache
-        source_code_path = ln_setup.settings.storage.cache_dir / filepath.name
-        shutil.copy2(filepath, source_code_path)  # copy
+        _source_code_artifact_path = ln_setup.settings.storage.cache_dir / filepath.name
+        shutil.copy2(filepath, _source_code_artifact_path)  # copy
         subprocess.run(
             [
                 "nbstripout",
-                source_code_path,
+                _source_code_artifact_path,
                 "--extra-keys",
                 "metadata.version metadata.kernelspec metadata.language_info metadata.pygments_lexer metadata.name metadata.file_extension",
             ],
@@ -152,31 +152,34 @@ def save_run_context_core(
         transform_family = transform.versions
     if len(transform_family) > 0:
         for prev_transform in transform_family.order_by("-created_at"):
-            if prev_transform.latest_report_id is not None:
-                prev_report = prev_transform.latest_report
-            if prev_transform.source_code_id is not None:
-                prev_source = prev_transform.source_code
+            if (
+                prev_transform.latest_run is not None
+                and prev_transform.latest_run.report_id is not None
+            ):
+                prev_report = prev_transform.latest_run.report
+            if prev_transform._source_code_artifact_id is not None:
+                prev_source = prev_transform._source_code_artifact
     ln.settings.creation.artifact_silence_missing_run_warning = True
 
     # track source code
-    if transform.source_code_id is not None:
+    if transform._source_code_artifact_id is not None:
         # check if the hash of the transform source code matches
         # (for scripts, we already run the same logic in track() - we can deduplicate the call at some point)
-        hash, _ = hash_file(source_code_path)  # ignore hash_type for now
-        if hash != transform.source_code.hash:
+        hash, _ = hash_file(_source_code_artifact_path)  # ignore hash_type for now
+        if hash != transform._source_code_artifact.hash:
             if os.getenv("LAMIN_TESTING") is None:
                 # in test, auto-confirm overwrite
                 response = input(
-                    f"You are about to replace (overwrite) existing source code (hash '{transform.source_code.hash}') for transform version"
+                    f"You are about to replace (overwrite) existing source code (hash '{transform._source_code_artifact.hash}') for transform version"
                     f" '{transform.version}'. Proceed? (y/n)"
                 )
             else:
                 response = "y"
             if response == "y":
-                transform.source_code.replace(source_code_path)
-                transform.source_code.save(upload=True)
+                transform._source_code_artifact.replace(_source_code_artifact_path)
+                transform._source_code_artifact.save(upload=True)
                 logger.success(
-                    f"replaced transform.source_code: {transform.source_code}"
+                    f"replaced transform._source_code_artifact: {transform._source_code_artifact}"
                 )
             else:
                 logger.warning("Please re-run `ln.track()` to make a new version")
@@ -184,17 +187,19 @@ def save_run_context_core(
         else:
             logger.important("source code is already saved")
     else:
-        source_code = ln.Artifact(
-            source_code_path,
+        _source_code_artifact = ln.Artifact(
+            _source_code_artifact_path,
             description=f"Source of transform {transform.uid}",
             version=transform.version,
             is_new_version_of=prev_source,
             visibility=0,  # hidden file
             run=False,
         )
-        source_code.save(upload=True, print_progress=False)
-        transform.source_code = source_code
-        logger.debug(f"saved transform.source_code: {transform.source_code}")
+        _source_code_artifact.save(upload=True, print_progress=False)
+        transform._source_code_artifact = _source_code_artifact
+        logger.debug(
+            f"saved transform._source_code_artifact: {transform._source_code_artifact}"
+        )
 
     # track environment
     env_path = ln_setup.settings.storage.cache_dir / f"run_env_pip_{run.uid}.txt"
@@ -257,8 +262,9 @@ def save_run_context_core(
             run.report = report_file
         run.is_consecutive = is_consecutive
         run.save()
-        transform.latest_report = run.report
-        logger.debug(f"saved transform.latest_report: {transform.latest_report}")
+        logger.debug(
+            f"saved transform.latest_run.report: {transform.latest_run.report}"
+        )
     transform.save()
 
     # finalize

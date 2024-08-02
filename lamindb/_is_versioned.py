@@ -16,7 +16,7 @@ def _add_to_version_family(
 ):
     old_uid = self.uid
     new_uid, version = get_uid_from_old_version(is_new_version_of, version)
-    if self.__class__.__name__ == "Artifact" and self.key_is_virtual:
+    if self.__class__.__name__ == "Artifact" and self._key_is_virtual:
         old_path = self.path
         new_path = get_new_path_from_uid(
             old_path=old_path, old_uid=old_uid, new_uid=new_uid
