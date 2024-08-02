@@ -283,41 +283,6 @@ class DataFrameCurator:
 
         return self._artifact
 
-    def save_collection(
-        self,
-        artifact: Artifact | Iterable[Artifact],
-        name: str,
-        description: str | None = None,
-        reference: str | None = None,
-        reference_type: str | None = None,
-    ) -> Collection:
-        """Save a collection from artifact/artifacts.
-
-        Args:
-            artifact: One or several saved Artifacts.
-            name: Title of the publication.
-            description: Description of the publication.
-            reference: Accession number (e.g. GSE#, E-MTAB#, etc.).
-            reference_type: Source type (e.g. GEO, ArrayExpress, SRA, etc.).
-        """
-        collection = Collection(
-            artifact,
-            name=name,
-            description=description,
-            reference=reference,
-            reference_type=reference_type,
-        )
-        slug = ln_setup.settings.instance.slug
-        if collection._state.adding:
-            collection.save()
-        else:  # pragma: no cover
-            collection.save()
-            logger.warning(f"collection already exists in {colors.italic(slug)}!")
-        if ln_setup.settings.instance.is_remote:  # pragma: no cover
-            logger.print(f"go to https://lamin.ai/{slug}/collection/{collection.uid}")
-        self._collection = collection
-        return collection
-
     def clean_up_failed_runs(self):
         """Clean up previous failed runs that don't save any outputs."""
         from lamindb.core._run_context import run_context
