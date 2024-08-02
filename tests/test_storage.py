@@ -244,7 +244,7 @@ def test_backed_tiledbsoma(storage):
 
     # wrong mode, should be either r or w for tiledbsoma
     with pytest.raises(ValueError):
-        experiment.open(mode="p")
+        artifact_soma.open(mode="p")
 
     # run deprecated backed
     with artifact_soma.backed():
