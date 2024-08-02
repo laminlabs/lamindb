@@ -1116,7 +1116,11 @@ def update_registry(
                     non_validated_records.append(
                         registry(
                             **init_kwargs,
-                            **{k: v for k, v in filter_kwargs.items() if k != "source"},
+                            **{
+                                k: v
+                                for k, v in filter_kwargs.items()
+                                if k not in {"source", "sources"}
+                            },
                             **kwargs,
                         )
                     )
