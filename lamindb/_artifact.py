@@ -896,10 +896,6 @@ def open(
     else:
         access = backed_access(filepath, mode, using_key)
         if is_tiledbsoma_w:
-            if access.__class__.__name__ not in {"Collection", "Experiment"}:
-                raise ValueError(
-                    "The store seems to be tiledbsoma but it is neither `Collection` nor `Experiment`."
-                )
 
             def finalize():
                 nonlocal self, filepath, localpath

@@ -9,7 +9,11 @@ import pytest
 import tiledbsoma
 import tiledbsoma.io
 import zarr
-from lamindb.core.storage._backed_access import BackedAccessor, backed_access
+from lamindb.core.storage._backed_access import (
+    AnnDataAccessor,
+    BackedAccessor,
+    backed_access,
+)
 from lamindb.core.storage._zarr import read_adata_zarr, write_adata_zarr
 from lamindb.core.storage.objects import infer_suffix, write_to_disk
 from lamindb.core.storage.paths import read_adata_h5ad
@@ -82,6 +86,10 @@ def test_backed_access(adata_format):
 
     with pytest.raises(ValueError):
         access = backed_access(fp.with_suffix(".invalid_suffix"), using_key=None)
+
+    # can't open anndata in write mode
+    with pytest.raises(ValueError):
+        access = backed_access(fp, mode="w", using_key=None)
 
     access = backed_access(fp, using_key=None)
     assert not access.closed
@@ -198,6 +206,20 @@ def test_backed_zarr_not_adata():
     shutil.rmtree(zarr_pth)
 
 
+def test_anndata_open_mode():
+    fp = ln.core.datasets.anndata_file_pbmc68k_test()
+    artifact = ln.Artifact(fp, key="test_adata.h5ad")
+    artifact.save()
+
+    with artifact.open(mode="r") as access:
+        assert isinstance(access, AnnDataAccessor)
+    # can't open in write mode if not tiledbsoma
+    with pytest.raises(ValueError):
+        artifact.open(mode="w")
+
+    artifact.delete(permanent=True, storage=True)
+
+
 @pytest.mark.parametrize("storage", [None, "s3://lamindb-test"])
 def test_backed_tiledbsoma(storage):
     if storage is not None:
@@ -219,6 +241,10 @@ def test_backed_tiledbsoma(storage):
     experiment = artifact_soma.open()
     assert isinstance(experiment, tiledbsoma.Experiment)
     experiment.close()
+
+    # wrong mode, should be either r or w for tiledbsoma
+    with pytest.raises(ValueError):
+        experiment.open(mode="p")
 
     # run deprecated backed
     with artifact_soma.backed():
