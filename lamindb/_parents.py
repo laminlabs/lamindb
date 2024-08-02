@@ -254,7 +254,11 @@ def _df_edges_from_parents(
     else:
         key = "successors" if children else "predecessors"
     parents = _get_parents(
-        record=record, field=field, distance=distance, children=children
+        record=record,
+        field=field,
+        distance=distance,
+        children=children,
+        attr_name=attr_name,
     )
     all = record.__class__.objects
     records = parents | all.filter(id=record.id)
