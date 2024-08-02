@@ -85,7 +85,7 @@ def latest_run(self) -> Run:
 def view_lineage(self, with_successors: bool = False, distance: int = 5):
     return _view_parents(
         record=self,
-        field=None,
+        field="name",
         with_children=with_successors,
         distance=distance,
         attr_name="predecessors",
