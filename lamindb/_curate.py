@@ -1098,6 +1098,8 @@ def update_registry(
             if non_validated_labels
             else []
         )
+        if source:
+            public_records = [r for r in public_records if r.source == source]
         ln_save(public_records)
         labels_saved["from public"] = [
             getattr(r, field.field.name) for r in public_records
