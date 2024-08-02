@@ -16,10 +16,10 @@ classifiers = [
 ]
 dependencies = [
     # Lamin PINNED packages
-    "lnschema_core==0.71.0",
-    "lamindb_setup==0.75.0",
+    "lnschema_core==0.72.0",
+    "lamindb_setup==0.76.0",
     "lamin_utils==0.13.2",
-    "lamin_cli==0.15.0",
+    "lamin_cli==0.16.0",
     # others
     "rapidfuzz",
     "pyarrow",
@@ -38,7 +38,7 @@ Home = "https://github.com/laminlabs/lamindb"
 
 [project.optional-dependencies]
 bionty = [
-    "bionty==0.46.0",
+    "bionty==0.47.0",
 ]
 aws = [
     "lamindb_setup[aws]",
@@ -78,7 +78,7 @@ dev = [
 [tool.ruff]
 src = ["src"]
 line-length = 88
-select = [
+lint.select = [
     "F",  # Errors detected by Pyflakes
     "E",  # Error detected by Pycodestyle
     "W",  # Warning detected by Pycodestyle
@@ -95,7 +95,7 @@ select = [
     "PTH",  # Use pathlib
     "S"  # Security
 ]
-ignore = [
+lint.ignore = [
     # Do not catch blind exception: `Exception`
     "BLE001",
     # Errors from function calls in argument defaults. These are fine when the result is immutable.
@@ -166,10 +166,10 @@ ignore = [
     "S607"
 ]
 
-[tool.ruff.pydocstyle]
+[tool.ruff.lint.pydocstyle]
 convention = "google"
 
-[tool.ruff.per-file-ignores]
+[tool.ruff.lint.per-file-ignores]
 "docs/*" = ["I"]
 "tests/**/*.py" = [
     "D",  # docstrings are allowed to look a bit off
