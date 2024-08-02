@@ -52,9 +52,12 @@ def validate(
     *,
     mute: bool = False,
     organism: str | Record | None = None,
+    source: Record | None = None,
 ) -> np.ndarray:
     """{}"""  # noqa: D415
-    return _validate(cls=cls, values=values, field=field, mute=mute, organism=organism)
+    return _validate(
+        cls=cls, values=values, field=field, mute=mute, organism=organism, source=source
+    )
 
 
 def _inspect(
@@ -149,6 +152,7 @@ def _validate(
     mute: bool = False,
     using_key: str | None = None,
     organism: str | Record | None = None,
+    source: Record | None = None,
 ) -> np.ndarray:
     """{}"""  # noqa: D415
     from lamin_utils._inspect import validate
@@ -158,8 +162,9 @@ def _validate(
         values = [values]
 
     field = get_name_field(cls, field=field)
-
     queryset = _queryset(cls, using_key)
+    orm = queryset.model
+
     field_values = pd.Series(
         _filter_query_based_on_organism(
             queryset=queryset,
@@ -179,13 +184,22 @@ def _validate(
             logger.warning(msg)
         return np.array([False] * len(values))
 
-    result = validate(
-        identifiers=values,
-        field_values=field_values,
-        case_sensitive=True,
-        mute=mute,
-        field=field,
-    )
+    if orm.__get_schema_name__() == "bionty":
+        result = orm.public(organism=organism, source=source).validate(
+            identifiers=values,
+            field_values=field_values,
+            case_sensitive=True,
+            mute=mute,
+            field=field,
+        )
+    else:
+        result = validate(
+            identifiers=values,
+            field_values=field_values,
+            case_sensitive=True,
+            mute=mute,
+            field=field,
+        )
     if return_str and len(result) == 1:
         return result[0]
     else:
