@@ -121,6 +121,8 @@ class DataFrameCurator:
         self._collection = None
         self._validated = False
         self._kwargs = {"organism": organism} if organism else {}
+        if sources is None:
+            sources = {}
         self._sources = sources
         self._save_columns()
 
@@ -325,7 +327,7 @@ class AnnDataCurator(DataFrameCurator):
         using: str = "default",
         verbosity: str = "hint",
         organism: str | None = None,
-        sources: dict[str, Record] = None,
+        sources: dict[str, Record] | None = None,
     ) -> None:
         from lamindb_setup.core import upath
 
@@ -495,7 +497,7 @@ class MuDataCurator:
         using: str = "default",
         verbosity: str = "hint",
         organism: str | None = None,
-        sources: dict[str, Record] = None,
+        sources: dict[str, Record] | None = None,
     ) -> None:
         if sources is None:
             sources = {}
