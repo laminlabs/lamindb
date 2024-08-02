@@ -184,17 +184,8 @@ def test_anndata_annotator(adata, categoricals):
     assert validated
 
     artifact = curate.save_artifact(description="test AnnData")
-    collection = curate.save_collection(
-        artifact,
-        name="Experiment X in brain",
-        description="10.1126/science.xxxxx",
-        reference="E-MTAB-xxxxx",
-        reference_type="ArrayExpress",
-    )
-    assert collection.ordered_artifacts[0] == artifact
 
     # clean up
-    collection.delete(permanent=True)
     artifact.delete(permanent=True)
     ln.ULabel.filter().all().delete()
     bt.ExperimentalFactor.filter().all().delete()

@@ -9,7 +9,6 @@ from lamin_utils import colors, logger
 from lamindb_setup.core._docs import doc_args
 from lnschema_core import (
     Artifact,
-    Collection,
     Feature,
     Record,
     Run,
@@ -92,6 +91,7 @@ class DataFrameCurator:
         using: The reference instance containing registries to validate against.
         verbosity: The verbosity level.
         organism: The organism name.
+        sources: A dictionary mapping column names to Source records.
 
     Examples:
         >>> import bionty as bt
@@ -109,6 +109,7 @@ class DataFrameCurator:
         using: str | None = None,
         verbosity: str = "hint",
         organism: str | None = None,
+        sources: dict[str, Record] | None = None,
     ) -> None:
         from lamindb.core._settings import settings
 
@@ -121,6 +122,9 @@ class DataFrameCurator:
         self._collection = None
         self._validated = False
         self._kwargs = {"organism": organism} if organism else {}
+        if sources is None:
+            sources = {}
+        self._sources = sources
         self._save_columns()
 
     @property
@@ -158,6 +162,7 @@ class DataFrameCurator:
             save_function="add_new_from_columns",
             using=self._using,
             validated_only=False,
+            source=self._sources.get("columns"),
             **kwargs,
         )
 
@@ -172,6 +177,7 @@ class DataFrameCurator:
                 using=self._using,
                 validated_only=validated_only,
                 df=self._df,  # Get the Feature type from df
+                source=self._sources.get("columns"),
                 **kwargs,
             )
 
@@ -222,6 +228,7 @@ class DataFrameCurator:
                 key=categorical,
                 using=self._using,
                 validated_only=validated_only,
+                sources=self._sources.get(categorical),
                 **kwargs,
             )
 
@@ -242,6 +249,7 @@ class DataFrameCurator:
             self._df,
             fields=self.fields,
             using=self._using,
+            sources=self._sources,
             **self._kwargs,
         )
         return self._validated
@@ -283,41 +291,6 @@ class DataFrameCurator:
 
         return self._artifact
 
-    def save_collection(
-        self,
-        artifact: Artifact | Iterable[Artifact],
-        name: str,
-        description: str | None = None,
-        reference: str | None = None,
-        reference_type: str | None = None,
-    ) -> Collection:
-        """Save a collection from artifact/artifacts.
-
-        Args:
-            artifact: One or several saved Artifacts.
-            name: Title of the publication.
-            description: Description of the publication.
-            reference: Accession number (e.g. GSE#, E-MTAB#, etc.).
-            reference_type: Source type (e.g. GEO, ArrayExpress, SRA, etc.).
-        """
-        collection = Collection(
-            artifact,
-            name=name,
-            description=description,
-            reference=reference,
-            reference_type=reference_type,
-        )
-        slug = ln_setup.settings.instance.slug
-        if collection._state.adding:
-            collection.save()
-        else:  # pragma: no cover
-            collection.save()
-            logger.warning(f"collection already exists in {colors.italic(slug)}!")
-        if ln_setup.settings.instance.is_remote:  # pragma: no cover
-            logger.print(f"go to https://lamin.ai/{slug}/collection/{collection.uid}")
-        self._collection = collection
-        return collection
-
     def clean_up_failed_runs(self):
         """Clean up previous failed runs that don't save any outputs."""
         from lamindb.core._run_context import run_context
@@ -338,6 +311,7 @@ class AnnDataCurator(DataFrameCurator):
         using: A reference LaminDB instance.
         verbosity: The verbosity level.
         organism: The organism name.
+        sources: A dictionary mapping ``.obs.columns`` to Source records.
 
     Examples:
         >>> import bionty as bt
@@ -357,11 +331,14 @@ class AnnDataCurator(DataFrameCurator):
         using: str = "default",
         verbosity: str = "hint",
         organism: str | None = None,
+        sources: dict[str, Record] | None = None,
     ) -> None:
         from lamindb_setup.core import upath
 
         from ._artifact import data_is_anndata
 
+        if sources is None:
+            sources = {}
         if not data_is_anndata(data):
             raise ValueError(
                 "data has to be an AnnData object or a path to AnnData-like"
@@ -381,6 +358,7 @@ class AnnDataCurator(DataFrameCurator):
             using=using,
             verbosity=verbosity,
             organism=organism,
+            sources=sources,
         )
         self._obs_fields = categoricals
         self._save_from_var_index(validated_only=True, **self._kwargs)
@@ -421,6 +399,7 @@ class AnnDataCurator(DataFrameCurator):
             using=self._using,
             validated_only=validated_only,
             organism=organism,
+            source=self._sources.get("var_index"),
         )
 
     def add_new_from_var_index(self, organism: str | None = None, **kwargs):
@@ -455,7 +434,11 @@ class AnnDataCurator(DataFrameCurator):
             **self._kwargs,
         )
         validated_obs = validate_categories_in_df(
-            self._adata.obs, fields=self.categoricals, using=self._using, **self._kwargs
+            self._adata.obs,
+            fields=self.categoricals,
+            using=self._using,
+            sources=self._sources,
+            **self._kwargs,
         )
         self._validated = validated_var and validated_obs
         return self._validated
@@ -519,7 +502,11 @@ class MuDataCurator:
         using: str = "default",
         verbosity: str = "hint",
         organism: str | None = None,
+        sources: dict[str, Record] | None = None,
     ) -> None:
+        if sources is None:
+            sources = {}
+        self._sources = sources
         self._mdata = mdata
         self._kwargs = {"organism": organism} if organism else {}
         self._var_fields = var_index
@@ -534,6 +521,7 @@ class MuDataCurator:
                 categoricals=self._obs_fields.get(modality, {}),
                 using=using,
                 verbosity=verbosity,
+                sources=self._sources.get(modality),
                 **self._kwargs,
             )
             for modality in self._modalities
@@ -713,7 +701,11 @@ class MuDataCurator:
             else:
                 obs = self._mdata[modality].obs
             validated_obs &= validate_categories_in_df(
-                obs, fields=fields, using=self._using, **self._kwargs
+                obs,
+                fields=fields,
+                using=self._using,
+                sources=self._sources.get(modality),
+                **self._kwargs,
             )
         self._validated = validated_var and validated_obs
         return self._validated
@@ -776,6 +768,7 @@ class Curate:
         using: str = "default",
         verbosity: str = "hint",
         organism: str | None = None,
+        sources: dict[str, Record] | None = None,
     ) -> AnnDataCurator:
         """{}"""  # noqa: D415
         return AnnDataCurator(
@@ -785,6 +778,7 @@ class Curate:
             using=using,
             verbosity=verbosity,
             organism=organism,
+            sources=sources,
         )
 
     @classmethod
@@ -848,6 +842,7 @@ def validate_categories(
     key: str,
     using: str | None = None,
     organism: str | None = None,
+    source: Record | None = None,
 ) -> bool:
     """Validate ontology terms in a pandas series using LaminDB registries."""
     from lamindb._from_values import _print_values
@@ -862,6 +857,7 @@ def validate_categories(
 
     registry = field.field.model
     filter_kwargs = check_registry_organism(registry, organism)
+    filter_kwargs.update({"source": source} if source else {})
 
     # Inspect the default instance
     inspect_result = standardize_and_inspect(
@@ -927,9 +923,12 @@ def validate_categories_in_df(
     df: pd.DataFrame,
     fields: dict[str, FieldAttr],
     using: str | None = None,
+    sources: dict[str, Record] = None,
     **kwargs,
 ) -> bool:
     """Validate categories in DataFrame columns using LaminDB registries."""
+    if sources is None:
+        sources = {}
     validated = True
     for key, field in fields.items():
         validated &= validate_categories(
@@ -937,6 +936,7 @@ def validate_categories_in_df(
             field=field,
             key=key,
             using=using,
+            source=sources.get(key),
             **kwargs,
         )
     return validated
@@ -1046,6 +1046,7 @@ def update_registry(
     df: pd.DataFrame | None = None,
     organism: str | None = None,
     dtype: str | None = None,
+    source: Record | None = None,
     **kwargs,
 ) -> list[Record]:
     """Save features or labels records in the default instance from the using instance.
@@ -1060,6 +1061,7 @@ def update_registry(
         df: A DataFrame to save labels from.
         organism: The organism name.
         dtype: The type of the feature.
+        source: The source record.
         kwargs: Additional keyword arguments to pass to the registry model to create new records.
     """
     from lamindb._save import save as ln_save
@@ -1067,6 +1069,7 @@ def update_registry(
 
     registry = field.field.model
     filter_kwargs = check_registry_organism(registry, organism)
+    filter_kwargs.update({"source": source} if source else {})
 
     verbosity = settings.verbosity
     try:
@@ -1098,6 +1101,10 @@ def update_registry(
             if non_validated_labels
             else []
         )
+        # here we check to only save the public records if they are from the specified source
+        # TODO: this if shouldn't be needed
+        if source:
+            public_records = [r for r in public_records if r.source == source]
         ln_save(public_records)
         labels_saved["from public"] = [
             getattr(r, field.field.name) for r in public_records
@@ -1119,7 +1126,11 @@ def update_registry(
                     if registry == Feature:
                         init_kwargs["dtype"] = "cat" if dtype is None else dtype
                     non_validated_records.append(
-                        registry(**init_kwargs, **filter_kwargs, **kwargs)
+                        registry(
+                            **init_kwargs,
+                            **{k: v for k, v in filter_kwargs.items() if k != "source"},
+                            **{k: v for k, v in kwargs.items() if k != "sources"},
+                        )
                     )
             ln_save(non_validated_records)
 

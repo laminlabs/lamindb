@@ -47,7 +47,14 @@ def get_or_create_records(
 
         # new records to be created based on new values
         if len(nonexist_values) > 0:
-            if records and records[0].source_id and records[0].source.in_db:
+            if source:
+                from_source = not source.in_db
+            elif (
+                records
+                and hasattr(records[0], "source_id")
+                and records[0].source_id
+                and records[0].source.in_db
+            ):
                 from_source = False
             if from_source:
                 records_bionty, unmapped_values = create_records_from_source(

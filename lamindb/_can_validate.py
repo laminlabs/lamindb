@@ -52,9 +52,12 @@ def validate(
     *,
     mute: bool = False,
     organism: str | Record | None = None,
+    source: Record | None = None,
 ) -> np.ndarray:
     """{}"""  # noqa: D415
-    return _validate(cls=cls, values=values, field=field, mute=mute, organism=organism)
+    return _validate(
+        cls=cls, values=values, field=field, mute=mute, organism=organism, source=source
+    )
 
 
 def _inspect(
@@ -75,6 +78,8 @@ def _inspect(
 
     field = get_name_field(cls, field=field)
     queryset = _queryset(cls, using_key)
+    if isinstance(source, Record) and hasattr(cls, "source_id"):
+        queryset = queryset.filter(source=source).all()
     orm = queryset.model
     model_name = orm._meta.model.__name__
 
@@ -149,6 +154,7 @@ def _validate(
     mute: bool = False,
     using_key: str | None = None,
     organism: str | Record | None = None,
+    source: Record | None = None,
 ) -> np.ndarray:
     """{}"""  # noqa: D415
     from lamin_utils._inspect import validate
@@ -160,6 +166,8 @@ def _validate(
     field = get_name_field(cls, field=field)
 
     queryset = _queryset(cls, using_key)
+    if isinstance(source, Record) and hasattr(cls, "source_id"):
+        queryset = queryset.filter(source=source).all()
     field_values = pd.Series(
         _filter_query_based_on_organism(
             queryset=queryset,
@@ -207,6 +215,7 @@ def standardize(
     keep: Literal["first", "last", False] = "first",
     synonyms_field: str = "synonyms",
     organism: str | Record | None = None,
+    source: Record | None = None,
 ) -> list[str] | dict[str, str]:
     """{}"""  # noqa: D415
     return _standardize(
@@ -221,6 +230,7 @@ def standardize(
         keep=keep,
         synonyms_field=synonyms_field,
         organism=organism,
+        source=source,
     )
 
 
@@ -272,6 +282,7 @@ def _standardize(
     synonyms_field: str = "synonyms",
     using_key: str | None = None,
     organism: str | Record | None = None,
+    source: Record | None = None,
 ) -> list[str] | dict[str, str]:
     """{}"""  # noqa: D415
     from lamin_utils._standardize import standardize as map_synonyms
@@ -285,6 +296,8 @@ def _standardize(
         cls, field=field if return_field is None else return_field
     )
     queryset = _queryset(cls, using_key)
+    if isinstance(source, Record) and hasattr(cls, "source_id"):
+        queryset = queryset.filter(source=source).all()
     orm = queryset.model
 
     if _has_organism_field(orm):
