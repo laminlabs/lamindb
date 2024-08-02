@@ -89,7 +89,7 @@ def test_backed_access(adata_format):
 
     # can't open anndata in write mode
     with pytest.raises(ValueError):
-        access = backed_access(fp, mode="w", using_key=None)
+        access = backed_access(fp, mode="a", using_key=None)
 
     access = backed_access(fp, using_key=None)
     assert not access.closed
