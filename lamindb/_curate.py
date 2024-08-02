@@ -161,6 +161,7 @@ class DataFrameCurator:
             save_function="add_new_from_columns",
             using=self._using,
             validated_only=False,
+            source=self._sources.get("columns"),
             **kwargs,
         )
 
@@ -175,6 +176,7 @@ class DataFrameCurator:
                 using=self._using,
                 validated_only=validated_only,
                 df=self._df,  # Get the Feature type from df
+                source=self._sources.get("columns"),
                 **kwargs,
             )
 
@@ -395,6 +397,7 @@ class AnnDataCurator(DataFrameCurator):
             using=self._using,
             validated_only=validated_only,
             organism=organism,
+            source=self._sources.get("var_index"),
         )
 
     def add_new_from_var_index(self, organism: str | None = None, **kwargs):
