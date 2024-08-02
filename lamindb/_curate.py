@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Iterable
+from typing import TYPE_CHECKING, Dict, Iterable
 
 import anndata as ad
 import lamindb_setup as ln_setup
@@ -108,6 +108,7 @@ class DataFrameCurator:
         using: str | None = None,
         verbosity: str = "hint",
         organism: str | None = None,
+        sources: dict[str, Record] | None = None,
     ) -> None:
         from lamindb.core._settings import settings
 
@@ -120,6 +121,7 @@ class DataFrameCurator:
         self._collection = None
         self._validated = False
         self._kwargs = {"organism": organism} if organism else {}
+        self._sources = sources
         self._save_columns()
 
     @property
@@ -230,9 +232,7 @@ class DataFrameCurator:
             logger.info(f"saving labels for '{name}'")
             self._update_registry(name, validated_only=validated_only, **kwargs)
 
-    def validate(
-        self, organism: str | None = None, source: Record | None = None
-    ) -> bool:
+    def validate(self, organism: str | None = None) -> bool:
         """Validate variables and categorical observations.
 
         Returns:
@@ -243,7 +243,7 @@ class DataFrameCurator:
             self._df,
             fields=self.fields,
             using=self._using,
-            source=source,
+            sources=self._sources,
             **self._kwargs,
         )
         return self._validated
@@ -324,11 +324,14 @@ class AnnDataCurator(DataFrameCurator):
         using: str = "default",
         verbosity: str = "hint",
         organism: str | None = None,
+        sources: dict[str, Record] = None,
     ) -> None:
         from lamindb_setup.core import upath
 
         from ._artifact import data_is_anndata
 
+        if sources is None:
+            sources = {}
         if not data_is_anndata(data):
             raise ValueError(
                 "data has to be an AnnData object or a path to AnnData-like"
@@ -348,6 +351,7 @@ class AnnDataCurator(DataFrameCurator):
             using=using,
             verbosity=verbosity,
             organism=organism,
+            sources=sources,
         )
         self._obs_fields = categoricals
         self._save_from_var_index(validated_only=True, **self._kwargs)
@@ -400,9 +404,7 @@ class AnnDataCurator(DataFrameCurator):
         self._kwargs.update({"organism": organism} if organism else {})
         self._save_from_var_index(validated_only=False, **self._kwargs, **kwargs)
 
-    def validate(
-        self, organism: str | None = None, source: Record | None = None
-    ) -> bool:
+    def validate(self, organism: str | None = None) -> bool:
         """Validate categories.
 
         Args:
@@ -421,14 +423,13 @@ class AnnDataCurator(DataFrameCurator):
             field=self._var_field,
             key="var_index",
             using=self._using,
-            source=source,
             **self._kwargs,
         )
         validated_obs = validate_categories_in_df(
             self._adata.obs,
             fields=self.categoricals,
             using=self._using,
-            source=source,
+            sources=self._sources,
             **self._kwargs,
         )
         self._validated = validated_var and validated_obs
@@ -493,7 +494,11 @@ class MuDataCurator:
         using: str = "default",
         verbosity: str = "hint",
         organism: str | None = None,
+        sources: dict[str, Record] = None,
     ) -> None:
+        if sources is None:
+            sources = {}
+        self._sources = sources
         self._mdata = mdata
         self._kwargs = {"organism": organism} if organism else {}
         self._var_fields = var_index
@@ -508,6 +513,7 @@ class MuDataCurator:
                 categoricals=self._obs_fields.get(modality, {}),
                 using=using,
                 verbosity=verbosity,
+                sources=self._sources.get(modality),
                 **self._kwargs,
             )
             for modality in self._modalities
@@ -664,7 +670,7 @@ class MuDataCurator:
             df_annotator = self._df_annotators[modality]
             df_annotator.add_new_from(key=key, **self._kwargs, **kwargs)
 
-    def validate(self, organism: str | None = None, source: str | None = None) -> bool:
+    def validate(self, organism: str | None = None) -> bool:
         """Validate categories."""
         self._kwargs.update({"organism": organism} if organism else {})
         if self._using is not None and self._using != "default":
@@ -678,7 +684,6 @@ class MuDataCurator:
                 field=var_field,
                 key=f"{modality}_var_index",
                 using=self._using,
-                source=source,
                 **self._kwargs,
             )
         validated_obs = True
@@ -688,7 +693,11 @@ class MuDataCurator:
             else:
                 obs = self._mdata[modality].obs
             validated_obs &= validate_categories_in_df(
-                obs, fields=fields, using=self._using, source=source, **self._kwargs
+                obs,
+                fields=fields,
+                using=self._using,
+                sources=self._sources.get(modality),
+                **self._kwargs,
             )
         self._validated = validated_var and validated_obs
         return self._validated
@@ -904,9 +913,12 @@ def validate_categories_in_df(
     df: pd.DataFrame,
     fields: dict[str, FieldAttr],
     using: str | None = None,
+    sources: dict[str, Record] = None,
     **kwargs,
 ) -> bool:
     """Validate categories in DataFrame columns using LaminDB registries."""
+    if sources is None:
+        sources = {}
     validated = True
     for key, field in fields.items():
         validated &= validate_categories(
@@ -914,6 +926,7 @@ def validate_categories_in_df(
             field=field,
             key=key,
             using=using,
+            source=sources.get(key),
             **kwargs,
         )
     return validated
