@@ -905,10 +905,15 @@ def open(
                     # this can be very slow
                     _, hash, _, _ = hash_dir(filepath)
                 if self.hash != hash:
+                    from ._record import init_self_from_db
+
                     logger.warning(
-                        "The hash of the tiledbsoma store has changed, consider updating this artifact."
+                        "The hash of the tiledbsoma store has changed, creating a new version of the artifact."
                     )
-                    if localpath.exists() and localpath != filepath:
+                    new_version = Artifact(filepath, is_new_version_of=self).save()
+                    init_self_from_db(self, new_version)
+
+                    if localpath != filepath and localpath.exists():
                         shutil.rmtree(localpath)
 
             access = _track_writes_factory(access, finalize)

@@ -242,6 +242,14 @@ def test_backed_tiledbsoma(storage):
     assert isinstance(experiment, tiledbsoma.Experiment)
     experiment.close()
 
+    # hash in the cloud will be different from hash on disk
+    # therefore the artifact will be updated
+    if storage is not None:
+        hash_on_disk = artifact_soma.hash
+        with artifact_soma.open(mode="w"):
+            pass
+        assert artifact_soma.hash != hash_on_disk
+
     # wrong mode, should be either r or w for tiledbsoma
     with pytest.raises(ValueError):
         artifact_soma.open(mode="p")
