@@ -5,6 +5,7 @@ from typing import TYPE_CHECKING
 from lamindb_setup.core._docs import doc_args
 from lnschema_core.models import Run, Transform
 
+from ._parents import _view_parents
 from ._run import delete_run_artifacts
 from .core.versioning import process_is_new_version_of
 
@@ -81,6 +82,13 @@ def latest_run(self) -> Run:
     return self.runs.order_by("-started_at").first()
 
 
+def view_lineage(self, with_successors: bool = False, distance: int = 5):
+    return _view_parents(
+        record=self, field=None, with_children=with_successors, distance=distance
+    )
+
+
 Transform.__init__ = __init__
 Transform.delete = delete
 Transform.latest_run = latest_run
+Transform.view_lineage = view_lineage

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import builtins
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Literal
 
 import lamindb_setup as ln_setup
 from lamin_utils import logger
@@ -137,10 +137,14 @@ def view_lineage(data: Artifact | Collection, with_children: bool = True) -> Non
 
 
 def _view_parents(
-    record: Record, field: str, with_children: bool = False, distance: int = 100
+    record: Record,
+    field: str,
+    with_children: bool = False,
+    distance: int = 100,
+    attr_name: Literal["parents", "predecessors"] = "parents",
 ):
     """Graph of parents."""
-    if not hasattr(record, "parents"):
+    if not hasattr(record, attr_name):
         raise NotImplementedError(
             f"Parents view is not supported for {record.__class__.__name__}!"
         )
@@ -197,12 +201,18 @@ def _view_parents(
     _view(u)
 
 
-def _get_parents(record: Record, field: str, distance: int, children: bool = False):
+def _get_parents(
+    record: Record,
+    field: str,
+    distance: int,
+    children: bool = False,
+    attr_name: Literal["parents", "predecessors"] = "parents",
+):
     """Recursively get parent records within a distance."""
     if children:
-        key = "parents"
+        key = attr_name
     else:
-        key = "children"
+        key = "children" if attr_name == "parents" else "successors"  # type: ignore
     model = record.__class__
     condition = f"{key}__{field}"
     results = model.filter(**{condition: record.__getattribute__(field)}).all()
@@ -228,10 +238,17 @@ def _get_parents(record: Record, field: str, distance: int, children: bool = Fal
 
 
 def _df_edges_from_parents(
-    record: Record, field: str, distance: int, children: bool = False
+    record: Record,
+    field: str,
+    distance: int,
+    children: bool = False,
+    attr_name: Literal["parents", "predecessors"] = "parents",
 ):
     """Construct a DataFrame of edges as the input of graphviz.Digraph."""
-    key = "children" if children else "parents"
+    if attr_name == "parents":
+        key = "children" if children else "parents"
+    else:
+        key = "successors" if children else "predecessors"
     parents = _get_parents(
         record=record, field=field, distance=distance, children=children
     )
