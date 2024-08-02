@@ -121,6 +121,8 @@ class DataFrameCurator:
         self._collection = None
         self._validated = False
         self._kwargs = {"organism": organism} if organism else {}
+        if sources is None:
+            sources = {}
         self._sources = sources
         self._save_columns()
 
@@ -159,6 +161,7 @@ class DataFrameCurator:
             save_function="add_new_from_columns",
             using=self._using,
             validated_only=False,
+            source=self._sources.get("columns"),
             **kwargs,
         )
 
@@ -173,6 +176,7 @@ class DataFrameCurator:
                 using=self._using,
                 validated_only=validated_only,
                 df=self._df,  # Get the Feature type from df
+                source=self._sources.get("columns"),
                 **kwargs,
             )
 
@@ -223,6 +227,7 @@ class DataFrameCurator:
                 key=categorical,
                 using=self._using,
                 validated_only=validated_only,
+                sources=self._sources.get(categorical),
                 **kwargs,
             )
 
@@ -324,7 +329,7 @@ class AnnDataCurator(DataFrameCurator):
         using: str = "default",
         verbosity: str = "hint",
         organism: str | None = None,
-        sources: dict[str, Record] = None,
+        sources: dict[str, Record] | None = None,
     ) -> None:
         from lamindb_setup.core import upath
 
@@ -392,6 +397,7 @@ class AnnDataCurator(DataFrameCurator):
             using=self._using,
             validated_only=validated_only,
             organism=organism,
+            source=self._sources.get("var_index"),
         )
 
     def add_new_from_var_index(self, organism: str | None = None, **kwargs):
@@ -494,7 +500,7 @@ class MuDataCurator:
         using: str = "default",
         verbosity: str = "hint",
         organism: str | None = None,
-        sources: dict[str, Record] = None,
+        sources: dict[str, Record] | None = None,
     ) -> None:
         if sources is None:
             sources = {}
@@ -1038,6 +1044,7 @@ def update_registry(
     df: pd.DataFrame | None = None,
     organism: str | None = None,
     dtype: str | None = None,
+    source: Record | None = None,
     **kwargs,
 ) -> list[Record]:
     """Save features or labels records in the default instance from the using instance.
@@ -1059,6 +1066,7 @@ def update_registry(
 
     registry = field.field.model
     filter_kwargs = check_registry_organism(registry, organism)
+    filter_kwargs.update({"source": source} if source else {})
 
     verbosity = settings.verbosity
     try:
@@ -1111,7 +1119,11 @@ def update_registry(
                     if registry == Feature:
                         init_kwargs["dtype"] = "cat" if dtype is None else dtype
                     non_validated_records.append(
-                        registry(**init_kwargs, **filter_kwargs, **kwargs)
+                        registry(
+                            **init_kwargs,
+                            **{k: v for k, v in filter_kwargs.items() if k != "source"},
+                            **{k: v for k, v in kwargs.items() if k != "sources"},
+                        )
                     )
             ln_save(non_validated_records)
 
