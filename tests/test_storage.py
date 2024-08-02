@@ -232,15 +232,8 @@ def test_backed_tiledbsoma(storage):
     artifact_soma = ln.Artifact("test.tiledbsoma", description="test tiledbsoma")
     artifact_soma.save()
 
-    # otherwise backed (.open) will use the cached object for connection
-    if storage is not None:
-        cache_path = artifact_soma.cache()
-        shutil.rmtree(cache_path)
-        assert not cache_path.exists()
-
-    experiment = artifact_soma.open()
-    assert isinstance(experiment, tiledbsoma.Experiment)
-    experiment.close()
+    # copied to cache on .save()
+    cache_path = artifact_soma.cache()
 
     hash_on_disk = artifact_soma.hash
     with artifact_soma.open(mode="w") as store:
@@ -249,9 +242,16 @@ def test_backed_tiledbsoma(storage):
         # hash in the cloud will be different from hash on disk
         # therefore the artifact will be updated
         assert artifact_soma.hash != hash_on_disk
+        # delete the cached store on hash change
+        assert not cache_path.exists()
     else:
         # hash stays the same
         assert artifact_soma.hash == hash_on_disk
+        assert artifact_soma.path == cache_path
+
+    experiment = artifact_soma.open()  # mode="r" by default
+    assert isinstance(experiment, tiledbsoma.Experiment)
+    experiment.close()
 
     # wrong mode, should be either r or w for tiledbsoma
     with pytest.raises(ValueError):
