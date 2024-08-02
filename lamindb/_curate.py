@@ -760,6 +760,7 @@ class Curate:
         using: str = "default",
         verbosity: str = "hint",
         organism: str | None = None,
+        sources: dict[str, Record] | None = None,
     ) -> AnnDataCurator:
         """{}"""  # noqa: D415
         return AnnDataCurator(
@@ -769,6 +770,7 @@ class Curate:
             using=using,
             verbosity=verbosity,
             organism=organism,
+            sources=sources,
         )
 
     @classmethod
