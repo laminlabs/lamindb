@@ -261,7 +261,7 @@ def test_backed_tiledbsoma(storage):
     with artifact_soma.backed():
         pass
 
-    artifact_soma.delete(permanent=True, storage=True)
+    artifact_soma.versions.delete(permanent=True, storage=True)
     shutil.rmtree("test.tiledbsoma")
 
     if storage is not None:
