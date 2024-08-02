@@ -9,7 +9,6 @@ from lamin_utils import colors, logger
 from lamindb_setup.core._docs import doc_args
 from lnschema_core import (
     Artifact,
-    Collection,
     Feature,
     Record,
     Run,
@@ -231,7 +230,9 @@ class DataFrameCurator:
             logger.info(f"saving labels for '{name}'")
             self._update_registry(name, validated_only=validated_only, **kwargs)
 
-    def validate(self, organism: str | None = None) -> bool:
+    def validate(
+        self, organism: str | None = None, source: Record | None = None
+    ) -> bool:
         """Validate variables and categorical observations.
 
         Returns:
@@ -242,6 +243,7 @@ class DataFrameCurator:
             self._df,
             fields=self.fields,
             using=self._using,
+            source=source,
             **self._kwargs,
         )
         return self._validated
@@ -398,7 +400,9 @@ class AnnDataCurator(DataFrameCurator):
         self._kwargs.update({"organism": organism} if organism else {})
         self._save_from_var_index(validated_only=False, **self._kwargs, **kwargs)
 
-    def validate(self, organism: str | None = None) -> bool:
+    def validate(
+        self, organism: str | None = None, source: Record | None = None
+    ) -> bool:
         """Validate categories.
 
         Args:
@@ -417,10 +421,15 @@ class AnnDataCurator(DataFrameCurator):
             field=self._var_field,
             key="var_index",
             using=self._using,
+            source=source,
             **self._kwargs,
         )
         validated_obs = validate_categories_in_df(
-            self._adata.obs, fields=self.categoricals, using=self._using, **self._kwargs
+            self._adata.obs,
+            fields=self.categoricals,
+            using=self._using,
+            source=source,
+            **self._kwargs,
         )
         self._validated = validated_var and validated_obs
         return self._validated
@@ -655,7 +664,7 @@ class MuDataCurator:
             df_annotator = self._df_annotators[modality]
             df_annotator.add_new_from(key=key, **self._kwargs, **kwargs)
 
-    def validate(self, organism: str | None = None) -> bool:
+    def validate(self, organism: str | None = None, source: str | None = None) -> bool:
         """Validate categories."""
         self._kwargs.update({"organism": organism} if organism else {})
         if self._using is not None and self._using != "default":
@@ -669,6 +678,7 @@ class MuDataCurator:
                 field=var_field,
                 key=f"{modality}_var_index",
                 using=self._using,
+                source=source,
                 **self._kwargs,
             )
         validated_obs = True
@@ -678,7 +688,7 @@ class MuDataCurator:
             else:
                 obs = self._mdata[modality].obs
             validated_obs &= validate_categories_in_df(
-                obs, fields=fields, using=self._using, **self._kwargs
+                obs, fields=fields, using=self._using, source=source, **self._kwargs
             )
         self._validated = validated_var and validated_obs
         return self._validated
@@ -813,6 +823,7 @@ def validate_categories(
     key: str,
     using: str | None = None,
     organism: str | None = None,
+    source: Record | None = None,
 ) -> bool:
     """Validate ontology terms in a pandas series using LaminDB registries."""
     from lamindb._from_values import _print_values
@@ -827,6 +838,7 @@ def validate_categories(
 
     registry = field.field.model
     filter_kwargs = check_registry_organism(registry, organism)
+    filter_kwargs.update({"source": source} if source else {})
 
     # Inspect the default instance
     inspect_result = standardize_and_inspect(
