@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Dict, Iterable
+from typing import TYPE_CHECKING, Iterable
 
 import anndata as ad
 import lamindb_setup as ln_setup
@@ -91,6 +91,7 @@ class DataFrameCurator:
         using: The reference instance containing registries to validate against.
         verbosity: The verbosity level.
         organism: The organism name.
+        sources: A dictionary mapping column names to Source records.
 
     Examples:
         >>> import bionty as bt
@@ -310,6 +311,7 @@ class AnnDataCurator(DataFrameCurator):
         using: A reference LaminDB instance.
         verbosity: The verbosity level.
         organism: The organism name.
+        sources: A dictionary mapping ``.obs.columns`` to Source records.
 
     Examples:
         >>> import bionty as bt
@@ -1059,6 +1061,7 @@ def update_registry(
         df: A DataFrame to save labels from.
         organism: The organism name.
         dtype: The type of the feature.
+        source: The source record.
         kwargs: Additional keyword arguments to pass to the registry model to create new records.
     """
     from lamindb._save import save as ln_save
@@ -1098,9 +1101,10 @@ def update_registry(
             if non_validated_labels
             else []
         )
-        # # here we check to only save the public records if they are from the specified source
-        # if source:
-        #     public_records = [r for r in public_records if r.source == source]
+        # here we check to only save the public records if they are from the specified source
+        # TODO: this if shouldn't be needed
+        if source:
+            public_records = [r for r in public_records if r.source == source]
         ln_save(public_records)
         labels_saved["from public"] = [
             getattr(r, field.field.name) for r in public_records
