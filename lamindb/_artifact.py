@@ -910,7 +910,9 @@ def open(
                     logger.warning(
                         "The hash of the tiledbsoma store has changed, creating a new version of the artifact."
                     )
-                    new_version = Artifact(filepath, is_new_version_of=self).save()
+                    new_version = Artifact(
+                        filepath, key=None, is_new_version_of=self
+                    ).save()
                     init_self_from_db(self, new_version)
 
                     if localpath != filepath and localpath.exists():
