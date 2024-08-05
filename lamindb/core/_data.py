@@ -14,8 +14,8 @@ from lnschema_core.models import (
     Record,
     Run,
     ULabel,
-    __repr__,
     format_field_value,
+    record_repr,
 )
 
 from lamindb._parents import view_lineage
@@ -108,7 +108,7 @@ def describe(self: HasFeatures, print_types: bool = False):
     # )
 
     model_name = self.__class__.__name__
-    msg = f"{colors.green(model_name)}{__repr__(self, include_foreign_keys=False).lstrip(model_name)}\n"
+    msg = f"{colors.green(model_name)}{record_repr(self, include_foreign_keys=False).lstrip(model_name)}\n"
     prov_msg = ""
 
     fields = self._meta.fields
