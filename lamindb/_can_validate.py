@@ -60,6 +60,25 @@ def validate(
     )
 
 
+def _check_source_db(source: Record, using_key: str | None):
+    """Check if the source is from the DB."""
+    if using_key is not None and using_key != "default":
+        if source._state.db != using_key:
+            raise ValueError(
+                f"source must be a bionty.Source record from instance '{using_key}'!"
+            )
+
+
+def _check_organism_db(organism: Record, using_key: str | None):
+    """Check if the organism is from the DB."""
+    if isinstance(organism, Record):
+        if using_key is not None and using_key != "default":
+            if organism._state.db != using_key:
+                raise ValueError(
+                    f"organism must be a bionty.Organism record from instance '{using_key}'!"
+                )
+
+
 def _inspect(
     cls,
     values: ListLike,
@@ -78,8 +97,11 @@ def _inspect(
 
     field = get_name_field(cls, field=field)
     queryset = _queryset(cls, using_key)
-    if isinstance(source, Record) and hasattr(cls, "source_id"):
+    using_key = queryset.db
+    if isinstance(source, Record):
+        _check_source_db(source, using_key)
         queryset = queryset.filter(source=source).all()
+    _check_organism_db(organism, using_key)
     orm = queryset.model
     model_name = orm._meta.model.__name__
 
@@ -166,8 +188,11 @@ def _validate(
     field = get_name_field(cls, field=field)
 
     queryset = _queryset(cls, using_key)
-    if isinstance(source, Record) and hasattr(cls, "source_id"):
+    using_key = queryset.db
+    if isinstance(source, Record):
+        _check_source_db(source, using_key)
         queryset = queryset.filter(source=source).all()
+    _check_organism_db(organism, using_key)
     field_values = pd.Series(
         _filter_query_based_on_organism(
             queryset=queryset,
@@ -296,8 +321,11 @@ def _standardize(
         cls, field=field if return_field is None else return_field
     )
     queryset = _queryset(cls, using_key)
-    if isinstance(source, Record) and hasattr(cls, "source_id"):
+    using_key = queryset.db
+    if isinstance(source, Record):
+        _check_source_db(source, using_key)
         queryset = queryset.filter(source=source).all()
+    _check_organism_db(organism, using_key)
     orm = queryset.model
 
     if _has_organism_field(orm):

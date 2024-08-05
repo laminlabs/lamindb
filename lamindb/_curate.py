@@ -30,23 +30,25 @@ class CurateLookup:
         self,
         categoricals: dict[str, FieldAttr],
         slots: dict[str, FieldAttr] = None,
-        using: str | None = None,
+        using_key: str | None = None,
     ) -> None:
         if slots is None:
             slots = {}
         self._fields = {**categoricals, **slots}
-        self._using = None if using == "default" else using
-        self._using_name = self._using or ln_setup.settings.instance.slug
-        debug_message = f"Lookup objects from the " f"{colors.italic(self._using_name)}"
+        self._using_key = None if using_key == "default" else using_key
+        self._using_key_name = self._using_key or ln_setup.settings.instance.slug
+        debug_message = (
+            f"Lookup objects from the " f"{colors.italic(self._using_key_name)}"
+        )
         logger.debug(debug_message)
 
     def __getattr__(self, name):
         if name in self._fields:
             registry = self._fields[name].field.model
-            if self._using == "public":
+            if self._using_key == "public":
                 return registry.public().lookup()
             else:
-                return get_registry_instance(registry, self._using).lookup()
+                return get_registry_instance(registry, self._using_key).lookup()
         raise AttributeError(
             f"'{self.__class__.__name__}' object has no attribute '{name}'"
         )
@@ -54,10 +56,10 @@ class CurateLookup:
     def __getitem__(self, name):
         if name in self._fields:
             registry = self._fields[name].field.model
-            if self._using == "public":
+            if self._using_key == "public":
                 return registry.public().lookup()
             else:
-                return get_registry_instance(registry, self._using).lookup()
+                return get_registry_instance(registry, self._using_key).lookup()
         raise AttributeError(
             f"'{self.__class__.__name__}' object has no attribute '{name}'"
         )
@@ -71,7 +73,7 @@ class CurateLookup:
                 [str([key]) for key in self._fields if not key.isidentifier()]
             )
             return (
-                f"Lookup objects from the {colors.italic(self._using_name)}:\n "
+                f"Lookup objects from the {colors.italic(self._using_key_name)}:\n "
                 f"{colors.green(getattr_keys)}\n "
                 f"{colors.green(getitem_keys)}\n\n"
                 "Example:\n    → categories = validator.lookup().cell_type\n"
@@ -88,7 +90,7 @@ class DataFrameCurator:
         df: The DataFrame object to curate.
         columns: The field attribute for the feature column.
         categoricals: A dictionary mapping column names to registry_field.
-        using: The reference instance containing registries to validate against.
+        using_key: The reference instance containing registries to validate against.
         verbosity: The verbosity level.
         organism: The organism name.
         sources: A dictionary mapping column names to Source records.
@@ -106,7 +108,7 @@ class DataFrameCurator:
         df: pd.DataFrame,
         columns: FieldAttr = Feature.name,
         categoricals: dict[str, FieldAttr] | None = None,
-        using: str | None = None,
+        using_key: str | None = None,
         verbosity: str = "hint",
         organism: str | None = None,
         sources: dict[str, Record] | None = None,
@@ -116,7 +118,7 @@ class DataFrameCurator:
         self._df = df
         self._fields = categoricals or {}
         self._columns_field = columns
-        self._using = using
+        self._using_key = using_key
         settings.verbosity = verbosity
         self._artifact = None
         self._collection = None
@@ -132,18 +134,18 @@ class DataFrameCurator:
         """Return the columns fields to validate against."""
         return self._fields
 
-    def lookup(self, using: str | None = None) -> CurateLookup:
+    def lookup(self, using_key: str | None = None) -> CurateLookup:
         """Lookup categories.
 
         Args:
-            using: The instance where the lookup is performed.
-                if None (default), the lookup is performed on the instance specified in "using" parameter of the validator.
+            using_key: The instance where the lookup is performed.
+                if None (default), the lookup is performed on the instance specified in "using_key" parameter of the validator.
                 if "public", the lookup is performed on the public reference.
         """
         return CurateLookup(
             categoricals=self._fields,
             slots={"columns": self._columns_field},
-            using=using or self._using,
+            using_key=using_key or self._using_key,
         )
 
     def _save_columns(self, validated_only: bool = True, **kwargs) -> None:
@@ -160,7 +162,7 @@ class DataFrameCurator:
             field=self._columns_field,
             key="columns",
             save_function="add_new_from_columns",
-            using=self._using,
+            using_key=self._using_key,
             validated_only=False,
             source=self._sources.get("columns"),
             **kwargs,
@@ -174,7 +176,7 @@ class DataFrameCurator:
                 field=self._columns_field,
                 key="columns",
                 save_function="add_new_from_columns",
-                using=self._using,
+                using_key=self._using_key,
                 validated_only=validated_only,
                 df=self._df,  # Get the Feature type from df
                 source=self._sources.get("columns"),
@@ -226,7 +228,7 @@ class DataFrameCurator:
                 values=self._df[categorical].unique().tolist(),
                 field=self.fields[categorical],
                 key=categorical,
-                using=self._using,
+                using_key=self._using_key,
                 validated_only=validated_only,
                 sources=self._sources.get(categorical),
                 **kwargs,
@@ -248,7 +250,7 @@ class DataFrameCurator:
         self._validated = validate_categories_in_df(
             self._df,
             fields=self.fields,
-            using=self._using,
+            using_key=self._using_key,
             sources=self._sources,
             **self._kwargs,
         )
@@ -308,7 +310,7 @@ class AnnDataCurator(DataFrameCurator):
         data: The AnnData object or an AnnData-like path.
         var_index: The registry field for mapping the ``.var`` index.
         categoricals: A dictionary mapping ``.obs.columns`` to a registry field.
-        using: A reference LaminDB instance.
+        using_key: A reference LaminDB instance.
         verbosity: The verbosity level.
         organism: The organism name.
         sources: A dictionary mapping ``.obs.columns`` to Source records.
@@ -328,7 +330,7 @@ class AnnDataCurator(DataFrameCurator):
         data: ad.AnnData | UPathStr,
         var_index: FieldAttr,
         categoricals: dict[str, FieldAttr] | None = None,
-        using: str = "default",
+        using_key: str = "default",
         verbosity: str = "hint",
         organism: str | None = None,
         sources: dict[str, Record] | None = None,
@@ -355,7 +357,7 @@ class AnnDataCurator(DataFrameCurator):
         super().__init__(
             df=self._adata.obs,
             categoricals=categoricals,
-            using=using,
+            using_key=using_key,
             verbosity=verbosity,
             organism=organism,
             sources=sources,
@@ -373,18 +375,18 @@ class AnnDataCurator(DataFrameCurator):
         """Return the obs fields to validate against."""
         return self._obs_fields
 
-    def lookup(self, using: str | None = None) -> CurateLookup:
+    def lookup(self, using_key: str | None = None) -> CurateLookup:
         """Lookup categories.
 
         Args:
-            using: The instance where the lookup is performed.
+            using_key: The instance where the lookup is performed.
                 if None (default), the lookup is performed on the instance specified in "using" parameter of the validator.
                 if "public", the lookup is performed on the public reference.
         """
         return CurateLookup(
             categoricals=self._obs_fields,
             slots={"columns": self._columns_field, "var_index": self._var_field},
-            using=using or self._using,
+            using_key=using_key or self._using_key,
         )
 
     def _save_from_var_index(
@@ -396,7 +398,7 @@ class AnnDataCurator(DataFrameCurator):
             field=self.var_index,
             key="var_index",
             save_function="add_new_from_var_index",
-            using=self._using,
+            using_key=self._using_key,
             validated_only=validated_only,
             organism=organism,
             source=self._sources.get("var_index"),
@@ -422,21 +424,21 @@ class AnnDataCurator(DataFrameCurator):
             Whether the AnnData object is validated.
         """
         self._kwargs.update({"organism": organism} if organism else {})
-        if self._using is not None and self._using != "default":
+        if self._using_key is not None and self._using_key != "default":
             logger.important(
-                f"validating metadata using registries of instance {colors.italic(self._using)}"
+                f"validating metadata using registries of instance {colors.italic(self._using_key)}"
             )
         validated_var = validate_categories(
             self._adata.var.index,
             field=self._var_field,
             key="var_index",
-            using=self._using,
+            using_key=self._using_key,
             **self._kwargs,
         )
         validated_obs = validate_categories_in_df(
             self._adata.obs,
             fields=self.categoricals,
-            using=self._using,
+            using_key=self._using_key,
             sources=self._sources,
             **self._kwargs,
         )
@@ -480,7 +482,7 @@ class MuDataCurator:
             ``{"modality_1": bt.Gene.ensembl_gene_id, "modality_2": ln.CellMarker.name}``
         categoricals: A dictionary mapping ``.obs.columns`` to a registry field.
             Use modality keys to specify categoricals for MuData slots such as `"rna:cell_type": bt.CellType.name"`.
-        using: A reference LaminDB instance.
+        using_key: A reference LaminDB instance.
         verbosity: The verbosity level.
         organism: The organism name.
 
@@ -499,7 +501,7 @@ class MuDataCurator:
         mdata: MuData,
         var_index: dict[str, dict[str, FieldAttr]],
         categoricals: dict[str, FieldAttr] | None = None,
-        using: str = "default",
+        using_key: str = "default",
         verbosity: str = "hint",
         organism: str | None = None,
         sources: dict[str, Record] | None = None,
@@ -513,13 +515,13 @@ class MuDataCurator:
         self._verify_modality(self._var_fields.keys())
         self._obs_fields = self._parse_categoricals(categoricals)
         self._modalities = set(self._var_fields.keys()) | set(self._obs_fields.keys())
-        self._using = using
+        self._using_key = using_key
         self._verbosity = verbosity
         self._df_annotators = {
             modality: DataFrameCurator(
                 df=mdata[modality].obs if modality != "obs" else mdata.obs,
                 categoricals=self._obs_fields.get(modality, {}),
-                using=using,
+                using_key=using_key,
                 verbosity=verbosity,
                 sources=self._sources.get(modality),
                 **self._kwargs,
@@ -556,7 +558,7 @@ class MuDataCurator:
             field=self._var_fields[modality],
             key="var_index",
             save_function="add_new_from_var_index",
-            using=self._using,
+            using_key=self._using_key,
             validated_only=validated_only,
             dtype="number",
             **kwargs,
@@ -580,12 +582,12 @@ class MuDataCurator:
                 obs_fields["obs"][k] = v
         return obs_fields
 
-    def lookup(self, using: str | None = None) -> CurateLookup:
+    def lookup(self, using_key: str | None = None) -> CurateLookup:
         """Lookup categories.
 
         Args:
-            using: The instance where the lookup is performed.
-                if None (default), the lookup is performed on the instance specified in "using" parameter of the validator.
+            using_key: The instance where the lookup is performed.
+                if None (default), the lookup is performed on the instance specified in "using_key" parameter of the validator.
                 if "public", the lookup is performed on the public reference.
         """
         return CurateLookup(
@@ -594,7 +596,7 @@ class MuDataCurator:
                 **self._obs_fields,
                 **{f"{k}_var_index": v for k, v in self._var_fields.items()},
             },
-            using=using or self._using,
+            using_key=using_key or self._using_key,
         )
 
     def add_new_from_columns(
@@ -617,7 +619,7 @@ class MuDataCurator:
             values=column_names or self._mdata[modality].obs.columns,
             field=Feature.name,
             key=f"{modality} obs columns",
-            using=self._using,
+            using_key=self._using_key,
             validated_only=False,
             df=self._mdata[modality].obs,
             **self._kwargs,
@@ -681,9 +683,9 @@ class MuDataCurator:
     def validate(self, organism: str | None = None) -> bool:
         """Validate categories."""
         self._kwargs.update({"organism": organism} if organism else {})
-        if self._using is not None and self._using != "default":
+        if self._using_key is not None and self._using_key != "default":
             logger.important(
-                f"validating metadata using registries of instance {colors.italic(self._using)}"
+                f"validating metadata using registries of instance {colors.italic(self._using_key)}"
             )
         validated_var = True
         for modality, var_field in self._var_fields.items():
@@ -691,7 +693,7 @@ class MuDataCurator:
                 self._mdata[modality].var.index,
                 field=var_field,
                 key=f"{modality}_var_index",
-                using=self._using,
+                using_key=self._using_key,
                 **self._kwargs,
             )
         validated_obs = True
@@ -703,7 +705,7 @@ class MuDataCurator:
             validated_obs &= validate_categories_in_df(
                 obs,
                 fields=fields,
-                using=self._using,
+                using_key=self._using_key,
                 sources=self._sources.get(modality),
                 **self._kwargs,
             )
@@ -744,7 +746,7 @@ class Curate:
         df: pd.DataFrame,
         categoricals: dict[str, FieldAttr] | None = None,
         columns: FieldAttr = Feature.name,
-        using: str | None = None,
+        using_key: str | None = None,
         verbosity: str = "hint",
         organism: str | None = None,
     ) -> DataFrameCurator:
@@ -753,7 +755,7 @@ class Curate:
             df=df,
             categoricals=categoricals,
             columns=columns,
-            using=using,
+            using_key=using_key,
             verbosity=verbosity,
             organism=organism,
         )
@@ -765,7 +767,7 @@ class Curate:
         data: ad.AnnData | UPathStr,
         var_index: FieldAttr,
         categoricals: dict[str, FieldAttr] | None = None,
-        using: str = "default",
+        using_key: str = "default",
         verbosity: str = "hint",
         organism: str | None = None,
         sources: dict[str, Record] | None = None,
@@ -775,7 +777,7 @@ class Curate:
             data=data,
             var_index=var_index,
             categoricals=categoricals,
-            using=using,
+            using_key=using_key,
             verbosity=verbosity,
             organism=organism,
             sources=sources,
@@ -788,7 +790,7 @@ class Curate:
         mdata: MuData,
         var_index: dict[str, dict[str, FieldAttr]],
         categoricals: dict[str, FieldAttr] | None = None,
-        using: str = "default",
+        using_key: str = "default",
         verbosity: str = "hint",
         organism: str | None = None,
     ) -> MuDataCurator:
@@ -797,16 +799,16 @@ class Curate:
             mdata=mdata,
             var_index=var_index,
             categoricals=categoricals,
-            using=using,
+            using_key=using_key,
             verbosity=verbosity,
             organism=organism,
         )
 
 
-def get_registry_instance(registry: Record, using: str | None = None) -> Record:
+def get_registry_instance(registry: Record, using_key: str | None = None) -> Record:
     """Get a registry instance using a specific instance."""
-    if using is not None and using != "default":
-        return registry.using(using)
+    if using_key is not None and using_key != "default":
+        return registry.using(using_key)
     return registry
 
 
@@ -840,7 +842,7 @@ def validate_categories(
     values: Iterable[str],
     field: FieldAttr,
     key: str,
-    using: str | None = None,
+    using_key: str | None = None,
     organism: str | None = None,
     source: Record | None = None,
 ) -> bool:
@@ -866,8 +868,8 @@ def validate_categories(
     non_validated = inspect_result.non_validated
 
     values_validated = []
-    if using is not None and using != "default" and non_validated:
-        registry = get_registry_instance(registry, using)
+    if using_key is not None and using_key != "default" and non_validated:
+        registry = get_registry_instance(registry, using_key)
         # Inspect the using instance
         inspect_result = standardize_and_inspect(
             values=non_validated, field=field, registry=registry, **filter_kwargs
@@ -922,7 +924,7 @@ def validate_categories(
 def validate_categories_in_df(
     df: pd.DataFrame,
     fields: dict[str, FieldAttr],
-    using: str | None = None,
+    using_key: str | None = None,
     sources: dict[str, Record] = None,
     **kwargs,
 ) -> bool:
@@ -935,7 +937,7 @@ def validate_categories_in_df(
             df[key],
             field=field,
             key=key,
-            using=using,
+            using_key=using_key,
             source=sources.get(key),
             **kwargs,
         )
@@ -1041,7 +1043,7 @@ def update_registry(
     field: FieldAttr,
     key: str,
     save_function: str = "add_new_from",
-    using: str | None = None,
+    using_key: str | None = None,
     validated_only: bool = True,
     df: pd.DataFrame | None = None,
     organism: str | None = None,
@@ -1049,14 +1051,14 @@ def update_registry(
     source: Record | None = None,
     **kwargs,
 ) -> list[Record]:
-    """Save features or labels records in the default instance from the using instance.
+    """Save features or labels records in the default instance from the using_key instance.
 
     Args:
         values: A list of values to be saved as labels.
         field: The FieldAttr object representing the field for which labels are being saved.
         key: The name of the feature to save.
         save_function: The name of the function to save the labels.
-        using: The name of the instance from which to transfer labels (if applicable).
+        using_key: The name of the instance from which to transfer labels (if applicable).
         validated_only: If True, only save validated labels.
         df: A DataFrame to save labels from.
         organism: The organism name.
@@ -1087,12 +1089,12 @@ def update_registry(
         labels_saved: dict = {"from public": [], "without reference": []}
 
         (
-            labels_saved[f"from {using}"],
+            labels_saved[f"from {using_key}"],
             non_validated_labels,
         ) = update_registry_from_using_instance(
             inspect_result_current.non_validated,
             field=field,
-            using=using,
+            using_key=using_key,
             **filter_kwargs,
         )
 
@@ -1213,15 +1215,15 @@ def save_ulabels_with_parent(values: list[str], field: FieldAttr, key: str) -> N
 def update_registry_from_using_instance(
     values: list[str],
     field: FieldAttr,
-    using: str | None = None,
+    using_key: str | None = None,
     **kwargs,
 ) -> tuple[list[str], list[str]]:
-    """Save features or labels records from the using instance.
+    """Save features or labels records from the using_key instance.
 
     Args:
         values: A list of values to be saved as labels.
         field: The FieldAttr object representing the field for which labels are being saved.
-        using: The name of the instance from which to transfer labels (if applicable).
+        using_key: The name of the instance from which to transfer labels (if applicable).
         kwargs: Additional keyword arguments to pass to the registry model.
 
     Returns:
@@ -1230,9 +1232,9 @@ def update_registry_from_using_instance(
     labels_saved = []
     not_saved = values
 
-    if using is not None and using != "default":
+    if using_key is not None and using_key != "default":
         registry = field.field.model
-        registry_using = get_registry_instance(registry, using)
+        registry_using = get_registry_instance(registry, using_key)
         inspect_result_using = standardize_and_inspect(
             values=values, field=field, registry=registry_using, **kwargs
         )
