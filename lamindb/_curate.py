@@ -188,6 +188,7 @@ class DataFrameCurator:
                 validated_only=validated_only,
                 df=self._df,  # Get the Feature type from df
                 source=self._sources.get("columns"),
+                warning=False,  # Do not warn about missing columns, just an info message
                 **kwargs,
             )
 
@@ -443,7 +444,7 @@ class AnnDataCurator(DataFrameCurator):
             key="var_index",
             using_key=self._using_key,
             source=self._sources.get("var_index"),
-            **self._kwargs,
+            **self._kwargs,  # type: ignore
         )
         validated_obs, non_validated_obs = validate_categories_in_df(
             self._adata.obs,
@@ -635,7 +636,7 @@ class MuDataCurator:
             using_key=self._using_key,
             validated_only=False,
             df=self._mdata[modality].obs,
-            **self._kwargs,
+            **self._kwargs,  # type: ignore
             **kwargs,
         )
 
@@ -708,7 +709,7 @@ class MuDataCurator:
                 field=var_field,
                 key=f"{modality}_var_index",
                 using_key=self._using_key,
-                **self._kwargs,
+                **self._kwargs,  # type: ignore
             )
             validated_var &= is_validated_var
             if len(non_validated_var) > 0:
@@ -840,14 +841,23 @@ def get_registry_instance(registry: Record, using_key: str | None = None) -> Rec
 
 
 def standardize_and_inspect(
-    values: Iterable[str], field: FieldAttr, registry: Record, **kwargs
+    values: Iterable[str],
+    field: FieldAttr,
+    registry: Record,
+    standardize: bool = False,
+    **kwargs,
 ):
     """Standardize and inspect values using a registry."""
-    if hasattr(registry, "standardize") and hasattr(
-        registry,
-        "synonyms",  # https://github.com/laminlabs/lamindb/issues/1685
-    ):
-        values = registry.standardize(values, field=field, mute=True, **kwargs)
+    if standardize:
+        if hasattr(registry, "standardize") and hasattr(
+            registry,
+            "synonyms",  # https://github.com/laminlabs/lamindb/issues/1685
+        ):
+            standardized_values = registry.standardize(
+                values, field=field, mute=True, **kwargs
+            )
+            values = standardized_values
+
     return registry.inspect(values, field=field, mute=True, **kwargs)
 
 
@@ -872,6 +882,7 @@ def validate_categories(
     using_key: str | None = None,
     organism: str | None = None,
     source: Record | None = None,
+    standardize: bool = True,
 ) -> tuple[bool, list]:
     """Validate ontology terms in a pandas series using LaminDB registries."""
     from lamindb._from_values import _print_values
@@ -888,23 +899,31 @@ def validate_categories(
     filter_kwargs = check_registry_organism(registry, organism)
     filter_kwargs.update({"source": source} if source else {})
 
-    # Inspect the default instance
+    # inspect the default instance
     inspect_result = standardize_and_inspect(
-        values=values, field=field, registry=registry, **filter_kwargs
+        values=values,
+        field=field,
+        registry=registry,
+        standardize=standardize,
+        **filter_kwargs,
     )
     non_validated = inspect_result.non_validated
 
     values_validated = []
     if using_key is not None and using_key != "default" and non_validated:
         registry = get_registry_instance(registry, using_key)
-        # Inspect the using instance
+        # inspect the using instance
         inspect_result = standardize_and_inspect(
-            values=non_validated, field=field, registry=registry, **filter_kwargs
+            values=non_validated,
+            field=field,
+            registry=registry,
+            standardize=standardize,
+            **filter_kwargs,
         )
         non_validated = inspect_result.non_validated
         values_validated += inspect_result.validated
 
-    # Inspect from public (bionty only)
+    # inspect from public (bionty only)
     if hasattr(registry, "public"):
         verbosity = settings.verbosity
         try:
@@ -921,7 +940,7 @@ def validate_categories(
     if n_validated > 0:
         _log_mapping_info()
         logger.warning(
-            f"found {colors.yellow({n_validated})} validated terms: "
+            f"found {colors.yellow(n_validated)} validated terms: "
             f"{colors.yellow(values_validated)}\n      → save terms via "
             f"{colors.yellow(validated_hint_print)}"
         )
@@ -1080,6 +1099,8 @@ def update_registry(
     organism: str | None = None,
     dtype: str | None = None,
     source: Record | None = None,
+    standardize: bool = True,
+    warning: bool = True,
     **kwargs,
 ) -> list[Record]:
     """Save features or labels records in the default instance from the using_key instance.
@@ -1108,7 +1129,11 @@ def update_registry(
     try:
         settings.verbosity = "error"
         inspect_result_current = standardize_and_inspect(
-            values=values, field=field, registry=registry, **filter_kwargs
+            values=values,
+            field=field,
+            registry=registry,
+            standardize=standardize,
+            **filter_kwargs,
         )
         if not inspect_result_current.non_validated:
             all_labels = registry.from_values(
@@ -1185,6 +1210,7 @@ def update_registry(
         save_function=save_function,
         model_field=f"{registry.__name__}.{field.field.name}",
         validated_only=validated_only,
+        warning=warning,
     )
 
     return all_labels
@@ -1196,6 +1222,7 @@ def log_saved_labels(
     save_function: str,
     model_field: str,
     validated_only: bool = True,
+    warning: bool = True,
 ) -> None:
     """Log the saved labels."""
     from ._from_values import _print_values
@@ -1220,7 +1247,10 @@ def log_saved_labels(
                 if save_function == "add_new_from"
                 else f"\n      → to save, run {colors.yellow(save_function)}"
             )
-            logger.warning(msg)
+            if warning:
+                logger.warning(msg)
+            else:
+                logger.info(msg)
         else:
             k = "" if k == "without reference" else f"{colors.green(k)} "
             # the term "transferred" stresses that this is always in the context of transferring
@@ -1247,6 +1277,7 @@ def update_registry_from_using_instance(
     values: list[str],
     field: FieldAttr,
     using_key: str | None = None,
+    standardize: bool = False,
     **kwargs,
 ) -> tuple[list[str], list[str]]:
     """Save features or labels records from the using_key instance.
@@ -1267,7 +1298,11 @@ def update_registry_from_using_instance(
         registry = field.field.model
         registry_using = get_registry_instance(registry, using_key)
         inspect_result_using = standardize_and_inspect(
-            values=values, field=field, registry=registry_using, **kwargs
+            values=values,
+            field=field,
+            registry=registry_using,
+            standardize=standardize,
+            **kwargs,
         )
         labels_using = registry_using.filter(
             **{f"{field.field.name}__in": inspect_result_using.validated}
