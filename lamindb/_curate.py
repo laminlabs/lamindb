@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Iterable
+from typing import TYPE_CHECKING, Iterable, Tuple
 
 import anndata as ad
 import lamindb_setup as ln_setup
@@ -127,7 +127,15 @@ class DataFrameCurator:
         if sources is None:
             sources = {}
         self._sources = sources
+        self._non_validated = None
         self._save_columns()
+
+    @property
+    def non_validated(self) -> list:
+        """Return the non-validated features and labels."""
+        if self._non_validated is None:
+            raise ValueError("Please run validate() first!")
+        return self._non_validated
 
     @property
     def fields(self) -> dict:
@@ -247,7 +255,7 @@ class DataFrameCurator:
             Whether the DataFrame is validated.
         """
         self._kwargs.update({"organism": organism} if organism else {})
-        self._validated = validate_categories_in_df(
+        self._validated, self._non_validated = validate_categories_in_df(  # type: ignore
             self._df,
             fields=self.fields,
             using_key=self._using_key,
@@ -428,7 +436,8 @@ class AnnDataCurator(DataFrameCurator):
             logger.important(
                 f"validating metadata using registries of instance {colors.italic(self._using_key)}"
             )
-        validated_var = validate_categories(
+
+        validated_var, non_validated_var = validate_categories(
             self._adata.var.index,
             field=self._var_field,
             key="var_index",
@@ -436,13 +445,16 @@ class AnnDataCurator(DataFrameCurator):
             source=self._sources.get("var_index"),
             **self._kwargs,
         )
-        validated_obs = validate_categories_in_df(
+        validated_obs, non_validated_obs = validate_categories_in_df(
             self._adata.obs,
             fields=self.categoricals,
             using_key=self._using_key,
             sources=self._sources,
             **self._kwargs,
         )
+        self._non_validated = non_validated_obs  # type: ignore
+        if len(non_validated_var) > 0:
+            self._non_validated["var_index"] = non_validated_var  # type: ignore
         self._validated = validated_var and validated_obs
         return self._validated
 
@@ -689,27 +701,41 @@ class MuDataCurator:
                 f"validating metadata using registries of instance {colors.italic(self._using_key)}"
             )
         validated_var = True
+        non_validated_var_modality = {}
         for modality, var_field in self._var_fields.items():
-            validated_var &= validate_categories(
+            is_validated_var, non_validated_var = validate_categories(
                 self._mdata[modality].var.index,
                 field=var_field,
                 key=f"{modality}_var_index",
                 using_key=self._using_key,
                 **self._kwargs,
             )
+            validated_var &= is_validated_var
+            if len(non_validated_var) > 0:
+                non_validated_var_modality[modality] = non_validated_var
+
         validated_obs = True
+        non_validated_obs_modality = {}
         for modality, fields in self._obs_fields.items():
             if modality == "obs":
                 obs = self._mdata.obs
             else:
                 obs = self._mdata[modality].obs
-            validated_obs &= validate_categories_in_df(
+            is_validated_obs, non_validated_obs = validate_categories_in_df(
                 obs,
                 fields=fields,
                 using_key=self._using_key,
                 sources=self._sources.get(modality),
                 **self._kwargs,
             )
+            validated_obs &= is_validated_obs
+            non_validated_obs_modality[modality] = non_validated_obs
+            if modality in non_validated_var_modality:
+                non_validated_obs_modality[modality]["var_index"] = (
+                    non_validated_var_modality[modality]
+                )
+            if len(non_validated_obs_modality[modality]) > 0:
+                self._non_validated = non_validated_obs_modality[modality]
         self._validated = validated_var and validated_obs
         return self._validated
 
@@ -846,7 +872,7 @@ def validate_categories(
     using_key: str | None = None,
     organism: str | None = None,
     source: Record | None = None,
-) -> bool:
+) -> tuple[bool, list]:
     """Validate ontology terms in a pandas series using LaminDB registries."""
     from lamindb._from_values import _print_values
     from lamindb.core._settings import settings
@@ -906,7 +932,7 @@ def validate_categories(
     if n_non_validated == 0:
         logger.indent = ""
         logger.success(f"{key} is validated against {colors.italic(model_field)}")
-        return True
+        return True, []
     else:
         are = "are" if n_non_validated > 1 else "is"
         print_values = _print_values(non_validated)
@@ -919,7 +945,7 @@ def validate_categories(
             _log_mapping_info()
         logger.warning(warning_message)
         logger.indent = ""
-        return False
+        return False, non_validated
 
 
 def validate_categories_in_df(
@@ -928,13 +954,14 @@ def validate_categories_in_df(
     using_key: str | None = None,
     sources: dict[str, Record] = None,
     **kwargs,
-) -> bool:
+) -> tuple[bool, dict]:
     """Validate categories in DataFrame columns using LaminDB registries."""
     if sources is None:
         sources = {}
     validated = True
+    non_validated = {}
     for key, field in fields.items():
-        validated &= validate_categories(
+        is_val, non_val = validate_categories(
             df[key],
             field=field,
             key=key,
@@ -942,7 +969,10 @@ def validate_categories_in_df(
             source=sources.get(key),
             **kwargs,
         )
-    return validated
+        validated &= is_val
+        if len(non_val) > 0:
+            non_validated[key] = non_val
+    return validated, non_validated
 
 
 def save_artifact(
