@@ -433,6 +433,7 @@ class AnnDataCurator(DataFrameCurator):
             field=self._var_field,
             key="var_index",
             using_key=self._using_key,
+            source=self._sources.get("var_index"),
             **self._kwargs,
         )
         validated_obs = validate_categories_in_df(
