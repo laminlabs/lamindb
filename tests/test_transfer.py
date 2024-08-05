@@ -1,4 +1,5 @@
 import lamindb as ln
+import pytest
 
 
 # this test has to be refactored and sped up a lot
@@ -79,3 +80,50 @@ def test_transfer_from_remote_to_local():
     bt.DevelopmentalStage.filter().delete()
     bt.Tissue.filter().delete()
     ln.Feature.filter().delete()
+
+
+def test_using_record_organism():
+    """Test passing record and organism to the using_key instance."""
+    import bionty as bt
+
+    release_110 = bt.Source.filter(
+        organism="mouse", entity="bionty.Gene", version="release-110"
+    ).one()
+    release_110_cxg = (
+        bt.Source.using("laminlabs/lamin-dev")
+        .filter(organism="mouse", entity="bionty.Gene", version="release-110")
+        .one()
+    )
+    release_112_cxg = (
+        bt.Source.using("laminlabs/lamin-dev")
+        .filter(organism="mouse", entity="bionty.Gene", version="release-112")
+        .one()
+    )
+
+    # passing the wrong source
+    inspector = bt.Gene.using("laminlabs/lamin-dev").inspect(
+        ["ENSMUSG00000102862", "ENSMUSG00000084826"],
+        field=bt.Gene.ensembl_gene_id,
+        source=release_112_cxg,
+    )
+    assert len(inspector.validated) == 0
+
+    # passing the correct source
+    inspector = bt.Gene.using("laminlabs/lamin-dev").inspect(
+        ["ENSMUSG00000102862", "ENSMUSG00000084826"],
+        field=bt.Gene.ensembl_gene_id,
+        source=release_110_cxg,
+    )
+    assert len(inspector.validated) == 2
+
+    # passing the correct source but from the wrong instance
+    with pytest.raises(ValueError) as error:
+        inspector = bt.Gene.using("laminlabs/lamin-dev").inspect(
+            ["ENSMUSG00000102862", "ENSMUSG00000084826"],
+            field=bt.Gene.ensembl_gene_id,
+            source=release_110,
+        )
+    assert (
+        "source must be a bionty.Source record from instance 'laminlabs/lamin-dev'"
+        in str(error.value)
+    )
